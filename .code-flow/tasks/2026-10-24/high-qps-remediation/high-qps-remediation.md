@@ -52,7 +52,7 @@
 | B-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 uvicorn 2+ workers；/metrics 与 artifact fetch token | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/architecture/test_multi_worker_state.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
 | B-04 | high-qps-remediation.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Ingress → console-web/CDN + console-api + gateway；同源 Cookie | TASK-011 | planned | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts static-overlay.spec.ts"] | . | 1800 | P1 | deferred | browser | - | 浏览器同源策略、Cookie、CSRF、Ingress 路径与 SSE 只有真实浏览器 + 真实代理才能验证。 | ["apps/console-platform/frontend/**", "deploy/k8s/base/ingress.yaml", "deploy/k8s/overlays/console-web/**"] | no |
 | E-01 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime + Console auth；模拟 platform-settings 不可用 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_notification_settings.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
-| E-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime + PostgreSQL；pool=1，打开 10 条 SSE | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
+| E-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime + PostgreSQL；pool=1，打开 10 条 SSE | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_timeout_is_bounded or early_close"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | E-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；kill -9 在 WS 收到后、XADD 前 | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | E-04 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector + 假 WS 服务端；旧 reply_ref 过期后发送终态/产物 | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | E-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime + Redis 停机 + PG 持久事件 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_event_tail_hub_fallback.py"] | . | 600 | P1 | auto | local-api | - | - | - | no |
@@ -62,7 +62,7 @@
 | E-09 | high-qps-remediation.backend.design.md#2.5 验收条件 | manual | staging 目标拓扑；人工执行并记录证据 | TASK-012 | planned | - | . | 3600 | P0 | manual | staging | - | - | - | no |
 | S-01 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实入口代理 → Gateway → Runtime → PostgreSQL/Redis；模型为可控 HTTP 流式探针；通知轮询为浏览器同形请求 | TASK-012 | planned | ["bash", "-lc", "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"] | . | 5400 | P0 | deferred | local-api | - | - | - | no |
 | S-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 浏览器同形通知轮询 → Gateway → Console auth / Runtime notifications；真实 PG/Redis | TASK-002 | e2e_deferred | ["bash", "-lc", "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
-| S-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime HTTP SSE + 真实 PostgreSQL；runtime DB pool=2 | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
+| S-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime HTTP SSE + 真实 PostgreSQL；runtime DB pool=2 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_two_hundred"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-04 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime 事件 writer + 真实 PostgreSQL/Redis；20 delta/s × 10s | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_durable_deltas.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 两个真实 Connector 进程 + 假企微 WS 服务端 + 真实 Redis lease；Runtime/Gateway 真实进程 | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | S-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | E2E | 真实浏览器/HTTP 客户端 → 两个以上 Gateway 副本 → Runtime/PG/Redis；SSE 断线重连到另一副本 | TASK-009 | planned | ["bash", "-lc", "npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --config playwright.webchat.config.ts capacity-recovery.spec.ts"] | . | 1800 | P0 | deferred | browser | - | SSE 长连接、负载均衡、断线重连和跨 Pod 游标只有真实浏览器 + 多副本 + Runtime 持久流才能覆盖。 | ["apps/im-gateway/**", "apps/agent-runtime/src/muad_agent_runtime/api/runs.py", "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py", "deploy/k8s/base/im-gateway.yaml"] | yes |
@@ -149,6 +149,8 @@
 
 - [2026-10-25] created (draft)
 - [2026-10-25] started
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
+- [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 - [2026-10-25] started
 - [2026-10-25] implemented capacity baseline: driver notification/steady/attempts, PG state/rate/retention, SLO evaluator, S-16/S-17/S-18 tests, Makefile targets
@@ -220,6 +222,8 @@ settings 单例/注入、chat auth 5 SQL→2 SQL、通知 page_size/空闲 fast 
 
 - [2026-10-25] created (draft)
 - [2026-10-25] started
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
+- [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 - [2026-10-25] started
 - [2026-10-25] completed (done)
@@ -228,7 +232,7 @@ settings 单例/注入、chat auth 5 SQL→2 SQL、通知 page_size/空闲 fast 
 
 ## TASK-003: SSE 短 Session 与连接池预算
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: -
 - **Source**: high-qps-remediation.backend.design.md#3.2 架构设计, high-qps-remediation.backend.design.md#3.5 质量实现方案
@@ -243,20 +247,20 @@ settings 单例/注入、chat auth 5 SQL→2 SQL、通知 page_size/空闲 fast 
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`：pool=2 时 100 条 SSE 全部打开，PG total 不随流数线性增长
-- [ ] 拆分 RunStreamService/短 Session；tail/scope 校验后 commit/close 再返回流
-- [ ] `get_session` 只在 in_transaction 时 commit；显式池/pre_ping/timeout 调整
-- [ ] 准入材料阶段与写事务 gate 分离；preflight 校验 pool+overflow ≥ gate
-- [ ] [S-03][integration] pool=2 × 100 流：全部成功、PG total≤20、稳态 idle-in-tx≈0
-- [ ] [E-02][integration] pool=1 超容量：1s 内显式失败，不挂 5s、不抛未处理 QueuePool
-- [x] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`：pool=2 时 100 条 SSE 全部打开，PG total 不随流数线性增长
+- [x] 拆分 RunStreamService/短 Session；tail/scope 校验后 commit/close 再返回流
+- [x] `get_session` 只在 in_transaction 时 commit；显式池/pre_ping/timeout 调整
+- [x] 准入材料阶段与写事务 gate 分离；preflight 校验 pool+overflow ≥ gate
+- [x] [S-03][integration] pool=2 × 100 流：全部成功、PG total≤20、稳态 idle-in-tx≈0
+- [x] [E-02][integration] pool=1 超容量：1s 内显式失败，不挂 5s、不抛未处理 QueuePool
+- [ ] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-03 | integration | 真实 Runtime HTTP SSE + PostgreSQL；pool=2 | 100 条流成功；PG total≤20；idle-in-tx≈0 | tests/acceptance/capacity/test_stream_delivery.py | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py"] | planned |
-| E-02 | integration | 真实 Runtime + PostgreSQL；pool=1/overflow=0/timeout=1s | 1s 内显式失败；无未处理 QueuePool；指标可见 | tests/acceptance/capacity/test_stream_delivery.py | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py"] | planned |
+| S-03 | integration | 真实 Runtime HTTP SSE + PostgreSQL；pool=2 | 100 条流成功；PG total≤20；idle-in-tx≈0 | tests/acceptance/capacity/test_stream_delivery.py::test_s03_pool_two_hundred_sse_streams_do_not_hold_pg_connections | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_two_hundred"] | verified |
+| E-02 | integration | 真实 Runtime + PostgreSQL；pool=1/overflow=0/timeout=1s | 1s 内显式失败；无未处理 QueuePool；指标可见 | tests/acceptance/capacity/test_stream_delivery.py::test_e02_pool_timeout_is_bounded_to_configured_second | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_timeout_is_bounded or early_close"] | verified |
 
 ### Acceptance Evidence
 
@@ -264,14 +268,18 @@ settings 单例/注入、chat auth 5 SQL→2 SQL、通知 page_size/空闲 fast 
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-03 | planned | planned | planned | planned | planned |
-| E-02 | planned | planned | planned | planned | planned |
+| S-03 | pool=2 首次实测：2×200、98×500（`QueuePool limit of size 2`），请求级 Session 未释放 | 100/100 流打开；PG total≤20；稳态 idle-in-tx≤2；测试 1 passed | `test_s03_pool_two_hundred_sse_streams_do_not_hold_pg_connections` | 两个真实 Runtime 进程 + 真实 PG + 100 条真实 HTTP SSE | verified |
+| E-02 | 池耗尽回落到 5s/30s 默认并冒未处理 `QueuePool`；提前 close 后 `get_session` 仍 commit | pool_timeout 约束在 ~1s；提前 close 后依赖收尾不 commit；`db_pool_size`/`db_pool_checked_out` 指标可见 | `test_e02_pool_timeout_is_bounded_to_configured_second`、`test_e02_get_session_does_not_commit_after_early_close` | 真实 PostgreSQL + SQLAlchemy pool=1/overflow=0 | verified |
+- E-02: verified — automated command passed; run_id=e3b48428389f4695acc6ffb5d9725346 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=e3b48428389f4695acc6ffb5d9725346 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-25] created (draft)
 - [2026-10-25] started
-- [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
+- [2026-10-25] started
+- [2026-10-25] completed (done)
 
 ---
 
@@ -332,6 +340,8 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 ### Log
 
 - [2026-10-25] created (draft)
+- [2026-10-25] started
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
 - [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 
@@ -401,6 +411,8 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 - [2026-10-25] created (draft)
 - [2026-10-25] started
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
+- [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 
 ---
@@ -446,6 +458,8 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 ### Log
 
 - [2026-10-25] created (draft)
+- [2026-10-25] started
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
 - [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 
@@ -505,6 +519,8 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 
 - [2026-10-25] created (draft)
 - [2026-10-25] started
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
+- [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 
 ---
@@ -561,6 +577,8 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 ### Log
 
 - [2026-10-25] created (draft)
+- [2026-10-25] started
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
 - [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 
@@ -624,6 +642,8 @@ Gateway 移除 WeCom、多副本/HPA；Connector 清单/PDB/lease；预检支持
 
 - [2026-10-25] created (draft)
 - [2026-10-25] started
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
+- [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 
 ---
@@ -671,6 +691,8 @@ WebChat submit 走 admit_sync（复用 ChatIdentity）；lean scope；受理帧�
 ### Log
 
 - [2026-10-25] created (draft)
+- [2026-10-25] started
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
 - [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 
@@ -733,6 +755,8 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 
 - [2026-10-25] created (draft)
 - [2026-10-25] started
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
+- [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 
 ---
@@ -791,6 +815,8 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 ### Log
 
 - [2026-10-25] created (draft)
+- [2026-10-25] started
+- [2026-10-25] implemented short SSE session (`release_session` before StreamingResponse), `get_session` in_transaction commit, stream-scope gate sized below pool; S-03 100 streams pass, E-02 pool timeout bounded; 7 stream tests passed
 - [2026-10-25] started
 - [2026-10-25] implemented process settings singleton, chat-principal JOIN (4→1 SELECT), notification idle fast path (4→2 SELECT), admission materials dedupe; tests: console_platform+console_auth 476 passed, console_internal 60 passed, notifications 10-user self-check 2 passed
 

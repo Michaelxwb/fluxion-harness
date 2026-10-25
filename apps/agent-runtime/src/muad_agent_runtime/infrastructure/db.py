@@ -33,7 +33,8 @@ async def get_session() -> AsyncIterator[AsyncSession]:
     session = get_session_factory()()
     try:
         yield session
-        await session.commit()
+        if session.in_transaction():
+            await session.commit()
     except BaseException:
         await session.rollback()
         raise

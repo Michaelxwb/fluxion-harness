@@ -889,6 +889,30 @@ def _credential_canaries(
 ADMISSION_CONCURRENCY_LIMIT = 64
 
 
+_stream_scope_gates: weakref.WeakKeyDictionary[
+    asyncio.AbstractEventLoop, asyncio.Semaphore
+] = weakref.WeakKeyDictionary()
+
+
+def stream_scope_gate() -> asyncio.Semaphore:
+    """SSE 打开前的短 DB 段闸门：并发上限 = 本进程 DB 池总容量。
+
+    100 条流同时打开时，先让请求在**应用层**排队，而不是让 100 个请求同时撞 pool
+    的 1s pool_timeout（后者会变成 500）。闸门内只做 load run / cursor 校验，随后立即
+    释放 Session 返回 StreamingResponse；流内追尾走 EventTailHub 的独立短事务。
+    """
+    loop = asyncio.get_running_loop()
+    gate = _stream_scope_gates.get(loop)
+    if gate is None:
+        settings = SharedSettings()
+        # 留一条连接给正在执行的 Run/维护循环；SSE 打开段永远不超过池容量的其余部分。
+        gate = asyncio.Semaphore(
+            max(1, settings.db_pool_size + settings.db_max_overflow - 1)
+        )
+        _stream_scope_gates[loop] = gate
+    return gate
+
+
 _process_admission_gates: weakref.WeakKeyDictionary[
     asyncio.AbstractEventLoop, asyncio.Semaphore
 ] = weakref.WeakKeyDictionary()
@@ -1013,6 +1037,16 @@ class RunService:
         # 显式注入用于测试隔离，生产装配回落 `SharedSettings.artifact_root`。
         fallback_root = Path(self._settings.artifact_root)
         self._artifact_root = Path(artifact_root) if artifact_root is not None else fallback_root
+
+    async def release_session(self) -> None:
+        """SSE 路由返回 StreamingResponse 前释放请求级 Session。
+
+        流内追尾用 `EventTailHub`/独立短事务，不依赖这条连接；提前关闭让 1000 条长流
+        不再各占一条 PG 连接（idle-in-tx 的来源）。`get_session` 的收尾只在仍有事务时 commit。
+        """
+        if self._session.in_transaction():
+            await self._session.rollback()
+        await self._session.close()
 
     async def start(
         self,
@@ -1263,11 +1297,12 @@ class RunService:
         游标先分型：超前（`CURSOR_AHEAD`）与已过期（`CURSOR_EXPIRED`）显式失败，不静默夹取；
         只读持久事件，不重新执行、不分配新序号、不重新 resolve 配置；终态排空后关闭。
         """
-        run = await self._load_run(run_id, tenant_id)
-        after = max(0, after_seq)
-        await self._tail_hub.check_cursor(
-            tenant_id=run.tenant_id, conversation_id=run.conversation_id, after_seq=after
-        )
+        async with stream_scope_gate():
+            run = await self._load_run(run_id, tenant_id)
+            after = max(0, after_seq)
+            await self._tail_hub.check_cursor(
+                tenant_id=run.tenant_id, conversation_id=run.conversation_id, after_seq=after
+            )
         return RunStart(
             run_id=run.id,
             conversation_id=run.conversation_id,

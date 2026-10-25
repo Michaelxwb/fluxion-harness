@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 import uuid
 from collections.abc import AsyncIterator, Iterator, Mapping
 from dataclasses import dataclass, field
@@ -27,6 +28,8 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 import pytest
+import sqlalchemy as sa
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.acceptance.capacity.delivery_harness import (
     PROBE_API_KEY,
@@ -1012,3 +1015,184 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     assert probe.throttled == 0 and probe.ack_losses == 0, "本用例只注入发送失败，不注入限流/ACK 丢失"
     assert scrape_metrics(stack.instance("agent-runtime", index=0).url), "Runtime /metrics 必须真实可抓"
     relay.stop()
+
+
+# --------------------------------------------------------------------------------------
+# S-03（新口径）：pool=2 × 100 条真实 SSE 不占 PG 连接
+# --------------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def stream_pool_harness(
+    tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
+) -> Iterator[StreamHarness]:
+    """真实栈 + Runtime DB pool=2：验证拆短 Session 后连接数不随流数线性增长。"""
+    debug_root = os.environ.get("MUAD_STREAM_DEBUG_ROOT")
+    root = Path(debug_root) if debug_root else tmp_path_factory.mktemp("stream-pool")
+    datastore = create_datastore_handle()
+    stack = build_stack(
+        root=root,
+        profile=load_profile(capacity_profile_path),
+        datastore=datastore,
+        service_env={
+            "agent-runtime": {
+                "DB_POOL_SIZE": "2",
+                "DB_MAX_OVERFLOW": "0",
+                "DB_POOL_TIMEOUT_SEC": "1",
+            }
+        },
+    )
+    seeded = seed_delivery_control(datastore.database_url, stack.tenant_id)
+    stack.start()
+    bind_probe_credential(
+        datastore.database_url, seeded.credential_id, f"{stack.model_probe.url}/v1"
+    )
+    session = exchange_chat_session(stack.proxy.url, seeded.token, seeded.user_id)
+    try:
+        yield StreamHarness(stack=stack, seeded=seeded, session=session)
+    finally:
+        if os.environ.get("MUAD_STREAM_DEBUG_ROOT"):
+            for path in sorted((root / "logs").glob("*.log")):
+                text = path.read_text(encoding="utf-8", errors="replace")
+                if "ERROR" in text or "Traceback" in text or "TimeoutError" in text:
+                    print(f"STREAM-LOG {path.name}\n{text[-12000:]}")
+        stack.teardown()
+
+
+def test_s03_pool_two_hundred_sse_streams_do_not_hold_pg_connections(
+    stream_pool_harness: StreamHarness,
+) -> None:
+    """[S-03] pool=2 × 100 条流：全部打开；PG total≤20；稳态 idle-in-tx≈0。"""
+    stack, seeded, session = (
+        stream_pool_harness.stack,
+        stream_pool_harness.seeded,
+        stream_pool_harness.session,
+    )
+    set_probe_behavior(
+        stack.model_probe.url,
+        {
+            "latency_ms": 500,
+            "chunk_interval_ms": 50,
+            "deltas": [f"流{index:03d}-" for index in range(100)],
+        },
+        api_key=PROBE_API_KEY,
+    )
+    conversation_id = create_conversation(stack.proxy.url, session, seeded.entry_id)
+    run_id = submit_message(
+        stack.proxy.url, session, seeded.entry_id, conversation_id, "短 Session 连接预算"
+    )
+    wait_until(
+        lambda: run_row(stack.database_url, run_id)["status"] == "RUNNING",
+        what="Run 未进入 RUNNING，无法验证在飞 SSE",
+        timeout=30.0,
+    )
+
+    runtimes = [instance for instance in stack.all_instances() if instance.unit == "agent-runtime"]
+    assert len(runtimes) == 2, "profile 必须给出两个 Runtime 实例"
+    total_streams = 100
+    barrier = threading.Barrier(total_streams + 1, timeout=60)
+    stop = threading.Event()
+    statuses: list[int] = []
+    failures: list[tuple[int, str]] = []
+    status_lock = threading.Lock()
+
+    def open_stream(url: str) -> None:
+        try:
+            with httpx.Client(
+                timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0),
+                trust_env=False,
+            ) as client:
+                with client.stream(
+                    "GET",
+                    url,
+                    params={"after_seq": 0},
+                    headers=_runtime_headers(stack.tenant_id),
+                ) as stream:
+                    with status_lock:
+                        statuses.append(stream.status_code)
+                        if stream.status_code != 200:
+                            failures.append(
+                                (stream.status_code, stream.read().decode(errors="replace")[:300])
+                            )
+                    barrier.wait()
+                    for _line in stream.iter_lines():
+                        if stop.is_set():
+                            break
+                    if stop.is_set():
+                        return
+        except Exception:
+            with status_lock:
+                statuses.append(-1)
+            try:
+                barrier.wait(timeout=1)
+            except threading.BrokenBarrierError:
+                pass
+
+    threads = []
+    for index in range(total_streams):
+        instance = runtimes[index % len(runtimes)]
+        url = f"{instance.url}{RUNTIME_EVENTS_PATH.format(run_id=run_id)}"
+        thread = threading.Thread(
+            target=open_stream, args=(url,), name=f"s03-pool-{index}", daemon=True
+        )
+        thread.start()
+        threads.append(thread)
+
+    barrier.wait(timeout=90)
+    assert len(statuses) == total_streams
+    assert all(status == 200 for status in statuses), (
+        "pool=2 时 100 条流必须全部打开；"
+        f"实际 {statuses.count(200)}×200，失败样本 {failures[:3]}"
+    )
+
+    from tests.capacity.metrics import PostgresMetrics
+
+    metrics = PostgresMetrics(stack.database_url, tenant_id=stack.tenant_id)
+    snapshot = metrics.snapshot()
+    assert snapshot.connections_total <= 20, (
+        f"100 条流时 PG total={snapshot.connections_total}，连接数随流数线性增长"
+    )
+    assert snapshot.connections_idle_in_transaction <= 2, (
+        f"稳态 idle-in-tx={snapshot.connections_idle_in_transaction}，SSE 仍占着请求级 Session"
+    )
+
+    stop.set()
+    for thread in threads:
+        thread.join(timeout=10)
+
+
+async def test_e02_pool_timeout_is_bounded_to_configured_second(
+    stream_pool_harness: StreamHarness,
+) -> None:
+    """[E-02] pool=1/overflow=0/timeout=1s：池耗尽在 1s 量级显式失败，不挂 5s/30s。"""
+    engine = create_async_engine(
+        stream_pool_harness.stack.database_url,
+        pool_size=1,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    try:
+        async with engine.connect():
+            started = time.monotonic()
+            with pytest.raises(sa.exc.TimeoutError):
+                async with engine.connect():
+                    pass
+            elapsed = time.monotonic() - started
+        assert 0.8 <= elapsed <= 2.5, (
+            f"pool_timeout 应约束在 ~1s，实际 {elapsed:.2f}s（未回落到 5s/30s 默认）"
+        )
+    finally:
+        await engine.dispose()
+    runtime = stream_pool_harness.stack.instance("agent-runtime", index=0)
+    assert metric_total(runtime.url, "db_pool_size") >= 1
+    assert metric_total(runtime.url, "db_pool_checked_out") >= 0
+
+
+async def test_e02_get_session_does_not_commit_after_early_close() -> None:
+    """[E-02] SSE 路由提前 close 后，依赖收尾不得再 commit（否则抛未处理事务错误）。"""
+    from muad_agent_runtime.infrastructure.db import get_session
+
+    generator = get_session()
+    session = await anext(generator)
+    await session.close()
+    await generator.aclose()
