@@ -37,10 +37,12 @@ from tests.capacity.metrics import (
     TERMINAL_RUN_STATUSES,
     LatencySummary,
     PostgresMetrics,
+    PostgresRate,
     PostgresSnapshot,
     RunState,
     UnitMetricsSnapshot,
     metric_deltas,
+    postgres_rate,
     scrape_unit_metrics,
     summarize_latencies,
 )
@@ -63,9 +65,11 @@ __all__ = [
     "LoadReport",
     "LoadScale",
     "LoadTarget",
+    "NotificationPoll",
     "ProbeOutcome",
     "ProbeReceipt",
     "RunKind",
+    "SteadyWindowViolation",
     "TurnResult",
     "UserPlan",
     "plan_users",
@@ -200,6 +204,9 @@ class LoadTarget:
     control_rounds: int = 2
     control_terminal_wait_sec: float = 8.0
     user_deadline_sec: float = 90.0
+    notification_poll_sec: float = 15.0
+    notification_page_size: int = 20
+    hold_after_turns_sec: float = 0.0
 
     def __post_init__(self) -> None:
         for name, url in (("base_url", self.base_url), ("runtime_url", self.runtime_url)):
@@ -211,6 +218,12 @@ class LoadTarget:
             raise DriverError(f"entry_id 必须是 UUID，收到 {self.entry_id!r}") from exc
         if not self.sessions:
             raise DriverError("sessions 不能为空：负载必须携带真实 CHAT 主体凭据")
+        if self.notification_poll_sec <= 0:
+            raise DriverError("notification_poll_sec 必须 > 0")
+        if not 1 <= self.notification_page_size <= 100:
+            raise DriverError("notification_page_size 必须在 [1, 100] 内")
+        if self.hold_after_turns_sec < 0:
+            raise DriverError("hold_after_turns_sec 不得为负")
         for index, credential in enumerate(self.sessions):
             if not credential.cookie.strip():
                 raise DriverError(f"sessions[{index}].cookie 不能为空")
@@ -241,6 +254,7 @@ class FailureKind(StrEnum):
     CONVERSATION_REJECTED = "CONVERSATION_REJECTED"
     ADMISSION_REJECTED = "ADMISSION_REJECTED"
     ADMISSION_TIMEOUT = "ADMISSION_TIMEOUT"
+    POOL_TIMEOUT = "POOL_TIMEOUT"
     TRANSPORT_ERROR = "TRANSPORT_ERROR"
     SSE_REJECTED = "SSE_REJECTED"
     SSE_TIMEOUT = "SSE_TIMEOUT"
@@ -310,6 +324,30 @@ class ControlProbeResult:
 
 
 @dataclass(frozen=True, slots=True)
+class NotificationPoll:
+    """一次浏览器同形通知轮询：真实 HTTP 状态、延迟、游标与错误（不静默吞）。"""
+
+    user_index: int
+    started_at: float
+    latency_ms: float
+    http_status: int | None
+    page_size: int
+    next_seq: int
+    items: int
+    error: str
+
+
+@dataclass(frozen=True, slots=True)
+class SteadyWindowViolation:
+    """一次在 ramp+steady 窗口之外启动的提交（顺序耗时超预算时显式留证）。"""
+
+    user_index: int
+    turn_index: int
+    at_sec: float
+    deadline_sec: float
+
+
+@dataclass(frozen=True, slots=True)
 class ConcurrencySample:
     """负载期间的一次真实并发采样（PG 持久状态 + 驱动侧在飞订阅数）。"""
 
@@ -318,6 +356,9 @@ class ConcurrencySample:
     waiting_runs: int
     running_runs: int
     active_streams: int
+    connections_total: int = 0
+    connections_idle_in_tx: int = 0
+    connections_waiting: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -354,9 +395,59 @@ class LoadReport:
     wal_growth_bytes: int
     unit_metric_deltas: Mapping[str, Mapping[str, float]]
     model_probe: ProbeReceipt | None
+    notification_polls: tuple[NotificationPoll, ...] = ()
+    steady_violations: tuple[SteadyWindowViolation, ...] = ()
 
     def attempts(self) -> int:
         return len(self.turns)
+
+    @property
+    def planned_attempts(self) -> int:
+        """本轮按锁定形状应尝试的总轮次（users × turns）；用于识别丢样本/提前超时。"""
+        return self.effective_users * self.effective_turns
+
+    @property
+    def pool_timeout_count(self) -> int:
+        return sum(1 for turn in self.turns if turn.failure is FailureKind.POOL_TIMEOUT)
+
+    def system_error_ratio(self) -> float:
+        """系统错误率：分母是本轮真实尝试轮次（不含驱动故意做的边界探测）。"""
+        if not self.turns:
+            return 0.0
+        failures = [
+            turn
+            for turn in self.turns
+            if turn.failure is not None and turn.failure is not FailureKind.ADMISSION_REJECTED
+        ]
+        return len(failures) / len(self.turns)
+
+    @property
+    def max_connections_total(self) -> int:
+        return max(
+            [self.postgres_before.connections_total, self.postgres_after.connections_total]
+            + [sample.connections_total for sample in self.samples]
+        )
+
+    @property
+    def max_idle_in_tx(self) -> int:
+        return max(
+            [
+                self.postgres_before.connections_idle_in_transaction,
+                self.postgres_after.connections_idle_in_transaction,
+            ]
+            + [sample.connections_idle_in_tx for sample in self.samples]
+        )
+
+    def postgres_rate(self) -> PostgresRate:
+        return postgres_rate(
+            self.postgres_before,
+            self.postgres_after,
+            wal_growth_bytes=self.wal_growth_bytes,
+        )
+
+    def notification_latency(self) -> LatencySummary | None:
+        samples = [poll.latency_ms for poll in self.notification_polls]
+        return summarize_latencies(samples) if samples else None
 
     def admitted(self) -> tuple[TurnResult, ...]:
         return tuple(turn for turn in self.turns if turn.admission_ms is not None)
@@ -462,6 +553,8 @@ class LoadDriver:
         self._t0 = 0.0
         self._samples: list[ConcurrencySample] = []
         self._control_results: list[ControlProbeResult] = []
+        self._notification_polls: list[NotificationPoll] = []
+        self._steady_violations: list[SteadyWindowViolation] = []
         self._active_streams = 0
         self._probe_conversation_id: str | None = None
         self._control_client: httpx.AsyncClient | None = None
@@ -562,6 +655,8 @@ class LoadDriver:
             wal_growth_bytes=self._metrics.wal_growth_bytes(postgres_before, postgres_after),
             unit_metric_deltas=deltas,
             model_probe=_probe_delta(probe_before, probe_after),
+            notification_polls=tuple(self._notification_polls),
+            steady_violations=tuple(self._steady_violations),
         )
 
     # ---- 用户轮次 ---------------------------------------------------------------------
@@ -609,17 +704,41 @@ class LoadDriver:
                         http_status=status,
                     ),
                 )
+            notification_task = asyncio.create_task(
+                self._poll_notifications(client, plan)
+            )
             results: list[TurnResult] = []
-            for turn in range(len(plan.think_times_ms)):
-                if turn > 0:
-                    await asyncio.sleep(plan.think_times_ms[turn - 1] / 1000)
-                results.append(await self._run_turn(client, plan, turn, conversation_id))
+            try:
+                for turn in range(len(plan.think_times_ms)):
+                    if turn > 0:
+                        await asyncio.sleep(plan.think_times_ms[turn - 1] / 1000)
+                    results.append(await self._run_turn(client, plan, turn, conversation_id))
+                if self._target.hold_after_turns_sec > 0:
+                    # soak：轮次跑完后保持用户客户端与通知轮询存活，测量连接/内存/保留稳态。
+                    await asyncio.sleep(self._target.hold_after_turns_sec)
+            finally:
+                notification_task.cancel()
+                await asyncio.gather(notification_task, return_exceptions=True)
             return tuple(results)
 
     async def _run_turn(
         self, client: httpx.AsyncClient, plan: UserPlan, turn: int, conversation_id: str
     ) -> TurnResult:
         started = time.monotonic() - self._t0
+        deadline = (
+            self._scale.ramp_sec + self._scale.steady_sec
+            if self._scale is not None
+            else self._profile.workload.ramp_sec + self._profile.workload.steady_sec
+        )
+        if started > deadline:
+            self._steady_violations.append(
+                SteadyWindowViolation(
+                    user_index=plan.index,
+                    turn_index=turn,
+                    at_sec=started,
+                    deadline_sec=float(deadline),
+                )
+            )
         submitted = time.monotonic()
         admission = await self._submit_turn(client, plan, turn, conversation_id)
         if admission.failure is not None:
@@ -678,6 +797,8 @@ class LoadDriver:
             response = await client.post(
                 url, json=payload, headers={"Idempotency-Key": f"{conversation_id}:{message_id}"}
             )
+        except httpx.PoolTimeout:
+            return _Admission(None, None, FailureKind.POOL_TIMEOUT, None, "pool wait timeout")
         except httpx.TimeoutException:
             return _Admission(None, None, FailureKind.ADMISSION_TIMEOUT, None)
         except httpx.HTTPError as exc:
@@ -771,6 +892,8 @@ class LoadDriver:
                 failure=FailureKind.SSE_TIMEOUT,
                 detail=f"{self._target.stream_timeout_sec}s 内未收到终态帧",
             )
+        except httpx.PoolTimeout:
+            return _StreamOutcome(failure=FailureKind.POOL_TIMEOUT, detail="SSE pool wait timeout")
         except httpx.TimeoutException:
             return _StreamOutcome(failure=FailureKind.SSE_TIMEOUT, detail="SSE 读超时")
         except httpx.HTTPError as exc:
@@ -902,11 +1025,68 @@ class LoadDriver:
                     waiting_runs=snapshot.waiting_runs,
                     running_runs=snapshot.running_runs,
                     active_streams=self._active_streams,
+                    connections_total=snapshot.connections_total,
+                    connections_idle_in_tx=snapshot.connections_idle_in_transaction,
+                    connections_waiting=snapshot.connections_waiting,
                 )
             )
             await asyncio.sleep(self._target.sample_interval_sec)
 
     # ---- 控制面独立探测 ---------------------------------------------------------------
+
+    async def _poll_notifications(
+        self, client: httpx.AsyncClient, plan: UserPlan
+    ) -> None:
+        """浏览器同形通知轮询：立即取一次，随后按 `notification_poll_sec` 增量读取。
+
+        错误不打断负载，但每条都进 `notification_polls`；游标只前进，绝不回退。
+        """
+        url = self._url("/api/v1/webchat/notifications")
+        # 浏览器不是在同一毫秒同时首次轮询：按用户序号错峰 ≤1s，避免把「轮询形状」
+        # 变成人为的 thundering herd（1000 用户全部同刻打同一个入口）。
+        await asyncio.sleep((plan.index % 20) * 0.05)
+        after_seq = 0
+        while True:
+            started = time.monotonic()
+            status: int | None = None
+            error = ""
+            items = 0
+            next_seq = after_seq
+            try:
+                response = await client.get(
+                    url,
+                    params={
+                        "after_seq": after_seq,
+                        "page_size": self._target.notification_page_size,
+                    },
+                )
+                status = response.status_code
+                if status != 200:
+                    error = _body_detail(response)
+                else:
+                    data = response.json().get("data", {})
+                    next_seq = int(data.get("next_seq", after_seq))
+                    items = len(data.get("items", []))
+                    after_seq = max(after_seq, next_seq)
+            except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+                error = type(exc).__name__
+            self._notification_polls.append(
+                NotificationPoll(
+                    user_index=plan.index,
+                    started_at=started - self._t0,
+                    latency_ms=(time.monotonic() - started) * 1000,
+                    http_status=status,
+                    page_size=self._target.notification_page_size,
+                    next_seq=next_seq,
+                    items=items,
+                    error=error,
+                )
+            )
+            if error:
+                # 单次轮询失败不伪造成功；继续按节拍观测，最终错误面由报告汇总。
+                await asyncio.sleep(self._target.notification_poll_sec)
+                continue
+            await asyncio.sleep(self._target.notification_poll_sec)
 
     async def _control_loop(self) -> None:
         await asyncio.sleep(self._target.control_start_sec)

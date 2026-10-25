@@ -38,7 +38,7 @@ verifiers:
 ## Rules
 
 - [RULE-im-001] 一个逻辑 Agent 可绑定 0..N 个 IM 通道账号；每个 `bot_id` 只路由到一个 Agent；Bot 与 Runtime/Worker Pod 无任何绑定；Gateway 不保存 `agent_id→Pod` 映射。
-- [RULE-im-002] **渠道差异只活在适配器层**：核心域（`agent-runtime` / `agent-worker`）零渠道专有字样与取件形状；`im-gateway` 除 `channels/` 与装配根 `main.py` 外同样为零。取件、下载、解密、媒体 URL/密钥**一律不出适配器**——上层只看到「已解密字节 + 元信息」。机检见 `tests/architecture/test_channel_neutrality.py`（三条：核心域全文零字样 / 核心域不得给 `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）。
+- [RULE-im-002] **渠道差异只活在适配器层**：核心域（`agent-runtime` / `agent-worker`）零渠道专有字样与取件形状；`im-gateway` 的 web 角色除 `channels/` 与装配根 `main.py` 外同样为零；`im-connector` 的协议/回复/媒体实现属于通道适配器表面，不得把渠道形状带回核心域。取件、下载、解密、媒体 URL/密钥**一律不出适配器**——上层只看到「已解密字节 + 元信息」。机检见 `tests/architecture/test_channel_neutrality.py`（三条：核心域全文零字样 / 核心域不得给 `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）。
 
 ## Conventions
 
@@ -62,8 +62,8 @@ verifiers:
 - **`/internal/deliveries` 是受信内部端点，且产物归属由网关自己核**：端点要求服务身份 `X-Internal-Service`（`InternalServiceDep`，与 resolve-credentials 同门控）；投递声明的 `tenant_id` 必须等于**本网关部署的租户**（网关按单租户部署）；产物形态投递必须按 `artifact_id` 经 Runtime 的 `/internal/artifacts/{id}` **在本租户内解析**出权威引用，调用方给的 `storage_key` 只用于比对、不一致即拒（`api/delivery.py`、`infrastructure/artifact_resolver.py`）。
   - ✅ 三个调用方（Runtime/Worker 的交付客户端、直投的测试、故障注入代理）都带头；❌ 不带身份裸投 —— 任何能连上内网的人都能借它把任意存储键指向的文件发给用户
   - ❌ 相信调用方自带的 `storage_key` 并直接按它读共享存储（可以指到别的租户的文件）
-- **`channel` 白名单仅 `WECOM`**：契约用 `Literal["WECOM"]` 钉死（`packages/contracts/src/muad_contracts/channel.py:23-29`），Gateway 侧适配器按 `name` 注册、重名直接抛 `DuplicateChannelAdapterError`（`apps/im-gateway/src/muad_im_gateway/channels/probe.py:22-23`、`channels/base.py:65-79`）。
-  - ❌ 只加新通道实现而不改契约 Literal（请求在入口就被拒，或绕过校验后无处路由）
+- **通道注册由 contracts/registry 驱动**：新增通道必须同步 `ChannelName`/registry/DB 列与能力清单；当前 `Literal["WECOM"]` 是历史事实，设计变更需同步 `tests/test_attachment_contract.py` 与 channel-neutrality 测试，不能只加 adapter 实现。适配器按 `name` 注册、重名直接抛 `DuplicateChannelAdapterError`（`apps/im-gateway/src/muad_im_gateway/channels/probe.py:22-23`、`channels/base.py:65-79`）。
+  - ❌ 只加新通道实现而不改契约/registry（请求在入口就被拒，或绕过校验后无处路由）
 - **绑定码一次性 + 绑定请求幂等**：绑定码状态 `USED`/`REVOKED` → `BIND_CODE_INVALID`，`EXPIRED`/已过期 → `BIND_CODE_EXPIRED`（`application/channel_service.py:219-227`，Console 侧）；带 `Idempotency-Key` 时用共享幂等表 + `pg_advisory_xact_lock` 串行化，同 key 异指纹 → `IDEMPOTENCY_MISMATCH`（`:135-159,171-172`）；`identity_key = (channel, bot_id, external_user_id)` 每租户唯一（`infrastructure/models/channel.py:60-66`），该身份已属于其他平台用户时抛 `IDENTITY_ALREADY_BOUND` 且**不消费绑定码**（`:250-252`）。
 - **`bot_id` 是跨租户全局唯一**：`uq_bot_account_bot_id` 只含 `bot_id`、**不含 `tenant_id`**（`migrations/versions/0002_initial_schema.py:379-386`、`infrastructure/models/channel.py:19-25`），冲突统一报 `BOT_ID_EXISTS`（`application/channel_admin_service.py:117,164`）。因此 A 租户已占用的 `bot_id` 会让 B 租户创建失败——这是**有意的全局唯一**（一个物理 bot 只能路由到一个 Agent，避免跨租户抢占同一 bot）。
 - **解析顺序固定，错误码不得泄露跨租户存在性**：先向 Console `resolve`（未知/禁用/已删 bot → `BOT_NOT_FOUND`；跨租户 bot 同样按 `BOT_NOT_FOUND`，不泄露其存在性），再依次判未绑定 → `UNBOUND`、未授权 → `NO_PERMISSION`（`apps/console-platform/backend/src/muad_console_platform/application/channel_service.py:94-126`；`apps/im-gateway/src/muad_im_gateway/application/inbound.py:414-428`）。

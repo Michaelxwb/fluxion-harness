@@ -438,6 +438,8 @@ def load_run(
             runtime_url=stack.url_of("agent-runtime"),
             internal_token=stack.internal_token,
             model_probe_url=probe.url,
+            notification_poll_sec=0.5,
+            notification_page_size=20,
         ),
         profile=load_profile(PROFILE_PATH),
         run_kind=RunKind.VERIFICATION,
@@ -471,6 +473,8 @@ def test_b309_driver_produces_real_http_sse_load_and_collects_real_metrics(
     assert report.scale == VERIFICATION_SCALE, "受限规模显式登记，不冒充全量验收"
 
     assert report.attempts() == VERIFICATION_SCALE.users * VERIFICATION_SCALE.turns_per_user
+    assert report.planned_attempts == report.attempts(), "计划轮次与实际尝试逐项一致（不丢样本）"
+    assert report.steady_violations == (), "所有轮次都在 ramp+steady 窗口内启动"
     assert len(report.admitted()) == report.attempts(), "每一轮都拿到真实 202 受理"
     assert len(report.completed()) >= 1, "至少一轮真实执行到终态"
     assert report.failure_counts() == {FailureKind.ADMISSION_REJECTED.value: 1}, (
@@ -524,10 +528,30 @@ def test_b309_driver_produces_real_http_sse_load_and_collects_real_metrics(
     assert report.postgres_after.database_bytes > 0
     assert report.postgres_after.connections_total >= 1
     assert report.postgres_after.locks_granted >= 1
+    assert report.postgres_after.event_rows > 0, "真实事件行必须已持久化"
+    assert report.postgres_after.event_bytes > 0, "事件表必须占用真实磁盘"
+    assert report.postgres_after.connections_idle_in_transaction >= 0
+    assert report.max_connections_total >= report.postgres_after.connections_total
+    rate = report.postgres_rate()
+    assert rate.commits_per_sec > 0, "真实写入窗口必然有提交"
+    assert rate.wal_bytes_per_sec > 0, "真实写入窗口必然增长 WAL"
     assert report.samples, "并发采样序列非空"
+    assert any(sample.connections_total >= 1 for sample in report.samples), "采样包含 PG 连接状态"
     assert any(sample.admitted_runs >= 1 for sample in report.samples), "采样观测到持久受理中的 Run"
     assert any(sample.running_runs >= 1 for sample in report.samples), "采样观测到真实执行中的 Run"
     assert any(sample.active_streams >= 1 for sample in report.samples), "采样观测到在飞 SSE 订阅"
+
+    # 浏览器同形通知轮询：真实 CHAT 主体、带 page_size、游标不回退
+    assert report.notification_polls, "负载期间必须有真实通知轮询样本"
+    assert all(poll.http_status == 200 for poll in report.notification_polls), (
+        "通知轮询必须全部成功（真实 200，不是伪造空页）"
+    )
+    assert all(poll.error == "" for poll in report.notification_polls)
+    assert all(poll.page_size == 20 for poll in report.notification_polls)
+    by_user: dict[int, list[int]] = {}
+    for poll in report.notification_polls:
+        by_user.setdefault(poll.user_index, []).append(poll.next_seq)
+    assert all(values == sorted(values) for values in by_user.values()), "游标单调不回退"
 
     # 边界失败分类（故意非法会话提交）：显式类别 + 真实 HTTP 状态码
     boundary = report.boundary

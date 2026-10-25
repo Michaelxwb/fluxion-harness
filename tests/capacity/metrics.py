@@ -33,7 +33,9 @@ __all__ = [
     "LatencySummary",
     "MetricsError",
     "PostgresMetrics",
+    "PostgresRate",
     "PostgresSnapshot",
+    "StatementStat",
     "PrometheusSample",
     "RunState",
     "UnitMetricsSnapshot",
@@ -286,11 +288,76 @@ class PostgresSnapshot:
     runs_by_status: Mapping[str, int]
     waiting_runs: int
     running_runs: int
+    event_rows: int = 0
+    event_bytes: int = 0
+    connections_idle: int = 0
+    connections_idle_in_transaction: int = 0
+    connections_waiting: int = 0
 
     @property
     def open_runs(self) -> int:
         """非终态 Run 数（受理后仍在队列/执行/等待里的持久事实）。"""
         return sum(self.runs_by_status.get(status, 0) for status in OPEN_RUN_STATUSES)
+
+    @property
+    def idle_connections_outside_transaction(self) -> int:
+        """空闲且不在事务里的连接（`idle` 桶；idle-in-tx 单独计，不混入口径）。"""
+        return self.connections_idle
+
+    @property
+    def state_buckets_total(self) -> int:
+        """互斥状态桶求和：idle + idle-in-tx + active（waiting 是 active 的子集）。"""
+        return (
+            self.connections_idle
+            + self.connections_idle_in_transaction
+            + self.connections_active
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PostgresRate:
+    """两次真实 PG 采样之间的速率（commits/s、WAL/s、事件行/s）。"""
+
+    elapsed_sec: float
+    commits_per_sec: float
+    wal_bytes_per_sec: float
+    event_rows_per_sec: float
+    connections_delta: int
+
+
+@dataclass(frozen=True, slots=True)
+class StatementStat:
+    """`pg_stat_statements` 的一条真实聚合（扩展不存在时整组显式返回 None）。"""
+
+    query: str
+    calls: int
+    total_exec_ms: float
+    mean_exec_ms: float
+
+
+def postgres_rate(
+    before: PostgresSnapshot,
+    after: PostgresSnapshot,
+    *,
+    wal_growth_bytes: int,
+) -> PostgresRate:
+    """用真实采样时间差计算速率；零/负窗口与逆序计数显式失败（不静默回 0）。"""
+    elapsed = after.observed_at - before.observed_at
+    if elapsed <= 0:
+        raise MetricsError(f"PG 速率需要正的时间窗口，收到 {elapsed}")
+    if wal_growth_bytes < 0:
+        raise MetricsError(f"WAL 增长为负：{wal_growth_bytes}")
+    commits_delta = after.xact_commit - before.xact_commit
+    events_delta = after.event_rows - before.event_rows
+    if commits_delta < 0 or events_delta < 0:
+        raise MetricsError("PG 累计计数倒退：采样可能跨了实例重置")
+    return PostgresRate(
+        elapsed_sec=elapsed,
+        commits_per_sec=commits_delta / elapsed,
+        wal_bytes_per_sec=wal_growth_bytes / elapsed,
+        event_rows_per_sec=events_delta / elapsed,
+        connections_delta=after.connections_total - before.connections_total,
+    )
 
 
 def _dsn(url: str) -> str:
@@ -309,6 +376,10 @@ class _GaugePayload(TypedDict):
     temp_bytes: int
     database_bytes: int
     wal_lsn: str
+    event_bytes: int
+    connections_idle: int
+    connections_idle_in_transaction: int
+    connections_waiting: int
 
 
 class _RunPayload(TypedDict):
@@ -317,6 +388,7 @@ class _RunPayload(TypedDict):
     runs_by_status: Mapping[str, int]
     waiting_runs: int
     running_runs: int
+    event_rows: int
 
 
 def artifact_bytes(root: Path) -> int:
@@ -348,6 +420,18 @@ class PostgresMetrics:
         """两次采样之间的 WAL 增长字节（`pg_wal_lsn_diff`，服务端计算）。"""
         return run_async(lambda: self._wal_growth(before.wal_lsn, after.wal_lsn))
 
+    def rate(self, before: PostgresSnapshot, after: PostgresSnapshot) -> PostgresRate:
+        """两次真实采样之间的 commits/s、WAL/s、事件行/s。"""
+        return postgres_rate(
+            before,
+            after,
+            wal_growth_bytes=self.wal_growth_bytes(before, after),
+        )
+
+    def pg_stat_statements(self) -> tuple[StatementStat, ...] | None:
+        """可选 `pg_stat_statements` 聚合；扩展不存在时显式返回 None（不伪造空列表）。"""
+        return run_async(self._pg_stat_statements)
+
     def artifact_bytes(self) -> int:
         if self._artifacts_root is None:
             raise MetricsError("未配置共享卷根：无法采集磁盘占用")
@@ -372,7 +456,11 @@ class PostgresMetrics:
             "WHERE datname = current_database()"
         )
         activity = await connection.fetchrow(
-            "SELECT count(*) AS total, count(*) FILTER (WHERE state = 'active') AS active "
+            "SELECT count(*) AS total, "
+            "count(*) FILTER (WHERE state = 'active') AS active, "
+            "count(*) FILTER (WHERE state = 'idle') AS idle, "
+            "count(*) FILTER (WHERE state = 'idle in transaction') AS idle_in_transaction, "
+            "count(*) FILTER (WHERE wait_event_type = 'Lock') AS waiting "
             "FROM pg_stat_activity WHERE datname = current_database()"
         )
         locks = await connection.fetchrow(
@@ -383,8 +471,18 @@ class PostgresMetrics:
         )
         size = await connection.fetchval("SELECT pg_database_size(current_database())")
         lsn = await connection.fetchval("SELECT pg_current_wal_lsn()::text")
-        if counters is None or activity is None or locks is None or size is None or lsn is None:
-            raise MetricsError("PG 采样缺少必需列（连接/锁/大小/LSN）")
+        event_bytes = await connection.fetchval(
+            "SELECT pg_total_relation_size('runtime.canonical_event')"
+        )
+        if (
+            counters is None
+            or activity is None
+            or locks is None
+            or size is None
+            or lsn is None
+            or event_bytes is None
+        ):
+            raise MetricsError("PG 采样缺少必需列（连接/锁/大小/LSN/事件表）")
         return {
             "connections_total": int(activity["total"]),
             "connections_active": int(activity["active"]),
@@ -395,6 +493,10 @@ class PostgresMetrics:
             "temp_bytes": int(counters["temp_bytes"]),
             "database_bytes": int(size),
             "wal_lsn": str(lsn),
+            "event_bytes": int(event_bytes),
+            "connections_idle": int(activity["idle"]),
+            "connections_idle_in_transaction": int(activity["idle_in_transaction"]),
+            "connections_waiting": int(activity["waiting"]),
         }
 
     async def _fetch_runs(self, connection: asyncpg.Connection) -> _RunPayload:
@@ -415,10 +517,16 @@ class PostgresMetrics:
             "AND is_deleted = false AND queue_stage IS NULL AND status = 'RUNNING'",
             self._tenant_id,
         )
+        event_rows = await connection.fetchval(
+            "SELECT count(*) FROM runtime.canonical_event "
+            "WHERE tenant_id = $1 AND is_deleted = false",
+            self._tenant_id,
+        )
         return {
             "runs_by_status": {str(row["status"]): int(row["total"]) for row in runs},
             "waiting_runs": int(waiting or 0),
             "running_runs": int(running or 0),
+            "event_rows": int(event_rows or 0),
         }
 
     async def _run_state(self, run_id: str) -> RunState | None:
@@ -439,6 +547,32 @@ class PostgresMetrics:
             cancel_requested=bool(row["cancel_requested"]),
             queue_stage=None if row["queue_stage"] is None else str(row["queue_stage"]),
             error_code=None if row["error_code"] is None else str(row["error_code"]),
+        )
+
+    async def _pg_stat_statements(self) -> tuple[StatementStat, ...] | None:
+        connection = await self._connect()
+        try:
+            available = await connection.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements')"
+            )
+            if not available:
+                return None
+            rows = await connection.fetch(
+                "SELECT query, calls, total_exec_time, mean_exec_time "
+                "FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 20"
+            )
+        except asyncpg.UndefinedTableError:
+            return None
+        finally:
+            await connection.close()
+        return tuple(
+            StatementStat(
+                query=str(row["query"]),
+                calls=int(row["calls"]),
+                total_exec_ms=float(row["total_exec_time"]),
+                mean_exec_ms=float(row["mean_exec_time"]),
+            )
+            for row in rows
         )
 
     async def _wal_growth(self, before_lsn: str, after_lsn: str) -> int:
