@@ -555,6 +555,11 @@ class OutboundRunner:
         if result.status is CommandStatus.RETRY:
             record_outbound("RETRY", result.code)
             return "retry"
+        if result.status is CommandStatus.FENCED and result.code == RESULT_CODE_LEASE_LOST:
+            # 已经失权：命令留给新 owner；不写结果、不推进 cursor，避免把新 owner 的
+            # 进度覆盖掉（cursor 是 bot 级共享键）。
+            record_outbound("FENCED", result.code)
+            return "retry"
         attempt_key = f"{tenant_id}:{bot_id}:{command.command_id}"
         attempts = self._attempts.get(attempt_key, 0) + 1
         self._attempts[attempt_key] = attempts
@@ -597,6 +602,11 @@ class OutboundRunner:
         record_outbound("DEAD_LETTER", error)
 
     async def _advance(self, key: tuple[str, str], entry_id: str) -> None:
+        # cursor 是 bot 级共享键：只有当前 owner 才能写。旧 owner 在失权瞬间写 cursor
+        # 会让新 owner 跳过尚未执行的命令。
+        lease = await self._leases.read(*key)
+        if lease is None or lease.owner_id != self._leases.owner_id:
+            return
         self._cursors[key] = entry_id
         await self._redis.set(outbound_cursor_key(*key), entry_id)
 

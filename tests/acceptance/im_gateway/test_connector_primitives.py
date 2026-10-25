@@ -508,3 +508,46 @@ async def test_outbound_runner_retries_until_bot_connection_is_ready(redis: Redi
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
         await manager.release(lease)
+
+
+async def test_outbound_runner_lost_owner_does_not_write_result_or_cursor(redis: Redis) -> None:
+    await redis.delete(
+        f"connector:outbound-cursor:{TENANT}:{BOT}",
+        f"im.outbound:{TENANT}:{BOT}",
+        f"connector:bot:{TENANT}:{BOT}",
+        f"connector:bot:{TENANT}:{BOT}:epoch",
+    )
+    owner = RedisLeaseManager(redis, owner_id="owner-a", ttl_sec=10.0)
+    lease = await owner.acquire(TENANT, BOT)
+    assert lease is not None
+    loser = RedisLeaseManager(redis, owner_id="owner-b", ttl_sec=10.0)
+    channel = RecordingChannel()
+    runner = OutboundRunner(
+        redis,
+        executor=CommandExecutor(
+            adapter=channel, leases=loser, replies=ReplyStore(redis), owner_id="owner-b"
+        ),
+        leases=loser,
+        batch=8,
+        max_age_sec=600,
+        max_attempts=2,
+    )
+    runner.set_bots(((TENANT, BOT),))
+    command = _command(DeliveryKind.TEXT, text="not-mine", epoch=lease.epoch)
+    await redis.xadd(
+        f"im.outbound:{TENANT}:{BOT}",
+        {"event": command.model_dump_json()},
+        maxlen=1000,
+        approximate=True,
+    )
+    task = asyncio.create_task(runner.run_forever())
+    try:
+        await asyncio.sleep(0.6)
+        assert not await redis.exists(f"im:outbound:result:{command.command_id}")
+        assert not await redis.exists(f"connector:outbound-cursor:{TENANT}:{BOT}")
+        assert channel.actives == []
+    finally:
+        runner.stop()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await owner.release(lease)
