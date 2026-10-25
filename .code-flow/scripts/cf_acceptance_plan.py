@@ -168,7 +168,10 @@ def build_e2e_plan(
     if validate_baseline:
         validate_execution_baseline(path, data)
     owned, smoke, deferred = _group_scenarios(data, owned_ids, task_id)
-    scheduled = [*owned, *[item for item in smoke if item["id"] not in owned_ids]]
+    # 延后场景不在编码阶段调度：它们由需求级 verify-e2e/人工门禁执行；
+    # 其登记缺口由 plan --verify-plan 单独可见，不应阻塞每个 TASK 的 Start Gate。
+    scheduled = [item for item in [*owned, *[item for item in smoke if item["id"] not in owned_ids]]
+                 if str(item.get("exec") or "") != "deferred"]
     root = next((parent.parent for parent in path.parents if parent.name == ".code-flow"), path.parent)
     errors, warnings, gate_required = _scoped_quality(data, scheduled, root)
     if not owned and not smoke:
