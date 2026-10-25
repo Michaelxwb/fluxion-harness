@@ -1322,7 +1322,7 @@
       "kind": "functional",
       "boundary": "真实 Connector 进程 + Redis Stream；kill -9 在 WS 收到后、XADD 前",
       "owner": "TASK-007",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1374,13 +1374,14 @@
       "target_phase": "review",
       "defer_owner": "TASK-007",
       "check": "CHK-ec7cf07411e5",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-03",
         "kind": "functional",
-        "status": "e2e_deferred",
-        "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
+        "status": "passed",
+        "exit_code": 0,
         "check_id": "CHK-ec7cf07411e5",
+        "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
         "check_config": {
           "id": "CHK-ec7cf07411e5",
           "command": [
@@ -1400,9 +1401,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "9bf0d256fec144ce8c3ae53166a0067e",
-        "executed_at": "2026-10-25T16:10:54.874719+00:00",
+        "revision": 2,
+        "run_id": "2cd020b407614a5884510f4d14a8472e",
+        "executed_at": "2026-10-25T16:14:40.189654+00:00",
         "command": [
           "uv",
           "run",
@@ -1411,7 +1412,8 @@
           "tests/acceptance/im_gateway/test_connector_failover.py"
         ],
         "cwd": ".",
-        "timeout": 900.0
+        "timeout": 900.0,
+        "fingerprint": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0"
       },
       "runs": [
         {
@@ -1451,6 +1453,46 @@
           ],
           "cwd": ".",
           "timeout": 900.0
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ec7cf07411e5",
+          "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
+          "check_config": {
+            "id": "CHK-ec7cf07411e5",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_connector_failover.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "2cd020b407614a5884510f4d14a8472e",
+          "executed_at": "2026-10-25T16:14:40.189654+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_failover.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0"
         }
       ]
     },
@@ -1521,7 +1563,7 @@
         "run_id→reply_ref 过期/不匹配"
       ],
       "check": "CHK-ec7cf07411e5",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-04",
         "kind": "functional",
@@ -1548,9 +1590,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "9bf0d256fec144ce8c3ae53166a0067e",
-        "executed_at": "2026-10-25T16:10:54.874719+00:00",
+        "revision": 2,
+        "run_id": "2cd020b407614a5884510f4d14a8472e",
+        "executed_at": "2026-10-25T16:14:40.189654+00:00",
         "command": [
           "uv",
           "run",
@@ -1592,6 +1634,46 @@
           "revision": 1,
           "run_id": "9bf0d256fec144ce8c3ae53166a0067e",
           "executed_at": "2026-10-25T16:10:54.874719+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_failover.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ec7cf07411e5",
+          "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
+          "check_config": {
+            "id": "CHK-ec7cf07411e5",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_connector_failover.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "2cd020b407614a5884510f4d14a8472e",
+          "executed_at": "2026-10-25T16:14:40.189654+00:00",
           "command": [
             "uv",
             "run",
@@ -1824,7 +1906,7 @@
       "kind": "functional",
       "boundary": "真实 Connector 进程 + Redis Stream；关闭平台重投",
       "owner": "TASK-007",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1879,13 +1961,14 @@
       "target_phase": "review",
       "defer_owner": "TASK-007",
       "check": "CHK-ec7cf07411e5",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-07",
         "kind": "functional",
-        "status": "e2e_deferred",
-        "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
+        "status": "passed",
+        "exit_code": 0,
         "check_id": "CHK-ec7cf07411e5",
+        "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
         "check_config": {
           "id": "CHK-ec7cf07411e5",
           "command": [
@@ -1905,9 +1988,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "9bf0d256fec144ce8c3ae53166a0067e",
-        "executed_at": "2026-10-25T16:10:54.874719+00:00",
+        "revision": 2,
+        "run_id": "2cd020b407614a5884510f4d14a8472e",
+        "executed_at": "2026-10-25T16:14:40.189654+00:00",
         "command": [
           "uv",
           "run",
@@ -1916,7 +1999,8 @@
           "tests/acceptance/im_gateway/test_connector_failover.py"
         ],
         "cwd": ".",
-        "timeout": 900.0
+        "timeout": 900.0,
+        "fingerprint": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0"
       },
       "runs": [
         {
@@ -1956,6 +2040,46 @@
           ],
           "cwd": ".",
           "timeout": 900.0
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ec7cf07411e5",
+          "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
+          "check_config": {
+            "id": "CHK-ec7cf07411e5",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_connector_failover.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "2cd020b407614a5884510f4d14a8472e",
+          "executed_at": "2026-10-25T16:14:40.189654+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_failover.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0"
         }
       ]
     },
@@ -2518,7 +2642,7 @@
       "kind": "functional",
       "boundary": "两个真实 Connector 进程 + 假企微 WS 服务端 + 真实 Redis lease；Runtime/Gateway 真实进程",
       "owner": "TASK-007",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2579,11 +2703,14 @@
       "target_phase": "review",
       "defer_owner": "TASK-007",
       "check": "CHK-974cbc8b96aa",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-05",
         "kind": "functional",
-        "status": "e2e_deferred",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-974cbc8b96aa",
+        "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
         "check_config": {
           "id": "CHK-974cbc8b96aa",
           "command": [
@@ -2603,9 +2730,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "9bf0d256fec144ce8c3ae53166a0067e",
-        "executed_at": "2026-10-25T16:10:54.874719+00:00",
+        "revision": 2,
+        "run_id": "2cd020b407614a5884510f4d14a8472e",
+        "executed_at": "2026-10-25T16:14:40.189654+00:00",
         "command": [
           "uv",
           "run",
@@ -2614,7 +2741,8 @@
           "tests/acceptance/im_gateway/test_connector_lease.py"
         ],
         "cwd": ".",
-        "timeout": 900.0
+        "timeout": 900.0,
+        "fingerprint": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0"
       },
       "runs": [
         {
@@ -2652,6 +2780,46 @@
           ],
           "cwd": ".",
           "timeout": 900.0
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-974cbc8b96aa",
+          "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
+          "check_config": {
+            "id": "CHK-974cbc8b96aa",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/im_gateway/test_connector_lease.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "2cd020b407614a5884510f4d14a8472e",
+          "executed_at": "2026-10-25T16:14:40.189654+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/im_gateway/test_connector_lease.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0"
         }
       ]
     },
@@ -3966,7 +4134,7 @@
       "kind": "functional",
       "boundary": "真实栈 + 100 用户 × 1 轮 × 20 chunks/s + 通知轮询",
       "owner": "TASK-001",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -4025,11 +4193,15 @@
       "target_phase": "review",
       "defer_owner": "TASK-001",
       "check": "CHK-8d7b3292f4ba",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-16",
         "kind": "functional",
-        "status": "e2e_deferred",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "ERS\n        assert report.effective_turns == 1\n        assert report.run_kind is RunKind.VERIFICATION\n        assert report.scale is not None and report.scale.users == SMOKE_USERS, (\n            \"受限 smoke 必须显式登记规模，不得冒充 1000 用户\"\n        )\n        assert report.planned_attempts == SMOKE_USERS\n        assert report.attempts() == SMOKE_USERS, \"每个用户都尝试了一次真实提交（不丢样本）\"\n        failure_samples = [\n            (turn.user_index, turn.failure, turn.http_status, (turn.detail or \"\")[:120])\n            for turn in report.turns\n            if turn.failure is not None\n        ][:5]\n        assert len(report.admitted()) == SMOKE_USERS, (\n            \"每一轮都拿到真实 202；\"\n            f\"失败账目 {dict(report.failure_counts())}，样本 {failure_samples}\"\n        )\n        assert report.steady_violations == (), \"所有提交都在 ramp+steady 窗口内\"\n    \n        checks = evaluate_slo(\n            SloInput(\n                admission=report.admission_latency(),\n                first_delta=report.first_delta_latency(),\n                system_error_ratio=report.system_error_ratio(),\n                pool_timeouts=report.pool_timeout_count,\n                attempts=report.attempts(),\n                planned_attempts=report.planned_attempts,\n                steady_violations=len(report.steady_violations),\n                max_connections_total=report.max_connections_total,\n                max_idle_in_tx=report.max_idle_in_tx,\n            ),\n            SMOKE_THRESHOLDS,\n        )\n        if os.environ.get(\"MUAD_SMOKE_DEBUG_ROOT\"):\n            from collections import Counter\n    \n            seen = Counter(\n                query\n                for sample in report.samples\n                for query, _age in sample.idle_in_tx_queries\n            )\n            ages = {\n                query: max(\n                    age\n                    for sample in report.samples\n                    for candidate, age in sample.idle_in_tx_queries\n                    if candidate == query\n                )\n                for query in seen\n            }\n            print(\"SMOKE-IDLE-IN-TX top queries:\")\n            for query, count in seen.most_common(10):\n                print(f\"  {count}x max_age={ages[query]:.2f}s :: {query[:300]}\")\n            print(\n                \"SMOKE-PG max_total=\",\n                report.max_connections_total,\n                \"idle_tx_peak=\",\n                report.max_idle_in_tx,\n                \"rate=\",\n                report.postgres_rate(),\n            )\n        load_failures = [turn for turn in report.turns if turn.failure is not None]\n        assert not load_failures, (\n            \"smoke 负载不得有失败轮次：\"\n            f\"失败账目 {dict(report.failure_counts())}，\"\n            \"样本 \"\n            f\"{[(t.user_index, t.failure, t.http_status, (t.detail or '')[:200]) for t in load_failures[:8]]}\"\n        )\n>       require_slo(checks)\n\ntests/acceptance/capacity/test_capacity_smoke.py:351: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nchecks = (SloCheck(name='admission_p95_ms', actual=2430.3027919959277, limit=1000, ok=False, detail='P95=2430.3ms 阈值 1000ms（样本 ...100 / 计划 100'), SloCheck(name='steady_violations', actual=0, limit=0, ok=True, detail='超出 ramp+steady 窗口的提交 0 次'), ...)\n\n    def require_slo(checks: Sequence[SloCheck]) -> None:\n        \"\"\"任一越界即抛出带全部失败项的 AssertionError（不静默、不截断）。\"\"\"\n        failed = [check for check in checks if not check.ok]\n        if not failed:\n            return\n        details = \"; \".join(f\"{check.name}: {check.detail}\" for check in failed)\n>       raise AssertionError(f\"SLO 未通过（{len(failed)} 项）：{details}\")\nE       AssertionError: SLO 未通过（3 项）：admission_p95_ms: P95=2430.3ms 阈值 1000ms（样本 100）; first_delta_p95_ms: P95=8246.5ms 阈值 2500ms（样本 100）; max_idle_in_tx: idle-in-tx 峰值 33 阈值 20\n\ntests/capacity/slo.py:186: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/capacity/test_capacity_smoke.py::test_s16_100_user_capacity_smoke\n1 failed in 110.72s (0:01:50)",
+        "check_id": "CHK-8d7b3292f4ba",
+        "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
         "check_config": {
           "id": "CHK-8d7b3292f4ba",
           "command": [
@@ -4047,9 +4219,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "43936c5da71e4e699fbf37d4f7dd384e",
-        "executed_at": "2026-10-25T16:11:04.609045+00:00",
+        "revision": 2,
+        "run_id": "8483bd6783094b0d8a5f3059aa7d702d",
+        "executed_at": "2026-10-25T16:57:13.417512+00:00",
         "command": [
           "bash",
           "-lc",
@@ -4090,6 +4262,42 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "S-16",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "ERS\n        assert report.effective_turns == 1\n        assert report.run_kind is RunKind.VERIFICATION\n        assert report.scale is not None and report.scale.users == SMOKE_USERS, (\n            \"受限 smoke 必须显式登记规模，不得冒充 1000 用户\"\n        )\n        assert report.planned_attempts == SMOKE_USERS\n        assert report.attempts() == SMOKE_USERS, \"每个用户都尝试了一次真实提交（不丢样本）\"\n        failure_samples = [\n            (turn.user_index, turn.failure, turn.http_status, (turn.detail or \"\")[:120])\n            for turn in report.turns\n            if turn.failure is not None\n        ][:5]\n        assert len(report.admitted()) == SMOKE_USERS, (\n            \"每一轮都拿到真实 202；\"\n            f\"失败账目 {dict(report.failure_counts())}，样本 {failure_samples}\"\n        )\n        assert report.steady_violations == (), \"所有提交都在 ramp+steady 窗口内\"\n    \n        checks = evaluate_slo(\n            SloInput(\n                admission=report.admission_latency(),\n                first_delta=report.first_delta_latency(),\n                system_error_ratio=report.system_error_ratio(),\n                pool_timeouts=report.pool_timeout_count,\n                attempts=report.attempts(),\n                planned_attempts=report.planned_attempts,\n                steady_violations=len(report.steady_violations),\n                max_connections_total=report.max_connections_total,\n                max_idle_in_tx=report.max_idle_in_tx,\n            ),\n            SMOKE_THRESHOLDS,\n        )\n        if os.environ.get(\"MUAD_SMOKE_DEBUG_ROOT\"):\n            from collections import Counter\n    \n            seen = Counter(\n                query\n                for sample in report.samples\n                for query, _age in sample.idle_in_tx_queries\n            )\n            ages = {\n                query: max(\n                    age\n                    for sample in report.samples\n                    for candidate, age in sample.idle_in_tx_queries\n                    if candidate == query\n                )\n                for query in seen\n            }\n            print(\"SMOKE-IDLE-IN-TX top queries:\")\n            for query, count in seen.most_common(10):\n                print(f\"  {count}x max_age={ages[query]:.2f}s :: {query[:300]}\")\n            print(\n                \"SMOKE-PG max_total=\",\n                report.max_connections_total,\n                \"idle_tx_peak=\",\n                report.max_idle_in_tx,\n                \"rate=\",\n                report.postgres_rate(),\n            )\n        load_failures = [turn for turn in report.turns if turn.failure is not None]\n        assert not load_failures, (\n            \"smoke 负载不得有失败轮次：\"\n            f\"失败账目 {dict(report.failure_counts())}，\"\n            \"样本 \"\n            f\"{[(t.user_index, t.failure, t.http_status, (t.detail or '')[:200]) for t in load_failures[:8]]}\"\n        )\n>       require_slo(checks)\n\ntests/acceptance/capacity/test_capacity_smoke.py:351: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nchecks = (SloCheck(name='admission_p95_ms', actual=2430.3027919959277, limit=1000, ok=False, detail='P95=2430.3ms 阈值 1000ms（样本 ...100 / 计划 100'), SloCheck(name='steady_violations', actual=0, limit=0, ok=True, detail='超出 ramp+steady 窗口的提交 0 次'), ...)\n\n    def require_slo(checks: Sequence[SloCheck]) -> None:\n        \"\"\"任一越界即抛出带全部失败项的 AssertionError（不静默、不截断）。\"\"\"\n        failed = [check for check in checks if not check.ok]\n        if not failed:\n            return\n        details = \"; \".join(f\"{check.name}: {check.detail}\" for check in failed)\n>       raise AssertionError(f\"SLO 未通过（{len(failed)} 项）：{details}\")\nE       AssertionError: SLO 未通过（3 项）：admission_p95_ms: P95=2430.3ms 阈值 1000ms（样本 100）; first_delta_p95_ms: P95=8246.5ms 阈值 2500ms（样本 100）; max_idle_in_tx: idle-in-tx 峰值 33 阈值 20\n\ntests/capacity/slo.py:186: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/capacity/test_capacity_smoke.py::test_s16_100_user_capacity_smoke\n1 failed in 110.72s (0:01:50)",
+          "check_id": "CHK-8d7b3292f4ba",
+          "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
+          "check_config": {
+            "id": "CHK-8d7b3292f4ba",
+            "command": [
+              "bash",
+              "-lc",
+              "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "8483bd6783094b0d8a5f3059aa7d702d",
+          "executed_at": "2026-10-25T16:57:13.417512+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -4100,7 +4308,7 @@
       "kind": "functional",
       "boundary": "真实栈 + 200 用户 × 1 轮",
       "owner": "TASK-001",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -4148,11 +4356,15 @@
       "target_phase": "review",
       "defer_owner": "TASK-001",
       "check": "CHK-a80d83e34deb",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-17",
         "kind": "functional",
-        "status": "e2e_deferred",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "FFAILED tests/acceptance/capacity/test_capacity.py::test_s17_200_user_bounded_verification [call] (0.00s)\n                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_s17_200_user_bounded_verification ____________________\n\ncapacity_module = CapacityModule(stack=<tests.acceptance.capacity.stack.CapacityStack object at 0x10b2ad8b0>, seeded=SeededDelivery(tena...ery_user_id=UUID('6363d0c4-da06-4ffc-a1ab-231e914fc0a0'), recovery_token='AvYucmm5U1mq4R_8WQ8fBovzebThsq-IblpZmdCPqIA')\nbounded_run = LoadReport(run_kind=<RunKind.VERIFICATION: 'VERIFICATION'>, locked_profile_hash='2447c5b239928d319a0ce2f3e2e57d7fc2634...785, latency_ms=778.025999898091, http_status=200, page_size=20, next_seq=0, items=0, error='')), steady_violations=())\n\n    def test_s17_200_user_bounded_verification(\n        capacity_module: CapacityModule, bounded_run: LoadReport\n    ) -> None:\n        \"\"\"[S-17] 200 档 bounded verification：按 profile SLO 判定，显式声明不冒充 1000。\"\"\"\n        report = bounded_run\n        profile = capacity_module.profile\n        assert LOAD_USERS == 200, \"S-17 必须用 CAPACITY_LOAD_USERS=200 运行\"\n        assert report.run_kind is RunKind.VERIFICATION\n        assert report.scale is not None and report.scale.users == 200\n        assert report.effective_users == 200 and report.effective_turns == 1\n        assert report.planned_attempts == 200\n        assert report.attempts() == 200, \"200 个用户都必须真实尝试一次\"\n>       assert len(report.admitted()) == 200, \"200 个用户都必须拿到真实 202\"\nE       AssertionError: 200 个用户都必须拿到真实 202\nE       assert 134 == 200\nE        +  where 134 = len((TurnResult(user_index=0, turn_index=0, conversation_id='2f872814-ba96-451b-b189-d24f378fee13', run_id='ccf6b1f4-edf5-...tream_ms=7570.95095817931, terminal_status='COMPLETED', delta_frames=2, http_status=202, failure=None, detail=''), ...))\nE        +    where (TurnResult(user_index=0, turn_index=0, conversation_id='2f872814-ba96-451b-b189-d24f378fee13', run_id='ccf6b1f4-edf5-...tream_ms=7570.95095817931, terminal_status='COMPLETED', delta_frames=2, http_status=202, failure=None, detail=''), ...) = admitted()\nE        +      where admitted = LoadReport(run_kind=<RunKind.VERIFICATION: 'VERIFICATION'>, locked_profile_hash='2447c5b239928d319a0ce2f3e2e57d7fc2634...785, latency_ms=778.025999898091, http_status=200, page_size=20, next_seq=0, items=0, error='')), steady_violations=()).admitted\n\ntests/acceptance/capacity/test_capacity.py:1470: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/capacity/test_capacity.py::test_s17_200_user_bounded_verification\n1 failed, 4 deselected in 32.64s",
+        "check_id": "CHK-a80d83e34deb",
+        "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
         "check_config": {
           "id": "CHK-a80d83e34deb",
           "command": [
@@ -4170,9 +4382,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "43936c5da71e4e699fbf37d4f7dd384e",
-        "executed_at": "2026-10-25T16:11:04.609045+00:00",
+        "revision": 2,
+        "run_id": "8483bd6783094b0d8a5f3059aa7d702d",
+        "executed_at": "2026-10-25T16:57:13.417512+00:00",
         "command": [
           "bash",
           "-lc",
@@ -4213,6 +4425,42 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "S-17",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "FFAILED tests/acceptance/capacity/test_capacity.py::test_s17_200_user_bounded_verification [call] (0.00s)\n                                                                        [100%]\n=================================== FAILURES ===================================\n____________________ test_s17_200_user_bounded_verification ____________________\n\ncapacity_module = CapacityModule(stack=<tests.acceptance.capacity.stack.CapacityStack object at 0x10b2ad8b0>, seeded=SeededDelivery(tena...ery_user_id=UUID('6363d0c4-da06-4ffc-a1ab-231e914fc0a0'), recovery_token='AvYucmm5U1mq4R_8WQ8fBovzebThsq-IblpZmdCPqIA')\nbounded_run = LoadReport(run_kind=<RunKind.VERIFICATION: 'VERIFICATION'>, locked_profile_hash='2447c5b239928d319a0ce2f3e2e57d7fc2634...785, latency_ms=778.025999898091, http_status=200, page_size=20, next_seq=0, items=0, error='')), steady_violations=())\n\n    def test_s17_200_user_bounded_verification(\n        capacity_module: CapacityModule, bounded_run: LoadReport\n    ) -> None:\n        \"\"\"[S-17] 200 档 bounded verification：按 profile SLO 判定，显式声明不冒充 1000。\"\"\"\n        report = bounded_run\n        profile = capacity_module.profile\n        assert LOAD_USERS == 200, \"S-17 必须用 CAPACITY_LOAD_USERS=200 运行\"\n        assert report.run_kind is RunKind.VERIFICATION\n        assert report.scale is not None and report.scale.users == 200\n        assert report.effective_users == 200 and report.effective_turns == 1\n        assert report.planned_attempts == 200\n        assert report.attempts() == 200, \"200 个用户都必须真实尝试一次\"\n>       assert len(report.admitted()) == 200, \"200 个用户都必须拿到真实 202\"\nE       AssertionError: 200 个用户都必须拿到真实 202\nE       assert 134 == 200\nE        +  where 134 = len((TurnResult(user_index=0, turn_index=0, conversation_id='2f872814-ba96-451b-b189-d24f378fee13', run_id='ccf6b1f4-edf5-...tream_ms=7570.95095817931, terminal_status='COMPLETED', delta_frames=2, http_status=202, failure=None, detail=''), ...))\nE        +    where (TurnResult(user_index=0, turn_index=0, conversation_id='2f872814-ba96-451b-b189-d24f378fee13', run_id='ccf6b1f4-edf5-...tream_ms=7570.95095817931, terminal_status='COMPLETED', delta_frames=2, http_status=202, failure=None, detail=''), ...) = admitted()\nE        +      where admitted = LoadReport(run_kind=<RunKind.VERIFICATION: 'VERIFICATION'>, locked_profile_hash='2447c5b239928d319a0ce2f3e2e57d7fc2634...785, latency_ms=778.025999898091, http_status=200, page_size=20, next_seq=0, items=0, error='')), steady_violations=()).admitted\n\ntests/acceptance/capacity/test_capacity.py:1470: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/capacity/test_capacity.py::test_s17_200_user_bounded_verification\n1 failed, 4 deselected in 32.64s",
+          "check_id": "CHK-a80d83e34deb",
+          "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
+          "check_config": {
+            "id": "CHK-a80d83e34deb",
+            "command": [
+              "bash",
+              "-lc",
+              "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "8483bd6783094b0d8a5f3059aa7d702d",
+          "executed_at": "2026-10-25T16:57:13.417512+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "CAPACITY_LOAD_USERS=200 uv run pytest -q tests/acceptance/capacity/test_capacity.py -k s17_200_user_bounded_verification"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
       ]
     },
@@ -4223,7 +4471,7 @@
       "kind": "functional",
       "boundary": "真实栈 + 400 用户 + 通知轮询，30–60 分钟",
       "owner": "TASK-001",
-      "status": "e2e_deferred",
+      "status": "failed",
       "command": [
         "bash",
         "-lc",
@@ -4280,11 +4528,15 @@
       "target_phase": "review",
       "defer_owner": "TASK-001",
       "check": "CHK-8b09fee902a5",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "S-18",
         "kind": "functional",
-        "status": "e2e_deferred",
+        "status": "failed",
+        "exit_code": 1,
+        "output": "FFAILED tests/acceptance/capacity/test_capacity_soak.py::test_s18_400_user_soak_retention_and_stability [call] (0.09s)\n                                                                        [100%]\n=================================== FAILURES ===================================\n________________ test_s18_400_user_soak_retention_and_stability ________________\n\nsoak_module = SmokeModule(stack=<tests.acceptance.capacity.stack.CapacityStack object at 0x10b02d7c0>, seeded=SeededDelivery(tenant_...3gg_Eij13rr5FEhAPKLk', context='f091af44-f4da-4e87-a2dd-74ab0a1274f7', user_id='e682fcc8-e440-4442-9d9b-f01b8a88ecaf'))\nsoak_run = LoadReport(run_kind=<RunKind.VERIFICATION: 'VERIFICATION'>, locked_profile_hash='2447c5b239928d319a0ce2f3e2e57d7fc2634...3, latency_ms=43.042958015576005, http_status=200, page_size=20, next_seq=8, items=0, error='')), steady_violations=())\n\n    @pytest.mark.skipif(\n        os.environ.get(\"MUAD_CAPACITY_SOAK\") != \"1\",\n        reason=\"S-18 是 30–60 分钟 soak：显式设置 MUAD_CAPACITY_SOAK=1 才执行\",\n    )\n    def test_s18_400_user_soak_retention_and_stability(\n        soak_module: SmokeModule, soak_run\n    ) -> None:\n        \"\"\"[S-18] 400 用户 soak：无泄漏、PG/Redis 稳定、retention 删除速率 ≥ 写入。\"\"\"\n        stack = soak_module.stack\n        report = soak_run\n        assert report.effective_users == SOAK_USERS\n>       assert report.attempts() == report.planned_attempts, \"8 轮计划必须全部尝试（不丢样本）\"\nE       AssertionError: 8 轮计划必须全部尝试（不丢样本）\nE       assert 3130 == 3200\nE        +  where 3130 = attempts()\nE        +    where attempts = LoadReport(run_kind=<RunKind.VERIFICATION: 'VERIFICATION'>, locked_profile_hash='2447c5b239928d319a0ce2f3e2e57d7fc2634...3, latency_ms=43.042958015576005, http_status=200, page_size=20, next_seq=8, items=0, error='')), steady_violations=()).attempts\nE        +  and   3200 = LoadReport(run_kind=<RunKind.VERIFICATION: 'VERIFICATION'>, locked_profile_hash='2447c5b239928d319a0ce2f3e2e57d7fc2634...3, latency_ms=43.042958015576005, http_status=200, page_size=20, next_seq=8, items=0, error='')), steady_violations=()).planned_attempts\n\ntests/acceptance/capacity/test_capacity_soak.py:185: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/capacity/test_capacity_soak.py::test_s18_400_user_soak_retention_and_stability\n1 failed in 2404.27s (0:40:04)",
+        "check_id": "CHK-8b09fee902a5",
+        "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
         "check_config": {
           "id": "CHK-8b09fee902a5",
           "command": [
@@ -4302,9 +4554,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "43936c5da71e4e699fbf37d4f7dd384e",
-        "executed_at": "2026-10-25T16:11:04.609045+00:00",
+        "revision": 2,
+        "run_id": "8483bd6783094b0d8a5f3059aa7d702d",
+        "executed_at": "2026-10-25T16:57:13.417512+00:00",
         "command": [
           "bash",
           "-lc",
@@ -4338,6 +4590,42 @@
           "revision": 1,
           "run_id": "43936c5da71e4e699fbf37d4f7dd384e",
           "executed_at": "2026-10-25T16:11:04.609045+00:00",
+          "command": [
+            "bash",
+            "-lc",
+            "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"
+          ],
+          "cwd": ".",
+          "timeout": 3600.0
+        },
+        {
+          "id": "S-18",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "FFAILED tests/acceptance/capacity/test_capacity_soak.py::test_s18_400_user_soak_retention_and_stability [call] (0.09s)\n                                                                        [100%]\n=================================== FAILURES ===================================\n________________ test_s18_400_user_soak_retention_and_stability ________________\n\nsoak_module = SmokeModule(stack=<tests.acceptance.capacity.stack.CapacityStack object at 0x10b02d7c0>, seeded=SeededDelivery(tenant_...3gg_Eij13rr5FEhAPKLk', context='f091af44-f4da-4e87-a2dd-74ab0a1274f7', user_id='e682fcc8-e440-4442-9d9b-f01b8a88ecaf'))\nsoak_run = LoadReport(run_kind=<RunKind.VERIFICATION: 'VERIFICATION'>, locked_profile_hash='2447c5b239928d319a0ce2f3e2e57d7fc2634...3, latency_ms=43.042958015576005, http_status=200, page_size=20, next_seq=8, items=0, error='')), steady_violations=())\n\n    @pytest.mark.skipif(\n        os.environ.get(\"MUAD_CAPACITY_SOAK\") != \"1\",\n        reason=\"S-18 是 30–60 分钟 soak：显式设置 MUAD_CAPACITY_SOAK=1 才执行\",\n    )\n    def test_s18_400_user_soak_retention_and_stability(\n        soak_module: SmokeModule, soak_run\n    ) -> None:\n        \"\"\"[S-18] 400 用户 soak：无泄漏、PG/Redis 稳定、retention 删除速率 ≥ 写入。\"\"\"\n        stack = soak_module.stack\n        report = soak_run\n        assert report.effective_users == SOAK_USERS\n>       assert report.attempts() == report.planned_attempts, \"8 轮计划必须全部尝试（不丢样本）\"\nE       AssertionError: 8 轮计划必须全部尝试（不丢样本）\nE       assert 3130 == 3200\nE        +  where 3130 = attempts()\nE        +    where attempts = LoadReport(run_kind=<RunKind.VERIFICATION: 'VERIFICATION'>, locked_profile_hash='2447c5b239928d319a0ce2f3e2e57d7fc2634...3, latency_ms=43.042958015576005, http_status=200, page_size=20, next_seq=8, items=0, error='')), steady_violations=()).attempts\nE        +  and   3200 = LoadReport(run_kind=<RunKind.VERIFICATION: 'VERIFICATION'>, locked_profile_hash='2447c5b239928d319a0ce2f3e2e57d7fc2634...3, latency_ms=43.042958015576005, http_status=200, page_size=20, next_seq=8, items=0, error='')), steady_violations=()).planned_attempts\n\ntests/acceptance/capacity/test_capacity_soak.py:185: AssertionError\n=========================== short test summary info ============================\nFAILED tests/acceptance/capacity/test_capacity_soak.py::test_s18_400_user_soak_retention_and_stability\n1 failed in 2404.27s (0:40:04)",
+          "check_id": "CHK-8b09fee902a5",
+          "input_hash": "6a74d5b5a37ee54d6c24de172daae6c623c100e56015386093c410cd7744b5e0",
+          "check_config": {
+            "id": "CHK-8b09fee902a5",
+            "command": [
+              "bash",
+              "-lc",
+              "MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py"
+            ],
+            "cwd": ".",
+            "timeout": 3600.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "8483bd6783094b0d8a5f3059aa7d702d",
+          "executed_at": "2026-10-25T16:57:13.417512+00:00",
           "command": [
             "bash",
             "-lc",
