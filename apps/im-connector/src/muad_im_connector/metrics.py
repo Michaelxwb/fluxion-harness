@@ -29,6 +29,7 @@ OutboundOutcome = Literal[
     "EXPIRED",
     "DUPLICATE",
     "DEAD_LETTER",
+    "RETRY",
 ]
 SnapshotOutcome = Literal["ok", "failed", "incomplete"]
 

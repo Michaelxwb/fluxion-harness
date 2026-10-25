@@ -70,6 +70,8 @@ class CommandStatus(StrEnum):
     FENCED = "FENCED"
     EXPIRED = "EXPIRED"
     DUPLICATE = "DUPLICATE"
+    #: 非终态：bot 连接尚未就绪；命令留在 Stream 里，下一次 XREAD 重试（不写结果、不前进 cursor）。
+    RETRY = "RETRY"
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,11 +175,13 @@ class CommandExecutor:
                 epoch=lease.epoch if lease else 0,
             )
         if not self._adapter.has_bot(command.bot_id):
+            # 连接还没建好（快照已拿到 lease，SDK 仍在握手）：不能写 FAILED 让调用方以为
+            # 永久失败；命令留在 Stream 里由下一轮重试。
             return self._result(
                 command,
-                CommandStatus.FAILED,
+                CommandStatus.RETRY,
                 code=RESULT_CODE_CHANNEL_UNAVAILABLE,
-                detail="bot connection is not available",
+                detail="bot connection is not ready",
                 epoch=lease.epoch,
             )
         if command.epoch and command.epoch > lease.epoch:
@@ -486,7 +490,8 @@ class OutboundRunner:
                 continue
             if await self._drain(response):
                 continue
-            await self._sleep(0.2)
+            # RETRY（连接未就绪）或可重试失败：退避 1s，避免在握手窗口里空转。
+            await self._sleep(1.0)
 
     def stop(self) -> None:
         self._stopped.set()
@@ -546,10 +551,13 @@ class OutboundRunner:
             )
             record_outbound("EXPIRED", "age")
             return "advance"
+        result = await self._executor.execute(command)
+        if result.status is CommandStatus.RETRY:
+            record_outbound("RETRY", result.code)
+            return "retry"
         attempt_key = f"{tenant_id}:{bot_id}:{command.command_id}"
         attempts = self._attempts.get(attempt_key, 0) + 1
         self._attempts[attempt_key] = attempts
-        result = await self._executor.execute(command)
         if result.status is CommandStatus.FENCED:
             await self._write_result(result)
             self._attempts.pop(attempt_key, None)

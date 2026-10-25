@@ -196,6 +196,7 @@ async def test_inbound_sweep_marks_stale_received_as_lost_and_never_creates_run(
 @dataclass
 class RecordingChannel:
     bot: str = BOT
+    ready: bool = True
     replies: list[tuple[str, str]] | None = None
     streams: list[tuple[str, str, str, bool]] | None = None
     actives: list[str] | None = None
@@ -208,7 +209,7 @@ class RecordingChannel:
         self.artifacts = []
 
     def has_bot(self, bot_id: str) -> bool:
-        return bot_id == self.bot
+        return bot_id == self.bot and self.ready
 
     async def send_active(self, route: DeliveryRouteInput, message: DeliveryMessage) -> None:
         assert self.actives is not None
@@ -462,3 +463,48 @@ async def test_artifact_command_with_expired_reply_degrades(redis: Redis) -> Non
     assert result.status is CommandStatus.DEGRADED
     assert result.code == "REPLY_REF_EXPIRED"
     assert channel.artifacts == [(artifact, None)], "过期回调时产物必须主动发送"
+
+
+async def test_outbound_runner_retries_until_bot_connection_is_ready(redis: Redis) -> None:
+    """bot 已拿到 lease 但连接还在握手：命令必须留在 Stream，不能写 FAILED。"""
+    manager, lease = await _lease(redis, ttl=10.0)
+    channel = RecordingChannel(ready=False)
+    runner = OutboundRunner(
+        redis,
+        executor=CommandExecutor(
+            adapter=channel,
+            leases=manager,
+            replies=ReplyStore(redis),
+            owner_id=manager.owner_id,
+        ),
+        leases=manager,
+        batch=8,
+        max_age_sec=600,
+        max_attempts=2,
+    )
+    runner.set_bots(((TENANT, BOT),))
+    command = _command(DeliveryKind.TEXT, text="wait-connection", epoch=lease.epoch)
+    await redis.xadd(
+        f"im.outbound:{TENANT}:{BOT}",
+        {"event": command.model_dump_json()},
+        maxlen=1000,
+        approximate=True,
+    )
+    task = asyncio.create_task(runner.run_forever())
+    try:
+        await asyncio.sleep(0.6)
+        assert not await redis.exists(f"im:outbound:result:{command.command_id}")
+        assert channel.actives == []
+        channel.ready = True
+        result_key = f"im:outbound:result:{command.command_id}"
+        deadline = time.monotonic() + 6
+        while time.monotonic() < deadline and not await redis.exists(result_key):
+            await asyncio.sleep(0.1)
+        assert await redis.exists(result_key)
+        assert json.loads(await redis.get(result_key))["status"] == "DELIVERED"
+        assert channel.actives == ["wait-connection"]
+    finally:
+        runner.stop()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await manager.release(lease)
