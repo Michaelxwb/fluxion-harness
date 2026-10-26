@@ -25,6 +25,7 @@
 | B11 | P2 | `spec refresh` 与 `--verify-plan` 的顺序陷阱 | 改任务文件后 19 条规则报 `rule_artifact_stale` |
 | B12 | P2 | `cf_stop_hook.py` 并发执行会互相等锁、长时间不退出 | 观察到一个实例挂起 5 小时以上 |
 | B13 | P0 | 无 active TASK 时，path-mapped 单个 spec 超 1700 token 直接阻断编辑 | 本仓 `harness-test.md` 38KB ⇒ 任何 `tests/` 文件都改不了 |
+| B14 | P1 | Prompt 里出现项目外路径就整条 `block` | 后台任务完成通知把 `/private/tmp/...` 写进 prompt ⇒ 用户提问被拒 |
 
 ---
 
@@ -369,6 +370,37 @@ create a focused TASK Context or split the editing scope.
 
 ---
 
+## B14 项目外路径导致整条 Prompt 被阻断
+
+**级别**：P1
+
+**现象**
+
+后台任务完成通知（prompt 里嵌 `<output-file>/private/tmp/claude-501/…/tasks/xxx.output</output-file>`）
+提交时被 UserPromptSubmit hook 整条拒绝：
+
+```
+SPEC_WORKFLOW_BLOCKED [path_outside_project]: /private/tmp/…/tasks/xxx.output is outside the project
+```
+
+用户随后的提问因此丢失（hook 的 block 会拦掉这一轮）。
+
+**根因**
+
+`cf_user_prompt_hook.py:52 extract_paths_from_prompt()` 把 prompt 里所有像路径的片段按项目根解析，
+落在项目外就 `raise RouterError("path_outside_project")`。机器生成的通知天然带系统临时路径。
+
+**本仓处理**
+
+项目外路径**跳过**（记一行日志），不参与 spec 路由，也不阻断 prompt。项目内路径行为不变。
+
+**建议修复**
+
+越界路径不是项目引用，忽略即可；若要保留防注入语义，也应在项目内路径确实越界时提示，
+而不是拒绝整个人类提问。
+
+---
+
 ## 附：本仓补丁清单（`1e617464`）
 | 文件 | 补丁 |
 |---|---|
@@ -378,6 +410,7 @@ create a focused TASK Context or split the editing scope.
 | `cf_acceptance_runner.py` / `cf_task_workflow.py` | B5：批次 smoke 按本批 TASK 过滤 |
 | `cf_stop_hook.py` | B6：deferred 行允许 `e2e_deferred` |
 | `cf_spec_router.py` | B13：path-mapped 超预算改为「不注入 + 放行」（`0ac9176d` 之后另行提交） |
+| `cf_user_prompt_hook.py` | B14：项目外路径跳过，不再阻断整条 prompt（同上） |
 
 B2/B7/B8/B9/B10/B11/B12 未在代码中修，按下列方式规避：引用改为字面锚点、
 计划字段补齐、重锁后手工恢复运行态、提交后重跑验收写证据、改文件后先 refresh、避免并发执行。

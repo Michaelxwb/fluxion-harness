@@ -48,8 +48,12 @@ def extract_paths_from_prompt(prompt: str, root: str | None = None) -> list[str]
             try:
                 target = Path(candidate) if Path(candidate).is_absolute() else Path(root) / candidate
                 candidate = target.resolve().relative_to(Path(root).resolve()).as_posix()
-            except ValueError as exc:
-                raise RouterError("path_outside_project", f"{candidate} is outside the project") from exc
+            except ValueError:
+                # 本地补丁（B14）：项目外路径不是项目引用，跳过即可。硬阻断会让机器生成的
+                # 提示（后台任务完成通知会把 /private/tmp/... 的 output-file 写进 prompt）
+                # 整条被拒，用户侧的提问也随之丢失。
+                _log(f"cf_user_prompt_hook: skip path outside project: {candidate}")
+                continue
         if candidate not in seen and ('/' in candidate or _EXT_RE.search(candidate)):
             paths.append(candidate)
             seen.add(candidate)

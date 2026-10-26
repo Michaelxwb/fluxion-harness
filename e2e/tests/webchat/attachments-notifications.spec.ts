@@ -207,7 +207,16 @@ test.describe('TASK-114 附件与通知', () => {
     // 新建会话（真实 201），随后发文字 + 附件（上传发生在提交时：STAGING → PENDING）。
     // 必须等**会话真的落地**（"新对话"空态消失）再挂附件：创建在飞时挂上去会被放进
     // 「无会话」草稿槽，切到新会话后附件不在同一次尝试里（表现为 submit 的 upload_ids 为空）。
+    // 先等真实响应再断言界面：超时能区分「服务端没给 201」与「给了 201 但界面没切走」。
+    const conversationCreated = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        /\/entries\/[^/]+\/conversations$/.test(new URL(response.url()).pathname),
+      { timeout: 30_000 }
+    );
     await page.getByTestId('chat-sidebar-new').click();
+    const created = await conversationCreated;
+    expect(created.status(), '新建会话必须真实 201').toBe(201);
     await expect(page.getByTestId('chat-new-conversation')).toHaveCount(0, { timeout: 30_000 });
     await page.getByTestId('chat-composer-file-input').setInputFiles({
       name: '验收图片.png',
