@@ -1,0 +1,97 @@
+name: capacity
+
+# 容量回归守卫（不是生产 SLO 门禁）。
+#
+# 为什么只跑“闸门容量”档：GitHub-hosted runner 是 4 vCPU / 16 GB，PG/Redis/四单元与
+# 负载生成器同机；本仓实测 100 用户档在单机共享 PG（max_connections=100 ⇒ runtime 池
+# 20+10、准入闸门 30）下必然超出 1000ms/2500ms 的 SLO——那是拓扑差异，不是代码退化。
+# 30 用户（= 闸门容量）档在同一套阈值下可稳定通过，因此拿它做“有没有变慢/变差”的回归信号。
+#
+# 1000×8 全量只在 staging 由人工发布门禁 E-09 执行；runner 上的任何数字都不得写成
+# “1000 用户达标”。
+
+on:
+  schedule:
+    # 每天 18:00 UTC（02:00 CST）跑一次；与 push/PR 流水线解耦，不占 PR 反馈时间。
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+    inputs:
+      users:
+        description: "并发用户数（runner 容量内；超过闸门容量会失真）"
+        required: false
+        default: "30"
+      profile:
+        description: "容量 profile"
+        required: false
+        default: "smoke"
+
+concurrency:
+  # 同一时刻只跑一个容量档，避免两次压测互相抢 CPU/连接。
+  group: capacity-nightly
+  cancel-in-progress: false
+
+jobs:
+  capacity-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: muad
+          POSTGRES_PASSWORD: muad
+          POSTGRES_DB: muad
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U muad -d muad"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://muad:muad@localhost:5432/muad
+      REDIS_URL: redis://localhost:6379/0
+      INTERNAL_SERVICE_TOKEN: test-internal-token
+      PYTEST_FAILURE_LOG: /tmp/pytest-failures.log
+      # 默认 30 (= 本机 PG 预算下的准入闸门容量)。manual 触发可传更高档，
+      # 但超过闸门容量时得到的延迟是排队效应，只作诊断、不写达标。
+      CAPACITY_LOAD_USERS: ${{ github.event.inputs.users || '30' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: 生成 CI 专用 alembic ini 并迁移到 head
+        run: |
+          printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
+            "$DATABASE_URL" > "$RUNNER_TEMP/alembic.ci.ini"
+          uv run python migrations/db_migrate.py -c "$RUNNER_TEMP/alembic.ci.ini"
+      - name: 清理残留 Redis claim
+        run: uv run python scripts/clean_acceptance_claims.py
+      - name: 预建干净检出缺失的 .data 挂载目录
+        run: mkdir -p .data/artifacts .data/skill-cache
+      - name: 容量 smoke（闸门容量回归守卫，非 1000 用户 SLO）
+        run: |
+          uv run pytest -q -m capacity_load \
+            tests/acceptance/capacity/test_capacity_smoke.py \
+            --durations=20
+      - name: 上传失败用例与报告（无论成败）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capacity-smoke-report
+          path: |
+            /tmp/pytest-failures.log
+            .data/dev/*.log
+          retention-days: 14
+          if-no-files-found: ignore
