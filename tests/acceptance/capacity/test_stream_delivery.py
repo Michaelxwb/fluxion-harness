@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import threading
 import time
 import uuid
@@ -985,14 +986,27 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     # ② SIGKILL Gateway（整组）+ 停稳定入口（真实 Service 无端点）：Run 必须继续跑到终态，
     #    投递泵的尝试必须拿到**确定未送达**（连接拒绝 ⇒ NOT_SENT 可重试），而不是"没结论"。
     gateway = stack.instance("im-gateway")
+    assert _wecom_notification(stack.database_url, first_run) is None, (
+        "Run 仍在执行时不应已有终态投递意图（否则测不到下线窗口）"
+    )
     assert run_row(stack.database_url, first_run)["status"] == "RUNNING", (
         "Gateway 必须在 Run 仍在执行时被杀（否则测不到下线窗口）"
     )
     gateway_pid, gateway_pgid = gateway.pid, gateway.pgid
-    stack.kill_instance(gateway)
+    # 多副本口径（TASK-009 起 Gateway 默认 N 副本）：只杀一个副本时，存活副本仍会把持久
+    # 意图投递出去，窗口断言随之失效（实测为间歇失败）。所以“Gateway 下线”必须指**全部
+    # 副本**下线——这才是多副本部署下“整层不可用”的真实语义。
+    replicas = [instance for instance in stack.instances("im-gateway") if instance.alive]
+    assert replicas, "下线前必须至少有一个存活的 Gateway 副本"
+    for instance in replicas:
+        stack.kill_instance(instance)
     with pytest.raises(ProcessLookupError):
         os.killpg(gateway_pgid, 0)
     relay.stop()
+    # 确定性前提：Gateway 端口与投递端点（relay）都必须真的拒绝连接。
+    for port in (gateway_port, wecom_harness.relay_port):
+        with pytest.raises(ConnectionRefusedError):
+            socket.create_connection(("127.0.0.1", port), timeout=1.0).close()
     # 确定性前提：投递端点真的不可用（runtime env 指向稳定 relay，且 relay 监听已关闭）。
     for runtime in stack.instances("agent-runtime"):
         assert read_process_environ(runtime.pid)["IM_GATEWAY_URL"] == (
