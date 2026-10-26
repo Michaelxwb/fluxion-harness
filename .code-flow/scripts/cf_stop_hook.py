@@ -174,7 +174,9 @@ def _acceptance_gap(task_id: str, section: str, coverage: str) -> str:
         # Reuse the manifest's level parser so annotated levels (`E2E（Playwright）`,
         # `manual(chrome)`) behave the same in both gates.
         row_kind = _kind(cells[2]) if len(cells) >= 3 else ""
-        if task_status == "done" and row_kind == "e2e":
+        # 计划里显式声明「执行方式=deferred」的场景由需求级 verify-e2e 执行。
+        row_exec = cells[10].strip().lower() if len(cells) >= 11 else ""
+        if task_status == "done" and (row_kind == "e2e" or row_exec == "deferred"):
             allowed = {"verified", "e2e_deferred"}
         elif task_status == "done" and row_kind == "manual":
             # manual 人工验收延后到需求级 verify-e2e 由用户一次性确认（confirm-manual 写回 verified）

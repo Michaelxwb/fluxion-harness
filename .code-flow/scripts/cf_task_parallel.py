@@ -543,12 +543,22 @@ def _reject_unfinished(task: str, status: str, path: Path, task_file: str) -> No
     )
 
 
+def _task_spec_scope(task_file: str, task_id: str) -> set[str]:
+    """Spec ids the TASK itself claims (Spec-Refs + its [rule][verifier] lines)."""
+    from cf_workflow_service import read_task_section
+    section = read_task_section(task_file, task_id)
+    return set(re.findall(r"\b([a-z][a-z0-9-]*)#RULE-", section))
+
+
 def _require_evidence(task: str, path: Path, task_file: str) -> list[str]:
     context_path = path / Path(task_file).parent / "spec-context.yml"
     if context_path.is_file():
         from cf_spec_context import load_context
         from cf_workflow_service import task_truth_issues
-        issues = task_truth_issues(str(path / task_file), task, load_context(str(context_path)))
+        issues = task_truth_issues(
+            str(path / task_file), task, load_context(str(context_path)),
+            spec_ids=_task_spec_scope(str(path / task_file), task),
+        )
         if issues:
             raise ParallelEvidenceError(
                 "task_status_truth_mismatch",

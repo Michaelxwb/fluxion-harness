@@ -1,7 +1,7 @@
 version: 1
 task: 高 QPS 架构整改
 enforcement: required
-updated_at: '2026-10-25T22:01:38.632438+00:00'
+updated_at: '2026-10-26T07:23:46.873999+00:00'
 sources:
 - type: cli
   ref: bind
@@ -175,7 +175,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-008
           item_id: harness-api#RULE-api-002
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -350,7 +350,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-008
           item_id: harness-api#RULE-api-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -507,7 +507,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-009
           item_id: harness-arch#RULE-arch-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -631,7 +631,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-002
           item_id: harness-auth#RULE-auth-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -756,7 +756,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-004
           item_id: harness-data#RULE-data-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -882,7 +882,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-011
           item_id: harness-frontend#RULE-front-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -1178,7 +1178,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-009
           item_id: harness-im#RULE-im-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -1330,7 +1330,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-009
           item_id: harness-im#RULE-im-002
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -1383,7 +1383,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -1420,7 +1420,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-002
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -1458,7 +1458,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-003
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -1495,7 +1495,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-004
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -1533,7 +1533,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-005
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -1570,7 +1570,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-memory#RULE-memory-006
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -1729,7 +1729,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-008
           item_id: harness-secret#RULE-secret-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -1895,7 +1895,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-004
           item_id: harness-snapshot#RULE-snapshot-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -1962,7 +1962,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-012
           item_id: harness-test#RULE-test-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -2084,7 +2084,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-011
           item_id: harness-ui#RULE-ui-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:
@@ -2297,7 +2297,7 @@ bindings:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
           item_id: harness-worker#RULE-worker-001
-          artifact_sha256: 7aa2f341e26c00d72f6531e59cc29fd0bff077972b2125910a6a03c79d79f9e8
+          artifact_sha256: 12f4143f4bd75018f22cdcc9267a62af9feb64939eb624fe090aa5bec431ae93
         decision: null
         evidence: []
       review:

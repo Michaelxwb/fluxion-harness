@@ -303,9 +303,11 @@ def _owned(items: list[Mapping[str, object]], owner: str) -> list[Mapping[str, o
     the final (archive/E2E) gate."""
     if not owner:
         return items
+    # 逗号分隔时按多个 owner 过滤：批次 smoke 只跑本批已并入 TASK 的场景。
+    owners = {value.strip() for value in owner.split(",") if value.strip()}
     kept = [
         item for item in items
-        if not isinstance(item.get("owner"), str) or not item.get("owner") or item.get("owner") == owner
+        if not isinstance(item.get("owner"), str) or not item.get("owner") or item.get("owner") in owners
     ]
     kept_ids = {str(item.get("id")) for item in kept}
     pruned: list[Mapping[str, object]] = []
