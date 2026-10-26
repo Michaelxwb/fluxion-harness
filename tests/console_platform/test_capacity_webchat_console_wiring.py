@@ -279,6 +279,8 @@ async def test_b297_probe_budget_and_pools_are_injected_from_startup_settings(
     """[B-297] 真实 lifespan：探针预算与两个独立池按启动设置装配，请求路径消费同一实例。"""
     monkeypatch.setenv("CONTROL_HTTP_MAX_CONNECTIONS", "6")
     monkeypatch.setenv("CONTROL_HTTP_MAX_KEEPALIVE", "3")
+    # 默认 concurrency 是 256，模型池必须覆盖它；用例要钉住独立于本机 .env 的小值。
+    monkeypatch.setenv("RUNTIME_EXECUTION_CONCURRENCY", "8")
     monkeypatch.setenv("MODEL_HTTP_MAX_CONNECTIONS", "9")
     monkeypatch.setenv("MODEL_HTTP_MAX_KEEPALIVE", "4")
     try:

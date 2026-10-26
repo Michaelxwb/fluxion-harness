@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import threading
 import time
 import uuid
@@ -905,9 +906,9 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     assert seeded.wecom_bot_account_id is not None, "本用例需要真实机器人账号 UUID"
     set_probe_behavior(
         stack.model_probe.url,
-        # 30s 首块延迟：整批负载下「读到 RUNNING → kill Gateway」也可能耗掉数秒，
-        # 8s 窗口会被赛跑打穿（整跑实测 9.21s 失败）；这里把在飞窗口放大成确定性前提。
-        {"latency_ms": 30000, "deltas": ["终态", "主动", "交付"]},
+        # 60s 首块延迟：整批负载下「读到 RUNNING → kill Gateway」也可能耗掉数十秒，
+        # 30s 窗口在 CI 全量分片里仍被打穿过（31s 失败）；把在飞窗口放大成确定性前提。
+        {"latency_ms": 60000, "deltas": ["终态", "主动", "交付"]},
         api_key=PROBE_API_KEY,
     )
 
@@ -993,6 +994,15 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     with pytest.raises(ProcessLookupError):
         os.killpg(gateway_pgid, 0)
     relay.stop()
+    # 确定性前提：投递端点真的不可用（runtime env 指向稳定 relay，且 relay 监听已关闭）。
+    for runtime in stack.instances("agent-runtime"):
+        assert read_process_environ(runtime.pid)["IM_GATEWAY_URL"] == (
+            f"http://127.0.0.1:{wecom_harness.relay_port}"
+        ), "Runtime 投递端点必须指向稳定 relay；被环境覆盖会让下线窗口失真"
+    with pytest.raises(ConnectionRefusedError):
+        socket.create_connection(
+            ("127.0.0.1", wecom_harness.relay_port), timeout=1.0
+        ).close()
     await await_until(
         lambda: run_row(stack.database_url, first_run)["status"] == "COMPLETED",
         what="Gateway 被杀后 Run 未跑完（HTTP 断开不得取消执行）",

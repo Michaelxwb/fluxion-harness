@@ -5,7 +5,7 @@ import string
 import uuid
 from collections.abc import Collection
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any
 
 from muad_api import AppError, validate_page
 from muad_api.error_codes import ErrorCode
@@ -15,7 +15,6 @@ from muad_contracts import (
     BotSnapshotResponse,
     ChannelBindRequest,
     ChannelBindResponse,
-    ChannelName,
     ChannelResolveRequest,
     ChannelResolveResponse,
 )
@@ -359,7 +358,7 @@ class ChannelService:
             BotSnapshotItem(
                 bot_account_id=account.id,
                 bot_id=account.bot_id,
-                channel=cast(ChannelName, account.channel),
+                channel=account.channel,
                 secret=account.secret if include_secret else None,
                 agent_id=account.agent_id,
                 enabled=account.enabled,
