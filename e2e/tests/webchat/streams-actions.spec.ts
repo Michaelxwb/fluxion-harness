@@ -287,10 +287,12 @@ function pageMessagePosts(page: Page): { value: number } {
 }
 
 /**
- * 真实降额到目标在飞上限：产品在有 ACTIVE/UNKNOWN 模型租约时显式拒绝
+ * 真实调整在飞上限：产品在有 ACTIVE/UNKNOWN 模型租约时显式拒绝
  * （`MODEL_CAPACITY_DRAIN_REQUIRED`）——这是真实排空语义，这里按真实节奏有界重试。
+ * 调整与**恢复**都走这里：恢复同样是容量变更，在飞租约未清时会 409；直接 PUT 会把
+ * 清理路径变成偶发失败，并把容量永久留在测试值上。
  */
-async function lowerCredentialInflight(
+async function setCredentialInflight(
   webchatAdmin: ConsoleAdminClient,
   credentialId: string,
   maxInflight: number,
@@ -325,7 +327,7 @@ test.describe('TASK-113 容量排队与流恢复', () => {
     const original = await webchatAdmin.readCredential(model.credentialId);
 
     // 真实耗尽模型容量：物理凭据在飞上限 8 → 1（真实 Console API 整份替换 + 版本 CAS）。
-    await lowerCredentialInflight(webchatAdmin, model.credentialId, 1);
+    await setCredentialInflight(webchatAdmin, model.credentialId, 1);
     const edited = await webchatAdmin.readCredential(model.credentialId);
     expect(Number(edited.max_inflight)).toBe(1);
     try {
@@ -460,9 +462,7 @@ asyncio.run(main())
       expect(JSON.stringify(cMessages.body)).not.toContain('正在等待模型资源');
     } finally {
       // 真实容量复原：后续用例不受本用例的容量改写影响。
-      await webchatAdmin.updateCredential(model.credentialId, {
-        max_inflight: Number(original.max_inflight)
-      });
+      await setCredentialInflight(webchatAdmin, model.credentialId, Number(original.max_inflight));
     }
   });
 
@@ -857,7 +857,7 @@ asyncio.run(main())
     await waitForRunSettled(session, conversation3);
 
     // ---- 受理超时：模型等待预算 10s（真实设置保存）→ 等待中的 Run 有明确终态、无伪成功 --------
-    await lowerCredentialInflight(webchatAdmin, model.credentialId, 1);
+    await setCredentialInflight(webchatAdmin, model.credentialId, 1);
     const saved = await saveSettings(page, webchatStack, {
       capacity: { model_wait_timeout_sec: 10 }
     });
@@ -913,9 +913,7 @@ asyncio.run(main())
       expect(bodies.join('\n'), '超时不得显示伪成功正文').not.toContain('超时占用');
       await expect(page.locator('[data-testid="chat-message-item"][data-role="ASSISTANT"]')).toHaveCount(0);
     } finally {
-      await webchatAdmin.updateCredential(model.credentialId, {
-        max_inflight: Number(original.max_inflight)
-      });
+      await setCredentialInflight(webchatAdmin, model.credentialId, Number(original.max_inflight));
       const restored = await saveSettings(page, webchatStack, {});
       expect(restored.status, JSON.stringify(restored)).toBe(200);
     }
