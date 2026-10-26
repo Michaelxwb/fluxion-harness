@@ -970,3 +970,33 @@ export function runPythonJson<T>(source: string): T {
   return JSON.parse(line) as T;
 }
 
+/**
+ * 结算遗留的 `UNKNOWN` 模型租约（**测试侧收尾**，不是产品行为）。
+ *
+ * 产品语义：模型调用结果未知时租约落 `UNKNOWN` 并保留容量占用，等证据才释放；console 的
+ * 排空判定把 ACTIVE/UNKNOWN 都算作在飞。于是一个制造超时/取消的用例会让共享凭据的容量
+ * **再也改不了**，后续容量用例全部 409 `MODEL_CAPACITY_DRAIN_REQUIRED`。容量类用例在改
+ * 容量前先结算这些合成租约（只结算**所属 Run 已终态**的，在飞 Run 的租约绝不动）。
+ */
+export function settleUnknownModelLeases(): number {
+  const result = runPythonJson<{ settled: number }>(`
+import asyncio, json, os, asyncpg
+async def main():
+    conn = await asyncpg.connect(os.environ['DATABASE_URL'].replace('postgresql+asyncpg', 'postgresql'))
+    status = await conn.execute("""
+        update runtime.model_call_lease l
+           set state = 'SETTLED'
+         where l.is_deleted = false
+           and l.state in ('ACTIVE', 'UNKNOWN')
+           and exists (
+                 select 1 from runtime.run_record r
+                  where r.id = l.run_id
+                    and r.status in ('COMPLETED', 'FAILED', 'CANCELLED'))
+    """)
+    await conn.close()
+    print(json.dumps({'settled': int(status.split()[-1]) if status else 0}))
+asyncio.run(main())
+`);
+  return result.settled;
+}
+
