@@ -23,10 +23,6 @@ on:
         description: "并发用户数（runner 容量内；超过 runner 承载档会失真）"
         required: false
         default: "15"
-      profile:
-        description: "容量 profile"
-        required: false
-        default: "smoke"
 
 concurrency:
   # 同一时刻只跑一个容量档，避免两次压测互相抢 CPU/连接。
