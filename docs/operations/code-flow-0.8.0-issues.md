@@ -24,6 +24,7 @@
 | B10 | P2 | `task finish` 在提交前跑，证据 input_hash 与提交后树不一致 | collect/merge 报 `input_hash_mismatch`，只能重跑验收 |
 | B11 | P2 | `spec refresh` 与 `--verify-plan` 的顺序陷阱 | 改任务文件后 19 条规则报 `rule_artifact_stale` |
 | B12 | P2 | `cf_stop_hook.py` 并发执行会互相等锁、长时间不退出 | 观察到一个实例挂起 5 小时以上 |
+| B13 | P0 | 无 active TASK 时，path-mapped 单个 spec 超 1700 token 直接阻断编辑 | 本仓 `harness-test.md` 38KB ⇒ 任何 `tests/` 文件都改不了 |
 
 ---
 
@@ -333,8 +334,42 @@ code-flow spec refresh --task-dir …    # 之后才 pass
 
 ---
 
-## 附：本仓补丁清单（`1e617464`）
+## B13 path-mapped 单 spec 超预算时永久阻断编辑
 
+**级别**：P0（无 active TASK 时工作区不可编辑测试）
+
+**现象**
+
+需求归档/全部任务 done 之后，任何 `tests/` 文件编辑都被 PreToolUse hook 拦下：
+
+```
+SPEC_WORKFLOW_BLOCKED [spec_budget_exceeded]: Matched Specs exceed 1700 estimated tokens;
+create a focused TASK Context or split the editing scope.
+```
+
+**根因**
+
+`cf_spec_router.py:229 _read_candidates()` 把 path 命中的 spec 正文装配后与
+`min(budget.total=2500, budget.l1_max=1700)` 比较，超了直接 `raise`。旧构建
+（`08da3386`）的同一函数**没有**这段预算检查。
+
+本仓 `tests/**` 只命中一个 spec：`test/harness-test.md`（38KB）。它自己就远超 1700，
+于是「无 active TASK ⇒ 只能走 path-mapped」这条唯一通路上永远超预算——**没有任何配置
+能绕开**（`l1_max` 拉满到 `total=2500` 仍然不够，且 `maximum` 取两者最小值）。
+
+**本仓处理**
+
+超预算时不再抛错：跳过注入、返回一段显式说明（`## Path-mapped Specs over budget`）
+并放行编辑。多 spec 命中时校验照旧（真正的上下文膨胀风险在那里）。
+
+**建议修复**
+
+预算超限应当是「不注入 + 警告」，而不是阻断编辑；或在单一 canonical spec 命中时
+不再适用 l1 预算。
+
+---
+
+## 附：本仓补丁清单（`1e617464`）
 | 文件 | 补丁 |
 |---|---|
 | `cf_rule_readiness.py` | B1：工件按需求目录回落解析 |
@@ -342,6 +377,7 @@ code-flow spec refresh --task-dir …    # 之后才 pass
 | `cf_workflow_service.py` / `cf_task_parallel.py` | B3：真值校验按任务 Spec 范围 |
 | `cf_acceptance_runner.py` / `cf_task_workflow.py` | B5：批次 smoke 按本批 TASK 过滤 |
 | `cf_stop_hook.py` | B6：deferred 行允许 `e2e_deferred` |
+| `cf_spec_router.py` | B13：path-mapped 超预算改为「不注入 + 放行」（`0ac9176d` 之后另行提交） |
 
 B2/B7/B8/B9/B10/B11/B12 未在代码中修，按下列方式规避：引用改为字面锚点、
 计划字段补齐、重锁后手工恢复运行态、提交后重跑验收写证据、改文件后先 refresh、避免并发执行。

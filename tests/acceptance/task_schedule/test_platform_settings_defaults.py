@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import time
 import uuid
 from typing import Any, cast
 
@@ -31,8 +32,34 @@ from .environment import (
 from .helpers import submission_context
 
 SETTINGS_URL = "/api/v1/platform-settings"
+INTERNAL_SETTINGS_URL = "/internal/v1/platform-settings"
 SEEDED_REVISION = 1
 NEW_MAX_ATTEMPTS = 7
+#: 保存同步落库（PUT 返回时已 commit），等待窗口只用来兜住跨进程可见性抖动；
+#: 等不到就说明「保存后的快照可见性」本身有缺口，必须显式失败而不是继续用旧默认。
+SNAPSHOT_VISIBLE_TIMEOUT_SEC = 30.0
+
+
+def _await_snapshot_revision(live_stack: LiveStack, revision: int) -> None:
+    """等内部快照端点看到刚保存的版本（Worker 取快照走的就是这条通道）。"""
+    deadline = time.monotonic() + SNAPSHOT_VISIBLE_TIMEOUT_SEC
+    observed: Any = None
+    while time.monotonic() < deadline:
+        response = httpx.get(
+            f"{live_stack.console_url}{INTERNAL_SETTINGS_URL}",
+            headers={
+                "X-Tenant-Id": live_stack.tenant_id,
+                "X-Internal-Service": INTERNAL_TOKEN,
+                "X-Caller-Service": "worker",
+            },
+            timeout=10.0,
+        )
+        if response.status_code == 200:
+            observed = (response.json().get("data") or {}).get("revision")
+            if observed == revision:
+                return
+        time.sleep(0.2)
+    raise AssertionError(f"保存后内部快照未收敛到 revision={revision}（最近观测 {observed!r}）")
 
 
 def _login_admin(http: httpx.Client, live_stack: LiveStack) -> str:
@@ -107,6 +134,7 @@ def test_s02_save_attempts_new_task_uses_new_default_existing_row_unchanged(
     )
     assert saved.status_code == 200, saved.text
     assert saved.json()["data"]["revision"] == SEEDED_REVISION + 1, saved.json()
+    _await_snapshot_revision(live_stack, SEEDED_REVISION + 1)
 
     # ③ 保存后新建的 Task 用新默认。
     new_id = _submit_task(live_stack, "after-save")

@@ -231,8 +231,18 @@ def _read_candidates(root: str, paths: Sequence[str], compress: bool = True) -> 
     if not isinstance(budget, dict):
         raise RouterError("invalid_budget", "budget must be a mapping")
     maximum = min(int(budget.get("total", 2500)), int(budget.get("l1_max", 1700)))
-    if maximum <= 0 or estimate_tokens(text) > maximum:
-        raise RouterError("spec_budget_exceeded", f"Matched Specs exceed {maximum} estimated tokens; create a focused TASK Context or split the editing scope. Required constraints were not truncated.")
+    if maximum <= 0:
+        raise RouterError("invalid_budget", "budget must be positive")
+    if estimate_tokens(text) > maximum:
+        # 本地补丁（B13）：无 active TASK 时 path-mapped 是唯一通路；单个规范文件本身
+        # 超预算就硬阻断，等于该路径永久不可编辑（本项目 harness-test.md 38KB）。改为
+        # 不注入超预算正文、显式告知，编辑照常放行。
+        note = (
+            "## Path-mapped Specs over budget\n"
+            f"{', '.join(item['path'] for item in specs)} 超过 {maximum} estimated tokens；"
+            "约束未注入（编辑已放行）。需要完整约束时在该域激活 TASK。"
+        )
+        return RouteResult("path", note, tuple(item["path"] for item in specs))
     return RouteResult("path", text, tuple(item["path"] for item in specs))
 
 
