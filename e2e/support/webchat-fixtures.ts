@@ -1000,3 +1000,23 @@ asyncio.run(main())
   return result.settled;
 }
 
+/** 排空失败时的诊断：把仍在占用容量的租约（状态/租约到期/所属 Run 状态）一次打全。 */
+export function describeLiveModelLeases(): Record<string, unknown>[] {
+  return runPythonJson<Record<string, unknown>[]>(`
+import asyncio, json, os, asyncpg
+async def main():
+    conn = await asyncpg.connect(os.environ['DATABASE_URL'].replace('postgresql+asyncpg', 'postgresql'))
+    rows = await conn.fetch("""
+        select l.state, l.lease_until, l.workload, l.run_id::text as run_id,
+               coalesce(r.status, '<no run>') as run_status
+          from runtime.model_call_lease l
+          left join runtime.run_record r on r.id = l.run_id
+         where l.is_deleted = false and l.state in ('ACTIVE', 'UNKNOWN')
+         order by l.lease_until
+    """)
+    await conn.close()
+    print(json.dumps([{k: (str(v) if k == 'lease_until' else v) for k, v in dict(row).items()} for row in rows]))
+asyncio.run(main())
+`);
+}
+

@@ -30,6 +30,7 @@ import {
   expect,
   openChatConversation,
   openChatWithToken,
+  describeLiveModelLeases,
   runPythonJson,
   settleUnknownModelLeases,
   test,
@@ -308,7 +309,11 @@ async function setCredentialInflight(
       return;
     } catch (error) {
       const message = String((error as Error).message ?? '');
-      if (!message.includes('MODEL_CAPACITY_DRAIN_REQUIRED') || Date.now() > deadline) throw error;
+      if (!message.includes('MODEL_CAPACITY_DRAIN_REQUIRED')) throw error;
+      if (Date.now() > deadline) {
+        // 排空超时：把仍在占用容量的租约（状态/到期/所属 Run）带出来，否则只剩一句 409。
+        throw new Error(`${message}（仍在占用容量：${JSON.stringify(describeLiveModelLeases())}）`);
+      }
       await new Promise((resolve) => setTimeout(resolve, 1_000));
     }
   }
@@ -869,7 +874,14 @@ asyncio.run(main())
       await webchatFaults.setBehavior({
         latency_ms: 1_000,
         chunk_interval_ms: 1_200,
-        deltas: ['超时', '占用', '1', '2', '3', '4', '5', '6', '7', '8']
+        // 占用窗口必须**明显长于**下面的模型等待预算（10s）：原 10 个分片只有约 13s，
+        // 3s 余量在慢机器上会被吃掉——名额提前释放，等待中的 Run 拿到名额跑完，
+        // 断言就变成「期望 FAILED，实际 COMPLETED」。20 个分片约 25s，锁死这个窗口。
+        deltas: [
+          '超时', '占用', '1', '2', '3', '4', '5',
+          '6', '7', '8', '9', '10', '11', '12', '13',
+          '14', '15', '16', '17', '18'
+        ]
       });
       const holder = await submitMessage(session, user.entry.entryId, {
         conversationId: conversation3,

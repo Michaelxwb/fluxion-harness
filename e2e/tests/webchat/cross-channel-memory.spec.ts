@@ -30,6 +30,7 @@ import {
   expect,
   openChatConversation,
   openChatWithToken,
+  describeLiveModelLeases,
   runPythonJson,
   settleUnknownModelLeases,
   test,
@@ -326,7 +327,11 @@ async function setCredentialInflight(
       return;
     } catch (error) {
       const message = String((error as Error).message ?? '');
-      if (!message.includes('MODEL_CAPACITY_DRAIN_REQUIRED') || Date.now() > deadline) throw error;
+      if (!message.includes('MODEL_CAPACITY_DRAIN_REQUIRED')) throw error;
+      if (Date.now() > deadline) {
+        // 排空超时：把仍在占用容量的租约（状态/到期/所属 Run）带出来，否则只剩一句 409。
+        throw new Error(`${message}（仍在占用容量：${JSON.stringify(describeLiveModelLeases())}）`);
+      }
       await new Promise((resolve) => setTimeout(resolve, 1_000));
     }
   }
