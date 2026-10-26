@@ -914,7 +914,7 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 |---|---|---|---|---|---|---|
 | S-01 | integration | 真实目标拓扑 + 1000×8 + 20 chunks/s + 15s 通知 | SLO 全过；attempts=8000；PG/CPU/retention 预算内 | tests/acceptance/capacity/test_capacity.py | ["bash", "-lc", "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"] | deferred（staging，由 E-09 执行） | e2e_deferred |
 | E-08 | integration | 真实 PG/Redis + Pod kill/failover | 已受理不丢；SSE 可恢复；无重复终态/投递 | tests/acceptance/capacity/test_capacity_chaos.py | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_chaos.py"]（实测 4 passed, 1 env_blocked skip）| verified |
-| E-09 | manual | staging 目标拓扑 + 人工执行 | SLO 全过并记录证据；未过不得写达标 | manual/staging（owner=发布负责人；deadline=发布前） | - | planned（manual） |
+| E-09 | manual | staging 目标拓扑 + 人工执行 | SLO 全过并记录证据；未过不得写达标 | manual/staging（owner=发布负责人；deadline=发布前） | - | planned |
 
 **Spec Verifier**
 
@@ -930,7 +930,7 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 |---|---|---|---|---|---|
 | S-01 | 本地无 1000×8 执行环境（单机四单元 Runtime 池 20+10=30、准入闸门 30；30 用户对照实验全过可证明本机不是 SLO 判据） | 本地不执行，登记 staging 执行：attempts=8000 与 SLO 证据由 E-09 产出（owner=发布负责人，deadline=发布前） | 不适用（本地不执行；`tests/acceptance/capacity/test_capacity.py` 为 `capacity_load` 手动入口） | 真实目标拓扑（N Runtime 副本、PG total<200、模型额度）+ 1000×8 + 20 chunks/s × 10s + 15s 通知 | deferred（staging → E-09） |
 | E-08 | 首版 `test_capacity_chaos.py`：读线程在 kill 前提前返回、把 `run.failed` 当 `run.terminal` ⇒ 2 failed；后暴露入口代理在流中上游断开后不发 EOF ⇒ kill 用例等 30s 读超时 | `uv run pytest -q tests/acceptance/capacity/test_capacity_chaos.py` ⇒ **4 passed, 1 skipped**（Redis 抖动 30s / Gateway kill 4s / Runtime kill 7s / PG 连接中断 10s；skip = PG failover env_blocked） | `tests/acceptance/capacity/test_capacity_chaos.py::test_e08_redis_jitter_degrades_to_pg_and_recovers`、`::test_e08_gateway_kill_keeps_execution_and_recovers_public_sse`、`::test_e08_runtime_kill_reaps_run_and_resumes_sse_without_duplicates`、`::test_e08_postgres_connection_outage_keeps_admitted_run` | 真实四单元 uvicorn 子进程 + 真实 TCP 故障代理（Runtime `REDIS_URL` 经代理 DROP）+ SIGKILL 整进程组/同地址重启 + 真实 PostgreSQL（本栈临时库 `pg_terminate_backend`）。断言用户可观察的公开 SSE 正文/终态（`run.terminal` / 失败的 `run.error`）+ PG 事实：终态 `canonical_event` 恰一条、`channel_notification` 恰一行且 `delivery_key` 唯一、Reaper 落 `FAILED/RUN_ABANDONED`、模型只调用一次、降级指标 `event_stream_hint_total{status="degraded"}` 真实增长。PG 主备切换/副本提升：本机无副本且共享单主容器不可重启 ⇒ `env_blocked`（缺失环境：带副本提升的 PG 目标拓扑；owner=发布负责人；由 staging E-09 覆盖），不冒充通过（实测 4 passed, 1 env_blocked skip）| verified |
-| E-09 | 未执行（staging 人工发布门禁，发布前执行） | 未执行；未过不得写生产达标 | `manual/staging`：全量 `capacity_load` 1000×8 + SLO/PG/CPU/retention 证据 + profile hash；发布门禁按 design §4.2（Phase 2 进入=1000 用户 SLO 通过；回滚=保留旧写路径开关/DB 备份回退）与 §4.3 告警阈值（受理 P95>500ms 5min P1、idle-in-tx>50 P1、pool timeout>0 P1、SSE rejected>0 P2、retention lag P2）记录 | 真实 staging 目标拓扑（N Runtime 副本、PG total<200、模型额度、观测就绪）；owner=发布负责人；deadline=发布前 | planned（manual） |
+| E-09 | 未执行（staging 人工发布门禁，发布前执行） | 未执行；未过不得写生产达标 | `manual/staging`：全量 `capacity_load` 1000×8 + SLO/PG/CPU/retention 证据 + profile hash；发布门禁按 design §4.2（Phase 2 进入=1000 用户 SLO 通过；回滚=保留旧写路径开关/DB 备份回退）与 §4.3 告警阈值（受理 P95>500ms 5min P1、idle-in-tx>50 P1、pool timeout>0 P1、SSE rejected>0 P2、retention lag P2）记录 | 真实 staging 目标拓扑（N Runtime 副本、PG total<200、模型额度、观测就绪）；owner=发布负责人；deadline=发布前 | planned |
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=ca731a97641f423c97a6ec0925ebd7ff (confirmed_by: runner)
 
 ### Log
