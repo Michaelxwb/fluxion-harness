@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import sys
 import time
@@ -152,7 +153,16 @@ async def test_b110_replayed_message_does_not_consume_twice(
     )
     try:
         await pipeline.handle(adapter, envelope)
-        used_at_first = (await _fetch_code(channel)).used_at
+        # 首次 /bind 的消费事实可能比 HTTP 响应晚一拍可见（真实 Console + PostgreSQL）；
+        # 先等它落定再重投，否则重投会消费一次而首次读取仍是 None（CI 负载下实测）。
+        used_at_first = None
+        for _ in range(50):
+            code = await _fetch_code(channel)
+            if code is not None and code.used_at is not None:
+                used_at_first = code.used_at
+                break
+            await asyncio.sleep(0.1)
+        assert used_at_first is not None, "首次 /bind 必须已经消费绑定码"
         await pipeline.handle(adapter, envelope)  # 同 message_id 重投：幂等重放
         assert _sent_texts(adapter) == [BIND_SUCCESS_TEXT, BIND_SUCCESS_TEXT]
         assert await _count_identities(channel, channel.unbound_external_user_id) == 1

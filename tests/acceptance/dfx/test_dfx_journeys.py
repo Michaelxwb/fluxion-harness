@@ -385,20 +385,28 @@ async def _seed_waiting_run(stack: GatewayStack) -> tuple[str, str]:
     return str(run_id), str(conversation_id)
 
 
+WARM_UP_TEXT = "S-09 预热：制造一次真实执行"
+
+
 async def _warm_up_real_run(stack: GatewayStack) -> str:
     """先跑一次**真实**执行，使本租户存在可供恢复路径复制的真实快照。"""
     await _wait_gateway_ws(stack)
-    await _push(stack, text="S-09 预热：制造一次真实执行")
+    await _push(stack, text=WARM_UP_TEXT)
+    # 必须等**本次**预热 Run 到终态；只等「最新一条 run 到终态」会在 CI 负载下命中更早的
+    # 终态行而提前返回，预热 Run 仍活跃时随后的恢复会撞 RUN_BUSY。
     return str(
-        await _await_value(lambda: _terminal_run_id(stack.tenant_id), what="预热 Run 未在超时内到达终态")
+        await _await_value(
+            lambda: _terminal_run_id(stack.tenant_id, WARM_UP_TEXT),
+            what="预热 Run 未在超时内到达终态",
+        )
     )
 
 
-async def _terminal_run_id(tenant_id: str) -> str:
+async def _terminal_run_id(tenant_id: str, input_text: str) -> str:
     rows = await _rows(
-        "SELECT id::text, status FROM runtime.run_record WHERE tenant_id = :t "
-        "ORDER BY create_time DESC LIMIT 1",
-        {"t": tenant_id},
+        "SELECT id::text, status FROM runtime.run_record "
+        "WHERE tenant_id = :t AND input_text = :x ORDER BY create_time DESC LIMIT 1",
+        {"t": tenant_id, "x": input_text},
     )
     if rows and str(rows[0][1]) in {"COMPLETED", "FAILED"}:
         return str(rows[0][0])

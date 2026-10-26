@@ -81,7 +81,9 @@ PROBE_LATENCY_MS = 250
 PROBE_KEY = "sk-capacity-load-driver"
 #: 受限验证规模：6 用户 × 2 轮、ramp 2s、稳态 3s、思考时间按比例缩放（形状保持、显式登记）。
 VERIFICATION_SCALE = LoadScale(
-    users=6, ramp_sec=2, steady_sec=3, turns_per_user=2, think_time_scale=0.05
+    # steady 给足 CI 负载余量：窗口只约束「所有轮次在 ramp+steady 内启动」，不是吞吐结论；
+    # 1–3s 的窗口在 CI 上会被调度延迟打穿（实测偶发 steady_violations）。
+    users=6, ramp_sec=2, steady_sec=10, turns_per_user=2, think_time_scale=0.05
 )
 
 
