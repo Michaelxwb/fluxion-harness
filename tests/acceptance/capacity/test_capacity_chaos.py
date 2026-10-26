@@ -294,10 +294,12 @@ def _assert_hint_recovery(
         stack.proxy.url, session, run_id, timeout_sec=WAIT_TIMEOUT_SEC
     )
     assert recovered.terminal == "COMPLETED", "恢复直通后新 Run 必须正常完成"
+    # Redis 客户端在断连后按自己的退避重建连接；CI 上实测可能超过 30s 才回到 ok 路径
+    # （本文件其余恢复等待统一用 WAIT_TIMEOUT_SEC）。语义不变：仍然必须真实恢复到 ok。
     wait_until(
         lambda: metric_total(runtime.url, "event_stream_hint_total", {"status": "ok"}) > ok_before,
         what="恢复后提示路径未重新可见（ok 计数未增长）",
-        timeout=30.0,
+        timeout=WAIT_TIMEOUT_SEC,
     )
 
 
