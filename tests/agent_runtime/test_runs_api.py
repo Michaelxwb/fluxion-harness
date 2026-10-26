@@ -10,6 +10,7 @@ import pytest
 import sqlalchemy as sa
 from httpx import AsyncClient
 from muad_agent_runtime.application.run_service import snapshot_policy
+from muad_agent_runtime.application.run_submission import RunSubmissionService
 from muad_agent_runtime.infrastructure.db import get_engine, get_session_factory
 from muad_agent_runtime.infrastructure.models.async_tools import RunContinuation, ToolOperation
 from muad_agent_runtime.infrastructure.models.runtime import (
@@ -256,8 +257,48 @@ async def test_create_run_returns_busy_when_active_run_exists(
     assert created_response.json()["code"] == "RUN_BUSY"
 
 
-async def test_create_run_auto_resumes_waiting_input_run(
+async def test_same_key_retry_replays_even_when_winner_commits_after_claim(
     client: AsyncClient,
+    tenant: TenantContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """同键并发：赢家的 Run 在落败者的「开环预检 + claim」之后才提交，仍必须重放而非 RUN_BUSY。
+
+    `_admit` 的两次同键查询都读不到行、随后 `_active_run` 却已能看到赢家的 Run——这是并发
+    同键在慢机器上的真实次序。若此时直接走 `_resume_active`，同键重试会被误判成第二个 Run
+    并抛 `RUN_BUSY`（b126 并发用例的偶发形态）。
+    """
+    payload = _payload(tenant)
+    first = await client.post("/v1/runs", json=payload, headers=_headers(tenant))
+    assert first.status_code == 200, first.text
+    run_id = uuid.UUID(parse_sse(first.text)[0]["run_id"])
+
+    # 首次 Run 置回非终态：等价于「赢家仍在飞」，且它的 submission 已提交。
+    async with get_session_factory()() as session:
+        run = await session.get(RunRecord, run_id)
+        assert run is not None and run.status == "COMPLETED"
+        run.status = "RUNNING"
+        run.end_time = None
+        await session.commit()
+
+    original = RunSubmissionService.find_replay_in
+    misses = {"left": 2}
+
+    async def racing(self: RunSubmissionService, *args: Any, **kwargs: Any) -> Any:
+        if misses["left"] > 0:
+            misses["left"] -= 1
+            return None
+        return await original(self, *args, **kwargs)
+
+    monkeypatch.setattr(RunSubmissionService, "find_replay_in", racing)
+
+    second = await client.post("/v1/runs", json=payload, headers=_headers(tenant))
+    assert second.status_code == 200, second.text
+    assert uuid.UUID(parse_sse(second.text)[0]["run_id"]) == run_id
+    assert misses["left"] == 0, "两次开环查询必须都已发生（否则没有覆盖并发次序）"
+
+
+async def test_create_run_auto_resumes_waiting_input_run(    client: AsyncClient,
     tenant: TenantContext,
     resolved: ResolveDefinitionResponse,
 ) -> None:
