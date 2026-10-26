@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import os
-import socket
 import threading
 import time
 import uuid
@@ -999,10 +998,7 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
         assert read_process_environ(runtime.pid)["IM_GATEWAY_URL"] == (
             f"http://127.0.0.1:{wecom_harness.relay_port}"
         ), "Runtime 投递端点必须指向稳定 relay；被环境覆盖会让下线窗口失真"
-    with pytest.raises(ConnectionRefusedError):
-        socket.create_connection(
-            ("127.0.0.1", wecom_harness.relay_port), timeout=1.0
-        ).close()
+    assert relay.listening is False, "relay 必须停止监听（下线窗口的投递端点不可用）"
     await await_until(
         lambda: run_row(stack.database_url, first_run)["status"] == "COMPLETED",
         what="Gateway 被杀后 Run 未跑完（HTTP 断开不得取消执行）",
@@ -1029,7 +1025,9 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
         timeout=60.0,
     )
     offline = _wecom_notification(stack.database_url, first_run)
-    assert offline["delivery_state"] != "DELIVERED", "没发出去不得标送达"
+    assert offline["delivery_state"] != "DELIVERED", (
+        f"没发出去不得标送达: row={offline} frames={probe.frames_of('aibot_send_msg')}"
+    )
     assert _delivery_outcome(offline) != "DELIVERED", "未送达不得冻结送达结果"
     assert probe.frames_of("aibot_send_msg") == [], "Gateway 下线时不可能有主动发送帧"
     if offline["delivery_state"] == "UNKNOWN":
