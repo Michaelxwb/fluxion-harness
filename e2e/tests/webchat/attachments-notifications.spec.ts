@@ -94,6 +94,9 @@ async function loginChat(page: Page, entryId: string, token: string): Promise<vo
   await page.getByTestId('chat-token-access-input').fill(token);
   await page.getByTestId('chat-token-access-submit').click();
   await expect(page.getByTestId('webchat-shell')).toBeVisible({ timeout: 30_000 });
+  // 侧栏骨架 = 索引尚未绑定到入口。此状态下新建会话在本地就因缺 entryId 失败（不发请求），
+  // 点下去既不会有响应也不会切视图——必须等骨架消失（入口已绑定）再操作。
+  await expect(page.getByTestId('chat-sidebar-loading')).toHaveCount(0, { timeout: 30_000 });
 }
 
 async function openConversation(page: Page, entryId: string, conversationId: string): Promise<void> {
