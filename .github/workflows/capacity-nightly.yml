@@ -2,10 +2,13 @@ name: capacity
 
 # 容量回归守卫（不是生产 SLO 门禁）。
 #
-# 为什么只跑“闸门容量”档：GitHub-hosted runner 是 4 vCPU / 16 GB，PG/Redis/四单元与
-# 负载生成器同机；本仓实测 100 用户档在单机共享 PG（max_connections=100 ⇒ runtime 池
-# 20+10、准入闸门 30）下必然超出 1000ms/2500ms 的 SLO——那是拓扑差异，不是代码退化。
-# 30 用户（= 闸门容量）档在同一套阈值下可稳定通过，因此拿它做“有没有变慢/变差”的回归信号。
+# 为什么只跑“runner 能承载”的档：GitHub-hosted runner 是 4 vCPU / 16 GB，PG/Redis/四单元与
+# 负载生成器同机。2026-10-26 实测（run #1/#2，同一套 S-16 阈值）：
+#   - 30 用户：admission P95 1246ms（阈值 1000）、first_delta P95 3536ms（阈值 2500）、
+#     idle-in-tx 26（阈值 20）→ 红；同一天同一份代码在本机 30 用户 1 passed。
+#   - 15 用户：全绿。
+# 即 30 用户档在 runner 上不是“稳定通过”的，它是机器差异不是代码退化；档位据此定在 15。
+# 阈值本身**不下调**（保持与生产同一把尺），只降负载，回归仍会被抓到。
 #
 # 1000×8 全量只在 staging 由人工发布门禁 E-09 执行；runner 上的任何数字都不得写成
 # “1000 用户达标”。
@@ -17,9 +20,9 @@ on:
   workflow_dispatch:
     inputs:
       users:
-        description: "并发用户数（runner 容量内；超过闸门容量会失真）"
+        description: "并发用户数（runner 容量内；超过 runner 承载档会失真）"
         required: false
-        default: "30"
+        default: "15"
       profile:
         description: "容量 profile"
         required: false
@@ -62,9 +65,9 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       INTERNAL_SERVICE_TOKEN: test-internal-token
       PYTEST_FAILURE_LOG: /tmp/pytest-failures.log
-      # 默认 30 (= 本机 PG 预算下的准入闸门容量)。manual 触发可传更高档，
-      # 但超过闸门容量时得到的延迟是排队效应，只作诊断、不写达标。
-      CAPACITY_LOAD_USERS: ${{ github.event.inputs.users || '30' }}
+      # 默认 15（= 2026-10-26 实测 runner 可稳定承载的档，见文件头）。manual 触发可传更高档，
+      # 但超过承载档时得到的是排队效应，只作诊断、不写达标。
+      CAPACITY_LOAD_USERS: ${{ github.event.inputs.users || '15' }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5

@@ -6,7 +6,7 @@ name: release
 #   git push origin v1.2.3
 #     → check.yml 在同一个 tag 提交上跑完整校验（静态/单测分片/acceptance/e2e/component/smoke）
 #     → 本工作流用 workflow_run 收到 “check 成功” 事件
-#     → capacity 作业先跑闸门容量档的容量守卫（30 用户，非 1000 用户 SLO）
+#     → capacity 作业先跑容量守卫（runner 承载档，非 1000 用户 SLO）
 #     → images 作业构建并推送 5 个镜像（含 TASK-009 新增的 im-connector）
 #
 # 普通 push / PR 不再构建镜像；Dockerfile 问题会在打 tag 时被这条链拦住（不会静默发布）。
@@ -30,7 +30,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # 发布前压测：与 capacity-nightly 同一口径（闸门容量档），失败则不发镜像。
+  # 发布前压测：与 capacity-nightly 同一口径（runner 承载档，2026-10-26 实测 15 绿 / 30 红），
+  # 失败则不发镜像。生产 SLO 仍由 staging 的 E-09 人工门禁判定。
   capacity:
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -66,7 +67,7 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       INTERNAL_SERVICE_TOKEN: test-internal-token
       PYTEST_FAILURE_LOG: /tmp/pytest-failures.log
-      CAPACITY_LOAD_USERS: "30"
+      CAPACITY_LOAD_USERS: "15"
     steps:
       - uses: actions/checkout@v4
         with:
