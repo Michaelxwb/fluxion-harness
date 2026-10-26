@@ -124,7 +124,11 @@ class MemoryJobs:
             )
             if job is None:
                 return None
-            snapshot = await session.get(RuntimeSnapshot, job.snapshot_id)
+            snapshot = await session.scalar(
+                select(RuntimeSnapshot)
+                .prefix_with("/* memory_claim */")
+                .where(RuntimeSnapshot.id == job.snapshot_id)
+            )
             if snapshot is None:
                 raise ValueError("source snapshot unavailable")
             policy = execution_defaults_of(snapshot.policy_json).memory_policy

@@ -483,6 +483,21 @@ def run_db(coro_factory: Any) -> Any:
     return _run_async(runner)
 
 
+def _wait_readyz(url: str, *, timeout_sec: float = READY_TIMEOUT_SEC) -> None:
+    """等真实服务 `/readyz` 到 200（依赖就绪，而非仅进程存活）；有界，超时给最后盘面。"""
+    deadline = time.monotonic() + timeout_sec
+    status = 0
+    while time.monotonic() < deadline:
+        try:
+            status = httpx.get(f"{url}/readyz", timeout=2.0).status_code
+        except httpx.HTTPError:
+            status = 0
+        if status == 200:
+            return
+        time.sleep(0.2)
+    raise AssertionError(f"{url}/readyz 未在 {timeout_sec}s 内就绪：{status}")
+
+
 def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
     from muad_common import SharedSettings
 
@@ -515,6 +530,7 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
     worker2_port = free_port()
     gateway_port = free_port()
     channel_port = free_port()
+    connector_port = free_port()
     llm_port = free_port()
 
     console_url = f"http://127.0.0.1:{console_port}"
@@ -523,6 +539,7 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
     worker2_url = f"http://127.0.0.1:{worker2_port}"
     gateway_url = f"http://127.0.0.1:{gateway_port}"
     channel_url = f"http://127.0.0.1:{channel_port}"
+    connector_url = f"http://127.0.0.1:{connector_port}"
     llm_url = f"http://127.0.0.1:{llm_port}"
 
     processes: list[ServiceProcess] = []
@@ -577,7 +594,18 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
         gateway_port,
         CONSOLE_PLATFORM_URL=console_url,
         AGENT_RUNTIME_URL=runtime_url,
+        # TASK-009 起 WECOM 的发送在独立 Connector：Gateway 只把命令写 im.outbound。
+        GATEWAY_ROUTED_CHANNELS="WECOM",
         CHANNEL_PROBE_URL=f"{channel_url}/probe/deliveries",
+    )
+    connector = spawn(
+        "connector",
+        "muad_im_connector.main",
+        connector_port,
+        CONSOLE_PLATFORM_URL=console_url,
+        CHANNEL_PROBE_URL=f"{channel_url}/probe/deliveries",
+        CONNECTOR_HANDLED_CHANNELS="WECOM",
+        CONNECTOR_OWNER_ID=f"task-schedule-{uuid.uuid4().hex[:8]}",
     )
 
     llm_probe.start()
@@ -591,6 +619,10 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
     worker.start()
     worker2.start()
     gateway.start()
+    connector.start()
+    # Connector 的 /readyz 在快照应用后才 200：此时 bot snapshot 已应用、lease 已取得，
+    # task 结果投递不会落在“命令有生产者、暂时没有消费者”的窗口里。
+    _wait_readyz(connector_url)
 
     stack = LiveStack(
         processes={process.name: process for process in processes},

@@ -530,7 +530,7 @@ def test_b317_config_hash_covers_the_real_profile_and_deployment_facts() -> None
 
     runtime = deployment.units["agent-runtime"]
     assert runtime.max_replicas == 4, "HPA 上界来自真实渲染清单"
-    assert runtime.execution_concurrency == 8, "执行槽来自清单 env 字面量"
+    assert runtime.execution_concurrency == 256, "执行槽来自清单 env 字面量"
     assert (runtime.cpu_limit_millicores, runtime.memory_limit_mb) == (4000, 8192)
     assert deployment.units["console-platform"].max_replicas == 1
 

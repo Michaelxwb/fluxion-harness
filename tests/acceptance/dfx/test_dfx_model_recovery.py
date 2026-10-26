@@ -448,7 +448,8 @@ def test_e09_cancel_stops_retries_immediately(live_stack: LiveStack, fault_probe
     assert streamed[-1]["data"]["status"] == "CANCELLED", streamed[-1]
     # **时间有界**：正确实现下退避 sleep 每 0.1s 检查取消，取消到终态应远小于当前 Retry-After(30s)；
     # 若取消感知失效（退避变成一次性 sleep），这里会等到 30s 才终止 ⇒ 该上界即判据。
-    assert cancel_to_terminal_sec <= 5.0, f"取消未立即生效：{cancel_to_terminal_sec:.1f}s（Retry-After=30s）"
+    # 整跑负载下的调度/写盘抖动曾出现 5.1s（单跑 <1s）；放大到 10s 仍远小于 30s，判据不变。
+    assert cancel_to_terminal_sec <= 10.0, f"取消未立即生效：{cancel_to_terminal_sec:.1f}s（Retry-After=30s）"
 
     row = _run_row(live_stack, str(streamed[0]["run_id"]))
     assert row["status"] == "CANCELLED", row

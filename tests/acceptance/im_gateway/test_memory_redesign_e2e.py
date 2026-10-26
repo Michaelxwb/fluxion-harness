@@ -380,9 +380,20 @@ async def _override_memory_settings(stack: GatewayStack, **memory: int) -> int:
 
 
 async def _drop_platform_setting(stack: GatewayStack, revision: int) -> None:
+    """删掉临时设置版本，并把**受理策略投影**一起回退。
+
+    `runtime.run_admission_policy.source_settings_revision` 是平台设置的派生值：删掉更高
+    revision 后若留着它，读取侧拿到的 settings revision 更低 ⇒ 每次准入都
+    `AdmissionPolicyStaleError`，重试耗尽即 `PLATFORM_SETTINGS_UNAVAILABLE`（本模块后续
+    用例与后续模块的 Run 全红）。删除投影，让下一次准入按当前设置重新 upsert。
+    """
     await _execute(
         "DELETE FROM control.platform_setting WHERE tenant_id = :tenant AND revision = :revision",
         {"tenant": stack.tenant_id, "revision": revision},
+    )
+    await _execute(
+        "DELETE FROM runtime.run_admission_policy WHERE tenant_id = :tenant",
+        {"tenant": stack.tenant_id},
     )
 
 
@@ -533,9 +544,10 @@ async def test_e02_memory_redesign_real_confirmation_replay_and_rejection(
     assert len(await _memory_rows(gateway_stack, key)) == 1
     assert await _history_count(gateway_stack, key) == 1
 
-    # 重连：Gateway 真实进程重启后平台重投同一 msgid，事实不变（入站去重 + 持久重放）
+    # 重连：**持有 WS 长连接的角色**（Connector）真实进程重启后平台重投同一 msgid，
+    # 事实不变（入站去重 + 持久重放）。重启 Gateway 不会重建 WS 连接——连接不在请求面。
     connections = len(getattr(gateway_stack.ws_probe, "connection_bots", {}))
-    restart_process(gateway_stack.processes["gateway"])
+    restart_process(gateway_stack.processes["connector"])
     await _wait_for_gateway_ws(gateway_stack, minimum_connections=connections + 1)
     await _push(gateway_stack, text=f"确认 {proposal['id']}", message_id=confirm_id)
     await asyncio.sleep(2.0)

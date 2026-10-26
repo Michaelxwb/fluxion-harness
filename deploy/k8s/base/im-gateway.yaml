@@ -4,7 +4,10 @@ metadata:
   name: muad-im-gateway
   namespace: muad
 spec:
-  replicas: 1
+  # Gateway 是**请求面**（design §4.1：N 副本、无 sticky session）：2 个副本让滚动更新/
+  # 单 Pod 故障期间 WebChat 仍可服务；请求带真实副本间重连（S-06）在 with-connector overlay
+  # 的同拓扑上验证。单 Pod 出站池按目标并发定容，上界 = egress×副本数（预检核算）。
+  replicas: 2
   selector:
     matchLabels:
       app: muad-im-gateway
@@ -14,8 +17,8 @@ spec:
         app: muad-im-gateway
     spec:
       # 排空预算（design §4.1/§4.2）：readiness 先停新受理/领取，再有界等待并关闭订阅；
-      # 已受理状态留在 PG。终止宽限起始 60 秒（§3.7）。Console 与 Gateway 各一个 Pod 是
-      # 部署约束，不提供这两单元的高可用承诺——更新/故障期间通道连接短暂受影响。
+      # 已受理状态留在 PG。终止宽限起始 60 秒（§3.7）。Gateway 无状态、可多副本；
+      # 长连接（企微 WS）在独立 Connector 角色里，不在请求面。
       terminationGracePeriodSeconds: 60
       # 非 root 运行：与镜像内 UID/GID 10001 对齐；fsGroup 让 artifacts PVC 对该组可写
       securityContext:

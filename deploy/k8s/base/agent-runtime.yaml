@@ -58,8 +58,10 @@ spec:
             # 只声明本进程**真实消费**的键（消费点见 infrastructure/http_clients.py、
             # main.py、application/channel_delivery_pump.py）；别的单元才建的池不写在这里。
             # 执行槽：只限制本进程并发，回收/续租/控制/投递各自独立循环。
+            # 1000 并发对话 × profile maxReplicas=4：4 × 256 ≥ 1000 执行槽。
+            # 模型 HTTP 池必须覆盖执行槽（启动校验拒绝池小于并发）。
             - name: RUNTIME_EXECUTION_CONCURRENCY
-              value: "8"
+              value: "256"
             # 投递泵并发：只重试交付已持久结果，不占执行槽与 SSE 订阅预算。
             - name: CHANNEL_DELIVERY_CONCURRENCY
               value: "4"
@@ -70,7 +72,7 @@ spec:
             - name: CONTROL_HTTP_MAX_KEEPALIVE
               value: "16"
             - name: MODEL_HTTP_MAX_CONNECTIONS
-              value: "64"
+              value: "256"
             - name: MODEL_HTTP_MAX_KEEPALIVE
               value: "32"
             - name: MCP_HTTP_MAX_CONNECTIONS

@@ -5,6 +5,7 @@ from importlib import import_module
 from uuid import uuid4
 
 import pytest
+from muad_common import SharedSettings
 from muad_console_platform.application.audit_service import AuditActor
 from muad_console_platform.application.platform_settings_catalog import build_groups
 from muad_console_platform.application.platform_settings_service import PlatformSettingsService
@@ -163,7 +164,9 @@ async def test_b22_api_reports_maintenance_error_for_lowering_quota(async_tool_d
                 payload = PlatformSettingsSaveRequest(
                     revision=2, settings=asdict(default_platform_settings())
                 )
-                await _apply_save(session, tenant, actor, payload, None)
+                await _apply_save(
+                    session, tenant, actor, payload, None, SharedSettings()
+                )
             else:
                 await _apply_restore(session, tenant, actor, 1, None)
         assert error.value.code == ErrorCode.MEMORY_QUOTA_REDUCTION_REQUIRES_MAINTENANCE

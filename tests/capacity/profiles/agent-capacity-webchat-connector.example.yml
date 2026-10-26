@@ -1,0 +1,69 @@
+# 容量验收 profile：**启用企微（5 单元）** 拓扑（design §4.1）。
+#
+# 与 `agent-capacity-webchat.example.yml`（WebChat-only、4 单元）的差异只有单元集合与副本：
+# - `connector` 是 im-gateway 的**有状态运行时角色**（不是第五个业务微服务）：
+#   持有 bot 长连接/lease/reply store，不持库；
+# - Gateway 允许 N 副本（这里 2），入口无 sticky session；Console 仍是单 Pod 容量口径。
+#
+# 用法：
+#   uv run python scripts/check_agent_capacity_deployment.py \
+#     --base deploy/k8s/with-connector \
+#     --profile tests/capacity/profiles/agent-capacity-webchat-connector.example.yml
+#
+# 阈值/分布与 4 单元 profile 同源（起始示例，不是实测结论）。
+workload:
+  users: 1000
+  active_runs_per_user: 1
+  ramp_sec: 60
+  steady_sec: 600
+  turns_per_user: 8
+  input_distribution:
+    think_time_ms:
+      p50: 3000
+      p95: 15000
+      max: 60000
+    text_bytes:
+      p50: 256
+      p95: 4096
+      max: 65536
+  attachment_distribution:
+    ratio: 0.1
+    upload_bytes:
+      p50: 1048576
+      p95: 10485760
+      max: 52428800
+model:
+  mode: CONTROLLED_PROBE
+  probe_latency_ms:
+    p50: 800
+    p95: 2500
+    max: 10000
+  output_distribution:
+    p50: 256
+    p95: 1024
+    max: 4096
+slo:
+  admission_p95_ms: 500
+  admission_p99_ms: 1500
+  framework_first_delta_p95_ms: 1200
+  recovery_max_sec: 60
+  max_system_error_ratio: 0.01
+resources:
+  # 5 单元：四个核心 + Connector（`im-gateway` 的有状态运行时角色）。
+  hardware:
+    console-platform: {cpu_request_millicores: 500, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 4096}
+    agent-runtime: {cpu_request_millicores: 1000, cpu_limit_millicores: 4000, memory_request_mb: 2048, memory_limit_mb: 8192}
+    agent-worker: {cpu_request_millicores: 1000, cpu_limit_millicores: 4000, memory_request_mb: 2048, memory_limit_mb: 8192}
+    im-gateway: {cpu_request_millicores: 500, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 4096}
+    connector: {cpu_request_millicores: 250, cpu_limit_millicores: 1000, memory_request_mb: 512, memory_limit_mb: 1024}
+  # 每 Pod 进程数：>1 时连接/FD/SSE 缓冲预算按 进程数 × 最大副本数 求和。
+  process_counts: {console-platform: 1, agent-runtime: 1, agent-worker: 1, im-gateway: 1, connector: 1}
+  replica_counts: {console-platform: 1, agent-runtime: 2, agent-worker: 2, im-gateway: 2, connector: 2}
+  # Console 仍是单 Pod（HA 不在本设计）；Gateway 允许 N 副本。
+  max_replica_counts: {console-platform: 1, agent-runtime: 4, agent-worker: 8, im-gateway: 2, connector: 2}
+  pg_connection_budget: 200
+  fd_budget: 4096
+  storage_budget:
+    event_bytes_per_day: 5368709120
+    retention_days: 30
+    artifact_bytes: 107374182400

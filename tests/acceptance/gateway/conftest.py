@@ -17,11 +17,13 @@ import socket
 import threading
 import time
 import urllib.parse
+import uuid
 from collections.abc import AsyncIterator, Iterator
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
+import httpx
 import pytest
 from sqlalchemy import delete
 from sqlalchemy import select as sa_select
@@ -119,6 +121,12 @@ class RuntimeProxy:
                     sock.shutdown(socket.SHUT_RDWR)
                 with suppress(OSError):
                     sock.close()
+
+    @property
+    def active_connections(self) -> int:
+        """当前在飞的中继连接数：用例用它确认 Gateway 已真正打开上游 SSE 再注入断流。"""
+        with self._lock:
+            return len(self._pairs)
 
     def stop(self) -> None:
         self._stopped.set()
@@ -240,7 +248,7 @@ def _gateway_env(live: LiveStack, probe: WeComProbe, runtime_url: str) -> dict[s
 
 
 async def _wait_for_probe_connection(probe: WeComProbe, *, timeout: float = 30.0) -> None:
-    """等 Gateway 完成到探针的 WS 握手（连接按 bot 归属，缺失时推送会直接断言失败）。"""
+    """等 Connector 完成到探针的 WS 握手（连接按 bot 归属，缺失时推送会直接断言失败）。"""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         connected = any(
@@ -249,7 +257,22 @@ async def _wait_for_probe_connection(probe: WeComProbe, *, timeout: float = 30.0
         if connected:
             return
         await asyncio.sleep(0.1)
-    raise AssertionError("Gateway 未在超时内建立到探针的 WS 连接")
+    raise AssertionError("Connector 未在超时内建立到探针的 WS 连接")
+
+
+async def _wait_readyz(url: str, *, timeout: float = 30.0) -> None:
+    deadline = time.monotonic() + timeout
+    status = 0
+    async with httpx.AsyncClient(timeout=2.0) as client:
+        while time.monotonic() < deadline:
+            try:
+                status = (await client.get(f"{url}/readyz")).status_code
+            except httpx.HTTPError:
+                status = 0
+            if status == 200:
+                return
+            await asyncio.sleep(0.1)
+    raise AssertionError(f"{url}/readyz 未在 {timeout}s 内就绪：{status}")
 
 
 @pytest.fixture(scope="module", name="gateway_stack")
@@ -269,19 +292,38 @@ async def gateway_stack(tmp_path_factory: pytest.TempPathFactory) -> AsyncIterat
     processes: list[ServiceProcess] = []
     try:
         run_db(lambda factory: _seed_binding(factory, live))
+        # TASK-009 起 WECOM 长连接在 Connector：live 栈的 HTTP 探针 Connector 必须让出
+        # bot lease，改由本夹具的 WS Connector 接管，否则探针永远等不到 WS 握手。
+        http_connector = live.processes.pop("connector", None)
+        if http_connector is not None:
+            http_connector.stop()
+        connector_env = {
+            **_gateway_env(live, probe, proxy.url),
+            "CHANNEL_PROBE_URL": "",
+            "CONNECTOR_HANDLED_CHANNELS": "WECOM",
+            "CONNECTOR_OWNER_ID": f"gateway-waiting-{uuid.uuid4().hex[:8]}",
+        }
+        connector = ServiceProcess(
+            "gateway-waiting-connector",
+            "muad_im_connector.main",
+            free_port(),
+            connector_env,
+            Path(live.artifact_root) / "gateway-waiting-connector.log",
+        )
+        processes.append(connector)
+        connector.start()
+        await _wait_for_probe_connection(probe)
         log_path = Path(live.artifact_root) / "gateway-waiting.log"
         gateway = ServiceProcess(
             "gateway-waiting",
             "muad_im_gateway.main",
             free_port(),
-            _gateway_env(live, probe, proxy.url),
+            {**_gateway_env(live, probe, proxy.url), "GATEWAY_ROUTED_CHANNELS": "WECOM"},
             log_path,
         )
         processes.append(gateway)
         gateway.start()
-        # 栈刚起时 Gateway 的 WS 还没握完手：必须等探针出现本 bot 的连接再放行，
-        # 否则首个 `_push` 会因"没有已连接客户端"直接失败（单跑看不出，依赖启动时序）。
-        await _wait_for_probe_connection(probe)
+        await _wait_readyz(gateway.url)
         yield WaitingGatewayStack(
             live=live,
             gateway_url=gateway.url,

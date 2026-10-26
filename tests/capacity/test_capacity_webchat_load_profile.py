@@ -104,13 +104,13 @@ def _document() -> dict[str, object]:
                 "console-platform": 1,
                 "agent-runtime": 2,
                 "agent-worker": 2,
-                "im-gateway": 1,
+                "im-gateway": 2,
             },
             "max_replica_counts": {
                 "console-platform": 1,
                 "agent-runtime": 4,
                 "agent-worker": 8,
-                "im-gateway": 1,
+                "im-gateway": 2,
             },
             "pg_connection_budget": 200,
             "fd_budget": 4096,
@@ -446,7 +446,8 @@ def test_b305_secret_looking_values_are_rejected_without_echoing_them() -> None:
     assert "sk-live-abcdefghijklmnop" not in str(caught.value)
 
 
-def test_b305_resources_keep_console_and_gateway_single_pod() -> None:
+def test_b305_resources_keep_console_single_pod_and_allow_gateway_replicas() -> None:
+    """设计 §4.1：Console 仍是单 Pod 容量口径；Gateway 允许 N 副本（清单基线 2）。"""
     document = _document()
     _set_path(document, "resources.max_replica_counts.console-platform", 2)
     with pytest.raises(ProfileError, match="console-platform"):
@@ -454,8 +455,9 @@ def test_b305_resources_keep_console_and_gateway_single_pod() -> None:
 
     document = _document()
     _set_path(document, "resources.max_replica_counts.im-gateway", 3)
-    with pytest.raises(ProfileError, match="im-gateway"):
-        parse_profile(document)
+    profile = parse_profile(document)
+    assert profile.resources is not None
+    assert profile.resources.max_replica_counts["im-gateway"] == 3
 
 
 def test_b305_resources_require_every_deployment_unit_and_replica_room() -> None:

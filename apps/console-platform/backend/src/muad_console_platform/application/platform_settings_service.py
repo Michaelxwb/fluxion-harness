@@ -26,7 +26,6 @@ from datetime import datetime
 from typing import Any
 
 from muad_api import ErrorCode
-from muad_common import SharedSettings
 from muad_contracts.platform_settings import (
     PlatformSettings,
     default_platform_settings,
@@ -38,6 +37,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import ModelDefinition, PlatformSetting
+from ..infrastructure.settings import process_settings
 from .audit_service import AuditActor, AuditService
 
 #: 写入 `config_audit_log.resource_type` 的取值（审计页按此登记，见前端 RESOURCE_TYPES）。
@@ -107,13 +107,17 @@ class PlatformSettingsRevision:
 
 
 def _batch_platform_limit() -> int:
-    """环境项上界（`task.batch_max_concurrency` 不得超过它），由调用方注入 contracts。"""
-    return SharedSettings().batch_platform_limit
+    """环境项上界（`task.batch_max_concurrency` 不得超过它），由调用方注入 contracts。
+
+    进程级 settings 只构造一次；`read_current` 在每个通知轮询里都会走到这里，逐次构造
+    `SharedSettings` 会把环境/.env 解析变成固定 CPU 热点。
+    """
+    return process_settings().batch_platform_limit
 
 
 def _validate_operation_settings(settings: PlatformSettings) -> None:
     """Owner writes, including restore, must obey the same deployment budgets as HTTP input."""
-    resources = SharedSettings()
+    resources = process_settings()
     validate_platform_settings(
         settings, batch_platform_limit=resources.batch_platform_limit,
         chat_message_hard_max_bytes=resources.chat_message_hard_max_bytes,

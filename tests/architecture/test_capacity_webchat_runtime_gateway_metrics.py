@@ -85,15 +85,18 @@ GATEWAY_CHANNEL_DELIVERY_SOURCE = (
     ROOT / "apps/im-gateway/src/muad_im_gateway/application/channel_delivery.py"
 )
 
-#: 两个部署单元：各自在独立进程里安装自己的目录并渲染 `/metrics`（互不 import、互不泄漏）。
+#: 每个运行时角色：各自在独立进程里安装自己的目录并渲染 `/metrics`（互不 import、互不泄漏）。
+#: Connector 是 im-gateway 的有状态运行时角色（design §4.1），同样要有自己的 catalog。
 UNIT_CATALOGS: tuple[tuple[str, str, str], ...] = (
     ("runtime", "muad_agent_runtime.metrics", "install_runtime_metrics"),
     ("gateway", "muad_im_gateway.metrics", "install_gateway_metrics"),
+    ("connector", "muad_im_connector.metrics", "install_connector_metrics"),
 )
 #: 每个单元独有、绝不该出现在别的单元 `/metrics` 里的指标（catalog 独立读取的直接证据）。
 FOREIGN_METRICS: dict[str, tuple[str, ...]] = {
     "runtime": ("inbound_messages_total", "background_delivery_total"),
     "gateway": ("memory_write_total", "context_compaction_total"),
+    "connector": ("gateway_sse_frames_total", "memory_write_total"),
 }
 
 #: 两个目录允许的 label 名：固定低基数枚举，不得混入租户/用户/资源 ID/凭据。
@@ -507,10 +510,33 @@ def test_b298_unit_catalog_renders_independently_without_traffic(
     assert not leaked, f"{unit} 的 `/metrics` 泄漏了其他单元的指标：{leaked}"
 
 
+def test_connector_catalog_covers_lease_inbound_outbound_and_snapshot() -> None:
+    """[S-12] Connector 自己的指标目录：lease/入站/出站/快照四族，且不含 Gateway/Runtime 的指标。"""
+    from muad_im_connector import metrics as connector_metrics
+
+    catalog = {
+        name: (kind, tuple(labels))
+        for name, kind, labels, _help in connector_metrics.CATALOG
+    }
+    assert catalog[connector_metrics.LEASE_METRIC] == ("counter", ("outcome",))
+    assert catalog[connector_metrics.INBOUND_METRIC] == ("counter", ("outcome",))
+    assert catalog[connector_metrics.OUTBOUND_METRIC] == ("counter", ("outcome",))
+    assert catalog[connector_metrics.SNAPSHOT_METRIC] == ("counter", ("outcome",))
+    assert not set(catalog) & set(FOREIGN_METRICS["connector"])
+
+
 def test_b298_unit_metrics_modules_do_not_import_each_other() -> None:
-    """[B-298] 两个单元的指标模块互不 import：目录独立可读，不靠另一个单元才能启动。"""
-    unit_packages = {"runtime": "muad_agent_runtime", "gateway": "muad_im_gateway"}
-    sources = {"runtime": RUNTIME_METRICS_SOURCE, "gateway": GATEWAY_METRICS_SOURCE}
+    """[B-298] 各单元的指标模块互不 import：目录独立可读，不靠另一个单元才能启动。"""
+    unit_packages = {
+        "runtime": "muad_agent_runtime",
+        "gateway": "muad_im_gateway",
+        "connector": "muad_im_connector",
+    }
+    sources = {
+        "runtime": RUNTIME_METRICS_SOURCE,
+        "gateway": GATEWAY_METRICS_SOURCE,
+        "connector": ROOT / "apps/im-connector/src/muad_im_connector/metrics.py",
+    }
     for unit, path in sources.items():
         own = unit_packages[unit]
         for imported in _imports(path):

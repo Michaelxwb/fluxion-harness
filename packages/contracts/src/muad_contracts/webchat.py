@@ -322,6 +322,15 @@ class WebchatActiveRun(WebchatContract):
     confirmation: WebchatConfirmation | None = None
 
 
+#: 受理响应头：Runtime 在 202/SSE 响应头里带回受理裁决与阶段投影，Gateway 不必再读首帧/重查 Run。
+#: 值均为 ASCII（JSON ensure_ascii），可直接放 HTTP 头。
+ADMISSION_RUN_ID_HEADER = "X-Muad-Run-Id"
+ADMISSION_CONVERSATION_ID_HEADER = "X-Muad-Conversation-Id"
+ADMISSION_RESUMED_HEADER = "X-Muad-Resumed"
+ADMISSION_EXECUTION_STATUS_HEADER = "X-Muad-Execution-Status"
+ADMISSION_RUN_STATUS_HEADER = "X-Muad-Run-Status"
+
+
 class WebchatMessageAccepted(WebchatContract):
     conversation_id: UUID
     run_id: UUID

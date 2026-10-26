@@ -115,6 +115,17 @@ def _frames_for_bot(stack: GatewayStack, bot_id: str) -> list[str]:
     return texts
 
 
+async def _no_active_runs(stack: GatewayStack) -> bool:
+    """会话内不得残留非终态 Run：`RUN_BUSY` 是运行期拒绝，不是本用例的被测语义。"""
+    active = await _scalar(
+        "SELECT count(*) FROM runtime.run_record "
+        "WHERE tenant_id = :t AND is_deleted = false "
+        "AND status NOT IN ('COMPLETED', 'FAILED', 'CANCELLED')",
+        {"t": stack.tenant_id},
+    )
+    return int(active or 0) == 0
+
+
 async def _push(stack: GatewayStack, *, bot_id: str, external_user_id: str, text: str) -> str:
     probe = stack.ws_probe
     assert probe is not None
@@ -190,6 +201,14 @@ async def test_s01_two_bots_share_one_agent_and_any_runtime_serves(
     await _wait_for(
         lambda: _frames_for_bot(gateway_stack, BOT2_ID),
         what="第二个 bot 的入站未得到回复",
+        timeout=PUSH_REPLY_TIMEOUT_SEC,
+    )
+
+    # 回复帧先于 Run 终态到达（最后一个出站帧发出后 Run 才落终态）。会话里只要还有一个
+    # 非终态 Run，下面直连建 Run 就是运行期拒绝 `RUN_BUSY`，与本用例的路由语义无关。
+    await _wait_for(
+        lambda: _no_active_runs(gateway_stack),
+        what="前序 Run 未收敛到终态：会话仍被活跃 Run 占用",
         timeout=PUSH_REPLY_TIMEOUT_SEC,
     )
 

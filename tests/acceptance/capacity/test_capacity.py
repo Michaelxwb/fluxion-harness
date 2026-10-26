@@ -45,6 +45,7 @@ from tests.acceptance.capacity.delivery_harness import (
     bind_probe_credential,
     build_stack,
     create_datastore_handle,
+    db_execute,
     exchange_chat_session,
     probe_state,
     resolve_task_spec,
@@ -85,6 +86,12 @@ from tests.capacity.driver import (
 )
 from tests.capacity.metrics import PostgresMetrics
 from tests.capacity.profile import CapacityProfile, load_profile, profile_hash
+from tests.capacity.slo import (
+    SloInput,
+    evaluate_slo,
+    require_slo,
+    thresholds_from_profile,
+)
 
 pytestmark = [pytest.mark.integration, pytest.mark.capacity_load]
 
@@ -1386,3 +1393,95 @@ def test_s15_fd_http_pg_budgets_are_computable_and_measured(
         assert fd_count <= resources.fd_budget, (
             f"{instance.unit}#{instance.index} FD {fd_count} 超过 fd_budget {resources.fd_budget}"
         )
+
+
+# --------------------------------------------------------------------------------------
+# S-17：200 用户 bounded verification（TASK-001；不与 1000 用户结论混用）
+# --------------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def bounded_run(capacity_module: CapacityModule) -> LoadReport:
+    """200 用户 × 1 轮的 bounded verification：同一真实栈、显式 VERIFICATION 规模。"""
+    stack, seeded = capacity_module.stack, capacity_module.seeded
+    db_execute(
+        stack.database_url,
+        "UPDATE control.model_credential SET max_inflight = $1 WHERE tenant_id = $2 AND id = $3",
+        max(LOAD_USERS, 128),
+        stack.tenant_id,
+        seeded.credential_id,
+    )
+    set_probe_behavior(
+        stack.model_probe.url,
+        {
+            "latency_ms": MODEL_LATENCY_MS,
+            "chunk_interval_ms": MODEL_CHUNK_INTERVAL_MS,
+            "deltas": list(MODEL_DELTAS),
+        },
+    )
+    driver = LoadDriver(
+        target=LoadTarget(
+            base_url=stack.proxy.url,
+            entry_id=str(seeded.entry_id),
+            sessions=capacity_module.load_sessions[:LOAD_USERS],
+            control_session=capacity_module.control_session,
+            runtime_url=stack.url_of("agent-runtime"),
+            internal_token=stack.internal_token,
+            model_probe_url=stack.model_probe.url,
+            request_timeout_sec=30.0,
+            stream_timeout_sec=120.0,
+            sample_interval_sec=0.5,
+            control_start_sec=1.0,
+            control_rounds=1,
+            user_deadline_sec=300.0,
+            notification_poll_sec=15.0,
+            notification_page_size=20,
+        ),
+        profile=capacity_module.profile,
+        run_kind=RunKind.VERIFICATION,
+        scale=LoadScale(
+            users=LOAD_USERS,
+            ramp_sec=10,
+            steady_sec=180,
+            turns_per_user=1,
+        ),
+        metrics=PostgresMetrics(
+            stack.database_url,
+            tenant_id=stack.tenant_id,
+            artifacts_root=stack.artifacts_root,
+        ),
+        unit_targets={unit: stack.url_of(unit) for unit in UNITS},
+    )
+    return driver.run()
+
+
+def test_s17_200_user_bounded_verification(
+    capacity_module: CapacityModule, bounded_run: LoadReport
+) -> None:
+    """[S-17] 200 档 bounded verification：按 profile SLO 判定，显式声明不冒充 1000。"""
+    report = bounded_run
+    profile = capacity_module.profile
+    assert LOAD_USERS == 200, "S-17 必须用 CAPACITY_LOAD_USERS=200 运行"
+    assert report.run_kind is RunKind.VERIFICATION
+    assert report.scale is not None and report.scale.users == 200
+    assert report.effective_users == 200 and report.effective_turns == 1
+    assert report.planned_attempts == 200
+    assert report.attempts() == 200, "200 个用户都必须真实尝试一次"
+    assert len(report.admitted()) == 200, "200 个用户都必须拿到真实 202"
+    assert report.pool_timeout_count == 0, "不得出现连接池等待超时"
+
+    checks = evaluate_slo(
+        SloInput(
+            admission=report.admission_latency(),
+            first_delta=report.first_delta_latency(),
+            system_error_ratio=report.system_error_ratio(),
+            pool_timeouts=report.pool_timeout_count,
+            attempts=report.attempts(),
+            planned_attempts=report.planned_attempts,
+            steady_violations=len(report.steady_violations),
+            max_connections_total=report.max_connections_total,
+            max_idle_in_tx=report.max_idle_in_tx,
+        ),
+        thresholds_from_profile(profile),
+    )
+    require_slo(checks)

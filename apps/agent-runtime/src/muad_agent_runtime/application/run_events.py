@@ -46,9 +46,12 @@ class DeltaWindow:
     flush_interval_sec: float
     flush_bytes: int
     clock: Callable[[], float] = time.monotonic
+    #: 生产窗口首段立即 flush（首字延迟优先）；纯窗口单测保持 False 以验证时间/字节边界。
+    flush_first: bool = False
     _parts: list[str] = field(default_factory=list)
     _bytes: int = 0
     _opened_at: float | None = None
+    _flushed_once: bool = False
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.flush_interval_sec) or self.flush_interval_sec <= 0:
@@ -64,6 +67,9 @@ class DeltaWindow:
             self._opened_at = self.clock()
         self._parts.append(text)
         self._bytes += len(text.encode("utf-8"))
+        if self.flush_first and not self._flushed_once:
+            self._flushed_once = True
+            return self.drain()
         if self._bytes >= self.flush_bytes or self.due():
             return self.drain()
         return None
@@ -100,6 +106,7 @@ def delta_window_from_settings(settings: SharedSettings) -> DeltaWindow:
     return DeltaWindow(
         flush_interval_sec=settings.stream_delta_flush_interval_ms / 1000.0,
         flush_bytes=settings.stream_delta_flush_bytes,
+        flush_first=True,
     )
 
 

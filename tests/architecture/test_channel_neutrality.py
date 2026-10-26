@@ -36,6 +36,9 @@ CHANNEL_TOKENS = (
 ALLOWED_SURFACES = (
     # 适配器层：渠道差异只活在这里（AD-8 / RULE-07）
     "apps/im-gateway/src/muad_im_gateway/channels/",
+    # Connector 是 im-gateway 的**有状态运行时角色**（design §4.1）：它持有渠道长连接、
+    # lease 与 reply store，是整个系统里唯一允许出现渠道 SDK/连接语义的部署面。
+    "apps/im-connector/src/muad_im_connector/",
     # 装配根：必须挑一个适配器来装配；它只做装配，不按通道分支
     "apps/im-gateway/src/muad_im_gateway/main.py",
     # console 的通道管理面：它的职责就是管理通道账号

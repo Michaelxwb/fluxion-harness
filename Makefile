@@ -1,4 +1,4 @@
-.PHONY: check compile test acceptance acceptance-clean acceptance-e2e smoke capacity-load e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck
+.PHONY: check compile test acceptance acceptance-clean acceptance-e2e smoke capacity-smoke capacity-load capacity-soak e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck
 
 compile:
 	uv run python -m compileall -q apps packages migrations
@@ -42,8 +42,14 @@ e2e-changed-plan:
 acceptance-clean:
 	uv run python scripts/clean_acceptance_claims.py --force
 
+capacity-smoke:
+	CAPACITY_LOAD_USERS=100 uv run pytest -q tests/acceptance/capacity/test_capacity_smoke.py
+
 capacity-load:
 	CAPACITY_LOAD_USERS=200 uv run pytest -q -m capacity_load tests/acceptance/capacity
+
+capacity-soak:
+	MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py
 
 i18n-check:
 	uv run python scripts/check_frontend_i18n.py

@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 
+import redis.asyncio
 from fastapi import FastAPI
 from muad_api import (
     install_api_foundation,
@@ -15,25 +16,31 @@ from muad_api import (
 from muad_api.catalog import MessageCatalog
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
+from muad_im_core import BotSnapshotCache, InboundPublisher
 from muad_logging import configure_logging
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .api.delivery import router as delivery_router
 from .api.health import readiness_checks, readiness_detail
 from .api.webchat import router as webchat_router
-from .application.bot_snapshot import BotSnapshotCache
+from .api.webhook import router as webhook_router
 from .application.channel_delivery import ActiveChannelDelivery, ConsoleDeliveryPermission
+from .application.connector_outbound import ConnectorOutboundCommands
 from .application.console_client import ConsoleClient
 from .application.inbound import InboundPipeline
 from .application.inbound_attachments import InboundAttachmentStore
+from .application.inbound_streams import InboundStreamConsumer
 from .application.runtime_client import RuntimeClient
 from .application.webchat_streams import SseBufferLedger
 from .channels.base import ChannelRegistry
 from .channels.registry import build_channel_registry, dispatch_snapshot
+from .channels.routed import parse_routed_channels
+from .channels.webhook import parse_webhook_channels
 from .infrastructure.artifact_resolver import HttpArtifactResolver
 from .infrastructure.dedupe import DedupeStore, build_dedupe_store
 from .infrastructure.http_clients import GatewayHttpPools, build_gateway_http_pools
 from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
+from .infrastructure.streams import DeliveryStreams
 from .metrics import install_gateway_metrics
 
 logger = logging.getLogger(__name__)
@@ -43,6 +50,7 @@ SERVICE_NAME = "muad-im-gateway"
 #: 生命周期后台任务的装配根命名（可观测面：每条独立循环一条任务，退出即停）。
 SNAPSHOT_LOOP_NAME = "gateway.snapshot"
 INBOUND_LOOP_NAME_PREFIX = "gateway.inbound."
+INBOUND_STREAM_LOOP_NAME = "gateway.inbound.stream"
 
 configure_logging(SERVICE_NAME)
 
@@ -68,6 +76,13 @@ class _GatewayResources:
     sse_ledger: SseBufferLedger
     #: 启动设置（预算/传输上限的唯一来源）：发布状态值时从这里读，不复制默认值。
     settings: SharedSettings
+    #: 出站命令 Stream 与入站发布器（同一个 Redis 连接；Connector/Webhook 共用键口径）。
+    streams: DeliveryStreams
+    inbound_publisher: InboundPublisher
+    inbound_consumer: InboundStreamConsumer
+    #: 本部署是否声明了经 Redis Stream 的通道面（远程 Connector / webhook）：决定 Redis 是否
+    #: 是就绪硬依赖（WebChat-only 部署不经过 Stream）。
+    stream_reliant: bool
 
     def publish(self, app: FastAPI) -> None:
         """初始化成功后才公开运行时状态：探针与投递/聊天 API 都从这里读依赖。"""
@@ -80,6 +95,10 @@ class _GatewayResources:
         app.state.artifact_resolver = self.artifacts
         app.state.tenant_id = self.tenant_id
         app.state.chat_auth_recheck_sec = self.chat_auth_recheck_sec
+        app.state.delivery_streams = self.streams
+        app.state.delivery_stream_wait_sec = self.settings.delivery_stream_wait_sec
+        app.state.inbound_publisher = self.inbound_publisher
+        app.state.stream_reliant = self.stream_reliant
         # Webchat 路由（TASK-052/054/055/057/061）消费的状态值：装配根是唯一发布点，
         # 值来自同一个 SharedSettings（预算/上限的唯一来源，不在路由层另抄一份默认值）。
         app.state.settings_client = self.settings_client
@@ -95,12 +114,14 @@ class _GatewayResources:
         app.state.gateway_max_sse_subscribers = self.settings.gateway_max_sse_subscribers
 
     async def aclose(self) -> None:
+        await self.inbound_consumer.stop()
         await self.registry.stop_all()
         await self.runtime.aclose()
         await self.console.aclose()
         await self.settings_client.aclose()
         await self.artifacts.aclose()
         await self.dedupe.aclose()
+        await self.streams.aclose()
 
 
 def _build_outbound_clients(
@@ -128,6 +149,16 @@ def _build_outbound_clients(
         client=pools.egress,
     )
     return console, runtime, settings_client, artifacts
+
+
+def _build_redis(settings: SharedSettings) -> redis.asyncio.Redis:
+    """Gateway 的 Redis 连接：入站/出站 Stream 是 IM ASYNC 路径的持久实时面。"""
+    if not settings.redis_url:
+        raise RuntimeError("REDIS_URL is required for the IM inbound/outbound streams")
+    client: redis.asyncio.Redis = redis.asyncio.Redis.from_url(
+        settings.redis_url, decode_responses=True
+    )
+    return client
 
 
 def _build_inbound(
@@ -168,12 +199,16 @@ def _build_snapshot(
 ) -> BotSnapshotCache:
     """入口快照：按 `BotSnapshotItem.channel` 分发到各适配器（设计 §3.3）。
 
-    WEBCHAT 条目不会进企微的长连接/secret 路径；快照发布失败由缓存保留旧 revision 重试。
-    节拍来自 typed 启动设置（`bot_snapshot_poll_sec`，默认 30s；验收栈注入小值）。
+    **只请求本 Gateway 拥有通道的条目**（NFR-SEC-01）：企微等通道的 bot secret 只流向
+    Connector，Gateway 的响应/日志/内存里都不该出现它。节拍来自 typed 启动设置。
     """
     return BotSnapshotCache(
         console,
         tenant_id=settings.default_tenant_id,
+        # 只要**本进程真正管理连接**的通道：远程 Connector 路由面不吃快照。
+        channels=frozenset(registry.snapshot_names()),
+        # 请求面不需要连接凭据：通道过滤只缩小范围，secret 的下发必须单独关掉。
+        include_secret=False,
         interval_sec=settings.bot_snapshot_poll_sec,
         on_snapshot_changed=dispatch_snapshot(registry),
     )
@@ -184,10 +219,18 @@ async def _build_resources(
 ) -> _GatewayResources:
     """按启动设置组装运行时资源；中途失败时回收已创建的部分（分池由调用方收尾）。"""
     console, runtime, settings_client, artifacts = _build_outbound_clients(settings, pools)
-    # 标准适配器在注册表里装配（WECOM 探针/真机 + WEBCHAT 稳定入口）：装配根只调用这里，
-    # 不按通道分支；适配器先建，但它要用 console 当取件直链的签发口 ⇒ console 必须先存在。
-    registry = build_channel_registry(settings, console)
-    dedupe = await build_dedupe_store(settings.redis_url)
+    redis = _build_redis(settings)
+    streams = DeliveryStreams(redis, maxlen=settings.inbound_stream_maxlen)
+    # 请求面只装配不含渠道长连接/私钥的适配器（WEBCHAT + 配置驱动的通用 webhook）；
+    # 有状态通道（企微）的适配器活在 Connector。装配根不按通道分支。
+    # `GATEWAY_ROUTED_CHANNELS` 声明的远程通道只拿到命令 sink：入站路由、出站入队。
+    routed_sink = ConnectorOutboundCommands(streams, tenant_id=settings.default_tenant_id)
+    registry = build_channel_registry(settings, routed_sink=routed_sink)
+    try:
+        dedupe = await build_dedupe_store(settings.redis_url)
+    except BaseException:
+        await redis.aclose()
+        raise
     try:
         snapshot = _build_snapshot(settings, console, registry)
         # 附件字节落共享 artifact store（RWX PVC，Runtime 同挂）：部署侧必须挂载 `artifact_root`，
@@ -207,6 +250,19 @@ async def _build_resources(
             total_bytes=settings.sse_total_buffer_bytes,
             max_subscribers=settings.gateway_max_sse_subscribers,
         )
+        publisher = InboundPublisher(
+            redis,
+            shards=settings.inbound_stream_shards,
+            stream_maxlen=settings.inbound_stream_maxlen,
+            lost_after_sec=settings.inbound_stream_lost_after_sec,
+        )
+        consumer = InboundStreamConsumer(
+            redis,
+            registry=registry,
+            pipeline=inbound,
+            shards=settings.inbound_stream_shards,
+            max_inflight=settings.gateway_max_pending_handlers,
+        )
         return _GatewayResources(
             registry=registry,
             dedupe=dedupe,
@@ -222,11 +278,19 @@ async def _build_resources(
             artifact_store=artifact_store,
             sse_ledger=ledger,
             settings=settings,
+            streams=streams,
+            inbound_publisher=publisher,
+            inbound_consumer=consumer,
+            stream_reliant=bool(
+                parse_routed_channels(settings.gateway_routed_channels)
+                or parse_webhook_channels(settings.gateway_webhook_channels)
+            ),
         )
     except BaseException:
-        # 半初始化不发布、也不留资源：自有的 dedupe（Redis 连接）在这里回收；HTTP 客户端只
-        # 借用分池（调用方关闭池即收尾），注册表尚未 start（无连接可停）。
+        # 半初始化不发布、也不留资源：自有的 dedupe/streams（Redis 连接）在这里回收；HTTP
+        # 客户端只借用分池（调用方关闭池即收尾），注册表尚未 start（无连接可停）。
         await dedupe.aclose()
+        await redis.aclose()
         raise
 
 
@@ -245,6 +309,12 @@ def _start_background(resources: _GatewayResources) -> list[asyncio.Task[None]]:
             name=f"{INBOUND_LOOP_NAME_PREFIX}{adapter.name}",
         )
         for adapter in resources.registry.started_adapters
+    )
+    # 入站 Stream 消费组：Connector/Webhook 持久化后的统一入口（IM ASYNC 路径）。
+    tasks.append(
+        asyncio.create_task(
+            resources.inbound_consumer.run_forever(), name=INBOUND_STREAM_LOOP_NAME
+        )
     )
     return tasks
 
@@ -314,6 +384,8 @@ install_health_probes(
     detail=lambda: readiness_detail(app),
 )
 app.include_router(delivery_router)
+# 通用 Webhook 入站（S-07）：`/channels/{channel}/events` —— 通道由配置装配，不新增部署单元。
+app.include_router(webhook_router)
 # Webchat 公开面（TASK-052/054/055/057/061）：HTTP 聊天/上传/下载与公开 SSE 的实际注册点。
 app.include_router(webchat_router)
 install_gateway_metrics(app)

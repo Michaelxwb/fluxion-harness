@@ -49,8 +49,15 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from httpx import ASGITransport, AsyncClient
 from muad_contracts import BotSnapshotItem, BotSnapshotResponse
+from muad_contracts.webchat import (
+    ADMISSION_CONVERSATION_ID_HEADER,
+    ADMISSION_EXECUTION_STATUS_HEADER,
+    ADMISSION_RESUMED_HEADER,
+    ADMISSION_RUN_ID_HEADER,
+    ADMISSION_RUN_STATUS_HEADER,
+)
+from muad_im_core import BotSnapshotCache
 from muad_im_gateway.api.webchat import router as webchat_router
-from muad_im_gateway.application.bot_snapshot import BotSnapshotCache
 from muad_im_gateway.application.chat_principal import CHAT_SESSION_COOKIE
 from muad_im_gateway.application.console_client import CHAT_PRINCIPAL_PATH, ConsoleClient
 from muad_im_gateway.application.runtime_client import RuntimeClient
@@ -264,6 +271,16 @@ class _RuntimeProbe:
             return run_id
 
     # --- 端点 -----------------------------------------------------------------------
+    def _admission_headers(self, run_id: UUID, *, resumed: bool = False) -> dict[str, str]:
+        """真实受理裁决响应头：Run/会话/状态/阶段一次带回（Gateway 不再 get_run）。"""
+        return {
+            ADMISSION_RUN_ID_HEADER: str(run_id),
+            ADMISSION_CONVERSATION_ID_HEADER: str(CONVERSATION_ID),
+            ADMISSION_RESUMED_HEADER: "1" if resumed else "0",
+            ADMISSION_RUN_STATUS_HEADER: self.run_status,
+            ADMISSION_EXECUTION_STATUS_HEADER: json.dumps(EXECUTION_STATUS, ensure_ascii=True),
+        }
+
     def _build_app(self) -> Any:
         from fastapi import FastAPI
 
@@ -279,7 +296,9 @@ class _RuntimeProbe:
                 return _error("RUN_BUSY", 409)
             run_id = self.next_run_id(request.headers.get("Idempotency-Key", ""))
             return StreamingResponse(
-                self._run_stream(run_id), media_type="text/event-stream"
+                self._run_stream(run_id),
+                media_type="text/event-stream",
+                headers=self._admission_headers(run_id),
             )
 
         @runtime_app.get("/v1/runs/{run_id}")
@@ -307,7 +326,9 @@ class _RuntimeProbe:
             body = json.loads(await request.body() or b"{}")
             self._record(f"/v1/runs/{run_id}/resume", request, body)
             return StreamingResponse(
-                self._run_stream(UUID(run_id)), media_type="text/event-stream"
+                self._run_stream(UUID(run_id)),
+                media_type="text/event-stream",
+                headers=self._admission_headers(UUID(run_id), resumed=True),
             )
 
         @runtime_app.post("/v1/conversations")
@@ -691,11 +712,10 @@ async def test_b252_message_submit_returns_real_accepted_run_without_holding_the
         "attachments": [],
         "upload_ids": [str(SUBMISSION_ID)],
     }
-    # 受理后的阶段/状态只从 Owner 的 Run 视图投影（不编造）。
+    # 受理后的状态/阶段来自受理裁决响应头（TASK-010）：202 之后不再 get_run。
     run_calls = [call for path, calls in runtime_probe.calls.items() for call in calls
                  if path == f"/v1/runs/{run_id}"]
-    assert len(run_calls) == 1
-    assert run_calls[0].headers["x-tenant-id"] == GATEWAY_TENANT
+    assert run_calls == [], "受理回执不得再回读 Run（状态/阶段已随受理一次带回）"
 
     # 重投：同一幂等键原样转发（Owner 据此回放原 Run），响应给回同一身份。
     async with _gateway_client(stub_console, runtime_probe) as client:

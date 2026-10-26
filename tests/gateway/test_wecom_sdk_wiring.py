@@ -4,8 +4,8 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from muad_im_gateway.channels.wecom.adapter import _AibotClientPort, build_wecom_sdk_client
-from muad_im_gateway.channels.wecom.sdk_port import (
+from muad_im_connector.channels.wecom.adapter import _AibotClientPort, build_wecom_sdk_client
+from muad_im_connector.channels.wecom.sdk_port import (
     WeComInboundEvent,
     WeComInboundMessage,
     WeComSdkConnectionError,

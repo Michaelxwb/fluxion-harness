@@ -14,7 +14,7 @@ from uuid import uuid4
 
 import pytest
 from muad_contracts import BotSnapshotItem, DeliveryMessage, DeliveryRouteInput
-from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
+from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
 
 from tests.e2e.wecom_probe_app import WeComProbe, frame_text
 
@@ -29,7 +29,7 @@ def _probe_sdk_factory(probe: WeComProbe):
 
     def factory(bot_id: str, secret: str):
         from aibot import WSClient, WSClientOptions  # type: ignore[import-untyped]
-        from muad_im_gateway.channels.wecom.adapter import _AibotClientPort
+        from muad_im_connector.channels.wecom.adapter import _AibotClientPort
 
         options = WSClientOptions(
             bot_id=bot_id,

@@ -67,7 +67,8 @@ def section_status(section: str) -> str:
     return match.group(1).strip() if match else "draft"
 
 
-def task_truth_issues(task_file: str, task_id: str, context: SpecContext) -> tuple[str, ...]:
+def task_truth_issues(task_file: str, task_id: str, context: SpecContext,
+                      spec_ids: Optional[set[str]] = None) -> tuple[str, ...]:
     """Return required Rule refs whose status contradicts the Markdown claim.
 
     The Markdown is a view. A TASK claiming done/verified while its required
@@ -81,6 +82,8 @@ def task_truth_issues(task_file: str, task_id: str, context: SpecContext) -> tup
     stages = ("code", "review") if status == "verified" else ("code",)
     issues: list[str] = []
     for binding in context.bindings:
+        if spec_ids is not None and binding.spec_id not in spec_ids:
+            continue
         for rule in binding.rules:
             if rule.enforcement != "required" or rule.verifier_stage not in stages:
                 continue

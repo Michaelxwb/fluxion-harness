@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 import uuid
@@ -5,10 +6,11 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 import sqlalchemy as sa
 from httpx import AsyncClient
 from muad_agent_runtime.application.run_service import snapshot_policy
-from muad_agent_runtime.infrastructure.db import get_session_factory
+from muad_agent_runtime.infrastructure.db import get_engine, get_session_factory
 from muad_agent_runtime.infrastructure.models.async_tools import RunContinuation, ToolOperation
 from muad_agent_runtime.infrastructure.models.runtime import (
     CanonicalEvent,
@@ -20,9 +22,10 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import CompletionMode, OperationStatus, ResolveDefinitionResponse
-from sqlalchemy import select
+from sqlalchemy import event, select
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
+from tests.internal_service import service_headers
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
@@ -77,6 +80,7 @@ async def _insert_run(
     lease_until: datetime | None = None,
     with_interrupt: bool = False,
     resolved: ResolveDefinitionResponse | None = None,
+    entry_id: uuid.UUID | None = None,
 ) -> tuple[uuid.UUID, uuid.UUID]:
     session_factory = get_session_factory()
     async with session_factory() as session:
@@ -86,6 +90,7 @@ async def _insert_run(
             agent_id=tenant.agent_id,
             status="ACTIVE",
             last_seq=0,
+            channel_account_id=entry_id,
         )
         session.add(conversation)
         await session.flush()
@@ -96,6 +101,8 @@ async def _insert_run(
             agent_id=tenant.agent_id,
             status=status,
             input_text="pending input",
+            # 生产 Run 行总有受理时间：续跑的受理回执要把状态投影回给调用方（TASK-010）。
+            start_time=datetime.now(UTC),
             deadline_at=datetime.now(UTC) + timedelta(minutes=2),
             trace_id=uuid.uuid4().hex,
             cancel_requested=False,
@@ -855,3 +862,199 @@ async def test_resume_endpoint_rejects_waiting_tool_run_with_run_busy(
     )
     assert response.status_code == 409
     assert response.json()["code"] == "RUN_BUSY"
+
+
+# --------------------------------------------------------------------------------------
+# TASK-010 / S-15：WebChat 读路径（lean scope ≤2 SQL、202 后不 get_run、无 dead queue）
+# --------------------------------------------------------------------------------------
+
+
+async def _capture_sql(statements: list[str], call: Any) -> Any:
+    """在真实 PG 引擎上记录一次调用的 SQL 语句（同步监听器只收集，不做任何改写）。"""
+    engine = get_engine()
+
+    def capture(*args: Any) -> None:
+        statements.append(str(args[2]))
+
+    event.listen(engine.sync_engine, "before_cursor_execute", capture)
+    try:
+        return await call()
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", capture)
+
+
+def _scope_statements(statements: list[str]) -> list[str]:
+    """归属解析的业务语句：只有 run/conversation 两表（`SELECT 1` 预检不算读路径）。"""
+    return [
+        statement
+        for statement in statements
+        if "runtime.run_record" in statement or "runtime.conversation" in statement
+    ]
+
+
+async def test_s15_run_scope_is_bounded_and_projects_owner_facts(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """API-07 打开流的归属解析：一次 JOIN（≤2 SQL），只投影核属所需的列。"""
+    entry_id = uuid.uuid4()
+    conversation_id, run_id = await _insert_run(tenant, "RUNNING", entry_id=entry_id)
+
+    statements: list[str] = []
+
+    async def fetch() -> Any:
+        return await client.get(
+            f"/v1/runs/{run_id}/scope",
+            headers=service_headers(tenant.tenant_id),
+            params={"user_id": str(tenant.platform_user_id)},
+        )
+
+    response = await _capture_sql(statements, fetch)
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["run"] == {
+        "run_id": str(run_id),
+        "conversation_id": str(conversation_id),
+        "user_id": str(tenant.platform_user_id),
+    }
+    assert data["conversation"] == {
+        "conversation_id": str(conversation_id),
+        "entry_id": str(entry_id),
+        "agent_id": str(tenant.agent_id),
+    }
+    scope_sql = _scope_statements(statements)
+    assert 1 <= len(scope_sql) <= 2, scope_sql
+
+    denied_statements: list[str] = []
+
+    async def fetch_denied() -> Any:
+        return await client.get(
+            f"/v1/runs/{run_id}/scope",
+            headers=service_headers(tenant.tenant_id),
+            params={"user_id": str(uuid.uuid4())},
+        )
+
+    denied = await _capture_sql(denied_statements, fetch_denied)
+    assert denied.status_code == 404
+    assert denied.json()["code"] == "COMMON_NOT_FOUND"
+    assert len(_scope_statements(denied_statements)) <= 2, denied_statements
+
+
+class _CountingOwner:
+    """WebChat Owner 端口替身：只回答受理，任何 get_run 都是缺陷（计数后显式失败）。"""
+
+    def __init__(self, admission: Any) -> None:
+        self.admission = admission
+        self.submit_calls: list[Any] = []
+        self.get_run_calls = 0
+
+    async def submit_run(self, request: Any, *, tenant_id: str, idempotency_key: str) -> Any:
+        self.submit_calls.append((request, tenant_id, idempotency_key))
+        return self.admission
+
+    async def get_run(self, run_id: uuid.UUID, *, tenant_id: str) -> dict[str, Any]:
+        self.get_run_calls += 1
+        raise AssertionError("202 回执不得回读 Run（受理裁决必须自带 status/execution_status）")
+
+
+class _Entries:
+    def __init__(self, items: tuple[Any, ...]) -> None:
+        self.items = items
+
+
+def _chat_identity(tenant: TenantContext) -> Any:
+    from muad_contracts.webchat import ChatAuthorizedAgent, ChatPrincipal
+    from muad_im_gateway.application.chat_principal import ChatIdentity
+
+    return ChatIdentity(
+        principal=ChatPrincipal(
+            tenant_id=tenant.tenant_id,
+            platform_user_id=tenant.platform_user_id,
+            session_id=uuid.uuid4(),
+            auth_method="USER_TOKEN",
+        ),
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+        agents=(ChatAuthorizedAgent(agent_id=tenant.agent_id, key="s15", name="S-15 Agent"),),
+    )
+
+
+async def test_s15_202_uses_the_admission_projection_and_never_reads_the_run(
+    tenant: TenantContext,
+) -> None:
+    """提交（新 Run 与幂等重放）都直接用受理裁决的状态/阶段：202 之后不再 get_run。"""
+    from muad_contracts import BotSnapshotItem, RunStatus
+    from muad_contracts.webchat import WebchatExecutionStatus, WebchatMessageRequest
+    from muad_im_gateway.application.runtime_client import RunAdmission
+    from muad_im_gateway.application.webchat_service import WebchatResourceService
+
+    entry_id = uuid.uuid4()
+    conversation_id = uuid.uuid4()
+    owner = _CountingOwner(
+        RunAdmission(
+            run_id=uuid.uuid4(),
+            conversation_id=conversation_id,
+            resumed=False,
+            status=RunStatus.CREATED,
+            execution_status=WebchatExecutionStatus(stage="RUNNING"),
+        )
+    )
+    service = WebchatResourceService(
+        runtime=owner,
+        entries=_Entries(
+            (
+                BotSnapshotItem(
+                    bot_account_id=entry_id,
+                    bot_id="s15-webchat",
+                    channel="WEBCHAT",
+                    agent_id=tenant.agent_id,
+                ),
+            )
+        ),
+        tenant_id=tenant.tenant_id,
+    )
+    request = WebchatMessageRequest(
+        conversation_id=conversation_id, message_id="msg-s15-core", text="S-15 提交"
+    )
+
+    accepted = await service.submit_message(
+        _chat_identity(tenant), entry_id, request, idempotency_key="s15-key"
+    )
+    assert accepted.run_id == owner.admission.run_id
+    assert accepted.conversation_id == conversation_id
+    assert accepted.status == RunStatus.CREATED
+    assert accepted.execution_status.stage == "RUNNING"
+    submitted, tenant_id, key = owner.submit_calls[0]
+    assert tenant_id == tenant.tenant_id and key == "s15-key"
+    assert submitted.agent_id == tenant.agent_id
+    assert submitted.channel.bot_id == str(entry_id)
+
+    # 幂等重放：状态取自受理裁决（这里模拟已完成的 Run），仍然不需要 get_run。
+    owner.admission = RunAdmission(
+        run_id=owner.admission.run_id,
+        conversation_id=conversation_id,
+        resumed=False,
+        status=RunStatus.COMPLETED,
+        execution_status=WebchatExecutionStatus(stage="COMPLETED"),
+    )
+    replay = await service.submit_message(
+        _chat_identity(tenant), entry_id, request, idempotency_key="s15-key"
+    )
+    assert replay.status == RunStatus.COMPLETED
+    assert replay.execution_status.stage == "COMPLETED"
+    assert owner.get_run_calls == 0
+
+
+async def test_s15_webchat_adapter_has_no_dead_inbound_queue() -> None:
+    """WEBCHAT 入站是 SYNC（HTTP→统一核心→Runtime）：适配器不再有进程内队列/消费循环。"""
+    from muad_im_gateway.channels.webchat import WebchatChannelAdapter
+
+    adapter = WebchatChannelAdapter()
+    await adapter.start()
+    try:
+        events = await adapter.iter_events()
+        with pytest.raises(StopAsyncIteration):
+            # 旧实现的 `iter_events()` 会永远挂在空队列上：超时即失败，不把 RED 变成挂起。
+            await asyncio.wait_for(anext(events), timeout=1.0)
+        for attribute in ("submit", "pending", "max_pending"):
+            assert not hasattr(adapter, attribute), attribute
+    finally:
+        await adapter.stop()

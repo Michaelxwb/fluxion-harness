@@ -20,7 +20,7 @@ from tests.agent_runtime.memory_confirmation_support import source
 
 @asynccontextmanager
 async def model_stack(
-    engine, *, delay=0, credential_delay=0, output=None, policy=None, tenant=None, user=None
+    engine, *, delay=0, credential_delay=0, output=None, policy=None, tenant=None, user=None, gate=None
 ):
     import asyncio
 
@@ -31,6 +31,10 @@ async def model_stack(
     @model.post("/v1/chat/completions")
     async def completion(request: Request):
         requests.append((await request.json(), request.headers.get("Authorization")))
+        # 可控闸门：调用方用它把执行停在「已发出模型调用、尚未返回」，从而稳定观察在飞语义，
+        # 而不是靠 delay 抢时间窗。
+        if gate is not None:
+            await gate.wait()
         await asyncio.sleep(delay)
         return {
             "choices": [

@@ -1,7 +1,8 @@
-"""架构边界：四部署单元、SDK 类型隔离与无 Pod 绑定（RULE-01 / RULE-04 / RISK-01 的静态面）。
+"""架构边界：部署单元、SDK 类型隔离与无 Pod 绑定（RULE-01 / RULE-04 / RISK-01 的静态面）。
 
-design 10-im-gateway §3.1/§3.2：Console/Runtime/Worker/Gateway 四个部署单元；渠道 SDK 只在
-Gateway 适配器内；Gateway 不持库；不存在 bot/Agent→Pod 的映射。
+design high-qps-remediation §3.2 / §4.1：Console/Runtime/Worker/Gateway 四个逻辑业务单元
+（Connector 是 im-gateway 的有状态运行时角色）；**渠道 SDK 只活在 Connector 的 adapter
+surface**，Gateway 是不含 SDK/长连接的请求面；Gateway 不持库；不存在 bot/Agent→Pod 映射。
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 GATEWAY = "apps/im-gateway"
+CONNECTOR = "apps/im-connector"
 RUNTIME = "apps/agent-runtime"
 WORKER = "apps/agent-worker"
 CONSOLE = "apps/console-platform/backend"
@@ -67,14 +69,41 @@ def test_runtime_and_worker_do_not_import_channel_sdk() -> None:
         assert offenders == [], f"{relative} 不得引用渠道 SDK：{offenders}"
 
 
-def test_channel_sdk_is_confined_to_gateway_adapter_layer() -> None:
-    offenders: list[str] = []
-    for path in _python_files(GATEWAY):
+def test_channel_sdk_only_lives_in_connector_adapter_surface() -> None:
+    """Gateway 是请求面：不含任何渠道 SDK；Connector 的 SDK 只在 `channels/` 适配器层。"""
+    gateway_offenders = [
+        str(path.relative_to(ROOT))
+        for path in _python_files(GATEWAY)
+        if CHANNEL_SDK_ROOTS & _imported_roots(path)
+    ]
+    assert gateway_offenders == [], f"Gateway 不得引用渠道 SDK：{gateway_offenders}"
+
+    connector_offenders: list[str] = []
+    for path in _python_files(CONNECTOR):
         if CHANNEL_SDK_ROOTS & _imported_roots(path):
             relative = str(path.relative_to(ROOT))
             if "/channels/" not in relative:
-                offenders.append(relative)
-    assert offenders == [], f"SDK 只允许在 Gateway 的 channels 适配器层：{offenders}"
+                connector_offenders.append(relative)
+    assert connector_offenders == [], (
+        f"SDK 只允许在 Connector 的 channels 适配器层：{connector_offenders}"
+    )
+
+
+def test_connector_exposes_no_public_business_routes() -> None:
+    """Connector 只有运维面（/healthz、/readyz、/metrics），没有业务 HTTP 路由。
+
+    design §4.1「不暴露公开 HTTP」：终端用户请求只打 Gateway；Connector 的入口是渠道长连接
+    与 Redis Stream。业务路由一旦注册，它就成了一个事实上的第五个服务。
+    """
+    main = ROOT / CONNECTOR / "src/muad_im_connector/main.py"
+    text = main.read_text(encoding="utf-8")
+    assert "include_router(" not in text, f"{main} 注册了业务路由（Connector 不得暴露公开业务面）"
+    assert "APIRouter(" not in text, f"{main} 声明了业务路由（Connector 不得暴露公开业务面）"
+    assert "install_health_probes(" in text and "install_connector_metrics(" in text, (
+        "Connector 必须暴露探针与指标（运维面）"
+    )
+    offenders = _sources_matching(CONNECTOR, lambda value, _path: "sqlalchemy" in value)
+    assert offenders == [], f"Connector 不持库（没有 DATABASE_URL）：{offenders}"
 
 
 def test_no_bot_or_agent_to_pod_mapping() -> None:

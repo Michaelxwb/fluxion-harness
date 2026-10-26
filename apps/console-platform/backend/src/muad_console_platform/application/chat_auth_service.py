@@ -97,21 +97,25 @@ class ChatSessionService:
         )
 
     async def resolve(self, session_token: SecretStr) -> WebchatSessionInfo:
-        """按摘要定位实时校验会话/来源 Token/用户；不读设置、不滑动续期、不改写任何行。"""
-        row = await self._sessions.find_by_token_hash(hash_chat_token(session_token.get_secret_value()))
-        if row is None:
+        """按摘要定位实时校验会话/来源 Token/用户；不读设置、不滑动续期、不改写任何行。
+
+        读取热路径只发一条 JOIN SELECT：会话、来源 Token、用户与 PG `now()` 一次取齐。
+        错误优先级保持原语义（未知会话 → 会话撤销/过期 → Token 撤销/过期 → 用户失效）。
+        """
+        facts = await self._sessions.find_facts_by_token_hash(
+            hash_chat_token(session_token.get_secret_value())
+        )
+        if facts is None:
             raise AppError(ErrorCode.UNAUTHORIZED)
-        now = await self._pg_now()
+        row, token_row, user, now = facts.session, facts.token, facts.user, facts.db_now
         if row.revoked_at is not None:
             raise AppError(ErrorCode.CHAT_SESSION_REVOKED)
         if row.expires_at <= now:
             raise AppError(ErrorCode.CHAT_SESSION_EXPIRED)
-        token_row = await self._tokens.find_by_id(row.access_token_id)
         if token_row is None or token_row.revoked_at is not None:
             raise AppError(ErrorCode.CHAT_SESSION_REVOKED)
         if token_row.expires_at <= now:
             raise AppError(ErrorCode.CHAT_TOKEN_EXPIRED)
-        user = await self._users.get(row.tenant_id, row.platform_user_id)
         if user is None or user.status != PLATFORM_USER_STATUS_ACTIVE:
             raise AppError(ErrorCode.CHAT_SESSION_REVOKED)
         return _info(

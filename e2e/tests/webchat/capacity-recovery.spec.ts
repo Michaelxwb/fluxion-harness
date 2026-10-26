@@ -509,3 +509,342 @@ test('S-15 正式四单元栈与入口代理在恢复后仍整体可用', async 
   expect(budgets.pg_connection_budget).toBeGreaterThan(0);
   expect(budgets.fd_budget).toBeGreaterThan(0);
 });
+
+// --------------------------------------------------------------------------- S-06 多副本
+//
+// S-06 与 S-15 的差别：S-15 是**单 Pod 崩溃/同地址重启**；S-06 要求**两个 Gateway 副本**
+// （design §4.1：Gateway N 副本、入口无 sticky session）：
+//   · 任意副本可受理/续流：同一个 CHAT 会话（同一组 Cookie）分别打 A/B 两个真实 uvicorn 进程；
+//   · 断线重连跨副本：在 A 上读到一半断流，带 `after_seq` 连 B，从游标续上（无缺口/重复）；
+//   · 同 message_id 重试只建一个 Run（幂等键沿链路透传）；
+//   · 一个 Pod 被 SIGKILL 后，已持久 Run 仍在、另一副本继续服务；重启后的 Pod 能重放持久事件。
+//
+// 诚实边界：这里用**真实 HTTP 客户端 + 真实 Cookie** 打两个副本（浏览器请求经入口代理到
+// 任一 Pod 是同一份 Cookie 语义）；在飞长流的浏览器渲染由 S-15 的浏览器用例覆盖。
+
+const REPLICA_GATEWAY_PORT = 10900 + Number(process.env.E2E_WEBCHAT_OFFSET ?? '0');
+const REPLICA_HEALTH_TIMEOUT_MS = 90_000;
+
+let replicaGateway: ChildProcess | undefined;
+process.on('exit', () => {
+  replicaGateway?.kill('SIGKILL');
+});
+
+interface ReplicaIdentity {
+  cookie: string;
+  chatContext: string;
+}
+
+interface GatewayReply {
+  status: number;
+  body: { code: string; data: { run_id?: string } | null } | null;
+}
+
+async function replicaIdentity(
+  request: APIRequestContext,
+  stack: WebchatStack,
+  token: string
+): Promise<ReplicaIdentity> {
+  const context = await playwrightRequest.newContext({ baseURL: stack.baseURL });
+  const exchange = await context.post('/api/v1/webchat/auth/exchange', {
+    data: { token },
+    headers: { Origin: stack.baseURL }
+  });
+  expect(exchange.status(), `CHAT 会话交换失败：HTTP ${exchange.status()}`).toBe(200);
+  const body = (await exchange.json()) as {
+    data: { auth_context_id: string };
+  };
+  const state = await context.storageState();
+  const cookie = state.cookies.map((item) => `${item.name}=${item.value}`).join('; ');
+  expect(cookie.length, '交换后必须拿到真实 CHAT Cookie').toBeGreaterThan(0);
+  await context.dispose();
+  return { cookie, chatContext: body.data.auth_context_id };
+}
+
+async function callGateway(
+  request: APIRequestContext,
+  base: string,
+  identity: ReplicaIdentity,
+  method: 'GET' | 'POST',
+  path: string,
+  data?: unknown,
+  extraHeaders: Record<string, string> = {}
+): Promise<GatewayReply> {
+  const response = await request.fetch(`${base}${path}`, {
+    method,
+    data: data === undefined ? undefined : JSON.stringify(data),
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Cookie: identity.cookie,
+      'X-Chat-Context': identity.chatContext,
+      ...extraHeaders
+    }
+  });
+  return {
+    status: response.status(),
+    body: (await response.json().catch(() => null)) as GatewayReply['body']
+  };
+}
+
+interface StreamResult {
+  cursors: number[];
+  events: string[];
+  terminal: boolean;
+}
+
+/** 读真实 SSE（公开事件流）：按游标记录，支持"读够 N 帧就断开"与"读到终态"。 */
+async function readPublicStream(
+  base: string,
+  runId: string,
+  identity: ReplicaIdentity,
+  options: { afterSeq: number; maxFrames?: number; maxMs?: number }
+): Promise<StreamResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.maxMs ?? 60_000);
+  const cursors: number[] = [];
+  const events: string[] = [];
+  let terminal = false;
+  try {
+    const response = await fetch(
+      `${base}${WEBCHAT_RUN_PREFIX}/${runId}/events?after_seq=${options.afterSeq}`,
+      {
+        headers: {
+          Accept: 'text/event-stream',
+          Cookie: identity.cookie,
+          'X-Chat-Context': identity.chatContext
+        },
+        signal: controller.signal
+      }
+    );
+    expect(response.status, `SSE 打开失败：HTTP ${response.status}`).toBe(200);
+    const reader = response.body?.getReader();
+    if (reader === undefined) {
+      throw new Error('SSE 响应没有可读流');
+    }
+    const decoder = new TextDecoder();
+    let pending = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) {
+        break;
+      }
+      pending += decoder.decode(value, { stream: true });
+      let boundary = pending.indexOf('\n\n');
+      while (boundary >= 0) {
+        const frame = pending.slice(0, boundary);
+        pending = pending.slice(boundary + 2);
+        const idLine = frame.split('\n').find((line) => line.startsWith('id:'));
+        const eventLine = frame.split('\n').find((line) => line.startsWith('event:'));
+        if (idLine !== undefined) {
+          cursors.push(Number(idLine.slice(3).trim()));
+        }
+        if (eventLine !== undefined) {
+          const name = eventLine.slice(6).trim();
+          events.push(name);
+          if (name === 'run.terminal') {
+            terminal = true;
+          }
+        }
+        boundary = pending.indexOf('\n\n');
+      }
+      if (terminal) {
+        break;
+      }
+      if (options.maxFrames !== undefined && cursors.length >= options.maxFrames) {
+        break;
+      }
+    }
+  } catch (error) {
+    const aborted = error instanceof Error && error.name === 'AbortError';
+    if (!aborted) {
+      throw error;
+    }
+  } finally {
+    clearTimeout(timeout);
+    controller.abort();
+  }
+  return { cursors, events, terminal };
+}
+
+async function startReplicaGateway(stack: WebchatStack): Promise<ChildProcess> {
+  const child = spawn(
+    'uv',
+    [
+      'run',
+      'uvicorn',
+      'muad_im_gateway.main:app',
+      '--app-dir',
+      'apps/im-gateway/src',
+      '--host',
+      '127.0.0.1',
+      '--port',
+      String(REPLICA_GATEWAY_PORT)
+    ],
+    {
+      cwd: REPO,
+      env: {
+        ...process.env,
+        DEFAULT_TENANT_ID: stack.tenant,
+        CONSOLE_PLATFORM_URL: stack.consoleURL,
+        AGENT_RUNTIME_URL: stack.runtimeURL,
+        IM_GATEWAY_URL: `http://127.0.0.1:${REPLICA_GATEWAY_PORT}`,
+        INTERNAL_SERVICE_TOKEN: process.env.E2E_WEBCHAT_INTERNAL_TOKEN ?? '',
+        BOT_SNAPSHOT_POLL_SEC: '1'
+      },
+      stdio: ['ignore', 'pipe', 'pipe']
+    }
+  );
+  replicaGateway = child;
+  const replicaURL = `http://127.0.0.1:${REPLICA_GATEWAY_PORT}`;
+  const deadline = Date.now() + REPLICA_HEALTH_TIMEOUT_MS;
+  for (;;) {
+    const health = await fetch(`${replicaURL}/healthz`).catch(() => null);
+    if (health?.ok) {
+      return child;
+    }
+    if (child.exitCode !== null) {
+      throw new Error(`Gateway 副本提前退出（code=${String(child.exitCode)}）`);
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`Gateway 副本未在 ${REPLICA_HEALTH_TIMEOUT_MS}ms 内就绪`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+function runCount(conversationId: string): number {
+  return runPythonJson<number>(`
+import asyncio, json, os, asyncpg
+async def main():
+    conn = await asyncpg.connect(os.environ['DATABASE_URL'].replace('postgresql+asyncpg', 'postgresql'))
+    count = await conn.fetchval(
+        "select count(*) from runtime.run_record where conversation_id = $1::uuid", '${conversationId}')
+    print(json.dumps(int(count or 0)))
+    await conn.close()
+asyncio.run(main())
+`);
+}
+
+async function createConversationOn(
+  request: APIRequestContext,
+  base: string,
+  identity: ReplicaIdentity,
+  entryId: string
+): Promise<string> {
+  const created = await callGateway(
+    request,
+    base,
+    identity,
+    'POST',
+    `${WEBCHAT_ENTRY_PREFIX}/${entryId}/conversations`,
+    undefined,
+    { 'Idempotency-Key': randomUUID() }
+  );
+  expect(created.status, JSON.stringify(created.body)).toBe(201);
+  const conversationId = (created.body?.data as { conversation_id?: string } | null)
+    ?.conversation_id;
+  expect(conversationId, '建会话必须返回 conversation_id').toBeTruthy();
+  return conversationId as string;
+}
+
+async function submitOn(
+  request: APIRequestContext,
+  base: string,
+  identity: ReplicaIdentity,
+  entryId: string,
+  conversationId: string,
+  messageId: string
+): Promise<GatewayReply> {
+  return callGateway(
+    request,
+    base,
+    identity,
+    'POST',
+    `${WEBCHAT_ENTRY_PREFIX}/${entryId}/messages`,
+    { conversation_id: conversationId, message_id: messageId, text: 'S-06 多副本', upload_ids: [] },
+    { 'Idempotency-Key': messageId }
+  );
+}
+
+test('S-06 多 Gateway 副本：任意 Pod 受理/跨副本续流/同 message_id 单 Run/Pod 重启不丢', {
+  tag: ['@smoke']
+}, async ({ page, request, webchatStack, webchatUsers, webchatFaults }) => {
+  test.slow();
+  const user: WebchatUserSession = webchatUsers.a;
+  const stack = webchatStack;
+  const replicaURL = `http://127.0.0.1:${REPLICA_GATEWAY_PORT}`;
+  const podA = stack.gatewayURL;
+  const podB = replicaURL;
+  // 真实第二个 Gateway 副本：本用例要求跨副本受理/续流，必须先把 B 进程起起来并等 healthz。
+  await startReplicaGateway(stack);
+  // 真实模型：多段正文，给跨副本续流留出窗口。
+  await webchatFaults.setBehavior({
+    latency_ms: 200,
+    chunk_interval_ms: 300,
+    deltas: ['多', '副', '本', '续', '流', '正', '文']
+  });
+  const identity = await replicaIdentity(request, stack, user.chatToken.token);
+  const conversationId = await createConversationOn(
+    request,
+    podA,
+    identity,
+    user.entry.entryId
+  );
+
+  const messageId = `e2e-s06-${randomUUID().slice(0, 8)}`;
+  const first = await submitOn(request, podA, identity, user.entry.entryId, conversationId, messageId);
+  expect(first.status, JSON.stringify(first.body)).toBe(202);
+  const runId = first.body?.data?.run_id as string;
+  expect(runId.length).toBeGreaterThan(0);
+
+  // 在 Pod A 上读到部分正文后**主动断开**（真实断链）。
+  const partial = await readPublicStream(podA, runId, identity, { afterSeq: 0, maxFrames: 2 });
+  expect(partial.cursors.length, 'Pod A 上必须读到真实事件').toBeGreaterThan(0);
+  const resumeFrom = partial.cursors[partial.cursors.length - 1];
+
+  // 带 after_seq 重连到 Pod B：从游标续上、无重复/回退游标、直到终态。
+  const rest = await readPublicStream(podB, runId, identity, {
+    afterSeq: resumeFrom,
+    maxMs: 120_000
+  });
+  const allCursors = [...partial.cursors, ...rest.cursors];
+  for (let index = 1; index < allCursors.length; index += 1) {
+    expect(
+      allCursors[index],
+      `跨副本续流不得重复/回退游标：${allCursors.join(',')}`
+    ).toBeGreaterThan(allCursors[index - 1]);
+  }
+  expect(rest.terminal, 'Pod B 续流必须读到 run.terminal（游标续上没有缺口）').toBe(true);
+
+  // 同 message_id + 同幂等键在另一副本重试：202 且仍是同一个 Run。
+  const retried = await submitOn(request, podB, identity, user.entry.entryId, conversationId, messageId);
+  expect(retried.status, JSON.stringify(retried.body)).toBe(202);
+  expect(retried.body?.data?.run_id, '同 message_id 重试必须只建一个 Run').toBe(runId);
+  expect(runCount(conversationId), '重试不得产生第二个 Run').toBe(1);
+
+  // SIGKILL Pod A（真实单 Pod 崩溃）：另一副本继续服务新提交与已持久 Run。
+  killListener(portOf(podA));
+  const secondMessageId = `e2e-s06-b-${randomUUID().slice(0, 8)}`;
+  const second = await submitOn(request, podB, identity, user.entry.entryId, conversationId, secondMessageId);
+  expect(second.status, JSON.stringify(second.body)).toBe(202);
+  const secondRunId = second.body?.data?.run_id as string;
+  const secondStream = await readPublicStream(podB, secondRunId, identity, {
+    afterSeq: 0,
+    maxMs: 120_000
+  });
+  expect(secondStream.terminal, 'Pod B 必须独立跑完新提交').toBe(true);
+
+  // 同地址重启 Pod A（真实 uvicorn + 看护进程）：已持久 Run 仍在，事件可重放。
+  await restartGateway(stack);
+  const replay = await readPublicStream(podA, runId, identity, {
+    afterSeq: 0,
+    maxMs: 60_000
+  });
+  expect(replay.terminal, 'Pod 重启后必须能从持久事件重放终态（Run 不丢）').toBe(true);
+  expect(runCount(conversationId), '重启不得重建 Run（会话内恰两条消息各一个 Run）').toBe(2);
+
+  // 浏览器侧经重启后的 Pod A 仍可用（真实页面 + 真实 Cookie）。
+  await openChatWithToken(page, user.chatToken.token);
+  await expect(page.getByTestId('chat-sidebar-loading')).toHaveCount(0, { timeout: 30_000 });
+});

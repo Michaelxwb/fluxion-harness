@@ -57,7 +57,7 @@ async def _wait_for_subscribe(stack: GatewayStack, timeout: float = 20.0) -> lis
 
 
 async def test_b121_all_service_processes_are_reachable(gateway_stack: GatewayStack) -> None:
-    for name in ("console", "runtime", "gateway"):
+    for name in ("console", "runtime", "gateway", "connector"):
         process = gateway_stack.processes[name]
         assert process._process is not None, f"{name} 未启动"
         assert process._process.poll() is None, f"{name} 进程已退出"
@@ -66,6 +66,7 @@ async def test_b121_all_service_processes_are_reachable(gateway_stack: GatewaySt
         gateway_stack.console_url,
         gateway_stack.runtime_url,
         gateway_stack.gateway_url,
+        gateway_stack.connector_url,
     ):
         response = await _get(f"{url}/healthz")
         assert response.status_code == 200, (url, response.text)
@@ -75,9 +76,10 @@ async def test_b121_all_service_processes_are_reachable(gateway_stack: GatewaySt
     assert ready.status_code == 200, ready.text
 
 
-async def test_b121_gateway_authenticates_to_local_ws_probe(gateway_stack: GatewayStack) -> None:
+async def test_b121_connector_authenticates_to_local_ws_probe(gateway_stack: GatewayStack) -> None:
+    """长连接在 Connector（im-gateway 的有状态运行时角色），不在请求面 Gateway。"""
     frames = await _wait_for_subscribe(gateway_stack)
-    assert frames, "Gateway 进程未在超时内经真实 socket 发起认证"
+    assert frames, "Connector 进程未在超时内经真实 socket 发起认证"
     assert frames[0]["body"] == {"bot_id": BOT_ID, "secret": BOT_SECRET}
     assert gateway_stack.ws_probe.auth_failures == []
 

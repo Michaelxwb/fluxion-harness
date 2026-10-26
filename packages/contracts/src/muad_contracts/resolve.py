@@ -17,7 +17,7 @@ class ResolveDefinitionRequest(ContractModel):
     #: 现状：console 侧零消费方读它（`resolve_service` 只用 agent/actor），所以"必填"只会逼
     #: 每个调用点去编一个值；哪天开始按通道做授权，编造的值立刻就是错的。
     #: 定时触发（worker）与建会话（runtime）都不经渠道 ⇒ 它们显式省略。
-    channel: ChannelName | None = None
+    channel: ChannelName | None = Field(default=None, min_length=1)
 
 
 class ResolvedAgent(ContractModel):
@@ -78,7 +78,7 @@ class AdmissionMaterialsRequest(ContractModel):
     actor_user_id: UUID
     #: 本 Run 的 id：只作审计关联（与 API-09 的 `execution_ref` 同义），不承担容量归属。
     execution_id: UUID
-    channel: ChannelName | None = None
+    channel: ChannelName | None = Field(default=None, min_length=1)
 
 
 class ResolveModelRequest(ContractModel):

@@ -46,7 +46,7 @@ from muad_console_platform.application.chat_token_service import (
     ChatTokenService,
     hash_chat_token,
 )
-from muad_console_platform.infrastructure.db import get_session_factory
+from muad_console_platform.infrastructure.db import get_engine, get_session_factory
 from muad_console_platform.infrastructure.models.auth import (
     ChatAccessToken,
     ChatSession,
@@ -427,6 +427,35 @@ async def test_b240_session_expiry_is_min_of_exchange_ttl_and_source_remaining(
         "剩余不足 12 小时的来源 Token 只能换来 ≤ 剩余期限的会话"
     )
     assert bound_grant.info.expires_at == bound_row.expires_at
+
+
+async def test_resolve_uses_one_joined_query_and_preserves_error_priority(
+    session_scope: SessionScope,
+) -> None:
+    """[S-14/TASK-002] 读取路径一次 JOIN 取齐会话/来源 Token/用户；错误优先级不变。"""
+    token = await _issue_user_token(session_scope)
+    grant = await _exchange(token)
+    statements: list[str] = []
+
+    @sa.event.listens_for(get_engine().sync_engine, "before_cursor_execute")
+    def _capture(conn, cursor, statement, parameters, context, executemany):  # type: ignore[no-untyped-def]
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    try:
+        info = await _resolve(grant.session_token.get_secret_value())
+    finally:
+        sa.event.remove(get_engine().sync_engine, "before_cursor_execute", _capture)
+
+    assert info.user_id == session_scope.user_id
+    assert len(statements) == 1, (
+        "resolve 只允许一条 SELECT（session+token+user JOIN）；"
+        f"实际 {len(statements)} 条：{statements}"
+    )
+
+    with pytest.raises(AppError) as missing:
+        await _resolve("not-a-real-session-token")
+    assert missing.value.code == ErrorCode.UNAUTHORIZED
 
 
 async def test_b240_resolve_reads_live_session_and_source_without_sliding(

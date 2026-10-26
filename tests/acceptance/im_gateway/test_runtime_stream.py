@@ -128,9 +128,9 @@ async def _seed_run(
                 text(
                     "INSERT INTO runtime.run_record "
                     "(id, tenant_id, conversation_id, user_id, agent_id, status, input_text, "
-                    "trace_id, cancel_requested, deadline_at) "
+                    "trace_id, cancel_requested, start_time, deadline_at) "
                     "VALUES (:id, :t, :c, :u, :a, :status, 'seeded', :trace, false, "
-                    "now() + interval '10 minutes')"
+                    "now(), now() + interval '10 minutes')"
                 ),
                 {
                     "id": run_id,

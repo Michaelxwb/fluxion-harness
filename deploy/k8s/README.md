@@ -1,7 +1,9 @@
 # Kubernetes 部署
 
-四个部署单元（`harness-arch#RULE-arch-001`）：`console-platform` / `agent-runtime` / `agent-worker` / `im-gateway`。
-Runtime 与 Worker **无状态、可横向扩展**（`docs/01 §4.2`：runtime 2~N、worker 2~N、gateway 1~N、console 1~2）。
+四个逻辑部署单元（`harness-arch#RULE-arch-001`）：`console-platform` / `agent-runtime` / `agent-worker` / `im-gateway`。
+`im-gateway` 可拆成**无状态 web（Gateway）** 与**有状态 connector（Connector）** 两个运行时角色；
+Connector 不是第五个业务微服务，只在启用企微时部署（`deploy/k8s/with-connector/`，5 单元）。
+Runtime 与 Worker **无状态、可横向扩展**（`docs/01 §4.2`：runtime 2~N、worker 2~N、gateway N、console 1）。
 
 ## 目录
 
@@ -9,6 +11,8 @@ Runtime 与 Worker **无状态、可横向扩展**（`docs/01 §4.2`：runtime 2
 |---|---|
 | `base/` | 四个 Deployment + Service + ConfigMap(=服务间接线) + RWX PVC + **迁移 Job** |
 | `base/secret.example.yaml` | Secret 模板（**不含真实凭据**，键名是契约） |
+| `with-connector/` | 启用企微的 **5 单元 overlay**：只多一个 Connector Deployment/Service/PDB（自身 secret、无公开入口）；Gateway 多副本与远程通道开关在 base |
+| `with-connector/secret-connector.example.yaml` | Connector 专属 Secret 模板（只有 `REDIS_URL`/`INTERNAL_SERVICE_TOKEN`；**没有** `DATABASE_URL`） |
 | `verify-multipod/` | 多 Pod 冒烟用 overlay（runtime/worker 撑到 2 副本）+ 怎么跑 |
 
 ## 部署顺序
@@ -42,15 +46,22 @@ kubectl -n muad rollout status deploy/muad-console-platform --timeout=180s
 
 ## 发布前预检（渲染清单 → typed 容量配置，失败阻断发布）
 
-压测拓扑固定为 **Console 1 Pod、IM Gateway 1 Pod，Runtime/Worker 可多副本**。
+压测拓扑：**Console 1 Pod（容量口径）、Gateway/Connector N 副本（按 profile 声明）、Runtime/Worker 可多副本**。
 清单预检不会自动核对集群中的手动扩容；每轮施压前额外执行实际拓扑检查：
 
 ```bash
 uv run python scripts/check_agent_capacity_deployment.py --live-namespace muad-cap
+
+# 启用企微（5 单元）：
+uv run python scripts/check_agent_capacity_deployment.py \
+  --base deploy/k8s/with-connector \
+  --profile tests/capacity/profiles/agent-capacity-webchat-connector.example.yml
+kubectl apply -k deploy/k8s/with-connector
 ```
 
-该检查读取实际 Deployment、Pod、HPA；Console/Gateway 期望/实际/就绪副本不为 1、存在额外
-或终止中 Pod、未就绪或被 HPA 扩容时均非零退出，不能继续该轮压测。
+该检查读取实际 Deployment、Pod、HPA：Console 期望/实际/就绪副本不为 1、存在额外或终止中
+Pod、未就绪或被 HPA 扩容时非零退出；Gateway/Connector/Runtime/Worker 要求期望=实际=就绪
+（扩缩未结束不得开始压测），不再约束 Gateway 单 Pod。
 
 渲染正式清单，把**将要 apply 的那份**与 typed 容量配置逐项对齐（design §3.7 配置契约与
 生效边界 / §4.2 发布与迁移）：对不上就不要发布。
@@ -64,9 +75,12 @@ uv run python scripts/check_agent_capacity_deployment.py --profile tests/capacit
 | 检查项 | 口径 |
 |---|---|
 | 渲染 | `kubectl kustomize deploy/k8s/base`（与 `kubectl apply -k` 同一条渲染路径）；没被 kustomization 收集的清单不生效、也不参与判定 |
-| 资源声明 | 四个单元的 requests/limits 必须等于 profile 的 `resources.hardware` |
+| 单元集合 | 由 profile 的 `resources.hardware`/`process_counts`/`replica_counts`/`max_replica_counts` 声明：四个核心单元必填，`connector` 可选；渲染集合的 Deployment/Service 必须恰好等于该集合 |
+| 资源声明 | 各单元的 requests/limits 必须等于 profile 的 `resources.hardware` |
 | 总连接 | PG 总连接 = Σ 进程数 × 最大副本数 × (pool+overflow)（取自真实 engine 工厂），须留维护余量并 ≤ `pg_connection_budget` |
-| FD | 每进程 FD = 出站池连接 + PG 上限 + Redis + 入站订阅，须 ≤ `fd_budget`（nofile） |
+| FD | 每 Pod FD = `process_counts` ×（出站池连接 + PG 上限 + Redis + 入站订阅），须 ≤ `fd_budget` |
+| DB 池 | 允许按单元声明 `DB_POOL_SIZE`/`DB_MAX_OVERFLOW`；`pool+overflow` 必须 ≥ 该单元的并发闸门，且只在持库单元声明 |
+| Connector | 启用时必须渲染 PDB、显式 lease 节拍（TTL ≥ 5s、renew < TTL/2）、且没有任何 Ingress 指向它 |
 | 内存缓冲 | 进程级 SSE 总缓冲 ≤ 内存上限的 50%（`sse_total_buffer_bytes` 受进程内存预算约束） |
 | 下游扇入 | Gateway 流池上界 ≤ Runtime 上界订阅容量（`runtime_max_sse_subscribers` × 最大副本） |
 | 业务出站并发 | Gateway 的 egress 池上界（`EGRESS_HTTP_MAX_CONNECTIONS` × 最大副本）≥ `workload.users` × `active_runs_per_user`：单 Pod 下每个用户建会话/提交消息各占一条连接，池不够会在池里排队到超时变 500 |

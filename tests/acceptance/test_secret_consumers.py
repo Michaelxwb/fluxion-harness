@@ -14,8 +14,8 @@ from muad_api import AppError
 from muad_api.audit import sanitize_audit_payload, write_config_audit
 from muad_common import SharedSettings
 from muad_contracts import BotSnapshotItem, ResolvedModel
+from muad_im_connector.channels.wecom.adapter import WeComAdapter
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable
-from muad_im_gateway.channels.wecom.adapter import WeComAdapter
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 

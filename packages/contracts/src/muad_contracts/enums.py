@@ -1,10 +1,12 @@
 from enum import StrEnum
-from typing import Literal
 
-# 通道枚举的**唯一**定义处：新增通道只改这一行，其余位置一律引用本别名。
-# 放在 leaves 模块（仅依赖标准库），避免 channel ↔ tasks 的循环导入。
+# 通道名的**唯一**声明处。契约字段是**开放的 string**（新增通道只写适配器，不改这里：
+# 路由由 `ChannelRegistry` 的适配器名决定）；下面列出的是内建通道名，供默认值/文档与
+# 机检（一处声明）使用。放在 leaves 模块（仅依赖标准库），避免 channel ↔ tasks 的循环导入。
 # 机检：tests/test_attachment_contract.py::test_b07_channel_enum_is_defined_in_exactly_one_place
-ChannelName = Literal["WECOM", "WEBCHAT"]  # WECOM=企微机器人；WEBCHAT=通用网页稳定入口
+BUILTIN_CHANNEL_NAMES: tuple[str, ...] = ("WECOM", "WEBCHAT")
+#: 兼容别名：类型上是开放 string（WECOM=企微机器人；WEBCHAT=通用网页稳定入口）。
+ChannelName = str
 
 
 class RunStatus(StrEnum):

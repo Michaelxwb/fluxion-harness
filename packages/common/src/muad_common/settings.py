@@ -24,6 +24,20 @@ class SharedSettings(BaseSettings):
     # WeCom SDK 连接地址与 CA：仅用于本地真实协议探针（默认空 = SDK 官方地址 + certifi 校验）
     wecom_ws_url: str | None = None
     wecom_ws_ca_file: str | None = None
+    #: Gateway 的**通用 webhook 通道**配置（JSON 数组：channel/secret/reply_url）。空 = 无 webhook
+    #: 通道。secret 是验签密钥，不是 bot 连接密钥；bot secret 只流向持有长连接的 Connector。
+    gateway_webhook_channels: str = Field(default="", repr=False)
+    webhook_timestamp_tolerance_sec: int = Field(default=300, ge=1)
+    #: Gateway 的**远程 Connector 路由面**：这些通道的入站只做路由（建 Run）、出站经
+    #: `im.outbound` 交给持有长连接的 Connector（Gateway 不发 WS/不持 secret）。逗号分隔；
+    #: 空 = 本部署没有远程通道（WebChat-only 四单元默认）。
+    gateway_routed_channels: str = Field(default="")
+    #: 入站 Stream 分片/上限（生产者与消费者必须同一口径；design §3.3.1）。
+    inbound_stream_shards: int = Field(default=32, ge=1)
+    inbound_stream_maxlen: int = Field(default=100_000, ge=1)
+    inbound_stream_lost_after_sec: int = Field(default=60, ge=1)
+    #: 投递 facade 等待 Connector 结果的有界窗口（超时回可重试错误，不把占位当成功）。
+    delivery_stream_wait_sec: float = Field(default=2.0, gt=0)
 
     artifact_root: str = "./.data/artifacts"
     skill_cache_root: str = "./.data/skill-cache"
@@ -36,7 +50,14 @@ class SharedSettings(BaseSettings):
     # 每机器人状态刷新预算（正文/最终结果不占此额度）：**服务资源预算上限**，留在环境。
     im_progress_updates_per_second: float = Field(default=10.0, ge=1.0)
 
-    runtime_execution_concurrency: int = Field(default=8, ge=1, le=256)
+    #: 单进程执行槽默认值按 profile 上界：4 副本 × 256 ≥ 1000 并发 Run。
+    #: 生产清单显式声明同值；本地 `.env` 可下调，但容量结论必须按清单/环境变量。
+    runtime_execution_concurrency: int = Field(default=256, ge=1, le=256)
+    #: 准入闸门之后的最多排队数（每进程）：超过即显式 RUN_CAPACITY_EXCEEDED/429，
+    #: 不把请求无限挂在 asyncio 队列里（B-01「有界队列」）。
+    runtime_admission_queue_limit: int = Field(default=256, ge=0, le=10000)
+    #: memory consolidation 的租户级待处理上限；到界后不再入队（不阻塞已完成的 Run）。
+    memory_consolidation_queue_max: int = Field(default=10000, ge=1)
     worker_execution_concurrency: int = Field(default=4, ge=1, le=64)
     gateway_max_concurrent_handlers: int = Field(default=8, ge=1)
     gateway_max_pending_handlers: int = Field(default=256, ge=1)
@@ -55,7 +76,7 @@ class SharedSettings(BaseSettings):
     control_http_max_keepalive: int = Field(default=16, ge=0)
     stream_http_max_connections: int = Field(default=1100, ge=1)
     stream_http_max_keepalive: int = Field(default=64, ge=0)
-    model_http_max_connections: int = Field(default=64, ge=1)
+    model_http_max_connections: int = Field(default=256, ge=1)
     model_http_max_keepalive: int = Field(default=32, ge=0)
     mcp_http_max_connections: int = Field(default=16, ge=1)
     mcp_http_max_keepalive: int = Field(default=8, ge=0)
@@ -84,8 +105,8 @@ class SharedSettings(BaseSettings):
     run_event_fallback_poll_sec: float = Field(default=5.0, gt=0)
     model_call_lease_sec: int = Field(default=60, ge=1)
     model_call_heartbeat_sec: int = Field(default=20, ge=1)
-    stream_delta_flush_interval_ms: int = Field(default=50, ge=10, le=500)
-    stream_delta_flush_bytes: int = Field(default=4096, ge=1024, le=65536)
+    stream_delta_flush_interval_ms: int = Field(default=300, ge=10, le=500)
+    stream_delta_flush_bytes: int = Field(default=8192, ge=1024, le=65536)
     sse_event_max_bytes: int = Field(default=262144, ge=1)
     sse_subscriber_buffer_bytes: int = Field(default=1048576, ge=1)
     sse_total_buffer_bytes: int = Field(default=67108864, ge=1)

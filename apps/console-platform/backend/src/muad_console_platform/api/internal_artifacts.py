@@ -57,7 +57,7 @@ async def issue_fetch_link(
     """
     if await service.fetch(artifact_id, tenant_id=tenant_id) is None:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
-    token = tokens.issue(artifact_id, tenant_id=tenant_id)
+    token = await tokens.issue(artifact_id, tenant_id=tenant_id)
     return ok(
         request.app.state.message_catalog,
         {"url": fetch_url(artifact_id, token, base_url=SharedSettings().console_platform_url)},

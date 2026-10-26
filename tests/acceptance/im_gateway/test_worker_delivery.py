@@ -224,9 +224,22 @@ async def test_b127_retryable_failure_recovers_after_injection_cleared(
     assert probe is not None
     probe.fail_reply_bots.add(BOT_ID)
     try:
+        # 同步点必须是**这次尝试已结算**（可重试失败的 RETRY 事件落库），不是"attempts 已自增"：
+        # `attempts` 在调用 Gateway 之前就自增并提交（崩溃不丢退避），而 routed 通道的失败要经过
+        # Connector（`im.outbound` → WS → 结果键）才有结论，两者之间隔着一次真实往返。
+        async def _retry_recorded() -> bool:
+            if not await _attempts_at_least(seeded["task_id"], 1):
+                return False
+            events = await _scalar(
+                "SELECT count(*) FROM task.task_event WHERE tenant_id = :t"
+                " AND event_type = 'DELIVERY_RETRY'",
+                {"t": gateway_stack.tenant_id},
+            )
+            return int(events or 0) >= 1
+
         await _wait_for(
-            lambda: _attempts_at_least(seeded["task_id"], 1),
-            what="未观察到首次投递尝试",
+            _retry_recorded,
+            what="可重试失败未在超时内留下 DELIVERY_RETRY 事件",
             timeout=30.0,
         )
         row = await _delivery_row(seeded["task_id"])
@@ -235,11 +248,6 @@ async def test_b127_retryable_failure_recovers_after_injection_cleared(
         # 恢复后由退避重试补发
         assert row["delivery_status"] == "PENDING", row
         assert int(row["attempts"] or 0) >= 1, row
-        retry_events = await _scalar(
-            "SELECT count(*) FROM task.task_event WHERE tenant_id = :t AND event_type = 'DELIVERY_RETRY'",
-            {"t": gateway_stack.tenant_id},
-        )
-        assert int(retry_events or 0) >= 1, "可重试失败必须留 DELIVERY_RETRY 事件"
     finally:
         probe.clear_injections()
 

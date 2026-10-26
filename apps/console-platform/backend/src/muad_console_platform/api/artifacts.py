@@ -48,7 +48,7 @@ async def authorize_artifact_fetch(
 ) -> FetchCaller:
     """二选一鉴权。**两种身份的失败在这里就已经分不出来了**（同一种错误、同一种响应）。"""
     if token is not None:
-        grant = tokens.redeem(token)
+        grant = await tokens.redeem(token)
         # `grant.artifact_id != artifact_id`：令牌是**单产物**的，拿 A 的令牌取 B 必须落空，
         # 否则一枚链接就成了同租户全部产物的通行证。
         if grant is None or grant.artifact_id != artifact_id:

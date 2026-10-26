@@ -70,6 +70,9 @@ async def seed_submission(factory, *, pending_limit=1, resolved=None, tenant=Non
             status=RunStatus.RUNNING,
             input_text="async",
             trace_id="submission-test",
+            # 生产每一条 Run 都有受理时间（`run_service` 建行时写 `start_time`）：续跑受理
+            # 要把 Run 状态投影回给调用方，缺这一列就投影不出排队窗口（TASK-010）。
+            start_time=datetime.now(UTC),
             deadline_at=datetime.now(UTC) + timedelta(minutes=10),
         )
         session.add(run)

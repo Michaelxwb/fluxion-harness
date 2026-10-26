@@ -16,7 +16,8 @@ API-10 授权下载）、真实 typed DTO（`modules/webchat/types.ts`）、真�
 
 - **有界增量轮询带抖动**：轮询间隔只来自 API-19 投影 `webchat.notification_poll_sec`（不复制默认、
   不散落常量），实际间隔按固定比例抖动（±20%）；每次只带 `after_seq` 增量游标（服务端 `next_seq`），
-  未追平水位时立即续拉、追平后按抖动间隔；`page_size` 缺省由服务端派生。
+  未追平水位时立即续拉、追平后按抖动间隔；`page_size` 只取投影 `webchat.history_page_size`（≤100）
+  并随请求发送，非法投影值显式失败、零请求。
 - **隐藏页暂停/前台同步**：`hidden` 时清掉待执行定时器且零请求；回前台**立即**同步通知（不等定时器）
   并经会话状态端口同步会话索引（`activity.foreground()`）；可见性订阅在 `dispose()` 时注销。
 - **未读以服务端为准且只显式标读**：未读总数只取服务端 `unread_count`（缺省/非法 → 0，绝不按重放帧
@@ -718,7 +719,55 @@ const obs = {};
     delayInvalid: [
       await errorCodeOf(Promise.resolve().then(() => notificationPollDelayMs(0, 0))),
       await errorCodeOf(Promise.resolve().then(() => notificationPollDelayMs(Number.NaN, 0)))
+    ],
+    delayProjection15: [
+      notificationPollDelayMs(15, 0),
+      notificationPollDelayMs(15, 0.5),
+      notificationPollDelayMs(15, 1)
     ]
+  };
+}
+
+// ---- 7) page_size：只取投影且 ≤100；非法投影值显式失败、零请求 ------------------------------------
+{
+  const { client } = await boot();
+  const identity = {
+    registerIdentityCleanup: () => () => {},
+    trackObjectUrl: () => {},
+    identitySignal: () => new AbortController().signal
+  };
+  const attempt = async (historyPageSize) => {
+    resetHttp();
+    if (historyPageSize === 20) {
+      planHttp([{ status: 200, data: pageOf([], 0, 0, 0) }]);
+    }
+    const controller = createNotificationController({
+      client,
+      config: {
+        ready: () => true,
+        limits: () => ({ ...CONFIG_A.webchat, history_page_size: historyPageSize })
+      },
+      identity,
+      timers: { setTimeout: () => 0, clearTimeout: () => {} },
+      visibility,
+      preview,
+      maxItems: 5,
+      random: () => 0
+    });
+    const snapshot = await controller.sync();
+    const requests = requestsOf().filter((entry) => entry.url === '/webchat/notifications');
+    controller.dispose();
+    return {
+      errorCode: snapshot.errorCode,
+      count: requests.length,
+      params: requests.map((entry) => entry.params)
+    };
+  };
+  obs.pageSize = {
+    valid: await attempt(20),
+    zero: await attempt(0),
+    aboveMax: await attempt(101),
+    fractional: await attempt(20.5)
   };
 }
 
@@ -1023,10 +1072,10 @@ def test_b284_polling_is_jittered_incremental_and_gated_by_the_projection(
     assert [entry["method"] for entry in requests] == ["GET", "GET", "GET"], requests
     assert all(entry["url"] == "/webchat/notifications" for entry in requests), requests
     assert [entry["params"] for entry in requests] == [
-        {"page": 1, "after_seq": 0},
-        {"page": 1, "after_seq": 2},
-        {"page": 1, "after_seq": 5},
-    ], f"增量轮询只带服务端 next_seq 游标，页大小缺省由服务端派生：{requests}"
+        {"page": 1, "page_size": 20, "after_seq": 0},
+        {"page": 1, "page_size": 20, "after_seq": 2},
+        {"page": 1, "page_size": 20, "after_seq": 5},
+    ], f"增量轮询带投影页大小与服务端 next_seq 游标：{requests}"
     for entry in requests:
         assert entry["locale"] == "zh-CN" and entry["hasRequestId"], f"共享传输头必须齐备：{entry}"
         assert entry["csrf"] == "chat-csrf-284", "CHAT 写/读都只取 CHAT 域 CSRF"
@@ -1045,6 +1094,24 @@ def test_b284_polling_is_jittered_incremental_and_gated_by_the_projection(
     assert snapshot["loadState"] == "ready" and snapshot["errorCode"] is None
     assert snapshot["polling"] is True
     assert "loading" in observed["states"] and observed["states"][-1] == "ready"
+
+
+def test_s09_page_size_comes_from_the_projection_and_invalid_values_fail_explicitly(
+    activity_logic: dict[str, Any],
+) -> None:
+    """通知页大小只取 API-19 投影 `history_page_size`（≤100）：非法值显式失败且零请求。"""
+    observed = activity_logic["pageSize"]
+    assert observed["valid"]["count"] == 1, "合法投影必须发出一次通知请求"
+    assert observed["valid"]["params"] == [{"page": 1, "page_size": 20, "after_seq": 0}], (
+        f"page_size 必须随请求发送且值来自投影：{observed['valid']['params']}"
+    )
+    assert observed["valid"]["errorCode"] is None
+    for key in ("zero", "aboveMax", "fractional"):
+        assert observed[key] == {
+            "errorCode": "PAGE_SIZE_INVALID",
+            "count": 0,
+            "params": [],
+        }, f"{key}: 非法 page_size 必须显式失败、零请求、不猜默认：{observed[key]}"
 
 
 def test_b284_hidden_page_pauses_and_foreground_syncs_notifications_and_sessions(
@@ -1186,7 +1253,11 @@ def test_b284_identity_boundary_stops_polling_revokes_urls_and_clears_private_st
     assert boundary["snapshot"]["preview"] is None, "身份边界必须清空预览态"
     assert boundary["listeners"] == 0, "身份边界必须注销可见性订阅"
 
-    assert observed["restarted"]["params"] == {"page": 1, "after_seq": 0}, "重新进入必须从游标 0 开始增量读取"
+    assert observed["restarted"]["params"] == {
+        "page": 1,
+        "page_size": 20,
+        "after_seq": 0,
+    }, "重新进入必须从游标 0 开始增量读取（页大小仍取投影）"
 
 
 # --------------------------------------------------------------------------- 纯函数
@@ -1210,6 +1281,9 @@ def test_b284_merge_bound_order_and_aggregation_are_explicit(
     assert observed["empty"] == {}
     assert observed["delayInvalid"] == ["POLL_INTERVAL_INVALID", "POLL_INTERVAL_INVALID"], (
         "轮询间隔非法必须显式失败，绝不回落猜测默认"
+    )
+    assert observed["delayProjection15"] == [12000, 15000, 18000], (
+        "15s 投影按 ±20% 抖动派生（12s/15s/18s），不硬编码任何固定间隔"
     )
 
 
@@ -1289,6 +1363,9 @@ def test_b284_hook_keeps_the_transport_identity_and_timer_boundaries() -> None:
     assert "identitySignal()" in compact, "请求必须挂在身份作用域信号上"
     assert "NotificationsPortCompatibility" in source, "必须保留编译期端口自检（tsc 钉住接线）"
     assert "limits().notification_poll_sec" in compact, "轮询间隔只从 API-19 投影取"
+    assert "history_page_size" in compact, "通知页大小只从 API-19 投影取"
+    assert "page_size:notificationPageSize(" in compact, "page_size 必须由投影派生并随请求发送"
+    assert "runtime.deps.client.notifications(" in compact, "通知只经 service 层端口（不裸 HTTP）"
     assert not re.search(r"notification_poll_sec[^\n]*(\?\?|\|\|)", stripped), "投影字段缺失不得回落猜测默认"
     assert "notificationPollDelayMs(" in compact, "抖动间隔必须经唯一纯函数派生"
     assert "setInterval" not in stripped, "轮询只经注入的定时器端口（可取消、可测试）"

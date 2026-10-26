@@ -30,6 +30,7 @@ from .infrastructure.http_clients import (
     build_probe_http_client,
     probe_budget,
 )
+from .infrastructure.settings import process_settings
 from .metrics import CONFIG_FAILURE_METRIC, install_console_metrics, record_reason
 from .spa import install_spa
 
@@ -40,7 +41,7 @@ logger = logging.getLogger(SERVICE_NAME)
 
 
 async def _warn_if_no_accounts() -> None:
-    settings = SharedSettings()
+    settings = process_settings()
     if not settings.database_url:
         logger.warning("console_account_check_skipped_database_url_missing")
         return
@@ -115,6 +116,11 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         catalog_client = getattr(fastapi_app.state, "mcp_catalog_cache_client", None)
         if catalog_client is not None:
             await catalog_client.aclose()
+        fetch_tokens_client = getattr(
+            fastapi_app.state, "artifact_fetch_tokens_client", None
+        )
+        if fetch_tokens_client is not None:
+            await fetch_tokens_client.aclose()
         fetch_service = getattr(fastapi_app.state, "artifact_fetch_service", None)
         if fetch_service is not None:
             await fetch_service.aclose()
@@ -136,7 +142,14 @@ def create_app(*, static_dir: Path | None = None) -> FastAPI:
         )
     )
     install_api_foundation(fastapi_app)
-    install_console_security(fastapi_app, ConsoleSessionVerifier(), ConsoleRoleResolver())
+    install_console_security(
+        fastapi_app,
+        ConsoleSessionVerifier(
+            settings_provider=lambda: getattr(fastapi_app.state, "settings", None)
+            or process_settings()
+        ),
+        ConsoleRoleResolver(),
+    )
     fastapi_app.add_middleware(SessionRenewalMiddleware)
     install_health_probes(fastapi_app, {"database": database_readiness(get_engine)})
     install_console_metrics(fastapi_app)

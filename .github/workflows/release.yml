@@ -1,0 +1,152 @@
+name: release
+
+# 镜像发布：**只有打 tag（v*）且该提交的 check 全绿之后**才构建/推送。
+#
+# 触发链（先验证、后发布）：
+#   git push origin v1.2.3
+#     → check.yml 在同一个 tag 提交上跑完整校验（静态/单测分片/acceptance/e2e/component/smoke）
+#     → 本工作流用 workflow_run 收到 “check 成功” 事件
+#     → capacity 作业先跑闸门容量档的容量守卫（30 用户，非 1000 用户 SLO）
+#     → images 作业构建并推送 5 个镜像（含 TASK-009 新增的 im-connector）
+#
+# 普通 push / PR 不再构建镜像；Dockerfile 问题会在打 tag 时被这条链拦住（不会静默发布）。
+#
+# 1000×8 全量 SLO 仍只由 staging 的人工发布门禁（E-09）执行；本工作流里的容量数字
+# 只是 runner 容量内的回归守卫，不得写成“1000 用户达标”。
+
+on:
+  workflow_run:
+    workflows: ["check"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "补发某个已存在的 tag（例如 v1.2.3）"
+        required: true
+
+concurrency:
+  # 同一 tag 只允许一条发布流水线；不取消进行中的（镜像推送不能半途而废）。
+  group: release-${{ github.event.workflow_run.head_branch || github.event.inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  # 发布前压测：与 capacity-nightly 同一口径（闸门容量档），失败则不发镜像。
+  capacity:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: muad
+          POSTGRES_PASSWORD: muad
+          POSTGRES_DB: muad
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U muad -d muad"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://muad:muad@localhost:5432/muad
+      REDIS_URL: redis://localhost:6379/0
+      INTERNAL_SERVICE_TOKEN: test-internal-token
+      PYTEST_FAILURE_LOG: /tmp/pytest-failures.log
+      CAPACITY_LOAD_USERS: "30"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.event.workflow_run.head_sha }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: 生成 CI 专用 alembic ini 并迁移到 head
+        run: |
+          printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
+            "$DATABASE_URL" > "$RUNNER_TEMP/alembic.ci.ini"
+          uv run python migrations/db_migrate.py -c "$RUNNER_TEMP/alembic.ci.ini"
+      - name: 清理残留 Redis claim
+        run: uv run python scripts/clean_acceptance_claims.py
+      - name: 预建干净检出缺失的 .data 挂载目录
+        run: mkdir -p .data/artifacts .data/skill-cache
+      - name: 容量守卫（闸门容量档，非 1000 用户 SLO）
+        run: |
+          uv run pytest -q -m capacity_load \
+            tests/acceptance/capacity/test_capacity_smoke.py \
+            --durations=20
+      - name: 上传失败清单（无论成败）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-capacity-report
+          path: /tmp/pytest-failures.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+  images:
+    needs: capacity
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        # 5 个镜像：四个默认单元 + Connector（TASK-009 起企微是有状态独立角色）。
+        unit: [console-platform, agent-runtime, agent-worker, im-gateway, im-connector]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.event.workflow_run.head_sha }}
+      - name: 解析发布 tag 与提交
+        id: rel
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag }}"
+          else
+            tag="${{ github.event.workflow_run.head_branch }}"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      # ghcr 包名要求全小写，而 owner 是 `Michaelxwb`。
+      - name: 计算镜像前缀（ghcr 包名要求全小写）
+        id: img
+        run: echo "prefix=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push ${{ matrix.unit }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.unit }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # 三个 tag：发布号（可追溯）、提交 sha（可回滚到具体提交）、latest（与
+          # deploy/k8s/* 的 image 字段一致）。裸名不得出现——会被解析成 Docker Hub。
+          tags: |
+            ${{ steps.img.outputs.prefix }}/muad-${{ matrix.unit }}:${{ steps.rel.outputs.tag }}
+            ${{ steps.img.outputs.prefix }}/muad-${{ matrix.unit }}:${{ steps.rel.outputs.sha }}
+            ${{ steps.img.outputs.prefix }}/muad-${{ matrix.unit }}:latest
+          cache-from: type=gha,scope=${{ matrix.unit }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.unit }}

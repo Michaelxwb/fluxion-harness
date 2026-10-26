@@ -75,12 +75,12 @@ def _replies(stack: GatewayStack) -> list[str]:
 async def _push(stack: GatewayStack, *, text: str) -> None:
     probe = stack.ws_probe
     assert probe is not None
-    # 就绪前置：先等真实 Gateway 在探针上完成 WS 认证，否则 `push_message` 会以
-    # 「探针没有 <bot> 的已连接客户端」失败——整跑（重链）负载下该连接窗口变长，
-    # 单跑却常通过（`test_binding` / `test_runtime_stream` 已是同口径）。
+    # 就绪前置：先等真实 Connector（持有 WS 长连接）在探针上完成认证，否则
+    # `push_message` 会以「探针没有 <bot> 的已连接客户端」失败——整跑（重链）负载下该连接
+    # 窗口变长，单跑却常通过（`test_binding` / `test_runtime_stream` 已是同口径）。
     await _wait_for(
         lambda: bool(probe.frames_of("aibot_subscribe")) and bool(probe.connections),  # type: ignore[attr-defined]
-        what="Gateway 未在超时内连上真实 WS 探针",
+        what="Connector 未在超时内连上真实 WS 探针",
     )
     message_id = f"recovery-{uuid.uuid4().hex[:8]}"
     await probe.push_message(  # type: ignore[attr-defined]

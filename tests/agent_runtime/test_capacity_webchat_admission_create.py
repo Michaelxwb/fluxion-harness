@@ -1204,3 +1204,39 @@ async def test_b230_concurrent_distinct_keys_converge_exactly_to_threshold(
             await _drain(*admitted)
         finally:
             await client.aclose()
+
+
+async def test_s13_admission_returns_before_history_loader_finishes(
+    admission_tenant: TenantContext,
+    fake_resolve: FakeResolveClient,
+    gated_executor: _GatedExecutorFactory,
+    execution_supervisor_boundary: ExecutionSupervisor,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """[S-13] 202 不等 history：历史加载可以在后台，但受理必须先返回并已持久。"""
+    tenant = admission_tenant
+    history_started = asyncio.Event()
+    release_history = asyncio.Event()
+
+    async def slow_history(self: RunService, *args: object, **kwargs: object) -> tuple[object, ...]:
+        history_started.set()
+        await release_history.wait()
+        return ()
+
+    monkeypatch.setattr(RunService, "_load_history", slow_history)
+    started_at = time.monotonic()
+    started = await _start(
+        tenant,
+        NullPlatformSettingsClient(),
+        fake_resolve,
+        gated_executor,
+        execution_supervisor_boundary,
+        key="s13-history-deferred",
+    )
+    elapsed = time.monotonic() - started_at
+    assert elapsed < 2.0, f"受理等待了 history 加载：{elapsed:.2f}s"
+    await asyncio.wait_for(history_started.wait(), timeout=5.0)
+    assert await _read_run_row(started.run_id) is not None, "受理返回时 Run 必须已持久"
+    release_history.set()
+    gated_executor.release()
+    await asyncio.wait_for(_drain(started), timeout=10.0)

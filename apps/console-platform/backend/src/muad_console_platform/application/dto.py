@@ -673,7 +673,8 @@ class AgentBindSkillRequest(BaseModel):
 class ChannelCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    channel: ChannelName = "WECOM"
+    # 通道名是开放 string（新增通道只加适配器）；DB 列是 `String(32)`，这里按同一上限校验。
+    channel: ChannelName = Field(default="WECOM", min_length=1, max_length=32)
     name: str = Field(min_length=1, max_length=128)
     bot_id: str = Field(min_length=1, max_length=256)
     #: 企微入口必填；WEBCHAT 稳定入口不携带企微凭据（按通道裁决在服务层）。

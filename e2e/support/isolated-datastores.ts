@@ -51,6 +51,11 @@ function dropSync(name: string, adminDatabaseUrl: string | undefined): void {
 
 /** 主进程首次求值时建库并冻结进 env；worker 再次求值时命中缓存直接复用。 */
 export function useIsolatedDatastores(): void {
+  if (process.argv.includes('--list')) {
+    // 只收集用例（scenario 登记/`cf-task acceptance manifest` 的 collect）：没有 webServer、
+    // 没有任何业务请求，**不需要库**。跳过建库让收集保持在秒级（工具侧上限 60s）。
+    return;
+  }
   if (process.env.E2E_ACC_DATABASE_URL) {
     // worker 重新求值：沿用主进程冻结的库，绝不重复建库。
     return;

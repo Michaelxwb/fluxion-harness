@@ -66,7 +66,7 @@ async def _source(session: AsyncSession, context: TaskSubmissionContext) -> tupl
     if run.user_id != context.actor_user_id or run.agent_id != context.agent.id:
         raise AppError(ErrorCode.FORBIDDEN)
     snapshot = await session.scalar(
-        select(RuntimeSnapshot).where(
+        select(RuntimeSnapshot).prefix_with("/* async_source */").where(
             RuntimeSnapshot.id == run.snapshot_id,
             RuntimeSnapshot.run_id == run.id,
             RuntimeSnapshot.tenant_id == context.tenant_id,

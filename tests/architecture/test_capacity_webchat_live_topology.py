@@ -1,4 +1,4 @@
-"""压测前核对实际集群，拦截 Console/Gateway 的副本漂移。"""
+"""压测前核对实际集群：Console 单 Pod 容量口径；Gateway/Connector 允许 N 副本（design §4.1）。"""
 
 from __future__ import annotations
 
@@ -12,7 +12,12 @@ from scripts import check_agent_capacity_deployment as preflight
 
 def _documents() -> list[dict[str, Any]]:
     documents: list[dict[str, Any]] = []
-    for unit, replicas in (("console-platform", 1), ("im-gateway", 1), ("agent-runtime", 4)):
+    for unit, replicas in (
+        ("console-platform", 1),
+        ("im-gateway", 2),
+        ("connector", 2),
+        ("agent-runtime", 4),
+    ):
         name = f"muad-{unit}"
         documents.append({
             "kind": "Deployment", "metadata": {"name": name},
@@ -27,23 +32,24 @@ def _documents() -> list[dict[str, Any]]:
     return documents
 
 
-def test_live_topology_allows_multiple_runtime_pods() -> None:
-    assert preflight.check_live_single_pods(_documents()) == []
+def test_live_topology_allows_multiple_gateway_connector_and_runtime_pods() -> None:
+    documents = _documents()
+    assert preflight.check_live_topology(documents) == []
+    assert preflight.check_live_replicas(documents) == []
 
 
-@pytest.mark.parametrize("unit", ("console-platform", "im-gateway"))
 @pytest.mark.parametrize("drift", (
     "desired", "actual", "extra_pod", "not_ready", "terminating", "missing", "hpa",
 ))
-def test_live_topology_rejects_single_pod_drift(unit: str, drift: str) -> None:
+def test_live_topology_rejects_console_drift(drift: str) -> None:
     documents = _documents()
-    name = f"muad-{unit}"
+    name = "muad-console-platform"
     deployment = next(d for d in documents if d["kind"] == "Deployment" and d["metadata"]["name"] == name)
     pod = next(d for d in documents if d["kind"] == "Pod" and d["metadata"]["labels"]["app"] == name)
     if drift == "desired":
-        deployment["spec"]["replicas"] = 4
+        deployment["spec"]["replicas"] = 2
     elif drift == "actual":
-        deployment["status"]["replicas"] = 4
+        deployment["status"]["replicas"] = 2
     elif drift == "extra_pod":
         documents.append({**pod, "metadata": {"name": f"{name}-extra", "labels": {"app": name}}})
     elif drift == "not_ready":
@@ -57,9 +63,20 @@ def test_live_topology_rejects_single_pod_drift(unit: str, drift: str) -> None:
             "kind": "HorizontalPodAutoscaler", "metadata": {"name": "arbitrary-name"},
             "spec": {"scaleTargetRef": {"name": name}},
         })
-    violations = preflight.check_live_single_pods(documents)
+    violations = preflight.check_live_topology(documents)
     assert violations and all(v.check == "live-topology" for v in violations)
-    assert all(unit in v.message for v in violations)
+    assert all("console-platform" in v.message for v in violations)
+
+
+@pytest.mark.parametrize("unit", ("im-gateway", "connector", "agent-runtime"))
+def test_live_replica_check_rejects_unfinished_rollout(unit: str) -> None:
+    documents = _documents()
+    name = f"muad-{unit}"
+    deployment = next(d for d in documents if d["kind"] == "Deployment" and d["metadata"]["name"] == name)
+    deployment["status"]["readyReplicas"] = int(deployment["spec"]["replicas"]) - 1
+    violations = preflight.check_live_replicas(documents)
+    assert [v.check for v in violations] == ["live-topology"]
+    assert unit in violations[0].message
 
 
 @pytest.mark.parametrize("payload", ("not-json", "{}", '{"items":1}', '{"items":[null]}'))

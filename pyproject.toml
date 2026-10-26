@@ -40,6 +40,8 @@ dev = [
   "muad-agent-worker",
   "muad-console-platform",
   "muad-im-gateway",
+  "muad-im-connector",
+  "muad-im-core",
 ]
 
 [tool.uv.sources]
@@ -55,6 +57,8 @@ muad-agent-runtime = { workspace = true }
 muad-agent-worker = { workspace = true }
 muad-console-platform = { workspace = true }
 muad-im-gateway = { workspace = true }
+muad-im-connector = { workspace = true }
+muad-im-core = { workspace = true }
 
 [tool.uv]
 default-groups = []
@@ -72,6 +76,8 @@ members = [
   "apps/agent-runtime",
   "apps/agent-worker",
   "apps/im-gateway",
+  "apps/im-connector",
+  "packages/im-core",
   "apps/console-platform/backend",
 ]
 
@@ -116,3 +122,10 @@ strict = true
 # migrations/versions/ 为 alembic 自动生成（同 ruff 的 extend-exclude 口径）。
 # 该清单与 .code-flow/validation.yml 的 mypy 触发范围保持一致，避免 `mypy .` 恒红。
 exclude = ["frontend", "apps/console-platform/frontend", "tests", "migrations/versions"]
+
+# TASK-007 过渡期：Connector 复用 Gateway 的 WeCom adapter surface（TASK-009 会把 adapter
+# 移入 Connector）。Gateway 包没有 py.typed，单独检查 Connector 文件时按未类型化模块处理，
+# 不因此把过渡期依赖变成类型检查噪音。
+[[tool.mypy.overrides]]
+module = ["muad_im_gateway.*"]
+ignore_missing_imports = true

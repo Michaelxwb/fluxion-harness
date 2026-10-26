@@ -78,14 +78,22 @@ async def _execute(
                     .limit(1)
                 )
             ).one()
+            submission_id = submission.id
             try:
-                await _restore_and_run(service, run, submission.id)
+                await _restore_and_run(service, run, submission_id)
             except Exception as exc:
-                await service._finalize_failed(run, submission.id, exc, agent_key="continuation")
+                await service._finalize_failed(
+                    run, submission_id, exc, agent_key="continuation"
+                )
 
 
 async def _restore_and_run(service: RunService, run: RunRecord, submission_id: UUID) -> None:
     snapshot = await service._load_snapshot(run)
+    # 快照已读进内存；后续是凭据网络调用 + 整段模型流。连接必须先归还池，
+    # 否则 continuation 执行期间会留下 idle-in-tx（100 用户实测 40 条）。
+    # 快照要先移出 Session：close() 会让留在 Session 里的 ORM 行过期。
+    service.detach(snapshot)
+    await service.release_session()
     agent = ResolvedAgent.model_validate(snapshot.agent_json)
     model = ResolvedModel.model_validate(snapshot.model_json)
     skills = tuple(ResolvedSkill.model_validate(item) for item in snapshot.skill_catalog_json)

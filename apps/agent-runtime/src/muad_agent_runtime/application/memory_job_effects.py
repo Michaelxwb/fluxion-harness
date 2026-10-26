@@ -106,7 +106,11 @@ async def apply_batch(
     job = await lock_claim(session, claim)
     if job is None:
         return await terminal_result(session, claim)
-    snapshot = await session.get(RuntimeSnapshot, job.snapshot_id)
+    snapshot = await session.scalar(
+        select(RuntimeSnapshot)
+        .prefix_with("/* memory_effects */")
+        .where(RuntimeSnapshot.id == job.snapshot_id)
+    )
     if snapshot is None:
         raise ValueError("source snapshot unavailable")
     ctx = await _context(session, job, snapshot, credential_canaries)

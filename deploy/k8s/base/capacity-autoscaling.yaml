@@ -62,6 +62,23 @@ spec:
           # 内存上限覆盖进程级 SSE 总缓冲预算（§3.7 跨字段约束），提前扩缩。
           type: Utilization
           averageUtilization: 80
+    # 队列信号（TASK-005 S-13）：`runtime_queue_depth{stage}` 是 Runtime 每拍发布的真实
+    # gauge（`application/capacity_metrics.py`），目标 = 2 × 单进程执行槽（256）。
+    - type: Pods
+      pods:
+        metric:
+          name: runtime_queue_depth
+        target:
+          type: AverageValue
+          averageValue: "512"
+    # 等待时长：最老排队 Run 超过 30s 即扩容（比 CPU 更早暴露"排队到超时"）。
+    - type: Pods
+      pods:
+        metric:
+          name: runtime_oldest_queue_age_seconds
+        target:
+          type: AverageValue
+          averageValue: "30"
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler

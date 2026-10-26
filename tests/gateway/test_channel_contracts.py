@@ -31,9 +31,17 @@ def _route() -> DeliveryRouteInput:
     return DeliveryRouteInput(channel="WECOM", bot_id="bot-1", external_user_id="user-1")
 
 
-def test_b101_resolve_requires_known_channel_and_optional_conversation() -> None:
+def test_b101_resolve_accepts_open_channel_names_and_validates_the_rest() -> None:
+    """通道名是**开放 string**（新增通道只写适配器，2026-10-25 S-12）：路由由注册表决定。
+
+    契约层只保证"非空"与其余字段的形状；"这个部署认不认这个通道"是运行期注册表的问题
+    （未注册的通道由持有连接的角色消费，或显式失败），不再是类型层的封闭枚举。
+    """
     minimal = ChannelResolveRequest(channel="WECOM", bot_id="bot-1", external_user_id="user-1")
     assert minimal.external_conversation_id is None
+    assert ChannelResolveRequest(
+        channel="SLACK", bot_id="bot-1", external_user_id="user-1"
+    ).channel == "SLACK"
 
     grouped = ChannelResolveRequest(
         channel="WECOM",
@@ -44,7 +52,7 @@ def test_b101_resolve_requires_known_channel_and_optional_conversation() -> None
     assert json.loads(grouped.model_dump_json())["external_conversation_id"] == "conv-1"
 
     with pytest.raises(ValidationError):
-        ChannelResolveRequest(channel="SLACK", bot_id="bot-1", external_user_id="user-1")
+        ChannelResolveRequest(channel="", bot_id="bot-1", external_user_id="user-1")
     with pytest.raises(ValidationError):
         ChannelResolveRequest(channel="WECOM", bot_id="", external_user_id="user-1")
     with pytest.raises(ValidationError):

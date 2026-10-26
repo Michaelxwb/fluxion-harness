@@ -20,6 +20,7 @@ from muad_api import AppError
 from muad_api.catalog import MessageCatalog
 from muad_api.error_codes import ErrorCode
 from muad_contracts import BotSnapshotItem, RunRequest
+from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.application.inbound import (
     CHANNEL_BUSY,
     DEFAULT_REPLY_LOCALE,
@@ -27,7 +28,6 @@ from muad_im_gateway.application.inbound import (
     InboundPipeline,
 )
 from muad_im_gateway.application.sse import SseEvent
-from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
 
 from tests.e2e.wecom_probe_app import WeComProbe

@@ -9,15 +9,15 @@ from muad_api.catalog import MessageCatalog
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import AttachmentRef, BotSnapshotItem, DeliveryRouteInput
 from muad_contracts.platform_settings import parse_platform_settings
+from muad_im_connector.channels.wecom.adapter import WeComAdapter
+from muad_im_connector.channels.wecom.reply import ReplySession, StatusBudget
+from muad_im_connector.channels.wecom.sdk_port import WeComInboundMessage
 from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.ports import PlatformSettingsSnapshot
 from muad_im_gateway.application.progress import ExecutionProgress, ProgressPhase, iter_with_ticks
 from muad_im_gateway.application.sse import SseEvent
 from muad_im_gateway.channels.base import ARTIFACT_DELIVERED, ChannelAdapterUnavailable
 from muad_im_gateway.channels.fake import FakeChannelAdapter
-from muad_im_gateway.channels.wecom.adapter import WeComAdapter
-from muad_im_gateway.channels.wecom.reply import ReplySession, StatusBudget
-from muad_im_gateway.channels.wecom.sdk_port import WeComInboundMessage
 from muad_im_gateway.infrastructure.dedupe import NullDedupeStore
 
 from tests.e2e.wecom_probe_app import WeComProbe, frame_text

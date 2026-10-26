@@ -10,14 +10,18 @@ enforcement: required
 verifiers:
 - rule: RULE-test-001
   type: command
+  # 全量 acceptance + 前端 build + Playwright 是需求级终验（TASK-012 / verify-e2e），
+  # 不在每个写测试的 code TASK finish 中重跑；否则任何 tests/** 改动都会拉起全场 E2E。
+  stage: review
   config:
     argv:
     - bash
     - -lc
-    - uv run pytest -q tests/acceptance && npm --prefix apps/console-platform/frontend
-      run build && npm --prefix e2e test
+    - uv run pytest -q -m "not capacity_load" tests/acceptance && npm --prefix
+      apps/console-platform/frontend run build && npm --prefix e2e test
     cwd: .
-    # 链 = tests/acceptance + 前端 build + Playwright e2e。2026-09-29：该链在 1200s 下被
+    # 链 = 非容量 acceptance + 前端 build + Playwright e2e。`capacity_load` 是 200/1000
+    # 用户的手动容量边界，绝不进 Done Gate（`make acceptance` 同口径）。2026-09-29：该链在 1200s 下被
     # `verifier_timeout` 掐断（Done Gate 报 `harness-test#RULE-test-001: unverified`）。
     # 注意该次观测时共享库上存在一套**孤儿验收栈**（PPID=1），其 Worker 会抢走验收任务
     # （claim 无 tenant 谓词）从而放大耗时（同批用例清孤儿前后 369s → 56s），故不能据此
@@ -59,7 +63,7 @@ E2E 创建的业务数据（无删除端点的资源尤其如此）必须：用�
 - **回归套件正式登记（2026-10-23）**：task 26 / webchat 32 / run 11 登记在 `e2e/scenarios/regression-suites.md`，为 non-smoke 真实栈回归（SSE/Worker/投影/种子），不进入 PR smoke/changed；push 的完整 e2e job 执行。
 - **归档快照口径（2026-10-23）**：`docs/operations/e2e-archive-snapshots.md` 明确归档 manifest/覆盖表不回改；重放归档验收按 live 注册表（smoke-15 / non-smoke / regression-suites）与 `design_refs` 映射。
 - **build-once（2026-10-23）**：Makefile 支持 `BUILD_FRONTEND=0`；CI 的 e2e/component job 各先 build 一次，再逐域 `BUILD_FRONTEND=0` 运行。
-- **容量压测分层（2026-10-23）**：`tests/acceptance/capacity/test_capacity.py`（200/1000 用户 load）标记为 `integration + capacity_load`，默认 `make acceptance` 用 `-m "not capacity_load"` 排除；显式 `make capacity-load` 跑 200 档。1000 用户 × 8 轮仍是 manual/staging 的未验证边界；它从来不是浏览器 E2E。
+- **容量压测分层（2026-10-23；2026-10-25 扩展）**：`tests/acceptance/capacity/test_capacity.py`（200/1000 用户 load）标记为 `integration + capacity_load`，默认 `make acceptance` 用 `-m "not capacity_load"` 排除；显式入口为 `make capacity-smoke`（100 用户 × 1 轮 × 20 chunks/s × 10s + 15s 通知轮询）、`make capacity-load`（200 档）、`make capacity-soak`（400 用户，需 `MUAD_CAPACITY_SOAK=1`）。SLO 判定统一走 `tests/capacity/slo.py`；PG 状态/速率由 `tests/capacity/metrics.py` 采集；纯函数回归在 `tests/capacity/test_capacity_webchat_baseline.py`。1000 用户 × 8 轮仍是 manual/staging 的未验证边界；它从来不是浏览器 E2E，也不进 Done Gate。
 - **运行前 Redis claim 预清理（2026-10-24）**：`make acceptance` 先跑 `scripts/clean_acceptance_claims.py`；仅当没有活跃 `pytest tests/acceptance` / Playwright 进程时清 10–15 号 claim，避免抢走并发验收的号位。`make acceptance-clean` 是显式 `--force` 手动入口。异常中断的 claim 仍以 7200s TTL 兜底。
 - **失败即时可见（2026-10-24）**：根 `tests/conftest.py` 的 `pytest_runtest_logreport` 在用例失败/出错时立刻打印 `FAILED <nodeid> [phase]`，并可选追加到 `PYTEST_FAILURE_LOG`；即使整轮被 timeout/kill，日志里也有可定位的用例名（不再只靠 `-q` 结束摘要）。两个 heavy pytest 命令加 `--durations=30`，用于定位慢用例。
 - **CI-first 验收（2026-10-24）**：全量 acceptance / 全量单测以 CI 为准；本地只跑靶向套件。已知失败与处理顺序登记在 `docs/operations/e2e-known-issues.md`。`make test` 同样排除 `capacity_load`，避免把 200/1000 用户 load 混进默认门禁。

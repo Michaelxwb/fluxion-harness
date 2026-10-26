@@ -147,6 +147,24 @@ class ModelDeploymentRepository:
         )
         return credential
 
+    async def find_execution_selection(
+        self, tenant_id: str, model_id: uuid.UUID
+    ) -> tuple[ModelDeployment, ModelCredential] | None:
+        """取首个可执行成员及其凭据（一次 JOIN）；供受理材料一次解析复用。"""
+        row = (
+            await self._session.execute(
+                self._execution_credential_query(tenant_id)
+                .add_columns(ModelDeployment)
+                .where(ModelDeployment.model_id == model_id)
+                .order_by(ModelDeployment.key, ModelDeployment.id)
+                .limit(1)
+            )
+        ).first()
+        if row is None:
+            return None
+        credential, deployment = row
+        return deployment, credential
+
     async def find_execution_credentials(
         self, tenant_id: str, model_ids: list[uuid.UUID]
     ) -> dict[uuid.UUID, ModelCredential]:

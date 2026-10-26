@@ -335,7 +335,12 @@ def _carries_no_payload(adapter: ChannelAdapter, envelope: ChannelEnvelope) -> b
     不能只看 `attachments`：它按定义只描述"**已经拿到手的**字节"（AD-8），所以纯图片/文件消息
     在取件之前必然是空的——只看它会把媒体消息在入口就拦掉，永远走不到取件。
     """
-    if envelope.text.strip() or envelope.attachments or envelope.unsupported_media is not None:
+    if (
+        envelope.text.strip()
+        or envelope.attachments
+        or envelope.attachment_failures
+        or envelope.unsupported_media is not None
+    ):
         return False
     return _attachment_count(adapter, envelope) == 0
 
@@ -547,6 +552,26 @@ class InboundPipeline:
                 task.cancel()
             if active:
                 await asyncio.gather(*active, return_exceptions=True)
+
+    async def handle_stream_event(
+        self, adapter: ChannelAdapter, envelope: ChannelEnvelope
+    ) -> None:
+        """Stream 消费入口的一条事件：与 `consume` 同样的**按来源串行 + 受理名额**。
+
+        `consume` 绑定在某个适配器的 `iter_events()` 上；经过 `im.inbound` 的事件由消费组
+        统一下发（可能属于不同适配器），所以需要一个按事件选适配器的入口。语义与
+        `_consume_one` 一致：命令不排队，普通消息按精确来源串行，受理名额只包住受理阶段。
+        """
+        if _is_command(envelope.text):
+            await self.handle(adapter, envelope)
+            return
+        async with self._route_lock(envelope):
+            slot = _AdmissionSlot(self._handlers)
+            await slot.acquire()
+            try:
+                await self.handle(adapter, envelope, slot=slot)
+            finally:
+                slot.release()
 
     async def _consume_one(
         self,
@@ -993,6 +1018,10 @@ class InboundPipeline:
         """
         if envelope.unsupported_media is not None:
             return await self._reject_payload(adapter, route, envelope, UNSUPPORTED_MEDIA_CODE, 0)
+        if envelope.attachments or envelope.attachment_failures:
+            # 远程 Connector 已取件并落共享存储（IM ASYNC 路径）：字节与失败原因都在事件里，
+            # 网关**不重取**，只走与本地取件相同的回执/审计出口。
+            return await self._accept_materialized(adapter, route, envelope)
         source = adapter if isinstance(adapter, AttachmentSource) else None
         count = _attachment_count(adapter, envelope)
         if count == 0:
@@ -1107,6 +1136,39 @@ class InboundPipeline:
         return _CollectedAttachments(
             refs=tuple(refs), audit_outcome=outcome, reason_code=_primary_code(codes) if codes else ""
         )
+
+    async def _accept_materialized(
+        self,
+        adapter: ChannelAdapter,
+        route: DeliveryRouteInput,
+        envelope: ChannelEnvelope,
+    ) -> _CollectedAttachments:
+        """Connector 已落盘的附件：一条回执（全部/部分/全拒三态） + 一条审计。
+
+        语义与本地 `_materialize` 逐项一致：有失败 ⇒ FAILED，有收下 ⇒ RECEIVED，全拒 ⇒
+        REJECTED；文案与数值仍走同一个出口（`_receipt_text`），不在两条路径上各写一份。
+        """
+        refs = tuple(envelope.attachments)
+        codes = [failure.code for failure in envelope.attachment_failures]
+        total_bytes = sum(ref.size for ref in refs)
+        if refs or codes:
+            await self._send_text(adapter, route, self._receipt_text(len(refs), codes))
+        if codes:
+            outcome: InboundAuditOutcome = "FAILED"
+        elif refs:
+            outcome = "RECEIVED"
+        else:
+            outcome = "REJECTED"
+        reason = _primary_code(codes) if codes else ""
+        await self._audit(
+            envelope,
+            outcome=outcome,
+            count=len(refs) + len(codes),
+            accepted=len(refs),
+            total_bytes=total_bytes,
+            reason_code=reason,
+        )
+        return _CollectedAttachments(refs=refs, audit_outcome=outcome, reason_code=reason)
 
     async def _reject_payload(
         self,

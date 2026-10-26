@@ -6,24 +6,73 @@ import { useThemeMode } from './theme';
 
 import { RequireAuth, RequireRole } from './auth/AuthContext';
 import { AppLayout } from './layout/AppLayout';
-import { ModelPage } from './modules/model-management/ModelPage';
-import { UserPage } from './modules/user-identity/UserPage';
 import { LoginPage } from './pages/LoginPage';
-import { AgentPage } from './modules/agent-management/AgentPage';
-import { McpPage } from './modules/mcp-management/McpPage';
-import { SkillPage } from './modules/skill-management/SkillPage';
-import { PlatformPage } from './modules/project-platform/PlatformPage';
-import { SchedulePage } from './modules/task-schedule/SchedulePage';
-import { TaskPage } from './modules/task-schedule/TaskPage';
-import { AuditPage } from './modules/audit-observability/pages/AuditPage';
-import { OverviewPage } from './modules/overview-dashboard/pages/OverviewPage';
-import { SettingsPage } from './modules/settings/pages/SettingsPage';
 
 /**
  * 独立 CHAT 入口按路由懒加载（design frontend §3.2）：与管理 Console 共用前端产物与镜像，
  * 但有自己的布局与认证初始化，不放进管理 `RequireAuth`/`AppLayout` 分支，也不进导航菜单。
  */
 const ChatPage = lazy(() => import('./modules/webchat/ChatPage'));
+
+/**
+ * admin 页面按路由懒加载（design frontend §3.2/§3.3）：聊天首屏不再静态引入全部管理页；
+ * 页面仍只有具名导出，lazy 适配成 `default`，路由与菜单保持不变。
+ */
+const OverviewPage = lazy(() =>
+  import('./modules/overview-dashboard/pages/OverviewPage').then((module) => ({
+    default: module.OverviewPage
+  }))
+);
+const AgentPage = lazy(() =>
+  import('./modules/agent-management/AgentPage').then((module) => ({
+    default: module.AgentPage
+  }))
+);
+const SkillPage = lazy(() =>
+  import('./modules/skill-management/SkillPage').then((module) => ({
+    default: module.SkillPage
+  }))
+);
+const McpPage = lazy(() =>
+  import('./modules/mcp-management/McpPage').then((module) => ({
+    default: module.McpPage
+  }))
+);
+const ModelPage = lazy(() =>
+  import('./modules/model-management/ModelPage').then((module) => ({
+    default: module.ModelPage
+  }))
+);
+const UserPage = lazy(() =>
+  import('./modules/user-identity/UserPage').then((module) => ({
+    default: module.UserPage
+  }))
+);
+const PlatformPage = lazy(() =>
+  import('./modules/project-platform/PlatformPage').then((module) => ({
+    default: module.PlatformPage
+  }))
+);
+const TaskPage = lazy(() =>
+  import('./modules/task-schedule/TaskPage').then((module) => ({
+    default: module.TaskPage
+  }))
+);
+const SchedulePage = lazy(() =>
+  import('./modules/task-schedule/SchedulePage').then((module) => ({
+    default: module.SchedulePage
+  }))
+);
+const AuditPage = lazy(() =>
+  import('./modules/audit-observability/pages/AuditPage').then((module) => ({
+    default: module.AuditPage
+  }))
+);
+const SettingsPage = lazy(() =>
+  import('./modules/settings/pages/SettingsPage').then((module) => ({
+    default: module.SettingsPage
+  }))
+);
 
 export default function App() {
   const theme = useThemeMode();

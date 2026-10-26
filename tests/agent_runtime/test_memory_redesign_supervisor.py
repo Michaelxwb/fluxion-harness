@@ -87,7 +87,10 @@ async def test_local_ttl_history_failure_rolls_back_and_is_visible(async_tool_da
 
 async def test_local_background_shutdown_closes_provider_and_another_instance_takes_over(async_tool_database):
     module = import_module("muad_agent_runtime.application.memory_supervisor")
-    async with model_stack(async_tool_database, delay=0.3, output=output("color")) as stack:
+    # 首个执行停在模型调用上（闸门未开），「lease 过期但仍在飞」才是确定状态；
+    # 靠 delay 抢 0.3s 时间窗在慢机器上会先跑完，作业落 DONE 后整段断言全失效。
+    gate = asyncio.Event()
+    async with model_stack(async_tool_database, delay=0.3, output=output("color"), gate=gate) as stack:
         factory, run, job, _, client, requests, *_ = stack
         await pending(factory, job)
         worker = execution(factory, client)
@@ -107,6 +110,8 @@ async def test_local_background_shutdown_closes_provider_and_another_instance_ta
             assert first.execution_count == 0 and all(
                 provider.closed for provider in TrackedProvider.instances
             )
+            # 放行模型端点：第二个实例接管后要能真正跑完（第一个执行已被 close 取消）。
+            gate.set()
             async with factory.begin() as session:
                 row = await session.get(MemoryConsolidationJob, job.id)
                 before_hash, before_epoch = row.input_hash, row.claim_epoch

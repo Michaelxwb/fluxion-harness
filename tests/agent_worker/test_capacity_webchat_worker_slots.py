@@ -457,7 +457,9 @@ async def test_b233_failure_and_cancel_paths_release_their_slots(
             factory, failing.id, lambda item: item.status == "QUEUED" and item.error_code == "BOOM"
         )
         assert failed.attempt == 1
-        assert (await _state(factory, cancelled.id)).status == "CANCELLED"
+        # 取消与执行槽释放在同一轮异步收尾里：取消状态也可能晚一拍可见（CI 负载下实测
+        # RUNNING → CANCELLED 的窗口被拉长），按有界等待断言同一事实，不放宽结果。
+        await _wait_state(factory, cancelled.id, lambda item: item.status == "CANCELLED")
         await _wait_for(lambda: worker.execution_count == 0), "异常/取消路径同样释放槽"
         # 释放出的槽立即可复用
         third = await _seed_task(factory, priority=3)

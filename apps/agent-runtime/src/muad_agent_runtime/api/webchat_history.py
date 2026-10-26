@@ -41,6 +41,7 @@ from ..application.channel_uploads import (
     upload_limits_from_settings,
 )
 from ..application.ports import PlatformSettingsClient
+from ..application.run_service import stream_scope_gate
 from ..application.webchat_artifacts import resolve_webchat_artifact
 from ..application.webchat_history import HistoryScope, WebchatHistoryService
 from ..infrastructure.models.runtime import ChannelUpload
@@ -250,12 +251,15 @@ async def list_notifications(
 ) -> ApiResponse[dict[str, Any]]:
     """API-11：按用户 feed seq 增量分页（`next_seq` 为下一次读取水位）。"""
     size = await _effective_page_size(settings_client, tenant_id, page_size)
-    page_view = await ChannelNotificationQueryService(session).list_notifications(
-        NotificationScope(tenant_id=tenant_id, user_id=user_id),
-        after_seq=after_seq,
-        page=page,
-        page_size=size,
-    )
+    # 通知轮询与 SSE 打开共用池段闸门：100 个用户同刻轮询时先有界排队，
+    # 不让 100 个请求同时撞 DB 池把 500 冒到浏览器。
+    async with stream_scope_gate():
+        page_view = await ChannelNotificationQueryService(session).list_notifications(
+            NotificationScope(tenant_id=tenant_id, user_id=user_id),
+            after_seq=after_seq,
+            page=page,
+            page_size=size,
+        )
     return ok(request.app.state.message_catalog, page_view.model_dump(mode="json"))
 
 

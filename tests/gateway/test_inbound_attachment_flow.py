@@ -30,6 +30,7 @@ from muad_api.catalog import MessageCatalog
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_contracts import AttachmentRef, BotSnapshotItem, ChannelEnvelope, InboundAuditRequest
+from muad_im_connector.channels.wecom.adapter import WeComAdapter, _AibotClientPort
 from muad_im_gateway.application.attachment_gate import (
     ATTACHMENT_COUNT_EXCEEDED,
     ATTACHMENT_RECEIPT_ALL,
@@ -41,7 +42,6 @@ from muad_im_gateway.application.inbound import DEDUPE_TTL_SEC, InboundPipeline
 from muad_im_gateway.application.inbound_attachments import InboundAttachmentStore
 from muad_im_gateway.application.runtime_client import SseEvent
 from muad_im_gateway.channels.fake import FakeBlob, FakeChannelAdapter
-from muad_im_gateway.channels.wecom.adapter import WeComAdapter, _AibotClientPort
 from muad_im_gateway.infrastructure.dedupe import RedisDedupeStore, build_dedupe_store
 
 from tests.e2e.wecom_media_server import AES_KEY, MediaServer, wecom_ciphertext

@@ -3,8 +3,9 @@ import json
 import secrets
 import string
 import uuid
+from collections.abc import Collection
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any
 
 from muad_api import AppError, validate_page
 from muad_api.error_codes import ErrorCode
@@ -14,7 +15,6 @@ from muad_contracts import (
     BotSnapshotResponse,
     ChannelBindRequest,
     ChannelBindResponse,
-    ChannelName,
     ChannelResolveRequest,
     ChannelResolveResponse,
 )
@@ -336,20 +336,30 @@ class ChannelService:
         *,
         page: int = 1,
         page_size: int = DEFAULT_PAGE_SIZE,
+        channels: Collection[str] | None = None,
+        include_secret: bool = True,
     ) -> BotSnapshotResponse:
+        """入口快照；`channels` 是调用方运行时角色**拥有的**通道（None = 管理面不过滤）。
+
+        `include_secret=False` 用于**不需要连接凭据的请求面**（Gateway web 角色）：通道过滤
+        只缩小范围，secret 是否下发必须单独表达（NFR-SEC-01）。
+        """
         valid = validate_page(page, page_size)
-        digest, total = await self._bots.enabled_snapshot_digest(tenant_id)
+        digest, total = await self._bots.enabled_snapshot_digest(
+            tenant_id, channels=channels
+        )
         accounts = await self._bots.list_enabled_page(
             tenant_id,
             limit=valid.page_size,
             offset=(valid.page - 1) * valid.page_size,
+            channels=channels,
         )
         items = [
             BotSnapshotItem(
                 bot_account_id=account.id,
                 bot_id=account.bot_id,
-                channel=cast(ChannelName, account.channel),
-                secret=account.secret,
+                channel=account.channel,
+                secret=account.secret if include_secret else None,
                 agent_id=account.agent_id,
                 enabled=account.enabled,
             )

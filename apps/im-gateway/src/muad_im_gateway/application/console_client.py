@@ -69,6 +69,8 @@ class ConsoleClientPort(Protocol):
         *,
         page: int = 1,
         page_size: int = DEFAULT_PAGE_SIZE,
+        channels: frozenset[str] | None = None,
+        include_secret: bool = True,
     ) -> BotSnapshotResponse: ...
 
     async def channel_skills(
@@ -165,8 +167,14 @@ class ConsoleClient:
         *,
         page: int = 1,
         page_size: int = DEFAULT_PAGE_SIZE,
+        channels: frozenset[str] | None = None,
+        include_secret: bool = True,
     ) -> BotSnapshotResponse:
         params = {"page": str(page), "page_size": str(page_size)}
+        if channels:
+            params["channels"] = ",".join(sorted(channels))
+        if not include_secret:
+            params["include_secret"] = "false"
         return await self._request_model(
             "GET", BOTS_PATH, BotSnapshotResponse, tenant_id, params=params
         )

@@ -9,12 +9,24 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.auth import ChatSession
+from ..models.auth import ChatAccessToken, ChatSession
+from ..models.control import PlatformUser
+
+
+@dataclass(frozen=True, slots=True)
+class ChatSessionFacts:
+    """读取路径一次 JOIN 取齐的事实：会话、来源 Token、用户与 PG 当前时间。"""
+
+    session: ChatSession
+    token: ChatAccessToken | None
+    user: PlatformUser | None
+    db_now: datetime
 
 
 class ChatSessionRepository:
@@ -30,6 +42,42 @@ class ChatSessionRepository:
             )
         )
         return row
+
+    async def find_facts_by_token_hash(self, token_hash: str) -> ChatSessionFacts | None:
+        """按会话摘要一次取齐会话/来源 Token/用户（读取热路径只发一条 SELECT）。
+
+        外连接保证"来源 Token/用户缺失"也能被服务层按既有错误优先级裁决，而不是把
+        缺行误判成未知会话；`is_deleted` 谓词放在 JOIN 条件里，软删的关联行等价于缺失。
+        """
+        row = (
+            await self._session.execute(
+                select(ChatSession, ChatAccessToken, PlatformUser, func.now())
+                .outerjoin(
+                    ChatAccessToken,
+                    (ChatAccessToken.id == ChatSession.access_token_id)
+                    & (ChatAccessToken.is_deleted.is_(False)),
+                )
+                .outerjoin(
+                    PlatformUser,
+                    (PlatformUser.id == ChatSession.platform_user_id)
+                    & (PlatformUser.tenant_id == ChatSession.tenant_id)
+                    & (PlatformUser.is_deleted.is_(False)),
+                )
+                .where(
+                    ChatSession.token_hash == token_hash,
+                    ChatSession.is_deleted.is_(False),
+                )
+            )
+        ).first()
+        if row is None:
+            return None
+        session_row, token_row, user_row, db_now = row
+        return ChatSessionFacts(
+            session=session_row,
+            token=token_row,
+            user=user_row,
+            db_now=db_now,
+        )
 
     async def add(self, row: ChatSession) -> ChatSession:
         self._session.add(row)

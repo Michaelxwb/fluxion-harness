@@ -17,16 +17,18 @@ from fakes import FakeConsoleClient
 from httpx import ASGITransport, AsyncClient
 from muad_agent_worker.delivery.client import HttpDeliveryClient
 from muad_contracts import AttachmentRef, BotSnapshotItem, DeliveryResponse
+from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.api.deps import (
     get_artifact_resolver,
     get_console_client,
     get_dedupe_store,
+    get_delivery_stream_wait_sec,
+    get_delivery_streams,
     get_gateway_tenant,
     get_registry,
 )
 from muad_im_gateway.channels.base import ChannelAdapterUnavailable, ChannelRegistry
 from muad_im_gateway.channels.fake import FakeChannelAdapter
-from muad_im_gateway.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.infrastructure.dedupe import (
     DedupeStore,
     DedupeStoreError,
@@ -80,6 +82,50 @@ class _RecordingDeliveryClient(HttpDeliveryClient):
         return await super().deliver(request)
 
 
+class FakeDeliveryStreams:
+    """出站命令 Stream 的替身：记录入队命令并给出可配置的 Connector 结果。"""
+
+    def __init__(
+        self,
+        *,
+        status: str = "DELIVERED",
+        code: str = "",
+        fallback_url: str | None = None,
+        result: dict[str, Any] | None = None,
+        timeout: bool = False,
+        error: Exception | None = None,
+    ) -> None:
+        self.status = status
+        self.code = code
+        self.fallback_url = fallback_url
+        self.result = result
+        self.timeout = timeout
+        self.error = error
+        self.commands: list[Any] = []
+
+    async def enqueue(self, command: Any) -> str:
+        if self.error is not None:
+            raise self.error
+        self.commands.append(command)
+        return "0-1"
+
+    async def await_result(self, command_id: Any, *, timeout_sec: float) -> dict[str, Any] | None:
+        if self.timeout:
+            return None
+        if self.result is not None:
+            return self.result
+        return {
+            "command_id": str(command_id),
+            "status": self.status,
+            "code": self.code,
+            "fallback_url": self.fallback_url,
+            "route_key": "bot:ext",
+        }
+
+    async def aclose(self) -> None:
+        return None
+
+
 class _FailingDedupeStore:
     async def reserve(self, key: str, ttl_sec: int) -> str | None:
         raise DedupeStoreError("redis down")
@@ -130,12 +176,15 @@ async def api_client(
     resolver: _FakeResolver | None = None,
     tenant: str = GATEWAY_TENANT,
     headers: dict[str, str] | None = None,
+    streams: FakeDeliveryStreams | None = None,
 ) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides[get_registry] = lambda: registry
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe
     app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
     app.dependency_overrides[get_gateway_tenant] = lambda: tenant
     app.dependency_overrides[get_artifact_resolver] = lambda: resolver or _FakeResolver()
+    app.dependency_overrides[get_delivery_streams] = lambda: streams or FakeDeliveryStreams()
+    app.dependency_overrides[get_delivery_stream_wait_sec] = lambda: 0.1
     transport = ASGITransport(app=app)
     try:
         async with AsyncClient(
@@ -312,12 +361,15 @@ async def test_adapter_failure_returns_internal_error_and_keeps_retry_available(
     assert len(working.sent) == 1
 
 
-async def test_unknown_adapter_returns_internal_error() -> None:
-    async with api_client(ChannelRegistry(), InMemoryDedupeStore()) as client:
+async def test_channel_without_local_adapter_is_delegated_to_connector_stream() -> None:
+    """本进程没有该通道的适配器 = 由持有连接的角色消费：入队，不假装本地发过。"""
+    streams = FakeDeliveryStreams()
+    async with api_client(ChannelRegistry(), InMemoryDedupeStore(), streams=streams) as client:
         response = await client.post("/internal/deliveries", json=delivery_body())
 
-    assert response.status_code == 500
-    assert response.json()["code"] == "COMMON_INTERNAL_ERROR"
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["delivered"] is True
+    assert len(streams.commands) == 1
 
 
 async def test_dedupe_failure_degrades_to_at_least_once_send() -> None:
@@ -762,6 +814,19 @@ def _b117_body(*, bot_id: str = B117_BOT_A, delivery_key: str | None = None) -> 
     }
 
 
+class _StubStreams:
+    """本地适配器路径的占位：本文件不测 Stream 分支（见 test_delivery_stream.py）。"""
+
+    async def enqueue(self, command):  # type: ignore[no-untyped-def]
+        raise AssertionError("local adapter path must not enqueue")
+
+    async def await_result(self, command_id, *, timeout_sec):  # type: ignore[no-untyped-def]
+        raise AssertionError("local adapter path must not await results")
+
+    async def aclose(self) -> None:
+        return None
+
+
 @asynccontextmanager
 async def _b117_gateway_http(registry: ChannelRegistry, dedupe: Any) -> AsyncIterator[AsyncClient]:
     """真实 Gateway HTTP（uvicorn + 真实 socket；lifespan 关闭只保留依赖注入）。"""
@@ -770,6 +835,8 @@ async def _b117_gateway_http(registry: ChannelRegistry, dedupe: Any) -> AsyncIte
     app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
     app.dependency_overrides[get_gateway_tenant] = lambda: GATEWAY_TENANT
     app.dependency_overrides[get_artifact_resolver] = lambda: _FakeResolver()
+    app.dependency_overrides[get_delivery_streams] = lambda: _StubStreams()
+    app.dependency_overrides[get_delivery_stream_wait_sec] = lambda: 0.05
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = int(sock.getsockname()[1])

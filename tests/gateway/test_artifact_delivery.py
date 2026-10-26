@@ -19,6 +19,8 @@ from muad_im_gateway.api.deps import (
     get_artifact_resolver,
     get_console_client,
     get_dedupe_store,
+    get_delivery_stream_wait_sec,
+    get_delivery_streams,
     get_gateway_tenant,
     get_registry,
 )
@@ -36,6 +38,20 @@ from muad_im_gateway.main import app
 
 from tests.internal_service import TOKEN as INTERNAL_TOKEN
 from tests.internal_service import internal_service_token  # noqa: F401  (fixture 注册)
+
+
+class _StubStreams:
+    """本地适配器路径的占位：本文件不测 Stream 分支（见 test_delivery_stream.py）。"""
+
+    async def enqueue(self, command):  # type: ignore[no-untyped-def]
+        raise AssertionError("local adapter path must not enqueue")
+
+    async def await_result(self, command_id, *, timeout_sec):  # type: ignore[no-untyped-def]
+        raise AssertionError("local adapter path must not await results")
+
+    async def aclose(self) -> None:
+        return None
+
 
 DELIVERIES_URL = "/internal/deliveries"
 ROUTE = {"channel": "WECOM", "bot_id": "bot-1", "external_user_id": "ext-1"}
@@ -103,6 +119,8 @@ async def _client(
     app.dependency_overrides[get_registry] = lambda: registry
     # 不传 `dedupe` 时**每个请求**各拿一个新 store（这些用例比的是分发与审计，不是去重）
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe or InMemoryDedupeStore()
+    app.dependency_overrides[get_delivery_streams] = lambda: _StubStreams()
+    app.dependency_overrides[get_delivery_stream_wait_sec] = lambda: 0.05
     app.dependency_overrides[get_console_client] = lambda: console or FakeConsoleClient()
     app.dependency_overrides[get_gateway_tenant] = lambda: tenant
     app.dependency_overrides[get_artifact_resolver] = lambda: resolver or _ArtifactResolver()

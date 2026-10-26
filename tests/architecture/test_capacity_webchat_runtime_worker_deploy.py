@@ -263,7 +263,9 @@ def test_requests_and_limits_match_the_capacity_profile(unit: DeployUnit) -> Non
 
 @pytest.mark.parametrize("unit", UNITS, ids=UNIT_IDS)
 def test_execution_slots_are_declared_and_match_typed_defaults(unit: DeployUnit) -> None:
-    settings = SharedSettings()
+    # 对照的是 **typed 默认值**，不是本机 `.env` 的开发覆盖；否则本地小池会让发布清单
+    # 的容量声明永远无法验证（清单值必须等于默认值，环境差异由 profile/env 显式覆盖）。
+    settings = SharedSettings(_env_file=None)
     declared = int(_env_value(unit, unit.slot_env))
     assert declared == getattr(settings, unit.slot_field), (
         f"{unit.name}: {unit.slot_env} 必须列出有效值（typed 默认改了要同步清单，别让 Pod 静默用默认）"
@@ -272,7 +274,7 @@ def test_execution_slots_are_declared_and_match_typed_defaults(unit: DeployUnit)
 
 @pytest.mark.parametrize("unit", UNITS, ids=UNIT_IDS)
 def test_http_pool_budgets_cover_exactly_the_pools_the_process_creates(unit: DeployUnit) -> None:
-    settings = SharedSettings()
+    settings = SharedSettings(_env_file=None)
     env = _env(unit)
     declared = {
         name

@@ -404,14 +404,14 @@ test('S-109 部署清单未增加 Webchat 前端 Pod/Service：页面与静态�
     'muad-im-gateway'
   ]);
 
-  // Console/Gateway 各一个 Pod（部署约束）
+  // 设计 §4.1：Console 仍是单 Pod 容量口径；Gateway 允许 N 副本（清单基线 2）。
   const replicas = Object.fromEntries(
     summary.workloads
       .filter((workload) => workload.kind === 'Deployment')
       .map((workload) => [workload.name, workload.replicas])
   );
   expect(replicas['muad-console-platform']).toBe(1);
-  expect(replicas['muad-im-gateway']).toBe(1);
+  expect(replicas['muad-im-gateway']).toBe(2);
 
   // 入口分流表：页面/静态资源/认证面 → Console，其余聊天 API → Gateway
   const routing = Object.fromEntries(

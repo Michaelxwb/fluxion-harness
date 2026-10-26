@@ -13,6 +13,7 @@ from muad_common import SharedSettings
 from muad_console_platform.application.audit_service import AuditActor
 from muad_console_platform.application.platform_settings_service import PlatformSettingsService
 from muad_console_platform.infrastructure.db import dispose_engine, get_session_factory
+from muad_console_platform.infrastructure.settings import reset_settings_cache
 from muad_contracts.platform_settings import (
     PlatformSettingsError,
     default_platform_settings,
@@ -184,6 +185,7 @@ async def test_b208_startup_hard_caps_bound_metadata_and_reject_save_and_restore
     document = asdict(default_platform_settings())
     assert (await _save(client, 0, document)).status_code == 200
     monkeypatch.setenv("CHAT_UPLOAD_HARD_MAX_BYTES", "1024")
+    reset_settings_cache()
     metadata = _field_map(await client.get(URL))
     assert metadata["webchat.upload_max_bytes"]["max"] == 1024
     assert metadata["webchat.upload_max_bytes"]["value"] == document["webchat"]["upload_max_bytes"]
@@ -202,6 +204,7 @@ async def test_b208_direct_owner_writes_cannot_bypass_startup_message_hard_cap(
     settings_tenant: TenantContext, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("CHAT_MESSAGE_HARD_MAX_BYTES", "1024")
+    reset_settings_cache()
     settings = parse_platform_settings({"webchat": {"text_max_bytes": 2048}})
     async with get_session_factory()() as session:
         with pytest.raises(PlatformSettingsError, match="webchat.text_max_bytes"):

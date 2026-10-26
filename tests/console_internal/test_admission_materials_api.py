@@ -10,7 +10,9 @@ from __future__ import annotations
 import uuid
 
 import pytest
+import sqlalchemy as sa
 from httpx import AsyncClient
+from muad_console_platform.infrastructure.db import get_engine
 
 from console_internal.conftest import TenantContext
 from tests.internal_service import internal_service_token, service_headers  # noqa: F401  (fixture 注册)
@@ -73,3 +75,34 @@ async def test_rejects_missing_identity_fields(
     )
     assert response.status_code == 422
     assert response.json()["code"] == "COMMON_VALIDATION_ERROR"
+
+
+async def test_materials_resolve_model_and_credential_once(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """[S-14/TASK-002] 合并端点只解析一次 model/credential，不重复查询。"""
+    statements: list[str] = []
+
+    @sa.event.listens_for(get_engine().sync_engine, "before_cursor_execute")
+    def _capture(conn, cursor, statement, parameters, context, executemany):  # type: ignore[no-untyped-def]
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    try:
+        response = await client.post(
+            URL, json=_payload(tenant), headers=service_headers(tenant.tenant_id)
+        )
+    finally:
+        sa.event.remove(get_engine().sync_engine, "before_cursor_execute", _capture)
+
+    assert response.status_code == 200, response.text
+    model_queries = [item for item in statements if "control.model_definition" in item]
+    credential_queries = [
+        item
+        for item in statements
+        if "control.model_credential" in item or "control.model_deployment" in item
+    ]
+    assert len(model_queries) == 1, f"model 只允许解析一次，实际 {len(model_queries)}：{model_queries}"
+    assert len(credential_queries) <= 1, (
+        f"credential/deployment 只允许解析一次，实际 {len(credential_queries)}"
+    )
