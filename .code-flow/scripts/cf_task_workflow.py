@@ -926,7 +926,6 @@ def _e2e_layer(root: str, directory: str, tasks: Sequence[tuple[Path, str, str]]
     try:
         acceptance = run_manifest(
             str(manifest), root, write_evidence=True,
-            owner=",".join(str(item[1]) for item in tasks),
             include_e2e=bool(stale or unverified) or profile in ("full", "smoke"),
             only_e2e=not (stale or unverified) and profile not in ("full", "smoke"),
             profile=profile, resume=resume, deadline=deadline,
