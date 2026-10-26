@@ -17,4 +17,6 @@ backups/
 .runtime-install.json
 .runtime-migration.lock/
 .verifier-cache.json
+.stop.lock
+.context-state.json
 # <<< code-flow:runtime schema=1
