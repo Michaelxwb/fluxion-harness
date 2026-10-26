@@ -86,13 +86,33 @@ def _schedule_tasks(live_stack: LiveStack, schedule_id: str) -> list[tuple[Any, 
     return cast(list[tuple[Any, ...]], run_db(query))
 
 
+def _scheduler_diagnosis(live_stack: LiveStack, schedule_id: str) -> str:
+    """失败时的裁决依据：schedule 行现状 + worker 日志尾部（调度循环的证据都在这里）。"""
+    try:
+        row = repr(_schedule_row(live_stack, schedule_id))
+    except Exception as exc:  # noqa: BLE001 - 诊断路径不得掩盖原始失败
+        row = f"<读取失败: {exc}>"
+    log_path = live_stack.processes["worker"].log_path if "worker" in live_stack.processes else None
+    tail = "(无 worker 日志)" if log_path is None or not log_path.is_file() else (
+        log_path.read_text(errors="replace")[-2000:]
+    )
+    return (
+        f"schedule={schedule_id} tenant={live_stack.tenant_id} row={row}\n"
+        f"--- worker log tail ---\n{tail}"
+    )
+
+
 def _wait_task(live_stack: LiveStack, schedule_id: str, timeout_sec: float = 60.0) -> tuple[Any, ...]:
     deadline = time.monotonic() + timeout_sec
     tasks = _schedule_tasks(live_stack, schedule_id)
     while not tasks and time.monotonic() < deadline:
         time.sleep(1.0)
         tasks = _schedule_tasks(live_stack, schedule_id)
-    assert tasks, "Scheduler 必须在到期后创建 Task"
+    if not tasks:
+        # 「60s 内没建 Task」单独看不出成因：行没更新、被暂停、调度循环抛错都会长这样。
+        raise AssertionError(
+            "Scheduler 必须在到期后创建 Task；" + _scheduler_diagnosis(live_stack, schedule_id)
+        )
     return tasks[0]
 
 

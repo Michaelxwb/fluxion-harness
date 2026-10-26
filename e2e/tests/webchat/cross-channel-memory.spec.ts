@@ -30,7 +30,9 @@ import {
   expect,
   openChatConversation,
   openChatWithToken,
+  describeLiveModelLeases,
   runPythonJson,
+  settleUnknownModelLeases,
   test,
   type ConsoleAdminClient,
   type WebchatEntryRef,
@@ -306,15 +308,18 @@ function sidebarItem(page: Page, conversationId: string) {
 }
 
 /**
- * 真实降额到目标在飞上限：产品在有 ACTIVE/UNKNOWN 模型租约时显式拒绝
+ * 真实调整在飞上限：产品在有 ACTIVE/UNKNOWN 模型租约时显式拒绝
  * （`MODEL_CAPACITY_DRAIN_REQUIRED`）——这是真实排空语义，这里按真实节奏有界重试。
+ * 调整与**恢复**都走这里：恢复同样是容量变更，在飞租约未清时会 409。
  */
-async function lowerCredentialInflight(
+async function setCredentialInflight(
   webchatAdmin: ConsoleAdminClient,
   credentialId: string,
   maxInflight: number,
   timeoutMs = 90_000
 ): Promise<void> {
+  // 先结算遗留 UNKNOWN 租约：它们按产品语义永久占用容量，不清掉则排空永远不会完成。
+  settleUnknownModelLeases();
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     try {
@@ -322,7 +327,11 @@ async function lowerCredentialInflight(
       return;
     } catch (error) {
       const message = String((error as Error).message ?? '');
-      if (!message.includes('MODEL_CAPACITY_DRAIN_REQUIRED') || Date.now() > deadline) throw error;
+      if (!message.includes('MODEL_CAPACITY_DRAIN_REQUIRED')) throw error;
+      if (Date.now() > deadline) {
+        // 排空超时：把仍在占用容量的租约（状态/到期/所属 Run）带出来，否则只剩一句 409。
+        throw new Error(`${message}（仍在占用容量：${JSON.stringify(describeLiveModelLeases())}）`);
+      }
       await new Promise((resolve) => setTimeout(resolve, 1_000));
     }
   }
@@ -862,7 +871,7 @@ asyncio.run(main())
 
     // ---- E-09：用户配额（默认 2 个在飞 Run）已满 → 新受理拒绝、无假 Run、两入口同码 ----------
     // 真实耗尽模型容量（在飞上限 1）：占用者持住唯一模型槽，第二条 Run 在模型等待中取消。
-    await lowerCredentialInflight(webchatAdmin, model.credentialId, 1);
+    await setCredentialInflight(webchatAdmin, model.credentialId, 1);
     try {
       await webchatFaults.setBehavior({
         latency_ms: 2_000,
@@ -1008,9 +1017,7 @@ asyncio.run(main())
       await expect(taskItem).toHaveAttribute('data-unread', 'false');
     } finally {
       // 真实容量复原：后续用例不受本用例的容量改写影响。
-      await webchatAdmin.updateCredential(model.credentialId, {
-        max_inflight: Number(original.max_inflight)
-      });
+      await setCredentialInflight(webchatAdmin, model.credentialId, Number(original.max_inflight));
     }
   });
 });

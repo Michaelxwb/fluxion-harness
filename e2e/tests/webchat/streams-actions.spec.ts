@@ -30,7 +30,9 @@ import {
   expect,
   openChatConversation,
   openChatWithToken,
+  describeLiveModelLeases,
   runPythonJson,
+  settleUnknownModelLeases,
   test,
   type ConsoleAdminClient,
   type WebchatStack,
@@ -287,15 +289,19 @@ function pageMessagePosts(page: Page): { value: number } {
 }
 
 /**
- * 真实降额到目标在飞上限：产品在有 ACTIVE/UNKNOWN 模型租约时显式拒绝
+ * 真实调整在飞上限：产品在有 ACTIVE/UNKNOWN 模型租约时显式拒绝
  * （`MODEL_CAPACITY_DRAIN_REQUIRED`）——这是真实排空语义，这里按真实节奏有界重试。
+ * 调整与**恢复**都走这里：恢复同样是容量变更，在飞租约未清时会 409；直接 PUT 会把
+ * 清理路径变成偶发失败，并把容量永久留在测试值上。
  */
-async function lowerCredentialInflight(
+async function setCredentialInflight(
   webchatAdmin: ConsoleAdminClient,
   credentialId: string,
   maxInflight: number,
   timeoutMs = 90_000
 ): Promise<void> {
+  // 先结算遗留 UNKNOWN 租约：它们按产品语义永久占用容量，不清掉则排空永远不会完成。
+  settleUnknownModelLeases();
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     try {
@@ -303,7 +309,11 @@ async function lowerCredentialInflight(
       return;
     } catch (error) {
       const message = String((error as Error).message ?? '');
-      if (!message.includes('MODEL_CAPACITY_DRAIN_REQUIRED') || Date.now() > deadline) throw error;
+      if (!message.includes('MODEL_CAPACITY_DRAIN_REQUIRED')) throw error;
+      if (Date.now() > deadline) {
+        // 排空超时：把仍在占用容量的租约（状态/到期/所属 Run）带出来，否则只剩一句 409。
+        throw new Error(`${message}（仍在占用容量：${JSON.stringify(describeLiveModelLeases())}）`);
+      }
       await new Promise((resolve) => setTimeout(resolve, 1_000));
     }
   }
@@ -325,7 +335,7 @@ test.describe('TASK-113 容量排队与流恢复', () => {
     const original = await webchatAdmin.readCredential(model.credentialId);
 
     // 真实耗尽模型容量：物理凭据在飞上限 8 → 1（真实 Console API 整份替换 + 版本 CAS）。
-    await lowerCredentialInflight(webchatAdmin, model.credentialId, 1);
+    await setCredentialInflight(webchatAdmin, model.credentialId, 1);
     const edited = await webchatAdmin.readCredential(model.credentialId);
     expect(Number(edited.max_inflight)).toBe(1);
     try {
@@ -460,9 +470,7 @@ asyncio.run(main())
       expect(JSON.stringify(cMessages.body)).not.toContain('正在等待模型资源');
     } finally {
       // 真实容量复原：后续用例不受本用例的容量改写影响。
-      await webchatAdmin.updateCredential(model.credentialId, {
-        max_inflight: Number(original.max_inflight)
-      });
+      await setCredentialInflight(webchatAdmin, model.credentialId, Number(original.max_inflight));
     }
   });
 
@@ -857,7 +865,7 @@ asyncio.run(main())
     await waitForRunSettled(session, conversation3);
 
     // ---- 受理超时：模型等待预算 10s（真实设置保存）→ 等待中的 Run 有明确终态、无伪成功 --------
-    await lowerCredentialInflight(webchatAdmin, model.credentialId, 1);
+    await setCredentialInflight(webchatAdmin, model.credentialId, 1);
     const saved = await saveSettings(page, webchatStack, {
       capacity: { model_wait_timeout_sec: 10 }
     });
@@ -866,7 +874,14 @@ asyncio.run(main())
       await webchatFaults.setBehavior({
         latency_ms: 1_000,
         chunk_interval_ms: 1_200,
-        deltas: ['超时', '占用', '1', '2', '3', '4', '5', '6', '7', '8']
+        // 占用窗口必须**明显长于**下面的模型等待预算（10s）：原 10 个分片只有约 13s，
+        // 3s 余量在慢机器上会被吃掉——名额提前释放，等待中的 Run 拿到名额跑完，
+        // 断言就变成「期望 FAILED，实际 COMPLETED」。20 个分片约 25s，锁死这个窗口。
+        deltas: [
+          '超时', '占用', '1', '2', '3', '4', '5',
+          '6', '7', '8', '9', '10', '11', '12', '13',
+          '14', '15', '16', '17', '18'
+        ]
       });
       const holder = await submitMessage(session, user.entry.entryId, {
         conversationId: conversation3,
@@ -913,9 +928,7 @@ asyncio.run(main())
       expect(bodies.join('\n'), '超时不得显示伪成功正文').not.toContain('超时占用');
       await expect(page.locator('[data-testid="chat-message-item"][data-role="ASSISTANT"]')).toHaveCount(0);
     } finally {
-      await webchatAdmin.updateCredential(model.credentialId, {
-        max_inflight: Number(original.max_inflight)
-      });
+      await setCredentialInflight(webchatAdmin, model.credentialId, Number(original.max_inflight));
       const restored = await saveSettings(page, webchatStack, {});
       expect(restored.status, JSON.stringify(restored)).toBe(200);
     }

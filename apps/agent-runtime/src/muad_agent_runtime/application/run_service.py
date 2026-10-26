@@ -1259,6 +1259,22 @@ class RunService:
         active = await self._active_run(conversation.id)
         active_ms = int((time.monotonic() - active_started) * 1000)
         if active is not None:
+            # 同键并发：赢家的 Run 可能在本次请求的开环预检（`find_replay_in`）与 `claim_in`
+            # 之后才提交——那两处都读不到行，落到这里时活跃 Run 已存在。此时必须先按同键复查
+            # 一次，命中就重放；否则「同键重试」会被 `_resume_active` 误判成第二个 Run 并抛
+            # `RUN_BUSY`（慢机器放大该窗口，实测 b126 并发用例偶发）。
+            replay_under_active = await self._submissions.find_replay_in(
+                self._session,
+                tenant_id=tenant_id,
+                idempotency_key=key,
+                endpoint=ENDPOINT_CREATE_RUN,
+                fingerprint=fingerprint,
+            )
+            if replay_under_active is not None:
+                self._assert_replay_owner(
+                    replay_under_active, request.platform_user_id, request.conversation_id
+                )
+                return await self._replay_start(replay_under_active)
             return await self._resume_active(active, request, key, fingerprint)
         if materials is None:  # 预检与写事务之间出现了活跃 Run 又被清理：补取材料
             materials = await self._admission_materials(request, tenant_id)
