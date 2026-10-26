@@ -1077,11 +1077,18 @@ class FaultProxy:
                 target.shutdown(socket.SHUT_WR)
 
     def _close_active(self) -> None:
-        """关闭全部在飞连接（须持锁调用）。"""
+        """关闭全部在飞连接（须持锁调用）。
+
+        被切断的在飞连接同样计入 `dropped_connections`：它是“代理真的掐断过连接”的事实，
+        与“DROP 期间新接入后被丢弃”是同一类故障。若只统计后者，计数会取决于客户端是否
+        恰好重连，同一个 DROP 场景时而 1 时而 2（CI 实测 flaky）。
+        """
+        dropped = len(self._active)
         for active in self._active:
             with contextlib.suppress(OSError):
                 active.close()
         self._active.clear()
+        self._dropped += dropped
 
 
 # --------------------------------------------------------------------------------------

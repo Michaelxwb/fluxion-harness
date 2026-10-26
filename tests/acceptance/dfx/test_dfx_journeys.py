@@ -721,6 +721,10 @@ async def _no_active_run(stack: GatewayStack) -> bool:
             },
             headers=_runtime_headers(stack),
         )
+    if response.status_code == 200:
+        # 仍有活跃 Run（`CANCELLING` 也是非终态）：这是等待前置条件的一部分，
+        # 不是被测语义失败；继续轮询到真正没有活跃 Run。
+        return False
     assert response.status_code == 404, response.text
     assert response.json()["code"] == "NO_ACTIVE_RUN", response.text
     return True

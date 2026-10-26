@@ -770,6 +770,19 @@ def _connector_ready(url: str) -> bool:
     return response.status_code == 200
 
 
+
+def _await_port_refused(port: int, *, timeout: float = 15.0) -> None:
+    """等待端口停止接受连接；超时仍可连接则显式失败。"""
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=1.0).close()
+        except ConnectionRefusedError:
+            return
+        if time.monotonic() >= deadline:
+            raise AssertionError(f"端口 {port} 在 {timeout}s 内仍在接受连接（下线窗口不成立）")
+        time.sleep(0.1)
+
 def _build_wecom_stack(
     root: Path, profile_path: Path, probe: WeComProbeServer, relay_port: int
 ) -> tuple[CapacityStack, SeededDelivery]:
@@ -1004,9 +1017,10 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
         os.killpg(gateway_pgid, 0)
     relay.stop()
     # 确定性前提：Gateway 端口与投递端点（relay）都必须真的拒绝连接。
+    # SIGKILL 后内核释放监听有短暂延迟（CI 实测过“刚杀完仍能完成握手”），所以有界重试，
+    # 超出窗口仍是活的就显式失败——不把“释放中”当成“已下线”。
     for port in (gateway_port, wecom_harness.relay_port):
-        with pytest.raises(ConnectionRefusedError):
-            socket.create_connection(("127.0.0.1", port), timeout=1.0).close()
+        _await_port_refused(port)
     # 确定性前提：投递端点真的不可用（runtime env 指向稳定 relay，且 relay 监听已关闭）。
     for runtime in stack.instances("agent-runtime"):
         assert read_process_environ(runtime.pid)["IM_GATEWAY_URL"] == (
