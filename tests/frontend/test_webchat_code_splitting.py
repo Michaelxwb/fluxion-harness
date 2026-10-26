@@ -169,7 +169,11 @@ def test_s10_admin_deep_links_keep_the_route_table_and_error_boundary() -> None:
             assert re.search(rf'path="{route}"[\s\S]{{0,160}}?<{component}', app), (
                 f"深链 /{route} 必须有真实路由指向 {component}"
             )
-        assert not re.search(rf"import\s*\{{[^}}]*\b{component}\b[^}}]*\}}\s*from\s*'\./{re.escape(module_path)}'", app), (
+        static_import = (
+            rf"import\s*\{{[^}}]*\b{component}\b[^}}]*\}}\s*from\s*"
+            rf"'\./{re.escape(module_path)}'"
+        )
+        assert not re.search(static_import, app), (
             f"{component} 不得保留静态 import（会回到 4.2MB 首屏）"
         )
 

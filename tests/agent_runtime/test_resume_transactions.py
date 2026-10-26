@@ -73,6 +73,35 @@ async def _seed_waiting_run() -> tuple[uuid.UUID, uuid.UUID]:
     return run_id, conv_id
 
 
+async def test_human_resume_restores_valid_queue_projection() -> None:
+    """human resume 回到 CREATED 时必须重建有效排队窗口（否则 execution_status 投影 500）。"""
+    from datetime import UTC, datetime, timedelta
+
+    from muad_agent_runtime.application.execution_status import project_execution_status
+    from muad_agent_runtime.application.run_resume import transition_human_resume
+
+    run_id, _ = await _seed_waiting_run()
+    deadline_at = datetime.now(UTC) + timedelta(minutes=5)
+    async with get_session_factory()() as session:
+        await session.execute(
+            sa.update(RunRecord).where(RunRecord.id == run_id).values(deadline_at=deadline_at)
+        )
+        await session.commit()
+        run = await session.get(RunRecord, run_id)
+        assert run is not None
+        await transition_human_resume(session, run)
+        await session.commit()
+        assert run.status == "CREATED"
+        assert run.queue_stage == "WAITING_RUNTIME"
+        assert run.queued_at is not None
+        assert run.queue_deadline_at == deadline_at
+        projected = project_execution_status(run)
+        assert projected.stage == "WAITING_RUNTIME"
+        assert projected.deadline_at == deadline_at
+        # 绝对期限不被续跑延期（snapshot spec：恢复不得延期 deadline）。
+        assert run.deadline_at == deadline_at
+
+
 async def test_b119_resume_idempotency_key_scopes_by_run_and_input() -> None:
     """[B-119] resume 指纹包含 run_id+input：同键同输入重放；不同输入 CONFLICT。"""
     run_id, conv_id = await _seed_waiting_run()

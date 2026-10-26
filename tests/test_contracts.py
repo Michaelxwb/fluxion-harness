@@ -205,6 +205,7 @@ def test_artifact_ref_admits_no_channel_private_shape():
 
 
 def test_run_request_literal_enforcement():
+    """渠道名是开放注册表（新渠道不改字面量）；消息类型仍是封闭 Literal。"""
     request = RunRequest(
         agent_id=uuid4(),
         platform_user_id=uuid4(),
@@ -214,11 +215,18 @@ def test_run_request_literal_enforcement():
     assert request.channel.type == 'WECOM'
     assert request.message.type == 'text'
 
+    dingtalk = RunRequest(
+        agent_id=uuid4(),
+        platform_user_id=uuid4(),
+        channel={'type': 'DINGTALK', 'bot_id': 'bot-1'},
+        message={'id': 'msg-1', 'text': 'hello'},
+    )
+    assert dingtalk.channel.type == 'DINGTALK'
     with pytest.raises(ValidationError):
         RunRequest(
             agent_id=uuid4(),
             platform_user_id=uuid4(),
-            channel={'type': 'DINGTALK', 'bot_id': 'bot-1'},
+            channel={'type': '', 'bot_id': 'bot-1'},
             message={'id': 'msg-1', 'text': 'hello'},
         )
     with pytest.raises(ValidationError):

@@ -142,7 +142,11 @@ def test_e05_channel_failure_retries_without_fake_sent(live_stack: LiveStack, ht
     assert _wait(sent), "首次渠道失败后必须重试成功（不伪造 SENT）"
     status, _, delivery_status, _, _, attempts = _task_row(live_stack, task_id)
     assert delivery_status == "SENT"
-    assert attempts >= 2, "失败必须计入尝试并重试"
+    # TASK-009 起渠道重试在 Connector 内部完成（`command_max_attempts`），worker 的 attempt
+    # 不再增长；用探针的真实失败计数证明失败确实发生过，再用"只成功投递一次"证明没伪造 SENT。
+    assert attempts == 1, "worker 只发起一次投递命令（重试在 Connector 内部）"
+    probe_state = http.get(f"{live_stack.channel_url}/probe/state").json()
+    assert probe_state["failures"] == 1, probe_state
     deliveries = _my_deliveries(live_stack, http)
     assert len(deliveries) == 1, deliveries
     assert status == "COMPLETED"

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import Conversation, RunInterrupt, RunRecord
+from .run_admission import QUEUE_STAGE_WAITING_RUNTIME
 
 
 def ensure_human_resume(run: RunRecord, now: datetime) -> None:
@@ -70,6 +71,9 @@ async def lock_human_resume(session: AsyncSession, run: RunRecord) -> list[RunIn
 async def transition_human_resume(session: AsyncSession, run: RunRecord) -> None:
     now = await database_now(session)
     ensure_human_resume(run, now)
+    deadline_at = run.deadline_at
+    if deadline_at is None:  # ensure_human_resume 已保证；这里只做静态类型收窄
+        raise AppError(ErrorCode.MEMORY_CONFIRMATION_EXPIRED)
     changed = await session.scalar(
         update(RunRecord)
         .where(
@@ -80,11 +84,30 @@ async def transition_human_resume(session: AsyncSession, run: RunRecord) -> None
             RunRecord.cancel_requested.is_(False),
             RunRecord.deadline_at > now,
         )
-        .values(status=RunStatus.CREATED, lease_owner=None, lease_until=None, update_time=now)
+        .values(
+            status=RunStatus.CREATED,
+            lease_owner=None,
+            lease_until=None,
+            update_time=now,
+            # human resume 回到"等待运行时领取"的排队态：排队投影必须重新有效，否则受理回执
+            # 的 `execution_status` 投影会因缺少排队窗口而抛错（Run 已通过绝对期限复核，
+            # 这里直接用该绝对期限作为排队上界，不另造新的等待预算）。
+            queue_stage=QUEUE_STAGE_WAITING_RUNTIME,
+            queued_at=now,
+            queue_deadline_at=deadline_at,
+        )
         .returning(RunRecord.id)
     )
     if changed is None:
         raise AppError(ErrorCode.RUN_BUSY)
+    # 同一 Session 内的对象仍带旧投影：续跑受理回执直接用它投影，必须同步为落库事实。
+    run.status = RunStatus.CREATED
+    run.lease_owner = None
+    run.lease_until = None
+    run.update_time = now
+    run.queue_stage = QUEUE_STAGE_WAITING_RUNTIME
+    run.queued_at = now
+    run.queue_deadline_at = deadline_at
 
 
 async def resolve_generic_interrupts(session: AsyncSession, rows: list[RunInterrupt], text: str) -> None:

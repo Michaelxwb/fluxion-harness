@@ -776,6 +776,8 @@ test('S-06 多 Gateway 副本：任意 Pod 受理/跨副本续流/同 message_id
   const replicaURL = `http://127.0.0.1:${REPLICA_GATEWAY_PORT}`;
   const podA = stack.gatewayURL;
   const podB = replicaURL;
+  // 真实第二个 Gateway 副本：本用例要求跨副本受理/续流，必须先把 B 进程起起来并等 healthz。
+  await startReplicaGateway(stack);
   // 真实模型：多段正文，给跨副本续流留出窗口。
   await webchatFaults.setBehavior({
     latency_ms: 200,

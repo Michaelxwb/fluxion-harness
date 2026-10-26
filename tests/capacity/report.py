@@ -1204,7 +1204,7 @@ def deployment_facts_from_manifests(base_dir: str | Path) -> DeploymentFacts:
     """从正式清单渲染结果取部署事实；缺单元/缺字段显式失败（不猜部署形状）。"""
     try:
         renderer, documents = preflight.render_manifests(Path(base_dir))
-        views = preflight.build_units(documents)
+        views = preflight.build_units(documents, UNITS)
     except preflight.PreflightError as exc:
         raise ReportError(f"部署清单渲染失败：{exc}") from exc
     units = {view.name: _unit_deployment_facts(view) for view in views}
