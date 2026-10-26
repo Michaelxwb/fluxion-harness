@@ -31,6 +31,7 @@ from muad_common import SharedSettings
 from muad_im_gateway.api.delivery import DELIVERY_DEDUPE_PREFIX, DELIVERY_DEDUPE_TTL_SEC
 
 from .environment import (
+    DELIVERY_STREAM_WAIT_SEC,
     INTERNAL_TOKEN,
     PLATFORM_SETTINGS,
     TENANT,
@@ -60,6 +61,11 @@ TERMINAL_TIMEOUT_SEC = 120.0
 BACKOFF_BUDGET_SEC = 300.0
 # 真实轮询粒度带来的超出量：窗口只会在轮询拍点上被观察到，故实测间隔 ∈ [窗口, 窗口 + 粒度 + 余量]。
 BACKOFF_SLACK_SEC = 5.0
+# 相邻 DELIVERY 事件的时间差会**少掉上一次尝试的耗时**：事件 create_time 是尝试**结束**时刻，
+# 而退避锚点是尝试**开始**时刻（reservation 写入的 `update_time`）。TASK-009 起交付要等
+# Connector 回执，失败的 Worker 尝试会等满 Gateway 的 `delivery_stream_wait_sec` 才返回，
+# 这个差值不再可忽略（实测约 2s）；下界按该上界扣除，避免把架构性延迟当成退避失效。
+BACKOFF_MEASUREMENT_LOWER_TOLERANCE_SEC = DELIVERY_STREAM_WAIT_SEC + 1.0
 # 「重复 delivery_key 不重复发送」的安静窗口：≥ 2 个投递轮询拍点。
 QUIET_SEC = 8.0
 # 响应改写代理的回程延迟：给出「投递预留已提交、投递尚未完成」的可观测窗口。
@@ -461,8 +467,10 @@ def test_e06_backoff_sequence_then_success(live_stack: DfxStack, http: httpx.Cli
         base = _backoff_base_sec()
         for index, gap in enumerate(gaps, start=1):
             window = float(base * 2**index)
-            assert window <= gap <= window + BACKOFF_SLACK_SEC, (
-                f"第 {index} 次失败后的退避间隔 {gap}s 不在 [{window}, {window + BACKOFF_SLACK_SEC}]"
+            lower = window - BACKOFF_MEASUREMENT_LOWER_TOLERANCE_SEC
+            assert lower <= gap <= window + BACKOFF_SLACK_SEC, (
+                f"第 {index} 次失败后的退避间隔 {gap}s 不在 [{lower},"
+                f" {window + BACKOFF_SLACK_SEC}]（窗口 {window}s，测量下界已扣除尝试耗时上界）"
             )
         # 失败期间渠道收不到（探针不记录），成功只发生一次 → 触达恰好 1 次
         records = probe_deliveries(probe_url, bot_id)

@@ -61,6 +61,18 @@ INTERNAL_TOKEN = "dfx-reliability-internal-token"
 MODEL_API_KEY = "dfx-reliability-model-key"
 SKILL_KEY = "dfx_reliability_probe"
 SKILL_VERSION = "1.0.0"
+# 本套件经 `im.outbound` 投递的 WECOM 路由：TASK-009 起有状态通道的连接与发送在独立
+# Connector 进程里，命令只有对应 bot 存在启用快照时才会被持有 lease 的 Connector 消费。
+# 这些是 delivery/recovery 用例实际使用的 bot_id（路由里的 bot_id 必须与快照同形）。
+WECOM_BOT_IDS = (
+    "dfx-delivery-s11",
+    "dfx-delivery-e06-backoff",
+    "dfx-delivery-e06-placeholder",
+    "dfx-delivery-e06-deliverable",
+    "dfx-delivery-e06-silent",
+    "dfx-recovery-bot",
+    "dfx-recovery-schedule-bot",
+)
 
 # 子进程租约口径：心跳 1s / 租约 30s（生产默认 `task_lease_sec=60` / `task_heartbeat_sec=20` 的同向缩放）。
 # 租约必须显著大于心跳间隔：整跑 `tests/acceptance` 时同机有大量并发服务进程，心跳协程的 1s
@@ -97,6 +109,9 @@ START_RETRY_BACKOFF_SEC = 2.0
 # `/readyz`（依赖就绪，而非仅进程存活）的等待窗口；进程活着 ≠ 依赖已连上。
 READYZ_TIMEOUT_SEC = 60.0
 POLL_INTERVAL_SEC = 0.2
+# Gateway 对 `im.outbound` 结果的有界等待（真实配置项；显式钉住，供退避断言推导测量上界）。
+# TASK-009 起交付必须等 Connector 回执：失败尝试的耗时上界就是这段等待。
+DELIVERY_STREAM_WAIT_SEC = 2.0
 
 # 可注入时长的真实 Skill：`input.sleep_sec` 决定脚本执行多长，用于制造连续心跳窗口。
 SKILL_SCRIPT = (
@@ -126,6 +141,7 @@ PURGE_COUNTS: tuple[tuple[str, str], ...] = (
     ("control.agent_definition", "tenant_id = :t"),
     ("control.model_definition", "tenant_id = :t"),
     ("control.config_audit_log", "tenant_id = :t"),
+    ("control.bot_account", "tenant_id = :t"),
 )
 
 
@@ -232,6 +248,7 @@ def worker_instance_id(stack: DfxStack) -> str:
 
 def seed_control(database_url: str, artifact_root: Path) -> dict[str, Any]:
     """本租户控制面真实行 + 真实 Skill 包（Artifact Store 根下一个真 zip）。"""
+    from muad_console_platform.infrastructure.models.channel import BotAccount
     from muad_console_platform.infrastructure.models.control import (
         AgentAccessGrant,
         AgentDefinition,
@@ -298,6 +315,22 @@ def seed_control(database_url: str, artifact_root: Path) -> dict[str, Any]:
             session.add(user)
             await session.flush()
             session.add(AgentAccessGrant(user_id=user.id, agent_id=agent.id, granted_by=user.id))
+            # 生产同形的 WECOM bot 行：Connector 的 bot 快照按 (tenant, channel, enabled) 取，
+            # 缺行时它不会持有 lease，`im.outbound` 命令就没有消费方（表现为投递等待超时）。
+            # secret 每次运行随机生成且只入库，不进日志/响应。
+            for bot_id in WECOM_BOT_IDS:
+                session.add(
+                    BotAccount(
+                        tenant_id=TENANT,
+                        channel="WECOM",
+                        name=f"DFX Bot {bot_id}",
+                        bot_id=bot_id,
+                        secret=f"dfx-bot-secret-{uuid.uuid4().hex}",
+                        agent_id=agent.id,
+                        enabled=True,
+                    )
+                )
+            await session.flush()
             skill = Skill(
                 tenant_id=TENANT,
                 key=SKILL_KEY,
@@ -812,18 +845,66 @@ def swapped_workers(stack: DfxStack, log_dir: Path) -> Iterator[Callable[..., Se
 # ---------------------------------------------------------------------------
 
 
+def probe_connector_process(
+    *,
+    name: str,
+    port: int,
+    base_env: dict[str, str],
+    probe_url: str,
+    log_dir: Path,
+) -> ServiceProcess:
+    """按生产同形的 env 组装一个 WECOM Connector（`CHANNEL_PROBE_URL` → HTTP 探针适配器）。
+
+    调用方提供与同栈服务一致的 base env（PG/Redis/Console/租户/内部令牌/产物根）；这里只补
+    Connector 自己的旋钮。owner 每次运行唯一，避免与同机其它 Connector 的 lease 混淆。
+    """
+    return ServiceProcess(
+        name=name,
+        module="muad_im_connector.main",
+        port=port,
+        env={
+            **base_env,
+            "CHANNEL_PROBE_URL": probe_url,
+            "CONNECTOR_HANDLED_CHANNELS": "WECOM",
+            "CONNECTOR_OWNER_ID": f"dfx-connector-{uuid.uuid4().hex[:8]}",
+        },
+        log_path=log_dir / f"{name}.log",
+    )
+
+
 @contextmanager
 def delivery_pair(stack: DfxStack, log_dir: Path) -> Iterator[tuple[str, str]]:
-    """真实 IM Gateway + 真实渠道探针（外部渠道由本地真实 HTTP 探针承载，不是替身）。
+    """真实 IM Gateway + 真实 Connector + 真实渠道探针（外部渠道由本地真实 HTTP 探针承载）。
 
-    退出时两个进程都停掉：它们是用例自起的临时服务，收尾不得留下孤儿。
+    TASK-009 起 WECOM 是有状态通道：Gateway 只把命令写 `im.outbound`，由持有 bot lease 的
+    Connector 消费并调用渠道。因此本夹具起**三个真实进程**——缺 Connector 时 Gateway 的
+    `/internal/deliveries` 会一直等到有界超时后返回 500（命令没有任何消费方）。
+
+    `CHANNEL_PROBE_URL` 同时给 Gateway/Connector：Connector 走 `HttpProbeChannelAdapter`，
+    与真实企微适配器同形（`delivers_locally=True`），不连第三方实网。退出时按逆序停掉所有
+    进程；Connector 的优雅收尾会释放 bot lease，不留占用。
     """
     from muad_common import SharedSettings
 
-    probe_port, gateway_port = distinct_free_ports(2)
+    probe_port, gateway_port, connector_port = distinct_free_ports(3)
     probe_url = f"http://127.0.0.1:{probe_port}"
     gateway_url = f"http://127.0.0.1:{gateway_port}"
+    connector_url = f"http://127.0.0.1:{connector_port}"
     settings = SharedSettings()
+    # 三个进程共用同一套真实依赖与身份：PG/Redis/Console/产物根/内部服务令牌。
+    # `ARTIFACT_ROOT` 必须显式给本栈临时目录（干净检出/CI 上默认 `./.data/artifacts` 不存在）。
+    service_env = {
+        **os.environ,
+        "DATABASE_URL": settings.require_database_url(),
+        "REDIS_URL": settings.require_redis_url(),
+        "ARTIFACT_ROOT": str(stack.artifact_root),
+        "SKILL_CACHE_ROOT": str(stack.skill_cache_root),
+        "LOG_DIR": str(log_dir),
+        "CONSOLE_PLATFORM_URL": stack.console_url,
+        "CHANNEL_PROBE_URL": f"{probe_url}/probe/deliveries",
+        "DEFAULT_TENANT_ID": stack.tenant_id,
+        "INTERNAL_SERVICE_TOKEN": stack.service_headers()["X-Internal-Service"],
+    }
     probe = ServiceProcess(
         name="dfx-channel-probe",
         module="tests.acceptance.task_schedule.channel_probe",
@@ -831,35 +912,39 @@ def delivery_pair(stack: DfxStack, log_dir: Path) -> Iterator[tuple[str, str]]:
         env={**os.environ},
         log_path=log_dir / "channel-probe.log",
     )
+    connector = probe_connector_process(
+        name="dfx-im-connector",
+        port=connector_port,
+        base_env=service_env,
+        probe_url=f"{probe_url}/probe/deliveries",
+        log_dir=log_dir,
+    )
     gateway = ServiceProcess(
         name="dfx-im-gateway",
         module="muad_im_gateway.main",
         port=gateway_port,
         env={
-            **os.environ,
-            "DATABASE_URL": settings.require_database_url(),
-            "REDIS_URL": settings.require_redis_url(),
-            # 启动校验要求 ARTIFACT_ROOT 目录存在（缺则拒启动）。必须显式给本栈的临时产物根：
-            # 靠环境默认值 `./.data/artifacts` 会在干净检出/CI 上不存在（本地因历史运行碰巧有），
-            # 表现为 `dfx-im-gateway exited early (code=3): artifact storage is not mounted`。
-            "ARTIFACT_ROOT": str(stack.artifact_root),
-            "SKILL_CACHE_ROOT": str(stack.skill_cache_root),
-            "LOG_DIR": str(log_dir),
-            "CONSOLE_PLATFORM_URL": stack.console_url,
-            "CHANNEL_PROBE_URL": f"{probe_url}/probe/deliveries",
-            "DEFAULT_TENANT_ID": stack.tenant_id,
-            "INTERNAL_SERVICE_TOKEN": stack.service_headers()["X-Internal-Service"],
+            **service_env,
+            # 本进程只路由、不自带 WECOM 适配器：出站写 im.outbound，由上面的 Connector 执行。
+            "GATEWAY_ROUTED_CHANNELS": "WECOM",
+            # 有界等待显式钉住：退避用例的测量容差按这个上界推导（见 test_dfx_delivery）。
+            "DELIVERY_STREAM_WAIT_SEC": str(DELIVERY_STREAM_WAIT_SEC),
         },
         log_path=log_dir / "im-gateway.log",
     )
-    start_service(probe)
-    start_service(gateway)
+    started: list[ServiceProcess] = []
     try:
+        for process in (probe, connector, gateway):
+            start_service(process)
+            started.append(process)
+        # Connector 的 `/readyz` 在快照就绪后才 200：此时 bot 快照已应用、lease 已取得，
+        # 后续投递不会再落在「命令有生产者、暂时没有消费者」的窗口里。
+        await_readyz(connector_url, timeout_sec=READY_TIMEOUT_SEC)
         await_readyz(gateway_url, timeout_sec=READY_TIMEOUT_SEC)
         yield gateway_url, probe_url
     finally:
-        gateway.stop()
-        probe.stop()
+        for process in reversed(started):
+            process.stop()
 
 
 @contextmanager
@@ -905,6 +990,7 @@ def probe_deliveries(probe_url: str, bot_id: str) -> list[dict[str, Any]]:
 
 __all__ = [
     "CROSS_TENANT",
+    "DELIVERY_STREAM_WAIT_SEC",
     "DfxStack",
     "PLATFORM_SETTINGS",
     "PLATFORM_SETTINGS_OVERRIDES",
@@ -928,6 +1014,7 @@ __all__ = [
     "probe_deliveries",
     "purge_redis_hints",
     "post_task_request",
+    "probe_connector_process",
     "read_task_row",
     "resolve_task_spec",
     "service_commands",

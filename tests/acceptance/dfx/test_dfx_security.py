@@ -62,12 +62,15 @@ from muad_platform_sdk.egress_boundary import (
 )
 from sqlalchemy import text
 
+from tests.acceptance.dfx.environment import await_readyz, probe_connector_process
 from tests.acceptance.im_gateway.environment import restart_process
 from tests.acceptance.task_schedule.environment import (
     TENANT,
     LiveStack,
+    ServiceProcess,
     cleanup,
     clear_engine_caches,
+    free_port,
     require,
     run_db,
     start_live_stack,
@@ -539,9 +542,23 @@ def security_stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveSta
     _purge_module_rows(TENANT)
     root = tmp_path_factory.mktemp("dfx-security")
     stack, processes = start_live_stack(Path(root))
+    # TASK-009 起 WECOM 的出站由独立 Connector 执行；缺它时 Gateway 只能把命令写进
+    # `im.outbound` 后等超时（500），本模块的 canary 出站断言就没有真实送达可取。
+    # 复用栈内 Gateway 的同一份 env（PG/Redis/Console/租户/内部令牌/产物根/探针地址）。
+    gateway = stack.processes["gateway"]
+    connector: ServiceProcess = probe_connector_process(
+        name="dfx-security-connector",
+        port=free_port(),
+        base_env=gateway.env,
+        probe_url=f"{stack.channel_url}/probe/deliveries",
+        log_dir=gateway.log_path.parent,
+    )
     try:
+        connector.start()
+        await_readyz(connector.url)
         yield stack
     finally:
+        connector.stop()
         stop_live_stack(processes)
         _purge_module_rows(stack.tenant_id)
         cleanup(database_url, stack.artifact_root)
