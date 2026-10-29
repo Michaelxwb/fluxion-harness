@@ -10,7 +10,7 @@ import math
 import sys
 from pathlib import Path
 import time
-from typing import Mapping, Optional
+from typing import Mapping, Optional, Sequence
 
 from codeflow.cli.cf_spec_context import (
     BindingInput,
@@ -26,10 +26,10 @@ from codeflow.cli.cf_spec_context import (
     resync_active_hash,
     save_context,
 )
-from codeflow.cli.cf_spec_gate import evidence_deferral_kind, validate_stage
+from codeflow.spec.cf_stage_gate import evidence_deferral_kind, validate_stage
 from codeflow.spec.cf_spec_metadata import SpecMetadata, load_spec_metadata
 from codeflow.spec.cf_spec_resolver import resolve_candidates, SpecCandidate
-from codeflow.cli.cf_spec_session import context_sha256
+from codeflow.spec.cf_spec_context_model import context_sha256
 from codeflow.spec.cf_spec_verify import VerificationEvidence, VerificationScope, run_all_verifiers, store_verification_evidence
 from codeflow.core.cf_core import load_config, phase_timing, resolve_quality_loop
 from codeflow.acceptance.cf_acceptance_manifest_core import validate_execution_baseline
@@ -83,7 +83,7 @@ def _acceptance_baseline_issue(task_dir: str, owner: str) -> str:
             return "acceptance_manifest_missing" if requires else ""
         data = load_manifest(path)
         if requires:
-            from codeflow.cli.cf_acceptance_manifest import validate_manifest
+            from codeflow.acceptance.cf_acceptance_manifest_core import validate_manifest
             valid, reason = validate_manifest(str(task), str(path))
             if not valid:
                 return reason
@@ -222,6 +222,14 @@ def _apply_evidence(context: SpecContext, evidence: tuple[Mapping[str, object], 
     return replace(context, bindings=tuple(bindings))
 
 
+def integrate_verification_evidence(
+    context: SpecContext, evidence: Sequence[VerificationEvidence],
+) -> tuple[SpecContext, tuple[Mapping[str, object], ...]]:
+    """Apply verifier results with their existing freshness and deduplication rules."""
+    records = tuple(_evidence_data(item) for item in evidence)
+    return _apply_evidence(context, records), records
+
+
 def _rule_manual_confirmation(rule: RuleBinding) -> Optional[Mapping[str, object]]:
     status = rule.stage_status.get("code")
     if status is None or status.decision is None or status.decision.kind != "manual_verification":
@@ -235,7 +243,7 @@ def _rule_manual_confirmation(rule: RuleBinding) -> Optional[Mapping[str, object
     }
 
 
-def _task_scope_specs(root: str, task_dir: str, owner: str, files: tuple[str, ...]) -> set[str]:
+def task_spec_scope(root: str, task_dir: str, owner: str, files: tuple[str, ...]) -> set[str]:
     """本任务的验证范围：Spec-Refs ∪ 改动文件经 path_mapping 命中的 spec。
 
     范围外的 code 层 command/test verifier 延后到需求级 verify-e2e 全量补跑。
@@ -252,10 +260,10 @@ def _task_scope_specs(root: str, task_dir: str, owner: str, files: tuple[str, ..
         return scope
     from codeflow.task.cf_task_doc import task_section, task_spec_refs
 
-    try:
-        refs = task_spec_refs(task_section(task.read_text(encoding="utf-8"), owner))
-    except ValueError:
-        refs = ()
+    section = task_section(task.read_text(encoding="utf-8"), owner)
+    # Older TASK documents may omit Spec-Refs; invalid declared refs must not
+    # silently narrow the verification scope to path mappings alone.
+    refs = task_spec_refs(section) if "Spec-Refs" in section.fields else ()
     for ref in refs:
         spec_id = ref.split("#", 1)[0].strip()
         if spec_id:
@@ -305,6 +313,11 @@ _NON_EXECUTION_ERRORS = frozenset((
     "regex_unavailable",
 ))
 
+
+def is_non_execution_error(code: object) -> bool:
+    """Distinguish verifier results that did not execute from actual failures."""
+    return isinstance(code, str) and code in _NON_EXECUTION_ERRORS
+
 _PROVISIONAL_NEXT = (
     "补齐/修复阻塞项后重新运行 task finish；budget/env/未执行不算通过。"
     "review_stage 延后项由需求级 task verify-e2e 补跑。"
@@ -341,7 +354,7 @@ def _required_code_gaps(context: SpecContext) -> tuple[tuple[Mapping[str, object
                     "error_code": error or kind,
                     "verifier_ref": rule.verifier_ref,
                 }
-            elif error is None or error in _NON_EXECUTION_ERRORS:
+            elif error is None or is_non_execution_error(error):
                 missing[ref] = {
                     "ref": ref,
                     "kind": "not_executed",
@@ -461,14 +474,14 @@ def _run_done_gate(root: str, task_dir: str, cheap: bool = False, budget: Option
     context = load_context(_context_path(task_dir))
     diff_hash = _diff_hash(root, scope_result.files)
     phase_timing("done.load_context_and_diff", phase_started)
-    all_evidence: list[Mapping[str, object]] = []
+    verifier_evidence: list[VerificationEvidence] = []
     deferred_review = 0
     deferred_requirement = 0
     deferred_budget = 0
     deferred_heavy = 0
     quality = resolve_quality_loop(load_config(root))
     verifier_budget = float(quality.get("finish_verifier_budget", 300.0))
-    scope_specs = set() if cheap else _task_scope_specs(root, task_dir, owner, scope_result.files)
+    scope_specs = set() if cheap else task_spec_scope(root, task_dir, owner, scope_result.files)
     if not cheap and not scope_specs:
         # 既无 Spec-Refs 也无路径命中（老任务/无改动可定位）：回退全量绑定，
         # 避免把"定位不到"误当成"无需验证"。
@@ -506,8 +519,8 @@ def _run_done_gate(root: str, task_dir: str, cheap: bool = False, budget: Option
             )
         except (OSError, ValueError) as exc:
             sys.stderr.write(f"cf_task_runtime: evidence sidecar write failed: {exc}\n")
-        all_evidence.extend(_evidence_data(item) for item in result.evidence)
-    updated = _apply_evidence(context, tuple(all_evidence))
+        verifier_evidence.extend(result.evidence)
+    updated, all_evidence = integrate_verification_evidence(context, verifier_evidence)
     if updated != context:
         save_context(_context_path(task_dir), updated)
     gate = validate_stage(updated, "code", diff_sha256=diff_hash, allow_cheap_skips=cheap,

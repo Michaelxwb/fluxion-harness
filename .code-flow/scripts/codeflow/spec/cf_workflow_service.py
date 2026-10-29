@@ -12,12 +12,13 @@ from __future__ import annotations
 
 import re
 import json
+import sys
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Mapping, Optional, Sequence
 from codeflow.spec.cf_active_task import ActiveTask, active_data, load_active_task
-from codeflow.spec.cf_spec_context_model import ContextError, SpecContext
+from codeflow.spec.cf_spec_context_model import ContextError, SpecContext, load_context
 from codeflow.task.cf_task_doc import TaskDocument, TaskDocumentError, parse_task_document
 from codeflow.spec.cf_workflow_transaction import recover_transition
 from codeflow.core.cf_task_state import FINISHED_STATUSES
@@ -35,18 +36,16 @@ class WorkflowError(ValueError):
 def locate_task_file(task_dir: str, task_id: str) -> Optional[Path]:
     """Find the unique task file containing the TASK section."""
     matches: list[Path] = []
-    try:
-        files = sorted(Path(task_dir).glob("*.md"))
-    except OSError:
-        return None
-    for path in files:
-        if path.name.endswith((".prd.md", ".design.md")):
+    for path in sorted(Path(task_dir).glob("*.md")):
+        if path.name.endswith((".prd.md", ".design.md", ".scenarios.md")):
             continue
         try:
-            content = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError):
-            continue
-        if f"## {task_id}:" in content:
+            document = _task_document(str(path))
+        except WorkflowError as exc:
+            if exc.code == "task_document_empty":
+                continue
+            raise
+        if any(task.id == task_id for task in document.tasks):
             matches.append(path)
     return matches[0] if len(matches) == 1 else None
 
@@ -95,7 +94,7 @@ def task_truth_issues(task_file: str, task_id: str, context: SpecContext,
             stage_status = rule.stage_status.get(rule.verifier_stage)
             actual = stage_status.status if stage_status is not None else "missing"
             if status == "done" and spec_ids is not None and actual == "unverified":
-                from codeflow.cli.cf_spec_gate import evidence_deferral_kind
+                from codeflow.spec.cf_stage_gate import evidence_deferral_kind
                 latest = stage_status.evidence[-1] if stage_status.evidence else None
                 deferred = evidence_deferral_kind(latest)
                 if deferred == "heavy" or (deferred == "review_stage" and binding.spec_id not in spec_ids):
@@ -249,21 +248,164 @@ def _sync_markdown(task_file: str, task_id: str, status: str, log_line: str = ""
     return "synced"
 
 
+def _requirement_task_mismatches(directory: str, tasks: Sequence[tuple[Path, str, str]],
+                                 context: Optional[SpecContext]) -> list[dict[str, object]]:
+    mismatches: list[dict[str, object]] = []
+    supplied = {task_id for _, task_id, _ in tasks}
+    if not supplied or len(supplied) != len(tasks):
+        return [{"task": "", "issues": ["TASK list is empty or contains duplicates"]}]
+    actual: set[str] = set()
+    for path in sorted(Path(directory).glob("*.md")):
+        if path.name.endswith((".design.md", ".prd.md", ".scenarios.md")):
+            continue
+        try:
+            actual.update(task.id for task in _task_document(str(path)).tasks)
+        except WorkflowError as exc:
+            if exc.code != "task_document_empty":
+                raise
+    for task_id in sorted(actual - supplied):
+        mismatches.append({"task": task_id, "issues": ["TASK was omitted from requirement verification"]})
+    for task_file, task_id, _ in tasks:
+        located = locate_task_file(directory, task_id)
+        issues: list[str] = []
+        if located is None or located.resolve() != task_file.resolve():
+            issues.append("TASK file does not belong to this requirement")
+        elif section_status(read_task_section(str(task_file), task_id)) not in FINISHED_STATUSES:
+            issues.append("TASK is not done or verified")
+        elif context is not None:
+            issues.extend(task_truth_issues(str(task_file), task_id, context))
+        if issues:
+            mismatches.append({"task": task_id, "issues": issues})
+    return mismatches
+
+
+def _compact_verified_contexts(root: str, directory: str) -> None:
+    from codeflow.evidence.cf_evidence_store import compact_context_file, requirement_key
+    for path in sorted(Path(directory).rglob("spec-context.yml")):
+        try:
+            compact_context_file(path, root=root, requirement=requirement_key(directory))
+        except (OSError, ValueError) as exc:
+            sys.stderr.write(f"cf_task_workflow: context compaction failed: {exc}\n")
+
+
+def _requirement_layer_issues(result: Mapping[str, object]) -> list[str]:
+    required = {"validators", "review", "e2e"}
+    selected = result.get("selected_layers")
+    layers = result.get("layers")
+    if result.get("decision") != "pass" or result.get("profile") != "full":
+        return ["requirement verification must pass under the full profile"]
+    if not isinstance(selected, list) or set(selected) != required or not isinstance(layers, Mapping):
+        return ["validators, review and acceptance results are required"]
+    return [f"{name} verification did not pass" for name in sorted(required)
+            if not isinstance(layers.get(name), Mapping) or layers[name].get("decision") != "pass"]
+
+
+def _missing_acceptance_refs(tasks: Sequence[tuple[Path, str, str]],
+                             rows: Sequence[Mapping[str, object]]) -> list[str]:
+    scenarios = {row["id"]: row for row in rows}
+    issues: list[str] = []
+    for task_file, task_id, _ in tasks:
+        section = parse_task_document(read_task_section(str(task_file), task_id)).tasks[0]
+        refs = set(re.findall(r"\b(?:S|E|B)-\d+\b", section.fields.get("Acceptance-Refs", "")))
+        for ref in sorted(refs):
+            row = scenarios.get(ref)
+            if row is None or row.get("owner") not in (None, "", task_id):
+                issues.append(f"{task_id}: acceptance scenario {ref} is missing or belongs to another TASK")
+    return issues
+
+
+def _stale_acceptance_issues(root: str, checks: Mapping[str, Mapping[str, object]],
+                             rows: Sequence[Mapping[str, object]]) -> list[str]:
+    from codeflow.acceptance.cf_acceptance_evidence import stale_scenario_checks
+    from codeflow.acceptance.cf_check_inputs import check_input_hashes
+    from codeflow.core.cf_exec_base import worktree_fingerprint
+
+    fingerprint = worktree_fingerprint(root)
+    hashes = check_input_hashes(root, checks, fingerprint)
+    return [f"{row['id']}: acceptance evidence is stale" for row in rows
+            if row.get("status") == "verified" and stale_scenario_checks(row, hashes, fingerprint)]
+
+
+def _requirement_acceptance_issues(root: str, directory: str, tasks: Sequence[tuple[Path, str, str]]) -> list[str]:
+    from codeflow.acceptance.cf_acceptance_manifest_core import validate_execution_baseline
+    from codeflow.acceptance.cf_acceptance_risk import accepted_risk
+    from codeflow.acceptance.cf_acceptance_schema import load_manifest, scenario_check_ids, verified_evidence
+
+    manifest = Path(directory) / ".acceptance-manifest.json"
+    if not manifest.is_file():
+        required = [task_id for task_file, task_id, _ in tasks
+                    if parse_task_document(read_task_section(str(task_file), task_id)).tasks[0]
+                    .fields.get("Acceptance-Refs", "").strip().upper() not in ("", "N/A", "NONE", "-")]
+        return [f"{task_id}: acceptance manifest missing" for task_id in required]
+    data = load_manifest(manifest)
+    validate_execution_baseline(manifest, data)
+    task_file = data.get("task_file")
+    if not isinstance(task_file, str) or not task_file.strip() or {
+        file.resolve() for file, _, _ in tasks
+    } != {(manifest.parent / task_file).resolve()}:
+        return ["acceptance manifest is not bound to these TASKs"]
+    owners = {task_id for _, task_id, _ in tasks}
+    checks = {str(check["id"]): check for check in data.get("checks", [])}
+    issues = _missing_acceptance_refs(tasks, data["scenarios"])
+    rows = [row for row in data["scenarios"] if (not row.get("owner") or row.get("owner") in owners)
+            and row.get("exec") != "aspirational"]
+    issues.extend(_stale_acceptance_issues(root, checks, rows))
+    for row in rows:
+        if verified_evidence(row):
+            continue
+        if row.get("status") == "accepted_risk" and any(
+            accepted_risk(checks.get(check_id), row) is not None for check_id in scenario_check_ids(row)
+        ):
+            continue
+        issues.append(f"{row['id']}: acceptance evidence is not verified")
+    return issues
+
+
+def complete_requirement_verification(root: str, directory: str, tasks: Sequence[tuple[Path, str, str]],
+                                      result: dict[str, object]) -> dict[str, object]:
+    """Promote finished TASKs only after full layers and persisted evidence pass."""
+    layer_issues = _requirement_layer_issues(result)
+    if layer_issues or (Path(root) / ".code-flow/.active-task.json").exists():
+        return {**result, "decision": "block", "reason": "requirement_verification_incomplete",
+                "issues": layer_issues or ["active TASK still exists"]}
+    context_path = Path(directory) / "spec-context.yml"
+    context = load_context(str(context_path)) if context_path.is_file() else None
+    mismatches = _requirement_task_mismatches(directory, tasks, context)
+    if mismatches:
+        return {**result, "decision": "block", "reason": "task_status_truth_mismatch", "tasks": mismatches}
+    if context is not None:
+        from codeflow.spec.cf_stage_gate import validate_stage
+        issues = [item.message for stage in ("code", "review") for item in validate_stage(context, stage).errors]
+        if issues:
+            return {**result, "decision": "block", "reason": "requirement_spec_unverified", "issues": issues}
+    try:
+        issues = _requirement_acceptance_issues(root, directory, tasks)
+    except (OSError, ValueError) as exc:
+        issues = [str(exc)]
+    if issues:
+        return {**result, "decision": "block", "reason": "requirement_acceptance_unverified", "issues": issues}
+    _compact_verified_contexts(root, directory)
+    for task_file, task_id, _ in tasks:
+        _sync_markdown(str(task_file), task_id, "verified")
+    return result
+
+
 def _commit_state(root: str, task_file: str, task_id: str, status: str, previous: Optional[ActiveTask],
-                  updated: Optional[ActiveTask], log_line: str = "", prepend: str = "") -> str:
+                  updated: Optional[ActiveTask], log_line: str = "", prepend: str = "", *,
+                  context_change: Optional[tuple[Path, str, str]] = None) -> str:
     from codeflow.spec.cf_workflow_transaction import commit_transition
     marker = Path(root) / ".code-flow/.active-task.json"
-    marker_before = marker.read_text(encoding="utf-8") if marker.exists() else None
+    marker_before = marker.read_bytes().decode("utf-8") if marker.exists() else None
     actual = json.loads(marker_before) if marker_before is not None else None
     expected = active_data(previous) if previous is not None else None
     if actual != expected:
         raise WorkflowError("active_mismatch", "active task changed before commit")
     marker_after = json.dumps(active_data(updated), ensure_ascii=False, indent=2) + "\n" if updated is not None else None
     task = Path(task_file)
-    before = task.read_text(encoding="utf-8")
+    before = task.read_bytes().decode("utf-8")
     after = _render_markdown(before, task_id, status, log_line, prepend)
     try:
-        commit_transition(root, task, before, after, marker_before, marker_after)
+        commit_transition(root, task, before, after, marker_before, marker_after, context_change=context_change)
     except (OSError, ValueError) as exc:
         raise WorkflowError("transition_failed", str(exc)) from exc
     return "synced"
@@ -284,7 +426,7 @@ def _validate_start_manifest(directory: Path, candidate: Path) -> None:
     manifest_file = directory / ".acceptance-manifest.json"
     if not manifest_file.is_file():
         raise WorkflowError("acceptance_manifest_missing", str(manifest_file), ("run plan verification and lock the manifest",))
-    from codeflow.cli.cf_acceptance_manifest import validate_manifest
+    from codeflow.acceptance.cf_acceptance_manifest_core import validate_manifest
     valid, reason = validate_manifest(str(candidate), str(manifest_file))
     if not valid:
         raise WorkflowError(reason or "acceptance_manifest_invalid", str(manifest_file), ("run plan verification before coding",))
@@ -292,7 +434,7 @@ def _validate_start_manifest(directory: Path, candidate: Path) -> None:
 
 def _write_projection(root: str, candidate: Path, context: SpecContext, task_id: str, session_output: str) -> Path:
     from codeflow.core.cf_fs import atomic_write_text
-    from codeflow.cli.cf_spec_session import project_task_session
+    from codeflow.spec.cf_task_projection import project_task_session
     try:
         projection = project_task_session(context, str(candidate), task_id)
     except ValueError as exc:
@@ -397,21 +539,7 @@ def _worktree_registration_issue(root: str, task_id: str) -> str:
     return f"{task_id} is not registered in {meta_path}"
 
 
-def start_task(
-    root: str,
-    task_dir: str,
-    task_file: str,
-    task_id: str,
-    owned_paths: Sequence[str] = (),
-    session_output: str = "",
-) -> dict[str, object]:
-    """Full Start Gate: hard preconditions first, then the guarded pipeline
-    (refresh → manifest check → projection → activation), then the Markdown
-    view flips to in-progress in the same call."""
-    from codeflow.cli.cf_spec_context import load_context, refresh_context, save_context
-    from codeflow.spec.cf_active_task import new_active
-    from codeflow.cli.cf_spec_session import context_sha256
-
+def _start_paths(root: str, task_dir: str, task_file: str, task_id: str) -> tuple[Path, Path, Path]:
     recover_transition(root)
     directory, candidate = _resolve_paths(root, task_dir, task_file)
     registration = _worktree_registration_issue(root, task_id)
@@ -431,11 +559,10 @@ def start_task(
             str(context_path),
             ("run cf-task:plan (bind --stage plan) or cf-spec refresh to create spec-context.yml before start",),
         )
-    refreshed = refresh_context(load_context(str(context_path)), root, artifact_root=str(directory))
-    # No marker exists at this point (active_exists raised above), so no
-    # re-sync is needed before activation below.
-    current_hash = context_sha256(refreshed.context)
-    owned = tuple(item for item in owned_paths if isinstance(item, str))
+    return directory, candidate, context_path
+
+
+def _start_e2e_plan(directory: Path, candidate: Path, task_id: str) -> dict[str, object]:
     _validate_start_manifest(directory, candidate)
     from codeflow.acceptance.cf_acceptance_plan import build_e2e_plan
     try:
@@ -452,15 +579,48 @@ def start_task(
             for item in errors[:5] if isinstance(item, Mapping)
         )
         raise WorkflowError("e2e_plan_invalid", task_id, details or ("E2E plan quality gate failed",))
-    # Persist the refreshed Context only after every start gate passed. A
-    # manifest/E2E failure must not leave a half-updated Context behind.
-    save_context(str(context_path), refreshed.context)
+    return e2e_plan
+
+
+def _start_active(root: str, directory: Path, task_id: str, current_hash: str,
+                  owned_paths: Sequence[str]) -> ActiveTask:
+    from codeflow.spec.cf_active_task import new_active
+    if any(not isinstance(item, str) for item in owned_paths):
+        raise WorkflowError("invalid_owned_paths", "owned_paths must contain only strings")
+    try:
+        return replace(new_active(root, str(directory), task_id, current_hash, tuple(owned_paths)), status="active")
+    except (OSError, ValueError) as exc:
+        code = getattr(exc, "code", "activation_failed")
+        raise WorkflowError(str(code), str(exc)) from exc
+
+
+def start_task(
+    root: str,
+    task_dir: str,
+    task_file: str,
+    task_id: str,
+    owned_paths: Sequence[str] = (),
+    session_output: str = "",
+) -> dict[str, object]:
+    """Run the Start Gate before persisting the Context, marker and TASK view."""
+    from codeflow.spec.cf_context_refresh import refresh_context
+    from codeflow.spec.cf_spec_context_model import context_sha256, serialize_context
+
+    directory, candidate, context_path = _start_paths(root, task_dir, task_file, task_id)
+    context_bytes = context_path.read_bytes()
+    refreshed = refresh_context(load_context(str(context_path), source=context_bytes), root, artifact_root=str(directory))
+    current_hash = context_sha256(refreshed.context)
+    e2e_plan = _start_e2e_plan(directory, candidate, task_id)
+    active = _start_active(root, directory, task_id, current_hash, owned_paths)
+    # Check and write the bounded projection before saving a refreshed Context;
+    # invalid refs, an output error, or unowned changes must leave it untouched.
     output = _write_projection(root, candidate, refreshed.context, task_id, session_output)
     try:
-        active = replace(new_active(root, str(directory), task_id, current_hash, owned), status="active")
-        markdown = _commit_state(root, str(candidate), task_id, "in-progress", None, active, f"- [{_today()}] started")
-    except Exception as exc:
-        code = getattr(exc, "code", "activation_failed") if isinstance(exc, ValueError) else "activation_failed"
+        context_change = (context_path, context_bytes.decode("utf-8"), serialize_context(refreshed.context))
+        markdown = _commit_state(root, str(candidate), task_id, "in-progress", None, active,
+                                 f"- [{_today()}] started", context_change=context_change)
+    except (OSError, ValueError) as exc:
+        code = getattr(exc, "code", "activation_failed")
         raise WorkflowError(str(code), str(exc)) from exc
 
     return {
@@ -475,7 +635,7 @@ def start_task(
     }
 
 
-def _require_marker_task(root: str, task_id: str, task_dir: str, task_file: str) -> None:
+def require_active_task(root: str, task_id: str, task_dir: str, task_file: str) -> None:
     recover_transition(root)
     try:
         active = load_active_task(root)
@@ -504,7 +664,7 @@ def block_task(root: str, task_dir: str, task_file: str, task_id: str, reason: s
     updated = None
     try:
         active = load_active_task(root)
-        _require_marker_task(root, task_id, task_dir, task_file)
+        require_active_task(root, task_id, task_dir, task_file)
         if active.task_id == task_id and active.status == "active":
             updated = replace(active, status="blocked")
             marker = "blocked"
@@ -532,7 +692,7 @@ def resume_task(root: str, task_dir: str, task_file: str, task_id: str) -> dict[
     active = None
     section = read_task_section(task_file, task_id)
     if (Path(root) / ".code-flow/.active-task.json").exists():
-        _require_marker_task(root, task_id, task_dir, task_file)
+        require_active_task(root, task_id, task_dir, task_file)
         active = load_active_task(root)
         allowed_active = active.status in ("blocked", "paused", "provisional")
         provisional_active = active.status == "active" and section_status(section) == "provisional"
@@ -558,7 +718,7 @@ def complete_task(root: str, task_dir: str, task_file: str, task_id: str, gate_p
     """Complete a TASK after its Done Gate passed; syncs both records."""
     if not gate_passed:
         raise WorkflowError("gate_failed", task_id, ("Done Gate 未通过",))
-    _require_marker_task(root, task_id, task_dir, task_file)
+    require_active_task(root, task_id, task_dir, task_file)
     _, target = _resolve_paths(root, task_dir, task_file)
     task_file = str(target)
     active = load_active_task(root)
@@ -578,7 +738,7 @@ def provisional_task(root: str, task_dir: str, task_file: str, task_id: str, rea
     dependency, collect and archive gates.
     """
     recover_transition(root)
-    _require_marker_task(root, task_id, task_dir, task_file)
+    require_active_task(root, task_id, task_dir, task_file)
     _, target = _resolve_paths(root, task_dir, task_file)
     task_file = str(target)
     if section_status(read_task_section(task_file, task_id)) in FINISHED_STATUSES:
