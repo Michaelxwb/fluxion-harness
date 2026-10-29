@@ -16,12 +16,15 @@ export function ResourceSummary({ resources }: { resources: OverviewResources })
     { key: 'users', label: t('overview.resources.users'), count: resources.users, to: '/users' },
     { key: 'schedules', label: t('overview.resources.schedules'), count: resources.activeSchedules, to: '/schedules' }
   ];
-  return <div className="overview-resources" data-testid="overview-resources">
-    <span className="overview-summary-label">{t('overview.resources.title')}</span>
-    {entries.map((entry) => <span key={entry.key} data-testid={`overview-resource-${entry.key}`}>
-      {entry.key === 'users' && account?.role !== 'ADMIN' ? <span>{entry.label}</span> :
-        <Button theme="borderless" type="primary" size="small" onClick={() => navigate(entry.to)}>{entry.label}</Button>}
-      <strong>{formatNumber(entry.count, i18n.language)}</strong>
-    </span>)}
-  </div>;
+  return <section className="overview-status-group" data-testid="overview-resources">
+    <h3 className="overview-status-heading">{t('overview.resources.title')}</h3>
+    <div className="overview-status-items overview-status-items-resources">
+      {entries.map((entry) => <span className="overview-status-item" key={entry.key}
+        data-testid={`overview-resource-${entry.key}`}>
+        {entry.key === 'users' && account?.role !== 'ADMIN' ? <span>{entry.label}</span> :
+          <Button theme="borderless" type="primary" size="small" onClick={() => navigate(entry.to)}>{entry.label}</Button>}
+        <strong>{formatNumber(entry.count, i18n.language)}</strong>
+      </span>)}
+    </div>
+  </section>;
 }

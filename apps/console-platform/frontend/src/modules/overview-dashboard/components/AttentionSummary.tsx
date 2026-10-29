@@ -10,8 +10,9 @@ function Counters({ entries, prefix, danger = false }: {
 }) {
   const { i18n } = useTranslation();
   const navigate = useNavigate();
-  return <div className={`overview-counters${danger ? ' overview-counters-danger' : ''}`}>
+  return <div className={`overview-status-items overview-status-items-${prefix}`}>
     {entries.map((entry) => <Button key={entry.key} type="primary" theme="borderless" size="small"
+      className={`overview-status-button${danger ? ' overview-status-button-danger' : ''}`}
       data-testid={`overview-${prefix}-${entry.key}`} onClick={() => navigate(entry.to)}>
       <span>{entry.label}</span><strong>{formatNumber(entry.count, i18n.language)}</strong>
     </Button>)}
@@ -34,21 +35,21 @@ export function AttentionSummary({ data }: { data: OverviewData }) {
     { key: 'failed-tasks', label: t('overview.attention.failedTasks'), count: data.attention.failedTasks, to: '/tasks?status=FAILED' },
     { key: 'failed-deliveries', label: t('overview.attention.failedDeliveries'), count: data.attention.failedDeliveries, to: '/tasks' }
   ];
-  return <div className="overview-attention">
-    <div className="overview-attention-row">
-      <span className="overview-summary-label">
+  return <>
+    <section className="overview-status-group">
+      <h3 className="overview-status-heading">
         {t('overview.activity.title')}
         <Tooltip content={t('overview.activity.hint')}>
           <span className="overview-info-icon" tabIndex={0} aria-label={t('overview.activity.hint')}>
             <IconInfoCircle size="small" />
           </span>
         </Tooltip>
-      </span>
+      </h3>
       <Counters entries={current} prefix="activity" />
-    </div>
-    <div className="overview-attention-row">
-      <span className="overview-summary-label">{t('overview.attention.title')}</span>
+    </section>
+    <section className="overview-status-group">
+      <h3 className="overview-status-heading">{t('overview.attention.title')}</h3>
       <Counters entries={failures} prefix="attention" danger />
-    </div>
-  </div>;
+    </section>
+  </>;
 }

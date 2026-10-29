@@ -16,8 +16,10 @@ function OverviewContent({ data }: { data: OverviewData }) {
     <div className="overview-body">
       <div className="overview-status">
         <PageSection>
-          <ResourceSummary resources={data.resources} />
-          <AttentionSummary data={data} />
+          <div className="overview-status-grid">
+            <ResourceSummary resources={data.resources} />
+            <AttentionSummary data={data} />
+          </div>
         </PageSection>
       </div>
       <KpiCards kpis={data.kpis} />

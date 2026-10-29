@@ -59,6 +59,7 @@ def test_overview_is_a_one_screen_dashboard() -> None:
     """概览页按一屏布局：图表行吃掉剩余高度，不依赖固定 240px 画布产生滚动。"""
     page = source("pages/OverviewPage.tsx")
     assert 'className="overview-body"' in page
+    assert 'className="overview-status-grid"' in page
     css = (ROOT / "apps/console-platform/frontend/src/styles/app.css").read_text(encoding="utf-8")
     start = css.index("/* ---------- Overview:")
     next_block = css.find("/* ----------", start + 1)
