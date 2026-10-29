@@ -258,6 +258,11 @@ export interface NotificationController {
     notificationId: string,
     options?: WebchatRequestOptions
   ): Promise<NotificationSnapshot>;
+  /** 标记会话内全部未读：打开/停留在活跃会话时调用，避免逐条弹通知。 */
+  markConversationRead(
+    conversationId: string,
+    options?: WebchatRequestOptions
+  ): Promise<NotificationSnapshot>;
   /** 经授权下载面预览白名单图片；本地拒绝显式抛出，请求失败返回 null 并留稳定码。 */
   openPreview(
     attachment: WebchatAttachment,
@@ -583,6 +588,37 @@ async function markReadOnce(
   return currentSnapshot(runtime);
 }
 
+/** 会话级已读：逐条写已读回执，最后只同步一次；失败保留未读并按稳定码上报。 */
+async function markConversationReadOnce(
+  runtime: NotificationRuntime,
+  conversationId: string,
+  options?: WebchatRequestOptions
+): Promise<NotificationSnapshot> {
+  const target = conversationId.trim();
+  if (target === '') throwLocal(runtime, 'NOTIFICATION_REQUIRED');
+  const ids = runtime.core.items
+    .filter((item) => item.conversation_id === target && item.read_at === null)
+    .map((item) => item.id);
+  if (ids.length === 0) return currentSnapshot(runtime);
+  const claimed = ids.filter((id) => !runtime.reading.has(id));
+  for (const id of claimed) runtime.reading.add(id);
+  try {
+    for (const id of claimed) {
+      const receipt = await runtime.deps.client.read(id, {
+        signal: options?.signal ?? runtime.deps.identity.identitySignal()
+      });
+      applyReadReceipt(runtime, receipt);
+    }
+    await syncOnce(runtime, options);
+  } catch (error) {
+    applyFailure(runtime, error);
+    reportFailure(runtime, error);
+  } finally {
+    for (const id of claimed) runtime.reading.delete(id);
+  }
+  return currentSnapshot(runtime);
+}
+
 async function openPreviewOnce(
   runtime: NotificationRuntime,
   attachment: WebchatAttachment,
@@ -774,6 +810,8 @@ export function createNotificationController(
     sync: (options) => syncOnce(runtime, options),
     retry: (options) => syncOnce(runtime, options),
     markRead: (notificationId, options) => markReadOnce(runtime, notificationId, options),
+    markConversationRead: (conversationId, options) =>
+      markConversationReadOnce(runtime, conversationId, options),
     openPreview: (attachment, options) => openPreviewOnce(runtime, attachment, options),
     closePreview: () => closePreviewRuntime(runtime),
     reset: () => resetRuntime(runtime),
@@ -811,6 +849,8 @@ export interface NotificationsController {
   sync(): void;
   retry(): void;
   markRead(notificationId: string): void;
+  /** 活跃会话的未读整体标读：页面在“选中且可见”时调用。 */
+  markConversationRead(conversationId: string): void;
   openPreview(attachment: WebchatAttachment): void;
   closePreview(): void;
 }
@@ -941,6 +981,12 @@ export function useNotifications(
     },
     [service]
   );
+  const markConversationRead = useCallback(
+    (conversationId: string) => {
+      fireAndForget(service.markConversationRead(conversationId));
+    },
+    [service]
+  );
   const openPreview = useCallback(
     (attachment: WebchatAttachment) => {
       fireAndForget(service.openPreview(attachment));
@@ -949,5 +995,5 @@ export function useNotifications(
   );
   const closePreview = useCallback(() => service.closePreview(), [service]);
 
-  return { snapshot, start, sync, retry, markRead, openPreview, closePreview };
+  return { snapshot, start, sync, retry, markRead, markConversationRead, openPreview, closePreview };
 }

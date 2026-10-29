@@ -1,4 +1,5 @@
-import { Button } from '@douyinfe/semi-ui';
+import { Button, Tooltip } from '@douyinfe/semi-ui';
+import { IconInfoCircle } from '@douyinfe/semi-icons';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageSection } from '../../../components/common/ConsolePage';
@@ -17,10 +18,23 @@ function ScopeSwitch({ scope, onChange, id }: { scope: OverviewScope; onChange(s
   </div>;
 }
 function ChartCard(props: { id: string; title: string; hint: string; extra?: ReactNode; children: ReactNode }) {
-  return <div data-testid={`overview-${props.id}-card`}><PageSection title={props.title} extra={props.extra}>
-    <p className="overview-chart-summary">{props.hint}</p>
-    <div className="overview-chart-canvas">{props.children}</div>
-  </PageSection></div>;
+  return <div data-testid={`overview-${props.id}-card`}>
+    <PageSection
+      title={props.title}
+      extra={
+        <div className="overview-chart-extra">
+          <Tooltip content={props.hint}>
+            <span className="overview-info-icon" tabIndex={0} aria-label={props.hint}>
+              <IconInfoCircle size="small" />
+            </span>
+          </Tooltip>
+          {props.extra}
+        </div>
+      }
+    >
+      <div className="overview-chart-canvas">{props.children}</div>
+    </PageSection>
+  </div>;
 }
 export function OverviewCharts({ data }: { data: OverviewData }) {
   const { t } = useTranslation();

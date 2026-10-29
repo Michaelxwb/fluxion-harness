@@ -156,6 +156,7 @@ def _project_message(
         role=role,
         text=text if isinstance(text, str) else "",
         attachments=attachments,
+        created_at=row.create_time,
     )
 
 

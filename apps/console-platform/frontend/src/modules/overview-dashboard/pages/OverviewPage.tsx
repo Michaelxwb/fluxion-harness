@@ -10,25 +10,74 @@ import { OverviewToolbar } from '../components/OverviewToolbar';
 import { ResourceSummary } from '../components/ResourceSummary';
 import { useOverview } from '../hooks/useOverview';
 import type { OverviewData } from '../types';
+
 function OverviewContent({ data }: { data: OverviewData }) {
-  return <><PageSection><ResourceSummary resources={data.resources} /></PageSection>
-    <PageSection><KpiCards kpis={data.kpis} /></PageSection>
-    <AttentionSummary data={data} /><OverviewCharts data={data} />
-  </>;
+  return (
+    <div className="overview-body">
+      <div className="overview-status">
+        <PageSection>
+          <div className="overview-status-grid">
+            <ResourceSummary resources={data.resources} />
+            <AttentionSummary data={data} />
+          </div>
+        </PageSection>
+      </div>
+      <KpiCards kpis={data.kpis} />
+      <OverviewCharts data={data} />
+    </div>
+  );
 }
+
 export function OverviewPage() {
   const { t } = useTranslation();
   const [days, setDays] = useState(7);
   const overview = useOverview(days);
   const firstLoadFailed = overview.error && overview.data === null;
-  return <div className="overview-dashboard" data-testid="overview-dashboard">
-    <PageHeader title={t('overview.title')} description={t('overview.subtitle')} />
-    <OverviewToolbar days={days} onDaysChange={setDays} loading={overview.loading}
-      data={overview.data} onRefresh={overview.reload} />
-    {overview.error && overview.data !== null ? <Banner type="warning" data-testid="overview-refresh-error"
-      description={<>{t('overview.refreshFailed')} <Button type="primary" theme="borderless"
-        data-testid="overview-refresh-retry" onClick={overview.reload}>{t('common.retry')}</Button></>} /> : null}
-    {firstLoadFailed ? <PageSection><ErrorState description={t('overview.loadFailed')} onRetry={overview.reload} /></PageSection> :
-      overview.data === null ? <PageSection><OverviewSkeleton /></PageSection> : <OverviewContent data={overview.data} />}
-  </div>;
+  return (
+    <div className="overview-dashboard" data-testid="overview-dashboard">
+      <PageHeader
+        title={t('overview.title')}
+        description={t('overview.subtitle')}
+        extra={
+          <OverviewToolbar
+            days={days}
+            onDaysChange={setDays}
+            loading={overview.loading}
+            data={overview.data}
+            onRefresh={overview.reload}
+          />
+        }
+      />
+      {overview.error && overview.data !== null ? (
+        <Banner
+          type="warning"
+          data-testid="overview-refresh-error"
+          description={
+            <>
+              {t('overview.refreshFailed')}{' '}
+              <Button
+                type="primary"
+                theme="borderless"
+                data-testid="overview-refresh-retry"
+                onClick={overview.reload}
+              >
+                {t('common.retry')}
+              </Button>
+            </>
+          }
+        />
+      ) : null}
+      {firstLoadFailed ? (
+        <PageSection>
+          <ErrorState description={t('overview.loadFailed')} onRetry={overview.reload} />
+        </PageSection>
+      ) : overview.data === null ? (
+        <PageSection>
+          <OverviewSkeleton />
+        </PageSection>
+      ) : (
+        <OverviewContent data={overview.data} />
+      )}
+    </div>
+  );
 }

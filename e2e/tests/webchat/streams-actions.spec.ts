@@ -530,10 +530,12 @@ asyncio.run(main())
     // 订阅状态观察窗在等正文之前启动：中断 → 重连的可见状态窗口很短，必须全程采样。
     const states = new Set<string>();
     const watcher = (async () => {
+      const connection = page.getByTestId('chat-run-connection');
       for (let index = 0; index < 400 && !states.has('reconnecting'); index += 1) {
-        const state = await page
-          .getByTestId('chat-run-connection')
-          .getAttribute('data-connection-state')
+        // Run 结束后终态刷新会移除运行面：此时停止采样，不能再用默认 30s 等一个已消失的元素。
+        if ((await connection.count()) === 0) return;
+        const state = await connection
+          .getAttribute('data-connection-state', { timeout: 1_000 })
           .catch(() => null);
         if (state !== null) states.add(state);
         if (states.has('reconnecting')) return;
@@ -541,6 +543,26 @@ asyncio.run(main())
       }
     })();
     await expect(streaming).toHaveAttribute('data-run-id', runId, { timeout: 30_000 });
+    // 长消息/长回复不得与上一条重叠：消息列不能被滚动容器 flex 压缩。
+    const overlap = await page.evaluate(() => {
+      const finals = [...document.querySelectorAll('[data-testid="chat-message-item"]')].filter(
+        (node) => !node.classList.contains('chat-message-item-streaming')
+      );
+      const current = document.querySelector('.chat-message-item-streaming');
+      const previous = finals[finals.length - 1];
+      if (!current || !previous) return null;
+      return previous.getBoundingClientRect().bottom - current.getBoundingClientRect().top;
+    });
+    expect(overlap).not.toBeNull();
+    expect(overlap).toBeLessThanOrEqual(1);
+    // 流式正文增长时必须跟随底部，否则用户只会在流结束后看到最终消息。
+    await expect
+      .poll(() =>
+        page
+          .getByTestId('chat-panel-messages')
+          .evaluate((node) => node.scrollHeight - node.scrollTop - node.clientHeight)
+      )
+      .toBeLessThanOrEqual(2);
     await watcher;
     // 中断确实发生在传输层（第一条事件流被中止），且客户端只经 GET 重连（重连次数在
     // 连接区域可见并保留；`reconnecting` 瞬时态只作参考，不作断言）。

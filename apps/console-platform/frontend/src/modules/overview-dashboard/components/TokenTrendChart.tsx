@@ -1,8 +1,8 @@
-import ReactECharts from 'echarts-for-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '../../../components/common/EmptyState';
 import { prefersReducedMotion, useChartTheme } from '../hooks/useChartTheme';
 import type { OverviewTokenPoint } from '../types';
+import { OverviewChart } from './OverviewChart';
 export function TokenTrendChart({ trend }: { trend: OverviewTokenPoint[] }) {
   const { t } = useTranslation();
   const { colors } = useChartTheme();
@@ -13,7 +13,7 @@ export function TokenTrendChart({ trend }: { trend: OverviewTokenPoint[] }) {
   const option = {
     animation: !prefersReducedMotion(), tooltip: { trigger: 'axis' as const },
     legend: { top: 0, left: 0, textStyle: { color: colors.text2, fontSize: 12 } },
-    grid: { left: 8, right: 8, top: 36, bottom: 0, containLabel: true },
+    grid: { left: 8, right: 8, top: 36, bottom: 18, containLabel: true },
     xAxis: { type: 'category' as const, data: trend.map((point) => point.date),
       axisLabel: { color: colors.text2, formatter: (date: string) => date.slice(5) },
       axisLine: { lineStyle: { color: colors.border } }, axisTick: { show: false } },
@@ -26,5 +26,5 @@ export function TokenTrendChart({ trend }: { trend: OverviewTokenPoint[] }) {
         data: trend.map((point) => point.outputTokens), itemStyle: { color: colors.success }, symbolSize: 5 }
     ]
   };
-  return <ReactECharts option={option} notMerge style={{ height: '100%', width: '100%' }} />;
+  return <OverviewChart option={option} />;
 }

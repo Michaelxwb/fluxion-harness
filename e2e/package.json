@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "pretest": "bash -c 'if command -v lsof >/dev/null 2>&1; then bash ../scripts/dev.sh stop; else echo \"[e2e] lsof unavailable; skip dev-service stop\"; fi'",
     "test": "playwright test"
   },
   "devDependencies": {

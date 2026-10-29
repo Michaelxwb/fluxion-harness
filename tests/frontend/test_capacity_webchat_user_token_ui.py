@@ -5,7 +5,7 @@
 （元信息 DTO、CAS 版本派生、错误码映射、原文纪律）跑真实代码，DOM 交互留真实浏览器 E2E
 （S-114/S-115，TASK-115）。断言覆盖：
 
-- **仅 ADMIN 可见**：卡片自身 `return null`，且挂载点在用户详情的凭据 Tab（同门控）；
+- **仅 ADMIN 可见**：卡片自身 `return null`，且挂载点在用户详情的 IM 身份 Tab（同门控）；
 - **GET 只元信息**：响应恰好六字段（`configured/status/token_id/revision/issued_at/expires_at`），
   未知/外租户用户读作 `NOT_CONFIGURED`（`configured=false`、`revision=0`）⇒ 首签用版本 0；
 - **原文全响应恰一次**：`PUT` 响应是唯一携带 `token` 的地方，不进 URL/参数/读取面/后续请求体；
@@ -503,8 +503,8 @@ def test_card_uses_shared_components_and_localized_copy() -> None:
     assert not hardcoded, f"卡片出现硬编码中文文案：{hardcoded}"
 
 
-def test_user_detail_mounts_the_card_in_the_admin_credentials_area() -> None:
-    """卡片挂在用户详情凭据区域（ADMIN 门控的 Tab）：元信息由父级读取并带竞态守卫。"""
+def test_user_detail_mounts_the_card_in_the_admin_identity_area() -> None:
+    """卡片挂在用户详情 IM 身份区域（ADMIN 门控）：元信息由父级读取并带竞态守卫。"""
     source = _read(TABS_TSX)
     assert "<UserChatTokenCard" in source
     assert "getWebchatToken(props.userId)" in source, "元信息由父级经模块 service 读取"
@@ -512,14 +512,19 @@ def test_user_detail_mounts_the_card_in_the_admin_credentials_area() -> None:
         "元信息加载必须有请求竞态守卫（切换用户时迟到响应不写状态）"
     )
     credentials_tab = source[source.index("function CredentialsTab") : source.index("function IdentityTab")]
-    assert "<WebchatTokenSection" in credentials_tab, "Token 卡片必须挂在用户详情的凭据区域"
+    assert "<WebchatTokenSection" not in credentials_tab, (
+        "项目平台凭据区域不得再挂 Token 卡片"
+    )
+    identity_tab = source[
+        source.index("function IdentityTab") : source.index("export function UserDetailTabs")
+    ]
+    assert "<WebchatTokenSection" in identity_tab, "Token 卡片必须挂在用户详情的 IM 身份区域"
+    assert "props.canManageToken ?" in identity_tab, "Token 卡片必须受 ADMIN 门控"
+    assert "canManageToken={isAdmin}" in source, "父级按 ADMIN 角色传入门控"
     section = source[
         source.index("function WebchatTokenSection") : source.index("function CredentialsTab")
     ]
     assert "user.webchatToken.title" in section
-    assert source.index("isAdmin && (") < source.index('itemKey="credentials"'), (
-        "凭据区域必须仍在 ADMIN 门控内"
-    )
     assert "metadata={" in source and "onChanged={" in source
 
 

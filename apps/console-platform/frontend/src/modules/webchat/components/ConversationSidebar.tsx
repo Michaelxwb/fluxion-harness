@@ -21,7 +21,7 @@
  * 展示组件只收 typed props 与事件；不发 HTTP、不读 Cookie、不落持久存储、不自带定时器、不持有状态。
  */
 
-import { Badge, Banner, Button, Empty, Spin, Typography } from '@douyinfe/semi-ui';
+import { Banner, Button, Empty, Spin, Typography } from '@douyinfe/semi-ui';
 import { IconPlus } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -238,6 +238,7 @@ function ConversationSidebarEntry(props: ConversationSidebarEntryProps) {
         data-testid="chat-sidebar-item"
         data-conversation-id={props.item.conversation_id}
         data-active-run-status={props.item.active_run_status ?? undefined}
+        data-unread={props.unread > 0 ? 'true' : undefined}
         aria-current={props.selected ? 'true' : undefined}
         title={props.item.title}
         onClick={() => props.onSelect(props.item.conversation_id)}
@@ -258,8 +259,10 @@ function ConversationSidebarEntry(props: ConversationSidebarEntryProps) {
             className="chat-sidebar-item-unread"
             data-testid="chat-sidebar-item-unread"
             aria-label={t('chat.sidebar.unread', { unread: props.unread })}
+            title={t('chat.sidebar.unread', { unread: props.unread })}
           >
-            <Badge count={props.unread} />
+            <span className="chat-sidebar-item-unread-dot" aria-hidden="true" />
+            <span className="chat-sidebar-item-unread-count">{props.unread}</span>
           </span>
         )}
       </button>
@@ -426,7 +429,9 @@ export function ConversationSidebar(props: ConversationSidebarProps) {
       data-testid="conversation-sidebar"
       aria-label={t('chat.sidebar.navLabel')}
     >
-      <ConversationSidebarNewAction creating={props.creating} onNew={props.onNew} />
+      <div className="chat-sidebar-header">
+        <ConversationSidebarNewAction creating={props.creating} onNew={props.onNew} />
+      </div>
       {state.mode === 'skeleton' ? <ConversationSidebarSkeleton /> : null}
       {state.mode === 'empty' ? <ConversationSidebarEmpty /> : null}
       {state.mode === 'error' ? <ConversationSidebarRetry onRetry={props.onRetry} /> : null}

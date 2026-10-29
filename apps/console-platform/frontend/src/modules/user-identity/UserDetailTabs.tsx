@@ -327,7 +327,7 @@ function credentialTagKey(status?: string): { color: 'green' | 'red' | 'grey'; k
 }
 
 /**
- * 凭据区域的 Webchat Token 单例（API-03）：元信息由这里读取（带请求竞态守卫，
+ * IM 身份区域的 Webchat Token 单例（API-03）：元信息由这里读取（带请求竞态守卫，
  * 切换用户时迟到响应不写状态），卡片只负责展示与写入；每次写入后都重读元信息，
  * 版本与状态一律以读取结果为准。
  *
@@ -439,7 +439,6 @@ function CredentialsTab(props: { userId: string }) {
 
   return (
     <div>
-      <WebchatTokenSection userId={props.userId} />
       <div className="detail-section-title">{t('user.tabs.credentials')}</div>
       <TabState
         loading={loading}
@@ -529,7 +528,7 @@ function CredentialsTab(props: { userId: string }) {
   );
 }
 
-function IdentityTab(props: { userId: string }) {
+function IdentityTab(props: { userId: string; canManageToken: boolean }) {
   const { t } = useTranslation();
   const list = useAsyncList<Identity>(
     (page, pageSize) => listIdentities(props.userId, { page, page_size: pageSize }),
@@ -553,6 +552,8 @@ function IdentityTab(props: { userId: string }) {
 
   return (
     <div>
+      {props.canManageToken ? <WebchatTokenSection userId={props.userId} /> : null}
+      <div className="detail-section-title">{t('user.tabs.identities')}</div>
       <Button
         theme="solid"
         data-testid="generate-bind-code"
@@ -580,7 +581,6 @@ function IdentityTab(props: { userId: string }) {
           </>
         ) : null}
       </Modal>
-      <div className="detail-section-title">{t('user.tabs.identities')}</div>
       <TabState
         loading={loading}
         failed={failed}
@@ -742,7 +742,7 @@ export function UserDetailTabs(props: UserDetailTabsProps) {
         </Tabs.TabPane>
       )}
       <Tabs.TabPane itemKey="identities" tab={`${t('user.tabs.identities')} (${user.identity_count})`}>
-        <IdentityTab userId={user.id} />
+        <IdentityTab userId={user.id} canManageToken={isAdmin} />
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="memory" tab={`${t('user.tabs.memory')} (${user.memory_count})`}>
         <MemoryTab userId={user.id} canManage={isAdmin} onMutated={props.onUserMutated} />

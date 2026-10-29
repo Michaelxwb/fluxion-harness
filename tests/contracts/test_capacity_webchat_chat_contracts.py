@@ -34,7 +34,7 @@ def _attachment(**changes: object) -> dict[str, object]:
 
 def _history(seq: int, **changes: object) -> dict[str, object]:
     return {"event_id": str(uuid4()), "seq": seq, "run_id": str(uuid4()), "role": "USER",
-            "text": "question", "attachments": [], **changes}
+            "text": "question", "attachments": [], "created_at": ISSUED, **changes}
 
 
 def test_b205_exchange_accepts_only_a_secret_and_hides_it_in_diagnostics() -> None:

@@ -7,10 +7,8 @@ API-10 授权下载）、真实 typed DTO（`modules/webchat/types.ts`）、真�
 `registerIdentityCleanup`/`trackObjectUrl`/`identitySignal`）与真实通知控制器
 （`hooks/useNotifications.ts`）——由仓库内真实 esbuild 打成 ESM 编译产物、由真实 node 执行；HTTP
 经真实 axios 实例的 adapter 观测（方法/URL/查询参数/响应类型/共享传输头/中止信号都是真实事实），
-定时器、页面可见性与 Blob URL 端口注入以便确定性驱动（真实浏览器行为留 E2E）。真实组件
-`components/NotificationPanel.tsx` 另经真实 React `renderToStaticMarkup`（真实 Semi + 真实 i18n
-词条）静态渲染成真实编译产物；DOM 交互（真实点击定位/标记已读/关闭预览）留真实浏览器 E2E
-（S-F05/S-F13，TASK-114/112）。
+定时器、页面可见性与 Blob URL 端口注入以便确定性驱动（真实浏览器行为留 E2E）。通知面板已移除：
+本条只覆盖数据层与未读/自动已读语义，DOM 交互留真实浏览器 E2E。
 
 断言覆盖：
 
@@ -30,11 +28,8 @@ API-10 授权下载）、真实 typed DTO（`modules/webchat/types.ts`）、真�
   关闭/替换预览时及时撤销，身份边界（真实认证状态机登出）统一撤销并清空私有状态。
 - **认证失效不自动重试**：轮询中的 CHAT 401 停止轮询并留稳定码，零自动重发；身份边界清空条目/
   游标/未读/预览并从游标 0 重新开始。
-- **面板只消费服务端事实**：未读徽标取服务端权威计数（0 不显示）；条目文案全部词条化（kind 逐项
-  映射、时间复用 `DateTimeText`）；附件名只展示、预览经授权下载面（面板自身不建 Blob URL、不生成
-  任何附件 `href`）；失败保留已有结果并就地重试。
-- **词条齐平**（RULE-i18n-001）：新增 `chat.notifications.*` 词条 zh-CN/en-US 两侧齐备，kind 词条
-  不是裸枚举码。
+- **活跃会话自动已读**：选中会话且页面可见时，把该会话未读整体标读；隐藏页/其它会话保留未读；
+  未读徽标仍取服务端 `read_at` 聚合，不在本地自减。
 """
 
 from __future__ import annotations
@@ -54,7 +49,6 @@ SRC = FRONTEND / "src"
 API_DIR = SRC / "api"
 MODULE = SRC / "modules/webchat"
 HOOK_TS = MODULE / "hooks/useNotifications.ts"
-PANEL_TSX = MODULE / "components/NotificationPanel.tsx"
 SIDEBAR_TSX = MODULE / "components/ConversationSidebar.tsx"
 CONFIG_TS = MODULE / "clientConfig.ts"
 SERVICE_TS = MODULE / "services/webchatApi.ts"
@@ -87,32 +81,6 @@ ARTIFACT_SVG = "9d9d9d9d-9d9d-4d9d-8d9d-9d9d9d9d9d9d"
 
 #: 预览只允许显式白名单的栅格图片（与 TASK-055 的服务端 `inline` 白名单同口径）。
 PREVIEWABLE_MEDIA_TYPES = ("image/png", "image/jpeg", "image/gif", "image/webp")
-
-#: 新词条：通知面板的全部文案（两侧必须齐平，见 test_notification_keys_are_localized）。
-REQUIRED_KEYS = (
-    "chat.notifications.navLabel",
-    "chat.notifications.title",
-    "chat.notifications.unreadCount",
-    "chat.notifications.empty",
-    "chat.notifications.failed",
-    "chat.notifications.locate",
-    "chat.notifications.markRead",
-    "chat.notifications.preview",
-    "chat.notifications.previewAlt",
-    "chat.notifications.closePreview",
-    "chat.notifications.kind.RUN_COMPLETED",
-    "chat.notifications.kind.RUN_WAITING_INPUT",
-    "chat.notifications.kind.TASK_RESULT",
-)
-#: 复用既有词条（不复制文案）：重试/加载与附件种类/失效标注沿用 common.*、chat.thread.*。
-REUSED_KEYS = (
-    "common.retry",
-    "common.loading",
-    "chat.thread.attachment.image",
-    "chat.thread.attachment.document",
-    "chat.thread.attachment.other",
-    "chat.thread.attachmentUnavailable",
-)
 
 SEMI_STUB = """export const Badge = () => null;
 export const Banner = () => null;
@@ -774,65 +742,6 @@ const obs = {};
 console.log(JSON.stringify(obs));
 """
 
-RENDER_ENTRY = r"""
-import React from 'react';
-import { createInstance } from 'i18next';
-import { initReactI18next, I18nextProvider } from 'react-i18next';
-import { renderToStaticMarkup } from 'react-dom/server';
-
-import { NotificationPanel } from '__PANEL__';
-import zh from '__ZH__';
-import en from '__EN__';
-
-async function i18nFor(locale) {
-  const i18n = createInstance();
-  await i18n.use(initReactI18next).init({
-    lng: locale,
-    fallbackLng: 'zh-CN',
-    resources: { 'zh-CN': { translation: zh }, 'en-US': { translation: en } },
-    interpolation: { escapeValue: false }
-  });
-  return i18n;
-}
-
-export async function renderScenarios(scenarios) {
-  const markup = {};
-  for (const scenario of scenarios) {
-    const i18n = await i18nFor(scenario.locale);
-    const props = {
-      items: scenario.items ?? [],
-      unreadCount: scenario.unreadCount ?? 0,
-      loadState: scenario.loadState ?? 'ready',
-      errorCode: scenario.errorCode ?? null,
-      preview: scenario.preview ?? null,
-      onLocate: () => {},
-      onMarkRead: () => {},
-      onPreview: () => {},
-      onClosePreview: () => {},
-      onRetry: () => {}
-    };
-    markup[scenario.id] = renderToStaticMarkup(
-      React.createElement(I18nextProvider, { i18n }, React.createElement(NotificationPanel, props))
-    );
-  }
-  return markup;
-}
-"""
-
-RENDER_HARNESS = r"""
-globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
-Object.defineProperty(globalThis, 'navigator', { value: { language: 'zh-CN' }, configurable: true });
-globalThis.document = { cookie: 'muad_chat_csrf=chat-csrf-284' };
-globalThis.window = { location: { pathname: '/chat/entry-284', search: '' } };
-
-const mod = await import('./render.mjs');
-const scenarios = JSON.parse(
-  await (await import('node:fs/promises')).readFile('./scenarios.json', 'utf8')
-);
-console.log(JSON.stringify(await mod.renderScenarios(scenarios)));
-"""
-
-
 def _read(path: Path) -> str:
     assert path.exists(), f"缺少前端文件：{path}"
     return path.read_text(encoding="utf-8")
@@ -943,117 +852,6 @@ def activity_logic(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     )
     assert completed.returncode == 0, f"node 执行失败：{completed.stderr}"
     return json.loads(completed.stdout)
-
-
-def _panel_scenario(scenario_id: str, **overrides: Any) -> dict[str, Any]:
-    item_unread = {
-        "id": NOTIFICATION_1,
-        "seq": 1,
-        "entry_id": ENTRY_A,
-        "agent_id": AGENT_A,
-        "conversation_id": CONVERSATION_1,
-        "run_id": RUN_1,
-        "task_id": None,
-        "event_id": None,
-        "kind": "RUN_COMPLETED",
-        "summary": "会话有新结果",
-        "attachments": [
-            {
-                "artifact_id": ARTIFACT_IMAGE,
-                "kind": "IMAGE",
-                "media_type": "image/png",
-                "size": 2048,
-                "filename": "preview.png",
-                "checksum": "sha256-284",
-                "available": True,
-            },
-            {
-                "artifact_id": ARTIFACT_DOCUMENT,
-                "kind": "DOCUMENT",
-                "media_type": "application/pdf",
-                "size": 1024,
-                "filename": "report.pdf",
-                "checksum": "sha256-284",
-                "available": False,
-            },
-            {
-                "artifact_id": ARTIFACT_SVG,
-                "kind": "OTHER",
-                "media_type": "image/svg+xml",
-                "size": 512,
-                "filename": "vector.svg",
-                "checksum": "sha256-284",
-                "available": True,
-            },
-        ],
-        "created_at": "2026-10-19T00:00:00Z",
-        "read_at": None,
-    }
-    item_read = {
-        **item_unread,
-        "id": NOTIFICATION_2,
-        "seq": 2,
-        "conversation_id": CONVERSATION_2,
-        "kind": "RUN_WAITING_INPUT",
-        "summary": "有新的待确认",
-        "attachments": [],
-        "created_at": "2026-10-18T23:00:00Z",
-        "read_at": "2026-10-19T00:30:00Z",
-    }
-    scenario = {
-        "id": scenario_id,
-        "locale": "zh-CN",
-        "items": [item_unread, item_read],
-        "unreadCount": 3,
-        "loadState": "ready",
-        "errorCode": None,
-        "preview": None,
-    }
-    scenario.update(overrides)
-    return scenario
-
-
-def _render_panel(tmp_path: Path, scenarios: list[dict[str, Any]]) -> dict[str, str]:
-    problem = _toolchain_problem()
-    if problem is not None:
-        pytest.skip(problem)
-    entry = tmp_path / "render.entry.tsx"
-    entry.write_text(
-        RENDER_ENTRY.replace("__PANEL__", str(PANEL_TSX))
-        .replace("__ZH__", str(LOCALES / "zh-CN.json"))
-        .replace("__EN__", str(LOCALES / "en-US.json")),
-        encoding="utf-8",
-    )
-    _bundle(tmp_path, entry, "render.mjs")
-    (tmp_path / "scenarios.json").write_text(json.dumps(scenarios, ensure_ascii=False), encoding="utf-8")
-    (tmp_path / "harness.mjs").write_text(RENDER_HARNESS, encoding="utf-8")
-    completed = subprocess.run(
-        [str(NODE), str(tmp_path / "harness.mjs")],
-        capture_output=True,
-        text=True,
-        cwd=tmp_path,
-    )
-    assert completed.returncode == 0, f"node 执行失败：{completed.stderr}"
-    return json.loads(completed.stdout)
-
-
-@pytest.fixture(scope="module")
-def panel_render(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
-    """真实组件（真实 Semi + 真实 i18n 资源）静态渲染成真实编译产物。"""
-    tmp_path = tmp_path_factory.mktemp("activity-render")
-    scenarios = [
-        _panel_scenario("list"),
-        _panel_scenario("english", locale="en-US"),
-        _panel_scenario("empty", items=[], unreadCount=0),
-        _panel_scenario("failed", items=[], unreadCount=0, loadState="failed"),
-        _panel_scenario("loading", items=[], unreadCount=0, loadState="loading"),
-        _panel_scenario("stale", errorCode="NETWORK_ERROR"),
-        _panel_scenario(
-            "preview",
-            preview={"artifactId": ARTIFACT_IMAGE, "url": "blob:muad-284-preview"},
-        ),
-    ]
-    return _render_panel(tmp_path, scenarios)
 
 
 # --------------------------------------------------------------------------- 轮询与可见性
@@ -1287,63 +1085,6 @@ def test_b284_merge_bound_order_and_aggregation_are_explicit(
     )
 
 
-# --------------------------------------------------------------------------- 面板渲染
-
-
-def test_b284_panel_renders_server_unread_and_explicit_actions(panel_render: dict[str, str]) -> None:
-    """未读徽标取服务端权威计数；定位/标记已读是显式动作；空态/失败保留结果可重试。"""
-    markup = panel_render["list"]
-    assert 'data-testid="notification-panel"' in markup
-    assert 'data-testid="notification-unread"' in markup and ">3<" in markup, "未读徽标必须展示服务端权威计数"
-    assert markup.count('data-testid="notification-item"') == 2, "两条通知各一个条目"
-    assert markup.count('data-testid="notification-locate"') == 2, "每条通知都有定位动作"
-    assert markup.count('data-testid="notification-mark-read"') == 1, (
-        "只有未读条目提供显式标记已读（已读条目不重复标读）"
-    )
-    assert 'data-unread="false"' in markup and 'data-unread="true"' in markup
-    assert "会话有新结果" in markup and "有新的待确认" in markup, "kind 必须逐项本地化"
-    assert 'data-kind="RUN_COMPLETED"' in markup and 'data-kind="RUN_WAITING_INPUT"' in markup
-    assert 'class="datetime-text"' in markup, "时间必须复用 DateTimeText（页面时区口径）"
-
-    english = panel_render["english"]
-    assert "Session has new results" in english, "kind 词条必须按语言渲染"
-    assert "Go to conversation" in english and "定位会话" not in english, (
-        "英文页面不得渲染中文词条（摘要文本来自服务端安全投影）"
-    )
-
-    empty = panel_render["empty"]
-    assert 'data-testid="notification-empty"' in empty
-    assert 'data-testid="notification-unread"' not in empty, "零未读不得显示徽标"
-    assert 'data-testid="notification-item"' not in empty
-
-    failed = panel_render["failed"]
-    assert 'data-testid="notification-retry"' in failed and "重试" in failed, "首屏失败必须给出就地重试"
-
-    stale = panel_render["stale"]
-    assert 'data-testid="notification-item"' in stale, "后台刷新失败必须保留已有结果"
-    assert 'data-testid="notification-retry"' in stale, "保留结果时仍要给出重试提示"
-
-
-def test_b284_panel_previews_only_whitelisted_images_via_blob_url(
-    panel_render: dict[str, str],
-) -> None:
-    """面板只对白名单图片给出预览动作；失效附件显式标注；预览只渲染 Blob URL（无直链）。"""
-    markup = panel_render["list"]
-    assert markup.count('data-testid="notification-attachment-preview"') == 1, (
-        "只有可用栅格图片提供预览（失效/文档/SVG 都不给）"
-    )
-    assert 'data-testid="notification-attachment-unavailable"' in markup, "失效附件必须显式标注"
-    assert 'data-available="false"' in markup and 'data-available="true"' in markup
-    assert "report.pdf" in markup and "vector.svg" in markup, "附件名只展示（不拼路径）"
-    assert "href=" not in markup, "面板不得为附件生成任何直链（预览只经授权下载面）"
-
-    preview = panel_render["preview"]
-    assert 'data-testid="notification-preview-image"' in preview
-    assert 'src="blob:muad-284-preview"' in preview, "预览图片只渲染授权下载面创建的 Blob URL"
-    assert 'data-testid="notification-preview-close"' in preview, "预览必须有关闭动作（释放 URL）"
-    assert "href=" not in preview
-
-
 # --------------------------------------------------------------------------- 源码与编译契约
 
 
@@ -1378,82 +1119,3 @@ def test_b284_hook_keeps_the_transport_identity_and_timer_boundaries() -> None:
     for loose in (": any", "as any", "<any", "any[]", "any |", "any>"):
         assert loose not in source, f"hook 不得出现松散类型：{loose}"
     assert not re.search(r"[\u4e00-\u9fff]", stripped), "hook 不得承载文案（词条由展示层持有）"
-
-
-def test_b284_panel_only_consumes_typed_props_and_localized_copy() -> None:
-    """面板只消费 typed props 与授权下载接缝：不建 Blob URL、不拼路径、不裸 HTTP、全词条化。"""
-    source = _read(PANEL_TSX)
-    stripped = _strip_comments(source)
-    compact = _compact(source)
-
-    assert "export function NotificationPanel(" in source
-    assert "unreadBadgeCount(props.unreadCount)" in compact, "徽标只吃服务端权威计数"
-    assert "canPreviewAttachment(" in compact, "预览资格只经白名单纯函数"
-    assert "notificationDisplayOrder(props.items)" in compact, "展示顺序只经纯函数"
-    assert "onLocate(" in compact and "onMarkRead(" in compact and "onPreview(" in compact
-    assert "DateTimeText" in source, "时间必须复用 DateTimeText"
-    for forbidden in ("createObjectURL", "revokeObjectURL", "axios", "fetch(", "localStorage", "console."):
-        assert forbidden not in stripped, f"面板不得自建预览/裸 HTTP/落盘：{forbidden}"
-    assert "href" not in stripped, "面板不得为附件生成直链（预览只经授权下载面）"
-    assert "/artifacts/" not in stripped, "面板不得拼装制品路径"
-    for loose in (": any", "as any", "<any", "any[]", "any |", "any>"):
-        assert loose not in source, f"面板不得出现松散类型：{loose}"
-    hardcoded = [
-        text
-        for group in re.findall(r"'([^'\n]*)'|\"([^\"\n]*)\"", stripped)
-        for text in group
-        if text and re.search(r"[\u3000-\u303f\u4e00-\u9fff\uff01-\uff5e]", text)
-    ]
-    assert not hardcoded, f"面板出现硬编码中文文案：{hardcoded}"
-
-    for key in REQUIRED_KEYS:
-        assert key in source, f"面板必须使用词条：{key}"
-
-
-def test_b284_panel_compiles_to_a_real_typescript_artifact(tmp_path: Path) -> None:
-    """TypeScript 编译产物：真实 TSX（含 hook/共享组件依赖）经 esbuild 编译成 ESM。"""
-    problem = _toolchain_problem()
-    if problem is not None:
-        pytest.skip(problem)
-    outfile = tmp_path / "panel.mjs"
-    completed = subprocess.run(
-        [
-            str(ESBUILD),
-            str(PANEL_TSX),
-            "--bundle",
-            "--format=esm",
-            "--loader:.tsx=tsx",
-            f"--outfile={outfile}",
-            "--external:react",
-            "--external:react-i18next",
-            "--external:@douyinfe/semi-ui",
-            "--external:@douyinfe/semi-icons",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    assert completed.returncode == 0, f"面板编译失败：{completed.stderr}"
-    artifact = outfile.read_text(encoding="utf-8")
-    assert "notification-panel" in artifact, "编译产物必须包含面板本身（不是空转）"
-    assert "notification-preview-image" in artifact
-
-
-def test_b284_notification_keys_are_localized() -> None:
-    """通知词条 zh-CN 与 en-US 齐平；kind 词条不得是裸枚举码。"""
-    zh = json.loads((LOCALES / "zh-CN.json").read_text(encoding="utf-8"))
-    en = json.loads((LOCALES / "en-US.json").read_text(encoding="utf-8"))
-    missing_zh = [key for key in REQUIRED_KEYS if key not in zh]
-    missing_en = [key for key in REQUIRED_KEYS if key not in en]
-    assert not missing_zh, f"zh-CN 缺 {missing_zh}"
-    assert not missing_en, f"en-US 缺 {missing_en}"
-    for key in REQUIRED_KEYS:
-        assert zh[key].strip() and en[key].strip(), f"{key} 不得为空"
-    for key in (
-        "chat.notifications.kind.RUN_COMPLETED",
-        "chat.notifications.kind.RUN_WAITING_INPUT",
-        "chat.notifications.kind.TASK_RESULT",
-    ):
-        assert zh[key] != en[key], f"{key} 未本地化"
-        assert zh[key] != key.rsplit(".", 1)[-1], f"{key} 是裸枚举码"
-    for key in REUSED_KEYS:
-        assert key in zh and key in en, f"复用词条缺失：{key}"

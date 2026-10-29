@@ -67,7 +67,9 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
   <div style={{ display: 'flex', justifyContent: 'space-between' }}>  {/* 自建工具栏/面板 */}
 ```
 
-- **`RemoteTable` 只约束「列表页」**：以「左上操作 + 右上搜索筛选 + 列表 + 右下分页」为形态的模块列表页必须用它；**仪表盘/概览类页面**（如 `overview-dashboard` 首页：资源摘要、KPI 与图表，允许时间范围/刷新控制，无列表分页）不受该约束，其指标区块使用共享 PageSection/MetricCards，图表使用主题化 ECharts，但区块内**不得**再用 `RemoteTable`/`ModuleToolbar`。契约测试以「显式声明的非列表页 + 反查其确实不含列表构件」实现，不得靠"不写 RemoteTable"蒙过。
+- **`RemoteTable` 只约束「列表页」**：以「左上操作 + 右上搜索筛选 + 列表 + 右下分页」为形态的模块列表页必须用它；**仪表盘/概览类页面**（如 `overview-dashboard` 首页：资源摘要、KPI 与图表，允许时间范围/刷新控制，无列表分页）不受该约束，其指标区块使用共享 PageSection/MetricCards，图表使用主题化 ECharts，但区块内**不得**再用 `RemoteTable`/`ModuleToolbar`。契约测试以「显式声明的非列表页 + 反查其确实不含列表构件」实现，不得靠"不写 RemoteTable"蒙过。仪表盘按可用高度自适应：header/状态/KPI 固定，图表区 flex 填充；桌面 1440×900/1280×800 不得出现 `.app-content` 纵向滚动；ECharts 容器用 ResizeObserver，禁止固定像素画布（✅ 图表随容器收缩；❌ 固定 240px 画布导致一屏溢出；`test_overview_page_contract.py`、overview 组件 S-06）。
+- **WebChat 消息渲染只走白名单**：模型正文用白名单 Markdown 解析（标题/列表/引用/表格/代码/行内标记），不执行 HTML/MDX、不写 `dangerouslySetInnerHTML`；链接仅 `http/https/mailto`。✅ `MessageThread` 的 `parseMessageBlocks`/`safeLinkHref`；❌ 直接渲染模型 HTML，或放开相对/`data:` 链接（`test_capacity_webchat_message_history_ui.py`）。
+- **WebChat 布局、流式与未读**：消息列/线程/列表/项必须 `flex: 0 0 auto`，Markdown 列表用独立 `chat-message-markdown-list`，不得复用消息列表类；流式正文固定节拍平滑（当前 33ms，不用 rAF），Run 终态先重读历史再收敛流式；通知面板不再引入，未读只保留侧栏标记，活跃且可见会话自动已读；抽屉开关常驻，桌面默认展开、窄屏默认收起。✅ 长回复不与上一条重叠、流式跟随底部；❌ 用消息列表类渲染 Markdown、Run 结束后只清流式不重读历史（`test_capacity_webchat_webchat_layout.py`、E2E S-103/S-06）。
 - **菜单 `adminOnly` 恰有两项**：`config/menu.ts` 里 `/users` 与 `/settings` 带 `adminOnly: true`，所以 ADMIN 见 11 项、非 ADMIN 见 9 项；`AppLayout` 用 `menuItems.filter((item) => !item.adminOnly || account?.role === 'ADMIN')` 过滤。菜单项本身只做可见性，权限边界仍由路由侧 `<RequireRole role="ADMIN">` 兜底。机检：`tests/frontend/test_console_shell_contract.py::test_console_shell_menu_is_the_fixed_eleven_items`。
 
   ✅：两项 `adminOnly`（`/users`、`/settings`）+ 各自路由守卫

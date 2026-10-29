@@ -82,7 +82,7 @@ pid_is_ours() {
   done
   case "$cmd" in *"node_modules/.bin/vite"*) return 0 ;; esac
   cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
-  case "$cwd" in "$ROOT"/*) return 0 ;; esac
+  case "$cwd" in "$ROOT"|"$ROOT"/*) return 0 ;; esac
   return 1
 }
 
@@ -103,8 +103,17 @@ stop_services() {
   while IFS= read -r pid; do
     [ -n "$pid" ] || continue
     cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
-    case "$cwd" in "$ROOT"/*) pids="$pids $pid" ;; esac
+    case "$cwd" in "$ROOT"|"$ROOT"/*) pids="$pids $pid" ;; esac
   done < <(pgrep -f "node_modules/.bin/vite" 2>/dev/null || true)
+
+  # 兜底：模块名匹配不到的子进程（multiprocessing spawn / uvicorn --reload 子进程）仍可能占着
+  # 服务端口；端口持有者 cwd 属于本仓库时一并纳入，避免“父进程已停、子进程成孤儿”。
+  for entry in "${SERVICES[@]}"; do
+    IFS='|' read -r _name _module _app_dir port <<<"$entry"
+    pid="$(port_holder_pid "$port")"
+    [ -n "$pid" ] || continue
+    if pid_is_ours "$pid"; then pids="$pids $pid"; fi
+  done
 
   [ -n "${pids// /}" ] || { echo 0; return; }
 
@@ -218,9 +227,18 @@ for entry in "${SERVICES[@]}"; do
       continue
       ;;
   esac
-  nohup uv run uvicorn "$module" \
-    --app-dir "$app_dir" --reload --port "$port" \
-    >"$LOG_DIR/$name.log" 2>&1 &
+  # 本地开发把 Gateway 的入口快照刷快到 1s：新建 WEBCHAT 入口后不用等 30s
+  # （生产默认仍 30s；验收栈也注入 1s）。Connector 的企微长连接不需要这么快。
+  if [ "$name" = "gateway" ]; then
+    BOT_SNAPSHOT_POLL_SEC="${BOT_SNAPSHOT_POLL_SEC:-1}" \
+      nohup uv run uvicorn "$module" \
+      --app-dir "$app_dir" --reload --port "$port" \
+      >"$LOG_DIR/$name.log" 2>&1 &
+  else
+    nohup uv run uvicorn "$module" \
+      --app-dir "$app_dir" --reload --port "$port" \
+      >"$LOG_DIR/$name.log" 2>&1 &
+  fi
   echo "  启动 $name (:$port) pid=$!"
 done
 

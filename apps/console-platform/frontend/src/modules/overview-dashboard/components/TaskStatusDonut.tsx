@@ -1,8 +1,8 @@
-import ReactECharts from 'echarts-for-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '../../../components/common/EmptyState';
 import { prefersReducedMotion, useChartTheme, type ChartColors } from '../hooks/useChartTheme';
 import type { OverviewScope } from '../types';
+import { OverviewChart } from './OverviewChart';
 const STATUS_COLOR_KEY: Record<string, keyof ChartColors> = {
   CREATED: 'muted', QUEUED: 'muted', RUNNING: 'primary', WAITING_INPUT: 'warning',
   WAITING_TOOL: 'warning', WAITING: 'warning', COMPLETED: 'success', FAILED: 'danger', CANCELLED: 'muted'
@@ -22,7 +22,7 @@ export function TaskStatusDonut({ status, scope }: { status: Record<string, numb
     series: [{ type: 'pie' as const, radius: ['60%', '82%'], label: { show: false },
       data: entries.map((entry) => ({ name: entry.label, value: entry.count, itemStyle: { color: entry.color } })) }] };
   return <div className="overview-donut">
-    <div className="overview-donut-canvas"><ReactECharts option={option} notMerge style={{ height: '100%', width: '100%' }} /></div>
+    <div className="overview-donut-canvas"><OverviewChart option={option} /></div>
     <ul className="overview-donut-legend" data-testid="overview-status-legend">
       {entries.map((entry) => <li key={entry.key} data-testid={`overview-status-${entry.key.toLowerCase()}`}>
         <span className="overview-donut-dot" style={{ background: entry.color }} />

@@ -128,11 +128,13 @@ ADMIN_TABLE_MARKUP = ("semi-table", "semi-table-row")
 COLOR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 CJK = re.compile(r"[\u4e00-\u9fff]")
 
-SEMI_STUB = """export const Banner = () => null;
+SEMI_STUB = """export const Avatar = () => null;
+export const Banner = () => null;
 export const Button = () => null;
 export const Empty = () => null;
 export const Spin = () => null;
 export const Toast = { error: () => {}, success: () => {} };
+export const Tooltip = () => null;
 export const Typography = { Title: () => null, Text: () => null };
 """
 
@@ -357,6 +359,8 @@ const obs = {};
     code: parseMessageBlocks('```js\nconst a = 1;\n```'),
     unclosedFence: parseMessageBlocks('```\n未闭合'),
     bold: parseInlineTokens('**加粗** 与 `代码`'),
+    markdown: parseMessageBlocks('## 标题\n\n- 一\n- 二\n\n1. A\n2. B\n\n> 引用\n\n| A | B |\n| --- | --- |\n| 1 | 2 |'),
+    inline: parseInlineTokens('**粗** *斜* ~~删~~ [x](https://e.com)'),
     blank: parseMessageBlocks(''),
     sizes: [0, -5, 512, 2048, 1572864].map(formatAttachmentSize)
   };
@@ -821,7 +825,6 @@ function MessageArea(props) {
     hasOlder: props.hasOlder ?? messages.history.hasOlder,
     errorCode: props.errorCode ?? messages.history.errorCode,
     failureCode: props.failureCode ?? messages.failureCode,
-    viewportRef: messages.viewportRef,
     onLoadOlder: messages.loadOlder,
     onRetry: () => {},
     onDownloadAttachment: props.onDownload
@@ -880,8 +883,7 @@ export async function renderScenarios(scenarios) {
               hasOlder: scenario.hasOlder ?? false,
               errorCode: null,
               failureCode: null,
-              viewportRef: { current: null },
-              onLoadOlder: () => {},
+                    onLoadOlder: () => {},
               onRetry: () => {},
               onDownloadAttachment: onDownload
             })
@@ -1117,8 +1119,59 @@ def test_b280_text_stays_text_and_links_need_safe_protocols(message_logic: dict[
         "data": None,
         "broken": None,
     }, "协议白名单之外（含相对/协议相对/data）一律不产出 href"
-    assert observed["code"] == [{"kind": "code", "value": "const a = 1;"}], "围栏代码按原样文本块渲染"
-    assert observed["unclosedFence"] == [{"kind": "code", "value": "未闭合"}], "未闭合围栏不抛错、不丢内容"
+    assert observed["code"] == [
+        {"kind": "code", "lang": "js", "value": "const a = 1;"}
+    ], "围栏代码按原样文本块渲染并保留语言"
+    assert observed["unclosedFence"] == [
+        {"kind": "code", "lang": None, "value": "未闭合"}
+    ], "未闭合围栏不抛错、不丢内容"
+    assert [block["kind"] for block in observed["markdown"]] == [
+        "heading",
+        "list",
+        "list",
+        "quote",
+        "table",
+    ], "标题/列表/引用/表格按块解析"
+    assert observed["markdown"][0] == {
+        "kind": "heading",
+        "level": 2,
+        "tokens": [{"kind": "text", "value": "标题"}],
+    }
+    assert observed["markdown"][1] == {
+        "kind": "list",
+        "ordered": False,
+        "items": [
+            {"tokens": [{"kind": "text", "value": "一"}]},
+            {"tokens": [{"kind": "text", "value": "二"}]},
+        ],
+    }
+    assert observed["markdown"][2]["ordered"] is True
+    assert observed["markdown"][3] == {
+        "kind": "quote",
+        "blocks": [{"kind": "paragraph", "tokens": [{"kind": "text", "value": "引用"}]}],
+    }
+    assert observed["markdown"][4] == {
+        "kind": "table",
+        "header": [
+            [{"kind": "text", "value": "A"}],
+            [{"kind": "text", "value": "B"}],
+        ],
+        "rows": [
+            [
+                [{"kind": "text", "value": "1"}],
+                [{"kind": "text", "value": "2"}],
+            ]
+        ],
+    }
+    assert [token["kind"] for token in observed["inline"]] == [
+        "strong",
+        "text",
+        "emphasis",
+        "text",
+        "strike",
+        "text",
+        "link",
+    ], "行内加粗/斜体/删除线/链接按白名单解析"
     assert observed["bold"] == [
         {"kind": "strong", "value": "加粗"},
         {"kind": "text", "value": " 与 "},
@@ -1444,7 +1497,7 @@ def test_b280_thread_and_view_binding_keep_their_seams() -> None:
         "附件取件只经注入端口（不直接调用下载 service、不拼路径）"
     )
     assert "createAttachmentDownloader" in thread_source
-    assert "viewportRef" in thread_source, "消息线程必须暴露滚动视口（锚点补偿落点）"
+    assert "messageViewportRef" in _read(SHELL_TSX), "消息面板必须暴露真实滚动视口"
 
     messages_source = _read(MESSAGES_TS)
     assert "export function useMessages(" in messages_source

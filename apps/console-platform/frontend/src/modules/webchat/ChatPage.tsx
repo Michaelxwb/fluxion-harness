@@ -20,7 +20,7 @@
  *    （`useChatAuth`）、配置（`useClientConfig`）、历史（`useConversations` + `useMessages`）、
  *    输入（`usePendingSend` + `ChatComposer`）、回复（`useRunEvents` + 流式正文）、控制
  *    （`createRunStopController`/`createConfirmationController` + `RunActions`/`ConfirmationCard`）、
- *    通知（`useNotifications` + `NotificationPanel`）。控制器由页面持有（一个页面一个实例）：
+ *    通知（`useNotifications` 的未读/自动已读；面板已移除）。控制器由页面持有（一个页面一个实例）：
  *    身份边界经真实 `registerIdentityCleanup` 清场，卸载时 `dispose()` 释放；页面不复制状态、
  *    不裸用传输、不落持久缓存、不持有任何后端默认值。
  *
@@ -33,8 +33,10 @@
  * 展示组件只收 typed props 与事件；HTTP、Cookie、传输头都在 `services/` 与 `api/` 里。
  */
 
-import { Banner, Button, Empty, Spin, Typography } from '@douyinfe/semi-ui';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Avatar, Banner, Button, Empty, Spin, Typography } from '@douyinfe/semi-ui';
+import { IconCustomerSupport } from '@douyinfe/semi-icons';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams } from 'react-router-dom';
 
@@ -48,13 +50,16 @@ import {
 } from './components/ConfirmationCard';
 import {
   ATTACHMENT_UNAVAILABLE,
+  MESSAGE_ROLE_KEYS,
+  MessageContent,
   MessageThread,
-  createAttachmentDownloader
+  createAttachmentDownloader,
+  messageClock
 } from './components/MessageThread';
-import { NotificationPanel } from './components/NotificationPanel';
 import {
   RunActions,
   createRunStopController,
+  runActivityPhase,
   type RunStopController,
   type RunStopState
 } from './components/RunActions';
@@ -81,6 +86,7 @@ import {
   type PendingSendViewPort
 } from './hooks/usePendingSend';
 import { useRunEvents, type RunEventsController } from './hooks/useRunEvents';
+import { useSmoothStreamingText } from './hooks/useSmoothStreamingText';
 import { createNotificationStreamPort } from './services/notificationStream';
 import { createWebchatClient, webchatErrorCode } from './services/webchatApi';
 import type { ChatAuthenticationSnapshot, ChatIdentityCleanup } from './authenticationState';
@@ -94,7 +100,6 @@ import type {
   WebchatEntry,
   WebchatEntryPage,
   WebchatMessageAccepted,
-  WebchatNotification,
   WebchatRequestOptions,
   WebchatResumeReceipt
 } from './types';
@@ -856,18 +861,40 @@ function useConfirmationRefresh(input: ConfirmationRefreshInput): void {
   }, [receipt, conversationId, select]);
 }
 
-/** 流式正文：只展示已应用的增量文本（纯文本经 React 转义），不进入 `role=log` 播报区。 */
+/** 流式正文：把上游较大的 delta 块按固定节拍平滑吐字，并复用最终消息的 Markdown 渲染。 */
 function ChatStreamingReply(props: { streaming: StreamingReplyProps | null }) {
+  const { t } = useTranslation();
   const streaming = props.streaming;
-  if (streaming === null || streaming.text === '') return null;
+  const target = streaming?.text ?? '';
+  const runId = streaming?.runId ?? '';
+  const visible = useSmoothStreamingText(target, runId);
+  if (streaming === null || target === '') return null;
+  const clockSource = streaming.startedAt ?? streaming.queuedAt;
+  const clock = messageClock(clockSource ?? undefined);
+  const typing = visible.length < target.length;
   return (
-    <div
-      className="chat-message-item chat-message-item-assistant"
-      data-testid="chat-streaming-reply"
-      data-phase={streaming.phase}
-      data-run-id={streaming.runId}
-    >
-      <div className="chat-message-content">{streaming.text}</div>
+    <div className="chat-message-item chat-message-item-assistant chat-message-item-streaming">
+      <Avatar size="small" className="chat-message-avatar" aria-hidden="true">
+        <IconCustomerSupport />
+      </Avatar>
+      <div className="chat-message-body">
+        <div className="chat-message-meta">
+          <span className="chat-message-role">{t(MESSAGE_ROLE_KEYS.ASSISTANT)}</span>
+          {clock === null ? null : (
+            <time className="chat-message-time" dateTime={clockSource ?? undefined}>
+              {clock}
+            </time>
+          )}
+        </div>
+        <div
+          data-testid="chat-streaming-reply"
+          data-phase={streaming.phase}
+          data-run-id={streaming.runId}
+        >
+          <MessageContent text={visible} />
+          {typing ? <span className="chat-message-cursor" aria-hidden="true" /> : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -955,7 +982,7 @@ interface ChatMessageAreaProps {
 function ChatMessageArea(props: ChatMessageAreaProps) {
   const history = props.messages.history;
   return (
-    <>
+    <div className="chat-message-column">
       {props.conversationId === null ? <ChatNewConversationNotice /> : null}
       <MessageThread
         messages={history.items}
@@ -964,7 +991,6 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
         hasOlder={history.hasOlder}
         errorCode={history.errorCode}
         failureCode={props.messages.failureCode}
-        viewportRef={props.messages.viewportRef}
         onLoadOlder={props.messages.loadOlder}
         onRetry={props.onRetryHistory}
         onDownloadAttachment={props.onDownloadAttachment}
@@ -981,7 +1007,7 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
         messageId={props.confirmationMessageId}
         binding={props.confirmation}
       />
-    </>
+    </div>
   );
 }
 
@@ -1037,33 +1063,10 @@ function ChatComposerSurface(props: {
   );
 }
 
-/** 通知面板装配：条目/未读/预览都来自 TASK-084 控制器，动作只经控制器（不复制未读）。 */
-function ChatNotificationSurface(props: {
-  notifications: NotificationsController;
-  onLocate(notification: WebchatNotification): void;
-}) {
-  const notifications = props.notifications;
-  return (
-    <NotificationPanel
-      items={notifications.snapshot.items}
-      unreadCount={notifications.snapshot.unreadCount}
-      loadState={notifications.snapshot.loadState}
-      errorCode={notifications.snapshot.errorCode}
-      preview={notifications.snapshot.preview}
-      onLocate={props.onLocate}
-      onMarkRead={(notification) => notifications.markRead(notification.id)}
-      onPreview={(attachment) => notifications.openPreview(attachment)}
-      onClosePreview={() => notifications.closePreview()}
-      onRetry={() => notifications.retry()}
-    />
-  );
-}
-
 interface ChatWorkspaceActionsInput {
   conversationId: string | null;
   client: WebchatClient;
   conversations: ConversationsController;
-  notifications: NotificationsController;
   pendingSend: PendingSendHookResult;
   onActionFailure(error: unknown): void;
 }
@@ -1071,19 +1074,17 @@ interface ChatWorkspaceActionsInput {
 interface ChatWorkspaceActions {
   retryHistory(): void;
   sendNow(): void;
-  locateNotification(notification: WebchatNotification): void;
   downloadAttachment(attachment: WebchatAttachment): void;
 }
 
 /**
  * 工作区动作（全部即发即忘：失败已由控制器快照/失败端口显式上报）：
- * 线程重试重读权威页、无会话时先建会话再发送、定位通知切会话并重读、附件取件走授权下载面。
+ * 线程重试重读权威页、无会话时先建会话再发送、附件取件走授权下载面。
  */
 function useChatWorkspaceActions(input: ChatWorkspaceActionsInput): ChatWorkspaceActions {
-  const { conversationId, client, conversations, notifications, pendingSend, onActionFailure } = input;
+  const { conversationId, client, conversations, pendingSend, onActionFailure } = input;
   const select = conversations.select;
   const create = conversations.create;
-  const sync = notifications.sync;
   const downloadAttachment = useMemo(
     () => createAttachmentDownloader(client, onActionFailure),
     [client, onActionFailure]
@@ -1106,14 +1107,7 @@ function useChatWorkspaceActions(input: ChatWorkspaceActionsInput): ChatWorkspac
       })
     );
   }, [conversationId, create, pendingSend]);
-  const locateNotification = useCallback(
-    (notification: WebchatNotification): void => {
-      fireAndForget(select(notification.conversation_id));
-      sync();
-    },
-    [select, sync]
-  );
-  return { retryHistory, sendNow, locateNotification, downloadAttachment };
+  return { retryHistory, sendNow, downloadAttachment };
 }
 
 /** 工作区状态：真实控制器快照 + 已绑定的动作（本组件不复制状态）。 */
@@ -1151,7 +1145,6 @@ function useChatWorkspaceState(props: ChatWorkspaceProps): ChatWorkspaceState {
     conversationId,
     client,
     conversations,
-    notifications,
     pendingSend,
     onActionFailure
   });
@@ -1175,17 +1168,103 @@ function useChatWorkspaceState(props: ChatWorkspaceProps): ChatWorkspaceState {
 }
 
 /**
- * 认证后的完整工作区：历史侧栏 + 单会话工作区（消息/输入/回复/控制）+ 通知面板。
+ * 活跃会话自动已读：选中且页面可见时，把该会话的未读整体标读；隐藏页/别的会话保留未读。
+ * 这样“我在对话窗口里”不再被通知打扰，侧栏只对真正没看的会话显示标记。
+ */
+function useActiveConversationRead(
+  notifications: NotificationsController,
+  conversationId: string | null
+): void {
+  const unread =
+    conversationId === null
+      ? 0
+      : notifications.snapshot.unreadByConversation[conversationId];
+  useEffect(() => {
+    if (conversationId === null || unread === undefined || unread <= 0) return;
+    const mark = (): void => {
+      if (document.visibilityState === 'visible') {
+        notifications.markConversationRead(conversationId);
+      }
+    };
+    mark();
+    document.addEventListener('visibilitychange', mark);
+    return () => document.removeEventListener('visibilitychange', mark);
+  }, [conversationId, unread, notifications]);
+}
+
+/**
+ * 终态刷新：Run 结束后重读会话详情/历史，把最终 assistant 消息落到线程，再把流式缓存收敛掉。
+ * 没有这一步，流式正文结束后最终消息既不在历史、又被流式层清掉，表现为“回复消失/不流式”。
+ */
+function useTerminalRunRefresh(
+  conversationId: string | null,
+  run: ActiveRunState | null,
+  conversations: ConversationsController
+): void {
+  const refreshed = useRef<string | null>(null);
+  const select = conversations.select;
+  useEffect(() => {
+    if (conversationId === null || run === null) return;
+    if (runActivityPhase(run.status, run.executionStatus) !== 'terminal') return;
+    if (refreshed.current === run.runId) return;
+    refreshed.current = run.runId;
+    fireAndForget(select(conversationId));
+    // Run 状态在控制器内原地更新：依赖必须取标量字段，不能只依赖 run 引用。
+  }, [conversationId, run?.runId, run?.status, run?.executionStatus?.stage, select]);
+}
+
+/**
+ * 流式/新消息跟随底部：用户停在底部时随增量滚动；主动上翻后不抢滚动位置。
+ * 这是“流式回复看不见”的关键——只在顶部看，增量会一直在视口下面。
+ */
+function useStickToBottom(
+  viewportRef: RefObject<HTMLDivElement>,
+  streamingText: string,
+  messageCount: number,
+  loadingOlder: boolean
+): void {
+  const stick = useRef(true);
+  useLayoutEffect(() => {
+    const element = viewportRef.current;
+    if (element === null) return;
+    const update = (): void => {
+      const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
+      stick.current = distance < 120;
+    };
+    update();
+    element.addEventListener('scroll', update, { passive: true });
+    return () => element.removeEventListener('scroll', update);
+  }, [viewportRef]);
+
+  useLayoutEffect(() => {
+    if (loadingOlder) return;
+    const element = viewportRef.current;
+    if (element === null || !stick.current) return;
+    element.scrollTop = element.scrollHeight;
+  }, [viewportRef, streamingText, messageCount, loadingOlder]);
+}
+
+/**
+ * 认证后的完整工作区：历史侧栏 + 单会话工作区（消息/输入/回复/控制）。
  *
  * 控制器由页面持有；本组件只把真实快照与动作挂到 `WebchatShell` 的接缝上。
  */
 export function ChatWorkspace(props: ChatWorkspaceProps) {
   const state = useChatWorkspaceState(props);
+  useActiveConversationRead(props.notifications, state.conversationId);
+  useTerminalRunRefresh(state.conversationId, state.run, props.conversations);
+  useStickToBottom(
+    state.messages.viewportRef,
+    state.streaming?.text ?? '',
+    state.messages.history.items.length,
+    state.messages.history.loadingOlder
+  );
   return (
     <WebchatShell
       entry={props.entry}
       conversations={props.conversations}
       unreadCounts={props.notifications.snapshot.unreadByConversation}
+      messageViewportRef={state.messages.viewportRef}
       messageArea={
         <ChatMessageArea
           conversationId={state.conversationId}
@@ -1212,12 +1291,6 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
           pendingSend={props.pendingSend}
           onTextChange={state.changeDraft}
           onSend={state.actions.sendNow}
-        />
-      }
-      notificationPanel={
-        <ChatNotificationSurface
-          notifications={props.notifications}
-          onLocate={state.actions.locateNotification}
         />
       }
       onActionFailure={props.onActionFailure}

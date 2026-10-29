@@ -34,7 +34,9 @@ verifiers:
 
 ❌：各详情自行设置标题字重，或用扩大字号替代加粗，造成详情间层级不一致。
 
-对象动作（编辑、删除、测试、范围调整、版本导入、Task 取消、Schedule 暂停/恢复）放主列表；标签简化为「编辑」「删除」「测试」「范围」「导入」「刷新」「取消」等。关联业务操作仍在详情 Tab（绑定/解绑、授权/撤销、凭据管理），共享凭据仍是平台凭据 Tab 中的单例卡片。Run 无独立列表，保留详情 Header「刷新」，刷新 Run 和已加载的操作记录。
+对象动作（编辑、删除、测试、范围调整、版本导入、Task 取消、Schedule 暂停/恢复）放主列表；标签简化为「编辑」「删除」「测试」「范围」「导入」「刷新」「取消」等。关联业务操作仍在详情 Tab（绑定/解绑、授权/撤销、凭据管理），共享凭据仍是平台凭据 Tab 中的单例卡片；Webchat Token 归 IM 身份 Tab（见下条）。Run 无独立列表，保留详情 Header「刷新」，刷新 Run 和已加载的操作记录。
+
+- **用户详情 Webchat Token 归 IM 身份 Tab**：Token 卡片挂在「IM 身份」而非「项目平台凭据」；项目平台凭据 Tab 不再挂 Token。卡片仍仅 ADMIN 可见，父级显式传 `canManageToken={isAdmin}`，不要用 Tab 可见性代替权限门控。✅ `IdentityTab` 内 `props.canManageToken ? <WebchatTokenSection/>`；❌ 把 Token 放回凭据 Tab，或非 ADMIN 仍能读到元信息（`test_capacity_webchat_user_token_ui.py`）。
 
 Agent 基本信息中的审计预览称为「最近活动」，列名为时间/操作用户/操作类型/操作对象/结果；按 Agent 资源 ID 读取最近六条审计记录。动作与对象使用中英文词条（如 CREATE → 创建、AGENT_ACCESS_GRANT → 用户授权、AGENT_SKILL_BINDING → Skill 绑定），结果复用审计结果词条。已知枚举显示友好名称，原始码保留在单元格 title；值域开放，未登记枚举原样显示，不显示空白或伪造含义。
 

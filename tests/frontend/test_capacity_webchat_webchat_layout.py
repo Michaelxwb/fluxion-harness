@@ -58,7 +58,6 @@ MESSAGE_THREAD_TSX = COMPONENTS / "MessageThread.tsx"
 COMPOSER_TSX = COMPONENTS / "ChatComposer.tsx"
 RUN_ACTIONS_TSX = COMPONENTS / "RunActions.tsx"
 CONFIRMATION_TSX = COMPONENTS / "ConfirmationCard.tsx"
-NOTIFICATIONS_TSX = COMPONENTS / "NotificationPanel.tsx"
 SIDEBAR_TSX = COMPONENTS / "ConversationSidebar.tsx"
 
 CONVERSATION_STATE_TS = MODULE / "conversationState.ts"
@@ -125,7 +124,7 @@ NOW_MS = 1792308000000
 CONFIRM_EXPIRES_AT = "2026-10-19T06:00:00Z"
 
 #: 中英文的开关标签（证明 `aria-label` 来自词条而非写死文案）。
-SIDEBAR_OPEN_LABEL = {"zh-CN": "打开会话历史", "en-US": "Open conversation history"}
+SIDEBAR_CLOSE_LABEL = {"zh-CN": "关闭会话历史", "en-US": "Close conversation history"}
 THREAD_LABEL = {"zh-CN": "消息线程", "en-US": "Message thread"}
 COMPOSER_LABEL = {"zh-CN": "消息输入区", "en-US": "Message composer"}
 
@@ -284,7 +283,6 @@ import { MessageThread } from '__MESSAGE_THREAD__';
 import { ChatComposer } from '__COMPOSER__';
 import { RunActions } from '__RUN_ACTIONS__';
 import { ConfirmationCard } from '__CONFIRMATION__';
-import { NotificationPanel } from '__NOTIFICATIONS__';
 import { createConversationState } from '__STATE__';
 import { createClientConfigService } from '__CONFIG__';
 import { createWebchatClient } from '__SERVICE__';
@@ -456,23 +454,6 @@ const MESSAGES = [
     attachments: [ATTACHMENT]
   }
 ];
-
-const NOTIFICATION = {
-  id: NOTIFICATION_1,
-  seq: 9,
-  entry_id: ENTRY_A,
-  agent_id: AGENT_A,
-  conversation_id: CONVERSATION_1,
-  run_id: RUN_1,
-  task_id: null,
-  event_id: EVENT_ASSISTANT,
-  kind: 'RUN_COMPLETED',
-  summary: '任务已完成',
-  attachments: [],
-  created_at: '2026-10-18T17:40:00Z',
-  read_at: null
-};
-
 const NOOP = () => {};
 
 function renderTree(i18n, element) {
@@ -503,7 +484,6 @@ export async function renderScenarios(scenarios) {
         hasOlder: true,
         errorCode: null,
         failureCode: null,
-        viewportRef: { current: null },
         onLoadOlder: NOOP,
         onRetry: NOOP,
         onDownloadAttachment: NOOP
@@ -579,22 +559,7 @@ export async function renderScenarios(scenarios) {
         onConfirm: NOOP
       })
     );
-    const notifications = renderTree(
-      i18n,
-      React.createElement(NotificationPanel, {
-        items: [NOTIFICATION],
-        unreadCount: 2,
-        loadState: 'ready',
-        errorCode: null,
-        preview: null,
-        onLocate: NOOP,
-        onMarkRead: NOOP,
-        onPreview: NOOP,
-        onClosePreview: NOOP,
-        onRetry: NOOP
-      })
-    );
-    markup[scenario.id] = { shell, thread, composer, runActions, confirmation, notifications };
+    markup[scenario.id] = { shell, thread, composer, runActions, confirmation };
   }
   return markup;
 }
@@ -839,7 +804,6 @@ def rendered(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
             .replace("__COMPOSER__", str(COMPOSER_TSX))
             .replace("__RUN_ACTIONS__", str(RUN_ACTIONS_TSX))
             .replace("__CONFIRMATION__", str(CONFIRMATION_TSX))
-            .replace("__NOTIFICATIONS__", str(NOTIFICATIONS_TSX))
             .replace("__STATE__", str(CONVERSATION_STATE_TS))
             .replace("__CONFIG__", str(CLIENT_CONFIG_TS))
             .replace("__SERVICE__", str(SERVICE_TS))
@@ -929,9 +893,16 @@ def test_b291_shell_is_sidebar_plus_scrollable_workspace(module_css: dict[str, s
     messages = _require_rule(css, ".chat-panel-messages")
     assert "overflow-y: auto" in messages or "overflow: auto" in messages
     assert "min-height: 0" in messages
+    column = _require_rule(css, ".chat-message-column")
+    assert "flex: 0 0 auto" in column or "flex-shrink: 0" in column, (
+        "消息列不能被滚动容器压缩，否则长消息会溢出并与下一条重叠"
+    )
     composer = _require_rule(css, ".chat-panel-composer")
-    assert "var(--semi-color-border)" in composer and "var(--semi-color-bg-1)" in composer
     assert "flex" in composer, "输入区固定在消息区之外（不随消息滚动）"
+    assert "linear-gradient" in composer and "var(--semi-color-bg-0)" in composer, (
+        "输入区用同底色渐变融入消息区，不再是一条独立底栏"
+    )
+    assert "border-top: none" in composer, "消息区与输入区之间不再画硬分割线"
 
 
 def test_b291_message_bubbles_align_by_role_with_tokens(module_css: dict[str, str]) -> None:
@@ -977,7 +948,7 @@ def test_b291_every_stable_chat_class_has_a_stylesheet_rule(module_css: dict[str
 
 
 def test_b291_narrow_screen_collapses_sidebar_into_drawer(module_css: dict[str, str]) -> None:
-    """窄屏：侧栏收成抽屉（`data-drawer-open` 开合），开关只在窄屏出现。"""
+    """窄屏：侧栏收成覆盖式抽屉（`data-drawer-open` 开合）；开关在头部常驻，关闭时仍可达。"""
     css = module_css["webchat"]
     narrow = _narrow_blocks(css)
     assert narrow, f"缺少 ≤{NARROW_MAX_PX}px 的窄屏断点"
@@ -988,10 +959,8 @@ def test_b291_narrow_screen_collapses_sidebar_into_drawer(module_css: dict[str, 
         "抽屉展开必须绑定 `data-drawer-open='true'`（组件已提供该属性）"
     )
     toggle = _require_rule(css, ".webchat-shell-sidebar-toggle")
-    assert "display: none" in toggle, "桌面常显侧栏：抽屉开关只在窄屏出现"
-    assert re.search(r"\.webchat-shell-sidebar-toggle\s*\{[^}]*display:\s*(inline-flex|block|flex)", joined), (
-        "窄屏必须重新显示抽屉开关"
-    )
+    assert "display: inline-flex" in toggle, "抽屉开关必须常驻（关闭时仍能打开）"
+    assert "display: none" not in toggle, "桌面也必须能收起/展开侧栏"
 
 
 def test_b291_narrow_screen_keeps_composer_and_run_actions_visible(module_css: dict[str, str]) -> None:
@@ -1128,12 +1097,12 @@ def test_b291_rendered_shell_markup_matches_layout_and_a11y_contract(
 ) -> None:
     """真实 SSR 产物：抽屉开合属性、开关 aria 指向真实侧栏 id、所选条目 aria-current、类名有样式。"""
     css = module_css["webchat"]
-    for locale, label in SIDEBAR_OPEN_LABEL.items():
+    for locale, label in SIDEBAR_CLOSE_LABEL.items():
         shell = rendered[locale]["shell"]
         assert 'class="webchat-shell"' in shell, f"{locale}: 工作区根节点缺少稳定类名"
-        assert 'data-drawer-open="false"' in shell, f"{locale}: 抽屉状态必须落到 DOM 供断点消费"
+        assert 'data-drawer-open="true"' in shell, f"{locale}: 抽屉状态必须落到 DOM 供断点消费"
         assert f'aria-controls="{SIDEBAR_ID}"' in shell, f"{locale}: 开关必须指向侧栏真实 id"
-        assert 'aria-expanded="false"' in shell, f"{locale}: 开关必须暴露展开状态"
+        assert 'aria-expanded="true"' in shell, f"{locale}: 开关必须暴露展开状态"
         assert f'aria-label="{label}"' in shell, f"{locale}: 开关标签必须本地化"
         assert f'id="{SIDEBAR_ID}"' in shell, f"{locale}: 侧栏 id 必须与 aria-controls 一致"
         assert 'aria-current="true"' in shell, f"{locale}: 所选条目必须带 aria-current"
@@ -1168,6 +1137,8 @@ def test_b291_rendered_message_and_run_surfaces_keep_labels_without_live_noise(
         assert 'aria-label="' in surface["runActions"], f"{locale}: 运行操作面缺少可访问名"
         assert 'class="chat-run-stop"' in surface["runActions"], f"{locale}: 停止区必须落到稳定类名"
         assert "chat-confirmation-card" in surface["confirmation"], f"{locale}: 确认卡稳定类名"
-        assert 'aria-label="' in surface["notifications"], f"{locale}: 通知面板缺少可访问名"
+        assert "webchat-shell-notifications" not in surface["shell"], (
+            f"{locale}: 通知面板已移除，侧栏只保留会话/未读标记"
+        )
         for name, markup in surface.items():
             assert "aria-live" not in markup, f"{locale}: {name} 不得声明 live region（不逐 token 播报）"

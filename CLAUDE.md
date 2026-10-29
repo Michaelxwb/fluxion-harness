@@ -51,7 +51,7 @@ Do NOT ask the user which Specs to load—the Context-first router is authoritat
 
 - 任务收尾提交信息**以 Done Gate 的实际裁决为准**：先拿到 `cf_task_workflow.py finish` 的返回，再写提交信息；禁止把 `finish` 与 `git commit` 串在同一条 `&&` 链里抢先写结论（本项目曾连续写错三次，`--amend` 后错误结论仍进过历史）。
 - Gate `block` 时不得写「Gate pass」；已 pass 时也不得写「阻塞待查」。提交信息只陈述已发生的事实。
-- 门禁/verifier「单跑通过、整跑偶发失败」先怀疑环境残留（孤儿进程、共享测试库），复跑一次再下结论，不要直接改实现。
+- 排查/方案类请求先给证据和根因，再对齐方案，不盲猜或先改代码；门禁/verifier「单跑通过、整跑偶发失败」先查残留（孤儿进程、共享测试库），复跑一次再下结论。
 
 ## Task Documents (cf-task workflow)
 

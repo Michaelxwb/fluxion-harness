@@ -493,9 +493,12 @@ test('S-107 中英文与明暗主题下状态/时间/操作可见，窄屏消息
   // 窄屏：侧栏收成抽屉，消息滚动不盖住输入与确认
   await page.setViewportSize({ width: 900, height: 700 });
   await expect(shell).toHaveAttribute('data-drawer-open', 'false');
-  // 抽屉开关与侧栏同容器（窄屏整体离屏，开关不可达——已知 UI 缺陷见任务文档），这里断言
-  // 契约要求的「状态/时间/操作在窄屏可见」与「滚动不遮挡」不变式。
+  // 抽屉开关在会话头部（关闭时仍可达）；Escape 收起。
   await expect(page.getByTestId('webchat-shell-sidebar-toggle')).toBeVisible();
+  await page.getByTestId('webchat-shell-sidebar-toggle').click();
+  await expect(shell).toHaveAttribute('data-drawer-open', 'true');
+  await page.keyboard.press('Escape');
+  await expect(shell).toHaveAttribute('data-drawer-open', 'false');
   await expect(page.getByTestId('chat-run-activity')).toBeVisible();
 
   const messages = page.getByTestId('chat-panel-messages');

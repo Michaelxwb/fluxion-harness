@@ -561,6 +561,8 @@ export function RunActions(props: RunActionsProps) {
     <section
       className="chat-run-actions"
       data-testid="chat-run-actions"
+      data-run-status={props.status}
+      data-execution-stage={props.executionStatus?.stage ?? undefined}
       aria-label={t('chat.run.label')}
     >
       <RunActivityRegion activity={runActivityView(props.status, props.executionStatus)} />

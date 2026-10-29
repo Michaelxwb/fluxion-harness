@@ -923,7 +923,11 @@ async def test_b04_projection_only_exposes_visible_messages_and_safe_attachments
         "role",
         "text",
         "attachments",
+        "created_at",
     }
+    assert all(item.created_at is not None for item in page.items), (
+        "消息必须携带服务端落库时间（页面只展示，不推算）"
+    )
 
 
 async def test_b250_internal_history_endpoints_require_service_identity(

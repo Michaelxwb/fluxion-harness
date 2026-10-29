@@ -1,14 +1,14 @@
-import ReactECharts from 'echarts-for-react';
 import { useTranslation } from 'react-i18next';
 import { prefersReducedMotion, useChartTheme } from '../hooks/useChartTheme';
 import type { OverviewTrendPoint } from '../types';
+import { OverviewChart } from './OverviewChart';
 export function TaskTrendChart({ trend }: { trend: OverviewTrendPoint[] }) {
   const { t } = useTranslation();
   const { colors } = useChartTheme();
   const option = {
     animation: !prefersReducedMotion(), tooltip: { trigger: 'axis' as const },
     legend: { top: 0, left: 0, textStyle: { color: colors.text2, fontSize: 12 } },
-    grid: { left: 8, right: 8, top: 36, bottom: 0, containLabel: true },
+    grid: { left: 8, right: 8, top: 36, bottom: 18, containLabel: true },
     xAxis: { type: 'category' as const, data: trend.map((point) => point.date),
       axisLabel: { color: colors.text2, formatter: (date: string) => date.slice(5) },
       axisLine: { lineStyle: { color: colors.border } }, axisTick: { show: false } },
@@ -21,5 +21,5 @@ export function TaskTrendChart({ trend }: { trend: OverviewTrendPoint[] }) {
         data: trend.map((point) => point.failed), itemStyle: { color: colors.danger }, symbolSize: 5 }
     ]
   };
-  return <ReactECharts option={option} notMerge style={{ height: '100%', width: '100%' }} />;
+  return <OverviewChart option={option} />;
 }

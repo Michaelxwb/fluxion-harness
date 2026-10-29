@@ -95,6 +95,12 @@ def test_agent_i18n_keys_bilingual() -> None:
         "agent.columns.userCount",
         "agent.form.instructions",
         "agent.form.modelHint",
+        "agent.channel.channel",
+        "agent.channel.channelWecom",
+        "agent.channel.channelWebchat",
+        "agent.channel.entryKey",
+        "agent.relation.chatLink",
+        "agent.channel.copyChatLink",
     ]
     for key in required:
         assert key in zh, f"zh-CN 缺 {key}"
@@ -114,3 +120,24 @@ def test_agent_i18n_keys_bilingual() -> None:
 def test_agent_route_registered() -> None:
     app = (ROOT / "apps/console-platform/frontend/src/App.tsx").read_text(encoding="utf-8")
     assert '<Route path="agents" element={<AgentPage />} />' in app
+
+
+def test_channel_form_supports_webchat_entries() -> None:
+    """[S-10] IM 接入表单可选 WEBCHAT：网页入口不要求/不提交 Bot Secret。"""
+    source = _source("ChannelFormModal.tsx")
+    assert "type ChannelKind = 'WECOM' | 'WEBCHAT'" in source
+    assert 'field="channel"' in source
+    assert "disabled={props.channel !== null}" in source, "编辑已有入口时通道不可改"
+    assert "channel," in source and "values.channel" in source, "创建时通道按表单值提交"
+    assert "channelKind === DEFAULT_CHANNEL ?" in source, "WEBCHAT 不渲染 secret 字段"
+    assert "if (channel === DEFAULT_CHANNEL) {" in source, "只有企微入口提交 secret"
+
+
+def test_webchat_entry_exposes_chat_link() -> None:
+    """[S-10] WEBCHAT 入口在列表中给出同源聊天地址，复制值带 origin。"""
+    source = _source("AgentDetailSideSheet.tsx")
+    assert "import { CopyableText }" in source
+    assert "record.channel === 'WEBCHAT'" in source
+    assert "`/chat/${record.channel_account_id}`" in source
+    assert "`${window.location.origin}/chat/${record.channel_account_id}`" in source
+    assert "agent.channel.copyChatLink" in source

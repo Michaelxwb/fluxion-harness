@@ -69,6 +69,9 @@ verifiers:
 **CI**：
 
 - **CI-first 验收**：全量 acceptance / 单测以 CI 为准，本地只跑靶向套件；已知失败登记在 `docs/operations/e2e-known-issues.md`。
+- **测试租户清理覆盖 runtime 记忆表**：租户 fixture 必须删 `user_memory_history`/`user_memory`/`memory_scope`/`memory_command_receipt`/`memory_consolidation_job`；共享 dev 库的残留会被 runtime 维护循环扫到（实例：`test-*` 旧 content 触发每秒 `memory_background_pump_failed`）。
+- **微基准不作为单测性能门禁**：5 chunk/1 repeat 的跨场景耗时排序会被预热/调度噪声翻转；单测只断言结构（场景存在、事件数、正数耗时），耗时只作诊断输出（`test_capacity_chunk_bench.py`）。
+- **本地跑测/Playwright 前停 dev 服务**：`scripts/dev.sh stop` 按精确仓库根 cwd + 端口持有者清理 multiprocessing/uvicorn reload 子进程；e2e 的 `pretest` 先停 dev，避免 `--reload` Worker 抢共享库任务。
 - **后端 CI 并行分片**：`backend-static` 只跑 compile/i18n/error-message/lint/typecheck（无 DB）；`backend-tests` 按目录切 `fast`/`runtime`/`console`/`worker` 四个 matrix job，**每个 job 自带 PG/Redis service**，互不共享库与 Redis 号位。`acceptance` 按模块切 `dfx`/`gateway`/`im_gateway`/`runtime`/`capacity`/`task_schedule`/`rest` 七片，各自一套 PG/Redis 与临时库——起真实 Worker/Runtime 的模块串在一个 job 会污染后续模块。CI 预建 `.data/artifacts` 与 `.data/skill-cache`。分片是人工清单：新增顶层测试目录（含 `tests/acceptance` 子目录）必须同步 `.github/workflows/check.yml`，否则静默漏跑；四个单测分片收集条数应互不重叠并等于拆分前的收集数。
 
 **验收反模式（Anti-Patterns）**：

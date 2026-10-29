@@ -30,6 +30,7 @@ verifiers:
 **域配置口径**：
 
 - 前端跑**真实构建产物**而非 dev server：`vite preview` + `MUAD_API_TARGET` 指向本域 Console；`preview` 必须带 `--strictPort`（端口被占要显式失败，不能静默另择端口而 baseURL 仍指原端口）。域配置里的 `${...}` 不得写在**单引号**字符串里——JS 不插值，字面量会被 shell 展开为空。机检：`tests/frontend/test_e2e_suite_contract.py`。
+- **启动前停 dev 服务**：`e2e/package.json` 的 `pretest` 调 `scripts/dev.sh stop`；否则 `--reload` Worker/Runtime 会抢共享 dev 库任务，表现为 `SKILL_ARTIFACT_UNAVAILABLE` 一类假故障。Gateway 的 1s 入口快照只限本地 dev/验收，生产仍是 30s。
 - **域配置必须钉死 `use.timezoneId`**：`DateTimeText` 按浏览器本地时区渲染，CI runner 是 UTC、开发机是 UTC+8，不钉会出现「本地绿、CI 红」且报错只说找不到文本。全部配置钉 `Asia/Shanghai`（与 `locale: 'zh-CN'` 同属「谁在看」）。机检：`test_domain_configs_pin_browser_timezone`。
 - **e2e 定位符必须引用前端源码真实存在的 testid**：模板形式（`data-testid={\`mcp-tool-${name}\`}`）按前缀匹配；改名/删除 testid 必须同步。机检：`test_e2e_testids_are_defined_in_frontend_source`。
 - **端口偏移**：`端口 = 基址 + OFFSET`，OFFSET 取 argv 里的 `[SE]-\d+` 场景号，无 `--grep` 回落 `pid % 47`；**必须算一次后冻结进 `process.env`**——`config` 会在每个 worker 里重新求值，而 worker argv 不含 `--grep`，不冻结会算出与主进程不同的端口。
