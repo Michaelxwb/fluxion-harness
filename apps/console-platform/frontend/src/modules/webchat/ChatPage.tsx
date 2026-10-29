@@ -1206,6 +1206,9 @@ function useTerminalRunRefresh(
   useEffect(() => {
     if (conversationId === null || run === null) return;
     if (runActivityPhase(run.status, run.executionStatus) !== 'terminal') return;
+    // 取消没有最终 assistant 消息；刷新会把运行面移除，用户看不到「已停止」。保留停止态，
+    // 由 RunActions 继续展示；完成/失败才需要重读历史收敛最终正文。
+    if (run.status === 'CANCELLED') return;
     if (refreshed.current === run.runId) return;
     refreshed.current = run.runId;
     fireAndForget(select(conversationId));

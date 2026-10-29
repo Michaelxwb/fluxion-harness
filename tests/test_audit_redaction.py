@@ -242,7 +242,7 @@ def test_e02_logging_exit_masks_secrets_in_log_file(tmp_path: Path) -> None:
     _assert_no_plaintext(content, where=f"日志文件 {log_file.name}")
     assert LOG_MASK in content, "遮蔽标记缺失（敏感字段被整条丢弃？）"
     assert "trace-keep-me" in content and "E-02 Config" in content, "非敏感字段被误伤"
-    assert '"trace_id":"trace-e02"' in content and '"request_id":"req-e02"' in content
+    assert "trace_id=trace-e02" in content and "request_id=req-e02" in content
 
 
 async def test_e02_console_api_detail_masks_secrets_in_response(
