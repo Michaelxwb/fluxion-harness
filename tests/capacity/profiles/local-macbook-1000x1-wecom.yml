@@ -1,0 +1,58 @@
+# 本地 1000 用户 × 1 轮企微私聊诊断 profile（MacBook Pro M5 Pro：15 核 / 48GB，同机 PG/Redis）。
+#
+# 用途：单 bot + 单 Connector 的 IM 通道上限诊断；**不是**生产容量验收。
+# 与 `local-macbook-1000x1-sse.yml` 的服务配置一致（Console 4 worker、Runtime 8 副本、
+# Worker 4 副本、Gateway 2 副本），只额外声明 1 个 Connector（单 bot 的唯一 active owner）。
+# 真实企微平台配额仍需 E-06 真机验证。
+workload:
+  users: 1000
+  active_runs_per_user: 1
+  # 企微入站由 Connector 单队列串行 publish；60s ramp 避免把突发当稳态。
+  ramp_sec: 60
+  steady_sec: 150
+  turns_per_user: 1
+  input_distribution:
+    think_time_ms:
+      p50: 3000
+      p95: 15000
+      max: 60000
+    text_bytes:
+      p50: 256
+      p95: 4096
+      max: 65536
+  # 第一轮纯文本：附件会叠加 Connector 取件/落盘，先隔离通道主链路。
+  attachment_distribution:
+    ratio: 0.0
+model:
+  mode: CONTROLLED_PROBE
+  probe_latency_ms:
+    p50: 800
+    p95: 2500
+    max: 10000
+  output_distribution:
+    p50: 256
+    p95: 1024
+    max: 4096
+slo:
+  admission_p95_ms: 500
+  admission_p99_ms: 1500
+  framework_first_delta_p95_ms: 1200
+  recovery_max_sec: 60
+  max_system_error_ratio: 0.01
+resources:
+  hardware:
+    console-platform: {cpu_request_millicores: 500, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 4096}
+    agent-runtime: {cpu_request_millicores: 1000, cpu_limit_millicores: 4000, memory_request_mb: 2048, memory_limit_mb: 8192}
+    agent-worker: {cpu_request_millicores: 1000, cpu_limit_millicores: 4000, memory_request_mb: 2048, memory_limit_mb: 8192}
+    im-gateway: {cpu_request_millicores: 500, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 4096}
+    connector: {cpu_request_millicores: 250, cpu_limit_millicores: 1000, memory_request_mb: 512, memory_limit_mb: 1024}
+  # 每 Pod 进程数：与控制面/数据面同一口径；Connector 单进程（单 bot 只能一个 active owner）。
+  process_counts: {console-platform: 4, agent-runtime: 1, agent-worker: 1, im-gateway: 1, connector: 1}
+  replica_counts: {console-platform: 1, agent-runtime: 8, agent-worker: 4, im-gateway: 2, connector: 1}
+  max_replica_counts: {console-platform: 1, agent-runtime: 8, agent-worker: 4, im-gateway: 2, connector: 1}
+  pg_connection_budget: 500
+  fd_budget: 16384
+  storage_budget:
+    event_bytes_per_day: 5368709120
+    retention_days: 30
+    artifact_bytes: 107374182400

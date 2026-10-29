@@ -410,6 +410,83 @@ uv run python scripts/capacity/diag.py cpu --interval 1 --duration 180 --out /tm
   seed 16）。这是**插件的诊断覆盖**，不是产品失败；正式 E-09 不加载该插件、保持 16 槽。
 - 没有 16c/staging 机器时，生产容量仍以 staging E-09 为准。
 
+### 10.5 企微单 bot / 单 Connector 1000 私聊（2026-10-29，本地 15 核）
+
+**结论先行**：本地 WSS 探针下，1000 个私聊用户 / 60s 通道侧通过；1000 个长 Run 同时在飞时
+失败在 Runtime 队列（`RUN_QUEUE_TIMEOUT`），不是 Connector。真实企微平台 1000 用户仍未验证
+（目前只有单用户真机 E2E；没有 1000 个真实账号）。
+
+**拓扑**：同一套 4 单元诊断栈（Console 4 worker、Runtime 8 副本、Worker 4 副本、Gateway 2 副本）
+`+ 1 个 Connector + 1 个企微 bot`；1000 个 `external_user_id` 各自映射独立 platform user，
+每人一条 1:1 私聊消息。模型探针 800ms 首块；`WECOM_MODEL_SLOTS=2000` 是**诊断覆盖**，
+与 WebChat 1000×1 同口径，正式 E-09 仍保持 seed 16。测例：
+
+```bash
+scripts/dev.sh stop
+CAPACITY_LOAD_USERS=1000 WECOM_CAPACITY_RAMP_SEC=60 WECOM_MODEL_SLOTS=2000 \
+MUAD_WECOM_METRICS_OUT=/tmp/wecom-1000.json \
+uv run pytest -q -s tests/acceptance/capacity/test_wecom_capacity.py
+```
+
+profile：`tests/capacity/profiles/local-macbook-1000x1-wecom.yml`。把 `WECOM_CAPACITY_RAMP_SEC`
+改成 30/15/5 可测不同到达率；`CAPACITY_LOAD_USERS` 可降到 100/300/600 做阶梯。
+
+**结果**（`final` = 从用户消息发出到终帧回执；`first` = 到首个状态帧；CPU 为进程组峰值）：
+
+| 档位 | 完成 | first P95 | final P50 / P95 | Connector CPU | Runtime CPU | inbound pending 峰值 | Connector 发布速率 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 100 / 10s | 100/100 | 26.5ms | 1135.5 / 1257.9ms | 5.2% | — | 14 | — |
+| 300 / 30s | 300/300 | 21.8ms | 1126.7 / 1170.3ms | 5.0% | — | 14 | — |
+| 600 / 45s | 600/600 | 22.1ms | 1142.7 / 1206.2ms | 6.7% | — | 18 | — |
+| **1000 / 60s** | **1000/1000** | **25.0ms** | **1161.5 / 1226.7ms** | **9.8%** | **233.6%** | 23 | 16.1/s |
+| 1000 / 30s | 1000/1000 | 41.6ms | 1334.7 / 1493.9ms | 22.3% | 516.7% | 51 | 31.9/s |
+| 1000 / 15s | 1000/1000 | 8092.3ms | 6000.7 / 9842.1ms | 28.8% | 605.2% | 395 | 56.4/s |
+| 1000 / 5s | 1000/1000 | 19079.8ms | 11177.7 / 20504.8ms | 33.7% | 607.3% | 723 | 138.7/s |
+
+判读：
+
+- **1000 用户 / 60s 是当前通道的舒适区**：全部完成、零失败，Connector 10%、Runtime 2.7 核；
+  final P95 1.23s。单 bot + 单 Connector 没有出现 IM 侧瓶颈。
+- 对照：同一 1000/60 若保持 seed 16 槽（不覆盖 `WECOM_MODEL_SLOTS`），final P95 为 5.58s；
+  那是 **16 槽模型排队**，不是 IM 通道成本。因此定位通道瓶颈必须显式记录模型槽口径。
+- **到达率抬高后先撞 Runtime，不是 Connector**：1000/5 时 Connector 已把 1000 条入站发布完
+  （138.7/s，7.2s），但 Run 创建比发布晚约 19s；Runtime CPU 6.07 核是当时最高单元。
+  Connector 仍有 CPU 余量（33.7%），所以不能把这次延迟归因成“企微通道到顶”。
+- 单 bot 的状态预算仍是 **10 次/s**，1000 用户时状态帧会被大量合并；正文/终帧不占该预算。
+  本次 1000/60 的终帧到达率 100%，但首帧 P95 在 burst 下升到 19s，说明队列延迟会直接变成
+  用户可感知的等待。
+- **真实企微平台配额仍未验证**：本地 WSS 探针只证明我们自己的 Connector/后端行为；
+  “单 bot 最多多少用户”必须再用 E-06 真机确认平台侧频率/窗口限制。
+- **真实平台 1000 用户的证据边界**：真机单用户 E2E 已验证；当前没有 1000 个真实企微账号，
+  没有做真实平台 1000 用户压测。批量创建成员只得到身份行，不等于 1000 个已登录、能发消息的
+  客户端；因此不能把本地 1000 结果写成“真实企微单 bot 支持 1000 用户”。
+
+**并发档：1000 个 Run 同时在飞**（ramp=0，模型首块 15s、20 段 × 500ms）：
+
+```bash
+WECOM_USERS=1000 WECOM_RAMP_SEC=0 WECOM_MODEL_LATENCY_MS=15000 \
+WECOM_MODEL_CHUNK_INTERVAL_MS=500 WECOM_MODEL_DELTAS=20 make capacity-wecom
+```
+
+结果（2026-10-29）：
+
+| 指标 | 值 |
+|---|---:|
+| 创建 / 完成 / 失败 | 1000 / 398 / 602 |
+| 失败码 | `RUN_QUEUE_TIMEOUT` × 602 |
+| first P50 / P95 | 6177ms / 106869ms |
+| final P50 / P95 | 85356ms / 175093ms |
+| Connector CPU | 31.3% |
+| Runtime CPU | 563.2% |
+| inbound pending 峰值 | 969 |
+| outbound 帧数 | 23867（Connector 全部 DELIVERED） |
+| Connector 发布速率 | **436.7/s，2.29s 发完全部 1000 条** |
+
+判读：这是 **Runtime 队列先被打满**的明确证据——Connector 2.29s 就把 1000 条入站全部发布，
+CPU 只有 31%；Runtime 创建 Run 用了 130s，602 个 `RUN_QUEUE_TIMEOUT`。当前 8 Runtime 副本
+配置 **不能**支撑“1000 个长 Run 同时在飞”；要测 Connector 的并发上限，必须先把 Runtime
+扩容到不成为限制，否则测到的仍是 Runtime 队列。
+
 ---
 
 ## 11. 沉淀待办
@@ -417,8 +494,13 @@ uv run python scripts/capacity/diag.py cpu --interval 1 --duration 180 --out /tm
 - [x] 备选插件固化：`scripts/capacity/smoke_report.py`（`-p smoke_report` + `MUAD_SMOKE_METRICS_OUT`）
 - [x] `smoke_report`/`chunk_bench` 单测：`tests/capacity/test_capacity_chunk_bench.py`
 - [x] 本地 1000 SSE 复现固化：`local-macbook-1000x{1,8}-sse.yml` + `scripts/capacity/p1_1000_steady.py`（§10.4）
+- [x] 企微单 bot 1000 私聊基座：`local-macbook-1000x1-wecom.yml` +
+  `tests/acceptance/capacity/test_wecom_capacity.py` + `make capacity-wecom`（§10.5）
 - [x] SSE 通知传输接入驱动：`MUAD_NOTIFICATION_TRANSPORT=sse`（driver 建流前 REST 快照 + `snapshot=1`）
 - [ ] `scripts/capacity/loadgen.py` 在 staging 实跑一次并把数字写进 §10 基线
+- [ ] E-06 真机企微：确认单 bot 的真实频率/窗口配额，并与 §10.5 本地结果对照
+- [ ] 真实平台 1000 用户：当前只有单用户真机 E2E，无 1000 个真实账号；在有真实测试租户/成员前
+  保持未验证边界，不以本地探针结果替代
 - [ ] 给 gateway 侧 SSE 打开（`get_run_scope` + `open_event_stream`）加同口径分段计时
 - [ ] 把“极简模型”做成正式场景 `test_capacity_minimal_model.py`
 - [ ] run timeline 事件（submit/admission/claim/first_chunk/first_sse/finalize）常驻化

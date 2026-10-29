@@ -1894,6 +1894,41 @@ DB 语句被算进 admission。给启动任务显式打 `turn` 后：
 16c/staging（或等价独立 DB 环境）的 E-09 裁决。本地剩余墙仍是 §0.38 的
 `persist ~2s + event_batch_wait ~0.5s + upstream ~1.5s` 稳态吞吐，不是本轮会话策略引入的。
 
+### 0.40 企微单 bot / 单 Connector 1000 私聊（2026-10-29）
+
+**目标**：保持 WebChat 1000×1 的服务配置比（Console 4 worker、Runtime 8 副本、Worker 4 副本、
+Gateway 2 副本），只加 1 个 Connector、1 个 bot，验证 1000 个独立私聊用户的通道上限。
+
+**实测**（1000 个独立 `external_user_id`，每人 1 条私聊；模型首块 800ms；`WECOM_MODEL_SLOTS=2000`
+是诊断覆盖，正式 E-09 保持 seed 16）：
+
+| ramp | 完成 | final P50 / P95 | Connector CPU | Runtime CPU | inbound pending 峰值 | Connector 发布速率 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 60s | 1000/1000 | 1162 / 1227ms | 9.8% | 234% | 23 | 16.1/s |
+| 30s | 1000/1000 | 1335 / 1494ms | 22.3% | 517% | 51 | 31.9/s |
+| 15s | 1000/1000 | 6001 / 9842ms | 28.8% | 605% | 395 | 56.4/s |
+| 5s | 1000/1000 | 11178 / 20505ms | 33.7% | 607% | 723 | 138.7/s |
+| 0s（15s 首块 + 20×500ms） | 398/1000 | 85356 / 175093ms | 31.3% | 563% | 969 | 436.7/s |
+
+并发档的 602 个失败全部是 **`RUN_QUEUE_TIMEOUT`**；Connector 2.29s 已发布 1000 条、CPU 31%，
+Runtime 创建 Run 用了 130s。该档证明的是 Runtime 队列先到顶，不是 Connector。
+
+**判读**：
+
+- 1000 用户 / 60s 全部完成、零失败；Connector CPU 10%、Runtime 2.7 核，IM 侧没有瓶颈。
+- 抬高到达率后，Connector 已把 1000 条入站发布完（5s 档 138.7/s、7.2s 完成），但 Run 创建
+  比发布晚约 19s，Runtime CPU 峰值 6.07 核——**本次测量到的是 Runtime/执行面先到顶，不是
+  Connector 先到顶**。不能把 burst 延迟归因成企微通道上限。
+- 单 bot 状态预算仍是 10 次/s；1000 用户时状态帧会合并，正文/终帧不占该预算，终帧到达率仍 100%。
+- 没有 16c/staging 与真实企微配额证据前，不能回答“单 bot 最多多少用户”；本地只证明
+  “1000 用户 / 60s 可以通过，burst 场景 Runtime 先饱和”。
+- 真实平台目前只验证了**单用户端到端**；没有 1000 个真实企微账号，未做真实平台 1000 用户。
+  批量创建成员只得到身份行，不等于 1000 个已登录、能发消息的客户端；真实平台 1000 用户仍是
+  未验证边界，不能用本地探针结果对外承诺单 bot 1000。
+
+复现：`scripts/capacity/PLAYBOOK.md` §10.5 + `tests/acceptance/capacity/test_wecom_capacity.py` +
+`tests/capacity/profiles/local-macbook-1000x1-wecom.yml`。
+
 ### 1.1 当前是否达标
 
 **本地热基座：400/600 绿；1000 功能绿、SLO 红；staging E-09 仍未执行。**

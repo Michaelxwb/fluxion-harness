@@ -48,6 +48,31 @@ profile：`tests/capacity/profiles/local-macbook-1000x1-sse.yml` / `...1000x8-ss
   **不得写成生产容量结论**。
 - 复现命令与判读见 `PLAYBOOK.md` §10.4；逐项诊断过程见 `ANALYSIS.md`。
 
+### 企微单 bot / 单 Connector（2026-10-29，本地诊断）
+
+1000 个独立私聊用户、1 个 bot、1 个 Connector，其余服务配置与 WebChat 1000×1 相同。
+profile：`tests/capacity/profiles/local-macbook-1000x1-wecom.yml`；命令与完整表见
+`PLAYBOOK.md` §10.5。
+
+| 档位 | 完成 | final P50 / P95 | Connector CPU | Runtime CPU |
+|---|---:|---:|---:|---:|
+| 1000 / 60s | 1000/1000 | 1162 / 1227ms | 9.8% | 234% |
+| 1000 / 30s | 1000/1000 | 1335 / 1494ms | 22.3% | 517% |
+| 1000 / 15s | 1000/1000 | 6001 / 9842ms | 28.8% | 605% |
+| 1000 / 5s | 1000/1000 | 11178 / 20505ms | 33.7% | 607% |
+| 1000 / 0s（15s 首块 + 20×500ms） | 398/1000 | 85356 / 175093ms | 31.3% | 563% |
+
+- 1000/60 是舒适区：零失败，IM 侧没有瓶颈。
+- 并发档（1000 个长 Run 同时在飞）出现 **602 个 `RUN_QUEUE_TIMEOUT`**；Connector 2.29s
+  发布完 1000 条、CPU 31%，Runtime 才是先到顶的一侧。
+- 抬高到达率后 **Runtime 先到顶**（6.07 核），Connector 仍有 CPU 余量；不能据此宣称
+  “企微通道上限 = 1000”。
+- 真实企微平台配额仍需 E-06 真机确认；真机目前只验证了单用户端到端，**没有 1000 个真实
+  账号，真实平台 1000 用户未验证**。批量创建成员不等于 1000 个已登录客户端。
+- 因此可以写“本地通道侧 1000 虚拟用户通过”，不能写“真实企微单 bot 支持 1000 用户”。
+- 复现：`make capacity-wecom`（1000/60）；阶梯用
+  `make capacity-wecom WECOM_USERS=100 WECOM_RAMP_SEC=10`，burst 用 `WECOM_RAMP_SEC=5`。
+
 ## loadgen.py — 对**已部署**栈发真实负载
 
 `make capacity-smoke` 自己起四单元栈；本工具连已在跑的栈（staging / k8s / `scripts/dev.sh start`），

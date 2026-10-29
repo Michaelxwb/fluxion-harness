@@ -46,7 +46,7 @@ from muad_console_platform.infrastructure.models.control import (
     SkillArtifact,
 )
 from muad_contracts import ResolveDefinitionResponse, build_task_snapshot
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from tests.acceptance.capacity.stack import DatastoreHandle, run_async
 from tests.acceptance.datastores import create_datastore, seed_platform_settings
@@ -128,6 +128,9 @@ class SeededDelivery:
     wecom_bot_account_id: uuid.UUID | None = None
     wecom_external_user_id: str | None = None
     wecom_chat_id: str | None = None
+    #: 本基座种下的全部企微私聊用户（与 `wecom_external_user_id` 首位一致）。
+    wecom_external_user_ids: tuple[str, ...] = ()
+    wecom_platform_user_ids: tuple[uuid.UUID, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,9 +201,18 @@ def seed_delivery_control(
     artifacts_root: Path | None = None,
     skill_script: str | None = None,
     wecom: bool = False,
+    wecom_users: int = 1,
+    model_max_inflight: int = 16,
     platform_settings: Mapping[str, Any] | None = None,
 ) -> SeededDelivery:
-    """写入本租户的真实控制面：模型/凭据/Agent/网页入口/用户/Token（可选 Skill/企微机器人）。"""
+    """写入本租户的真实控制面：模型/凭据/Agent/网页入口/用户/Token（可选 Skill/企微机器人）。
+
+    `wecom_users` > 1 时，为同一机器人种下 N 个独立私聊用户（每用户一份 PlatformUser/
+    AgentAccessGrant/ChannelIdentity）；容量负载的 N 个 Run 才是 N 个不同主体，而不是
+    同用户并发撞 `capacity.max_open_runs_per_user`。
+    """
+    if wecom and wecom_users < 1:
+        raise ValueError(f"wecom_users 必须 ≥ 1，收到 {wecom_users}")
     token = generate_chat_token()
     ids: dict[str, Any] = {}
 
@@ -227,7 +239,7 @@ def seed_delivery_control(
                     base_url="http://127.0.0.1:1/v1",
                     api_key=PROBE_API_KEY,
                     api_key_digest=hashlib.sha256(PROBE_API_KEY.encode()).hexdigest(),
-                    max_inflight=16,
+                    max_inflight=model_max_inflight,
                 )
                 session.add(credential)
                 await session.flush()
@@ -322,6 +334,8 @@ def seed_delivery_control(
                         AgentSkillBinding(agent_id=agent.id, skill_id=skill.id, sort_order=0)
                     )
                 bot_account_id: uuid.UUID | None = None
+                wecom_user_ids: tuple[uuid.UUID, ...] = ()
+                wecom_external_ids: tuple[str, ...] = ()
                 if wecom:
                     bot = BotAccount(
                         tenant_id=tenant_id,
@@ -335,15 +349,13 @@ def seed_delivery_control(
                     session.add(bot)
                     await session.flush()
                     bot_account_id = bot.id
-                    session.add(
-                        ChannelIdentity(
-                            tenant_id=tenant_id,
-                            channel="WECOM",
-                            identity_key=f"WECOM:{WECOM_BOT_ID}:{WECOM_EXTERNAL_USER_ID}",
-                            external_user_id=WECOM_EXTERNAL_USER_ID,
-                            bot_account_id=bot.id,
-                            platform_user_id=user.id,
-                        )
+                    wecom_user_ids, wecom_external_ids = await _seed_wecom_users(
+                        session,
+                        tenant_id=tenant_id,
+                        agent_id=agent.id,
+                        bot_account_id=bot.id,
+                        first_user_id=user.id,
+                        count=wecom_users,
                     )
                 await session.commit()
                 ids.update(
@@ -357,6 +369,8 @@ def seed_delivery_control(
                     storage_key=storage_key,
                     checksum=checksum,
                     bot_account_id=bot_account_id,
+                    wecom_user_ids=wecom_user_ids,
+                    wecom_external_ids=wecom_external_ids,
                 )
         finally:
             await engine.dispose()
@@ -380,7 +394,50 @@ def seed_delivery_control(
         wecom_bot_account_id=ids["bot_account_id"],
         wecom_external_user_id=WECOM_EXTERNAL_USER_ID if wecom else None,
         wecom_chat_id=WECOM_CHAT_ID if wecom else None,
+        wecom_external_user_ids=ids["wecom_external_ids"],
+        wecom_platform_user_ids=ids["wecom_user_ids"],
     )
+
+
+async def _seed_wecom_users(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    agent_id: uuid.UUID,
+    bot_account_id: uuid.UUID,
+    first_user_id: uuid.UUID,
+    count: int,
+) -> tuple[tuple[uuid.UUID, ...], tuple[str, ...]]:
+    """同一机器人下的 N 个独立私聊主体；首位复用已种好的 user。"""
+    user_ids = [first_user_id]
+    for index in range(1, count):
+        user = PlatformUser(
+            tenant_id=tenant_id,
+            user_code=f"capacity-wecom-user-{index}-{uuid.uuid4().hex[:8]}",
+            display_name=f"Capacity WeCom User {index}",
+            status="ACTIVE",
+        )
+        session.add(user)
+        await session.flush()
+        session.add(AgentAccessGrant(user_id=user.id, agent_id=agent_id, granted_by=user.id))
+        user_ids.append(user.id)
+    external_ids: list[str] = []
+    for index, user_id in enumerate(user_ids):
+        external_id = (
+            WECOM_EXTERNAL_USER_ID if index == 0 else f"{WECOM_EXTERNAL_USER_ID}-{index:04d}"
+        )
+        session.add(
+            ChannelIdentity(
+                tenant_id=tenant_id,
+                channel="WECOM",
+                identity_key=f"WECOM:{WECOM_BOT_ID}:{external_id}",
+                external_user_id=external_id,
+                bot_account_id=bot_account_id,
+                platform_user_id=user_id,
+            )
+        )
+        external_ids.append(external_id)
+    return tuple(user_ids), tuple(external_ids)
 
 
 def bind_probe_credential(database_url: str, credential_id: uuid.UUID, base_url: str) -> None:
