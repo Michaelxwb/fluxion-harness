@@ -1,6 +1,6 @@
 ---
 id: harness-data
-description: Agent Harness 通用平台规则：data
+description: 表设计、迁移与索引
 stages:
 - design
 - plan
@@ -31,14 +31,14 @@ verifiers:
 
 ## Conventions
 
-- **稳定 key 不因软删除而重置**：`user_memory` 的 `(tenant_id,user_id,memory_key)` 与 `memory_scope` 的 `(tenant_id,user_id)` 使用完整唯一。历史对稳定 `origin_id` 建同 Owner FK，执行对象/actor/command 是逻辑审计引用；history/receipt/job 的 `is_deleted` CHECK 恒 false。
+- **稳定 key 不因软删除而重置**：`user_memory` 的 `(tenant_id,user_id,memory_key)` 与 `memory_scope` 的 `(tenant_id,user_id)` 使用完整唯一。历史对稳定 `origin_id` 建同 Owner FK，执行对象/actor/command 是逻辑审计引用；history/receipt/job 的 `is_deleted` CHECK 恒 false。同族的新注册表同样使用完整唯一（含 tombstone）：`runtime.model_capacity`（0022）、`runtime.run_admission_policy`（0023，另有 `is_deleted=false` CHECK）、`runtime.channel_notification_feed`（0026）。
   - ✅ 删除后保留原 id，下一次合法修改续增 version，并在同事务写完整历史；❌ 用 partial key 唯一建立第二个 incarnation，再从 version=1 开始。
 - **跨 Owner Schema 的只读聚合**：允许直接读取其它 Owner 的表（如 `task.*`、`runtime.*`）做**只读聚合投影**，条件是：① 只读、不写任何表；② 每条查询都带 `tenant_id` 与 `is_deleted = false`（或该表的软删等价条件）；③ 名称类字段在同一 SQL 内 JOIN 批量补齐，不做逐行关联（N+1）。既有两例：`audit_query_repository`（11-audit-observability）与 `overview_query_repository`（12-overview-dashboard）。**不建宽表、不建物化视图**，跨 Schema 一律逻辑引用（UUID）、不建物理 FK。
 - **四列口径的唯一载体是 `StandardColumnsMixin`**：`id`/`is_deleted`/`create_time`/`update_time` 四个声明集中在各 app 的 `infrastructure/models/base.py`，产品 ORM 统一继承该 mixin。三个 app 各持一份**同名同内容的副本**：`apps/console-platform/backend/src/muad_console_platform/infrastructure/models/base.py`、`apps/agent-worker/src/muad_agent_worker/infrastructure/models/base.py`、`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/base.py`（三份 `NAMING_CONVENTION` 也一致）。
   - ✅ `class X(StandardColumnsMixin, Base):` —— 四列自动齐全且口径一致。
   - ❌ 直接 `class X(Base):` 自己写四列 ⇒ 极易漏 `is_deleted`（软删条件失效）或写成裸 `datetime` 而非 `DateTime(timezone=True)`。
   - 注：三份副本无单一来源，改四列口径时必须同时改三处。
-- **partial 索引不限于「软删唯一」**：状态谓词索引同样是 partial，用于把「活跃/运行中」这一小集合隔离出来。既有：`ix_task_execution_running_lease_until`（`WHERE status = 'RUNNING'`）与 `ix_task_execution_final_delivery`（`WHERE delivery_mode = 'FINAL_ONLY' AND is_deleted = false`，`apps/agent-worker/src/muad_agent_worker/infrastructure/models/task.py`）；`ix_run_record_running_lease_until` 与 `...（status IN ('CREATED','RUNNING','WAITING_INPUT') AND is_deleted = false）`（`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py`）。
+- **partial 索引不限于「软删唯一」**：状态谓词索引同样是 partial，用于把「活跃/运行中」这一小集合隔离出来。既有：`ix_task_execution_running_lease_until`（`WHERE status = 'RUNNING'`）与 `ix_task_execution_final_delivery`（`WHERE delivery_mode = 'FINAL_ONLY' AND is_deleted = false`，`apps/agent-worker/src/muad_agent_worker/infrastructure/models/task.py`）；`ix_run_record_running_lease_until` 与 `ix_run_record_open_tenant` / `ix_run_record_queue_deadline`（活跃态集合含 `CREATED/RUNNING/WAITING_TOOL/WAITING_INPUT`，`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py`）。
   - ✅ 按「查询只关心某个状态子集」建 partial 索引；❌ 给状态列建全量索引（写放大且选择性差）。
 - **list 与 count 必须共用同一条件列表**：把过滤条件抽成一个私有 helper，`list()` 与 `count()` 同时引用，避免 `total` 与 `items` 漂移（既有范式：`ConsoleAccountRepository._active_conditions(tenant_id)` 被 `list()` 与 `count()` 复用，`apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/console_account_repository.py`）。
   - ✅ 两处 `where(*self._active_conditions(tenant_id))`。
@@ -53,10 +53,10 @@ verifiers:
   - 来源：用户 2026-10-01 明确要求（「migrations/中的脚本不要读取环境变量，直接改成读取 `migrations/alembic.ini` 中的配置」）；本条**无机检**，靠评审把关
 - **租户内存在性判断（规则正文在根 `CLAUDE.md` Core Principles；本 spec 已移除机检）**：任何「是否存在」判断（如启动自检）必须把 `count` 限定在目标租户内，不得用全库计数——全库判定会让任一租户有账号就掩盖「默认租户无账号 ⇒ 无法登录」的静默故障。**此处原先的 `no-global-count-in-tenant-check` 已删除**：它的 `pattern: 'count_all\('` 指向 13-console-auth 已移除的旧实现（全仓 0 命中），只防该法复活；而「无租户过滤的 count」这类通用形态正则在多行 SQL 上判不准、误报率高，留着是假防线。故本条**靠评审把关，不要以为有机检兜底**。
   - ✅ `await self._accounts.count(self._require_tenant()) > 0`；❌ `count_all() > 0`，或 `select(func.count())` 未带 `tenant_id` 条件
-- **摘要文本是权威历史（落库），transcript 是逐字存档（落共享产物）——二者不得互换**：`CONTEXT_SUMMARY` 事件把五字段摘要落 `runtime.canonical_event`，重建时取 `seq` 最大的一份作前缀、其后再按 seq 重放后续事件，因此换 Pod 得到的历史逐字节相同（`packages/agent-core/src/muad_agent_core/context/summary.py:1-6,147-152`；`apps/agent-runtime/src/muad_agent_runtime/application/context_events.py:6,29-56,85-100`）。被摘要覆盖掉的**逐字原文**另落共享产物（类型 `TRANSCRIPT`，DB 只留相对 `storage_key`），且**只写不读**——本需求不新增任何对外读取/下载/明文导出端点（`apps/agent-runtime/src/muad_agent_runtime/application/attachments/transcripts.py:1-6,126-132`）。**互换的后果**：产物过了保留期会被清理（文件与行一起删，`apps/console-platform/backend/src/muad_console_platform/application/artifact_cleanup_service.py:136-145`），若把摘要只存成文件，被压缩掉的那段历史就净丢了；若把 transcript 存进库，等于把逐字原文塞进事件表。
+- **摘要文本是权威历史（落库），transcript 是逐字存档（落共享产物）——二者不得互换**：`CONTEXT_SUMMARY` 事件把五字段摘要落 `runtime.canonical_event`，重建时取 `seq` 最大的一份作前缀、其后再按 seq 重放后续事件，因此换 Pod 得到的历史逐字节相同（`packages/agent-core/src/muad_agent_core/context/summary.py` 的 `summary_message` / `parse_summary`；`apps/agent-runtime/src/muad_agent_runtime/application/context_events.py` 的 `covered_up_to` 与重建路径）。被摘要覆盖掉的**逐字原文**另落共享产物（类型 `TRANSCRIPT`，DB 只留相对 `storage_key`），且**只写不读**——本需求不新增任何对外读取/下载/明文导出端点（`apps/agent-runtime/src/muad_agent_runtime/application/attachments/transcripts.py` 的模块说明与写入器）。**互换的后果**：产物过了保留期会被清理（文件与行一起删，`apps/console-platform/backend/src/muad_console_platform/application/artifact_cleanup_service.py` 的清理事务），若把摘要只存成文件，被压缩掉的那段历史就净丢了；若把 transcript 存进库，等于把逐字原文塞进事件表。
   - ✅ 摘要在 `canonical_event`、逐字原文在产物存储（`CONTEXT_SUMMARY.payload.transcript_artifact_id` 只作引用字段）
   - ❌ 摘要只写文件（保留期一过即失）／把 transcript 塞进 `canonical_event` 的 payload
-- **操作者/审计引用即使同 Owner Schema 也用逻辑引用，不建物理 FK**：`actor_user_id` 一类字段记录「谁做的」，指向 `console_account.id`，但**不建物理 FK**——版本行/审计行不可变且永不清理，物理 FK 会把操作过的账号永久钉住（账号删不掉），而记录本身只需保留 UUID 形状。先例两处：`ConfigAuditLog.actor_user_id`、`PlatformSetting.actor_user_id`（`apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py:295,302,622-624,646`）。
+- **操作者/审计引用即使同 Owner Schema 也用逻辑引用，不建物理 FK**：`actor_user_id` 一类字段记录「谁做的」，指向 `console_account.id`，但**不建物理 FK**——版本行/审计行不可变且永不清理，物理 FK 会把操作过的账号永久钉住（账号删不掉），而记录本身只需保留 UUID 形状。先例两处：`ConfigAuditLog.actor_user_id`、`PlatformSetting.actor_user_id`（`apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py`）。
   - 与 `RULE-data-001`「同 Owner Schema 用物理 FK」的字面口径有张力：那条规则管的是**业务实体间**的归属关系（可级联、需一致性）；**操作者/审计引用**是显式例外，按「逻辑 UUID + 不建 FK」处理。
   - ✅ `actor_user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())`（无 `ForeignKey`）
   - ❌ 给审计/版本表的 `actor_user_id` 加 `ForeignKey("control.console_account.id")` ⇒ 账号一旦被清理，历史行要么被级联删、要么外键报错，审计链断裂。

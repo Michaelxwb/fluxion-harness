@@ -1,6 +1,6 @@
 ---
 id: harness-ui
-description: Agent Harness 通用平台规则：ui
+description: Console 视觉与列表
 stages:
 - design
 - plan
@@ -34,8 +34,8 @@ verifiers:
 - 图标：统一 `@douyinfe/semi-icons`；Shell/分页等通用图标不得内联 SVG。
 - 页面骨架：`PageHeader`（标题+说明）→ `PageSection`（面板）→ `ModuleToolbar`（左上操作/右上筛选）→ `RemoteTable`（含 `PaginationFooter`：显示区间/每页/翻页，默认每页 10）；详情用 `DetailSideSheet`，表单用 `FormModal`，时间用 `DateTimeText`。
 - 模块列表页必须使用 `RemoteTable`（禁止手写 `<Table>` + 分页）；详情 Tab 内的局部清单允许直接用 Semi `Table`。
-- 表单字段布局以交互稿为准：双列栅格 `.form-grid`、控件同宽、按稿顺序成对、动态字段分区说明；详情基本信息用 `DetailGrid`。
-- 新增/编辑表单统一走 `FormModal`（宽度按表单复杂度取自交互稿，**不设固定枚举**——现网档位为 480/520/560/620/640/720/800，简单表单 520，含代码/结构化配置的按稿加宽；标签置顶；确认文案**由调用方按动作语义显式传 `okText`**，如「授权」「导入」「保存并发现」，组件兜底为 `common.confirm`）；字段补充说明用 `extraText`（如协议、Base URL、API Key、不可改编码），不得用占位符承载说明。
+- 表单字段布局与详情基本信息栅格的完整口径见 `harness-ui-detail.md`（本 spec 不重复定义）。
+- 新增/编辑表单统一走 `FormModal`（宽度按表单复杂度取自交互稿，**不设固定枚举**——现网档位为 480/520/560/620/640/720/760，简单表单 520，含代码/结构化配置的按稿加宽；标签置顶；确认文案**由调用方按动作语义显式传 `okText`**，如「授权」「导入」「保存并发现」，组件兜底为 `common.confirm`）；字段补充说明用 `extraText`（如协议、Base URL、API Key、不可改编码），不得用占位符承载说明。
 - Shell：侧栏品牌区 + 图标菜单 + 底部用户区（头像/退出）；顶栏放主题切换与语言切换。
 - **业务操作按钮统一蓝色**：列表、详情、表单与设置页的操作按钮使用 Semi `type="primary"`（默认类型也为 primary），边框/背景由 `theme` 决定；删除、解绑、撤销、取消任务、清空等确认操作也统一该颜色，悬停不切换成红色。`ConfirmAction`、`FormModal` 的确认/取消操作遵循同一口径，禁用态使用 Semi 内建样式。
 
@@ -68,7 +68,7 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
 ```
 
 - **`RemoteTable` 只约束「列表页」**：以「左上操作 + 右上搜索筛选 + 列表 + 右下分页」为形态的模块列表页必须用它；**仪表盘/概览类页面**（如 `overview-dashboard` 首页：资源摘要、KPI 与图表，允许时间范围/刷新控制，无列表分页）不受该约束，其指标区块使用共享 PageSection/MetricCards，图表使用主题化 ECharts，但区块内**不得**再用 `RemoteTable`/`ModuleToolbar`。契约测试以「显式声明的非列表页 + 反查其确实不含列表构件」实现，不得靠"不写 RemoteTable"蒙过。
-- **菜单 `adminOnly` 恰有两项**：`config/menu.ts` 里 `/users` 与 `/settings` 带 `adminOnly: true`，所以 ADMIN 见 11 项、非 ADMIN 见 9 项；`AppLayout` 用 `menuItems.filter((item) => !item.adminOnly || account?.role === 'ADMIN')` 过滤。菜单项本身只做可见性，权限边界仍由路由侧 `<RequireRole role="ADMIN">` 兜底。机检：`tests/frontend/test_console_shell_contract.py:31-38`。
+- **菜单 `adminOnly` 恰有两项**：`config/menu.ts` 里 `/users` 与 `/settings` 带 `adminOnly: true`，所以 ADMIN 见 11 项、非 ADMIN 见 9 项；`AppLayout` 用 `menuItems.filter((item) => !item.adminOnly || account?.role === 'ADMIN')` 过滤。菜单项本身只做可见性，权限边界仍由路由侧 `<RequireRole role="ADMIN">` 兜底。机检：`tests/frontend/test_console_shell_contract.py::test_console_shell_menu_is_the_fixed_eleven_items`。
 
   ✅：两项 `adminOnly`（`/users`、`/settings`）+ 各自路由守卫
 
@@ -81,8 +81,8 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
   ❌：再加第三项 `adminOnly: true`（机检会红，且"非 ADMIN 可见 9 项"的语义被破坏）
 
 - **「系统设置」入口只能来自 `config/menu.ts`**：`/settings` 菜单项必须由 `menuItems` 派生（不在 `AppLayout` 里硬编码第二处导航），路由在 `App.tsx` 受 `<RequireRole role="ADMIN">` 守卫；`AppLayout` 的 `MENU_ICONS` 登记对应 `semi-icons` 图标。机检：`tests/frontend/test_console_shell_contract.py::test_console_shell_has_system_settings_entry`。
-- **`AppLayout` 不得内联第二处导航项数组**：Nav items 只能由 `menuItems` 派生（`menuItems.filter(...)` → `visibleItems.map(...)`）；不得出现 `items={[{ itemKey: '/x', ... }]}` 这类内联数组。机检：`tests/frontend/test_console_shell_contract.py:58-64`。
-- **列表页加载必须有请求竞态守卫**：`const requestSeq = useRef(0)`，请求发出前 `++requestSeq.current` 存为局部常量，响应回来先比对 `seq !== requestSeq.current` 即丢弃（不得写入 state）。现网 19 个文件（`agent-management/AgentPage.tsx:30,42-44`、`project-platform/PlatformPage.tsx`、`user-identity/UserPage.tsx`、`skill-management/SkillPage.tsx`、`mcp-management/McpPage.tsx`、`model-management/ModelPage.tsx`、`task-schedule/TaskPage.tsx`、`SchedulePage.tsx`、`SelectedUserTable.tsx`、`PlatformCredentialTab.tsx` 及 `overview-dashboard`/`audit-observability` 的 hooks 等）都已收敛到该形态。
+- **`AppLayout` 不得内联第二处导航项数组**：Nav items 只能由 `menuItems` 派生（`menuItems.filter(...)` → `visibleItems.map(...)`）；不得出现 `items={[{ itemKey: '/x', ... }]}` 这类内联数组。机检：`tests/frontend/test_console_shell_contract.py::test_layout_renders_menu_items_with_role_filter`。
+- **列表页加载必须有请求竞态守卫**：`const requestSeq = useRef(0)`，请求发出前 `++requestSeq.current` 存为局部常量，响应回来先比对 `seq !== requestSeq.current` 即丢弃（不得写入 state）。现网 30 个文件（`agent-management/AgentPage.tsx`、`project-platform/PlatformPage.tsx`、`user-identity/UserPage.tsx`、`skill-management/SkillPage.tsx`、`mcp-management/McpPage.tsx`、`model-management/ModelPage.tsx`、`task-schedule/TaskPage.tsx`、`SchedulePage.tsx`、`SelectedUserTable.tsx`、`PlatformCredentialTab.tsx` 及 `overview-dashboard`/`audit-observability` 的 hooks 等）都已收敛到该形态。
 - **列表筛选的生效时机统一为「选择即时、文本回车」**：下拉/日期类筛选**选中即**写入查询参数；关键字文本是**草稿**，只有**回车**才写入查询参数；两者都把页码复位到第 1 页。列表页**没有**独立搜索按钮——筛选控件本身就是搜索入口（对应设计 §3.3.1 的按钮表只有「搜索/筛选」「重置」「刷新」三行）。8 个模块列表页同款：`agent-management/AgentPage.tsx`、`model-management/ModelPage.tsx`、`user-identity/UserPage.tsx`、`skill-management/SkillPage.tsx`、`mcp-management/McpPage.tsx`、`project-platform/PlatformPage.tsx`、`audit-observability/components/AuditFilterBar.tsx`、`task-schedule/{TaskPage,SchedulePage}.tsx`。
 
   ✅：关键字只改草稿、回车才提交；下拉直接改查询参数

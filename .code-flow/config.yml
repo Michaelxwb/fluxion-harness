@@ -10,16 +10,21 @@ spec_workflow:
         dedup_window: 5
 
 budget:
-    # 2026-10-27：tests/** 只映射到 harness-test 一个 spec，而该文件本身约 5.9k tokens
-    # （数十条 E2E/CI 约束，含时区、testid、build、端口、workers=1 等机检口径）。
-    # 通用 L1 上限 1700 会让任何 tests/** 编辑直接 spec_budget_exceeded，且压缩到 1700
-    # 必然丢掉可验证约束；这里按“单文件规格”留约 10% 余量。多 spec 注入仍受 total 约束。
+    # 2026-10-29 二次收口：harness-test 已拆成 test（1.86k）+ e2e（1.13k）；最大单文件
+    # api/arch ≈2.46k、im ≈2.1k。l1_max 是**一次编辑命中规范总和**的上限（router 取
+    # min(total, l1_max)），实测最坏组合前端 ui+frontend+ui-detail ≈5.2k，故设 6000；
+    # 目标是单文件继续变胖就拆域，而不是抬预算。
     total: 7500
-    l0_max: 800
-    l1_max: 6500
+    # 2026-10-29：L0 已做过一轮去重（验收细节下沉 harness-test、删历史叙事），剩 1077 tokens
+    # 全是常驻行为契约（核心原则/禁止项/工作流/收尾纪律），没有可再删的口号。800 是通用默认，
+    # 这里按实测内容显式放宽到 1100，而不是为了数字好看去砍规则。
+    l0_max: 1100
+    l1_max: 6000
     map_max: 400
-    # catalog 模式下 spec 目录的 token 上限（超出按 Tier1 优先截断并告警）
-    catalog_max: 200
+    # catalog 模式下 spec 目录的 token 上限（超出按 Tier1 优先截断并告警）。
+    # 2026-10-29：现有 22 个域、描述压缩到「域 + 3~5 个关键词」后仍需约 300 tokens；
+    # 200 只能列出 15 个域，等于按预算盲切路由面。域数量本身就是导航信息，这里放到 320。
+    catalog_max: 320
 
 # 质量闭环（v0.5）：合规反馈 + 学习采集。
 # enabled 仅 literal true 启用（缺失即关闭，升级用户行为不变）；
@@ -246,9 +251,22 @@ path_mapping:
             - path: "test/harness-test.md"
               tags:
               - "test"
-              - "e2e"
+              - "acceptance"
               - "contract"
-              - "parity"
+              - "ci"
+              tier: 1
+    e2e:
+        # 浏览器验收单独成域：e2e/** 原先没有任何 pattern 指向，改域配置时一条规范都不注入。
+        # 拆出 harness-e2e 后，tests/**（验收/单测/CI）与 e2e/**（Playwright 域配置）互不占预算。
+        patterns:
+            - "e2e/**"
+            - "tests/frontend/test_e2e_suite_contract.py"
+        specs:
+            - path: "e2e/harness-e2e.md"
+              tags:
+              - "e2e"
+              - "playwright"
+              - "smoke"
               tier: 1
     i18n:
         patterns:
@@ -311,6 +329,11 @@ path_mapping:
             - "**/models/auth.py"
             - "**/auth/**"
             - "**/*grant*"
+            # CHAT 公开认证面（webchat auth）与 Console 管理会话是两套凭据，规则同属本域。
+            - "**/webchat_auth.py"
+            - "**/chat_auth_service.py"
+            - "**/chat_token_service.py"
+            - "**/chat_security.py"
         specs:
             - path: "auth/harness-auth.md"
               tags:
@@ -323,6 +346,10 @@ path_mapping:
         patterns:
             - "packages/agent-core/**/model/**"
             - "**/models/model*"
+            # 模型池/额度/容量：契约、Console 管理面与 Runtime 调度都有稳定规则（harness-model 的模型池段）。
+            - "packages/contracts/src/muad_contracts/model_pool.py"
+            - "apps/agent-runtime/src/muad_agent_runtime/application/model_*.py"
+            - "apps/console-platform/backend/src/muad_console_platform/application/model_*.py"
         specs:
             - path: "model/harness-model.md"
               tags:
@@ -356,8 +383,12 @@ path_mapping:
     im:
         patterns:
             - "apps/im-gateway/**"
+            - "apps/im-connector/**"
+            - "packages/im-core/**"
             - "packages/contracts/src/muad_contracts/channel.py"
             - "packages/contracts/src/muad_contracts/delivery.py"
+            - "packages/contracts/src/muad_contracts/webchat.py"
+            - "packages/contracts/src/muad_contracts/webchat_events.py"
         specs:
             - path: "im/harness-im.md"
               tags:

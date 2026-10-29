@@ -1,6 +1,6 @@
 ---
 id: harness-mcp
-description: Agent Harness 通用平台规则：mcp
+description: MCP 目录与运行时
 stages:
 - design
 - plan
@@ -59,14 +59,14 @@ Console 侧 `discover-tools` 的 Catalog 维护与缓存（PG 为权威源）：
 - **连接测试与目录发现必须异步且关闭连接**：`McpClient` 使用 `httpx.AsyncClient`，调用方 `async with` 后 await `initialize`/`list_tools`；正常、协议错误、超时与取消均退出上下文释放连接。无凭据 MCP 不发送 Authorization，API-09 返回可空的 `auth_secret`。
   - ✅ `async with McpClient(...) as client: await client.initialize()`；❌ 在 async 服务中调用同步 `httpx.Client.post`，或构造客户端后不关闭。
   - 机检：`tests/console_mcp/test_mcp_client.py::test_slow_mcp_yields_and_closes`、`test_failed_mcp_closes_connections`。
-- **发现失败必须保留上一成功 Catalog**：失败时置 `connection_status=DISCOVERY_FAILED` 并写 `last_discovery_error`，`tool_catalog_json`/`hash`/`revision` 一概不动（`application/mcp_service.py:426-432`）。
-  - 关键实现约束：失败状态必须用**独立事务**持久化（`_write_failure_state`，`application/mcp_service.py:94-106`）——`discover_tools` 随后抛 `AppError`，主事务会被回滚，同事务写等于没写。
-  - 机检：`tests/console_mcp/test_discover_api.py:94-122`
-- **`revision` 仅在 `tool_catalog_hash` 变化时 +1**：hash 相同则只刷新 `connection_status`/`last_discovered_at`（`application/mcp_service.py:433-445`）。hash 口径 = catalog 稳定键序（按 `name` 排序、`sort_keys=True` + 紧凑分隔符 + `ensure_ascii=False`）的 `sha256:`（`infrastructure/mcp_client.py:43-58`）。revision 是下游缓存的失效依据，无变化即自增会让缓存与冻结快照无谓失效。
-- **MCP catalog 存在 Redis 缓存层，PG 是权威源**：端口 `McpCatalogCache`（`application/mcp_ports.py:7-10`）与实现 `RedisMcpCatalogCache`（`infrastructure/mcp_catalog_cache.py`）；discover/delete 后按 revision 失效（`application/mcp_service.py:367,446-447`）。
-  - **缓存失效失败不得影响目录事实源**：`_invalidate_cache` 吞掉异常并注释说明（`application/mcp_service.py:369-375`）——DB 已提交才是事实，缓存不可用只影响性能。
-- **工具 `effect` 归一化**：`annotations.readOnlyHint=True` → `READ`，`destructiveHint=True` → `DESTRUCTIVE`，否则 `WRITE`（`infrastructure/mcp_client.py:34-40`）；`tool_catalog_json` 元素固定四字段 `name`/`description`/`input_schema`/`effect`，按 `name` 排序（`:43-53`）。
-- **单 server 工具数上限走平台设置 `mcp.max_tools_per_server`（默认 200）**（`muad_contracts/platform_settings.py` 的 `McpSettings`；`application/mcp_service.py` 的 `discover_tools` 读当前值后传入 `list_tools(max_tools=limit)`）。超限时**立即失败**（`McpClientError("protocol", ...)`，`infrastructure/mcp_client.py:150-182`），使无界拉取不可能发生——按既有失败路径落 `DISCOVERY_FAILED` 并保留上一成功 Catalog，而不是截断出一个不完整的 catalog。
+- **发现失败必须保留上一成功 Catalog**：失败时置 `connection_status=DISCOVERY_FAILED` 并写 `last_discovery_error`，`tool_catalog_json`/`hash`/`revision` 一概不动（`application/mcp_service.py` 的 `discover_tools` 失败分支）。
+  - 关键实现约束：失败状态必须用**独立事务**持久化（`_write_failure_state`）——`discover_tools` 随后抛 `AppError`，主事务会被回滚，同事务写等于没写。
+  - 机检：`tests/console_mcp/test_discover_api.py`（发现失败用例）
+- **`revision` 仅在 `tool_catalog_hash` 变化时 +1**：hash 相同则只刷新 `connection_status`/`last_discovered_at`（`application/mcp_service.py` 的 revision 判定）。hash 口径 = catalog 稳定键序（按 `name` 排序、`sort_keys=True` + 紧凑分隔符 + `ensure_ascii=False`）的 `sha256:`（`infrastructure/mcp_client.py`）。revision 是下游缓存的失效依据，无变化即自增会让缓存与冻结快照无谓失效。
+- **MCP catalog 存在 Redis 缓存层，PG 是权威源**：端口 `McpCatalogCache`（`application/mcp_ports.py`）与实现 `RedisMcpCatalogCache`（`infrastructure/mcp_catalog_cache.py`）；discover/delete 后按 revision 失效（`application/mcp_service.py`）。
+  - **缓存失效失败不得影响目录事实源**：`_invalidate_cache` 吞掉异常并注释说明——DB 已提交才是事实，缓存不可用只影响性能。
+- **工具 `effect` 归一化**：`annotations.readOnlyHint=True` → `READ`，`destructiveHint=True` → `DESTRUCTIVE`，否则 `WRITE`（`infrastructure/mcp_client.py`）；`tool_catalog_json` 元素固定四字段 `name`/`description`/`input_schema`/`effect`，按 `name` 排序。
+- **单 server 工具数上限走平台设置 `mcp.max_tools_per_server`（默认 200）**（`muad_contracts/platform_settings.py` 的 `McpSettings`；`application/mcp_service.py` 的 `discover_tools` 读当前值后传入 `list_tools(max_tools=limit)`）。超限时**立即失败**（`McpClientError("protocol", ...)`，`infrastructure/mcp_client.py` 的 `list_tools` 上限检查），使无界拉取不可能发生——按既有失败路径落 `DISCOVERY_FAILED` 并保留上一成功 Catalog，而不是截断出一个不完整的 catalog。
 - **运行时 MCP 会话必须 singleflight 初始化、请求 ID 不复用、响应 ID 严格匹配**（async-tool-runtime，2026-10-09）：每冻结 server 一把初始化锁——并发 `tools/call` 只发一次 `initialize`，成功才置 `initialized`；请求 ID 由**会话内计数器**递增提供（initialize / tools/call 每次一个，绝不复用），响应 `id` 与请求严格相等，缺失/错配按协议错误。任何失败（协议错误 / `isError` / 超时 / 取消）都**丢弃该 server 会话并关闭连接**，后续调用重新 initialize 可重试，旧失败不锁死等待方。
   - ✅ 失败后重试的 initialize 计数 +1（新会话、新连接）；❌ 复用坏会话继续发 `tools/call`，或并发调用各发一次 initialize
   - 机检：`tests/agent_runtime/test_mcp_request_correlation.py`（`apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py` 的 `_ready_session` / `_next_request_id` / `_discard_session`）

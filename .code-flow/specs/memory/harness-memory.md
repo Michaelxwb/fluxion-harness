@@ -1,6 +1,6 @@
 ---
 id: harness-memory
-description: 长期记忆的来源确认、稳定身份、硬配额、请求刷新与持久提炼协议
+description: 长期记忆协议
 stages: [design, plan, code, review]
 enforcement: required
 verifiers:

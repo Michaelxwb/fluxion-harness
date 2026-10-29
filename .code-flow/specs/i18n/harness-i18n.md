@@ -1,6 +1,6 @@
 ---
 id: harness-i18n
-description: Agent Harness 通用平台规则：i18n
+description: 词条与语言协商
 stages:
 - design
 - plan
@@ -36,17 +36,17 @@ verifiers:
 
   ❌：自造键名（`audit.export.error.idempotency`）、或把后端 `msg` 直接渲染出来
 
-  机检：`tests/frontend/test_audit_i18n_contract.py:314-322`（键名须与 catalog 码同名、码必须已登记、两侧都有词条、必须有 fallback 词条）。
+  机检：`tests/frontend/test_audit_i18n_contract.py`（键名须与 catalog 码同名、码必须已登记、两侧都有词条、必须有 fallback 词条）。
 
 - **枚举/状态类词条必须真本地化**：zh-CN 与 en-US 文案不同，且**都不等于裸枚举码**。
 
   ⚠️ **术语类词条明确豁免**（如 `audit.resourceType.MCP`、`audit.columns.traceId` 这类专有名词），两侧本就同名，不属"必须翻译"的范围。只钉 `audit.auditType.*` 与 `audit.resultStatus.*` 两组枚举。
 
-  机检：`tests/frontend/test_audit_i18n_contract.py`（`:370-376` 本地化、`:363-368` 术语豁免）、`tests/frontend/test_task_schedule_i18n.py:141-151`（业务枚举）。
+  机检：`tests/frontend/test_audit_i18n_contract.py`（本地化、术语豁免）、`tests/frontend/test_task_schedule_i18n.py`（业务枚举）。
 
-- **模块源文件（含 service/types/hooks）不得承载硬编码中文文案**：去注释后字符串字面量不得含 CJK/全角字符。后端同向由 `scripts/check_error_message_hardcode.py` 守住错误文案。机检：`tests/frontend/test_audit_i18n_contract.py:60`（CJK 正则）、`:258-264`（扫描全部模块源文件）。
-- **按模块前缀的词条键集两侧必须完全一致，且每条都必须被模块源码引用**（无孤儿词条）——增删词条后跑对应模块的 `*_i18n*.py` 契约（`tests/frontend/test_audit_i18n_contract.py:244-252`）。
-- **i18n 单例约定**：持久化键 `muad.locale`（`localStorage`）、`fallbackLng: 'zh-CN'`、浏览器语言以 `en*` 开头取 `en-US` 否则 `zh-CN`；切换语言时 `changeLocale()` 同时写 `localStorage` 与 `document.documentElement.lang`，并调 `i18n.changeLanguage`（`src/i18n/index.ts`；e2e 断言 `e2e/tests/console-auth.spec.ts:234`）。
+- **模块源文件（含 service/types/hooks）不得承载硬编码中文文案**：去注释后字符串字面量不得含 CJK/全角字符。后端同向由 `scripts/check_error_message_hardcode.py` 守住错误文案。机检：`tests/frontend/test_audit_i18n_contract.py`（CJK 正则与全量模块源文件扫描）。
+- **按模块前缀的词条键集两侧必须完全一致，且每条都必须被模块源码引用**（无孤儿词条）——增删词条后跑对应模块的 `*_i18n*.py` 契约（`tests/frontend/test_audit_i18n_contract.py`）。
+- **i18n 单例约定**：持久化键 `muad.locale`（`localStorage`）、`fallbackLng: 'zh-CN'`、浏览器语言以 `en*` 开头取 `en-US` 否则 `zh-CN`；切换语言时 `changeLocale()` 同时写 `localStorage` 与 `document.documentElement.lang`，并调 `i18n.changeLanguage`（`src/i18n/index.ts`；浏览器侧断言见 `e2e/tests/foundation.spec.ts` 的语言持久化用例与 `e2e/tests/console-auth-ui.spec.ts`）。
 
 > 登记缺口：RULE-i18n-001 的「新增业务仅新增配置/词条，**不改框架代码**」目前**无任何脚本或测试约束**（纯人工约定，`tests/acceptance/test_foundation_i18n.py` 与 `scripts/check_frontend_i18n.py` 都不覆盖"是否动了框架代码"）。评审时需人工确认，或后续补一条对 `src/i18n/` 与 `src/api/client.ts` 的改动门禁。
 

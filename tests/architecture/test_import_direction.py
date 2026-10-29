@@ -5,7 +5,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 APP_MODULES = frozenset(
-    ("muad_agent_runtime", "muad_agent_worker", "muad_im_gateway", "muad_console_platform")
+    (
+        "muad_agent_runtime",
+        "muad_agent_worker",
+        "muad_im_gateway",
+        "muad_im_connector",
+        "muad_console_platform",
+    )
 )
 
 

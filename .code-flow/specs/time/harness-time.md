@@ -1,6 +1,6 @@
 ---
 id: harness-time
-description: Agent Harness 通用平台规则：time
+description: 时间与时区口径
 stages:
 - design
 - plan
@@ -24,7 +24,7 @@ verifiers:
 
 ## Rules
 
-- [RULE-time-001] 数据库统一 `timestamptz` 存储；Console 展示统一 `YYYY-MM-DD HH:mm:ss`（出参必须带 offset）；调度时区使用 IANA 时区（如 `Asia/Shanghai`）。
+- [RULE-time-001] 数据库时间存储遵循 RULE-data-001（统一 `timestamptz`）；Console 展示统一 `YYYY-MM-DD HH:mm:ss`（出参必须带 offset）；调度时区使用 IANA 时区（如 `Asia/Shanghai`）。
 
 ## Conventions
 

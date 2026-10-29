@@ -1,7 +1,7 @@
 version: 1
 task: 高 QPS 架构整改
 enforcement: required
-updated_at: '2026-10-28T17:21:55.367285+00:00'
+updated_at: '2026-10-29T03:52:11.001349+00:00'
 sources:
 - type: cli
   ref: bind
@@ -10,9 +10,9 @@ bindings:
   path: api/harness-api.md
   status: active
   hashes:
-    file_sha256: d3e052b669aced7cd3cc66cd1d8b478d98f0238b28e6af0fdb2a49eb4be23420
-    metadata_sha256: 78f5e6a63d63c79dc2ac063f729d1dbbccf08917671adf7ff2bcd0974161fe60
-    rules_sha256: 8ee17f7b3e997864a74bb3aea23898161ecbeb65a39354aeb33766476a958fa6
+    file_sha256: 96011a2c158e476b7d6f27d645a221205fa6c1a24a4f08eeead70848d7405fa1
+    metadata_sha256: 8088eab95efc280aa8387d3ee7e4fee89ce481e1d041cadce8abfb6d2636ae96
+    rules_sha256: ef9934dfeef724180bb98891e188e0f090a02e13dec4fe0163970ded69ff33aa
   selected_by: agent
   reason: 保留统一封套、分页与 Idempotency-Key 语义；新增内部事件契约不走 HTTP 封套但不得破坏既有 API
   enforcement: required
@@ -29,20 +29,17 @@ bindings:
       另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
       不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
       `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
-      unique 只作兜底（`channel_service.py:153-159`、`auth_service.py:270-276`、`audit_export_service.py:386-392`、`agent_service.py:159-162`、`mcp_service.py:240-243`、`skill_service.py:278-286`）。**存量待收敛**：console
-      侧 `agent_service`/`mcp_service`/`skill_service` 三处 `_fingerprint` 仍用 `|` 拼接且不含
-      endpoint/tenant，须按本口径对齐（合规参考 `channel_service.py:59-74`、`auth_service.py:253-267`、`audit_export_service.py:100-119`、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py:30-49`）。
-      Runtime 记忆命令使用永久回执 `runtime.memory_command_receipt`，完整唯一 `(tenant_id, command_id)`
-      且禁止软删；Scope 行锁后取同一 `(tenant_id, command_id)` 身份的事务 advisory lock，复查首次回执，完整唯一约束兜底。endpoint/user/actor/source_run/来源事件和规范化输入均进入指纹；同命令号跨
-      endpoint 或 user 返回 `IDEMPOTENCY_MISMATCH`，不新建第二份回执。回执、事实、完整历史、scope revision
-      同事务；批量清空只写一个回执。
-    text_sha256: 28b55718995c9128f5fa384f4cac01756a3eadb506eb0912accb334d657c86c6
+      unique 只作兜底（各服务的 `_lock_idempotency`）。console 侧 `agent_service`/`mcp_service`/`skill_service`
+      三处 `_fingerprint` 已收敛到同一口径：规范化 JSON 且含 `endpoint`/`tenant_id`/actor 与关键参数（合规参考
+      `channel_service.bind_fingerprint`、`auth_service.account_fingerprint`、`audit_export_service`
+      的指纹函数、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py`）。
+    text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
     enforcement: required
     verifier_ref: harness-api#RULE-api-002
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -207,7 +204,7 @@ bindings:
 
               '
       design:
-        status: applied
+        status: stale
         refs:
         - artifact: high-qps-remediation.backend.design.md
           section_id: Spec Compliance Matrix
@@ -216,7 +213,7 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: applied
+        status: stale
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-008
@@ -225,7 +222,7 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
@@ -466,8 +463,8 @@ bindings:
   path: arch/harness-arch.md
   status: active
   hashes:
-    file_sha256: 9dd51e1f11c576b6dd1cc7e2adffcc4277c73c5d8df3d5de796f460871a0c4f5
-    metadata_sha256: 39a976af1534eeebee31887b5b054dd8406536a86fd2e9dc8d6f27e6e0e1bda7
+    file_sha256: fe7495ba3b811fe18c6078ef54dbdfd3741dcf9217f36b018d69242b38ddef6c
+    metadata_sha256: d75360ccdc5ee3a53f2c49d7066be7a023eaf4d84bbab3e832fd9e751d953be8
     rules_sha256: b15c6e014fbf77e741621ab306e2213360984615e4a54d608e0533477a8a5a2a
   selected_by: agent
   reason: 部署单元/无状态与 Pod 绑定边界；本设计提出 connector 作为 im-gateway 的运行时角色，需在设计中明确不引入第五业务单元
@@ -681,8 +678,8 @@ bindings:
   path: auth/harness-auth.md
   status: active
   hashes:
-    file_sha256: 3214a3b041cdaa2a58d601754dce9ea10e02ccc2bbf8cb757a700baf35ec9b5e
-    metadata_sha256: 282fc035519e5c5b8561dea4584ebcd8df997e78dc811a803b0dec769bd31e77
+    file_sha256: 103f8ecabf99f9f581fbdb55080a733513c3a70cff16bc3435ceb4f1c707c434
+    metadata_sha256: 5430fcb6d3c7d5e74881da16201bd6cf9661576d7b799848c8c456af37561841
     rules_sha256: 2c0d8492b6adb9167c4309b44a5b1be42b1920f5e241f629d2f2bf9825cdc570
   selected_by: agent
   reason: Chat auth 查询合并与缓存不得改变三层授权/Effective Capability 口径
@@ -872,8 +869,8 @@ bindings:
   path: persistence/harness-data.md
   status: active
   hashes:
-    file_sha256: af1d5aca3962e02907fbae12b44a09d2197accfb49ba1743873c569d773738dd
-    metadata_sha256: 7d1f9d0220849592b3262f71451e8eb62a816bb1e1dc20a98261ff463bd02406
+    file_sha256: 854f097f974a87d85a2b175eb53315eaf1eda38b516c954f26b352da5acdf6b7
+    metadata_sha256: 4c0b58f383383267a768a0d1c93774dc8702f7e68e68de0bb654746611af262e
     rules_sha256: bff4e046d47cecba0e97c8a83921f635292d2a2e009c836fece1462a9024a68d
   selected_by: agent
   reason: 新增索引/分区/可能的 PG inbox 需遵守标准列、时间与索引规范
@@ -1067,9 +1064,9 @@ bindings:
   path: frontend/harness-frontend.md
   status: active
   hashes:
-    file_sha256: 18f4c201a9696a8eb2bbaf61acb4634a62c53de3b323d5792b2b22841cad7a09
-    metadata_sha256: 7f5c2085d89106ae171030c7c04f2475462a10f840e5d9ee22977374bf419c53
-    rules_sha256: b0eb465f1af1410517f0f4650cdd228f2c8ccfd05d3fe885ca0249c704d6492e
+    file_sha256: 7c19416d5116899d49bd296afd88533ab2404a348e6204eb79887ffae5ebe9c0
+    metadata_sha256: 71fab0d58493599ad10b59554dcf8bfe6a74f8c42a64ec1fe8307573ad32409f
+    rules_sha256: 88e07734bcfcf99595bfe206a8a41e394709f8a1462dab8bf61cdd4c12ab4313
   selected_by: agent
   reason: 通知轮询/客户端配置走 service 层；禁止裸 fetch/axios
   enforcement: required
@@ -1083,16 +1080,15 @@ bindings:
     summary: 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的
       service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿
       `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId`
-      是无副作用的纯工具，组件可直接 import（现网 7 处，均为纯函数引用）。所有文案只使用 i18n key（zh-CN/en-US）——`scripts/check_frontend_i18n.py`
-      校验两侧词条的键集齐平与空值，并校验源码中 `t('字面量键')` 引用的键**必须已定义**（增删词条后务必跑它）；模板串动态键变体的齐备性由各模块的
-      `tests/frontend/*_i18n*.py` 契约钉死。列表/详情遵循 RULE-ui-001 与 RULE-ui-detail-001。
-    text_sha256: ab9b885fe35bf6e904789191a020153e1830e981e7842f5641a6bf6269653384
+      是无副作用的纯工具，组件可直接 import（现网多处，均为纯函数引用）。文案与词条规则见 RULE-i18n-001；列表/详情见 RULE-ui-001
+      与 RULE-ui-detail-001。
+    text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
     enforcement: required
     verifier_ref: harness-frontend#RULE-front-001
     verifier_stage: code
     stage_status:
       code:
-        status: unverified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -1226,7 +1222,7 @@ bindings:
 
               '
       design:
-        status: applied
+        status: stale
         refs:
         - artifact: high-qps-remediation.frontend.design.md
           section_id: Spec Compliance Matrix
@@ -1235,7 +1231,7 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: applied
+        status: stale
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-011
@@ -1244,7 +1240,7 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
@@ -1252,8 +1248,8 @@ bindings:
   path: im/harness-im.md
   status: active
   hashes:
-    file_sha256: 07897991b47e09d6038b857b180b94b426bd77efe0ab4a263d1cd90ac1a66d61
-    metadata_sha256: c336a33882eed3b2d1382972be7605ca7221004df04cefa876a48669ef94bdf2
+    file_sha256: 0653662b1e9213d48a800424492a0f5e0a28676a6a4d65c5ce55406eaaa3968c
+    metadata_sha256: 130635b846da520813e5e9c04b8cb5d2c53192d21beacbefa0138d7b5145a551
     rules_sha256: 09f02207a2563cb45cef691a626808f7cf2c0d7caf43f8fa670cf96ab32cd9a1
   selected_by: agent
   reason: 渠道差异只活适配器；bot 只路由一个 Agent；Gateway 不保存 agent→Pod；connector 仅做传输 owner
@@ -1857,8 +1853,8 @@ bindings:
   path: memory/harness-memory.md
   status: active
   hashes:
-    file_sha256: 3b93fb405da997601d5fe1da6b92269dd40a98bdba72faf96de4d2632f70b0dc
-    metadata_sha256: 5a0e74e5eff26769a06ae9b0e2325db35ab45b961330152c4a7cced88c1270a7
+    file_sha256: 02659a4081110c8bce9875f6772acc9c9acf3ea68c71c8a7cf2b244d2eec108d
+    metadata_sha256: 26d60b919fdbf7ae2ae359788599979e062819d2fde8e31ff3f5ff03e21e629d
     rules_sha256: d76538936bc433d5957aa11b86d5816ffa8c32613c4f8c82f5bc6361e2bed3ef
   selected_by: agent
   reason: 仅对 consolidation 入队做背压/限速，不改变记忆写入/确认/检索语义
@@ -2393,9 +2389,9 @@ bindings:
   path: secret/harness-secret.md
   status: active
   hashes:
-    file_sha256: 2eb7023187942f0ca1eac90fb44bc4f341e6bccd3ceec61bcbdeecf058f0a115
-    metadata_sha256: af4b34f2fb0332b6cfa359e3771ee61db87085d03bf7bef36e0c5628b1150ffb
-    rules_sha256: d72b90f97ac3a4c118df8a8d415344355cc395920a2aad7a767857c0375fc378
+    file_sha256: 9d6bfb64f7881c1b090ee69915e506a69b5db5f108bd93319adc6d94806f9f2a
+    metadata_sha256: f60d9416b440212e32513bd86e339d9671413a12e5a326f4adf1c6cce76cb935
+    rules_sha256: cb3c84e91771bfa9c479ad5bb860280b8fbc82eadd9bc062d047279945d38e08
   selected_by: agent
   reason: Bot secret 从 Gateway 移到 connector；不得进日志/快照/响应
   enforcement: required
@@ -2406,16 +2402,17 @@ bindings:
   - review
   rules:
   - ref: RULE-secret-001
-    summary: 密钥明文存于各 Owner 表（模型 `api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；**平台侧无自有密钥列**，见
-      Conventions 的休眠列说明），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM
-      Prompt 或 API 响应（对外以 `*_configured` 表达）。
-    text_sha256: 0242e143ac0a68ab490177562fcfd39e2b5197140ce1da77cd0b0cc61e4ee06f
+    summary: 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP
+      `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用
+      `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt
+      或 API 响应（对外以 `*_configured` 表达）。
+    text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
     enforcement: required
     verifier_ref: harness-secret#RULE-secret-001
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -2574,7 +2571,7 @@ bindings:
 
               '
       design:
-        status: applied
+        status: stale
         refs:
         - artifact: high-qps-remediation.backend.design.md
           section_id: Spec Compliance Matrix
@@ -2583,7 +2580,7 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: applied
+        status: stale
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-008
@@ -2592,7 +2589,7 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
@@ -2600,8 +2597,8 @@ bindings:
   path: snapshot/harness-snapshot.md
   status: active
   hashes:
-    file_sha256: b9ed44b84d8262300986abdb1cca10d5747161925d16314de6a93660c9e59520
-    metadata_sha256: 4772b9dff35dcd7ef80935ac4770a4fc804a0080c8bd92d7ab8108a3cfaac583
+    file_sha256: e142f9d5c3c5b758025b9e1f2a29475131ac27638351021d5bdd6df470e1d251
+    metadata_sha256: 34a1bcb1153a685aab40f9576748579d32b73598ab6210f99c7fb762dc6361f1
     rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
   selected_by: agent
   reason: Run/Task 快照冻结与终态 CAS 不变；事件批量写不得改变快照语义
@@ -2818,8 +2815,8 @@ bindings:
   path: test/harness-test.md
   status: active
   hashes:
-    file_sha256: d826c991e87488ef18552b08c194e50515fb8e833d2c77f92e72eec0ff1ed1e9
-    metadata_sha256: c666546dcfa5efce6b97c1eda72cf598925b80ea92d3f80ae24becf2fe5113d7
+    file_sha256: dbb20f98f823e1a1f1dca2502847dbb81d374cb7d7d53c8cf8a4dd59645f4a45
+    metadata_sha256: 5d27df198a9eaddd2dd86bf03245618c896f974e1312e38dacac6585c3159c08
     rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
   selected_by: agent
   reason: 关键 1000 用户/SSE/connector 故障必须有真实边界 E2E；单元覆盖纯逻辑
@@ -2900,8 +2897,8 @@ bindings:
   path: ui/harness-ui.md
   status: active
   hashes:
-    file_sha256: 62d724b2b7e1f532fd0142a3a50506f5bf19e364b39f31e7952352aa1bee71f9
-    metadata_sha256: 184c307c4c607b6d96127a52532602d9ab84cb38494b1d1a666210beff6d7ec7
+    file_sha256: 02346239eb300d68be84478e46b035a53123eae31e88ef96d38e417415b3b52c
+    metadata_sha256: e3676fc5a7369c049341d0151c4b62f692ad5760dc88453bd6248651446349a4
     rules_sha256: 0d6fad1166722627698f4572c7bc2c668524ea36584993dc0614242a9896b8d5
   selected_by: agent
   reason: 前端仅 code splitting/静态 overlay，不改列表/菜单/详情结构
@@ -3354,9 +3351,9 @@ bindings:
   path: worker/harness-worker.md
   status: active
   hashes:
-    file_sha256: 60945c810062bd31cea47fee16241c18aba045d35e0d335bb1194638b6276742
-    metadata_sha256: f0112eee7a42b118c2bfb41673210978232e27f561615dd6bf70f85747002e04
-    rules_sha256: 11fbb17617ae9335d2f9190b83c7784825fb4ccc8118ed41bdd812419ad9da02
+    file_sha256: a393871f4dac95a476f4f26cfe4a7251d4dcfd9d7717f967c037261affa06615
+    metadata_sha256: 3b1a0f32ac4f99b1ca467c7789fd1dbb8835461fc66d53c28bacae159fe8ac79
+    rules_sha256: ccc9ee98013107e1ecf0963ec8c4cd330287193995641298c437ce45ffdd99bb
   selected_by: agent
   reason: 后台任务隔离不改变 PG 权威/lease/deadline 规则
   enforcement: required
@@ -3371,14 +3368,15 @@ bindings:
       仅 `SKILL/BATCH`（外部等待用 WAITING 表达）；claim 使用 `FOR UPDATE SKIP LOCKED`，进入 WAITING
       释放 lease，deadline 到期由 Scheduler sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`。**deadline
       是领取与收尾两侧的硬条件**：claim 排除 `deadline_at <= now` 的行（过期任务绝不执行），执行跨过 deadline 也不得写
-      `COMPLETED`，同样以 `FAILED(TASK_DEADLINE_EXCEEDED)` 收尾（`worker/claimer.py:20`、`worker/service.py:491`）。
-    text_sha256: c43fd79371a14d3fdc725e5ab5d11e4d8de26f404f9194d0e872a8c64161b87c
+      `COMPLETED`，同样以 `FAILED(TASK_DEADLINE_EXCEEDED)` 收尾（`worker/claimer.py` 的 `_claimable_conditions`、`worker/service.py`
+      的终态守卫）。
+    text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
     enforcement: required
     verifier_ref: harness-worker#RULE-worker-001
     verifier_stage: code
     stage_status:
       code:
-        status: unverified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -3691,7 +3689,7 @@ bindings:
               FAILED tests/agent_worker/test_worker_lifecycle.py::test_b122_lifespan_runs_and_stops_all_background_loops\n\
               1 failed, 327 passed in 113.71s (0:01:53)\n"
       design:
-        status: applied
+        status: stale
         refs:
         - artifact: high-qps-remediation.backend.design.md
           section_id: Spec Compliance Matrix
@@ -3700,7 +3698,7 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: applied
+        status: stale
         refs:
         - artifact: high-qps-remediation.md
           section_id: TASK-005
@@ -3709,7 +3707,7 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: stale
         refs: []
         decision: null
         evidence: []
