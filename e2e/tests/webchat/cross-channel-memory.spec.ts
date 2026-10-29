@@ -356,21 +356,6 @@ async function loginChatWithEntry(page: Page, entryId: string, token: string): P
   await expect(page.getByTestId('chat-sidebar-loading')).toHaveCount(0, { timeout: 30_000 });
 }
 
-/**
- * 等流式正文出现指定文本：WAITING_INPUT 的 Run 其 SSE 在服务端显式收尾（确认走 API-15），
- * 客户端重连预算耗尽后停在显式重试动作上——此时按真实用户动作点一次「重试」再等。
- */
-async function expectStreamingText(page: Page, text: string, timeoutMs = 60_000): Promise<void> {
-  const streaming = page.getByTestId('chat-streaming-reply');
-  try {
-    await expect(streaming).toContainText(text, { timeout: Math.floor(timeoutMs / 2) });
-  } catch (error) {
-    const retry = page.getByTestId('chat-run-connection-retry');
-    if ((await retry.count()) > 0) await retry.click();
-    await expect(streaming).toContainText(text, { timeout: timeoutMs });
-  }
-}
-
 test.describe('TASK-113 双入口独立执行与跨入口记忆', () => {
   test('S-02/S-104 两入口独立执行：停止一个不影响另一个，结果/附件回原入口', async ({
     page,
@@ -713,13 +698,16 @@ asyncio.run(main())
       memoryKey: 'e08-valid',
       value: 'cyan'
     });
-    await openConversationDirect(page, user.entry.entryId, fresh.conversation_id);
+    // 与普通聊天一致等到选择真正落地（侧栏 `aria-current`）：只等线程会允许在旧 Run 的
+    // 确认卡仍挂载时点击，确认请求就会带着上一轮的身份发出。
+    await openChatConversation(page, user.entry.entryId, fresh.conversation_id);
     const freshCard = page.getByTestId('chat-confirmation-card');
     await expect(freshCard).toBeVisible({ timeout: 30_000 });
+    await expect(freshCard).toHaveAttribute('data-run-id', fresh.run_id);
     const submissionId = (await freshCard.getAttribute('data-submission-id')) as string;
     const sourceEventId = (await freshCard.getAttribute('data-source-event-id')) as string;
     await freshCard.getByTestId('chat-confirmation-choose').first().click();
-    await expectStreamingText(page, '记忆已保存');
+    // 真实写入是唯一成功事实：先等记忆版本落地，再断言持久确认事件；不依赖会先消失的流式块。
     await expect
       .poll(() => memoryFacts(user.account.id, 'e08-valid').memory?.version ?? 0, {
         timeout: 60_000,
@@ -729,6 +717,24 @@ asyncio.run(main())
     const saved = memoryFacts(user.account.id, 'e08-valid').memory;
     expect(saved?.value).toBe('cyan');
     expect(saved?.author).toBe('USER');
+    // 确认结果本身是持久 canonical 事实（设计 §3.6）：不依赖会先消失的流式 DOM；
+    // 后续模型回复不覆盖这条确认回执。
+    const resolution = runPythonJson<{ outcome: string | null; text: string | null }>(`
+import asyncio, json, os, asyncpg
+async def main():
+    conn = await asyncpg.connect(os.environ['DATABASE_URL'].replace('postgresql+asyncpg', 'postgresql'))
+    row = await conn.fetchrow(
+        "select payload_json->>'outcome' as outcome, payload_json->>'text' as text "
+        "from runtime.canonical_event where tenant_id = $1 and run_id = $2::uuid "
+        "and event_type = 'MEMORY_CONFIRMATION_RESOLVED' and is_deleted = false "
+        "order by seq desc limit 1", '${webchatStack.tenant}', '${fresh.run_id}')
+    print(json.dumps({'outcome': None if row is None else row['outcome'],
+                      'text': None if row is None else row['text']}))
+    await conn.close()
+asyncio.run(main())
+`);
+    expect(resolution.outcome).toBe('CONFIRMED');
+    expect(resolution.text).toContain('记忆已保存');
     // 同一 source_event 再消费（不同消息号）：已被消费，不得再写第二份（版本与行数都不变）。
     const consumed = await session.post(
       `/api/v1/webchat/runs/${fresh.run_id}/resume`,

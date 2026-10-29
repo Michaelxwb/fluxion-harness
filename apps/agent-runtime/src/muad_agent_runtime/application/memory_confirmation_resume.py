@@ -105,6 +105,12 @@ def prepare_confirmation(
         if revoked:
             observe("memory_confirmation_total", labels={"outcome": "EXPIRED"})
             raise AppError(ErrorCode.MEMORY_CONFIRMATION_EXPIRED)
+        if confirmation is not None:
+            # 网页 resume 带了原提议身份，就不能再把它当普通消息：没有可消费的中断只能显式
+            # 过期，否则模型会替一次「确认」生成新回复，用户看到的正文和真实写入事实相反。
+            observe("memory_confirmation_total", labels={"outcome": "EXPIRED"})
+            logger.warning("memory_confirmation_binding_without_pending")
+            raise AppError(ErrorCode.MEMORY_CONFIRMATION_EXPIRED)
         return None
     if len(pending) != 1 or match is None or UUID(match.group(2)) != pending[0].id:
         observe("memory_confirmation_total", labels={"outcome": "INVALID"})

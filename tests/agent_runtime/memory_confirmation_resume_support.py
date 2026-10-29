@@ -88,15 +88,19 @@ class ConfirmationStack:
             )
         ]
 
-    async def explicit(self, text, *, user=None, message_id=None, key=None):
+    async def explicit(self, text, *, user=None, message_id=None, key=None, confirmation=None):
+        body = {
+            "platform_user_id": str(user or self.run.user_id),
+            "input": {"id": message_id or uuid4().hex, "text": text},
+        }
+        if confirmation is not None:
+            body["submission_id"] = str(confirmation[0])
+            body["source_event_id"] = str(confirmation[1])
         async with httpx.AsyncClient() as client:
             return await client.post(
                 f"{self.url}/v1/runs/{self.run.id}/resume",
                 headers={"X-Tenant-Id": self.run.tenant_id, **({"Idempotency-Key": key} if key else {})},
-                json={
-                    "platform_user_id": str(user or self.run.user_id),
-                    "input": {"id": message_id or uuid4().hex, "text": text},
-                },
+                json=body,
             )
 
 

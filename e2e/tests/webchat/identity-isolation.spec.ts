@@ -105,6 +105,23 @@ async function waitForConversationIdle(page: Page, conversationId: string): Prom
     .toBe('idle');
 }
 
+/** 等会话出现活跃 Run（API-15 的 `active_run` 非 null）：比抓瞬时的流式 DOM 稳定。 */
+async function waitForActiveRun(page: Page, conversationId: string): Promise<void> {
+  const headers = await chatWriteHeaders(page);
+  await expect
+    .poll(
+      async () => {
+        const detail = await chatApi(page, 'GET', `/api/v1/webchat/conversations/${conversationId}`, {
+          headers
+        });
+        if (detail.status !== 200) return false;
+        return (detail.body?.data as { active_run: unknown }).active_run !== null;
+      },
+      { timeout: 30_000, intervals: [200] }
+    )
+    .toBe(true);
+}
+
 /** PG 观测：某会话当前 Run 状态（真实行事实）。 */
 function runStatusOf(conversationId: string): string | null {
   return runPythonJson<{ status: string | null }>(`
@@ -394,11 +411,12 @@ test('E-11 篡改 conversation_id、借其他入口会话、授权撤销均拒�
   expect(secondEntryIds).not.toContain(conversationId);
 
   // A 的迟到响应不写入 B：A 慢速运行中切到 B，A 完成后 B 看不到 A 的回复
-  await webchatFaults.setBehavior({ latency_ms: 4_000, deltas: ['E-11 A 的迟到回复'] });
+  await webchatFaults.setBehavior({ latency_ms: 10_000, deltas: ['E-11 A 的迟到回复'] });
   const convB = await createConversation(page, a.entry.entryId);
   await openChatConversation(page, a.entry.entryId, conversationId);
   await sendChatMessage(page, 'E-11 A 慢速提问');
-  await expect(page.getByTestId('chat-streaming-reply')).toBeVisible({ timeout: 30_000 });
+  // 以服务端活跃 Run 为切换前提：4s 的流式 DOM 在慢/快机器上都可能已消失，不能当同步点。
+  await waitForActiveRun(page, conversationId);
   await page.locator(`[data-testid="chat-sidebar-item"][data-conversation-id="${convB}"]`).click();
   await expect(page.getByTestId('chat-message-thread')).toBeVisible();
   await expect
@@ -434,6 +452,9 @@ test('E-12 退出 A 输入 B Token：先停旧流清状态再交换身份；上�
   await openChatConversation(page, a.entry.entryId, conversationId);
   await sendChatMessage(page, 'E-12 A 的消息');
   await waitForAssistantReply(page);
+  // 正文出现不等于 Run 终态；紧接着提交下一条会撞 RUN_BUSY（409）。以会话 active_run 收口
+  // 为服务端同步点，避免用「助手气泡已渲染」猜终态。
+  await waitForConversationIdle(page, conversationId);
   const contextA = await chatContextId(page);
   const sessionCookieA = (await page.context().storageState()).cookies.find(
     (cookie) => cookie.name === 'muad_chat_session'
@@ -441,9 +462,10 @@ test('E-12 退出 A 输入 B Token：先停旧流清状态再交换身份；上�
   expect(sessionCookieA).toBeTruthy();
 
   // A 流式输出中撤销 Token：旧流先停、私有状态清空，页面自行回到 Token 输入
-  await webchatFaults.setBehavior({ latency_ms: 3_000, chunk_interval_ms: 1_000, deltas: ['A', 'B', 'C', 'D', 'E', 'F'] });
+  await webchatFaults.setBehavior({ latency_ms: 8_000, chunk_interval_ms: 1_000, deltas: ['A', 'B', 'C', 'D', 'E', 'F'] });
   await sendChatMessage(page, 'E-12 A 的长流提问');
-  await expect(page.getByTestId('chat-streaming-reply')).toBeVisible({ timeout: 30_000 });
+  // 撤销必须发生在 Run 仍在执行时；以服务端活跃 Run 为准，不赌瞬时流式 DOM。
+  await waitForActiveRun(page, conversationId);
   await webchatAdmin.revokeChatToken(a.account.id, a.chatToken.revision);
   await expect(page.getByTestId(TOKEN_ACCESS)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('chat-streaming-reply')).toHaveCount(0);

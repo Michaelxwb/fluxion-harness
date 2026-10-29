@@ -69,6 +69,7 @@ verifiers:
 - 密钥校验覆盖所有新增持久出口。✅ 检查 value/key/source_quote/TASK_STATE 及 history/proposal/log/model input；❌ 把拒绝内容原样写进日志或失败 receipt。
 - 内容与权威运行状态分离。✅ TASK_STATE 是短 TTL 线索，执行状态实时核验；❌ 用未确认线索代替权限、任务结果或当前能力。
 - 纯退休命令容忍历史 content。✅ 过期清扫等 RETIRE-only 命令用占位 content 规划，只写 retirement 字段、不回写 `content_json`；旧 content 校验失败按 scope 捕获 `ValidationError` 并记录 tenant/user；❌ 一条脏数据卡死整轮清扫，或把容忍扩散到普通写入（`test_local_ttl_retires_legacy_content_without_blocking`）。
+- 带原提议身份的 resume 不得降级成普通消息。✅ 无待消费中断时返回 `MEMORY_CONFIRMATION_EXPIRED`（410）且不调用模型；❌ `prepare_confirmation` 返回 `None` 后按普通续聊执行，用户看到模型回复而记忆未保存（`test_local_b15_bound_resume_without_pending_confirmation_is_expired_not_a_normal_message`）。
 
 ## Avoid
 

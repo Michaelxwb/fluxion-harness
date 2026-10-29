@@ -668,18 +668,21 @@ async function readPublicStream(
 }
 
 async function startReplicaGateway(stack: WebchatStack): Promise<ChildProcess> {
+  // 副本也用 `supervise` 包一层：worker 因失败被 Playwright 停掉时，看护进程会随父进程退出，
+  // 不会把第二个 Gateway 留成孤儿继续抢 Redis 入站流。
   const child = spawn(
     'uv',
     [
       'run',
-      'uvicorn',
-      'muad_im_gateway.main:app',
-      '--app-dir',
-      'apps/im-gateway/src',
-      '--host',
-      '127.0.0.1',
+      'python',
+      '-m',
+      'tests.acceptance.capacity.supervise',
+      '--unit',
+      'im-gateway',
       '--port',
-      String(REPLICA_GATEWAY_PORT)
+      String(REPLICA_GATEWAY_PORT),
+      '--parent-pid',
+      String(process.pid)
     ],
     {
       cwd: REPO,

@@ -109,6 +109,21 @@ export default defineConfig({
     timezoneId: 'Asia/Shanghai',
     trace: 'retain-on-failure'
   },
+  // 进程破坏型用例（SIGKILL/重启 Gateway）必须**最后**跑：Playwright 在任一条用例失败后会
+  // 停掉并重建 worker，worker 里看护的重启 Gateway 会随之退出；若它前面还有用例，后续每条
+  // 都会在夹具入口快照阶段 502，把一条真实失败放大成整域雪崩。拆成依赖项目后，破坏型用例
+  // 只影响自己文件内的剩余场景。
+  projects: [
+    {
+      name: 'webchat-regression',
+      testIgnore: /capacity-recovery\.spec\.ts/
+    },
+    {
+      name: 'webchat-regression-destructive',
+      testMatch: /capacity-recovery\.spec\.ts/,
+      dependencies: ['webchat-regression']
+    }
+  ],
   webServer: [
     {
       command:

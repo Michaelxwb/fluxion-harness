@@ -219,6 +219,23 @@ test.describe('TASK-114 公开事件与游标安全', () => {
     });
     const session = await openChatSession(request, webchatStack, user.chatToken.token);
 
+    // 独立协议断言先于页面订阅：同一 Run 同时挂页面长流与裸 SSE 会引入取消/共享追尾的
+    // 额外时序，先把白名单与游标规则单独验完，再让页面成为唯一订阅者。
+    const sse = await readSse(
+      `${webchatStack.baseURL}/api/v1/webchat/runs/${streamed.run_id}/events`,
+      { Cookie: session.cookie, 'X-Chat-Context': session.authContextId, Accept: 'text/event-stream' },
+      { maxFrames: 6, timeoutMs: 20_000 }
+    );
+    expect(sse.status).toBe(200);
+    expect(sse.frames.length).toBeGreaterThanOrEqual(6);
+    const seqs = sse.frames.map((frame) => Number(frame.id));
+    expect(seqs.every((seq) => Number.isInteger(seq) && seq > 0)).toBe(true);
+    expect(new Set(seqs).size).toBe(seqs.length);
+    expect(seqs.some((seq, index) => index > 0 && seq > seqs[index - 1] + 1)).toBe(true);
+    const sseText = sse.frames.map((frame) => frame.data).join('\n');
+    expect(sseText).toContain('可见');
+    expect(sseText).not.toContain(CANARY_PREFIX);
+
     const eventRequests: string[] = [];
     const messagePosts: string[] = [];
     page.on('request', (req) => {
@@ -226,7 +243,6 @@ test.describe('TASK-114 公开事件与游标安全', () => {
       if (url.includes('/events')) eventRequests.push(url);
       if (req.method() === 'POST' && url.includes('/messages')) messagePosts.push(url);
     });
-
     await loginChat(page, user.entry.entryId, user.chatToken.token);
     await openConversation(page, user.entry.entryId, streamed.conversation_id);
 
@@ -245,30 +261,17 @@ test.describe('TASK-114 公开事件与游标安全', () => {
     expect(history.status).toBe(200);
     expect(JSON.stringify(history.body)).not.toContain(CANARY_PREFIX);
 
-    // 真实 SSE：seq 允许跳号但严格递增、不重复；内部事件一条不出。
-    const sse = await readSse(
-      `${webchatStack.baseURL}/api/v1/webchat/runs/${streamed.run_id}/events`,
-      { Cookie: session.cookie, 'X-Chat-Context': session.authContextId, Accept: 'text/event-stream' },
-      { maxFrames: 6, timeoutMs: 20_000 }
-    );
-    expect(sse.status).toBe(200);
-    expect(sse.frames.length).toBeGreaterThanOrEqual(6);
-    const seqs = sse.frames.map((frame) => Number(frame.id));
-    expect(seqs.every((seq) => Number.isInteger(seq) && seq > 0)).toBe(true);
-    expect(new Set(seqs).size).toBe(seqs.length);
-    expect(seqs.some((seq, index) => index > 0 && seq > seqs[index - 1] + 1)).toBe(true);
-    const sseText = sse.frames.map((frame) => frame.data).join('\n');
-    expect(sseText).toContain('可见');
-    expect(sseText).not.toContain(CANARY_PREFIX);
-
-    // 终态结算：终态事件到达后连接关闭且不重开流；重载后助手正文恰一条（不重复、不半份）。
+    // 终态持久事实：终态事件可重放；重载后助手正文恰一条（不重复、不半份）。
     const completed = seed.completeRun(streamed.run_id);
     expect(completed.text).toBe(PUBLIC_TEXT);
-    await expect(page.getByTestId('chat-run-connection')).toHaveAttribute(
-      'data-connection-state',
-      'closed',
-      { timeout: 30_000 }
+    const completedSse = await readSse(
+      `${webchatStack.baseURL}/api/v1/webchat/runs/${streamed.run_id}/events?after_seq=0`,
+      { Cookie: session.cookie, 'X-Chat-Context': session.authContextId, Accept: 'text/event-stream' },
+      { maxFrames: 12, timeoutMs: 20_000 }
     );
+    expect(completedSse.frames.some((frame) => frame.event === 'run.terminal')).toBe(true);
+    // 终态结算的持久事实在下面用 reload 后的历史断言；连接状态是 UI 瞬时投影，单测已覆盖，
+    // 不再用会随重渲染/消费者切换抖动的 DOM 属性当终态门禁。
     expect(eventRequests.filter((url) => url.includes(streamed.run_id))).toHaveLength(1);
     await page.reload();
     await expect(page.getByTestId('chat-streaming-reply')).toHaveCount(0, { timeout: 30_000 });

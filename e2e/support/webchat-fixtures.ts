@@ -676,19 +676,32 @@ async function waitForEntryVisible(
     const exchanged = await exchangeChatToken(context, stack, session.chatToken.token);
     const authContextId = String(exchanged.auth_context_id ?? '');
     const deadline = Date.now() + ENTRY_SNAPSHOT_WAIT_MS;
+    let lastStatus = 0;
+    let lastCount: number | null = null;
     for (;;) {
       const response = await context.get('/api/v1/webchat/entries', {
         headers: { 'X-Chat-Context': authContextId }
       });
+      lastStatus = response.status();
       if (response.ok()) {
         const body = (await response.json()) as { data?: { items?: { entry_id?: string }[] } };
-        if ((body.data?.items ?? []).some((item) => item.entry_id === session.entry.entryId)) {
+        const items = body.data?.items ?? [];
+        lastCount = items.length;
+        if (items.some((item) => item.entry_id === session.entry.entryId)) {
           return;
         }
       }
       if (Date.now() > deadline) {
+        // 超时错误必须带出「快照还停在什么状态」：否则只剩一句 45s，无法区分入口丢失、
+        // 快照冻结（revision 不再前进）与授权面为空。revision 来自 Gateway `/readyz`。
+        const ready = await context.get(`${stack.gatewayURL}/readyz`).catch(() => null);
+        const detail = ready?.ok()
+          ? ((await ready.json()) as { bots_revision?: string | null }).bots_revision
+          : null;
         throw new Error(
-          `入口 ${session.entry.entryId} 在 ${String(ENTRY_SNAPSHOT_WAIT_MS)}ms 内未出现在 Gateway 入口快照中`
+          `入口 ${session.entry.entryId} 在 ${String(ENTRY_SNAPSHOT_WAIT_MS)}ms 内未出现在 ` +
+            `Gateway 入口快照中（HTTP ${String(lastStatus)}，可见入口 ${String(lastCount)} 个，` +
+            `bots_revision=${String(detail)}）`
         );
       }
       await new Promise((resolve) => setTimeout(resolve, ENTRY_SNAPSHOT_POLL_MS));

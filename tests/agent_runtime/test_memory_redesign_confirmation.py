@@ -281,6 +281,23 @@ async def test_local_b15_expired_absolute_run_deadline_prevents_save_and_resume(
         assert await rows(stack, UserMemory) == [] and stack.captured == []
 
 
+async def test_local_b15_bound_resume_without_pending_confirmation_is_expired_not_a_normal_message(
+    async_tool_database, monkeypatch
+):
+    """网页 resume 带原提议身份时，没有可消费中断只能显式过期，不得降级成普通消息执行模型。"""
+    async with confirmation_stack(async_tool_database, monkeypatch) as stack:
+        async with stack.factory.begin() as session:
+            interrupt = await session.get(RunInterrupt, stack.proposal_id)
+            interrupt.status = "RESOLVED"
+        response = await stack.explicit(
+            f"确认 {stack.proposal_id}", confirmation=(uuid4(), uuid4())
+        )
+        assert response.status_code == 410
+        assert response.json()["code"] == "MEMORY_CONFIRMATION_EXPIRED"
+        assert (await rows(stack, RunRecord))[0].status == "WAITING_INPUT"
+        assert await rows(stack, UserMemory) == [] and stack.captured == []
+
+
 async def test_local_b15_other_user_cannot_confirm_in_gateway_or_explicit_resume(
     async_tool_database, monkeypatch
 ):
