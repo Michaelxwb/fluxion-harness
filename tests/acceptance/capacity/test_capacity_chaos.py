@@ -282,8 +282,16 @@ def _set_probe(probe_url: str, *, latency_ms: int, chunk_interval_ms: int, delta
     )
 
 
+def _hint_total(stack: CapacityStack, status: str) -> float:
+    """提示指标按 Runtime 实例求和：Gateway 轮询到的执行实例不一定是 0 号。"""
+    return sum(
+        metric_total(instance.url, "event_stream_hint_total", {"status": status})
+        for instance in stack.instances("agent-runtime")
+    )
+
+
 def _assert_hint_recovery(
-    harness: ChaosHarness, runtime: ServiceInstance, proxy: FaultProxy, ok_before: float
+    harness: ChaosHarness, proxy: FaultProxy, ok_before: float
 ) -> None:
     """恢复直通后新 Run 正常完成，提示路径重新可见（降级不是永久状态）。"""
     stack, seeded, session = harness.stack, harness.seeded, harness.session
@@ -297,7 +305,7 @@ def _assert_hint_recovery(
     # Redis 客户端在断连后按自己的退避重建连接；CI 上实测可能超过 30s 才回到 ok 路径
     # （本文件其余恢复等待统一用 WAIT_TIMEOUT_SEC）。语义不变：仍然必须真实恢复到 ok。
     wait_until(
-        lambda: metric_total(runtime.url, "event_stream_hint_total", {"status": "ok"}) > ok_before,
+        lambda: _hint_total(stack, "ok") > ok_before,
         what="恢复后提示路径未重新可见（ok 计数未增长）",
         timeout=WAIT_TIMEOUT_SEC,
     )
@@ -336,8 +344,7 @@ def test_e08_redis_jitter_degrades_to_pg_and_recovers(chaos_harness: ChaosHarnes
         chaos_harness.session,
         chaos_harness.redis_proxy,
     )
-    runtime = stack.instance("agent-runtime", 0)
-    degraded_before = metric_total(runtime.url, "event_stream_hint_total", {"status": "degraded"})
+    degraded_before = _hint_total(stack, "degraded")
     _set_probe(
         stack.model_probe.url,
         latency_ms=100,
@@ -356,17 +363,12 @@ def test_e08_redis_jitter_degrades_to_pg_and_recovers(chaos_harness: ChaosHarnes
     terminal = _wait_terminal(stack.database_url, run_id)
     assert terminal["status"] == "COMPLETED"
     _assert_single_terminal_and_delivery(stack.database_url, run_id)
-    assert metric_total(runtime.url, "event_stream_hint_total", {"status": "degraded"}) > (
-        degraded_before
-    ), "Redis 降级必须有真实指标（不静默吞掉）"
+    assert _hint_total(stack, "degraded") > degraded_before, (
+        "Redis 降级必须有真实指标（不静默吞掉）"
+    )
     assert proxy.dropped_connections >= 1, "代理确实切断过连接（真实故障）"
 
-    _assert_hint_recovery(
-        chaos_harness,
-        runtime,
-        proxy,
-        metric_total(runtime.url, "event_stream_hint_total", {"status": "ok"}),
-    )
+    _assert_hint_recovery(chaos_harness, proxy, _hint_total(stack, "ok"))
 
 
 def _kill_gateway_and_assert_outage(
@@ -374,24 +376,32 @@ def _kill_gateway_and_assert_outage(
 ) -> ServiceInstance:
     """SIGKILL Gateway：在飞 SSE 真实断开、停机请求 502；随后同地址重启（保证后续用例可用）。"""
     stack = harness.stack
-    gateway = stack.instance("im-gateway", 0)
-    gateway_pid, gateway_port = gateway.pid, gateway.port
+    gateways = [instance for instance in stack.instances("im-gateway") if instance.alive]
+    assert gateways, "下线前必须至少有一个存活的 Gateway 副本"
+    gateway_ports = {instance.index: instance.port for instance in gateways}
+    gateway_pids = {instance.index: instance.pid for instance in gateways}
     failures_before = int(stack.proxy.stats()["upstream_failures"]["im-gateway"])
+    revived: list[ServiceInstance] = []
     try:
-        stack.kill_instance(gateway)
-        assert gateway.alive is False
+        # 多副本时只杀一个副本，SSE 可能落在另一个上；「Gateway 下线」必须是整层不可用。
+        for instance in gateways:
+            stack.kill_instance(instance)
+            assert instance.alive is False
         thread.join(timeout=30.0)
-        assert first.disconnected is True, "Gateway 被杀必须让在飞公开 SSE 真实断开"
+        assert first.disconnected is True, "Gateway 全副本被杀必须让在飞公开 SSE 真实断开"
         assert first.terminal is None, "断开时不得出现终态（Run 仍在执行）"
         down = _downtime_submission(harness, conversation_id)
-        assert down.status_code == 502, f"停机窗口必须按事实失败：{down.status_code} {down.text}"
+        assert down.status_code == 502, (
+            f"停机窗口必须按事实失败：{down.status_code} {down.text}"
+        )
         assert down.json()["unit"] == "im-gateway"
-        # 在飞 SSE 与停机窗口请求都经入口代理失败：至少新增一次真实上游失败记录。
         assert int(stack.proxy.stats()["upstream_failures"]["im-gateway"]) > failures_before
     finally:
-        revived = stack.restart_instance("im-gateway", index=0)
-    assert revived.pid != gateway_pid and revived.port == gateway_port
-    return revived
+        for index in gateway_ports:
+            revived.append(stack.restart_instance("im-gateway", index=index))
+    assert all(item.pid != gateway_pids[item.index] for item in revived)
+    assert all(item.port == gateway_ports[item.index] for item in revived)
+    return revived[0]
 
 
 def test_e08_gateway_kill_keeps_execution_and_recovers_public_sse(
@@ -406,7 +416,7 @@ def test_e08_gateway_kill_keeps_execution_and_recovers_public_sse(
     """
     stack, seeded, session = chaos_harness.stack, chaos_harness.seeded, chaos_harness.session
     probe = stack.model_probe
-    _set_probe(probe.url, latency_ms=1000, chunk_interval_ms=400, deltas=GATEWAY_DELTAS)
+    _set_probe(probe.url, latency_ms=5000, chunk_interval_ms=500, deltas=GATEWAY_DELTAS)
     calls_before = int(probe_state(probe.url)["call_count"])
     conversation_id = create_conversation(stack.proxy.url, session, seeded.entry_id)
     run_id = submit_message(
@@ -436,12 +446,23 @@ def test_e08_gateway_kill_keeps_execution_and_recovers_public_sse(
 
 
 def _kill_runtime_and_restart(
-    harness: ChaosHarness, first: PublicStreamRead, thread: threading.Thread
+    harness: ChaosHarness,
+    first: PublicStreamRead,
+    thread: threading.Thread,
+    run_id: str,
 ) -> ServiceInstance:
     """SIGKILL 执行中的 Runtime：在飞 SSE 真实断开、断开时无终态；同地址重启。"""
     stack = harness.stack
-    runtime = stack.instance("agent-runtime", 0)
-    runtime_pid, runtime_port = runtime.pid, runtime.port
+    owner = str(run_row(stack.database_url, run_id)["lease_owner"])
+    instances = stack.instances("agent-runtime")
+    runtime = next(
+        (item for item in instances if owner.startswith(
+            f"{stack.stack_id}-agent-runtime-{item.index}:"
+        )),
+        None,
+    )
+    assert runtime is not None, f"lease_owner={owner} 无法映射到 Runtime 实例"
+    runtime_pid, runtime_port, runtime_index = runtime.pid, runtime.port, runtime.index
     try:
         stack.kill_instance(runtime)
         assert runtime.alive is False
@@ -449,7 +470,7 @@ def _kill_runtime_and_restart(
         assert first.disconnected is True, "执行实例被杀必须让公开 SSE 真实断开"
         assert first.terminal is None, "断开时不得出现终态（终态由 Reaper 落）"
     finally:
-        revived = stack.restart_instance("agent-runtime", index=0)
+        revived = stack.restart_instance("agent-runtime", index=runtime_index)
     assert revived.pid != runtime_pid and revived.port == runtime_port
     return revived
 
@@ -466,7 +487,7 @@ def test_e08_runtime_kill_reaps_run_and_resumes_sse_without_duplicates(
     """
     stack, seeded, session = chaos_harness.stack, chaos_harness.seeded, chaos_harness.session
     probe = stack.model_probe
-    _set_probe(probe.url, latency_ms=1000, chunk_interval_ms=400, deltas=RUNTIME_DELTAS)
+    _set_probe(probe.url, latency_ms=5000, chunk_interval_ms=500, deltas=RUNTIME_DELTAS)
     calls_before = int(probe_state(probe.url)["call_count"])
     conversation_id = create_conversation(stack.proxy.url, session, seeded.entry_id)
     run_id = submit_message(
@@ -480,7 +501,7 @@ def test_e08_runtime_kill_reaps_run_and_resumes_sse_without_duplicates(
     )
     assert run_row(stack.database_url, run_id)["status"] == "RUNNING"
 
-    _kill_runtime_and_restart(chaos_harness, first, thread)
+    _kill_runtime_and_restart(chaos_harness, first, thread, run_id)
     terminal = _wait_terminal(stack.database_url, run_id, timeout=120.0)
     assert terminal["status"] == "FAILED" and terminal["error_code"] == "RUN_ABANDONED", (
         f"崩溃回收必须落诚实终态：{terminal}"

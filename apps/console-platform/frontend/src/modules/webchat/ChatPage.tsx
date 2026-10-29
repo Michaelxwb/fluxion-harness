@@ -67,6 +67,7 @@ import { useMessages, type MessagesController } from './hooks/useMessages';
 import {
   useNotifications,
   type NotificationActivityPort,
+  type NotificationStreamPort,
   type NotificationsController,
   type NotificationsOptions
 } from './hooks/useNotifications';
@@ -80,6 +81,7 @@ import {
   type PendingSendViewPort
 } from './hooks/usePendingSend';
 import { useRunEvents, type RunEventsController } from './hooks/useRunEvents';
+import { createNotificationStreamPort } from './services/notificationStream';
 import { createWebchatClient, webchatErrorCode } from './services/webchatApi';
 import type { ChatAuthenticationSnapshot, ChatIdentityCleanup } from './authenticationState';
 import type { ClientConfigSnapshot } from './clientConfig';
@@ -647,7 +649,8 @@ export function chatPageResolutionNeeded(input: ChatPageResolutionGateInput): bo
 const CONVERSATION_ERROR_KEYS: Record<string, string> = {
   COMMON_NOT_FOUND: 'chat.page.conversationUnavailable',
   CONVERSATION_ID_INVALID: 'chat.page.conversationInvalid',
-  CONVERSATION_ENTRY_MISMATCH: 'chat.page.conversationMismatch'
+  CONVERSATION_ENTRY_MISMATCH: 'chat.page.conversationMismatch',
+  CONVERSATION_EXPIRED: 'chat.page.conversationExpired'
 };
 
 export const CONVERSATION_ERROR_FALLBACK_KEY = 'chat.page.conversationFailed';
@@ -1425,13 +1428,20 @@ export default function ChatPage() {
     }),
     []
   );
+  // `config` 控制器每次渲染都是新对象；`newConnectionConfig` 是稳定方法，建流时才读取当前投影。
+  const newConnectionConfig = config.newConnectionConfig;
+  const notificationStream = useMemo<NotificationStreamPort>(
+    () => createNotificationStreamPort({ newConnectionConfig }),
+    [newConnectionConfig]
+  );
   const notificationOptions = useMemo<NotificationsOptions>(
     () => ({
       maxItems: MAX_NOTIFICATION_ITEMS,
       activity: notificationActivity,
-      onFailure: onActionFailure
+      onFailure: onActionFailure,
+      stream: notificationStream
     }),
-    [notificationActivity, onActionFailure]
+    [notificationActivity, notificationStream, onActionFailure]
   );
   const notifications = useNotifications(client, config, auth, notificationOptions);
 

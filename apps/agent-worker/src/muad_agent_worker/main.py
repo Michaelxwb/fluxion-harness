@@ -14,6 +14,7 @@ from muad_api import (
 )
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
+from muad_common.db_counters import publish_db_counters
 from muad_logging import configure_logging
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -37,7 +38,7 @@ from .infrastructure.wakeup_hint import (
     create_wakeup_listener,
     create_wakeup_notifier,
 )
-from .metrics import install_worker_metrics
+from .metrics import install_worker_metrics, record_gauge
 from .results.dispatcher import ResultDispatcher, ResultDispatchPolicy
 from .scheduler.client import ConsoleResolveClient
 from .scheduler.service import SchedulerLoop
@@ -86,6 +87,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             cancel_hints,
             wakeup_listener,
         )
+        background.append(
+            asyncio.create_task(_db_counters_loop(), name="worker.db_counters")
+        )
         yield
     finally:
         for task in background:
@@ -102,6 +106,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         app.state.platform_settings_client = NullPlatformSettingsClient()
         await pools.aclose()
     await dispose_engine()
+
+
+async def _db_counters_loop() -> None:
+    while True:
+        publish_db_counters(record_gauge)
+        await asyncio.sleep(1.0)
 
 
 def _start_background(

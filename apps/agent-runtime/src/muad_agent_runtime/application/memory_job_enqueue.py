@@ -2,7 +2,7 @@
 
 import logging
 
-from muad_common import SharedSettings
+from muad_common import process_settings
 from muad_contracts import ResolvedAgent
 from muad_contracts.memory import MemoryResumeRef
 from pydantic import ValidationError
@@ -54,7 +54,7 @@ async def _insert(session: AsyncSession, run: RunRecord, through_seq: int) -> bo
             MemoryConsolidationJob.status.in_(("PENDING", "RUNNING", "RETRY")),
         )
     )
-    if int(pending or 0) >= SharedSettings().memory_consolidation_queue_max:
+    if int(pending or 0) >= process_settings().memory_consolidation_queue_max:
         observe("memory_consolidation_enqueue_total", labels={"outcome": "QUEUE_FULL"})
         return False
     snapshot = await session.scalar(

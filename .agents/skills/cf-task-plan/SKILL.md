@@ -38,6 +38,7 @@ E2E 不是“用户可见结果”的默认测试层。plan 阶段必须按风�
 - `exec: deferred` 必须带 `defer_reason`、`owner`、`target_phase`。环境允许 none/local/local-api/browser/external/staging/capacity/ci/production；components 使用稳定标识符。
 - 新场景先准备可收集的测试骨架与具体测试 ID，再登记 check 的 `suite`、`test_ids`、`markers`、`collect`。本阶段只执行有超时和总预算的测试收集，不实现生产代码，也不执行 E2E；新模块尚不存在时将其导入放到测试体内，避免收集依赖实现。
 - 浏览器 check 使用 `suite: browser`，实际收集的用例须具备 browser 能力；smoke/capacity 标记必须同时出现在 check 与收集结果中。收集支持原生 pytest、Playwright JSON 或项目适配器 JSON，配置示例见 `docs/acceptance-contract.md`。
+- 锁定 manifest 时加 `--register-checks`，从真实 pytest/Playwright 收集生成登记；自定义收集器使用 `--registration-file`。失败时修复具体 check，原锁文件保留。重锁保留历史，契约变化标为 stale；修改工件后先运行 `code-flow spec refresh --task-dir "<需求目录>" --root "$PWD" --json`，再验证计划。
 - `code-flow acceptance manifest --verify-plan --task-dir "<需求目录>" --task-file "<任务文件>"` 始终校验 manifest 基线、场景质量、check 投影、测试登记、设计 ID 闭环和 Spec Gate；不得通过省略 `--require-scenarios` 跳过已有场景源的质量检查。
 - 设计通过 `code-flow design lint --file "<需求>.design.md" --scenarios-file "<需求>.scenarios.md" --json` 校验。多 design 重复传 `--file`，FEAT/API/NFR 与场景引用必须闭合；设计的 `design_template` 决定必填章节。
 - 报告区分 `e2e_browser_count`、`system_count`、`capacity_count` 与 `runnable_smoke_count`。未执行登记检查时 runnable 为 null；收集可用不等于真实边界执行已通过，后者必须读取执行证据。
@@ -231,8 +232,8 @@ AI 从设计文档中识别关键缺口，输出结构化分析并与用户交�
 **Spec 责任拆解（硬约束）**：
 
 1. 先执行 Context `refresh`，读取 Design `Spec Compliance Matrix` 与每个 design-stage/plan-stage Rule 的 `verifier_ref`，继承已有 applied refs，禁止重新选择或降级。
-2. 每条 plan-stage required Rule 必须有且仅有一个责任 TASK；该 TASK 的 `Spec-Refs` 写完整 `{spec-id}#{rule-ref}`，Checklist 写具体 verifier 命令/输入，Acceptance Contract 写测试层级、不得 Mock 的真实边界和关键断言。
-3. Rule 可被其他 TASK 引用为依赖，但 Acceptance Coverage 只能有一个最终负责人。E2E 层级**不得降级**；manual 仍仅限经用户确认的外部边界。
+2. 每条 plan-stage required Rule 必须有且仅有一个责任 TASK；该 TASK 的 `Spec-Refs` 和 `Rule-Owner-Refs` 均写完整 `{spec-id}#{rule-ref}`，Checklist 写具体 verifier 命令/输入，Acceptance Contract 写测试层级、不得 Mock 的真实边界和关键断言。
+3. 其他 TASK 在 `Spec-Refs` 中保留实际适用的 Rule，可用 `Rule-Owner-Refs: N/A` 表示不承担计划责任；不能用 `Spec-Refs: N/A` 隐藏适用规则。整个任务文件均没有 `Rule-Owner-Refs` 时，旧计划只允许每条 Rule 有一个引用者。E2E 层级**不得降级**；manual 仍仅限经用户确认的外部边界。
 4. 缺 `verifier_ref`、责任 TASK 为 0/多个、Checklist/Contract 不含 Rule-specific 验证责任时，任务文件只能保留为缺口草稿，不能启动。
 
 ### 4. 生成任务文件方案
@@ -299,6 +300,7 @@ AI 从设计文档中识别关键缺口，输出结构化分析并与用户交�
 - **Depends**:
 - **Source**: docs/xxx.md#§3.1 数据模型(L83-L110)
 - **Spec-Refs**: product-rules#RULE-product-001
+- **Rule-Owner-Refs**: product-rules#RULE-product-001
 - **Acceptance-Refs**: S-01, E-01, S-03, RULE-01
 - **Estimate**: 1.5d
 - **Capability**: <一句话：用户可运行/可演示的结果，例如“导入配置并看到成功摘要”>
@@ -463,6 +465,7 @@ code-flow task index \
 运行时命令示例（由命令契约生成；实际参数见各命令 --help）：
 
 ```bash
+code-flow spec refresh --task-dir "<需求目录>" --root "$PWD" --json
 code-flow spec gate --help
 code-flow task index --help
 code-flow acceptance manifest --task-file "<任务文件>" --output "<需求目录>/.acceptance-manifest.json"

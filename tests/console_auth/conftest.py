@@ -1,11 +1,12 @@
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 
 import pytest
 import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient, Response
 from muad_common import SharedSettings
+from muad_common.session_store import RedisSessionStore
 from muad_console_platform.api.security import CSRF_COOKIE, CSRF_HEADER
 from muad_console_platform.application.auth_service import hash_password
 from muad_console_platform.infrastructure.db import get_session_factory
@@ -47,6 +48,42 @@ class AuthContext:
 
 def _unique_key(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4()}"
+
+
+class _MemoryRedis:
+    """console_auth 的内存 Redis：exchange 写、logout 删，测试不依赖外部 Redis。"""
+
+    def __init__(self) -> None:
+        self.values: dict[str, str] = {}
+        self.ttls: dict[str, int] = {}
+
+    async def set(self, key: str, value: str, *, ex: int) -> None:
+        self.values[key] = value
+        self.ttls[key] = ex
+
+    async def get(self, key: str) -> str | None:
+        return self.values.get(key)
+
+    async def expire(self, key: str, ttl: int) -> bool:
+        if key not in self.values:
+            return False
+        self.ttls[key] = ttl
+        return True
+
+    async def delete(self, key: str) -> None:
+        self.values.pop(key, None)
+        self.ttls.pop(key, None)
+
+
+@pytest.fixture(autouse=True)
+def _session_store() -> Iterator[RedisSessionStore]:
+    """认证 API 的 Redis 会话存储：内存实现，测试结束清理。"""
+    store = RedisSessionStore(_MemoryRedis())
+    app.state.session_store = store
+    try:
+        yield store
+    finally:
+        app.state.session_store = None
 
 
 @pytest.fixture(scope="session")

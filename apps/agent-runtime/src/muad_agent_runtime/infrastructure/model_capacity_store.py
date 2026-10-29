@@ -69,6 +69,15 @@ _QUOTA_GROUP_LIMITS_SQL = sa.text(
     "SELECT max_inflight, rpm, tpm FROM control.model_quota_group"
     " WHERE tenant_id = :tenant_id AND id = :quota_group_id AND is_deleted = false"
 )
+_LIMITS_AND_CLOCK_SQL = sa.text(
+    "SELECT clock_timestamp() AS now,"
+    " c.max_inflight AS max_inflight, c.enabled AS enabled,"
+    " g.max_inflight AS group_max_inflight, g.rpm AS group_rpm, g.tpm AS group_tpm"
+    " FROM control.model_credential c"
+    " LEFT JOIN control.model_quota_group g"
+    "   ON g.tenant_id = :tenant_id AND g.id = :quota_group_id AND g.is_deleted = false"
+    " WHERE c.tenant_id = :tenant_id AND c.id = :credential_id AND c.is_deleted = false"
+)
 _PROBE_TARGET_SQL = sa.text(
     "SELECT d.id AS deployment_id, c.revision AS credential_revision, c.provider_key,"
     " c.api_key_digest, c.quota_group_id"
@@ -246,6 +255,44 @@ class ModelCapacityStore:
             enabled=bool(credential["enabled"]),
             key=CapacityLimits(max_inflight=int(credential["max_inflight"])),
             quota_group=quota_group,
+        )
+
+    async def read_limits_and_clock(
+        self, *, tenant_id: str, credential_id: uuid.UUID, quota_group_id: uuid.UUID | None
+    ) -> tuple[CredentialLimits | None, datetime | None]:
+        """一次读齐额度上限与 PG 时钟：与 `read_limits` + `database_clock` 语义一致。
+
+        凭据缺失返回 `(None, None)`；额度组缺失返回 `(None, now)`（调用方仍按 NOT_FOUND 处理）。
+        """
+        row = (
+            await self._session.execute(
+                _LIMITS_AND_CLOCK_SQL,
+                {
+                    "tenant_id": tenant_id,
+                    "credential_id": credential_id,
+                    "quota_group_id": quota_group_id,
+                },
+            )
+        ).mappings().one_or_none()
+        if row is None:
+            return None, None
+        now = row["now"]
+        quota_group: CapacityLimits | None = None
+        if quota_group_id is not None:
+            if row["group_max_inflight"] is None:
+                return None, now
+            quota_group = CapacityLimits(
+                max_inflight=int(row["group_max_inflight"]),
+                rpm=None if row["group_rpm"] is None else int(row["group_rpm"]),
+                tpm=None if row["group_tpm"] is None else int(row["group_tpm"]),
+            )
+        return (
+            CredentialLimits(
+                enabled=bool(row["enabled"]),
+                key=CapacityLimits(max_inflight=int(row["max_inflight"])),
+                quota_group=quota_group,
+            ),
+            now,
         )
 
     async def read_probe_target(

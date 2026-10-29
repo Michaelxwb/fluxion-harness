@@ -1,6 +1,6 @@
 ---
 id: harness-arch
-description: Agent Harness 通用平台规则：arch
+description: 部署单元、边界与容量
 stages:
 - design
 - plan
@@ -29,32 +29,30 @@ verifiers:
 
 ## Conventions
 
-- **容量压测的副本基线由 profile 声明**：Console 固定 1 Pod；Gateway/Connector 的副本按目标 profile 的 `max_replica_counts`/`process_counts` 核算，不再固定 Gateway 单 Pod；Runtime/Worker 仍可横向扩展。✅ 每轮压测前执行 `check_agent_capacity_deployment.py --live-namespace <namespace>`，核对期望/实际/就绪副本、实际 Pod 与 HPA，等缩容结束后再施压；❌ 清单写 1 却沿用集群里的多副本 Gateway/Connector，或把非目标拓扑的完成率当成目标架构容量。
-  - **单 Pod 的出站并发同样按目标并发定容**（2026-10-21，纠正拓扑后实测）：Gateway 的 `EGRESS_HTTP_MAX_CONNECTIONS × max_replicas` 必须 ≥ `workload.users × active_runs_per_user` —— 每个用户建会话/提交消息各占一条 Gateway→Runtime 连接，池不够时多出的请求在池里排队到 `PoolTimeout`，正常突发变成 500（实测 800 用户、池 64：874 次 `PoolTimeout`，400 档 344/400 受理、800 档 255/800）。发布预检机检 `outbound-concurrency`（`check_agent_capacity_deployment.py`）。
+- **容量压测的副本基线由 profile 声明**：Console 固定 1 Pod；Gateway/Connector 的副本按目标 profile 的 `max_replica_counts`/`process_counts` 核算；Runtime/Worker 仍可横向扩展。✅ 每轮压测前执行 `check_agent_capacity_deployment.py --live-namespace`，核对期望/实际/就绪副本与 HPA，缩容结束再施压；❌ 清单写 1 却沿用多副本，或把非目标拓扑的完成率当目标容量。
+  - **单 Pod 出站并发同样按目标并发定容**：Gateway 的 `EGRESS_HTTP_MAX_CONNECTIONS × max_replicas` ≥ `workload.users × active_runs_per_user`——每个用户建会话/提交消息各占一条 Gateway→Runtime 连接，池不够时请求排队到 `PoolTimeout`（实测 800 用户、池 64：874 次 `PoolTimeout`）。发布预检机检 `outbound-concurrency`。
+- **受理阈值以 Console 设置为唯一来源，Runtime 只做单调投影**（2026-10-27）：`capacity` 分组在 Console 配置；`runtime.run_admission_policy` 是 Runtime 侧的 PG 阈值投影，按 `source_settings_revision` **单调 upsert**（只升不降），事务内按 USER→TENANT 顺序锁行计数，达到有效阈值即拒且不新增占位。配置快照在短事务外取；读到更低版本要退出事务后重取一次，仍低即显式失败——绝不按旧阈值放行、不回落 schema 默认值。降额只影响新受理，已有 Run 与计数行不动；新 Run 的初始排队态是 `WAITING_RUNTIME`（`application/run_admission.py`、`infrastructure/run_admission_store.py`；指标 `run_admission_total`；材料由 Console `/internal/runtime/admission-materials` 提供）。✅ 同一 PG 行跨实例计数；❌ 每 Pod 本地缓存独立判定。
 
 本 Spec 的 verifier 跑 `tests/architecture`，该套件实际强制的规则族比 RULE-arch-001 更宽，以下三条同为硬约束：
 
-- **依赖方向单向**：`packages/*` 不得 import app 模块（含 `muad_im_connector`）；runtime/worker 不得 import `muad_console_platform`（跨部署单元一律走 HTTP 契约，参考 `infrastructure/console_client.py`）；`skill-sdk` 不依赖 runtime/console/worker/connector（`tests/architecture/test_import_direction.py`）。
-- **IM Gateway / Connector 边界**：Gateway web 角色不持库（不得 import `sqlalchemy`，迁移与持库归其他 Owner）；渠道 SDK（`aibot`/`websockets`）只允许出现在通道适配器表面：`im-gateway` 的 `channels/` 或 `im-connector` 的 `channels/`。`iter_events()` 仍是 Gateway 入站规范化的唯一入口；Connector 用 `im.inbound` 规范化事件与 `im.outbound` 命令，不直接调 Runtime（`tests/architecture/test_im_gateway_boundaries.py`）。
+- **依赖方向单向**：`packages/*` 不得 import app 模块（`tests/architecture/test_import_direction.py` 的 `APP_MODULES` 覆盖 runtime/worker/gateway/connector/console 五个 app 包）；runtime/worker 不得 import `muad_console_platform`（跨部署单元一律走 HTTP 契约，参考 `infrastructure/console_client.py`）；`skill-sdk` 不依赖 runtime/console/worker/connector。
+- **IM Gateway / Connector 边界**：Gateway web 角色不持库（不得 import `sqlalchemy`，迁移与持库归其他 Owner）；渠道 SDK（`aibot`/`websockets`）**只允许出现在 Connector 的 `channels/` 适配器表面**——Gateway 里任何位置出现渠道 SDK 都红。`iter_events()` 是 IM 入站规范化的唯一入口（WebChat 的 SYNC 路径例外，见 `harness-im.md`）；Connector 用 `im.inbound` 规范化事件与 `im.outbound` 命令，不直接调 Runtime（`tests/architecture/test_im_gateway_boundaries.py`）。
 - **指标暴露与 label 卫生**：每个运行时角色（四个业务单元 + Connector）声明自己的 metric catalog 并通过 api-kit 暴露真实 `GET /metrics`（无流量时 catalog 亦可见）；label 不得含高基数或敏感维度（禁止资源 UUID/Secret/消息体/用户可控路径，路由 label 取模板而非具体路径）；带 label 的计数器只进 `/metrics`，不写结构化 metric 日志；`run_reclaim_total` 属 Runtime（Worker 无 Run 回收路径，对应 `task_reclaim_total`）。每个运行时角色都声明 catalog 后再 `install_metrics`：Runtime/Worker 见各自 `metrics.py` 的 `CATALOG`；IM Gateway/Connector 各自见 `metrics.py`——机检 `tests/gateway/test_gateway_metrics.py`（无流量也暴露目录 + label 卫生）。
 
-- **探针口径**：`/healthz` 是存活、`/readyz` 是就绪（依赖缺失返回 503，api-kit `install_health_probes`）。部署侧让 `readinessProbe` 接 `/readyz`、`livenessProbe` 接 `/healthz` —— 每个运行时角色（含 Connector）的 k8s 清单**都按此接**（2026-10-04 改；此前两个探针都指 `/healthz`，api-kit 的 `/readyz` 从未被部署消费）。**服务间接线同理**：`CONSOLE_PLATFORM_URL`/`AGENT_RUNTIME_URL`/`AGENT_WORKER_URL`/`IM_GATEWAY_URL`/`DEFAULT_TENANT_ID` 必须由 ConfigMap 显式给（缺了应用会回落到 `127.0.0.1` 本机默认值，集群内必然连不上对端），`INTERNAL_SERVICE_TOKEN` 必须所有运行时角色（含 Connector）一致；迁移要有集群内入口（Job 用 Console 镜像做载体，`alembic` 因此进了该包依赖）。以上同由 `tests/architecture/test_k8s_deploy_manifests.py` 机检。
-
-- **探针预算显式声明并容纳突发调度延迟**（2026-10-21，800 并发）：每个运行时角色（四个业务单元 + Connector）的 readiness/liveness 均声明 `timeoutSeconds: 5`、`periodSeconds: 10`、`failureThreshold: 3`。发布预检拒绝缺省或低于这三项预算的配置；探针路径仍区分存活与依赖就绪。✅ 允许短时负载下健康请求延迟、持续不健康仍摘流量或重启；❌ 省略超时沿用 Kubernetes 的 1s 默认值——实测活跃 Runtime 被探针重启，同秒网关出现 77 次断连。机检：`test_k8s_deploy_manifests.py` 与 `test_capacity_webchat_deployment_preflight.py`。
+- **探针口径与预算**：`/healthz` 是存活、`/readyz` 是就绪（依赖缺失 503）。每个运行时角色（含 Connector）的 k8s 清单必须 `readinessProbe` 接 `/readyz`、`livenessProbe` 接 `/healthz`，并声明 `timeoutSeconds: 5`、`periodSeconds: 10`、`failureThreshold: 3`；发布预检拒绝缺省或低于这三项预算的配置。✅ 允许短时负载下健康请求延迟；❌ 省略超时沿用 K8s 的 1s 默认值——实测活跃 Runtime 被探针重启、同秒网关大量断连。**服务间接线同理**：`CONSOLE_PLATFORM_URL`/`AGENT_RUNTIME_URL`/`AGENT_WORKER_URL`/`IM_GATEWAY_URL`/`DEFAULT_TENANT_ID` 必须由 ConfigMap 显式给（缺了会回落 `127.0.0.1`），`INTERNAL_SERVICE_TOKEN` 所有角色一致；迁移要有集群内入口（Job 用 Console 镜像，`alembic` 因此进该包依赖）。机检：`tests/architecture/test_k8s_deploy_manifests.py`、`test_capacity_webchat_deployment_preflight.py`。
 
 - **后端内部分层固定为 `api/ → application/ → infrastructure/`**（`domain/` 为纯领域）：路由只做协议适配与依赖注入，业务编排在 `application/*_service.py`，数据访问在 `infrastructure/repositories/*_repository.py`（**该收口仅 console 后端成立**：全仓只有 `apps/console-platform/backend/.../infrastructure/repositories/` 与 `.../domain/`；runtime/worker/gateway 无这两个包，其数据访问落在 `infrastructure/*.py` 与 `application/*_service.py`）。**不存在 `modules/<模块>/` 子包**——那是前端的约定（`apps/**/frontend/src/modules/`）；设计模板若按前端形态写后端目录，实现按本分层落地并在任务文档登记「设计待更正」。
 
-- **应用层可以按功能划分子包**：Runtime 附件与制品逻辑集中在 `application/attachments/`（`tools.py`、`inbound.py`、`reference.py`、`tool_results.py`）；功能子包仍属于 application 层，数据库模型与存储实现归 infrastructure，执行器负责组装。✅ `application/attachments/tools.py` 引用 `infrastructure.models.runtime.Artifact`；❌ 在功能子包中复制数据库模型，或反向引用执行器和 Run 编排服务导致循环依赖。
+- **应用层可以按功能划分子包**：Runtime 附件与制品逻辑集中在 `application/attachments/`（`tools.py`、`inbound.py`、`reference.py`、`tool_results.py`、`archive_tools.py`、`output_service.py`、`transcripts.py`、`immutable_store.py`）；功能子包仍属于 application 层，数据库模型与存储实现归 infrastructure，执行器负责组装。✅ `application/attachments/tools.py` 引用 `infrastructure.models.runtime.Artifact`；❌ 在功能子包中复制数据库模型，或反向引用执行器和 Run 编排服务导致循环依赖。
 
-- **`py.typed` 只在 `packages/*`，`apps/*` 没有**：8 个共享库（`muad_api`/`muad_common`/`muad_contracts`/`muad_logging`/`muad_artifact_store`/`muad_agent_core`/`muad_platform_sdk`/`muad_skill_sdk`）都带 `py.typed`，现有四个 app 包（`muad_console_platform`/`muad_agent_runtime`/`muad_agent_worker`/`muad_im_gateway`）与新增 `muad_im_connector` 都不带。后果：mypy 分析 **test 文件**时会把 app 包当作「已安装但未类型化」的库，对 `from muad_console_platform... import ...` 报 `import-untyped`（*module is installed, but missing library stubs or py.typed marker*）；跨目录传 test 文件还会触发 duplicate-module。**这是口径问题而非代码缺陷**——未改动目录同样复现。判定口径：mypy 的结论只对生产文件成立（`make typecheck` 本就是 `uv run mypy apps packages`，不含 tests）；`cf_validation --files` 传 test 文件时的 mypy 失败按此折算，不要据此改实现。若要让 test 文件也受严格检查，需先给现有四个 app 包与 `muad_im_connector` 补 `py.typed`（会扩大全仓 mypy 范围，应另立变更并评估新暴露的错误）。
+- **`py.typed` 只在 `packages/*`，五个 app 包里只有 Connector 例外**：9 个共享库（含 `muad_im_core`）都带 `py.typed`；四个既有 app 包（console/runtime/worker/gateway）不带，`muad_im_connector` **带**。后果：mypy 分析 **test 文件**时会把不带标记的 app 包当「已安装但未类型化」的库，报 `import-untyped`；**这是口径问题而非代码缺陷**，未改动目录同样复现。判定口径：`make typecheck` 只跑 `apps packages`，不含 tests；`cf_validation --files` 传 test 文件时的 mypy 失败按此折算，不要据此改实现。若要 test 文件也受严格检查，需先给四个 app 包补 `py.typed`（另立变更并评估新错误）。
 
-- **Pod 绑定门禁是「文本标记扫描」而非语义分析**：`POD_MARKERS = ("pod_id", "agent_pod", "pod_mapping", "agent_to_pod")`，每个运行时角色（含 Connector）的任一 `*.py` 源码文本命中任一标记即红（`tests/architecture/test_im_gateway_boundaries.py:19,80-89`）。因此该门禁只约束**命名**——✅ 用 `lease_owner`/`instance_id` 表达执行者归属；❌ 变量名写成 `pod_mapping` 之类，即便语义上并未做 Pod 绑定也会在运行时角色内触发红。
+- **Pod 绑定门禁是「文本标记扫描」而非语义分析**：`POD_MARKERS = ("pod_id", "agent_pod", "pod_mapping", "agent_to_pod")`，每个运行时角色（含 Connector）的任一 `*.py` 源码文本命中任一标记即红（`tests/architecture/test_im_gateway_boundaries.py` 的 `POD_MARKERS` 与强制用例）。因此该门禁只约束**命名**——✅ 用 `lease_owner`/`instance_id` 表达执行者归属；❌ 变量名写成 `pod_mapping` 之类，即便语义上并未做 Pod 绑定也会在运行时角色内触发红。
 
-- **Console 部署单元是 `apps/console-platform/backend`，不是整个 `apps/console-platform`**：`CONSOLE = "apps/console-platform/backend"`（`tests/architecture/test_im_gateway_boundaries.py:16`），它与 Gateway/Runtime/Worker 同列 `DEPLOYMENT_UNITS`（`:17`，入口断言见 `:46-52`）。前端 `apps/console-platform/frontend` 不在部署单元的可检查范围里；新增跨单元边界检查时不要把整个 `console-platform` 目录当作 Console 单元。
+- **Console 部署单元是 `apps/console-platform/backend`，不是整个 `apps/console-platform`**：`CONSOLE = "apps/console-platform/backend"`，它与 Gateway/Runtime/Worker 同列 `DEPLOYMENT_UNITS`（入口断言在 `tests/architecture/test_im_gateway_boundaries.py`）。前端 `apps/console-platform/frontend` 不在部署单元的可检查范围里；新增跨单元边界检查时不要把整个 `console-platform` 目录当作 Console 单元。
 
 - **压缩的「受保护前缀」是开头连续的一段 `role=SYSTEM`**：系统提示、memory 注入、摘要前缀（`summary_message` 渲染出来也是 SYSTEM）都在这一段里，它们是每次请求必须原样带上的**权威上下文**，不是历史。所以任何**会删消息**的压缩层（snip、条数兜底）只能在其后的**对话区**上工作；只换内容不删消息的层（micro）不涉及这条边界。裁掉前缀＝agent 失忆（系统提示定义了身份与指令）、memory 注入措辞失效、被压缩掉的那段历史净消失。
-  - ✅ `prefix, region = split_protected_prefix(sanitized)`，snip 与条数兜底只切 `region`。Runtime `memory_context.py` 从当前Run的revision缓存刷新typed `MemoryComponent`，`AgentRunner._prepare_model_request` 在每次发送（含重试）前把该组件插在固定提示后、摘要前，再执行压缩；`context_builder.load_history` 只重建canonical与摘要，不预先查记忆。记忆引用的非指令说明由 `memory/render.py` 唯一生成，其他SYSTEM与权威历史不靠文本前缀识别/删除。
-  - ✅ `memory_runtime.create_run_memory` 每Run只建一份Loader，工具forget和Runner共用；确认port绑定RunService传入的claim identity与submission。❌ registry与Runner各建缓存导致forget后下一请求仍用旧块，或从模型参数生成执行身份。
+  - ✅ `prefix, region = split_protected_prefix(sanitized)`，snip 与条数兜底只切 `region`。Runtime `memory_context.py` 从当前Run的revision缓存刷新typed `MemoryComponent`，`AgentRunner._prepare_model_request` 在每次发送（含重试）前把该组件插在固定提示后、摘要前，再执行压缩；`context_builder.load_history` 只重建canonical与摘要，不预先查记忆。记忆的刷新/失效与来源口径归 RULE-memory-003（`harness-memory.md`），本 spec 不重复定义。
   - ❌ 对整条消息列表（含开头 SYSTEM）直接 snip / 按条数裁剪 ⇒ 系统提示或摘要前缀被当历史省掉
 
 - **系统提示的 section 顺序是契约**（2026-10-07 借鉴 P10 的动态提示设计）：装配出来的提示由**具名段落按固定顺序**组成，唯一实现在 `DefaultPromptBuilder.build`（`packages/agent-core/src/muad_agent_core/prompt/builder.py`）：`instructions` → `## Available skills`（目录）→ `<!-- prompt_template_version -->`（尾标）。加段落**只在尾部追加**，不得插队——顺序一旦只是 `append` 的副产物，任何重构都能悄悄挪动它。用例断言**相对位置**（`prompt.index(A) < prompt.index(B)`），不要断言「包含某段文本」：后者在顺序错乱、甚至同一段出现两次时同样通过。
@@ -65,12 +63,12 @@ verifiers:
   - ✅ `if skills:` 才追加 Skill 段（`builder.py`）；`test_empty_skill_catalog_is_omitted` 钉住省略；`test_truncation_is_announced_only_when_something_was_dropped` 钉住「被截断才说明」
   - ❌ 空段落也输出「（无）」「暂无」之类占位；❌ 截断了却不说（模型按不完整的清单行事）
 
-- **自由形态的 JSON 载荷必须是严格 JSON，且**只在一处**判它**（2026-10-07）：`input` / `execution_snapshot` / `input_template` 这类 `dict[str, Any]` 走不到类型检查，必须在**入参**（契约 DTO 的 `field_validator`，见 `muad_contracts.canonical.ensure_strict_json`）就拒掉非 JSON 值。两个下游看过**同一份表示**是硬要求：实测 `CreateTaskRequest.model_dump(mode="json")` 会把 `NaN` 静默转成 `None`，于是**幂等指纹算的是 `{"threshold": null}`，真正写进 jsonb 的却是 `{"threshold": NaN}`**——同一份载荷在两个消费者眼里不是同一份。
+- **自由形态的 JSON 载荷必须是严格 JSON，且**只在一处**判它**（2026-10-07）：`input` / `execution_snapshot` / `input_template` 这类 `dict[str, Any]` 走不到类型检查，必须在**入参**（契约 DTO 的 `field_validator`，见 `muad_contracts.canonical.ensure_strict_json`）就拒掉非 JSON 值。「同一份载荷在幂等指纹与 jsonb 落库两个消费者眼里必须是同一份」的完整口径、`NaN`→`None` 反例与逐层防护见 `harness-api.md`（RULE-api-002 段），本 spec 不重复展开。
   - ✅ 非有限数/未知类型在 DTO 层 422（`tests/agent_worker/test_api.py::test_non_standard_json_payload_is_rejected_at_the_boundary`）；`instructions` 先 `strip()` 再判空（`min_length=1` 挡不住 `"   "`，而装配侧会 strip ⇒ 保存合法、发出空提示）
   - ❌ 让 `NaN` 一路穿过 DTO 与指纹、直到 `INSERT ... ::jsonb` 才被 PostgreSQL 拒（`invalid input syntax for type json`）⇒ 调用方的错报成 500
 
 - **降级必须**语义等价**，否则不许降级**（2026-10-07）：判断"能不能退"的判据不是"退之后还跑得动吗"，而是"退之后还是不是同一个 Agent"。压缩失败 ⇒ 原文照发（只是没省 token，同一个 Agent）**该退**；系统提示拿不到 ⇒ 回退到构建期那段不含工具/工作目录/记忆的字符串，是**换了个 Agent**，**必须炸**。
-  - ✅ `RuntimeContextCompactor.compact` 失败保留原历史 + `context_compaction_total{status="FAILED"}`（`apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py:111-121`）
+  - ✅ `RuntimeContextCompactor.compact` 失败保留原历史 + `context_compaction_total{status="FAILED"}`（`apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py` 的 `compact` 异常分支）
   - ❌ 拿"能跑"当借口把缺能力的那份兜底喂给模型 —— 静默换 Agent 比直接失败危险得多
 
 - **Runtime 执行归属只由 PG claim 产生，HTTP 只订阅持久事件**（async-tool-runtime，2026-10-09）：`POST /v1/runs` 的创建事务只落 `RunRecord` + `RUN_CREATED` canonical；执行由 `ExecutionSupervisor.claim_and_submit`（关闭锁内 claim、排除本实例在跑 run）领取 `CREATED`，`WAITING_TOOL` 由 `ContinuationPump` 经 `claim_continuation`（conversation 行 `FOR UPDATE SKIP LOCKED` + Run 锁内 epoch CAS）领取；心跳、事件与终态写入统一校验 owner/epoch/lease。

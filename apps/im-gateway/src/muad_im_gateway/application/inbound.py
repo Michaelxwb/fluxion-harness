@@ -555,21 +555,24 @@ class InboundPipeline:
 
     async def handle_stream_event(
         self, adapter: ChannelAdapter, envelope: ChannelEnvelope
-    ) -> None:
+    ) -> bool:
         """Stream 消费入口的一条事件：与 `consume` 同样的**按来源串行 + 受理名额**。
 
         `consume` 绑定在某个适配器的 `iter_events()` 上；经过 `im.inbound` 的事件由消费组
         统一下发（可能属于不同适配器），所以需要一个按事件选适配器的入口。语义与
         `_consume_one` 一致：命令不排队，普通消息按精确来源串行，受理名额只包住受理阶段。
+
+        **返回值必须是「是否已受理」**：消费组据此决定 XACK 还是留 pending 重试；把
+        `handle()` 的 False 丢掉会让依赖故障（设置/Console/Runtime 暂不可用）被当成成功，
+        消息被 ACK 后再也不会重投（E-19 重启窗口实测：事件留在 Stream 但永不建 Run）。
         """
         if _is_command(envelope.text):
-            await self.handle(adapter, envelope)
-            return
+            return await self.handle(adapter, envelope)
         async with self._route_lock(envelope):
             slot = _AdmissionSlot(self._handlers)
             await slot.acquire()
             try:
-                await self.handle(adapter, envelope, slot=slot)
+                return await self.handle(adapter, envelope, slot=slot)
             finally:
                 slot.release()
 

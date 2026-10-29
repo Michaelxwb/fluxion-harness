@@ -42,6 +42,7 @@ import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
+from muad_common.db_counters import db_stage_scope
 from muad_contracts import DeliveryMessage, DeliveryRequest, DeliveryResponse, DeliveryRouteInput
 from muad_contracts.channel_delivery import (
     DELIVERY_LEASE_MAX_SEC,
@@ -316,6 +317,7 @@ class ChannelDeliveryPump:
             started += 1
         return started
 
+    @db_stage_scope("bg:delivery")
     async def run_forever(self) -> None:
         """独立循环：本轮失败只记日志并继续，不拖累其它循环（design §3.2）。"""
         while True:

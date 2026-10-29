@@ -267,6 +267,8 @@ const PENDING_SEND_ERROR_KEYS: Record<string, string> = {
   ATTACHMENT_COUNT_EXCEEDED: 'chat.composer.error.tooManyFiles',
   UPLOAD_EXPIRED: 'chat.composer.error.stagingExpired',
   UPLOAD_NOT_FOUND: 'chat.composer.error.stagingExpired',
+  CONVERSATION_EXPIRED: 'chat.composer.error.conversationExpired',
+  CONVERSATION_LIMIT_REACHED: 'chat.composer.error.conversationLimit',
   NETWORK_ERROR: 'chat.composer.error.network',
   RUN_CAPACITY_EXCEEDED: 'chat.composer.error.capacity',
   RUN_QUEUE_TIMEOUT: 'chat.composer.error.capacity',

@@ -43,7 +43,7 @@ def capacity_profile_path() -> Path:
     return path
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def capacity_stack(
     tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
 ) -> Iterator[CapacityStack]:
@@ -63,7 +63,7 @@ def capacity_stack(
         stack.teardown()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def capacity_execution_stack(
     tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
 ) -> Iterator[CapacityStack]:

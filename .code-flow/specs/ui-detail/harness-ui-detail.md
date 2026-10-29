@@ -1,6 +1,6 @@
 ---
 id: harness-ui-detail
-description: Agent Harness 通用平台规则：ui-detail
+description: 详情 SideSheet 与表格
 stages:
 - design
 - plan
@@ -80,18 +80,18 @@ Markdown 预览字号与详情页协调：正文/列表/表格 14px，代码 13p
 
 详情基本信息统一「分区标题 + `DetailGrid` 双列标签栅格 + 状态 `Tag`」，需要说明时附 `Banner`；统计概览用 `MetricCards`（用户详情：授权/凭据/身份/记忆）。
 关系型 Tab 统一「工具行（主操作）→ 分区标题 → 表格 → 底部说明文案」：主操作按钮置顶左对齐（`Button theme="solid" type="primary"`，删除/解绑等操作通过 `ConfirmAction` 确认），分区标题复用 Tab 名，表格列与交互稿一致（授权 Tab 含授权时间；IM Tab 含派生启用状态；记忆 Tab 含来源与更新时间），说明文案用 `.detail-hint`。需要选择对象的主操作（如授权 Agent）以 `FormModal` 承载：弹窗内给出可选对象与操作语义说明，无可选项时展示 `当前所有 Agent 均已授权` 且确认按钮禁用。
-表单字段布局以交互稿为准：双列栅格 `.form-grid`（控件 100% 同宽、按稿顺序成对，动态/配置字段配 `.form-section-title`/`.form-section-hint` 分区说明）；详情基本信息用 `DetailGrid` 双列，禁止宽窄混排与裸 schema key。
-用户详情四个关系 Tab 复用 `.app-table-fit` 与 `scroll.x: '100%'`：Agent 名称/标识、项目平台名称、IM 外部用户 ID/Bot ID、记忆内容分配剩余空间；状态、时间和操作紧凑定宽。最小表宽依次为 680/832/880/680px，标准 920px 详情面板内均铺满且不横向滚动；窄屏保留表内滚动与右侧固定操作。长文本通过 `TableText` 单行省略并保留完整 title，时间、状态和操作不截断。
+表单字段布局以交互稿为准：双列栅格 `.form-grid`（控件 100% 同宽、按稿顺序成对，动态/配置字段配 `.form-section-title`/`.form-section-hint` 分区说明）；详情基本信息用 `DetailGrid` 双列，禁止宽窄混排与裸 schema key。本 spec 是表单布局的唯一 owner（verifier 跑 `tests/frontend/test_form_layout_contract.py`），`harness-ui.md` 只引用不重复。
+用户详情四个关系 Tab 复用 `.app-table-fit` 与 `scroll.x: '100%'`：Agent 名称/标识、项目平台名称、IM 外部用户 ID/Bot ID、记忆内容分配剩余空间；状态、时间和操作紧凑定宽。最小表宽依次为 680/832/880/880px，标准 920px 详情面板内均铺满且不横向滚动；窄屏保留表内滚动与右侧固定操作。长文本通过 `TableText` 单行省略并保留完整 title，时间、状态和操作不截断。
 
 ✅：`e2e/tests/user-detail-layout.spec.ts` 覆盖四个 Tab 的长短数据、明暗主题、中英文、桌面铺满及窄屏固定操作。
 
 ❌：每列均使用默认 176px、操作列使用默认 160px，导致状态列空白过多、IM 时间列无法同时展示。
 
-用户记忆来源按运行时工具的两种取值本地化：USER_EXPLICIT → 用户要求记住（User requested），AGENT_INFERRED → Agent 自动归纳（Agent inferred）。译文在本次渲染内生成，切换语言立即更新；通过 `TableText.title` 保留原始编码。未登记的历史/未知取值原样显示，不推断其来源含义。
+用户记忆来源按运行时 `author` 枚举本地化：`USER` → 用户已确认（User confirmed）、`ADMIN` → 管理员录入（Admin entry）、`AGENT` → Agent 自动归纳（Agent inferred）。译文在本次渲染内生成，切换语言立即更新；通过 `TableText.title` 保留原始编码。未登记的历史/未知取值原样显示，不推断其来源含义。
 
-✅：`e2e/tests/user-detail-layout.spec.ts` 验证两种来源的中英文文案、原始编码提示、同页切换语言与历史/未知值回退。
+✅：`e2e/tests/user-detail-layout.spec.ts` 验证三种来源的中英文文案、原始编码提示、同页切换语言与历史/未知值回退。
 
-❌：直接展示已知 USER_EXPLICIT/AGENT_INFERRED 编码；把历史 EXPLICIT 当成当前 USER_EXPLICIT。
+❌：直接展示已知 `USER`/`ADMIN`/`AGENT` 编码；把历史取值（如旧的 `USER_EXPLICIT`/`AGENT_INFERRED`）当成当前枚举解释。
 
 主列表与详情表格统一使用 `--semi-color-bg-1` 不透明底色，表头和悬停行在该底色上叠加 `--semi-color-fill-0`，普通列与固定操作列在浅色、深色主题中均保持同色，横向滚动不能透出下层数据。详情单元格不折行（`.semi-sidesheet .semi-table-*` 生效范围仅限详情）、含行操作时最后一列表头为「操作」，通过公共 `actionColumn` + `DataTable`（主列表经 `RemoteTable`）提供列宽、横向滚动和 `fixed: right`；当表格宽度不足以同时容纳操作列与 200px 数据时，操作收进右侧固定 56px「更多」菜单；列名与交互稿一致（Agent 名称/标识、通道、最近活动时间等）。
 
@@ -115,13 +115,13 @@ Markdown 预览字号与详情页协调：正文/列表/表格 14px，代码 13p
 
 详情 `SideSheet` 的公共契约（机器钉死在 `tests/frontend/test_detail_sidesheet_contract.py`）：
 
-- **宽度固定 `width={920}`**，由 `components/common/DetailSideSheet.tsx` 统一给定，各模块不得自设宽度（老模块迁入公共组件时以公共组件为准）。机检：`tests/frontend/test_detail_sidesheet_contract.py:89-90`。
+- **宽度固定 `width={920}`**，由 `components/common/DetailSideSheet.tsx` 统一给定，各模块不得自设宽度（老模块迁入公共组件时以公共组件为准）。机检：`tests/frontend/test_detail_sidesheet_contract.py`（宽度断言）。
 
   ❌：模块自己传 `width={720}`/`width={1080}` 覆盖公共组件
 
-- **`actions` 必须条件渲染**：无页内刷新操作时不渲染空操作区（`{props.actions ? props.actions : null}`），避免标题行右侧留一块空白。机检：`tests/frontend/test_detail_sidesheet_contract.py:32-34`。
+- **`actions` 必须条件渲染**：无页内刷新操作时不渲染空操作区（`{props.actions ? props.actions : null}`），避免标题行右侧留一块空白。机检：`tests/frontend/test_detail_sidesheet_contract.py::test_detail_sidesheet_renders_no_empty_action_area`。
 - **危险/行内确认操作统一走公共 `ConfirmAction`**（内部 `Popconfirm`；触发按钮固定 `type="primary"`，确认/取消按钮也使用 primary；详情行内默认 `theme="borderless"`，外层按钮需要抢眼时显式传 `theme="light"`）。删除、解绑、撤销、移除与清空操作统一蓝色，通过具体确认文案表达操作含义；组件不提供独立危险色参数。不要在模块里手写 `Popconfirm` + `Button` 组合——确认/取消文案与按钮样式靠它统一（使用点如 `user-identity/UserDetailTabs.tsx`）。
-- **模块内「状态 → 颜色」映射按模块收敛到唯一一份 options**，列表列、筛选下拉、结果 Modal、详情共用同一份口径（参考 `model-management/statusOptions.ts`：`ModelDetailSideSheet` 与 `ModelPage` 同 import 同一份；机检 `tests/frontend/test_detail_sidesheet_contract.py:66-69`）。新模块新增状态枚举时，只允许新增一处映射；不得让同一枚举在多处各写一套。
+- **模块内「状态 → 颜色」映射按模块收敛到唯一一份 options**，列表列、筛选下拉、结果 Modal、详情共用同一份口径（参考 `model-management/statusOptions.ts`：`ModelDetailSideSheet` 与 `ModelPage` 同 import 同一份；机检 `tests/frontend/test_detail_sidesheet_contract.py` 的 statusOptions 断言）。新模块新增状态枚举时，只允许新增一处映射；不得让同一枚举在多处各写一套。
 
   ⚠️ 本约束**只要求「按模块收敛」**，不是「全站必须用 `StatusTag`」：`agent-management/AgentDetailSideSheet.tsx`、`skill-management/SkillDetailSideSheet.tsx` 仍有裸用 `<Tag color={...}>` 的存量写法，属待收敛项，不作为违规判据。
 

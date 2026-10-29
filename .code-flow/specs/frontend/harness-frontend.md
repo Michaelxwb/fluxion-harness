@@ -1,6 +1,6 @@
 ---
 id: harness-frontend
-description: Agent Harness 通用平台规则：front
+description: 前端服务层与拦截器
 stages:
 - design
 - plan
@@ -23,7 +23,7 @@ verifiers:
 
 ## Rules
 
-- [RULE-front-001] 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的 service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿 `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId` 是无副作用的纯工具，组件可直接 import（现网 7 处，均为纯函数引用）。所有文案只使用 i18n key（zh-CN/en-US）——`scripts/check_frontend_i18n.py` 校验两侧词条的键集齐平与空值，并校验源码中 `t('字面量键')` 引用的键**必须已定义**（增删词条后务必跑它）；模板串动态键变体的齐备性由各模块的 `tests/frontend/*_i18n*.py` 契约钉死。列表/详情遵循 RULE-ui-001 与 RULE-ui-detail-001。
+- [RULE-front-001] 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的 service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿 `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId` 是无副作用的纯工具，组件可直接 import（现网多处，均为纯函数引用）。文案与词条规则见 RULE-i18n-001；列表/详情见 RULE-ui-001 与 RULE-ui-detail-001。
 
 ## Conventions
 
@@ -45,8 +45,8 @@ const [file, setFile] = useState<File | null>(null);
 
 `api/client.ts` 的拦截器契约（机器钉死在 `tests/frontend/test_api_client_contract.py`，改动拦截器前先读它）：
 
-- **请求头固定三件**：`X-Locale`（当前语言，`currentLocale()`）、`X-Request-Id`（每次请求新生成）、`X-CSRF-Token`（读 `muad_csrf` cookie，缺失则不带头）。三件都由请求拦截器统一设置，业务代码不得自行添加或覆盖。机检：`tests/frontend/test_api_client_contract.py:14-18`（`X-Locale` 注入）；三头同时发出另由 e2e `e2e/tests/console-auth.spec.ts` 的 S-09 断言。
-- **`newRequestId()` 必须保留三级兜底**：`crypto.randomUUID` → `crypto.getRandomValues`（手搓 UUIDv4）→ `Date.now()+Math.random`。`crypto.randomUUID` 只在 secure context（https / localhost）存在，内网 `http://<IP>` 打开 Console 时它是 `undefined`。机检：`tests/frontend/test_api_client_contract.py:35-46`。
+- **请求头固定三件**：`X-Locale`（当前语言，`currentLocale()`）、`X-Request-Id`（每次请求新生成）、`X-CSRF-Token`（读 `muad_csrf` cookie，缺失则不带头）。三件都由请求拦截器统一设置，业务代码不得自行添加或覆盖。机检：`tests/frontend/test_api_client_contract.py::test_e07_client_injects_locale_header`（`X-Locale` 注入）；三头同时发出另由 e2e `e2e/tests/console-auth.spec.ts` 的 S-09 断言。
+- **`newRequestId()` 必须保留三级兜底**：`crypto.randomUUID` → `crypto.getRandomValues`（手搓 UUIDv4）→ `Date.now()+Math.random`。`crypto.randomUUID` 只在 secure context（https / localhost）存在，内网 `http://<IP>` 打开 Console 时它是 `undefined`。机检：`tests/frontend/test_api_client_contract.py::test_e07_request_id_has_fallback_when_random_uuid_is_unavailable`。
 
 ✅：走带兜底的生成器
 
@@ -60,10 +60,10 @@ config.headers['X-Request-Id'] = newRequestId();
 config.headers['X-Request-Id'] = crypto.randomUUID();
 ```
 
-- **业务码非 `'0'` 由响应拦截器统一处理**：`Toast.error(body.msg)` 后 reject 原始 body；`/auth/me` 的会话探测失败是**唯一不弹 Toast** 的例外（避免启动期噪音）。不得改成 `Toast.error(body.code)`（后端返回的是本地化 msg）。机检：`tests/frontend/test_api_client_contract.py:20-24`。
-- **401 统一跳登录**：`/login?returnUrl=<encodeURIComponent(pathname + search)>`；**已在 `/login` 时不跳**（防重定向循环）。机检：`tests/frontend/test_api_client_contract.py:27-32`。
-- **组件层取错误码只走纯函数 `apiErrorBody(error)`**：先读 `error.response.data.code`，再回退 `error.code`，两者皆无返回 `null`。不要在组件里手工拼 `error.response?.data?.code`（`src/api/client.ts` 的 `apiErrorBody`，现网 7 个调用点）。
-- **模块骨架是两件套**：`modules/<module>/services/<x>.ts`（该模块唯一的 HTTP 出口）+ `tests/frontend/test_<module>_contract.py`（**源码契约测试**：正则读源码断言结构与拦截器约定，而非渲染单测——本仓 `tests/frontend/` 现有 40 个此类文件）。
+- **业务码非 `'0'` 由响应拦截器统一处理**：`Toast.error(body.msg)` 后 reject 原始 body；`/auth/me` 的会话探测失败是**唯一不弹 Toast** 的例外（避免启动期噪音）。不得改成 `Toast.error(body.code)`（后端返回的是本地化 msg）。机检：`tests/frontend/test_api_client_contract.py::test_e07_non_zero_code_uses_localized_backend_message`。
+- **401 统一跳登录**：`/login?returnUrl=<encodeURIComponent(pathname + search)>`；**已在 `/login` 时不跳**（防重定向循环）。机检：`tests/frontend/test_api_client_contract.py::test_e09_unauthorized_redirects_to_login_with_return_url`。
+- **组件层取错误码只走纯函数 `apiErrorBody(error)`**：先读 `error.response.data.code`，再回退 `error.code`，两者皆无返回 `null`。不要在组件里手工拼 `error.response?.data?.code`（`src/api/client.ts` 的 `apiErrorBody`，现网 18 个调用点）。
+- **模块骨架是两件套**：`modules/<module>/services/<x>.ts`（该模块唯一的 HTTP 出口）+ `tests/frontend/test_<module>_contract.py`（**源码契约测试**：正则读源码断言结构与拦截器约定，而非渲染单测——本仓 `tests/frontend/` 现有 46 个 `*_contract.py`）。
 
 **凭据入口仅 ADMIN（2026-09-28 落地）**：`ProjectPlatform` 的平台详情与用户详情的 `credentials` TabPane 都包在 `isAdmin && (`（`account?.role === 'ADMIN'`）门控内，非 ADMIN 不渲染该页签，自动切换到凭据 Tab 也受同一门控约束。这是「前端隐藏 + 后端 403 兜底」的前端一半；后端门控见 auth spec。
 
@@ -100,8 +100,6 @@ const tabs =
 
 判空用**严格** `null`/`undefined`，不要用 falsy：实测 `React.Children.map` 对 `null`/`undefined` 返回 `null`/`undefined`（会崩），对 `false`/`''`/`0` 返回数组（不崩）—— 用 falsy 判定反而会顺手改掉 `{cond && <TabPane/>}` 今天**不崩**的行为，属多余语义变更。回归守卫：`e2e/tests/mcp-management/mcp-management.spec.ts` 的 S-06 在关闭内层面板后断言外层列表仍在（整树未被卸载）。机检：`tests/frontend/test_detail_sidesheet_contract.py` 钉住 props 与结构，但**判不出**这条语义（无法用模式判定 children 是否判空）。
 
-> 登记缺口：`tests/frontend/test_api_client_contract.py` 已钉死上述拦截器契约，但**未登记进任何 spec 的 `verifiers`**（仅在已归档 `01-platform-foundation` 里作 E-07 的 argv 出现过）；`tests/frontend/test_form_layout_contract.py` 在整个 `.code-flow/` 下**零引用**。两者都应在后续 refresh 时并入对应 rule 的 verifier 清单。
->
 > 机检覆盖边界：`scripts/check_frontend_api_usage.py` 目前只扫 `axios`/`fetch` 的裸用，**不覆盖**「import `api` 实例」这一类——RULE-front-001 的调用面禁令靠评审把关。若要机器兜底，可在该脚本补一条：除 `src/api/` 与 `services/` 外不得出现 `api.` 调用。
 
 ## Avoid

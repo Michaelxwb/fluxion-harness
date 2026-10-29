@@ -144,7 +144,9 @@ class InboundStreamConsumer:
             _count("unknown_channel")
             return
         try:
-            await self._pipeline.handle_stream_event(adapter, _envelope(event, adapter))
+            accepted = await self._pipeline.handle_stream_event(
+                adapter, _envelope(event, adapter)
+            )
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - 失败不 ACK，交给 reclaim 重试
@@ -159,6 +161,21 @@ class InboundStreamConsumer:
             _count("handle_failed")
             if attempts >= MAX_ATTEMPTS:
                 await self._dead_letter(stream, entry_id, fields, f"HANDLE_FAILED: {type(exc).__name__}")
+                await self._ack(stream, entry_id)
+            return
+        if not accepted:
+            # 依赖暂不可用/入口明确拒绝：handle 已释放去重占位并给用户反馈；不能 ACK，
+            # 让 XAUTOCLAIM 在空闲窗口后重试（否则消息永久丢失，E-19 重启窗口实测）。
+            attempts = await self._bump_attempts(entry_id)
+            logger.warning(
+                "inbound_stream_not_accepted channel=%s message_id=%s attempt=%s",
+                event.channel,
+                event.external_message_id,
+                attempts,
+            )
+            _count("not_accepted")
+            if attempts >= MAX_ATTEMPTS:
+                await self._dead_letter(stream, entry_id, fields, "NOT_ACCEPTED")
                 await self._ack(stream, entry_id)
             return
         await self._ack(stream, entry_id)

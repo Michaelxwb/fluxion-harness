@@ -16,9 +16,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import time
 import uuid
+from collections.abc import AsyncIterator
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -31,9 +34,11 @@ from muad_contracts.webchat import (
     WebchatMessageRequest,
     WebchatResumeRequest,
 )
+from muad_contracts.webchat_events import WebchatNotification
 from muad_im_core import BotSnapshotCache
 from pydantic import ValidationError
 
+from ..application.notification_streams import NotificationStreamHub
 from ..application.runtime_client import RuntimeClient
 from ..application.webchat_artifacts import (
     NOSNIFF_HEADER,
@@ -47,6 +52,7 @@ from ..application.webchat_config import (
 )
 from ..application.webchat_service import WebchatResourceService
 from ..application.webchat_streams import (
+    HEARTBEAT_FRAME,
     SSE_MEDIA_TYPE,
     SSE_STREAM_HEADERS,
     SseBufferLedger,
@@ -77,6 +83,8 @@ ThroughSeq = Annotated[int | None, Query(ge=0)]
 AfterSeq = Annotated[int | None, Query(ge=0)]
 NotificationAfterSeq = Annotated[int, Query(ge=0)]
 LastEventId = Annotated[str | None, Header(alias="Last-Event-ID")]
+#: 客户端在打开流之前刚做过一次权威 REST 快照（条目/未读/游标已对齐）。
+SnapshotReady = Annotated[bool, Query()]
 
 
 def get_webchat_service(request: Request) -> WebchatResourceService:
@@ -178,6 +186,23 @@ def get_webchat_stream_service(request: Request, ledger: WebchatSseLedgerDep) ->
 
 
 WebchatStreamServiceDep = Annotated[WebchatStreamService, Depends(get_webchat_stream_service)]
+
+
+def get_notification_hub(request: Request) -> NotificationStreamHub:
+    hub: NotificationStreamHub | None = getattr(request.app.state, "notification_hub", None)
+    if hub is None:
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+    return hub
+
+
+NotificationHubDep = Annotated[NotificationStreamHub, Depends(get_notification_hub)]
+
+
+def get_notification_heartbeat(request: Request) -> float:
+    return float(request.app.state.run_event_heartbeat_sec)
+
+
+NotificationHeartbeatDep = Annotated[float, Depends(get_notification_heartbeat)]
 
 
 def _resume_cursor(after_seq: int | None, last_event_id: str | None) -> int:
@@ -415,6 +440,123 @@ async def stream_run_events(
     stream = await service.open(chat, run_id, after_seq=_resume_cursor(after_seq, last_event_id))
     return StreamingResponse(
         guard.rechecked(stream.frames()), media_type=SSE_MEDIA_TYPE, headers=SSE_STREAM_HEADERS
+    )
+
+
+#: 通知回填上限：正常一次重连只扫 1–2 页；超过上限显式结束，由客户端带游标重连。
+_NOTIFICATION_BACKFILL_PAGES = 20
+
+
+def _notification_frame(item: WebchatNotification, unread_count: int) -> str:
+    data = {
+        "notification": item.model_dump(mode="json"),
+        "unread_count": int(unread_count),
+    }
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    return f"id: {item.seq}\nevent: notification\ndata: {payload}\n\n"
+
+
+async def _notification_frames(
+    chat: ChatIdentityDep,
+    service: WebchatResourceService,
+    hub: NotificationStreamHub,
+    after_seq: int,
+    heartbeat: float,
+    *,
+    snapshot_ready: bool = False,
+) -> AsyncIterator[str]:
+    """先订阅再回填，live 信号按 seq 去重；慢订阅返回 None 让客户端带游标重连。"""
+    cursor = after_seq
+    unread_count = 0
+    async with hub.subscribe(
+        chat.principal.tenant_id, chat.principal.platform_user_id
+    ) as queue:
+        watermark = await hub.watermark(
+            chat.principal.tenant_id, chat.principal.platform_user_id
+        )
+        if watermark is None:
+            # Redis 不可用/键缺失：客户端刚做过权威 REST 快照才可信；否则按页有界追平。
+            pages = 0 if snapshot_ready else _NOTIFICATION_BACKFILL_PAGES
+        elif cursor < watermark:
+            pages = _NOTIFICATION_BACKFILL_PAGES
+        else:
+            # 客户端已通过初始 REST 同步拿到该水位及之前的事实，只需 live 增量。
+            pages = 0
+        for _ in range(pages):
+            page = await service.list_notifications(
+                chat, after_seq=cursor, page=1, page_size=MAX_PAGE_SIZE
+            )
+            unread_count = page.unread_count
+            for item in page.items:
+                if item.seq <= cursor:
+                    continue
+                cursor = item.seq
+                yield _notification_frame(item, unread_count)
+            if page.next_seq <= cursor:
+                break
+            cursor = page.next_seq
+            if cursor >= page.through_seq:
+                break
+        while True:
+            try:
+                signal = await asyncio.wait_for(queue.get(), timeout=heartbeat)
+            except TimeoutError:
+                yield HEARTBEAT_FRAME
+                continue
+            if signal is None:
+                return
+            if signal.seq <= cursor:
+                continue
+            if signal.notification is not None:
+                live_item: WebchatNotification | None
+                try:
+                    live_item = WebchatNotification.model_validate(signal.notification)
+                except ValidationError:
+                    live_item = None
+                if live_item is not None:
+                    cursor = live_item.seq
+                    unread_count += 1
+                    yield _notification_frame(live_item, unread_count)
+                    continue
+            page = await service.list_notifications(
+                chat, after_seq=signal.seq - 1, page=1, page_size=1
+            )
+            live_item = next(
+                (entry for entry in page.items if entry.seq == signal.seq), None
+            )
+            if live_item is None:
+                cursor = signal.seq
+                continue
+            cursor = live_item.seq
+            unread_count = page.unread_count
+            yield _notification_frame(live_item, unread_count)
+
+
+@router.get("/notifications/stream")
+async def stream_notifications(
+    chat: ChatIdentityDep,
+    service: WebchatServiceDep,
+    guard: ChatStreamGuardDep,
+    hub: NotificationHubDep,
+    heartbeat: NotificationHeartbeatDep,
+    after_seq: AfterSeq = None,
+    last_event_id: LastEventId = None,
+    snapshot: SnapshotReady = False,
+) -> StreamingResponse:
+    """API-11 SSE：每用户一条通知流，建流时鉴权一次，之后按持久 seq 推送/回填。
+
+    `snapshot=1` 是客户端「建流前刚做过一次 REST 权威快照」的显式声明；它只用于在
+    Redis 水位缺失时跳过回填，不是授权或数据可见性依据。
+    """
+    cursor = _resume_cursor(after_seq, last_event_id) or 0
+    return StreamingResponse(
+        guard.rechecked(
+            _notification_frames(
+                chat, service, hub, cursor, heartbeat, snapshot_ready=snapshot
+            )
+        ),
+        media_type=SSE_MEDIA_TYPE,
+        headers=SSE_STREAM_HEADERS,
     )
 
 

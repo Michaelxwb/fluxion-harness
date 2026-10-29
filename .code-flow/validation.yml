@@ -40,7 +40,7 @@ validators:
       # 容量压测（200/1000 用户）已标记 `capacity_load`，默认 acceptance 排除：它是环境依赖强的
       # load 场景，不是常规 integration；显式入口 `make capacity-load`（200 档）。
       # 1000 用户 × 8 轮仍是 manual/staging 的未验证边界，见
-      # docs/operations/agent-capacity-webchat-validation.md「未验证边界」。
+      # scripts/capacity/ACCEPTANCE.md「未验证边界」。
       command: ".venv/bin/python -m pytest --tb=short -q --durations=30 -m \"not capacity_load\" tests/acceptance"
       heavy: true
       # 验收含真实进程栈（uvicorn/子进程/探针/双 Worker/浏览器域外的一切），2026-10-15 实测

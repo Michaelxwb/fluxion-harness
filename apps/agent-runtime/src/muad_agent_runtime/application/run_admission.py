@@ -284,7 +284,9 @@ class AdmissionPolicyService:
             record_outcome(RUN_ADMISSION_METRIC, ErrorCode.RUN_CAPACITY_EXCEEDED)
             raise AppError(ErrorCode.RUN_CAPACITY_EXCEEDED)
         tenant_count = await store.count_open_runs(
-            tenant_id=tenant_id, exclude_run_id=exclude_run_id
+            tenant_id=tenant_id,
+            exclude_run_id=exclude_run_id,
+            limit=policy.limits.max_open_runs_per_tenant,
         )
         if tenant_count >= policy.limits.max_open_runs_per_tenant:
             record_outcome(RUN_ADMISSION_METRIC, ErrorCode.RUN_CAPACITY_EXCEEDED)

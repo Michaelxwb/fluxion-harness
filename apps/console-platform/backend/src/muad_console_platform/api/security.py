@@ -4,7 +4,7 @@ import secrets
 from fastapi import Request, Response
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_common import SharedSettings
+from muad_common import process_settings
 
 SESSION_COOKIE = "muad_session"
 CSRF_COOKIE = "muad_csrf"
@@ -22,7 +22,7 @@ def cookie_secure() -> bool:
 
     Console 与 CHAT 的 Cookie 都从这里取属性，不各自判断环境。
     """
-    return SharedSettings().env != "dev"
+    return process_settings().env != "dev"
 
 
 def csrf_token_matches(request: Request, cookie_name: str, header_name: str) -> bool:

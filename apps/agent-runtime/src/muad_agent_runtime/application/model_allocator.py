@@ -39,6 +39,7 @@ from typing import Literal
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_common.db_counters import db_stage_scope
 from muad_contracts.model_pool import ModelCallOwner, ModelCapacityReservationRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,6 +56,7 @@ from ..infrastructure.model_dispatch_store import (
     LiveMember,
     ModelDispatchStore,
 )
+from ..metrics import MODEL_CALL_SECONDS, record_latency
 from .model_capacity_service import ModelCapacityService, PoolLockGate
 
 logger = logging.getLogger(__name__)
@@ -535,6 +537,7 @@ class ModelAllocator:
         """与容量预占共享的进程内闸门（可观测：见 `PoolLockGate.max_concurrency`）。"""
         return self._gate
 
+    @db_stage_scope("model")
     async def allocate(
         self,
         *,
@@ -547,6 +550,7 @@ class ModelAllocator:
     ) -> ModelAllocation:
         """选择成员并预占额度；同一 attempt 重放复用既有租约且不重复计数。"""
         _require_policy(policy)
+        select_started = time.monotonic()
         selection = await self._select(
             tenant_id=tenant_id,
             model_id=model_id,
@@ -554,14 +558,23 @@ class ModelAllocator:
             candidates=candidates,
             policy=policy,
         )
+        record_latency(
+            MODEL_CALL_SECONDS, time.monotonic() - select_started, {"stage": "select"}
+        )
         if isinstance(selection, _Replay):
             return _replayed(selection.lease, selection.member, policy.policy_hash)
+        reserve_started = time.monotonic()
         reservation = await self._capacity.reserve(
             tenant_id=tenant_id,
             lease_owner=lease_owner,
             request=_reservation_request(
                 model_id=model_id, request=request, member=selection.member
             ),
+        )
+        record_latency(
+            MODEL_CALL_SECONDS,
+            time.monotonic() - reserve_started,
+            {"stage": "capacity_reserve"},
         )
         return ModelAllocation(
             reservation_id=reservation.reservation_id,
@@ -600,6 +613,10 @@ class ModelAllocator:
         waited = time.monotonic()
         async with self._gate.hold(), self._session_factory_provider()() as session, session.begin():
             gate_ms = int((time.monotonic() - waited) * 1000)
+            # 把选择阶段的闸门等待单独成 stage：reserve 包含 gate，必须能拆开归因。
+            record_latency(
+                MODEL_CALL_SECONDS, gate_ms / 1000.0, {"stage": "gate_select"}
+            )
             started = time.monotonic()
             store = self._store_factory(session)
             now = await store.database_clock()
@@ -723,5 +740,11 @@ class ModelAllocator:
             if time.monotonic() >= deadline:
                 raise AppError(ErrorCode.MODEL_CAPACITY_UNAVAILABLE)
             # 抖动：12 个等待者不要在同一毫秒一起回来抢同一行
+            sleep_started = time.monotonic()
             await asyncio.sleep(delay * random.uniform(0.5, 1.5))
+            record_latency(
+                MODEL_CALL_SECONDS,
+                time.monotonic() - sleep_started,
+                {"stage": "select_pick_wait"},
+            )
             delay = min(delay * 2, _SELECT_RETRY_MAX_SEC)

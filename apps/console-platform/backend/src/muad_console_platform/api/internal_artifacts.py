@@ -21,7 +21,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from muad_api import ApiResponse, AppError, InternalServiceDep, ok
 from muad_api.error_codes import ErrorCode
-from muad_common import SharedSettings
+from muad_common import process_settings
 
 from .deps import FetchServiceDep, FetchTokensDep, HeaderTenantId
 
@@ -60,5 +60,5 @@ async def issue_fetch_link(
     token = await tokens.issue(artifact_id, tenant_id=tenant_id)
     return ok(
         request.app.state.message_catalog,
-        {"url": fetch_url(artifact_id, token, base_url=SharedSettings().console_platform_url)},
+        {"url": fetch_url(artifact_id, token, base_url=process_settings().console_platform_url)},
     )

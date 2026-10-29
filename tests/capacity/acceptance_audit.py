@@ -16,7 +16,7 @@
 owner 集合**恰好等于**其场景在覆盖表里的 owner 集合；唯一性在场景粒度上强制。
 
 判定失败时消息带场景/规则 ID，便于直接定位任务文档那一行。运营口径见
-`docs/operations/agent-capacity-webchat-validation.md`。
+`scripts/capacity/ACCEPTANCE.md`。
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ TASK_FILE_NAME = "agent-capacity-webchat.md"
 BACKEND_DESIGN_NAME = "agent-capacity-webchat.backend.design.md"
 FRONTEND_DESIGN_NAME = "agent-capacity-webchat.frontend.design.md"
 MANIFEST_NAME = ".acceptance-manifest.json"
-VALIDATION_DOC_REL = "docs/operations/agent-capacity-webchat-validation.md"
+VALIDATION_DOC_REL = "scripts/capacity/ACCEPTANCE.md"
 
 AUDIT_TEST = "tests/capacity/test_capacity_webchat_acceptance_audit.py"
 CLOSURE_TASK = "TASK-118"

@@ -358,10 +358,14 @@ create a focused TASK Context or split the editing scope.
 于是「无 active TASK ⇒ 只能走 path-mapped」这条唯一通路上永远超预算——**没有任何配置
 能绕开**（`l1_max` 拉满到 `total=2500` 仍然不够，且 `maximum` 取两者最小值）。
 
-**本仓处理**
+**本仓处理（2026-10-27 实际落地）**
 
-超预算时不再抛错：跳过注入、返回一段显式说明（`## Path-mapped Specs over budget`）
-并放行编辑。多 spec 命中时校验照旧（真正的上下文膨胀风险在那里）。
+配置层放行：`budget.l1_max` 1700 → **6500**、`budget.total` 2500 → **7500**
+（`minimum = min(total, l1_max)`，所以两个都要抬）。`tests/**` 编辑恢复，且
+`harness-test` 仍会注入（不牺牲约束）；代价是单次测试编辑的上下文变大约 5.9k tokens。
+
+更彻底的建议修复（单 spec 超限时「跳过注入 + 显式警告 + 放行编辑」，多 spec 命中时仍校验）
+尚未落地；若后续要收紧预算，应按该行为改 `cf_spec_router._read_candidates()`，而不是继续抬阈值。
 
 **建议修复**
 

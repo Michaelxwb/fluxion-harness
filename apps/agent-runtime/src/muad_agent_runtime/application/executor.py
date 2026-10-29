@@ -52,7 +52,7 @@ from muad_api import AppError
 from muad_api.context import current_locale, current_trace_id
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import SkillArtifactCache
-from muad_common import SharedSettings
+from muad_common import SharedSettings, process_settings
 from muad_contracts import (
     DeliveryRouteInput,
     ResolveCredentialsRequest,
@@ -89,12 +89,14 @@ from ..infrastructure.gateway_delivery_client import GatewayDeliveryClient
 from ..infrastructure.model_dispatch_store import MemberRef, ModelDispatchStore
 from ..metrics import (
     CONTEXT_SUMMARY_METRIC,
+    MODEL_CALL_SECONDS,
     MODEL_INVOCATIONS_METRIC,
     REPLY_DELTA_METRIC,
     RUN_STAGE_PROJECTION_METRIC,
     SKILL_CATALOG_TRUNCATED_METRIC,
     TOOL_CALLS_METRIC,
     record_counter,
+    record_latency,
     record_outcome,
 )
 from .async_tools.continuation_service import ExecutionIdentity
@@ -144,7 +146,7 @@ TOOL_STARTED_EVENT = "tool.started"
 TOOL_COMPLETED_EVENT = "tool.completed"
 # 一个 assistant 回合（含 tool_calls 与思维链）原样落库；历史重建靠它产出**合法**的消息序列
 ASSISTANT_TURN_EVENT = "assistant.turn"
-CANCEL_POLL_INTERVAL_SEC = 0.25
+CANCEL_POLL_INTERVAL_SEC = 1.0
 #: 事件队列轮询节拍（秒）：也是增量时间窗口刷新的**最大等待粒度**（到界即提前醒来落库）。
 QUEUE_POLL_SEC = 0.05
 # 内容投递类工具（`externalizable_result=False`）的内联上限：**不是无限直通**。
@@ -462,7 +464,7 @@ class AgentRunnerExecutor:
         # 有界合并窗口：装配根显式注入（`default_executor_factory`）；直构调用点按启动设置
         # 取值——窗口参数是每进程容量配置（design §3.7），不在调用点另立第二份默认。
         self._delta_window = (
-            delta_window if delta_window is not None else delta_window_from_settings(SharedSettings())
+            delta_window if delta_window is not None else delta_window_from_settings(process_settings())
         )
 
     async def run(self) -> AsyncIterator[ExecutorEvent]:
@@ -1026,7 +1028,7 @@ class PooledModelProvider:
         self._heartbeat_sec = (
             heartbeat_sec
             if heartbeat_sec is not None
-            else float(SharedSettings().model_call_heartbeat_sec)
+            else float(process_settings().model_call_heartbeat_sec)
         )
         self._reselection_limit = reselection_limit
         #: 本段模型等待起点：同一执行片段内的重试不刷新该预算（design §3.2/§3.7）
@@ -1067,15 +1069,28 @@ class PooledModelProvider:
                 )
             raise
         emitted = _Emitted()
+        started = time.monotonic()
         try:
             attempt = await self._select_and_reserve(reserved_tokens)
-            return await self._send(attempt, request, on_delta, emitted)
+            upstream_started = time.monotonic()
+            try:
+                return await self._send(attempt, request, on_delta, emitted)
+            finally:
+                record_latency(
+                    MODEL_CALL_SECONDS,
+                    time.monotonic() - upstream_started,
+                    {"stage": "upstream"},
+                )
         except Exception:
             # 已产生正文后的失败：账本据此在下次 begin 显式分代（design §3.6）。
             # 重试与否由 `AgentRunner` 的重试预算裁决（可重试错误才重试；其余上抛即终态）。
             if emitted.value:
                 self._note_partial_output()
             raise
+        finally:
+            record_latency(
+                MODEL_CALL_SECONDS, time.monotonic() - started, {"stage": "total"}
+            )
 
     @property
     def _dispatch_policy(self) -> ModelDispatchPolicy:
@@ -1092,9 +1107,22 @@ class PooledModelProvider:
         """选择 + 预占 → 按冻结引用解析 Key；轮换竞争按未发送释放并有界重选。"""
         reselects = 0
         while True:
+            candidates_started = time.monotonic()
             candidates = await self._candidates()
+            record_latency(
+                MODEL_CALL_SECONDS,
+                time.monotonic() - candidates_started,
+                {"stage": "candidates"},
+            )
+            reserve_started = time.monotonic()
             allocation = await self._allocate(candidates, reserved_tokens)
+            record_latency(
+                MODEL_CALL_SECONDS,
+                time.monotonic() - reserve_started,
+                {"stage": "reserve"},
+            )
             self._claim_attempt_audit_id()
+            credentials_started = time.monotonic()
             try:
                 credential = await self._resolve_selected(allocation)
             except _RotationRace:
@@ -1102,6 +1130,12 @@ class PooledModelProvider:
                     raise AppError(ErrorCode.MODEL_CREDENTIAL_CHANGED) from None
                 reselects += 1
                 continue
+            finally:
+                record_latency(
+                    MODEL_CALL_SECONDS,
+                    time.monotonic() - credentials_started,
+                    {"stage": "credentials"},
+                )
             return _PoolAttempt(allocation=allocation, credential=credential)
 
     async def _candidates(self) -> tuple[ModelMemberCandidate, ...]:
@@ -1128,21 +1162,25 @@ class PooledModelProvider:
             self._scope.deadline_at,
         )
         while True:
+            allocate_started = time.monotonic()
             try:
-                allocation = await self._allocator.allocate(
-                    tenant_id=self._scope.tenant_id,
-                    lease_owner=self._scope.lease_owner,
-                    model_id=self._scope.model_id,
-                    request=ModelAllocationRequest(
-                        call_attempt_id=uuid.uuid4(),
-                        owner=self._scope.owner,
-                        workload=self._scope.workload,
-                        deadline_at=self._scope.deadline_at,
-                        reserved_tokens=reserved_tokens,
-                        wait_since=self._wait_since,
+                allocation = cast(
+                    ModelAllocation,
+                    await self._allocator.allocate(
+                        tenant_id=self._scope.tenant_id,
+                        lease_owner=self._scope.lease_owner,
+                        model_id=self._scope.model_id,
+                        request=ModelAllocationRequest(
+                            call_attempt_id=uuid.uuid4(),
+                            owner=self._scope.owner,
+                            workload=self._scope.workload,
+                            deadline_at=self._scope.deadline_at,
+                            reserved_tokens=reserved_tokens,
+                            wait_since=self._wait_since,
+                        ),
+                        candidates=candidates,
+                        policy=self._dispatch_policy,
                     ),
-                    candidates=candidates,
-                    policy=self._dispatch_policy,
                 )
             except AppError as exc:
                 if (
@@ -1150,10 +1188,27 @@ class PooledModelProvider:
                     or datetime.now(UTC) >= wait_until
                 ):
                     raise
+                retry_started = time.monotonic()
                 await self._project_model_wait(exc, wait_until=wait_until)
                 await asyncio.sleep(POOL_CAPACITY_RETRY_INTERVAL_SEC)
+                record_latency(
+                    MODEL_CALL_SECONDS,
+                    time.monotonic() - retry_started,
+                    {"stage": "retry_wait"},
+                )
                 continue
+            record_latency(
+                MODEL_CALL_SECONDS,
+                time.monotonic() - allocate_started,
+                {"stage": "allocate"},
+            )
+            project_started = time.monotonic()
             await self._project_model_running()
+            record_latency(
+                MODEL_CALL_SECONDS,
+                time.monotonic() - project_started,
+                {"stage": "project_running"},
+            )
             return allocation
 
     async def _project_model_wait(self, exc: AppError, *, wait_until: datetime) -> None:
@@ -1846,7 +1901,7 @@ def build_registry(
         # **不进工具 schema**（归属一旦成为模型可填的参数，越权就只剩一层校验，NFR-SEC-01）。
         AttachmentToolSet(
             session_factory=get_session_factory,
-            artifact_root=SharedSettings().artifact_root,
+            artifact_root=process_settings().artifact_root,
             tenant_id=request.run_context.tenant_id,
             run_id=request.run_context.run_id,
             conversation_id=request.run_context.conversation_id,
@@ -1863,7 +1918,7 @@ def build_registry(
             receipt_limit_bytes=tool_result_settings(request).persist_threshold_bytes,
             max_archive_files=execution.max_archive_files,
             writer=OutputArtifactWriter(
-                artifact_root=SharedSettings().artifact_root,
+                artifact_root=process_settings().artifact_root,
                 session_factory=get_session_factory,
                 scope=OutputScope(
                     request.run_context.tenant_id,
@@ -1972,7 +2027,7 @@ async def default_executor_factory(
         ledger=ledger,
     )
     mcp_adapter = McpRuntimeAdapter(audit_writer=audit_writer, client=mcp_client)
-    settings = SharedSettings()
+    settings = process_settings()
     # 交付客户端：**只有本次 Run 有交付路由时才建**（没路由的 Run 谈不上交付）。
     # 与 task_client 同一条 owned/close 规矩：谁造谁收，避免每次 Run 漏一个 httpx 连接池。
     owned_delivery_client: GatewayDeliveryClient | None = None

@@ -7,7 +7,7 @@ import logging
 import time
 import uuid
 import weakref
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
@@ -23,7 +23,8 @@ from muad_api import AppError
 from muad_api.context import current_trace_id
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore
-from muad_common import SharedSettings
+from muad_common import process_settings
+from muad_common.db_counters import db_stage, db_stage_scope
 from muad_contracts import (
     AsyncToolPolicy,
     AttachmentRef,
@@ -73,13 +74,23 @@ from ..infrastructure.models.runtime import (
     RunSubmission,
     RuntimeSnapshot,
 )
+from ..infrastructure.notification_publisher import get_notification_publisher
 from ..metrics import (
     AGENT_RUNS_METRIC,
     CONTEXT_SUMMARY_METRIC,
+    RUN_ADMISSION_CREATE_STAGE_SECONDS,
     RUN_ADMISSION_METRIC,
+    RUN_ADMISSION_STAGE_SECONDS,
+    RUN_CONSUME_SECONDS,
+    RUN_FINALIZE_SECONDS,
+    RUN_FINALIZE_STAGE_SECONDS,
+    RUN_LEASE_RENEW_FAILURES_TOTAL,
+    RUN_LEASE_RENEW_SECONDS,
+    RUN_PERSIST_EVENT_SECONDS,
     RUN_QUEUE_TIMEOUT_METRIC,
     RUN_RECLAIM_METRIC,
     record_counter,
+    record_latency,
     record_outcome,
 )
 from .async_tools.continuation_service import (
@@ -87,7 +98,6 @@ from .async_tools.continuation_service import (
     ExecutionLeaseLost,
     claim_continuation,
     ensure_execution,
-    lock_execution,
     renew_execution,
 )
 from .async_tools.supervisor import ExecutionSupervisor
@@ -103,10 +113,16 @@ from .attachments.inbound import (
     persist_staged_inbound_attachments,
 )
 from .channel_conversations import (
+    CONVERSATION_ARCHIVED,
     ConversationScope,
     assert_entry_attribution,
     create_entry_conversation,
+    enforce_conversation_limit,
     load_explicit_conversation,
+    load_explicit_conversation_with_active_run,
+    lock_conversation_scope,
+    lock_pointer,
+    promote_archived_conversation,
     record_user_message,
     register_pointer,
     resolve_pointer_conversation,
@@ -114,8 +130,11 @@ from .channel_conversations import (
     scope_of,
     title_locale_of,
 )
+from .channel_notification_queries import KIND_SUMMARIES
 from .channel_notifications import (
     KIND_RUN_COMPLETED,
+    NotificationKind,
+    RunNotificationReceipt,
     run_terminal_delivery_key,
     write_run_notification,
 )
@@ -132,7 +151,12 @@ from .context_settings import (
     resolve_compaction_settings,
     resolve_pool_execution_policy,
 )
+from .conversation_policy import (
+    assert_conversation_live,
+    conversation_policy_from_settings,
+)
 from .dto import CancelSource, RunWaitSummary
+from .event_batcher import EventBatchEntry, get_event_batcher
 from .event_tail_hub import CanonicalEventView, EventTailHub, TailBatch, get_event_tail_hub
 from .execution_status import project_execution_status
 from .executor import (
@@ -909,7 +933,7 @@ def stream_scope_gate() -> asyncio.Semaphore:
     loop = asyncio.get_running_loop()
     gate = _stream_scope_gates.get(loop)
     if gate is None:
-        settings = SharedSettings()
+        settings = process_settings()
         # 留一条连接给正在执行的 Run/维护循环；SSE 打开段永远不超过池容量的其余部分。
         gate = asyncio.Semaphore(
             max(1, settings.db_pool_size + settings.db_max_overflow - 1)
@@ -990,7 +1014,7 @@ def process_admission_gate(
     在飞准入不得超过本进程池容量：`pool + overflow` 是硬上限，admission gate 比它更大时
     只会把请求堆在 SQLAlchemy 的排队里（preflight 也拒绝这种配置）。
     """
-    settings = SharedSettings()
+    settings = process_settings()
     if limit is None:
         limit = max(
             1,
@@ -1125,13 +1149,13 @@ class RunService:
             session_factory=get_session_factory,
             budget=BudgetPolicy(max_messages=default_compaction_settings().history_budget_messages),
         )
-        self._settings = SharedSettings()
+        self._settings = process_settings()
         # 共享事件追尾（ADR-02）：同进程按会话共享上游读取、提交后唤醒、超时按 PG 有界补查。
         # 写入方与追尾方必须是**同一份**唤醒状态；显式注入用于测试或替换装配。会话工厂按
         # 本模块的 `get_session_factory` 绑定（与其它共享服务同源，测试可替换）。
         self._tail_hub = tail_hub or get_event_tail_hub(get_session_factory)
         # 共享 artifact store 根：Run 独立不可变制品（暂存上传受理）与内联图片读取共用；
-        # 显式注入用于测试隔离，生产装配回落 `SharedSettings.artifact_root`。
+        # 显式注入用于测试隔离，生产装配回落 `process_settings().artifact_root`。
         fallback_root = Path(self._settings.artifact_root)
         self._artifact_root = Path(artifact_root) if artifact_root is not None else fallback_root
 
@@ -1156,6 +1180,7 @@ class RunService:
             await self._session.rollback()
         await self._session.close()
 
+    @db_stage_scope("admission")
     async def start(
         self,
         request: RunRequest,
@@ -1173,6 +1198,9 @@ class RunService:
         try:
             async with process_admission_gate():
                 gate_ms = int((time.monotonic() - gate_started) * 1000)
+                record_latency(
+                    RUN_ADMISSION_STAGE_SECONDS, gate_ms / 1000.0, {"stage": "gate"}
+                )
                 for attempt in range(self._admission.stale_refresh_attempts + 1):
                     attempt_started = time.monotonic()
                     try:
@@ -1231,8 +1259,17 @@ class RunService:
             return await self._replay_start(replay)
         # 只读预检：已有活跃 Run 的请求走 resume / RUN_BUSY，**不得**重新 resolve 定义与设置
         # （快照续跑的铁律）。指针会话的解析即使发生切换也会随下面的 rollback 回滚，由写事务重做。
-        conversation = await self._resolve_conversation(request, tenant_id)
-        has_active = await self._active_run(conversation.id) is not None
+        if request.conversation_id is not None:
+            conversation, active = await load_explicit_conversation_with_active_run(
+                self._session,
+                scope_of(request, tenant_id),
+                request.conversation_id,
+                active_statuses=ACTIVE_RUN_STATUSES,
+            )
+            has_active = active is not None
+        else:
+            conversation = await self._resolve_conversation(request, tenant_id)
+            has_active = await self._active_run(conversation.id) is not None
         # 预检到此结束：后面的 Console 读取不得占用 DB 连接（池按并发而非 RTT 排队）。
         await self._session.rollback()
         t_precheck = time.monotonic() - t0
@@ -1253,11 +1290,21 @@ class RunService:
             self._assert_replay_owner(replay, request.platform_user_id, request.conversation_id)
             return await self._replay_start(replay)
         resolve_started = time.monotonic()
-        conversation = await self._resolve_conversation(request, tenant_id)
-        resolve_ms = int((time.monotonic() - resolve_started) * 1000)
-        active_started = time.monotonic()
-        active = await self._active_run(conversation.id)
-        active_ms = int((time.monotonic() - active_started) * 1000)
+        if request.conversation_id is not None:
+            conversation, active = await load_explicit_conversation_with_active_run(
+                self._session,
+                scope_of(request, tenant_id),
+                request.conversation_id,
+                active_statuses=ACTIVE_RUN_STATUSES,
+            )
+            resolve_ms = int((time.monotonic() - resolve_started) * 1000)
+            active_ms = 0
+        else:
+            conversation = await self._resolve_conversation(request, tenant_id)
+            resolve_ms = int((time.monotonic() - resolve_started) * 1000)
+            active_started = time.monotonic()
+            active = await self._active_run(conversation.id)
+            active_ms = int((time.monotonic() - active_started) * 1000)
         if active is not None:
             # 同键并发：赢家的 Run 可能在本次请求的开环预检（`find_replay_in`）与 `claim_in`
             # 之后才提交——那两处都读不到行，落到这里时活跃 Run 已存在。此时必须先按同键复查
@@ -1282,6 +1329,14 @@ class RunService:
             request, tenant_id, conversation, materials, key, fingerprint
         )
         t_write = time.monotonic() - t0 - t_precheck - t_materials
+        record_latency(RUN_ADMISSION_STAGE_SECONDS, t_precheck, {"stage": "precheck"})
+        record_latency(RUN_ADMISSION_STAGE_SECONDS, t_materials, {"stage": "materials"})
+        record_latency(RUN_ADMISSION_STAGE_SECONDS, claim_ms / 1000.0, {"stage": "claim"})
+        record_latency(
+            RUN_ADMISSION_STAGE_SECONDS,
+            max(0.0, t_write - claim_ms / 1000.0),
+            {"stage": "write"},
+        )
         if t_precheck + t_materials + t_write > 1.0:
             logger.warning(
                 "admission_stage_slow",
@@ -1714,7 +1769,24 @@ class RunService:
             )
             if replay is not None:
                 return replay
-        conversation = await self._open_entry_conversation(scope)
+        # 设置读取是网络调用：先结束预检事务，再进建会话写事务。
+        await self._session.rollback()
+        snapshot = await self._settings_client.fetch_snapshot(
+            tenant_id=tenant_id, trace_id=current_trace_id()
+        )
+        policy = conversation_policy_from_settings(snapshot.settings)
+        await lock_conversation_scope(self._session, scope)
+        if scope.entry_id is not None:
+            # 与提交路径同序：先锁入口指针，再锁会话行，避免「归档等待指针 / 提交等待会话」死锁。
+            await lock_pointer(self._session, scope)
+        now = await database_now(self._session)
+        missing = await enforce_conversation_limit(
+            self._session, scope, policy, now=now, extra_slots=1
+        )
+        if missing:
+            await self._session.rollback()
+            raise AppError(ErrorCode.CONVERSATION_LIMIT_REACHED)
+        conversation = await self._open_entry_conversation(scope, now=now)
         if not idempotency_key:
             await self._session.commit()
             return conversation
@@ -1741,7 +1813,9 @@ class RunService:
             raise AppError(ErrorCode.COMMON_CONFLICT) from exc
         return conversation
 
-    async def _open_entry_conversation(self, scope: ConversationScope) -> Conversation:
+    async def _open_entry_conversation(
+        self, scope: ConversationScope, *, now: datetime
+    ) -> Conversation:
         """解析定义 → 建入口会话 → 可归属入口**原地切换**该入口线程的当前指针（design §3.3）。"""
         await self._resolve_client.resolve(
             ResolveDefinitionRequest(
@@ -1754,7 +1828,7 @@ class RunService:
             trace_id=current_trace_id(),
         )
         conversation = await create_entry_conversation(
-            self._session, scope, last_message_at=await database_now(self._session)
+            self._session, scope, last_message_at=now
         )
         if scope.entry_id is not None:
             await register_pointer(self._session, scope, conversation.id)
@@ -1905,6 +1979,39 @@ class RunService:
         # 平台设置与凭据在**写事务之外**已取齐（`_admission_materials`）：事务内不再访问网络，
         # 连接持有只剩 DB 语句。这里只做纯计算与 DB 读写。
         snapshot_settings = materials.settings
+        # 只有显式续聊（webchat）或归档恢复需要 webchat 策略；指针入口的 IM 连续性不解析它。
+        conversation_policy = (
+            conversation_policy_from_settings(snapshot_settings.settings)
+            if request.conversation_id is not None
+            or conversation.status == CONVERSATION_ARCHIVED
+            else None
+        )
+        if request.conversation_id is not None and conversation_policy is not None:
+            # 显式续聊只接受未失效会话；指针入口的连续性由最近活动选择，不在这里改写。
+            assert_conversation_live(
+                conversation_policy,
+                last_message_at=conversation.last_message_at,
+                create_time=conversation.create_time,
+                now=now,
+            )
+        if conversation.status == CONVERSATION_ARCHIVED and conversation_policy is not None:
+            overage = await promote_archived_conversation(
+                self._session,
+                conversation,
+                scope_of(request, tenant_id),
+                conversation_policy,
+                now=now,
+            )
+            if overage:
+                # 继续历史优先于上限：其余活跃会话都有在执行的 Run，等下一次新建时收敛。
+                logger.warning(
+                    "conversation_limit_continuation_overage",
+                    extra={
+                        "tenant_id": tenant_id,
+                        "conversation_id": str(conversation.id),
+                        "overage": overage,
+                    },
+                )
         capacity = parse_capacity(snapshot_settings)
         compaction = materials.compaction
         # 执行期平台默认（`agent`/`memory`/`artifact.max_archive_files`/`locale.default_timezone`）
@@ -1993,6 +2100,7 @@ class RunService:
                 conversation_id=conversation.id,
                 request_fingerprint=submission_fingerprint_value,
             )
+            mark("submission")
             # 入站附件：落 artifact 行（与 Run 同事务，设计 AD-1-B），并把紧凑摘要写进事件载荷
             # 供历史组装直接渲染文本引用——历史是逐条回放的热路径，不为一句引用回查产物表。
             persisted = await persist_inbound_attachments(
@@ -2015,6 +2123,7 @@ class RunService:
                 written=staged_written,
             )
             persisted = persisted + staged_persisted
+            mark("attachments")
             seq = await MemoryResumeService().append_inbound(
                 self._session, run, text=request.message.text, settings=execution.memory_policy,
                 payload={
@@ -2024,6 +2133,7 @@ class RunService:
                 submission_id=submission.id,
             )
             submission.first_seq = seq
+            mark("memory")
             from .execution_status import project_execution_status
 
             # RUN_CREATED 与排队阶段投影一次分配 seq、一次追加（少一次 last_seq 往返）。
@@ -2057,6 +2167,7 @@ class RunService:
                     ),
                 )
             )
+            mark("events")
             conversation.last_run_id = run.id
             conversation.update_time = now
             # 真实可见用户消息事务内更新会话活动与首条标题（design §3.3）：标题不调模型，
@@ -2071,6 +2182,7 @@ class RunService:
             )
             # 计数自增与 Run 行同事务（B-230）：达阈值即拒，整个事务回滚——不留半建 Run，
             # 也不留下只增不减的占位。
+            mark("conversation")
             await self._admission.reserve_counts_in(
                 self._session,
                 tenant_id=tenant_id,
@@ -2078,7 +2190,7 @@ class RunService:
                 policy=policy,
                 exclude_run_id=run.id,
             )
-            mark("work")
+            mark("counts")
             await self._session.commit()
             mark("commit")
         except IntegrityError as exc:
@@ -2118,6 +2230,14 @@ class RunService:
             )
 
         mark("history_deferred")
+        previous = 0.0
+        for name, elapsed in marks:
+            record_latency(
+                RUN_ADMISSION_CREATE_STAGE_SECONDS,
+                max(0.0, elapsed - previous),
+                {"stage": name},
+            )
+            previous = elapsed
         if marks and marks[-1][1] > 1.0:
             logger.warning(
                 "admission_write_slow",
@@ -2300,12 +2420,14 @@ class RunService:
         # 会话操作必须发生在请求会话仍打开时：后台任务里会话可能已随响应关闭
         self.detach(run)
         task = asyncio.create_task(
-            self._launch_execution(run, stream), name=f"launch:{run.id}"
+            cast(Coroutine[Any, Any, None], self._launch_execution(run, stream)),
+            name=f"launch:{run.id}",
         )
         self._launch_tasks.add(task)
         task.add_done_callback(self._launch_tasks.discard)
         task.add_done_callback(_log_launch_failure)
 
+    @db_stage_scope("turn")
     async def _launch_execution(self, run: RunRecord, stream: AsyncIterator[ExecutorEvent]) -> None:
         from muad_api.context import TRACE_CORRELATION_FIELDS, context_scope
 
@@ -2336,7 +2458,8 @@ class RunService:
             run.lease_owner, run.lease_until = claimed.lease_owner, claimed.lease_until
             return run.id, consume
 
-        admitted = await self._supervisor.claim_and_submit(claim)
+        with db_stage("turn:claim"):
+            admitted = await self._supervisor.claim_and_submit(claim)
         elapsed_ms = int((time.monotonic() - launched_at) * 1000)
         if elapsed_ms > 5000:
             logger.warning(
@@ -2678,6 +2801,7 @@ class RunService:
     def _read_artifact_bytes(self, storage_key: str) -> bytes:
         return NfsArtifactStore(self._artifact_root).resolve(storage_key).read_bytes()
 
+    @db_stage_scope("bg:lease")
     async def _renew_lease_loop(self, run: RunRecord) -> None:
         """续租心跳：**失去租约才退出**，瞬时故障不退出。
 
@@ -2689,15 +2813,22 @@ class RunService:
         """
         while True:
             await asyncio.sleep(self._settings.run_heartbeat_sec)
+            renew_started = time.monotonic()
             try:
                 renewed = await self._renew_lease(run)
             except Exception as exc:  # noqa: BLE001 —— 心跳是后台任务，异常不得带走整条流
+                record_counter(RUN_LEASE_RENEW_FAILURES_TOTAL)
                 logger.warning(
                     "run_lease_renew_failed",
                     extra={"run_id": str(run.id), "error": type(exc).__name__},
                 )
                 continue
+            finally:
+                record_latency(
+                    RUN_LEASE_RENEW_SECONDS, time.monotonic() - renew_started
+                )
             if not renewed:
+                record_counter(RUN_LEASE_RENEW_FAILURES_TOTAL)
                 return
 
     async def _renew_lease(self, run: RunRecord) -> bool:
@@ -2826,31 +2957,39 @@ class RunService:
         # 租约心跳必须覆盖**领取后的全部准备阶段**（history/凭据/executor 构建），不能只在
         # 执行器循环里：100 用户实测准备阶段可超过 30s lease，Reaper 会把仍在准备的 Run 判成
         # RUN_ABANDONED。心跳与执行器分离后，准备再慢也不会失约。
-        heartbeat = asyncio.create_task(self._renew_lease_loop(run))
+        heartbeat = asyncio.create_task(
+            cast(Coroutine[Any, Any, None], self._renew_lease_loop(run))
+        )
         try:
             if history is None:
                 if history_loader is None:
                     raise ValueError("history or history_loader is required")
-                history = await history_loader()
-            yield await self._start_segment_event(run, submission_id, resumed)
-            resume = await resume_decision(
-                get_session_factory(), run, submission_id=submission_id
-            )
-
-            async def build() -> RunExecutor:
-                return await self._build_executor(
-                    run, agent, model, skills, mcp_servers, mcp_secrets, history,
-                    compaction=compaction, execution=execution, summary_model=summary_model,
-                    current_text=current_text, current_attachments=current_attachments,
-                    submission_id=submission_id, memory_resume_ref=resume.reference,
-                    pool=pool, members=members, summary_members=summary_members,
+                with db_stage("turn:history"):
+                    history = await history_loader()
+            with db_stage("turn:start"):
+                start_event = await self._start_segment_event(run, submission_id, resumed)
+            yield start_event
+            with db_stage("turn:resume"):
+                resume = await resume_decision(
+                    get_session_factory(), run, submission_id=submission_id
                 )
 
-            result = (
-                SegmentResult(final_text=resume.message)
-                if resume.message is not None
-                else await self._run_segment(run, submission_id, agent.key, build)
-            )
+            async def build() -> RunExecutor:
+                with db_stage("turn:build"):
+                    return await self._build_executor(
+                        run, agent, model, skills, mcp_servers, mcp_secrets, history,
+                        compaction=compaction, execution=execution, summary_model=summary_model,
+                        current_text=current_text, current_attachments=current_attachments,
+                        submission_id=submission_id, memory_resume_ref=resume.reference,
+                        pool=pool, members=members, summary_members=summary_members,
+                    )
+
+            with db_stage("turn:segment"):
+                result = (
+                    SegmentResult(final_text=resume.message)
+                    if resume.message is not None
+                    else await self._run_segment(run, submission_id, agent.key, build)
+                )
             if result is not None:
                 terminal = await self._finish_segment(run, submission_id, agent.key, result)
                 if terminal is not None:
@@ -2872,13 +3011,17 @@ class RunService:
                 return ExecutorEvent(type=RUN_CREATED_EVENT, data=dict(existing.payload_json),
                     seq=int(existing.seq), timestamp=existing.create_time.isoformat())
         return await self._persist_event(run, submission_id, RUN_CREATED_EVENT,
-            {"conversation_id": str(run.conversation_id), "resumed": resumed, "trace_id": run.trace_id})
+            {"conversation_id": str(run.conversation_id), "resumed": resumed, "trace_id": run.trace_id},
+            flush_now=True)
 
     async def _run_segment(self, run: RunRecord, submission_id: uuid.UUID, agent_key: str,
                            build: Callable[[], Awaitable[RunExecutor]]) -> SegmentResult | None:
         # 租约心跳已由 `_stream_run` 在准备阶段之前启动并覆盖到这里；这里只负责执行。
         try:
-            return await self._consume_executor(run, submission_id, await build())
+            return cast(
+                SegmentResult | None,
+                await self._consume_executor(run, submission_id, await build()),
+            )
         except ExecutionLeaseLost:
             return None
         except asyncio.CancelledError:
@@ -2889,6 +3032,7 @@ class RunService:
         except Exception as exc:
             return SegmentResult(failure=exc)
 
+    @db_stage_scope("turn")
     async def _consume_executor(
         self, run: RunRecord, submission_id: uuid.UUID, executor: RunExecutor
     ) -> SegmentResult:
@@ -2896,52 +3040,91 @@ class RunService:
         consume_started = time.monotonic()
         first_event = True
         first_delta_ms: int | None = None
-        async for event in executor.run():
-            if first_event:
-                first_event = False
-                first_ms = int((time.monotonic() - consume_started) * 1000)
-                if first_ms > 5000:
-                    logger.warning(
-                        "run_first_event_slow",
-                        extra={
-                            "tenant_id": run.tenant_id,
-                            "run_id": str(run.id),
-                            "event_type": event.type,
-                            "elapsed_ms": first_ms,
-                        },
+        persist_seconds = 0.0
+        try:
+            async for event in executor.run():
+                if first_event:
+                    first_event = False
+                    first_ms = int((time.monotonic() - consume_started) * 1000)
+                    record_latency(
+                        RUN_CONSUME_SECONDS, first_ms / 1000.0, {"stage": "first_event"}
                     )
-            if event.type == "runner.outcome":
-                outcome = AgentRunStatus(event.data["status"])
-                text = str(event.data.get("final_text", text))
-                continue
-            if event.type == "message.delta":
-                if first_delta_ms is None:
-                    first_delta_ms = int((time.monotonic() - consume_started) * 1000)
-                    if first_delta_ms > 5000:
+                    if first_ms > 5000:
                         logger.warning(
-                            "run_first_delta_slow",
+                            "run_first_event_slow",
                             extra={
                                 "tenant_id": run.tenant_id,
                                 "run_id": str(run.id),
-                                "elapsed_ms": first_delta_ms,
+                                "event_type": event.type,
+                                "elapsed_ms": first_ms,
                             },
                         )
-                text += str(event.data.get("delta", ""))
-            if event.seq is None:
-                await self._persist_event(run, submission_id, event.type, event.data)
+                if event.type == "runner.outcome":
+                    outcome = AgentRunStatus(event.data["status"])
+                    text = str(event.data.get("final_text", text))
+                    continue
+                is_first_delta = event.type == "message.delta" and first_delta_ms is None
+                if event.type == "message.delta":
+                    if first_delta_ms is None:
+                        first_delta_ms = int((time.monotonic() - consume_started) * 1000)
+                        if first_delta_ms > 5000:
+                            logger.warning(
+                                "run_first_delta_slow",
+                                extra={
+                                    "tenant_id": run.tenant_id,
+                                    "run_id": str(run.id),
+                                    "elapsed_ms": first_delta_ms,
+                                },
+                            )
+                    text += str(event.data.get("delta", ""))
+                if event.seq is None:
+                    persist_started = time.monotonic()
+                    await self._persist_event(
+                        run, submission_id, event.type, event.data, flush_now=is_first_delta
+                    )
+                    elapsed = time.monotonic() - persist_started
+                    persist_seconds += elapsed
+                    record_latency(RUN_PERSIST_EVENT_SECONDS, elapsed)
+        finally:
+            # 分段计时（容量诊断）：total 与 wait 在失败路径同样要落样本，否则慢的那次正好看不见。
+            total = time.monotonic() - consume_started
+            record_latency(RUN_CONSUME_SECONDS, total, {"stage": "total"})
+            record_latency(RUN_CONSUME_SECONDS, persist_seconds, {"stage": "persist"})
+            record_latency(
+                RUN_CONSUME_SECONDS, max(0.0, total - persist_seconds), {"stage": "wait"}
+            )
         return SegmentResult(outcome, text)
+
+    async def _timed_finalize(self, finalize: Awaitable[ExecutorEvent]) -> ExecutorEvent:
+        """终态收尾计时：终态事件/通知/记忆入队的整段事务耗时（容量诊断，成功失败都记）。"""
+        started = time.monotonic()
+        try:
+            return await finalize
+        finally:
+            record_latency(RUN_FINALIZE_SECONDS, time.monotonic() - started)
 
     async def _finish_segment(self, run: RunRecord, submission_id: uuid.UUID, agent_key: str,
                               result: SegmentResult) -> ExecutorEvent | None:
         if result.failure is not None:
-            return await self._finalize_failed(run, submission_id, result.failure, agent_key=agent_key)
+            return await self._timed_finalize(
+                self._finalize_failed(
+                    run, submission_id, result.failure, agent_key=agent_key
+                )
+            )
         if result.outcome in (AgentRunStatus.WAITING_TOOL, AgentRunStatus.WAITING_INPUT):
             return None
         if result.outcome == AgentRunStatus.BUDGET_EXCEEDED:
-            return await self._finalize_failed(
-                run, submission_id, RunnerBudgetExceeded("frozen budget exhausted"), agent_key=agent_key
+            return await self._timed_finalize(
+                self._finalize_failed(
+                    run,
+                    submission_id,
+                    RunnerBudgetExceeded("frozen budget exhausted"),
+                    agent_key=agent_key,
+                )
             )
-        return await self._finalize_run(run, submission_id, result.final_text, agent_key=agent_key)
+        return await self._timed_finalize(
+            self._finalize_run(run, submission_id, result.final_text, agent_key=agent_key)
+        )
 
     async def _wake_tail(self, tenant_id: str, conversation_id: uuid.UUID) -> None:
         """提交后唤醒（ADR-02）：必须在事务提交之后调用；只发轻量提示，不改写任何事实。
@@ -2956,27 +3139,46 @@ class RunService:
         submission_id: uuid.UUID,
         sse_type: str,
         data: dict[str, Any],
+        *,
+        flush_now: bool = False,
     ) -> ExecutorEvent:
-        async with get_session_factory()() as session:
-            await lock_execution(session, ExecutionIdentity.of(run), await database_now(session))
-            seq = await EventWriter(session).append(
-                tenant_id=run.tenant_id,
-                conversation_id=run.conversation_id,
-                run_id=run.id,
-                event_type=STREAM_BUSINESS_TYPES.get(sse_type, sse_type),
-                payload=data,
-                submission_id=submission_id,
-                stream_type=sse_type,
-                artifact_id=_event_artifact_id(data),
-            )
-            await session.commit()
-        await self._wake_tail(run.tenant_id, run.conversation_id)  # 提交后唤醒（ADR-02）
-        return ExecutorEvent(type=sse_type, data=data, seq=int(seq), timestamp=_utcnow().isoformat())
+        """提交一条 canonical 事件：交给进程级 batcher 跨 Run 合并，Future 在 COMMIT 后返回 seq。"""
+        tenant_id = run.tenant_id
+        conversation_id = run.conversation_id
+        entry = EventBatchEntry(
+            tenant_id=tenant_id,
+            conversation_id=conversation_id,
+            run_id=run.id,
+            identity=ExecutionIdentity.of(run),
+            event_type=STREAM_BUSINESS_TYPES.get(sse_type, sse_type),
+            payload=data,
+            submission_id=submission_id,
+            stream_type=sse_type,
+            artifact_id=_event_artifact_id(data),
+            flush_now=flush_now,
+            on_commit=lambda: self._wake_tail(tenant_id, conversation_id),
+        )
+        seq = await get_event_batcher(get_session_factory).submit(entry)
+        return ExecutorEvent(
+            type=sse_type, data=data, seq=int(seq), timestamp=_utcnow().isoformat()
+        )
 
+    @db_stage_scope("finalize")
     async def _finalize_run(
         self, run: RunRecord, submission_id: uuid.UUID, final_text: str, *, agent_key: str
     ) -> ExecutorEvent:
+        def mark(stage: str, started: float) -> float:
+            record_latency(
+                RUN_FINALIZE_STAGE_SECONDS,
+                time.monotonic() - started,
+                {"stage": stage},
+            )
+            return time.monotonic()
+
+        marker = time.monotonic()
+        receipt: RunNotificationReceipt | None = None
         async with get_session_factory()() as session:
+            marker = mark("session_open", marker)
             row = await session.scalar(sa.select(RunRecord).where(RunRecord.id == run.id))
             if row is None:
                 raise AppError(ErrorCode.COMMON_NOT_FOUND)
@@ -2987,9 +3189,11 @@ class RunService:
 
             row, _ = await lock_run_source(session, run.tenant_id, row)
             ensure_execution(row, ExecutionIdentity.of(run), await database_now(session))
+            marker = mark("lock", marker)
             cancelled = row.cancel_requested
             if cancelled:
                 await cancel_operations(session, row)
+            marker = mark("cancel", marker)
             target = RunStatus.CANCELLED if cancelled else RunStatus.COMPLETED
             updated = await session.execute(
                 sa.update(RunRecord)
@@ -3013,32 +3217,44 @@ class RunService:
                 if fresh is None:
                     raise AppError(ErrorCode.COMMON_NOT_FOUND)
                 return await self._terminal_event(session, fresh)
+            marker = mark("run_cas", marker)
             # 终态释放与终态更新同事务：CAS 落败（并发收尾/回收已释放）即不递减。
             await release_admission_in(session, run=row)
+            marker = mark("release", marker)
             writer = EventWriter(session)
-            # 业务事实行（ContextBuilder 读取）与对外 SSE 行分开，保证重放与历史互不混淆
-            await writer.append(
-                tenant_id=row.tenant_id,
-                conversation_id=row.conversation_id,
-                run_id=row.id,
-                event_type=CANCEL_EVENT if cancelled else ASSISTANT_MESSAGE_EVENT,
-                payload={"reason": "cancelled"} if cancelled else {"text": final_text},
-                submission_id=submission_id,
+            # 业务事实行（ContextBuilder 读取）与对外 SSE 行分开，保证重放与历史互不混淆；
+            # 两条事件同一会话、同一事务，用一次 seq 区间分配（assistant 在前、终态在后）。
+            assistant_payload: dict[str, Any] = (
+                {"reason": "cancelled"} if cancelled else {"text": final_text}
             )
             payload: dict[str, Any] = {"status": str(target), "final_text": final_text}
             if cancelled:
                 payload["reason"] = "cancelled"
             terminal_event_id = uuid.uuid4()
-            seq = await writer.append(
-                tenant_id=row.tenant_id,
-                conversation_id=row.conversation_id,
-                run_id=row.id,
-                event_type="RUN_COMPLETED",
-                payload=payload,
-                submission_id=submission_id,
-                stream_type=RUN_COMPLETED_EVENT,
-                event_id=terminal_event_id,
+            seqs = await writer.append_many(
+                [
+                    EventAppend(
+                        tenant_id=row.tenant_id,
+                        conversation_id=row.conversation_id,
+                        run_id=row.id,
+                        event_type=CANCEL_EVENT if cancelled else ASSISTANT_MESSAGE_EVENT,
+                        payload=assistant_payload,
+                        submission_id=submission_id,
+                    ),
+                    EventAppend(
+                        tenant_id=row.tenant_id,
+                        conversation_id=row.conversation_id,
+                        run_id=row.id,
+                        event_type="RUN_COMPLETED",
+                        payload=payload,
+                        submission_id=submission_id,
+                        stream_type=RUN_COMPLETED_EVENT,
+                        event_id=terminal_event_id,
+                    ),
+                ]
             )
+            seq = int(seqs[-1])
+            marker = mark("events", marker)
             await self._submissions.finalize_in(
                 session,
                 submission_id,
@@ -3046,15 +3262,17 @@ class RunService:
                 last_seq=int(seq),
                 terminal_result_json={"status": str(target)},
             )
+            marker = mark("submission", marker)
             # 用户通知与终态**同一事务**（design §3.6）：feed 锁在 Conversation/Run 锁之后；
             # 写不进去就整体回滚，绝不先提交终态再补通知。
-            await write_run_notification(
+            receipt = await write_run_notification(
                 session,
                 run=row,
                 kind=KIND_RUN_COMPLETED,
                 delivery_key=run_terminal_delivery_key(row.id),
                 event_id=terminal_event_id,
             )
+            marker = mark("notification", marker)
             if target == RunStatus.COMPLETED:
                 # 终态 assistant 正文是真实可见消息：会话活动时间与它同事务更新（design §3.3）；
                 # 取消/失败不写可见 assistant 正文，不刷新（heartbeat/订阅同样不刷新）。
@@ -3063,10 +3281,36 @@ class RunService:
                     .where(Conversation.id == row.conversation_id)
                     .values(last_message_at=sa.func.now())
                 )
+                marker = mark("activity", marker)
                 from .memory_job_enqueue import enqueue_completed
 
                 await enqueue_completed(session, row, through_seq=int(seq))
+                marker = mark("memory", marker)
             await session.commit()
+            mark("commit", marker)
+        if receipt is not None and receipt.created:
+            # 通知事实已提交：实时通道只做加速；发布失败由客户端按持久 seq 回填。
+            await get_notification_publisher().publish(
+                tenant_id=run.tenant_id,
+                user_id=run.user_id,
+                notification_id=receipt.id,
+                seq=receipt.seq,
+                notification={
+                    "id": str(receipt.id),
+                    "seq": receipt.seq,
+                    "entry_id": str(receipt.entry_id),
+                    "agent_id": str(run.agent_id),
+                    "conversation_id": str(receipt.conversation_id),
+                    "run_id": str(receipt.run_id),
+                    "task_id": None if receipt.task_id is None else str(receipt.task_id),
+                    "event_id": None if receipt.event_id is None else str(receipt.event_id),
+                    "kind": receipt.kind,
+                    "summary": KIND_SUMMARIES[cast(NotificationKind, receipt.kind)],
+                    "attachments": [],
+                    "created_at": receipt.created_at.isoformat(),
+                    "read_at": None,
+                },
+            )
         await self._wake_tail(run.tenant_id, run.conversation_id)  # 提交后唤醒（ADR-02）
         record_outcome(AGENT_RUNS_METRIC, str(target), {"agent": agent_key})
         return ExecutorEvent(

@@ -1,6 +1,6 @@
 ---
 id: harness-auth
-description: Agent Harness 通用平台规则：auth
+description: 认证、会话、RBAC 与 CHAT
 stages:
 - design
 - plan
@@ -32,38 +32,39 @@ verifiers:
 
 Console 身份、会话与凭据管理（每条末附机器检查）：
 
-- **仅两级角色，凭据类路由必须挂 `admin` 组**：角色只有 `ADMIN`/`BUILDER`（`infrastructure/models/auth.py:9-10`），创建账号按白名单校验 role（`application/auth_service.py:21,149-150`）。`accounts`/`users`/`credentials` 三组路由挂 `admin` 组（`require_admin`，非 ADMIN → `403 FORBIDDEN`），其余配置类路由挂 `authenticated`（`api/router.py:27-46`）。凭据管理的 ADMIN 门控是**前端隐藏 + 后端 403 兜底**的双层要求，缺一不可。
+- **仅两级角色，管理面路由必须挂 `admin` 组**：角色只有 `ADMIN`/`BUILDER`（`infrastructure/models/auth.py` 的角色常量），创建账号按 `ROLES` 白名单校验（`application/auth_service.py`）。`admin` 组（`require_admin`，非 ADMIN → `403 FORBIDDEN`）承载账号、用户、凭据、模型凭据/额度组、平台设置写与历史；配置读取与业务面挂 `authenticated`；取件端点不在两组内，由令牌二选一鉴权（`api/router.py` 的组装配）。凭据管理的 ADMIN 门控是**前端隐藏 + 后端 403 兜底**的双层要求，缺一不可。
   - ✅ `admin.include_router(credentials_router)`
   - ❌ 把 `credentials_router` 挂回 `authenticated`（越权修复前状态：任意已登录账号可读写凭据）
   - 机检：`tests/console_auth/test_rbac.py::test_builder_cannot_access_credentials_routes`
 - **授权维护只允许 ADMIN**：Agent 用户授权 POST/DELETE 使用 `AdminAccount`；MCP 范围变更只经 `/user-scope` 管理员端点，普通编辑 DTO 不接受 `user_scope`，BUILDER 注册也不能声明 `ALL`。前端对 BUILDER 隐藏授权维护控件，读取列表仍走原接口。
   - ✅ 普通 MCP 编辑只改配置，ADMIN 在专用接口改范围；❌ 在普通编辑 DTO 加回 `user_scope` 绕过管理员门控。
   - 机检：`tests/console_auth/test_review_regressions.py`。
-- **租户是主体属性，不是请求属性**（2026-09-28 全量收敛）：用户态/管理态路由的租户**只能**取自登录账号——`deps.TenantId` 的默认实现就是 `AccountTenantId`（`account.tenant_id`）。请求头 `X-Tenant-Id` 由中间件写入 contextvar（`packages/api-kit/src/muad_api/middleware.py:36,45`），**可被客户端任意改写**，故只允许两处显式 opt-in：内部服务路由（`/internal/*`，另有服务身份门控）与公开登录（`/auth/login`，无会话可依、只能靠头按租户定位账号）——它们用显式命名 `HeaderTenantId`。`get_tenant_id` 已从 deps 删除，残留调用会 import 失败而非静默降级。
-  - 现状：`accounts`/`agents`/`audits`/`auth`(已认证端点)/`credentials`/`mcp_servers`/`models`/`overview`/`platform_test`/`platforms`/`schedules`/`skills`/`tasks`/`users` 共 14 处均为账号租户；`internal_runtime`/`internal_channel` 用 `HeaderTenantId`
-  - ✅ `TenantId = AccountTenantId`（默认即安全）；内部/公开入口显式 `TenantId = HeaderTenantId`
+- **租户是主体属性，不是请求属性**（2026-09-28 全量收敛）：用户态/管理态路由的租户**只能**取自登录账号——`deps.TenantId` 的默认实现就是 `AccountTenantId`（`account.tenant_id`）。请求头 `X-Tenant-Id` 由中间件写入 contextvar（`packages/api-kit/src/muad_api/middleware.py` 的上下文中间件），**可被客户端任意改写**，故只允许显式 opt-in 的内部服务路由（`/internal/*`，另有服务身份门控）与公开登录（`/auth/login` 没有会话可依，只能按租户定位账号）——内部模块用 `HeaderTenantId`；登录端点直接读请求头，不复用该依赖。`get_tenant_id` 已从 deps 删除，残留调用会 import 失败而非静默降级。
+  - 现状：业务/配置路由（accounts、agents、audits、auth 已认证端点、credentials、mcp_servers、model_resources、models、overview、platform_settings、platform_test、platforms、runs、schedules、skills、tasks、users）一律 `AccountTenantId`；`internal_runtime` / `internal_channel` / `internal_artifacts` / `internal_platform_settings` 四个内部模块用 `HeaderTenantId`；`platform_adapters` 不携带租户。
+  - ✅ `TenantId = AccountTenantId`（默认即安全）；内部/公开入口显式取请求头租户
   - ❌ 已认证路由上用 `HeaderTenantId`：各 service 的 `row.tenant_id != tenant_id` 只校验「这行属不属于你**要**的租户」，拦不住「你要的租户是不是**你的**」——伪造头即可读写他租户数据
   - 机检：`tests/console_auth/test_rbac.py::test_authenticated_tenant_comes_from_account_not_header`（带伪造头时列表仍须含本账号租户的数据）
   - 机检：`tests/console_platform/test_credentials_api.py::test_credentials_tenant_comes_from_account_not_header`
-- **CSRF 双提交 + Cookie 属性**：非安全方法（`GET/HEAD/OPTIONS/TRACE` 之外）必须比对 `muad_csrf` Cookie 与 `X-CSRF-Token` 头（`hmac.compare_digest`，失败 `403`）；会话 Cookie `muad_session` 为 `httponly`、CSRF Cookie 必须可读、两者 `samesite=strict`、`secure` 仅非 dev 打开。`authenticated` 与 `admin` 两组都挂 `require_csrf`（`api/security.py:9-13,20-47,52-58`；`api/router.py:27,42`；写 Cookie 见 `api/auth.py:50`）。
-- **会话唯一权威源是 PG `control.console_session`**：令牌只存 `sha256` 摘要、库里无明文列；登录按当前平台设置 `auth.session_ttl_hours`（默认 12h）签发，**滑动阈值是派生值**——本会话签发窗口（`expires_at - issued_at`）的一半，剩余低于一半时续期到 `now + 当前平台 TTL`；登出置 `revoked_at` 且幂等（重复登出不报错）。无状态 JWT 会绕过吊销与滑动续期，禁止引入（`application/auth_service.py:119-137`；`infrastructure/models/auth.py:49-80`）。
+- **CSRF 双提交 + Cookie 属性**：非安全方法（`GET/HEAD/OPTIONS/TRACE` 之外）必须比对 `muad_csrf` Cookie 与 `X-CSRF-Token` 头（`hmac.compare_digest`，失败 `403`）；会话 Cookie `muad_session` 为 `httponly`、CSRF Cookie 必须可读、两者 `samesite=strict`、`secure` 仅非 dev 打开。`authenticated` 与 `admin` 两组都挂 `require_csrf`（`api/security.py` 的常量、`set_auth_cookies` 与 `require_csrf`；写 Cookie 见 `api/auth.py`）。
+- **会话唯一权威源是 PG `control.console_session`**：令牌只存 `sha256` 摘要、库里无明文列；登录按当前平台设置 `auth.session_ttl_hours`（默认 12h）签发，**滑动阈值是派生值**——本会话签发窗口（`expires_at - issued_at`）的一半，剩余低于一半时续期到 `now + 当前平台 TTL`；登出置 `revoked_at` 且幂等（重复登出不报错）。无状态 JWT 会绕过吊销与滑动续期，禁止引入（`application/auth_service.py` 的 `resolve_session`；`infrastructure/models/auth.py`）。
   - ✅ 库里只有 sha256 摘要；❌ 存明文或改用无状态 JWT
-  - 机检：`tests/console_auth/test_login.py:99-102`
+  - 机检：`tests/console_auth/test_login.py`（会话摘要）
 - **续期窗口与浏览器 Cookie 同步**：续期同时重置 `issued_at=now`、`expires_at=now+当前 TTL`，普通 JSON 与文件响应均刷新两枚原值 Cookie 的 `Max-Age`。同一请求只校验一次会话，角色检查复用主体与续期结果；Bearer 认证不写 Cookie，登出只清 Cookie。下一请求未达到新窗口一半时不再续期。
   - ✅ 续期结果传到最终响应，以同一 TTL 刷新 session/CSRF Cookie；❌ 只延长数据库期限，或保留旧 `issued_at` 导致窗口不断增长。
   - 机检：`tests/console_auth/test_review_regressions.py`、`tests/console_channel/test_artifact_fetch.py::test_file_response_refreshes_renewed_session_cookies`。
-- **已认证会话的解析不得依赖设置可读（ADR-12）**：会话解析发生在**每个**请求上，若它也读平台设置，一条 schema 坏掉的 `platform_setting` 行就会让该租户**全部**已认证请求失败——把「一次保存写坏」放大成「整个租户锁死」。因此 `RULE-06`「设置源不可读即明确失败」只约束**业务操作**与**登录/续期这两个策略生效点**，**不适用于普通请求的会话解析**：解析用本会话签发时冻结的 TTL（`expires_at - issued_at`）判滑动阈值，**只在真要续期时**才读当前 `auth.session_ttl_hours`（`application/auth_service.py:127-133`）。这样既满足「之后签发/续期的会话按新值」，又不动已签发会话，还让普通请求零额外设置读取（同守 NFR-PERF-01）。
-- **密码与失败锁定**：`argon2id`（`$argon2id$` 前缀）、最短 12 字符；连续 5 次失败锁 15 分钟且**锁定时把计数清零**（恢复后重新计 5 次）；未知用户与禁用账号都走 dummy hash 等化时序并统一回 `INVALID_CREDENTIALS`，不泄露账号是否存在（`application/auth_service.py:22-30,61-75,105-111`）。
+- **已认证会话的解析不得依赖设置可读（ADR-12）**：会话解析发生在**每个**请求上，若它也读平台设置，一条 schema 坏掉的 `platform_setting` 行就会让该租户**全部**已认证请求失败——把「一次保存写坏」放大成「整个租户锁死」。因此 `RULE-06`「设置源不可读即明确失败」只约束**业务操作**与**登录/续期这两个策略生效点**，**不适用于普通请求的会话解析**：解析用本会话签发时冻结的 TTL（`expires_at - issued_at`）判滑动阈值，**只在真要续期时**才读当前 `auth.session_ttl_hours`（`application/auth_service.py` 的 `resolve_session`）。这样既满足「之后签发/续期的会话按新值」，又不动已签发会话，还让普通请求零额外设置读取（同守 NFR-PERF-01）。
+- **密码与失败锁定**：`argon2id`（`$argon2id$` 前缀）、最短 12 字符；连续 5 次失败锁 15 分钟且**锁定时把计数清零**（恢复后重新计 5 次）；未知用户与禁用账号都走 dummy hash 等化时序并统一回 `INVALID_CREDENTIALS`，不泄露账号是否存在（默认值见 `contracts.platform_settings.AuthSettings`；实现见 `application/auth_service.py` 的 `_DUMMY_HASH`、登录与失败计数路径）。
   - ✅ 未知用户先 `verify_password(_DUMMY_HASH, password)` 再报错；❌ 提前 `return` 造成响应时间差
-  - 机检：`tests/console_auth/test_login.py:106-112`；`tests/acceptance/console_auth_flow/test_auth_acceptance.py:220-239`
+  - 机检：`tests/console_auth/test_login.py`（argon2 与失败计数）；`tests/acceptance/console_auth_flow/test_auth_acceptance.py`
 - **登录计数在账号行锁内处理**：按租户与账号主键 `SELECT FOR UPDATE` 并刷新已加载状态，再检查锁定、校验密码与更新计数/成功重置；错误密码的更新须提交后再返回错误，不能由请求回滚丢掉。
   - ✅ 五个并发错误登录累计五次并锁定；❌ 无锁读取同一旧计数后分别加一。
   - 机检：`tests/console_auth/test_review_regressions.py::test_parallel_failed_logins_lock_account`。
-- **账号创建与登录成功必须写 `control.config_audit_log`**：审计与业务变更**共用同一 session（同一事务）**，actor 为创建者（创建）或账号本人（登录），载荷不含密码哈希（登录只记 username/role）；幂等重放没有产生新变更，**不写新审计**（`api/accounts.py:64-79`；`api/auth.py:39-49`；`application/audit_service.py:57-78`）。
-- **`resolve-definition` 与 API-08/09 同服务身份门控**：响应含模型明文 `api_key`，必须要求 `X-Internal-Service`（`require_service_identity`），三个 internal 端点一致；Console 侧调用方（Worker `scheduler/client.py:57`、Runtime `infrastructure/console_client.py:50,100`）必须发该头。
+- **账号创建与登录成功必须写 `control.config_audit_log`**：审计与业务变更**共用同一 session（同一事务）**，actor 为创建者（创建）或账号本人（登录），载荷不含密码哈希（登录只记 username/role）；幂等重放没有产生新变更，**不写新审计**（`api/accounts.py`；`api/auth.py`；`application/audit_service.py`）。
+- **CHAT 认证面与 Console 管理会话完全分离**：`/api/v1/webchat/auth/*` 挂在公开 router（`api/router.py` 在 `authenticated`/`admin` 两组之外），只认独立 CHAT 凭据：Cookie/CSRF 名独立（`muad_chat_session`/`muad_chat_csrf` vs `muad_session`/`muad_csrf`），跨面不能互相授权。交换只提交用户 Token（无 tenant/user 参数），服务按摘要定位 Token 行、从记录导出租户/用户，再按「用户→Token」锁序复核撤销/到期与用户状态；会话期限 = `min(交换时刻 + session_ttl_hours, 来源 Token 到期)`，时间取 **PG 服务端 now()**。库里只存会话摘要（原文只进 HttpOnly Cookie），普通请求**不滑动续期**、不读平台设置；登出只撤销本会话（幂等）；错误码固定（`CHAT_TOKEN_INVALID/REVOKED/EXPIRED`、`CHAT_SESSION_REVOKED/EXPIRED`；设置源损坏 `PLATFORM_SETTINGS_UNAVAILABLE` 503）。✅ Cookie `Max-Age` 与库内剩余期限同源（PG 时间向下取整）；❌ 复用 Console 的 Cookie/CSRF，或把用户 Token 原文写进 Cookie（`application/chat_auth_service.py`、`api/chat_security.py`、`api/webchat_auth.py`）。
+- **内部解析端点统一服务身份门控**：响应含模型明文 `api_key` 的端点必须要求 `X-Internal-Service`（`require_service_identity`）。当前受控面是 `internal_runtime` 的五个端点（`resolve-definition`、`admission-materials`、`resolve-model`、`resolve-credentials`、`resolve-egress-access`）与 `internal_platform_settings`；Console 侧调用方（Worker `scheduler/client.py`、Runtime `infrastructure/console_client.py`）必须发该头。
   - ✅ 门控 + 调用方带头；❌ 裸端点（越权修复前状态：无头即可读到明文密钥）
   - 机检：`tests/console_internal/test_runtime_credentials.py::test_resolve_definition_requires_service_identity`
-- **`POST /api/v1/accounts` 的 `Idempotency-Key` 复用既有共享幂等表**：落在 `control.skill_import_idempotency`（不建第二张表），指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符, `ensure_ascii=False`）的 `sha256:`，含 endpoint/tenant/username/display_name/role；同 key 异指纹 → `IDEMPOTENCY_MISMATCH`；并发由 `pg_advisory_xact_lock`（按 `(tenant, key, endpoint)` 摘要）串行化（`api/accounts.py:16-17,55`；`application/auth_service.py:181-212,249-267,270-276`）。
+- **`POST /api/v1/accounts` 的 `Idempotency-Key` 复用既有共享幂等表**：落在 `control.skill_import_idempotency`（不建第二张表），指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符, `ensure_ascii=False`）的 `sha256:`，含 endpoint/tenant/username/display_name/role；同 key 异指纹 → `IDEMPOTENCY_MISMATCH`；并发由 `pg_advisory_xact_lock`（按 `(tenant, key, endpoint)` 摘要）串行化（`api/accounts.py`；`application/auth_service.py` 的 `account_fingerprint` 与 `_lock_account_idempotency`）。
 
 ## Avoid
 

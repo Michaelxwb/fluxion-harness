@@ -262,7 +262,13 @@ class _SuitePlatformSettings:
                 "capacity": {
                     "max_open_runs_per_tenant": 100_000,
                     "max_open_runs_per_user": 100,
-                }
+                },
+                # 既有套件大量使用固定日期种子；会话保留/上限由专门用例显式覆盖，
+                # 这里保持「不按时间失效 + 足够大的上限」，避免产品默认值改变既有断言。
+                "webchat": {
+                    "conversation_retention_days": 0,
+                    "max_conversations_per_entry": 1000,
+                },
             },
         )
 

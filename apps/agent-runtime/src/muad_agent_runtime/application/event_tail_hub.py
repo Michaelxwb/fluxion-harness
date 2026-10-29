@@ -5,9 +5,10 @@
 - **同会话共享上游追尾**：同进程内同一 `(tenant, conversation)` 的多个订阅者共享同一轮上游
   读取（水位 + 分页），观察者数量不线性放大查询（ADR-02「减少随观察者数量线性重复的查询」）；
   订阅者各自持有游标，从共享窗口按 `seq > 游标` 取行。
-- **注册唤醒→读水位→按页追到水位→等待或超时补查**（design §3.2）：订阅者**先注册唤醒再读
-  水位**，提交后的唤醒不会掉进"读取之后、等待之前"的缝隙；等待以
-  `run_event_fallback_poll_sec` 为界超时补查，唤醒丢失只退化为低频补查，不丢事件。
+- **注册唤醒→读水位→按页追到水位→等待或批量补查**（design §3.2）：订阅者**先注册唤醒再读
+  水位**，提交后的唤醒不会掉进"读取之后、等待之前"的缝隙；进程级补查任务每
+  `run_event_fallback_poll_sec` 用**一条批量水位查询**覆盖全部活跃会话，唤醒丢失只退化为
+  低频补查，不丢事件，也不随会话数线性增加查询。
 - **提交后唤醒**：写入方在**事务提交之后**调用 `publish`（轻量提示，不携带事实）；Redis
   Pub/Sub 只作跨进程通知，连不上即降级为 PG 补查（`degraded` 可见，绝不抛回写入路径）。
 - **补查**：断线重连按水位补拉缺失区间；共享窗口淘汰（慢消费者）后按持久水位分页重建，
@@ -30,7 +31,7 @@ import logging
 import time
 import uuid
 from collections import deque
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Coroutine
 from contextlib import suppress
 from dataclasses import dataclass, field, replace
 from datetime import datetime
@@ -39,6 +40,7 @@ from typing import Any, Protocol, cast
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_common.db_counters import db_stage_scope
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -269,6 +271,7 @@ class TailHubStats:
     upstream_rounds: int = 0
     pages_read: int = 0
     wakeups: int = 0
+    #: 进程级批量补查的**轮次**（不是每会话次数；一次查询覆盖当前全部活跃会话）。
     fallback_polls: int = 0
     lagged_rebuilds: int = 0
     hint_failures: int = 0
@@ -350,6 +353,8 @@ class EventTailHub:
         self._channels: dict[tuple[str, uuid.UUID], _Channel] = {}
         self._stats = TailHubStats()
         self._listener: asyncio.Task[None] | None = None
+        #: 进程级补查调度：一次批量水位查询覆盖所有活跃会话，避免每流一个超时查询。
+        self._scheduler: asyncio.Task[None] | None = None
 
     def bind_session_factory(
         self, session_factory: Callable[[], async_sessionmaker[AsyncSession]]
@@ -395,6 +400,7 @@ class EventTailHub:
         subscriber = _Subscriber(cursor=max(0, after_seq), waiter=asyncio.Event())
         channel.subscribers.append(subscriber)
         self._ensure_listener()
+        self._ensure_scheduler()
         try:
             async for batch in self._follow(channel, subscriber):
                 yield batch
@@ -404,20 +410,34 @@ class EventTailHub:
                 self._channels.pop((tenant_id, conversation_id), None)
 
     async def _follow(self, channel: _Channel, subscriber: _Subscriber) -> AsyncIterator[TailBatch]:
-        """注册唤醒 → 读水位 → 按页追到水位 → 等待或超时补查（循环直到取消）。"""
+        """注册唤醒 → 读水位 → 按页追到水位 → 等待（补查由进程级批量任务负责）。
+
+        等待超时只产出一个**空 caught_up 批**给调用方评估终态，不再触发每会话 DB 查询；
+        下一次真正的水位变化由 `_poll_channels` 批量发现后 set waiter。
+        """
         first_round = True
+        skip_read = False
         while True:
             # ① 先注册：读取期间到达的唤醒留在 waiter 上，不会掉进读取/等待之间的缝隙。
             subscriber.waiter.clear()
-            await self._shared_read(channel)  # ② 读水位 + 至多一页（同会话共享）
-            if first_round:
-                self._assert_cursor_in_range(channel, subscriber.cursor)
-                first_round = False
+            if not skip_read:
+                await self._shared_read(channel)  # ② 读水位 + 至多一页（同会话共享）
+                if first_round:
+                    self._assert_cursor_in_range(channel, subscriber.cursor)
+                    first_round = False
+            skip_read = False
             async for batch in self._drain(channel, subscriber):
                 yield batch
             if channel.read_seq < channel.through_seq or subscriber.cursor < channel.read_seq:
                 continue  # 上游还有未读页，或本订阅者还落后于已读入的行：立刻继续追（不等待）
-            await self._wait(subscriber)
+            if not await self._wait(subscriber):
+                # 补查节拍到点但没有新水位：给调用方一个空批评估终态，绝不在这里查库。
+                yield TailBatch(
+                    rows=(),
+                    through_seq=channel.through_seq,
+                    caught_up=True,
+                )
+                skip_read = True
 
     def _assert_cursor_in_range(self, channel: _Channel, cursor: int) -> None:
         if cursor > channel.through_seq:
@@ -431,11 +451,14 @@ class EventTailHub:
         """同一会话同一轮只做一次上游读取；并发订阅者共享同一次结果（single-flight）。"""
         task = channel.inflight
         if task is None or task.done():
-            task = asyncio.create_task(self._read_round(channel))
+            task = asyncio.create_task(
+                cast(Coroutine[Any, Any, None], self._read_round(channel))
+            )
             task.add_done_callback(_consume_task_exception)
             channel.inflight = task
         await asyncio.shield(task)
 
+    @db_stage_scope("bg:tail")
     async def _read_round(self, channel: _Channel) -> None:
         """一轮共享上游读取：读水位；水位内读一页入共享窗口；追平且无行即空闲轮。"""
         self._stats.upstream_rounds += 1
@@ -509,13 +532,64 @@ class EventTailHub:
                 lagged=True,
             )
 
-    async def _wait(self, subscriber: _Subscriber) -> None:
-        """等待提交后唤醒；超时即按 PG 有界补查（hint 丢失/Redis 降级的恢复路径）。"""
+    async def _wait(self, subscriber: _Subscriber) -> bool:
+        """等待唤醒；超时返回 False（补查节拍只产出空批，不查库）。"""
         try:
             await asyncio.wait_for(subscriber.waiter.wait(), timeout=self._fallback_poll_sec)
+            return True
         except TimeoutError:
+            return False
+
+    def _ensure_scheduler(self) -> None:
+        """启动进程级补查任务：没有活跃订阅时自然退出，下一条流再启动。"""
+        if self._scheduler is not None and not self._scheduler.done():
+            return
+        self._scheduler = asyncio.create_task(self._poll_loop())
+        self._scheduler.add_done_callback(_consume_task_exception)
+
+    async def _poll_loop(self) -> None:
+        """进程级补查：一次批量水位查询覆盖所有活跃会话，逐会话唤醒订阅者。"""
+        while self._channels:
+            await asyncio.sleep(self._fallback_poll_sec)
+            try:
+                await self._poll_channels()
+                record_tail_outcome("fallback_poll")
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 —— 补查只是恢复路径，失败要可见但不杀订阅者
+                self._stats.hint_failures += 1
+                record_tail_outcome("fallback_failure")
+                logger.warning("event_tail_fallback_poll_failed")
+
+    @db_stage_scope("bg:tail")
+    async def _poll_channels(self) -> None:
+        """批量补查水位：按租户一次 `IN (...)` 查询，不为每个会话各发一条语句。"""
+        channels = [channel for channel in self._channels.values() if channel.subscribers]
+        if not channels:
+            return
+        by_tenant: dict[str, list[_Channel]] = {}
+        for channel in channels:
+            by_tenant.setdefault(channel.tenant_id, []).append(channel)
+        for tenant_id, group in by_tenant.items():
             self._stats.fallback_polls += 1
-            record_tail_outcome("fallback_poll")
+            by_id = {channel.conversation_id: channel for channel in group}
+            async with self._session_factory()() as session:
+                rows = (
+                    await session.execute(
+                        sa.select(Conversation.id, Conversation.last_seq).where(
+                            Conversation.tenant_id == tenant_id,
+                            Conversation.id.in_(tuple(by_id)),
+                            Conversation.is_deleted.is_(False),
+                        )
+                    )
+                ).all()
+            for conversation_id, last_seq in rows:
+                target = by_id.get(conversation_id)
+                if target is None:
+                    continue
+                if int(last_seq) > target.through_seq:
+                    target.through_seq = int(last_seq)
+                    self._wake(target)
 
     def _channel(self, tenant_id: str, conversation_id: uuid.UUID) -> _Channel:
         key = (tenant_id, conversation_id)
@@ -656,6 +730,11 @@ class EventTailHub:
         )
 
     async def aclose(self) -> None:
+        if self._scheduler is not None:
+            scheduler, self._scheduler = self._scheduler, None
+            scheduler.cancel()
+            with suppress(asyncio.CancelledError):
+                await scheduler
         if self._listener is not None:
             listener, self._listener = self._listener, None
             listener.cancel()
@@ -674,9 +753,9 @@ def build_event_tail_hub(
 ) -> EventTailHub:
     """装配根注入：补查周期与唤醒通道只来自启动设置（design §3.7 的唯一来源）。"""
     if settings is None:
-        from muad_common import SharedSettings
+        from muad_common import process_settings
 
-        settings = SharedSettings()
+        settings = process_settings()
     return EventTailHub(
         session_factory=session_factory,
         fallback_poll_sec=float(settings.run_event_fallback_poll_sec),

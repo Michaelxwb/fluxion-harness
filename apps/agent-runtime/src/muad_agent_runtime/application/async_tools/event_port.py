@@ -1,11 +1,14 @@
 """Durable runtime input consumed only at complete model/tool round boundaries."""
 
+import time
+
 from muad_agent_core.agent.continuation import RunnerCheckpoint, RuntimeEventBatch, WaitDecision
 from muad_agent_core.model import ModelMessage, ModelRole
 from sqlalchemy import select
 
 from ...infrastructure.db import SessionFactory
 from ...infrastructure.models.runtime import CanonicalEvent
+from ...metrics import RUN_CHECKPOINT_SECONDS, record_latency
 from ..attachments.tool_results import ArtifactResultWriter
 from .continuation_service import CONSUMABLE_TYPES, ExecutionIdentity, checkpoint_execution, try_wait
 from .materialization import external_data, materialize_results
@@ -52,7 +55,11 @@ class DurableRuntimeEventPort:
         )
 
     async def checkpoint(self, checkpoint: RunnerCheckpoint) -> None:
-        await checkpoint_execution(self._factory, self._identity, checkpoint)
+        started = time.monotonic()
+        try:
+            await checkpoint_execution(self._factory, self._identity, checkpoint)
+        finally:
+            record_latency(RUN_CHECKPOINT_SECONDS, time.monotonic() - started)
 
     async def try_wait(self, checkpoint: RunnerCheckpoint, *, assistant_text: str) -> WaitDecision:
         return await try_wait(self._factory, self._identity, checkpoint, assistant_text=assistant_text)

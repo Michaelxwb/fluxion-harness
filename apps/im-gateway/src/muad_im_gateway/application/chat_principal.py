@@ -28,11 +28,17 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import cast
 from uuid import UUID
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.webchat import ChatAuthorizedAgent, ChatPrincipal
+from muad_common.session_store import (
+    RedisSessionStore,
+    SessionStoreUnavailable,
+    hash_session_token,
+)
+from muad_contracts.webchat import ChatAuthMethod, ChatAuthorizedAgent, ChatPrincipal
 from pydantic import SecretStr
 
 from .console_client import ConsoleClientPort
@@ -71,12 +77,21 @@ class ChatIdentity:
 class ChatPrincipalGate:
     """CHAT 主体门控：把"浏览器带来的凭据"换成"Console 核验过的受信主体"。"""
 
-    def __init__(self, console: ConsoleClientPort, *, tenant_id: str) -> None:
+    def __init__(
+        self,
+        console: ConsoleClientPort,
+        *,
+        tenant_id: str,
+        session_store: RedisSessionStore | None = None,
+    ) -> None:
         self._console = console
         self._tenant_id = tenant_id
+        self._session_store = session_store
 
     async def resolve(self, credentials: ChatSessionCredentials) -> ChatIdentity:
         """核验并导出主体；跨部署租户 403、上下文不匹配 409，会话/Token 失效沿用 Console 错误码。"""
+        if self._session_store is not None:
+            return await self._resolve_from_session_store(credentials)
         started = time.monotonic()
         response = await self._console.chat_principal(
             credentials.session_token,
@@ -98,6 +113,47 @@ class ChatPrincipalGate:
             principal=principal,
             expires_at=response.expires_at,
             agents=tuple(response.agents),
+        )
+
+
+    async def _resolve_from_session_store(
+        self, credentials: ChatSessionCredentials
+    ) -> ChatIdentity:
+        """Redis 命中才放行；miss/Redis 故障一律重新认证，不回源 Console。"""
+        token_hash = hash_session_token(credentials.session_token.get_secret_value())
+        try:
+            record = await self._session_store.read(token_hash)  # type: ignore[union-attr]
+        except SessionStoreUnavailable as exc:
+            raise AppError(ErrorCode.UNAUTHORIZED) from exc
+        if record is None:
+            raise AppError(ErrorCode.UNAUTHORIZED)
+        if record.tenant_id != self._tenant_id:
+            raise AppError(ErrorCode.FORBIDDEN)
+        if record.session_id != credentials.chat_context:
+            raise AppError(ErrorCode.AUTH_CONTEXT_CHANGED)
+        try:
+            alive = await self._session_store.touch(  # type: ignore[union-attr]
+                token_hash, record, now=_utc_now()
+            )
+        except SessionStoreUnavailable as exc:
+            raise AppError(ErrorCode.UNAUTHORIZED) from exc
+        if not alive:
+            raise AppError(ErrorCode.CHAT_SESSION_EXPIRED)
+        if record.auth_method != "USER_TOKEN":
+            # 会话记录由 Console 写入；未知认证方式说明共享存储被写坏，拒绝而不是猜。
+            raise AppError(ErrorCode.UNAUTHORIZED)
+        return ChatIdentity(
+            principal=ChatPrincipal(
+                tenant_id=record.tenant_id,
+                platform_user_id=record.platform_user_id,
+                session_id=record.session_id,
+                auth_method=cast(ChatAuthMethod, record.auth_method),
+            ),
+            expires_at=record.expires_at,
+            agents=tuple(
+                ChatAuthorizedAgent(agent_id=agent.agent_id, key=agent.key, name=agent.name)
+                for agent in record.agents
+            ),
         )
 
 

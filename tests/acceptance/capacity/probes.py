@@ -777,6 +777,8 @@ class WeComAck:
     cmd: str
     errcode: int
     at: float
+    #: 出站帧的 `req_id`（流式回复=入站回调的 reply_id）；首帧延迟按它归户。
+    req_id: str = ""
 
 
 @dataclass
@@ -815,8 +817,15 @@ class WeComProbeServer(WeComProbe):
         if cmd in (CMD_RESPONSE, CMD_SEND_MSG) and bot_id in self.throttle_bots:
             self.throttled += 1
             response = {**response, "errcode": THROTTLE_ERRCODE, "errmsg": "rate limited"}
+        req_id = str((frame.get("headers") or {}).get("req_id") or "")
         self.acks.append(
-            WeComAck(bot_id=bot_id, cmd=cmd, errcode=int(response.get("errcode") or 0), at=time.monotonic())
+            WeComAck(
+                bot_id=bot_id,
+                cmd=cmd,
+                errcode=int(response.get("errcode") or 0),
+                at=time.monotonic(),
+                req_id=req_id,
+            )
         )
         return response
 

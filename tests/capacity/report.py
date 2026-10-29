@@ -11,7 +11,7 @@
 - **公式**：`N = ceil(目标执行并发 / 单 Pod 容量 / 目标利用率) + 冗余副本`（§4.1），参数全部来自
   证据与业务确认，`ReplicaRecommendation.formula` 给出可逐字复算的算式。
 
-用法（运营口径见 `docs/operations/agent-capacity-webchat-capacity.md`）：
+用法（运营口径见 `scripts/capacity/REPORTING.md`）：
 
     uv run python -m tests.capacity.report --evidence <bundle.json> \
         --pg-maintenance-reserve 10 --runtime-target 16 --worker-target 8 \

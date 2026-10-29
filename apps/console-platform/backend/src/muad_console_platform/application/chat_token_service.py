@@ -31,6 +31,7 @@ from typing import Any, Literal
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_common.session_store import RedisSessionStore, SessionStoreUnavailable
 from muad_contracts.platform_settings import PlatformSettingsError
 from muad_contracts.webchat import WebchatTokenIssued, WebchatTokenMetadata
 from pydantic import SecretStr
@@ -122,11 +123,14 @@ def _next_revision(latest: ChatAccessToken | None, expected_revision: int) -> in
 class ChatTokenService:
     """Console 侧用户 Token Owner（API-03）：签发/重置、版本撤销与只读元信息。"""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self, session: AsyncSession, *, session_store: RedisSessionStore | None = None
+    ) -> None:
         self._session = session
         self._tokens = ChatTokenRepository(session)
         self._users = PlatformUserRepository(session)
         self._audit = AuditService(session)
+        self._session_store = session_store
 
     async def read_metadata(self, tenant_id: str, user_id: uuid.UUID) -> WebchatTokenMetadata:
         """GET：只读元信息（最新版本行），原文与摘要都不返回。"""
@@ -149,8 +153,11 @@ class ChatTokenService:
         revision = _next_revision(latest, expected_revision)
         live = await self._tokens.find_live_for_update(tenant_id, user_id)
         now = datetime.now(UTC)
+        revoked_hashes: tuple[str, ...] = ()
         if live is not None:
+            revoked_hashes = await self._tokens.active_session_hashes(live)
             await self._replace_live_token(tenant_id, actor, live, now)
+            await self._invalidate_sessions(revoked_hashes)
         token = generate_chat_token()
         row = ChatAccessToken(
             tenant_id=tenant_id,
@@ -181,7 +188,9 @@ class ChatTokenService:
         now = datetime.now(UTC)
         if row is not None and row.revoked_at is None:
             before = token_snapshot(row)
+            revoked_hashes = await self._tokens.active_session_hashes(row)
             revoked_sessions = await self._tokens.revoke(row, now)
+            await self._invalidate_sessions(revoked_hashes)
             await self._record_audit(tenant_id, actor, ACTION_DELETE, row, before=before, after=None)
             _logger.info(
                 "chat_access_token_revoked",
@@ -189,6 +198,16 @@ class ChatTokenService:
                                   "revoked_sessions": revoked_sessions}},
             )
         return _metadata(await self._tokens.find_latest(tenant_id, user_id), now=now)
+
+    async def _invalidate_sessions(self, token_hashes: tuple[str, ...]) -> None:
+        """删除被撤销会话的 Redis 权威副本：Gateway 长流复核与后续请求立即失效。"""
+        if self._session_store is None:
+            return
+        try:
+            for token_hash in token_hashes:
+                await self._session_store.delete(token_hash)
+        except SessionStoreUnavailable as exc:
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
 
     async def _replace_live_token(
         self, tenant_id: str, actor: AuditActor, live: ChatAccessToken, revoked_at: datetime

@@ -576,6 +576,16 @@ codes:
     messages:
       zh-CN: 当前模型配置与此会话不兼容，请新建会话
       en-US: The current model configuration is incompatible with this conversation. Start a new conversation.
+  CONVERSATION_EXPIRED:
+    http_status: 410
+    messages:
+      zh-CN: 会话已超过保留期，无法继续，请新建会话
+      en-US: This conversation is beyond its retention period and cannot be continued. Start a new conversation.
+  CONVERSATION_LIMIT_REACHED:
+    http_status: 409
+    messages:
+      zh-CN: 会话数量已达上限，且当前没有可归档的空闲会话，请稍后重试
+      en-US: The conversation limit has been reached and no idle conversation can be archived. Try again later.
   CURSOR_EXPIRED:
     http_status: 410
     messages:

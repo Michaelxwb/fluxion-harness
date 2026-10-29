@@ -1,6 +1,6 @@
 ---
 id: harness-test
-description: Agent Harness 通用平台规则：test
+description: 测试分层、验收隔离与 CI
 stages:
 - design
 - plan
@@ -10,8 +10,8 @@ enforcement: required
 verifiers:
 - rule: RULE-test-001
   type: command
-  # 全量 acceptance + 前端 build + Playwright 是需求级终验（TASK-012 / verify-e2e），
-  # 不在每个写测试的 code TASK finish 中重跑；否则任何 tests/** 改动都会拉起全场 E2E。
+  # 全量 acceptance + 前端 build + Playwright 是需求级终验，不在每个写测试的 code TASK
+  # finish 中重跑；否则任何 tests/** 改动都会拉起全场 E2E。
   stage: review
   config:
     argv:
@@ -20,21 +20,13 @@ verifiers:
     - uv run pytest -q -m "not capacity_load" tests/acceptance && npm --prefix
       apps/console-platform/frontend run build && npm --prefix e2e test
     cwd: .
-    # 链 = 非容量 acceptance + 前端 build + Playwright e2e。`capacity_load` 是 200/1000
-    # 用户的手动容量边界，绝不进 Done Gate（`make acceptance` 同口径）。2026-09-29：该链在 1200s 下被
-    # `verifier_timeout` 掐断（Done Gate 报 `harness-test#RULE-test-001: unverified`）。
-    # 注意该次观测时共享库上存在一套**孤儿验收栈**（PPID=1），其 Worker 会抢走验收任务
-    # （claim 无 tenant 谓词）从而放大耗时（同批用例清孤儿前后 369s → 56s），故不能据此
-    # 断定链本身需要 1200s 以上。清孤儿后放宽到 2400s 并实测通过（Done Gate pass，
-    # 2026-09-29 15:07）；真实链耗时待下次干净单跑补记。规则文本未改，只调 config。
+    # 链 = 非容量 acceptance + 前端 build + Playwright e2e。capacity_load 是手动容量边界，
+    # 不进 Done Gate。曾因共享库上的孤儿验收栈（Worker 抢任务）把耗时放大到 1200s 以上，
+    # 清孤儿后 2400s 实测通过；预算只给这条终验链。
     timeout: 2400
 ---
 
 # harness-test
-
-## Conventions
-
-E2E 创建的业务数据（无删除端点的资源尤其如此）必须：用可识别 key 前缀（如 `e2e-`），并在 spec 的清理钩子或独立清理步骤中删除 DB 记录；否则会污染共享开发库，把真实页面变成"假数据看板"（05 遗留 70 条 `e2e-*` Skill 与用户下拉污染）。上传类资源配套用孤儿清理入口回收文件：`PYTHONPATH=apps/console-platform/backend/src uv run python -c "from muad_console_platform.cli import main; main(['cleanup-skill-orphans','--grace-seconds','0'])"`。
 
 ## Rules
 
@@ -42,146 +34,54 @@ E2E 创建的业务数据（无删除端点的资源尤其如此）必须：用�
 
 ## Conventions
 
-标准 E2E 设施（不得自建临时浏览器脚本）：
+**测试文件与收集**：
 
-- 浏览器用例放 `e2e/tests/**/*.spec.ts`（Playwright + 系统 Chrome channel，**递归**——50 个 spec 里 27 个在子目录如 `e2e/tests/task-schedule/`，只扫顶层会漏掉绝大部分），前端先 `npm --prefix apps/console-platform/frontend run build` 产出真实构建物。
-- 后端**不止** `tests/e2e/app.py`：33 份域配置里 **16 份直起真实 Console**（`uv run uvicorn muad_console_platform.main:app`，真实 PostgreSQL + 真实 lifespan），`playwright.config.ts`（foundation contract smoke，4 条，RULE-test-001 浏览器腿）与 task-schedule 的三份配置（全量 / 关键 E2E / 回归）用 `tests.e2e.app`（真实 uvicorn + api-kit 封套/会话原语 + 真实静态产物），另 **13 份（`form-layout` / `list-actions` / `sidebar` / `console-auth-ui` / `overview-dashboard-ui` / `audit-observability-ui` / `model-management-ui` / `skill-management-ui` / `mcp-management-ui` / `project-platform-ui` / `user-identity-ui` / `settings-ui` / `agent-management-ui`）不起任何后端**、只断言前端 UI（布局、刷新按钮可访问性、筛选控件宽度、mock API 下的错误态）。选中哪条取决于该域是否需要产品主干之外的桩；**E2E 中不得 mock 业务 API**（component 套件除外）。
-- **console-auth 0.8 试点（2026-10-23）的口径**：E2E 只保留真实浏览器 + 真实 Console + 真实 PostgreSQL 才能证明的 5 条旅程（S-09/S-10/E-09/E-11/S-15，前 4 条 smoke）；UI 文案、错误态、角色菜单在 `playwright.console-auth-ui.config.ts`（component + mock API）；会话哈希/last_login_at/账号列表封套在 `tests/acceptance/console_auth_flow`。场景源为 `e2e/scenarios/console-auth-browser.scenarios.md`，`cf_scenarios parse --quality` 结果为 17 场景 / 5 E2E / 4 smoke / 占比 29.4%。后续域按同一口径迁移。
-- **布局矩阵只保留代表组合**（2026-10-23，form-layout component 域）：桌面基线（1280 zh-CN light）+ 宽屏长文案/深色（2048 en-US dark）+ 移动端（390 zh-CN light）；主题/语言/宽度不再做全笛卡尔积。form-layout 域 209 → 115 条，`tests/frontend/test_e2e_suite_contract.py` 继续守配置与 testid 契约，矩阵缩减由该域的 spec 常量显式表达。
-- **真实栈里的布局矩阵同样收口**（2026-10-23）：`memory-redesign.spec.ts` 的 8 条记忆 Tab 布局收到 2 条（zh-CN 1280 light / en-US 390 dark）；作者枚举、固定操作列与宽度语义由 `user-detail-layout.spec.ts` 的 mock component 覆盖。`task-schedule/environment.spec.ts` 的 3 条环境自检删除（真实进程/依赖/路由不被 fixture 覆盖已由 `tests/acceptance/task_schedule/test_environment.py` 的 B-139 覆盖），该域 34 → 31 条。
-- **task-schedule 关键/回归拆分（2026-10-23）**：`playwright.task-schedule-e2e.config.ts` 只跑 5 条关键旅程（S-FE-02 取消、S-FE-07/08 深链、S-FE-01 历史、B-138 定时任务生命周期）；`playwright.task-schedule-regression.config.ts` 跑其余 26 条（同样是 stub 会话 + 真实 Worker/PG，归 integration 层）。全量 `playwright.task-schedule.config.ts` 保留给归档命令与手工整跑；两者用 `grep`/`grepInvert` 互补，覆盖不重复也不丢失。
-- **overview-dashboard 分流（2026-10-23）**：E2E 只保留 S-02 趋势补零、S-03 真实聚合、S-04 跳转筛选、E-04 定时任务失效深链（12 → 4）；S-05 期间切换、S-06 布局、E-03/E-05/E-06/E-07/E-08 下沉 component（mock API）；E-02 删除（与 task-schedule 的 E-FE-04 失效任务深链重复）。
-- **audit-observability 分流（2026-10-23）**：E2E 只保留 S-06 列表筛选、S-07 只读详情、S-08 导出下载/幂等重放（7 → 3）；E-06 查询失败、E-07 关联不可读、E-08 幂等冲突、E-09 导出 FAILED 下沉 component（mock API）。
-- **CRUD/系统设置域分流（2026-10-23）**：model-management 9 → 5 E2E + 4 component；skill 8 → 5 E2E + 3 component；mcp 6 → 4 E2E + 2 component；project-platform 6 → 3 E2E + 3 component；user-identity 6 → 3 E2E + 3 component；settings 7 → 2 E2E + 5 component。错误态/布局/管理动作的 UI 语义进 `*-ui.spec.ts`（mock API），真实创建/绑定/持久化仍走 E2E。
-- **agent-management 分流（2026-10-23）**：agent 13 → 8 E2E（S-13 关系选择 ×3、S-07、E-07、S-08/S-11、S-09、E-10）+ 4 component（S-10 删除、E-09 重复标识、S-12 IM Tab、E-08/E-09 bot 冲突）；memory 6 → 4 E2E（创建/幂等/分页/越权），2 条布局删除（与 user-detail-layout 记忆表重复）。
-- **webchat 关键/回归拆分（2026-10-23）**：`playwright.webchat-e2e.config.ts` 只跑 12 条关键旅程（Token 登录 S-101、附件 S-102、断流恢复 S-103、容量排队 S-108、入口代理 S-109、身份切换 S-112、Token 签发/撤销 S-114、E-20/E-101/E-110）；`playwright.webchat-regression.config.ts` 跑其余 32 条 SSE/安全链路（同样真实四服务栈，归 integration 回归）。全量配置保留给归档命令与手工整跑。
-- **run-observability 关键/回归拆分（2026-10-23）**：`playwright.run-observability-e2e.config.ts` 只跑 3 条关键旅程（S-21 关联 Task 互跳、S-25 节点按需加载、S-26 工具结果/模型汇总）；`playwright.run-observability-regression.config.ts` 跑其余 11 条错误/分页/无障碍/状态用例（同样真实 Worker/Console 栈）。全量配置保留给归档命令与手工整跑。
-- **15 条 smoke 白名单（2026-10-23）**：跨域关键旅程登记在 `e2e/scenarios/smoke-15.scenarios.md`，全部 `smoke: true`，0.8 质量门禁 `ok=true`（唯一 warning：该文件全是 E2E、占比 100%，对 smoke 白名单是预期）。S-01 登录/401/RBAC、S-02 概览、S-03 模型池、S-04 Agent 编辑/绑定、S-05 Skill 导入/版本、S-06 MCP 注册/发现、S-07 平台/resolver/凭据、S-08 用户/绑定码、S-09 系统设置、S-10 任务取消、S-11 定时任务生命周期、S-12 审计导出、S-13 Run 关联 Task、S-14 Webchat Token 聊天、S-15 Webchat 身份隔离。其余关键 E2E 保留为 non-smoke。
-- **smoke 执行面（2026-10-23）**：`make smoke`（本地一次 build、逐域 `--grep "@smoke"`、fail-fast）与 CI 的 `smoke` job（13 个域、34 条用例、逐域汇总失败）只跑上述 15 条白名单；完整 `e2e` job 仍跑各域 key/regression。
-- **非 smoke 关键旅程（2026-10-23）**：`e2e/scenarios/key-journeys-non-smoke.scenarios.md` 登记 smoke-15 之外的 25 个 key E2E 旅程，全部带 `trigger_paths` 与 `why_e2e`；0.8 quality `ok=true`（warning：白名单全 E2E、无 smoke，对非 smoke 子集是预期）。
-- **changed profile（2026-10-23）**：`scripts/e2e_changed.py` 读取两个场景源，按 `trigger_paths` 与 `git diff --name-only <base>` 匹配；`make e2e-changed` / `--plan` 本地可用，CI 在 PR 的 smoke job 里以 `--no-smoke --run` 执行命中域（push 仍跑完整 e2e）。smoke 永远先跑，非 smoke 只跑命中路径。
-- **回归套件正式登记（2026-10-23）**：task 26 / webchat 32 / run 11 登记在 `e2e/scenarios/regression-suites.md`，为 non-smoke 真实栈回归（SSE/Worker/投影/种子），不进入 PR smoke/changed；push 的完整 e2e job 执行。
-- **归档快照口径（2026-10-23）**：`docs/operations/e2e-archive-snapshots.md` 明确归档 manifest/覆盖表不回改；重放归档验收按 live 注册表（smoke-15 / non-smoke / regression-suites）与 `design_refs` 映射。
-- **build-once（2026-10-23）**：Makefile 支持 `BUILD_FRONTEND=0`；CI 的 e2e/component job 各先 build 一次，再逐域 `BUILD_FRONTEND=0` 运行。
-- **容量压测分层（2026-10-23；2026-10-25 扩展）**：`tests/acceptance/capacity/test_capacity.py`（200/1000 用户 load）标记为 `integration + capacity_load`，默认 `make acceptance` 用 `-m "not capacity_load"` 排除；显式入口为 `make capacity-smoke`（100 用户 × 1 轮 × 20 chunks/s × 10s + 15s 通知轮询）、`make capacity-load`（200 档）、`make capacity-soak`（400 用户，需 `MUAD_CAPACITY_SOAK=1`）。SLO 判定统一走 `tests/capacity/slo.py`；PG 状态/速率由 `tests/capacity/metrics.py` 采集；纯函数回归在 `tests/capacity/test_capacity_webchat_baseline.py`。1000 用户 × 8 轮仍是 manual/staging 的未验证边界；它从来不是浏览器 E2E，也不进 Done Gate。
-- **运行前 Redis claim 预清理（2026-10-24）**：`make acceptance` 先跑 `scripts/clean_acceptance_claims.py`；仅当没有活跃 `pytest tests/acceptance` / Playwright 进程时清 10–15 号 claim，避免抢走并发验收的号位。`make acceptance-clean` 是显式 `--force` 手动入口。异常中断的 claim 仍以 7200s TTL 兜底。
-- **失败即时可见（2026-10-24）**：根 `tests/conftest.py` 的 `pytest_runtest_logreport` 在用例失败/出错时立刻打印 `FAILED <nodeid> [phase]`，并可选追加到 `PYTEST_FAILURE_LOG`；即使整轮被 timeout/kill，日志里也有可定位的用例名（不再只靠 `-q` 结束摘要）。两个 heavy pytest 命令加 `--durations=30`，用于定位慢用例。
-- **CI-first 验收（2026-10-24）**：全量 acceptance / 全量单测以 CI 为准；本地只跑靶向套件。已知失败与处理顺序登记在 `docs/operations/e2e-known-issues.md`。`make test` 同样排除 `capacity_load`，避免把 200/1000 用户 load 混进默认门禁。
-- **后端 CI 并行分片（2026-10-24）**：`backend-static` 只跑 compile/i18n/error-message/lint/typecheck（无 DB）；`backend-tests` 按目录静态切成 `fast`（contracts/frontend/architecture/agent_core + 根目录 `test_*.py`）、`runtime`（agent_runtime/sdk）、`console`（gateway + `console_*` + e2e）、`worker`（agent_worker/capacity/migrations）四个 matrix job，**每个 job 自带一套 PG/Redis service**，互不共享库与 Redis 号位；`acceptance` 也按模块目录切 `dfx` / `gateway` / `im_gateway` / `runtime` / `capacity` / `task_schedule` / `rest` 七个 matrix job，各自一套 PG/Redis 与临时库/号位——DFX/capacity/task_schedule 等模块会起真实 Worker/Runtime，claim 是全局的，串在一个 job 里会污染后续模块；CI 另预建 `.data/artifacts` 与 `.data/skill-cache`（干净检出没有这两个挂载目录）。分片路径是人工清单：新增顶层测试目录（含 `tests/acceptance` 子目录）必须同步 `.github/workflows/check.yml`，否则该目录会静默漏跑。四个单测分片以 `-m "not capacity_load"` 收集到的条数应互不重叠，合计等于拆分前 `make test` 的收集数（根目录 `*_inventory.py` / `k8s_multipod_smoke.py` 不在默认收集范围，未计入）。
-- 前端跑**真实构建产物**而非 dev server：用 `npm run preview` 起 `vite preview`，并把 `MUAD_API_TARGET` 指向该域的 Console 地址（`webServer` 里以环境变量注入，同时起到把前端流量钉到本域实例上的作用）。因此域套件**必须先 `npm run build`**，否则 preview 拿到的是陈旧产物。机检：`tests/frontend/test_e2e_suite_contract.py`（域配置不得出现 `run dev`；`preview` 必须带 `--strictPort`，否则端口被占会静默另择端口而 baseURL 仍指原端口；同时起真实 Console 的域必须注入 `MUAD_API_TARGET`；Makefile 的 `acceptance-e2e` 必须先 build 再跑；域配置里的 `${...}` 不得写在**单引号**字符串里 —— JS 不插值，字面量会被原样交给 shell 并展开为空，2026-10-06 platform 域实测：`uvicorn … --port ${apiPort}` 变成 `--port ` ⇒ `[WebServer] Error: Option '--port' requires an argument.`，e2e job 连红两轮且报错看不出根因）。2026-10-02 前 13 份配置里有 5 份跑的是 dev server（`agent`/`mcp`/`skill`/`platform`/`list-actions`），正是这条无约束导致的漂移。
-- **域配置必须钉死浏览器时区（`use.timezoneId`）**：展示值按**浏览器本地**时区渲染（`DateTimeText` 用 `getFullYear()`/`getHours()` 逐段拼装，口径见 `harness-time.md`），不钉就出现「同一份断言**本地绿、CI 红**」——CI runner 是 UTC、开发机是 UTC+8，而失败信息只报「找不到该文本」，从报错看不出是时区。13 份配置一律钉 `Asia/Shanghai`，与既有的 `locale: 'zh-CN'` 同属「谁在看」的口径。
-  - ✅ `use: { baseURL: ..., channel: 'chrome', locale: 'zh-CN', timezoneId: 'Asia/Shanghai' }`
-  - ❌ 只钉 `locale` 不钉 `timezoneId`，然后断言 `2026-12-31 09:00:00`（种子 `2026-12-31T01:00:00+00:00`）⇒ 本地必绿、CI 必红（2026-10-02 task-schedule 的 B-135/B-136 实测：本地 `TZ=UTC` 复现 `2 failed`，加 pin 后 `27 passed`）。
-  - 机检：`tests/frontend/test_e2e_suite_contract.py::test_domain_configs_pin_browser_timezone`。
-- **e2e 定位符必须引用前端源码中真实存在的 testid**：实现改名或删除 testid 后用例必须同步，否则断言只在跑该域时才红、没有任何聚合信号。源码中的模板形式（``data-testid={`mcp-tool-${name}`}``）按**前缀**匹配以覆盖数据后缀。机检：`tests/frontend/test_e2e_suite_contract.py::test_e2e_testids_are_defined_in_frontend_source`。
-- 断言里的**文案与容器类**漂移（如容器从 `.semi-modal` 换成 `.semi-sidesheet`、写死的英文标签被本地化）**静态不可判**：`.semi-*` 是库类（不在本仓源码内），渲染结果依赖真实组件。这类只能由各域套件实跑来抓 —— 机检不是「漂移全防」的替代品。**兜住这类的是 CI 的 `e2e` job**（`.github/workflows/check.yml`，2026-10-02 增加）：逐域顺序跑全部 16 个入口（13 个真实 E2E 域；task-schedule 拆成关键 5 条 + 回归 26 条，webchat 拆成关键 12 条 + 回归 32 条，run-observability 拆成关键 3 条 + 回归 11 条）、**不 fail-fast**，一次 CI 就列出**全部**漂移的域；纯 mock 的 13 个域（`form-layout` / `list-actions` / `sidebar` / `console-auth-ui` / `overview-dashboard-ui` / `audit-observability-ui` / `model-management-ui` / `skill-management-ui` / `mcp-management-ui` / `project-platform-ui` / `user-identity-ui` / `settings-ui` / `agent-management-ui`）在独立的 `component` job 顺序跑，不占用 E2E 的信号与超时预算。此前 CI 只有 `npm ci && npm run build`，Playwright 从不执行。该 job 在**每个失败域当场**把 `e2e/test-results`（trace + `error-context.md`）搬进 artifact —— Playwright 每次 run 都会清空 `outputDir`，不搬则 16 个入口顺序跑完只剩**最后一个**域的，偶发失败（如 `task-cancel` 的 popconfirm 按钮反复 detach——2 轮 CI 里出现 1 次、本地 13 次未复现）事后无从复盘。
-- 场景命令统一为 `npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --grep "<场景ID>"`；按域配置时用 `npm --prefix e2e test -- --config playwright.<domain>.config.ts --grep "<场景ID>"`。
-- **域配置的端口偏移口径**：`端口 = 基址 + OFFSET`（如 audit-observability 的三个基址 8301/8401/8501），OFFSET 优先取本进程 argv 里的 `[SE]-\d+` 场景号，无 `--grep` 时回落 `pid % 47`；**且必须算一次后冻结进 `process.env`**——`config` 会在每个 worker 里被重新求值，而 worker 的 argv 不含 `--grep`，不冻结就会算出与主进程不同的端口、连不上已经起来的服务。5 份配置同口径（`playwright.audit-observability.config.ts` 等）。
-- **共用租户/共享种子的域配置必须 `workers: 1`**：这些套件在 `beforeAll` 播种、`afterAll` 清理同一份租户级种子，并行会互相清掉对方的数据（现有 4 份：`playwright.audit-observability.config.ts`、`playwright.console-auth.config.ts`、`playwright.overview-dashboard.config.ts`、`playwright.task-schedule.config.ts`，配置里均有注释说明理由）。
-- **只启本次真正用到的服务，且不污染仓库**：模块 E2E 只拉起它实际依赖的进程（如只读聚合页只起 Console + preview + 必要探针，**不启** Runtime/Worker/Gateway），租户与产物根钉在系统临时目录（`os.tmpdir()`），经 `DEFAULT_TENANT_ID` / `ARTIFACT_ROOT` 注入被测服务，**不写仓库 `.data/artifacts`**。租户随 OFFSET 变化，保证并行/相邻场景互不可见。
-- **验收每轮独占一个空库 + 一个独立 Redis DB，且必须自动生效（不需要任何显式指定）**：不能共用 dev 库 —— 任务队列的 claim 与投递选取**都不带租户谓词**（Worker 是无状态通用工作池，任务行自带 `tenant_id`：`worker/claimer.py:20-27`、`delivery/service.py:120-139`），而各栈的**出站渠道端点是栈级 env**（`CHANNEL_PROBE_URL` ⇒ `im-gateway/main.py:35-39`）。于是别的套件（或 dev 服务）留下的可领取/待投递行会被本栈领走、并按本栈端点投递：表现为「我的探针里出现别人的投递」，断言随机红且**单跑绿、串跑红**（2026-10-02 实测：`verify-e2e` 的 14 条 verifier 顺序执行下 task_schedule 的投递用例必红，单独跑全绿）。
-  - ✅ 每轮建 `muad_acc_<uuid>` + `alembic upgrade head`（与 CI 同口径：现场生成临时 ini 用 `migrations/db_migrate.py -c`），Redis 在 10–15 号里**原子占位**（`SET NX EX`；收尾归还，异常中断由 2h TTL 兜底；号位全占满时**显式失败**，不静默退回共享）；pytest 侧由 `tests/acceptance/conftest.py` 的 session fixture 自动完成，Playwright 侧同样自动（配置自己建库并预置所需账号）。机检：`tests/acceptance/test_datastores_redis_slots.py`（两次取号必不同、释放后同号可再占）。**此前按 `pid % 6` 取号**：两个并发运行只要 pid 同余就共用同一个 DB（1/6 概率），Redis 承载去重键与队列 ⇒ 隔离在这条路径上是漏的，症状与上一条完全相同。
-  - ❌ 共用 dev 库、再靠"跑前清残留"维持隔离 —— 残留来自被中断的运行与 dev 服务，清不干净就退化成随机红
-  - ❌ 让使用者每次跑前手动 `export DATABASE_URL/REDIS_URL`（隔离会变成"记得设才有"，等于没有）
-  - 开销实测 0.76s/轮（建库 0.10 + 迁移 0.65），相对验收总时长的量级可忽略
-  - **清理要有界重试两类瞬时竞态**：`DROP DATABASE ... WITH (FORCE)` 在非超级用户角色（无 `pg_signal_backend`）撞上目标库的 autovacuum 等后台进程时会被拒（`InsufficientPrivilegeError`）——`_drop_database` 重试 4 次后仍失败才抛（`tests/acceptance/datastores.py`，2026-10-09 实测一次 teardown 偶发）；真实栈**存活期间**主动 purge 的用例（`test_recovery` 的「清理不留残留」）在 run_record/conversation 两条 DELETE 之间可能撞并发写入 ⇒ 整个清理事务重试（`purge_tenant`，`tests/acceptance/im_gateway/environment.py`）。
-- **验收栈的「可注入节拍」一律注入小值，且测试里镜像这些节拍的常量必须读注入值**：轮询/扫描/退避这类间隔在验收里直接变成墙钟，而它们**不改变被测语义**（断言的是「最终发生」与「退避按几何级数增长」，不是节拍的绝对长度）。生产默认 → 注入值：`WORKER_POLL_INTERVAL_SEC` 5→1、`SCHEDULER_POLL_INTERVAL_SEC` 10→2、`TASK_DEADLINE_SWEEP_INTERVAL_SEC` 30→2、`DELIVERY_POLL_INTERVAL_SEC` 5→1、`DELIVERY_BACKOFF_BASE_SEC` 5→1（或 2）。三个栈各自在 `environment.py` 的 `base_env` 注入（`tests/acceptance/{dfx,task_schedule,im_gateway}/`）。
-  - ✅ 测试侧常量**从注入值派生**：`DEADLINE_SWEEP_SEC = TASK_DEADLINE_SWEEP_INTERVAL_SEC`（`dfx/test_dfx_recovery.py`）、`SCHEDULER_POLL_SEC = SCHEDULER_POLL_INTERVAL_SEC`（`dfx/test_dfx_routing.py`）、窗口写 `DELIVERY_BACKOFF_BASE_SEC * 2**index`（`dfx/test_dfx_delivery.py`）
-  - ❌ 在测试里**写死生产默认**（如 `SCHEDULER_POLL_SEC = 10`）：注入生效后**断言窗口与实际节拍静默脱节** —— 测试仍绿，但已不代表任何事
-  - ❌ 无差别地压**租约**：`TASK_LEASE_SEC` 须显著大于心跳间隔（`dfx/environment.py:61-66` 的论证：压小会让「执行中不失约」不再可稳定观测，一次调度延误就把产品的**正确工作**误判成 heartbeat 失效）
-  - 实测（2026-10-02，三笔 `91e5275`/`29f9c39`/`08af988`）：全量 `tests/acceptance` **1064s → 780s（−26.6%）**，单项最大 `im_gateway::test_b127` 81s → 16s
-- **「常量值」与「行为规律」分层验证**：一条断言若为「等真实时间」而变得极慢（如 98s 的退避耗尽），拆成两层 —— E2E 注入小参数验证**规律**（几何增长、耗尽后写审计且不写已送达），**生产默认值**由毫秒级单测钉住（`tests/agent_worker/test_delivery_backoff_default.py` 钉 `delivery_backoff_base_sec == 5` 且 env 覆盖生效 —— 后者同时证明 E2E 的注入链路真的被读到）。
-  - 前提是**该常量可配置**：产品侧这类时间常量应做成设置项而非模块常量（`BACKOFF_BASE_SEC` → `delivery_backoff_base_sec`，**默认值不变 ⇒ 生产行为不变**）。改名前先 grep 全仓引用，并同步**按名字引用它的 spec 约定**（`worker/harness-worker.md` 就按名字引用了它）。
-  - ✅ 分层后两侧证明的事实集合不变：E2E 仍验「与生产公式一致」的形状，单测验常量取值。先例：14-dfx-acceptance 归档文档的「边界登记」明确「**调参不改公式不视为违规**，本用例钉的是形状不是常量取值」
-  - ❌ 让「生产默认是 X」这条**常量**只有一条 98 秒的 E2E 覆盖 —— 慢得没人愿意跑，且一改参数就作废
-- **验收耗时的优化必须由 `--durations` 归因驱动**，不得从「哪一段看起来慢」推瓶颈。实测反例（2026-10-02）：先假设「16 个 dfx 模块各起一套 live stack」与「worker 轮询 5s 是元凶」，**两个都错** —— `setup`（模块级栈启动）只占 **6.7%**，而前 5 条用例占 **52%**，榜首是**等退避窗口**的用例（`--durations` 把 setup/call/teardown 分开列，栈启动成本因此单独可见）。与既有纪律同源：「单跑通过、整跑偶发失败先怀疑环境残留，复跑再下结论，不要直接改实现」。
-- 外部依赖（模型/LLM 端点、第三方 API）用真实本地探针服务承载：`tests/e2e/openai_probe_app.py`（真实 HTTP 健康响应）与 Console/Vite 并列写入 `webServer` 数组；禁止在 E2E 中伪造外部响应。
-- **流式超时的「有界失败」用例必须注入 `STREAM_TIMEOUT_SEC`**：`RuntimeClient` 的流式读超时由**独立常量**决定——`create_run` 显式传 `httpx.Timeout(STREAM_TIMEOUT_SEC, connect=REQUEST_TIMEOUT_SEC)`，构造函数的 `timeout_sec` 只作用于非流式调用（`apps/im-gateway/src/muad_im_gateway/application/runtime_client.py`）。常量默认 300s，用例须 `monkeypatch` 成小值才能驱动「上游挂起 → 有界失败」的真实路径（`tests/gateway/test_runtime_client.py`）。
-- **每个需求收尾必须有 `tests/<domain>_inventory.py` 闭合清单**：以**真实盘面**为输入做交叉核对，而不是自查断言——任务文档的覆盖表/契约表/Evidence 表、`.acceptance-manifest.json`、`spec-context.yml` 里的 required 规则，以及 E2E 套件与场景名是否**真的在盘**。口径（4 例：`tests/console_auth_inventory.py`、`tests/overview_dashboard_inventory.py`、`tests/audit_observability_inventory.py`、`tests/dfx_inventory.py`）：
-  - 覆盖表每行（含 RULE 规则行）唯一负责人且终态，**且不豁免收口任务自身**——只豁免它会让「收口任务自己永远停在进行中」静默通过（13-console-auth 归档前的复发点）；manifest 与覆盖表同 ID / 同 owner / 同命令，**并比对 `level`/`boundary`/`cwd`**。
-  - 终态场景与规则行在该 owner 的 Evidence 小节里登记且状态一致；**非 manual 行必须有同 ID 的证据表行**——runner 自动写的 `- <ID>: <status> — …` 条目**不能替代**（它会让「整行缺失」被自动条目掩盖；只有 manual 行接受条目形态）。
-  - **契约表要为该任务 `Acceptance-Refs` 里的每个 ID 都留一行**：只断言「行是否终态」查不出**整行被删**（行没了就没有非终态可查，静默通过）。
-  - 证据表不得残留占位行（`编码期填写`/`TBD` 一类）；`-k`/`-g` 令牌必须在真实用例名/真实 spec 文件里命中。
-  - **结构性 RED + 扰动取证**：清单文件缺失时登记的 argv 必须失败（否则「先写用例后建清单」是空话）；至少扰动 4 类——改状态、删证据行、伪造用例名或命令、改 manifest 字段——每类须变红且消息指名条目，**逐字节还原后复跑全绿**。
-  - **路径双写 live→archived**：`_dir()` 先试 `.code-flow/tasks/<日期>/<需求>`，不存在再取 `archived/`——硬编码 live 路径会让归档后整个验收套件变红（09/11/13 均踩过）。
-  - **扰动锚点不得假设行处于某个非终态**：全量终验后所有行都是 `verified`，按 `e2e_deferred` 之类硬编码状态做锚点会让扰动用例在终态盘面上自红；应读取当前终态、改为非终态（如 `planned`），断言变红且指名条目、逐字节还原后复绿（2026-10-09 实例：`tests/async_tool_runtime_inventory.py::test_perturbation_changed_status_turns_terminal_check_red`）。
-  - ❌ 只断言「本文件里的清单已勾选」——那是对自查结果自查，任务文档写错时清单照样绿。
-  - **改动 `apps/`、`packages/` 模块级常量（大写赋值）的任务，checklist 必须包含重生成 `docs/configuration-inventory.csv`**：该 CSV 的 `python-constant` 行由 AST 扫描逐行比对，行号位移或常量增删都会让它红（2026-10-16 同一条收尾链上咬了 3 次）；重生成沿用既有 `category`/`reason` 口径，只重算 `python-constant` 行。
-    - ✅ 改完常量后重算并跑 `tests/test_configuration_inventory.py`（4 passed）再提交
-    - ❌ 只跑目标测试就收尾——整跑时 `test_configuration_inventory` 红，终验白跑一轮
+- **测试文件的导入名必须唯一**：两个都没有 `__init__.py` 的目录里出现同名 `test_*.py` 时，pytest 用 basename 当模块名，`pytest tests/` 在收集阶段直接中断（`import file mismatch`），而单文件跑全绿——报错里那句「remove `__pycache__`」是误导。仓内口径是给其中一个目录补空的 `__init__.py`（`tests/acceptance/{runtime,dfx,overview,task_schedule,audit_observability,console_auth_flow}/` 有先例），改名会牵动任务文档已登记的测试路径。机检：`tests/test_collection_layout.py::test_no_two_test_modules_share_an_import_name`。
+- **失败即时可见**：根 `tests/conftest.py` 的 `pytest_runtest_logreport` 在失败/出错时立刻打印 `FAILED <nodeid> [phase]`，可选追加到 `PYTEST_FAILURE_LOG`；即使整轮被 timeout/kill，日志里也有可定位的用例名。两个 heavy pytest 命令加 `--durations=30`。
+- **流式超时的「有界失败」用例必须注入 `STREAM_TIMEOUT_SEC`**：`RuntimeClient.create_run` 显式传 `httpx.Timeout(STREAM_TIMEOUT_SEC, connect=REQUEST_TIMEOUT_SEC)`，构造函数的 `timeout_sec` 只作用于非流式调用（`apps/im-gateway/src/muad_im_gateway/application/runtime_client.py`）；用例须 monkeypatch 成小值才能驱动「上游挂起 → 有界失败」（`tests/gateway/test_runtime_client.py`）。
 
-✅ 真实边界（浏览器链路端到端）：
+**验收隔离（不可共用 dev 库）**：
 
-```bash
-npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test -- --grep "S-11"
-# 断言真实 Chrome：localStorage 语言持久化 + /auth/me 请求头 X-Locale=en-US
-```
+- **每轮独占一个空库 + 一个独立 Redis DB，且自动生效**：任务队列的 claim 与投递选取**都不带租户谓词**（`worker/claimer.py` 的 `_claimable_conditions`、`delivery/service.py` 的 `_query_pending_tenants`），各栈的**出站渠道端点是栈级 env**（`CHANNEL_PROBE_URL`）。别的套件或 dev 服务留下的可领取/待投递行会被本栈领走并按本栈端点投递，表现为「我的探针里出现别人的投递」，断言随机红且**单跑绿、串跑红**。
+  - ✅ 每轮建 `muad_acc_<uuid>` + `alembic upgrade head`（临时 ini + `migrations/db_migrate.py -c`），Redis 在 10–15 号里 `SET NX EX` 原子占位（收尾归还、2h TTL 兜底、全占满显式失败）；pytest 由 `tests/acceptance/conftest.py` 自动完成，Playwright 由域配置自己建库。
+  - ❌ 共用 dev 库再靠「跑前清残留」维持隔离；❌ 让使用者手动 `export DATABASE_URL/REDIS_URL`。
+  - 清理要有界重试两类瞬时竞态：`DROP DATABASE ... WITH (FORCE)` 撞 autovacuum 的 `InsufficientPrivilegeError` 重试 4 次；真实栈存活期 purge 撞并发写入时整个清理事务重试（`tests/acceptance/datastores.py`、`tests/acceptance/im_gateway/environment.py`）。
+- **验收栈的「可注入节拍」一律注入小值，测试侧常量必须读注入值**：轮询/扫描/退避不改变被测语义，只改变墙钟。生产默认 → 注入值：`WORKER_POLL_INTERVAL_SEC` 5→1、`SCHEDULER_POLL_INTERVAL_SEC` 10→2、`TASK_DEADLINE_SWEEP_INTERVAL_SEC` 30→2、`DELIVERY_POLL_INTERVAL_SEC` 5→1、`DELIVERY_BACKOFF_BASE_SEC` 5→1（或 2）。✅ 测试常量从注入值派生（`DEADLINE_SWEEP_SEC = TASK_DEADLINE_SWEEP_INTERVAL_SEC`）；❌ 写死生产默认（注入生效后断言与实际节拍静默脱节）；❌ 无差别压 `TASK_LEASE_SEC`（须显著大于心跳间隔，`dfx/environment.py`）。
+- **「常量值」与「行为规律」分层验证**：等真实时间变慢的断言拆两层——E2E 注入小参数验规律（几何增长、耗尽后写审计），生产默认值由毫秒级单测钉住（`tests/test_platform_settings_schema.py::test_other_groups_keep_designed_defaults`）。前提是常量可配置（设置项而非模块常量）；✅ 两侧证明的事实集合不变；❌ 让「生产默认是 X」只有一条 98 秒 E2E 覆盖。
+- **验收耗时优化必须由 `--durations` 归因驱动**：`setup` 与 `call` 分开看，不要从「哪段看起来慢」推瓶颈；实测反例是「栈启动慢」与「轮询 5s」都错，榜首是等退避窗口的用例。
+- **运行前 Redis claim 预清理**：`make acceptance` 先跑 `scripts/clean_acceptance_claims.py`；仅当没有活跃 pytest/Playwright 进程时清 10–15 号 claim。`make acceptance-clean` 是显式 `--force` 入口；异常中断仍由 7200s TTL 兜底。
+- **容量压测分层**：`tests/acceptance/capacity/test_capacity.py` 标记 `integration + capacity_load`，默认 `make acceptance` / `make test` 用 `-m "not capacity_load"` 排除；显式入口 `make capacity-smoke`（100 用户）、`make capacity-load`（200）、`make capacity-soak`（400，需 `MUAD_CAPACITY_SOAK=1`）。SLO 判定走 `tests/capacity/slo.py`，状态/速率由 `tests/capacity/metrics.py` 采集。1000 用户 × 8 轮是 manual/staging 未验证边界，不进 Done Gate。
 
-❌ 不允许：
+**Runtime 真实环境与收口**：
 
-```ts
-// 成功路径（S-*）出现路由拦截即违规：链路退化为 mock，页面"通过"不代表真实链路可用
-await page.route('**/api/v1/**', (route) => route.fulfill({ json: { code: '0' } }));
-```
+- **Runtime 验收真实环境基建**（`tests/acceptance/runtime/`）：module-scoped live stack——Console/Runtime 真实 uvicorn、LLM/MCP 本地 HTTP 探针、数据落真实 PostgreSQL/Redis/Artifact Store；禁止 `dependency_overrides`/mock 业务服务。跨 Pod/崩溃用真实子进程（SIGKILL 后由另一实例 Reaper 回收）；进程内服务线程与 pytest-asyncio 并存时清理 engine `lru_cache`，async 工具走独立线程（禁止 `asyncio.run` 污染主循环）。
+- **强杀/回收类用例的等待预算要给足整跑余量**：单跑 6–8s 能过的窗口在全量负载下会拉长；只放大等待预算，断言不变（实例：Reaper 回收 15s→60s、探针延迟 5s→15s）。
+- **验收命令由 acceptance manifest runner 统一复验并写证据**：相同 argv/cwd/timeout 复用；测试未收集、未执行或失败均视为 FAIL。
+- **改任务文档后重生成 manifest 会保留证据、把契约变化标 stale**（0.8 起）：`cf_acceptance_manifest.py --task-file … --output …` 保留已有 `evidence`/`runs`；契约变化置 `stale` 并列入 `relock.stale`。补证据可按 owner 回填：`cf_acceptance_runner.py --manifest <需求目录>/.acceptance-manifest.json --root "$PWD" --write-evidence --owner TASK-0XX`（无需 active marker；不带 `--include-e2e` 时 E2E 行保持 deferred）。
+- **每个需求收尾必须有 `tests/<domain>_inventory.py` 闭合清单**：以**真实盘面**为输入交叉核对，而不是自查断言——任务文档覆盖表/契约表/Evidence、`.acceptance-manifest.json`、`spec-context.yml` 的 required 规则、E2E 套件与场景名是否真的在盘。现网 11 个（console_auth/overview_dashboard/audit_observability/dfx/agent_memory/async_tool_runtime/context_compaction/memory_redesign/platform_settings/run_event_details 等）。
+  - 覆盖表每行（含 RULE 规则行）唯一负责人且终态，**不豁免收口任务自身**；manifest 与覆盖表同 ID/owner/命令，并比对 `level`/`boundary`/`cwd`。
+  - 终态场景与规则行在该 owner 的 Evidence 里登记且状态一致；**非 manual 行必须有同 ID 的证据表行**——runner 自动写条目不能替代（会掩盖整行缺失）。
+  - 契约表要为该任务 `Acceptance-Refs` 的每个 ID 留一行（只断言「行是否终态」查不出整行被删）；证据表不得残留占位行；`-k`/`-g` 令牌必须真实命中。
+  - **结构性 RED + 扰动取证**：清单缺失时 argv 必须失败；至少扰动 4 类（改状态/删证据行/伪造用例名或命令/改 manifest 字段），每类变红且指名条目，逐字节还原后复绿。扰动锚点读当前终态再改为非终态，不假设行处于 `e2e_deferred`。
+  - **路径双写 live→archived**：`_dir()` 先试 live，再取 `archived/`；硬编码 live 路径会让归档后整套验收变红。
+  - **改动 `apps/`、`packages/` 模块级常量（大写赋值）的任务必须重生成 `docs/configuration-inventory.csv`**：`python-constant` 行由 AST 逐行比对，行号位移或增删都会红；重算后跑 `tests/test_configuration_inventory.py`。
 
-- 用 jsdom / 组件单测冒充 E2E，或未渲染真实浏览器即标记 E2E 场景。
-- **成功路径（`S-*`）不得出现 `page.route(`**：只有失败/边界路径（`E-*`）允许改写路由，且**不得 fulfill 业务响应体**（改写仅用于制造超时/错误/非 2xx 等边界，不能替换真实业务数据）。机检：`tests/console_auth_inventory.py`、`tests/overview_dashboard_inventory.py` 均在收口清单里按场景块扫描该字符串。
+**CI**：
 
-## Conventions
+- **CI-first 验收**：全量 acceptance / 单测以 CI 为准，本地只跑靶向套件；已知失败登记在 `docs/operations/e2e-known-issues.md`。
+- **后端 CI 并行分片**：`backend-static` 只跑 compile/i18n/error-message/lint/typecheck（无 DB）；`backend-tests` 按目录切 `fast`/`runtime`/`console`/`worker` 四个 matrix job，**每个 job 自带 PG/Redis service**，互不共享库与 Redis 号位。`acceptance` 按模块切 `dfx`/`gateway`/`im_gateway`/`runtime`/`capacity`/`task_schedule`/`rest` 七片，各自一套 PG/Redis 与临时库——起真实 Worker/Runtime 的模块串在一个 job 会污染后续模块。CI 预建 `.data/artifacts` 与 `.data/skill-cache`。分片是人工清单：新增顶层测试目录（含 `tests/acceptance` 子目录）必须同步 `.github/workflows/check.yml`，否则静默漏跑；四个单测分片收集条数应互不重叠并等于拆分前的收集数。
 
-Runtime 验收真实环境基建（`tests/acceptance/runtime/`）：
-
-- 用 module-scoped live stack 承载真实边界：Console/Runtime 为真实 uvicorn 服务、LLM/MCP 为本地 HTTP 探针、数据落真实 PostgreSQL/Redis/Artifact Store；禁止 `dependency_overrides`/mock 业务服务。
-- 跨 Pod/崩溃场景用真实子进程（`SIGKILL` 后由另一实例 Reaper 回收、同 conversation 无 sticky session 接管）；进程内服务线程与 pytest-asyncio 并存时，须在套件边界清理 engine `lru_cache`，async 工具走独立线程/事件循环（禁止 `asyncio.run` 污染主循环）。
-- **强杀/回收类用例的等待预算要给足整跑余量**：单跑 6–8s 能过的窗口在全量套件负载下会被拉长——15s 的 Reaper 回收等待与 5s 的强杀窗口都曾偶发不足（2026-10-09：`test_multipod_recovery.py::test_s04_e07` 放宽到 60s、`dfx/test_dfx_stateless.py::test_s12` 探针延迟 5s→15s）；只放大等待预算，断言不变。
-- 验收命令由 acceptance manifest runner 统一复验并写证据：相同 argv/cwd/timeout 复用，测试未收集、未执行或失败均视为 FAIL。
-- **不得用 `--output` 重生成 manifest**：`cf_acceptance_manifest.py --task-file … --output …` 会**清空已有 `evidence`**（实测一次把 23 行打成 2 行，直到需求级终验才以 `functional_or_manual_evidence_missing` 暴露，白跑一整轮）；需求进行中改任务文档**不要**走重生成。已清空时按 owner 回填：`cf_acceptance_runner.py --manifest <需求目录>/.acceptance-manifest.json --root "$PWD" --write-evidence --owner TASK-0XX`（**无需 active marker**；不带 `--include-e2e` 时 E2E 行保持 deferred）。
-
-✅ 真实进程 + 真实探针：
-
-```python
-with httpx.stream("POST", f"{runtime.url}/v1/runs", json=payload) as stream:
-    for line in stream.iter_lines():          # 真实 SSE
-        ...
-pod_a.kill()                                   # 真实进程终止 → Reaper 回收
-```
-
-❌ 直连 DB 冒充 E2E（声称真实 Gateway/HTTP/SSE，实际只 seed 表）：
-
-```python
-await session.execute(sa.update(RunRecord).where(...).values(status="RUNNING"))  # 无 HTTP/SSE/执行链
-assert (await session.get(RunRecord, run_id)).status == "RUNNING"                # 恒真
-```
-
-## Conventions
-
-验收反模式（Anti-Patterns）：
+**验收反模式（Anti-Patterns）**：
 
 - ❌ 恒真断言：`assert reaped >= 0`、对可能为空集合 `all(...)`、`exclude={"api_key"}` 后再断言无 `api_key`——断言必须能真实失败。
-- ❌ 命令与场景不符：`-k` 未命中任何测试（退出码 5）却标记 verified；或测试名/文件与 Acceptance Contract 声明的路径不一致。
-- ❌ 验收层级注水：把 service/DB 级测试写成 E2E，或边界文案（真实 Gateway/进程/SSE）与测试实际行为不符。
-- ❌ 空转用例：测试名为"跨 host 跳转拒绝"却请求 `/healthz`、`follow_redirects=False` 从未触发跳转。
-- ❌ **多输入断言的腿被合并**：断言「改配置/授权只影响新 Run」这类跨腿效果时，必须**一次只改一个输入**、并断言其余腿对应的列不变；否则断言恒真、扰动打不出来。
-  - ✅ 逐腿：先只改 `agent.instructions`，断言新 Run 的 `content_hash` 变**且** model 相关列不变；再只改 `model.params_json`，反向断言。
-  - ❌ 同时改 agent+model 后只断言「hash 变了」——即便把 `agent` 从 hash 计算里去掉，断言照样绿（实测首轮扰动不变红，加固为逐腿后才变红）。参考 `tests/acceptance/dfx/test_dfx_stateless.py`、`tests/agent_runtime/test_snapshot_freeze.py::test_b104_definition_change_only_affects_new_runs`。
-- ❌ 把验收/Done Gate 命令的输出接进会**提前关闭的管道**（典型 `| head`）：SIGPIPE 会打断 pytest 收尾，`stop_live_stack`/`stop_audit_stack` 不执行，留下 uvicorn/`muad_*.main` 孤儿进程继续连同一个本地测试库 → 后续运行随机失败（如 `SKILL_ARTIFACT_UNAVAILABLE`、任务 `FAILED`），且失败点每次不同、单跑却都通过，极易误判为跨模块 flake。用 `> file` 或 `tail`（会读完输入）；每次运行前先确认无残留进程（`ps aux | grep -E "[u]vicorn|muad_(agent_worker|agent_runtime|console_platform|im_gateway)\.main"`）。**登记缺口：本条无任何脚本/机检约束**——收口清单里没有对应的规则断言，属纯人工纪律，只能在评审与运行前自查时人工把关。
-- **测试文件的导入名必须唯一，否则全量 pytest 连收集都过不去**：两个**都没有** `__init__.py` 的目录里出现同名 `test_*.py` 时，pytest 用 basename 当模块名，`pytest tests/` 在收集阶段直接中断（`import file mismatch: imported module 'X' has this __file__ attribute: …/A/X.py`），而**单文件跑全绿**——报错里那句「remove `__pycache__`」是误导，真因是包标记缺失。仓内口径是**给其中一个目录补空的 `__init__.py`**（`tests/acceptance/{runtime,dfx,overview,task_schedule,audit_observability,console_auth_flow}/` 早有先例），改名会牵动任务文档 Acceptance Coverage/Contract 里已登记的测试路径与已有证据。
-  - ✅ 定名之前先 `find tests -name "<basename>.py"`；撞名就补包标记，或改一个更具体的名字
-  - ❌ 同一需求里按场景层各建一个 `test_<需求名>.py`（本次实例：`tests/gateway/test_execution_progress.py` 与 `tests/acceptance/im_gateway/test_execution_progress.py` 同名 ⇒ `pytest tests/` 一条都跑不了，而 `pytest tests/gateway` 与 acceptance 单跑都绿）
-  - 机检：`tests/test_collection_layout.py::test_no_two_test_modules_share_an_import_name`（按 pytest 的 prepend 规则推导入名：目录链上有 `__init__.py` 的算包段，否则该目录名即模块名的起点）
-- **命令边界、同响应多字段与「删除后可达性」必须点名断言**（2026-10-16 评审实例）：只测「有变更时的主路径」会漏掉三类语义。
-  - 命令的**副作用边界**：CLEAR 在空库（无已保存记忆、只有 pending 提议）也须撤销全部 pending 提议并推进撤销边界；只测「有记忆时清空」时，空库路径返回 `UNCHANGED` 且提议仍可确认。
-  - **同一响应的多字段必须同快照**：`total` 与 `items` 分两条 SQL 时，READ COMMITTED 下并发写入/到期跨界会让 `total=0` 而 `items` 有 1 条；两字段必须由**同一条语句**产出（`(SELECT count(*)) … LEFT JOIN (行子查询) …`）。
-  - **删除后的可达性**：删除后历史/恢复必须有**界面入口**，且浏览器用例必须**经该入口**验证——直调 API 断言等于绕开用户真实路径。
-  - ✅ 三类语义各写一条可独立失败的用例（空库 / 跨界 / 删除后三种边界各一）
-  - ❌ 只断言「有变更时的主路径」，或让浏览器用例直调 API 绕开界面入口
-- **「单跑绿、整跑红」先分类再动手**：区分「测试时序假设」与「产品行为变化」——前者把窗口改成**确定性前提**（放大在飞窗口/等待终态/按用途过滤），后者**必须修产品**，不得用「等后台收尾」把产品语义问题绕过去。
-  - ✅ 后台维护事件 bump 会话 `update_time` 让「当前会话」解析错位 ⇒ 修解析口径（按用户最近发言），测试侧等待只是补充（2026-10-16 评审条目 2）
-  - ✅ 杀进程用例的在飞窗口小于「读到事件 → kill」耗时 ⇒ 把窗口放大成确定性前提（5s→60s），断言不变
-  - ❌ 把产品行为变化当测试竞态：只在测试里等后台静止，生产链路仍把 `/new` 后的消息路由回旧会话
-- **修复类任务必须带负向对照**：修断言/修竞态/修缺口的任务，GREEN 证据必须包含「移除修复（或注入旧行为）→ 必须红」的一次实证；只报「新用例通过」证明不了新用例覆盖了被修的行为。
-  - ✅ 前端命令号修复：还原旧行为后新用例必红（清空重试误删新建记忆）；E-03 用户确认：临时把注入作者域收成 ADMIN 后新用例必红
-  - ❌ 只贴 GREEN 输出，不证明它在旧行为下会失败
+- ❌ 命令与场景不符：`-k` 未命中任何测试（退出码 5）却标记 verified；测试名/文件与 Acceptance Contract 声明不一致。
+- ❌ 验收层级注水：把 service/DB 级测试写成 E2E，或边界文案（真实 Gateway/进程/SSE）与测试实际行为不符；用 jsdom/组件单测冒充 E2E。
+- ❌ 空转用例：测试名说「跨 host 跳转拒绝」却请求 `/healthz`、`follow_redirects=False` 从未触发跳转。
+- ❌ **多输入断言的腿被合并**：断言「改配置/授权只影响新 Run」必须一次只改一个输入，并断言其余腿对应列不变。✅ 逐腿改 `agent.instructions` 与 `model.params_json` 各断言一次；❌ 同时改两处后只断言 hash 变了。
+- ❌ 把验收/Done Gate 输出接进会提前关闭的管道（典型 `| head`）：SIGPIPE 打断 pytest 收尾，留下 uvicorn/`muad_*.main` 孤儿进程继续连同一个本地测试库，后续随机失败。用 `> file` 或 `tail`，每次运行前确认无残留进程。**本条无机检，靠运行前自查与评审。**
+- ❌ 只断言「有变更时的主路径」：命令副作用边界（空库 CLEAR 也要撤销 pending 提议）、同响应多字段必须同快照（`total`/`items` 同一条 SQL）、删除后必须经界面入口可达，三类各写一条可独立失败的用例。
+- ❌ 把「单跑绿、整跑红」一律当测试竞态：先分类——测试时序假设改为确定性前提（放大在飞窗口/等待终态），**产品行为变化必须修产品**，不得用等待绕过去。
+- ❌ 修复类任务只贴 GREEN：必须带负向对照（移除修复或注入旧行为 → 必须红）的一次实证。
 
 ## Avoid
 

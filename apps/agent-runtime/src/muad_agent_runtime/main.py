@@ -1,15 +1,17 @@
 import asyncio
+import gc
 import logging
 import os
 import socket
+import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from functools import partial
-from typing import cast
+from typing import Any, cast
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from muad_api import (
     database_readiness,
     install_api_foundation,
@@ -18,7 +20,9 @@ from muad_api import (
 )
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import SharedSettings
+from muad_common.db_counters import db_stage, db_stage_scope, publish_db_counters
 from muad_logging import configure_logging
+from sqlalchemy import text
 from sqlalchemy.pool import AsyncAdaptedQueuePool
 
 from .api.admin_runs import router as admin_runs_router
@@ -55,14 +59,20 @@ from .infrastructure.console_client import ConsoleCredentialsClient, ConsoleReso
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
 from .infrastructure.gateway_delivery_client import GatewayDeliveryClient
 from .infrastructure.http_clients import RuntimeHttpPools, build_runtime_http_pools
+from .infrastructure.notification_publisher import close_notification_publisher
 from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
 from .metrics import (
+    DB_PROBE_SECONDS,
+    EVENT_LOOP_LAG_SECONDS,
     EXECUTION_SLOT_RECLAIM_METRIC,
     EXECUTION_SLOTS_METRIC,
+    GC_COLLECTIONS_TOTAL,
+    GC_PAUSE_SECONDS,
     RUNTIME_MAINTENANCE_METRIC,
     install_runtime_metrics,
     record_counter,
     record_gauge,
+    record_latency,
     record_outcome,
 )
 
@@ -138,6 +148,7 @@ async def _execution_slot_loop(
             logger.warning("execution_slots_reclaimed", extra={"reclaimed": reclaimed})
 
 
+@db_stage_scope("bg:retention")
 async def _retention_loop(
     interval_sec: float,
     settings_client: ConsolePlatformSettingsClient,
@@ -354,8 +365,28 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
             RETENTION_LOOP_NAME,
         ),
     )
-    tasks = [asyncio.create_task(loop, name=name) for loop, name in loops]
+    tasks = [
+        asyncio.create_task(cast(Coroutine[Any, Any, None], loop), name=name)
+        for loop, name in loops
+    ]
     tasks.append(asyncio.create_task(_sample_db_pool(), name="runtime.db_pool"))
+    probe_ms = int(os.environ.get("DB_PROBE_INTERVAL_MS", "0") or "0")
+    if probe_ms > 0:
+        tasks.append(
+            asyncio.create_task(
+                _db_probe_loop(max(0.01, probe_ms / 1000.0)), name="runtime.db_probe"
+            )
+        )
+    lag_ms = int(os.environ.get("LOOP_LAG_INTERVAL_MS", "0") or "0")
+    if lag_ms > 0:
+        tasks.append(
+            asyncio.create_task(
+                _loop_lag_loop(max(0.002, lag_ms / 1000.0)), name="runtime.loop_lag"
+            )
+        )
+    if os.environ.get("GC_PROBE") == "1":
+        gc.callbacks.append(_gc_probe_callback())
+        tasks.append(asyncio.create_task(_gc_flush_loop(0.1), name="runtime.gc_probe"))
     named = {task.get_name(): task for task in tasks}
     # 既有观测点保持原名（TASK-032/066 的验收与运维都读它们）。
     app.state.execution_slot_task = named[EXECUTION_SLOT_LOOP_NAME]
@@ -364,14 +395,99 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
     return tasks
 
 
+async def _measure_loop_lag(interval_sec: float) -> float:
+    """一个固定间隔 sleep 的实际超时：差值就是事件循环被占住的时间。"""
+    deadline = time.monotonic() + interval_sec
+    await asyncio.sleep(interval_sec)
+    return max(0.0, time.monotonic() - deadline)
+
+
+async def _loop_lag_loop(interval_sec: float) -> None:
+    """持续采样事件循环 lag（诊断，默认关闭；只读、不改业务语义）。"""
+    while True:
+        record_latency(EVENT_LOOP_LAG_SECONDS, await _measure_loop_lag(interval_sec))
+
+
+#: GC 回调运行在 stop-the-world 窗口内，只能做无锁、无容器分配的写入。
+#: `record_*` 会取 metrics 注册表锁；锁若被 GC 挂起的线程持有，回调会把整个进程锁死
+#: （2026-10-28 实测 4/8 runtime 卡死）。因此回调只写定长环形缓冲，
+#: 由事件循环里的 `_gc_flush_loop` 转成指标。
+_GC_RING_SIZE = 256
+_GC_RING: list[float] = [0.0] * _GC_RING_SIZE
+_GC_RING_WRITE: list[int] = [0]
+_GC_STARTED: list[float] = [0.0, 0.0, 0.0]
+_GC_TOTALS: list[int] = [0, 0, 0]
+
+
+def _gc_probe_callback() -> Callable[[str, dict[str, int]], None]:
+    """GC 停顿探针：只写环形缓冲；不取锁、不记指标、不做容器分配。"""
+
+    def on_gc(phase: str, info: dict[str, int]) -> None:
+        generation = int(info.get("generation", -1))
+        if not 0 <= generation < len(_GC_STARTED):
+            return
+        if phase == "start":
+            _GC_STARTED[generation] = time.monotonic()
+            return
+        begin = _GC_STARTED[generation]
+        if begin <= 0.0:
+            return
+        _GC_STARTED[generation] = 0.0
+        index = _GC_RING_WRITE[0] % _GC_RING_SIZE
+        _GC_RING[index] = time.monotonic() - begin
+        _GC_RING_WRITE[0] += 1
+        _GC_TOTALS[generation] += 1
+
+    return on_gc
+
+
+async def _gc_flush_loop(interval_sec: float) -> None:
+    """把 GC 回调的无锁环形缓冲转成指标；回调内不取注册表锁。"""
+    flushed = [0, 0, 0]
+    read_index = 0
+    while True:
+        await asyncio.sleep(interval_sec)
+        write_index = _GC_RING_WRITE[0]
+        # 只保留最近一个环的样本；更早的已被覆盖，不能重复计数。
+        for total_index in range(max(read_index, write_index - _GC_RING_SIZE), write_index):
+            record_latency(GC_PAUSE_SECONDS, _GC_RING[total_index % _GC_RING_SIZE])
+        read_index = write_index
+        for generation in range(len(_GC_TOTALS)):
+            delta = _GC_TOTALS[generation] - flushed[generation]
+            if delta > 0:
+                record_counter(
+                    GC_COLLECTIONS_TOTAL, float(delta), {"generation": str(generation)}
+                )
+                flushed[generation] = _GC_TOTALS[generation]
+
+
+async def _db_probe_loop(interval_sec: float) -> None:
+    """每进程 SELECT 1 探针：池/连接/await 的纯往返成本（诊断，默认关闭）。
+
+    用应用自己的 session factory/池；只读、自动回滚；失败不杀循环，只留警告与样本。
+    """
+    factory = get_session_factory()
+    while True:
+        started = time.monotonic()
+        try:
+            async with factory() as session:
+                await session.execute(text("SELECT 1"))
+        except Exception:  # noqa: BLE001 —— 诊断循环不能因一次失败退出
+            logger.warning("db_probe_failed", exc_info=True)
+        finally:
+            record_latency(DB_PROBE_SECONDS, time.monotonic() - started)
+        await asyncio.sleep(interval_sec)
+
+
 async def _sample_db_pool() -> None:
     """每 2s 发布连接池占用：池耗尽+阻塞式取连接会同时拖死准入与执行，必须可观测。"""
     while True:
-        await asyncio.sleep(2.0)
         # AsyncEngine.pool 的静态类型是基类 Pool，运行时是 QueuePool 适配器（取数只在后者上有）。
         pool = cast(AsyncAdaptedQueuePool, get_engine().pool)
         record_gauge("db_pool_checked_out", pool.checkedout())
         record_gauge("db_pool_size", pool.size())
+        publish_db_counters(record_gauge)
+        await asyncio.sleep(2.0)
 
 
 async def _stop_loops(tasks: list[asyncio.Task[None]]) -> None:
@@ -385,6 +501,7 @@ async def _stop_loops(tasks: list[asyncio.Task[None]]) -> None:
 
 async def _close_resources(app: FastAPI, outbound: _Outbound) -> None:
     """收尾：先停泵/槽监督，再关装配根拥有的资源；分池最后关（借用方先停）。"""
+    await close_notification_publisher()
     await app.state.memory_supervisor.close()
     await app.state.delivery_pump.close()
     await app.state.execution_supervisor.close()
@@ -411,11 +528,31 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await _stop_loops(tasks)
+        from .application.event_batcher import close_event_batcher
+
+        await close_event_batcher()
         await _close_resources(app, outbound)
         await dispose_engine()
 
 
 app = FastAPI(title="MUAD Agent Runtime", version="0.1.0", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def _db_stage_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    path = request.url.path
+    if "notifications" in path:
+        stage = "poll"
+    elif path.startswith("/api/v1/webchat"):
+        stage = "webchat"
+    elif path.startswith("/internal"):
+        stage = "internal"
+    else:
+        stage = "api"
+    with db_stage(stage):
+        return await call_next(request)
 install_api_foundation(app)
 install_runtime_metrics(app)
 install_health_probes(

@@ -8,10 +8,10 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / ".code-flow/scripts"))
 
-from cf_spec_context import load_context  # noqa: E402
-from cf_spec_gate import validate_plan_coverage  # noqa: E402
-from cf_spec_metadata import SpecMetadataError, load_spec_metadata  # noqa: E402
-from cf_spec_resolver import resolve_candidates  # noqa: E402
+from codeflow.cli.cf_spec_gate import validate_plan_coverage  # noqa: E402
+from codeflow.spec.cf_spec_context_model import load_context  # noqa: E402
+from codeflow.spec.cf_spec_metadata import SpecMetadataError, load_spec_metadata  # noqa: E402
+from codeflow.spec.cf_spec_resolver import resolve_candidates  # noqa: E402
 
 TASK_DIR = ROOT / ".code-flow/tasks/2026-10-12/memory-redesign"
 ARCHIVED_TASK_DIR = ROOT / ".code-flow/tasks/archived/2026-10-12/memory-redesign"

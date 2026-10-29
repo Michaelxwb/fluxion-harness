@@ -2,7 +2,7 @@
 name = "muad-common"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.9", "pydantic-settings>=2.5"]
+dependencies = ["pydantic>=2.9", "pydantic-settings>=2.5", "redis>=5,<7"]
 
 [build-system]
 requires = ["setuptools>=70"]

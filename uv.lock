@@ -1602,12 +1602,14 @@ source = { editable = "packages/common" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "redis" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.5" },
+    { name = "redis", specifier = ">=5,<7" },
 ]
 
 [[package]]
@@ -1628,6 +1630,7 @@ dependencies = [
     { name = "muad-logging" },
     { name = "muad-skill-sdk" },
     { name = "python-multipart" },
+    { name = "redis" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1647,6 +1650,7 @@ requires-dist = [
     { name = "muad-logging", editable = "packages/logging-kit" },
     { name = "muad-skill-sdk", editable = "packages/skill-sdk" },
     { name = "python-multipart", specifier = ">=0.0.9,<1" },
+    { name = "redis", specifier = ">=5,<7" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0,<3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]

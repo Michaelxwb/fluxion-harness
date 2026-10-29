@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
 from ..application.channel_service import ChannelService
+from ..application.chat_session_directory import ChatSessionDirectory
 from ..application.chat_token_service import ChatTokenService
 from ..application.dto import (
     AgentGrantItem,
@@ -273,6 +274,9 @@ async def grant_agent(
     grant = await GrantService(session).grant(
         tenant_id, user_id, agent_id, account.id, _actor(account, request)
     )
+    await ChatSessionDirectory(
+        session, session_store=getattr(request.app.state, "session_store", None)
+    ).refresh_user(tenant_id, user_id)
     return ok(
         request.app.state.message_catalog,
         {
@@ -294,6 +298,9 @@ async def revoke_agent(
     session: Session,
 ) -> ApiResponse[Any]:
     await GrantService(session).revoke(tenant_id, user_id, agent_id, _actor(account, request))
+    await ChatSessionDirectory(
+        session, session_store=getattr(request.app.state, "session_store", None)
+    ).refresh_user(tenant_id, user_id)
     return ok(
         request.app.state.message_catalog,
         {"user_id": str(user_id), "agent_id": str(agent_id), "revoked": True},
@@ -428,6 +435,13 @@ async def update_user(
     session: Session,
 ) -> ApiResponse[Any]:
     user = await UserService(session).update_user(tenant_id, user_id, payload, _actor(account, request))
+    directory = ChatSessionDirectory(
+        session, session_store=getattr(request.app.state, "session_store", None)
+    )
+    if payload.status is not None and payload.status != "ACTIVE":
+        await directory.invalidate_user(tenant_id, user_id)
+    elif payload.status is not None:
+        await directory.refresh_user(tenant_id, user_id)
     return ok(request.app.state.message_catalog, _basic(user))
 
 
@@ -465,7 +479,9 @@ async def issue_webchat_token(
     原文只在本次响应里出现一次；响应 no-store，也不写任何可回放的幂等回执——重放与过期版本
     一律 `REVISION_CONFLICT`，需要明文只能再次显式重置（design §3.4）。
     """
-    issued = await ChatTokenService(session).issue_token(
+    issued = await ChatTokenService(
+        session, session_store=getattr(request.app.state, "session_store", None)
+    ).issue_token(
         tenant_id=tenant_id,
         user_id=user_id,
         expected_revision=payload.expected_revision,
@@ -492,7 +508,9 @@ async def revoke_webchat_token(
     `expected_revision` 必填（与 curl 的 `?expected_revision=N` 一致）：版本 0 在尚无签发行时
     是空操作，不把"未配置"当成错误；资源归属缺失（未知/跨租户用户）返回 `COMMON_NOT_FOUND`。
     """
-    metadata = await ChatTokenService(session).revoke_token(
+    metadata = await ChatTokenService(
+        session, session_store=getattr(request.app.state, "session_store", None)
+    ).revoke_token(
         tenant_id=tenant_id,
         user_id=user_id,
         expected_revision=expected_revision,

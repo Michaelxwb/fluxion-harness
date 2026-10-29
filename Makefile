@@ -1,4 +1,4 @@
-.PHONY: check compile test acceptance acceptance-clean acceptance-e2e smoke capacity-smoke capacity-load capacity-soak e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck
+.PHONY: check compile test acceptance acceptance-clean acceptance-e2e smoke capacity-smoke capacity-load capacity-soak capacity-wecom e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck
 
 compile:
 	uv run python -m compileall -q apps packages migrations
@@ -50,6 +50,17 @@ capacity-load:
 
 capacity-soak:
 	MUAD_CAPACITY_SOAK=1 uv run pytest -q tests/acceptance/capacity/test_capacity_soak.py
+
+# 企微单 bot / 单 Connector 1000 私聊诊断（本地 15 核；非 staging 验收）。
+# 阶梯：make capacity-wecom WECOM_USERS=100 WECOM_RAMP_SEC=10
+WECOM_USERS ?= 1000
+WECOM_RAMP_SEC ?= 60
+WECOM_MODEL_SLOTS ?= 2000
+capacity-wecom:
+	CAPACITY_LOAD_USERS=$(WECOM_USERS) WECOM_CAPACITY_RAMP_SEC=$(WECOM_RAMP_SEC) \
+	WECOM_MODEL_SLOTS=$(WECOM_MODEL_SLOTS) \
+	MUAD_WECOM_METRICS_OUT=/tmp/wecom-$(WECOM_USERS)-$(WECOM_RAMP_SEC).json \
+	uv run pytest -q -s tests/acceptance/capacity/test_wecom_capacity.py
 
 i18n-check:
 	uv run python scripts/check_frontend_i18n.py

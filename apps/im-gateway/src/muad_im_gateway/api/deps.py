@@ -90,10 +90,14 @@ InboundPublisherDep = Annotated[InboundPublisher, Depends(get_inbound_publisher)
 
 
 def get_chat_principal_gate(
-    console: ConsoleClientDep, tenant: GatewayTenantDep
+    request: Request, console: ConsoleClientDep, tenant: GatewayTenantDep
 ) -> ChatPrincipalGate:
-    """CHAT 主体门控：Console 客户端 + 本部署租户（网关按单租户部署）。"""
-    return ChatPrincipalGate(console, tenant_id=tenant)
+    """CHAT 主体门控：Redis 会话存储 + Console 客户端 + 本部署租户（网关按单租户部署）。"""
+    return ChatPrincipalGate(
+        console,
+        tenant_id=tenant,
+        session_store=getattr(request.app.state, "session_store", None),
+    )
 
 
 def get_chat_auth_recheck_sec(request: Request) -> float:

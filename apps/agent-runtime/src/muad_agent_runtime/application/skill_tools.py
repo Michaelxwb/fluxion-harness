@@ -17,7 +17,7 @@ from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, T
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache, SkillArtifactCacheError
-from muad_common import SharedSettings
+from muad_common import SharedSettings, process_settings
 from muad_contracts import (
     DEFAULT_TOOL_RETRY_SAFETY,
     CompletionMode,
@@ -82,7 +82,7 @@ class SkillToolError(RuntimeError):
 
 
 def build_default_skill_cache(settings: SharedSettings | None = None) -> SkillArtifactCache:
-    resolved = settings or SharedSettings()
+    resolved = settings or process_settings()
     return SkillArtifactCache(
         NfsArtifactStore(resolved.artifact_root),
         resolved.skill_cache_root,
