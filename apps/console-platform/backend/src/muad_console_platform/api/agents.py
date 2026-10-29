@@ -9,6 +9,7 @@ from ..application.agent_mcp_service import AgentMcpService
 from ..application.agent_service import AgentService
 from ..application.audit_service import AuditActor
 from ..application.channel_admin_service import ChannelAdminService
+from ..application.chat_session_directory import ChatSessionDirectory
 from ..application.dto import AgentBindSkillRequest as BindSkillRequest
 from ..application.dto import (
     AgentCreateRequest,
@@ -278,6 +279,9 @@ async def grant_agent_user(
         account.id,
         _actor(account, request),
     )
+    await ChatSessionDirectory(
+        session, session_store=getattr(request.app.state, "session_store", None)
+    ).refresh_user(tenant_id, user_id)
     return ok(
         request.app.state.message_catalog,
         {
@@ -305,6 +309,9 @@ async def revoke_agent_user(
         _actor(account, request),
         idempotent=True,
     )
+    await ChatSessionDirectory(
+        session, session_store=getattr(request.app.state, "session_store", None)
+    ).refresh_user(tenant_id, user_id)
     return ok(
         request.app.state.message_catalog,
         {"agent_id": str(agent_id), "user_id": str(user_id), "is_deleted": True},

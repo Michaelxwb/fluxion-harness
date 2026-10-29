@@ -387,8 +387,8 @@ async def test_b241_chat_cookies_are_independent_and_max_age_tracks_the_stored_s
     )
     row = (await _session_rows(chat_scope.tenant_id))[0]
     remaining = int((row.expires_at - row.issued_at).total_seconds())
-    assert remaining > DEFAULT_SESSION_TTL_SECONDS, (
-        "Cookie Max-Age 跟库内绝对期限（来源 Token 到期），不再固定 12 小时"
+    assert abs(remaining - DEFAULT_SESSION_TTL_SECONDS) <= 1, (
+        "Cookie Max-Age = min(交换 + session_ttl, 来源 Token 到期)；默认 12 小时"
     )
     _assert_chat_flags(cookies[CHAT_SESSION_COOKIE], httponly=True, secure=False, max_age=remaining)
     _assert_chat_flags(cookies[CHAT_CSRF_COOKIE], httponly=False, secure=False, max_age=remaining)

@@ -85,6 +85,7 @@ CHAT_PAGE_KEYS = (
     "chat.page.conversationUnavailable",
     "chat.page.conversationInvalid",
     "chat.page.conversationMismatch",
+    "chat.page.conversationExpired",
     "chat.page.newConversation",
 )
 

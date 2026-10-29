@@ -375,13 +375,13 @@ async def test_b240_exchange_creates_an_independent_session_after_validating_sou
 async def test_b240_session_expiry_is_min_of_exchange_ttl_and_source_remaining(
     session_scope: SessionScope,
 ) -> None:
-    """[B-240] 绝对期限 = 来源 Token 到期；idle TTL = `webchat.session_ttl_hours`（默认 12 小时）。"""
+    """[B-240] 绝对期限 = min(交换 + session_ttl, 来源 Token 到期)；idle TTL 同设置。"""
     default_token = await _issue_user_token(session_scope)
     default_grant = await _exchange(default_token)
     rows = {row.id: row for row in await _session_rows(session_scope.tenant_id)}
     default_row = rows[default_grant.info.session_id]
     assert default_grant.idle_ttl_sec == int(DEFAULT_SESSION_TTL.total_seconds())
-    assert default_row.expires_at > default_row.issued_at + DEFAULT_SESSION_TTL
+    assert abs((default_row.expires_at - default_row.issued_at) - DEFAULT_SESSION_TTL) <= timedelta(seconds=1)
     assert default_grant.info.expires_at == default_row.expires_at
 
     # 设置 24 小时：仍未越过 30 天 Token 的到期时刻，取交换时刻 + 24 小时。
@@ -394,7 +394,7 @@ async def test_b240_session_expiry_is_min_of_exchange_ttl_and_source_remaining(
         long_grant.info.session_id
     ]
     assert long_grant.idle_ttl_sec == int(timedelta(hours=24).total_seconds())
-    assert long_row.expires_at > long_row.issued_at + timedelta(hours=24)
+    assert abs((long_row.expires_at - long_row.issued_at) - timedelta(hours=24)) <= timedelta(seconds=1)
 
     # 设置 1 小时：只影响后续交换，已建立的会话不漂移。
     await _add_settings_revision(
@@ -405,7 +405,7 @@ async def test_b240_session_expiry_is_min_of_exchange_ttl_and_source_remaining(
         short_grant.info.session_id
     ]
     assert short_grant.idle_ttl_sec == int(timedelta(hours=1).total_seconds())
-    assert short_row.expires_at > short_row.issued_at + timedelta(hours=1)
+    assert abs((short_row.expires_at - short_row.issued_at) - timedelta(hours=1)) <= timedelta(seconds=1)
     assert rows[default_grant.info.session_id].expires_at == (
         await _session_rows(session_scope.tenant_id)
     )[0].expires_at, "改设置不影响已建立的会话"
@@ -699,7 +699,7 @@ async def test_b08_positive_session_ttl_bounds_are_applied(
         one_hour.info.session_id
     ]
     assert one_hour.idle_ttl_sec == int(timedelta(hours=1).total_seconds())
-    assert one_row.expires_at > one_row.issued_at + timedelta(hours=1)
+    assert abs((one_row.expires_at - one_row.issued_at) - timedelta(hours=1)) <= timedelta(seconds=1)
 
     await _add_settings_revision(
         session_scope.tenant_id, 2, {"webchat": {"session_ttl_hours": 24}}
@@ -711,7 +711,7 @@ async def test_b08_positive_session_ttl_bounds_are_applied(
         day_long.info.session_id
     ]
     assert day_long.idle_ttl_sec == int(timedelta(hours=24).total_seconds())
-    assert day_row.expires_at > day_row.issued_at + timedelta(hours=24)
+    assert abs((day_row.expires_at - day_row.issued_at) - timedelta(hours=24)) <= timedelta(seconds=1)
 
 
 async def test_b08_concurrent_reset_has_a_single_winner_and_replay_never_rotates(

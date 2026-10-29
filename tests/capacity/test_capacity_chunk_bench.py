@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import sys
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -30,9 +31,28 @@ chunk_bench = _load_script("capacity_chunk_bench_script", "scripts/capacity/chun
 smoke_report = _load_script("capacity_smoke_report_script", "scripts/capacity/smoke_report.py")
 
 
+def _run_in_thread(coro):
+    """独立线程跑协程：`asyncio.run` 在主线程会把事件循环置空，后续 async 套件集体红。"""
+    outcome: list[object] = []
+    failure: list[BaseException] = []
+
+    def runner() -> None:
+        try:
+            outcome.append(asyncio.run(coro))
+        except BaseException as exc:  # noqa: BLE001 - 原样回抛
+            failure.append(exc)
+
+    thread = threading.Thread(target=runner)
+    thread.start()
+    thread.join()
+    if failure:
+        raise failure[0]
+    return outcome[0]
+
+
 def test_chunk_bench_measures_parse_and_emitter_paths() -> None:
     """四个场景都产生正数微秒；emitter 路径必须真的发生窗口 flush。"""
-    report = asyncio.run(
+    report = _run_in_thread(
         chunk_bench.run_bench(chunks=5, repeats=1, chunk_interval_ms=50, measure_settings=False)
     )
     rows = {row.scenario: row for row in report.rows}
@@ -48,9 +68,9 @@ def test_chunk_bench_measures_parse_and_emitter_paths() -> None:
 def test_chunk_bench_rejects_invalid_inputs() -> None:
     """空 chunks / 负节拍显式失败，不产出误导性数字。"""
     with pytest.raises(ValueError, match="chunks"):
-        asyncio.run(chunk_bench.run_bench(chunks=0, repeats=1, measure_settings=False))
+        _run_in_thread(chunk_bench.run_bench(chunks=0, repeats=1, measure_settings=False))
     with pytest.raises(ValueError, match="interval"):
-        asyncio.run(
+        _run_in_thread(
             chunk_bench.run_bench(chunks=1, repeats=1, chunk_interval_ms=-1, measure_settings=False)
         )
 

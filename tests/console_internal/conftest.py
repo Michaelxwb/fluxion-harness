@@ -8,6 +8,7 @@ import pytest
 import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient
 from muad_common import SharedSettings
+from muad_common.session_store import RedisSessionStore
 from muad_console_platform.api.security import CSRF_COOKIE, CSRF_HEADER
 from muad_console_platform.application.auth_service import hash_password
 from muad_console_platform.infrastructure.db import get_session_factory
@@ -20,8 +21,26 @@ from muad_console_platform.infrastructure.models.control import (
     ModelDeployment,
 )
 from muad_console_platform.main import app
+from redis.asyncio import Redis
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import create_async_engine
+
+
+@pytest.fixture(scope="session", autouse=True)
+async def chat_session_store() -> AsyncIterator[None]:
+    """ASGITransport 不跑 lifespan：补真实 Redis 会话权威，与生产装配同语义。"""
+    settings = SharedSettings()
+    if not settings.redis_url:
+        yield
+        return
+    client = Redis.from_url(settings.redis_url, decode_responses=True)
+    app.state.session_store = RedisSessionStore(client)
+    try:
+        yield
+    finally:
+        app.state.session_store = None
+        await client.aclose()
+
 
 SCHEMA = "control"
 GUARD_TABLES = (

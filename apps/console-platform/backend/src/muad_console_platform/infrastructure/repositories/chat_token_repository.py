@@ -92,6 +92,18 @@ class ChatTokenRepository:
         await self._session.flush()
         return row
 
+    async def active_session_hashes(self, row: ChatAccessToken) -> tuple[str, ...]:
+        """本 Token 下仍活跃的 CHAT 会话摘要（Redis key 与库内 `token_hash` 同源）。"""
+        hashes = await self._session.scalars(
+            select(ChatSession.token_hash).where(
+                ChatSession.tenant_id == row.tenant_id,
+                ChatSession.access_token_id == row.id,
+                ChatSession.revoked_at.is_(None),
+                ChatSession.is_deleted.is_(False),
+            )
+        )
+        return tuple(str(value) for value in hashes)
+
     async def revoke(self, row: ChatAccessToken, revoked_at: datetime) -> int:
         """撤销本行与其**全部活跃**会话；返回本次真正撤销的会话数（同事务，不提交）。"""
         row.revoked_at = revoked_at

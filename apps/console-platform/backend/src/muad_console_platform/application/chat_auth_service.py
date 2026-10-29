@@ -94,11 +94,13 @@ class ChatSessionService:
         if user.status != PLATFORM_USER_STATUS_ACTIVE:
             raise AppError(ErrorCode.CHAT_TOKEN_INVALID)
         ttl = await self._session_ttl(presented.tenant_id)
+        # 绝对期限取 min(交换 + session_ttl, 来源 Token 到期)：设置调大不能越过 Token，
+        # 调小则让会话在设置窗口内结束；idle TTL 仍是设置值（滑动续期上限）。
         return await self._create_session(
             user,
             live,
             now=now,
-            expires_at=live.expires_at,
+            expires_at=min(now + ttl, live.expires_at),
             idle_ttl_sec=int(ttl.total_seconds()),
         )
 
