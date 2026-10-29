@@ -136,6 +136,37 @@ async def test_local_background_shutdown_closes_provider_and_another_instance_ta
             await second.close()
 
 
+async def test_local_ttl_retires_legacy_content_without_blocking(async_tool_database):
+    """历史遗留 content 不能阻塞整批过期：退休只写 retirement 字段，不改 content_json。"""
+    module = import_module("muad_agent_runtime.application.memory_expiry")
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
+    ctx = context()
+    await seed_facts(async_tool_database, ctx, 1, author="AGENT", expired=True)
+    async with async_tool_database.begin() as connection:
+        await connection.execute(
+            sa.text(
+                "INSERT INTO runtime.user_memory (tenant_id,user_id,memory_key,category,"
+                "content_json,author,expires_at,explicit_request,confirmation_event_id,write_policy)"
+                " VALUES (:tenant,:user,'legacy.note','PREFERENCE',CAST(:content AS jsonb),"
+                "'AGENT',now()-interval '1 day',false,NULL,'SERVER_CONTROLLED')"
+            ),
+            {
+                "tenant": ctx.tenant_id,
+                "user": ctx.user_id,
+                "content": '{"note": "likes concise answers"}',
+            },
+        )
+    assert await module.expire_memories(factory) == 2
+    async with factory() as session:
+        rows = list(await session.scalars(sa.select(UserMemory).order_by(UserMemory.memory_key)))
+        assert len(rows) == 2
+        assert all(row.is_deleted and row.retirement_reason == "EXPIRE" for row in rows)
+        legacy = next(row for row in rows if row.memory_key == "legacy.note")
+        assert legacy.content_json == {"note": "likes concise answers"}
+
+
 async def test_local_ttl_read_is_immediate_and_two_sweepers_write_one_expire_history(async_tool_database):
     module = import_module("muad_agent_runtime.application.memory_expiry")
     from sqlalchemy.ext.asyncio import async_sessionmaker

@@ -4,6 +4,7 @@ import logging
 
 from muad_api import AppError
 from muad_contracts.memory import MemoryRetirementReason, memory_hash
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -37,7 +38,7 @@ async def expire_memories(factory: SessionFactory, *, scope_limit: int = 16) -> 
         )
         try:
             changed += await _expire_scope(factory, context)
-        except (SQLAlchemyError, AppError) as exc:
+        except (SQLAlchemyError, AppError, ValidationError) as exc:
             logger.warning(
                 "memory_expiry_failed",
                 extra={"tenant_id": tenant, "user_id": str(user), "error_type": type(exc).__name__},
