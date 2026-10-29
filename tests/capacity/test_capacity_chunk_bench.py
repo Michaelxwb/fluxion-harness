@@ -51,7 +51,12 @@ def _run_in_thread(coro):
 
 
 def test_chunk_bench_measures_parse_and_emitter_paths() -> None:
-    """四个场景都产生正数微秒；emitter 路径必须真的发生窗口 flush。"""
+    """四个场景都产生正数微秒；emitter 路径必须真的发生窗口 flush。
+
+    不比较场景之间的耗时快慢：5 chunk / 1 repeat 的微基准在共享 runner 上会被
+    首次预热和调度噪声翻转（CI 实测 parse_only 28–43µs、emitter_flush_each
+    28–42µs），耗时是诊断输出，不是单测契约。
+    """
     report = _run_in_thread(
         chunk_bench.run_bench(chunks=5, repeats=1, chunk_interval_ms=50, measure_settings=False)
     )
@@ -62,7 +67,7 @@ def test_chunk_bench_measures_parse_and_emitter_paths() -> None:
     # 真实窗口下至少首块 + 终态 flush；flush_each 每块一次。
     assert rows["emitter_realistic"].events_per_run >= 2
     assert rows["emitter_flush_each"].events_per_run == 5
-    assert rows["emitter_flush_each"].us_per_chunk > rows["parse_only"].us_per_chunk
+    assert rows["emitter_flush_each"].events_per_run > rows["emitter_realistic"].events_per_run
 
 
 def test_chunk_bench_rejects_invalid_inputs() -> None:
