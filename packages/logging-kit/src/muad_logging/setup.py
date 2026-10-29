@@ -5,7 +5,7 @@ import os
 import sys
 from pathlib import Path
 
-from .formatter import JsonLogFormatter
+from .formatter import TextLogFormatter
 from .handler import DailyServiceFileHandler
 from .redaction import RedactionFilter
 
@@ -30,7 +30,7 @@ def configure_logging(
         raise ValueError(f"invalid log level: {level_name}")
     log_level: int = resolved_level
 
-    formatter = JsonLogFormatter(service_name)
+    formatter = TextLogFormatter(service_name)
     redaction = RedactionFilter()
 
     root = logging.getLogger()

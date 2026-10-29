@@ -9,7 +9,7 @@
   Canonical 权威行、审计行、审计快照与幂等回执表）；
 - **真实脱敏原语**：logging-kit `redact_text`/`redact_value` 与 api-kit `sanitize_audit_payload`——
   审计**丢键**与日志**替换**两种语义分别钉住，不互相代替；
-- **真实日志出口**：真实 `configure_logging` 落盘文件 + 真实 `RedactionFilter` + `JsonLogFormatter`；
+- **真实日志出口**：真实 `configure_logging` 落盘文件 + 真实 `RedactionFilter` + `TextLogFormatter`；
 - 本路径不发起任何外部模型调用，故"外部模型真实 HTTP 探针"边界在此不适用。
 
 明文卫生主张：用户 Token 与 CHAT 会话原文只出现在两种真实传输面（签发响应体一次 / HttpOnly
@@ -400,7 +400,7 @@ def test_b245_logging_exit_replaces_chat_credentials_in_the_log_file(tmp_path: P
     """[B-245] 真实日志出口：Cookie 头/Bearer/交换体落盘前全部替换为 `***`，非敏感字段存活。
 
     真实边界：真实 `configure_logging`（仅配置 `LOG_DIR`）+ 真实 `RedactionFilter` 与
-    `JsonLogFormatter`；断言直接读落盘文件，不依赖内存记录。
+    `TextLogFormatter`；断言直接读落盘文件，不依赖内存记录。
     """
     service = f"test-b245-redaction-{uuid.uuid4().hex[:8]}"
     session_canary = _canary("session")
