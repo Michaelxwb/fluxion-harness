@@ -929,10 +929,10 @@ def test_e07_audit_drops_keys_while_logs_replace_values(
         text=True,
     )
     log_file = next((log_dir / "e07-svc").glob("*.log"))
-    payload = json.loads(log_file.read_text(encoding="utf-8").splitlines()[-1])
-    assert "api_key=***" in payload["message"], payload["message"]
-    assert CANARY not in payload["message"], "日志侧必须把值换成 ***，不得留明文"
-    assert "api_key" in payload["message"], "日志侧是**值置换**：键必须仍在（与审计丢键相反）"
+    line = log_file.read_text(encoding="utf-8").splitlines()[-1]
+    assert "api_key=***" in line, line
+    assert CANARY not in line, "日志侧必须把值换成 ***，不得留明文"
+    assert "api_key" in line, "日志侧是**值置换**：键必须仍在（与审计丢键相反）"
 
 
 async def _delete_audit(factory: Any, tenant_id: str, resource_id: uuid.UUID) -> None:

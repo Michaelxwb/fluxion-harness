@@ -23,6 +23,7 @@ import asyncio
 import json
 import logging
 import re
+import shlex
 import socket
 import subprocess
 import sys
@@ -822,9 +823,9 @@ async def test_b299_console_config_failure_is_counted_and_logged_without_secrets
         >= 1
     )
     records = [
-        json.loads(line)
+        record
         for line in _log_file(tmp_path, service).read_text(encoding="utf-8").splitlines()
-        if line.startswith("{")
+        if (record := _parse_log_line(line)) is not None
     ]
     failure_records = [
         record for record in records if "probe_capacity_client_unconfigured" in str(record["message"])
@@ -834,6 +835,29 @@ async def test_b299_console_config_failure_is_counted_and_logged_without_secrets
     assert record["trace_id"] == trace_id and record["tenant_id"] == tenant_id
     assert "AGENT_RUNTIME_URL" in str(record["message"]), "日志必须指名缺的配置项"
     assert CANARY_SERVICE_TOKEN not in json.dumps(record, ensure_ascii=False), "Token 不得进日志"
+
+
+def _parse_log_line(line: str) -> dict[str, object] | None:
+    head, separator, tail = line.rpartition(" | ")
+    if not separator:
+        head, tail = line, ""
+    fields: dict[str, object] = {}
+    if separator:
+        try:
+            tokens = shlex.split(tail)
+        except ValueError:
+            tokens = []
+        if tokens and all("=" in token for token in tokens):
+            for token in tokens:
+                key, _, value = token.partition("=")
+                fields[key] = value
+        else:
+            head = line
+    match = re.match(
+        r"^(?P<timestamp>.+?) \[(?P<level>[A-Z]+)\] (?P<service>\S+) (?P<logger>\S+) (?P<message>.*)$",
+        head,
+    )
+    return {**match.groupdict(), **fields} if match is not None else None
 
 
 def _log_file(tmp_path: Path, service: str) -> Path:

@@ -407,7 +407,7 @@ flowchart TD
 | 场景 | 实现方案 |
 |------|---------|
 | 监控指标 | Prometheus + Grafana |
-| 日志 | 结构化JSON + trace_id |
+| 日志 | 单行文本 + trace_id |
 | 链路追踪 | OpenTelemetry |
 
 ---

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 from datetime import datetime
@@ -31,7 +30,7 @@ def _run_service(service: str, log_dir: Path, message: str) -> None:
     )
 
 
-def test_s01_two_services_daily_json_logs_with_context_and_redaction(tmp_path: Path) -> None:
+def test_s01_two_services_daily_text_logs_with_context_and_redaction(tmp_path: Path) -> None:
     log_dir = tmp_path / "logs"
     _run_service("svc-alpha", log_dir, "alpha event")
     _run_service("svc-beta", log_dir, "beta event")
@@ -42,20 +41,21 @@ def test_s01_two_services_daily_json_logs_with_context_and_redaction(tmp_path: P
     assert alpha_file.is_file()
     assert beta_file.is_file()
 
-    alpha = [json.loads(line) for line in alpha_file.read_text(encoding="utf-8").splitlines()]
-    beta = [json.loads(line) for line in beta_file.read_text(encoding="utf-8").splitlines()]
+    alpha = alpha_file.read_text(encoding="utf-8").splitlines()
+    beta = beta_file.read_text(encoding="utf-8").splitlines()
 
-    assert [item["service"] for item in alpha] == ["svc-alpha", "svc-alpha"]
-    assert [item["service"] for item in beta] == ["svc-beta", "svc-beta"]
-    assert alpha[0]["message"] == "alpha event"
-    assert beta[0]["message"] == "beta event"
+    assert len(alpha) == 2 and len(beta) == 2
+    assert all("[INFO] svc-alpha" in line or "[WARNING] svc-alpha" in line for line in alpha)
+    assert all("[INFO] svc-beta" in line or "[WARNING] svc-beta" in line for line in beta)
+    assert "alpha event" in alpha[0]
+    assert "beta event" in beta[0]
     assert "alpha event" not in beta_file.read_text(encoding="utf-8")
     assert "beta event" not in alpha_file.read_text(encoding="utf-8")
 
-    for item in alpha + beta:
-        assert item["trace_id"] == "t-s01"
-        assert item["request_id"] == "r-s01"
-        assert item["tenant_id"] == "tenant-s01"
+    for line in alpha + beta:
+        assert "trace_id=t-s01" in line
+        assert "request_id=r-s01" in line
+        assert "tenant_id=tenant-s01" in line
 
     alpha_text = alpha_file.read_text(encoding="utf-8")
     assert SECRET_VALUE not in alpha_text

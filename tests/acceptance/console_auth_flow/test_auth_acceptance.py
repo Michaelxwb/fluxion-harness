@@ -11,7 +11,9 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import secrets
+import shlex
 import subprocess
 import sys
 import time
@@ -653,7 +655,7 @@ def _service_log_path(log_dir: Path) -> Path:
 
 
 def _service_log_records(log_dir: Path) -> list[dict[str, object]]:
-    """只读 logging-kit 的结构化落盘文件（**不含**子进程 stdout 捕获文件），逐行解析 JSON。"""
+    """只读 logging-kit 的文本落盘文件（**不含**子进程 stdout 捕获文件）。"""
     path = _service_log_path(log_dir)
     if not path.exists():
         return []
@@ -661,10 +663,32 @@ def _service_log_records(log_dir: Path) -> list[dict[str, object]]:
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         if not line.strip():
             continue
-        try:
-            records.append(json.loads(line))
-        except json.JSONDecodeError:  # 非 JSON 行（如 exception 字段外的续行）不计入记录
+        head, separator, tail = line.rpartition(" | ")
+        if not separator:
+            head, tail = line, ""
+        fields: dict[str, object] = {}
+        if separator:
+            try:
+                tokens = shlex.split(tail)
+            except ValueError:
+                tokens = []
+            if tokens and all("=" in token for token in tokens):
+                for token in tokens:
+                    key, _, value = token.partition("=")
+                    fields[key] = value
+            else:
+                head = line
+        match = re.match(
+            r"^(?P<timestamp>.+?) \[(?P<level>[A-Z]+)\] (?P<service>\S+) (?P<logger>\S+) (?P<message>.*)$",
+            head,
+        )
+        if match is None:
+            if records:  # 异常堆栈续行：归入上一条记录，供真实异常断言使用
+                previous = records[-1]
+                current = str(previous.get("exception", ""))
+                previous["exception"] = (current + "\n" + line).strip()
             continue
+        records.append({**match.groupdict(), **fields})
     return records
 
 

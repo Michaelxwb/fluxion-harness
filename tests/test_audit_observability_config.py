@@ -4,16 +4,16 @@ design 11-audit-observability §3.5 可观测性 / §4 部署与运维；docs/09
 不得 Mock 的真实边界：
 - 真实 `/metrics` HTTP 端点（真实 uvicorn 单进程 + 真实 socket + api-kit 进程内注册表）；
 - 真实 Console/Worker HTTP（真实路由与中间件栈）→ 真实 PostgreSQL（`control.config_audit_log` 回读）；
-- 真实日志出口（logging-kit `configure_logging` + JSON Formatter + 脱敏滤镜 → 真实日志文件）。
+- 真实日志出口（logging-kit `configure_logging` + TextLogFormatter + 脱敏滤镜 → 真实日志文件）。
 验收类不制造 RED；`client`/`tenant` 夹具复用 console_platform 的既有真实租户（同库、同清理口径）。
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import re
+import shlex
 import socket
 import time
 import uuid
@@ -178,13 +178,40 @@ async def _config_audit_trace_ids(tenant_id: str, resource_id: str) -> list[str]
         return [str(row[0]) for row in rows]
 
 
+def _parse_log_line(line: str) -> dict[str, object] | None:
+    """解析 `时间 [LEVEL] service logger message | key=value ...` 文本行。"""
+    head, separator, tail = line.rpartition(" | ")
+    if not separator:
+        head, tail = line, ""
+    fields: dict[str, object] = {}
+    if separator:
+        try:
+            tokens = shlex.split(tail)
+        except ValueError:
+            tokens = []
+        if tokens and all("=" in token for token in tokens):
+            for token in tokens:
+                key, _, value = token.partition("=")
+                fields[key] = value
+        else:
+            head, separator, tail = line, "", ""
+    match = re.match(
+        r"^(?P<timestamp>.+?) \[(?P<level>[A-Z]+)\] (?P<service>\S+) (?P<logger>\S+) (?P<message>.*)$",
+        head,
+    )
+    if match is None:
+        return None
+    return {**match.groupdict(), **fields}
+
+
 def _log_records(log_file: Path) -> list[dict[str, object]]:
     if not log_file.exists():
         return []
     records: list[dict[str, object]] = []
     for line in log_file.read_text(encoding="utf-8").splitlines():
-        if line.startswith("{"):
-            records.append(json.loads(line))
+        parsed = _parse_log_line(line)
+        if parsed is not None:
+            records.append(parsed)
     return records
 
 
@@ -362,17 +389,19 @@ def _assert_record_correlates_audit_row(
     """审计行（PostgreSQL）与日志记录（日志出口）经同一 trace_id 串联。"""
     assert record["trace_id"] == audit_trace_ids[0]
     assert record["request_id"] == request_id
-    missing = [field for field in CORRELATION_FIELDS if field not in record]
-    assert not missing, f"日志记录缺少关联字段：{missing}"
-    for field in UNSET_FIELDS:
-        assert record[field] == "", f"未绑定的关联字段必须显式置空而非伪造：{field}={record[field]!r}"
+    for field in CORRELATION_FIELDS:
+        value = record.get(field, "")
+        if field in UNSET_FIELDS:
+            assert value == "", f"未绑定的关联字段必须保持空/缺省而非伪造：{field}={value!r}"
+        else:
+            assert value, f"日志记录缺少关联字段：{field}"
 
 
 async def test_b203_trace_fields_are_correlated_across_audit_and_log_context(
     client: AsyncClient, tenant: TenantContext, tmp_path: Path
 ) -> None:
     """B-203：一次真实请求写入审计行 → 审计行的 trace_id 与日志出口的 trace_id/request_id 串联；
-    未绑定的关联字段在日志中显式置空（不伪造）。"""
+    未绑定的关联字段保持空/缺省（不伪造）。"""
     trace_id = f"b203-trace-{uuid.uuid4().hex}"
     request_id = f"b203-request-{uuid.uuid4().hex}"
     service = f"muad-console-platform-b203-{uuid.uuid4().hex[:8]}"
