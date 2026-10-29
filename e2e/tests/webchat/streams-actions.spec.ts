@@ -438,7 +438,16 @@ async def main():
 asyncio.run(main())
 `);
       expect(leasesAtStop.leases, '等待中取消的 Run 不得越权领取模型调用').toBe(0);
-      await expect(page.getByTestId('chat-run-stop-stopped')).toBeVisible({ timeout: 60_000 });
+      // 取消回执只保证请求已受理；终态经 SSE 收敛。若这条连接在排队窗口内已显式失败，
+      // 按产品提供的恢复动作点一次「重试」，否则会永远停在「正在停止…」。
+      const stopped = page.getByTestId('chat-run-stop-stopped');
+      const connectionRetry = page.getByTestId('chat-run-connection-retry');
+      try {
+        await expect(stopped).toBeVisible({ timeout: 10_000 });
+      } catch (error) {
+        if ((await connectionRetry.count()) > 0) await connectionRetry.click();
+        await expect(stopped).toBeVisible({ timeout: 60_000 });
+      }
       expect(await readRunTerminal(request, webchatStack, runB)).toEqual({
         status: 'CANCELLED',
         error_code: null
