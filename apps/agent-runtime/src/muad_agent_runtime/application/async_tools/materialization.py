@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from muad_common import SharedSettings
+from muad_common import process_settings
 from muad_contracts import OperationStatus, canonical_json
 from muad_contracts.platform_settings import ToolResultSettings
 from pydantic import JsonValue
@@ -96,7 +96,7 @@ async def materialize_results(
     run, rows, frozen = await _read_batch(factory, identity, batch_limit)
     if not rows:
         return ()
-    budget, publisher = settings or frozen, writer or ArtifactResultWriter(SharedSettings().artifact_root)
+    budget, publisher = settings or frozen, writer or ArtifactResultWriter(process_settings().artifact_root)
     prepared = PreparedToolResults()
     try:
         prepared = await _prepare(publisher, run, rows, budget)

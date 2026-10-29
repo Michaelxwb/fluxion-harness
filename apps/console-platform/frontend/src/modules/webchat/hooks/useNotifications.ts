@@ -31,6 +31,10 @@
 
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 
+import type {
+  NotificationStreamHandle,
+  NotificationStreamPort
+} from '../services/notificationStream';
 import { isWebchatAuthError, webchatErrorCode } from '../services/webchatApi';
 import type {
   WebchatAttachment,
@@ -212,6 +216,13 @@ export interface NotificationActivityPort {
   foreground(): void;
 }
 
+/** 通知流端口由 `services/notificationStream.ts` 定义；这里只做类型透传，避免两处形状漂移。 */
+export type {
+  NotificationStreamHandle,
+  NotificationStreamHandlers,
+  NotificationStreamPort
+} from '../services/notificationStream';
+
 /** 当前预览：只持有授权下载面创建的 Blob URL。 */
 export interface NotificationPreviewState {
   artifactId: string;
@@ -237,7 +248,6 @@ export interface NotificationSnapshot {
 export interface NotificationController {
   snapshot(): NotificationSnapshot;
   subscribe(listener: () => void): () => void;
-  /** 启动轮询：投影未就绪时零请求并留稳定码；隐藏页只订阅可见性，不发请求。 */
   start(): void;
   stop(): void;
   /** 立即增量同步一次（前台同步/显式重试）；失败只留稳定码，不抛出。 */
@@ -269,6 +279,7 @@ export interface NotificationControllerDeps {
   visibility?: NotificationVisibilityPort;
   preview?: NotificationObjectUrlPort;
   activity?: NotificationActivityPort;
+  stream?: NotificationStreamPort;
   /** 本地动作失败上报端口（绝不静默）；失败端口自身抛错不影响状态机。 */
   onFailure?: (error: unknown) => void;
   random?: () => number;
@@ -301,6 +312,7 @@ interface NotificationRuntime {
   urls: Set<string>;
   reading: Set<string>;
   visibilityOff: (() => void) | null;
+  streamHandle: NotificationStreamHandle | null;
 }
 
 /** 默认定时器端口（惰性取值：模块加载不触碰浏览器全局）。 */
@@ -410,6 +422,10 @@ function applyFailure(runtime: NotificationRuntime, error: unknown): void {
 function stopLoop(runtime: NotificationRuntime): void {
   runtime.started = false;
   clearTimer(runtime);
+  if (runtime.streamHandle !== null) {
+    runtime.streamHandle.close();
+    runtime.streamHandle = null;
+  }
   if (runtime.visibilityOff !== null) {
     runtime.visibilityOff();
     runtime.visibilityOff = null;
@@ -466,9 +482,11 @@ async function syncOnce(
 /** 排下一轮：未追平水位立即续拉；追平后按投影的抖动间隔。 */
 function scheduleNext(runtime: NotificationRuntime): void {
   if (!runtime.started || !runtime.deps.config.ready()) return;
-  const delay = runtime.caughtUp
-    ? notificationPollDelayMs(runtime.deps.config.limits().notification_poll_sec, runtime.random())
-    : 0;
+  // 失败后按投影间隔重试，不能因为「未追平」立即空转；成功且未追平时才立即续拉。
+  const delay =
+    runtime.core.errorCode === null && !runtime.caughtUp
+      ? 0
+      : notificationPollDelayMs(runtime.deps.config.limits().notification_poll_sec, runtime.random());
   runtime.timer = runtime.timers.setTimeout(() => {
     runtime.timer = null;
     void tick(runtime);
@@ -506,11 +524,16 @@ function onVisibilityChange(runtime: NotificationRuntime): void {
   if (!runtime.started) return;
   if (runtime.visibility.hidden()) {
     clearTimer(runtime);
+    if (runtime.streamHandle !== null) {
+      runtime.streamHandle.close();
+      runtime.streamHandle = null;
+    }
     setPolling(runtime, false);
     return;
   }
   notifyForeground(runtime);
-  kick(runtime);
+  if (runtime.deps.stream !== undefined) void startWithStream(runtime);
+  else kick(runtime);
 }
 
 function requireNotificationId(notificationId: string): string {
@@ -629,11 +652,76 @@ function createRuntime(deps: NotificationControllerDeps): NotificationRuntime {
     previewEpoch: 0,
     urls: new Set(),
     reading: new Set(),
-    visibilityOff: null
+    visibilityOff: null,
+    streamHandle: null
   };
 }
 
-/** 启动轮询：投影未就绪时零请求并留稳定码；隐藏页只订阅可见性，不发请求。 */
+/** 打开 SSE 通知流：完整 DTO + 服务端 unread_count 直接并入；出错回退到有界轮询。 */
+function openStream(runtime: NotificationRuntime): void {
+  const stream = runtime.deps.stream;
+  if (stream === undefined) return;
+  if (runtime.streamHandle !== null) runtime.streamHandle.close();
+  clearTimer(runtime);
+  // SSE 建流后常规轮询停跑；断流时 onError 才恢复有界轮询。
+  setPolling(runtime, false);
+  runtime.streamHandle = stream.open(
+    runtime.core.cursor,
+    {
+      onOpen: () => {
+        runtime.core.loadState = 'ready';
+        runtime.core.errorCode = null;
+        runtime.caughtUp = true;
+        setPolling(runtime, false);
+        emit(runtime);
+      },
+      onNotification: (notification, unreadCount) => {
+        runtime.core.items = mergeNotificationItems(
+          runtime.core.items,
+          [notification],
+          runtime.deps.maxItems
+        );
+        runtime.core.cursor = Math.max(runtime.core.cursor, notification.seq);
+        runtime.core.unreadCount = unreadBadgeCount(unreadCount);
+        runtime.core.loadState = 'ready';
+        runtime.core.errorCode = null;
+        runtime.caughtUp = true;
+        setPolling(runtime, false);
+        emit(runtime);
+      },
+      onError: () => {
+        if (runtime.streamHandle !== null) {
+          runtime.streamHandle.close();
+          runtime.streamHandle = null;
+        }
+        setPolling(runtime, false);
+        // 流断开：退回有界轮询，保证不静默丢通知；下次 start/回前台再尝试 SSE。
+        kick(runtime);
+      }
+    },
+    { snapshotReady: runtime.caughtUp }
+  );
+}
+
+
+/**
+ * SSE 启动：先取一次 REST 权威快照（条目/未读/游标），再开 live 流。
+ *
+ * 这样 gateway 才能在 `after_seq >= watermark` 时跳过回填；初始快照失败时留在有界轮询，
+ * 不把「未知水位」当成「已追平」。
+ */
+async function startWithStream(runtime: NotificationRuntime): Promise<void> {
+  setPolling(runtime, true);
+  const snapshot = await syncOnce(runtime);
+  if (!runtime.started || runtime.visibility.hidden()) return;
+  if (snapshot.errorCode !== null) {
+    scheduleNext(runtime);
+    return;
+  }
+  openStream(runtime);
+}
+
+/** 启动通知：有流端口时先 REST 快照再 SSE；否则走有界轮询。 */
 function startPolling(runtime: NotificationRuntime): void {
   if (runtime.started) return;
   if (!runtime.deps.config.ready()) {
@@ -643,7 +731,14 @@ function startPolling(runtime: NotificationRuntime): void {
   }
   runtime.started = true;
   runtime.visibilityOff = runtime.visibility.subscribe(() => onVisibilityChange(runtime));
-  kick(runtime);
+  if (runtime.deps.stream !== undefined) {
+    void startWithStream(runtime).catch((error: unknown) => {
+      reportFailure(runtime, error);
+      kick(runtime);
+    });
+  } else {
+    kick(runtime);
+  }
 }
 
 function closePreviewRuntime(runtime: NotificationRuntime): void {
@@ -727,6 +822,8 @@ export interface NotificationsOptions {
   onFailure?: (error: unknown) => void;
   /** 可见性端口（宿主/测试可注入）；缺省按 `document.visibilityState`。 */
   visibility?: NotificationVisibilityPort;
+  /** SSE 通知流端口；缺省走有界轮询（测试/旧宿主）。 */
+  stream?: NotificationStreamPort;
 }
 
 /** 点击处理器里的失败已由 `onFailure` 与快照 `errorCode` 上报，这里只兜住 rejection。 */
@@ -769,7 +866,7 @@ function useNotificationService(
   auth: NotificationsIdentityPort,
   options: NotificationsOptions
 ): NotificationController {
-  const { maxItems, activity, onFailure, visibility } = options;
+  const { maxItems, activity, onFailure, visibility, stream } = options;
   const registerIdentityCleanup = auth.registerIdentityCleanup;
   const identitySignal = auth.identitySignal;
   const trackObjectUrl = auth.trackObjectUrl;
@@ -784,7 +881,8 @@ function useNotificationService(
         maxItems,
         activity,
         onFailure,
-        visibility
+        visibility,
+        stream
       }),
     [
       client,
@@ -796,7 +894,8 @@ function useNotificationService(
       maxItems,
       activity,
       onFailure,
-      visibility
+      visibility,
+      stream
     ]
   );
   useNotificationIdentityCleanup(service, registerIdentityCleanup);

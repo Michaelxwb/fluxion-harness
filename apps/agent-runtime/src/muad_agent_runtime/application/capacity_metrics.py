@@ -20,6 +20,7 @@ import logging
 from dataclasses import dataclass
 from typing import Final
 
+from muad_common.db_counters import db_stage_scope
 from sqlalchemy import func, select
 
 from ..infrastructure.db import SessionFactory
@@ -143,6 +144,7 @@ def publish_capacity_gauges(gauges: CapacityGauges) -> None:
     record_gauge(ADMISSION_WAITING_METRIC, gauges.admission_waiting)
 
 
+@db_stage_scope("bg:capacity")
 async def capacity_metrics_loop(
     factory: SessionFactory, *, tenant_id: str, interval_sec: float
 ) -> None:

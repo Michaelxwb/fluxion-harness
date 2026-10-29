@@ -23,6 +23,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 import sqlalchemy as sa
@@ -44,6 +45,7 @@ from muad_contracts.webchat import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import (
     Artifact,
     CanonicalEvent,
@@ -52,6 +54,7 @@ from ..infrastructure.models.runtime import (
     RunRecord,
 )
 from .channel_conversations import ConversationScope, display_title, load_explicit_conversation
+from .conversation_policy import ConversationPolicy, assert_conversation_live
 from .execution_status import project_execution_status
 from .memory_confirmation_resume import (
     CONFIRM_VERB,
@@ -105,14 +108,47 @@ def _validate_page(page: int, page_size: int) -> None:
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
 
 
-def _conversation_conditions(scope: HistoryScope) -> list[Any]:
-    return [
+def _conversation_conditions(
+    scope: HistoryScope, *, cutoff: datetime | None = None
+) -> list[Any]:
+    conditions: list[Any] = [
         Conversation.tenant_id == scope.tenant_id,
         Conversation.user_id == scope.user_id,
         Conversation.agent_id == scope.agent_id,
         Conversation.channel_account_id == scope.entry_id,
         Conversation.is_deleted.is_(False),
     ]
+    if cutoff is not None:
+        # 保留期以最近一次真实可见活动为准；NULL 回落创建时间（与本列表的排序口径一致）。
+        conditions.append(
+            sa.func.coalesce(Conversation.last_message_at, Conversation.create_time) >= cutoff
+        )
+    return conditions
+
+
+async def _retention_cutoff(
+    session: AsyncSession, policy: ConversationPolicy | None
+) -> datetime | None:
+    """读取边界只取一次 PG 时钟；0 天是显式「永不过期」，不额外查时钟。"""
+    if policy is None or policy.conversation_retention_days == 0:
+        return None
+    return policy.retention_cutoff(await database_now(session))
+
+
+async def _assert_conversation_live(
+    session: AsyncSession,
+    conversation: Conversation,
+    policy: ConversationPolicy | None,
+) -> None:
+    """详情/消息/续聊共用的保留期裁决；超期一律稳定码 `CONVERSATION_EXPIRED`。"""
+    if policy is None or policy.conversation_retention_days == 0:
+        return
+    assert_conversation_live(
+        policy,
+        last_message_at=conversation.last_message_at,
+        create_time=conversation.create_time,
+        now=await database_now(session),
+    )
 
 
 def _message_conditions(
@@ -192,17 +228,29 @@ class WebchatHistoryService:
         self._session = session
 
     async def list_conversations(
-        self, scope: HistoryScope, *, page: int, page_size: int
+        self,
+        scope: HistoryScope,
+        *,
+        page: int,
+        page_size: int,
+        policy: ConversationPolicy | None = None,
     ) -> WebchatConversationPage:
         """API-14：入口会话列表（仅本主体/入口/Agent，按 last_message_at/id 倒序）。"""
         _validate_page(page, page_size)
-        rows, total = await self._conversation_page(scope, page=page, page_size=page_size)
+        cutoff = await _retention_cutoff(self._session, policy)
+        rows, total = await self._conversation_page(
+            scope, page=page, page_size=page_size, cutoff=cutoff
+        )
         active = await self._active_run_statuses(scope, [row.id for row in rows])
         items = [_conversation_item(row, active.get(row.id)) for row in rows]
         return WebchatConversationPage(items=items, page=page, page_size=page_size, total=total)
 
     async def get_conversation(
-        self, scope: HistoryScope, conversation_id: uuid.UUID
+        self,
+        scope: HistoryScope,
+        conversation_id: uuid.UUID,
+        *,
+        policy: ConversationPolicy | None = None,
     ) -> WebchatConversationDetail:
         """API-15：核属后的会话详情（活跃 Run 供打开历史后的恢复，不暴露内部快照）。
 
@@ -213,6 +261,7 @@ class WebchatHistoryService:
         conversation = await load_explicit_conversation(
             self._session, _conversation_scope(scope), conversation_id
         )
+        await _assert_conversation_live(self._session, conversation, policy)
         entry_id = conversation.channel_account_id
         if entry_id is None:
             # 核属已保证入口归属；这里防御式显式失败，不返回不可归属的网页历史。
@@ -261,6 +310,7 @@ class WebchatHistoryService:
         page: int,
         page_size: int,
         through_seq: int | None,
+        policy: ConversationPolicy | None = None,
     ) -> WebchatMessagePage:
         """API-09：固定水位分页（首屏冻结、后页沿用；越界游标显式失败）。"""
         _validate_page(page, page_size)
@@ -270,6 +320,7 @@ class WebchatHistoryService:
         conversation = await load_explicit_conversation(
             self._session, _conversation_scope(scope), conversation_id
         )
+        await _assert_conversation_live(self._session, conversation, policy)
         watermark = conversation.last_seq if through_seq is None else through_seq
         if watermark > conversation.last_seq:
             raise AppError(ErrorCode.CURSOR_AHEAD)
@@ -287,9 +338,14 @@ class WebchatHistoryService:
         )
 
     async def _conversation_page(
-        self, scope: HistoryScope, *, page: int, page_size: int
+        self,
+        scope: HistoryScope,
+        *,
+        page: int,
+        page_size: int,
+        cutoff: datetime | None = None,
     ) -> tuple[list[Any], int]:
-        conditions = _conversation_conditions(scope)
+        conditions = _conversation_conditions(scope, cutoff=cutoff)
         page_stmt = (
             sa.select(
                 Conversation.id,

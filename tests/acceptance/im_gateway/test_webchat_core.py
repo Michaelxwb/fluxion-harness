@@ -5,11 +5,10 @@
 - **真实 Gateway / Console / Runtime / Worker 子进程**（`gateway_stack`：真实 uvicorn 进程、
   真实 PostgreSQL/Redis、真实模型探针）。
 - **真实 CHAT 身份**：Console 真实 Token 交换（PG `control.chat_access_token` →
-  `control.chat_session`）产出 Cookie + 上下文，网关经真实 `POST /internal/channel/chat-principal`
-  解析主体。
+  `control.chat_session`）产出 Cookie + 上下文，并把会话写入 Redis；网关从 Redis 读取主体。
 - **Console resolve 计数**取自 Console 进程真实 `GET /metrics`
-  （`console_api_requests_total{path="/internal/channel/chat-principal"}`）：每个提交请求只应
-  解析一次主体，受理核心不得为已解析主体再次回源 Console。
+  （`console_api_requests_total{path="/internal/channel/chat-principal"}`）：Redis 命中后
+  提交路径不得回源 Console（计数增量为 0）。
 - **202 延迟**是真实 HTTP 往返采样（与受理 SLO 同口径 P95 ≤ 500ms）。
 
 断言要点：
@@ -190,9 +189,8 @@ async def test_s08_webchat_sync_admission_is_single_run_and_does_not_re_resolve(
             assert replay["execution_status"]["stage"], replay
 
         after_calls = await _chat_principal_calls(stack.console_url)
-        requests_made = 1 + RETRY_SAMPLES
-        assert after_calls - baseline_calls == requests_made, (
-            "每个提交只允许解析一次主体：受理核心不得为已解析的 CHAT 主体再次回源 Console"
+        assert after_calls - baseline_calls == 0, (
+            "Redis 会话命中后提交路径不得回源 Console（exchange 写、每请求读 Redis）"
         )
 
         p95 = _p95(latencies)

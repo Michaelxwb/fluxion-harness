@@ -65,7 +65,7 @@
 ### 1.1 当前部署形态
 
 - `deploy/k8s/base` 固定四个 Deployment，Console/Gateway 各 1 副本、单进程 uvicorn；Dockerfile 没有 `--workers`。
-- Console/Gateway CPU limit 2 核，但 Python 单进程最多吃 1 核；800 用户实测 Console 932m、Gateway 991m（`agent-capacity-webchat-single-entry-review.md:75-89`）。
+- Console/Gateway CPU limit 2 核，但 Python 单进程最多吃 1 核；800 用户实测 Console 932m、Gateway 991m（2026-10-21 历史复核记录，已移除，见 git 历史）。
 - 容量 profile 的 `process_counts=1`、`max_replica_counts.im-gateway=1`、`pg_connection_budget=200`；预检固定四单元、固定单 Pod（`scripts/check_agent_capacity_deployment.py:72-75,325-347`）。
 - Runtime HPA 上界 4、执行槽 8/进程 = **32 并发 Run**；HPA 只看 CPU/内存（`deploy/k8s/base/capacity-autoscaling.yaml`）。
 

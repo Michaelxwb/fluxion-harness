@@ -4,7 +4,7 @@ from typing import Annotated, cast
 from fastapi import Depends, Request
 from muad_api.context import current_tenant_id
 from muad_artifact_store import SkillArtifactCache
-from muad_common import SharedSettings
+from muad_common import process_settings
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.async_tools.supervisor import ExecutionSupervisor
@@ -25,7 +25,7 @@ from ..infrastructure.platform_settings_client import ConsolePlatformSettingsCli
 
 
 def get_tenant_id() -> str:
-    return current_tenant_id() or SharedSettings().default_tenant_id
+    return current_tenant_id() or process_settings().default_tenant_id
 
 
 def get_instance_id(request: Request) -> str:
@@ -34,14 +34,14 @@ def get_instance_id(request: Request) -> str:
 
 def get_credential_canaries() -> tuple[str, ...]:
     """Live process credentials can never be stored, replayed or echoed (design §3.4.5)."""
-    token = SharedSettings().internal_service_token
+    token = process_settings().internal_service_token
     return (token,) if token else ()
 
 
 def get_resolve_client(request: Request) -> ResolveClient:
     client: ResolveClient | None = getattr(request.app.state, "resolve_client", None)
     if client is None:
-        settings = SharedSettings()
+        settings = process_settings()
         client = ConsoleResolveClient(
             settings.console_platform_url,
             service_token=settings.internal_service_token,
@@ -53,7 +53,7 @@ def get_resolve_client(request: Request) -> ResolveClient:
 def get_platform_settings_client(request: Request) -> PlatformSettingsClient:
     client: PlatformSettingsClient | None = getattr(request.app.state, "platform_settings_client", None)
     if client is None:
-        settings = SharedSettings()
+        settings = process_settings()
         client = ConsolePlatformSettingsClient(
             settings.console_platform_url,
             service_token=settings.internal_service_token,
@@ -71,7 +71,7 @@ def get_skill_cache(request: Request) -> SkillArtifactCache:
 
 
 def get_artifact_writer() -> ArtifactResultWriter:
-    return ArtifactResultWriter(SharedSettings().artifact_root)
+    return ArtifactResultWriter(process_settings().artifact_root)
 
 
 def get_executor_factory(

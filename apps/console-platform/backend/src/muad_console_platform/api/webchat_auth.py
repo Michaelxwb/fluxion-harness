@@ -17,15 +17,24 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response
 from muad_api import ApiResponse, AppError, ok
 from muad_api.error_codes import ErrorCode
-from muad_contracts.webchat import WebchatTokenExchange
+from muad_common.session_store import (
+    RedisSessionStore,
+    SessionAgent,
+    SessionRecord,
+    SessionStoreUnavailable,
+    hash_session_token,
+)
+from muad_contracts.webchat import ChatPrincipalRequest, WebchatTokenExchange
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.channel_identity_service import ChannelIdentityService
 from ..application.chat_auth_service import ChatSessionService
 from ..infrastructure.db import get_session
 from ..metrics import CHAT_AUTH_METRIC, count_outcome
@@ -46,6 +55,17 @@ public_router = APIRouter(prefix="/api/v1/webchat/auth", tags=["webchat-auth"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 
+def get_session_store(request: Request) -> RedisSessionStore:
+    store: RedisSessionStore | None = getattr(request.app.state, "session_store", None)
+    if store is None:
+        # 没有 Redis 就没有 CHAT 会话权威：显式失败，不回退到 PG/Console。
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+    return store
+
+
+SessionStoreDep = Annotated[RedisSessionStore, Depends(get_session_store)]
+
+
 def _presented_session_token(request: Request) -> SecretStr:
     """只从独立 CHAT Cookie 取凭据；缺失即 401（不回显任何输入值）。"""
     token = request.cookies.get(CHAT_SESSION_COOKIE, "")
@@ -60,14 +80,44 @@ async def exchange_chat_token(
     request: Request,
     response: Response,
     session: Session,
+    store: SessionStoreDep,
 ) -> ApiResponse[Any]:
-    """API-04 交换：Origin 先于凭据/请求体；身份从 Token 记录导出，原文只进 HttpOnly Cookie。"""
+    """API-04 交换：Origin 先于凭据/请求体；身份从 Token 记录导出，原文只进 HttpOnly Cookie。
+
+    提交 PG 后再写 Redis：key 是会话原文的 SHA-256；value 含 principal、当前授权 Agent、
+    绝对到期（来源 Token）与 idle TTL。Redis 写失败显式 500，不伪造已登录。
+    """
     with count_outcome(CHAT_AUTH_METRIC, {"operation": "exchange"}):
         grant = await ChatSessionService(session).exchange(payload.token)
+        resolved = await ChannelIdentityService(session).resolve_chat_principal(
+            grant.info.tenant_id,
+            ChatPrincipalRequest(session_token=grant.session_token),
+            chat_context=grant.info.session_id,
+        )
         max_age = await chat_cookie_max_age(session, grant.info.expires_at)
         # 先提交再下发会话 Cookie：请求级 session 的 teardown 在响应发出之后才提交，
         # 直接返回会让客户端拿到令牌后的第一个请求查不到会话行（E2E 创建会话偶发 401）。
         await session.commit()
+        record = SessionRecord(
+            tenant_id=resolved.principal.tenant_id,
+            platform_user_id=resolved.principal.platform_user_id,
+            session_id=resolved.principal.session_id,
+            auth_method=resolved.principal.auth_method,
+            expires_at=resolved.expires_at,
+            idle_ttl_sec=grant.idle_ttl_sec,
+            agents=tuple(
+                SessionAgent(agent_id=agent.agent_id, key=agent.key, name=agent.name)
+                for agent in resolved.agents
+            ),
+        )
+        try:
+            await store.write(
+                hash_session_token(grant.session_token.get_secret_value()),
+                record,
+                now=datetime.now(UTC),
+            )
+        except SessionStoreUnavailable as exc:
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
         set_chat_cookies(response, grant.session_token, new_csrf_token(), max_age)
     mark_no_store(response)
     return ok(request.app.state.message_catalog, grant.info.model_dump(mode="json"))
@@ -86,12 +136,17 @@ async def read_chat_identity(
 
 @public_router.post("/logout", dependencies=[Depends(require_chat_csrf)])
 async def logout_chat_session(
-    request: Request, response: Response, session: Session
+    request: Request, response: Response, session: Session, store: SessionStoreDep
 ) -> ApiResponse[Any]:
-    """API-04 登出：撤本会话（幂等）、清 CHAT 两枚 Cookie；来源 Token 与管理会话不受影响。"""
+    """API-04 登出：撤本会话（幂等）、删 Redis key、清 Cookie；Redis 失败显式 500。"""
     with count_outcome(CHAT_AUTH_METRIC, {"operation": "logout"}):
-        await ChatSessionService(session).logout(_presented_session_token(request))
+        token = _presented_session_token(request)
+        await ChatSessionService(session).logout(token)
         await session.commit()
+        try:
+            await store.delete(hash_session_token(token.get_secret_value()))
+        except SessionStoreUnavailable as exc:
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
         clear_chat_cookies(response)
     mark_no_store(response)
     return ok(request.app.state.message_catalog, {"logged_out": True})

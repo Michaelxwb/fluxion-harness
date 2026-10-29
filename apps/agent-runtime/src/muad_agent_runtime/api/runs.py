@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import StreamingResponse
 from muad_api import ApiResponse, ok
 from muad_api.security import require_internal_service
-from muad_common import SharedSettings
+from muad_common import process_settings
 from muad_contracts import RunRequest
 from muad_contracts.webchat import (
     ADMISSION_CONVERSATION_ID_HEADER,
@@ -41,7 +41,7 @@ async def _sse_response(
     frames = iter_sse_frames(
         run.events,
         run_id=run.run_id,
-        heartbeat_sec=SharedSettings().run_event_heartbeat_sec,
+        heartbeat_sec=process_settings().run_event_heartbeat_sec,
     )
     headers = dict(SSE_HEADERS)
     headers[ADMISSION_RUN_ID_HEADER] = str(run.run_id)

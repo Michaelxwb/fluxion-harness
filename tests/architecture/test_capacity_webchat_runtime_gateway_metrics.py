@@ -127,6 +127,10 @@ ALLOWED_LABEL_NAMES = frozenset(
         "loop",
         "caller",
         "result",
+        # GC 诊断探针：generation ∈ {0,1,2}，低基数。
+        "generation",
+        # 事件批大小桶：固定上界，低基数。
+        "bucket",
     }
 )
 SENSITIVE_LABEL_MARKERS = (

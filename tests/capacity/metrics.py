@@ -39,6 +39,7 @@ __all__ = [
     "PrometheusSample",
     "RunState",
     "UnitMetricsSnapshot",
+    "aggregate_metric_deltas",
     "artifact_bytes",
     "metric_deltas",
     "parse_prometheus_text",
@@ -213,6 +214,38 @@ def metric_deltas(before: UnitMetricsSnapshot, after: UnitMetricsSnapshot) -> Ma
     before_values, after_values = before.values(), after.values()
     keys = set(before_values) | set(after_values)
     return {key: after_values.get(key, 0.0) - before_values.get(key, 0.0) for key in sorted(keys)}
+
+
+def aggregate_metric_deltas(
+    before: Sequence[UnitMetricsSnapshot],
+    after: Sequence[UnitMetricsSnapshot],
+) -> Mapping[str, float]:
+    """多副本单元的增量：按副本地址对齐，逐副本求差后按样本键汇总。
+
+    同一单元的每个副本各自维护进程内计数器（`run_admission_total` 等）；只有把各副本的
+    增量相加，才能与入口代理分流后的总受理数对账。副本集合在前后两次抓取间必须一致：
+    中途换端口/增减副本会让对账失去同一口径，显式失败而不是静默漏算。
+    """
+    if not before or not after:
+        raise MetricsError("多副本增量对账缺少抓取快照")
+    unit = before[0].unit
+    if any(snapshot.unit != unit for snapshot in before) or any(
+        snapshot.unit != unit for snapshot in after
+    ):
+        raise MetricsError("跨单元对账被拒：多副本快照必须属于同一单元")
+    before_by_url = {snapshot.base_url: snapshot for snapshot in before}
+    after_by_url = {snapshot.base_url: snapshot for snapshot in after}
+    if len(before_by_url) != len(before) or len(after_by_url) != len(after):
+        raise MetricsError(f"{unit} 的 /metrics 抓取出现重复副本地址")
+    missing = sorted(set(before_by_url) - set(after_by_url))
+    added = sorted(set(after_by_url) - set(before_by_url))
+    if missing or added:
+        raise MetricsError(f"{unit} 的副本集合在两次抓取间变化：missing={missing} added={added}")
+    totals: dict[str, float] = {}
+    for base_url, snapshot in before_by_url.items():
+        for key, value in metric_deltas(snapshot, after_by_url[base_url]).items():
+            totals[key] = totals.get(key, 0.0) + value
+    return totals
 
 
 # --------------------------------------------------------------------------------------

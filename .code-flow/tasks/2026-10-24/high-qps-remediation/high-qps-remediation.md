@@ -3,7 +3,7 @@
 - **Source**: `.code-flow/tasks/2026-10-24/high-qps-remediation/`（backend/frontend design + scenarios 合并）
 - **Created**: 2026-10-25
 - **Updated**: 2026-10-26
-- **Plan-State**: TASK-001..007 done；TASK-008..012 draft
+- **Plan-State**: TASK-001..012 done；E-06/E-09 已按用户确认记录人工延期（未执行，不宣称 staging/真机达标）；需求级终验与归档门禁进行中
 
 ## Proposal
 
@@ -56,10 +56,10 @@
 | E-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；kill -9 在 WS 收到后、XADD 前 | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | E-04 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector + 假 WS 服务端；旧 reply_ref 过期后发送终态/产物 | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | E-05 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Runtime + Redis 停机 + PG 持久事件 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_capacity_webchat_shared_tail.py", "-k", "lost_hint_falls_back or hint_failure_keeps"] | . | 600 | P1 | auto | local-api | - | - | - | no |
-| E-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | manual | 真实企微智能机器人 + 两个 Connector 候选 + 真实网络；不是假 WS | TASK-007 | planned | - | . | 600 | P0 | manual | staging | - | - | - | no |
+| E-06 | high-qps-remediation.backend.design.md#2.5 验收条件 | manual | 真实企微智能机器人 + 两个 Connector 候选 + 真实网络；不是假 WS | TASK-007 | verified | - | . | 600 | P0 | manual | staging | - | - | - | no |
 | E-07 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Connector 进程 + Redis Stream；关闭平台重投 | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | E-08 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实进程 + PG/Redis 故障注入 | TASK-012 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_chaos.py"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
-| E-09 | high-qps-remediation.backend.design.md#2.5 验收条件 | manual | staging 目标拓扑；人工执行并记录证据 | TASK-012 | planned | - | . | 3600 | P0 | manual | staging | - | - | - | no |
+| E-09 | high-qps-remediation.backend.design.md#2.5 验收条件 | manual | staging 目标拓扑；人工执行并记录证据 | TASK-012 | verified | - | . | 3600 | P0 | manual | staging | - | - | - | no |
 | S-01 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实入口代理 → Gateway → Runtime → PostgreSQL/Redis；模型为可控 HTTP 流式探针；通知轮询为浏览器同形请求 | TASK-012 | e2e_deferred | ["bash", "-lc", "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"] | . | 5400 | P0 | deferred | local-api | - | - | - | no |
 | S-02 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 浏览器同形通知轮询 → Gateway → Console auth / Runtime notifications；真实 PG/Redis | TASK-002 | e2e_deferred | ["bash", "-lc", "CAPACITY_NOTIFICATION_USERS=1000 CAPACITY_LOAD_USERS=1000 uv run pytest -q tests/acceptance/capacity/test_capacity_notifications.py -k s02"] | . | 900 | P0 | deferred | local-api | - | - | - | no |
 | S-03 | high-qps-remediation.backend.design.md#2.5 验收条件 | integration | 真实 Gateway/Runtime HTTP SSE + 真实 PostgreSQL；runtime DB pool=2 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_stream_delivery.py", "-k", "pool_two_hundred"] | . | 600 | P0 | auto | local-api | - | - | - | no |
@@ -268,7 +268,7 @@ settings 单例/注入、chat auth 5 SQL→2 SQL、通知 page_size/空闲 fast 
 - [x] 准入材料阶段与写事务 gate 分离；preflight 校验 pool+overflow ≥ gate
 - [x] [S-03][integration] pool=2 × 100 流：全部成功、PG total≤20、稳态 idle-in-tx≈0
 - [x] [E-02][integration] pool=1 超容量：1s 内显式失败，不挂 5s、不抛未处理 QueuePool
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -544,7 +544,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 - [x] [E-03][integration] 平台重投：只建一个 Run
 - [x] [E-07][integration] 平台不重投：显式 LOST/告警，不假装成功
 - [x] [E-04][integration] reply_ref 过期：主动发送+DEGRADED，不串消息
-- [ ] [E-06][manual] 真机企微双 WS/req_id 跨重连：记录真实语义（staging；owner=Connector 负责人；deadline=Phase 2 结束前；未通过不得宣称企微多连接安全）——**本轮未执行，保留 manual**
+- [x] [E-06][manual] 真机企微双 WS/req_id 跨重连：记录真实语义（staging；owner=Connector 负责人；deadline=Phase 2 结束前；未通过不得宣称企微多连接安全）——**本轮未执行；已按用户确认记录人工延期，保留 manual，不宣称企微多连接安全**
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
@@ -554,7 +554,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 | S-05 | integration | 双 Connector 进程 + 假 WS + Redis lease | 单 owner；epoch 拒旧 owner；接管；无重复 | tests/acceptance/im_gateway/test_connector_lease.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_lease.py"] | verified |
 | E-03 | integration | 真实 Connector + Redis Stream；平台重投 | 最终一个 Run；无重复回复 | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | verified |
 | E-04 | integration | 真实 Connector + 假 WS；旧 reply_ref | 主动发送+DEGRADED；不串消息 | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | verified |
-| E-06 | manual | 真实企微 + 两个 Connector + staging | 记录双 WS/req_id 寿命；降级符合预期 | manual/staging（owner=Connector 负责人；deadline=Phase 2 结束前） | - | planned |
+| E-06 | manual | 真实企微 + 两个 Connector + staging | 记录双 WS/req_id 寿命；降级符合预期 | manual/staging（owner=Connector 负责人；deadline=Phase 2 结束前） | - | verified |
 | E-07 | integration | 真实 Connector + Redis；平台不重投 | 显式 FAILED/告警；不承诺 exactly-once | tests/acceptance/im_gateway/test_connector_failover.py | ["uv", "run", "pytest", "-q", "tests/acceptance/im_gateway/test_connector_failover.py"] | verified |
 
 ### Acceptance Evidence
@@ -566,7 +566,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 | S-05 | 两个 Connector 各自建连（无 lease 过滤）；接管窗口重复入站 | 两个真实 Connector 进程 + 真实 Redis：只有 1 条 `aibot_subscribe`；SIGKILL owner 后另一进程以更高 epoch 接管并新建连接；接管后同 message_id 只有 1 条 Stream 记录；reply store 跨进程可读 | `tests/acceptance/im_gateway/test_connector_lease.py::test_s05_single_owner_takeover_after_sigkill_and_no_duplicate_inbound` | 真实 Console 快照 + 真实 Redis lease/Stream + 真实本地 WSS 探针 | verified |
 | E-03 | 收到消息后、XADD 前 SIGKILL：平台重投可能建两个 Run | 崩溃点确定性复现（RECEIVED 标记后暂停）；重启后平台重投发布一次；同一条入站事实提交 Runtime 两次仍只有 1 个 `run_record` | `tests/acceptance/im_gateway/test_connector_failover.py::test_e03_crash_before_xadd_then_platform_redelivery_creates_one_run` | 真实 Connector 子进程 + 真实 Redis Stream + 真实 Runtime/PG | verified |
 | E-04 | reply_ref 过期仍用旧 req_id；或静默丢弃内容 | 有效 reply_ref 走 `aibot_respond_msg`；删除 reply store 后同命令返回 `DEGRADED/REPLY_REF_EXPIRED`，探针只收到 `aibot_send_msg`，没有任何帧携带旧 req_id | `tests/acceptance/im_gateway/test_connector_failover.py::test_e04_expired_reply_ref_degrades_to_active_without_wrong_callback` | 真实 Connector + 真实 Redis reply store + 真实 WSS 探针 | verified |
-| E-06 | 未执行（需要真实企微 + staging 双 WS） | 未执行；已登记 manual/staging，owner=Connector 负责人，deadline=Phase 2 结束前 | manual | staging | manual_pending |
+| E-06 | 未执行（需要真实企微 + staging 双 WS） | 未执行；已按用户确认记录人工延期，不冒充真机通过（owner=Connector 负责人；deadline=Phase 2 结束前） | manual | staging | verified |
 | E-07 | 不重投时标记停在 RECEIVED，看起来像"没发生" | 重启扫描把超时 RECEIVED 置 LOST；`connector_inbound_lost_total` 增长；ERROR 日志可查；无 Stream 记录、无 Run | `tests/acceptance/im_gateway/test_connector_failover.py::test_e07_no_redelivery_is_explicitly_lost_and_never_fakes_a_run` | 真实 Connector 子进程 + 真实 Redis；不重投由测试显式不推送模拟 | verified |
 - E-03: e2e_deferred — automated command e2e_deferred; run_id=8c14735dc81948b0a96011caaa0ac9c3 (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=8c14735dc81948b0a96011caaa0ac9c3 (confirmed_by: runner)
@@ -587,6 +587,7 @@ per-Run 批量 writer、seq 块、lease fence、批量 INSERT；去掉每事件�
 - E-04: verified — automated command passed; run_id=2cd020b407614a5884510f4d14a8472e (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=2cd020b407614a5884510f4d14a8472e (confirmed_by: runner)
 - S-05: verified — automated command passed; run_id=2cd020b407614a5884510f4d14a8472e (confirmed_by: runner)
+- E-06: verified — 用户指令（2026-10-29）：两个 E 场景标记人工确认。本地无 16c/staging 机器，E-09 未执行；E-06 需真实企微环境，未执行；两项均不作为 SLO/生产容量达标证据。 (confirmed_by: jahan)
 
 ### Log
 
@@ -821,10 +822,10 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 - [x] 交付 `<Capability>`：请求带 page_size；聊天首屏不含 admin chunk；静态 overlay 按设计为可选、未启用（见 B-04 登记）
 - [x] `useNotifications` 从 client-config 取 page_size/poll_sec；service 层请求
 - [x] admin 路由 lazy + Suspense/错误边界；深链可用
-- [ ] 可选 console-web overlay：按设计为可选、未启用（nginx 静态 + Ingress 同源路径未落地；默认 base 仍 4 单元，理由见 Acceptance Evidence B-04）
+- [x] 可选 console-web overlay：按设计为可选、未启用（nginx 静态 + Ingress 同源路径未落地；默认 base 仍 4 单元，理由见 Acceptance Evidence B-04）
 - [x] [S-09][component] 请求 query/page_size/轮询间隔/不裸 fetch
 - [x] [S-10][component] admin lazy/深链/聊天首屏不加载 admin chunk
-- [ ] [B-04][E2E] deferred 登记（不执行、无 RED/GREEN）：静态 overlay 同源 Cookie/CSRF/SSE；默认 base 对照，留 verify-e2e
+- [x] [B-04][E2E] deferred 登记（不执行、无 RED/GREEN）：静态 overlay 同源 Cookie/CSRF/SSE；默认 base 对照，留 verify-e2e
 - [x] [harness-frontend#RULE-front-001][verifier] bash -lc "uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"
 - [x] [harness-ui#RULE-ui-001][verifier] bash -lc "uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"
 - [x] 运行验收命令并填写 Acceptance Evidence
@@ -914,7 +915,7 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 |---|---|---|---|---|---|---|
 | S-01 | integration | 真实目标拓扑 + 1000×8 + 20 chunks/s + 15s 通知 | SLO 全过；attempts=8000；PG/CPU/retention 预算内 | tests/acceptance/capacity/test_capacity.py | ["bash", "-lc", "uv run pytest -q -m capacity_load tests/acceptance/capacity/test_capacity.py"] | deferred（staging，由 E-09 执行） | e2e_deferred |
 | E-08 | integration | 真实 PG/Redis + Pod kill/failover | 已受理不丢；SSE 可恢复；无重复终态/投递 | tests/acceptance/capacity/test_capacity_chaos.py | ["uv", "run", "pytest", "-q", "tests/acceptance/capacity/test_capacity_chaos.py"]（实测 4 passed, 1 env_blocked skip）| verified |
-| E-09 | manual | staging 目标拓扑 + 人工执行 | SLO 全过并记录证据；未过不得写达标 | manual/staging（owner=发布负责人；deadline=发布前） | - | planned |
+| E-09 | manual | staging 目标拓扑 + 人工执行 | SLO 全过并记录证据；未过不得写达标 | manual/staging（owner=发布负责人；deadline=发布前） | - | verified |
 
 **Spec Verifier**
 
@@ -930,8 +931,9 @@ useNotifications 带 page_size、轮询 15s；admin 路由 lazy；可选 console
 |---|---|---|---|---|---|
 | S-01 | 本地无 1000×8 执行环境（单机四单元 Runtime 池 20+10=30、准入闸门 30；30 用户对照实验全过可证明本机不是 SLO 判据） | 本地不执行，登记 staging 执行：attempts=8000 与 SLO 证据由 E-09 产出（owner=发布负责人，deadline=发布前） | 不适用（本地不执行；`tests/acceptance/capacity/test_capacity.py` 为 `capacity_load` 手动入口） | 真实目标拓扑（N Runtime 副本、PG total<200、模型额度）+ 1000×8 + 20 chunks/s × 10s + 15s 通知 | deferred（staging → E-09） |
 | E-08 | 首版 `test_capacity_chaos.py`：读线程在 kill 前提前返回、把 `run.failed` 当 `run.terminal` ⇒ 2 failed；后暴露入口代理在流中上游断开后不发 EOF ⇒ kill 用例等 30s 读超时 | `uv run pytest -q tests/acceptance/capacity/test_capacity_chaos.py` ⇒ **4 passed, 1 skipped**（Redis 抖动 30s / Gateway kill 4s / Runtime kill 7s / PG 连接中断 10s；skip = PG failover env_blocked） | `tests/acceptance/capacity/test_capacity_chaos.py::test_e08_redis_jitter_degrades_to_pg_and_recovers`、`::test_e08_gateway_kill_keeps_execution_and_recovers_public_sse`、`::test_e08_runtime_kill_reaps_run_and_resumes_sse_without_duplicates`、`::test_e08_postgres_connection_outage_keeps_admitted_run` | 真实四单元 uvicorn 子进程 + 真实 TCP 故障代理（Runtime `REDIS_URL` 经代理 DROP）+ SIGKILL 整进程组/同地址重启 + 真实 PostgreSQL（本栈临时库 `pg_terminate_backend`）。断言用户可观察的公开 SSE 正文/终态（`run.terminal` / 失败的 `run.error`）+ PG 事实：终态 `canonical_event` 恰一条、`channel_notification` 恰一行且 `delivery_key` 唯一、Reaper 落 `FAILED/RUN_ABANDONED`、模型只调用一次、降级指标 `event_stream_hint_total{status="degraded"}` 真实增长。PG 主备切换/副本提升：本机无副本且共享单主容器不可重启 ⇒ `env_blocked`（缺失环境：带副本提升的 PG 目标拓扑；owner=发布负责人；由 staging E-09 覆盖），不冒充通过（实测 4 passed, 1 env_blocked skip）| verified |
-| E-09 | 未执行（staging 人工发布门禁，发布前执行） | 未执行；未过不得写生产达标 | `manual/staging`：全量 `capacity_load` 1000×8 + SLO/PG/CPU/retention 证据 + profile hash；发布门禁按 design §4.2（Phase 2 进入=1000 用户 SLO 通过；回滚=保留旧写路径开关/DB 备份回退）与 §4.3 告警阈值（受理 P95>500ms 5min P1、idle-in-tx>50 P1、pool timeout>0 P1、SSE rejected>0 P2、retention lag P2）记录 | 真实 staging 目标拓扑（N Runtime 副本、PG total<200、模型额度、观测就绪）；owner=发布负责人；deadline=发布前 | planned |
+| E-09 | 未执行（staging 人工发布门禁，发布前执行） | 未执行；已按用户确认记录人工延期，不冒充生产容量达标 | `manual/staging`：全量 `capacity_load` 1000×8 + SLO/PG/CPU/retention 证据 + profile hash；发布门禁按 design §4.2（Phase 2 进入=1000 用户 SLO 通过；回滚=保留旧写路径开关/DB 备份回退）与 §4.3 告警阈值（受理 P95>500ms 5min P1、idle-in-tx>50 P1、pool timeout>0 P1、SSE rejected>0 P2、retention lag P2）记录 | 真实 staging 目标拓扑（N Runtime 副本、PG total<200、模型额度、观测就绪）；owner=发布负责人；deadline=发布前 | verified |
 - S-01: e2e_deferred — automated command e2e_deferred; run_id=ca731a97641f423c97a6ec0925ebd7ff (confirmed_by: runner)
+- E-09: verified — 用户指令（2026-10-29）：两个 E 场景标记人工确认。本地无 16c/staging 机器，E-09 未执行；E-06 需真实企微环境，未执行；两项均不作为 SLO/生产容量达标证据。 (confirmed_by: jahan)
 
 ### Log
 

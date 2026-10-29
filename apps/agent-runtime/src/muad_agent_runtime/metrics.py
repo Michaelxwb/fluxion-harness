@@ -123,10 +123,150 @@ WEBCHAT_RETENTION_METRIC: Final = "webchat_retention_total"
 #: 四类清理各自的回收量记在 **amount**（条数进 label 会裂出无界时间序列）。
 WEBCHAT_RETENTION_REMOVED_METRIC: Final = "webchat_retention_removed_total"
 
+# --- 诊断分段计时（1000 用户容量瓶颈定位） -----------------------------------------------
+#: 从连接池取连接的等待时长。SQLAlchemy 公开的 `checkout` 事件在连接**已取到**之后才触发，
+#: 排队时长只能在池的取连接处测（`db_timing.TimedAsyncAdaptedQueuePool`）。
+DB_POOL_CHECKOUT_SECONDS: Final = "db_pool_checkout_seconds"
+#: 连接从 checkout 到 checkin 的持有时间（事务 + 事务间空闲都在内）。
+DB_CONNECTION_HOLD_SECONDS: Final = "db_connection_hold_seconds"
+#: SQLAlchemy 会话 commit 的墙钟（含 flush；用于拆分 select/capacity 的 commit 尾巴）。
+DB_COMMIT_SECONDS: Final = "db_commit_seconds"
+#: 每进程 SELECT 1 探针：池/连接/await 的纯往返成本（诊断，默认关闭）。
+DB_PROBE_SECONDS: Final = "db_probe_seconds"
+#: 事件循环 lag：固定间隔 sleep 的实际超时（诊断，默认关闭）。
+EVENT_LOOP_LAG_SECONDS: Final = "event_loop_lag_seconds"
+#: GC 停顿：start→stop 回调之间的墙钟（诊断，默认关闭）。
+GC_PAUSE_SECONDS: Final = "gc_pause_seconds"
+#: GC 触发次数（按代际；与停顿时长分开，便于区分高频短停顿与低频长停顿）。
+GC_COLLECTIONS_TOTAL: Final = "gc_collections_total"
+#: 单次 canonical 事件写入（`RunService._persist_event`，含批量等待 + 一次批 commit）的时长。
+RUN_PERSIST_EVENT_SECONDS: Final = "run_persist_event_seconds"
+#: 完整回合 checkpoint（`DurableRuntimeEventPort.checkpoint`）的时长。
+RUN_CHECKPOINT_SECONDS: Final = "run_checkpoint_seconds"
+#: 执行片段分解：`stage=first_event|total|persist|wait`（wait = total - persist，含模型与
+#: 执行器内部工作）。四段相加不重复：first_event 是 total 的前缀样本。
+RUN_CONSUME_SECONDS: Final = "run_consume_seconds"
+#: 终态收尾（`_finalize_run`/`_finalize_failed`）的时长。
+RUN_FINALIZE_SECONDS: Final = "run_finalize_seconds"
+#: 终态事务分段：lock/cancel/run_cas/release/events/submission/notification/activity/memory/commit。
+RUN_FINALIZE_STAGE_SECONDS: Final = "run_finalize_stage_seconds"
+#: 事件批量化：flush 时长、从 submit 到 commit 的等待、最近一批大小、累计提交事件数。
+EVENT_BATCH_FLUSH_SECONDS: Final = "event_batch_flush_seconds"
+EVENT_BATCH_WAIT_SECONDS: Final = "event_batch_wait_seconds"
+EVENT_BATCH_SIZE: Final = "event_batch_size"
+EVENT_BATCH_EVENTS_TOTAL: Final = "event_batch_events_total"
+#: batch flush 内部分段：锁 / PG 时钟 / seq / INSERT / COMMIT / 入队等待。
+EVENT_BATCH_LOCK_SECONDS: Final = "event_batch_lock_seconds"
+EVENT_BATCH_CONVERSATION_LOCK_SECONDS: Final = "event_batch_conversation_lock_seconds"
+EVENT_BATCH_RUN_LOCK_SECONDS: Final = "event_batch_run_lock_seconds"
+EVENT_BATCH_CONTINUATION_LOCK_SECONDS: Final = "event_batch_continuation_lock_seconds"
+EVENT_BATCH_CLOCK_SECONDS: Final = "event_batch_clock_seconds"
+EVENT_BATCH_SEQ_SECONDS: Final = "event_batch_seq_seconds"
+EVENT_BATCH_INSERT_SECONDS: Final = "event_batch_insert_seconds"
+EVENT_BATCH_COMMIT_SECONDS: Final = "event_batch_commit_seconds"
+EVENT_BATCH_QUEUE_SECONDS: Final = "event_batch_queue_seconds"
+EVENT_BATCH_RUNS: Final = "event_batch_runs"
+EVENT_BATCH_CONVERSATIONS: Final = "event_batch_conversations"
+EVENT_BATCH_CONVERSATIONS_TOTAL: Final = "event_batch_conversations_total"
+EVENT_BATCH_RUNS_TOTAL: Final = "event_batch_runs_total"
+EVENT_BATCH_FLUSHES_TOTAL: Final = "event_batch_flushes_total"
+EVENT_BATCH_CONVERSATION_BUCKET: Final = "event_batch_conversation_bucket"
+EVENT_BATCH_RUN_BUCKET: Final = "event_batch_run_bucket"
+EVENT_BATCH_QUEUE_DEPTH: Final = "event_batch_queue_depth"
+#: 执行租约续租：墙钟时长与失败/失约次数（与事件写分开观测）。
+RUN_LEASE_RENEW_SECONDS: Final = "run_lease_renew_seconds"
+RUN_LEASE_RENEW_FAILURES_TOTAL: Final = "run_lease_renew_failures_total"
+#: 受理分段：`stage=gate|precheck|materials|claim|write`（write 不含 claim）。
+RUN_ADMISSION_STAGE_SECONDS: Final = "run_admission_stage_seconds"
+#: 受理写事务内部：first_stmt/policy/inserts/submission/attachments/memory/events/conversation/counts/commit。
+RUN_ADMISSION_CREATE_STAGE_SECONDS: Final = "run_admission_create_stage_seconds"
+#: 模型调用分段：`stage=candidates|reserve|credentials|upstream|total`（预留/凭据/上游分开）。
+MODEL_CALL_SECONDS: Final = "model_call_seconds"
+
+#: 时长桶上界（秒）。桶按累计语义记录：样本 `<=` 上界即计入该桶。
+LATENCY_BUCKETS_SECONDS: Final = (
+    0.0005,
+    0.001,
+    0.002,
+    0.005,
+    0.01,
+    0.02,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    2.0,
+    5.0,
+    10.0,
+    30.0,
+)
+
+#: 分段计时族：(族名, label 名, help)。每个族导出**累计桶** `<族名>_le_<上界>`（上界编在
+#: 指标名里，如 `..._le_50ms`）+ `<族名>_sum` + `<族名>_count`。桶上界不进 label：label 名
+#: 是跨单元的封闭白名单（`tests/architecture/...` 机检），把上界编进名字同样可枚举、可复算。
+_LATENCY_FAMILIES: Final[tuple[tuple[str, tuple[str, ...], str], ...]] = (
+    (DB_POOL_CHECKOUT_SECONDS, (), "Time spent waiting for a pooled database connection"),
+    (DB_CONNECTION_HOLD_SECONDS, (), "Time a pooled database connection was checked out"),
+    (DB_COMMIT_SECONDS, (), "SQLAlchemy session commit duration (incl. flush)"),
+    (DB_PROBE_SECONDS, (), "Per-process SELECT 1 probe latency"),
+    (EVENT_LOOP_LAG_SECONDS, (), "Event loop lag measured as sleep overshoot"),
+    (GC_PAUSE_SECONDS, (), "Stop-the-world GC pause duration"),
+    (RUN_PERSIST_EVENT_SECONDS, (), "Canonical event persistence duration per event"),
+    (RUN_CHECKPOINT_SECONDS, (), "Complete-round checkpoint persistence duration"),
+    (
+        RUN_CONSUME_SECONDS,
+        ("stage",),
+        "Run executor consumption split by stage (first_event/total/persist/wait)",
+    ),
+    (RUN_FINALIZE_SECONDS, (), "Run terminal finalization duration"),
+    (
+        RUN_FINALIZE_STAGE_SECONDS,
+        ("stage",),
+        "Run terminal finalization split by stage",
+    ),
+    (
+        EVENT_BATCH_FLUSH_SECONDS,
+        (),
+        "Event batcher flush duration (lock + insert + commit)",
+    ),
+    (
+        EVENT_BATCH_WAIT_SECONDS,
+        (),
+        "Event batcher time from submit to committed",
+    ),
+    (EVENT_BATCH_LOCK_SECONDS, (), "Event batcher source lock wait (total)"),
+    (EVENT_BATCH_CONVERSATION_LOCK_SECONDS, (), "Event batcher conversation row lock wait"),
+    (EVENT_BATCH_RUN_LOCK_SECONDS, (), "Event batcher run row lock wait"),
+    (EVENT_BATCH_CONTINUATION_LOCK_SECONDS, (), "Event batcher continuation row lock wait"),
+    (EVENT_BATCH_CLOCK_SECONDS, (), "Event batcher database clock wait"),
+    (EVENT_BATCH_SEQ_SECONDS, (), "Event batcher sequence allocation"),
+    (EVENT_BATCH_INSERT_SECONDS, (), "Event batcher INSERT/flush"),
+    (EVENT_BATCH_COMMIT_SECONDS, (), "Event batcher COMMIT"),
+    (EVENT_BATCH_QUEUE_SECONDS, (), "Event batcher queue wait before flush"),
+    (RUN_LEASE_RENEW_SECONDS, (), "Execution lease renew duration"),
+    (
+        RUN_ADMISSION_STAGE_SECONDS,
+        ("stage",),
+        "Run admission split by stage (gate/precheck/materials/claim/write)",
+    ),
+    (
+        RUN_ADMISSION_CREATE_STAGE_SECONDS,
+        ("stage",),
+        "Run create transaction split by internal stage",
+    ),
+    (
+        MODEL_CALL_SECONDS,
+        ("stage",),
+        "Model call split by stage (candidates/reserve/credentials/upstream/total)",
+    ),
+)
+
 #: 共享追尾 outcome 的封闭词表（`event_tail_hub_total` 的 label 取值）。
 TailHubOutcome = Literal[
     "wakeup",
     "fallback_poll",
+    "fallback_failure",
     "lagged_rebuild",
     "cursor_ahead",
     "cursor_expired",
@@ -152,10 +292,29 @@ RetentionKind = Literal["stream_replay", "history", "notifications", "staging_up
 
 COUNTER: Final = "counter"
 GAUGE: Final = "gauge"
+HISTOGRAM: Final = "histogram"
+
+#: 分段计时族在目录里按 histogram 声明（无流量也可见，`/metrics` 有 `# TYPE` 行）；线格式是
+#: `<族名>_le_<上界>`/`_sum`/`_count` 三个 counter 序列 —— 落在既有 api-kit 注册表能力之内。
+_LATENCY_CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = tuple(
+    (name, HISTOGRAM, labels, help_text) for name, labels, help_text in _LATENCY_FAMILIES
+)
 
 # 目录：(指标名, 类型, label 名, help)。安装时声明，使 `/metrics` 无流量时也暴露完整目录。
 CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     (AGENT_RUNS_METRIC, COUNTER, ("agent", "status"), "Agent runs by agent key and outcome"),
+    (GC_COLLECTIONS_TOTAL, COUNTER, ("generation",), "GC collections by generation"),
+    (EVENT_BATCH_SIZE, GAUGE, (), "Last event batch size (events per flush)"),
+    (EVENT_BATCH_EVENTS_TOTAL, COUNTER, (), "Events committed through the event batcher"),
+    (EVENT_BATCH_RUNS, GAUGE, (), "Runs in the last event batch"),
+    (EVENT_BATCH_CONVERSATIONS, GAUGE, (), "Conversations in the last event batch"),
+    (EVENT_BATCH_CONVERSATIONS_TOTAL, COUNTER, (), "Sum of conversations across event batches"),
+    (EVENT_BATCH_RUNS_TOTAL, COUNTER, (), "Sum of runs across event batches"),
+    (EVENT_BATCH_FLUSHES_TOTAL, COUNTER, (), "Event batch flush count"),
+    (EVENT_BATCH_CONVERSATION_BUCKET, COUNTER, ("bucket",), "Batches by conversation count bucket"),
+    (EVENT_BATCH_RUN_BUCKET, COUNTER, ("bucket",), "Batches by run count bucket"),
+    (EVENT_BATCH_QUEUE_DEPTH, GAUGE, (), "Event batcher queue depth at flush start"),
+    (RUN_LEASE_RENEW_FAILURES_TOTAL, COUNTER, (), "Execution lease renew failures/losses"),
     ("tool_control_dispatch_total", COUNTER, ("status",), "Durable tool control delivery outcomes"),
     (
         MODEL_INVOCATIONS_METRIC,
@@ -345,7 +504,32 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         ("kind",),
         "Webchat retention rows/bytes removed by object kind",
     ),
-)
+) + _LATENCY_CATALOG
+
+
+def _bound_suffix(bound: float) -> str:
+    """桶上界 → 指标名后缀（只能含字母数字下划线：`500us`/`50ms`/`1s`）。"""
+    if bound < 1.0:
+        micros = round(bound * 1_000_000)
+        return f"{micros // 1000}ms" if micros % 1000 == 0 else f"{micros}us"
+    return f"{bound:g}s"
+
+
+def record_latency(
+    name: str, seconds: float, labels: Mapping[str, str] | None = None
+) -> None:
+    """记一次时长：累计桶 `<name>_le_<上界>` + `<name>_sum` + `<name>_count`。
+
+    桶只在上界 `>=` 本次样本时累加（累计语义），因此任一枚举维度的分位数都可从桶差复算。
+    时长按非负值截断：负样本只可能来自时钟回拨，不能让它污染桶。
+    """
+    value = max(0.0, float(seconds))
+    base = dict(labels or {})
+    for bound in LATENCY_BUCKETS_SECONDS:
+        if value <= bound:
+            inc_counter(f"{name}_le_{_bound_suffix(bound)}", 1, base)
+    inc_counter(f"{name}_sum", value, base)
+    inc_counter(f"{name}_count", 1, base)
 
 
 def record_counter(name: str, amount: float = 1.0, labels: Mapping[str, str] | None = None) -> None:

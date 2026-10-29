@@ -821,6 +821,15 @@ async def test_b263_archived_conversation_notification_stays_discoverable(
     started = await _start(
         tenant, conversation_id, supervisor, executor_factory=_executor_factory()
     )
+    # 继续历史会话会恢复 ACTIVE（会话上限语义）；本用例验证的是「终态写入时会话已归档
+    # 也照样进收件箱」，因此在执行结束前重新归档，保持被验证的事实。
+    async with runtime_db.get_session_factory()() as session:
+        await session.execute(
+            sa.update(Conversation)
+            .where(Conversation.id == conversation_id)
+            .values(status="ARCHIVED")
+        )
+        await session.commit()
     await _drain(started)
 
     async with runtime_db.get_session_factory()() as session:

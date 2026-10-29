@@ -1,19 +1,24 @@
+import asyncio
 import logging
 import os
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
-from fastapi import FastAPI
+import redis.asyncio
+from fastapi import FastAPI, Request, Response
 from muad_api import (
     database_readiness,
     install_api_foundation,
     install_console_security,
     install_health_probes,
+    set_gauge,
     validate_startup,
 )
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
+from muad_common.db_counters import db_stage, publish_db_counters
+from muad_common.session_store import RedisSessionStore
 from muad_logging import configure_logging
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -91,12 +96,29 @@ async def _close_probe_clients(fastapi_app: FastAPI) -> None:
             await client.aclose()
 
 
+async def _db_counters_loop() -> None:
+    while True:
+        publish_db_counters(set_gauge)
+        await asyncio.sleep(1.0)
+
+
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     settings = SharedSettings()
     # 启动预算是每进程一份、重启生效：请求路径复用这一份，不再逐请求重建（构造一次要读
     # 环境与 .env，实测 ~1.5ms；单 Console 进程在 800 并发下它直接吃掉可观的事件循环时间）。
     fastapi_app.state.settings = settings
+    redis_client = (
+        redis.asyncio.Redis.from_url(settings.redis_url, decode_responses=True)
+        if settings.redis_url
+        else None
+    )
+    fastapi_app.state.session_store = (
+        RedisSessionStore(redis_client) if redis_client is not None else None
+    )
+    db_counters_task = asyncio.create_task(
+        _db_counters_loop(), name="console.db_counters"
+    )
     try:
         _install_probe_clients(fastapi_app, settings)
         await validate_startup(
@@ -108,6 +130,11 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         await _warn_if_no_accounts()
         yield
     finally:
+        db_counters_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await db_counters_task
+        if redis_client is not None:
+            await redis_client.aclose()
         # 启动失败也要收尾：装配根建的池不留在进程里（下一次启动会重建，不靠 GC）。
         await _close_probe_clients(fastapi_app)
         sessions_client = getattr(fastapi_app.state, "platform_sessions_client", None)
@@ -134,6 +161,14 @@ def create_app(*, static_dir: Path | None = None) -> FastAPI:
     `app.state`（探针池/适配器/会话缓存），互不串用。
     """
     fastapi_app = FastAPI(title="MUAD Console Platform", version="0.1.0", lifespan=lifespan)
+
+    @fastapi_app.middleware("http")
+    async def _db_stage_middleware(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        stage = "poll" if "notifications" in request.url.path else "console"
+        with db_stage(stage):
+            return await call_next(request)
     fastapi_app.state.platform_adapters = build_default_registry(
         tuple(
             key.strip()

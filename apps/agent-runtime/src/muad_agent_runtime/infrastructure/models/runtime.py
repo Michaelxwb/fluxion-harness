@@ -265,6 +265,11 @@ class RunRecord(StandardColumnsMixin, Base):
         ),
         sa.Index("ix_run_record_trace_id", "trace_id"),
         sa.Index(
+            "ix_run_record_open_tenant",
+            "tenant_id",
+            postgresql_where=sa.text("admission_released_at IS NULL"),
+        ),
+        sa.Index(
             "ix_run_record_waiting_deadline",
             "deadline_at",
             postgresql_where=sa.text("status IN ('WAITING_TOOL','WAITING_INPUT') AND is_deleted = false"),

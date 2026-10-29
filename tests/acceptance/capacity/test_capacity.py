@@ -619,7 +619,7 @@ def load_run(capacity_module: CapacityModule) -> LoadReport:
         metrics=PostgresMetrics(
             stack.database_url, tenant_id=stack.tenant_id, artifacts_root=stack.artifacts_root
         ),
-        unit_targets={unit: stack.url_of(unit) for unit in UNITS},
+        unit_targets={unit: stack.urls_of(unit) for unit in UNITS},
         control_model_id=str(seeded.model_id),
         control_credential_id=str(seeded.credential_id),
     )
@@ -1435,6 +1435,7 @@ def bounded_run(capacity_module: CapacityModule) -> LoadReport:
             control_rounds=1,
             user_deadline_sec=300.0,
             notification_poll_sec=15.0,
+            notification_transport=os.environ.get("MUAD_NOTIFICATION_TRANSPORT", "poll"),
             notification_page_size=20,
         ),
         profile=capacity_module.profile,
@@ -1450,7 +1451,7 @@ def bounded_run(capacity_module: CapacityModule) -> LoadReport:
             tenant_id=stack.tenant_id,
             artifacts_root=stack.artifacts_root,
         ),
-        unit_targets={unit: stack.url_of(unit) for unit in UNITS},
+        unit_targets={unit: stack.urls_of(unit) for unit in UNITS},
     )
     return driver.run()
 

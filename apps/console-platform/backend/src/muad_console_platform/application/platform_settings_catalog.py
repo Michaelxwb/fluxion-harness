@@ -112,6 +112,8 @@ _FIELD_META: dict[str, dict[str, Any]] = {
     "webchat.stream_replay_retention_hours": {"effect_key": "settings.effect.next_cleanup"},
     "webchat.notification_retention_days": {"effect_key": "settings.effect.next_cleanup"},
     "webchat.history_retention_days": {"effect_key": "settings.effect.next_cleanup"},
+    "webchat.max_conversations_per_entry": {"effect_key": "settings.effect.new_conversation"},
+    "webchat.conversation_retention_days": {"effect_key": "settings.effect.new_conversation"},
 }
 
 #: 非本页管理的项（`.env` + 重启 / 资源页面 / 代码）的归属说明。

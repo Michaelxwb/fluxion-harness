@@ -19,11 +19,17 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / ".code-flow/scripts"))
 
-from cf_acceptance_manifest import extract_manifest, validate_manifest  # noqa: E402
-from cf_acceptance_schema import load_manifest, verified_evidence  # noqa: E402
-from cf_spec_context import load_context  # noqa: E402
-from cf_spec_gate import _task_sections, validate_plan_coverage  # noqa: E402
-from cf_spec_metadata import load_spec_metadata  # noqa: E402
+from codeflow.acceptance.cf_acceptance_manifest_core import (  # noqa: E402
+    extract_manifest,
+    validate_manifest,
+)
+from codeflow.acceptance.cf_acceptance_schema import (  # noqa: E402
+    load_manifest,
+    verified_evidence,
+)
+from codeflow.cli.cf_spec_gate import _task_sections, validate_plan_coverage  # noqa: E402
+from codeflow.spec.cf_spec_context_model import load_context  # noqa: E402
+from codeflow.spec.cf_spec_metadata import load_spec_metadata  # noqa: E402
 
 TASK_DIR = ROOT / ".code-flow/tasks/2026-10-12/memory-redesign"
 ARCHIVED_TASK_DIR = ROOT / ".code-flow/tasks/archived/2026-10-12/memory-redesign"

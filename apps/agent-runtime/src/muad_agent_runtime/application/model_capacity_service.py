@@ -33,7 +33,7 @@ from datetime import datetime, timedelta
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_common import SharedSettings
+from muad_common import process_settings
 from muad_contracts.model_pool import (
     MemoryJobCallOwner,
     ModelCallOwner,
@@ -54,11 +54,13 @@ from ..infrastructure.model_capacity_store import (
     ModelCapacityStore,
 )
 from ..metrics import (
+    MODEL_CALL_SECONDS,
     MODEL_CAPACITY_METRIC,
     MODEL_LEASE_LOST_METRIC,
     MODEL_SETTLEMENT_METRIC,
     MODEL_SWEEP_METRIC,
     record_counter,
+    record_latency,
     record_outcome,
 )
 
@@ -208,17 +210,19 @@ def _plan_admission(
 
 async def _require_limits(
     store: ModelCapacityStore, *, tenant_id: str, request: ModelCapacityReservationRequest
-) -> tuple[CapacityLimits, CapacityLimits | None]:
-    limits = await store.read_limits(
+) -> tuple[CapacityLimits, CapacityLimits | None, datetime]:
+    limits, now = await store.read_limits_and_clock(
         tenant_id=tenant_id,
         credential_id=request.credential_id,
         quota_group_id=request.quota_group_id,
     )
-    if limits is None or (request.quota_group_id is not None and limits.quota_group is None):
+    if limits is None or now is None:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    if request.quota_group_id is not None and limits.quota_group is None:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
     if not limits.enabled:
         raise AppError(ErrorCode.MODEL_DISABLED)
-    return limits.key, limits.quota_group
+    return limits.key, limits.quota_group, now
 
 
 def _lease_write(
@@ -451,7 +455,7 @@ class ModelCapacityService:
         self._lease_seconds = (
             lease_duration_sec
             if lease_duration_sec is not None
-            else SharedSettings().model_call_lease_sec
+            else process_settings().model_call_lease_sec
         )
         self._store_factory = store_factory
 
@@ -491,12 +495,18 @@ class ModelCapacityService:
         waited = time.monotonic()
         async with self._gate.hold(), self._session_factory_provider()() as session, session.begin():
             gate_ms = int((time.monotonic() - waited) * 1000)
+            # 预占阶段的闸门等待单独成 stage：与 gate_select 相加得到模型调用总闸门。
+            record_latency(
+                MODEL_CALL_SECONDS, gate_ms / 1000.0, {"stage": "gate_reserve"}
+            )
             started = time.monotonic()
             store = self._store_factory(session)
-            key_limits, group_limits = await _require_limits(store, tenant_id=tenant_id, request=request)
-            now = await store.database_clock()
+            key_limits, group_limits, now = await _require_limits(
+                store, tenant_id=tenant_id, request=request
+            )
             lease_until = _lease_until(now, request.deadline_at, self._lease_seconds)
             bucket = _bucket_start(now)
+            ensure_started = time.monotonic()
             if request.quota_group_id is not None:
                 await store.ensure_capacity_row(
                     tenant_id=tenant_id,
@@ -509,6 +519,11 @@ class ModelCapacityService:
                 resource_type=RESOURCE_KEY,
                 resource_id=request.key_resource_id,
                 window_start=bucket,
+            )
+            record_latency(
+                MODEL_CALL_SECONDS,
+                time.monotonic() - ensure_started,
+                {"stage": "capacity_ensure"},
             )
             await store.lock_attempt_selection(
                 tenant_id=tenant_id, call_attempt_id=request.call_attempt_id

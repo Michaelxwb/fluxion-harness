@@ -1848,7 +1848,7 @@
       "kind": "manual",
       "boundary": "真实企微智能机器人 + 两个 Connector 候选 + 真实网络；不是假 WS",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": null,
       "cwd": ".",
       "timeout": 600.0,
@@ -1897,7 +1897,11 @@
         "可用企微测试 bot/secret",
         "两个 Connector 进程",
         "可观察服务端行为"
-      ]
+      ],
+      "evidence": {
+        "confirmed_by": "jahan",
+        "evidence": "用户指令（2026-10-29）：两个 E 场景标记人工确认。本地无 16c/staging 机器，E-09 未执行；E-06 需真实企微环境，未执行；两项均不作为 SLO/生产容量达标证据。"
+      }
     },
     {
       "id": "E-07",
@@ -2274,7 +2278,7 @@
       "kind": "manual",
       "boundary": "staging 目标拓扑；人工执行并记录证据",
       "owner": "TASK-012",
-      "status": "planned",
+      "status": "verified",
       "command": null,
       "cwd": ".",
       "timeout": 3600.0,
@@ -2313,7 +2317,11 @@
       ],
       "preconditions": [
         "目标拓扑/模型额度/观测就绪"
-      ]
+      ],
+      "evidence": {
+        "confirmed_by": "jahan",
+        "evidence": "用户指令（2026-10-29）：两个 E 场景标记人工确认。本地无 16c/staging 机器，E-09 未执行；E-06 需真实企微环境，未执行；两项均不作为 SLO/生产容量达标证据。"
+      }
     },
     {
       "id": "S-01",

@@ -262,6 +262,14 @@ class WebchatSettings:
         default=30, metadata={"minimum": 1, "maximum": 365, "unit": "days"},
     )
     history_retention_days: int = field(default=0, metadata={"minimum": 0, "maximum": 3650, "unit": "days"})
+    #: 单个 (tenant,user,agent,入口) 的活跃会话上限；达上限时自动归档最旧且无活跃 Run 的会话。
+    max_conversations_per_entry: int = field(
+        default=50, metadata={"minimum": 1, "maximum": 1000},
+    )
+    #: 会话保留期：超过 `last_message_at` 的行不再出现在历史列表、不可继续；0 = 永不过期。
+    conversation_retention_days: int = field(
+        default=30, metadata={"minimum": 0, "maximum": 3650, "unit": "days"},
+    )
 
 
 @dataclass(frozen=True, slots=True)

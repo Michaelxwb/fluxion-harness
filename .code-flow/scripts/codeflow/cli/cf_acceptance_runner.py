@@ -17,10 +17,11 @@ import os
 import re
 import subprocess
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
-from typing import IO, Mapping, Optional, Sequence
+from typing import Callable, IO, Mapping, Optional, Sequence
 
 from codeflow.core import cf_fs
 from codeflow.core.cf_exec_base import (
@@ -31,9 +32,13 @@ from codeflow.core.cf_exec_base import (
     worktree_fingerprint,
 )
 from codeflow.acceptance.cf_check_inputs import check_input_hashes, match_path
+from codeflow.acceptance.cf_acceptance_selection import (
+    select_owned as _owned, select_profile as _select_profile, select_scenarios as _select_scenarios,
+)
 from codeflow.acceptance.cf_acceptance_risk import accepted_risk as _accepted_risk
+from codeflow.acceptance.cf_acceptance_manifest_core import validate_execution_baseline
 from codeflow.acceptance.cf_acceptance_schema import (check_outcome, load_manifest, recorded_check_hash,
-                                  scenario_check_ids, validate_execution_baseline)
+                                  scenario_check_ids)
 from codeflow.acceptance.cf_acceptance_evidence import persist_results
 from codeflow.evidence.cf_evidence_store import EvidenceStore
 from codeflow.core.cf_worktree_env import (
@@ -294,32 +299,6 @@ def _executable(items: list[Mapping[str, object]]) -> bool:
         if str(item.get("kind", "")) in ("manual", "e2e"):
             return True
     return False
-
-
-def _owned(items: list[Mapping[str, object]], owner: str) -> list[Mapping[str, object]]:
-    """Keep scenarios owned by the active TASK; ownerless legacy scenarios stay
-    included so old manifests keep working. Cross-TASK depends_on edges are
-    pruned: single-TASK ordering is enforced here, whole-demand ordering at
-    the final (archive/E2E) gate."""
-    if not owner:
-        return items
-    # 逗号分隔时按多个 owner 过滤：批次 smoke 只跑本批已并入 TASK 的场景。
-    owners = {value.strip() for value in owner.split(",") if value.strip()}
-    kept = [
-        item for item in items
-        if not isinstance(item.get("owner"), str) or not item.get("owner") or item.get("owner") in owners
-    ]
-    kept_ids = {str(item.get("id")) for item in kept}
-    pruned: list[Mapping[str, object]] = []
-    for item in kept:
-        if not isinstance(item, dict):
-            pruned.append(item)
-            continue
-        deps = item.get("depends_on")
-        if isinstance(deps, list):
-            item = {**item, "depends_on": [dep for dep in deps if str(dep) in kept_ids]}
-        pruned.append(item)
-    return pruned
 
 
 def _identity_key(
@@ -1112,139 +1091,6 @@ def _make_checkpoint(
         enabled=use_cache and bool(fingerprint), resume=resume,
         fingerprints=fingerprints,
     )
-
-
-def _changed_paths(root: str) -> set[str]:
-    changed: set[str] = set()
-    for arguments in (("diff", "--name-only", "HEAD"), ("ls-files", "--others", "--exclude-standard")):
-        completed = subprocess.run(("git", "-C", root, *arguments), text=True, capture_output=True, check=False)
-        if completed.returncode == 0:
-            changed.update(line.strip() for line in completed.stdout.splitlines() if line.strip())
-    return changed
-
-
-def _select_profile(data: Mapping[str, object], root: str, profile: str,
-                    force_ids: Sequence[str] = ()) -> dict[str, object]:
-    """Return a shallow manifest view filtered by smoke/changed/full."""
-    if profile == "full":
-        return dict(data)
-    checks = {
-        str(item.get("id")): item
-        for item in data.get("checks", []) or []
-        if isinstance(item, Mapping) and isinstance(item.get("id"), str)
-    }
-    changed = _changed_paths(root)
-    scenarios = [item for item in data.get("scenarios", []) or [] if isinstance(item, Mapping)]
-    explicit_priority = any(isinstance(item.get("priority"), str) for item in scenarios)
-    forced = {str(item) for item in force_ids}
-    selected: list[Mapping[str, object]] = []
-    has_smoke_profile = any(str((check or {}).get("profile", "")) == "smoke" for check in checks.values())
-    has_e2e = any(str(scenario.get("kind", "")) == "e2e" for scenario in scenarios)
-
-    def _is_smoke(scenario: Mapping[str, object], scenario_checks: Sequence[Optional[Mapping[str, object]]]) -> bool:
-        return bool(scenario.get("smoke")) or any(
-            str((check or {}).get("profile", "")) == "smoke" for check in scenario_checks
-        )
-
-    e2e_smoke_exists = any(
-        str(scenario.get("kind", "")) == "e2e"
-        and _is_smoke(
-            scenario,
-            [checks.get(check_id) for check_id in _scenario_check_ids(scenario)],
-        )
-        for scenario in scenarios
-    )
-    for scenario in scenarios:
-        check_ids = _scenario_check_ids(scenario)
-        scenario_checks = [checks.get(check_id) for check_id in check_ids]
-        priority = str(scenario.get("priority", ""))
-        is_e2e = str(scenario.get("kind", "")) == "e2e"
-        smoke = _is_smoke(scenario, scenario_checks)
-        if str(scenario.get("id")) in forced:
-            selected.append(scenario)
-            continue
-        if profile == "smoke":
-            if is_e2e:
-                # Once a plan marks its smoke journeys, smoke must not silently
-                # expand to every E2E scenario. Legacy plans without smoke
-                # markers keep the old all-E2E fallback.
-                if smoke or not e2e_smoke_exists:
-                    selected.append(scenario)
-                continue
-            if explicit_priority:
-                if priority.upper() == "P0" or smoke:
-                    selected.append(scenario)
-            elif has_smoke_profile:
-                if smoke:
-                    selected.append(scenario)
-            elif has_e2e:
-                continue
-            else:
-                selected.append(scenario)
-            continue
-        path_patterns = [
-            str(pattern)
-            for pattern in (scenario.get("trigger_paths") or [])
-            if str(pattern).strip()
-        ]
-        path_patterns.extend(
-            str(pattern)
-            for check in scenario_checks if isinstance(check, Mapping)
-            for pattern in (check.get("paths") or [])
-            if str(pattern).strip()
-        )
-        path_patterns = list(dict.fromkeys(path_patterns))
-        path_matches = any(
-            match_path(path, pattern) for pattern in path_patterns for path in changed
-        )
-        if is_e2e and path_patterns:
-            # A small change only runs the E2E journeys whose trigger paths
-            # match. Empty changed set means the diff is unavailable; fail
-            # closed and keep the journey.
-            if not changed or path_matches:
-                selected.append(scenario)
-            continue
-        if is_e2e and smoke:
-            # Smoke E2E without trigger paths belongs to the explicit smoke
-            # profile; changed runs only path-scoped journeys.
-            continue
-        inputs_by_check = [
-            (check or {}).get("inputs") for check in scenario_checks
-        ]
-        repo_scoped = not check_ids or any(not value for value in inputs_by_check)
-        matches = any(
-            match_path(path, str(pattern))
-            for value in inputs_by_check if isinstance(value, list)
-            for pattern in value for path in changed
-        )
-        if (not explicit_priority or priority.upper() == "P0"
-                or smoke or repo_scoped or not changed or matches):
-            selected.append(scenario)
-    selected_ids = {str(item.get("id")) for item in selected}
-    by_scenario = {str(item.get("id")): item for item in scenarios}
-    pending = list(selected)
-    while pending:
-        current = pending.pop()
-        for dep in current.get("depends_on", []) if isinstance(current.get("depends_on"), list) else []:
-            dep_id = str(dep)
-            if dep_id in selected_ids or dep_id not in by_scenario:
-                continue
-            selected.append(by_scenario[dep_id])
-            selected_ids.add(dep_id)
-            pending.append(by_scenario[dep_id])
-    selected_check_ids = {
-        check_id for item in selected for check_id in _scenario_check_ids(item)
-    }
-    selected_checks = [
-        item for item in data.get("checks", []) or []
-        if isinstance(item, Mapping) and str(item.get("id")) in selected_check_ids
-    ]
-    result = dict(data)
-    result["scenarios"] = selected
-    if "checks" in data:
-        result["checks"] = selected_checks
-    result["profile"] = profile
-    return result
 
 
 def _expand_multi_checks(items: Sequence[Mapping[str, object]]) -> tuple[list[dict[str, object]], dict[str, list[str]]]:

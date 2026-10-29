@@ -1,3 +1,4 @@
+from functools import lru_cache
 from math import isfinite
 from re import fullmatch
 from typing import Self
@@ -222,3 +223,20 @@ class SharedSettings(BaseSettings):
         if not self.redis_url:
             raise RuntimeError("REDIS_URL is required but not configured")
         return self.redis_url
+
+
+@lru_cache(maxsize=1)
+def process_settings() -> SharedSettings:
+    """本进程唯一的启动设置快照：热路径唯一允许的构造点。
+
+    `SharedSettings()` 每次构造都会重新读环境与 `.env`（实测 1.5–3ms）；在每请求/每事件
+    路径上，100 并发即可吃掉约 30% 单核（2026-10-27 100 用户 profile）。生产热路径一律用
+    本函数；`.env`/环境变量变更在进程内不自动生效，需重启（测试用 `reset_settings_cache`）。
+    调用方只读，不得修改返回对象。
+    """
+    return SharedSettings()
+
+
+def reset_settings_cache() -> None:
+    """测试/CLI 专用：环境变更后重建进程级设置快照；生产不调用。"""
+    process_settings.cache_clear()

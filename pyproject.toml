@@ -129,3 +129,9 @@ exclude = ["frontend", "apps/console-platform/frontend", "tests", "migrations/ve
 [[tool.mypy.overrides]]
 module = ["muad_im_gateway.*"]
 ignore_missing_imports = true
+
+# tests/ 不在 strict mypy 范围内（同上面的 exclude）；但被 scripts/ 下的工具 import 时仍会
+# 被分析并产生噪音。这里把测试模块的错误静音，保持"tests 不参与类型门禁"这一口径一致。
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+ignore_errors = true

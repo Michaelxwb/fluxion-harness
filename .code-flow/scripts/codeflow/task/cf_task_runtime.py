@@ -32,7 +32,8 @@ from codeflow.spec.cf_spec_resolver import resolve_candidates, SpecCandidate
 from codeflow.cli.cf_spec_session import context_sha256
 from codeflow.spec.cf_spec_verify import VerificationEvidence, VerificationScope, run_all_verifiers, store_verification_evidence
 from codeflow.core.cf_core import load_config, phase_timing, resolve_quality_loop
-from codeflow.acceptance.cf_acceptance_schema import load_manifest, validate_execution_baseline
+from codeflow.acceptance.cf_acceptance_manifest_core import validate_execution_baseline
+from codeflow.acceptance.cf_acceptance_schema import load_manifest
 from codeflow.core.cf_exec_base import execution_session
 from codeflow.core.cf_validators import (
     PARSE_ERROR,
@@ -249,10 +250,10 @@ def _task_scope_specs(root: str, task_dir: str, owner: str, files: tuple[str, ..
     task = locate_task_file(task_dir, owner)
     if task is None:
         return scope
-    from codeflow.cli.cf_spec_session import _refs, _task_section
+    from codeflow.task.cf_task_doc import task_section, task_spec_refs
 
     try:
-        refs = _refs(_task_section(task.read_text(encoding="utf-8"), owner))
+        refs = task_spec_refs(task_section(task.read_text(encoding="utf-8"), owner))
     except ValueError:
         refs = ()
     for ref in refs:

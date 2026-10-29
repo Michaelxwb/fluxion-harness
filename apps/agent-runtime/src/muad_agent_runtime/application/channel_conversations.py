@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -26,14 +26,21 @@ from typing import Any
 import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import RunRequest
+from muad_contracts import RunRequest, RunStatus
 from muad_contracts.platform_settings import parse_platform_settings
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import ColumnElement
 
 from ..infrastructure.db_clock import database_now
-from ..infrastructure.models.runtime import CanonicalEvent, ChannelConversation, Conversation
+from ..infrastructure.models.runtime import (
+    CanonicalEvent,
+    ChannelConversation,
+    Conversation,
+    RunRecord,
+)
+from .conversation_policy import ConversationPolicy
 
 #: 标题上限：首条真实用户文本归一化后截取前 80 个字符（design §3.3）。
 TITLE_MAX_CHARS = 80
@@ -46,6 +53,7 @@ DEFAULT_TITLE_LOCALE = "zh-CN"
 USER_MESSAGE_EVENT = "USER_MESSAGE"
 #: 会话状态取值（协议标识，与 Runtime 既有 `conversation.status` 同词表）。
 CONVERSATION_ACTIVE = "ACTIVE"
+CONVERSATION_ARCHIVED = "ARCHIVED"
 
 _WHITESPACE_RUN = re.compile(r"\s+")
 #: 指针并发登记时的唯一索引列（与 0025 的 partial unique 同形）。
@@ -159,6 +167,173 @@ def _scope_conditions(scope: ConversationScope) -> list[Any]:
     ]
 
 
+#: 占用「活跃会话」名额的 Run 状态（与 `uq_run_record_active_conversation` 同源）。
+_ACTIVE_RUN_STATUSES = (
+    RunStatus.CREATED,
+    RunStatus.RUNNING,
+    RunStatus.WAITING_TOOL,
+    RunStatus.WAITING_INPUT,
+)
+#: 单次请求最多归档的旧会话数：配置下调后的一次性收敛也有界。
+MAX_ARCHIVE_PER_REQUEST = 100
+
+
+def _entry_condition(scope: ConversationScope) -> Any:
+    """入口谓词与核属同口径：可归属入口只命同一入口；不可归属只命未归属行。"""
+    if scope.entry_id is None:
+        return Conversation.channel_account_id.is_(None)
+    return Conversation.channel_account_id == scope.entry_id
+
+
+def _live_active_conditions(scope: ConversationScope, cutoff: datetime | None) -> list[Any]:
+    """计入上限的会话：本入口、未删除、ACTIVE、未超过保留期。"""
+    conditions = [
+        *_scope_conditions(scope),
+        _entry_condition(scope),
+        Conversation.status == CONVERSATION_ACTIVE,
+    ]
+    if cutoff is not None:
+        conditions.append(
+            sa.func.coalesce(Conversation.last_message_at, Conversation.create_time) >= cutoff
+        )
+    return conditions
+
+
+def _no_active_run() -> Any:
+    return ~sa.exists().where(
+        RunRecord.conversation_id == Conversation.id,
+        RunRecord.status.in_(_ACTIVE_RUN_STATUSES),
+        RunRecord.is_deleted.is_(False),
+    )
+
+
+async def lock_conversation_scope(session: AsyncSession, scope: ConversationScope) -> None:
+    """同一 (tenant,user,agent,入口) 的建会话/归档串行化（事务级 advisory lock）。"""
+    key = f"conversation-limit:{scope.tenant_id}:{scope.user_id}:{scope.agent_id}:{scope.entry_id or ''}"
+    await session.execute(
+        sa.select(sa.func.pg_advisory_xact_lock(sa.cast(sa.func.hashtext(key), sa.BigInteger)))
+    )
+
+
+async def count_active_conversations(
+    session: AsyncSession,
+    scope: ConversationScope,
+    *,
+    cutoff: datetime | None,
+    exclude_conversation_id: uuid.UUID | None = None,
+) -> int:
+    """当前入口的活跃会话数（保留期外的历史不计入上限）。"""
+    conditions = _live_active_conditions(scope, cutoff)
+    if exclude_conversation_id is not None:
+        conditions.append(Conversation.id != exclude_conversation_id)
+    return int(
+        await session.scalar(
+            sa.select(sa.func.count()).select_from(Conversation).where(*conditions)
+        )
+        or 0
+    )
+
+
+async def archive_oldest_idle_conversations(
+    session: AsyncSession,
+    scope: ConversationScope,
+    *,
+    cutoff: datetime | None,
+    now: datetime,
+    limit: int,
+    exclude_conversation_id: uuid.UUID | None = None,
+) -> int:
+    """归档最旧的空闲活跃会话；有活跃 Run 的会话不选（不打断正在执行/等待的对话）。"""
+    if limit <= 0:
+        return 0
+    conditions = [*_live_active_conditions(scope, cutoff), _no_active_run()]
+    if exclude_conversation_id is not None:
+        conditions.append(Conversation.id != exclude_conversation_id)
+    ids = (
+        await session.scalars(
+            sa.select(Conversation.id)
+            .where(*conditions)
+            .order_by(
+                sa.func.coalesce(Conversation.last_message_at, Conversation.create_time).asc(),
+                Conversation.id.asc(),
+            )
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+        )
+    ).all()
+    if not ids:
+        return 0
+    await session.execute(
+        sa.update(Conversation)
+        .where(Conversation.id.in_(ids))
+        .values(status=CONVERSATION_ARCHIVED, update_time=now)
+    )
+    await session.flush()
+    return len(ids)
+
+
+async def promote_archived_conversation(
+    session: AsyncSession,
+    conversation: Conversation,
+    scope: ConversationScope,
+    policy: ConversationPolicy,
+    *,
+    now: datetime,
+) -> int:
+    """继续历史会话：恢复 ACTIVE，并尽力归档最旧空闲会话；返回仍超出的名额。
+
+    「继续未失效历史」优先于数量上限：若其余活跃会话都有正在执行的 Run，允许暂时超出，
+    由下一次新建会话收敛；不能把用户正在等的确认/执行归档掉来凑数。
+    """
+    # 与新建会话共用同一把 scope 锁：恢复 + 归档的计数/选择不会互相穿插。
+    await lock_conversation_scope(session, scope)
+    conversation.status = CONVERSATION_ACTIVE
+    conversation.update_time = now
+    await session.flush()
+    cutoff = policy.retention_cutoff(now)
+    active = await count_active_conversations(session, scope, cutoff=cutoff)
+    needed = active - policy.max_conversations_per_entry
+    if needed <= 0:
+        return 0
+    archived = await archive_oldest_idle_conversations(
+        session,
+        scope,
+        cutoff=cutoff,
+        now=now,
+        limit=min(needed, MAX_ARCHIVE_PER_REQUEST),
+        exclude_conversation_id=conversation.id,
+    )
+    return max(0, needed - archived)
+
+
+async def enforce_conversation_limit(
+    session: AsyncSession,
+    scope: ConversationScope,
+    policy: ConversationPolicy,
+    *,
+    now: datetime,
+    extra_slots: int,
+) -> int:
+    """为新会话腾出 `extra_slots` 个活跃名额；返回仍缺的名额（0 即满足）。
+
+    归档是**软状态**：ARCHIVED 会话仍保留全部历史，保留期内可继续。全部活跃会话都有
+    正在执行的 Run 时返回缺口，由调用方显式拒绝（不静默清掉正在用的对话）。
+    """
+    cutoff = policy.retention_cutoff(now)
+    active = await count_active_conversations(session, scope, cutoff=cutoff)
+    needed = active + extra_slots - policy.max_conversations_per_entry
+    if needed <= 0:
+        return 0
+    archived = await archive_oldest_idle_conversations(
+        session,
+        scope,
+        cutoff=cutoff,
+        now=now,
+        limit=min(needed, MAX_ARCHIVE_PER_REQUEST),
+    )
+    return max(0, needed - archived)
+
+
 def assert_entry_attribution(conversation: Conversation, scope: ConversationScope) -> None:
     """入口核属（双向严格）：可归属入口必须命中同一入口账号；不可归属入口不得借用已归属会话。"""
     if scope.entry_id is not None:
@@ -166,6 +341,43 @@ def assert_entry_attribution(conversation: Conversation, scope: ConversationScop
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
     elif conversation.channel_account_id is not None:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
+
+
+async def load_explicit_conversation_with_active_run(
+    session: AsyncSession,
+    scope: ConversationScope,
+    conversation_id: uuid.UUID,
+    *,
+    active_statuses: Sequence[RunStatus],
+) -> tuple[Conversation, RunRecord | None]:
+    """显式会话核属 + 该会话活跃 Run：一条 SQL 取齐，语义与两次独立读一致。
+
+    活跃 Run 用标量子查询取一行；`uq_run_record_active_conversation` 保证至多一个。
+    入口核属仍走 `assert_entry_attribution`，缺失/越权仍抛 `COMMON_NOT_FOUND`。
+    """
+    active = aliased(RunRecord)
+    active_id = (
+        sa.select(active.id)
+        .where(
+            active.conversation_id == Conversation.id,
+            active.status.in_(active_statuses),
+            active.is_deleted.is_(False),
+        )
+        .limit(1)
+        .scalar_subquery()
+    )
+    row = (
+        await session.execute(
+            sa.select(Conversation, RunRecord)
+            .outerjoin(RunRecord, RunRecord.id == active_id)
+            .where(Conversation.id == conversation_id, *_scope_conditions(scope))
+        )
+    ).first()
+    if row is None:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    conversation, active_run = row
+    assert_entry_attribution(conversation, scope)
+    return conversation, active_run
 
 
 async def load_explicit_conversation(

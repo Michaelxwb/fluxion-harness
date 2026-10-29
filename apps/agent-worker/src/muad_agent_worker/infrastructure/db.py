@@ -2,13 +2,14 @@ from collections.abc import AsyncIterator
 from functools import lru_cache
 
 from muad_common import SharedSettings
+from muad_common.db_counters import install_db_counters
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 
 @lru_cache(maxsize=1)
 def get_engine() -> AsyncEngine:
     settings = SharedSettings()
-    return create_async_engine(
+    engine = create_async_engine(
         settings.require_database_url(),
         pool_pre_ping=True,
         # 池参数按 typed 设置显式接线：池耗尽时按 `db_pool_timeout_sec` 快速失败（默认 5s），
@@ -18,6 +19,8 @@ def get_engine() -> AsyncEngine:
         max_overflow=settings.db_max_overflow,
         pool_timeout=settings.db_pool_timeout_sec,
     )
+    install_db_counters(engine, service="agent-worker")
+    return engine
 
 
 @lru_cache(maxsize=1)

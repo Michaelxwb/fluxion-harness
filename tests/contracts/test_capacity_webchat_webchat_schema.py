@@ -29,6 +29,8 @@ def test_b202_defaults_use_one_typed_source() -> None:
         "stream_replay_retention_hours": 24,
         "notification_retention_days": 30,
         "history_retention_days": 0,
+        "max_conversations_per_entry": 50,
+        "conversation_retention_days": 30,
     }
     assert parse_platform_settings({"webchat": {}}) == default_platform_settings()
 
@@ -42,6 +44,8 @@ def test_b202_defaults_use_one_typed_source() -> None:
         ("reconnect_base_ms", 100, 5000), ("reconnect_cap_ms", 1000, 120000),
         ("reconnect_max_attempts", 1, 100), ("stream_replay_retention_hours", 1, 168),
         ("notification_retention_days", 1, 365), ("history_retention_days", 0, 3650),
+        ("max_conversations_per_entry", 1, 1000),
+        ("conversation_retention_days", 0, 3650),
     ],
 )
 def test_b202_integer_fields_enforce_inclusive_bounds(key: str, minimum: int, maximum: int) -> None:
@@ -60,6 +64,7 @@ def test_b202_integer_fields_enforce_inclusive_bounds(key: str, minimum: int, ma
         "upload_max_per_message", "upload_staging_ttl_sec", "history_page_size",
         "reconnect_base_ms", "reconnect_cap_ms", "reconnect_max_attempts",
         "stream_replay_retention_hours", "notification_retention_days", "history_retention_days",
+        "max_conversations_per_entry", "conversation_retention_days",
     ],
 )
 @pytest.mark.parametrize("value", [True, False, 1.0, 1.5, "1", None])
@@ -176,7 +181,8 @@ def test_b202_field_units_are_declared_on_the_typed_schema() -> None:
         "upload_staging_ttl_sec": "seconds", "history_page_size": None, "notification_poll_sec": "seconds",
         "reconnect_base_ms": "ms", "reconnect_cap_ms": "ms", "reconnect_max_attempts": None,
         "stream_replay_retention_hours": "hours", "notification_retention_days": "days",
-        "history_retention_days": "days",
+        "history_retention_days": "days", "max_conversations_per_entry": None,
+        "conversation_retention_days": "days",
     }
 
 

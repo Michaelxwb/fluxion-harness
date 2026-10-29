@@ -98,20 +98,35 @@ class RunAdmissionStore:
         return _policy_row(row)
 
     async def count_open_runs(
-        self, *, tenant_id: str, exclude_run_id: object | None = None
+        self,
+        *,
+        tenant_id: str,
+        exclude_run_id: object | None = None,
+        limit: int | None = None,
     ) -> int:
         """租户在飞 Run 的实时计数（无锁 MVCC 读）：租户上限是护栏值，不锁共享计数行。
 
         `exclude_run_id`：调用方已在本事务内插入该 Run 行，计数只算「其它」在飞 Run。
+        `limit`：只判定「是否达到上限」时传入上限值；计数在 LIMIT 处提前停止并返回该上限，
+        不改变 `>= max` 的判定，避免大表上扫描全部在飞行。
         并发窗口内允许少量软超发（上限远高于真实用量）；每用户上限仍由 USER 计数行严格保证。
         """
-        query = sa.select(sa.func.count()).select_from(RunRecord).where(
-            RunRecord.tenant_id == tenant_id,
-            RunRecord.admission_released_at.is_(None),
+        inner = (
+            sa.select(sa.literal(1))
+            .select_from(RunRecord)
+            .where(
+                RunRecord.tenant_id == tenant_id,
+                RunRecord.admission_released_at.is_(None),
+            )
         )
         if exclude_run_id is not None:
-            query = query.where(RunRecord.id != exclude_run_id)
-        return int(await self._session.scalar(query) or 0)
+            inner = inner.where(RunRecord.id != exclude_run_id)
+        if limit is not None:
+            inner = inner.limit(limit)
+        return int(
+            await self._session.scalar(sa.select(sa.func.count()).select_from(inner.subquery()))
+            or 0
+        )
 
     async def lock_counter(self, *, tenant_id: str, scope_type: str, scope_key: str) -> int:
         """计数行锁（缺失按 0 建立）：返回当前计数。

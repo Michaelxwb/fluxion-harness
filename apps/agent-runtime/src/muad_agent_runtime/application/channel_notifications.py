@@ -27,6 +27,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Literal
 
 import sqlalchemy as sa
@@ -102,6 +103,14 @@ class RunNotificationReceipt:
     id: uuid.UUID
     seq: int
     created: bool
+    entry_id: uuid.UUID
+    conversation_id: uuid.UUID
+    run_id: uuid.UUID
+    user_id: uuid.UUID
+    kind: str
+    event_id: uuid.UUID | None
+    task_id: uuid.UUID | None
+    created_at: datetime
 
 
 async def write_run_notification(
@@ -156,7 +165,19 @@ async def write_run_notification(
     )
     session.add(row)
     await session.flush()
-    return RunNotificationReceipt(id=row.id, seq=seq, created=True)
+    return RunNotificationReceipt(
+        id=row.id,
+        seq=seq,
+        created=True,
+        entry_id=row.entry_id,
+        conversation_id=row.conversation_id,
+        run_id=row.run_id,
+        user_id=row.user_id,
+        kind=row.kind,
+        event_id=row.event_id,
+        task_id=row.task_id,
+        created_at=row.create_time or datetime.now(UTC),
+    )
 
 
 def _validate(*, kind: str, delivery_state: str, task_id: uuid.UUID | None) -> None:
@@ -195,7 +216,19 @@ async def _existing_receipt(
     )
     if row is None:
         return None
-    return RunNotificationReceipt(id=row.id, seq=int(row.seq), created=False)
+    return RunNotificationReceipt(
+        id=row.id,
+        seq=int(row.seq),
+        created=False,
+        entry_id=row.entry_id,
+        conversation_id=row.conversation_id,
+        run_id=row.run_id,
+        user_id=row.user_id,
+        kind=row.kind,
+        event_id=row.event_id,
+        task_id=row.task_id,
+        created_at=row.create_time or datetime.now(UTC),
+    )
 
 
 async def _lock_feed(session: AsyncSession, tenant_id: str, user_id: uuid.UUID) -> uuid.UUID:

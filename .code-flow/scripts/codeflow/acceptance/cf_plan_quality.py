@@ -49,7 +49,7 @@ def _read_snapshot(path: Path) -> FileSnapshot:
 def load_plan_snapshot(directory: str, task_file: str,
                        require_scenarios: bool = False) -> PlanSnapshot:
     """Read TASK, manifest and scenario source at most once for one operation."""
-    from codeflow.cli.cf_scenarios import ScenarioError
+    from codeflow.acceptance.cf_scenario_source import ScenarioError
     base = Path(directory)
     manifest = _read_snapshot(base / ".acceptance-manifest.json")
     task = _read_snapshot(Path(task_file))
@@ -71,7 +71,7 @@ def _root(directory: Path) -> Path:
 
 
 def _source(directory: Path, manifest: Mapping[str, object], required: bool) -> str:
-    from codeflow.cli.cf_scenarios import require_source
+    from codeflow.acceptance.cf_scenario_source import require_source
     named = manifest.get("scenarios_file")
     if isinstance(named, str) and named:
         return str(directory / named)
@@ -106,6 +106,17 @@ def _scenario_snapshot(snapshot: PlanSnapshot, source_file: str) -> Optional[Fil
     return _read_snapshot(Path(source_file)) if Path(source_file).is_file() else None
 
 
+def _scenario_ids(text: str) -> set[str]:
+    """Expand explicit IDs and `S-01~04` / `S-01~S-04` ranges."""
+    ids = {item.upper() for item in re.findall(r"\b(?:S|E|B)-\d+\b", text, re.IGNORECASE)}
+    for match in re.finditer(r"\b([SEB])-(\d+)\s*~\s*(?:\1-)?(\d+)\b", text, re.IGNORECASE):
+        prefix, start, end = match.group(1).upper(), int(match.group(2)), int(match.group(3))
+        width = max(len(match.group(2)), len(match.group(3)))
+        for value in range(start, end + 1):
+            ids.add(f"{prefix}-{value:0{width}d}")
+    return ids
+
+
 def _checklist_issues(text: str) -> list[dict[str, str]]:
     """Flag scenario IDs used in a Checklist but not declared in Acceptance-Refs.
 
@@ -113,29 +124,31 @@ def _checklist_issues(text: str) -> list[dict[str, str]]:
     scenario into its checklist, then the plan assigns the scenario to only one
     owner. Reported as a non-blocking warning for existing plans.
     """
+    from codeflow.task.cf_task_doc import TaskDocumentError, parse_task_document
+    try:
+        document = parse_task_document(text)
+    except TaskDocumentError:
+        return []
     issues: list[dict[str, str]] = []
-    sections = re.split(r"(?m)^## (TASK-\d+):", text)
-    for index in range(1, len(sections), 2):
-        task_id, body = sections[index], sections[index + 1]
-        refs = re.search(r"(?m)^- \*\*Acceptance-Refs\*\*:[ \t]*(.*)$", body)
-        declared = set(re.findall(r"\b(?:S|E|B)-\d+\b", refs.group(1))) if refs else set()
-        checklist = body.partition("### Checklist")[2].partition("### Acceptance Contract")[0]
-        used = set(re.findall(r"\b(?:S|E|B)-\d+\b", checklist))
+    for task in document.tasks:
+        declared = _scenario_ids(str(task.fields.get("Acceptance-Refs", "")))
+        checklist = task.body.partition("### Checklist")[2].partition("### Acceptance Contract")[0]
+        used = _scenario_ids(checklist)
         for scenario in sorted(used - declared):
-            issues.append({"code": "checklist_scenario_not_in_refs", "task": task_id, "scenario": scenario})
+            issues.append({"code": "checklist_scenario_not_in_refs", "task": task.id, "scenario": scenario})
         for scenario in sorted(declared - used):
-            issues.append({"code": "acceptance_ref_not_in_checklist", "task": task_id, "scenario": scenario})
+            issues.append({"code": "acceptance_ref_not_in_checklist", "task": task.id, "scenario": scenario})
     return issues
 
 
 def verify_plan(directory: str, task_file: str, require_scenarios: bool = False,
                 *, snapshot: Optional[PlanSnapshot] = None) -> dict[str, object]:
-    from codeflow.cli.cf_acceptance_manifest import validate_manifest
+    from codeflow.acceptance.cf_acceptance_manifest_core import validate_manifest
     from codeflow.acceptance.cf_acceptance_schema import load_manifest
     from codeflow.acceptance.cf_check_registration import validate_registration
     from codeflow.cli.cf_design_lint import lint_requirement
-    from codeflow.cli.cf_scenarios import parse_scenarios, validate_e2e_quality
-    from codeflow.cli.cf_spec_context import load_context
+    from codeflow.acceptance.cf_scenario_source import parse_scenarios, validate_e2e_quality
+    from codeflow.spec.cf_spec_context_model import load_context
     from codeflow.cli.cf_spec_gate import result_to_data, validate_plan_coverage, validate_stage
     base = Path(directory)
     path = base / ".acceptance-manifest.json"

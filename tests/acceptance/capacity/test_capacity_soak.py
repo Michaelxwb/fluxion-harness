@@ -162,10 +162,10 @@ def soak_run(soak_module: SmokeModule):
             artifacts_root=stack.artifacts_root,
         ),
         unit_targets={
-            "console-platform": stack.url_of("console-platform"),
-            "agent-runtime": stack.url_of("agent-runtime"),
-            "agent-worker": stack.url_of("agent-worker"),
-            "im-gateway": stack.url_of("im-gateway"),
+            "console-platform": stack.urls_of("console-platform"),
+            "agent-runtime": stack.urls_of("agent-runtime"),
+            "agent-worker": stack.urls_of("agent-worker"),
+            "im-gateway": stack.urls_of("im-gateway"),
         },
     )
     return driver.run()

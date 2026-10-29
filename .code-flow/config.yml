@@ -10,9 +10,13 @@ spec_workflow:
         dedup_window: 5
 
 budget:
-    total: 2500
+    # 2026-10-27：tests/** 只映射到 harness-test 一个 spec，而该文件本身约 5.9k tokens
+    # （数十条 E2E/CI 约束，含时区、testid、build、端口、workers=1 等机检口径）。
+    # 通用 L1 上限 1700 会让任何 tests/** 编辑直接 spec_budget_exceeded，且压缩到 1700
+    # 必然丢掉可验证约束；这里按“单文件规格”留约 10% 余量。多 spec 注入仍受 total 约束。
+    total: 7500
     l0_max: 800
-    l1_max: 1700
+    l1_max: 6500
     map_max: 400
     # catalog 模式下 spec 目录的 token 上限（超出按 Tier1 优先截断并告警）
     catalog_max: 200
@@ -228,7 +232,16 @@ path_mapping:
             - "tests/**"
             - ".github/**"
             - "Makefile"
-            - "scripts/**"
+            # path_mapping 按 fnmatch 匹配且 * 跨 /，不能用 scripts/** 或 ! 排除；
+            # 这里只列仓库级脚本，scripts/capacity/** 由 tests/capacity 覆盖。
+            - "scripts/check_agent_capacity_deployment.py"
+            - "scripts/check_error_message_hardcode.py"
+            - "scripts/check_frontend_api_usage.py"
+            - "scripts/check_frontend_i18n.py"
+            - "scripts/check_secret_ref_residue.py"
+            - "scripts/clean_acceptance_claims.py"
+            - "scripts/dev.sh"
+            - "scripts/e2e_changed.py"
         specs:
             - path: "test/harness-test.md"
               tags:

@@ -3,7 +3,7 @@
 本文件先于实现建立行为验收（RED），再驱动 `tests.capacity.acceptance_audit`：
 
 - **真实盘面**：直接读取需求任务文档、`.acceptance-manifest.json`、两份设计文档与
-  `docs/operations/agent-capacity-webchat-validation.md`，不以本文件里的自查常量代替；
+  `scripts/capacity/ACCEPTANCE.md`，不以本文件里的自查常量代替；
 - **必须有鉴别力**：对真实盘面做扰动（重复负责人、删设计场景、manifest 与证据状态打架、
   verified 缺命令/退出码、E2E deferred 伪造 passed、规则多负责人、未验证边界被删），
   每类扰动都必须变红并指名条目；逐项还原后真实盘面必须全绿；

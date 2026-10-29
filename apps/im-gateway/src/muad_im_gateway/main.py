@@ -16,6 +16,7 @@ from muad_api import (
 from muad_api.catalog import MessageCatalog
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
+from muad_common.session_store import RedisSessionStore
 from muad_im_core import BotSnapshotCache, InboundPublisher
 from muad_logging import configure_logging
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -30,6 +31,7 @@ from .application.console_client import ConsoleClient
 from .application.inbound import InboundPipeline
 from .application.inbound_attachments import InboundAttachmentStore
 from .application.inbound_streams import InboundStreamConsumer
+from .application.notification_streams import NotificationStreamHub
 from .application.runtime_client import RuntimeClient
 from .application.webchat_streams import SseBufferLedger
 from .channels.base import ChannelRegistry
@@ -76,10 +78,13 @@ class _GatewayResources:
     sse_ledger: SseBufferLedger
     #: 启动设置（预算/传输上限的唯一来源）：发布状态值时从这里读，不复制默认值。
     settings: SharedSettings
+    #: Webchat CHAT 会话的 Redis 存储（首次鉴权写入、每请求读取/滑动、登出删除）。
+    session_store: RedisSessionStore
     #: 出站命令 Stream 与入站发布器（同一个 Redis 连接；Connector/Webhook 共用键口径）。
     streams: DeliveryStreams
     inbound_publisher: InboundPublisher
     inbound_consumer: InboundStreamConsumer
+    notification_hub: NotificationStreamHub
     #: 本部署是否声明了经 Redis Stream 的通道面（远程 Connector / webhook）：决定 Redis 是否
     #: 是就绪硬依赖（WebChat-only 部署不经过 Stream）。
     stream_reliant: bool
@@ -98,6 +103,8 @@ class _GatewayResources:
         app.state.delivery_streams = self.streams
         app.state.delivery_stream_wait_sec = self.settings.delivery_stream_wait_sec
         app.state.inbound_publisher = self.inbound_publisher
+        app.state.notification_hub = self.notification_hub
+        app.state.session_store = self.session_store
         app.state.stream_reliant = self.stream_reliant
         # Webchat 路由（TASK-052/054/055/057/061）消费的状态值：装配根是唯一发布点，
         # 值来自同一个 SharedSettings（预算/上限的唯一来源，不在路由层另抄一份默认值）。
@@ -114,6 +121,7 @@ class _GatewayResources:
         app.state.gateway_max_sse_subscribers = self.settings.gateway_max_sse_subscribers
 
     async def aclose(self) -> None:
+        await self.notification_hub.aclose()
         await self.inbound_consumer.stop()
         await self.registry.stop_all()
         await self.runtime.aclose()
@@ -263,6 +271,8 @@ async def _build_resources(
             shards=settings.inbound_stream_shards,
             max_inflight=settings.gateway_max_pending_handlers,
         )
+        notification_hub = NotificationStreamHub(redis)
+        session_store = RedisSessionStore(redis)
         return _GatewayResources(
             registry=registry,
             dedupe=dedupe,
@@ -281,6 +291,8 @@ async def _build_resources(
             streams=streams,
             inbound_publisher=publisher,
             inbound_consumer=consumer,
+            notification_hub=notification_hub,
+            session_store=session_store,
             stream_reliant=bool(
                 parse_routed_channels(settings.gateway_routed_channels)
                 or parse_webhook_channels(settings.gateway_webhook_channels)
@@ -314,6 +326,11 @@ def _start_background(resources: _GatewayResources) -> list[asyncio.Task[None]]:
     tasks.append(
         asyncio.create_task(
             resources.inbound_consumer.run_forever(), name=INBOUND_STREAM_LOOP_NAME
+        )
+    )
+    tasks.append(
+        asyncio.create_task(
+            resources.notification_hub.run_forever(), name="gateway.notifications"
         )
     )
     return tasks

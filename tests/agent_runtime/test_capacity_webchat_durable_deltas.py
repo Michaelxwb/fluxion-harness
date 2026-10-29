@@ -39,6 +39,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -51,7 +52,12 @@ from muad_agent_core.agent import AgentRunner
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import OpenAICompatibleProvider
 from muad_agent_core.tools import ToolRegistry
+from muad_agent_runtime.application.async_tools.continuation_service import (
+    ExecutionIdentity,
+    ExecutionLeaseLost,
+)
 from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
+from muad_agent_runtime.application.event_batcher import EventBatchEntry, EventBatcher
 from muad_agent_runtime.application.executor import (
     AgentRunnerExecutor,
     ExecutorEvent,
@@ -65,7 +71,7 @@ from muad_agent_runtime.application.run_events import DeltaWindow
 from muad_agent_runtime.application.run_service import RunService, RunStart
 from muad_agent_runtime.infrastructure import db as runtime_db
 from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, RunRecord
+from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, Conversation, RunRecord
 from muad_contracts import (
     ChannelContext,
     MessageInput,
@@ -742,3 +748,78 @@ async def _terminal_row_or_none(run_id: uuid.UUID) -> CanonicalEvent | None:
             )
             .limit(1)
         )
+
+
+async def test_b259_event_batch_commits_valid_and_isolates_lease_loss(
+    durable_tenant: DurableTenant,
+) -> None:
+    """同一批里有效事件提交；失效 lease 只失败自己，不回滚同批正常事件（Plan B）。"""
+    now = datetime.now(UTC)
+    async with get_session_factory()() as session:
+        conversation = Conversation(
+            tenant_id=durable_tenant.tenant_id,
+            user_id=durable_tenant.user_id,
+            agent_id=durable_tenant.agent_id,
+        )
+        session.add(conversation)
+        await session.flush()
+        run = RunRecord(
+            tenant_id=durable_tenant.tenant_id,
+            conversation_id=conversation.id,
+            user_id=durable_tenant.user_id,
+            agent_id=durable_tenant.agent_id,
+            status=RunStatus.RUNNING,
+            input_text="batch",
+            trace_id=uuid.uuid4().hex,
+            lease_owner=INSTANCE,
+            execution_epoch=0,
+            lease_until=now + timedelta(seconds=300),
+        )
+        session.add(run)
+        await session.commit()
+        run_id = run.id
+        conversation_id = conversation.id
+        tenant_id = durable_tenant.tenant_id
+    batcher = EventBatcher(get_session_factory)
+    try:
+        valid = asyncio.create_task(
+            batcher.submit(
+                EventBatchEntry(
+                    tenant_id=tenant_id,
+                    conversation_id=conversation_id,
+                    run_id=run_id,
+                    identity=ExecutionIdentity(tenant_id, run_id, INSTANCE, 0),
+                    event_type="message.delta",
+                    payload={"delta": "a", "reply_generation": 0},
+                    stream_type="message.delta",
+                )
+            )
+        )
+        expired = asyncio.create_task(
+            batcher.submit(
+                EventBatchEntry(
+                    tenant_id=tenant_id,
+                    conversation_id=conversation_id,
+                    run_id=run_id,
+                    identity=ExecutionIdentity(tenant_id, run_id, "other-owner", 0),
+                    event_type="message.delta",
+                    payload={"delta": "b", "reply_generation": 0},
+                    stream_type="message.delta",
+                )
+            )
+        )
+        results = await asyncio.gather(valid, expired, return_exceptions=True)
+    finally:
+        await batcher.aclose()
+    assert isinstance(results[0], int)
+    assert isinstance(results[1], ExecutionLeaseLost)
+    async with get_session_factory()() as session:
+        count = await session.scalar(
+            sa.select(sa.func.count())
+            .select_from(CanonicalEvent)
+            .where(
+                CanonicalEvent.run_id == run_id,
+                CanonicalEvent.stream_type == "message.delta",
+            )
+        )
+    assert count == 1, "有效事件必须提交，失效 lease 的事件不得写入"

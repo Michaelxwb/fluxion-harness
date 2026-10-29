@@ -25,7 +25,7 @@ import contextlib
 import json
 import time
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -42,7 +42,7 @@ from tests.capacity.metrics import (
     PostgresSnapshot,
     RunState,
     UnitMetricsSnapshot,
-    metric_deltas,
+    aggregate_metric_deltas,
     postgres_rate,
     scrape_unit_metrics,
     summarize_latencies,
@@ -206,6 +206,7 @@ class LoadTarget:
     control_terminal_wait_sec: float = 8.0
     user_deadline_sec: float = 90.0
     notification_poll_sec: float = 15.0
+    notification_transport: str = "poll"
     notification_page_size: int = 20
     hold_after_turns_sec: float = 0.0
 
@@ -221,6 +222,8 @@ class LoadTarget:
             raise DriverError("sessions 不能为空：负载必须携带真实 CHAT 主体凭据")
         if self.notification_poll_sec <= 0:
             raise DriverError("notification_poll_sec 必须 > 0")
+        if self.notification_transport not in ("poll", "sse"):
+            raise DriverError("notification_transport 必须是 poll 或 sse")
         if not 1 <= self.notification_page_size <= 100:
             raise DriverError("notification_page_size 必须在 [1, 100] 内")
         if self.hold_after_turns_sec < 0:
@@ -538,7 +541,7 @@ class LoadDriver:
         run_kind: RunKind,
         scale: LoadScale | None = None,
         metrics: PostgresMetrics,
-        unit_targets: Mapping[str, str] | None = None,
+        unit_targets: Mapping[str, Sequence[str]] | None = None,
         control_model_id: str | None = None,
         control_credential_id: str | None = None,
     ) -> None:
@@ -547,7 +550,9 @@ class LoadDriver:
         self._run_kind = run_kind
         self._scale = scale
         self._metrics = metrics
-        self._unit_targets = dict(unit_targets or {})
+        self._unit_targets = {
+            unit: tuple(base_urls) for unit, base_urls in (unit_targets or {}).items()
+        }
         self._control_model_id = control_model_id
         self._control_credential_id = control_credential_id
         self._validate()
@@ -564,6 +569,9 @@ class LoadDriver:
         self._clients: dict[int, httpx.AsyncClient] = {}
 
     def _validate(self) -> None:
+        for unit, base_urls in self._unit_targets.items():
+            if not base_urls:
+                raise DriverError(f"{unit} 的 unit_targets 不能为空：没有地址就没有真实 /metrics")
         if self._run_kind is RunKind.ACCEPTANCE:
             if self._scale is not None:
                 raise DriverError(
@@ -631,14 +639,14 @@ class LoadDriver:
         turns: tuple[TurnResult, ...],
         boundary: TurnResult | None,
         probe_before: _ProbeState | None,
-        units_before: Mapping[str, UnitMetricsSnapshot],
+        units_before: Mapping[str, Sequence[UnitMetricsSnapshot]],
         postgres_before: PostgresSnapshot,
     ) -> LoadReport:
         postgres_after = self._metrics.snapshot()
         units_after = self._scrape_units()
         probe_after = self._probe_state()
         deltas = {
-            unit: metric_deltas(units_before[unit], units_after[unit])
+            unit: aggregate_metric_deltas(units_before[unit], units_after[unit])
             for unit in units_before
             if unit in units_after
         }
@@ -729,7 +737,9 @@ class LoadDriver:
                     ),
                 )
             notification_task = asyncio.create_task(
-                self._poll_notifications(client, plan)
+                self._stream_notifications(client, plan)
+                if self._target.notification_transport == "sse"
+                else self._poll_notifications(client, plan)
             )
             results: list[TurnResult] = []
             try:
@@ -1060,6 +1070,96 @@ class LoadDriver:
             await asyncio.sleep(self._target.sample_interval_sec)
 
     # ---- 控制面独立探测 ---------------------------------------------------------------
+
+    async def _stream_notifications(
+        self, client: httpx.AsyncClient, plan: UserPlan
+    ) -> None:
+        """SSE 通知流：每用户一条长连接；建流一次，后续按 seq 增量接收。"""
+        # 与浏览器一致：按用户序号错峰 ≤1s，避免 1000 条流同一秒建流/回填。
+        await asyncio.sleep((plan.index % 20) * 0.05)
+        after_seq = 0
+        # 浏览器开流前先做一次权威 REST 快照；驱动同形，避免把「初始快照」算成 SSE 回填。
+        snapshot = "0"
+        try:
+            initial = await client.get(
+                self._url("/api/v1/webchat/notifications"),
+                params={
+                    "after_seq": 0,
+                    "page_size": self._target.notification_page_size,
+                },
+            )
+            if initial.status_code == 200:
+                data = initial.json()["data"]
+                after_seq = int(data["next_seq"])
+                through_seq = int(data["through_seq"])
+                snapshot = "1" if after_seq >= through_seq else "0"
+        except (httpx.HTTPError, KeyError, TypeError, ValueError):
+            snapshot = "0"
+        last_event_at = time.monotonic()
+        while True:
+            started = time.monotonic()
+            status: int | None = None
+            error = ""
+            try:
+                headers = (
+                    {"Last-Event-ID": str(after_seq)} if after_seq > 0 else {}
+                )
+                timeout = httpx.Timeout(
+                    connect=self._target.request_timeout_sec,
+                    read=None,
+                    write=self._target.request_timeout_sec,
+                    pool=self._target.request_timeout_sec,
+                )
+                async with client.stream(
+                    "GET",
+                    self._url("/api/v1/webchat/notifications/stream"),
+                    params={"after_seq": after_seq, "snapshot": snapshot},
+                    headers=headers,
+                    timeout=timeout,
+                ) as response:
+                    status = response.status_code
+                    if status != 200:
+                        error = _body_detail(response)
+                    else:
+                        async for line in response.aiter_lines():
+                            if line.startswith("id: "):
+                                try:
+                                    after_seq = max(after_seq, int(line[4:].strip()))
+                                except ValueError:
+                                    error = "BAD_EVENT_ID"
+                            elif line.startswith("data: ") and after_seq > 0:
+                                now = time.monotonic()
+                                self._notification_polls.append(
+                                    NotificationPoll(
+                                        user_index=plan.index,
+                                        started_at=started - self._t0,
+                                        latency_ms=(now - last_event_at) * 1000,
+                                        http_status=status,
+                                        page_size=self._target.notification_page_size,
+                                        next_seq=after_seq,
+                                        items=1,
+                                        error="",
+                                    )
+                                )
+                                last_event_at = now
+            except (httpx.HTTPError, ValueError) as exc:
+                error = type(exc).__name__
+            self._notification_polls.append(
+                NotificationPoll(
+                    user_index=plan.index,
+                    started_at=started - self._t0,
+                    latency_ms=(time.monotonic() - started) * 1000,
+                    http_status=status,
+                    page_size=self._target.notification_page_size,
+                    next_seq=after_seq,
+                    items=0,
+                    error=error,
+                )
+            )
+            # 重连不再声称有初始快照：断流期间的持久通知必须由水位/回填补齐。
+            snapshot = "0"
+            await asyncio.sleep(1.0)
+
 
     async def _poll_notifications(
         self, client: httpx.AsyncClient, plan: UserPlan
@@ -1405,13 +1505,16 @@ class LoadDriver:
             detail=_body_detail(response),
         )
 
-    def _scrape_units(self) -> Mapping[str, UnitMetricsSnapshot]:
+    def _scrape_units(self) -> Mapping[str, tuple[UnitMetricsSnapshot, ...]]:
         if not self._unit_targets:
             return {}
         with httpx.Client(timeout=10.0, trust_env=False) as client:
             return {
-                unit: scrape_unit_metrics(client, unit=unit, base_url=base_url)
-                for unit, base_url in self._unit_targets.items()
+                unit: tuple(
+                    scrape_unit_metrics(client, unit=unit, base_url=base_url)
+                    for base_url in base_urls
+                )
+                for unit, base_urls in self._unit_targets.items()
             }
 
     def _probe_state(self) -> _ProbeState | None:

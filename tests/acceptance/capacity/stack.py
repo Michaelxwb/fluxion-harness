@@ -410,6 +410,7 @@ class ServiceInstance:
     env: Mapping[str, str]
     log_path: Path
     skill_cache_root: Path
+    workers: int = 1
     process: subprocess.Popen[bytes] | None = field(default=None, init=False)
     pgid: int | None = field(default=None, init=False)
 
@@ -440,6 +441,7 @@ class ServiceInstance:
                 "127.0.0.1",
                 "--port",
                 str(self.port),
+                *(["--workers", str(self.workers)] if self.workers > 1 else []),
                 "--log-level",
                 "error",
             ],
@@ -608,10 +610,18 @@ class _ProxyServer(ThreadingHTTPServer):
     request_queue_size = 256
 
     def __init__(
-        self, address: tuple[str, int], backends: Mapping[str, str], routes: Sequence[IngressRoute]
+        self,
+        address: tuple[str, int],
+        backends: Mapping[str, Sequence[str] | str],
+        routes: Sequence[IngressRoute],
+        *,
+        max_connections: int = 500,
     ) -> None:
         super().__init__(address, _ProxyHandler)
-        self.backends = dict(backends)
+        self.backends = {
+            unit: tuple(urls) if not isinstance(urls, str) else (urls,)
+            for unit, urls in backends.items()
+        }
         self.routes = tuple(routes)
         # 连接上限决定入口代理能同时承载多少条长活 SSE + API：httpx 默认 100 条，
         # 50 用户档就贴顶（50 SSE + 并发 API → 请求在池里无限等）。显式放大并保留 keepalive。
@@ -619,12 +629,24 @@ class _ProxyServer(ThreadingHTTPServer):
             timeout=None,
             trust_env=False,
             cookies=_StatelessCookieJar(),
-            limits=httpx.Limits(max_connections=500, max_keepalive_connections=200),
+            limits=httpx.Limits(
+                max_connections=max_connections,
+                max_keepalive_connections=max(20, max_connections // 2),
+            ),
         )
 
         self._lock = threading.Lock()
         self._requests: dict[str, int] = {unit: 0 for unit in self.backends}
         self._failures: dict[str, int] = {unit: 0 for unit in self.backends}
+        self._rr: dict[str, int] = {unit: 0 for unit in self.backends}
+
+    def pick(self, unit: str) -> str:
+        """按请求轮询：多副本时把连接分到所有真实实例，不把 `replica_counts` 当摆设。"""
+        urls = self.backends[unit]
+        with self._lock:
+            index = self._rr[unit] % len(urls)
+            self._rr[unit] += 1
+        return urls[index]
 
     def route_for(self, path: str) -> str | None:
         matched = [route for route in self.routes if _route_matches(route.path, path)]
@@ -645,6 +667,7 @@ class _ProxyServer(ThreadingHTTPServer):
             requests, failures = dict(self._requests), dict(self._failures)
         return {
             "routes": [{"path": route.path, "unit": route.unit} for route in self.routes],
+            "backends": {unit: list(urls) for unit, urls in self.backends.items()},
             "requests": requests,
             "upstream_failures": failures,
         }
@@ -722,7 +745,7 @@ class _ProxyHandler(BaseHTTPRequestHandler):
         try:
             body = self._read_body()
             with server.client.stream(
-                method, f"{server.backends[unit]}{self.path}", headers=headers, content=body
+                method, f"{server.pick(unit)}{self.path}", headers=headers, content=body
             ) as upstream:
                 server.record(unit)
                 self._relay(upstream, head_only=method == "HEAD")
@@ -790,7 +813,8 @@ class EntryProxy:
 
     port: int
     log_path: Path
-    backends: Mapping[str, str]
+    backends: Mapping[str, Sequence[str]]
+    default_unit: str | None = None
     process: subprocess.Popen[bytes] | None = field(default=None, init=False)
     pgid: int | None = field(default=None, init=False)
 
@@ -819,8 +843,11 @@ class EntryProxy:
             "--port",
             str(self.port),
         ]
-        for unit, url in self.backends.items():
-            argv += ["--backend", f"{unit}={url}"]
+        for unit, urls in self.backends.items():
+            for url in urls:
+                argv += ["--backend", f"{unit}={url}"]
+        if self.default_unit is not None:
+            argv += ["--default-unit", self.default_unit]
         self.process, self.pgid = _spawn_child(
             argv, env={**os.environ, "PYTHONPATH": str(REPO_ROOT)}, log_path=self.log_path
         )
@@ -876,6 +903,7 @@ class CapacityStack:
         self.root = Path(root)
         self.profile = profile
         self.replicas = self._resolve_replicas(profile)
+        self.process_counts = self._resolve_process_counts(profile)
         self.tenant_id = f"capacity-{uuid.uuid4().hex[:8]}"
         self.internal_token = f"capacity-internal-{uuid.uuid4().hex}"
         self._datastore = datastore
@@ -884,6 +912,10 @@ class CapacityStack:
         self._instances: dict[str, list[ServiceInstance]] = {unit: [] for unit in UNITS}
         self._ports: dict[str, list[int]] = {unit: [] for unit in UNITS}
         self._proxy: EntryProxy | None = None
+        self._runtime_pool: EntryProxy | None = None
+        self._runtime_pool_url: str | None = None
+        self._console_pool: EntryProxy | None = None
+        self._console_pool_url: str | None = None
         self._probe: ProbeProcess | None = None
         self._started = False
         self._torn_down = False
@@ -904,6 +936,16 @@ class CapacityStack:
                 )
             replicas[unit] = wanted
         return replicas
+
+    @staticmethod
+    def _resolve_process_counts(profile: CapacityProfile | None) -> dict[str, int]:
+        """每 Pod 进程数（uvicorn `--workers`）：profile 未声明时每单元 1。"""
+        if profile is None or profile.resources is None:
+            return {unit: 1 for unit in UNITS}
+        return {
+            unit: max(1, int(profile.resources.process_counts[unit]))
+            for unit in UNITS
+        }
 
     @property
     def datastore(self) -> DatastoreHandle:
@@ -957,7 +999,43 @@ class CapacityStack:
         for unit in UNITS:
             for index in range(self.replicas[unit]):
                 self.skill_cache_root(unit, index).mkdir(parents=True, exist_ok=True)
+            if self.process_counts[unit] > 1:
+                metrics_dir = self.root / "prometheus" / unit
+                metrics_dir.mkdir(parents=True, exist_ok=True)
+                for stale in metrics_dir.glob("muad_metrics_*.json"):
+                    stale.unlink(missing_ok=True)
         self._ports = {unit: [free_port() for _ in range(self.replicas[unit])] for unit in UNITS}
+        if self.replicas["agent-runtime"] > 1:
+            # 本地验收栈的 replica_counts 过去只是“故障替换槽”，入口/网关都钉在 0 号实例；
+            # 1000 用户会把所有会话压到同一个 runtime，测到的是单进程队列而不是多副本容量。
+            # 这里加一个真实 round-robin 的内部池：Gateway/Console/Worker 统一经它访问 Runtime。
+            self._runtime_pool = EntryProxy(
+                port=free_port(),
+                log_path=self.root / "logs" / "runtime-pool.log",
+                backends={
+                    "agent-runtime": tuple(
+                        f"http://127.0.0.1:{port}" for port in self._ports["agent-runtime"]
+                    )
+                },
+                default_unit="agent-runtime",
+            )
+            self._runtime_pool.start(timeout_sec=self._ready_timeout_sec)
+            self._runtime_pool_url = self._runtime_pool.url
+        if self.replicas["console-platform"] > 1:
+            # 与控制面同构：Console 多 worker/多实例时，内部调用与浏览器路径都必须分摊，
+            # 否则 Gateway→Console 仍然钉在 0 号进程（1000 用户的真实失败模式）。
+            self._console_pool = EntryProxy(
+                port=free_port(),
+                log_path=self.root / "logs" / "console-pool.log",
+                backends={
+                    "console-platform": tuple(
+                        f"http://127.0.0.1:{port}" for port in self._ports["console-platform"]
+                    )
+                },
+                default_unit="console-platform",
+            )
+            self._console_pool.start(timeout_sec=self._ready_timeout_sec)
+            self._console_pool_url = self._console_pool.url
         self._probe = ProbeProcess(port=free_port(), log_path=self.root / "logs" / "model-probe.log")
         self._probe.start(timeout_sec=self._ready_timeout_sec)
         for unit in UNITS:  # Console 先起：Gateway 快照、Worker 结果回流都指向它
@@ -992,6 +1070,11 @@ class CapacityStack:
         except IndexError as exc:
             raise StackError(f"{unit} 没有 #{index} 号实例的端口规划") from exc
 
+    def urls_of(self, unit: str) -> tuple[str, ...]:
+        """该单元全部副本的真实地址：多副本指标必须逐副本抓取后汇总，不能只看 #0。"""
+        self._require_unit(unit)
+        return tuple(self.url_of(unit, index) for index in range(self.replicas[unit]))
+
     def start_instance(self, unit: str, *, index: int | None = None) -> ServiceInstance:
         """起一个真实实例；显式 index 时替换该槽位（旧实例必须已停止）。"""
         self._require_unit(unit)
@@ -1011,6 +1094,7 @@ class CapacityStack:
             env=self._service_env_for(unit, index, port),
             log_path=self.root / "logs" / f"{unit}-{index}.log",
             skill_cache_root=self.skill_cache_root(unit, index),
+            workers=self.process_counts[unit],
         )
         instance.start(ready_timeout_sec=self._ready_timeout_sec)
         if index < len(self._ports[unit]):
@@ -1065,6 +1149,7 @@ class CapacityStack:
             env=self._service_env_for(unit, index, port),
             log_path=log_path,
             skill_cache_root=skill_cache_root,
+            workers=self.process_counts[unit],
         )
         instance.start(ready_timeout_sec=self._ready_timeout_sec)
         self._instances[unit][index] = instance
@@ -1078,8 +1163,12 @@ class CapacityStack:
             port=free_port(),
             log_path=self.root / "logs" / "entry-proxy.log",
             backends={
-                "console-platform": self.url_of("console-platform"),
-                "im-gateway": self.url_of("im-gateway"),
+                "console-platform": tuple(
+                    instance.url for instance in self._instances["console-platform"]
+                ),
+                "im-gateway": tuple(
+                    instance.url for instance in self._instances["im-gateway"]
+                ),
             },
         )
         proxy.start(timeout_sec=self._ready_timeout_sec)
@@ -1137,6 +1226,14 @@ class CapacityStack:
         self._torn_down = True
         if self._proxy is not None:
             self._proxy.stop()
+        if self._runtime_pool is not None:
+            self._runtime_pool.stop()
+            self._runtime_pool = None
+            self._runtime_pool_url = None
+        if self._console_pool is not None:
+            self._console_pool.stop()
+            self._console_pool = None
+            self._console_pool_url = None
         for instance in reversed(self.all_instances()):
             instance.stop()
         if self._probe is not None:
@@ -1159,8 +1256,8 @@ class CapacityStack:
     def _unit_urls(self, unit: str, port: int) -> dict[str, str]:
         """四单元互指的地址；当前实例用它的真实端口，其余单元取 0 号实例。"""
         urls = {
-            "CONSOLE_PLATFORM_URL": self.url_of("console-platform"),
-            "AGENT_RUNTIME_URL": self.url_of("agent-runtime"),
+            "CONSOLE_PLATFORM_URL": self._console_pool_url or self.url_of("console-platform"),
+            "AGENT_RUNTIME_URL": self._runtime_pool_url or self.url_of("agent-runtime"),
             "AGENT_WORKER_URL": self.url_of("agent-worker"),
             "IM_GATEWAY_URL": self.url_of("im-gateway"),
         }
@@ -1180,6 +1277,9 @@ class CapacityStack:
             "REDIS_URL": self.redis_url,
             "ARTIFACT_ROOT": str(self.artifacts_root),
             "SKILL_CACHE_ROOT": str(self.skill_cache_root(unit, index)),
+            # 容量栈有多个 Runtime/Worker 副本：实例身份必须可区分（lease_owner 前缀），
+            # 否则跨实例故障用例无法判断「谁在执行、谁只是订阅者」。
+            "POD_NAME": f"{self.stack_id}-{unit}-{index}",
             "DEFAULT_TENANT_ID": self.tenant_id,
             "INTERNAL_SERVICE_TOKEN": self.internal_token,
             "MIGRATIONS_DIR": str(REPO_ROOT / "migrations" / "versions"),
@@ -1188,6 +1288,9 @@ class CapacityStack:
         }
         env.update(self._unit_urls(unit, port))
         env.update(self._service_env.get(unit, {}))
+        if self.process_counts.get(unit, 1) > 1:
+            # uvicorn --workers：每个 worker 独立进程；/metrics 必须聚合，否则只看到 1/N。
+            env["PROMETHEUS_MULTIPROC_DIR"] = str(self.root / "prometheus" / unit)
         return env
 
 
@@ -1209,27 +1312,37 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="UNIT=URL",
         help="单元名到后端地址（可重复；分流表由 deploy/k8s/base/ingress.yaml 决定）",
     )
+    proxy.add_argument(
+        "--default-unit",
+        choices=UNITS,
+        help="不按 ingress 分流、把所有路径都转给该单元（内部 runtime 副本池用）",
+    )
     proxy.set_defaults(handler=_run_proxy)
     return parser
 
 
-def _parse_backends(entries: Sequence[str]) -> dict[str, str]:
-    backends: dict[str, str] = {}
+def _parse_backends(entries: Sequence[str]) -> dict[str, tuple[str, ...]]:
+    backends: dict[str, list[str]] = {}
     for entry in entries:
         unit, separator, url = entry.partition("=")
         if not separator or unit not in UNITS or not url:
             raise SystemExit(f"非法 --backend {entry!r}：应为 UNIT=URL（UNIT ∈ {', '.join(UNITS)}）")
-        backends[unit] = url
-    return backends
+        backends.setdefault(unit, []).append(url)
+    return {unit: tuple(urls) for unit, urls in backends.items()}
 
 
 def _run_proxy(args: argparse.Namespace) -> int:
     backends = _parse_backends(args.backend)
-    routes = load_ingress_routes()
+    if args.default_unit is not None:
+        routes = (IngressRoute("/", args.default_unit),)
+    else:
+        routes = load_ingress_routes()
     missing = sorted({route.unit for route in routes} - set(backends))
     if missing:
         raise SystemExit(f"入口分流缺少后端地址：{', '.join(missing)}")
-    server = _ProxyServer((args.host, args.port), backends, routes)
+    server = _ProxyServer(
+        (args.host, args.port), backends, routes, max_connections=2000
+    )
     print(json.dumps({"url": f"http://{args.host}:{server.server_address[1]}"}), flush=True)
     try:
         server.serve_forever()

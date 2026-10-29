@@ -111,7 +111,7 @@ GET /api/v1/webchat/runs/{id}/events
 ### 已经做过且有效的改动（不在本文重复报）
 
 - 去掉了 `run_admission_policy` 的行锁与 TENANT 共享计数行锁，准入不再被全局串行化（`run_admission.py` 头注与 `check_counts_in`）。
-- Gateway egress 池从 64 提到 1024，单 Pod PoolTimeout 归零（`docs/operations/agent-capacity-webchat-single-entry-review.md`）。
+- Gateway egress 池从 64 提到 1024，单 Pod PoolTimeout 归零（2026-10-21 历史复核记录，已移除，见 git 历史）。
 - Console 受理合并为一次 `admission-materials`，并复用启动 settings 做服务身份校验。
 - 探针预算改为 5s/10s/3 次，避免健康检查重启打断 SSE。
 - Continue/续跑沿用冻结的 pool/members，不退回直连。
@@ -129,7 +129,7 @@ GET /api/v1/webchat/runs/{id}/events
 - 两个镜像的启动命令都没有 `--workers`：
   - `apps/im-gateway/Dockerfile`
   - `apps/console-platform/Dockerfile`
-- 800 用户实测：Gateway 991m、Console 932m，容器上限 2/4 核但 Python 单线程只能吃 1 核（`docs/operations/agent-capacity-webchat-single-entry-review.md:75-89`）。
+- 800 用户实测：Gateway 991m、Console 932m，容器上限 2/4 核但 Python 单线程只能吃 1 核（2026-10-21 历史复核记录，已移除，见 git 历史）。
 - `SharedSettings()` 本机实测约 **2.5ms/次**（200 次平均；此前 Pod 内记录为 1.45ms）。每次构造都会读环境与 `.env`。
 - 仍在热路径逐请求构造的位置：
   - `packages/api-kit/src/muad_api/security.py:26`：`require_internal_service` 每个内部请求构造一次；Console 的 `/internal/channel/chat-principal` 就用它。
@@ -266,7 +266,7 @@ GET /api/v1/webchat/runs/{id}/events
 - 默认 `db_pool_size=10`、`db_max_overflow=0`、`db_pool_timeout_sec=5`：`packages/common/src/muad_common/settings.py:48-50`。
 - `deploy/k8s/base` 的四个 Deployment 都没有 `DB_POOL_SIZE` / `DB_MAX_OVERFLOW`；`configmap.yaml` 也没有。
 - Runtime 的准入闸门是 64：`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py:889`；执行槽是 8/进程：`deploy/k8s/base/agent-runtime.yaml:61-62`。池 10 与闸门 64 明显不匹配。
-- 历史验收里 Runtime 每进程池是 400、Console 20+5 / 100+25（`docs/operations/agent-capacity-webchat-burst-evidence.json`、`docs/operations/agent-capacity-webchat-single-entry-review.md:93`），但这些是集群里手工改的，**没有进清单**；仓库默认仍是 10。
+- 历史验收里 Runtime 每进程池是 400、Console 20+5 / 100+25（2026-10-21 历史复核记录，已移除，见 git 历史），但这些是集群里手工改的，**没有进清单**；仓库默认仍是 10。
 - `pool_pre_ping=True`：`apps/agent-runtime/src/muad_agent_runtime/infrastructure/db.py:17`、Console 同；每次 checkout 多一次 ping。
 - 容量 profile 的 `pg_connection_budget` 是 200，但 runtime 400 × 4 + console 25 × 4 + worker 30 × 3 = 1790（burst evidence），预算口径与实测配置不一致。
 
@@ -398,7 +398,7 @@ GET /api/v1/webchat/runs/{id}/events
 
 - 受控探针每轮只发 6 段增量：`tests/acceptance/capacity/test_capacity.py:126-129`。
 - 负载驱动是 HTTP/SSE 脚本，不模拟通知轮询、client-config、页面初始化、静态资源（`tests/capacity/driver.py`）。
-- 800 用户复核是 4 Console/4 Gateway（`docs/operations/agent-capacity-webchat-burst-review.md` 顶部已声明非目标拓扑）；单入口复测的 200/400/800 数据里 800 档完成数仍有 285–583 波动。
+- 800 用户复核是 4 Console/4 Gateway（2026-10-21 历史复核记录顶部已声明非目标拓扑；记录已移除，见 git 历史）；单入口复测的 200/400/800 数据里 800 档完成数仍有 285–583 波动。
 - 容量报告采样 `connections_active`，但没有把 `idle in transaction`、提交率、按语句的 p95 单独报告。
 
 **建议**
@@ -599,7 +599,7 @@ Browser
 | Gateway SSE 每帧指标 | `webchat_streams.py:504-553`；`packages/api-kit/src/muad_api/metrics.py:42-61` |
 | 静态资源 | `apps/console-platform/backend/src/muad_console_platform/spa.py`；`deploy/k8s/base/ingress.yaml` |
 | 容量 profile | `tests/capacity/profiles/agent-capacity-webchat.example.yml` |
-| 历史实测 | `docs/operations/agent-capacity-webchat-single-entry-review.md`、`agent-capacity-webchat-burst-review.md` |
+| 历史实测 | 2026-10-21 历史复核记录（已移除，见 git 历史） |
 
 ---
 

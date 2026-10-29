@@ -27,7 +27,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok
 from muad_api.security import require_internal_service
 from muad_contracts import MAX_PAGE_SIZE
-from muad_contracts.platform_settings import parse_platform_settings
+from muad_contracts.platform_settings import WebchatSettings, parse_platform_settings
 from muad_contracts.webchat import WebchatUpload, WebchatUploadRegistration
 from muad_contracts.webchat_events import WebchatTaskResultRegistration
 
@@ -40,6 +40,7 @@ from ..application.channel_uploads import (
     register_staged_upload,
     upload_limits_from_settings,
 )
+from ..application.conversation_policy import ConversationPolicy
 from ..application.ports import PlatformSettingsClient
 from ..application.run_service import stream_scope_gate
 from ..application.webchat_artifacts import resolve_webchat_artifact
@@ -70,6 +71,21 @@ async def _effective_page_size(
         return page_size
     snapshot = await settings_client.fetch_snapshot(tenant_id=tenant_id)
     return parse_platform_settings(snapshot.settings).webchat.history_page_size
+
+
+async def _webchat_settings(
+    settings_client: PlatformSettingsClient, tenant_id: str
+) -> WebchatSettings:
+    """列表/详情/消息共用一次设置快照：页大小与会话策略来自同一份权威文档。"""
+    snapshot = await settings_client.fetch_snapshot(tenant_id=tenant_id)
+    return parse_platform_settings(snapshot.settings).webchat
+
+
+def _conversation_policy(webchat: WebchatSettings) -> ConversationPolicy:
+    return ConversationPolicy(
+        max_conversations_per_entry=webchat.max_conversations_per_entry,
+        conversation_retention_days=webchat.conversation_retention_days,
+    )
 
 
 def _scope(
@@ -168,11 +184,13 @@ async def list_entry_conversations(
     page_size: PageSize = None,
 ) -> ApiResponse[dict[str, Any]]:
     """API-14：入口会话列表（仅本主体/入口/Agent，按最近活动倒序）。"""
-    size = await _effective_page_size(settings_client, tenant_id, page_size)
+    webchat = await _webchat_settings(settings_client, tenant_id)
+    size = page_size if page_size is not None else webchat.history_page_size
     page_view = await WebchatHistoryService(session).list_conversations(
         _scope(tenant_id, user_id=user_id, agent_id=agent_id, entry_id=entry_id),
         page=page,
         page_size=size,
+        policy=_conversation_policy(webchat),
     )
     return ok(request.app.state.message_catalog, page_view.model_dump(mode="json"))
 
@@ -183,13 +201,17 @@ async def get_conversation(
     request: Request,
     tenant_id: TenantDep,
     session: SessionDep,
+    settings_client: PlatformSettingsClientDep,
     user_id: UserId,
     agent_id: AgentId,
     entry_id: EntryId,
 ) -> ApiResponse[dict[str, Any]]:
     """API-15：核属后的会话详情（活跃 Run 供打开历史后的恢复）。"""
+    webchat = await _webchat_settings(settings_client, tenant_id)
     detail = await WebchatHistoryService(session).get_conversation(
-        _scope(tenant_id, user_id=user_id, agent_id=agent_id, entry_id=entry_id), conversation_id
+        _scope(tenant_id, user_id=user_id, agent_id=agent_id, entry_id=entry_id),
+        conversation_id,
+        policy=_conversation_policy(webchat),
     )
     return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
 
@@ -227,13 +249,15 @@ async def list_messages(
     through_seq: ThroughSeq = None,
 ) -> ApiResponse[dict[str, Any]]:
     """API-09：可见消息固定水位分页（首屏冻结 `through_seq`，后页沿用）。"""
-    size = await _effective_page_size(settings_client, tenant_id, page_size)
+    webchat = await _webchat_settings(settings_client, tenant_id)
+    size = page_size if page_size is not None else webchat.history_page_size
     page_view = await WebchatHistoryService(session).list_messages(
         _scope(tenant_id, user_id=user_id, agent_id=agent_id, entry_id=entry_id),
         conversation_id,
         page=page,
         page_size=size,
         through_seq=through_seq,
+        policy=_conversation_policy(webchat),
     )
     return ok(request.app.state.message_catalog, page_view.model_dump(mode="json"))
 

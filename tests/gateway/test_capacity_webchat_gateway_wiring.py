@@ -44,16 +44,24 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID, uuid4
 
 import httpx
 import pytest
+import redis.asyncio as redis
 import uvicorn
 from fakes import StubConsole
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
+from muad_common.session_store import (
+    SessionAgent,
+    SessionRecord,
+    hash_session_token,
+    session_key,
+)
 from muad_contracts.webchat import (
     ADMISSION_CONVERSATION_ID_HEADER,
     ADMISSION_EXECUTION_STATUS_HEADER,
@@ -517,6 +525,41 @@ async def _admission_stream() -> AsyncIterator[str]:
 # --------------------------------------------------------------------------------------
 
 
+def _isolated_redis_url() -> str:
+    """测试专用 Redis DB 9：不碰 `.env` 的 0 号库，也不依赖不可达端口。"""
+    parts = urlsplit(SharedSettings().require_redis_url())
+    return urlunsplit((parts.scheme, parts.netloc, "/9", parts.query, parts.fragment))
+
+
+async def _flush_redis(redis_url: str) -> None:
+    client = redis.from_url(redis_url)
+    try:
+        await client.flushdb()
+    finally:
+        await client.aclose()
+
+
+async def _seed_chat_session(redis_url: str) -> None:
+    """按 Console exchange 的写入口径预置会话，验证 Gateway 只读 Redis、不回源 Console。"""
+    client = redis.from_url(redis_url)
+    try:
+        now = datetime.now(UTC)
+        record = SessionRecord(
+            tenant_id=GATEWAY_TENANT,
+            platform_user_id=PLATFORM_USER_ID,
+            session_id=SESSION_ID,
+            auth_method="USER_TOKEN",
+            expires_at=now + timedelta(hours=1),
+            idle_ttl_sec=3600,
+            agents=(SessionAgent(agent_id=AGENT_ID, key="b296-agent", name=AGENT_NAME),),
+        )
+        await client.set(
+            session_key(hash_session_token(SESSION_TOKEN)), record.to_json(), ex=3600
+        )
+    finally:
+        await client.aclose()
+
+
 @asynccontextmanager
 async def _running_gateway() -> AsyncIterator[str]:
     """真实 Gateway：真实 uvicorn socket + 真实 lifespan（四类生命周期都在跑）。"""
@@ -545,6 +588,7 @@ def _install_gateway_env(
     runtime_url: str,
     artifact_root: Path,
     wecom_probe: WeComProbe | None = None,
+    redis_url: str = "redis://127.0.0.1:1/0",
     **extra: str,
 ) -> None:
     """真实配置入口：Gateway 只从环境读配置，lifespan 启动时快照这些值。"""
@@ -556,7 +600,7 @@ def _install_gateway_env(
     monkeypatch.setenv("DEFAULT_TENANT_ID", GATEWAY_TENANT)
     # 网关不持库：DATABASE_URL 只过配置校验，指向不可达地址（从不连接）。
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://muad:muad@127.0.0.1:1/muad_b296")
-    monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:1/0")
+    monkeypatch.setenv("REDIS_URL", redis_url)
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", INTERNAL_TOKEN)
     monkeypatch.setenv("CHANNEL_PROBE_URL", "")
     # 请求面通道：WEBCHAT（进程内）+ 配置驱动的 WECOM webhook（无长连接/无 bot secret）。
@@ -687,12 +731,16 @@ async def test_b296_production_app_registers_webchat_wecom_recheck_and_public_ss
         frames=[(1, "message.delta", {"reply_generation": 0, "delta": "你好"})],
         watermark=1,
     )
+    redis_url = _isolated_redis_url()
+    await _flush_redis(redis_url)
+    await _seed_chat_session(redis_url)
     _install_gateway_env(
         monkeypatch,
         console_url=stub_console.url,
         runtime_url=runtime_probe.url,
         artifact_root=tmp_path / "artifacts",
         wecom_probe=probe,
+        redis_url=redis_url,
     )
     try:
         async with _running_gateway() as env:
@@ -765,11 +813,8 @@ async def test_b296_production_app_registers_webchat_wecom_recheck_and_public_ss
             assert "event: message.delta" in body
             assert INTERNAL_CANARY not in body
 
-            # ⑥ 身份复核真实发生：Console 收到会话原文与上下文头（响应不含凭据）。
-            assert console_probe.principal_calls, "CHAT 主体核验未发往 Console"
-            first = console_probe.principal_calls[0]
-            assert first.body["session_token"] == SESSION_TOKEN
-            assert first.headers["x-chat-context"] == str(CHAT_CONTEXT)
+            # ⑥ 身份门控真实发生：Redis 会话命中后只读本地存储，不再逐请求回源 Console。
+            assert console_probe.principal_calls == [], "Redis 命中时不得回源 Console"
             assert console_probe.bots_calls, "入口快照未经 Console 读取"
             # ⑦ 公开 SSE 的 Owner 调用：GET 重放，绝不 POST 重建 Run。
             assert runtime_probe.run_posts == []
@@ -783,6 +828,7 @@ async def test_b296_production_app_registers_webchat_wecom_recheck_and_public_ss
             )
     finally:
         await probe.stop()
+        await _flush_redis(redis_url)
 
 
 def test_b296_gateway_holds_no_database() -> None:
@@ -952,11 +998,15 @@ async def test_b296_shutdown_drains_subscription_and_restart_never_rebuilds_the_
         watermark=1,
         hold_open_sec=60.0,
     )
+    redis_url = _isolated_redis_url()
+    await _flush_redis(redis_url)
+    await _seed_chat_session(redis_url)
     _install_gateway_env(
         monkeypatch,
         console_url=stub_console.url,
         runtime_url=runtime_probe.url,
         artifact_root=tmp_path / "artifacts",
+        redis_url=redis_url,
     )
     baseline = set(asyncio.all_tasks())
     first_server = _GatewayServer()
@@ -1048,6 +1098,7 @@ async def test_b296_shutdown_drains_subscription_and_restart_never_rebuilds_the_
     assert len(runtime_probe.run_posts) == 1, "重连重放不得重建 Run（受理 POST 恰一次）"
     assert [call["after_seq"] for call in runtime_probe.event_calls][-1] == 1
     assert runtime_probe.scope_calls >= 2  # 两次打开都核了归属（第一次订阅 + 重启重连）
+    await _flush_redis(redis_url)
 
 
 class _GatewayServer:
@@ -1139,11 +1190,15 @@ async def test_b296_sse_subscriber_limit_rejects_explicitly_before_opening_the_o
         watermark=1,
         hold_open_sec=60.0,
     )
+    redis_url = _isolated_redis_url()
+    await _flush_redis(redis_url)
+    await _seed_chat_session(redis_url)
     _install_gateway_env(
         monkeypatch,
         console_url=stub_console.url,
         runtime_url=runtime_probe.url,
         artifact_root=tmp_path / "artifacts",
+        redis_url=redis_url,
         GATEWAY_MAX_SSE_SUBSCRIBERS="1",
     )
     async with _running_gateway() as env:
@@ -1196,3 +1251,4 @@ async def test_b296_sse_subscriber_limit_rejects_explicitly_before_opening_the_o
                 lambda: app.state.webchat_sse_ledger.stats().active_subscribers == 0,
                 message="重订流结束后账本未归零",
             )
+            await _flush_redis(redis_url)

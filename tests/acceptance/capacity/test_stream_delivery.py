@@ -278,6 +278,14 @@ def stream_harness(
         stack.teardown()
 
 
+def _hint_total(stack: CapacityStack, status: str) -> float:
+    """提示指标按 Runtime 实例求和：Gateway 轮询到的执行实例不一定是 0 号。"""
+    return sum(
+        metric_total(instance.url, "event_stream_hint_total", {"status": status})
+        for instance in stack.instances("agent-runtime")
+    )
+
+
 def test_s03_sse_disconnect_and_subscription_instance_replacement_keep_cursor_continuity(
     stream_harness: StreamHarness,
 ) -> None:
@@ -308,9 +316,24 @@ def test_s03_sse_disconnect_and_subscription_instance_replacement_keep_cursor_co
         stack.proxy.url, session, seeded.entry_id, conversation_id, "重连游标连续性"
     )
 
-    subscriber = stack.instance("agent-runtime", index=1)
-    executor = stack.instance("agent-runtime", index=0)
-    assert subscriber.alive and executor.alive
+    # Gateway 的 runtime 池会轮询，不能假设 0 号执行；按真实 lease_owner（POD_NAME 前缀）选
+    # 「非执行者」作为订阅实例，杀它才是在杀订阅而不是杀执行中的 Run。
+    wait_until(
+        lambda: bool(run_row(stack.database_url, run_id).get("lease_owner")),
+        what="Run 未在超时内被 Runtime 领取",
+        timeout=60.0,
+    )
+    owner = str(run_row(stack.database_url, run_id)["lease_owner"])
+    instances = stack.instances("agent-runtime")
+    executor = next(
+        (item for item in instances if owner.startswith(
+            f"{stack.stack_id}-agent-runtime-{item.index}:"
+        )),
+        None,
+    )
+    assert executor is not None, f"lease_owner={owner} 无法映射到 Runtime 实例"
+    subscriber = next((item for item in instances if item.pid != executor.pid), None)
+    assert subscriber is not None, "本用例需要至少两个 Runtime 实例（执行者 + 订阅者）"
     assert subscriber.pid != executor.pid, "订阅实例与执行实例是两个真实进程"
 
     url = f"{subscriber.url}{RUNTIME_EVENTS_PATH.format(run_id=run_id)}"
@@ -359,7 +382,7 @@ def test_s03_sse_disconnect_and_subscription_instance_replacement_keep_cursor_co
         os.killpg(subscriber_pgid, 0)
 
     # ③ 替换实例：新进程/新端口，同库/Redis/卷。
-    replacement = stack.replace_instance("agent-runtime", index=1)
+    replacement = stack.replace_instance("agent-runtime", index=subscriber.index)
     assert replacement.pid != subscriber_pid and replacement.port != subscriber_port
     env = read_process_environ(replacement.pid)
     assert env["DATABASE_URL"] == stack.database_url
@@ -544,12 +567,12 @@ def test_e02_redis_hint_loss_falls_back_to_pg_and_is_visible(
     assert terminal == "COMPLETED", f"提示丢失后公开流必须仍到终态：{terminal!r}"
     assert text == "提示丢失补拉", f"正文不得因提示丢失缺失：{text!r}"
 
-    degraded = metric_total(runtime.url, "event_stream_hint_total", {"status": "degraded"})
+    degraded = _hint_total(stack, "degraded")
     assert degraded >= 1, "Redis 提示降级必须有真实指标（不静默吞掉）"
     assert fault_harness.redis_proxy.dropped_connections >= 1, "代理确实丢弃过连接（真实故障）"
 
     fault_harness.redis_proxy.set_fault(FaultProxyMode.PASS_THROUGH)
-    ok_before = metric_total(runtime.url, "event_stream_hint_total", {"status": "ok"})
+    ok_before = _hint_total(stack, "ok")
     second_run = submit_message(
         stack.proxy.url,
         session,
@@ -560,7 +583,7 @@ def test_e02_redis_hint_loss_falls_back_to_pg_and_is_visible(
     second_terminal, _ = read_public_stream(stack.proxy.url, session, second_run)
     assert second_terminal == "COMPLETED", "恢复直通后新 Run 必须正常完成"
     wait_until(
-        lambda: metric_total(runtime.url, "event_stream_hint_total", {"status": "ok"}) > ok_before,
+        lambda: _hint_total(stack, "ok") > ok_before,
         what="恢复后提示路径未重新可见（ok 计数未增长）",
         timeout=30.0,
     )
@@ -797,6 +820,9 @@ def _build_wecom_stack(
                 # 企微是远程 Connector 的通道面：Gateway 入站只路由、出站写 im.outbound。
                 "GATEWAY_ROUTED_CHANNELS": "WECOM",
                 "CHANNEL_PROBE_URL": "",
+                # Gateway 重启后要先刷新 bot 快照才能处理入站；验收用 1s 轮询，
+                # 避免默认 30s 快照 + 60s reclaim 叠加超过用例的入站等待预算。
+                "BOT_SNAPSHOT_POLL_SEC": "1",
             },
             "agent-runtime": {
                 "CHANNEL_DELIVERY_POLL_SEC": "1",
@@ -980,7 +1006,7 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
             chat_id=seeded.wecom_chat_id,
         )
         await await_until(
-            lambda: bool(set(run_ids()) - known), what="入站消息未建 Run", timeout=60.0
+            lambda: bool(set(run_ids()) - known), what="入站消息未建 Run", timeout=180.0
         )
         return [run_id for run_id in run_ids() if run_id not in known][-1]
 
@@ -1132,16 +1158,18 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     #    第二条 Run 不再需要长在飞窗口，恢复短延迟以控制整跑耗时。
     set_probe_behavior(
         stack.model_probe.url,
-        {"latency_ms": 300, "deltas": ["发送", "失败", "重试"]},
+        {"latency_ms": 3000, "deltas": ["发送", "失败", "重试"]},
         api_key=PROBE_API_KEY,
     )
-    probe.fail_reply_bots.add(WECOM_BOT_ID)
     second_run = await push_and_wait_run("发送失败重试")
     await await_until(
         lambda: run_row(stack.database_url, second_run)["status"] == "RUNNING",
         what="第二条 Run 未进入执行",
         timeout=60.0,
     )
+    # 失败注入只针对终态主动发送；必须在 Run 已建、尚未完成时打开，
+    # 否则入站回执也会被探针拒绝，表现为「消息没建 Run」而不是投递失败。
+    probe.fail_reply_bots.add(WECOM_BOT_ID)
     attribute_conversation(second_run)
     await await_until(
         lambda: run_row(stack.database_url, second_run)["status"] == "COMPLETED",

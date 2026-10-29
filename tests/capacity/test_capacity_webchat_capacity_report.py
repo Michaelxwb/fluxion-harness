@@ -844,7 +844,7 @@ def _run_load(
         metrics=PostgresMetrics(
             stack.database_url, tenant_id=stack.tenant_id, artifacts_root=stack.artifacts_root
         ),
-        unit_targets={unit: stack.url_of(unit) for unit in UNITS},
+        unit_targets={unit: stack.urls_of(unit) for unit in UNITS},
         control_model_id=str(seeded.model_id),
         control_credential_id=str(seeded.credential_id),
     )

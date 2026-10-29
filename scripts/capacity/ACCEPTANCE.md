@@ -18,7 +18,7 @@
 | 验收 manifest | 同目录 `.acceptance-manifest.json` | 每个场景的 owner/level/boundary/cwd/timeout/command/status 与真实运行证据（run_id/exit_code/executed_at） |
 | 后端设计 | `agent-capacity-webchat.backend.design.md` | §2.5 的 47 个后端场景（S-01…S-17 / E-01…E-21 / B-01…B-09） |
 | 前端设计 | `agent-capacity-webchat.frontend.design.md` | §2.4 的 31 个前端场景（S-F01…S-F15 / E-F01…E-F11 / B-F01…B-F05） |
-| 容量报告口径 | `docs/operations/agent-capacity-webchat-capacity.md` | 证据包、报告结论与副本建议公式 |
+| 容量报告口径 | `scripts/capacity/REPORTING.md` | 证据包、报告结论与副本建议公式 |
 | 运行手册 | 本文件 | 分层命令、失败读法、未验证边界 |
 
 审计实现：`tests/capacity/acceptance_audit.py`；行为验收：

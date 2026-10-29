@@ -64,6 +64,8 @@ class ChatSessionGrant:
 
     info: WebchatSessionInfo
     session_token: SecretStr
+    #: 滑动续期的 idle TTL（设置 `webchat.session_ttl_hours`）；绝对上限是来源 Token 到期。
+    idle_ttl_sec: int
 
 
 class ChatSessionService:
@@ -93,7 +95,11 @@ class ChatSessionService:
             raise AppError(ErrorCode.CHAT_TOKEN_INVALID)
         ttl = await self._session_ttl(presented.tenant_id)
         return await self._create_session(
-            user, live, now=now, expires_at=min(now + ttl, live.expires_at)
+            user,
+            live,
+            now=now,
+            expires_at=live.expires_at,
+            idle_ttl_sec=int(ttl.total_seconds()),
         )
 
     async def resolve(self, session_token: SecretStr) -> WebchatSessionInfo:
@@ -138,7 +144,13 @@ class ChatSessionService:
         )
 
     async def _create_session(
-        self, user: PlatformUser, token_row: ChatAccessToken, *, now: datetime, expires_at: datetime
+        self,
+        user: PlatformUser,
+        token_row: ChatAccessToken,
+        *,
+        now: datetime,
+        expires_at: datetime,
+        idle_ttl_sec: int,
     ) -> ChatSessionGrant:
         """落库独立会话（只存摘要）并返回一次性原文；提交由调用方决定。"""
         session_token = generate_chat_token()
@@ -171,6 +183,7 @@ class ChatSessionService:
                 expires_at=expires_at,
             ),
             session_token=SecretStr(session_token),
+            idle_ttl_sec=idle_ttl_sec,
         )
 
     async def _session_ttl(self, tenant_id: str) -> timedelta:
