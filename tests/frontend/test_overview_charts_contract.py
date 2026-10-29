@@ -14,10 +14,14 @@ def source(name: str) -> str:
 def test_charts_render_real_series_from_theme_tokens() -> None:
     for name in ("TaskTrendChart", "TaskStatusDonut", "TokenTrendChart"):
         body = source("components/" + name + ".tsx")
-        assert "echarts-for-react" in body and "ReactECharts" in body
+        assert "OverviewChart" in body
         assert "useChartTheme" in body
         assert re.search(r"#[0-9a-fA-F]{3,8}\b", body) is None
         assert "var(--" not in body
+    wrapper = source("components/OverviewChart.tsx")
+    assert "echarts-for-react" in wrapper and "ReactECharts" in wrapper
+    # 图表由 flex/grid 分配高度，必须监听容器尺寸而不是只依赖 window resize。
+    assert "ResizeObserver" in wrapper and "requestAnimationFrame" in wrapper
     theme = source("hooks/useChartTheme.ts")
     assert "MutationObserver" in theme and "--semi-color-primary" in theme
 

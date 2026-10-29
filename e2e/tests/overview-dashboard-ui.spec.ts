@@ -203,7 +203,7 @@ test('S-06 中英、深浅主题及不同宽度的布局无横向溢出', async 
     ['light', 'en-US', 1920],
     ['dark', 'en-US', 768]
   ] as const) {
-    await page.setViewportSize({ width, height: width < 1000 ? 2400 : 1440 });
+    await page.setViewportSize({ width, height: width < 1000 ? 2400 : 900 });
     await page.goto('/');
     await page.evaluate(({ theme, locale }) => {
       localStorage.setItem('muad.theme', theme);
@@ -213,6 +213,13 @@ test('S-06 中英、深浅主题及不同宽度的布局无横向溢出', async 
     await expect(page.getByTestId('kpi-value-run-count')).toHaveText('2');
     await expect(page.getByTestId('overview-agent-ranking')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+    if (width >= 1200) {
+      // 桌面宽度下一屏展示：概览页不能把 .app-content 撑出纵向滚动。
+      expect(await page.evaluate(() => {
+        const content = document.querySelector('.app-content');
+        return content ? content.scrollHeight - content.clientHeight : -1;
+      })).toBeLessThanOrEqual(1);
+    }
     for (const id of ['overview-trend-card', 'overview-status-card', 'overview-token-card']) {
       await expect.poll(() => page.getByTestId(id).locator('canvas').count()).toBeGreaterThan(0);
     }

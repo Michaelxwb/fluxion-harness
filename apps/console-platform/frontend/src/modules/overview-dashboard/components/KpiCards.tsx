@@ -27,14 +27,19 @@ export function KpiCards({ kpis }: { kpis: OverviewKpis }) {
     { label: label(t('overview.kpi.modelRequests'), t('overview.hint.modelRequests'), '/audits?auditType=MODEL'),
       value: value(formatNumber(kpis.modelRequestCount, language), 'model-requests') },
     { label: label(t('overview.kpi.tokens'), t('overview.hint.tokens'), '/audits?auditType=MODEL'),
-      value: <Tooltip content={t('overview.tokens.details', {
-        input: kpis.inputTokens === null ? t('overview.notRecorded') : formatNumber(kpis.inputTokens, language),
-        output: kpis.outputTokens === null ? t('overview.notRecorded') : formatNumber(kpis.outputTokens, language) })}>
+      value: <Tooltip content={
+        <>
+          <div>{t('overview.tokens.details', {
+            input: kpis.inputTokens === null ? t('overview.notRecorded') : formatNumber(kpis.inputTokens, language),
+            output: kpis.outputTokens === null ? t('overview.notRecorded') : formatNumber(kpis.outputTokens, language) })}</div>
+          <div>{kpis.modelRequestCount > 0 ? t('overview.tokens.coverage', {
+            reported: kpis.tokenReportedRequestCount, total: kpis.modelRequestCount,
+            coverage: formatPercent(kpis.tokenCoverage, language) }) : t('overview.tokens.noRequests')}</div>
+        </>
+      }>
         <span>{value(kpis.totalTokens === null ? t('overview.notRecorded') : formatNumber(kpis.totalTokens, language, true), 'tokens')}</span>
-      </Tooltip>,
-      hint: kpis.modelRequestCount > 0 ? t('overview.tokens.coverage', {
-        reported: kpis.tokenReportedRequestCount, total: kpis.modelRequestCount,
-        coverage: formatPercent(kpis.tokenCoverage, language) }) : t('overview.tokens.noRequests') }
+      </Tooltip>
+    }
   ];
   return <div className="overview-kpis"><MetricCards items={items} /></div>;
 }

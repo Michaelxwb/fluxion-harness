@@ -53,3 +53,17 @@ def test_time_controls_and_refresh_use_shared_date_format() -> None:
         assert "value: " + str(value) in toolbar
     assert "aria-pressed" in toolbar and "IconRefresh" in toolbar
     assert "onClick={props.onRefresh}" in toolbar
+
+
+def test_overview_is_a_one_screen_dashboard() -> None:
+    """概览页按一屏布局：图表行吃掉剩余高度，不依赖固定 240px 画布产生滚动。"""
+    page = source("pages/OverviewPage.tsx")
+    assert 'className="overview-body"' in page
+    css = (ROOT / "apps/console-platform/frontend/src/styles/app.css").read_text(encoding="utf-8")
+    start = css.index("/* ---------- Overview:")
+    next_block = css.find("/* ----------", start + 1)
+    block = css[start:] if next_block == -1 else css[start:next_block]
+    assert ".overview-dashboard {" in block and "height: 100%;" in block
+    assert "grid-template-rows: repeat(2, minmax(0, 1fr))" in block
+    assert ".overview-chart-canvas { flex: 1 1 auto;" in block
+    assert "height: 240px" not in block

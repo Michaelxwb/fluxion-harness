@@ -44,7 +44,7 @@ def test_copy_is_localized_and_not_cached() -> None:
         body = stripped(path.read_text())
         literals = re.findall(r"'([^'\n]*)'|\"([^\"\n]*)\"", body)
         assert not any(re.search(r"[一-鿿]", text) for pair in literals for text in pair)
-        if "t(" in body:
+        if re.search(r"\bt\(", body):
             assert "useTranslation" in body
         for banned in ("i18n.t(", "useState(t(", "useRef(t("):
             assert banned not in body
