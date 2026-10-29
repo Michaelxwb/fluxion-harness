@@ -24,6 +24,7 @@ ADMIN 门控的**前端隐藏**层（归前端 owner，本用例只断言可机�
 from __future__ import annotations
 
 import hashlib
+import time
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -281,6 +282,16 @@ def _create_audit_count() -> int:
     )
 
 
+def _wait_create_audit_count(expected: int, timeout_sec: float = 5.0) -> int:
+    """创建请求的响应先于依赖收尾提交：审计行可见性是最终一致的，按真实提交窗口轮询。"""
+    deadline = time.monotonic() + timeout_sec
+    while True:
+        count = _create_audit_count()
+        if count >= expected or time.monotonic() >= deadline:
+            return count
+        time.sleep(0.05)
+
+
 def test_e08_csrf_missing_or_forged_is_forbidden_without_audit(
     live_stack: DfxStack, http: httpx.Client, api_security: ApiSecurityContext
 ) -> None:
@@ -314,7 +325,7 @@ def test_e08_csrf_missing_or_forged_is_forbidden_without_audit(
     # 正对照：同一请求带正确 CSRF 头必须成功，证明 403 来自 CSRF 校验而非别的门禁。
     created = _create_account(http, payload["username"], BUILDER_PASSWORD)
     assert created.status_code == 200, created.text
-    assert _create_audit_count() == before + 1
+    assert _wait_create_audit_count(before + 1) == before + 1
 
 
 def test_e08_builder_is_denied_admin_endpoints_and_admin_is_allowed(
