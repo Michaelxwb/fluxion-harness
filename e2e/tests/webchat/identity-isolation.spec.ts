@@ -616,9 +616,10 @@ test('S-112 同浏览器退出 A 输入 B：旧流/消息/草稿清空，B 认�
 
   // A 的草稿（未发送）+ 长流进行中
   await page.getByTestId('chat-composer-input').fill('S-112 A 的未发送草稿');
-  await webchatFaults.setBehavior({ latency_ms: 3_000, chunk_interval_ms: 1_000, deltas: ['A', 'B', 'C', 'D', 'E', 'F'] });
+  await webchatFaults.setBehavior({ latency_ms: 8_000, chunk_interval_ms: 1_000, deltas: ['A', 'B', 'C', 'D', 'E', 'F'] });
   await sendChatMessage(page, 'S-112 A 的长流提问');
-  await expect(page.getByTestId('chat-streaming-reply')).toBeVisible({ timeout: 30_000 });
+  // 用服务端活跃 Run 作为在飞同步点：3s 流式 DOM 可能在首次轮询前就收敛。
+  await waitForActiveRun(page, conversationId);
 
   // 撤销 A 的 Token → 旧流先停、私有状态（消息/草稿）清空，回到 Token 输入
   await webchatAdmin.revokeChatToken(a.account.id, a.chatToken.revision);
@@ -662,9 +663,10 @@ test('E-101 CHAT 会话撤销时关闭流、清私有状态并回到 Token 输�
   await openChatConversation(page, a.entry.entryId, conversationId);
   await sendChatMessage(page, 'E-101 A 的消息');
   await waitForAssistantReply(page);
-  await webchatFaults.setBehavior({ latency_ms: 3_000, chunk_interval_ms: 1_000, deltas: ['A', 'B', 'C', 'D', 'E', 'F'] });
+  await webchatFaults.setBehavior({ latency_ms: 8_000, chunk_interval_ms: 1_000, deltas: ['A', 'B', 'C', 'D', 'E', 'F'] });
   await sendChatMessage(page, 'E-101 A 的长流提问');
-  await expect(page.getByTestId('chat-streaming-reply')).toBeVisible({ timeout: 30_000 });
+  // 撤销必须发生在 Run 仍在执行时；以服务端活跃 Run 为准，不赌瞬时流式 DOM。
+  await waitForActiveRun(page, conversationId);
 
   // 撤销：流关闭 + 私有状态清空 + 回 Token 输入（提示重新输入有效 Token）
   await webchatAdmin.revokeChatToken(a.account.id, a.chatToken.revision);
