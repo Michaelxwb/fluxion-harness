@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import UTC, datetime
+import re
+from datetime import datetime
+from typing import Any
 
 from .context import get_log_context
 from .extras import RESERVED_KEYS, extra_fields
+
+#: 字符串字段需要加引号的字符：空白、竖线、引号（避免破坏 ` | key=value` 的可读边界）。
+_QUOTE_FIELD = re.compile(r"[\s|\"]")
 
 
 def _json_default(value: object) -> str:
@@ -22,27 +27,64 @@ def _json_default(value: object) -> str:
     return f"<unserializable:{type(value).__name__}>"
 
 
-class JsonLogFormatter(logging.Formatter):
+def _format_field(value: Any) -> str:
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False) if _QUOTE_FIELD.search(value) else value
+    if isinstance(value, (dict, list, tuple)):
+        try:
+            return json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=_json_default)
+        except (TypeError, ValueError):
+            return f"<unserializable:{type(value).__name__}>"
+    if value is None:
+        return "null"
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    return f"<unserializable:{type(value).__name__}>"
+
+
+class TextLogFormatter(logging.Formatter):
+    """单行文本日志，字段以 `key=value` 追加在消息之后。
+
+    示例：
+    `2026-10-29 20:19:43.553 +0800 [INFO] muad-agent-worker muad_agent_worker.worker.service
+      execution_slots_configured | slots=8`
+
+    - 关联字段只打印非空值；`trace_id/request_id/tenant_id` 等空串不再刷屏
+    - `extra={...}` 仍通过 `RedactionFilter` 先脱敏，再进入文本
+    - 异常/堆栈保持换行在原消息之后
+    """
+
     def __init__(self, service_name: str) -> None:
         super().__init__()
         self.service_name = service_name
 
+    @staticmethod
+    def _timestamp(record: logging.LogRecord) -> str:
+        stamp = datetime.fromtimestamp(record.created).astimezone()
+        return stamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + " " + stamp.strftime("%z")
+
     def format(self, record: logging.LogRecord) -> str:
-        payload: dict[str, object] = {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "service": self.service_name,
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
+        line = (
+            f"{self._timestamp(record)} [{record.levelname}] {self.service_name} "
+            f"{record.name} {record.getMessage()}"
+        )
+        fields: dict[str, Any] = {
+            key: value
+            for key, value in get_log_context().items()
+            if key not in RESERVED_KEYS and value not in (None, "")
         }
-        if record.exc_info:
-            payload["exception"] = self.formatException(record.exc_info)
-        for key, value in get_log_context().items():
-            if key not in RESERVED_KEYS:
-                payload[key] = value
         # 调用方的 `extra={...}` 覆盖 log context（更贴近这一次事件），但同样不得覆写保留键
         for key, value in extra_fields(record).items():
-            payload[key] = value
-        return json.dumps(
-            payload, ensure_ascii=False, separators=(",", ":"), default=_json_default
-        )
+            if key in RESERVED_KEYS:
+                continue
+            if value in (None, ""):
+                fields.pop(key, None)
+                continue
+            fields[key] = value
+        if fields:
+            line += " | " + " ".join(f"{key}={_format_field(value)}" for key, value in fields.items())
+        if record.exc_info:
+            line += "\n" + self.formatException(record.exc_info)
+        if record.stack_info:
+            line += "\n" + self.formatStack(record.stack_info)
+        return line

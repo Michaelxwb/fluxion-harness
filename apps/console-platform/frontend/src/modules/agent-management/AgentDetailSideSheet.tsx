@@ -7,6 +7,7 @@ import type { TFunction } from 'i18next';
 
 import { useAuth } from '../../auth/AuthContext';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
+import { CopyableText } from '../../components/common/CopyableText';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
@@ -514,15 +515,41 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
               columns={[
                 { title: t('agent.relation.channelName'), dataIndex: 'name' },
                 { title: t('agent.relation.botId'), dataIndex: 'bot_id' },
-                { title: t('agent.relation.channel'), dataIndex: 'channel' },
+                {
+                  title: t('agent.relation.channel'),
+                  dataIndex: 'channel',
+                  render: (value: string) =>
+                    value === 'WEBCHAT'
+                      ? t('agent.channel.channelWebchat')
+                      : value === 'WECOM'
+                        ? t('agent.channel.channelWecom')
+                        : value
+                },
+                {
+                  title: t('agent.relation.chatLink'),
+                  dataIndex: 'channel_account_id',
+                  render: (_: unknown, record: AgentChannelItem) =>
+                    record.channel === 'WEBCHAT' ? (
+                      <CopyableText
+                        display={`/chat/${record.channel_account_id}`}
+                        full={`${window.location.origin}/chat/${record.channel_account_id}`}
+                        copyLabel={t('agent.channel.copyChatLink')}
+                      />
+                    ) : (
+                      '-'
+                    )
+                },
                 {
                   title: t('agent.relation.secretConfigured'),
                   dataIndex: 'secret_configured',
-                  render: (v: boolean) => (
-                    <Tag color={v ? 'green' : 'grey'}>
-                      {t(v ? 'agent.channel.secretConfigured' : 'agent.channel.secretMissing')}
-                    </Tag>
-                  )
+                  render: (v: boolean, record: AgentChannelItem) =>
+                    record.channel === 'WEBCHAT' ? (
+                      '-'
+                    ) : (
+                      <Tag color={v ? 'green' : 'grey'}>
+                        {t(v ? 'agent.channel.secretConfigured' : 'agent.channel.secretMissing')}
+                      </Tag>
+                    )
                 },
                 {
                   title: t('agent.relation.enabled'),

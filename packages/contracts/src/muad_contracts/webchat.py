@@ -255,6 +255,8 @@ class WebchatHistoryMessage(WebchatContract):
     role: Literal["USER", "ASSISTANT"]
     text: StrictStr
     attachments: list[WebchatAttachment] = Field(default_factory=list)
+    #: canonical 事件落库时间（消息发送/接收的权威时刻，页面只展示不推算）。
+    created_at: AwareDatetime
 
 
 class WebchatMessagePage(WebchatPage[WebchatHistoryMessage]):

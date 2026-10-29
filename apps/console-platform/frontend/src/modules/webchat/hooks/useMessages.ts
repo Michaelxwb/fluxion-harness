@@ -18,7 +18,7 @@
  * 本文件不发 HTTP、不拼装传输头、不读 Cookie、不落持久存储、不打日志、不引用 UI 框架、不持有文案键。
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 import { ConversationStateError } from '../conversationState';
@@ -159,8 +159,22 @@ export function useMessages(
 ): MessagesController {
   const viewportRef = useRef<HTMLDivElement>(null);
   const pending = useRef<MessageAnchorMeasurement | null>(null);
+  const scrolledConversation = useRef<string | null>(null);
   const [failureCode, setFailureCode] = useState<string | null>(null);
   const history = conversationId === null ? EMPTY_MESSAGES_HISTORY : port.historyFor(conversationId);
+
+  // 切换会话/首屏落地后定位到最新一条：真实滚动容器是 `.chat-panel-messages`，不是线程本身。
+  useLayoutEffect(() => {
+    if (conversationId === null) {
+      scrolledConversation.current = null;
+      return;
+    }
+    if (history.items.length === 0) return;
+    const element = viewportRef.current;
+    if (element === null || scrolledConversation.current === conversationId) return;
+    element.scrollTop = element.scrollHeight;
+    scrolledConversation.current = conversationId;
+  }, [conversationId, history.items.length, viewportRef]);
 
   const loadOlder = useCallback(() => {
     if (conversationId === null) return;

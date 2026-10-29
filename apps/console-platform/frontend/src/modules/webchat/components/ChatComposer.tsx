@@ -20,6 +20,7 @@
  */
 
 import { Button } from '@douyinfe/semi-ui';
+import { IconPaperclip } from '@douyinfe/semi-icons';
 import type { ChangeEvent, KeyboardEvent, RefObject } from 'react';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -255,6 +256,16 @@ function ComposerActions(props: ComposerActionsProps) {
         </Button>
       ) : null}
       <Button
+        size="small"
+        theme="borderless"
+        className="chat-composer-attach"
+        data-testid="chat-composer-attach"
+        icon={<IconPaperclip />}
+        aria-label={t('chat.composer.attach')}
+        disabled={props.disabled}
+        onClick={() => props.fileInputRef.current?.click()}
+      />
+      <Button
         className="chat-composer-send"
         data-testid="chat-composer-send"
         disabled={!props.canSend}
@@ -282,7 +293,7 @@ function ComposerTextArea(props: ComposerTextAreaProps) {
       data-testid="chat-composer-input"
       aria-label={t('chat.composer.inputLabel')}
       placeholder={t('chat.composer.placeholder')}
-      rows={3}
+      rows={2}
       value={props.text}
       disabled={props.disabled}
       onChange={(event) => props.onTextChange(event.target.value)}
@@ -407,6 +418,24 @@ export function ChatComposer(props: ChatComposerProps) {
         disabled={flags.inputDisabled}
         onRemove={props.onRemoveAttachment}
       />
+      <div className="chat-composer-box">
+        <ComposerTextArea
+          text={props.text}
+          disabled={flags.inputDisabled}
+          onTextChange={props.onTextChange}
+          onKeyDown={handleKeyDown}
+        />
+        <ComposerActions
+          busy={flags.busy}
+          disabled={flags.inputDisabled}
+          canSend={flags.canSubmit}
+          primaryLabel={flags.primaryLabel}
+          fileInputRef={fileInputRef}
+          onAddFiles={props.onAddFiles}
+          onPrimary={flags.primaryAction}
+          onCancel={props.onCancel}
+        />
+      </div>
       <ComposerNotices
         phase={props.phase}
         policy={props.attachmentPolicy}
@@ -414,22 +443,6 @@ export function ChatComposer(props: ChatComposerProps) {
         errorCode={props.errorCode}
         outcomeUnknown={props.outcomeUnknown}
         onDiscard={props.onDiscard}
-      />
-      <ComposerTextArea
-        text={props.text}
-        disabled={flags.inputDisabled}
-        onTextChange={props.onTextChange}
-        onKeyDown={handleKeyDown}
-      />
-      <ComposerActions
-        busy={flags.busy}
-        disabled={flags.inputDisabled}
-        canSend={flags.canSubmit}
-        primaryLabel={flags.primaryLabel}
-        fileInputRef={fileInputRef}
-        onAddFiles={props.onAddFiles}
-        onPrimary={flags.primaryAction}
-        onCancel={props.onCancel}
       />
     </section>
   );

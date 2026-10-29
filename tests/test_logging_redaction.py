@@ -1,11 +1,10 @@
-import json
 import logging
 from datetime import datetime
 from typing import Any
 
 import pytest
 from muad_logging import clear_log_context, configure_logging, set_log_context
-from muad_logging.formatter import JsonLogFormatter
+from muad_logging.formatter import TextLogFormatter
 from muad_logging.redaction import RedactionFilter, redact_text, redact_value
 
 
@@ -85,22 +84,22 @@ def test_extra_fields_reach_the_formatter_and_are_redacted():
 
     record = handler.records[0]
     assert record.api_key == '***', '敏感键名必须按**键名**脱敏，而不是只处理值'
-    payload = json.loads(JsonLogFormatter('svc').format(record))
-    assert payload['schedule_id'] == 'sch-1'
-    assert payload['api_key'] == '***'
-    assert 'SECRETVALUE' not in json.dumps(payload)
+    text = TextLogFormatter('svc').format(record)
+    assert 'schedule_id=sch-1' in text
+    assert 'api_key=***' in text
+    assert 'SECRETVALUE' not in text
 
 
 def test_formatter_reserved_keys_win_over_log_context():
     clear_log_context()
     try:
         set_log_context(level='HACKED', message='OVERRIDDEN', trace_id='t1')
-        payload = json.loads(JsonLogFormatter('svc').format(_record('hello')))
+        text = TextLogFormatter('svc').format(_record('hello'))
     finally:
         clear_log_context()
-    assert payload['level'] == 'INFO'
-    assert payload['message'] == 'hello'
-    assert payload['trace_id'] == 't1'
+    assert '[INFO]' in text and 'hello' in text
+    assert 'level=HACKED' not in text and 'message=OVERRIDDEN' not in text
+    assert 'trace_id=t1' in text
 
 
 def test_formatter_reserved_keys_win_over_extra_fields():
@@ -110,10 +109,10 @@ def test_formatter_reserved_keys_win_over_extra_fields():
     record.level = 'X'
     record.message = 'Y'
     record.custom = 1
-    payload = json.loads(JsonLogFormatter('svc').format(record))
-    assert payload['level'] == 'INFO'
-    assert payload['message'] == 'hello'
-    assert payload['custom'] == 1
+    text = TextLogFormatter('svc').format(record)
+    assert '[INFO]' in text and 'hello' in text
+    assert 'level=X' not in text and 'message=Y' not in text
+    assert 'custom=1' in text
 
 
 def test_configure_logging_rejects_invalid_level(tmp_path):
@@ -143,7 +142,7 @@ def test_configure_logging_redacts_secrets_in_log_file(tmp_path):
 def test_configure_logging_writes_extra_fields_and_redacts_them(tmp_path):
     """端到端：`extra={...}` 必须**既落进日志文件、又不泄露敏感值**。
 
-    这是整条链路（root handler + RedactionFilter + JsonLogFormatter）的合并断言 ——
+    这是整条链路（root handler + RedactionFilter + TextLogFormatter）的合并断言 ——
     上一版这两半各改各的，单看任何一半都是绿的，合起来却一条字段都写不出去。
     """
     service = 'test-extra-fields-file'
@@ -163,6 +162,6 @@ def test_configure_logging_writes_extra_fields_and_redacts_them(tmp_path):
     day = datetime.now().astimezone().strftime('%Y-%m-%d')
     text = (tmp_path / service / f'{day}.log').read_text(encoding='utf-8')
     assert 'SECRETVALUE' not in text
-    payload = json.loads(text.strip().splitlines()[-1])
-    assert payload['schedule_id'] == 'sch-1'
-    assert payload['api_key'] == '***'
+    line = text.strip().splitlines()[-1]
+    assert 'schedule_id=sch-1' in line
+    assert 'api_key=***' in line

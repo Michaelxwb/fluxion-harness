@@ -8,7 +8,8 @@ import { FormModal } from '../../components/common/FormModal';
 import {
   addAgentChannel,
   updateAgentChannel,
-  type AgentChannelItem
+  type AgentChannelItem,
+  type ChannelSaveInput
 } from './services/agents';
 
 export interface ChannelFormModalProps {
@@ -19,7 +20,13 @@ export interface ChannelFormModalProps {
   onSaved(): void;
 }
 
+type ChannelKind = 'WECOM' | 'WEBCHAT';
+
+const DEFAULT_CHANNEL: ChannelKind = 'WECOM';
+const WEBCHAT_CHANNEL: ChannelKind = 'WEBCHAT';
+
 interface ChannelFormValues {
+  channel: ChannelKind;
   name: string;
   bot_id: string;
   secret?: string;
@@ -27,10 +34,15 @@ interface ChannelFormValues {
   config?: string;
 }
 
+function channelKindOf(channel: AgentChannelItem | null): ChannelKind {
+  return channel?.channel === WEBCHAT_CHANNEL ? WEBCHAT_CHANNEL : DEFAULT_CHANNEL;
+}
+
 export function ChannelFormModal(props: ChannelFormModalProps) {
   const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [channelKind, setChannelKind] = useState<ChannelKind>(DEFAULT_CHANNEL);
   const formApi = useRef<FormApi | null>(null);
 
   useEffect(() => {
@@ -39,15 +51,18 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
     }
     formApi.current?.reset();
     setFormError(null);
+    const kind = channelKindOf(props.channel);
+    setChannelKind(kind);
     if (props.channel) {
       formApi.current?.setValues({
+        channel: kind,
         name: props.channel.name,
         bot_id: props.channel.bot_id,
         enabled: props.channel.enabled ? 'true' : 'false',
         config: JSON.stringify(props.channel.config ?? {}, null, 2)
       });
     } else {
-      formApi.current?.setValues({ enabled: 'true', config: '{}' });
+      formApi.current?.setValues({ channel: DEFAULT_CHANNEL, enabled: 'true', config: '{}' });
     }
   }, [props.visible, props.channel]);
 
@@ -66,29 +81,34 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
         return;
       }
     }
+    const channel = values.channel === WEBCHAT_CHANNEL ? WEBCHAT_CHANNEL : DEFAULT_CHANNEL;
     setSaving(true);
     setFormError(null);
     try {
       if (props.channel) {
-        const input: Record<string, unknown> = {
+        const input: Partial<ChannelSaveInput> = {
           name: values.name,
           bot_id: values.bot_id,
           enabled: values.enabled === 'true',
           config
         };
-        if (values.secret) {
+        // 网页入口没有 Bot Secret，且后端显式拒绝为 WEBCHAT 提交 secret。
+        if (channel === DEFAULT_CHANNEL && values.secret) {
           input.secret = values.secret;
         }
         await updateAgentChannel(props.agentId, props.channel.channel_account_id, input);
       } else {
-        await addAgentChannel(props.agentId, {
-          channel: 'WECOM',
+        const input: ChannelSaveInput = {
+          channel,
           name: values.name,
           bot_id: values.bot_id,
-          secret: values.secret,
           enabled: values.enabled === 'true',
           config
-        });
+        };
+        if (channel === DEFAULT_CHANNEL) {
+          input.secret = values.secret;
+        }
+        await addAgentChannel(props.agentId, input);
       }
       props.onSaved();
     } catch (error) {
@@ -123,6 +143,18 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
     >
       {formError ? <Banner type="danger" closeIcon={null} description={formError} /> : null}
       <div className="form-grid">
+        <Form.Select
+          field="channel"
+          label={t('agent.channel.channel')}
+          disabled={props.channel !== null}
+          optionList={[
+            { value: 'WECOM', label: t('agent.channel.channelWecom') },
+            { value: 'WEBCHAT', label: t('agent.channel.channelWebchat') }
+          ]}
+          onChange={(value) =>
+            setChannelKind(value === WEBCHAT_CHANNEL ? WEBCHAT_CHANNEL : DEFAULT_CHANNEL)
+          }
+        />
         <Form.Input
           field="name"
           label={t('agent.channel.name')}
@@ -130,20 +162,35 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
         />
         <Form.Input
           field="bot_id"
-          label={t('agent.channel.botId')}
-          rules={[{ required: true, message: t('agent.channel.botId') }]}
-        />
-        <Form.Input
-          field="secret"
-          label={t('agent.channel.secret')}
-          mode="password"
-          rules={
-            props.channel ? [] : [{ required: true, message: t('agent.channel.secret') }]
+          label={
+            channelKind === WEBCHAT_CHANNEL ? t('agent.channel.entryKey') : t('agent.channel.botId')
           }
           extraText={
-            props.channel ? t('agent.channel.secretKeep') : t('agent.channel.secretHint')
+            channelKind === WEBCHAT_CHANNEL ? t('agent.channel.entryKeyHint') : undefined
           }
+          rules={[
+            {
+              required: true,
+              message:
+                channelKind === WEBCHAT_CHANNEL
+                  ? t('agent.channel.entryKey')
+                  : t('agent.channel.botId')
+            }
+          ]}
         />
+        {channelKind === DEFAULT_CHANNEL ? (
+          <Form.Input
+            field="secret"
+            label={t('agent.channel.secret')}
+            mode="password"
+            rules={
+              props.channel ? [] : [{ required: true, message: t('agent.channel.secret') }]
+            }
+            extraText={
+              props.channel ? t('agent.channel.secretKeep') : t('agent.channel.secretHint')
+            }
+          />
+        ) : null}
         <Form.Select
           field="enabled"
           label={t('agent.columns.enabled')}

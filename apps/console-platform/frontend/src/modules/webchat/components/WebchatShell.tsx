@@ -22,8 +22,8 @@
 
 import { Button, Empty, Spin, Typography } from '@douyinfe/semi-ui';
 import { IconMenu } from '@douyinfe/semi-icons';
-import { useMemo, useReducer } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect, useMemo, useReducer } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -52,7 +52,15 @@ export type SidebarDrawerAction =
   | { type: 'close' }
   | { type: 'select' };
 
-export const INITIAL_SIDEBAR_DRAWER_STATE: SidebarDrawerState = { open: false };
+export const INITIAL_SIDEBAR_DRAWER_STATE: SidebarDrawerState = { open: true };
+
+/** 首次进入：桌面展开历史，窄屏收起（开关仍在头部，随时可开）。 */
+function initialSidebarDrawerState(): SidebarDrawerState {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return INITIAL_SIDEBAR_DRAWER_STATE;
+  }
+  return { open: !window.matchMedia('(max-width: 1024px)').matches };
+}
 
 /** 抽屉纯状态：开合幂等，选择历史后收起（窄屏选择后回到会话）。 */
 export function sidebarDrawerReducer(
@@ -93,10 +101,10 @@ export interface WebchatShellProps {
   messageArea?: ReactNode;
   /** 输入区渲染接缝（TASK-081）；未装配时不渲染空容器。 */
   composer?: ReactNode;
-  /** 按会话未读计数（TASK-084 接缝）：缺省不显示任何未读徽标。 */
+  /** 按会话未读计数（TASK-084 接缝）：缺省不显示任何未读标记。 */
   unreadCounts?: Readonly<Record<string, number>> | null;
-  /** 通知面板渲染接缝（TASK-084，TASK-093 装配）：挂在左栏活动位置；缺省不渲染通知区域。 */
-  notificationPanel?: ReactNode;
+  /** 消息滚动视口（真实滚动容器是 `.chat-panel-messages`，不是线程本身）。 */
+  messageViewportRef?: RefObject<HTMLDivElement>;
   /** 分组参考时刻（页面时区）：缺省取当前时间。 */
   now?: Date;
   /** 本地动作失败端口（如控制器尚未绑定入口）：显式上报，绝不静默。 */
@@ -107,20 +115,34 @@ interface ChatPanelHeaderProps {
   entry: WebchatEntry;
   title: ShellConversationTitle;
   runStatus: ActiveRunStatus | null;
+  drawerOpen: boolean;
+  onToggleSidebar(): void;
 }
 
-/** 单会话头部：标题 + 已核验入口 + 真实运行状态（无活跃 Run 不显示状态）。 */
+/** 单会话头部：抽屉开关 + 标题/入口 + 真实运行状态（无活跃 Run 不显示状态）。 */
 function ChatPanelHeader(props: ChatPanelHeaderProps) {
   const { t } = useTranslation();
   const statusKey = conversationStatusKey(props.runStatus);
   return (
     <header className="chat-panel-header" data-testid="chat-panel-header">
-      <Typography.Title heading={5} className="chat-panel-title" data-testid="chat-panel-title">
-        {props.title.kind === 'new' ? t('chat.page.newConversation') : props.title.value}
-      </Typography.Title>
-      <Typography.Text type="secondary" className="chat-panel-entry" data-testid="chat-panel-entry">
-        {props.entry.display_name}
-      </Typography.Text>
+      <Button
+        className="webchat-shell-sidebar-toggle"
+        theme="borderless"
+        icon={<IconMenu />}
+        aria-expanded={props.drawerOpen}
+        aria-controls={CONVERSATION_SIDEBAR_ID}
+        aria-label={props.drawerOpen ? t('chat.sidebar.close') : t('chat.sidebar.open')}
+        data-testid="webchat-shell-sidebar-toggle"
+        onClick={props.onToggleSidebar}
+      />
+      <div className="chat-panel-heading">
+        <Typography.Title heading={5} className="chat-panel-title" data-testid="chat-panel-title">
+          {props.title.kind === 'new' ? t('chat.page.newConversation') : props.title.value}
+        </Typography.Title>
+        <Typography.Text type="secondary" className="chat-panel-entry" data-testid="chat-panel-entry">
+          {props.entry.display_name}
+        </Typography.Text>
+      </div>
       {statusKey === null ? null : (
         <span
           className="chat-panel-status"
@@ -139,11 +161,14 @@ interface ChatPanelProps {
   title: ShellConversationTitle;
   runStatus: ActiveRunStatus | null;
   selectionLoading: boolean;
+  drawerOpen: boolean;
+  onToggleSidebar(): void;
+  messageViewportRef?: RefObject<HTMLDivElement>;
   messageArea?: ReactNode;
   composer?: ReactNode;
 }
 
-/** 单会话面板：头部（标题/入口/真实状态）+ 消息区接缝 + 可选的输入区接缝。 */
+/** 单会话面板：头部（抽屉开关/标题/入口/真实状态）+ 消息区接缝 + 可选的输入区接缝。 */
 function ChatPanel(props: ChatPanelProps) {
   const { t } = useTranslation();
   const messages =
@@ -151,8 +176,17 @@ function ChatPanel(props: ChatPanelProps) {
     (props.selectionLoading ? <Spin /> : <Empty description={t('chat.workspace.emptyMessages')} />);
   return (
     <section className="chat-panel" data-testid="chat-panel" aria-label={t('chat.workspace.label')}>
-      <ChatPanelHeader entry={props.entry} title={props.title} runStatus={props.runStatus} />
-      <div className="chat-panel-messages" data-testid="chat-panel-messages">
+      <ChatPanelHeader
+        entry={props.entry}
+        title={props.title}
+        runStatus={props.runStatus}
+        drawerOpen={props.drawerOpen}
+        onToggleSidebar={props.onToggleSidebar}      />
+      <div
+        className="chat-panel-messages"
+        data-testid="chat-panel-messages"
+        ref={props.messageViewportRef}
+      >
         {messages}
       </div>
       {props.composer === undefined ? null : (
@@ -169,29 +203,15 @@ interface WebchatSidebarPaneProps {
   index: ConversationIndexSnapshot;
   selection: ConversationSelectionSnapshot;
   unreadCounts: Readonly<Record<string, number>> | null;
-  notificationPanel?: ReactNode;
   now?: Date;
-  drawerOpen: boolean;
   bindings: ConversationSidebarBindings;
-  onToggle(): void;
   onSelect(conversationId: string): void;
 }
 
-/** 左侧栏位：抽屉开关（aria 指向侧栏真实 id）+ 历史侧栏 + 可选通知面板；入口绑定由这里核验。 */
+/** 左侧栏位：历史侧栏；抽屉开关在会话头部（关闭时仍可达）。 */
 function WebchatSidebarPane(props: WebchatSidebarPaneProps) {
-  const { t } = useTranslation();
   return (
     <div className="webchat-shell-sidebar">
-      <Button
-        className="webchat-shell-sidebar-toggle"
-        theme="borderless"
-        icon={<IconMenu />}
-        aria-expanded={props.drawerOpen}
-        aria-controls={CONVERSATION_SIDEBAR_ID}
-        aria-label={props.drawerOpen ? t('chat.sidebar.close') : t('chat.sidebar.open')}
-        data-testid="webchat-shell-sidebar-toggle"
-        onClick={props.onToggle}
-      />
       <ConversationSidebar
         items={props.index.items}
         selectedId={props.selection.conversationId}
@@ -208,9 +228,6 @@ function WebchatSidebarPane(props: WebchatSidebarPaneProps) {
         onLoadMore={props.bindings.onLoadMore}
         onRetry={props.bindings.onRetry}
       />
-      {props.notificationPanel === undefined ? null : (
-        <div data-testid="webchat-shell-notifications">{props.notificationPanel}</div>
-      )}
     </div>
   );
 }
@@ -220,7 +237,12 @@ function WebchatSidebarPane(props: WebchatSidebarPaneProps) {
  * 后续任务在同一接缝上装配。
  */
 export function WebchatShell(props: WebchatShellProps) {
-  const [drawer, dispatch] = useReducer(sidebarDrawerReducer, INITIAL_SIDEBAR_DRAWER_STATE);
+  const { t } = useTranslation();
+  const [drawer, dispatch] = useReducer(
+    sidebarDrawerReducer,
+    undefined,
+    initialSidebarDrawerState
+  );
   const { entry, conversations, onActionFailure } = props;
   const index = conversations.snapshot.index;
   const selection = conversations.snapshot.selection;
@@ -229,8 +251,33 @@ export function WebchatShell(props: WebchatShellProps) {
     [conversations, onActionFailure]
   );
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(max-width: 1024px)');
+    const closeWhenNarrow = (event: MediaQueryListEvent): void => {
+      if (event.matches) dispatch({ type: 'close' });
+    };
+    query.addEventListener('change', closeWhenNarrow);
+    return () => query.removeEventListener('change', closeWhenNarrow);
+  }, []);
+
+  useEffect(() => {
+    if (!drawer.open) return;
+    const closeOnEscape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') dispatch({ type: 'close' });
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [drawer.open]);
+
   const selectConversation = (conversationId: string): void => {
-    dispatch({ type: 'select' });
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 1024px)').matches
+    ) {
+      dispatch({ type: 'select' });
+    }
     bindings.onSelect(conversationId);
   };
 
@@ -245,11 +292,8 @@ export function WebchatShell(props: WebchatShellProps) {
         index={index}
         selection={selection}
         unreadCounts={props.unreadCounts ?? null}
-        notificationPanel={props.notificationPanel}
         now={props.now}
-        drawerOpen={drawer.open}
         bindings={bindings}
-        onToggle={() => dispatch({ type: 'toggle' })}
         onSelect={selectConversation}
       />
       <ChatPanel
@@ -257,9 +301,21 @@ export function WebchatShell(props: WebchatShellProps) {
         title={shellConversationTitle(selection)}
         runStatus={selection.conversation?.active_run?.status ?? null}
         selectionLoading={selection.loading}
+        drawerOpen={drawer.open}
+        onToggleSidebar={() => dispatch({ type: 'toggle' })}
+        messageViewportRef={props.messageViewportRef}
         messageArea={props.messageArea}
         composer={props.composer}
       />
+      {drawer.open ? (
+        <button
+          type="button"
+          className="webchat-shell-backdrop"
+          data-testid="webchat-shell-backdrop"
+          aria-label={t('chat.sidebar.close')}
+          onClick={() => dispatch({ type: 'close' })}
+        />
+      ) : null}
     </div>
   );
 }

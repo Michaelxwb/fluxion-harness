@@ -1130,9 +1130,9 @@ def test_b279_titles_and_drawer_state_are_pure_and_truthful(sidebar_logic: dict[
         "none": {"kind": "new"},
     }, "标题只来自服务端（会话详情/新建回执）；空白标题回落新对话，不伪造标题"
     assert observed["drawer"] == {
-        "initial": {"open": False},
-        "toggled": {"open": True},
-        "toggledTwice": {"open": False},
+        "initial": {"open": True},
+        "toggled": {"open": False},
+        "toggledTwice": {"open": True},
         "opened": {"open": True},
         "closed": {"open": False},
         "selected": {"open": False},
@@ -1341,9 +1341,9 @@ def test_b279_workspace_is_a_single_conversation_panel_with_render_seams(
     toggle = re.search(r"<button[^>]*data-testid=\"webchat-shell-sidebar-toggle\"[^>]*>", markup)
     assert toggle, "窄屏抽屉必须有真实开关按钮"
     assert 'aria-controls="chat-conversation-sidebar"' in toggle.group(0), "抽屉开关必须指向侧栏真实 id"
-    assert 'aria-expanded="false"' in toggle.group(0), "初始抽屉收起（桌面常显由样式承担）"
-    assert 'aria-label="打开会话历史"' in toggle.group(0), "抽屉开关必须有本地化标签"
-    assert 'data-drawer-open="false"' in markup
+    assert 'aria-expanded="true"' in toggle.group(0), "桌面初始展开历史；窄屏由初始化关闭"
+    assert 'aria-label="关闭会话历史"' in toggle.group(0), "抽屉开关必须有本地化标签"
+    assert 'data-drawer-open="true"' in markup
 
     created = sidebar_render["markup"]["created-zh"]["shell"]
     assert "新对话" in created, "新建后尚无服务端标题时必须显示新对话空态"

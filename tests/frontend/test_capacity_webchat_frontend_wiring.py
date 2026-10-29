@@ -3,7 +3,7 @@
 
 真实边界：真实页面装配（`modules/webchat/ChatPage.tsx` 导出的 `ChatWorkspace` 组合）、真实模块组件
 （`components/WebchatShell.tsx`/`MessageThread.tsx`/`ChatComposer.tsx`/`RunActions.tsx`/
-`ConfirmationCard.tsx`/`NotificationPanel.tsx`）、真实模块 service（`services/webchatApi.ts` 的
+`ConfirmationCard.tsx`）、真实模块 service（`services/webchatApi.ts` 的
 `WebchatClient`）、真实 typed DTO（`modules/webchat/types.ts`）、真实共享传输（`src/api/client.ts`
 的 axios 实例与拦截器、`src/api/authScope.ts` 的 CHAT 域接缝）、真实共享流层（`src/api/stream.ts`
 的真实 `openReplyStream`）、真实状态层（`conversationState.ts`/`runState.ts`/`clientConfig.ts`/
@@ -56,7 +56,6 @@ MESSAGE_THREAD_TSX = COMPONENTS / "MessageThread.tsx"
 COMPOSER_TSX = COMPONENTS / "ChatComposer.tsx"
 RUN_ACTIONS_TSX = COMPONENTS / "RunActions.tsx"
 CONFIRMATION_TSX = COMPONENTS / "ConfirmationCard.tsx"
-NOTIFICATIONS_TSX = COMPONENTS / "NotificationPanel.tsx"
 SIDEBAR_TSX = COMPONENTS / "ConversationSidebar.tsx"
 
 CONVERSATION_STATE_TS = MODULE / "conversationState.ts"
@@ -127,7 +126,6 @@ REQUIRED_KEYS = (
     "chat.thread.localFailed",
     "chat.workspace.emptyMessages",
     "chat.thread.empty",
-    "chat.notifications.empty",
     "common.retry",
 )
 
@@ -138,7 +136,6 @@ SURFACE_MARKERS = (
     "ChatComposer",
     "RunActions",
     "ConfirmationCard",
-    "NotificationPanel",
     "useConversations",
     "useMessages",
     "usePendingSend",
@@ -157,7 +154,6 @@ RENDERED_TESTIDS = (
     "chat-composer",
     "chat-run-actions",
     "chat-confirmation-card",
-    "notification-panel",
 )
 
 SEMI_STUB = """export const Toast = {
@@ -166,6 +162,7 @@ SEMI_STUB = """export const Toast = {
   info: () => {},
   warning: () => {}
 };
+export const Avatar = () => null;
 export const Badge = () => null;
 export const Banner = () => null;
 export const Button = () => null;
@@ -173,6 +170,7 @@ export const Card = () => null;
 export const Empty = () => null;
 export const Input = () => null;
 export const Spin = () => null;
+export const Tooltip = () => null;
 export const Typography = { Title: () => null, Paragraph: () => null, Text: () => null };
 """
 
@@ -180,6 +178,13 @@ SEMI_ICONS_STUB = """export const IconMenu = () => null;
 export const IconPlus = () => null;
 export const IconClose = () => null;
 export const IconRefresh = () => null;
+export const IconCustomerSupport = () => null;
+export const IconUser = () => null;
+export const IconPaperclip = () => null;
+export const IconDownload = () => null;
+export const IconFile = () => null;
+export const IconImage = () => null;
+export const IconCopy = () => null;
 """
 
 REACT_ROUTER_STUB = """export function useParams() {
@@ -1034,6 +1039,7 @@ async function buildScenario(scenario) {
     sync: () => {},
     retry: () => {},
     markRead: () => {},
+    markConversationRead: () => {},
     openPreview: () => {},
     closePreview: () => {}
   };
@@ -1414,7 +1420,6 @@ def test_b293_page_mounts_every_surface_and_cleans_up() -> None:
         "messageArea={",
         "composer={",
         "unreadCounts={props.notifications.snapshot.unreadByConversation}",
-        "notificationPanel={",
         "onActionFailure={props.onActionFailure}",
     ):
         assert seam in compact, f"WebchatShell 接缝必须由页面提供：{seam}"
@@ -1423,22 +1428,13 @@ def test_b293_page_mounts_every_surface_and_cleans_up() -> None:
         "<ChatComposer",
         "<RunActions",
         "<ConfirmationCard",
-        "<NotificationPanel",
         "<TokenAccess",
     ):
         assert surface in source, f"工作区必须渲染真实展示组件：{surface}"
-    for action in (
-        "onLocate={props.onLocate}",
-        "onLocate={state.actions.locateNotification}",
-        "onMarkRead={(notification)=>notifications.markRead(notification.id)}",
-        "onPreview={(attachment)=>notifications.openPreview(attachment)}",
-        "onClosePreview={()=>notifications.closePreview()}",
-        "onRetry={()=>notifications.retry()}",
-    ):
-        assert action in compact, f"通知面板动作必须绑到控制器：{action}"
-    assert (
-        "fireAndForget(select(notification.conversation_id));sync();" in compact
-    ), "定位通知必须切到该会话并重读权威状态"
+    assert "notificationPanel={" not in compact, "通知面板已移除，工作区不得再挂载"
+    assert "notifications.markConversationRead(" in compact, (
+        "活跃会话自动已读必须绑到通知控制器"
+    )
     assert "watch(target)" in compact, "受理回执必须经 TASK-082 的 watch 接缝订阅新 Run"
     assert "select(accepted.conversation_id)" in compact, "受理回执必须重读线程权威事实"
     assert "service.setVisibleRun(visibleRunId)" in compact, "停止状态机必须绑定当前可见 Run"
@@ -1462,7 +1458,7 @@ def test_b293_page_mounts_every_surface_and_cleans_up() -> None:
 def test_b293_workspace_renders_every_surface_from_real_controllers(
     rendered: dict[str, Any],
 ) -> None:
-    """真实 SSR 产物：侧栏/线程/流式正文/运行面/确认卡/输入区/通知面板都由真实状态驱动。"""
+    """真实 SSR 产物：侧栏/线程/流式正文/运行面/确认卡/输入区都由真实状态驱动。"""
     for scenario in ("zh-CN-ready", "en-US-ready"):
         markup = rendered[scenario]["workspace"]
         for testid in RENDERED_TESTIDS:
@@ -1472,11 +1468,11 @@ def test_b293_workspace_renders_every_surface_from_real_controllers(
         assert STREAM_TEXT in markup, f"{scenario}: 流式正文未渲染"
         assert CONFIRM_PROMPT in markup, f"{scenario}: 确认卡未渲染服务端投影"
         assert "甲会话" in markup, f"{scenario}: 侧栏标题未渲染"
-        assert "任务已完成" in markup, f"{scenario}: 通知面板未渲染服务端通知"
+        assert "chat-sidebar-item-unread" in markup, f"{scenario}: 未读标记未渲染"
         assert DRAFT_TEXT in markup, f"{scenario}: 输入区未渲染按会话草稿"
         assert 'data-testid="chat-streaming-reply"' in markup
-        assert "chat-notifications" in markup, f"{scenario}: 通知面板必须挂在工作区里"
-        assert 'data-drawer-open="false"' in markup, f"{scenario}: 抽屉状态必须落到 DOM"
+        assert "chat-notifications" not in markup, f"{scenario}: 通知面板已移除"
+        assert 'data-drawer-open="true"' in markup, f"{scenario}: 抽屉状态必须落到 DOM"
     # 语言真的生效：两侧工作区标记相同、文案不同（不复制中文词条）。
     assert rendered["zh-CN-ready"]["workspace"] != rendered["en-US-ready"]["workspace"]
 
@@ -1484,14 +1480,14 @@ def test_b293_workspace_renders_every_surface_from_real_controllers(
 def test_b102_empty_lists_and_empty_children_render_explicit_states(
     rendered: dict[str, Any],
 ) -> None:
-    """空列表/空会话/空通知显示显式空态；缺省渲染接缝不留空白也不伪造正文。"""
+    """空列表/空会话显示显式空态；缺省渲染接缝不留空白也不伪造正文。"""
     empty = rendered["zh-CN-empty"]["workspace"]
     assert 'data-testid="chat-message-thread"' in empty
     assert 'data-testid="chat-message-empty"' in empty, "空消息必须显示显式空态"
     assert "chat-message-item" not in empty, "空消息不得渲染任何气泡"
     assert 'data-testid="chat-new-conversation"' in empty, "无会话必须显示新对话空态"
-    assert 'data-testid="notification-panel"' in empty, "通知面板必须仍在装配里"
-    assert "chat-notifications-empty" in empty, "空通知必须显示显式空态"
+    assert "notification-panel" not in empty, "通知面板已移除"
+    assert "chat-notifications" not in empty, "通知面板不再挂在工作区里"
     assert 'data-testid="chat-run-actions"' not in empty, "无可见 Run 不得渲染运行面占位"
     assert 'data-testid="chat-confirmation-card"' not in empty, "无待确认不得渲染确认卡"
     assert 'data-testid="chat-streaming-reply"' not in empty, "无正文不得渲染空占位助手正文"
@@ -1653,13 +1649,13 @@ def test_b293_management_cards_are_reachable_from_the_real_routes(tmp_path: Path
         assert re.search(rf'path="{route}"', app), f"管理路由必须存在：/{route}"
         assert f"<{page} />" in app, f"/{route} 必须渲染真实页面组件 {page}"
 
-    # 用户 Token 卡片：/users → UserPage → UserDetailTabs（凭据 Tab）→ UserChatTokenCard。
+    # 用户 Token 卡片：/users → UserPage → UserDetailTabs（IM 身份 Tab）→ UserChatTokenCard。
     user_page = _read(USER_PAGE_TSX)
     assert "<UserDetailTabs" in user_page, "用户页必须渲染真实详情页"
     detail_tabs = _read(USER_DETAIL_TABS_TSX)
     assert "from './UserChatTokenCard'" in detail_tabs
     assert "<WebchatTokenSection" in detail_tabs and "<UserChatTokenCard" in detail_tabs, (
-        "凭据区域必须挂接 Token 卡片（不是只有组件文件）"
+        "IM 身份区域必须挂接 Token 卡片（不是只有组件文件）"
     )
 
     # 模型资源池：/models → ModelPage → 凭据/额度面板 + 详情成员面板。
@@ -1713,5 +1709,5 @@ def test_b293_wiring_copy_is_localized_in_both_locales() -> None:
         assert key in zh, f"zh-CN 缺少词条：{key}"
         assert key in en, f"en-US 缺少词条：{key}"
         assert zh[key].strip() and en[key].strip(), f"词条不得为空：{key}"
-    for key in ("chat.page.newConversation", "chat.thread.localFailed", "chat.notifications.empty"):
+    for key in ("chat.page.newConversation", "chat.thread.localFailed"):
         assert zh[key] != en[key], f"两侧必须真正翻译（不能同文）：{key}"

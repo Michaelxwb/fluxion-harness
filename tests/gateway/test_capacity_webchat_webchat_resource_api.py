@@ -421,6 +421,7 @@ class _RuntimeProbe:
                             "role": "USER",
                             "text": "帮我总结附件",
                             "attachments": [],
+                            "created_at": "2026-10-18T07:00:00Z",
                         }
                     ],
                     "page": 1,
@@ -881,6 +882,7 @@ async def test_b252_conversation_detail_and_history_resolve_scope_then_read_entr
                 "role": "USER",
                 "text": "帮我总结附件",
                 "attachments": [],
+                "created_at": "2026-10-18T07:00:00Z",
             }
         ],
         "page": 1,

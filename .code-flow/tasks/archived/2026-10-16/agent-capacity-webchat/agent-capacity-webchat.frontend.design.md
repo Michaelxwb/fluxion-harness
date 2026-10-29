@@ -91,7 +91,7 @@ OPEN-01 已闭合：用户已确认 Console 签发用户 Token；默认30天可�
 |---|---|---|
 | `/chat/:entryId?`，查询参数 `conversation=<id>` | ChatLayout，未认证显示TokenAccess，认证后历史侧栏+单会话工作区 | /me恢复或输入Token交换身份；按URL核验并打开历史会话，展示消息、输入、排队/执行状态与通知；无ID时显示开始新对话空态；URL不含Token |
 | 既有 `/models` | Console 原 Shell | ADMIN管理物理Key/账号额度组，在飞上限、RPM/TPM和成员权重按资源维护，模型最大输出预算必需显式；同Key复用而容量共计，读取仅configured；降额/改额度归属提示排空，沿用列表/SideSheet关系操作 |
-| 既有 `/users` | ADMIN 路由 | 用户详情凭据区域增加Webchat Token单例卡片：状态/签发/到期时间、生成/重置/撤销；原文只在成功结果框显示一次并提供复制，不新增聊天密码字段 |
+| 既有 `/users` | ADMIN 路由 | 用户详情 IM 身份区域增加 Webchat Token 单例卡片（与身份绑定同页签、独立分段）：状态/签发/到期时间、生成/重置/撤销；原文只在成功结果框显示一次并提供复制，不新增聊天密码字段 |
 | 既有 `/agents` | 原管理权限 | 入口表单支持 WEBCHAT 的稳定账号和绑定 Agent，按通道显示字段 |
 | 既有 `/settings` | 原设置页，ADMIN | 增加capacity/model_pool/webchat typed分组，字段详见后端§3.7；使用既有整份文档/版本/保存协议与后端默认/范围/单位元信息；生效说明区分新受理/新Run/签发/交换/清理/新连接，不展示部署连接池等启动配置编辑框 |
 

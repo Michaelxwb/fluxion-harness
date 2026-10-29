@@ -71,7 +71,6 @@ MAPPING_TABLES = (
     ("components/RunActions.tsx", "RUN_ACTIVITY_PHASE_KEYS"),
     ("components/RunActions.tsx", "RUN_CONNECTION_STATE_KEYS"),
     ("components/RunActions.tsx", "RUN_STOP_ERROR_KEYS"),
-    ("components/NotificationPanel.tsx", "NOTIFICATION_KIND_KEYS"),
     ("components/MessageThread.tsx", "MESSAGE_ATTACHMENT_KIND_KEYS"),
     ("components/MessageThread.tsx", "MESSAGE_ROLE_KEYS"),
     ("components/ChatComposer.tsx", "COMPOSER_ATTACHMENT_STATUS_KEYS"),
@@ -95,11 +94,6 @@ FULL_COVERAGE = (
         (("components/RunActions.tsx", "RunActivityPhase"),),
         "components/RunActions.tsx",
         "RUN_ACTIVITY_PHASE_KEYS",
-    ),
-    (
-        (("types.ts", "WebchatNotificationKind"),),
-        "components/NotificationPanel.tsx",
-        "NOTIFICATION_KIND_KEYS",
     ),
     (
         (("types.ts", "AttachmentKind"),),
@@ -136,7 +130,6 @@ CONVERSATION_KEYS = (
     "chat.sidebar.navLabel",
     "chat.sidebar.empty",
     "chat.sidebar.failed",
-    "chat.notifications.locate",
     "chat.page.conversationFailed",
     "chat.page.conversationInvalid",
     "chat.page.conversationMismatch",
@@ -193,7 +186,6 @@ async function probe(locale) {
     bundleKeys: Object.keys(bundle).length,
     missing: i18n.t('chat.does.not.exist'),
     title: i18n.t('chat.tokenAccess.title'),
-    kind: i18n.t('chat.notifications.kind.RUN_COMPLETED'),
     unread: i18n.t('chat.sidebar.unread', { unread: 3 }),
     picker: i18n.t('user.agents.pickerTruncated', { shown: 3, total: 9 }),
     retries: i18n.t('chat.run.connection.retries', { count: 2 }),
@@ -309,7 +301,6 @@ def test_b290_chat_and_new_settings_surfaces_cover_both_locales() -> None:
         "chat.composer.placeholder",
         "chat.thread.role.assistant",
         "chat.sidebar.newConversation",
-        "chat.notifications.kind.TASK_RESULT",
         "settings.group.webchat",
         "settings.field.webchat.upload_max_per_message",
         "settings.effect.token_issuance",
@@ -575,7 +566,6 @@ def test_b290_language_switch_takes_effect_and_placeholders_interpolate(
     assert zh_probe["title"] == zh["chat.tokenAccess.title"]
     assert en_probe["title"] == en["chat.tokenAccess.title"]
     assert zh_probe["title"] != en_probe["title"], "切换语言必须立即换文案"
-    assert zh_probe["kind"] != en_probe["kind"]
 
     for probed in (zh_probe, en_probe):
         assert "3" in probed["unread"] and "{{unread}}" not in probed["unread"], probed["unread"]

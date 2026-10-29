@@ -168,6 +168,7 @@ SEMI_STUB = """export const Toast = {
     globalThis.__muadToasts.push(options.content);
   }
 };
+export const Avatar = () => null;
 export const Badge = () => null;
 export const Banner = () => null;
 export const Button = () => null;
@@ -175,6 +176,7 @@ export const Card = () => null;
 export const Empty = () => null;
 export const Input = () => null;
 export const Spin = () => null;
+export const Tooltip = () => null;
 export const Typography = { Title: () => null, Paragraph: () => null, Text: () => null };
 """
 

@@ -197,6 +197,34 @@ test('E-09 新增标识重复：Modal 保留并本地化提示', async ({ page }
   await expect(modal).toContainText('已存在');
 });
 
+test('S-10 WebChat 入口：选网页入口后不要求 Bot Secret，创建提交 channel=WEBCHAT', async ({
+  page
+}) => {
+  const state = mockState();
+  state.channels = [
+    { ...CHANNEL, channel: 'WEBCHAT', name: 'Web', bot_id: 'webchat-e2e', secret_configured: false }
+  ];
+  await mockApi(page, state);
+  await openChannels(page);
+  await expect(page.getByRole('tabpanel', { name: 'IM 接入' })).toContainText('/chat/channel-1');
+
+  await page.getByTestId('create-channel').click();
+  const modal = page.locator('.semi-modal');
+  await modal.locator('.semi-select').first().click();
+  await page.locator('.semi-select-option', { hasText: '网页入口' }).click();
+  await expect(modal.getByRole('textbox', { name: /Bot Secret/ })).toHaveCount(0);
+  await modal.getByRole('textbox', { name: /通道名称/ }).fill('Web');
+  await modal.getByRole('textbox', { name: /入口标识/ }).fill('webchat-e2e');
+
+  const requestPromise = page.waitForRequest(
+    (request) => request.method() === 'POST' && request.url().endsWith('/agents/agent-1/channels')
+  );
+  await modal.getByRole('button', { name: 'confirm', exact: true }).click();
+  const body = (await requestPromise).postDataJSON() as Record<string, unknown>;
+  expect(body).toMatchObject({ channel: 'WEBCHAT', name: 'Web', bot_id: 'webchat-e2e' });
+  expect(body.secret).toBeUndefined();
+});
+
 test('S-12 IM 接入 Tab 双 bot 同 Agent，无 Pod 信息', async ({ page }) => {
   const state = mockState();
   state.channels = [

@@ -61,6 +61,22 @@ async function prepare(page: Page, width: number, theme: string, locale: string,
   };
   await page.route('**/api/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/v1/users/layout-user/webchat-token') {
+      return route.fulfill({
+        json: {
+          code: '0',
+          msg: '',
+          data: {
+            configured: false,
+            status: 'NOT_CONFIGURED',
+            token_id: null,
+            revision: 0,
+            issued_at: null,
+            expires_at: null
+          }
+        }
+      });
+    }
     const items = lists[path] ?? [];
     const data = path.endsWith('/auth/me') ? { id: 'admin', username: 'admin', role: 'ADMIN' }
       : path === '/api/v1/users/layout-user' ? detail : { items, total: items.length, page: 1, page_size: 15 };

@@ -482,17 +482,18 @@ test.describe('TASK-114 附件与通知', () => {
       error_code: null
     });
 
-    // 重开页面：持久通知可拉取（未读来自服务端权威计数）。
+    // 重开页面：侧栏用未读圆点展示离线完成（通知面板已移除，不再有独立通知列表）。
     const reopened = await context.newPage();
     await reopened.goto(`/chat/${user.entry.entryId}`);
     await expect(reopened.getByTestId('webchat-shell')).toBeVisible({ timeout: 30_000 });
-    const notifications = reopened.getByTestId('notification-item');
-    await expect(notifications).toHaveCount(1, { timeout: 30_000 });
-    await expect(reopened.getByTestId('notification-kind')).toHaveText('会话有新结果');
-    await expect(reopened.getByTestId('notification-unread')).toBeVisible();
+    const offlineItem = reopened
+      .getByTestId('chat-sidebar-item')
+      .filter({ hasText: '离线任务验收' });
+    await expect(offlineItem).toHaveCount(1, { timeout: 30_000 });
+    await expect(offlineItem.getByTestId('chat-sidebar-item-unread')).toBeVisible();
 
-    // 定位结果：切到原会话并看到持久正文；下载定位到的真实附件。
-    await reopened.getByTestId('notification-locate').click();
+    // 打开会话：切到持久正文并下载真实附件；未读在可见会话里自动清除。
+    await offlineItem.click();
     await expect(reopened.getByTestId('chat-panel-title')).toHaveText('离线任务验收', {
       timeout: 30_000
     });
@@ -501,6 +502,18 @@ test.describe('TASK-114 附件与通知', () => {
     );
     await expect(offlineAssistant).toHaveCount(1, { timeout: 30_000 });
     await expect(offlineAssistant.first()).toContainText('离线结果');
+    await expect(offlineItem.getByTestId('chat-sidebar-item-unread')).toHaveCount(0, {
+      timeout: 30_000
+    });
+    // 切换/打开会话后必须定位到最新一条，而不是停在顶部。
+    const messageViewport = reopened.getByTestId('chat-panel-messages');
+    await expect
+      .poll(() =>
+        messageViewport.evaluate(
+          (node) => node.scrollHeight - node.scrollTop - node.clientHeight
+        )
+      )
+      .toBeLessThanOrEqual(2);
     const download = reopened.waitForResponse(
       (item) => item.url().includes('/artifacts/') && item.url().includes('/content')
     );
@@ -513,21 +526,21 @@ test.describe('TASK-114 附件与通知', () => {
     expect(downloaded.status()).toBe(200);
     expect(Buffer.from(await downloaded.body()).equals(PNG_BYTES)).toBe(true);
 
-    // 标记已读：服务端回执落地，刷新后仍为已读。
-    await reopened.getByTestId('notification-mark-read').click();
-    await expect(reopened.getByTestId('notification-unread')).toHaveCount(0, { timeout: 30_000 });
+    // 刷新后仍已读：已读回执落在服务端，不靠本地状态。
     await reopened.reload();
-    await expect(reopened.getByTestId('notification-item')).toHaveCount(1, { timeout: 30_000 });
-    await expect(reopened.getByTestId('notification-unread')).toHaveCount(0);
+    await expect(offlineItem.getByTestId('chat-sidebar-item-unread')).toHaveCount(0, {
+      timeout: 30_000
+    });
 
     // 重放不重复累计未读：同一 delivery_key 重投命中原回执（真实服务函数），未读不回涨。
     const replayed = seed.renotify(offlineRunId);
     expect(replayed.created).toBe(false);
     await reopened.reload();
-    await expect(reopened.getByTestId('notification-item')).toHaveCount(1, { timeout: 30_000 });
-    await expect(reopened.getByTestId('notification-unread')).toHaveCount(0);
+    await expect(offlineItem.getByTestId('chat-sidebar-item-unread')).toHaveCount(0, {
+      timeout: 30_000
+    });
 
-    // 打开 A 不清 B 的未读：第二条会话完成产生新未读，查看 A 后 B 的未读仍在。
+    // 打开 A 不清 B 的未读：第二条会话完成产生新未读；打开第一条（已读）不得清掉第二条。
     const secondConversation = await session.post<{ conversation_id: string }>(
       `/api/v1/webchat/entries/${user.entry.entryId}/conversations`,
       undefined,
@@ -543,18 +556,24 @@ test.describe('TASK-114 附件与通知', () => {
     expect(secondSubmit.status).toBe(202);
     await waitForRunSettled(session, secondConversationId);
     await reopened.reload();
-    await expect(reopened.getByTestId('notification-item')).toHaveCount(2, { timeout: 30_000 });
-    await expect(reopened.getByTestId('notification-unread')).toBeVisible();
-    await reopened.getByTestId('notification-locate').first().click();
+    const secondItem = reopened
+      .getByTestId('chat-sidebar-item')
+      .filter({ hasText: '第二会话验收' });
+    await expect(secondItem.getByTestId('chat-sidebar-item-unread')).toBeVisible({
+      timeout: 30_000
+    });
+    await offlineItem.click();
+    await expect(reopened.getByTestId('chat-panel-title')).toHaveText('离线任务验收', {
+      timeout: 30_000
+    });
+    await expect(secondItem.getByTestId('chat-sidebar-item-unread')).toBeVisible();
+    await secondItem.click();
     await expect(reopened.getByTestId('chat-panel-title')).toHaveText('第二会话验收', {
       timeout: 30_000
     });
-    // 第一条通知（离线会话）仍未读：未读数不被误清。
-    await expect(reopened.getByTestId('notification-unread')).toBeVisible();
-    const unreadItems = await reopened
-      .locator('[data-testid="notification-item"]')
-      .evaluateAll((nodes) => nodes.filter((node) => node.querySelector('[data-testid="notification-mark-read"]') !== null).length);
-    expect(unreadItems).toBeGreaterThanOrEqual(1);
+    await expect(secondItem.getByTestId('chat-sidebar-item-unread')).toHaveCount(0, {
+      timeout: 30_000
+    });
 
     // S-113 隐藏页暂停轮询、回前台同步：隐藏期间零新轮询，回前台立即增量同步。
     // headless Chrome 里后台标签仍报 `visible`（`bringToFront` 不改变可见性），所以这里在页面内

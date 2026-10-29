@@ -154,6 +154,12 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
                 "(SELECT id FROM control.platform_user WHERE tenant_id = :tenant_id)",
                 "DELETE FROM control.platform_user WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.config_audit_log WHERE tenant_id = :tenant_id",
+                # 记忆表：history 的 origin_id 指向 user_memory，必须先删 history。
+                "DELETE FROM runtime.user_memory_history WHERE tenant_id = :tenant_id",
+                "DELETE FROM runtime.user_memory WHERE tenant_id = :tenant_id",
+                "DELETE FROM runtime.memory_scope WHERE tenant_id = :tenant_id",
+                "DELETE FROM runtime.memory_command_receipt WHERE tenant_id = :tenant_id",
+                "DELETE FROM runtime.memory_consolidation_job WHERE tenant_id = :tenant_id",
                 # 成员 → 凭据 → 逻辑模型：外键要求先解绑再删凭据，最后删模型
                 "DELETE FROM control.model_deployment WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.model_credential WHERE tenant_id = :tenant_id",

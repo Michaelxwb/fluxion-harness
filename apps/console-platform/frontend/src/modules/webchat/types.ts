@@ -199,6 +199,8 @@ export interface WebchatHistoryMessage {
   role: WebchatMessageRole;
   text: string;
   attachments: WebchatAttachment[];
+  /** canonical 事件落库时间（消息发送/接收的权威时刻）。 */
+  created_at: string;
 }
 
 /** API-09 消息页：`through_seq` 是冻结水位，不能当作活跃 Run 已应用游标的证明。 */

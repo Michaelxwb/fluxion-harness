@@ -10,13 +10,14 @@ from uuid import UUID, uuid4
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import (
+    FactContent,
     MemoryAuthor,
     MemoryCandidate,
     MemoryCategory,
     MemoryRetirementReason,
 )
 from muad_contracts.memory_admin import MemoryMutationResult, MemoryResultStatus
-from pydantic import JsonValue, TypeAdapter
+from pydantic import JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,18 +53,33 @@ class MemoryBatchPlan:
     results: tuple[MemoryMutationResult, ...]
 
 
-def memory_state(row: UserMemory, *, source_time: datetime | None = None) -> MemoryWriteState:
-    candidate = MemoryCandidate.model_validate(
-        {
-            "memory_key": row.memory_key,
-            "category": row.category,
-            "content": row.content_json,
-        }
-    )
+def memory_state(
+    row: UserMemory, *, source_time: datetime | None = None, tolerant: bool = False
+) -> MemoryWriteState:
+    """行 → 写入状态。
+
+    `tolerant` 只给**纯退休**命令用：退休只需要 is_deleted/expiry/author 等控制字段，
+    历史遗留 content（例如旧测试写入的 `{"note": ...}`）不应阻塞整批过期。此时用空的
+    FactContent 占位，退休只写 retirement 字段，原始 content_json 不会被改写；正常写入
+    仍保持严格校验，避免把损坏内容伪装成合法记忆。
+    """
+    try:
+        candidate = MemoryCandidate.model_validate(
+            {
+                "memory_key": row.memory_key,
+                "category": row.category,
+                "content": row.content_json,
+            }
+        )
+        content, category = candidate.content, candidate.category
+    except ValidationError:
+        if not tolerant:
+            raise
+        content, category = FactContent(value="-"), MemoryCategory(row.category)
     return MemoryWriteState(
         memory_key=row.memory_key,
-        content=candidate.content,
-        category=candidate.category,
+        content=content,
+        category=category,
         author=MemoryAuthor(row.author),
         version=row.version,
         updated_at=row.update_time,
@@ -406,9 +422,15 @@ def plan_mutations(
     times: dict[UUID, datetime],
 ) -> MemoryBatchPlan:
     indexed = {row.memory_key: row for row in rows}
+    # 纯退休命令（过期/配额驱逐）不需要解析 content；历史遗留 content 不能让整批过期失败。
+    retire_only = bool(command.mutations) and all(
+        mutation.action == "RETIRE" for mutation in command.mutations
+    )
     states = {
         row.memory_key: memory_state(
-            row, source_time=times.get(row.source_event_id) if row.source_event_id else None
+            row,
+            source_time=times.get(row.source_event_id) if row.source_event_id else None,
+            tolerant=retire_only,
         )
         for row in rows
     }

@@ -187,13 +187,13 @@ async function selectOption(page: Page, scope: Locator, optionText: string): Pro
   }).toPass({ timeout: 20_000 });
 }
 
-/** 打开用户详情 → 项目平台凭据页签（Webchat Token 卡片的真实挂载位置）。 */
+/** 打开用户详情 → IM 身份页签（Webchat Token 卡片的真实挂载位置）。 */
 async function openUserTokenCard(page: Page, userCode: string): Promise<Locator> {
   await page.goto('/users');
   await page.getByTestId(`user-link-${userCode}`).click();
   const sheet = page.locator('.semi-sidesheet');
   await expect(sheet.getByTestId('detail-subtitle')).toHaveText(userCode);
-  await sheet.locator('.semi-tabs-tab', { hasText: '项目平台凭据' }).click();
+  await sheet.locator('.semi-tabs-tab', { hasText: 'IM 身份' }).click();
   await expect(sheet.getByTestId('webchat-token-card')).toBeVisible();
   return sheet;
 }

@@ -68,6 +68,7 @@ verifiers:
 - 取消和选择共用一次消费身份。✅ 一个 options source_event_id 对应 MEMORY_RESUME_RESOLVED，outcome 在 payload；❌ unique(tenant, options_event_id, outcome) 允许同一 options 同时 SELECTED/CANCELLED。
 - 密钥校验覆盖所有新增持久出口。✅ 检查 value/key/source_quote/TASK_STATE 及 history/proposal/log/model input；❌ 把拒绝内容原样写进日志或失败 receipt。
 - 内容与权威运行状态分离。✅ TASK_STATE 是短 TTL 线索，执行状态实时核验；❌ 用未确认线索代替权限、任务结果或当前能力。
+- 纯退休命令容忍历史 content。✅ 过期清扫等 RETIRE-only 命令用占位 content 规划，只写 retirement 字段、不回写 `content_json`；旧 content 校验失败按 scope 捕获 `ValidationError` 并记录 tenant/user；❌ 一条脏数据卡死整轮清扫，或把容忍扩散到普通写入（`test_local_ttl_retires_legacy_content_without_blocking`）。
 
 ## Avoid
 

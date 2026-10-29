@@ -978,21 +978,19 @@ asyncio.run(main())
       expect(taskFacts).toEqual({ status: 'FAILED', error_code: 'TASK_RESULT_UNVERIFIED', attempt: 1 });
 
       await page.reload();
-      // 通知是按用户累积的 feed：只认这条任务结果（kind/summary 读取层投影）。
-      const taskItem = page.locator('[data-testid="notification-item"]', {
-        hasText: '后台任务已完成'
-      });
+      // 未读只落在来源会话：侧栏圆点，不自动重试任务；打开会话后自动已读。
+      const taskItem = page
+        .getByTestId('chat-sidebar-item')
+        .filter({ hasText: 'E-109 外部任务结果' });
       await expect(taskItem).toHaveCount(1, { timeout: 30_000 });
-      await expect(taskItem.getByTestId('notification-kind')).toHaveText('后台任务已完成');
-      await expect(taskItem).toHaveAttribute('data-unread', 'true');
-      // 定位原任务：切到原会话（任务结果的来源会话）。
-      await taskItem.getByTestId('notification-locate').click();
+      await expect(taskItem.getByTestId('chat-sidebar-item-unread')).toBeVisible();
+      await taskItem.click();
       await expect(page.getByTestId('chat-panel-title')).toHaveText('E-109 外部任务结果', {
         timeout: 30_000
       });
-      // 已读只作用于这一条：不自动重试写操作（任务行不被重排）。
-      await taskItem.getByTestId('notification-mark-read').click();
-      await expect(taskItem).toHaveAttribute('data-unread', 'false', { timeout: 30_000 });
+      await expect(taskItem.getByTestId('chat-sidebar-item-unread')).toHaveCount(0, {
+        timeout: 30_000
+      });
       const taskCountAfter = runPythonJson<{ tasks: number; runs: number; attempt: number }>(`
 import asyncio, json, os, asyncpg
 async def main():
@@ -1007,14 +1005,14 @@ asyncio.run(main())
       expect(taskCountAfter.tasks).toBe(1);
       expect(taskCountAfter.runs).toBe(1);
       expect(taskCountAfter.attempt, '不自动重试写操作').toBe(1);
-      // 新建/切换会话不改变该结果：任务结果通知仍在、仍是已读状态。
+      // 新建/切换会话不改变该结果：回到来源会话仍是已读，圆点不再出现。
       const other = await createConversation(session, user.entry.entryId);
       await openChatConversation(page, user.entry.entryId, other);
       await expect(taskItem).toHaveCount(1, { timeout: 30_000 });
-      await expect(taskItem).toHaveAttribute('data-unread', 'false');
+      await expect(taskItem.getByTestId('chat-sidebar-item-unread')).toHaveCount(0);
       await openChatConversation(page, user.entry.entryId, taskResult.conversation_id);
       await expect(taskItem).toHaveCount(1);
-      await expect(taskItem).toHaveAttribute('data-unread', 'false');
+      await expect(taskItem.getByTestId('chat-sidebar-item-unread')).toHaveCount(0);
     } finally {
       // 真实容量复原：后续用例不受本用例的容量改写影响。
       await setCredentialInflight(webchatAdmin, model.credentialId, Number(original.max_inflight));
