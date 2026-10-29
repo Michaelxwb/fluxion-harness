@@ -34,6 +34,7 @@ import {
   runPythonJson,
   settleUnknownModelLeases,
   test,
+  waitForAssistantReply,
   type ConsoleAdminClient,
   type WebchatStack,
   type WebchatUserSession
@@ -570,9 +571,11 @@ asyncio.run(main())
     await expect
       .poll(() => eventGets.length, { timeout: 30_000, intervals: [200] })
       .toBeGreaterThanOrEqual(2);
-    await expect(streaming).toHaveText('断网恢复正文', { timeout: 90_000 });
-    await page.unroute('**/api/v1/webchat/runs/*/events*');
+    // 续流正文可能已经收敛进历史消息（流式块先消失是正常的）：等 Run 终态与页面收口，
+    // 正文在下面的重读断言里逐字校验。
+    await waitForAssistantReply(page);
     await waitForRunSettled(session, conversationId);
+    await page.unroute('**/api/v1/webchat/runs/*/events*');
     expect(await readRunTerminal(request, webchatStack, runId)).toEqual({
       status: 'COMPLETED',
       error_code: null

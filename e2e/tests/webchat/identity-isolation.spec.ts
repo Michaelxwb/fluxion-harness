@@ -663,6 +663,8 @@ test('E-101 CHAT 会话撤销时关闭流、清私有状态并回到 Token 输�
   await openChatConversation(page, a.entry.entryId, conversationId);
   await sendChatMessage(page, 'E-101 A 的消息');
   await waitForAssistantReply(page);
+  // 前一条 Run 必须先收口，否则紧接着的长流 POST 会 409 RUN_BUSY，后续 active_run 永远等不到。
+  await waitForConversationIdle(page, conversationId);
   await webchatFaults.setBehavior({ latency_ms: 8_000, chunk_interval_ms: 1_000, deltas: ['A', 'B', 'C', 'D', 'E', 'F'] });
   await sendChatMessage(page, 'E-101 A 的长流提问');
   // 撤销必须发生在 Run 仍在执行时；以服务端活跃 Run 为准，不赌瞬时流式 DOM。
