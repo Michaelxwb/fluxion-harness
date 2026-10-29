@@ -989,7 +989,8 @@ export function runPythonJson<T>(source: string): T {
  * 产品语义：模型调用结果未知时租约落 `UNKNOWN` 并保留容量占用，等证据才释放；console 的
  * 排空判定把 ACTIVE/UNKNOWN 都算作在飞。于是一个制造超时/取消的用例会让共享凭据的容量
  * **再也改不了**，后续容量用例全部 409 `MODEL_CAPACITY_DRAIN_REQUIRED`。容量类用例在改
- * 容量前先结算这些合成租约（只结算**所属 Run 已终态**的，在飞 Run 的租约绝不动）。
+ * 容量前先结算这些合成租约（只结算**所属 Run 已终态**的，在飞 Run 的租约绝不动；后台
+ * 记忆任务无 Run 行、没有产品排空入口，隔离库里一并结算）。
  */
 export function settleUnknownModelLeases(): number {
   const result = runPythonJson<{ settled: number }>(`
@@ -1001,10 +1002,15 @@ async def main():
            set state = 'SETTLED'
          where l.is_deleted = false
            and l.state in ('ACTIVE', 'UNKNOWN')
-           and exists (
-                 select 1 from runtime.run_record r
-                  where r.id = l.run_id
-                    and r.status in ('COMPLETED', 'FAILED', 'CANCELLED'))
+           and (
+                 exists (
+                   select 1 from runtime.run_record r
+                    where r.id = l.run_id
+                      and r.status in ('COMPLETED', 'FAILED', 'CANCELLED'))
+                 -- 后台记忆任务没有 Run 行，UNKNOWN 后没有产品排空入口；隔离库清理时
+                 -- 一并结算，避免它永久占用交互容量（S-09 的容量排空前提）。
+                 or (l.run_id is null and l.workload = 'BACKGROUND')
+               )
     """)
     await conn.close()
     print(json.dumps({'settled': int(status.split()[-1]) if status else 0}))

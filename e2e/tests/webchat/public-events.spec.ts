@@ -261,23 +261,22 @@ test.describe('TASK-114 公开事件与游标安全', () => {
     expect(history.status).toBe(200);
     expect(JSON.stringify(history.body)).not.toContain(CANARY_PREFIX);
 
-    // 终态持久事实：终态事件可重放；重载后助手正文恰一条（不重复、不半份）。
+    // 终态持久事实：先确认没有重开流，再重载验证助手正文恰一条（不重复、不半份）。
     const completed = seed.completeRun(streamed.run_id);
     expect(completed.text).toBe(PUBLIC_TEXT);
-    const completedSse = await readSse(
-      `${webchatStack.baseURL}/api/v1/webchat/runs/${streamed.run_id}/events?after_seq=0`,
-      { Cookie: session.cookie, 'X-Chat-Context': session.authContextId, Accept: 'text/event-stream' },
-      { maxFrames: 12, timeoutMs: 20_000 }
-    );
-    expect(completedSse.frames.some((frame) => frame.event === 'run.terminal')).toBe(true);
-    // 终态结算的持久事实在下面用 reload 后的历史断言；连接状态是 UI 瞬时投影，单测已覆盖，
-    // 不再用会随重渲染/消费者切换抖动的 DOM 属性当终态门禁。
     expect(eventRequests.filter((url) => url.includes(streamed.run_id))).toHaveLength(1);
     await page.reload();
     await expect(page.getByTestId('chat-streaming-reply')).toHaveCount(0, { timeout: 30_000 });
     const assistantMessages = page.locator('[data-testid="chat-message-item"][data-role="ASSISTANT"]');
     await expect(assistantMessages).toHaveCount(1, { timeout: 30_000 });
     await expect(assistantMessages.first()).toContainText(PUBLIC_TEXT);
+    // 终态事件本身可重放（页面连接状态是 UI 瞬时投影，单测已覆盖，不拿它当终态门禁）。
+    const completedSse = await readSse(
+      `${webchatStack.baseURL}/api/v1/webchat/runs/${streamed.run_id}/events?after_seq=0`,
+      { Cookie: session.cookie, 'X-Chat-Context': session.authContextId, Accept: 'text/event-stream' },
+      { maxFrames: 12, timeoutMs: 20_000 }
+    );
+    expect(completedSse.frames.some((frame) => frame.event === 'run.terminal')).toBe(true);
 
     // 过期游标：服务端显式 410 + 真实窗口（不静默夹取、不补发）。
     const expired = await readSse(

@@ -564,10 +564,9 @@ asyncio.run(main())
       )
       .toBeLessThanOrEqual(2);
     await watcher;
-    // 中断确实发生在传输层（第一条事件流被中止），且客户端只经 GET 重连（重连次数在
-    // 连接区域可见并保留；`reconnecting` 瞬时态只作参考，不作断言）。
+    // 中断确实发生在传输层（第一条事件流被中止），且客户端只经 GET 重连。重连计数是
+    // 瞬时 UI 投影（成功续流后归零）；`eventGets >= 2` 才是持久的重连事实。
     expect(intercepted, '第一条事件流必须被真实中止').toBeGreaterThanOrEqual(1);
-    await expect(page.getByTestId('chat-run-connection-retries')).toBeVisible({ timeout: 30_000 });
     await expect
       .poll(() => eventGets.length, { timeout: 30_000, intervals: [200] })
       .toBeGreaterThanOrEqual(2);
