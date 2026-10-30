@@ -370,6 +370,12 @@ service.extraEnvFrom
 serviceAccount.create / name
 ```
 
+副本和 HPA：
+
+```text
+autoscaling.enabled / minReplicas / maxReplicas
+```
+
 全局支持：
 
 ```text

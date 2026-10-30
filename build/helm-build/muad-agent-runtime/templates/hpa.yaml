@@ -1,3 +1,4 @@
+{{- if .Values.autoscaling.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -9,8 +10,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: muad-agent-runtime
-  minReplicas: {{ .Values.hpa.minReplicas }}
-  maxReplicas: {{ .Values.hpa.maxReplicas }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 0
@@ -30,13 +31,13 @@ spec:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.hpa.cpuUtilization }}
+          averageUtilization: {{ .Values.autoscaling.cpuUtilization }}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ .Values.hpa.memoryUtilization }}
+          averageUtilization: {{ .Values.autoscaling.memoryUtilization }}
     - type: Pods
       pods:
         metric:
@@ -51,3 +52,4 @@ spec:
         target:
           type: AverageValue
           averageValue: "30"
+{{- end }}

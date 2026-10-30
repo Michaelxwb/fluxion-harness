@@ -18,19 +18,17 @@ global:
   tolerations: []
   affinity: {}
   extraEnvFrom: []
-
+  sysctls: []
 serviceAccount:
   create: false
-  name: ""
+  name: ''
   annotations: {}
-
 service:
-  replicas: 1
   tag: ''
   resources:
     requests:
-      cpu: 500m
-      memory: 1Gi
+      cpu: '1'
+      memory: 2Gi
     limits:
       cpu: '2'
       memory: 4Gi
@@ -45,7 +43,7 @@ service:
   tolerations: []
   affinity: {}
   extraEnvFrom: []
-
+  sysctls: []
 ingress:
   enabled: true
   className: nginx
@@ -73,3 +71,11 @@ config:
   CHAT_AUTH_RECHECK_SEC: '15'
   STREAM_HTTP_READ_TIMEOUT_SEC: '45'
   GATEWAY_ROUTED_CHANNELS: WECOM
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 1
+  cpuUtilization: 70
+  memoryUtilization: 80
+console:
+  workers: 4

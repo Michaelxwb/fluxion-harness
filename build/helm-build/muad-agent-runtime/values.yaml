@@ -18,22 +18,20 @@ global:
   tolerations: []
   affinity: {}
   extraEnvFrom: []
-
+  sysctls: []
 serviceAccount:
   create: false
-  name: ""
+  name: ''
   annotations: {}
-
 service:
-  replicas: 1
   tag: ''
   resources:
     requests:
       cpu: '1'
       memory: 2Gi
     limits:
-      cpu: '4'
-      memory: 8Gi
+      cpu: '2'
+      memory: 4Gi
   extraEnv: []
   name: muad-agent-runtime
   image: muad-agent-runtime
@@ -45,9 +43,10 @@ service:
   tolerations: []
   affinity: {}
   extraEnvFrom: []
-
-hpa:
-  minReplicas: 1
-  maxReplicas: 4
+  sysctls: []
+autoscaling:
+  enabled: true
+  minReplicas: 8
+  maxReplicas: 8
   cpuUtilization: 70
   memoryUtilization: 80

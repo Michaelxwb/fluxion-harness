@@ -6,7 +6,7 @@ metadata:
     app: muad-im-gateway
     {{- include "muad-platform.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.service.replicas }}
+  replicas: {{ .Values.autoscaling.minReplicas }}
   selector:
     matchLabels:
       app: muad-im-gateway
@@ -22,6 +22,9 @@ spec:
       {{- end }}
       securityContext:
         {{- include "muad-platform.podSecurityContext" . | nindent 8 }}
+        {{- with (include "muad-platform.sysctls" . | trim) }}
+        {{- . | nindent 8 }}
+        {{- end }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

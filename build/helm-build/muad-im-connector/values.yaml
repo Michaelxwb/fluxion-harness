@@ -18,14 +18,12 @@ global:
   tolerations: []
   affinity: {}
   extraEnvFrom: []
-
+  sysctls: []
 serviceAccount:
   create: false
-  name: ""
+  name: ''
   annotations: {}
-
 service:
-  replicas: 2
   tag: ''
   resources:
     requests:
@@ -45,3 +43,10 @@ service:
   tolerations: []
   affinity: {}
   extraEnvFrom: []
+  sysctls: []
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 2
+  cpuUtilization: 70
+  memoryUtilization: 80

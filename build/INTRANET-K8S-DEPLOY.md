@@ -86,14 +86,16 @@ kubectl -n muad create secret docker-registry regcred \
 --set serviceAccount.create=true \
 --set service.image=muad-console-platform \
 --set service.port=8000 \
---set service.replicas=1 \
+--set autoscaling.minReplicas=1 \
+--set autoscaling.maxReplicas=1 \
 --set service.type=NodePort \
 --set service.nodePort=30090 \
 --set service.externalTrafficPolicy=Cluster \
---set service.resources.requests.cpu=100m \
---set service.resources.requests.memory=128Mi \
+--set service.resources.requests.cpu=1 \
+--set service.resources.requests.memory=2Gi \
 --set service.resources.limits.cpu=2 \
 --set service.resources.limits.memory=4Gi \
+--set console.workers=4 \
 --set ingress.enabled=false
 ```
 
@@ -113,12 +115,13 @@ kubectl -n muad create secret docker-registry regcred \
 --set serviceAccount.create=true \
 --set service.image=muad-agent-runtime \
 --set service.port=8001 \
---set service.replicas=1 \
+--set autoscaling.minReplicas=8 \
+--set autoscaling.maxReplicas=8 \
 --set service.type=ClusterIP \
 --set service.resources.requests.cpu=1 \
 --set service.resources.requests.memory=2Gi \
---set service.resources.limits.cpu=4 \
---set service.resources.limits.memory=8Gi
+--set service.resources.limits.cpu=2 \
+--set service.resources.limits.memory=4Gi
 ```
 
 ### 2.3 muad-agent-worker
@@ -137,13 +140,14 @@ kubectl -n muad create secret docker-registry regcred \
 --set serviceAccount.create=true \
 --set service.image=muad-agent-worker \
 --set service.port=8002 \
---set service.replicas=1 \
+--set autoscaling.minReplicas=4 \
+--set autoscaling.maxReplicas=4 \
 --set service.type=ClusterIP \
 --set service.nodeSelector.app=openclaw \
---set service.resources.requests.cpu=1 \
---set service.resources.requests.memory=2Gi \
---set service.resources.limits.cpu=4 \
---set service.resources.limits.memory=8Gi
+--set service.resources.requests.cpu=500m \
+--set service.resources.requests.memory=1Gi \
+--set service.resources.limits.cpu=2 \
+--set service.resources.limits.memory=2Gi
 ```
 
 ### 2.4 muad-im-gateway
@@ -162,14 +166,15 @@ kubectl -n muad create secret docker-registry regcred \
 --set serviceAccount.create=true \
 --set service.image=muad-im-gateway \
 --set service.port=8003 \
---set service.replicas=2 \
+--set autoscaling.minReplicas=2 \
+--set autoscaling.maxReplicas=2 \
 --set service.type=NodePort \
 --set service.nodePort=30093 \
 --set service.externalTrafficPolicy=Cluster \
---set service.resources.requests.cpu=500m \
+--set service.resources.requests.cpu=1 \
 --set service.resources.requests.memory=1Gi \
 --set service.resources.limits.cpu=2 \
---set service.resources.limits.memory=4Gi
+--set service.resources.limits.memory=2Gi
 ```
 
 ### 2.5 muad-im-connector
@@ -188,7 +193,8 @@ kubectl -n muad create secret docker-registry regcred \
 --set serviceAccount.create=true \
 --set service.image=muad-im-connector \
 --set service.port=8004 \
---set service.replicas=2 \
+--set autoscaling.minReplicas=2 \
+--set autoscaling.maxReplicas=2 \
 --set service.type=ClusterIP \
 --set service.resources.requests.cpu=250m \
 --set service.resources.requests.memory=512Mi \
@@ -196,7 +202,43 @@ kubectl -n muad create secret docker-registry regcred \
 --set service.resources.limits.memory=1Gi
 ```
 
-## 2.6 `.env` 完整映射
+### 2.6 压测结论对齐
+
+默认值按压测生产表设置：
+
+| 服务 | 副本 | request / limit | 内存 |
+|---|---:|---|---:|
+| console-platform | 1（4 workers） | 1 / 2 | 2Gi / 4Gi |
+| agent-runtime | 8 | 1 / 2 | 2Gi / 4Gi |
+| agent-worker | 4 | 500m / 2 | 1Gi / 2Gi |
+| im-gateway | 2 | 1 / 2 | 1Gi / 2Gi |
+| im-connector | 2 | 250m / 1 | 512Mi / 1Gi |
+
+副本控制：
+
+```text
+autoscaling.enabled=true  -> HPA 使用 minReplicas/maxReplicas
+autoscaling.enabled=false -> Deployment replicas = minReplicas，maxReplicas 不生效
+```
+
+平台统一缩到 1 副本：
+
+```bash
+--set autoscaling.minReplicas=1 --set autoscaling.maxReplicas=1
+```
+
+### 内核参数
+
+`nofile` 不能直接在 Pod spec 设置；当前容器默认 soft 20480 / hard 1048576，已高于
+`fd_budget` 16384。需要 `net.core.somaxconn` 等参数时：
+
+```bash
+--set 'service.sysctls[0].name=net.core.somaxconn' --set 'service.sysctls[0].value=4096'
+```
+
+非 safe sysctl 需要节点/kubelet 允许；`nofile` 需要在节点/容器运行时配置。
+
+### 2.7 `.env` 完整映射
 
 先分清三层配置：
 
@@ -428,9 +470,13 @@ im-connector     8004
 | `image.pullPolicy` | `global.imagePullPolicy` |
 | `imagePullSecrets[0].name` | `global.imagePullSecrets[0].name` |
 | `serviceAccount.create` | `serviceAccount.create` |
+| 副本数 | `autoscaling.minReplicas` / `autoscaling.maxReplicas` |
 | `resources.*` | `service.resources.*` |
 | `service.type/nodePort/externalTrafficPolicy` | `service.type/nodePort/externalTrafficPolicy` |
 | `publicSkills.pvcName` | `global.artifacts.existingClaim` |
+
+`autoscaling.enabled` 默认：runtime/worker 为 true，console/gateway/connector 为 false。
+平台只传 `minReplicas` / `maxReplicas` 即可；非 HPA 服务的 `maxReplicas` 不生效。
 
 删除这些老参数：
 

@@ -18,22 +18,20 @@ global:
   tolerations: []
   affinity: {}
   extraEnvFrom: []
-
+  sysctls: []
 serviceAccount:
   create: false
-  name: ""
+  name: ''
   annotations: {}
-
 service:
-  replicas: 2
   tag: ''
   resources:
     requests:
-      cpu: 500m
+      cpu: '1'
       memory: 1Gi
     limits:
       cpu: '2'
-      memory: 4Gi
+      memory: 2Gi
   extraEnv: []
   name: muad-im-gateway
   image: muad-im-gateway
@@ -45,3 +43,10 @@ service:
   tolerations: []
   affinity: {}
   extraEnvFrom: []
+  sysctls: []
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 2
+  cpuUtilization: 70
+  memoryUtilization: 80

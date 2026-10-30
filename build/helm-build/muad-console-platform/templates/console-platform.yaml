@@ -6,7 +6,7 @@ metadata:
     app: muad-console-platform
     {{- include "muad-platform.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.service.replicas }}
+  replicas: {{ .Values.autoscaling.minReplicas }}
   selector:
     matchLabels:
       app: muad-console-platform
@@ -22,6 +22,9 @@ spec:
       {{- end }}
       securityContext:
         {{- include "muad-platform.podSecurityContext" . | nindent 8 }}
+        {{- with (include "muad-platform.sysctls" . | trim) }}
+        {{- . | nindent 8 }}
+        {{- end }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -39,6 +42,15 @@ spec:
         - name: app
           image: {{ include "muad-platform.image" (dict "root" . "service" .Values.service) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["uvicorn"]
+          args:
+            - "muad_console_platform.main:app"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "{{ .Values.service.port }}"
+            - "--workers"
+            - "{{ .Values.console.workers }}"
           ports:
             - containerPort: {{ .Values.service.port }}
           envFrom:

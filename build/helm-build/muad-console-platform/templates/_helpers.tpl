@@ -89,3 +89,14 @@ Effective extra envFrom: global items followed by service items.
 {{- toYaml . -}}
 {{- end }}
 {{- end }}
+
+{{/*
+Effective sysctls: service overrides global.
+*/}}
+{{- define "muad-platform.sysctls" -}}
+{{- $sysctls := .Values.service.sysctls | default .Values.global.sysctls -}}
+{{- with $sysctls }}
+sysctls:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
