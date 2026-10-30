@@ -88,14 +88,20 @@ python-build-standalone，不需要编译。
 
 ### 2.1 变量 / Secret
 
-5 个 release 节点：
+5 个 release 节点只需要三个 Secret：
 
 ```text
 DOCKER_USER
 DOCKER_PASS
-PLATFORM=linux/amd64
-TAG=1.0.0
 AUTH_TOKEN
+```
+
+其余变量都有默认值，不用配：
+
+```text
+TAG                       默认 CI_COMMIT_TAG -> 提交短 SHA -> 时间戳+分支
+PLATFORM                  默认 linux/amd64
+FRONTEND_CACHE_DIR        默认 /tmp/muad-console-frontend（前端任务和 console 任务一致）
 ```
 
 `PUSH` 不用配，也不要配：
@@ -109,11 +115,8 @@ AUTH_TOKEN
 本地直接跑 `build-image.sh` / `package-service.sh` 时可以不配，只构建/打包不上传；
 需要强制不推送/不上传时才设 `PUSH=0` / `UPLOAD=0`。
 
-console release 额外：
-
-```text
-FRONTEND_CACHE_DIR=/tmp/muad-console-frontend
-```
+5 条流水线构建同一个提交时，默认 tag 都是同一个短 SHA，镜像天然对齐。
+需要语义化版本（例如 `1.0.0`）时再显式设 `TAG=1.0.0`。
 
 ### 2.2 任务镜像
 
@@ -149,7 +152,6 @@ Helm 仓库：mss-release-helm（release）或 mss-dev-helm（feature）
 ```bash
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
 IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
-TAG=1.0.0 \
   ./build/nginx-build/build.sh
 ```
 
@@ -160,7 +162,6 @@ NGINX_BUILD_MODE=copy \
 NGINX_SOURCE_IMAGE=<和底座 glibc 兼容的 nginx 镜像> \
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
 IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
-TAG=1.0.0 \
   ./build/nginx-build/build.sh
 ```
 
@@ -177,7 +178,7 @@ TAG=1.0.0 \
 |---|---|
 | 命令 | `bash ./build/docker-build/task-image-nginx-entry.sh` |
 | 任务镜像 | 带 `docker` 即可，不需要 helm/sfspm |
-| 变量 | `BASE_IMAGE`、`IMAGE_REPOSITORY`、`TAG`、`DOCKER_USER`、`DOCKER_PASS`（`PUSH` 不用配） |
+| 变量 | `DOCKER_USER`、`DOCKER_PASS`；`BASE_IMAGE`、`IMAGE_REPOSITORY`、`TAG` 有默认值 |
 | 默认构建 | `NGINX_BUILD_MODE=rpm` |
 | 兜底 | `NGINX_BUILD_MODE=copy` + `NGINX_SOURCE_IMAGE` |
 
@@ -243,7 +244,7 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
 | 镜像 push 401 | 检查 `DOCKER_USER` / `DOCKER_PASS` |
 | console 报前端缓存缺失 | 检查前端节点上传和 console release 节点下载都是 `/tmp/muad-console-frontend/` |
 | release 报 `helm` / `sfspm` 不存在 | 任务镜像缺命令，安装或改用单独的 `task2-helm.sh` |
-| 5 个镜像 tag 不一致 | 5 条流水线共用同一个 `TAG` |
+| 5 个镜像 tag 不一致 | 同一次提交默认取同一个短 SHA；手工设 `TAG` 时 5 条要一致 |
 | chart 重复上传 | 用了 `task-release-*` 就不要再跑 `task2-helm.sh` |
 | nginx RPM 安装失败 | 改用 `NGINX_BUILD_MODE=copy`，或把 `NGINX_SOURCE_IMAGE` 指向 `portal-nginx` 镜像 |
 | nginx 30090 端口冲突 | console / gateway 必须改成 ClusterIP，并去掉它们的 NodePort |

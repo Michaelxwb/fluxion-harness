@@ -9,13 +9,16 @@ BASE_IMAGE="${BASE_IMAGE:-docker.sangfor.com/mss-base/platos-kylin:1.3.2}"
 NGINX_BUILD_MODE="${NGINX_BUILD_MODE:-rpm}"
 NGINX_SOURCE_IMAGE="${NGINX_SOURCE_IMAGE:-nginx:1.24-bullseye}"
 if [[ -z "${IMAGE_REPOSITORY:-}" ]]; then
-  if [[ "${CI_COMMIT_TAG:-}" =~ ^v || "${CI_COMMIT_BRANCH:-}" =~ ^(patch|master|release) ]]; then
+  if [[ -n "${CI_COMMIT_TAG:-}" || "${CI_COMMIT_BRANCH:-}" =~ ^(patch|master|release) ]]; then
     IMAGE_REPOSITORY="docker.sangfor.com/mss-release/muad-nginx"
   else
     IMAGE_REPOSITORY="docker.sangfor.com/mss-dev/muad-nginx"
   fi
 fi
-TAG="${TAG:-1.0.0}"
+
+# shellcheck source=build/lib/image-tag.sh
+source "${REPO_ROOT}/build/lib/image-tag.sh"
+TAG="$(default_image_tag "${REPO_ROOT}")"
 PLATFORM="${PLATFORM:-linux/amd64}"
 # PUSH is optional: with registry credentials present the scripts push by
 # default, without credentials they only build. Set PUSH=0 to force a local

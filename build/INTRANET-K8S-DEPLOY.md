@@ -569,7 +569,6 @@ http://<master-ip>:30090/
 ```bash
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
 IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
-TAG=1.0.0 \
   ./build/nginx-build/build.sh
 ```
 
@@ -583,7 +582,6 @@ NGINX_BUILD_MODE=copy \
 NGINX_SOURCE_IMAGE=<和底座 glibc 兼容的 nginx 镜像> \
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
 IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
-TAG=1.0.0 \
   ./build/nginx-build/build.sh
 ```
 

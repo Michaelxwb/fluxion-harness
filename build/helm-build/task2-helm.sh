@@ -38,7 +38,7 @@ if [[ -z "${HELM_VERSION:-}" ]]; then
   fi
 fi
 
-if [[ "${CI_COMMIT_TAG:-}" =~ ^v || "${CI_COMMIT_BRANCH:-}" =~ ^(patch|master|release) ]]; then
+if [[ -n "${CI_COMMIT_TAG:-}" || "${CI_COMMIT_BRANCH:-}" =~ ^(patch|master|release) ]]; then
   HELM_REPOSITORY="mss-release-helm"
 else
   HELM_REPOSITORY="mss-dev-helm"

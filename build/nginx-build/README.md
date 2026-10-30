@@ -18,7 +18,6 @@ From the repository root:
 ```bash
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
 IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
-TAG=1.0.0 \
   ./build/nginx-build/build.sh
 ```
 
@@ -39,7 +38,6 @@ NGINX_BUILD_MODE=copy \
 NGINX_SOURCE_IMAGE=<compatible-nginx-image> \
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
 IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
-TAG=1.0.0 \
   ./build/nginx-build/build.sh
 ```
 

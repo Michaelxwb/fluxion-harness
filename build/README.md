@@ -245,8 +245,9 @@ Task2 一次打包 5 个 per-service chart，并可选上传 5 个 tgz；不依�
 | `DOCKER_USER` | 千流任务必填 | - | 内网 registry 账号 |
 | `DOCKER_PASS` | 千流任务必填 | - | 内网 registry 密码 |
 | `CI_COMMIT_BRANCH` | 建议 | - | 分支路由 |
-| `CI_COMMIT_TAG` | 可选 | - | `v*` 走 release |
+| `CI_COMMIT_TAG` | 可选 | - | 任意 tag 走 release |
 | `PUSH` | 否 | 有凭据时 `1`，否则 `0` | 一般不用配；本地测试设 `0` |
+| `TAG` | 否 | CI tag -> 提交短 SHA -> 时间戳+分支 | 需要固定版本时设 `1.0.0` |
 | `PLATFORM` | 否 | `linux/amd64` | 集群架构 |
 | `PYTHON_BASE_IMAGE` | 否 | `docker.sangfor.com/mss-base/python:3.12.13` | Python 底座 |
 | `NODE_BASE_IMAGE` | 否 | `docker.sangfor.com/mss-base/python-node:3.12.13-node24` | Node 底座 |
@@ -258,16 +259,19 @@ Task2 一次打包 5 个 per-service chart，并可选上传 5 个 tgz；不依�
 分支路由与老项目一致：
 
 ```text
-v* / patch / master / release  -> docker.sangfor.com/mss-release
-feature / bug                  -> docker.sangfor.com/mss-dev
-其它                           -> docker.sangfor.com/mss-dev
+git tag / patch / master / release  -> docker.sangfor.com/mss-release
+feature / bug                       -> docker.sangfor.com/mss-dev
+其它                                -> docker.sangfor.com/mss-dev
 ```
 
-镜像 tag：
+镜像 tag（不用配置，除非要固定 `1.0.0` 这样的版本）：
 
 ```text
-CI_COMMIT_TAG 存在  -> 直接使用 tag
-否则                -> <yyMMddHHmm><branch，/ 替换为 _>
+显式 TAG           -> 直接使用
+CI_COMMIT_TAG      -> 使用 tag，去掉前缀 v
+CI_COMMIT_SHA      -> 短 SHA（8 位）
+git 检出可用       -> 当前提交短 SHA
+都没有             -> <yyMMddHHmm><branch，/ 替换为 _>
 ```
 
 ### 环境变量（前端任务）
@@ -389,7 +393,6 @@ global.nodeSelector / tolerations / affinity / extraEnvFrom
 ```bash
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
 IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
-TAG=1.0.0 \
   ./build/nginx-build/build.sh
 ```
 

@@ -46,7 +46,7 @@ die() { printf '[image:%s][ERROR] %s\n' "${SERVICE}" "$*" >&2; exit 1; }
 
 # Branch routing is shared by all five independent pipelines.
 if [[ -z "${IMAGE_NAMESPACE}" ]]; then
-  if [[ "${CI_COMMIT_TAG:-}" =~ ^v ]]; then
+  if [[ -n "${CI_COMMIT_TAG:-}" ]]; then
     IMAGE_NAMESPACE="docker.sangfor.com/mss-release"
   elif [[ "${CI_COMMIT_BRANCH:-}" =~ ^(feature|bug) ]]; then
     IMAGE_NAMESPACE="docker.sangfor.com/mss-dev"
@@ -58,17 +58,9 @@ if [[ -z "${IMAGE_NAMESPACE}" ]]; then
 fi
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE_OVERRIDE:-${IMAGE_NAMESPACE}}"
 
-if [[ -z "${TAG}" ]]; then
-  if [[ -n "${CI_COMMIT_TAG:-}" ]]; then
-    TAG="${CI_COMMIT_TAG}"
-  else
-    TAG="$(date +%y%m%d%H%M)"
-    if [[ -n "${CI_COMMIT_BRANCH:-}" ]]; then
-      TAG="${TAG}$(printf '%s' "${CI_COMMIT_BRANCH}" | tr '/:' '__')"
-    fi
-  fi
-fi
-TAG="${TAG//\//_}"
+# shellcheck source=build/lib/image-tag.sh
+source "${REPO_ROOT}/build/lib/image-tag.sh"
+TAG="$(default_image_tag "${REPO_ROOT}")"
 
 case "${SERVICE}" in
   agent-runtime|agent-worker) base_image="${NODE_BASE_IMAGE}" ;;
