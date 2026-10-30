@@ -85,6 +85,7 @@ python-build-standalone，不需要编译。
 - Helm 在 release 节点内完成，不需要单独 Helm 流水线。
 - `build/helm-build/task2-helm.sh` 仅作为“一次打包全部 5 个 chart”的备用，不要和
   `task-release-*` 同时跑。
+- 需要 nginx 统一入口时再加第 6 条 `nginx-entry` 流水线，见 4.1；它不影响这 5 条。
 
 ### 2.1 变量 / Secret
 
@@ -170,28 +171,89 @@ IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 
 详细说明见 `build/nginx-build/README.md`。
 
-### 4.1 千流任务
+### 4.1 千流流水线
 
-单独一条 `nginx-entry` 流水线，和 5 个服务镜像并行：
+单独一条 `nginx-entry` 流水线，和 5 个服务镜像流水线并行：
 
 | 项 | 值 |
 |---|---|
+| 流水线名 | `nginx-entry` |
+| 节点 | 1 个 Docker 节点（和 release 节点同类） |
+| 任务镜像 | 带 `docker` 即可，不需要 `helm` / `sfspm` / `npm` |
 | 命令 | `bash ./build/docker-build/task-image-nginx-entry.sh` |
-| 任务镜像 | 带 `docker` 即可，不需要 helm/sfspm |
-| 变量 | `DOCKER_USER`、`DOCKER_PASS`；`BASE_IMAGE`、`IMAGE_REPOSITORY`、`TAG` 有默认值 |
-| 默认构建 | `NGINX_BUILD_MODE=rpm` |
-| 兜底 | `NGINX_BUILD_MODE=copy` + `NGINX_SOURCE_IMAGE` |
+| Secret | `DOCKER_USER`、`DOCKER_PASS` |
+| 缓存 | 不需要 |
+
+可选变量（一般不用配）：
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `BASE_IMAGE` | `docker.sangfor.com/mss-base/platos-kylin:1.3.2` | 构建底座 |
+| `IMAGE_REPOSITORY` | 按分支路由 | 覆盖目标仓库 |
+| `TAG` | CI tag -> 提交短 SHA | 和 5 个服务同 tag |
+| `NGINX_BUILD_MODE` | `rpm` | 装不上时改 `copy` |
+| `NGINX_SOURCE_IMAGE` | `nginx:1.24-bullseye` | 仅 copy 模式使用 |
+| `PLATFORM` | `linux/amd64` | 目标架构 |
 
 产物：
 
 ```text
-docker.sangfor.com/mss-release/muad-nginx:<TAG>
+git tag / patch / master / release -> docker.sangfor.com/mss-release/muad-nginx:<TAG>
+feature / bug / 其它               -> docker.sangfor.com/mss-dev/muad-nginx:<TAG>
 ```
 
-分支路由：release/tag -> `mss-release`；feature -> `mss-dev`。
-显式设置 `IMAGE_REPOSITORY` 可以覆盖默认路由。
+`<TAG>` 和 5 个服务镜像一致（同一次提交取同一个短 SHA），部署时可以统一用
+`global.imageTag=<TAG>`。
 
-这个任务只负责构建/推送 nginx 镜像；部署仍用 `build/nginx-entry.yaml`（见第 5 节）。
+日志是 5 步，能直接看出卡在哪：
+
+```text
+[nginx] [1/5] resolve configuration
+[nginx] [2/5] docker login docker.sangfor.com
+[nginx] [3/5] ensure base image docker.sangfor.com/mss-base/platos-kylin:1.3.2
+[nginx] [4/5] docker build docker.sangfor.com/mss-release/muad-nginx:<TAG>
+[nginx] [5/5] docker push docker.sangfor.com/mss-release/muad-nginx:<TAG>
+[nginx] done in 42s: docker.sangfor.com/mss-release/muad-nginx:<TAG>
+```
+
+缺 `DOCKER_USER` / `DOCKER_PASS` 时任务入口会直接报错，不会“构建成功但没推送”。
+
+如果第 4 步 RPM 安装失败，日志会停在该步，按第 4 节换成 copy 模式重跑。
+
+### 4.2 部署这条流水线的产物
+
+nginx 镜像只负责入口，部署仍用 `build/nginx-entry.yaml`。
+
+部署前先做两件事：
+
+```text
+console / gateway -> service.type=ClusterIP，去掉 NodePort
+nginx-entry.yaml  -> image 换成流水线产出的 <TAG>
+```
+
+换镜像 tag 二选一：
+
+```bash
+# 已经 apply 过，只更新镜像
+kubectl -n muad set image deploy/muad-entry-nginx \
+  nginx=docker.sangfor.com/mss-release/muad-nginx:<TAG>
+```
+
+```bash
+# 第一次部署，或直接改 yaml 里的 image:
+kubectl apply -f build/nginx-entry.yaml
+```
+
+访问：
+
+```text
+http://<master-ip>:30090/
+```
+
+nginx 启动时要解析 `muad-console-platform:8000` 和 `muad-im-gateway:8003`，
+必须晚于这两个 Service 部署。
+
+这个任务不重建 5 个服务镜像，也不重建底座；改 Pod 资源/副本更不需要重跑它。
 
 ## 5. K8s 部署
 
