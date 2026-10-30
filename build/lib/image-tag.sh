@@ -1,34 +1,45 @@
 #!/usr/bin/env bash
 # Shared image tag resolution for the muad build scripts.
 #
-# TAG is optional everywhere. The order is:
-#   1. explicit TAG
-#   2. CI_COMMIT_TAG           (git tag releases)
-#   3. CI_COMMIT_SHA           (same commit -> same tag in all five pipelines)
-#   4. git short SHA of the checkout
-#   5. timestamp + branch      (no git metadata available)
+# Default format (matches the intranet convention):
+#   1.0.0.<yyMMddHHmm><branch>      e.g. 1.0.0.2610302008feature-tiyanwenti-1030-txj
 #
-# Using the commit SHA keeps the five independent service pipelines aligned
-# without anyone setting TAG by hand.
+# The timestamp is the commit time, not the wall clock, so all five service
+# pipelines building the same commit produce the same tag even when they start
+# in different minutes. Branch slashes become dashes to stay a valid docker tag.
+#
+# Order:
+#   1. explicit TAG
+#   2. CI_COMMIT_TAG           (release: v1.0.0 -> 1.0.0)
+#   3. commit time + branch    (CI_COMMIT_BRANCH or the current git branch)
+#   4. wall clock + branch     (no git metadata available)
 default_image_tag() {
   local repo_root="${1:-$(pwd)}"
-  local tag=""
+  local branch=""
+  local timestamp=""
 
   if [[ -n "${TAG:-}" ]]; then
-    tag="${TAG}"
-  elif [[ -n "${CI_COMMIT_TAG:-}" ]]; then
-    tag="${CI_COMMIT_TAG#v}"
-  elif [[ -n "${CI_COMMIT_SHA:-}" ]]; then
-    tag="${CI_COMMIT_SHA:0:8}"
-  else
-    tag="$(git -C "${repo_root}" rev-parse --short=8 HEAD 2>/dev/null || true)"
-    if [[ -z "${tag}" ]]; then
-      tag="$(date +%y%m%d%H%M)"
-      if [[ -n "${CI_COMMIT_BRANCH:-}" ]]; then
-        tag="${tag}$(printf '%s' "${CI_COMMIT_BRANCH}" | tr '/:' '__')"
-      fi
-    fi
+    printf '%s\n' "${TAG//\//-}"
+    return 0
   fi
 
-  printf '%s\n' "${tag//\//_}"
+  if [[ -n "${CI_COMMIT_TAG:-}" ]]; then
+    printf '%s\n' "${CI_COMMIT_TAG#v}"
+    return 0
+  fi
+
+  branch="${CI_COMMIT_BRANCH:-}"
+  if [[ -z "${branch}" ]]; then
+    branch="$(git -C "${repo_root}" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    if [[ "${branch}" == "HEAD" ]]; then
+      branch=""
+    fi
+  fi
+  branch="${branch//\//-}"
+  branch="${branch//:/-}"
+
+  timestamp="$(git -C "${repo_root}" log -1 --format=%cd --date=format:%y%m%d%H%M 2>/dev/null || true)"
+  [[ -n "${timestamp}" ]] || timestamp="$(date +%y%m%d%H%M)"
+
+  printf '%s\n' "1.0.0.${timestamp}${branch}"
 }
