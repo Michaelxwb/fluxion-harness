@@ -224,6 +224,9 @@ feature / bug / 其它               -> docker.sangfor.com/mss-dev/muad-nginx:<T
 
 nginx 镜像只负责入口，部署仍用 `build/nginx-entry.yaml`。
 
+nginx 不在这 5 个 Helm chart 里，没有 `--set` 参数，直接用 `kubectl` 部署。
+需要先 apply 一次 YAML，之后用 `kubectl set image` 换 tag。
+
 部署前先做两件事：
 
 ```text

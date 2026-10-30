@@ -599,10 +599,20 @@ im-gateway:       service.type=ClusterIP，去掉 service.nodePort=30093
 
 ### 9.3 部署 nginx
 
+nginx 不是 Helm chart，没有 `--set` 参数，直接用 YAML 部署。
+
 把 `build/nginx-entry.yaml` 里的 image 改成实际构建的 tag，然后：
 
 ```bash
 kubectl apply -f build/nginx-entry.yaml
+```
+
+或者不改文件，直接替换 tag 再 apply：
+
+```bash
+TAG=<流水线产出的 tag>
+sed "s#muad-nginx:1.0.0#muad-nginx:${TAG}#" build/nginx-entry.yaml \
+  | kubectl apply -f -
 ```
 
 nginx 会使用同 namespace 的 Service DNS：
