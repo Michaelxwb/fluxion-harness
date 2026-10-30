@@ -19,7 +19,7 @@ export AUTH_TOKEN
 log() { printf '[release:agent-runtime] %s\n' "$*"; }
 
 log "[1/2] build and push image"
-"$(pwd)/build/docker-build/build-image.sh" "agent-runtime"
+bash "$(pwd)/build/docker-build/build-image.sh" "agent-runtime"
 log "[2/2] package and upload Helm chart"
-"$(pwd)/build/helm-build/package-service.sh" "agent-runtime"
+bash "$(pwd)/build/helm-build/package-service.sh" "agent-runtime"
 log "release agent-runtime done"

@@ -56,7 +56,7 @@ log "HELM_VERSION=${HELM_VERSION} repository=${HELM_REPOSITORY}"
 
 step "package 5 charts version=${HELM_VERSION}"
 HELM_OUT_DIR="${HELM_CACHE_DIR}/dist" HELM_VERSION="${HELM_VERSION}" \
-  ./build/helm-build/package-helm.sh
+  bash ./build/helm-build/package-helm.sh
 
 step "verify packages"
 charts=()

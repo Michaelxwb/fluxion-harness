@@ -19,7 +19,7 @@ export AUTH_TOKEN
 log() { printf '[release:agent-worker] %s\n' "$*"; }
 
 log "[1/2] build and push image"
-"$(pwd)/build/docker-build/build-image.sh" "agent-worker"
+bash "$(pwd)/build/docker-build/build-image.sh" "agent-worker"
 log "[2/2] package and upload Helm chart"
-"$(pwd)/build/helm-build/package-service.sh" "agent-worker"
+bash "$(pwd)/build/helm-build/package-service.sh" "agent-worker"
 log "release agent-worker done"

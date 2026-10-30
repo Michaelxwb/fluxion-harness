@@ -8,4 +8,4 @@ set -euo pipefail
 # pushing, so fail fast here instead of needing a PUSH flag.
 : "${DOCKER_USER:?DOCKER_USER is required (Qianliu Secret)}"
 : "${DOCKER_PASS:?DOCKER_PASS is required (Qianliu Secret)}"
-exec "$(pwd)/build/docker-build/build-image.sh" "agent-runtime"
+exec bash "$(pwd)/build/docker-build/build-image.sh" "agent-runtime"

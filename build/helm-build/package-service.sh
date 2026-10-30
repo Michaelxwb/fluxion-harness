@@ -86,7 +86,7 @@ log "upload=${UPLOAD} output=${HELM_OUT_DIR}"
 
 step "package chart ${CHART}:${HELM_VERSION}"
 HELM_OUT_DIR="${HELM_OUT_DIR}" HELM_VERSION="${HELM_VERSION}" \
-  ./build/helm-build/package-helm.sh "${CHART}"
+  bash ./build/helm-build/package-helm.sh "${CHART}"
 
 chart_tgz="${HELM_OUT_DIR}/${CHART}-${HELM_VERSION}.tgz"
 [[ -f "${chart_tgz}" ]] || die "package missing: ${chart_tgz}"

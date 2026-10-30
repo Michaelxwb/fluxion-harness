@@ -19,7 +19,7 @@ export AUTH_TOKEN
 log() { printf '[release:console-platform] %s\n' "$*"; }
 
 log "[1/2] build and push image"
-"$(pwd)/build/docker-build/build-image.sh" "console-platform"
+bash "$(pwd)/build/docker-build/build-image.sh" "console-platform"
 log "[2/2] package and upload Helm chart"
-"$(pwd)/build/helm-build/package-service.sh" "console-platform"
+bash "$(pwd)/build/helm-build/package-service.sh" "console-platform"
 log "release console-platform done"

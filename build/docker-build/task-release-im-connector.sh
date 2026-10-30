@@ -19,7 +19,7 @@ export AUTH_TOKEN
 log() { printf '[release:im-connector] %s\n' "$*"; }
 
 log "[1/2] build and push image"
-"$(pwd)/build/docker-build/build-image.sh" "im-connector"
+bash "$(pwd)/build/docker-build/build-image.sh" "im-connector"
 log "[2/2] package and upload Helm chart"
-"$(pwd)/build/helm-build/package-service.sh" "im-connector"
+bash "$(pwd)/build/helm-build/package-service.sh" "im-connector"
 log "release im-connector done"

@@ -8,4 +8,4 @@ set -euo pipefail
 # pushing, so fail fast here instead of needing a PUSH flag.
 : "${DOCKER_USER:?DOCKER_USER is required (Qianliu Secret)}"
 : "${DOCKER_PASS:?DOCKER_PASS is required (Qianliu Secret)}"
-exec "$(pwd)/build/nginx-build/build.sh"
+exec bash "$(pwd)/build/nginx-build/build.sh"
