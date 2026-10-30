@@ -75,7 +75,7 @@ bash ./build/helm-build/package-service.sh nginx-entry
 Deploy:
 
 ```bash
-helm upgrade --install muad-entry-nginx <chart source>/muad-nginx \
+helm upgrade --install muad-nginx <chart source>/muad-nginx \
   --namespace muad \
   --set global.imageRegistry=docker.sangfor.com/mss-release \
   --set global.imageTag=<TAG> \

@@ -229,7 +229,7 @@ Helm：mss-release-helm/muad-nginx-<HELM_VERSION>.tgz
 
 ### 4.2 部署这条流水线的产物
 
-chart 名 `muad-nginx`，release 名建议 `muad-entry-nginx`。
+chart 名和 release 名都用 `muad-nginx`。
 
 部署前先把 console / gateway 改成 ClusterIP：
 
@@ -261,7 +261,7 @@ im-gateway:       service.type=ClusterIP
 命令行安装时，把整块接在：
 
 ```text
-helm upgrade --install muad-entry-nginx mss-release-helm/muad-nginx --namespace muad
+helm upgrade --install muad-nginx mss-release-helm/muad-nginx --namespace muad
 ```
 
 需要固定到 openclaw 节点时，在块里加：
@@ -314,7 +314,7 @@ build/INTRANET-K8S-DEPLOY.md
 
 ```text
 1. console / gateway 改成 service.type=ClusterIP，去掉 NodePort
-2. helm upgrade --install muad-entry-nginx mss-release-helm/muad-nginx（参数见 4.2）
+2. helm upgrade --install muad-nginx mss-release-helm/muad-nginx（参数见 4.2）
    或 kubectl apply -f build/nginx-entry.yaml
 3. 访问 http://<master-ip>:30090/
 ```

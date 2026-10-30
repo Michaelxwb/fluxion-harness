@@ -414,7 +414,7 @@ chart：`build/helm-build/muad-nginx/`（`package-helm.sh muad-nginx` 可单独�
 部署：
 
 ```bash
-helm upgrade --install muad-entry-nginx <chart 来源>/muad-nginx \
+helm upgrade --install muad-nginx <chart 来源>/muad-nginx \
   --namespace muad \
   --set global.imageRegistry=docker.sangfor.com/mss-release \
   --set global.imageTag=<TAG> \
@@ -423,7 +423,7 @@ helm upgrade --install muad-entry-nginx <chart 来源>/muad-nginx \
 ```
 
 也可以继续用 `build/nginx-entry.yaml`。使用前把 console/gateway 改成
-`service.type=ClusterIP` 并去掉各自的 NodePort，入口统一走 `muad-entry-nginx:30090`。
+`service.type=ClusterIP` 并去掉各自的 NodePort，入口统一走 `muad-nginx` 的 NodePort 30090。
 
 详见 `build/nginx-build/README.md`。
 

@@ -664,7 +664,7 @@ im-gateway:       service.type=ClusterIP，去掉 service.nodePort=30093
 
 ```text
 chart:   muad-nginx
-release: muad-entry-nginx
+release: muad-nginx
 ```
 
 和 2.x 的服务一样，把下面整块交给发布平台的 nginx release：
@@ -712,7 +712,7 @@ release: muad-entry-nginx
 命令行安装时，把上面整块 `--set` 接在下面这条命令后面：
 
 ```text
-helm upgrade --install muad-entry-nginx mss-release-helm/muad-nginx --namespace muad
+helm upgrade --install muad-nginx mss-release-helm/muad-nginx --namespace muad
 ```
 
 nginx 会使用同 namespace 的 Service DNS：
@@ -745,8 +745,8 @@ sed "s#muad-nginx:1.0.0#muad-nginx:${TAG}#" build/nginx-entry.yaml \
 ### 9.5 验证
 
 ```bash
-kubectl -n muad get pods -l app=muad-entry-nginx
-kubectl -n muad get svc muad-entry-nginx
+kubectl -n muad get pods -l app=muad-nginx
+kubectl -n muad get svc muad-nginx
 
 curl -I http://<master-ip>:30090/
 curl -i http://<master-ip>:30090/api/v1/webchat/auth

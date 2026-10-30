@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: muad-entry-nginx
+  name: muad-nginx
   labels:
-    app: muad-entry-nginx
+    app: muad-nginx
     {{- include "muad-platform.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.autoscaling.minReplicas }}
   selector:
     matchLabels:
-      app: muad-entry-nginx
+      app: muad-nginx
   template:
     metadata:
       labels:
-        app: muad-entry-nginx
+        app: muad-nginx
         {{- include "muad-platform.labels" . | nindent 8 }}
     spec:
       terminationGracePeriodSeconds: 30
@@ -65,9 +65,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: muad-entry-nginx
+  name: muad-nginx
   labels:
-    app: muad-entry-nginx
+    app: muad-nginx
     {{- include "muad-platform.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type | default "ClusterIP" }}
@@ -76,7 +76,7 @@ spec:
   externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
   {{- end }}
   selector:
-    app: muad-entry-nginx
+    app: muad-nginx
   ports:
     - name: http
       port: {{ .Values.service.port }}
