@@ -287,7 +287,7 @@
 
 ## TASK-006: 需求收口清单与盘面交叉核对
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005
 - **Source**: execution-core-deframework.design.md#2.5 验收条件
@@ -303,20 +303,28 @@
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/execution_core_inventory.py`
-- [ ] 覆盖表每行唯一负责人且终态，manifest 与覆盖表同 ID/owner/命令，并比对 level/boundary/cwd
-- [ ] 终态场景在 owner 的 Acceptance Evidence 中登记，非 manual 行必须有同 ID 的证据表行
-- [ ] 契约表为每个 Acceptance-Refs ID 留一行，`-k` 令牌真实命中
-- [ ] 至少扰动 4 类（改状态/删证据行/伪造用例名/改 manifest 字段）并记录变红与还原后复绿
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/execution_core_inventory.py`
+- [x] 覆盖表每行唯一负责人且终态，manifest 与覆盖表同 ID/owner/命令，并比对 level/boundary/cwd
+- [x] 终态场景在 owner 的 Acceptance Evidence 中登记，非 manual 行必须有同 ID 的证据表行
+- [x] 契约表为每个 Acceptance-Refs ID 留一行，`-k` 令牌真实命中
+- [x] 至少扰动 4 类（改状态/删证据行/伪造用例名/改 manifest 字段）并记录变红与还原后复绿
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| RULE-05 | contract | 真实盘面：任务文件、manifest、spec-context、测试文件 | 四者逐项一致；缺失时失败并指名条目 | tests/execution_core_inventory.py | ["uv","run","pytest","-q","tests/execution_core_inventory.py"] | planned |
+| RULE-05 | contract | 真实盘面：任务文件、manifest、spec-context、测试文件 | 四者逐项一致；缺失时失败并指名条目 | tests/execution_core_inventory.py | ["uv","run","pytest","-q","tests/execution_core_inventory.py"] | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| RULE-05 | FAIL: 盘点脚本缺失时的结构性 RED 由 `test_inventory_is_clean` 在文件不存在时失败覆盖 | 5 passed（0.57s） | tests/execution_core_inventory.py::test_inventory_is_clean 与四个扰动用例 | 真实任务文件、manifest、spec-context、测试盘面；4 类扰动（所有者非法/证据行缺失/用例路径伪造/manifest owner 漂移）各自变红 | verified |
 
 ### Log
 
 - [2026-10-31] created (draft)
+- [2026-10-31] started
+- [2026-10-31] 实现完成：收口盘点与 4 类扰动用例通过
+- [2026-10-31] completed (done)
+
