@@ -9,9 +9,6 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, TypedDict, cast
 
-from langgraph.graph import END, START, StateGraph
-from langgraph.graph.state import CompiledStateGraph
-
 from ..context.compactor import ContextCompactor
 from ..hooks.pipeline import HookEvent, HookPipeline
 from ..memory.components import ModelContextLoader
@@ -166,7 +163,7 @@ class RunnerCallbacks:
     on_tool_completed: Callable[[str, str, str, str | None, str | None], Awaitable[None]] | None = None
 
 
-class AgentGraphState(TypedDict):
+class AgentRunState(TypedDict):
     model_id: str
     instructions: str
     skills: list[PromptSkill]
@@ -285,7 +282,6 @@ class AgentRunner:
         self._event_batch_size = event_batch_size
         self._parallel_limit = validate_parallel_limit(parallel_limit)
         self._stop_emitted = False
-        self._graph = self._build_graph()
 
     async def run(
         self,
@@ -312,12 +308,7 @@ class AgentRunner:
         )
         initial = self._initial_state(request, checkpoint or RunnerCheckpoint(), callbacks, context_cursor)
         try:
-            final = cast(
-                AgentGraphState,
-                await self._graph.ainvoke(
-                    initial, config={"recursion_limit": max(25, request.policy.max_turns * 4 + 4)}
-                ),
-            )
+            final = await self._execute(initial)
         except Exception:
             if not self._stop_emitted:
                 self._stop_emitted = True
@@ -337,9 +328,9 @@ class AgentRunner:
         progress: RunnerCheckpoint,
         callbacks: RunnerCallbacks,
         context_cursor: int | None,
-    ) -> AgentGraphState:
+    ) -> AgentRunState:
         system = self._prompt_builder.build(instructions=request.instructions, skills=request.skills)
-        return AgentGraphState(
+        return AgentRunState(
             model_id=request.model_id,
             instructions=request.instructions,
             skills=list(request.skills),
@@ -372,46 +363,32 @@ class AgentRunner:
             next_node=NODE_FINALIZE,
         )
 
-    def _build_graph(
-        self,
-    ) -> CompiledStateGraph[AgentGraphState, None, AgentGraphState, AgentGraphState]:
-        builder: StateGraph[AgentGraphState, None, AgentGraphState, AgentGraphState] = StateGraph(
-            AgentGraphState
-        )
-        builder.add_node(NODE_PREPARE_CONTEXT, self._prepare_context)
-        builder.add_node(NODE_MODEL, self._call_model)
-        builder.add_node(NODE_TOOLS, self._execute_tools)
-        builder.add_node(NODE_FINALIZE, self._finalize)
-        builder.add_node(NODE_DECIDE, self._decide_after_model)
-        builder.add_edge(START, NODE_PREPARE_CONTEXT)
-        builder.add_conditional_edges(
-            NODE_PREPARE_CONTEXT,
-            self._route_after_prepare,
-            {NODE_MODEL: NODE_MODEL, NODE_FINALIZE: NODE_FINALIZE},
-        )
-        builder.add_conditional_edges(
-            NODE_MODEL,
-            self._route_after_model,
-            {NODE_TOOLS: NODE_TOOLS, NODE_FINALIZE: NODE_FINALIZE, NODE_DECIDE: NODE_DECIDE},
-        )
-        builder.add_conditional_edges(
-            NODE_DECIDE,
-            lambda state: state["next_node"],
-            {NODE_FINALIZE: NODE_FINALIZE, NODE_PREPARE_CONTEXT: NODE_PREPARE_CONTEXT},
-        )
-        builder.add_conditional_edges(
-            NODE_TOOLS,
-            self._route_after_tools,
-            {NODE_PREPARE_CONTEXT: NODE_PREPARE_CONTEXT, NODE_FINALIZE: NODE_FINALIZE},
-        )
-        builder.add_edge(NODE_FINALIZE, END)
-        return builder.compile()
+    async def _execute(self, state: AgentRunState) -> AgentRunState:
+        """按阶段推进一次 Run；去向与预算出口全部由既有路由函数决定。"""
+        while True:
+            state = await self._prepare_context(state)
+            if self._route_after_prepare(state) == NODE_FINALIZE:
+                break
+            state = await self._call_model(state)
+            route = self._route_after_model(state)
+            if route == NODE_TOOLS:
+                state = await self._execute_tools(state)
+                if self._route_after_tools(state) == NODE_FINALIZE:
+                    break
+                continue
+            if route == NODE_DECIDE:
+                state = await self._decide_after_model(state)
+                if state["next_node"] == NODE_FINALIZE:
+                    break
+                continue
+            break
+        return await self._finalize(state)
 
     async def notify_interrupt(self, payload: dict[str, Any]) -> None:
         """澄清/确认暂停等 interrupt 事件：触发 on_interrupt Hook（可观测）。"""
         await self._hooks.run(HookEvent.ON_INTERRUPT, dict(payload))
 
-    async def _prepare_context(self, state: AgentGraphState) -> AgentGraphState:
+    async def _prepare_context(self, state: AgentRunState) -> AgentRunState:
         self._ensure_runnable(state)
         if state["turns"] >= state["policy"].max_turns:
             return {**state, "budget_exhausted": True}
@@ -425,7 +402,7 @@ class AgentRunner:
             raise RunnerError("user_prompt hook returned invalid messages")
         return {**state, "messages": list(messages)}
 
-    async def _call_model(self, state: AgentGraphState) -> AgentGraphState:
+    async def _call_model(self, state: AgentRunState) -> AgentRunState:
         self._ensure_runnable(state)
         await self._hooks.run(
             HookEvent.PRE_MODEL,
@@ -455,7 +432,7 @@ class AgentRunner:
         self._ensure_runnable(state)
         return await self._accept_response(state, response)
 
-    async def _accept_response(self, state: AgentGraphState, response: ModelResponse) -> AgentGraphState:
+    async def _accept_response(self, state: AgentRunState, response: ModelResponse) -> AgentRunState:
         assistant = ModelMessage(
             role=ModelRole.ASSISTANT,
             content=response.content,
@@ -483,7 +460,7 @@ class AgentRunner:
             "post_model_pending": True,
         }
 
-    async def _execute_tools(self, state: AgentGraphState) -> AgentGraphState:
+    async def _execute_tools(self, state: AgentRunState) -> AgentRunState:
         self._ensure_runnable(state)
         messages = list(state["messages"])
         runnable, exhausted_calls, used = self._reserve_tool_calls(state)
@@ -527,9 +504,9 @@ class AgentRunner:
             "tool_calls_used": used,
             "budget_exhausted": state["budget_exhausted"] or bool(exhausted_calls),
         }
-        return await self._checkpoint_tool_round(cast(AgentGraphState, complete))
+        return await self._checkpoint_tool_round(cast(AgentRunState, complete))
 
-    async def _checkpoint_tool_round(self, state: AgentGraphState) -> AgentGraphState:
+    async def _checkpoint_tool_round(self, state: AgentRunState) -> AgentRunState:
         port = self._tool_suspension
         request = port.suspend_request if port is not None else None
         if port is not None and request is not None:
@@ -548,7 +525,7 @@ class AgentRunner:
         return state
 
     def _reserve_tool_calls(
-        self, state: AgentGraphState
+        self, state: AgentRunState
     ) -> tuple[list[ModelToolCall], list[ModelToolCall], int]:
         """按原调用序预留 tool-call 预算；超出预算的调用转成明确失败消息、不再执行。"""
         runnable: list[ModelToolCall] = []
@@ -562,7 +539,7 @@ class AgentRunner:
             used += 1
         return runnable, exhausted, used
 
-    async def _run_batch(self, state: AgentGraphState, batch: ToolBatch) -> list[_CallOutcome]:
+    async def _run_batch(self, state: AgentRunState, batch: ToolBatch) -> list[_CallOutcome]:
         """先按原序校验/授权，再把 handler IO 放进 TaskGroup（仅 lookup 与授权串行）。"""
         prepared = [await self._prepare_call(call) for call in batch.calls]
         if not batch.parallel:
@@ -570,7 +547,7 @@ class AgentRunner:
         return await self._run_concurrently(state, prepared)
 
     async def _run_concurrently(
-        self, state: AgentGraphState, prepared: list[RunnableToolCall | _CallOutcome]
+        self, state: AgentRunState, prepared: list[RunnableToolCall | _CallOutcome]
     ) -> list[_CallOutcome]:
         outcomes: list[_CallOutcome | None] = [None] * len(prepared)
         semaphore = asyncio.Semaphore(self._parallel_limit)
@@ -598,7 +575,7 @@ class AgentRunner:
         return outcome
 
     async def _run_prepared(
-        self, state: AgentGraphState, item: RunnableToolCall | _CallOutcome
+        self, state: AgentRunState, item: RunnableToolCall | _CallOutcome
     ) -> _CallOutcome:
         if isinstance(item, _CallOutcome):
             return item
@@ -619,7 +596,7 @@ class AgentRunner:
 
     async def _finish_tool_round(
         self,
-        state: AgentGraphState,
+        state: AgentRunState,
         messages: list[ModelMessage],
         executed: Sequence[tuple[int, str, str, str]],
     ) -> None:
@@ -649,7 +626,7 @@ class AgentRunner:
                 None if artifact_id is not None else content,
             )
 
-    async def _emit_post_model(self, state: AgentGraphState) -> None:
+    async def _emit_post_model(self, state: AgentRunState) -> None:
         """设计 S-05 顺序：post_model 在 post_tool_use 之后、每次模型响应触发一次。"""
         if not state["post_model_pending"]:
             return
@@ -659,7 +636,7 @@ class AgentRunner:
 
     async def _notify_tool_completed(
         self,
-        state: AgentGraphState,
+        state: AgentRunState,
         call_id: str,
         name: str,
         status: str,
@@ -670,7 +647,7 @@ class AgentRunner:
         if callback is not None:
             await callback(call_id, name, status, artifact_id, result_text)
 
-    async def _finalize(self, state: AgentGraphState) -> AgentGraphState:
+    async def _finalize(self, state: AgentRunState) -> AgentRunState:
         await self._emit_post_model(state)
         self._stop_emitted = True
         context = await self._hooks.run(
@@ -688,14 +665,14 @@ class AgentRunner:
             "status": str(AgentRunStatus.BUDGET_EXCEEDED) if exceeded else state["status"],
         }
 
-    def _route_after_model(self, state: AgentGraphState) -> str:
+    def _route_after_model(self, state: AgentRunState) -> str:
         if not state["pending_tool_calls"]:
             return NODE_DECIDE if self._runtime_events is not None else NODE_FINALIZE
         if state["turns"] >= state["policy"].max_turns:
             return NODE_FINALIZE
         return NODE_TOOLS
 
-    async def _decide_after_model(self, state: AgentGraphState) -> AgentGraphState:
+    async def _decide_after_model(self, state: AgentRunState) -> AgentRunState:
         port = self._runtime_events
         if port is None:
             return {**state, "next_node": NODE_FINALIZE}
@@ -710,11 +687,11 @@ class AgentRunner:
         return {**state, "status": str(status), "next_node": NODE_FINALIZE}
 
     @staticmethod
-    def _route_after_prepare(state: AgentGraphState) -> str:
+    def _route_after_prepare(state: AgentRunState) -> str:
         return NODE_FINALIZE if state["budget_exhausted"] else NODE_MODEL
 
     @staticmethod
-    def _checkpoint(state: AgentGraphState) -> RunnerCheckpoint:
+    def _checkpoint(state: AgentRunState) -> RunnerCheckpoint:
         return RunnerCheckpoint(
             state["turns"],
             state["tool_calls_used"],
@@ -723,7 +700,7 @@ class AgentRunner:
             state["consumed_event_seq"],
         )
 
-    async def _drain_events(self, state: AgentGraphState) -> AgentGraphState:
+    async def _drain_events(self, state: AgentRunState) -> AgentRunState:
         if self._runtime_events is None:
             return state
         messages, cursor = list(state["messages"]), state["injected_event_seq"]
@@ -737,12 +714,12 @@ class AgentRunner:
         return {**state, "messages": messages, "injected_event_seq": cursor}
 
     @staticmethod
-    def _route_after_tools(state: AgentGraphState) -> str:
+    def _route_after_tools(state: AgentRunState) -> str:
         if state["budget_exhausted"] or state["status"] == AgentRunStatus.WAITING_INPUT:
             return NODE_FINALIZE
         return NODE_PREPARE_CONTEXT
 
-    def _ensure_runnable(self, state: AgentGraphState) -> None:
+    def _ensure_runnable(self, state: AgentRunState) -> None:
         check = state["is_cancelled"]
         if check is not None and check():
             raise RunnerCancelled("run cancelled")
@@ -755,7 +732,7 @@ class AgentRunner:
 
     async def _complete_with_recovery(
         self,
-        state: AgentGraphState,
+        state: AgentRunState,
         request: ModelRequest,
     ) -> ModelResponse:
         attempts = 0
@@ -772,7 +749,7 @@ class AgentRunner:
             except ModelRequestError as exc:
                 raise RunnerModelError(f"model request rejected: {exc}") from exc
 
-    async def _invoke_model(self, state: AgentGraphState, request: ModelRequest) -> ModelResponse:
+    async def _invoke_model(self, state: AgentRunState, request: ModelRequest) -> ModelResponse:
         request = await self._prepare_model_request(state, request)
         started, completed = state["on_model_started"], state["on_model_completed"]
         if started is not None:
@@ -787,7 +764,7 @@ class AgentRunner:
             if completed is not None:
                 await completed()
 
-    async def _prepare_model_request(self, state: AgentGraphState, request: ModelRequest) -> ModelRequest:
+    async def _prepare_model_request(self, state: AgentRunState, request: ModelRequest) -> ModelRequest:
         messages = request.messages
         if self._context_loader is not None:
             component = await self._context_loader.refresh()
@@ -799,7 +776,7 @@ class AgentRunner:
         self._ensure_runnable(state)
         return replace(request, messages=messages, timeout_sec=self._request_timeout_sec(state))
 
-    async def _cancel_aware_sleep(self, state: AgentGraphState, delay: float) -> None:
+    async def _cancel_aware_sleep(self, state: AgentRunState, delay: float) -> None:
         """退避期间保持 cancel/deadline 可响应。"""
         remaining = delay
         while remaining > 0:
@@ -808,11 +785,11 @@ class AgentRunner:
             await asyncio.sleep(step)
             remaining -= step
 
-    def _budget(self, state: AgentGraphState) -> ModelBudget:
+    def _budget(self, state: AgentRunState) -> ModelBudget:
         policy = state["policy"]
         return ModelBudget(deadline_ms=policy.deadline_ms, max_model_retries=policy.max_model_retries)
 
-    def _request_timeout_sec(self, state: AgentGraphState) -> float:
+    def _request_timeout_sec(self, state: AgentRunState) -> float:
         """这一次模型请求的 I/O 超时 = min(单次上限, **剩余**总预算)（ADR-07）。
 
         不夹到剩余预算，总 deadline 就约束不到正在飞的那次调用：单次调用可以一路跑到（甚至跑过）
@@ -827,7 +804,7 @@ class AgentRunner:
 
     def _retry_delay(
         self,
-        state: AgentGraphState,
+        state: AgentRunState,
         attempt: int,
         retry_after: float | None,
     ) -> float:

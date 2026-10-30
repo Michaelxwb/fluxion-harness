@@ -1,0 +1,127 @@
+version: 1
+task: execution-core-deframework
+enforcement: required
+updated_at: '2026-10-30T19:23:52.968032+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: harness-data
+  path: persistence/harness-data.md
+  status: active
+  hashes:
+    file_sha256: 854f097f974a87d85a2b175eb53315eaf1eda38b516c954f26b352da5acdf6b7
+    metadata_sha256: 4c0b58f383383267a768a0d1c93774dc8702f7e68e68de0bb654746611af262e
+    rules_sha256: bff4e046d47cecba0e97c8a83921f635292d2a2e009c836fece1462a9024a68d
+  selected_by: cli
+  reason: 路径命中 migrations/versions：新增迁移删除 langgraph schema
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-data-001
+    summary: 产品表统一 `id/is_deleted/create_time/update_time`；普通软删除实体用 partial unique
+      `WHERE is_deleted=false`，稳定身份注册表 `runtime.user_memory` / `memory_scope` 的完整唯一键包含
+      tombstone，append-only history/receipt/job 保持 `is_deleted=false` 且使用完整唯一约束；时间统一
+      `timestamptz`；同 Owner Schema 的业务归属用物理 FK，跨 Owner Schema 与需跨清理保留的审计来源引用用逻辑 UUID；JSON
+      配置用 `jsonb`，关键查询字段必须有物理列。
+    text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+    enforcement: required
+    verifier_ref: harness-data#RULE-data-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: execution-core-deframework.design.md
+          section_id: 3.3 数据设计
+          item_id: DROP SCHEMA IF EXISTS langgraph
+          artifact_sha256: 408f6c3020ecf431df978753b52e22e9e71133a5f906e7e6208a6003fcdbca02
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: execution-core-deframework.md
+          section_id: TASK-003
+          item_id: TASK-003
+          artifact_sha256: dece36121b7c7369cc3e7143c1a0668dfdbfd8f11e6946d7576c8cf15d66e9ac
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-30T19:30:08.910944+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 2c4537e3a2edb49c72307119669116f048b84235393c57271b09e8997916dc83
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 53436e947c2dfc87ce8adb51870900abd5997f4e884a5703abff9c86c6fbe21e
+    metadata_sha256: 5d27df198a9eaddd2dd86bf03245618c896f974e1312e38dacac6585c3159c08
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: cli
+  reason: 路径命中 tests/agent_core/test_runner.py：执行核心行为等价回归与测试分层
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: execution-core-deframework.design.md
+          section_id: 2.5 验收条件
+          item_id: RULE-01
+          artifact_sha256: 408f6c3020ecf431df978753b52e22e9e71133a5f906e7e6208a6003fcdbca02
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: execution-core-deframework.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: dece36121b7c7369cc3e7143c1a0668dfdbfd8f11e6946d7576c8cf15d66e9ac
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
