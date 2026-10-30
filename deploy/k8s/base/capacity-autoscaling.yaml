@@ -1,11 +1,11 @@
 # Runtime/Worker 的 HPA 副本上界（design §3.7「启动/部署配置（每进程）」+ §4.1 部署与容量）。
 #
 # 口径（与 `tests/architecture/test_capacity_webchat_hpa_budget.py` 的 B-303 断言一致）：
-# - Console/Gateway 各 1 Pod 是部署约束（§4.1）：**不**为它们声明 HPA，typed
-#   max_replica_counts 也是 1 —— 单 Pod 约束不能被自动扩缩绕过。
-# - Runtime/Worker 无状态、可横向扩展（harness-arch#RULE-arch-001）：`minReplicas` 保持
-#   各单元清单的基线（各 1 Pod，HPA 只提供上界），`maxReplicas` == 容量 profile 的 typed
-#   `max_replica_counts`（agent-runtime 4 / agent-worker 8）。PG 总连接与下游并发预算按该
+# - Console 1 Pod、Gateway 2 Pod 是部署约束（§4.1）：**不**为它们声明 HPA，Console
+#   typed max_replica_counts 为 1，Gateway 为 2 —— 单 Pod 约束不能被自动扩缩绕过。
+# - Runtime/Worker 无状态、可横向扩展（harness-arch#RULE-arch-001）：`minReplicas` 等于
+#   各单元清单基线（runtime 8 / worker 4，HPA 只提供上界），`maxReplicas` == 容量 profile 的 typed
+#   `max_replica_counts`（agent-runtime 8 / agent-worker 4）。PG 总连接与下游并发预算按该
 #   上界核算：§4.1「PG 总量按全部进程×最大副本数求和，给心跳/回收/维护留预算并约束 HPA 上界」。
 # - 扩缩指标（§4.1「HPA 观察在飞槽、队列时长、最老任务年龄及 CPU/内存，不能只看 CPU」）：
 #   CPU+内存是显式 Resource 目标；agent-worker 另按**真实队列深度** `task_queue_depth`
@@ -27,10 +27,10 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: muad-agent-runtime
-  minReplicas: 1
+  minReplicas: 8
   # == tests/capacity/profiles/agent-capacity-webchat.example.yml 的
   # resources.max_replica_counts.agent-runtime；PG 连接预算按该上界核算。
-  maxReplicas: 4
+  maxReplicas: 8
   behavior:
     scaleUp:
       # 队列/CPU/内存压力必须立即响应：不做稳定化延迟，一次最多加 2 个 Pod。
@@ -90,9 +90,9 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: muad-agent-worker
-  minReplicas: 1
+  minReplicas: 4
   # == resources.max_replica_counts.agent-worker；PG 连接预算按该上界核算。
-  maxReplicas: 8
+  maxReplicas: 4
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 0

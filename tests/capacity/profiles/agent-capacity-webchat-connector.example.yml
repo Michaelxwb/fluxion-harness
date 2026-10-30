@@ -51,18 +51,18 @@ slo:
 resources:
   # 5 单元：四个核心 + Connector（`im-gateway` 的有状态运行时角色）。
   hardware:
-    console-platform: {cpu_request_millicores: 500, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 4096}
-    agent-runtime: {cpu_request_millicores: 1000, cpu_limit_millicores: 4000, memory_request_mb: 2048, memory_limit_mb: 8192}
-    agent-worker: {cpu_request_millicores: 1000, cpu_limit_millicores: 4000, memory_request_mb: 2048, memory_limit_mb: 8192}
-    im-gateway: {cpu_request_millicores: 500, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 4096}
+    console-platform: {cpu_request_millicores: 1000, cpu_limit_millicores: 2000, memory_request_mb: 2048, memory_limit_mb: 4096}
+    agent-runtime: {cpu_request_millicores: 1000, cpu_limit_millicores: 2000, memory_request_mb: 2048, memory_limit_mb: 4096}
+    agent-worker: {cpu_request_millicores: 500, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 2048}
+    im-gateway: {cpu_request_millicores: 1000, cpu_limit_millicores: 2000, memory_request_mb: 1024, memory_limit_mb: 2048}
     connector: {cpu_request_millicores: 250, cpu_limit_millicores: 1000, memory_request_mb: 512, memory_limit_mb: 1024}
   # 每 Pod 进程数：>1 时连接/FD/SSE 缓冲预算按 进程数 × 最大副本数 求和。
-  process_counts: {console-platform: 1, agent-runtime: 1, agent-worker: 1, im-gateway: 1, connector: 1}
-  replica_counts: {console-platform: 1, agent-runtime: 2, agent-worker: 2, im-gateway: 2, connector: 2}
+  process_counts: {console-platform: 4, agent-runtime: 1, agent-worker: 1, im-gateway: 1, connector: 1}
+  replica_counts: {console-platform: 1, agent-runtime: 8, agent-worker: 4, im-gateway: 2, connector: 2}
   # Console 仍是单 Pod（HA 不在本设计）；Gateway 允许 N 副本。
-  max_replica_counts: {console-platform: 1, agent-runtime: 4, agent-worker: 8, im-gateway: 2, connector: 2}
-  pg_connection_budget: 200
-  fd_budget: 4096
+  max_replica_counts: {console-platform: 1, agent-runtime: 8, agent-worker: 4, im-gateway: 2, connector: 2}
+  pg_connection_budget: 300
+  fd_budget: 16384
   storage_budget:
     event_bytes_per_day: 5368709120
     retention_days: 30
