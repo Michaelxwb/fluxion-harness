@@ -568,10 +568,13 @@ http://<master-ip>:30090/
 
 ```bash
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
-IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 TAG=1.0.0 PUSH=1 \
   ./build/nginx-build/build.sh
 ```
+
+千流：单独一条 `nginx-entry` 流水线，命令
+`bash ./build/docker-build/task-image-nginx-entry.sh`，变量同上。
 
 默认从 PlatOS/Kylin RPM 安装 nginx。RPM 装不上时用 copy 模式：
 
@@ -579,7 +582,7 @@ TAG=1.0.0 PUSH=1 \
 NGINX_BUILD_MODE=copy \
 NGINX_SOURCE_IMAGE=<和底座 glibc 兼容的 nginx 镜像> \
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
-IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 TAG=1.0.0 PUSH=1 \
   ./build/nginx-build/build.sh
 ```

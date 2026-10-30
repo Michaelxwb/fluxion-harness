@@ -139,7 +139,7 @@ Helm 仓库：mss-release-helm（release）或 mss-dev-helm（feature）
 
 ```bash
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
-IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 TAG=1.0.0 PUSH=1 \
   ./build/nginx-build/build.sh
 ```
@@ -150,7 +150,7 @@ TAG=1.0.0 PUSH=1 \
 NGINX_BUILD_MODE=copy \
 NGINX_SOURCE_IMAGE=<和底座 glibc 兼容的 nginx 镜像> \
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
-IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 TAG=1.0.0 PUSH=1 \
   ./build/nginx-build/build.sh
 ```
@@ -159,6 +159,29 @@ TAG=1.0.0 PUSH=1 \
 优先 RPM 模式，或把 `NGINX_SOURCE_IMAGE` 指向现有 `portal-nginx` 的镜像。
 
 详细说明见 `build/nginx-build/README.md`。
+
+### 4.1 千流任务
+
+单独一条 `nginx-entry` 流水线，和 5 个服务镜像并行：
+
+| 项 | 值 |
+|---|---|
+| 命令 | `bash ./build/docker-build/task-image-nginx-entry.sh` |
+| 任务镜像 | 带 `docker` 即可，不需要 helm/sfspm |
+| 变量 | `BASE_IMAGE`、`IMAGE_REPOSITORY`、`TAG`、`PUSH=1`、`DOCKER_USER`、`DOCKER_PASS` |
+| 默认构建 | `NGINX_BUILD_MODE=rpm` |
+| 兜底 | `NGINX_BUILD_MODE=copy` + `NGINX_SOURCE_IMAGE` |
+
+产物：
+
+```text
+docker.sangfor.com/mss-release/muad-nginx:<TAG>
+```
+
+分支路由：release/tag -> `mss-release`；feature -> `mss-dev`。
+显式设置 `IMAGE_REPOSITORY` 可以覆盖默认路由。
+
+这个任务只负责构建/推送 nginx 镜像；部署仍用 `build/nginx-entry.yaml`（见第 5 节）。
 
 ## 5. K8s 部署
 

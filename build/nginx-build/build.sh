@@ -8,7 +8,13 @@ BASE_DIR="${REPO_ROOT}/build/nginx-build"
 BASE_IMAGE="${BASE_IMAGE:-docker.sangfor.com/mss-base/platos-kylin:1.3.2}"
 NGINX_BUILD_MODE="${NGINX_BUILD_MODE:-rpm}"
 NGINX_SOURCE_IMAGE="${NGINX_SOURCE_IMAGE:-nginx:1.24-bullseye}"
-IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-docker.sangfor.com/mss-base/muad-nginx}"
+if [[ -z "${IMAGE_REPOSITORY:-}" ]]; then
+  if [[ "${CI_COMMIT_TAG:-}" =~ ^v || "${CI_COMMIT_BRANCH:-}" =~ ^(patch|master|release) ]]; then
+    IMAGE_REPOSITORY="docker.sangfor.com/mss-release/muad-nginx"
+  else
+    IMAGE_REPOSITORY="docker.sangfor.com/mss-dev/muad-nginx"
+  fi
+fi
 TAG="${TAG:-1.0.0}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 PUSH="${PUSH:-0}"

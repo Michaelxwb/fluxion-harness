@@ -17,10 +17,13 @@ From the repository root:
 
 ```bash
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
-IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 TAG=1.0.0 PUSH=1 \
   ./build/nginx-build/build.sh
 ```
+
+Qianliu task: `build/docker-build/task-image-nginx-entry.sh` (independent image
+pipeline; no helm/sfspm needed).
 
 The default mode installs nginx from the PlatOS/Kylin RPM repo:
 
@@ -35,7 +38,7 @@ existing nginx image that is compatible with the base glibc:
 NGINX_BUILD_MODE=copy \
 NGINX_SOURCE_IMAGE=<compatible-nginx-image> \
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
-IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 TAG=1.0.0 PUSH=1 \
   ./build/nginx-build/build.sh
 ```

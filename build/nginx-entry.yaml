@@ -25,7 +25,7 @@ spec:
         - name: regcred
       containers:
         - name: nginx
-          image: docker.sangfor.com/mss-base/muad-nginx:1.0.0
+          image: docker.sangfor.com/mss-release/muad-nginx:1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

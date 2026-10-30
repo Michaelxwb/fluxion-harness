@@ -388,10 +388,13 @@ global.nodeSelector / tolerations / affinity / extraEnvFrom
 
 ```bash
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
-IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 TAG=1.0.0 PUSH=1 \
   ./build/nginx-build/build.sh
 ```
+
+千流任务：`build/docker-build/task-image-nginx-entry.sh`（独立一条 image 流水线，
+可与 5 个服务并行）。
 
 部署：
 
