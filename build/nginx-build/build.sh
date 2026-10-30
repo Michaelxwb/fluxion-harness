@@ -33,12 +33,18 @@ esac
 
 REGISTRY_HOST="${IMAGE_REPOSITORY%%/*}"
 
-if [[ "${PUSH}" == "1" ]]; then
-  : "${DOCKER_USER:?DOCKER_USER is required when PUSH=1}"
-  : "${DOCKER_PASS:?DOCKER_PASS is required when PUSH=1}"
+if [[ -n "${DOCKER_USER:-}" && -n "${DOCKER_PASS:-}" ]]; then
   log "docker login ${REGISTRY_HOST}"
   printf '%s' "${DOCKER_PASS}" | docker login "${REGISTRY_HOST}" \
     --username "${DOCKER_USER}" --password-stdin
+elif [[ "${PUSH}" == "1" ]]; then
+  die "DOCKER_USER and DOCKER_PASS are required when PUSH=1"
+fi
+
+if ! docker image inspect "${BASE_IMAGE}" >/dev/null 2>&1; then
+  log "pulling base image ${BASE_IMAGE}"
+  docker pull "${BASE_IMAGE}" || \
+    die "cannot pull base image ${BASE_IMAGE}; check registry login/permissions"
 fi
 
 log "build ${IMAGE_REPOSITORY}:${TAG} (mode=${NGINX_BUILD_MODE}, base=${BASE_IMAGE}, platform=${PLATFORM})"

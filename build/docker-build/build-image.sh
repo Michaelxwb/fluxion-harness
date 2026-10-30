@@ -75,12 +75,21 @@ if [[ "${SERVICE}" == "console-platform" ]]; then
   cp -a "${FRONTEND_CACHE_DIR}/dist/." build/frontend/dist/
 fi
 
-if [[ "${PUSH}" == "1" ]]; then
-  : "${DOCKER_USER:?DOCKER_USER is required when PUSH=1}"
-  : "${DOCKER_PASS:?DOCKER_PASS is required when PUSH=1}"
-  registry_host="${IMAGE_NAMESPACE%%/*}"
+registry_host="${IMAGE_NAMESPACE%%/*}"
+if [[ -n "${DOCKER_USER:-}" && -n "${DOCKER_PASS:-}" ]]; then
+  log "docker login ${registry_host}"
   printf '%s' "${DOCKER_PASS}" | docker login "${registry_host}" \
     --username "${DOCKER_USER}" --password-stdin
+elif [[ "${PUSH}" == "1" ]]; then
+  die "DOCKER_USER and DOCKER_PASS are required when PUSH=1"
+fi
+
+# The base image lives in the private registry. Pull it explicitly while the
+# login is fresh; otherwise `docker build` fails later with a less clear error.
+if ! docker image inspect "${base_image}" >/dev/null 2>&1; then
+  log "pulling base image ${base_image}"
+  docker pull "${base_image}" || \
+    die "cannot pull base image ${base_image}; check registry login/permissions"
 fi
 
 image="${IMAGE_NAMESPACE}/${IMAGE_PREFIX}${SERVICE}:${TAG}"
