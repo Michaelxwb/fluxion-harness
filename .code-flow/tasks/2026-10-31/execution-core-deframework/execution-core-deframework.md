@@ -293,7 +293,7 @@
 - **Source**: execution-core-deframework.design.md#2.5 验收条件
 - **Spec-Refs**: N/A
 - **Rule-Owner-Refs**: N/A
-- **Acceptance-Refs**: RULE-05
+- **Acceptance-Refs**: S-06, RULE-05
 - **Estimate**: 0.5d
 - **Capability**: 执行 `tests/execution_core_inventory.py` 能核对覆盖表、manifest、spec-context 与真实盘面一致
 
@@ -308,18 +308,21 @@
 - [x] 终态场景在 owner 的 Acceptance Evidence 中登记，非 manual 行必须有同 ID 的证据表行
 - [x] 契约表为每个 Acceptance-Refs ID 留一行，`-k` 令牌真实命中
 - [x] 至少扰动 4 类（改状态/删证据行/伪造用例名/改 manifest 字段）并记录变红与还原后复绿
+- [x] [S-06][contract] 复核配置盘点机检（S-06 最终 owner 为 TASK-005），断言 CSV 与源码逐项一致
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | RULE-05 | contract | 真实盘面：任务文件、manifest、spec-context、测试文件 | 四者逐项一致；缺失时失败并指名条目 | tests/execution_core_inventory.py | ["uv","run","pytest","-q","tests/execution_core_inventory.py"] | verified |
+| S-06 | contract | docs/configuration-inventory.csv 与源码 AST | CSV 与源码逐项一致；runner.py 行号与常量对应 | tests/test_configuration_inventory.py | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
 | RULE-05 | FAIL: 盘点脚本缺失时的结构性 RED 由 `test_inventory_is_clean` 在文件不存在时失败覆盖 | 5 passed（0.57s） | tests/execution_core_inventory.py::test_inventory_is_clean 与四个扰动用例 | 真实任务文件、manifest、spec-context、测试盘面；4 类扰动（所有者非法/证据行缺失/用例路径伪造/manifest owner 漂移）各自变红 | verified |
+| S-06 | N/A：复核 TASK-005 已通过的既有用例 | 4 passed（1.76s） | tests/test_configuration_inventory.py::test_configuration_inventory_covers_real_python_constants、::test_configuration_inventory_covers_shared_settings_and_policy_fields | 复核盘点结果，未发现新差异 | verified |
 
 ### Log
 

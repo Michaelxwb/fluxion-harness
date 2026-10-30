@@ -1,7 +1,7 @@
 version: 1
 task: execution-core-deframework
 enforcement: required
-updated_at: '2026-10-30T19:34:40.842545+00:00'
+updated_at: '2026-10-30T19:47:06.399885+00:00'
 sources:
 - type: cli
   ref: bind
@@ -48,7 +48,7 @@ bindings:
         - artifact: execution-core-deframework.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 740290baf62a2e5d04f8e859dcfb95c269563e3921e3c5a2172848b40f22bd10
+          artifact_sha256: 085bfa4b0d9f93542b427fe0225821cc74381c8e6d4cc21ba3e96a22924f42cf
         decision: null
         evidence: []
       code:
@@ -193,7 +193,7 @@ bindings:
         - artifact: execution-core-deframework.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 740290baf62a2e5d04f8e859dcfb95c269563e3921e3c5a2172848b40f22bd10
+          artifact_sha256: 085bfa4b0d9f93542b427fe0225821cc74381c8e6d4cc21ba3e96a22924f42cf
         decision: null
         evidence: []
       code:
