@@ -24,7 +24,35 @@ RUN set -eux; \
         exit 1; \
       fi; \
     fi; \
-    nginx -v
+    if ! nginx -v >/dev/null 2>&1; then \
+      echo "nginx is installed but its shared libraries are missing:" >&2; \
+      ldd "$(command -v nginx)" | grep 'not found' >&2 || true; \
+      rpm -qR nginx 2>/dev/null | grep -E '^lib' >&2 || true; \
+      : "The Sangfor nginx RPM links against gperftools (libprofiler.so.0)." ; \
+      : "Reuse a vendored copy when the base already ships one." ; \
+      found="$(find /opt/sangfor /usr/local -name 'libprofiler.so.0*' 2>/dev/null | head -1 || true)"; \
+      if [ -n "${found}" ]; then \
+        ln -sf "${found}" /usr/lib64/libprofiler.so.0; \
+      fi; \
+      ldconfig || true; \
+      : "Otherwise pull the runtime dependency from the same repo." ; \
+      for pkg in gperftools-libs gperftools google-perftools libprofiler libunwind; do \
+        if nginx -v >/dev/null 2>&1; then break; fi; \
+        echo "trying ${pkg} for the missing nginx libraries" >&2; \
+        if [ -x /opt/sangfor/scripts/install_rpm.sh ]; then \
+          /opt/sangfor/scripts/install_rpm.sh "${pkg}" >/dev/null 2>&1 || true; \
+        elif command -v dnf >/dev/null 2>&1; then \
+          dnf install -y "${pkg}" >/dev/null 2>&1 || true; \
+        elif command -v yum >/dev/null 2>&1; then \
+          yum install -y "${pkg}" >/dev/null 2>&1 || true; \
+        fi; \
+      done; \
+    fi; \
+    nginx -v || { \
+      echo "nginx still cannot start; rebuild with NGINX_BUILD_MODE=copy and a" >&2; \
+      echo "glibc-compatible NGINX_SOURCE_IMAGE (for example the portal-nginx image)" >&2; \
+      exit 1; \
+    }
 
 RUN set -eux; \
     if ! getent passwd nginx >/dev/null 2>&1; then \

@@ -44,6 +44,22 @@ IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 `nginx:1.24-bullseye` is glibc 2.31; do not use it if the base is glibc 2.28
 unless you have verified the binary runs.
 
+### `libprofiler.so.0` after the RPM install
+
+The PlatOS/Kylin nginx RPM links against gperftools:
+
+```text
+nginx: error while loading shared libraries: libprofiler.so.0
+```
+
+The Dockerfile now detects this, prints `ldd` / `rpm -qR` output, reuses a
+vendored `libprofiler` if the base ships one, then tries `gperftools-libs`,
+`gperftools`, `google-perftools`, `libprofiler` and `libunwind` from the same
+repo.
+
+If the repo has none of them, use copy mode with the portal-nginx image, which
+already runs on this base.
+
 ## Deploy
 
 1. Change console and gateway Services to ClusterIP and remove their NodePorts:

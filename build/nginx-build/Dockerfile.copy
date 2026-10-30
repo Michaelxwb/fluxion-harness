@@ -10,7 +10,7 @@ ARG NGINX_SOURCE_IMAGE=nginx:1.24-bullseye
 FROM ${NGINX_SOURCE_IMAGE} AS nginx-src
 RUN set -eux; \
     mkdir -p /opt/nginx-libs; \
-    for lib in libpcre2-8.so.0 libpcre.so.3 libcrypt.so.1 libssl.so.1.1 libcrypto.so.1.1 libz.so.1; do \
+    for lib in libpcre2-8.so.0 libpcre.so.3 libcrypt.so.1 libssl.so.1.1 libcrypto.so.1.1 libz.so.1 libprofiler.so.0 libunwind.so.8; do \
       src="$(find /usr/lib /lib -name "$lib" 2>/dev/null | head -1)"; \
       if [ -n "$src" ]; then cp -L "$src" /opt/nginx-libs/; fi; \
     done

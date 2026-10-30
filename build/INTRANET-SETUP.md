@@ -308,6 +308,7 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
 | release 报 `helm` / `sfspm` 不存在 | 任务镜像缺命令，安装或改用单独的 `task2-helm.sh` |
 | 5 个镜像 tag 不一致 | 同一次提交默认取同一个短 SHA；手工设 `TAG` 时 5 条要一致 |
 | chart 重复上传 | 用了 `task-release-*` 就不要再跑 `task2-helm.sh` |
+| nginx 报 `libprofiler.so.0` | RPM 缺 gperftools 依赖；构建会自动尝试 `gperftools-libs` 等包，仍失败改用 copy 模式 |
 | nginx RPM 安装失败 | 改用 `NGINX_BUILD_MODE=copy`，或把 `NGINX_SOURCE_IMAGE` 指向 `portal-nginx` 镜像 |
 | nginx 30090 端口冲突 | console / gateway 必须改成 ClusterIP，并去掉它们的 NodePort |
 | nginx 起来但聊天 404 | 检查 `build/nginx-entry.yaml` 的 nginx 配置和 gateway Service DNS |
