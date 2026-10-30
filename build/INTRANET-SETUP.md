@@ -3,7 +3,8 @@
 ## 目的
 
 把 5 个服务构建成内网镜像和 Helm 包，推送到 `docker.sangfor.com`，然后按
-`build/INTRANET-K8S-DEPLOY.md` 部署到 K8s。
+`build/INTRANET-K8S-DEPLOY.md` 部署到 K8s。需要单 NodePort 同时提供页面和聊天时，
+再构建可选的 nginx 统一入口镜像。
 
 ## 产物
 
@@ -16,6 +17,8 @@
 | 5 个 release 脚本 | `build/docker-build/task-release-*.sh` |
 | 前端脚本 | `build/docker-build/task0-console-frontend.sh` |
 | 5 个 Helm chart | `build/helm-build/muad-*/` |
+| nginx 入口构建 | `build/nginx-build/` |
+| nginx 入口 Deployment | `build/nginx-entry.yaml` |
 
 ## 1. 底座镜像
 
@@ -130,7 +133,34 @@ Helm 仓库：mss-release-helm（release）或 mss-dev-helm（feature）
 或千流缓存：/tmp/muad-helm/
 ```
 
-## 4. K8s 部署
+## 4. 构建 nginx 入口镜像（可选）
+
+如果不想维护 console 30090 + gateway 30093 两个 NodePort，也不想上 Ingress，构建一个 nginx 入口：
+
+```bash
+BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+TAG=1.0.0 PUSH=1 \
+  ./build/nginx-build/build.sh
+```
+
+默认从 PlatOS/Kylin RPM 安装 nginx。RPM 失败时用 copy 模式：
+
+```bash
+NGINX_BUILD_MODE=copy \
+NGINX_SOURCE_IMAGE=<和底座 glibc 兼容的 nginx 镜像> \
+BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+TAG=1.0.0 PUSH=1 \
+  ./build/nginx-build/build.sh
+```
+
+`nginx:1.24-bullseye` 是 glibc 2.31；底座是 glibc 2.28 时不要直接用它。
+优先 RPM 模式，或把 `NGINX_SOURCE_IMAGE` 指向现有 `portal-nginx` 的镜像。
+
+详细说明见 `build/nginx-build/README.md`。
+
+## 5. K8s 部署
 
 完整部署配置见：
 
@@ -150,6 +180,16 @@ build/INTRANET-K8S-DEPLOY.md
 5. 验证 /healthz、/readyz
 ```
 
+如果使用 nginx 统一入口：
+
+```text
+1. console / gateway 改成 service.type=ClusterIP，去掉 NodePort
+2. kubectl apply -f build/nginx-entry.yaml
+3. 访问 http://<master-ip>:30090/
+```
+
+详见 `build/INTRANET-K8S-DEPLOY.md` 第 9 节。
+
 数据库迁移命令：
 
 ```bash
@@ -162,7 +202,7 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
          python migrations/db_migrate.py -c /tmp/alembic.ini current'
 ```
 
-## 5. 常见问题
+## 6. 常见问题
 
 | 现象 | 处理 |
 |---|---|
@@ -173,3 +213,6 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
 | release 报 `helm` / `sfspm` 不存在 | 任务镜像缺命令，安装或改用单独的 `task2-helm.sh` |
 | 5 个镜像 tag 不一致 | 5 条流水线共用同一个 `TAG` |
 | chart 重复上传 | 用了 `task-release-*` 就不要再跑 `task2-helm.sh` |
+| nginx RPM 安装失败 | 改用 `NGINX_BUILD_MODE=copy`，或把 `NGINX_SOURCE_IMAGE` 指向 `portal-nginx` 镜像 |
+| nginx 30090 端口冲突 | console / gateway 必须改成 ClusterIP，并去掉它们的 NodePort |
+| nginx 起来但聊天 404 | 检查 `build/nginx-entry.yaml` 的 nginx 配置和 gateway Service DNS |

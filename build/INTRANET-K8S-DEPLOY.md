@@ -70,6 +70,9 @@ kubectl -n muad create secret docker-registry regcred \
 
 每个服务一份，直接交给发布平台对应的 release。`$TAG` 替换成实际镜像版本。
 
+> 如果使用第 9 节的 nginx 统一入口，把 console 和 gateway 的 `service.type` 改成
+> `ClusterIP`，并去掉 `service.nodePort` / `service.externalTrafficPolicy`。
+
 ### 2.1 muad-console-platform
 
 ```bash
@@ -496,7 +499,8 @@ image.openclawtag
 ```
 
 NodePort 模式需要 console 30090 + gateway 30093，入口侧按路径分流。
-有 Ingress 时建议改成 Ingress：console 和 gateway 都设 `service.type=ClusterIP`，console 设 `ingress.enabled=true`。
+不想维护两个 NodePort、也不想上 Ingress 时，用第 9 节的 nginx 统一入口：console 和 gateway
+都设 `service.type=ClusterIP`，只暴露 nginx 的 30090。
 
 ## 8. 固定 console 到 openclaw 节点
 
@@ -550,3 +554,94 @@ console release 设置：
 - console 只有 1 副本，固定到单节点就是单点；节点故障 console 不可用。
 - 需要 console HA 时至少 2 副本，并用 `service.affinity` 配 podAntiAffinity 分散到不同节点。
 - runtime/worker 的多副本不需要逐个固定节点，交给调度器按资源分布即可。
+
+
+## 9. 统一入口 nginx（单 NodePort）
+
+用一个 nginx 镜像把 console 页面和 gateway 聊天/SSE 收到同一个 NodePort：
+
+```text
+http://<master-ip>:30090/
+```
+
+### 9.1 构建镜像
+
+```bash
+BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+TAG=1.0.0 PUSH=1 \
+  ./build/nginx-build/build.sh
+```
+
+默认从 PlatOS/Kylin RPM 安装 nginx。RPM 装不上时用 copy 模式：
+
+```bash
+NGINX_BUILD_MODE=copy \
+NGINX_SOURCE_IMAGE=<和底座 glibc 兼容的 nginx 镜像> \
+BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+TAG=1.0.0 PUSH=1 \
+  ./build/nginx-build/build.sh
+```
+
+`nginx:1.24-bullseye` 是 glibc 2.31；底座是 glibc 2.28 时不要直接用它。
+优先用 RPM 模式，或把 `NGINX_SOURCE_IMAGE` 指向你们现有 `portal-nginx` 用的镜像。
+
+### 9.2 调整 console / gateway
+
+```text
+console-platform: service.type=ClusterIP，去掉 service.nodePort=30090
+im-gateway:       service.type=ClusterIP，去掉 service.nodePort=30093
+```
+
+`ingress.enabled` 保持 `false`。
+
+### 9.3 部署 nginx
+
+把 `build/nginx-entry.yaml` 里的 image 改成实际构建的 tag，然后：
+
+```bash
+kubectl apply -f build/nginx-entry.yaml
+```
+
+nginx 会使用同 namespace 的 Service DNS：
+
+```text
+muad-console-platform:8000
+muad-im-gateway:8003
+```
+
+### 9.4 路由
+
+```text
+/                       -> console
+/api                    -> console
+/chat, /assets          -> console
+/api/v1/webchat/auth    -> console
+/api/v1/webchat/*       -> gateway
+/api/v1/webchat/runs/*  -> gateway（SSE，不缓冲）
+/healthz                -> 200
+```
+
+### 9.5 验证
+
+```bash
+kubectl -n muad get pods -l app=muad-entry-nginx
+kubectl -n muad get svc muad-entry-nginx
+
+curl -I http://<master-ip>:30090/
+curl -i http://<master-ip>:30090/api/v1/webchat/auth
+curl -N http://<master-ip>:30090/api/v1/webchat/runs
+```
+
+- `/` 返回 200：页面入口通
+- `/api/v1/webchat/auth` 返回 401/403：已经到 console
+- `/api/v1/webchat/runs` 返回 401/403：已经到 gateway
+- 返回 404：nginx 没有把路径分到 gateway
+
+### 9.6 说明
+
+- `portal-nginx` 是普通反向代理，不是 Ingress Controller；本方案不修改 `mss-pro/portal-nginx`。
+- nginx 镜像运行 UID 10001，pid/temp 都在 `/tmp/nginx`。
+- 这个改动不需要重建 5 个服务镜像，也不需要重建基础镜像。
+- 详细构建说明见 `build/nginx-build/README.md`。
