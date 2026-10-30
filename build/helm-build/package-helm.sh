@@ -4,6 +4,7 @@
 # Usage:
 #   ./build/helm-build/package-helm.sh                 # all five charts
 #   ./build/helm-build/package-helm.sh muad-im-gateway # one chart
+#   ./build/helm-build/package-helm.sh muad-nginx      # nginx entry chart
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -18,6 +19,9 @@ ALL_CHARTS=(
   muad-im-gateway
   muad-im-connector
 )
+# muad-nginx is built and packaged only when requested explicitly
+# (package-helm.sh muad-nginx), so task2 still packages the five services.
+KNOWN_CHARTS=("${ALL_CHARTS[@]}" muad-nginx)
 
 if [[ "$#" -gt 0 ]]; then
   CHARTS=("$@")
@@ -39,7 +43,7 @@ log "version=${VERSION} output=${OUT_DIR} charts=${TOTAL}"
 for chart in "${CHARTS[@]}"; do
   INDEX=$((INDEX + 1))
   known=0
-  for candidate in "${ALL_CHARTS[@]}"; do
+  for candidate in "${KNOWN_CHARTS[@]}"; do
     [[ "${chart}" == "${candidate}" ]] && known=1
   done
   [[ "${known}" == "1" ]] || die "unknown chart: ${chart}"

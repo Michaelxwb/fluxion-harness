@@ -599,15 +599,29 @@ im-gateway:       service.type=ClusterIP，去掉 service.nodePort=30093
 
 ### 9.3 部署 nginx
 
-nginx 不是 Helm chart，没有 `--set` 参数，直接用 YAML 部署。
+chart 名 `muad-nginx`，release 名建议 `muad-entry-nginx`。
 
-把 `build/nginx-entry.yaml` 里的 image 改成实际构建的 tag，然后：
+用 Helm 部署：
 
 ```bash
-kubectl apply -f build/nginx-entry.yaml
+TAG=<流水线产出的 tag>
+
+helm upgrade --install muad-entry-nginx <chart 来源>/muad-nginx \
+  --namespace muad \
+  --set global.imageRegistry=docker.sangfor.com/mss-release \
+  --set global.imageTag="$TAG" \
+  --set global.imagePullPolicy=Always \
+  --set 'global.imagePullSecrets[0].name=regcred' \
+  --set service.type=NodePort \
+  --set service.nodePort=30090 \
+  --set replicaCount=2 \
+  --set service.resources.requests.cpu=100m \
+  --set service.resources.requests.memory=128Mi \
+  --set service.resources.limits.cpu=500m \
+  --set service.resources.limits.memory=512Mi
 ```
 
-或者不改文件，直接替换 tag 再 apply：
+也可以用静态 YAML：
 
 ```bash
 TAG=<流水线产出的 tag>

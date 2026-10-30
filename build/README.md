@@ -404,17 +404,24 @@ IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
   ./build/nginx-build/build.sh
 ```
 
-千流任务：`build/docker-build/task-image-nginx-entry.sh`（独立一条 image 流水线，
-可与 5 个服务并行）。
+千流任务：`build/docker-build/task-release-nginx-entry.sh`（镜像 + chart，
+可与 5 个服务并行）。只要镜像时用 `task-image-nginx-entry.sh`。
+
+chart：`build/helm-build/muad-nginx/`（`package-helm.sh muad-nginx` 可单独打包）。
 
 部署：
 
 ```bash
-kubectl apply -f build/nginx-entry.yaml
+helm upgrade --install muad-entry-nginx <chart 来源>/muad-nginx \
+  --namespace muad \
+  --set global.imageRegistry=docker.sangfor.com/mss-release \
+  --set global.imageTag=<TAG> \
+  --set service.type=NodePort \
+  --set service.nodePort=30090
 ```
 
-使用前把 console/gateway 改成 `service.type=ClusterIP` 并去掉各自的 NodePort，
-入口统一走 `muad-entry-nginx:30090`。
+也可以继续用 `build/nginx-entry.yaml`。使用前把 console/gateway 改成
+`service.type=ClusterIP` 并去掉各自的 NodePort，入口统一走 `muad-entry-nginx:30090`。
 
 详见 `build/nginx-build/README.md`。
 

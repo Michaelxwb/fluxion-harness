@@ -16,9 +16,10 @@
 | Node 24 包 | `/Users/jahan/share/node-v24.22.2-linux-x64.tar.gz` |
 | 5 个 release 脚本 | `build/docker-build/task-release-*.sh` |
 | 前端脚本 | `build/docker-build/task0-console-frontend.sh` |
-| 5 个 Helm chart | `build/helm-build/muad-*/` |
+| 6 个 Helm chart | `build/helm-build/muad-*/`（5 个服务 + `muad-nginx`） |
 | nginx 入口构建 | `build/nginx-build/` |
-| nginx 入口 Deployment | `build/nginx-entry.yaml` |
+| nginx 入口 chart 任务 | `build/docker-build/task-release-nginx-entry.sh` |
+| nginx 入口静态 YAML | `build/nginx-entry.yaml` |
 
 ## 1. 底座镜像
 
@@ -179,10 +180,10 @@ IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 |---|---|
 | 流水线名 | `nginx-entry` |
 | 节点 | 1 个 Docker 节点（和 release 节点同类） |
-| 任务镜像 | 带 `docker` 即可，不需要 `helm` / `sfspm` / `npm` |
-| 命令 | `bash ./build/docker-build/task-image-nginx-entry.sh` |
-| Secret | `DOCKER_USER`、`DOCKER_PASS` |
-| 缓存 | 不需要 |
+| 任务镜像 | 镜像 + Helm 用 release 节点（带 `docker`、`helm`、`sfspm`）；只构建镜像时带 `docker` 即可 |
+| 命令 | `bash ./build/docker-build/task-release-nginx-entry.sh`（镜像 + Helm） |
+| Secret | `DOCKER_USER`、`DOCKER_PASS`、`AUTH_TOKEN` |
+| 缓存 | 上传 `/tmp/muad-helm/` |
 
 可选变量（一般不用配）：
 
@@ -200,19 +201,25 @@ IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 ```text
 git tag / patch / master / release -> docker.sangfor.com/mss-release/muad-nginx:<TAG>
 feature / bug / 其它               -> docker.sangfor.com/mss-dev/muad-nginx:<TAG>
+
+Helm：mss-release-helm/muad-nginx-<HELM_VERSION>.tgz
+      mss-dev-helm/muad-nginx-<HELM_VERSION>.tgz
 ```
+
+只要镜像、不要 chart 时，用 `task-image-nginx-entry.sh`（不需要 `helm` / `sfspm`）。
 
 `<TAG>` 和 5 个服务镜像一致（同一提交生成同一个 tag），部署时可以统一用
 `global.imageTag=<TAG>`。
 
-日志是 5 步，能直接看出卡在哪：
+日志是 6 步，能直接看出卡在哪：
 
 ```text
-[nginx] [1/5] resolve configuration
-[nginx] [2/5] docker login docker.sangfor.com
-[nginx] [3/5] ensure base image docker.sangfor.com/mss-base/platos-kylin:1.3.2
-[nginx] [4/5] docker build docker.sangfor.com/mss-release/muad-nginx:<TAG>
-[nginx] [5/5] docker push docker.sangfor.com/mss-release/muad-nginx:<TAG>
+[nginx] [1/6] resolve configuration
+[nginx] [2/6] docker login docker.sangfor.com
+[nginx] [3/6] ensure base image docker.sangfor.com/mss-base/platos-kylin:1.3.2
+[nginx] [4/6] docker build docker.sangfor.com/mss-release/muad-nginx:<TAG>
+[nginx] [5/6] docker push docker.sangfor.com/mss-release/muad-nginx:<TAG>
+[nginx] [6/6] write build metadata
 [nginx] done in 42s: docker.sangfor.com/mss-release/muad-nginx:<TAG>
 ```
 
@@ -222,29 +229,43 @@ feature / bug / 其它               -> docker.sangfor.com/mss-dev/muad-nginx:<T
 
 ### 4.2 部署这条流水线的产物
 
-nginx 镜像只负责入口，部署仍用 `build/nginx-entry.yaml`。
+chart 名 `muad-nginx`，release 名建议 `muad-entry-nginx`。
 
-nginx 不在这 5 个 Helm chart 里，没有 `--set` 参数，直接用 `kubectl` 部署。
-需要先 apply 一次 YAML，之后用 `kubectl set image` 换 tag。
-
-部署前先做两件事：
+部署前先把 console / gateway 改成 ClusterIP：
 
 ```text
-console / gateway -> service.type=ClusterIP，去掉 NodePort
-nginx-entry.yaml  -> image 换成流水线产出的 <TAG>
+console-platform: service.type=ClusterIP
+im-gateway:       service.type=ClusterIP
 ```
 
-换镜像 tag 二选一：
+用 Helm 部署：
 
 ```bash
-# 已经 apply 过，只更新镜像
-kubectl -n muad set image deploy/muad-entry-nginx \
-  nginx=docker.sangfor.com/mss-release/muad-nginx:<TAG>
+TAG=<流水线产出的 tag>
+
+helm upgrade --install muad-entry-nginx <chart 来源>/muad-nginx \
+  --namespace muad \
+  --set global.imageRegistry=docker.sangfor.com/mss-release \
+  --set global.imageTag="$TAG" \
+  --set global.imagePullPolicy=Always \
+  --set 'global.imagePullSecrets[0].name=regcred' \
+  --set service.type=NodePort \
+  --set service.nodePort=30090 \
+  --set replicaCount=2
 ```
 
+需要固定到 openclaw 节点时加：
+
 ```bash
-# 第一次部署，或直接改 yaml 里的 image:
-kubectl apply -f build/nginx-entry.yaml
+--set global.nodeSelector.app=openclaw
+```
+
+也可以继续用静态 YAML（不经过 Helm）：
+
+```bash
+TAG=<流水线产出的 tag>
+sed "s#muad-nginx:1.0.0#muad-nginx:${TAG}#" build/nginx-entry.yaml \
+  | kubectl apply -f -
 ```
 
 访问：

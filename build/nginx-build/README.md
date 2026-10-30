@@ -21,8 +21,12 @@ IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
   ./build/nginx-build/build.sh
 ```
 
-Qianliu task: `build/docker-build/task-image-nginx-entry.sh` (independent image
-pipeline; no helm/sfspm needed).
+Qianliu tasks:
+
+```text
+build/docker-build/task-release-nginx-entry.sh   image + Helm chart
+build/docker-build/task-image-nginx-entry.sh     image only (no helm/sfspm)
+```
 
 The default mode installs nginx from the PlatOS/Kylin RPM repo:
 
@@ -59,6 +63,27 @@ repo.
 
 If the repo has none of them, use copy mode with the portal-nginx image, which
 already runs on this base.
+
+## Helm chart
+
+`build/helm-build/muad-nginx/` packages the same Deployment + Service:
+
+```bash
+bash ./build/helm-build/package-service.sh nginx-entry
+```
+
+Deploy:
+
+```bash
+helm upgrade --install muad-entry-nginx <chart source>/muad-nginx \
+  --namespace muad \
+  --set global.imageRegistry=docker.sangfor.com/mss-release \
+  --set global.imageTag=<TAG> \
+  --set service.type=NodePort \
+  --set service.nodePort=30090
+```
+
+`build/nginx-entry.yaml` remains available for plain `kubectl apply`.
 
 ## Deploy
 

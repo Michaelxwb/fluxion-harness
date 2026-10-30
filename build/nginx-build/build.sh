@@ -20,6 +20,7 @@ fi
 source "${REPO_ROOT}/build/lib/image-tag.sh"
 TAG="$(default_image_tag "${REPO_ROOT}")"
 PLATFORM="${PLATFORM:-linux/amd64}"
+IMAGE_CACHE_DIR="${IMAGE_CACHE_DIR:-/tmp/muad-image-nginx-entry}"
 # PUSH is optional: with registry credentials present the scripts push by
 # default, without credentials they only build. Set PUSH=0 to force a local
 # build even when credentials are exported.
@@ -35,7 +36,7 @@ log() { printf '[nginx] %s\n' "$*"; }
 die() { printf '[nginx][ERROR] %s\n' "$*" >&2; exit 1; }
 
 STARTED_AT="$(date +%s)"
-TOTAL_STEPS=5
+TOTAL_STEPS=6
 STEP=0
 step() { STEP=$((STEP + 1)); log "[${STEP}/${TOTAL_STEPS}] $*"; }
 
@@ -97,5 +98,11 @@ if [[ "${PUSH}" == "1" ]]; then
 else
   log "PUSH=0; push skipped"
 fi
+
+step "write build metadata"
+mkdir -p "${IMAGE_CACHE_DIR}"
+printf '%s\n' "${IMAGE_REPOSITORY}:${TAG}" > "${IMAGE_CACHE_DIR}/image.txt"
+printf '%s\n' "${TAG}" > "${IMAGE_CACHE_DIR}/IMAGE_TAG"
+log "metadata=${IMAGE_CACHE_DIR} (image.txt, IMAGE_TAG)"
 
 log "done in $(( $(date +%s) - STARTED_AT ))s: ${IMAGE_REPOSITORY}:${TAG}"

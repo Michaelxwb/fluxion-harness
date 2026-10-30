@@ -7,6 +7,7 @@
 #
 # Usage:
 #   ./build/helm-build/package-service.sh console-platform
+#   ./build/helm-build/package-service.sh nginx-entry
 #
 # Environment:
 #   HELM_VERSION          chart version; defaults to 1.0.<image tag> or timestamp
@@ -33,6 +34,7 @@ case "${SERVICE}" in
   agent-worker) CHART="muad-agent-worker" ;;
   im-gateway) CHART="muad-im-gateway" ;;
   im-connector) CHART="muad-im-connector" ;;
+  nginx-entry) CHART="muad-nginx" ;;
   *) echo "[helm-service][ERROR] unknown service: ${SERVICE}" >&2; exit 2 ;;
 esac
 

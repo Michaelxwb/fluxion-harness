@@ -14,6 +14,7 @@ CHARTS=(
   muad-agent-worker
   muad-im-gateway
   muad-im-connector
+  muad-nginx
 )
 
 log() { printf '[verify] %s\n' "$*"; }
@@ -42,7 +43,7 @@ import glob
 import os
 import yaml
 paths = sorted(glob.glob(os.path.join(os.environ['VERIFY_DIR'], '*.yaml')))
-assert len(paths) == 6, paths
+assert len(paths) == 7, paths
 for path in paths:
     docs = [doc for doc in yaml.safe_load_all(open(path, encoding='utf-8')) if doc]
     assert docs, path

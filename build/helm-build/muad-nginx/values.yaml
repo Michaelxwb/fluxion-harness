@@ -1,0 +1,34 @@
+global:
+  imageRegistry: docker.sangfor.com/mss-dev
+  imageTag: latest
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  sysctls: []
+serviceAccount:
+  create: false
+  name: ''
+  annotations: {}
+service:
+  image: muad-nginx
+  tag: ''
+  port: 8080
+  type: NodePort
+  nodePort: 30090
+  externalTrafficPolicy: ''
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  sysctls: []
+replicaCount: 2
+probes:
+  path: /healthz
