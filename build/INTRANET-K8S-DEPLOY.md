@@ -43,7 +43,7 @@ MountPath: /mnt/muad-artifacts
 export INTERNAL_TOKEN="$(openssl rand -hex 32)"
 
 kubectl -n muad create secret generic muad-external \
-  --from-literal=DATABASE_URL='postgresql+asyncpg://muad:CHANGE_ME@postgres:5432/muad' \
+  --from-literal=DATABASE_URL='postgresql+asyncpg://muad:CHANGE_ME@postgres:5432/muad_db' \
   --from-literal=REDIS_URL='redis://redis:6379/0' \
   --from-literal=INTERNAL_SERVICE_TOKEN="$INTERNAL_TOKEN" \
   --dry-run=client -o yaml | kubectl apply -f -
@@ -459,20 +459,20 @@ muad-im-connector
 
 ```sql
 -- 用 postgres 维护库连接后执行一次
-CREATE DATABASE muad;
+CREATE DATABASE muad_db;
 ```
 
 连接串指向这个库：
 
 ```text
-postgresql+asyncpg://<user>:<password>@<pg-host>:5432/muad
+postgresql+asyncpg://<user>:<password>@<pg-host>:5432/muad_db
 ```
 
 每个新版本部署前执行一次。`upgrade head` 是幂等的：没有新迁移时是 no-op，
 不确定有没有新迁移时直接跑也安全：
 
 ```bash
-export DATABASE_URL='postgresql+asyncpg://muad:CHANGE_ME@postgres:5432/muad'
+export DATABASE_URL='postgresql+asyncpg://muad:CHANGE_ME@postgres:5432/muad_db'
 export CONSOLE_IMAGE=docker.sangfor.com/mss-release/muad-console-platform:$TAG
 
 docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \

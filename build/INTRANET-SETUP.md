@@ -323,7 +323,7 @@ build/INTRANET-K8S-DEPLOY.md
 数据库迁移命令：
 
 ```bash
-export DATABASE_URL='postgresql+asyncpg://muad:CHANGE_ME@postgres:5432/muad'
+export DATABASE_URL='postgresql+asyncpg://muad:CHANGE_ME@postgres:5432/muad_db'
 export CONSOLE_IMAGE=docker.sangfor.com/mss-release/muad-console-platform:1.0.0
 
 docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
