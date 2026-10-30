@@ -242,8 +242,8 @@ Task2 一次打包 5 个 per-service chart，并可选上传 5 个 tgz；不依�
 
 | 变量 | 必填 | 默认 | 说明 |
 |---|---|---|---|
-| `DOCKER_USER` | 推送时必填 | - | 内网 registry 账号 |
-| `DOCKER_PASS` | 推送时必填 | - | 内网 registry 密码 |
+| `DOCKER_USER` | 千流任务必填 | - | 内网 registry 账号 |
+| `DOCKER_PASS` | 千流任务必填 | - | 内网 registry 密码 |
 | `CI_COMMIT_BRANCH` | 建议 | - | 分支路由 |
 | `CI_COMMIT_TAG` | 可选 | - | `v*` 走 release |
 | `PUSH` | 否 | 有凭据时 `1`，否则 `0` | 一般不用配；本地测试设 `0` |

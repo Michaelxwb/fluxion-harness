@@ -99,8 +99,15 @@ UPLOAD=1
 AUTH_TOKEN
 ```
 
-`PUSH` 不用配：有 `DOCKER_USER` / `DOCKER_PASS` 就登录并推送，没有凭据就只构建。
-本地测试需要强制不推送时再设 `PUSH=0`。
+`PUSH` 不用配，也不要配：
+
+```text
+有 DOCKER_USER / DOCKER_PASS -> 登录并推送
+没有凭据                     -> 千流任务入口直接报错（避免“构建成功但没推送”）
+```
+
+千流任务（`task-image-*.sh` / `task-release-*.sh`）会强制校验这两个 Secret。
+本地直接跑 `build-image.sh` 时可以不配凭据，只构建不推送；需要强制不推送可设 `PUSH=0`。
 
 console release 额外：
 
