@@ -19,11 +19,23 @@ spec:
         {{- include "muad-platform.labels" . | nindent 8 }}
     spec:
       terminationGracePeriodSeconds: 60
+      {{- with (include "muad-platform.serviceAccountName" . | trim) }}
+      serviceAccountName: {{ . }}
+      {{- end }}
       securityContext:
         {{- include "muad-platform.podSecurityContext" . | nindent 8 }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (include "muad-platform.nodeSelector" . | trim) }}
+      {{- . | nindent 6 }}
+      {{- end }}
+      {{- with (include "muad-platform.tolerations" . | trim) }}
+      {{- . | nindent 6 }}
+      {{- end }}
+      {{- with (include "muad-platform.affinity" . | trim) }}
+      {{- . | nindent 6 }}
       {{- end }}
       containers:
         - name: app
@@ -35,6 +47,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: muad-common
+            {{- with (include "muad-platform.extraEnvFrom" . | trim) }}
+            {{- . | nindent 12 }}
+            {{- end }}
           env:
             # Connector 不持库：只挂自己的 REDIS_URL / INTERNAL_SERVICE_TOKEN。
             - name: REDIS_URL
@@ -94,12 +109,20 @@ metadata:
     app: muad-connector
     {{- include "muad-platform.labels" . | nindent 4 }}
 spec:
+  type: {{ .Values.service.type | default "ClusterIP" }}
+  {{- $serviceType := .Values.service.type | default "ClusterIP" }}
+  {{- if and (or (eq $serviceType "NodePort") (eq $serviceType "LoadBalancer")) .Values.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+  {{- end }}
   selector:
     app: muad-connector
   ports:
     - name: metrics
       port: {{ .Values.service.port }}
       targetPort: {{ .Values.service.port }}
+      {{- if and (or (eq $serviceType "NodePort") (eq $serviceType "LoadBalancer")) .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget

@@ -353,6 +353,29 @@ muad-im-connector-<HELM_VERSION>.tgz
 `muad-console-platform`（创建共享 ConfigMap / 可选 PVC / Ingress）→ 其余四个服务。
 Secret、已有的 RWX PVC 和数据库迁移是前置条件。
 
+## 5.1 K8s 部署
+
+完整的 K8s 部署配置见：
+
+```text
+build/INTRANET-K8S-DEPLOY.md
+```
+
+每个 chart 的 `service` 支持：
+
+```text
+service.type / nodePort / externalTrafficPolicy
+service.nodeSelector / tolerations / affinity
+service.extraEnvFrom
+serviceAccount.create / name
+```
+
+全局支持：
+
+```text
+global.nodeSelector / tolerations / affinity / extraEnvFrom
+```
+
 ## 6. 与老项目 `muad-openclaw` 的对应关系
 
 参考了老项目的**千流任务拆分方式**，但没有逐字复制脚本内容。老项目是

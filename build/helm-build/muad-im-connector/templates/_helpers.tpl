@@ -35,3 +35,57 @@ imagePullSecrets:
 {{- toYaml . | nindent 2 }}
 {{- end }}
 {{- end }}
+
+{{/*
+Effective node selector: service overrides global.
+*/}}
+{{- define "muad-platform.nodeSelector" -}}
+{{- $selector := .Values.service.nodeSelector | default .Values.global.nodeSelector -}}
+{{- with $selector }}
+nodeSelector:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Effective tolerations: service overrides global.
+*/}}
+{{- define "muad-platform.tolerations" -}}
+{{- $tolerations := .Values.service.tolerations | default .Values.global.tolerations -}}
+{{- with $tolerations }}
+tolerations:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Effective affinity: service overrides global.
+*/}}
+{{- define "muad-platform.affinity" -}}
+{{- $affinity := .Values.service.affinity | default .Values.global.affinity -}}
+{{- with $affinity }}
+affinity:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Service account name: created one, explicit name, or empty (default SA).
+*/}}
+{{- define "muad-platform.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+{{- .Values.serviceAccount.name | default .Chart.Name -}}
+{{- else -}}
+{{- .Values.serviceAccount.name -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Effective extra envFrom: global items followed by service items.
+*/}}
+{{- define "muad-platform.extraEnvFrom" -}}
+{{- $items := concat (.Values.global.extraEnvFrom | default (list)) (.Values.service.extraEnvFrom | default (list)) -}}
+{{- with $items }}
+{{- toYaml . -}}
+{{- end }}
+{{- end }}

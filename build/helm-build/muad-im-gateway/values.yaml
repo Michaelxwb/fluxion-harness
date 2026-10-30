@@ -14,6 +14,16 @@ global:
     mountPath: /mnt/muad-artifacts
   skillCache:
     mountPath: /var/cache/muad/skills
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnvFrom: []
+
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}
+
 service:
   replicas: 2
   tag: ''
@@ -28,3 +38,10 @@ service:
   name: muad-im-gateway
   image: muad-im-gateway
   port: 8003
+  type: ClusterIP
+  nodePort: null
+  externalTrafficPolicy: ''
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnvFrom: []

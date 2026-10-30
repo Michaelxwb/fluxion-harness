@@ -2,6 +2,8 @@
 
 适用分支：`feat/intranet-build`，本文对应提交 `a9d45079` 之后。
 
+> K8s 部署配置的最终版见 `build/INTRANET-K8S-DEPLOY.md`；本文保留构建/千流步骤和基础部署顺序。
+
 ## 0. 产物清单
 
 | 产物 | 位置 |
@@ -338,15 +340,15 @@ helm upgrade --install muad-console-platform \
   -n "$NS" \
   --set global.imageRegistry="$REGISTRY" \
   --set global.imageTag="$TAG" \
-  --set global.imagePullSecrets[0].name=muad-registry \
+  --set 'global.imagePullSecrets[0].name=muad-registry' \
   --set global.existingSecret=muad-external \
   --set global.connectorSecret=muad-connector-external \
   --set global.artifacts.existingClaim=muad-artifacts-rwx \
   --set ingress.enabled=true \
   --set ingress.className=nginx \
   --set ingress.host=muad.example.com \
-  --set ingress.tls[0].secretName=muad-tls \
-  --set ingress.tls[0].hosts[0]=muad.example.com
+  --set 'ingress.tls[0].secretName=muad-tls' \
+  --set 'ingress.tls[0].hosts[0]=muad.example.com'
 ```
 
 如果不用 TLS，去掉最后两行。
@@ -376,7 +378,7 @@ for chart in muad-agent-runtime muad-agent-worker muad-im-gateway muad-im-connec
     -n "$NS" \
     --set global.imageRegistry="$REGISTRY" \
     --set global.imageTag="$TAG" \
-    --set global.imagePullSecrets[0].name=muad-registry \
+    --set 'global.imagePullSecrets[0].name=muad-registry' \
     --set global.existingSecret=muad-external \
     --set global.connectorSecret=muad-connector-external \
     --set global.artifacts.existingClaim=muad-artifacts-rwx
