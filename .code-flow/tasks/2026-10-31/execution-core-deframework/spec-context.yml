@@ -1,7 +1,7 @@
 version: 1
 task: execution-core-deframework
 enforcement: required
-updated_at: '2026-10-30T19:31:09.649394+00:00'
+updated_at: '2026-10-30T19:33:25.639880+00:00'
 sources:
 - type: cli
   ref: bind
@@ -10,7 +10,7 @@ bindings:
   path: persistence/harness-data.md
   status: active
   hashes:
-    file_sha256: 854f097f974a87d85a2b175eb53315eaf1eda38b516c954f26b352da5acdf6b7
+    file_sha256: 87e108287221d7be78ce2018d0f3b95c6eb1a30b4cd1c7cf0d92020cb506f2b5
     metadata_sha256: 4c0b58f383383267a768a0d1c93774dc8702f7e68e68de0bb654746611af262e
     rules_sha256: bff4e046d47cecba0e97c8a83921f635292d2a2e009c836fece1462a9024a68d
   selected_by: cli
@@ -48,11 +48,11 @@ bindings:
         - artifact: execution-core-deframework.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 594d812855a9a4d6831df66cf661dae42d3381b035315f13445ab33a6397e30d
+          artifact_sha256: b58d7dd0314452a8d4a1161ef599d4157ebea38543285e007cbdfd795c552dcd
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -113,6 +113,18 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               47 passed, 6167 deselected, 2 warnings in 25.56s\n"
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-30T19:33:47.856562+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: dcf406b116162550ec9e93e7079ab41b82506167834c8df0d7b2aaf1b7259a3c
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -157,7 +169,7 @@ bindings:
         - artifact: execution-core-deframework.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 594d812855a9a4d6831df66cf661dae42d3381b035315f13445ab33a6397e30d
+          artifact_sha256: b58d7dd0314452a8d4a1161ef599d4157ebea38543285e007cbdfd795c552dcd
         decision: null
         evidence: []
       code:

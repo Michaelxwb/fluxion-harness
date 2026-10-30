@@ -21,7 +21,7 @@
 | S-04 | execution-core-deframework.design.md#2.5 验收条件 | unit | AgentRunner + 脚本化 provider（无网络、无数据库） | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_core/test_runner.py"] | . | 300 | P0 | auto | none | - | - | - | no |
 | E-01 | execution-core-deframework.design.md#2.5 验收条件 | unit | AgentRunner + 脚本化 provider（无网络） | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_core/test_runner.py","-k","deadline or cancellation or incomplete_model_stream"] | . | 300 | P1 | auto | none | - | - | - | no |
 | B-01 | execution-core-deframework.design.md#2.5 验收条件 | unit | AgentRunner + 持续返回 tool_calls 的脚本化 provider | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_core/test_runner.py","-k","max_turns_budget_finalizes"] | . | 300 | P1 | auto | none | - | - | - | no |
-| S-05 | execution-core-deframework.design.md#2.5 验收条件 | contract | docs/、.code-flow/specs/、packages/、apps/、tests/ 的文本检索（排除历史记录） | TASK-004 | planned | ["uv","run","pytest","-q","tests/contracts/test_langgraph_residue.py"] | . | 300 | P1 | auto | none | - | - | - | no |
+| S-05 | execution-core-deframework.design.md#2.5 验收条件 | contract | docs/、.code-flow/specs/、packages/、apps/、tests/ 的文本检索（排除历史记录） | TASK-004 | verified | ["uv","run","pytest","-q","tests/contracts/test_langgraph_residue.py"] | . | 300 | P1 | auto | none | - | - | - | no |
 | S-06 | execution-core-deframework.design.md#2.5 验收条件 | contract | docs/configuration-inventory.csv 与源码 AST 比对 | TASK-005 | planned | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
 
 > 本表覆盖设计中的全部 9 个场景（6 个 S、2 个 E、1 个 B）；无 E2E：本需求不改变浏览器可见行为与 API 契约。
@@ -189,7 +189,7 @@
 
 ## TASK-004: spec 与交付文档对齐
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-003
 - **Source**: execution-core-deframework.design.md#3.1 方案选型, execution-core-deframework.design.md#4.1 部署架构
@@ -205,26 +205,36 @@
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/contracts/test_langgraph_residue.py`
-- [ ] 通过 cf-spec 流程修改 `persistence/harness-data.md` 的 schema 名单规则并 refresh
-- [ ] 改写 docs/00/01/02/04/08 与基线 V2.0/V7 的 LangGraph 措辞
-- [ ] 清理 `tests/agent_core/test_hook_lifecycle.py` 与 `tests/agent_runtime/test_runtime_composition.py` 的注释/文档字符串
-- [ ] 新增 ADR：`docs/issues/2026-10-31-execution-core-deframework-adr.md`
-- [ ] [S-05][contract] 断言当前非归档文档、specs、代码无 LangGraph 残留，ADR 存在且含被否方案
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/contracts/test_langgraph_residue.py`
+- [x] 通过 cf-spec 流程修改 `persistence/harness-data.md` 的 schema 名单规则并 refresh
+- [x] 改写 docs/00/01/02/04/08 与基线 V2.0/V7 的 LangGraph 措辞
+- [x] 清理 `tests/agent_core/test_hook_lifecycle.py` 与 `tests/agent_runtime/test_runtime_composition.py` 的注释/文档字符串
+- [x] 新增 ADR：`docs/issues/2026-10-31-execution-core-deframework-adr.md`
+- [x] [S-05][contract] 断言当前非归档文档、specs、代码无 LangGraph 残留，ADR 存在且含被否方案
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | contract | docs/、.code-flow/specs/、packages/、apps/、tests/ 的真实文本 | 残留命中数为 0；ADR 存在并记录被否方案；schema 名单为 3 个 | tests/contracts/test_langgraph_residue.py | ["uv","run","pytest","-q","tests/contracts/test_langgraph_residue.py"] | planned |
+| S-05 | contract | docs/、.code-flow/specs/、packages/、apps/、tests/ 的真实文本 | 残留命中数为 0；ADR 存在并记录被否方案；schema 名单为 3 个 | tests/contracts/test_langgraph_residue.py | ["uv","run","pytest","-q","tests/contracts/test_langgraph_residue.py"] | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-05 | FAIL: 残留命中 `.code-flow/specs/_session/task-execution-core-deframework.md`（生成的 TASK 投影被误算为当前文档） | 2 passed（0.78s） | tests/contracts/test_langgraph_residue.py::test_s05_current_surfaces_do_not_claim_langgraph、::test_s05_adr_records_the_rejected_checkpointer_option | 真实文本检索 docs/、.code-flow/specs/（排除 _session）、packages/、apps/、tests/；ADR 文件存在且含 PG Checkpointer 与被否方案 | verified |
+
+说明：spec 规则文本修改后执行 `cf_spec_context refresh`，Context 更新为 `a45f66d5…`，status gate pass。
+- S-05: verified — automated command passed; run_id=c10f1380f3e14a9a8ffbb6faa73b2967 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-31] created (draft)
+- [2026-10-31] started
+- [2026-10-31] completed (done)
 
 ---
+- [2026-10-31] 实现完成：spec 规则改为 3 个 schema；docs/00/01/02/04/08 与基线 V2.0/V7 改写；ADR 落 docs/issues；残差检索通过
 
 ## TASK-005: 机检恢复与有界性回归复核
 

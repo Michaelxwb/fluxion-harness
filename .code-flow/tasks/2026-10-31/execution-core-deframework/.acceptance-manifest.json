@@ -1154,7 +1154,7 @@
       "kind": "functional",
       "boundary": "docs/（排除 docs/17 历史评审记录）、.code-flow/specs/、packages/、apps/ 的文本检索；排除本需求目录、archived 与 scripts/capacity 历史测量",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1209,7 +1209,88 @@
       "features": [
         "FEAT-04"
       ],
-      "check": "CHK-befaebc5e177"
+      "check": "CHK-befaebc5e177",
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-befaebc5e177",
+        "input_hash": "",
+        "check_config": {
+          "id": "CHK-befaebc5e177",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_langgraph_residue.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "c10f1380f3e14a9a8ffbb6faa73b2967",
+        "executed_at": "2026-10-30T19:33:47.746904+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_langgraph_residue.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-befaebc5e177",
+          "input_hash": "",
+          "check_config": {
+            "id": "CHK-befaebc5e177",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/contracts/test_langgraph_residue.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "c10f1380f3e14a9a8ffbb6faa73b2967",
+          "executed_at": "2026-10-30T19:33:47.746904+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_langgraph_residue.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        }
+      ]
     },
     {
       "id": "S-06",

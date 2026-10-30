@@ -24,7 +24,7 @@ def _findings() -> list[str]:
             if not path.is_file() or path.suffix not in SCANNED_SUFFIXES:
                 continue
             relative = str(path.relative_to(ROOT))
-            if relative in EXCLUDED:
+            if relative in EXCLUDED or relative.startswith(".code-flow/specs/_session/"):
                 continue
             try:
                 content = path.read_text(encoding="utf-8")

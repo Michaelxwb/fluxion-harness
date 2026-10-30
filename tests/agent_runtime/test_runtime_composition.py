@@ -1,4 +1,4 @@
-"""[B-122] 完整执行链装配（真实 RunService→Executor→LangGraph→DB）。
+"""[B-122] 完整执行链装配（真实 RunService→Executor→执行核心→DB）。
 
 锁定：完整一轮含 Tool 执行、SkillContext 注入、审计写入、secret 隔离、无空实现替代。
 """
