@@ -1,7 +1,7 @@
 version: 1
 task: execution-core-deframework
 enforcement: required
-updated_at: '2026-10-30T19:23:52.968032+00:00'
+updated_at: '2026-10-30T19:30:21.550992+00:00'
 sources:
 - type: cli
   ref: bind
@@ -48,7 +48,7 @@ bindings:
         - artifact: execution-core-deframework.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: dece36121b7c7369cc3e7143c1a0668dfdbfd8f11e6946d7576c8cf15d66e9ac
+          artifact_sha256: e4e38c8be72d224377096901d991b95b6120cda58bfe325ba2cc228a7520726f
         decision: null
         evidence: []
       code:
@@ -62,6 +62,18 @@ bindings:
           rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
           artifact_sha256: null
           diff_sha256: 2c4537e3a2edb49c72307119669116f048b84235393c57271b09e8997916dc83
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-30T19:31:00.800132+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 7ac19ed65a942d3a06cf98861cdf949362c9137c69745a6c5d0433baa1ee257d
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -112,7 +124,7 @@ bindings:
         - artifact: execution-core-deframework.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: dece36121b7c7369cc3e7143c1a0668dfdbfd8f11e6946d7576c8cf15d66e9ac
+          artifact_sha256: e4e38c8be72d224377096901d991b95b6120cda58bfe325ba2cc228a7520726f
         decision: null
         evidence: []
       code:

@@ -339,7 +339,7 @@
       "kind": "functional",
       "boundary": "uv.lock / requirements.txt / 干净虚拟环境",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -394,7 +394,90 @@
       "features": [
         "FEAT-02"
       ],
-      "check": "CHK-e4b1734e85b7"
+      "check": "CHK-e4b1734e85b7",
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-e4b1734e85b7",
+        "input_hash": "92010d4b6f487c469a6b8ffc33619345b98e5dae589f923e128c1d6c447e70ef",
+        "check_config": {
+          "id": "CHK-e4b1734e85b7",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_dependency_surface.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "e5ea18529a0244a291337d67a346e9d8",
+        "executed_at": "2026-10-30T19:31:00.700024+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_dependency_surface.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "92010d4b6f487c469a6b8ffc33619345b98e5dae589f923e128c1d6c447e70ef"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-e4b1734e85b7",
+          "input_hash": "92010d4b6f487c469a6b8ffc33619345b98e5dae589f923e128c1d6c447e70ef",
+          "check_config": {
+            "id": "CHK-e4b1734e85b7",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/contracts/test_dependency_surface.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "e5ea18529a0244a291337d67a346e9d8",
+          "executed_at": "2026-10-30T19:31:00.700024+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_dependency_surface.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "92010d4b6f487c469a6b8ffc33619345b98e5dae589f923e128c1d6c447e70ef"
+        }
+      ]
     },
     {
       "id": "S-03",
