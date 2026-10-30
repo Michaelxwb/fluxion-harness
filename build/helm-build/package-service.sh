@@ -67,7 +67,13 @@ if [[ -z "${HELM_VERSION:-}" ]]; then
   image_tag_file="${IMAGE_CACHE_DIR}/IMAGE_TAG"
   if [[ -f "${image_tag_file}" ]]; then
     image_tag="$(cat "${image_tag_file}")"
-    if [[ "${image_tag}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$ ]]; then
+    if [[ "${image_tag}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.([0-9]{10}) ]]; then
+      # 1.0.0.<yyMMddHHmm><branch> -> chart 1.0.<yyMMddHHmm>
+      HELM_VERSION="1.0.${BASH_REMATCH[1]}"
+    elif [[ "${image_tag}" =~ ^([0-9]{10}) ]]; then
+      # 旧格式 <yyMMddHHmm><branch> -> chart 1.0.<yyMMddHHmm>
+      HELM_VERSION="1.0.${BASH_REMATCH[1]}"
+    elif [[ "${image_tag}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$ ]]; then
       HELM_VERSION="${image_tag}"
     elif [[ "${image_tag}" =~ ^[0-9]+$ ]]; then
       HELM_VERSION="1.0.${image_tag}"
