@@ -1097,7 +1097,7 @@
       "kind": "functional",
       "boundary": "AgentRunner + 持续返回 tool_calls 的脚本化 provider",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1145,7 +1145,98 @@
       "features": [
         "FEAT-01"
       ],
-      "check": "CHK-79434b898965"
+      "check": "CHK-79434b898965",
+      "revision": 1,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-79434b898965",
+        "input_hash": "f758e82a11f0b109638cd0e22adb41a8511f62f10fa361f33c5f13dfd620a9a2",
+        "check_config": {
+          "id": "CHK-79434b898965",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_runner.py",
+            "-k",
+            "max_turns_budget_finalizes"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "fad1e7d3e4e640bf9dfcfb0f092dd53d",
+        "executed_at": "2026-10-30T19:34:27.423707+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_core/test_runner.py",
+          "-k",
+          "max_turns_budget_finalizes"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "f758e82a11f0b109638cd0e22adb41a8511f62f10fa361f33c5f13dfd620a9a2"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-79434b898965",
+          "input_hash": "f758e82a11f0b109638cd0e22adb41a8511f62f10fa361f33c5f13dfd620a9a2",
+          "check_config": {
+            "id": "CHK-79434b898965",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_runner.py",
+              "-k",
+              "max_turns_budget_finalizes"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "fad1e7d3e4e640bf9dfcfb0f092dd53d",
+          "executed_at": "2026-10-30T19:34:27.423707+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_runner.py",
+            "-k",
+            "max_turns_budget_finalizes"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "f758e82a11f0b109638cd0e22adb41a8511f62f10fa361f33c5f13dfd620a9a2"
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -1299,7 +1390,7 @@
       "kind": "functional",
       "boundary": "docs/configuration-inventory.csv 与源码 AST 比对",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1346,17 +1437,95 @@
       "features": [
         "FEAT-05"
       ],
-      "check": "CHK-c7fd606b336c"
+      "check": "CHK-c7fd606b336c",
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-c7fd606b336c",
+        "input_hash": "f758e82a11f0b109638cd0e22adb41a8511f62f10fa361f33c5f13dfd620a9a2",
+        "check_config": {
+          "id": "CHK-c7fd606b336c",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/test_configuration_inventory.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "fad1e7d3e4e640bf9dfcfb0f092dd53d",
+        "executed_at": "2026-10-30T19:34:27.423707+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/test_configuration_inventory.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "f758e82a11f0b109638cd0e22adb41a8511f62f10fa361f33c5f13dfd620a9a2"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-c7fd606b336c",
+          "input_hash": "f758e82a11f0b109638cd0e22adb41a8511f62f10fa361f33c5f13dfd620a9a2",
+          "check_config": {
+            "id": "CHK-c7fd606b336c",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/test_configuration_inventory.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "fad1e7d3e4e640bf9dfcfb0f092dd53d",
+          "executed_at": "2026-10-30T19:34:27.423707+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/test_configuration_inventory.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "f758e82a11f0b109638cd0e22adb41a8511f62f10fa361f33c5f13dfd620a9a2"
+        }
+      ]
     }
   ],
   "scenarios_file": "execution-core-deframework.scenarios.md",
   "e2e_gate": 1,
   "quality_schema": 2,
-  "registration": {
-    "ok": true,
-    "registered": [],
-    "errors": []
-  },
   "relock": {
     "preserved": [
       "S-01",

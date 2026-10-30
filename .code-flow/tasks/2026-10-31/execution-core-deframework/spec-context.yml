@@ -1,7 +1,7 @@
 version: 1
 task: execution-core-deframework
 enforcement: required
-updated_at: '2026-10-30T19:33:25.639880+00:00'
+updated_at: '2026-10-30T19:34:40.842545+00:00'
 sources:
 - type: cli
   ref: bind
@@ -48,7 +48,7 @@ bindings:
         - artifact: execution-core-deframework.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: b58d7dd0314452a8d4a1161ef599d4157ebea38543285e007cbdfd795c552dcd
+          artifact_sha256: 740290baf62a2e5d04f8e859dcfb95c269563e3921e3c5a2172848b40f22bd10
         decision: null
         evidence: []
       code:
@@ -125,6 +125,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-30T19:34:27.551137+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 2be9568fb429131fd288060271cd8d20eb803d9754a8104012bad88c1c3fd846
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -169,7 +181,7 @@ bindings:
         - artifact: execution-core-deframework.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: b58d7dd0314452a8d4a1161ef599d4157ebea38543285e007cbdfd795c552dcd
+          artifact_sha256: 740290baf62a2e5d04f8e859dcfb95c269563e3921e3c5a2172848b40f22bd10
         decision: null
         evidence: []
       code:

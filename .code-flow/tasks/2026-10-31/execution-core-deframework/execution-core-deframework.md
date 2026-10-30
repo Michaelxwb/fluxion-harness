@@ -20,9 +20,9 @@
 | E-02 | execution-core-deframework.design.md#2.5 验收条件 | contract | 迁移源文件的 upgrade/downgrade DDL 对称性 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/test_schema_surface_contract.py","-k","e02"] | . | 300 | P1 | auto | local | - | - | - | no |
 | S-04 | execution-core-deframework.design.md#2.5 验收条件 | unit | AgentRunner + 脚本化 provider（无网络、无数据库） | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_core/test_runner.py"] | . | 300 | P0 | auto | none | - | - | - | no |
 | E-01 | execution-core-deframework.design.md#2.5 验收条件 | unit | AgentRunner + 脚本化 provider（无网络） | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_core/test_runner.py","-k","deadline or cancellation or incomplete_model_stream"] | . | 300 | P1 | auto | none | - | - | - | no |
-| B-01 | execution-core-deframework.design.md#2.5 验收条件 | unit | AgentRunner + 持续返回 tool_calls 的脚本化 provider | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_core/test_runner.py","-k","max_turns_budget_finalizes"] | . | 300 | P1 | auto | none | - | - | - | no |
+| B-01 | execution-core-deframework.design.md#2.5 验收条件 | unit | AgentRunner + 持续返回 tool_calls 的脚本化 provider | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_core/test_runner.py","-k","max_turns_budget_finalizes"] | . | 300 | P1 | auto | none | - | - | - | no |
 | S-05 | execution-core-deframework.design.md#2.5 验收条件 | contract | docs/、.code-flow/specs/、packages/、apps/、tests/ 的文本检索（排除历史记录） | TASK-004 | verified | ["uv","run","pytest","-q","tests/contracts/test_langgraph_residue.py"] | . | 300 | P1 | auto | none | - | - | - | no |
-| S-06 | execution-core-deframework.design.md#2.5 验收条件 | contract | docs/configuration-inventory.csv 与源码 AST 比对 | TASK-005 | planned | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
+| S-06 | execution-core-deframework.design.md#2.5 验收条件 | contract | docs/configuration-inventory.csv 与源码 AST 比对 | TASK-005 | verified | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
 
 > 本表覆盖设计中的全部 9 个场景（6 个 S、2 个 E、1 个 B）；无 E2E：本需求不改变浏览器可见行为与 API 契约。
 
@@ -238,7 +238,7 @@
 
 ## TASK-005: 机检恢复与有界性回归复核
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-004
 - **Source**: execution-core-deframework.design.md#3.5 质量实现方案, execution-core-deframework.design.md#2.5 验收条件
@@ -254,25 +254,36 @@
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/test_configuration_inventory.py tests/agent_core/test_runner.py -k "configuration or max_turns"`
-- [ ] 按 AST 口径重生成派生行，删除已不存在的常量行，修正行号
-- [ ] [B-01][unit] 运行 `tests/agent_core/test_runner.py -k max_turns_budget_finalizes`，断言终态 BUDGET_EXCEEDED 且模型调用次数不超过 max_turns
-- [ ] [S-06][contract] 运行 `tests/test_configuration_inventory.py`，断言 CSV 与源码逐项一致
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/test_configuration_inventory.py tests/agent_core/test_runner.py -k "configuration or max_turns"`
+- [x] 按 AST 口径重生成派生行，删除已不存在的常量行，修正行号
+- [x] [B-01][unit] 运行 `tests/agent_core/test_runner.py -k max_turns_budget_finalizes`，断言终态 BUDGET_EXCEEDED 且模型调用次数不超过 max_turns
+- [x] [S-06][contract] 运行 `tests/test_configuration_inventory.py`，断言 CSV 与源码逐项一致
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-01 | unit | AgentRunner + 持续返回 tool_calls 的脚本化 provider | 终态 BUDGET_EXCEEDED；模型调用次数不超过 max_turns；无 RecursionError | tests/agent_core/test_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_runner.py","-k","max_turns_budget_finalizes"] | planned |
-| S-06 | contract | docs/configuration-inventory.csv 与源码 AST | CSV 与源码逐项一致；runner.py 行号与常量对应 | tests/test_configuration_inventory.py | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | planned |
+| B-01 | unit | AgentRunner + 持续返回 tool_calls 的脚本化 provider | 终态 BUDGET_EXCEEDED；模型调用次数不超过 max_turns；无 RecursionError | tests/agent_core/test_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_runner.py","-k","max_turns_budget_finalizes"] | verified |
+| S-06 | contract | docs/configuration-inventory.csv 与源码 AST | CSV 与源码逐项一致；runner.py 行号与常量对应 | tests/test_configuration_inventory.py | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-01 | N/A：纯重构，既有有界性用例在改动前后均通过，无法构造与缺陷对应的失败 | 1 passed, 19 deselected（0.60s） | tests/agent_core/test_runner.py::test_max_turns_budget_finalizes_without_extra_model_call | 脚本化 provider 持续返回 tool_calls，终态 BUDGET_EXCEEDED | verified |
+| S-06 | FAIL: 盘点机检 2 failed —— runner.py 常量与策略字段行号随循环化位移 | 4 passed（1.76s） | tests/test_configuration_inventory.py::test_configuration_inventory_covers_real_python_constants、::test_configuration_inventory_covers_shared_settings_and_policy_fields | 按 AST 口径重生成 docs/configuration-inventory.csv 的派生行（18 行，行号 52-219） | verified |
+
+- B-01: verified — automated command passed; run_id=fad1e7d3e4e640bf9dfcfb0f092dd53d (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=fad1e7d3e4e640bf9dfcfb0f092dd53d (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-31] created (draft)
+- [2026-10-31] started
+- [2026-10-31] completed (done)
 
 ---
+- [2026-10-31] 实现完成：配置盘点派生行按 AST 重生成；有界性用例复核通过
 
 ## TASK-006: 需求收口清单与盘面交叉核对
 
