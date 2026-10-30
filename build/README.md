@@ -350,8 +350,8 @@ muad-im-connector-<HELM_VERSION>.tgz
 ```
 
 部署时用 `--set global.imageTag=<tag>` 对齐本次构建的镜像。建议安装顺序：
-`muad-console-platform`（创建共享 ConfigMap / 可选 PVC / Ingress / 迁移 Job）→ 其余四个服务。
-Secret 和已有的 RWX PVC 是前置条件。
+`muad-console-platform`（创建共享 ConfigMap / 可选 PVC / Ingress）→ 其余四个服务。
+Secret、已有的 RWX PVC 和数据库迁移是前置条件。
 
 ## 6. 与老项目 `muad-openclaw` 的对应关系
 

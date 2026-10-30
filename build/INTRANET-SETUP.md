@@ -270,7 +270,43 @@ kubectl -n "$NS" get pvc muad-artifacts-rwx
 
 - PostgreSQL 已创建 `muad` 数据库和用户。
 - Redis 可访问。
-- 迁移 Job 能连到 PostgreSQL。
+- 执行迁移的机器/镜像能连到 PostgreSQL。
+
+### 4.6 数据库迁移（部署前手动执行）
+
+内网 Helm chart 不再创建迁移 Job，迁移必须在 `helm upgrade` 之前手动完成。
+
+> `deploy/k8s/base/migrate-job.yaml` 是 GitHub/本地 kustomize 路径，仍保留自动迁移
+> Job；它不用于内网 Helm 交付。内网以本节的手动迁移为准。
+
+方式 A：用 console 镜像（推荐，镜像里已带 alembic/sqlalchemy/asyncpg）：
+
+```bash
+export DATABASE_URL='postgresql+asyncpg://muad:CHANGE_ME@postgres:5432/muad'
+export CONSOLE_IMAGE=docker.sangfor.com/mss-dev/muad-console-platform:1.0.0
+
+docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
+  sh -c 'printf "[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n" "$DATABASE_URL" > /tmp/alembic.ini
+         python migrations/db_migrate.py -c /tmp/alembic.ini
+         python migrations/db_migrate.py -c /tmp/alembic.ini current'
+```
+
+方式 B：在仓库里执行：
+
+```bash
+export DATABASE_URL='postgresql+asyncpg://muad:CHANGE_ME@postgres:5432/muad'
+printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' "$DATABASE_URL" > /tmp/alembic.prod.ini
+
+uv run python migrations/db_migrate.py -c /tmp/alembic.prod.ini
+uv run python migrations/db_migrate.py -c /tmp/alembic.prod.ini current
+```
+
+注意：
+
+- 迁移必须在 `helm upgrade` 之前执行；失败就不要部署新版本。
+- `db_migrate.py` 默认执行 `alembic upgrade head`。
+- 不要提交 `/tmp/alembic.prod.ini`。
+- 升级前先备份数据库。
 
 ## 5. Helm 安装
 
@@ -328,7 +364,6 @@ console chart 会创建：
 muad-common ConfigMap
 muad-artifacts-rwx PVC（可选）
 muad-webchat / muad-webchat-sse Ingress
-muad-migrate 迁移 Job（pre-install/pre-upgrade hook）
 muad-console-platform Deployment/Service
 ```
 
@@ -355,9 +390,7 @@ done
 ```bash
 kubectl -n "$NS" get pods -o wide
 kubectl -n "$NS" get svc,ingress
-kubectl -n "$NS" get job
 
-kubectl -n "$NS" logs job/muad-migrate
 kubectl -n "$NS" logs deploy/muad-console-platform --tail=100
 
 kubectl -n "$NS" port-forward svc/muad-console-platform 8000:8000
@@ -396,7 +429,7 @@ helm upgrade muad-agent-runtime ... --set global.imageTag="$NEW_TAG"
 
 注意：
 
-- console chart 的迁移 Job 在 `pre-upgrade` 执行，升级前先备份数据库。
+- 升级前先手动执行数据库迁移（见 4.6），再 `helm upgrade`。
 - 镜像 tag 不要复用；每次发布用新 `TAG`。
 - 回滚：
 
@@ -413,7 +446,7 @@ helm rollback muad-agent-runtime -n "$NS"
 | `ImagePullBackOff` | 镜像 tag/registry 是否正确；`muad-registry` 是否存在；`kubectl describe pod` |
 | `CreateContainerConfigError` | `muad-external` / `muad-connector-external` 键是否齐全；`muad-common` ConfigMap 是否存在 |
 | Pod `Pending` | `muad-artifacts-rwx` 是否 Bound；StorageClass 是否支持 RWX |
-| `muad-migrate` 失败 | `DATABASE_URL`、数据库网络、用户权限；`kubectl logs job/muad-migrate` |
+| 应用启动报表不存在/列不存在 | 部署前没有执行 4.6 的数据库迁移 |
 | 服务起来但内部调用 401/403 | 两个 Secret 的 `INTERNAL_SERVICE_TOKEN` 是否一致；改完重启 Pod |
 | 千流 release 任务报 `helm: command not found` | Docker 任务镜像没有 helm；安装或改用 `task2-helm.sh` 单独流水线 |
 | 千流 release 任务报 `sfspm: command not found` | 同上 |

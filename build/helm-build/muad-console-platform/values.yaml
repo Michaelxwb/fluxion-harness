@@ -28,9 +28,6 @@ service:
   name: muad-console-platform
   image: muad-console-platform
   port: 8000
-migration:
-  enabled: true
-  backoffLimit: 1
 ingress:
   enabled: true
   className: nginx
