@@ -113,5 +113,19 @@ if [[ "$(cd "$(dirname "${chart_tgz}")" && pwd)" != "$(cd "${HELM_CACHE_DIR}" &&
 fi
 printf '%s\n' "$(basename "${chart_tgz}")" > "${HELM_CACHE_DIR}/HELM_PKG"
 printf '%s\n' "${HELM_VERSION}" > "${HELM_CACHE_DIR}/HELM_VERSION"
-log "metadata=${HELM_CACHE_DIR} (HELM_PKG, HELM_VERSION)"
+
+# 部署流水线可 source 这个文件拿镜像 tag / chart 版本 / helm 仓库
+image_ref="$(cat "${IMAGE_CACHE_DIR}/image.txt" 2>/dev/null || true)"
+if [[ -n "${image_ref}" ]]; then
+  {
+    printf 'IMAGE_NAMESPACE=%s\n' "${image_ref%/*}"
+    printf 'IMAGE_REPOSITORY=%s\n' "${image_ref%:*}"
+    printf 'IMAGE_TAG=%s\n' "${image_ref##*:}"
+    printf 'CHART_VERSION=%s\n' "${HELM_VERSION}"
+    printf 'HELM_REPOSITORY=%s\n' "${HELM_REPOSITORY}"
+  } > "${HELM_CACHE_DIR}/release.env"
+  log "release env: ${HELM_CACHE_DIR}/release.env"
+fi
+
+log "metadata=${HELM_CACHE_DIR} (HELM_PKG, HELM_VERSION, release.env)"
 log "done in $(( $(date +%s) - STARTED_AT ))s: ${chart_tgz}"
