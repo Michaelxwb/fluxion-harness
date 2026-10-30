@@ -19,7 +19,7 @@
 # 内网发布（DOCKER_USER / DOCKER_PASS 由千流 Secret 注入）
 BASE_REGISTRY=docker.sangfor.com/mss-base \
 SOURCE_BASE_IMAGE=docker.sangfor.com/mss-base/python:3.11.2 \
-PLATFORM=linux/amd64 PUSH=1 \
+PLATFORM=linux/amd64 \
 DOCKER_USER="$DOCKER_USER" DOCKER_PASS="$DOCKER_PASS" \
   ./build/docker-build/base/build.sh
 ```
@@ -32,7 +32,7 @@ docker.sangfor.com/mss-base/python-node:3.12.13-node24
 ```
 
 > 底座镜像是独立的一次性任务，不要放进 5 条服务流水线。构建机不能访问
-> GitHub / nodejs.org 时，把源码包放到 `vendor/`；生产发布用 `PUSH=1`。
+> GitHub / nodejs.org 时，把源码包放到 `vendor/`。
 
 ### Python 3.12.13 怎么来的
 
@@ -92,9 +92,9 @@ Dockerfile 会优先使用 `vendor/` 下的文件，找不到才走 `PYTHON_STAN
 | `PIP_INDEX_URL` | 否 | `http://mirrors.sangfor.org/pypi/simple` | 安装 setuptools/wheel |
 | `PIP_TRUSTED_HOST` | 否 | `mirrors.sangfor.org` | http 源 |
 | `PLATFORM` | 否 | `linux/amd64` | 目标架构 |
-| `PUSH` | 否 | `0` | 发布时设 `1` |
-| `DOCKER_USER` | `PUSH=1` 时必填 | - | 内网 registry 账号 |
-| `DOCKER_PASS` | `PUSH=1` 时必填 | - | 内网 registry 密码 |
+| `DOCKER_USER` | 推送时必填 | - | 内网 registry 账号 |
+| `DOCKER_PASS` | 推送时必填 | - | 内网 registry 密码 |
+| `PUSH` | 否 | 有凭据时 `1`，否则 `0` | 一般不用配；本地强制不推送设 `0` |
 
 > Node 24 只给 `agent-runtime`/`agent-worker`。`console-platform` 的前端构建用 Node
 > builder，运行镜像不需要 Node。
@@ -148,8 +148,8 @@ RUN pip install --no-deps --no-build-isolation /app/packages/* /app/apps/<servic
 | `DOCKER_PASS` | 底座任务、5 个镜像任务 | 内网 registry 密码 |
 | `AUTH_TOKEN` | Helm 任务 | sfspm token（也兼容 `sfspm_token`） |
 
-`DOCKER_USER` / `DOCKER_PASS` 只在 `PUSH=1` 时读取；脚本不内置任何默认账号密码，
-也不把凭据写进仓库。
+`DOCKER_USER` / `DOCKER_PASS` 有值就登录并默认推送；没有凭据只构建不推送。
+脚本不内置任何默认账号密码，也不把凭据写进仓库。
 
 ### 前端任务（Node）
 
@@ -242,11 +242,11 @@ Task2 一次打包 5 个 per-service chart，并可选上传 5 个 tgz；不依�
 
 | 变量 | 必填 | 默认 | 说明 |
 |---|---|---|---|
-| `DOCKER_USER` | `PUSH=1` 时必填 | - | 内网 registry 账号 |
-| `DOCKER_PASS` | `PUSH=1` 时必填 | - | 内网 registry 密码 |
+| `DOCKER_USER` | 推送时必填 | - | 内网 registry 账号 |
+| `DOCKER_PASS` | 推送时必填 | - | 内网 registry 密码 |
 | `CI_COMMIT_BRANCH` | 建议 | - | 分支路由 |
 | `CI_COMMIT_TAG` | 可选 | - | `v*` 走 release |
-| `PUSH` | 否 | `1` | 本地测试设 0 |
+| `PUSH` | 否 | 有凭据时 `1`，否则 `0` | 一般不用配；本地测试设 `0` |
 | `PLATFORM` | 否 | `linux/amd64` | 集群架构 |
 | `PYTHON_BASE_IMAGE` | 否 | `docker.sangfor.com/mss-base/python:3.12.13` | Python 底座 |
 | `NODE_BASE_IMAGE` | 否 | `docker.sangfor.com/mss-base/python-node:3.12.13-node24` | Node 底座 |
@@ -389,7 +389,7 @@ global.nodeSelector / tolerations / affinity / extraEnvFrom
 ```bash
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
 IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
-TAG=1.0.0 PUSH=1 \
+TAG=1.0.0 \
   ./build/nginx-build/build.sh
 ```
 

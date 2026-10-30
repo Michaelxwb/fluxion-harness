@@ -12,8 +12,9 @@
 #   BASE_REGISTRY=local SOURCE_BASE_IMAGE=docker.sangfor.com/mss-base/python:3.11.2 \
 #     PLATFORM=linux/amd64 PUSH=0 ./build/docker-build/base/build.sh
 #
-#   # intranet publish (DOCKER_USER / DOCKER_PASS come from CI secrets)
-#   BASE_REGISTRY=docker.sangfor.com/mss-base PLATFORM=linux/amd64 PUSH=1 \
+#   # intranet publish (DOCKER_USER / DOCKER_PASS come from CI secrets;
+#   # credentials alone enable the push, PUSH is not needed)
+#   BASE_REGISTRY=docker.sangfor.com/mss-base PLATFORM=linux/amd64 \
 #     DOCKER_USER=... DOCKER_PASS=... ./build/docker-build/base/build.sh
 #
 # Offline: put the Python standalone archive and node-v24.22.2-linux-x64.tar.gz
@@ -38,7 +39,16 @@ NODE_DIST_URL="${NODE_DIST_URL:-https://nodejs.org/dist/v${NODE_VERSION}}"
 PIP_INDEX_URL="${PIP_INDEX_URL:-http://mirrors.sangfor.org/pypi/simple}"
 PIP_TRUSTED_HOST="${PIP_TRUSTED_HOST:-mirrors.sangfor.org}"
 PLATFORM="${PLATFORM:-linux/amd64}"
-PUSH="${PUSH:-0}"
+# PUSH is optional: with registry credentials present the scripts push by
+# default, without credentials they only build. Set PUSH=0 to force a local
+# build even when credentials are exported.
+if [[ -z "${PUSH:-}" ]]; then
+  if [[ -n "${DOCKER_USER:-}" && -n "${DOCKER_PASS:-}" ]]; then
+    PUSH=1
+  else
+    PUSH=0
+  fi
+fi
 
 PYTHON_REF="${BASE_REGISTRY}/python:${PYTHON_BASE_TAG}"
 NODE_REF="${BASE_REGISTRY}/python-node:${NODE_BASE_TAG}"
@@ -58,12 +68,18 @@ command -v docker >/dev/null 2>&1 || die "docker is required"
 [[ -f "${BASE_DIR}/extract.py" ]] || die "missing extract.py"
 [[ -d "${BASE_DIR}/vendor" ]] || die "missing vendor directory: ${BASE_DIR}/vendor"
 
-if [[ "${PUSH}" == "1" ]]; then
-  : "${DOCKER_USER:?DOCKER_USER is required when PUSH=1}"
-  : "${DOCKER_PASS:?DOCKER_PASS is required when PUSH=1}"
+if [[ -n "${DOCKER_USER:-}" && -n "${DOCKER_PASS:-}" ]]; then
   log "docker login ${REGISTRY_HOST}"
   printf '%s' "${DOCKER_PASS}" | docker login "${REGISTRY_HOST}" \
     --username "${DOCKER_USER}" --password-stdin
+elif [[ "${PUSH}" == "1" ]]; then
+  die "DOCKER_USER and DOCKER_PASS are required when PUSH=1"
+fi
+
+if ! docker image inspect "${SOURCE_BASE_IMAGE}" >/dev/null 2>&1; then
+  log "pulling source base image ${SOURCE_BASE_IMAGE}"
+  docker pull "${SOURCE_BASE_IMAGE}" || \
+    die "cannot pull source base image ${SOURCE_BASE_IMAGE}; check registry login/permissions"
 fi
 
 log "python base: ${PYTHON_REF} <- ${SOURCE_BASE_IMAGE} (Python ${PYTHON_VERSION}, ${PLATFORM})"

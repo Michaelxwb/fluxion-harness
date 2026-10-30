@@ -17,7 +17,16 @@ if [[ -z "${IMAGE_REPOSITORY:-}" ]]; then
 fi
 TAG="${TAG:-1.0.0}"
 PLATFORM="${PLATFORM:-linux/amd64}"
-PUSH="${PUSH:-0}"
+# PUSH is optional: with registry credentials present the scripts push by
+# default, without credentials they only build. Set PUSH=0 to force a local
+# build even when credentials are exported.
+if [[ -z "${PUSH:-}" ]]; then
+  if [[ -n "${DOCKER_USER:-}" && -n "${DOCKER_PASS:-}" ]]; then
+    PUSH=1
+  else
+    PUSH=0
+  fi
+fi
 
 log() { printf '[nginx] %s\n' "$*"; }
 die() { printf '[nginx][ERROR] %s\n' "$*" >&2; exit 1; }

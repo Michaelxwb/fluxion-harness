@@ -26,7 +26,16 @@ PYTHON_BASE_IMAGE="${PYTHON_BASE_IMAGE:-docker.sangfor.com/mss-base/python:3.12.
 NODE_BASE_IMAGE="${NODE_BASE_IMAGE:-docker.sangfor.com/mss-base/python-node:3.12.13-node24}"
 PIP_INDEX_URL="${PIP_INDEX_URL:-http://mirrors.sangfor.org/pypi/simple}"
 PIP_TRUSTED_HOST="${PIP_TRUSTED_HOST:-mirrors.sangfor.org}"
-PUSH="${PUSH:-1}"
+# PUSH is optional: with registry credentials present the scripts push by
+# default, without credentials they only build. Set PUSH=0 to force a local
+# build even when credentials are exported.
+if [[ -z "${PUSH:-}" ]]; then
+  if [[ -n "${DOCKER_USER:-}" && -n "${DOCKER_PASS:-}" ]]; then
+    PUSH=1
+  else
+    PUSH=0
+  fi
+fi
 FRONTEND_CACHE_DIR="${FRONTEND_CACHE_DIR:-/tmp/muad-console-frontend}"
 IMAGE_CACHE_DIR="${IMAGE_CACHE_DIR:-/tmp/muad-image-${SERVICE}}"
 

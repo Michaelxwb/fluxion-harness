@@ -60,7 +60,7 @@ DOCKER_USER="$DOCKER_USER" \
 DOCKER_PASS="$DOCKER_PASS" \
 BASE_REGISTRY=docker.sangfor.com/mss-base \
 SOURCE_BASE_IMAGE=docker.sangfor.com/mss-base/python:3.11.2 \
-PLATFORM=linux/amd64 PUSH=1 \
+PLATFORM=linux/amd64 \
   bash ./build/docker-build/base/build.sh
 ```
 
@@ -93,12 +93,14 @@ python-build-standalone，不需要编译。
 ```text
 DOCKER_USER
 DOCKER_PASS
-PUSH=1
 PLATFORM=linux/amd64
 TAG=1.0.0
 UPLOAD=1
 AUTH_TOKEN
 ```
+
+`PUSH` 不用配：有 `DOCKER_USER` / `DOCKER_PASS` 就登录并推送，没有凭据就只构建。
+本地测试需要强制不推送时再设 `PUSH=0`。
 
 console release 额外：
 
@@ -140,7 +142,7 @@ Helm 仓库：mss-release-helm（release）或 mss-dev-helm（feature）
 ```bash
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
 IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
-TAG=1.0.0 PUSH=1 \
+TAG=1.0.0 \
   ./build/nginx-build/build.sh
 ```
 
@@ -151,7 +153,7 @@ NGINX_BUILD_MODE=copy \
 NGINX_SOURCE_IMAGE=<和底座 glibc 兼容的 nginx 镜像> \
 BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
 IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
-TAG=1.0.0 PUSH=1 \
+TAG=1.0.0 \
   ./build/nginx-build/build.sh
 ```
 
@@ -168,7 +170,7 @@ TAG=1.0.0 PUSH=1 \
 |---|---|
 | 命令 | `bash ./build/docker-build/task-image-nginx-entry.sh` |
 | 任务镜像 | 带 `docker` 即可，不需要 helm/sfspm |
-| 变量 | `BASE_IMAGE`、`IMAGE_REPOSITORY`、`TAG`、`PUSH=1`、`DOCKER_USER`、`DOCKER_PASS` |
+| 变量 | `BASE_IMAGE`、`IMAGE_REPOSITORY`、`TAG`、`DOCKER_USER`、`DOCKER_PASS`（`PUSH` 不用配） |
 | 默认构建 | `NGINX_BUILD_MODE=rpm` |
 | 兜底 | `NGINX_BUILD_MODE=copy` + `NGINX_SOURCE_IMAGE` |
 
