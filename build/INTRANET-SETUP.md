@@ -101,7 +101,7 @@ AUTH_TOKEN
 其余变量都有默认值，不用配：
 
 ```text
-TAG                       默认 1.0.0.<提交时间><分支名>（git tag 发布时用 tag）
+TAG                       默认 1.0.0.<构建时间><分支名>（git tag 发布时用 tag）
 PLATFORM                  默认 linux/amd64
 FRONTEND_CACHE_DIR        默认 /tmp/muad-console-frontend（前端任务和 console 任务一致）
 ```
@@ -117,8 +117,8 @@ FRONTEND_CACHE_DIR        默认 /tmp/muad-console-frontend（前端任务和 co
 本地直接跑 `build-image.sh` / `package-service.sh` 时可以不配，只构建/打包不上传；
 需要强制不推送/不上传时才设 `PUSH=0` / `UPLOAD=0`。
 
-5 条流水线构建同一个提交时，默认 tag 相同（提交时间 + 分支），镜像天然对齐。
-需要固定版本时再显式设 `TAG=1.0.0`。
+默认 tag 用构建时间，每次运行流水线都不同；部署按服务读取 `release-<service>.env`。
+需要所有服务共用一个 tag 时，在流水线最前面统一设置 `TAG`。
 
 ### 2.2 任务镜像
 
@@ -191,7 +191,7 @@ IMAGE_REPOSITORY=docker.sangfor.com/mss-release/muad-nginx \
 |---|---|---|
 | `BASE_IMAGE` | `docker.sangfor.com/mss-base/platos-kylin:1.3.2` | 构建底座 |
 | `IMAGE_REPOSITORY` | 按分支路由 | 覆盖目标仓库 |
-| `TAG` | `1.0.0.<提交时间><分支名>` | 和 5 个服务同 tag |
+| `TAG` | `1.0.0.<构建时间><分支名>` | 和 5 个服务同 tag |
 | `NGINX_BUILD_MODE` | `rpm` | 装不上时改 `copy` |
 | `NGINX_SOURCE_IMAGE` | `nginx:1.24-bullseye` | 仅 copy 模式使用 |
 | `PLATFORM` | `linux/amd64` | 目标架构 |
@@ -208,7 +208,7 @@ Helm：mss-release-helm/muad-nginx-<HELM_VERSION>.tgz
 
 只要镜像、不要 chart 时，用 `task-image-nginx-entry.sh`（不需要 `helm` / `sfspm`）。
 
-`<TAG>` 和 5 个服务镜像一致（同一提交生成同一个 tag），部署时可以统一用
+`<TAG>` 按服务从 `release-<service>.env` 读取，部署时不需要手动统一
 `global.imageTag=<TAG>`。
 
 日志是 6 步，能直接看出卡在哪：
@@ -342,7 +342,7 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
 | 镜像 push 401 | 检查 `DOCKER_USER` / `DOCKER_PASS` |
 | console 报前端缓存缺失 | 检查前端节点上传和 console release 节点下载都是 `/tmp/muad-console-frontend/` |
 | release 报 `helm` / `sfspm` 不存在 | 任务镜像缺命令，安装或改用单独的 `task2-helm.sh` |
-| 5 个镜像 tag 不一致 | 同一提交默认 tag 相同；手工设 `TAG` 时 5 条要一致 |
+| 5 个镜像 tag 不一致 | 默认按构建时间生成，各服务可能不同；需要统一时流水线设置同一个 `TAG` |
 | chart 重复上传 | 用了 `task-release-*` 就不要再跑 `task2-helm.sh` |
 | nginx 报 `libprofiler.so.0` | RPM 缺 gperftools 依赖；构建会自动尝试 `gperftools-libs` 等包，仍失败改用 copy 模式 |
 | nginx RPM 安装失败 | 改用 `NGINX_BUILD_MODE=copy`，或把 `NGINX_SOURCE_IMAGE` 指向 `portal-nginx` 镜像 |

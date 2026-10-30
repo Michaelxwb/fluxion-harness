@@ -247,7 +247,7 @@ Task2 一次打包 5 个 per-service chart，并可选上传 5 个 tgz；不依�
 | `CI_COMMIT_BRANCH` | 建议 | - | 分支路由 |
 | `CI_COMMIT_TAG` | 可选 | - | 任意 tag 走 release |
 | `PUSH` | 否 | 有凭据时 `1`，否则 `0` | 一般不用配；本地测试设 `0` |
-| `TAG` | 否 | `1.0.0.<提交时间><分支名>` | 需要固定版本时设 `1.0.0` |
+| `TAG` | 否 | `1.0.0.<构建时间><分支名>` | 需要固定版本时设 `1.0.0` |
 | `PLATFORM` | 否 | `linux/amd64` | 集群架构 |
 | `PYTHON_BASE_IMAGE` | 否 | `docker.sangfor.com/mss-base/python:3.12.13` | Python 底座 |
 | `NODE_BASE_IMAGE` | 否 | `docker.sangfor.com/mss-base/python-node:3.12.13-node24` | Node 底座 |
@@ -269,7 +269,7 @@ feature / bug                       -> docker.sangfor.com/mss-dev
 ```text
 显式 TAG        -> 直接使用
 git tag         -> 使用 tag，去掉前缀 v
-分支构建        -> 1.0.0.<提交时间 yyMMddHHmm><分支名>
+分支构建        -> 1.0.0.<构建时间 yyMMddHHmm><分支名>
 ```
 
 例如：
@@ -279,8 +279,9 @@ feature/tiyanwenti-1030-txj
 -> 1.0.0.2610302008feature-tiyanwenti-1030-txj
 ```
 
-时间取提交时间而不是构建时间，5 条流水线构建同一提交会得到同一个 tag；
-分支名里的 `/` 换成 `-`。
+时间取构建时间，每次运行流水线都会生成新 tag；分支名里的 `/` 换成 `-`。
+6 条流水线可能落在不同分钟，部署按服务读取 `/tmp/muad-helm/release-<service>.env`；
+需要所有服务共用一个 tag 时，在流水线最前面统一设置 `TAG`。
 
 ### 环境变量（前端任务）
 

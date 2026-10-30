@@ -4,9 +4,8 @@
 # Default format (matches the intranet convention):
 #   1.0.0.<yyMMddHHmm><branch>      e.g. 1.0.0.2610302008feature-tiyanwenti-1030-txj
 #
-# The timestamp is the commit time, not the wall clock, so all five service
-# pipelines building the same commit produce the same tag even when they start
-# in different minutes. Branch slashes become dashes to stay a valid docker tag.
+# The timestamp is the build time, so every pipeline run produces a new tag.
+# Branch slashes become dashes to stay a valid docker tag.
 #
 # Order:
 #   1. explicit TAG
@@ -38,8 +37,7 @@ default_image_tag() {
   branch="${branch//\//-}"
   branch="${branch//:/-}"
 
-  timestamp="$(git -C "${repo_root}" log -1 --format=%cd --date=format:%y%m%d%H%M 2>/dev/null || true)"
-  [[ -n "${timestamp}" ]] || timestamp="$(date +%y%m%d%H%M)"
+  timestamp="$(date +%y%m%d%H%M)"
 
   printf '%s\n' "1.0.0.${timestamp}${branch}"
 }
