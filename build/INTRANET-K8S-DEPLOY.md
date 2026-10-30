@@ -483,15 +483,25 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
 
 迁移失败不要部署新版本。
 
-`current` 输出的 revision 应该等于最新迁移版本：
+怎么判断有没有新迁移：
 
 ```bash
 docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
-  sh -c 'python migrations/db_migrate.py current'
+  sh -c 'printf "[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n" "$DATABASE_URL" > /tmp/alembic.ini
+         echo "db:";      python migrations/db_migrate.py -c /tmp/alembic.ini current
+         echo "code:";    python migrations/db_migrate.py -c /tmp/alembic.ini heads
+         echo "pending:"; python migrations/db_migrate.py -c /tmp/alembic.ini history -r current:head'
 ```
 
-只有新增了迁移文件（`migrations/versions/`）的版本才需要变更 schema；
-每次发布前跑一遍 `upgrade head` 只是确认已到最新。
+- `db` 和 `code` 一致：没有待执行迁移
+- 不一致：有新迁移，跑 `upgrade head`
+- 空库还没有 revision，`history -r current:head` 会报错，直接跑 `upgrade head`
+
+新迁移一般是表结构变更（建表、加列、索引、约束、schema），也可能包含数据回填
+（例如 0025 的存量会话迁移），所以准确说是“数据库变更”，不只是“表结构变更”。
+
+只有 `migrations/versions/` 新增文件的版本才需要动库；每次发布前跑一遍 `upgrade head`
+只是确认已经到最新。
 
 ## 5. 验证
 
