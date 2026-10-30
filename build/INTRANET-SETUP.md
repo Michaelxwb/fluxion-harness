@@ -138,6 +138,8 @@ Helm 仓库：mss-release-helm（release）或 mss-dev-helm（feature）
 build/INTRANET-K8S-DEPLOY.md
 ```
 
+所有 `.env` 配置的完整映射见该文档的 **2.6 节**。
+
 顺序：
 
 ```text
