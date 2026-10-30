@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: muad-entry-nginx
+  namespace: muad
+  labels:
+    app: muad-entry-nginx
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: muad-entry-nginx
+  template:
+    metadata:
+      labels:
+        app: muad-entry-nginx
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: nginx
+          image: docker.sangfor.com/mss-base/muad-nginx:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: muad-entry-nginx
+  namespace: muad
+  labels:
+    app: muad-entry-nginx
+spec:
+  type: NodePort
+  selector:
+    app: muad-entry-nginx
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30090

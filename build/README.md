@@ -382,6 +382,28 @@ autoscaling.enabled / minReplicas / maxReplicas
 global.nodeSelector / tolerations / affinity / extraEnvFrom
 ```
 
+## 5.2 统一入口 nginx（可选）
+
+如果希望一个 NodePort 同时提供 console 页面和 gateway 聊天/SSE，构建：
+
+```bash
+BASE_IMAGE=docker.sangfor.com/mss-base/platos-kylin:1.3.2 \
+IMAGE_REPOSITORY=docker.sangfor.com/mss-base/muad-nginx \
+TAG=1.0.0 PUSH=1 \
+  ./build/nginx-build/build.sh
+```
+
+部署：
+
+```bash
+kubectl apply -f build/nginx-entry.yaml
+```
+
+使用前把 console/gateway 改成 `service.type=ClusterIP` 并去掉各自的 NodePort，
+入口统一走 `muad-entry-nginx:30090`。
+
+详见 `build/nginx-build/README.md`。
+
 ## 6. 与老项目 `muad-openclaw` 的对应关系
 
 参考了老项目的**千流任务拆分方式**，但没有逐字复制脚本内容。老项目是
