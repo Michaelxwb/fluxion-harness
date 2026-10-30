@@ -56,6 +56,17 @@ kubectl -n muad create secret generic muad-connector-external \
 
 `DATABASE_URL` 用 `postgresql+asyncpg://`；两个 Secret 的 `INTERNAL_SERVICE_TOKEN` 必须一致。
 
+外部托管 PostgreSQL / Redis 时，URL 格式：
+
+```text
+DATABASE_URL=postgresql+asyncpg://<user>:<password>@<pg-host>:5432/<db>
+REDIS_URL=redis://:<password>@<redis-host>:6379/0
+```
+
+- 密码含 `@ : / ? #` 等字符时先做 URL 编码。
+- `REDIS_URL` 只支持单节点或代理地址。原生 Redis Cluster（多个 master + MOVED 重定向）
+  当前版本不支持，需要前面有 VIP / 代理，或改代码改用 `RedisCluster`。
+
 ### 1.3 镜像拉取 Secret
 
 ```bash
