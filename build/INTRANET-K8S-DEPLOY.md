@@ -679,7 +679,8 @@ release: muad-entry-nginx
 --set service.type=NodePort \
 --set service.nodePort=30090 \
 --set service.externalTrafficPolicy=Cluster \
---set replicaCount=2 \
+--set autoscaling.minReplicas=2 \
+--set autoscaling.maxReplicas=2 \
 --set service.resources.requests.cpu=100m \
 --set service.resources.requests.memory=128Mi \
 --set service.resources.limits.cpu=500m \
@@ -700,7 +701,8 @@ release: muad-entry-nginx
 | `service.type` | `NodePort` | 统一入口用 `NodePort`；走 Ingress 改 `ClusterIP` |
 | `service.nodePort` | `30090` | 对外端口 |
 | `service.externalTrafficPolicy` | `''` | 只对 `NodePort` / `LoadBalancer` 生效 |
-| `replicaCount` | `2` | 副本数，nginx chart 没有 HPA |
+| `autoscaling.minReplicas` | `2` | 副本数（没有 HPA 时即实际副本数） |
+| `autoscaling.maxReplicas` | `2` | 与 5 个服务保持同一组参数 |
 | `service.resources.*` | 100m/128Mi、500m/512Mi | requests / limits |
 | `probes.path` | `/healthz` | 就绪/存活探针路径 |
 | `global.nodeSelector` | `{}` | 不限制节点；要固定时加 `--set global.nodeSelector.app=openclaw` |

@@ -29,6 +29,11 @@ service:
   tolerations: []
   affinity: {}
   sysctls: []
-replicaCount: 2
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 2
+  cpuUtilization: 70
+  memoryUtilization: 80
 probes:
   path: /healthz
