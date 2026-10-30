@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Intranet service image: im-gateway.
-ARG BASE_IMAGE=docker.sangfor.com/mss-base/muad-python-base:3.12
+ARG BASE_IMAGE=docker.sangfor.com/mss-base/python:3.12.13
 FROM ${BASE_IMAGE}
 
 ARG PIP_INDEX_URL=http://mirrors.sangfor.org/pypi/simple

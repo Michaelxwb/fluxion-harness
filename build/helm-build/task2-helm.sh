@@ -11,6 +11,7 @@ HELM_CACHE_DIR="${HELM_CACHE_DIR:-/tmp/muad-helm}"
 BUILD_CACHE_DIR="${BUILD_CACHE_DIR:-/tmp/muad-build}"
 UPLOAD="${UPLOAD:-1}"
 DIST_VERSION="${DIST_VERSION:-}"
+AUTH_TOKEN="${AUTH_TOKEN:-${sfspm_token:-}}"
 
 log() { printf '[helm-task] %s\n' "$*"; }
 die() { printf '[helm-task][ERROR] %s\n' "$*" >&2; exit 1; }

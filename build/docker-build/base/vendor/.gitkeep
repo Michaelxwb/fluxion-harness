@@ -1,0 +1,1 @@
+# Keep this directory in git so `COPY vendor/` always has a build context.

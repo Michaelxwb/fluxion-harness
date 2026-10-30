@@ -12,15 +12,18 @@ set -euo pipefail
 SERVICE="${1:-}"
 [[ -n "${SERVICE}" ]] || { echo "usage: $0 <service>" >&2; exit 2; }
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(pwd)"
+if [[ ! -f "${REPO_ROOT}/build/docker-build/Dockerfile.${SERVICE}" ]]; then
+  REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+fi
 cd "${REPO_ROOT}"
 
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-}"
 IMAGE_PREFIX="${IMAGE_PREFIX:-muad-}"
 TAG="${TAG:-}"
 PLATFORM="${PLATFORM:-linux/amd64}"
-PYTHON_BASE_IMAGE="${PYTHON_BASE_IMAGE:-docker.sangfor.com/mss-base/muad-python-base:3.12}"
-NODE_BASE_IMAGE="${NODE_BASE_IMAGE:-docker.sangfor.com/mss-base/muad-python-node-base:3.12-node24}"
+PYTHON_BASE_IMAGE="${PYTHON_BASE_IMAGE:-docker.sangfor.com/mss-base/python:3.12.13}"
+NODE_BASE_IMAGE="${NODE_BASE_IMAGE:-docker.sangfor.com/mss-base/python-node:3.12.13-node24}"
 PIP_INDEX_URL="${PIP_INDEX_URL:-http://mirrors.sangfor.org/pypi/simple}"
 PIP_TRUSTED_HOST="${PIP_TRUSTED_HOST:-mirrors.sangfor.org}"
 PUSH="${PUSH:-1}"
@@ -75,7 +78,8 @@ fi
 if [[ "${PUSH}" == "1" ]]; then
   : "${DOCKER_USER:?DOCKER_USER is required when PUSH=1}"
   : "${DOCKER_PASS:?DOCKER_PASS is required when PUSH=1}"
-  printf '%s' "${DOCKER_PASS}" | docker login docker.sangfor.com \
+  registry_host="${IMAGE_NAMESPACE%%/*}"
+  printf '%s' "${DOCKER_PASS}" | docker login "${registry_host}" \
     --username "${DOCKER_USER}" --password-stdin
 fi
 

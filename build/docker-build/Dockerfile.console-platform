@@ -5,7 +5,7 @@
 # the non-root muad user. Third-party dependencies are installed from
 # requirements.txt; workspace packages are installed from
 # local source with --no-deps (their dependencies are already pinned above).
-ARG BASE_IMAGE=docker.sangfor.com/mss-base/muad-python-base:3.12
+ARG BASE_IMAGE=docker.sangfor.com/mss-base/python:3.12.13
 FROM ${BASE_IMAGE}
 
 ARG PIP_INDEX_URL=http://mirrors.sangfor.org/pypi/simple

@@ -1,6 +1,6 @@
 .PHONY: check compile test acceptance acceptance-clean acceptance-e2e smoke capacity-smoke capacity-load capacity-soak capacity-wecom e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck base-images export-requirements verify-build-assets
 
-# 内网底座镜像（Python 3.12 / Python 3.12 + Node 24）；发布需显式 PUSH=1。
+# 内网底座镜像（Python 3.12.13 / Python 3.12.13 + Node 24）；发布需显式 PUSH=1。
 base-images:
 	./build/docker-build/base/build.sh
 

@@ -1,21 +1,68 @@
 # syntax=docker/dockerfile:1
-# Python 3.12 + Node.js 24 runtime base for agent-runtime / agent-worker.
+# Python 3.12.13 + Node.js 24 base for agent-runtime / agent-worker.
 #
-# JS skills are executed by packages/agent-core/.../skill/executor.py via `node`.
-# The Node binary is copied from the official Debian bookworm image; libstdc++6
-# is required by that binary and is intentionally installed here, not per app.
-ARG BASE_IMAGE=muad-python-base:3.12
-ARG NODE_IMAGE=node:24-bookworm-slim
-FROM ${NODE_IMAGE} AS node-runtime
+# Node is installed from the official linux tarball instead of copying from
+# node:24-bookworm-slim: the Python base follows the 3.11.2 tag (Debian 11,
+# glibc 2.31), while the bookworm Node image is built against glibc 2.36.
+# The official Node tarball is built for older glibc and runs on both.
+#
+# Offline builds: put node-v24.22.2-linux-x64.tar.gz (or -arm64) in ./vendor/.
+ARG BASE_IMAGE=docker.sangfor.com/mss-base/python:3.12.13
 
 FROM ${BASE_IMAGE}
 
+ARG NODE_VERSION=24.22.2
+ARG NODE_DIST_URL=https://nodejs.org/dist/v${NODE_VERSION}
+ARG TARGETARCH=amd64
+
 USER root
-COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
-RUN apt-get update \
- && apt-get install -y --no-install-recommends libstdc++6 \
- && rm -rf /var/lib/apt/lists/* \
- && node --version
+SHELL ["/bin/sh", "-c"]
+
+# Node needs libstdc++ at runtime; libatomic is required on some architectures.
+RUN set -eux; \
+    need=0; \
+    ldconfig -p 2>/dev/null | grep -q 'libstdc++.so.6' || need=1; \
+    ldconfig -p 2>/dev/null | grep -q 'libatomic.so.1' || need=1; \
+    if [ "${need}" = "1" ]; then \
+      if command -v apt-get >/dev/null 2>&1; then \
+        apt-get update; \
+        apt-get install -y --no-install-recommends libstdc++6 libatomic1 ca-certificates; \
+        rm -rf /var/lib/apt/lists/*; \
+      elif command -v dnf >/dev/null 2>&1; then \
+        dnf install -y libstdc++ libatomic ca-certificates; \
+        dnf clean all; \
+      elif command -v yum >/dev/null 2>&1; then \
+        yum install -y libstdc++ libatomic ca-certificates; \
+        yum clean all; \
+      else \
+        echo "libstdc++/libatomic are missing and no apt-get/dnf/yum is available" >&2; \
+        exit 1; \
+      fi; \
+    fi
+
+COPY vendor/ /tmp/node-vendor/
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+      amd64) node_arch=x64 ;; \
+      arm64) node_arch=arm64 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    tarball="/tmp/node-vendor/node-v${NODE_VERSION}-linux-${node_arch}.tar.gz"; \
+    if [ ! -f "${tarball}" ]; then \
+      url="${NODE_DIST_URL}/node-v${NODE_VERSION}-linux-${node_arch}.tar.gz"; \
+      if command -v curl >/dev/null 2>&1; then \
+        curl -fsSL "${url}" -o "${tarball}"; \
+      elif command -v wget >/dev/null 2>&1; then \
+        wget -q "${url}" -O "${tarball}"; \
+      else \
+        python3 -c 'import urllib.request,sys; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])' \
+          "${url}" "${tarball}"; \
+      fi; \
+    fi; \
+    tar -xzf "${tarball}" -C /usr/local --strip-components=1 --no-same-owner; \
+    rm -rf /tmp/node-vendor; \
+    node --version; \
+    npm --version
 
 USER 10001:10001
 WORKDIR /app

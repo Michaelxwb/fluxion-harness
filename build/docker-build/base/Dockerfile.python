@@ -1,13 +1,111 @@
 # syntax=docker/dockerfile:1
-# Python 3.12 runtime base for console-platform / im-gateway / im-connector.
+# Python 3.12.13 base derived from the intranet Python 3.11.2 image.
 #
-# This image intentionally contains only runtime + build-time Python tooling.
-# Application dependencies are installed by each service image with
-# `pip install -r requirements.txt`, matching the intranet CI flow.
-ARG PYTHON_IMAGE=python:3.12-slim-bookworm
-FROM ${PYTHON_IMAGE}
+# Build strategy: compile Python 3.12.13 *inside* the 3.11.2 base.
+#
+# Why not copy /usr/local from python:3.12.13-slim-bookworm?
+#   The intranet python:3.11.2 image follows the official tag (Debian 11,
+#   glibc 2.31, OpenSSL 1.1.1). The official 3.12.13 slim images are
+#   bookworm-based (glibc 2.36, OpenSSL 3), and python:3.12.13-slim-bullseye
+#   does not exist. Copying that payload would leave _ssl/_hashlib linked
+#   against libssl.so.3. Building in the same base keeps the ABI aligned.
+#
+# Offline builds: put Python-3.12.13.tgz (and optionally pip/setuptools/wheel
+# wheels) in ./vendor/ next to this Dockerfile. The build is then fully offline.
+ARG BASE_IMAGE=docker.sangfor.com/mss-base/python:3.11.2
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
+FROM ${BASE_IMAGE} AS python-builder
+
+ARG PYTHON_VERSION=3.12.13
+ARG PYTHON_SOURCE_URL=https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz
+ARG PYTHON_CONFIGURE_OPTS=--enable-shared --with-ensurepip=install
+ARG PIP_INDEX_URL=http://mirrors.sangfor.org/pypi/simple
+ARG PIP_TRUSTED_HOST=mirrors.sangfor.org
+
+USER root
+ENV LD_LIBRARY_PATH=/usr/local/lib
+SHELL ["/bin/sh", "-c"]
+
+# The full python:3.11.2 image already ships every build header. Install them
+# only when a slim/custom intranet base is missing something, so the common path
+# does not need an apt/dnf network round-trip.
+RUN set -eux; \
+    need=0; \
+    command -v gcc >/dev/null 2>&1 || need=1; \
+    command -v make >/dev/null 2>&1 || need=1; \
+    for header in openssl/ssl.h zlib.h bzlib.h readline/readline.h sqlite3.h lzma.h uuid/uuid.h; do \
+      [ -f "/usr/include/${header}" ] || need=1; \
+    done; \
+    if [ -f /usr/include/ffi.h ]; then :; elif ls /usr/include/*/ffi.h >/dev/null 2>&1; then :; else need=1; fi; \
+    if [ "${need}" = "1" ]; then \
+      if command -v apt-get >/dev/null 2>&1; then \
+        apt-get update; \
+        apt-get install -y --no-install-recommends \
+          gcc make libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+          libsqlite3-dev libffi-dev liblzma-dev uuid-dev ca-certificates tzdata; \
+        rm -rf /var/lib/apt/lists/*; \
+      elif command -v dnf >/dev/null 2>&1; then \
+        dnf install -y gcc make openssl-devel zlib-devel bzip2-devel \
+          readline-devel sqlite-devel libffi-devel xz-devel libuuid-devel \
+          ca-certificates tzdata; \
+        dnf clean all; \
+      elif command -v yum >/dev/null 2>&1; then \
+        yum install -y gcc make openssl-devel zlib-devel bzip2-devel \
+          readline-devel sqlite-devel libffi-devel xz-devel libuuid-devel \
+          ca-certificates tzdata; \
+        yum clean all; \
+      else \
+        echo "Python build headers are missing and no apt-get/dnf/yum is available" >&2; \
+        exit 1; \
+      fi; \
+    fi
+
+COPY vendor/ /tmp/python-vendor/
+RUN set -eux; \
+    tarball="/tmp/python-vendor/Python-${PYTHON_VERSION}.tgz"; \
+    if [ ! -f "${tarball}" ]; then \
+      if command -v curl >/dev/null 2>&1; then \
+        curl -fsSL "${PYTHON_SOURCE_URL}" -o "${tarball}"; \
+      elif command -v wget >/dev/null 2>&1; then \
+        wget -q "${PYTHON_SOURCE_URL}" -O "${tarball}"; \
+      else \
+        python3 -c 'import urllib.request,sys; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])' \
+          "${PYTHON_SOURCE_URL}" "${tarball}"; \
+      fi; \
+    fi; \
+    mkdir -p /tmp/python-build; \
+    tar -xzf "${tarball}" -C /tmp/python-build --strip-components=1; \
+    cd /tmp/python-build; \
+    ./configure --prefix=/usr/local ${PYTHON_CONFIGURE_OPTS}; \
+    jobs="$(nproc 2>/dev/null || echo 2)"; \
+    make -j"${jobs}"; \
+    make install; \
+    echo /usr/local/lib > /etc/ld.so.conf.d/python312.conf; \
+    ldconfig; \
+    cd /; \
+    rm -rf /tmp/python-build; \
+    python3.12 --version
+
+RUN set -eux; \
+    python3.12 -m pip --version; \
+    if ls /tmp/python-vendor/pip-*.whl >/dev/null 2>&1; then \
+      python3.12 -m pip install --no-index --find-links /tmp/python-vendor \
+        --upgrade pip setuptools wheel; \
+    else \
+      python3.12 -m pip install --no-cache-dir \
+        -i "${PIP_INDEX_URL}" --trusted-host "${PIP_TRUSTED_HOST}" \
+        --upgrade pip setuptools wheel; \
+    fi; \
+    rm -rf /tmp/python-vendor
+
+# Final stage: the same intranet base, plus only the 3.12 runtime payload.
+FROM ${BASE_IMAGE}
+
+USER root
+ENV PATH=/usr/local/bin:${PATH} \
+    LD_LIBRARY_PATH=/usr/local/lib \
+    PYTHON_VERSION=3.12.13 \
+    PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -15,14 +113,44 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_RETRIES=5 \
     TZ=Asia/Shanghai
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      ca-certificates \
-      tzdata \
- && rm -rf /var/lib/apt/lists/* \
- && python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
- && groupadd --gid 10001 muad \
- && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin muad
+COPY --from=python-builder /usr/local/bin/python3.12 /usr/local/bin/python3.12
+COPY --from=python-builder /usr/local/bin/python3.12-config /usr/local/bin/python3.12-config
+COPY --from=python-builder /usr/local/bin/pip3.12 /usr/local/bin/pip3.12
+COPY --from=python-builder /usr/local/lib/libpython3.12.so.1.0 /usr/local/lib/libpython3.12.so.1.0
+COPY --from=python-builder /usr/local/lib/python3.12 /usr/local/lib/python3.12
+COPY --from=python-builder /usr/local/include/python3.12 /usr/local/include/python3.12
+
+RUN set -eux; \
+    echo /usr/local/lib > /etc/ld.so.conf.d/python312.conf; \
+    ldconfig; \
+    ln -sf libpython3.12.so.1.0 /usr/local/lib/libpython3.12.so; \
+    ln -sf /usr/local/bin/python3.12 /usr/local/bin/python3; \
+    ln -sf /usr/local/bin/python3.12 /usr/local/bin/python; \
+    ln -sf /usr/local/bin/python3.12-config /usr/local/bin/python3-config; \
+    ln -sf /usr/local/bin/python3.12-config /usr/local/bin/python-config; \
+    ln -sf /usr/local/bin/pip3.12 /usr/local/bin/pip3; \
+    ln -sf /usr/local/bin/pip3.12 /usr/local/bin/pip; \
+    if [ ! -f /usr/share/zoneinfo/Asia/Shanghai ] || [ ! -f /etc/ssl/certs/ca-certificates.crt ]; then \
+      if command -v apt-get >/dev/null 2>&1; then \
+        apt-get update; \
+        apt-get install -y --no-install-recommends ca-certificates tzdata; \
+        rm -rf /var/lib/apt/lists/*; \
+      elif command -v dnf >/dev/null 2>&1; then \
+        dnf install -y ca-certificates tzdata; \
+        dnf clean all; \
+      elif command -v yum >/dev/null 2>&1; then \
+        yum install -y ca-certificates tzdata; \
+        yum clean all; \
+      fi; \
+    fi; \
+    if ! getent group 10001 >/dev/null 2>&1; then groupadd --gid 10001 muad; fi; \
+    if ! getent passwd 10001 >/dev/null 2>&1; then \
+      useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin muad; \
+    fi; \
+    rm -rf /usr/local/lib/python3.12/test; \
+    python --version; \
+    python -m pip --version; \
+    python -c 'import ssl, sqlite3, zlib, bz2, lzma, ctypes; print("python modules ok")'
 
 USER 10001:10001
 WORKDIR /app

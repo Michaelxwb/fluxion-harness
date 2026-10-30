@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Intranet service image: agent-worker.
 # Node.js 24 is required for JavaScript skills; it comes from the Node base image.
-ARG BASE_IMAGE=docker.sangfor.com/mss-base/muad-python-node-base:3.12-node24
+ARG BASE_IMAGE=docker.sangfor.com/mss-base/python-node:3.12.13-node24
 FROM ${BASE_IMAGE}
 
 ARG PIP_INDEX_URL=http://mirrors.sangfor.org/pypi/simple
