@@ -1,0 +1,106 @@
+{{- if .Values.agentWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: muad-agent-worker
+  labels:
+    app: muad-agent-worker
+    {{- include "muad-platform.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.agentWorker.replicas }}
+  selector:
+    matchLabels:
+      app: muad-agent-worker
+  template:
+    metadata:
+      labels:
+        app: muad-agent-worker
+        {{- include "muad-platform.labels" . | nindent 8 }}
+    spec:
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        {{- include "muad-platform.podSecurityContext" . | nindent 8 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: app
+          image: {{ include "muad-platform.image" (dict "root" . "service" .Values.agentWorker) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.agentWorker.port }}
+          envFrom:
+            - configMapRef:
+                name: muad-common
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: REDIS_URL
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: INTERNAL_SERVICE_TOKEN
+            - name: WORKER_EXECUTION_CONCURRENCY
+              value: "4"
+            - name: CONTROL_HTTP_MAX_CONNECTIONS
+              value: "32"
+            - name: CONTROL_HTTP_MAX_KEEPALIVE
+              value: "16"
+            - name: EGRESS_HTTP_MAX_CONNECTIONS
+              value: "1024"
+            - name: EGRESS_HTTP_MAX_KEEPALIVE
+              value: "256"
+            {{- with .Values.agentWorker.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.agentWorker.resources | nindent 12 }}
+          readinessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: {{ .Values.agentWorker.port }}
+          livenessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: {{ .Values.agentWorker.port }}
+          volumeMounts:
+            - name: artifacts
+              mountPath: {{ .Values.global.artifacts.mountPath }}
+            - name: skill-cache
+              mountPath: {{ .Values.global.skillCache.mountPath }}
+      volumes:
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: {{ .Values.global.artifacts.existingClaim }}
+        - name: skill-cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: muad-agent-worker
+  labels:
+    app: muad-agent-worker
+    {{- include "muad-platform.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: muad-agent-worker
+  ports:
+    - port: {{ .Values.agentWorker.port }}
+      targetPort: {{ .Values.agentWorker.port }}
+{{- end }}

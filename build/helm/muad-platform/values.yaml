@@ -1,0 +1,127 @@
+# muad-platform 内网部署 values。
+#
+# 镜像 tag 建议在部署时用 --set global.imageTag=<构建版本> 覆盖；构建流水线
+# 只负责 package chart，不把某次构建的 tag 写死进仓库。
+global:
+  imageRegistry: docker.sangfor.com/mss-dev
+  imageTag: latest
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+  # 外部依赖 Secret（键：DATABASE_URL / REDIS_URL / INTERNAL_SERVICE_TOKEN）
+  existingSecret: muad-external
+  # Connector 使用独立 Secret，不挂 DATABASE_URL
+  connectorSecret: muad-connector-external
+  tenantId: default
+  artifacts:
+    # 已存在的 RWX PVC；create=true 时由 chart 创建
+    existingClaim: muad-artifacts-rwx
+    create: false
+    storage: 100Gi
+    storageClassName: ""
+    mountPath: /mnt/muad-artifacts
+  skillCache:
+    mountPath: /var/cache/muad/skills
+
+console:
+  enabled: true
+  replicas: 1
+  image: muad-console-platform
+  tag: ""
+  port: 8000
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits: { cpu: "2", memory: 4Gi }
+  extraEnv: []
+
+agentRuntime:
+  enabled: true
+  replicas: 1
+  image: muad-agent-runtime
+  tag: ""
+  port: 8001
+  resources:
+    requests: { cpu: "1", memory: 2Gi }
+    limits: { cpu: "4", memory: 8Gi }
+  extraEnv: []
+
+agentWorker:
+  enabled: true
+  replicas: 1
+  image: muad-agent-worker
+  tag: ""
+  port: 8002
+  resources:
+    requests: { cpu: "1", memory: 2Gi }
+    limits: { cpu: "4", memory: 8Gi }
+  extraEnv: []
+
+imGateway:
+  enabled: true
+  replicas: 2
+  image: muad-im-gateway
+  tag: ""
+  port: 8003
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits: { cpu: "2", memory: 4Gi }
+  extraEnv: []
+
+# 有状态企微通道；不启用时保持 false（默认四单元部署）。
+imConnector:
+  enabled: false
+  replicas: 2
+  image: muad-im-connector
+  tag: ""
+  port: 8004
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "1", memory: 1Gi }
+  extraEnv: []
+
+# Runtime/Worker 的 HPA 上界；与容量 profile 的 max_replica_counts 对齐。
+hpa:
+  enabled: true
+  runtime:
+    minReplicas: 1
+    maxReplicas: 4
+    cpuUtilization: 70
+    memoryUtilization: 80
+  worker:
+    minReplicas: 1
+    maxReplicas: 8
+    cpuUtilization: 70
+    memoryUtilization: 80
+
+migration:
+  enabled: true
+  backoffLimit: 1
+
+ingress:
+  enabled: true
+  className: nginx
+  host: ""
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m
+  tls: []
+
+# 共享 ConfigMap。键与 deploy/k8s/base/configmap.yaml 保持同源；部署时按环境
+# 覆盖即可。DEFAULT_TENANT_ID 由 global.tenantId 单独注入。
+config:
+  LOG_DIR: /var/log/muad
+  ARTIFACT_ROOT: /mnt/muad-artifacts
+  SKILL_CACHE_ROOT: /var/cache/muad/skills
+  API_MESSAGES_FILE: /app/config/api-messages.yaml
+  CONSOLE_PLATFORM_URL: http://muad-console-platform:8000
+  AGENT_RUNTIME_URL: http://muad-agent-runtime:8001
+  AGENT_WORKER_URL: http://muad-agent-worker:8002
+  IM_GATEWAY_URL: http://muad-im-gateway:8003
+  RUN_EVENT_HEARTBEAT_SEC: "15"
+  GATEWAY_MAX_SSE_SUBSCRIBERS: "1100"
+  SSE_EVENT_MAX_BYTES: "262144"
+  SSE_SUBSCRIBER_BUFFER_BYTES: "1048576"
+  SSE_TOTAL_BUFFER_BYTES: "67108864"
+  CHAT_MESSAGE_HARD_MAX_BYTES: "1048576"
+  CHAT_UPLOAD_HARD_MAX_BYTES: "52428800"
+  CHAT_AUTH_RECHECK_SEC: "15"
+  STREAM_HTTP_READ_TIMEOUT_SEC: "45"
+  GATEWAY_ROUTED_CHANNELS: WECOM

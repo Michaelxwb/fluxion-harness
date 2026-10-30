@@ -1,0 +1,36 @@
+{{- if and .Values.migration.enabled .Values.console.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: muad-migrate
+  labels:
+    {{- include "muad-platform.labels" . | nindent 4 }}
+  annotations:
+    # Helm upgrade 时先删除旧 Job，再创建新 Job；迁移必须一次性执行。
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- include "muad-platform.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "muad-platform.image" (dict "root" . "service" .Values.console) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' "$DATABASE_URL" > /tmp/alembic.job.ini
+              python migrations/db_migrate.py -c /tmp/alembic.job.ini
+              python migrations/db_migrate.py -c /tmp/alembic.job.ini current
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: DATABASE_URL
+{{- end }}

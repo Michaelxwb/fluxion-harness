@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1
+# Python 3.12 + Node.js 24 runtime base for agent-runtime / agent-worker.
+#
+# JS skills are executed by packages/agent-core/.../skill/executor.py via `node`.
+# The Node binary is copied from the official Debian bookworm image; libstdc++6
+# is required by that binary and is intentionally installed here, not per app.
+ARG BASE_IMAGE=muad-python-base:3.12
+ARG NODE_IMAGE=node:24-bookworm-slim
+FROM ${NODE_IMAGE} AS node-runtime
+
+FROM ${BASE_IMAGE}
+
+USER root
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libstdc++6 \
+ && rm -rf /var/lib/apt/lists/* \
+ && node --version
+
+USER 10001:10001
+WORKDIR /app

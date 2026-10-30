@@ -1,0 +1,17 @@
+{{- if .Values.global.artifacts.create }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.global.artifacts.existingClaim }}
+  labels:
+    {{- include "muad-platform.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.global.artifacts.storage }}
+  {{- with .Values.global.artifacts.storageClassName }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}

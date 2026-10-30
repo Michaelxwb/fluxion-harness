@@ -1,4 +1,4 @@
-# 构建上下文裁剪：镜像只需要 pyproject/uv.lock/packages/apps/config
+# 构建上下文裁剪：镜像只需要 requirements/frontend dist/packages/apps/config/migrations。
 .git
 .github
 .code-flow
@@ -14,10 +14,9 @@
 **/.mypy_cache
 **/.venv
 
-# 前端依赖与产物（前端在镜像内现构建）
+# 前端源码与依赖：运行镜像只复制 Task0 生成的 build/frontend/dist
+apps/console-platform/frontend
 **/node_modules
-**/dist
-**/.vite
 
 # 与镜像无关的目录（文档、测试、E2E、部署清单、脚本、本地运行数据）
 docs
@@ -29,6 +28,12 @@ data
 .data
 playwright-report
 test-results
+build/base
+build/docker
+build/helm
+build/qianliu
+build/scripts
+build/dist
 
 # 杂项
 **/*.md
