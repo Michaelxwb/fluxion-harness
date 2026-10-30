@@ -31,30 +31,32 @@ docker.sangfor.com/mss-base/python:3.12.13
 docker.sangfor.com/mss-base/python-node:3.12.13-node24
 ```
 
-> 底座镜像是独立的一次性任务，不要放进 5 条服务流水线；服务流水线只拉取上面两个
-> 已发布的底座。当前 GitHub/本地环境无法访问 `docker.sangfor.com`（`docker manifest
-> inspect` 返回 `EOF`），所以底座的实际构建要在内网构建机执行。
+> 底座镜像是独立的一次性任务，不要放进 5 条服务流水线。构建机不能访问
+> GitHub / nodejs.org 时，把源码包放到 `vendor/`；生产发布用 `PUSH=1`。
 
 ### Python 3.12.13 怎么来的
 
-`Dockerfile.python` 以内部 `docker.sangfor.com/mss-base/python:3.11.2` 为底座，
-**在底座内部编译 Python 3.12.13**，输出到 `/usr/local`，再把 3.12 运行时复制回
-同一个底座。
+实际拉下来的内部镜像是 **PlatOS 1.3 (LTS)**：
 
-不采用“从 `python:3.12.13-slim-bookworm` 复制 `/usr/local`”的原因：
+- glibc 2.28
+- OpenSSL 1.1.1f
+- Python 3.11.2 在 `/opt/sangfor/python`
+- 没有 gcc / make / apt / dnf / yum（只有 rpm + PlatOS repo 配置）
 
-- 内部 `python:3.11.2` 按官方同名 tag 对应 Debian 11（glibc 2.31、OpenSSL 1.1.1）。
-- 官方 3.12.13 slim 镜像是 bookworm（glibc 2.36、OpenSSL 3）。
-- `python:3.12.13-slim-bullseye` 不存在（3.12.13 发布时 bullseye 已停更）。
-- 跨发行版复制会让 `_ssl` / `_hashlib` 动态链接到 `libssl.so.3`，在 bullseye 上直接导入失败。
+因此不能在这个镜像里直接编译 Python 3.12.13。`Dockerfile.python` 改为安装
+**python-build-standalone 3.12.13** 的可重定位构建：
 
-在同一个底座内编译，glibc、OpenSSL、zlib、sqlite 的 ABI 都与底座一致。
+- 基于 glibc 2.17 构建，能在 PlatOS 的 glibc 2.28 上运行
+- 自带 OpenSSL / sqlite / libffi / lzma / bz2 / zlib，不依赖底座里的旧版本
+- 解压到 `/opt/python3.12`，PATH 优先使用它
+
+这样不需要在底座里装编译器，也不会出现 glibc/OpenSSL ABI 不匹配。
 
 ### Node 24 怎么来的
 
-`Dockerfile.python-node` 在 Python 底座上解压官方 Node 24 linux tarball 到 `/usr/local`，
-并安装 `libstdc++6` / `libatomic1`。使用 tarball 而不是 `node:24-bookworm-slim` 的原因同上：
-bookworm 的 Node 二进制按 glibc 2.36 构建，不能直接放进 Debian 11 底座。
+`Dockerfile.python-node` 在 Python 底座上解压官方 Node 24 linux tarball 到 `/usr/local`。
+PlatOS 的 glibc 2.28 和 libstdc++ 7.3（GLIBCXX_3.4.22）满足 Node 24 的要求
+（GLIBC_2.28 / GLIBCXX_3.4.21），Node 二进制本身不依赖 libatomic。
 
 ### 离线构建
 
@@ -62,14 +64,14 @@ bookworm 的 Node 二进制按 glibc 2.36 构建，不能直接放进 Debian 11 
 `build/docker-build/base/vendor/`：
 
 ```text
-Python-3.12.13.tgz
+cpython-3.12.13+20260325-x86_64-unknown-linux-gnu-install_only.tar.gz
 node-v24.22.2-linux-x64.tar.gz      # amd64
 node-v24.22.2-linux-arm64.tar.gz    # 仅 PLATFORM=linux/arm64
 ```
 
-Dockerfile 会优先使用 `vendor/` 下的文件，找不到才走 `PYTHON_SOURCE_URL` /
-`NODE_DIST_URL` 下载。可选的 `pip-*.whl` / `setuptools-*.whl` / `wheel-*.whl`
-放进同一目录后，构建工具也走离线安装。
+Dockerfile 会优先使用 `vendor/` 下的文件，找不到才走 `PYTHON_STANDALONE_URL` /
+`NODE_DIST_URL` 下载。可选的 `setuptools-*.whl` / `wheel-*.whl` 放进同一目录后，
+构建工具也走离线安装。
 
 > 如果 `pip install` 报 `SSLEOFError`，优先使用内网 HTTP pip 镜像，或把
 > `pip` / `setuptools` / `wheel` 三个 wheel 放进 `vendor/` 走 `--no-index`。
@@ -82,11 +84,12 @@ Dockerfile 会优先使用 `vendor/` 下的文件，找不到才走 `PYTHON_SOUR
 | `SOURCE_BASE_IMAGE` | 否 | `docker.sangfor.com/mss-base/python:3.11.2` | 内部 3.11.2 底座 |
 | `PYTHON_BASE_TAG` | 否 | `3.12.13` | Python 底座 tag |
 | `NODE_BASE_TAG` | 否 | `3.12.13-node24` | Python+Node 底座 tag |
-| `PYTHON_VERSION` | 否 | `3.12.13` | 编译的 Python 版本 |
+| `PYTHON_VERSION` | 否 | `3.12.13` | 安装的 Python 版本 |
+| `PYTHON_STANDALONE_TAG` | 否 | `20260325` | python-build-standalone 发布日期 tag |
+| `PYTHON_STANDALONE_URL` | 否 | GitHub release | standalone 包地址 |
 | `NODE_VERSION` | 否 | `24.22.2` | Node 版本 |
-| `PYTHON_SOURCE_URL` | 否 | python.org | Python 源码地址 |
 | `NODE_DIST_URL` | 否 | nodejs.org | Node tarball 地址 |
-| `PIP_INDEX_URL` | 否 | `http://mirrors.sangfor.org/pypi/simple` | 安装 pip/setuptools/wheel |
+| `PIP_INDEX_URL` | 否 | `http://mirrors.sangfor.org/pypi/simple` | 安装 setuptools/wheel |
 | `PIP_TRUSTED_HOST` | 否 | `mirrors.sangfor.org` | http 源 |
 | `PLATFORM` | 否 | `linux/amd64` | 目标架构 |
 | `PUSH` | 否 | `0` | 发布时设 `1` |
@@ -98,21 +101,21 @@ Dockerfile 会优先使用 `vendor/` 下的文件，找不到才走 `PYTHON_SOUR
 
 ### 底座构建失败时先确认什么
 
-先在内网构建机上看一眼 3.11.2 底座的发行版和编译工具：
+先确认内网 3.11.2 镜像的架构、发行版和 Python 路径：
 
 ```bash
 docker run --rm --platform linux/amd64 --entrypoint sh \
   docker.sangfor.com/mss-base/python:3.11.2 -c \
-  '. /etc/os-release; echo "$ID $VERSION_ID $VERSION_CODENAME"; \
-   ldd --version | head -1; \
-   command -v gcc make; \
-   ls /usr/include/openssl/ssl.h /usr/include/zlib.h /usr/include/sqlite3.h'
+  'uname -m; . /etc/os-release; echo "$ID $VERSION_ID"; \
+   python --version; command -v python; \
+   command -v gcc make apt-get dnf yum; echo done'
 ```
 
-- 输出是 `debian 11 bullseye` + `gcc`/`make` + 头文件齐全：当前 Dockerfile 可以直接编译。
-- 是 slim 底座、缺 `gcc`/头文件：需要构建机能访问 Debian/内网 apt 源，或在
-  `vendor/` 里准备好源码并预装编译工具。
-- 不是 Debian：Dockerfile 也支持 `dnf`/`yum` 安装依赖；把上面的输出发出来再确认包名。
+当前内网镜像是 `x86_64` + `PlatOS 1.3` + Python 3.11.2 + 无 gcc/make/apt，
+所以 Dockerfile 使用 python-build-standalone，不依赖这些工具。
+
+如果以后底座换成 Debian/Ubuntu 且自带编译工具，也可以继续使用 standalone 方案，
+不需要改回“在底座内编译”。
 
 ## 2. requirements.txt
 
@@ -248,8 +251,9 @@ CI_COMMIT_TAG 存在  -> 直接使用 tag
 # shell 语法
 bash -n build/docker-build/base/build.sh build/docker-build/*.sh build/helm-build/*.sh
 
-# 基础镜像（本地用公网 python:3.11.2 代替内网底座）
-BASE_REGISTRY=local SOURCE_BASE_IMAGE=python:3.11.2 \
+# 基础镜像（使用已加载的内网 python:3.11.2 tar）
+BASE_REGISTRY=local \
+SOURCE_BASE_IMAGE=docker.sangfor.com/mss-base/python:3.11.2 \
 PLATFORM=linux/amd64 PUSH=0 \
 PIP_INDEX_URL=http://mirrors.aliyun.com/pypi/simple \
 PIP_TRUSTED_HOST=mirrors.aliyun.com \

@@ -1,10 +1,13 @@
 # syntax=docker/dockerfile:1
 # Python 3.12.13 + Node.js 24 base for agent-runtime / agent-worker.
 #
-# Node is installed from the official linux tarball instead of copying from
-# node:24-bookworm-slim: the Python base follows the 3.11.2 tag (Debian 11,
-# glibc 2.31), while the bookworm Node image is built against glibc 2.36.
-# The official Node tarball is built for older glibc and runs on both.
+# Node is installed from the official linux tarball. The PlatOS base has glibc
+# 2.28 and libstdc++ 7.3 (GLIBCXX_3.4.22); the Node 24 binary requires at most
+# GLIBC_2.28 / GLIBCXX_3.4.21, so it runs without extra packages. `libatomic`
+# is not a dependency of the Node binary.
+#
+# The PlatOS image has no gzip, so extraction goes through extract.py (Python's
+# tarfile) instead of `tar -xzf`.
 #
 # Offline builds: put node-v24.22.2-linux-x64.tar.gz (or -arm64) in ./vendor/.
 ARG BASE_IMAGE=docker.sangfor.com/mss-base/python:3.12.13
@@ -16,31 +19,9 @@ ARG NODE_DIST_URL=https://nodejs.org/dist/v${NODE_VERSION}
 ARG TARGETARCH=amd64
 
 USER root
-SHELL ["/bin/sh", "-c"]
-
-# Node needs libstdc++ at runtime; libatomic is required on some architectures.
-RUN set -eux; \
-    need=0; \
-    ldconfig -p 2>/dev/null | grep -q 'libstdc++.so.6' || need=1; \
-    ldconfig -p 2>/dev/null | grep -q 'libatomic.so.1' || need=1; \
-    if [ "${need}" = "1" ]; then \
-      if command -v apt-get >/dev/null 2>&1; then \
-        apt-get update; \
-        apt-get install -y --no-install-recommends libstdc++6 libatomic1 ca-certificates; \
-        rm -rf /var/lib/apt/lists/*; \
-      elif command -v dnf >/dev/null 2>&1; then \
-        dnf install -y libstdc++ libatomic ca-certificates; \
-        dnf clean all; \
-      elif command -v yum >/dev/null 2>&1; then \
-        yum install -y libstdc++ libatomic ca-certificates; \
-        yum clean all; \
-      else \
-        echo "libstdc++/libatomic are missing and no apt-get/dnf/yum is available" >&2; \
-        exit 1; \
-      fi; \
-    fi
-
+COPY extract.py /tmp/extract.py
 COPY vendor/ /tmp/node-vendor/
+
 RUN set -eux; \
     case "${TARGETARCH}" in \
       amd64) node_arch=x64 ;; \
@@ -55,12 +36,12 @@ RUN set -eux; \
       elif command -v wget >/dev/null 2>&1; then \
         wget -q "${url}" -O "${tarball}"; \
       else \
-        python3 -c 'import urllib.request,sys; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])' \
+        python -c 'import urllib.request,sys; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])' \
           "${url}" "${tarball}"; \
       fi; \
     fi; \
-    tar -xzf "${tarball}" -C /usr/local --strip-components=1 --no-same-owner; \
-    rm -rf /tmp/node-vendor; \
+    python /tmp/extract.py "${tarball}" /usr/local 1; \
+    rm -rf /tmp/node-vendor /tmp/extract.py; \
     node --version; \
     npm --version
 
