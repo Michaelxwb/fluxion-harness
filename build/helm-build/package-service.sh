@@ -124,7 +124,8 @@ if [[ -n "${image_ref}" ]]; then
     printf 'CHART_VERSION=%s\n' "${HELM_VERSION}"
     printf 'HELM_REPOSITORY=%s\n' "${HELM_REPOSITORY}"
   } > "${HELM_CACHE_DIR}/release.env"
-  log "release env: ${HELM_CACHE_DIR}/release.env"
+  cp -f "${HELM_CACHE_DIR}/release.env" "${HELM_CACHE_DIR}/release-${SERVICE}.env"
+  log "release env: ${HELM_CACHE_DIR}/release.env, release-${SERVICE}.env"
 fi
 
 log "metadata=${HELM_CACHE_DIR} (HELM_PKG, HELM_VERSION, release.env)"
