@@ -181,6 +181,9 @@ muad-platform-<HELM_VERSION>.tgz
 
 ## 6. 与老项目的差异
 
+> `deploy/k8s/base` 仍是 GitHub/本地 kustomize 部署的事实源；`build/helm/muad-platform`
+> 是内网 Helm 交付形态。两边共享同一组服务名/端口/env 预算，修改其中一侧时必须同步另一侧。
+
 老项目 `muad-openclaw/build` 的任务映射：
 
 | 老任务 | 新项目对应 | 说明 |
