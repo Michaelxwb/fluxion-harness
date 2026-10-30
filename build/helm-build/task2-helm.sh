@@ -9,9 +9,17 @@ set -euo pipefail
 CUR_PATH="$(pwd)"
 HELM_CACHE_DIR="${HELM_CACHE_DIR:-/tmp/muad-helm}"
 BUILD_CACHE_DIR="${BUILD_CACHE_DIR:-/tmp/muad-build}"
-UPLOAD="${UPLOAD:-1}"
 DIST_VERSION="${DIST_VERSION:-}"
 AUTH_TOKEN="${AUTH_TOKEN:-${sfspm_token:-}}"
+# UPLOAD is optional: a token means "package + upload", no token means
+# "package only". Set UPLOAD=0 to force local packaging even with a token.
+if [[ -z "${UPLOAD:-}" ]]; then
+  if [[ -n "${AUTH_TOKEN}" ]]; then
+    UPLOAD=1
+  else
+    UPLOAD=0
+  fi
+fi
 
 log() { printf '[helm-task] %s\n' "$*"; }
 die() { printf '[helm-task][ERROR] %s\n' "$*" >&2; exit 1; }

@@ -282,15 +282,15 @@ CI_COMMIT_TAG 存在  -> 直接使用 tag
 
 | 变量 | 必填 | 说明 |
 |---|---|---|
-| `AUTH_TOKEN` | `UPLOAD=1` 时必填 | sfspm token（也兼容 `sfspm_token`） |
-| `UPLOAD` | 否，默认 1 | 本地验证设 0 |
+| `AUTH_TOKEN` | 千流任务必填 | sfspm token（也兼容 `sfspm_token`）；有它就上传 |
+| `UPLOAD` | 否，有 token 时 1，否则 0 | 一般不用配；本地强制不上传设 0 |
 | `HELM_VERSION` | 否 | `task-release-*` 默认取镜像 tag；`task2-helm.sh` 默认 `1.0.<DIST_VERSION>` 或时间戳 |
 | `HELM_CACHE_DIR` | 否 | 默认 `/tmp/muad-helm`；release 任务写 `HELM_PKG` / `HELM_VERSION`，并复制 tgz |
 | `IMAGE_CACHE_DIR` | 否 | 默认 `/tmp/muad-image-<service>`；release 任务从 `IMAGE_TAG` 对齐版本 |
 | `CI_COMMIT_BRANCH` | 建议 | 决定 `mss-dev-helm` / `mss-release-helm` |
 
-> `task-release-*` 和 `task2-helm.sh` 都要求运行环境里有 `helm`；`UPLOAD=1` 时还要有
-> `sfspm`。
+> `task-release-*` 和 `task2-helm.sh` 都要求运行环境里有 `helm`；上传时还要有
+> `sfspm`。`task-release-*` 缺 `AUTH_TOKEN` 会直接失败，避免“打包成功但没上传”。
 
 ## 4. 本地验证
 

@@ -13,8 +13,8 @@
 #   HELM_OUT_DIR          output directory (default build/helm-build/dist)
 #   HELM_CACHE_DIR        metadata output (default /tmp/muad-helm)
 #   IMAGE_CACHE_DIR       image metadata dir (default /tmp/muad-image-<service>)
-#   UPLOAD                default 1; set 0 for local packaging
-#   AUTH_TOKEN            required when UPLOAD=1 (sfspm_token also accepted)
+#   AUTH_TOKEN            sfspm token (sfspm_token also accepted); enables upload
+#   UPLOAD                optional; derived from AUTH_TOKEN, set 0 to skip upload
 #   CI_COMMIT_BRANCH/TAG  select mss-dev-helm / mss-release-helm
 set -euo pipefail
 
@@ -39,8 +39,16 @@ esac
 HELM_OUT_DIR="${HELM_OUT_DIR:-${REPO_ROOT}/build/helm-build/dist}"
 HELM_CACHE_DIR="${HELM_CACHE_DIR:-/tmp/muad-helm}"
 IMAGE_CACHE_DIR="${IMAGE_CACHE_DIR:-/tmp/muad-image-${SERVICE}}"
-UPLOAD="${UPLOAD:-1}"
 AUTH_TOKEN="${AUTH_TOKEN:-${sfspm_token:-}}"
+# UPLOAD is optional: a token means "package + upload", no token means
+# "package only". Set UPLOAD=0 to force local packaging even with a token.
+if [[ -z "${UPLOAD:-}" ]]; then
+  if [[ -n "${AUTH_TOKEN}" ]]; then
+    UPLOAD=1
+  else
+    UPLOAD=0
+  fi
+fi
 
 log() { printf '[helm-service:%s] %s\n' "${SERVICE}" "$*"; }
 die() { printf '[helm-service:%s][ERROR] %s\n' "${SERVICE}" "$*" >&2; exit 1; }

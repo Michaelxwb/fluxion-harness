@@ -12,5 +12,9 @@ set -euo pipefail
 : "${DOCKER_USER:?DOCKER_USER is required (Qianliu Secret)}"
 : "${DOCKER_PASS:?DOCKER_PASS is required (Qianliu Secret)}"
 
+AUTH_TOKEN="${AUTH_TOKEN:-${sfspm_token:-}}"
+: "${AUTH_TOKEN:?AUTH_TOKEN is required (Qianliu Secret)}"
+export AUTH_TOKEN
+
 "$(pwd)/build/docker-build/build-image.sh" "im-gateway"
 "$(pwd)/build/helm-build/package-service.sh" "im-gateway"

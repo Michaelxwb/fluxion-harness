@@ -95,7 +95,6 @@ DOCKER_USER
 DOCKER_PASS
 PLATFORM=linux/amd64
 TAG=1.0.0
-UPLOAD=1
 AUTH_TOKEN
 ```
 
@@ -106,8 +105,9 @@ AUTH_TOKEN
 没有凭据                     -> 千流任务入口直接报错（避免“构建成功但没推送”）
 ```
 
-千流任务（`task-image-*.sh` / `task-release-*.sh`）会强制校验这两个 Secret。
-本地直接跑 `build-image.sh` 时可以不配凭据，只构建不推送；需要强制不推送可设 `PUSH=0`。
+千流任务（`task-image-*.sh` / `task-release-*.sh`）会强制校验 DOCKER 凭据和 `AUTH_TOKEN`。
+本地直接跑 `build-image.sh` / `package-service.sh` 时可以不配，只构建/打包不上传；
+需要强制不推送/不上传时才设 `PUSH=0` / `UPLOAD=0`。
 
 console release 额外：
 
