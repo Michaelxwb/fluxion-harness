@@ -88,7 +88,7 @@ kubectl -n muad create secret docker-registry regcred \
 --set service.port=8000 \
 --set service.replicas=1 \
 --set service.type=NodePort \
---set service.nodePort=30080 \
+--set service.nodePort=30090 \
 --set service.externalTrafficPolicy=Cluster \
 --set service.resources.requests.cpu=100m \
 --set service.resources.requests.memory=128Mi \
@@ -164,7 +164,7 @@ kubectl -n muad create secret docker-registry regcred \
 --set service.port=8003 \
 --set service.replicas=2 \
 --set service.type=NodePort \
---set service.nodePort=30083 \
+--set service.nodePort=30093 \
 --set service.externalTrafficPolicy=Cluster \
 --set service.resources.requests.cpu=500m \
 --set service.resources.requests.memory=1Gi \
@@ -449,5 +449,5 @@ image.openclawtag
 /api/v1/webchat/runs -> im-gateway:8003
 ```
 
-NodePort 模式需要 console 30080 + gateway 30083，入口侧按路径分流。
+NodePort 模式需要 console 30090 + gateway 30093，入口侧按路径分流。
 有 Ingress 时建议改成 Ingress：console 和 gateway 都设 `service.type=ClusterIP`，console 设 `ingress.enabled=true`。
