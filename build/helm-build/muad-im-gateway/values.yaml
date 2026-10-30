@@ -1,3 +1,7 @@
+image:
+  repository: ''
+  tag: ''
+
 global:
   imageRegistry: docker.sangfor.com/mss-dev
   imageTag: latest

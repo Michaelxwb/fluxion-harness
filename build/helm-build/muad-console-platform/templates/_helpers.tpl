@@ -13,7 +13,9 @@ Resolve one component image. Call with (dict "root" $ "service" .Values.service)
 {{- define "muad-platform.image" -}}
 {{- $root := .root -}}
 {{- $service := .service -}}
-{{- printf "%s/%s:%s" $root.Values.global.imageRegistry $service.image (default $root.Values.global.imageTag $service.tag) -}}
+{{- $repository := $root.Values.image.repository | default (printf "%s/%s" $root.Values.global.imageRegistry $service.image) -}}
+{{- $tag := $root.Values.image.tag | default (default $root.Values.global.imageTag $service.tag) -}}
+{{- printf "%s:%s" $repository $tag -}}
 {{- end }}
 
 {{/*
