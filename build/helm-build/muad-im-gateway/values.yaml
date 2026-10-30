@@ -5,7 +5,6 @@ global:
   imagePullSecrets: []
   existingSecret: muad-external
   connectorSecret: muad-connector-external
-  tenantId: default
   artifacts:
     existingClaim: muad-artifacts-rwx
     create: false

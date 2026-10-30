@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: muad-common
-  labels:
-    {{- include "muad-platform.labels" . | nindent 4 }}
-data:
-  DEFAULT_TENANT_ID: {{ .Values.global.tenantId | quote }}
-  {{- toYaml .Values.config | nindent 2 }}

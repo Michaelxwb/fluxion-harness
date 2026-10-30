@@ -361,9 +361,11 @@ muad-im-gateway-<HELM_VERSION>.tgz
 muad-im-connector-<HELM_VERSION>.tgz
 ```
 
-部署时用 `--set global.imageTag=<tag>` 对齐本次构建的镜像。建议安装顺序：
-`muad-console-platform`（创建共享 ConfigMap / 可选 PVC / Ingress）→ 其余四个服务。
-Secret、已有的 RWX PVC 和数据库迁移是前置条件。
+部署时用 `--set global.imageTag=<tag>` 对齐本次构建的镜像。
+
+前置条件：namespace、Secret、`muad-common` ConfigMap（`deploy/k8s/base/configmap.yaml`）、
+已有的 RWX PVC、数据库迁移。前置资源就绪后 5 个服务没有顺序依赖，可以并行安装。
+`muad-console-platform` 仍负责可选 PVC / Ingress。
 
 ## 5.1 K8s 部署
 

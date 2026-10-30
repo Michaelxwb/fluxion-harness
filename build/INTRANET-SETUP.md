@@ -303,11 +303,10 @@ build/INTRANET-K8S-DEPLOY.md
 顺序：
 
 ```text
-1. 建 namespace、Secret、artifacts PVC、regcred
+1. 建 namespace、Secret、muad-common ConfigMap、artifacts PVC、regcred
 2. 部署前手动执行数据库迁移
-3. 安装 console-platform
-4. 安装其余 4 个服务
-5. 验证 /healthz、/readyz
+3. 安装 5 个服务（无顺序依赖，可以并行）
+4. 验证 /healthz、/readyz
 ```
 
 如果使用 nginx 统一入口：

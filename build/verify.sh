@@ -37,6 +37,17 @@ done
 helm template muad-console-platform build/helm-build/muad-console-platform \
   --namespace muad --set global.artifacts.create=true >"${VERIFY_DIR}/muad-console-platform-pvc.yaml"
 
+log "shared configmap parse"
+VERIFY_DIR="${VERIFY_DIR}" python3 - <<'PY2'
+import yaml
+doc = yaml.safe_load(open('deploy/k8s/base/configmap.yaml', encoding='utf-8'))
+assert doc['kind'] == 'ConfigMap', doc
+assert doc['metadata']['name'] == 'muad-common', doc
+assert doc['metadata']['namespace'] == 'muad', doc
+assert doc['data']['DEFAULT_TENANT_ID'], doc
+print('deploy/k8s/base/configmap.yaml: muad-common ok')
+PY2
+
 log "rendered yaml parse"
 VERIFY_DIR="${VERIFY_DIR}" python3 - <<'PY'
 import glob

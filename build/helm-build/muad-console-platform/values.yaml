@@ -5,7 +5,6 @@ global:
   imagePullSecrets: []
   existingSecret: muad-external
   connectorSecret: muad-connector-external
-  tenantId: default
   artifacts:
     existingClaim: muad-artifacts-rwx
     create: false
@@ -52,25 +51,6 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: 50m
   tls: []
-config:
-  LOG_DIR: /var/log/muad
-  ARTIFACT_ROOT: /mnt/muad-artifacts
-  SKILL_CACHE_ROOT: /var/cache/muad/skills
-  API_MESSAGES_FILE: /app/config/api-messages.yaml
-  CONSOLE_PLATFORM_URL: http://muad-console-platform:8000
-  AGENT_RUNTIME_URL: http://muad-agent-runtime:8001
-  AGENT_WORKER_URL: http://muad-agent-worker:8002
-  IM_GATEWAY_URL: http://muad-im-gateway:8003
-  RUN_EVENT_HEARTBEAT_SEC: '15'
-  GATEWAY_MAX_SSE_SUBSCRIBERS: '1100'
-  SSE_EVENT_MAX_BYTES: '262144'
-  SSE_SUBSCRIBER_BUFFER_BYTES: '1048576'
-  SSE_TOTAL_BUFFER_BYTES: '67108864'
-  CHAT_MESSAGE_HARD_MAX_BYTES: '1048576'
-  CHAT_UPLOAD_HARD_MAX_BYTES: '52428800'
-  CHAT_AUTH_RECHECK_SEC: '15'
-  STREAM_HTTP_READ_TIMEOUT_SEC: '45'
-  GATEWAY_ROUTED_CHANNELS: WECOM
 autoscaling:
   enabled: false
   minReplicas: 1

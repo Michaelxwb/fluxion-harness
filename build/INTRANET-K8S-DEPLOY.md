@@ -67,7 +67,19 @@ REDIS_URL=redis://:<password>@<redis-host>:6379/0
 - `REDIS_URL` 只支持单节点或代理地址。原生 Redis Cluster（多个 master + MOVED 重定向）
   当前版本不支持，需要前面有 VIP / 代理，或改代码改用 `RedisCluster`。
 
-### 1.3 镜像拉取 Secret
+### 1.3 共享 ConfigMap
+
+`muad-common` 是 5 个服务共用的进程启动配置，不归属任何服务 chart：
+
+```bash
+kubectl apply -f deploy/k8s/base/configmap.yaml
+kubectl -n muad get configmap muad-common
+```
+
+包含 `DEFAULT_TENANT_ID`、服务地址、SSE/CHAT 上限等非敏感项。需要调整时改这个
+文件后重新 apply，不要用 `kubectl create configmap` 局部覆盖。
+
+### 1.4 镜像拉取 Secret
 
 ```bash
 kubectl -n muad create secret docker-registry regcred \
@@ -94,7 +106,6 @@ kubectl -n muad create secret docker-registry regcred \
 --set global.nodeSelector.app=openclaw \
 --set global.existingSecret=muad-external \
 --set global.connectorSecret=muad-connector-external \
---set global.tenantId=default \
 --set global.artifacts.existingClaim=muad-artifacts-rwx \
 --set global.artifacts.mountPath=/mnt/muad-artifacts \
 --set serviceAccount.create=true \
@@ -123,7 +134,6 @@ kubectl -n muad create secret docker-registry regcred \
 --set global.nodeSelector.app=openclaw \
 --set global.existingSecret=muad-external \
 --set global.connectorSecret=muad-connector-external \
---set global.tenantId=default \
 --set global.artifacts.existingClaim=muad-artifacts-rwx \
 --set global.artifacts.mountPath=/mnt/muad-artifacts \
 --set serviceAccount.create=true \
@@ -148,7 +158,6 @@ kubectl -n muad create secret docker-registry regcred \
 --set global.nodeSelector.app=openclaw \
 --set global.existingSecret=muad-external \
 --set global.connectorSecret=muad-connector-external \
---set global.tenantId=default \
 --set global.artifacts.existingClaim=muad-artifacts-rwx \
 --set global.artifacts.mountPath=/mnt/muad-artifacts \
 --set serviceAccount.create=true \
@@ -174,7 +183,6 @@ kubectl -n muad create secret docker-registry regcred \
 --set global.nodeSelector.app=openclaw \
 --set global.existingSecret=muad-external \
 --set global.connectorSecret=muad-connector-external \
---set global.tenantId=default \
 --set global.artifacts.existingClaim=muad-artifacts-rwx \
 --set global.artifacts.mountPath=/mnt/muad-artifacts \
 --set serviceAccount.create=true \
@@ -201,7 +209,6 @@ kubectl -n muad create secret docker-registry regcred \
 --set global.nodeSelector.app=openclaw \
 --set global.existingSecret=muad-external \
 --set global.connectorSecret=muad-connector-external \
---set global.tenantId=default \
 --set global.artifacts.existingClaim=muad-artifacts-rwx \
 --set global.artifacts.mountPath=/mnt/muad-artifacts \
 --set serviceAccount.create=true \
@@ -262,19 +269,21 @@ autoscaling.enabled=false -> Deployment replicas = minReplicas，maxReplicas 不
 | 业务设置 | 口令策略、压缩预算、任务默认、记忆策略、保留天数、语言/时区、IM 节拍、MCP、容量 | PostgreSQL `control.platform_setting` | 页面保存后新请求/新 Run 生效 |
 | 部署参数 | 镜像、副本、资源、NodePort、PVC、nodeSelector | Helm values | 发布时生效 |
 
-`muad-common` 由 chart 自动创建，**不需要手动 `kubectl create configmap`**。
+`muad-common` 由第 1.3 步的 `deploy/k8s/base/configmap.yaml` 创建，不归属任何服务 chart；
+5 个服务可以任意顺序安装。
 
 下面这段是**可选的**全量显式覆盖：不写就走代码默认值；只有需要固定某些进程启动参数时才加。
 页面「系统设置」里的业务参数**不要**写进 ConfigMap，写了也不会生效。
 
 5 份独立配置已经覆盖 K8s 关键项。下面是把 `.env.example` 里**所有非敏感项**显式放进
-`muad-common` ConfigMap 的完整 `config:` 块。
+`muad-common` ConfigMap 的完整 `data` 块。
 
-需要全量可控时，用这段替换 console chart `values.yaml` 里的 `config:` 段；不需要改的
-可以删掉，未设置的项使用代码默认值。
+需要全量可控时，用下面这段替换 `deploy/k8s/base/configmap.yaml` 的 `data:`；
+不需要改的可以删掉，未设置的项使用代码默认值。
 
 ```yaml
-config:
+data:
+  DEFAULT_TENANT_ID: "default"
   ENV: "prod"
   LOG_DIR: /var/log/muad
   LOG_LEVEL: INFO
@@ -394,25 +403,33 @@ config:
   CHANNEL_DELIVERY_MAX_ATTEMPTS: "20"
 ```
 
-`DEFAULT_TENANT_ID` 不在 `config` 里，由每个 release 的 `global.tenantId` 控制（默认 `default`）。
+`DEFAULT_TENANT_ID` 在 `muad-common` 的 `data` 里，默认 `default`。
 不接企业微信时，把 `GATEWAY_ROUTED_CHANNELS` 设为空字符串。
 
 ### Secret 项（不要放 ConfigMap）
 
-| Key | Secret | 说明 |
-|---|---|---|
-| `DATABASE_URL` | `muad-external` | PostgreSQL DSN，`postgresql+asyncpg://` |
-| `REDIS_URL` | `muad-external` | Redis DSN |
-| `INTERNAL_SERVICE_TOKEN` | `muad-external` | 内部服务鉴权，随机值 |
-| `GATEWAY_WEBHOOK_CHANNELS` | `muad-external` | 仅启用 webhook 通道时使用，JSON 内含 secret |
+| Key | Secret | 必填 | 说明 |
+|---|---|---|---|
+| `DATABASE_URL` | `muad-external` | 是 | PostgreSQL DSN，`postgresql+asyncpg://` |
+| `REDIS_URL` | `muad-external` | 是 | Redis DSN |
+| `INTERNAL_SERVICE_TOKEN` | `muad-external` | 是 | 内部服务鉴权，随机值 |
+| `GATEWAY_WEBHOOK_CHANNELS` | `muad-external` | 否 | 仅启用 webhook 通道时使用，JSON 数组，内含 secret |
 
 Connector 使用独立 Secret：
 
 ```text
 muad-connector-external
-  REDIS_URL
-  INTERNAL_SERVICE_TOKEN
+  REDIS_URL                 (必填)
+  INTERNAL_SERVICE_TOKEN    (必填，和 muad-external 相同)
 ```
+
+`GATEWAY_WEBHOOK_CHANNELS` 格式：
+
+```json
+[{"channel":"wecom","secret":"<回调验签密钥>"}]
+```
+
+不接 webhook 通道时不要设置这个 key。
 
 ### 不需要配置的项
 
@@ -425,19 +442,34 @@ DEFAULT_LOCALE
 
 ## 3. 安装顺序
 
-```text
-1. muad-console-platform
-2. muad-agent-runtime
-3. muad-agent-worker
-4. muad-im-gateway
-5. muad-im-connector
-```
+前置资源就绪后（namespace、Secret、`muad-common` ConfigMap、PVC、regcred），
+5 个服务没有顺序依赖，可以任意顺序安装，也可以并行。
 
-`console-platform` 必须先装，它创建共享 `muad-common` ConfigMap。其余 4 个可以并行。
+```text
+muad-console-platform
+muad-agent-runtime
+muad-agent-worker
+muad-im-gateway
+muad-im-connector
+```
 
 ## 4. 数据库迁移（部署前手动执行）
 
-每个新版本部署前执行一次：
+数据库必须先存在，迁移脚本不会建库：
+
+```sql
+-- 用 postgres 维护库连接后执行一次
+CREATE DATABASE muad;
+```
+
+连接串指向这个库：
+
+```text
+postgresql+asyncpg://<user>:<password>@<pg-host>:5432/muad
+```
+
+每个新版本部署前执行一次。`upgrade head` 是幂等的：没有新迁移时是 no-op，
+不确定有没有新迁移时直接跑也安全：
 
 ```bash
 export DATABASE_URL='postgresql+asyncpg://muad:CHANGE_ME@postgres:5432/muad'
@@ -450,6 +482,16 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
 ```
 
 迁移失败不要部署新版本。
+
+`current` 输出的 revision 应该等于最新迁移版本：
+
+```bash
+docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
+  sh -c 'python migrations/db_migrate.py current'
+```
+
+只有新增了迁移文件（`migrations/versions/`）的版本才需要变更 schema；
+每次发布前跑一遍 `upgrade head` 只是确认已到最新。
 
 ## 5. 验证
 
