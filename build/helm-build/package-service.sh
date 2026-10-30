@@ -85,6 +85,7 @@ HELM_REPOSITORY="${HELM_REPOSITORY_OVERRIDE:-${HELM_REPOSITORY}}"
 
 log "chart=${CHART} version=${HELM_VERSION} repository=${HELM_REPOSITORY}"
 log "upload=${UPLOAD} output=${HELM_OUT_DIR}"
+log "release-info service=${SERVICE} image_tag=${image_tag:-unknown} chart_version=${HELM_VERSION} helm_repository=${HELM_REPOSITORY}"
 
 step "package chart ${CHART}:${HELM_VERSION}"
 HELM_OUT_DIR="${HELM_OUT_DIR}" HELM_VERSION="${HELM_VERSION}" \
