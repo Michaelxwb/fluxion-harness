@@ -210,6 +210,17 @@ im-connector     -> muad-im-connector
 这样千流只需要 5 条服务流水线，不需要单独的 Helm 流水线。`console-platform` 流水线
 仍然需要前置的 `task0-console-frontend.sh` 缓存；其余 4 条只有 release 节点。
 
+release 任务会把本服务的 chart 包和元数据写到 `/tmp/muad-helm/`：
+
+```text
+/tmp/muad-helm/
+  muad-<service>-<HELM_VERSION>.tgz
+  HELM_PKG
+  HELM_VERSION
+```
+
+如果千流需要收集 Helm 制品，把缓存上传路径配置为 `/tmp/muad-helm/`。
+
 > 每个 release 任务都需要 `helm` 和 `sfspm` 在 Docker 任务镜像里可用，并配置
 > `AUTH_TOKEN`。如果 Docker 任务镜像没有这两个命令，就在任务里先安装，或者继续用
 > 单独的 `task2-helm.sh`。
@@ -274,7 +285,7 @@ CI_COMMIT_TAG 存在  -> 直接使用 tag
 | `AUTH_TOKEN` | `UPLOAD=1` 时必填 | sfspm token（也兼容 `sfspm_token`） |
 | `UPLOAD` | 否，默认 1 | 本地验证设 0 |
 | `HELM_VERSION` | 否 | `task-release-*` 默认取镜像 tag；`task2-helm.sh` 默认 `1.0.<DIST_VERSION>` 或时间戳 |
-| `HELM_CACHE_DIR` | 否 | 默认 `/tmp/muad-helm`；release 任务写 `HELM_PKG` / `HELM_VERSION` |
+| `HELM_CACHE_DIR` | 否 | 默认 `/tmp/muad-helm`；release 任务写 `HELM_PKG` / `HELM_VERSION`，并复制 tgz |
 | `IMAGE_CACHE_DIR` | 否 | 默认 `/tmp/muad-image-<service>`；release 任务从 `IMAGE_TAG` 对齐版本 |
 | `CI_COMMIT_BRANCH` | 建议 | 决定 `mss-dev-helm` / `mss-release-helm` |
 

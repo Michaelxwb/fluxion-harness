@@ -82,6 +82,9 @@ if [[ "${UPLOAD}" == "1" ]]; then
 fi
 
 mkdir -p "${HELM_CACHE_DIR}"
-printf '%s\n' "${chart_tgz}" > "${HELM_CACHE_DIR}/HELM_PKG"
+if [[ "$(cd "$(dirname "${chart_tgz}")" && pwd)" != "$(cd "${HELM_CACHE_DIR}" && pwd)" ]]; then
+  cp -f "${chart_tgz}" "${HELM_CACHE_DIR}/"
+fi
+printf '%s\n' "$(basename "${chart_tgz}")" > "${HELM_CACHE_DIR}/HELM_PKG"
 printf '%s\n' "${HELM_VERSION}" > "${HELM_CACHE_DIR}/HELM_VERSION"
 log "done: ${chart_tgz}"
