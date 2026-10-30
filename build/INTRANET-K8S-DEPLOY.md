@@ -597,36 +597,57 @@ im-gateway:       service.type=ClusterIP，去掉 service.nodePort=30093
 
 `ingress.enabled` 保持 `false`。
 
-### 9.3 部署 nginx
+### 9.3 nginx 的 --set 参数
 
-chart 名 `muad-nginx`，release 名建议 `muad-entry-nginx`。
-
-用 Helm 部署：
-
-```bash
-TAG=<流水线产出的 tag>
-
-helm upgrade --install muad-entry-nginx <chart 来源>/muad-nginx \
-  --namespace muad \
-  --set global.imageRegistry=docker.sangfor.com/mss-release \
-  --set global.imageTag="$TAG" \
-  --set global.imagePullPolicy=Always \
-  --set 'global.imagePullSecrets[0].name=regcred' \
-  --set service.type=NodePort \
-  --set service.nodePort=30090 \
-  --set replicaCount=2 \
-  --set service.resources.requests.cpu=100m \
-  --set service.resources.requests.memory=128Mi \
-  --set service.resources.limits.cpu=500m \
-  --set service.resources.limits.memory=512Mi
+```text
+chart:   muad-nginx
+release: muad-entry-nginx
 ```
 
-也可以用静态 YAML：
+和 2.x 的服务一样，把下面整块交给发布平台的 nginx release：
 
 ```bash
-TAG=<流水线产出的 tag>
-sed "s#muad-nginx:1.0.0#muad-nginx:${TAG}#" build/nginx-entry.yaml \
-  | kubectl apply -f -
+--set global.imageRegistry=docker.sangfor.com/mss-release \
+--set global.imageTag="$TAG" \
+--set global.imagePullPolicy=Always \
+--set 'global.imagePullSecrets[0].name=regcred' \
+--set service.image=muad-nginx \
+--set service.port=8080 \
+--set service.type=NodePort \
+--set service.nodePort=30090 \
+--set service.externalTrafficPolicy=Cluster \
+--set replicaCount=2 \
+--set service.resources.requests.cpu=100m \
+--set service.resources.requests.memory=128Mi \
+--set service.resources.limits.cpu=500m \
+--set service.resources.limits.memory=512Mi
+```
+
+参数说明：
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `global.imageRegistry` | `docker.sangfor.com/mss-dev` | 镜像仓库，生产填 `mss-release` |
+| `global.imageTag` | `latest` | 和 5 个服务用同一个 `$TAG` |
+| `global.imagePullPolicy` | `IfNotPresent` | 生产建议 `Always` |
+| `global.imagePullSecrets` | `[]` | 私有仓库凭据，填 `regcred` |
+| `service.image` | `muad-nginx` | 镜像名 |
+| `service.tag` | `''` | 单独覆盖 `global.imageTag`，一般不用 |
+| `service.port` | `8080` | 容器和 Service 端口，镜像固定 8080 |
+| `service.type` | `NodePort` | 统一入口用 `NodePort`；走 Ingress 改 `ClusterIP` |
+| `service.nodePort` | `30090` | 对外端口 |
+| `service.externalTrafficPolicy` | `''` | 只对 `NodePort` / `LoadBalancer` 生效 |
+| `replicaCount` | `2` | 副本数，nginx chart 没有 HPA |
+| `service.resources.*` | 100m/128Mi、500m/512Mi | requests / limits |
+| `probes.path` | `/healthz` | 就绪/存活探针路径 |
+| `global.nodeSelector` | `{}` | 不限制节点；要固定时加 `--set global.nodeSelector.app=openclaw` |
+
+`service.tag` 不要和 `global.imageTag` 同时填，二选一。
+
+命令行安装时，把上面整块 `--set` 接在下面这条命令后面：
+
+```text
+helm upgrade --install muad-entry-nginx mss-release-helm/muad-nginx --namespace muad
 ```
 
 nginx 会使用同 namespace 的 Service DNS：
@@ -634,6 +655,14 @@ nginx 会使用同 namespace 的 Service DNS：
 ```text
 muad-console-platform:8000
 muad-im-gateway:8003
+```
+
+不用 Helm 时，仍可直接 apply 静态 YAML：
+
+```bash
+TAG=<流水线产出的 tag>
+sed "s#muad-nginx:1.0.0#muad-nginx:${TAG}#" build/nginx-entry.yaml \
+  | kubectl apply -f -
 ```
 
 ### 9.4 路由

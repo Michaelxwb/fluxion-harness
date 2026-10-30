@@ -238,27 +238,38 @@ console-platform: service.type=ClusterIP
 im-gateway:       service.type=ClusterIP
 ```
 
-用 Helm 部署：
+用 Helm 部署。`--set` 参数块（和 5 个服务格式一致）：
 
 ```bash
-TAG=<流水线产出的 tag>
-
-helm upgrade --install muad-entry-nginx <chart 来源>/muad-nginx \
-  --namespace muad \
-  --set global.imageRegistry=docker.sangfor.com/mss-release \
-  --set global.imageTag="$TAG" \
-  --set global.imagePullPolicy=Always \
-  --set 'global.imagePullSecrets[0].name=regcred' \
-  --set service.type=NodePort \
-  --set service.nodePort=30090 \
-  --set replicaCount=2
+--set global.imageRegistry=docker.sangfor.com/mss-release \
+--set global.imageTag="$TAG" \
+--set global.imagePullPolicy=Always \
+--set 'global.imagePullSecrets[0].name=regcred' \
+--set service.image=muad-nginx \
+--set service.port=8080 \
+--set service.type=NodePort \
+--set service.nodePort=30090 \
+--set service.externalTrafficPolicy=Cluster \
+--set replicaCount=2 \
+--set service.resources.requests.cpu=100m \
+--set service.resources.requests.memory=128Mi \
+--set service.resources.limits.cpu=500m \
+--set service.resources.limits.memory=512Mi
 ```
 
-需要固定到 openclaw 节点时加：
+命令行安装时，把整块接在：
+
+```text
+helm upgrade --install muad-entry-nginx mss-release-helm/muad-nginx --namespace muad
+```
+
+需要固定到 openclaw 节点时，在块里加：
 
 ```bash
 --set global.nodeSelector.app=openclaw
 ```
+
+参数说明见 `build/INTRANET-K8S-DEPLOY.md` 9.3。
 
 也可以继续用静态 YAML（不经过 Helm）：
 
@@ -303,7 +314,8 @@ build/INTRANET-K8S-DEPLOY.md
 
 ```text
 1. console / gateway 改成 service.type=ClusterIP，去掉 NodePort
-2. kubectl apply -f build/nginx-entry.yaml
+2. helm upgrade --install muad-entry-nginx mss-release-helm/muad-nginx（参数见 4.2）
+   或 kubectl apply -f build/nginx-entry.yaml
 3. 访问 http://<master-ip>:30090/
 ```
 
