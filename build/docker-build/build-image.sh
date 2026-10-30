@@ -42,6 +42,15 @@ IMAGE_CACHE_DIR="${IMAGE_CACHE_DIR:-/tmp/muad-image-${SERVICE}}"
 log() { printf '[image:%s] %s\n' "${SERVICE}" "$*"; }
 die() { printf '[image:%s][ERROR] %s\n' "${SERVICE}" "$*" >&2; exit 1; }
 
+STARTED_AT="$(date +%s)"
+TOTAL_STEPS=6
+if [[ "${SERVICE}" == "console-platform" ]]; then
+  TOTAL_STEPS=7
+fi
+STEP=0
+step() { STEP=$((STEP + 1)); log "[${STEP}/${TOTAL_STEPS}] $*"; }
+
+step "resolve configuration"
 [[ -f "build/docker-build/Dockerfile.${SERVICE}" ]] || die "unknown service"
 
 # Branch routing is shared by all five independent pipelines.
@@ -67,34 +76,48 @@ case "${SERVICE}" in
   *) base_image="${PYTHON_BASE_IMAGE}" ;;
 esac
 
+image="${IMAGE_NAMESPACE}/${IMAGE_PREFIX}${SERVICE}:${TAG}"
+log "image=${image}"
+log "base=${base_image} platform=${PLATFORM} push=${PUSH}"
+log "dockerfile=build/docker-build/Dockerfile.${SERVICE} context=."
+
 # Console image is assembled from the separately built frontend cache.
 if [[ "${SERVICE}" == "console-platform" ]]; then
+  step "restore console frontend cache from ${FRONTEND_CACHE_DIR}"
   [[ -f "${FRONTEND_CACHE_DIR}/dist/index.html" ]] || \
     die "frontend cache missing: ${FRONTEND_CACHE_DIR}/dist/index.html"
   rm -rf build/frontend/dist
   mkdir -p build/frontend/dist
   cp -a "${FRONTEND_CACHE_DIR}/dist/." build/frontend/dist/
+  log "frontend files=$(find build/frontend/dist -type f | wc -l | tr -d ' ') size=$(du -sh build/frontend/dist | cut -f1)"
 fi
 
 registry_host="${IMAGE_NAMESPACE%%/*}"
+step "docker login ${registry_host}"
 if [[ -n "${DOCKER_USER:-}" && -n "${DOCKER_PASS:-}" ]]; then
-  log "docker login ${registry_host}"
+  log "username=${DOCKER_USER}"
   printf '%s' "${DOCKER_PASS}" | docker login "${registry_host}" \
     --username "${DOCKER_USER}" --password-stdin
+  log "login ok"
 elif [[ "${PUSH}" == "1" ]]; then
   die "DOCKER_USER and DOCKER_PASS are required when PUSH=1"
+else
+  log "no credentials; skip login (build only)"
 fi
 
 # The base image lives in the private registry. Pull it explicitly while the
 # login is fresh; otherwise `docker build` fails later with a less clear error.
-if ! docker image inspect "${base_image}" >/dev/null 2>&1; then
-  log "pulling base image ${base_image}"
+step "ensure base image ${base_image}"
+if docker image inspect "${base_image}" >/dev/null 2>&1; then
+  log "base image present locally"
+else
+  log "pulling ${base_image}"
   docker pull "${base_image}" || \
     die "cannot pull base image ${base_image}; check registry login/permissions"
+  log "base image pulled"
 fi
 
-image="${IMAGE_NAMESPACE}/${IMAGE_PREFIX}${SERVICE}:${TAG}"
-log "building ${image} (base=${base_image}, platform=${PLATFORM})"
+step "docker build ${image}"
 docker build \
   --platform "${PLATFORM}" \
   --build-arg "BASE_IMAGE=${base_image}" \
@@ -103,13 +126,25 @@ docker build \
   -t "${image}" \
   -f "build/docker-build/Dockerfile.${SERVICE}" \
   .
-
-if [[ "${PUSH}" == "1" ]]; then
-  log "pushing ${image}"
-  docker push "${image}"
+size="$(docker image inspect --format '{{.Size}}' "${image}" 2>/dev/null || true)"
+if [[ -n "${size}" ]]; then
+  log "built ${image} ($((size / 1024 / 1024)) MiB)"
+else
+  log "built ${image}"
 fi
 
+step "docker push ${image}"
+if [[ "${PUSH}" == "1" ]]; then
+  docker push "${image}"
+  log "pushed ${image}"
+else
+  log "PUSH=0; push skipped"
+fi
+
+step "write build metadata"
 mkdir -p "${IMAGE_CACHE_DIR}"
 printf '%s\n' "${image}" > "${IMAGE_CACHE_DIR}/image.txt"
 printf '%s\n' "${TAG}" > "${IMAGE_CACHE_DIR}/IMAGE_TAG"
-log "done; metadata: ${IMAGE_CACHE_DIR}"
+log "metadata=${IMAGE_CACHE_DIR} (image.txt, IMAGE_TAG)"
+
+log "done in $(( $(date +%s) - STARTED_AT ))s: ${image}"

@@ -53,6 +53,12 @@ fi
 log() { printf '[helm-service:%s] %s\n' "${SERVICE}" "$*"; }
 die() { printf '[helm-service:%s][ERROR] %s\n' "${SERVICE}" "$*" >&2; exit 1; }
 
+STARTED_AT="$(date +%s)"
+TOTAL_STEPS=4
+STEP=0
+step() { STEP=$((STEP + 1)); log "[${STEP}/${TOTAL_STEPS}] $*"; }
+
+step "resolve chart version"
 # Prefer the image tag written by build-image.sh so image and chart versions
 # stay aligned. The fallback keeps the historical 1.0.<timestamp> scheme.
 if [[ -z "${HELM_VERSION:-}" ]]; then
@@ -76,23 +82,33 @@ fi
 HELM_REPOSITORY="${HELM_REPOSITORY_OVERRIDE:-${HELM_REPOSITORY}}"
 
 log "chart=${CHART} version=${HELM_VERSION} repository=${HELM_REPOSITORY}"
+log "upload=${UPLOAD} output=${HELM_OUT_DIR}"
+
+step "package chart ${CHART}:${HELM_VERSION}"
 HELM_OUT_DIR="${HELM_OUT_DIR}" HELM_VERSION="${HELM_VERSION}" \
   ./build/helm-build/package-helm.sh "${CHART}"
 
 chart_tgz="${HELM_OUT_DIR}/${CHART}-${HELM_VERSION}.tgz"
 [[ -f "${chart_tgz}" ]] || die "package missing: ${chart_tgz}"
+log "packaged ${chart_tgz} ($(du -h "${chart_tgz}" | cut -f1))"
 
+step "upload chart ${CHART}:${HELM_VERSION} to ${HELM_REPOSITORY}"
 if [[ "${UPLOAD}" == "1" ]]; then
   command -v sfspm >/dev/null 2>&1 || die "sfspm is required when UPLOAD=1"
   : "${AUTH_TOKEN:?AUTH_TOKEN is required when UPLOAD=1}"
   sfspm auth "${AUTH_TOKEN}" --url=http://artifacts.sangfor.com
   sfspm upload "${chart_tgz}" "${HELM_REPOSITORY}"
+  log "uploaded ${HELM_REPOSITORY}/${CHART}-${HELM_VERSION}.tgz"
+else
+  log "upload skipped (UPLOAD=0 or no AUTH_TOKEN)"
 fi
 
+step "write helm metadata"
 mkdir -p "${HELM_CACHE_DIR}"
 if [[ "$(cd "$(dirname "${chart_tgz}")" && pwd)" != "$(cd "${HELM_CACHE_DIR}" && pwd)" ]]; then
   cp -f "${chart_tgz}" "${HELM_CACHE_DIR}/"
 fi
 printf '%s\n' "$(basename "${chart_tgz}")" > "${HELM_CACHE_DIR}/HELM_PKG"
 printf '%s\n' "${HELM_VERSION}" > "${HELM_CACHE_DIR}/HELM_VERSION"
-log "done: ${chart_tgz}"
+log "metadata=${HELM_CACHE_DIR} (HELM_PKG, HELM_VERSION)"
+log "done in $(( $(date +%s) - STARTED_AT ))s: ${chart_tgz}"

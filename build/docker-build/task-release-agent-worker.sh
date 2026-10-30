@@ -16,5 +16,10 @@ AUTH_TOKEN="${AUTH_TOKEN:-${sfspm_token:-}}"
 : "${AUTH_TOKEN:?AUTH_TOKEN is required (Qianliu Secret)}"
 export AUTH_TOKEN
 
+log() { printf '[release:agent-worker] %s\n' "$*"; }
+
+log "[1/2] build and push image"
 "$(pwd)/build/docker-build/build-image.sh" "agent-worker"
+log "[2/2] package and upload Helm chart"
 "$(pwd)/build/helm-build/package-service.sh" "agent-worker"
+log "release agent-worker done"

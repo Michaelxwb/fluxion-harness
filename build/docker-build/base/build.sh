@@ -62,27 +62,46 @@ esac
 log() { printf '[base] %s\n' "$*"; }
 die() { printf '[base][ERROR] %s\n' "$*" >&2; exit 1; }
 
+STARTED_AT="$(date +%s)"
+TOTAL_STEPS=6
+STEP=0
+step() { STEP=$((STEP + 1)); log "[${STEP}/${TOTAL_STEPS}] $*"; }
+
+step "check inputs"
+log "source=${SOURCE_BASE_IMAGE}"
+log "python=${PYTHON_REF} (Python ${PYTHON_VERSION})"
+log "node=${NODE_REF} (Node ${NODE_VERSION})"
+log "platform=${PLATFORM} push=${PUSH}"
+
 command -v docker >/dev/null 2>&1 || die "docker is required"
 [[ -f "${BASE_DIR}/Dockerfile.python" ]] || die "missing Dockerfile.python"
 [[ -f "${BASE_DIR}/Dockerfile.python-node" ]] || die "missing Dockerfile.python-node"
 [[ -f "${BASE_DIR}/extract.py" ]] || die "missing extract.py"
 [[ -d "${BASE_DIR}/vendor" ]] || die "missing vendor directory: ${BASE_DIR}/vendor"
 
+step "docker login ${REGISTRY_HOST}"
 if [[ -n "${DOCKER_USER:-}" && -n "${DOCKER_PASS:-}" ]]; then
-  log "docker login ${REGISTRY_HOST}"
+  log "username=${DOCKER_USER}"
   printf '%s' "${DOCKER_PASS}" | docker login "${REGISTRY_HOST}" \
     --username "${DOCKER_USER}" --password-stdin
+  log "login ok"
 elif [[ "${PUSH}" == "1" ]]; then
   die "DOCKER_USER and DOCKER_PASS are required when PUSH=1"
+else
+  log "no credentials; skip login (build only)"
 fi
 
-if ! docker image inspect "${SOURCE_BASE_IMAGE}" >/dev/null 2>&1; then
-  log "pulling source base image ${SOURCE_BASE_IMAGE}"
+step "ensure source base image ${SOURCE_BASE_IMAGE}"
+if docker image inspect "${SOURCE_BASE_IMAGE}" >/dev/null 2>&1; then
+  log "source base image present locally"
+else
+  log "pulling ${SOURCE_BASE_IMAGE}"
   docker pull "${SOURCE_BASE_IMAGE}" || \
     die "cannot pull source base image ${SOURCE_BASE_IMAGE}; check registry login/permissions"
+  log "source base image pulled"
 fi
 
-log "python base: ${PYTHON_REF} <- ${SOURCE_BASE_IMAGE} (Python ${PYTHON_VERSION}, ${PLATFORM})"
+step "build python base ${PYTHON_REF}"
 docker build \
   --platform "${PLATFORM}" \
   --build-arg "BASE_IMAGE=${SOURCE_BASE_IMAGE}" \
@@ -94,8 +113,10 @@ docker build \
   -t "${PYTHON_REF}" \
   -f "${BASE_DIR}/Dockerfile.python" \
   "${BASE_DIR}"
+python_size="$(docker image inspect --format '{{.Size}}' "${PYTHON_REF}" 2>/dev/null || true)"
+log "built ${PYTHON_REF}${python_size:+ ($((python_size / 1024 / 1024)) MiB)}"
 
-log "python+node base: ${NODE_REF} (Node ${NODE_VERSION})"
+step "build python+node base ${NODE_REF}"
 docker build \
   --platform "${PLATFORM}" \
   --build-arg "BASE_IMAGE=${PYTHON_REF}" \
@@ -105,14 +126,18 @@ docker build \
   -t "${NODE_REF}" \
   -f "${BASE_DIR}/Dockerfile.python-node" \
   "${BASE_DIR}"
+node_size="$(docker image inspect --format '{{.Size}}' "${NODE_REF}" 2>/dev/null || true)"
+log "built ${NODE_REF}${node_size:+ ($((node_size / 1024 / 1024)) MiB)}"
 
+step "push base images"
 if [[ "${PUSH}" == "1" ]]; then
   log "pushing ${PYTHON_REF}"
   docker push "${PYTHON_REF}"
   log "pushing ${NODE_REF}"
   docker push "${NODE_REF}"
+  log "pushed both base images"
 else
-  log "PUSH=0: skip docker push"
+  log "PUSH=0; push skipped"
 fi
 
-log "done"
+log "done in $(( $(date +%s) - STARTED_AT ))s"

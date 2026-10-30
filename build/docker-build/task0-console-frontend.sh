@@ -18,23 +18,36 @@ REPO_ROOT="$(pwd)"
 log() { printf '[frontend] %s\n' "$*"; }
 die() { printf '[frontend][ERROR] %s\n' "$*" >&2; exit 1; }
 
+STARTED_AT="$(date +%s)"
+TOTAL_STEPS=4
+STEP=0
+step() { STEP=$((STEP + 1)); log "[${STEP}/${TOTAL_STEPS}] $*"; }
+
+step "resolve frontend workspace"
 [[ -f "${REPO_ROOT}/apps/console-platform/frontend/package.json" ]] || \
   die "cwd is not the repository root: ${REPO_ROOT}"
 [[ -f "${REPO_ROOT}/apps/console-platform/frontend/package-lock.json" ]] || \
   die "package-lock.json is required for reproducible npm ci"
+log "node=$(node --version) npm=$(npm --version)"
+log "registry=${NPM_REGISTRY} cache=${CACHE_DIR} version=${DIST_VERSION}"
 
 cd "${REPO_ROOT}/apps/console-platform/frontend"
-log "npm ci (registry=${NPM_REGISTRY})"
+
+step "npm ci"
 npm ci --registry="${NPM_REGISTRY}" --replace-registry-host=always
-log "npm run build"
+log "dependencies installed"
+
+step "npm run build"
 npm run build
 [[ -f dist/index.html ]] || die "frontend build did not produce dist/index.html"
+log "build output: files=$(find dist -type f | wc -l | tr -d ' ') size=$(du -sh dist | cut -f1)"
 
-log "stage ${CACHE_DIR}"
+step "stage frontend cache"
 mkdir -p "${CACHE_DIR}"
 rm -rf "${CACHE_DIR:?}/"*
 cp -a dist "${CACHE_DIR}/dist"
 tar -czf "${CACHE_DIR}/frontend-dist-${DIST_VERSION}.tar.gz" -C dist .
 echo "${DIST_VERSION}" > "${CACHE_DIR}/DIST_VERSION"
 ls -la "${CACHE_DIR}"
-log "done: DIST_VERSION=${DIST_VERSION}"
+log "cache files: files=$(find "${CACHE_DIR}" -type f | wc -l | tr -d ' ') size=$(du -sh "${CACHE_DIR}" | cut -f1)"
+log "done in $(( $(date +%s) - STARTED_AT ))s: DIST_VERSION=${DIST_VERSION}"

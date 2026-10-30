@@ -34,6 +34,12 @@ fi
 log() { printf '[nginx] %s\n' "$*"; }
 die() { printf '[nginx][ERROR] %s\n' "$*" >&2; exit 1; }
 
+STARTED_AT="$(date +%s)"
+TOTAL_STEPS=5
+STEP=0
+step() { STEP=$((STEP + 1)); log "[${STEP}/${TOTAL_STEPS}] $*"; }
+
+step "resolve configuration"
 command -v docker >/dev/null 2>&1 || die "docker is required"
 [[ -f "${BASE_DIR}/nginx.conf" ]] || die "missing nginx.conf"
 
@@ -42,24 +48,34 @@ case "${NGINX_BUILD_MODE}" in
   copy) DOCKERFILE="${BASE_DIR}/Dockerfile.copy" ;;
   *) die "NGINX_BUILD_MODE must be rpm or copy" ;;
 esac
+log "image=${IMAGE_REPOSITORY}:${TAG}"
+log "mode=${NGINX_BUILD_MODE} base=${BASE_IMAGE} platform=${PLATFORM} push=${PUSH}"
 
 REGISTRY_HOST="${IMAGE_REPOSITORY%%/*}"
 
+step "docker login ${REGISTRY_HOST}"
 if [[ -n "${DOCKER_USER:-}" && -n "${DOCKER_PASS:-}" ]]; then
-  log "docker login ${REGISTRY_HOST}"
+  log "username=${DOCKER_USER}"
   printf '%s' "${DOCKER_PASS}" | docker login "${REGISTRY_HOST}" \
     --username "${DOCKER_USER}" --password-stdin
+  log "login ok"
 elif [[ "${PUSH}" == "1" ]]; then
   die "DOCKER_USER and DOCKER_PASS are required when PUSH=1"
+else
+  log "no credentials; skip login (build only)"
 fi
 
-if ! docker image inspect "${BASE_IMAGE}" >/dev/null 2>&1; then
-  log "pulling base image ${BASE_IMAGE}"
+step "ensure base image ${BASE_IMAGE}"
+if docker image inspect "${BASE_IMAGE}" >/dev/null 2>&1; then
+  log "base image present locally"
+else
+  log "pulling ${BASE_IMAGE}"
   docker pull "${BASE_IMAGE}" || \
     die "cannot pull base image ${BASE_IMAGE}; check registry login/permissions"
+  log "base image pulled"
 fi
 
-log "build ${IMAGE_REPOSITORY}:${TAG} (mode=${NGINX_BUILD_MODE}, base=${BASE_IMAGE}, platform=${PLATFORM})"
+step "docker build ${IMAGE_REPOSITORY}:${TAG}"
 docker build \
   --platform "${PLATFORM}" \
   --build-arg "BASE_IMAGE=${BASE_IMAGE}" \
@@ -67,12 +83,19 @@ docker build \
   -t "${IMAGE_REPOSITORY}:${TAG}" \
   -f "${DOCKERFILE}" \
   "${BASE_DIR}"
-
-if [[ "${PUSH}" == "1" ]]; then
-  log "push ${IMAGE_REPOSITORY}:${TAG}"
-  docker push "${IMAGE_REPOSITORY}:${TAG}"
+size="$(docker image inspect --format '{{.Size}}' "${IMAGE_REPOSITORY}:${TAG}" 2>/dev/null || true)"
+if [[ -n "${size}" ]]; then
+  log "built ${IMAGE_REPOSITORY}:${TAG} ($((size / 1024 / 1024)) MiB)"
 else
-  log "PUSH=0: skip docker push"
+  log "built ${IMAGE_REPOSITORY}:${TAG}"
 fi
 
-log "done"
+step "docker push ${IMAGE_REPOSITORY}:${TAG}"
+if [[ "${PUSH}" == "1" ]]; then
+  docker push "${IMAGE_REPOSITORY}:${TAG}"
+  log "pushed ${IMAGE_REPOSITORY}:${TAG}"
+else
+  log "PUSH=0; push skipped"
+fi
+
+log "done in $(( $(date +%s) - STARTED_AT ))s: ${IMAGE_REPOSITORY}:${TAG}"

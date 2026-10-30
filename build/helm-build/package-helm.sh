@@ -25,34 +25,36 @@ else
   CHARTS=("${ALL_CHARTS[@]}")
 fi
 
-command -v helm >/dev/null 2>&1 || { echo "[helm][ERROR] helm is required" >&2; exit 1; }
+log() { printf '[helm] %s\n' "$*"; }
+die() { printf '[helm][ERROR] %s\n' "$*" >&2; exit 1; }
+
+command -v helm >/dev/null 2>&1 || die "helm is required"
 mkdir -p "${OUT_DIR}"
 
+STARTED_AT="$(date +%s)"
+INDEX=0
+TOTAL="${#CHARTS[@]}"
+log "version=${VERSION} output=${OUT_DIR} charts=${TOTAL}"
+
 for chart in "${CHARTS[@]}"; do
+  INDEX=$((INDEX + 1))
   known=0
   for candidate in "${ALL_CHARTS[@]}"; do
     [[ "${chart}" == "${candidate}" ]] && known=1
   done
-  [[ "${known}" == "1" ]] || {
-    echo "[helm][ERROR] unknown chart: ${chart}" >&2
-    exit 2
-  }
+  [[ "${known}" == "1" ]] || die "unknown chart: ${chart}"
 
   chart_dir="${CHART_ROOT}/${chart}"
-  [[ -f "${chart_dir}/Chart.yaml" ]] || {
-    echo "[helm][ERROR] chart missing: ${chart_dir}" >&2
-    exit 1
-  }
+  [[ -f "${chart_dir}/Chart.yaml" ]] || die "chart missing: ${chart_dir}"
+  log "[${INDEX}/${TOTAL}] packaging ${chart}:${VERSION}"
   rm -f "${OUT_DIR}/${chart}-${VERSION}.tgz"
   helm package "${chart_dir}" \
     --version "${VERSION}" \
     --app-version "${VERSION}" \
     --destination "${OUT_DIR}"
-  test -f "${OUT_DIR}/${chart}-${VERSION}.tgz" || {
-    echo "[helm][ERROR] package not produced: ${chart}" >&2
-    exit 1
-  }
-  printf '[helm] %s\n' "${OUT_DIR}/${chart}-${VERSION}.tgz"
+  tgz="${OUT_DIR}/${chart}-${VERSION}.tgz"
+  test -f "${tgz}" || die "package not produced: ${chart}"
+  log "packaged ${tgz} ($(du -h "${tgz}" | cut -f1))"
 done
 
-find "${OUT_DIR}" -maxdepth 1 -type f -name '*.tgz' -print | sort
+log "done in $(( $(date +%s) - STARTED_AT ))s: ${TOTAL} charts"
