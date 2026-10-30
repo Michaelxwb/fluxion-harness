@@ -198,6 +198,19 @@ kubectl -n muad create secret docker-registry regcred \
 
 ## 2.6 `.env` 完整映射
 
+先分清三层配置：
+
+| 层 | 内容 | 存放 | 生效方式 |
+|---|---|---|---|
+| 进程启动配置 | DB/Redis、服务地址、池大小、租约、SSE/CHAT 硬上限 | ConfigMap `muad-common` + Secret | 重启 Pod 生效 |
+| 业务设置 | 口令策略、压缩预算、任务默认、记忆策略、保留天数、语言/时区、IM 节拍、MCP、容量 | PostgreSQL `control.platform_setting` | 页面保存后新请求/新 Run 生效 |
+| 部署参数 | 镜像、副本、资源、NodePort、PVC、nodeSelector | Helm values | 发布时生效 |
+
+`muad-common` 由 chart 自动创建，**不需要手动 `kubectl create configmap`**。
+
+下面这段是**可选的**全量显式覆盖：不写就走代码默认值；只有需要固定某些进程启动参数时才加。
+页面「系统设置」里的业务参数**不要**写进 ConfigMap，写了也不会生效。
+
 5 份独立配置已经覆盖 K8s 关键项。下面是把 `.env.example` 里**所有非敏感项**显式放进
 `muad-common` ConfigMap 的完整 `config:` 块。
 
