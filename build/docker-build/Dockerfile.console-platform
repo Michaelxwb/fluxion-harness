@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+# Intranet service image: console-platform (FastAPI + built frontend static files).
+#
+# The base image provides Python 3.12, pip/setuptools, CA certificates, tzdata and
+# the non-root muad user. Third-party dependencies are installed from
+# requirements.txt; workspace packages are installed from
+# local source with --no-deps (their dependencies are already pinned above).
+ARG BASE_IMAGE=docker.sangfor.com/mss-base/muad-python-base:3.12
+FROM ${BASE_IMAGE}
+
+ARG PIP_INDEX_URL=http://mirrors.sangfor.org/pypi/simple
+ARG PIP_TRUSTED_HOST=mirrors.sangfor.org
+USER root
+WORKDIR /app
+
+COPY requirements.txt /tmp/requirements.txt
+RUN python -m pip install --no-cache-dir -i "${PIP_INDEX_URL}" \
+      --trusted-host "${PIP_TRUSTED_HOST}" -r /tmp/requirements.txt
+
+COPY build/frontend/dist /app/static
+COPY config /app/config
+COPY migrations /app/migrations
+COPY packages /app/packages
+COPY apps/console-platform/backend /app/apps/console-platform/backend
+
+# Workspace packages are local-only; --no-build-isolation uses the setuptools/wheel
+# already present in the base image, so this step never reaches the network.
+RUN python -m pip install --no-cache-dir --no-deps --no-build-isolation \
+      /app/packages/* \
+      /app/apps/console-platform/backend \
+ && chown -R 10001:10001 /app
+
+USER 10001:10001
+EXPOSE 8000
+CMD ["uvicorn", "muad_console_platform.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -2,15 +2,15 @@
 
 # 内网底座镜像（Python 3.12 / Python 3.12 + Node 24）；发布需显式 PUSH=1。
 base-images:
-	./build/base/build.sh
+	./build/docker-build/base/build.sh
 
-# 从 uv.lock 重新生成各服务 requirements（提交前必须无 diff）。
+# 从 uv.lock 重新生成根 requirements.txt（提交前必须无 diff）。
 export-requirements:
-	./build/scripts/export-requirements.sh
+	./build/docker-build/export-requirements.sh
 
 # 构建资产静态校验：shell、requirements 漂移、Helm lint/template。
 verify-build-assets:
-	./build/scripts/verify.sh
+	./build/verify.sh
 
 compile:
 	uv run python -m compileall -q apps packages migrations

@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: muad-console-platform
+  labels:
+    app: muad-console-platform
+    {{- include "muad-platform.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.service.replicas }}
+  selector:
+    matchLabels:
+      app: muad-console-platform
+  template:
+    metadata:
+      labels:
+        app: muad-console-platform
+        {{- include "muad-platform.labels" . | nindent 8 }}
+    spec:
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        {{- include "muad-platform.podSecurityContext" . | nindent 8 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: app
+          image: {{ include "muad-platform.image" (dict "root" . "service" .Values.service) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          envFrom:
+            - configMapRef:
+                name: muad-common
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: REDIS_URL
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: INTERNAL_SERVICE_TOKEN
+            - name: CONTROL_HTTP_MAX_CONNECTIONS
+              value: "32"
+            - name: CONTROL_HTTP_MAX_KEEPALIVE
+              value: "16"
+            - name: MODEL_HTTP_MAX_CONNECTIONS
+              value: "256"
+            - name: MODEL_HTTP_MAX_KEEPALIVE
+              value: "32"
+            {{- with .Values.service.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.service.resources | nindent 12 }}
+          readinessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: {{ .Values.service.port }}
+          livenessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: {{ .Values.service.port }}
+          volumeMounts:
+            - name: artifacts
+              mountPath: {{ .Values.global.artifacts.mountPath }}
+      volumes:
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: {{ .Values.global.artifacts.existingClaim }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: muad-console-platform
+  labels:
+    app: muad-console-platform
+    {{- include "muad-platform.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: muad-console-platform
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}

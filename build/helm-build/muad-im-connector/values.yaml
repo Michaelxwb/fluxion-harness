@@ -1,0 +1,30 @@
+global:
+  imageRegistry: docker.sangfor.com/mss-dev
+  imageTag: latest
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+  existingSecret: muad-external
+  connectorSecret: muad-connector-external
+  tenantId: default
+  artifacts:
+    existingClaim: muad-artifacts-rwx
+    create: false
+    storage: 100Gi
+    storageClassName: ''
+    mountPath: /mnt/muad-artifacts
+  skillCache:
+    mountPath: /var/cache/muad/skills
+service:
+  replicas: 2
+  tag: ''
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: '1'
+      memory: 1Gi
+  extraEnv: []
+  name: muad-im-connector
+  image: muad-im-connector
+  port: 8004

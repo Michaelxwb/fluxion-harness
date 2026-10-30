@@ -28,11 +28,8 @@ data
 .data
 playwright-report
 test-results
-build/base
-build/docker
-build/helm
-build/qianliu
-build/scripts
+build/docker-build
+build/helm-build
 build/dist
 
 # 杂项
