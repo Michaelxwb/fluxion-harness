@@ -497,3 +497,56 @@ image.openclawtag
 
 NodePort 模式需要 console 30090 + gateway 30093，入口侧按路径分流。
 有 Ingress 时建议改成 Ingress：console 和 gateway 都设 `service.type=ClusterIP`，console 设 `ingress.enabled=true`。
+
+## 8. 固定 console 到 openclaw 节点
+
+线上 5 台 worker 都有 `app=openclaw` 标签时：
+
+```bash
+kubectl get nodes -l app=openclaw
+```
+
+### 只让 console 跑在这 5 台节点池
+
+```bash
+--set service.nodeSelector.app=openclaw
+```
+
+这是 5 台节点池，调度器会从这 5 台里选一台，不是固定某一台。
+
+### 固定到其中一台
+
+给目标节点加唯一标签：
+
+```bash
+kubectl label node <node-name> muad-console=true
+```
+
+console release 设置：
+
+```bash
+--set service.nodeSelector.muad-console=true
+```
+
+如果要同时限制在 openclaw 节点池：
+
+```bash
+--set service.nodeSelector.app=openclaw \
+--set service.nodeSelector.muad-console=true
+```
+
+### 只让 console / worker 在 openclaw 节点
+
+从其它 3 个 release 去掉 `global.nodeSelector.app=openclaw`，只给 console 和 agent-worker 加：
+
+```bash
+--set service.nodeSelector.app=openclaw
+```
+
+`service.nodeSelector` 会覆盖 `global.nodeSelector`；两者不要同时配成不同节点池。
+
+### 注意
+
+- console 只有 1 副本，固定到单节点就是单点；节点故障 console 不可用。
+- 需要 console HA 时至少 2 副本，并用 `service.affinity` 配 podAntiAffinity 分散到不同节点。
+- runtime/worker 的多副本不需要逐个固定节点，交给调度器按资源分布即可。
