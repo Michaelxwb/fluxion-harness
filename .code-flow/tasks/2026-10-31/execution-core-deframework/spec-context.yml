@@ -1,7 +1,7 @@
 version: 1
 task: execution-core-deframework
 enforcement: required
-updated_at: '2026-10-30T19:30:21.550992+00:00'
+updated_at: '2026-10-30T19:31:09.649394+00:00'
 sources:
 - type: cli
   ref: bind
@@ -48,11 +48,11 @@ bindings:
         - artifact: execution-core-deframework.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: e4e38c8be72d224377096901d991b95b6120cda58bfe325ba2cc228a7520726f
+          artifact_sha256: 594d812855a9a4d6831df66cf661dae42d3381b035315f13445ab33a6397e30d
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -80,6 +80,39 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-30T19:32:30.427845+00:00'
+          status: verified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 413a5a92ea73c7105e22a9a5cad74dfef34a6f966b925f4028280d9af0b87167
+          result_sha256: 960f75bf536e32b93bf47b955b1d1ad51acfe24cfee11b664cf7ccfcdad9de7f
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: 72692c92a1a59319772d5315452580bcc59f631c893a1ac97ce81e220113cc1c
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "...............................................             \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              47 passed, 6167 deselected, 2 warnings in 25.56s\n"
       review:
         status: pending
         refs: []
@@ -124,7 +157,7 @@ bindings:
         - artifact: execution-core-deframework.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: e4e38c8be72d224377096901d991b95b6120cda58bfe325ba2cc228a7520726f
+          artifact_sha256: 594d812855a9a4d6831df66cf661dae42d3381b035315f13445ab33a6397e30d
         decision: null
         evidence: []
       code:

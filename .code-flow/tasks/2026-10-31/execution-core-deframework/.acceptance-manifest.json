@@ -486,7 +486,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL 新建库 + alembic 迁移到 head",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -543,7 +543,98 @@
       "features": [
         "FEAT-03"
       ],
-      "check": "CHK-31df3543cff4"
+      "check": "CHK-31df3543cff4",
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-31df3543cff4",
+        "input_hash": "0ed28190f4fd7e8818137f5199dd5390796aea15c0d2bdd61ddb319d42517d09",
+        "check_config": {
+          "id": "CHK-31df3543cff4",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/test_schema_surface_contract.py",
+            "-k",
+            "s03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "d63168e69bf94959819315df6e6e872b",
+        "executed_at": "2026-10-30T19:32:03.795082+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/test_schema_surface_contract.py",
+          "-k",
+          "s03"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "0ed28190f4fd7e8818137f5199dd5390796aea15c0d2bdd61ddb319d42517d09"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-31df3543cff4",
+          "input_hash": "0ed28190f4fd7e8818137f5199dd5390796aea15c0d2bdd61ddb319d42517d09",
+          "check_config": {
+            "id": "CHK-31df3543cff4",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/test_schema_surface_contract.py",
+              "-k",
+              "s03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "d63168e69bf94959819315df6e6e872b",
+          "executed_at": "2026-10-30T19:32:03.795082+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/test_schema_surface_contract.py",
+            "-k",
+            "s03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "0ed28190f4fd7e8818137f5199dd5390796aea15c0d2bdd61ddb319d42517d09"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -552,7 +643,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL + alembic downgrade",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -601,7 +692,98 @@
       "features": [
         "FEAT-03"
       ],
-      "check": "CHK-fda3d9dd040f"
+      "check": "CHK-fda3d9dd040f",
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-fda3d9dd040f",
+        "input_hash": "0ed28190f4fd7e8818137f5199dd5390796aea15c0d2bdd61ddb319d42517d09",
+        "check_config": {
+          "id": "CHK-fda3d9dd040f",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/test_schema_surface_contract.py",
+            "-k",
+            "e02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "d63168e69bf94959819315df6e6e872b",
+        "executed_at": "2026-10-30T19:32:03.795082+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/test_schema_surface_contract.py",
+          "-k",
+          "e02"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "0ed28190f4fd7e8818137f5199dd5390796aea15c0d2bdd61ddb319d42517d09"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-fda3d9dd040f",
+          "input_hash": "0ed28190f4fd7e8818137f5199dd5390796aea15c0d2bdd61ddb319d42517d09",
+          "check_config": {
+            "id": "CHK-fda3d9dd040f",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/test_schema_surface_contract.py",
+              "-k",
+              "e02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "d63168e69bf94959819315df6e6e872b",
+          "executed_at": "2026-10-30T19:32:03.795082+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/test_schema_surface_contract.py",
+            "-k",
+            "e02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "0ed28190f4fd7e8818137f5199dd5390796aea15c0d2bdd61ddb319d42517d09"
+        }
+      ]
     },
     {
       "id": "S-04",

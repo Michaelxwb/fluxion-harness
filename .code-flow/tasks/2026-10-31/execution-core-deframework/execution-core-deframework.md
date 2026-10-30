@@ -16,8 +16,8 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | S-01 | execution-core-deframework.design.md#2.5 验收条件 | integration | 真实 RunService/Executor/AgentRunner + 真实 PostgreSQL；脚本化 provider | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_composition.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-02 | execution-core-deframework.design.md#2.5 验收条件 | contract | uv.lock / requirements.txt / 干净安装环境 | TASK-002 | verified | ["uv","run","pytest","-q","tests/contracts/test_dependency_surface.py"] | . | 300 | P0 | auto | none | - | - | - | no |
-| S-03 | execution-core-deframework.design.md#2.5 验收条件 | contract | 真实 PostgreSQL 的 information_schema + 迁移链 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/test_schema_surface_contract.py","-k","s03"] | . | 300 | P0 | auto | local | - | - | - | no |
-| E-02 | execution-core-deframework.design.md#2.5 验收条件 | contract | 迁移源文件的 upgrade/downgrade DDL 对称性 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/test_schema_surface_contract.py","-k","e02"] | . | 300 | P1 | auto | local | - | - | - | no |
+| S-03 | execution-core-deframework.design.md#2.5 验收条件 | contract | 真实 PostgreSQL 的 information_schema + 迁移链 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/test_schema_surface_contract.py","-k","s03"] | . | 300 | P0 | auto | local | - | - | - | no |
+| E-02 | execution-core-deframework.design.md#2.5 验收条件 | contract | 迁移源文件的 upgrade/downgrade DDL 对称性 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/test_schema_surface_contract.py","-k","e02"] | . | 300 | P1 | auto | local | - | - | - | no |
 | S-04 | execution-core-deframework.design.md#2.5 验收条件 | unit | AgentRunner + 脚本化 provider（无网络、无数据库） | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_core/test_runner.py"] | . | 300 | P0 | auto | none | - | - | - | no |
 | E-01 | execution-core-deframework.design.md#2.5 验收条件 | unit | AgentRunner + 脚本化 provider（无网络） | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_core/test_runner.py","-k","deadline or cancellation or incomplete_model_stream"] | . | 300 | P1 | auto | none | - | - | - | no |
 | B-01 | execution-core-deframework.design.md#2.5 验收条件 | unit | AgentRunner + 持续返回 tool_calls 的脚本化 provider | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_core/test_runner.py","-k","max_turns_budget_finalizes"] | . | 300 | P1 | auto | none | - | - | - | no |
@@ -136,7 +136,7 @@
 
 ## TASK-003: 删除空 langgraph schema 的迁移
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: execution-core-deframework.design.md#3.3 数据设计, execution-core-deframework.design.md#4.4 数据迁移
@@ -152,28 +152,40 @@
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/acceptance/test_schema_surface_contract.py`
-- [ ] 新增迁移文件，`down_revision` 指向当前链尾
-- [ ] 在验收库上执行 upgrade → 查询 information_schema → 执行 downgrade → 再 upgrade，并记录证据
-- [ ] [S-03][contract] 断言 schema 集合恰为 control/runtime/task，迁移链单头
-- [ ] [E-02][contract] 断言迁移源文件 upgrade 删除、downgrade 重建，DDL 对称
-- [ ] [harness-data#RULE-data-001] verifier：`uv run pytest -q tests/acceptance/test_schema_surface_contract.py`；迁移保持单链、标准列与 JSONB 口径，不新建业务表
-- [ ] 填写 Acceptance Evidence 并运行 `cf_validation`
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/acceptance/test_schema_surface_contract.py`
+- [x] 新增迁移文件，`down_revision` 指向当前链尾
+- [x] 在验收库上执行 upgrade → 查询 information_schema → 执行 downgrade → 再 upgrade，并记录证据
+- [x] [S-03][contract] 断言 schema 集合恰为 control/runtime/task，迁移链单头
+- [x] [E-02][contract] 断言迁移源文件 upgrade 删除、downgrade 重建，DDL 对称
+- [x] [harness-data#RULE-data-001] verifier：`uv run pytest -q tests/acceptance/test_schema_surface_contract.py`；迁移保持单链、标准列与 JSONB 口径，不新建业务表
+- [x] 填写 Acceptance Evidence 并运行 `cf_validation`
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-03 | contract | 真实 PostgreSQL information_schema + 迁移链 | schema 名集合恰为 control/runtime/task；不含 langgraph；迁移单头 | tests/acceptance/test_schema_surface_contract.py | ["uv","run","pytest","-q","tests/acceptance/test_schema_surface_contract.py","-k","s03"] | planned |
-| E-02 | contract | 迁移源文件 upgrade/downgrade DDL | upgrade 含 DROP SCHEMA IF EXISTS langgraph；downgrade 含 CREATE SCHEMA IF NOT EXISTS langgraph | tests/acceptance/test_schema_surface_contract.py | ["uv","run","pytest","-q","tests/acceptance/test_schema_surface_contract.py","-k","e02"] | planned |
+| S-03 | contract | 真实 PostgreSQL information_schema + 迁移链 | schema 名集合恰为 control/runtime/task；不含 langgraph；迁移单头 | tests/acceptance/test_schema_surface_contract.py | ["uv","run","pytest","-q","tests/acceptance/test_schema_surface_contract.py","-k","s03"] | verified |
+| E-02 | contract | 迁移源文件 upgrade/downgrade DDL | upgrade 含 DROP SCHEMA IF EXISTS langgraph；downgrade 含 CREATE SCHEMA IF NOT EXISTS langgraph | tests/acceptance/test_schema_surface_contract.py | ["uv","run","pytest","-q","tests/acceptance/test_schema_surface_contract.py","-k","e02"] | verified |
 
 ### Acceptance Evidence
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-03 | N/A：迁移与测试同批引入；缺陷来源是 `0001` 建出的空 schema，head 后不存在 | 2 passed（1.88s，含 s03） | tests/acceptance/test_schema_surface_contract.py::test_s03_schema_surface_excludes_langgraph | 验收 conftest 建临时库并迁移到 head；information_schema 查询返回 control/runtime/task | verified |
+| E-02 | FAIL: 首跑判定过宽（`0001` 的 downgrade 也含 DROP DDL，matches=2） | 2 passed（1.88s，含 e02） | tests/acceptance/test_schema_surface_contract.py::test_e02_langgraph_schema_drop_migration_is_symmetric | 独立临时库 round trip：upgrade head → control,runtime,task；downgrade 0028 → 含 langgraph；re-upgrade → 无 langgraph | verified |
+
+回归：`tests/acceptance/test_foundation_schema_parity.py` 3 passed（4.18s）。
+- S-03: verified — automated command passed; run_id=d63168e69bf94959819315df6e6e872b (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=d63168e69bf94959819315df6e6e872b (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-31] created (draft)
+- [2026-10-31] started
+- [2026-10-31] completed (done)
 
 ---
+- [2026-10-31] 实现完成：新增 0029 drop migration；round trip 与契约测试通过
 
 ## TASK-004: spec 与交付文档对齐
 

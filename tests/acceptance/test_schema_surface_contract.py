@@ -28,10 +28,16 @@ async def test_s03_schema_surface_excludes_langgraph() -> None:
     assert "langgraph" not in names
 
 
+def _upgrade_body(text: str) -> str:
+    return text.partition("def upgrade() -> None:")[2].partition("def downgrade() -> None:")[0]
+
+
 def test_e02_langgraph_schema_drop_migration_is_symmetric() -> None:
     sources = {
         path: path.read_text(encoding="utf-8") for path in sorted(VERSIONS.glob("*.py"))
     }
-    matches = [text for text in sources.values() if "DROP SCHEMA IF EXISTS langgraph" in text]
+    matches = [
+        text for text in sources.values() if "DROP SCHEMA IF EXISTS langgraph" in _upgrade_body(text)
+    ]
     assert len(matches) == 1, "expected exactly one migration dropping the langgraph schema"
-    assert "CREATE SCHEMA IF NOT EXISTS langgraph" in matches[0]
+    assert "CREATE SCHEMA IF NOT EXISTS langgraph" in matches[0].partition("def downgrade()")[2]
