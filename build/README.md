@@ -151,9 +151,10 @@ helm template muad build/helm/muad-platform --namespace muad > /tmp/muad-platfor
 服务镜像本地构建示例（公网 pip 源，仅用于验证 Dockerfile）：
 
 ```bash
-BASE_REGISTRY=muad
-./build/base/build.sh
+BASE_REGISTRY=muad PLATFORM=linux/amd64 PUSH=0 ./build/base/build.sh
 TAG=local PUSH=0 IMAGE_NAMESPACE=local \
+PYTHON_BASE_IMAGE=muad/muad-python-base:3.12 \
+NODE_BASE_IMAGE=muad/muad-python-node-base:3.12-node24 \
 PIP_INDEX_URL=https://pypi.org/simple PIP_TRUSTED_HOST=pypi.org \
   ./build/scripts/build-images.sh
 ```
