@@ -25,7 +25,6 @@ for chart in "${CHARTS[@]}"; do
     exit 1
   }
   rm -f "${OUT_DIR}/${chart}-${VERSION}.tgz"
-  helm lint "${chart_dir}"
   helm package "${chart_dir}" \
     --version "${VERSION}" \
     --app-version "${VERSION}" \

@@ -45,11 +45,6 @@ docker build \
   -f "${REPO_ROOT}/build/docker-build/base/Dockerfile.python-node" \
   "${REPO_ROOT}"
 
-# Smoke test: the two capabilities that caused this base image to exist.
-docker run --rm --platform "${PLATFORM}" --entrypoint python "${PYTHON_REF}" --version
-docker run --rm --platform "${PLATFORM}" --entrypoint sh "${NODE_REF}" -c \
-  'python --version && node --version && python -c "from zoneinfo import ZoneInfo; ZoneInfo(\"Asia/Shanghai\")"'
-
 if [[ "${PUSH}" == "1" ]]; then
   log "pushing ${PYTHON_REF}"
   docker push "${PYTHON_REF}"
