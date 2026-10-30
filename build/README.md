@@ -184,7 +184,40 @@ build/docker-build/task-image-im-connector.sh
 - 每个镜像任务可选缓存输出：`/tmp/muad-image-<service>/`（`image.txt` + `IMAGE_TAG`），
   仅供需要把镜像 tag 传给后续任务的场景使用；Helm 任务不依赖它。
 
+### 推荐：5 条 release 流水线（image + 本服务 Helm）
+
+如果希望和老项目 `task3-assemble.sh` 一样，把镜像和 Helm 放在同一个任务里，使用：
+
+```text
+build/docker-build/task-release-console-platform.sh   # 依赖前端缓存
+build/docker-build/task-release-agent-runtime.sh
+build/docker-build/task-release-agent-worker.sh
+build/docker-build/task-release-im-gateway.sh
+build/docker-build/task-release-im-connector.sh
+```
+
+每个脚本先执行 `build-image.sh`，再执行 `package-service.sh`，只打包/上传本服务的
+Helm chart：
+
+```text
+console-platform -> muad-console-platform
+agent-runtime    -> muad-agent-runtime
+agent-worker     -> muad-agent-worker
+im-gateway       -> muad-im-gateway
+im-connector     -> muad-im-connector
+```
+
+这样千流只需要 5 条服务流水线，不需要单独的 Helm 流水线。`console-platform` 流水线
+仍然需要前置的 `task0-console-frontend.sh` 缓存；其余 4 条只有 release 节点。
+
+> 每个 release 任务都需要 `helm` 和 `sfspm` 在 Docker 任务镜像里可用，并配置
+> `AUTH_TOKEN`。如果 Docker 任务镜像没有这两个命令，就在任务里先安装，或者继续用
+> 单独的 `task2-helm.sh`。
+
 ### Helm 任务（Docker + Helm）
+
+`task2-helm.sh` 是“一次打包全部 5 个 chart”的备用/本地工具；使用上面的
+`task-release-*` 时不需要单独跑它。
 
 ```text
 build/helm-build/task2-helm.sh
@@ -238,10 +271,15 @@ CI_COMMIT_TAG 存在  -> 直接使用 tag
 
 | 变量 | 必填 | 说明 |
 |---|---|---|
-| `AUTH_TOKEN` | `UPLOAD=1` 时必填 | sfspm token |
+| `AUTH_TOKEN` | `UPLOAD=1` 时必填 | sfspm token（也兼容 `sfspm_token`） |
 | `UPLOAD` | 否，默认 1 | 本地验证设 0 |
-| `HELM_VERSION` | 否 | 默认 `1.0.<DIST_VERSION>` |
+| `HELM_VERSION` | 否 | `task-release-*` 默认取镜像 tag；`task2-helm.sh` 默认 `1.0.<DIST_VERSION>` 或时间戳 |
+| `HELM_CACHE_DIR` | 否 | 默认 `/tmp/muad-helm`；release 任务写 `HELM_PKG` / `HELM_VERSION` |
+| `IMAGE_CACHE_DIR` | 否 | 默认 `/tmp/muad-image-<service>`；release 任务从 `IMAGE_TAG` 对齐版本 |
 | `CI_COMMIT_BRANCH` | 建议 | 决定 `mss-dev-helm` / `mss-release-helm` |
+
+> `task-release-*` 和 `task2-helm.sh` 都要求运行环境里有 `helm`；`UPLOAD=1` 时还要有
+> `sfspm`。
 
 ## 4. 本地验证
 
@@ -315,7 +353,7 @@ Go 后端 + Node CLI + console/openclaw 两个镜像，新项目是 5 个 Python
 | `task0-session-manager.sh` | 无 | 新项目没有 session-manager / muad-progress 这类 Node CLI，不需要单独构建 Node dist |
 | `task1-frontend.sh` | `task0-console-frontend.sh` | 同样是“前端构建 + `/tmp/muad-console-frontend/` 缓存”，但新脚本用 `npm ci`（有 `package-lock.json`）而不是 `npm install`，并把 `dist/` 展开到缓存，console 镜像任务直接复制 |
 | `task2-backend.sh` | 无 | 老项目是 Go，需要 `go-compiler` 任务先编译二进制；新项目是 Python，依赖在镜像构建阶段 `pip install -r requirements.txt`，没有独立编译步骤 |
-| `task3-assemble.sh` | `task-image-console-platform.sh` + `task2-helm.sh` | 老 task3 同时做“镜像拼装 + docker save 上传 generic + Helm 打包上传”；新项目把镜像和 Helm 拆成两个任务，镜像按服务拆成 5 条独立流水线 |
+| `task3-assemble.sh` | `task-release-console-platform.sh`（或 `task-image-console-platform.sh` + `task2-helm.sh`） | 老 task3 同时做镜像和 Helm；release 任务保持同形态，也保留“镜像/Helm 分开”的方式。老 task3 的 `docker save` + generic 上传未复制 |
 | `task4-openclaw.sh` | `task-image-agent-runtime.sh` + `task-image-agent-worker.sh` | 老 task4 构建独立的 openclaw CLI 运行镜像；新项目的 runtime/worker 是 Python 服务，只是运行 JS Skill 时需要 Node，因此共用 `python-node` 底座，不再有单独的 CLI 缓存 |
 
 新项目额外多出：
@@ -330,8 +368,8 @@ task-image-im-connector.sh
 其它差异：
 
 - 老项目只构建 console + openclaw 两个镜像；新项目一次构建 5 个服务。
-- 老项目 Helm 只有 console 一个 chart；新项目按 5 个服务拆成 5 个独立 chart，
-  一次 Task2 全部打包/上传。
+- 老项目 Helm 只有 console 一个 chart；新项目每个服务一个 chart。可以用
+  `task-release-*` 在各自流水线里打包，也可以用 `task2-helm.sh` 一次打包全部 5 个。
 - 老脚本在 `task3-assemble.sh` 中硬编码了内网 registry 的默认账号密码；新脚本要求
   显式注入 `DOCKER_USER`/`DOCKER_PASS`/`AUTH_TOKEN`，仓库里不保存任何密码。
 - 老脚本用 `set -e`；新脚本统一 `set -euo pipefail`，并对缺失的前端缓存、镜像元数据
