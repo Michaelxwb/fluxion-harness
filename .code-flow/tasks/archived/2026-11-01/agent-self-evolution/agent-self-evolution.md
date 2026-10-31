@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-10-31/agent-self-evolution/agent-self-evolution.design.md
 - **Created**: 2026-10-31
-- **Updated**: 2026-10-31
+- **Updated**: 2026-11-01
 
 ## Proposal
 
@@ -57,7 +57,7 @@
 
 ## TASK-001: 数据模型与契约迁移
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: agent-self-evolution.design.md#3.3 数据设计, agent-self-evolution.design.md#4.4 数据迁移
@@ -99,6 +99,7 @@
 | B-04 | FAIL: collection error（新表 ORM 缺失） | PASS: 16 passed | `test_runtime_table_schema_parity[user_memory/eval_case/eval_report]`、`test_b04_user_memory_defaults_and_experience_categories`、`test_b04_eval_report_baseline_versions_are_append_only`、`test_b04_eval_case_requires_existing_source_run` | 真实 PostgreSQL 迁移到 0030 + ORM 反射 + 真实写入/FK/唯一约束 | verified |
 - B-04: verified — automated command passed; run_id=2a68fe69012446e48e62b5f355b36773 (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
 
 ### Log
 
@@ -110,7 +111,7 @@
 
 ## TASK-002: 任务族派生与 Golden Set 自动抽取
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: agent-self-evolution.design.md#3.2 架构设计, agent-self-evolution.design.md#3.3 数据设计
@@ -155,6 +156,8 @@
 - S-14: verified — automated command passed; run_id=534b2c8a700b43ea832a7bd95ff2a2e6 (confirmed_by: runner)
 - S-09: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 - S-14: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- S-14: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
 
 ### Log
 
@@ -166,7 +169,7 @@
 
 ## TASK-003: 学习信号与注入归因
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: agent-self-evolution.design.md#3.2 架构设计, agent-self-evolution.design.md#3.5 质量实现方案
@@ -211,6 +214,8 @@
 - S-02: verified — automated command passed; run_id=a4620ee9884b41839d12770245181fd0 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
 
 ### Log
 
@@ -222,7 +227,7 @@
 
 ## TASK-004: 两臂回放与失败降级
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: agent-self-evolution.design.md#3.2 架构设计, agent-self-evolution.design.md#3.5 质量实现方案
@@ -283,6 +288,11 @@
 - S-15: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 - B-06: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- S-15: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
 
 ### Log
 
@@ -294,7 +304,7 @@
 
 ## TASK-005: 任务内自检与择优
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: agent-self-evolution.design.md#3.4 接口设计, agent-self-evolution.design.md#3.5 质量实现方案
@@ -335,6 +345,7 @@
 | S-04 | FAIL: collection error（verifier API 缺失） | PASS: 4 passed | `test_s04_only_verified_candidate_reaches_the_answer`、`test_s04_exhaustion_is_explicit_and_bounded`、`test_s04_run_verification_stops_at_the_attempt_limit`、`test_s04_registry_rejects_duplicates_and_unknown_families` | 真实 `AgentRunner` 执行链 + 真实注册表；脚本化 provider 只替代模型 | verified |
 - S-04: verified — automated command passed; run_id=e7d29895a8924073828686f832305549 (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
 
 ### Log
 
@@ -347,7 +358,7 @@
 
 ## TASK-006: 跨 Run 聚合与经验候选生成
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003
 - **Source**: agent-self-evolution.design.md#3.2 架构设计, agent-self-evolution.design.md#3.3 数据设计
@@ -398,6 +409,9 @@
 - S-05: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 - S-16: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- S-16: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
 
 ### Log
 
@@ -409,7 +423,7 @@
 
 ## TASK-007: 记忆与经验检索门控
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003, TASK-006
 - **Source**: agent-self-evolution.design.md#3.2 架构设计, agent-self-evolution.design.md#3.4 接口设计, agent-self-evolution.design.md#3.5 质量实现方案
@@ -477,6 +491,12 @@
 - B-01: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- S-13: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
 
 ### Log
 
@@ -488,7 +508,7 @@
 
 ## TASK-008: 激活门禁、自动晋升与回滚
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-004, TASK-006, TASK-007
 - **Source**: agent-self-evolution.design.md#3.4 接口设计, agent-self-evolution.design.md#3.5 质量实现方案
@@ -550,6 +570,9 @@
 - S-06: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 - S-08: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 - S-12: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
 
 ### Log
 
@@ -562,7 +585,7 @@
 
 ## TASK-009: 需求盘点与测试分层核验
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008
 - **Source**: agent-self-evolution.design.md#2.5 验收条件
@@ -600,6 +623,7 @@
 |---|---|---|---|---|---|
 | B-05 | FAIL: 缺 B-05 证据行 | PASS: 5 passed | `test_inventory_is_clean`、`test_inventory_flags_unknown_owner`、`test_inventory_flags_missing_evidence_row`、`test_inventory_flags_forged_test_path`、`test_inventory_flags_manifest_owner_drift` | 真实任务文件/manifest/spec-context/测试路径逐项比对 | verified |
 - B-05: verified — automated command passed; run_id=14cc4879ef274d8393b4a678dbdb3878 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=cd1c0d8bf1994de6ad2f6008cc0b34fd (confirmed_by: runner)
 
 ### Log
 
