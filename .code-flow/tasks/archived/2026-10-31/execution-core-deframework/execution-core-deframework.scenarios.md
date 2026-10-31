@@ -249,4 +249,28 @@ scenarios:
   features: [FEAT-05]
   design_refs:
   - backend design §3.5
+
+- id: S-07
+  title: 需求收口盘点与盘面一致
+  priority: P1
+  level: contract
+  exec: auto
+  env: none
+  components: [backend, docs]
+  boundary: 真实任务文件、manifest、spec-context 与测试盘面
+  preconditions:
+  - 任务文件与 acceptance manifest 已生成
+  steps:
+  - 运行收口盘点用例
+  expected:
+  - 覆盖表、manifest、spec-context 与测试盘面逐项一致
+  - 缺失时用例失败并指名条目
+  expected_refs:
+  - expected: 1
+    steps: [1]
+  - expected: 2
+    steps: [1]
+  features: [FEAT-05]
+  design_refs:
+  - backend design §2.5.2 / §3.5
 ---

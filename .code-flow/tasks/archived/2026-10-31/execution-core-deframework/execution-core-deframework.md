@@ -23,6 +23,7 @@
 | B-01 | execution-core-deframework.design.md#2.5 验收条件 | unit | AgentRunner + 持续返回 tool_calls 的脚本化 provider | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_core/test_runner.py","-k","max_turns_budget_finalizes"] | . | 300 | P1 | auto | none | - | - | - | no |
 | S-05 | execution-core-deframework.design.md#2.5 验收条件 | contract | docs/、.code-flow/specs/、packages/、apps/、tests/ 的文本检索（排除历史记录） | TASK-004 | verified | ["uv","run","pytest","-q","tests/contracts/test_langgraph_residue.py"] | . | 300 | P1 | auto | none | - | - | - | no |
 | S-06 | execution-core-deframework.design.md#2.5 验收条件 | contract | docs/configuration-inventory.csv 与源码 AST 比对 | TASK-005 | verified | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
+| S-07 | execution-core-deframework.design.md#2.5 验收条件 | contract | 真实任务文件、manifest、spec-context 与测试盘面 | TASK-006 | verified | ["uv","run","pytest","-q","tests/execution_core_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
 
 > 本表覆盖设计中的全部 9 个场景（6 个 S、2 个 E、1 个 B）；无 E2E：本需求不改变浏览器可见行为与 API 契约。
 
@@ -30,7 +31,7 @@
 
 ## TASK-001: 执行核心改为显式阶段循环
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: execution-core-deframework.design.md#3.2 架构设计, execution-core-deframework.design.md#3.4 接口设计, execution-core-deframework.design.md#2.5 验收条件
@@ -76,6 +77,15 @@
 - S-01: verified — automated command passed; run_id=da4bea3ba1f640798cd54c37f7a6c748 (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=da4bea3ba1f640798cd54c37f7a6c748 (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=da4bea3ba1f640798cd54c37f7a6c748 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=7ca5ca21878a4914b2503ae6194c2c83 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=7ca5ca21878a4914b2503ae6194c2c83 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=7ca5ca21878a4914b2503ae6194c2c83 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=d51e0fb7c3f84edd8e17f6bd06c7c7e9 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=d51e0fb7c3f84edd8e17f6bd06c7c7e9 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=d51e0fb7c3f84edd8e17f6bd06c7c7e9 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=6ea284da22b446e2b34dfb4980cdd903 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=6ea284da22b446e2b34dfb4980cdd903 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=6ea284da22b446e2b34dfb4980cdd903 (confirmed_by: runner)
 
 ### Log
 
@@ -88,7 +98,7 @@
 
 ## TASK-002: 移除依赖栈并重生成锁与镜像需求清单
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: execution-core-deframework.design.md#3.1 方案选型, execution-core-deframework.design.md#4.1 部署架构
@@ -125,6 +135,9 @@
 
 回归：`tests/agent_core/test_runner.py` 20 passed（1.15s），确认移除依赖后执行核心无隐式依赖。
 - S-02: verified — automated command passed; run_id=e5ea18529a0244a291337d67a346e9d8 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=7ca5ca21878a4914b2503ae6194c2c83 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=d51e0fb7c3f84edd8e17f6bd06c7c7e9 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=6ea284da22b446e2b34dfb4980cdd903 (confirmed_by: runner)
 
 ### Log
 
@@ -136,7 +149,7 @@
 
 ## TASK-003: 删除空 langgraph schema 的迁移
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: execution-core-deframework.design.md#3.3 数据设计, execution-core-deframework.design.md#4.4 数据迁移
@@ -177,6 +190,12 @@
 回归：`tests/acceptance/test_foundation_schema_parity.py` 3 passed（4.18s）。
 - S-03: verified — automated command passed; run_id=d63168e69bf94959819315df6e6e872b (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=d63168e69bf94959819315df6e6e872b (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=7ca5ca21878a4914b2503ae6194c2c83 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=7ca5ca21878a4914b2503ae6194c2c83 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=d51e0fb7c3f84edd8e17f6bd06c7c7e9 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=d51e0fb7c3f84edd8e17f6bd06c7c7e9 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=6ea284da22b446e2b34dfb4980cdd903 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=6ea284da22b446e2b34dfb4980cdd903 (confirmed_by: runner)
 
 ### Log
 
@@ -189,7 +208,7 @@
 
 ## TASK-004: spec 与交付文档对齐
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-003
 - **Source**: execution-core-deframework.design.md#3.1 方案选型, execution-core-deframework.design.md#4.1 部署架构
@@ -226,6 +245,9 @@
 
 说明：spec 规则文本修改后执行 `cf_spec_context refresh`，Context 更新为 `a45f66d5…`，status gate pass。
 - S-05: verified — automated command passed; run_id=c10f1380f3e14a9a8ffbb6faa73b2967 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=7ca5ca21878a4914b2503ae6194c2c83 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=d51e0fb7c3f84edd8e17f6bd06c7c7e9 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=6ea284da22b446e2b34dfb4980cdd903 (confirmed_by: runner)
 
 ### Log
 
@@ -238,7 +260,7 @@
 
 ## TASK-005: 机检恢复与有界性回归复核
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-004
 - **Source**: execution-core-deframework.design.md#3.5 质量实现方案, execution-core-deframework.design.md#2.5 验收条件
@@ -275,6 +297,12 @@
 
 - B-01: verified — automated command passed; run_id=fad1e7d3e4e640bf9dfcfb0f092dd53d (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=fad1e7d3e4e640bf9dfcfb0f092dd53d (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=7ca5ca21878a4914b2503ae6194c2c83 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=7ca5ca21878a4914b2503ae6194c2c83 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=d51e0fb7c3f84edd8e17f6bd06c7c7e9 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=d51e0fb7c3f84edd8e17f6bd06c7c7e9 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=6ea284da22b446e2b34dfb4980cdd903 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=6ea284da22b446e2b34dfb4980cdd903 (confirmed_by: runner)
 
 ### Log
 
@@ -287,13 +315,13 @@
 
 ## TASK-006: 需求收口清单与盘面交叉核对
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005
 - **Source**: execution-core-deframework.design.md#2.5 验收条件
 - **Spec-Refs**: N/A
 - **Rule-Owner-Refs**: N/A
-- **Acceptance-Refs**: S-06, RULE-05
+- **Acceptance-Refs**: S-07, RULE-05
 - **Estimate**: 0.5d
 - **Capability**: 执行 `tests/execution_core_inventory.py` 能核对覆盖表、manifest、spec-context 与真实盘面一致
 
@@ -308,21 +336,23 @@
 - [x] 终态场景在 owner 的 Acceptance Evidence 中登记，非 manual 行必须有同 ID 的证据表行
 - [x] 契约表为每个 Acceptance-Refs ID 留一行，`-k` 令牌真实命中
 - [x] 至少扰动 4 类（改状态/删证据行/伪造用例名/改 manifest 字段）并记录变红与还原后复绿
-- [x] [S-06][contract] 复核配置盘点机检（S-06 最终 owner 为 TASK-005），断言 CSV 与源码逐项一致
+- [x] [S-07][contract] 收口盘点：覆盖表、manifest、spec-context 与测试盘面一致
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | RULE-05 | contract | 真实盘面：任务文件、manifest、spec-context、测试文件 | 四者逐项一致；缺失时失败并指名条目 | tests/execution_core_inventory.py | ["uv","run","pytest","-q","tests/execution_core_inventory.py"] | verified |
-| S-06 | contract | docs/configuration-inventory.csv 与源码 AST | CSV 与源码逐项一致；runner.py 行号与常量对应 | tests/test_configuration_inventory.py | ["uv","run","pytest","-q","tests/test_configuration_inventory.py"] | verified |
+| S-07 | contract | 真实盘面：任务文件、manifest、spec-context、测试文件 | 四者逐项一致；缺失时失败并指名条目 | tests/execution_core_inventory.py | ["uv","run","pytest","-q","tests/execution_core_inventory.py"] | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
 | RULE-05 | FAIL: 盘点脚本缺失时的结构性 RED 由 `test_inventory_is_clean` 在文件不存在时失败覆盖 | 5 passed（0.57s） | tests/execution_core_inventory.py::test_inventory_is_clean 与四个扰动用例 | 真实任务文件、manifest、spec-context、测试盘面；4 类扰动（所有者非法/证据行缺失/用例路径伪造/manifest owner 漂移）各自变红 | verified |
-| S-06 | N/A：复核 TASK-005 已通过的既有用例 | 4 passed（1.76s） | tests/test_configuration_inventory.py::test_configuration_inventory_covers_real_python_constants、::test_configuration_inventory_covers_shared_settings_and_policy_fields | 复核盘点结果，未发现新差异 | verified |
+| S-07 | N/A：盘点用例在本任务内编写并通过 | 5 passed（0.57s） | tests/execution_core_inventory.py::test_inventory_is_clean 与四个扰动用例 | 真实任务文件、manifest、spec-context 与测试盘面 | verified |
+- S-07: verified — automated command passed; run_id=58b11b524010497487eaeb0d2de4d1d1 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=6ea284da22b446e2b34dfb4980cdd903 (confirmed_by: runner)
 
 ### Log
 

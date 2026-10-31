@@ -101,7 +101,7 @@ scenarios: execution-core-deframework.scenarios.md
 | RULE-02 | 系统约束 | 依赖图中不再出现 langgraph/langchain 栈；干净安装后 `import langgraph` 失败 | S-02 |
 | RULE-03 | 系统约束 | 迁移保持单链单头；新建库 schema 恰为 control/runtime/task；down 可重建空 schema | S-03、E-02 |
 | RULE-04 | 系统约束 | 当前非归档文档与 specs 不再声称 LangGraph 在执行链中存在；ADR 记录被否方案 | S-05 |
-| RULE-05 | 系统约束 | `docs/configuration-inventory.csv` 与源码 AST 逐项一致 | S-06 |
+| RULE-05 | 系统约束 | `docs/configuration-inventory.csv` 与源码 AST 逐项一致；收口盘点与盘面一致 | S-06、S-07 |
 
 #### 2.5.2 功能验收场景
 
@@ -118,6 +118,7 @@ scenarios: execution-core-deframework.scenarios.md
 | B-01 | FEAT-01 | 复核既有 `max_turns` 有界用例在循环化后仍覆盖有界性；必要时补强 |
 | S-05 | FEAT-04 | 当前文档与 spec 文本检索（历史记录显式排除）、ADR 与 schema 名单 |
 | S-06 | FEAT-05 | 配置盘点机检恢复绿色 |
+| S-07 | FEAT-05 | 收口盘点：覆盖表、manifest、spec-context 与测试盘面一致 |
 
 #### 2.5.3 非功能指标
 
