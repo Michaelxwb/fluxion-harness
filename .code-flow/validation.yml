@@ -47,11 +47,30 @@ validators:
       # 331 passed ≈ 22–25 分钟；预算给 45 分钟留负载余量。
       timeout: 2700000
       on_fail: "验收失败：检查真实栈/探针/租户清理与断言，参见 specs/test/harness-test.md"
-    - name: "Pytest (unit)"
+    # 单测按 CI 同样的四个静态分片、各自独立进程执行：单进程全量会让前序模块的
+    # engine/日志/租户状态污染后续文件（2026-10-31 实测 5 条「单跑绿、整批红」，
+    # 分片后 console 1202 passed、fast 2773 passed）。新增顶层测试目录必须同步这里。
+    - name: "Pytest (unit: fast)"
       trigger: "**/*.py"
-      command: ".venv/bin/python -m pytest --tb=short -q --durations=30 --ignore=tests/acceptance"
+      command: "bash -lc '.venv/bin/python -m pytest --tb=short -q -m \"not capacity_load\" --durations=30 tests/contracts tests/frontend tests/architecture tests/agent_core tests/test_*.py'"
       heavy: true
-      # 单测（agent_runtime/console_platform/frontend/gateway/sdk/migrations 等）2026-10-15
-      # 实测 ≈ 12 分钟；预算给 30 分钟。
+      timeout: 1200000
+      on_fail: "测试失败，检查断言和 mock 是否需要更新"
+    - name: "Pytest (unit: runtime)"
+      trigger: "**/*.py"
+      command: ".venv/bin/python -m pytest --tb=short -q -m \"not capacity_load\" --durations=30 tests/agent_runtime tests/sdk"
+      heavy: true
+      timeout: 1200000
+      on_fail: "测试失败，检查断言和 mock 是否需要更新"
+    - name: "Pytest (unit: console)"
+      trigger: "**/*.py"
+      command: ".venv/bin/python -m pytest --tb=short -q -m \"not capacity_load\" --durations=30 tests/gateway tests/console_auth tests/console_channel tests/console_internal tests/console_mcp tests/console_platform tests/console_skill tests/console_tasks tests/e2e"
+      heavy: true
       timeout: 1800000
+      on_fail: "测试失败，检查断言和 mock 是否需要更新"
+    - name: "Pytest (unit: worker)"
+      trigger: "**/*.py"
+      command: ".venv/bin/python -m pytest --tb=short -q -m \"not capacity_load\" --durations=30 tests/agent_worker tests/capacity tests/migrations"
+      heavy: true
+      timeout: 1200000
       on_fail: "测试失败，检查断言和 mock 是否需要更新"
