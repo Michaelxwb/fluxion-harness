@@ -8,7 +8,9 @@ from .runner import (
     RunnerDeadlineExceeded,
     RunnerError,
     RunnerModelError,
+    RunnerVerificationExhausted,
 )
+from .verification import Verifier, VerificationOutcome, VerificationStatus, run_verification
 
 __all__ = [
     "AgentPolicy",
@@ -20,4 +22,9 @@ __all__ = [
     "RunnerDeadlineExceeded",
     "RunnerError",
     "RunnerModelError",
+    "RunnerVerificationExhausted",
+    "Verifier",
+    "VerificationOutcome",
+    "VerificationStatus",
+    "run_verification",
 ]

@@ -1,11 +1,164 @@
 version: 1
 task: agent-self-evolution
 enforcement: required
-updated_at: '2026-10-31T14:57:36.695855+00:00'
+updated_at: '2026-10-31T15:08:23.054743+00:00'
 sources:
 - type: cli
   ref: bind
 bindings:
+- spec_id: harness-api
+  path: api/harness-api.md
+  status: active
+  hashes:
+    file_sha256: 96011a2c158e476b7d6f27d645a221205fa6c1a24a4f08eeead70848d7405fa1
+    metadata_sha256: 8088eab95efc280aa8387d3ee7e4fee89ce481e1d041cadce8abfb6d2636ae96
+    rules_sha256: ef9934dfeef724180bb98891e188e0f090a02e13dec4fe0163970ded69ff33aa
+  selected_by: scope:path
+  reason: Git diff matched config/api-messages.yaml,packages/api-kit/src/muad_api/error_codes.py
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
+      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
+      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
+      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
+      unique 只作兜底（各服务的 `_lock_idempotency`）。console 侧 `agent_service`/`mcp_service`/`skill_service`
+      三处 `_fingerprint` 已收敛到同一口径：规范化 JSON 且含 `endpoint`/`tenant_id`/actor 与关键参数（合规参考
+      `channel_service.bind_fingerprint`、`auth_service.account_fingerprint`、`audit_export_service`
+      的指纹函数、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py`）。
+    text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.4 接口设计
+          item_id: POST
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-31T15:08:26.822389+00:00'
+          status: verified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: 5388d93e6de2f7b7bf6d418ef37e8c7f95bdeb48c67b5300fcd3c7e130c72228
+          result_sha256: 4a27cd723af04bad7dd09817561eb349cf766c426452b57aee1b23cb648aea31
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: bb9e22c69cb497bdd217813b07e5630c85feff6925f0d5b6d679a8d50e8d9495
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.13s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.4 接口设计
+          item_id: VERIFICATION_EXHAUSTED
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-31T15:08:30.632789+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 5388d93e6de2f7b7bf6d418ef37e8c7f95bdeb48c67b5300fcd3c7e130c72228
+          result_sha256: 799a6123f873208fdfba56ddcf83c11d5f538b0dcb97bf55736c483f53b9c880
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 00ac2becdf993747c960f7fce6b87a81db695fdd1d0fe2ced19de1fb51d02c7b
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 2 warnings in 3.42s\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
 - spec_id: harness-data
   path: persistence/harness-data.md
   status: active
@@ -39,7 +192,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.3 数据设计
           item_id: eval_report
-          artifact_sha256: cb8b66c02f0dfe25cf458b0e77f41a6597777c20adc9803ec553f30990fffebb
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
         decision: null
         evidence: []
       plan:
@@ -48,11 +201,11 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 93bf60f956d217c0059e23c467d0529f565471c3799ba2360387e0fd70fbe22b
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -99,6 +252,18 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               54 passed, 6179 deselected, 2 warnings in 26.76s\n"
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-31T15:08:30.733194+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 5388d93e6de2f7b7bf6d418ef37e8c7f95bdeb48c67b5300fcd3c7e130c72228
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -135,7 +300,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
           item_id: learning_admin
-          artifact_sha256: cb8b66c02f0dfe25cf458b0e77f41a6597777c20adc9803ec553f30990fffebb
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
         decision: null
         evidence: []
       plan:
@@ -144,7 +309,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 93bf60f956d217c0059e23c467d0529f565471c3799ba2360387e0fd70fbe22b
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
         decision: null
         evidence: []
       code:
@@ -172,7 +337,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.3 数据设计
           item_id: user_memory
-          artifact_sha256: cb8b66c02f0dfe25cf458b0e77f41a6597777c20adc9803ec553f30990fffebb
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
         decision: null
         evidence: []
       plan:
@@ -181,7 +346,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 93bf60f956d217c0059e23c467d0529f565471c3799ba2360387e0fd70fbe22b
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
         decision: null
         evidence: []
       code:
@@ -210,7 +375,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
           item_id: select_for_injection
-          artifact_sha256: cb8b66c02f0dfe25cf458b0e77f41a6597777c20adc9803ec553f30990fffebb
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
         decision: null
         evidence: []
       plan:
@@ -219,7 +384,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 93bf60f956d217c0059e23c467d0529f565471c3799ba2360387e0fd70fbe22b
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
         decision: null
         evidence: []
       code:
@@ -247,7 +412,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.5 质量实现方案
           item_id: forget_epoch
-          artifact_sha256: cb8b66c02f0dfe25cf458b0e77f41a6597777c20adc9803ec553f30990fffebb
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
         decision: null
         evidence: []
       plan:
@@ -256,7 +421,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 93bf60f956d217c0059e23c467d0529f565471c3799ba2360387e0fd70fbe22b
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
         decision: null
         evidence: []
       code:
@@ -285,7 +450,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.2 架构设计
           item_id: claim/lease
-          artifact_sha256: cb8b66c02f0dfe25cf458b0e77f41a6597777c20adc9803ec553f30990fffebb
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
         decision: null
         evidence: []
       plan:
@@ -294,7 +459,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 93bf60f956d217c0059e23c467d0529f565471c3799ba2360387e0fd70fbe22b
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
         decision: null
         evidence: []
       code:
@@ -322,7 +487,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
           item_id: policy_json
-          artifact_sha256: cb8b66c02f0dfe25cf458b0e77f41a6597777c20adc9803ec553f30990fffebb
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
         decision: null
         evidence: []
       plan:
@@ -331,7 +496,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 93bf60f956d217c0059e23c467d0529f565471c3799ba2360387e0fd70fbe22b
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
         decision: null
         evidence: []
       code:
@@ -339,6 +504,84 @@ bindings:
         refs: []
         decision: null
         evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-secret
+  path: secret/harness-secret.md
+  status: active
+  hashes:
+    file_sha256: 9d6bfb64f7881c1b090ee69915e506a69b5db5f108bd93319adc6d94806f9f2a
+    metadata_sha256: f60d9416b440212e32513bd86e339d9671413a12e5a326f4adf1c6cce76cb935
+    rules_sha256: cb3c84e91771bfa9c479ad5bb860280b8fbc82eadd9bc062d047279945d38e08
+  selected_by: scope:path
+  reason: Git diff matched packages/api-kit/src/muad_api/error_codes.py
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-secret-001
+    summary: 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP
+      `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用
+      `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt
+      或 API 响应（对外以 `*_configured` 表达）。
+    text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+    enforcement: required
+    verifier_ref: harness-secret#RULE-secret-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.4 接口设计
+          item_id: config/api-messages.yaml
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-31T15:08:34.134857+00:00'
+          status: verified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: 5388d93e6de2f7b7bf6d418ef37e8c7f95bdeb48c67b5300fcd3c7e130c72228
+          result_sha256: dc9ebafa459c5a30768b4394b23a26d726c7260cc19fb721c8082cc0a7706f11
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 096b2bf2a22f51e8ae2b572dc17f2dde163673976386c3b9144667d14d0d419b
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.94s
+
+              '
       review:
         status: pending
         refs: []
@@ -376,7 +619,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.2 架构设计
           item_id: RuntimeSnapshot
-          artifact_sha256: cb8b66c02f0dfe25cf458b0e77f41a6597777c20adc9803ec553f30990fffebb
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
         decision: null
         evidence: []
       plan:
@@ -385,7 +628,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 93bf60f956d217c0059e23c467d0529f565471c3799ba2360387e0fd70fbe22b
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
         decision: null
         evidence: []
       code:
@@ -429,6 +672,32 @@ bindings:
               39 passed, 1104 deselected in 16.23s
 
               '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-31T15:08:53.156897+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 5388d93e6de2f7b7bf6d418ef37e8c7f95bdeb48c67b5300fcd3c7e130c72228
+          result_sha256: 146ebdf2af568802d32c39f0cbf9a0d5d1d49bc81a7bdaa7ae4548f00e8efeec
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 47bae833043fb6d91565c73bba11cd2abe73d4e38d3a40b5e9848ba72429e247
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.15s
+
+              .......................................                                  [100%]
+
+              39 passed, 1107 deselected in 15.97s
+
+              '
       review:
         status: pending
         refs: []
@@ -464,7 +733,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 2.5 验收条件
           item_id: 测试分层
-          artifact_sha256: cb8b66c02f0dfe25cf458b0e77f41a6597777c20adc9803ec553f30990fffebb
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
         decision: null
         evidence: []
       plan:
@@ -473,7 +742,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 93bf60f956d217c0059e23c467d0529f565471c3799ba2360387e0fd70fbe22b
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
         decision: null
         evidence: []
       code:
@@ -516,7 +785,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.3 数据设计
           item_id: timestamptz
-          artifact_sha256: cb8b66c02f0dfe25cf458b0e77f41a6597777c20adc9803ec553f30990fffebb
+          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
         decision: null
         evidence: []
       plan:
@@ -525,11 +794,11 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 93bf60f956d217c0059e23c467d0529f565471c3799ba2360387e0fd70fbe22b
+          artifact_sha256: d8ea926e4bacb9f8db1454d671fcc1a11a0d24e4b189d0f80a6290dc9ef0f4b8
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -574,6 +843,18 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               54 passed, 6179 deselected, 2 warnings in 29.23s\n"
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-31T15:08:53.269379+00:00'
+          status: unverified
+          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+          artifact_sha256: null
+          diff_sha256: 5388d93e6de2f7b7bf6d418ef37e8c7f95bdeb48c67b5300fcd3c7e130c72228
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []

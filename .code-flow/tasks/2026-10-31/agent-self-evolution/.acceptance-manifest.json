@@ -681,7 +681,7 @@
       "kind": "functional",
       "boundary": "真实 verifier 注册表与执行链；模型为脚本化 provider",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -735,7 +735,90 @@
       "features": [
         "FEAT-03"
       ],
-      "check": "CHK-e8388e924ae3"
+      "check": "CHK-e8388e924ae3",
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-e8388e924ae3",
+        "input_hash": "ec7e79f5264251b22e05fe92014b67b7d1bfe9b75ebc2315d2fa4ffc10698001",
+        "check_config": {
+          "id": "CHK-e8388e924ae3",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_verification_loop.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "e7d29895a8924073828686f832305549",
+        "executed_at": "2026-10-31T15:08:24.726644+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_verification_loop.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "ec7e79f5264251b22e05fe92014b67b7d1bfe9b75ebc2315d2fa4ffc10698001"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-e8388e924ae3",
+          "input_hash": "ec7e79f5264251b22e05fe92014b67b7d1bfe9b75ebc2315d2fa4ffc10698001",
+          "check_config": {
+            "id": "CHK-e8388e924ae3",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_verification_loop.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "e7d29895a8924073828686f832305549",
+          "executed_at": "2026-10-31T15:08:24.726644+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_verification_loop.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "ec7e79f5264251b22e05fe92014b67b7d1bfe9b75ebc2315d2fa4ffc10698001"
+        }
+      ]
     },
     {
       "id": "S-05",

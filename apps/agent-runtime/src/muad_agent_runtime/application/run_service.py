@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import sqlalchemy as sa
-from muad_agent_core.agent import AgentPolicy, RunnerModelError
+from muad_agent_core.agent import AgentPolicy, RunnerModelError, RunnerVerificationExhausted
 from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.agent.runner import AgentRunStatus, RunnerDeadlineExceeded
 from muad_agent_core.model import ModelMessage
@@ -3584,6 +3584,8 @@ def _error_code_for(exc: Exception) -> str:
         return "RUN_DEADLINE_EXCEEDED"
     if isinstance(exc, RunnerShutdown):
         return "RUN_SHUTDOWN"
+    if isinstance(exc, RunnerVerificationExhausted):
+        return str(ErrorCode.VERIFICATION_EXHAUSTED)
     if isinstance(exc, AppError):
         return str(exc.code)
     if isinstance(exc, RunnerModelError):

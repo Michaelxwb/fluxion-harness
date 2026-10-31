@@ -328,6 +328,12 @@ codes:
       zh-CN: 模型服务暂时不可用，请稍后重试
       en-US: The model service is temporarily unavailable
 
+  VERIFICATION_EXHAUSTED:
+    http_status: 422
+    messages:
+      zh-CN: 候选答案在验证上限内均未通过，未输出未验证答案
+      en-US: No candidate answer passed verification within the attempt limit
+
   MODEL_OUTPUT_BUDGET_INVALID:
     http_status: 409
     messages:

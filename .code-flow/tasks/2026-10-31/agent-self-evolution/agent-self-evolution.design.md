@@ -367,6 +367,8 @@ graph TB
 
 - stdout 输出机器可读 JSON；stderr 输出失败原因；所有动作写审计，操作者取自 `--operator`。
 
+**错误与日志口径**：验证耗尽以 `VERIFICATION_EXHAUSTED` 错误码对外，文案只来自 `config/api-messages.yaml`；本次不新增或修改任何 POST 幂等端点，既有幂等口径不变；验证原因与候选不写入日志或 API 响应，不得包含凭据。
+
 #### 平台设置新增分组 `learning`
 
 | 配置项 | 默认值 | 说明 |

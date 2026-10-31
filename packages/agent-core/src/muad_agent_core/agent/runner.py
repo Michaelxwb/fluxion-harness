@@ -99,6 +99,10 @@ class RunnerCancelled(RunnerError):
     pass
 
 
+class RunnerVerificationExhausted(RunnerError):
+    """候选在验证上限内全部未通过；Run 不得输出未验证答案。"""
+
+
 class AgentRunStatus(StrEnum):
     COMPLETED = "COMPLETED"
     WAITING_TOOL = "WAITING_TOOL"
@@ -264,7 +268,13 @@ class AgentRunner:
         context_loader: ModelContextLoader | None = None,
         event_batch_size: int = 16,
         parallel_limit: int = DEFAULT_PARALLEL_LIMIT,
+        answer_verifier: Callable[[str], Awaitable[tuple[bool, str]]] | None = None,
+        verification_max_attempts: int = 1,
     ) -> None:
+        if verification_max_attempts < 1:
+            raise ValueError("verification_max_attempts must be >= 1")
+        self._answer_verifier = answer_verifier
+        self._verification_max_attempts = verification_max_attempts
         self._provider = provider
         self._registry = registry
         self._hooks = hooks or HookPipeline()
@@ -408,29 +418,47 @@ class AgentRunner:
             HookEvent.PRE_MODEL,
             {"model_id": state["model_id"], "messages": state["messages"], "turns": state["turns"]},
         )
-        outbound = tuple(state["messages"])
-        response = await self._complete_with_recovery(
-            state,
-            ModelRequest(
-                model_id=state["model_id"],
-                messages=outbound,
-                tools=self._registry.list(),
-                temperature=state["temperature"],
-                max_tokens=state["max_tokens"],
-                params=state["params"],
-                timeout_sec=self._request_timeout_sec(state),
-            ),
-        )
-        if not response.finish_reason:
-            # 流里没有任何收尾信息（上游被切断）：残缺回答不得当成功落成 COMPLETED。**不重试**——
-            # 增量已经外发给用户了，重试会把同一段话再吐一遍（2026-10-06 review）。
-            raise RunnerModelError("model stream ended without a completion signal")
-        # 调用返回时总预算已经耗尽 ⇒ 就此收手（ADR-07 的 deadline 是硬预算）。检查点放在**调用
-        # 之后、登记响应之前**：`_finalize` 阶段再判就成了"答案已经产出来还判它失败"，而
-        # `_invoke_model` 里面的 provider 未必理会超时（stub / 自定义实现），不在这里兜一次，
-        # 超预算的调用就会被当成功（2026-10-06 review）。
-        self._ensure_runnable(state)
-        return await self._accept_response(state, response)
+        verifier = self._answer_verifier
+        feedback: str | None = None
+        attempts = 0
+        while True:
+            outbound = tuple(state["messages"])
+            if feedback is not None:
+                outbound = (*outbound, ModelMessage(role=ModelRole.USER, content=feedback))
+            response = await self._complete_with_recovery(
+                state,
+                ModelRequest(
+                    model_id=state["model_id"],
+                    messages=outbound,
+                    tools=self._registry.list(),
+                    temperature=state["temperature"],
+                    max_tokens=state["max_tokens"],
+                    params=state["params"],
+                    timeout_sec=self._request_timeout_sec(state),
+                ),
+                # 验证开启时先不向用户流式输出：未通过验证的候选不得出现在回答里。
+                stream=verifier is None,
+            )
+            if not response.finish_reason:
+                # 流里没有任何收尾信息（上游被切断）：残缺回答不得当成功落成 COMPLETED。**不重试**——
+                # 增量已经外发给用户了，重试会把同一段话再吐一遍（2026-10-06 review）。
+                raise RunnerModelError("model stream ended without a completion signal")
+            # 调用返回时总预算已经耗尽 ⇒ 就此收手（ADR-07 的 deadline 是硬预算）。检查点放在**调用
+            # 之后、登记响应之前**：`_finalize` 阶段再判就成了"答案已经产出来还判它失败"，而
+            # `_invoke_model` 里面的 provider 未必理会超时（stub / 自定义实现），不在这里兜一次，
+            # 超预算的调用就会被当成功（2026-10-06 review）。
+            self._ensure_runnable(state)
+            if verifier is None or response.tool_calls:
+                return await self._accept_response(state, response)
+            passed, reason = await verifier(response.content)
+            attempts += 1
+            if passed:
+                return await self._accept_response(state, response)
+            if attempts >= self._verification_max_attempts:
+                raise RunnerVerificationExhausted("VERIFICATION_EXHAUSTED")
+            feedback = (
+                "上一个候选未通过验证：" + (reason or "未给出原因") + "。请修正后只输出最终答案。"
+            )
 
     async def _accept_response(self, state: AgentRunState, response: ModelResponse) -> AgentRunState:
         assistant = ModelMessage(
@@ -734,12 +762,14 @@ class AgentRunner:
         self,
         state: AgentRunState,
         request: ModelRequest,
+        *,
+        stream: bool = True,
     ) -> ModelResponse:
         attempts = 0
         while True:
             self._ensure_runnable(state)
             try:
-                return await self._invoke_model(state, request)
+                return await self._invoke_model(state, request, stream=stream)
             except ModelRateLimitedError as exc:
                 await self._cancel_aware_sleep(state, self._retry_delay(state, attempts, exc.retry_after))
                 attempts += 1
@@ -749,7 +779,9 @@ class AgentRunner:
             except ModelRequestError as exc:
                 raise RunnerModelError(f"model request rejected: {exc}") from exc
 
-    async def _invoke_model(self, state: AgentRunState, request: ModelRequest) -> ModelResponse:
+    async def _invoke_model(
+        self, state: AgentRunState, request: ModelRequest, *, stream: bool = True
+    ) -> ModelResponse:
         request = await self._prepare_model_request(state, request)
         started, completed = state["on_model_started"], state["on_model_completed"]
         if started is not None:
@@ -757,7 +789,7 @@ class AgentRunner:
         try:
             streamer = getattr(self._provider, "stream", None)
             on_delta = state["on_delta"]
-            if on_delta is not None and streamer is not None:
+            if stream and on_delta is not None and streamer is not None:
                 return cast(ModelResponse, await streamer(request, on_delta))
             return await self._provider.complete(request)
         finally:
