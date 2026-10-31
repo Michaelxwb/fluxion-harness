@@ -60,7 +60,8 @@ validators:
       trigger: "**/*.py"
       command: ".venv/bin/python -m pytest --tb=short -q -m \"not capacity_load\" --durations=30 tests/agent_runtime tests/sdk"
       heavy: true
-      timeout: 1200000
+      # 2026-11-01 实测 1184s（1242 tests）；20 分钟预算在负载下会误判超时，调到 30 分钟。
+      timeout: 1800000
       on_fail: "测试失败，检查断言和 mock 是否需要更新"
     - name: "Pytest (unit: console)"
       trigger: "**/*.py"

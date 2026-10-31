@@ -439,7 +439,14 @@ async def test_b02_injection_caps_count_and_keeps_newest(async_tool_database) ->
             ),
             {"tenant": ctx.tenant_id},
         )
-    memory = loader(async_tool_database, ctx, query=None)
+        # 用 EXPLICIT 事实验证渲染预算；偏好类已由独立限额先行筛选（RULE-memory-003）。
+        await connection.execute(
+            sa.text(
+                "UPDATE runtime.user_memory SET category='EXPLICIT' WHERE tenant_id = :tenant"
+            ),
+            {"tenant": ctx.tenant_id},
+        )
+    memory = loader(async_tool_database, ctx, query="blue")
     _, captured = await request_round(async_tool_database, ctx, memory)
 
     text = memory_text(captured[0])
@@ -457,10 +464,10 @@ async def test_b02_injection_caps_bytes_before_count(async_tool_database) -> Non
             sa.text(
                 "INSERT INTO runtime.user_memory (tenant_id,user_id,memory_key,category,content_json,"
                 "author,explicit_request,confirmation_event_id,write_policy,update_time) VALUES"
-                " (:tenant,:user,'big.old','PREFERENCE',"
+                " (:tenant,:user,'big.old','EXPLICIT',"
                 " jsonb_build_object('value',CAST(:old AS text)),'USER',true,"
                 " gen_random_uuid(),'SERVER_CONTROLLED',statement_timestamp() - interval '1 minute'),"
-                " (:tenant,:user,'big.new','PREFERENCE',"
+                " (:tenant,:user,'big.new','EXPLICIT',"
                 " jsonb_build_object('value',CAST(:new AS text)),'USER',true,"
                 " gen_random_uuid(),'SERVER_CONTROLLED',statement_timestamp())"
             ),
@@ -471,7 +478,7 @@ async def test_b02_injection_caps_bytes_before_count(async_tool_database) -> Non
                 "new": "长" * 511 + "新",
             },
         )
-    memory = loader(async_tool_database, ctx, query=None)
+    memory = loader(async_tool_database, ctx, query="长长")
     _, captured = await request_round(async_tool_database, ctx, memory)
 
     text = memory_text(captured[0])
