@@ -1097,24 +1097,24 @@ apps/im-gateway/src/muad_im_gateway/metrics.py,83,CATALOG,"((MESSAGES_METRIC, CO
 packages/agent-core/src/muad_agent_core/agent/continuation.py,11,CONTINUE,'CONTINUE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/agent/continuation.py,12,WAIT,'WAIT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/agent/continuation.py,13,FINISH,'FINISH',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,55,NODE_PREPARE_CONTEXT,'prepare_context',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,56,NODE_MODEL,'model',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,57,NODE_TOOLS,'tools',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,58,NODE_FINALIZE,'finalize',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,59,NODE_DECIDE,'decide',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,60,TOOL_BUDGET_EXHAUSTED,'tool call budget exhausted',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,61,UNKNOWN_TOOL_TEMPLATE,'unknown tool: {name}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,62,TOOL_BLOCKED_TEMPLATE,'tool blocked before execution: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,63,TOOL_FAILED_TEMPLATE,'tool failed: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,106,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/agent/runner.py,107,WAITING_TOOL,'WAITING_TOOL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,108,WAITING_INPUT,'WAITING_INPUT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/agent/runner.py,109,BUDGET_EXCEEDED,'BUDGET_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/agent/runner.py,114,max_turns,DEFAULT_MAX_TURNS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,115,max_tool_calls,DEFAULT_MAX_TOOL_CALLS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,116,deadline_ms,DEFAULT_DEADLINE_MS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,117,max_model_retries,DEFAULT_MAX_MODEL_RETRIES,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
-packages/agent-core/src/muad_agent_core/agent/runner.py,222,_TOOL_STATUSES,"{'SUCCEEDED': 'OK', 'FAILED': 'ERROR', 'POLICY_DENIED': 'BLOCKED', 'NOT_FOUND': 'NOT_FOUND'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,52,NODE_PREPARE_CONTEXT,'prepare_context',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,53,NODE_MODEL,'model',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,54,NODE_TOOLS,'tools',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,55,NODE_FINALIZE,'finalize',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,56,NODE_DECIDE,'decide',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,57,TOOL_BUDGET_EXHAUSTED,'tool call budget exhausted',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,58,UNKNOWN_TOOL_TEMPLATE,'unknown tool: {name}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,59,TOOL_BLOCKED_TEMPLATE,'tool blocked before execution: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,60,TOOL_FAILED_TEMPLATE,'tool failed: {reason}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,103,COMPLETED,'COMPLETED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,104,WAITING_TOOL,'WAITING_TOOL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,105,WAITING_INPUT,'WAITING_INPUT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,106,BUDGET_EXCEEDED,'BUDGET_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/agent/runner.py,111,max_turns,DEFAULT_MAX_TURNS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,112,max_tool_calls,DEFAULT_MAX_TOOL_CALLS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,113,deadline_ms,DEFAULT_DEADLINE_MS,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,114,max_model_retries,DEFAULT_MAX_MODEL_RETRIES,policy-field,business,平台设置 agent 分组的默认来源（design §2.3.2）；由 Console 系统设置按租户持久化
+packages/agent-core/src/muad_agent_core/agent/runner.py,219,_TOOL_STATUSES,"{'SUCCEEDED': 'OK', 'FAILED': 'ERROR', 'POLICY_DENIED': 'BLOCKED', 'NOT_FOUND': 'NOT_FOUND'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/context/compactor.py,33,SNIP_MARKER_PREFIX,'[历史省略]',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/context/compactor.py,34,MICRO_PLACEHOLDER_SUFFIX,'，需要原文时用 read_attachment 读取。',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/context/summary.py,18,SUMMARY_FIELDS,"('user_goal', 'constraints', 'progress', 'open_items', 'artifacts')",python-constant,code,协议标识、枚举、schema、文本或实现常量

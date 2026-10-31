@@ -26,3 +26,8 @@ dist/
 .code-flow/specs/_session/
 e2e/test-results/
 e2e/playwright-report/
+
+# Intranet base-image source archives (offline builds)
+build/docker-build/base/vendor/*
+!build/docker-build/base/vendor/.gitkeep
+!build/docker-build/base/vendor/README.md

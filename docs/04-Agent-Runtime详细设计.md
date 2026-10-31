@@ -4,7 +4,7 @@
 
 Agent Runtime 是实时交互执行服务，必须同时满足：
 
-- Python + LangGraph；
+- Python 自研执行核心；
 - 完全无状态；
 - Skill-first；
 - Skill Lazy Load；
@@ -44,7 +44,7 @@ flowchart TB
     API[Run API] --> RUN[AgentRunner]
     RUN --> SNAP[SnapshotFactory]
     RUN --> CTX[ContextBuilder]
-    RUN --> GRAPH[LangGraph Executor]
+    RUN --> GRAPH[执行核心]
     RUN --> EROUTER[ExecutionRouter]
 
     GRAPH --> MODEL[ModelGateway]
@@ -161,7 +161,7 @@ flowchart TD
     G --> H[Load UserMemory]
     H --> I[Build initial ToolRegistry]
     I --> J[Build Context]
-    J --> K[LangGraph understand intent and select skill]
+    J --> K[执行核心 understand intent and select skill]
     K --> L{Need clarification}
     L -->|yes| M[Persist RunInterrupt and WAITING_INPUT]
     L -->|no| N[Resolve Skill RuntimeProfile]
@@ -171,7 +171,7 @@ flowchart TD
     O -->|AUTO| R[Deterministic ExecutionPlanner]
     R --> P
     R --> Q
-    P --> S[Continue LangGraph and final answer]
+    P --> S[Continue execution and final answer]
     Q --> T[Return task accepted result]
     S --> U[Run COMPLETED]
     T --> U
@@ -201,7 +201,7 @@ POST /v1/runs/cancel-active
 
 ---
 
-## 5. LangGraph Graph 边界
+## 5. 执行核心边界
 
 建议最小 Graph：
 
@@ -216,7 +216,7 @@ flowchart LR
     FINAL --> END([END])
 ```
 
-LangGraph 只持有：
+执行核心 只持有：
 
 ```python
 class AgentGraphState(TypedDict):
@@ -852,7 +852,7 @@ retry wait <= remaining deadline
 当需要澄清/确认：
 
 ```text
-LangGraph interrupt
+run_interrupt
 → run_interrupt insert
 → run_record WAITING_INPUT
 → SSE interrupt.required

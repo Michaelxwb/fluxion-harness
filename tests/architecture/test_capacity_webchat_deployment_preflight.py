@@ -178,8 +178,8 @@ def test_release_preflight_passes_on_the_real_repo() -> None:
     assert "kustomize" in result.stdout or "collect" in result.stdout.lower(), (
         f"预检必须报告清单渲染来源（否则不知道验的是不是正式清单）：\n{result.stdout}"
     )
-    assert "pg_connection_budget=200" in result.stdout
-    assert "fd_budget=4096" in result.stdout
+    assert "pg_connection_budget=300" in result.stdout
+    assert "fd_budget=16384" in result.stdout
 
 
 def test_run_preflight_reports_pg_total_from_the_real_engine_factories(
@@ -232,7 +232,7 @@ def test_collection_render_matches_the_real_kustomize_output() -> None:
 def test_preflight_blocks_release_when_resource_declaration_drifts(base_copy: Path) -> None:
     """渲染清单的资源声明与 typed `resources.hardware` 漂移 → 阻断发布。"""
     def shrink(container: dict[str, Any]) -> None:
-        container["resources"]["limits"]["memory"] = "4Gi"
+        container["resources"]["limits"]["memory"] = "8Gi"
 
     def mutate(doc: dict[str, Any]) -> None:
         shrink(doc["spec"]["template"]["spec"]["containers"][0])
@@ -455,7 +455,7 @@ def test_fd_budget_check_flags_injected_connection_overrun() -> None:
     units = _units()
     limits = {"console-platform": 15, "agent-runtime": 15, "agent-worker": 15}
     assert preflight.check_fd_budget(units, resources, SharedSettings(), limits) == []
-    squeezed = SharedSettings().model_copy(update={"redis_max_connections": 3000})
+    squeezed = SharedSettings().model_copy(update={"redis_max_connections": 20000})
     violations = preflight.check_fd_budget(units, resources, squeezed, limits)
     assert {violation.check for violation in violations} == {"fd-budget"}
     assert any("im-gateway" in violation.message for violation in violations), violations

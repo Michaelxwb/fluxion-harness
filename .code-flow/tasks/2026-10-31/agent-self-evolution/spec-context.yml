@@ -1,0 +1,409 @@
+version: 1
+task: agent-self-evolution
+enforcement: required
+updated_at: '2026-10-31T14:03:55.902630+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: harness-data
+  path: persistence/harness-data.md
+  status: active
+  hashes:
+    file_sha256: 87e108287221d7be78ce2018d0f3b95c6eb1a30b4cd1c7cf0d92020cb506f2b5
+    metadata_sha256: 4c0b58f383383267a768a0d1c93774dc8702f7e68e68de0bb654746611af262e
+    rules_sha256: bff4e046d47cecba0e97c8a83921f635292d2a2e009c836fece1462a9024a68d
+  selected_by: cli
+  reason: 路径命中 migrations/versions：记忆表扩列与评测表
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-data-001
+    summary: 产品表统一 `id/is_deleted/create_time/update_time`；普通软删除实体用 partial unique
+      `WHERE is_deleted=false`，稳定身份注册表 `runtime.user_memory` / `memory_scope` 的完整唯一键包含
+      tombstone，append-only history/receipt/job 保持 `is_deleted=false` 且使用完整唯一约束；时间统一
+      `timestamptz`；同 Owner Schema 的业务归属用物理 FK，跨 Owner Schema 与需跨清理保留的审计来源引用用逻辑 UUID；JSON
+      配置用 `jsonb`，关键查询字段必须有物理列。
+    text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+    enforcement: required
+    verifier_ref: harness-data#RULE-data-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.3 数据设计
+          item_id: activation_state
+          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-memory
+  path: memory/harness-memory.md
+  status: active
+  hashes:
+    file_sha256: 2a83e7f7cf737f8d1069054b11fdd3866d84c126f4e9673cca0c5ceab2fab3e5
+    metadata_sha256: 26d60b919fdbf7ae2ae359788599979e062819d2fde8e31ff3f5ff03e21e629d
+    rules_sha256: d76538936bc433d5957aa11b86d5816ffa8c32613c4f8c82f5bc6361e2bed3ef
+  selected_by: cli
+  reason: 路径命中记忆服务与契约：经验资产复用记忆体系、检索打分改造
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-memory-001
+    summary: 原话仅证明文本来源，不能授予保存授权；模型不得提供 author/explicit_request。自然语言 remember 必须展示完整候选，绑定租户/用户/Run/submission、候选
+      hash、预期版本、forget_epoch 和有效期，由真实用户确认原子保存；只有真实入站的显式命令或已授权管理员可以直接保存。候选每 Run 至多一个，工具整轮完成后才暂停；resume
+      先检查绝对 deadline。options 消费以租户和 source_event_id 唯一，结果 outcome 不进入唯一键。
+    text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.4 接口设计
+          item_id: learning_admin activate
+          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-007
+          item_id: TASK-007
+          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-002
+    summary: Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。同
+      tenant/user/key 使用完整唯一身份，软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope
+      revision 同事务提交。锁内按写后有效集合验证冻结条数/UTF-8 字节限额及绝对上限；仅可淘汰 AGENT，USER/ADMIN 不免除硬限；既有超额时治理可减少但不可增加。
+    text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-002
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.1 方案选型
+          item_id: 单一写入方
+          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-003
+    summary: 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖
+      query。revision 缓存只存候选行：冷读取行与实际 revision 同快照，暖读取 revision 与当前语句时间，并逐次过滤 TTL、重新选择/渲染；读取失败清除旧缓存和
+      MemoryComponent。每个模型请求前刷新独立 MemoryComponent，完整 SYSTEM 块及 recall JSON 严守最终 UTF-8
+      字节与条数预算；0 关闭注入，长条跳过，无首条越限保底，压缩不能吞掉记忆组件。
+    text_sha256: 906176dd9052cf4e5a36ed341041e759f6fb1f9e6b37f0447f715926715f85b7
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-003
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.4 接口设计
+          item_id: select_for_injection
+          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-006
+          item_id: TASK-006
+          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-004
+    summary: 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled
+      或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision
+      证明，不以 job 开始时间冒充新依据。自动批量提交核对原 scope revision，过期输入为 STALE；同任务 lineage 续接原稳定 key，完成后清除未决状态。
+    text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-004
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.5 质量实现方案
+          item_id: forget_epoch
+          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-005
+    summary: 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同
+      fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立
+      provider 使用冻结主模型、实时凭据并显式关闭。模型调用次数不保证一次，持久效果/历史/完成事件/job 终态必须同事务最多一次；失败整批回滚，warning/metric
+      可见，主 Run 终态不变。
+    text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-005
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.2 架构设计
+          item_id: consolidation
+          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-006
+    summary: 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途
+      Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和
+      ORM 约束/索引同构；移除旧 ratio/source_type 协议，历史快照原样保留仅作审计，不加兼容写层。
+    text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-006
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.4 接口设计
+          item_id: learning_enabled
+          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-007
+          item_id: TASK-007
+          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-snapshot
+  path: snapshot/harness-snapshot.md
+  status: active
+  hashes:
+    file_sha256: e142f9d5c3c5b758025b9e1f2a29475131ac27638351021d5bdd6df470e1d251
+    metadata_sha256: 34a1bcb1153a685aab40f9576748579d32b73598ab6210f99c7fb762dc6361f1
+    rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
+  selected_by: cli
+  reason: 路径命中 memory_context/service：激活集与记忆设置随 Run 冻结
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-snapshot-001
+    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP
+      版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run
+      侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新
+      Run/Task；终态写入必须 CAS。
+    text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+    enforcement: required
+    verifier_ref: harness-snapshot#RULE-snapshot-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.4 接口设计
+          item_id: policy_json
+          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-007
+          item_id: TASK-007
+          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 01f0ce3ef66bea87ddc705d68cb2d5481adc40e4ab3ea208a83899bdf035e02b
+    metadata_sha256: 5d27df198a9eaddd2dd86bf03245618c896f974e1312e38dacac6585c3159c08
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: cli
+  reason: 路径命中 tests/agent_runtime：行为等价与评测回放
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 2.5 验收条件
+          item_id: 测试分层
+          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-008
+          item_id: TASK-008
+          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []

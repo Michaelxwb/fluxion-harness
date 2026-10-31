@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: muad-agent-runtime
+  labels:
+    app: muad-agent-runtime
+    {{- include "muad-platform.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.autoscaling.minReplicas }}
+  selector:
+    matchLabels:
+      app: muad-agent-runtime
+  template:
+    metadata:
+      labels:
+        app: muad-agent-runtime
+        {{- include "muad-platform.labels" . | nindent 8 }}
+    spec:
+      terminationGracePeriodSeconds: 60
+      {{- with (include "muad-platform.serviceAccountName" . | trim) }}
+      serviceAccountName: {{ . }}
+      {{- end }}
+      securityContext:
+        {{- include "muad-platform.podSecurityContext" . | nindent 8 }}
+        {{- with (include "muad-platform.sysctls" . | trim) }}
+        {{- . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (include "muad-platform.nodeSelector" . | trim) }}
+      {{- . | nindent 6 }}
+      {{- end }}
+      {{- with (include "muad-platform.tolerations" . | trim) }}
+      {{- . | nindent 6 }}
+      {{- end }}
+      {{- with (include "muad-platform.affinity" . | trim) }}
+      {{- . | nindent 6 }}
+      {{- end }}
+      containers:
+        - name: app
+          image: {{ include "muad-platform.image" (dict "root" . "service" .Values.service) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          envFrom:
+            - configMapRef:
+                name: muad-common
+            {{- with (include "muad-platform.extraEnvFrom" . | trim) }}
+            {{- . | nindent 12 }}
+            {{- end }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: REDIS_URL
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.existingSecret }}
+                  key: INTERNAL_SERVICE_TOKEN
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: RUNTIME_EXECUTION_CONCURRENCY
+              value: "256"
+            - name: CHANNEL_DELIVERY_CONCURRENCY
+              value: "4"
+            - name: CONTROL_HTTP_MAX_CONNECTIONS
+              value: "32"
+            - name: CONTROL_HTTP_MAX_KEEPALIVE
+              value: "16"
+            - name: MODEL_HTTP_MAX_CONNECTIONS
+              value: "256"
+            - name: MODEL_HTTP_MAX_KEEPALIVE
+              value: "32"
+            - name: MCP_HTTP_MAX_CONNECTIONS
+              value: "16"
+            - name: MCP_HTTP_MAX_KEEPALIVE
+              value: "8"
+            - name: EGRESS_HTTP_MAX_CONNECTIONS
+              value: "1024"
+            - name: EGRESS_HTTP_MAX_KEEPALIVE
+              value: "256"
+            {{- with .Values.service.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.service.resources | nindent 12 }}
+          readinessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: {{ .Values.service.port }}
+          livenessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: {{ .Values.service.port }}
+          volumeMounts:
+            - name: artifacts
+              mountPath: {{ .Values.global.artifacts.mountPath }}
+            - name: skill-cache
+              mountPath: {{ .Values.global.skillCache.mountPath }}
+      volumes:
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: {{ .Values.global.artifacts.existingClaim }}
+        - name: skill-cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: muad-agent-runtime
+  labels:
+    app: muad-agent-runtime
+    {{- include "muad-platform.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type | default "ClusterIP" }}
+  {{- $serviceType := .Values.service.type | default "ClusterIP" }}
+  {{- if and (or (eq $serviceType "NodePort") (eq $serviceType "LoadBalancer")) .Values.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+  {{- end }}
+  selector:
+    app: muad-agent-runtime
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}
+      {{- if and (or (eq $serviceType "NodePort") (eq $serviceType "LoadBalancer")) .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}

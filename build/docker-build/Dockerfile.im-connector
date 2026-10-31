@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+# Intranet service image: im-connector (stateful WeCom channel role).
+ARG BASE_IMAGE=docker.sangfor.com/mss-base/python:3.12.13
+FROM ${BASE_IMAGE}
+
+ARG PIP_INDEX_URL=http://mirrors.sangfor.org/pypi/simple
+ARG PIP_TRUSTED_HOST=mirrors.sangfor.org
+USER root
+WORKDIR /app
+
+COPY requirements.txt /tmp/requirements.txt
+RUN python -m pip install --no-cache-dir -i "${PIP_INDEX_URL}" \
+      --trusted-host "${PIP_TRUSTED_HOST}" -r /tmp/requirements.txt
+
+COPY config /app/config
+COPY packages /app/packages
+COPY apps/im-gateway /app/apps/im-gateway
+COPY apps/im-connector /app/apps/im-connector
+
+RUN python -m pip install --no-cache-dir --no-deps --no-build-isolation \
+      /app/packages/* \
+      /app/apps/im-gateway \
+      /app/apps/im-connector \
+ && chown -R 10001:10001 /app
+
+USER 10001:10001
+EXPOSE 8004
+CMD ["uvicorn", "muad_im_connector.main:app", "--host", "0.0.0.0", "--port", "8004"]

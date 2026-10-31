@@ -529,9 +529,9 @@ def test_b317_config_hash_covers_the_real_profile_and_deployment_facts() -> None
     expected = config_hash(profile_hash(profile), deployment)
 
     runtime = deployment.units["agent-runtime"]
-    assert runtime.max_replicas == 4, "HPA 上界来自真实渲染清单"
+    assert runtime.max_replicas == 8, "HPA 上界来自真实渲染清单"
     assert runtime.execution_concurrency == 256, "执行槽来自清单 env 字面量"
-    assert (runtime.cpu_limit_millicores, runtime.memory_limit_mb) == (4000, 8192)
+    assert (runtime.cpu_limit_millicores, runtime.memory_limit_mb) == (2000, 4096)
     assert deployment.units["console-platform"].max_replicas == 1
 
     resources = profile.resources
@@ -990,7 +990,9 @@ def test_b317_real_bounded_load_yields_evidence_backed_report(report_harness: Re
         for unit in ("console-platform", "agent-runtime", "agent-worker")
     )
     assert by_unit["agent-runtime"].pg_connections_at_max_replicas == (
-        1 * 4 * evidence.resources.pg_connections_per_process["agent-runtime"]
+        evidence.resources.process_counts["agent-runtime"]
+        * evidence.resources.max_replica_counts["agent-runtime"]
+        * evidence.resources.pg_connections_per_process["agent-runtime"]
     )
     assert expected_pg + PG_MAINTENANCE_RESERVE <= evidence.resources.pg_connection_budget
     assert all(line.within_budget for line in report.resources), (

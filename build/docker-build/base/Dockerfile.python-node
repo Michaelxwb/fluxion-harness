@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1
+# Python 3.12.13 + Node.js 24 base for agent-runtime / agent-worker.
+#
+# Node is installed from the official linux tarball. The PlatOS base has glibc
+# 2.28 and libstdc++ 7.3 (GLIBCXX_3.4.22); the Node 24 binary requires at most
+# GLIBC_2.28 / GLIBCXX_3.4.21, so it runs without extra packages. `libatomic`
+# is not a dependency of the Node binary.
+#
+# The PlatOS image has no gzip, so extraction goes through extract.py (Python's
+# tarfile) instead of `tar -xzf`.
+#
+# Offline builds: put node-v24.22.2-linux-x64.tar.gz (or -arm64) in ./vendor/.
+ARG BASE_IMAGE=docker.sangfor.com/mss-base/python:3.12.13
+
+FROM ${BASE_IMAGE}
+
+ARG NODE_VERSION=24.22.2
+ARG NODE_DIST_URL=https://nodejs.org/dist/v${NODE_VERSION}
+ARG TARGETARCH=amd64
+
+USER root
+COPY extract.py /tmp/extract.py
+COPY vendor/ /tmp/node-vendor/
+
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+      amd64) node_arch=x64 ;; \
+      arm64) node_arch=arm64 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    tarball="/tmp/node-vendor/node-v${NODE_VERSION}-linux-${node_arch}.tar.gz"; \
+    if [ ! -f "${tarball}" ]; then \
+      url="${NODE_DIST_URL}/node-v${NODE_VERSION}-linux-${node_arch}.tar.gz"; \
+      if command -v curl >/dev/null 2>&1; then \
+        curl -fsSL "${url}" -o "${tarball}"; \
+      elif command -v wget >/dev/null 2>&1; then \
+        wget -q "${url}" -O "${tarball}"; \
+      else \
+        python -c 'import urllib.request,sys; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])' \
+          "${url}" "${tarball}"; \
+      fi; \
+    fi; \
+    python /tmp/extract.py "${tarball}" /usr/local 1; \
+    rm -rf /tmp/node-vendor /tmp/extract.py; \
+    node --version; \
+    npm --version
+
+USER 10001:10001
+WORKDIR /app

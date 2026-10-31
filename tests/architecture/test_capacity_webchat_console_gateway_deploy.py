@@ -222,8 +222,8 @@ def _pg_connections_per_process(engine: AsyncEngine) -> int:
 
 
 @pytest.mark.parametrize("unit", UNITS, ids=UNIT_IDS)
-def test_baseline_replicas_are_one_and_only_console_is_capacity_pinned(unit: DeployUnit) -> None:
-    """base 的基线各 1 Pod；只有 Console 被 typed 上界钉死。
+def test_baseline_replicas_match_the_capacity_profile(unit: DeployUnit) -> None:
+    """base 的基线副本与 typed profile 一致；只有 Console 被 typed 上界钉死。
 
     design §4.1：Gateway 已改为 N 副本（`deploy/k8s/with-connector` overlay 起 2 个），
     Console 仍是单 Pod 容量口径。base 里任何单元都不声明 HPA（扩缩上界由 typed profile 表达，
@@ -231,7 +231,12 @@ def test_baseline_replicas_are_one_and_only_console_is_capacity_pinned(unit: Dep
     """
     deployment = _deployment(unit)
     resources = _resource_profile()
-    baseline = {"console-platform": 1, "agent-runtime": 1, "agent-worker": 1, "im-gateway": 2}
+    baseline = {
+        "console-platform": resources.replica_counts["console-platform"],
+        "agent-runtime": resources.replica_counts["agent-runtime"],
+        "agent-worker": resources.replica_counts["agent-worker"],
+        "im-gateway": resources.replica_counts["im-gateway"],
+    }
     assert deployment["spec"]["replicas"] == baseline[unit.name], (
         f"{unit.name}: 基线副本必须等于清单事实（Gateway 允许多副本）"
     )

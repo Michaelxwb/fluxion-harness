@@ -79,11 +79,11 @@ spec:
           # （tests/capacity/profiles/agent-capacity-webchat.example.yml）。
           resources:
             requests:
-              cpu: "500m"
+              cpu: "1"
               memory: 1Gi
             limits:
               cpu: "2"
-              memory: 4Gi
+              memory: 2Gi
           # 附件字节要落进共享 artifact store，Runtime 才能按 storage_key 读到（AD-1-B）。
           # 只注入 ARTIFACT_ROOT 环境变量是不够的——路径没挂载时网关会写进容器临时盘并"成功"。
           volumeMounts:

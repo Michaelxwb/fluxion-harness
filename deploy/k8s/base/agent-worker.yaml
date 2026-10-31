@@ -4,7 +4,7 @@ metadata:
   name: muad-agent-worker
   namespace: muad
 spec:
-  replicas: 1
+  replicas: 4
   selector:
     matchLabels:
       app: muad-agent-worker
@@ -68,11 +68,11 @@ spec:
           # （tests/capacity/profiles/agent-capacity-webchat.example.yml）。
           resources:
             requests:
-              cpu: "1"
-              memory: 2Gi
+              cpu: "500m"
+              memory: 1Gi
             limits:
-              cpu: "4"
-              memory: 8Gi
+              cpu: "2"
+              memory: 2Gi
           # readiness 接 /readyz（api-kit 的依赖就绪口径，依赖缺失回 503）；
           # liveness 仍接 /healthz（存活，不因依赖抖动重启 Pod）。
           readinessProbe:
