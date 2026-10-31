@@ -326,6 +326,8 @@ graph TB
 
 - 新增可空 `varchar(64)` 列与索引 `(tenant_id, task_family, end_time DESC)`；只在 Run 完成时写入，既有行为保持不变。
 
+**时间口径**：新表与新增时间列统一 timestamptz（`sa.DateTime(timezone=True)`），与既有标准列一致。
+
 **事件类型**（canonical events，不新建表）：`LEARNING_SIGNAL`、`MEMORY_INJECTED`、`EXPERIENCE_STATE_CHANGED`。三者均不在 `HISTORY_EVENT_TYPES` 中，不进入模型历史；`MEMORY_INJECTED` 载荷只写 memory_key/version/score/decision、丢弃计数与 selection_hash。
 
 **迁移**：单条 revision（编号按实施时链尾顺延，与 execution-core-deframework 的 0029 不冲突），upgrade 建列/约束/索引/新表，downgrade 对称回收。

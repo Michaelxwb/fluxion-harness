@@ -7,9 +7,12 @@ from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
     CanonicalEvent,
     Conversation,
+    EvalCase,
+    EvalReport,
     RunInterrupt,
     RunRecord,
     RuntimeSnapshot,
+    UserMemory,
 )
 from sqlalchemy import inspect
 
@@ -21,6 +24,9 @@ TABLE_MODELS: dict[str, sa.Table] = {
     "runtime_snapshot": RuntimeSnapshot.__table__,
     "canonical_event": CanonicalEvent.__table__,
     "run_interrupt": RunInterrupt.__table__,
+    "user_memory": UserMemory.__table__,
+    "eval_case": EvalCase.__table__,
+    "eval_report": EvalReport.__table__,
 }
 
 EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
@@ -31,6 +37,7 @@ EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
         "ix_run_record_agent_status_create_time",
         "ix_run_record_running_lease_until",
         "ix_run_record_trace_id",
+        "ix_run_record_task_family",
     ),
     "runtime_snapshot": ("uq_runtime_snapshot_run_id", "ix_runtime_snapshot_content_hash"),
     "canonical_event": (
@@ -39,16 +46,37 @@ EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
         "ix_canonical_event_conversation_create_time",
     ),
     "run_interrupt": ("ix_run_interrupt_run_status", "ix_run_interrupt_conversation_status"),
+    "user_memory": (
+        "uq_user_memory_key",
+        "ix_user_memory_candidates",
+        "ix_user_memory_expiry",
+        "ix_user_memory_active_learning",
+    ),
+    "eval_case": ("uq_eval_case_source_version", "ix_eval_case_family_time"),
+    "eval_report": (
+        "uq_eval_report_baseline_version",
+        "uq_eval_report_experience_version",
+        "ix_eval_report_family_time",
+    ),
 }
 
 EXPECTED_UNIQUE_INDEXES: dict[str, tuple[str, ...]] = {
     "run_record": ("uq_run_record_active_conversation",),
     "runtime_snapshot": ("uq_runtime_snapshot_run_id",),
     "canonical_event": ("uq_canonical_event_conversation_seq",),
+    "user_memory": ("uq_user_memory_key",),
+    "eval_case": ("uq_eval_case_source_version",),
+    "eval_report": ("uq_eval_report_baseline_version", "uq_eval_report_experience_version"),
 }
 
 EXPECTED_PARTIAL_INDEXES: dict[str, tuple[str, ...]] = {
     "run_record": ("uq_run_record_active_conversation", "ix_run_record_running_lease_until"),
+    "user_memory": (
+        "ix_user_memory_candidates",
+        "ix_user_memory_expiry",
+        "ix_user_memory_active_learning",
+    ),
+    "eval_report": ("uq_eval_report_baseline_version", "uq_eval_report_experience_version"),
 }
 
 
@@ -268,3 +296,121 @@ async def test_b101_canonical_event_submission_columns() -> None:
     columns = {col["name"] for col in reflected["columns"]}
     assert "submission_id" in columns
     assert "stream_type" in columns
+
+
+# ---- B-04（agent-self-evolution TASK-001）：学习数据模型 ----
+
+def test_b04_memory_category_exposes_experience_categories() -> None:
+    """[B-04] 契约层 MemoryCategory 暴露经验类别，读取新类别不触发校验失败。"""
+    from muad_contracts.memory import MemoryCategory
+
+    values = {category.value for category in MemoryCategory}
+    assert {"PROCEDURE", "FAILURE_PATTERN", "VERIFICATION"} <= values
+
+
+async def test_b04_user_memory_defaults_and_experience_categories(database_guard: None) -> None:
+    """[B-04][integration] 既有记忆行默认 ACTIVE；经验类别可写入，非法类别被 DB 拒绝。"""
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy.exc import IntegrityError
+
+    tenant, other_tenant = f"parity-{uuid.uuid4()}", f"parity-{uuid.uuid4()}"
+    expires = datetime.now(UTC) + timedelta(days=30)
+    async with get_session_factory()() as session:
+        session.add(
+            UserMemory(
+                tenant_id=tenant,
+                user_id=uuid.uuid4(),
+                memory_key="proc.batch-customers",
+                category="PROCEDURE",
+                content_json={"value": "逐个客户调用 skill 并核对数量"},
+                author="AGENT",
+                confidence=2,
+                explicit_request=False,
+                expires_at=expires,
+            )
+        )
+        await session.commit()
+    async with get_session_factory()() as session:
+        stored = await session.scalar(
+            sa.select(UserMemory).where(UserMemory.tenant_id == tenant)
+        )
+        assert stored is not None
+        assert stored.activation_state == "ACTIVE"
+        assert stored.task_signature is None
+        assert stored.trigger_text is None
+        assert stored.evidence_json is None
+        session.add(
+            UserMemory(
+                tenant_id=other_tenant,
+                user_id=uuid.uuid4(),
+                memory_key="bad.category",
+                category="NOT_A_CATEGORY",
+                content_json={"value": "x"},
+                author="AGENT",
+                confidence=2,
+                explicit_request=False,
+                expires_at=expires,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            await session.flush()
+        await session.rollback()
+    async with get_session_factory()() as session:
+        await session.execute(sa.delete(UserMemory).where(UserMemory.tenant_id.in_((tenant, other_tenant))))
+        await session.commit()
+
+
+async def test_b04_eval_report_baseline_versions_are_append_only(database_guard: None) -> None:
+    """[B-04][integration] 同一基线配置同版本只能有一行，新版本可追加。"""
+    from sqlalchemy.exc import IntegrityError
+
+    tenant = f"parity-{uuid.uuid4()}"
+    base = "sha256:" + "0" * 64
+
+    def build(version: int) -> EvalReport:
+        return EvalReport(
+            tenant_id=tenant,
+            task_family="skill:demo",
+            experience_key=None,
+            base_config_hash=base,
+            metrics_json={},
+            decision_json={},
+            report_json={},
+            content_hash="sha256:" + "1" * 64,
+            version=version,
+        )
+
+    async with get_session_factory()() as session:
+        session.add(build(1))
+        await session.commit()
+        session.add(build(2))
+        await session.commit()
+        session.add(build(1))
+        with pytest.raises(IntegrityError):
+            await session.flush()
+        await session.rollback()
+    async with get_session_factory()() as session:
+        await session.execute(sa.delete(EvalReport).where(EvalReport.tenant_id == tenant))
+        await session.commit()
+
+
+async def test_b04_eval_case_requires_existing_source_run(database_guard: None) -> None:
+    """[B-04][integration] eval_case 的来源 Run 必须存在（物理 FK）。"""
+    from sqlalchemy.exc import IntegrityError
+
+    async with get_session_factory()() as session:
+        session.add(
+            EvalCase(
+                tenant_id=f"parity-{uuid.uuid4()}",
+                task_family="skill:demo",
+                source_run_id=uuid.uuid4(),
+                input_ref_json={},
+                criteria_json={},
+                content_hash="sha256:" + "2" * 64,
+                version=1,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            await session.flush()
+        await session.rollback()

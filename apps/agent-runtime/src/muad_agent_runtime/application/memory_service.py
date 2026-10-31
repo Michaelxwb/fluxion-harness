@@ -47,7 +47,9 @@ def _observe_conflict(exc: AppError) -> None:
         observe("memory_write_conflicts_total", labels={"reason": reason})
 
 
-ALLOWED_CATEGORIES = frozenset({"PREFERENCE", "WORK_STYLE", "EXPLICIT"})
+ALLOWED_CATEGORIES = frozenset(
+    {"PREFERENCE", "WORK_STYLE", "EXPLICIT", "PROCEDURE", "FAILURE_PATTERN", "VERIFICATION"}
+)
 SOURCE_USER_EXPLICIT = "USER_EXPLICIT"
 SOURCE_AGENT_INFERRED = "AGENT_INFERRED"
 

@@ -44,6 +44,9 @@ class MemoryCategory(StrEnum):
     WORK_STYLE = "WORK_STYLE"
     EXPLICIT = "EXPLICIT"
     TASK_STATE = "TASK_STATE"
+    PROCEDURE = "PROCEDURE"
+    FAILURE_PATTERN = "FAILURE_PATTERN"
+    VERIFICATION = "VERIFICATION"
 
 
 class MemoryRetirementReason(StrEnum):

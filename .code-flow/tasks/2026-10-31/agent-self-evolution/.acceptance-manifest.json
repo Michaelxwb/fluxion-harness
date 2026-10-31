@@ -1841,7 +1841,7 @@
       "kind": "functional",
       "boundary": "真实 PostgreSQL 迁移链 + ORM + 契约模型",
       "owner": "TASK-001",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1897,7 +1897,90 @@
         "FEAT-04",
         "FEAT-07"
       ],
-      "check": "CHK-44dd29897d61"
+      "check": "CHK-44dd29897d61",
+      "revision": 1,
+      "evidence": {
+        "id": "B-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-44dd29897d61",
+        "input_hash": "abf159358e2d50a45abee56152c42454d78c3d15483395f614314fd7e0f38c01",
+        "check_config": {
+          "id": "CHK-44dd29897d61",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_runtime_schema_parity.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "2a68fe69012446e48e62b5f355b36773",
+        "executed_at": "2026-10-31T15:03:07.977206+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_runtime_schema_parity.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "abf159358e2d50a45abee56152c42454d78c3d15483395f614314fd7e0f38c01"
+      },
+      "runs": [
+        {
+          "id": "B-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-44dd29897d61",
+          "input_hash": "abf159358e2d50a45abee56152c42454d78c3d15483395f614314fd7e0f38c01",
+          "check_config": {
+            "id": "CHK-44dd29897d61",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_runtime_schema_parity.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "2a68fe69012446e48e62b5f355b36773",
+          "executed_at": "2026-10-31T15:03:07.977206+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_runtime_schema_parity.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "abf159358e2d50a45abee56152c42454d78c3d15483395f614314fd7e0f38c01"
+        }
+      ]
     },
     {
       "id": "B-05",

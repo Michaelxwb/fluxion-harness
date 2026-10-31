@@ -156,7 +156,14 @@ def _prompt(
         if row.expires_at is not None and row.expires_at <= now:
             states.append("已过期；确认会重新设置有效期")
     candidate = proposal.candidate
-    category = {"PREFERENCE": "偏好", "WORK_STYLE": "工作方式", "EXPLICIT": "明确事实"}[candidate.category]
+    category = {
+        "PREFERENCE": "偏好",
+        "WORK_STYLE": "工作方式",
+        "EXPLICIT": "明确事实",
+        "PROCEDURE": "过程经验",
+        "FAILURE_PATTERN": "失败模式",
+        "VERIFICATION": "验证方法",
+    }[candidate.category]
     return (
         f"待保存记忆，候选编号：{proposal_id}\n键：{candidate.memory_key}\n"
         f"类别：{category}\n内容：{candidate.value}\n"

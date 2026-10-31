@@ -47,7 +47,7 @@
 | B-01 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯选择与装箱逻辑 | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","budget"] | . | 300 | P1 | auto | none | - | - | - | no |
 | B-02 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯选择逻辑 | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","versions"] | . | 300 | P1 | auto | none | - | - | - | no |
 | B-03 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯选择 + 缓存装载；token 化与外部调用计数 | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","upper_bound"] | . | 300 | P1 | auto | none | - | - | - | no |
-| B-04 | agent-self-evolution.design.md#2.5 验收条件 | contract | 真实 PostgreSQL 迁移链 + ORM + 契约模型 | TASK-001 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| B-04 | agent-self-evolution.design.md#2.5 验收条件 | contract | 真实 PostgreSQL 迁移链 + ORM + 契约模型 | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | B-05 | agent-self-evolution.design.md#2.5 验收条件 | contract | 真实盘面：任务文件、manifest、context、测试文件 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_evolution_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
 | B-06 | agent-self-evolution.design.md#2.5 验收条件 | contract | 源码导入图 + 模型池配额（架构断言） | TASK-004 | planned | ["uv","run","pytest","-q","tests/architecture/test_learning_isolation.py"] | . | 300 | P1 | auto | none | - | - | - | no |
 
@@ -57,12 +57,12 @@
 
 ## TASK-001: 数据模型与契约迁移
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: agent-self-evolution.design.md#3.3 数据设计, agent-self-evolution.design.md#4.4 数据迁移
-- **Spec-Refs**: harness-data#RULE-data-001
-- **Rule-Owner-Refs**: harness-data#RULE-data-001
+- **Spec-Refs**: harness-data#RULE-data-001, harness-time#RULE-time-001
+- **Rule-Owner-Refs**: harness-data#RULE-data-001, harness-time#RULE-time-001
 - **Acceptance-Refs**: B-04
 - **Estimate**: 1d
 - **Capability**: 迁移到 head 后 `user_memory` 具备激活状态/任务签名/触发文本/证据列，且存在 `eval_case`、`eval_report` 表与 `run_record.task_family` 列
@@ -73,25 +73,37 @@
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_runtime_schema_parity.py`
-- [ ] 扩展列与约束，默认值保持既有记忆行为不变
-- [ ] 新增 `eval_case`（含 `item_count`）、`eval_report` 与 `run_record.task_family`，标准列走 `StandardColumnsMixin`
-- [ ] 同步契约层类别枚举、白名单与 DTO Literal，读取新类别不抛校验错误
-- [ ] [B-04][contract] 覆盖迁移/ORM/契约同构、默认值与 downgrade
-- [ ] [harness-data#RULE-data-001] verifier：`uv run pytest -q tests/agent_runtime/test_runtime_schema_parity.py`；JSONB/时间/索引口径一致
-- [ ] 记录 upgrade/downgrade 演练证据
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_runtime_schema_parity.py`
+- [x] 扩展列与约束，默认值保持既有记忆行为不变
+- [x] 新增 `eval_case`（含 `item_count`）、`eval_report` 与 `run_record.task_family`，标准列走 `StandardColumnsMixin`
+- [x] 同步契约层类别枚举、白名单与 DTO Literal，读取新类别不抛校验错误
+- [x] [B-04][contract] 覆盖迁移/ORM/契约同构、默认值与 downgrade
+- [x] [harness-data#RULE-data-001] verifier：`uv run pytest -q tests/agent_runtime/test_runtime_schema_parity.py`；JSONB/时间/索引口径一致
+- [x] [harness-time#RULE-time-001] verifier：同命令；新表与新增时间列统一 timestamptz
+- [x] 记录 upgrade/downgrade 演练证据
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-04 | contract | 真实 PostgreSQL + 迁移链 + ORM + 契约模型 | 新列与新表存在、默认值 ACTIVE、唯一键与索引齐全、类别读取不报错 | tests/agent_runtime/test_runtime_schema_parity.py | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | planned |
+| B-04 | contract | 真实 PostgreSQL + 迁移链 + ORM + 契约模型 | 新列与新表存在、默认值 ACTIVE、唯一键与索引齐全、类别读取不报错 | tests/agent_runtime/test_runtime_schema_parity.py | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | verified |
 
 ### Acceptance Evidence
+
+- RED: `uv run pytest -q tests/agent_runtime/test_runtime_schema_parity.py` → collection error（`EvalCase` / `EvalReport` 未定义），2026-10-31。
+- GREEN: 同命令 → `16 passed in 0.60s`；`tests/contracts` → `1312 passed`。
+- 迁移演练: `db_migrate.py downgrade 0029` → `eval_case`/`eval_report` 为新表消失、四个新列消失、category 约束回到 4 值；`upgrade head` → `0030 (head)`，parity 再次 16 passed。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-04 | FAIL: collection error（新表 ORM 缺失） | PASS: 16 passed | `test_runtime_table_schema_parity[user_memory/eval_case/eval_report]`、`test_b04_user_memory_defaults_and_experience_categories`、`test_b04_eval_report_baseline_versions_are_append_only`、`test_b04_eval_case_requires_existing_source_run` | 真实 PostgreSQL 迁移到 0030 + ORM 反射 + 真实写入/FK/唯一约束 | verified |
+- B-04: verified — automated command passed; run_id=2a68fe69012446e48e62b5f355b36773 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-31] created (draft)
+- [2026-10-31] started
+- [2026-10-31] completed (done)
 
 ---
 
