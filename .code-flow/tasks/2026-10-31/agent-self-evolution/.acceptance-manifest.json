@@ -1290,7 +1290,7 @@
       "kind": "functional",
       "boundary": "纯函数打分与选择，无 IO",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1346,7 +1346,98 @@
       "features": [
         "FEAT-05"
       ],
-      "check": "CHK-f0abb454854f"
+      "check": "CHK-f0abb454854f",
+      "revision": 1,
+      "evidence": {
+        "id": "S-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-f0abb454854f",
+        "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+        "check_config": {
+          "id": "CHK-f0abb454854f",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_selection_gating.py",
+            "-k",
+            "gating"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "5445e4f3a28743959b981c25969e7205",
+        "executed_at": "2026-10-31T15:30:04.119914+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_core/test_memory_selection_gating.py",
+          "-k",
+          "gating"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-f0abb454854f",
+          "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+          "check_config": {
+            "id": "CHK-f0abb454854f",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_memory_selection_gating.py",
+              "-k",
+              "gating"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "5445e4f3a28743959b981c25969e7205",
+          "executed_at": "2026-10-31T15:30:04.119914+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_selection_gating.py",
+            "-k",
+            "gating"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+        }
+      ]
     },
     {
       "id": "S-08",
@@ -1718,7 +1809,7 @@
       "kind": "functional",
       "boundary": "纯函数打分与选择；标注集（应注入/不应注入）+ 固定语料",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1772,7 +1863,90 @@
       "features": [
         "FEAT-05"
       ],
-      "check": "CHK-bece2c5cc1cf"
+      "check": "CHK-bece2c5cc1cf",
+      "revision": 1,
+      "evidence": {
+        "id": "S-11",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-bece2c5cc1cf",
+        "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+        "check_config": {
+          "id": "CHK-bece2c5cc1cf",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_selection_quality.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "5445e4f3a28743959b981c25969e7205",
+        "executed_at": "2026-10-31T15:30:04.119914+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_core/test_memory_selection_quality.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+      },
+      "runs": [
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-bece2c5cc1cf",
+          "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+          "check_config": {
+            "id": "CHK-bece2c5cc1cf",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_memory_selection_quality.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "5445e4f3a28743959b981c25969e7205",
+          "executed_at": "2026-10-31T15:30:04.119914+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_selection_quality.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+        }
+      ]
     },
     {
       "id": "S-12",
@@ -1845,7 +2019,7 @@
       "kind": "functional",
       "boundary": "真实 Runtime + 真实 PostgreSQL；真实 user_memory 候选集",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1901,7 +2075,90 @@
       "features": [
         "FEAT-05"
       ],
-      "check": "CHK-8012c27eefb8"
+      "check": "CHK-8012c27eefb8",
+      "revision": 1,
+      "evidence": {
+        "id": "S-13",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-8012c27eefb8",
+        "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+        "check_config": {
+          "id": "CHK-8012c27eefb8",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_experience_retrieval_lanes.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "5445e4f3a28743959b981c25969e7205",
+        "executed_at": "2026-10-31T15:30:04.119914+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_experience_retrieval_lanes.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+      },
+      "runs": [
+        {
+          "id": "S-13",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-8012c27eefb8",
+          "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+          "check_config": {
+            "id": "CHK-8012c27eefb8",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_experience_retrieval_lanes.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "5445e4f3a28743959b981c25969e7205",
+          "executed_at": "2026-10-31T15:30:04.119914+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_experience_retrieval_lanes.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+        }
+      ]
     },
     {
       "id": "S-14",
@@ -2689,7 +2946,7 @@
       "kind": "functional",
       "boundary": "纯选择与装箱逻辑",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2737,7 +2994,98 @@
       "features": [
         "FEAT-05"
       ],
-      "check": "CHK-306aa72eecc3"
+      "check": "CHK-306aa72eecc3",
+      "revision": 1,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-306aa72eecc3",
+        "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+        "check_config": {
+          "id": "CHK-306aa72eecc3",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_selection_gating.py",
+            "-k",
+            "budget"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "5445e4f3a28743959b981c25969e7205",
+        "executed_at": "2026-10-31T15:30:04.119914+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_core/test_memory_selection_gating.py",
+          "-k",
+          "budget"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-306aa72eecc3",
+          "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+          "check_config": {
+            "id": "CHK-306aa72eecc3",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_memory_selection_gating.py",
+              "-k",
+              "budget"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "5445e4f3a28743959b981c25969e7205",
+          "executed_at": "2026-10-31T15:30:04.119914+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_selection_gating.py",
+            "-k",
+            "budget"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+        }
+      ]
     },
     {
       "id": "B-02",
@@ -2746,7 +3094,7 @@
       "kind": "functional",
       "boundary": "纯选择逻辑",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2794,7 +3142,98 @@
       "features": [
         "FEAT-05"
       ],
-      "check": "CHK-ea2d7091fe98"
+      "check": "CHK-ea2d7091fe98",
+      "revision": 1,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-ea2d7091fe98",
+        "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+        "check_config": {
+          "id": "CHK-ea2d7091fe98",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_selection_gating.py",
+            "-k",
+            "versions"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "5445e4f3a28743959b981c25969e7205",
+        "executed_at": "2026-10-31T15:30:04.119914+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_core/test_memory_selection_gating.py",
+          "-k",
+          "versions"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ea2d7091fe98",
+          "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+          "check_config": {
+            "id": "CHK-ea2d7091fe98",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_memory_selection_gating.py",
+              "-k",
+              "versions"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "5445e4f3a28743959b981c25969e7205",
+          "executed_at": "2026-10-31T15:30:04.119914+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_selection_gating.py",
+            "-k",
+            "versions"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+        }
+      ]
     },
     {
       "id": "B-03",
@@ -2803,7 +3242,7 @@
       "kind": "functional",
       "boundary": "纯函数选择与缓存装载；候选规模取 max_entries_per_user 的可配置上界；统计 token 化与外部调用",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2860,7 +3299,98 @@
       "features": [
         "FEAT-05"
       ],
-      "check": "CHK-26964f3728dd"
+      "check": "CHK-26964f3728dd",
+      "revision": 1,
+      "evidence": {
+        "id": "B-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-26964f3728dd",
+        "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+        "check_config": {
+          "id": "CHK-26964f3728dd",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_selection_gating.py",
+            "-k",
+            "upper_bound"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "5445e4f3a28743959b981c25969e7205",
+        "executed_at": "2026-10-31T15:30:04.119914+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_core/test_memory_selection_gating.py",
+          "-k",
+          "upper_bound"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+      },
+      "runs": [
+        {
+          "id": "B-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-26964f3728dd",
+          "input_hash": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e",
+          "check_config": {
+            "id": "CHK-26964f3728dd",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_memory_selection_gating.py",
+              "-k",
+              "upper_bound"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "5445e4f3a28743959b981c25969e7205",
+          "executed_at": "2026-10-31T15:30:04.119914+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_memory_selection_gating.py",
+            "-k",
+            "upper_bound"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ec182b4eac0c6421d7376344e31073e853b78072601bca080c2644fd48bc6b2e"
+        }
+      ]
     },
     {
       "id": "B-04",

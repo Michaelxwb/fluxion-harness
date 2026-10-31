@@ -59,6 +59,7 @@ class MemoryContextLoader:
         self._pending_attribution: InjectionAttribution | None = None
         self._component: MemoryComponent | None = None
         self._suppressed, self._generation = False, 0
+        self._task_family: str | None = None
 
     @property
     def cache(self) -> MemoryCandidateCache:
@@ -71,6 +72,10 @@ class MemoryContextLoader:
     @property
     def component(self) -> MemoryComponent | None:
         return self._component
+
+    def set_task_family(self, task_family: str | None) -> None:
+        """skill 执行后由执行层更新：下一次请求按新任务族注入经验。"""
+        self._task_family = task_family
 
     def invalidate(self) -> None:
         self._generation += 1
@@ -110,6 +115,7 @@ class MemoryContextLoader:
             query=self._query,
             now=snapshot.as_of,
             inject_inferred=self._settings.inject_inferred,
+            task_family=self._task_family,
         )
         selected_tasks = tuple(
             row

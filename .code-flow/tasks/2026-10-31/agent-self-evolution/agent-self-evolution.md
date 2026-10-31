@@ -32,21 +32,21 @@
 | S-04 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 verifier 注册表与执行链 | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_verification_loop.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-05 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实跨 Run 聚合 job + 真实 PostgreSQL | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_experience_candidates.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-06 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实回放门禁 + 真实 PostgreSQL + 真实审计 | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_experience_activation.py","-k","gate"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-07 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯函数打分与选择，无 IO | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","gating"] | . | 300 | P0 | auto | none | - | - | - | no |
+| S-07 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯函数打分与选择，无 IO | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","gating"] | . | 300 | P0 | auto | none | - | - | - | no |
 | S-08 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 PostgreSQL + 真实审计写入 | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_experience_activation.py","-k","audit"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-09 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 Run/事件数据 + 真实 PostgreSQL；worker 离线抽取 | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_eval_cases.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-10 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实两臂回放 + 真实 PostgreSQL；脚本化 provider | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_replay_gate.py"] | . | 900 | P0 | auto | local | - | - | - | no |
-| S-11 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯函数打分与选择；标注集 + 固定语料 | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_quality.py"] | . | 300 | P0 | auto | none | - | - | - | no |
+| S-11 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯函数打分与选择；标注集 + 固定语料 | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_quality.py"] | . | 300 | P0 | auto | none | - | - | - | no |
 | S-12 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实状态机 + 真实 PostgreSQL + 真实审计 | TASK-008 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_experience_trial_promotion.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-13 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 Runtime + 真实 PostgreSQL；真实候选集 | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_experience_retrieval_lanes.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-13 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 Runtime + 真实 PostgreSQL；真实候选集 | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_experience_retrieval_lanes.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-14 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实批量 Run/逐项 tool 事件 + 真实 PostgreSQL | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_eval_cases.py","-k","batch_items"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-15 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实两臂回放 + 真实 PostgreSQL；逐项结果判定 | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_replay_gate.py","-k","batch_items"] | . | 900 | P0 | auto | local | - | - | - | no |
 | S-16 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实跨 Run 聚合 job + 真实 PostgreSQL | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_experience_candidates.py","-k","batch"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-01 | agent-self-evolution.design.md#2.5 验收条件 | integration | 学习链路故障注入，主执行链真实运行 | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_degradation.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | E-02 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 forget 事务 + 真实 PostgreSQL + 真实聚合 job | TASK-006 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_experience_candidates.py","-k","forget"] | . | 600 | P1 | auto | local | - | - | - | no |
-| B-01 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯选择与装箱逻辑 | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","budget"] | . | 300 | P1 | auto | none | - | - | - | no |
-| B-02 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯选择逻辑 | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","versions"] | . | 300 | P1 | auto | none | - | - | - | no |
-| B-03 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯选择 + 缓存装载；token 化与外部调用计数 | TASK-007 | planned | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","upper_bound"] | . | 300 | P1 | auto | none | - | - | - | no |
+| B-01 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯选择与装箱逻辑 | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","budget"] | . | 300 | P1 | auto | none | - | - | - | no |
+| B-02 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯选择逻辑 | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","versions"] | . | 300 | P1 | auto | none | - | - | - | no |
+| B-03 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯选择 + 缓存装载；token 化与外部调用计数 | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","upper_bound"] | . | 300 | P1 | auto | none | - | - | - | no |
 | B-04 | agent-self-evolution.design.md#2.5 验收条件 | contract | 真实 PostgreSQL 迁移链 + ORM + 契约模型 | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | B-05 | agent-self-evolution.design.md#2.5 验收条件 | contract | 真实盘面：任务文件、manifest、context、测试文件 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_evolution_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
 | B-06 | agent-self-evolution.design.md#2.5 验收条件 | contract | 源码导入图 + 模型池配额（架构断言） | TASK-004 | verified | ["uv","run","pytest","-q","tests/architecture/test_learning_isolation.py"] | . | 300 | P1 | auto | none | - | - | - | no |
@@ -395,7 +395,7 @@
 
 ## TASK-007: 记忆与经验检索门控
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003, TASK-006
 - **Source**: agent-self-evolution.design.md#3.2 架构设计, agent-self-evolution.design.md#3.4 接口设计, agent-self-evolution.design.md#3.5 质量实现方案
@@ -411,37 +411,58 @@
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_core/test_memory_selection_gating.py tests/agent_core/test_memory_selection_quality.py tests/agent_runtime/test_experience_retrieval_lanes.py`
-- [ ] 低于阈值不注入；空查询只注入偏好类；偏好独立限额
-- [ ] 经验两通道命中、去重，且 ACTIVE 经验不受 inject_inferred 影响
-- [ ] 条数/字节双上限与丢弃计数；同键只留最新版本
-- [ ] token 集在缓存装载时预计算，请求期不重新 token 化
-- [ ] [S-07][unit] 覆盖阈值、空查询、偏好限额与确定性
-- [ ] [S-11][unit] 覆盖标注集校准与噪音下降
-- [ ] [S-13][integration] 覆盖非标命中与 skill 后族切换
-- [ ] [B-01][unit] 覆盖预算与丢弃计数
-- [ ] [B-02][unit] 覆盖同键多版本
-- [ ] [B-03][unit] 覆盖上界规模、无外部 IO 与预计算
-- [ ] [harness-memory#RULE-memory-003] verifier：同命令；完整有界集合、无 latest-N 截断、revision 缓存语义不变
-- [ ] [RULE-09] 请求期零新增 DB 查询与网络调用
-- [ ] 把检索规范的判定文本同步为阈值门控口径并重跑 spec gate
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_core/test_memory_selection_gating.py tests/agent_core/test_memory_selection_quality.py tests/agent_runtime/test_experience_retrieval_lanes.py`
+- [x] 低于阈值不注入；空查询只注入偏好类；偏好独立限额
+- [x] 经验两通道命中、去重，且 ACTIVE 经验不受 inject_inferred 影响
+- [x] 条数/字节双上限与丢弃计数；同键只留最新版本
+- [x] token 集在缓存装载时预计算，请求期不重新 token 化
+- [x] [S-07][unit] 覆盖阈值、空查询、偏好限额与确定性
+- [x] [S-11][unit] 覆盖标注集校准与噪音下降
+- [x] [S-13][integration] 覆盖非标命中与 skill 后族切换
+- [x] [B-01][unit] 覆盖预算与丢弃计数
+- [x] [B-02][unit] 覆盖同键多版本
+- [x] [B-03][unit] 覆盖上界规模、无外部 IO 与预计算
+- [x] [harness-memory#RULE-memory-003] verifier：同命令；完整有界集合、无 latest-N 截断、revision 缓存语义不变
+- [x] [RULE-09] 请求期零新增 DB 查询与网络调用
+- [x] 把检索规范的判定文本同步为阈值门控口径并重跑 spec gate
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-07 | unit | 纯函数打分与选择 | 阈值以下不注入；空查询只注入偏好；两次结果一致 | tests/agent_core/test_memory_selection_gating.py | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","gating"] | planned |
-| S-11 | unit | 纯函数 + 标注集 | 应注入全召回、不应注入全过滤、噪音下降 | tests/agent_core/test_memory_selection_quality.py | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_quality.py"] | planned |
-| S-13 | integration | 真实 Runtime + 真实 PostgreSQL | 目标文本命中、skill 后族切换、两路不重复注入 | tests/agent_runtime/test_experience_retrieval_lanes.py | ["uv","run","pytest","-q","tests/agent_runtime/test_experience_retrieval_lanes.py"] | planned |
-| B-01 | unit | 纯选择与装箱 | 不超 max_items/max_bytes；丢弃计数正确 | tests/agent_core/test_memory_selection_gating.py | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","budget"] | planned |
-| B-02 | unit | 纯选择 | 同键只注入最新有效版本 | tests/agent_core/test_memory_selection_gating.py | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","versions"] | planned |
-| B-03 | unit | 纯选择 + 缓存装载 | 上界规模正确、无外部 IO、请求期不重新 token 化 | tests/agent_core/test_memory_selection_gating.py | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","upper_bound"] | planned |
+| S-07 | unit | 纯函数打分与选择 | 阈值以下不注入；空查询只注入偏好；两次结果一致 | tests/agent_core/test_memory_selection_gating.py | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","gating"] | verified |
+| S-11 | unit | 纯函数 + 标注集 | 应注入全召回、不应注入全过滤、噪音下降 | tests/agent_core/test_memory_selection_quality.py | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_quality.py"] | verified |
+| S-13 | integration | 真实 Runtime + 真实 PostgreSQL | 目标文本命中、skill 后族切换、两路不重复注入 | tests/agent_runtime/test_experience_retrieval_lanes.py | ["uv","run","pytest","-q","tests/agent_runtime/test_experience_retrieval_lanes.py"] | verified |
+| B-01 | unit | 纯选择与装箱 | 不超 max_items/max_bytes；丢弃计数正确 | tests/agent_core/test_memory_selection_gating.py | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","budget"] | verified |
+| B-02 | unit | 纯选择 | 同键只注入最新有效版本 | tests/agent_core/test_memory_selection_gating.py | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","versions"] | verified |
+| B-03 | unit | 纯选择 + 缓存装载 | 上界规模正确、无外部 IO、请求期不重新 token 化 | tests/agent_core/test_memory_selection_gating.py | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","upper_bound"] | verified |
 
 ### Acceptance Evidence
+
+- RED: 去掉实现后 gating/quality 两条命令 collection error（`record_tokens`/阈值门控 API 缺失），2026-10-31。
+- GREEN: gating `4 passed`、quality `1 passed`、lanes `2 passed`；回归 `selection/render/evidence` 71 passed、`memory_redesign_context` 20 passed（按新限额口径更新两处断言）。
+- Spec：`harness-memory#RULE-memory-003` 文本已同步阈值门控与偏好独立限额；refresh 后 hash 一致。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-07 | FAIL: collection error | PASS: 4 passed | `test_s07_gating_excludes_low_score_and_empty_query_facts` | 纯函数选择；偏好条目/字节限额 | verified |
+| S-11 | FAIL: collection error | PASS: 1 passed | `test_s11_threshold_gate_keeps_recall_and_cuts_noise` | 标注集：2 条应注入全命中、2 条噪音全过滤；两次结果一致 | verified |
+| S-13 | FAIL: collection error | PASS: 2 passed | `test_s13_goal_match_hits_experience_without_skill`、`test_s13_family_switch_after_skill_execution` | 真实 PostgreSQL 候选集；PROPOSED 不注入、ACTIVE 注入、目标文本与族切换各一路 | verified |
+| B-01 | FAIL: collection error | PASS: `-k budget` 1 passed | `test_b01_budget_and_drop_counters` | 偏好条数/字节限额 + 渲染层丢弃计数 | verified |
+| B-02 | FAIL: collection error | PASS: `-k versions` 1 passed | `test_b02_versions_only_latest_is_injected` | 同键多版本只保留最新 | verified |
+| B-03 | FAIL: collection error | PASS: `-k upper_bound` 1 passed | `test_b03_upper_bound_selection_stays_in_process` | 1200 条候选、请求期仅 token 化查询一次 | verified |
+- S-07: verified — automated command passed; run_id=5445e4f3a28743959b981c25969e7205 (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=5445e4f3a28743959b981c25969e7205 (confirmed_by: runner)
+- S-13: verified — automated command passed; run_id=5445e4f3a28743959b981c25969e7205 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=5445e4f3a28743959b981c25969e7205 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=5445e4f3a28743959b981c25969e7205 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=5445e4f3a28743959b981c25969e7205 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-31] created (draft)
+- [2026-10-31] started
+- [2026-10-31] completed (done)
 
 ---
 

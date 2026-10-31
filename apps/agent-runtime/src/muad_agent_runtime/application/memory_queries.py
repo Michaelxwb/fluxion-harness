@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from uuid import UUID
 
-from muad_agent_core.memory.rank import MemoryRecord
+from muad_agent_core.memory.rank import MemoryRecord, record_tokens
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import (
@@ -124,7 +124,12 @@ def _candidate(row: UserMemory) -> MemoryCandidateRow:
         enabled=row.enabled,
         is_deleted=row.is_deleted,
         explicit_request=row.explicit_request,
+        activation_state=row.activation_state,
+        task_signature=row.task_signature,
+        trigger_text=row.trigger_text,
     )
+    # token 集在缓存装载时预计算，请求期只做集合运算（NFR-PERF-01）。
+    record = replace(record, tokens=record_tokens(record))
     return MemoryCandidateRow(row.id, record, row.source_quote)
 
 
