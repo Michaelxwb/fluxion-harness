@@ -58,6 +58,7 @@ verifiers:
 
 - **Runtime 验收真实环境基建**（`tests/acceptance/runtime/`）：module-scoped live stack——Console/Runtime 真实 uvicorn、LLM/MCP 本地 HTTP 探针、数据落真实 PostgreSQL/Redis/Artifact Store；禁止 `dependency_overrides`/mock 业务服务。跨 Pod/崩溃用真实子进程（SIGKILL 后由另一实例 Reaper 回收）；进程内服务线程与 pytest-asyncio 并存时清理 engine `lru_cache`，async 工具走独立线程（禁止 `asyncio.run` 污染主循环）。
 - **强杀/回收类用例的等待预算要给足整跑余量**：单跑 6–8s 能过的窗口在全量负载下会拉长；只放大等待预算，断言不变（实例：Reaper 回收 15s→60s、探针延迟 5s→15s）。
+- **多副本下在飞 SSE 与执行实例不保证同 Pod**：SIGKILL 执行实例后，订阅可能由另一实例继续追尾并先收到 Reaper 的 `run.error`。✅ 失败终态按 `run.error` 识别；重连游标已越过终态时允许空续跟；终态断言对两次订阅取并集；SSE 读取必须落实 `timeout_sec`。❌ 假设「在飞订阅断开时必无终态、重连必能读到终态」——8 副本 + 入口代理下首个订阅会先消费 `run.error`，旧断言要么误判、要么因只等 `run.terminal` 且忽略 timeout 而永久挂起（2026-10-31 `test_e08_runtime_kill_*`）。
 - **验收命令由 acceptance manifest runner 统一复验并写证据**：相同 argv/cwd/timeout 复用；测试未收集、未执行或失败均视为 FAIL。
 - **改任务文档后重生成 manifest 会保留证据、把契约变化标 stale**（0.8 起）：`cf_acceptance_manifest.py --task-file … --output …` 保留已有 `evidence`/`runs`；契约变化置 `stale` 并列入 `relock.stale`。补证据可按 owner 回填：`cf_acceptance_runner.py --manifest <需求目录>/.acceptance-manifest.json --root "$PWD" --write-evidence --owner TASK-0XX`（无需 active marker；不带 `--include-e2e` 时 E2E 行保持 deferred）。
 - **每个需求收尾必须有 `tests/<domain>_inventory.py` 闭合清单**：以**真实盘面**为输入交叉核对，而不是自查断言——任务文档覆盖表/契约表/Evidence、`.acceptance-manifest.json`、`spec-context.yml` 的 required 规则、E2E 套件与场景名是否真的在盘。现网 11 个（console_auth/overview_dashboard/audit_observability/dfx/agent_memory/async_tool_runtime/context_compaction/memory_redesign/platform_settings/run_event_details 等）。
@@ -75,6 +76,7 @@ verifiers:
 - **微基准不作为单测性能门禁**：5 chunk/1 repeat 的跨场景耗时排序会被预热/调度噪声翻转；单测只断言结构（场景存在、事件数、正数耗时），耗时只作诊断输出（`test_capacity_chunk_bench.py`）。
 - **本地跑测/Playwright 前停 dev 服务**：`scripts/dev.sh stop` 按精确仓库根 cwd + 端口持有者清理 multiprocessing/uvicorn reload 子进程；e2e 的 `pretest` 先停 dev，避免 `--reload` Worker 抢共享库任务。
 - **后端 CI 并行分片**：`backend-static` 只跑 compile/i18n/error-message/lint/typecheck（无 DB）；`backend-tests` 按目录切 `fast`/`runtime`/`console`/`worker` 四个 matrix job，**每个 job 自带 PG/Redis service**，互不共享库与 Redis 号位。`acceptance` 按模块切 `dfx`/`gateway`/`im_gateway`/`runtime`/`capacity`/`task_schedule`/`rest` 七片，各自一套 PG/Redis 与临时库——起真实 Worker/Runtime 的模块串在一个 job 会污染后续模块。CI 预建 `.data/artifacts` 与 `.data/skill-cache`。分片是人工清单：新增顶层测试目录（含 `tests/acceptance` 子目录）必须同步 `.github/workflows/check.yml`，否则静默漏跑；四个单测分片收集条数应互不重叠并等于拆分前的收集数。
+- **本地单测分片必须与 CI 同口径**：`.code-flow/validation.yml` 的 `Pytest (unit)` 按 `fast`/`runtime`/`console`/`worker` 四个静态分片、各自独立进程执行，并带 `-m "not capacity_load"`。✅ 本地路径与 `.github/workflows/check.yml` 逐项一致、新增顶层目录两处同步；❌ 单进程 `pytest --ignore=tests/acceptance` 跑全量——前序模块创建的 engine/日志/租户状态会污染后续文件（2026-10-31 实测 5 条「单文件绿、整批红」：SQL 捕获 0 条、指标样本混入其它模块 label）。
 
 **验收反模式（Anti-Patterns）**：
 

@@ -1,7 +1,7 @@
 version: 1
 task: agent-self-evolution
 enforcement: required
-updated_at: '2026-10-30T19:25:06.009188+00:00'
+updated_at: '2026-10-31T14:03:55.902630+00:00'
 sources:
 - type: cli
   ref: bind
@@ -10,7 +10,7 @@ bindings:
   path: persistence/harness-data.md
   status: active
   hashes:
-    file_sha256: 854f097f974a87d85a2b175eb53315eaf1eda38b516c954f26b352da5acdf6b7
+    file_sha256: 87e108287221d7be78ce2018d0f3b95c6eb1a30b4cd1c7cf0d92020cb506f2b5
     metadata_sha256: 4c0b58f383383267a768a0d1c93774dc8702f7e68e68de0bb654746611af262e
     rules_sha256: bff4e046d47cecba0e97c8a83921f635292d2a2e009c836fece1462a9024a68d
   selected_by: cli
@@ -359,7 +359,7 @@ bindings:
   path: test/harness-test.md
   status: active
   hashes:
-    file_sha256: 53436e947c2dfc87ce8adb51870900abd5997f4e884a5703abff9c86c6fbe21e
+    file_sha256: 01f0ce3ef66bea87ddc705d68cb2d5481adc40e4ab3ea208a83899bdf035e02b
     metadata_sha256: 5d27df198a9eaddd2dd86bf03245618c896f974e1312e38dacac6585c3159c08
     rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
   selected_by: cli
