@@ -3940,7 +3940,7 @@
       "kind": "functional",
       "boundary": "真实盘面：任务文件、manifest、spec-context、测试文件",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3986,7 +3986,90 @@
       "features": [
         "FEAT-02"
       ],
-      "check": "CHK-e2ecaeacb7f8"
+      "check": "CHK-e2ecaeacb7f8",
+      "revision": 1,
+      "evidence": {
+        "id": "B-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-e2ecaeacb7f8",
+        "input_hash": "8538cd20a5e1e388416698d39f220052988e0eef2f94b083e8841e8fe1eccd9d",
+        "check_config": {
+          "id": "CHK-e2ecaeacb7f8",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_evolution_inventory.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "14cc4879ef274d8393b4a678dbdb3878",
+        "executed_at": "2026-10-31T15:37:23.045062+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_evolution_inventory.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "8538cd20a5e1e388416698d39f220052988e0eef2f94b083e8841e8fe1eccd9d"
+      },
+      "runs": [
+        {
+          "id": "B-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-e2ecaeacb7f8",
+          "input_hash": "8538cd20a5e1e388416698d39f220052988e0eef2f94b083e8841e8fe1eccd9d",
+          "check_config": {
+            "id": "CHK-e2ecaeacb7f8",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_evolution_inventory.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "14cc4879ef274d8393b4a678dbdb3878",
+          "executed_at": "2026-10-31T15:37:23.045062+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_evolution_inventory.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "8538cd20a5e1e388416698d39f220052988e0eef2f94b083e8841e8fe1eccd9d"
+        }
+      ]
     },
     {
       "id": "B-06",

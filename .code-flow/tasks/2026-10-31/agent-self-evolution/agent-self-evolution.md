@@ -48,7 +48,7 @@
 | B-02 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯选择逻辑 | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","versions"] | . | 300 | P1 | auto | none | - | - | - | no |
 | B-03 | agent-self-evolution.design.md#2.5 验收条件 | unit | 纯选择 + 缓存装载；token 化与外部调用计数 | TASK-007 | verified | ["uv","run","pytest","-q","tests/agent_core/test_memory_selection_gating.py","-k","upper_bound"] | . | 300 | P1 | auto | none | - | - | - | no |
 | B-04 | agent-self-evolution.design.md#2.5 验收条件 | contract | 真实 PostgreSQL 迁移链 + ORM + 契约模型 | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_runtime_schema_parity.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| B-05 | agent-self-evolution.design.md#2.5 验收条件 | contract | 真实盘面：任务文件、manifest、context、测试文件 | TASK-009 | planned | ["uv","run","pytest","-q","tests/agent_evolution_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
+| B-05 | agent-self-evolution.design.md#2.5 验收条件 | contract | 真实盘面：任务文件、manifest、context、测试文件 | TASK-009 | verified | ["uv","run","pytest","-q","tests/agent_evolution_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
 | B-06 | agent-self-evolution.design.md#2.5 验收条件 | contract | 源码导入图 + 模型池配额（架构断言） | TASK-004 | verified | ["uv","run","pytest","-q","tests/architecture/test_learning_isolation.py"] | . | 300 | P1 | auto | none | - | - | - | no |
 
 > 覆盖设计中的全部 24 个场景（16 个 S、2 个 E、6 个 B）；无 E2E：本需求不新增浏览器旅程与公开 API 契约。
@@ -539,7 +539,7 @@
 
 ## TASK-009: 需求盘点与测试分层核验
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-006, TASK-007, TASK-008
 - **Source**: agent-self-evolution.design.md#2.5 验收条件
@@ -555,21 +555,31 @@
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_evolution_inventory.py`
-- [ ] 覆盖表每行唯一负责人且终态，manifest 与覆盖表同 ID/owner/命令
-- [ ] 终态场景在 owner 的 Acceptance Evidence 中登记
-- [ ] [B-05][contract] 覆盖四者一致与扰动定位
-- [ ] [harness-test#RULE-test-001] verifier：`uv run pytest -q tests/agent_evolution_inventory.py tests/agent_core/test_memory_selection_gating.py tests/agent_runtime/test_learning_replay.py tests/agent_runtime/test_runtime_schema_parity.py`；unit/integration/contract 分层符合设计
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_evolution_inventory.py`
+- [x] 覆盖表每行唯一负责人且终态，manifest 与覆盖表同 ID/owner/命令
+- [x] 终态场景在 owner 的 Acceptance Evidence 中登记
+- [x] [B-05][contract] 覆盖四者一致与扰动定位
+- [x] [harness-test#RULE-test-001] verifier：`uv run pytest -q tests/agent_evolution_inventory.py tests/agent_core/test_memory_selection_gating.py tests/agent_runtime/test_learning_replay.py tests/agent_runtime/test_runtime_schema_parity.py`；unit/integration/contract 分层符合设计
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-05 | contract | 真实盘面：任务文件、manifest、spec-context、测试文件 | 四者逐项一致；缺失时失败并指名条目 | tests/agent_evolution_inventory.py | ["uv","run","pytest","-q","tests/agent_evolution_inventory.py"] | planned |
+| B-05 | contract | 真实盘面：任务文件、manifest、spec-context、测试文件 | 四者逐项一致；缺失时失败并指名条目 | tests/agent_evolution_inventory.py | ["uv","run","pytest","-q","tests/agent_evolution_inventory.py"] | verified |
 
 ### Acceptance Evidence
+
+- RED: 骨架阶段命令为 skip + AssertionError；实现后首次运行因缺 B-05 证据行失败（`missing evidence table row in TASK-009`）。
+- GREEN: `uv run pytest -q tests/agent_evolution_inventory.py` → `5 passed`（含 4 条扰动：未知 owner、缺证据行、伪造测试路径、manifest owner 漂移）。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| B-05 | FAIL: 缺 B-05 证据行 | PASS: 5 passed | `test_inventory_is_clean`、`test_inventory_flags_unknown_owner`、`test_inventory_flags_missing_evidence_row`、`test_inventory_flags_forged_test_path`、`test_inventory_flags_manifest_owner_drift` | 真实任务文件/manifest/spec-context/测试路径逐项比对 | verified |
+- B-05: verified — automated command passed; run_id=14cc4879ef274d8393b4a678dbdb3878 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-31] created (draft)
+- [2026-10-31] started
+- [2026-10-31] completed (done)
