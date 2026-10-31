@@ -52,7 +52,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -149,6 +149,72 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-30T19:36:59.898154+00:00'
+          status: verified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: head:d2c6e8849b51efd71009ef6ab4a43910480e9ee1
+          result_sha256: 54eecb6ea2205987d5a9907975496d64191789bec86733feb65c073c81439e58
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: ef15e5c38f194dbc5827fd026e03ef421d727f61761955eae5a6492de25ef765
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "...............................................             \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              47 passed, 6167 deselected, 2 warnings in 25.26s\n"
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-31T03:07:52.217799+00:00'
+          status: verified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: head:e171a9da6f8f07faae69f44f2771c61e7751ca62
+          result_sha256: 3ee3201d6573ebea9037710004c3a27d5b63609ed9ebc74438afcc783b3a0d26
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: 8fd8e34a374530231c6205e78a27e75589d5793ecb2b3fc4d4e2e03803e48fc0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "...............................................             \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              47 passed, 6167 deselected, 2 warnings in 28.46s\n"
       review:
         status: pending
         refs: []
@@ -202,7 +268,91 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-30T20:17:00.007271+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: head:d2c6e8849b51efd71009ef6ab4a43910480e9ee1
+          result_sha256: add9bdb44d99e89e572697989a41d62e1a01babc7c25a5f5fac94fc120511494
+          error_code: verifier_timeout
+          details:
+            timeout: 2400.0
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q -m "not capacity_load" tests/acceptance && npm --prefix
+              apps/console-platform/frontend run build && npm --prefix e2e test
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-31T03:35:17.084815+00:00'
+          status: verified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: head:e171a9da6f8f07faae69f44f2771c61e7751ca62
+          result_sha256: 00c67b9c39398125366b0832f6113ba2db88b580c10e9ff888d7a2811e783d3d
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q -m "not capacity_load" tests/acceptance && npm --prefix
+              apps/console-platform/frontend run build && npm --prefix e2e test
+            exit_code: 0
+            stdout_sha256: 85f5a6851657ce173a402ebc709c51922623f1e145dbbead63f97e6f6523cca2
+            stderr_sha256: 664806bdfa3c895a1574a243a6619f0be82e2390782de3e81494c5e2ee851df6
+            output: "     0.39 kB │ gzip:   0.30 kB\ndist/assets/MetricCards-Dk1GTBq-.js\
+              \                   0.40 kB │ gzip:   0.21 kB\ndist/assets/IconPlus-Db2vZ8m5.js\
+              \                      0.42 kB │ gzip:   0.31 kB\ndist/assets/IconMinusCircle-BAiY2b_d.js\
+              \               0.46 kB │ gzip:   0.33 kB\ndist/assets/CopyButton-DBpsgjT-.js\
+              \                    0.56 kB │ gzip:   0.38 kB\ndist/assets/IconDownload-CNSpOY-L.js\
+              \                  0.58 kB │ gzip:   0.41 kB\ndist/assets/FormModal-D9pnOihS.js\
+              \                     0.61 kB │ gzip:   0.38 kB\ndist/assets/models-DoNrjG_S.js\
+              \                        1.47 kB │ gzip:   0.68 kB\ndist/assets/mcpServers-DipkqJai.js\
+              \                    1.47 kB │ gzip:   0.48 kB\ndist/assets/EmptyState-Dhvqa4AC.js\
+              \                    1.53 kB │ gzip:   0.57 kB\ndist/assets/skills-Be50-WvQ.js\
+              \                        1.64 kB │ gzip:   0.55 kB\ndist/assets/platforms-DPgIJL0y.js\
+              \                     2.09 kB │ gzip:   0.76 kB\ndist/assets/index-DItMo25K.js\
+              \                         2.16 kB │ gzip:   1.04 kB\ndist/assets/users-D7cKlid2.js\
+              \                         2.68 kB │ gzip:   0.89 kB\ndist/assets/DateTimeText-Byj9VXM3.js\
+              \                  3.14 kB │ gzip:   1.38 kB\ndist/assets/EntityNameText-CncHq1C4.js\
+              \                5.48 kB │ gzip:   2.12 kB\ndist/assets/SchedulePage-Dk-YJ4AM.js\
+              \                  5.71 kB │ gzip:   2.17 kB\ndist/assets/TaskDetailSideSheet-2YfudHsz.js\
+              \           6.00 kB │ gzip:   2.38 kB\ndist/assets/ConfirmAction-BCRHvc2z.js\
+              \                 6.76 kB │ gzip:   2.33 kB\ndist/assets/TaskPage-mEwGsrMB.js\
+              \                     12.09 kB │ gzip:   4.02 kB\ndist/assets/SettingsPage-z5lEKSpj.js\
+              \                 15.39 kB │ gzip:   4.93 kB\ndist/assets/AuditPage-COCD--0S.js\
+              \                    17.43 kB │ gzip:   5.96 kB\ndist/assets/McpPage-NAgeB-xs.js\
+              \                      20.15 kB │ gzip:   5.91 kB\ndist/assets/AgentPage-BRyqjTOx.js\
+              \                    22.06 kB │ gzip:   6.03 kB\ndist/assets/PlatformPage-D_g0S4q4.js\
+              \                 23.67 kB │ gzip:   7.29 kB\ndist/assets/RelatedDetailController-Dy7qM5K2.js\
+              \      25.78 kB │ gzip:   8.00 kB\ndist/assets/UserPage-Cd1AJa6N.js\
+              \                     31.23 kB │ gzip:   8.52 kB\ndist/assets/DetailSideSheet-iNLdFRo9.js\
+              \              31.46 kB │ gzip:   9.21 kB\ndist/assets/ModelPage-cN0cfQ7J.js\
+              \                    58.65 kB │ gzip:  14.64 kB\ndist/assets/ChatPage-CsbpzZBx.js\
+              \                    130.46 kB │ gzip:  35.54 kB\ndist/assets/DetailGrid-Cfda1a2G.js\
+              \                  157.02 kB │ gzip:  44.26 kB\ndist/assets/SkillPage-CQ3egUo_.js\
+              \                   451.24 kB │ gzip: 136.13 kB\ndist/assets/OverviewPage-Br4a0DWf.js\
+              \              1,163.45 kB │ gzip: 390.92 kB\ndist/assets/index-tGDZw4Tm.js\
+              \                     1,417.92 kB │ gzip: 417.52 kB\n✓ built in 3.93s\n\
+              \n> fluxion-harness-e2e@0.1.0 pretest\n> bash -c 'if command -v lsof\
+              \ >/dev/null 2>&1; then bash ../scripts/dev.sh stop; else echo \"[e2e]\
+              \ lsof unavailable; skip dev-service stop\"; fi'\n\n== 停止已有服务 ==\n \
+              \ 没有在跑的本仓库服务\n\n== 端口检查 ==\n  ✓ 8000 已释放\n  ✓ 8001 已释放\n  ✓ 8002 已释放\n\
+              \  ✓ 8003 已释放\n  ✓ 8004 已释放\n\n> fluxion-harness-e2e@0.1.0 test\n> playwright\
+              \ test\n\n\nRunning 4 tests using 1 worker\n\n  ✓  1 tests/foundation.spec.ts:17:1\
+              \ › S-03 切到 English 后触发错误时页面文案与后端 msg 同步为 en-US (1.2s)\n  ✓  2 tests/foundation.spec.ts:36:1\
+              \ › S-12 切换模块路由时 Layout 不重建且菜单选中正确 (347ms)\n  ✓  3 tests/foundation.spec.ts:52:1\
+              \ › S-13 切换 English 后刷新语言保持且请求带 X-Locale=en-US (414ms)\n  ✓  4 tests/foundation.spec.ts:64:1\
+              \ › E-09 会话失效访问业务页跳转登录并保留 returnUrl，不渲染业务数据 (244ms)\n\n  4 passed (9.6s)\n\
+              \n(!) Some chunks are larger than 500 kB after minification. Consider:\n\
+              - Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n\
+              [WebServer] INFO:     Started server process [5784]\n[WebServer] INFO:\
+              \     Waiting for application startup.\n[WebServer] INFO:     Application\
+              \ startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4173\
+              \ (Press CTRL+C to quit)\n"
