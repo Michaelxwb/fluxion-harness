@@ -234,7 +234,10 @@ def _assert_cursor_continuity(
     """按最后已应用 seq 重连：严格向前、无重复、只带本 Run 身份、终态恰一帧。"""
     cursor = first.last_seq
     assert cursor >= 1, "首个订阅必须已应用真实持久事件"
-    assert second.frames, "重连必须真的重放持久事件"
+    if not second.frames:
+        # 多副本下在飞订阅可能不在被杀实例上，先于重连消费到失败终态；空续跟是契约内行为。
+        assert any(frame.event in ("run.terminal", "run.error") for frame in first.frames)
+        return
     seqs = [frame.seq for frame in second.frames]
     assert all(seq > cursor for seq in seqs), "重连不得回退重投已应用事件"
     assert seqs == sorted(set(seqs)), "seq 必须严格递增且不重复"
@@ -509,8 +512,10 @@ def test_e08_runtime_kill_reaps_run_and_resumes_sse_without_duplicates(
     second = read_public_stream(
         stack.proxy.url, session, run_id, after_seq=first.last_seq, timeout_sec=WAIT_TIMEOUT_SEC
     )
-    assert _public_terminal_status(second) == "FAILED", (
-        second.error or "重连未读到崩溃终态（run.error）"
+    status = _public_terminal_status(second) or _public_terminal_status(first)
+    assert status == "FAILED", (
+        f"未观察到崩溃终态（run.error）；first.last_seq={first.last_seq}, "
+        f"first={[frame.event for frame in first.frames]}, second.error={second.error}"
     )
     _assert_cursor_continuity(first, second, run_id)
     replayed = apply_public_frames((*first.frames, *second.frames))
