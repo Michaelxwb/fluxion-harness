@@ -436,12 +436,19 @@ def test_b01_idempotency_replay_over_http(live_stack: LiveStack, http: httpx.Cli
                 )
             ).scalars().all()
             assert rows, "重放区间内没有任何 canonical 事件"
-            # RUN_STAGE / MEMORY_CONSOLIDATED 是 run 级进度/审计事件，天然没有 submission
-            # 回执；重放契约只要求 submission 业务事件带回执。
+            # RUN_STAGE / MEMORY_CONSOLIDATED / 学习链路事件是 run 级进度、审计或归因，
+            # 天然没有 submission 回执；重放契约只要求 submission 业务事件带回执。
             submission_rows = [
                 row
                 for row in rows
-                if row.event_type not in {"RUN_STAGE", "MEMORY_CONSOLIDATED"}
+                if row.event_type
+                not in {
+                    "RUN_STAGE",
+                    "MEMORY_CONSOLIDATED",
+                    "MEMORY_INJECTED",
+                    "LEARNING_SIGNAL",
+                    "EXPERIENCE_STATE_CHANGED",
+                }
             ]
             assert submission_rows, "重放区间内没有 submission 业务事件"
             assert all(row.submission_id is not None for row in submission_rows)

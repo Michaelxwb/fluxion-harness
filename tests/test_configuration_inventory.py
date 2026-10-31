@@ -58,6 +58,7 @@ def test_configuration_inventory_covers_shared_settings_and_policy_fields() -> N
         "AgentSettings",
         "TaskSettings",
         "MemoryPolicySettings",
+        "LearningSettings",
         "ArtifactSettings",
         "AuthSettings",
         "LocaleSettings",

@@ -57,7 +57,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -191,6 +191,29 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-31T16:39:25.672977+00:00'
+          status: verified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: c60240936fd10bee14ccaa0ee5cbf77982bb491daaa4aa25affb43c79756b30c
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: b14105e52a33e85c4332e00bc0afcb2ab5fb2ef863d6432f949c34111f64251d
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.39s
+
+              '
       review:
         status: pending
         refs: []
@@ -224,7 +247,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -378,6 +401,39 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-31T16:39:29.869013+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: b56fdffc7f6031d0851af9062cae0058a8b8d60ee5624bb3648aa95b928e6108
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 37e84a08c34234633e9b5a5a70614974c85f1b61e182dbb22efa07d6f242f610
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 2 warnings in 3.65s\n"
       review:
         status: pending
         refs: []
@@ -429,7 +485,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -626,6 +682,39 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-31T16:40:05.602606+00:00'
+          status: verified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: 2b92247541cfe7eb5e014152f9b0d663b80f63fc3cbc1b54782d7e13830ed3f4
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: 78effd37a29c49461552b30e6046df4eb4c7c85ec1f925b54d7b94d2f18c12a9
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "......................................................      \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              54 passed, 6184 deselected, 2 warnings in 34.29s\n"
       review:
         status: pending
         refs: []
@@ -677,7 +766,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -759,6 +848,39 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-31T16:40:10.082558+00:00'
+          status: verified
+          rule_text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: c62f13e24c3bb93e2ce2a47dd423e7c997bd1ef9662b0406056915dab3419ab7
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run
+              python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: 253ba3b5e828f6020c7902d710351255af0e0ee61a6f7a6f8628dc0142b7e5b0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.76s
+
+              frontend api usage check OK
+
+              i18n keys OK: 1572
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
       review:
         status: pending
         refs: []
@@ -807,7 +929,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -871,6 +993,30 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-31T16:40:13.747655+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: df21b3bdd5fa7f76daa743691dcc300284cdb53f9f5fd43655ac9980bdb82f0f
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: fc88ec5c2045386b7c8ce1db02ae385f14e2b6b2fd49beae9fecd4ae11a90f08
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 2.93s
+
+              i18n keys OK: 1572
+
+              '
       review:
         status: pending
         refs: []
@@ -925,10 +1071,37 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-001
+          executed_at: '2026-10-31T16:42:21.595925+00:00'
+          status: verified
+          rule_text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: ca8722e0707904a16a9f4e73638eb33c9bd94ec02bda188e57fa0c94b810e6ec
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_core/test_memory_redesign_evidence.py
+            - tests/agent_runtime/test_memory_redesign_confirmation.py
+            exit_code: 0
+            stdout_sha256: a52cfde005802cc896eddb43a4e39baf8d57239b381eefb3c2a69f56cacd41b8
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 88%]
+
+              .........                                                                [100%]
+
+              81 passed in 125.29s (0:02:05)
+
+              '
   - ref: RULE-memory-002
     summary: Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。同
       tenant/user/key 使用完整唯一身份，软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope
@@ -962,10 +1135,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-002
+          executed_at: '2026-10-31T16:43:24.544383+00:00'
+          status: verified
+          rule_text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: 5a3fc943430acd605c5122511ed9ed70a6524ecbae617e5a5b16f7121880bdc5
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_writes.py
+            - tests/agent_runtime/test_memory_redesign_quotas.py
+            exit_code: 0
+            stdout_sha256: 0af20149be384da4430c6a1167f3e5b58efe282eacd1ac8555e2cc6208cbc339
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..........................                                               [100%]
+
+              26 passed in 61.70s (0:01:01)
+
+              '
   - ref: RULE-memory-003
     summary: 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖
       query。注入选择在覆盖率之上加阈值门控（默认 0.35，平台可配）；偏好类先按独立条数/字节限额筛选且不受阈值过滤；同键只取最新版本；经验类只注入
@@ -1002,10 +1199,35 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: stale
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-003
+          executed_at: '2026-10-31T16:44:55.404139+00:00'
+          status: verified
+          rule_text_sha256: a816a6f4610d83f84a228773e5f163d66f5e0601f53d9b9ede258ce1ef684ae9
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: 51e9bf6ac79abc159e4167abd46e2f56ed0c058d99581074c02d192d906966c8
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_cache.py
+            - tests/agent_runtime/test_memory_redesign_context.py
+            - tests/agent_core/test_memory_redesign_selection.py
+            exit_code: 0
+            stdout_sha256: 35e87eacb25977594ce37e748135a83ff35d4589c39c60929e66b50f4e9e18fb
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................                 [100%]
+
+              56 passed in 89.51s (0:01:29)
+
+              '
   - ref: RULE-memory-004
     summary: 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled
       或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision
@@ -1039,10 +1261,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-004
+          executed_at: '2026-10-31T16:48:02.318874+00:00'
+          status: verified
+          rule_text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: 201ea59a2b1776eb2d2c2dcffd0abe59d08f37ae27ac720fb5504057fc8bef87
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_job_effects.py
+            - tests/agent_runtime/test_memory_redesign_confirmation.py
+            exit_code: 0
+            stdout_sha256: f5a83b8c45c46a35f394ef8f935915314189cd75096b0659ab5ceaadb4f23f36
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............................................................             [100%]
+
+              60 passed in 184.01s (0:03:04)
+
+              '
   - ref: RULE-memory-005
     summary: 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同
       fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立
@@ -1077,10 +1323,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-005
+          executed_at: '2026-10-31T16:49:30.085191+00:00'
+          status: verified
+          rule_text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: 033032bc540caf21bdea299c09966eda028030a9e0679d61744439577bb311a7
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_job_effects.py
+            - tests/agent_runtime/test_memory_redesign_input_boundary.py
+            exit_code: 0
+            stdout_sha256: 90221eda07d4dd693407d90d0c0502976fb0439d5953032f7785fa5f717af097
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...................................                                      [100%]
+
+              35 passed in 86.32s (0:01:26)
+
+              '
   - ref: RULE-memory-006
     summary: 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途
       Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和
@@ -1114,10 +1384,34 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-006
+          executed_at: '2026-10-31T16:49:44.317140+00:00'
+          status: verified
+          rule_text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: 808536bfef8312475fb1143d8b091505b2f6bae239f1c1217afdc00cf7b3e253
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/migrations/test_memory_redesign_migration.py
+            - tests/agent_runtime/test_memory_redesign_snapshot.py
+            exit_code: 0
+            stdout_sha256: 2ca4b58c794c5b2d30bd9f0f39c50c87b6bcdbbd5fd4ece20ccd4ea412aad491
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............                                                             [100%]
+
+              12 passed in 12.92s
+
+              '
 - spec_id: harness-secret
   path: secret/harness-secret.md
   status: active
@@ -1163,7 +1457,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1299,6 +1593,30 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-31T16:49:48.318181+00:00'
+          status: verified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: c5215e00ef91d3e9a7d990a7923e5f6ce4d78e75cc0282aa862298294a5a92bd
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 596af9c4d41ea638c4383cd0b3e0e6c8343fbf0c1a54b1a691d0004d658b6cae
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 3.15s
+
+              '
       review:
         status: pending
         refs: []
@@ -1349,7 +1667,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1636,6 +1954,32 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-31T16:50:11.290860+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: 820f71bd7b94852b44145bba160b1be86daf952061e744a42db8088abb4e9e77
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 07973664932ee526d254c22fbbda59303fbffd6b07dbb9fdde8719012a9248dc
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.37s
+
+              .......................................                                  [100%]
+
+              39 passed, 1109 deselected in 18.86s
+
+              '
       review:
         status: pending
         refs: []
@@ -1689,10 +2033,77 @@ bindings:
         decision: null
         evidence: []
       review:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-10-31T17:19:39.667671+00:00'
+          status: unverified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: 610d446d10cff7b047e08d1a29e3934e34d67311805ed2f428b86a253844e128
+          error_code: command_failed
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q -m "not capacity_load" tests/acceptance && npm --prefix
+              apps/console-platform/frontend run build && npm --prefix e2e test
+            exit_code: 1
+            stdout_sha256: da60b7d8a06ab217e2f314c835097f0e867cd6de4e67c8f80efaad9f37bb75d8
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "5: in run\n    return runner.run(main)\n           ^^^^^^^^^^^^^^^^\n\
+              ../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/asyncio/runners.py:118:\
+              \ in run\n    return self._loop.run_until_complete(task)\n         \
+              \  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/asyncio/base_events.py:691:\
+              \ in run_until_complete\n    return future.result()\n           ^^^^^^^^^^^^^^^\n\
+              tests/acceptance/runtime/conftest.py:455: in runner\n    return await\
+              \ coro_factory(factory)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _\
+              \ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ \n\nfactory = async_sessionmaker(class_='AsyncSession',\
+              \ bind=<sqlalchemy.ext.asyncio.engine.AsyncEngine object at 0x1112a7790>,\
+              \ autoflush=True, expire_on_commit=False)\n\n    async def verify(factory:\
+              \ Any) -> int:\n        async with factory() as session:\n         \
+              \   count = await session.scalar(\n                sa.select(sa.func.count())\n\
+              \                .select_from(RunRecord)\n                .where(RunRecord.id\
+              \ == uuid.UUID(run_id))\n            )\n            rows = (\n     \
+              \           await session.execute(\n                    sa.select(CanonicalEvent).where(\n\
+              \                        CanonicalEvent.run_id == uuid.UUID(run_id),\n\
+              \                        CanonicalEvent.seq <= replayed_through_seq,\n\
+              \                    )\n                )\n            ).scalars().all()\n\
+              \            assert rows, \"重放区间内没有任何 canonical 事件\"\n            #\
+              \ RUN_STAGE / MEMORY_CONSOLIDATED 是 run 级进度/审计事件，天然没有 submission\n \
+              \           # 回执；重放契约只要求 submission 业务事件带回执。\n            submission_rows\
+              \ = [\n                row\n                for row in rows\n      \
+              \          if row.event_type not in {\"RUN_STAGE\", \"MEMORY_CONSOLIDATED\"\
+              }\n            ]\n            assert submission_rows, \"重放区间内没有 submission\
+              \ 业务事件\"\n>           assert all(row.submission_id is not None for row\
+              \ in submission_rows)\nE           assert False\nE            +  where\
+              \ False = all(<generator object test_b01_idempotency_replay_over_http.<locals>.verify.<locals>.<genexpr>\
+              \ at 0x10e262dc0>)\n\ntests/acceptance/runtime/test_run_lifecycle.py:447:\
+              \ AssertionError\n=============================== warnings summary ===============================\n\
+              .venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \ntests/acceptance/im_gateway/test_wecom_boundary.py::test_b120_authenticates_over_real_socket\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/acceptance/im_gateway/test_wecom_boundary.py::test_b120_authenticates_over_real_socket\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              =========================== short test summary info ============================\n\
+              FAILED tests/acceptance/runtime/test_run_lifecycle.py::test_b01_idempotency_replay_over_http\n\
+              1 failed, 388 passed, 3 skipped, 10 deselected, 4 warnings in 1766.59s\
+              \ (0:29:26)\n"
 - spec_id: harness-time
   path: time/harness-time.md
   status: active
@@ -1736,7 +2147,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1889,6 +2300,37 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-31T17:20:15.892296+00:00'
+          status: verified
+          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: 40b70df8af4275dc851602d2b153f4cb341763e66342efe647565180feec9f7c
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: bfe0b50a82b2efebfd3244a512a72a030217ce796a31bf4c87721ba1f58400a4
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed in 0.73s\n......................................................\
+              \                   [100%]\n=============================== warnings\
+              \ summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              54 passed, 6184 deselected, 2 warnings in 33.62s\n"
       review:
         status: pending
         refs: []
@@ -1937,7 +2379,7 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -2285,6 +2727,172 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-31T17:20:25.452999+00:00'
+          status: verified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: head:7add41568e8bbaeadf9e0a139973d75f514811a7
+          result_sha256: 6f2a5debffd0c51b3d91d6b4fd9eaf20b2aef89a9cbded30fb7b6de0550911be
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
+              && npm --prefix apps/console-platform/frontend run build
+            exit_code: 0
+            stdout_sha256: df428afc64dfd269712c890a45db866d0d831fe3b571bce3df665896331a2aff
+            stderr_sha256: ccb6bf354a0674eeb1e49df9a880a000b75240079fdb849282bb899d81eeb58c
+            output: 's                        0.87 kB │ gzip:   0.31 kB
+
+              dist/assets/ConfirmAction-U7UfFdLK.css                1.78 kB │ gzip:   0.61
+              kB
+
+              dist/assets/DateTimeText-ClU1uQYs.css                 1.95 kB │ gzip:   0.43
+              kB
+
+              dist/assets/PlatformPage-DhyVThf1.css                 5.86 kB │ gzip:   0.88
+              kB
+
+              dist/assets/RelatedDetailController-B3UEE9le.css      8.37 kB │ gzip:   1.17
+              kB
+
+              dist/assets/SkillPage-BjgdU4MM.css                   11.08 kB │ gzip:   2.45
+              kB
+
+              dist/assets/ModelPage-B06roWo5.css                   15.08 kB │ gzip:   1.86
+              kB
+
+              dist/assets/DetailGrid-F02iqEBA.css                  24.70 kB │ gzip:   3.28
+              kB
+
+              dist/assets/DetailSideSheet-6T4S8pYy.css             30.29 kB │ gzip:   3.44
+              kB
+
+              dist/assets/index-CCevRWM3.css                      746.51 kB │ gzip:  88.42
+              kB
+
+              dist/assets/StatusTag-DgXJuGnv.js                     0.21 kB │ gzip:   0.19
+              kB
+
+              dist/assets/CopyableText-DV3QO6vK.js                  0.27 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconMinus-Ccn87WSv.js                     0.39 kB │ gzip:   0.30
+              kB
+
+              dist/assets/MetricCards-BvIpqBUZ.js                   0.40 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconPlus-BiNelevF.js                      0.42 kB │ gzip:   0.31
+              kB
+
+              dist/assets/IconMinusCircle-CAnAeYHd.js               0.46 kB │ gzip:   0.33
+              kB
+
+              dist/assets/CopyButton-Cpv420I4.js                    0.56 kB │ gzip:   0.38
+              kB
+
+              dist/assets/IconDownload-DyBBPg8_.js                  0.58 kB │ gzip:   0.41
+              kB
+
+              dist/assets/FormModal-sgzBbEhy.js                     0.61 kB │ gzip:   0.38
+              kB
+
+              dist/assets/models-Cb000hcC.js                        1.47 kB │ gzip:   0.68
+              kB
+
+              dist/assets/mcpServers-DcV9lzSV.js                    1.47 kB │ gzip:   0.48
+              kB
+
+              dist/assets/EmptyState-C3xiAl_y.js                    1.53 kB │ gzip:   0.57
+              kB
+
+              dist/assets/skills-DncnDRz4.js                        1.64 kB │ gzip:   0.55
+              kB
+
+              dist/assets/platforms-B1GASRrK.js                     2.09 kB │ gzip:   0.76
+              kB
+
+              dist/assets/index-DO0tGx3Y.js                         2.16 kB │ gzip:   1.04
+              kB
+
+              dist/assets/users-brLcUbLB.js                         2.68 kB │ gzip:   0.88
+              kB
+
+              dist/assets/DateTimeText-Cf9Do_GF.js                  3.14 kB │ gzip:   1.38
+              kB
+
+              dist/assets/EntityNameText-DowwO3AY.js                5.48 kB │ gzip:   2.12
+              kB
+
+              dist/assets/SchedulePage-C_hTxY21.js                  5.71 kB │ gzip:   2.17
+              kB
+
+              dist/assets/TaskDetailSideSheet-CkTbGEsb.js           6.00 kB │ gzip:   2.37
+              kB
+
+              dist/assets/ConfirmAction-C3RFKzjo.js                 6.76 kB │ gzip:   2.33
+              kB
+
+              dist/assets/TaskPage-C8_X1Sb4.js                     12.09 kB │ gzip:   4.02
+              kB
+
+              dist/assets/SettingsPage-B_P6jYM6.js                 15.39 kB │ gzip:   4.92
+              kB
+
+              dist/assets/AuditPage-C8dVGyGZ.js                    17.43 kB │ gzip:   5.95
+              kB
+
+              dist/assets/McpPage-2_Cm7yYF.js                      20.15 kB │ gzip:   5.91
+              kB
+
+              dist/assets/AgentPage-CvB00r5x.js                    22.06 kB │ gzip:   6.03
+              kB
+
+              dist/assets/PlatformPage-lt6-GTWU.js                 23.67 kB │ gzip:   7.29
+              kB
+
+              dist/assets/RelatedDetailController-Bri-Wc64.js      25.78 kB │ gzip:   8.00
+              kB
+
+              dist/assets/UserPage-Ch8HL_Kw.js                     31.23 kB │ gzip:   8.52
+              kB
+
+              dist/assets/DetailSideSheet-CaHMXash.js              31.46 kB │ gzip:   9.21
+              kB
+
+              dist/assets/ModelPage-edDh2NSR.js                    58.65 kB │ gzip:  14.64
+              kB
+
+              dist/assets/ChatPage-BQUTpfna.js                    130.46 kB │ gzip:  35.54
+              kB
+
+              dist/assets/DetailGrid-CT1ZyYxV.js                  157.02 kB │ gzip:  44.26
+              kB
+
+              dist/assets/SkillPage-Iz0RM7td.js                   451.24 kB │ gzip:
+              136.13 kB
+
+              dist/assets/OverviewPage-Cno82gd3.js              1,163.45 kB │ gzip:
+              390.92 kB
+
+              dist/assets/index-Ps6Hvh-i.js                     1,419.87 kB │ gzip:
+              418.11 kB
+
+              ✓ built in 4.81s
+
+
+              (!) Some chunks are larger than 500 kB after minification. Consider:
+
+              - Using dynamic import() to code-split the application
+
+              - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+              '
       review:
         status: pending
         refs: []

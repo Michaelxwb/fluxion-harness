@@ -64,7 +64,10 @@ def test_memory_types_declares_strict_enums() -> None:
     types = _compact(_source(TYPES))
     assert "exporttypeMemoryStatus='ACTIVE'|'DISABLED'|'EXPIRED';" in types
     assert "exporttypeMemoryAuthor='USER'|'ADMIN'|'AGENT';" in types
-    assert "exporttypeMemoryCategory='PREFERENCE'|'WORK_STYLE'|'EXPLICIT'|'TASK_STATE';" in types
+    assert (
+        "exporttypeMemoryCategory=|'PREFERENCE'|'WORK_STYLE'|'EXPLICIT'|'TASK_STATE'"
+        "|'PROCEDURE'|'FAILURE_PATTERN'|'VERIFICATION';" in types
+    )
     assert "exporttypeMemoryWritableCategory='PREFERENCE'|'WORK_STYLE'|'EXPLICIT';" in types
     assert "exporttypeMemoryCommandStatus='APPLIED'|'UNCHANGED'|'STALE';" in types
     assert (

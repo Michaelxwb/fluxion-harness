@@ -98,6 +98,7 @@
 |---|---|---|---|---|---|
 | B-04 | FAIL: collection error（新表 ORM 缺失） | PASS: 16 passed | `test_runtime_table_schema_parity[user_memory/eval_case/eval_report]`、`test_b04_user_memory_defaults_and_experience_categories`、`test_b04_eval_report_baseline_versions_are_append_only`、`test_b04_eval_case_requires_existing_source_run` | 真实 PostgreSQL 迁移到 0030 + ORM 反射 + 真实写入/FK/唯一约束 | verified |
 - B-04: verified — automated command passed; run_id=2a68fe69012446e48e62b5f355b36773 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 
 ### Log
 
@@ -152,6 +153,8 @@
 | S-14 | FAIL: collection error | PASS: `-k batch_items` 1 passed | `test_s14_batch_items_are_recorded_with_item_count_and_cap` | 真实批量 tool 事件 + 真实 eval_case 写入 | verified |
 - S-09: verified — automated command passed; run_id=534b2c8a700b43ea832a7bd95ff2a2e6 (confirmed_by: runner)
 - S-14: verified — automated command passed; run_id=534b2c8a700b43ea832a7bd95ff2a2e6 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-14: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 
 ### Log
 
@@ -206,6 +209,8 @@
 | S-02 | FAIL: collection error | PASS: 1 passed | `test_s02_attribution_matches_selection_and_dedupes_by_hash` | 真实 MemoryQueries/缓存 + 真实 MEMORY_INJECTED 行；hash 去重与版本变化各一条 | verified |
 - S-01: verified — automated command passed; run_id=a4620ee9884b41839d12770245181fd0 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=a4620ee9884b41839d12770245181fd0 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 
 ### Log
 
@@ -273,6 +278,11 @@
 - S-15: verified — automated command passed; run_id=9807d8f30e8b4f16b0edb4382d86571e (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=9807d8f30e8b4f16b0edb4382d86571e (confirmed_by: runner)
 - B-06: verified — automated command passed; run_id=9807d8f30e8b4f16b0edb4382d86571e (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-15: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- B-06: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 
 ### Log
 
@@ -324,6 +334,7 @@
 |---|---|---|---|---|---|
 | S-04 | FAIL: collection error（verifier API 缺失） | PASS: 4 passed | `test_s04_only_verified_candidate_reaches_the_answer`、`test_s04_exhaustion_is_explicit_and_bounded`、`test_s04_run_verification_stops_at_the_attempt_limit`、`test_s04_registry_rejects_duplicates_and_unknown_families` | 真实 `AgentRunner` 执行链 + 真实注册表；脚本化 provider 只替代模型 | verified |
 - S-04: verified — automated command passed; run_id=e7d29895a8924073828686f832305549 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 
 ### Log
 
@@ -384,6 +395,9 @@
 - S-05: verified — automated command passed; run_id=cf64ea0ac6c54a67b456ce081785be5a (confirmed_by: runner)
 - S-16: verified — automated command passed; run_id=cf64ea0ac6c54a67b456ce081785be5a (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=cf64ea0ac6c54a67b456ce081785be5a (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-16: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 
 ### Log
 
@@ -457,6 +471,12 @@
 - B-01: verified — automated command passed; run_id=5445e4f3a28743959b981c25969e7205 (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=5445e4f3a28743959b981c25969e7205 (confirmed_by: runner)
 - B-03: verified — automated command passed; run_id=5445e4f3a28743959b981c25969e7205 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-13: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 
 ### Log
 
@@ -527,6 +547,9 @@
 - S-06: verified — automated command passed; run_id=628b2f31970642b7b13331d25030351e (confirmed_by: runner)
 - S-08: verified — automated command passed; run_id=628b2f31970642b7b13331d25030351e (confirmed_by: runner)
 - S-12: verified — automated command passed; run_id=628b2f31970642b7b13331d25030351e (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=a9a65a6e00624fbaa0d14b6e60f67432 (confirmed_by: runner)
 
 ### Log
 
