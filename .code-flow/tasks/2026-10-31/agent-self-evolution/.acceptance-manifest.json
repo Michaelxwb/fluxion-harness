@@ -488,7 +488,7 @@
       "kind": "functional",
       "boundary": "真实 consolidation job + 真实 PostgreSQL；模型为脚本化 provider",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -544,7 +544,90 @@
       "features": [
         "FEAT-01"
       ],
-      "check": "CHK-535da2845291"
+      "check": "CHK-535da2845291",
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-535da2845291",
+        "input_hash": "f551f43f3b33626c3ccc892302247c157bb2cd42cd95a6ee3e33ad258dbad0db",
+        "check_config": {
+          "id": "CHK-535da2845291",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_signal.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "a4620ee9884b41839d12770245181fd0",
+        "executed_at": "2026-10-31T15:18:04.819872+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_signal.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "f551f43f3b33626c3ccc892302247c157bb2cd42cd95a6ee3e33ad258dbad0db"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-535da2845291",
+          "input_hash": "f551f43f3b33626c3ccc892302247c157bb2cd42cd95a6ee3e33ad258dbad0db",
+          "check_config": {
+            "id": "CHK-535da2845291",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_signal.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "a4620ee9884b41839d12770245181fd0",
+          "executed_at": "2026-10-31T15:18:04.819872+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_signal.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "f551f43f3b33626c3ccc892302247c157bb2cd42cd95a6ee3e33ad258dbad0db"
+        }
+      ]
     },
     {
       "id": "S-02",
@@ -553,7 +636,7 @@
       "kind": "functional",
       "boundary": "真实 Runtime + 真实 PostgreSQL；注入条目与各次模型请求逐条比对",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -608,7 +691,90 @@
       "features": [
         "FEAT-01"
       ],
-      "check": "CHK-95671a9c3bea"
+      "check": "CHK-95671a9c3bea",
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-95671a9c3bea",
+        "input_hash": "f551f43f3b33626c3ccc892302247c157bb2cd42cd95a6ee3e33ad258dbad0db",
+        "check_config": {
+          "id": "CHK-95671a9c3bea",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_injection_attribution.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "a4620ee9884b41839d12770245181fd0",
+        "executed_at": "2026-10-31T15:18:04.819872+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_memory_injection_attribution.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "f551f43f3b33626c3ccc892302247c157bb2cd42cd95a6ee3e33ad258dbad0db"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-95671a9c3bea",
+          "input_hash": "f551f43f3b33626c3ccc892302247c157bb2cd42cd95a6ee3e33ad258dbad0db",
+          "check_config": {
+            "id": "CHK-95671a9c3bea",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_memory_injection_attribution.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "a4620ee9884b41839d12770245181fd0",
+          "executed_at": "2026-10-31T15:18:04.819872+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_memory_injection_attribution.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "f551f43f3b33626c3ccc892302247c157bb2cd42cd95a6ee3e33ad258dbad0db"
+        }
+      ]
     },
     {
       "id": "S-03",

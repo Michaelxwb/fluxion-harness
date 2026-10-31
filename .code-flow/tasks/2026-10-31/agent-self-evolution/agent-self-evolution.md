@@ -26,8 +26,8 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | 优先级 | 执行方式 | 环境 | 输入 | E2E理由 | 触发路径 | 冒烟 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| S-01 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 consolidation job + 真实 PostgreSQL | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_signal.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-02 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 Runtime + 真实 PostgreSQL；逐请求比对 | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_injection_attribution.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-01 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 consolidation job + 真实 PostgreSQL | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_signal.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-02 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 Runtime + 真实 PostgreSQL；逐请求比对 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_injection_attribution.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-03 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 Snapshot 重放 + 真实 PostgreSQL | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_replay.py"] | . | 900 | P0 | auto | local | - | - | - | no |
 | S-04 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实 verifier 注册表与执行链 | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_verification_loop.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-05 | agent-self-evolution.design.md#2.5 验收条件 | integration | 真实跨 Run 聚合 job + 真实 PostgreSQL | TASK-006 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_experience_candidates.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -163,11 +163,11 @@
 
 ## TASK-003: 学习信号与注入归因
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: agent-self-evolution.design.md#3.2 架构设计, agent-self-evolution.design.md#3.5 质量实现方案
-- **Spec-Refs**: N/A
+- **Spec-Refs**: harness-memory#RULE-memory-003, harness-memory#RULE-memory-005
 - **Rule-Owner-Refs**: N/A
 - **Acceptance-Refs**: S-01, S-02
 - **Estimate**: 1d
@@ -175,29 +175,43 @@
 
 ### Description
 
-由 consolidation job 在事件边界计算隐式信号（重问、否定、改写）并写 `LEARNING_SIGNAL`；在模型请求边界写 `MEMORY_INJECTED`（memory_key/version/score/decision、丢弃原因计数、selection_hash），选择未变化时以 hash 引用上一条而不重复写行；两类事件均不进入 `HISTORY_EVENT_TYPES`。
+由 consolidation job 在事件边界计算隐式信号（重问、否定、改写）并写 `LEARNING_SIGNAL`（独立事务，失败只记 warning）；在模型请求边界写 `MEMORY_INJECTED`（memory_key/version/score/decision、丢弃原因计数、selection_hash），选择未变化时以 hash 引用上一条而不重复写行；两类事件均不进入 `HISTORY_EVENT_TYPES`。
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_learning_signal.py tests/agent_runtime/test_memory_injection_attribution.py`
-- [ ] 归因与模型请求逐条一致，丢弃原因按类别计数
-- [ ] 选择未变化时以 selection_hash 去重，不重复写事件行
-- [ ] 信号检测不改变 Run 终态与历史重建结果
-- [ ] [S-01][integration] 覆盖信号落库与终态不变
-- [ ] [S-02][integration] 覆盖归因一致与去重
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_learning_signal.py tests/agent_runtime/test_memory_injection_attribution.py`
+- [x] 归因与模型请求逐条一致，丢弃原因按类别计数
+- [x] 选择未变化时以 selection_hash 去重，不重复写事件行
+- [x] 信号检测不改变 Run 终态与历史重建结果
+- [x] [S-01][integration] 覆盖信号落库与终态不变
+- [x] [S-02][integration] 覆盖归因一致与去重
+- [x] [harness-memory#RULE-memory-003] verifier：`uv run pytest -q tests/agent_runtime/test_memory_redesign_context.py tests/agent_runtime/test_memory_redesign_cache.py`；归因不改变选择与缓存语义
+- [x] [harness-memory#RULE-memory-005] verifier：`uv run pytest -q tests/agent_runtime/test_memory_redesign_supervisor.py`；信号检测在 job 入口且失败不影响 job
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | integration | 真实 consolidation job + 真实 PostgreSQL | 产生 LEARNING_SIGNAL；Run 终态不变；事件不进模型历史 | tests/agent_runtime/test_learning_signal.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_signal.py"] | planned |
-| S-02 | integration | 真实 Runtime + 真实 PostgreSQL | key/version 与请求一致；含 score/decision；按 hash 去重 | tests/agent_runtime/test_memory_injection_attribution.py | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_injection_attribution.py"] | planned |
+| S-01 | integration | 真实 consolidation job + 真实 PostgreSQL | 产生 LEARNING_SIGNAL；Run 终态不变；事件不进模型历史 | tests/agent_runtime/test_learning_signal.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_signal.py"] | verified |
+| S-02 | integration | 真实 Runtime + 真实 PostgreSQL | key/version 与请求一致；含 score/decision；按 hash 去重 | tests/agent_runtime/test_memory_injection_attribution.py | ["uv","run","pytest","-q","tests/agent_runtime/test_memory_injection_attribution.py"] | verified |
 
 ### Acceptance Evidence
+
+- RED: 去掉实现后两条验收命令均 collection error（`detect_and_write_signal` / 归因 API 缺失），2026-10-31。
+- GREEN: `3 passed in 0.62s`；回归 `test_memory_redesign_context/cache/observability` → `47 passed`，`test_memory_redesign_supervisor` → `6 passed`。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-01 | FAIL: collection error | PASS: 2 passed（同一文件） | `test_s01_classifier_distinguishes_negation_reask_and_rewrite`、`test_s01_signal_is_written_without_changing_run_state` | 真实 PostgreSQL 的会话事件行 + 真实 EventWriter；信号走 consolidation job 入口 | verified |
+| S-02 | FAIL: collection error | PASS: 1 passed | `test_s02_attribution_matches_selection_and_dedupes_by_hash` | 真实 MemoryQueries/缓存 + 真实 MEMORY_INJECTED 行；hash 去重与版本变化各一条 | verified |
+- S-01: verified — automated command passed; run_id=a4620ee9884b41839d12770245181fd0 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=a4620ee9884b41839d12770245181fd0 (confirmed_by: runner)
 
 ### Log
 
 - [2026-10-31] created (draft)
+- [2026-10-31] started
+- [2026-10-31] completed (done)
 
 ---
 

@@ -70,6 +70,13 @@ def _confirmed_time(record: MemoryRecord) -> float:
     return _timestamp(record.last_confirmed_at or record.updated_at)
 
 
+def score_record(record: MemoryRecord, query: str | None) -> float:
+    """注入归因用的单条分数：偏好类在空查询下记 1.0，其余按词法覆盖率。"""
+    if query is None or not query.strip():
+        return 1.0 if record.category in _PREFERENCES else 0.0
+    return _coverage(record, query)
+
+
 def _search_order(record: MemoryRecord, coverage: float) -> tuple[float, int, float, float, str]:
     return (-coverage, -_TRUST[record.author], -_confirmed_time(record), -_timestamp(record.updated_at),
             record.memory_key)

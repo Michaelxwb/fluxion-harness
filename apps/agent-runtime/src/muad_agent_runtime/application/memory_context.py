@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+
 from muad_agent_core.memory.components import MemoryComponent
-from muad_agent_core.memory.rank import select_for_injection
+from muad_agent_core.memory.rank import select_for_injection, score_record
 from muad_agent_core.memory.render import render_memory_block
 from muad_agent_core.memory.resume import resume_candidate_hash
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import ForgetMemoryInput, MemoryCategory, MemoryResumeRef
 from muad_contracts.platform_settings import MemoryPolicySettings
 
@@ -18,6 +23,25 @@ from .memory_queries import MemorySnapshot
 from .memory_service import MemoryService
 
 
+@dataclass(frozen=True, slots=True)
+class InjectionItem:
+    memory_key: str
+    version: int
+    score: float
+    decision: str
+
+
+@dataclass(frozen=True, slots=True)
+class InjectionAttribution:
+    selection_hash: str
+    items: tuple[InjectionItem, ...]
+    dropped_count: int
+    dropped_bytes: int
+
+
+AttributionSink = Callable[[InjectionAttribution], Awaitable[None]]
+
+
 class MemoryContextLoader:
     def __init__(
         self,
@@ -26,9 +50,13 @@ class MemoryContextLoader:
         settings: MemoryPolicySettings,
         query: str | None,
         task_state_ref: MemoryResumeRef | None = None,
+        on_attribution: AttributionSink | None = None,
     ) -> None:
         self._cache, self._settings = cache, settings
         self._query, self._task_state_ref = query, task_state_ref
+        self._on_attribution = on_attribution
+        self._last_attribution_hash: str | None = None
+        self._pending_attribution: InjectionAttribution | None = None
         self._component: MemoryComponent | None = None
         self._suppressed, self._generation = False, 0
 
@@ -61,7 +89,20 @@ class MemoryContextLoader:
         if snapshot is None or generation != self._generation or self._suppressed:
             return None
         self._component = self._render(snapshot)
+        await self._emit_attribution()
         return self._component
+
+    async def _emit_attribution(self) -> None:
+        attribution = self._pending_attribution
+        self._pending_attribution = None
+        if (
+            attribution is None
+            or self._on_attribution is None
+            or attribution.selection_hash == self._last_attribution_hash
+        ):
+            return
+        self._last_attribution_hash = attribution.selection_hash
+        await self._on_attribution(attribution)
 
     def _render(self, snapshot: MemorySnapshot) -> MemoryComponent:
         ordinary = select_for_injection(
@@ -80,10 +121,27 @@ class MemoryContextLoader:
             and resume_candidate_hash(row) == self._task_state_ref.candidate_hash
             and row.category is MemoryCategory.TASK_STATE
         )
+        injected = (*selected_tasks, *ordinary)
         block = render_memory_block(
-            (*selected_tasks, *ordinary),
+            injected,
             max_records=self._settings.max_injected_memories,
             max_bytes=self._settings.max_injected_bytes,
+        )
+        self._pending_attribution = InjectionAttribution(
+            selection_hash=hashlib.sha256(
+                canonical_json([[item.memory_key, item.version] for item in injected]).encode("utf-8")
+            ).hexdigest(),
+            items=tuple(
+                InjectionItem(
+                    item.memory_key,
+                    item.version,
+                    score_record(item, self._query),
+                    "INJECTED",
+                )
+                for item in injected
+            ),
+            dropped_count=block.dropped_count,
+            dropped_bytes=block.dropped_bytes,
         )
         for reason, amount in (("count", block.dropped_count), ("bytes", block.dropped_bytes)):
             if amount:

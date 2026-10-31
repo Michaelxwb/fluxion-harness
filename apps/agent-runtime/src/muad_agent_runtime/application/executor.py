@@ -1956,7 +1956,7 @@ def _memory_runtime_for(request: ExecutorRequest) -> RunMemory | None:
         scope=MemoryReadScope(tenant_id=context.tenant_id, user_id=context.user_id), run_id=context.run_id,
         settings=policy, query=request.input_text, identity=request.execution_identity,
         submission_id=context.submission_id, credential_canaries=canaries,
-        resume_ref=context.memory_resume_ref)
+        resume_ref=context.memory_resume_ref, conversation_id=context.conversation_id)
 
 
 def tool_result_settings(request: ExecutorRequest) -> ToolResultSettings:
