@@ -55,6 +55,7 @@ class MemoryContextLoader:
         self._cache, self._settings = cache, settings
         self._query, self._task_state_ref = query, task_state_ref
         self._on_attribution = on_attribution
+        self._allowed_experience_keys: frozenset[str] | None = None
         self._last_attribution_hash: str | None = None
         self._pending_attribution: InjectionAttribution | None = None
         self._component: MemoryComponent | None = None
@@ -93,6 +94,15 @@ class MemoryContextLoader:
         )
         if snapshot is None or generation != self._generation or self._suppressed:
             return None
+        if self._allowed_experience_keys is None:
+            # 首次刷新冻结 ACTIVE 经验集合：之后（同 Run 内）的激活不改变本 Run 的注入集合。
+            self._allowed_experience_keys = frozenset(
+                record.memory_key
+                for record in snapshot.records
+                if record.category
+                in (MemoryCategory.PROCEDURE, MemoryCategory.FAILURE_PATTERN, MemoryCategory.VERIFICATION)
+                and record.activation_state == "ACTIVE"
+            )
         self._component = self._render(snapshot)
         await self._emit_attribution()
         return self._component
@@ -116,6 +126,7 @@ class MemoryContextLoader:
             now=snapshot.as_of,
             inject_inferred=self._settings.inject_inferred,
             task_family=self._task_family,
+            allowed_experience_keys=self._allowed_experience_keys,
         )
         selected_tasks = tuple(
             row

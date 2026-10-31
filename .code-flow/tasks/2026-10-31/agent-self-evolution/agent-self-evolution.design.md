@@ -390,6 +390,8 @@ graph TB
 
 所有 `learning` 设置随 Run 冻结进 Snapshot 的 `policy_json`，执行期不重读。
 
+**Console 设置页**：`learning` 分组由既有设置页按字段元数据自动渲染（bool → Switch、int/float → InputNumber）；zh/en 词条齐全，无新增页面与布局变更。
+
 ### 3.5 质量实现方案
 
 #### 性能设计

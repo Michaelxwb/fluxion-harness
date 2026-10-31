@@ -1,7 +1,7 @@
 version: 1
 task: agent-self-evolution
 enforcement: required
-updated_at: '2026-10-31T15:29:54.889614+00:00'
+updated_at: '2026-10-31T15:34:16.481575+00:00'
 sources:
 - type: cli
   ref: bind
@@ -44,7 +44,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
           item_id: POST
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -53,7 +53,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -155,6 +155,30 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-31T15:34:25.659159+00:00'
+          status: unverified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: 0a930d6daf47d9d63f60f73fb44224e643481afb9a57d8ba371e2e86150a2842
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-31T15:35:52.189313+00:00'
+          status: unverified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: 9c1f6a9b918f5ea5a56c88c9119ff3d7661b9cc4a1fa74a38e3ca75850ce6b4c
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -175,7 +199,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
           item_id: VERIFICATION_EXHAUSTED
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -184,7 +208,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -306,6 +330,30 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-31T15:34:25.659180+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 0a930d6daf47d9d63f60f73fb44224e643481afb9a57d8ba371e2e86150a2842
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-31T15:35:52.189333+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 9c1f6a9b918f5ea5a56c88c9119ff3d7661b9cc4a1fa74a38e3ca75850ce6b4c
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -344,7 +392,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.3 数据设计
           item_id: eval_report
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -353,7 +401,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -518,6 +566,251 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-31T15:34:25.806847+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 0a930d6daf47d9d63f60f73fb44224e643481afb9a57d8ba371e2e86150a2842
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-31T15:35:52.302195+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 9c1f6a9b918f5ea5a56c88c9119ff3d7661b9cc4a1fa74a38e3ca75850ce6b4c
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-frontend
+  path: frontend/harness-frontend.md
+  status: active
+  hashes:
+    file_sha256: 7c19416d5116899d49bd296afd88533ab2404a348e6204eb79887ffae5ebe9c0
+    metadata_sha256: 71fab0d58493599ad10b59554dcf8bfe6a74f8c42a64ec1fe8307573ad32409f
+    rules_sha256: 88e07734bcfcf99595bfe206a8a41e394709f8a1462dab8bf61cdd4c12ab4313
+  selected_by: scope:path
+  reason: Git diff matched apps/console-platform/frontend/src/locales/en-US.json,apps/console-platform/frontend/src/locales/zh-CN.json
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-front-001
+    summary: 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的
+      service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿
+      `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId`
+      是无副作用的纯工具，组件可直接 import（现网多处，均为纯函数引用）。文案与词条规则见 RULE-i18n-001；列表/详情见 RULE-ui-001
+      与 RULE-ui-detail-001。
+    text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
+    enforcement: required
+    verifier_ref: harness-frontend#RULE-front-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.4 接口设计
+          item_id: learning
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-008
+          item_id: TASK-008
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-31T15:34:29.962884+00:00'
+          status: verified
+          rule_text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
+          artifact_sha256: null
+          diff_sha256: 0a930d6daf47d9d63f60f73fb44224e643481afb9a57d8ba371e2e86150a2842
+          result_sha256: 28bac97c4a52c2f9009fb83820d9beae2bc7dfcd11fe9a351c31b339f1e7f7b4
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run
+              python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: 5c48b51bf3136ad31d87cb8200b5af36f2e374bf9950a523c5ed461dd26d1a4a
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.56s
+
+              frontend api usage check OK
+
+              i18n keys OK: 1572
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-10-31T15:35:56.018787+00:00'
+          status: verified
+          rule_text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
+          artifact_sha256: null
+          diff_sha256: 9c1f6a9b918f5ea5a56c88c9119ff3d7661b9cc4a1fa74a38e3ca75850ce6b4c
+          result_sha256: 9c93431427f32989104748bccf564c262d7f1bb58f9725801f77fdbbf2fde6e9
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run
+              python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: e2ed4fb67d8a7fa99e6d50c1b1eaf06c117067afe2b9cdc8a29b00630600e9f2
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.59s
+
+              frontend api usage check OK
+
+              i18n keys OK: 1572
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-i18n
+  path: i18n/harness-i18n.md
+  status: active
+  hashes:
+    file_sha256: 4dcf6a2dbd3226b048bb7d3d3c21f149a3588831273cef713c62494fed898521
+    metadata_sha256: 5d5941a5c31c0b7fa6401848d6e780d04874476c8f77a8b5ff5c708885997155
+    rules_sha256: 2f76d4b7d9b26cf3be95f2d812aaca26dd9e576c7e57bf665b65b986a7a1829f
+  selected_by: scope:path
+  reason: Git diff matched apps/console-platform/frontend/src/locales/en-US.json,apps/console-platform/frontend/src/locales/zh-CN.json
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-i18n-001
+    summary: 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language`
+      协商。
+    text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+    enforcement: required
+    verifier_ref: harness-i18n#RULE-i18n-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.4 接口设计
+          item_id: zh/en
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-008
+          item_id: TASK-008
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-31T15:34:33.464075+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 0a930d6daf47d9d63f60f73fb44224e643481afb9a57d8ba371e2e86150a2842
+          result_sha256: 4c9faf9a13323061ef6eb4bd6d94efe166c27c75a7b3a206dc32b1757ae2b5fd
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 212c161821b7c39e4fc10628f12a84867e62ba40f2c55be6686dbe7a66a3885b
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 2.95s
+
+              i18n keys OK: 1572
+
+              '
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-10-31T15:35:59.547524+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 9c1f6a9b918f5ea5a56c88c9119ff3d7661b9cc4a1fa74a38e3ca75850ce6b4c
+          result_sha256: 5a9360b62c2c9646578dfb222184da421031b59fa195ce859bb2ea6b78ac587e
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: a6016663b54ba0d144d6f4c6a973700fb6f8d1aff0533bd6d5e796f138701a71
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 2.91s
+
+              i18n keys OK: 1572
+
+              '
       review:
         status: pending
         refs: []
@@ -554,7 +847,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
           item_id: learning_admin
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -563,7 +856,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -591,7 +884,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.3 数据设计
           item_id: user_memory
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -600,7 +893,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -631,7 +924,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
           item_id: select_for_injection
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -640,7 +933,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -668,7 +961,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.5 质量实现方案
           item_id: forget_epoch
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -677,7 +970,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -706,7 +999,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.2 架构设计
           item_id: claim/lease
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -715,7 +1008,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -743,7 +1036,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
           item_id: policy_json
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -752,7 +1045,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -797,7 +1090,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
           item_id: config/api-messages.yaml
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -806,7 +1099,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -910,6 +1203,30 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-31T15:34:33.594318+00:00'
+          status: unverified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: 0a930d6daf47d9d63f60f73fb44224e643481afb9a57d8ba371e2e86150a2842
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-31T15:35:59.701842+00:00'
+          status: unverified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: 9c1f6a9b918f5ea5a56c88c9119ff3d7661b9cc4a1fa74a38e3ca75850ce6b4c
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -947,7 +1264,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.2 架构设计
           item_id: RuntimeSnapshot
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -956,7 +1273,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -1156,6 +1473,85 @@ bindings:
               39 passed, 1109 deselected in 19.69s
 
               '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-31T15:34:56.184419+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 0a930d6daf47d9d63f60f73fb44224e643481afb9a57d8ba371e2e86150a2842
+          result_sha256: 5b39063122b599e5129a2ff815dff28030edbfa5837a34887fa9bd23434bc936
+          error_code: command_failed
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 1
+            stdout_sha256: 092c9209332e1999528c102179ad1cbb8b6b39180d6c07967102bfb437852744
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "....                                                        \
+              \             [100%]\n4 passed in 1.27s\n.................FFAILED tests/agent_runtime/test_memory_redesign_context.py::test_b08_memory_redesign_default_executor_registers_loader_with_frozen_run_scope\
+              \ [call] (0.39s)\n.....................                            \
+              \      [100%]\n=================================== FAILURES ===================================\n\
+              _ test_b08_memory_redesign_default_executor_registers_loader_with_frozen_run_scope\
+              \ _\n\nasync_tool_database = <sqlalchemy.ext.asyncio.engine.AsyncEngine\
+              \ object at 0x10e9f7710>\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch\
+              \ object at 0x10e6ee750>\n\n    async def test_b08_memory_redesign_default_executor_registers_loader_with_frozen_run_scope(\n\
+              \        async_tool_database,\n        monkeypatch,\n    ):\n      \
+              \  from muad_agent_runtime.application import executor as execution\n\
+              \    \n        from tests.agent_runtime.memory_confirmation_support\
+              \ import model_endpoint, source\n    \n        factory, run, identity,\
+              \ submission = await source(async_tool_database)\n        ctx = context(tenant=run.tenant_id,\
+              \ user=run.user_id)\n        await writer(async_tool_database).execute(\n\
+              \            ctx, command(upsert(value=\"首轮中文偏好\"), upsert(\"second\"\
+              , \"other\"))\n        )\n        # Only the connection factory is injected;\
+              \ production Builder/Cache/Executor/audit use actual PG.\n        monkeypatch.setattr(execution,\
+              \ \"get_session_factory\", lambda: factory)\n    \n        async def\
+              \ is_cancelled():\n            from muad_agent_runtime.infrastructure.models.runtime\
+              \ import RunRecord\n    \n            async with factory() as session:\n\
+              \                current = await session.get(RunRecord, run.id)\n  \
+              \              return current.cancel_requested\n    \n        async\
+              \ with model_endpoint([]) as (url, captured):\n            request =\
+              \ executor_request(run, url, is_cancelled)\n            with query_counts(async_tool_database)\
+              \ as counts:\n                executor = await execution.default_executor_factory(request)\n\
+              \                events = [event async for event in executor.run()]\n\
+              \        assert len(captured) == 1 and \"首轮中文偏好\" in memory_text(captured[0])\n\
+              \        assert memory_text(captured[0]).count('\"memory_key\"') ==\
+              \ 1\n>       assert counts == {\"full\": 1, \"head\": 0}\nE       AssertionError:\
+              \ assert {'full': 2, 'head': 0} == {'full': 1, 'head': 0}\nE       \
+              \  \nE         Omitting 1 identical items, use -vv to show\nE      \
+              \   Differing items:\nE         {'full': 2} != {'full': 1}\nE      \
+              \   Use -v to get more diff\n\ntests/agent_runtime/test_memory_redesign_context.py:297:\
+              \ AssertionError\n=========================== short test summary info\
+              \ ============================\nFAILED tests/agent_runtime/test_memory_redesign_context.py::test_b08_memory_redesign_default_executor_registers_loader_with_frozen_run_scope\n\
+              1 failed, 38 passed, 1109 deselected in 19.03s\n"
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-31T15:36:22.556210+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 9c1f6a9b918f5ea5a56c88c9119ff3d7661b9cc4a1fa74a38e3ca75850ce6b4c
+          result_sha256: e934406d6249dd809845928cf2e953bfb4c1458171e792e768974340f4ba4176
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: ed13caf523398832177f27e4e4e60b9885436aab1798933a931c1c8e6c97540d
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.20s
+
+              .......................................                                  [100%]
+
+              39 passed, 1109 deselected in 19.44s
+
+              '
       review:
         status: pending
         refs: []
@@ -1191,7 +1587,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 2.5 验收条件
           item_id: 测试分层
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -1200,7 +1596,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -1243,7 +1639,7 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.3 数据设计
           item_id: timestamptz
-          artifact_sha256: 5ea99e170831d83f472c6ed2b6202c38b5c69d029c4994e8558d60ba70a0e83c
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
         decision: null
         evidence: []
       plan:
@@ -1252,7 +1648,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 45b9e64c01dcb8cedbccfddc1d34787b6047605eff35b188f45d4bfbfd21dafd
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
         decision: null
         evidence: []
       code:
@@ -1373,6 +1769,414 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-31T15:34:56.316731+00:00'
+          status: unverified
+          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+          artifact_sha256: null
+          diff_sha256: 0a930d6daf47d9d63f60f73fb44224e643481afb9a57d8ba371e2e86150a2842
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-31T15:36:22.692833+00:00'
+          status: unverified
+          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+          artifact_sha256: null
+          diff_sha256: 9c1f6a9b918f5ea5a56c88c9119ff3d7661b9cc4a1fa74a38e3ca75850ce6b4c
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui
+  path: ui/harness-ui.md
+  status: active
+  hashes:
+    file_sha256: 5520c4ad1c260c2021c6e6b2715d1b27c331f439a39dc435773e56b118980938
+    metadata_sha256: e3676fc5a7369c049341d0151c4b62f692ad5760dc88453bd6248651446349a4
+    rules_sha256: 0d6fad1166722627698f4572c7bc2c668524ea36584993dc0614242a9896b8d5
+  selected_by: scope:path
+  reason: Git diff matched apps/console-platform/frontend/src/locales/en-US.json,apps/console-platform/frontend/src/locales/zh-CN.json
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-001
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十一项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/系统设置。
+    text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+    enforcement: required
+    verifier_ref: harness-ui#RULE-ui-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.design.md
+          section_id: 3.4 接口设计
+          item_id: Switch
+          artifact_sha256: 2a8f1f56da5adbf2bbabfcbcf5d5b074edeceb42c5544222d9d73685d1182eb5
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: agent-self-evolution.md
+          section_id: TASK-008
+          item_id: TASK-008
+          artifact_sha256: c80d6d3879442e5132b8b2971655bb761dd0cb18652140320e5281951730e419
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-31T15:35:04.564597+00:00'
+          status: verified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 0a930d6daf47d9d63f60f73fb44224e643481afb9a57d8ba371e2e86150a2842
+          result_sha256: b6689c05161b67bfe5e7c5875759ac21832e12d7cd573b476b82bba21f360e30
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
+              && npm --prefix apps/console-platform/frontend run build
+            exit_code: 0
+            stdout_sha256: 704cd2dd2dce2ab6944db735f3df89d5514cc230a2aaf30f0373a335ef16fee5
+            stderr_sha256: ccb6bf354a0674eeb1e49df9a880a000b75240079fdb849282bb899d81eeb58c
+            output: 's                        0.87 kB │ gzip:   0.31 kB
+
+              dist/assets/ConfirmAction-U7UfFdLK.css                1.78 kB │ gzip:   0.61
+              kB
+
+              dist/assets/DateTimeText-ClU1uQYs.css                 1.95 kB │ gzip:   0.43
+              kB
+
+              dist/assets/PlatformPage-DhyVThf1.css                 5.86 kB │ gzip:   0.88
+              kB
+
+              dist/assets/RelatedDetailController-B3UEE9le.css      8.37 kB │ gzip:   1.17
+              kB
+
+              dist/assets/SkillPage-BjgdU4MM.css                   11.08 kB │ gzip:   2.45
+              kB
+
+              dist/assets/ModelPage-B06roWo5.css                   15.08 kB │ gzip:   1.86
+              kB
+
+              dist/assets/DetailGrid-F02iqEBA.css                  24.70 kB │ gzip:   3.28
+              kB
+
+              dist/assets/DetailSideSheet-6T4S8pYy.css             30.29 kB │ gzip:   3.44
+              kB
+
+              dist/assets/index-CCevRWM3.css                      746.51 kB │ gzip:  88.42
+              kB
+
+              dist/assets/StatusTag-DgXJuGnv.js                     0.21 kB │ gzip:   0.19
+              kB
+
+              dist/assets/CopyableText-DV3QO6vK.js                  0.27 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconMinus-Ccn87WSv.js                     0.39 kB │ gzip:   0.30
+              kB
+
+              dist/assets/MetricCards-BvIpqBUZ.js                   0.40 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconPlus-BiNelevF.js                      0.42 kB │ gzip:   0.31
+              kB
+
+              dist/assets/IconMinusCircle-CAnAeYHd.js               0.46 kB │ gzip:   0.33
+              kB
+
+              dist/assets/CopyButton-Cpv420I4.js                    0.56 kB │ gzip:   0.38
+              kB
+
+              dist/assets/IconDownload-DyBBPg8_.js                  0.58 kB │ gzip:   0.41
+              kB
+
+              dist/assets/FormModal-sgzBbEhy.js                     0.61 kB │ gzip:   0.38
+              kB
+
+              dist/assets/models-Cb000hcC.js                        1.47 kB │ gzip:   0.68
+              kB
+
+              dist/assets/mcpServers-DcV9lzSV.js                    1.47 kB │ gzip:   0.48
+              kB
+
+              dist/assets/EmptyState-C3xiAl_y.js                    1.53 kB │ gzip:   0.57
+              kB
+
+              dist/assets/skills-DncnDRz4.js                        1.64 kB │ gzip:   0.55
+              kB
+
+              dist/assets/platforms-B1GASRrK.js                     2.09 kB │ gzip:   0.76
+              kB
+
+              dist/assets/index-DO0tGx3Y.js                         2.16 kB │ gzip:   1.04
+              kB
+
+              dist/assets/users-brLcUbLB.js                         2.68 kB │ gzip:   0.88
+              kB
+
+              dist/assets/DateTimeText-Cf9Do_GF.js                  3.14 kB │ gzip:   1.38
+              kB
+
+              dist/assets/EntityNameText-DowwO3AY.js                5.48 kB │ gzip:   2.12
+              kB
+
+              dist/assets/SchedulePage-C_hTxY21.js                  5.71 kB │ gzip:   2.17
+              kB
+
+              dist/assets/TaskDetailSideSheet-CkTbGEsb.js           6.00 kB │ gzip:   2.37
+              kB
+
+              dist/assets/ConfirmAction-C3RFKzjo.js                 6.76 kB │ gzip:   2.33
+              kB
+
+              dist/assets/TaskPage-C8_X1Sb4.js                     12.09 kB │ gzip:   4.02
+              kB
+
+              dist/assets/SettingsPage-B_P6jYM6.js                 15.39 kB │ gzip:   4.92
+              kB
+
+              dist/assets/AuditPage-C8dVGyGZ.js                    17.43 kB │ gzip:   5.95
+              kB
+
+              dist/assets/McpPage-2_Cm7yYF.js                      20.15 kB │ gzip:   5.91
+              kB
+
+              dist/assets/AgentPage-CvB00r5x.js                    22.06 kB │ gzip:   6.03
+              kB
+
+              dist/assets/PlatformPage-lt6-GTWU.js                 23.67 kB │ gzip:   7.29
+              kB
+
+              dist/assets/RelatedDetailController-Bri-Wc64.js      25.78 kB │ gzip:   8.00
+              kB
+
+              dist/assets/UserPage-Ch8HL_Kw.js                     31.23 kB │ gzip:   8.52
+              kB
+
+              dist/assets/DetailSideSheet-CaHMXash.js              31.46 kB │ gzip:   9.21
+              kB
+
+              dist/assets/ModelPage-edDh2NSR.js                    58.65 kB │ gzip:  14.64
+              kB
+
+              dist/assets/ChatPage-BQUTpfna.js                    130.46 kB │ gzip:  35.54
+              kB
+
+              dist/assets/DetailGrid-CT1ZyYxV.js                  157.02 kB │ gzip:  44.26
+              kB
+
+              dist/assets/SkillPage-Iz0RM7td.js                   451.24 kB │ gzip:
+              136.13 kB
+
+              dist/assets/OverviewPage-Cno82gd3.js              1,163.45 kB │ gzip:
+              390.92 kB
+
+              dist/assets/index-Ps6Hvh-i.js                     1,419.87 kB │ gzip:
+              418.11 kB
+
+              ✓ built in 4.09s
+
+
+              (!) Some chunks are larger than 500 kB after minification. Consider:
+
+              - Using dynamic import() to code-split the application
+
+              - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+              '
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-10-31T15:36:30.979183+00:00'
+          status: verified
+          rule_text_sha256: 4d919381e1c35d631fc7afa636ffb57a3a5e4c83db5f7494f54934b928f7f2ce
+          artifact_sha256: null
+          diff_sha256: 9c1f6a9b918f5ea5a56c88c9119ff3d7661b9cc4a1fa74a38e3ca75850ce6b4c
+          result_sha256: 0eb99dc62e05c3df630d509e818effaf9cd3a4bca72b02cc18e7aaf07bce30ed
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
+              && npm --prefix apps/console-platform/frontend run build
+            exit_code: 0
+            stdout_sha256: 4d0533a87befc1a163da255607350d3f4e64173ff5e99200a3b1381bf623e34e
+            stderr_sha256: ccb6bf354a0674eeb1e49df9a880a000b75240079fdb849282bb899d81eeb58c
+            output: 's                        0.87 kB │ gzip:   0.31 kB
+
+              dist/assets/ConfirmAction-U7UfFdLK.css                1.78 kB │ gzip:   0.61
+              kB
+
+              dist/assets/DateTimeText-ClU1uQYs.css                 1.95 kB │ gzip:   0.43
+              kB
+
+              dist/assets/PlatformPage-DhyVThf1.css                 5.86 kB │ gzip:   0.88
+              kB
+
+              dist/assets/RelatedDetailController-B3UEE9le.css      8.37 kB │ gzip:   1.17
+              kB
+
+              dist/assets/SkillPage-BjgdU4MM.css                   11.08 kB │ gzip:   2.45
+              kB
+
+              dist/assets/ModelPage-B06roWo5.css                   15.08 kB │ gzip:   1.86
+              kB
+
+              dist/assets/DetailGrid-F02iqEBA.css                  24.70 kB │ gzip:   3.28
+              kB
+
+              dist/assets/DetailSideSheet-6T4S8pYy.css             30.29 kB │ gzip:   3.44
+              kB
+
+              dist/assets/index-CCevRWM3.css                      746.51 kB │ gzip:  88.42
+              kB
+
+              dist/assets/StatusTag-DgXJuGnv.js                     0.21 kB │ gzip:   0.19
+              kB
+
+              dist/assets/CopyableText-DV3QO6vK.js                  0.27 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconMinus-Ccn87WSv.js                     0.39 kB │ gzip:   0.30
+              kB
+
+              dist/assets/MetricCards-BvIpqBUZ.js                   0.40 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconPlus-BiNelevF.js                      0.42 kB │ gzip:   0.31
+              kB
+
+              dist/assets/IconMinusCircle-CAnAeYHd.js               0.46 kB │ gzip:   0.33
+              kB
+
+              dist/assets/CopyButton-Cpv420I4.js                    0.56 kB │ gzip:   0.38
+              kB
+
+              dist/assets/IconDownload-DyBBPg8_.js                  0.58 kB │ gzip:   0.41
+              kB
+
+              dist/assets/FormModal-sgzBbEhy.js                     0.61 kB │ gzip:   0.38
+              kB
+
+              dist/assets/models-Cb000hcC.js                        1.47 kB │ gzip:   0.68
+              kB
+
+              dist/assets/mcpServers-DcV9lzSV.js                    1.47 kB │ gzip:   0.48
+              kB
+
+              dist/assets/EmptyState-C3xiAl_y.js                    1.53 kB │ gzip:   0.57
+              kB
+
+              dist/assets/skills-DncnDRz4.js                        1.64 kB │ gzip:   0.55
+              kB
+
+              dist/assets/platforms-B1GASRrK.js                     2.09 kB │ gzip:   0.76
+              kB
+
+              dist/assets/index-DO0tGx3Y.js                         2.16 kB │ gzip:   1.04
+              kB
+
+              dist/assets/users-brLcUbLB.js                         2.68 kB │ gzip:   0.88
+              kB
+
+              dist/assets/DateTimeText-Cf9Do_GF.js                  3.14 kB │ gzip:   1.38
+              kB
+
+              dist/assets/EntityNameText-DowwO3AY.js                5.48 kB │ gzip:   2.12
+              kB
+
+              dist/assets/SchedulePage-C_hTxY21.js                  5.71 kB │ gzip:   2.17
+              kB
+
+              dist/assets/TaskDetailSideSheet-CkTbGEsb.js           6.00 kB │ gzip:   2.37
+              kB
+
+              dist/assets/ConfirmAction-C3RFKzjo.js                 6.76 kB │ gzip:   2.33
+              kB
+
+              dist/assets/TaskPage-C8_X1Sb4.js                     12.09 kB │ gzip:   4.02
+              kB
+
+              dist/assets/SettingsPage-B_P6jYM6.js                 15.39 kB │ gzip:   4.92
+              kB
+
+              dist/assets/AuditPage-C8dVGyGZ.js                    17.43 kB │ gzip:   5.95
+              kB
+
+              dist/assets/McpPage-2_Cm7yYF.js                      20.15 kB │ gzip:   5.91
+              kB
+
+              dist/assets/AgentPage-CvB00r5x.js                    22.06 kB │ gzip:   6.03
+              kB
+
+              dist/assets/PlatformPage-lt6-GTWU.js                 23.67 kB │ gzip:   7.29
+              kB
+
+              dist/assets/RelatedDetailController-Bri-Wc64.js      25.78 kB │ gzip:   8.00
+              kB
+
+              dist/assets/UserPage-Ch8HL_Kw.js                     31.23 kB │ gzip:   8.52
+              kB
+
+              dist/assets/DetailSideSheet-CaHMXash.js              31.46 kB │ gzip:   9.21
+              kB
+
+              dist/assets/ModelPage-edDh2NSR.js                    58.65 kB │ gzip:  14.64
+              kB
+
+              dist/assets/ChatPage-BQUTpfna.js                    130.46 kB │ gzip:  35.54
+              kB
+
+              dist/assets/DetailGrid-CT1ZyYxV.js                  157.02 kB │ gzip:  44.26
+              kB
+
+              dist/assets/SkillPage-Iz0RM7td.js                   451.24 kB │ gzip:
+              136.13 kB
+
+              dist/assets/OverviewPage-Cno82gd3.js              1,163.45 kB │ gzip:
+              390.92 kB
+
+              dist/assets/index-Ps6Hvh-i.js                     1,419.87 kB │ gzip:
+              418.11 kB
+
+              ✓ built in 4.29s
+
+
+              (!) Some chunks are larger than 500 kB after minification. Consider:
+
+              - Using dynamic import() to code-split the application
+
+              - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+              '
       review:
         status: pending
         refs: []

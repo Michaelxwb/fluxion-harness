@@ -155,6 +155,7 @@ def select_for_injection(
     min_score: float = 0.35,
     preference_items: int = 3,
     preference_bytes: int = 512,
+    allowed_experience_keys: frozenset[str] | None = None,
 ) -> tuple[MemoryRecord, ...]:
     """阈值门控注入：偏好独立限额，经验走任务族/目标文本两通道，同键只取最新。"""
     _timestamp(now)
@@ -198,6 +199,11 @@ def select_for_injection(
         score = _weighted_coverage(record, query_tokens, weights, total)
         if record.category in _EXPERIENCE:
             if record.activation_state != "ACTIVE":
+                continue
+            if (
+                allowed_experience_keys is not None
+                and record.memory_key not in allowed_experience_keys
+            ):
                 continue
             family_hit = task_family is not None and record.task_signature == task_family
             if family_hit:

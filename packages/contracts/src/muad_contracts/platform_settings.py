@@ -273,6 +273,28 @@ class WebchatSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class LearningSettings:
+    """学习链路：检索门控、经验生成与自动激活策略（新 Run 冻结）。"""
+
+    learning_enabled: bool = False
+    signal_detection_enabled: bool = True
+    retrieval_min_score: float = 0.35
+    retrieval_preference_items: int = 3
+    retrieval_preference_bytes: int = 512
+    experience_min_success_runs: int = 3
+    experience_auto_activate: list[str] = field(
+        default_factory=lambda: ["PROCEDURE", "FAILURE_PATTERN"]
+    )
+    experience_trial_runs: int = 20
+    experience_trial_max_regression: float = 0.05
+    verification_max_attempts: int = 2
+    eval_min_improvement: float = 0.05
+    eval_min_cases: int = 10
+    eval_max_cases: int = 50
+    eval_max_items_per_case: int = 10
+
+
+@dataclass(frozen=True, slots=True)
 class PlatformSettings:
     """Console 与执行服务共用的整份平台设置文档。"""
 
@@ -280,6 +302,7 @@ class PlatformSettings:
     agent: AgentSettings = field(default_factory=AgentSettings)
     task: TaskSettings = field(default_factory=TaskSettings)
     memory: MemoryPolicySettings = field(default_factory=MemoryPolicySettings)
+    learning: LearningSettings = field(default_factory=LearningSettings)
     artifact: ArtifactSettings = field(default_factory=ArtifactSettings)
     auth: AuthSettings = field(default_factory=AuthSettings)
     locale: LocaleSettings = field(default_factory=LocaleSettings)
@@ -303,6 +326,7 @@ _GROUPS: dict[str, type] = {
     "agent": AgentSettings,
     "task": TaskSettings,
     "memory": MemoryPolicySettings,
+    "learning": LearningSettings,
     "artifact": ArtifactSettings,
     "auth": AuthSettings,
     "locale": LocaleSettings,
@@ -407,6 +431,9 @@ def _coerce_section(
         elif isinstance(reference, float):
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise error(f"{name}.{key} 必须是数字")
+        elif isinstance(reference, list):
+            if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+                raise error(f"{name}.{key} 必须是字符串列表")
         elif value is not None and not isinstance(value, str):
             raise error(f"{name}.{key} 必须是字符串或 null")
         values[key] = value
@@ -550,6 +577,43 @@ def _validate_task(task: TaskSettings, batch_platform_limit: int | None) -> None
     _at_least("task.delivery_backoff_base_sec", task.delivery_backoff_base_sec, 1)
 
 
+LEARNING_SETTING_BOUNDS: dict[str, tuple[float, float]] = {
+    "retrieval_min_score": (0.0, 1.0),
+    "retrieval_preference_items": (0, 20),
+    "retrieval_preference_bytes": (0, 16384),
+    "experience_min_success_runs": (1, 100),
+    "experience_trial_runs": (1, 1000),
+    "experience_trial_max_regression": (0.0, 1.0),
+    "verification_max_attempts": (1, 10),
+    "eval_min_improvement": (0.0, 1.0),
+    "eval_min_cases": (1, 1000),
+    "eval_max_cases": (1, 1000),
+    "eval_max_items_per_case": (1, 100),
+}
+
+_LEARNING_CATEGORIES = frozenset(
+    {"PROCEDURE", "FAILURE_PATTERN", "VERIFICATION"}
+)
+
+
+def _validate_learning(learning: LearningSettings) -> None:
+    defaults = LearningSettings()
+    for item in fields(learning):
+        value = getattr(learning, item.name)
+        expected = type(getattr(defaults, item.name))
+        if type(value) is not expected:
+            raise PlatformSettingsError(f"learning.{item.name} 必须是 {expected.__name__}")
+    for name, (minimum, maximum) in LEARNING_SETTING_BOUNDS.items():
+        value = getattr(learning, name)
+        if not minimum <= value <= maximum:
+            raise PlatformSettingsError(f"learning.{name} 必须落在 [{minimum}, {maximum}]")
+    unknown = sorted(set(learning.experience_auto_activate) - _LEARNING_CATEGORIES)
+    if unknown:
+        raise PlatformSettingsError(
+            f"learning.experience_auto_activate 含未知类别: {', '.join(unknown)}"
+        )
+
+
 def _validate_memory(memory: MemoryPolicySettings) -> None:
     defaults = MemoryPolicySettings()
     for item in fields(memory):
@@ -660,6 +724,7 @@ def validate_platform_settings(
     _validate_agent(settings.agent)
     _validate_task(settings.task, batch_platform_limit)
     _validate_memory(settings.memory)
+    _validate_learning(settings.learning)
     _validate_artifact(settings.artifact)
     _validate_auth(settings.auth)
     _validate_locale(settings.locale)
