@@ -1,7 +1,7 @@
 version: 1
 task: agent-self-evolution
 enforcement: required
-updated_at: '2026-10-31T14:03:55.902630+00:00'
+updated_at: '2026-10-31T14:47:39.259928+00:00'
 sources:
 - type: cli
   ref: bind
@@ -38,8 +38,8 @@ bindings:
         refs:
         - artifact: agent-self-evolution.design.md
           section_id: 3.3 数据设计
-          item_id: activation_state
-          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+          item_id: eval_report
+          artifact_sha256: f56789ed614268bc034779f10878870121bf523a2d75aded90afad3d2d26d5bb
         decision: null
         evidence: []
       plan:
@@ -48,7 +48,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+          artifact_sha256: 29d4fb40ea977fc2ba51a98a3ec40157c51c8ae9c78f1148a2ef88404c217480
         decision: null
         evidence: []
       code:
@@ -91,17 +91,17 @@ bindings:
         refs:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
-          item_id: learning_admin activate
-          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+          item_id: learning_admin
+          artifact_sha256: f56789ed614268bc034779f10878870121bf523a2d75aded90afad3d2d26d5bb
         decision: null
         evidence: []
       plan:
         status: applied
         refs:
         - artifact: agent-self-evolution.md
-          section_id: TASK-007
-          item_id: TASK-007
-          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+          section_id: TASK-008
+          item_id: TASK-008
+          artifact_sha256: 29d4fb40ea977fc2ba51a98a3ec40157c51c8ae9c78f1148a2ef88404c217480
         decision: null
         evidence: []
       code:
@@ -127,18 +127,18 @@ bindings:
         status: applied
         refs:
         - artifact: agent-self-evolution.design.md
-          section_id: 3.1 方案选型
-          item_id: 单一写入方
-          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+          section_id: 3.3 数据设计
+          item_id: user_memory
+          artifact_sha256: f56789ed614268bc034779f10878870121bf523a2d75aded90afad3d2d26d5bb
         decision: null
         evidence: []
       plan:
         status: applied
         refs:
         - artifact: agent-self-evolution.md
-          section_id: TASK-005
-          item_id: TASK-005
-          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+          section_id: TASK-006
+          item_id: TASK-006
+          artifact_sha256: 29d4fb40ea977fc2ba51a98a3ec40157c51c8ae9c78f1148a2ef88404c217480
         decision: null
         evidence: []
       code:
@@ -167,16 +167,16 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
           item_id: select_for_injection
-          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+          artifact_sha256: f56789ed614268bc034779f10878870121bf523a2d75aded90afad3d2d26d5bb
         decision: null
         evidence: []
       plan:
         status: applied
         refs:
         - artifact: agent-self-evolution.md
-          section_id: TASK-006
-          item_id: TASK-006
-          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+          section_id: TASK-007
+          item_id: TASK-007
+          artifact_sha256: 29d4fb40ea977fc2ba51a98a3ec40157c51c8ae9c78f1148a2ef88404c217480
         decision: null
         evidence: []
       code:
@@ -204,16 +204,16 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 3.5 质量实现方案
           item_id: forget_epoch
-          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+          artifact_sha256: f56789ed614268bc034779f10878870121bf523a2d75aded90afad3d2d26d5bb
         decision: null
         evidence: []
       plan:
         status: applied
         refs:
         - artifact: agent-self-evolution.md
-          section_id: TASK-005
-          item_id: TASK-005
-          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+          section_id: TASK-006
+          item_id: TASK-006
+          artifact_sha256: 29d4fb40ea977fc2ba51a98a3ec40157c51c8ae9c78f1148a2ef88404c217480
         decision: null
         evidence: []
       code:
@@ -241,17 +241,17 @@ bindings:
         refs:
         - artifact: agent-self-evolution.design.md
           section_id: 3.2 架构设计
-          item_id: consolidation
-          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+          item_id: claim/lease
+          artifact_sha256: f56789ed614268bc034779f10878870121bf523a2d75aded90afad3d2d26d5bb
         decision: null
         evidence: []
       plan:
         status: applied
         refs:
         - artifact: agent-self-evolution.md
-          section_id: TASK-005
-          item_id: TASK-005
-          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+          section_id: TASK-006
+          item_id: TASK-006
+          artifact_sha256: 29d4fb40ea977fc2ba51a98a3ec40157c51c8ae9c78f1148a2ef88404c217480
         decision: null
         evidence: []
       code:
@@ -278,17 +278,17 @@ bindings:
         refs:
         - artifact: agent-self-evolution.design.md
           section_id: 3.4 接口设计
-          item_id: learning_enabled
-          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+          item_id: policy_json
+          artifact_sha256: f56789ed614268bc034779f10878870121bf523a2d75aded90afad3d2d26d5bb
         decision: null
         evidence: []
       plan:
         status: applied
         refs:
         - artifact: agent-self-evolution.md
-          section_id: TASK-007
-          item_id: TASK-007
-          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+          section_id: TASK-008
+          item_id: TASK-008
+          artifact_sha256: 29d4fb40ea977fc2ba51a98a3ec40157c51c8ae9c78f1148a2ef88404c217480
         decision: null
         evidence: []
       code:
@@ -331,18 +331,18 @@ bindings:
         status: applied
         refs:
         - artifact: agent-self-evolution.design.md
-          section_id: 3.4 接口设计
-          item_id: policy_json
-          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+          section_id: 3.2 架构设计
+          item_id: RuntimeSnapshot
+          artifact_sha256: f56789ed614268bc034779f10878870121bf523a2d75aded90afad3d2d26d5bb
         decision: null
         evidence: []
       plan:
         status: applied
         refs:
         - artifact: agent-self-evolution.md
-          section_id: TASK-007
-          item_id: TASK-007
-          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+          section_id: TASK-008
+          item_id: TASK-008
+          artifact_sha256: 29d4fb40ea977fc2ba51a98a3ec40157c51c8ae9c78f1148a2ef88404c217480
         decision: null
         evidence: []
       code:
@@ -385,16 +385,16 @@ bindings:
         - artifact: agent-self-evolution.design.md
           section_id: 2.5 验收条件
           item_id: 测试分层
-          artifact_sha256: 9ae11b77069810a16f07700dce209bdcf6c524276160a4000ffbda29368c434d
+          artifact_sha256: f56789ed614268bc034779f10878870121bf523a2d75aded90afad3d2d26d5bb
         decision: null
         evidence: []
       plan:
         status: applied
         refs:
         - artifact: agent-self-evolution.md
-          section_id: TASK-008
-          item_id: TASK-008
-          artifact_sha256: 64570668e6bc670f581da648d3dda6f9c5055e4070b3ab93bd8b9051562cafdd
+          section_id: TASK-009
+          item_id: TASK-009
+          artifact_sha256: 29d4fb40ea977fc2ba51a98a3ec40157c51c8ae9c78f1148a2ef88404c217480
         decision: null
         evidence: []
       code:
