@@ -1,7 +1,7 @@
 version: 1
 task: agent-self-evolution
 enforcement: required
-updated_at: '2026-10-31T15:20:19.465448+00:00'
+updated_at: '2026-10-31T15:23:31.107831+00:00'
 sources:
 - type: cli
   ref: bind
@@ -53,7 +53,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -131,6 +131,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-10-31T15:23:36.243846+00:00'
+          status: unverified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: aeaad7676d770c0894685475595e6e3ee25050c1a690599d392cd3ae9625351b
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -160,7 +172,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -258,6 +270,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-10-31T15:23:36.243864+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: aeaad7676d770c0894685475595e6e3ee25050c1a690599d392cd3ae9625351b
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -305,11 +329,11 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -446,6 +470,18 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               54 passed, 6184 deselected, 2 warnings in 33.27s\n"
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-10-31T15:23:36.351157+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: aeaad7676d770c0894685475595e6e3ee25050c1a690599d392cd3ae9625351b
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -491,7 +527,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -528,7 +564,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -566,7 +602,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -603,7 +639,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -641,7 +677,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -678,7 +714,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -732,7 +768,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -812,6 +848,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-10-31T15:23:36.473772+00:00'
+          status: unverified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: aeaad7676d770c0894685475595e6e3ee25050c1a690599d392cd3ae9625351b
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -858,7 +906,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -1006,6 +1054,32 @@ bindings:
               39 passed, 1109 deselected in 18.99s
 
               '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-10-31T15:23:58.665819+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: aeaad7676d770c0894685475595e6e3ee25050c1a690599d392cd3ae9625351b
+          result_sha256: 27328c4f61518ac8e3c2f15fd21cde815a44869941d5061774d86afe34132cef
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 0205bb3433a1b623350b2f703e01d57541c376f35bc5e0787b5d517876092794
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.22s
+
+              .......................................                                  [100%]
+
+              39 passed, 1109 deselected in 18.90s
+
+              '
       review:
         status: pending
         refs: []
@@ -1050,7 +1124,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-009
           item_id: TASK-009
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -1102,7 +1176,7 @@ bindings:
         - artifact: agent-self-evolution.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 6ed087a0fe65ad45cd65dacbc9577ee471301f6632b20aff36a34b72706e7fb0
+          artifact_sha256: 4368b1a03a8fc0fd5796df07700fbf97f2e3fad046ab9468479247f0eea9ac05
         decision: null
         evidence: []
       code:
@@ -1193,6 +1267,18 @@ bindings:
           rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
           artifact_sha256: null
           diff_sha256: 47948cfbb367fb0839055f4c3adc0f8c26fa1c27e07609c03cd6475024b456a6
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-10-31T15:23:58.828190+00:00'
+          status: unverified
+          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+          artifact_sha256: null
+          diff_sha256: aeaad7676d770c0894685475595e6e3ee25050c1a690599d392cd3ae9625351b
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
