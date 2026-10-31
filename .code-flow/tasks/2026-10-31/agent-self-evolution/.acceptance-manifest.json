@@ -1090,7 +1090,7 @@
       "kind": "functional",
       "boundary": "真实 Run 与事件数据 + 真实 PostgreSQL；抽取在 worker 内离线执行",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1147,7 +1147,90 @@
       "features": [
         "FEAT-07"
       ],
-      "check": "CHK-dfffec1394a8"
+      "check": "CHK-dfffec1394a8",
+      "revision": 1,
+      "evidence": {
+        "id": "S-09",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-dfffec1394a8",
+        "input_hash": "6f836927b4a5ca838847bba529203f898764030dd7320879d3a487c57ccb04bd",
+        "check_config": {
+          "id": "CHK-dfffec1394a8",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_eval_cases.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "534b2c8a700b43ea832a7bd95ff2a2e6",
+        "executed_at": "2026-10-31T15:11:39.308202+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_eval_cases.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "6f836927b4a5ca838847bba529203f898764030dd7320879d3a487c57ccb04bd"
+      },
+      "runs": [
+        {
+          "id": "S-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-dfffec1394a8",
+          "input_hash": "6f836927b4a5ca838847bba529203f898764030dd7320879d3a487c57ccb04bd",
+          "check_config": {
+            "id": "CHK-dfffec1394a8",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_eval_cases.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "534b2c8a700b43ea832a7bd95ff2a2e6",
+          "executed_at": "2026-10-31T15:11:39.308202+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_eval_cases.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "6f836927b4a5ca838847bba529203f898764030dd7320879d3a487c57ccb04bd"
+        }
+      ]
     },
     {
       "id": "S-10",
@@ -1412,7 +1495,7 @@
       "kind": "functional",
       "boundary": "真实批量 Run 与逐项 tool 事件 + 真实 PostgreSQL；抽取在 worker 内离线执行",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1472,7 +1555,98 @@
       "features": [
         "FEAT-07"
       ],
-      "check": "CHK-c602781ce1d9"
+      "check": "CHK-c602781ce1d9",
+      "revision": 1,
+      "evidence": {
+        "id": "S-14",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-c602781ce1d9",
+        "input_hash": "6f836927b4a5ca838847bba529203f898764030dd7320879d3a487c57ccb04bd",
+        "check_config": {
+          "id": "CHK-c602781ce1d9",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_eval_cases.py",
+            "-k",
+            "batch_items"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "534b2c8a700b43ea832a7bd95ff2a2e6",
+        "executed_at": "2026-10-31T15:11:39.308202+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_eval_cases.py",
+          "-k",
+          "batch_items"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "6f836927b4a5ca838847bba529203f898764030dd7320879d3a487c57ccb04bd"
+      },
+      "runs": [
+        {
+          "id": "S-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-c602781ce1d9",
+          "input_hash": "6f836927b4a5ca838847bba529203f898764030dd7320879d3a487c57ccb04bd",
+          "check_config": {
+            "id": "CHK-c602781ce1d9",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_eval_cases.py",
+              "-k",
+              "batch_items"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "534b2c8a700b43ea832a7bd95ff2a2e6",
+          "executed_at": "2026-10-31T15:11:39.308202+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_eval_cases.py",
+            "-k",
+            "batch_items"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "6f836927b4a5ca838847bba529203f898764030dd7320879d3a487c57ccb04bd"
+        }
+      ]
     },
     {
       "id": "S-15",

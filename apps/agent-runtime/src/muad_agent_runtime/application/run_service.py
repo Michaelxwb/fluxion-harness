@@ -207,6 +207,7 @@ from .run_submission import (
     require_resume_idempotency,
     submission_fingerprint,
 )
+from .task_family import read_run_task_family
 from .tool_result_receipts import OP_TERMINAL
 
 logger = logging.getLogger(__name__)
@@ -3195,11 +3196,13 @@ class RunService:
                 await cancel_operations(session, row)
             marker = mark("cancel", marker)
             target = RunStatus.CANCELLED if cancelled else RunStatus.COMPLETED
+            task_family = await read_run_task_family(session, row)
             updated = await session.execute(
                 sa.update(RunRecord)
                 .where(RunRecord.id == run.id, RunRecord.status == RunStatus.RUNNING)
                 .values(
                     status=target,
+                    task_family=task_family,
                     end_time=sa.func.now(),
                     update_time=sa.func.now(),
                     lease_owner=None,
