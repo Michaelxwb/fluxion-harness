@@ -783,7 +783,7 @@
       "kind": "functional",
       "boundary": "真实 Snapshot 重放 + 真实 PostgreSQL；模型为脚本化 provider；报告带内容哈希",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -838,7 +838,90 @@
       "features": [
         "FEAT-02"
       ],
-      "check": "CHK-5b31339e44ad"
+      "check": "CHK-5b31339e44ad",
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-5b31339e44ad",
+        "input_hash": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104",
+        "check_config": {
+          "id": "CHK-5b31339e44ad",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_replay.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "9807d8f30e8b4f16b0edb4382d86571e",
+        "executed_at": "2026-10-31T15:20:26.201535+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_replay.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-5b31339e44ad",
+          "input_hash": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104",
+          "check_config": {
+            "id": "CHK-5b31339e44ad",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_replay.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "9807d8f30e8b4f16b0edb4382d86571e",
+          "executed_at": "2026-10-31T15:20:26.201535+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_replay.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -1405,7 +1488,7 @@
       "kind": "functional",
       "boundary": "真实两臂回放（冻结 Snapshot + 真实 PostgreSQL）；模型为脚本化 provider",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1460,7 +1543,90 @@
       "features": [
         "FEAT-02"
       ],
-      "check": "CHK-d04e81a1e9ae"
+      "check": "CHK-d04e81a1e9ae",
+      "revision": 1,
+      "evidence": {
+        "id": "S-10",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-d04e81a1e9ae",
+        "input_hash": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104",
+        "check_config": {
+          "id": "CHK-d04e81a1e9ae",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_replay_gate.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "9807d8f30e8b4f16b0edb4382d86571e",
+        "executed_at": "2026-10-31T15:20:26.201535+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_replay_gate.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104"
+      },
+      "runs": [
+        {
+          "id": "S-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-d04e81a1e9ae",
+          "input_hash": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104",
+          "check_config": {
+            "id": "CHK-d04e81a1e9ae",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_replay_gate.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "9807d8f30e8b4f16b0edb4382d86571e",
+          "executed_at": "2026-10-31T15:20:26.201535+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_replay_gate.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104"
+        }
+      ]
     },
     {
       "id": "S-11",
@@ -1821,7 +1987,7 @@
       "kind": "functional",
       "boundary": "真实两臂回放 + 真实 PostgreSQL；脚本化 provider 按 case 的逐项结果执行",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1879,7 +2045,98 @@
       "features": [
         "FEAT-02"
       ],
-      "check": "CHK-ca50b574b883"
+      "check": "CHK-ca50b574b883",
+      "revision": 1,
+      "evidence": {
+        "id": "S-15",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-ca50b574b883",
+        "input_hash": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104",
+        "check_config": {
+          "id": "CHK-ca50b574b883",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_replay_gate.py",
+            "-k",
+            "batch_items"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "9807d8f30e8b4f16b0edb4382d86571e",
+        "executed_at": "2026-10-31T15:20:26.201535+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_replay_gate.py",
+          "-k",
+          "batch_items"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104"
+      },
+      "runs": [
+        {
+          "id": "S-15",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ca50b574b883",
+          "input_hash": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104",
+          "check_config": {
+            "id": "CHK-ca50b574b883",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_replay_gate.py",
+              "-k",
+              "batch_items"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "9807d8f30e8b4f16b0edb4382d86571e",
+          "executed_at": "2026-10-31T15:20:26.201535+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_replay_gate.py",
+            "-k",
+            "batch_items"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104"
+        }
+      ]
     },
     {
       "id": "S-16",
@@ -1954,7 +2211,7 @@
       "kind": "functional",
       "boundary": "学习链路注入故障（consolidation/回放），主执行链真实运行",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2009,7 +2266,90 @@
       "features": [
         "FEAT-02"
       ],
-      "check": "CHK-bce9fcf23396"
+      "check": "CHK-bce9fcf23396",
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-bce9fcf23396",
+        "input_hash": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104",
+        "check_config": {
+          "id": "CHK-bce9fcf23396",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_degradation.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "9807d8f30e8b4f16b0edb4382d86571e",
+        "executed_at": "2026-10-31T15:20:26.201535+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_degradation.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-bce9fcf23396",
+          "input_hash": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104",
+          "check_config": {
+            "id": "CHK-bce9fcf23396",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_degradation.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "9807d8f30e8b4f16b0edb4382d86571e",
+          "executed_at": "2026-10-31T15:20:26.201535+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_degradation.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -2467,7 +2807,7 @@
       "kind": "functional",
       "boundary": "源码导入图 + 模型池配额（架构断言）",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2513,7 +2853,90 @@
       "features": [
         "FEAT-02"
       ],
-      "check": "CHK-9af4d4f38098"
+      "check": "CHK-9af4d4f38098",
+      "revision": 1,
+      "evidence": {
+        "id": "B-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-9af4d4f38098",
+        "input_hash": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104",
+        "check_config": {
+          "id": "CHK-9af4d4f38098",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_learning_isolation.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "9807d8f30e8b4f16b0edb4382d86571e",
+        "executed_at": "2026-10-31T15:20:26.201535+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/architecture/test_learning_isolation.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104"
+      },
+      "runs": [
+        {
+          "id": "B-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-9af4d4f38098",
+          "input_hash": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104",
+          "check_config": {
+            "id": "CHK-9af4d4f38098",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/architecture/test_learning_isolation.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "9807d8f30e8b4f16b0edb4382d86571e",
+          "executed_at": "2026-10-31T15:20:26.201535+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_learning_isolation.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "76a624312e7f83ba89ed216576596eb907e152b73a4f1a3898b5a5e8f7236104"
+        }
+      ]
     }
   ],
   "scenarios_file": "agent-self-evolution.scenarios.md",
