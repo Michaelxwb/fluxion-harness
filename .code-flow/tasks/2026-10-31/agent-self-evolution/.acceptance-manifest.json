@@ -1,0 +1,1123 @@
+{
+  "schema": 3,
+  "task_file": "agent-self-evolution.md",
+  "task_sha256": "c766803f9c0a098be69657950e4b54b27475ff9e74d6787c2308daa30cd35f2a",
+  "checks": [
+    {
+      "id": "CHK-535da2845291",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_signal.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-95671a9c3bea",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_injection_attribution.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-5b31339e44ad",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_replay.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-e8388e924ae3",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_verification_loop.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-b8401f81b577",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_experience_candidates.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-b22a4466bfd2",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_experience_activation.py",
+        "-k",
+        "gate"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-f0abb454854f",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_memory_selection_gating.py",
+        "-k",
+        "gating"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-72e5ee119c65",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_experience_activation.py",
+        "-k",
+        "audit"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-e78077758692",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_learning_degradation.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-697a731daf95",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_experience_candidates.py",
+        "-k",
+        "forget"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-306aa72eecc3",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_memory_selection_gating.py",
+        "-k",
+        "budget"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-ea2d7091fe98",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_memory_selection_gating.py",
+        "-k",
+        "versions"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-26964f3728dd",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_memory_selection_gating.py",
+        "-k",
+        "upper_bound"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Runtime 事件写入 + 真实 PostgreSQL；模型为脚本化 provider",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_signal.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "构造同一用户连续两个 Run，第二个对第一个答案提出否定或重问",
+        "查询 runtime.canonical_event",
+        "校验两个 Run 的终态"
+      ],
+      "expected": [
+        "产生一条 LEARNING_SIGNAL 事件，payload 含 tenant_id、user_id、source_run_id、signal_type",
+        "两个 Run 的终态与未启用信号检测时一致",
+        "该事件不进入模型历史（不在 HISTORY_EVENT_TYPES 中）"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "本地 PostgreSQL 测试库可用且已迁移到 head"
+      ],
+      "features": [
+        "FEAT-01"
+      ],
+      "check": "CHK-535da2845291"
+    },
+    {
+      "id": "S-02",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Runtime + 真实 PostgreSQL；注入条目与模型请求逐条比对",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_memory_injection_attribution.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "执行一个会注入记忆的 Run",
+        "查询 MEMORY_INJECTED 事件与本次模型请求",
+        "比对记忆条目与丢弃计数"
+      ],
+      "expected": [
+        "事件的 memory_key/version 集合与请求中注入的条目完全一致",
+        "每条记录含 score 与 decision",
+        "未入选条目按 reason 汇总计数，不逐条写入事件"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "测试用户存在可注入的记忆"
+      ],
+      "features": [
+        "FEAT-01"
+      ],
+      "check": "CHK-95671a9c3bea"
+    },
+    {
+      "id": "S-03",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Snapshot 重放 + 真实 PostgreSQL；模型为脚本化 provider",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_replay.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "用同一 Golden Set 与 Snapshot 连续回放两次",
+        "比对两份报告的指标",
+        "检查报告落产物存储"
+      ],
+      "expected": [
+        "两次报告的成功率、纠错轮次、注入精度逐项一致",
+        "报告含每个 case 的通过/失败原因",
+        "报告以产物形式落库并记录 storage_key"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "Golden Set 中的 Run 与 Snapshot 存在"
+      ],
+      "features": [
+        "FEAT-02"
+      ],
+      "check": "CHK-5b31339e44ad"
+    },
+    {
+      "id": "S-04",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 verifier 注册与执行链；模型为脚本化 provider",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_verification_loop.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend"
+      ],
+      "steps": [
+        "执行该任务",
+        "检查最终答案、尝试次数与状态",
+        "让所有候选都不通过"
+      ],
+      "expected": [
+        "最终答案来自通过 verifier 的候选",
+        "尝试次数不超过设置的 verification_max_attempts",
+        "全部候选不通过时返回明确失败状态，不输出未验证答案"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "已注册一个会拒绝首个候选的 verifier"
+      ],
+      "features": [
+        "FEAT-03"
+      ],
+      "check": "CHK-e8388e924ae3"
+    },
+    {
+      "id": "S-05",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 consolidation job + 真实 PostgreSQL",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_experience_candidates.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "触发该用户的 consolidation job",
+        "查询 runtime.user_memory",
+        "执行后续新 Run 并检查注入"
+      ],
+      "expected": [
+        "生成 category=PROCEDURE 的记录，activation_state=PROPOSED",
+        "evidence_json 含来源 run_id 与成功次数",
+        "该记录不进入任何 Run 的注入，直到被激活"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "同一任务族存在至少最小证据数的成功且无纠正 Run"
+      ],
+      "features": [
+        "FEAT-04"
+      ],
+      "check": "CHK-b8401f81b577"
+    },
+    {
+      "id": "S-06",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实回放评测 + 真实 PostgreSQL + 真实审计",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_experience_activation.py",
+        "-k",
+        "gate"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "对不达标经验请求激活",
+        "对达标经验请求激活",
+        "观察既有 Run 与后续新 Run 的注入"
+      ],
+      "expected": [
+        "不达标请求返回 EXPERIENCE_EVAL_BELOW_THRESHOLD，状态保持 PROPOSED",
+        "达标经验状态变 ACTIVE 并写审计",
+        "后续新 Run 可注入该经验，激活前已创建的 Run 不受影响"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "存在一条 PROPOSED 且回放结果不达标的经验",
+        "存在一条 PROPOSED 且回放结果达标的经验"
+      ],
+      "features": [
+        "FEAT-06"
+      ],
+      "check": "CHK-b22a4466bfd2"
+    },
+    {
+      "id": "S-07",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯函数打分与选择，无 IO",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_memory_selection_gating.py",
+        "-k",
+        "gating"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "components": [
+        "backend"
+      ],
+      "steps": [
+        "构造低于阈值的候选、空查询、偏好类记忆",
+        "执行选择",
+        "重复执行一次并比对"
+      ],
+      "expected": [
+        "低于阈值的候选不进入注入列表",
+        "空查询只注入偏好类，且受独立条数与字节限额",
+        "同一输入两次选择结果完全一致"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "打分器与选择器可独立调用"
+      ],
+      "features": [
+        "FEAT-05"
+      ],
+      "check": "CHK-f0abb454854f"
+    },
+    {
+      "id": "S-08",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 PostgreSQL + 真实审计写入",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_experience_activation.py",
+        "-k",
+        "audit"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "激活该经验",
+        "停用该经验",
+        "比较停用前后新 Run 的注入"
+      ],
+      "expected": [
+        "激活与停用各写一条审计，含操作者、经验 id 与原因",
+        "停用后该经验不再注入",
+        "停用不删除历史行（is_deleted=false，activation_state=RETIRED）"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "存在一条可激活的经验"
+      ],
+      "features": [
+        "FEAT-06"
+      ],
+      "check": "CHK-72e5ee119c65"
+    },
+    {
+      "id": "E-01",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "学习链路注入故障，主执行链不注入",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_learning_degradation.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "components": [
+        "backend"
+      ],
+      "steps": [
+        "让学习链路抛错",
+        "执行主 Run",
+        "检查日志与指标"
+      ],
+      "expected": [
+        "主 Run 正常到达终态",
+        "记录 warning 日志与失败计数指标",
+        "不因学习失败回滚已提交的业务事实"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "可注入 consolidation 或评测失败"
+      ],
+      "features": [
+        "FEAT-02"
+      ],
+      "check": "CHK-e78077758692"
+    },
+    {
+      "id": "E-02",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 forget 事务 + 真实 PostgreSQL + 真实 consolidation",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_experience_candidates.py",
+        "-k",
+        "forget"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "用户删除该 memory_key",
+        "再次执行 Run",
+        "再次触发 consolidation"
+      ],
+      "expected": [
+        "删除后该记忆不再注入",
+        "forget_epoch 递增，既有提议被撤销",
+        "后续 consolidation 不复活该 key"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "存在一条已激活且可被注入的经验"
+      ],
+      "features": [
+        "FEAT-04"
+      ],
+      "check": "CHK-697a731daf95"
+    },
+    {
+      "id": "B-01",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯选择与装箱逻辑",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_memory_selection_gating.py",
+        "-k",
+        "budget"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "components": [
+        "backend"
+      ],
+      "steps": [
+        "执行选择与装箱",
+        "检查结果与丢弃计数"
+      ],
+      "expected": [
+        "结果条数不超过 max_items，字节数不超过 max_bytes",
+        "按分数排序贪心选择，未入选计入 dropped 指标"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "候选数量与总字节均超过限额"
+      ],
+      "features": [
+        "FEAT-05"
+      ],
+      "check": "CHK-306aa72eecc3"
+    },
+    {
+      "id": "B-02",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯选择逻辑",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_memory_selection_gating.py",
+        "-k",
+        "versions"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "components": [
+        "backend"
+      ],
+      "steps": [
+        "执行选择",
+        "检查注入条目"
+      ],
+      "expected": [
+        "只注入最新有效版本",
+        "旧版本不占用预算"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "同一 memory_key 存在多个历史版本"
+      ],
+      "features": [
+        "FEAT-05"
+      ],
+      "check": "CHK-ea2d7091fe98"
+    },
+    {
+      "id": "B-03",
+      "source": "agent-self-evolution.design.md#2.5 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯函数选择与缓存装载；候选规模取 max_entries_per_user 的可配置上界",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_memory_selection_gating.py",
+        "-k",
+        "upper_bound"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "components": [
+        "backend"
+      ],
+      "steps": [
+        "以默认规模与上界规模各执行一次选择",
+        "检查结果、预算与外部调用",
+        "记录两次执行的耗时"
+      ],
+      "expected": [
+        "两种规模下预算与排序规则一致",
+        "选择过程不产生网络调用或数据库查询",
+        "耗时数据写入基准记录，作为 NFR-PERF-01 的回填依据"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "可构造达到上界规模的候选集"
+      ],
+      "features": [
+        "FEAT-05"
+      ],
+      "check": "CHK-26964f3728dd"
+    }
+  ],
+  "scenarios_file": "agent-self-evolution.scenarios.md",
+  "e2e_gate": 1,
+  "quality_schema": 2,
+  "registration": {
+    "ok": true,
+    "registered": [],
+    "errors": []
+  },
+  "relock": {
+    "preserved": [
+      "S-01",
+      "S-02",
+      "S-03",
+      "S-04",
+      "S-05",
+      "S-06",
+      "S-07",
+      "S-08",
+      "E-01",
+      "E-02",
+      "B-01",
+      "B-02",
+      "B-03"
+    ],
+    "stale": [],
+    "removed": []
+  }
+}
