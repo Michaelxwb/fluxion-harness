@@ -40,7 +40,7 @@
 | S-11 | experience-management.backend.design.md#2.5 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | TASK-013 | planned | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | . | 3600 | P1 | deferred | local-api | - | - | - | no |
 | S-12 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_family_control.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-13 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计） | TASK-010 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_content_revision.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
-| S-14 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG | TASK-011 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_feedback.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
+| S-14 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG | TASK-011 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_feedback.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | S-15 | experience-management.backend.design.md#2.5 | component | 组件渲染 + mock service；不访问真实后端 | TASK-012 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_actions_contract.py"] | . | 900 | P1 | auto | none | - | - | - | no |
 | E-05 | experience-management.backend.design.md#2.5 | integration | Console API + Runtime internal → 真实 PG | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_control_boundaries.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 
@@ -505,7 +505,7 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 
 ## TASK-010: 经验内容修订
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-003, TASK-004
 - **Source**: backend design §3.4.3 内容修订；frontend design §3.2.2
@@ -544,6 +544,8 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---
 
@@ -577,12 +579,13 @@ Run 可标记差回答，幂等写学习信号并把该 Run 排除出未来 Gold
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-14 | integration | Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG | 只写一条 LEARNING_SIGNAL（source_run_id/actor/reason），Run 退出未来 Golden Set；重复提交返回首次结果，不重复建 job；复核 job 走容量边界；回放回归才退休，否则状态不变并记录结论 | tests/console_platform/test_learning_feedback.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_feedback.py"] | planned |
+| S-14 | integration | Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG | 只写一条 LEARNING_SIGNAL（source_run_id/actor/reason），Run 退出未来 Golden Set；重复提交返回首次结果，不重复建 job；复核 job 走容量边界；回放回归才退休，否则状态不变并记录结论 | tests/console_platform/test_learning_feedback.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_feedback.py"] | verified |
 | E-05 | integration | Console API + Runtime internal → 真实 PG | 跨租户 404/403；非管理员 403；重复请求幂等返回首次结果，不产生第二次状态变更；失败不产生部分写入（暂停/修订/反馈各自原子） | tests/console_platform/test_learning_control_boundaries.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_control_boundaries.py"] | planned |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
+- S-14: verified — automated command passed; run_id=1354adee9591493eaa2dd09cb85dc608 (confirmed_by: runner)
 
 ### Log
 

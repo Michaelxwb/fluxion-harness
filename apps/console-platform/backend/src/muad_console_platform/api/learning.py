@@ -266,3 +266,25 @@ async def revise_content(
         reason=body.reason,
     )
     return ok(request.app.state.message_catalog, data)
+
+
+@router.post("/runs/{run_id}/feedback")
+async def learning_feedback(
+    request: Request,
+    tenant_id: TenantId,
+    account: CurrentAccount,
+    runtime: RuntimeLearningClientDep,
+    run_id: uuid.UUID,
+    body: LearningActionRequest,
+    key: IdempotencyKey,
+) -> ApiResponse[Any]:
+    if not body.reason:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    data = await runtime.feedback(
+        tenant_id=tenant_id,
+        run_id=run_id,
+        actor_id=account.id,
+        command_id=key,
+        reason=body.reason,
+    )
+    return ok(request.app.state.message_catalog, data)

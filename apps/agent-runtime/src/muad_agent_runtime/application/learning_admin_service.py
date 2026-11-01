@@ -15,7 +15,13 @@ from muad_contracts.memory import FactContent, MemoryCandidate, MemoryCategory
 from muad_contracts.platform_settings import LearningSettings, parse_platform_settings
 
 from ..infrastructure.db import SessionFactory
-from ..infrastructure.models.runtime import LearningFamilyControl, LearningJob, UserMemory
+from ..infrastructure.models.runtime import (
+    CanonicalEvent,
+    LearningFamilyControl,
+    LearningJob,
+    MemoryCommandReceipt,
+    UserMemory,
+)
 from .learning_activation import (
     BELOW_THRESHOLD,
     INVALID_TRANSITION,
@@ -366,3 +372,104 @@ class LearningAdminService:
         )
         self._raise_for(outcome)
         return {"memory_key": key, "activation_state": outcome.activation_state, "status": "REVISED"}
+
+
+    async def feedback(
+        self,
+        tenant_id: str,
+        run_id: UUID,
+        *,
+        actor: UUID,
+        reason: str,
+        command_id: str,
+    ) -> dict[str, Any]:
+        async with self._factory.begin() as session:
+            cached = await session.scalar(
+                sa.select(MemoryCommandReceipt).where(
+                    MemoryCommandReceipt.tenant_id == tenant_id,
+                    MemoryCommandReceipt.command_id == command_id,
+                )
+            )
+            if cached is not None:
+                return dict(cached.response_json or {})
+            run = await session.execute(
+                sa.text(
+                    "SELECT conversation_id, user_id, task_family FROM runtime.run_record"
+                    " WHERE tenant_id=:tenant AND id=:run AND is_deleted=false"
+                ),
+                {"tenant": tenant_id, "run": run_id},
+            )
+            row = run.mappings().first()
+            if row is None:
+                raise AppError(ErrorCode.LEARNING_EXPERIENCE_NOT_FOUND)
+            seq = int(
+                await session.scalar(
+                    sa.text(
+                        "SELECT COALESCE(max(seq),0)+1 FROM runtime.canonical_event"
+                        " WHERE conversation_id=:conversation"
+                    ),
+                    {"conversation": row["conversation_id"]},
+                )
+            )
+            payload = {
+                "source_run_id": str(run_id),
+                "actor_id": str(actor),
+                "reason": reason,
+                "explicit": True,
+            }
+            session.add(
+                CanonicalEvent(
+                    tenant_id=tenant_id,
+                    conversation_id=row["conversation_id"],
+                    run_id=run_id,
+                    seq=seq,
+                    event_type="LEARNING_SIGNAL",
+                    payload_json=payload,
+                )
+            )
+            injected = await session.scalar(
+                sa.text(
+                    "SELECT payload_json FROM runtime.canonical_event"
+                    " WHERE tenant_id=:tenant AND run_id=:run AND event_type='MEMORY_INJECTED'"
+                    "   AND is_deleted=false ORDER BY seq DESC LIMIT 1"
+                ),
+                {"tenant": tenant_id, "run": run_id},
+            )
+            family = str(row["task_family"] or "")
+            base_hash = self._base_hash(tenant_id, family) if family else ""
+            for item in (injected or {}).get("items", []) if isinstance(injected, dict) else []:
+                key = item.get("memory_key") if isinstance(item, dict) else None
+                if isinstance(key, str):
+                    await session.execute(
+                        sa.text(
+                            "INSERT INTO runtime.learning_job"
+                            " (tenant_id, user_id, experience_key, job_type, status, command_id,"
+                            "  request_json)"
+                            " VALUES (:tenant, :user, :key, 'REPLAY', 'PENDING', :command,"
+                            "         CAST(:request AS jsonb))"
+                            " ON CONFLICT (tenant_id, command_id) WHERE is_deleted=false"
+                            " DO NOTHING"
+                        ),
+                        {
+                            "tenant": tenant_id,
+                            "user": row["user_id"],
+                            "key": key,
+                            "command": f"feedback:{run_id}:{key}",
+                            "request": __import__("json").dumps(
+                                {"task_family": family, "base_config_hash": base_hash}
+                            ),
+                        },
+                    )
+            response = {"run_id": str(run_id), "signal": "RECORDED"}
+            session.add(
+                MemoryCommandReceipt(
+                    tenant_id=tenant_id,
+                    command_id=command_id,
+                    endpoint="learning.feedback",
+                    user_id=row["user_id"],
+                    request_fingerprint=command_id,
+                    status="APPLIED",
+                    response_json=response,
+                )
+            )
+        return response

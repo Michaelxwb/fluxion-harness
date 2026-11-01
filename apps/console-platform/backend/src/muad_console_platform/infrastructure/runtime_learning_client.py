@@ -148,6 +148,24 @@ class RuntimeLearningClient:
             json={"value": value, "expected_version": expected_version, "reason": reason},
         )
 
+    async def feedback(
+        self,
+        *,
+        tenant_id: str,
+        run_id: uuid.UUID,
+        actor_id: uuid.UUID,
+        command_id: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"{BASE}/runs/{run_id}/learning-feedback",
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            command_id=command_id,
+            json={"reason": reason},
+        )
+
     async def job(self, *, tenant_id: str, job_id: uuid.UUID) -> LearningJobItem:
         data = await self._request(
             "GET", f"{BASE}/learning/jobs/{job_id}", tenant_id=tenant_id
