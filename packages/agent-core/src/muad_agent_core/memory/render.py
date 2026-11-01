@@ -49,6 +49,7 @@ class RenderedMemoryBlock:
     items: tuple[RenderedMemoryItem, ...]
     dropped_count: int = 0
     dropped_bytes: int = 0
+    dropped_items: tuple[RenderedMemoryItem, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,11 +109,13 @@ def render_memory_block(
     if max_records == 0 or max_bytes == 0:
         return RenderedMemoryBlock(None, ())
     included: tuple[RenderedMemoryItem, ...] = ()
+    dropped: list[RenderedMemoryItem] = []
     text: str | None = None
     dropped_count, dropped_bytes = 0, 0
     for record in records:
         if len(included) >= max_records:
             dropped_count += 1
+            dropped.append(RenderedMemoryItem(record))
             continue
         alternatives = (False, True) if record.category is MemoryCategory.TASK_STATE else (False,)
         for omitted in alternatives:
@@ -123,7 +126,8 @@ def render_memory_block(
                 break
         else:
             dropped_bytes += 1
-    return RenderedMemoryBlock(text, included, dropped_count, dropped_bytes)
+            dropped.append(RenderedMemoryItem(record))
+    return RenderedMemoryBlock(text, included, dropped_count, dropped_bytes, tuple(dropped))
 
 
 def _recall_document(items: tuple[MemoryRecord, ...], truncated: bool) -> str:

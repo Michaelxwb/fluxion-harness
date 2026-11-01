@@ -34,7 +34,7 @@
 | E-02 | experience-management.backend.design.md#2.5 | integration | Runtime internal API + Console 通用记忆 API → 真实 PG | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e02"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | E-03 | experience-management.backend.design.md#2.5 | integration | Runtime MemoryService 事务 → 真实 PG；注入审计写入失败 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e03"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | E-04 | experience-management.backend.design.md#2.5 | integration | LearningJobRunner → 真实 PG；探针可控延迟/失败 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_jobs.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| B-01 | experience-management.backend.design.md#2.5 | unit | 纯函数 derive_task_family / first_successful_skill；无 IO | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_task_family_scope.py"] | . | 900 | P0 | auto | none | - | - | - | no |
+| B-01 | experience-management.backend.design.md#2.5 | unit | 纯函数 derive_task_family / first_successful_skill；无 IO | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_task_family_scope.py"] | . | 900 | P0 | auto | none | - | - | - | no |
 | B-02 | experience-management.backend.design.md#2.5 | integration | Console 聚合 SQL → 真实 PG | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "aggregate"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-10 | experience-management.backend.design.md#2.5 | integration | Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log | TASK-008 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_audit_projection.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-11 | experience-management.backend.design.md#2.5 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | TASK-013 | planned | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | . | 3600 | P1 | deferred | local-api | - | - | - | no |
@@ -109,7 +109,7 @@
 
 ## TASK-002: 注入归因真实性与族判定一致
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: 
 - **Source**: backend design §3.5 质量实现 / §3.6 规则落点；agent-core rank/memory_context
@@ -138,15 +138,18 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-01 | unit | 纯函数 derive_task_family / first_successful_skill；无 IO | 首个成功 skill 决定族；失败调用不切换；无 skill 回退 agent:<id>；批量与单条判定一致（批量只影响元数据，不影响族） | tests/agent_runtime/test_task_family_scope.py | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_task_family_scope.py"] | planned |
+| B-01 | unit | 纯函数 derive_task_family / first_successful_skill；无 IO | 首个成功 skill 决定族；失败调用不切换；无 skill 回退 agent:<id>；批量与单条判定一致（批量只影响元数据，不影响族） | tests/agent_runtime/test_task_family_scope.py | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_task_family_scope.py"] | verified |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
+- B-01: verified — automated command passed; run_id=8078af13c644460ea865fb73b4799cff (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---
 

@@ -112,6 +112,12 @@ async def test_s02_attribution_matches_selection_and_dedupes_by_hash(
         assert all(item["decision"] == "INJECTED" for item in payload["items"])
         assert all(isinstance(item["score"], (int, float)) for item in payload["items"])
         assert payload["dropped"] == {"count": 0, "bytes": 0}
+        assert payload["diagnostics"]["learning_enabled"] is True
+        assert isinstance(payload["diagnostics"]["min_score"], (int, float))
+        assert all(
+            item["channel"] in {"PREFERENCE", "TEXT", "FAMILY", "TASK_STATE"}
+            for item in payload["items"]
+        )
         assert payload["selection_hash"]
 
         # 选择未变化：第二次刷新不新增事件。

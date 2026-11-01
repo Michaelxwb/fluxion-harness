@@ -30,11 +30,11 @@ from muad_agent_core.model import (
     ModelMessage,
     ModelProvider,
     ModelRateLimitedError,
-    ModelToolCall,
     ModelRequest,
     ModelRequestError,
     ModelResponse,
     ModelRole,
+    ModelToolCall,
     ModelUnavailableError,
     OpenAICompatibleProvider,
     StreamingModelProvider,
@@ -112,7 +112,7 @@ from .attachments.tool_results import (
 )
 from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
-from .context_settings import FrozenLearning, PoolExecutionPolicy, learning_of
+from .context_settings import FrozenLearning, PoolExecutionPolicy
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_observability import memory_audit_preview
 from .memory_queries import MemoryReadScope
@@ -132,6 +132,7 @@ from .ports import CredentialsClient
 from .run_events import DeltaWindow, delta_payload, delta_window_from_settings
 from .skill_tools import TaskSubmissionProtocol, build_default_skill_cache, build_skill_registry
 from .task_client import TaskSubmissionContext, WorkerTaskClient
+from .task_family import SKILL_TOOLS, skill_key_for_call
 from .task_tools import BackgroundTaskToolSet
 from .time_tools import TimeToolSet, resolve_zone
 
@@ -337,6 +338,8 @@ class _ExecutorEventEmitter:
         self._model_trace = model_trace if model_trace is not None else ModelCallTrace(audit_enabled=False)
         self._generation = self._model_trace.reply_generation
         self.delta_emitted = False
+        # call_id -> skill key：只在对应工具成功完成后切换任务族（与 Run 族判定同源）。
+        self._skill_keys: dict[str, str] = {}
 
     @property
     def generation(self) -> int:
@@ -414,9 +417,10 @@ class _ExecutorEventEmitter:
         """
         if not message.tool_calls:
             return
-        family = skill_family_from_tool_calls(message.tool_calls)
-        if family is not None and self._memory is not None:
-            self._memory.loader.set_task_family(family)
+        for call in message.tool_calls:
+            key = skill_key_for_call(call.name, call.arguments)
+            if key is not None:
+                self._skill_keys[call.id] = key
         await self.emit(
             ExecutorEvent(
                 type=ASSISTANT_TURN_EVENT,
@@ -441,6 +445,14 @@ class _ExecutorEventEmitter:
             "status": status,
             "artifact_id": artifact_id,
         }
+        skill_key = self._skill_keys.pop(call_id, None)
+        if (
+            skill_key is not None
+            and name in SKILL_TOOLS
+            and status == "OK"
+            and self._memory is not None
+        ):
+            self._memory.loader.set_task_family(f"skill:{skill_key}")
         if result_text is not None:
             # 未外置的结果：正文在这里留一份**有界预览**（沿用引用预览的同一组字节上限）。
             # 不留就只有工具名进 canonical 行，下一 Run 重建历史时这条结果净丢（2026-10-06

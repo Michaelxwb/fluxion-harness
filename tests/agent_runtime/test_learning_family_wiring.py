@@ -140,8 +140,8 @@ def test_s02_freezes_learning_settings_into_snapshot() -> None:
     assert learning_of({}).enabled is False
 
 
-async def test_emitter_switches_task_family_on_skill_turn() -> None:
-    """真实发射器路径：assistant 回合带 skill 工具调用 → 设置 loader 族。"""
+async def test_emitter_switches_task_family_only_after_successful_skill_turn() -> None:
+    """真实发射器路径：只有 skill 工具**成功完成**后才切换 loader 族。"""
     calls: list[str] = []
 
     class _Loader:
@@ -167,4 +167,15 @@ async def test_emitter_switches_task_family_on_skill_turn() -> None:
             tool_calls=[ModelToolCall(id="c1", name="execute_skill", arguments={"skill_key": "demo"})],
         )
     )
+    assert calls == []
+    await emitter.on_tool_completed("c1", "execute_skill", "ERROR", None, None)
+    assert calls == []
+    await emitter.on_assistant_turn(
+        ModelMessage(
+            role=ModelRole.ASSISTANT,
+            content="",
+            tool_calls=[ModelToolCall(id="c2", name="execute_skill", arguments={"skill_key": "demo"})],
+        )
+    )
+    await emitter.on_tool_completed("c2", "execute_skill", "OK", None, None)
     assert calls == ["skill:demo"]

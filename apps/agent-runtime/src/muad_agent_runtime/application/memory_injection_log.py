@@ -40,6 +40,7 @@ class MemoryInjectionLog:
                     "memory_key": item.memory_key,
                     "version": item.version,
                     "score": item.score,
+                    "channel": item.channel,
                     "decision": item.decision,
                 }
                 for item in attribution.items
@@ -48,6 +49,7 @@ class MemoryInjectionLog:
                 "count": attribution.dropped_count,
                 "bytes": attribution.dropped_bytes,
             },
+            "diagnostics": attribution.diagnostics,
         }
         try:
             async with self._factory() as session:

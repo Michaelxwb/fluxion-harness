@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from muad_agent_core.memory.components import MemoryComponent
-from muad_agent_core.memory.rank import select_for_injection, score_record
+from muad_agent_core.memory.rank import select_injection
 from muad_agent_core.memory.render import render_memory_block
 from muad_agent_core.memory.resume import resume_candidate_hash
 from muad_api import AppError
@@ -28,6 +28,7 @@ class InjectionItem:
     memory_key: str
     version: int
     score: float
+    channel: str
     decision: str
 
 
@@ -37,6 +38,7 @@ class InjectionAttribution:
     items: tuple[InjectionItem, ...]
     dropped_count: int
     dropped_bytes: int
+    diagnostics: dict[str, object]
 
 
 AttributionSink = Callable[[InjectionAttribution], Awaitable[None]]
@@ -137,7 +139,7 @@ class MemoryContextLoader:
         await self._on_attribution(attribution)
 
     def _render(self, snapshot: MemorySnapshot) -> MemoryComponent:
-        ordinary = select_for_injection(
+        selection = select_injection(
             snapshot.records,
             query=self._query,
             now=snapshot.as_of,
@@ -158,7 +160,10 @@ class MemoryContextLoader:
             and resume_candidate_hash(row) == self._task_state_ref.candidate_hash
             and row.category is MemoryCategory.TASK_STATE
         )
-        injected = (*selected_tasks, *ordinary)
+        selected_meta = {
+            item.record.memory_key: (item.score, item.channel) for item in selection.items
+        }
+        injected = (*selected_tasks, *selection.records)
         block = render_memory_block(
             injected,
             max_records=self._settings.max_injected_memories,
@@ -166,19 +171,39 @@ class MemoryContextLoader:
         )
         self._pending_attribution = InjectionAttribution(
             selection_hash=hashlib.sha256(
-                canonical_json([[item.memory_key, item.version] for item in injected]).encode("utf-8")
+                canonical_json(
+                    [[item.record.memory_key, item.record.version] for item in block.items]
+                ).encode("utf-8")
             ).hexdigest(),
             items=tuple(
                 InjectionItem(
-                    item.memory_key,
-                    item.version,
-                    score_record(item, self._query),
+                    item.record.memory_key,
+                    item.record.version,
+                    *selected_meta.get(item.record.memory_key, (1.0, "TASK_STATE")),
                     "INJECTED",
                 )
-                for item in injected
+                for item in block.items
             ),
             dropped_count=block.dropped_count,
             dropped_bytes=block.dropped_bytes,
+            diagnostics={
+                "learning_enabled": self._learning_enabled,
+                "min_score": self._min_score,
+                "allowed_experience_keys": len(self._allowed_experience_keys or ()),
+                "skipped": [
+                    {
+                        "memory_key": item.memory_key,
+                        "activation_state": item.activation_state,
+                        "reason": item.reason,
+                        "score": item.score,
+                    }
+                    for item in selection.skipped[:20]
+                ],
+                "dropped_by_budget": [
+                    {"memory_key": item.record.memory_key, "version": item.record.version}
+                    for item in block.dropped_items[:20]
+                ],
+            },
         )
         for reason, amount in (("count", block.dropped_count), ("bytes", block.dropped_bytes)):
             if amount:

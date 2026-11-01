@@ -49,6 +49,31 @@ class MemoryRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class SelectedMemory:
+    record: MemoryRecord
+    score: float
+    channel: str
+
+
+@dataclass(frozen=True, slots=True)
+class SkippedMemory:
+    memory_key: str
+    activation_state: str
+    reason: str
+    score: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class InjectionSelection:
+    items: tuple[SelectedMemory, ...]
+    skipped: tuple[SkippedMemory, ...]
+
+    @property
+    def records(self) -> tuple[MemoryRecord, ...]:
+        return tuple(item.record for item in self.items)
+
+
+@dataclass(frozen=True, slots=True)
 class MemorySelection:
     mode: Literal["SEARCH", "LIST"]
     items: tuple[MemoryRecord, ...]
@@ -145,7 +170,7 @@ def select_memories(
     return MemorySelection("SEARCH", tuple(record for record, _ in matches))
 
 
-def select_for_injection(
+def select_injection(
     records: Iterable[MemoryRecord],
     *,
     query: str | None,
@@ -156,15 +181,21 @@ def select_for_injection(
     preference_items: int = 3,
     preference_bytes: int = 512,
     allowed_experience_keys: frozenset[str] | None = None,
-) -> tuple[MemoryRecord, ...]:
+) -> InjectionSelection:
     """阈值门控注入：偏好独立限额，经验走任务族/目标文本两通道，同键只取最新。"""
     _timestamp(now)
     if min_score < 0 or preference_items < 0 or preference_bytes < 0:
         raise ValueError("invalid injection policy")
 
+    skipped: list[SkippedMemory] = []
     latest: dict[str, MemoryRecord] = {}
     for record in records:
-        if not _valid(record, now) or record.category is MemoryCategory.TASK_STATE:
+        if record.category is MemoryCategory.TASK_STATE:
+            continue
+        if not _valid(record, now):
+            if record.category in _EXPERIENCE:
+                reason = "EXPIRED" if record.expires_at is not None else "DISABLED"
+                skipped.append(SkippedMemory(record.memory_key, record.activation_state, reason))
             continue
         current = latest.get(record.memory_key)
         if current is None or record.version > current.version:
@@ -187,40 +218,87 @@ def select_for_injection(
         preferences.append(record)
         used_bytes += size
     if query is None or not query.strip():
-        return tuple(preferences)
+        for record in candidates:
+            if record.category in _EXPERIENCE and record.memory_key not in {
+                item.memory_key for item in preferences
+            }:
+                skipped.append(
+                    SkippedMemory(record.memory_key, record.activation_state, "EMPTY_QUERY")
+                )
+        return InjectionSelection(
+            tuple(SelectedMemory(record, 1.0, "PREFERENCE") for record in preferences),
+            tuple(skipped),
+        )
 
     query_tokens = tokenize(query)
     weights, total = _idf([record_tokens(record) for record in candidates], query_tokens)
     preference_keys = {record.memory_key for record in preferences}
-    selected: list[tuple[MemoryRecord, float]] = []
+    selected: list[tuple[MemoryRecord, float, str]] = []
     for record in candidates:
         if record.memory_key in preference_keys:
             continue
         score = _weighted_coverage(record, query_tokens, weights, total)
         if record.category in _EXPERIENCE:
             if record.activation_state != "ACTIVE":
+                skipped.append(
+                    SkippedMemory(record.memory_key, record.activation_state, "NOT_ACTIVE", score)
+                )
                 continue
             if (
                 allowed_experience_keys is not None
                 and record.memory_key not in allowed_experience_keys
             ):
+                skipped.append(
+                    SkippedMemory(
+                        record.memory_key, record.activation_state, "NOT_IN_FROZEN_SET", score
+                    )
+                )
                 continue
             family_hit = task_family is not None and record.task_signature == task_family
             if family_hit:
-                selected.append((record, 1.0))
+                selected.append((record, 1.0, "FAMILY"))
                 continue
-            # 经验的目标文本通道用普通覆盖率：触发文本短且人工/模型写定，按全量候选算 IDF
-            # 会被大量事实条目稀释，导致同义表述永远过不了阈值。
             trigger = record.trigger_text or ""
-            goal_score = lexical_coverage(
-                query, trigger + "\n" + content_text(record)
-            )
+            goal_score = lexical_coverage(query, trigger + "\n" + content_text(record))
             if goal_score >= min_score:
-                selected.append((record, goal_score))
+                selected.append((record, goal_score, "TEXT"))
+            else:
+                skipped.append(
+                    SkippedMemory(record.memory_key, record.activation_state, "BELOW_THRESHOLD", goal_score)
+                )
             continue
         if record.author is MemoryAuthor.AGENT and not inject_inferred:
             continue
         if score >= min_score:
-            selected.append((record, score))
-    selected.sort(key=lambda item: _search_order(*item))
-    return (*preferences, *(record for record, _ in selected))
+            selected.append((record, score, "TEXT"))
+    selected.sort(key=lambda item: _search_order(item[0], item[1]))
+    items = tuple(SelectedMemory(record, 1.0, "PREFERENCE") for record in preferences) + tuple(
+        SelectedMemory(record, score, channel) for record, score, channel in selected
+    )
+    return InjectionSelection(items, tuple(skipped))
+
+
+def select_for_injection(
+    records: Iterable[MemoryRecord],
+    *,
+    query: str | None,
+    now: datetime,
+    inject_inferred: bool,
+    task_family: str | None = None,
+    min_score: float = 0.35,
+    preference_items: int = 3,
+    preference_bytes: int = 512,
+    allowed_experience_keys: frozenset[str] | None = None,
+) -> tuple[MemoryRecord, ...]:
+    """兼容旧调用方：只返回选中记录；诊断请用 `select_injection`。"""
+    return select_injection(
+        records,
+        query=query,
+        now=now,
+        inject_inferred=inject_inferred,
+        task_family=task_family,
+        min_score=min_score,
+        preference_items=preference_items,
+        preference_bytes=preference_bytes,
+        allowed_experience_keys=allowed_experience_keys,
+    ).records

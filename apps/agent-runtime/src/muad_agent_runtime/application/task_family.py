@@ -16,6 +16,14 @@ TOOL_CALL = "TOOL_CALL"
 SUCCESS_STATUS = "OK"
 
 
+def skill_key_for_call(name: object, arguments: object) -> str | None:
+    """成功 skill 调用的族键；执行层切换与 Run 族判定共用这一条规则。"""
+    if name not in SKILL_TOOLS or not isinstance(arguments, Mapping):
+        return None
+    key = arguments.get("skill_key")
+    return key.strip() if isinstance(key, str) and key.strip() else None
+
+
 def derive_task_family(events: Iterable[Mapping[str, Any]], *, agent_id: str) -> str:
     """按事件顺序取首个成功执行的 skill key；没有 skill 时回退 agent 族。
 
@@ -37,12 +45,11 @@ def derive_task_family(events: Iterable[Mapping[str, Any]], *, agent_id: str) ->
             if payload.get("status") != SUCCESS_STATUS or not isinstance(call_id, str):
                 continue
             call = calls.get(call_id)
-            if call is None or call.get("name") not in SKILL_TOOLS:
+            if call is None:
                 continue
-            arguments = call.get("arguments")
-            key = arguments.get("skill_key") if isinstance(arguments, Mapping) else None
-            if isinstance(key, str) and key.strip():
-                return f"skill:{key.strip()}"
+            key = skill_key_for_call(call.get("name"), call.get("arguments"))
+            if key is not None:
+                return f"skill:{key}"
     return f"agent:{agent_id}"
 
 

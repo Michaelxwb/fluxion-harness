@@ -1845,7 +1845,7 @@
       "kind": "functional",
       "boundary": "纯函数 derive_task_family / first_successful_skill；无 IO",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1889,7 +1889,90 @@
       "features": [
         "FEAT-08"
       ],
-      "check": "CHK-bb971aea8013"
+      "check": "CHK-bb971aea8013",
+      "revision": 1,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-bb971aea8013",
+        "input_hash": "d304a8ae23fa0755abbcb26f3f818af0ee85bfa73483b64bb292a2737c53582b",
+        "check_config": {
+          "id": "CHK-bb971aea8013",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_task_family_scope.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "8078af13c644460ea865fb73b4799cff",
+        "executed_at": "2026-11-01T02:36:46.308173+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_task_family_scope.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "d304a8ae23fa0755abbcb26f3f818af0ee85bfa73483b64bb292a2737c53582b"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-bb971aea8013",
+          "input_hash": "d304a8ae23fa0755abbcb26f3f818af0ee85bfa73483b64bb292a2737c53582b",
+          "check_config": {
+            "id": "CHK-bb971aea8013",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_task_family_scope.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "8078af13c644460ea865fb73b4799cff",
+          "executed_at": "2026-11-01T02:36:46.308173+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_task_family_scope.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "d304a8ae23fa0755abbcb26f3f818af0ee85bfa73483b64bb292a2737c53582b"
+        }
+      ]
     },
     {
       "id": "B-02",
