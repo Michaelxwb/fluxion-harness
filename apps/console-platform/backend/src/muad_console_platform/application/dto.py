@@ -301,6 +301,7 @@ class UserListItem(BaseModel):
     credential_count: int
     identity_count: int
     memory_count: int
+    experience_count: int
     create_time: datetime
     update_time: datetime
 
@@ -313,6 +314,7 @@ class UserDetail(UserBasic):
     credential_count: int
     identity_count: int
     memory_count: int
+    experience_count: int
 
 
 class AgentGrantItem(BaseModel):

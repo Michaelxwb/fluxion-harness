@@ -21,11 +21,11 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | 优先级 | 执行方式 | 环境 | 输入 | E2E理由 | 触发路径 | 冒烟 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| S-01 | experience-management.backend.design.md#2.5 | integration | Console API（真实 ASGI + ADMIN 会话）→ LearningRepository → 真实 PostgreSQL runtime.user_memory | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s01"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| S-02 | experience-management.backend.design.md#2.5 | integration | Console API → 真实 PG；同一 fixture 同时查询 API-01 与 API-04 | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s02"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| S-03 | experience-management.backend.design.md#2.5 | integration | Console API → 真实 PG（user_memory/history/eval_report/canonical_event/config_audit_log） | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s03"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| S-01 | experience-management.backend.design.md#2.5 | integration | Console API（真实 ASGI + ADMIN 会话）→ LearningRepository → 真实 PostgreSQL runtime.user_memory | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s01"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| S-02 | experience-management.backend.design.md#2.5 | integration | Console API → 真实 PG；同一 fixture 同时查询 API-01 与 API-04 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s02"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| S-03 | experience-management.backend.design.md#2.5 | integration | Console API → 真实 PG（user_memory/history/eval_report/canonical_event/config_audit_log） | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s03"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-04 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal API（真实服务身份头）→ MemoryService/LearningActivation/LearningJobRunner → 真实 PG；回放用本地 OpenAI 兼容探针 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_lifecycle_api.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| S-05 | experience-management.backend.design.md#2.5 | integration | Console 用户记忆 API → 真实 PG 只读投影；通用写 API → Runtime internal | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "boundary"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| S-05 | experience-management.backend.design.md#2.5 | integration | Console 用户记忆 API → 真实 PG 只读投影；通用写 API → Runtime internal | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s05"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-06 | experience-management.backend.design.md#2.5 | component | 组件渲染 + mock service 数据（契约类型）；不访问真实后端 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "user_tab"] | . | 900 | P0 | auto | none | - | - | - | no |
 | S-07 | experience-management.backend.design.md#2.5 | component | 组件渲染 + 同一 fixture 注入两个入口 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "family_page"] | . | 900 | P0 | auto | none | - | - | - | no |
 | S-08 | experience-management.backend.design.md#2.5 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | TASK-006 | planned | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | . | 1200 | P1 | deferred | browser | - | 跨页面状态同步、真实路由深链与真实鉴权/DB 组合只有浏览器 E2E 能暴露；component 无法覆盖路由与真实后端 | apps/console-platform/frontend/src/modules/learning/**, apps/console-platform/frontend/src/modules/user-identity/**, apps/console-platform/frontend/src/modules/run-observability/**, apps/console-platform/backend/src/muad_console_platform/api/learning.py, apps/agent-runtime/src/muad_agent_runtime/application/learning_* | no |
@@ -35,7 +35,7 @@
 | E-03 | experience-management.backend.design.md#2.5 | integration | Runtime MemoryService 事务 → 真实 PG；注入审计写入失败 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e03"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | E-04 | experience-management.backend.design.md#2.5 | integration | LearningJobRunner → 真实 PG；探针可控延迟/失败 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_jobs.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | B-01 | experience-management.backend.design.md#2.5 | unit | 纯函数 derive_task_family / first_successful_skill；无 IO | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_task_family_scope.py"] | . | 900 | P0 | auto | none | - | - | - | no |
-| B-02 | experience-management.backend.design.md#2.5 | integration | Console 聚合 SQL → 真实 PG | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "aggregate"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| B-02 | experience-management.backend.design.md#2.5 | integration | Console 聚合 SQL → 真实 PG | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "aggregate"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-10 | experience-management.backend.design.md#2.5 | integration | Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log | TASK-008 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_audit_projection.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-11 | experience-management.backend.design.md#2.5 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | TASK-013 | planned | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | . | 3600 | P1 | deferred | local-api | - | - | - | no |
 | S-12 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_family_control.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
@@ -155,7 +155,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 ## TASK-003: 管理读模型与族聚合
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: backend design §3.3 / §3.4.1 / §3.5
@@ -189,19 +189,31 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | integration | Console API（真实 ASGI + ADMIN 会话）→ LearningRepository → 真实 PostgreSQL runtime.user_memory | 只返回该用户经验，字段含 activation_state/task_signature/latest_report 且 counts 按状态分列；state/family 过滤后总数与 items 一致，分页封套 {items,page,page_size,total}；跨租户返回 404（不泄露存在性） | tests/console_platform/test_learning_experience_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s01"] | planned |
-| S-02 | integration | Console API → 真实 PG；同一 fixture 同时查询 API-01 与 API-04 | 族计数（run_count/经验状态分布/pass_rate）与 fixture 一致，null family 不计入并给出 unclassified_runs；同一经验在族详情与用户视图的 activation_state/version/latest_report 完全相等；不同用户同名 key 不被合并为一个状态；同一用户同族多个 key 正常分组展示（key 不解析） | tests/console_platform/test_learning_experience_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s02"] | planned |
-| S-03 | integration | Console API → 真实 PG（user_memory/history/eval_report/canonical_event/config_audit_log） | 详情返回 evidence（source_run_ids/success_runs/item_total）、history 版本、reports（用户归属 + 门槛 + 逐 case）、injections（真实分数与通道）、audits；不展示其他用户的候选报告；历史 NULL 归属报告标 UNKNOWN 且不进入晋升依据；身份区展示 authority；报告 extras/未知字段原样透出，不因枚举扩展丢弃 | tests/console_platform/test_learning_experience_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s03"] | planned |
-| S-05 | integration | Console 用户记忆 API → 真实 PG 只读投影；通用写 API → Runtime internal | 通用列表与 memory_count 只含事实记忆；经验计数单独返回；通用写 API 对经验类别返回明确拒绝码，状态不变 | tests/console_platform/test_learning_experience_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "boundary"] | planned |
-| B-02 | integration | Console 聚合 SQL → 真实 PG | null family 归「未归类」且不计入族统计；同族同名 key 按用户分组；未知前缀标 unknown，不报错 | tests/console_platform/test_learning_experience_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "aggregate"] | planned |
+| S-01 | integration | Console API（真实 ASGI + ADMIN 会话）→ LearningRepository → 真实 PostgreSQL runtime.user_memory | 只返回该用户经验，字段含 activation_state/task_signature/latest_report 且 counts 按状态分列；state/family 过滤后总数与 items 一致，分页封套 {items,page,page_size,total}；跨租户返回 404（不泄露存在性） | tests/console_platform/test_learning_experience_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s01"] | verified |
+| S-02 | integration | Console API → 真实 PG；同一 fixture 同时查询 API-01 与 API-04 | 族计数（run_count/经验状态分布/pass_rate）与 fixture 一致，null family 不计入并给出 unclassified_runs；同一经验在族详情与用户视图的 activation_state/version/latest_report 完全相等；不同用户同名 key 不被合并为一个状态；同一用户同族多个 key 正常分组展示（key 不解析） | tests/console_platform/test_learning_experience_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s02"] | verified |
+| S-03 | integration | Console API → 真实 PG（user_memory/history/eval_report/canonical_event/config_audit_log） | 详情返回 evidence（source_run_ids/success_runs/item_total）、history 版本、reports（用户归属 + 门槛 + 逐 case）、injections（真实分数与通道）、audits；不展示其他用户的候选报告；历史 NULL 归属报告标 UNKNOWN 且不进入晋升依据；身份区展示 authority；报告 extras/未知字段原样透出，不因枚举扩展丢弃 | tests/console_platform/test_learning_experience_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s03"] | verified |
+| S-05 | integration | Console 用户记忆 API → 真实 PG 只读投影；通用写 API → Runtime internal | 通用列表与 memory_count 只含事实记忆；经验计数单独返回；通用写 API 对经验类别返回明确拒绝码，状态不变 | tests/console_platform/test_learning_experience_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s05"] | verified |
+| B-02 | integration | Console 聚合 SQL → 真实 PG | null family 归「未归类」且不计入族统计；同族同名 key 按用户分组；未知前缀标 unknown，不报错 | tests/console_platform/test_learning_experience_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "aggregate"] | verified |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
+- S-01: verified — automated command passed; run_id=fb7eeccbdcf54b4f9ba9e85288e70626 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=fb7eeccbdcf54b4f9ba9e85288e70626 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=fb7eeccbdcf54b4f9ba9e85288e70626 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=fb7eeccbdcf54b4f9ba9e85288e70626 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=fb7eeccbdcf54b4f9ba9e85288e70626 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=635ac30c75334a1f89536ce6db2f696d (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=635ac30c75334a1f89536ce6db2f696d (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=635ac30c75334a1f89536ce6db2f696d (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=635ac30c75334a1f89536ce6db2f696d (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=635ac30c75334a1f89536ce6db2f696d (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---
 

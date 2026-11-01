@@ -12,6 +12,7 @@ from .internal_artifacts import router as internal_artifacts_router
 from .internal_channel import router as internal_channel_router
 from .internal_platform_settings import router as internal_platform_settings_router
 from .internal_runtime import router as internal_runtime_router
+from .learning import router as learning_router
 from .mcp_servers import router as mcp_servers_router
 from .model_resources import quota_router as model_quota_groups_router
 from .model_resources import router as model_resources_router
@@ -56,6 +57,7 @@ router.include_router(authenticated)
 admin = APIRouter(dependencies=[Depends(require_admin), Depends(require_csrf)])
 admin.include_router(accounts_router)
 admin.include_router(users_router)
+admin.include_router(learning_router)
 # 凭据类管理仅 ADMIN（13-console-auth 设计 §2.4：前端隐藏 + 后端 403 兜底）。
 admin.include_router(credentials_router)
 # 平台设置的读写/历史/回滚仅 ADMIN（平台设置是面向管理员的运维面）。

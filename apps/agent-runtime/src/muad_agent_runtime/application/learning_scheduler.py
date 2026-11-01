@@ -10,7 +10,7 @@ import asyncio
 import hashlib
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
@@ -74,6 +74,7 @@ class LearningSupervisor:
                 continue
             enabled += 1
             try:
+                await self._aggregate_families(tenant_id, moment)
                 report = await self._extractor.extract(tenant_id, now=moment)
                 extracted += report.inserted
                 candidate_report = await self._candidates.generate(tenant_id, now=moment)
@@ -90,6 +91,38 @@ class LearningSupervisor:
                     extra={"tenant_id": tenant_id, "error_type": type(exc).__name__},
                 )
         return SchedulerReport(len(tenants), enabled, extracted, candidates, skipped)
+
+    async def _aggregate_families(self, tenant_id: str, moment: datetime) -> None:
+        """按族按天增量汇总 Run 数；页面只读小表，不扫描 Run 历史。"""
+        async with self._factory.begin() as session:
+            last_day = await session.scalar(
+                sa.text(
+                    "SELECT max(day) FROM runtime.family_run_stat"
+                    " WHERE tenant_id=:tenant AND is_deleted=false"
+                ),
+                {"tenant": tenant_id},
+            )
+            since = (
+                moment - timedelta(days=31)
+                if last_day is None
+                else datetime.combine(last_day, datetime.min.time(), tzinfo=UTC) - timedelta(days=1)
+            )
+            await session.execute(
+                sa.text(
+                    "INSERT INTO runtime.family_run_stat"
+                    " (tenant_id, family, day, run_count, last_run_at)"
+                    " SELECT tenant_id, task_family, (end_time AT TIME ZONE 'UTC')::date,"
+                    "        count(*), max(end_time)"
+                    "   FROM runtime.run_record"
+                    "  WHERE tenant_id=:tenant AND status='COMPLETED' AND is_deleted=false"
+                    "    AND task_family IS NOT NULL AND end_time >= :since"
+                    "  GROUP BY tenant_id, task_family, (end_time AT TIME ZONE 'UTC')::date"
+                    " ON CONFLICT (tenant_id, family, day) WHERE is_deleted=false"
+                    " DO UPDATE SET run_count=EXCLUDED.run_count,"
+                    "               last_run_at=EXCLUDED.last_run_at, update_time=now()"
+                ),
+                {"tenant": tenant_id, "since": since},
+            )
 
     async def _advance_experiences(self, tenant_id: str, settings: LearningSettings) -> None:
         """回放 PROPOSED 经验并在 PASSED 后进入 TRIAL；TRIAL 期按信号自动晋升/退休。"""

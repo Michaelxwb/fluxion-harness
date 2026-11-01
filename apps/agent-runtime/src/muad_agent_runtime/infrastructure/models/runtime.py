@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 import sqlalchemy as sa
@@ -500,6 +500,35 @@ class UserMemory(StandardColumnsMixin, Base):
                 "is_deleted = false AND enabled = true AND activation_state = 'ACTIVE'"
             ),
         ),
+        sa.Index(
+            "ix_user_memory_state_time",
+            "tenant_id",
+            "activation_state",
+            sa.text("update_time DESC"),
+            postgresql_where=sa.text(
+                "is_deleted = false AND category IN "
+                "('PROCEDURE','FAILURE_PATTERN','VERIFICATION')"
+            ),
+        ),
+        sa.Index(
+            "ix_user_memory_family_state",
+            "tenant_id",
+            "task_signature",
+            "activation_state",
+            sa.text("update_time DESC"),
+            postgresql_where=sa.text(
+                "is_deleted = false AND category IN "
+                "('PROCEDURE','FAILURE_PATTERN','VERIFICATION')"
+            ),
+        ),
+        sa.Index(
+            "ix_user_memory_user_time",
+            "tenant_id",
+            "user_id",
+            sa.text("update_time DESC"),
+            sa.text("id DESC"),
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
         sa.CheckConstraint("author IN ('USER','ADMIN','AGENT')", name="author"),
         sa.CheckConstraint(
             "authority IN ('USER_EXPLICIT','ADMIN_EDIT','AGENT_INFERRED')", name="authority"
@@ -700,6 +729,30 @@ class EvalReport(StandardColumnsMixin, Base):
     version: Mapped[int] = mapped_column(
         sa.BigInteger(), nullable=False, server_default=sa.text("1")
     )
+
+
+class FamilyRunStat(StandardColumnsMixin, Base):
+    """族级 Run 计数增量汇总（按族按天）；页面只读这张小表。"""
+
+    __tablename__ = "family_run_stat"
+    __table_args__ = (
+        sa.Index(
+            "uq_family_run_stat_day",
+            "tenant_id",
+            "family",
+            "day",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.Index("ix_family_run_stat_window", "tenant_id", sa.text("day DESC"), "family"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    family: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    day: Mapped[date] = mapped_column(sa.Date(), nullable=False)
+    run_count: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+    last_run_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
 
 class MemoryCommandReceipt(StandardColumnsMixin, Base):
