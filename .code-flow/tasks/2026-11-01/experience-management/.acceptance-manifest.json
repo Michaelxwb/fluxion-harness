@@ -1,0 +1,2123 @@
+{
+  "schema": 3,
+  "task_file": "experience-management.md",
+  "task_sha256": "f6f294d93ce7fb6652c6c173fd46c189f39c4e58f3b96a080534fff8cb95b41f",
+  "checks": [
+    {
+      "id": "CHK-4c39c2c6477a",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_experience_api.py",
+        "-k",
+        "s01"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-88f418cf213d",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_experience_api.py",
+        "-k",
+        "s02"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-5244dec99958",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_experience_api.py",
+        "-k",
+        "s03"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-1e760d66c32a",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_lifecycle_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-ef6efb4241de",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_experience_api.py",
+        "-k",
+        "boundary"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-beceb426fe2a",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_learning_experience_contract.py",
+        "-k",
+        "user_tab"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-72861c3a97b1",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_learning_experience_contract.py",
+        "-k",
+        "family_page"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-f5b42409b72c",
+      "command": [
+        "node",
+        "e2e/node_modules/.bin/playwright",
+        "test",
+        "--config",
+        "e2e/playwright.learning-experience.config.ts",
+        "e2e/tests/learning-experience.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "env": "browser",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": [
+        "apps/agent-runtime/src/muad_agent_runtime/application/learning_*",
+        "apps/console-platform/backend/src/muad_console_platform/api/learning.py",
+        "apps/console-platform/frontend/src/modules/learning/**",
+        "apps/console-platform/frontend/src/modules/run-observability/**",
+        "apps/console-platform/frontend/src/modules/user-identity/**"
+      ],
+      "suite": "browser",
+      "collect": {
+        "format": "playwright",
+        "argv": [
+          "node",
+          "e2e/node_modules/.bin/playwright",
+          "test",
+          "--config",
+          "e2e/playwright.learning-experience.config.ts",
+          "e2e/tests/learning-experience.spec.ts",
+          "--list",
+          "--reporter=json"
+        ],
+        "timeout": 60
+      },
+      "test_ids": [
+        "e2e/tests/learning-experience.spec.ts:6@browser"
+      ],
+      "markers": []
+    },
+    {
+      "id": "CHK-0ef477a76da8",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_diagnostics_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-077b752031b7",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_degradation.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-04a6148be893",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_fact_fixes.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-ca4beca91d6a",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_fact_fixes.py",
+        "-k",
+        "atomic"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-b3657cec9243",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_jobs.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-bb971aea8013",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_task_family_scope.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-0854d155f4ed",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_experience_api.py",
+        "-k",
+        "aggregate"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-870dcd9f8a8e",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_audit_projection.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-9f951014bc8b",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/capacity/test_learning_management_mixed.py",
+        "-m",
+        "capacity_load"
+      ],
+      "cwd": ".",
+      "timeout": 3600.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": [],
+      "suite": "capacity",
+      "collect": {
+        "format": "pytest",
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "tests/capacity/test_learning_management_mixed.py",
+          "-m",
+          "capacity and capacity_load",
+          "--collect-only",
+          "--verbosity=-1"
+        ],
+        "timeout": 60
+      },
+      "test_ids": [
+        "tests/capacity/test_learning_management_mixed.py::test_learning_management_mixed_load"
+      ],
+      "markers": [
+        "capacity",
+        "capacity_load"
+      ]
+    },
+    {
+      "id": "CHK-ce5a0df5709a",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_family_control.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-0bafbff705a1",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_content_revision.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-8a48d88402f4",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_feedback.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-ca14433d58e5",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_learning_actions_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-9fdb3e4f9f04",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_control_boundaries.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API（真实 ASGI + ADMIN 会话）→ LearningRepository → 真实 PostgreSQL runtime.user_memory",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_experience_api.py",
+        "-k",
+        "s01"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "console",
+        "postgres"
+      ],
+      "steps": [
+        "以管理员请求 GET /api/v1/learning/experiences?user_id=<A>",
+        "按 state=TRIAL、family=skill:demo 分别过滤",
+        "以另一租户账号请求同一 user_id"
+      ],
+      "expected": [
+        "只返回该用户经验，字段含 activation_state/task_signature/latest_report 且 counts 按状态分列",
+        "state/family 过滤后总数与 items 一致，分页封套 {items,page,page_size,total}",
+        "跨租户返回 404（不泄露存在性）"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "同租户两个用户各有多条经验，覆盖四种状态与两个族；另一租户有同 key 经验"
+      ],
+      "features": [
+        "FEAT-01"
+      ],
+      "check": "CHK-4c39c2c6477a"
+    },
+    {
+      "id": "S-02",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → 真实 PG；同一 fixture 同时查询 API-01 与 API-04",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_experience_api.py",
+        "-k",
+        "s02"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "console",
+        "postgres"
+      ],
+      "steps": [
+        "请求族列表与族详情",
+        "请求两个用户的经验列表",
+        "对同一 (user_id,memory_key,version) 逐字段比对两处返回"
+      ],
+      "expected": [
+        "族计数（run_count/经验状态分布/pass_rate）与 fixture 一致，null family 不计入并给出 unclassified_runs",
+        "同一经验在族详情与用户视图的 activation_state/version/latest_report 完全相等",
+        "不同用户同名 key 不被合并为一个状态；同一用户同族多个 key 正常分组展示（key 不解析）"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "造两个族（skill:demo、agent:<id>），每族两个用户，经验状态不同",
+        "存在 task_family 为 null 的历史 Run 与跨用户同名 key"
+      ],
+      "features": [
+        "FEAT-02",
+        "FEAT-06"
+      ],
+      "check": "CHK-88f418cf213d"
+    },
+    {
+      "id": "S-03",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → 真实 PG（user_memory/history/eval_report/canonical_event/config_audit_log）",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_experience_api.py",
+        "-k",
+        "s03"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "console",
+        "postgres"
+      ],
+      "steps": [
+        "请求经验详情",
+        "校验 reports 的 user_id 归属与 limits/case 明细",
+        "校验 injections 的 score/channel，以及 audits 的 from/to/operator/reason"
+      ],
+      "expected": [
+        "详情返回 evidence（source_run_ids/success_runs/item_total）、history 版本、reports（用户归属 + 门槛 + 逐 case）、injections（真实分数与通道）、audits",
+        "不展示其他用户的候选报告；历史 NULL 归属报告标 UNKNOWN 且不进入晋升依据",
+        "身份区展示 authority；报告 extras/未知字段原样透出，不因枚举扩展丢弃"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "一条 ACTIVE 经验，含来源 Run 证据、PASSED 候选报告（带 limits 与逐 case）、TRIAL_START/ACTIVATE 审计",
+        "两个 Run 的 MEMORY_INJECTED 含该经验"
+      ],
+      "features": [
+        "FEAT-03",
+        "FEAT-08"
+      ],
+      "check": "CHK-5244dec99958"
+    },
+    {
+      "id": "S-04",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → Runtime internal API（真实服务身份头）→ MemoryService/LearningActivation/LearningJobRunner → 真实 PG；回放用本地 OpenAI 兼容探针",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_lifecycle_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "提交回放并轮询 job 到终态",
+        "晋升到 ACTIVE；重复提交同一 Idempotency-Key",
+        "退休并填写原因；对 RETIRED 执行重新沉淀",
+        "查询 user_memory_history、memory_command_receipt、config_audit_log"
+      ],
+      "expected": [
+        "回放生成绑定该 user 的候选报告，job 幂等只执行一次",
+        "晋升后 version 递增、history 有完整 after、receipt 有记录、审计 actor 为真实账号且含 from/to/reason",
+        "退休/重新沉淀按状态机生效；非法转换返回 LEARNING_INVALID_TRANSITION"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "preconditions": [
+        "一条 PROPOSED 经验，Golden Set ≥ min_cases，探针使候选臂达标",
+        "学习开启，租户门槛已知"
+      ],
+      "features": [
+        "FEAT-04",
+        "FEAT-07",
+        "FEAT-08"
+      ],
+      "check": "CHK-1e760d66c32a"
+    },
+    {
+      "id": "S-05",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console 用户记忆 API → 真实 PG 只读投影；通用写 API → Runtime internal",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_experience_api.py",
+        "-k",
+        "boundary"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "console",
+        "postgres"
+      ],
+      "steps": [
+        "请求通用记忆列表与用户详情计数",
+        "对经验 key 调用通用新增/启停用接口"
+      ],
+      "expected": [
+        "通用列表与 memory_count 只含事实记忆；经验计数单独返回",
+        "通用写 API 对经验类别返回明确拒绝码，状态不变"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "用户同时有 PREFERENCE 记忆与 PROCEDURE 经验"
+      ],
+      "features": [
+        "FEAT-07"
+      ],
+      "check": "CHK-ef6efb4241de"
+    },
+    {
+      "id": "S-06",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "component",
+      "kind": "functional",
+      "boundary": "组件渲染 + mock service 数据（契约类型）；不访问真实后端",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_learning_experience_contract.py",
+        "-k",
+        "user_tab"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "components": [
+        "frontend"
+      ],
+      "steps": [
+        "打开用户详情经验页签",
+        "点击一条经验",
+        "切换到通用记忆页签"
+      ],
+      "expected": [
+        "列表显示族/状态/版本/回放结论，过滤与分页可用",
+        "打开共用经验详情；通用记忆页签对经验类不出现启停用/删除",
+        "空态与错误态文案来自 learning.* 词条"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "四种状态与空态/错误态 fixture"
+      ],
+      "features": [
+        "FEAT-01",
+        "FEAT-03"
+      ],
+      "check": "CHK-beceb426fe2a"
+    },
+    {
+      "id": "S-07",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "component",
+      "kind": "functional",
+      "boundary": "组件渲染 + 同一 fixture 注入两个入口",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_learning_experience_contract.py",
+        "-k",
+        "family_page"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "components": [
+        "frontend"
+      ],
+      "steps": [
+        "渲染族页并打开经验详情",
+        "渲染用户页并打开同一经验",
+        "对比两处详情关键字段"
+      ],
+      "expected": [
+        "两处详情由同一组件渲染，族/状态/回放结论/操作一致",
+        "关闭后回到各自入口，列表不出现重复操作列"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "族详情 fixture 含经验条目；用户详情 fixture 含同一经验"
+      ],
+      "features": [
+        "FEAT-02",
+        "FEAT-03",
+        "FEAT-06"
+      ],
+      "check": "CHK-72861c3a97b1"
+    },
+    {
+      "id": "S-08",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "e2e",
+      "kind": "e2e",
+      "boundary": "真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "node",
+        "e2e/node_modules/.bin/playwright",
+        "test",
+        "--config",
+        "e2e/playwright.learning-experience.config.ts",
+        "e2e/tests/learning-experience.spec.ts"
+      ],
+      "cwd": ".",
+      "timeout": 1200.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "deferred",
+      "env": "browser",
+      "why_e2e": "跨页面状态同步、真实路由深链与真实鉴权/DB 组合只有浏览器 E2E 能暴露；component 无法覆盖路由与真实后端",
+      "trigger_paths": [
+        "apps/console-platform/frontend/src/modules/learning/**",
+        "apps/console-platform/frontend/src/modules/user-identity/**",
+        "apps/console-platform/frontend/src/modules/run-observability/**",
+        "apps/console-platform/backend/src/muad_console_platform/api/learning.py",
+        "apps/agent-runtime/src/muad_agent_runtime/application/learning_*"
+      ],
+      "smoke": false,
+      "components": [
+        "frontend",
+        "backend",
+        "browser"
+      ],
+      "steps": [
+        "登录 Console，打开用户详情经验页签并打开该经验",
+        "执行退休并填写原因",
+        "打开族页面，按族定位同一经验并打开详情",
+        "从 Run 详情的注入事件跳到经验详情，再跳回 Run",
+        "打开审计页筛选 MEMORY_EXPERIENCE，从对应审计行进入同一经验详情"
+      ],
+      "expected": [
+        "退休后用户页与族页同时显示 RETIRED，审计可见操作者与原因",
+        "族详情中的经验身份与用户页完全一致",
+        "Run ↔ 经验双向深链落在同一对象（user_id+memory_key）且无 404",
+        "审计页可按 MEMORY_EXPERIENCE 筛选到本次退休，操作者为真实账号，跳转落在同一经验"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            4
+          ]
+        },
+        {
+          "expected": 4,
+          "steps": [
+            5
+          ]
+        }
+      ],
+      "preconditions": [
+        "管理员账号；一条 TRIAL 经验及其来源 Run/注入记录",
+        "学习开启；族页面与用户页可访问"
+      ],
+      "defer_reason": "浏览器 E2E 在需求级 verify-e2e 统一执行；owner 由计划阶段任务拆分确认",
+      "target_phase": "review",
+      "features": [
+        "FEAT-01",
+        "FEAT-02",
+        "FEAT-05"
+      ],
+      "defer_owner": "TASK-004",
+      "check": "CHK-f5b42409b72c"
+    },
+    {
+      "id": "S-09",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Run 的 MEMORY_INJECTED 事件（含 diagnostics）→ Console API-10 → 真实 PG",
+      "owner": "TASK-007",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_diagnostics_api.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "请求 Run 学习诊断",
+        "校验 skipped 原因与 score/channel",
+        "请求历史 Run 的诊断"
+      ],
+      "expected": [
+        "诊断返回 injected 真实分数/通道与 skipped 的逐条原因",
+        "历史 Run 返回 recorded=false，不伪造原因",
+        "未知诊断原因码原样展示并走兜底文案，不报错"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "一个 Run：学习开启，经验 A ACTIVE 且族命中，经验 B 未 ACTIVE，经验 C 低于阈值，经验 D 被冻结集合排除",
+        "另一个历史 Run：事件无 diagnostics 字段"
+      ],
+      "features": [
+        "FEAT-05",
+        "FEAT-08"
+      ],
+      "check": "CHK-0ef477a76da8"
+    },
+    {
+      "id": "E-01",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API + Runtime client（上游 5xx/超时）；真实 PG",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_degradation.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "console",
+        "postgres"
+      ],
+      "steps": [
+        "读取经验列表与详情",
+        "提交回放/晋升",
+        "在 Runtime 不可达时读取详情"
+      ],
+      "expected": [
+        "读取仍可用并标注学习关闭；写操作 409 并给出原因",
+        "Runtime 不可达返回错误码，不返回缓存旧状态"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "learning_enabled=false 的租户；以及 Runtime 不可达注入"
+      ],
+      "features": [
+        "FEAT-04",
+        "FEAT-08"
+      ],
+      "check": "CHK-077b752031b7"
+    },
+    {
+      "id": "E-02",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Runtime internal API + Console 通用记忆 API → 真实 PG",
+      "owner": "TASK-001",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_fact_fixes.py",
+        "-k",
+        "e02"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "用 U2 报告尝试晋升 U1 经验",
+        "对 RETIRED 直接 activate；对 ACTIVE 执行 start-trial",
+        "通过通用写 API 修改经验内容",
+        "对 USER_EXPLICIT 与 AGENT_INFERRED 两条经验分别执行无 PASSED 晋升"
+      ],
+      "expected": [
+        "借用报告被拒（LEARNING_REPLAY_GATE_FAILED / 状态不变）",
+        "非法转换返回 LEARNING_INVALID_TRANSITION",
+        "通用写 API 拒绝经验类别",
+        "USER_EXPLICIT 可按权威路径激活并留审计；AGENT_INFERRED 仍被 PASSED 门槛拒绝"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "expected": 4,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "preconditions": [
+        "用户 U1 经验只有 U2 的 PASSED 报告",
+        "一条 ACTIVE 经验；一条 RETIRED 经验"
+      ],
+      "features": [
+        "FEAT-07",
+        "FEAT-08"
+      ],
+      "check": "CHK-04a6148be893"
+    },
+    {
+      "id": "E-03",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Runtime MemoryService 事务 → 真实 PG；注入审计写入失败",
+      "owner": "TASK-001",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_fact_fixes.py",
+        "-k",
+        "atomic"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "执行晋升（回放已 PASSED）",
+        "查询 user_memory/version/history/receipt/审计"
+      ],
+      "expected": [
+        "整个事务回滚：状态、版本、history、receipt 均无变化",
+        "返回明确错误码；不存在「状态已变但审计缺失」"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "一条 PROPOSED 经验；审计写入被注入失败"
+      ],
+      "features": [
+        "FEAT-04",
+        "FEAT-08"
+      ],
+      "check": "CHK-ca4beca91d6a"
+    },
+    {
+      "id": "E-04",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "LearningJobRunner → 真实 PG；探针可控延迟/失败",
+      "owner": "TASK-004",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_jobs.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "重复提交回放",
+        "模拟 worker 崩溃（lease 过期）后重跑循环",
+        "对样本不足经验回放"
+      ],
+      "expected": [
+        "重复提交只产生一个 job/一次执行",
+        "过期 lease 被回收并重试，超过 attempts 后 FAILED 且错误可见",
+        "INCOMPLETE 报告写入但不改变 activation_state"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "同一 Idempotency-Key 两次提交；一个 RUNNING job 的 lease 过期；样本不足的经验"
+      ],
+      "features": [
+        "FEAT-04"
+      ],
+      "check": "CHK-b3657cec9243"
+    },
+    {
+      "id": "B-01",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "纯函数 derive_task_family / first_successful_skill；无 IO",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_task_family_scope.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "components": [
+        "backend",
+        "runtime"
+      ],
+      "steps": [
+        "构造多 skill、失败 skill、无 skill、批量 skill 的事件序列"
+      ],
+      "expected": [
+        "首个成功 skill 决定族；失败调用不切换；无 skill 回退 agent:<id>",
+        "批量与单条判定一致（批量只影响元数据，不影响族）"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1
+          ]
+        }
+      ],
+      "preconditions": [],
+      "features": [
+        "FEAT-08"
+      ],
+      "check": "CHK-bb971aea8013"
+    },
+    {
+      "id": "B-02",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console 聚合 SQL → 真实 PG",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_experience_api.py",
+        "-k",
+        "aggregate"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "console",
+        "postgres"
+      ],
+      "steps": [
+        "请求族列表与族详情"
+      ],
+      "expected": [
+        "null family 归「未归类」且不计入族统计",
+        "同族同名 key 按用户分组；未知前缀标 unknown，不报错"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1
+          ]
+        }
+      ],
+      "preconditions": [
+        "null family Run；两用户同族同 key；family 带未知前缀"
+      ],
+      "features": [
+        "FEAT-02",
+        "FEAT-06"
+      ],
+      "check": "CHK-0854d155f4ed"
+    },
+    {
+      "id": "S-10",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_audit_projection.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "console",
+        "postgres"
+      ],
+      "steps": [
+        "按 resource_type=MEMORY_EXPERIENCE 请求审计列表",
+        "按 action=RETIRE 过滤并打开详情",
+        "校验详情中的 target/after_json 可推出 user_id 与 experience_key"
+      ],
+      "expected": [
+        "列表返回全部经验审计行，target 展示 experience_key/user_id；历史行标归属未知",
+        "动作/资源词条有中英标签；真实 actor 解析出账号名，合成 actor 显示系统/自动",
+        "详情含 user_id/key，可构造 /learning?experience=<user_id>:<key> 深链"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "存在 MEMORY_EXPERIENCE 的 TRIAL_START/TRIAL_PROMOTE/RETIRE 审计行（含真实 actor 与历史合成 actor）",
+        "存在其他 MODEL/TOOL 审计行淹没列表"
+      ],
+      "features": [
+        "FEAT-09"
+      ],
+      "check": "CHK-870dcd9f8a8e"
+    },
+    {
+      "id": "S-11",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "capacity",
+      "kind": "functional",
+      "boundary": "1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放",
+      "owner": "TASK-013",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/capacity/test_learning_management_mixed.py",
+        "-m",
+        "capacity_load"
+      ],
+      "cwd": ".",
+      "timeout": 3600.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "deferred",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "console",
+        "runtime",
+        "postgres",
+        "capacity"
+      ],
+      "steps": [
+        "启动 1000 用户负载并进入稳态",
+        "并发执行族列表/经验详情查询",
+        "提交一次回放并观察 job 与用户侧指标",
+        "采集 admission/first-delta、管理接口 p95、PG 连接与 WAL 增量、回放模型调用数"
+      ],
+      "expected": [
+        "用户侧 admission/first-delta 与无管理操作基线无显著回归",
+        "管理接口 p95 ≤ 500ms；无 pool timeout",
+        "回放只在容量租约内调用模型，不超并发/额度；族统计不随 Run 历史线性变慢"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "preconditions": [
+        "1000 用户容量 profile 与受控模型探针",
+        "族数与经验规模符合 NFR-PERF-01 假设"
+      ],
+      "defer_reason": "需要 1000 用户容量档与模型额度证据，在容量环境执行；本地只跑逻辑与索引断言",
+      "target_phase": "release",
+      "features": [
+        "FEAT-02",
+        "FEAT-04"
+      ],
+      "defer_owner": "TASK-004",
+      "check": "CHK-9f951014bc8b"
+    },
+    {
+      "id": "S-12",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_family_control.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "console",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "从 Run 详情停用本次注入的两条经验",
+        "暂停该族，再发起新 Run 与旧 Run 的后续模型请求",
+        "恢复族并再次发起新 Run"
+      ],
+      "expected": [
+        "两条经验按 (user,key) 变 RETIRED 并写审计；当前 Run 回答不变",
+        "暂停后新 Run 不再注入该族经验、候选生成跳过该族；在飞 Run 的冻结集合不变",
+        "恢复后新 Run 可正常注入未退休经验；已退休不复活；全程无数据删除"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "一个 Run 注入了两条 ACTIVE 经验",
+        "同族还有另一个用户的 ACTIVE 经验",
+        "已有在飞 Run 冻结集合"
+      ],
+      "features": [
+        "FEAT-10"
+      ],
+      "check": "CHK-ce5a0df5709a"
+    },
+    {
+      "id": "S-13",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计）",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_content_revision.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "带 expected_version 修订内容",
+        "不带 expected_version 或旧版本再提交",
+        "尝试直接晋升修订后的版本",
+        "完成回放 PASSED 后晋升"
+      ],
+      "expected": [
+        "修订生成 v2、状态 PROPOSED、history/回执/审计齐全；旧版本与注入历史保留",
+        "版本冲突返回 409，不覆盖",
+        "未 PASSED 晋升被拒（LEARNING_REPLAY_GATE_FAILED）",
+        "PASSED 后晋升到 ACTIVE，审计记录 operator/reason"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "expected": 4,
+          "steps": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ],
+      "preconditions": [
+        "一条 ACTIVE 经验，当前版本 v1",
+        "该用户没有新的 PASSED 报告"
+      ],
+      "features": [
+        "FEAT-11"
+      ],
+      "check": "CHK-0bafbff705a1"
+    },
+    {
+      "id": "S-14",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_feedback.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "标记差回答并填写原因",
+        "用同一幂等键重试",
+        "等待复核回放完成"
+      ],
+      "expected": [
+        "只写一条 LEARNING_SIGNAL（source_run_id/actor/reason），Run 退出未来 Golden Set",
+        "重复提交返回首次结果，不重复建 job",
+        "复核 job 走容量边界；回放回归才退休，否则状态不变并记录结论"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "一个 Run 注入了 ACTIVE 经验",
+        "同 Run 重复提交两次"
+      ],
+      "features": [
+        "FEAT-12"
+      ],
+      "check": "CHK-8a48d88402f4"
+    },
+    {
+      "id": "S-15",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "component",
+      "kind": "functional",
+      "boundary": "组件渲染 + mock service；不访问真实后端",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_learning_actions_contract.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "components": [
+        "frontend"
+      ],
+      "steps": [
+        "渲染 Run 详情与经验详情的新入口",
+        "触发确认框与错误分支",
+        "切换权限"
+      ],
+      "expected": [
+        "管理员可见按钮并显示影响范围说明；非管理员不渲染",
+        "409/重复提交/暂停态有明确提示且保留输入",
+        "操作成功后列表与详情即时刷新"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "管理员与非管理员视图；修订冲突/反馈重复/暂停中的 fixture"
+      ],
+      "features": [
+        "FEAT-10",
+        "FEAT-11",
+        "FEAT-12"
+      ],
+      "check": "CHK-ca14433d58e5"
+    },
+    {
+      "id": "E-05",
+      "source": "experience-management.backend.design.md#2.5",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API + Runtime internal → 真实 PG",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/console_platform/test_learning_control_boundaries.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "components": [
+        "backend",
+        "runtime",
+        "postgres"
+      ],
+      "steps": [
+        "跨租户调用四个接口",
+        "非管理员调用",
+        "重复提交暂停/修订/反馈"
+      ],
+      "expected": [
+        "跨租户 404/403；非管理员 403",
+        "重复请求幂等返回首次结果，不产生第二次状态变更",
+        "失败不产生部分写入（暂停/修订/反馈各自原子）"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "另一租户的同名 family/key；非管理员账号；重复请求"
+      ],
+      "features": [
+        "FEAT-10",
+        "FEAT-11",
+        "FEAT-12"
+      ],
+      "check": "CHK-9fdb3e4f9f04"
+    }
+  ],
+  "scenarios_file": "experience-management.scenarios.md",
+  "e2e_gate": 1,
+  "quality_schema": 2,
+  "registration": {
+    "ok": true,
+    "registered": [
+      "CHK-f5b42409b72c",
+      "CHK-9f951014bc8b"
+    ],
+    "errors": []
+  },
+  "relock": {
+    "preserved": [
+      "S-01",
+      "S-02",
+      "S-03",
+      "S-04",
+      "S-05",
+      "S-06",
+      "S-07",
+      "S-08",
+      "S-09",
+      "E-01",
+      "E-02",
+      "E-03",
+      "E-04",
+      "B-01",
+      "B-02",
+      "S-10",
+      "S-11",
+      "S-12",
+      "S-13",
+      "S-14",
+      "S-15",
+      "E-05"
+    ],
+    "stale": [],
+    "removed": []
+  }
+}
