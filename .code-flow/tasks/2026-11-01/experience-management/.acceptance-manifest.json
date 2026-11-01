@@ -3326,7 +3326,7 @@
       "kind": "functional",
       "boundary": "Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3391,7 +3391,90 @@
       "features": [
         "FEAT-10"
       ],
-      "check": "CHK-ce5a0df5709a"
+      "check": "CHK-ce5a0df5709a",
+      "revision": 1,
+      "evidence": {
+        "id": "S-12",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-ce5a0df5709a",
+        "input_hash": "271a8aaa9b587b67d0e85f26fe6f8e4fd17c21474c8ae1664002b4c1aefa8ef7",
+        "check_config": {
+          "id": "CHK-ce5a0df5709a",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_family_control.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "8d87a49277614b43aa8913b642573c03",
+        "executed_at": "2026-11-01T02:54:44.013918+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_platform/test_learning_family_control.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "271a8aaa9b587b67d0e85f26fe6f8e4fd17c21474c8ae1664002b4c1aefa8ef7"
+      },
+      "runs": [
+        {
+          "id": "S-12",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ce5a0df5709a",
+          "input_hash": "271a8aaa9b587b67d0e85f26fe6f8e4fd17c21474c8ae1664002b4c1aefa8ef7",
+          "check_config": {
+            "id": "CHK-ce5a0df5709a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_family_control.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "8d87a49277614b43aa8913b642573c03",
+          "executed_at": "2026-11-01T02:54:44.013918+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_family_control.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "271a8aaa9b587b67d0e85f26fe6f8e4fd17c21474c8ae1664002b4c1aefa8ef7"
+        }
+      ]
     },
     {
       "id": "S-13",
@@ -3629,7 +3712,7 @@
       "kind": "functional",
       "boundary": "Console API + Runtime internal → 真实 PG",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3693,7 +3776,90 @@
         "FEAT-11",
         "FEAT-12"
       ],
-      "check": "CHK-9fdb3e4f9f04"
+      "check": "CHK-9fdb3e4f9f04",
+      "revision": 1,
+      "evidence": {
+        "id": "E-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-9fdb3e4f9f04",
+        "input_hash": "271a8aaa9b587b67d0e85f26fe6f8e4fd17c21474c8ae1664002b4c1aefa8ef7",
+        "check_config": {
+          "id": "CHK-9fdb3e4f9f04",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_control_boundaries.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "8d87a49277614b43aa8913b642573c03",
+        "executed_at": "2026-11-01T02:54:44.013918+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_platform/test_learning_control_boundaries.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "271a8aaa9b587b67d0e85f26fe6f8e4fd17c21474c8ae1664002b4c1aefa8ef7"
+      },
+      "runs": [
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-9fdb3e4f9f04",
+          "input_hash": "271a8aaa9b587b67d0e85f26fe6f8e4fd17c21474c8ae1664002b4c1aefa8ef7",
+          "check_config": {
+            "id": "CHK-9fdb3e4f9f04",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_control_boundaries.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "8d87a49277614b43aa8913b642573c03",
+          "executed_at": "2026-11-01T02:54:44.013918+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_control_boundaries.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "271a8aaa9b587b67d0e85f26fe6f8e4fd17c21474c8ae1664002b4c1aefa8ef7"
+        }
+      ]
     }
   ],
   "scenarios_file": "experience-management.scenarios.md",

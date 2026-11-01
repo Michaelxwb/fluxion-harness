@@ -90,6 +90,43 @@ class RuntimeLearningClient:
         )
         return LearningActionItem.model_validate(data)
 
+    async def stop_run(
+        self,
+        *,
+        tenant_id: str,
+        run_id: uuid.UUID,
+        actor_id: uuid.UUID,
+        command_id: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"{BASE}/runs/{run_id}/learning-stop",
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            command_id=command_id,
+            json={"reason": reason},
+        )
+
+    async def family_control(
+        self,
+        family: str,
+        *,
+        tenant_id: str,
+        actor_id: uuid.UUID,
+        command_id: str,
+        paused: bool,
+        reason: str,
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"{BASE}/learning/families/{family}/control",
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            command_id=command_id,
+            json={"paused": paused, "reason": reason},
+        )
+
     async def job(self, *, tenant_id: str, job_id: uuid.UUID) -> LearningJobItem:
         data = await self._request(
             "GET", f"{BASE}/learning/jobs/{job_id}", tenant_id=tenant_id

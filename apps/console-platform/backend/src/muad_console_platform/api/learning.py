@@ -8,7 +8,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, AppError, ok, paginate
 from muad_api.error_codes import ErrorCode
-from muad_contracts.learning_admin import LearningActionRequest
+from muad_contracts.learning_admin import FamilyControlRequest, LearningActionRequest
 from muad_contracts.memory import MemoryCategory
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -190,4 +190,49 @@ async def run_diagnostics(
     run_id: uuid.UUID,
 ) -> ApiResponse[Any]:
     data = await LearningService(session).run_diagnostics(tenant_id, run_id)
+    return ok(request.app.state.message_catalog, data)
+
+
+@router.post("/runs/{run_id}/stop")
+async def stop_run(
+    request: Request,
+    tenant_id: TenantId,
+    account: CurrentAccount,
+    runtime: RuntimeLearningClientDep,
+    run_id: uuid.UUID,
+    body: LearningActionRequest,
+    key: IdempotencyKey,
+) -> ApiResponse[Any]:
+    if not body.reason:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    data = await runtime.stop_run(
+        tenant_id=tenant_id,
+        run_id=run_id,
+        actor_id=account.id,
+        command_id=key,
+        reason=body.reason,
+    )
+    return ok(request.app.state.message_catalog, data)
+
+
+@router.post("/families/{family}/control")
+async def family_control(
+    request: Request,
+    tenant_id: TenantId,
+    account: CurrentAccount,
+    runtime: RuntimeLearningClientDep,
+    family: str,
+    body: FamilyControlRequest,
+    key: IdempotencyKey,
+) -> ApiResponse[Any]:
+    if not body.reason:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    data = await runtime.family_control(
+        family,
+        tenant_id=tenant_id,
+        actor_id=account.id,
+        command_id=key,
+        paused=body.paused,
+        reason=body.reason,
+    )
     return ok(request.app.state.message_catalog, data)

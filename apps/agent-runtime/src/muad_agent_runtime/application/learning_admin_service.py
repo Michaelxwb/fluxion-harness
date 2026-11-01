@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import hashlib
+import uuid
 from typing import Any
 from uuid import UUID
 
 import sqlalchemy as sa
 from muad_api import AppError
+from muad_api.audit import write_config_audit
 from muad_api.error_codes import ErrorCode
 from muad_contracts.platform_settings import LearningSettings, parse_platform_settings
 
 from ..infrastructure.db import SessionFactory
-from ..infrastructure.models.runtime import LearningJob, UserMemory
+from ..infrastructure.models.runtime import LearningFamilyControl, LearningJob, UserMemory
 from .learning_activation import (
     BELOW_THRESHOLD,
     INVALID_TRANSITION,
@@ -217,3 +219,87 @@ class LearningAdminService:
             "create_time": job.create_time.isoformat(),
             "update_time": job.update_time.isoformat(),
         }
+
+
+    async def set_family_control(
+        self,
+        tenant_id: str,
+        family: str,
+        *,
+        paused: bool,
+        reason: str,
+        actor: UUID,
+    ) -> dict[str, Any]:
+        async with self._factory.begin() as session:
+            row = await session.scalar(
+                sa.select(LearningFamilyControl).where(
+                    LearningFamilyControl.tenant_id == tenant_id,
+                    LearningFamilyControl.family == family,
+                    LearningFamilyControl.is_deleted.is_(False),
+                )
+            )
+            if row is None:
+                row = LearningFamilyControl(
+                    tenant_id=tenant_id,
+                    family=family,
+                    paused=paused,
+                    reason=reason,
+                    actor_user_id=actor,
+                )
+                session.add(row)
+            else:
+                row.paused, row.reason, row.actor_user_id = paused, reason, actor
+            await session.flush()
+            await write_config_audit(
+                session,
+                actor_user_id=actor,
+                resource_type="LEARNING_FAMILY",
+                resource_id=uuid.uuid5(uuid.NAMESPACE_URL, f"{tenant_id}:{family}"),
+                action="PAUSE" if paused else "RESUME",
+                before=None,
+                after={"family": family, "paused": paused, "reason": reason},
+                tenant_id=tenant_id,
+            )
+        return {"family": family, "paused": paused, "reason": reason}
+
+    async def stop_run(
+        self, tenant_id: str, run_id: UUID, *, operator: str, reason: str
+    ) -> list[dict[str, Any]]:
+        async with self._factory() as session:
+            payload = await session.scalar(
+                sa.text(
+                    "SELECT payload_json FROM runtime.canonical_event"
+                    " WHERE tenant_id=:tenant AND run_id=:run AND event_type='MEMORY_INJECTED'"
+                    "   AND is_deleted=false ORDER BY seq DESC LIMIT 1"
+                ),
+                {"tenant": tenant_id, "run": run_id},
+            )
+            user_id = await session.scalar(
+                sa.text(
+                    "SELECT user_id FROM runtime.run_record"
+                    " WHERE tenant_id=:tenant AND id=:run AND is_deleted=false"
+                ),
+                {"tenant": tenant_id, "run": run_id},
+            )
+        if not isinstance(payload, dict) or user_id is None:
+            raise AppError(ErrorCode.LEARNING_EXPERIENCE_NOT_FOUND)
+        results: list[dict[str, Any]] = []
+        for item in payload.get("items") or []:
+            key = item.get("memory_key")
+            if not isinstance(key, str):
+                continue
+            outcome = await self.retire(
+                tenant_id,
+                user_id,
+                key,
+                operator=operator,
+                reason=reason,
+            )
+            results.append(
+                {
+                    "memory_key": key,
+                    "activation_state": outcome.activation_state,
+                    "status": outcome.status,
+                }
+            )
+        return results

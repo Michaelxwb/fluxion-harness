@@ -23,7 +23,13 @@ from muad_contracts.platform_settings import MemoryPolicySettings
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactory, get_session_factory
-from ..infrastructure.models.runtime import CanonicalEvent, MemoryScope, RunRecord, UserMemory
+from ..infrastructure.models.runtime import (
+    CanonicalEvent,
+    LearningFamilyControl,
+    MemoryScope,
+    RunRecord,
+    UserMemory,
+)
 from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
 from .memory_service import MemoryService
 from .task_family import SKILL_TOOLS, SUCCESS_STATUS
@@ -99,9 +105,24 @@ class ExperienceCandidates:
                 continue
             by_family.setdefault(run.task_family, []).append(run)
 
+        async with self._factory() as session:
+            paused = set(
+                (
+                    await session.scalars(
+                        sa.select(LearningFamilyControl.family).where(
+                            LearningFamilyControl.tenant_id == tenant_id,
+                            LearningFamilyControl.paused.is_(True),
+                            LearningFamilyControl.is_deleted.is_(False),
+                        )
+                    )
+                ).all()
+            )
         created = skipped = 0
         families: list[str] = []
         for family, family_runs in sorted(by_family.items()):
+            if family in paused:
+                skipped += 1
+                continue
             if len(family_runs) < self._limits.min_success_runs:
                 skipped += 1
                 continue

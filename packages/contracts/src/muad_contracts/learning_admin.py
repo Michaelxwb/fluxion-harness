@@ -136,3 +136,8 @@ class LearningActionItem(ContractModel):
     experience_key: str
     activation_state: str
     status: str
+
+
+class FamilyControlRequest(ContractModel):
+    paused: bool
+    reason: str

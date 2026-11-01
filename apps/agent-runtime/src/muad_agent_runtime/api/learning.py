@@ -8,7 +8,11 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Request
 from muad_api import ApiResponse, AppError, InternalServiceDep, ok
 from muad_api.error_codes import ErrorCode
-from muad_contracts.learning_admin import LearningActionItem, LearningActionRequest
+from muad_contracts.learning_admin import (
+    FamilyControlRequest,
+    LearningActionItem,
+    LearningActionRequest,
+)
 from pydantic import JsonValue
 
 from ..application.learning_activation import LearningActivation
@@ -136,3 +140,37 @@ async def job_status(
 ) -> ApiResponse[dict[str, JsonValue]]:
     job = await _service(request).job(tenant, job_id)
     return ok(request.app.state.message_catalog, LearningAdminService.job_json(job))
+
+
+@router.post("/runs/{run_id}/learning-stop")
+async def stop_run(
+    run_id: UUID,
+    body: LearningActionRequest,
+    request: Request,
+    tenant: TenantDep,
+    _guard: InternalServiceDep,
+    actor: Actor,
+) -> ApiResponse[dict[str, JsonValue]]:
+    if not body.reason:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    results = await _service(request).stop_run(
+        tenant, run_id, operator=str(actor), reason=body.reason
+    )
+    return ok(request.app.state.message_catalog, {"items": results})
+
+
+@router.post("/learning/families/{family}/control")
+async def family_control(
+    family: str,
+    body: FamilyControlRequest,
+    request: Request,
+    tenant: TenantDep,
+    _guard: InternalServiceDep,
+    actor: Actor,
+) -> ApiResponse[dict[str, JsonValue]]:
+    if not body.reason:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    result = await _service(request).set_family_control(
+        tenant, family, paused=body.paused, reason=body.reason, actor=actor
+    )
+    return ok(request.app.state.message_catalog, result)

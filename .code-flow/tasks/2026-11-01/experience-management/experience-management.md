@@ -38,11 +38,11 @@
 | B-02 | experience-management.backend.design.md#2.5 | integration | Console 聚合 SQL → 真实 PG | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "aggregate"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-10 | experience-management.backend.design.md#2.5 | integration | Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log | TASK-008 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_audit_projection.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-11 | experience-management.backend.design.md#2.5 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | TASK-013 | planned | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | . | 3600 | P1 | deferred | local-api | - | - | - | no |
-| S-12 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_family_control.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| S-12 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_family_control.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-13 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计） | TASK-010 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_content_revision.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | S-14 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG | TASK-011 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_feedback.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | S-15 | experience-management.backend.design.md#2.5 | component | 组件渲染 + mock service；不访问真实后端 | TASK-012 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_actions_contract.py"] | . | 900 | P1 | auto | none | - | - | - | no |
-| E-05 | experience-management.backend.design.md#2.5 | integration | Console API + Runtime internal → 真实 PG | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_control_boundaries.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| E-05 | experience-management.backend.design.md#2.5 | integration | Console API + Runtime internal → 真实 PG | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_control_boundaries.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 
 ---
 
@@ -484,12 +484,14 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-12 | integration | Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG | 两条经验按 (user,key) 变 RETIRED 并写审计；当前 Run 回答不变；暂停后新 Run 不再注入该族经验、候选生成跳过该族；在飞 Run 的冻结集合不变；恢复后新 Run 可正常注入未退休经验；已退休不复活；全程无数据删除 | tests/console_platform/test_learning_family_control.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_family_control.py"] | planned |
-| E-05 | integration | Console API + Runtime internal → 真实 PG | 跨租户 404/403；非管理员 403；重复请求幂等返回首次结果，不产生第二次状态变更；失败不产生部分写入（暂停/修订/反馈各自原子） | tests/console_platform/test_learning_control_boundaries.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_control_boundaries.py"] | planned |
+| S-12 | integration | Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG | 两条经验按 (user,key) 变 RETIRED 并写审计；当前 Run 回答不变；暂停后新 Run 不再注入该族经验、候选生成跳过该族；在飞 Run 的冻结集合不变；恢复后新 Run 可正常注入未退休经验；已退休不复活；全程无数据删除 | tests/console_platform/test_learning_family_control.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_family_control.py"] | verified |
+| E-05 | integration | Console API + Runtime internal → 真实 PG | 跨租户 404/403；非管理员 403；重复请求幂等返回首次结果，不产生第二次状态变更；失败不产生部分写入（暂停/修订/反馈各自原子） | tests/console_platform/test_learning_control_boundaries.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_control_boundaries.py"] | verified |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
+- S-12: verified — automated command passed; run_id=8d87a49277614b43aa8913b642573c03 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=8d87a49277614b43aa8913b642573c03 (confirmed_by: runner)
 
 ### Log
 

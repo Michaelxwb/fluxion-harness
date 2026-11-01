@@ -731,6 +731,28 @@ class EvalReport(StandardColumnsMixin, Base):
     )
 
 
+class LearningFamilyControl(StandardColumnsMixin, Base):
+    """族级学习/注入暂停开关（只影响暂停后的新 Run）。"""
+
+    __tablename__ = "learning_family_control"
+    __table_args__ = (
+        sa.Index(
+            "uq_learning_family_control",
+            "tenant_id",
+            "family",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    family: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    paused: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, server_default=sa.text("true"))
+    reason: Mapped[str] = mapped_column(sa.String(256), nullable=False)
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+
+
 class LearningJob(StandardColumnsMixin, Base):
     """经验回放等异步学习任务；claim 用 SKIP LOCKED，command_id 幂等。"""
 

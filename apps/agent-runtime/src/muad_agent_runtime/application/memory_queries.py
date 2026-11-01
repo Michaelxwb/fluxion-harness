@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from uuid import UUID
 
+import sqlalchemy as sa
 from muad_agent_core.memory.rank import MemoryRecord, record_tokens
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
@@ -21,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import FromClause
 
 from ..infrastructure.db import SessionFactory, get_session_factory
-from ..infrastructure.models.runtime import MemoryScope, UserMemory
+from ..infrastructure.models.runtime import LearningFamilyControl, MemoryScope, UserMemory
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -94,6 +95,12 @@ def _snapshot_statement(scope: MemoryReadScope) -> Select[tuple[int, int, dateti
         & UserMemory.enabled.is_(True)
         & UserMemory.is_deleted.is_(False)
         & (UserMemory.expires_at.is_(None) | (UserMemory.expires_at > func.statement_timestamp()))
+        & ~sa.exists().where(
+            LearningFamilyControl.tenant_id == scope.tenant_id,
+            LearningFamilyControl.family == UserMemory.task_signature,
+            LearningFamilyControl.paused.is_(True),
+            LearningFamilyControl.is_deleted.is_(False),
+        )
     )
     return (
         select(*head.selected_columns, UserMemory)
