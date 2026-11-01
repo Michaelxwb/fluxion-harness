@@ -41,6 +41,7 @@ export interface UserListItem {
   credential_count: number;
   identity_count: number;
   memory_count: number;
+  experience_count: number;
   create_time: string;
   update_time: string;
 }
@@ -51,6 +52,7 @@ export interface UserDetail extends UserBasic {
   credential_count: number;
   identity_count: number;
   memory_count: number;
+  experience_count: number;
 }
 
 export interface AgentGrant {

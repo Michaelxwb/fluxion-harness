@@ -26,7 +26,7 @@
 | S-03 | experience-management.backend.design.md#2.5 | integration | Console API → 真实 PG（user_memory/history/eval_report/canonical_event/config_audit_log） | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s03"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-04 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal API（真实服务身份头）→ MemoryService/LearningActivation/LearningJobRunner → 真实 PG；回放用本地 OpenAI 兼容探针 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_lifecycle_api.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-05 | experience-management.backend.design.md#2.5 | integration | Console 用户记忆 API → 真实 PG 只读投影；通用写 API → Runtime internal | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s05"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| S-06 | experience-management.backend.design.md#2.5 | component | 组件渲染 + mock service 数据（契约类型）；不访问真实后端 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "user_tab"] | . | 900 | P0 | auto | none | - | - | - | no |
+| S-06 | experience-management.backend.design.md#2.5 | component | 组件渲染 + mock service 数据（契约类型）；不访问真实后端 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "user_tab"] | . | 900 | P0 | auto | none | - | - | - | no |
 | S-07 | experience-management.backend.design.md#2.5 | component | 组件渲染 + 同一 fixture 注入两个入口 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "family_page"] | . | 900 | P0 | auto | none | - | - | - | no |
 | S-08 | experience-management.backend.design.md#2.5 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | TASK-006 | planned | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | . | 1200 | P1 | deferred | browser | - | 跨页面状态同步、真实路由深链与真实鉴权/DB 组合只有浏览器 E2E 能暴露；component 无法覆盖路由与真实后端 | apps/console-platform/frontend/src/modules/learning/**, apps/console-platform/frontend/src/modules/user-identity/**, apps/console-platform/frontend/src/modules/run-observability/**, apps/console-platform/backend/src/muad_console_platform/api/learning.py, apps/agent-runtime/src/muad_agent_runtime/application/learning_* | no |
 | S-09 | experience-management.backend.design.md#2.5 | integration | 真实 Run 的 MEMORY_INJECTED 事件（含 diagnostics）→ Console API-10 → 真实 PG | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_diagnostics_api.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
@@ -306,11 +306,12 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-06 | component | 组件渲染 + mock service 数据（契约类型）；不访问真实后端 | 列表显示族/状态/版本/回放结论，过滤与分页可用；打开共用经验详情；通用记忆页签对经验类不出现启停用/删除；空态与错误态文案来自 learning.* 词条 | tests/frontend/test_learning_experience_contract.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "user_tab"] | planned |
+| S-06 | component | 组件渲染 + mock service 数据（契约类型）；不访问真实后端 | 列表显示族/状态/版本/回放结论，过滤与分页可用；打开共用经验详情；通用记忆页签对经验类不出现启停用/删除；空态与错误态文案来自 learning.* 词条 | tests/frontend/test_learning_experience_contract.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "user_tab"] | verified |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
+- S-06: verified — automated command passed; run_id=b33989d90eb648a1b765571a72f30b20 (confirmed_by: runner)
 
 ### Log
 
@@ -551,7 +552,7 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 
 ## TASK-011: 差回答反馈闭环
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-004
 - **Source**: backend design §3.4.3 差回答反馈；frontend design §3.2.2
@@ -590,6 +591,8 @@ Run 可标记差回答，幂等写学习信号并把该 Run 排除出未来 Gold
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---
 

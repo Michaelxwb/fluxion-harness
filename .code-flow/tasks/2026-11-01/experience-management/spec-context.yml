@@ -1,7 +1,7 @@
 version: 1
 task: experience-management
 enforcement: required
-updated_at: '2026-11-01T02:56:57.737223+00:00'
+updated_at: '2026-11-01T02:57:36.572079+00:00'
 sources:
 - type: cli
   ref: bind
@@ -53,7 +53,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-004
           item_id: RULE-api-002
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -310,7 +310,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-003
           item_id: RULE-api-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -663,11 +663,11 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-004
           item_id: RULE-arch-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -808,6 +808,35 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-01T02:58:07.643154+00:00'
+          status: verified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 5917ae456cc987f9a2392a5386d9dba53385eacae6609c0720b5548d6f14d5d9
+          result_sha256: 6b7d7037510923e7d69ff6fe1518c3a38b36954eb2534625e0f26174142aa914
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: b351ab920cfc28ebf2110df39eb56c3be9aa1a55beca419b5e58a84c4cecb062
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 34%]
+
+              ........................................................................
+              [ 68%]
+
+              ..................................................................       [100%]
+
+              210 passed in 29.75s
+
+              '
       review:
         status: pending
         refs: []
@@ -854,7 +883,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-004
           item_id: RULE-auth-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -1086,7 +1115,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-001
           item_id: RULE-data-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -1420,7 +1449,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-006
           item_id: RULE-e2e-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -1595,7 +1624,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-005
           item_id: RULE-front-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -1788,7 +1817,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-005
           item_id: RULE-i18n-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -1975,7 +2004,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-004
           item_id: RULE-log-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -2174,7 +2203,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-001
           item_id: RULE-memory-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -2211,7 +2240,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-001
           item_id: RULE-memory-002
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -2251,7 +2280,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-002
           item_id: RULE-memory-003
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -2288,7 +2317,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-001
           item_id: RULE-memory-004
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -2326,7 +2355,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-001
           item_id: RULE-memory-005
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -2363,7 +2392,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-001
           item_id: RULE-memory-006
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -2417,7 +2446,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-004
           item_id: RULE-secret-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -2651,7 +2680,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-001
           item_id: RULE-snapshot-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -2933,7 +2962,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-013
           item_id: RULE-test-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -2985,7 +3014,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-003
           item_id: RULE-time-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -3308,7 +3337,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-006
           item_id: RULE-ui-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:
@@ -3634,7 +3663,7 @@ bindings:
         - artifact: experience-management.md
           section_id: TASK-005
           item_id: RULE-ui-detail-001
-          artifact_sha256: 8dac7998aa45ded321fefb236dea448f0cbb4277c1af905c240b76a584e520f3
+          artifact_sha256: eaf35a8488e62ca9d1b8954349c4e6863f63f9ca7dcac37aa3cee4d3f5838b7a
         decision: null
         evidence: []
       code:

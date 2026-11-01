@@ -1483,7 +1483,7 @@
       "kind": "functional",
       "boundary": "组件渲染 + mock service 数据（契约类型）；不访问真实后端",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1546,7 +1546,98 @@
         "FEAT-01",
         "FEAT-03"
       ],
-      "check": "CHK-beceb426fe2a"
+      "check": "CHK-beceb426fe2a",
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-beceb426fe2a",
+        "input_hash": "950dd50694539746ac2cad7e3ad44883d6fcc0f768f1d5d6c596e5da20fb11bb",
+        "check_config": {
+          "id": "CHK-beceb426fe2a",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_experience_contract.py",
+            "-k",
+            "user_tab"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "b33989d90eb648a1b765571a72f30b20",
+        "executed_at": "2026-11-01T02:59:17.812228+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_learning_experience_contract.py",
+          "-k",
+          "user_tab"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "950dd50694539746ac2cad7e3ad44883d6fcc0f768f1d5d6c596e5da20fb11bb"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-beceb426fe2a",
+          "input_hash": "950dd50694539746ac2cad7e3ad44883d6fcc0f768f1d5d6c596e5da20fb11bb",
+          "check_config": {
+            "id": "CHK-beceb426fe2a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_learning_experience_contract.py",
+              "-k",
+              "user_tab"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "b33989d90eb648a1b765571a72f30b20",
+          "executed_at": "2026-11-01T02:59:17.812228+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_experience_contract.py",
+            "-k",
+            "user_tab"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "950dd50694539746ac2cad7e3ad44883d6fcc0f768f1d5d6c596e5da20fb11bb"
+        }
+      ]
     },
     {
       "id": "S-07",
