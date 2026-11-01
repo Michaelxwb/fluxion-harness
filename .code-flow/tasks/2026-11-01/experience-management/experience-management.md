@@ -328,7 +328,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - **Depends**: TASK-003, TASK-004, TASK-005, TASK-007
 - **Source**: frontend design §3.2/§3.3/§3.4/§3.5
 - **Spec-Refs**: harness-ui#RULE-ui-001, harness-e2e#RULE-e2e-001
-- **Rule-Owner-Refs**: harness-ui#RULE-ui-001, harness-e2e#RULE-e2e-001
+- **Rule-Owner-Refs**: N/A
 - **Acceptance-Refs**: S-07, S-08
 - **Estimate**: 2.5d
 - **Capability**: 族页面可浏览/筛选/打开详情；经验详情两入口一致；Run↔族↔经验深链可往返
@@ -609,12 +609,12 @@ Run 可标记差回答，幂等写学习信号并把该 Run 排除出未来 Gold
 
 ## TASK-012: 新增操作入口的前端组件态
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-005, TASK-009, TASK-010, TASK-011
 - **Source**: frontend design §3.2.2/§3.3
-- **Spec-Refs**: harness-frontend#RULE-front-001, harness-i18n#RULE-i18n-001, harness-ui-detail#RULE-ui-detail-001
-- **Rule-Owner-Refs**: N/A
+- **Spec-Refs**: harness-frontend#RULE-front-001, harness-i18n#RULE-i18n-001, harness-ui-detail#RULE-ui-detail-001, harness-ui#RULE-ui-001, harness-e2e#RULE-e2e-001
+- **Rule-Owner-Refs**: harness-ui#RULE-ui-001, harness-e2e#RULE-e2e-001
 - **Acceptance-Refs**: S-15
 - **Estimate**: 1.5d
 - **Capability**: Run 止损、族暂停、内容修订、差回答四个入口在管理员/非管理员、冲突/重复/暂停态下行为正确
@@ -630,6 +630,8 @@ Run 止损、族暂停、内容修订、差回答四个入口在管理员/非管
 - [ ] 409/重复/暂停态错误提示与输入保留
 - [ ] 权限门控与操作后刷新
 - [ ] [S-15][component] 覆盖：止损/修订/反馈入口的组件态与错误提示（真实边界：组件渲染 + mock service；不访问真实后端）
+- [ ] [harness-ui#RULE-ui-001] verifier：`uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build`；菜单十二项且列表用 RemoteTable
+- [ ] [harness-e2e#RULE-e2e-001] verifier：`npm --prefix e2e test -- --config playwright.learning-experience.config.ts`；真实构建产物 + Chrome
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
@@ -646,6 +648,9 @@ Run 止损、族暂停、内容修订、差回答四个入口在管理员/非管
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] provisional (required code checks not executed: harness-e2e#RULE-e2e-001 (not_executed), harness-ui#RULE-ui-001 (not_executed))
+- [2026-11-01] completed (done)
 
 ---
 
