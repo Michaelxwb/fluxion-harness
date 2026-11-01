@@ -1,4 +1,4 @@
-import { Button, Input, Spin, Tabs, Tag, Toast } from '@douyinfe/semi-ui';
+import { Button, Input, Spin, Tabs, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +13,7 @@ import {
   channelLabel,
   familyLabel,
   improvementLabel,
+  operatorLabel,
   ownerLabel,
   reportStatusLabel,
   scoreLabel,
@@ -171,24 +172,27 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
               ]}
             />
             <div className="detail-section-title">{t('learning.detail.actions')}</div>
+            <Typography.Text type="tertiary">
+              {t('learning.detail.reasonLabel')}
+            </Typography.Text>
             <Input
               value={reason}
               placeholder={t('learning.detail.reason')}
               onChange={setReason}
             />
-            <div className="detail-actions">
+            <div className="detail-actions" style={{ justifyContent: 'flex-start' }}>
               <Button onClick={() => act('replay')}>{t('learning.actions.replay')}</Button>
               <Button onClick={() => act('activate')}>{t('learning.actions.activate')}</Button>
               <Button onClick={() => act('retire')}>{t('learning.actions.retire')}</Button>
               <Button onClick={() => act('regenerate')}>{t('learning.actions.regenerate')}</Button>
             </div>
-            <div className="detail-section-title">{t('learning.actions.revise')}</div>
+            <div className="detail-section-title">{t('learning.detail.reviseSection')}</div>
             <Input
               value={value}
               placeholder={t('learning.detail.newValue')}
               onChange={setValue}
             />
-            <div className="detail-actions">
+            <div className="detail-actions" style={{ justifyContent: 'flex-start' }}>
               <Button onClick={revise}>{t('learning.actions.revise')}</Button>
             </div>
           </Tabs.TabPane>
@@ -211,7 +215,7 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
               columns={[
                 { title: t('learning.detail.version'), dataIndex: 'version' },
                 { title: t('learning.detail.reason'), dataIndex: 'change_reason' },
-                { title: t('learning.detail.actor'), dataIndex: 'actor_type', render: (value: string, row: Record<string, unknown>) => actorLabel(t, value, row.actor_id as string | null) },
+                { title: t('learning.detail.actor'), dataIndex: 'actor_type', render: (value: string) => actorLabel(t, value) },
                 {
                   title: t('learning.columns.updated'),
                   dataIndex: 'create_time',
@@ -266,7 +270,11 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
               rowKey="action"
               columns={[
                 { title: t('learning.detail.action'), dataIndex: 'action', render: (value: string) => t(`learning.enum.action.${value}`, { defaultValue: value }) },
-                { title: t('learning.detail.operator'), dataIndex: 'actor_user_id', render: (value: string) => shortId(value) },
+                {
+                title: t('learning.detail.operator'),
+                dataIndex: 'operator_name',
+                render: (_: unknown, row: Record<string, unknown>) => operatorLabel(t, row)
+              },
                 {
                   title: t('learning.columns.updated'),
                   dataIndex: 'create_time',

@@ -63,11 +63,23 @@ export function actionLabel(t: Translate, action: string): string {
   return label === key ? action : label;
 }
 
-export function actorLabel(t: Translate, actorType: string, actorId?: string | null): string {
+export function actorLabel(t: Translate, actorType: string): string {
   const key = `learning.enum.actor.${actorType}`;
   const label = t(key);
-  const role = label === key ? actorType : label;
-  return actorId ? `${role}（${shortId(actorId)}）` : role;
+  return label === key ? actorType : label;
+}
+
+/** 审计行操作者：账号名优先，其次系统/自动或 after_json.operator，最后才回落到编号。 */
+export function operatorLabel(t: Translate, row: Record<string, unknown>): string {
+  const name = row.operator_name;
+  if (typeof name === 'string' && name.trim()) return name;
+  const operator = row.operator;
+  if (operator === 'automatic') return t('learning.enum.actor.SYSTEM');
+  if (typeof operator === 'string' && operator.trim() && !/^[0-9a-f-]{36}$/i.test(operator)) {
+    return operator;
+  }
+  const actor = row.actor_user_id;
+  return typeof actor === 'string' ? shortId(actor) : '-';
 }
 
 export function scoreLabel(score: number | null | undefined): string {

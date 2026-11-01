@@ -255,12 +255,17 @@ class LearningRepository:
         audit_rows = (
             await self._session.execute(
                 text(
-                    "SELECT action, before_json, after_json, actor_user_id::text AS actor_user_id,"
-                    " create_time FROM control.config_audit_log"
-                    " WHERE tenant_id=:tenant_id AND resource_type='MEMORY_EXPERIENCE'"
-                    "   AND (after_json->>'experience_key'=:key"
-                    "        AND (after_json->>'user_id'=:user_text OR after_json->>'user_id' IS NULL))"
-                    " ORDER BY create_time DESC LIMIT 50"
+                    "SELECT c.action, c.before_json, c.after_json,"
+                    " c.actor_user_id::text AS actor_user_id,"
+                    " acct.display_name AS operator_name,"
+                    " c.after_json->>'operator' AS operator, c.create_time"
+                    " FROM control.config_audit_log c"
+                    " LEFT JOIN control.console_account acct ON acct.id = c.actor_user_id"
+                    " WHERE c.tenant_id=:tenant_id AND c.resource_type='MEMORY_EXPERIENCE'"
+                    "   AND (c.after_json->>'experience_key'=:key"
+                    "        AND (c.after_json->>'user_id'=:user_text"
+                    "             OR c.after_json->>'user_id' IS NULL))"
+                    " ORDER BY c.create_time DESC LIMIT 50"
                 ),
                 {"tenant_id": tenant_id, "user_id": user_id, "key": key, "user_text": str(user_id)},
             )

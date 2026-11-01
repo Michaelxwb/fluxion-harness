@@ -1,4 +1,4 @@
-import { Button, Input, Spin, Tabs, Tag, Toast } from '@douyinfe/semi-ui';
+import { Button, Input, Spin, Tabs, Tag, Toast, Typography } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -81,8 +81,11 @@ export function FamilyDetailSideSheet(props: FamilyDetailSideSheetProps) {
               }
             ]}
           />
+          <Typography.Text type="tertiary">
+            {t('learning.detail.reasonLabel')}
+          </Typography.Text>
           <Input value={reason} placeholder={t('learning.detail.reason')} onChange={setReason} />
-          <div className="detail-actions">
+          <div className="detail-actions" style={{ justifyContent: 'flex-start' }}>
           <Button
             onClick={async () => {
               if (!reason.trim()) {
