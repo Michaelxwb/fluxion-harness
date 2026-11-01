@@ -9,15 +9,17 @@ from datetime import datetime, timezone
 import fnmatch
 import hashlib
 import json
+import os
 from pathlib import Path
 from threading import Lock
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from typing import Mapping, Optional, Sequence
 
 from codeflow.acceptance.cf_checks import run_regex_verifier
 from codeflow.spec.cf_spec_metadata import SpecMetadata, SpecRule, SpecVerifier
-from codeflow.core.cf_exec_base import execution_session, run_command
+from codeflow.core.cf_exec_base import execution_session, record_report, redact_sensitive_text, report_requested, run_command
 from codeflow.core import cf_git
 
 
@@ -208,6 +210,10 @@ def _cached_or_run(
     confirmation: Optional[Mapping[str, object]],
     stage: str = "code",
 ) -> VerificationEvidence:
+    if verifier.type == "regex" and not _regex_scope_files(verifier.config, metadata, scope):
+        # The fallback checks tracked files outside the diff. Do not reuse a
+        # diff-keyed result when those files may have changed independently.
+        return _evidence(metadata, rule, verifier, scope, confirmation)
     cacheable = verifier.type in _PURE_VERIFIER_TYPES
     scoped_key: Optional[str] = None
     if cacheable:
@@ -221,6 +227,8 @@ def _cached_or_run(
     if cacheable:
         cached = _cached_evidence(key)
         if cached is not None:
+            record_report({"kind": "spec_check", "check_id": f"{metadata.id}#{rule.ref}",
+                           "reused": 1, "execution_ms": 0.0})
             if scoped_key is None:
                 return cached
             details = dict(cached.details or {})
@@ -244,6 +252,8 @@ class _Outcome:
     error_code: Optional[str]
     artifact_sha256: Optional[str]
     details: Mapping[str, object]
+    execution_ms: Optional[float] = None
+    execution_reused: bool = False
 
 
 def _hash_bytes(data: bytes) -> str:
@@ -298,6 +308,21 @@ def _document(config: Mapping[str, object], scope: VerificationScope) -> _Outcom
     return _Outcome(passed, None if passed else error, artifact_hash, details)
 
 
+def _regex_file_pattern(config: Mapping[str, object], metadata: SpecMetadata) -> str:
+    check_id = _config_string(config, "check_id")
+    check = next((item for item in metadata.checks if item.get("id") == check_id), None)
+    if check is not None and isinstance(check.get("files"), str):
+        return str(check["files"])
+    return _config_string(config, "files") or "*"
+
+
+def _regex_scope_files(config: Mapping[str, object], metadata: SpecMetadata,
+                       scope: VerificationScope) -> tuple[str, ...]:
+    files = _regex_file_pattern(config, metadata)
+    return tuple(relative for relative in scope.files
+                 if fnmatch.fnmatch(relative, files) and (Path(scope.root) / relative).is_file())
+
+
 def _regex(config: Mapping[str, object], metadata: SpecMetadata, scope: VerificationScope) -> _Outcome:
     pattern = _config_string(config, "pattern")
     files = _config_string(config, "files") or "*"
@@ -310,11 +335,16 @@ def _regex(config: Mapping[str, object], metadata: SpecMetadata, scope: Verifica
         files = check.get("files") if isinstance(check.get("files"), str) else "*"
     if pattern is None:
         return _Outcome(False, "invalid_verifier_config", None, {"required": ["pattern"]})
-    selected = tuple(
-        relative
-        for relative in scope.files
-        if fnmatch.fnmatch(relative, files) and (Path(scope.root) / relative).is_file()
-    )
+    selected = _regex_scope_files(config, metadata, scope)
+    if not selected:
+        tracked = tuple(relative for relative in cf_git.tracked_files(scope.root)
+                        if fnmatch.fnmatch(relative, files))
+        if any(not (Path(scope.root) / relative).is_file() for relative in tracked):
+            return _Outcome(False, "no_matching_files", None,
+                            {"checked_files": 0, "files": files, "reason": "tracked_files_missing"})
+        selected = tracked
+    if not selected:
+        return _Outcome(False, "no_matching_files", None, {"checked_files": 0, "files": files})
     contents, error = _read_scope_files(VerificationScope(scope.root, selected, scope.diff_sha256))
     if error is not None:
         return error
@@ -372,6 +402,13 @@ def _command(config: Mapping[str, object], scope: VerificationScope, timeout_cap
     allowed = tuple(item for item in allowed_value if isinstance(item, int)) if isinstance(allowed_value, list) else (0,)
     deadline = None if timeout_cap is None else time.monotonic() + timeout_cap
     completed = run_command(argv, str(Path(scope.root) / cwd), timeout, deadline)
+    outcome = _command_result(completed, argv, timeout, allowed)
+    return replace(outcome, execution_ms=float(completed.get("execution_ms", 0)),
+                   execution_reused=bool(completed.get("execution_reused")))
+
+
+def _command_result(completed: Mapping[str, object], argv: Sequence[str], timeout: float,
+                    allowed: Sequence[int]) -> _Outcome:
     if completed["status"] in ("timeout", "deadline_exceeded"):
         return _Outcome(False, "verifier_timeout", None, {"timeout": timeout, "argv": argv})
     if completed["status"] == "spawn_error":
@@ -381,7 +418,7 @@ def _command(config: Mapping[str, object], scope: VerificationScope, timeout_cap
         "exit_code": completed["returncode"],
         "stdout_sha256": _hash_bytes(str(completed["stdout"]).encode()),
         "stderr_sha256": _hash_bytes(str(completed["stderr"]).encode()),
-        "output": (str(completed["stdout"]) + str(completed["stderr"]))[-4000:],
+        "output": redact_sensitive_text((str(completed["stdout"]) + str(completed["stderr"]))[-4000:]),
     }
     passed = completed["returncode"] in allowed
     return _Outcome(passed, None if passed else "command_failed", None, details)
@@ -427,7 +464,20 @@ def _evidence(
     confirmation: Optional[Mapping[str, object]],
     timeout_cap: Optional[float] = None,
 ) -> VerificationEvidence:
+    started = time.monotonic()
     outcome = _run(verifier, metadata, scope, confirmation, timeout_cap)
+    execution_ms = (time.monotonic() - started) * 1000
+    if outcome.execution_ms is not None:
+        execution_ms = outcome.execution_ms
+    if report_requested():
+        identity_data = [_cache_key(metadata, rule, verifier, scope, confirmation, verifier.stage),
+                         str(Path(scope.root).resolve()), dict(os.environ), timeout_cap]
+        identity = hashlib.sha256(json.dumps(identity_data, sort_keys=True, default=str).encode()).hexdigest()
+        report = {"kind": "spec_check", "check_id": f"{metadata.id}#{rule.ref}",
+                  "reused": int(outcome.execution_reused), "execution_ms": execution_ms}
+        if not outcome.execution_reused:
+            report["identity"] = identity
+        record_report(report)
     status = "verified" if outcome.passed else "unverified"
     diff_hash = None if verifier.type == "document" else scope.diff_sha256
     return VerificationEvidence(
@@ -521,9 +571,7 @@ def _missing_evidence(metadata: SpecMetadata, rule: SpecRule, scope: Verificatio
     )
 
 
-def _run_all_verifiers(
-    metadata: SpecMetadata,
-    scope: VerificationScope,
+def _run_all_verifiers(metadata: SpecMetadata, scope: VerificationScope,
     confirmations: Optional[Mapping[str, Mapping[str, object]]] = None,
     skip_command: bool = False,
     timeout_budget: Optional[float] = None,
@@ -566,7 +614,7 @@ def _run_all_verifiers(
     if parallel:
         with ThreadPoolExecutor(max_workers=min(8, len(parallel))) as pool:
             futures = {
-                rule.ref: pool.submit(_cached_or_run, metadata, rule, verifier, scope, confirmation, stage)
+                rule.ref: pool.submit(copy_context().run, _cached_or_run, metadata, rule, verifier, scope, confirmation, stage)
                 for rule, verifier, confirmation in parallel
             }
             evidence_by_ref.update({ref: future.result() for ref, future in futures.items()})
