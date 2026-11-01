@@ -36,7 +36,7 @@
 | E-04 | experience-management.backend.design.md#2.5 | integration | LearningJobRunner → 真实 PG；探针可控延迟/失败 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_jobs.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | B-01 | experience-management.backend.design.md#2.5 | unit | 纯函数 derive_task_family / first_successful_skill；无 IO | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_task_family_scope.py"] | . | 900 | P0 | auto | none | - | - | - | no |
 | B-02 | experience-management.backend.design.md#2.5 | integration | Console 聚合 SQL → 真实 PG | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "aggregate"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| S-10 | experience-management.backend.design.md#2.5 | integration | Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log | TASK-008 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_audit_projection.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| S-10 | experience-management.backend.design.md#2.5 | integration | Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log | TASK-008 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_audit_projection.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-11 | experience-management.backend.design.md#2.5 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | TASK-013 | planned | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | . | 3600 | P1 | deferred | local-api | - | - | - | no |
 | S-12 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG | TASK-009 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_family_control.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-13 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计） | TASK-010 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_content_revision.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
@@ -407,7 +407,7 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 
 ## TASK-008: 审计可见性与深链
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: backend design §3.4.3 审计投影；frontend design §3.2.1
@@ -434,15 +434,18 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-10 | integration | Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log | 列表返回全部经验审计行，target 展示 experience_key/user_id；历史行标归属未知；动作/资源词条有中英标签；真实 actor 解析出账号名，合成 actor 显示系统/自动；详情含 user_id/key，可构造 /learning?experience=<user_id>:<key> 深链 | tests/console_platform/test_learning_audit_projection.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_audit_projection.py"] | planned |
+| S-10 | integration | Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log | 列表返回全部经验审计行，target 展示 experience_key/user_id；历史行标归属未知；动作/资源词条有中英标签；真实 actor 解析出账号名，合成 actor 显示系统/自动；详情含 user_id/key，可构造 /learning?experience=<user_id>:<key> 深链 | tests/console_platform/test_learning_audit_projection.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_audit_projection.py"] | verified |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
+- S-10: verified — automated command passed; run_id=634aa6c2458c4525bd46afe16313d50a (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---
 

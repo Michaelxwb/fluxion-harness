@@ -131,7 +131,27 @@ function buildBasicItems(detail: AuditDetail, t: TFunction): DetailGridItem[] {
     { label: t('audit.columns.auditType'), value: t(`audit.auditType.${detail.auditType}`) },
     { label: t('audit.columns.actor'), value: detail.actorName ?? detail.actorUserId },
     { label: t('audit.columns.agent'), value: text(detail.agentName ?? detail.agentId) },
-    { label: t('audit.columns.target'), value: text(detail.target) },
+    {
+      label: t('audit.columns.target'),
+      value:
+        detail.resourceType === 'MEMORY_EXPERIENCE'
+        && detail.extras.after
+        && typeof detail.extras.after === 'object'
+        && (detail.extras.after as Record<string, unknown>).experience_key
+        && (detail.extras.after as Record<string, unknown>).user_id ? (
+          <a
+            href={`/learning?experience=${String(
+              (detail.extras.after as Record<string, unknown>).user_id
+            )}:${String(
+              (detail.extras.after as Record<string, unknown>).experience_key
+            )}`}
+          >
+            {text(detail.target)}
+          </a>
+        ) : (
+          text(detail.target)
+        )
+    },
     { label: t('audit.columns.action'), value: text(detail.action) },
     {
       label: t('audit.columns.result'),

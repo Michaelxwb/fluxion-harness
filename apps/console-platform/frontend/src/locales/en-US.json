@@ -1030,6 +1030,7 @@
   "audit.resourceType.MODEL": "Model",
   "audit.resourceType.MODEL_CREDENTIAL": "Model credential",
   "audit.resourceType.MODEL_DEPLOYMENT": "Model member",
+  "audit.resourceType.MEMORY_EXPERIENCE": "Experience",
   "audit.resourceType.MODEL_QUOTA_GROUP": "Model quota group",
   "audit.resourceType.PLATFORM_SETTING": "Platform settings",
   "audit.resourceType.PLATFORM_USER": "Platform user",

@@ -52,7 +52,12 @@ SELECT
     c.action AS action,
     'SUCCESS' AS result_status,
     c.trace_id AS trace_id,
-    c.resource_type || '/' || c.resource_id::text AS target,
+    CASE
+        WHEN c.resource_type = 'MEMORY_EXPERIENCE' AND c.after_json ? 'experience_key'
+            THEN c.after_json->>'experience_key'
+                 || COALESCE(' / ' || (c.after_json->>'user_id'), '')
+        ELSE c.resource_type || '/' || c.resource_id::text
+    END AS target,
     c.create_time AS occurred_at,
     c.create_time AS started_at,
     NULL::timestamptz AS finished_at,

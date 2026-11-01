@@ -2964,7 +2964,7 @@
       "kind": "functional",
       "boundary": "Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log",
       "owner": "TASK-008",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3027,7 +3027,90 @@
       "features": [
         "FEAT-09"
       ],
-      "check": "CHK-870dcd9f8a8e"
+      "check": "CHK-870dcd9f8a8e",
+      "revision": 1,
+      "evidence": {
+        "id": "S-10",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-870dcd9f8a8e",
+        "input_hash": "b81063443fac6f4920d963739be4277a7b36c92a1f634e9b564370a2e81a4c57",
+        "check_config": {
+          "id": "CHK-870dcd9f8a8e",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_audit_projection.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "634aa6c2458c4525bd46afe16313d50a",
+        "executed_at": "2026-11-01T02:51:08.116422+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_platform/test_learning_audit_projection.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "b81063443fac6f4920d963739be4277a7b36c92a1f634e9b564370a2e81a4c57"
+      },
+      "runs": [
+        {
+          "id": "S-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-870dcd9f8a8e",
+          "input_hash": "b81063443fac6f4920d963739be4277a7b36c92a1f634e9b564370a2e81a4c57",
+          "check_config": {
+            "id": "CHK-870dcd9f8a8e",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_audit_projection.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "634aa6c2458c4525bd46afe16313d50a",
+          "executed_at": "2026-11-01T02:51:08.116422+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_audit_projection.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "b81063443fac6f4920d963739be4277a7b36c92a1f634e9b564370a2e81a4c57"
+        }
+      ]
     },
     {
       "id": "S-11",

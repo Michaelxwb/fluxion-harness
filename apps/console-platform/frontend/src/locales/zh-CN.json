@@ -1030,6 +1030,7 @@
   "audit.resourceType.MODEL": "模型",
   "audit.resourceType.MODEL_CREDENTIAL": "模型凭据",
   "audit.resourceType.MODEL_DEPLOYMENT": "模型成员",
+  "audit.resourceType.MEMORY_EXPERIENCE": "经验",
   "audit.resourceType.MODEL_QUOTA_GROUP": "模型额度组",
   "audit.resourceType.PLATFORM_SETTING": "平台设置",
   "audit.resourceType.PLATFORM_USER": "平台用户",
