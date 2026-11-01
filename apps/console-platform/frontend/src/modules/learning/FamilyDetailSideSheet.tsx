@@ -52,6 +52,7 @@ export function FamilyDetailSideSheet(props: FamilyDetailSideSheetProps) {
       {props.family !== null && detail === null && <Spin />}
       {detail && (
         <Tabs.TabPane itemKey="overview" tab={t('learning.family.overview')}>
+          <div className="detail-section-title">{t('learning.family.overview')}</div>
           <div>
           <DetailGrid
             items={[

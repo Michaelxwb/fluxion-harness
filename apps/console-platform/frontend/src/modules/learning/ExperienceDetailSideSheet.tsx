@@ -99,7 +99,16 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
     <DetailSideSheet
       visible={props.memoryKey !== null}
       onCancel={props.onClose}
-      title={detail?.memory_key ?? t('learning.detail.title')}
+      title={
+        <>
+          {detail?.memory_key ?? t('learning.detail.title')}
+          {detail ? (
+            <Tag size="small" style={{ marginLeft: 8 }}>
+              v{detail.version}
+            </Tag>
+          ) : null}
+        </>
+      }
       subtitle={
         detail ? `${detail.task_signature ?? '-'} · ${detail.activation_state}` : undefined
       }
@@ -110,6 +119,7 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
       {detail ? (
         <>
           <Tabs.TabPane itemKey="overview" tab={t('learning.detail.overview')}>
+            <div className="detail-section-title">{t('learning.detail.identity')}</div>
             <DetailGrid
               items={[
                 { label: t('learning.columns.family'), value: detail.task_signature ?? '-' },
