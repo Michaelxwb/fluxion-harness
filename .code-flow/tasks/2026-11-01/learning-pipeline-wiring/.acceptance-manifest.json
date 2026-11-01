@@ -658,7 +658,7 @@
       "kind": "functional",
       "boundary": "真实 Snapshot 与 Run 输入重建 + 真实 PostgreSQL；模型传输用本地假上游",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -713,7 +713,90 @@
       "features": [
         "FEAT-04"
       ],
-      "check": "CHK-01bf997b5f28"
+      "check": "CHK-01bf997b5f28",
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-01bf997b5f28",
+        "input_hash": "e01bc3ce753d8d54315cc6f877ed6a51e3dba9a61d0352ea777d34a4ca8fbd1b",
+        "check_config": {
+          "id": "CHK-01bf997b5f28",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_case_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "b7381f70379b434fab7c6153cb03146a",
+        "executed_at": "2026-11-01T01:00:23.767816+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_case_runner.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "e01bc3ce753d8d54315cc6f877ed6a51e3dba9a61d0352ea777d34a4ca8fbd1b"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-01bf997b5f28",
+          "input_hash": "e01bc3ce753d8d54315cc6f877ed6a51e3dba9a61d0352ea777d34a4ca8fbd1b",
+          "check_config": {
+            "id": "CHK-01bf997b5f28",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_case_runner.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "b7381f70379b434fab7c6153cb03146a",
+          "executed_at": "2026-11-01T01:00:23.767816+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_case_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "e01bc3ce753d8d54315cc6f877ed6a51e3dba9a61d0352ea777d34a4ca8fbd1b"
+        }
+      ]
     },
     {
       "id": "S-05",

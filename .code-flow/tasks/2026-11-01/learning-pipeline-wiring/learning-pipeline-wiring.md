@@ -24,7 +24,7 @@
 | S-01 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实 executor 组合 + 真实 PostgreSQL | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_family_wiring.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-02 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实 Snapshot policy_json + 真实 PostgreSQL | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_family_wiring.py","-k","freeze"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-03 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实调度循环 + 真实 PostgreSQL | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_scheduler.py"] | . | 900 | P0 | auto | local | - | - | - | no |
-| S-04 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实 Snapshot + 真实 PostgreSQL；本地假上游 | TASK-003 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_case_runner.py"] | . | 900 | P0 | auto | local | - | - | - | no |
+| S-04 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实 Snapshot + 真实 PostgreSQL；本地假上游 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_case_runner.py"] | . | 900 | P0 | auto | local | - | - | - | no |
 | S-05 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实调度 + 回放结果 + 审计 | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_trial_wiring.py"] | . | 900 | P0 | auto | local | - | - | - | no |
 | S-06 | learning-pipeline-wiring.design.md#2.5 验收条件 | contract | 真实 CLI 进程 + 真实 PostgreSQL + 审计 | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_admin_cli.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | S-07 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实 supervisor + executor + 脚本化 provider | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_e2e.py"] | . | 900 | P0 | auto | local | - | - | - | no |
@@ -148,7 +148,7 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 
 ## TASK-003: 生产 CaseRunner 与两臂回放接线
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: learning-pipeline-wiring.design.md#3.4 接口设计, learning-pipeline-wiring.design.md#3.5 质量实现方案
@@ -164,25 +164,35 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_learning_case_runner.py`
-- [ ] 两臂请求差异（候选携带经验）可断言
-- [ ] 逐项判定与报告落库
-- [ ] [S-04][integration] 覆盖真实重建与两臂
-- [ ] [harness-snapshot#RULE-snapshot-001] verifier：同命令；冻结 Snapshot
-- [ ] [harness-secret#RULE-secret-001] verifier：同命令；凭据不落日志/报告
-- [ ] [harness-model#RULE-model-001] verifier：同命令；模型池与实时凭据
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_learning_case_runner.py`
+- [x] 两臂请求差异（候选携带经验）可断言
+- [x] 逐项判定与报告落库
+- [x] [S-04][integration] 覆盖真实重建与两臂
+- [x] [harness-snapshot#RULE-snapshot-001] verifier：同命令；冻结 Snapshot
+- [x] [harness-secret#RULE-secret-001] verifier：同命令；凭据不落日志/报告
+- [x] [harness-model#RULE-model-001] verifier：同命令；模型池与实时凭据
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-04 | integration | 真实 Snapshot + PG；本地假上游 | 请求重建；两臂差异；逐项判定 | tests/agent_runtime/test_learning_case_runner.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_case_runner.py"] | planned |
+| S-04 | integration | 真实 Snapshot + PG；本地假上游 | 请求重建；两臂差异；逐项判定 | tests/agent_runtime/test_learning_case_runner.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_case_runner.py"] | verified |
 
 ### Acceptance Evidence
+
+- RED: 去掉实现后 collection error（`learning_case_runner` 缺失），2026-11-01。
+- GREEN: `2 passed in 0.65s`（真实 Snapshot 重建 + 本地假上游；两臂请求逐项比对）。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-04 | FAIL: collection error | PASS: 2 passed | `test_judge_answer_prefers_json_structure`、`test_s04_two_arm_requests_rebuilt_from_snapshot` | 真实 RuntimeSnapshot + 来源 Run 输入；候选臂携带经验、基线臂不携带；模型传输走 MockTransport | verified |
+- S-04: verified — automated command passed; run_id=b7381f70379b434fab7c6153cb03146a (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---
 
