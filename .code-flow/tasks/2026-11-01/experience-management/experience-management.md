@@ -37,7 +37,7 @@
 | B-01 | experience-management.backend.design.md#2.5 | unit | 纯函数 derive_task_family / first_successful_skill；无 IO | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_task_family_scope.py"] | . | 900 | P0 | auto | none | - | - | - | no |
 | B-02 | experience-management.backend.design.md#2.5 | integration | Console 聚合 SQL → 真实 PG | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "aggregate"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-10 | experience-management.backend.design.md#2.5 | integration | Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log | TASK-008 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_audit_projection.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| S-11 | experience-management.backend.design.md#2.5 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | TASK-013 | planned | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | . | 3600 | P1 | deferred | local-api | - | - | - | no |
+| S-11 | experience-management.backend.design.md#2.5 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | TASK-013 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | . | 3600 | P1 | deferred | local-api | - | - | - | no |
 | S-12 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_family_control.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-13 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计） | TASK-010 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_content_revision.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | S-14 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG | TASK-011 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_feedback.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
@@ -656,7 +656,7 @@ Run 止损、族暂停、内容修订、差回答四个入口在管理员/非管
 
 ## TASK-013: 管理面容量与混合负载验证
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-004, TASK-006, TASK-009, TASK-010, TASK-011
 - **Source**: backend design §3.5 性能；PRD NFR-PERF-02
@@ -684,14 +684,17 @@ Run 止损、族暂停、内容修订、差回答四个入口在管理员/非管
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-11 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | 用户侧 admission/first-delta 与无管理操作基线无显著回归；管理接口 p95 ≤ 500ms；无 pool timeout；回放只在容量租约内调用模型，不超并发/额度；族统计不随 Run 历史线性变慢 | tests/capacity/test_learning_management_mixed.py | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | planned |
+| S-11 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | 用户侧 admission/first-delta 与无管理操作基线无显著回归；管理接口 p95 ≤ 500ms；无 pool timeout；回放只在容量租约内调用模型，不超并发/额度；族统计不随 Run 历史线性变慢 | tests/capacity/test_learning_management_mixed.py | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | e2e_deferred |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
+- S-11: e2e_deferred — automated command e2e_deferred; run_id=681620392e0f4d61a7eedcc5ab0719a1 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---

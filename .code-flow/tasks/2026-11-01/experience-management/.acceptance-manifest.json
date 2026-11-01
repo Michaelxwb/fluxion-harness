@@ -3813,7 +3813,7 @@
       "kind": "functional",
       "boundary": "1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放",
       "owner": "TASK-013",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -3888,7 +3888,134 @@
         "FEAT-04"
       ],
       "defer_owner": "TASK-004",
-      "check": "CHK-9f951014bc8b"
+      "check": "CHK-9f951014bc8b",
+      "revision": 1,
+      "evidence": {
+        "id": "S-11",
+        "kind": "functional",
+        "status": "e2e_deferred",
+        "check_config": {
+          "id": "CHK-9f951014bc8b",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/capacity/test_learning_management_mixed.py",
+            "-m",
+            "capacity_load"
+          ],
+          "cwd": ".",
+          "timeout": 3600.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": [],
+          "suite": "capacity",
+          "test_ids": [
+            "tests/capacity/test_learning_management_mixed.py::test_learning_management_mixed_load"
+          ],
+          "markers": [
+            "capacity",
+            "capacity_load"
+          ],
+          "collect": {
+            "format": "pytest",
+            "argv": [
+              "uv",
+              "run",
+              "pytest",
+              "tests/capacity/test_learning_management_mixed.py",
+              "-m",
+              "capacity and capacity_load",
+              "--collect-only",
+              "--verbosity=-1"
+            ],
+            "timeout": 60
+          }
+        },
+        "revision": 1,
+        "run_id": "681620392e0f4d61a7eedcc5ab0719a1",
+        "executed_at": "2026-11-01T03:05:02.146479+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/capacity/test_learning_management_mixed.py",
+          "-m",
+          "capacity_load"
+        ],
+        "cwd": ".",
+        "timeout": 3600.0
+      },
+      "runs": [
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-9f951014bc8b",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/capacity/test_learning_management_mixed.py",
+              "-m",
+              "capacity_load"
+            ],
+            "cwd": ".",
+            "timeout": 3600.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [],
+            "suite": "capacity",
+            "test_ids": [
+              "tests/capacity/test_learning_management_mixed.py::test_learning_management_mixed_load"
+            ],
+            "markers": [
+              "capacity",
+              "capacity_load"
+            ],
+            "collect": {
+              "format": "pytest",
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "tests/capacity/test_learning_management_mixed.py",
+                "-m",
+                "capacity and capacity_load",
+                "--collect-only",
+                "--verbosity=-1"
+              ],
+              "timeout": 60
+            }
+          },
+          "revision": 1,
+          "run_id": "681620392e0f4d61a7eedcc5ab0719a1",
+          "executed_at": "2026-11-01T03:05:02.146479+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/capacity/test_learning_management_mixed.py",
+            "-m",
+            "capacity_load"
+          ],
+          "cwd": ".",
+          "timeout": 3600.0
+        }
+      ]
     },
     {
       "id": "S-12",
