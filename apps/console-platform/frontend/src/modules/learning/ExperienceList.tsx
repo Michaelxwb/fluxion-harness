@@ -1,6 +1,7 @@
 import { Table, Tag } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
+import { DataTable } from '../../components/common/DataTable';
 import type { ActivationState, ExperienceItem } from './types';
 
 const STATE_TONE: Record<
@@ -22,8 +23,9 @@ export interface ExperienceListProps {
 export function ExperienceList(props: ExperienceListProps) {
   const { t } = useTranslation();
   return (
-    <Table
+    <DataTable
       dataSource={props.items}
+      collapseActions={false}
       pagination={false}
       loading={props.loading}
       rowKey="memory_key"
@@ -52,6 +54,6 @@ export function ExperienceList(props: ExperienceListProps) {
         render={(report: ExperienceItem['latest_report']) => report?.status ?? '-'}
       />
       <Table.Column title={t('learning.columns.updated')} dataIndex="update_time" />
-    </Table>
+    </DataTable>
   );
 }

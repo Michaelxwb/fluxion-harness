@@ -1632,5 +1632,14 @@
   "learning.family.search": "Search families",
   "learning.detail.evidence": "Evidence",
   "learning.detail.history": "History",
-  "learning.detail.audits": "Audit"
+  "learning.detail.audits": "Audit",
+  "learning.family.subtitle": "Learning assets, replays and injections by task family",
+  "learning.detail.overview": "Overview",
+  "learning.detail.actor": "Actor",
+  "learning.detail.action": "Action",
+  "learning.detail.operator": "Operator",
+  "learning.family.window": "Window",
+  "learning.family.running": "Running",
+  "learning.run.recorded": "Recorded",
+  "learning.detail.improvement": "Improvement"
 }

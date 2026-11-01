@@ -1632,5 +1632,14 @@
   "learning.family.search": "搜索任务族",
   "learning.detail.evidence": "来源证据",
   "learning.detail.history": "版本历史",
-  "learning.detail.audits": "审计"
+  "learning.detail.audits": "审计",
+  "learning.family.subtitle": "按任务族查看学习沉淀、回放与注入情况",
+  "learning.detail.overview": "概览",
+  "learning.detail.actor": "操作者",
+  "learning.detail.action": "动作",
+  "learning.detail.operator": "操作者",
+  "learning.family.window": "统计窗口",
+  "learning.family.running": "运行中",
+  "learning.run.recorded": "已记录",
+  "learning.detail.improvement": "提升"
 }

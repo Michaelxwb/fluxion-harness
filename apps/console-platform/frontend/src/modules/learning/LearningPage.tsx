@@ -1,8 +1,11 @@
-import { Input, Select, Tag } from '@douyinfe/semi-ui';
+import { Banner, Input, Select, Tag, Typography } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
+import { PageHeader, PageSection } from '../../components/common/ConsolePage';
+import { ListActionButton } from '../../components/common/ListActionButton';
+import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { ExperienceDetailSideSheet } from './ExperienceDetailSideSheet';
 import { FamilyDetailSideSheet } from './FamilyDetailSideSheet';
@@ -17,6 +20,8 @@ export function LearningPage() {
   const [unclassified, setUnclassified] = useState(0);
   const [source, setSource] = useState<string | undefined>();
   const [query, setQuery] = useState('');
+  const [failed, setFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const family = params.get('family');
@@ -32,8 +37,8 @@ export function LearningPage() {
         setTotal(data.total);
         setUnclassified(data.unclassified_runs);
       })
-      .catch(() => undefined);
-  }, [source, query, page, pageSize]);
+      .catch(() => setFailed(true));
+  }, [source, query, page, pageSize, reloadKey]);
 
   function openFamily(value: string) {
     const next = new URLSearchParams(params);
@@ -48,30 +53,52 @@ export function LearningPage() {
   }
 
   return (
-    <div>
-      <div className="module-toolbar">
-        <span>{t('learning.family.pageTitle')}</span>
-        <Input
-          value={query}
-          placeholder={t('learning.family.search')}
-          onChange={setQuery}
+    <>
+      <PageHeader
+        title={t('learning.family.pageTitle')}
+        description={t('learning.family.subtitle')}
+      />
+      <PageSection>
+        <ModuleToolbar
+          actions={
+            <ListActionButton
+              action="refresh"
+              onClick={() => {
+                setFailed(false);
+                setReloadKey((value) => value + 1);
+              }}
+            />
+          }
+          search={
+            <>
+              <Input
+                value={query}
+                placeholder={t('learning.family.search')}
+                onChange={setQuery}
+              />
+              <Select
+                showClear
+                placeholder={t('learning.family.source')}
+                optionList={[
+                  { value: 'skill', label: 'skill' },
+                  { value: 'agent', label: 'agent' },
+                  { value: 'unknown', label: t('learning.family.unknown') }
+                ]}
+                value={source}
+                onChange={(value) => {
+                  setSource(value as string | undefined);
+                  setPage(1);
+                }}
+              />
+            </>
+          }
         />
-        <Select
-          showClear
-          placeholder={t('learning.family.source')}
-          optionList={[
-            { value: 'skill', label: 'skill' },
-            { value: 'agent', label: 'agent' },
-            { value: 'unknown', label: t('learning.family.unknown') }
-          ]}
-          value={source}
-          onChange={(value) => {
-            setSource(value as string | undefined);
-            setPage(1);
-          }}
-        />
-      </div>
-      <div>{t('learning.family.unclassified', { count: unclassified })}</div>
+        {failed ? (
+          <Banner type="danger" description={t('learning.errors.load')} />
+        ) : null}
+        <Typography.Text type="tertiary">
+          {t('learning.family.unclassified', { count: unclassified })}
+        </Typography.Text>
       <RemoteTable
         dataSource={items}
         rowKey="family"
@@ -117,16 +144,17 @@ export function LearningPage() {
         }}
         onOpenExperience={openExperience}
       />
-      <ExperienceDetailSideSheet
-        userId={parsed?.userId ?? ''}
-        memoryKey={parsed?.key ?? null}
-        onClose={() => {
-          const next = new URLSearchParams(params);
-          next.delete('experience');
-          setParams(next);
-        }}
-        onMutated={() => undefined}
-      />
-    </div>
+        <ExperienceDetailSideSheet
+          userId={parsed?.userId ?? ''}
+          memoryKey={parsed?.key ?? null}
+          onClose={() => {
+            const next = new URLSearchParams(params);
+            next.delete('experience');
+            setParams(next);
+          }}
+          onMutated={() => undefined}
+        />
+      </PageSection>
+    </>
   );
 }

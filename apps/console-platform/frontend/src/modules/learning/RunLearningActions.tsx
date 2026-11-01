@@ -29,7 +29,7 @@ export function RunLearningActions(props: { runId: string; onMutated?(): void })
   }
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <Input value={reason} placeholder={t('learning.detail.reason')} onChange={setReason} />
       <Button onClick={() => submit('stop')}>{t('learning.actions.stop')}</Button>
       <Button onClick={() => submit('feedback')}>{t('learning.actions.feedback')}</Button>
