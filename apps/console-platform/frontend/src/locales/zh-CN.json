@@ -1641,5 +1641,7 @@
   "learning.family.window": "统计窗口",
   "learning.family.running": "运行中",
   "learning.run.recorded": "已记录",
-  "learning.detail.improvement": "提升"
+  "learning.detail.improvement": "提升",
+  "learning.columns.actions": "操作",
+  "learning.actions.view": "详情"
 }

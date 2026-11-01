@@ -1641,5 +1641,7 @@
   "learning.family.window": "Window",
   "learning.family.running": "Running",
   "learning.run.recorded": "Recorded",
-  "learning.detail.improvement": "Improvement"
+  "learning.detail.improvement": "Improvement",
+  "learning.columns.actions": "Actions",
+  "learning.actions.view": "View"
 }

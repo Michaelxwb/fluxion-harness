@@ -1,9 +1,10 @@
-import { Banner, Input, Select, Tag, Typography } from '@douyinfe/semi-ui';
+import { Banner, Button, Input, Select, Tag, Typography } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
+import { EntityLink } from '../../components/common/EntityLink';
 import { ListActionButton } from '../../components/common/ListActionButton';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
@@ -55,28 +56,21 @@ export function LearningPage() {
   return (
     <>
       <PageHeader
-        title={t('learning.family.pageTitle')}
+        title={t('nav.learning')}
         description={t('learning.family.subtitle')}
       />
       <PageSection>
         <ModuleToolbar
-          actions={
-            <ListActionButton
-              action="refresh"
-              onClick={() => {
-                setFailed(false);
-                setReloadKey((value) => value + 1);
-              }}
-            />
-          }
           search={
             <>
               <Input
+                style={{ width: 260 }}
                 value={query}
                 placeholder={t('learning.family.search')}
                 onChange={setQuery}
               />
               <Select
+                style={{ width: 140 }}
                 showClear
                 placeholder={t('learning.family.source')}
                 optionList={[
@@ -90,6 +84,13 @@ export function LearningPage() {
                   setPage(1);
                 }}
               />
+              <ListActionButton
+                action="refresh"
+                onClick={() => {
+                  setFailed(false);
+                  setReloadKey((value) => value + 1);
+                }}
+              />
             </>
           }
         />
@@ -100,6 +101,7 @@ export function LearningPage() {
           {t('learning.family.unclassified', { count: unclassified })}
         </Typography.Text>
       <RemoteTable
+        scroll={{ x: '100%' }}
         dataSource={items}
         rowKey="family"
         page={page}
@@ -114,7 +116,9 @@ export function LearningPage() {
           {
             title: t('learning.family.name'),
             dataIndex: 'family',
-            render: (value: string) => <a onClick={() => openFamily(value)}>{value}</a>
+            render: (value: string) => (
+              <EntityLink onClick={() => openFamily(value)}>{value}</EntityLink>
+            )
           },
           {
             title: t('learning.family.source'),
@@ -132,6 +136,17 @@ export function LearningPage() {
             title: t('learning.family.passRate'),
             dataIndex: 'pass_rate',
             render: (value: FamilyItem['pass_rate']) => `${value.passed}/${value.total}`
+          },
+          {
+            title: t('learning.columns.actions'),
+            key: 'actions',
+            fixed: 'right',
+            width: 120,
+            render: (_: unknown, item: FamilyItem) => (
+              <Button theme="borderless" onClick={() => openFamily(item.family)}>
+                {t('learning.actions.view')}
+              </Button>
+            )
           }
         ]}
       />

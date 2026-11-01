@@ -1,7 +1,8 @@
-import { Table, Tag } from '@douyinfe/semi-ui';
+import { Button, Table, Tag } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '../../components/common/DataTable';
+import { EntityLink } from '../../components/common/EntityLink';
 import type { ActivationState, ExperienceItem } from './types';
 
 const STATE_TONE: Record<
@@ -35,7 +36,7 @@ export function ExperienceList(props: ExperienceListProps) {
         title={t('learning.columns.key')}
         dataIndex="memory_key"
         render={(value: string, item: ExperienceItem) => (
-          <a onClick={() => props.onOpen(item)}>{value}</a>
+          <EntityLink onClick={() => props.onOpen(item)}>{value}</EntityLink>
         )}
       />
       <Table.Column title={t('learning.columns.family')} dataIndex="task_signature" />
@@ -54,6 +55,17 @@ export function ExperienceList(props: ExperienceListProps) {
         render={(report: ExperienceItem['latest_report']) => report?.status ?? '-'}
       />
       <Table.Column title={t('learning.columns.updated')} dataIndex="update_time" />
+      <Table.Column
+        title={t('learning.columns.actions')}
+        key="actions"
+        fixed="right"
+        width={90}
+        render={(_: unknown, item: ExperienceItem) => (
+          <Button theme="borderless" onClick={() => props.onOpen(item)}>
+            {t('learning.actions.view')}
+          </Button>
+        )}
+      />
     </DataTable>
   );
 }
