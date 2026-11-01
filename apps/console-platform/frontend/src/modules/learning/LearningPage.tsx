@@ -1,8 +1,9 @@
-import { Pagination, Select, Table, Tag } from '@douyinfe/semi-ui';
+import { Select, Tag } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
+import { RemoteTable } from '../../components/common/RemoteTable';
 import { ExperienceDetailSideSheet } from './ExperienceDetailSideSheet';
 import { FamilyDetailSideSheet } from './FamilyDetailSideSheet';
 import { listFamilies } from './services/learning';
@@ -65,24 +66,10 @@ export function LearningPage() {
         />
       </div>
       <div>{t('learning.family.unclassified', { count: unclassified })}</div>
-      <Table
+      <RemoteTable
         dataSource={items}
-        pagination={false}
         rowKey="family"
-        onRow={(item) => (item ? { onClick: () => openFamily(item.family) } : {})}
-      >
-        <Table.Column title={t('learning.family.name')} dataIndex="family" />
-        <Table.Column title={t('learning.family.source')} dataIndex="source" render={(value: string) => <Tag>{value}</Tag>} />
-        <Table.Column title={t('learning.family.runs')} dataIndex="run_count" />
-        <Table.Column title={t('learning.columns.state')} dataIndex="states" render={(states: FamilyItem['states']) => `${states.ACTIVE}/${states.TRIAL}/${states.PROPOSED}`} />
-        <Table.Column
-          title={t('learning.family.passRate')}
-          dataIndex="pass_rate"
-          render={(value: FamilyItem['pass_rate']) => `${value.passed}/${value.total}`}
-        />
-      </Table>
-      <Pagination
-        currentPage={page}
+        page={page}
         pageSize={pageSize}
         total={total}
         onPageChange={setPage}
@@ -90,6 +77,30 @@ export function LearningPage() {
           setPageSize(size);
           setPage(1);
         }}
+        columns={[
+          {
+            title: t('learning.family.name'),
+            dataIndex: 'family',
+            render: (value: string) => <a onClick={() => openFamily(value)}>{value}</a>
+          },
+          {
+            title: t('learning.family.source'),
+            dataIndex: 'source',
+            render: (value: string) => <Tag>{value}</Tag>
+          },
+          { title: t('learning.family.runs'), dataIndex: 'run_count' },
+          {
+            title: t('learning.columns.state'),
+            dataIndex: 'states',
+            render: (states: FamilyItem['states']) =>
+              `${states.ACTIVE}/${states.TRIAL}/${states.PROPOSED}`
+          },
+          {
+            title: t('learning.family.passRate'),
+            dataIndex: 'pass_rate',
+            render: (value: FamilyItem['pass_rate']) => `${value.passed}/${value.total}`
+          }
+        ]}
       />
       <FamilyDetailSideSheet
         family={family}

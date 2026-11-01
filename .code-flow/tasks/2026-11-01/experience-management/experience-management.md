@@ -323,7 +323,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 ## TASK-006: 族视图前端与浏览器旅程
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004, TASK-005, TASK-007
 - **Source**: frontend design §3.2/§3.3/§3.4/§3.5
@@ -364,10 +364,15 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - S-08: e2e_deferred — automated command e2e_deferred; run_id=0a05b6817e404cfabbee2358fa41ce47 (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=1decfc88ee2a46cb8fa6acfde6388a43 (confirmed_by: runner)
 - S-08: e2e_deferred — automated command e2e_deferred; run_id=1decfc88ee2a46cb8fa6acfde6388a43 (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=e5b31d04d8dc40d5a619686e7c398c4a (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=6ce600b3f7394ac1a4b2663d9878cb45 (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=6ce600b3f7394ac1a4b2663d9878cb45 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---
 

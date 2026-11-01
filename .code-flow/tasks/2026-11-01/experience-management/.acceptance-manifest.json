@@ -1697,14 +1697,14 @@
         "FEAT-06"
       ],
       "check": "CHK-67a5b8ea04b6",
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "S-07",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
         "check_id": "CHK-67a5b8ea04b6",
-        "input_hash": "23be2cf755127d67733a63f4a11f2fb83917c341668e09d1d3d8d89a5b8ca33a",
+        "input_hash": "788f1f5b37ccefeb68c5471f931e4d722dd54726563301762e4220e5db169093",
         "check_config": {
           "id": "CHK-67a5b8ea04b6",
           "command": [
@@ -1724,9 +1724,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "1decfc88ee2a46cb8fa6acfde6388a43",
-        "executed_at": "2026-11-01T03:01:35.819862+00:00",
+        "revision": 3,
+        "run_id": "6ce600b3f7394ac1a4b2663d9878cb45",
+        "executed_at": "2026-11-01T03:02:12.107518+00:00",
         "command": [
           "uv",
           "run",
@@ -1736,7 +1736,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "23be2cf755127d67733a63f4a11f2fb83917c341668e09d1d3d8d89a5b8ca33a"
+        "fingerprint": "788f1f5b37ccefeb68c5471f931e4d722dd54726563301762e4220e5db169093"
       },
       "runs": [
         {
@@ -1822,6 +1822,46 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "23be2cf755127d67733a63f4a11f2fb83917c341668e09d1d3d8d89a5b8ca33a"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-67a5b8ea04b6",
+          "input_hash": "788f1f5b37ccefeb68c5471f931e4d722dd54726563301762e4220e5db169093",
+          "check_config": {
+            "id": "CHK-67a5b8ea04b6",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_learning_family_page_contract.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "6ce600b3f7394ac1a4b2663d9878cb45",
+          "executed_at": "2026-11-01T03:02:12.107518+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_family_page_contract.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "788f1f5b37ccefeb68c5471f931e4d722dd54726563301762e4220e5db169093"
         }
       ]
     },
@@ -1913,7 +1953,7 @@
       ],
       "defer_owner": "TASK-004",
       "check": "CHK-f5b42409b72c",
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "S-08",
         "kind": "e2e",
@@ -1963,9 +2003,9 @@
             "timeout": 60
           }
         },
-        "revision": 2,
-        "run_id": "1decfc88ee2a46cb8fa6acfde6388a43",
-        "executed_at": "2026-11-01T03:01:35.819862+00:00",
+        "revision": 4,
+        "run_id": "6ce600b3f7394ac1a4b2663d9878cb45",
+        "executed_at": "2026-11-01T03:02:12.107518+00:00",
         "command": [
           "node",
           "e2e/node_modules/.bin/playwright",
@@ -2093,6 +2133,132 @@
           "revision": 2,
           "run_id": "1decfc88ee2a46cb8fa6acfde6388a43",
           "executed_at": "2026-11-01T03:01:35.819862+00:00",
+          "command": [
+            "node",
+            "e2e/node_modules/.bin/playwright",
+            "test",
+            "--config",
+            "e2e/playwright.learning-experience.config.ts",
+            "e2e/tests/learning-experience.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0
+        },
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-f5b42409b72c",
+            "command": [
+              "node",
+              "e2e/node_modules/.bin/playwright",
+              "test",
+              "--config",
+              "e2e/playwright.learning-experience.config.ts",
+              "e2e/tests/learning-experience.spec.ts"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/agent-runtime/src/muad_agent_runtime/application/learning_*",
+              "apps/console-platform/backend/src/muad_console_platform/api/learning.py",
+              "apps/console-platform/frontend/src/modules/learning/**",
+              "apps/console-platform/frontend/src/modules/run-observability/**",
+              "apps/console-platform/frontend/src/modules/user-identity/**"
+            ],
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/learning-experience.spec.ts:6@browser"
+            ],
+            "markers": [],
+            "collect": {
+              "format": "playwright",
+              "argv": [
+                "node",
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.learning-experience.config.ts",
+                "e2e/tests/learning-experience.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "timeout": 60
+            }
+          },
+          "revision": 3,
+          "run_id": "e5b31d04d8dc40d5a619686e7c398c4a",
+          "executed_at": "2026-11-01T03:01:44.500728+00:00",
+          "command": [
+            "node",
+            "e2e/node_modules/.bin/playwright",
+            "test",
+            "--config",
+            "e2e/playwright.learning-experience.config.ts",
+            "e2e/tests/learning-experience.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0
+        },
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-f5b42409b72c",
+            "command": [
+              "node",
+              "e2e/node_modules/.bin/playwright",
+              "test",
+              "--config",
+              "e2e/playwright.learning-experience.config.ts",
+              "e2e/tests/learning-experience.spec.ts"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/agent-runtime/src/muad_agent_runtime/application/learning_*",
+              "apps/console-platform/backend/src/muad_console_platform/api/learning.py",
+              "apps/console-platform/frontend/src/modules/learning/**",
+              "apps/console-platform/frontend/src/modules/run-observability/**",
+              "apps/console-platform/frontend/src/modules/user-identity/**"
+            ],
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/learning-experience.spec.ts:6@browser"
+            ],
+            "markers": [],
+            "collect": {
+              "format": "playwright",
+              "argv": [
+                "node",
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.learning-experience.config.ts",
+                "e2e/tests/learning-experience.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "timeout": 60
+            }
+          },
+          "revision": 4,
+          "run_id": "6ce600b3f7394ac1a4b2663d9878cb45",
+          "executed_at": "2026-11-01T03:02:12.107518+00:00",
           "command": [
             "node",
             "e2e/node_modules/.bin/playwright",
