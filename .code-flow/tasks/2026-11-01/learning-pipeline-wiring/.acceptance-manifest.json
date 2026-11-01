@@ -1247,7 +1247,7 @@
       "kind": "functional",
       "boundary": "调度注入故障，主执行链真实运行",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1302,7 +1302,90 @@
       "features": [
         "FEAT-08"
       ],
-      "check": "CHK-b3433848bb12"
+      "check": "CHK-b3433848bb12",
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-b3433848bb12",
+        "input_hash": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a",
+        "check_config": {
+          "id": "CHK-b3433848bb12",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler_degradation.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "04ae68ec8c5a4d09ab45ffd19eb45c54",
+        "executed_at": "2026-11-01T01:05:51.263030+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_scheduler_degradation.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-b3433848bb12",
+          "input_hash": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a",
+          "check_config": {
+            "id": "CHK-b3433848bb12",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_scheduler_degradation.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "04ae68ec8c5a4d09ab45ffd19eb45c54",
+          "executed_at": "2026-11-01T01:05:51.263030+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler_degradation.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a"
+        }
+      ]
     },
     {
       "id": "E-02",
@@ -1461,7 +1544,7 @@
       "kind": "functional",
       "boundary": "真实源码调用图（AST/导入扫描）",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1507,7 +1590,90 @@
       "features": [
         "FEAT-10"
       ],
-      "check": "CHK-ad55b759381d"
+      "check": "CHK-ad55b759381d",
+      "revision": 1,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-ad55b759381d",
+        "input_hash": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a",
+        "check_config": {
+          "id": "CHK-ad55b759381d",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_learning_wiring_inventory.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "04ae68ec8c5a4d09ab45ffd19eb45c54",
+        "executed_at": "2026-11-01T01:05:51.263030+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/architecture/test_learning_wiring_inventory.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ad55b759381d",
+          "input_hash": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a",
+          "check_config": {
+            "id": "CHK-ad55b759381d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/architecture/test_learning_wiring_inventory.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "04ae68ec8c5a4d09ab45ffd19eb45c54",
+          "executed_at": "2026-11-01T01:05:51.263030+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_learning_wiring_inventory.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a"
+        }
+      ]
     }
   ],
   "scenarios_file": "learning-pipeline-wiring.scenarios.md",

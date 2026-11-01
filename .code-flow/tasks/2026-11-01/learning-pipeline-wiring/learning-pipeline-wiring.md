@@ -28,9 +28,9 @@
 | S-05 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实调度 + 回放结果 + 审计 | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_trial_wiring.py"] | . | 900 | P0 | auto | local | - | - | - | no |
 | S-06 | learning-pipeline-wiring.design.md#2.5 验收条件 | contract | 真实 CLI 进程 + 真实 PostgreSQL + 审计 | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_admin_cli.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | S-07 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实 supervisor + executor + 脚本化 provider | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_e2e.py"] | . | 900 | P0 | auto | local | - | - | - | no |
-| E-01 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 调度故障注入，主执行链真实运行 | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_scheduler_degradation.py"] | . | 600 | P1 | auto | local | - | - | - | no |
+| E-01 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 调度故障注入，主执行链真实运行 | TASK-005 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_scheduler_degradation.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | E-02 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实设置冻结 + 调度 + PostgreSQL | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_scheduler.py","-k","disabled"] | . | 600 | P1 | auto | local | - | - | - | no |
-| B-01 | learning-pipeline-wiring.design.md#2.5 验收条件 | contract | 真实源码调用图 | TASK-005 | planned | ["uv","run","pytest","-q","tests/architecture/test_learning_wiring_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
+| B-01 | learning-pipeline-wiring.design.md#2.5 验收条件 | contract | 真实源码调用图 | TASK-005 | verified | ["uv","run","pytest","-q","tests/architecture/test_learning_wiring_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
 
 > 覆盖设计中的全部 10 个场景（6 S、2 E、2 B）；无 E2E 浏览器旅程。
 
@@ -256,7 +256,7 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 
 ## TASK-005: 失败降级与接线盘点
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004
 - **Source**: learning-pipeline-wiring.design.md#3.5 质量实现方案
@@ -272,22 +272,35 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_learning_scheduler_degradation.py tests/architecture/test_learning_wiring_inventory.py`
-- [ ] 调度失败不影响主 Run 且无半成品
-- [ ] 接线盘点覆盖六类能力
-- [ ] [E-01][integration] 覆盖故障降级
-- [ ] [B-01][contract] 覆盖生产调用方断言
-- [ ] [harness-test#RULE-test-001] verifier：同命令；真实执行链 + 分层
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_learning_scheduler_degradation.py tests/architecture/test_learning_wiring_inventory.py`
+- [x] 调度失败不影响主 Run 且无半成品
+- [x] 接线盘点覆盖六类能力
+- [x] [E-01][integration] 覆盖故障降级
+- [x] [B-01][contract] 覆盖生产调用方断言
+- [x] [harness-test#RULE-test-001] verifier：同命令；真实执行链 + 分层
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-01 | integration | 调度故障 + 主执行链真实运行 | 主 Run 完成；warning/计数；无半成品 | tests/agent_runtime/test_learning_scheduler_degradation.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_scheduler_degradation.py"] | planned |
-| B-01 | contract | 真实源码调用图 | 六类能力各有生产调用方 | tests/architecture/test_learning_wiring_inventory.py | ["uv","run","pytest","-q","tests/architecture/test_learning_wiring_inventory.py"] | planned |
+| E-01 | integration | 调度故障 + 主执行链真实运行 | 主 Run 完成；warning/计数；无半成品 | tests/agent_runtime/test_learning_scheduler_degradation.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_scheduler_degradation.py"] | verified |
+| B-01 | contract | 真实源码调用图 | 六类能力各有生产调用方 | tests/architecture/test_learning_wiring_inventory.py | ["uv","run","pytest","-q","tests/architecture/test_learning_wiring_inventory.py"] | verified |
 
 ### Acceptance Evidence
+
+- RED（B-01）：归档提交 `4e5a7ebf` 上 grep 生产代码，六个能力（抽取/候选/回放/激活/生产 CaseRunner/调度器）在 apps/packages/scripts 中**零调用方**——接线盘点在该状态下必然失败。
+- RED（E-01）：调度与降级同批引入，无法构造"先实现后补测"的失败态；以故障注入用例作为行为验证（记录原因，不伪造失败）。
+- GREEN: 两条命令合计 `4 passed in 4.75s`；完整学习接线套件 `11 passed`。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| E-01 | 不可构造（与调度同批引入） | PASS: 1 passed | `test_e01_scheduler_failure_degrades_to_no_learning` | 真实调度故障注入 + 真实 PostgreSQL；主 Run 终态不变、无半成品、warning 与失败计数可见 | verified |
+| B-01 | 上一提交零生产调用方（grep 实测） | PASS: 3 passed | `test_b01_each_capability_has_a_production_caller`、`test_b01_runtime_wiring_symbols_are_used_in_production`、`test_b01_scheduler_is_mounted_in_runtime_main` | AST 扫描真实生产源码调用图；仅测试调用不算 | verified |
+- E-01: verified — automated command passed; run_id=04ae68ec8c5a4d09ab45ffd19eb45c54 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=04ae68ec8c5a4d09ab45ffd19eb45c54 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
