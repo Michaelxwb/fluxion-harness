@@ -50,6 +50,7 @@ from .application.continuation_execution import continuation_executor
 from .application.executor import ExecutorFactory, default_executor_factory
 from .application.memory_consolidation import ConsolidationInvoker
 from .application.memory_consolidation_effects import ConsolidationWorker
+from .application.learning_scheduler import LearningSupervisor
 from .application.memory_supervisor import MemorySupervisor
 from .application.run_deadline import expire_runs
 from .application.run_service import expire_queued_runs, reap_abandoned_runs
@@ -81,6 +82,7 @@ SERVICE_NAME = "muad-agent-runtime"
 #: 装配根启动的**独立**循环任务名（各自成任务、退出即停；B-294 的可观测面）。
 CONTINUATION_LOOP_NAME = "runtime.continuation"
 MEMORY_LOOP_NAME = "runtime.memory"
+LEARNING_LOOP_NAME = "runtime.learning"
 DEADLINE_LOOP_NAME = "runtime.deadline"
 CONTROL_LOOP_NAME = "runtime.control"
 REAPER_LOOP_NAME = "runtime.reaper"
@@ -327,11 +329,18 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
         instance_id=app.state.instance_id,
     )
     app.state.memory_supervisor = memory
+    learning = LearningSupervisor(
+        get_session_factory(),
+        settings_client=outbound.platform_settings,
+        interval_sec=float(settings.learning_scheduler_interval_sec),
+    )
+    app.state.learning_supervisor = learning
     # 出站投递泵：独立于请求/执行路径（不占执行槽、不受请求并发影响），只重试已持久结果。
     app.state.delivery_pump = _mount_delivery_pump(settings, outbound.platform_settings, outbound.pools)
     loops = (
         (pump.run_forever(), CONTINUATION_LOOP_NAME),
         (memory.run_forever(), MEMORY_LOOP_NAME),
+        (learning.run_forever(), LEARNING_LOOP_NAME),
         (_deadline_loop(settings.run_reaper_interval_sec), DEADLINE_LOOP_NAME),
         (outbound.dispatcher.run_forever(), CONTROL_LOOP_NAME),
         (_reaper_loop(settings.run_reaper_interval_sec), REAPER_LOOP_NAME),
@@ -503,6 +512,7 @@ async def _close_resources(app: FastAPI, outbound: _Outbound) -> None:
     """收尾：先停泵/槽监督，再关装配根拥有的资源；分池最后关（借用方先停）。"""
     await close_notification_publisher()
     await app.state.memory_supervisor.close()
+    await app.state.learning_supervisor.close()
     await app.state.delivery_pump.close()
     await app.state.execution_supervisor.close()
     set_control_dispatcher(None)

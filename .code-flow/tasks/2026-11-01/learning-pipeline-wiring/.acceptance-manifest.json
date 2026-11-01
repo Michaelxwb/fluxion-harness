@@ -511,7 +511,7 @@
       "kind": "functional",
       "boundary": "真实 worker/supervisor 循环 + 真实 PostgreSQL",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -566,7 +566,90 @@
       "features": [
         "FEAT-03"
       ],
-      "check": "CHK-e039b9473aa2"
+      "check": "CHK-e039b9473aa2",
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-e039b9473aa2",
+        "input_hash": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a",
+        "check_config": {
+          "id": "CHK-e039b9473aa2",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "72dcb41a3ec34642a172d6d78dfa5c49",
+        "executed_at": "2026-11-01T00:54:56.302871+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_scheduler.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-e039b9473aa2",
+          "input_hash": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a",
+          "check_config": {
+            "id": "CHK-e039b9473aa2",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_scheduler.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "72dcb41a3ec34642a172d6d78dfa5c49",
+          "executed_at": "2026-11-01T00:54:56.302871+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -896,7 +979,7 @@
       "kind": "functional",
       "boundary": "真实设置冻结 + 真实调度 + 真实 PostgreSQL",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -946,7 +1029,98 @@
       "features": [
         "FEAT-09"
       ],
-      "check": "CHK-1b102f4edfd2"
+      "check": "CHK-1b102f4edfd2",
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-1b102f4edfd2",
+        "input_hash": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a",
+        "check_config": {
+          "id": "CHK-1b102f4edfd2",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler.py",
+            "-k",
+            "disabled"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "72dcb41a3ec34642a172d6d78dfa5c49",
+        "executed_at": "2026-11-01T00:54:56.302871+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_scheduler.py",
+          "-k",
+          "disabled"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-1b102f4edfd2",
+          "input_hash": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a",
+          "check_config": {
+            "id": "CHK-1b102f4edfd2",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_scheduler.py",
+              "-k",
+              "disabled"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "72dcb41a3ec34642a172d6d78dfa5c49",
+          "executed_at": "2026-11-01T00:54:56.302871+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler.py",
+            "-k",
+            "disabled"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a"
+        }
+      ]
     },
     {
       "id": "B-01",
