@@ -8,7 +8,11 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, Query, Request
 from muad_api import ApiResponse, AppError, ok, paginate
 from muad_api.error_codes import ErrorCode
-from muad_contracts.learning_admin import FamilyControlRequest, LearningActionRequest
+from muad_contracts.learning_admin import (
+    FamilyControlRequest,
+    LearningActionRequest,
+    LearningContentRequest,
+)
 from muad_contracts.memory import MemoryCategory
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -233,6 +237,32 @@ async def family_control(
         actor_id=account.id,
         command_id=key,
         paused=body.paused,
+        reason=body.reason,
+    )
+    return ok(request.app.state.message_catalog, data)
+
+
+@router.patch("/experiences/{user_id}/{memory_key}/content")
+async def revise_content(
+    request: Request,
+    tenant_id: TenantId,
+    account: CurrentAccount,
+    runtime: RuntimeLearningClientDep,
+    user_id: uuid.UUID,
+    memory_key: str,
+    body: LearningContentRequest,
+    key: IdempotencyKey,
+) -> ApiResponse[Any]:
+    if not body.reason:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    data = await runtime.revise(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        key=memory_key,
+        actor_id=account.id,
+        command_id=key,
+        value=body.value,
+        expected_version=body.expected_version,
         reason=body.reason,
     )
     return ok(request.app.state.message_catalog, data)

@@ -11,6 +11,7 @@ import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.audit import write_config_audit
 from muad_api.error_codes import ErrorCode
+from muad_contracts.memory import FactContent, MemoryCandidate, MemoryCategory
 from muad_contracts.platform_settings import LearningSettings, parse_platform_settings
 
 from ..infrastructure.db import SessionFactory
@@ -22,6 +23,8 @@ from .learning_activation import (
     ActivationOutcome,
     LearningActivation,
 )
+from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
+from .memory_service import MemoryService
 from .ports import PlatformSettingsClient
 
 
@@ -303,3 +306,63 @@ class LearningAdminService:
                 }
             )
         return results
+
+
+    async def revise_content(
+        self,
+        tenant_id: str,
+        user_id: UUID,
+        key: str,
+        *,
+        value: str,
+        expected_version: int,
+        reason: str,
+        operator: str,
+    ) -> dict[str, Any]:
+        await self._require_enabled(tenant_id)
+        memory = MemoryService(self._factory)
+        async with self._factory.begin() as session:
+            row = await session.scalar(
+                sa.select(UserMemory).where(
+                    UserMemory.tenant_id == tenant_id,
+                    UserMemory.user_id == user_id,
+                    UserMemory.memory_key == key,
+                    UserMemory.is_deleted.is_(False),
+                )
+            )
+            if row is None:
+                raise AppError(ErrorCode.LEARNING_EXPERIENCE_NOT_FOUND)
+            context = MemoryWriteContext(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                actor_type="ADMIN",
+                actor_id=operator,
+            )
+            command = MemoryCommand(
+                command_id=f"experience:{tenant_id}:{user_id}:{key}:REVISE:{expected_version}",
+                endpoint="learning.experience.revise",
+                mutations=[
+                    MemoryMutation(
+                        action="UPSERT",
+                        candidate=MemoryCandidate(
+                            memory_key=key,
+                            category=MemoryCategory(row.category),
+                            content=FactContent(value=value),
+                        ),
+                        expected_version=expected_version,
+                    )
+                ],
+            )
+            await memory.execute_in_session(session, context, command)
+        outcome = await self._activation._transition(
+            tenant_id,
+            user_id,
+            key,
+            target="PROPOSED",
+            action="REVISE",
+            operator=operator,
+            base_config_hash="",
+            reason=reason,
+        )
+        self._raise_for(outcome)
+        return {"memory_key": key, "activation_state": outcome.activation_state, "status": "REVISED"}

@@ -3523,7 +3523,7 @@
       "kind": "functional",
       "boundary": "Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计）",
       "owner": "TASK-010",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3600,7 +3600,90 @@
       "features": [
         "FEAT-11"
       ],
-      "check": "CHK-0bafbff705a1"
+      "check": "CHK-0bafbff705a1",
+      "revision": 1,
+      "evidence": {
+        "id": "S-13",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-0bafbff705a1",
+        "input_hash": "9683ba04d1df78ad46f247f8edecb787f8cea2210cceb235e7c0327bca5e52a6",
+        "check_config": {
+          "id": "CHK-0bafbff705a1",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_content_revision.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "4cfa8f84a1f04ce5872f49d9c1e10211",
+        "executed_at": "2026-11-01T02:56:48.854017+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_platform/test_learning_content_revision.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "9683ba04d1df78ad46f247f8edecb787f8cea2210cceb235e7c0327bca5e52a6"
+      },
+      "runs": [
+        {
+          "id": "S-13",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-0bafbff705a1",
+          "input_hash": "9683ba04d1df78ad46f247f8edecb787f8cea2210cceb235e7c0327bca5e52a6",
+          "check_config": {
+            "id": "CHK-0bafbff705a1",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_content_revision.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "4cfa8f84a1f04ce5872f49d9c1e10211",
+          "executed_at": "2026-11-01T02:56:48.854017+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_content_revision.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "9683ba04d1df78ad46f247f8edecb787f8cea2210cceb235e7c0327bca5e52a6"
+        }
+      ]
     },
     {
       "id": "S-14",

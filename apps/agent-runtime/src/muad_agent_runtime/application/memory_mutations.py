@@ -173,8 +173,15 @@ def _upsert_values(
     if author is MemoryAuthor.USER and ctx.confirmation_event_id is None:
         raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
     evidence = ctx.evidence
+    authority = {
+        "USER": "USER_EXPLICIT",
+        "ADMIN": "ADMIN_EDIT",
+        "AGENT": "AGENT_INFERRED",
+        "SYSTEM": "AGENT_INFERRED",
+    }[author.value]
     return {
         "category": candidate.category.value,
+        "authority": authority,
         "content_json": candidate.content.model_dump(mode="json"),
         "author": author.value,
         "explicit_request": author is MemoryAuthor.USER,

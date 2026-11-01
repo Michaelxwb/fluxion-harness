@@ -12,6 +12,7 @@ from muad_contracts.learning_admin import (
     FamilyControlRequest,
     LearningActionItem,
     LearningActionRequest,
+    LearningContentRequest,
 )
 from pydantic import JsonValue
 
@@ -172,5 +173,28 @@ async def family_control(
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
     result = await _service(request).set_family_control(
         tenant, family, paused=body.paused, reason=body.reason, actor=actor
+    )
+    return ok(request.app.state.message_catalog, result)
+
+
+@router.patch("/users/{user_id}/experiences/{memory_key}/content")
+async def revise_content(
+    user_id: UUID,
+    memory_key: str,
+    body: LearningContentRequest,
+    request: Request,
+    tenant: TenantDep,
+    _guard: InternalServiceDep,
+    key: CommandKey,
+    actor: Actor,
+) -> ApiResponse[dict[str, JsonValue]]:
+    result = await _service(request).revise_content(
+        tenant,
+        user_id,
+        memory_key,
+        value=body.value,
+        expected_version=body.expected_version,
+        reason=body.reason,
+        operator=str(actor),
     )
     return ok(request.app.state.message_catalog, result)

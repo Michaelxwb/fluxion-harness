@@ -43,12 +43,12 @@ AUDIT_RESOURCE = "MEMORY_EXPERIENCE"
 ALLOWED_TRANSITIONS: Mapping[str, frozenset[str]] = {
     PROPOSED: frozenset({TRIAL, ACTIVE, RETIRED}),
     TRIAL: frozenset({ACTIVE, RETIRED}),
-    ACTIVE: frozenset({RETIRED}),
+    ACTIVE: frozenset({RETIRED, PROPOSED}),
     RETIRED: frozenset({PROPOSED}),
 }
 
 #: 需要 PASSED 回放才能激活的权威；USER_EXPLICIT/ADMIN_EDIT 允许直接激活。
-REPLAY_GATED_AUTHORITIES = frozenset({"AGENT_INFERRED"})
+REPLAY_GATED_AUTHORITIES = frozenset({"AGENT_INFERRED", "ADMIN_EDIT"})
 
 
 @dataclass(frozen=True, slots=True)

@@ -141,3 +141,9 @@ class LearningActionItem(ContractModel):
 class FamilyControlRequest(ContractModel):
     paused: bool
     reason: str
+
+
+class LearningContentRequest(ContractModel):
+    value: str
+    expected_version: int
+    reason: str
