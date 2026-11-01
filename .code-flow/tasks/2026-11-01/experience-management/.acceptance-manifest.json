@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "experience-management.md",
-  "task_sha256": "f6f294d93ce7fb6652c6c173fd46c189f39c4e58f3b96a080534fff8cb95b41f",
+  "task_sha256": "879039f621909cc89a8443dc8af6f647d1f197f162579e34ad412007f9923718",
   "checks": [
     {
       "id": "CHK-4c39c2c6477a",
@@ -174,6 +174,10 @@
         "apps/console-platform/frontend/src/modules/user-identity/**"
       ],
       "suite": "browser",
+      "test_ids": [
+        "e2e/tests/learning-experience.spec.ts:6@browser"
+      ],
+      "markers": [],
       "collect": {
         "format": "playwright",
         "argv": [
@@ -187,11 +191,7 @@
           "--reporter=json"
         ],
         "timeout": 60
-      },
-      "test_ids": [
-        "e2e/tests/learning-experience.spec.ts:6@browser"
-      ],
-      "markers": []
+      }
     },
     {
       "id": "CHK-0ef477a76da8",
@@ -253,7 +253,7 @@
       "paths": []
     },
     {
-      "id": "CHK-ca4beca91d6a",
+      "id": "CHK-bf9e8fd20500",
       "command": [
         "uv",
         "run",
@@ -261,7 +261,7 @@
         "-q",
         "tests/agent_runtime/test_learning_fact_fixes.py",
         "-k",
-        "atomic"
+        "e03"
       ],
       "cwd": ".",
       "timeout": 900.0,
@@ -372,6 +372,13 @@
       "preflight": [],
       "paths": [],
       "suite": "capacity",
+      "test_ids": [
+        "tests/capacity/test_learning_management_mixed.py::test_learning_management_mixed_load"
+      ],
+      "markers": [
+        "capacity",
+        "capacity_load"
+      ],
       "collect": {
         "format": "pytest",
         "argv": [
@@ -385,14 +392,7 @@
           "--verbosity=-1"
         ],
         "timeout": 60
-      },
-      "test_ids": [
-        "tests/capacity/test_learning_management_mixed.py::test_learning_management_mixed_load"
-      ],
-      "markers": [
-        "capacity",
-        "capacity_load"
-      ]
+      }
     },
     {
       "id": "CHK-ce5a0df5709a",
@@ -1221,7 +1221,7 @@
       "kind": "functional",
       "boundary": "Runtime internal API + Console 通用记忆 API → 真实 PG",
       "owner": "TASK-001",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1301,7 +1301,186 @@
         "FEAT-07",
         "FEAT-08"
       ],
-      "check": "CHK-04a6148be893"
+      "check": "CHK-04a6148be893",
+      "revision": 3,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-04a6148be893",
+        "input_hash": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c",
+        "check_config": {
+          "id": "CHK-04a6148be893",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e02"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 3,
+        "run_id": "4dc3c797121341bb90591e0031e91988",
+        "executed_at": "2026-11-01T02:32:47.284529+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_fact_fixes.py",
+          "-k",
+          "e02"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-04a6148be893",
+          "input_hash": "389c73e1f688c66be971f089185bd70420aca2351c87041df36e6eca3ad1c387",
+          "check_config": {
+            "id": "CHK-04a6148be893",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_fact_fixes.py",
+              "-k",
+              "e02"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "f02c95d03bfd4d538a864c089336e355",
+          "executed_at": "2026-11-01T02:27:53.299058+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e02"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "389c73e1f688c66be971f089185bd70420aca2351c87041df36e6eca3ad1c387"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-04a6148be893",
+          "input_hash": "88d53607b2e6be9958067ad998e0ffb759e320875156718d723206064fafbc71",
+          "check_config": {
+            "id": "CHK-04a6148be893",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_fact_fixes.py",
+              "-k",
+              "e02"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "34c030e8e2d84c55921bba6b263fb23b",
+          "executed_at": "2026-11-01T02:29:12.333326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e02"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "88d53607b2e6be9958067ad998e0ffb759e320875156718d723206064fafbc71"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-04a6148be893",
+          "input_hash": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c",
+          "check_config": {
+            "id": "CHK-04a6148be893",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_fact_fixes.py",
+              "-k",
+              "e02"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "4dc3c797121341bb90591e0031e91988",
+          "executed_at": "2026-11-01T02:32:47.284529+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e02"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c"
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -1310,7 +1489,7 @@
       "kind": "functional",
       "boundary": "Runtime MemoryService 事务 → 真实 PG；注入审计写入失败",
       "owner": "TASK-001",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1318,7 +1497,7 @@
         "-q",
         "tests/agent_runtime/test_learning_fact_fixes.py",
         "-k",
-        "atomic"
+        "e03"
       ],
       "cwd": ".",
       "timeout": 900.0,
@@ -1363,7 +1542,230 @@
         "FEAT-04",
         "FEAT-08"
       ],
-      "check": "CHK-ca4beca91d6a"
+      "check": "CHK-bf9e8fd20500",
+      "revision": 4,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-bf9e8fd20500",
+        "input_hash": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c",
+        "check_config": {
+          "id": "CHK-bf9e8fd20500",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e03"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 4,
+        "run_id": "4dc3c797121341bb90591e0031e91988",
+        "executed_at": "2026-11-01T02:32:47.284529+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_fact_fixes.py",
+          "-k",
+          "e03"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 5,
+          "output": "2 deselected in 0.02s",
+          "check_id": "CHK-ca4beca91d6a",
+          "input_hash": "389c73e1f688c66be971f089185bd70420aca2351c87041df36e6eca3ad1c387",
+          "check_config": {
+            "id": "CHK-ca4beca91d6a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_fact_fixes.py",
+              "-k",
+              "atomic"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "f02c95d03bfd4d538a864c089336e355",
+          "executed_at": "2026-11-01T02:27:53.299058+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "atomic"
+          ],
+          "cwd": ".",
+          "timeout": 900.0
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-bf9e8fd20500",
+          "input_hash": "389c73e1f688c66be971f089185bd70420aca2351c87041df36e6eca3ad1c387",
+          "check_config": {
+            "id": "CHK-bf9e8fd20500",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_fact_fixes.py",
+              "-k",
+              "e03"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "753e0f489ce74c4ca426ee060c720c60",
+          "executed_at": "2026-11-01T02:28:15.312005+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e03"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "389c73e1f688c66be971f089185bd70420aca2351c87041df36e6eca3ad1c387"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-bf9e8fd20500",
+          "input_hash": "88d53607b2e6be9958067ad998e0ffb759e320875156718d723206064fafbc71",
+          "check_config": {
+            "id": "CHK-bf9e8fd20500",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_fact_fixes.py",
+              "-k",
+              "e03"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "34c030e8e2d84c55921bba6b263fb23b",
+          "executed_at": "2026-11-01T02:29:12.333326+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e03"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "88d53607b2e6be9958067ad998e0ffb759e320875156718d723206064fafbc71"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-bf9e8fd20500",
+          "input_hash": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c",
+          "check_config": {
+            "id": "CHK-bf9e8fd20500",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_fact_fixes.py",
+              "-k",
+              "e03"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "4dc3c797121341bb90591e0031e91988",
+          "executed_at": "2026-11-01T02:32:47.284529+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e03"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c"
+        }
+      ]
     },
     {
       "id": "E-04",
@@ -2084,14 +2486,6 @@
   "scenarios_file": "experience-management.scenarios.md",
   "e2e_gate": 1,
   "quality_schema": 2,
-  "registration": {
-    "ok": true,
-    "registered": [
-      "CHK-f5b42409b72c",
-      "CHK-9f951014bc8b"
-    ],
-    "errors": []
-  },
   "relock": {
     "preserved": [
       "S-01",

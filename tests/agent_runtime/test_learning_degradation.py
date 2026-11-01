@@ -80,7 +80,7 @@ async def test_e01_learning_failure_degrades_to_no_learning(
 
     monkeypatch.setattr(replay_module, "record_counter", _record)
 
-    async def failing(case: EvalCase, experience_key: str | None):
+    async def failing(case: EvalCase, experience_key: str | None, experience_user_id=None):
         raise RuntimeError("model unavailable")
 
     replay = LearningReplay(

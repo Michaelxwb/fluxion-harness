@@ -92,7 +92,9 @@ class ProductionCaseRunner:
         self._limits = limits or RunnerLimits()
         self._transport = transport
 
-    async def __call__(self, case: EvalCase, experience_key: str | None) -> CaseOutcome:
+    async def __call__(
+        self, case: EvalCase, experience_key: str | None, experience_user_id: UUID | None
+    ) -> CaseOutcome:
         async with self._factory() as session:
             run = await session.get(RunRecord, case.source_run_id)
             snapshot = (
@@ -120,7 +122,7 @@ class ProductionCaseRunner:
                 row = await session.scalar(
                     sa.select(UserMemory).where(
                         UserMemory.tenant_id == case.tenant_id,
-                        UserMemory.user_id == run.user_id,
+                        UserMemory.user_id == experience_user_id,
                         UserMemory.memory_key == experience_key,
                         UserMemory.is_deleted.is_(False),
                     )

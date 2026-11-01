@@ -72,9 +72,10 @@ async def _cleanup(tenant: str) -> None:
 
 async def test_s03_replay_reports_are_reproducible_and_immutable(database_guard: None) -> None:
     tenant = f"replay-{uuid.uuid4()}"
+    user = uuid.uuid4()
     case_ids = await _seed(tenant)
 
-    async def runner(case: EvalCase, experience_key: str | None) -> CaseOutcome:
+    async def runner(case: EvalCase, experience_key: str | None, experience_user_id=None) -> CaseOutcome:
         return CaseOutcome(True, "", 1, 1)
 
     replay = LearningReplay(
@@ -82,11 +83,11 @@ async def test_s03_replay_reports_are_reproducible_and_immutable(database_guard:
     )
     try:
         first = await replay.run(
-            tenant, "skill:demo", experience_key="proc-r", base_config_hash="base-r",
+            tenant, "skill:demo", experience_key="proc-r", experience_user_id=user, base_config_hash="base-r",
             refresh_baseline=True,
         )
         second = await replay.run(
-            tenant, "skill:demo", experience_key="proc-r", base_config_hash="base-r",
+            tenant, "skill:demo", experience_key="proc-r", experience_user_id=user, base_config_hash="base-r",
             refresh_baseline=True,
         )
         assert first.candidate == second.candidate

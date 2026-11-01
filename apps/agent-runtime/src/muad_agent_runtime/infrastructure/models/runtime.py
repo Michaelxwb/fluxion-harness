@@ -502,6 +502,9 @@ class UserMemory(StandardColumnsMixin, Base):
         ),
         sa.CheckConstraint("author IN ('USER','ADMIN','AGENT')", name="author"),
         sa.CheckConstraint(
+            "authority IN ('USER_EXPLICIT','ADMIN_EDIT','AGENT_INFERRED')", name="authority"
+        ),
+        sa.CheckConstraint(
             "category IN ('PREFERENCE','WORK_STYLE','EXPLICIT','TASK_STATE',"
             "'PROCEDURE','FAILURE_PATTERN','VERIFICATION')",
             name="category",
@@ -528,6 +531,9 @@ class UserMemory(StandardColumnsMixin, Base):
     category: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     activation_state: Mapped[str] = mapped_column(
         sa.String(16), nullable=False, server_default=sa.text("'ACTIVE'")
+    )
+    authority: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'AGENT_INFERRED'")
     )
     task_signature: Mapped[str | None] = mapped_column(sa.String(64))
     trigger_text: Mapped[str | None] = mapped_column(sa.String(512))
@@ -660,10 +666,18 @@ class EvalReport(StandardColumnsMixin, Base):
             "tenant_id",
             "task_family",
             "experience_key",
+            "experience_user_id",
             "base_config_hash",
             "version",
             unique=True,
             postgresql_where=sa.text("experience_key IS NOT NULL"),
+        ),
+        sa.Index(
+            "ix_eval_report_experience_time",
+            "tenant_id",
+            "experience_key",
+            "experience_user_id",
+            sa.text("create_time DESC"),
         ),
         sa.Index(
             "ix_eval_report_family_time",
@@ -677,6 +691,7 @@ class EvalReport(StandardColumnsMixin, Base):
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     task_family: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     experience_key: Mapped[str | None] = mapped_column(sa.String(64))
+    experience_user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     base_config_hash: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     metrics_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
     decision_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)

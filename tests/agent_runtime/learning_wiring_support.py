@@ -144,6 +144,8 @@ async def seed_experience(
     *,
     state: str = "PROPOSED",
     content: str = "输出 JSON，包含 name 与 amount 字段",
+    authority: str = "AGENT_INFERRED",
+    author: str = "AGENT",
 ) -> None:
     async with get_session_factory()() as session:
         session.add(
@@ -153,10 +155,16 @@ async def seed_experience(
                 memory_key=key,
                 category="PROCEDURE",
                 content_json={"value": content},
-                author="AGENT",
+                author=author,
+                authority=authority,
                 confidence=2,
-                explicit_request=False,
-                expires_at=datetime.now(UTC) + timedelta(days=365),
+                explicit_request=author == "USER",
+                confirmation_event_id=uuid.uuid4() if author == "USER" else None,
+                last_confirmed_at=datetime.now(UTC) if author == "USER" else None,
+                confirmed_count=1 if author == "USER" else 0,
+                expires_at=(
+                    datetime.now(UTC) + timedelta(days=365) if author == "AGENT" else None
+                ),
                 activation_state=state,
                 task_signature=FAMILY,
                 trigger_text="客户 JSON",
@@ -165,13 +173,21 @@ async def seed_experience(
         await session.commit()
 
 
-async def seed_report(tenant: str, key: str, status: str = "PASSED", *, base: str = "cli") -> None:
+async def seed_report(
+    tenant: str,
+    key: str,
+    status: str = "PASSED",
+    *,
+    base: str = "cli",
+    user_id: uuid.UUID | None = None,
+) -> None:
     async with get_session_factory()() as session:
         session.add(
             EvalReport(
                 tenant_id=tenant,
                 task_family=FAMILY,
                 experience_key=key,
+                experience_user_id=user_id,
                 base_config_hash=base,
                 metrics_json={},
                 decision_json={"status": status},

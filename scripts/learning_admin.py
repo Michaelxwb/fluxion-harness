@@ -12,28 +12,36 @@ import argparse
 import asyncio
 import json
 import sys
-from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID
 
 import httpx
 import sqlalchemy as sa
-
-from muad_agent_runtime.application.experience_candidates import ExperienceCandidates  # type: ignore[import-untyped]
+from muad_agent_runtime.application.experience_candidates import (
+    ExperienceCandidates,  # type: ignore[import-untyped]
+)
 from muad_agent_runtime.application.golden_set import GoldenSetExtractor  # type: ignore[import-untyped]
-from muad_agent_runtime.application.learning_activation import ActivationPolicy, LearningActivation  # type: ignore[import-untyped]
+from muad_agent_runtime.application.learning_activation import (  # type: ignore[import-untyped]
+    ActivationPolicy,
+    LearningActivation,
+)
 from muad_agent_runtime.application.learning_case_runner import (  # type: ignore[import-untyped]
     ProductionCaseRunner,
     database_credentials_resolver,
 )
 from muad_agent_runtime.application.learning_replay import LearningReplay  # type: ignore[import-untyped]
 from muad_agent_runtime.infrastructure.db import get_session_factory  # type: ignore[import-untyped]
-from muad_agent_runtime.infrastructure.models.runtime import EvalReport, UserMemory  # type: ignore[import-untyped]
+from muad_agent_runtime.infrastructure.models.runtime import (  # type: ignore[import-untyped]
+    EvalReport,
+    UserMemory,
+)
 
 EXPERIENCE_CATEGORIES = ("PROCEDURE", "FAILURE_PATTERN", "VERIFICATION")
 
 
-async def _list(factory: Any, tenant_id: str, user_id: UUID, state: str | None, family: str | None) -> list[dict[str, Any]]:
+async def _list(
+    factory: Any, tenant_id: str, user_id: UUID, state: str | None, family: str | None
+) -> list[dict[str, Any]]:
     async with factory() as session:
         statement = sa.select(UserMemory).where(
             UserMemory.tenant_id == tenant_id,
@@ -113,6 +121,7 @@ async def _replay(
         tenant_id,
         row.task_signature,
         experience_key=key,
+        experience_user_id=row.user_id,
         base_config_hash=base_config_hash,
     )
     return {
@@ -131,7 +140,15 @@ async def _run(args: argparse.Namespace, transport: httpx.AsyncBaseTransport | N
         return 0
     if args.command == "extract":
         report = await GoldenSetExtractor(factory).extract(args.tenant_id, task_family=args.task_family)
-        print(json.dumps({"inserted": report.inserted, "skipped": report.skipped, "incomplete": report.incomplete}))
+        print(
+            json.dumps(
+                {
+                    "inserted": report.inserted,
+                    "skipped": report.skipped,
+                    "incomplete": report.incomplete,
+                }
+            )
+        )
         return 0
     if args.command == "candidates":
         candidate_report = await ExperienceCandidates(factory).generate(
@@ -140,7 +157,14 @@ async def _run(args: argparse.Namespace, transport: httpx.AsyncBaseTransport | N
         print(json.dumps({"created": candidate_report.created, "skipped": candidate_report.skipped}))
         return 0
     if args.command == "replay":
-        result = await _replay(factory, args.tenant_id, user_id, args.experience_key, args.base_config_hash, transport)
+        result = await _replay(
+            factory,
+            args.tenant_id,
+            user_id,
+            args.experience_key,
+            args.base_config_hash,
+            transport,
+        )
         print(json.dumps(result))
         return 0 if result.get("status") in {"PASSED", "REJECTED", "INCOMPLETE"} else 1
     if args.command == "activate":

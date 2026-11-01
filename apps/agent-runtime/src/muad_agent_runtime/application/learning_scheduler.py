@@ -131,6 +131,7 @@ class LearningSupervisor:
                 tenant_id,
                 family,
                 experience_key=row.memory_key,
+                experience_user_id=row.user_id,
                 base_config_hash=base_config_hash,
                 limits=limits,
             )

@@ -31,8 +31,8 @@
 | S-08 | experience-management.backend.design.md#2.5 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | TASK-006 | planned | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | . | 1200 | P1 | deferred | browser | - | 跨页面状态同步、真实路由深链与真实鉴权/DB 组合只有浏览器 E2E 能暴露；component 无法覆盖路由与真实后端 | apps/console-platform/frontend/src/modules/learning/**, apps/console-platform/frontend/src/modules/user-identity/**, apps/console-platform/frontend/src/modules/run-observability/**, apps/console-platform/backend/src/muad_console_platform/api/learning.py, apps/agent-runtime/src/muad_agent_runtime/application/learning_* | no |
 | S-09 | experience-management.backend.design.md#2.5 | integration | 真实 Run 的 MEMORY_INJECTED 事件（含 diagnostics）→ Console API-10 → 真实 PG | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_diagnostics_api.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | E-01 | experience-management.backend.design.md#2.5 | integration | Console API + Runtime client（上游 5xx/超时）；真实 PG | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_degradation.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| E-02 | experience-management.backend.design.md#2.5 | integration | Runtime internal API + Console 通用记忆 API → 真实 PG | TASK-001 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e02"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| E-03 | experience-management.backend.design.md#2.5 | integration | Runtime MemoryService 事务 → 真实 PG；注入审计写入失败 | TASK-001 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "atomic"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| E-02 | experience-management.backend.design.md#2.5 | integration | Runtime internal API + Console 通用记忆 API → 真实 PG | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e02"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| E-03 | experience-management.backend.design.md#2.5 | integration | Runtime MemoryService 事务 → 真实 PG；注入审计写入失败 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e03"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | E-04 | experience-management.backend.design.md#2.5 | integration | LearningJobRunner → 真实 PG；探针可控延迟/失败 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_jobs.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | B-01 | experience-management.backend.design.md#2.5 | unit | 纯函数 derive_task_family / first_successful_skill；无 IO | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_task_family_scope.py"] | . | 900 | P0 | auto | none | - | - | - | no |
 | B-02 | experience-management.backend.design.md#2.5 | integration | Console 聚合 SQL → 真实 PG | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "aggregate"] | . | 900 | P0 | auto | local-api | - | - | - | no |
@@ -48,12 +48,12 @@
 
 ## TASK-001: 后端事实修正：回放用户归属、权威模型与状态主通道
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: 
 - **Source**: backend design §3.3 数据设计 / §3.4.3 写入编排 / §3.6 规则落点
-- **Spec-Refs**: harness-memory#RULE-memory-001, harness-memory#RULE-memory-002, harness-memory#RULE-memory-004, harness-memory#RULE-memory-005, harness-memory#RULE-memory-006, harness-data#RULE-data-001
-- **Rule-Owner-Refs**: harness-memory#RULE-memory-001, harness-memory#RULE-memory-002, harness-memory#RULE-memory-004, harness-memory#RULE-memory-005, harness-memory#RULE-memory-006, harness-data#RULE-data-001
+- **Spec-Refs**: harness-memory#RULE-memory-001, harness-memory#RULE-memory-002, harness-memory#RULE-memory-004, harness-memory#RULE-memory-005, harness-memory#RULE-memory-006, harness-data#RULE-data-001, harness-snapshot#RULE-snapshot-001
+- **Rule-Owner-Refs**: harness-memory#RULE-memory-001, harness-memory#RULE-memory-002, harness-memory#RULE-memory-004, harness-memory#RULE-memory-005, harness-memory#RULE-memory-006, harness-data#RULE-data-001, harness-snapshot#RULE-snapshot-001
 - **Acceptance-Refs**: E-02, E-03
 - **Estimate**: 2.5d
 - **Capability**: 候选回放报告绑定经验所属用户；状态变更同事务产生版本/history/回执/审计；authority 迁移与两条激活路径可演示
@@ -77,22 +77,33 @@
 - [ ] [harness-memory#RULE-memory-005] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-005）
 - [ ] [harness-memory#RULE-memory-006] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-006）
 - [ ] [harness-data#RULE-data-001] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-data-001）
+- [ ] [harness-snapshot#RULE-snapshot-001] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e03`；状态变更前后 RuntimeSnapshot 行与 hash 不变，新 Run 仍读冻结快照
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-02 | integration | Runtime internal API + Console 通用记忆 API → 真实 PG | 借用报告被拒（LEARNING_REPLAY_GATE_FAILED / 状态不变）；非法转换返回 LEARNING_INVALID_TRANSITION；通用写 API 拒绝经验类别；USER_EXPLICIT 可按权威路径激活并留审计；AGENT_INFERRED 仍被 PASSED 门槛拒绝 | tests/agent_runtime/test_learning_fact_fixes.py | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e02"] | planned |
-| E-03 | integration | Runtime MemoryService 事务 → 真实 PG；注入审计写入失败 | 整个事务回滚：状态、版本、history、receipt 均无变化；返回明确错误码；不存在「状态已变但审计缺失」 | tests/agent_runtime/test_learning_fact_fixes.py | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "atomic"] | planned |
+| E-02 | integration | Runtime internal API + Console 通用记忆 API → 真实 PG | 借用报告被拒（LEARNING_REPLAY_GATE_FAILED / 状态不变）；非法转换返回 LEARNING_INVALID_TRANSITION；通用写 API 拒绝经验类别；USER_EXPLICIT 可按权威路径激活并留审计；AGENT_INFERRED 仍被 PASSED 门槛拒绝 | tests/agent_runtime/test_learning_fact_fixes.py | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e02"] | verified |
+| E-03 | integration | Runtime MemoryService 事务 → 真实 PG；注入审计写入失败 | 整个事务回滚：状态、版本、history、receipt 均无变化；返回明确错误码；不存在「状态已变但审计缺失」 | tests/agent_runtime/test_learning_fact_fixes.py | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e03"] | verified |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
+- E-02: verified — automated command passed; run_id=f02c95d03bfd4d538a864c089336e355 (confirmed_by: runner)
+- E-03: failed — automated command failed; run_id=f02c95d03bfd4d538a864c089336e355 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=753e0f489ce74c4ca426ee060c720c60 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=34c030e8e2d84c55921bba6b263fb23b (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=34c030e8e2d84c55921bba6b263fb23b (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=4dc3c797121341bb90591e0031e91988 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=4dc3c797121341bb90591e0031e91988 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] resumed (in-progress)
+- [2026-11-01] completed (done)
 
 ---
 
@@ -197,8 +208,8 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: backend design §3.4.1/§3.4.2/§3.4.3
-- **Spec-Refs**: harness-api#RULE-api-002, harness-arch#RULE-arch-001, harness-auth#RULE-auth-001, harness-log#RULE-log-001
-- **Rule-Owner-Refs**: harness-api#RULE-api-002, harness-arch#RULE-arch-001, harness-auth#RULE-auth-001, harness-log#RULE-log-001
+- **Spec-Refs**: harness-api#RULE-api-002, harness-arch#RULE-arch-001, harness-auth#RULE-auth-001, harness-log#RULE-log-001, harness-secret#RULE-secret-001
+- **Rule-Owner-Refs**: harness-api#RULE-api-002, harness-arch#RULE-arch-001, harness-auth#RULE-auth-001, harness-log#RULE-log-001, harness-secret#RULE-secret-001
 - **Acceptance-Refs**: S-04, E-01, E-04
 - **Estimate**: 2.5d
 - **Capability**: 管理员可异步回放、晋升、退休、重新沉淀；任务幂等、有容量边界、写审计且只影响后续 Run
@@ -221,6 +232,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - [ ] [harness-arch#RULE-arch-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；按设计 §3.6 的落点断言（RULE-arch-001）
 - [ ] [harness-auth#RULE-auth-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；按设计 §3.6 的落点断言（RULE-auth-001）
 - [ ] [harness-log#RULE-log-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；按设计 §3.6 的落点断言（RULE-log-001）
+- [ ] [harness-secret#RULE-secret-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；job/result/audit/日志不含密钥原文
 - [ ] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract

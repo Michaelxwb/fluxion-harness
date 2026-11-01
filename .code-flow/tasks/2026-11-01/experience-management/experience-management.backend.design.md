@@ -127,6 +127,8 @@
 | RULE-12 | 降级 | 学习关闭时管理面只读并显式提示；Runtime 不可达时 Console 返回错误而非缓存旧值；job 失败保留错误码与现场，可重放 | E-01, E-04 |
 | RULE-13 | 时间口径 | 新增列一律 `timestamptz`；Console 出参带 offset，页面按 `YYYY-MM-DD HH:mm:ss` 展示；审计/报告时间不得用本地时间 | 契约测试 |
 | RULE-18 | 回放容量 | 回放任务按租户/实例并发硬限（默认 1）；模型调用必须经 `ModelCapacityService` 预占（BACKGROUND 用途），拿不到额度排队重试，不得直连模型绕过限流；单 job 超时与样本上限固定 | S-04, S-11, E-04 |
+| RULE-35 | 密钥边界 | 经验审计/回放报告/注入事件/日志不出现模型密钥或凭据原文；回放凭据只在模型调用时解析并使用，不写入 job/result | S-04 |
+| RULE-34 | 快照不变 | 经验激活/退休/报告与审计变更只影响后续新 Run，不修改任何已有 RuntimeSnapshot；执行期仍读冻结快照 | E-03 |
 | RULE-33 | 扩展性护栏 | 经验暴露 `authority` 并按权威分流激活；`memory_key` 不透明、同族允许多 key；状态/原因/job 类型/报告字段用开放字符串码 + extras；学习类别与状态转换收敛到共享常量；族暂停与反馈信号是后续 core 必须消费的控制面契约 | S-02, S-04, E-02 |
 | RULE-30 | 止损与族级暂停 | Run 一键停用按注入归因精确到 `(user_id, memory_key)`；`family_control(tenant, family, paused)` 只影响暂停后的新 Run（已冻结集合不变），暂停期间不生成候选、不注入该族经验；恢复不复活已退休经验；所有操作写审计 | S-12, E-05 |
 | RULE-31 | 内容修订 | 修订必须带 `expected_version` 与 reason；经记忆主通道生成新版本、history、回执与审计，状态回 PROPOSED；晋升仍要求该用户的 PASSED 报告；通用记忆接口不可绕过 | S-13, E-05 |
@@ -479,6 +481,8 @@ erDiagram
 | RULE-13 | `timestamptz` 与 Console 时间格式（`format_console_time` 复用） | harness-time#RULE-time-001 |
 | RULE-18 | 回放并发硬限 + 模型容量预占 + job 超时；管理员回放不抢占用户额度 | harness-arch#RULE-arch-001、harness-model#RULE-model-001 |
 | RULE-19 | 审计投影 target/资源类型/动作/操作者可读；详情携带深链身份；历史行不伪造归属 | harness-auth#RULE-auth-001、harness-i18n#RULE-i18n-001、harness-log#RULE-log-001 |
+| RULE-35 | 审计/报告/job/日志只含凭据引用或 *configured 标记；密钥不进 config_audit_log、报告与事件 | harness-secret#RULE-secret-001 |
+| RULE-34 | 状态变更不触碰 RuntimeSnapshot；新 Run 仍按冻结快照执行，测试断言快照行与 hash 不变 | harness-snapshot#RULE-snapshot-001 |
 | RULE-33 | authority 分流激活；key 不透明/同族多 key；开放码与 extras；共享常量；控制面契约 | harness-data#RULE-data-001、harness-api#RULE-api-001 |
 | RULE-30 | Run 止损按注入归因精确到 user/key；族级暂停只影响新 Run、可恢复、有审计；暂停不动数据 | harness-memory#RULE-memory-003、harness-auth#RULE-auth-001 |
 | RULE-31 | 内容修订走记忆主通道（版本/history/回执/审计），回 PROPOSED，晋升仍需 PASSED | harness-memory#RULE-memory-002、harness-api#RULE-api-002 |

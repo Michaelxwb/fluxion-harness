@@ -49,7 +49,7 @@ async def test_s06_cli_lifecycle_over_real_process(database_guard: None) -> None
     tenant, user = f"cli-{uuid.uuid4()}", uuid.uuid4()
     key = "exp.cli"
     await seed_experience(tenant, user, key, state="PROPOSED")
-    await seed_report(tenant, key, "PASSED", base="cli")
+    await seed_report(tenant, key, "PASSED", base="cli", user_id=user)
     base = ["--tenant-id", tenant, "--user-id", str(user)]
     try:
         code, out, err = _cli("list", *base)

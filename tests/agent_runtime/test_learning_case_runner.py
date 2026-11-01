@@ -161,8 +161,8 @@ async def test_s04_two_arm_requests_rebuilt_from_snapshot(database_guard: None) 
         transport=httpx.MockTransport(handler),
     )
     try:
-        candidate = await runner(case, "exp.json")
-        baseline = await runner(case, None)
+        candidate = await runner(case, "exp.json", user)
+        baseline = await runner(case, None, None)
         assert candidate.passed is True and candidate.items_passed == 1
         assert baseline.passed is False and baseline.items_passed == 0
 

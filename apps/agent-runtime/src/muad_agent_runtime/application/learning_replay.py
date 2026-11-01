@@ -12,6 +12,7 @@ import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, cast
+from uuid import UUID
 
 import sqlalchemy as sa
 from muad_contracts.canonical import canonical_json
@@ -54,7 +55,7 @@ class CaseOutcome:
 
 
 #: `(case, experience_key or None) -> 逐项结果`；异常由 `run_safely` 降级。
-CaseRunner = Callable[[EvalCase, "str | None"], Awaitable[CaseOutcome]]
+CaseRunner = Callable[[EvalCase, "str | None", "UUID | None"], Awaitable[CaseOutcome]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +105,7 @@ class LearningReplay:
         *,
         experience_key: str,
         base_config_hash: str,
+        experience_user_id: UUID | None = None,
         refresh_baseline: bool = False,
         limits: ReplayLimits | None = None,
     ) -> ReplayDecision | None:
@@ -114,6 +116,7 @@ class LearningReplay:
                 task_family,
                 experience_key=experience_key,
                 base_config_hash=base_config_hash,
+                experience_user_id=experience_user_id,
                 refresh_baseline=refresh_baseline,
                 limits=limits,
             )
@@ -138,10 +141,13 @@ class LearningReplay:
         *,
         experience_key: str,
         base_config_hash: str,
+        experience_user_id: UUID | None = None,
         refresh_baseline: bool = False,
         limits: ReplayLimits | None = None,
     ) -> ReplayDecision:
         limits = limits or self._limits
+        if experience_key and experience_user_id is None:
+            raise ValueError("candidate replay requires experience_user_id")
         async with self._factory() as session:
             cases = list(
                 (
@@ -158,28 +164,31 @@ class LearningReplay:
                 ).all()
             )
         if len(cases) < limits.min_cases:
-            baseline = await self._arm(cases, None)
-            candidate = await self._arm(cases, experience_key)
+            baseline = await self._arm(cases, None, None)
+            candidate = await self._arm(cases, experience_key, experience_user_id)
             await self._write_report(
                 tenant_id,
                 task_family,
                 experience_key,
+                experience_user_id,
                 base_config_hash,
                 baseline,
                 candidate,
                 INCOMPLETE,
                 0.0,
                 cases,
+                limits,
             )
             record_counter(EXPERIENCE_REPLAY_METRIC, labels={"result": INCOMPLETE})
             return ReplayDecision(INCOMPLETE, 0.0, baseline, candidate)
 
         cached = await self._cached_baseline(tenant_id, task_family, base_config_hash)
         if cached is None or refresh_baseline:
-            baseline = await self._arm(cases, None)
+            baseline = await self._arm(cases, None, None)
             await self._write_report(
                 tenant_id,
                 task_family,
+                None,
                 None,
                 base_config_hash,
                 baseline,
@@ -187,30 +196,38 @@ class LearningReplay:
                 "BASELINE",
                 0.0,
                 cases,
+                limits,
             )
         else:
             baseline = cached
-        candidate = await self._arm(cases, experience_key)
+        candidate = await self._arm(cases, experience_key, experience_user_id)
         improvement = candidate.success_rate - baseline.success_rate
         status = PASSED if improvement >= limits.min_improvement else REJECTED
         await self._write_report(
             tenant_id,
             task_family,
             experience_key,
+            experience_user_id,
             base_config_hash,
             baseline,
             candidate,
             status,
             improvement,
             cases,
+            limits,
         )
         record_counter(EXPERIENCE_REPLAY_METRIC, labels={"result": status})
         return ReplayDecision(status, improvement, baseline, candidate)
 
-    async def _arm(self, cases: Sequence[EvalCase], experience_key: str | None) -> ArmMetrics:
+    async def _arm(
+        self,
+        cases: Sequence[EvalCase],
+        experience_key: str | None,
+        experience_user_id: UUID | None,
+    ) -> ArmMetrics:
         passed = items_total = items_passed = 0
         for case in cases:
-            outcome = await self._runner(case, experience_key)
+            outcome = await self._runner(case, experience_key, experience_user_id)
             items_total += outcome.items_total
             items_passed += outcome.items_passed
             if outcome.case_passed:
@@ -248,15 +265,26 @@ class LearningReplay:
         tenant_id: str,
         task_family: str,
         experience_key: str | None,
+        experience_user_id: UUID | None,
         base_config_hash: str,
         baseline: ArmMetrics,
         candidate: ArmMetrics,
         status: str,
         improvement: float,
         cases: Sequence[EvalCase],
+        limits: ReplayLimits,
     ) -> None:
         metrics = {**candidate.as_json(), "baseline": baseline.as_json()}
-        decision = {"status": status, "improvement": improvement}
+        decision = {
+            "status": status,
+            "improvement": improvement,
+            "experience_user_id": str(experience_user_id) if experience_user_id else None,
+            "limits": {
+                "min_cases": limits.min_cases,
+                "max_cases": limits.max_cases,
+                "min_improvement": limits.min_improvement,
+            },
+        }
         report = {
             "cases": [
                 {"case_id": str(case.id), "item_count": case.item_count} for case in cases
@@ -277,7 +305,10 @@ class LearningReplay:
                         (
                             EvalReport.experience_key.is_(None)
                             if experience_key is None
-                            else EvalReport.experience_key == experience_key
+                            else sa.and_(
+                                EvalReport.experience_key == experience_key,
+                                EvalReport.experience_user_id == experience_user_id,
+                            )
                         ),
                     )
                 )
@@ -288,6 +319,7 @@ class LearningReplay:
                     tenant_id=tenant_id,
                     task_family=task_family,
                     experience_key=experience_key,
+                    experience_user_id=experience_user_id,
                     base_config_hash=base_config_hash,
                     metrics_json=metrics,
                     decision_json=decision,

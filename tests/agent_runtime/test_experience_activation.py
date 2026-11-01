@@ -18,8 +18,10 @@ from muad_agent_runtime.application.memory_queries import MemoryQueries, MemoryR
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import (
     EvalReport,
+    MemoryCommandReceipt,
     MemoryScope,
     UserMemory,
+    UserMemoryHistory,
 )
 from muad_contracts.platform_settings import MemoryPolicySettings
 
@@ -51,13 +53,14 @@ def _seed_rows(tenant: str, user: uuid.UUID, key: str, *, category="PROCEDURE", 
     return run()
 
 
-async def _report(tenant: str, key: str, status: str) -> None:
+async def _report(tenant: str, user: uuid.UUID, key: str, status: str) -> None:
     async with get_session_factory()() as session:
         session.add(
             EvalReport(
                 tenant_id=tenant,
                 task_family="skill:demo",
                 experience_key=key,
+                experience_user_id=user,
                 base_config_hash="base-1",
                 metrics_json={},
                 decision_json={"status": status},
@@ -106,6 +109,12 @@ async def _audits(tenant: str) -> list[dict]:
 async def _cleanup(tenant: str) -> None:
     async with get_session_factory()() as session:
         await session.execute(sa.delete(EvalReport).where(EvalReport.tenant_id == tenant))
+        await session.execute(
+            sa.delete(UserMemoryHistory).where(UserMemoryHistory.tenant_id == tenant)
+        )
+        await session.execute(
+            sa.delete(MemoryCommandReceipt).where(MemoryCommandReceipt.tenant_id == tenant)
+        )
         await session.execute(sa.delete(UserMemory).where(UserMemory.tenant_id == tenant))
         await session.execute(sa.delete(MemoryScope).where(MemoryScope.tenant_id == tenant))
         await session.execute(
@@ -120,8 +129,8 @@ async def test_s06_activation_gate_requires_replay_and_freezes_existing_runs(
     tenant, user = f"act-{uuid.uuid4()}", uuid.uuid4()
     await _seed_rows(tenant, user, "exp.rejected")
     await _seed_rows(tenant, user, "exp.ok")
-    await _report(tenant, "exp.rejected", "REJECTED")
-    await _report(tenant, "exp.ok", "PASSED")
+    await _report(tenant, user, "exp.rejected", "REJECTED")
+    await _report(tenant, user, "exp.ok", "PASSED")
     async with get_session_factory()() as session:
         session.add(MemoryScope(tenant_id=tenant, user_id=user, revision=1))
         await session.commit()
@@ -157,7 +166,7 @@ async def test_s06_activation_gate_requires_replay_and_freezes_existing_runs(
 async def test_s08_retirement_audits_and_stops_injection(database_guard: None) -> None:
     tenant, user = f"act-{uuid.uuid4()}", uuid.uuid4()
     await _seed_rows(tenant, user, "exp.ok")
-    await _report(tenant, "exp.ok", "PASSED")
+    await _report(tenant, user, "exp.ok", "PASSED")
     async with get_session_factory()() as session:
         session.add(MemoryScope(tenant_id=tenant, user_id=user, revision=1))
         await session.commit()

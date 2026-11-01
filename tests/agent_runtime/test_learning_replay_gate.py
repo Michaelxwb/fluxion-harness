@@ -88,7 +88,7 @@ class _CountingRunner:
         self.baseline = baseline or CaseOutcome(False, "baseline fails", 2, 1)
         self.calls: list[tuple[str | None, uuid.UUID]] = []
 
-    async def __call__(self, case: EvalCase, experience_key: str | None) -> CaseOutcome:
+    async def __call__(self, case: EvalCase, experience_key: str | None, experience_user_id=None) -> CaseOutcome:
         self.calls.append((experience_key, case.id))
         return self.baseline if experience_key is None else self.candidate
 
@@ -115,12 +115,13 @@ def _limits() -> ReplayLimits:
 
 async def test_s10_gate_requires_improvement_and_reuses_baseline(database_guard: None) -> None:
     tenant = f"replay-{uuid.uuid4()}"
+    user = uuid.uuid4()
     await _seed_cases(tenant, "skill:demo", [2, 2])
     runner = _CountingRunner(CaseOutcome(True, "", 2, 2))
     replay = LearningReplay(get_session_factory(), runner, _limits())
     try:
         first = await replay.run(
-            tenant, "skill:demo", experience_key="proc-1", base_config_hash="base-1"
+            tenant, "skill:demo", experience_key="proc-1", experience_user_id=user, base_config_hash="base-1"
         )
         assert first.status == PASSED
         assert first.improvement == 1.0
@@ -128,7 +129,7 @@ async def test_s10_gate_requires_improvement_and_reuses_baseline(database_guard:
         assert runner.arm_calls("proc-1") == 2
 
         second = await replay.run(
-            tenant, "skill:demo", experience_key="proc-1", base_config_hash="base-1"
+            tenant, "skill:demo", experience_key="proc-1", experience_user_id=user, base_config_hash="base-1"
         )
         assert second.status == PASSED
         # 基线臂按 (case 集合, base_config_hash) 复用，不重跑。
@@ -148,6 +149,7 @@ async def test_s10_gate_requires_improvement_and_reuses_baseline(database_guard:
 
 async def test_s10_gate_rejects_without_improvement(database_guard: None) -> None:
     tenant = f"replay-{uuid.uuid4()}"
+    user = uuid.uuid4()
     await _seed_cases(tenant, "skill:demo", [1, 1])
     runner = _CountingRunner(
         CaseOutcome(False, "no better", 1, 1), baseline=CaseOutcome(False, "baseline", 1, 1)
@@ -155,7 +157,7 @@ async def test_s10_gate_rejects_without_improvement(database_guard: None) -> Non
     replay = LearningReplay(get_session_factory(), runner, _limits())
     try:
         decision = await replay.run(
-            tenant, "skill:demo", experience_key="proc-2", base_config_hash="base-2"
+            tenant, "skill:demo", experience_key="proc-2", experience_user_id=user, base_config_hash="base-2"
         )
         assert decision.status == REJECTED
         assert decision.improvement == 0.0
@@ -165,6 +167,7 @@ async def test_s10_gate_rejects_without_improvement(database_guard: None) -> Non
 
 async def test_s15_batch_items_missing_or_failed_make_the_case_fail(database_guard: None) -> None:
     tenant = f"replay-{uuid.uuid4()}"
+    user = uuid.uuid4()
     await _seed_cases(tenant, "skill:demo", [3, 3])
     partial = _CountingRunner(
         CaseOutcome(True, "one item missing", items_total=3, items_passed=2)
@@ -172,7 +175,7 @@ async def test_s15_batch_items_missing_or_failed_make_the_case_fail(database_gua
     replay = LearningReplay(get_session_factory(), partial, _limits())
     try:
         decision = await replay.run(
-            tenant, "skill:demo", experience_key="proc-3", base_config_hash="base-3"
+            tenant, "skill:demo", experience_key="proc-3", experience_user_id=user, base_config_hash="base-3"
         )
         assert decision.candidate.passed == 0
         assert decision.candidate.items_total == 6
@@ -186,6 +189,7 @@ async def test_s15_batch_items_missing_or_failed_make_the_case_fail(database_gua
         await _cleanup(tenant)
 
     tenant = f"replay-{uuid.uuid4()}"
+    user = uuid.uuid4()
     await _seed_cases(tenant, "skill:demo", [3, 3])
     complete = _CountingRunner(
         CaseOutcome(True, "", items_total=3, items_passed=3),
@@ -194,7 +198,7 @@ async def test_s15_batch_items_missing_or_failed_make_the_case_fail(database_gua
     replay = LearningReplay(get_session_factory(), complete, _limits())
     try:
         decision = await replay.run(
-            tenant, "skill:demo", experience_key="proc-4", base_config_hash="base-4"
+            tenant, "skill:demo", experience_key="proc-4", experience_user_id=user, base_config_hash="base-4"
         )
         assert decision.candidate.passed == 2
         assert decision.status == PASSED
