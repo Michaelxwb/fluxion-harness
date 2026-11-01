@@ -16,22 +16,22 @@
 | 迁移 | `0030 (head)` |
 | 测试库 | 已删除（`muad_acc_*`、`muad_unit_iso`），仅保留 `muad`(dev)、`isf`、`isf_mattermost`、`postgres` |
 
-## 2. 当前真实接线状态（2026-11-01）
+## 2. 当前真实接线状态（2026-11-01 补完）
 
-| 环节 | 实现 | 运行时接线 | 可端到端观察 |
+| 环节 | 实现 | 运行时接线 | 端到端可观察 |
 |---|---|---|---|
-| 任务族派生（Run 完成写 `run_record.task_family`） | ✅ | ✅ `_finalize_run` | ✅ |
-| 注入归因 `MEMORY_INJECTED` | ✅ | ✅ `MemoryContextLoader` | ✅ |
-| 隐式信号 `LEARNING_SIGNAL` | ✅ | ✅ consolidation job 入口 | ✅ |
-| Golden Set 抽取 `GoldenSetExtractor` | ✅ | ❌ 无调用方/调度 | ❌ 需脚本手动触发 |
-| 经验候选 `ExperienceCandidates` | ✅ | ❌ 无调用方/调度 | ❌ 需脚本手动触发 |
-| 两臂回放 `LearningReplay` | ✅（编排） | ❌ 无生产 `CaseRunner`（真实模型执行端未接） | ❌ |
-| 激活/晋升 `LearningActivation` | ✅ | ❌ 无 CLI/流水线 | ❌ |
-| 任务族注入（`set_task_family`） | ✅ | ❌ 执行层未调用：skill 执行后不会切换族 | ❌ |
-| `learning` 设置读取（阈值/白名单/开关） | schema ✅ | ❌ 五处读取点均未接 | ❌（当前使用代码默认值） |
-| 任务内 verifier | ✅ | ❌ `answer_verifier` 从未注入 | ❌ |
+| 任务族派生 | ✅ | ✅ `_finalize_run` | ✅ |
+| 族传播（agent/skill） | ✅ | ✅ executor 初始 `agent:<id>` + skill 调用后切换 | ✅ |
+| learning 设置冻结 | ✅ | ✅ `policy_json.learning` + executor 读取 | ✅ |
+| 注入归因 / 隐式信号 | ✅ | ✅ 每请求 / consolidation 入口 | ✅ |
+| Golden Set 抽取 | ✅ | ✅ learning 调度循环（每 60s） | ✅ |
+| 经验候选 | ✅ | ✅ 同上 | ✅ |
+| 两臂回放 | ✅ | ✅ 生产 CaseRunner（Snapshot + 模型凭据） | ✅ |
+| TRIAL / 晋升 / 退休 | ✅ | ✅ 调度循环 + 审计 | ✅ |
+| learning_admin CLI | ✅ | ✅ `scripts/learning_admin.py` | ✅ |
+| 接线盘点 | ✅ | ✅ `tests/architecture/test_learning_wiring_inventory.py` | ✅ |
 
-结论：**通过 IM 直接发 prompt 可以验证「采集侧」（任务族、归因、信号），但无法完成「激活并影响下一次 Run」的闭环**。要让「越用越智能」可端到端观察，需要先补运行时接线。
+前提：租户的 `learning_enabled=true`。dev 的 `default` 租户在 Console「系统设置 → 学习与记忆」打开「启用学习闭环」即可（或按第 4 节用 CLI 触发）。
 
 ## 3. 现在就能验证的场景（无需接线）
 
@@ -59,19 +59,23 @@ select event_type, payload_json from runtime.canonical_event
 2. 发一条只与相关记忆沾边的问题。
 3. 查询 `MEMORY_INJECTED.items`：期望只注入相关条目，无关条目不出现在 items 中（阈值门控），并带 score/decision。
 
-## 4. 需要先接线才能验证的场景（自进化闭环）
+## 4. 自进化闭环场景（现已可端到端验证）
 
 ### 场景 D：经验沉淀 → 回放 → 激活 → 下一次 Run 生效
-1. 同一任务族执行 ≥3 次成功任务（`experience_min_success_runs=3`）。
-2. `GoldenSetExtractor.extract(tenant)` 生成 `eval_case`。
-3. `ExperienceCandidates.generate(tenant)` 生成 `user_memory`（category=PROCEDURE，activation_state=PROPOSED）。
-4. `LearningReplay` 两臂回放（真实模型）：基线臂 vs 候选臂，判定 PASSED/REJECTED。
-5. `LearningActivation.activate_manually`（或自动 TRIAL→ACTIVE）写审计。
-6. 第 4 次同类任务：`MEMORY_INJECTED.items` 出现该经验；回答体现 PROCEDURE。
 
-**当前阻塞**：第 2–6 步没有调用方；且即使手动调用，Run 内的经验注入还需要执行层把任务族传给 `MemoryContextLoader`（`set_task_family` 无调用者），目标文本通道又因 `trigger_text` 目前只写 family 串而难以命中。
+1. 同一任务族执行 ≥3 次成功任务（同 agent、同 skill 或同会话连续任务）。
+2. 等待 learning 调度循环（默认 60s）一轮，或手动触发：
+```
+.venv/bin/python scripts/learning_admin.py extract --tenant-id default --user-id <uuid>
+.venv/bin/python scripts/learning_admin.py candidates --tenant-id default --user-id <uuid>
+```
+3. 调度自动执行两臂回放（基线臂不携带经验、候选臂携带），PASSED 后经验进入 TRIAL 并写审计。
+4. 再等一轮调度：TRIAL 期无劣化信号自动晋升 ACTIVE。
+5. 第 4 次同类任务：`MEMORY_INJECTED.items` 出现该经验；回答体现 PROCEDURE。
 
-## 5. 补齐接线的最小工作包（建议作为下一个需求）
+观察 SQL 见第 6 节。
+
+## 5. 已完成的接线工作包（learning-pipeline-wiring 需求）
 
 1. **执行层族传播**：executor 在 Run 启动时设置 `agent:<id>`，`execute_skill`/`run_skill_script` 成功后切换为 `skill:<key>`；`learning` 设置从冻结 `policy_json` 读取并传入选择器。
 2. **调度**：worker 周期性/按 Run 完成后触发 Golden Set 抽取 → 候选生成 → 自动 TRIAL。
