@@ -144,6 +144,8 @@ from .channel_uploads import (
 )
 from .context_builder import BudgetPolicy, DbBackedContextBuilder
 from .context_settings import (
+    frozen_learning_payload,
+    learning_of,
     PoolExecutionPolicy,
     compaction_settings_of,
     pool_execution_policy_of,
@@ -393,6 +395,7 @@ def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults
             max_model_retries=_frozen_int(policy, "max_model_retries", agent_defaults.max_model_retries),
         ),
         memory_policy=_frozen_memory_policy(policy),
+        learning=learning_of(policy),
         max_archive_files=_frozen_int(
             _section(policy, "artifact"),
             "max_archive_files",
@@ -582,6 +585,7 @@ def build_snapshot(
     compaction: CompactionSettings | None = None,
     execution: ExecutionDefaults | None = None,
     summary_model: ResolvedModel | None = None,
+    learning: Mapping[str, Any] | None = None,
     pool: PoolExecutionPolicy | None = None,
     members: Sequence[MemberRef] | None = None,
     summary_members: Sequence[MemberRef] | None = None,
@@ -594,6 +598,7 @@ def build_snapshot(
         else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
     policy = snapshot_policy(settings, execution, summary_model, pool, members, summary_members)
+    policy["learning"] = dict(learning or {})
     from muad_contracts import AsyncToolPolicy
 
     policy["async_tools"] = AsyncToolPolicy.model_validate(
@@ -2084,8 +2089,8 @@ class RunService:
         try:
             await self._session.flush()
             snapshot = self._build_snapshot(
-                run.id, tenant_id, resolved, compaction, execution, summary_model, pool, members,
-                summary_members,
+                run.id, tenant_id, resolved, compaction, execution, summary_model,
+                frozen_learning_payload(snapshot_settings.settings), pool, members, summary_members,
             )
             self._session.add(snapshot)
             await self._session.flush()
@@ -2748,6 +2753,7 @@ class RunService:
         compaction: CompactionSettings | None = None,
         execution: ExecutionDefaults | None = None,
         summary_model: ResolvedModel | None = None,
+        learning: Mapping[str, Any] | None = None,
         pool: PoolExecutionPolicy | None = None,
         members: Sequence[MemberRef] | None = None,
         summary_members: Sequence[MemberRef] | None = None,
@@ -2759,6 +2765,7 @@ class RunService:
             compaction=compaction,
             execution=execution,
             summary_model=summary_model,
+            learning=learning,
             pool=pool,
             members=members,
             summary_members=summary_members,

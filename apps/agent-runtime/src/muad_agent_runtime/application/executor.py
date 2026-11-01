@@ -30,6 +30,7 @@ from muad_agent_core.model import (
     ModelMessage,
     ModelProvider,
     ModelRateLimitedError,
+    ModelToolCall,
     ModelRequest,
     ModelRequestError,
     ModelResponse,
@@ -111,7 +112,7 @@ from .attachments.tool_results import (
 )
 from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
-from .context_settings import PoolExecutionPolicy
+from .context_settings import FrozenLearning, PoolExecutionPolicy, learning_of
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_observability import memory_audit_preview
 from .memory_queries import MemoryReadScope
@@ -239,6 +240,7 @@ class ExecutionDefaults:
 
     agent_policy: AgentPolicy = field(default_factory=AgentPolicy)
     memory_policy: MemoryPolicySettings = field(default_factory=MemoryPolicySettings)
+    learning: FrozenLearning = field(default_factory=FrozenLearning)
     max_archive_files: int = field(default_factory=lambda: ArtifactSettings().max_archive_files)
     timezone: str = field(default_factory=lambda: LocaleSettings().default_timezone)
 
@@ -325,10 +327,12 @@ class _ExecutorEventEmitter:
         window: DeltaWindow,
         request: ExecutorRequest,
         model_trace: ModelCallTrace | None,
+        memory: RunMemory | None = None,
     ) -> None:
         self._queue = queue
         self._window = window
         self._request = request
+        self._memory = memory
         # 分代账本是**流正确性**设施：没有注入审计账本时也要存在（audit_enabled=False）。
         self._model_trace = model_trace if model_trace is not None else ModelCallTrace(audit_enabled=False)
         self._generation = self._model_trace.reply_generation
@@ -410,6 +414,9 @@ class _ExecutorEventEmitter:
         """
         if not message.tool_calls:
             return
+        family = skill_family_from_tool_calls(message.tool_calls)
+        if family is not None and self._memory is not None:
+            self._memory.loader.set_task_family(family)
         await self.emit(
             ExecutorEvent(
                 type=ASSISTANT_TURN_EVENT,
@@ -456,11 +463,13 @@ class AgentRunnerExecutor:
         close: Callable[[], Awaitable[None]] | None = None,
         model_trace: ModelCallTrace | None = None,
         delta_window: DeltaWindow | None = None,
+        memory: RunMemory | None = None,
     ) -> None:
         self._runner = runner
         self._request = request
         self._close = close
         self._model_trace = model_trace
+        self._memory = memory
         # 有界合并窗口：装配根显式注入（`default_executor_factory`）；直构调用点按启动设置
         # 取值——窗口参数是每进程容量配置（design §3.7），不在调用点另立第二份默认。
         self._delta_window = (
@@ -472,7 +481,11 @@ class AgentRunnerExecutor:
         cancelled = asyncio.Event()
         poller = asyncio.create_task(self._poll_cancel(cancelled))
         emitter = _ExecutorEventEmitter(
-            queue=queue, window=self._delta_window, request=self._request, model_trace=self._model_trace
+            queue=queue,
+            window=self._delta_window,
+            request=self._request,
+            model_trace=self._model_trace,
+            memory=self._memory,
         )
         task = asyncio.create_task(self._execute(cancelled, emitter))
         try:
@@ -1943,11 +1956,27 @@ def build_registry(
     return registry
 
 
+SKILL_FAMILY_TOOLS = frozenset({"execute_skill", "run_skill_script"})
+
+
+def skill_family_from_tool_calls(tool_calls: Sequence[ModelToolCall]) -> str | None:
+    """assistant 回合里首个带 skill_key 的 skill 工具调用 → 任务族键。"""
+    for call in tool_calls or ():
+        if call.name not in SKILL_FAMILY_TOOLS:
+            continue
+        key = call.arguments.get("skill_key") if isinstance(call.arguments, dict) else None
+        if isinstance(key, str) and key.strip():
+            return f"skill:{key.strip()}"
+    return None
+
+
 def _memory_runtime_for(request: ExecutorRequest) -> RunMemory | None:
     context = request.run_context
     if context is None:
         return None
-    policy = execution_defaults_for(request).memory_policy
+    defaults = execution_defaults_for(request)
+    policy = defaults.memory_policy
+    learning = defaults.learning
     policy = replace(policy, write_enabled=memory_write_enabled(
         request.agent.runtime_config, default=policy.write_enabled))
     credentials = (request.model.api_key, *request.credentials.mcp_secrets.values())
@@ -1956,7 +1985,12 @@ def _memory_runtime_for(request: ExecutorRequest) -> RunMemory | None:
         scope=MemoryReadScope(tenant_id=context.tenant_id, user_id=context.user_id), run_id=context.run_id,
         settings=policy, query=request.input_text, identity=request.execution_identity,
         submission_id=context.submission_id, credential_canaries=canaries,
-        resume_ref=context.memory_resume_ref, conversation_id=context.conversation_id)
+        resume_ref=context.memory_resume_ref, conversation_id=context.conversation_id,
+        min_score=learning.min_score,
+        preference_items=learning.preference_items,
+        preference_bytes=learning.preference_bytes,
+        learning_enabled=learning.enabled,
+        initial_task_family=f"agent:{request.agent.id}")
 
 
 def tool_result_settings(request: ExecutorRequest) -> ToolResultSettings:
@@ -2103,6 +2137,7 @@ async def default_executor_factory(
         close=close,
         model_trace=model_trace,
         delta_window=delta_window_from_settings(settings),
+        memory=memory,
     )
 
 

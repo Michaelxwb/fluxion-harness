@@ -51,6 +51,10 @@ class MemoryContextLoader:
         query: str | None,
         task_state_ref: MemoryResumeRef | None = None,
         on_attribution: AttributionSink | None = None,
+        min_score: float = 0.35,
+        preference_items: int = 3,
+        preference_bytes: int = 512,
+        learning_enabled: bool = True,
     ) -> None:
         self._cache, self._settings = cache, settings
         self._query, self._task_state_ref = query, task_state_ref
@@ -61,6 +65,10 @@ class MemoryContextLoader:
         self._component: MemoryComponent | None = None
         self._suppressed, self._generation = False, 0
         self._task_family: str | None = None
+        self._min_score = min_score
+        self._preference_items = preference_items
+        self._preference_bytes = preference_bytes
+        self._learning_enabled = learning_enabled
 
     @property
     def cache(self) -> MemoryCandidateCache:
@@ -96,12 +104,21 @@ class MemoryContextLoader:
             return None
         if self._allowed_experience_keys is None:
             # 首次刷新冻结 ACTIVE 经验集合：之后（同 Run 内）的激活不改变本 Run 的注入集合。
-            self._allowed_experience_keys = frozenset(
-                record.memory_key
-                for record in snapshot.records
-                if record.category
-                in (MemoryCategory.PROCEDURE, MemoryCategory.FAILURE_PATTERN, MemoryCategory.VERIFICATION)
-                and record.activation_state == "ACTIVE"
+            # learning 关闭时冻结为空集：不注入经验，事实记忆不受影响。
+            self._allowed_experience_keys = (
+                frozenset(
+                    record.memory_key
+                    for record in snapshot.records
+                    if record.category
+                    in (
+                        MemoryCategory.PROCEDURE,
+                        MemoryCategory.FAILURE_PATTERN,
+                        MemoryCategory.VERIFICATION,
+                    )
+                    and record.activation_state == "ACTIVE"
+                )
+                if self._learning_enabled
+                else frozenset()
             )
         self._component = self._render(snapshot)
         await self._emit_attribution()
@@ -126,6 +143,9 @@ class MemoryContextLoader:
             now=snapshot.as_of,
             inject_inferred=self._settings.inject_inferred,
             task_family=self._task_family,
+            min_score=self._min_score,
+            preference_items=self._preference_items,
+            preference_bytes=self._preference_bytes,
             allowed_experience_keys=self._allowed_experience_keys,
         )
         selected_tasks = tuple(
