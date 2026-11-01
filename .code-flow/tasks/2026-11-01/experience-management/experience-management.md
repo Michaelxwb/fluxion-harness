@@ -455,7 +455,7 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 
 ## TASK-009: 止损与族级暂停
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003, TASK-004
 - **Source**: backend design §3.4.1/§3.4.3；frontend design §3.2.2
@@ -492,10 +492,14 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
 - S-12: verified — automated command passed; run_id=8d87a49277614b43aa8913b642573c03 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=8d87a49277614b43aa8913b642573c03 (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=f756c2684ea3443bb81437795e9c4635 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=f756c2684ea3443bb81437795e9c4635 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---
 
