@@ -28,6 +28,7 @@ from sqlalchemy.pool import AsyncAdaptedQueuePool
 from .api.admin_runs import router as admin_runs_router
 from .api.artifacts import router as artifacts_router
 from .api.channel_delivery import router as channel_delivery_router
+from .api.learning import router as learning_router
 from .api.memory import router as memory_router
 from .api.model_capacity import router as model_capacity_router
 from .api.runs import router as runs_router
@@ -48,12 +49,14 @@ from .application.channel_delivery_pump import (
 from .application.channel_retention import retention_policy_from_settings, run_retention_sweep
 from .application.continuation_execution import continuation_executor
 from .application.executor import ExecutorFactory, default_executor_factory
-from .application.memory_consolidation import ConsolidationInvoker
-from .application.memory_consolidation_effects import ConsolidationWorker
 from .application.learning_activation import LearningActivation
+from .application.learning_admin_service import LearningAdminService
 from .application.learning_case_runner import ProductionCaseRunner, database_credentials_resolver
+from .application.learning_jobs import LearningJobRunner
 from .application.learning_replay import LearningReplay
 from .application.learning_scheduler import LearningSupervisor
+from .application.memory_consolidation import ConsolidationInvoker
+from .application.memory_consolidation_effects import ConsolidationWorker
 from .application.memory_supervisor import MemorySupervisor
 from .application.run_deadline import expire_runs
 from .application.run_service import expire_queued_runs, reap_abandoned_runs
@@ -86,6 +89,7 @@ SERVICE_NAME = "muad-agent-runtime"
 CONTINUATION_LOOP_NAME = "runtime.continuation"
 MEMORY_LOOP_NAME = "runtime.memory"
 LEARNING_LOOP_NAME = "runtime.learning"
+LEARNING_JOBS_LOOP_NAME = "runtime.learning_jobs"
 DEADLINE_LOOP_NAME = "runtime.deadline"
 CONTROL_LOOP_NAME = "runtime.control"
 REAPER_LOOP_NAME = "runtime.reaper"
@@ -333,23 +337,34 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
     )
     app.state.memory_supervisor = memory
     factory = get_session_factory()
+    replay = LearningReplay(
+        factory,
+        ProductionCaseRunner(factory, resolve_credentials=database_credentials_resolver(factory)),
+    )
+    activation = LearningActivation(factory)
     learning = LearningSupervisor(
         factory,
         settings_client=outbound.platform_settings,
-        replay=LearningReplay(
-            factory,
-            ProductionCaseRunner(factory, resolve_credentials=database_credentials_resolver(factory)),
-        ),
-        activation=LearningActivation(factory),
+        replay=replay,
+        activation=activation,
         interval_sec=float(settings.learning_scheduler_interval_sec),
     )
     app.state.learning_supervisor = learning
+    learning_admin = LearningAdminService(
+        factory, activation=activation, settings_client=outbound.platform_settings
+    )
+    app.state.learning_admin = learning_admin
+    learning_jobs = LearningJobRunner(
+        factory, replay, settings_provider=learning_admin.learning_settings
+    )
+    app.state.learning_jobs = learning_jobs
     # 出站投递泵：独立于请求/执行路径（不占执行槽、不受请求并发影响），只重试已持久结果。
     app.state.delivery_pump = _mount_delivery_pump(settings, outbound.platform_settings, outbound.pools)
     loops = (
         (pump.run_forever(), CONTINUATION_LOOP_NAME),
         (memory.run_forever(), MEMORY_LOOP_NAME),
         (learning.run_forever(), LEARNING_LOOP_NAME),
+        (learning_jobs.run_forever(), LEARNING_JOBS_LOOP_NAME),
         (_deadline_loop(settings.run_reaper_interval_sec), DEADLINE_LOOP_NAME),
         (outbound.dispatcher.run_forever(), CONTROL_LOOP_NAME),
         (_reaper_loop(settings.run_reaper_interval_sec), REAPER_LOOP_NAME),
@@ -585,6 +600,7 @@ app.include_router(runs_router)
 app.include_router(admin_runs_router)
 app.include_router(artifacts_router)
 app.include_router(memory_router)
+app.include_router(learning_router)
 app.include_router(tool_results_router)
 app.include_router(model_capacity_router)
 app.include_router(webchat_history_router)

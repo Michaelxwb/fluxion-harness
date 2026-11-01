@@ -113,3 +113,26 @@ class FamilyDetail(ContractModel):
     experiences: list[dict[str, Any]]
     reports: list[ExperienceReport]
     paused: bool = False
+
+
+class LearningActionRequest(ContractModel):
+    reason: str | None = None
+
+
+class LearningJobItem(ContractModel):
+    id: str
+    status: str
+    job_type: str
+    user_id: str
+    experience_key: str
+    result: dict[str, Any] | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    create_time: AwareDatetime
+    update_time: AwareDatetime
+
+
+class LearningActionItem(ContractModel):
+    experience_key: str
+    activation_state: str
+    status: str

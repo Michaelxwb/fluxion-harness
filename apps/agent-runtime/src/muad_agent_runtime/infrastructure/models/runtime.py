@@ -731,6 +731,49 @@ class EvalReport(StandardColumnsMixin, Base):
     )
 
 
+class LearningJob(StandardColumnsMixin, Base):
+    """经验回放等异步学习任务；claim 用 SKIP LOCKED，command_id 幂等。"""
+
+    __tablename__ = "learning_job"
+    __table_args__ = (
+        sa.Index(
+            "uq_learning_job_command",
+            "tenant_id",
+            "command_id",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.Index(
+            "ix_learning_job_claim",
+            "status",
+            "lease_until",
+            "create_time",
+            postgresql_where=sa.text("status IN ('PENDING','RUNNING')"),
+        ),
+        sa.Index(
+            "ix_learning_job_experience",
+            "tenant_id",
+            "user_id",
+            "experience_key",
+            sa.text("create_time DESC"),
+        ),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    experience_key: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    job_type: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    status: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'PENDING'"))
+    command_id: Mapped[str] = mapped_column(sa.String(256), nullable=False)
+    request_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    result_json: Mapped[dict[str, JsonValue] | None] = mapped_column(JSONB)
+    error_code: Mapped[str | None] = mapped_column(sa.String(64))
+    error_message: Mapped[str | None] = mapped_column(sa.String(512))
+    attempts: Mapped[int] = mapped_column(sa.Integer(), nullable=False, server_default=sa.text("0"))
+    lease_until: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
+
 class FamilyRunStat(StandardColumnsMixin, Base):
     """族级 Run 计数增量汇总（按族按天）；页面只读这张小表。"""
 

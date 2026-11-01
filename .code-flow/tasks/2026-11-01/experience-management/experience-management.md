@@ -24,16 +24,16 @@
 | S-01 | experience-management.backend.design.md#2.5 | integration | Console API（真实 ASGI + ADMIN 会话）→ LearningRepository → 真实 PostgreSQL runtime.user_memory | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s01"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-02 | experience-management.backend.design.md#2.5 | integration | Console API → 真实 PG；同一 fixture 同时查询 API-01 与 API-04 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s02"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-03 | experience-management.backend.design.md#2.5 | integration | Console API → 真实 PG（user_memory/history/eval_report/canonical_event/config_audit_log） | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s03"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| S-04 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal API（真实服务身份头）→ MemoryService/LearningActivation/LearningJobRunner → 真实 PG；回放用本地 OpenAI 兼容探针 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_lifecycle_api.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| S-04 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal API（真实服务身份头）→ MemoryService/LearningActivation/LearningJobRunner → 真实 PG；回放用本地 OpenAI 兼容探针 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_lifecycle_api.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-05 | experience-management.backend.design.md#2.5 | integration | Console 用户记忆 API → 真实 PG 只读投影；通用写 API → Runtime internal | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s05"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-06 | experience-management.backend.design.md#2.5 | component | 组件渲染 + mock service 数据（契约类型）；不访问真实后端 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "user_tab"] | . | 900 | P0 | auto | none | - | - | - | no |
 | S-07 | experience-management.backend.design.md#2.5 | component | 组件渲染 + 同一 fixture 注入两个入口 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "family_page"] | . | 900 | P0 | auto | none | - | - | - | no |
 | S-08 | experience-management.backend.design.md#2.5 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | TASK-006 | planned | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | . | 1200 | P1 | deferred | browser | - | 跨页面状态同步、真实路由深链与真实鉴权/DB 组合只有浏览器 E2E 能暴露；component 无法覆盖路由与真实后端 | apps/console-platform/frontend/src/modules/learning/**, apps/console-platform/frontend/src/modules/user-identity/**, apps/console-platform/frontend/src/modules/run-observability/**, apps/console-platform/backend/src/muad_console_platform/api/learning.py, apps/agent-runtime/src/muad_agent_runtime/application/learning_* | no |
 | S-09 | experience-management.backend.design.md#2.5 | integration | 真实 Run 的 MEMORY_INJECTED 事件（含 diagnostics）→ Console API-10 → 真实 PG | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_diagnostics_api.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
-| E-01 | experience-management.backend.design.md#2.5 | integration | Console API + Runtime client（上游 5xx/超时）；真实 PG | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_degradation.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| E-01 | experience-management.backend.design.md#2.5 | integration | Console API + Runtime client（上游 5xx/超时）；真实 PG | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_degradation.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | E-02 | experience-management.backend.design.md#2.5 | integration | Runtime internal API + Console 通用记忆 API → 真实 PG | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e02"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | E-03 | experience-management.backend.design.md#2.5 | integration | Runtime MemoryService 事务 → 真实 PG；注入审计写入失败 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e03"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| E-04 | experience-management.backend.design.md#2.5 | integration | LearningJobRunner → 真实 PG；探针可控延迟/失败 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_jobs.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
+| E-04 | experience-management.backend.design.md#2.5 | integration | LearningJobRunner → 真实 PG；探针可控延迟/失败 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_jobs.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | B-01 | experience-management.backend.design.md#2.5 | unit | 纯函数 derive_task_family / first_successful_skill；无 IO | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_task_family_scope.py"] | . | 900 | P0 | auto | none | - | - | - | no |
 | B-02 | experience-management.backend.design.md#2.5 | integration | Console 聚合 SQL → 真实 PG | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "aggregate"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-10 | experience-management.backend.design.md#2.5 | integration | Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log | TASK-008 | planned | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_audit_projection.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
@@ -219,7 +219,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 ## TASK-004: 生命周期写操作与回放任务
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: backend design §3.4.1/§3.4.2/§3.4.3
@@ -254,17 +254,22 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-04 | integration | Console API → Runtime internal API（真实服务身份头）→ MemoryService/LearningActivation/LearningJobRunner → 真实 PG；回放用本地 OpenAI 兼容探针 | 回放生成绑定该 user 的候选报告，job 幂等只执行一次；晋升后 version 递增、history 有完整 after、receipt 有记录、审计 actor 为真实账号且含 from/to/reason；退休/重新沉淀按状态机生效；非法转换返回 LEARNING_INVALID_TRANSITION | tests/console_platform/test_learning_lifecycle_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_lifecycle_api.py"] | planned |
-| E-01 | integration | Console API + Runtime client（上游 5xx/超时）；真实 PG | 读取仍可用并标注学习关闭；写操作 409 并给出原因；Runtime 不可达返回错误码，不返回缓存旧状态 | tests/console_platform/test_learning_degradation.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_degradation.py"] | planned |
-| E-04 | integration | LearningJobRunner → 真实 PG；探针可控延迟/失败 | 重复提交只产生一个 job/一次执行；过期 lease 被回收并重试，超过 attempts 后 FAILED 且错误可见；INCOMPLETE 报告写入但不改变 activation_state | tests/agent_runtime/test_learning_jobs.py | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_jobs.py"] | planned |
+| S-04 | integration | Console API → Runtime internal API（真实服务身份头）→ MemoryService/LearningActivation/LearningJobRunner → 真实 PG；回放用本地 OpenAI 兼容探针 | 回放生成绑定该 user 的候选报告，job 幂等只执行一次；晋升后 version 递增、history 有完整 after、receipt 有记录、审计 actor 为真实账号且含 from/to/reason；退休/重新沉淀按状态机生效；非法转换返回 LEARNING_INVALID_TRANSITION | tests/console_platform/test_learning_lifecycle_api.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_lifecycle_api.py"] | verified |
+| E-01 | integration | Console API + Runtime client（上游 5xx/超时）；真实 PG | 读取仍可用并标注学习关闭；写操作 409 并给出原因；Runtime 不可达返回错误码，不返回缓存旧状态 | tests/console_platform/test_learning_degradation.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_degradation.py"] | verified |
+| E-04 | integration | LearningJobRunner → 真实 PG；探针可控延迟/失败 | 重复提交只产生一个 job/一次执行；过期 lease 被回收并重试，超过 attempts 后 FAILED 且错误可见；INCOMPLETE 报告写入但不改变 activation_state | tests/agent_runtime/test_learning_jobs.py | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_jobs.py"] | verified |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
+- S-04: verified — automated command passed; run_id=88b62f357a6f4699ade3e84bae196490 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=88b62f357a6f4699ade3e84bae196490 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=88b62f357a6f4699ade3e84bae196490 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---
 

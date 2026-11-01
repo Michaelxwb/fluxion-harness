@@ -5,14 +5,16 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
-from muad_api import ApiResponse, ok, paginate
+from fastapi import APIRouter, Depends, Header, Query, Request
+from muad_api import ApiResponse, AppError, ok, paginate
+from muad_api.error_codes import ErrorCode
+from muad_contracts.learning_admin import LearningActionRequest
 from muad_contracts.memory import MemoryCategory
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.learning_service import LearningService
 from ..infrastructure.db import get_session
-from .deps import AccountTenantId
+from .deps import AccountTenantId, CurrentAccount, RuntimeLearningClientDep
 
 router = APIRouter(prefix="/api/v1/learning", tags=["learning"])
 TenantId = AccountTenantId
@@ -21,6 +23,7 @@ Page = Annotated[int, Query(ge=1)]
 PageSize = Annotated[int, Query(ge=1, le=100)]
 Window = Annotated[int, Query(ge=1, le=90)]
 State = Annotated[str | None, Query(pattern="^(PROPOSED|TRIAL|ACTIVE|RETIRED)$")]
+IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=256)]
 
 
 @router.get("/experiences")
@@ -118,3 +121,62 @@ async def get_family(
         tenant_id, family, window_days=window_days
     )
     return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
+
+
+@router.post("/experiences/{user_id}/{memory_key}/replay", status_code=202)
+async def replay_experience(
+    request: Request,
+    tenant_id: TenantId,
+    account: CurrentAccount,
+    runtime: RuntimeLearningClientDep,
+    user_id: uuid.UUID,
+    memory_key: str,
+    key: IdempotencyKey,
+) -> ApiResponse[Any]:
+    job = await runtime.replay(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        key=memory_key,
+        actor_id=account.id,
+        command_id=key,
+    )
+    return ok(request.app.state.message_catalog, job.model_dump(mode="json"))
+
+
+@router.post("/experiences/{user_id}/{memory_key}/{action}")
+async def experience_action(
+    request: Request,
+    tenant_id: TenantId,
+    account: CurrentAccount,
+    runtime: RuntimeLearningClientDep,
+    user_id: uuid.UUID,
+    memory_key: str,
+    action: str,
+    body: LearningActionRequest,
+    key: IdempotencyKey,
+) -> ApiResponse[Any]:
+    if action not in ("activate", "retire", "regenerate"):
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    if action in ("retire", "regenerate") and not body.reason:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    result = await runtime.action(
+        action,
+        tenant_id=tenant_id,
+        user_id=user_id,
+        key=memory_key,
+        actor_id=account.id,
+        command_id=key,
+        reason=body.reason,
+    )
+    return ok(request.app.state.message_catalog, result.model_dump(mode="json"))
+
+
+@router.get("/jobs/{job_id}")
+async def learning_job(
+    request: Request,
+    tenant_id: TenantId,
+    runtime: RuntimeLearningClientDep,
+    job_id: uuid.UUID,
+) -> ApiResponse[Any]:
+    job = await runtime.job(tenant_id=tenant_id, job_id=job_id)
+    return ok(request.app.state.message_catalog, job.model_dump(mode="json"))

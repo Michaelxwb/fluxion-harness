@@ -19,6 +19,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     MemoryCommandReceipt,
     MemoryScope,
     RunRecord,
+    LearningJob,
     RuntimeSnapshot,
     UserMemory,
     UserMemoryHistory,
@@ -214,6 +215,7 @@ async def seed_credential(tenant: str) -> None:
 
 async def cleanup(tenant: str) -> None:
     async with get_session_factory()() as session:
+        await session.execute(sa.delete(LearningJob).where(LearningJob.tenant_id == tenant))
         await session.execute(sa.delete(EvalReport).where(EvalReport.tenant_id == tenant))
         await session.execute(sa.delete(EvalCase).where(EvalCase.tenant_id == tenant))
         await session.execute(sa.delete(UserMemoryHistory).where(UserMemoryHistory.tenant_id == tenant))
