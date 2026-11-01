@@ -13,6 +13,7 @@ import { LoginPage } from './pages/LoginPage';
  * 但有自己的布局与认证初始化，不放进管理 `RequireAuth`/`AppLayout` 分支，也不进导航菜单。
  */
 const ChatPage = lazy(() => import('./modules/webchat/ChatPage'));
+const LearningPage = lazy(() => import('./modules/learning/LearningPage').then((m) => ({ default: m.LearningPage })));
 
 /**
  * admin 页面按路由懒加载（design frontend §3.2/§3.3）：聊天首屏不再静态引入全部管理页；
@@ -123,6 +124,14 @@ export default function App() {
         <Route path="tasks" element={<TaskPage />} />
         <Route path="schedules" element={<SchedulePage />} />
         <Route path="audits" element={<AuditPage />} />
+        <Route
+          path="learning"
+          element={
+            <RequireRole role="ADMIN">
+              <LearningPage />
+            </RequireRole>
+          }
+        />
         <Route
           path="settings"
           element={

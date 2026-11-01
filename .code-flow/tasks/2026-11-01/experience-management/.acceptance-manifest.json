@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "experience-management.md",
-  "task_sha256": "e533c46e2f4164eb922883ccd87885956431bbaf3195bace60e520bbecf7eb41",
+  "task_sha256": "73550f80b0529d050f513ef8b413a21ef29bc765381e476046771ad88a9918ca",
   "checks": [
     {
       "id": "CHK-4c39c2c6477a",
@@ -107,15 +107,13 @@
       "paths": []
     },
     {
-      "id": "CHK-beceb426fe2a",
+      "id": "CHK-20747d0841b3",
       "command": [
         "uv",
         "run",
         "pytest",
         "-q",
-        "tests/frontend/test_learning_experience_contract.py",
-        "-k",
-        "user_tab"
+        "tests/frontend/test_learning_experience_contract.py"
       ],
       "cwd": ".",
       "timeout": 900.0,
@@ -128,15 +126,13 @@
       "paths": []
     },
     {
-      "id": "CHK-72861c3a97b1",
+      "id": "CHK-67a5b8ea04b6",
       "command": [
         "uv",
         "run",
         "pytest",
         "-q",
-        "tests/frontend/test_learning_experience_contract.py",
-        "-k",
-        "family_page"
+        "tests/frontend/test_learning_family_page_contract.py"
       ],
       "cwd": ".",
       "timeout": 900.0,
@@ -1483,15 +1479,13 @@
       "kind": "functional",
       "boundary": "组件渲染 + mock service 数据（契约类型）；不访问真实后端",
       "owner": "TASK-005",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
         "pytest",
         "-q",
-        "tests/frontend/test_learning_experience_contract.py",
-        "-k",
-        "user_tab"
+        "tests/frontend/test_learning_experience_contract.py"
       ],
       "cwd": ".",
       "timeout": 900.0,
@@ -1546,7 +1540,7 @@
         "FEAT-01",
         "FEAT-03"
       ],
-      "check": "CHK-beceb426fe2a",
+      "check": "CHK-20747d0841b3",
       "revision": 1,
       "evidence": {
         "id": "S-06",
@@ -1637,6 +1631,9 @@
           "timeout": 900.0,
           "fingerprint": "950dd50694539746ac2cad7e3ad44883d6fcc0f768f1d5d6c596e5da20fb11bb"
         }
+      ],
+      "stale_checks": [
+        "CHK-20747d0841b3"
       ]
     },
     {
@@ -1646,15 +1643,13 @@
       "kind": "functional",
       "boundary": "组件渲染 + 同一 fixture 注入两个入口",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
         "pytest",
         "-q",
-        "tests/frontend/test_learning_experience_contract.py",
-        "-k",
-        "family_page"
+        "tests/frontend/test_learning_family_page_contract.py"
       ],
       "cwd": ".",
       "timeout": 900.0,
@@ -1701,7 +1696,134 @@
         "FEAT-03",
         "FEAT-06"
       ],
-      "check": "CHK-72861c3a97b1"
+      "check": "CHK-67a5b8ea04b6",
+      "revision": 2,
+      "evidence": {
+        "id": "S-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-67a5b8ea04b6",
+        "input_hash": "23be2cf755127d67733a63f4a11f2fb83917c341668e09d1d3d8d89a5b8ca33a",
+        "check_config": {
+          "id": "CHK-67a5b8ea04b6",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_family_page_contract.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 2,
+        "run_id": "1decfc88ee2a46cb8fa6acfde6388a43",
+        "executed_at": "2026-11-01T03:01:35.819862+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_learning_family_page_contract.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "23be2cf755127d67733a63f4a11f2fb83917c341668e09d1d3d8d89a5b8ca33a"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 5,
+          "output": "1 deselected in 0.02s",
+          "check_id": "CHK-72861c3a97b1",
+          "input_hash": "23be2cf755127d67733a63f4a11f2fb83917c341668e09d1d3d8d89a5b8ca33a",
+          "check_config": {
+            "id": "CHK-72861c3a97b1",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_learning_experience_contract.py",
+              "-k",
+              "family_page"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "0a05b6817e404cfabbee2358fa41ce47",
+          "executed_at": "2026-11-01T03:01:22.160721+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_experience_contract.py",
+            "-k",
+            "family_page"
+          ],
+          "cwd": ".",
+          "timeout": 900.0
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-67a5b8ea04b6",
+          "input_hash": "23be2cf755127d67733a63f4a11f2fb83917c341668e09d1d3d8d89a5b8ca33a",
+          "check_config": {
+            "id": "CHK-67a5b8ea04b6",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_learning_family_page_contract.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "1decfc88ee2a46cb8fa6acfde6388a43",
+          "executed_at": "2026-11-01T03:01:35.819862+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_family_page_contract.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "23be2cf755127d67733a63f4a11f2fb83917c341668e09d1d3d8d89a5b8ca33a"
+        }
+      ]
     },
     {
       "id": "S-08",
@@ -1710,7 +1832,7 @@
       "kind": "e2e",
       "boundary": "真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针",
       "owner": "TASK-006",
-      "status": "planned",
+      "status": "e2e_deferred",
       "command": [
         "node",
         "e2e/node_modules/.bin/playwright",
@@ -1790,7 +1912,199 @@
         "FEAT-05"
       ],
       "defer_owner": "TASK-004",
-      "check": "CHK-f5b42409b72c"
+      "check": "CHK-f5b42409b72c",
+      "revision": 2,
+      "evidence": {
+        "id": "S-08",
+        "kind": "e2e",
+        "status": "e2e_deferred",
+        "check_config": {
+          "id": "CHK-f5b42409b72c",
+          "command": [
+            "node",
+            "e2e/node_modules/.bin/playwright",
+            "test",
+            "--config",
+            "e2e/playwright.learning-experience.config.ts",
+            "e2e/tests/learning-experience.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "env": "browser",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": [
+            "apps/agent-runtime/src/muad_agent_runtime/application/learning_*",
+            "apps/console-platform/backend/src/muad_console_platform/api/learning.py",
+            "apps/console-platform/frontend/src/modules/learning/**",
+            "apps/console-platform/frontend/src/modules/run-observability/**",
+            "apps/console-platform/frontend/src/modules/user-identity/**"
+          ],
+          "suite": "browser",
+          "test_ids": [
+            "e2e/tests/learning-experience.spec.ts:6@browser"
+          ],
+          "markers": [],
+          "collect": {
+            "format": "playwright",
+            "argv": [
+              "node",
+              "e2e/node_modules/.bin/playwright",
+              "test",
+              "--config",
+              "e2e/playwright.learning-experience.config.ts",
+              "e2e/tests/learning-experience.spec.ts",
+              "--list",
+              "--reporter=json"
+            ],
+            "timeout": 60
+          }
+        },
+        "revision": 2,
+        "run_id": "1decfc88ee2a46cb8fa6acfde6388a43",
+        "executed_at": "2026-11-01T03:01:35.819862+00:00",
+        "command": [
+          "node",
+          "e2e/node_modules/.bin/playwright",
+          "test",
+          "--config",
+          "e2e/playwright.learning-experience.config.ts",
+          "e2e/tests/learning-experience.spec.ts"
+        ],
+        "cwd": ".",
+        "timeout": 1200.0
+      },
+      "runs": [
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-f5b42409b72c",
+            "command": [
+              "node",
+              "e2e/node_modules/.bin/playwright",
+              "test",
+              "--config",
+              "e2e/playwright.learning-experience.config.ts",
+              "e2e/tests/learning-experience.spec.ts"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/agent-runtime/src/muad_agent_runtime/application/learning_*",
+              "apps/console-platform/backend/src/muad_console_platform/api/learning.py",
+              "apps/console-platform/frontend/src/modules/learning/**",
+              "apps/console-platform/frontend/src/modules/run-observability/**",
+              "apps/console-platform/frontend/src/modules/user-identity/**"
+            ],
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/learning-experience.spec.ts:6@browser"
+            ],
+            "markers": [],
+            "collect": {
+              "format": "playwright",
+              "argv": [
+                "node",
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.learning-experience.config.ts",
+                "e2e/tests/learning-experience.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "timeout": 60
+            }
+          },
+          "revision": 1,
+          "run_id": "0a05b6817e404cfabbee2358fa41ce47",
+          "executed_at": "2026-11-01T03:01:22.160721+00:00",
+          "command": [
+            "node",
+            "e2e/node_modules/.bin/playwright",
+            "test",
+            "--config",
+            "e2e/playwright.learning-experience.config.ts",
+            "e2e/tests/learning-experience.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0
+        },
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-f5b42409b72c",
+            "command": [
+              "node",
+              "e2e/node_modules/.bin/playwright",
+              "test",
+              "--config",
+              "e2e/playwright.learning-experience.config.ts",
+              "e2e/tests/learning-experience.spec.ts"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/agent-runtime/src/muad_agent_runtime/application/learning_*",
+              "apps/console-platform/backend/src/muad_console_platform/api/learning.py",
+              "apps/console-platform/frontend/src/modules/learning/**",
+              "apps/console-platform/frontend/src/modules/run-observability/**",
+              "apps/console-platform/frontend/src/modules/user-identity/**"
+            ],
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/learning-experience.spec.ts:6@browser"
+            ],
+            "markers": [],
+            "collect": {
+              "format": "playwright",
+              "argv": [
+                "node",
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.learning-experience.config.ts",
+                "e2e/tests/learning-experience.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "timeout": 60
+            }
+          },
+          "revision": 2,
+          "run_id": "1decfc88ee2a46cb8fa6acfde6388a43",
+          "executed_at": "2026-11-01T03:01:35.819862+00:00",
+          "command": [
+            "node",
+            "e2e/node_modules/.bin/playwright",
+            "test",
+            "--config",
+            "e2e/playwright.learning-experience.config.ts",
+            "e2e/tests/learning-experience.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0
+        }
+      ]
     },
     {
       "id": "S-09",
@@ -4209,8 +4523,6 @@
       "S-03",
       "S-04",
       "S-05",
-      "S-06",
-      "S-07",
       "S-08",
       "S-09",
       "E-01",
@@ -4227,7 +4539,10 @@
       "S-15",
       "E-05"
     ],
-    "stale": [],
+    "stale": [
+      "S-06",
+      "S-07"
+    ],
     "removed": []
   }
 }

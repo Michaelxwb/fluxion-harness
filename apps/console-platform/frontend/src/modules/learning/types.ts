@@ -66,3 +66,17 @@ export interface FamilyItem {
   pass_rate: { passed: number; total: number };
   last_decision: string | null;
 }
+
+
+export interface FamilyDetail {
+  family: string;
+  source: 'skill' | 'agent' | 'unknown';
+  window: string;
+  run_count: number;
+  run_count_capped: boolean;
+  recent_runs: Array<Record<string, unknown>>;
+  cases: Array<Record<string, unknown>>;
+  experiences: Array<{ user_id: string; items: ExperienceItem[] }>;
+  reports: ExperienceReport[];
+  paused: boolean;
+}

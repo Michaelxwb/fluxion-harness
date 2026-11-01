@@ -26,9 +26,9 @@
 | S-03 | experience-management.backend.design.md#2.5 | integration | Console API → 真实 PG（user_memory/history/eval_report/canonical_event/config_audit_log） | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s03"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-04 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal API（真实服务身份头）→ MemoryService/LearningActivation/LearningJobRunner → 真实 PG；回放用本地 OpenAI 兼容探针 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_lifecycle_api.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-05 | experience-management.backend.design.md#2.5 | integration | Console 用户记忆 API → 真实 PG 只读投影；通用写 API → Runtime internal | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s05"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| S-06 | experience-management.backend.design.md#2.5 | component | 组件渲染 + mock service 数据（契约类型）；不访问真实后端 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "user_tab"] | . | 900 | P0 | auto | none | - | - | - | no |
-| S-07 | experience-management.backend.design.md#2.5 | component | 组件渲染 + 同一 fixture 注入两个入口 | TASK-006 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "family_page"] | . | 900 | P0 | auto | none | - | - | - | no |
-| S-08 | experience-management.backend.design.md#2.5 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | TASK-006 | planned | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | . | 1200 | P1 | deferred | browser | - | 跨页面状态同步、真实路由深链与真实鉴权/DB 组合只有浏览器 E2E 能暴露；component 无法覆盖路由与真实后端 | apps/console-platform/frontend/src/modules/learning/**, apps/console-platform/frontend/src/modules/user-identity/**, apps/console-platform/frontend/src/modules/run-observability/**, apps/console-platform/backend/src/muad_console_platform/api/learning.py, apps/agent-runtime/src/muad_agent_runtime/application/learning_* | no |
+| S-06 | experience-management.backend.design.md#2.5 | component | 组件渲染 + mock service 数据（契约类型）；不访问真实后端 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py"] | . | 900 | P0 | auto | none | - | - | - | no |
+| S-07 | experience-management.backend.design.md#2.5 | component | 组件渲染 + 同一 fixture 注入两个入口 | TASK-006 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_family_page_contract.py"] | . | 900 | P0 | auto | none | - | - | - | no |
+| S-08 | experience-management.backend.design.md#2.5 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | TASK-006 | e2e_deferred | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | . | 1200 | P1 | deferred | browser | - | 跨页面状态同步、真实路由深链与真实鉴权/DB 组合只有浏览器 E2E 能暴露；component 无法覆盖路由与真实后端 | apps/console-platform/frontend/src/modules/learning/**, apps/console-platform/frontend/src/modules/user-identity/**, apps/console-platform/frontend/src/modules/run-observability/**, apps/console-platform/backend/src/muad_console_platform/api/learning.py, apps/agent-runtime/src/muad_agent_runtime/application/learning_* | no |
 | S-09 | experience-management.backend.design.md#2.5 | integration | 真实 Run 的 MEMORY_INJECTED 事件（含 diagnostics）→ Console API-10 → 真实 PG | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_diagnostics_api.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | E-01 | experience-management.backend.design.md#2.5 | integration | Console API + Runtime client（上游 5xx/超时）；真实 PG | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_degradation.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | E-02 | experience-management.backend.design.md#2.5 | integration | Runtime internal API + Console 通用记忆 API → 真实 PG | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e02"] | . | 900 | P0 | auto | local-api | - | - | - | no |
@@ -275,7 +275,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 ## TASK-005: 用户维度经验视图与共用详情
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004
 - **Source**: frontend design §3.2/§3.3/§3.5/§3.6
@@ -306,7 +306,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-06 | component | 组件渲染 + mock service 数据（契约类型）；不访问真实后端 | 列表显示族/状态/版本/回放结论，过滤与分页可用；打开共用经验详情；通用记忆页签对经验类不出现启停用/删除；空态与错误态文案来自 learning.* 词条 | tests/frontend/test_learning_experience_contract.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "user_tab"] | verified |
+| S-06 | component | 组件渲染 + mock service 数据（契约类型）；不访问真实后端 | 列表显示族/状态/版本/回放结论，过滤与分页可用；打开共用经验详情；通用记忆页签对经验类不出现启停用/删除；空态与错误态文案来自 learning.* 词条 | tests/frontend/test_learning_experience_contract.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -316,6 +316,8 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---
 
@@ -352,12 +354,16 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-07 | component | 组件渲染 + 同一 fixture 注入两个入口 | 两处详情由同一组件渲染，族/状态/回放结论/操作一致；关闭后回到各自入口，列表不出现重复操作列 | tests/frontend/test_learning_experience_contract.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py", "-k", "family_page"] | planned |
-| S-08 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | 退休后用户页与族页同时显示 RETIRED，审计可见操作者与原因；族详情中的经验身份与用户页完全一致；Run ↔ 经验双向深链落在同一对象（user_id+memory_key）且无 404；审计页可按 MEMORY_EXPERIENCE 筛选到本次退休，操作者为真实账号，跳转落在同一经验 | e2e/tests/learning-experience.spec.ts | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | planned |
+| S-07 | component | 组件渲染 + 同一 fixture 注入两个入口 | 两处详情由同一组件渲染，族/状态/回放结论/操作一致；关闭后回到各自入口，列表不出现重复操作列 | tests/frontend/test_learning_experience_contract.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_family_page_contract.py"] | verified |
+| S-08 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | 退休后用户页与族页同时显示 RETIRED，审计可见操作者与原因；族详情中的经验身份与用户页完全一致；Run ↔ 经验双向深链落在同一对象（user_id+memory_key）且无 404；审计页可按 MEMORY_EXPERIENCE 筛选到本次退休，操作者为真实账号，跳转落在同一经验 | e2e/tests/learning-experience.spec.ts | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | e2e_deferred |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
+- S-07: failed — automated command failed; run_id=0a05b6817e404cfabbee2358fa41ce47 (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=0a05b6817e404cfabbee2358fa41ce47 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=1decfc88ee2a46cb8fa6acfde6388a43 (confirmed_by: runner)
+- S-08: e2e_deferred — automated command e2e_deferred; run_id=1decfc88ee2a46cb8fa6acfde6388a43 (confirmed_by: runner)
 
 ### Log
 

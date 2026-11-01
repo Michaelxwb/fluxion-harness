@@ -1603,5 +1603,18 @@
   "learning.actions.done": "操作已完成",
   "learning.errors.load": "加载经验失败",
   "learning.errors.reasonRequired": "请填写原因",
-  "learning.errors.action": "操作失败"
+  "learning.errors.action": "操作失败",
+  "nav.learning": "学习与经验",
+  "learning.family.pageTitle": "任务族",
+  "learning.family.title": "族详情",
+  "learning.family.name": "任务族",
+  "learning.family.source": "来源",
+  "learning.family.runs": "Run 数",
+  "learning.family.passRate": "回放通过率",
+  "learning.family.experiences": "经验",
+  "learning.family.reports": "回放",
+  "learning.family.overview": "概览",
+  "learning.family.paused": "已暂停",
+  "learning.family.unknown": "未归类",
+  "learning.family.unclassified": "未归类 Run：{{count}}"
 }

@@ -11,7 +11,7 @@
 - **深链可用**：`BrowserRouter` + 真实路由表覆盖菜单 11 项路径（`/` 为 index 路由），
   直接打开 `/agents` 等深链会按路由动态加载对应 chunk；单入口 SPA 产物没有按路由拆分的 HTML。
 - **错误边界**：admin 路由的 Suspense/错误边界围绕 `Outlet` 生效，失败文案复用既有词条（不新增 key）。
-- **菜单 11 项不变**：`config/menu.ts` 的路径/键/顺序与既有 Shell 契约一致。
+- **菜单 12 项不变**：`config/menu.ts` 的路径/键/顺序与既有 Shell 契约一致。
 """
 
 from __future__ import annotations
@@ -47,6 +47,7 @@ MENU_PATHS = [
     "/tasks",
     "/schedules",
     "/audits",
+    "/learning",
     "/settings",
 ]
 
@@ -148,10 +149,10 @@ def test_s10_chat_first_paint_does_not_load_admin_chunks(build_dist: Path) -> No
 
 
 def test_s10_admin_deep_links_keep_the_route_table_and_error_boundary() -> None:
-    """菜单 11 项与路由表逐一对应；BrowserRouter 深链；lazy 页面有 Suspense/错误边界。"""
+    """菜单 12 项与路由表逐一对应；BrowserRouter 深链；lazy 页面有 Suspense/错误边界。"""
     menu = _read(MENU_TS)
     keys = re.findall(r"key:\s*'([^']+)'", menu)
-    assert len(keys) == 11, f"菜单必须保持 11 项：{keys}"
+    assert len(keys) == 12, f"菜单必须保持 12 项：{keys}"
     paths = re.findall(r"path:\s*'([^']+)'", menu)
     assert paths == MENU_PATHS, f"菜单路径与顺序不得变化：{paths}"
 

@@ -1603,5 +1603,18 @@
   "learning.actions.done": "Done",
   "learning.errors.load": "Failed to load experience",
   "learning.errors.reasonRequired": "Reason is required",
-  "learning.errors.action": "Action failed"
+  "learning.errors.action": "Action failed",
+  "nav.learning": "Learning",
+  "learning.family.pageTitle": "Task families",
+  "learning.family.title": "Family",
+  "learning.family.name": "Family",
+  "learning.family.source": "Source",
+  "learning.family.runs": "Runs",
+  "learning.family.passRate": "Replay pass rate",
+  "learning.family.experiences": "Experiences",
+  "learning.family.reports": "Replays",
+  "learning.family.overview": "Overview",
+  "learning.family.paused": "Paused",
+  "learning.family.unknown": "Unknown",
+  "learning.family.unclassified": "Unclassified runs: {{count}}"
 }

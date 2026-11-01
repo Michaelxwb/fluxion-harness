@@ -1,5 +1,12 @@
 import { api, type ApiResponse } from '../../../api/client';
-import type { ActivationState, ExperienceDetail, ExperienceItem, ExperienceCounts, FamilyItem } from '../types';
+import type {
+  ActivationState,
+  ExperienceDetail,
+  ExperienceItem,
+  ExperienceCounts,
+  FamilyDetail,
+  FamilyItem,
+} from '../types';
 
 export interface Page<T> {
   items: T[];
@@ -51,6 +58,14 @@ export async function listFamilies(params: {
   page_size: number;
 }): Promise<FamilyPage> {
   return unwrap(await api.get<ApiResponse<FamilyPage>>('/learning/families', { params }));
+}
+
+export async function getFamily(family: string, windowDays = 7): Promise<FamilyDetail> {
+  return unwrap(
+    await api.get<ApiResponse<FamilyDetail>>(`/learning/families/${encodeURIComponent(family)}`, {
+      params: { window_days: windowDays }
+    })
+  );
 }
 
 export async function replayExperience(
