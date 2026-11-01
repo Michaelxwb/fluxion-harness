@@ -19,11 +19,11 @@ from muad_contracts.platform_settings import LearningSettings, parse_platform_se
 
 from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.runtime import CanonicalEvent, RunRecord, UserMemory
-from ..metrics import LEARNING_SCHEDULER_METRIC, LEARNING_PIPELINE_FAILURES_METRIC, record_counter
+from ..metrics import LEARNING_PIPELINE_FAILURES_METRIC, LEARNING_SCHEDULER_METRIC, record_counter
 from .experience_candidates import ExperienceCandidates
+from .golden_set import GoldenSetExtractor
 from .learning_activation import LearningActivation
-from .learning_replay import PASSED, LearningReplay
-from .golden_set import GoldenSetExtractor, GoldenSetLimits
+from .learning_replay import PASSED, LearningReplay, ReplayLimits
 from .ports import PlatformSettingsClient
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ class LearningSupervisor:
                 candidate_report = await self._candidates.generate(tenant_id, now=moment)
                 candidates += candidate_report.created
                 if self._replay is not None and self._activation is not None:
-                    await self._advance_experiences(tenant_id)
+                    await self._advance_experiences(tenant_id, settings)
             except Exception as exc:  # noqa: BLE001 - 学习链路必须降级
                 record_counter(
                     LEARNING_PIPELINE_FAILURES_METRIC,
@@ -91,7 +91,7 @@ class LearningSupervisor:
                 )
         return SchedulerReport(len(tenants), enabled, extracted, candidates, skipped)
 
-    async def _advance_experiences(self, tenant_id: str) -> None:
+    async def _advance_experiences(self, tenant_id: str, settings: LearningSettings) -> None:
         """回放 PROPOSED 经验并在 PASSED 后进入 TRIAL；TRIAL 期按信号自动晋升/退休。"""
         async with self._factory() as session:
             proposed = list(
@@ -119,6 +119,11 @@ class LearningSupervisor:
                 ).all()
             )
         assert self._replay is not None and self._activation is not None
+        limits = ReplayLimits(
+            min_cases=settings.eval_min_cases,
+            max_cases=settings.eval_max_cases,
+            min_improvement=settings.eval_min_improvement,
+        )
         for row in proposed:
             family = row.task_signature or ""
             base_config_hash = self._base_hash(tenant_id, family)
@@ -127,6 +132,7 @@ class LearningSupervisor:
                 family,
                 experience_key=row.memory_key,
                 base_config_hash=base_config_hash,
+                limits=limits,
             )
             if decision is None or decision.status != PASSED:
                 continue
@@ -154,7 +160,7 @@ class LearningSupervisor:
 
     @staticmethod
     def _base_hash(tenant_id: str, family: str) -> str:
-        return "sha256:" + hashlib.sha256(f"{tenant_id}:{family}".encode("utf-8")).hexdigest()[:16]
+        return "sha256:" + hashlib.sha256(f"{tenant_id}:{family}".encode()).hexdigest()[:16]
 
     async def _signal_count(self, tenant_id: str, user_id: UUID) -> int:
         async with self._factory() as session:
@@ -222,6 +228,6 @@ class LearningSupervisor:
         self._task.cancel()
         try:
             await asyncio.wait_for(self._task, timeout=self._close_timeout)
-        except (asyncio.CancelledError, asyncio.TimeoutError):
+        except (TimeoutError, asyncio.CancelledError):
             pass
         self._task = None

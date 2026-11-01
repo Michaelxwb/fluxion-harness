@@ -21,6 +21,7 @@ from muad_contracts.platform_settings import (
     COMPACTION_POLICY_KEY,
     CompactionConfigError,
     CompactionSettings,
+    LearningSettings,
     PlatformSettingsError,
     merge_compaction_payload,
     parse_compaction_settings,
@@ -62,6 +63,11 @@ def frozen_learning_payload(document: Mapping[str, Any] | None) -> dict[str, Any
     """平台设置快照 → 冻进 policy_json 的 learning 段（按 schema 默认补齐）。"""
     settings = parse_platform_settings(document or {})
     return asdict(settings.learning)
+
+
+def frozen_learning_from_settings(settings: LearningSettings) -> FrozenLearning:
+    """平台设置（新建 Run 边界）→ 冻结形态，供 ExecutionDefaults 注入。"""
+    return learning_of({LEARNING_POLICY_KEY: asdict(settings)})
 
 
 def learning_of(policy_json: Mapping[str, Any] | None) -> FrozenLearning:

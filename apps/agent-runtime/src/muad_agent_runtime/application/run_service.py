@@ -144,10 +144,11 @@ from .channel_uploads import (
 )
 from .context_builder import BudgetPolicy, DbBackedContextBuilder
 from .context_settings import (
-    frozen_learning_payload,
-    learning_of,
     PoolExecutionPolicy,
     compaction_settings_of,
+    frozen_learning_from_settings,
+    frozen_learning_payload,
+    learning_of,
     pool_execution_policy_of,
     pool_policy_payload,
     resolve_compaction_settings,
@@ -425,6 +426,7 @@ def execution_defaults_from_platform(document: Mapping[str, Any] | None) -> Exec
             max_model_retries=agent.max_model_retries,
         ),
         memory_policy=parsed.memory,
+        learning=frozen_learning_from_settings(parsed.learning),
         max_archive_files=parsed.artifact.max_archive_files,
         timezone=parsed.locale.default_timezone,
     )

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 import httpx
 import sqlalchemy as sa
@@ -24,7 +23,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     UserMemory,
     UserMemoryHistory,
 )
-from muad_contracts import ResolveDefinitionResponse, ResolvedAgent, ResolvedModel, RunStatus
+from muad_contracts import ResolvedAgent, ResolveDefinitionResponse, ResolvedModel, RunStatus
 
 BASE_URL = "http://replay.test"
 REFERENCE = '{"name":"A","amount":10}'
@@ -37,8 +36,10 @@ class Settings:
 
     async def fetch_snapshot(self, *, tenant_id: str, trace_id: str = "") -> PlatformSettingsSnapshot:
         enabled = self._enabled and tenant_id == self._tenant
+        # 租户策略控制回放样本门槛；测试只备了少量样本，显式降到 1。
         return PlatformSettingsSnapshot(
-            revision=1, settings={"learning": {"learning_enabled": enabled}}
+            revision=1,
+            settings={"learning": {"learning_enabled": enabled, "eval_min_cases": 1}},
         )
 
 
@@ -102,7 +103,15 @@ async def seed_runs(tenant: str, user: uuid.UUID, count: int = 3) -> list[uuid.U
                 ("USER_MESSAGE", {"text": "请输出客户 A 的 JSON"}),
                 (
                     "ASSISTANT_TURN",
-                    {"tool_calls": [{"id": f"c{run_id}", "name": "execute_skill", "arguments": {"skill_key": "demo"}}]},
+                    {
+                        "tool_calls": [
+                            {
+                                "id": f"c{run_id}",
+                                "name": "execute_skill",
+                                "arguments": {"skill_key": "demo"},
+                            }
+                        ]
+                    },
                 ),
                 ("TOOL_CALL", {"tool_call_id": f"c{run_id}", "tool_name": "execute_skill", "status": "OK"}),
                 ("ASSISTANT_MESSAGE", {"text": REFERENCE}),
@@ -129,7 +138,12 @@ async def seed_runs(tenant: str, user: uuid.UUID, count: int = 3) -> list[uuid.U
 
 
 async def seed_experience(
-    tenant: str, user: uuid.UUID, key: str, *, state: str = "PROPOSED", content: str = "输出 JSON，包含 name 与 amount 字段"
+    tenant: str,
+    user: uuid.UUID,
+    key: str,
+    *,
+    state: str = "PROPOSED",
+    content: str = "输出 JSON，包含 name 与 amount 字段",
 ) -> None:
     async with get_session_factory()() as session:
         session.add(
@@ -191,7 +205,9 @@ async def cleanup(tenant: str) -> None:
         await session.execute(sa.delete(UserMemory).where(UserMemory.tenant_id == tenant))
         await session.execute(sa.delete(MemoryScope).where(MemoryScope.tenant_id == tenant))
         await session.execute(sa.delete(CanonicalEvent).where(CanonicalEvent.tenant_id == tenant))
-        run_ids = list((await session.scalars(sa.select(RunRecord.id).where(RunRecord.tenant_id == tenant))).all())
+        run_ids = list(
+            (await session.scalars(sa.select(RunRecord.id).where(RunRecord.tenant_id == tenant))).all()
+        )
         if run_ids:
             await session.execute(sa.delete(RuntimeSnapshot).where(RuntimeSnapshot.run_id.in_(run_ids)))
         await session.execute(sa.delete(RunRecord).where(RunRecord.tenant_id == tenant))
@@ -199,5 +215,7 @@ async def cleanup(tenant: str) -> None:
         await session.execute(
             sa.text("DELETE FROM control.model_credential WHERE tenant_id=:t"), {"t": tenant}
         )
-        await session.execute(sa.text("DELETE FROM control.config_audit_log WHERE tenant_id=:t"), {"t": tenant})
+        await session.execute(
+            sa.text("DELETE FROM control.config_audit_log WHERE tenant_id=:t"), {"t": tenant}
+        )
         await session.commit()

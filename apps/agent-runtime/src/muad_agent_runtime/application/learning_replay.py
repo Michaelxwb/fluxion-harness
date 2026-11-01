@@ -11,9 +11,7 @@ import hashlib
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from enum import StrEnum
 from typing import Any, cast
-from uuid import UUID
 
 import sqlalchemy as sa
 from muad_contracts.canonical import canonical_json
@@ -107,6 +105,7 @@ class LearningReplay:
         experience_key: str,
         base_config_hash: str,
         refresh_baseline: bool = False,
+        limits: ReplayLimits | None = None,
     ) -> ReplayDecision | None:
         """学习链路失败降级为无判定：记 warning 与失败计数，不向调用方抛错。"""
         try:
@@ -116,6 +115,7 @@ class LearningReplay:
                 experience_key=experience_key,
                 base_config_hash=base_config_hash,
                 refresh_baseline=refresh_baseline,
+                limits=limits,
             )
         except Exception as exc:  # noqa: BLE001 - 学习链路必须降级为无学习
             record_counter(
@@ -139,8 +139,9 @@ class LearningReplay:
         experience_key: str,
         base_config_hash: str,
         refresh_baseline: bool = False,
+        limits: ReplayLimits | None = None,
     ) -> ReplayDecision:
-        limits = self._limits
+        limits = limits or self._limits
         async with self._factory() as session:
             cases = list(
                 (

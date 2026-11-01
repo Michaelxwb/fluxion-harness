@@ -111,3 +111,30 @@ select task_family, experience_key, version, decision_json from runtime.eval_rep
 select action, after_json from control.config_audit_log
  where tenant_id='default' and resource_type='MEMORY_EXPERIENCE' order by create_time desc limit 10;
 ```
+
+## 7. 2026-11-01 dev 实测结果（tenant `default`，agent `demo01`，`deepseek-flash`）
+
+| 环节 | 结果 | 证据 |
+|---|---|---|
+| 任务族派生 / 传播 | ✅ | 受控 Run 的 `run_record.task_family = agent:f069722a-…` |
+| 注入归因 / 隐式信号 | ✅ | `MEMORY_INJECTED` 带 `items(score/decision)`、`selection_hash`；近重复任务产出 `LEARNING_SIGNAL` |
+| Golden Set 抽取 | ✅ | `runtime.eval_case` 3 条（受控 Run，参考答案 `姓名: X; 金额: Y; 币种: Z`） |
+| 经验候选 | ✅ | PROPOSED 候选入库；无增益的通用候选回放后 `REJECTED` |
+| 真实两臂回放 | ✅ | 候选臂 3/3，基线臂 1/3，improvement 0.667 → `PASSED`（真实模型 + 生产 CaseRunner） |
+| TRIAL → ACTIVE | ✅ | 调度循环自动 TRIAL，次轮无劣化信号晋升 ACTIVE；`config_audit_log` 有 `MEMORY_EXPERIENCE` 审计 |
+| CLI | ✅ | `scripts/learning_admin.py list/explain/retire` 实跑；通用经验经 CLI 退休 |
+| 下一次 Run 注入 | ✅ | 新 Run `MEMORY_INJECTED` 含 `exp.format.labelled`（score 0.125，decision INJECTED） |
+| 注入改变回答 | ✅ | Run `dcfb2902` → `姓名: 王强; 金额: 52; 币种: CNY`；Run `aaea553c` → `姓名: 李雷; 金额: 77; 币种: CNY`（与经验格式一致） |
+
+### 验收期发现并修复的四处问题
+
+1. **回放样本门槛读默认值**：`LearningReplay` 用默认 `min_cases=10`，而调度器没把租户 `eval_min_cases` 传进回放 ⇒ 永远 `INCOMPLETE`。修法：`run/run_safely` 支持逐次 `ReplayLimits`，调度器按租户设置传入。
+2. **新 Run 未解析 learning 策略**：`execution_defaults_from_platform`（新 Run 路径）没读 `policy_json.learning` ⇒ 注入阈值/开关对新 Run 无效。已补 `learning=frozen_learning_from_settings(parsed.learning)`。
+3. **经验被渲染成「非指令 JSON」**：PROCEDURE/FAILURE_PATTERN/VERIFICATION 作为普通记忆按 `confirmed` 段 JSON 渲染，模型不当作做法。改为 `verified_experience` 独立段 + 自然语言条目。
+4. **回答格式不生效是「旧代码还在跑」**：改渲染后前两个 Run 仍是 `× | × | ×`；抓到的真实请求证明注入块已在（system#1），第三个 Run 起稳定遵循经验格式。验收时务必确认 `--reload` 已载入新代码再判定效果。
+
+### 口径提示
+
+- 近重复的成功任务可能被判成 `REWRITE` 而**不进 Golden Set**（信号检测的既有行为）；构造验收数据时用独立会话、或直接种受控 Run。
+- 回放判定：参考答案可解析为 dict 时按 key 超集，否则按内容 token 覆盖率 ≥0.8。后者能挡住「格式完全不同」的回答（实测 `杜娟 | 38 | CNY` 覆盖率不足而被拒），但不校验句式。
+
