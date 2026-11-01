@@ -158,3 +158,24 @@ export async function feedbackRun(
     )
   );
 }
+
+
+export interface RunLearningDiagnostics {
+  run_id: string;
+  task_family: string | null;
+  user_id: string | null;
+  learning_enabled: boolean | null;
+  min_score: number | null;
+  recorded: boolean;
+  injected: Array<Record<string, unknown>>;
+  skipped: Array<Record<string, unknown>>;
+  dropped_by_budget: Array<Record<string, unknown>>;
+}
+
+export async function getRunLearningDiagnostics(
+  runId: string
+): Promise<RunLearningDiagnostics> {
+  return unwrap(
+    await api.get<ApiResponse<RunLearningDiagnostics>>(`/learning/runs/${runId}/diagnostics`)
+  );
+}

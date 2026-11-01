@@ -548,7 +548,16 @@ class LearningRepository:
                 }
                 for entry in reports
             ],
-            "paused": False,
+            "paused": bool(
+                await self._session.scalar(
+                    text(
+                        "SELECT paused FROM runtime.learning_family_control"
+                        " WHERE tenant_id=:tenant_id AND family=:family"
+                        "   AND is_deleted=false LIMIT 1"
+                    ),
+                    {"tenant_id": tenant_id, "family": family},
+                )
+            ),
         }
 
 

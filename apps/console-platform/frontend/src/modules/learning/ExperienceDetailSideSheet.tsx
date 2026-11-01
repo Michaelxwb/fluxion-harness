@@ -89,6 +89,12 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
               {item.run_id} · score {item.score ?? '-'} · {item.channel ?? '-'}
             </div>
           ))}
+          <div className="detail-section-title">{t('learning.detail.evidence')}</div>
+          <pre>{JSON.stringify(detail.evidence, null, 2)}</pre>
+          <div className="detail-section-title">{t('learning.detail.history')}</div>
+          <pre>{JSON.stringify(detail.history, null, 2)}</pre>
+          <div className="detail-section-title">{t('learning.detail.audits')}</div>
+          <pre>{JSON.stringify(detail.audits, null, 2)}</pre>
           <div className="detail-section-title">{t('learning.detail.actions')}</div>
           <Input
             value={reason}

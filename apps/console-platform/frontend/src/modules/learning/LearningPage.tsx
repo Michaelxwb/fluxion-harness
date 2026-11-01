@@ -1,4 +1,4 @@
-import { Select, Tag } from '@douyinfe/semi-ui';
+import { Input, Select, Tag } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -16,6 +16,7 @@ export function LearningPage() {
   const [total, setTotal] = useState(0);
   const [unclassified, setUnclassified] = useState(0);
   const [source, setSource] = useState<string | undefined>();
+  const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const family = params.get('family');
@@ -25,14 +26,14 @@ export function LearningPage() {
     : null;
 
   useEffect(() => {
-    listFamilies({ source, page, page_size: pageSize, window_days: 7 })
+    listFamilies({ source, q: query || undefined, page, page_size: pageSize, window_days: 7 })
       .then((data) => {
         setItems(data.items);
         setTotal(data.total);
         setUnclassified(data.unclassified_runs);
       })
       .catch(() => undefined);
-  }, [source, page, pageSize]);
+  }, [source, query, page, pageSize]);
 
   function openFamily(value: string) {
     const next = new URLSearchParams(params);
@@ -50,6 +51,11 @@ export function LearningPage() {
     <div>
       <div className="module-toolbar">
         <span>{t('learning.family.pageTitle')}</span>
+        <Input
+          value={query}
+          placeholder={t('learning.family.search')}
+          onChange={setQuery}
+        />
         <Select
           showClear
           placeholder={t('learning.family.source')}

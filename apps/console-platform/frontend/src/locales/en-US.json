@@ -1622,5 +1622,15 @@
   "learning.actions.pause": "Pause learning/injection",
   "learning.actions.resume": "Resume",
   "learning.actions.revise": "Revise content",
-  "learning.detail.newValue": "New content"
+  "learning.detail.newValue": "New content",
+  "run.detail.learning": "Learning",
+  "learning.run.family": "Task family",
+  "learning.run.notRecorded": "No diagnostics recorded for this run",
+  "learning.run.injected": "Injected",
+  "learning.run.skipped": "Skipped",
+  "learning.run.actions": "Actions",
+  "learning.family.search": "Search families",
+  "learning.detail.evidence": "Evidence",
+  "learning.detail.history": "History",
+  "learning.detail.audits": "Audit"
 }

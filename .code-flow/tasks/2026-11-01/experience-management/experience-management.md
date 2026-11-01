@@ -64,21 +64,21 @@
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`
-- [ ] `eval_report` 增加 `experience_user_id`，候选臂报告写入所属用户；晋升/回放按 `(tenant,user,key)` 过滤
-- [ ] `user_memory.authority` 迁移与映射（USER_EXPLICIT/ADMIN_EDIT/AGENT_INFERRED），增量迁移按 author 回填
-- [ ] 状态变更改为 `MemoryCommand(action="TRANSITION")` 经 MemoryService：锁序、版本、history、receipt、scope revision、审计同事务
-- [ ] 激活按 authority 分流：AGENT_INFERRED 需 PASSED；USER_EXPLICIT/ADMIN_EDIT 允许带 reason 直接激活
-- [ ] [E-02][integration] 覆盖：非法转换、跨用户报告与通用写经验被拒绝（真实边界：Runtime internal API + Console 通用记忆 API → 真实 PG）
-- [ ] [E-03][integration] 覆盖：状态变更失败整体回滚且不产生无审计变更（真实边界：Runtime MemoryService 事务 → 真实 PG；注入审计写入失败）
-- [ ] [harness-memory#RULE-memory-001] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-001）
-- [ ] [harness-memory#RULE-memory-002] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-002）
-- [ ] [harness-memory#RULE-memory-004] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-004）
-- [ ] [harness-memory#RULE-memory-005] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-005）
-- [ ] [harness-memory#RULE-memory-006] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-006）
-- [ ] [harness-data#RULE-data-001] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-data-001）
-- [ ] [harness-snapshot#RULE-snapshot-001] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e03`；状态变更前后 RuntimeSnapshot 行与 hash 不变，新 Run 仍读冻结快照
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`
+- [x] `eval_report` 增加 `experience_user_id`，候选臂报告写入所属用户；晋升/回放按 `(tenant,user,key)` 过滤
+- [x] `user_memory.authority` 迁移与映射（USER_EXPLICIT/ADMIN_EDIT/AGENT_INFERRED），增量迁移按 author 回填
+- [x] 状态变更改为 `MemoryCommand(action="TRANSITION")` 经 MemoryService：锁序、版本、history、receipt、scope revision、审计同事务
+- [x] 激活按 authority 分流：AGENT_INFERRED 需 PASSED；USER_EXPLICIT/ADMIN_EDIT 允许带 reason 直接激活
+- [x] [E-02][integration] 覆盖：非法转换、跨用户报告与通用写经验被拒绝（真实边界：Runtime internal API + Console 通用记忆 API → 真实 PG）
+- [x] [E-03][integration] 覆盖：状态变更失败整体回滚且不产生无审计变更（真实边界：Runtime MemoryService 事务 → 真实 PG；注入审计写入失败）
+- [x] [harness-memory#RULE-memory-001] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-001）
+- [x] [harness-memory#RULE-memory-002] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-002）
+- [x] [harness-memory#RULE-memory-004] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-004）
+- [x] [harness-memory#RULE-memory-005] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-005）
+- [x] [harness-memory#RULE-memory-006] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-memory-006）
+- [x] [harness-data#RULE-data-001] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e02`；按设计 §3.6 的落点断言（RULE-data-001）
+- [x] [harness-snapshot#RULE-snapshot-001] verifier：`uv run pytest -q tests/agent_runtime/test_learning_fact_fixes.py -k e03`；状态变更前后 RuntimeSnapshot 行与 hash 不变，新 Run 仍读冻结快照
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -106,7 +106,6 @@
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-002: 注入归因真实性与族判定一致
 
 - **Status**: done
@@ -125,14 +124,14 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_task_family_scope.py`
-- [ ] `select_for_injection` 返回选择结果（selected + skipped + 真实 score + FAMILY/TEXT 通道），诊断与选择同源
-- [ ] `MEMORY_INJECTED` 增加 diagnostics（learning_enabled/min_score/冻结集合大小/skipped/dropped_by_budget），payload 有界
-- [ ] items 只记录渲染后真实进入上下文的条目；预算丢弃单独记录
-- [ ] executor 只在成功 skill 后切换族，与 derive_task_family 共用 first_successful_skill
-- [ ] [B-01][unit] 覆盖：任务族判定纯函数边界（真实边界：纯函数 derive_task_family / first_successful_skill；无 IO）
-- [ ] [harness-memory#RULE-memory-003] verifier：`uv run pytest -q tests/agent_runtime/test_task_family_scope.py`；按设计 §3.6 的落点断言（RULE-memory-003）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_task_family_scope.py`
+- [x] `select_for_injection` 返回选择结果（selected + skipped + 真实 score + FAMILY/TEXT 通道），诊断与选择同源
+- [x] `MEMORY_INJECTED` 增加 diagnostics（learning_enabled/min_score/冻结集合大小/skipped/dropped_by_budget），payload 有界
+- [x] items 只记录渲染后真实进入上下文的条目；预算丢弃单独记录
+- [x] executor 只在成功 skill 后切换族，与 derive_task_family 共用 first_successful_skill
+- [x] [B-01][unit] 覆盖：任务族判定纯函数边界（真实边界：纯函数 derive_task_family / first_successful_skill；无 IO）
+- [x] [harness-memory#RULE-memory-003] verifier：`uv run pytest -q tests/agent_runtime/test_task_family_scope.py`；按设计 §3.6 的落点断言（RULE-memory-003）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -152,7 +151,6 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-003: 管理读模型与族聚合
 
 - **Status**: done
@@ -171,19 +169,19 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_experience_api.py -k s01`
-- [ ] Console `LearningRepository` 提供 list/get/families/family 投影，两个视图共用 `ExperienceItem`
-- [ ] `family_run_stat` 表与 Runtime 循环增量汇总，族页读窗口小表（默认 7d，可 30d，计数封顶）
-- [ ] 新增/调整 user_memory/eval_report 索引；管理查询 2s statement_timeout
-- [ ] 通用记忆列表与计数排除经验类别；经验只走 `/learning/*`
-- [ ] [S-01][integration] 覆盖：用户经验列表按状态与族过滤且跨租户隔离（真实边界：Console API（真实 ASGI + ADMIN 会话）→ LearningRepository → 真实 PostgreSQL runtime.user_memory）
-- [ ] [S-02][integration] 覆盖：族视图聚合与用户视图对同一经验逐字段一致（真实边界：Console API → 真实 PG；同一 fixture 同时查询 API-01 与 API-04）
-- [ ] [S-03][integration] 覆盖：经验详情完整解释来源、回放、审计与注入（真实边界：Console API → 真实 PG（user_memory/history/eval_report/canonical_event/config_audit_log））
-- [ ] [S-05][integration] 覆盖：通用记忆资源不再混合经验且拒绝经验写（真实边界：Console 用户记忆 API → 真实 PG 只读投影；通用写 API → Runtime internal）
-- [ ] [B-02][integration] 覆盖：族聚合口径边界（null family、跨用户同名 key、异常前缀）（真实边界：Console 聚合 SQL → 真实 PG）
-- [ ] [harness-api#RULE-api-001] verifier：`uv run pytest -q tests/console_platform/test_learning_experience_api.py -k s01`；按设计 §3.6 的落点断言（RULE-api-001）
-- [ ] [harness-time#RULE-time-001] verifier：`uv run pytest -q tests/console_platform/test_learning_experience_api.py -k s01`；按设计 §3.6 的落点断言（RULE-time-001）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_experience_api.py -k s01`
+- [x] Console `LearningRepository` 提供 list/get/families/family 投影，两个视图共用 `ExperienceItem`
+- [x] `family_run_stat` 表与 Runtime 循环增量汇总，族页读窗口小表（默认 7d，可 30d，计数封顶）
+- [x] 新增/调整 user_memory/eval_report 索引；管理查询 2s statement_timeout
+- [x] 通用记忆列表与计数排除经验类别；经验只走 `/learning/*`
+- [x] [S-01][integration] 覆盖：用户经验列表按状态与族过滤且跨租户隔离（真实边界：Console API（真实 ASGI + ADMIN 会话）→ LearningRepository → 真实 PostgreSQL runtime.user_memory）
+- [x] [S-02][integration] 覆盖：族视图聚合与用户视图对同一经验逐字段一致（真实边界：Console API → 真实 PG；同一 fixture 同时查询 API-01 与 API-04）
+- [x] [S-03][integration] 覆盖：经验详情完整解释来源、回放、审计与注入（真实边界：Console API → 真实 PG（user_memory/history/eval_report/canonical_event/config_audit_log））
+- [x] [S-05][integration] 覆盖：通用记忆资源不再混合经验且拒绝经验写（真实边界：Console 用户记忆 API → 真实 PG 只读投影；通用写 API → Runtime internal）
+- [x] [B-02][integration] 覆盖：族聚合口径边界（null family、跨用户同名 key、异常前缀）（真实边界：Console 聚合 SQL → 真实 PG）
+- [x] [harness-api#RULE-api-001] verifier：`uv run pytest -q tests/console_platform/test_learning_experience_api.py -k s01`；按设计 §3.6 的落点断言（RULE-api-001）
+- [x] [harness-time#RULE-time-001] verifier：`uv run pytest -q tests/console_platform/test_learning_experience_api.py -k s01`；按设计 §3.6 的落点断言（RULE-time-001）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -216,7 +214,6 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-004: 生命周期写操作与回放任务
 
 - **Status**: done
@@ -235,20 +232,20 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`
-- [ ] Runtime internal 端点 11-14 + Console 转发；服务身份/租户/actor/幂等键
-- [ ] `learning_job` 表与 runner：SKIP LOCKED、lease/attempts、`(tenant,command_id)` 幂等
-- [ ] 回放并发与模型容量预占（BACKGROUND），超时/样本上限；失败现场保留
-- [ ] 审计 actor 为真实账号 UUID，resource_id 含 tenant/user/key
-- [ ] [S-04][integration] 覆盖：生命周期操作经状态机与记忆主通道并留审计（真实边界：Console API → Runtime internal API（真实服务身份头）→ MemoryService/LearningActivation/LearningJobRunner → 真实 PG；回放用本地 OpenAI 兼容探针）
-- [ ] [E-01][integration] 覆盖：学习关闭与上游不可用时的只读降级（真实边界：Console API + Runtime client（上游 5xx/超时）；真实 PG）
-- [ ] [E-04][integration] 覆盖：回放任务幂等、崩溃回收与 INCOMPLETE 不改状态（真实边界：LearningJobRunner → 真实 PG；探针可控延迟/失败）
-- [ ] [harness-api#RULE-api-002] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；按设计 §3.6 的落点断言（RULE-api-002）
-- [ ] [harness-arch#RULE-arch-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；按设计 §3.6 的落点断言（RULE-arch-001）
-- [ ] [harness-auth#RULE-auth-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；按设计 §3.6 的落点断言（RULE-auth-001）
-- [ ] [harness-log#RULE-log-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；按设计 §3.6 的落点断言（RULE-log-001）
-- [ ] [harness-secret#RULE-secret-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；job/result/audit/日志不含密钥原文
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`
+- [x] Runtime internal 端点 11-14 + Console 转发；服务身份/租户/actor/幂等键
+- [x] `learning_job` 表与 runner：SKIP LOCKED、lease/attempts、`(tenant,command_id)` 幂等
+- [x] 回放并发与模型容量预占（BACKGROUND），超时/样本上限；失败现场保留
+- [x] 审计 actor 为真实账号 UUID，resource_id 含 tenant/user/key
+- [x] [S-04][integration] 覆盖：生命周期操作经状态机与记忆主通道并留审计（真实边界：Console API → Runtime internal API（真实服务身份头）→ MemoryService/LearningActivation/LearningJobRunner → 真实 PG；回放用本地 OpenAI 兼容探针）
+- [x] [E-01][integration] 覆盖：学习关闭与上游不可用时的只读降级（真实边界：Console API + Runtime client（上游 5xx/超时）；真实 PG）
+- [x] [E-04][integration] 覆盖：回放任务幂等、崩溃回收与 INCOMPLETE 不改状态（真实边界：LearningJobRunner → 真实 PG；探针可控延迟/失败）
+- [x] [harness-api#RULE-api-002] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；按设计 §3.6 的落点断言（RULE-api-002）
+- [x] [harness-arch#RULE-arch-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；按设计 §3.6 的落点断言（RULE-arch-001）
+- [x] [harness-auth#RULE-auth-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；按设计 §3.6 的落点断言（RULE-auth-001）
+- [x] [harness-log#RULE-log-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；按设计 §3.6 的落点断言（RULE-log-001）
+- [x] [harness-secret#RULE-secret-001] verifier：`uv run pytest -q tests/console_platform/test_learning_lifecycle_api.py`；job/result/audit/日志不含密钥原文
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -272,7 +269,6 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-005: 用户维度经验视图与共用详情
 
 - **Status**: done
@@ -291,16 +287,16 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k user_tab`
-- [ ] `modules/learning/services` 唯一 HTTP 出口；类型与后端契约逐字段对齐
-- [ ] ExperienceTab + ExperienceList + ExperienceDetailSideSheet 共用组件
-- [ ] authority/状态/原因码/报告 extras 的本地化与未知值兜底
-- [ ] 通用记忆页签对经验行不渲染启停用/删除
-- [ ] [S-06][component] 覆盖：用户详情经验页签展示状态机并提供解释入口（真实边界：组件渲染 + mock service 数据（契约类型）；不访问真实后端）
-- [ ] [harness-frontend#RULE-front-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k user_tab`；按设计 §3.6 的落点断言（RULE-front-001）
-- [ ] [harness-i18n#RULE-i18n-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k user_tab`；按设计 §3.6 的落点断言（RULE-i18n-001）
-- [ ] [harness-ui-detail#RULE-ui-detail-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k user_tab`；按设计 §3.6 的落点断言（RULE-ui-detail-001）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k user_tab`
+- [x] `modules/learning/services` 唯一 HTTP 出口；类型与后端契约逐字段对齐
+- [x] ExperienceTab + ExperienceList + ExperienceDetailSideSheet 共用组件
+- [x] authority/状态/原因码/报告 extras 的本地化与未知值兜底
+- [x] 通用记忆页签对经验行不渲染启停用/删除
+- [x] [S-06][component] 覆盖：用户详情经验页签展示状态机并提供解释入口（真实边界：组件渲染 + mock service 数据（契约类型）；不访问真实后端）
+- [x] [harness-frontend#RULE-front-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k user_tab`；按设计 §3.6 的落点断言（RULE-front-001）
+- [x] [harness-i18n#RULE-i18n-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k user_tab`；按设计 §3.6 的落点断言（RULE-i18n-001）
+- [x] [harness-ui-detail#RULE-ui-detail-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k user_tab`；按设计 §3.6 的落点断言（RULE-ui-detail-001）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -320,7 +316,6 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-006: 族视图前端与浏览器旅程
 
 - **Status**: done
@@ -339,16 +334,16 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k family_page`
-- [ ] LearningPage + FamilyDetailSideSheet；筛选/分页/空错态；菜单新增学习与经验并同步 harness-ui 规则
-- [ ] 族详情内经验打开同一 ExperienceDetailSideSheet；深链 `?family=`/`?experience=`
-- [ ] 用户详情经验页签支持 `tab=experience` 深链打开
-- [ ] 浏览器 E2E 真实构建产物 + 真实后端，覆盖退休同步与 Run 回跳
-- [ ] [S-07][component] 覆盖：族页面与用户视图共用同一经验详情组件（真实边界：组件渲染 + 同一 fixture 注入两个入口）
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k family_page`
+- [x] LearningPage + FamilyDetailSideSheet；筛选/分页/空错态；菜单新增学习与经验并同步 harness-ui 规则
+- [x] 族详情内经验打开同一 ExperienceDetailSideSheet；深链 `?family=`/`?experience=`
+- [x] 用户详情经验页签支持 `tab=experience` 深链打开
+- [x] 浏览器 E2E 真实构建产物 + 真实后端，覆盖退休同步与 Run 回跳
+- [x] [S-07][component] 覆盖：族页面与用户视图共用同一经验详情组件（真实边界：组件渲染 + 同一 fixture 注入两个入口）
 - [ ] [S-08][E2E] 覆盖：管理员从用户经验到族视图的完整旅程与深链回跳（真实边界：真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针）
-- [ ] [harness-ui#RULE-ui-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k family_page`；按设计 §3.6 的落点断言（RULE-ui-001）
-- [ ] [harness-e2e#RULE-e2e-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k family_page`；按设计 §3.6 的落点断言（RULE-e2e-001）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] [harness-ui#RULE-ui-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k family_page`；按设计 §3.6 的落点断言（RULE-ui-001）
+- [x] [harness-e2e#RULE-e2e-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k family_page`；按设计 §3.6 的落点断言（RULE-e2e-001）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -375,7 +370,6 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-007: Run 学习追溯与注入诊断
 
 - **Status**: done
@@ -394,12 +388,12 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_diagnostics_api.py`
-- [ ] Console API-10 读 run_record/MEMORY_INJECTED/Snapshot 冻结值
-- [ ] Run 详情展示 task_family 与 MEMORY_INJECTED 经验链接
-- [ ] 诊断页签展示 injected/skipped/dropped 与 recorded=false 的历史提示
-- [ ] [S-09][integration] 覆盖：Run 维度「为什么没注入」诊断忠实呈现（真实边界：真实 Run 的 MEMORY_INJECTED 事件（含 diagnostics）→ Console API-10 → 真实 PG）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_diagnostics_api.py`
+- [x] Console API-10 读 run_record/MEMORY_INJECTED/Snapshot 冻结值
+- [x] Run 详情展示 task_family 与 MEMORY_INJECTED 经验链接
+- [x] 诊断页签展示 injected/skipped/dropped 与 recorded=false 的历史提示
+- [x] [S-09][integration] 覆盖：Run 维度「为什么没注入」诊断忠实呈现（真实边界：真实 Run 的 MEMORY_INJECTED 事件（含 diagnostics）→ Console API-10 → 真实 PG）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -420,7 +414,6 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-008: 审计可见性与深链
 
 - **Status**: done
@@ -439,12 +432,12 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_audit_projection.py`
-- [ ] 审计 CONFIG 投影对 MEMORY_EXPERIENCE 输出 experience_key/user_id target 与 owner_unknown
-- [ ] 前端资源类型/动作/操作者词条与筛选；真实 actor 名称，历史合成 actor 显示系统/自动
-- [ ] 审计详情「查看经验」深链，返回保留筛选
-- [ ] [S-10][integration] 覆盖：审计页经验资源可见、可筛选且可深链（真实边界：Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_audit_projection.py`
+- [x] 审计 CONFIG 投影对 MEMORY_EXPERIENCE 输出 experience_key/user_id target 与 owner_unknown
+- [x] 前端资源类型/动作/操作者词条与筛选；真实 actor 名称，历史合成 actor 显示系统/自动
+- [x] 审计详情「查看经验」深链，返回保留筛选
+- [x] [S-10][integration] 覆盖：审计页经验资源可见、可筛选且可深链（真实边界：Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -464,7 +457,6 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-009: 止损与族级暂停
 
 - **Status**: done
@@ -483,14 +475,14 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_family_control.py`
-- [ ] API-15/19 按 MEMORY_INJECTED 精确到 user/key 逐条退休，返回逐条结果
-- [ ] `learning_family_control` 表与 API-16/20；候选生成与注入冻结检查暂停
-- [ ] 前端 Run 详情与族详情的确认框/状态/权限
-- [ ] 暂停/恢复写审计；不删除数据；恢复不复活已退休经验
-- [ ] [S-12][integration] 覆盖：从 Run 一键止损并按族暂停，只影响后续新 Run（真实边界：Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG）
-- [ ] [E-05][integration] 覆盖：止损/暂停/修订/反馈的权限、幂等与跨租户边界（真实边界：Console API + Runtime internal → 真实 PG）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_family_control.py`
+- [x] API-15/19 按 MEMORY_INJECTED 精确到 user/key 逐条退休，返回逐条结果
+- [x] `learning_family_control` 表与 API-16/20；候选生成与注入冻结检查暂停
+- [x] 前端 Run 详情与族详情的确认框/状态/权限
+- [x] 暂停/恢复写审计；不删除数据；恢复不复活已退休经验
+- [x] [S-12][integration] 覆盖：从 Run 一键止损并按族暂停，只影响后续新 Run（真实边界：Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG）
+- [x] [E-05][integration] 覆盖：止损/暂停/修订/反馈的权限、幂等与跨租户边界（真实边界：Console API + Runtime internal → 真实 PG）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -514,7 +506,6 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-010: 经验内容修订
 
 - **Status**: done
@@ -533,13 +524,13 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_content_revision.py`
-- [ ] API-17/21：expected_version + reason，走 MemoryService UPSERT（ADMIN）
-- [ ] 新版本 PROPOSED；AGENT 权威仍需 PASSED；修订不改变族/证据/注入历史
-- [ ] 前端修订表单与 409 冲突处理
-- [ ] [S-13][integration] 覆盖：经验内容修订生成新版本且仍需回放晋升（真实边界：Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计））
-- [ ] [E-05][integration] 覆盖：止损/暂停/修订/反馈的权限、幂等与跨租户边界（真实边界：Console API + Runtime internal → 真实 PG）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_content_revision.py`
+- [x] API-17/21：expected_version + reason，走 MemoryService UPSERT（ADMIN）
+- [x] 新版本 PROPOSED；AGENT 权威仍需 PASSED；修订不改变族/证据/注入历史
+- [x] 前端修订表单与 409 冲突处理
+- [x] [S-13][integration] 覆盖：经验内容修订生成新版本且仍需回放晋升（真实边界：Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计））
+- [x] [E-05][integration] 覆盖：止损/暂停/修订/反馈的权限、幂等与跨租户边界（真实边界：Console API + Runtime internal → 真实 PG）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -560,7 +551,6 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-011: 差回答反馈闭环
 
 - **Status**: done
@@ -579,13 +569,13 @@ Run 可标记差回答，幂等写学习信号并把该 Run 排除出未来 Gold
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_feedback.py`
-- [ ] API-18/22：幂等 receipt + LEARNING_SIGNAL(source_run_id/actor/reason/explicit)
-- [ ] 复用信号排除规则；为注入过的 ACTIVE 经验去重创建复核 job
-- [ ] 前端差回答按钮/说明/重复提交提示
-- [ ] [S-14][integration] 覆盖：差回答反馈幂等进入学习信号并触发复核（真实边界：Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG）
-- [ ] [E-05][integration] 覆盖：止损/暂停/修订/反馈的权限、幂等与跨租户边界（真实边界：Console API + Runtime internal → 真实 PG）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/console_platform/test_learning_feedback.py`
+- [x] API-18/22：幂等 receipt + LEARNING_SIGNAL(source_run_id/actor/reason/explicit)
+- [x] 复用信号排除规则；为注入过的 ACTIVE 经验去重创建复核 job
+- [x] 前端差回答按钮/说明/重复提交提示
+- [x] [S-14][integration] 覆盖：差回答反馈幂等进入学习信号并触发复核（真实边界：Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG）
+- [x] [E-05][integration] 覆盖：止损/暂停/修订/反馈的权限、幂等与跨租户边界（真实边界：Console API + Runtime internal → 真实 PG）
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -606,7 +596,6 @@ Run 可标记差回答，幂等写学习信号并把该 Run 排除出未来 Gold
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-012: 新增操作入口的前端组件态
 
 - **Status**: done
@@ -625,14 +614,14 @@ Run 止损、族暂停、内容修订、差回答四个入口在管理员/非管
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/frontend/test_learning_actions_contract.py`
-- [ ] 确认框展示影响范围（只影响新 Run/不删除数据）与必填原因
-- [ ] 409/重复/暂停态错误提示与输入保留
-- [ ] 权限门控与操作后刷新
-- [ ] [S-15][component] 覆盖：止损/修订/反馈入口的组件态与错误提示（真实边界：组件渲染 + mock service；不访问真实后端）
-- [ ] [harness-ui#RULE-ui-001] verifier：`uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build`；菜单十二项且列表用 RemoteTable
-- [ ] [harness-e2e#RULE-e2e-001] verifier：`npm --prefix e2e test -- --config playwright.learning-experience.config.ts`；真实构建产物 + Chrome
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/frontend/test_learning_actions_contract.py`
+- [x] 确认框展示影响范围（只影响新 Run/不删除数据）与必填原因
+- [x] 409/重复/暂停态错误提示与输入保留
+- [x] 权限门控与操作后刷新
+- [x] [S-15][component] 覆盖：止损/修订/反馈入口的组件态与错误提示（真实边界：组件渲染 + mock service；不访问真实后端）
+- [x] [harness-ui#RULE-ui-001] verifier：`uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build`；菜单十二项且列表用 RemoteTable
+- [x] [harness-e2e#RULE-e2e-001] verifier：`npm --prefix e2e test -- --config playwright.learning-experience.config.ts`；真实构建产物 + Chrome
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -653,7 +642,6 @@ Run 止损、族暂停、内容修订、差回答四个入口在管理员/非管
 - [2026-11-01] completed (done)
 
 ---
-
 ## TASK-013: 管理面容量与混合负载验证
 
 - **Status**: done

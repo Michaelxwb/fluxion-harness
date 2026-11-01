@@ -23,6 +23,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { PaginationFooter } from '../../components/common/PaginationFooter';
 import { StatusTag } from '../../components/common/StatusTag';
+import { RunLearningPanel } from '../learning/RunLearningPanel';
 import { RunOperationTable } from './components/RunOperationTable';
 import { RunTimelineOutline } from './components/RunTimelineOutline';
 import { useRunDetail } from './hooks/useRunDetail';
@@ -226,6 +227,9 @@ export function RunDetailSideSheet(props: RunDetailSideSheetProps) {
             </>
           )
         ) : null}
+      </Tabs.TabPane>
+      <Tabs.TabPane itemKey="learning" tab={t('run.detail.learning')}>
+        {detail ? <RunLearningPanel runId={detail.run_id} /> : <Spin />}
       </Tabs.TabPane>
       <Tabs.TabPane itemKey="timeline" tab={t('run.detail.timeline')}>
         {detail ? (

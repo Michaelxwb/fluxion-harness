@@ -1622,5 +1622,15 @@
   "learning.actions.pause": "暂停学习/注入",
   "learning.actions.resume": "恢复",
   "learning.actions.revise": "修订正文",
-  "learning.detail.newValue": "新正文"
+  "learning.detail.newValue": "新正文",
+  "run.detail.learning": "学习",
+  "learning.run.family": "任务族",
+  "learning.run.notRecorded": "该 Run 未记录诊断",
+  "learning.run.injected": "注入",
+  "learning.run.skipped": "未注入",
+  "learning.run.actions": "操作",
+  "learning.family.search": "搜索任务族",
+  "learning.detail.evidence": "来源证据",
+  "learning.detail.history": "版本历史",
+  "learning.detail.audits": "审计"
 }
