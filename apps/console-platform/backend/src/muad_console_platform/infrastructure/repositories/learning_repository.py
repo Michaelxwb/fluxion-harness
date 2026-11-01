@@ -550,3 +550,66 @@ class LearningRepository:
             ],
             "paused": False,
         }
+
+
+    async def run_diagnostics(self, tenant_id: str, run_id: uuid.UUID) -> dict[str, Any] | None:
+        run = (
+            await self._session.execute(
+                text(
+                    "SELECT id::text AS id, task_family, user_id::text AS user_id, snapshot_id"
+                    " FROM runtime.run_record"
+                    " WHERE tenant_id=:tenant_id AND id=:run_id AND is_deleted=false"
+                ),
+                {"tenant_id": tenant_id, "run_id": run_id},
+            )
+        ).mappings().first()
+        if run is None:
+            return None
+        event = (
+            await self._session.execute(
+                text(
+                    "SELECT payload_json, create_time FROM runtime.canonical_event"
+                    " WHERE tenant_id=:tenant_id AND run_id=:run_id"
+                    "   AND event_type='MEMORY_INJECTED' AND is_deleted=false"
+                    " ORDER BY seq DESC LIMIT 1"
+                ),
+                {"tenant_id": tenant_id, "run_id": run_id},
+            )
+        ).mappings().first()
+        learning: dict[str, Any] = {}
+        if run["snapshot_id"] is not None:
+            policy = await self._session.scalar(
+                text("SELECT policy_json FROM runtime.runtime_snapshot WHERE id=:sid"),
+                {"sid": run["snapshot_id"]},
+            )
+            if isinstance(policy, dict):
+                learning = policy.get("learning") or {}
+        payload = dict(event["payload_json"]) if event is not None else {}
+        diagnostics_value = payload.get("diagnostics")
+        diagnostics: dict[str, Any] | None = (
+            diagnostics_value if isinstance(diagnostics_value, dict) else None
+        )
+        recorded = diagnostics is not None
+        return {
+            "run_id": run["id"],
+            "task_family": run["task_family"],
+            "user_id": run["user_id"],
+            "learning_enabled": (
+                diagnostics.get("learning_enabled")
+                if diagnostics is not None
+                else learning.get("learning_enabled", False)
+            ),
+            "min_score": (
+                diagnostics.get("min_score")
+                if diagnostics is not None
+                else learning.get("retrieval_min_score")
+            ),
+            "recorded": recorded,
+            "injected": payload.get("items") or [],
+            "skipped": diagnostics.get("skipped", []) if diagnostics is not None else [],
+            "dropped_by_budget": (
+                diagnostics.get("dropped_by_budget", []) if diagnostics is not None else []
+            ),
+            "selection_hash": payload.get("selection_hash"),
+            "event_time": event["create_time"] if event is not None else None,
+        }

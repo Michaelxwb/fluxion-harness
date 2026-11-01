@@ -1708,7 +1708,7 @@
       "kind": "functional",
       "boundary": "真实 Run 的 MEMORY_INJECTED 事件（含 diagnostics）→ Console API-10 → 真实 PG",
       "owner": "TASK-007",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1772,7 +1772,130 @@
         "FEAT-05",
         "FEAT-08"
       ],
-      "check": "CHK-0ef477a76da8"
+      "check": "CHK-0ef477a76da8",
+      "revision": 2,
+      "evidence": {
+        "id": "S-09",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-0ef477a76da8",
+        "input_hash": "a4c1f813786a3909ee19c75697108ea920e9a517cc2333f10c9ee604ab384745",
+        "check_config": {
+          "id": "CHK-0ef477a76da8",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_diagnostics_api.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 2,
+        "run_id": "8e9455dd64e0413aa99bfe5ac3081fa9",
+        "executed_at": "2026-11-01T02:53:14.788139+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/console_platform/test_learning_diagnostics_api.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "a4c1f813786a3909ee19c75697108ea920e9a517cc2333f10c9ee604ab384745"
+      },
+      "runs": [
+        {
+          "id": "S-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-0ef477a76da8",
+          "input_hash": "3bfb454b9e0e6fac1ab89e16600c8d18047f2fdcac8ba2b5e4aa2d4b177e7b3e",
+          "check_config": {
+            "id": "CHK-0ef477a76da8",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_diagnostics_api.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "d3e78d9420d84338a318dce55069ff8a",
+          "executed_at": "2026-11-01T02:52:51.332035+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_diagnostics_api.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "3bfb454b9e0e6fac1ab89e16600c8d18047f2fdcac8ba2b5e4aa2d4b177e7b3e"
+        },
+        {
+          "id": "S-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-0ef477a76da8",
+          "input_hash": "a4c1f813786a3909ee19c75697108ea920e9a517cc2333f10c9ee604ab384745",
+          "check_config": {
+            "id": "CHK-0ef477a76da8",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_diagnostics_api.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "8e9455dd64e0413aa99bfe5ac3081fa9",
+          "executed_at": "2026-11-01T02:53:14.788139+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_diagnostics_api.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "a4c1f813786a3909ee19c75697108ea920e9a517cc2333f10c9ee604ab384745"
+        }
+      ]
     },
     {
       "id": "E-01",

@@ -77,6 +77,12 @@ class LearningService:
         )
         return [FamilyItem.model_validate(item) for item in items], total, unclassified
 
+    async def run_diagnostics(self, tenant_id: str, run_id: uuid.UUID) -> dict[str, Any]:
+        data = await self._learning.run_diagnostics(tenant_id, run_id)
+        if data is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        return data
+
     async def get_family(self, tenant_id: str, family: str, *, window_days: int) -> FamilyDetail:
         data: dict[str, Any] = await self._learning.get_family(
             tenant_id, family, window_days=window_days

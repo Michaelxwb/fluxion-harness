@@ -180,3 +180,14 @@ async def learning_job(
 ) -> ApiResponse[Any]:
     job = await runtime.job(tenant_id=tenant_id, job_id=job_id)
     return ok(request.app.state.message_catalog, job.model_dump(mode="json"))
+
+
+@router.get("/runs/{run_id}/diagnostics")
+async def run_diagnostics(
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    run_id: uuid.UUID,
+) -> ApiResponse[Any]:
+    data = await LearningService(session).run_diagnostics(tenant_id, run_id)
+    return ok(request.app.state.message_catalog, data)
