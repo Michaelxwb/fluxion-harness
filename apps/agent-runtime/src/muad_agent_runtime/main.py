@@ -50,6 +50,9 @@ from .application.continuation_execution import continuation_executor
 from .application.executor import ExecutorFactory, default_executor_factory
 from .application.memory_consolidation import ConsolidationInvoker
 from .application.memory_consolidation_effects import ConsolidationWorker
+from .application.learning_activation import LearningActivation
+from .application.learning_case_runner import ProductionCaseRunner, database_credentials_resolver
+from .application.learning_replay import LearningReplay
 from .application.learning_scheduler import LearningSupervisor
 from .application.memory_supervisor import MemorySupervisor
 from .application.run_deadline import expire_runs
@@ -329,9 +332,15 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
         instance_id=app.state.instance_id,
     )
     app.state.memory_supervisor = memory
+    factory = get_session_factory()
     learning = LearningSupervisor(
-        get_session_factory(),
+        factory,
         settings_client=outbound.platform_settings,
+        replay=LearningReplay(
+            factory,
+            ProductionCaseRunner(factory, resolve_credentials=database_credentials_resolver(factory)),
+        ),
+        activation=LearningActivation(factory),
         interval_sec=float(settings.learning_scheduler_interval_sec),
     )
     app.state.learning_supervisor = learning

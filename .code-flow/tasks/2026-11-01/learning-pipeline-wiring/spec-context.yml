@@ -1,7 +1,7 @@
 version: 1
 task: learning-pipeline-wiring
 enforcement: required
-updated_at: '2026-11-01T01:00:21.399037+00:00'
+updated_at: '2026-11-01T01:03:54.174690+00:00'
 sources:
 - type: cli
   ref: bind
@@ -53,11 +53,11 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -97,6 +97,29 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-11-01T01:04:05.479651+00:00'
+          status: verified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: c17a952ba0d6ece6bec65e40232f41632be800da44398cc92ee86f6e05d2fd5d
+          result_sha256: 7f28079fcbb0b33022f9348fd3ada6ef649418b2cb0cbde505ec562f3dbab0a7
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: dba11d4f6a3efaadd7dca81cfe7e523d936004547d490a6e62236cc335c24d60
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.30s
+
+              '
       review:
         status: pending
         refs: []
@@ -126,11 +149,11 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -170,6 +193,39 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-11-01T01:04:09.449760+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: c17a952ba0d6ece6bec65e40232f41632be800da44398cc92ee86f6e05d2fd5d
+          result_sha256: e23749fbb5ac64db592fa9a26d45025a190f5829779275b0fc8f359cc11e3341
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 9b157aea24a63872b991c9fdb8be891e881b67f0d42d97b068abce85b8aa2b1a
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 2 warnings in 3.28s\n"
       review:
         status: pending
         refs: []
@@ -215,7 +271,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
@@ -338,6 +394,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-01T01:04:09.583307+00:00'
+          status: unverified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: c17a952ba0d6ece6bec65e40232f41632be800da44398cc92ee86f6e05d2fd5d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -385,7 +453,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
@@ -483,6 +551,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-11-01T01:04:09.675894+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: c17a952ba0d6ece6bec65e40232f41632be800da44398cc92ee86f6e05d2fd5d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -528,7 +608,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
@@ -565,7 +645,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
@@ -605,7 +685,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
@@ -642,7 +722,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
@@ -680,7 +760,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
@@ -717,7 +797,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
@@ -769,11 +849,11 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -827,6 +907,18 @@ bindings:
               1 passed, 13 deselected in 0.30s
 
               '
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-11-01T01:04:09.838388+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: c17a952ba0d6ece6bec65e40232f41632be800da44398cc92ee86f6e05d2fd5d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -873,11 +965,11 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -929,6 +1021,18 @@ bindings:
               14 passed in 2.30s
 
               '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-01T01:04:09.934612+00:00'
+          status: unverified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: c17a952ba0d6ece6bec65e40232f41632be800da44398cc92ee86f6e05d2fd5d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -975,7 +1079,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
@@ -1087,6 +1191,32 @@ bindings:
               39 passed, 1117 deselected in 14.71s
 
               '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-01T01:04:28.495994+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: c17a952ba0d6ece6bec65e40232f41632be800da44398cc92ee86f6e05d2fd5d
+          result_sha256: 96c21042d41ce91150cf97ad18bb0ffd82a73d57bd1ffaaf50e8eaa370dda0c1
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: b44dc9482901f45db09a315c868f771fc0f3dcb9b71a8fdafc8c6d8290be1cd9
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.18s
+
+              .......................................                                  [100%]
+
+              39 passed, 1120 deselected in 14.93s
+
+              '
       review:
         status: pending
         refs: []
@@ -1131,7 +1261,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
@@ -1183,11 +1313,11 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 76154f9bb961174e2455d956aadad49f35b5e7d6db32a731ca1636d28162705f
+          artifact_sha256: 0bc9efb513e628cf816f5043c8d21ca9dd073999be634b633bb4f8115aade90c
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1277,6 +1407,37 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-11-01T01:04:58.345217+00:00'
+          status: verified
+          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+          artifact_sha256: null
+          diff_sha256: c17a952ba0d6ece6bec65e40232f41632be800da44398cc92ee86f6e05d2fd5d
+          result_sha256: 2e4cb8d587cc9cdb99b00be185d6b736cdb5ce5a9c39572de80e92e6fbc294b9
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 3b51f5feb5a2bad85b01cfe500e0bc92569ee6f1c777bad919de6606b53b680f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed in 0.82s\n......................................................\
+              \                   [100%]\n=============================== warnings\
+              \ summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              54 passed, 6195 deselected, 2 warnings in 27.28s\n"
       review:
         status: pending
         refs: []

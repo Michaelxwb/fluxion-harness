@@ -165,6 +165,7 @@ class LearningActivation:
         key: str,
         *,
         base_config_hash: str,
+        baseline_corrections: int = 0,
         operator: str = "automatic",
     ) -> ActivationOutcome:
         async with self._factory() as session:
@@ -180,6 +181,12 @@ class LearningActivation:
             state = row.activation_state
         if not passed:
             return ActivationOutcome(BELOW_THRESHOLD, key, state)
+        async with self._factory.begin() as session:
+            row = await self._row(session, tenant_id, user_id, key)
+            if row is not None:
+                evidence = dict(row.evidence_json or {})
+                evidence["trial_baseline_corrections"] = baseline_corrections
+                row.evidence_json = evidence
         return await self._transition(
             tenant_id,
             user_id,

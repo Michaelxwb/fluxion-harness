@@ -25,9 +25,9 @@
 | S-02 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实 Snapshot policy_json + 真实 PostgreSQL | TASK-001 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_family_wiring.py","-k","freeze"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-03 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实调度循环 + 真实 PostgreSQL | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_scheduler.py"] | . | 900 | P0 | auto | local | - | - | - | no |
 | S-04 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实 Snapshot + 真实 PostgreSQL；本地假上游 | TASK-003 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_case_runner.py"] | . | 900 | P0 | auto | local | - | - | - | no |
-| S-05 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实调度 + 回放结果 + 审计 | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_trial_wiring.py"] | . | 900 | P0 | auto | local | - | - | - | no |
-| S-06 | learning-pipeline-wiring.design.md#2.5 验收条件 | contract | 真实 CLI 进程 + 真实 PostgreSQL + 审计 | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_admin_cli.py"] | . | 600 | P1 | auto | local | - | - | - | no |
-| S-07 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实 supervisor + executor + 脚本化 provider | TASK-004 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_e2e.py"] | . | 900 | P0 | auto | local | - | - | - | no |
+| S-05 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实调度 + 回放结果 + 审计 | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_trial_wiring.py"] | . | 900 | P0 | auto | local | - | - | - | no |
+| S-06 | learning-pipeline-wiring.design.md#2.5 验收条件 | contract | 真实 CLI 进程 + 真实 PostgreSQL + 审计 | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_admin_cli.py"] | . | 600 | P1 | auto | local | - | - | - | no |
+| S-07 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实 supervisor + executor + 脚本化 provider | TASK-004 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_e2e.py"] | . | 900 | P0 | auto | local | - | - | - | no |
 | E-01 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 调度故障注入，主执行链真实运行 | TASK-005 | planned | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_scheduler_degradation.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | E-02 | learning-pipeline-wiring.design.md#2.5 验收条件 | integration | 真实设置冻结 + 调度 + PostgreSQL | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_scheduler.py","-k","disabled"] | . | 600 | P1 | auto | local | - | - | - | no |
 | B-01 | learning-pipeline-wiring.design.md#2.5 验收条件 | contract | 真实源码调用图 | TASK-005 | planned | ["uv","run","pytest","-q","tests/architecture/test_learning_wiring_inventory.py"] | . | 300 | P1 | auto | none | - | - | - | no |
@@ -198,7 +198,7 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 
 ## TASK-004: TRIAL 自动接线、CLI 与端到端
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: learning-pipeline-wiring.design.md#3.2 架构设计, learning-pipeline-wiring.design.md#3.4 接口设计
@@ -214,29 +214,43 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_learning_trial_wiring.py tests/agent_runtime/test_learning_admin_cli.py tests/agent_runtime/test_learning_e2e.py`
-- [ ] 回放 PASSED → TRIAL；观察期晋升/退休
-- [ ] CLI 全命令与审计
-- [ ] [S-05][integration] 覆盖 TRIAL 与晋升
-- [ ] [S-06][contract] 覆盖 CLI 输出与退出码
-- [ ] [S-07][integration] 覆盖真实执行链端到端
-- [ ] [harness-api#RULE-api-001] verifier：同命令；CLI JSON 与错误出口
-- [ ] [harness-api#RULE-api-002] verifier：同命令；不新增 POST 幂等端点
-- [ ] [harness-memory#RULE-memory-001] verifier：同命令；人工激活需 operator，白名单外不自动
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/agent_runtime/test_learning_trial_wiring.py tests/agent_runtime/test_learning_admin_cli.py tests/agent_runtime/test_learning_e2e.py`
+- [x] 回放 PASSED → TRIAL；观察期晋升/退休
+- [x] CLI 全命令与审计
+- [x] [S-05][integration] 覆盖 TRIAL 与晋升
+- [x] [S-06][contract] 覆盖 CLI 输出与退出码
+- [x] [S-07][integration] 覆盖真实执行链端到端
+- [x] [harness-api#RULE-api-001] verifier：同命令；CLI JSON 与错误出口
+- [x] [harness-api#RULE-api-002] verifier：同命令；不新增 POST 幂等端点
+- [x] [harness-memory#RULE-memory-001] verifier：同命令；人工激活需 operator，白名单外不自动
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | integration | 真实调度 + 回放 + 审计 | PASSED→TRIAL；晋升/退休 | tests/agent_runtime/test_learning_trial_wiring.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_trial_wiring.py"] | planned |
-| S-06 | contract | 真实 CLI + PG + 审计 | JSON/退出码/审计 | tests/agent_runtime/test_learning_admin_cli.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_admin_cli.py"] | planned |
-| S-07 | integration | 真实 supervisor/executor | 端到端可见注入 | tests/agent_runtime/test_learning_e2e.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_e2e.py"] | planned |
+| S-05 | integration | 真实调度 + 回放 + 审计 | PASSED→TRIAL；晋升/退休 | tests/agent_runtime/test_learning_trial_wiring.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_trial_wiring.py"] | verified |
+| S-06 | contract | 真实 CLI + PG + 审计 | JSON/退出码/审计 | tests/agent_runtime/test_learning_admin_cli.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_admin_cli.py"] | verified |
+| S-07 | integration | 真实 supervisor/executor | 端到端可见注入 | tests/agent_runtime/test_learning_e2e.py | ["uv","run","pytest","-q","tests/agent_runtime/test_learning_e2e.py"] | verified |
 
 ### Acceptance Evidence
+
+- RED: 去掉实现后 CLI/调度/执行端 import 失败（`database_credentials_resolver` 等缺失），2026-11-01。
+- GREEN: 六个学习接线测试文件合计 `11 passed in 4.65s`（含真实 supervisor/executor/loader 与真实 PostgreSQL；模型传输为本地 MockTransport）。
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-05 | FAIL: import error | PASS: 1 passed | `test_s05_replay_pass_starts_trial_then_promotes` | 真实调度 + 真实两臂回放 + 真实审计（TRIAL_START/TRIAL_PROMOTE） | verified |
+| S-06 | FAIL: import error | PASS: 1 passed | `test_s06_cli_lifecycle_over_real_process` | 真实 CLI 子进程 + 真实 PostgreSQL + 审计；失败路径退出码 1/2 | verified |
+| S-07 | FAIL: import error | PASS: 1 passed | `test_s07_three_runs_learn_and_inject_on_next_request` | 3 次成功轨迹 → 自动抽取/候选/回放/TRIAL→ACTIVE → 下一次请求注入并有 MEMORY_INJECTED 归因 | verified |
+- S-05: verified — automated command passed; run_id=3adc97a30c804da5814b6111a50bba67 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=3adc97a30c804da5814b6111a50bba67 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=3adc97a30c804da5814b6111a50bba67 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-01] created (draft)
+- [2026-11-01] started
+- [2026-11-01] completed (done)
 
 ---
 

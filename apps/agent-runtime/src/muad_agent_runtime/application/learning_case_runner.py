@@ -163,3 +163,25 @@ class ProductionCaseRunner:
             await provider.aclose()
         passed, reason = judge_answer(reference, text_of(response.content))
         return CaseOutcome(passed, reason, case.item_count, case.item_count if passed else 0)
+
+
+def database_credentials_resolver(factory: SessionFactory) -> CredentialsResolver:
+    """按冻结 Snapshot 的 base_url 从 Owner 表实时取模型 Key；不写日志/报告。"""
+
+    async def resolve(tenant_id: str, model: object) -> str:
+        base_url = model.get("base_url") if isinstance(model, dict) else None
+        async with factory() as session:
+            key = await session.scalar(
+                sa.text(
+                    "SELECT api_key FROM control.model_credential"
+                    " WHERE tenant_id=:tenant AND base_url=:base_url"
+                    "   AND enabled=true AND is_deleted=false"
+                    " ORDER BY revision DESC LIMIT 1"
+                ),
+                {"tenant": tenant_id, "base_url": base_url},
+            )
+        if not key:
+            raise RuntimeError("model credential not found for snapshot base_url")
+        return str(key)
+
+    return resolve
