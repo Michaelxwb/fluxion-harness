@@ -16,16 +16,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import sys
-from typing import Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / ".code-flow" / "scripts"))
 
-from codeflow.core import cf_git  # noqa: E402
-from codeflow.core.cf_exec_base import execution_session  # noqa: E402
-from codeflow.core.cf_validators import (  # noqa: E402
+from codeflow.core import cf_git  # type: ignore[import-not-found]  # noqa: E402
+from codeflow.core.cf_exec_base import execution_session  # type: ignore[import-not-found]  # noqa: E402
+from codeflow.core.cf_validators import (  # type: ignore[import-not-found]  # noqa: E402
     VALID,
     ValidatorConfig,
     is_heavy,

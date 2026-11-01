@@ -77,6 +77,7 @@ verifiers:
 - **本地跑测/Playwright 前停 dev 服务**：`scripts/dev.sh stop` 按精确仓库根 cwd + 端口持有者清理 multiprocessing/uvicorn reload 子进程；e2e 的 `pretest` 先停 dev，避免 `--reload` Worker 抢共享库任务。
 - **后端 CI 并行分片**：`backend-static` 只跑 compile/i18n/error-message/lint/typecheck（无 DB）；`backend-tests` 按目录切 `fast`/`runtime`/`console`/`worker` 四个 matrix job，**每个 job 自带 PG/Redis service**，互不共享库与 Redis 号位。`acceptance` 按模块切 `dfx`/`gateway`/`im_gateway`/`runtime`/`capacity`/`task_schedule`/`rest` 七片，各自一套 PG/Redis 与临时库——起真实 Worker/Runtime 的模块串在一个 job 会污染后续模块。CI 预建 `.data/artifacts` 与 `.data/skill-cache`。分片是人工清单：新增顶层测试目录（含 `tests/acceptance` 子目录）必须同步 `.github/workflows/check.yml`，否则静默漏跑；四个单测分片收集条数应互不重叠并等于拆分前的收集数。
 - **本地单测分片必须与 CI 同口径**：`.code-flow/validation.yml` 的 `Pytest (unit)` 按 `fast`/`runtime`/`console`/`worker` 四个静态分片、各自独立进程执行，并带 `-m "not capacity_load"`。✅ 本地路径与 `.github/workflows/check.yml` 逐项一致、新增顶层目录两处同步；❌ 单进程 `pytest --ignore=tests/acceptance` 跑全量——前序模块创建的 engine/日志/租户状态会污染后续文件（2026-10-31 实测 5 条「单文件绿、整批红」：SQL 捕获 0 条、指标样本混入其它模块 label）。
+- **CI heavy validator 即缓存生产者**：`check.yml` 的 `backend-tests` 四个 job 与 `acceptance-cache` 必须执行 `.code-flow/validation.yml` 同名 validator 的**原命令**；手动 `workflow_dispatch` 时各 job 导出 `.validation-cache.json` 分片，`validation-cache-merge` 合并成一个 artifact。本地 `task verify-e2e`/`task archive` 按「argv + 工作树内容指纹」复用，不再重跑 heavy 套件。✅ 在分支 HEAD 上 dispatch（PR 的 merge commit 与本地 HEAD 不同）；本地合并后保持工作区干净。❌ 另写一份“差不多”的 pytest 命令或改分片路径——argv 不同，缓存永远 miss。
 
 **验收反模式（Anti-Patterns）**：
 

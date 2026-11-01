@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
+from pathlib import Path
 
 
 def load_cache(path: Path) -> dict[str, Mapping[str, object]]:
