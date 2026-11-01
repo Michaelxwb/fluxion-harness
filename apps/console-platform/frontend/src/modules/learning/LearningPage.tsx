@@ -61,6 +61,11 @@ export function LearningPage() {
       />
       <PageSection>
         <ModuleToolbar
+          actions={
+            <Typography.Text type="tertiary">
+              {t('learning.family.unclassified', { count: unclassified })}
+            </Typography.Text>
+          }
           search={
             <>
               <Input
@@ -97,9 +102,6 @@ export function LearningPage() {
         {failed ? (
           <Banner type="danger" description={t('learning.errors.load')} />
         ) : null}
-        <Typography.Text type="tertiary">
-          {t('learning.family.unclassified', { count: unclassified })}
-        </Typography.Text>
       <RemoteTable
         scroll={{ x: '100%' }}
         dataSource={items}
