@@ -1616,5 +1616,11 @@
   "learning.family.overview": "概览",
   "learning.family.paused": "已暂停",
   "learning.family.unknown": "未归类",
-  "learning.family.unclassified": "未归类 Run：{{count}}"
+  "learning.family.unclassified": "未归类 Run：{{count}}",
+  "learning.actions.stop": "停用本次经验",
+  "learning.actions.feedback": "标记差回答",
+  "learning.actions.pause": "暂停学习/注入",
+  "learning.actions.resume": "恢复",
+  "learning.actions.revise": "修订正文",
+  "learning.detail.newValue": "新正文"
 }

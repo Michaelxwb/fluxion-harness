@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { newRequestId } from '../../api/client';
-import { experienceAction, getExperience, replayExperience } from './services/learning';
+import { experienceAction, getExperience, replayExperience, reviseExperience } from './services/learning';
 import type { ExperienceDetail } from './types';
 
 export interface ExperienceDetailSideSheetProps {
@@ -18,6 +18,7 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
   const [detail, setDetail] = useState<ExperienceDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [reason, setReason] = useState('');
+  const [value, setValue] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +99,30 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
           <Button onClick={() => act('activate')}>{t('learning.actions.activate')}</Button>
           <Button onClick={() => act('retire')}>{t('learning.actions.retire')}</Button>
           <Button onClick={() => act('regenerate')}>{t('learning.actions.regenerate')}</Button>
+          <Input value={value} placeholder={t('learning.detail.newValue')} onChange={setValue} />
+          <Button
+            onClick={async () => {
+              if (detail === null || !reason.trim() || !value.trim()) return;
+              try {
+                await reviseExperience(
+                  props.userId,
+                  detail.memory_key,
+                  value,
+                  detail.version,
+                  reason,
+                  newRequestId()
+                );
+                Toast.success(t('learning.actions.done'));
+                setDetail(await getExperience(props.userId, detail.memory_key));
+                setValue('');
+                props.onMutated();
+              } catch {
+                Toast.error(t('learning.errors.action'));
+              }
+            }}
+          >
+            {t('learning.actions.revise')}
+          </Button>
         </div>
       )}
     </SideSheet>

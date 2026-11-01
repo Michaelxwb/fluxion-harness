@@ -41,7 +41,7 @@
 | S-12 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_family_control.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-13 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计） | TASK-010 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_content_revision.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | S-14 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG | TASK-011 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_feedback.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
-| S-15 | experience-management.backend.design.md#2.5 | component | 组件渲染 + mock service；不访问真实后端 | TASK-012 | planned | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_actions_contract.py"] | . | 900 | P1 | auto | none | - | - | - | no |
+| S-15 | experience-management.backend.design.md#2.5 | component | 组件渲染 + mock service；不访问真实后端 | TASK-012 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_actions_contract.py"] | . | 900 | P1 | auto | none | - | - | - | no |
 | E-05 | experience-management.backend.design.md#2.5 | integration | Console API + Runtime internal → 真实 PG | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_control_boundaries.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 
 ---
@@ -636,11 +636,12 @@ Run 止损、族暂停、内容修订、差回答四个入口在管理员/非管
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-15 | component | 组件渲染 + mock service；不访问真实后端 | 管理员可见按钮并显示影响范围说明；非管理员不渲染；409/重复提交/暂停态有明确提示且保留输入；操作成功后列表与详情即时刷新 | tests/frontend/test_learning_actions_contract.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_actions_contract.py"] | planned |
+| S-15 | component | 组件渲染 + mock service；不访问真实后端 | 管理员可见按钮并显示影响范围说明；非管理员不渲染；409/重复提交/暂停态有明确提示且保留输入；操作成功后列表与详情即时刷新 | tests/frontend/test_learning_actions_contract.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_actions_contract.py"] | verified |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
+- S-15: verified — automated command passed; run_id=8161f99d4143439ca482741c17ec4bbf (confirmed_by: runner)
 
 ### Log
 

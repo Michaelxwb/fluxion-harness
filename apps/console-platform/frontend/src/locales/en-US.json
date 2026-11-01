@@ -1616,5 +1616,11 @@
   "learning.family.overview": "Overview",
   "learning.family.paused": "Paused",
   "learning.family.unknown": "Unknown",
-  "learning.family.unclassified": "Unclassified runs: {{count}}"
+  "learning.family.unclassified": "Unclassified runs: {{count}}",
+  "learning.actions.stop": "Stop experiences",
+  "learning.actions.feedback": "Mark bad answer",
+  "learning.actions.pause": "Pause learning/injection",
+  "learning.actions.resume": "Resume",
+  "learning.actions.revise": "Revise content",
+  "learning.detail.newValue": "New content"
 }

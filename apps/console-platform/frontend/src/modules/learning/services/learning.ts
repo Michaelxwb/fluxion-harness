@@ -114,3 +114,47 @@ export async function reviseExperience(
     )
   );
 }
+
+
+export async function stopRun(
+  runId: string,
+  reason: string,
+  idempotencyKey: string
+): Promise<{ items: Array<Record<string, unknown>> }> {
+  return unwrap(
+    await api.post<ApiResponse<{ items: Array<Record<string, unknown>> }>>(
+      `/learning/runs/${runId}/stop`,
+      { reason },
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    )
+  );
+}
+
+export async function familyControl(
+  family: string,
+  paused: boolean,
+  reason: string,
+  idempotencyKey: string
+): Promise<{ family: string; paused: boolean }> {
+  return unwrap(
+    await api.post<ApiResponse<{ family: string; paused: boolean }>>(
+      `/learning/families/${encodeURIComponent(family)}/control`,
+      { paused, reason },
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    )
+  );
+}
+
+export async function feedbackRun(
+  runId: string,
+  reason: string,
+  idempotencyKey: string
+): Promise<Record<string, unknown>> {
+  return unwrap(
+    await api.post<ApiResponse<Record<string, unknown>>>(
+      `/learning/runs/${runId}/feedback`,
+      { reason },
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    )
+  );
+}

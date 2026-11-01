@@ -1,8 +1,10 @@
-import { SideSheet, Spin, Tag } from '@douyinfe/semi-ui';
+import { Button, Input, SideSheet, Spin, Tag, Toast } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { newRequestId } from '../../api/client';
 import { ExperienceList } from './ExperienceList';
+import { familyControl } from './services/learning';
 import { getFamily } from './services/learning';
 import type { ExperienceItem, FamilyDetail } from './types';
 
@@ -15,6 +17,7 @@ export interface FamilyDetailSideSheetProps {
 export function FamilyDetailSideSheet(props: FamilyDetailSideSheetProps) {
   const { t } = useTranslation();
   const [detail, setDetail] = useState<FamilyDetail | null>(null);
+  const [reason, setReason] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +49,24 @@ export function FamilyDetailSideSheet(props: FamilyDetailSideSheetProps) {
           <div>{t('learning.family.source')}: {detail.source}</div>
           <div>{t('learning.family.runs')}: {detail.run_count}{detail.run_count_capped ? '+' : ''}</div>
           {detail.paused && <Tag color="orange">{t('learning.family.paused')}</Tag>}
+          <Input value={reason} placeholder={t('learning.detail.reason')} onChange={setReason} />
+          <Button
+            onClick={async () => {
+              if (!reason.trim()) {
+                Toast.warning(t('learning.errors.reasonRequired'));
+                return;
+              }
+              try {
+                await familyControl(detail.family, !detail.paused, reason, newRequestId());
+                setDetail(await getFamily(detail.family));
+                setReason('');
+              } catch {
+                Toast.error(t('learning.errors.action'));
+              }
+            }}
+          >
+            {detail.paused ? t('learning.actions.resume') : t('learning.actions.pause')}
+          </Button>
           <div className="detail-section-title">{t('learning.family.experiences')}</div>
           {detail.experiences.map((group) => (
             <div key={group.user_id}>
