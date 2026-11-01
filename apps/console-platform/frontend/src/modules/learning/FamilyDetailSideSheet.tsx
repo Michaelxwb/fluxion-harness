@@ -9,6 +9,7 @@ import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { ExperienceList } from './ExperienceList';
 import { familyControl } from './services/learning';
+import { familyLabel, ownerLabel, reportStatusLabel } from './labels';
 import { getFamily } from './services/learning';
 import type { ExperienceItem, FamilyDetail } from './types';
 
@@ -44,7 +45,7 @@ export function FamilyDetailSideSheet(props: FamilyDetailSideSheetProps) {
     <DetailSideSheet
       visible={props.family !== null}
       onCancel={props.onClose}
-      title={props.family ?? t('learning.family.title')}
+      title={familyLabel(t, props.family)}
       subtitle={detail ? `${detail.source} · ${detail.window}` : undefined}
       activeTab={activeTab}
       onTabChange={setActiveTab}
@@ -56,7 +57,15 @@ export function FamilyDetailSideSheet(props: FamilyDetailSideSheetProps) {
           <div>
           <DetailGrid
             items={[
-              { label: t('learning.family.source'), value: detail.source },
+              {
+                label: t('learning.family.source'),
+                value:
+                  detail.source === 'skill'
+                    ? t('learning.enum.family.sourceSkill')
+                    : detail.source === 'agent'
+                      ? t('learning.enum.family.sourceAgent')
+                      : t('learning.enum.family.sourceOther')
+              },
               {
                 label: t('learning.family.runs'),
                 value: `${detail.run_count}${detail.run_count_capped ? '+' : ''}`
@@ -111,8 +120,16 @@ export function FamilyDetailSideSheet(props: FamilyDetailSideSheetProps) {
             rowKey="version"
             columns={[
               { title: t('learning.detail.version'), dataIndex: 'version' },
-              { title: t('learning.columns.state'), dataIndex: 'status' },
-              { title: t('learning.detail.owner'), dataIndex: 'owner' },
+              {
+                title: t('learning.columns.reportStatus'),
+                dataIndex: 'status',
+                render: (value: string) => reportStatusLabel(t, value)
+              },
+              {
+                title: t('learning.detail.owner'),
+                dataIndex: 'owner',
+                render: (value: string) => ownerLabel(t, value)
+              },
               {
                 title: t('learning.columns.updated'),
                 dataIndex: 'create_time',

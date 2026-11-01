@@ -1,19 +1,11 @@
-import { Button, Table, Tag } from '@douyinfe/semi-ui';
+import { Button, Table, Tag, Tooltip } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
 import { DataTable } from '../../components/common/DataTable';
+import { DateTimeText } from '../../components/common/DateTimeText';
 import { EntityLink } from '../../components/common/EntityLink';
+import { authorityLabel, familyLabel, reportStatusLabel, stateLabel, stateTone } from './labels';
 import type { ActivationState, ExperienceItem } from './types';
-
-const STATE_TONE: Record<
-  string,
-  { color: 'grey' | 'blue' | 'green' | 'orange'; labelKey: string }
-> = {
-  PROPOSED: { color: 'grey', labelKey: 'learning.state.PROPOSED' },
-  TRIAL: { color: 'blue', labelKey: 'learning.state.TRIAL' },
-  ACTIVE: { color: 'green', labelKey: 'learning.state.ACTIVE' },
-  RETIRED: { color: 'orange', labelKey: 'learning.state.RETIRED' }
-};
 
 export interface ExperienceListProps {
   items: ExperienceItem[];
@@ -33,28 +25,45 @@ export function ExperienceList(props: ExperienceListProps) {
       onRow={(item) => (item ? { onClick: () => props.onOpen(item) } : {})}
     >
       <Table.Column
-        title={t('learning.columns.key')}
-        dataIndex="memory_key"
-        render={(value: string, item: ExperienceItem) => (
-          <EntityLink onClick={() => props.onOpen(item)}>{value}</EntityLink>
+        title={t('learning.columns.experience')}
+        dataIndex="content"
+        render={(content: ExperienceItem['content'], item: ExperienceItem) => (
+          <Tooltip content={item.memory_key}>
+            <EntityLink onClick={() => props.onOpen(item)}>
+              {String(content?.value ?? item.memory_key)}
+            </EntityLink>
+          </Tooltip>
         )}
       />
-      <Table.Column title={t('learning.columns.family')} dataIndex="task_signature" />
+      <Table.Column
+        title={t('learning.columns.family')}
+        dataIndex="task_signature"
+        render={(value: string | null) => <Tooltip content={value ?? ''}>{familyLabel(t, value)}</Tooltip>}
+      />
       <Table.Column
         title={t('learning.columns.state')}
         dataIndex="activation_state"
-        render={(value: ActivationState) => {
-          const tone = STATE_TONE[value] ?? { color: 'grey', labelKey: 'learning.state.UNKNOWN' };
-          return <Tag color={tone.color}>{t(tone.labelKey, { value })}</Tag>;
-        }}
+        render={(value: ActivationState) => (
+          <Tag color={stateTone(value)}>{stateLabel(t, value)}</Tag>
+        )}
       />
-      <Table.Column title={t('learning.columns.authority')} dataIndex="authority" />
       <Table.Column
-        title={t('learning.columns.report')}
-        dataIndex="latest_report"
-        render={(report: ExperienceItem['latest_report']) => report?.status ?? '-'}
+        title={t('learning.columns.authority')}
+        dataIndex="authority"
+        render={(value: string) => authorityLabel(t, value)}
       />
-      <Table.Column title={t('learning.columns.updated')} dataIndex="update_time" />
+      <Table.Column
+        title={t('learning.columns.reportStatus')}
+        dataIndex="latest_report"
+        render={(report: ExperienceItem['latest_report']) =>
+          report ? reportStatusLabel(t, report.status) : '-'
+        }
+      />
+      <Table.Column
+        title={t('learning.columns.updated')}
+        dataIndex="update_time"
+        render={(value: string) => <DateTimeText value={value} />}
+      />
       <Table.Column
         title={t('learning.columns.actions')}
         key="actions"

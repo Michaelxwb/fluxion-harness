@@ -7,8 +7,31 @@ import { DataTable } from '../../components/common/DataTable';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
+import {
+  actorLabel,
+  authorityLabel,
+  channelLabel,
+  familyLabel,
+  improvementLabel,
+  ownerLabel,
+  reportStatusLabel,
+  scoreLabel,
+  shortId,
+  stateLabel,
+  stateTone
+} from './labels';
 import { experienceAction, getExperience, replayExperience, reviseExperience } from './services/learning';
 import type { ExperienceDetail } from './types';
+
+function friendlyEvidenceLabel(t: (key: string, options?: Record<string, unknown>) => string, key: string): string {
+  const mapping: Record<string, string> = {
+    source_run_ids: 'learning.detail.evidenceSourceRuns',
+    success_runs: 'learning.detail.evidenceSuccessRuns',
+    item_total: 'learning.detail.evidenceItemTotal',
+    trial_baseline_corrections: 'learning.detail.evidenceTrialBaseline'
+  };
+  return mapping[key] ? t(mapping[key]) : key;
+}
 
 export interface ExperienceDetailSideSheetProps {
   userId: string;
@@ -101,7 +124,7 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
       onCancel={props.onClose}
       title={
         <>
-          {detail?.memory_key ?? t('learning.detail.title')}
+          {t('learning.detail.title')}
           {detail ? (
             <Tag size="small" style={{ marginLeft: 8 }}>
               v{detail.version}
@@ -110,7 +133,9 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
         </>
       }
       subtitle={
-        detail ? `${detail.task_signature ?? '-'} · ${detail.activation_state}` : undefined
+        detail
+          ? `${familyLabel(t, detail.task_signature)} · ${stateLabel(t, detail.activation_state)}`
+          : undefined
       }
       activeTab={activeTab}
       onTabChange={setActiveTab}
@@ -122,14 +147,26 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
             <div className="detail-section-title">{t('learning.detail.identity')}</div>
             <DetailGrid
               items={[
-                { label: t('learning.columns.family'), value: detail.task_signature ?? '-' },
-                { label: t('learning.columns.state'), value: detail.activation_state },
-                { label: t('learning.columns.authority'), value: detail.authority },
+                {
+                  label: t('learning.columns.key'),
+                  value: <span title={detail.memory_key}>{shortId(detail.memory_key, 24)}</span>
+                },
+                { label: t('learning.columns.family'), value: familyLabel(t, detail.task_signature) },
+                {
+                  label: t('learning.columns.state'),
+                  value: <Tag color={stateTone(detail.activation_state)}>{stateLabel(t, detail.activation_state)}</Tag>
+                },
+                { label: t('learning.columns.authority'), value: authorityLabel(t, detail.authority) },
                 { label: t('learning.detail.version'), value: detail.version },
-                { label: t('learning.detail.owner'), value: detail.report_owner },
+                { label: t('learning.detail.owner'), value: ownerLabel(t, detail.report_owner) },
                 {
                   label: t('learning.columns.updated'),
                   value: <DateTimeText value={detail.update_time} />
+                },
+                {
+                  label: t('learning.columns.content'),
+                  value: String(detail.content?.value ?? '-'),
+                  fullWidth: true
                 }
               ]}
             />
@@ -158,8 +195,12 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
           <Tabs.TabPane itemKey="evidence" tab={t('learning.detail.evidence')}>
             <DetailGrid
               items={Object.entries(detail.evidence).map(([key, item]) => ({
-                label: key,
-                value: typeof item === 'object' ? JSON.stringify(item) : String(item)
+                label: friendlyEvidenceLabel(t, key),
+                value: Array.isArray(item)
+                  ? item.map((value) => shortId(String(value))).join('、')
+                  : typeof item === 'object'
+                    ? JSON.stringify(item)
+                    : String(item)
               }))}
             />
             <div className="detail-section-title">{t('learning.detail.history')}</div>
@@ -170,7 +211,7 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
               columns={[
                 { title: t('learning.detail.version'), dataIndex: 'version' },
                 { title: t('learning.detail.reason'), dataIndex: 'change_reason' },
-                { title: t('learning.detail.actor'), dataIndex: 'actor_type' },
+                { title: t('learning.detail.actor'), dataIndex: 'actor_type', render: (value: string, row: Record<string, unknown>) => actorLabel(t, value, row.actor_id as string | null) },
                 {
                   title: t('learning.columns.updated'),
                   dataIndex: 'create_time',
@@ -191,8 +232,8 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
                   dataIndex: 'status',
                   render: (status: string) => <Tag>{status}</Tag>
                 },
-                { title: t('learning.detail.owner'), dataIndex: 'owner' },
-                { title: t('learning.detail.improvement'), dataIndex: 'improvement' },
+                { title: t('learning.detail.owner'), dataIndex: 'owner', render: (value: string) => ownerLabel(t, value) },
+                { title: t('learning.detail.improvement'), dataIndex: 'improvement', render: (value: number | null) => improvementLabel(value) },
                 {
                   title: t('learning.columns.updated'),
                   dataIndex: 'create_time',
@@ -207,9 +248,9 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
               pagination={false}
               rowKey="run_id"
               columns={[
-                { title: 'Run', dataIndex: 'run_id' },
-                { title: 'score', dataIndex: 'score' },
-                { title: 'channel', dataIndex: 'channel' },
+                { title: t('learning.detail.run'), dataIndex: 'run_id', render: (value: string) => shortId(value) },
+                { title: t('learning.detail.score'), dataIndex: 'score', render: (value: number | null) => scoreLabel(value) },
+                { title: t('learning.detail.channel'), dataIndex: 'channel', render: (value: string | null) => channelLabel(t, value) },
                 {
                   title: t('learning.columns.updated'),
                   dataIndex: 'create_time',
@@ -224,8 +265,8 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
               pagination={false}
               rowKey="action"
               columns={[
-                { title: t('learning.detail.action'), dataIndex: 'action' },
-                { title: t('learning.detail.operator'), dataIndex: 'actor_user_id' },
+                { title: t('learning.detail.action'), dataIndex: 'action', render: (value: string) => t(`learning.enum.action.${value}`, { defaultValue: value }) },
+                { title: t('learning.detail.operator'), dataIndex: 'actor_user_id', render: (value: string) => shortId(value) },
                 {
                   title: t('learning.columns.updated'),
                   dataIndex: 'create_time',

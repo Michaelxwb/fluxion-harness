@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { DataTable } from '../../components/common/DataTable';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { RunLearningActions } from './RunLearningActions';
+import { channelLabel, familyLabel, scoreLabel, skipReasonLabel } from './labels';
 import { getRunLearningDiagnostics, type RunLearningDiagnostics } from './services/learning';
 
 export function RunLearningPanel(props: { runId: string }) {
@@ -30,13 +31,18 @@ export function RunLearningPanel(props: { runId: string }) {
     <div>
       <DetailGrid
         items={[
-          { label: t('learning.run.family'), value: data.task_family ?? '-' },
+          { label: t('learning.run.family'), value: familyLabel(t, data.task_family) },
           {
             label: t('learning.columns.state'),
             value: data.recorded ? t('learning.run.recorded') : <Tag color="orange">{t('learning.run.notRecorded')}</Tag>
           },
-          { label: 'learning_enabled', value: String(data.learning_enabled ?? '-') },
-          { label: 'min_score', value: String(data.min_score ?? '-') }
+          {
+            label: t('learning.run.enabled'),
+            value: data.learning_enabled
+              ? t('learning.run.switchOn')
+              : t('learning.run.switchOff')
+          },
+          { label: t('learning.run.threshold'), value: scoreLabel(data.min_score) }
         ]}
       />
       <div className="detail-section-title">{t('learning.run.injected')}</div>
@@ -46,8 +52,16 @@ export function RunLearningPanel(props: { runId: string }) {
         rowKey="memory_key"
         columns={[
           { title: t('learning.columns.key'), dataIndex: 'memory_key' },
-          { title: 'score', dataIndex: 'score' },
-          { title: 'channel', dataIndex: 'channel' }
+          {
+            title: t('learning.detail.score'),
+            dataIndex: 'score',
+            render: (value: number | null) => scoreLabel(value)
+          },
+          {
+            title: t('learning.detail.channel'),
+            dataIndex: 'channel',
+            render: (value: string | null) => channelLabel(t, value)
+          }
         ]}
       />
       <div className="detail-section-title">{t('learning.run.skipped')}</div>
@@ -57,8 +71,16 @@ export function RunLearningPanel(props: { runId: string }) {
         rowKey="memory_key"
         columns={[
           { title: t('learning.columns.key'), dataIndex: 'memory_key' },
-          { title: t('learning.detail.reason'), dataIndex: 'reason' },
-          { title: 'score', dataIndex: 'score' }
+          {
+            title: t('learning.detail.reason'),
+            dataIndex: 'reason',
+            render: (value: string | null) => skipReasonLabel(t, value)
+          },
+          {
+            title: t('learning.detail.score'),
+            dataIndex: 'score',
+            render: (value: number | null) => scoreLabel(value)
+          }
         ]}
       />
       <div className="detail-section-title">{t('learning.run.actions')}</div>

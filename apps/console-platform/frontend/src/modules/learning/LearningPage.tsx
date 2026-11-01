@@ -1,4 +1,4 @@
-import { Banner, Button, Input, Select, Tag, Typography } from '@douyinfe/semi-ui';
+import { Banner, Button, Input, Select, Tag, Tooltip, Typography } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -8,6 +8,7 @@ import { EntityLink } from '../../components/common/EntityLink';
 import { ListActionButton } from '../../components/common/ListActionButton';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
+import { familyLabel, scoreLabel, stateLabel, stateTone } from './labels';
 import { ExperienceDetailSideSheet } from './ExperienceDetailSideSheet';
 import { FamilyDetailSideSheet } from './FamilyDetailSideSheet';
 import { listFamilies } from './services/learning';
@@ -119,25 +120,50 @@ export function LearningPage() {
             title: t('learning.family.name'),
             dataIndex: 'family',
             render: (value: string) => (
-              <EntityLink onClick={() => openFamily(value)}>{value}</EntityLink>
+              <Tooltip content={value}>
+                <EntityLink onClick={() => openFamily(value)}>
+                  {familyLabel(t, value)}
+                </EntityLink>
+              </Tooltip>
             )
           },
           {
             title: t('learning.family.source'),
             dataIndex: 'source',
-            render: (value: string) => <Tag>{value}</Tag>
+            render: (value: string) =>
+              value === 'skill'
+                ? t('learning.enum.family.sourceSkill')
+                : value === 'agent'
+                  ? t('learning.enum.family.sourceAgent')
+                  : t('learning.enum.family.sourceOther')
           },
           { title: t('learning.family.runs'), dataIndex: 'run_count' },
           {
             title: t('learning.columns.state'),
             dataIndex: 'states',
-            render: (states: FamilyItem['states']) =>
-              `${states.ACTIVE}/${states.TRIAL}/${states.PROPOSED}`
+            render: (states: FamilyItem['states']) => (
+              <>
+                <Tag color={stateTone('ACTIVE')}>
+                  {stateLabel(t, 'ACTIVE')} {states.ACTIVE}
+                </Tag>{' '}
+                <Tag color={stateTone('TRIAL')}>
+                  {stateLabel(t, 'TRIAL')} {states.TRIAL}
+                </Tag>{' '}
+                <Tag color={stateTone('PROPOSED')}>
+                  {stateLabel(t, 'PROPOSED')} {states.PROPOSED}
+                </Tag>
+              </>
+            )
           },
           {
             title: t('learning.family.passRate'),
             dataIndex: 'pass_rate',
-            render: (value: FamilyItem['pass_rate']) => `${value.passed}/${value.total}`
+            render: (value: FamilyItem['pass_rate']) =>
+              value.total === 0
+                ? t('learning.family.noReplay')
+                : `${value.passed}/${value.total}（${scoreLabel(
+                    value.passed / value.total
+                  )}）`
           },
           {
             title: t('learning.columns.actions'),
