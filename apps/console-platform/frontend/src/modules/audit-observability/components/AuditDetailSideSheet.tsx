@@ -39,6 +39,7 @@ import {
 import { useAuditDetail } from '../hooks/useAuditDetail';
 import type { AuditDetail, AuditListItem } from '../types';
 import { RESOURCE_TYPES } from './AuditFilterBar';
+import { auditActionLabel, auditActorLabel, auditTargetLabel } from '../auditLabels';
 
 /** 详情 SideSheet 入参（设计 §3.4）：与页面导出的 `AuditDetailSideSheetProps` 同结构（保持单向 import）。 */
 export interface AuditDetailSideSheetProps {
@@ -104,7 +105,58 @@ function resourceTypeLabel(t: TFunction, value: string): string {
 }
 
 /** 对象/数组型来源字段（before/after/argsPreview）按 JSON 渲染，其余走 `text`。 */
-function formatExtra(field: string, value: unknown): ReactNode {
+const CHANGE_LABELS: Record<string, string> = {
+  activation_state: '状态',
+  experience_key: '经验',
+  user_id: '用户',
+  operator: '操作者',
+  reason: '原因',
+  base_config_hash: '配置指纹',
+  family: '任务族',
+  paused: '暂停',
+  category: '类别'
+};
+
+const CHANGE_VALUES: Record<string, string> = {
+  ACTIVE: '已生效',
+  TRIAL: '试用中',
+  PROPOSED: '待评估',
+  RETIRED: '已退休',
+  PROCEDURE: '过程经验',
+  FAILURE_PATTERN: '失败模式',
+  VERIFICATION: '验证方法',
+  automatic: '系统/自动'
+};
+
+function formatChange(value: Record<string, unknown>, t: TFunction, field: string): ReactNode {
+  return (
+    <div data-testid={`audit-detail-${field}`}>
+      {Object.entries(value).map(([key, item]) => (
+        <div key={key} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
+          <span style={{ color: 'var(--semi-color-text-2)', minWidth: 96 }}>
+            {CHANGE_LABELS[key] ?? key}
+          </span>
+          <span style={{ overflowWrap: 'anywhere' }}>
+            {item === null || item === undefined
+              ? text(item)
+              : typeof item === 'string'
+                ? key === 'base_config_hash'
+                  ? <span title={item}>{item.slice(0, 14)}…</span>
+                  : CHANGE_VALUES[item] ?? (key === 'user_id' ? shortId(item) : item)
+                : typeof item === 'object'
+                  ? JSON.stringify(item)
+                  : text(item)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatExtra(field: string, value: unknown, t: TFunction): ReactNode {
+  if ((field === 'before' || field === 'after') && typeof value === 'object' && value !== null) {
+    return formatChange(value as Record<string, unknown>, t, field);
+  }
   if (typeof value === 'object' && value !== null) {
     return (
       <pre
@@ -129,7 +181,7 @@ function buildBasicItems(detail: AuditDetail, t: TFunction): DetailGridItem[] {
   return [
     { label: t('audit.columns.time'), value: <DateTimeText value={detail.occurredAt} /> },
     { label: t('audit.columns.auditType'), value: t(`audit.auditType.${detail.auditType}`) },
-    { label: t('audit.columns.actor'), value: detail.actorName ?? detail.actorUserId },
+    { label: t('audit.columns.actor'), value: auditActorLabel(t, detail) },
     { label: t('audit.columns.agent'), value: text(detail.agentName ?? detail.agentId) },
     {
       label: t('audit.columns.target'),
@@ -146,13 +198,13 @@ function buildBasicItems(detail: AuditDetail, t: TFunction): DetailGridItem[] {
               (detail.extras.after as Record<string, unknown>).experience_key
             )}`}
           >
-            {text(detail.target)}
+            {auditTargetLabel(t, detail.target)}
           </a>
         ) : (
-          text(detail.target)
+          auditTargetLabel(t, detail.target)
         )
     },
-    { label: t('audit.columns.action'), value: text(detail.action) },
+    { label: t('audit.columns.action'), value: auditActionLabel(t, detail) },
     {
       label: t('audit.columns.result'),
       value: <StatusTag status={detail.resultStatus} options={statusOptions} />
@@ -188,7 +240,7 @@ function buildTypeItems(detail: AuditDetail, t: TFunction): DetailGridItem[] {
     .filter((field) => detail.extras[field] !== undefined && detail.extras[field] !== null)
     .map((field) => ({
       label: t(`audit.detail.field.${field}`),
-      value: formatExtra(field, detail.extras[field]),
+      value: formatExtra(field, detail.extras[field], t),
       fullWidth: typeof detail.extras[field] === 'object'
     }));
 }

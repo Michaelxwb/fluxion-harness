@@ -62,7 +62,7 @@ async def test_s10_audit_filter_target_and_deeplink(
     items = response.json()["data"]["items"]
     assert len(items) == 2
     retired = next(item for item in items if item["action"] == "RETIRE")
-    assert retired["target"] == f"exp.audit / {user_id}"
+    assert retired["target"] == f"MEMORY_EXPERIENCE/exp.audit / {user_id}"
     assert retired["resource_type"] == "MEMORY_EXPERIENCE"
 
     filtered = await client.get(

@@ -53,9 +53,13 @@ SELECT
     'SUCCESS' AS result_status,
     c.trace_id AS trace_id,
     CASE
-        WHEN c.resource_type = 'MEMORY_EXPERIENCE' AND c.after_json ? 'experience_key'
-            THEN c.after_json->>'experience_key'
+        WHEN c.resource_type = 'MEMORY_EXPERIENCE'
+             AND c.after_json ? 'experience_key'
+            THEN c.resource_type || '/' || (c.after_json->>'experience_key')
                  || COALESCE(' / ' || (c.after_json->>'user_id'), '')
+        WHEN c.resource_type = 'LEARNING_FAMILY'
+             AND c.after_json ? 'family'
+            THEN c.resource_type || '/' || (c.after_json->>'family')
         ELSE c.resource_type || '/' || c.resource_id::text
     END AS target,
     c.create_time AS occurred_at,
