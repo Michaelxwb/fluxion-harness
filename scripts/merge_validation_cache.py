@@ -153,16 +153,16 @@ def rebind_local(
     if not fingerprint:
         raise ValueError("cannot fingerprint the worktree")
     rebound = 0
+    skipped = 0
     for validator, argv in _validator_argvs(root, validators):
         key = _cache_key(argv)
         entry = cache.get(key)
         if entry is None:
             continue
         if str(entry.get("fingerprint", "")) != fingerprint:
-            raise ValueError(
-                f"cache fingerprint mismatch for {validator.get('name')}: "
-                f"run CI on this commit with a clean worktree"
-            )
+            # 本地旧缓存可能来自别的提交；保留但不能复用，等下一次真实执行刷新。
+            skipped += 1
+            continue
         local_identity = _execution_identity(root, validator, argv, fingerprint, entry)
         rebound_entry = dict(entry)
         rebound_entry.setdefault("ci_execution_identity", entry.get("execution_identity", ""))
@@ -173,8 +173,9 @@ def rebind_local(
         cache[key] = rebound_entry
         rebound += 1
     if not rebound:
-        raise ValueError("no cache entries matched validation.yml validators")
-    return {"rebound": rebound, "fingerprint": fingerprint, "commit": head, "run_url": run_url}
+        raise ValueError("no cache entries matched this commit/fingerprint; run CI on the same HEAD")
+    return {"rebound": rebound, "skipped": skipped, "fingerprint": fingerprint,
+            "commit": head, "run_url": run_url}
 
 
 def main(argv: list[str] | None = None) -> int:
