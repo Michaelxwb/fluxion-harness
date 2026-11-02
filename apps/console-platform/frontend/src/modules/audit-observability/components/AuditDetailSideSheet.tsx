@@ -104,37 +104,36 @@ function resourceTypeLabel(t: TFunction, value: string): string {
   return RESOURCE_TYPE_VALUES.has(value) ? t(`audit.resourceType.${value}`) : text(value);
 }
 
+/** 变更 diff 的字段/取值词条域：未登记的键原样展示，不伪造文案。 */
+const CHANGE_FIELD_KEYS = [
+  'activation_state', 'experience_key', 'user_id', 'operator', 'reason',
+  'base_config_hash', 'family', 'paused', 'category'
+] as const;
+
+const CHANGE_VALUE_KEYS = [
+  'ACTIVE', 'TRIAL', 'PROPOSED', 'RETIRED', 'PROCEDURE', 'FAILURE_PATTERN',
+  'VERIFICATION', 'automatic'
+] as const;
+
+const CHANGE_FIELD_KEY_SET = new Set<string>(CHANGE_FIELD_KEYS);
+const CHANGE_VALUE_KEY_SET = new Set<string>(CHANGE_VALUE_KEYS);
+
+/** 动态词条：未登记时回退到原始字段/取值，不伪造文案。 */
+function translateOr(t: TFunction, key: string, fallback: string): string {
+  const translated = t(key);
+  return translated === key ? fallback : translated;
+}
+
 /** 对象/数组型来源字段（before/after/argsPreview）按 JSON 渲染，其余走 `text`。 */
-const CHANGE_LABELS: Record<string, string> = {
-  activation_state: '状态',
-  experience_key: '经验',
-  user_id: '用户',
-  operator: '操作者',
-  reason: '原因',
-  base_config_hash: '配置指纹',
-  family: '任务族',
-  paused: '暂停',
-  category: '类别'
-};
-
-const CHANGE_VALUES: Record<string, string> = {
-  ACTIVE: '已生效',
-  TRIAL: '试用中',
-  PROPOSED: '待评估',
-  RETIRED: '已退休',
-  PROCEDURE: '过程经验',
-  FAILURE_PATTERN: '失败模式',
-  VERIFICATION: '验证方法',
-  automatic: '系统/自动'
-};
-
 function formatChange(value: Record<string, unknown>, t: TFunction, field: string): ReactNode {
   return (
     <div data-testid={`audit-detail-${field}`}>
       {Object.entries(value).map(([key, item]) => (
         <div key={key} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
           <span style={{ color: 'var(--semi-color-text-2)', minWidth: 96 }}>
-            {CHANGE_LABELS[key] ?? key}
+            {CHANGE_FIELD_KEY_SET.has(key)
+              ? translateOr(t, `audit.detail.change.field.${key}`, key)
+              : key}
           </span>
           <span style={{ overflowWrap: 'anywhere' }}>
             {item === null || item === undefined
@@ -142,7 +141,11 @@ function formatChange(value: Record<string, unknown>, t: TFunction, field: strin
               : typeof item === 'string'
                 ? key === 'base_config_hash'
                   ? <span title={item}>{item.slice(0, 14)}…</span>
-                  : CHANGE_VALUES[item] ?? (key === 'user_id' ? shortId(item) : item)
+                  : key === 'user_id'
+                    ? shortId(item)
+                    : CHANGE_VALUE_KEY_SET.has(item)
+                      ? translateOr(t, `audit.detail.change.value.${item}`, item)
+                      : item
                 : typeof item === 'object'
                   ? JSON.stringify(item)
                   : text(item)}

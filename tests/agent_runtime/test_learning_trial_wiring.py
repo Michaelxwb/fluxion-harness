@@ -14,7 +14,6 @@ from muad_agent_runtime.application.learning_replay import LearningReplay, Repla
 from muad_agent_runtime.application.learning_scheduler import LearningSupervisor
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import UserMemory
-from muad_contracts import RunStatus
 
 from tests.agent_runtime.learning_wiring_support import (
     Settings,

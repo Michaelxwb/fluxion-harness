@@ -4,6 +4,16 @@ import { RESOURCE_TYPES } from './components/AuditFilterBar';
 import type { AuditListItem } from './types';
 
 type Translate = TFunction;
+/** 审计 action 词条域：后端 action 是自由字符串，只有登记在这里的取值走 `audit.action.*`。 */
+export const AUDIT_ACTION_DOMAIN = [
+  'CREATE', 'UPDATE', 'DELETE', 'RESTORE', 'ENABLE', 'DISABLE', 'LOGIN', 'LOGOUT',
+  'PAUSE', 'RESUME', 'ACTIVATE', 'RETIRE', 'TRIAL_START', 'TRIAL_PROMOTE', 'TRIAL_RETIRE',
+  'REGENERATE', 'REVISE', 'CLEAR', 'IMPORT', 'BIND', 'UNBIND', 'UPLOAD', 'CANCEL',
+  'SELECT', 'SEND'
+] as const;
+
+const AUDIT_ACTION_KEYS = new Set<string>(AUDIT_ACTION_DOMAIN);
+
 
 function shortId(value: string, size = 8): string {
   return value.length > size ? value.slice(0, size) : value;
@@ -26,6 +36,7 @@ export function auditActionLabel(t: Translate, record: AuditListItem): string {
   if (record.auditType === 'EGRESS') {
     return t('audit.action.egressCall', { operation: action });
   }
+  if (!AUDIT_ACTION_KEYS.has(action)) return action;
   const key = `audit.action.${action}`;
   const label = t(key);
   return label === key ? action : label;

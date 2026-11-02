@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
 
 import sqlalchemy as sa
 from muad_agent_runtime.application.learning_replay import (
@@ -88,7 +87,9 @@ class _CountingRunner:
         self.baseline = baseline or CaseOutcome(False, "baseline fails", 2, 1)
         self.calls: list[tuple[str | None, uuid.UUID]] = []
 
-    async def __call__(self, case: EvalCase, experience_key: str | None, experience_user_id=None) -> CaseOutcome:
+    async def __call__(
+        self, case: EvalCase, experience_key: str | None, experience_user_id=None
+    ) -> CaseOutcome:
         self.calls.append((experience_key, case.id))
         return self.baseline if experience_key is None else self.candidate
 

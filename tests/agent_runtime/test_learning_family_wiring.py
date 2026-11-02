@@ -4,22 +4,20 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-
-import sqlalchemy as sa
 from types import SimpleNamespace
 
+import sqlalchemy as sa
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
-from muad_agent_runtime.application.executor import _ExecutorEventEmitter
-from muad_agent_runtime.application.run_events import DeltaWindow
 from muad_agent_runtime.application.context_settings import frozen_learning_payload, learning_of
-from muad_agent_runtime.application.executor import skill_family_from_tool_calls
+from muad_agent_runtime.application.executor import _ExecutorEventEmitter, skill_family_from_tool_calls
 from muad_agent_runtime.application.memory_cache import MemoryCandidateCache
 from muad_agent_runtime.application.memory_context import MemoryContextLoader
 from muad_agent_runtime.application.memory_queries import MemoryQueries, MemoryReadScope
+from muad_agent_runtime.application.run_events import DeltaWindow
 from muad_agent_runtime.application.run_service import build_snapshot
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import MemoryScope, UserMemory
-from muad_contracts import ResolveDefinitionResponse, ResolvedAgent, ResolvedModel
+from muad_contracts import ResolvedAgent, ResolveDefinitionResponse, ResolvedModel
 from muad_contracts.platform_settings import MemoryPolicySettings
 
 AGENT_ID = uuid.uuid4()
@@ -43,7 +41,7 @@ async def _seed(tenant: str, user: uuid.UUID) -> None:
         session.add(MemoryScope(tenant_id=tenant, user_id=user, revision=1))
         rows = [
             ("exp.skill", "skill:demo", "ACTIVE", "skill 族经验：逐项核对"),
-            (f"exp.agent", f"agent:{AGENT_ID}", "ACTIVE", "agent 族经验：先确认目标"),
+            ("exp.agent", f"agent:{AGENT_ID}", "ACTIVE", "agent 族经验：先确认目标"),
             ("exp.proposed", "skill:demo", "PROPOSED", "尚未激活"),
         ]
         for key, signature, state, value in rows:
