@@ -333,10 +333,17 @@ jobs:
             exit 1
           fi
           python3 scripts/merge_validation_cache.py --output validation-cache.json "${files[@]}"
+      - name: 写 cache provenance
+        run: |
+          printf '{"run_url":"%s","commit":"%s"}\n' \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "${{ github.sha }}" > validation-cache-provenance.json
       - uses: actions/upload-artifact@v4
         with:
           name: validation-cache
-          path: validation-cache.json
+          path: |
+            validation-cache.json
+            validation-cache-provenance.json
           retention-days: 7
 
   frontend:

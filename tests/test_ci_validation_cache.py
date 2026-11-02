@@ -108,3 +108,51 @@ def test_workflow_cache_jobs_reference_heavy_validators() -> None:
         for step in workflow["jobs"]["validation-cache-merge"]["steps"]
     ]
     assert any("merge_validation_cache.py" in run for run in merge_runs), merge_runs
+    assert any("validation-cache-provenance.json" in run for run in merge_runs), merge_runs
+
+
+def test_rebind_local_makes_ci_cache_reusable(tmp_path: Path) -> None:
+    (tmp_path / ".code-flow").mkdir()
+    (tmp_path / ".code-flow" / "validation.yml").write_text(
+        "validators:\n"
+        "  - name: cache-rebind\n"
+        "    trigger: '**/*.py'\n"
+        "    command: \"python3 -c \\\"print('ok')\\\"\"\n"
+        "    heavy: true\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "sample.py").write_text("", encoding="utf-8")
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "add", "sample.py")
+    _git(tmp_path, "-c", "user.name=test", "-c", "user.email=test@example.com",
+         "commit", "-q", "-m", "init")
+    commit = subprocess.run(("git", "rev-parse", "HEAD"), cwd=tmp_path, check=True,
+                            capture_output=True, text=True).stdout.strip()
+
+    first = ci_cache.run_validator(str(tmp_path), "cache-rebind")
+    assert first["decision"] == "pass"
+    cache_file = tmp_path / ".code-flow" / ".validation-cache.json"
+    cache = json.loads(cache_file.read_text())
+    key = next(iter(cache))
+    cache[key]["execution_identity"] = "ci-identity"
+    cache_file.write_text(json.dumps(cache), encoding="utf-8")
+
+    provenance = tmp_path / "provenance.json"
+    provenance.write_text(json.dumps({
+        "run_url": "https://github.com/example/repo/actions/runs/1",
+        "commit": commit,
+    }), encoding="utf-8")
+    assert merge_cache.main([
+        str(cache_file), "--output", str(cache_file),
+        "--rebind-local", "--provenance", str(provenance), "--root", str(tmp_path),
+    ]) == 0
+
+    rebound = json.loads(cache_file.read_text())[key]
+    assert rebound["source"] == "ci"
+    assert rebound["ci_execution_identity"] == "ci-identity"
+    assert rebound["ci_run_url"].endswith("/actions/runs/1")
+    assert rebound["ci_commit"] == commit
+
+    second = ci_cache.run_validator(str(tmp_path), "cache-rebind")
+    assert second["decision"] == "pass"
+    assert second["reused"] == 1
