@@ -14,6 +14,7 @@ class RedisPlatformSessionInvalidator:
 
     async def clear_platform(self, *, tenant_id: str, platform_id: uuid.UUID) -> int:
         index_key = platform_sessions_index_key(tenant_id=tenant_id, platform_id=str(platform_id))
+        await self._client.incr(index_key + ":generation")
         members = await self._client.smembers(index_key)
         keys = [member.decode() if isinstance(member, bytes) else str(member) for member in members]
         if keys:

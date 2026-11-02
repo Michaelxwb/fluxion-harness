@@ -6,16 +6,18 @@ export interface CredentialField {
   name: string;
   label: string;
   secret: boolean;
+  required: boolean;
 }
 
 export function credentialFields(adapter: AdapterMetadata | null): CredentialField[] {
   const schema = adapter?.credential_schema as
-    | { properties?: Record<string, { title?: string; 'x-secret'?: boolean }> }
+    | { required?: string[]; properties?: Record<string, { title?: string; 'x-secret'?: boolean }> }
     | undefined;
   return Object.entries(schema?.properties ?? {}).map(([name, definition]) => ({
     name,
     label: definition.title ?? name,
-    secret: definition['x-secret'] === true
+    secret: definition['x-secret'] === true,
+    required: schema?.required?.includes(name) === true
   }));
 }
 
@@ -32,6 +34,8 @@ export function validateCredentialValues(
   if (fields.length > 0 && !fields.some((field) => filled(field.name))) {
     return { field: fields[0].name, key: 'platform.credentials.errorRequired' };
   }
+  const missing = fields.find((field) => field.required && !filled(field.name));
+  if (missing) return { field: missing.name, key: 'platform.credentials.errorRequired' };
   const hasUserField = fields.some((field) => field.name === 'username');
   const hasPasswordField = fields.some((field) => field.name === 'password');
   if (hasUserField && hasPasswordField && filled('username') !== filled('password')) {

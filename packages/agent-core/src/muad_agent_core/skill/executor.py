@@ -15,8 +15,12 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from muad_contracts import ResolvedSkill
+from muad_platform_sdk.adapter.mssp_config import PlatformAuthError
+from muad_platform_sdk.skill_access import SkillPlatformContext
+from muad_platform_sdk.skill_bridge import skill_platform_environment
 from muad_skill_sdk import SkillContext, SkillPackageError, declared_entrypoint, locate_package_root
 from muad_skill_sdk.skill_package import is_script_path
+from redis.exceptions import RedisError
 
 MAX_OUTPUT_BYTES = 64 * 1024
 TERMINATE_GRACE_SEC = 2.0
@@ -61,6 +65,7 @@ class SkillExecutionRequest:
     env: Mapping[str, str] = field(default_factory=dict)
     cancel_event: asyncio.Event | None = None
     script: Path | None = None
+    platform_context: SkillPlatformContext | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +80,17 @@ class SkillExecutionResult:
 
 class ScriptSkillExecutor:
     async def execute(self, request: SkillExecutionRequest) -> SkillExecutionResult:
+        from dataclasses import replace
+
+        try:
+            async with skill_platform_environment(request.platform_context) as env:
+                return await self._execute(replace(request, env={**request.env, **env}))
+        except PlatformAuthError as exc:
+            raise SkillExecutionError(exc.code) from None
+        except RedisError:
+            raise SkillExecutionError("PLATFORM_SESSION_STORE_UNAVAILABLE") from None
+
+    async def _execute(self, request: SkillExecutionRequest) -> SkillExecutionResult:
         ready_dir = Path(request.ready_dir).resolve()
         if not (ready_dir / SCRIPTS_DIR).is_dir() and not (ready_dir / "SKILL.md").is_file():
             try:
@@ -231,9 +247,7 @@ def select_entry_script(ready_dir: Path) -> Path:
         return main.resolve()
     candidates = sorted(path for path in scripts_dir.glob("*.py") if path.is_file())
     if not candidates:
-        candidates = sorted(
-            path for path in scripts_dir.iterdir() if path.is_file() and is_script_path(path)
-        )
+        candidates = sorted(path for path in scripts_dir.iterdir() if path.is_file() and is_script_path(path))
     if not candidates:
         raise SkillExecutionError("skill package has no scripts")
     return candidates[0].resolve()

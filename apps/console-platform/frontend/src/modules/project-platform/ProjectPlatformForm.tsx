@@ -1,7 +1,9 @@
-import { Banner, Form } from '@douyinfe/semi-ui';
+import { Banner, Button, Form } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import { parsePlatformConfig, platformConfigExample } from './platformConfigJson';
 
 import { apiErrorBody } from '../../api/client';
 import { FormModal } from '../../components/common/FormModal';
@@ -30,12 +32,7 @@ interface FormValues {
   adapter_key: string;
   credential_mode: PlatformItem['credential_mode'];
   enabled?: string;
-  adapter_config?: Record<string, unknown>;
-}
-
-function schemaProperties(adapter: AdapterMetadata | undefined): Record<string, Record<string, unknown>> {
-  const schema = adapter?.platform_config_schema as { properties?: Record<string, Record<string, unknown>> } | undefined;
-  return schema?.properties ?? {};
+  adapter_config_json?: string;
 }
 
 export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
@@ -44,6 +41,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
   const [adapters, setAdapters] = useState<AdapterMetadata[]>([]);
   const [adapterKey, setAdapterKey] = useState('generic-http');
   const [resolverType, setResolverType] = useState<'BASE_URL' | 'SERVICE_DISCOVERY'>('BASE_URL');
+  const [configError, setConfigError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const formApi = useRef<FormApi | null>(null);
 
@@ -59,6 +57,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
     }
     formApi.current?.reset();
     setFormError(null);
+    setConfigError(null);
     const platform = props.platform;
     const values: Record<string, unknown> = platform
       ? {
@@ -72,9 +71,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
           enabled: platform.enabled ? 'true' : 'false'
         }
       : { resolver_type: 'BASE_URL', adapter_key: 'generic-http', credential_mode: 'NONE', enabled: 'true' };
-    for (const [key, value] of Object.entries(platform?.adapter_config ?? {})) {
-      values[`adapter_config.${key}`] = value;
-    }
+    values.adapter_config_json = JSON.stringify(platform?.adapter_config ?? {}, null, 2);
     formApi.current?.setValues(values);
     setAdapterKey(platform?.adapter_key ?? 'generic-http');
     setResolverType(platform?.resolver_type ?? 'BASE_URL');
@@ -84,9 +81,15 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
     () => adapters.find((adapter) => adapter.key === adapterKey),
     [adapters, adapterKey]
   );
-  const adapterProperties = schemaProperties(selectedAdapter);
 
   const submit = async (values: FormValues): Promise<void> => {
+    let adapterConfig: Record<string, unknown>;
+    try {
+      adapterConfig = parsePlatformConfig(values.adapter_config_json);
+    } catch {
+      setConfigError(t('platform.form.configInvalid'));
+      return;
+    }
     setSaving(true);
     setFormError(null);
     const resolverConfig =
@@ -98,7 +101,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
       resolver_type: values.resolver_type,
       resolver_config: resolverConfig,
       adapter_key: values.adapter_key,
-      adapter_config: values.adapter_config ?? {},
+      adapter_config: adapterConfig,
       credential_mode: values.credential_mode,
       enabled: values.enabled === undefined ? true : String(values.enabled) === 'true'
     };
@@ -116,12 +119,8 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
       if (body?.code === 'PLATFORM_KEY_EXISTS') {
         formApi.current?.setError('key', body.msg);
       } else if (body?.code === 'COMMON_VALIDATION_ERROR') {
-        const firstAdapterField = Object.keys(adapterProperties)[0];
-        if (firstAdapterField) {
-          formApi.current?.setError(`adapter_config.${firstAdapterField}`, body.msg);
-        } else {
-          setFormError(body.msg);
-        }
+        setConfigError(body.msg);
+        setFormError(body.msg);
       } else {
         setFormError(body?.msg ?? t('common.saveFailed'));
       }
@@ -174,7 +173,14 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
           field="adapter_key"
           label={t('platform.form.adapter')}
           optionList={adapters.map((adapter) => ({ value: adapter.key, label: `${adapter.name} · ${adapter.version}` }))}
-          onChange={(value) => setAdapterKey(String(value))}
+          onChange={(value) => {
+            const key = String(value);
+            if (key !== adapterKey) {
+              const metadata = adapters.find((adapter) => adapter.key === key);
+              formApi.current?.setValue('adapter_config_json', platformConfigExample(metadata?.platform_config_schema));
+            }
+            setAdapterKey(key);
+          }}
           rules={[{ required: true, message: t('platform.form.adapter') }]}
         />
         <div className="form-field-full">
@@ -217,27 +223,26 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
           <div className="form-section-title">{t('platform.form.adapterSection')}</div>
           <div className="form-section-hint">{t('platform.form.adapterSectionHint')}</div>
         </div>
-        {Object.entries(adapterProperties).map(([property, definition]) => {
-          const field = `adapter_config.${property}`;
-          const label = t(`platform.adapterField.${property}`, {
-            defaultValue: String(definition.title ?? property)
-          });
-          const enumValues = Array.isArray(definition.enum) ? (definition.enum as string[]) : null;
-          if (enumValues) {
-            return (
-              <Form.Select
-                key={field}
-                field={field}
-                label={label}
-                optionList={enumValues.map((value) => ({ value, label: value }))}
-              />
-            );
-          }
-          if (definition.type === 'integer' || definition.type === 'number') {
-            return <Form.InputNumber key={field} field={field} label={label} />;
-          }
-          return <Form.Input key={field} field={field} label={label} />;
-        })}
+        <div className="form-field-full">
+          <Form.TextArea
+            field="adapter_config_json"
+            label={t('platform.form.configJson')}
+            initValue="{}"
+            rows={8}
+            onChange={() => {
+              setConfigError(null);
+              setFormError(null);
+            }}
+            style={{ fontFamily: 'monospace' }}
+            placeholder={platformConfigExample(selectedAdapter?.platform_config_schema)}
+          />
+          {configError ? <Banner type="danger" closeIcon={null} description={configError} /> : null}
+          <Button type="tertiary" size="small" onClick={() => formApi.current?.setValue(
+            'adapter_config_json', platformConfigExample(selectedAdapter?.platform_config_schema)
+          )}>
+            {t('platform.form.configExample')}
+          </Button>
+        </div>
       </div>
     </FormModal>
   );

@@ -30,6 +30,9 @@ REQUIRED_SNAPSHOT_KEYS = (
 
 
 def _skill_entry(skill: ResolvedSkill) -> dict[str, Any]:
+    platforms = skill.frontmatter.get("platforms", [])
+    if not isinstance(platforms, list) or any(not isinstance(k, str) or not k for k in platforms):
+        raise ValueError("Skill platforms must be a list of platform keys")
     return {
         "skill_id": str(skill.skill_id),
         "artifact_id": str(skill.artifact_id),
@@ -38,6 +41,7 @@ def _skill_entry(skill: ResolvedSkill) -> dict[str, Any]:
         "checksum": skill.checksum,
         "storage_key": skill.storage_key,
         "execution_mode": str(skill.execution_mode),
+        "platforms": list(dict.fromkeys(platforms)),
     }
 
 

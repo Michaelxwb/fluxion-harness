@@ -80,6 +80,7 @@ from muad_contracts.platform_settings import (
     ToolResultSettings,
 )
 from muad_logging.redaction import redact_text
+from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_platform_sdk.types import SecretValue
 from pydantic import JsonValue, ValidationError
 from sqlalchemy.exc import SQLAlchemyError
@@ -1912,6 +1913,13 @@ def build_registry(
         policy=policy,
         task_client=task_submitter,
         task_context=task_context,
+        platform_context=SkillPlatformContext(
+            tenant_id=request.run_context.tenant_id, actor_user_id=str(request.run_context.user_id),
+            execution_id=str(request.run_context.run_id), execution_type="RUN", platform_keys=(),
+            audit=audit_writer,
+            console_url=process_settings().console_platform_url,
+            redis_url=process_settings().redis_url, service_token=process_settings().internal_service_token,
+        ) if request.run_context else None,
     )
     if task_client is not None and task_context is not None:
         # docs/04 §7.5 内置任务工具：Schedule 创建/管理与后台 Task 查询/取消。

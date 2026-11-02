@@ -14,6 +14,7 @@ from ..infrastructure.models.task import TaskEvent, TaskExecution
 
 
 class TaskEventType(StrEnum):
+    PLATFORM_REQUEST = "PLATFORM_REQUEST"
     CREATED = "CREATED"
     CLAIMED = "CLAIMED"
     WAITING = "WAITING"
