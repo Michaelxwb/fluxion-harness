@@ -1,0 +1,3418 @@
+version: 1
+task: experience-management
+enforcement: required
+updated_at: '2026-11-02T14:38:49.409108+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: harness-api
+  path: api/harness-api.md
+  status: active
+  hashes:
+    file_sha256: 96011a2c158e476b7d6f27d645a221205fa6c1a24a4f08eeead70848d7405fa1
+    metadata_sha256: 8088eab95efc280aa8387d3ee7e4fee89ce481e1d041cadce8abfb6d2636ae96
+    rules_sha256: ef9934dfeef724180bb98891e188e0f090a02e13dec4fe0163970ded69ff33aa
+  selected_by: path
+  reason: 新增 Console 管理与 Runtime internal 端点，统一封套与幂等
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
+      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
+      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
+      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
+      unique 只作兜底（各服务的 `_lock_idempotency`）。console 侧 `agent_service`/`mcp_service`/`skill_service`
+      三处 `_fingerprint` 已收敛到同一口径：规范化 JSON 且含 `endpoint`/`tenant_id`/actor 与关键参数（合规参考
+      `channel_service.bind_fingerprint`、`auth_service.account_fingerprint`、`audit_export_service`
+      的指纹函数、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py`）。
+    text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-08
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-004
+          item_id: RULE-api-002
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-11-02T14:51:56.633534+00:00'
+          status: verified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: 29f3e2a08e89154c06611249eee95e070763154f5f1c05f8ba187d7386b0af15
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: 0e2d4c800d16ff89b839d9e4386e52905e888a248fc9497971256cb2a7ad3fd1
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.10s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-07
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-003
+          item_id: RULE-api-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-11-02T14:52:00.116133+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: d5f04e82243a53563b153e35e5d8964c29a2f0b37ad3b9816d9923b414106c0a
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 088286cf70a13d1a6c71fb149aa41162593f93837a90586933ea0e02b6f16e52
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 2 warnings in 3.06s\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-arch
+  path: arch/harness-arch.md
+  status: active
+  hashes:
+    file_sha256: fe7495ba3b811fe18c6078ef54dbdfd3741dcf9217f36b018d69242b38ddef6c
+    metadata_sha256: d75360ccdc5ee3a53f2c49d7066be7a023eaf4d84bbab3e832fd9e751d953be8
+    rules_sha256: b15c6e014fbf77e741621ab306e2213360984615e4a54d608e0533477a8a5a2a
+  selected_by: path
+  reason: Runtime 新增批量循环，需保持无状态与多副本安全
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-arch-001
+    summary: 固定四个**逻辑业务部署单元**（console-platform / agent-runtime / agent-worker / im-gateway）；`im-gateway`
+      可拆为无状态 web 与有状态 connector 两个运行时角色，connector 不是第五个业务微服务。Runtime 与 Worker 无状态、可横向扩展，不绑定
+      Pod、bot_id 或用户；同一会话可被任意 Pod 执行；Connector 只持有 bot 传输所有权与回复上下文，不建立 agent→Pod 映射。
+    text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+    enforcement: required
+    verifier_ref: harness-arch#RULE-arch-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-08
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-004
+          item_id: RULE-arch-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-02T14:52:26.220936+00:00'
+          status: verified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: c58e549e063528c3b5836a1d7ea937a79b0608fd02ab5869ebb0cce0d6daf4ab
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: 70772bf992f3d1cc7a5cfd6f1d76fc7a55e9e4a279af5497059689c6182eece0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 34%]
+
+              ........................................................................
+              [ 68%]
+
+              ..................................................................       [100%]
+
+              210 passed in 25.56s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-auth
+  path: auth/harness-auth.md
+  status: active
+  hashes:
+    file_sha256: 103f8ecabf99f9f581fbdb55080a733513c3a70cff16bc3435ceb4f1c707c434
+    metadata_sha256: 5430fcb6d3c7d5e74881da16201bd6cf9661576d7b799848c8c456af37561841
+    rules_sha256: 2c0d8492b6adb9167c4309b44a5b1be42b1920f5e241f629d2f2bf9825cdc570
+  selected_by: path
+  reason: 管理端点仅管理员；internal 仅服务身份
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-auth-001
+    summary: 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED
+      资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false`
+      与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill
+      Catalog。
+    text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+    enforcement: required
+    verifier_ref: harness-auth#RULE-auth-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-09
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-004
+          item_id: RULE-auth-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-11-02T14:52:58.842389+00:00'
+          status: verified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: 070ae8296577f87a5e2263134f68789134adb027b4bceaf92ca7f5775f01e8b4
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/console_platform/test_user_side_relations.py
+              -k s04 && uv run pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 352a52cf4c5cbfb4277345d1f92c4a63565a6756fe4260cd5edd8cb90a81f0b7
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed, 1 deselected in 0.58s\n......................................................\
+              \                   [100%]\n=============================== warnings\
+              \ summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              54 passed, 6228 deselected, 2 warnings in 30.11s\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-data
+  path: persistence/harness-data.md
+  status: active
+  hashes:
+    file_sha256: 87e108287221d7be78ce2018d0f3b95c6eb1a30b4cd1c7cf0d92020cb506f2b5
+    metadata_sha256: 4c0b58f383383267a768a0d1c93774dc8702f7e68e68de0bb654746611af262e
+    rules_sha256: bff4e046d47cecba0e97c8a83921f635292d2a2e009c836fece1462a9024a68d
+  selected_by: path
+  reason: 新增 learning_job 表、eval_report 列与索引迁移
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-data-001
+    summary: 产品表统一 `id/is_deleted/create_time/update_time`；普通软删除实体用 partial unique
+      `WHERE is_deleted=false`，稳定身份注册表 `runtime.user_memory` / `memory_scope` 的完整唯一键包含
+      tombstone，append-only history/receipt/job 保持 `is_deleted=false` 且使用完整唯一约束；时间统一
+      `timestamptz`；同 Owner Schema 的业务归属用物理 FK，跨 Owner Schema 与需跨清理保留的审计来源引用用逻辑 UUID；JSON
+      配置用 `jsonb`，关键查询字段必须有物理列。
+    text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+    enforcement: required
+    verifier_ref: harness-data#RULE-data-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-01
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-001
+          item_id: RULE-data-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-11-02T14:53:30.648649+00:00'
+          status: verified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: bb3c9eed4477038c5bd6e89ffe8494f950c8d73f04608cdaa797cd09c3da7203
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: e0a8408ad99fecdc7f264734d9e2c83d1c27283980d7461accfd70b42c046347
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "......................................................      \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              54 passed, 6228 deselected, 2 warnings in 30.75s\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-e2e
+  path: e2e/harness-e2e.md
+  status: active
+  hashes:
+    file_sha256: 036af1678c66b5f4eb555347ab53d9b5f55bac956f1d13223ec950011025938a
+    metadata_sha256: 7af5a04f52f1c8e9396e82c4b18fb99228d966f11dedc29bfe3c7992780ddcce
+    rules_sha256: e5ef4913e259049d4ca3133c99df723dd47e49e04d5a9577387cd258de87849d
+  selected_by: path
+  reason: 浏览器关键旅程 S-08
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-e2e-001
+    summary: '浏览器 E2E 必须使用真实构建产物与真实浏览器：成功路径（`S-*`）不得改写路由或 mock 业务 API；失败/边界路径（`E-*`）允许制造超时/错误，但不得
+      fulfill 业务响应体。域配置必须 `channel: ''chrome''`、`preview --strictPort`、钉死浏览器时区，并只启动该域实际依赖的服务。'
+    text_sha256: de6cc1c02049cdb4c6b5213da64b69a9aa793c0ef6c5115fb48609c9b87eb55a
+    enforcement: required
+    verifier_ref: harness-e2e#RULE-e2e-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.frontend.design.md
+          section_id: 2.4.1 业务规则与约束
+          item_id: RULE-24
+          artifact_sha256: 18e4fbe0f3d51e2e877470c24d2d04740d6cfe5519d11bf2b53e99f94686fc07
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-006
+          item_id: RULE-e2e-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-e2e#RULE-e2e-001
+          executed_at: '2026-11-02T14:53:31.728980+00:00'
+          status: verified
+          rule_text_sha256: de6cc1c02049cdb4c6b5213da64b69a9aa793c0ef6c5115fb48609c9b87eb55a
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: cc8fbf4829ff58e8cb6954f9bf7aeadc6f4aeca4752f922243b2a5b888058d36
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/frontend/test_e2e_suite_contract.py
+            exit_code: 0
+            stdout_sha256: c986c8de796570847f8fc6d2653feb6d09b6e6f66c207ce95d407bc4df762ab9
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 0.64s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-frontend
+  path: frontend/harness-frontend.md
+  status: active
+  hashes:
+    file_sha256: 7c19416d5116899d49bd296afd88533ab2404a348e6204eb79887ffae5ebe9c0
+    metadata_sha256: 71fab0d58493599ad10b59554dcf8bfe6a74f8c42a64ec1fe8307573ad32409f
+    rules_sha256: 88e07734bcfcf99595bfe206a8a41e394709f8a1462dab8bf61cdd4c12ab4313
+  selected_by: path
+  reason: 新增前端模块与 service 层
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-front-001
+    summary: 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的
+      service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿
+      `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId`
+      是无副作用的纯工具，组件可直接 import（现网多处，均为纯函数引用）。文案与词条规则见 RULE-i18n-001；列表/详情见 RULE-ui-001
+      与 RULE-ui-detail-001。
+    text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
+    enforcement: required
+    verifier_ref: harness-frontend#RULE-front-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.frontend.design.md
+          section_id: 2.4.1 业务规则与约束
+          item_id: RULE-20
+          artifact_sha256: 18e4fbe0f3d51e2e877470c24d2d04740d6cfe5519d11bf2b53e99f94686fc07
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-005
+          item_id: RULE-front-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-11-02T14:15:04.232891+00:00'
+          status: verified
+          rule_text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: 8e96969721dc11f978bd41a177068554eb911e17ed205b637a20636e75ec6847
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run
+              python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: 4e2daf960541d7bd195535e1fe3127846e1c3b551c4ffec04acaf0c6db311c5a
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.57s
+
+              frontend api usage check OK
+
+              i18n keys OK: 1760
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-i18n
+  path: i18n/harness-i18n.md
+  status: active
+  hashes:
+    file_sha256: 4dcf6a2dbd3226b048bb7d3d3c21f149a3588831273cef713c62494fed898521
+    metadata_sha256: 5d5941a5c31c0b7fa6401848d6e780d04874476c8f77a8b5ff5c708885997155
+    rules_sha256: 2f76d4b7d9b26cf3be95f2d812aaca26dd9e576c7e57bf665b65b986a7a1829f
+  selected_by: path
+  reason: 新增页面文案与错误码中英
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-i18n-001
+    summary: 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language`
+      协商。
+    text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+    enforcement: required
+    verifier_ref: harness-i18n#RULE-i18n-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.frontend.design.md
+          section_id: 2.4.1 业务规则与约束
+          item_id: RULE-23
+          artifact_sha256: 18e4fbe0f3d51e2e877470c24d2d04740d6cfe5519d11bf2b53e99f94686fc07
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-005
+          item_id: RULE-i18n-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-11-02T14:53:38.819291+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: d92f7c86e9250dba0b24a748f7a0d581222349ac793406e67d33b7b521c53aec
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: da8703eadf9f376c4d658951e46563d61cab3fe3645b55a9e1545d586affe6b2
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 2.96s
+
+              i18n keys OK: 1760
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-log
+  path: logging/harness-log.md
+  status: active
+  hashes:
+    file_sha256: 656911d9f2ec5aca3314900241076b705ef8de47779c51d757c16a98aad09bc8
+    metadata_sha256: b745153ac61a208ee536889d8e50d85dd08840ea237f2c619f417c3cd4780e4d
+    rules_sha256: 989697c773983b8c71c7bcfc8bfd3003c18e341e10bdd9287e2199c3eda28d18
+  selected_by: path
+  reason: 新增日志与失败可观测
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-log-001
+    summary: 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`（另读 `LOG_LEVEL`，缺省 `INFO`；非法级别直接 `raise
+      ValueError` 而非静默回退；`console=True` 为默认值，会额外挂一个 stdout handler）；日志按 `service/YYYY-MM-DD.log`
+      输出**单行文本**：`YYYY-MM-DD HH:mm:ss.SSS ±ZZZZ [LEVEL] service logger message | key=value
+      ...`，自动携带 `trace_id/request_id/tenant_id` 等关联字段（空串不打印），并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password
+      等敏感字段脱敏。
+    text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+    enforcement: required
+    verifier_ref: harness-log#RULE-log-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-12
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-004
+          item_id: RULE-log-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-11-02T14:53:41.528918+00:00'
+          status: verified
+          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: f149ad1ac284a62769f7503ecff7939a8c3d51dfdab2c7c9b9c88090f58ab1b5
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging.py
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_logging.py
+            exit_code: 0
+            stdout_sha256: e26ca1fb2b4a780e85516313de06363bebc11adfc1db2e398257e565a2a91fc9
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.25s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-memory
+  path: memory/harness-memory.md
+  status: active
+  hashes:
+    file_sha256: bdc1d8de5894d3b910893fa759822571fe73afb53c8996f617d29d353e67a511
+    metadata_sha256: 26d60b919fdbf7ae2ae359788599979e062819d2fde8e31ff3f5ff03e21e629d
+    rules_sha256: d74dfc24eb72fc17e685a51d708d2627a6f08952b1bc99264c9008ae2813d34a
+  selected_by: path
+  reason: 经验为 memory 行，状态/版本/历史/回执必须走记忆写入主通道
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-memory-001
+    summary: 原话仅证明文本来源，不能授予保存授权；模型不得提供 author/explicit_request。自然语言 remember 必须展示完整候选，绑定租户/用户/Run/submission、候选
+      hash、预期版本、forget_epoch 和有效期，由真实用户确认原子保存；只有真实入站的显式命令或已授权管理员可以直接保存。候选每 Run 至多一个，工具整轮完成后才暂停；resume
+      先检查绝对 deadline。options 消费以租户和 source_event_id 唯一，结果 outcome 不进入唯一键。
+    text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-04
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-001
+          item_id: RULE-memory-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-001
+          executed_at: '2026-11-02T14:55:38.211926+00:00'
+          status: verified
+          rule_text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: d849efbd7c6a7854f9d5ed72c633004611af36d9ac1f0dac15e59db536bf513d
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_core/test_memory_redesign_evidence.py
+            - tests/agent_runtime/test_memory_redesign_confirmation.py
+            exit_code: 0
+            stdout_sha256: f617fe3d4de943338caf3a4ed63c8e56965b1af868ba69186249facb0fc9ed85
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 88%]
+
+              .........                                                                [100%]
+
+              81 passed in 114.72s (0:01:54)
+
+              '
+  - ref: RULE-memory-002
+    summary: Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。同
+      tenant/user/key 使用完整唯一身份，软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope
+      revision 同事务提交。锁内按写后有效集合验证冻结条数/UTF-8 字节限额及绝对上限；仅可淘汰 AGENT，USER/ADMIN 不免除硬限；既有超额时治理可减少但不可增加。
+    text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-002
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-04
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-001
+          item_id: RULE-memory-002
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-002
+          executed_at: '2026-11-02T14:56:33.510390+00:00'
+          status: verified
+          rule_text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: 74c120aa11d9d664b7973e1dc48c697b235ecbc99e31a36714a8823c9b4d0be9
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_writes.py
+            - tests/agent_runtime/test_memory_redesign_quotas.py
+            exit_code: 0
+            stdout_sha256: eeb35be85be2c6f750d0eba21650247c190e87cb3cd0fdf672be16f6034b6871
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..........................                                               [100%]
+
+              26 passed in 54.18s
+
+              '
+  - ref: RULE-memory-003
+    summary: 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖
+      query。注入选择在覆盖率之上加阈值门控（默认 0.35，平台可配）；偏好类先按独立条数/字节限额筛选且不受阈值过滤；同键只取最新版本；经验类只注入
+      ACTIVE，按任务族或目标文本命中，且不受注入推断开关影响。recall/SEARCH 的返回语义（零覆盖为空、LIST）保持不变。revision
+      缓存只存候选行：冷读取行与实际 revision 同快照，暖读取 revision 与当前语句时间，并逐次过滤 TTL、重新选择/渲染；读取失败清除旧缓存和
+      MemoryComponent。每个模型请求前刷新独立 MemoryComponent，完整 SYSTEM 块及 recall JSON 严守最终 UTF-8
+      字节与条数预算；0 关闭注入，长条跳过，无首条越限保底，压缩不能吞掉记忆组件。
+    text_sha256: a816a6f4610d83f84a228773e5f163d66f5e0601f53d9b9ede258ce1ef684ae9
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-003
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-05
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-002
+          item_id: RULE-memory-003
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-003
+          executed_at: '2026-11-02T14:57:55.776282+00:00'
+          status: verified
+          rule_text_sha256: a816a6f4610d83f84a228773e5f163d66f5e0601f53d9b9ede258ce1ef684ae9
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: 02375bce84a941b9984a76497a775f631bd3724cee2babae27f36f471c479ebb
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_cache.py
+            - tests/agent_runtime/test_memory_redesign_context.py
+            - tests/agent_core/test_memory_redesign_selection.py
+            exit_code: 0
+            stdout_sha256: cb1ba1640f7b98270fbf5b784d451f5e8607125ad3b3a6f404e9e91401bfb7d1
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................                 [100%]
+
+              56 passed in 81.20s (0:01:21)
+
+              '
+  - ref: RULE-memory-004
+    summary: 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled
+      或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision
+      证明，不以 job 开始时间冒充新依据。自动批量提交核对原 scope revision，过期输入为 STALE；同任务 lineage 续接原稳定 key，完成后清除未决状态。
+    text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-004
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-04
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-001
+          item_id: RULE-memory-004
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-004
+          executed_at: '2026-11-02T15:00:58.659269+00:00'
+          status: verified
+          rule_text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: fd637cf71f604a4315ab3ca80ea1ddc250af1d63eb766a49c97d6762b51c1dc3
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_job_effects.py
+            - tests/agent_runtime/test_memory_redesign_confirmation.py
+            exit_code: 0
+            stdout_sha256: 1d671ba2748fcd7ab36a7aa2d02c45480071674ad33ba7e212b95bf80634f351
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............................................................             [100%]
+
+              60 passed in 180.60s (0:03:00)
+
+              '
+  - ref: RULE-memory-005
+    summary: 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同
+      fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立
+      provider 使用冻结主模型、实时凭据并显式关闭。模型调用次数不保证一次，持久效果/历史/完成事件/job 终态必须同事务最多一次；失败整批回滚，warning/metric
+      可见，主 Run 终态不变。
+    text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-005
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-08
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-001
+          item_id: RULE-memory-005
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-005
+          executed_at: '2026-11-02T15:02:25.028011+00:00'
+          status: verified
+          rule_text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: dd6c71b9091d484969ae95c17e42ba61724625127ab92d0016d897abd65e2ed5
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_job_effects.py
+            - tests/agent_runtime/test_memory_redesign_input_boundary.py
+            exit_code: 0
+            stdout_sha256: e333cb5638ae8b4b7b5e37d38007d0030d68963d9d431a6842cd432279c9c381
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...................................                                      [100%]
+
+              35 passed in 85.16s (0:01:25)
+
+              '
+  - ref: RULE-memory-006
+    summary: 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途
+      Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和
+      ORM 约束/索引同构；移除旧 ratio/source_type 协议，历史快照原样保留仅作审计，不加兼容写层。
+    text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-006
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-08
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-001
+          item_id: RULE-memory-006
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-006
+          executed_at: '2026-11-02T15:02:37.132566+00:00'
+          status: verified
+          rule_text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: c7eeabe6eab7c9cf0e24af5fdcbaf5c6166933253bae08d9f300b2437c92b56c
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/migrations/test_memory_redesign_migration.py
+            - tests/agent_runtime/test_memory_redesign_snapshot.py
+            exit_code: 0
+            stdout_sha256: 95df36e9c2bfb54d90d73eebe2c2721342ccd5ad3c334167aa710c8323c039d1
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............                                                             [100%]
+
+              12 passed in 11.02s
+
+              '
+- spec_id: harness-secret
+  path: secret/harness-secret.md
+  status: active
+  hashes:
+    file_sha256: 9d6bfb64f7881c1b090ee69915e506a69b5db5f108bd93319adc6d94806f9f2a
+    metadata_sha256: f60d9416b440212e32513bd86e339d9671413a12e5a326f4adf1c6cce76cb935
+    rules_sha256: cb3c84e91771bfa9c479ad5bb860280b8fbc82eadd9bc062d047279945d38e08
+  selected_by: scope:path
+  reason: Git diff matched packages/api-kit/src/muad_api/error_codes.py
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-secret-001
+    summary: 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP
+      `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用
+      `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt
+      或 API 响应（对外以 `*_configured` 表达）。
+    text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+    enforcement: required
+    verifier_ref: harness-secret#RULE-secret-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-35
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-004
+          item_id: RULE-secret-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-02T15:02:40.643602+00:00'
+          status: verified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: 52fd0a844e2ae9e09449137ed6fe49aa1ca780b3991292d9d8f4eb0628ef8f5b
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 9558480b987591ecbe38bf366fc27240dff99fa0f3c28499136d3842d7f3eb22
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.85s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-snapshot
+  path: snapshot/harness-snapshot.md
+  status: active
+  hashes:
+    file_sha256: e142f9d5c3c5b758025b9e1f2a29475131ac27638351021d5bdd6df470e1d251
+    metadata_sha256: 34a1bcb1153a685aab40f9576748579d32b73598ab6210f99c7fb762dc6361f1
+    rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
+  selected_by: scope:path
+  reason: Git diff matched apps/agent-runtime/src/muad_agent_runtime/application/learning_activation.py,apps/agent-runtime/src/muad_agent_runtime/application/learning_case_runner.py,apps/agent-runtime/src/muad_agent_runtime/application/learning_replay.py,apps/agent-runtime/src/muad_agent_runtime/application/learning_scheduler.py,apps/agent-runtime/src/muad_agent_runtime/application/memory_commands.py,apps/agent-runtime/src/muad_agent_runtime/application/memory_mutations.py,apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-snapshot-001
+    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP
+      版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run
+      侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新
+      Run/Task；终态写入必须 CAS。
+    text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+    enforcement: required
+    verifier_ref: harness-snapshot#RULE-snapshot-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-34
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-001
+          item_id: RULE-snapshot-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-02T15:03:01.829545+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: a1f1b59420df6b86d26b8eddea76cf4937532ab809e018c1970af1e67f872ef3
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 9e9eb0d73625211512767f67175edd3d3aa03995e9d37ba4064515d1a3d5cd88
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.12s
+
+              .......................................                                  [100%]
+
+              39 passed, 1127 deselected in 18.08s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 75739bd416d116427c944319e1317d0aeacb6f1f348d9e1a5565711eee876663
+    metadata_sha256: 627002a69e1a9cee732368249c2d3cf50f8423bb58cbc426b5a6993b071c370e
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: path
+  reason: 跨 API/DB/浏览器关键流程验收
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-12
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-013
+          item_id: RULE-test-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-11-02T14:11:52.857487+00:00'
+          status: verified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: 767c63b08c6b6e6056d1bd37d88a09b8ce0655a66911ab00c04d89ab9d566368
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run python scripts/ci_validation_cache.py --validator "Pytest (acceptance)"
+              --json && npm --prefix apps/console-platform/frontend run build && npm
+              --prefix e2e test
+            exit_code: 0
+            output: "   0.56 kB │ gzip:   0.38 kB\ndist/assets/IconDownload-b0b598J-.js\
+              \                  0.58 kB │ gzip:   0.41 kB\ndist/assets/FormModal-DQo9SRVY.js\
+              \                     0.61 kB │ gzip:   0.38 kB\ndist/assets/ConsolePage-BTVOba1d.js\
+              \                   0.75 kB │ gzip:   0.32 kB\ndist/assets/EmptyState-0XZBKxUX.js\
+              \                    0.83 kB │ gzip:   0.40 kB\ndist/assets/models-nw046m9N.js\
+              \                        1.47 kB │ gzip:   0.69 kB\ndist/assets/mcpServers-3IbreDmO.js\
+              \                    1.47 kB │ gzip:   0.48 kB\ndist/assets/skills-oQaigZ4S.js\
+              \                        1.64 kB │ gzip:   0.55 kB\ndist/assets/platforms-DT0in2lP.js\
+              \                     2.09 kB │ gzip:   0.76 kB\ndist/assets/index-Cldz5Jmb.js\
+              \                         2.16 kB │ gzip:   1.04 kB\ndist/assets/users-BtHZGx_D.js\
+              \                         2.68 kB │ gzip:   0.89 kB\ndist/assets/learning-BeqoAP1V.js\
+              \                      2.99 kB │ gzip:   0.99 kB\ndist/assets/DateTimeText-BRi3L7gn.js\
+              \                  3.14 kB │ gzip:   1.38 kB\ndist/assets/EntityNameText-DLChK-PZ.js\
+              \                5.48 kB │ gzip:   2.12 kB\ndist/assets/SchedulePage-CbT8ptpm.js\
+              \                  5.79 kB │ gzip:   2.20 kB\ndist/assets/LearningPage-DnTFcPBq.js\
+              \                  5.82 kB │ gzip:   2.21 kB\ndist/assets/TaskDetailSideSheet-DlVRwzWI.js\
+              \           6.00 kB │ gzip:   2.38 kB\ndist/assets/ConfirmAction-CHaaiUIX.js\
+              \                 6.76 kB │ gzip:   2.33 kB\ndist/assets/ExperienceList-BFpQQAa0.js\
+              \                7.19 kB │ gzip:   2.14 kB\ndist/assets/TaskPage-Cxoam8U8.js\
+              \                     12.20 kB │ gzip:   4.07 kB\ndist/assets/SettingsPage-CRMVDdkQ.js\
+              \                 15.43 kB │ gzip:   4.94 kB\ndist/assets/AuditPage-BuMKyyfC.js\
+              \                    20.11 kB │ gzip:   6.98 kB\ndist/assets/McpPage-CIBFwxIC.js\
+              \                      20.22 kB │ gzip:   5.93 kB\ndist/assets/AgentPage-CVFbS7KR.js\
+              \                    22.14 kB │ gzip:   6.06 kB\ndist/assets/PlatformPage-B0s0r0I8.js\
+              \                 23.75 kB │ gzip:   7.32 kB\ndist/assets/RelatedDetailController-41xIOswQ.js\
+              \      28.11 kB │ gzip:   8.62 kB\ndist/assets/DetailSideSheet-BClScd5g.js\
+              \              31.57 kB │ gzip:   9.26 kB\ndist/assets/UserPage-npgUDCTT.js\
+              \                     32.53 kB │ gzip:   8.94 kB\ndist/assets/ModelPage-70NFcJ-L.js\
+              \                    58.72 kB │ gzip:  14.67 kB\ndist/assets/ChatPage-DLts_cgk.js\
+              \                    130.46 kB │ gzip:  35.54 kB\ndist/assets/DetailGrid-oEHAEO9g.js\
+              \                  156.92 kB │ gzip:  44.24 kB\ndist/assets/SkillPage-CXo0vUqD.js\
+              \                   451.32 kB │ gzip: 136.17 kB\ndist/assets/OverviewPage-CLKhYDi0.js\
+              \              1,163.49 kB │ gzip: 390.94 kB\ndist/assets/index-BGh9Sk5s.js\
+              \                     1,435.64 kB │ gzip: 422.48 kB\n✓ built in 3.83s\n\
+              \n> fluxion-harness-e2e@0.1.0 pretest\n> bash -c 'if command -v lsof\
+              \ >/dev/null 2>&1; then bash ../scripts/dev.sh stop; else echo \"[e2e]\
+              \ lsof unavailable; skip dev-service stop\"; fi'\n\n== 停止已有服务 ==\n \
+              \ 没有在跑的本仓库服务\n\n== 端口检查 ==\n  ✓ 8000 已释放\n  ✓ 8001 已释放\n  ✓ 8002 已释放\n\
+              \  ✓ 8003 已释放\n  ✓ 8004 已释放\n\n> fluxion-harness-e2e@0.1.0 test\n> playwright\
+              \ test\n\n\nRunning 4 tests using 1 worker\n\n  ✓  1 tests/foundation.spec.ts:17:1\
+              \ › S-03 切到 English 后触发错误时页面文案与后端 msg 同步为 en-US (930ms)\n  ✓  2 tests/foundation.spec.ts:36:1\
+              \ › S-12 切换模块路由时 Layout 不重建且菜单选中正确 (414ms)\n  ✓  3 tests/foundation.spec.ts:52:1\
+              \ › S-13 切换 English 后刷新语言保持且请求带 X-Locale=en-US (485ms)\n  ✓  4 tests/foundation.spec.ts:64:1\
+              \ › E-09 会话失效访问业务页跳转登录并保留 returnUrl，不渲染业务数据 (256ms)\n\n  4 passed (7.3s)\n\
+              \n(!) Some chunks are larger than 500 kB after minification. Consider:\n\
+              - Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n\
+              [WebServer] INFO:     Started server process [35301]\n[WebServer] INFO:\
+              \     Waiting for application startup.\n[WebServer] INFO:     Application\
+              \ startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4173\
+              \ (Press CTRL+C to quit)\n"
+            stderr_sha256: 681f558ddf71ca56589893223c268ca4e352bbbe37dc8e8642913194157624e0
+            stdout_sha256: cdc31d1d10cf112b5840d0a996fe00437ca9e141934bddf89df1e575f3624bc7
+            cache_reused: true
+            scope_files:
+            - Makefile
+            - apps/agent-runtime/Dockerfile
+            - apps/agent-runtime/pyproject.toml
+            - apps/agent-runtime/src/muad_agent_runtime/__init__.py
+            - apps/agent-runtime/src/muad_agent_runtime/api/__init__.py
+            - apps/agent-runtime/src/muad_agent_runtime/api/admin_runs.py
+            - apps/agent-runtime/src/muad_agent_runtime/api/artifacts.py
+            - apps/agent-runtime/src/muad_agent_runtime/api/channel_delivery.py
+            - apps/agent-runtime/src/muad_agent_runtime/api/deps.py
+            - apps/agent-runtime/src/muad_agent_runtime/api/learning.py
+            - apps/agent-runtime/src/muad_agent_runtime/api/memory.py
+            - apps/agent-runtime/src/muad_agent_runtime/api/model_capacity.py
+            - apps/agent-runtime/src/muad_agent_runtime/api/runs.py
+            - apps/agent-runtime/src/muad_agent_runtime/api/tool_results.py
+            - apps/agent-runtime/src/muad_agent_runtime/api/webchat_history.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/__init__.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/admin_run_service.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/async_tools/__init__.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/async_tools/continuation_pump.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/async_tools/continuation_service.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/async_tools/control_dispatcher.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/async_tools/event_port.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/async_tools/materialization.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/async_tools/operations.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/async_tools/runtime.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/async_tools/supervisor.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/attachments/__init__.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/attachments/immutable_store.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/attachments/inbound.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/attachments/output_service.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/attachments/reference.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/attachments/transcripts.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/capacity_metrics.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/channel_conversations.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/channel_delivery.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/channel_delivery_pump.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/channel_notification_queries.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/channel_notifications.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/channel_retention.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/channel_uploads.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/checkpoint.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/context_builder.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/context_compaction.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/context_events.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/context_settings.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/continuation_execution.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/conversation_policy.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/dto.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/event_batcher.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/execution_checkpoint.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/execution_status.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/executor.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/experience_candidates.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/golden_set.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/learning_activation.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/learning_admin_service.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/learning_case_runner.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/learning_jobs.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/learning_replay.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/learning_scheduler.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/learning_signals.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_admin.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_admin_queries.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_cache.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_commands.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation_expiry.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_confirmation_resume.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_consolidation.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_consolidation_effects.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_consolidation_input.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_consolidation_output.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_context.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_expiry.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_explicit_command.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_injection_log.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_job_effects.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_job_enqueue.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_jobs.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_mutations.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_observability.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_proposals.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_queries.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_resume.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_resume_metrics.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_resume_options.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_resume_queries.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_runtime.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_service.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_supervisor.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_tools.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/memory_write.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/model_allocator.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/model_call_trace.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/ports.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/public_events.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/run_admission.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/run_deadline.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/run_events.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/run_resume.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/run_service.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/sse.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/task_client.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/task_family.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/time_tools.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/tool_result_receipts.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/verification.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/webchat_artifacts.py
+            - apps/agent-runtime/src/muad_agent_runtime/application/webchat_history.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/__init__.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/admin_run_repository.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/audit_writer.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/cancel_hint.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/console_client.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/db.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/db_clock.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/db_timing.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/gateway_delivery_client.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/http_clients.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_capacity_store.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/model_dispatch_store.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/__init__.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/async_tools.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/base.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/notification_publisher.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/platform_settings_client.py
+            - apps/agent-runtime/src/muad_agent_runtime/infrastructure/run_admission_store.py
+            - apps/agent-runtime/src/muad_agent_runtime/main.py
+            - apps/agent-runtime/src/muad_agent_runtime/metrics.py
+            - apps/agent-worker/Dockerfile
+            - apps/agent-worker/pyproject.toml
+            - apps/agent-worker/src/muad_agent_worker/__init__.py
+            - apps/agent-worker/src/muad_agent_worker/api/__init__.py
+            - apps/agent-worker/src/muad_agent_worker/api/admin_results.py
+            - apps/agent-worker/src/muad_agent_worker/api/admin_schedules.py
+            - apps/agent-worker/src/muad_agent_worker/api/admin_tasks.py
+            - apps/agent-worker/src/muad_agent_worker/api/deps.py
+            - apps/agent-worker/src/muad_agent_worker/api/runtime_operations.py
+            - apps/agent-worker/src/muad_agent_worker/api/schedules.py
+            - apps/agent-worker/src/muad_agent_worker/api/tasks.py
+            - apps/agent-worker/src/muad_agent_worker/application/__init__.py
+            - apps/agent-worker/src/muad_agent_worker/application/batch_fanin.py
+            - apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py
+            - apps/agent-worker/src/muad_agent_worker/application/delivery_routes.py
+            - apps/agent-worker/src/muad_agent_worker/application/platform_settings.py
+            - apps/agent-worker/src/muad_agent_worker/application/ports.py
+            - apps/agent-worker/src/muad_agent_worker/application/runtime_operations.py
+            - apps/agent-worker/src/muad_agent_worker/application/submissions.py
+            - apps/agent-worker/src/muad_agent_worker/application/task_cancel.py
+            - apps/agent-worker/src/muad_agent_worker/application/task_events.py
+            - apps/agent-worker/src/muad_agent_worker/application/task_service.py
+            - apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py
+            - apps/agent-worker/src/muad_agent_worker/bootstrap/__init__.py
+            - apps/agent-worker/src/muad_agent_worker/bootstrap/artifacts.py
+            - apps/agent-worker/src/muad_agent_worker/delivery/__init__.py
+            - apps/agent-worker/src/muad_agent_worker/delivery/artifact_client.py
+            - apps/agent-worker/src/muad_agent_worker/delivery/client.py
+            - apps/agent-worker/src/muad_agent_worker/delivery/messages.py
+            - apps/agent-worker/src/muad_agent_worker/delivery/service.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/__init__.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/cancel_hint.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/db.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/db_clock.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/http_clients.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/models/__init__.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/models/base.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/models/runtime_operations.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/models/task.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/models/task_submission.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/platform_settings_client.py
+            - apps/agent-worker/src/muad_agent_worker/infrastructure/wakeup_hint.py
+            - apps/agent-worker/src/muad_agent_worker/main.py
+            - apps/agent-worker/src/muad_agent_worker/metrics.py
+            - apps/agent-worker/src/muad_agent_worker/results/__init__.py
+            - apps/agent-worker/src/muad_agent_worker/results/dispatcher.py
+            - apps/agent-worker/src/muad_agent_worker/scheduler/__init__.py
+            - apps/agent-worker/src/muad_agent_worker/scheduler/client.py
+            - apps/agent-worker/src/muad_agent_worker/scheduler/service.py
+            - apps/agent-worker/src/muad_agent_worker/scheduler/templates.py
+            - apps/agent-worker/src/muad_agent_worker/worker/__init__.py
+            - apps/agent-worker/src/muad_agent_worker/worker/claimer.py
+            - apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py
+            - apps/agent-worker/src/muad_agent_worker/worker/executor.py
+            - apps/agent-worker/src/muad_agent_worker/worker/service.py
+            - apps/console-platform/Dockerfile
+            - apps/console-platform/backend/pyproject.toml
+            - apps/console-platform/backend/src/muad_console_platform/__init__.py
+            - apps/console-platform/backend/src/muad_console_platform/api/__init__.py
+            - apps/console-platform/backend/src/muad_console_platform/api/accounts.py
+            - apps/console-platform/backend/src/muad_console_platform/api/agents.py
+            - apps/console-platform/backend/src/muad_console_platform/api/artifacts.py
+            - apps/console-platform/backend/src/muad_console_platform/api/audits.py
+            - apps/console-platform/backend/src/muad_console_platform/api/auth.py
+            - apps/console-platform/backend/src/muad_console_platform/api/chat_security.py
+            - apps/console-platform/backend/src/muad_console_platform/api/credentials.py
+            - apps/console-platform/backend/src/muad_console_platform/api/deps.py
+            - apps/console-platform/backend/src/muad_console_platform/api/internal_artifacts.py
+            - apps/console-platform/backend/src/muad_console_platform/api/internal_channel.py
+            - apps/console-platform/backend/src/muad_console_platform/api/internal_platform_settings.py
+            - apps/console-platform/backend/src/muad_console_platform/api/internal_runtime.py
+            - apps/console-platform/backend/src/muad_console_platform/api/learning.py
+            - apps/console-platform/backend/src/muad_console_platform/api/mcp_servers.py
+            - apps/console-platform/backend/src/muad_console_platform/api/model_resources.py
+            - apps/console-platform/backend/src/muad_console_platform/api/models.py
+            - apps/console-platform/backend/src/muad_console_platform/api/overview.py
+            - apps/console-platform/backend/src/muad_console_platform/api/platform_adapters.py
+            - apps/console-platform/backend/src/muad_console_platform/api/platform_settings.py
+            - apps/console-platform/backend/src/muad_console_platform/api/platform_test.py
+            - apps/console-platform/backend/src/muad_console_platform/api/platforms.py
+            - apps/console-platform/backend/src/muad_console_platform/api/router.py
+            - apps/console-platform/backend/src/muad_console_platform/api/runs.py
+            - apps/console-platform/backend/src/muad_console_platform/api/schedules.py
+            - apps/console-platform/backend/src/muad_console_platform/api/security.py
+            - apps/console-platform/backend/src/muad_console_platform/api/session_renewal.py
+            - apps/console-platform/backend/src/muad_console_platform/api/skills.py
+            - apps/console-platform/backend/src/muad_console_platform/api/tasks.py
+            - apps/console-platform/backend/src/muad_console_platform/api/users.py
+            - apps/console-platform/backend/src/muad_console_platform/api/webchat_auth.py
+            - apps/console-platform/backend/src/muad_console_platform/application/__init__.py
+            - apps/console-platform/backend/src/muad_console_platform/application/agent_mcp_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/agent_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/artifact_cleanup_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/artifact_delivery_audit_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/artifact_fetch_tokens.py
+            - apps/console-platform/backend/src/muad_console_platform/application/audit_export_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/audit_query_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/audit_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/auth_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/channel_admin_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/channel_identity_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/channel_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/channel_skills_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/chat_auth_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/chat_session_directory.py
+            - apps/console-platform/backend/src/muad_console_platform/application/chat_token_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/credential_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/dto.py
+            - apps/console-platform/backend/src/muad_console_platform/application/entity_name_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/grant_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/inbound_audit_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/learning_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/mcp_ports.py
+            - apps/console-platform/backend/src/muad_console_platform/application/mcp_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/memory_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/model_credential_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/model_deployment_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/model_probe_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/model_quota_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/model_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/model_test_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/overview_query_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/platform_adapter_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/platform_ports.py
+            - apps/console-platform/backend/src/muad_console_platform/application/platform_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/platform_settings_catalog.py
+            - apps/console-platform/backend/src/muad_console_platform/application/platform_settings_guard.py
+            - apps/console-platform/backend/src/muad_console_platform/application/platform_settings_idempotency.py
+            - apps/console-platform/backend/src/muad_console_platform/application/platform_settings_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/platform_test_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/resolve_egress_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/resolve_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/run_event_query_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/run_event_view.py
+            - apps/console-platform/backend/src/muad_console_platform/application/run_query_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/runtime_credentials.py
+            - apps/console-platform/backend/src/muad_console_platform/application/skill_service.py
+            - apps/console-platform/backend/src/muad_console_platform/application/user_service.py
+            - apps/console-platform/backend/src/muad_console_platform/cli.py
+            - apps/console-platform/backend/src/muad_console_platform/domain/__init__.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/__init__.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/db.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/http_clients.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_catalog_cache.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/mcp_client.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/models/__init__.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/models/auth.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/models/base.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/models/channel.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/models/mcp.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/__init__.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/agent_access_grant_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/agent_mcp_binding_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/agent_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/agent_skill_binding_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/artifact_retention_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/audit_export_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/audit_query_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/bind_code_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/bot_account_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/channel_identity_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/chat_session_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/chat_token_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/config_audit_log_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/console_account_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/console_session_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/credential_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/entity_names_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/learning_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/memory_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/model_credential_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/model_deployment_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/model_quota_group_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/model_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/overview_models.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/overview_query_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/overview_sql.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/platform_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/platform_user_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/run_event_query_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/run_query_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_user_grant_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/user_stats_repository.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/runtime_learning_client.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/runtime_memory_client.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/settings.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_artifact_store.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_validator.py
+            - apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py
+            - apps/console-platform/backend/src/muad_console_platform/main.py
+            - apps/console-platform/backend/src/muad_console_platform/metrics.py
+            - apps/console-platform/backend/src/muad_console_platform/spa.py
+            - apps/console-platform/frontend/index.html
+            - apps/console-platform/frontend/package-lock.json
+            - apps/console-platform/frontend/package.json
+            - apps/console-platform/frontend/src/App.tsx
+            - apps/console-platform/frontend/src/api/auth.ts
+            - apps/console-platform/frontend/src/api/authScope.ts
+            - apps/console-platform/frontend/src/api/client.ts
+            - apps/console-platform/frontend/src/api/notificationStream.ts
+            - apps/console-platform/frontend/src/api/stream.ts
+            - apps/console-platform/frontend/src/auth/AuthContext.tsx
+            - apps/console-platform/frontend/src/components/common/AppProviders.tsx
+            - apps/console-platform/frontend/src/components/common/ConfirmAction.tsx
+            - apps/console-platform/frontend/src/components/common/ConsolePage.tsx
+            - apps/console-platform/frontend/src/components/common/CopyButton.tsx
+            - apps/console-platform/frontend/src/components/common/CopyableText.tsx
+            - apps/console-platform/frontend/src/components/common/DataTable.tsx
+            - apps/console-platform/frontend/src/components/common/DateTimeText.tsx
+            - apps/console-platform/frontend/src/components/common/DetailGrid.tsx
+            - apps/console-platform/frontend/src/components/common/DetailSideSheet.tsx
+            - apps/console-platform/frontend/src/components/common/EmptyState.tsx
+            - apps/console-platform/frontend/src/components/common/EntityLink.tsx
+            - apps/console-platform/frontend/src/components/common/ErrorState.tsx
+            - apps/console-platform/frontend/src/components/common/FormModal.tsx
+            - apps/console-platform/frontend/src/components/common/ListActionButton.tsx
+            - apps/console-platform/frontend/src/components/common/LocaleSwitch.tsx
+            - apps/console-platform/frontend/src/components/common/MetricCards.tsx
+            - apps/console-platform/frontend/src/components/common/ModuleToolbar.tsx
+            - apps/console-platform/frontend/src/components/common/PaginationFooter.tsx
+            - apps/console-platform/frontend/src/components/common/RemoteTable.tsx
+            - apps/console-platform/frontend/src/components/common/RouteErrorBoundary.tsx
+            - apps/console-platform/frontend/src/components/common/StatusTag.tsx
+            - apps/console-platform/frontend/src/components/common/TableText.tsx
+            - apps/console-platform/frontend/src/components/common/ThemeButton.tsx
+            - apps/console-platform/frontend/src/components/common/tableLayout.ts
+            - apps/console-platform/frontend/src/config/menu.ts
+            - apps/console-platform/frontend/src/i18n/index.ts
+            - apps/console-platform/frontend/src/layout/AppLayout.tsx
+            - apps/console-platform/frontend/src/locales/en-US.json
+            - apps/console-platform/frontend/src/locales/zh-CN.json
+            - apps/console-platform/frontend/src/main.tsx
+            - apps/console-platform/frontend/src/modules/agent-management/AgentDetailSideSheet.tsx
+            - apps/console-platform/frontend/src/modules/agent-management/AgentFormModal.tsx
+            - apps/console-platform/frontend/src/modules/agent-management/AgentPage.tsx
+            - apps/console-platform/frontend/src/modules/agent-management/ChannelFormModal.tsx
+            - apps/console-platform/frontend/src/modules/agent-management/services/agents.ts
+            - apps/console-platform/frontend/src/modules/audit-observability/auditLabels.ts
+            - apps/console-platform/frontend/src/modules/audit-observability/components/AuditDetailSideSheet.tsx
+            - apps/console-platform/frontend/src/modules/audit-observability/components/AuditExportButton.tsx
+            - apps/console-platform/frontend/src/modules/audit-observability/components/AuditFilterBar.tsx
+            - apps/console-platform/frontend/src/modules/audit-observability/components/AuditTable.tsx
+            - apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditDetail.ts
+            - apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditExport.ts
+            - apps/console-platform/frontend/src/modules/audit-observability/hooks/useAuditList.ts
+            - apps/console-platform/frontend/src/modules/audit-observability/pages/AuditPage.tsx
+            - apps/console-platform/frontend/src/modules/audit-observability/services/auditService.ts
+            - apps/console-platform/frontend/src/modules/audit-observability/types.ts
+            - apps/console-platform/frontend/src/modules/learning/ExperienceDetailSideSheet.tsx
+            - apps/console-platform/frontend/src/modules/learning/ExperienceList.tsx
+            - apps/console-platform/frontend/src/modules/learning/ExperienceTab.tsx
+            - apps/console-platform/frontend/src/modules/learning/FamilyDetailSideSheet.tsx
+            - apps/console-platform/frontend/src/modules/learning/LearningPage.tsx
+            - apps/console-platform/frontend/src/modules/learning/RunLearningActions.tsx
+            - apps/console-platform/frontend/src/modules/learning/RunLearningPanel.tsx
+            - apps/console-platform/frontend/src/modules/learning/labels.ts
+            - apps/console-platform/frontend/src/modules/learning/services/learning.ts
+            - apps/console-platform/frontend/src/modules/learning/types.ts
+            - apps/console-platform/frontend/src/modules/mcp-management/McpAgentTable.tsx
+            - apps/console-platform/frontend/src/modules/mcp-management/McpDetailSideSheet.tsx
+            - apps/console-platform/frontend/src/modules/mcp-management/McpFormModal.tsx
+            - apps/console-platform/frontend/src/modules/mcp-management/McpPage.tsx
+            - apps/console-platform/frontend/src/modules/mcp-management/McpScopeModal.tsx
+            - apps/console-platform/frontend/src/modules/mcp-management/McpTestModal.tsx
+            - apps/console-platform/frontend/src/modules/mcp-management/McpToolTable.tsx
+            - apps/console-platform/frontend/src/modules/mcp-management/SelectedUserTable.tsx
+            - apps/console-platform/frontend/src/modules/mcp-management/services/mcpServers.ts
+            - apps/console-platform/frontend/src/modules/model-management/CredentialFields.tsx
+            - apps/console-platform/frontend/src/modules/model-management/ModelCreateWizard.tsx
+            - apps/console-platform/frontend/src/modules/model-management/ModelCredentialPanel.tsx
+            - apps/console-platform/frontend/src/modules/model-management/ModelDeploymentPanel.tsx
+            - apps/console-platform/frontend/src/modules/model-management/ModelDetailSideSheet.tsx
+            - apps/console-platform/frontend/src/modules/model-management/ModelFields.tsx
+            - apps/console-platform/frontend/src/modules/model-management/ModelFormModal.tsx
+            - apps/console-platform/frontend/src/modules/model-management/ModelPage.tsx
+            - apps/console-platform/frontend/src/modules/model-management/ModelQuotaPanel.tsx
+            - apps/console-platform/frontend/src/modules/model-management/ModelStatusIcons.tsx
+            - apps/console-platform/frontend/src/modules/model-management/services/modelCredentials.ts
+            - apps/console-platform/frontend/src/modules/model-management/services/modelDeployments.ts
+            - apps/console-platform/frontend/src/modules/model-management/services/modelOnboarding.ts
+            - apps/console-platform/frontend/src/modules/model-management/services/modelQuotas.ts
+            - apps/console-platform/frontend/src/modules/model-management/services/models.ts
+            - apps/console-platform/frontend/src/modules/model-management/statusOptions.ts
+            - apps/console-platform/frontend/src/modules/overview-dashboard/components/AgentRankingChart.tsx
+            - apps/console-platform/frontend/src/modules/overview-dashboard/components/AttentionSummary.tsx
+            - apps/console-platform/frontend/src/modules/overview-dashboard/components/KpiCards.tsx
+            - apps/console-platform/frontend/src/modules/overview-dashboard/components/OverviewChart.tsx
+            - apps/console-platform/frontend/src/modules/overview-dashboard/components/OverviewCharts.tsx
+            - apps/console-platform/frontend/src/modules/overview-dashboard/components/OverviewToolbar.tsx
+            - apps/console-platform/frontend/src/modules/overview-dashboard/components/ResourceSummary.tsx
+            - apps/console-platform/frontend/src/modules/overview-dashboard/components/TaskStatusDonut.tsx
+            - apps/console-platform/frontend/src/modules/overview-dashboard/components/TaskTrendChart.tsx
+            - apps/console-platform/frontend/src/modules/overview-dashboard/components/TokenTrendChart.tsx
+            - apps/console-platform/frontend/src/modules/overview-dashboard/formatters.ts
+            - apps/console-platform/frontend/src/modules/overview-dashboard/hooks/useChartTheme.ts
+            - apps/console-platform/frontend/src/modules/overview-dashboard/hooks/useOverview.ts
+            - apps/console-platform/frontend/src/modules/overview-dashboard/pages/OverviewPage.tsx
+            - apps/console-platform/frontend/src/modules/overview-dashboard/services/overviewService.ts
+            - apps/console-platform/frontend/src/modules/overview-dashboard/types.ts
+            - apps/console-platform/frontend/src/modules/project-platform/CredentialSchemaFields.tsx
+            - apps/console-platform/frontend/src/modules/project-platform/PlatformCredentialTab.tsx
+            - apps/console-platform/frontend/src/modules/project-platform/PlatformDetailSideSheet.tsx
+            - apps/console-platform/frontend/src/modules/project-platform/PlatformPage.tsx
+            - apps/console-platform/frontend/src/modules/project-platform/PlatformTestModal.tsx
+            - apps/console-platform/frontend/src/modules/project-platform/ProjectPlatformForm.tsx
+            - apps/console-platform/frontend/src/modules/project-platform/services/platforms.ts
+            - apps/console-platform/frontend/src/modules/run-observability/RelatedDetailController.tsx
+            - apps/console-platform/frontend/src/modules/run-observability/RunDetailSideSheet.tsx
+            - apps/console-platform/frontend/src/modules/run-observability/components/RunEventDetails.tsx
+            - apps/console-platform/frontend/src/modules/run-observability/components/RunOperationTable.tsx
+            - apps/console-platform/frontend/src/modules/run-observability/components/RunTimelineOutline.tsx
+            - apps/console-platform/frontend/src/modules/run-observability/components/timelinePresentation.tsx
+            - apps/console-platform/frontend/src/modules/run-observability/hooks/useRunDetail.ts
+            - apps/console-platform/frontend/src/modules/run-observability/hooks/useRunEventDetail.ts
+            - apps/console-platform/frontend/src/modules/run-observability/hooks/useRunOperations.ts
+            - apps/console-platform/frontend/src/modules/run-observability/services/runs.ts
+            - apps/console-platform/frontend/src/modules/run-observability/statusOptions.ts
+            - apps/console-platform/frontend/src/modules/settings/appliesTo.ts
+            - apps/console-platform/frontend/src/modules/settings/components/OverrideBadge.tsx
+            - apps/console-platform/frontend/src/modules/settings/components/ReadonlyNotesPanel.tsx
+            - apps/console-platform/frontend/src/modules/settings/components/SettingsFieldRow.tsx
+            - apps/console-platform/frontend/src/modules/settings/components/SettingsGroupPanel.tsx
+            - apps/console-platform/frontend/src/modules/settings/components/SettingsHeader.tsx
+            - apps/console-platform/frontend/src/modules/settings/components/SettingsNotice.tsx
+            - apps/console-platform/frontend/src/modules/settings/components/VersionHistoryPanel.tsx
+            - apps/console-platform/frontend/src/modules/settings/components/VersionRow.tsx
+            - apps/console-platform/frontend/src/modules/settings/formValues.ts
+            - apps/console-platform/frontend/src/modules/settings/hooks/usePlatformSettings.ts
+            - apps/console-platform/frontend/src/modules/settings/hooks/useSettingsRevisions.ts
+            - apps/console-platform/frontend/src/modules/settings/pages/SettingsPage.tsx
+            - apps/console-platform/frontend/src/modules/settings/services/settingsApi.ts
+            - apps/console-platform/frontend/src/modules/settings/types.ts
+            - apps/console-platform/frontend/src/modules/skill-management/SelectedUserTable.tsx
+            - apps/console-platform/frontend/src/modules/skill-management/SkillArtifactDetailModal.tsx
+            - apps/console-platform/frontend/src/modules/skill-management/SkillContent.tsx
+            - apps/console-platform/frontend/src/modules/skill-management/SkillDetailHeading.tsx
+            - apps/console-platform/frontend/src/modules/skill-management/SkillDetailSideSheet.tsx
+            - apps/console-platform/frontend/src/modules/skill-management/SkillImportModal.tsx
+            - apps/console-platform/frontend/src/modules/skill-management/SkillMarkdownViewer.tsx
+            - apps/console-platform/frontend/src/modules/skill-management/SkillPage.tsx
+            - apps/console-platform/frontend/src/modules/skill-management/SkillScopeModal.tsx
+            - apps/console-platform/frontend/src/modules/skill-management/services/skills.ts
+            - apps/console-platform/frontend/src/modules/task-schedule/EntityNameText.tsx
+            - apps/console-platform/frontend/src/modules/task-schedule/ScheduleDetailSideSheet.tsx
+            - apps/console-platform/frontend/src/modules/task-schedule/ScheduleHistoryTable.tsx
+            - apps/console-platform/frontend/src/modules/task-schedule/SchedulePage.tsx
+            - apps/console-platform/frontend/src/modules/task-schedule/ScheduleRowActions.tsx
+            - apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx
+            - apps/console-platform/frontend/src/modules/task-schedule/TaskPage.tsx
+            - apps/console-platform/frontend/src/modules/task-schedule/TaskStatusIcons.tsx
+            - apps/console-platform/frontend/src/modules/task-schedule/TaskTimeline.tsx
+            - apps/console-platform/frontend/src/modules/task-schedule/services/schedules.ts
+            - apps/console-platform/frontend/src/modules/task-schedule/services/tasks.ts
+            - apps/console-platform/frontend/src/modules/task-schedule/useScheduleActions.ts
+            - apps/console-platform/frontend/src/modules/task-schedule/useTaskActions.ts
+            - apps/console-platform/frontend/src/modules/user-identity/MemoryHistorySideSheet.tsx
+            - apps/console-platform/frontend/src/modules/user-identity/MemoryTab.tsx
+            - apps/console-platform/frontend/src/modules/user-identity/UserChatTokenCard.tsx
+            - apps/console-platform/frontend/src/modules/user-identity/UserDetailTabs.tsx
+            - apps/console-platform/frontend/src/modules/user-identity/UserFormModal.tsx
+            - apps/console-platform/frontend/src/modules/user-identity/UserPage.tsx
+            - apps/console-platform/frontend/src/modules/user-identity/memoryCommands.ts
+            - apps/console-platform/frontend/src/modules/user-identity/memoryHistory.ts
+            - apps/console-platform/frontend/src/modules/user-identity/memoryOptions.ts
+            - apps/console-platform/frontend/src/modules/user-identity/memoryTypes.ts
+            - apps/console-platform/frontend/src/modules/user-identity/services/users.ts
+            - apps/console-platform/frontend/src/modules/webchat/ChatPage.tsx
+            - apps/console-platform/frontend/src/modules/webchat/authenticationState.ts
+            - apps/console-platform/frontend/src/modules/webchat/clientConfig.ts
+            - apps/console-platform/frontend/src/modules/webchat/components/ChatComposer.tsx
+            - apps/console-platform/frontend/src/modules/webchat/components/ConfirmationCard.tsx
+            - apps/console-platform/frontend/src/modules/webchat/components/ConversationSidebar.tsx
+            - apps/console-platform/frontend/src/modules/webchat/components/MessageThread.tsx
+            - apps/console-platform/frontend/src/modules/webchat/components/RunActions.tsx
+            - apps/console-platform/frontend/src/modules/webchat/components/TokenAccess.tsx
+            - apps/console-platform/frontend/src/modules/webchat/components/WebchatShell.tsx
+            - apps/console-platform/frontend/src/modules/webchat/conversationState.ts
+            - apps/console-platform/frontend/src/modules/webchat/hooks/useChatAuth.ts
+            - apps/console-platform/frontend/src/modules/webchat/hooks/useClientConfig.ts
+            - apps/console-platform/frontend/src/modules/webchat/hooks/useConversations.ts
+            - apps/console-platform/frontend/src/modules/webchat/hooks/useMessages.ts
+            - apps/console-platform/frontend/src/modules/webchat/hooks/useNotifications.ts
+            - apps/console-platform/frontend/src/modules/webchat/hooks/usePendingSend.ts
+            - apps/console-platform/frontend/src/modules/webchat/hooks/useRunEvents.ts
+            - apps/console-platform/frontend/src/modules/webchat/hooks/useSmoothStreamingText.ts
+            - apps/console-platform/frontend/src/modules/webchat/runState.ts
+            - apps/console-platform/frontend/src/modules/webchat/services/notificationStream.ts
+            - apps/console-platform/frontend/src/modules/webchat/services/webchatApi.ts
+            - apps/console-platform/frontend/src/modules/webchat/types.ts
+            - apps/console-platform/frontend/src/modules/webchat/webchat.css
+            - apps/console-platform/frontend/src/pages/LoginPage.tsx
+            - apps/console-platform/frontend/src/pages/PlaceholderPage.tsx
+            - apps/console-platform/frontend/src/styles/app.css
+            - apps/console-platform/frontend/src/theme.ts
+            - apps/console-platform/frontend/tsconfig.json
+            - apps/console-platform/frontend/vite.config.ts
+            - apps/im-connector/Dockerfile
+            - apps/im-connector/pyproject.toml
+            - apps/im-connector/src/muad_im_connector/__init__.py
+            - apps/im-connector/src/muad_im_connector/channels/__init__.py
+            - apps/im-connector/src/muad_im_connector/channels/probe.py
+            - apps/im-connector/src/muad_im_connector/channels/wecom/__init__.py
+            - apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py
+            - apps/im-connector/src/muad_im_connector/channels/wecom/media.py
+            - apps/im-connector/src/muad_im_connector/channels/wecom/reply.py
+            - apps/im-connector/src/muad_im_connector/channels/wecom/sdk_port.py
+            - apps/im-connector/src/muad_im_connector/lease.py
+            - apps/im-connector/src/muad_im_connector/main.py
+            - apps/im-connector/src/muad_im_connector/metrics.py
+            - apps/im-connector/src/muad_im_connector/outbound.py
+            - apps/im-connector/src/muad_im_connector/py.typed
+            - apps/im-connector/src/muad_im_connector/reply_store.py
+            - apps/im-connector/src/muad_im_connector/runtime.py
+            - apps/im-connector/src/muad_im_connector/settings.py
+            - apps/im-gateway/Dockerfile
+            - apps/im-gateway/pyproject.toml
+            - apps/im-gateway/src/muad_im_gateway/__init__.py
+            - apps/im-gateway/src/muad_im_gateway/api/__init__.py
+            - apps/im-gateway/src/muad_im_gateway/api/delivery.py
+            - apps/im-gateway/src/muad_im_gateway/api/deps.py
+            - apps/im-gateway/src/muad_im_gateway/api/health.py
+            - apps/im-gateway/src/muad_im_gateway/api/webchat.py
+            - apps/im-gateway/src/muad_im_gateway/api/webhook.py
+            - apps/im-gateway/src/muad_im_gateway/application/__init__.py
+            - apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py
+            - apps/im-gateway/src/muad_im_gateway/application/channel_delivery.py
+            - apps/im-gateway/src/muad_im_gateway/application/chat_principal.py
+            - apps/im-gateway/src/muad_im_gateway/application/connector_outbound.py
+            - apps/im-gateway/src/muad_im_gateway/application/console_client.py
+            - apps/im-gateway/src/muad_im_gateway/application/envelope.py
+            - apps/im-gateway/src/muad_im_gateway/application/inbound.py
+            - apps/im-gateway/src/muad_im_gateway/application/inbound_attachments.py
+            - apps/im-gateway/src/muad_im_gateway/application/inbound_streams.py
+            - apps/im-gateway/src/muad_im_gateway/application/notification_streams.py
+            - apps/im-gateway/src/muad_im_gateway/application/platform_settings.py
+            - apps/im-gateway/src/muad_im_gateway/application/ports.py
+            - apps/im-gateway/src/muad_im_gateway/application/progress.py
+            - apps/im-gateway/src/muad_im_gateway/application/runtime_client.py
+            - apps/im-gateway/src/muad_im_gateway/application/sse.py
+            - apps/im-gateway/src/muad_im_gateway/application/stream_renderer.py
+            - apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py
+            - apps/im-gateway/src/muad_im_gateway/application/webchat_config.py
+            - apps/im-gateway/src/muad_im_gateway/application/webchat_core.py
+            - apps/im-gateway/src/muad_im_gateway/application/webchat_service.py
+            - apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py
+            - apps/im-gateway/src/muad_im_gateway/application/webchat_uploads.py
+            - apps/im-gateway/src/muad_im_gateway/channels/__init__.py
+            - apps/im-gateway/src/muad_im_gateway/channels/base.py
+            - apps/im-gateway/src/muad_im_gateway/channels/fake.py
+            - apps/im-gateway/src/muad_im_gateway/channels/registry.py
+            - apps/im-gateway/src/muad_im_gateway/channels/routed.py
+            - apps/im-gateway/src/muad_im_gateway/channels/webchat.py
+            - apps/im-gateway/src/muad_im_gateway/channels/webhook.py
+            - apps/im-gateway/src/muad_im_gateway/infrastructure/__init__.py
+            - apps/im-gateway/src/muad_im_gateway/infrastructure/artifact_resolver.py
+            - apps/im-gateway/src/muad_im_gateway/infrastructure/dedupe.py
+            - apps/im-gateway/src/muad_im_gateway/infrastructure/http_clients.py
+            - apps/im-gateway/src/muad_im_gateway/infrastructure/platform_settings_client.py
+            - apps/im-gateway/src/muad_im_gateway/infrastructure/streams.py
+            - apps/im-gateway/src/muad_im_gateway/main.py
+            - apps/im-gateway/src/muad_im_gateway/metrics.py
+            - config/api-messages.yaml
+            - e2e/package-lock.json
+            - e2e/package.json
+            - e2e/playwright.agent-management-ui.config.ts
+            - e2e/playwright.agent.config.ts
+            - e2e/playwright.audit-observability-ui.config.ts
+            - e2e/playwright.audit-observability.config.ts
+            - e2e/playwright.config.ts
+            - e2e/playwright.console-auth-ui.config.ts
+            - e2e/playwright.console-auth.config.ts
+            - e2e/playwright.form-layout.config.ts
+            - e2e/playwright.learning-experience.config.ts
+            - e2e/playwright.list-actions.config.ts
+            - e2e/playwright.mcp-management-ui.config.ts
+            - e2e/playwright.mcp.config.ts
+            - e2e/playwright.model-management-ui.config.ts
+            - e2e/playwright.model-management.config.ts
+            - e2e/playwright.overview-dashboard-ui.config.ts
+            - e2e/playwright.overview-dashboard.config.ts
+            - e2e/playwright.platform.config.ts
+            - e2e/playwright.project-platform-ui.config.ts
+            - e2e/playwright.run-observability-e2e.config.ts
+            - e2e/playwright.run-observability-regression.config.ts
+            - e2e/playwright.run-observability.config.ts
+            - e2e/playwright.settings-ui.config.ts
+            - e2e/playwright.settings.config.ts
+            - e2e/playwright.sidebar.config.ts
+            - e2e/playwright.skill-management-ui.config.ts
+            - e2e/playwright.skill.config.ts
+            - e2e/playwright.task-schedule-e2e.config.ts
+            - e2e/playwright.task-schedule-regression.config.ts
+            - e2e/playwright.task-schedule.config.ts
+            - e2e/playwright.user-identity-ui.config.ts
+            - e2e/playwright.user-identity.config.ts
+            - e2e/playwright.webchat-e2e.config.ts
+            - e2e/playwright.webchat-regression.config.ts
+            - e2e/playwright.webchat.config.ts
+            - e2e/scenarios/console-auth-browser.scenarios.md
+            - e2e/scenarios/key-journeys-non-smoke.scenarios.md
+            - e2e/scenarios/regression-suites.md
+            - e2e/scenarios/smoke-15.scenarios.md
+            - e2e/support/action-colors.ts
+            - e2e/support/isolated-datastores-teardown.ts
+            - e2e/support/isolated-datastores.ts
+            - e2e/support/list-layout-fixtures.ts
+            - e2e/support/table-surface.ts
+            - e2e/support/webchat-fixtures.ts
+            - e2e/support/webchat-seed.ts
+            - e2e/tests/agent-management-ui.spec.ts
+            - e2e/tests/agent-management/agent-management.spec.ts
+            - e2e/tests/agent-management/memory-redesign.spec.ts
+            - e2e/tests/audit-observability-ui.spec.ts
+            - e2e/tests/audit-observability.spec.ts
+            - e2e/tests/console-auth-ui.spec.ts
+            - e2e/tests/console-auth.spec.ts
+            - e2e/tests/detail-layout.spec.ts
+            - e2e/tests/form-layout.spec.ts
+            - e2e/tests/foundation.spec.ts
+            - e2e/tests/learning-experience.spec.ts
+            - e2e/tests/list-actions.spec.ts
+            - e2e/tests/list-layout.spec.ts
+            - e2e/tests/mcp-management-ui.spec.ts
+            - e2e/tests/mcp-management/mcp-management.spec.ts
+            - e2e/tests/model-list-layout.spec.ts
+            - e2e/tests/model-management-ui.spec.ts
+            - e2e/tests/model-management/model-create-wizard.spec.ts
+            - e2e/tests/model-management/model-management.spec.ts
+            - e2e/tests/overview-dashboard-ui.spec.ts
+            - e2e/tests/overview-dashboard.spec.ts
+            - e2e/tests/project-platform-ui.spec.ts
+            - e2e/tests/project-platform/platform.spec.ts
+            - e2e/tests/run-observability.spec.ts
+            - e2e/tests/run-timeline-layout.spec.ts
+            - e2e/tests/settings-ui.spec.ts
+            - e2e/tests/settings/settings.spec.ts
+            - e2e/tests/sidebar.spec.ts
+            - e2e/tests/skill-management-ui.spec.ts
+            - e2e/tests/skill-management/skill-management.spec.ts
+            - e2e/tests/task-schedule/locale-time.spec.ts
+            - e2e/tests/task-schedule/schedule-actions.spec.ts
+            - e2e/tests/task-schedule/schedule-detail.spec.ts
+            - e2e/tests/task-schedule/schedule-history.spec.ts
+            - e2e/tests/task-schedule/schedule-list.spec.ts
+            - e2e/tests/task-schedule/task-cancel.spec.ts
+            - e2e/tests/task-schedule/task-detail.spec.ts
+            - e2e/tests/task-schedule/task-list.spec.ts
+            - e2e/tests/task-schedule/task-timeline.spec.ts
+            - e2e/tests/user-detail-layout.spec.ts
+            - e2e/tests/user-identity-ui.spec.ts
+            - e2e/tests/user-identity/user-identity.spec.ts
+            - e2e/tests/webchat/admin-settings.spec.ts
+            - e2e/tests/webchat/attachments-notifications.spec.ts
+            - e2e/tests/webchat/auth-history.spec.ts
+            - e2e/tests/webchat/capacity-recovery.spec.ts
+            - e2e/tests/webchat/cross-channel-memory.spec.ts
+            - e2e/tests/webchat/identity-isolation.spec.ts
+            - e2e/tests/webchat/layout-deployment.spec.ts
+            - e2e/tests/webchat/public-events.spec.ts
+            - e2e/tests/webchat/streams-actions.spec.ts
+            - migrations/_config.py
+            - migrations/alembic.ini
+            - migrations/bootstrap_db.py
+            - migrations/db_migrate.py
+            - migrations/env.py
+            - migrations/memory_redesign_data.py
+            - migrations/model_pool_control_data.py
+            - migrations/versions/0001_create_schemas.py
+            - migrations/versions/0002_initial_schema.py
+            - migrations/versions/0003_console_auth.py
+            - migrations/versions/0004_secret_plaintext_expand.py
+            - migrations/versions/0005_secret_plaintext_contract.py
+            - migrations/versions/0006_skill_import_idempotency.py
+            - migrations/versions/0007_runtime_execution.py
+            - migrations/versions/0008_skill_artifact_instructions.py
+            - migrations/versions/0009_runtime_contract_fixes.py
+            - migrations/versions/0010_task_event_execution_fk.py
+            - migrations/versions/0011_task_submission.py
+            - migrations/versions/0012_task_schedule_skip_reason.py
+            - migrations/versions/0013_run_record_channel.py
+            - migrations/versions/0014_audit_export_job.py
+            - migrations/versions/0015_inbound_audit.py
+            - migrations/versions/0016_artifact_delivery_audit.py
+            - migrations/versions/0017_platform_setting.py
+            - migrations/versions/0018_platform_setting_idempotency.py
+            - migrations/versions/0019_async_tool_runtime.py
+            - migrations/versions/0020_memory_redesign.py
+            - migrations/versions/0021_model_pool_control.py
+            - migrations/versions/0022_model_capacity_runtime.py
+            - migrations/versions/0023_run_admission.py
+            - migrations/versions/0024_chat_auth.py
+            - migrations/versions/0025_channel_conversations_uploads.py
+            - migrations/versions/0026_channel_notifications.py
+            - migrations/versions/0027_model_pool_legacy_column_drop.py
+            - migrations/versions/0028_run_admission_open_index.py
+            - migrations/versions/0029_drop_langgraph_schema.py
+            - migrations/versions/0030_agent_learning_schema.py
+            - migrations/versions/0031_learning_management_facts.py
+            - migrations/versions/0032_learning_read_model.py
+            - migrations/versions/0033_learning_jobs.py
+            - migrations/versions/0034_learning_family_control.py
+            - packages/agent-core/pyproject.toml
+            - packages/agent-core/src/muad_agent_core/__init__.py
+            - packages/agent-core/src/muad_agent_core/agent/__init__.py
+            - packages/agent-core/src/muad_agent_core/agent/continuation.py
+            - packages/agent-core/src/muad_agent_core/agent/runner.py
+            - packages/agent-core/src/muad_agent_core/agent/suspension.py
+            - packages/agent-core/src/muad_agent_core/agent/verification.py
+            - packages/agent-core/src/muad_agent_core/context/__init__.py
+            - packages/agent-core/src/muad_agent_core/context/compactor.py
+            - packages/agent-core/src/muad_agent_core/context/summary.py
+            - packages/agent-core/src/muad_agent_core/hooks/__init__.py
+            - packages/agent-core/src/muad_agent_core/hooks/pipeline.py
+            - packages/agent-core/src/muad_agent_core/memory/__init__.py
+            - packages/agent-core/src/muad_agent_core/memory/components.py
+            - packages/agent-core/src/muad_agent_core/memory/evidence.py
+            - packages/agent-core/src/muad_agent_core/memory/rank.py
+            - packages/agent-core/src/muad_agent_core/memory/render.py
+            - packages/agent-core/src/muad_agent_core/memory/resume.py
+            - packages/agent-core/src/muad_agent_core/memory/tokens.py
+            - packages/agent-core/src/muad_agent_core/model/__init__.py
+            - packages/agent-core/src/muad_agent_core/model/budget.py
+            - packages/agent-core/src/muad_agent_core/model/errors.py
+            - packages/agent-core/src/muad_agent_core/model/openai_provider.py
+            - packages/agent-core/src/muad_agent_core/model/provider.py
+            - packages/agent-core/src/muad_agent_core/prompt/__init__.py
+            - packages/agent-core/src/muad_agent_core/prompt/builder.py
+            - packages/agent-core/src/muad_agent_core/py.typed
+            - packages/agent-core/src/muad_agent_core/skill/__init__.py
+            - packages/agent-core/src/muad_agent_core/skill/executor.py
+            - packages/agent-core/src/muad_agent_core/skill/package.py
+            - packages/agent-core/src/muad_agent_core/tools/__init__.py
+            - packages/agent-core/src/muad_agent_core/tools/pipeline.py
+            - packages/agent-core/src/muad_agent_core/tools/planner.py
+            - packages/agent-core/src/muad_agent_core/tools/registry.py
+            - packages/agent-core/src/muad_agent_core/tools/round_results.py
+            - packages/api-kit/pyproject.toml
+            - packages/api-kit/src/muad_api/__init__.py
+            - packages/api-kit/src/muad_api/app.py
+            - packages/api-kit/src/muad_api/audit.py
+            - packages/api-kit/src/muad_api/catalog.py
+            - packages/api-kit/src/muad_api/context.py
+            - packages/api-kit/src/muad_api/error_codes.py
+            - packages/api-kit/src/muad_api/errors.py
+            - packages/api-kit/src/muad_api/handlers.py
+            - packages/api-kit/src/muad_api/locale.py
+            - packages/api-kit/src/muad_api/metrics.py
+            - packages/api-kit/src/muad_api/middleware.py
+            - packages/api-kit/src/muad_api/probes.py
+            - packages/api-kit/src/muad_api/py.typed
+            - packages/api-kit/src/muad_api/response.py
+            - packages/api-kit/src/muad_api/security.py
+            - packages/api-kit/src/muad_api/startup.py
+            - packages/artifact-store/pyproject.toml
+            - packages/artifact-store/src/muad_artifact_store/__init__.py
+            - packages/artifact-store/src/muad_artifact_store/immutable.py
+            - packages/artifact-store/src/muad_artifact_store/nfs.py
+            - packages/artifact-store/src/muad_artifact_store/py.typed
+            - packages/artifact-store/src/muad_artifact_store/skill_cache.py
+            - packages/common/pyproject.toml
+            - packages/common/src/muad_common/__init__.py
+            - packages/common/src/muad_common/db_counters.py
+            - packages/common/src/muad_common/notification_keys.py
+            - packages/common/src/muad_common/py.typed
+            - packages/common/src/muad_common/session_store.py
+            - packages/common/src/muad_common/settings.py
+            - packages/contracts/pyproject.toml
+            - packages/contracts/src/muad_contracts/__init__.py
+            - packages/contracts/src/muad_contracts/canonical.py
+            - packages/contracts/src/muad_contracts/channel.py
+            - packages/contracts/src/muad_contracts/channel_delivery.py
+            - packages/contracts/src/muad_contracts/delivery.py
+            - packages/contracts/src/muad_contracts/enums.py
+            - packages/contracts/src/muad_contracts/im.py
+            - packages/contracts/src/muad_contracts/learning_admin.py
+            - packages/contracts/src/muad_contracts/memory.py
+            - packages/contracts/src/muad_contracts/memory_admin.py
+            - packages/contracts/src/muad_contracts/model_pool.py
+            - packages/contracts/src/muad_contracts/platform_settings.py
+            - packages/contracts/src/muad_contracts/py.typed
+            - packages/contracts/src/muad_contracts/resolve.py
+            - packages/contracts/src/muad_contracts/runtime.py
+            - packages/contracts/src/muad_contracts/snapshot.py
+            - packages/contracts/src/muad_contracts/tasks.py
+            - packages/contracts/src/muad_contracts/tool_runtime.py
+            - packages/contracts/src/muad_contracts/webchat.py
+            - packages/contracts/src/muad_contracts/webchat_events.py
+            - packages/im-core/pyproject.toml
+            - packages/im-core/src/muad_im_core/__init__.py
+            - packages/im-core/src/muad_im_core/gateway.py
+            - packages/im-core/src/muad_im_core/ingress.py
+            - packages/im-core/src/muad_im_core/py.typed
+            - packages/im-core/src/muad_im_core/snapshot.py
+            - packages/im-core/src/muad_im_core/spi.py
+            - packages/im-core/src/muad_im_core/streams.py
+            - packages/logging-kit/pyproject.toml
+            - packages/logging-kit/src/muad_logging/__init__.py
+            - packages/logging-kit/src/muad_logging/context.py
+            - packages/logging-kit/src/muad_logging/extras.py
+            - packages/logging-kit/src/muad_logging/formatter.py
+            - packages/logging-kit/src/muad_logging/handler.py
+            - packages/logging-kit/src/muad_logging/py.typed
+            - packages/logging-kit/src/muad_logging/redaction.py
+            - packages/logging-kit/src/muad_logging/setup.py
+            - packages/platform-sdk/pyproject.toml
+            - packages/platform-sdk/src/muad_platform_sdk/__init__.py
+            - packages/platform-sdk/src/muad_platform_sdk/adapter/__init__.py
+            - packages/platform-sdk/src/muad_platform_sdk/adapter/base.py
+            - packages/platform-sdk/src/muad_platform_sdk/adapter/generic_http.py
+            - packages/platform-sdk/src/muad_platform_sdk/adapter/registry.py
+            - packages/platform-sdk/src/muad_platform_sdk/client.py
+            - packages/platform-sdk/src/muad_platform_sdk/egress_boundary.py
+            - packages/platform-sdk/src/muad_platform_sdk/egress_client.py
+            - packages/platform-sdk/src/muad_platform_sdk/py.typed
+            - packages/platform-sdk/src/muad_platform_sdk/session/__init__.py
+            - packages/platform-sdk/src/muad_platform_sdk/session/invalidator.py
+            - packages/platform-sdk/src/muad_platform_sdk/session/key.py
+            - packages/platform-sdk/src/muad_platform_sdk/session/manager.py
+            - packages/platform-sdk/src/muad_platform_sdk/types.py
+            - packages/skill-sdk/pyproject.toml
+            - packages/skill-sdk/src/muad_skill_sdk/__init__.py
+            - packages/skill-sdk/src/muad_skill_sdk/context.py
+            - packages/skill-sdk/src/muad_skill_sdk/py.typed
+            - packages/skill-sdk/src/muad_skill_sdk/skill_package.py
+            - pyproject.toml
+            - scripts/capacity/ACCEPTANCE.md
+            - scripts/capacity/ANALYSIS.md
+            - scripts/capacity/PLAYBOOK.md
+            - scripts/capacity/README.md
+            - scripts/capacity/REPORTING.md
+            - scripts/capacity/chunk_bench.py
+            - scripts/capacity/diag.py
+            - scripts/capacity/loadgen.py
+            - scripts/capacity/p1_1000_steady.py
+            - scripts/capacity/profile_hook.py
+            - scripts/capacity/smoke_report.py
+            - scripts/check_agent_capacity_deployment.py
+            - scripts/check_error_message_hardcode.py
+            - scripts/check_frontend_api_usage.py
+            - scripts/check_frontend_i18n.py
+            - scripts/check_secret_ref_residue.py
+            - scripts/ci_validation_cache.py
+            - scripts/clean_acceptance_claims.py
+            - scripts/dev.sh
+            - scripts/e2e_changed.py
+            - scripts/learning_admin.py
+            - scripts/merge_validation_cache.py
+            - tests/acceptance/attachment_round_trip/conftest.py
+            - tests/acceptance/attachment_round_trip/test_archive_e2e.py
+            - tests/acceptance/attachment_round_trip/test_artifact_fetch_e2e.py
+            - tests/acceptance/attachment_round_trip/test_inbound_receipt_e2e.py
+            - tests/acceptance/attachment_round_trip/test_round_trip_e2e.py
+            - tests/acceptance/audit_observability/__init__.py
+            - tests/acceptance/audit_observability/environment.py
+            - tests/acceptance/audit_observability/test_audit_acceptance.py
+            - tests/acceptance/audit_observability/test_environment.py
+            - tests/acceptance/capacity/asgi_probe.py
+            - tests/acceptance/capacity/conftest.py
+            - tests/acceptance/capacity/delivery_harness.py
+            - tests/acceptance/capacity/execution_support.py
+            - tests/acceptance/capacity/probes.py
+            - tests/acceptance/capacity/stack.py
+            - tests/acceptance/capacity/supervise.py
+            - tests/acceptance/capacity/test_admission_recovery.py
+            - tests/acceptance/capacity/test_capacity.py
+            - tests/acceptance/capacity/test_capacity_admission_burst.py
+            - tests/acceptance/capacity/test_capacity_chaos.py
+            - tests/acceptance/capacity/test_capacity_notification_settings.py
+            - tests/acceptance/capacity/test_capacity_notifications.py
+            - tests/acceptance/capacity/test_capacity_smoke.py
+            - tests/acceptance/capacity/test_capacity_soak.py
+            - tests/acceptance/capacity/test_model_execution.py
+            - tests/acceptance/capacity/test_stream_delivery.py
+            - tests/acceptance/capacity/test_wecom_capacity.py
+            - tests/acceptance/capacity/test_worker_delivery.py
+            - tests/acceptance/capacity/webchat_browser_seed.py
+            - tests/acceptance/capacity/wecom_capacity.py
+            - tests/acceptance/conftest.py
+            - tests/acceptance/console_auth_flow/__init__.py
+            - tests/acceptance/console_auth_flow/conftest.py
+            - tests/acceptance/console_auth_flow/environment.py
+            - tests/acceptance/console_auth_flow/test_auth_acceptance.py
+            - tests/acceptance/console_auth_flow/test_auth_schema_contract.py
+            - tests/acceptance/console_auth_flow/test_environment.py
+            - tests/acceptance/datastores.py
+            - tests/acceptance/dfx/__init__.py
+            - tests/acceptance/dfx/conftest.py
+            - tests/acceptance/dfx/delivery_rewriter.py
+            - tests/acceptance/dfx/environment.py
+            - tests/acceptance/dfx/test_dfx_api_security.py
+            - tests/acceptance/dfx/test_dfx_authorization_scope.py
+            - tests/acceptance/dfx/test_dfx_contract_parity.py
+            - tests/acceptance/dfx/test_dfx_delivery.py
+            - tests/acceptance/dfx/test_dfx_fault_matrix.py
+            - tests/acceptance/dfx/test_dfx_journeys.py
+            - tests/acceptance/dfx/test_dfx_layer_baseline.py
+            - tests/acceptance/dfx/test_dfx_model_recovery.py
+            - tests/acceptance/dfx/test_dfx_recovery.py
+            - tests/acceptance/dfx/test_dfx_reliability.py
+            - tests/acceptance/dfx/test_dfx_routing.py
+            - tests/acceptance/dfx/test_dfx_security.py
+            - tests/acceptance/dfx/test_dfx_stateless.py
+            - tests/acceptance/gateway/__init__.py
+            - tests/acceptance/gateway/conftest.py
+            - tests/acceptance/gateway/test_waiting_resume.py
+            - tests/acceptance/im_gateway/__init__.py
+            - tests/acceptance/im_gateway/conftest.py
+            - tests/acceptance/im_gateway/connector_environment.py
+            - tests/acceptance/im_gateway/environment.py
+            - tests/acceptance/im_gateway/test_acceptance_inventory.py
+            - tests/acceptance/im_gateway/test_authorization.py
+            - tests/acceptance/im_gateway/test_binding.py
+            - tests/acceptance/im_gateway/test_connector_failover.py
+            - tests/acceptance/im_gateway/test_connector_lease.py
+            - tests/acceptance/im_gateway/test_connector_primitives.py
+            - tests/acceptance/im_gateway/test_context_compaction.py
+            - tests/acceptance/im_gateway/test_environment.py
+            - tests/acceptance/im_gateway/test_execution_progress.py
+            - tests/acceptance/im_gateway/test_gateway_idempotency.py
+            - tests/acceptance/im_gateway/test_memory_flow.py
+            - tests/acceptance/im_gateway/test_memory_redesign_e2e.py
+            - tests/acceptance/im_gateway/test_memory_redesign_security.py
+            - tests/acceptance/im_gateway/test_multi_instance.py
+            - tests/acceptance/im_gateway/test_recovery.py
+            - tests/acceptance/im_gateway/test_redis_degradation.py
+            - tests/acceptance/im_gateway/test_routing.py
+            - tests/acceptance/im_gateway/test_runtime_stream.py
+            - tests/acceptance/im_gateway/test_secrets_and_readiness.py
+            - tests/acceptance/im_gateway/test_webchat_core.py
+            - tests/acceptance/im_gateway/test_webhook_channel.py
+            - tests/acceptance/im_gateway/test_wecom_attachments.py
+            - tests/acceptance/im_gateway/test_wecom_boundary.py
+            - tests/acceptance/im_gateway/test_wecom_fault_injection.py
+            - tests/acceptance/im_gateway/test_worker_delivery.py
+            - tests/acceptance/overview/__init__.py
+            - tests/acceptance/overview/environment.py
+            - tests/acceptance/overview/test_environment.py
+            - tests/acceptance/overview/test_overview_acceptance.py
+            - tests/acceptance/runtime/__init__.py
+            - tests/acceptance/runtime/conftest.py
+            - tests/acceptance/runtime/join_model_probe.py
+            - tests/acceptance/runtime/memory_context_e2e_support.py
+            - tests/acceptance/runtime/test_background_result_delivery.py
+            - tests/acceptance/runtime/test_background_result_resume.py
+            - tests/acceptance/runtime/test_capability_snapshot.py
+            - tests/acceptance/runtime/test_environment.py
+            - tests/acceptance/runtime/test_memory_redesign_context_e2e.py
+            - tests/acceptance/runtime/test_multipod_recovery.py
+            - tests/acceptance/runtime/test_redis_unavailable.py
+            - tests/acceptance/runtime/test_run_lifecycle.py
+            - tests/acceptance/runtime/test_submission_hardening.py
+            - tests/acceptance/security/__init__.py
+            - tests/acceptance/security/conftest.py
+            - tests/acceptance/security/test_internal_service_identity.py
+            - tests/acceptance/task_schedule/__init__.py
+            - tests/acceptance/task_schedule/channel_probe.py
+            - tests/acceptance/task_schedule/conftest.py
+            - tests/acceptance/task_schedule/environment.py
+            - tests/acceptance/task_schedule/helpers.py
+            - tests/acceptance/task_schedule/test_acceptance_environment.py
+            - tests/acceptance/task_schedule/test_batch.py
+            - tests/acceptance/task_schedule/test_delivery.py
+            - tests/acceptance/task_schedule/test_environment.py
+            - tests/acceptance/task_schedule/test_execution.py
+            - tests/acceptance/task_schedule/test_idempotency.py
+            - tests/acceptance/task_schedule/test_platform_settings_defaults.py
+            - tests/acceptance/task_schedule/test_recovery.py
+            - tests/acceptance/task_schedule/test_schedules.py
+            - tests/acceptance/test_agent_schema_constraints.py
+            - tests/acceptance/test_datastores_redis_slots.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            - tests/acceptance/test_foundation_artifact.py
+            - tests/acceptance/test_foundation_i18n.py
+            - tests/acceptance/test_foundation_logging.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            - tests/acceptance/test_foundation_ops_probes.py
+            - tests/acceptance/test_foundation_ops_security.py
+            - tests/acceptance/test_foundation_ops_startup.py
+            - tests/acceptance/test_foundation_schema_parity.py
+            - tests/acceptance/test_mcp_schema_constraints.py
+            - tests/acceptance/test_schema_surface_contract.py
+            - tests/acceptance/test_secret_consumers.py
+            - tests/acceptance/test_secret_migration.py
+            - tests/acceptance/test_skill_schema_constraints.py
+            - tests/acceptance/wecom_attachments/conftest.py
+            - tests/acceptance/wecom_attachments/test_inbound_image_e2e.py
+            - tests/agent_core/test_context_compactor.py
+            - tests/agent_core/test_hook_lifecycle.py
+            - tests/agent_core/test_memory_redesign_evidence.py
+            - tests/agent_core/test_memory_redesign_render.py
+            - tests/agent_core/test_memory_redesign_selection.py
+            - tests/agent_core/test_memory_resume_intent.py
+            - tests/agent_core/test_memory_selection_gating.py
+            - tests/agent_core/test_memory_selection_quality.py
+            - tests/agent_core/test_openai_provider.py
+            - tests/agent_core/test_prompt_builder.py
+            - tests/agent_core/test_runner.py
+            - tests/agent_core/test_skill_executor.py
+            - tests/agent_core/test_skill_package.py
+            - tests/agent_core/test_tool_execution_pipeline.py
+            - tests/agent_evolution_inventory.py
+            - tests/agent_memory_inventory.py
+            - tests/agent_runtime/__init__.py
+            - tests/agent_runtime/conftest.py
+            - tests/agent_runtime/learning_wiring_support.py
+            - tests/agent_runtime/memory_confirmation_resume_support.py
+            - tests/agent_runtime/memory_confirmation_support.py
+            - tests/agent_runtime/memory_consolidation_crash_worker.py
+            - tests/agent_runtime/memory_consolidation_effect_support.py
+            - tests/agent_runtime/memory_consolidation_lineage_support.py
+            - tests/agent_runtime/memory_consolidation_support.py
+            - tests/agent_runtime/memory_context_support.py
+            - tests/agent_runtime/memory_executor_support.py
+            - tests/agent_runtime/memory_gateway_support.py
+            - tests/agent_runtime/memory_redesign_write_support.py
+            - tests/agent_runtime/memory_resume_support.py
+            - tests/agent_runtime/memory_tool_support.py
+            - tests/agent_runtime/test_admin_run_api.py
+            - tests/agent_runtime/test_admission_conversation_active_merge.py
+            - tests/agent_runtime/test_archive_tools.py
+            - tests/agent_runtime/test_artifact_results.py
+            - tests/agent_runtime/test_artifact_round_budget.py
+            - tests/agent_runtime/test_attachment_tools.py
+            - tests/agent_runtime/test_cancel_hint.py
+            - tests/agent_runtime/test_cancellation.py
+            - tests/agent_runtime/test_capacity_webchat_activity_read.py
+            - tests/agent_runtime/test_capacity_webchat_activity_write.py
+            - tests/agent_runtime/test_capacity_webchat_admission_create.py
+            - tests/agent_runtime/test_capacity_webchat_admission_policy.py
+            - tests/agent_runtime/test_capacity_webchat_admission_release.py
+            - tests/agent_runtime/test_capacity_webchat_artifact_resolve.py
+            - tests/agent_runtime/test_capacity_webchat_background_pool.py
+            - tests/agent_runtime/test_capacity_webchat_capacity_reserve.py
+            - tests/agent_runtime/test_capacity_webchat_capacity_settle.py
+            - tests/agent_runtime/test_capacity_webchat_clock_lease.py
+            - tests/agent_runtime/test_capacity_webchat_conversation_scope.py
+            - tests/agent_runtime/test_capacity_webchat_delivery_pump.py
+            - tests/agent_runtime/test_capacity_webchat_delivery_reservation.py
+            - tests/agent_runtime/test_capacity_webchat_durable_deltas.py
+            - tests/agent_runtime/test_capacity_webchat_history_queries.py
+            - tests/agent_runtime/test_capacity_webchat_output_budget.py
+            - tests/agent_runtime/test_capacity_webchat_pool_allocator.py
+            - tests/agent_runtime/test_capacity_webchat_pool_snapshot.py
+            - tests/agent_runtime/test_capacity_webchat_probe_capacity_api.py
+            - tests/agent_runtime/test_capacity_webchat_provider_pool.py
+            - tests/agent_runtime/test_capacity_webchat_public_projection.py
+            - tests/agent_runtime/test_capacity_webchat_queue_projection.py
+            - tests/agent_runtime/test_capacity_webchat_reply_generations.py
+            - tests/agent_runtime/test_capacity_webchat_retention.py
+            - tests/agent_runtime/test_capacity_webchat_retry_policy_freeze.py
+            - tests/agent_runtime/test_capacity_webchat_run_controls.py
+            - tests/agent_runtime/test_capacity_webchat_runtime_slots.py
+            - tests/agent_runtime/test_capacity_webchat_runtime_wiring.py
+            - tests/agent_runtime/test_capacity_webchat_shared_tail.py
+            - tests/agent_runtime/test_capacity_webchat_upload_runtime_api.py
+            - tests/agent_runtime/test_capacity_webchat_upload_staging.py
+            - tests/agent_runtime/test_console_client.py
+            - tests/agent_runtime/test_context_compaction_artifacts.py
+            - tests/agent_runtime/test_context_compaction_config.py
+            - tests/agent_runtime/test_context_events.py
+            - tests/agent_runtime/test_context_memory.py
+            - tests/agent_runtime/test_context_memory_budget.py
+            - tests/agent_runtime/test_context_metrics.py
+            - tests/agent_runtime/test_context_rebuild.py
+            - tests/agent_runtime/test_context_summary.py
+            - tests/agent_runtime/test_conversation_capacity.py
+            - tests/agent_runtime/test_db_counters.py
+            - tests/agent_runtime/test_egress_boundary.py
+            - tests/agent_runtime/test_execution_activity.py
+            - tests/agent_runtime/test_execution_audit.py
+            - tests/agent_runtime/test_execution_defaults_settings.py
+            - tests/agent_runtime/test_experience_activation.py
+            - tests/agent_runtime/test_experience_candidates.py
+            - tests/agent_runtime/test_experience_retrieval_lanes.py
+            - tests/agent_runtime/test_experience_trial_promotion.py
+            - tests/agent_runtime/test_gateway_delivery_client.py
+            - tests/agent_runtime/test_inbound_attachments.py
+            - tests/agent_runtime/test_interrupt_checkpoint.py
+            - tests/agent_runtime/test_learning_admin_cli.py
+            - tests/agent_runtime/test_learning_case_runner.py
+            - tests/agent_runtime/test_learning_degradation.py
+            - tests/agent_runtime/test_learning_e2e.py
+            - tests/agent_runtime/test_learning_eval_cases.py
+            - tests/agent_runtime/test_learning_fact_fixes.py
+            - tests/agent_runtime/test_learning_family_wiring.py
+            - tests/agent_runtime/test_learning_jobs.py
+            - tests/agent_runtime/test_learning_replay.py
+            - tests/agent_runtime/test_learning_replay_gate.py
+            - tests/agent_runtime/test_learning_scheduler.py
+            - tests/agent_runtime/test_learning_scheduler_degradation.py
+            - tests/agent_runtime/test_learning_signal.py
+            - tests/agent_runtime/test_learning_trial_wiring.py
+            - tests/agent_runtime/test_mcp_execution.py
+            - tests/agent_runtime/test_mcp_request_correlation.py
+            - tests/agent_runtime/test_memory_injection_attribution.py
+            - tests/agent_runtime/test_memory_observability.py
+            - tests/agent_runtime/test_memory_redesign_admin_api.py
+            - tests/agent_runtime/test_memory_redesign_cache.py
+            - tests/agent_runtime/test_memory_redesign_confirmation.py
+            - tests/agent_runtime/test_memory_redesign_context.py
+            - tests/agent_runtime/test_memory_redesign_input_boundary.py
+            - tests/agent_runtime/test_memory_redesign_job_claims.py
+            - tests/agent_runtime/test_memory_redesign_job_effects.py
+            - tests/agent_runtime/test_memory_redesign_observability.py
+            - tests/agent_runtime/test_memory_redesign_policy.py
+            - tests/agent_runtime/test_memory_redesign_proposals.py
+            - tests/agent_runtime/test_memory_redesign_provider.py
+            - tests/agent_runtime/test_memory_redesign_quotas.py
+            - tests/agent_runtime/test_memory_redesign_recall.py
+            - tests/agent_runtime/test_memory_redesign_resume.py
+            - tests/agent_runtime/test_memory_redesign_secrets.py
+            - tests/agent_runtime/test_memory_redesign_snapshot.py
+            - tests/agent_runtime/test_memory_redesign_supervisor.py
+            - tests/agent_runtime/test_memory_redesign_writes.py
+            - tests/agent_runtime/test_memory_service.py
+            - tests/agent_runtime/test_memory_tools.py
+            - tests/agent_runtime/test_model_budget_layers.py
+            - tests/agent_runtime/test_model_recovery.py
+            - tests/agent_runtime/test_notification_publisher.py
+            - tests/agent_runtime/test_output_artifacts.py
+            - tests/agent_runtime/test_platform_settings_source.py
+            - tests/agent_runtime/test_resume_transactions.py
+            - tests/agent_runtime/test_run_admission_count_cap.py
+            - tests/agent_runtime/test_run_events.py
+            - tests/agent_runtime/test_run_idempotency.py
+            - tests/agent_runtime/test_run_leases.py
+            - tests/agent_runtime/test_run_reaper.py
+            - tests/agent_runtime/test_run_service.py
+            - tests/agent_runtime/test_runner_executor.py
+            - tests/agent_runtime/test_runs_api.py
+            - tests/agent_runtime/test_runtime_audit_write.py
+            - tests/agent_runtime/test_runtime_capacity_metrics.py
+            - tests/agent_runtime/test_runtime_composition.py
+            - tests/agent_runtime/test_runtime_diagnostics.py
+            - tests/agent_runtime/test_runtime_metrics.py
+            - tests/agent_runtime/test_runtime_schema_parity.py
+            - tests/agent_runtime/test_skill_tools.py
+            - tests/agent_runtime/test_snapshot_freeze.py
+            - tests/agent_runtime/test_sse.py
+            - tests/agent_runtime/test_summary_model_resolution.py
+            - tests/agent_runtime/test_task_family_scope.py
+            - tests/agent_runtime/test_task_handoff.py
+            - tests/agent_runtime/test_time_tools.py
+            - tests/agent_runtime/test_tool_parallel_planner.py
+            - tests/agent_runtime/test_tool_result_history.py
+            - tests/agent_runtime/test_tool_result_materialization.py
+            - tests/agent_runtime/test_tool_round_budget.py
+            - tests/agent_runtime/test_tool_wait_state_machine.py
+            - tests/agent_runtime/test_verification_loop.py
+            - tests/agent_worker/__init__.py
+            - tests/agent_worker/conftest.py
+            - tests/agent_worker/helpers.py
+            - tests/agent_worker/test_admin_schedules.py
+            - tests/agent_worker/test_admin_tasks.py
+            - tests/agent_worker/test_api.py
+            - tests/agent_worker/test_batch_fanin.py
+            - tests/agent_worker/test_batch_fanout.py
+            - tests/agent_worker/test_capacity_webchat_retry_safety.py
+            - tests/agent_worker/test_capacity_webchat_worker_notifications.py
+            - tests/agent_worker/test_capacity_webchat_worker_slots.py
+            - tests/agent_worker/test_capacity_webchat_worker_wiring.py
+            - tests/agent_worker/test_context_compaction_absent.py
+            - tests/agent_worker/test_delivery.py
+            - tests/agent_worker/test_delivery_messages.py
+            - tests/agent_worker/test_delivery_routes.py
+            - tests/agent_worker/test_metrics.py
+            - tests/agent_worker/test_runtime_operation_races.py
+            - tests/agent_worker/test_schedule_queries_actions.py
+            - tests/agent_worker/test_schedule_trigger.py
+            - tests/agent_worker/test_schedule_writes.py
+            - tests/agent_worker/test_scheduler.py
+            - tests/agent_worker/test_scheduler_misfire.py
+            - tests/agent_worker/test_skill_cancellation_real_subprocess.py
+            - tests/agent_worker/test_submission_idempotency.py
+            - tests/agent_worker/test_submission_schema_parity.py
+            - tests/agent_worker/test_task_cancel.py
+            - tests/agent_worker/test_task_contracts.py
+            - tests/agent_worker/test_task_deadline.py
+            - tests/agent_worker/test_task_defaults_from_settings.py
+            - tests/agent_worker/test_task_events.py
+            - tests/agent_worker/test_task_executor.py
+            - tests/agent_worker/test_task_queries.py
+            - tests/agent_worker/test_task_schema_parity.py
+            - tests/agent_worker/test_task_service.py
+            - tests/agent_worker/test_tenant_guard.py
+            - tests/agent_worker/test_worker_leases.py
+            - tests/agent_worker/test_worker_lifecycle.py
+            - tests/agent_worker/test_worker_metrics.py
+            - tests/agent_worker/test_worker_outcomes.py
+            - tests/architecture/test_capacity_webchat_configmap_ingress.py
+            - tests/architecture/test_capacity_webchat_console_gateway_deploy.py
+            - tests/architecture/test_capacity_webchat_deployment_preflight.py
+            - tests/architecture/test_capacity_webchat_hpa_budget.py
+            - tests/architecture/test_capacity_webchat_live_topology.py
+            - tests/architecture/test_capacity_webchat_runtime_gateway_metrics.py
+            - tests/architecture/test_capacity_webchat_runtime_worker_deploy.py
+            - tests/architecture/test_capacity_webchat_worker_console_metrics.py
+            - tests/architecture/test_channel_neutrality.py
+            - tests/architecture/test_im_gateway_boundaries.py
+            - tests/architecture/test_import_direction.py
+            - tests/architecture/test_k8s_deploy_manifests.py
+            - tests/architecture/test_learning_isolation.py
+            - tests/architecture/test_learning_wiring_inventory.py
+            - tests/architecture/test_multi_worker_state.py
+            - tests/architecture/test_runtime_attachments.py
+            - tests/async_tool_continuations.py
+            - tests/async_tool_datastores.py
+            - tests/async_tool_helpers.py
+            - tests/async_tool_runtime_inventory.py
+            - tests/async_tool_submissions.py
+            - tests/audit_observability_inventory.py
+            - tests/capacity/acceptance_audit.py
+            - tests/capacity/driver.py
+            - tests/capacity/metrics.py
+            - tests/capacity/profile.py
+            - tests/capacity/profiles/agent-capacity-webchat-connector.example.yml
+            - tests/capacity/profiles/agent-capacity-webchat.example.yml
+            - tests/capacity/profiles/local-macbook-1000x1-sse.yml
+            - tests/capacity/profiles/local-macbook-1000x1-wecom.yml
+            - tests/capacity/profiles/local-macbook-1000x8-sse.yml
+            - tests/capacity/report.py
+            - tests/capacity/slo.py
+            - tests/capacity/test_capacity_chunk_bench.py
+            - tests/capacity/test_capacity_tooling.py
+            - tests/capacity/test_capacity_webchat_acceptance_audit.py
+            - tests/capacity/test_capacity_webchat_asgi_probe.py
+            - tests/capacity/test_capacity_webchat_baseline.py
+            - tests/capacity/test_capacity_webchat_capacity_report.py
+            - tests/capacity/test_capacity_webchat_delta_frames.py
+            - tests/capacity/test_capacity_webchat_http_probes.py
+            - tests/capacity/test_capacity_webchat_isolated_stack.py
+            - tests/capacity/test_capacity_webchat_load_driver.py
+            - tests/capacity/test_capacity_webchat_load_profile.py
+            - tests/capacity/test_learning_management_mixed.py
+            - tests/common/test_session_store.py
+            - tests/conftest.py
+            - tests/console_auth/__init__.py
+            - tests/console_auth/conftest.py
+            - tests/console_auth/test_accounts.py
+            - tests/console_auth/test_audit.py
+            - tests/console_auth/test_capacity_webchat_chat_auth_api.py
+            - tests/console_auth/test_capacity_webchat_chat_cookie_security.py
+            - tests/console_auth/test_capacity_webchat_chat_session_service.py
+            - tests/console_auth/test_capacity_webchat_token_admin_api.py
+            - tests/console_auth/test_capacity_webchat_token_redaction.py
+            - tests/console_auth/test_capacity_webchat_token_service.py
+            - tests/console_auth/test_login.py
+            - tests/console_auth/test_rbac.py
+            - tests/console_auth/test_review_regressions.py
+            - tests/console_auth/test_session.py
+            - tests/console_auth_inventory.py
+            - tests/console_channel/__init__.py
+            - tests/console_channel/conftest.py
+            - tests/console_channel/test_artifact_delivery_audit.py
+            - tests/console_channel/test_artifact_fetch.py
+            - tests/console_channel/test_channel_bind_api.py
+            - tests/console_channel/test_channel_bind_idempotency.py
+            - tests/console_channel/test_channel_bots_api.py
+            - tests/console_channel/test_channel_resolve_api.py
+            - tests/console_channel/test_channel_schema_parity.py
+            - tests/console_channel/test_channel_skills_api.py
+            - tests/console_channel/test_inbound_audit.py
+            - tests/console_internal/__init__.py
+            - tests/console_internal/conftest.py
+            - tests/console_internal/test_admission_materials_api.py
+            - tests/console_internal/test_capacity_webchat_chat_internal_principal.py
+            - tests/console_internal/test_capacity_webchat_resolve_credential.py
+            - tests/console_internal/test_platform_settings_internal.py
+            - tests/console_internal/test_resolve_definition_api.py
+            - tests/console_internal/test_resolve_egress_api.py
+            - tests/console_internal/test_resolve_model_api.py
+            - tests/console_internal/test_resolve_schema_parity.py
+            - tests/console_internal/test_runtime_credentials.py
+            - tests/console_mcp/__init__.py
+            - tests/console_mcp/conftest.py
+            - tests/console_mcp/test_discover_api.py
+            - tests/console_mcp/test_mcp_api.py
+            - tests/console_mcp/test_mcp_client.py
+            - tests/console_mcp/test_mcp_idempotency.py
+            - tests/console_mcp/test_mcp_rules.py
+            - tests/console_mcp/test_user_scope_api.py
+            - tests/console_platform/__init__.py
+            - tests/console_platform/conftest.py
+            - tests/console_platform/overview_fixtures.py
+            - tests/console_platform/test_agent_channels_api.py
+            - tests/console_platform/test_agent_idempotency.py
+            - tests/console_platform/test_agent_input_validation.py
+            - tests/console_platform/test_agent_lifecycle_api.py
+            - tests/console_platform/test_agent_mcp_bindings.py
+            - tests/console_platform/test_agent_skill_bindings.py
+            - tests/console_platform/test_agent_user_grants_api.py
+            - tests/console_platform/test_agents_api.py
+            - tests/console_platform/test_artifact_cleanup.py
+            - tests/console_platform/test_audit_agent_filter.py
+            - tests/console_platform/test_audit_config_write.py
+            - tests/console_platform/test_audit_detail_api.py
+            - tests/console_platform/test_audit_export_api.py
+            - tests/console_platform/test_audit_export_download.py
+            - tests/console_platform/test_audit_query_api.py
+            - tests/console_platform/test_audits_api.py
+            - tests/console_platform/test_auth_policy_settings.py
+            - tests/console_platform/test_bind_codes_api.py
+            - tests/console_platform/test_capacity_webchat_console_probe.py
+            - tests/console_platform/test_capacity_webchat_console_wiring.py
+            - tests/console_platform/test_capacity_webchat_credential_api.py
+            - tests/console_platform/test_capacity_webchat_credential_service.py
+            - tests/console_platform/test_capacity_webchat_deployment_relations.py
+            - tests/console_platform/test_capacity_webchat_logical_model_api.py
+            - tests/console_platform/test_capacity_webchat_quota_groups.py
+            - tests/console_platform/test_capacity_webchat_settings_catalog.py
+            - tests/console_platform/test_capacity_webchat_webchat_entry.py
+            - tests/console_platform/test_credentials_api.py
+            - tests/console_platform/test_learning_audit_projection.py
+            - tests/console_platform/test_learning_content_revision.py
+            - tests/console_platform/test_learning_control_boundaries.py
+            - tests/console_platform/test_learning_degradation.py
+            - tests/console_platform/test_learning_diagnostics_api.py
+            - tests/console_platform/test_learning_experience_api.py
+            - tests/console_platform/test_learning_family_control.py
+            - tests/console_platform/test_learning_feedback.py
+            - tests/console_platform/test_learning_lifecycle_api.py
+            - tests/console_platform/test_model_event_context.py
+            - tests/console_platform/test_models_api.py
+            - tests/console_platform/test_models_batch_test.py
+            - tests/console_platform/test_overview_api.py
+            - tests/console_platform/test_platform_adapters_api.py
+            - tests/console_platform/test_platform_repository.py
+            - tests/console_platform/test_platform_session_invalidation.py
+            - tests/console_platform/test_platform_settings_api.py
+            - tests/console_platform/test_platform_settings_service.py
+            - tests/console_platform/test_platform_settings_singleton.py
+            - tests/console_platform/test_platform_settings_table.py
+            - tests/console_platform/test_platform_test_api.py
+            - tests/console_platform/test_platforms_api.py
+            - tests/console_platform/test_run_event_details.py
+            - tests/console_platform/test_runs_api.py
+            - tests/console_platform/test_schema_parity.py
+            - tests/console_platform/test_spa_static.py
+            - tests/console_platform/test_user_detail_api.py
+            - tests/console_platform/test_user_memory_api.py
+            - tests/console_platform/test_user_memory_write_commands.py
+            - tests/console_platform/test_user_side_relations.py
+            - tests/console_platform/test_users_api.py
+            - tests/console_skill/__init__.py
+            - tests/console_skill/conftest.py
+            - tests/console_skill/packages.py
+            - tests/console_skill/test_artifacts_api.py
+            - tests/console_skill/test_bindings_api.py
+            - tests/console_skill/test_import_api.py
+            - tests/console_skill/test_import_idempotency.py
+            - tests/console_skill/test_javascript_package.py
+            - tests/console_skill/test_orphan_cleanup.py
+            - tests/console_skill/test_resolve_skills.py
+            - tests/console_skill/test_skill_api.py
+            - tests/console_skill/test_skill_audit.py
+            - tests/console_skill/test_skill_rbac.py
+            - tests/console_skill/test_snapshot_freeze.py
+            - tests/console_skill/test_user_scope_api.py
+            - tests/console_skill/test_validator_boundaries.py
+            - tests/console_tasks/__init__.py
+            - tests/console_tasks/conftest.py
+            - tests/console_tasks/test_schedules_api.py
+            - tests/console_tasks/test_tasks_api.py
+            - tests/console_tasks/test_worker_client.py
+            - tests/context_compaction_inventory.py
+            - tests/contracts/conftest.py
+            - tests/contracts/test_capacity_webchat_capacity_schema.py
+            - tests/contracts/test_capacity_webchat_chat_contracts.py
+            - tests/contracts/test_capacity_webchat_error_catalog.py
+            - tests/contracts/test_capacity_webchat_event_contracts.py
+            - tests/contracts/test_capacity_webchat_model_contracts.py
+            - tests/contracts/test_capacity_webchat_startup_schema.py
+            - tests/contracts/test_capacity_webchat_webchat_schema.py
+            - tests/contracts/test_dependency_surface.py
+            - tests/contracts/test_im_contracts.py
+            - tests/contracts/test_langgraph_residue.py
+            - tests/contracts/test_runtime_strict_json.py
+            - tests/contracts/test_shared_settings_cache.py
+            - tests/dfx_inventory.py
+            - tests/e2e/__init__.py
+            - tests/e2e/app.py
+            - tests/e2e/create_archive_fixture.py
+            - tests/e2e/mcp_probe_app.py
+            - tests/e2e/openai_probe_app.py
+            - tests/e2e/seed_agent_management.py
+            - tests/e2e/seed_audit.py
+            - tests/e2e/seed_console_auth.py
+            - tests/e2e/seed_im_gateway.py
+            - tests/e2e/seed_mcp_management.py
+            - tests/e2e/seed_overview.py
+            - tests/e2e/seed_platform_settings.py
+            - tests/e2e/seed_project_platform.py
+            - tests/e2e/seed_run_observability.py
+            - tests/e2e/seed_skill_management.py
+            - tests/e2e/seed_user_identity.py
+            - tests/e2e/test_gateway_bind_e2e.py
+            - tests/e2e/test_openai_probe_contract.py
+            - tests/e2e/wecom_media_server.py
+            - tests/e2e/wecom_probe_app.py
+            - tests/execution_core_inventory.py
+            - tests/frontend/test_agent_detail_contract.py
+            - tests/frontend/test_agent_form_contract.py
+            - tests/frontend/test_agent_module_contract.py
+            - tests/frontend/test_api_client_contract.py
+            - tests/frontend/test_audit_detail_contract.py
+            - tests/frontend/test_audit_export_contract.py
+            - tests/frontend/test_audit_gap_contract.py
+            - tests/frontend/test_audit_i18n_contract.py
+            - tests/frontend/test_audit_page_contract.py
+            - tests/frontend/test_audit_services_contract.py
+            - tests/frontend/test_audit_table_contract.py
+            - tests/frontend/test_capacity_webchat_activity_ui.py
+            - tests/frontend/test_capacity_webchat_browser_harness.py
+            - tests/frontend/test_capacity_webchat_browser_sse_parser.py
+            - tests/frontend/test_capacity_webchat_chat_auth_state.py
+            - tests/frontend/test_capacity_webchat_chat_route.py
+            - tests/frontend/test_capacity_webchat_chat_transport.py
+            - tests/frontend/test_capacity_webchat_client_config_state.py
+            - tests/frontend/test_capacity_webchat_composer_uploads.py
+            - tests/frontend/test_capacity_webchat_conversation_state.py
+            - tests/frontend/test_capacity_webchat_credential_ui.py
+            - tests/frontend/test_capacity_webchat_deployment_ui.py
+            - tests/frontend/test_capacity_webchat_frontend_wiring.py
+            - tests/frontend/test_capacity_webchat_history_sidebar.py
+            - tests/frontend/test_capacity_webchat_message_history_ui.py
+            - tests/frontend/test_capacity_webchat_model_admin_wiring.py
+            - tests/frontend/test_capacity_webchat_notification_stream.py
+            - tests/frontend/test_capacity_webchat_quota_ui.py
+            - tests/frontend/test_capacity_webchat_reply_stream_state.py
+            - tests/frontend/test_capacity_webchat_run_actions_ui.py
+            - tests/frontend/test_capacity_webchat_settings_ui.py
+            - tests/frontend/test_capacity_webchat_token_access_ui.py
+            - tests/frontend/test_capacity_webchat_user_token_ui.py
+            - tests/frontend/test_capacity_webchat_webchat_i18n.py
+            - tests/frontend/test_capacity_webchat_webchat_layout.py
+            - tests/frontend/test_capacity_webchat_webchat_services.py
+            - tests/frontend/test_common_components_contract.py
+            - tests/frontend/test_console_auth_contract.py
+            - tests/frontend/test_console_shell_contract.py
+            - tests/frontend/test_datetime_contract.py
+            - tests/frontend/test_detail_sidesheet_contract.py
+            - tests/frontend/test_e2e_suite_contract.py
+            - tests/frontend/test_form_layout_contract.py
+            - tests/frontend/test_learning_actions_contract.py
+            - tests/frontend/test_learning_experience_contract.py
+            - tests/frontend/test_learning_family_page_contract.py
+            - tests/frontend/test_list_object_actions_contract.py
+            - tests/frontend/test_mcp_detail_contract.py
+            - tests/frontend/test_mcp_form_contract.py
+            - tests/frontend/test_mcp_module_contract.py
+            - tests/frontend/test_mcp_user_scope_contract.py
+            - tests/frontend/test_memory_tab_contract.py
+            - tests/frontend/test_model_create_wizard.py
+            - tests/frontend/test_model_form_contract.py
+            - tests/frontend/test_model_test_result_modal.py
+            - tests/frontend/test_overview_charts_contract.py
+            - tests/frontend/test_overview_e2e_fixture_contract.py
+            - tests/frontend/test_overview_i18n_contract.py
+            - tests/frontend/test_overview_page_contract.py
+            - tests/frontend/test_overview_routing_contract.py
+            - tests/frontend/test_overview_services_contract.py
+            - tests/frontend/test_platform_credential_form_contract.py
+            - tests/frontend/test_platform_detail_contract.py
+            - tests/frontend/test_platform_form_contract.py
+            - tests/frontend/test_platform_page_contract.py
+            - tests/frontend/test_platform_settings_contract.py
+            - tests/frontend/test_run_observability_contract.py
+            - tests/frontend/test_skill_detail_contract.py
+            - tests/frontend/test_skill_module_contract.py
+            - tests/frontend/test_skill_user_scope_contract.py
+            - tests/frontend/test_task_schedule_deep_link_contract.py
+            - tests/frontend/test_task_schedule_i18n.py
+            - tests/frontend/test_task_schedule_services.py
+            - tests/frontend/test_task_status_icons.py
+            - tests/frontend/test_ui_style_contract.py
+            - tests/frontend/test_user_credential_tab_contract.py
+            - tests/frontend/test_user_identity_contract.py
+            - tests/frontend/test_user_memory_contract.py
+            - tests/frontend/test_user_memory_i18n_contract.py
+            - tests/frontend/test_webchat_code_splitting.py
+            - tests/gateway/conftest.py
+            - tests/gateway/fakes.py
+            - tests/gateway/test_artifact_delivery.py
+            - tests/gateway/test_attachment_gate.py
+            - tests/gateway/test_bind_command.py
+            - tests/gateway/test_bot_snapshot.py
+            - tests/gateway/test_capacity_webchat_artifact_download.py
+            - tests/gateway/test_capacity_webchat_client_config_api.py
+            - tests/gateway/test_capacity_webchat_gateway_admission.py
+            - tests/gateway/test_capacity_webchat_gateway_chat_auth.py
+            - tests/gateway/test_capacity_webchat_gateway_delivery.py
+            - tests/gateway/test_capacity_webchat_gateway_notification_api.py
+            - tests/gateway/test_capacity_webchat_gateway_sse.py
+            - tests/gateway/test_capacity_webchat_gateway_wiring.py
+            - tests/gateway/test_capacity_webchat_upload_gateway.py
+            - tests/gateway/test_capacity_webchat_webchat_adapter.py
+            - tests/gateway/test_capacity_webchat_webchat_resource_api.py
+            - tests/gateway/test_channel_contracts.py
+            - tests/gateway/test_channel_registry.py
+            - tests/gateway/test_chat_principal_store.py
+            - tests/gateway/test_commands_integration.py
+            - tests/gateway/test_connection_observability.py
+            - tests/gateway/test_dedupe.py
+            - tests/gateway/test_delivery_api.py
+            - tests/gateway/test_delivery_stream.py
+            - tests/gateway/test_execution_progress.py
+            - tests/gateway/test_gateway_console_client.py
+            - tests/gateway/test_gateway_metrics.py
+            - tests/gateway/test_inbound.py
+            - tests/gateway/test_inbound_attachment_flow.py
+            - tests/gateway/test_inbound_attachment_store.py
+            - tests/gateway/test_inbound_concurrency.py
+            - tests/gateway/test_inbound_dedupe_integration.py
+            - tests/gateway/test_message_metrics.py
+            - tests/gateway/test_message_routing_integration.py
+            - tests/gateway/test_notification_sse.py
+            - tests/gateway/test_notification_streams.py
+            - tests/gateway/test_progress_settings.py
+            - tests/gateway/test_readyz.py
+            - tests/gateway/test_runtime_client.py
+            - tests/gateway/test_sse_parser.py
+            - tests/gateway/test_stop_integration.py
+            - tests/gateway/test_stream_renderer.py
+            - tests/gateway/test_waiting_resume.py
+            - tests/gateway/test_webhook_channel.py
+            - tests/gateway/test_wecom_adapter.py
+            - tests/gateway/test_wecom_media.py
+            - tests/gateway/test_wecom_outbound_upload.py
+            - tests/gateway/test_wecom_sdk_wiring.py
+            - tests/internal_service.py
+            - tests/k8s_multipod_smoke.py
+            - tests/memory_redesign_inventory.py
+            - tests/migrations/conftest.py
+            - tests/migrations/memory_redesign_support.py
+            - tests/migrations/test_capacity_webchat_admission_schema.py
+            - tests/migrations/test_capacity_webchat_chat_auth_schema.py
+            - tests/migrations/test_capacity_webchat_control_pool_schema.py
+            - tests/migrations/test_capacity_webchat_conversation_upload_schema.py
+            - tests/migrations/test_capacity_webchat_notification_schema.py
+            - tests/migrations/test_capacity_webchat_runtime_pool_schema.py
+            - tests/migrations/test_memory_redesign_migration.py
+            - tests/migrations/test_memory_redesign_preflight.py
+            - tests/migrations/test_memory_redesign_schema_parity.py
+            - tests/migrations/test_runtime_wait_parity.py
+            - tests/overview_dashboard_inventory.py
+            - tests/platform_settings_inventory.py
+            - tests/run_event_details_inventory.py
+            - tests/sdk/__init__.py
+            - tests/sdk/conftest.py
+            - tests/sdk/test_agent_core_protocols.py
+            - tests/sdk/test_hook_pipeline.py
+            - tests/sdk/test_platform_generic_http.py
+            - tests/sdk/test_platform_protocols.py
+            - tests/sdk/test_platform_registry.py
+            - tests/sdk/test_platform_types.py
+            - tests/sdk/test_runtime_platform_session.py
+            - tests/sdk/test_session_keys.py
+            - tests/sdk/test_skill_context.py
+            - tests/sdk/test_skill_context_secret_surface.py
+            - tests/sdk/test_skill_package.py
+            - tests/sdk/test_tool_registry.py
+            - tests/test_api_i18n.py
+            - tests/test_artifact_store_immutable.py
+            - tests/test_async_tool_dispatch_settings.py
+            - tests/test_attachment_contract.py
+            - tests/test_audit_observability_config.py
+            - tests/test_audit_redaction.py
+            - tests/test_background_context_scope.py
+            - tests/test_canonical_json.py
+            - tests/test_ci_validation_cache.py
+            - tests/test_collection_layout.py
+            - tests/test_configuration_convergence.py
+            - tests/test_configuration_inventory.py
+            - tests/test_contracts.py
+            - tests/test_error_catalog.py
+            - tests/test_logging.py
+            - tests/test_logging_redaction.py
+            - tests/test_memory_redesign_content_size.py
+            - tests/test_memory_redesign_error_catalog.py
+            - tests/test_memory_redesign_settings.py
+            - tests/test_memory_redesign_spec_contract.py
+            - tests/test_platform_settings_schema.py
+            - tests/test_secret_policy_docs.py
+            - tests/test_secret_ref_residue.py
+            - tests/test_settings.py
+            - tests/test_skill_artifact_cache.py
+            - uv.lock
+- spec_id: harness-time
+  path: time/harness-time.md
+  status: active
+  hashes:
+    file_sha256: 79c415b2d14313031688d5d26d76096f5eb20096850b239c75c0c334f7464fc5
+    metadata_sha256: cdae795612a48e448e96bc35b536f56fe9278de82f1c6b2be6d47e9d3a473c41
+    rules_sha256: 3f415b413ed6db83724cefc2f20674f24c10b3cdc9e2d3c6ae8487e991168d80
+  selected_by: path
+  reason: 新增时间列与展示格式
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-time-001
+    summary: 数据库时间存储遵循 RULE-data-001（统一 `timestamptz`）；Console 展示统一 `YYYY-MM-DD HH:mm:ss`（出参必须带
+      offset）；调度时区使用 IANA 时区（如 `Asia/Shanghai`）。
+    text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+    enforcement: required
+    verifier_ref: harness-time#RULE-time-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.backend.design.md
+          section_id: 3.6 规则落点索引
+          item_id: RULE-13
+          artifact_sha256: 800730b9712f352eee25e1e6b5850622536566bd1c4317322eea7837b2ca708a
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-003
+          item_id: RULE-time-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-11-02T15:03:35.734453+00:00'
+          status: verified
+          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: bb493fc7b9ecc43a8fe7f69493c206241caf391c0ccf4b3ce4df288f3d4bae68
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 559aebd013c41c901c0930a1268ef172cdabd3e098d8f5ba5f351b4e5d2437ee
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed in 0.62s\n......................................................\
+              \                   [100%]\n=============================== warnings\
+              \ summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              54 passed, 6228 deselected, 2 warnings in 31.56s\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui
+  path: ui/harness-ui.md
+  status: active
+  hashes:
+    file_sha256: 7c985066130bc2040ca7a287d5b322165bc9c225b77f57fb2e317770dd1aefe5
+    metadata_sha256: e3676fc5a7369c049341d0151c4b62f692ad5760dc88453bd6248651446349a4
+    rules_sha256: 362fb10c5a0e3b4fc3f6d77fd4587a8797c9c45e39e3c6ea8206d9c92749df6c
+  selected_by: path
+  reason: 新增列表页与菜单项
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-001
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十二项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/学习与经验/系统设置。
+    text_sha256: 0410bf4fd26225f76a733564e42ebb4853e13562d1690d5c61d2e4db4d813fc2
+    enforcement: required
+    verifier_ref: harness-ui#RULE-ui-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.frontend.design.md
+          section_id: 2.4.1 业务规则与约束
+          item_id: RULE-21
+          artifact_sha256: 18e4fbe0f3d51e2e877470c24d2d04740d6cfe5519d11bf2b53e99f94686fc07
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-006
+          item_id: RULE-ui-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-11-02T15:03:43.716892+00:00'
+          status: verified
+          rule_text_sha256: 0410bf4fd26225f76a733564e42ebb4853e13562d1690d5c61d2e4db4d813fc2
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: baf5461b85fb04a1cd88466b2f73e91f7477920ffcacc28c481f99507639c10b
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
+              && npm --prefix apps/console-platform/frontend run build
+            exit_code: 0
+            stdout_sha256: 300a127aaee144941e30619496868c584bdda9adb3f848e500f4bbb9e5cfb78f
+            stderr_sha256: ccb6bf354a0674eeb1e49df9a880a000b75240079fdb849282bb899d81eeb58c
+            output: 'M.css                   11.08 kB │ gzip:   2.45 kB
+
+              dist/assets/ModelPage-B06roWo5.css                   15.08 kB │ gzip:   1.86
+              kB
+
+              dist/assets/DetailGrid-F02iqEBA.css                  24.70 kB │ gzip:   3.28
+              kB
+
+              dist/assets/DetailSideSheet-6T4S8pYy.css             30.29 kB │ gzip:   3.44
+              kB
+
+              dist/assets/index-CCevRWM3.css                      746.51 kB │ gzip:  88.42
+              kB
+
+              dist/assets/TableText-VyH4TeqY.js                     0.16 kB │ gzip:   0.15
+              kB
+
+              dist/assets/StatusTag-YIWiNBx0.js                     0.21 kB │ gzip:   0.19
+              kB
+
+              dist/assets/CopyableText-Bkxv3u9H.js                  0.27 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconMinus-BScD5Q79.js                     0.39 kB │ gzip:   0.30
+              kB
+
+              dist/assets/MetricCards-D7ljsTvM.js                   0.40 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconPlus-BlFYYxvu.js                      0.42 kB │ gzip:   0.31
+              kB
+
+              dist/assets/IconMinusCircle-DSu6ipcl.js               0.46 kB │ gzip:   0.33
+              kB
+
+              dist/assets/CopyButton-B4Lh7rql.js                    0.56 kB │ gzip:   0.38
+              kB
+
+              dist/assets/IconDownload-b0b598J-.js                  0.58 kB │ gzip:   0.41
+              kB
+
+              dist/assets/FormModal-DQo9SRVY.js                     0.61 kB │ gzip:   0.38
+              kB
+
+              dist/assets/ConsolePage-BTVOba1d.js                   0.75 kB │ gzip:   0.32
+              kB
+
+              dist/assets/EmptyState-0XZBKxUX.js                    0.83 kB │ gzip:   0.40
+              kB
+
+              dist/assets/models-nw046m9N.js                        1.47 kB │ gzip:   0.69
+              kB
+
+              dist/assets/mcpServers-3IbreDmO.js                    1.47 kB │ gzip:   0.48
+              kB
+
+              dist/assets/skills-oQaigZ4S.js                        1.64 kB │ gzip:   0.55
+              kB
+
+              dist/assets/platforms-DT0in2lP.js                     2.09 kB │ gzip:   0.76
+              kB
+
+              dist/assets/index-Cldz5Jmb.js                         2.16 kB │ gzip:   1.04
+              kB
+
+              dist/assets/users-BtHZGx_D.js                         2.68 kB │ gzip:   0.89
+              kB
+
+              dist/assets/learning-BeqoAP1V.js                      2.99 kB │ gzip:   0.99
+              kB
+
+              dist/assets/DateTimeText-BRi3L7gn.js                  3.14 kB │ gzip:   1.38
+              kB
+
+              dist/assets/EntityNameText-DLChK-PZ.js                5.48 kB │ gzip:   2.12
+              kB
+
+              dist/assets/SchedulePage-CbT8ptpm.js                  5.79 kB │ gzip:   2.20
+              kB
+
+              dist/assets/LearningPage-DnTFcPBq.js                  5.82 kB │ gzip:   2.21
+              kB
+
+              dist/assets/TaskDetailSideSheet-DlVRwzWI.js           6.00 kB │ gzip:   2.38
+              kB
+
+              dist/assets/ConfirmAction-CHaaiUIX.js                 6.76 kB │ gzip:   2.33
+              kB
+
+              dist/assets/ExperienceList-BFpQQAa0.js                7.19 kB │ gzip:   2.14
+              kB
+
+              dist/assets/TaskPage-Cxoam8U8.js                     12.20 kB │ gzip:   4.07
+              kB
+
+              dist/assets/SettingsPage-CRMVDdkQ.js                 15.43 kB │ gzip:   4.94
+              kB
+
+              dist/assets/AuditPage-BuMKyyfC.js                    20.11 kB │ gzip:   6.98
+              kB
+
+              dist/assets/McpPage-CIBFwxIC.js                      20.22 kB │ gzip:   5.93
+              kB
+
+              dist/assets/AgentPage-CVFbS7KR.js                    22.14 kB │ gzip:   6.06
+              kB
+
+              dist/assets/PlatformPage-B0s0r0I8.js                 23.75 kB │ gzip:   7.32
+              kB
+
+              dist/assets/RelatedDetailController-41xIOswQ.js      28.11 kB │ gzip:   8.62
+              kB
+
+              dist/assets/DetailSideSheet-BClScd5g.js              31.57 kB │ gzip:   9.26
+              kB
+
+              dist/assets/UserPage-npgUDCTT.js                     32.53 kB │ gzip:   8.94
+              kB
+
+              dist/assets/ModelPage-70NFcJ-L.js                    58.72 kB │ gzip:  14.67
+              kB
+
+              dist/assets/ChatPage-DLts_cgk.js                    130.46 kB │ gzip:  35.54
+              kB
+
+              dist/assets/DetailGrid-oEHAEO9g.js                  156.92 kB │ gzip:  44.24
+              kB
+
+              dist/assets/SkillPage-CXo0vUqD.js                   451.32 kB │ gzip:
+              136.17 kB
+
+              dist/assets/OverviewPage-CLKhYDi0.js              1,163.49 kB │ gzip:
+              390.94 kB
+
+              dist/assets/index-BGh9Sk5s.js                     1,435.64 kB │ gzip:
+              422.48 kB
+
+              ✓ built in 3.99s
+
+
+              (!) Some chunks are larger than 500 kB after minification. Consider:
+
+              - Using dynamic import() to code-split the application
+
+              - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+              '
+      review:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui-detail
+  path: ui-detail/harness-ui-detail.md
+  status: active
+  hashes:
+    file_sha256: 54e5da3573180fc74c6a11795788ed90bfdc54fce223f9619260192d79db9666
+    metadata_sha256: 2818f79232531f263002a64153f499315a8b03f2e93cb8079fe0492c9d5becde
+    rules_sha256: 4cd416fc91fef9809fdf6ef80701c09a46d3884e38e96ce0e9d814028449b989
+  selected_by: path
+  reason: 经验详情使用 SideSheet 与操作列
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-detail-001
+    summary: 详情使用 SideSheet：标题与副标题居左，关闭 X 同行靠右；列表对象级操作集中到主列表最后一列「操作」，详情不重复渲染，Tabs
+      位于其下；关系操作保存后立即影响后续新 Run/Task。
+    text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+    enforcement: required
+    verifier_ref: harness-ui-detail#RULE-ui-detail-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: experience-management.frontend.design.md
+          section_id: 2.4.1 业务规则与约束
+          item_id: RULE-22
+          artifact_sha256: 18e4fbe0f3d51e2e877470c24d2d04740d6cfe5519d11bf2b53e99f94686fc07
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: experience-management.md
+          section_id: TASK-005
+          item_id: RULE-ui-detail-001
+          artifact_sha256: 9aa3ed458256631a1c66e814f46890efe4b7a1ef20e3caeceba637c9291d75ae
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-11-02T15:03:46.943248+00:00'
+          status: verified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: head:19b2cb60771e6bcdc6ec31d0cb8ac701240f4131
+          result_sha256: 2b2cfa1c4d5d1aad5afaeb2228d9a5785330aa48fc54577f4f1d92576e8a82c4
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: e0410ceafee88b8aaeb15738367334618b365f0f42b0050d033303577734c59c
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............                                                             [100%]
+
+              12 passed in 0.63s
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
