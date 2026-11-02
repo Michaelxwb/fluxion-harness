@@ -47,6 +47,7 @@ RUNTIME_TABLES = ("conversation", "run_record", "runtime_snapshot", "canonical_e
 CLEANUP_ORDER = (
     "channel_notification",
     "channel_notification_feed",
+    "model_call_lease",
     "memory_consolidation_job",
     "memory_command_receipt",
     "user_memory_history",

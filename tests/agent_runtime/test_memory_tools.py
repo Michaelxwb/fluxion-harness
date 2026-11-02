@@ -104,7 +104,8 @@ async def test_recall_queries_fresh_rows_instead_of_injection_cache(async_tool_d
 async def test_recall_limit_covers_complete_candidates_and_zero(async_tool_database):
     ctx = context()
     await seed_facts(async_tool_database, ctx, 21)
-    tool_set = tools(async_tool_database, ctx)
+    policy = MemoryPolicySettings(max_recall_bytes=16384, recall_default_limit=20)
+    tool_set = tools(async_tool_database, replace(ctx, settings=policy))
     for limit in (0, 1, 20):
         assert len((await recall(tool_set, {"limit": limit}))["items"]) == limit
 
