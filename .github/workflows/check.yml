@@ -121,10 +121,10 @@ jobs:
       - name: 运行 ${{ matrix.shard.name }} 分片并写 validation cache
         run: uv run python scripts/ci_validation_cache.py --validator "${{ matrix.shard.validator }}" --json
       - name: 准备 validation cache 分片
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.export_validation_cache == 'true'
+        if: github.event_name == 'workflow_dispatch' && inputs.export_validation_cache
         run: cp .code-flow/.validation-cache.json "validation-cache-${{ matrix.shard.name }}.json"
       - name: 上传 validation cache 分片（仅手动导出）
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.export_validation_cache == 'true'
+        if: github.event_name == 'workflow_dispatch' && inputs.export_validation_cache
         uses: actions/upload-artifact@v4
         with:
           name: validation-cache-entry-${{ matrix.shard.name }}
@@ -252,7 +252,7 @@ jobs:
   # 让本地 archive 的 heavy acceptance 命中缓存；正常 PR 不增加这份开销。
   acceptance-cache:
     name: acceptance-cache (full validator)
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.export_validation_cache == 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.export_validation_cache
     runs-on: ubuntu-latest
     timeout-minutes: 60
     services:
@@ -314,7 +314,7 @@ jobs:
   # 所以 upload 时先按 job 复制成唯一文件名，再在这里统一 merge。
   validation-cache-merge:
     name: validation-cache (merge)
-    if: always() && github.event_name == 'workflow_dispatch' && github.event.inputs.export_validation_cache == 'true'
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.export_validation_cache
     needs: [backend-tests, acceptance-cache]
     runs-on: ubuntu-latest
     steps:
