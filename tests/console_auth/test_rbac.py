@@ -64,6 +64,8 @@ async def test_builder_cannot_access_credentials_routes(
     for path in (
         f"/api/v1/project-platforms/{platform_id}/user-credentials",
         f"/api/v1/project-platforms/{platform_id}/shared-credential",
+        f"/api/v1/project-platforms/{platform_id}/shared-credential?reveal=true",
+        f"/api/v1/project-platforms/{platform_id}/users/{uuid.uuid4()}/credential?reveal=true",
     ):
         forbidden = await client.get(path, headers=tenant_headers(auth))
         assert forbidden.status_code == 403, path

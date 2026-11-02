@@ -2,7 +2,7 @@
 
 ## 运行方式
 
-复用现有 Python HMAC 登录实现，只注册一个 MSS AK/SK Adapter（mss-hmac-session），MSSP/MSSW 平台实例都选择它。Branch Tag 与业务 CSRF 请求头在平台配置 JSON 中指定；用户/账号、平台实例与缓存隔离。模块随 Runtime/Worker 部署，无独立微服务。
+复用现有 Python HMAC 登录实现，只注册一个 MSS Adapter（mss），MSSP/MSSW 平台实例都选择它。Branch Tag 与业务 CSRF 请求头在平台配置 JSON 中指定；用户/账号、平台实例与缓存隔离。模块随 Runtime/Worker 部署，无独立微服务。
 
 平台公共配置仍用 JSON，Base URL 在 resolver_config.base_url；AK/SK 只在用户或共享凭据表中保存。保存配置不等于实际登录成功。认证、权限或业务错误在 Skill 真正执行时返回。
 
@@ -68,7 +68,7 @@ uv run --extra dev pytest -q tests/sdk/test_mss_sessions.py tests/sdk/test_platf
 
 ## 统一 Adapter 的平台配置
 
-界面只有“MSS AK/SK”，不再提供 MSSP/MSSW 两个 Adapter 选项。平台实例仍可以分别命名为 MSSP 和 MSSW，各自填写 Base URL、AK/SK，并隔离缓存。默认公共参数为 MSSP 协议头；MSSW 实例在配置 JSON 中设置：
+界面只有“MSS”，不再提供 MSSP/MSSW 两个 Adapter 选项。平台实例仍可以分别命名为 MSSP 和 MSSW，各自填写 Base URL、AK/SK，并隔离缓存。默认公共参数为 MSSP 协议头；MSSW 实例在配置 JSON 中设置：
 
 ```json
 {
@@ -77,4 +77,23 @@ uv run --extra dev pytest -q tests/sdk/test_mss_sessions.py tests/sdk/test_platf
 }
 ```
 
-MSSP 实例可使用默认值，或显式设置 branch_tag 为 MSSP-ADAPTER、csrf_header 为 X-CSRFToken。其余登录路径、Host 等按环境填写。已有使用旧 Adapter key 的本地平台记录需改为 mss-hmac-session，并带上相应协议头参数；不需要在 SDK 中保留旧 Adapter 别名。
+MSSP 实例可使用默认值，或显式设置 branch_tag 为 MSSP-ADAPTER、csrf_header 为 X-CSRFToken。其余登录路径、Host 等按环境填写。已有使用旧 Adapter key 的本地平台记录需改为 mss，并带上相应协议头参数；不需要在 SDK 中保留旧 Adapter 别名。
+
+## JSON 字段用途与登录请求
+
+平台 JSON（公共参数，不得填写秘密）：`session_endpoint` 为登录路径，`health_endpoint` 为校验路径，`host_header` 为 Host 头，`login_headers` 为公共登录请求头，`login_body` 为显式公共请求体；Base URL 仍填写在平台访问地址中。
+
+用户/共享凭据 JSON 的顶层只接受 `ak`、`sk`、`headers`、`body`。未知顶层字段明确拒绝；body 内可自由定义字段和嵌套内容。与旧 MSSClaw 同样，AK 放在 Authorization 的 Access 中，SK 只用于本地签名，不自动发送原文。连接配置不能放进用户 body 来改变请求目的地。
+
+默认 `auth_mode: "hmac"`，只填 AK/SK 时发送空请求体：
+```json
+{"ak":"example-ak","sk":"example-sk"}
+```
+需要额外请求头或请求体时显式配置：
+```json
+{"ak":"example-ak","sk":"example-sk","headers":{"X-Account":"example"},"body":{"region":"example","options":{"scopes":["read"]}}}
+```
+
+请求体仅合并平台 `login_body` 与凭据 `body`，同名键由凭据覆盖，嵌套对象整体替换；两者均未配置时发送空字符串。配置 `{}` 则显式发送空 JSON 对象。非空请求体摘要参与 HMAC 签名；协议生成的认证头优先于自定义同名头。`auth_mode: "json"` 不生成 HMAC Authorization，可在凭据 headers/body 中按接口协议填写认证内容；登录响应仍须包含业务码与登录 Cookie。
+
+登录参数只用于获取 Session，不自动注入业务请求。Redis 仍负责存取、7200 秒滑动过期、并发登录收敛、账号隔离与失效防复活。Adapter 版本升为 2，使旧版本缓存不再命中；AK/SK 和私密登录 headers/body 不进入 Session 缓存。真实 MSS 环境仍须联调。

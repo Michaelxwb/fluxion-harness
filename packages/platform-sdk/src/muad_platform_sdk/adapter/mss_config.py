@@ -3,7 +3,7 @@
 from typing import Literal
 from urllib.parse import urljoin, urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, SecretStr, ValidationError
 
 from ..types import PlatformConfig, SecretValue
 
@@ -17,6 +17,10 @@ class PlatformAuthError(RuntimeError):
 
 class MSSSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    auth_mode: Literal["hmac", "json"] = Field(default="hmac", title="登录认证方式")
+    login_body: dict[str, JsonValue] | None = Field(default=None, title="公共登录请求体")
+    login_headers: dict[str, str] = Field(default_factory=dict, title="公共登录请求头")
+    login_cookie_name: str = Field(default="soc-token", min_length=1, title="登录 Cookie 名")
     session_endpoint: str = Field(
         default="/gateway/mss-auth-acl-service/v1/certification/login_agent", title="登录接口路径"
     )
@@ -50,9 +54,24 @@ def settings(platform: PlatformConfig) -> MSSSettings:
         raise PlatformAuthError("PLATFORM_CONFIG_INVALID") from None
 
 
-def credentials(value: SecretValue) -> AKSKCredential:
+class MSSCredential(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, hide_input_in_errors=True)
+    ak: SecretStr | None = Field(default=None, min_length=1, json_schema_extra={"x-secret": True})
+    sk: SecretStr | None = Field(default=None, min_length=1, json_schema_extra={"x-secret": True})
+    headers: dict[str, str] = Field(default_factory=dict, repr=False)
+    body: dict[str, JsonValue] | None = Field(default=None, repr=False)
+
+
+def credentials(value: SecretValue) -> MSSCredential:
     try:
-        return AKSKCredential.model_validate_json(value.value)
+        return MSSCredential.model_validate_json(value.value)
+    except ValidationError:
+        raise PlatformAuthError("CREDENTIAL_INVALID") from None
+
+
+def signing_credentials(payload: MSSCredential) -> AKSKCredential:
+    try:
+        return AKSKCredential.model_validate({"ak": payload.ak, "sk": payload.sk})
     except ValidationError:
         raise PlatformAuthError("CREDENTIAL_INVALID") from None
 

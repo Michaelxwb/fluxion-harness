@@ -9,21 +9,14 @@ const context = { exports: {}, require: () => ({}) };
 vm.runInNewContext(ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX }
 }).outputText, context);
-const { credentialFields, validateCredentialValues } = context.exports;
-const fields = credentialFields({ credential_schema: {
-  required: ['ak', 'sk'], properties: { ak: { 'x-secret': true }, sk: { 'x-secret': true } }
-}});
-test('AK/SK both required and masked; no public config fields', () => {
-  assert.equal(fields.map(f => f.name).join(','), 'ak,sk');
-  assert.ok(fields.every(f => f.secret && f.required));
-  assert.equal(validateCredentialValues(fields, { ak: 'example' }).field, 'sk');
-  assert.equal(validateCredentialValues(fields, { sk: 'example' }).field, 'ak');
-  assert.equal(validateCredentialValues(fields, { ak: 'example', sk: 'example' }), null);
+const { parseCredentialJson } = context.exports;
+test('custom credentials preserve nested objects, arrays and non-string values', () => {
+  const value = { custom_auth: { key: 'example', enabled: true }, scopes: ['read'], ttl: 90 };
+  assert.equal(JSON.stringify(parseCredentialJson(JSON.stringify(value))), JSON.stringify(value));
+  assert.equal(JSON.stringify(parseCredentialJson('{}')), '{}');
 });
-test('generic credential alternatives keep existing semantics', () => {
-  const generic = credentialFields({ credential_schema: { properties: {
-    token: {}, username: {}, password: {}
-  }}});
-  assert.equal(validateCredentialValues(generic, { token: 'example' }), null);
-  assert.equal(validateCredentialValues(generic, { username: 'example' }).field, 'password');
+test('reject malformed JSON and non-object roots', () => {
+  for (const input of ['', '{', 'null', '[]', '"token"', '42', 'true']) {
+    assert.throws(() => parseCredentialJson(input));
+  }
 });

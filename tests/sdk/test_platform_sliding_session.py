@@ -342,3 +342,28 @@ def test_task_snapshot_freezes_only_platform_keys():
     frozen = _skill_entry(skill)
     assert frozen["platforms"] == ["mssp", "mssw"]
     assert "frontmatter" not in frozen and "unrelated_private_field" not in frozen
+
+
+@pytest.mark.parametrize("scope", ["user:test", "shared:default"])
+async def test_custom_json_login_through_redis(platform_server, cache, scope):
+    server, platform, _ = platform_server
+    redis, _, manager, _ = cache
+    server.json_login = True
+    server.expected_login_body = {"region": "private", "options": {"roles": ["read"]}}
+    platform = platform.model_copy(
+        update={
+            "adapter_config": {"auth_mode": "json", "csrf_enabled": True, "login_body": {"region": "public"}}
+        }
+    )
+    credential = SecretValue(value=json.dumps({"body": server.expected_login_body}), version="1")
+    req = request_for(platform, credential, scope)
+    first = await manager.acquire(req)
+    assert server.last_login_body == server.expected_login_body
+    await redis.expire(manager.key(req), 60)
+    assert (await manager.acquire(req)).cookie == first.cookie
+    assert len(server.sessions) == 1
+    assert 7198 <= await redis.ttl(manager.key(req)) <= 7200
+    stored = await redis.get(manager.key(req))
+    assert b"private" not in stored and b"roles" not in stored
+    await manager.invalidate(platform=platform, actor_scope=scope)
+    assert await redis.get(manager.key(req)) is None

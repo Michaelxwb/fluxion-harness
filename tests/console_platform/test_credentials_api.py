@@ -105,6 +105,12 @@ async def test_s02_user_credential_plaintext_is_stored_but_never_echoed(
     assert "plain-secret-token" not in fetched.text
     assert "credential_json" not in body
 
+    revealed = await client.get(url, params={"reveal": True}, headers=_headers(tenant))
+    assert revealed.status_code == 200
+    assert "credential_json" not in revealed.json()["data"]
+    assert "plain-secret-token" not in revealed.text
+    assert revealed.headers["cache-control"] == "no-store"
+
     stored = await _stored_credential(tenant.tenant_id, user_id, platform_id)
     assert stored is not None
     assert stored["credential_json"] == {"token": "plain-secret-token"}
@@ -300,3 +306,76 @@ async def test_shared_credential_audit_never_contains_plaintext(
         ).all()
     assert entries
     assert all("shared-plain-secret" not in str(entry) for entry in entries)
+
+
+async def test_shared_credential_cannot_be_revealed_even_with_query_parameter(
+    client: AsyncClient, tenant: TenantContext, platform_bundle: dict[str, Any]
+) -> None:
+    url = f"/api/v1/project-platforms/{platform_bundle['platform_id']}/shared-credential"
+    payload = {"token": "shared-edit-canary"}
+    saved = await client.put(url, json=payload, headers=_headers(tenant))
+    assert saved.status_code == 200
+    assert "shared-edit-canary" not in saved.text
+    revealed = await client.get(url, params={"reveal": True}, headers=_headers(tenant))
+    assert "credential_json" not in revealed.json()["data"]
+    assert "shared-edit-canary" not in revealed.text
+    assert revealed.headers["cache-control"] == "no-store"
+    await client.put(url, json={"token": "replacement"}, headers=_headers(tenant))
+    metadata = await client.get(url, headers=_headers(tenant))
+    assert "credential_json" not in metadata.json()["data"]
+    async with get_session_factory()() as session:
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT before_json, after_json FROM control.config_audit_log "
+                    "WHERE resource_type = 'shared_credential_ref'"
+                )
+            )
+        ).all()
+    assert all("shared-edit-canary" not in str(row) for row in rows)
+
+
+async def test_mss_adapter_key_migration_preserves_credentials(
+    client: AsyncClient, tenant: TenantContext, platform_bundle: dict[str, Any]
+) -> None:
+    import importlib.util
+    from pathlib import Path
+
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    url = (
+        f"/api/v1/project-platforms/{platform_bundle['platform_id']}"
+        f"/users/{platform_bundle['user_id']}/credential"
+    )
+    assert (
+        await client.put(url, json={"token": "migration-canary"}, headers=_headers(tenant))
+    ).status_code == 200
+    spec = importlib.util.spec_from_file_location(
+        "rename_mss", Path(__file__).parents[2] / "migrations/versions/0035_rename_mss_adapter.py"
+    )
+    assert spec and spec.loader
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    async with get_session_factory()() as session:
+        await session.execute(
+            text("UPDATE control.project_platform SET adapter_key = :key WHERE id = :id"),
+            {"key": "mss-hmac-session", "id": platform_bundle["platform_id"]},
+        )
+        connection = await session.connection()
+
+        def upgrade(sync_connection):
+            with Operations.context(MigrationContext.configure(sync_connection)):
+                migration.upgrade()
+
+        await connection.run_sync(upgrade)
+        key = await session.scalar(
+            text("SELECT adapter_key FROM control.project_platform WHERE id = :id"),
+            {"id": platform_bundle["platform_id"]},
+        )
+        assert key == "mss"
+        await session.commit()
+    stored = await _stored_credential(
+        tenant.tenant_id, platform_bundle["user_id"], platform_bundle["platform_id"]
+    )
+    assert stored and stored["credential_json"] == {"token": "migration-canary"}

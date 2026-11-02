@@ -51,6 +51,10 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(200 if valid else 401, 0 if valid else 9348)
 
     def do_POST(self) -> None:
+        raw = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+        self.server.last_login_headers = dict(self.headers)
+        self.server.last_login_raw = raw
+        self.server.last_login_body = json.loads(raw) if raw else None
         try:
             valid = self.verify()
         except (ValueError, KeyError):
@@ -70,6 +74,8 @@ class Handler(BaseHTTPRequestHandler):
             return False
         if self.headers.get("x-csrftoken") != self.server.csrf_token:
             return False
+        if getattr(self.server, "json_login", False):
+            return self.server.last_login_body == self.server.expected_login_body
         fields = dict(piece.split("=", 1) for piece in self.headers.get("Authorization", "").split(","))
         stamp = fields["sign-date"]
         nonce = self.headers.get("Agent-Nonce", "")
@@ -77,10 +83,7 @@ class Handler(BaseHTTPRequestHandler):
             return False
         if fields["Access"] != self.server.ak or fields["algorithm"] != "HMAC-SHA256":
             return False
-        if (
-            fields["SignedHeaders"] != "content-type;sign-date"
-            or int(self.headers.get("Content-Length", "0")) != 0
-        ):
+        if fields["SignedHeaders"] != "content-type;sign-date":
             return False
         if self.headers.get("X-Branch-Tag") not in {"MSSW-ADAPTER", "MSSP-ADAPTER"}:
             return False
@@ -91,6 +94,8 @@ class Handler(BaseHTTPRequestHandler):
             f"POST\n{path}\n{query}content-type:{self.headers.get('Content-Type')}\n"
             f"sign-date:{stamp}\ncontent-type;sign-date"
         )
+        if self.server.last_login_raw:
+            canonical += "\n" + hashlib.sha256(self.server.last_login_raw).hexdigest().upper()
         digest = hashlib.sha256(canonical.encode()).hexdigest().upper()
         signature = (
             hmac.new(self.server.sk.encode(), f"HMAC-SHA256\n{stamp}\n{digest}".encode(), hashlib.sha256)

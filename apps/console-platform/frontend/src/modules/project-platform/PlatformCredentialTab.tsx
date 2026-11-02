@@ -13,18 +13,15 @@ import { FormModal } from '../../components/common/FormModal';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import {
   CredentialSchemaFields,
-  credentialFields,
-  validateCredentialValues
+  parseCredentialJson
 } from './CredentialSchemaFields';
 import {
   deleteSharedCredential,
-  getAdapter,
   getSharedCredential,
   listPlatformCredentials,
   listUsers,
   saveSharedCredential,
   saveUserCredential,
-  type AdapterMetadata,
   type CredentialState,
   type PlatformCredentialRow,
   type PlatformItem
@@ -49,7 +46,6 @@ const DEFAULT_PAGE_SIZE = 15;
 
 export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
   const { t } = useTranslation();
-  const [adapter, setAdapter] = useState<AdapterMetadata | null>(null);
   const [rows, setRows] = useState<PlatformCredentialRow[]>([]);
   const [users, setUsers] = useState<{ id: string; display_name: string; user_code: string }[]>([]);
   const [userSearchInput, setUserSearchInput] = useState('');
@@ -63,7 +59,7 @@ export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
   const [targetUser, setTargetUser] = useState<string>('');
   const [formMode, setFormMode] = useState<'user' | 'shared' | null>(null);
   const [saving, setSaving] = useState(false);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const formApi = useRef<FormApi | null>(null);
   const requestSeq = useRef(0);
@@ -71,16 +67,12 @@ export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
   const reload = useCallback(async () => {
     const current = ++requestSeq.current;
     setLoading(true);
-    const [adapterResult, credentialsResult, sharedResult] = await Promise.allSettled([
-      getAdapter(props.platform.adapter_key),
+    const [credentialsResult, sharedResult] = await Promise.allSettled([
       listPlatformCredentials(props.platform.platform_id, { page, page_size: pageSize }),
       getSharedCredential(props.platform.platform_id)
     ]);
     if (current !== requestSeq.current) {
       return;
-    }
-    if (adapterResult.status === 'fulfilled') {
-      setAdapter(adapterResult.value);
     }
     if (sharedResult.status === 'fulfilled') {
       setSharedCredential(sharedResult.value);
@@ -125,18 +117,16 @@ export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
     };
   }, [formMode, userSearch]);
 
-  const fields = credentialFields(adapter);
-
   const openUserForm = (userId = ''): void => {
     setTargetUser(userId);
-    setValues({});
+    setValues('');
     setFormError(null);
     setFormMode('user');
   };
 
   const openSharedForm = (): void => {
     setTargetUser('');
-    setValues({});
+    setValues('');
     setFormError(null);
     setFormMode('shared');
   };
@@ -144,36 +134,32 @@ export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
   const closeForm = (): void => {
     setFormMode(null);
     setTargetUser('');
-    setValues({});
+    setValues('');
     setFormError(null);
   };
 
   const save = async (): Promise<void> => {
-    const invalid = validateCredentialValues(fields, values);
-    if (invalid) {
-      if (invalid.field) {
-        formApi.current?.setError(invalid.field, t(invalid.key));
-      } else {
-        setFormError(t(invalid.key));
-      }
+    let credential: Record<string, unknown>;
+    try {
+      credential = parseCredentialJson(values);
+    } catch {
+      setFormError(t('platform.credentials.errorJson'));
       return;
     }
     setSaving(true);
     setFormError(null);
     try {
       if (formMode === 'user' && targetUser) {
-        await saveUserCredential(props.platform.platform_id, targetUser, values);
+        await saveUserCredential(props.platform.platform_id, targetUser, credential);
       } else if (formMode === 'shared') {
-        await saveSharedCredential(props.platform.platform_id, values);
+        await saveSharedCredential(props.platform.platform_id, credential);
       }
       closeForm();
       await reload();
       props.onChanged?.();
     } catch (error) {
       const body = apiErrorBody(error);
-      if (body?.code === 'COMMON_VALIDATION_ERROR' && fields.length > 0) {
-        formApi.current?.setError(fields[0].name, body.msg);
-      } else if (body?.msg) {
+      if (body?.msg) {
         setFormError(body.msg);
       } else {
         setFormError(t('common.saveFailed'));
@@ -312,9 +298,8 @@ export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
           />
         ) : null}
         <CredentialSchemaFields
-          adapter={adapter}
-          values={values}
-          onChange={(name, value) => setValues((prev) => ({ ...prev, [name]: value }))}
+          value={values}
+          onChange={setValues}
         />
         <div className="detail-hint">{t('platform.credentials.notEchoed')}</div>
       </FormModal>

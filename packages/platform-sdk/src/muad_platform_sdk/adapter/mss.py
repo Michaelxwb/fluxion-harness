@@ -1,4 +1,4 @@
-"""Unified MSS AK/SK adapter; no shared cookie jar, credentials, or implicit business retries."""
+"""Unified MSS adapter; no shared cookie jar, credentials, or implicit business retries."""
 
 from __future__ import annotations
 
@@ -18,7 +18,15 @@ from ..types import (
     SecretValue,
     SessionMode,
 )
-from .mss_config import AKSKCredential, MSSSettings, PlatformAuthError, credentials, platform_url, settings
+from .mss_config import (
+    MSSCredential,
+    MSSSettings,
+    PlatformAuthError,
+    credentials,
+    platform_url,
+    settings,
+    signing_credentials,
+)
 from .mss_signing import login_authorization
 
 MAX_RESPONSE = 1024 * 1024
@@ -96,13 +104,19 @@ def restore_cookies(session: PlatformSession) -> httpx.Cookies:
     return jar
 
 
+def login_body(config: MSSSettings, credential: MSSCredential) -> str:
+    if config.login_body is None and credential.body is None:
+        return ""
+    return json.dumps({**(config.login_body or {}), **(credential.body or {})}, ensure_ascii=False)
+
+
 class MSSAdapter:
-    key = "mss-hmac-session"
-    name = "MSS AK/SK"
-    version = "1"
+    key = "mss"
+    name = "MSS"
+    version = "2"
     session_mode = SessionMode.SESSION
     platform_config_schema = MSSSettings.model_json_schema()
-    credential_schema = AKSKCredential.model_json_schema()
+    credential_schema = MSSCredential.model_json_schema()
 
     def _client(self, config: MSSSettings) -> httpx.AsyncClient:
         context = ssl.create_default_context(cafile=config.ca_bundle or None)
@@ -113,7 +127,9 @@ class MSSAdapter:
     async def authenticate(self, platform: PlatformConfig, credential: SecretValue) -> PlatformSession:
         config, secret = settings(platform), credentials(credential)
         url = platform_url(platform, config.session_endpoint)
-        headers = {"Host": config.host_header} if config.host_header else {}
+        headers = {key.lower(): value for key, value in {**config.login_headers, **secret.headers}.items()}
+        if config.host_header:
+            headers["host"] = config.host_header
         async with self._client(config) as client:
             if config.csrf_enabled:
                 response = await send(client, "GET", platform_url(platform, config.csrf_endpoint), headers)
@@ -124,17 +140,20 @@ class MSSAdapter:
                 headers["x-csrftoken"] = csrf
             headers.update(
                 {
-                    "Content-Type": "application/json",
-                    "X-Branch-Tag": config.branch_tag,
-                    "Agent-Nonce": uuid.uuid4().hex,
-                    "Authorization": login_authorization(
-                        url, secret.ak.get_secret_value(), secret.sk.get_secret_value(), int(time.time())
-                    ),
+                    "content-type": "application/json",
+                    "x-branch-tag": config.branch_tag,
+                    "agent-nonce": uuid.uuid4().hex,
                 }
             )
-            response = await send(client, "POST", url, headers)
+            body = login_body(config, secret)
+            if config.auth_mode == "hmac":
+                signing = signing_credentials(secret)
+                headers["authorization"] = login_authorization(
+                    url, signing.ak.get_secret_value(), signing.sk.get_secret_value(), int(time.time()), body
+                )
+            response = await send(client, "POST", url, headers, body)
             check(response)
-            if not any(c.name == "soc-token" and c.value for c in response.cookies.jar):
+            if not any(c.name == config.login_cookie_name and c.value for c in response.cookies.jar):
                 raise PlatformAuthError("PLATFORM_LOGIN_NO_COOKIE")
             return self._session(client, platform, config)
 
