@@ -56,6 +56,9 @@ MEMORY_CONSOLIDATION_ENQUEUE_METRIC: Final = "memory_consolidation_enqueue_total
 MEMORY_CONSOLIDATION_METRIC: Final = "memory_consolidation_total"
 MEMORY_QUOTA_EVICTIONS_METRIC: Final = "memory_quota_evictions_total"
 MEMORY_EXPIRY_METRIC: Final = "memory_expiry_total"
+LEARNING_PIPELINE_FAILURES_METRIC: Final = "learning_pipeline_failures_total"
+EXPERIENCE_REPLAY_METRIC: Final = "experience_replay_total"
+LEARNING_SCHEDULER_METRIC: Final = "learning_scheduler_total"
 MEMORY_WRITE_CONFLICTS_METRIC: Final = "memory_write_conflicts_total"
 CONTEXT_COMPACTION_METRIC: Final = "context_compaction_total"
 CONTEXT_COMPACTION_BYTES_SAVED_METRIC: Final = "context_compaction_bytes_saved_total"
@@ -350,6 +353,14 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         ("reason",),
         "Memory entries dropped by final count or byte budget",
     ),
+    (
+        LEARNING_PIPELINE_FAILURES_METRIC,
+        COUNTER,
+        ("stage", "outcome"),
+        "Learning pipeline failures by stage",
+    ),
+    (EXPERIENCE_REPLAY_METRIC, COUNTER, ("result",), "Two-arm replay decisions by result"),
+    (LEARNING_SCHEDULER_METRIC, COUNTER, ("outcome",), "Learning scheduler cycles by outcome"),
     (MEMORY_RECALL_METRIC, COUNTER, ("mode", "outcome"), "Recall tool calls by mode and outcome"),
     (MEMORY_RECALL_HIT_METRIC, COUNTER, ("hit",), "Recall search hits; excludes LIST and zero limit"),
     (MEMORY_RECALL_BYTES_METRIC, COUNTER, (), "Bytes returned by the recall tool"),

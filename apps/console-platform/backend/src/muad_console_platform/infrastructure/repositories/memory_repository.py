@@ -40,7 +40,13 @@ class MemoryRepository:
         status: str | None,
     ) -> tuple[str, dict[str, Any]]:
         """列表与计数共用同一谓词：筛选后 total 必须与 items 齐平。"""
-        clauses = ["tenant_id = :tenant_id", "user_id = :user_id", "is_deleted = false"]
+        clauses = [
+            "tenant_id = :tenant_id",
+            "user_id = :user_id",
+            "is_deleted = false",
+            # 经验是学习资源，只经 /learning/* 管理与展示；通用记忆列表只含事实记忆。
+            "category NOT IN ('PROCEDURE','FAILURE_PATTERN','VERIFICATION')",
+        ]
         params: dict[str, Any] = {"tenant_id": tenant_id, "user_id": user_id}
         if category is not None:
             clauses.append("category = :category")

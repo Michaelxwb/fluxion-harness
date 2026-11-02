@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: muad-connector
+  labels:
+    app: muad-connector
+    muad.io/role: im-gateway-connector
+    {{- include "muad-platform.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.autoscaling.minReplicas }}
+  selector:
+    matchLabels:
+      app: muad-connector
+  template:
+    metadata:
+      labels:
+        app: muad-connector
+        muad.io/role: im-gateway-connector
+        {{- include "muad-platform.labels" . | nindent 8 }}
+    spec:
+      terminationGracePeriodSeconds: 60
+      {{- with (include "muad-platform.serviceAccountName" . | trim) }}
+      serviceAccountName: {{ . }}
+      {{- end }}
+      securityContext:
+        {{- include "muad-platform.podSecurityContext" . | nindent 8 }}
+        {{- with (include "muad-platform.sysctls" . | trim) }}
+        {{- . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (include "muad-platform.nodeSelector" . | trim) }}
+      {{- . | nindent 6 }}
+      {{- end }}
+      {{- with (include "muad-platform.tolerations" . | trim) }}
+      {{- . | nindent 6 }}
+      {{- end }}
+      {{- with (include "muad-platform.affinity" . | trim) }}
+      {{- . | nindent 6 }}
+      {{- end }}
+      containers:
+        - name: app
+          image: {{ include "muad-platform.image" (dict "root" . "service" .Values.service) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.service.port }}
+          envFrom:
+            - configMapRef:
+                name: muad-common
+            {{- with (include "muad-platform.extraEnvFrom" . | trim) }}
+            {{- . | nindent 12 }}
+            {{- end }}
+          env:
+            # Connector 不持库：只挂自己的 REDIS_URL / INTERNAL_SERVICE_TOKEN。
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.connectorSecret }}
+                  key: REDIS_URL
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.connectorSecret }}
+                  key: INTERNAL_SERVICE_TOKEN
+            - name: CONNECTOR_HANDLED_CHANNELS
+              value: "WECOM"
+            - name: CONNECTOR_LEASE_TTL_SEC
+              value: "30"
+            - name: CONNECTOR_LEASE_RENEW_SEC
+              value: "10"
+            - name: CONNECTOR_INBOUND_SHARDS
+              value: "32"
+            - name: CONNECTOR_TEST_PAUSE_BEFORE_XADD_SEC
+              value: "0"
+            - name: BOT_SNAPSHOT_POLL_SEC
+              value: "30"
+            {{- with .Values.service.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.service.resources | nindent 12 }}
+          readinessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: {{ .Values.service.port }}
+          livenessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: {{ .Values.service.port }}
+          volumeMounts:
+            - name: artifacts
+              mountPath: {{ .Values.global.artifacts.mountPath }}
+      volumes:
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: {{ .Values.global.artifacts.existingClaim }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: muad-connector
+  labels:
+    app: muad-connector
+    {{- include "muad-platform.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type | default "ClusterIP" }}
+  {{- $serviceType := .Values.service.type | default "ClusterIP" }}
+  {{- if and (or (eq $serviceType "NodePort") (eq $serviceType "LoadBalancer")) .Values.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+  {{- end }}
+  selector:
+    app: muad-connector
+  ports:
+    - name: metrics
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}
+      {{- if and (or (eq $serviceType "NodePort") (eq $serviceType "LoadBalancer")) .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: muad-connector
+  labels:
+    {{- include "muad-platform.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: muad-connector

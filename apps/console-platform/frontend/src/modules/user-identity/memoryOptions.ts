@@ -27,7 +27,15 @@ export const MEMORY_AUTHORS = ['USER', 'ADMIN', 'AGENT'] as const;
 export const MEMORY_ACTORS = ['USER', 'ADMIN', 'AGENT', 'SYSTEM'] as const;
 
 /** 分类（`MemoryCategory`）：TASK_STATE 是任务线索保留命名空间。 */
-export const MEMORY_CATEGORIES = ['PREFERENCE', 'WORK_STYLE', 'EXPLICIT', 'TASK_STATE'] as const;
+export const MEMORY_CATEGORIES = [
+  'PREFERENCE',
+  'WORK_STYLE',
+  'EXPLICIT',
+  'TASK_STATE',
+  'PROCEDURE',
+  'FAILURE_PATTERN',
+  'VERIFICATION'
+] as const;
 
 /** 条目状态（`MemoryStatus`）：由 enabled + expires_at 派生。 */
 export const MEMORY_STATUSES = ['ACTIVE', 'DISABLED', 'EXPIRED'] as const;
@@ -59,6 +67,9 @@ export const MEMORY_CHANGE_REASONS = [
 export type MemoryAuthorValue = (typeof MEMORY_AUTHORS)[number];
 export type MemoryActorValue = (typeof MEMORY_ACTORS)[number];
 export type MemoryCategoryValue = (typeof MEMORY_CATEGORIES)[number];
+
+/** 管理员可写分类：经验类别只由学习链路生成，人工创建不可选。 */
+export const MEMORY_WRITABLE_CATEGORIES = ['PREFERENCE', 'WORK_STYLE', 'EXPLICIT'] as const;
 export type MemoryStatusValue = (typeof MEMORY_STATUSES)[number];
 export type MemoryConfirmationState = (typeof MEMORY_CONFIRMATION_STATES)[number];
 export type MemoryChangeReason = (typeof MEMORY_CHANGE_REASONS)[number];
@@ -104,9 +115,10 @@ export function memoryCategoryOptions(t: TFunction): MemoryOption[] {
  * 命名空间，Console 人工创建不可选（后端 `MemoryCreateRequest` 同样拒绝）。
  */
 export function memoryWritableCategoryOptions(t: TFunction): MemoryOption[] {
-  return MEMORY_CATEGORIES.filter(
-    (value): value is MemoryWritableCategory => value !== 'TASK_STATE'
-  ).map((value) => ({ value, label: memoryCategoryLabel(t, value) }));
+  return MEMORY_WRITABLE_CATEGORIES.map((value) => ({
+    value,
+    label: memoryCategoryLabel(t, value)
+  }));
 }
 
 export function memoryStatusLabel(t: TFunction, value: string): string {

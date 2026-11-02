@@ -103,7 +103,7 @@ async def test_s05_full_turn_hook_order_with_model_hooks() -> None:
         "pre_tool_use",     # 工具 echo
         "post_tool_use",
         "post_model",       # S-05 顺序：post_model 在工具执行之后
-        "user_prompt",      # 第 2 轮进入（LangGraph 循环既有语义）
+        "user_prompt",      # 第 2 轮进入（执行循环既有语义）
         "pre_model",        # 模型调用 2（最终回答）
         "post_model",
         "stop",

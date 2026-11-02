@@ -102,6 +102,8 @@ class SharedSettings(BaseSettings):
     run_lease_sec: int = Field(default=60, ge=1)
     run_heartbeat_sec: int = Field(default=20, ge=1)
     run_reaper_interval_sec: int = Field(default=30, ge=1)
+    #: 学习调度循环周期（秒）：抽取/候选/回放/TRIAL 的后台节拍；关闭学习的租户自动跳过。
+    learning_scheduler_interval_sec: int = Field(default=60, ge=1)
     run_event_heartbeat_sec: int = Field(default=15, ge=1)
     run_event_fallback_poll_sec: float = Field(default=5.0, gt=0)
     model_call_lease_sec: int = Field(default=60, ge=1)

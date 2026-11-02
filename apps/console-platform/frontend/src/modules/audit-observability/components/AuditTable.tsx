@@ -14,6 +14,7 @@ import { CopyButton } from '../../../components/common/CopyButton';
 import { DateTimeText } from '../../../components/common/DateTimeText';
 import { EmptyState } from '../../../components/common/EmptyState';
 import { EntityLink } from '../../../components/common/EntityLink';
+import { auditActionLabel, auditActorLabel, auditTargetLabel } from '../auditLabels';
 import { ErrorState } from '../../../components/common/ErrorState';
 import type { RemoteTableProps } from '../../../components/common/RemoteTable';
 import { StatusTag, type StatusTagOption } from '../../../components/common/StatusTag';
@@ -65,7 +66,7 @@ function buildAuditColumns(
 /** Trace 可关联多条记录；点击始终按当前 auditId 打开，无 Trace 时明确展示审计 ID。 */
 function buildTraceColumn(t: TFunction, onOpenDetail: (item: AuditListItem) => void): AuditTableColumns[number] {
   return {
-    title: t('audit.columns.traceId'),
+    title: t('audit.columns.traceOrAudit'),
     dataIndex: 'traceId',
     width: 'auto',
     ellipsis: true,
@@ -75,7 +76,9 @@ function buildTraceColumn(t: TFunction, onOpenDetail: (item: AuditListItem) => v
       return (
         <span className="copyable-text" title={value}>
           <EntityLink testId={`audit-trace-${record.auditId}`} onClick={() => onOpenDetail(record)}>
-            <TableText>{display}</TableText>
+            <TableText>
+              {record.traceId ? display : t('audit.trace.auditOnly', { id: shortId(record.auditId) })}
+            </TableText>
           </EntityLink>
           <CopyButton value={value} />
         </span>
@@ -104,7 +107,9 @@ function buildIdentityColumns(t: TFunction): AuditTableColumns {
       dataIndex: 'actorName',
       width: 104,
       ellipsis: true,
-      render: (_: unknown, record: AuditListItem) => <TableText>{record.actorName ?? record.actorUserId}</TableText>
+      render: (_: unknown, record: AuditListItem) => (
+        <TableText>{auditActorLabel(t, record)}</TableText>
+      )
     },
     {
       title: t('audit.columns.agent'),
@@ -145,7 +150,7 @@ function buildTargetColumns(
         if (runId) {
           return (
             <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenRun(runId)}>
-              <TableText>{`Run ${shortId(runId)}`}</TableText>
+              <TableText>{t('audit.target.run', { id: shortId(runId) })}</TableText>
             </EntityLink>
           );
         }
@@ -153,21 +158,27 @@ function buildTargetColumns(
         if (taskId) {
           return (
             <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenTask(taskId)}>
-              <TableText>{`Task ${shortId(taskId)}`}</TableText>
+              <TableText>{t('audit.target.task', { id: shortId(taskId) })}</TableText>
             </EntityLink>
           );
         }
         if (record.auditType === 'CONFIG') {
           return (
             <EntityLink testId={`audit-link-${record.auditId}`} onClick={() => onOpenDetail(record)}>
-              <TableText>{`${record.resourceType}/${shortId(record.resourceId)}`}</TableText>
+              <TableText>{auditTargetLabel(t, record.target)}</TableText>
             </EntityLink>
           );
         }
         return '-';
       }
     },
-    { title: t('audit.columns.action'), dataIndex: 'action', width: 'auto', ellipsis: true }
+    {
+      title: t('audit.columns.action'),
+      dataIndex: 'action',
+      width: 'auto',
+      ellipsis: true,
+      render: (_: unknown, record: AuditListItem) => <TableText>{auditActionLabel(t, record)}</TableText>
+    }
   ];
 }
 

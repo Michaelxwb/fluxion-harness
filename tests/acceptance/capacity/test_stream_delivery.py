@@ -1275,7 +1275,7 @@ def test_s03_pool_two_hundred_sse_streams_do_not_hold_pg_connections(
     )
 
     runtimes = [instance for instance in stack.all_instances() if instance.unit == "agent-runtime"]
-    assert len(runtimes) == 2, "profile 必须给出两个 Runtime 实例"
+    assert len(runtimes) >= 2, "profile 至少需要两个 Runtime 实例"
     total_streams = 100
     barrier = threading.Barrier(total_streams + 1, timeout=60)
     stop = threading.Event()
@@ -1315,6 +1315,11 @@ def test_s03_pool_two_hundred_sse_streams_do_not_hold_pg_connections(
             except threading.BrokenBarrierError:
                 pass
 
+    from tests.capacity.metrics import PostgresMetrics
+
+    metrics = PostgresMetrics(stack.database_url, tenant_id=stack.tenant_id)
+    baseline = metrics.snapshot()
+
     threads = []
     for index in range(total_streams):
         instance = runtimes[index % len(runtimes)]
@@ -1332,12 +1337,10 @@ def test_s03_pool_two_hundred_sse_streams_do_not_hold_pg_connections(
         f"实际 {statuses.count(200)}×200，失败样本 {failures[:3]}"
     )
 
-    from tests.capacity.metrics import PostgresMetrics
-
-    metrics = PostgresMetrics(stack.database_url, tenant_id=stack.tenant_id)
     snapshot = metrics.snapshot()
-    assert snapshot.connections_total <= 20, (
-        f"100 条流时 PG total={snapshot.connections_total}，连接数随流数线性增长"
+    assert snapshot.connections_total <= baseline.connections_total + 4, (
+        f"100 条流时 PG total 从 {baseline.connections_total} 涨到 "
+        f"{snapshot.connections_total}，连接数随流数线性增长"
     )
     assert snapshot.connections_idle_in_transaction <= 2, (
         f"稳态 idle-in-tx={snapshot.connections_idle_in_transaction}，SSE 仍占着请求级 Session"

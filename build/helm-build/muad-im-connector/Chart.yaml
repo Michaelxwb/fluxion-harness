@@ -1,0 +1,6 @@
+apiVersion: v2
+name: muad-im-connector
+description: muad muad-im-connector for intranet Kubernetes
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

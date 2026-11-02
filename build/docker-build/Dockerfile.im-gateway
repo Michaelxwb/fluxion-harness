@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1
+# Intranet service image: im-gateway.
+ARG BASE_IMAGE=docker.sangfor.com/mss-base/python:3.12.13
+FROM ${BASE_IMAGE}
+
+ARG PIP_INDEX_URL=http://mirrors.sangfor.org/pypi/simple
+ARG PIP_TRUSTED_HOST=mirrors.sangfor.org
+USER root
+WORKDIR /app
+
+COPY requirements.txt /tmp/requirements.txt
+RUN python -m pip install --no-cache-dir -i "${PIP_INDEX_URL}" \
+      --trusted-host "${PIP_TRUSTED_HOST}" -r /tmp/requirements.txt
+
+COPY config /app/config
+COPY packages /app/packages
+COPY apps/im-gateway /app/apps/im-gateway
+
+RUN python -m pip install --no-cache-dir --no-deps --no-build-isolation \
+      /app/packages/* \
+      /app/apps/im-gateway \
+ && chown -R 10001:10001 /app
+
+USER 10001:10001
+EXPOSE 8003
+CMD ["uvicorn", "muad_im_gateway.main:app", "--host", "0.0.0.0", "--port", "8003"]

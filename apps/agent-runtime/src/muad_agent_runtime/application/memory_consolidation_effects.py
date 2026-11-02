@@ -1,6 +1,7 @@
 """Execute external IO outside all row locks, then atomically apply fenced effects."""
 
 import logging
+from uuid import UUID
 
 import httpx
 from muad_agent_core.model import ModelRateLimitedError, ModelUnavailableError
@@ -14,6 +15,7 @@ from .memory_consolidation import ConsolidationInputTooLarge, ConsolidationInvok
 from .memory_consolidation_input import ConsolidationStale
 from .memory_consolidation_output import ConsolidationBatch, ConsolidationRejected
 from .memory_job_effects import ConsolidationFenced, apply_batch, fail_locked, terminal_result
+from .learning_signals import detect_and_write_signal
 from .memory_jobs import JobClaim, MemoryJobs, lock_claim
 from .memory_observability import observe
 
@@ -33,6 +35,8 @@ class ConsolidationWorker:
                 snapshot = await session.get(RuntimeSnapshot, job.snapshot_id)
                 if snapshot is None:
                     raise ConsolidationRejected()
+                tenant_id, conversation_id, run_id = job.tenant_id, job.conversation_id, job.run_id
+            await self._detect_signal(tenant_id, conversation_id, run_id)
             if claim.exhausted:
                 return await self.fail(claim, reason="FAILED")
             async with self.invoker.open(job, snapshot) as invocation:
@@ -58,6 +62,23 @@ class ConsolidationWorker:
             SQLAlchemyError,
         ) as exc:
             return await self._failure(claim, "FAILED", error_type=type(exc).__name__)
+
+    async def _detect_signal(
+        self, tenant_id: str, conversation_id: UUID, run_id: UUID
+    ) -> None:
+        """信号的独立事务：检测失败只记 warning，不影响 consolidation job。"""
+        try:
+            await detect_and_write_signal(
+                self.factory,
+                tenant_id=tenant_id,
+                conversation_id=conversation_id,
+                run_id=run_id,
+            )
+        except (SQLAlchemyError, AppError, ValueError) as exc:
+            logger.warning(
+                "learning_signal_failed",
+                extra={"tenant_id": tenant_id, "run_id": str(run_id), "error_type": type(exc).__name__},
+            )
 
     async def complete(
         self, claim: JobClaim, batch: ConsolidationBatch, *, credential_canaries: tuple[str, ...]

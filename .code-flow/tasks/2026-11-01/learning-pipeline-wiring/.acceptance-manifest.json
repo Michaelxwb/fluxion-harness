@@ -1,0 +1,1682 @@
+{
+  "schema": 3,
+  "task_file": "learning-pipeline-wiring.md",
+  "task_sha256": "58bc26d85853923c5126afff8484d926651fc7ce1db3797774bcf4274dadc52e",
+  "checks": [
+    {
+      "id": "CHK-7a78aceb34f5",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_family_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-a9dd834f262c",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_family_wiring.py",
+        "-k",
+        "freeze"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-e039b9473aa2",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_scheduler.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-01bf997b5f28",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_case_runner.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-33613c662aaa",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_trial_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-fd3fd73df0c8",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_admin_cli.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-0e5b053eb506",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_e2e.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-b3433848bb12",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_scheduler_degradation.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-1b102f4edfd2",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_scheduler.py",
+        "-k",
+        "disabled"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-ad55b759381d",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture/test_learning_wiring_inventory.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "learning-pipeline-wiring.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 executor 组合 + 真实 PostgreSQL；脚本化 provider",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_family_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "执行一个会调用 execute_skill 的 Run",
+        "观察 skill 执行后的下一个模型请求",
+        "再执行一个不调用 skill 的 Run"
+      ],
+      "expected": [
+        "skill 成功执行后的下一个模型请求注入该 skill 族经验",
+        "无 skill 的 Run 使用 agent 族并在同一会话连续生效",
+        "两路命中同一经验只注入一次"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            2,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "用户存在 ACTIVE 的 skill 族与 agent 族经验"
+      ],
+      "features": [
+        "FEAT-01"
+      ],
+      "check": "CHK-7a78aceb34f5",
+      "revision": 1,
+      "evidence": {
+        "id": "S-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-7a78aceb34f5",
+        "input_hash": "41a4dbdf5bf455187702cd43d46eaf83d8898916cb3dc0ae4956f89414270d2b",
+        "check_config": {
+          "id": "CHK-7a78aceb34f5",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_family_wiring.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "7e1e49ef995541b699470fca0af59f94",
+        "executed_at": "2026-11-01T00:52:27.970097+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_family_wiring.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "41a4dbdf5bf455187702cd43d46eaf83d8898916cb3dc0ae4956f89414270d2b"
+      },
+      "runs": [
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-7a78aceb34f5",
+          "input_hash": "41a4dbdf5bf455187702cd43d46eaf83d8898916cb3dc0ae4956f89414270d2b",
+          "check_config": {
+            "id": "CHK-7a78aceb34f5",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_family_wiring.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "7e1e49ef995541b699470fca0af59f94",
+          "executed_at": "2026-11-01T00:52:27.970097+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_family_wiring.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "41a4dbdf5bf455187702cd43d46eaf83d8898916cb3dc0ae4956f89414270d2b"
+        }
+      ]
+    },
+    {
+      "id": "S-02",
+      "source": "learning-pipeline-wiring.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Snapshot policy_json + 真实 PostgreSQL",
+      "owner": "TASK-001",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_family_wiring.py",
+        "-k",
+        "freeze"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "创建 Run 并读取其 policy_json",
+        "修改平台的 retrieval_min_score 与 learning_enabled",
+        "观察既有 Run 与后续新 Run 的选择行为"
+      ],
+      "expected": [
+        "policy_json 冻结 learning_enabled、retrieval_min_score 与偏好限额",
+        "修改设置不影响已创建的 Run",
+        "新 Run 使用新值"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "平台设置 learning 分组可修改"
+      ],
+      "features": [
+        "FEAT-02"
+      ],
+      "check": "CHK-a9dd834f262c",
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-a9dd834f262c",
+        "input_hash": "41a4dbdf5bf455187702cd43d46eaf83d8898916cb3dc0ae4956f89414270d2b",
+        "check_config": {
+          "id": "CHK-a9dd834f262c",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_family_wiring.py",
+            "-k",
+            "freeze"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "7e1e49ef995541b699470fca0af59f94",
+        "executed_at": "2026-11-01T00:52:27.970097+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_family_wiring.py",
+          "-k",
+          "freeze"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "41a4dbdf5bf455187702cd43d46eaf83d8898916cb3dc0ae4956f89414270d2b"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-a9dd834f262c",
+          "input_hash": "41a4dbdf5bf455187702cd43d46eaf83d8898916cb3dc0ae4956f89414270d2b",
+          "check_config": {
+            "id": "CHK-a9dd834f262c",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_family_wiring.py",
+              "-k",
+              "freeze"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "7e1e49ef995541b699470fca0af59f94",
+          "executed_at": "2026-11-01T00:52:27.970097+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_family_wiring.py",
+            "-k",
+            "freeze"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "41a4dbdf5bf455187702cd43d46eaf83d8898916cb3dc0ae4956f89414270d2b"
+        }
+      ]
+    },
+    {
+      "id": "S-03",
+      "source": "learning-pipeline-wiring.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 worker/supervisor 循环 + 真实 PostgreSQL",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_scheduler.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "触发学习调度器一轮",
+        "查询 eval_case 与 user_memory",
+        "再触发一轮"
+      ],
+      "expected": [
+        "生成 eval_case 与 PROPOSED 经验候选",
+        "重复触发幂等，不产生重复行",
+        "learning_enabled=false 的租户被跳过"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1
+          ]
+        }
+      ],
+      "preconditions": [
+        "同一任务族存在最小成功轨迹数且 learning_enabled=true"
+      ],
+      "features": [
+        "FEAT-03"
+      ],
+      "check": "CHK-e039b9473aa2",
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-e039b9473aa2",
+        "input_hash": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a",
+        "check_config": {
+          "id": "CHK-e039b9473aa2",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "72dcb41a3ec34642a172d6d78dfa5c49",
+        "executed_at": "2026-11-01T00:54:56.302871+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_scheduler.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-e039b9473aa2",
+          "input_hash": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a",
+          "check_config": {
+            "id": "CHK-e039b9473aa2",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_scheduler.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "72dcb41a3ec34642a172d6d78dfa5c49",
+          "executed_at": "2026-11-01T00:54:56.302871+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a"
+        }
+      ]
+    },
+    {
+      "id": "S-04",
+      "source": "learning-pipeline-wiring.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Snapshot 与 Run 输入重建 + 真实 PostgreSQL；模型传输用本地假上游",
+      "owner": "TASK-003",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_case_runner.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "用生产 CaseRunner 跑基线臂与候选臂",
+        "检查两臂请求内容与判定",
+        "检查 eval_report"
+      ],
+      "expected": [
+        "两臂均从冻结 Snapshot 与来源 Run 输入重建请求",
+        "候选臂请求携带经验文本，基线臂不携带",
+        "逐项判定与报告按 case 落库"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "eval_case 与来源 Snapshot 存在"
+      ],
+      "features": [
+        "FEAT-04"
+      ],
+      "check": "CHK-01bf997b5f28",
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-01bf997b5f28",
+        "input_hash": "e01bc3ce753d8d54315cc6f877ed6a51e3dba9a61d0352ea777d34a4ca8fbd1b",
+        "check_config": {
+          "id": "CHK-01bf997b5f28",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_case_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "b7381f70379b434fab7c6153cb03146a",
+        "executed_at": "2026-11-01T01:00:23.767816+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_case_runner.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "e01bc3ce753d8d54315cc6f877ed6a51e3dba9a61d0352ea777d34a4ca8fbd1b"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-01bf997b5f28",
+          "input_hash": "e01bc3ce753d8d54315cc6f877ed6a51e3dba9a61d0352ea777d34a4ca8fbd1b",
+          "check_config": {
+            "id": "CHK-01bf997b5f28",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_case_runner.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "b7381f70379b434fab7c6153cb03146a",
+          "executed_at": "2026-11-01T01:00:23.767816+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_case_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "e01bc3ce753d8d54315cc6f877ed6a51e3dba9a61d0352ea777d34a4ca8fbd1b"
+        }
+      ]
+    },
+    {
+      "id": "S-05",
+      "source": "learning-pipeline-wiring.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实调度 + 真实回放结果 + 真实审计",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_trial_wiring.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "调度一轮并观察状态",
+        "模拟观察期纠正信号不劣化",
+        "模拟劣化"
+      ],
+      "expected": [
+        "回放达标后自动进入 TRIAL 并写审计",
+        "观察期不劣化自动晋升 ACTIVE",
+        "劣化自动 RETIRED"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "存在 PROPOSED 经验且回放判定 PASSED"
+      ],
+      "features": [
+        "FEAT-05"
+      ],
+      "check": "CHK-33613c662aaa",
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-33613c662aaa",
+        "input_hash": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d",
+        "check_config": {
+          "id": "CHK-33613c662aaa",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_trial_wiring.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "3adc97a30c804da5814b6111a50bba67",
+        "executed_at": "2026-11-01T01:04:02.932918+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_trial_wiring.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-33613c662aaa",
+          "input_hash": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d",
+          "check_config": {
+            "id": "CHK-33613c662aaa",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_trial_wiring.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "3adc97a30c804da5814b6111a50bba67",
+          "executed_at": "2026-11-01T01:04:02.932918+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_trial_wiring.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d"
+        }
+      ]
+    },
+    {
+      "id": "S-06",
+      "source": "learning-pipeline-wiring.design.md#2.5 验收条件",
+      "level": "contract",
+      "kind": "functional",
+      "boundary": "真实 CLI 进程 + 真实 PostgreSQL + 真实审计",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_admin_cli.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "执行 list/replay/activate/retire/explain",
+        "检查 stdout JSON 与退出码",
+        "检查审计"
+      ],
+      "expected": [
+        "命令输出机器可读 JSON，失败走 stderr 与退出码",
+        "activate 读取最近回放结果，未达标拒绝",
+        "每个状态变化写审计并带 operator"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            1
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1,
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "存在 PROPOSED/ACTIVE 经验"
+      ],
+      "features": [
+        "FEAT-06"
+      ],
+      "check": "CHK-fd3fd73df0c8",
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-fd3fd73df0c8",
+        "input_hash": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d",
+        "check_config": {
+          "id": "CHK-fd3fd73df0c8",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_admin_cli.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "3adc97a30c804da5814b6111a50bba67",
+        "executed_at": "2026-11-01T01:04:02.932918+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_admin_cli.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-fd3fd73df0c8",
+          "input_hash": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d",
+          "check_config": {
+            "id": "CHK-fd3fd73df0c8",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_admin_cli.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "3adc97a30c804da5814b6111a50bba67",
+          "executed_at": "2026-11-01T01:04:02.932918+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_admin_cli.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d"
+        }
+      ]
+    },
+    {
+      "id": "S-07",
+      "source": "learning-pipeline-wiring.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 supervisor + 真实 executor + 真实 PostgreSQL；模型为脚本化 provider",
+      "owner": "TASK-004",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_e2e.py"
+      ],
+      "cwd": ".",
+      "timeout": 900.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "执行 3 次同族成功任务",
+        "触发学习调度一轮并等待回放与 TRIAL",
+        "执行第 4 次同族任务"
+      ],
+      "expected": [
+        "生成 eval_case、经验候选与回放报告",
+        "经验进入 TRIAL/ACTIVE 且有审计",
+        "第 4 次 Run 的注入归因包含该经验"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "learning_enabled=true 的租户"
+      ],
+      "features": [
+        "FEAT-07"
+      ],
+      "check": "CHK-0e5b053eb506",
+      "revision": 1,
+      "evidence": {
+        "id": "S-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-0e5b053eb506",
+        "input_hash": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d",
+        "check_config": {
+          "id": "CHK-0e5b053eb506",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "3adc97a30c804da5814b6111a50bba67",
+        "executed_at": "2026-11-01T01:04:02.932918+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_e2e.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-0e5b053eb506",
+          "input_hash": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d",
+          "check_config": {
+            "id": "CHK-0e5b053eb506",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_e2e.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "3adc97a30c804da5814b6111a50bba67",
+          "executed_at": "2026-11-01T01:04:02.932918+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_e2e.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "baaaa51bd2fedfdf708e867f1011c625905d124fe63ed6a10ce70e28deac2d3d"
+        }
+      ]
+    },
+    {
+      "id": "E-01",
+      "source": "learning-pipeline-wiring.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "调度注入故障，主执行链真实运行",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_scheduler_degradation.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "让调度链路抛错",
+        "执行主 Run",
+        "检查终态与指标"
+      ],
+      "expected": [
+        "主 Run 正常完成",
+        "warning 与 learning_pipeline_failures_total 可见",
+        "不产生半成品学习物"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        },
+        {
+          "expected": 3,
+          "steps": [
+            1
+          ]
+        }
+      ],
+      "preconditions": [
+        "可注入抽取或回放失败"
+      ],
+      "features": [
+        "FEAT-08"
+      ],
+      "check": "CHK-b3433848bb12",
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-b3433848bb12",
+        "input_hash": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a",
+        "check_config": {
+          "id": "CHK-b3433848bb12",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler_degradation.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "04ae68ec8c5a4d09ab45ffd19eb45c54",
+        "executed_at": "2026-11-01T01:05:51.263030+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_scheduler_degradation.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-b3433848bb12",
+          "input_hash": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a",
+          "check_config": {
+            "id": "CHK-b3433848bb12",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_scheduler_degradation.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "04ae68ec8c5a4d09ab45ffd19eb45c54",
+          "executed_at": "2026-11-01T01:05:51.263030+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler_degradation.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a"
+        }
+      ]
+    },
+    {
+      "id": "E-02",
+      "source": "learning-pipeline-wiring.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实设置冻结 + 真实调度 + 真实 PostgreSQL",
+      "owner": "TASK-002",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_runtime/test_learning_scheduler.py",
+        "-k",
+        "disabled"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "components": [
+        "backend",
+        "postgres"
+      ],
+      "steps": [
+        "执行成功任务",
+        "触发调度",
+        "执行新 Run"
+      ],
+      "expected": [
+        "不生成新的 eval_case/候选",
+        "新 Run 不注入经验"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            3
+          ]
+        }
+      ],
+      "preconditions": [
+        "租户已关闭 learning_enabled"
+      ],
+      "features": [
+        "FEAT-09"
+      ],
+      "check": "CHK-1b102f4edfd2",
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-1b102f4edfd2",
+        "input_hash": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a",
+        "check_config": {
+          "id": "CHK-1b102f4edfd2",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler.py",
+            "-k",
+            "disabled"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "72dcb41a3ec34642a172d6d78dfa5c49",
+        "executed_at": "2026-11-01T00:54:56.302871+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_learning_scheduler.py",
+          "-k",
+          "disabled"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-1b102f4edfd2",
+          "input_hash": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a",
+          "check_config": {
+            "id": "CHK-1b102f4edfd2",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_scheduler.py",
+              "-k",
+              "disabled"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "72dcb41a3ec34642a172d6d78dfa5c49",
+          "executed_at": "2026-11-01T00:54:56.302871+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_scheduler.py",
+            "-k",
+            "disabled"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "faab18cd6ebc67082c21b76db003bc13d5d5869cfbfe49d06b96a755d6e6ec9a"
+        }
+      ]
+    },
+    {
+      "id": "B-01",
+      "source": "learning-pipeline-wiring.design.md#2.5 验收条件",
+      "level": "contract",
+      "kind": "functional",
+      "boundary": "真实源码调用图（AST/导入扫描）",
+      "owner": "TASK-005",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/architecture/test_learning_wiring_inventory.py"
+      ],
+      "cwd": ".",
+      "timeout": 300.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "components": [
+        "backend"
+      ],
+      "steps": [
+        "扫描生产代码的导入与调用点",
+        "断言每个能力至少一个非测试调用方"
+      ],
+      "expected": [
+        "抽取、候选、回放、激活、族传播、设置读取均有生产调用方",
+        "仅测试调用或仅端口注入视为失败"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            2
+          ]
+        },
+        {
+          "expected": 2,
+          "steps": [
+            2
+          ]
+        }
+      ],
+      "preconditions": [
+        "学习链路实现文件已存在"
+      ],
+      "features": [
+        "FEAT-10"
+      ],
+      "check": "CHK-ad55b759381d",
+      "revision": 1,
+      "evidence": {
+        "id": "B-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "check_id": "CHK-ad55b759381d",
+        "input_hash": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a",
+        "check_config": {
+          "id": "CHK-ad55b759381d",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_learning_wiring_inventory.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "04ae68ec8c5a4d09ab45ffd19eb45c54",
+        "executed_at": "2026-11-01T01:05:51.263030+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/architecture/test_learning_wiring_inventory.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a"
+      },
+      "runs": [
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "check_id": "CHK-ad55b759381d",
+          "input_hash": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a",
+          "check_config": {
+            "id": "CHK-ad55b759381d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/architecture/test_learning_wiring_inventory.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "04ae68ec8c5a4d09ab45ffd19eb45c54",
+          "executed_at": "2026-11-01T01:05:51.263030+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/architecture/test_learning_wiring_inventory.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "929a863b63ef90aed133f4ef8319b2b22796906a63ab5ceb2d46369414d0f52a"
+        }
+      ]
+    }
+  ],
+  "scenarios_file": "learning-pipeline-wiring.scenarios.md",
+  "e2e_gate": 1,
+  "quality_schema": 2
+}

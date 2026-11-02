@@ -1,6 +1,7 @@
 import {
   IconArrowLeft,
   IconArrowRight,
+  IconBook,
   IconBranch,
   IconBriefcase,
   IconCalendar,
@@ -38,6 +39,7 @@ const MENU_ICONS: Record<string, JSX.Element> = {
   '/tasks': <IconClock size="large" />,
   '/schedules': <IconCalendar size="large" />,
   '/audits': <IconSearch size="large" />,
+  '/learning': <IconBook size="large" />,
   '/settings': <IconSetting size="large" />
 };
 

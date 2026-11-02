@@ -35,6 +35,15 @@ COUNTS_SQL = text(
       FROM runtime.user_memory m
      WHERE m.tenant_id = :tenant_id
        AND m.is_deleted = false
+       AND m.category NOT IN ('PROCEDURE','FAILURE_PATTERN','VERIFICATION')
+       AND m.user_id IN :user_ids
+     GROUP BY m.user_id
+    UNION ALL
+    SELECT 'experience_count', m.user_id, count(*)
+      FROM runtime.user_memory m
+     WHERE m.tenant_id = :tenant_id
+       AND m.is_deleted = false
+       AND m.category IN ('PROCEDURE','FAILURE_PATTERN','VERIFICATION')
        AND m.user_id IN :user_ids
      GROUP BY m.user_id
     """
@@ -45,6 +54,7 @@ EMPTY_COUNTS = {
     "credential_count": 0,
     "identity_count": 0,
     "memory_count": 0,
+    "experience_count": 0,
 }
 
 

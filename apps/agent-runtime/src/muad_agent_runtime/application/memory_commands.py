@@ -20,7 +20,8 @@ from muad_contracts.tasks import ContractModel
 from pydantic import AwareDatetime, Field, StrictBool, StrictStr, model_validator
 
 MemoryActor = Literal["USER", "ADMIN", "AGENT", "SYSTEM"]
-MemoryAction = Literal["UPSERT", "DELETE", "CLEAR", "ENABLE", "DISABLE", "RESTORE", "RETIRE"]
+MemoryAction = Literal["UPSERT", "DELETE", "CLEAR", "ENABLE", "DISABLE", "RESTORE", "RETIRE", "TRANSITION"]
+MemoryActivationState = Literal["PROPOSED", "TRIAL", "ACTIVE", "RETIRED"]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -55,6 +56,8 @@ class MemoryMutation(ContractModel):
     enable: StrictBool = False
     expires_at: AwareDatetime | None = None
     retirement_reason: MemoryRetirementReason | None = None
+    activation_state: MemoryActivationState | None = None
+    transition_reason: StrictStr | None = Field(default=None, max_length=128)
 
     @property
     def key(self) -> str | None:
@@ -76,6 +79,11 @@ class MemoryMutation(ContractModel):
                 raise ValueError("CLEAR is scoped to the current user")
         elif self.memory_key is None or self.expected_version is None:
             raise ValueError("mutation requires key and expected_version")
+        if self.action == "TRANSITION":
+            if self.activation_state is None:
+                raise ValueError("TRANSITION requires activation_state")
+        elif self.activation_state is not None or self.transition_reason is not None:
+            raise ValueError("activation state is only a TRANSITION option")
         if self.action == "RETIRE" and self.retirement_reason is None:
             raise ValueError("RETIRE requires a reason")
         if self.action != "RETIRE" and self.retirement_reason is not None:

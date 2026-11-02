@@ -10,6 +10,15 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  # 手动触发：在分支 HEAD 上跑同一套 check，并导出 validation cache 供本地
+  # `code-flow task verify-e2e` / `task archive` 复用。PR 的 merge commit 与
+  # 分支 HEAD 不同，无法用于本地内容指纹缓存，所以这里单独给一个 dispatch 入口。
+  workflow_dispatch:
+    inputs:
+      export_validation_cache:
+        description: "导出 validation cache（heavy validators 由 CI 并行执行）"
+        type: boolean
+        default: true
 
 # 同一 PR 连续推送时取消上一轮（避免旧提交占着 runner）；main 的验证不取消，
 # 保证每个合并点都完整跑完。
@@ -43,9 +52,9 @@ jobs:
 
   # 单测按目录切成 4 个互不重叠的分片并行。每个分片是独立 job，因而各自拿到一套 PG/Redis
   # service —— 不共享数据库、不共享 Redis 号位，跨分片不会互相污染。
-  # 用静态路径分片而不是 pytest-xdist：失败能直接归因到固定目录，复现命令就是本矩阵里的那行；
-  # 代价是新增顶层测试目录时必须同步这里。覆盖由人工维护，`tests/test_collection_layout.py`
-  # 只校验收集布局，不会发现「某目录没被任何分片引用」。
+  # 每个 job 直接执行 `.code-flow/validation.yml` 中同名 heavy validator 的**原命令**，
+  # 因此成功后写出的 `.code-flow/.validation-cache.json` 能被本地 verify/archive 复用；
+  # 命令与 validator 的对应关系由 tests/test_ci_validation_cache.py 钉住。
   backend-tests:
     name: backend-tests (${{ matrix.shard.name }})
     runs-on: ubuntu-latest
@@ -55,13 +64,13 @@ jobs:
       matrix:
         shard:
           - name: fast
-            paths: "tests/contracts tests/frontend tests/architecture tests/agent_core tests/test_*.py"
+            validator: "Pytest (unit: fast)"
           - name: runtime
-            paths: "tests/agent_runtime tests/sdk"
+            validator: "Pytest (unit: runtime)"
           - name: console
-            paths: "tests/gateway tests/console_auth tests/console_channel tests/console_internal tests/console_mcp tests/console_platform tests/console_skill tests/console_tasks tests/e2e"
+            validator: "Pytest (unit: console)"
           - name: worker
-            paths: "tests/agent_worker tests/capacity tests/migrations"
+            validator: "Pytest (unit: worker)"
     services:
       postgres:
         image: postgres:16
@@ -109,8 +118,19 @@ jobs:
           printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
             "$DATABASE_URL" > "$RUNNER_TEMP/alembic.ci.ini"
           uv run python migrations/db_migrate.py -c "$RUNNER_TEMP/alembic.ci.ini"
-      - name: 运行 ${{ matrix.shard.name }} 分片
-        run: uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
+      - name: 运行 ${{ matrix.shard.name }} 分片并写 validation cache
+        run: uv run python scripts/ci_validation_cache.py --validator "${{ matrix.shard.validator }}" --json
+      - name: 准备 validation cache 分片
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.export_validation_cache == 'true'
+        run: cp .code-flow/.validation-cache.json "validation-cache-${{ matrix.shard.name }}.json"
+      - name: 上传 validation cache 分片（仅手动导出）
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.export_validation_cache == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-cache-entry-${{ matrix.shard.name }}
+          path: validation-cache-${{ matrix.shard.name }}.json
+          retention-days: 7
+          if-no-files-found: error
       - name: 上传失败用例清单（无论成败）
         if: always()
         uses: actions/upload-artifact@v4
@@ -226,6 +246,98 @@ jobs:
           path: /tmp/pytest-failures.log
           retention-days: 7
           if-no-files-found: ignore
+
+  # validation.yml 的 acceptance 是一条完整命令；上面的 7 片是 CI 隔离分片，
+  # argv 与 validator 不同，不能直接写缓存。仅手动触发时额外跑一次完整命令，
+  # 让本地 archive 的 heavy acceptance 命中缓存；正常 PR 不增加这份开销。
+  acceptance-cache:
+    name: acceptance-cache (full validator)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.export_validation_cache == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: muad
+          POSTGRES_PASSWORD: muad
+          POSTGRES_DB: muad
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U muad -d muad"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://muad:muad@localhost:5432/muad
+      REDIS_URL: redis://localhost:6379/0
+      INTERNAL_SERVICE_TOKEN: test-internal-token
+      PYTEST_FAILURE_LOG: /tmp/pytest-failures.log
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev
+      - name: 生成 CI 专用 alembic ini 并迁移到 head
+        run: |
+          printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
+            "$DATABASE_URL" > "$RUNNER_TEMP/alembic.ci.ini"
+          uv run python migrations/db_migrate.py -c "$RUNNER_TEMP/alembic.ci.ini"
+      - name: 清理残留 Redis claim
+        run: uv run python scripts/clean_acceptance_claims.py
+      - name: 预建干净检出缺失的 .data 挂载目录
+        run: mkdir -p .data/artifacts .data/skill-cache
+      - name: 运行完整 acceptance 并写 validation cache
+        run: uv run python scripts/ci_validation_cache.py --validator "Pytest (acceptance)" --json
+      - name: 准备 validation cache 分片
+        run: cp .code-flow/.validation-cache.json validation-cache-acceptance.json
+      - name: 上传 validation cache 分片
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-cache-entry-acceptance
+          path: validation-cache-acceptance.json
+          retention-days: 7
+          if-no-files-found: error
+
+  # 把并行 job 的 cache 分片合成一个文件给本地下载。各分片的 cache 文件名相同，
+  # 所以 upload 时先按 job 复制成唯一文件名，再在这里统一 merge。
+  validation-cache-merge:
+    name: validation-cache (merge)
+    if: always() && github.event_name == 'workflow_dispatch' && github.event.inputs.export_validation_cache == 'true'
+    needs: [backend-tests, acceptance-cache]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: validation-cache-entry-*
+          path: caches
+          merge-multiple: true
+      - name: 合并 cache 分片
+        run: |
+          shopt -s nullglob
+          files=(caches/*.json)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "没有 validation cache artifact" >&2
+            exit 1
+          fi
+          python3 scripts/merge_validation_cache.py --output validation-cache.json "${files[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-cache
+          path: validation-cache.json
+          retention-days: 7
 
   frontend:
     runs-on: ubuntu-latest

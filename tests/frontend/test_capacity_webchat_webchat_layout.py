@@ -27,7 +27,7 @@ E2E（S-107/S-110/S-111，TASK-113/115）。
 - **滚动锚点规范**：消息视口把滚动锚点补偿交给 TASK-080 的一次性 `scrollTop` 补偿
   （`overflow-anchor: none`），不得再叠加 `scroll-behavior: smooth`。
 - **管理菜单仍十一项**：聊天样式全部限定在 `chat-*`/`webchat-*` 作用域，不命中 Console 管理 Shell
-  的任何构件类；`config/menu.ts` 的固定十一项与 `adminOnly` 恰两项不被改动。
+  的任何构件类；`config/menu.ts` 的固定十二项与 `adminOnly` 恰三项不被改动。
 """
 
 from __future__ import annotations
@@ -1079,9 +1079,10 @@ def test_b291_chat_styles_stay_scoped_away_from_the_admin_shell(module_css: dict
         "nav.task",
         "nav.schedule",
         "nav.audit",
+        "nav.learning",
         "nav.settings",
-    ], "Console 菜单仍是固定十一项"
-    assert menu.count("adminOnly: true") == 2, "adminOnly 恰两项（/users、/settings）"
+    ], "Console 菜单仍是固定十二项"
+    assert menu.count("adminOnly: true") == 3, "adminOnly 恰三项（/users、/learning、/settings）"
     app = _read(APP_TSX)
     assert re.search(r'path="chat/:entryId\?"', app), "独立 CHAT 路由仍在"
     assert re.search(r'path="settings"[\s\S]{0,200}?<RequireRole role="ADMIN">', app), (

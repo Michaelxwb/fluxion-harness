@@ -134,6 +134,13 @@ def memory_audit_preview(
             preview["memory_key"] = "<redacted>"
         else:
             preview["memory_key"] = key
-    if category in ("PREFERENCE", "WORK_STYLE", "EXPLICIT"):
+    if category in (
+        "PREFERENCE",
+        "WORK_STYLE",
+        "EXPLICIT",
+        "PROCEDURE",
+        "FAILURE_PATTERN",
+        "VERIFICATION",
+    ):
         preview["category"] = str(category)
     return preview

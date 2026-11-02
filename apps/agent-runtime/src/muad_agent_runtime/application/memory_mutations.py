@@ -173,8 +173,15 @@ def _upsert_values(
     if author is MemoryAuthor.USER and ctx.confirmation_event_id is None:
         raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
     evidence = ctx.evidence
+    authority = {
+        "USER": "USER_EXPLICIT",
+        "ADMIN": "ADMIN_EDIT",
+        "AGENT": "AGENT_INFERRED",
+        "SYSTEM": "AGENT_INFERRED",
+    }[author.value]
     return {
         "category": candidate.category.value,
+        "authority": authority,
         "content_json": candidate.content.model_dump(mode="json"),
         "author": author.value,
         "explicit_request": author is MemoryAuthor.USER,
@@ -324,6 +331,8 @@ def _prepared_existing(
         return _retirement(row.memory_key, reason, revision)
     if mutation.action == "RETIRE":
         return _prepared_retirement(mutation, row, now, ctx, revision)
+    if mutation.action == "TRANSITION":
+        return _prepared_transition(mutation, row, ctx)
     values = _control_values(mutation, row, now, ctx)
     if all(getattr(row, key) == value for key, value in values.items()):
         return _result(row, row.memory_key, "UNCHANGED")
@@ -335,6 +344,26 @@ def _prepared_existing(
         else "RESTORED"
     )
     return MemoryChange(row.memory_key, values, mutation.action, status)
+
+
+_EXPERIENCE_CATEGORIES = frozenset({"PROCEDURE", "FAILURE_PATTERN", "VERIFICATION"})
+
+
+def _prepared_transition(
+    mutation: MemoryMutation, row: UserMemory, ctx: MemoryWriteContext
+) -> MemoryChange | MemoryMutationResult:
+    """状态转换只允许经验类别；合法性由 LearningActivation 的状态机预判。"""
+    if ctx.actor_type not in ("ADMIN", "SYSTEM"):
+        raise AppError(ErrorCode.FORBIDDEN)
+    if row.category not in _EXPERIENCE_CATEGORIES:
+        raise AppError(ErrorCode.MEMORY_CATEGORY_NOT_ALLOWED)
+    target = mutation.activation_state
+    assert target is not None
+    if row.activation_state == target:
+        return _result(row, row.memory_key, "UNCHANGED")
+    return MemoryChange(
+        row.memory_key, {"activation_state": target}, "ACTIVATION", "UPDATED"
+    )
 
 
 def _prepared_retirement(

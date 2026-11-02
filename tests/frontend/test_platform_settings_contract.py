@@ -158,10 +158,10 @@ def test_backend_applies_to_values_are_known_to_frontend() -> None:
 
 
 def test_settings_route_is_role_guarded_and_menu_has_entry() -> None:
-    """B-08：菜单十一项含系统设置（adminOnly），路由受 RequireRole role=\"ADMIN\" 守卫。"""
+    """B-08：菜单十二项含系统设置（adminOnly），路由受 RequireRole role=\"ADMIN\" 守卫。"""
     menu = (FRONTEND / "config/menu.ts").read_text(encoding="utf-8")
     keys = re.findall(r"key:\s*'([^']+)'", menu)
-    assert len(keys) == 11 and keys[-1] == "nav.settings", "菜单必须是十一项且末项为系统设置"
+    assert len(keys) == 12 and keys[-1] == "nav.settings", "菜单必须是十二项且末项为系统设置"
     assert re.search(
         r"\{\s*path:\s*'/settings',\s*key:\s*'nav.settings',\s*adminOnly:\s*true\s*\}", menu
     )

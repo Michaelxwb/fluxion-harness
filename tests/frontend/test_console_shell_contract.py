@@ -17,6 +17,7 @@ EXPECTED_KEYS = [
     "nav.task",
     "nav.schedule",
     "nav.audit",
+    "nav.learning",
     "nav.settings",
 ]
 
@@ -25,17 +26,17 @@ def _menu_source() -> str:
     return (FRONTEND / "config/menu.ts").read_text(encoding="utf-8")
 
 
-def test_console_shell_menu_is_the_fixed_eleven_items() -> None:
+def test_console_shell_menu_is_the_fixed_twelve_items() -> None:
     keys = re.findall(r"key:\s*'([^']+)'", _menu_source())
     assert keys == EXPECTED_KEYS
 
-    # adminOnly 语义：恰有两项（/users、/settings），所以 ADMIN 11 项、非 ADMIN 9 项
+    # adminOnly 语义：恰有三项（/users、/learning、/settings），所以 ADMIN 12 项、非 ADMIN 9 项
     source = _menu_source()
-    assert source.count("adminOnly: true") == 2
+    assert source.count("adminOnly: true") == 3
     admin_only_paths = re.findall(
         r"\{\s*path:\s*'([^']+)',\s*key:\s*'[^']+',\s*adminOnly:\s*true\s*\}", source
     )
-    assert admin_only_paths == ["/users", "/settings"], "两项 adminOnly：/users、/settings"
+    assert admin_only_paths == ["/users", "/learning", "/settings"], "三项 adminOnly：/users、/learning、/settings"
     assert len(keys) - source.count("adminOnly: true") == 9, "非 ADMIN 可见 9 项"
 
 

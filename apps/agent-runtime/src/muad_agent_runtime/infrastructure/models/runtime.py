@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 import sqlalchemy as sa
@@ -259,6 +259,12 @@ class RunRecord(StandardColumnsMixin, Base):
         sa.Index("ix_run_record_conversation_create_time", "conversation_id", sa.text("create_time DESC")),
         sa.Index("ix_run_record_agent_status_create_time", "agent_id", "status", sa.text("create_time DESC")),
         sa.Index(
+            "ix_run_record_task_family",
+            "tenant_id",
+            "task_family",
+            sa.text("end_time DESC"),
+        ),
+        sa.Index(
             "ix_run_record_running_lease_until",
             "lease_until",
             postgresql_where=sa.text("status = 'RUNNING'"),
@@ -296,6 +302,7 @@ class RunRecord(StandardColumnsMixin, Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     agent_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    task_family: Mapped[str | None] = mapped_column(sa.String(64))
     snapshot_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     status: Mapped[RunStatus] = mapped_column(
         sa.Enum(RunStatus, native_enum=False, create_constraint=True, name="run_status", length=24)
@@ -483,9 +490,53 @@ class UserMemory(StandardColumnsMixin, Base):
             "user_id",
             postgresql_where=sa.text("is_deleted = false AND expires_at IS NOT NULL"),
         ),
+        sa.Index(
+            "ix_user_memory_active_learning",
+            "tenant_id",
+            "user_id",
+            "category",
+            sa.text("update_time DESC"),
+            postgresql_where=sa.text(
+                "is_deleted = false AND enabled = true AND activation_state = 'ACTIVE'"
+            ),
+        ),
+        sa.Index(
+            "ix_user_memory_state_time",
+            "tenant_id",
+            "activation_state",
+            sa.text("update_time DESC"),
+            postgresql_where=sa.text(
+                "is_deleted = false AND category IN "
+                "('PROCEDURE','FAILURE_PATTERN','VERIFICATION')"
+            ),
+        ),
+        sa.Index(
+            "ix_user_memory_family_state",
+            "tenant_id",
+            "task_signature",
+            "activation_state",
+            sa.text("update_time DESC"),
+            postgresql_where=sa.text(
+                "is_deleted = false AND category IN "
+                "('PROCEDURE','FAILURE_PATTERN','VERIFICATION')"
+            ),
+        ),
+        sa.Index(
+            "ix_user_memory_user_time",
+            "tenant_id",
+            "user_id",
+            sa.text("update_time DESC"),
+            sa.text("id DESC"),
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
         sa.CheckConstraint("author IN ('USER','ADMIN','AGENT')", name="author"),
         sa.CheckConstraint(
-            "category IN ('PREFERENCE','WORK_STYLE','EXPLICIT','TASK_STATE')", name="category"
+            "authority IN ('USER_EXPLICIT','ADMIN_EDIT','AGENT_INFERRED')", name="authority"
+        ),
+        sa.CheckConstraint(
+            "category IN ('PREFERENCE','WORK_STYLE','EXPLICIT','TASK_STATE',"
+            "'PROCEDURE','FAILURE_PATTERN','VERIFICATION')",
+            name="category",
         ),
         sa.CheckConstraint(
             "version >= 1 AND confidence BETWEEN 1 AND 5 AND confirmed_count >= 0", name="counters"
@@ -507,6 +558,15 @@ class UserMemory(StandardColumnsMixin, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     memory_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     category: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    activation_state: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'ACTIVE'")
+    )
+    authority: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'AGENT_INFERRED'")
+    )
+    task_signature: Mapped[str | None] = mapped_column(sa.String(64))
+    trigger_text: Mapped[str | None] = mapped_column(sa.String(512))
+    evidence_json: Mapped[dict[str, JsonValue] | None] = mapped_column(JSONB)
     content_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
     author: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'AGENT'"))
     explicit_request: Mapped[bool] = mapped_column(
@@ -576,6 +636,188 @@ class UserMemoryHistory(StandardColumnsMixin, Base):
     source_run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     after_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
     legacy_snapshots_json: Mapped[list[dict[str, JsonValue]] | None] = mapped_column(JSONB)
+
+
+class EvalCase(StandardColumnsMixin, Base):
+    """Golden Set 用例：来源 Run、逐项判据与条目语义。"""
+
+    __tablename__ = "eval_case"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "tenant_id",
+            "task_family",
+            "source_run_id",
+            "version",
+            name="uq_eval_case_source_version",
+        ),
+        sa.Index(
+            "ix_eval_case_family_time",
+            "tenant_id",
+            "task_family",
+            sa.text("create_time DESC"),
+        ),
+        sa.CheckConstraint("item_count >= 1", name="item_count"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    task_family: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    source_run_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("runtime.run_record.id"), nullable=False
+    )
+    input_ref_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    criteria_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    item_count: Mapped[int] = mapped_column(
+        sa.Integer(), nullable=False, server_default=sa.text("1")
+    )
+    content_hash: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    version: Mapped[int] = mapped_column(
+        sa.BigInteger(), nullable=False, server_default=sa.text("1")
+    )
+
+
+class EvalReport(StandardColumnsMixin, Base):
+    """两臂回放报告：append-only，按配置与经验版本追加。"""
+
+    __tablename__ = "eval_report"
+    __table_args__ = (
+        sa.Index(
+            "uq_eval_report_baseline_version",
+            "tenant_id",
+            "task_family",
+            "base_config_hash",
+            "version",
+            unique=True,
+            postgresql_where=sa.text("experience_key IS NULL"),
+        ),
+        sa.Index(
+            "uq_eval_report_experience_version",
+            "tenant_id",
+            "task_family",
+            "experience_key",
+            "experience_user_id",
+            "base_config_hash",
+            "version",
+            unique=True,
+            postgresql_where=sa.text("experience_key IS NOT NULL"),
+        ),
+        sa.Index(
+            "ix_eval_report_experience_time",
+            "tenant_id",
+            "experience_key",
+            "experience_user_id",
+            sa.text("create_time DESC"),
+        ),
+        sa.Index(
+            "ix_eval_report_family_time",
+            "tenant_id",
+            "task_family",
+            sa.text("create_time DESC"),
+        ),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    task_family: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    experience_key: Mapped[str | None] = mapped_column(sa.String(64))
+    experience_user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    base_config_hash: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    metrics_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    decision_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    report_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    content_hash: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    version: Mapped[int] = mapped_column(
+        sa.BigInteger(), nullable=False, server_default=sa.text("1")
+    )
+
+
+class LearningFamilyControl(StandardColumnsMixin, Base):
+    """族级学习/注入暂停开关（只影响暂停后的新 Run）。"""
+
+    __tablename__ = "learning_family_control"
+    __table_args__ = (
+        sa.Index(
+            "uq_learning_family_control",
+            "tenant_id",
+            "family",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    family: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    paused: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, server_default=sa.text("true"))
+    reason: Mapped[str] = mapped_column(sa.String(256), nullable=False)
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+
+
+class LearningJob(StandardColumnsMixin, Base):
+    """经验回放等异步学习任务；claim 用 SKIP LOCKED，command_id 幂等。"""
+
+    __tablename__ = "learning_job"
+    __table_args__ = (
+        sa.Index(
+            "uq_learning_job_command",
+            "tenant_id",
+            "command_id",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.Index(
+            "ix_learning_job_claim",
+            "status",
+            "lease_until",
+            "create_time",
+            postgresql_where=sa.text("status IN ('PENDING','RUNNING')"),
+        ),
+        sa.Index(
+            "ix_learning_job_experience",
+            "tenant_id",
+            "user_id",
+            "experience_key",
+            sa.text("create_time DESC"),
+        ),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    experience_key: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    job_type: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    status: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'PENDING'"))
+    command_id: Mapped[str] = mapped_column(sa.String(256), nullable=False)
+    request_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    result_json: Mapped[dict[str, JsonValue] | None] = mapped_column(JSONB)
+    error_code: Mapped[str | None] = mapped_column(sa.String(64))
+    error_message: Mapped[str | None] = mapped_column(sa.String(512))
+    attempts: Mapped[int] = mapped_column(sa.Integer(), nullable=False, server_default=sa.text("0"))
+    lease_until: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
+
+class FamilyRunStat(StandardColumnsMixin, Base):
+    """族级 Run 计数增量汇总（按族按天）；页面只读这张小表。"""
+
+    __tablename__ = "family_run_stat"
+    __table_args__ = (
+        sa.Index(
+            "uq_family_run_stat_day",
+            "tenant_id",
+            "family",
+            "day",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        sa.Index("ix_family_run_stat_window", "tenant_id", sa.text("day DESC"), "family"),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    family: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    day: Mapped[date] = mapped_column(sa.Date(), nullable=False)
+    run_count: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
+    last_run_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
 
 class MemoryCommandReceipt(StandardColumnsMixin, Base):

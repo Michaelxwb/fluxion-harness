@@ -1,5 +1,5 @@
 import { SideSheet, Tabs } from '@douyinfe/semi-ui';
-import type { ReactNode } from 'react';
+import { Children, Fragment, type ReactNode } from 'react';
 
 export interface DetailSideSheetProps {
   visible: boolean;
@@ -38,10 +38,15 @@ export function DetailSideSheet(props: DetailSideSheetProps) {
   // so `TabBar.renderTabComponents` calls `list.map(...)` on it, throws a TypeError, and React
   // unmounts the whole tree (reproduced 2026-10-02 by closing the nested mcp tool detail sheet).
   // A Tabs holding zero TabPanes shows nothing anyway, so render it only when there is content.
+  const panes = Children.toArray(props.children).flatMap((child) =>
+    typeof child === 'object' && child !== null && 'type' in child && child.type === Fragment
+      ? Children.toArray((child as { props: { children?: ReactNode } }).props.children)
+      : [child]
+  );
   const tabs =
-    props.children === null || props.children === undefined ? null : (
+    panes.length === 0 ? null : (
       <Tabs type="line" activeKey={props.activeTab} onChange={(key) => props.onTabChange?.(String(key))}>
-        {props.children}
+        {panes}
       </Tabs>
     );
   return (

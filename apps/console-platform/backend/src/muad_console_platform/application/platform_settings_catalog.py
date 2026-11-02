@@ -35,6 +35,7 @@ _GROUP_APPLIES_TO: dict[str, str] = {
     "compaction": NEW_RUN,
     "agent": NEW_RUN,
     "memory": NEW_RUN,
+    "learning": NEW_RUN,
     "task": NEW_TASK,
     "artifact": NEXT_OPERATION,
     "auth": NEXT_OPERATION,

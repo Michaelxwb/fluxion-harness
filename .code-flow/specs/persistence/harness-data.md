@@ -46,7 +46,7 @@ verifiers:
 - **`update_time` 没有 `onupdate`，由应用层显式赋值**：`StandardColumnsMixin` 只设 `server_default=now()`，`update_time` **不会**随 UPDATE 自动刷新（三份 `base.py` 同）。写入方须自己 `row.update_time = datetime.now(UTC)`（既有：`application/auth_service.py` 在失败计数递增与改密两处显式赋值）。
   - ✅ 任何 UPDATE 路径都显式赋 `update_time`。
   - ❌ 只改业务列 ⇒ `update_time` 停在上一次写库时刻，审计/增量同步据此判断会漏行。
-- **Schema 名单固定 4 个**：`control`/`runtime`/`task`/`langgraph`（`migrations/versions/0001_create_schemas.py`）。前三个是本产品的 Owner Schema；`langgraph` 是 LangGraph 框架自有表（无 ORM 模型、不属产品表），**不得**在其中放业务表。
+- **Schema 名单固定 3 个**：`control`/`runtime`/`task`。初始迁移建出的第四个历史 schema 已由 `0029` 删除；三者均为本产品的 Owner Schema，**不得**新建框架私有 schema 或放入无 ORM 模型的表。
 - **`migrations/` 下的脚本不得读取环境变量**：连接串与配置一律来自 `migrations/alembic.ini`（`migrations/_config.py` 的 `load_dsn` 明确**不做 env 回落**，缺失或空值直接 `SystemExit`）。理由不是洁癖：env 回落会造成「以为在升 A 库、实际升了 B 库」——CI、验收建库与本地 dev 各有各的 `DATABASE_URL`，一旦脚本自己去读，升级目标就取决于调用者的环境而不是显式传入的 ini。
   - ✅ `load_dsn(resolve_ini(given, root), "sqlalchemy.url", purpose=...)`；`migrations/db_migrate.py` / `env.py` / `bootstrap_db.py` 都走它
   - ❌ `os.environ["DATABASE_URL"]` / `os.getenv(...)` 出现在 `migrations/**`（全仓现为 **0 命中**，改动后必须仍是 0）

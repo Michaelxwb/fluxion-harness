@@ -34,6 +34,7 @@ from ..infrastructure.http_clients import (
 )
 from ..infrastructure.mcp_catalog_cache import RedisMcpCatalogCache
 from ..infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
+from ..infrastructure.runtime_learning_client import RuntimeLearningClient
 from ..infrastructure.runtime_memory_client import RuntimeMemoryClient
 from ..infrastructure.settings import process_settings
 from ..infrastructure.worker_client import WorkerAdminClient
@@ -177,6 +178,25 @@ def get_runtime_memory_client(request: Request) -> RuntimeMemoryClient:
         request.app.state.runtime_memory_client = client
     return client
 
+
+def get_runtime_learning_client(request: Request) -> RuntimeLearningClient:
+    client: RuntimeLearningClient | None = getattr(request.app.state, "runtime_learning_client", None)
+    if client is None:
+        settings = get_settings(request)
+        if not settings.agent_runtime_url or not settings.internal_service_token:
+            logger.warning("runtime_learning_client_unconfigured")
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        client = RuntimeLearningClient(
+            settings.agent_runtime_url,
+            service_token=settings.internal_service_token,
+        )
+        request.app.state.runtime_learning_client = client
+    return client
+
+
+RuntimeLearningClientDep = Annotated[
+    RuntimeLearningClient, Depends(get_runtime_learning_client)
+]
 
 RuntimeMemoryClientDep = Annotated[RuntimeMemoryClient, Depends(get_runtime_memory_client)]
 

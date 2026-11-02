@@ -19,7 +19,7 @@
 
 1. **Phase 1 后台部署单元为 4 个 Image**：`console-platform`、`agent-runtime`、`agent-worker`、`im-gateway`。
 2. `console-web + console-api` 合并为 **console-platform**：React/TypeScript/Semi Design 前端静态资源随 Python/FastAPI 后端同镜像交付。
-3. `agent-runtime` 使用 **Python + LangGraph**，作为完全无状态执行面；不按用户创建 Pod，不保留用户本地状态。
+3. `agent-runtime` 使用 **Python 自研执行核心**，作为完全无状态执行面；不按用户创建 Pod，不保留用户本地状态。
 4. `im-gateway` 统一改为 **Python**，企业微信 V1 直接复用企业微信官方 Python AI Bot SDK，不再依赖 OpenClaw Plugin Runtime。
 5. **Phase 1 建设 Agent Worker**：后台任务、定时任务、Parent-Child 并行、lease reclaim 与 Final Delivery 均属 Phase 1 交付范围（见 doc 10），不再是 Phase 2 保留项。
 6. **Skill-first**：业务 SOP、接口组合、数据转换、`if/for/while`、业务算法、结果加工优先写在 Skill Python 中。
@@ -304,7 +304,7 @@ WeCom 消息
 → 自动处理
 
 业务不确定 / 高风险
-→ LangGraph interrupt
+→ run_interrupt
 → 向用户解释原因和选择
 → 用户确认
 → resume
@@ -778,7 +778,7 @@ Build Skill Catalog + Tool Registry
   ↓
 PromptBuilder
   ↓
-LangGraph Agent Loop
+Agent 执行循环
   ├─ model
   ├─ load_skill
   ├─ tool/mcp

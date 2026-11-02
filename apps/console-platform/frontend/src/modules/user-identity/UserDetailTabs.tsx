@@ -54,6 +54,7 @@ import {
   type UserDetail,
   type WebchatTokenMetadata
 } from './services/users';
+import { ExperienceTab } from '../learning/ExperienceTab';
 import { MemoryTab } from './MemoryTab';
 import { UserChatTokenCard } from './UserChatTokenCard';
 
@@ -747,6 +748,14 @@ export function UserDetailTabs(props: UserDetailTabsProps) {
       <Tabs.TabPane itemKey="memory" tab={`${t('user.tabs.memory')} (${user.memory_count})`}>
         <MemoryTab userId={user.id} canManage={isAdmin} onMutated={props.onUserMutated} />
       </Tabs.TabPane>
+      {isAdmin && (
+        <Tabs.TabPane
+          itemKey="experience"
+          tab={`${t('user.tabs.experience')} (${user.experience_count})`}
+        >
+          <ExperienceTab userId={user.id} />
+        </Tabs.TabPane>
+      )}
     </DetailSideSheet>
   );
 }

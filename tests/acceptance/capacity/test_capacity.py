@@ -29,6 +29,7 @@ import json
 import os
 import subprocess
 import threading
+import time
 import uuid
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -250,7 +251,13 @@ def read_public_stream(
     `sink` 给定时帧边到边追加（调用方可在另一线程里观察在飞订阅并提前关流）；默认读到终态。
     """
     read = sink if sink is not None else PublicStreamRead()
-    stop = until if until is not None else (lambda item: item.terminal is not None)
+
+    def _terminal(item: PublicStreamRead) -> bool:
+        # 失败终态按契约为 `run.error`（没有 run.terminal 帧），SSE 端会保持连接并继续心跳。
+        return item.terminal is not None or any(frame.event == "run.error" for frame in item.frames)
+
+    stop = until if until is not None else _terminal
+    deadline = time.monotonic() + timeout_sec
     url = f"{WEBCHAT_RUN_PREFIX}/{run_id}/events"
     try:
         with _chat_client(base_url, session) as client:
@@ -261,6 +268,9 @@ def read_public_stream(
                     return read
                 event_type = ""
                 for line in stream.iter_lines():
+                    if time.monotonic() > deadline:
+                        read.error = "timeout"
+                        return read
                     if line.startswith("event:"):
                         event_type = line.split(":", 1)[1].strip()
                         continue

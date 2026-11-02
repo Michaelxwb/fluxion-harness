@@ -121,6 +121,7 @@ ALLOWED_LABEL_NAMES = frozenset(
         "reason",
         "kind",
         "scope",
+        "service",
         "pool",
         "stage",
         "workload",

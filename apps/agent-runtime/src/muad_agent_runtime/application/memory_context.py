@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+
 from muad_agent_core.memory.components import MemoryComponent
-from muad_agent_core.memory.rank import select_for_injection
+from muad_agent_core.memory.rank import select_injection
 from muad_agent_core.memory.render import render_memory_block
 from muad_agent_core.memory.resume import resume_candidate_hash
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import ForgetMemoryInput, MemoryCategory, MemoryResumeRef
 from muad_contracts.platform_settings import MemoryPolicySettings
 
@@ -18,6 +23,27 @@ from .memory_queries import MemorySnapshot
 from .memory_service import MemoryService
 
 
+@dataclass(frozen=True, slots=True)
+class InjectionItem:
+    memory_key: str
+    version: int
+    score: float
+    channel: str
+    decision: str
+
+
+@dataclass(frozen=True, slots=True)
+class InjectionAttribution:
+    selection_hash: str
+    items: tuple[InjectionItem, ...]
+    dropped_count: int
+    dropped_bytes: int
+    diagnostics: dict[str, object]
+
+
+AttributionSink = Callable[[InjectionAttribution], Awaitable[None]]
+
+
 class MemoryContextLoader:
     def __init__(
         self,
@@ -26,11 +52,25 @@ class MemoryContextLoader:
         settings: MemoryPolicySettings,
         query: str | None,
         task_state_ref: MemoryResumeRef | None = None,
+        on_attribution: AttributionSink | None = None,
+        min_score: float = 0.35,
+        preference_items: int = 3,
+        preference_bytes: int = 512,
+        learning_enabled: bool = True,
     ) -> None:
         self._cache, self._settings = cache, settings
         self._query, self._task_state_ref = query, task_state_ref
+        self._on_attribution = on_attribution
+        self._allowed_experience_keys: frozenset[str] | None = None
+        self._last_attribution_hash: str | None = None
+        self._pending_attribution: InjectionAttribution | None = None
         self._component: MemoryComponent | None = None
         self._suppressed, self._generation = False, 0
+        self._task_family: str | None = None
+        self._min_score = min_score
+        self._preference_items = preference_items
+        self._preference_bytes = preference_bytes
+        self._learning_enabled = learning_enabled
 
     @property
     def cache(self) -> MemoryCandidateCache:
@@ -43,6 +83,10 @@ class MemoryContextLoader:
     @property
     def component(self) -> MemoryComponent | None:
         return self._component
+
+    def set_task_family(self, task_family: str | None) -> None:
+        """skill 执行后由执行层更新：下一次请求按新任务族注入经验。"""
+        self._task_family = task_family
 
     def invalidate(self) -> None:
         self._generation += 1
@@ -60,15 +104,51 @@ class MemoryContextLoader:
         )
         if snapshot is None or generation != self._generation or self._suppressed:
             return None
+        if self._allowed_experience_keys is None:
+            # 首次刷新冻结 ACTIVE 经验集合：之后（同 Run 内）的激活不改变本 Run 的注入集合。
+            # learning 关闭时冻结为空集：不注入经验，事实记忆不受影响。
+            self._allowed_experience_keys = (
+                frozenset(
+                    record.memory_key
+                    for record in snapshot.records
+                    if record.category
+                    in (
+                        MemoryCategory.PROCEDURE,
+                        MemoryCategory.FAILURE_PATTERN,
+                        MemoryCategory.VERIFICATION,
+                    )
+                    and record.activation_state == "ACTIVE"
+                )
+                if self._learning_enabled
+                else frozenset()
+            )
         self._component = self._render(snapshot)
+        await self._emit_attribution()
         return self._component
 
+    async def _emit_attribution(self) -> None:
+        attribution = self._pending_attribution
+        self._pending_attribution = None
+        if (
+            attribution is None
+            or self._on_attribution is None
+            or attribution.selection_hash == self._last_attribution_hash
+        ):
+            return
+        self._last_attribution_hash = attribution.selection_hash
+        await self._on_attribution(attribution)
+
     def _render(self, snapshot: MemorySnapshot) -> MemoryComponent:
-        ordinary = select_for_injection(
+        selection = select_injection(
             snapshot.records,
             query=self._query,
             now=snapshot.as_of,
             inject_inferred=self._settings.inject_inferred,
+            task_family=self._task_family,
+            min_score=self._min_score,
+            preference_items=self._preference_items,
+            preference_bytes=self._preference_bytes,
+            allowed_experience_keys=self._allowed_experience_keys,
         )
         selected_tasks = tuple(
             row
@@ -80,10 +160,50 @@ class MemoryContextLoader:
             and resume_candidate_hash(row) == self._task_state_ref.candidate_hash
             and row.category is MemoryCategory.TASK_STATE
         )
+        selected_meta = {
+            item.record.memory_key: (item.score, item.channel) for item in selection.items
+        }
+        injected = (*selected_tasks, *selection.records)
         block = render_memory_block(
-            (*selected_tasks, *ordinary),
+            injected,
             max_records=self._settings.max_injected_memories,
             max_bytes=self._settings.max_injected_bytes,
+        )
+        self._pending_attribution = InjectionAttribution(
+            selection_hash=hashlib.sha256(
+                canonical_json(
+                    [[item.record.memory_key, item.record.version] for item in block.items]
+                ).encode("utf-8")
+            ).hexdigest(),
+            items=tuple(
+                InjectionItem(
+                    item.record.memory_key,
+                    item.record.version,
+                    *selected_meta.get(item.record.memory_key, (1.0, "TASK_STATE")),
+                    "INJECTED",
+                )
+                for item in block.items
+            ),
+            dropped_count=block.dropped_count,
+            dropped_bytes=block.dropped_bytes,
+            diagnostics={
+                "learning_enabled": self._learning_enabled,
+                "min_score": self._min_score,
+                "allowed_experience_keys": len(self._allowed_experience_keys or ()),
+                "skipped": [
+                    {
+                        "memory_key": item.memory_key,
+                        "activation_state": item.activation_state,
+                        "reason": item.reason,
+                        "score": item.score,
+                    }
+                    for item in selection.skipped[:20]
+                ],
+                "dropped_by_budget": [
+                    {"memory_key": item.record.memory_key, "version": item.record.version}
+                    for item in block.dropped_items[:20]
+                ],
+            },
         )
         for reason, amount in (("count", block.dropped_count), ("bytes", block.dropped_bytes)):
             if amount:

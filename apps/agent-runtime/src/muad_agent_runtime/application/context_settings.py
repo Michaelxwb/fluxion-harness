@@ -14,13 +14,14 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from muad_contracts.platform_settings import (
     COMPACTION_POLICY_KEY,
     CompactionConfigError,
     CompactionSettings,
+    LearningSettings,
     PlatformSettingsError,
     merge_compaction_payload,
     parse_compaction_settings,
@@ -35,6 +36,73 @@ MODEL_POOL_POLICY_KEY = "model_pool"
 CAPACITY_POLICY_KEY = "capacity"
 #: 模型等待预算叶（`capacity.model_wait_timeout_sec`）：每段等待取本段与原 deadline 较小者
 MODEL_WAIT_TIMEOUT_LEAF = "model_wait_timeout_sec"
+
+
+LEARNING_POLICY_KEY = "learning"
+
+
+@dataclass(frozen=True, slots=True)
+class FrozenLearning:
+    """Run 侧冻结的 learning 设置（缺失/旧行一律回落 schema 默认，默认关闭学习）。"""
+
+    enabled: bool = False
+    min_score: float = 0.35
+    preference_items: int = 3
+    preference_bytes: int = 512
+    auto_activate: tuple[str, ...] = ("PROCEDURE", "FAILURE_PATTERN")
+    trial_runs: int = 20
+    trial_max_regression: float = 0.05
+    min_success_runs: int = 3
+    eval_min_improvement: float = 0.05
+    eval_min_cases: int = 10
+    eval_max_cases: int = 50
+    eval_max_items_per_case: int = 10
+
+
+def frozen_learning_payload(document: Mapping[str, Any] | None) -> dict[str, Any]:
+    """平台设置快照 → 冻进 policy_json 的 learning 段（按 schema 默认补齐）。"""
+    settings = parse_platform_settings(document or {})
+    return asdict(settings.learning)
+
+
+def frozen_learning_from_settings(settings: LearningSettings) -> FrozenLearning:
+    """平台设置（新建 Run 边界）→ 冻结形态，供 ExecutionDefaults 注入。"""
+    return learning_of({LEARNING_POLICY_KEY: asdict(settings)})
+
+
+def learning_of(policy_json: Mapping[str, Any] | None) -> FrozenLearning:
+    raw = policy_json.get(LEARNING_POLICY_KEY) if isinstance(policy_json, Mapping) else None
+    if not isinstance(raw, Mapping):
+        return FrozenLearning()
+
+    def _bool(key: str, default: bool) -> bool:
+        value = raw.get(key)
+        return value if isinstance(value, bool) else default
+
+    def _num(key: str, default: float) -> float:
+        value = raw.get(key)
+        return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else default
+
+    auto = raw.get("experience_auto_activate")
+    auto_activate = (
+        tuple(item for item in auto if isinstance(item, str))
+        if isinstance(auto, (list, tuple))
+        else FrozenLearning().auto_activate
+    )
+    return FrozenLearning(
+        enabled=_bool("learning_enabled", False),
+        min_score=_num("retrieval_min_score", 0.35),
+        preference_items=int(_num("retrieval_preference_items", 3)),
+        preference_bytes=int(_num("retrieval_preference_bytes", 512)),
+        auto_activate=auto_activate,
+        trial_runs=int(_num("experience_trial_runs", 20)),
+        trial_max_regression=_num("experience_trial_max_regression", 0.05),
+        min_success_runs=int(_num("experience_min_success_runs", 3)),
+        eval_min_improvement=_num("eval_min_improvement", 0.05),
+        eval_min_cases=int(_num("eval_min_cases", 10)),
+        eval_max_cases=int(_num("eval_max_cases", 50)),
+        eval_max_items_per_case=int(_num("eval_max_items_per_case", 10)),
+    )
 
 
 @dataclass(frozen=True, slots=True)

@@ -34,28 +34,28 @@ EXAMPLE = Path(__file__).resolve().parent / "profiles" / "agent-capacity-webchat
 UNITS = ("console-platform", "agent-runtime", "agent-worker", "im-gateway")
 _HARDWARE: dict[str, dict[str, int]] = {
     "console-platform": {
-        "cpu_request_millicores": 500,
+        "cpu_request_millicores": 1000,
         "cpu_limit_millicores": 2000,
-        "memory_request_mb": 1024,
+        "memory_request_mb": 2048,
         "memory_limit_mb": 4096,
     },
     "agent-runtime": {
         "cpu_request_millicores": 1000,
-        "cpu_limit_millicores": 4000,
+        "cpu_limit_millicores": 2000,
         "memory_request_mb": 2048,
-        "memory_limit_mb": 8192,
+        "memory_limit_mb": 4096,
     },
     "agent-worker": {
-        "cpu_request_millicores": 1000,
-        "cpu_limit_millicores": 4000,
-        "memory_request_mb": 2048,
-        "memory_limit_mb": 8192,
-    },
-    "im-gateway": {
         "cpu_request_millicores": 500,
         "cpu_limit_millicores": 2000,
         "memory_request_mb": 1024,
-        "memory_limit_mb": 4096,
+        "memory_limit_mb": 2048,
+    },
+    "im-gateway": {
+        "cpu_request_millicores": 1000,
+        "cpu_limit_millicores": 2000,
+        "memory_request_mb": 1024,
+        "memory_limit_mb": 2048,
     },
 }
 SECRET_KEY_WORDS = ("api_key", "apikey", "secret", "password", "bearer", "private_key")
@@ -99,21 +99,21 @@ def _document() -> dict[str, object]:
         },
         "resources": {
             "hardware": {unit: dict(spec) for unit, spec in _HARDWARE.items()},
-            "process_counts": {unit: 1 for unit in UNITS},
+            "process_counts": {**{unit: 1 for unit in UNITS}, "console-platform": 4},
             "replica_counts": {
                 "console-platform": 1,
-                "agent-runtime": 2,
-                "agent-worker": 2,
+                "agent-runtime": 8,
+                "agent-worker": 4,
                 "im-gateway": 2,
             },
             "max_replica_counts": {
                 "console-platform": 1,
-                "agent-runtime": 4,
-                "agent-worker": 8,
+                "agent-runtime": 8,
+                "agent-worker": 4,
                 "im-gateway": 2,
             },
-            "pg_connection_budget": 200,
-            "fd_budget": 4096,
+            "pg_connection_budget": 300,
+            "fd_budget": 16384,
             "storage_budget": {
                 "event_bytes_per_day": 5368709120,
                 "retention_days": 30,
@@ -467,7 +467,7 @@ def test_b305_resources_require_every_deployment_unit_and_replica_room() -> None
         parse_profile(document)
 
     document = _document()
-    _set_path(document, "resources.replica_counts.agent-runtime", 5)
+    _set_path(document, "resources.replica_counts.agent-runtime", 9)
     with pytest.raises(ProfileError, match="resources.replica_counts.agent-runtime"):
         parse_profile(document)
 

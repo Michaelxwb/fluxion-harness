@@ -12,7 +12,7 @@
 覆盖 B-303 关键断言：
 1. 注册入口/HPA 资源：kustomize 收集目录里的全部清单（含 `ingress.yaml` 与
    `capacity-autoscaling.yaml`），渲染集合里真的出现 Ingress 与 HorizontalPodAutoscaler；
-2. Console/Gateway 固定 1：不声明 HPA，typed `max_replica_counts` 也是 1（单 Pod 约束不能被
+2. Console 固定 1、Gateway 固定 2：不声明 HPA，typed `max_replica_counts` 分别为 1 / 2（约束不能被
    自动扩缩绕过）；
 3. Runtime/Worker 最大副本显式且等于 typed `max_replica_counts`；`minReplicas` 保持清单基线
    （各 1 Pod）——HPA 只提供上界，不改变单 Pod 基线；缩容受排空预算约束（不能一次清掉在飞
@@ -344,7 +344,7 @@ def test_rendered_base_carries_ingress_and_autoscaling_resources() -> None:
     assert hpa_docs == [], f"{AUTOSCALING_FILE} 只允许声明 HPA：{hpa_docs}"
     targets = sorted(_target_name(hpa) for hpa in _hpas(documents))
     assert targets == sorted(f"muad-{unit}" for unit in AUTOSCALED_UNITS), (
-        f"HPA 必须恰好覆盖 Runtime/Worker（Console/Gateway 固定 1 Pod）：{targets}"
+        f"HPA 必须恰好覆盖 Runtime/Worker（Console 1 / Gateway 2 固定）：{targets}"
     )
 
 

@@ -30,6 +30,15 @@ spec:
           # 前端构建产物在同一镜像内（Dockerfile 的 Node 构建阶段 → /app/static），
           # 由本进程提供 `/chat` 等页面：不新增前端镜像/Pod/Service（frontend §3.2）。
           image: ghcr.io/michaelxwb/muad-console-platform:latest
+          command: ["uvicorn"]
+          args:
+            - "muad_console_platform.main:app"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8000"
+            - "--workers"
+            - "4"
           ports:
             - containerPort: 8000
           envFrom:
@@ -66,8 +75,8 @@ spec:
           # （tests/capacity/profiles/agent-capacity-webchat.example.yml）。
           resources:
             requests:
-              cpu: "500m"
-              memory: 1Gi
+              cpu: "1"
+              memory: 2Gi
             limits:
               cpu: "2"
               memory: 4Gi

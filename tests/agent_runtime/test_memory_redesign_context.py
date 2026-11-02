@@ -66,8 +66,9 @@ async def test_b08_memory_redesign_oldest_of_200_participates_and_drops_are_comp
     memory = loader(async_tool_database, ctx, policy=MemoryPolicySettings(max_injected_memories=1))
     _, captured = await request_round(async_tool_database, ctx, memory)
     assert memory_text(captured[0]).count('"memory_key"') == 1
-    assert memory.component.block.dropped_count == 199 and memory.component.block.dropped_bytes == 0
-    assert _count_drops() - before == 199
+    # 偏好独立限额（items=3）先于渲染生效：渲染层只丢弃超出自身上限的 2 条。
+    assert memory.component.block.dropped_count == 2 and memory.component.block.dropped_bytes == 0
+    assert _count_drops() - before == 2
 
 
 def _count_drops():
@@ -126,7 +127,8 @@ async def test_b09_memory_redesign_long_entry_skips_then_short_entry_fits(async_
     _, captured = await request_round(async_tool_database, ctx, memory)
     text = memory_text(captured[0])
     assert '"memory_key":"z.short"' in text and '"memory_key":"a.long"' not in text
-    assert len(text.encode("utf-8")) == budget and memory.component.block.dropped_bytes == 1
+    # 长偏好条目在独立字节限额处被跳过（不是渲染层丢弃），渲染层无字节丢弃。
+    assert len(text.encode("utf-8")) == budget and memory.component.block.dropped_bytes == 0
 
 
 @pytest.mark.parametrize("failed", [False, True])

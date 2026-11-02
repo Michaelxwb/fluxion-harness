@@ -12,6 +12,7 @@ from .memory_cache import MemoryCandidateCache
 from .memory_commands import MemoryWriteContext
 from .memory_confirmation import MemoryConfirmationService
 from .memory_context import MemoryContextLoader
+from .memory_injection_log import MemoryInjectionLog
 from .memory_queries import MemoryQueries, MemoryReadScope
 from .memory_service import MemoryService
 from .memory_tools import MemoryToolSet
@@ -35,12 +36,40 @@ def create_run_memory(
     submission_id: UUID | None,
     credential_canaries: tuple[str, ...],
     resume_ref: MemoryResumeRef | None,
+    conversation_id: UUID | None = None,
+    min_score: float = 0.35,
+    preference_items: int = 3,
+    preference_bytes: int = 512,
+    learning_enabled: bool = True,
+    initial_task_family: str | None = None,
 ) -> RunMemory:
     if identity is not None and (identity.tenant_id, identity.run_id) != (scope.tenant_id, run_id):
         raise ValueError("memory execution identity must match the Run")
     queries = MemoryQueries(factory)
     cache = MemoryCandidateCache(queries, scope=scope, run_id=run_id)
-    loader = MemoryContextLoader(cache, settings=settings, query=query, task_state_ref=resume_ref)
+    attribution = (
+        MemoryInjectionLog(
+            factory,
+            tenant_id=scope.tenant_id,
+            conversation_id=conversation_id,
+            run_id=run_id,
+        )
+        if conversation_id is not None
+        else None
+    )
+    loader = MemoryContextLoader(
+        cache,
+        settings=settings,
+        query=query,
+        task_state_ref=resume_ref,
+        on_attribution=attribution.record if attribution is not None else None,
+        min_score=min_score,
+        preference_items=preference_items,
+        preference_bytes=preference_bytes,
+        learning_enabled=learning_enabled,
+    )
+    if initial_task_family is not None:
+        loader.set_task_family(initial_task_family)
     confirmation = None
     if identity is not None and submission_id is not None:
         confirmation = MemoryConfirmationService(

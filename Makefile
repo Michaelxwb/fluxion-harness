@@ -1,4 +1,16 @@
-.PHONY: check compile test acceptance acceptance-clean acceptance-e2e smoke capacity-smoke capacity-load capacity-soak capacity-wecom e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck
+.PHONY: check compile test acceptance acceptance-clean acceptance-e2e smoke capacity-smoke capacity-load capacity-soak capacity-wecom e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck base-images export-requirements verify-build-assets
+
+# 内网底座镜像（Python 3.12.13 / Python 3.12.13 + Node 24）；发布需显式 PUSH=1。
+base-images:
+	./build/docker-build/base/build.sh
+
+# 从 uv.lock 重新生成根 requirements.txt（提交前必须无 diff）。
+export-requirements:
+	./build/docker-build/export-requirements.sh
+
+# 构建资产静态校验：shell、requirements 漂移、Helm lint/template。
+verify-build-assets:
+	./build/verify.sh
 
 compile:
 	uv run python -m compileall -q apps packages migrations

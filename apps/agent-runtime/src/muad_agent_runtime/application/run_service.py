@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import sqlalchemy as sa
-from muad_agent_core.agent import AgentPolicy, RunnerModelError
+from muad_agent_core.agent import AgentPolicy, RunnerModelError, RunnerVerificationExhausted
 from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.agent.runner import AgentRunStatus, RunnerDeadlineExceeded
 from muad_agent_core.model import ModelMessage
@@ -146,6 +146,9 @@ from .context_builder import BudgetPolicy, DbBackedContextBuilder
 from .context_settings import (
     PoolExecutionPolicy,
     compaction_settings_of,
+    frozen_learning_from_settings,
+    frozen_learning_payload,
+    learning_of,
     pool_execution_policy_of,
     pool_policy_payload,
     resolve_compaction_settings,
@@ -207,6 +210,7 @@ from .run_submission import (
     require_resume_idempotency,
     submission_fingerprint,
 )
+from .task_family import read_run_task_family
 from .tool_result_receipts import OP_TERMINAL
 
 logger = logging.getLogger(__name__)
@@ -392,6 +396,7 @@ def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults
             max_model_retries=_frozen_int(policy, "max_model_retries", agent_defaults.max_model_retries),
         ),
         memory_policy=_frozen_memory_policy(policy),
+        learning=learning_of(policy),
         max_archive_files=_frozen_int(
             _section(policy, "artifact"),
             "max_archive_files",
@@ -421,6 +426,7 @@ def execution_defaults_from_platform(document: Mapping[str, Any] | None) -> Exec
             max_model_retries=agent.max_model_retries,
         ),
         memory_policy=parsed.memory,
+        learning=frozen_learning_from_settings(parsed.learning),
         max_archive_files=parsed.artifact.max_archive_files,
         timezone=parsed.locale.default_timezone,
     )
@@ -581,6 +587,7 @@ def build_snapshot(
     compaction: CompactionSettings | None = None,
     execution: ExecutionDefaults | None = None,
     summary_model: ResolvedModel | None = None,
+    learning: Mapping[str, Any] | None = None,
     pool: PoolExecutionPolicy | None = None,
     members: Sequence[MemberRef] | None = None,
     summary_members: Sequence[MemberRef] | None = None,
@@ -593,6 +600,7 @@ def build_snapshot(
         else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
     policy = snapshot_policy(settings, execution, summary_model, pool, members, summary_members)
+    policy["learning"] = dict(learning or {})
     from muad_contracts import AsyncToolPolicy
 
     policy["async_tools"] = AsyncToolPolicy.model_validate(
@@ -2083,8 +2091,8 @@ class RunService:
         try:
             await self._session.flush()
             snapshot = self._build_snapshot(
-                run.id, tenant_id, resolved, compaction, execution, summary_model, pool, members,
-                summary_members,
+                run.id, tenant_id, resolved, compaction, execution, summary_model,
+                frozen_learning_payload(snapshot_settings.settings), pool, members, summary_members,
             )
             self._session.add(snapshot)
             await self._session.flush()
@@ -2747,6 +2755,7 @@ class RunService:
         compaction: CompactionSettings | None = None,
         execution: ExecutionDefaults | None = None,
         summary_model: ResolvedModel | None = None,
+        learning: Mapping[str, Any] | None = None,
         pool: PoolExecutionPolicy | None = None,
         members: Sequence[MemberRef] | None = None,
         summary_members: Sequence[MemberRef] | None = None,
@@ -2758,6 +2767,7 @@ class RunService:
             compaction=compaction,
             execution=execution,
             summary_model=summary_model,
+            learning=learning,
             pool=pool,
             members=members,
             summary_members=summary_members,
@@ -3195,11 +3205,13 @@ class RunService:
                 await cancel_operations(session, row)
             marker = mark("cancel", marker)
             target = RunStatus.CANCELLED if cancelled else RunStatus.COMPLETED
+            task_family = await read_run_task_family(session, row)
             updated = await session.execute(
                 sa.update(RunRecord)
                 .where(RunRecord.id == run.id, RunRecord.status == RunStatus.RUNNING)
                 .values(
                     status=target,
+                    task_family=task_family,
                     end_time=sa.func.now(),
                     update_time=sa.func.now(),
                     lease_owner=None,
@@ -3584,6 +3596,8 @@ def _error_code_for(exc: Exception) -> str:
         return "RUN_DEADLINE_EXCEEDED"
     if isinstance(exc, RunnerShutdown):
         return "RUN_SHUTDOWN"
+    if isinstance(exc, RunnerVerificationExhausted):
+        return str(ErrorCode.VERIFICATION_EXHAUSTED)
     if isinstance(exc, AppError):
         return str(exc.code)
     if isinstance(exc, RunnerModelError):

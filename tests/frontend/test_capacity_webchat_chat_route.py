@@ -13,7 +13,7 @@
 - **路由独立性**（B-277）：`App.tsx` 用 `lazy(() => import('./modules/webchat/ChatPage'))` 注册
   `chat/:entryId?`，该路由是 `<Routes>` 的顶层兄弟、位于管理 `RequireAuth`/`AppLayout` 子树之外，
   元素里没有 `RequireAuth`/`RequireRole`/`AppLayout`/登录跳转；真实 esbuild 分包证明 ChatPage
-  模块只出现在懒加载 chunk 里（不在入口 chunk）；Console 菜单仍是固定十一项、没有聊天菜单。
+  模块只出现在懒加载 chunk 里（不在入口 chunk）；Console 菜单仍是固定十二项、没有聊天菜单。
 - **URL 是选择的唯一来源**（B-277）：`parseChatRoute` 只吃 `:entryId` 与 `conversation` 查询参数
   （忽略其它参数、重复参数取首个、空串视为缺省、非法 UUID 不触发请求）；`resolveChatEntry`
   只认授权集合：URL 入口未授权 → 显式 `unauthorized`（不回落其它入口）、无 URL 入口时只在
@@ -1032,7 +1032,7 @@ def test_b277_chat_route_is_registered_lazily_outside_the_console_shell() -> Non
 
     menu = _read(MENU_TS)
     keys = re.findall(r"key:\s*'([^']+)'", menu)
-    assert len(keys) == 11, f"聊天不增加 Console 菜单（仍是固定十一项）：{keys}"
+    assert len(keys) == 12, f"聊天不增加 Console 菜单（仍是固定十二项）：{keys}"
     assert "nav.chat" not in keys and "'/chat'" not in menu, "聊天入口不得进管理菜单"
     assert "'/chat'" not in _read(APP_LAYOUT_TSX), "AppLayout 不得登记聊天菜单图标"
 

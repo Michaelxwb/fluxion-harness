@@ -15,7 +15,14 @@ export type MemoryStatus = 'ACTIVE' | 'DISABLED' | 'EXPIRED';
 export type MemoryAuthor = 'USER' | 'ADMIN' | 'AGENT';
 
 /** 分类枚举；`TASK_STATE` 是 Agent 任务线索占用的保留命名空间。 */
-export type MemoryCategory = 'PREFERENCE' | 'WORK_STYLE' | 'EXPLICIT' | 'TASK_STATE';
+export type MemoryCategory =
+  | 'PREFERENCE'
+  | 'WORK_STYLE'
+  | 'EXPLICIT'
+  | 'TASK_STATE'
+  | 'PROCEDURE'
+  | 'FAILURE_PATTERN'
+  | 'VERIFICATION';
 
 /** 管理员人工写入允许的分类（后端 `MemoryCreateRequest` 拒绝 TASK_STATE）。 */
 export type MemoryWritableCategory = 'PREFERENCE' | 'WORK_STYLE' | 'EXPLICIT';

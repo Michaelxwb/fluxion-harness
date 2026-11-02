@@ -29,6 +29,26 @@ codes:
     messages:
       zh-CN: "暂时无法读取记忆，请稍后重试"
       en-US: "Memory is temporarily unavailable; try again later"
+  LEARNING_EXPERIENCE_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: "经验不存在或不属于当前用户"
+      en-US: "Experience not found for this user"
+  LEARNING_INVALID_TRANSITION:
+    http_status: 409
+    messages:
+      zh-CN: "经验状态不允许该操作"
+      en-US: "The experience state does not allow this transition"
+  LEARNING_REPLAY_GATE_FAILED:
+    http_status: 409
+    messages:
+      zh-CN: "回放未通过门槛，不能激活"
+      en-US: "Replay did not pass the gate; activation is refused"
+  LEARNING_DISABLED:
+    http_status: 409
+    messages:
+      zh-CN: "当前租户未开启学习"
+      en-US: "Learning is disabled for this tenant"
   MEMORY_QUOTA_EXCEEDED:
     http_status: 409
     messages:
@@ -327,6 +347,12 @@ codes:
     messages:
       zh-CN: 模型服务暂时不可用，请稍后重试
       en-US: The model service is temporarily unavailable
+
+  VERIFICATION_EXHAUSTED:
+    http_status: 422
+    messages:
+      zh-CN: 候选答案在验证上限内均未通过，未输出未验证答案
+      en-US: No candidate answer passed verification within the attempt limit
 
   MODEL_OUTPUT_BUDGET_INVALID:
     http_status: 409
