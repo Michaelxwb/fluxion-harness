@@ -2,7 +2,7 @@
 
 ## 运行方式
 
-复用现有 Python HMAC 登录实现，只注册一个 MSS Adapter（mss），MSSP/MSSW 平台实例都选择它。Branch Tag 与业务 CSRF 请求头在平台配置 JSON 中指定；用户/账号、平台实例与缓存隔离。模块随 Runtime/Worker 部署，无独立微服务。
+复用现有 Python HMAC 登录实现，只注册一个 MSS Adapter（mss-session），MSSP/MSSW 平台实例都选择它。Branch Tag 与业务 CSRF 请求头在平台配置 JSON 中指定；用户/账号、平台实例与缓存隔离。模块随 Runtime/Worker 部署，无独立微服务。
 
 平台公共配置仍用 JSON，Base URL 在 resolver_config.base_url；AK/SK 只在用户或共享凭据表中保存。保存配置不等于实际登录成功。认证、权限或业务错误在 Skill 真正执行时返回。
 
@@ -68,7 +68,7 @@ uv run --extra dev pytest -q tests/sdk/test_mss_sessions.py tests/sdk/test_platf
 
 ## 统一 Adapter 的平台配置
 
-界面只有“MSS”，不再提供 MSSP/MSSW 两个 Adapter 选项。平台实例仍可以分别命名为 MSSP 和 MSSW，各自填写 Base URL、AK/SK，并隔离缓存。默认公共参数为 MSSP 协议头；MSSW 实例在配置 JSON 中设置：
+界面只有“mss-session”，不再提供 MSSP/MSSW 两个 Adapter 选项。平台实例仍可以分别命名为 MSSP 和 MSSW，各自填写 Base URL、AK/SK，并隔离缓存。默认公共参数为 MSSP 协议头；MSSW 实例在配置 JSON 中设置：
 
 ```json
 {
@@ -77,7 +77,7 @@ uv run --extra dev pytest -q tests/sdk/test_mss_sessions.py tests/sdk/test_platf
 }
 ```
 
-MSSP 实例可使用默认值，或显式设置 branch_tag 为 MSSP-ADAPTER、csrf_header 为 X-CSRFToken。其余登录路径、Host 等按环境填写。已有使用旧 Adapter key 的本地平台记录需改为 mss，并带上相应协议头参数；不需要在 SDK 中保留旧 Adapter 别名。
+MSSP 实例可使用默认值，或显式设置 branch_tag 为 MSSP-ADAPTER、csrf_header 为 X-CSRFToken。其余登录路径、Host 等按环境填写。已有使用旧 Adapter key 的本地平台记录需改为 mss-session，并带上相应协议头参数；不需要在 SDK 中保留旧 Adapter 别名。
 
 ## JSON 字段用途与登录请求
 

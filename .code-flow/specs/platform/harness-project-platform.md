@@ -27,8 +27,8 @@ verifiers:
 
 ## Conventions
 
-- MSSP/MSSW 统一使用 `mss` Adapter 标识，显示名为 `MSS`；平台实例及协议头配置仍分别维护。
-  - ✅ 两个平台实例选择同一个 `mss` Adapter，Session 按平台实例隔离。
+- MSSP/MSSW 统一使用 `mss-session` Adapter 标识，显示名为 `mss-session`；平台实例及协议头配置仍分别维护。
+  - ✅ 两个平台实例选择同一个 `mss-session` Adapter，Session 按平台实例隔离。
   - ❌ 为 MSSW 单独注册重复 Adapter。
 
 - MSS 登录仅将平台 `login_body` 与用户/共享凭据的 `body` 顶层合并，同名键由凭据 body 覆盖。未显式配置 body 时沿用 MSSClaw 空请求体。凭据顶层只接受 `ak`/`sk`/`headers`/`body`；AK/SK 只用于 HMAC 签名，headers 用于登录请求头，不自动转成 body。非空 body 摘要遵循 MSSClaw 签名规则。JSON 模式不要求 AK/SK。Redis 会话管理协议保持一致。

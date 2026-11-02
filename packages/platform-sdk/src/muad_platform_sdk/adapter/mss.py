@@ -111,8 +111,8 @@ def login_body(config: MSSSettings, credential: MSSCredential) -> str:
 
 
 class MSSAdapter:
-    key = "mss"
-    name = "MSS"
+    key = "mss-session"
+    name = "mss-session"
     version = "2"
     session_mode = SessionMode.SESSION
     platform_config_schema = MSSSettings.model_json_schema()

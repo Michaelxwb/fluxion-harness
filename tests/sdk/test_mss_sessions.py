@@ -35,7 +35,7 @@ def platform_server():
         name="Test platform",
         resolver_type="BASE_URL",
         resolver_config={"base_url": f"http://127.0.0.1:{server.server_port}"},
-        adapter_key="mss",
+        adapter_key="mss-session",
         adapter_config={"csrf_enabled": True},
         credential_mode="USER_ONLY",
     )
@@ -176,9 +176,9 @@ async def test_cookie_path_and_expiry(platform_server):
 def test_console_registry_exposes_real_adapters():
     from muad_console_platform.application.platform_adapter_service import build_default_registry
 
-    registry = build_default_registry(("mss",))
-    assert isinstance(registry.get("mss"), MSSAdapter)
-    assert [a.key for a in registry.list()].count("mss") == 1
+    registry = build_default_registry(("mss-session",))
+    assert isinstance(registry.get("mss-session"), MSSAdapter)
+    assert [a.key for a in registry.list()].count("mss-session") == 1
     assert not any(a.key in {"mssp-hmac-session", "mssw-hmac-session"} for a in registry.list())
 
 

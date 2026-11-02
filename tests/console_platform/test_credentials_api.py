@@ -367,13 +367,21 @@ async def test_mss_adapter_key_migration_preserves_credentials(
         def upgrade(sync_connection):
             with Operations.context(MigrationContext.configure(sync_connection)):
                 migration.upgrade()
+                next_spec = importlib.util.spec_from_file_location(
+                    "rename_mss_session",
+                    Path(__file__).parents[2] / "migrations/versions/0036_rename_mss_session.py",
+                )
+                assert next_spec and next_spec.loader
+                next_migration = importlib.util.module_from_spec(next_spec)
+                next_spec.loader.exec_module(next_migration)
+                next_migration.upgrade()
 
         await connection.run_sync(upgrade)
         key = await session.scalar(
             text("SELECT adapter_key FROM control.project_platform WHERE id = :id"),
             {"id": platform_bundle["platform_id"]},
         )
-        assert key == "mss"
+        assert key == "mss-session"
         await session.commit()
     stored = await _stored_credential(
         tenant.tenant_id, platform_bundle["user_id"], platform_bundle["platform_id"]
