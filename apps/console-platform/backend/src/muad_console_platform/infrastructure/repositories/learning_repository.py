@@ -232,7 +232,7 @@ class LearningRepository:
                     " FROM runtime.eval_report"
                     " WHERE tenant_id=:tenant_id AND experience_key=:key"
                     "   AND (experience_user_id=:user_id OR experience_user_id IS NULL)"
-                    "   AND is_deleted=false ORDER BY version DESC LIMIT 50"
+                    "   AND is_deleted=false ORDER BY (experience_user_id IS NULL), version DESC LIMIT 50"
                 ),
                 {"tenant_id": tenant_id, "user_id": user_id, "key": key},
             )
