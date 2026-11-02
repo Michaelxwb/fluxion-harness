@@ -342,6 +342,14 @@ jobs:
           path: .code-flow/.verifier-cache.json
           retention-days: 7
           if-no-files-found: ignore
+      - name: 上传 review 失败用例清单（无论成败）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-cache-failures
+          path: /tmp/pytest-failures.log
+          retention-days: 7
+          if-no-files-found: ignore
 
   # 把并行 job 的 cache 分片合成一个文件给本地下载。各分片的 cache 文件名相同，
   # 所以 upload 时先按 job 复制成唯一文件名，再在这里统一 merge。
