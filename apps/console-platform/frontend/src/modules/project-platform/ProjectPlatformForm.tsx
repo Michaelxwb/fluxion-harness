@@ -1,4 +1,4 @@
-import { Banner, Button, Form } from '@douyinfe/semi-ui';
+import { Banner, Form } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -237,11 +237,6 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
             placeholder={platformConfigExample(selectedAdapter?.platform_config_schema)}
           />
           {configError ? <Banner type="danger" closeIcon={null} description={configError} /> : null}
-          <Button type="tertiary" size="small" onClick={() => formApi.current?.setValue(
-            'adapter_config_json', platformConfigExample(selectedAdapter?.platform_config_schema)
-          )}>
-            {t('platform.form.configExample')}
-          </Button>
         </div>
       </div>
     </FormModal>

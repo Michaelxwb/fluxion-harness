@@ -544,7 +544,6 @@
   "platform.form.adapterSectionHint": "以 JSON 对象配置平台公共参数；AK/SK 请在凭据中填写。",
   "platform.form.configJson": "配置 JSON",
   "platform.form.configInvalid": "请输入有效的 JSON 对象，不能是数组或空值。",
-  "platform.form.configExample": "填入默认示例",
   "platform.adapterField.auth_scheme": "认证方式",
   "platform.adapterField.auth_header": "认证头",
   "platform.adapterField.timeout_ms": "超时（毫秒）",
