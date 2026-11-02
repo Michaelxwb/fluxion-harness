@@ -1,7 +1,7 @@
 version: 1
 task: learning-pipeline-wiring
 enforcement: required
-updated_at: '2026-11-01T01:05:44.061596+00:00'
+updated_at: '2026-11-02T02:28:42.631750+00:00'
 sources:
 - type: cli
   ref: bind
@@ -53,7 +53,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -161,7 +161,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -295,7 +295,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -489,7 +489,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -656,7 +656,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -693,7 +693,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -733,7 +733,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -770,7 +770,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -808,7 +808,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -845,7 +845,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -897,7 +897,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -1025,7 +1025,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -1151,7 +1151,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -1310,8 +1310,8 @@ bindings:
   path: test/harness-test.md
   status: active
   hashes:
-    file_sha256: 01f0ce3ef66bea87ddc705d68cb2d5481adc40e4ab3ea208a83899bdf035e02b
-    metadata_sha256: 5d27df198a9eaddd2dd86bf03245618c896f974e1312e38dacac6585c3159c08
+    file_sha256: 75739bd416d116427c944319e1317d0aeacb6f1f348d9e1a5565711eee876663
+    metadata_sha256: 627002a69e1a9cee732368249c2d3cf50f8423bb58cbc426b5a6993b071c370e
     rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
   selected_by: cli
   reason: 真实执行链 E2E 与接线盘点
@@ -1345,7 +1345,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:
@@ -1397,7 +1397,7 @@ bindings:
         - artifact: learning-pipeline-wiring.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: d97ea47d0153bbf00916277501c79fa2e04d22448cdf2e3ce53447c5cc2e854e
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
         decision: null
         evidence: []
       code:

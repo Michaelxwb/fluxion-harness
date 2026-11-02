@@ -19,6 +19,10 @@ on:
         description: "导出 validation cache（heavy validators 由 CI 并行执行）"
         type: boolean
         default: true
+      review_task_dir:
+        description: "可选：导出 spec review verifier cache 的需求目录（相对仓库根）"
+        type: string
+        default: ""
 
 # 同一 PR 连续推送时取消上一轮（避免旧提交占着 runner）；main 的验证不取消，
 # 保证每个合并点都完整跑完。
@@ -247,14 +251,14 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # validation.yml 的 acceptance 是一条完整命令；上面的 7 片是 CI 隔离分片，
-  # argv 与 validator 不同，不能直接写缓存。仅手动触发时额外跑一次完整命令，
-  # 让本地 archive 的 heavy acceptance 命中缓存；正常 PR 不增加这份开销。
-  acceptance-cache:
-    name: acceptance-cache (full validator)
-    if: github.event_name == 'workflow_dispatch' && inputs.export_validation_cache
+  # 需求级 review 终验包含完整 acceptance + 前端 build + 基础浏览器旅程，且
+  # RULE-test-001 声明了 files 作用域，可按内容指纹缓存。仅在显式传入需求目录时
+  # 运行；它同时写出 acceptance 的 validation cache 与 spec verifier cache。
+  review-cache:
+    name: review-cache (spec verifiers)
+    if: github.event_name == 'workflow_dispatch' && inputs.review_task_dir != ''
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     services:
       postgres:
         image: postgres:16
@@ -288,7 +292,20 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            apps/console-platform/frontend/package-lock.json
+            e2e/package-lock.json
       - run: uv sync --extra dev
+      - run: npm ci
+        working-directory: apps/console-platform/frontend
+      - run: npm ci
+        working-directory: e2e
+      - name: 预检系统 Chrome
+        run: google-chrome --version
       - name: 生成 CI 专用 alembic ini 并迁移到 head
         run: |
           printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
@@ -298,24 +315,40 @@ jobs:
         run: uv run python scripts/clean_acceptance_claims.py
       - name: 预建干净检出缺失的 .data 挂载目录
         run: mkdir -p .data/artifacts .data/skill-cache
-      - name: 运行完整 acceptance 并写 validation cache
-        run: uv run python scripts/ci_validation_cache.py --validator "Pytest (acceptance)" --json
+      - name: 运行 review 层并写 verifier cache
+        run: |
+          uv run python .code-flow/scripts/cf_task_workflow.py verify \
+            --layers review --profile full \
+            --task-dir "${{ inputs.review_task_dir }}" --root "$PWD" --json
       - name: 准备 validation cache 分片
-        run: cp .code-flow/.validation-cache.json validation-cache-acceptance.json
-      - name: 上传 validation cache 分片
+        if: always()
+        run: |
+          if [ -f .code-flow/.validation-cache.json ]; then
+            cp .code-flow/.validation-cache.json validation-cache-acceptance.json
+          fi
+      - name: 上传 acceptance validation cache 分片
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: validation-cache-entry-acceptance
           path: validation-cache-acceptance.json
           retention-days: 7
-          if-no-files-found: error
+          if-no-files-found: ignore
+      - name: 上传 verifier cache
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verifier-cache
+          path: .code-flow/.verifier-cache.json
+          retention-days: 7
+          if-no-files-found: ignore
 
   # 把并行 job 的 cache 分片合成一个文件给本地下载。各分片的 cache 文件名相同，
   # 所以 upload 时先按 job 复制成唯一文件名，再在这里统一 merge。
   validation-cache-merge:
     name: validation-cache (merge)
     if: always() && github.event_name == 'workflow_dispatch' && inputs.export_validation_cache
-    needs: [backend-tests, acceptance-cache]
+    needs: [backend-tests, review-cache]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

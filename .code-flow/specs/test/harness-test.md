@@ -13,17 +13,30 @@ verifiers:
   # 全量 acceptance + 前端 build + Playwright 是需求级终验，不在每个写测试的 code TASK
   # finish 中重跑；否则任何 tests/** 改动都会拉起全场 E2E。
   stage: review
+  # 声明作用域后 command 结果可按 scope 内容指纹缓存；CI 手动导出 verifier cache
+  # 供本地 archive 复用（见 harness-test 的 CI 约定）。
+  files:
+    - apps/**
+    - packages/**
+    - tests/**
+    - e2e/**
+    - scripts/**
+    - migrations/**
+    - config/**
+    - Makefile
+    - pyproject.toml
+    - uv.lock
   config:
     argv:
     - bash
     - -lc
-    - uv run pytest -q -m "not capacity_load" tests/acceptance && npm --prefix
-      apps/console-platform/frontend run build && npm --prefix e2e test
+    - uv run python scripts/ci_validation_cache.py --validator "Pytest (acceptance)"
+      --json && npm --prefix apps/console-platform/frontend run build && npm --prefix
+      e2e test
     cwd: .
-    # 链 = 非容量 acceptance + 前端 build + Playwright e2e。capacity_load 是手动容量边界，
-    # 不进 Done Gate。曾因共享库上的孤儿验收栈（Worker 抢任务）把耗时放大到 1200s 以上，
-    # 清孤儿后 2400s 实测通过；预算只给这条终验链。
-    timeout: 2400
+    # 链 = 非容量 acceptance（经 validation cache helper，顺带写 acceptance 缓存）+
+    # 前端 build + Playwright e2e。capacity_load 是手动容量边界，不进 Done Gate。
+    timeout: 2700
 ---
 
 # harness-test
@@ -77,7 +90,8 @@ verifiers:
 - **本地跑测/Playwright 前停 dev 服务**：`scripts/dev.sh stop` 按精确仓库根 cwd + 端口持有者清理 multiprocessing/uvicorn reload 子进程；e2e 的 `pretest` 先停 dev，避免 `--reload` Worker 抢共享库任务。
 - **后端 CI 并行分片**：`backend-static` 只跑 compile/i18n/error-message/lint/typecheck（无 DB）；`backend-tests` 按目录切 `fast`/`runtime`/`console`/`worker` 四个 matrix job，**每个 job 自带 PG/Redis service**，互不共享库与 Redis 号位。`acceptance` 按模块切 `dfx`/`gateway`/`im_gateway`/`runtime`/`capacity`/`task_schedule`/`rest` 七片，各自一套 PG/Redis 与临时库——起真实 Worker/Runtime 的模块串在一个 job 会污染后续模块。CI 预建 `.data/artifacts` 与 `.data/skill-cache`。分片是人工清单：新增顶层测试目录（含 `tests/acceptance` 子目录）必须同步 `.github/workflows/check.yml`，否则静默漏跑；四个单测分片收集条数应互不重叠并等于拆分前的收集数。
 - **本地单测分片必须与 CI 同口径**：`.code-flow/validation.yml` 的 `Pytest (unit)` 按 `fast`/`runtime`/`console`/`worker` 四个静态分片、各自独立进程执行，并带 `-m "not capacity_load"`。✅ 本地路径与 `.github/workflows/check.yml` 逐项一致、新增顶层目录两处同步；❌ 单进程 `pytest --ignore=tests/acceptance` 跑全量——前序模块创建的 engine/日志/租户状态会污染后续文件（2026-10-31 实测 5 条「单文件绿、整批红」：SQL 捕获 0 条、指标样本混入其它模块 label）。
-- **CI heavy validator 即缓存生产者**：`check.yml` 的 `backend-tests` 四个 job 与 `acceptance-cache` 必须执行 `.code-flow/validation.yml` 同名 validator 的**原命令**；手动 `workflow_dispatch` 时各 job 导出 `.validation-cache.json` 分片，`validation-cache-merge` 合并成 `validation-cache` artifact（含 `validation-cache-provenance.json`）。本地用 `scripts/merge_validation_cache.py --rebind-local --provenance ...` 合并：脚本校验 CI commit == 本地 HEAD、缓存 fingerprint == 本地工作树指纹，只把 execution identity 重绑定到本机并保留 CI identity/run URL 作审计；随后 `task verify-e2e`/`task archive` 复用，不再重跑 heavy 套件。✅ 在分支 HEAD 上 dispatch（PR 的 merge commit 与本地 HEAD 不同）；本地合并后保持工作区干净。❌ 另写一份“差不多”的 pytest 命令或改分片路径——argv 不同，缓存永远 miss；❌ 跳过 `--rebind-local` 直接拷 cache——code-flow 的 execution identity 含 cwd/env，跨机器永远 miss。
+- **CI heavy validator 即缓存生产者**：`check.yml` 的 `backend-tests` 四个 job 必须执行 `.code-flow/validation.yml` 同名 validator 的**原命令**；手动 `workflow_dispatch` 时各 job 导出 `.validation-cache.json` 分片，`validation-cache-merge` 合并成 `validation-cache` artifact（含 `validation-cache-provenance.json`）。本地用 `scripts/merge_validation_cache.py --rebind-local --provenance ...` 合并：脚本校验 CI commit == 本地 HEAD、缓存 fingerprint == 本地工作树指纹，只把 execution identity 重绑定到本机并保留 CI identity/run URL 作审计；随后 `task verify-e2e`/`task archive` 复用，不再重跑 heavy 套件。✅ 在分支 HEAD 上 dispatch（PR 的 merge commit 与本地 HEAD 不同）；本地合并后保持工作区干净。❌ 另写一份“差不多”的 pytest 命令或改分片路径——argv 不同，缓存永远 miss；❌ 跳过 `--rebind-local` 直接拷 cache——code-flow 的 execution identity 含 cwd/env，跨机器永远 miss。
+- **review 层也走 CI 缓存**：`harness-test#RULE-test-001` 声明 `files` 作用域，`review-cache` job 在 dispatch 时传 `review_task_dir` 跑 `task verify --layers review --profile full`，导出 `.verifier-cache.json`；该命令内部用 `scripts/ci_validation_cache.py` 跑 acceptance，顺带写 acceptance 的 validation cache。本地把 `verifier-cache.json` 放到 `.code-flow/.verifier-cache.json`，`verify-e2e`/`archive` 的 review 层直接复用。✅ verifier cache key 由 spec/rule/verifier/scope 内容决定，不含 cwd/env；❌ 把 `files` 作用域扩到 `.code-flow/**`——任务文件变动会让缓存永远 miss。
 
 **验收反模式（Anti-Patterns）**：
 

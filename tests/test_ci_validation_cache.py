@@ -95,18 +95,17 @@ def test_workflow_cache_jobs_reference_heavy_validators() -> None:
     assert {str(item["name"]) for item in shards} == {"fast", "runtime", "console", "worker"}
     assert {str(item["validator"]) for item in shards} <= heavy
 
-    acceptance_runs = [
-        str(step.get("run", ""))
-        for step in workflow["jobs"]["acceptance-cache"]["steps"]
-    ]
-    assert any("ci_validation_cache.py" in run and "Pytest (acceptance)" in run
-               for run in acceptance_runs), acceptance_runs
+    review = workflow["jobs"]["review-cache"]
+    review_runs = [str(step.get("run", "")) for step in review["steps"]]
+    assert any("cf_task_workflow.py" in run and "--layers review" in run
+               for run in review_runs), review_runs
+    assert any("review_task_dir" in run for run in review_runs), review_runs
+    assert any(step.get("name") == "上传 verifier cache" for step in review["steps"])
     assert "Pytest (acceptance)" in heavy
 
-    merge_runs = [
-        str(step.get("run", ""))
-        for step in workflow["jobs"]["validation-cache-merge"]["steps"]
-    ]
+    merge = workflow["jobs"]["validation-cache-merge"]
+    assert "review-cache" in merge["needs"]
+    merge_runs = [str(step.get("run", "")) for step in merge["steps"]]
     assert any("merge_validation_cache.py" in run for run in merge_runs), merge_runs
     assert any("validation-cache-provenance.json" in run for run in merge_runs), merge_runs
 
