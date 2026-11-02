@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from muad_contracts import ResolvedSkill
-from muad_platform_sdk.adapter.mssp_config import PlatformAuthError
+from muad_platform_sdk.adapter.mss_config import PlatformAuthError
 from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_platform_sdk.skill_bridge import skill_platform_environment
 from muad_skill_sdk import SkillContext, SkillPackageError, declared_entrypoint, locate_package_root

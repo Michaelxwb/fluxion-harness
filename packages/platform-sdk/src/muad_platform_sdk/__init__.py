@@ -7,8 +7,8 @@ from .adapter import (
     PlatformAdapterNotFound,
     PlatformAdapterRegistry,
 )
-from .adapter.mssp import MSSPAdapter, MSSWAdapter
-from .adapter.mssp_config import PlatformAuthError
+from .adapter.mss import MSSAdapter
+from .adapter.mss_config import PlatformAuthError
 from .client import PlatformClient
 from .egress_client import EgressAccess, RuntimeEgressClient
 from .session import (
@@ -36,8 +36,7 @@ from .types import (
 
 __all__ = [
     "RedisPlatformSessionManager",
-    "MSSPAdapter",
-    "MSSWAdapter",
+    "MSSAdapter",
     "PlatformAuthError",
     "CREDENTIAL_SCHEMA",
     "NONE_ACTOR_SCOPE",

@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 from muad_common import SharedSettings
-from muad_platform_sdk import MSSPAdapter, MSSWAdapter, PlatformAdapterRegistry, SecretValue
+from muad_platform_sdk import MSSAdapter, PlatformAdapterRegistry, SecretValue
 from muad_platform_sdk.session.manager import SessionRequest
 from muad_platform_sdk.session.redis_manager import RedisPlatformSessionManager
 from muad_platform_sdk.skill_access import SkillPlatformContext
@@ -31,7 +31,7 @@ async def cache():
     redis = Redis.from_url(url)
     await redis.ping()
     registry = PlatformAdapterRegistry()
-    for adapter in (MSSWAdapter(), MSSPAdapter()):
+    for adapter in (MSSAdapter(),):
         registry.register(adapter)
     tenant, platform_id = "session-test-" + uuid.uuid4().hex, str(uuid.uuid4())
     manager = RedisPlatformSessionManager(redis, registry, tenant_id=tenant, platform_id=platform_id)
@@ -162,7 +162,8 @@ async def execution_context(platform_server, cache):
 def skill_script(tmp_path):
     (tmp_path / "scripts").mkdir()
     (tmp_path / "SKILL.md").write_text(
-        "---\nname: platform_server\ndescription: platform_server\nplatforms: [platform_server]\n---\nTest platform query"
+        "---\nname: platform_server\ndescription: platform_server\n"
+        "platforms: [platform_server]\n---\nTest platform query"
     )
     (tmp_path / "scripts/main.py").write_text(
         "from muad_skill_sdk import platform_request\nimport json\n"

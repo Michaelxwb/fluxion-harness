@@ -1,4 +1,4 @@
-"""MSSP adapter; no shared cookie jar, credentials, or implicit business retries."""
+"""Unified MSS AK/SK adapter; no shared cookie jar, credentials, or implicit business retries."""
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ from ..types import (
     SecretValue,
     SessionMode,
 )
-from .mssp_config import AKSKCredential, MSSPSettings, PlatformAuthError, credentials, platform_url, settings
-from .mssp_signing import login_authorization
+from .mss_config import AKSKCredential, MSSSettings, PlatformAuthError, credentials, platform_url, settings
+from .mss_signing import login_authorization
 
 MAX_RESPONSE = 1024 * 1024
 
@@ -96,17 +96,15 @@ def restore_cookies(session: PlatformSession) -> httpx.Cookies:
     return jar
 
 
-class MSSPAdapter:
-    key = "mssp-hmac-session"
-    name = "MSSP AK/SK"
+class MSSAdapter:
+    key = "mss-hmac-session"
+    name = "MSS AK/SK"
     version = "1"
-    branch_tag = "MSSP-ADAPTER"
-    csrf_header = "X-CSRFToken"
     session_mode = SessionMode.SESSION
-    platform_config_schema = MSSPSettings.model_json_schema()
+    platform_config_schema = MSSSettings.model_json_schema()
     credential_schema = AKSKCredential.model_json_schema()
 
-    def _client(self, config: MSSPSettings) -> httpx.AsyncClient:
+    def _client(self, config: MSSSettings) -> httpx.AsyncClient:
         context = ssl.create_default_context(cafile=config.ca_bundle or None)
         return httpx.AsyncClient(
             verify=context, timeout=config.timeout_seconds, follow_redirects=False, trust_env=False
@@ -127,7 +125,7 @@ class MSSPAdapter:
             headers.update(
                 {
                     "Content-Type": "application/json",
-                    "X-Branch-Tag": self.branch_tag,
+                    "X-Branch-Tag": config.branch_tag,
                     "Agent-Nonce": uuid.uuid4().hex,
                     "Authorization": login_authorization(
                         url, secret.ak.get_secret_value(), secret.sk.get_secret_value(), int(time.time())
@@ -141,7 +139,7 @@ class MSSPAdapter:
             return self._session(client, platform, config)
 
     def _session(
-        self, client: httpx.AsyncClient, platform: PlatformConfig, config: MSSPSettings
+        self, client: httpx.AsyncClient, platform: PlatformConfig, config: MSSSettings
     ) -> PlatformSession:
         # Keep domain/path/secure/expiry so cookies cannot leak to other endpoints.
         cookies = [
@@ -177,7 +175,7 @@ class MSSPAdapter:
         headers = {"Cookie": cookie, "Timezone": config.timezone, "Accept": "application/json"}
         for pair in cookie.split("; "):
             if pair.startswith("csrf_token="):
-                headers[self.csrf_header] = pair.partition("=")[2]
+                headers[config.csrf_header] = pair.partition("=")[2]
         if config.host_header:
             headers["Host"] = config.host_header
         if config.referer:
@@ -225,10 +223,3 @@ class MSSPAdapter:
             headers["Content-Type"] = "application/json"
             body = json.dumps(request.payload)
         return PreparedRequest(method=method, url=url, headers=headers, body=body)
-
-
-class MSSWAdapter(MSSPAdapter):
-    key = "mssw-hmac-session"
-    name = "MSSW AK/SK"
-    branch_tag = "MSSW-ADAPTER"
-    csrf_header = "x-csrf-token"

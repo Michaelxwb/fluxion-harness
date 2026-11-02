@@ -4,8 +4,7 @@ from typing import Any
 
 from muad_platform_sdk import (
     GenericHttpAdapter,
-    MSSPAdapter,
-    MSSWAdapter,
+    MSSAdapter,
     PlatformAdapter,
     PlatformAdapterRegistry,
 )
@@ -14,10 +13,9 @@ from muad_platform_sdk import (
 def build_default_registry(extra_keys: tuple[str, ...] = ()) -> PlatformAdapterRegistry:
     registry = PlatformAdapterRegistry()
     registry.register(GenericHttpAdapter())
-    registry.register(MSSPAdapter())
-    registry.register(MSSWAdapter())
+    registry.register(MSSAdapter())
     for key in extra_keys:
-        if key in {"", "generic-http", "mssp-hmac-session", "mssw-hmac-session"}:
+        if key in {"", "generic-http", "mss-hmac-session"}:
             continue
         registry.register(GenericHttpAdapter(key=key, name=f"通用 HTTP ({key})", version="2"))
     return registry

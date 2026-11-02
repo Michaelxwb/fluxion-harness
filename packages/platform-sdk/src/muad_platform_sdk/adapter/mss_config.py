@@ -1,5 +1,6 @@
 """Public platform settings and private account material have separate schemas."""
 
+from typing import Literal
 from urllib.parse import urljoin, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
@@ -14,10 +15,14 @@ class PlatformAuthError(RuntimeError):
         super().__init__(code)
 
 
-class MSSPSettings(BaseModel):
+class MSSSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
     session_endpoint: str = Field(
         default="/gateway/mss-auth-acl-service/v1/certification/login_agent", title="登录接口路径"
+    )
+    branch_tag: Literal["MSSP-ADAPTER", "MSSW-ADAPTER"] = Field(default="MSSP-ADAPTER", title="登录分支标识")
+    csrf_header: Literal["X-CSRFToken", "x-csrf-token"] = Field(
+        default="X-CSRFToken", title="业务 CSRF 请求头"
     )
     health_endpoint: str = Field(default="/v1/rtt", title="登录态校验路径")
     csrf_enabled: bool = Field(default=False, title="登录前获取 CSRF")
@@ -36,11 +41,11 @@ class AKSKCredential(BaseModel):
     sk: SecretStr = Field(min_length=1, title="SK", json_schema_extra={"x-secret": True})
 
 
-def settings(platform: PlatformConfig) -> MSSPSettings:
+def settings(platform: PlatformConfig) -> MSSSettings:
     if not platform.enabled or platform.resolver_type != "BASE_URL":
         raise PlatformAuthError("PLATFORM_UNAVAILABLE")
     try:
-        return MSSPSettings.model_validate(platform.adapter_config)
+        return MSSSettings.model_validate(platform.adapter_config)
     except ValidationError:
         raise PlatformAuthError("PLATFORM_CONFIG_INVALID") from None
 

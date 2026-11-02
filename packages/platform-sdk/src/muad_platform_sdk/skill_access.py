@@ -11,9 +11,9 @@ from urllib.parse import urlsplit
 import httpx
 from redis.asyncio import Redis
 
-from .adapter import MSSPAdapter, MSSWAdapter, PlatformAdapterRegistry
-from .adapter.mssp import check, send
-from .adapter.mssp_config import PlatformAuthError, settings
+from .adapter import MSSAdapter, PlatformAdapterRegistry
+from .adapter.mss import check, send
+from .adapter.mss_config import PlatformAuthError, settings
 from .session.manager import SessionRequest
 from .session.redis_manager import RedisPlatformSessionManager
 from .types import PlatformConfig, PlatformRequest, PlatformTarget, SecretValue
@@ -49,7 +49,7 @@ class SkillPlatformAccess:
         self.context = context
         self.redis = Redis.from_url(context.redis_url) if context.redis_url else None
         self.registry = PlatformAdapterRegistry()
-        for adapter in (MSSPAdapter(), MSSWAdapter()):
+        for adapter in (MSSAdapter(),):
             self.registry.register(adapter)
 
     async def close(self) -> None:
@@ -151,7 +151,7 @@ class SkillPlatformAccess:
     async def _request(self, key: str, method: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         platform, session_request, manager = await self.resolve(key, method, path)
         adapter = self.registry.get(platform.adapter_key)
-        if not isinstance(adapter, MSSPAdapter):
+        if not isinstance(adapter, MSSAdapter):
             raise PlatformAuthError("PLATFORM_ADAPTER_UNSUPPORTED")
         state = await manager.acquire(session_request)
         request = PlatformRequest(target=PlatformTarget(method=method, path=path), payload=payload)
@@ -177,7 +177,7 @@ class SkillPlatformAccess:
 
     async def _retry(
         self,
-        adapter: MSSPAdapter,
+        adapter: MSSAdapter,
         platform: PlatformConfig,
         request: PlatformRequest,
         session_request: SessionRequest,

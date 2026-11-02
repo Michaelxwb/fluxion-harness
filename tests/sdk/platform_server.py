@@ -99,5 +99,6 @@ class Handler(BaseHTTPRequestHandler):
         )
         if not hmac.compare_digest(signature, fields["Signature"]):
             return False
+        self.server.last_branch_tag = self.headers.get("X-Branch-Tag")
         self.server.nonces.add(nonce)
         return True

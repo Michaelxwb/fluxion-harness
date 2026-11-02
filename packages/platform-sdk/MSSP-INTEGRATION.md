@@ -2,7 +2,7 @@
 
 ## 运行方式
 
-复用现有 Python HMAC 登录实现，MSSP 与 MSSW 分别注册为 mssp-hmac-session / mssw-hmac-session。两者的 Branch Tag 与业务 CSRF 请求头保留差异；用户/账号、平台实例与缓存隔离。模块随 Runtime/Worker 部署，无独立微服务。
+复用现有 Python HMAC 登录实现，只注册一个 MSS AK/SK Adapter（mss-hmac-session），MSSP/MSSW 平台实例都选择它。Branch Tag 与业务 CSRF 请求头在平台配置 JSON 中指定；用户/账号、平台实例与缓存隔离。模块随 Runtime/Worker 部署，无独立微服务。
 
 平台公共配置仍用 JSON，Base URL 在 resolver_config.base_url；AK/SK 只在用户或共享凭据表中保存。保存配置不等于实际登录成功。认证、权限或业务错误在 Skill 真正执行时返回。
 
@@ -52,7 +52,7 @@ Runtime 和 Worker 从受信 Run/Task 绑定 tenant/user/execution，传到公�
 
 Runtime/Worker 需要可用的 REDIS_URL、CONSOLE_PLATFORM_URL、INTERNAL_SERVICE_TOKEN。内部凭据解析携带 X-Internal-Service，租户与执行用户取自平台上下文。未配置 Redis 或服务令牌时平台 Skill 明确失败，不回退到模型自报身份或共享临时文件。
 
-平台 JSON 常见项：session_endpoint、health_endpoint、csrf_enabled、csrf_endpoint、host_header、referer、timezone、timeout_seconds、ca_bundle。支持内网 HTTP；HTTPS 默认校验证书，自签 CA 用 ca_bundle 指定。MSSW 业务 CSRF 为 x-csrf-token，MSSP 为 X-CSRFToken，均由登录 Cookie 派生，不默认发送 Origin。
+平台 JSON 常见项：branch_tag、csrf_header、session_endpoint、health_endpoint、csrf_enabled、csrf_endpoint、host_header、referer、timezone、timeout_seconds、ca_bundle。支持内网 HTTP；HTTPS 默认校验证书，自签 CA 用 ca_bundle 指定。MSSW 业务 CSRF 为 x-csrf-token，MSSP 为 X-CSRFToken，均由登录 Cookie 派生，不默认发送 Origin。
 
 ## 本地验证边界
 
@@ -65,3 +65,16 @@ uv run --extra dev pytest -q tests/sdk/test_mss_sessions.py tests/sdk/test_platf
 覆盖登录/失败、双平台协议、用户隔离、并发冷登录、滑动续期、空闲过期、平台提前撤销、凭据轮换、失效清理与正在登录的竞争、同步 Skill 工具入口、Worker 入口和真实子进程业务请求。
 
 测试服务用于协议验证，不代表真实 MSSP/MSSW 已联调。内部实际接口、CA/Host 和账号权限仍需在目标环境验收。
+
+## 统一 Adapter 的平台配置
+
+界面只有“MSS AK/SK”，不再提供 MSSP/MSSW 两个 Adapter 选项。平台实例仍可以分别命名为 MSSP 和 MSSW，各自填写 Base URL、AK/SK，并隔离缓存。默认公共参数为 MSSP 协议头；MSSW 实例在配置 JSON 中设置：
+
+```json
+{
+  "branch_tag": "MSSW-ADAPTER",
+  "csrf_header": "x-csrf-token"
+}
+```
+
+MSSP 实例可使用默认值，或显式设置 branch_tag 为 MSSP-ADAPTER、csrf_header 为 X-CSRFToken。其余登录路径、Host 等按环境填写。已有使用旧 Adapter key 的本地平台记录需改为 mss-hmac-session，并带上相应协议头参数；不需要在 SDK 中保留旧 Adapter 别名。

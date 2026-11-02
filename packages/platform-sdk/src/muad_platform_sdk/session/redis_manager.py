@@ -13,7 +13,7 @@ from typing import Protocol, cast
 from redis.asyncio import Redis
 
 from ..adapter import PlatformAdapterRegistry
-from ..adapter.mssp_config import PlatformAuthError
+from ..adapter.mss_config import PlatformAuthError
 from ..types import PlatformConfig, PlatformSession, SessionMode
 from .key import platform_session_key, platform_sessions_index_key
 from .manager import SessionRequest

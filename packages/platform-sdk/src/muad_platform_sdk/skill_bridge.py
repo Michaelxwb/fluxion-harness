@@ -13,7 +13,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from redis.exceptions import RedisError
 
-from .adapter.mssp_config import PlatformAuthError
+from .adapter.mss_config import PlatformAuthError
 from .skill_access import SkillPlatformAccess, SkillPlatformContext
 
 
