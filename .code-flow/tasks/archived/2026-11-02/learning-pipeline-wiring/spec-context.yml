@@ -1,0 +1,1162 @@
+version: 1
+task: learning-pipeline-wiring
+enforcement: required
+updated_at: '2026-11-02T02:28:42.631750+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: harness-api
+  path: api/harness-api.md
+  status: active
+  hashes:
+    file_sha256: 96011a2c158e476b7d6f27d645a221205fa6c1a24a4f08eeead70848d7405fa1
+    metadata_sha256: 8088eab95efc280aa8387d3ee7e4fee89ce481e1d041cadce8abfb6d2636ae96
+    rules_sha256: ef9934dfeef724180bb98891e188e0f090a02e13dec4fe0163970ded69ff33aa
+  selected_by: cli
+  reason: CLI 输出与错误出口
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
+      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
+      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
+      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
+      unique 只作兜底（各服务的 `_lock_idempotency`）。console 侧 `agent_service`/`mcp_service`/`skill_service`
+      三处 `_fingerprint` 已收敛到同一口径：规范化 JSON 且含 `endpoint`/`tenant_id`/actor 与关键参数（合规参考
+      `channel_service.bind_fingerprint`、`auth_service.account_fingerprint`、`audit_export_service`
+      的指纹函数、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py`）。
+    text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.4 接口设计
+          item_id: POST
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-004
+          item_id: TASK-004
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-11-02T12:40:45.645464+00:00'
+          status: verified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: a5a2a9d693a91371e98b0af6250ef63fd26f46dfdb502c84852569958d5b4b22
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: c3b50173dd019464e9d743d3dc0c4af81bb170a09999ec406aa3da1b87d24297
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.12s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.4 接口设计
+          item_id: learning_admin
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-004
+          item_id: TASK-004
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-11-02T12:40:48.568247+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: 845915ceca0442e7bc02e2a7279fb7f3626b9a2ef9d3ff7d9b99d687a8c3c884
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: 1f109c22297c4bd340ba9baf049c856eab29ddf1cb0dce933492db538d0677b5
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 2 warnings in 2.48s\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-arch
+  path: arch/harness-arch.md
+  status: active
+  hashes:
+    file_sha256: fe7495ba3b811fe18c6078ef54dbdfd3741dcf9217f36b018d69242b38ddef6c
+    metadata_sha256: d75360ccdc5ee3a53f2c49d7066be7a023eaf4d84bbab3e832fd9e751d953be8
+    rules_sha256: b15c6e014fbf77e741621ab306e2213360984615e4a54d608e0533477a8a5a2a
+  selected_by: cli
+  reason: 调度位于 runtime supervisor
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-arch-001
+    summary: 固定四个**逻辑业务部署单元**（console-platform / agent-runtime / agent-worker / im-gateway）；`im-gateway`
+      可拆为无状态 web 与有状态 connector 两个运行时角色，connector 不是第五个业务微服务。Runtime 与 Worker 无状态、可横向扩展，不绑定
+      Pod、bot_id 或用户；同一会话可被任意 Pod 执行；Connector 只持有 bot 传输所有权与回复上下文，不建立 agent→Pod 映射。
+    text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+    enforcement: required
+    verifier_ref: harness-arch#RULE-arch-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.2 架构设计
+          item_id: supervisor
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-002
+          item_id: TASK-002
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-02T12:41:14.353348+00:00'
+          status: verified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: a603bc47085fea4f012862dcecab41fcf9a53ec1dcf3ca32ca47613e4973a5fc
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: 0a5181e00e2ecf4aa900d0b66ab38917dcf47678d8a76fa4b6a93ccb9d12a767
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 34%]
+
+              ........................................................................
+              [ 68%]
+
+              ..................................................................       [100%]
+
+              210 passed in 25.26s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-data
+  path: persistence/harness-data.md
+  status: active
+  hashes:
+    file_sha256: 87e108287221d7be78ce2018d0f3b95c6eb1a30b4cd1c7cf0d92020cb506f2b5
+    metadata_sha256: 4c0b58f383383267a768a0d1c93774dc8702f7e68e68de0bb654746611af262e
+    rules_sha256: bff4e046d47cecba0e97c8a83921f635292d2a2e009c836fece1462a9024a68d
+  selected_by: cli
+  reason: 复用记忆与评测表
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-data-001
+    summary: 产品表统一 `id/is_deleted/create_time/update_time`；普通软删除实体用 partial unique
+      `WHERE is_deleted=false`，稳定身份注册表 `runtime.user_memory` / `memory_scope` 的完整唯一键包含
+      tombstone，append-only history/receipt/job 保持 `is_deleted=false` 且使用完整唯一约束；时间统一
+      `timestamptz`；同 Owner Schema 的业务归属用物理 FK，跨 Owner Schema 与需跨清理保留的审计来源引用用逻辑 UUID；JSON
+      配置用 `jsonb`，关键查询字段必须有物理列。
+    text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+    enforcement: required
+    verifier_ref: harness-data#RULE-data-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.3 数据设计
+          item_id: user_memory
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-002
+          item_id: TASK-002
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-11-02T12:41:41.364009+00:00'
+          status: verified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: 2dbc3b528c7caebdc0f1a58576b36601127be956c24ec56262f3da10419dd383
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests
+            - -k
+            - schema_parity
+            exit_code: 0
+            stdout_sha256: 16347c270263389b856543f42b0e08d539d81c7079b4a1398be87df02cf532f8
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "......................................................      \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              54 passed, 6228 deselected, 2 warnings in 25.86s\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-memory
+  path: memory/harness-memory.md
+  status: active
+  hashes:
+    file_sha256: bdc1d8de5894d3b910893fa759822571fe73afb53c8996f617d29d353e67a511
+    metadata_sha256: 26d60b919fdbf7ae2ae359788599979e062819d2fde8e31ff3f5ff03e21e629d
+    rules_sha256: d74dfc24eb72fc17e685a51d708d2627a6f08952b1bc99264c9008ae2813d34a
+  selected_by: cli
+  reason: 学习链路复用记忆体系与选择器
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-memory-001
+    summary: 原话仅证明文本来源，不能授予保存授权；模型不得提供 author/explicit_request。自然语言 remember 必须展示完整候选，绑定租户/用户/Run/submission、候选
+      hash、预期版本、forget_epoch 和有效期，由真实用户确认原子保存；只有真实入站的显式命令或已授权管理员可以直接保存。候选每 Run 至多一个，工具整轮完成后才暂停；resume
+      先检查绝对 deadline。options 消费以租户和 source_event_id 唯一，结果 outcome 不进入唯一键。
+    text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.4 接口设计
+          item_id: learning_admin
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-004
+          item_id: TASK-004
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-001
+          executed_at: '2026-11-02T12:43:21.531456+00:00'
+          status: verified
+          rule_text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: fd9675c3b572d41297778b891da5b17a5ec343b880d2acbf96301b2e9044abb0
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_core/test_memory_redesign_evidence.py
+            - tests/agent_runtime/test_memory_redesign_confirmation.py
+            exit_code: 0
+            stdout_sha256: c5d676f05dde307e2984ff138d9b41fe6dca996a01eeb1dbae1d0967af1aca57
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 88%]
+
+              .........                                                                [100%]
+
+              81 passed in 98.04s (0:01:38)
+
+              '
+  - ref: RULE-memory-002
+    summary: Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。同
+      tenant/user/key 使用完整唯一身份，软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope
+      revision 同事务提交。锁内按写后有效集合验证冻结条数/UTF-8 字节限额及绝对上限；仅可淘汰 AGENT，USER/ADMIN 不免除硬限；既有超额时治理可减少但不可增加。
+    text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-002
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.2 架构设计
+          item_id: MemoryService
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-002
+          item_id: TASK-002
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-002
+          executed_at: '2026-11-02T12:44:04.677866+00:00'
+          status: verified
+          rule_text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: 1167ceaf766e7219ea33f2e0ce9fef4b7f1723a1298f7e5ff781a5392575664b
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_writes.py
+            - tests/agent_runtime/test_memory_redesign_quotas.py
+            exit_code: 0
+            stdout_sha256: 3e0db75ba8d02ea7b4b446c426a4adeec6478844b664caba40b9e963ddddcef5
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..........................                                               [100%]
+
+              26 passed in 42.06s
+
+              '
+  - ref: RULE-memory-003
+    summary: 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖
+      query。注入选择在覆盖率之上加阈值门控（默认 0.35，平台可配）；偏好类先按独立条数/字节限额筛选且不受阈值过滤；同键只取最新版本；经验类只注入
+      ACTIVE，按任务族或目标文本命中，且不受注入推断开关影响。recall/SEARCH 的返回语义（零覆盖为空、LIST）保持不变。revision
+      缓存只存候选行：冷读取行与实际 revision 同快照，暖读取 revision 与当前语句时间，并逐次过滤 TTL、重新选择/渲染；读取失败清除旧缓存和
+      MemoryComponent。每个模型请求前刷新独立 MemoryComponent，完整 SYSTEM 块及 recall JSON 严守最终 UTF-8
+      字节与条数预算；0 关闭注入，长条跳过，无首条越限保底，压缩不能吞掉记忆组件。
+    text_sha256: a816a6f4610d83f84a228773e5f163d66f5e0601f53d9b9ede258ce1ef684ae9
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-003
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.4 接口设计
+          item_id: select_for_injection
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-003
+          executed_at: '2026-11-02T12:45:14.313176+00:00'
+          status: verified
+          rule_text_sha256: a816a6f4610d83f84a228773e5f163d66f5e0601f53d9b9ede258ce1ef684ae9
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: 2aa044f819b8dd92bcc297f4866410ea5fd72e191b37f3e54fc2435f548d2703
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_cache.py
+            - tests/agent_runtime/test_memory_redesign_context.py
+            - tests/agent_core/test_memory_redesign_selection.py
+            exit_code: 0
+            stdout_sha256: 110b3046095ed87eb6d942e450e260e8539f1bbf5b2fe3424cd88166eb024145
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................                 [100%]
+
+              56 passed in 68.50s (0:01:08)
+
+              '
+  - ref: RULE-memory-004
+    summary: 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled
+      或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision
+      证明，不以 job 开始时间冒充新依据。自动批量提交核对原 scope revision，过期输入为 STALE；同任务 lineage 续接原稳定 key，完成后清除未决状态。
+    text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-004
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.4 接口设计
+          item_id: forget_epoch
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-002
+          item_id: TASK-002
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-004
+          executed_at: '2026-11-02T12:47:49.703427+00:00'
+          status: verified
+          rule_text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: 79c678929776f42397c1022e4cc29556f220e99b4cf6bc46eecafdc024d538b4
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_job_effects.py
+            - tests/agent_runtime/test_memory_redesign_confirmation.py
+            exit_code: 0
+            stdout_sha256: bb8a9ec010210fc519649366be996a9a4235c84574bd0139cbb550e6f556907b
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............................................................             [100%]
+
+              60 passed in 153.10s (0:02:33)
+
+              '
+  - ref: RULE-memory-005
+    summary: 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同
+      fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立
+      provider 使用冻结主模型、实时凭据并显式关闭。模型调用次数不保证一次，持久效果/历史/完成事件/job 终态必须同事务最多一次；失败整批回滚，warning/metric
+      可见，主 Run 终态不变。
+    text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-005
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.2 架构设计
+          item_id: claim/lease
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-002
+          item_id: TASK-002
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-005
+          executed_at: '2026-11-02T12:49:02.740180+00:00'
+          status: verified
+          rule_text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: cfc1f5735090229019e1834c776f87dba60c7f3d5c3a094a4cdff1e6d7186760
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/agent_runtime/test_memory_redesign_job_effects.py
+            - tests/agent_runtime/test_memory_redesign_input_boundary.py
+            exit_code: 0
+            stdout_sha256: 1fc625d43c03f297e33f9a3e941d21c917646a4298cdf22444997259870000e7
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...................................                                      [100%]
+
+              35 passed in 71.79s (0:01:11)
+
+              '
+  - ref: RULE-memory-006
+    summary: 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途
+      Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和
+      ORM 约束/索引同构；移除旧 ratio/source_type 协议，历史快照原样保留仅作审计，不加兼容写层。
+    text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-006
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.4 接口设计
+          item_id: policy_json
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-memory#RULE-memory-006
+          executed_at: '2026-11-02T12:49:13.596722+00:00'
+          status: verified
+          rule_text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: 54869a1e681a8e7bf496e99f72190eb6bdbc52b5095a1f82d61841eac7cb3b40
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/migrations/test_memory_redesign_migration.py
+            - tests/agent_runtime/test_memory_redesign_snapshot.py
+            exit_code: 0
+            stdout_sha256: e78aa6e73064974b24a45d22bfbfb415d5d9d2104e579ca59df9c5a927fd95e0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............                                                             [100%]
+
+              12 passed in 9.63s
+
+              '
+- spec_id: harness-model
+  path: model/harness-model.md
+  status: active
+  hashes:
+    file_sha256: cdbb99efb6ba04f733882be26f23a67ed24f004e06681fbad686d3725a751811
+    metadata_sha256: 03eb70d05f4d2b1f491d9656e895ff4758c243f158d8ef170eb9ce8d81dd6f91
+    rules_sha256: ca794c666a9657f8e324ca978ce2aeade30bb0b4f48ddb36f7a204ac87fa77c6
+  selected_by: cli
+  reason: 回放模型调用
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-model-001
+    summary: '`model_definition` 不设 `is_default`；每个 Agent 必须显式保存 `model_id`，不存在平台默认模型回退；模型调用只允许
+      OPENAI 兼容协议。'
+    text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+    enforcement: required
+    verifier_ref: harness-model#RULE-model-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.4 接口设计
+          item_id: Owner
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-003
+          item_id: TASK-003
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-11-02T12:49:17.034485+00:00'
+          status: verified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: 77ac9cba5ccd70b28bcd3a3ac4dcedb86cae9899dd56f81f74c187e2e65903ae
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/console_platform/test_models_api.py && uv run
+              pytest -q tests/console_platform/test_agents_api.py -k disabled
+            exit_code: 0
+            stdout_sha256: 9b1b4f0ee5d7c6e6d9789fa401b9c67bc1397dd204db2ffd3efb610b9fad3eb6
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........                                                                 [100%]
+
+              8 passed in 1.02s
+
+              .                                                                        [100%]
+
+              1 passed, 13 deselected in 0.30s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-secret
+  path: secret/harness-secret.md
+  status: active
+  hashes:
+    file_sha256: 9d6bfb64f7881c1b090ee69915e506a69b5db5f108bd93319adc6d94806f9f2a
+    metadata_sha256: f60d9416b440212e32513bd86e339d9671413a12e5a326f4adf1c6cce76cb935
+    rules_sha256: cb3c84e91771bfa9c479ad5bb860280b8fbc82eadd9bc062d047279945d38e08
+  selected_by: cli
+  reason: 回放凭据读取
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-secret-001
+    summary: 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP
+      `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用
+      `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt
+      或 API 响应（对外以 `*_configured` 表达）。
+    text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+    enforcement: required
+    verifier_ref: harness-secret#RULE-secret-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.4 接口设计
+          item_id: Owner
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-003
+          item_id: TASK-003
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-02T12:49:19.977431+00:00'
+          status: verified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: fd60180d5e21bee6e086ade6b68c0790d68dbf0da8fc32deda7a96f951c0630b
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 0135563fd1e159eddd11affd10359bb581267749b00bcc2afb7c80ada4bb5fd1
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.43s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-snapshot
+  path: snapshot/harness-snapshot.md
+  status: active
+  hashes:
+    file_sha256: e142f9d5c3c5b758025b9e1f2a29475131ac27638351021d5bdd6df470e1d251
+    metadata_sha256: 34a1bcb1153a685aab40f9576748579d32b73598ab6210f99c7fb762dc6361f1
+    rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
+  selected_by: cli
+  reason: 设置与回放使用冻结 Snapshot
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-snapshot-001
+    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP
+      版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run
+      侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新
+      Run/Task；终态写入必须 CAS。
+    text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+    enforcement: required
+    verifier_ref: harness-snapshot#RULE-snapshot-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.3 数据设计
+          item_id: RuntimeSnapshot
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-003
+          item_id: TASK-003
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-02T12:49:38.382394+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: a4cb2ec7b70ee4790e07dd1ddaef0d00584dc7d7476336527ffa28d65ea3724d
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 7c1c037ca7e7951691745e94515807af0deb1815ffb7421bdd319a68ce10052b
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.06s
+
+              .......................................                                  [100%]
+
+              39 passed, 1127 deselected in 15.21s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 75739bd416d116427c944319e1317d0aeacb6f1f348d9e1a5565711eee876663
+    metadata_sha256: 627002a69e1a9cee732368249c2d3cf50f8423bb58cbc426b5a6993b071c370e
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: cli
+  reason: 真实执行链 E2E 与接线盘点
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 2.5 验收条件
+          item_id: 测试分层
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-test#RULE-test-001
+          executed_at: '2026-11-02T12:38:44.310755+00:00'
+          status: verified
+          rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: 767c63b08c6b6e6056d1bd37d88a09b8ce0655a66911ab00c04d89ab9d566368
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run python scripts/ci_validation_cache.py --validator "Pytest (acceptance)"
+              --json && npm --prefix apps/console-platform/frontend run build && npm
+              --prefix e2e test
+            exit_code: 0
+            stdout_sha256: cdc31d1d10cf112b5840d0a996fe00437ca9e141934bddf89df1e575f3624bc7
+            stderr_sha256: 681f558ddf71ca56589893223c268ca4e352bbbe37dc8e8642913194157624e0
+            output: "   0.56 kB │ gzip:   0.38 kB\ndist/assets/IconDownload-b0b598J-.js\
+              \                  0.58 kB │ gzip:   0.41 kB\ndist/assets/FormModal-DQo9SRVY.js\
+              \                     0.61 kB │ gzip:   0.38 kB\ndist/assets/ConsolePage-BTVOba1d.js\
+              \                   0.75 kB │ gzip:   0.32 kB\ndist/assets/EmptyState-0XZBKxUX.js\
+              \                    0.83 kB │ gzip:   0.40 kB\ndist/assets/models-nw046m9N.js\
+              \                        1.47 kB │ gzip:   0.69 kB\ndist/assets/mcpServers-3IbreDmO.js\
+              \                    1.47 kB │ gzip:   0.48 kB\ndist/assets/skills-oQaigZ4S.js\
+              \                        1.64 kB │ gzip:   0.55 kB\ndist/assets/platforms-DT0in2lP.js\
+              \                     2.09 kB │ gzip:   0.76 kB\ndist/assets/index-Cldz5Jmb.js\
+              \                         2.16 kB │ gzip:   1.04 kB\ndist/assets/users-BtHZGx_D.js\
+              \                         2.68 kB │ gzip:   0.89 kB\ndist/assets/learning-BeqoAP1V.js\
+              \                      2.99 kB │ gzip:   0.99 kB\ndist/assets/DateTimeText-BRi3L7gn.js\
+              \                  3.14 kB │ gzip:   1.38 kB\ndist/assets/EntityNameText-DLChK-PZ.js\
+              \                5.48 kB │ gzip:   2.12 kB\ndist/assets/SchedulePage-CbT8ptpm.js\
+              \                  5.79 kB │ gzip:   2.20 kB\ndist/assets/LearningPage-DnTFcPBq.js\
+              \                  5.82 kB │ gzip:   2.21 kB\ndist/assets/TaskDetailSideSheet-DlVRwzWI.js\
+              \           6.00 kB │ gzip:   2.38 kB\ndist/assets/ConfirmAction-CHaaiUIX.js\
+              \                 6.76 kB │ gzip:   2.33 kB\ndist/assets/ExperienceList-BFpQQAa0.js\
+              \                7.19 kB │ gzip:   2.14 kB\ndist/assets/TaskPage-Cxoam8U8.js\
+              \                     12.20 kB │ gzip:   4.07 kB\ndist/assets/SettingsPage-CRMVDdkQ.js\
+              \                 15.43 kB │ gzip:   4.94 kB\ndist/assets/AuditPage-BuMKyyfC.js\
+              \                    20.11 kB │ gzip:   6.98 kB\ndist/assets/McpPage-CIBFwxIC.js\
+              \                      20.22 kB │ gzip:   5.93 kB\ndist/assets/AgentPage-CVFbS7KR.js\
+              \                    22.14 kB │ gzip:   6.06 kB\ndist/assets/PlatformPage-B0s0r0I8.js\
+              \                 23.75 kB │ gzip:   7.32 kB\ndist/assets/RelatedDetailController-41xIOswQ.js\
+              \      28.11 kB │ gzip:   8.62 kB\ndist/assets/DetailSideSheet-BClScd5g.js\
+              \              31.57 kB │ gzip:   9.26 kB\ndist/assets/UserPage-npgUDCTT.js\
+              \                     32.53 kB │ gzip:   8.94 kB\ndist/assets/ModelPage-70NFcJ-L.js\
+              \                    58.72 kB │ gzip:  14.67 kB\ndist/assets/ChatPage-DLts_cgk.js\
+              \                    130.46 kB │ gzip:  35.54 kB\ndist/assets/DetailGrid-oEHAEO9g.js\
+              \                  156.92 kB │ gzip:  44.24 kB\ndist/assets/SkillPage-CXo0vUqD.js\
+              \                   451.32 kB │ gzip: 136.17 kB\ndist/assets/OverviewPage-CLKhYDi0.js\
+              \              1,163.49 kB │ gzip: 390.94 kB\ndist/assets/index-BGh9Sk5s.js\
+              \                     1,435.64 kB │ gzip: 422.48 kB\n✓ built in 3.83s\n\
+              \n> fluxion-harness-e2e@0.1.0 pretest\n> bash -c 'if command -v lsof\
+              \ >/dev/null 2>&1; then bash ../scripts/dev.sh stop; else echo \"[e2e]\
+              \ lsof unavailable; skip dev-service stop\"; fi'\n\n== 停止已有服务 ==\n \
+              \ 没有在跑的本仓库服务\n\n== 端口检查 ==\n  ✓ 8000 已释放\n  ✓ 8001 已释放\n  ✓ 8002 已释放\n\
+              \  ✓ 8003 已释放\n  ✓ 8004 已释放\n\n> fluxion-harness-e2e@0.1.0 test\n> playwright\
+              \ test\n\n\nRunning 4 tests using 1 worker\n\n  ✓  1 tests/foundation.spec.ts:17:1\
+              \ › S-03 切到 English 后触发错误时页面文案与后端 msg 同步为 en-US (930ms)\n  ✓  2 tests/foundation.spec.ts:36:1\
+              \ › S-12 切换模块路由时 Layout 不重建且菜单选中正确 (414ms)\n  ✓  3 tests/foundation.spec.ts:52:1\
+              \ › S-13 切换 English 后刷新语言保持且请求带 X-Locale=en-US (485ms)\n  ✓  4 tests/foundation.spec.ts:64:1\
+              \ › E-09 会话失效访问业务页跳转登录并保留 returnUrl，不渲染业务数据 (256ms)\n\n  4 passed (7.3s)\n\
+              \n(!) Some chunks are larger than 500 kB after minification. Consider:\n\
+              - Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
+              \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n\
+              [WebServer] INFO:     Started server process [35301]\n[WebServer] INFO:\
+              \     Waiting for application startup.\n[WebServer] INFO:     Application\
+              \ startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4173\
+              \ (Press CTRL+C to quit)\n"
+- spec_id: harness-time
+  path: time/harness-time.md
+  status: active
+  hashes:
+    file_sha256: 79c415b2d14313031688d5d26d76096f5eb20096850b239c75c0c334f7464fc5
+    metadata_sha256: cdae795612a48e448e96bc35b536f56fe9278de82f1c6b2be6d47e9d3a473c41
+    rules_sha256: 3f415b413ed6db83724cefc2f20674f24c10b3cdc9e2d3c6ae8487e991168d80
+  selected_by: cli
+  reason: 时间口径
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-time-001
+    summary: 数据库时间存储遵循 RULE-data-001（统一 `timestamptz`）；Console 展示统一 `YYYY-MM-DD HH:mm:ss`（出参必须带
+      offset）；调度时区使用 IANA 时区（如 `Asia/Shanghai`）。
+    text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+    enforcement: required
+    verifier_ref: harness-time#RULE-time-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.design.md
+          section_id: 3.3 数据设计
+          item_id: timestamptz
+          artifact_sha256: e73133b0e53a686e4380cfb882602f09f60cae65110eda00da03ad3e57bc69f3
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: learning-pipeline-wiring.md
+          section_id: TASK-002
+          item_id: TASK-002
+          artifact_sha256: 70f7341fb0f9d61716291aacdeb8404edb47bf36a7b92ae1a594e7e3d42e0ac8
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-11-02T12:50:06.711910+00:00'
+          status: verified
+          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+          artifact_sha256: null
+          diff_sha256: head:da733ab20a2e90a8ed683bf15dee8e599b2b8aa3
+          result_sha256: dc4404dc7334312cc1b967904bb0b9a89bd6c108c10a5a13405a54f76a3bb2be
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 6cda3c1e120d5376285fd363415f9fc134d0c3a9427475f435e2749e2df84b6e
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "..                                                          \
+              \             [100%]\n2 passed in 0.66s\n......................................................\
+              \                   [100%]\n=============================== warnings\
+              \ summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              54 passed, 6228 deselected, 2 warnings in 25.91s\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
