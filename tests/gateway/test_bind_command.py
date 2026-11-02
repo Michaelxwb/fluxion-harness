@@ -127,6 +127,11 @@ async def test_b110_bind_success_replies_and_persists_identity(
             )
 
         assert _sent_texts(adapter) == [BIND_SUCCESS_TEXT]
+        # 绑定成功响应可能先于 identity 行可见；真实 Console + PostgreSQL 下轮询等落定。
+        for _ in range(50):
+            if await _count_identities(channel, channel.unbound_external_user_id) == 1:
+                break
+            await asyncio.sleep(0.1)
         assert await _count_identities(channel, channel.unbound_external_user_id) == 1
         code = await _fetch_code(channel)
         assert code is not None and code.status == "USED"
