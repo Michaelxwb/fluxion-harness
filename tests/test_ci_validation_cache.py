@@ -155,3 +155,25 @@ def test_rebind_local_makes_ci_cache_reusable(tmp_path: Path) -> None:
     second = ci_cache.run_validator(str(tmp_path), "cache-rebind")
     assert second["decision"] == "pass"
     assert second["reused"] == 1
+
+
+def test_execution_identity_ignores_shell_and_uv_bookkeeping(monkeypatch: pytest.MonkeyPatch) -> None:
+    from codeflow.core.cf_validators import _execution_observation
+
+    for key in ("SHLVL", "_", "PATH", "TERM", "UV", "UV_RUN_RECURSION_DEPTH", "DATABASE_URL"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("DATABASE_URL", "postgresql://same")
+    first = _execution_observation("/tmp/root", {"name": "v"}, ["cmd"], "fp", None)["identity"]
+
+    monkeypatch.setenv("SHLVL", "9")
+    monkeypatch.setenv("_", "/bin/bash")
+    monkeypatch.setenv("PATH", "/different/bin")
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.setenv("UV", "/usr/local/bin/uv")
+    monkeypatch.setenv("UV_RUN_RECURSION_DEPTH", "1")
+    second = _execution_observation("/tmp/root", {"name": "v"}, ["cmd"], "fp", None)["identity"]
+    assert first == second
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://different")
+    third = _execution_observation("/tmp/root", {"name": "v"}, ["cmd"], "fp", None)["identity"]
+    assert third != first
