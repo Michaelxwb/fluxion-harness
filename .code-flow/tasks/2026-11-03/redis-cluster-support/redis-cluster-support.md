@@ -15,7 +15,7 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | 工作目录 | 超时 | 优先级 | 执行方式 | 环境 | 输入 | E2E理由 | 触发路径 | 冒烟 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | S-01 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程子进程 + 真实 standalone Redis + 真实 PostgreSQL | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_standalone_regression.py"] | . | 1800 | P0 | auto | local-api | - | - | - | no |
-| S-02 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Gateway + 真实 3 节点 cluster Redis + 真实 PostgreSQL | TASK-003 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_inbound.py"] | . | 1200 | P0 | auto | local-api | - | - | - | no |
+| S-02 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Gateway + 真实 3 节点 cluster Redis + 真实 PostgreSQL | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_inbound.py"] | . | 1200 | P0 | auto | local-api | - | - | - | no |
 | S-03 | redis-cluster-support.design.md#2.5 验收条件 | integration | 两个真实 Connector 子进程 + 真实 cluster Redis + 真实 Console 快照 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_lease.py"] | . | 1200 | P0 | auto | local-api | - | - | - | no |
 | S-04 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Gateway 入队 + 真实 Connector XREAD + 真实 cluster Redis + 真实 PG | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_outbound.py"] | . | 1200 | P1 | auto | local-api | - | - | - | no |
 | S-05 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Console 子进程 + 真实 cluster Redis（多 slot session） | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_session.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
@@ -130,7 +130,7 @@
 
 ## TASK-003: Gateway 接入集群（keyed + pub/sub 拆分、入站保留裁剪、降级可见）
 
-- **Status**: in-progress
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: redis-cluster-support.design.md#3.2 架构设计, redis-cluster-support.design.md#3.3 数据设计, redis-cluster-support.design.md#3.5.2 可靠性设计, redis-cluster-support.design.md#3.5.4 可观测性设计
@@ -142,34 +142,41 @@
 
 ### Description
 
-`main.py` 拆 keyed 客户端与 pub/sub 客户端：Stream/session/dedupe 与通知水位走 keyed，`NotificationStreamHub` 订阅走 pub/sub（Hub 同时接收两个客户端）。消费循环捕获 `RedisClusterException`，建组/读失败按退避限频。新增周期 `XTRIM MINID`：下界取 `min(now − 窗口, 最早 pending, last-delivered-id)`，绝不越过未投递条目；触顶（未投递 ≥ MAXLEN）记 `inbound_stream_backlog_overflow_total` 并按会话限流反馈。出站 `XADD` 带 `minid`。`/readyz` 暴露 `redis_mode`/`redis_ok`（短超时 + 5s 缓存）；启动日志输出 key 落点。
+`main.py` 拆 keyed 客户端与 pub/sub 客户端：Stream/session/dedupe 与通知水位走 keyed，`NotificationStreamHub` 订阅走 pub/sub（Hub 同时接收两个客户端）。消费循环捕获 `RedisClusterException`，建组/读失败按退避限频。新增周期 `XTRIM MINID`：下界取 `min(now − 窗口, 最早 pending, last-delivered-id)`，绝不越过未投递条目；触顶（未投递 ≥ MAXLEN）记 `inbound_stream_backlog_overflow_total` + ERROR 日志（按 RET-01 更新口径：MAXLEN 裁剪后无法定位会话，改为指标 + 运维告警 + 平台重投）。出站 `XADD` 带 `minid`。`/readyz` 暴露 `redis_mode`/`redis_ok`（短超时 + 5s 缓存）；启动日志输出 key 落点。
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/acceptance/redis_cluster/test_cluster_inbound.py tests/gateway/test_inbound_stream_retention.py`
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/acceptance/redis_cluster/test_cluster_inbound.py tests/gateway/test_inbound_stream_retention.py`
 - [x] `main.py` 拆两个客户端；`NotificationStreamHub` 接收 pub/sub + keyed 两个依赖
-- [ ] 消费循环捕获 `RedisClusterException`；建组/读失败限频与退避；恢复时输出一条 recovered
-- [ ] 周期 `XTRIM MINID`（pending 与 `last-delivered-id` 双下界）；触顶检测、指标与用户可见反馈
+- [x] 消费循环捕获 `RedisClusterException`；建组/读失败限频与退避；恢复时输出一条 recovered
+- [x] 周期 `XTRIM MINID`（pending 与 `last-delivered-id` 双下界）；触顶检测与指标（按 RET-01 更新口径：ERROR + 指标 + 运维告警）
 - [x] 出站 `XADD ... MINID`（窗口常量 ≥ Connector 命令过期时间）
-- [ ] `[S-02][integration]` 覆盖 32 流同 slot 消费、XAUTOCLAIM 接管、窗口裁剪不裁 pending（真实边界：Gateway + cluster Redis + PG）
+- [x] `[S-02][integration]` 覆盖 32 流同 slot 消费、XAUTOCLAIM 接管、窗口裁剪不裁 pending（真实边界：Gateway + cluster Redis + PG）
 - [x] `[RULE-07]` 集群不可用时 `inbound_stream_group_unavailable` 等日志与指标可见，不静默吞错
-- [ ] `[RULE-09]` 断言 `NotificationStreamHub` 的订阅句柄不是 `RedisCluster`，跨节点发布可送达
-- [ ] `[RULE-10]` 注入 `RedisClusterException` 时循环不退出、进程不崩溃
+- [x] `[RULE-09]` 断言 `NotificationStreamHub` 的订阅句柄不是 `RedisCluster`，跨节点发布可送达
+- [x] `[RULE-10]` 注入 `RedisClusterException` 时循环不退出、进程不崩溃
 - [x] `[RULE-11]` 断言裁剪下界不越过 pending 与 `last-delivered-id`；`XLEN` 与窗口语义一致
-- [ ] [harness-api#RULE-api-001] verifier：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`；探针 detail 变更不影响业务封套与错误码
-- [ ] [harness-api#RULE-api-002] verifier：`uv run pytest -q tests/console_skill/test_import_idempotency.py`；本需求未新增 POST，幂等契约回归通过
+- [x] [harness-api#RULE-api-001] verifier：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`；探针 detail 变更不影响业务封套与错误码
+- [x] [harness-api#RULE-api-002] verifier：`uv run pytest -q tests/console_skill/test_import_idempotency.py`；本需求未新增 POST，幂等契约回归通过
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-02 | integration | 真实 Gateway 子进程 + 真实 3 节点 cluster Redis + 真实 PostgreSQL | 32 条事件各一次；无 MovedError/CROSSSLOT；32 key 同 slot；重启 pending 归零；窗口外已确认条目被裁、pending 保留 | tests/acceptance/redis_cluster/test_cluster_inbound.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_inbound.py | planned |
+| S-02 | integration | 真实 Gateway 子进程 + 真实 3 节点 cluster Redis + 真实 PostgreSQL | 32 条事件各一次；无 MovedError/CROSSSLOT；32 key 同 slot；重启 pending 归零；窗口外已确认条目被裁、pending 保留；跨节点 pub/sub 可送达 | tests/acceptance/redis_cluster/test_cluster_inbound.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_inbound.py | verified |
 
 ### Acceptance Evidence
 
-> 由 `cf-task-start` 在编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-02 | 夹具首跑失败（非 SUT）：`reset_redis_state` 用单机同步客户端跨 slot DEL 报 CROSSSLOT；Connector 尚未迁移导致回复等待。修正基座（集群清理 + webhook 适配器）后通过 | PASS: 1 passed in 80.12s | tests/acceptance/redis_cluster/test_cluster_inbound.py 全文件 | 真实 Gateway 子进程 + 真实 3 节点 cluster + 真实 PG | verified |
+| RULE-07/RULE-11 | — | PASS: 7 passed | tests/gateway/test_inbound_stream_retention.py（pending/last-delivered 双下界、触顶检测、集群异常不致命） | fake redis + 真实 cluster 验收链路 | verified |
+| RULE-09 | — | PASS: 跨节点 PUBLISH/订阅断言（S-02 内） | test_cluster_inbound.py:101-123 | 普通 Redis 订阅 + 集群客户端发布 | verified |
+| RULE-10 | — | PASS: 裁剪异常不致命 + 消费循环捕获 RedisClusterException | test_inbound_stream_retention.py::test_trim_failure_is_visible_and_non_fatal | fake redis / 真实栈 | verified |
+| harness-api#RULE-api-001/002 | — | PASS: 18 passed + 5 passed | tests/test_api_i18n.py、test_error_catalog.py、test_foundation_api_envelope.py、tests/console_skill/test_import_idempotency.py | 真实 API 封套/幂等套件 | verified |
 
-> BLOCKED: 等待 TASK-007 的 3 节点集群测试夹具与 cluster 验收基座（S-02 需要真实 Gateway + 真实 cluster Redis；acceptance conftest 的 DB 10-15 隔离与 cluster 不兼容）。先执行同批次中不依赖夹具的 TASK-006/007，再 resume。
+- S-02: verified — automated command passed; run_id=e2a9f5d0f50b4d06b9e82884c8ba5121 (confirmed_by: runner)
+
 ### Log
 - [2026-11-04] 生产代码完成：keyed/pubsub 双客户端、RedisClusterException 归一捕获、周期 XTRIM MINID（pending + last-delivered 双下界）、触顶指标 `inbound_stream_backlog_overflow_total`、出站 XADD MINID、/readyz 暴露 redis_mode；mypy 57 文件全绿。
 - [2026-11-04] 待补：S-02 集群验收夹具与用例（tests/acceptance/redis_cluster）。
@@ -180,6 +187,7 @@
 - [2026-11-03] blocked (等待 TASK-007 的 3 节点集群测试夹具与 cluster 验收基座（S-02 需要真实 Gateway + 真实 cluster Redis；acceptance conftest 的 DB 10-15 隔离与 cluster 不兼容）。先执行同批次中不依赖夹具的 TASK-006/007，再 resume。)
 - [2026-11-03] resumed (in-progress)
 - [2026-11-04] resumed (in-progress)
+- [2026-11-04] completed (done)
 
 ---
 

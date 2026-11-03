@@ -255,7 +255,7 @@
       "kind": "functional",
       "boundary": "真实 Gateway 子进程 + 真实 cluster Redis + 真实 PostgreSQL；32 个 im.inbound:{inbound}:* stream",
       "owner": "TASK-003",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -326,7 +326,94 @@
         "INBOUND_STREAM_SHARDS=32",
         "每个 shard 至少一条已发布事件"
       ],
-      "check": "CHK-fefaf9fddea4"
+      "check": "CHK-fefaf9fddea4",
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 80587.42725,
+        "check_id": "CHK-fefaf9fddea4",
+        "input_hash": "462aa8c6b1e0cace020e8cc1850d7c261e5ce9bedee11f7275d1471497047f49",
+        "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+        "check_config": {
+          "id": "CHK-fefaf9fddea4",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_inbound.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "e2a9f5d0f50b4d06b9e82884c8ba5121",
+        "executed_at": "2026-11-03T17:51:59.440365+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/redis_cluster/test_cluster_inbound.py"
+        ],
+        "cwd": ".",
+        "timeout": 1200.0,
+        "fingerprint": "462aa8c6b1e0cace020e8cc1850d7c261e5ce9bedee11f7275d1471497047f49"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 80587.42725,
+          "check_id": "CHK-fefaf9fddea4",
+          "input_hash": "462aa8c6b1e0cace020e8cc1850d7c261e5ce9bedee11f7275d1471497047f49",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-fefaf9fddea4",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_inbound.py"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "e2a9f5d0f50b4d06b9e82884c8ba5121",
+          "executed_at": "2026-11-03T17:51:59.440365+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_inbound.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "462aa8c6b1e0cace020e8cc1850d7c261e5ce9bedee11f7275d1471497047f49"
+        }
+      ]
     },
     {
       "id": "S-03",

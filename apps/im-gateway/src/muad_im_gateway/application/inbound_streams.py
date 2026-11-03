@@ -87,15 +87,19 @@ class InboundStreamConsumer:
                     raise
 
     async def run_forever(self) -> None:
+        degraded = False
         while not self._stopped.is_set():
             try:
                 await self.ensure_groups()
                 break
             except (redis.RedisError, RedisClusterException) as exc:
+                degraded = True
                 # Redis 尚未可用：入站事件仍在 Stream 里（生产者侧持久化），这里退避重试，
                 # 不让生命周期任务直接死掉（死掉 = 之后再也没人消费）。
                 logger.warning("inbound_stream_group_unavailable error=%s", type(exc).__name__)
                 await self._sleep(1.0)
+        if degraded:
+            logger.warning("inbound_stream_group_recovered")
         while not self._stopped.is_set():
             await self._reclaim_due()
             await self._trim_due()
@@ -276,12 +280,10 @@ class InboundStreamConsumer:
         pending_min = ""
         if isinstance(pending, Mapping) and pending.get("min"):
             pending_min = _text(pending.get("min"))
+        # 上限：有 pending 时停在 pending 之前；否则可以裁到 last-delivered 的后继。
+        limit = pending_min or _stream_id_next(last_delivered)
         time_cutoff = f"{int(time.time() * 1000) - self._retention_ms}-0"
-        cutoff = pending_min or last_delivered
-        if _stream_id_less(cutoff, time_cutoff):
-            cutoff = time_cutoff
-        if _stream_id_less(last_delivered, cutoff):
-            cutoff = last_delivered
+        cutoff = time_cutoff if _stream_id_less(time_cutoff, limit) else limit
         if _stream_id_le(cutoff, "0-0"):
             return
         await self._redis.xtrim(key, minid=cutoff, approximate=False)
@@ -359,6 +361,13 @@ def _stream_id_less(left: str, right: str) -> bool:
 def _stream_id_le(left: str, right: str) -> bool:
     left_id, right_id = _parse_stream_id(left), _parse_stream_id(right)
     return left_id is not None and right_id is not None and left_id <= right_id
+
+
+def _stream_id_next(value: str) -> str:
+    parsed = _parse_stream_id(value)
+    if parsed is None:
+        return value
+    return f"{parsed[0]}-{parsed[1] + 1}"
 
 
 def _fields(raw: Any) -> dict[str, str]:

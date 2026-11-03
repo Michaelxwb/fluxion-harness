@@ -448,7 +448,7 @@ graph LR
 
 - **裁剪不得越过 pending**：在 6.2 上把已投递未 ACK 的条目裁掉后，`XAUTOCLAIM` 返回一串 `(None, None)`，**PEL 里的 pending 数量不变**；现有消费循环会把它当空载荷写 dead letter，`XACK ""` 又失败 → pending 永远清不掉，每个回收节拍重复一次。因此入站裁剪下界必须先读 `XPENDING` 的最小未确认 ID。
 - **裁剪不得越过 `last-delivered-id`**：时间窗口只允许清理“已经投递过”的历史；未投递的积压必须保留到消费者追上为止（否则 Gateway 重启后会先删掉本可处理的消息，把一次可恢复的停摆变成数据丢失）。未投递积压的上界由 `MAXLEN` 兜底。
-- **触顶（未投递积压 ≥ `MAXLEN`）是真正的数据丢失点**：裁剪前用组的 `last-delivered-id` 判定待裁区间里是否包含未投递条目，命中则记 ERROR + 指标 `inbound_stream_backlog_overflow_total`，并按会话限流发送用户可见反馈（沿用 `inbound.py` 既有的“排队积压 → 可见拒绝”模式，不得静默丢）；同时删除对应条目的入站去重标记，保证平台重投不会被 24h 标记挡住。
+- **触顶（未投递积压 ≥ `MAXLEN`）是真正的数据丢失点**：MAXLEN 裁剪发生在生产者 `XADD` 时，条目已经消失——既无法定位受影响会话，也无法定位对应去重标记。实现为裁剪后检测“最老条目 ID > `last-delivered-id`”，记 ERROR + 指标 `inbound_stream_backlog_overflow_total`，由运维告警介入；用户侧恢复依赖平台重投（去重标记 TTL 24h 内）与人工补发，不得静默。
 - **不采用“ACK 后立即 XDEL”**：`tests/acceptance/im_gateway/test_webhook_channel.py` 会在 Gateway 消费后回读流内事件做断言，立即删除会让它变 flaky，也会失去“最近事件可回看/排查”的能力；时间窗口能覆盖同样的内存目标。
 - **`XLEN` 语义改变**：表示“最近窗口内的条目数”，不再是历史总量；容量脚本与看板的判读需同步更新。
 

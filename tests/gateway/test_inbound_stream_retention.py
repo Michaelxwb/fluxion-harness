@@ -103,8 +103,8 @@ async def test_trim_never_crosses_last_delivered() -> None:
 
     await consumer._trim_due()
 
-    assert redis.trimmed == [(KEY, "2000-0")]
-    assert [entry[0] for entry in redis.entries[KEY]] == ["2000-0", "3000-0"]
+    assert redis.trimmed == [(KEY, "2000-1")]
+    assert [entry[0] for entry in redis.entries[KEY]] == ["3000-0"]
 
 
 async def test_trim_skips_when_nothing_delivered() -> None:
@@ -126,7 +126,7 @@ async def test_trim_uses_time_window_for_acked_history() -> None:
 
     await consumer._trim_due()
 
-    assert redis.trimmed == [(KEY, f"{old_ms + 1}-0")]
+    assert redis.trimmed == [(KEY, f"{old_ms + 1}-1")]
 
 
 async def test_trim_failure_is_visible_and_non_fatal(
