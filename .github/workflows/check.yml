@@ -240,6 +240,11 @@ jobs:
               exit 1
             fi
           else
+            if [ "${{ matrix.shard.name }}" = "capacity" ]; then
+              # CI postgres:16 默认 max_connections=100：行为验收用多副本但更小的
+              # acceptance-ci profile（2/2/2/1），避免故障恢复时把测试客户端挤出连接名额。
+              export MUAD_CAPACITY_PROFILE=tests/capacity/profiles/acceptance-ci.yml
+            fi
             uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
           fi
       - name: 上传失败用例清单（无论成败）

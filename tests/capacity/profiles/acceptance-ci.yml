@@ -1,0 +1,60 @@
+# CI 行为验收 profile（非容量测量）
+#
+# 用途：GitHub `acceptance (capacity)` 分片只跑 `-m "not capacity_load"` 的行为/E2E 用例，
+# 需要的是“多副本真实栈”，不是 1000 用户容量结论。CI 的 `postgres:16` 默认
+# `max_connections=100`，而正式 profile（8 Runtime + 4 Worker + 2 Gateway + 4 Console
+# 进程 × pool 10）理论峰值 180，故障恢复时会把测试客户端也挤出连接名额。
+#
+# 本 profile 保持“至少两个 Runtime/Worker/Gateway”的拓扑语义，把连接峰值压到：
+#   (1 Console 进程 + 2 Runtime + 2 Worker + 2 Gateway) × (pool 10 + overflow 0) = 70
+# 给测试客户端、迁移与维护连接留出余量。正式容量测量仍用
+# `agent-capacity-webchat.example.yml`，不得用本文件产出容量结论。
+workload:
+  users: 2
+  active_runs_per_user: 1
+  ramp_sec: 0
+  steady_sec: 1
+  turns_per_user: 1
+  input_distribution:
+    think_time_ms:
+      p50: 0
+      p95: 0
+      max: 0
+    text_bytes:
+      p50: 256
+      p95: 1024
+      max: 4096
+  attachment_distribution:
+    ratio: 0
+    upload_bytes: null
+model:
+  mode: CONTROLLED_PROBE
+  probe_latency_ms:
+    p50: 50
+    p95: 100
+    max: 200
+  output_distribution:
+    p50: 256
+    p95: 1024
+    max: 4096
+slo:
+  admission_p95_ms: 500
+  admission_p99_ms: 1500
+  framework_first_delta_p95_ms: 1200
+  recovery_max_sec: 60
+  max_system_error_ratio: 0.01
+resources:
+  hardware:
+    console-platform: {cpu_request_millicores: 500, cpu_limit_millicores: 1000, memory_request_mb: 1024, memory_limit_mb: 2048}
+    agent-runtime: {cpu_request_millicores: 500, cpu_limit_millicores: 1000, memory_request_mb: 1024, memory_limit_mb: 2048}
+    agent-worker: {cpu_request_millicores: 250, cpu_limit_millicores: 1000, memory_request_mb: 512, memory_limit_mb: 1024}
+    im-gateway: {cpu_request_millicores: 500, cpu_limit_millicores: 1000, memory_request_mb: 512, memory_limit_mb: 1024}
+  process_counts: {console-platform: 1, agent-runtime: 1, agent-worker: 1, im-gateway: 1}
+  replica_counts: {console-platform: 1, agent-runtime: 2, agent-worker: 2, im-gateway: 2}
+  max_replica_counts: {console-platform: 1, agent-runtime: 2, agent-worker: 2, im-gateway: 2}
+  pg_connection_budget: 100
+  fd_budget: 16384
+  storage_budget:
+    event_bytes_per_day: 5368709120
+    retention_days: 30
+    artifact_bytes: 107374182400
