@@ -1,7 +1,7 @@
 version: 1
 task: Redis 单机/Cluster 双模式接入
 enforcement: required
-updated_at: '2026-11-03T13:54:34.586787+00:00'
+updated_at: '2026-11-03T14:21:41.515925+00:00'
 sources:
 - type: cli
   ref: bind
@@ -46,7 +46,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: db62f73b792ed858e6e6ef75379d5afe49c84a3d4118b6c93f70513873530296
+          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
         decision: null
         evidence: []
       code:
@@ -168,7 +168,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: db62f73b792ed858e6e6ef75379d5afe49c84a3d4118b6c93f70513873530296
+          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
         decision: null
         evidence: []
       code:
@@ -288,7 +288,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: db62f73b792ed858e6e6ef75379d5afe49c84a3d4118b6c93f70513873530296
+          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
         decision: null
         evidence: []
       code:
@@ -390,7 +390,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: db62f73b792ed858e6e6ef75379d5afe49c84a3d4118b6c93f70513873530296
+          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
         decision: null
         evidence: []
       code:
@@ -506,7 +506,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: db62f73b792ed858e6e6ef75379d5afe49c84a3d4118b6c93f70513873530296
+          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
         decision: null
         evidence: []
       code:
@@ -596,7 +596,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: db62f73b792ed858e6e6ef75379d5afe49c84a3d4118b6c93f70513873530296
+          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
         decision: null
         evidence: []
       code:
@@ -708,7 +708,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: db62f73b792ed858e6e6ef75379d5afe49c84a3d4118b6c93f70513873530296
+          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
         decision: null
         evidence: []
       code:
@@ -765,7 +765,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: db62f73b792ed858e6e6ef75379d5afe49c84a3d4118b6c93f70513873530296
+          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
         decision: null
         evidence: []
       code:

@@ -130,7 +130,7 @@
 
 ## TASK-003: Gateway 接入集群（keyed + pub/sub 拆分、入站保留裁剪、降级可见）
 
-- **Status**: draft
+- **Status**: in-progress
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: redis-cluster-support.design.md#3.2 架构设计, redis-cluster-support.design.md#3.3 数据设计, redis-cluster-support.design.md#3.5.2 可靠性设计, redis-cluster-support.design.md#3.5.4 可观测性设计
@@ -167,9 +167,13 @@
 
 > 由 `cf-task-start` 在编码期填写。
 
+> BLOCKED: 等待 TASK-007 的 3 节点集群测试夹具与 cluster 验收基座（S-02 需要真实 Gateway + 真实 cluster Redis；acceptance conftest 的 DB 10-15 隔离与 cluster 不兼容）。先执行同批次中不依赖夹具的 TASK-006/007，再 resume。
 ### Log
 
 - [2026-11-03] created (draft)
+- [2026-11-03] started
+- [2026-11-03] blocked (等待 TASK-007 的 3 节点集群测试夹具与 cluster 验收基座（S-02 需要真实 Gateway + 真实 cluster Redis；acceptance conftest 的 DB 10-15 隔离与 cluster 不兼容）。先执行同批次中不依赖夹具的 TASK-006/007，再 resume。)
+- [2026-11-03] resumed (in-progress)
 
 ---
 
