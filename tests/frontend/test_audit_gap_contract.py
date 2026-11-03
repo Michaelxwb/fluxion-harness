@@ -204,8 +204,10 @@ def test_b214_agent_filter_is_wired_to_agent_id_end_to_end() -> None:
 
 def test_b214_resource_type_options_cover_backend_domain() -> None:
     """[B-214] 筛选项覆盖后端投影列的实际取值域，且不引入值域外的取值。"""
-    options = set(_string_array(_read(FILTER_BAR), "RESOURCE_TYPES"))
+    registered = _string_array(_read(FILTER_BAR), "RESOURCE_TYPES")
+    options = set(registered)
     assert options, "缺少资源类型枚举 RESOURCE_TYPES"
+    assert len(registered) == len(options), "资源类型筛选项不得重复登记"
 
     actual = _actual_resource_types()
     assert len(actual) >= 15, f"值域派生疑似失效（过窄）：{sorted(actual)}"
