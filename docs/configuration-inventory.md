@@ -22,7 +22,7 @@
 
 扫描不把每个 SQL `.limit(1)`、计数器初始零、CSS 尺寸或循环算术都当作配置；调用方传入且没有默认值的参数不属于常量默认。本清单是当前源码快照，不能宣称通过语法扫描穷尽所有隐含业务策略。
 
-**当前声明点合计 1874**：`code` 1506、`environment` 139、`business` 217、`business-resource` 12。其中大量 `code` 行是状态码、事件名、协议文本与各服务持有的实现常量。分类由 `tests/test_configuration_inventory.py` 的机检与分类断言兜底（路径/行号/符号/默认值直接与源码 AST 对齐；分类主张逐条钉住）。
+**当前声明点合计 1775**：`code` 1512、`environment` 139、`business` 112、`business-resource` 12。其中大量 `code` 行是状态码、事件名、协议文本与各服务持有的实现常量。分类由 `tests/test_configuration_inventory.py` 的机检与分类断言兜底（路径/行号/符号/默认值直接与源码 AST 对齐；分类主张逐条钉住）。
 
 ## SharedSettings：当前 106 项全部是环境设置
 

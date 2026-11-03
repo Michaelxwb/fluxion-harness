@@ -45,9 +45,7 @@ async def _seed_audit(
     return audit_id
 
 
-async def test_s10_audit_filter_target_and_deeplink(
-    client: AsyncClient, tenant: TenantContext
-) -> None:
+async def test_s10_audit_filter_target_and_deeplink(client: AsyncClient, tenant: TenantContext) -> None:
     user_id = str(uuid.uuid4())
     await _seed_audit(tenant.tenant_id, "RETIRE", user_id=user_id)
     await _seed_audit(tenant.tenant_id, "TRIAL_PROMOTE", key="exp.other")

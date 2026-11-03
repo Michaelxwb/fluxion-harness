@@ -34,7 +34,7 @@ def test_credentials_tab_uses_credential_update_time_and_shared_form() -> None:
     source = USER_DETAIL.read_text(encoding="utf-8")
     assert "user_credential_updated_time" in source
     assert "CredentialSchemaFields" in source
-    assert "validateCredentialValues" in source
+    assert "parseCredentialJson" in source
     assert "confirmLoading" in source
 
 

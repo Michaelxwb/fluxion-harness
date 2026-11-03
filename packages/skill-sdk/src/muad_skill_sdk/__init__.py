@@ -9,6 +9,7 @@ from .context import (
     SkillUser,
     TaskClient,
 )
+from .platform_request import platform_request
 from .skill_package import (
     SkillManifest,
     SkillPackage,
@@ -18,6 +19,7 @@ from .skill_package import (
 )
 
 __all__ = [
+    "platform_request",
     "ArtifactAccess",
     "HttpClient",
     "HttpResponse",

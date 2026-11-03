@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -25,6 +26,7 @@ from muad_contracts import (
     SkillExecutionMode,
     ToolRetrySafety,
 )
+from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
 from pydantic import JsonValue
 
@@ -109,6 +111,7 @@ def build_skill_registry(
     policy: AgentPolicy,
     task_client: TaskSubmissionProtocol | None = None,
     task_context: TaskSubmissionContext | None = None,
+    platform_context: SkillPlatformContext | None = None,
 ) -> ToolRegistry:
     tool_set = SkillToolSet(
         cache=cache,
@@ -116,6 +119,7 @@ def build_skill_registry(
         timeout_sec=policy.deadline_ms / 1000.0,
         task_client=task_client,
         task_context=task_context,
+        platform_context=platform_context,
     )
     return tool_set.registry()
 
@@ -130,6 +134,7 @@ class SkillToolSet:
         executor: ScriptSkillExecutor | None = None,
         task_client: TaskSubmissionProtocol | None = None,
         task_context: TaskSubmissionContext | None = None,
+        platform_context: SkillPlatformContext | None = None,
         async_retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY,
     ) -> None:
         self._cache = cache
@@ -140,6 +145,7 @@ class SkillToolSet:
         self._packages: dict[str, SkillPackage] = {}
         self._task_client = task_client
         self._task_context = task_context
+        self._platform_context = platform_context
         # ASYNC Skill 的 Owner 侧重试安全声明（design §3.6）：默认 NON_RETRYABLE——未声明即未知，
         # 未知不得自动重做外部副作用。声明同时落在 EXECUTE_SKILL_TOOL 定义与操作提交上。
         self._async_retry_safety = async_retry_safety
@@ -195,7 +201,7 @@ class SkillToolSet:
                     ErrorCode.TOOL_COMPLETION_MODE_INVALID.value, "SYNC Skill does not accept completion_mode"
                 )
             package = await self._package(skill)
-            return await self._execute(package.root, input_data, script=None)
+            return await self._execute(package.root, input_data, script=None, skill=skill)
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
 
@@ -206,7 +212,7 @@ class SkillToolSet:
             input_data = _require_input(arguments)
             package = await self._package(skill)
             script = _select_script(package, name)
-            return await self._execute(package.root, input_data, script=script)
+            return await self._execute(package.root, input_data, script=script, skill=skill)
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
 
@@ -378,7 +384,12 @@ class SkillToolSet:
         input_data: Mapping[str, Any],
         *,
         script: Path | None,
+        skill: ResolvedSkill,
     ) -> str:
+        if skill_platform_keys(skill.frontmatter) and self._platform_context is None:
+            raise SkillToolError(
+                "PLATFORM_CONTEXT_REQUIRED", "Platform Skill requires a trusted execution context"
+            )
         try:
             result = await self._executor.execute(
                 SkillExecutionRequest(
@@ -386,6 +397,11 @@ class SkillToolSet:
                     input=input_data,
                     timeout_sec=self._timeout_sec,
                     script=script,
+                    platform_context=replace(
+                        self._platform_context, platform_keys=skill_platform_keys(skill.frontmatter)
+                    )
+                    if self._platform_context
+                    else None,
                 )
             )
         except SkillExecutionError as exc:
@@ -493,3 +509,10 @@ def _execution_payload(result: SkillExecutionResult) -> str:
 
 def _error_result(code: str, message: str) -> str:
     return json.dumps({"error": {"code": code, "message": message}}, ensure_ascii=False)
+
+
+def skill_platform_keys(frontmatter: Mapping[str, Any]) -> tuple[str, ...]:
+    value = frontmatter.get("platforms", [])
+    if not isinstance(value, list) or any(not isinstance(k, str) or not k for k in value):
+        raise SkillToolError("SKILL_PLATFORMS_INVALID", "Skill platforms must be a list of platform keys")
+    return tuple(dict.fromkeys(value))

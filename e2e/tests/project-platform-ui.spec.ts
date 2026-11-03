@@ -79,6 +79,12 @@ async function mockApi(page: Page, state: MockState): Promise<void> {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
+    if (path === '/api/v1/learning/experiences') {
+      return route.fulfill({ json: { code: '0', msg: '', data: {
+        items: [], total: 0, page: 1, page_size: 20,
+        counts: { total: 0, PROPOSED: 0, TRIAL: 0, ACTIVE: 0, RETIRED: 0 }
+      } } });
+    }
     if (path.endsWith('/auth/me')) {
       await route.fulfill({ json: envelope(ADMIN) });
       return;
@@ -221,4 +227,31 @@ test('S-08 用户详情凭据 Tab 展示平台与配置状态', async ({ page })
   const missingRow = page.locator('.semi-table-row', { hasText: 'E2E Platform Missing' });
   await expect(activeRow).toContainText('已配置');
   await expect(missingRow).toContainText('未配置');
+});
+
+test('平台 JSON 配置保留嵌套值并拦截非对象输入', async ({ page }) => {
+  await mockApi(page, { connectivity: 'REACHABLE' });
+  let submitted: Record<string, unknown> | null = null;
+  await page.route('**/api/v1/project-platforms', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    submitted = route.request().postDataJSON();
+    await route.fulfill({ json: envelope({ platform_id: 'json-demo' }) });
+  });
+  await page.goto('/platforms');
+  await page.getByRole('button', { name: '新增项目平台', exact: true }).click();
+  const modal = page.locator('.semi-modal');
+  await modal.locator('#name').fill('JSON Demo');
+  await modal.locator('#key').fill('json-demo');
+  await modal.locator('#base_url').fill('http://127.0.0.1:18766');
+  await modal.locator('textarea').fill('[]');
+  await modal.getByRole('button', { name: 'confirm', exact: true }).click();
+  await expect(modal).toContainText('请输入有效的 JSON 对象');
+  expect(submitted).toBeNull();
+  const config = { nested: { enabled: false, values: [1, 2] } };
+  await modal.locator('textarea').fill(JSON.stringify(config));
+  await expect(modal).not.toContainText('请输入有效的 JSON 对象');
+  // Semi Modal throttles repeated confirm clicks.
+  await page.waitForTimeout(1200);
+  await modal.getByRole('button', { name: 'confirm', exact: true }).click();
+  await expect.poll(() => submitted?.adapter_config).toEqual(config);
 });

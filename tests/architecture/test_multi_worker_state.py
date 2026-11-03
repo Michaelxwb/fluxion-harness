@@ -57,7 +57,7 @@ def _wait_http(url: str, *, timeout: float = READY_TIMEOUT_SEC) -> None:
     last: Exception | None = None
     while time.monotonic() < deadline:
         try:
-            if httpx.get(url, timeout=1.0).status_code < 500:
+            if httpx.get(url, timeout=1.0, trust_env=False).status_code < 500:
                 return
         except httpx.HTTPError as exc:
             last = exc
@@ -184,16 +184,20 @@ def test_gateway_two_workers_aggregate_metrics_without_losing_counts(
     port = _free_port()
     url = f"http://127.0.0.1:{port}"
     env = _base_env(
-        datastore["database_url"], datastore["redis_url"],
-        work_root / "artifacts", work_root / "metrics-gateway",
+        datastore["database_url"],
+        datastore["redis_url"],
+        work_root / "artifacts",
+        work_root / "metrics-gateway",
     )
-    env.update({
-        "CONSOLE_PLATFORM_URL": "http://127.0.0.1:1",
-        "AGENT_RUNTIME_URL": "http://127.0.0.1:1",
-        # 有界等待压到 0.2s：每条投递都会 timeout → 计数失败结局（本测试只看计数聚合）。
-        "DELIVERY_STREAM_WAIT_SEC": "0.2",
-        "BOT_SNAPSHOT_POLL_SEC": "30",
-    })
+    env.update(
+        {
+            "CONSOLE_PLATFORM_URL": "http://127.0.0.1:1",
+            "AGENT_RUNTIME_URL": "http://127.0.0.1:1",
+            # 有界等待压到 0.2s：每条投递都会 timeout → 计数失败结局（本测试只看计数聚合）。
+            "DELIVERY_STREAM_WAIT_SEC": "0.2",
+            "BOT_SNAPSHOT_POLL_SEC": "30",
+        }
+    )
     process = _spawn(
         "muad_im_gateway.main:app",
         port=port,
@@ -208,7 +212,7 @@ def test_gateway_two_workers_aggregate_metrics_without_losing_counts(
         for index in range(attempts):
             # 每次一条新连接：uvicorn 用共享监听 socket 把连接分给不同 worker。
             task_id = str(uuid.uuid4())
-            with httpx.Client(timeout=10.0) as client:
+            with httpx.Client(timeout=10.0, trust_env=False) as client:
                 response = client.post(
                     f"{url}/internal/deliveries",
                     headers={
@@ -349,8 +353,10 @@ def test_console_artifact_token_issued_in_one_worker_redeems_in_another(
     artifact_root = work_root / "artifacts"
     artifact_id = _seed_artifact(datastore["database_url"], artifact_root)
     env = _base_env(
-        datastore["database_url"], datastore["redis_url"],
-        artifact_root, work_root / "metrics-console",
+        datastore["database_url"],
+        datastore["redis_url"],
+        artifact_root,
+        work_root / "metrics-console",
     )
     console_env = {
         **env,
@@ -376,7 +382,7 @@ def test_console_artifact_token_issued_in_one_worker_redeems_in_another(
     try:
         _wait_http(f"{console_url}/healthz")
         _wait_http(f"{runtime_url}/healthz")
-        with httpx.Client(timeout=10.0) as client:
+        with httpx.Client(timeout=10.0, trust_env=False) as client:
             direct = client.get(
                 f"{runtime_url}/internal/artifacts/{artifact_id}",
                 headers={"X-Internal-Service": INTERNAL_TOKEN, "X-Tenant-Id": TENANT},
@@ -405,7 +411,7 @@ def test_console_artifact_token_issued_in_one_worker_redeems_in_another(
 
         # 8 条**新连接**兑换：无论落到哪个 worker 都必须 200 且字节一致。
         for _ in range(8):
-            with httpx.Client(timeout=10.0) as client:
+            with httpx.Client(timeout=10.0, trust_env=False) as client:
                 response = client.get(fetch_url)
             assert response.status_code == 200, response.text
             assert response.content == b"multi worker artifact"

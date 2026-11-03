@@ -1111,7 +1111,11 @@ class CapacityStack:
             skill_cache_root=self.skill_cache_root(unit, index),
             workers=self.process_counts[unit],
         )
-        instance.start(ready_timeout_sec=self._ready_timeout_sec)
+        try:
+            instance.start(ready_timeout_sec=self._ready_timeout_sec)
+        except Exception:
+            instance.stop()
+            raise
         if index < len(self._ports[unit]):
             self._ports[unit][index] = port
         else:

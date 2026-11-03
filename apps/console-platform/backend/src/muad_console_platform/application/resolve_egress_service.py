@@ -35,10 +35,11 @@ def _platform_snapshot(platform: ProjectPlatform) -> dict[str, Any]:
 
 
 def _credential_payload(
-    ref_id: uuid.UUID, credential_json: dict[str, Any], schema_version: str
+    ref_id: uuid.UUID, credential_json: dict[str, Any], schema_version: str, actor_scope: str = ""
 ) -> dict[str, Any]:
     return {
         "ref_id": str(ref_id),
+        "actor_scope": actor_scope,
         "credential_json": credential_json,
         "credential_schema_version": schema_version,
     }
@@ -83,21 +84,30 @@ async def _resolve_credential(
         row = await user_row()
         if row is None:
             raise AppError(ErrorCode.CREDENTIAL_MISSING)
-        return _credential_payload(row.id, row.credential_json, row.credential_schema_version)
+        return _credential_payload(
+            row.id, row.credential_json, row.credential_schema_version, f"user:{actor_user_id}"
+        )
     if mode == "SHARED_ONLY":
         shared_only = await shared_row()
         if shared_only is None:
             raise AppError(ErrorCode.CREDENTIAL_MISSING)
         return _credential_payload(
-            shared_only.id, shared_only.credential_json, shared_only.credential_schema_version
+            shared_only.id,
+            shared_only.credential_json,
+            shared_only.credential_schema_version,
+            f"shared:{shared_only.id}",
         )
     # USER_THEN_SHARED
     user = await user_row()
     if user is not None:
-        return _credential_payload(user.id, user.credential_json, user.credential_schema_version)
+        return _credential_payload(
+            user.id, user.credential_json, user.credential_schema_version, f"user:{actor_user_id}"
+        )
     shared = await shared_row()
     if shared is not None:
-        return _credential_payload(shared.id, shared.credential_json, shared.credential_schema_version)
+        return _credential_payload(
+            shared.id, shared.credential_json, shared.credential_schema_version, f"shared:{shared.id}"
+        )
     raise AppError(ErrorCode.CREDENTIAL_MISSING)
 
 

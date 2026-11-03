@@ -238,9 +238,9 @@ def test_b307_four_units_run_as_real_processes_on_isolated_ports(stack: Capacity
     instances = stack.all_instances()
     assert {instance.unit for instance in instances} == set(UNITS), "四单元齐备"
     assert stack.profile is not None and stack.profile.resources is not None
-    assert len(instances) == sum(
-        stack.profile.resources.replica_counts[unit] for unit in UNITS
-    ), "实例数由锁定 profile 的 replica_counts 决定"
+    assert len(instances) == sum(stack.profile.resources.replica_counts[unit] for unit in UNITS), (
+        "实例数由锁定 profile 的 replica_counts 决定"
+    )
 
     ports = {instance.port for instance in instances}
     assert len(ports) == len(instances), "端口互不冲突（真实 bind 结果）"
@@ -275,9 +275,7 @@ def test_b307_shared_volume_is_probed_by_the_services_themselves(stack: Capacity
     with _http() as client:
         ready = client.get(f"{worker.url}/readyz")
         assert ready.status_code == 200
-        assert _probe_payload(ready)["artifact_root"] == str(root), (
-            "服务自己报告的真实挂载点 = 本栈共享卷"
-        )
+        assert _probe_payload(ready)["artifact_root"] == str(root), "服务自己报告的真实挂载点 = 本栈共享卷"
         runtime_ready = client.get(f"{runtime.url}/readyz")
         assert runtime_ready.status_code == 200
         assert "artifact_storage" not in _probe_payload(runtime_ready).get("failed", [])
@@ -305,12 +303,10 @@ def test_b307_entry_proxy_follows_ingress_manifest_and_stops_cleanly(
 ) -> None:
     """断言④：入口代理按真实 ingress 清单分流（认证面 → Console、其余聊天 API → Gateway），可起停。"""
     routes = load_ingress_routes()
-    assert stack.proxy.stats()["routes"] == [
-        {"path": route.path, "unit": route.unit} for route in routes
-    ], "代理分流表就是 deploy/k8s/base/ingress.yaml 的规则（不另写一份）"
-    assert any(
-        route.path == "/api/v1/webchat/auth" and route.unit == "console-platform" for route in routes
+    assert stack.proxy.stats()["routes"] == [{"path": route.path, "unit": route.unit} for route in routes], (
+        "代理分流表就是 deploy/k8s/base/ingress.yaml 的规则（不另写一份）"
     )
+    assert any(route.path == "/api/v1/webchat/auth" and route.unit == "console-platform" for route in routes)
     assert any(route.path == "/api/v1/webchat/runs" and route.unit == "im-gateway" for route in routes)
 
     console_url = stack.url_of("console-platform")
@@ -436,3 +432,26 @@ def test_b307_teardown_releases_only_this_round_and_leaves_dev_untouched(
     )
     assert redis_value(stack.redis_url, REDIS_CLAIM_KEY) is None, "隔离号位已释放"
     assert redis_value(dev_baseline.redis_url, REDIS_CLAIM_KEY) is None, "dev 号位始终未被占用"
+
+
+def test_failed_start_releases_already_started_instances(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stack = CapacityStack(root=tmp_path / "failed-start")
+    stopped: list[str] = []
+
+    class StartedInstance:
+        def stop(self) -> None:
+            stopped.append("console")
+
+    def fail_after_first_instance() -> None:
+        stack._instances["console-platform"].append(StartedInstance())
+        raise RuntimeError("runtime startup rejected")
+
+    monkeypatch.setattr(stack, "_start_components", fail_after_first_instance)
+    with pytest.raises(RuntimeError, match="runtime startup rejected"):
+        stack.start()
+    assert stopped == ["console"]
+    assert stack.all_instances() == ()
+    stack.teardown()
+    assert stopped == ["console"]

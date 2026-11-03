@@ -45,9 +45,9 @@ def test_console_shell_menu_is_the_fixed_twelve_items() -> None:
 def test_console_shell_has_system_settings_entry() -> None:
     # 菜单来源与渲染处都要检查：入口必须来自 config/menu.ts，且 AppLayout 登记了对应图标
     menu = _menu_source()
-    assert re.search(
-        r"\{\s*path:\s*'/settings',\s*key:\s*'nav.settings',\s*adminOnly:\s*true\s*\}", menu
-    ), "菜单必须含系统设置入口（排在运行审计之后）"
+    assert re.search(r"\{\s*path:\s*'/settings',\s*key:\s*'nav.settings',\s*adminOnly:\s*true\s*\}", menu), (
+        "菜单必须含系统设置入口（排在运行审计之后）"
+    )
     assert menu.index("'/audits'") < menu.index("'/settings'"), "系统设置必须排在运行审计之后"
 
     layout = (FRONTEND / "layout/AppLayout.tsx").read_text(encoding="utf-8")
@@ -59,7 +59,7 @@ def test_console_shell_has_system_settings_entry() -> None:
     assert re.search(
         r'path="settings"[\s\S]{0,200}?<RequireRole role="ADMIN">[\s\S]{0,120}?<SettingsPage',
         app,
-    ), "/settings 路由必须包在 RequireRole role=\"ADMIN\" 内"
+    ), '/settings 路由必须包在 RequireRole role="ADMIN" 内'
 
 
 def test_menu_keys_are_translated_in_both_locales() -> None:

@@ -61,6 +61,12 @@ async function prepare(page: Page, width: number, theme: string, locale: string,
   };
   await page.route('**/api/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/v1/learning/experiences') {
+      return route.fulfill({ json: { code: '0', msg: '', data: {
+        items: [], total: 0, page: 1, page_size: 20,
+        counts: { total: 0, PROPOSED: 0, TRIAL: 0, ACTIVE: 0, RETIRED: 0 }
+      } } });
+    }
     if (path === '/api/v1/users/layout-user/webchat-token') {
       return route.fulfill({
         json: {

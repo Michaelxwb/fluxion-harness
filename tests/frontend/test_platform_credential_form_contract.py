@@ -22,11 +22,10 @@ def test_credential_tab_matches_interaction_layout() -> None:
     assert "credential-card" in source, "共享凭据必须使用卡片布局"
 
 
-def test_credential_form_is_schema_driven_and_never_echoes_secrets() -> None:
+def test_credential_form_uses_custom_json_and_never_echoes_secrets() -> None:
     source = (MODULE / "PlatformCredentialTab.tsx").read_text(encoding="utf-8")
     assert "CredentialSchemaFields" in source
-    assert "credentialFields" in source
-    assert "validateCredentialValues" in source
+    assert "parseCredentialJson" in source
     assert "apiErrorBody" in source
     assert "saveUserCredential" in source and "saveSharedCredential" in source
     assert "deleteSharedCredential" in source, "共享凭据必须提供删除入口"
@@ -34,12 +33,13 @@ def test_credential_form_is_schema_driven_and_never_echoes_secrets() -> None:
     assert "ErrorState" in source, "凭据列表失败必须有错误态"
 
 
-def test_shared_fields_component_marks_secret_fields() -> None:
+def test_shared_fields_component_accepts_json_without_schema_generated_inputs() -> None:
     source = (MODULE / "CredentialSchemaFields.tsx").read_text(encoding="utf-8")
-    assert "'x-secret'" in source
-    assert "mode={field.secret ? 'password' : undefined}" in source
-    assert "platform.credentials.errorRequired" in source
-    assert "platform.credentials.errorPair" in source
+    assert "Form.TextArea" in source
+    assert "Form.Input" not in source
+    assert "credential_schema" not in source
+    assert "platform.credentials.jsonLabel" in source
+    assert "JSON.parse" in source
 
 
 def test_test_modal_reports_localized_stages_without_raw_secrets() -> None:

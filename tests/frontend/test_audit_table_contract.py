@@ -137,7 +137,9 @@ def test_module_files_exist() -> None:
 
 def test_columns_match_docs15_field_names() -> None:
     """[S-06] 列集合与 docs/15 口径一致，Trace ID 在首列。"""
-    columns = _columns_source(_read(TABLE))
+    columns = _columns_source(_read(TABLE)) + _compact(
+        (MODULE / "auditLabels.ts").read_text(encoding="utf-8")
+    )
     assert columns, "列定义须独立成函数，便于口径断言"
 
     for key, ui_name, fields in COLUMN_FIELDS:
@@ -202,9 +204,7 @@ def test_empty_and_error_slots_come_from_audit_table() -> None:
     assert "options.failed?" in _compact(table), "失败态须按 failed 呈现 ErrorState"
     assert "<ErrorState onRetry={options.onRetry} />" in table
     assert "t('common.empty')" in table and "t('common.emptyHint')" in table
-    assert "t('common.reset')" in table and "options.onReset" in _compact(table), (
-        "空态须提供「清筛选」出口"
-    )
+    assert "t('common.reset')" in table and "options.onReset" in _compact(table), "空态须提供「清筛选」出口"
 
 
 def test_primary_display_field_has_detail_open_seam() -> None:
@@ -222,9 +222,8 @@ def test_primary_display_field_has_detail_open_seam() -> None:
     assert compact.count("onClick={()=>onOpenDetail(record)}") == 2
     assert compact.count("onClick={()=>onOpenRun(runId)}") == 1, "Run 链接须直达运行详情"
     assert compact.count("onClick={()=>onOpenTask(taskId)}") == 1, "Task 链接须落任务深链"
-    assert (
-        "columns:buildAuditColumns(t,options.onOpenDetail,options.onOpenRun,options.onOpenTask)"
-        in _props(table)
+    assert "columns:buildAuditColumns(t,options.onOpenDetail,options.onOpenRun,options.onOpenTask)" in _props(
+        table
     ), "详情 seam 须由入参原样注入列定义"
     assert "dataIndex:'traceId'" in compact, "主展示字段须为 Trace ID 列"
     assert "rowKey:'auditId'" in _props(table), "同一 Trace 下的不同审计记录须保留独立行"
@@ -266,9 +265,7 @@ def test_hook_owns_list_state_and_guards_out_of_order_responses() -> None:
     body = _compact(_function(hook, "useAuditList"))
     assert "constcurrent=++requestSeq.current;" in body, "须以 requestSeq 标记本次请求"
     assert "if(current!==requestSeq.current){return;}" in body, "乱序响应须在应用前丢弃"
-    assert body.count("if(current===requestSeq.current){") == 2, (
-        "失败/收尾分支不得被过期响应改写"
-    )
+    assert body.count("if(current===requestSeq.current){") == 2, "失败/收尾分支不得被过期响应改写"
     assert "setFailed(true)" in _catch_block(hook), "失败只置 failed（保留筛选与已加载数据）"
     assert "voidreload();" in body, "首挂载与 query 变更即重取"
     assert "return{items,page,pageSize,total,loading,failed,reload};" in body, "须暴露 retry 出口"

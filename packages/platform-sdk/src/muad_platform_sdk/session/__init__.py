@@ -9,8 +9,10 @@ from .key import (
     user_actor_scope,
 )
 from .manager import PlatformSessionManager, SessionRequest
+from .redis_manager import RedisPlatformSessionManager
 
 __all__ = [
+    "RedisPlatformSessionManager",
     "NONE_ACTOR_SCOPE",
     "SESSION_INDEX_PREFIX",
     "SESSION_KEY_PREFIX",

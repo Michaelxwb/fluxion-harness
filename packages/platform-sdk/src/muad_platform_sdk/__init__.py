@@ -7,6 +7,8 @@ from .adapter import (
     PlatformAdapterNotFound,
     PlatformAdapterRegistry,
 )
+from .adapter.mss import MSSAdapter
+from .adapter.mss_config import PlatformAuthError
 from .client import PlatformClient
 from .egress_client import EgressAccess, RuntimeEgressClient
 from .session import (
@@ -21,6 +23,7 @@ from .session import (
     shared_actor_scope,
     user_actor_scope,
 )
+from .session.redis_manager import RedisPlatformSessionManager
 from .types import (
     PlatformConfig,
     PlatformRequest,
@@ -32,6 +35,9 @@ from .types import (
 )
 
 __all__ = [
+    "RedisPlatformSessionManager",
+    "MSSAdapter",
+    "PlatformAuthError",
     "CREDENTIAL_SCHEMA",
     "NONE_ACTOR_SCOPE",
     "PLATFORM_CONFIG_SCHEMA",
