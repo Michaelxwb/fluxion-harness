@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
 
 DEFAULT_MESSAGE_TTL_SEC = 300
 DEFAULT_RUN_TTL_SEC = 3600
@@ -38,7 +39,7 @@ def _now() -> float:
 class ReplyStore:
     def __init__(
         self,
-        redis: Redis,
+        redis: Redis | RedisCluster,
         *,
         message_ttl_sec: int = DEFAULT_MESSAGE_TTL_SEC,
         run_ttl_sec: int = DEFAULT_RUN_TTL_SEC,

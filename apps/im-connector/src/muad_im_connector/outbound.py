@@ -40,6 +40,7 @@ from muad_contracts.im import (
     outbound_stream_key_for,
 )
 from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
 
 from .lease import BotLease, RedisLeaseManager
 from .metrics import (
@@ -521,7 +522,7 @@ class OutboundRunner:
 
     def __init__(
         self,
-        redis: Redis,
+        redis: Redis | RedisCluster,
         *,
         executor: CommandExecutor,
         leases: RedisLeaseManager,

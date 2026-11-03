@@ -16,8 +16,8 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | S-01 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程子进程 + 真实 standalone Redis + 真实 PostgreSQL | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_standalone_regression.py"] | . | 1800 | P0 | auto | local-api | - | - | - | no |
 | S-02 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Gateway + 真实 3 节点 cluster Redis + 真实 PostgreSQL | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_inbound.py"] | . | 1200 | P0 | auto | local-api | - | - | - | no |
-| S-03 | redis-cluster-support.design.md#2.5 验收条件 | integration | 两个真实 Connector 子进程 + 真实 cluster Redis + 真实 Console 快照 | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_lease.py"] | . | 1200 | P0 | auto | local-api | - | - | - | no |
-| S-04 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Gateway 入队 + 真实 Connector XREAD + 真实 cluster Redis + 真实 PG | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_outbound.py"] | . | 1200 | P1 | auto | local-api | - | - | - | no |
+| S-03 | redis-cluster-support.design.md#2.5 验收条件 | integration | 两个真实 Connector 子进程 + 真实 cluster Redis + 真实 Console 快照 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_lease.py"] | . | 1200 | P0 | auto | local-api | - | - | - | no |
+| S-04 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Gateway 入队 + 真实 Connector XREAD + 真实 cluster Redis + 真实 PG | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_outbound.py"] | . | 1200 | P1 | auto | local-api | - | - | - | no |
 | S-05 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Console 子进程 + 真实 cluster Redis（多 slot session） | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_session.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | S-06 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程 + 真实 cluster Redis（pub/sub、单 key、pipeline、scan、token） | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_surfaces.py"] | . | 1800 | P1 | auto | local-api | - | - | - | no |
 | S-07 | redis-cluster-support.design.md#2.5 验收条件 | contract | `create_redis_client` / `create_pubsub_client` 的纯配置校验（不建立连接） | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/common/test_redis_client.py"] | . | 300 | P0 | auto | none | - | - | - | no |
@@ -193,7 +193,7 @@
 
 ## TASK-004: Connector 接入集群（租约、出站读取、入站发布）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: redis-cluster-support.design.md#3.2 架构设计, redis-cluster-support.design.md#3.3 数据设计, redis-cluster-support.design.md#3.4 接口设计
@@ -209,30 +209,39 @@ Connector 主客户端改由 `create_redis_client` 创建；删除启动日志�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/acceptance/redis_cluster/test_cluster_lease.py tests/acceptance/redis_cluster/test_cluster_outbound.py`
-- [ ] `main.py` 用工厂创建客户端；启动日志改为输出模式与 host/port，不读 `connection_pool`
-- [ ] `RedisLeaseManager` 使用契约 lease/epoch key；acquire/renew/release Lua 语义不变
-- [ ] `OutboundRunner` 用契约 outbound key；同租户多 bot 一次 `XREAD`；cursor 与 result 行为不变
-- [ ] `InboundPublisher` 用契约 inbound key；去重标记与 LOST 扫描行为不变
-- [ ] [harness-im#RULE-im-001] verifier：`uv run pytest -q tests/gateway`；bot 只路由到一个 Agent，不建立 agent→Pod 映射
-- [ ] [harness-im#RULE-im-002] verifier：`uv run pytest -q tests/architecture/test_channel_neutrality.py`；渠道差异仍在适配器层
-- [ ] `[S-03][integration]` 覆盖双 Connector 抢租约、owner 唯一、epoch 递增、旧 owner fencing；lease/epoch 同 slot
-- [ ] `[S-04][integration]` 覆盖同租户多 bot 出站一次 `XREAD`、结果回读、cursor 只由 owner 推进、窗口外命令被裁
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/acceptance/redis_cluster/test_cluster_lease.py tests/acceptance/redis_cluster/test_cluster_outbound.py`
+- [x] `main.py` 用工厂创建客户端；启动日志改为输出模式与 host/port，不读 `connection_pool`
+- [x] `RedisLeaseManager` 使用契约 lease/epoch key；acquire/renew/release Lua 语义不变
+- [x] `OutboundRunner` 用契约 outbound key；同租户多 bot 一次 `XREAD`；cursor 与 result 行为不变
+- [x] `InboundPublisher` 用契约 inbound key；去重标记与 LOST 扫描行为不变
+- [x] [harness-im#RULE-im-001] verifier：`uv run pytest -q tests/gateway`；bot 只路由到一个 Agent，不建立 agent→Pod 映射
+- [x] [harness-im#RULE-im-002] verifier：`uv run pytest -q tests/architecture/test_channel_neutrality.py`；渠道差异仍在适配器层
+- [x] `[S-03][integration]` 覆盖双 Connector 抢租约、owner 唯一、epoch 递增、旧 owner fencing；lease/epoch 同 slot
+- [x] `[S-04][integration]` 覆盖同租户多 bot 出站一次 `XREAD`、结果回读、cursor 只由 owner 推进、窗口外命令被裁
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-03 | integration | 两个真实 Connector 子进程 + 真实 cluster Redis + 真实 Console 快照 | 单 owner；lease/epoch 同 slot；Lua 无跨 slot；epoch 严格递增；旧 owner 写被拒 | tests/acceptance/redis_cluster/test_cluster_lease.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_lease.py | planned |
-| S-04 | integration | 真实 Gateway 入队 + 真实 Connector XREAD + 真实 cluster Redis + 真实 PG | 同租户多 bot 同 slot；命令只执行一次；result 可读；cursor 只由 owner 推进；窗口外命令被裁 | tests/acceptance/redis_cluster/test_cluster_outbound.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_outbound.py | planned |
+| S-03 | integration | 两个真实 Connector 子进程 + 真实 cluster Redis + 真实 Console 快照 | 单 owner；lease/epoch 同 slot；Lua 无跨 slot；epoch 严格递增；旧 owner 写被拒 | tests/acceptance/redis_cluster/test_cluster_lease.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_lease.py | verified |
+| S-04 | integration | 真实 Gateway 入队（DeliveryStreams）+ 真实 Connector XREAD + 真实 cluster Redis + 真实 PG | 同租户多 bot 同 slot；命令只执行一次；result 可读；cursor 只由 owner 推进；窗口外命令被裁 | tests/acceptance/redis_cluster/test_cluster_outbound.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_outbound.py | verified |
 
 ### Acceptance Evidence
 
-> 由 `cf-task-start` 在编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-03 | 首跑未单独 RED（契约 key 已在 TASK-002 落地）；脚本首版读取逻辑返工 | PASS: 1 passed | tests/acceptance/redis_cluster/test_cluster_lease.py | 两个真实 Connector 子进程 + 真实 cluster + 真实 Console 快照 | verified |
+| S-04 | 首跑 RED：显式旧 ID 注入与非空流冲突；`MINID ~` 近似裁剪在小流量流不生效 | PASS: 1 passed | tests/acceptance/redis_cluster/test_cluster_outbound.py | 真实 DeliveryStreams 生产端 + 真实 Connector XREAD + 真实 cluster + PG | verified |
+| RULE-06 | — | PASS: lease/epoch 同 slot 双 key Lua 正常执行；出站同租户同 slot | 同上两份验收 | 真实 cluster | verified |
+| harness-im#RULE-im-001/002 | — | PASS: Done Gate 内 tests/gateway + channel neutrality | tests/gateway、tests/architecture/test_channel_neutrality.py | 真实栈 | verified |
+- S-03: verified — automated command passed; run_id=e0dd1fddf00e4618ba1e251265c0ff0c (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=e0dd1fddf00e4618ba1e251265c0ff0c (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-03] created (draft)
+- [2026-11-04] started
+- [2026-11-04] completed (done)
 
 ---
 

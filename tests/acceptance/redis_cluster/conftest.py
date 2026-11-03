@@ -134,3 +134,32 @@ async def gateway_stack(
         stop_gateway_stack(processes)
         await purge_tenant()
         clear_engine_caches()
+
+@pytest.fixture(scope="module")
+async def connector_stack(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> AsyncIterator[object]:
+    """两个真实 Connector 子进程 + 真实 Console 快照 + 真实 WS 探针（集群 Redis）。"""
+    from tests.acceptance.im_gateway.connector_environment import (
+        start_connector_stack,
+        stop_connector_stack,
+    )
+    from tests.e2e.wecom_probe_app import WeComProbe
+
+    root = tmp_path_factory.mktemp("redis-cluster-connector")
+    probe = WeComProbe(expected_bots={BOT_ID: "e2e-im-bot-secret"})
+    await probe.start()
+    stack, processes = start_connector_stack(
+        root,
+        ws_probe_url=probe.ws_url,
+        ws_ca_file=str(probe.cert_path),
+        connectors=2,
+    )
+    stack.ws_probe = probe
+    try:
+        yield stack
+    finally:
+        stop_connector_stack(processes)
+        await probe.stop()
+        await purge_tenant()
+

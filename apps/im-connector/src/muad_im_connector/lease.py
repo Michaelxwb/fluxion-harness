@@ -19,6 +19,7 @@ from typing import Any, cast
 
 from muad_contracts.im import lease_epoch_key, lease_key
 from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
 
 ACQUIRE_SCRIPT = """
 local lease_key = KEYS[1]
@@ -106,7 +107,7 @@ class BotLease:
 class RedisLeaseManager:
     """Redis 租约管理器；所有方法都用 Lua 保证原子性。"""
 
-    def __init__(self, redis: Redis, *, owner_id: str, ttl_sec: float) -> None:
+    def __init__(self, redis: Redis | RedisCluster, *, owner_id: str, ttl_sec: float) -> None:
         if not owner_id:
             raise ValueError("owner_id is required")
         if ttl_sec < 1:

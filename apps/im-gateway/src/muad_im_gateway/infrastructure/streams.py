@@ -49,8 +49,9 @@ class DeliveryStreams:
                     "bot_id": command.bot_id,
                     "event": command.model_dump_json(),
                 },
+                # 时间窗口必须精确裁剪：近似裁剪在小流量流上永不触发，旧条目会一直留着。
                 minid=f"{int(time.time() * 1000) - self._retention_ms}-0",
-                approximate=True,
+                approximate=False,
             )
         except (redis.RedisError, OSError) as exc:
             raise DeliveryStreamsError(f"enqueue failed: {exc}") from exc
