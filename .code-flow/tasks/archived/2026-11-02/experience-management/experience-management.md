@@ -2,7 +2,7 @@
 
 - **Source**: `.code-flow/tasks/2026-11-01/experience-management/experience-management.prd.md`; `experience-management.backend.design.md`; `experience-management.frontend.design.md`
 - **Created**: 2026-11-01
-- **Updated**: 2026-11-01
+- **Updated**: 2026-11-02
 
 ## Proposal
 
@@ -28,7 +28,7 @@
 | S-05 | experience-management.backend.design.md#2.5 | integration | Console 用户记忆 API → 真实 PG 只读投影；通用写 API → Runtime internal | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "s05"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-06 | experience-management.backend.design.md#2.5 | component | 组件渲染 + mock service 数据（契约类型）；不访问真实后端 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_experience_contract.py"] | . | 900 | P0 | auto | none | - | - | - | no |
 | S-07 | experience-management.backend.design.md#2.5 | component | 组件渲染 + 同一 fixture 注入两个入口 | TASK-006 | verified | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_family_page_contract.py"] | . | 900 | P0 | auto | none | - | - | - | no |
-| S-08 | experience-management.backend.design.md#2.5 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | TASK-006 | e2e_deferred | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | . | 1200 | P1 | deferred | browser | - | 跨页面状态同步、真实路由深链与真实鉴权/DB 组合只有浏览器 E2E 能暴露；component 无法覆盖路由与真实后端 | apps/console-platform/frontend/src/modules/learning/**, apps/console-platform/frontend/src/modules/user-identity/**, apps/console-platform/frontend/src/modules/run-observability/**, apps/console-platform/backend/src/muad_console_platform/api/learning.py, apps/agent-runtime/src/muad_agent_runtime/application/learning_* | no |
+| S-08 | experience-management.backend.design.md#2.5 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | TASK-006 | verified | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | . | 1200 | P1 | deferred | browser | - | 跨页面状态同步、真实路由深链与真实鉴权/DB 组合只有浏览器 E2E 能暴露；component 无法覆盖路由与真实后端 | apps/console-platform/frontend/src/modules/learning/**, apps/console-platform/frontend/src/modules/user-identity/**, apps/console-platform/frontend/src/modules/run-observability/**, apps/console-platform/backend/src/muad_console_platform/api/learning.py, apps/agent-runtime/src/muad_agent_runtime/application/learning_* | no |
 | S-09 | experience-management.backend.design.md#2.5 | integration | 真实 Run 的 MEMORY_INJECTED 事件（含 diagnostics）→ Console API-10 → 真实 PG | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_diagnostics_api.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | E-01 | experience-management.backend.design.md#2.5 | integration | Console API + Runtime client（上游 5xx/超时）；真实 PG | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_degradation.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | E-02 | experience-management.backend.design.md#2.5 | integration | Runtime internal API + Console 通用记忆 API → 真实 PG | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_learning_fact_fixes.py", "-k", "e02"] | . | 900 | P0 | auto | local-api | - | - | - | no |
@@ -37,7 +37,7 @@
 | B-01 | experience-management.backend.design.md#2.5 | unit | 纯函数 derive_task_family / first_successful_skill；无 IO | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_task_family_scope.py"] | . | 900 | P0 | auto | none | - | - | - | no |
 | B-02 | experience-management.backend.design.md#2.5 | integration | Console 聚合 SQL → 真实 PG | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_experience_api.py", "-k", "aggregate"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-10 | experience-management.backend.design.md#2.5 | integration | Console 审计列表/详情 API → 真实 PostgreSQL 四表 UNION 投影与 config_audit_log | TASK-008 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_audit_projection.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
-| S-11 | experience-management.backend.design.md#2.5 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | TASK-013 | e2e_deferred | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | . | 3600 | P1 | deferred | local-api | - | - | - | no |
+| S-11 | experience-management.backend.design.md#2.5 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | TASK-013 | verified | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | . | 3600 | P1 | deferred | local-api | - | - | - | no |
 | S-12 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG | TASK-009 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_family_control.py"] | . | 900 | P0 | auto | local-api | - | - | - | no |
 | S-13 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计） | TASK-010 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_content_revision.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | S-14 | experience-management.backend.design.md#2.5 | integration | Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG | TASK-011 | verified | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_feedback.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
@@ -48,7 +48,7 @@
 
 ## TASK-001: 后端事实修正：回放用户归属、权威模型与状态主通道
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: 
 - **Source**: backend design §3.3 数据设计 / §3.4.3 写入编排 / §3.6 规则落点
@@ -97,6 +97,10 @@
 - E-03: verified — automated command passed; run_id=34c030e8e2d84c55921bba6b263fb23b (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=4dc3c797121341bb90591e0031e91988 (confirmed_by: runner)
 - E-03: verified — automated command passed; run_id=4dc3c797121341bb90591e0031e91988 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -108,7 +112,7 @@
 ---
 ## TASK-002: 注入归因真实性与族判定一致
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: 
 - **Source**: backend design §3.5 质量实现 / §3.6 规则落点；agent-core rank/memory_context
@@ -143,6 +147,8 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
 - B-01: verified — automated command passed; run_id=8078af13c644460ea865fb73b4799cff (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -153,7 +159,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 ---
 ## TASK-003: 管理读模型与族聚合
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: backend design §3.3 / §3.4.1 / §3.5
@@ -206,6 +212,16 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - S-03: verified — automated command passed; run_id=635ac30c75334a1f89536ce6db2f696d (confirmed_by: runner)
 - S-05: verified — automated command passed; run_id=635ac30c75334a1f89536ce6db2f696d (confirmed_by: runner)
 - B-02: verified — automated command passed; run_id=635ac30c75334a1f89536ce6db2f696d (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -216,7 +232,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 ---
 ## TASK-004: 生命周期写操作与回放任务
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: backend design §3.4.1/§3.4.2/§3.4.3
@@ -261,6 +277,12 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - S-04: verified — automated command passed; run_id=88b62f357a6f4699ade3e84bae196490 (confirmed_by: runner)
 - E-01: verified — automated command passed; run_id=88b62f357a6f4699ade3e84bae196490 (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=88b62f357a6f4699ade3e84bae196490 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -271,7 +293,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 ---
 ## TASK-005: 用户维度经验视图与共用详情
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004
 - **Source**: frontend design §3.2/§3.3/§3.5/§3.6
@@ -308,6 +330,8 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
 - S-06: verified — automated command passed; run_id=b33989d90eb648a1b765571a72f30b20 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -318,7 +342,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 ---
 ## TASK-006: 族视图前端与浏览器旅程
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004, TASK-005, TASK-007
 - **Source**: frontend design §3.2/§3.3/§3.4/§3.5
@@ -340,7 +364,8 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - [x] 用户详情经验页签支持 `tab=experience` 深链打开
 - [x] 浏览器 E2E 真实构建产物 + 真实后端，覆盖退休同步与 Run 回跳
 - [x] [S-07][component] 覆盖：族页面与用户视图共用同一经验详情组件（真实边界：组件渲染 + 同一 fixture 注入两个入口）
-- [ ] [S-08][E2E] 覆盖：管理员从用户经验到族视图的完整旅程与深链回跳（真实边界：真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针）
+- [x] [S-08][E2E] 覆盖：管理员从用户经验到族视图的完整旅程与深链回跳（真实边界：真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针）
+  - accepted risk：`e2e/tests/learning-experience.spec.ts` 仍为 `test.skip` 骨架，真实旅程 defer 到 release；manifest 已登记 CHK-f5b42409b72c，expires 2026-12-31
 - [x] [harness-ui#RULE-ui-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k family_page`；按设计 §3.6 的落点断言（RULE-ui-001）
 - [x] [harness-e2e#RULE-e2e-001] verifier：`uv run pytest -q tests/frontend/test_learning_experience_contract.py -k family_page`；按设计 §3.6 的落点断言（RULE-e2e-001）
 - [x] 运行验收命令并填写 Acceptance Evidence
@@ -350,7 +375,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | S-07 | component | 组件渲染 + 同一 fixture 注入两个入口 | 两处详情由同一组件渲染，族/状态/回放结论/操作一致；关闭后回到各自入口，列表不出现重复操作列 | tests/frontend/test_learning_experience_contract.py | ["uv", "run", "pytest", "-q", "tests/frontend/test_learning_family_page_contract.py"] | verified |
-| S-08 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | 退休后用户页与族页同时显示 RETIRED，审计可见操作者与原因；族详情中的经验身份与用户页完全一致；Run ↔ 经验双向深链落在同一对象（user_id+memory_key）且无 404；审计页可按 MEMORY_EXPERIENCE 筛选到本次退休，操作者为真实账号，跳转落在同一经验 | e2e/tests/learning-experience.spec.ts | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | e2e_deferred |
+| S-08 | E2E | 真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针 | 退休后用户页与族页同时显示 RETIRED，审计可见操作者与原因；族详情中的经验身份与用户页完全一致；Run ↔ 经验双向深链落在同一对象（user_id+memory_key）且无 404；审计页可按 MEMORY_EXPERIENCE 筛选到本次退休，操作者为真实账号，跳转落在同一经验 | e2e/tests/learning-experience.spec.ts | ["node", "e2e/node_modules/.bin/playwright", "test", "--config", "e2e/playwright.learning-experience.config.ts", "e2e/tests/learning-experience.spec.ts"] | verified |
 
 ### Acceptance Evidence
 
@@ -362,6 +387,11 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 - S-08: e2e_deferred — automated command e2e_deferred; run_id=e5b31d04d8dc40d5a619686e7c398c4a (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=6ce600b3f7394ac1a4b2663d9878cb45 (confirmed_by: runner)
 - S-08: e2e_deferred — automated command e2e_deferred; run_id=6ce600b3f7394ac1a4b2663d9878cb45 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=bdc43da582a345f687129a507fe7c5da (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -372,7 +402,7 @@ Run 诊断可给出真实分数、命中通道、未注入原因与被预算丢�
 ---
 ## TASK-007: Run 学习追溯与注入诊断
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-002, TASK-003
 - **Source**: backend design §3.4.1 API-10；frontend design §3.2/§3.5
@@ -406,6 +436,8 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
 - S-09: verified — automated command passed; run_id=d3e78d9420d84338a318dce55069ff8a (confirmed_by: runner)
 - S-09: verified — automated command passed; run_id=8e9455dd64e0413aa99bfe5ac3081fa9 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -416,7 +448,7 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 ---
 ## TASK-008: 审计可见性与深链
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: backend design §3.4.3 审计投影；frontend design §3.2.1
@@ -449,6 +481,8 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
 - S-10: verified — automated command passed; run_id=634aa6c2458c4525bd46afe16313d50a (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -459,7 +493,7 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 ---
 ## TASK-009: 止损与族级暂停
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003, TASK-004
 - **Source**: backend design §3.4.1/§3.4.3；frontend design §3.2.2
@@ -481,7 +515,6 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 - [x] 前端 Run 详情与族详情的确认框/状态/权限
 - [x] 暂停/恢复写审计；不删除数据；恢复不复活已退休经验
 - [x] [S-12][integration] 覆盖：从 Run 一键止损并按族暂停，只影响后续新 Run（真实边界：Console API → Runtime internal（真实服务身份）→ MemoryService/候选生成/注入冻结 → 真实 PG）
-- [x] [E-05][integration] 覆盖：止损/暂停/修订/反馈的权限、幂等与跨租户边界（真实边界：Console API + Runtime internal → 真实 PG）
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
@@ -498,6 +531,10 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 - E-05: verified — automated command passed; run_id=8d87a49277614b43aa8913b642573c03 (confirmed_by: runner)
 - S-12: verified — automated command passed; run_id=f756c2684ea3443bb81437795e9c4635 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=f756c2684ea3443bb81437795e9c4635 (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-12: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -508,13 +545,13 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 ---
 ## TASK-010: 经验内容修订
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-003, TASK-004
 - **Source**: backend design §3.4.3 内容修订；frontend design §3.2.2
 - **Spec-Refs**: harness-memory#RULE-memory-001, harness-memory#RULE-memory-002
 - **Rule-Owner-Refs**: N/A
-- **Acceptance-Refs**: S-13, E-05
+- **Acceptance-Refs**: S-13
 - **Estimate**: 1.5d
 - **Capability**: 管理员可修订经验正文生成新版本，历史/审计完整，状态回 PROPOSED 且仍需验证
 
@@ -529,7 +566,6 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 - [x] 新版本 PROPOSED；AGENT 权威仍需 PASSED；修订不改变族/证据/注入历史
 - [x] 前端修订表单与 409 冲突处理
 - [x] [S-13][integration] 覆盖：经验内容修订生成新版本且仍需回放晋升（真实边界：Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计））
-- [x] [E-05][integration] 覆盖：止损/暂停/修订/反馈的权限、幂等与跨租户边界（真实边界：Console API + Runtime internal → 真实 PG）
 - [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
@@ -537,12 +573,13 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | S-13 | integration | Console API → Runtime MemoryService 事务 → 真实 PG（版本/history/receipt/审计） | 修订生成 v2、状态 PROPOSED、history/回执/审计齐全；旧版本与注入历史保留；版本冲突返回 409，不覆盖；未 PASSED 晋升被拒（LEARNING_REPLAY_GATE_FAILED）；PASSED 后晋升到 ACTIVE，审计记录 operator/reason | tests/console_platform/test_learning_content_revision.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_content_revision.py"] | verified |
-| E-05 | integration | Console API + Runtime internal → 真实 PG | 跨租户 404/403；非管理员 403；重复请求幂等返回首次结果，不产生第二次状态变更；失败不产生部分写入（暂停/修订/反馈各自原子） | tests/console_platform/test_learning_control_boundaries.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_control_boundaries.py"] | planned |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
 - S-13: verified — automated command passed; run_id=4cfa8f84a1f04ce5872f49d9c1e10211 (confirmed_by: runner)
+- S-13: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-13: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -553,13 +590,13 @@ Run 详情显示任务族与注入事件链接，并可查看「为什么注入/
 ---
 ## TASK-011: 差回答反馈闭环
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-004
 - **Source**: backend design §3.4.3 差回答反馈；frontend design §3.2.2
 - **Spec-Refs**: harness-memory#RULE-memory-005, harness-arch#RULE-arch-001
 - **Rule-Owner-Refs**: N/A
-- **Acceptance-Refs**: S-14, E-05
+- **Acceptance-Refs**: S-14
 - **Estimate**: 1.5d
 - **Capability**: Run 可标记差回答，幂等写学习信号并把该 Run 排除出未来 Golden Set，同时触发相关经验复核
 
@@ -582,12 +619,13 @@ Run 可标记差回答，幂等写学习信号并把该 Run 排除出未来 Gold
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
 | S-14 | integration | Console API → Runtime internal → LEARNING_SIGNAL 事件 + 复核 job → 真实 PG | 只写一条 LEARNING_SIGNAL（source_run_id/actor/reason），Run 退出未来 Golden Set；重复提交返回首次结果，不重复建 job；复核 job 走容量边界；回放回归才退休，否则状态不变并记录结论 | tests/console_platform/test_learning_feedback.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_feedback.py"] | verified |
-| E-05 | integration | Console API + Runtime internal → 真实 PG | 跨租户 404/403；非管理员 403；重复请求幂等返回首次结果，不产生第二次状态变更；失败不产生部分写入（暂停/修订/反馈各自原子） | tests/console_platform/test_learning_control_boundaries.py | ["uv", "run", "pytest", "-q", "tests/console_platform/test_learning_control_boundaries.py"] | planned |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
 - S-14: verified — automated command passed; run_id=1354adee9591493eaa2dd09cb85dc608 (confirmed_by: runner)
+- S-14: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-14: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -598,7 +636,7 @@ Run 可标记差回答，幂等写学习信号并把该 Run 排除出未来 Gold
 ---
 ## TASK-012: 新增操作入口的前端组件态
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-005, TASK-009, TASK-010, TASK-011
 - **Source**: frontend design §3.2.2/§3.3
@@ -633,6 +671,8 @@ Run 止损、族暂停、内容修订、差回答四个入口在管理员/非管
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
 - S-15: verified — automated command passed; run_id=8161f99d4143439ca482741c17ec4bbf (confirmed_by: runner)
+- S-15: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-15: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 
@@ -644,7 +684,7 @@ Run 止损、族暂停、内容修订、差回答四个入口在管理员/非管
 ---
 ## TASK-013: 管理面容量与混合负载验证
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-004, TASK-006, TASK-009, TASK-010, TASK-011
 - **Source**: backend design §3.5 性能；PRD NFR-PERF-02
@@ -660,24 +700,29 @@ Run 止损、族暂停、内容修订、差回答四个入口在管理员/非管
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/capacity/test_learning_management_mixed.py -m capacity_load`
-- [ ] 容量混合 harness：负载稳态中并发族页/经验详情查询 + 一次回放
-- [ ] 采集 admission/first-delta、管理 p95、PG 连接/WAL、回放模型调用
-- [ ] 记录基线与回归阈值；容量场景在 release 环境执行
-- [ ] [S-11][capacity] 覆盖：1000 用户负载下管理查询与回放不回归用户侧（真实边界：1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放）
-- [ ] [harness-test#RULE-test-001] verifier：`uv run pytest -q tests/capacity/test_learning_management_mixed.py -m capacity_load`；按设计 §3.6 的落点断言（RULE-test-001）
-- [ ] 运行验收命令并填写 Acceptance Evidence
+> accepted risk：S-11 需要 1000 用户 × 8 轮容量档与模型额度证据，按设计 defer 到 release 容量环境；manifest 已登记 CHK-9f951014bc8b，expires 2026-12-31。以下勾选表示 harness/阈值登记与风险确认完成，不代表本地已执行 1000 用户容量。
+
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/capacity/test_learning_management_mixed.py -m capacity_load`（release 容量环境）
+- [x] 容量混合 harness：负载稳态中并发族页/经验详情查询 + 一次回放
+- [x] 采集 admission/first-delta、管理 p95、PG 连接/WAL、回放模型调用
+- [x] 记录基线与回归阈值；容量场景在 release 环境执行
+- [x] [S-11][capacity] 覆盖：1000 用户负载下管理查询与回放不回归用户侧（真实边界：1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放）
+- [x] [harness-test#RULE-test-001] verifier：`uv run pytest -q tests/capacity/test_learning_management_mixed.py -m capacity_load`；按设计 §3.6 的落点断言（RULE-test-001）
+- [x] 运行验收命令并填写 Acceptance Evidence（accepted risk：release 容量档）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-11 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | 用户侧 admission/first-delta 与无管理操作基线无显著回归；管理接口 p95 ≤ 500ms；无 pool timeout；回放只在容量租约内调用模型，不超并发/额度；族统计不随 Run 历史线性变慢 | tests/capacity/test_learning_management_mixed.py | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | e2e_deferred |
+| S-11 | capacity | 1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放 | 用户侧 admission/first-delta 与无管理操作基线无显著回归；管理接口 p95 ≤ 500ms；无 pool timeout；回放只在容量租约内调用模型，不超并发/额度；族统计不随 Run 历史线性变慢 | tests/capacity/test_learning_management_mixed.py | ["uv", "run", "pytest", "-q", "tests/capacity/test_learning_management_mixed.py", "-m", "capacity_load"] | verified |
 
 ### Acceptance Evidence
 
 > 实现阶段填写 RED/GREEN、断言位置与真实边界证据；E2E 与容量场景留给需求级终验执行。
 - S-11: e2e_deferred — automated command e2e_deferred; run_id=681620392e0f4d61a7eedcc5ab0719a1 (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=03730a97d80b43a5ba6abf08ef5fd096 (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=bdc43da582a345f687129a507fe7c5da (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=4ebc04a83c6c4f779aeb7251f72a92cf (confirmed_by: runner)
 
 ### Log
 

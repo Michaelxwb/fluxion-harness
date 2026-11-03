@@ -169,6 +169,17 @@
         "apps/console-platform/frontend/src/modules/run-observability/**",
         "apps/console-platform/frontend/src/modules/user-identity/**"
       ],
+      "accepted_risk": {
+        "owner": "TASK-006",
+        "scenario_ids": [
+          "S-08"
+        ],
+        "reason": "S-08 浏览器 E2E 目前为计划骨架（test.skip）；真实浏览器旅程 defer 到 release 环境执行",
+        "expires_at": "2026-12-31T23:59:59.999999+00:00",
+        "confirmed_by": "user:jahan",
+        "confirmed_at": "2026-11-02T13:11:24.144848+00:00",
+        "source": "用户确认：接受风险并归档 (S-08 browser E2E skeleton, S-11 capacity deferred to release)"
+      },
       "suite": "browser",
       "test_ids": [
         "e2e/tests/learning-experience.spec.ts:6@browser"
@@ -367,6 +378,17 @@
       "inputs": [],
       "preflight": [],
       "paths": [],
+      "accepted_risk": {
+        "owner": "TASK-013",
+        "scenario_ids": [
+          "S-11"
+        ],
+        "reason": "S-11 需要 1000 用户 × 8 轮容量档与模型额度证据；按设计 defer 到 release 容量环境执行",
+        "expires_at": "2026-12-31T23:59:59.999999+00:00",
+        "confirmed_by": "user:jahan",
+        "confirmed_at": "2026-11-02T13:11:41.956766+00:00",
+        "source": "用户确认：接受风险并归档 (S-08 browser E2E skeleton, S-11 capacity deferred to release)"
+      },
       "suite": "capacity",
       "test_ids": [
         "tests/capacity/test_learning_management_mixed.py::test_learning_management_mixed_load"
@@ -552,6 +574,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "同租户两个用户各有多条经验，覆盖四种状态与两个族；另一租户有同 key 经验"
       ],
@@ -559,14 +582,16 @@
         "FEAT-01"
       ],
       "check": "CHK-4c39c2c6477a",
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "S-01",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1290.1114160194993,
         "check_id": "CHK-4c39c2c6477a",
-        "input_hash": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-4c39c2c6477a",
           "command": [
@@ -588,9 +613,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "635ac30c75334a1f89536ce6db2f696d",
-        "executed_at": "2026-11-01T02:42:08.736094+00:00",
+        "revision": 4,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -602,7 +627,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -692,6 +717,98 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236"
+        },
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1316.4504580199718,
+          "check_id": "CHK-4c39c2c6477a",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-4c39c2c6477a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_experience_api.py",
+              "-k",
+              "s01"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_experience_api.py",
+            "-k",
+            "s01"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1290.1114160194993,
+          "check_id": "CHK-4c39c2c6477a",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-4c39c2c6477a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_experience_api.py",
+              "-k",
+              "s01"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_experience_api.py",
+            "-k",
+            "s01"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -760,6 +877,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "造两个族（skill:demo、agent:<id>），每族两个用户，经验状态不同",
         "存在 task_family 为 null 的历史 Run 与跨用户同名 key"
@@ -769,14 +887,16 @@
         "FEAT-06"
       ],
       "check": "CHK-88f418cf213d",
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "S-02",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1300.0554158352315,
         "check_id": "CHK-88f418cf213d",
-        "input_hash": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-88f418cf213d",
           "command": [
@@ -798,9 +918,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "635ac30c75334a1f89536ce6db2f696d",
-        "executed_at": "2026-11-01T02:42:08.736094+00:00",
+        "revision": 4,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -812,7 +932,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -902,6 +1022,98 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236"
+        },
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1277.1571250632405,
+          "check_id": "CHK-88f418cf213d",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-88f418cf213d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_experience_api.py",
+              "-k",
+              "s02"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_experience_api.py",
+            "-k",
+            "s02"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1300.0554158352315,
+          "check_id": "CHK-88f418cf213d",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-88f418cf213d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_experience_api.py",
+              "-k",
+              "s02"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_experience_api.py",
+            "-k",
+            "s02"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -970,6 +1182,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "一条 ACTIVE 经验，含来源 Run 证据、PASSED 候选报告（带 limits 与逐 case）、TRIAL_START/ACTIVATE 审计",
         "两个 Run 的 MEMORY_INJECTED 含该经验"
@@ -979,14 +1192,16 @@
         "FEAT-08"
       ],
       "check": "CHK-5244dec99958",
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "S-03",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1236.858167219907,
         "check_id": "CHK-5244dec99958",
-        "input_hash": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-5244dec99958",
           "command": [
@@ -1008,9 +1223,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "635ac30c75334a1f89536ce6db2f696d",
-        "executed_at": "2026-11-01T02:42:08.736094+00:00",
+        "revision": 4,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -1022,7 +1237,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -1112,6 +1327,98 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236"
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1271.0373750887811,
+          "check_id": "CHK-5244dec99958",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-5244dec99958",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_experience_api.py",
+              "-k",
+              "s03"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_experience_api.py",
+            "-k",
+            "s03"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1236.858167219907,
+          "check_id": "CHK-5244dec99958",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-5244dec99958",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_experience_api.py",
+              "-k",
+              "s03"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_experience_api.py",
+            "-k",
+            "s03"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -1182,6 +1489,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "一条 PROPOSED 经验，Golden Set ≥ min_cases，探针使候选臂达标",
         "学习开启，租户门槛已知"
@@ -1192,14 +1500,16 @@
         "FEAT-08"
       ],
       "check": "CHK-1e760d66c32a",
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "S-04",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1526.65108256042,
         "check_id": "CHK-1e760d66c32a",
-        "input_hash": "8f51c227ea551924cf9c4be3f04ca2a9660bc1b09502fe3674ffd77ad3e7a248",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-1e760d66c32a",
           "command": [
@@ -1219,9 +1529,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "88b62f357a6f4699ade3e84bae196490",
-        "executed_at": "2026-11-01T02:47:14.598255+00:00",
+        "revision": 3,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -1231,7 +1541,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "8f51c227ea551924cf9c4be3f04ca2a9660bc1b09502fe3674ffd77ad3e7a248"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -1273,6 +1583,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "8f51c227ea551924cf9c4be3f04ca2a9660bc1b09502fe3674ffd77ad3e7a248"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1542.835082858801,
+          "check_id": "CHK-1e760d66c32a",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-1e760d66c32a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_lifecycle_api.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_lifecycle_api.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1526.65108256042,
+          "check_id": "CHK-1e760d66c32a",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-1e760d66c32a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_lifecycle_api.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_lifecycle_api.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -1329,6 +1723,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "用户同时有 PREFERENCE 记忆与 PROCEDURE 经验"
       ],
@@ -1336,14 +1731,16 @@
         "FEAT-07"
       ],
       "check": "CHK-6e02659d5c8a",
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "S-05",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1283.27800007537,
         "check_id": "CHK-6e02659d5c8a",
-        "input_hash": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-6e02659d5c8a",
           "command": [
@@ -1365,9 +1762,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "635ac30c75334a1f89536ce6db2f696d",
-        "executed_at": "2026-11-01T02:42:08.736094+00:00",
+        "revision": 4,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -1379,7 +1776,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -1469,6 +1866,98 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236"
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1278.3083328977227,
+          "check_id": "CHK-6e02659d5c8a",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-6e02659d5c8a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_experience_api.py",
+              "-k",
+              "s05"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_experience_api.py",
+            "-k",
+            "s05"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1283.27800007537,
+          "check_id": "CHK-6e02659d5c8a",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-6e02659d5c8a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_experience_api.py",
+              "-k",
+              "s05"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_experience_api.py",
+            "-k",
+            "s05"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -1479,7 +1968,7 @@
       "kind": "functional",
       "boundary": "组件渲染 + mock service 数据（契约类型）；不访问真实后端",
       "owner": "TASK-005",
-      "status": "stale",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1533,6 +2022,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "四种状态与空态/错误态 fixture"
       ],
@@ -1541,24 +2031,24 @@
         "FEAT-03"
       ],
       "check": "CHK-20747d0841b3",
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "S-06",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "check_id": "CHK-beceb426fe2a",
-        "input_hash": "950dd50694539746ac2cad7e3ad44883d6fcc0f768f1d5d6c596e5da20fb11bb",
+        "execution_ms": 885.2587919682264,
+        "check_id": "CHK-20747d0841b3",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
-          "id": "CHK-beceb426fe2a",
+          "id": "CHK-20747d0841b3",
           "command": [
             "uv",
             "run",
             "pytest",
             "-q",
-            "tests/frontend/test_learning_experience_contract.py",
-            "-k",
-            "user_tab"
+            "tests/frontend/test_learning_experience_contract.py"
           ],
           "cwd": ".",
           "timeout": 900.0,
@@ -1570,21 +2060,19 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "b33989d90eb648a1b765571a72f30b20",
-        "executed_at": "2026-11-01T02:59:17.812228+00:00",
+        "revision": 3,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
           "pytest",
           "-q",
-          "tests/frontend/test_learning_experience_contract.py",
-          "-k",
-          "user_tab"
+          "tests/frontend/test_learning_experience_contract.py"
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "950dd50694539746ac2cad7e3ad44883d6fcc0f768f1d5d6c596e5da20fb11bb"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -1630,10 +2118,91 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "950dd50694539746ac2cad7e3ad44883d6fcc0f768f1d5d6c596e5da20fb11bb"
+        },
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 990.6283328309655,
+          "check_id": "CHK-20747d0841b3",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-20747d0841b3",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_learning_experience_contract.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_experience_contract.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 885.2587919682264,
+          "check_id": "CHK-20747d0841b3",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-20747d0841b3",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_learning_experience_contract.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_experience_contract.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
-      ],
-      "stale_checks": [
-        "CHK-20747d0841b3"
       ]
     },
     {
@@ -1688,6 +2257,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "族详情 fixture 含经验条目；用户详情 fixture 含同一经验"
       ],
@@ -1697,14 +2267,16 @@
         "FEAT-06"
       ],
       "check": "CHK-67a5b8ea04b6",
-      "revision": 3,
+      "revision": 5,
       "evidence": {
         "id": "S-07",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 864.8083326406777,
         "check_id": "CHK-67a5b8ea04b6",
-        "input_hash": "788f1f5b37ccefeb68c5471f931e4d722dd54726563301762e4220e5db169093",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-67a5b8ea04b6",
           "command": [
@@ -1724,9 +2296,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 3,
-        "run_id": "6ce600b3f7394ac1a4b2663d9878cb45",
-        "executed_at": "2026-11-01T03:02:12.107518+00:00",
+        "revision": 5,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -1736,7 +2308,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "788f1f5b37ccefeb68c5471f931e4d722dd54726563301762e4220e5db169093"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -1862,6 +2434,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "788f1f5b37ccefeb68c5471f931e4d722dd54726563301762e4220e5db169093"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 829.8625000752509,
+          "check_id": "CHK-67a5b8ea04b6",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-67a5b8ea04b6",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_learning_family_page_contract.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_family_page_contract.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 864.8083326406777,
+          "check_id": "CHK-67a5b8ea04b6",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-67a5b8ea04b6",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_learning_family_page_contract.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 5,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_family_page_contract.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -1872,7 +2528,7 @@
       "kind": "e2e",
       "boundary": "真实浏览器（preview 构建产物）→ Console API → Runtime internal → 真实 PostgreSQL；仅模型回放可用本地探针",
       "owner": "TASK-006",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "node",
         "e2e/node_modules/.bin/playwright",
@@ -1940,6 +2596,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "管理员账号；一条 TRIAL 经验及其来源 Run/注入记录",
         "学习开启；族页面与用户页可访问"
@@ -1953,11 +2610,16 @@
       ],
       "defer_owner": "TASK-004",
       "check": "CHK-f5b42409b72c",
-      "revision": 4,
+      "revision": 7,
       "evidence": {
         "id": "S-08",
         "kind": "e2e",
-        "status": "e2e_deferred",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 210.61691688373685,
+        "check_id": "CHK-f5b42409b72c",
+        "input_hash": "a4e1f0c73da2b59cb20cd540344340dba33aa4083769adb90b9ecc1da02bf975",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-f5b42409b72c",
           "command": [
@@ -1983,6 +2645,17 @@
             "apps/console-platform/frontend/src/modules/run-observability/**",
             "apps/console-platform/frontend/src/modules/user-identity/**"
           ],
+          "accepted_risk": {
+            "owner": "TASK-006",
+            "scenario_ids": [
+              "S-08"
+            ],
+            "reason": "S-08 浏览器 E2E 目前为计划骨架（test.skip）；真实浏览器旅程 defer 到 release 环境执行",
+            "expires_at": "2026-12-31T23:59:59.999999+00:00",
+            "confirmed_by": "user:jahan",
+            "confirmed_at": "2026-11-02T13:11:24.144848+00:00",
+            "source": "用户确认：接受风险并归档 (S-08 browser E2E skeleton, S-11 capacity deferred to release)"
+          },
           "suite": "browser",
           "test_ids": [
             "e2e/tests/learning-experience.spec.ts:6@browser"
@@ -2003,9 +2676,9 @@
             "timeout": 60
           }
         },
-        "revision": 4,
-        "run_id": "6ce600b3f7394ac1a4b2663d9878cb45",
-        "executed_at": "2026-11-01T03:02:12.107518+00:00",
+        "revision": 7,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "node",
           "e2e/node_modules/.bin/playwright",
@@ -2015,7 +2688,8 @@
           "e2e/tests/learning-experience.spec.ts"
         ],
         "cwd": ".",
-        "timeout": 1200.0
+        "timeout": 1200.0,
+        "fingerprint": "a4e1f0c73da2b59cb20cd540344340dba33aa4083769adb90b9ecc1da02bf975"
       },
       "runs": [
         {
@@ -2269,6 +2943,246 @@
           ],
           "cwd": ".",
           "timeout": 1200.0
+        },
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 213.4322919882834,
+          "check_id": "CHK-f5b42409b72c",
+          "input_hash": "a4e1f0c73da2b59cb20cd540344340dba33aa4083769adb90b9ecc1da02bf975",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-f5b42409b72c",
+            "command": [
+              "node",
+              "e2e/node_modules/.bin/playwright",
+              "test",
+              "--config",
+              "e2e/playwright.learning-experience.config.ts",
+              "e2e/tests/learning-experience.spec.ts"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/agent-runtime/src/muad_agent_runtime/application/learning_*",
+              "apps/console-platform/backend/src/muad_console_platform/api/learning.py",
+              "apps/console-platform/frontend/src/modules/learning/**",
+              "apps/console-platform/frontend/src/modules/run-observability/**",
+              "apps/console-platform/frontend/src/modules/user-identity/**"
+            ],
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/learning-experience.spec.ts:6@browser"
+            ],
+            "markers": [],
+            "collect": {
+              "format": "playwright",
+              "argv": [
+                "node",
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.learning-experience.config.ts",
+                "e2e/tests/learning-experience.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "timeout": 60
+            },
+            "accepted_risk": {
+              "owner": "TASK-006",
+              "scenario_ids": [
+                "S-08"
+              ],
+              "reason": "S-08 浏览器 E2E 目前为计划骨架（test.skip）；真实浏览器旅程 defer 到 release 环境执行",
+              "expires_at": "2026-12-31T23:59:59.999999+00:00",
+              "confirmed_by": "user:jahan",
+              "confirmed_at": "2026-11-02T13:11:24.144848+00:00",
+              "source": "用户确认：接受风险并归档 (S-08 browser E2E skeleton, S-11 capacity deferred to release)"
+            }
+          },
+          "revision": 5,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "node",
+            "e2e/node_modules/.bin/playwright",
+            "test",
+            "--config",
+            "e2e/playwright.learning-experience.config.ts",
+            "e2e/tests/learning-experience.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "a4e1f0c73da2b59cb20cd540344340dba33aa4083769adb90b9ecc1da02bf975"
+        },
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 206.82600000873208,
+          "check_id": "CHK-f5b42409b72c",
+          "input_hash": "a4e1f0c73da2b59cb20cd540344340dba33aa4083769adb90b9ecc1da02bf975",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-f5b42409b72c",
+            "command": [
+              "node",
+              "e2e/node_modules/.bin/playwright",
+              "test",
+              "--config",
+              "e2e/playwright.learning-experience.config.ts",
+              "e2e/tests/learning-experience.spec.ts"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/agent-runtime/src/muad_agent_runtime/application/learning_*",
+              "apps/console-platform/backend/src/muad_console_platform/api/learning.py",
+              "apps/console-platform/frontend/src/modules/learning/**",
+              "apps/console-platform/frontend/src/modules/run-observability/**",
+              "apps/console-platform/frontend/src/modules/user-identity/**"
+            ],
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/learning-experience.spec.ts:6@browser"
+            ],
+            "markers": [],
+            "collect": {
+              "format": "playwright",
+              "argv": [
+                "node",
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.learning-experience.config.ts",
+                "e2e/tests/learning-experience.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "timeout": 60
+            },
+            "accepted_risk": {
+              "owner": "TASK-006",
+              "scenario_ids": [
+                "S-08"
+              ],
+              "reason": "S-08 浏览器 E2E 目前为计划骨架（test.skip）；真实浏览器旅程 defer 到 release 环境执行",
+              "expires_at": "2026-12-31T23:59:59.999999+00:00",
+              "confirmed_by": "user:jahan",
+              "confirmed_at": "2026-11-02T13:11:24.144848+00:00",
+              "source": "用户确认：接受风险并归档 (S-08 browser E2E skeleton, S-11 capacity deferred to release)"
+            }
+          },
+          "revision": 6,
+          "run_id": "bdc43da582a345f687129a507fe7c5da",
+          "executed_at": "2026-11-02T14:38:21.734011+00:00",
+          "command": [
+            "node",
+            "e2e/node_modules/.bin/playwright",
+            "test",
+            "--config",
+            "e2e/playwright.learning-experience.config.ts",
+            "e2e/tests/learning-experience.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "a4e1f0c73da2b59cb20cd540344340dba33aa4083769adb90b9ecc1da02bf975"
+        },
+        {
+          "id": "S-08",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 210.61691688373685,
+          "check_id": "CHK-f5b42409b72c",
+          "input_hash": "a4e1f0c73da2b59cb20cd540344340dba33aa4083769adb90b9ecc1da02bf975",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-f5b42409b72c",
+            "command": [
+              "node",
+              "e2e/node_modules/.bin/playwright",
+              "test",
+              "--config",
+              "e2e/playwright.learning-experience.config.ts",
+              "e2e/tests/learning-experience.spec.ts"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/agent-runtime/src/muad_agent_runtime/application/learning_*",
+              "apps/console-platform/backend/src/muad_console_platform/api/learning.py",
+              "apps/console-platform/frontend/src/modules/learning/**",
+              "apps/console-platform/frontend/src/modules/run-observability/**",
+              "apps/console-platform/frontend/src/modules/user-identity/**"
+            ],
+            "accepted_risk": {
+              "owner": "TASK-006",
+              "scenario_ids": [
+                "S-08"
+              ],
+              "reason": "S-08 浏览器 E2E 目前为计划骨架（test.skip）；真实浏览器旅程 defer 到 release 环境执行",
+              "expires_at": "2026-12-31T23:59:59.999999+00:00",
+              "confirmed_by": "user:jahan",
+              "confirmed_at": "2026-11-02T13:11:24.144848+00:00",
+              "source": "用户确认：接受风险并归档 (S-08 browser E2E skeleton, S-11 capacity deferred to release)"
+            },
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/learning-experience.spec.ts:6@browser"
+            ],
+            "markers": [],
+            "collect": {
+              "format": "playwright",
+              "argv": [
+                "node",
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.learning-experience.config.ts",
+                "e2e/tests/learning-experience.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "timeout": 60
+            }
+          },
+          "revision": 7,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "node",
+            "e2e/node_modules/.bin/playwright",
+            "test",
+            "--config",
+            "e2e/playwright.learning-experience.config.ts",
+            "e2e/tests/learning-experience.spec.ts"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "a4e1f0c73da2b59cb20cd540344340dba33aa4083769adb90b9ecc1da02bf975"
         }
       ]
     },
@@ -2335,6 +3249,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "一个 Run：学习开启，经验 A ACTIVE 且族命中，经验 B 未 ACTIVE，经验 C 低于阈值，经验 D 被冻结集合排除",
         "另一个历史 Run：事件无 diagnostics 字段"
@@ -2344,14 +3259,16 @@
         "FEAT-08"
       ],
       "check": "CHK-0ef477a76da8",
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "S-09",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1330.6634998880327,
         "check_id": "CHK-0ef477a76da8",
-        "input_hash": "a4c1f813786a3909ee19c75697108ea920e9a517cc2333f10c9ee604ab384745",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-0ef477a76da8",
           "command": [
@@ -2371,9 +3288,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "8e9455dd64e0413aa99bfe5ac3081fa9",
-        "executed_at": "2026-11-01T02:53:14.788139+00:00",
+        "revision": 4,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -2383,7 +3300,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "a4c1f813786a3909ee19c75697108ea920e9a517cc2333f10c9ee604ab384745"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -2465,6 +3382,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "a4c1f813786a3909ee19c75697108ea920e9a517cc2333f10c9ee604ab384745"
+        },
+        {
+          "id": "S-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1311.9946671649814,
+          "check_id": "CHK-0ef477a76da8",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-0ef477a76da8",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_diagnostics_api.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_diagnostics_api.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1330.6634998880327,
+          "check_id": "CHK-0ef477a76da8",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-0ef477a76da8",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_diagnostics_api.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_diagnostics_api.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -2522,6 +3523,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "learning_enabled=false 的租户；以及 Runtime 不可达注入"
       ],
@@ -2530,14 +3532,16 @@
         "FEAT-08"
       ],
       "check": "CHK-077b752031b7",
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "E-01",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 2140.0874159298837,
         "check_id": "CHK-077b752031b7",
-        "input_hash": "8f51c227ea551924cf9c4be3f04ca2a9660bc1b09502fe3674ffd77ad3e7a248",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-077b752031b7",
           "command": [
@@ -2557,9 +3561,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "88b62f357a6f4699ade3e84bae196490",
-        "executed_at": "2026-11-01T02:47:14.598255+00:00",
+        "revision": 3,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -2569,7 +3573,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "8f51c227ea551924cf9c4be3f04ca2a9660bc1b09502fe3674ffd77ad3e7a248"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -2611,6 +3615,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "8f51c227ea551924cf9c4be3f04ca2a9660bc1b09502fe3674ffd77ad3e7a248"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1955.8052089996636,
+          "check_id": "CHK-077b752031b7",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-077b752031b7",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_degradation.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_degradation.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2140.0874159298837,
+          "check_id": "CHK-077b752031b7",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-077b752031b7",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_degradation.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_degradation.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -2693,6 +3781,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "用户 U1 经验只有 U2 的 PASSED 报告",
         "一条 ACTIVE 经验；一条 RETIRED 经验"
@@ -2702,14 +3791,16 @@
         "FEAT-08"
       ],
       "check": "CHK-04a6148be893",
-      "revision": 3,
+      "revision": 5,
       "evidence": {
         "id": "E-02",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1315.5053332448006,
         "check_id": "CHK-04a6148be893",
-        "input_hash": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-04a6148be893",
           "command": [
@@ -2731,9 +3822,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 3,
-        "run_id": "4dc3c797121341bb90591e0031e91988",
-        "executed_at": "2026-11-01T02:32:47.284529+00:00",
+        "revision": 5,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -2745,7 +3836,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -2879,6 +3970,98 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1305.5994589813054,
+          "check_id": "CHK-04a6148be893",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-04a6148be893",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_fact_fixes.py",
+              "-k",
+              "e02"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e02"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1315.5053332448006,
+          "check_id": "CHK-04a6148be893",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-04a6148be893",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_fact_fixes.py",
+              "-k",
+              "e02"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 5,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e02"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -2935,6 +4118,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "一条 PROPOSED 经验；审计写入被注入失败"
       ],
@@ -2943,14 +4127,16 @@
         "FEAT-08"
       ],
       "check": "CHK-bf9e8fd20500",
-      "revision": 4,
+      "revision": 6,
       "evidence": {
         "id": "E-03",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1318.7312921509147,
         "check_id": "CHK-bf9e8fd20500",
-        "input_hash": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-bf9e8fd20500",
           "command": [
@@ -2972,9 +4158,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 4,
-        "run_id": "4dc3c797121341bb90591e0031e91988",
-        "executed_at": "2026-11-01T02:32:47.284529+00:00",
+        "revision": 6,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -2986,7 +4172,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -3164,6 +4350,98 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "732b37941beb80dbee4fba09f6f423bdae5d77f2e695e23954ba62d23da73d4c"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1303.648458328098,
+          "check_id": "CHK-bf9e8fd20500",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-bf9e8fd20500",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_fact_fixes.py",
+              "-k",
+              "e03"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 5,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e03"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1318.7312921509147,
+          "check_id": "CHK-bf9e8fd20500",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-bf9e8fd20500",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_fact_fixes.py",
+              "-k",
+              "e03"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 6,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_fact_fixes.py",
+            "-k",
+            "e03"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -3230,6 +4508,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "同一 Idempotency-Key 两次提交；一个 RUNNING job 的 lease 过期；样本不足的经验"
       ],
@@ -3237,14 +4516,16 @@
         "FEAT-04"
       ],
       "check": "CHK-b3657cec9243",
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "E-04",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1281.5255420282483,
         "check_id": "CHK-b3657cec9243",
-        "input_hash": "8f51c227ea551924cf9c4be3f04ca2a9660bc1b09502fe3674ffd77ad3e7a248",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-b3657cec9243",
           "command": [
@@ -3264,9 +4545,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "88b62f357a6f4699ade3e84bae196490",
-        "executed_at": "2026-11-01T02:47:14.598255+00:00",
+        "revision": 3,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -3276,7 +4557,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "8f51c227ea551924cf9c4be3f04ca2a9660bc1b09502fe3674ffd77ad3e7a248"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -3318,6 +4599,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "8f51c227ea551924cf9c4be3f04ca2a9660bc1b09502fe3674ffd77ad3e7a248"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1311.914499849081,
+          "check_id": "CHK-b3657cec9243",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-b3657cec9243",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_jobs.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_jobs.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "E-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1281.5255420282483,
+          "check_id": "CHK-b3657cec9243",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-b3657cec9243",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_learning_jobs.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_learning_jobs.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -3368,19 +4733,22 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [],
       "features": [
         "FEAT-08"
       ],
       "check": "CHK-bb971aea8013",
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "B-01",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1048.520457930863,
         "check_id": "CHK-bb971aea8013",
-        "input_hash": "d304a8ae23fa0755abbcb26f3f818af0ee85bfa73483b64bb292a2737c53582b",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-bb971aea8013",
           "command": [
@@ -3400,9 +4768,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "8078af13c644460ea865fb73b4799cff",
-        "executed_at": "2026-11-01T02:36:46.308173+00:00",
+        "revision": 3,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -3412,7 +4780,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "d304a8ae23fa0755abbcb26f3f818af0ee85bfa73483b64bb292a2737c53582b"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -3454,6 +4822,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "d304a8ae23fa0755abbcb26f3f818af0ee85bfa73483b64bb292a2737c53582b"
+        },
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1044.646707829088,
+          "check_id": "CHK-bb971aea8013",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-bb971aea8013",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_task_family_scope.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_task_family_scope.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "B-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1048.520457930863,
+          "check_id": "CHK-bb971aea8013",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-bb971aea8013",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_task_family_scope.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_task_family_scope.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -3507,6 +4959,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "null family Run；两用户同族同 key；family 带未知前缀"
       ],
@@ -3515,14 +4968,16 @@
         "FEAT-06"
       ],
       "check": "CHK-0854d155f4ed",
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "B-02",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1248.801541980356,
         "check_id": "CHK-0854d155f4ed",
-        "input_hash": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-0854d155f4ed",
           "command": [
@@ -3544,9 +4999,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "635ac30c75334a1f89536ce6db2f696d",
-        "executed_at": "2026-11-01T02:42:08.736094+00:00",
+        "revision": 4,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -3558,7 +5013,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -3648,6 +5103,98 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "380cfe9d56056d537c489351430bb4bec939da65c189bab9cb13ec644af61236"
+        },
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1235.4792500846088,
+          "check_id": "CHK-0854d155f4ed",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-0854d155f4ed",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_experience_api.py",
+              "-k",
+              "aggregate"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_experience_api.py",
+            "-k",
+            "aggregate"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1248.801541980356,
+          "check_id": "CHK-0854d155f4ed",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-0854d155f4ed",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_experience_api.py",
+              "-k",
+              "aggregate"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_experience_api.py",
+            "-k",
+            "aggregate"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -3714,6 +5261,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "存在 MEMORY_EXPERIENCE 的 TRIAL_START/TRIAL_PROMOTE/RETIRE 审计行（含真实 actor 与历史合成 actor）",
         "存在其他 MODEL/TOOL 审计行淹没列表"
@@ -3722,14 +5270,16 @@
         "FEAT-09"
       ],
       "check": "CHK-870dcd9f8a8e",
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "S-10",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1171.891332603991,
         "check_id": "CHK-870dcd9f8a8e",
-        "input_hash": "b81063443fac6f4920d963739be4277a7b36c92a1f634e9b564370a2e81a4c57",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-870dcd9f8a8e",
           "command": [
@@ -3749,9 +5299,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "634aa6c2458c4525bd46afe16313d50a",
-        "executed_at": "2026-11-01T02:51:08.116422+00:00",
+        "revision": 3,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -3761,7 +5311,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "b81063443fac6f4920d963739be4277a7b36c92a1f634e9b564370a2e81a4c57"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -3803,6 +5353,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "b81063443fac6f4920d963739be4277a7b36c92a1f634e9b564370a2e81a4c57"
+        },
+        {
+          "id": "S-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1174.0584997460246,
+          "check_id": "CHK-870dcd9f8a8e",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-870dcd9f8a8e",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_audit_projection.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_audit_projection.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-10",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1171.891332603991,
+          "check_id": "CHK-870dcd9f8a8e",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-870dcd9f8a8e",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_audit_projection.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_audit_projection.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -3813,7 +5447,7 @@
       "kind": "functional",
       "boundary": "1000 用户 × 8 轮真实负载（容量 profile）→ Runtime/PG；同时打开族页/经验详情并触发一次回放",
       "owner": "TASK-013",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3877,6 +5511,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "1000 用户容量 profile 与受控模型探针",
         "族数与经验规模符合 NFR-PERF-01 假设"
@@ -3889,11 +5524,16 @@
       ],
       "defer_owner": "TASK-004",
       "check": "CHK-9f951014bc8b",
-      "revision": 1,
+      "revision": 4,
       "evidence": {
         "id": "S-11",
         "kind": "functional",
-        "status": "e2e_deferred",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 139.42674966529012,
+        "check_id": "CHK-9f951014bc8b",
+        "input_hash": "cb8ecfd9cba986b13b5e1b6b07c752bb9d139cc8849aeedf2c305ac66d844bef",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-9f951014bc8b",
           "command": [
@@ -3914,6 +5554,17 @@
           "inputs": [],
           "preflight": [],
           "paths": [],
+          "accepted_risk": {
+            "owner": "TASK-013",
+            "scenario_ids": [
+              "S-11"
+            ],
+            "reason": "S-11 需要 1000 用户 × 8 轮容量档与模型额度证据；按设计 defer 到 release 容量环境执行",
+            "expires_at": "2026-12-31T23:59:59.999999+00:00",
+            "confirmed_by": "user:jahan",
+            "confirmed_at": "2026-11-02T13:11:41.956766+00:00",
+            "source": "用户确认：接受风险并归档 (S-08 browser E2E skeleton, S-11 capacity deferred to release)"
+          },
           "suite": "capacity",
           "test_ids": [
             "tests/capacity/test_learning_management_mixed.py::test_learning_management_mixed_load"
@@ -3937,9 +5588,9 @@
             "timeout": 60
           }
         },
-        "revision": 1,
-        "run_id": "681620392e0f4d61a7eedcc5ab0719a1",
-        "executed_at": "2026-11-01T03:05:02.146479+00:00",
+        "revision": 4,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -3950,7 +5601,8 @@
           "capacity_load"
         ],
         "cwd": ".",
-        "timeout": 3600.0
+        "timeout": 3600.0,
+        "fingerprint": "cb8ecfd9cba986b13b5e1b6b07c752bb9d139cc8849aeedf2c305ac66d844bef"
       },
       "runs": [
         {
@@ -4014,6 +5666,243 @@
           ],
           "cwd": ".",
           "timeout": 3600.0
+        },
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 142.54220901057124,
+          "check_id": "CHK-9f951014bc8b",
+          "input_hash": "cb8ecfd9cba986b13b5e1b6b07c752bb9d139cc8849aeedf2c305ac66d844bef",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-9f951014bc8b",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/capacity/test_learning_management_mixed.py",
+              "-m",
+              "capacity_load"
+            ],
+            "cwd": ".",
+            "timeout": 3600.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [],
+            "suite": "capacity",
+            "test_ids": [
+              "tests/capacity/test_learning_management_mixed.py::test_learning_management_mixed_load"
+            ],
+            "markers": [
+              "capacity",
+              "capacity_load"
+            ],
+            "collect": {
+              "format": "pytest",
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "tests/capacity/test_learning_management_mixed.py",
+                "-m",
+                "capacity and capacity_load",
+                "--collect-only",
+                "--verbosity=-1"
+              ],
+              "timeout": 60
+            },
+            "accepted_risk": {
+              "owner": "TASK-013",
+              "scenario_ids": [
+                "S-11"
+              ],
+              "reason": "S-11 需要 1000 用户 × 8 轮容量档与模型额度证据；按设计 defer 到 release 容量环境执行",
+              "expires_at": "2026-12-31T23:59:59.999999+00:00",
+              "confirmed_by": "user:jahan",
+              "confirmed_at": "2026-11-02T13:11:41.956766+00:00",
+              "source": "用户确认：接受风险并归档 (S-08 browser E2E skeleton, S-11 capacity deferred to release)"
+            }
+          },
+          "revision": 2,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/capacity/test_learning_management_mixed.py",
+            "-m",
+            "capacity_load"
+          ],
+          "cwd": ".",
+          "timeout": 3600.0,
+          "fingerprint": "cb8ecfd9cba986b13b5e1b6b07c752bb9d139cc8849aeedf2c305ac66d844bef"
+        },
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 143.63829139620066,
+          "check_id": "CHK-9f951014bc8b",
+          "input_hash": "cb8ecfd9cba986b13b5e1b6b07c752bb9d139cc8849aeedf2c305ac66d844bef",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-9f951014bc8b",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/capacity/test_learning_management_mixed.py",
+              "-m",
+              "capacity_load"
+            ],
+            "cwd": ".",
+            "timeout": 3600.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [],
+            "suite": "capacity",
+            "test_ids": [
+              "tests/capacity/test_learning_management_mixed.py::test_learning_management_mixed_load"
+            ],
+            "markers": [
+              "capacity",
+              "capacity_load"
+            ],
+            "collect": {
+              "format": "pytest",
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "tests/capacity/test_learning_management_mixed.py",
+                "-m",
+                "capacity and capacity_load",
+                "--collect-only",
+                "--verbosity=-1"
+              ],
+              "timeout": 60
+            },
+            "accepted_risk": {
+              "owner": "TASK-013",
+              "scenario_ids": [
+                "S-11"
+              ],
+              "reason": "S-11 需要 1000 用户 × 8 轮容量档与模型额度证据；按设计 defer 到 release 容量环境执行",
+              "expires_at": "2026-12-31T23:59:59.999999+00:00",
+              "confirmed_by": "user:jahan",
+              "confirmed_at": "2026-11-02T13:11:41.956766+00:00",
+              "source": "用户确认：接受风险并归档 (S-08 browser E2E skeleton, S-11 capacity deferred to release)"
+            }
+          },
+          "revision": 3,
+          "run_id": "bdc43da582a345f687129a507fe7c5da",
+          "executed_at": "2026-11-02T14:38:21.734011+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/capacity/test_learning_management_mixed.py",
+            "-m",
+            "capacity_load"
+          ],
+          "cwd": ".",
+          "timeout": 3600.0,
+          "fingerprint": "cb8ecfd9cba986b13b5e1b6b07c752bb9d139cc8849aeedf2c305ac66d844bef"
+        },
+        {
+          "id": "S-11",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 139.42674966529012,
+          "check_id": "CHK-9f951014bc8b",
+          "input_hash": "cb8ecfd9cba986b13b5e1b6b07c752bb9d139cc8849aeedf2c305ac66d844bef",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-9f951014bc8b",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/capacity/test_learning_management_mixed.py",
+              "-m",
+              "capacity_load"
+            ],
+            "cwd": ".",
+            "timeout": 3600.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [],
+            "accepted_risk": {
+              "owner": "TASK-013",
+              "scenario_ids": [
+                "S-11"
+              ],
+              "reason": "S-11 需要 1000 用户 × 8 轮容量档与模型额度证据；按设计 defer 到 release 容量环境执行",
+              "expires_at": "2026-12-31T23:59:59.999999+00:00",
+              "confirmed_by": "user:jahan",
+              "confirmed_at": "2026-11-02T13:11:41.956766+00:00",
+              "source": "用户确认：接受风险并归档 (S-08 browser E2E skeleton, S-11 capacity deferred to release)"
+            },
+            "suite": "capacity",
+            "test_ids": [
+              "tests/capacity/test_learning_management_mixed.py::test_learning_management_mixed_load"
+            ],
+            "markers": [
+              "capacity",
+              "capacity_load"
+            ],
+            "collect": {
+              "format": "pytest",
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "tests/capacity/test_learning_management_mixed.py",
+                "-m",
+                "capacity and capacity_load",
+                "--collect-only",
+                "--verbosity=-1"
+              ],
+              "timeout": 60
+            }
+          },
+          "revision": 4,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/capacity/test_learning_management_mixed.py",
+            "-m",
+            "capacity_load"
+          ],
+          "cwd": ".",
+          "timeout": 3600.0,
+          "fingerprint": "cb8ecfd9cba986b13b5e1b6b07c752bb9d139cc8849aeedf2c305ac66d844bef"
         }
       ]
     },
@@ -4081,6 +5970,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "一个 Run 注入了两条 ACTIVE 经验",
         "同族还有另一个用户的 ACTIVE 经验",
@@ -4090,14 +5980,16 @@
         "FEAT-10"
       ],
       "check": "CHK-ce5a0df5709a",
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "S-12",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1465.9745418466628,
         "check_id": "CHK-ce5a0df5709a",
-        "input_hash": "7989ff8c1de9515b10ece73f7fa64cb1aec01f4b5412b41c1749f1e475aa34ed",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-ce5a0df5709a",
           "command": [
@@ -4117,9 +6009,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "f756c2684ea3443bb81437795e9c4635",
-        "executed_at": "2026-11-01T02:55:22.762279+00:00",
+        "revision": 4,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -4129,7 +6021,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "7989ff8c1de9515b10ece73f7fa64cb1aec01f4b5412b41c1749f1e475aa34ed"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -4211,6 +6103,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "7989ff8c1de9515b10ece73f7fa64cb1aec01f4b5412b41c1749f1e475aa34ed"
+        },
+        {
+          "id": "S-12",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1481.6735838539898,
+          "check_id": "CHK-ce5a0df5709a",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-ce5a0df5709a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_family_control.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_family_control.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-12",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1465.9745418466628,
+          "check_id": "CHK-ce5a0df5709a",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-ce5a0df5709a",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_family_control.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_family_control.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -4291,6 +6267,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "一条 ACTIVE 经验，当前版本 v1",
         "该用户没有新的 PASSED 报告"
@@ -4299,14 +6276,16 @@
         "FEAT-11"
       ],
       "check": "CHK-0bafbff705a1",
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "S-13",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1422.202750109136,
         "check_id": "CHK-0bafbff705a1",
-        "input_hash": "9683ba04d1df78ad46f247f8edecb787f8cea2210cceb235e7c0327bca5e52a6",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-0bafbff705a1",
           "command": [
@@ -4326,9 +6305,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "4cfa8f84a1f04ce5872f49d9c1e10211",
-        "executed_at": "2026-11-01T02:56:48.854017+00:00",
+        "revision": 3,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -4338,7 +6317,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "9683ba04d1df78ad46f247f8edecb787f8cea2210cceb235e7c0327bca5e52a6"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -4380,6 +6359,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "9683ba04d1df78ad46f247f8edecb787f8cea2210cceb235e7c0327bca5e52a6"
+        },
+        {
+          "id": "S-13",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1432.8223336488008,
+          "check_id": "CHK-0bafbff705a1",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-0bafbff705a1",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_content_revision.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_content_revision.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-13",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1422.202750109136,
+          "check_id": "CHK-0bafbff705a1",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-0bafbff705a1",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_content_revision.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_content_revision.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -4446,6 +6509,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "一个 Run 注入了 ACTIVE 经验",
         "同 Run 重复提交两次"
@@ -4454,14 +6518,16 @@
         "FEAT-12"
       ],
       "check": "CHK-8a48d88402f4",
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "S-14",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1416.6598748415709,
         "check_id": "CHK-8a48d88402f4",
-        "input_hash": "feee8ccb5244253d25ca81b9a7797ff6b86bbbc63edbd2c999f3b5cbe6c479e7",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-8a48d88402f4",
           "command": [
@@ -4481,9 +6547,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "1354adee9591493eaa2dd09cb85dc608",
-        "executed_at": "2026-11-01T02:57:29.692140+00:00",
+        "revision": 3,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -4493,7 +6559,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "feee8ccb5244253d25ca81b9a7797ff6b86bbbc63edbd2c999f3b5cbe6c479e7"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -4535,6 +6601,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "feee8ccb5244253d25ca81b9a7797ff6b86bbbc63edbd2c999f3b5cbe6c479e7"
+        },
+        {
+          "id": "S-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1510.0757502950728,
+          "check_id": "CHK-8a48d88402f4",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-8a48d88402f4",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_feedback.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_feedback.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1416.6598748415709,
+          "check_id": "CHK-8a48d88402f4",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-8a48d88402f4",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_feedback.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_feedback.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -4599,6 +6749,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "管理员与非管理员视图；修订冲突/反馈重复/暂停中的 fixture"
       ],
@@ -4608,14 +6759,16 @@
         "FEAT-12"
       ],
       "check": "CHK-ca14433d58e5",
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "S-15",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 846.54541593045,
         "check_id": "CHK-ca14433d58e5",
-        "input_hash": "7024dd10f51ef54ac072c65be131663340da573f1711c47793aad4f693019dee",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-ca14433d58e5",
           "command": [
@@ -4635,9 +6788,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "8161f99d4143439ca482741c17ec4bbf",
-        "executed_at": "2026-11-01T03:02:59.891785+00:00",
+        "revision": 3,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -4647,7 +6800,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "7024dd10f51ef54ac072c65be131663340da573f1711c47793aad4f693019dee"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -4689,6 +6842,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "7024dd10f51ef54ac072c65be131663340da573f1711c47793aad4f693019dee"
+        },
+        {
+          "id": "S-15",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 843.9607908949256,
+          "check_id": "CHK-ca14433d58e5",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-ca14433d58e5",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_learning_actions_contract.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_actions_contract.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "S-15",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 846.54541593045,
+          "check_id": "CHK-ca14433d58e5",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-ca14433d58e5",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/frontend/test_learning_actions_contract.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/frontend/test_learning_actions_contract.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     },
@@ -4755,6 +6992,7 @@
           ]
         }
       ],
+      "checks": [],
       "preconditions": [
         "另一租户的同名 family/key；非管理员账号；重复请求"
       ],
@@ -4764,14 +7002,16 @@
         "FEAT-12"
       ],
       "check": "CHK-9fdb3e4f9f04",
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "E-05",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
+        "execution_ms": 1201.055749785155,
         "check_id": "CHK-9fdb3e4f9f04",
-        "input_hash": "7989ff8c1de9515b10ece73f7fa64cb1aec01f4b5412b41c1749f1e475aa34ed",
+        "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+        "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
         "check_config": {
           "id": "CHK-9fdb3e4f9f04",
           "command": [
@@ -4791,9 +7031,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "f756c2684ea3443bb81437795e9c4635",
-        "executed_at": "2026-11-01T02:55:22.762279+00:00",
+        "revision": 4,
+        "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+        "executed_at": "2026-11-02T14:51:31.603080+00:00",
         "command": [
           "uv",
           "run",
@@ -4803,7 +7043,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "7989ff8c1de9515b10ece73f7fa64cb1aec01f4b5412b41c1749f1e475aa34ed"
+        "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
       },
       "runs": [
         {
@@ -4885,6 +7125,90 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "7989ff8c1de9515b10ece73f7fa64cb1aec01f4b5412b41c1749f1e475aa34ed"
+        },
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1231.619999743998,
+          "check_id": "CHK-9fdb3e4f9f04",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-9fdb3e4f9f04",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_control_boundaries.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "03730a97d80b43a5ba6abf08ef5fd096",
+          "executed_at": "2026-11-02T14:13:13.509189+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_control_boundaries.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
+        },
+        {
+          "id": "E-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1201.055749785155,
+          "check_id": "CHK-9fdb3e4f9f04",
+          "input_hash": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b",
+          "environment_hash": "1d9c5165c70587cd877b0b61f0af8f8104af89e6deace5f2e6b3616a89ba6925",
+          "check_config": {
+            "id": "CHK-9fdb3e4f9f04",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/console_platform/test_learning_control_boundaries.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "4ebc04a83c6c4f779aeb7251f72a92cf",
+          "executed_at": "2026-11-02T14:51:31.603080+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/console_platform/test_learning_control_boundaries.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "120a496f61ad0fcb1c9afbe8ee99a17c49efed8dfac9dab2d6c58e86df57dc8b"
         }
       ]
     }
@@ -4893,12 +7217,15 @@
   "e2e_gate": 1,
   "quality_schema": 2,
   "relock": {
-    "preserved": [
+    "preserved": [],
+    "stale": [
       "S-01",
       "S-02",
       "S-03",
       "S-04",
       "S-05",
+      "S-06",
+      "S-07",
       "S-08",
       "S-09",
       "E-01",
@@ -4914,10 +7241,6 @@
       "S-14",
       "S-15",
       "E-05"
-    ],
-    "stale": [
-      "S-06",
-      "S-07"
     ],
     "removed": []
   }

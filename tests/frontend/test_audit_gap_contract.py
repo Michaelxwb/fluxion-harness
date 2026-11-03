@@ -40,7 +40,15 @@ CHANGED_FILES = (TYPES, SERVICE, FILTER_BAR, SHEET, HOOK, PAGE)
 
 CONSOLE_APP = ROOT / "apps/console-platform/backend/src/muad_console_platform"
 REPOSITORY = CONSOLE_APP / "infrastructure/repositories/audit_query_repository.py"
-EGRESS_WRITER = ROOT / "apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py"
+EGRESS_WRITER = (
+    ROOT / "apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py"
+)
+LEARNING_ACTIVATION = (
+    ROOT / "apps/agent-runtime/src/muad_agent_runtime/application/learning_activation.py"
+)
+LEARNING_ADMIN = (
+    ROOT / "apps/agent-runtime/src/muad_agent_runtime/application/learning_admin_service.py"
+)
 
 # 设计文档 v1.5 登记的三个历史写法：后端写入器从未产出（实际为小写 `project_platform`、
 # `PLATFORM_USER`、`AGENT_ACCESS_GRANT`），但既有契约与词条已把它们计入模块登记域。
@@ -155,7 +163,10 @@ def _runtime_resource_types() -> set[str]:
     assert literals == set(RUNTIME_LITERALS), "投影 SQL 的运行侧资源类型字面量解析疑似失效"
     egress = set(EGRESS_TARGET_CONST.findall(_read(EGRESS_WRITER)))
     assert egress, "egress 写入器缺少 target_type 常量"
-    return literals | egress
+    learning = set(AUDIT_CONST.findall(_read(LEARNING_ACTIVATION)))
+    learning |= set(INLINE_RESOURCE_TYPE.findall(_read(LEARNING_ADMIN)))
+    assert learning, "学习写入器缺少 resource_type 常量"
+    return literals | egress | learning
 
 
 def _actual_resource_types() -> set[str]:

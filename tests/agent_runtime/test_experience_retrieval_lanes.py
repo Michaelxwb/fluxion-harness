@@ -20,22 +20,17 @@ async def _seed(tenant: str, user: uuid.UUID) -> None:
         session.add(MemoryScope(tenant_id=tenant, user_id=user, revision=1))
         rows = [
             (
-                "exp.proc.active",
-                "PROCEDURE",
-                "ACTIVE",
-                "skill:demo",
-                "批量客户逐项处理 多个目标 核对数量",
-                "逐个目标调用 demo 并核对数量",
+                "exp.proc.active", "PROCEDURE", "ACTIVE", "skill:demo",
+                "批量客户逐项处理 多个目标 核对数量", "逐个目标调用 demo 并核对数量",
             ),
             (
-                "exp.proc.proposed",
-                "PROCEDURE",
-                "PROPOSED",
-                "skill:demo",
-                "批量客户逐项处理 多个目标 核对数量",
-                "尚未激活的经验",
+                "exp.proc.proposed", "PROCEDURE", "PROPOSED", "skill:demo",
+                "批量客户逐项处理 多个目标 核对数量", "尚未激活的经验",
             ),
-            ("exp.proc.other", "PROCEDURE", "ACTIVE", "skill:other", "处理发票报销", "处理发票时先核对金额"),
+            (
+                "exp.proc.other", "PROCEDURE", "ACTIVE", "skill:other",
+                "处理发票报销", "处理发票时先核对金额",
+            ),
             ("pref.briefing", "PREFERENCE", "ACTIVE", None, None, "简报先给结论"),
         ]
         for key, category, state, signature, trigger, value in rows:

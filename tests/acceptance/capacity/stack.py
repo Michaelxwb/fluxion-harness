@@ -991,16 +991,25 @@ class CapacityStack:
         return self._probe
 
     def start(self) -> None:
+        """取得数据存储 → 建共享卷 → 起探针 → 按 Console→Runtime→Worker→Gateway 起四单元 → 起代理。
+
+        启动中途失败必须回收已起的进程/探针：否则残留实例继续占用 PG/Redis 名额，
+        后续用例会以“too many clients already”之类的二次故障掩盖首个真实错误。
+        """
         if self._started:
             raise StackError("栈已启动：重复 start 不重建（替换实例用 replace_instance）")
         try:
-            self._start()
-        except Exception:
-            self.teardown()
+            self._start_components()
+        except BaseException as start_error:
+            try:
+                self.teardown()
+            except BaseException as cleanup_error:
+                # 保留原始启动错误为主异常，收尾失败只作为上下文（否则根因被二次故障掩盖）。
+                raise start_error from cleanup_error
             raise
+        self._started = True
 
-    def _start(self) -> None:
-        """取得数据存储 → 建共享卷 → 起探针 → 按 Console→Runtime→Worker→Gateway 起四单元 → 起代理。"""
+    def _start_components(self) -> None:
         self._datastore = self._datastore or acquire_datastore()
         self.artifacts_root.mkdir(parents=True, exist_ok=True)
         for unit in UNITS:
@@ -1049,7 +1058,6 @@ class CapacityStack:
             for index in range(self.replicas[unit]):
                 self.start_instance(unit, index=index)
         self.start_proxy()
-        self._started = True
 
     def all_instances(self) -> tuple[ServiceInstance, ...]:
         return tuple(

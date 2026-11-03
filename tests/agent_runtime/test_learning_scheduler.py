@@ -48,7 +48,11 @@ def _events(count: int) -> list[dict[str, Any]]:
         *[
             {
                 "event_type": "TOOL_CALL",
-                "payload": {"tool_call_id": call["id"], "tool_name": "execute_skill", "status": "OK"},
+                "payload": {
+                    "tool_call_id": call["id"],
+                    "tool_name": "execute_skill",
+                    "status": "OK",
+                },
             }
             for call in calls
         ],
@@ -61,7 +65,7 @@ async def _seed(tenant: str, user: uuid.UUID) -> None:
         session.add(Conversation(id=conversation_id, tenant_id=tenant, user_id=user, agent_id=uuid.uuid4()))
         await session.flush()
         seq = 0
-        for _index in range(3):
+        for _ in range(3):
             run_id = uuid.uuid4()
             session.add(
                 RunRecord(

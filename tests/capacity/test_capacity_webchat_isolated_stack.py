@@ -35,6 +35,8 @@ from tests.acceptance.capacity.stack import (
     DEV_DEFAULT_PORTS,
     UNITS,
     CapacityStack,
+    DatastoreHandle,
+    StackError,
     acceptance_databases,
     acquire_datastore,
     database_exists,
@@ -194,6 +196,41 @@ def test_b307_acceptance_session_datastore_is_reused_instead_of_a_second_one(
             else:
                 os.environ[key] = value
         drop_datastore(info["name"], info["admin_database_url"], info["redis_url"])
+
+
+def test_b307_start_failure_reclaims_started_components(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """启动中途失败要停掉已起的组件：否则残留进程继续占用 PG/Redis，后续用例级联失败。"""
+    stopped: list[str] = []
+
+    class ExplodingProbe:
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def start(self, **_kwargs: Any) -> None:
+            raise StackError("probe 启动失败")
+
+        def stop(self, **_kwargs: Any) -> None:
+            stopped.append("probe")
+
+    monkeypatch.setattr("tests.acceptance.capacity.stack.ProbeProcess", ExplodingProbe)
+    datastore = DatastoreHandle(
+        name="muad_acc_failed_start",
+        database_url="postgresql+asyncpg://unused/unused",
+        redis_url="redis://unused/10",
+        admin_database_url="postgresql+asyncpg://unused/unused",
+        owns=False,
+    )
+    root = tmp_path / "failed-start"
+    instance = CapacityStack(root=root, datastore=datastore)
+
+    with pytest.raises(StackError, match="probe 启动失败"):
+        instance.start()
+
+    assert stopped == ["probe"], "失败路径必须停止已起的探针"
+    assert instance.started is False
+    assert not root.exists(), "失败路径必须清掉本轮临时目录"
 
 
 def test_b307_four_units_run_as_real_processes_on_isolated_ports(stack: CapacityStack) -> None:
@@ -411,7 +448,7 @@ def test_failed_start_releases_already_started_instances(
         stack._instances["console-platform"].append(StartedInstance())
         raise RuntimeError("runtime startup rejected")
 
-    monkeypatch.setattr(stack, "_start", fail_after_first_instance)
+    monkeypatch.setattr(stack, "_start_components", fail_after_first_instance)
     with pytest.raises(RuntimeError, match="runtime startup rejected"):
         stack.start()
     assert stopped == ["console"]

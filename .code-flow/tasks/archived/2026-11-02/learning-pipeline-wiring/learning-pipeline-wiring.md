@@ -2,7 +2,7 @@
 
 - **Source**: .code-flow/tasks/2026-11-01/learning-pipeline-wiring/learning-pipeline-wiring.design.md
 - **Created**: 2026-11-01
-- **Updated**: 2026-11-01
+- **Updated**: 2026-11-02
 
 ## Proposal
 
@@ -38,7 +38,7 @@
 
 ## TASK-001: 执行层任务族传播与 learning 设置冻结
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: learning-pipeline-wiring.design.md#3.2 架构设计, learning-pipeline-wiring.design.md#3.4 接口设计
@@ -80,6 +80,8 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 | S-02 | FAIL: collection error | PASS: `-k freeze` 1 passed | `test_s02_freezes_learning_settings_into_snapshot` | 真实 `build_snapshot` 写入 policy_json；`learning_of` 读回；旧快照回落关闭 | verified |
 - S-01: verified — automated command passed; run_id=7e1e49ef995541b699470fca0af59f94 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=7e1e49ef995541b699470fca0af59f94 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=3370b04214b74d8480ba8c741052a33e (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=3370b04214b74d8480ba8c741052a33e (confirmed_by: runner)
 
 ### Log
 
@@ -91,7 +93,7 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 
 ## TASK-002: 学习调度循环（抽取/候选/关闭开关）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: learning-pipeline-wiring.design.md#3.2 架构设计, learning-pipeline-wiring.design.md#3.3 数据设计
@@ -115,9 +117,9 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 - [x] [harness-data#RULE-data-001] verifier：同命令；复用现有表与 jsonb
 - [x] [harness-arch#RULE-arch-001] verifier：同命令；不新增服务
 - [x] [harness-time#RULE-time-001] verifier：同命令；timestamptz
-- [ ] [harness-memory#RULE-memory-002] verifier：同命令；候选写入走 MemoryService
-- [ ] [harness-memory#RULE-memory-004] verifier：同命令；tombstone 不复活
-- [ ] [harness-memory#RULE-memory-005] verifier：同命令；调度幂等、不新建 job 表
+- [x] [harness-memory#RULE-memory-002] verifier：同命令；候选写入走 MemoryService
+- [x] [harness-memory#RULE-memory-004] verifier：同命令；tombstone 不复活
+- [x] [harness-memory#RULE-memory-005] verifier：同命令；调度幂等、不新建 job 表
 
 ### Acceptance Contract
 
@@ -137,6 +139,8 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 | E-02 | FAIL: collection error | PASS: `-k disabled` 1 passed | `test_s03_scheduler_disabled_tenant_is_skipped` | 真实设置判定；关闭租户跳过且不产生学习物 | verified |
 - S-03: verified — automated command passed; run_id=72dcb41a3ec34642a172d6d78dfa5c49 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=72dcb41a3ec34642a172d6d78dfa5c49 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=3370b04214b74d8480ba8c741052a33e (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=3370b04214b74d8480ba8c741052a33e (confirmed_by: runner)
 
 ### Log
 
@@ -148,7 +152,7 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 
 ## TASK-003: 生产 CaseRunner 与两臂回放接线
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: learning-pipeline-wiring.design.md#3.4 接口设计, learning-pipeline-wiring.design.md#3.5 质量实现方案
@@ -187,6 +191,7 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 |---|---|---|---|---|---|
 | S-04 | FAIL: collection error | PASS: 2 passed | `test_judge_answer_prefers_json_structure`、`test_s04_two_arm_requests_rebuilt_from_snapshot` | 真实 RuntimeSnapshot + 来源 Run 输入；候选臂携带经验、基线臂不携带；模型传输走 MockTransport | verified |
 - S-04: verified — automated command passed; run_id=b7381f70379b434fab7c6153cb03146a (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=3370b04214b74d8480ba8c741052a33e (confirmed_by: runner)
 
 ### Log
 
@@ -198,7 +203,7 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 
 ## TASK-004: TRIAL 自动接线、CLI 与端到端
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: learning-pipeline-wiring.design.md#3.2 架构设计, learning-pipeline-wiring.design.md#3.4 接口设计
@@ -245,6 +250,9 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 - S-05: verified — automated command passed; run_id=3adc97a30c804da5814b6111a50bba67 (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=3adc97a30c804da5814b6111a50bba67 (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=3adc97a30c804da5814b6111a50bba67 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=3370b04214b74d8480ba8c741052a33e (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=3370b04214b74d8480ba8c741052a33e (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=3370b04214b74d8480ba8c741052a33e (confirmed_by: runner)
 
 ### Log
 
@@ -256,7 +264,7 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 
 ## TASK-005: 失败降级与接线盘点
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P1
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004
 - **Source**: learning-pipeline-wiring.design.md#3.5 质量实现方案
@@ -298,6 +306,8 @@ executor 在 Run 启动时把会话上一 Run 的任务族（或 `agent:<id>`）
 | B-01 | 上一提交零生产调用方（grep 实测） | PASS: 3 passed | `test_b01_each_capability_has_a_production_caller`、`test_b01_runtime_wiring_symbols_are_used_in_production`、`test_b01_scheduler_is_mounted_in_runtime_main` | AST 扫描真实生产源码调用图；仅测试调用不算 | verified |
 - E-01: verified — automated command passed; run_id=04ae68ec8c5a4d09ab45ffd19eb45c54 (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=04ae68ec8c5a4d09ab45ffd19eb45c54 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=3370b04214b74d8480ba8c741052a33e (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=3370b04214b74d8480ba8c741052a33e (confirmed_by: runner)
 
 ### Log
 

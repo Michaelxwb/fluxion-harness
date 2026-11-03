@@ -231,14 +231,32 @@ def _login_admin(client: httpx.Client, context: ApiSecurityContext) -> None:
     assert response.status_code == 200, response.text
 
 
-def _account_row(username: str, tenant_id: str = TENANT) -> dict[str, Any]:
-    row = _one(
+def _account_row_or_none(username: str, tenant_id: str = TENANT) -> dict[str, Any] | None:
+    return _one(
         "SELECT id, tenant_id, role, enabled, failed_attempts, locked_until, password_hash"
         " FROM control.console_account WHERE tenant_id = :t AND username = :u",
         {"t": tenant_id, "u": username},
     )
+
+
+def _account_row(username: str, tenant_id: str = TENANT) -> dict[str, Any]:
+    row = _account_row_or_none(username, tenant_id)
     assert row is not None, f"真实库中不存在账号 {username}"
     return row
+
+
+def _wait_account_row(
+    username: str, tenant_id: str = TENANT, *, timeout_sec: float = 5.0
+) -> dict[str, Any]:
+    """创建账号的响应先于依赖收尾提交：按真实提交窗口有界轮询，不把提交延迟当丢行。"""
+    deadline = time.monotonic() + timeout_sec
+    while True:
+        row = _account_row_or_none(username, tenant_id)
+        if row is not None:
+            return row
+        if time.monotonic() >= deadline:
+            raise AssertionError(f"真实库中不存在账号 {username}（{timeout_sec}s 内未提交）")
+        time.sleep(0.05)
 
 
 def _agent_row(agent_id: uuid.UUID) -> dict[str, Any] | None:
@@ -479,7 +497,7 @@ def test_e08_password_policy_and_failed_login_lockout(
     lockout_username = _unique("dfx-lockout")
     created = _create_account(http, lockout_username, LOCKOUT_PASSWORD)
     assert created.status_code == 200, created.text
-    row = _account_row(lockout_username)
+    row = _wait_account_row(lockout_username)
     assert row["password_hash"].startswith("$argon2id$"), "密码哈希必须是 argon2id"
 
     # 未知用户与禁用账号：状态码与错误码完全一致（不泄露账号是否存在）。

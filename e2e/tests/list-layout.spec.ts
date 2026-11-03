@@ -67,7 +67,7 @@ async function expectDesktopFits(table: Locator) {
 }
 
 async function expectAuditPrimary(table: Locator) {
-  await expect(table.getByRole('columnheader').first()).toHaveText(/Trace ID/);
+  await expect(table.getByRole('columnheader').first()).toContainText('Trace ID');
   const cells = table.locator('.semi-table-tbody > .semi-table-row').first().getByRole('gridcell');
   const trace = cells.nth(0);
   await expect(trace.getByRole('button').first()).toHaveText('8344af30-94ba-4ec3-bdc9-1db10a98e8c1');

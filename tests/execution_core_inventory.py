@@ -130,7 +130,8 @@ def test_inventory_flags_unknown_owner(tmp_path: Path) -> None:
     text = task_file.read_text(encoding="utf-8").replace("| S-01 |", "| S-01 | TASK-999 |", 1)
     task_file.write_text(text, encoding="utf-8")
     assert any(
-        "S-01" in item and "owner" in item for item in problems(task_file, manifest_path, context_path)
+        "S-01" in item and "owner" in item
+        for item in problems(task_file, manifest_path, context_path)
     )
 
 
@@ -141,7 +142,8 @@ def test_inventory_flags_missing_evidence_row(tmp_path: Path) -> None:
     tail = re.sub(r"(?m)^\|\s*S-04\s*\|.*\n", "", tail, count=1)
     task_file.write_text(head + separator + tail, encoding="utf-8")
     assert any(
-        "S-04" in item and "evidence" in item for item in problems(task_file, manifest_path, context_path)
+        "S-04" in item and "evidence" in item
+        for item in problems(task_file, manifest_path, context_path)
     )
 
 

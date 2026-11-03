@@ -139,6 +139,7 @@ async function mockApi(page: Page, state: MockState): Promise<void> {
           credential_count: 2,
           identity_count: 0,
           memory_count: 0,
+          experience_count: 0,
           create_time: '2026-10-11 10:00:00',
           update_time: '2026-10-11 10:00:00'
         }]))
@@ -156,8 +157,18 @@ async function mockApi(page: Page, state: MockState): Promise<void> {
           credential_count: 2,
           identity_count: 0,
           memory_count: 0,
+          experience_count: 0,
           create_time: '2026-10-11 10:00:00',
           update_time: '2026-10-11 10:00:00'
+        })
+      });
+      return;
+    }
+    if (path === '/api/v1/learning/experiences') {
+      await route.fulfill({
+        json: envelope({
+          items: [], total: 0, page: 1, page_size: 20,
+          counts: { PROPOSED: 0, TRIAL: 0, ACTIVE: 0, RETIRED: 0, total: 0 }
         })
       });
       return;

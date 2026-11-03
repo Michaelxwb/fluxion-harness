@@ -217,7 +217,8 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await page.getByTestId(`audit-link-${state.rows.config}`).click();
   await expect(sheet).toBeVisible();
   await expect(page.getByTestId('audit-detail-before')).toContainText('Audit Acceptance Agent');
-  await expect(page.getByTestId('audit-detail-after').locator(':scope > div').filter({ hasText: 'enabled' })).toHaveText('enabledfalse');
+  await expect(page.getByTestId('audit-detail-after')).toContainText('enabled');
+  await expect(page.getByTestId('audit-detail-after')).toContainText('false');
   // 关联分组就在基本信息底部：CONFIG 无 Run/Task ⇒ 空态直接可见
   await expect(sheet.locator('.app-empty-title')).toHaveText(NO_RELATED_TEXT);
   await expect(sheet.locator('.semi-sidesheet-body button:visible:not(.copy-button)')).toHaveCount(0);

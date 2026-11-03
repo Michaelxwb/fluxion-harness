@@ -57,6 +57,8 @@ def _attachment_ref(storage_key: str) -> dict[str, Any]:
 
 
 def _expected_hash(resolved: ResolveDefinitionResponse) -> str:
+    policy = snapshot_policy(members=())
+    policy["learning"] = frozen_learning_payload({})
     canonical = json.dumps(
         {
             "agent": resolved.agent.model_dump(mode="json"),
@@ -65,7 +67,7 @@ def _expected_hash(resolved: ResolveDefinitionResponse) -> str:
             "skills": [skill.model_dump(mode="json") for skill in resolved.skills],
             "mcp_servers": [server.model_dump(mode="json") for server in resolved.mcp_servers],
             # 真实创建路径冻结成员事实（B-224）：该租户的模型没有成员 ⇒ 空列表也在 hash 里
-            "policy": {**snapshot_policy(members=()), "learning": frozen_learning_payload(None)},
+            "policy": policy,
             "prompt_template_version": "1",
         },
         sort_keys=True,
@@ -198,10 +200,9 @@ async def test_create_run_streams_events_and_persists_records(
         assert snapshot.run_id == run_id
         assert snapshot.prompt_template_version == "1"
         # 真实创建路径的 policy_json = 直构策略 + 冻结的成员事实（该租户模型没有成员 ⇒ 空列表）
-        assert snapshot.policy_json == {
-            **snapshot_policy(members=()),
-            "learning": frozen_learning_payload(None),
-        }
+        expected = snapshot_policy(members=())
+        expected["learning"] = frozen_learning_payload({})
+        assert snapshot.policy_json == expected
         assert snapshot.agent_revision == resolved.agent.revision
         assert snapshot.model_revision == resolved.model.revision
         assert snapshot.agent_json["key"] == resolved.agent.key

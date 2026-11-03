@@ -16,19 +16,19 @@
 
 ## 盘点范围与完整明细
 
-遍历 `apps/`、`packages/` 下全部 **345** 个 Python 文件与 **139** 个 TS/TSX 文件（不含 `node_modules`）：Python 大写命名常量（含类内枚举）、配置/策略类默认值、带 timeout/ttl/limit/budget 等语义的函数默认参数、直接环境读取和部分内联 I/O 参数，以及前端大写命名常量。另人工核对 `.env.example`、`scripts/dev.sh`、Vite 和 k8s 部署配置。
+遍历 `apps/`、`packages/` 下全部 **493** 个 Python 文件与 **196** 个 TS/TSX 文件（不含 `node_modules`）：Python 大写命名常量（含类内枚举）、配置/策略类默认值、带 timeout/ttl/limit/budget 等语义的函数默认参数、直接环境读取和部分内联 I/O 参数，以及前端大写命名常量。另人工核对 `.env.example`、`scripts/dev.sh`、Vite 和 k8s 部署配置。
 
 完整声明明细见 [configuration-inventory.csv](configuration-inventory.csv)。CSV 每行包含源码路径、行号、名称、当前默认表达式、声明类型、目标分类和理由；重复声明不等于独立设置项。只读取 `.env.example` 的键名，不读取或输出真实 `.env` 的秘密值。
 
 扫描不把每个 SQL `.limit(1)`、计数器初始零、CSS 尺寸或循环算术都当作配置；调用方传入且没有默认值的参数不属于常量默认。本清单是当前源码快照，不能宣称通过语法扫描穷尽所有隐含业务策略。
 
-**当前声明点合计 1243**：`code` 1035、`environment` 121、`business` 75、`business-resource` 12。其中大量 `code` 行是状态码、事件名、协议文本与各服务持有的实现常量。分类由 `tests/test_configuration_inventory.py` 的机检与分类断言兜底（路径/行号/符号/默认值直接与源码 AST 对齐；分类主张逐条钉住）。
+**当前声明点合计 1775**：`code` 1512、`environment` 139、`business` 112、`business-resource` 12。其中大量 `code` 行是状态码、事件名、协议文本与各服务持有的实现常量。分类由 `tests/test_configuration_inventory.py` 的机检与分类断言兜底（路径/行号/符号/默认值直接与源码 AST 对齐；分类主张逐条钉住）。
 
-## SharedSettings：当前 40 项全部是环境设置
+## SharedSettings：当前 106 项全部是环境设置
 
-迁移已把 12 个业务键从启动 settings 摘除（`default_locale`、`default_timezone`、`artifact_retention_days`、`mcp_max_tools_per_server`、`im_progress_interval_sec`、`task_default_deadline_hours`、`task_max_attempts`、`batch_max_concurrency`、`misfire_grace_sec`、`delivery_max_attempts`、`delivery_backoff_base_sec`、`context_settings_cache_ttl_sec`）；它们的值现由平台设置提供（见下节）。`.env.example` 已补全为 **40 个键**，与 `SharedSettings` 的字段集一一对应，形成完整运维契约。
+迁移已把 12 个业务键从启动 settings 摘除（`default_locale`、`default_timezone`、`artifact_retention_days`、`mcp_max_tools_per_server`、`im_progress_interval_sec`、`task_default_deadline_hours`、`task_max_attempts`、`batch_max_concurrency`、`misfire_grace_sec`、`delivery_max_attempts`、`delivery_backoff_base_sec`、`context_settings_cache_ttl_sec`）；它们的值现由平台设置提供（见下节）。`.env.example` 已补全为 **106 个键**，与 `SharedSettings` 的字段集一一对应，形成完整运维契约。
 
-余下 40 项**全部保留为环境项**（`packages/common/src/muad_common/settings.py`），分三类：
+余下 106 项**全部保留为环境项**（`packages/common/src/muad_common/settings.py`；下表为分组示例，完整键集以 `.env.example` 为准），分三类：
 
 | 类别 | 字段 |
 |---|---|

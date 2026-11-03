@@ -14,7 +14,12 @@ from muad_agent_runtime.application.learning_activation import (
     LearningActivation,
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import EvalReport, MemoryScope, UserMemory
+from muad_agent_runtime.infrastructure.models.runtime import (
+    EvalReport,
+    MemoryScope,
+    UserMemory,
+    UserMemoryHistory,
+)
 
 
 async def _seed(tenant: str, user: uuid.UUID, key: str, *, category: str) -> None:
@@ -62,7 +67,7 @@ async def _cleanup(tenant: str) -> None:
     async with get_session_factory()() as session:
         await session.execute(sa.delete(EvalReport).where(EvalReport.tenant_id == tenant))
         await session.execute(
-            sa.text("DELETE FROM runtime.user_memory_history WHERE tenant_id=:t"), {"t": tenant}
+            sa.delete(UserMemoryHistory).where(UserMemoryHistory.tenant_id == tenant)
         )
         await session.execute(sa.delete(UserMemory).where(UserMemory.tenant_id == tenant))
         await session.execute(sa.delete(MemoryScope).where(MemoryScope.tenant_id == tenant))

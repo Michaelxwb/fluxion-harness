@@ -138,7 +138,8 @@ def test_inventory_flags_unknown_owner(tmp_path: Path) -> None:
             break
     task_file.write_text(head + sep + "\n".join(rows), encoding="utf-8")
     assert any(
-        "S-07" in item and "owner" in item for item in problems(task_file, manifest_path, context_path)
+        "S-07" in item and "owner" in item
+        for item in problems(task_file, manifest_path, context_path)
     )
 
 

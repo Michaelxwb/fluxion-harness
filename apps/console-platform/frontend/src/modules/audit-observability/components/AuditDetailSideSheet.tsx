@@ -104,43 +104,36 @@ function resourceTypeLabel(t: TFunction, value: string): string {
   return RESOURCE_TYPE_VALUES.has(value) ? t(`audit.resourceType.${value}`) : text(value);
 }
 
+/** 变更 diff 的字段/取值词条域：未登记的键原样展示，不伪造文案。 */
+const CHANGE_FIELD_KEYS = [
+  'activation_state', 'experience_key', 'user_id', 'operator', 'reason',
+  'base_config_hash', 'family', 'paused', 'category'
+] as const;
+
+const CHANGE_VALUE_KEYS = [
+  'ACTIVE', 'TRIAL', 'PROPOSED', 'RETIRED', 'PROCEDURE', 'FAILURE_PATTERN',
+  'VERIFICATION', 'automatic'
+] as const;
+
+const CHANGE_FIELD_KEY_SET = new Set<string>(CHANGE_FIELD_KEYS);
+const CHANGE_VALUE_KEY_SET = new Set<string>(CHANGE_VALUE_KEYS);
+
+/** 动态词条：未登记时回退到原始字段/取值，不伪造文案。 */
+function translateOr(t: TFunction, key: string, fallback: string): string {
+  const translated = t(key);
+  return translated === key ? fallback : translated;
+}
+
 /** 对象/数组型来源字段（before/after/argsPreview）按 JSON 渲染，其余走 `text`。 */
-function changeLabels(t: TFunction): Record<string, string> {
-  return {
-    activation_state: t('audit.change.labels.activation_state'),
-    experience_key: t('audit.change.labels.experience_key'),
-    user_id: t('audit.change.labels.user_id'),
-    operator: t('audit.change.labels.operator'),
-    reason: t('audit.change.labels.reason'),
-    base_config_hash: t('audit.change.labels.base_config_hash'),
-    family: t('audit.change.labels.family'),
-    paused: t('audit.change.labels.paused'),
-    category: t('audit.change.labels.category'),
-  };
-}
-
-
-function changeValues(t: TFunction): Record<string, string> {
-  return {
-    ACTIVE: t('audit.change.values.ACTIVE'),
-    TRIAL: t('audit.change.values.TRIAL'),
-    PROPOSED: t('audit.change.values.PROPOSED'),
-    RETIRED: t('audit.change.values.RETIRED'),
-    PROCEDURE: t('audit.change.values.PROCEDURE'),
-    FAILURE_PATTERN: t('audit.change.values.FAILURE_PATTERN'),
-    VERIFICATION: t('audit.change.values.VERIFICATION'),
-    automatic: t('audit.change.values.automatic'),
-  };
-}
-
-
 function formatChange(value: Record<string, unknown>, t: TFunction, field: string): ReactNode {
   return (
     <div data-testid={`audit-detail-${field}`}>
       {Object.entries(value).map(([key, item]) => (
         <div key={key} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
           <span style={{ color: 'var(--semi-color-text-2)', minWidth: 96 }}>
-            {changeLabels(t)[key] ?? key}
+            {CHANGE_FIELD_KEY_SET.has(key)
+              ? translateOr(t, `audit.detail.change.field.${key}`, key)
+              : key}
           </span>
           <span style={{ overflowWrap: 'anywhere' }}>
             {item === null || item === undefined
@@ -148,7 +141,11 @@ function formatChange(value: Record<string, unknown>, t: TFunction, field: strin
               : typeof item === 'string'
                 ? key === 'base_config_hash'
                   ? <span title={item}>{item.slice(0, 14)}…</span>
-                  : changeValues(t)[item] ?? (key === 'user_id' ? shortId(item) : item)
+                  : key === 'user_id'
+                    ? shortId(item)
+                    : CHANGE_VALUE_KEY_SET.has(item)
+                      ? translateOr(t, `audit.detail.change.value.${item}`, item)
+                      : item
                 : typeof item === 'object'
                   ? JSON.stringify(item)
                   : text(item)}

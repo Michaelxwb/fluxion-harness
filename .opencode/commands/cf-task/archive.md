@@ -17,6 +17,9 @@ description: 归档已完成的 task 文件
 
 ## 执行步骤
 
+> 项目补充：复用 CI 缓存归档时默认用 kimi-webbridge 控制浏览器触发/下载 artifact；先读 `docs/operations/ci-validation-cache.md`。
+
+
 ### 1. 完成度检查
 
 1. 用 Read 读取匹配到的 task 文件

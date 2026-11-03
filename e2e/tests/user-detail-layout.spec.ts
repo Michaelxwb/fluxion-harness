@@ -11,7 +11,7 @@ const longValue = 'A long value for testing table truncation '.repeat(8).trim();
 const user: UserDetail = {
   id: 'layout-user', user_code: 'layout-user', display_name: 'Layout user', tenant_id: 'tenant',
   status: 'ACTIVE', metadata: {}, create_time: time, update_time: time,
-  agent_grant_count: 2, credential_count: 2, identity_count: 2, memory_count: 2
+  agent_grant_count: 2, credential_count: 2, identity_count: 2, memory_count: 2, experience_count: 0
 };
 const grants: AgentGrant[] = [true, false].map((enabled, index) => ({
   agent_id: `agent-${index}`, agent_name: index ? longValue : 'demo01',
@@ -85,7 +85,11 @@ async function prepare(page: Page, width: number, theme: string, locale: string,
     }
     const items = lists[path] ?? [];
     const data = path.endsWith('/auth/me') ? { id: 'admin', username: 'admin', role: 'ADMIN' }
-      : path === '/api/v1/users/layout-user' ? detail : { items, total: items.length, page: 1, page_size: 15 };
+      : path === '/api/v1/users/layout-user' ? detail
+      : path === '/api/v1/learning/experiences'
+        ? { items: [], total: 0, page: 1, page_size: 20,
+            counts: { PROPOSED: 0, TRIAL: 0, ACTIVE: 0, RETIRED: 0, total: 0 } }
+        : { items, total: items.length, page: 1, page_size: 15 };
     return route.fulfill({ json: { code: '0', msg: '', data } });
   });
   await page.goto('/users');
