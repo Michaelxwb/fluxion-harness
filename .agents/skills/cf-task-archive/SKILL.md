@@ -13,7 +13,7 @@ description: Archive a completed task file after completeness, correctness, trac
 
 ## 执行步骤
 
-> 项目补充：如果用户要求“复用 CI 流水线 / CI 缓存”归档，先读 `docs/operations/ci-validation-cache.md`，按 runbook 导出并 `--rebind-local` 合并 cache，再执行本流程；不要直接本地跑全量。
+> 项目补充：复用 CI 缓存归档时默认用 kimi-webbridge 控制浏览器触发/下载 artifact；先读 `docs/operations/ci-validation-cache.md`。
 
 
 ### 1. 完成度检查

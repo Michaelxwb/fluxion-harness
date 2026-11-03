@@ -38,22 +38,29 @@ heavy validator / review 结果复用到本地 `task verify-e2e` / `task archive
 `acceptance` 七个分片目前只是 CI 信号，不直接写 cache；它们的命令与 `validation.yml` 的完整
 acceptance 命令不同。
 
-## 3. 触发 CI
+## 3. 触发 CI（默认 kimi-webbridge）
 
-在分支 HEAD 上手动触发，**不要用 PR 的 merge commit**：
+**默认用 kimi-webbridge 控制用户已登录的浏览器完成触发和 artifact 下载，不要等用户提供
+token/gh，也不要先尝试用 curl 调 GitHub API。** 只有浏览器扩展不可用时，才回退到用户手动操作。
 
-```text
-https://github.com/Michaelxwb/fluxion-harness/actions/workflows/check.yml
-```
+流程：
 
-输入：
-
-```text
-export_validation_cache: true
-review_task_dir: .code-flow/tasks/<日期>/<需求目录>
-```
+1. 用 kimi-webbridge 打开 `check` 工作流页面：
+   `https://github.com/Michaelxwb/fluxion-harness/actions/workflows/check.yml`
+2. 点 **Run workflow**，分支选择本地 HEAD 所在分支
+3. 输入：
+   ```text
+   export_validation_cache: true
+   review_task_dir: .code-flow/tasks/<日期>/<需求目录>
+   ```
+4. 运行后在同一页面等待完成，下载 artifacts：
+   - `validation-cache`
+   - `verifier-cache`
+5. 如果扩展未连接，按 kimi-webbridge 的错误提示让用户连接；不要静默改用 token。
 
 `review_task_dir` 为空时只导出单测 cache；要复用 review 层就必须填需求目录。
+
+> 不要用 PR 的 merge commit 触发/复用；必须是本地 `HEAD` 对应的分支提交。
 
 ## 4. 本地合并
 
