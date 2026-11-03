@@ -204,6 +204,23 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --extra dev
+      - name: 调大 PostgreSQL 连接上限（CI 栈多副本）
+        run: |
+          # postgres:16 默认 max_connections=100；容量栈按 8/4/2 副本 × pool 10 会到 180，
+          # 故障恢复时测试客户端也会被挤出名额。服务容器不支持 command，故改配置后重启。
+          container="${{ job.services.postgres.id }}"
+          docker exec "$container" psql -U muad -d muad -v ON_ERROR_STOP=1 \
+            -c "ALTER SYSTEM SET max_connections = 300;"
+          docker restart "$container" >/dev/null
+          for _ in $(seq 1 60); do
+            if docker exec "$container" pg_isready -U muad -d muad >/dev/null 2>&1; then
+              echo "PostgreSQL ready (max_connections=300)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::PostgreSQL 未在 60s 内恢复"
+          exit 1
       - name: 生成 CI 专用 alembic ini 并迁移到 head
         run: |
           printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
@@ -240,11 +257,6 @@ jobs:
               exit 1
             fi
           else
-            if [ "${{ matrix.shard.name }}" = "capacity" ]; then
-              # CI postgres:16 默认 max_connections=100：行为验收用多副本但更小的
-              # acceptance-ci profile（2/2/2/1），避免故障恢复时把测试客户端挤出连接名额。
-              export MUAD_CAPACITY_PROFILE=tests/capacity/profiles/acceptance-ci.yml
-            fi
             uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
           fi
       - name: 上传失败用例清单（无论成败）
@@ -311,6 +323,22 @@ jobs:
         working-directory: e2e
       - name: 预检系统 Chrome
         run: google-chrome --version
+      - name: 调大 PostgreSQL 连接上限（CI 栈多副本）
+        run: |
+          # review 层会跑完整 acceptance：默认 max_connections=100 不够多副本容量栈。
+          container="${{ job.services.postgres.id }}"
+          docker exec "$container" psql -U muad -d muad -v ON_ERROR_STOP=1 \
+            -c "ALTER SYSTEM SET max_connections = 300;"
+          docker restart "$container" >/dev/null
+          for _ in $(seq 1 60); do
+            if docker exec "$container" pg_isready -U muad -d muad >/dev/null 2>&1; then
+              echo "PostgreSQL ready (max_connections=300)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::PostgreSQL 未在 60s 内恢复"
+          exit 1
       - name: 生成 CI 专用 alembic ini 并迁移到 head
         run: |
           printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
