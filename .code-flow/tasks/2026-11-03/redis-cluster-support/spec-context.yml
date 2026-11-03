@@ -50,10 +50,68 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-03T13:52:36.637758+00:00'
+          status: verified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
+          result_sha256: 19625920f6e429bb14ff41b444503119f6e513212247d2c73a8cb4cb092f6ab4
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: c914852d8200f5f27e87b3907b135e1cb3e19219198f1ce4eeaa92c5fcb6c4ec
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 34%]
+
+              ........................................................................
+              [ 68%]
+
+              ..................................................................       [100%]
+
+              210 passed in 24.82s
+
+              '
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-03T13:54:00.601265+00:00'
+          status: verified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
+          result_sha256: d2ffd399ac1f89670128f365235424e5dc89e2c54d71e3519bf1187f00f186ba
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: e45a8809c48406c81b15bb34f03ec2ac194b030d649bb3caf6e32106d72e4457
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 34%]
+
+              ........................................................................
+              [ 68%]
+
+              ..................................................................       [100%]
+
+              210 passed in 24.72s
+
+              '
       review:
         status: pending
         refs: []
@@ -102,10 +160,34 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-11-03T13:52:36.714603+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-11-03T13:54:00.672772+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -140,10 +222,34 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-11-03T13:52:36.714620+00:00'
+          status: unverified
+          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
+          artifact_sha256: null
+          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-11-03T13:54:00.672789+00:00'
+          status: unverified
+          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
+          artifact_sha256: null
+          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -195,10 +301,60 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-11-03T13:52:39.757028+00:00'
+          status: verified
+          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+          artifact_sha256: null
+          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
+          result_sha256: 332d25994b24ca134bf1f417cc12e12b07d9b7015332adf97019cfa2f5f8f003
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging.py
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_logging.py
+            exit_code: 0
+            stdout_sha256: d54d1bf7d293d857be447b98d612d0cbcc84fdbb345976c44f93191d80c0f8d9
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.37s
+
+              '
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-11-03T13:54:04.387093+00:00'
+          status: verified
+          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+          artifact_sha256: null
+          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
+          result_sha256: b748064fed3048b42c32aef86f483c3d8a490dc81bd6e29f55dc5f111c54091c
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging.py
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_logging.py
+            exit_code: 0
+            stdout_sha256: 8c831d002261f7f94135ba38b82b3135fbf6a5fee25854ed79ce4a55836e5083
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 3.23s
+
+              '
       review:
         status: pending
         refs: []
@@ -249,10 +405,34 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-11-03T13:52:39.830320+00:00'
+          status: unverified
+          rule_text_sha256: 9bfa326bb7da3ce17fab7298a71fd493548b90109dc9850a2645170ba1ce61c1
+          artifact_sha256: null
+          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-11-03T13:54:04.457421+00:00'
+          status: unverified
+          rule_text_sha256: 9bfa326bb7da3ce17fab7298a71fd493548b90109dc9850a2645170ba1ce61c1
+          artifact_sha256: null
+          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -303,10 +483,58 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-03T13:52:42.717526+00:00'
+          status: verified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
+          result_sha256: 1d633545694bfe72823999f7fc6ce463dfe1f6b6db35225d11e23f2637728641
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 0352cd95bf8aa06837afef8c6b845f5ec03edad0dfb05041a07a66e94c4a535b
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.42s
+
+              '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-03T13:54:07.758993+00:00'
+          status: verified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
+          result_sha256: 52fd0a844e2ae9e09449137ed6fe49aa1ca780b3991292d9d8f4eb0628ef8f5b
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 9558480b987591ecbe38bf366fc27240dff99fa0f3c28499136d3842d7f3eb22
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.85s
+
+              '
       review:
         status: pending
         refs: []
@@ -412,10 +640,34 @@ bindings:
         decision: null
         evidence: []
       code:
-        status: pending
+        status: unverified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-11-03T13:52:42.840802+00:00'
+          status: unverified
+          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+          artifact_sha256: null
+          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-11-03T13:54:07.867644+00:00'
+          status: unverified
+          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+          artifact_sha256: null
+          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []

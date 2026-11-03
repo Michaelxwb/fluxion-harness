@@ -634,7 +634,7 @@
       "kind": "functional",
       "boundary": "create_redis_client 与 SharedSettings 的纯配置校验；不建立真实连接",
       "owner": "TASK-001",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -698,7 +698,136 @@
       "preconditions": [
         "不依赖真实 Redis"
       ],
-      "check": "CHK-838fd30e1d73"
+      "check": "CHK-838fd30e1d73",
+      "revision": 2,
+      "evidence": {
+        "id": "S-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 824.1865419999998,
+        "check_id": "CHK-838fd30e1d73",
+        "input_hash": "eda5a532e3a1a99b6b86eb961335b43fd4da6f70f4f5902e452a98b6a3df9e49",
+        "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+        "check_config": {
+          "id": "CHK-838fd30e1d73",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/common/test_redis_client.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 2,
+        "run_id": "bd470983b08a493986bea2eb4af783c2",
+        "executed_at": "2026-11-03T13:53:35.358864+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/common/test_redis_client.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "eda5a532e3a1a99b6b86eb961335b43fd4da6f70f4f5902e452a98b6a3df9e49"
+      },
+      "runs": [
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 838.0106250000001,
+          "check_id": "CHK-838fd30e1d73",
+          "input_hash": "d83f3a16e1c2808aa8c4f04f69f122837feca0b59135dad8bf99853fcac395d6",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-838fd30e1d73",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/common/test_redis_client.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "e15f3e0d9dcb4559a811c7ab0233b5dc",
+          "executed_at": "2026-11-03T13:52:11.025459+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/common/test_redis_client.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "d83f3a16e1c2808aa8c4f04f69f122837feca0b59135dad8bf99853fcac395d6"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 824.1865419999998,
+          "check_id": "CHK-838fd30e1d73",
+          "input_hash": "eda5a532e3a1a99b6b86eb961335b43fd4da6f70f4f5902e452a98b6a3df9e49",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-838fd30e1d73",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/common/test_redis_client.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "bd470983b08a493986bea2eb4af783c2",
+          "executed_at": "2026-11-03T13:53:35.358864+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/common/test_redis_client.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "eda5a532e3a1a99b6b86eb961335b43fd4da6f70f4f5902e452a98b6a3df9e49"
+        }
+      ]
     },
     {
       "id": "S-08",

@@ -20,7 +20,7 @@
 | S-04 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Gateway 入队 + 真实 Connector XREAD + 真实 cluster Redis + 真实 PG | TASK-004 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_outbound.py"] | . | 1200 | P1 | auto | local-api | - | - | - | no |
 | S-05 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Console 子进程 + 真实 cluster Redis（多 slot session） | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_session.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | S-06 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程 + 真实 cluster Redis（pub/sub、单 key、pipeline、scan、token） | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_surfaces.py"] | . | 1800 | P1 | auto | local-api | - | - | - | no |
-| S-07 | redis-cluster-support.design.md#2.5 验收条件 | contract | `create_redis_client` / `create_pubsub_client` 的纯配置校验（不建立连接） | TASK-001 | planned | ["uv", "run", "pytest", "-q", "tests/common/test_redis_client.py"] | . | 300 | P0 | auto | none | - | - | - | no |
+| S-07 | redis-cluster-support.design.md#2.5 验收条件 | contract | `create_redis_client` / `create_pubsub_client` 的纯配置校验（不建立连接） | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/common/test_redis_client.py"] | . | 300 | P0 | auto | none | - | - | - | no |
 | S-08 | redis-cluster-support.design.md#2.5 验收条件 | unit | 纯 Python key builder + redis.crc.key_slot + 源码扫描 | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py", "tests/architecture/test_redis_client_construction.py"] | . | 300 | P0 | auto | none | - | - | - | no |
 | E-01 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 3 主 3 从 Redis Cluster + 真实 Gateway/Connector + 真实 PostgreSQL | TASK-008 | planned | - | . | 3600 | P0 | deferred | staging | - | - | - | no |
 | E-02 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程 + 真实 cluster Redis；运行中停止集群 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_degradation.py"] | . | 1200 | P1 | auto | local-api | - | - | - | no |
@@ -29,7 +29,7 @@
 
 ## TASK-001: 公共 Redis 客户端入口（keyed + pub/sub + 异常归一 + 拓扑自校验）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: redis-cluster-support.design.md#3.4 接口设计, redis-cluster-support.design.md#3.5.2 可靠性设计, redis-cluster-support.design.md#3.1 方案选型
@@ -45,29 +45,37 @@
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/common/test_redis_client.py tests/common/test_redis_pubsub_client.py`
-- [ ] `create_redis_client`：standalone 分支保持现有 `Redis.from_url` 参数；cluster 分支校验 db=0、单/多 seed、IPv6、非法 seed、`require_full_coverage`
-- [ ] `create_pubsub_client` / `create_pubsub_client_from_cluster`：cluster 派生节点连接；全不可达抛 `ConnectionError`；不使用 sharded pub/sub
-- [ ] `verify_redis_topology`：cluster 下 `INFO server.redis_mode=cluster`、槽位全覆盖、db=0；standalone 连到 cluster 失败
-- [ ] 异常归一：`RedisClusterException` → `RedisUnavailableError(RedisError)`，错误消息只含 host/port/mode
-- [ ] [S-07][contract] 覆盖 standalone/cluster 模式选择、db=0、缺失 URL、非法 mode、非法 seed、多 seed 去重与主 seed 合并；不建立真实连接
-- [ ] [harness-arch#RULE-arch-001] verifier：`uv run pytest -q tests/architecture`；不新增部署单元，四单元边界与 Connector 角色不变
-- [ ] [harness-log#RULE-log-001] verifier：`uv run pytest -q tests/common/test_redis_client.py`；启动/错误日志单行、走 logging-kit、不输出 DSN
-- [ ] [harness-secret#RULE-secret-001] verifier：同命令；错误与日志不含密码或完整 DSN，`REDIS_URL` 仍只来自 Secret
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/common/test_redis_client.py tests/common/test_redis_pubsub_client.py`
+- [x] `create_redis_client`：standalone 分支保持现有 `Redis.from_url` 参数；cluster 分支校验 db=0、单/多 seed、IPv6、非法 seed、`require_full_coverage`
+- [x] `create_pubsub_client` / `create_pubsub_client_from_cluster`：cluster 派生节点连接；全不可达抛 `ConnectionError`；不使用 sharded pub/sub
+- [x] `verify_redis_topology`：cluster 下 `INFO server.redis_mode=cluster`、槽位全覆盖、db=0；standalone 连到 cluster 失败
+- [x] 异常归一：`RedisClusterException` → `RedisUnavailableError(RedisError)`，错误消息只含 host/port/mode
+- [x] [S-07][contract] 覆盖 standalone/cluster 模式选择、db=0、缺失 URL、非法 mode、非法 seed、多 seed 去重与主 seed 合并；不建立真实连接
+- [x] [harness-arch#RULE-arch-001] verifier：`uv run pytest -q tests/architecture`；不新增部署单元，四单元边界与 Connector 角色不变
+- [x] [harness-log#RULE-log-001] verifier：`uv run pytest -q tests/common/test_redis_client.py`；启动/错误日志单行、走 logging-kit、不输出 DSN
+- [x] [harness-secret#RULE-secret-001] verifier：同命令；错误与日志不含密码或完整 DSN，`REDIS_URL` 仍只来自 Secret
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-07 | contract | SharedSettings + 工厂纯校验（不建连接） | standalone 返回 Redis；cluster db=0 返回 RedisCluster；db≠0/缺 URL/非法 mode/非法 seed 抛 RedisConfigError；多 seed 去重并合并主 seed；standalone 收到 seeds 只 warning | tests/common/test_redis_client.py | uv run pytest -q tests/common/test_redis_client.py | planned |
+| S-07 | contract | SharedSettings + 工厂纯校验（不建连接） | standalone 返回 Redis；cluster db=0 返回 RedisCluster；db≠0/缺 URL/非法 mode/非法 seed 抛 RedisConfigError；多 seed 去重并合并主 seed；standalone 收到 seeds 只 warning | tests/common/test_redis_client.py | uv run pytest -q tests/common/test_redis_client.py | verified |
 
 ### Acceptance Evidence
 
-> 由 `cf-task-start` 在编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-07 | FAIL: ModuleNotFoundError: No module named 'muad_common.redis_client' | PASS: 27 passed（tests/common/test_redis_client.py + test_redis_pubsub_client.py） | tests/common/test_redis_client.py 全文件；tests/common/test_redis_pubsub_client.py 全文件 | 纯配置校验（不建立真实连接）；集群异常归一用 fake client 注入 RedisClusterException | verified |
+| RULE-01/RULE-04 | 同 S-07 | PASS: 模式/DB/拓扑校验用例通过 | test_cluster_requires_db_zero / test_topology_* | SharedSettings + fake client | verified |
+| RULE-09/RULE-10 | 同 S-07 | PASS: pub/sub 派生与异常归用例通过 | test_pubsub_from_cluster_derives_primary_node / test_topology_normalizes_cluster_exception | fake cluster + fake redis | verified |
+- S-07: verified — automated command passed; run_id=e15f3e0d9dcb4559a811c7ab0233b5dc (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=bd470983b08a493986bea2eb4af783c2 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-03] created (draft)
+- [2026-11-03] started
+- [2026-11-03] completed (done)
 
 ---
 

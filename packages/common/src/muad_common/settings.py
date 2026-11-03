@@ -150,6 +150,9 @@ class SharedSettings(BaseSettings):
     # 入口快照节拍（`BotSnapshotCache` 的拉取间隔）：默认与模块常量 `BOT_SNAPSHOT_POLL_SEC` 同值，
     # 验收栈注入小值，让刚建的 WEBCHAT 入口在可接受等待内进入网关快照（生产行为不变）。
     bot_snapshot_poll_sec: float = Field(default=30.0, gt=0)
+    #: Redis 接入模式与集群 seed（design API-01）：默认 standalone；cluster 才走 RedisCluster。
+    redis_mode: str = "standalone"
+    redis_cluster_seeds: str = ""
 
     @field_validator("*", mode="before")
     @classmethod
