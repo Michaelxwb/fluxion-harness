@@ -26,9 +26,34 @@ export function auditActionLabel(t: Translate, record: AuditListItem): string {
   if (record.auditType === 'EGRESS') {
     return t('audit.action.egressCall', { operation: action });
   }
-  const key = `audit.action.${action}`;
-  const label = t(key);
-  return label === key ? action : label;
+  const labels: Record<string, string> = {
+    CREATE: t('audit.action.CREATE'),
+    UPDATE: t('audit.action.UPDATE'),
+    DELETE: t('audit.action.DELETE'),
+    RESTORE: t('audit.action.RESTORE'),
+    ENABLE: t('audit.action.ENABLE'),
+    DISABLE: t('audit.action.DISABLE'),
+    LOGIN: t('audit.action.LOGIN'),
+    LOGOUT: t('audit.action.LOGOUT'),
+    PAUSE: t('audit.action.PAUSE'),
+    RESUME: t('audit.action.RESUME'),
+    ACTIVATE: t('audit.action.ACTIVATE'),
+    RETIRE: t('audit.action.RETIRE'),
+    TRIAL_START: t('audit.action.TRIAL_START'),
+    TRIAL_PROMOTE: t('audit.action.TRIAL_PROMOTE'),
+    TRIAL_RETIRE: t('audit.action.TRIAL_RETIRE'),
+    REGENERATE: t('audit.action.REGENERATE'),
+    REVISE: t('audit.action.REVISE'),
+    CLEAR: t('audit.action.CLEAR'),
+    IMPORT: t('audit.action.IMPORT'),
+    BIND: t('audit.action.BIND'),
+    UNBIND: t('audit.action.UNBIND'),
+    UPLOAD: t('audit.action.UPLOAD'),
+    CANCEL: t('audit.action.CANCEL'),
+    SELECT: t('audit.action.SELECT'),
+    SEND: t('audit.action.SEND'),
+  };
+  return labels[action] ?? action;
 }
 
 export function auditResourceTypeLabel(t: Translate, value: string): string {

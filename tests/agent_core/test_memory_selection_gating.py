@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-import pytest
 from muad_agent_core.memory import rank
 from muad_agent_core.memory.rank import (
     MemoryRecord,
@@ -55,18 +54,10 @@ def test_s07_gating_excludes_low_score_and_empty_query_facts() -> None:
     records = [
         _record("fact.customer-format", "客户报表用表格"),
         _record("fact.weather", "明天天气晴"),
-        _record(
-            "pref.briefing", "简报先给结论", category=MemoryCategory.PREFERENCE, confirmed_minutes_ago=1
-        ),
-        _record(
-            "pref.style", "回答用中文", category=MemoryCategory.WORK_STYLE, confirmed_minutes_ago=2
-        ),
-        _record(
-            "pref.extra-1", "偏好一", category=MemoryCategory.PREFERENCE, confirmed_minutes_ago=3
-        ),
-        _record(
-            "pref.extra-2", "偏好二", category=MemoryCategory.PREFERENCE, confirmed_minutes_ago=4
-        ),
+        _record("pref.briefing", "简报先给结论", category=MemoryCategory.PREFERENCE, confirmed_minutes_ago=1),
+        _record("pref.style", "回答用中文", category=MemoryCategory.WORK_STYLE, confirmed_minutes_ago=2),
+        _record("pref.extra-1", "偏好一", category=MemoryCategory.PREFERENCE, confirmed_minutes_ago=3),
+        _record("pref.extra-2", "偏好二", category=MemoryCategory.PREFERENCE, confirmed_minutes_ago=4),
     ]
     selected = select_for_injection(
         records, query="客户报表", now=NOW, inject_inferred=True, preference_items=3
@@ -76,20 +67,15 @@ def test_s07_gating_excludes_low_score_and_empty_query_facts() -> None:
     assert "fact.weather" not in keys
     assert keys[:3] == ["pref.briefing", "pref.style", "pref.extra-1"]
 
-    empty = select_for_injection(
-        records, query=None, now=NOW, inject_inferred=True, preference_items=3
-    )
+    empty = select_for_injection(records, query=None, now=NOW, inject_inferred=True, preference_items=3)
     assert [record.memory_key for record in empty] == [
         "pref.briefing",
         "pref.style",
         "pref.extra-1",
     ]
-    assert all(record.category in (MemoryCategory.PREFERENCE, MemoryCategory.WORK_STYLE)
-               for record in empty)
+    assert all(record.category in (MemoryCategory.PREFERENCE, MemoryCategory.WORK_STYLE) for record in empty)
 
-    again = select_for_injection(
-        records, query="客户报表", now=NOW, inject_inferred=True, preference_items=3
-    )
+    again = select_for_injection(records, query="客户报表", now=NOW, inject_inferred=True, preference_items=3)
     assert [record.memory_key for record in again] == keys
 
 
@@ -126,9 +112,7 @@ def test_b02_versions_only_latest_is_injected() -> None:
         _record("fact.customer-format", "客户报表用表格", version=1),
         _record("fact.customer-format", "客户报表用 Markdown 表格", version=2),
     ]
-    selected = select_for_injection(
-        records, query="客户报表", now=NOW, inject_inferred=True
-    )
+    selected = select_for_injection(records, query="客户报表", now=NOW, inject_inferred=True)
     assert [record.version for record in selected] == [2]
 
 
@@ -144,9 +128,7 @@ def test_b03_upper_bound_selection_stays_in_process(monkeypatch) -> None:
         return original(text)
 
     monkeypatch.setattr(rank, "tokenize", counting)
-    selected = select_for_injection(
-        records + upper, query="客户报表", now=NOW, inject_inferred=True
-    )
+    selected = select_for_injection(records + upper, query="客户报表", now=NOW, inject_inferred=True)
     # 候选 token 集已预计算：请求期只 token 化查询本身。
     assert calls == ["客户报表"]
     assert isinstance(selected, tuple)

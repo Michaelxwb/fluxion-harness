@@ -16,7 +16,7 @@ def test_index_route_mounts_overview_page() -> None:
     assert "<Route index element={<OverviewPage />} />" in app
     menu = (MODULE.parents[1] / "config/menu.ts").read_text()
     entries = re.findall(r"\{\s*path:\s*'([^']*)'", menu)
-    assert entries[0] == "/" and len(entries) == 11
+    assert entries[0] == "/" and len(entries) == 12
 
 
 def test_navigation_targets_are_real_and_user_resource_respects_role() -> None:

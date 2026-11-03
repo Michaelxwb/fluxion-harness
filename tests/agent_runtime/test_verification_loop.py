@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import pytest
 from muad_agent_core.agent import (
-    AgentRunRequest,
     AgentRunner,
+    AgentRunRequest,
     RunnerVerificationExhausted,
     VerificationStatus,
     run_verification,
 )
 from muad_agent_core.model import ModelRequest, ModelResponse, ModelRole
 from muad_agent_core.tools import ToolRegistry
-
 from muad_agent_runtime.application.verification import VerifierRegistry
 
 
@@ -64,8 +63,7 @@ async def test_s04_only_verified_candidate_reaches_the_answer() -> None:
     assert turns == ["final right"]
     second = provider.requests[1]
     assert any(
-        message.role is ModelRole.USER and "未通过验证" in message.content
-        for message in second.messages
+        message.role is ModelRole.USER and "未通过验证" in message.content for message in second.messages
     )
 
 
@@ -89,9 +87,7 @@ async def test_s04_exhaustion_is_explicit_and_bounded() -> None:
         verification_max_attempts=2,
     )
     with pytest.raises(RunnerVerificationExhausted):
-        await runner.run(
-            AgentRunRequest(model_id="m", instructions="i"), on_assistant_turn=on_assistant_turn
-        )
+        await runner.run(AgentRunRequest(model_id="m", instructions="i"), on_assistant_turn=on_assistant_turn)
 
     assert len(provider.requests) == 2
     assert turns == []

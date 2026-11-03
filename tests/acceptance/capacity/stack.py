@@ -991,9 +991,16 @@ class CapacityStack:
         return self._probe
 
     def start(self) -> None:
-        """取得数据存储 → 建共享卷 → 起探针 → 按 Console→Runtime→Worker→Gateway 起四单元 → 起代理。"""
         if self._started:
             raise StackError("栈已启动：重复 start 不重建（替换实例用 replace_instance）")
+        try:
+            self._start()
+        except Exception:
+            self.teardown()
+            raise
+
+    def _start(self) -> None:
+        """取得数据存储 → 建共享卷 → 起探针 → 按 Console→Runtime→Worker→Gateway 起四单元 → 起代理。"""
         self._datastore = self._datastore or acquire_datastore()
         self.artifacts_root.mkdir(parents=True, exist_ok=True)
         for unit in UNITS:
@@ -1096,7 +1103,11 @@ class CapacityStack:
             skill_cache_root=self.skill_cache_root(unit, index),
             workers=self.process_counts[unit],
         )
-        instance.start(ready_timeout_sec=self._ready_timeout_sec)
+        try:
+            instance.start(ready_timeout_sec=self._ready_timeout_sec)
+        except Exception:
+            instance.stop()
+            raise
         if index < len(self._ports[unit]):
             self._ports[unit][index] = port
         else:

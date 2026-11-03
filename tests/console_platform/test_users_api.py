@@ -321,6 +321,7 @@ async def test_create_and_update_responses_exclude_aggregate_counts(
             "credential_count",
             "identity_count",
             "memory_count",
+            "experience_count",
         }
     finally:
         await _delete_user(payload["id"])

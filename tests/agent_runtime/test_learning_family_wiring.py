@@ -4,31 +4,27 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-
-import sqlalchemy as sa
 from types import SimpleNamespace
 
+import sqlalchemy as sa
 from muad_agent_core.model import ModelMessage, ModelRole, ModelToolCall
-from muad_agent_runtime.application.executor import _ExecutorEventEmitter
-from muad_agent_runtime.application.run_events import DeltaWindow
 from muad_agent_runtime.application.context_settings import frozen_learning_payload, learning_of
-from muad_agent_runtime.application.executor import skill_family_from_tool_calls
+from muad_agent_runtime.application.executor import _ExecutorEventEmitter, skill_family_from_tool_calls
 from muad_agent_runtime.application.memory_cache import MemoryCandidateCache
 from muad_agent_runtime.application.memory_context import MemoryContextLoader
 from muad_agent_runtime.application.memory_queries import MemoryQueries, MemoryReadScope
+from muad_agent_runtime.application.run_events import DeltaWindow
 from muad_agent_runtime.application.run_service import build_snapshot
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import MemoryScope, UserMemory
-from muad_contracts import ResolveDefinitionResponse, ResolvedAgent, ResolvedModel
+from muad_contracts import ResolvedAgent, ResolveDefinitionResponse, ResolvedModel
 from muad_contracts.platform_settings import MemoryPolicySettings
 
 AGENT_ID = uuid.uuid4()
 
 
 def test_skill_family_from_tool_calls() -> None:
-    call = ModelToolCall(
-        id="c1", name="execute_skill", arguments={"skill_key": "demo", "input": {}}
-    )
+    call = ModelToolCall(id="c1", name="execute_skill", arguments={"skill_key": "demo", "input": {}})
     script = ModelToolCall(id="c2", name="run_skill_script", arguments={"skill_key": "demo"})
     unrelated = ModelToolCall(id="c3", name="load_skill", arguments={"skill_key": "demo"})
     assert skill_family_from_tool_calls([call]) == "skill:demo"
@@ -43,7 +39,7 @@ async def _seed(tenant: str, user: uuid.UUID) -> None:
         session.add(MemoryScope(tenant_id=tenant, user_id=user, revision=1))
         rows = [
             ("exp.skill", "skill:demo", "ACTIVE", "skill 族经验：逐项核对"),
-            (f"exp.agent", f"agent:{AGENT_ID}", "ACTIVE", "agent 族经验：先确认目标"),
+            ("exp.agent", f"agent:{AGENT_ID}", "ACTIVE", "agent 族经验：先确认目标"),
             ("exp.proposed", "skill:demo", "PROPOSED", "尚未激活"),
         ]
         for key, signature, state, value in rows:
@@ -114,24 +110,16 @@ async def test_s01_family_lane_follows_skill_and_agent_fallback(database_guard: 
 
 
 def test_s02_freezes_learning_settings_into_snapshot() -> None:
-    payload = frozen_learning_payload(
-        {"learning": {"learning_enabled": True, "retrieval_min_score": 0.7}}
-    )
+    payload = frozen_learning_payload({"learning": {"learning_enabled": True, "retrieval_min_score": 0.7}})
     assert payload["learning_enabled"] is True
     assert payload["retrieval_min_score"] == 0.7
     assert payload["retrieval_preference_items"] == 3
 
     resolved = ResolveDefinitionResponse(
-        agent=ResolvedAgent(
-            id=AGENT_ID, key="demo", revision=1, instructions="fixed", runtime_config={}
-        ),
-        model=ResolvedModel(
-            id=uuid.uuid4(), revision=1, model_id="probe", base_url="http://127.0.0.1:1"
-        ),
+        agent=ResolvedAgent(id=AGENT_ID, key="demo", revision=1, instructions="fixed", runtime_config={}),
+        model=ResolvedModel(id=uuid.uuid4(), revision=1, model_id="probe", base_url="http://127.0.0.1:1"),
     )
-    snapshot = build_snapshot(
-        run_id=uuid.uuid4(), tenant_id="t", resolved=resolved, learning=payload
-    )
+    snapshot = build_snapshot(run_id=uuid.uuid4(), tenant_id="t", resolved=resolved, learning=payload)
     frozen = learning_of(snapshot.policy_json)
     assert frozen.enabled is True
     assert frozen.min_score == 0.7

@@ -14,7 +14,6 @@ from muad_agent_runtime.application.learning_replay import LearningReplay, Repla
 from muad_agent_runtime.application.learning_scheduler import LearningSupervisor
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import UserMemory
-from muad_contracts import RunStatus
 
 from tests.agent_runtime.learning_wiring_support import (
     Settings,
@@ -28,9 +27,7 @@ from tests.agent_runtime.learning_wiring_support import (
 async def _experience(tenant: str) -> UserMemory | None:
     async with get_session_factory()() as session:
         return await session.scalar(
-            sa.select(UserMemory).where(
-                UserMemory.tenant_id == tenant, UserMemory.category == "PROCEDURE"
-            )
+            sa.select(UserMemory).where(UserMemory.tenant_id == tenant, UserMemory.category == "PROCEDURE")
         )
 
 
@@ -65,15 +62,19 @@ async def test_s05_replay_pass_starts_trial_then_promotes(database_guard: None) 
 
         async with factory() as session:
             actions = (
-                await session.execute(
-                    sa.text(
-                        "SELECT action FROM control.config_audit_log"
-                        " WHERE tenant_id=:t AND resource_type='MEMORY_EXPERIENCE'"
-                        " ORDER BY create_time"
-                    ),
-                    {"t": tenant},
+                (
+                    await session.execute(
+                        sa.text(
+                            "SELECT action FROM control.config_audit_log"
+                            " WHERE tenant_id=:t AND resource_type='MEMORY_EXPERIENCE'"
+                            " ORDER BY create_time"
+                        ),
+                        {"t": tenant},
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
         assert list(actions) == ["TRIAL_START", "TRIAL_PROMOTE"]
     finally:
         await cleanup(tenant)

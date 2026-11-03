@@ -79,6 +79,12 @@ async function mockApi(page: Page, state: MockState): Promise<void> {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
+    if (path === '/api/v1/learning/experiences') {
+      return route.fulfill({ json: { code: '0', msg: '', data: {
+        items: [], total: 0, page: 1, page_size: 20,
+        counts: { total: 0, PROPOSED: 0, TRIAL: 0, ACTIVE: 0, RETIRED: 0 }
+      } } });
+    }
     if (path.endsWith('/auth/me')) {
       await route.fulfill({ json: envelope(ADMIN) });
       return;

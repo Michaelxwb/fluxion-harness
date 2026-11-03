@@ -40,9 +40,7 @@ CHANGED_FILES = (TYPES, SERVICE, FILTER_BAR, SHEET, HOOK, PAGE)
 
 CONSOLE_APP = ROOT / "apps/console-platform/backend/src/muad_console_platform"
 REPOSITORY = CONSOLE_APP / "infrastructure/repositories/audit_query_repository.py"
-EGRESS_WRITER = (
-    ROOT / "apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py"
-)
+EGRESS_WRITER = ROOT / "apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py"
 
 # 设计文档 v1.5 登记的三个历史写法：后端写入器从未产出（实际为小写 `project_platform`、
 # `PLATFORM_USER`、`AGENT_ACCESS_GRANT`），但既有契约与词条已把它们计入模块登记域。
@@ -135,9 +133,12 @@ def _config_resource_types() -> set[str]:
     覆盖小写形态）。凡 `AUDIT_*` 字符串常量都按资源类型计。
     """
     values: set[str] = set()
-    for path in sorted((CONSOLE_APP / "application").glob("*.py")):
+    for path in sorted((CONSOLE_APP / "application").glob("*.py")) + sorted(
+        (ROOT / "apps/agent-runtime/src/muad_agent_runtime/application").glob("*.py")
+    ):
         source = _read(path)
         values |= set(AUDIT_CONST.findall(source))
+        values |= set(re.findall(r'AUDIT_RESOURCE = "([^"]+)"', source))
         values |= set(INLINE_RESOURCE_TYPE.findall(source))
     assert values, "配置侧资源类型解析疑似失效"
     return values
@@ -184,9 +185,7 @@ def test_b214_agent_filter_is_wired_to_agent_id_end_to_end() -> None:
     assert "resourceType" not in agent_control, "Agent 筛选不得再冒充 resourceType"
 
     resource_control = _window(bar, 'data-testid="audit-filter-resourceType"', "/>")
-    assert "value={value.resourceType??undefined}" in resource_control, (
-        "资源类型筛选控件须绑定 resourceType"
-    )
+    assert "value={value.resourceType??undefined}" in resource_control, "资源类型筛选控件须绑定 resourceType"
     assert "emit({resourceType:(rawasstring)??undefined})" in resource_control, (
         "资源类型筛选须上抛 resourceType"
     )
@@ -205,9 +204,7 @@ def test_b214_resource_type_options_cover_backend_domain() -> None:
     extra = sorted(options - actual - LEGACY_ALIASES)
     assert not extra, f"筛选项出现值域外的取值（词条无处可依）：{extra}"
 
-    assert "optionList={RESOURCE_TYPES.map(" in _compact(_read(FILTER_BAR)), (
-        "筛选下拉取值须取 RESOURCE_TYPES"
-    )
+    assert "optionList={RESOURCE_TYPES.map(" in _compact(_read(FILTER_BAR)), "筛选下拉取值须取 RESOURCE_TYPES"
 
 
 def test_b214_detail_resource_type_row_is_localized_with_raw_fallback() -> None:
@@ -236,9 +233,7 @@ def test_b214_refresh_failure_keeps_rows_with_notice_but_first_load_uses_error_s
 
     page = _compact(_read(PAGE))
     assert "refreshFailed" in page and "firstLoadFailed" in page, "须显式区分两种失败"
-    assert "constrefreshFailed=failed&&items.length>0;" in page, (
-        "刷新失败 = 取数失败且已有行可保留"
-    )
+    assert "constrefreshFailed=failed&&items.length>0;" in page, "刷新失败 = 取数失败且已有行可保留"
     assert "constfirstLoadFailed=failed&&!refreshFailed;" in page, "首载失败 = 取数失败且无行"
     assert "failed:firstLoadFailed," in page, "表格整页 ErrorState 只由首载失败驱动"
     assert "Banner" in page, "刷新失败须用非破坏性内联提示（与导出失败同形态）"

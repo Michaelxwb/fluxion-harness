@@ -105,28 +105,34 @@ function resourceTypeLabel(t: TFunction, value: string): string {
 }
 
 /** 对象/数组型来源字段（before/after/argsPreview）按 JSON 渲染，其余走 `text`。 */
-const CHANGE_LABELS: Record<string, string> = {
-  activation_state: '状态',
-  experience_key: '经验',
-  user_id: '用户',
-  operator: '操作者',
-  reason: '原因',
-  base_config_hash: '配置指纹',
-  family: '任务族',
-  paused: '暂停',
-  category: '类别'
-};
+function changeLabels(t: TFunction): Record<string, string> {
+  return {
+    activation_state: t('audit.change.labels.activation_state'),
+    experience_key: t('audit.change.labels.experience_key'),
+    user_id: t('audit.change.labels.user_id'),
+    operator: t('audit.change.labels.operator'),
+    reason: t('audit.change.labels.reason'),
+    base_config_hash: t('audit.change.labels.base_config_hash'),
+    family: t('audit.change.labels.family'),
+    paused: t('audit.change.labels.paused'),
+    category: t('audit.change.labels.category'),
+  };
+}
 
-const CHANGE_VALUES: Record<string, string> = {
-  ACTIVE: '已生效',
-  TRIAL: '试用中',
-  PROPOSED: '待评估',
-  RETIRED: '已退休',
-  PROCEDURE: '过程经验',
-  FAILURE_PATTERN: '失败模式',
-  VERIFICATION: '验证方法',
-  automatic: '系统/自动'
-};
+
+function changeValues(t: TFunction): Record<string, string> {
+  return {
+    ACTIVE: t('audit.change.values.ACTIVE'),
+    TRIAL: t('audit.change.values.TRIAL'),
+    PROPOSED: t('audit.change.values.PROPOSED'),
+    RETIRED: t('audit.change.values.RETIRED'),
+    PROCEDURE: t('audit.change.values.PROCEDURE'),
+    FAILURE_PATTERN: t('audit.change.values.FAILURE_PATTERN'),
+    VERIFICATION: t('audit.change.values.VERIFICATION'),
+    automatic: t('audit.change.values.automatic'),
+  };
+}
+
 
 function formatChange(value: Record<string, unknown>, t: TFunction, field: string): ReactNode {
   return (
@@ -134,7 +140,7 @@ function formatChange(value: Record<string, unknown>, t: TFunction, field: strin
       {Object.entries(value).map(([key, item]) => (
         <div key={key} style={{ display: 'flex', gap: 8, padding: '2px 0' }}>
           <span style={{ color: 'var(--semi-color-text-2)', minWidth: 96 }}>
-            {CHANGE_LABELS[key] ?? key}
+            {changeLabels(t)[key] ?? key}
           </span>
           <span style={{ overflowWrap: 'anywhere' }}>
             {item === null || item === undefined
@@ -142,7 +148,7 @@ function formatChange(value: Record<string, unknown>, t: TFunction, field: strin
               : typeof item === 'string'
                 ? key === 'base_config_hash'
                   ? <span title={item}>{item.slice(0, 14)}…</span>
-                  : CHANGE_VALUES[item] ?? (key === 'user_id' ? shortId(item) : item)
+                  : changeValues(t)[item] ?? (key === 'user_id' ? shortId(item) : item)
                 : typeof item === 'object'
                   ? JSON.stringify(item)
                   : text(item)}

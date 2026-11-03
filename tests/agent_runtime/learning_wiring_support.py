@@ -16,10 +16,10 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     Conversation,
     EvalCase,
     EvalReport,
+    LearningJob,
     MemoryCommandReceipt,
     MemoryScope,
     RunRecord,
-    LearningJob,
     RuntimeSnapshot,
     UserMemory,
     UserMemoryHistory,
@@ -92,9 +92,7 @@ async def seed_runs(tenant: str, user: uuid.UUID, count: int = 3) -> list[uuid.U
                 agent=ResolvedAgent(
                     id=run.agent_id, key="demo", revision=1, instructions="你是助手", runtime_config={}
                 ),
-                model=ResolvedModel(
-                    id=uuid.uuid4(), revision=1, model_id="probe", base_url=BASE_URL
-                ),
+                model=ResolvedModel(id=uuid.uuid4(), revision=1, model_id="probe", base_url=BASE_URL),
             )
             snapshot = build_snapshot(run_id=run.id, tenant_id=tenant, resolved=resolved)
             session.add(snapshot)
@@ -130,9 +128,7 @@ async def seed_runs(tenant: str, user: uuid.UUID, count: int = 3) -> list[uuid.U
                     )
                 )
         await session.execute(
-            sa.update(Conversation)
-            .where(Conversation.id == conversation_id)
-            .values(last_seq=seq)
+            sa.update(Conversation).where(Conversation.id == conversation_id).values(last_seq=seq)
         )
         await session.commit()
     return run_ids
@@ -163,9 +159,7 @@ async def seed_experience(
                 confirmation_event_id=uuid.uuid4() if author == "USER" else None,
                 last_confirmed_at=datetime.now(UTC) if author == "USER" else None,
                 confirmed_count=1 if author == "USER" else 0,
-                expires_at=(
-                    datetime.now(UTC) + timedelta(days=365) if author == "AGENT" else None
-                ),
+                expires_at=(datetime.now(UTC) + timedelta(days=365) if author == "AGENT" else None),
                 activation_state=state,
                 task_signature=FAMILY,
                 trigger_text="客户 JSON",

@@ -23,7 +23,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     RuntimeSnapshot,
     UserMemory,
 )
-from muad_contracts import ResolveDefinitionResponse, ResolvedAgent, ResolvedModel, RunStatus
+from muad_contracts import ResolvedAgent, ResolveDefinitionResponse, ResolvedModel, RunStatus
 
 
 def _response(text: str) -> httpx.Response:
@@ -61,9 +61,7 @@ async def _seed(tenant: str, user: uuid.UUID) -> tuple[RunRecord, EvalCase]:
             agent=ResolvedAgent(
                 id=run.agent_id, key="demo", revision=1, instructions="你是助手", runtime_config={}
             ),
-            model=ResolvedModel(
-                id=uuid.uuid4(), revision=1, model_id="probe", base_url="http://replay.test"
-            ),
+            model=ResolvedModel(id=uuid.uuid4(), revision=1, model_id="probe", base_url="http://replay.test"),
         )
         snapshot = build_snapshot(run_id=run.id, tenant_id=tenant, resolved=resolved)
         session.add(snapshot)

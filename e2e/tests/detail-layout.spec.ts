@@ -92,6 +92,12 @@ async function prepare(page: Page, index: number, mode: string, options: {
   }, { mode, locale });
   await page.route('**/api/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/v1/learning/experiences') {
+      return route.fulfill({ json: { code: '0', msg: '', data: {
+        items: [], total: 0, page: 1, page_size: 20,
+        counts: { total: 0, PROPOSED: 0, TRIAL: 0, ACTIVE: 0, RETIRED: 0 }
+      } } });
+    }
     let data: unknown = { items: [], total: 0, page: 1, page_size: 20 };
     if (path.endsWith('/auth/me')) data = { id: 'admin', username: 'admin', role: 'ADMIN' };
     if (path === `/api/v1/${entry.api}`) data = { items: [detail], total: 1, page: 1, page_size: 20 };
@@ -407,6 +413,12 @@ for (const width of [1280, 390]) {
     };
     await page.route('**/api/v1/**', (route) => {
       const path = new URL(route.request().url()).pathname;
+    if (path === '/api/v1/learning/experiences') {
+      return route.fulfill({ json: { code: '0', msg: '', data: {
+        items: [], total: 0, page: 1, page_size: 20,
+        counts: { total: 0, PROPOSED: 0, TRIAL: 0, ACTIVE: 0, RETIRED: 0 }
+      } } });
+    }
       const data = path.endsWith('/auth/me') ? { id: 'admin', username: 'admin', role: 'ADMIN' }
         : path.endsWith('/audits/layout') ? audit : { items: [audit], total: 1, page: 1, page_size: 20 };
       return route.fulfill({ json: { code: '0', msg: '', data } });

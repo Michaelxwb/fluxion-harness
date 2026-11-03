@@ -40,6 +40,7 @@ class EgressBoundary:
         self._audit_writer = audit_writer
         self._client = httpx.AsyncClient(
             timeout=policy.timeout_sec,
+            trust_env=False,
             transport=transport,
             follow_redirects=False,  # 跳转必须逐跳授权
         )

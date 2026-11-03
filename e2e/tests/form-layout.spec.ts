@@ -175,7 +175,7 @@ test('platform dynamic controls and resolver changes keep full-width address row
   });
   await page.getByTestId('create-platform').click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.locator('.semi-input-number')).toHaveCount(1);
+  await expect(dialog.getByRole('textbox', { name: /Config JSON/ })).toBeVisible();
   await expectAlignedControls(dialog);
   await dialog.getByRole('combobox', { name: /^Resolver/ }).click();
   await page.getByRole('option', { name: /Service discovery/ }).click();

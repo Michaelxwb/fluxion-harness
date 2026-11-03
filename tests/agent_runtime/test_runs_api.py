@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 import sqlalchemy as sa
 from httpx import AsyncClient
+from muad_agent_runtime.application.context_settings import frozen_learning_payload
 from muad_agent_runtime.application.run_service import snapshot_policy
 from muad_agent_runtime.application.run_submission import RunSubmissionService
 from muad_agent_runtime.infrastructure.db import get_engine, get_session_factory
@@ -64,7 +65,7 @@ def _expected_hash(resolved: ResolveDefinitionResponse) -> str:
             "skills": [skill.model_dump(mode="json") for skill in resolved.skills],
             "mcp_servers": [server.model_dump(mode="json") for server in resolved.mcp_servers],
             # 真实创建路径冻结成员事实（B-224）：该租户的模型没有成员 ⇒ 空列表也在 hash 里
-            "policy": snapshot_policy(members=()),
+            "policy": {**snapshot_policy(members=()), "learning": frozen_learning_payload(None)},
             "prompt_template_version": "1",
         },
         sort_keys=True,
@@ -197,7 +198,10 @@ async def test_create_run_streams_events_and_persists_records(
         assert snapshot.run_id == run_id
         assert snapshot.prompt_template_version == "1"
         # 真实创建路径的 policy_json = 直构策略 + 冻结的成员事实（该租户模型没有成员 ⇒ 空列表）
-        assert snapshot.policy_json == snapshot_policy(members=())
+        assert snapshot.policy_json == {
+            **snapshot_policy(members=()),
+            "learning": frozen_learning_payload(None),
+        }
         assert snapshot.agent_revision == resolved.agent.revision
         assert snapshot.model_revision == resolved.model.revision
         assert snapshot.agent_json["key"] == resolved.agent.key
@@ -227,9 +231,7 @@ async def test_create_run_streams_events_and_persists_records(
             "run.completed",
         ]
         # 阶段事件是 Run 级事实（不属于某次提交），其余事件都带提交链接
-        assert all(
-            row.submission_id is not None for row in rows if row.stream_type != "run.stage"
-        )
+        assert all(row.submission_id is not None for row in rows if row.stream_type != "run.stage")
         assert all(row.submission_id is None for row in rows if row.stream_type == "run.stage")
 
         conversation = await session.get(Conversation, conversation_id)
@@ -298,7 +300,8 @@ async def test_same_key_retry_replays_even_when_winner_commits_after_claim(
     assert misses["left"] == 0, "两次开环查询必须都已发生（否则没有覆盖并发次序）"
 
 
-async def test_create_run_auto_resumes_waiting_input_run(    client: AsyncClient,
+async def test_create_run_auto_resumes_waiting_input_run(
+    client: AsyncClient,
     tenant: TenantContext,
     resolved: ResolveDefinitionResponse,
 ) -> None:
@@ -434,19 +437,13 @@ async def test_create_run_idempotency_key_replays_persisted_stream(
     second = await client.post("/v1/runs", json=payload, headers=headers)
     assert second.status_code == 200
     second_events = parse_sse(second.text)
-    assert [event["seq"] for event in second_events] == [
-        event["seq"] for event in first_events
-    ]
-    assert [event["type"] for event in second_events] == [
-        event["type"] for event in first_events
-    ]
+    assert [event["seq"] for event in second_events] == [event["seq"] for event in first_events]
+    assert [event["type"] for event in second_events] == [event["type"] for event in first_events]
 
     async with get_session_factory()() as session:
         run_id = uuid.UUID(first_events[0]["run_id"])
         count = await session.scalar(
-            select(sa.func.count())
-            .select_from(RunRecord)
-            .where(RunRecord.tenant_id == tenant.tenant_id)
+            select(sa.func.count()).select_from(RunRecord).where(RunRecord.tenant_id == tenant.tenant_id)
         )
         assert count == 1
         run = await session.get(RunRecord, run_id)
@@ -728,14 +725,10 @@ async def test_get_run_waiting_input_and_terminal_have_no_waiting_reason(
     resolved: ResolveDefinitionResponse,
 ) -> None:
     """WAITING_INPUT 与终态都不套用 WAITING_TOOL 的原因；等待起点取等待中断时间。"""
-    waiting_input = await _seed_waiting_run(
-        tenant, resolved, status="WAITING_INPUT", with_interrupt=True
-    )
+    waiting_input = await _seed_waiting_run(tenant, resolved, status="WAITING_INPUT", with_interrupt=True)
     completed = await _seed_waiting_run(tenant, resolved, status="COMPLETED")
 
-    input_data = (
-        await client.get(f"/v1/runs/{waiting_input}", headers=_headers(tenant))
-    ).json()["data"]
+    input_data = (await client.get(f"/v1/runs/{waiting_input}", headers=_headers(tenant))).json()["data"]
     assert input_data["status"] == "WAITING_INPUT"
     assert input_data["waiting_reason"] is None
     assert input_data["waiting_since"] is not None
@@ -789,10 +782,7 @@ async def test_create_conversation_replays_by_idempotency_key(
 
     without_key = await client.post("/v1/conversations", json=body, headers=_headers(tenant))
     assert without_key.status_code == 200
-    assert (
-        without_key.json()["data"]["conversation_id"]
-        != first.json()["data"]["conversation_id"]
-    )
+    assert without_key.json()["data"]["conversation_id"] != first.json()["data"]["conversation_id"]
 
 
 async def test_resolve_error_propagates_as_envelope(
@@ -857,9 +847,7 @@ async def test_run_events_endpoint_replays_after_confirmed_seq_and_closes_on_ter
         "run.completed",
     ]
 
-    replay = await client.get(
-        f"/v1/runs/{run_id}/events?after_seq=2", headers=_headers(tenant)
-    )
+    replay = await client.get(f"/v1/runs/{run_id}/events?after_seq=2", headers=_headers(tenant))
     assert replay.status_code == 200
     events = parse_sse(replay.text)
     assert [event["type"] for event in events] == ["run.resumed", "run.completed"]
@@ -878,9 +866,7 @@ async def test_run_events_endpoint_is_tenant_scoped_and_validates_after_seq(
     )
     assert other.status_code == 404
 
-    negative = await client.get(
-        f"/v1/runs/{run_id}/events?after_seq=-1", headers=_headers(tenant)
-    )
+    negative = await client.get(f"/v1/runs/{run_id}/events?after_seq=-1", headers=_headers(tenant))
     assert negative.status_code == 422
 
 

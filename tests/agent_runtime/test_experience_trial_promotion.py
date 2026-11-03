@@ -21,9 +21,7 @@ async def _seed(tenant: str, user: uuid.UUID, key: str, *, category: str) -> Non
     expires = datetime.now(UTC) + timedelta(days=365)
     async with get_session_factory()() as session:
         existing = await session.scalar(
-            sa.select(MemoryScope).where(
-                MemoryScope.tenant_id == tenant, MemoryScope.user_id == user
-            )
+            sa.select(MemoryScope).where(MemoryScope.tenant_id == tenant, MemoryScope.user_id == user)
         )
         if existing is None:
             session.add(MemoryScope(tenant_id=tenant, user_id=user, revision=1))
@@ -48,6 +46,7 @@ async def _seed(tenant: str, user: uuid.UUID, key: str, *, category: str) -> Non
                 tenant_id=tenant,
                 task_family="skill:demo",
                 experience_key=key,
+                experience_user_id=user,
                 base_config_hash="base-1",
                 metrics_json={},
                 decision_json={"status": "PASSED"},
@@ -62,6 +61,9 @@ async def _seed(tenant: str, user: uuid.UUID, key: str, *, category: str) -> Non
 async def _cleanup(tenant: str) -> None:
     async with get_session_factory()() as session:
         await session.execute(sa.delete(EvalReport).where(EvalReport.tenant_id == tenant))
+        await session.execute(
+            sa.text("DELETE FROM runtime.user_memory_history WHERE tenant_id=:t"), {"t": tenant}
+        )
         await session.execute(sa.delete(UserMemory).where(UserMemory.tenant_id == tenant))
         await session.execute(sa.delete(MemoryScope).where(MemoryScope.tenant_id == tenant))
         await session.execute(
@@ -77,9 +79,7 @@ async def test_s12_auto_promotion_and_retirement_follow_trial_signals(database_g
     await _seed(tenant, user, "exp.manual", category="VERIFICATION")
     service = LearningActivation(policy=ActivationPolicy(trial_runs=10, trial_max_regression=0.05))
     try:
-        trial = await service.start_trial(
-            tenant, user, "exp.good", base_config_hash="base-1"
-        )
+        trial = await service.start_trial(tenant, user, "exp.good", base_config_hash="base-1")
         assert trial.activation_state == TRIAL
 
         promoted = await service.evaluate_trial(
@@ -103,9 +103,7 @@ async def test_s12_auto_promotion_and_retirement_follow_trial_signals(database_g
         )
         assert retired.activation_state == RETIRED
 
-        manual = await service.start_trial(
-            tenant, user, "exp.manual", base_config_hash="base-1"
-        )
+        manual = await service.start_trial(tenant, user, "exp.manual", base_config_hash="base-1")
         assert manual.status == "MANUAL_REQUIRED"
         assert manual.activation_state == "PROPOSED"
     finally:

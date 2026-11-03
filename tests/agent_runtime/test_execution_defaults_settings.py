@@ -300,9 +300,11 @@ async def test_e20_recall_uses_frozen_limit_and_byte_cap(
     recall2 = build_registry(
         request=capture2.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
     ).get(RECALL_TOOL)
-    receipt = await recall2.handler({}, call_id="c")
-    assert json.loads(receipt)["items"] == [] and json.loads(receipt)["truncated"] is True
-    assert len(receipt.encode("utf-8")) <= 200
+    from muad_api import AppError
+
+    with pytest.raises(AppError) as rejected:
+        await recall2.handler({}, call_id="c")
+    assert str(rejected.value) == "MEMORY_RESULT_BUDGET_EXCEEDED"
 
 
 async def test_e20_memory_injection_caps_from_frozen_policy() -> None:
@@ -310,6 +312,7 @@ async def test_e20_memory_injection_caps_from_frozen_policy() -> None:
     from muad_agent_runtime.application.memory_cache import MemoryCandidateCache
     from muad_agent_runtime.application.memory_context import MemoryContextLoader
     from muad_agent_runtime.application.memory_queries import MemoryQueries, MemoryReadScope
+
     tenant, conversation_id, user_id = await _seed_injection_tenant(count=5, value_chars=16)
     try:
         builder = DbBackedContextBuilder(session_factory=get_session_factory)
@@ -320,8 +323,11 @@ async def test_e20_memory_injection_caps_from_frozen_policy() -> None:
             budget_messages=10,
         )
         assert all(message.role.value != "system" for message in history)
-        cache = MemoryCandidateCache(MemoryQueries(get_session_factory()),
-            scope=MemoryReadScope(tenant_id=tenant, user_id=user_id), run_id=uuid.uuid4())
+        cache = MemoryCandidateCache(
+            MemoryQueries(get_session_factory()),
+            scope=MemoryReadScope(tenant_id=tenant, user_id=user_id),
+            run_id=uuid.uuid4(),
+        )
         component = await MemoryContextLoader(cache, settings=MEMORY_OVERRIDE, query="你好").refresh()
         assert len(component.references) == MEMORY_OVERRIDE.max_injected_memories
     finally:
@@ -450,13 +456,23 @@ async def _artifact_row_exists(artifact_id: uuid.UUID) -> bool:
 
 
 async def _seed_memories(tenant_id: str, user_id: uuid.UUID, *, count: int, value_chars: int) -> None:
-    context = MemoryWriteContext(tenant_id=tenant_id, user_id=user_id,
-        actor_type="ADMIN", actor_id="fixture-admin")
-    mutations = [MemoryMutation(action="UPSERT", candidate=MemoryCandidate(
-        memory_key=f"seed.{index:02d}", category=MemoryCategory.PREFERENCE,
-        content=FactContent(value="v" * value_chars))) for index in range(count)]
-    await MemoryService().execute(context, MemoryCommand(command_id=uuid.uuid4().hex,
-        endpoint="memory.admin", mutations=mutations))
+    context = MemoryWriteContext(
+        tenant_id=tenant_id, user_id=user_id, actor_type="ADMIN", actor_id="fixture-admin"
+    )
+    mutations = [
+        MemoryMutation(
+            action="UPSERT",
+            candidate=MemoryCandidate(
+                memory_key=f"seed.{index:02d}",
+                category=MemoryCategory.PREFERENCE,
+                content=FactContent(value="v" * value_chars),
+            ),
+        )
+        for index in range(count)
+    ]
+    await MemoryService().execute(
+        context, MemoryCommand(command_id=uuid.uuid4().hex, endpoint="memory.admin", mutations=mutations)
+    )
 
 
 async def _memory_row_snapshot(tenant_id: str) -> list[tuple[Any, ...]]:

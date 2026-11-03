@@ -17,18 +17,18 @@ def test_form_uses_shared_modal_and_conditional_resolver_fields() -> None:
         assert mode in source
 
 
-def test_adapter_config_renders_from_schema() -> None:
+def test_adapter_config_uses_json_editor() -> None:
     source = (MODULE / "ProjectPlatformForm.tsx").read_text(encoding="utf-8")
     assert "platform_config_schema" in source
-    assert "adapter_config." in source
-    assert "enum" in source and "integer" in source
+    assert "Form.TextArea" in source
+    assert "parsePlatformConfig" in source
 
 
 def test_form_uses_two_column_grid_and_localized_adapter_fields() -> None:
     source = (MODULE / "ProjectPlatformForm.tsx").read_text(encoding="utf-8")
     assert "form-grid" in source, "表单必须使用双列栅格"
     assert "platform.form.adapterSection" in source
-    assert "platform.adapterField." in source, "Adapter 字段必须走 i18n 而非裸 schema key"
+    assert "platform.form.configJson" in source
     assert "form-field-full" in source
 
 

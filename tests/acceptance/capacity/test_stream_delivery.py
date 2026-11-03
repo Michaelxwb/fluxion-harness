@@ -254,7 +254,7 @@ class StreamHarness:
     session: ChatSession
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def stream_harness(
     tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
 ) -> Iterator[StreamHarness]:
@@ -451,7 +451,7 @@ def _proxied(url: str, proxy: FaultProxy) -> str:
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def fault_harness(
     tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
 ) -> Iterator[FaultHarness]:
@@ -816,7 +816,12 @@ def _build_wecom_stack(
         profile=load_profile(profile_path),
         datastore=datastore,
         service_env={
+            # 本用例验证故障恢复，保留完整多副本拓扑但每进程只需两条 PG 连接。
+            # 避免默认池 10 × 18 个进程超出 CI PostgreSQL 的 100 连接预算。
+            "console-platform": {"DB_POOL_SIZE": "2", "DB_MAX_OVERFLOW": "0"},
+            "agent-worker": {"DB_POOL_SIZE": "2", "DB_MAX_OVERFLOW": "0"},
             "im-gateway": {
+                "DB_POOL_SIZE": "2", "DB_MAX_OVERFLOW": "0",
                 # 企微是远程 Connector 的通道面：Gateway 入站只路由、出站写 im.outbound。
                 "GATEWAY_ROUTED_CHANNELS": "WECOM",
                 "CHANNEL_PROBE_URL": "",
@@ -825,6 +830,7 @@ def _build_wecom_stack(
                 "BOT_SNAPSHOT_POLL_SEC": "1",
             },
             "agent-runtime": {
+                "DB_POOL_SIZE": "2", "DB_MAX_OVERFLOW": "0",
                 "CHANNEL_DELIVERY_POLL_SEC": "1",
                 "CHANNEL_DELIVERY_RETRY_BASE_SEC": "1",
                 "RUN_EVENT_FALLBACK_POLL_SEC": "1",
@@ -1209,7 +1215,7 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
 # --------------------------------------------------------------------------------------
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def stream_pool_harness(
     tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
 ) -> Iterator[StreamHarness]:
