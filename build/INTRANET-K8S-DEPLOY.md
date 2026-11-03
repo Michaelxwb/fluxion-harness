@@ -79,7 +79,14 @@ kubectl -n muad get configmap muad-common
 包含 `DEFAULT_TENANT_ID`、服务地址、SSE/CHAT 上限等非敏感项。需要调整时改这个
 文件后重新 apply，不要用 `kubectl create configmap` 局部覆盖。
 
-### 1.4 镜像拉取 Secret
+### 1.4 镜像拉取 Secret（不需要）
+
+内网集群的节点可以直接匿名拉取 `docker.sangfor.com` 的镜像，5 个服务和 nginx 都**不用**
+配置 `global.imagePullSecrets`，也不需要在 `muad` 里建 docker-registry Secret。chart 的
+`global.imagePullSecrets` 默认是 `[]`，模板用 `{{- with }}` 包裹，为空时整个
+`imagePullSecrets` 字段不渲染。
+
+只有换成需要认证的私有仓库时才需要：
 
 ```bash
 kubectl -n muad create secret docker-registry regcred \
@@ -87,11 +94,20 @@ kubectl -n muad create secret docker-registry regcred \
   --docker-username="$DOCKER_USER" \
   --docker-password="$DOCKER_PASS" \
   --dry-run=client -o yaml | kubectl apply -f -
+# 然后在部署参数里加：--set 'global.imagePullSecrets[0].name=regcred'
 ```
 
 ## 2. 五个独立配置
 
-每个服务一份，直接交给发布平台对应的 release。`$TAG` 替换成实际镜像版本。
+每个服务一份，直接交给发布平台对应的 release。
+
+> **参数块里不写镜像 tag。** 发布平台会从 `release-<service>.env` 自动注入
+> `--set image.repository=... --set image.tag=...`，chart 里 `image.tag` 优先于
+> `global.imageTag` 和 `service.tag`。手工执行 `helm` 时自己补
+> `--set image.tag=<tag>`。
+>
+> 也不要在参数块里写 `$TAG`：平台生成的脚本是 `set -euo pipefail`，未定义的变量会
+> 直接退出（`bash: line 22: TAG: unbound variable`），命令一行都不会执行。
 
 > 如果使用第 9 节的 nginx 统一入口，把 console 和 gateway 的 `service.type` 改成
 > `ClusterIP`，并去掉 `service.nodePort` / `service.externalTrafficPolicy`。
@@ -100,9 +116,7 @@ kubectl -n muad create secret docker-registry regcred \
 
 ```bash
 --set global.imageRegistry=docker.sangfor.com/mss-release \
---set global.imageTag="$TAG" \
 --set global.imagePullPolicy=Always \
---set 'global.imagePullSecrets[0].name=regcred' \
 --set global.nodeSelector.app=openclaw \
 --set global.existingSecret=muad-external \
 --set global.connectorSecret=muad-connector-external \
@@ -128,9 +142,7 @@ kubectl -n muad create secret docker-registry regcred \
 
 ```bash
 --set global.imageRegistry=docker.sangfor.com/mss-release \
---set global.imageTag="$TAG" \
 --set global.imagePullPolicy=Always \
---set 'global.imagePullSecrets[0].name=regcred' \
 --set global.nodeSelector.app=openclaw \
 --set global.existingSecret=muad-external \
 --set global.connectorSecret=muad-connector-external \
@@ -152,9 +164,7 @@ kubectl -n muad create secret docker-registry regcred \
 
 ```bash
 --set global.imageRegistry=docker.sangfor.com/mss-release \
---set global.imageTag="$TAG" \
 --set global.imagePullPolicy=Always \
---set 'global.imagePullSecrets[0].name=regcred' \
 --set global.nodeSelector.app=openclaw \
 --set global.existingSecret=muad-external \
 --set global.connectorSecret=muad-connector-external \
@@ -166,7 +176,6 @@ kubectl -n muad create secret docker-registry regcred \
 --set autoscaling.minReplicas=4 \
 --set autoscaling.maxReplicas=4 \
 --set service.type=ClusterIP \
---set service.nodeSelector.app=openclaw \
 --set service.resources.requests.cpu=500m \
 --set service.resources.requests.memory=1Gi \
 --set service.resources.limits.cpu=2 \
@@ -177,9 +186,7 @@ kubectl -n muad create secret docker-registry regcred \
 
 ```bash
 --set global.imageRegistry=docker.sangfor.com/mss-release \
---set global.imageTag="$TAG" \
 --set global.imagePullPolicy=Always \
---set 'global.imagePullSecrets[0].name=regcred' \
 --set global.nodeSelector.app=openclaw \
 --set global.existingSecret=muad-external \
 --set global.connectorSecret=muad-connector-external \
@@ -203,9 +210,7 @@ kubectl -n muad create secret docker-registry regcred \
 
 ```bash
 --set global.imageRegistry=docker.sangfor.com/mss-release \
---set global.imageTag="$TAG" \
 --set global.imagePullPolicy=Always \
---set 'global.imagePullSecrets[0].name=regcred' \
 --set global.nodeSelector.app=openclaw \
 --set global.existingSecret=muad-external \
 --set global.connectorSecret=muad-connector-external \
@@ -285,7 +290,7 @@ autoscaling.enabled=false -> Deployment replicas = minReplicas，maxReplicas 不
 data:
   DEFAULT_TENANT_ID: "default"
   ENV: "prod"
-  LOG_DIR: /var/log/muad
+  LOG_DIR: /app/.data/logs
   LOG_LEVEL: INFO
   API_MESSAGES_FILE: /app/config/api-messages.yaml
 
@@ -442,7 +447,7 @@ DEFAULT_LOCALE
 
 ## 3. 安装顺序
 
-前置资源就绪后（namespace、Secret、`muad-common` ConfigMap、PVC、regcred），
+前置资源就绪后（namespace、Secret、`muad-common` ConfigMap、PVC），
 5 个服务没有顺序依赖，可以任意顺序安装，也可以并行。
 
 ```text
@@ -671,9 +676,7 @@ release: muad-nginx
 
 ```bash
 --set global.imageRegistry=docker.sangfor.com/mss-release \
---set global.imageTag="$TAG" \
 --set global.imagePullPolicy=Always \
---set 'global.imagePullSecrets[0].name=regcred' \
 --set service.image=muad-nginx \
 --set service.port=8080 \
 --set service.type=NodePort \
@@ -692,9 +695,9 @@ release: muad-nginx
 | 参数 | 默认 | 说明 |
 |---|---|---|
 | `global.imageRegistry` | `docker.sangfor.com/mss-dev` | 镜像仓库，生产填 `mss-release` |
-| `global.imageTag` | `latest` | 和 5 个服务用同一个 `$TAG` |
+| `global.imageTag` | `latest` | 平台注入 `image.tag` 后不生效；手工执行时用它或 `image.tag` |
 | `global.imagePullPolicy` | `IfNotPresent` | 生产建议 `Always` |
-| `global.imagePullSecrets` | `[]` | 私有仓库凭据，填 `regcred` |
+| `global.imagePullSecrets` | `[]` | 内网匿名拉取，不用配；私有仓库才填 Secret 名（如 `regcred`） |
 | `service.image` | `muad-nginx` | 镜像名 |
 | `service.tag` | `''` | 单独覆盖 `global.imageTag`，一般不用 |
 | `service.port` | `8080` | 容器和 Service 端口，镜像固定 8080 |
@@ -707,7 +710,8 @@ release: muad-nginx
 | `probes.path` | `/healthz` | 就绪/存活探针路径 |
 | `global.nodeSelector` | `{}` | 不限制节点；要固定时加 `--set global.nodeSelector.app=openclaw` |
 
-`service.tag` 不要和 `global.imageTag` 同时填，二选一。
+镜像 tag 的优先级是 `image.tag` > `service.tag` > `global.imageTag`，填其中一个即可。
+发布平台走 `image.tag`，所以参数块里不用写 `global.imageTag`。
 
 命令行安装时，把上面整块 `--set` 接在下面这条命令后面：
 

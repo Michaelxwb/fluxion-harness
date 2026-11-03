@@ -117,8 +117,10 @@ FRONTEND_CACHE_DIR        默认 /tmp/muad-console-frontend（前端任务和 co
 本地直接跑 `build-image.sh` / `package-service.sh` 时可以不配，只构建/打包不上传；
 需要强制不推送/不上传时才设 `PUSH=0` / `UPLOAD=0`。
 
-默认 tag 用构建时间，每次运行流水线都不同；部署按服务读取 `release-<service>.env`。
-需要所有服务共用一个 tag 时，在流水线最前面统一设置 `TAG`。
+默认 tag 用**本次流水线运行的构建时间**：同一次运行的所有服务共用一个 tag，下一次
+运行是新 tag；部署按服务读取 `release-<service>.env`，不要重新算。时间戳来自流水线级
+变量（`TAG_TIMESTAMP`，或平台提供的 `CI_PIPELINE_CREATED_AT`），不是各任务自己的时钟，
+否则并行任务会得到不同 tag。
 
 ### 2.2 任务镜像
 
@@ -238,13 +240,12 @@ console-platform: service.type=ClusterIP
 im-gateway:       service.type=ClusterIP
 ```
 
-用 Helm 部署。`--set` 参数块（和 5 个服务格式一致）：
+用 Helm 部署。`--set` 参数块（和 5 个服务格式一致，镜像 tag 由平台从
+`release-<service>.env` 注入，不要写 `$TAG`）：
 
 ```bash
 --set global.imageRegistry=docker.sangfor.com/mss-release \
---set global.imageTag="$TAG" \
 --set global.imagePullPolicy=Always \
---set 'global.imagePullSecrets[0].name=regcred' \
 --set service.image=muad-nginx \
 --set service.port=8080 \
 --set service.type=NodePort \
@@ -304,7 +305,7 @@ build/INTRANET-K8S-DEPLOY.md
 顺序：
 
 ```text
-1. 建 namespace、Secret、muad-common ConfigMap、artifacts PVC、regcred
+1. 建 namespace、Secret、muad-common ConfigMap、artifacts PVC
 2. 部署前手动执行数据库迁移
 3. 安装 5 个服务（无顺序依赖，可以并行）
 4. 验证 /healthz、/readyz
@@ -342,7 +343,7 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
 | 镜像 push 401 | 检查 `DOCKER_USER` / `DOCKER_PASS` |
 | console 报前端缓存缺失 | 检查前端节点上传和 console release 节点下载都是 `/tmp/muad-console-frontend/` |
 | release 报 `helm` / `sfspm` 不存在 | 任务镜像缺命令，安装或改用单独的 `task2-helm.sh` |
-| 5 个镜像 tag 不一致 | 默认按构建时间生成，各服务可能不同；需要统一时流水线设置同一个 `TAG` |
+| 5 个镜像 tag 不一致 | 构建日志里找 `[image-tag] warning`：流水线没提供 `TAG_TIMESTAMP` / `CI_PIPELINE_CREATED_AT`，各任务用了自己的时钟；在流水线里设置一次 `TAG_TIMESTAMP` |
 | chart 重复上传 | 用了 `task-release-*` 就不要再跑 `task2-helm.sh` |
 | nginx 报 `libprofiler.so.0` | RPM 缺 gperftools 依赖；构建会自动尝试 `gperftools-libs` 等包，仍失败改用 copy 模式 |
 | nginx RPM 安装失败 | 改用 `NGINX_BUILD_MODE=copy`，或把 `NGINX_SOURCE_IMAGE` 指向 `portal-nginx` 镜像 |

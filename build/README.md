@@ -248,6 +248,7 @@ Task2 一次打包 5 个 per-service chart，并可选上传 5 个 tgz；不依�
 | `CI_COMMIT_TAG` | 可选 | - | 任意 tag 走 release |
 | `PUSH` | 否 | 有凭据时 `1`，否则 `0` | 一般不用配；本地测试设 `0` |
 | `TAG` | 否 | `1.0.0.<构建时间><分支名>` | 需要固定版本时设 `1.0.0` |
+| `TAG_TIMESTAMP` | 否 | 流水线创建时间 | 本次运行统一的 `yyMMddHHmm`，在流水线里设置一次即可保证同一次构建的 5 个服务同 tag |
 | `PLATFORM` | 否 | `linux/amd64` | 集群架构 |
 | `PYTHON_BASE_IMAGE` | 否 | `docker.sangfor.com/mss-base/python:3.12.13` | Python 底座 |
 | `NODE_BASE_IMAGE` | 否 | `docker.sangfor.com/mss-base/python-node:3.12.13-node24` | Node 底座 |
@@ -279,9 +280,20 @@ feature/tiyanwenti-1030-txj
 -> 1.0.0.2610302008feature-tiyanwenti-1030-txj
 ```
 
-时间取构建时间，每次运行流水线都会生成新 tag；分支名里的 `/` 换成 `-`。
-6 条流水线可能落在不同分钟，部署按服务读取 `/tmp/muad-helm/release-<service>.env`；
-需要所有服务共用一个 tag 时，在流水线最前面统一设置 `TAG`。
+时间取**本次流水线运行的构建时间**：同一次运行里所有服务共用一个时间戳，5 个镜像和
+5 个 chart 版本一致；下一次运行得到新 tag。分支名里的 `/` 换成 `-`。
+
+时间戳必须来自流水线级变量，不能用各任务自己的时钟——并行任务启动时间相差几分钟，
+各自取 `date` 会让同一个 commit 得到不同 tag（曾出现 console `...2611031043` /
+nginx `...2611031046`）。取值顺序：
+
+```text
+TAG_TIMESTAMP            在流水线里设置一次（yyMMddHHmm），优先级最高
+CI_PIPELINE_CREATED_AT   平台提供的流水线创建时间（ISO-8601），自动解析
+都没有                    回退到本任务墙上时钟，并在 CI 里打 warning
+```
+
+部署按服务读取 `/tmp/muad-helm/release-<service>.env`，不要重新算 tag。
 
 ### 环境变量（前端任务）
 
@@ -362,7 +374,9 @@ muad-im-gateway-<HELM_VERSION>.tgz
 muad-im-connector-<HELM_VERSION>.tgz
 ```
 
-部署时用 `--set global.imageTag=<tag>` 对齐本次构建的镜像。
+部署时必须传本服务的镜像 tag：平台从 `release-<service>.env` 注入 `--set image.tag=<tag>`，
+手工执行时用 `--set image.tag=<tag>` 或 `--set global.imageTag=<tag>`（`image.tag` 优先）。
+不要写 `$TAG`——生成脚本是 `set -u`，未定义变量会直接退出。
 
 前置条件：namespace、Secret、`muad-common` ConfigMap（`deploy/k8s/base/configmap.yaml`）、
 已有的 RWX PVC、数据库迁移。前置资源就绪后 5 个服务没有顺序依赖，可以并行安装。
@@ -375,6 +389,13 @@ muad-im-connector-<HELM_VERSION>.tgz
 ```text
 build/INTRANET-K8S-DEPLOY.md
 ```
+
+部署任务从 `/tmp/muad-helm/release-<service>.env` 取 `CHART` / `IMAGE_REPOSITORY` /
+`IMAGE_TAG` / `CHART_VERSION` / `HELM_REPOSITORY`，原样传给平台生成 Helm 命令；不要在部署
+阶段重新算 tag，也不要手填 chart 名——填错会把别的服务的 chart 装成这个 release，报
+`ServiceAccount "muad-console-platform" ... invalid ownership metadata`。`chart_version` 不能
+留空，留空会渲染成 `--version ''`，Helm 退化成取仓库里最新的 chart。首次安装要留足超时
+（`--timeout 5m`），`--atomic` 会把真实失败信息一起回滚掉。
 
 每个 chart 的 `service` 支持：
 

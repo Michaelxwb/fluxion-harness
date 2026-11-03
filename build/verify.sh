@@ -33,10 +33,6 @@ for chart in "${CHARTS[@]}"; do
     --namespace muad --set global.imageTag=verify >"${VERIFY_DIR}/${chart}.yaml"
 done
 
-# Console chart also owns the optional artifacts PVC.
-helm template muad-console-platform build/helm-build/muad-console-platform \
-  --namespace muad --set global.artifacts.create=true >"${VERIFY_DIR}/muad-console-platform-pvc.yaml"
-
 log "shared configmap parse"
 VERIFY_DIR="${VERIFY_DIR}" python3 - <<'PY2'
 import yaml
@@ -49,12 +45,12 @@ print('deploy/k8s/base/configmap.yaml: muad-common ok')
 PY2
 
 log "rendered yaml parse"
-VERIFY_DIR="${VERIFY_DIR}" python3 - <<'PY'
+VERIFY_DIR="${VERIFY_DIR}" EXPECTED_CHARTS="${#CHARTS[@]}" python3 - <<'PY'
 import glob
 import os
 import yaml
 paths = sorted(glob.glob(os.path.join(os.environ['VERIFY_DIR'], '*.yaml')))
-assert len(paths) == 7, paths
+assert len(paths) == int(os.environ['EXPECTED_CHARTS']), paths
 for path in paths:
     docs = [doc for doc in yaml.safe_load_all(open(path, encoding='utf-8')) if doc]
     assert docs, path

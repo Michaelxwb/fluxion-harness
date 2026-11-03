@@ -11,9 +11,6 @@ global:
   connectorSecret: muad-connector-external
   artifacts:
     existingClaim: muad-artifacts-rwx
-    create: false
-    storage: 100Gi
-    storageClassName: ''
     mountPath: /mnt/muad-artifacts
   skillCache:
     mountPath: /var/cache/muad/skills

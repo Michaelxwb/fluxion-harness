@@ -14,6 +14,9 @@ RUN python -m pip install --no-cache-dir -i "${PIP_INDEX_URL}" \
       --trusted-host "${PIP_TRUSTED_HOST}" -r /tmp/requirements.txt
 
 COPY config /app/config
+# Startup validation reads the alembic head from ./migrations/versions and
+# refuses to boot without it (muad_api.startup.validate_startup).
+COPY migrations /app/migrations
 COPY packages /app/packages
 COPY apps/agent-runtime /app/apps/agent-runtime
 

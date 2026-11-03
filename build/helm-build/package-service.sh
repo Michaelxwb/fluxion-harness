@@ -124,6 +124,7 @@ printf '%s\n' "${HELM_VERSION}" > "${HELM_CACHE_DIR}/HELM_VERSION"
 image_ref="$(cat "${IMAGE_CACHE_DIR}/image.txt" 2>/dev/null || true)"
 if [[ -n "${image_ref}" ]]; then
   {
+    printf 'CHART=%s\n' "${CHART}"
     printf 'IMAGE_NAMESPACE=%s\n' "${image_ref%/*}"
     printf 'IMAGE_REPOSITORY=%s\n' "${image_ref%:*}"
     printf 'IMAGE_TAG=%s\n' "${image_ref##*:}"

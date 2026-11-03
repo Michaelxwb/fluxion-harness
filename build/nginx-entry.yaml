@@ -21,8 +21,6 @@ spec:
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
-      imagePullSecrets:
-        - name: regcred
       containers:
         - name: nginx
           image: docker.sangfor.com/mss-release/muad-nginx:1.0.0
