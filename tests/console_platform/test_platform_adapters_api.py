@@ -14,8 +14,10 @@ async def test_list_and_get_adapter_metadata(client: AsyncClient, tenant: Tenant
     assert listing.status_code == 200
     data = listing.json()["data"]
     assert data["page"] == 1
-    assert data["total"] == 1
-    entry = data["items"][0]
+    assert data["total"] == 2
+    entries = {item["key"]: item for item in data["items"]}
+    assert set(entries) == {"generic-http", "mss-session"}
+    entry = entries["generic-http"]
     assert entry["key"] == "generic-http"
     assert entry["session_mode"] == "NONE"
     assert entry["credential_schema"]["properties"]["token"]["x-secret"] is True
@@ -24,6 +26,14 @@ async def test_list_and_get_adapter_metadata(client: AsyncClient, tenant: Tenant
     detail = await client.get("/api/v1/platform-adapters/generic-http", headers=_headers(tenant))
     assert detail.status_code == 200
     assert detail.json()["data"] == entry
+
+    mss = entries["mss-session"]
+    assert mss["session_mode"] == "SESSION"
+    assert mss["version"] == "2"
+    assert set(mss["credential_schema"]["properties"]) == {"ak", "sk", "headers", "body"}
+    mss_detail = await client.get("/api/v1/platform-adapters/mss-session", headers=_headers(tenant))
+    assert mss_detail.status_code == 200
+    assert mss_detail.json()["data"] == mss
 
 
 async def test_e01_unknown_adapter_key_returns_platform_adapter_not_found(
@@ -55,9 +65,7 @@ async def test_e01_create_with_unregistered_adapter_key_does_not_persist(
     assert response.status_code == 404
     assert response.json()["code"] == "PLATFORM_ADAPTER_NOT_FOUND"
 
-    listing = await client.get(
-        "/api/v1/project-platforms", params={"keyword": key}, headers=_headers(tenant)
-    )
+    listing = await client.get("/api/v1/project-platforms", params={"keyword": key}, headers=_headers(tenant))
     assert listing.json()["data"]["total"] == 0
 
 

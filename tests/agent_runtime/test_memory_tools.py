@@ -102,7 +102,7 @@ async def test_recall_queries_fresh_rows_instead_of_injection_cache(async_tool_d
 
 
 async def test_recall_limit_covers_complete_candidates_and_zero(async_tool_database):
-    ctx = context()
+    ctx = context(settings=MemoryPolicySettings(max_recall_bytes=16384))
     await seed_facts(async_tool_database, ctx, 21)
     tool_set = tools(async_tool_database, ctx)
     for limit in (0, 1, 20):
@@ -122,3 +122,14 @@ async def test_memory_write_switch_explicit_values(async_tool_database, value, e
 def test_memory_write_switch_rejects_loose_types(value):
     with pytest.raises(ValueError):
         memory_write_enabled({"memory_write": value})
+
+
+async def test_recall_byte_budget_can_return_fewer_items_than_requested(async_tool_database):
+    budget = 1024
+    ctx = context(settings=MemoryPolicySettings(max_recall_bytes=budget))
+    await seed_facts(async_tool_database, ctx, 21)
+    result = await tools(async_tool_database, ctx).recall({"limit": 20}, call_id="byte-cap")
+    payload = json.loads(result)
+    assert 0 < len(payload["items"]) < 20
+    assert payload["truncated"] is True
+    assert len(result.encode("utf-8")) <= budget
