@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-import pytest
 from muad_agent_core.memory import rank
 from muad_agent_core.memory.rank import (
     MemoryRecord,

@@ -167,6 +167,7 @@ def _enumerated_keys() -> set[str]:
     table = _read(TABLE)
     sheet = _read(SHEET)
     button = _read(BUTTON)
+    labels = _read(MODULE / "auditLabels.ts")
     fields = _type_fields(sheet)
 
     keys = {f"audit.auditType.{code}" for code in _string_array(bar, "AUDIT_TYPES")}
@@ -175,6 +176,9 @@ def _enumerated_keys() -> set[str]:
     keys |= {f"audit.resultStatus.{code}" for code in _string_array(bar, "RESULT_STATUSES")}
     keys |= {f"audit.resultStatus.{code}" for code in _object_keys(_object_block(sheet, "RESULT_COLORS"))}
     keys |= {f"audit.resultStatus.{code}" for code in _table_status_options(table)}
+    keys |= {f"audit.action.{action}" for action in _string_array(labels, "AUDIT_ACTION_DOMAIN")}
+    keys |= {f"audit.detail.change.field.{name}" for name in _string_array(sheet, "CHANGE_FIELD_KEYS")}
+    keys |= {f"audit.detail.change.value.{name}" for name in _string_array(sheet, "CHANGE_VALUE_KEYS")}
     for names in fields.values():
         keys |= {f"audit.detail.field.{field}" for field in names}
     keys |= {key for key in _static_keys(sheet) if key.startswith("audit.detail.field.")}

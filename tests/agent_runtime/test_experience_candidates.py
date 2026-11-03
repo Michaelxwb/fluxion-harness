@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import sqlalchemy as sa
+from muad_agent_core.memory.rank import MemoryRecord, select_for_injection
 from muad_agent_runtime.application.experience_candidates import (
     CandidateLimits,
     ExperienceCandidates,
@@ -22,9 +23,8 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     UserMemory,
     UserMemoryHistory,
 )
-from muad_agent_core.memory.rank import MemoryRecord, select_for_injection
-from muad_contracts.memory import FactContent, MemoryAuthor, MemoryCategory
 from muad_contracts import RunStatus
+from muad_contracts.memory import FactContent, MemoryAuthor, MemoryCategory
 
 
 def _skill_events(count: int) -> list[dict[str, Any]]:

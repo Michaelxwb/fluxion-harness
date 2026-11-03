@@ -24,7 +24,7 @@ const cases = [
   } },
   { path: 'users', api: 'users', link: 'user-link-layout', data: {
     ...base, tenant_id: 'tenant', status: 'ACTIVE', metadata: {}, agent_grant_count: 0,
-    credential_count: 0, identity_count: 0, memory_count: 0
+    credential_count: 0, identity_count: 0, memory_count: 0, experience_count: 0
   } },
   { path: 'agents', api: 'agents', link: 'agent-link-layout', data: {
     ...base, model_id: 'model', model_name: 'Model', instructions: longText, runtime_config: {},
@@ -79,6 +79,9 @@ async function prepare(page: Page, index: number, mode: string, options: {
   skillScope?: 'ALL' | 'SELECTED'; skillSource?: string | null; detailName?: string
 } = {}) {
   const entry = cases[index];
+  page.on('requestfailed', (request) => {
+    if (request.url().includes('/api/v1/')) console.log('REQFAIL', request.url(), request.failure()?.errorText);
+  });
   const { relatedSkills = [], activities = [], locale = 'zh-CN' } = options;
   const skillArtifact = { ...artifact, instructions: options.skillSource ?? artifact.instructions };
   const detail = entry.path === 'skills' ? {
@@ -101,6 +104,12 @@ async function prepare(page: Page, index: number, mode: string, options: {
       data = { items: relatedSkills, total: relatedSkills.length, page: 1, page_size: 100 };
     }
     if (path.endsWith('/skills/layout/artifacts')) data = { items: [skillArtifact], total: 1, page: 1, page_size: 20 };
+    if (path === '/api/v1/learning/experiences') {
+      data = {
+        items: [], total: 0, page: 1, page_size: 20,
+        counts: { PROPOSED: 0, TRIAL: 0, ACTIVE: 0, RETIRED: 0, total: 0 }
+      };
+    }
     if (path.endsWith('/skills/layout/artifacts/version')) data = skillArtifact;
     return route.fulfill({ json: { code: '0', msg: '', data } });
   });

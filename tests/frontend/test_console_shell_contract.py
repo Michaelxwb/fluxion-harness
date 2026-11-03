@@ -36,7 +36,9 @@ def test_console_shell_menu_is_the_fixed_twelve_items() -> None:
     admin_only_paths = re.findall(
         r"\{\s*path:\s*'([^']+)',\s*key:\s*'[^']+',\s*adminOnly:\s*true\s*\}", source
     )
-    assert admin_only_paths == ["/users", "/learning", "/settings"], "三项 adminOnly：/users、/learning、/settings"
+    assert admin_only_paths == ["/users", "/learning", "/settings"], (
+        "三项 adminOnly：/users、/learning、/settings"
+    )
     assert len(keys) - source.count("adminOnly: true") == 9, "非 ADMIN 可见 9 项"
 
 

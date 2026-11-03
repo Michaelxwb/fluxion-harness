@@ -58,6 +58,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     RuntimeSnapshot,
     UserMemory,
 )
+from muad_api import AppError
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_console_platform.application.audit_service import AuditActor
 from muad_console_platform.application.platform_settings_service import PlatformSettingsService
@@ -300,9 +301,9 @@ async def test_e20_recall_uses_frozen_limit_and_byte_cap(
     recall2 = build_registry(
         request=capture2.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
     ).get(RECALL_TOOL)
-    receipt = await recall2.handler({}, call_id="c")
-    assert json.loads(receipt)["items"] == [] and json.loads(receipt)["truncated"] is True
-    assert len(receipt.encode("utf-8")) <= 200
+    with pytest.raises(AppError) as caught:
+        await recall2.handler({}, call_id="c")
+    assert caught.value.code == "MEMORY_RESULT_BUDGET_EXCEEDED"
 
 
 async def test_e20_memory_injection_caps_from_frozen_policy() -> None:

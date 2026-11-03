@@ -23,7 +23,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     RuntimeSnapshot,
     UserMemory,
 )
-from muad_contracts import ResolveDefinitionResponse, ResolvedAgent, ResolvedModel, RunStatus
+from muad_contracts import ResolvedAgent, ResolveDefinitionResponse, ResolvedModel, RunStatus
 
 
 def _response(text: str) -> httpx.Response:

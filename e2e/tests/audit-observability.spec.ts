@@ -131,7 +131,7 @@ test.afterAll(() => {
 
 test('S-06 列表渲染种子行，Trace/审计类型/结果筛选收窄且重置还原', async ({ page }) => {
   await openAudits(page);
-  await expect(page.getByRole('columnheader').first()).toHaveText('Trace ID');
+  await expect(page.getByRole('columnheader').first()).toHaveText('Trace ID / 审计 ID');
   const seeded = [state.rows.config, state.rows.tool, state.rows.egress, state.rows.model];
   for (const auditId of seeded) {
     await expect(page.getByTestId(`audit-link-${auditId}`)).toBeVisible();
@@ -217,7 +217,8 @@ test('S-07 Trace ID/主展示字段打开只读详情，字段与关联来自真
   await page.getByTestId(`audit-link-${state.rows.config}`).click();
   await expect(sheet).toBeVisible();
   await expect(page.getByTestId('audit-detail-before')).toContainText('Audit Acceptance Agent');
-  await expect(page.getByTestId('audit-detail-after')).toContainText('"enabled": false');
+  await expect(page.getByTestId('audit-detail-after')).toContainText('enabled');
+  await expect(page.getByTestId('audit-detail-after')).toContainText('false');
   // 关联分组就在基本信息底部：CONFIG 无 Run/Task ⇒ 空态直接可见
   await expect(sheet.locator('.app-empty-title')).toHaveText(NO_RELATED_TEXT);
   await expect(sheet.locator('.semi-sidesheet-body button:visible:not(.copy-button)')).toHaveCount(0);

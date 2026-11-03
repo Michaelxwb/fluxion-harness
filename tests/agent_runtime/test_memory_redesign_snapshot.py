@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 import sqlalchemy as sa
 from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
+from muad_agent_runtime.application.context_settings import frozen_learning_payload
 from muad_agent_runtime.application.executor import build_registry
 from muad_agent_runtime.application.memory_queries import MemoryQueries, MemoryReadScope
 from muad_agent_runtime.application.memory_tools import FORGET_TOOL
@@ -99,9 +100,11 @@ async def test_b12_single_memory_leaf_changes_only_new_run_and_job_uses_source_s
     from muad_agent_runtime.application.memory_jobs import MemoryJobs
 
     owners = MemoryJobs(get_session_factory())
-    claim = await owners.claim("frozen-old-job")
-    while claim is not None and claim.id != job.id:
-        claim = await owners.claim("frozen-old-job")
+    async with get_session_factory()() as session:
+        others = await session.scalars(
+            sa.select(MemoryConsolidationJob.id).where(MemoryConsolidationJob.id != job.id)
+        )
+    claim = await owners.claim("frozen-old-job", exclude=frozenset(others))
     assert claim is not None and claim.id == job.id
     fixed = await owners.freeze_input(claim, credential_canaries=())
     assert fixed["through_seq"] == job.through_seq and fixed["input_scope_revision"] == 0
@@ -209,5 +212,6 @@ async def test_b12_only_history_budget_leaf_changes_new_run_while_old_resume_kee
         # 真实创建路径还冻结成员事实（B-224）：该夹具的模型没有成员 ⇒ 冻结为空列表；
         # `before` 来自直构快照（没有成员事实可冻结）因此没有这一键。断言仍是整份相等。
         "model_members": [],
+        "learning": frozen_learning_payload({}),
     }
     assert not [message for message in new_capture.requests[0].history if message.tool_call_id]

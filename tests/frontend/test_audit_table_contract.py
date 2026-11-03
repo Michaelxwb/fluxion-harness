@@ -29,12 +29,12 @@ CJK = re.compile(r"[　-〿一-鿿！-～]")
 
 # 审计列表：Trace ID 为首列主展示字段，保留 docs/15 的八字段集合。
 COLUMN_FIELDS = (
-    ("audit.columns.traceId", "Trace ID", ("traceId",)),
+    ("audit.columns.traceOrAudit", "Trace ID / 审计 ID", ("traceId",)),
     ("audit.columns.time", "时间", ("occurredAt",)),
     ("audit.columns.auditType", "审计类型", ("auditType",)),
-    ("audit.columns.actor", "操作用户", ("actorName", "actorUserId")),
+    ("audit.columns.actor", "操作用户", ("actorName",)),
     ("audit.columns.agent", "Agent", ("agentName", "agentId")),
-    ("audit.columns.related", "关联对象", ("runId", "taskId", "resourceId")),
+    ("audit.columns.related", "关联对象", ("runId", "taskId", "target")),
     ("audit.columns.action", "动作", ("action",)),
     ("audit.columns.result", "执行结果", ("resultStatus",)),
 )
@@ -147,6 +147,7 @@ def test_columns_match_docs15_field_names() -> None:
                 f"「{ui_name}」列未使用 docs/15 字段 {field}"
             )
 
+    assert "auditActorLabel(t,record)" in columns, "操作用户列须复用 auditActorLabel（含 actorUserId 回退）"
     order = [columns.index(f"t('{key}')") for key, _, _ in COLUMN_FIELDS]
     assert order == sorted(order), "Trace ID 须为首列，后续列按时间、类型、用户、Agent、对象、动作、结果排列"
     assert columns.count("dataIndex:") == len(COLUMN_FIELDS), "列集合不得多出未登记字段"
@@ -237,7 +238,9 @@ def test_related_column_prefers_run_then_task_and_falls_back_to_config() -> None
     assert "record.auditType==='CONFIG'" in columns, "CONFIG 行回落资源类型/短 id"
     assert "shortId(" in columns, "列表只展示短 id"
     assert "slice(0,8)" in columns, "短 id 口径 = 前 8 位"
-    assert "`Run${shortId(" in columns and "`Task${shortId(" in columns, "前缀区分 Run/Task 关联"
+    assert "t('audit.target.run'" in columns and "t('audit.target.task'" in columns, (
+        "前缀区分 Run/Task 关联"
+    )
     assert "onOpenRun(runId)" in columns and "onOpenTask(taskId)" in columns, (
         "Run/Task 链接须直达对应详情（不再打开审计详情）"
     )

@@ -254,11 +254,15 @@ class StreamHarness:
     session: ChatSession
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def stream_harness(
     tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
 ) -> Iterator[StreamHarness]:
-    """真实独立栈 + 本栈种子：入口必须在 Gateway 快照首次刷新前就位（种子先、start 后）。"""
+    """真实独立栈 + 本栈种子：入口必须在 Gateway 快照首次刷新前就位（种子先、start 后）。
+
+    函数级作用域：本文件有多个重栈 fixture。模块级会让多套 8+4+2 副本栈同时存活，
+    CI `postgres:16` 默认 `max_connections=100` 时第二个栈启动就耗尽连接名额。
+    """
     root = tmp_path_factory.mktemp("stream-delivery")
     # 每个栈一份**独立**库 + 独立 Redis 号位：Worker claim 与投递选取不带租户谓词，
     # 同一会话里的多个栈共用一份库会互相领走对方的意图/任务（表现为串跑红、单跑绿）。
@@ -451,11 +455,15 @@ def _proxied(url: str, proxy: FaultProxy) -> str:
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def fault_harness(
     tmp_path_factory: pytest.TempPathFactory, capacity_profile_path: Path
 ) -> Iterator[FaultHarness]:
-    """Runtime 子进程的 PG/Redis 都经真实 TCP 故障代理；代理先起、栈后起（env 注入）。"""
+    """Runtime 子进程的 PG/Redis 都经真实 TCP 故障代理；代理先起、栈后起（env 注入）。
+
+    函数级作用域：两个故障用例各自独占一套栈，避免与前一用例的栈叠加占用
+    PG 连接预算（CI 默认 `max_connections=100`，故障栈启动会直接失败并级联）。
+    """
     # 每个栈一份**独立**库 + 独立 Redis 号位：Worker claim 与投递选取不带租户谓词，
     # 同一会话里的多个栈共用一份库会互相领走对方的意图/任务（表现为串跑红、单跑绿）。
     datastore = create_datastore_handle()

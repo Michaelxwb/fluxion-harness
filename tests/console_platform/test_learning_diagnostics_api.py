@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
 import sqlalchemy as sa
 from httpx import AsyncClient
 from muad_agent_runtime.infrastructure.db import get_session_factory

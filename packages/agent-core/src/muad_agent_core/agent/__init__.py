@@ -10,7 +10,7 @@ from .runner import (
     RunnerModelError,
     RunnerVerificationExhausted,
 )
-from .verification import Verifier, VerificationOutcome, VerificationStatus, run_verification
+from .verification import VerificationOutcome, VerificationStatus, Verifier, run_verification
 
 __all__ = [
     "AgentPolicy",

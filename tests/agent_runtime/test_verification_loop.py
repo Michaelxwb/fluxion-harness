@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import pytest
 from muad_agent_core.agent import (
-    AgentRunRequest,
     AgentRunner,
+    AgentRunRequest,
     RunnerVerificationExhausted,
     VerificationStatus,
     run_verification,
 )
 from muad_agent_core.model import ModelRequest, ModelResponse, ModelRole
 from muad_agent_core.tools import ToolRegistry
-
 from muad_agent_runtime.application.verification import VerifierRegistry
 
 

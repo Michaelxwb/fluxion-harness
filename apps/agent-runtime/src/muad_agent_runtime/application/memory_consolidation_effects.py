@@ -11,11 +11,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ..infrastructure.db import SessionFactory
 from ..infrastructure.models.runtime import RuntimeSnapshot
+from .learning_signals import detect_and_write_signal
 from .memory_consolidation import ConsolidationInputTooLarge, ConsolidationInvoker
 from .memory_consolidation_input import ConsolidationStale
 from .memory_consolidation_output import ConsolidationBatch, ConsolidationRejected
 from .memory_job_effects import ConsolidationFenced, apply_batch, fail_locked, terminal_result
-from .learning_signals import detect_and_write_signal
 from .memory_jobs import JobClaim, MemoryJobs, lock_claim
 from .memory_observability import observe
 

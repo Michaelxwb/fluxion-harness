@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 import sqlalchemy as sa
 from muad_agent_runtime.application.learning_replay import CaseOutcome, LearningReplay, ReplayLimits
@@ -14,7 +15,6 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     RunRecord,
 )
 from muad_contracts import RunStatus
-from datetime import UTC, datetime
 
 
 async def _seed(tenant: str) -> list[uuid.UUID]:
