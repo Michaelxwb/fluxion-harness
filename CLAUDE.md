@@ -25,6 +25,7 @@
 - **pytest**：`make acceptance`（自动建空库 + Redis 10–15 号，无需环境变量）。
 - **浏览器**：`make acceptance-e2e DOMAIN=<域>`（含前端 build；preview 跑构建产物）。
 - **不要**共用 dev 库跑验收；跑前先停 dev 服务并查残留进程（`--reload` Worker 会抢任务，表现为 `SKILL_ARTIFACT_UNAVAILABLE` 一类假故障）。
+- **归档复用 CI 缓存**：heavy validators / review 结果从 `check` 的 `workflow_dispatch` 导出，本地 `--rebind-local` 合并后 `verify-e2e`/`archive` 复用；操作步骤、artifact 与排障见 `docs/operations/ci-validation-cache.md`。
 - 隔离机制、残留处理与逃生阀 `MUAD_ACCEPTANCE_SHARED_DB=1` 见 `.code-flow/specs/test/harness-test.md`。
 
 ## Spec Workflow (schema 1)
