@@ -26,14 +26,11 @@ import { StatusTag } from '../../components/common/StatusTag';
 import { TableText } from '../../components/common/TableText';
 import {
   CredentialSchemaFields,
-  credentialFields,
-  validateCredentialValues
+  parseCredentialJson
 } from '../project-platform/CredentialSchemaFields';
 import {
-  getAdapter,
   listPlatforms,
   saveUserCredential,
-  type AdapterMetadata,
   type PlatformItem
 } from '../project-platform/services/platforms';
 import {
@@ -394,25 +391,19 @@ function CredentialsTab(props: { userId: string }) {
   );
   const { items, loading, failed, reload } = list;
   const [target, setTarget] = useState<PlatformItem | null>(null);
-  const [adapter, setAdapter] = useState<AdapterMetadata | null>(null);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const openForm = async (platform: PlatformItem): Promise<void> => {
-    setTarget(platform);
-    setValues({});
+  const openForm = (platform: PlatformItem): void => {
+    setValues('');
     setFormError(null);
-    try {
-      setAdapter(await getAdapter(platform.adapter_key));
-    } catch {
-      setAdapter(null);
-    }
+    setTarget(platform);
   };
 
   const closeForm = (): void => {
     setTarget(null);
-    setValues({});
+    setValues('');
     setFormError(null);
   };
 
@@ -420,15 +411,17 @@ function CredentialsTab(props: { userId: string }) {
     if (!target) {
       return;
     }
-    const invalid = validateCredentialValues(credentialFields(adapter), values);
-    if (invalid) {
-      setFormError(t(invalid.key));
+    let credential: Record<string, unknown>;
+    try {
+      credential = parseCredentialJson(values);
+    } catch {
+      setFormError(t('platform.credentials.errorJson'));
       return;
     }
     setSaving(true);
     setFormError(null);
     try {
-      await saveUserCredential(target.platform_id, props.userId, values);
+      await saveUserCredential(target.platform_id, props.userId, credential);
       closeForm();
       await reload();
     } catch {
@@ -505,6 +498,7 @@ function CredentialsTab(props: { userId: string }) {
       <TabPagination list={list} />
       <div className="detail-hint">{t('user.credentials.hint')}</div>
       <FormModal
+        key={target?.platform_id ?? 'closed'}
         visible={target !== null}
         width={520}
         title={t('user.credentials.formTitle')}
@@ -519,9 +513,8 @@ function CredentialsTab(props: { userId: string }) {
           </div>
         ) : null}
         <CredentialSchemaFields
-          adapter={adapter}
-          values={values}
-          onChange={(name, value) => setValues((prev) => ({ ...prev, [name]: value }))}
+          value={values}
+          onChange={setValues}
         />
         <div className="detail-hint">{t('user.credentials.notEchoed')}</div>
       </FormModal>

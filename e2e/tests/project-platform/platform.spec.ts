@@ -182,7 +182,7 @@ test('S-02/S-06 用户凭据未配置→保存→DB 明文且不回显 @smoke', 
     await expect(sheet).toContainText('未配置');
     await sheet.getByRole('button', { name: '配置凭据', exact: true }).first().click();
     const modal = page.locator('.semi-modal');
-    await modal.getByRole('textbox', { name: /token/i }).fill(token);
+    await modal.getByRole('textbox', { name: '凭据 JSON' }).fill(JSON.stringify({ token }));
     await modal.getByRole('button', { name: 'confirm', exact: true }).click();
     await expect(sheet).toContainText('已配置');
 
@@ -191,8 +191,8 @@ test('S-02/S-06 用户凭据未配置→保存→DB 明文且不回显 @smoke', 
     expect(stored.status).toBe('ACTIVE');
     expect(await page.content()).not.toContain(token);
 
-    await sheet.getByRole('button', { name: '更新' }).first().click();
-    await expect(modal.locator('input[type=password]').first()).toHaveValue('');
+    await sheet.getByRole('button', { name: '编辑' }).first().click();
+    await expect(modal.getByRole('textbox', { name: '凭据 JSON' })).toHaveValue('');
     await modal.locator('.semi-modal-close').click();
   } finally {
     seed(userCode, key, { cleanup: true });

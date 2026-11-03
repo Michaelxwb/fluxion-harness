@@ -23,9 +23,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 from muad_contracts import RunStatus
 
 
-async def _seed_cases(
-    tenant: str, family: str, item_counts: list[int]
-) -> list[uuid.UUID]:
+async def _seed_cases(tenant: str, family: str, item_counts: list[int]) -> list[uuid.UUID]:
     conversation_id = uuid.uuid4()
     async with get_session_factory()() as session:
         session.add(
@@ -170,9 +168,7 @@ async def test_s15_batch_items_missing_or_failed_make_the_case_fail(database_gua
     tenant = f"replay-{uuid.uuid4()}"
     user = uuid.uuid4()
     await _seed_cases(tenant, "skill:demo", [3, 3])
-    partial = _CountingRunner(
-        CaseOutcome(True, "one item missing", items_total=3, items_passed=2)
-    )
+    partial = _CountingRunner(CaseOutcome(True, "one item missing", items_total=3, items_passed=2))
     replay = LearningReplay(get_session_factory(), partial, _limits())
     try:
         decision = await replay.run(

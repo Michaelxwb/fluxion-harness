@@ -13,6 +13,8 @@ from muad_agent_core.skill import (
     SkillExecutionStatus,
 )
 from muad_artifact_store import SkillArtifactCacheError
+from muad_common import process_settings
+from muad_platform_sdk.skill_access import SkillPlatformContext
 
 from ..application.batch_fanout import (
     BATCH_PLAN_KEY,
@@ -135,6 +137,7 @@ class SkillTaskExecutor:
                     input=task.input_json or {},
                     timeout_sec=self._execution_timeout(task),
                     env=task_env(task),
+                    platform_context=task_platform_context(task, skill),
                 )
             )
         except SkillExecutionError as exc:
@@ -179,9 +182,7 @@ class SkillTaskExecutor:
         remaining = (task.deadline_at - datetime.now(UTC)).total_seconds()
         return max(MIN_EXECUTION_TIMEOUT_SEC, min(EXECUTION_TIMEOUT_SEC, remaining))
 
-    def _batch_envelope(
-        self, task: TaskExecution, summary: FanoutSummary | None = None
-    ) -> dict[str, Any]:
+    def _batch_envelope(self, task: TaskExecution, summary: FanoutSummary | None = None) -> dict[str, Any]:
         """Parent 以 WAITING 收尾：`not_before` 远期停放，等 fan-in 聚合后置终态。"""
         batch = (
             summary.as_ref()
@@ -201,3 +202,54 @@ class SkillTaskExecutor:
             "duration_ms": 0,
             "exit_code": 0,
         }
+
+
+def task_platform_context(task: TaskExecution, skill: Mapping[str, Any]) -> SkillPlatformContext:
+    keys = skill.get("platforms", [])
+    if not isinstance(keys, list) or any(not isinstance(k, str) or not k for k in keys):
+        raise TaskExecutionError("SKILL_PLATFORMS_INVALID", "Invalid Skill platforms", retryable=False)
+    settings = process_settings()
+    return SkillPlatformContext(
+        tenant_id=task.tenant_id,
+        actor_user_id=str(task.actor_user_id),
+        execution_id=str(task.id),
+        execution_type="TASK",
+        platform_keys=tuple(dict.fromkeys(keys)),
+        console_url=settings.console_platform_url,
+        redis_url=settings.redis_url,
+        service_token=settings.internal_service_token,
+        audit=TaskPlatformAudit(task),
+    )
+
+
+class TaskPlatformAudit:
+    def __init__(self, task: TaskExecution) -> None:
+        self.tenant_id, self.task_id = task.tenant_id, task.id
+
+    async def record_egress(
+        self,
+        *,
+        target_type: str,
+        target: str,
+        policy_decision: str,
+        method: str | None = None,
+        error_code: str | None = None,
+    ) -> None:
+        from ..application.task_events import TaskEventType, append_event
+        from ..infrastructure.db import get_session_factory
+
+        async with get_session_factory()() as session:
+            await append_event(
+                session,
+                tenant_id=self.tenant_id,
+                task_id=self.task_id,
+                event_type=TaskEventType.PLATFORM_REQUEST,
+                payload={
+                    "target_type": target_type,
+                    "target": target,
+                    "policy_decision": policy_decision,
+                    "method": method,
+                    "error_code": error_code,
+                },
+            )
+            await session.commit()

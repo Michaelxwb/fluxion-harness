@@ -77,6 +77,7 @@ async function expectAuditPrimary(table: Locator) {
   expect(await cells.nth(5).locator('.semi-button-content').evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(false);
   const missing = table.getByTestId('audit-trace-missing-trace');
   await expect(missing).toContainText('missing-');
+  await expect(missing.locator('..')).toHaveAttribute('title', 'missing-trace');
 }
 
 // 代表性矩阵：桌面基线（zh-CN/light）+ 宽屏长文案/深色（en-US/dark）；窄屏固定由下面的

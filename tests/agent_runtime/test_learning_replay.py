@@ -21,9 +21,7 @@ async def _seed(tenant: str) -> list[uuid.UUID]:
     conversation_id = uuid.uuid4()
     async with get_session_factory()() as session:
         session.add(
-            Conversation(
-                id=conversation_id, tenant_id=tenant, user_id=uuid.uuid4(), agent_id=uuid.uuid4()
-            )
+            Conversation(id=conversation_id, tenant_id=tenant, user_id=uuid.uuid4(), agent_id=uuid.uuid4())
         )
         await session.flush()
         case_ids: list[uuid.UUID] = []
@@ -78,16 +76,22 @@ async def test_s03_replay_reports_are_reproducible_and_immutable(database_guard:
     async def runner(case: EvalCase, experience_key: str | None, experience_user_id=None) -> CaseOutcome:
         return CaseOutcome(True, "", 1, 1)
 
-    replay = LearningReplay(
-        get_session_factory(), runner, ReplayLimits(min_cases=2, max_cases=50)
-    )
+    replay = LearningReplay(get_session_factory(), runner, ReplayLimits(min_cases=2, max_cases=50))
     try:
         first = await replay.run(
-            tenant, "skill:demo", experience_key="proc-r", experience_user_id=user, base_config_hash="base-r",
+            tenant,
+            "skill:demo",
+            experience_key="proc-r",
+            experience_user_id=user,
+            base_config_hash="base-r",
             refresh_baseline=True,
         )
         second = await replay.run(
-            tenant, "skill:demo", experience_key="proc-r", experience_user_id=user, base_config_hash="base-r",
+            tenant,
+            "skill:demo",
+            experience_key="proc-r",
+            experience_user_id=user,
+            base_config_hash="base-r",
             refresh_baseline=True,
         )
         assert first.candidate == second.candidate

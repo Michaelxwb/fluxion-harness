@@ -153,10 +153,8 @@ def test_inventory_flags_missing_evidence_row(tmp_path: Path) -> None:
     block = pattern.search(text)
     assert block is not None
     head, separator, tail = block.group(1).partition("### Acceptance Evidence")
-    stripped = head + separator + re.sub(
-        rf"(?m)^\|\s*{re.escape(scenario_id)}\s*\|.*\n", "", tail, count=1
-    )
-    task_file.write_text(text[: block.start()] + stripped + text[block.end():], encoding="utf-8")
+    stripped = head + separator + re.sub(rf"(?m)^\|\s*{re.escape(scenario_id)}\s*\|.*\n", "", tail, count=1)
+    task_file.write_text(text[: block.start()] + stripped + text[block.end() :], encoding="utf-8")
     assert any(
         scenario_id in item and "evidence" in item
         for item in problems(task_file, manifest_path, context_path)

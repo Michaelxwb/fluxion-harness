@@ -55,9 +55,7 @@ async def _seed_runs(
     conversation_id = uuid.uuid4()
     run_ids: list[uuid.UUID] = []
     async with get_session_factory()() as session:
-        session.add(
-            Conversation(id=conversation_id, tenant_id=tenant, user_id=user, agent_id=uuid.uuid4())
-        )
+        session.add(Conversation(id=conversation_id, tenant_id=tenant, user_id=user, agent_id=uuid.uuid4()))
         await session.flush()
         total = success + failed
         seq = 0
@@ -81,8 +79,7 @@ async def _seed_runs(
             )
             await session.flush()
             events = (
-                [{"event_type": "USER_MESSAGE", "payload": {"text": "处理客户"}}]
-                + _skill_events(items)
+                [{"event_type": "USER_MESSAGE", "payload": {"text": "处理客户"}}] + _skill_events(items)
                 if index < success
                 else []
             )
@@ -115,12 +112,8 @@ async def _seed_runs(
 
 async def _cleanup(tenant: str) -> None:
     async with get_session_factory()() as session:
-        await session.execute(
-            sa.delete(UserMemoryHistory).where(UserMemoryHistory.tenant_id == tenant)
-        )
-        await session.execute(
-            sa.delete(MemoryCommandReceipt).where(MemoryCommandReceipt.tenant_id == tenant)
-        )
+        await session.execute(sa.delete(UserMemoryHistory).where(UserMemoryHistory.tenant_id == tenant))
+        await session.execute(sa.delete(MemoryCommandReceipt).where(MemoryCommandReceipt.tenant_id == tenant))
         await session.execute(sa.delete(UserMemory).where(UserMemory.tenant_id == tenant))
         await session.execute(sa.delete(MemoryScope).where(MemoryScope.tenant_id == tenant))
         await session.execute(sa.delete(CanonicalEvent).where(CanonicalEvent.tenant_id == tenant))
@@ -238,9 +231,7 @@ async def test_e02_forget_epoch_blocks_resurrection(database_guard: None) -> Non
                 ).all()
             )
             scope = await session.scalar(
-                sa.select(MemoryScope).where(
-                    MemoryScope.tenant_id == tenant, MemoryScope.user_id == user
-                )
+                sa.select(MemoryScope).where(MemoryScope.tenant_id == tenant, MemoryScope.user_id == user)
             )
         assert len(rows) == 1
         assert rows[0].is_deleted is True

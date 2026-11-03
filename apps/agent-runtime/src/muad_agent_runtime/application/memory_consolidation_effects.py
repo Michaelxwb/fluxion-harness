@@ -63,9 +63,7 @@ class ConsolidationWorker:
         ) as exc:
             return await self._failure(claim, "FAILED", error_type=type(exc).__name__)
 
-    async def _detect_signal(
-        self, tenant_id: str, conversation_id: UUID, run_id: UUID
-    ) -> None:
+    async def _detect_signal(self, tenant_id: str, conversation_id: UUID, run_id: UUID) -> None:
         """信号的独立事务：检测失败只记 warning，不影响 consolidation job。"""
         try:
             await detect_and_write_signal(

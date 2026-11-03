@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from muad_api import ApiResponse, ok, paginate
 from muad_platform_sdk import PlatformAdapterRegistry
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,11 +55,13 @@ async def get_user_credential(
     platform_id: uuid.UUID,
     user_id: uuid.UUID,
     request: Request,
+    response: Response,
     tenant_id: TenantId,
     session: Session,
     registry: Registry,
     sessions: Sessions,
 ) -> ApiResponse[Any]:
+    response.headers["Cache-Control"] = "no-store"
     return ok(
         request.app.state.message_catalog,
         await _service(session, registry, sessions).get_user_credential(tenant_id, platform_id, user_id),
@@ -107,11 +109,13 @@ async def delete_user_credential(
 async def get_shared_credential(
     platform_id: uuid.UUID,
     request: Request,
+    response: Response,
     tenant_id: TenantId,
     session: Session,
     registry: Registry,
     sessions: Sessions,
 ) -> ApiResponse[Any]:
+    response.headers["Cache-Control"] = "no-store"
     return ok(
         request.app.state.message_catalog,
         await _service(session, registry, sessions).get_shared_credential(tenant_id, platform_id),

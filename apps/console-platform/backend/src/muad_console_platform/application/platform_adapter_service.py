@@ -2,14 +2,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from muad_platform_sdk import GenericHttpAdapter, PlatformAdapter, PlatformAdapterRegistry
+from muad_platform_sdk import (
+    GenericHttpAdapter,
+    MSSAdapter,
+    PlatformAdapter,
+    PlatformAdapterRegistry,
+)
 
 
 def build_default_registry(extra_keys: tuple[str, ...] = ()) -> PlatformAdapterRegistry:
     registry = PlatformAdapterRegistry()
     registry.register(GenericHttpAdapter())
+    registry.register(MSSAdapter())
     for key in extra_keys:
-        if key in {"", "generic-http"}:
+        if key in {"", "generic-http", "mss-session"}:
             continue
         registry.register(GenericHttpAdapter(key=key, name=f"通用 HTTP ({key})", version="2"))
     return registry

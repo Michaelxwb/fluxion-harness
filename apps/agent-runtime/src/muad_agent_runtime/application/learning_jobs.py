@@ -57,9 +57,7 @@ class LearningJobRunner:
             job_id = row.scalar_one_or_none()
             if job_id is None:
                 return None
-            claimed = await session.scalar(
-                sa.select(LearningJob).where(LearningJob.id == job_id)
-            )
+            claimed = await session.scalar(sa.select(LearningJob).where(LearningJob.id == job_id))
             return claimed
 
     async def _finish(
@@ -112,9 +110,7 @@ class LearningJobRunner:
                 },
             )
         except Exception as exc:  # noqa: BLE001 - job 失败必须留现场且可重试
-            record_counter(
-                LEARNING_PIPELINE_FAILURES_METRIC, labels={"stage": "job", "outcome": "ERROR"}
-            )
+            record_counter(LEARNING_PIPELINE_FAILURES_METRIC, labels={"stage": "job", "outcome": "ERROR"})
             logger.warning(
                 "learning_job_failed",
                 extra={"job_id": str(job.id), "error_type": type(exc).__name__},

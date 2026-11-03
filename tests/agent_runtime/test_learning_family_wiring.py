@@ -24,9 +24,7 @@ AGENT_ID = uuid.uuid4()
 
 
 def test_skill_family_from_tool_calls() -> None:
-    call = ModelToolCall(
-        id="c1", name="execute_skill", arguments={"skill_key": "demo", "input": {}}
-    )
+    call = ModelToolCall(id="c1", name="execute_skill", arguments={"skill_key": "demo", "input": {}})
     script = ModelToolCall(id="c2", name="run_skill_script", arguments={"skill_key": "demo"})
     unrelated = ModelToolCall(id="c3", name="load_skill", arguments={"skill_key": "demo"})
     assert skill_family_from_tool_calls([call]) == "skill:demo"
@@ -112,24 +110,16 @@ async def test_s01_family_lane_follows_skill_and_agent_fallback(database_guard: 
 
 
 def test_s02_freezes_learning_settings_into_snapshot() -> None:
-    payload = frozen_learning_payload(
-        {"learning": {"learning_enabled": True, "retrieval_min_score": 0.7}}
-    )
+    payload = frozen_learning_payload({"learning": {"learning_enabled": True, "retrieval_min_score": 0.7}})
     assert payload["learning_enabled"] is True
     assert payload["retrieval_min_score"] == 0.7
     assert payload["retrieval_preference_items"] == 3
 
     resolved = ResolveDefinitionResponse(
-        agent=ResolvedAgent(
-            id=AGENT_ID, key="demo", revision=1, instructions="fixed", runtime_config={}
-        ),
-        model=ResolvedModel(
-            id=uuid.uuid4(), revision=1, model_id="probe", base_url="http://127.0.0.1:1"
-        ),
+        agent=ResolvedAgent(id=AGENT_ID, key="demo", revision=1, instructions="fixed", runtime_config={}),
+        model=ResolvedModel(id=uuid.uuid4(), revision=1, model_id="probe", base_url="http://127.0.0.1:1"),
     )
-    snapshot = build_snapshot(
-        run_id=uuid.uuid4(), tenant_id="t", resolved=resolved, learning=payload
-    )
+    snapshot = build_snapshot(run_id=uuid.uuid4(), tenant_id="t", resolved=resolved, learning=payload)
     frozen = learning_of(snapshot.policy_json)
     assert frozen.enabled is True
     assert frozen.min_score == 0.7

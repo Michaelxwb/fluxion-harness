@@ -27,6 +27,18 @@ verifiers:
 
 ## Conventions
 
+- MSSP/MSSW 统一使用 `mss-session` Adapter 标识，显示名为 `mss-session`；平台实例及协议头配置仍分别维护。
+  - ✅ 两个平台实例选择同一个 `mss-session` Adapter，Session 按平台实例隔离。
+  - ❌ 为 MSSW 单独注册重复 Adapter。
+
+- MSS 登录仅将平台 `login_body` 与用户/共享凭据的 `body` 顶层合并，同名键由凭据 body 覆盖。未显式配置 body 时沿用 MSSClaw 空请求体。凭据顶层只接受 `ak`/`sk`/`headers`/`body`；AK/SK 只用于 HMAC 签名，headers 用于登录请求头，不自动转成 body。非空 body 摘要遵循 MSSClaw 签名规则。JSON 模式不要求 AK/SK。Redis 会话管理协议保持一致。
+  - ✅ body 下的自定义嵌套字段实际进入登录请求体，获取 Cookie 后仍通过 Redis acquire 存取和续期。
+  - ❌ 只放开输入框，保存或登录仍拒绝自定义字段；或修改请求体却不更新 HMAC body 摘要。
+
+- 用户凭据、共享凭据与用户详情页凭据入口统一使用自由 JSON 对象编辑器，不按 Adapter schema 生成 AK/SK 等固定字段。前端只校验 JSON 语法与对象根类型，原样提交字段及嵌套值；认证协议所需字段由后端 Adapter 校验。编辑新值关闭弹窗后清空，已存明文不回显。
+  - ✅ 用户输入自定义 JSON 对象，经同一编辑器保存用户或共享凭据。
+  - ❌ 从 `credential_schema.properties` 生成固定凭据输入栏，或丢弃未识别的 JSON 字段。
+
 凭据 HTTP API 的访问、出网与密钥面：
 
 - **凭据类 HTTP API 仅 ADMIN，且租户取自登录账号**：`credentials_router` 挂在 `admin` 组（`api/router.py` 的组装配，非 ADMIN → `403 FORBIDDEN`），路由内 `TenantId = AccountTenantId`（`api/credentials.py`）——租户/RBAC 口径的权威定义在 `harness-auth.md`（RULE-auth-001 的 Console 身份段），本条只记凭据面的落点。修复前是「已登录即可」× 请求头派生租户，任意已登录账号改一个头即可跨租户读写凭据。
@@ -43,7 +55,10 @@ verifiers:
 - **密钥不回显、不入审计、不入日志**：凭据保存审计的 `after` 只含 `credential_schema_version`/`status`（`application/credential_service.py`）；platform 快照不含 `auth_secret`（`tests/console_platform/test_platforms_api.py`）；`PlatformSession` 的 token/cookie 字段 `repr=False`（`packages/platform_sdk` 的 `types.py`）。
 - **平台认证配置的唯一合法载体是凭据表**：平台级凭据一律走 `shared_credential_ref.credential_json`、用户级走 `user_credential_ref.credential_json`（`credential_mode` 只是选择策略）。`project_platform.auth_secret` 是历史遗留的**休眠列**——模型与迁移里有列（`infrastructure/models/control.py`、`migrations/versions/0004_secret_plaintext_expand.py`），但 `platform_service.create/update` 从不读写、快照不回显、有测试断言响应不含它（`tests/console_platform/test_platforms_api.py`）。**该列不得读取、不得写入**，待迁移剔除；新增代码不得以它为平台密钥载体。
   - ✅ 平台密钥写 `shared_credential_ref`；❌ 往 `project_platform.auth_secret` 写值或从它读值
-- 登记缺口（实现待落地）：`PlatformSession` 的「可重建 Redis 缓存」目前只有键构造器（`packages/platform-sdk/src/muad_platform_sdk/session/key.py`）、Set 索引失效器（`session/invalidator.py`）与端口 `Protocol`（`session/manager.py`），**无生产侧 manager 实现**，`credential_version` 也没有生产赋值点（仅测试传字面量）——当前按契约约定对待。
+- 平台 Session 的 Redis 管理器现位于 `packages/platform-sdk/src/muad_platform_sdk/session/redis_manager.py`：空闲 TTL 为 7200 秒。平台 Skill 执行开始 acquire，命中且有效则原子续期；普通聊天/加载说明不续期，Redis 过期或平台 Cookie 失效则重新认证。账号与平台配置/凭据版本隔离；失效器 generation 阻止正在登录的旧请求重新发布缓存。
+  - ✅ 10:00 执行后 12:00 空闲过期，11:30 再执行后延至 13:30；❌ 每次 Skill 强制登录，或配置页访问/聊天自动保活。
+  - 运行身份取受信 Run/Task，Skill 仅声明 `platforms` 并通过 SDK 请求。后台快照只冻结平台 key，不存凭据/Session。MSSP/MSSW 共用认证代码、分别缓存，业务请求头保留平台差异。
+  - 机检：`tests/sdk/test_platform_sliding_session.py`（真实 Redis + 测试 HTTP + Skill 子进程）；真实 MSS 平台仍须内部联调。
 
 ## Avoid
 
