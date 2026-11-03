@@ -1,11 +1,108 @@
 version: 1
 task: Redis 单机/Cluster 双模式接入
 enforcement: required
-updated_at: '2026-11-03T14:21:41.515925+00:00'
+updated_at: '2026-11-03T17:40:47.460951+00:00'
 sources:
 - type: cli
   ref: bind
 bindings:
+- spec_id: harness-api
+  path: api/harness-api.md
+  status: active
+  hashes:
+    file_sha256: 96011a2c158e476b7d6f27d645a221205fa6c1a24a4f08eeead70848d7405fa1
+    metadata_sha256: 8088eab95efc280aa8387d3ee7e4fee89ce481e1d041cadce8abfb6d2636ae96
+    rules_sha256: ef9934dfeef724180bb98891e188e0f090a02e13dec4fe0163970ded69ff33aa
+  selected_by: scope:path
+  reason: Git diff matched apps/im-gateway/src/muad_im_gateway/api/health.py
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
+      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
+      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
+      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
+      unique 只作兜底（各服务的 `_lock_idempotency`）。console 侧 `agent_service`/`mcp_service`/`skill_service`
+      三处 `_fingerprint` 已收敛到同一口径：规范化 JSON 且含 `endpoint`/`tenant_id`/actor 与关键参数（合规参考
+      `channel_service.bind_fingerprint`、`auth_service.account_fingerprint`、`audit_export_service`
+      的指纹函数、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py`）。
+    text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: redis-cluster-support.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-002
+          artifact_sha256: 034e56dab5932eafce4f083416b390de6a2052349ffe9dded48c22281caaa847
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: redis-cluster-support.md
+          section_id: TASK-003
+          item_id: TASK-003
+          artifact_sha256: 50faca74d66c4a8d883d8fe371980b9267fe555977f365b59e987934c39981a2
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: redis-cluster-support.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-001
+          artifact_sha256: 034e56dab5932eafce4f083416b390de6a2052349ffe9dded48c22281caaa847
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: redis-cluster-support.md
+          section_id: TASK-003
+          item_id: TASK-003
+          artifact_sha256: 50faca74d66c4a8d883d8fe371980b9267fe555977f365b59e987934c39981a2
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
 - spec_id: harness-arch
   path: arch/harness-arch.md
   status: active
@@ -37,7 +134,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.2
           item_id: ARCH-01
-          artifact_sha256: 5b68ddc98ac2c37d95a6865cdb480590728419a7026d006559699cd7f8133a82
+          artifact_sha256: 034e56dab5932eafce4f083416b390de6a2052349ffe9dded48c22281caaa847
         decision: null
         evidence: []
       plan:
@@ -46,7 +143,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
+          artifact_sha256: 50faca74d66c4a8d883d8fe371980b9267fe555977f365b59e987934c39981a2
         decision: null
         evidence: []
       code:
@@ -169,7 +266,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.3
           item_id: IM-01
-          artifact_sha256: 5b68ddc98ac2c37d95a6865cdb480590728419a7026d006559699cd7f8133a82
+          artifact_sha256: 034e56dab5932eafce4f083416b390de6a2052349ffe9dded48c22281caaa847
         decision: null
         evidence: []
       plan:
@@ -178,7 +275,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
+          artifact_sha256: 50faca74d66c4a8d883d8fe371980b9267fe555977f365b59e987934c39981a2
         decision: null
         evidence: []
       code:
@@ -299,7 +396,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.3
           item_id: IM-02
-          artifact_sha256: 5b68ddc98ac2c37d95a6865cdb480590728419a7026d006559699cd7f8133a82
+          artifact_sha256: 034e56dab5932eafce4f083416b390de6a2052349ffe9dded48c22281caaa847
         decision: null
         evidence: []
       plan:
@@ -308,7 +405,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
+          artifact_sha256: 50faca74d66c4a8d883d8fe371980b9267fe555977f365b59e987934c39981a2
         decision: null
         evidence: []
       code:
@@ -411,7 +508,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.5.4
           item_id: LOG-01
-          artifact_sha256: 5b68ddc98ac2c37d95a6865cdb480590728419a7026d006559699cd7f8133a82
+          artifact_sha256: 034e56dab5932eafce4f083416b390de6a2052349ffe9dded48c22281caaa847
         decision: null
         evidence: []
       plan:
@@ -420,7 +517,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
+          artifact_sha256: 50faca74d66c4a8d883d8fe371980b9267fe555977f365b59e987934c39981a2
         decision: null
         evidence: []
       code:
@@ -537,7 +634,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.3
           item_id: PLAT-01
-          artifact_sha256: 5b68ddc98ac2c37d95a6865cdb480590728419a7026d006559699cd7f8133a82
+          artifact_sha256: 034e56dab5932eafce4f083416b390de6a2052349ffe9dded48c22281caaa847
         decision: null
         evidence: []
       plan:
@@ -546,7 +643,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
+          artifact_sha256: 50faca74d66c4a8d883d8fe371980b9267fe555977f365b59e987934c39981a2
         decision: null
         evidence: []
       code:
@@ -637,7 +734,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.5.3
           item_id: SEC-01
-          artifact_sha256: 5b68ddc98ac2c37d95a6865cdb480590728419a7026d006559699cd7f8133a82
+          artifact_sha256: 034e56dab5932eafce4f083416b390de6a2052349ffe9dded48c22281caaa847
         decision: null
         evidence: []
       plan:
@@ -646,7 +743,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
+          artifact_sha256: 50faca74d66c4a8d883d8fe371980b9267fe555977f365b59e987934c39981a2
         decision: null
         evidence: []
       code:
@@ -759,7 +856,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.5.5
           item_id: TEST-01
-          artifact_sha256: 5b68ddc98ac2c37d95a6865cdb480590728419a7026d006559699cd7f8133a82
+          artifact_sha256: 034e56dab5932eafce4f083416b390de6a2052349ffe9dded48c22281caaa847
         decision: null
         evidence: []
       plan:
@@ -768,7 +865,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
+          artifact_sha256: 50faca74d66c4a8d883d8fe371980b9267fe555977f365b59e987934c39981a2
         decision: null
         evidence: []
       code:
@@ -816,7 +913,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.5.2
           item_id: WORKER-01
-          artifact_sha256: 5b68ddc98ac2c37d95a6865cdb480590728419a7026d006559699cd7f8133a82
+          artifact_sha256: 034e56dab5932eafce4f083416b390de6a2052349ffe9dded48c22281caaa847
         decision: null
         evidence: []
       plan:
@@ -825,7 +922,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: fe732e489868f322da25dd53f35e47d265c3b8dcab84afb538ee5bb518598734
+          artifact_sha256: 50faca74d66c4a8d883d8fe371980b9267fe555977f365b59e987934c39981a2
         decision: null
         evidence: []
       code:

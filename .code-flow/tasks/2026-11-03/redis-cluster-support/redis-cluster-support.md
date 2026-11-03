@@ -2,7 +2,7 @@
 
 - **Source**: `.code-flow/tasks/2026-11-03/redis-cluster-support/redis-cluster-support.design.md`
 - **Created**: 2026-11-03
-- **Updated**: 2026-11-03
+- **Updated**: 2026-11-04
 
 ## Proposal
 
@@ -134,8 +134,8 @@
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: redis-cluster-support.design.md#3.2 架构设计, redis-cluster-support.design.md#3.3 数据设计, redis-cluster-support.design.md#3.5.2 可靠性设计, redis-cluster-support.design.md#3.5.4 可观测性设计
-- **Spec-Refs**: harness-im#RULE-im-001, harness-im#RULE-im-002, harness-log#RULE-log-001
-- **Rule-Owner-Refs**: N/A
+- **Spec-Refs**: harness-im#RULE-im-001, harness-im#RULE-im-002, harness-log#RULE-log-001, harness-api#RULE-api-001, harness-api#RULE-api-002
+- **Rule-Owner-Refs**: harness-api#RULE-api-001, harness-api#RULE-api-002
 - **Acceptance-Refs**: S-02, RULE-03, RULE-07, RULE-09, RULE-10, RULE-11
 - **Estimate**: 2d
 - **Capability**: cluster 模式下 Gateway 完成 32 流入站消费与通知订阅；保留窗口裁剪生效且不裁 pending；集群故障时降级可见不崩溃
@@ -156,6 +156,8 @@
 - [ ] `[RULE-09]` 断言 `NotificationStreamHub` 的订阅句柄不是 `RedisCluster`，跨节点发布可送达
 - [ ] `[RULE-10]` 注入 `RedisClusterException` 时循环不退出、进程不崩溃
 - [x] `[RULE-11]` 断言裁剪下界不越过 pending 与 `last-delivered-id`；`XLEN` 与窗口语义一致
+- [ ] [harness-api#RULE-api-001] verifier：`uv run pytest -q tests/test_api_i18n.py tests/test_error_catalog.py tests/acceptance/test_foundation_api_envelope.py`；探针 detail 变更不影响业务封套与错误码
+- [ ] [harness-api#RULE-api-002] verifier：`uv run pytest -q tests/console_skill/test_import_idempotency.py`；本需求未新增 POST，幂等契约回归通过
 
 ### Acceptance Contract
 
@@ -177,6 +179,7 @@
 - [2026-11-03] started
 - [2026-11-03] blocked (等待 TASK-007 的 3 节点集群测试夹具与 cluster 验收基座（S-02 需要真实 Gateway + 真实 cluster Redis；acceptance conftest 的 DB 10-15 隔离与 cluster 不兼容）。先执行同批次中不依赖夹具的 TASK-006/007，再 resume。)
 - [2026-11-03] resumed (in-progress)
+- [2026-11-04] resumed (in-progress)
 
 ---
 
