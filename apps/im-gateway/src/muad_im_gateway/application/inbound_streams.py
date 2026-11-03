@@ -17,6 +17,7 @@ import asyncio
 import logging
 import os
 import socket
+import time
 from collections.abc import Mapping
 from typing import Any, cast
 
@@ -25,6 +26,8 @@ from muad_api import metrics
 from muad_contracts import ChannelEnvelope, UnsupportedMedia
 from muad_contracts.im import InboundEvent, inbound_stream_key_for_shard
 from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
+from redis.exceptions import RedisClusterException
 
 from ..channels.base import ChannelAdapter, ChannelRegistry, UnknownChannelAdapterError
 from .inbound import InboundPipeline
@@ -45,16 +48,21 @@ STREAM_FAILURES_METRIC = "im_inbound_stream_failures_total"
 class InboundStreamConsumer:
     def __init__(
         self,
-        redis: Redis,
+        redis: Redis | RedisCluster,
         *,
         registry: ChannelRegistry,
         pipeline: InboundPipeline,
         shards: int,
         max_inflight: int,
+        retention_sec: int = 600,
+        stream_maxlen: int = 5_000,
+        trim_interval_sec: float = 30.0,
         consumer_name: str | None = None,
     ) -> None:
         if shards < 1 or max_inflight < 1:
             raise ValueError("shards and max_inflight must be positive")
+        if retention_sec < 1 or stream_maxlen < 1 or trim_interval_sec < 0:
+            raise ValueError("retention window, maxlen and trim interval must be positive")
         self._redis = redis
         self._registry = registry
         self._pipeline = pipeline
@@ -64,13 +72,17 @@ class InboundStreamConsumer:
         self._tasks: set[asyncio.Task[None]] = set()
         self._stopped = asyncio.Event()
         self._last_reclaim = 0.0
+        self._retention_ms = retention_sec * 1000
+        self._stream_maxlen = stream_maxlen
+        self._trim_interval_sec = trim_interval_sec
+        self._last_trim = 0.0
 
     async def ensure_groups(self) -> None:
         """为每个 shard 建组（`0` = 连已存在的条目也消费；重启不会跳过崩溃前入队的事件）。"""
         for key in self._stream_keys():
             try:
                 await self._redis.xgroup_create(key, INBOUND_GROUP, id="0", mkstream=True)
-            except redis.RedisError as exc:
+            except (redis.RedisError, RedisClusterException) as exc:
                 if "BUSYGROUP" not in str(exc):
                     raise
 
@@ -79,13 +91,14 @@ class InboundStreamConsumer:
             try:
                 await self.ensure_groups()
                 break
-            except redis.RedisError as exc:
+            except (redis.RedisError, RedisClusterException) as exc:
                 # Redis 尚未可用：入站事件仍在 Stream 里（生产者侧持久化），这里退避重试，
                 # 不让生命周期任务直接死掉（死掉 = 之后再也没人消费）。
                 logger.warning("inbound_stream_group_unavailable error=%s", type(exc).__name__)
                 await self._sleep(1.0)
         while not self._stopped.is_set():
             await self._reclaim_due()
+            await self._trim_due()
             try:
                 response = await self._redis.xreadgroup(
                     INBOUND_GROUP,
@@ -96,7 +109,7 @@ class InboundStreamConsumer:
                 )
             except asyncio.CancelledError:
                 raise
-            except redis.RedisError as exc:
+            except (redis.RedisError, RedisClusterException) as exc:
                 logger.warning("inbound_stream_read_failed error=%s", type(exc).__name__)
                 await self._sleep(1.0)
                 continue
@@ -194,7 +207,7 @@ class InboundStreamConsumer:
                     start_id="0-0",
                     count=8,
                 )
-            except redis.RedisError as exc:
+            except (redis.RedisError, RedisClusterException) as exc:
                 logger.warning("inbound_stream_reclaim_failed stream=%s error=%s", key, type(exc).__name__)
                 continue
             entries = claimed[1] if isinstance(claimed, (list, tuple)) and len(claimed) > 1 else []
@@ -207,7 +220,7 @@ class InboundStreamConsumer:
             attempts = int(await self._redis.incr(key))
             await self._redis.expire(key, ENTRY_ATTEMPTS_TTL_SEC)
             return attempts
-        except redis.RedisError as exc:
+        except (redis.RedisError, RedisClusterException) as exc:
             logger.warning("inbound_stream_attempts_failed error=%s", type(exc).__name__)
             return 0
 
@@ -215,7 +228,7 @@ class InboundStreamConsumer:
         try:
             await self._redis.xack(stream, INBOUND_GROUP, entry_id)
             await self._redis.delete(f"{ENTRY_ATTEMPTS_PREFIX}{entry_id}")
-        except redis.RedisError as exc:
+        except (redis.RedisError, RedisClusterException) as exc:
             logger.warning("inbound_stream_ack_failed entry=%s error=%s", entry_id, type(exc).__name__)
 
     async def _dead_letter(
@@ -229,8 +242,78 @@ class InboundStreamConsumer:
                 maxlen=DEAD_STREAM_MAXLEN,
                 approximate=True,
             )
-        except redis.RedisError as exc:
+        except (redis.RedisError, RedisClusterException) as exc:
             logger.error("inbound_dead_letter_failed entry=%s error=%s", entry_id, type(exc).__name__)
+
+    async def _trim_due(self) -> None:
+        """按时间窗口裁剪已投递历史；不越过 last-delivered-id 与最早 pending。"""
+        now = asyncio.get_running_loop().time()
+        if now - self._last_trim < self._trim_interval_sec:
+            return
+        self._last_trim = now
+        for key in self._stream_keys():
+            try:
+                await self._trim_stream(key)
+            except (redis.RedisError, RedisClusterException, OSError) as exc:
+                logger.warning(
+                    "inbound_stream_trim_failed stream=%s error=%s",
+                    key,
+                    type(exc).__name__,
+                )
+
+    async def _trim_stream(self, key: str) -> None:
+        groups = await self._redis.xinfo_groups(key)
+        last_delivered = "0-0"
+        for group in groups or ():
+            if _text(group.get("name")) == INBOUND_GROUP:
+                last_delivered = _text(group.get("last-delivered-id")) or "0-0"
+                break
+        else:
+            return
+        if _stream_id_le(last_delivered, "0-0"):
+            return
+        pending = await self._redis.xpending(key, INBOUND_GROUP)
+        pending_min = ""
+        if isinstance(pending, Mapping) and pending.get("min"):
+            pending_min = _text(pending.get("min"))
+        time_cutoff = f"{int(time.time() * 1000) - self._retention_ms}-0"
+        cutoff = pending_min or last_delivered
+        if _stream_id_less(cutoff, time_cutoff):
+            cutoff = time_cutoff
+        if _stream_id_less(last_delivered, cutoff):
+            cutoff = last_delivered
+        if _stream_id_le(cutoff, "0-0"):
+            return
+        await self._redis.xtrim(key, minid=cutoff, approximate=False)
+        await self._check_overflow(key, last_delivered)
+
+    async def _check_overflow(self, key: str, last_delivered: str) -> None:
+        """MAXLEN 在生产者侧裁剪；若最老条目已越过 last-delivered，说明丢了未投递事件。"""
+        try:
+            length = await self._redis.xlen(key)
+            if length < self._stream_maxlen:
+                return
+            first = await self._redis.xrange(key, "-", "+", count=1)
+        except (redis.RedisError, RedisClusterException, OSError) as exc:
+            logger.warning(
+                "inbound_stream_overflow_check_failed stream=%s error=%s",
+                key,
+                type(exc).__name__,
+            )
+            return
+        if first and _stream_id_less(last_delivered, _text(first[0][0])):
+            metrics.inc_counter(
+                "inbound_stream_backlog_overflow_total",
+                1,
+                {},
+                help="undeclared unread inbound entries trimmed by MAXLEN",
+            )
+            logger.error(
+                "inbound_stream_backlog_overflow stream=%s first_entry=%s last_delivered=%s",
+                key,
+                _text(first[0][0]),
+                last_delivered,
+            )
 
     def _stream_keys(self) -> tuple[str, ...]:
         return tuple(
@@ -259,6 +342,23 @@ def _envelope(event: InboundEvent, adapter: ChannelAdapter) -> ChannelEnvelope:
             cast(UnsupportedMedia, event.unsupported_media) if event.unsupported_media else None
         ),
     )
+
+
+def _parse_stream_id(value: str) -> tuple[int, int] | None:
+    head, _, tail = (value or "").partition("-")
+    if not head.isdigit() or not tail.isdigit():
+        return None
+    return int(head), int(tail)
+
+
+def _stream_id_less(left: str, right: str) -> bool:
+    left_id, right_id = _parse_stream_id(left), _parse_stream_id(right)
+    return left_id is not None and right_id is not None and left_id < right_id
+
+
+def _stream_id_le(left: str, right: str) -> bool:
+    left_id, right_id = _parse_stream_id(left), _parse_stream_id(right)
+    return left_id is not None and right_id is not None and left_id <= right_id
 
 
 def _fields(raw: Any) -> dict[str, str]:

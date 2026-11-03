@@ -35,7 +35,7 @@ class SharedSettings(BaseSettings):
     gateway_routed_channels: str = Field(default="")
     #: 入站 Stream 分片/上限（生产者与消费者必须同一口径；design §3.3.1）。
     inbound_stream_shards: int = Field(default=32, ge=1)
-    inbound_stream_maxlen: int = Field(default=100_000, ge=1)
+    inbound_stream_maxlen: int = Field(default=5_000, ge=100)
     inbound_stream_lost_after_sec: int = Field(default=60, ge=1)
     #: 投递 facade 等待 Connector 结果的有界窗口（超时回可重试错误，不把占位当成功）。
     delivery_stream_wait_sec: float = Field(default=2.0, gt=0)
@@ -153,6 +153,9 @@ class SharedSettings(BaseSettings):
     #: Redis 接入模式与集群 seed（design API-01）：默认 standalone；cluster 才走 RedisCluster。
     redis_mode: str = "standalone"
     redis_cluster_seeds: str = ""
+    #: Stream 保留窗口（design RET-01）：入站周期 XTRIM MINID；出站 XADD MINID。
+    inbound_stream_retention_sec: int = Field(default=600, ge=60)
+    outbound_stream_retention_sec: int = Field(default=3_600, ge=300)
 
     @field_validator("*", mode="before")
     @classmethod

@@ -18,6 +18,7 @@ from typing import Final
 
 import redis.asyncio
 from muad_common.notification_keys import notification_watermark_key
+from redis.asyncio.cluster import RedisCluster
 from redis.exceptions import RedisError
 
 logger = logging.getLogger(__name__)
@@ -43,12 +44,15 @@ class NotificationStreamHub:
         self,
         client: redis.asyncio.Redis,
         *,
+        key_client: redis.asyncio.Redis | RedisCluster | None = None,
         channel: str = NOTIFICATION_CHANNEL,
         queue_size: int = DEFAULT_QUEUE_SIZE,
     ) -> None:
         if queue_size < 1:
             raise ValueError("queue_size must be positive")
-        self._client = client
+        #: 订阅走普通连接（RedisCluster 无 pub/sub）；水位读取走 keyed 客户端。
+        self._pubsub = client
+        self._keyed = key_client or client
         self._channel = channel
         self._queue_size = queue_size
         self._subscribers: dict[
@@ -76,7 +80,7 @@ class NotificationStreamHub:
     async def run_forever(self) -> None:
         """订阅循环：Redis 断开时退避重连；取消即退出（不吞真实错误）。"""
         while True:
-            pubsub = self._client.pubsub()
+            pubsub = self._pubsub.pubsub()
             try:
                 await pubsub.subscribe(self._channel)
                 async for message in pubsub.listen():
@@ -98,7 +102,7 @@ class NotificationStreamHub:
     async def watermark(self, tenant_id: str, user_id: uuid.UUID) -> int | None:
         """该用户已发布的最新通知 seq；读失败/键缺失返回 `None`（调用方退回一页回填）。"""
         try:
-            raw = await self._client.get(notification_watermark_key(tenant_id, user_id))
+            raw = await self._keyed.get(notification_watermark_key(tenant_id, user_id))
         except Exception as exc:  # noqa: BLE001 - 水位只是 backfill 优化
             logger.warning(
                 "notification_stream_watermark_failed",

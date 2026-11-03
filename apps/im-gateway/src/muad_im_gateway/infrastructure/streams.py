@@ -17,6 +17,7 @@ from typing import Any
 from uuid import UUID
 
 import redis.asyncio
+from redis.asyncio.cluster import RedisCluster
 from muad_contracts.im import DeliveryCommand, command_result_key, outbound_stream_key
 
 RESULT_POLL_SEC = 0.1
@@ -27,11 +28,13 @@ class DeliveryStreamsError(Exception):
 
 
 class DeliveryStreams:
-    def __init__(self, client: redis.asyncio.Redis, *, maxlen: int) -> None:
-        if maxlen < 1:
-            raise ValueError("stream maxlen must be positive")
+    def __init__(
+        self, client: redis.asyncio.Redis | RedisCluster, *, retention_sec: int = 3_600
+    ) -> None:
+        if retention_sec < 1:
+            raise ValueError("stream retention must be positive")
         self._client = client
-        self._maxlen = maxlen
+        self._retention_ms = retention_sec * 1000
 
     async def enqueue(self, command: DeliveryCommand) -> str:
         """XADD 一条出站命令；返回 entry id（可观测/排障用）。"""
@@ -46,7 +49,7 @@ class DeliveryStreams:
                     "bot_id": command.bot_id,
                     "event": command.model_dump_json(),
                 },
-                maxlen=self._maxlen,
+                minid=f"{int(time.time() * 1000) - self._retention_ms}-0",
                 approximate=True,
             )
         except (redis.RedisError, OSError) as exc:

@@ -5,8 +5,12 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
+from typing import cast
 
 import redis.asyncio
+from redis.crc import key_slot
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import RedisError as RedisErrorType
 from fastapi import FastAPI
 from muad_api import (
     install_api_foundation,
@@ -16,6 +20,13 @@ from muad_api import (
 from muad_api.catalog import MessageCatalog
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
+from muad_common.redis_client import (
+    RedisClient,
+    RedisTopologyMismatch,
+    create_pubsub_client,
+    create_redis_client,
+    verify_redis_topology,
+)
 from muad_common.session_store import RedisSessionStore
 from muad_im_core import BotSnapshotCache, InboundPublisher
 from muad_logging import configure_logging
@@ -85,6 +96,8 @@ class _GatewayResources:
     inbound_publisher: InboundPublisher
     inbound_consumer: InboundStreamConsumer
     notification_hub: NotificationStreamHub
+    #: pub/sub 专用连接：RedisCluster 没有 pub/sub 实现，订阅与通知水位分开。
+    pubsub_redis: redis.asyncio.Redis
     #: 本部署是否声明了经 Redis Stream 的通道面（远程 Connector / webhook）：决定 Redis 是否
     #: 是就绪硬依赖（WebChat-only 部署不经过 Stream）。
     stream_reliant: bool
@@ -108,6 +121,7 @@ class _GatewayResources:
         app.state.stream_reliant = self.stream_reliant
         # Webchat 路由（TASK-052/054/055/057/061）消费的状态值：装配根是唯一发布点，
         # 值来自同一个 SharedSettings（预算/上限的唯一来源，不在路由层另抄一份默认值）。
+        app.state.settings = self.settings
         app.state.settings_client = self.settings_client
         app.state.artifact_store = self.artifact_store
         app.state.http_pools = self.pools
@@ -130,6 +144,7 @@ class _GatewayResources:
         await self.artifacts.aclose()
         await self.dedupe.aclose()
         await self.streams.aclose()
+        await self.pubsub_redis.aclose()
 
 
 def _build_outbound_clients(
@@ -159,14 +174,47 @@ def _build_outbound_clients(
     return console, runtime, settings_client, artifacts
 
 
-def _build_redis(settings: SharedSettings) -> redis.asyncio.Redis:
-    """Gateway 的 Redis 连接：入站/出站 Stream 是 IM ASYNC 路径的持久实时面。"""
+def _cluster_seeds(settings: SharedSettings) -> list[str]:
+    raw = (settings.redis_cluster_seeds or "").strip()
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _build_redis(settings: SharedSettings) -> RedisClient:
+    """Gateway 的 keyed 客户端：入站/出站 Stream、session、去重等有 key 的命令。"""
     if not settings.redis_url:
         raise RuntimeError("REDIS_URL is required for the IM inbound/outbound streams")
-    client: redis.asyncio.Redis = redis.asyncio.Redis.from_url(
-        settings.redis_url, decode_responses=True
+    return create_redis_client(
+        settings.redis_url,
+        mode=settings.redis_mode,
+        seeds=_cluster_seeds(settings),
+        decode_responses=True,
+        max_connections=settings.redis_max_connections,
     )
-    return client
+
+
+async def _build_pubsub_redis(settings: SharedSettings) -> redis.asyncio.Redis:
+    """pub/sub 连接：`RedisCluster` 没有 pub/sub 实现，cluster 下连派生的单节点。"""
+    if not settings.redis_url:
+        raise RuntimeError("REDIS_URL is required for the IM notification pub/sub")
+    try:
+        return await create_pubsub_client(
+            settings.redis_url,
+            mode=settings.redis_mode,
+            seeds=_cluster_seeds(settings),
+            decode_responses=True,
+            max_connections=settings.redis_max_connections,
+        )
+    except RedisConnectionError as exc:
+        # 启动期不可达不阻断进程：订阅循环会继续重试，降级必须可见。
+        logger.warning("redis_pubsub_degraded error=%s", type(exc).__name__)
+        return cast(
+            redis.asyncio.Redis,
+            redis.asyncio.Redis.from_url(
+                settings.redis_url,
+                decode_responses=True,
+                max_connections=settings.redis_max_connections,
+            ),
+        )
 
 
 def _build_inbound(
@@ -228,15 +276,43 @@ async def _build_resources(
     """按启动设置组装运行时资源；中途失败时回收已创建的部分（分池由调用方收尾）。"""
     console, runtime, settings_client, artifacts = _build_outbound_clients(settings, pools)
     redis = _build_redis(settings)
-    streams = DeliveryStreams(redis, maxlen=settings.inbound_stream_maxlen)
+    try:
+        pubsub_redis = await _build_pubsub_redis(settings)
+    except BaseException:
+        await redis.aclose()
+        raise
+    streams = DeliveryStreams(redis, retention_sec=settings.outbound_stream_retention_sec)
+    try:
+        await verify_redis_topology(redis, mode=settings.redis_mode)
+    except RedisTopologyMismatch:
+        await pubsub_redis.aclose()
+        await redis.aclose()
+        raise
+    except (RedisErrorType, OSError) as exc:
+        # 模式不匹配必须失败关闭；单纯不可达属于可用性问题，交给降级路径。
+        logger.warning(
+            "redis_topology_unverified mode=%s error=%s",
+            settings.redis_mode,
+            type(exc).__name__,
+        )
+    logger.info(
+        "redis_client_configured mode=%s inbound_slot=%s",
+        settings.redis_mode,
+        key_slot(b"im.inbound:{inbound}:0"),
+    )
     # 请求面只装配不含渠道长连接/私钥的适配器（WEBCHAT + 配置驱动的通用 webhook）；
     # 有状态通道（企微）的适配器活在 Connector。装配根不按通道分支。
     # `GATEWAY_ROUTED_CHANNELS` 声明的远程通道只拿到命令 sink：入站路由、出站入队。
     routed_sink = ConnectorOutboundCommands(streams, tenant_id=settings.default_tenant_id)
     registry = build_channel_registry(settings, routed_sink=routed_sink)
     try:
-        dedupe = await build_dedupe_store(settings.redis_url)
+        dedupe = await build_dedupe_store(
+            settings.redis_url,
+            mode=settings.redis_mode,
+            seeds=_cluster_seeds(settings),
+        )
     except BaseException:
+        await pubsub_redis.aclose()
         await redis.aclose()
         raise
     try:
@@ -270,8 +346,10 @@ async def _build_resources(
             pipeline=inbound,
             shards=settings.inbound_stream_shards,
             max_inflight=settings.gateway_max_pending_handlers,
+            retention_sec=settings.inbound_stream_retention_sec,
+            stream_maxlen=settings.inbound_stream_maxlen,
         )
-        notification_hub = NotificationStreamHub(redis)
+        notification_hub = NotificationStreamHub(pubsub_redis, key_client=redis)
         session_store = RedisSessionStore(redis)
         return _GatewayResources(
             registry=registry,
@@ -292,6 +370,7 @@ async def _build_resources(
             inbound_publisher=publisher,
             inbound_consumer=consumer,
             notification_hub=notification_hub,
+            pubsub_redis=pubsub_redis,
             session_store=session_store,
             stream_reliant=bool(
                 parse_routed_channels(settings.gateway_routed_channels)
@@ -302,6 +381,7 @@ async def _build_resources(
         # 半初始化不发布、也不留资源：自有的 dedupe/streams（Redis 连接）在这里回收；HTTP
         # 客户端只借用分池（调用方关闭池即收尾），注册表尚未 start（无连接可停）。
         await dedupe.aclose()
+        await pubsub_redis.aclose()
         await redis.aclose()
         raise
 

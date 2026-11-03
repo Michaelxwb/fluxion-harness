@@ -21,6 +21,7 @@ from enum import StrEnum
 
 from muad_contracts.im import InboundEvent, inbound_dedupe_key, inbound_stream_key
 from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class SweepResult:
 class InboundPublisher:
     def __init__(
         self,
-        redis: Redis,
+        redis: Redis | RedisCluster,
         *,
         shards: int,
         stream_maxlen: int,

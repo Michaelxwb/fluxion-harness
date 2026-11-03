@@ -1398,7 +1398,7 @@ packages/common/src/muad_common/settings.py,30,gateway_webhook_channels,"Field(d
 packages/common/src/muad_common/settings.py,31,webhook_timestamp_tolerance_sec,"Field(default=300, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,35,gateway_routed_channels,Field(default=''),shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,37,inbound_stream_shards,"Field(default=32, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,38,inbound_stream_maxlen,"Field(default=100000, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,38,inbound_stream_maxlen,"Field(default=5000, ge=100)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,39,inbound_stream_lost_after_sec,"Field(default=60, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,41,delivery_stream_wait_sec,"Field(default=2.0, gt=0)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,43,artifact_root,'./.data/artifacts',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
@@ -1776,3 +1776,5 @@ packages/skill-sdk/src/muad_skill_sdk/skill_package.py,28,MAX_PLATFORM_LABEL_BYT
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,29,MAX_DESCRIPTION_BYTES,500,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/common/src/muad_common/settings.py,154,redis_mode,'standalone',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
 packages/common/src/muad_common/settings.py,155,redis_cluster_seeds,'',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
+packages/common/src/muad_common/settings.py,157,inbound_stream_retention_sec,"Field(default=600, ge=60)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,158,outbound_stream_retention_sec,"Field(default=3600, ge=300)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）

@@ -147,15 +147,15 @@
 ### Checklist
 
 - [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/acceptance/redis_cluster/test_cluster_inbound.py tests/gateway/test_inbound_stream_retention.py`
-- [ ] `main.py` 拆两个客户端；`NotificationStreamHub` 接收 pub/sub + keyed 两个依赖
+- [x] `main.py` 拆两个客户端；`NotificationStreamHub` 接收 pub/sub + keyed 两个依赖
 - [ ] 消费循环捕获 `RedisClusterException`；建组/读失败限频与退避；恢复时输出一条 recovered
 - [ ] 周期 `XTRIM MINID`（pending 与 `last-delivered-id` 双下界）；触顶检测、指标与用户可见反馈
-- [ ] 出站 `XADD ... MINID`（窗口常量 ≥ Connector 命令过期时间）
+- [x] 出站 `XADD ... MINID`（窗口常量 ≥ Connector 命令过期时间）
 - [ ] `[S-02][integration]` 覆盖 32 流同 slot 消费、XAUTOCLAIM 接管、窗口裁剪不裁 pending（真实边界：Gateway + cluster Redis + PG）
-- [ ] `[RULE-07]` 集群不可用时 `inbound_stream_group_unavailable` 等日志与指标可见，不静默吞错
+- [x] `[RULE-07]` 集群不可用时 `inbound_stream_group_unavailable` 等日志与指标可见，不静默吞错
 - [ ] `[RULE-09]` 断言 `NotificationStreamHub` 的订阅句柄不是 `RedisCluster`，跨节点发布可送达
 - [ ] `[RULE-10]` 注入 `RedisClusterException` 时循环不退出、进程不崩溃
-- [ ] `[RULE-11]` 断言裁剪下界不越过 pending 与 `last-delivered-id`；`XLEN` 与窗口语义一致
+- [x] `[RULE-11]` 断言裁剪下界不越过 pending 与 `last-delivered-id`；`XLEN` 与窗口语义一致
 
 ### Acceptance Contract
 
@@ -169,6 +169,9 @@
 
 > BLOCKED: 等待 TASK-007 的 3 节点集群测试夹具与 cluster 验收基座（S-02 需要真实 Gateway + 真实 cluster Redis；acceptance conftest 的 DB 10-15 隔离与 cluster 不兼容）。先执行同批次中不依赖夹具的 TASK-006/007，再 resume。
 ### Log
+- [2026-11-04] 生产代码完成：keyed/pubsub 双客户端、RedisClusterException 归一捕获、周期 XTRIM MINID（pending + last-delivered 双下界）、触顶指标 `inbound_stream_backlog_overflow_total`、出站 XADD MINID、/readyz 暴露 redis_mode；mypy 57 文件全绿。
+- [2026-11-04] 待补：S-02 集群验收夹具与用例（tests/acceptance/redis_cluster）。
+- [2026-11-04] 设计限制：MAXLEN 裁剪发生在生产者侧且条目已消失，无法定位受影响会话去做“用户可见反馈”；当前实现为 ERROR 日志 + 指标，需产品确认是否改为“指标 + 运维告警”，并同步 design RET-01。
 
 - [2026-11-03] created (draft)
 - [2026-11-03] started
