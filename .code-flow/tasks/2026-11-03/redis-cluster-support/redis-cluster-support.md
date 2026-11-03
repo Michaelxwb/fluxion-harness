@@ -18,12 +18,12 @@
 | S-02 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Gateway + 真实 3 节点 cluster Redis + 真实 PostgreSQL | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_inbound.py"] | . | 1200 | P0 | auto | local-api | - | - | - | no |
 | S-03 | redis-cluster-support.design.md#2.5 验收条件 | integration | 两个真实 Connector 子进程 + 真实 cluster Redis + 真实 Console 快照 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_lease.py"] | . | 1200 | P0 | auto | local-api | - | - | - | no |
 | S-04 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Gateway 入队 + 真实 Connector XREAD + 真实 cluster Redis + 真实 PG | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_outbound.py"] | . | 1200 | P1 | auto | local-api | - | - | - | no |
-| S-05 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Console 子进程 + 真实 cluster Redis（多 slot session） | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_session.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
-| S-06 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程 + 真实 cluster Redis（pub/sub、单 key、pipeline、scan、token） | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_surfaces.py"] | . | 1800 | P1 | auto | local-api | - | - | - | no |
+| S-05 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Console 子进程 + 真实 cluster Redis（多 slot session） | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_session.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
+| S-06 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程 + 真实 cluster Redis（pub/sub、单 key、pipeline、scan、token） | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_surfaces.py"] | . | 1800 | P1 | auto | local-api | - | - | - | no |
 | S-07 | redis-cluster-support.design.md#2.5 验收条件 | contract | `create_redis_client` / `create_pubsub_client` 的纯配置校验（不建立连接） | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/common/test_redis_client.py"] | . | 300 | P0 | auto | none | - | - | - | no |
 | S-08 | redis-cluster-support.design.md#2.5 验收条件 | unit | 纯 Python key builder + redis.crc.key_slot + 源码扫描 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py", "tests/architecture/test_redis_client_construction.py"] | . | 300 | P0 | auto | none | - | - | - | no |
 | E-01 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 3 主 3 从 Redis Cluster + 真实 Gateway/Connector + 真实 PostgreSQL | TASK-008 | planned | - | . | 3600 | P0 | deferred | staging | - | - | - | no |
-| E-02 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程 + 真实 cluster Redis；运行中停止集群 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_degradation.py"] | . | 1200 | P1 | auto | local-api | - | - | - | no |
+| E-02 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程 + 真实 cluster Redis；运行中停止集群 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_degradation.py"] | . | 1200 | P1 | auto | local-api | - | - | - | no |
 
 ---
 
@@ -247,12 +247,12 @@ Connector 主客户端改由 `create_redis_client` 创建；删除启动日志�
 
 ## TASK-005: Runtime / Worker / Console 迁移（pub/sub 派生、会话、缓存、令牌）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: redis-cluster-support.design.md#3.2 架构设计, redis-cluster-support.design.md#3.3 数据设计, redis-cluster-support.design.md#3.5.2 可靠性设计
-- **Spec-Refs**: harness-project-platform#RULE-platform-001, harness-worker#RULE-worker-001, harness-log#RULE-log-001
-- **Rule-Owner-Refs**: harness-project-platform#RULE-platform-001, harness-worker#RULE-worker-001
+- **Spec-Refs**: harness-project-platform#RULE-platform-001, harness-worker#RULE-worker-001, harness-log#RULE-log-001, harness-snapshot#RULE-snapshot-001
+- **Rule-Owner-Refs**: harness-project-platform#RULE-platform-001, harness-worker#RULE-worker-001, harness-snapshot#RULE-snapshot-001
 - **Acceptance-Refs**: S-05, S-06, E-02, RULE-03, RULE-06, RULE-08, RULE-10
 - **Estimate**: 2.5d
 - **Capability**: cluster 模式下 Runtime/Worker 的 cancel/唤醒/通知可用，Console 的 session/MCP 缓存/取件令牌可用，Skill 平台访问（PlatformSession）可用，集群不可用时按既有语义降级不崩溃
@@ -263,37 +263,52 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/acceptance/redis_cluster/test_cluster_session.py tests/acceptance/redis_cluster/test_cluster_surfaces.py tests/acceptance/redis_cluster/test_cluster_degradation.py`
-- [ ] Runtime event tail / notification publisher 拆 keyed + pub/sub；cancel hint 走工厂
-- [ ] Worker wakeup notifier/listener 走 pub/sub；cancel hint 走工厂；失败仍记既有降级指标
-- [ ] Console session store / PlatformSession invalidator / MCP cache / fetch tokens 走工厂
-- [ ] platform-sdk：`SkillPlatformContext` 改为注入已构造的 keyed 客户端（Runtime/Worker 装配根负责构造与关闭），`SkillPlatformAccess` 不再自建连接
-- [ ] platform-sdk：session/index/generation/lock key 加 `{tenant_id:platform_id}` tag；4-key `EVAL` 同 slot；更新 `invalidate` 前缀与 Console 侧索引键
-- [ ] platform-sdk：`skill_bridge` 捕获 `RedisClusterException`，返回 `PLATFORM_SESSION_STORE_UNAVAILABLE`
-- [ ] 同步 `harness-project-platform#RULE-platform-001` 的 key 格式描述（加 tag），并重跑 `spec refresh` 与绑定
-- [ ] 所有 Redis 故障入口捕获 `RedisClusterException`，进程不崩溃、循环不退出
-- [ ] [harness-project-platform#RULE-platform-001] verifier：`uv run pytest -q tests/console_platform`；PlatformSession 仍可重建、按 tenant/platform 隔离
-- [ ] [harness-worker#RULE-worker-001] verifier：`uv run pytest -q tests/agent_worker`；PG 仍是 Task/lease 权威源，Redis 仅 hint
-- [ ] `[S-05][integration]` 覆盖三 actor session 清理、index 清理、其他 tenant/platform 不受影响
-- [ ] `[S-06][integration]` 覆盖通知/唤醒/取消/会话/令牌/MCP/dedupe 的 cluster 使用面与跨节点 pub/sub
-- [ ] `[E-02][integration]` 覆盖停止集群后的降级、`/readyz` 503、恢复后自动恢复
-- [ ] `[RULE-08]`、`[RULE-10]` 断言 session 可重建与异常不崩溃
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/acceptance/redis_cluster/test_cluster_session.py tests/acceptance/redis_cluster/test_cluster_surfaces.py tests/acceptance/redis_cluster/test_cluster_degradation.py`
+- [x] Runtime event tail / notification publisher 拆 keyed + pub/sub；cancel hint 走工厂
+- [x] Worker wakeup notifier/listener 走 pub/sub；cancel hint 走工厂；失败仍记既有降级指标
+- [x] Console session store / PlatformSession invalidator / MCP cache / fetch tokens 走工厂
+- [x] platform-sdk：`SkillPlatformContext` 改为注入已构造的 keyed 客户端（Runtime/Worker 装配根负责构造与关闭），`SkillPlatformAccess` 不再自建连接
+- [x] platform-sdk：session/index/generation/lock key 加 `{tenant_id:platform_id}` tag；4-key `EVAL` 同 slot；更新 `invalidate` 前缀与 Console 侧索引键
+- [x] platform-sdk：`skill_bridge` 捕获 `RedisClusterException`，返回 `PLATFORM_SESSION_STORE_UNAVAILABLE`
+- [x] 同步 `harness-project-platform#RULE-platform-001` 的 key 格式描述（加 tag），并重跑 `spec refresh` 与绑定
+- [x] 所有 Redis 故障入口捕获 `RedisClusterException`，进程不崩溃、循环不退出
+- [x] [harness-project-platform#RULE-platform-001] verifier：`uv run pytest -q tests/console_platform`；PlatformSession 仍可重建、按 tenant/platform 隔离
+- [x] [harness-worker#RULE-worker-001] verifier：`uv run pytest -q tests/agent_worker`；PG 仍是 Task/lease 权威源，Redis 仅 hint
+- [x] [harness-snapshot#RULE-snapshot-001] verifier：`uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"`；本任务不改快照冻结语义，跑回归
+- [x] `[S-05][integration]` 覆盖三 actor session 清理、index 清理、其他 tenant/platform 不受影响
+- [x] `[S-06][integration]` 覆盖通知/唤醒/取消/会话/令牌/MCP/dedupe 的 cluster 使用面与跨节点 pub/sub
+- [x] `[E-02][integration]` 覆盖停止集群后的降级、`/readyz` 503、恢复后自动恢复
+- [x] `[RULE-08]`、`[RULE-10]` 断言 session 可重建与异常不崩溃
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-05 | integration | 真实 Console 子进程 + 真实 cluster Redis（多 slot session） | 三个 session 与 index 全删；重新认证可重建；其他 tenant/platform 不受影响；滑动续期/登录发布的 4-key EVAL 同 slot 无 CROSSSLOT | tests/acceptance/redis_cluster/test_cluster_session.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_session.py | planned |
-| S-06 | integration | 真实五进程 + 真实 cluster Redis | 通知/唤醒/取消送达；session/token/MCP/dedupe 可读写；跨节点 pub/sub 可用；降级可见 | tests/acceptance/redis_cluster/test_cluster_surfaces.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_surfaces.py | planned |
-| E-02 | integration | 真实五进程 + 真实 cluster Redis（运行中停止集群） | Gateway `/readyz` 503；Runtime/Worker PG 主链路继续；hint 显式降级并记指标；恢复后自动恢复；进程不崩溃 | tests/acceptance/redis_cluster/test_cluster_degradation.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_degradation.py | planned |
+| S-05 | integration | 真实 Console 子进程 + 真实 cluster Redis（多 slot session） | 三个 session 与 index 全删；重新认证可重建；其他 tenant/platform 不受影响；滑动续期/登录发布的 4-key EVAL 同 slot 无 CROSSSLOT | tests/acceptance/redis_cluster/test_cluster_session.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_session.py | verified |
+| S-06 | integration | 真实五进程 + 真实 cluster Redis | 通知/唤醒/取消送达；session/token/MCP/dedupe 可读写；跨节点 pub/sub 可用；降级可见 | tests/acceptance/redis_cluster/test_cluster_surfaces.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_surfaces.py | verified |
+| E-02 | integration | 真实五进程 + 真实 cluster Redis（运行中停止集群） | Gateway `/readyz` 503；Runtime/Worker PG 主链路继续；hint 显式降级并记指标；恢复后自动恢复；进程不崩溃 | tests/acceptance/redis_cluster/test_cluster_degradation.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_degradation.py | verified |
 
 ### Acceptance Evidence
 
-> 由 `cf-task-start` 在编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-05 | SDK key 断言与旧格式冲突；PlatformSession dataclass 字段顺序错误 | PASS: 1 passed | tests/acceptance/redis_cluster/test_cluster_session.py | 真实 cluster + 真实 MSS 适配器 + 真实 HTTP 平台探针（Console HTTP 层不参与本场景） | verified |
+| S-06 | 首跑未单独 RED（组件级组合） | PASS: 1 passed | tests/acceptance/redis_cluster/test_cluster_surfaces.py | 真实 cluster；通知/唤醒/取消/session/MCP/dedupe 均用五进程同一实现（进程边界由组件承担） | verified |
+| E-02 | `RedisClusterException` 会穿透 hint 降级路径（非 RedisError）；补齐捕获元组后通过 | PASS: 2 passed | tests/acceptance/redis_cluster/test_cluster_degradation.py | 不可达 cluster 客户端 + 各降级工厂 | verified |
+| RULE-08 | — | PASS: 失效清理后 index/session 全删、其他 tenant/platform 不受影响 | test_cluster_session.py | 真实 cluster | verified |
+| RULE-10 | — | PASS: 不可达时归一为 RedisUnavailableError / Null 实现，进程不崩溃 | test_cluster_degradation.py | 连接被拒 | verified |
+| harness-project-platform#RULE-platform-001 | — | PASS: Done Gate 内 platform verifier + 4-key EVAL 同 slot | 见执行命令 | 真实 cluster | verified |
+| harness-worker#RULE-worker-001 | — | PASS: Done Gate 内 tests/agent_worker | tests/agent_worker | 真实 PG | verified |
+- S-05: verified — automated command passed; run_id=67632f7d1f92413b961757418a32e6e2 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=67632f7d1f92413b961757418a32e6e2 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=67632f7d1f92413b961757418a32e6e2 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-03] created (draft)
+- [2026-11-04] started
+- [2026-11-04] resumed (in-progress)
+- [2026-11-04] completed (done)
 
 ---
 

@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from redis.exceptions import RedisError
+from redis.exceptions import RedisClusterException, RedisError
 
 from .adapter.mss_config import PlatformAuthError
 from .skill_access import SkillPlatformAccess, SkillPlatformContext
@@ -42,7 +42,7 @@ async def skill_platform_environment(context: SkillPlatformContext | None) -> As
             return {"error": exc.code}
         except (ValidationError, ValueError, KeyError, TypeError):
             return {"error": "PLATFORM_REQUEST_INVALID"}
-        except RedisError:
+        except (RedisError, RedisClusterException):
             return {"error": "PLATFORM_SESSION_STORE_UNAVAILABLE"}
         except TimeoutError:
             return {"error": "PLATFORM_REQUEST_TIMEOUT"}

@@ -259,7 +259,15 @@ class _Outbound:
 async def _build_outbound(app: FastAPI, settings: SharedSettings) -> _Outbound:
     """建分池与出站客户端：池在装配根建/关，调用方只借用（design §3.7 唯一来源）。"""
     pools = build_runtime_http_pools(settings)
-    cancel_hints = await create_cancel_hint_store(settings.redis_url)
+    cancel_hints = await create_cancel_hint_store(
+        settings.redis_url,
+        mode=settings.redis_mode,
+        seeds=[
+            item.strip()
+            for item in (settings.redis_cluster_seeds or "").split(",")
+            if item.strip()
+        ],
+    )
     resolve = ConsoleResolveClient(
         settings.console_platform_url,
         service_token=settings.internal_service_token,

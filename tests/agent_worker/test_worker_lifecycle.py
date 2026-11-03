@@ -286,7 +286,7 @@ async def test_b122_lifespan_runs_and_stops_all_background_loops(
     monkeypatch.setattr(main_module, "SchedulerLoop", _FakeLoop)
     monkeypatch.setattr(main_module, "DeliveryLoop", _FakeLoop)
 
-    async def fake_notifier(_: str | None) -> _FakeNotifier:
+    async def fake_notifier(url: str | None, **_: object) -> _FakeNotifier:
         return notifier
 
     monkeypatch.setattr(main_module, "create_wakeup_notifier", fake_notifier)

@@ -746,7 +746,7 @@
       "kind": "functional",
       "boundary": "真实 Console 子进程 + 真实 cluster Redis；多个 PlatformSession 分布在多个 slot",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -815,7 +815,94 @@
         "REDIS_MODE=cluster",
         "同一 tenant/platform 下至少三个 actor session"
       ],
-      "check": "CHK-634a447f27e8"
+      "check": "CHK-634a447f27e8",
+      "revision": 1,
+      "evidence": {
+        "id": "S-05",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 1439.2412080000001,
+        "check_id": "CHK-634a447f27e8",
+        "input_hash": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a",
+        "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+        "check_config": {
+          "id": "CHK-634a447f27e8",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_session.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "67632f7d1f92413b961757418a32e6e2",
+        "executed_at": "2026-11-03T18:43:40.071628+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/redis_cluster/test_cluster_session.py"
+        ],
+        "cwd": ".",
+        "timeout": 900.0,
+        "fingerprint": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a"
+      },
+      "runs": [
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1439.2412080000001,
+          "check_id": "CHK-634a447f27e8",
+          "input_hash": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-634a447f27e8",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_session.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "67632f7d1f92413b961757418a32e6e2",
+          "executed_at": "2026-11-03T18:43:40.071628+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_session.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a"
+        }
+      ]
     },
     {
       "id": "S-06",
@@ -824,7 +911,7 @@
       "kind": "functional",
       "boundary": "真实五进程 + 真实 cluster Redis；覆盖 pub/sub、单 key、pipeline、scan 与 token 存储",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -886,7 +973,94 @@
         "REDIS_MODE=cluster",
         "真实 PostgreSQL 与 Console/Runtime/Worker 可用"
       ],
-      "check": "CHK-08ef7d3ce569"
+      "check": "CHK-08ef7d3ce569",
+      "revision": 1,
+      "evidence": {
+        "id": "S-06",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 1432.427958,
+        "check_id": "CHK-08ef7d3ce569",
+        "input_hash": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a",
+        "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+        "check_config": {
+          "id": "CHK-08ef7d3ce569",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_surfaces.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "67632f7d1f92413b961757418a32e6e2",
+        "executed_at": "2026-11-03T18:43:40.071628+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/redis_cluster/test_cluster_surfaces.py"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0,
+        "fingerprint": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a"
+      },
+      "runs": [
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1432.427958,
+          "check_id": "CHK-08ef7d3ce569",
+          "input_hash": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-08ef7d3ce569",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_surfaces.py"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "67632f7d1f92413b961757418a32e6e2",
+          "executed_at": "2026-11-03T18:43:40.071628+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_surfaces.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a"
+        }
+      ]
     },
     {
       "id": "S-07",
@@ -1330,7 +1504,7 @@
       "kind": "functional",
       "boundary": "真实五进程 + 真实 cluster Redis；运行中停止集群",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1394,7 +1568,94 @@
         "REDIS_MODE=cluster",
         "Gateway 配置了 IM/webhook 路由，stream_reliant=true"
       ],
-      "check": "CHK-8565db1c8d43"
+      "check": "CHK-8565db1c8d43",
+      "revision": 1,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 871.6428749999995,
+        "check_id": "CHK-8565db1c8d43",
+        "input_hash": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a",
+        "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+        "check_config": {
+          "id": "CHK-8565db1c8d43",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_degradation.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "67632f7d1f92413b961757418a32e6e2",
+        "executed_at": "2026-11-03T18:43:40.071628+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/redis_cluster/test_cluster_degradation.py"
+        ],
+        "cwd": ".",
+        "timeout": 1200.0,
+        "fingerprint": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 871.6428749999995,
+          "check_id": "CHK-8565db1c8d43",
+          "input_hash": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-8565db1c8d43",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_degradation.py"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "67632f7d1f92413b961757418a32e6e2",
+          "executed_at": "2026-11-03T18:43:40.071628+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_degradation.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "e10fc202a318f6a1261682f96a2bc42551f60f7803639f9ddaa9d35c6017c67a"
+        }
+      ]
     }
   ],
   "scenarios_file": "redis-cluster-support.scenarios.md",

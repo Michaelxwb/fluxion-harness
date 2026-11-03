@@ -3,7 +3,7 @@ from collections.abc import Callable
 from typing import Annotated, Any, cast
 
 import httpx
-import redis.asyncio as redis
+from muad_common.redis_client import create_redis_client
 from fastapi import Depends, Request
 from muad_api import AppError, require_roles, require_session
 from muad_api.context import current_tenant_id
@@ -72,6 +72,20 @@ class ConsoleRoleResolver:
 
     async def roles_for(self, principal: Any) -> tuple[str, ...]:
         return (principal.account.role,) if isinstance(principal, ResolvedConsoleSession) else ()
+
+
+def _redis_client(settings: SharedSettings) -> Any:
+    seeds = [
+        item.strip()
+        for item in (settings.redis_cluster_seeds or "").split(",")
+        if item.strip()
+    ]
+    return create_redis_client(
+        settings.redis_url or "",
+        mode=settings.redis_mode,
+        seeds=seeds,
+        decode_responses=True,
+    )
 
 
 def get_header_tenant_id(request: Request) -> str:
@@ -268,7 +282,7 @@ def get_platform_sessions(request: Request) -> PlatformSessionInvalidator:
     if not redis_url:
         invalidator: PlatformSessionInvalidator = NullPlatformSessionInvalidator()
     else:
-        client = redis.from_url(redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
+        client = _redis_client(get_settings(request))
         request.app.state.platform_sessions_client = client
         invalidator = RedisPlatformSessionInvalidator(client)
     request.app.state.platform_sessions = invalidator
@@ -283,7 +297,7 @@ def get_mcp_catalog_cache(request: Request) -> McpCatalogCache:
     if not redis_url:
         resolved: McpCatalogCache = NullMcpCatalogCache()
     else:
-        client = redis.from_url(redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
+        client = _redis_client(get_settings(request))
         request.app.state.mcp_catalog_cache_client = client
         resolved = RedisMcpCatalogCache(client)
     request.app.state.mcp_catalog_cache = resolved
@@ -301,7 +315,7 @@ def get_artifact_fetch_tokens(request: Request) -> ArtifactFetchTokens:
         redis_url = get_settings(request).redis_url
         store: FetchGrantStore
         if redis_url:
-            client = redis.from_url(redis_url, decode_responses=True)  # type: ignore[no-untyped-call]
+            client = _redis_client(get_settings(request))
             # 生命周期收尾要能关掉这个连接（与 platform_sessions_client 同口径）。
             request.app.state.artifact_fetch_tokens_client = client
             store = RedisFetchGrantStore(client)

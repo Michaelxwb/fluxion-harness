@@ -1918,7 +1918,10 @@ def build_registry(
             execution_id=str(request.run_context.run_id), execution_type="RUN", platform_keys=(),
             audit=audit_writer,
             console_url=process_settings().console_platform_url,
-            redis_url=process_settings().redis_url, service_token=process_settings().internal_service_token,
+            redis_url=process_settings().redis_url,
+            redis_mode=process_settings().redis_mode,
+            redis_cluster_seeds=process_settings().redis_cluster_seeds,
+            service_token=process_settings().internal_service_token,
         ) if request.run_context else None,
     )
     if task_client is not None and task_context is not None:

@@ -761,6 +761,7 @@ graph LR
 | `harness-secret#RULE-secret-001` | required | REDIS_URL 继续来自 Secret；REDIS_MODE 走 ConfigMap；日志/错误不泄露密码 | §3.5.3 SEC-01 | S-06、S-07 | applied |
 | `harness-test#RULE-test-001` | required | cluster 集成使用真实 3 节点集群；standalone 回归使用真实 PG/Redis；不 mock 业务边界 | §3.5.5 TEST-01 | S-02、S-03、S-06、E-01、E-02 | applied |
 | `harness-worker#RULE-worker-001` | required | PostgreSQL 仍是 Task/lease 权威源；Redis wakeup/cancel 仅 hint；cluster 不改变调度语义 | §3.5.2 WORKER-01 | S-06、E-02 | applied |
+| `harness-snapshot#RULE-snapshot-001` | required | 本任务只调整 SkillPlatformContext 的 Redis 连接字段，不改变 Run/Task 快照冻结、预算冻结与 CAS 终态；快照套件作为回归 | Spec Compliance Matrix | S-05、S-06 | applied |
 | `harness-api#RULE-api-001` | required | 仅 `/readyz` detail 增加 `redis_mode`；探针响应不走业务封套，未改错误码/列表口径 | Spec Compliance Matrix；§3.5.4 可观测性设计 | S-02、S-06 | applied |
 | `harness-api#RULE-api-002` | required | 本需求未新增创建/上传 POST，幂等契约与指纹口径不变 | Spec Compliance Matrix；§3.5.4 可观测性设计 | S-02、S-06 | applied |
 

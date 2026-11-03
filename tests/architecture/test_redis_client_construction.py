@@ -21,21 +21,7 @@ CONSTRUCTION_PATTERN = re.compile(
 KEY_LITERAL_PREFIXES = ("im.inbound:", "im.outbound:", "connector:bot:")
 
 #: 尚未迁移的构造点：只允许缩减，不允许新增。
-PENDING_CONSTRUCTION_SITES = frozenset(
-    {
-        "apps/agent-runtime/src/muad_agent_runtime/application/event_tail_hub.py",
-        "apps/agent-runtime/src/muad_agent_runtime/infrastructure/cancel_hint.py",
-        "apps/agent-runtime/src/muad_agent_runtime/infrastructure/notification_publisher.py",
-        "apps/agent-worker/src/muad_agent_worker/infrastructure/cancel_hint.py",
-        "apps/agent-worker/src/muad_agent_worker/infrastructure/wakeup_hint.py",
-        "apps/console-platform/backend/src/muad_console_platform/api/deps.py",
-        "apps/console-platform/backend/src/muad_console_platform/main.py",
-        "apps/im-connector/src/muad_im_connector/main.py",
-        "apps/im-gateway/src/muad_im_gateway/infrastructure/dedupe.py",
-        "apps/im-gateway/src/muad_im_gateway/main.py",
-        "packages/platform-sdk/src/muad_platform_sdk/skill_access.py",
-    }
-)
+PENDING_CONSTRUCTION_SITES: frozenset[str] = frozenset()
 
 
 def _source_files() -> Iterator[tuple[str, Path]]:

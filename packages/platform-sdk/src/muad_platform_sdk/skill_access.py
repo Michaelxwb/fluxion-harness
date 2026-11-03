@@ -9,6 +9,7 @@ from typing import Any, Protocol, cast
 from urllib.parse import urlsplit
 
 import httpx
+from muad_common.redis_client import create_redis_client
 from redis.asyncio import Redis
 
 from .adapter import MSSAdapter, PlatformAdapterRegistry
@@ -41,13 +42,27 @@ class SkillPlatformContext:
     console_url: str
     redis_url: str | None = field(repr=False)
     service_token: str | None = field(repr=False)
+    redis_mode: str = "standalone"
+    redis_cluster_seeds: str = ""
     audit: PlatformAudit | None = field(default=None, repr=False)
 
 
 class SkillPlatformAccess:
     def __init__(self, context: SkillPlatformContext) -> None:
         self.context = context
-        self.redis = Redis.from_url(context.redis_url) if context.redis_url else None
+        self.redis = (
+            create_redis_client(
+                context.redis_url,
+                mode=context.redis_mode,
+                seeds=[
+                    item.strip()
+                    for item in (context.redis_cluster_seeds or "").split(",")
+                    if item.strip()
+                ],
+            )
+            if context.redis_url
+            else None
+        )
         self.registry = PlatformAdapterRegistry()
         for adapter in (MSSAdapter(),):
             self.registry.register(adapter)

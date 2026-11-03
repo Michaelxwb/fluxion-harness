@@ -232,6 +232,45 @@ async def create_pubsub_client(
     ) from last_error
 
 
+def create_pubsub_client_sync(
+    url: str | None,
+    *,
+    mode: str = "standalone",
+    seeds: Sequence[str] | None = None,
+    decode_responses: bool = True,
+    max_connections: int = 10,
+) -> Redis:
+    """同步版 pub/sub 客户端：不探测可达性，调用方自带重连/降级循环（hint 类）。
+
+    cluster 模式下取首个 seed 建立普通连接；连接失败由调用方的退避循环处理。
+    """
+    target = (url or "").strip()
+    if not target:
+        raise RedisConfigError("REDIS_URL is required")
+    parsed_mode = _parse_mode(mode)
+    if parsed_mode == "standalone":
+        return cast(
+            Redis,
+            Redis.from_url(
+                target,
+                decode_responses=decode_responses,
+                max_connections=max_connections,
+            ),
+        )
+    parts, _port = _url_parts(target)
+    host, port = parse_cluster_seeds(target, seeds)[0]
+    username, password, ssl = _credential_values(parts)
+    return Redis(
+        host=host,
+        port=port,
+        decode_responses=decode_responses,
+        max_connections=max_connections,
+        username=username,
+        password=password,
+        ssl=ssl,
+    )
+
+
 def create_pubsub_client_from_cluster(
     cluster: RedisCluster,
     *,

@@ -5,7 +5,6 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from typing import cast
 
 import redis.asyncio
 from redis.crc import key_slot
@@ -24,6 +23,7 @@ from muad_common.redis_client import (
     RedisClient,
     RedisTopologyMismatch,
     create_pubsub_client,
+    create_pubsub_client_sync,
     create_redis_client,
     verify_redis_topology,
 )
@@ -207,13 +207,12 @@ async def _build_pubsub_redis(settings: SharedSettings) -> redis.asyncio.Redis:
     except RedisConnectionError as exc:
         # 启动期不可达不阻断进程：订阅循环会继续重试，降级必须可见。
         logger.warning("redis_pubsub_degraded error=%s", type(exc).__name__)
-        return cast(
-            redis.asyncio.Redis,
-            redis.asyncio.Redis.from_url(
-                settings.redis_url,
-                decode_responses=True,
-                max_connections=settings.redis_max_connections,
-            ),
+        return create_pubsub_client_sync(
+            settings.redis_url,
+            mode=settings.redis_mode,
+            seeds=_cluster_seeds(settings),
+            decode_responses=True,
+            max_connections=settings.redis_max_connections,
         )
 
 

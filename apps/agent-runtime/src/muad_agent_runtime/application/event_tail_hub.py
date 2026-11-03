@@ -31,7 +31,7 @@ import logging
 import time
 import uuid
 from collections import deque
-from collections.abc import AsyncIterator, Callable, Coroutine
+from collections.abc import AsyncIterator, Callable, Coroutine, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field, replace
 from datetime import datetime
@@ -41,8 +41,9 @@ import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_common.db_counters import db_stage_scope
+from muad_common.redis_client import create_pubsub_client_sync
 from redis.asyncio import Redis
-from redis.exceptions import RedisError
+from redis.exceptions import RedisClusterException, RedisError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.models.runtime import CanonicalEvent, Conversation
@@ -116,10 +117,22 @@ class RedisHintPubSub(Protocol):
     async def aclose(self) -> None: ...
 
 
-def _build_redis_client(redis_url: str, max_connections: int) -> RedisHintClient:
+def _build_redis_client(
+    redis_url: str,
+    max_connections: int,
+    *,
+    mode: str = "standalone",
+    seeds: Sequence[str] | None = None,
+) -> RedisHintClient:
     return cast(
         RedisHintClient,
-        Redis.from_url(redis_url, decode_responses=True, max_connections=max_connections),
+        create_pubsub_client_sync(
+            redis_url,
+            mode=mode,
+            seeds=seeds,
+            decode_responses=True,
+            max_connections=max_connections,
+        ),
     )
 
 
@@ -131,13 +144,19 @@ class RedisWakeupHint:
         redis_url: str,
         *,
         max_connections: int = 50,
-        client_factory: Callable[[str, int], RedisHintClient] = _build_redis_client,
+        mode: str = "standalone",
+        seeds: Sequence[str] | None = None,
+        client_factory: Callable[[str, int], RedisHintClient] | None = None,
     ) -> None:
         self.enabled = True
         self.degraded = False
         self._redis_url = redis_url
         self._max_connections = max_connections
-        self._client_factory = client_factory
+        self._client_factory = client_factory or (
+            lambda url, connections: _build_redis_client(
+                url, connections, mode=mode, seeds=seeds
+            )
+        )
         self._client: RedisHintClient | None = None
         self._retry_at = 0.0
 
@@ -151,7 +170,7 @@ class RedisWakeupHint:
         was_degraded = self.degraded
         try:
             await client.ping()
-        except RedisError:
+        except (RedisError, RedisClusterException):
             self.degraded = True
             record_outcome(EVENT_STREAM_HINT_METRIC, "degraded")
             self._retry_at = now + HINT_RETRY_SEC
@@ -216,11 +235,23 @@ async def _close_quietly(client: RedisHintClient) -> None:
         await client.aclose()
 
 
-def build_wakeup_hint(redis_url: str | None, *, max_connections: int = 50) -> WakeupHint:
+def _cluster_seeds(raw: str | None) -> list[str]:
+    return [item.strip() for item in (raw or "").split(",") if item.strip()]
+
+
+def build_wakeup_hint(
+    redis_url: str | None,
+    *,
+    max_connections: int = 50,
+    mode: str = "standalone",
+    seeds: Sequence[str] | None = None,
+) -> WakeupHint:
     """装配根注入：无 `REDIS_URL` 即进程内唤醒（跨进程只靠 PG 有界补查）。"""
     if not redis_url:
         return NullWakeupHint()
-    return RedisWakeupHint(redis_url, max_connections=max_connections)
+    return RedisWakeupHint(
+        redis_url, max_connections=max_connections, mode=mode, seeds=seeds
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -760,7 +791,10 @@ def build_event_tail_hub(
         session_factory=session_factory,
         fallback_poll_sec=float(settings.run_event_fallback_poll_sec),
         hint=build_wakeup_hint(
-            settings.redis_url, max_connections=int(settings.redis_max_connections)
+            settings.redis_url,
+            max_connections=int(settings.redis_max_connections),
+            mode=getattr(settings, "redis_mode", "standalone"),
+            seeds=_cluster_seeds(getattr(settings, "redis_cluster_seeds", "")),
         ),
     )
 

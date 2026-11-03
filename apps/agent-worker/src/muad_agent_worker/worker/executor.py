@@ -217,6 +217,8 @@ def task_platform_context(task: TaskExecution, skill: Mapping[str, Any]) -> Skil
         platform_keys=tuple(dict.fromkeys(keys)),
         console_url=settings.console_platform_url,
         redis_url=settings.redis_url,
+        redis_mode=settings.redis_mode,
+        redis_cluster_seeds=settings.redis_cluster_seeds,
         service_token=settings.internal_service_token,
         audit=TaskPlatformAudit(task),
     )

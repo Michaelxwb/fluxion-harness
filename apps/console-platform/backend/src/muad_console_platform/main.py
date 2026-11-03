@@ -5,7 +5,12 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
-import redis.asyncio
+from muad_common.redis_client import (
+    RedisTopologyMismatch,
+    create_redis_client,
+    verify_redis_topology,
+)
+from redis.exceptions import RedisError as RedisErrorType
 from fastapi import FastAPI, Request, Response
 from muad_api import (
     database_readiness,
@@ -108,11 +113,31 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     # 启动预算是每进程一份、重启生效：请求路径复用这一份，不再逐请求重建（构造一次要读
     # 环境与 .env，实测 ~1.5ms；单 Console 进程在 800 并发下它直接吃掉可观的事件循环时间）。
     fastapi_app.state.settings = settings
-    redis_client = (
-        redis.asyncio.Redis.from_url(settings.redis_url, decode_responses=True)
-        if settings.redis_url
-        else None
-    )
+    redis_client = None
+    if settings.redis_url:
+        seeds = [
+            item.strip()
+            for item in (settings.redis_cluster_seeds or "").split(",")
+            if item.strip()
+        ]
+        redis_client = create_redis_client(
+            settings.redis_url,
+            mode=settings.redis_mode,
+            seeds=seeds,
+            decode_responses=True,
+        )
+        try:
+            await verify_redis_topology(redis_client, mode=settings.redis_mode)
+        except RedisTopologyMismatch:
+            await redis_client.aclose()
+            raise
+        except (RedisErrorType, OSError) as exc:
+            # 不可达属于可用性问题：session 读写失败由调用方降级，不阻断进程启动。
+            logger.warning(
+                "console_redis_topology_unverified mode=%s error=%s",
+                settings.redis_mode,
+                type(exc).__name__,
+            )
     fastapi_app.state.session_store = (
         RedisSessionStore(redis_client) if redis_client is not None else None
     )
