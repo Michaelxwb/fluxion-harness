@@ -1763,6 +1763,5 @@
   "audit.action.SEND": "发送",
   "platform.credentials.jsonLabel": "凭据 JSON",
   "platform.credentials.jsonPlaceholder": "顶层支持 ak、sk、headers、body；自定义请求体字段请放在 body 中。",
-  "platform.credentials.errorJson": "请输入有效的 JSON 对象，不能是数组、null 或其他类型。",
-  "audit.resourceType.LEARNING_FAMILY": "学习任务族"
+  "platform.credentials.errorJson": "请输入有效的 JSON 对象，不能是数组、null 或其他类型。"
 }

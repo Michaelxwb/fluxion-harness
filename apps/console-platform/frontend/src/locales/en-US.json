@@ -1763,6 +1763,5 @@
   "audit.action.SEND": "Sent",
   "platform.credentials.jsonLabel": "Credential JSON",
   "platform.credentials.jsonPlaceholder": "Top-level fields: ak, sk, headers, body. Place custom request body fields inside body.",
-  "platform.credentials.errorJson": "Enter a valid JSON object, not an array, null or another type.",
-  "audit.resourceType.LEARNING_FAMILY": "Learning family"
+  "platform.credentials.errorJson": "Enter a valid JSON object, not an array, null or another type."
 }
