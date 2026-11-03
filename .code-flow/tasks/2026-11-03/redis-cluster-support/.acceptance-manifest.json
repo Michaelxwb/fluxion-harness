@@ -836,7 +836,7 @@
       "kind": "functional",
       "boundary": "纯 Python key builder + redis.crc.key_slot；不启动 Redis",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -893,7 +893,98 @@
       "preconditions": [
         "无"
       ],
-      "check": "CHK-9af5d3920650"
+      "check": "CHK-9af5d3920650",
+      "revision": 1,
+      "evidence": {
+        "id": "S-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 1719.5676250000001,
+        "check_id": "CHK-9af5d3920650",
+        "input_hash": "1430007e9c2e7a817eec9a3623fc4158fc560d1cf07cf8ffe6f6328d2a080a8d",
+        "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+        "check_config": {
+          "id": "CHK-9af5d3920650",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_im_contracts.py",
+            "tests/architecture/test_redis_client_construction.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "ab25d40104ca4895afe7b6e6b7149acd",
+        "executed_at": "2026-11-03T14:01:40.150693+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_im_contracts.py",
+          "tests/architecture/test_redis_client_construction.py"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "1430007e9c2e7a817eec9a3623fc4158fc560d1cf07cf8ffe6f6328d2a080a8d"
+      },
+      "runs": [
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1719.5676250000001,
+          "check_id": "CHK-9af5d3920650",
+          "input_hash": "1430007e9c2e7a817eec9a3623fc4158fc560d1cf07cf8ffe6f6328d2a080a8d",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-9af5d3920650",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/contracts/test_im_contracts.py",
+              "tests/architecture/test_redis_client_construction.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "ab25d40104ca4895afe7b6e6b7149acd",
+          "executed_at": "2026-11-03T14:01:40.150693+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_im_contracts.py",
+            "tests/architecture/test_redis_client_construction.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "1430007e9c2e7a817eec9a3623fc4158fc560d1cf07cf8ffe6f6328d2a080a8d"
+        }
+      ]
     },
     {
       "id": "E-01",

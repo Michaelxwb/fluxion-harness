@@ -28,10 +28,13 @@ __all__ = [
     "command_result_key",
     "inbound_dedupe_key",
     "inbound_stream_key",
+    "inbound_stream_key_for_shard",
     "lease_epoch_key",
     "lease_key",
     "outbound_cursor_key",
     "outbound_stream_key",
+    "outbound_dead_stream_key",
+    "outbound_stream_key_for",
     "route_key",
     "shard_for",
 ]
@@ -163,6 +166,16 @@ def shard_for(key: str, shards: int) -> int:
     return int.from_bytes(digest[:8], "big") % shards
 
 
+def inbound_stream_key_for_shard(shard: int) -> str:
+    """入站 Stream key：`{inbound}` 是字面 hash tag，32 个 shard 同 slot。
+
+    生产者与消费者都必须调用这一处，禁止在任何一侧手写前缀。
+    """
+    if shard < 0:
+        raise ValueError("shard must be non-negative")
+    return f"im.inbound:{{inbound}}:{shard}"
+
+
 def inbound_stream_key(event: InboundEvent, *, shards: int = 32) -> str:
     key = route_key(
         channel=event.channel,
@@ -171,7 +184,14 @@ def inbound_stream_key(event: InboundEvent, *, shards: int = 32) -> str:
         external_conversation_id=event.external_conversation_id,
         external_user_id=event.external_user_id,
     )
-    return f"im.inbound:{shard_for(key, shards)}"
+    return inbound_stream_key_for_shard(shard_for(key, shards))
+
+
+def outbound_stream_key_for(tenant_id: str, bot_id: str) -> str:
+    """按 **bot** 分流出站命令：`{tenant_id}` 是字面 hash tag，同租户 bot 同 slot。"""
+    if not tenant_id or not bot_id:
+        raise ValueError("tenant_id and bot_id are required")
+    return f"im.outbound:{{{tenant_id}}}:{bot_id}"
 
 
 def outbound_stream_key(command: DeliveryCommand) -> str:
@@ -180,7 +200,12 @@ def outbound_stream_key(command: DeliveryCommand) -> str:
     不能用全局 shard：bot lease 是逐 bot 的，两个 Connector 可能各自持有同一 shard 里的不同
     bot；只有"每个 bot 一条 stream + 只读自己拥有的 bot"才能保证命令不会被非 owner 抢走。
     """
-    return f"im.outbound:{command.tenant_id}:{command.bot_id}"
+    return outbound_stream_key_for(command.tenant_id, command.bot_id)
+
+
+def outbound_dead_stream_key() -> str:
+    """出站死信流（单 key，不参与 hash tag 契约）。"""
+    return "im.outbound:dead"
 
 
 def command_result_key(command_id: UUID | str) -> str:
@@ -195,10 +220,15 @@ def inbound_dedupe_key(tenant_id: str, bot_id: str, message_id: str) -> str:
     return f"connector:inbound:{tenant_id}:{bot_id}:{message_id}"
 
 
-def lease_key(lease: ConnectorLease) -> str:
-    return f"connector:bot:{lease.tenant_id}:{lease.bot_id}"
+def lease_key(tenant_id: str, bot_id: str) -> str:
+    """bot 租约 key：与 epoch 共用字面 hash tag `{tenant_id:bot_id}`，保证 Lua 同 slot。"""
+    if not tenant_id or not bot_id:
+        raise ValueError("tenant_id and bot_id are required")
+    return f"connector:bot:{{{tenant_id}:{bot_id}}}:lease"
 
 
 def lease_epoch_key(tenant_id: str, bot_id: str) -> str:
     """lease epoch 计数器（不随 lease 过期删除）：保证 fencing token 单调。"""
-    return f"connector:bot:{tenant_id}:{bot_id}:epoch"
+    if not tenant_id or not bot_id:
+        raise ValueError("tenant_id and bot_id are required")
+    return f"connector:bot:{{{tenant_id}:{bot_id}}}:epoch"

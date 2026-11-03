@@ -23,7 +23,7 @@ from typing import Any, cast
 import redis.asyncio
 from muad_api import metrics
 from muad_contracts import ChannelEnvelope, UnsupportedMedia
-from muad_contracts.im import InboundEvent
+from muad_contracts.im import InboundEvent, inbound_stream_key_for_shard
 from redis.asyncio import Redis
 
 from ..channels.base import ChannelAdapter, ChannelRegistry, UnknownChannelAdapterError
@@ -32,7 +32,6 @@ from .inbound import InboundPipeline
 logger = logging.getLogger(__name__)
 
 INBOUND_GROUP = "im-ingress"
-INBOUND_KEY_PREFIX = "im.inbound:"
 INBOUND_DEAD_STREAM = "im:inbound:dead"
 DEAD_STREAM_MAXLEN = 10_000
 ENTRY_ATTEMPTS_PREFIX = "im:inbound:attempts:"
@@ -234,7 +233,9 @@ class InboundStreamConsumer:
             logger.error("inbound_dead_letter_failed entry=%s error=%s", entry_id, type(exc).__name__)
 
     def _stream_keys(self) -> tuple[str, ...]:
-        return tuple(f"{INBOUND_KEY_PREFIX}{shard}" for shard in range(self._shards))
+        return tuple(
+            inbound_stream_key_for_shard(shard) for shard in range(self._shards)
+        )
 
     async def _sleep(self, seconds: float) -> None:
         try:

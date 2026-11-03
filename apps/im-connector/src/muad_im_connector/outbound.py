@@ -36,6 +36,8 @@ from muad_contracts.im import (
     DeliveryKind,
     command_result_key,
     outbound_cursor_key,
+    outbound_dead_stream_key,
+    outbound_stream_key_for,
 )
 from redis.asyncio import Redis
 
@@ -49,7 +51,6 @@ logger = logging.getLogger(__name__)
 
 RESULT_TTL_SEC = 600
 COMMAND_MARKER_PREFIX = "connector:cmd"
-DEAD_STREAM = "im.outbound:dead"
 STREAM_MAXLEN = 100_000
 RESULT_CODE_REPLY_EXPIRED = "REPLY_REF_EXPIRED"
 RESULT_CODE_REPLY_FAILED = "REPLY_SEND_FAILED"
@@ -558,7 +559,7 @@ class OutboundRunner:
                 continue
             await self._ensure_cursors()
             streams = {
-                self._stream_key(tenant, bot): self._cursors[(tenant, bot)]
+                outbound_stream_key_for(tenant, bot): self._cursors[(tenant, bot)]
                 for tenant, bot in self._bots
             }
             try:
@@ -682,7 +683,7 @@ class OutboundRunner:
 
     async def _dead_letter(self, fields: dict[str, str], error: str, attempts: int) -> None:
         await self._redis.xadd(
-            DEAD_STREAM,
+            outbound_dead_stream_key(),
             cast(Any, {**fields, "error": error, "attempts": str(attempts)}),
             maxlen=10_000,
             approximate=True,
@@ -702,13 +703,9 @@ class OutboundRunner:
         with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(self._stopped.wait(), timeout=seconds)
 
-    @staticmethod
-    def _stream_key(tenant_id: str, bot_id: str) -> str:
-        return f"im.outbound:{tenant_id}:{bot_id}"
-
     def _bot_of_stream(self, stream_key: str) -> tuple[str, str] | None:
         for tenant, bot in self._bots:
-            if stream_key == self._stream_key(tenant, bot):
+            if stream_key == outbound_stream_key_for(tenant, bot):
                 return tenant, bot
         return None
 

@@ -21,7 +21,7 @@
 | S-05 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Console 子进程 + 真实 cluster Redis（多 slot session） | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_session.py"] | . | 900 | P1 | auto | local-api | - | - | - | no |
 | S-06 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程 + 真实 cluster Redis（pub/sub、单 key、pipeline、scan、token） | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_surfaces.py"] | . | 1800 | P1 | auto | local-api | - | - | - | no |
 | S-07 | redis-cluster-support.design.md#2.5 验收条件 | contract | `create_redis_client` / `create_pubsub_client` 的纯配置校验（不建立连接） | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/common/test_redis_client.py"] | . | 300 | P0 | auto | none | - | - | - | no |
-| S-08 | redis-cluster-support.design.md#2.5 验收条件 | unit | 纯 Python key builder + redis.crc.key_slot + 源码扫描 | TASK-002 | planned | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py", "tests/architecture/test_redis_client_construction.py"] | . | 300 | P0 | auto | none | - | - | - | no |
+| S-08 | redis-cluster-support.design.md#2.5 验收条件 | unit | 纯 Python key builder + redis.crc.key_slot + 源码扫描 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py", "tests/architecture/test_redis_client_construction.py"] | . | 300 | P0 | auto | none | - | - | - | no |
 | E-01 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 3 主 3 从 Redis Cluster + 真实 Gateway/Connector + 真实 PostgreSQL | TASK-008 | planned | - | . | 3600 | P0 | deferred | staging | - | - | - | no |
 | E-02 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程 + 真实 cluster Redis；运行中停止集群 | TASK-005 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_degradation.py"] | . | 1200 | P1 | auto | local-api | - | - | - | no |
 
@@ -81,7 +81,7 @@
 
 ## TASK-002: key 契约收敛（三族 hash tag、单一来源、删除本地副本）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**:
 - **Source**: redis-cluster-support.design.md#3.3 数据设计, redis-cluster-support.design.md#3.4 接口设计
@@ -97,27 +97,34 @@
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/contracts/test_im_contracts.py tests/architecture/test_redis_client_construction.py`
-- [ ] contracts 提供三族 key 的字面值与 tag；`lease_key` 签名统一为 `(tenant_id, bot_id)`
-- [ ] 删除三处本地副本（Gateway 前缀、Connector `_stream_key`/`_bot_of_stream`、`RedisLeaseManager` 静态方法）
-- [ ] [S-08][unit] 32 个 inbound key 同一 slot；lease/epoch 同一 slot；同租户出站同一 slot；key 字面值与设计一致
-- [ ] [S-08][unit] 架构扫描：`apps/packages` 除工厂外无 `Redis.from_url`/`RedisCluster`，无本地 key 前缀常量
-- [ ] [RULE-02] 断言 standalone 与 cluster 使用同一套带 tag 的 key 字面值
-- [ ] [RULE-06] 断言跨 slot 多 key 组合不存在（slot 集合大小为 1）
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/contracts/test_im_contracts.py tests/architecture/test_redis_client_construction.py`
+- [x] contracts 提供三族 key 的字面值与 tag；`lease_key` 签名统一为 `(tenant_id, bot_id)`
+- [x] 删除三处本地副本（Gateway 前缀、Connector `_stream_key`/`_bot_of_stream`、`RedisLeaseManager` 静态方法）
+- [x] [S-08][unit] 32 个 inbound key 同一 slot；lease/epoch 同一 slot；同租户出站同一 slot；key 字面值与设计一致
+- [x] [S-08][unit] 架构扫描：`apps/packages` 除工厂外无 `Redis.from_url`/`RedisCluster`，无本地 key 前缀常量
+- [x] [RULE-02] 断言 standalone 与 cluster 使用同一套带 tag 的 key 字面值
+- [x] [RULE-06] 断言跨 slot 多 key 组合不存在（slot 集合大小为 1）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-08 | unit | 纯 Python key builder + `redis.crc.key_slot` + 源码扫描 | 32 inbound 单 slot；lease/epoch 单 slot；同租户出站单 slot；无直连构造；无本地 key 前缀 | tests/contracts/test_im_contracts.py, tests/architecture/test_redis_client_construction.py | uv run pytest -q tests/contracts/test_im_contracts.py tests/architecture/test_redis_client_construction.py | planned |
+| S-08 | unit | 纯 Python key builder + `redis.crc.key_slot` + 源码扫描 | 32 inbound 单 slot；lease/epoch 单 slot；同租户出站单 slot；无新增直连构造（冻结清单只减不增，TASK-005 清零）；无本地 key 前缀 | tests/contracts/test_im_contracts.py, tests/architecture/test_redis_client_construction.py | uv run pytest -q tests/contracts/test_im_contracts.py tests/architecture/test_redis_client_construction.py | verified |
 
 ### Acceptance Evidence
 
-> 由 `cf-task-start` 在编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-08 | 契约收紧与用例同批收敛；新断言在旧字面值下不成立（旧 key 无 tag、lease_key 签名不同），未单独留存 RED 运行记录（纯契约改造，失败可推演） | PASS: 12 passed | tests/contracts/test_im_contracts.py::test_key_contracts_share_hash_slots；tests/architecture/test_redis_client_construction.py 全文件 | 纯 Python key builder + redis.crc.key_slot + AST 源码扫描 | verified |
+| RULE-02/RULE-06 | — | PASS: 32 inbound 单 slot / lease+epoch 单 slot / 同租户出站单 slot | 同上 slot 断言 | 无 IO | verified |
+| harness-im#RULE-im-001 | — | PASS: 533 passed（tests/console_channel tests/gateway） | tests/console_channel、tests/gateway | 真实 PG + 进程 | verified |
+- S-08: verified — automated command passed; run_id=ab25d40104ca4895afe7b6e6b7149acd (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-03] created (draft)
+- [2026-11-03] started
+- [2026-11-03] completed (done)
 
 ---
 
