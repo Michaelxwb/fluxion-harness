@@ -42,8 +42,8 @@ data:
   GATEWAY_ROUTED_CHANNELS: WECOM
 
   # —— Redis 接入（design API-01 / RET-01；非敏感，凭据仍在 Secret）——
-  # dev/CI/verify-multipod 保持 standalone。内网 UAT/生产用 `deploy/k8s/intranet`
-  # overlay（已把下面两行改为 cluster + 内网 seeds）；若直接 apply 本文件，再补一次：
+  # dev/CI/verify-multipod 保持 standalone。内网 UAT/生产部署步骤不变：apply 本文件后补一次
+  # merge patch：
   #   kubectl -n muad patch configmap muad-common --type merge -p \
   #     '{"data":{"REDIS_MODE":"cluster","REDIS_CLUSTER_SEEDS":"10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"}}'
   REDIS_MODE: standalone

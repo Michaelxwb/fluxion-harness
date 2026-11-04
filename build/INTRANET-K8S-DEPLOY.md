@@ -93,22 +93,24 @@ REDIS_CLUSTER_SEEDS=<seed1>:6393,<seed2>:6393,<seed3>:6393
 `muad-common` 是 5 个服务共用的进程启动配置，不归属任何服务 chart：
 
 ```bash
-# 内网用 intranet overlay：with-connector + Redis cluster patch
-kubectl apply -k deploy/k8s/intranet
+# 部署步骤不变：照常 apply base ConfigMap，再补一次 merge patch 切到内网 Cluster
+kubectl apply -f deploy/k8s/base/configmap.yaml
+kubectl -n muad patch configmap muad-common --type merge -p \
+  '{"data":{"REDIS_MODE":"cluster","REDIS_CLUSTER_SEEDS":"10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"}}'
 kubectl -n muad get configmap muad-common -o jsonpath='{.data.REDIS_MODE}'   # cluster
 ```
 
 `base/configmap.yaml` 默认 `REDIS_MODE: standalone`（dev/CI/verify-multipod 复用该文件），
-`deploy/k8s/intranet/configmap-cluster.yaml` 只把下面两个键 patch 成内网值：
+内网只需把下面两个键改成：
 
 ```yaml
 REDIS_MODE: cluster
 REDIS_CLUSTER_SEEDS: "10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"
 ```
 
-如果已直接 apply 了单文件，补一次 merge patch（非敏感项，命令见
-`deploy/k8s/README.md` 的「内网 Redis Cluster」）。`REDIS_CLUSTER_SEEDS` 只写非敏感 seed，
-密码只放 Secret。
+`REDIS_CLUSTER_SEEDS` 只写非敏感 seed，密码只放 Secret。服务仍按本文后面的
+`helm upgrade --install` 步骤安装，不要用 `kubectl apply -k deploy/k8s/base` 把原始清单
+铺进 Helm 管理的 namespace。
 
 ### 1.4 镜像拉取 Secret（不需要）
 
