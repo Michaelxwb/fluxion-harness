@@ -93,20 +93,22 @@ REDIS_CLUSTER_SEEDS=<seed1>:6393,<seed2>:6393,<seed3>:6393
 `muad-common` 是 5 个服务共用的进程启动配置，不归属任何服务 chart：
 
 ```bash
-kubectl apply -f deploy/k8s/base/configmap.yaml
-kubectl -n muad get configmap muad-common
+# 内网用 intranet overlay：with-connector + Redis cluster patch
+kubectl apply -k deploy/k8s/intranet
+kubectl -n muad get configmap muad-common -o jsonpath='{.data.REDIS_MODE}'   # cluster
 ```
 
-包含 `DEFAULT_TENANT_ID`、服务地址、SSE/CHAT 上限等非敏感项，以及 Redis 接入模式：
+`base/configmap.yaml` 默认 `REDIS_MODE: standalone`（dev/CI/verify-multipod 复用该文件），
+`deploy/k8s/intranet/configmap-cluster.yaml` 只把下面两个键 patch 成内网值：
 
 ```yaml
 REDIS_MODE: cluster
 REDIS_CLUSTER_SEEDS: "10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"
 ```
 
-内网必须显式 `cluster`（默认值是 `standalone`，只适用于本地/dev）；`REDIS_CLUSTER_SEEDS`
-只写非敏感 seed，密码只放 Secret。需要调整时改这个文件后重新 apply，不要用
-`kubectl create configmap` 局部覆盖。
+如果已直接 apply 了单文件，补一次 merge patch（非敏感项，命令见
+`deploy/k8s/README.md` 的「内网 Redis Cluster」）。`REDIS_CLUSTER_SEEDS` 只写非敏感 seed，
+密码只放 Secret。
 
 ### 1.4 镜像拉取 Secret（不需要）
 

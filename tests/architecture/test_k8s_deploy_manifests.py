@@ -210,3 +210,15 @@ def test_connector_has_pdb_and_no_public_ingress_route() -> None:
         for entry in ((rule.get("http") or {}).get("paths") or [])
     }
     assert "muad-connector" not in backend_services, "Connector 不得有公开入口（不暴露业务路由）"
+
+
+def test_intranet_overlay_patches_configmap_to_cluster() -> None:
+    patch = yaml.safe_load(
+        (Path("deploy/k8s/intranet") / "configmap-cluster.yaml").read_text(encoding="utf-8")
+    )
+    assert patch["kind"] == "ConfigMap"
+    assert patch["metadata"] == {"name": "muad-common", "namespace": "muad"}
+    data = patch["data"]
+    assert data["REDIS_MODE"] == "cluster", "内网只有 Cluster，standalone 会拓扑不匹配"
+    seeds = data["REDIS_CLUSTER_SEEDS"].split(",")
+    assert len(seeds) == 3 and all(seed.endswith(":6393") for seed in seeds)

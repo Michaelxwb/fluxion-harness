@@ -13,6 +13,7 @@ Runtime 与 Worker **无状态、可横向扩展**（`docs/01 §4.2`：runtime 2
 | `base/secret.example.yaml` | Secret 模板（**不含真实凭据**，键名是契约） |
 | `with-connector/` | 启用企微的 **5 单元 overlay**：只多一个 Connector Deployment/Service/PDB（自身 secret、无公开入口）；Gateway 多副本与远程通道开关在 base |
 | `with-connector/secret-connector.example.yaml` | Connector 专属 Secret 模板（只有 `REDIS_URL`/`INTERNAL_SERVICE_TOKEN`；**没有** `DATABASE_URL`） |
+| `intranet/` | 内网 UAT/生产 overlay：`with-connector` + `muad-common` 的 `REDIS_MODE=cluster` 与内网 seeds（只 patch 这两个键，其余沿用 base） |
 | `verify-multipod/` | 多 Pod 冒烟用 overlay（runtime/worker 撑到 2 副本）+ 怎么跑 |
 
 ## 部署顺序
@@ -43,6 +44,27 @@ kubectl -n muad wait --for=condition=complete job/muad-migrate --timeout=300s
 kubectl apply -k deploy/k8s/base        # 或逐个 apply 四个 *.yaml
 kubectl -n muad rollout status deploy/muad-console-platform --timeout=180s
 ```
+
+## 内网 Redis Cluster（UAT/生产）
+
+内网 Redis 只有集群（3 主 3 从，客户端端口 6393/6394），base ConfigMap 的
+`REDIS_MODE: standalone` 只适用于 dev/CI/verify-multipod。内网用 `intranet` overlay：
+
+```bash
+# 5 单元（含企微 Connector）+ Redis Cluster；Secret 仍按 INTRANET-K8S-DEPLOY.md §1.2 创建
+kubectl apply -k deploy/k8s/intranet
+```
+
+若已直接 apply 了 `base/configmap.yaml`，补一次 merge patch 即可（非敏感项）：
+
+```bash
+kubectl -n muad patch configmap muad-common --type merge -p \
+  '{"data":{"REDIS_MODE":"cluster","REDIS_CLUSTER_SEEDS":"10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"}}'
+```
+
+Secret 的 `REDIS_URL` 用 `redis://:<password>@<seed>:6393/0`（只支持 db 0），上线前跑
+`scripts/probe_redis_cluster.py` 与 `scripts/probe_redis_cluster_commands.py`，详见
+`build/INTRANET-K8S-DEPLOY.md` §1.2/§1.3。
 
 ## 发布前预检（渲染清单 → typed 容量配置，失败阻断发布）
 

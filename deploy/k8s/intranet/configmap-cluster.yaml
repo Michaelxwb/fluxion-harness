@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: muad-common
+  namespace: muad
+data:
+  # 内网 Redis 只有 Cluster（3 主 3 从；客户端端口 6393/6394）。
+  # 默认 standalone 会因实际拓扑不匹配而启动失败；密码仍在 Secret 的 REDIS_URL 里。
+  REDIS_MODE: cluster
+  REDIS_CLUSTER_SEEDS: "10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"
