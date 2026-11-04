@@ -70,6 +70,7 @@ verifiers:
 - **SSE 订阅有进程级上限**：`GATEWAY_MAX_SSE_SUBSCRIBERS` 到界抛 `RUN_CAPACITY_EXCEEDED`（不排队、不静默丢）；缓冲记账在 `SseBufferLedger`（`application/webchat_streams.py`）。
 - **Connector 只持有 bot 传输所有权，租约带单调 fencing epoch**：同一 bot 任意时刻只有一个 Connector 建连；epoch 独立计数、过期不删除，旧 owner 的 token 永远小于新 owner；续租用 owner+epoch 比较，失配立即停连接；时间取 Redis 服务端 TIME（`apps/im-connector/src/muad_im_connector/lease.py`）。
 - **入站流是 at-least-once，去重标记必须早于 XADD**：先写 Redis 去重/崩溃标记再发布；收到后、发布前崩溃停在 `RECEIVED`，平台重投可再发布，不重投则扫描置 `LOST` 并记 ERROR/指标——不假装成功，也不补造 Run；`PUBLISHED` 的重复回调直接跳过（`packages/im-core/src/muad_im_core/ingress.py`）。
+- **Redis 单机/集群双模式，客户端与 key 布局只有一个入口**：业务代码一律经 `muad_common.redis_client` 的 `create_redis_client` / `create_pubsub_client`(`_sync`) 构造，禁止直接 `Redis.from_url`/`RedisCluster`；集群下三族 key 用 hash tag 保同 slot：入站 `im.inbound:{inbound}:{shard}`、出站 `im.outbound:{tenant_id}:{bot_id}`、租约 `connector:bot:{tenant_id:bot_id}:lease|:epoch`（`packages/contracts/src/muad_contracts/im.py`）。`REDIS_MODE=cluster` 只支持 db 0；`RedisCluster` 没有 async `pubsub()`，通知/唤醒必须用派生普通连接。入站 `XTRIM MINID` 取「最早 pending / 已投递后继 / 时间窗」三者的最小值，出站 `XADD MINID` 精确裁剪；触顶记 `inbound_stream_backlog_overflow_total` 并交给平台重投，不静默丢。✅ `make cluster-acceptance`；❌ 在业务层硬编码 key 前缀或沿用单机 db 10–15 的假设。
 
 **入站附件**：
 
