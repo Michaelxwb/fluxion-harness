@@ -53,6 +53,20 @@ async def _wait_result(
     return None
 
 
+async def _wait_cursor(
+    client: RedisClient, tenant_id: str, bot_id: str, *, timeout: float = 60.0
+) -> str | None:
+    """Connector 先写 result、随后才推进 cursor；两步之间不是原子写。"""
+    deadline = time.monotonic() + timeout
+    key = outbound_cursor_key(tenant_id, bot_id)
+    while time.monotonic() < deadline:
+        cursor = await client.get(key)
+        if cursor:
+            return cursor
+        await asyncio.sleep(0.1)
+    return None
+
+
 async def test_s04_cluster_outbound_roundtrip(
     cluster_client: RedisClient, connector_stack: object
 ) -> None:
@@ -69,8 +83,8 @@ async def test_s04_cluster_outbound_roundtrip(
     assert result is not None, "Connector 未写回出站结果"
     assert result.get("command_id") == str(command.command_id)
 
-    # cursor 只由当前 owner 推进到已处理条目。
-    cursor = await cluster_client.get(outbound_cursor_key(TENANT, BOT_ID))
+    # cursor 只由当前 owner 推进到已处理条目；result 与 cursor 是两次写，需有界等待。
+    cursor = await _wait_cursor(cluster_client, TENANT, BOT_ID)
     assert cursor, "owner 必须推进 cursor"
 
     # 窗口外命令被裁：在一条新的 bot 流上注入很旧的条目，再由生产端 XADD 触发 MINID 裁剪。
