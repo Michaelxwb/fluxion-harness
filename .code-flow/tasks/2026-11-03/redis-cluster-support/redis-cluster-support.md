@@ -22,7 +22,7 @@
 | S-06 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程 + 真实 cluster Redis（pub/sub、单 key、pipeline、scan、token） | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_surfaces.py"] | . | 1800 | P1 | auto | local-api | - | - | - | no |
 | S-07 | redis-cluster-support.design.md#2.5 验收条件 | contract | `create_redis_client` / `create_pubsub_client` 的纯配置校验（不建立连接） | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/common/test_redis_client.py"] | . | 300 | P0 | auto | none | - | - | - | no |
 | S-08 | redis-cluster-support.design.md#2.5 验收条件 | unit | 纯 Python key builder + redis.crc.key_slot + 源码扫描 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_im_contracts.py", "tests/architecture/test_redis_client_construction.py"] | . | 300 | P0 | auto | none | - | - | - | no |
-| E-01 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 3 主 3 从 Redis Cluster + 真实 Gateway/Connector + 真实 PostgreSQL | TASK-008 | planned | - | . | 3600 | P0 | deferred | staging | - | - | - | no |
+| E-01 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 3 主 3 从 Redis Cluster（本地单容器 6 进程）+ 真实 Gateway/Runtime/Worker 子进程 + 真实 Connector 租约实现 + 真实 PostgreSQL | TASK-008 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_failover_drill.py"] | . | 3600 | P0 | auto | local-api | - | - | - | no |
 | E-02 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程 + 真实 cluster Redis；运行中停止集群 | TASK-005 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_degradation.py"] | . | 1200 | P1 | auto | local-api | - | - | - | no |
 
 ---
@@ -336,6 +336,7 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 - [x] `build/INTRANET-K8S-DEPLOY.md` 更新为"支持原生 Redis Cluster"，写明 seeds/端口/前置检查
 - [x] 新增上线前置检查脚本（六地址可达 + 版本/模式/槽位/maxmemory/maxclients），可从 Pod 内执行
 - [x] `[RULE-04]` 断言清单默认 `standalone`，生产由 ConfigMap 显式 `cluster`；启动自校验已接线
+- [x] `[S-07]` 清单键与 SharedSettings 字段一致；工厂纯配置校验由 TASK-001 证据覆盖（27 passed）
 
 ### Acceptance Contract
 
@@ -412,7 +413,7 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 
 ## TASK-008: 3M3R 本地故障与 reshard 演练（E-01）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004, TASK-005
 - **Source**: redis-cluster-support.design.md#3.5.2 可靠性设计, redis-cluster-support.design.md#4.2 发布与回滚, redis-cluster-support.design.md#3.5.5 测试策略
@@ -428,20 +429,25 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，本地 3M3R 演练并记录：failover 窗口、reshard 槽位、入站重复/丢失、租约 owner 变化
-- [ ] 复用入站消费与租约的代表性流量，在 failover/reshard 前后持续投递并核对结果
-- [ ] `[E-01][integration]` 断言客户端在既有重试窗口内恢复、无需重启；日志/指标可见重定向与恢复；仅提供非主 seed 时仍可发现
+- [x] 交付 `<Capability>`，本地 3M3R 演练并记录：failover 窗口、reshard 槽位、入站重复/丢失、租约 owner 变化
+- [x] 复用入站消费与租约的代表性流量，在 failover/reshard 前后持续投递并核对结果
+- [x] `[E-01][integration]` 断言客户端在既有重试窗口内恢复、无需重启；日志/指标可见重定向与恢复；仅提供非主 seed 时仍可发现
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-01 | integration | 真实 3 主 3 从 Redis Cluster（本地单容器 6 进程）+ 真实 Gateway/Runtime/Worker 子进程 + 真实 Connector 租约实现 + 真实 PostgreSQL | failover/reshard 后自动恢复；入站至少一次、无重复副作用；租约单 owner；仅非主 seed 时仍可发现 | tests/acceptance/redis_cluster/test_cluster_failover_drill.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_failover_drill.py | planned |
+| E-01 | integration | 真实 3 主 3 从 Redis Cluster（本地单容器 6 进程）+ 真实 Gateway/Runtime/Worker 子进程 + 真实 Connector 租约实现 + 真实 PostgreSQL | failover/reshard 后自动恢复；入站至少一次、无重复副作用；租约单 owner；仅非主 seed 时仍可发现 | tests/acceptance/redis_cluster/test_cluster_failover_drill.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_failover_drill.py | verified |
 
 ### Acceptance Evidence
 
-> 由 `cf-task-start` 在编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| E-01 | 纯演练用例，无对应缺陷；首跑 1 passed（13s）。负向对照：集群不可达时 cluster 夹具以 `env_blocked` 失败而非 skip（见 TASK-007 证据） | PASS: 1 passed（12.17s）；受控 failover 后 replica 接管入站槽位、空槽 reshard 到新 master、12 条入站各产生 1 个 Run、租约单 owner/epoch 递增、仅非主 seed 可发现 | `_controlled_failover` 槽位归属与旧 master 降级；`_reshard_empty_slot` 槽位迁移与 `get_node_from_key`；Run 计数；`_lease_roundtrip`；`verify_redis_topology` | 真实本地 3M3R（6391–6396）+ 真实 Gateway/Runtime×2/Worker 子进程 + 真实 PostgreSQL | verified |
+- E-01: verified — automated command passed; run_id=02e114f4b1294206ba739aa8f2ffff24 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-03] created (draft)
+- [2026-11-04] started
+- [2026-11-04] completed (done)

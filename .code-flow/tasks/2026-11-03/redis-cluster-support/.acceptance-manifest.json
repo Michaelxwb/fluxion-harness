@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "redis-cluster-support.md",
-  "task_sha256": "96c4871ad82d5b68147e1ae2ff5aa0be83d4fcaaaa35b544d8ea2e1305ac409f",
+  "task_sha256": "01ad7448dba7bd18dd8a8a77931a027a6ecff0f5f51f106d876aa0eae2487e8b",
   "checks": [
     {
       "id": "CHK-c55db5278187",
@@ -149,6 +149,25 @@
       "cwd": ".",
       "timeout": 300.0,
       "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-9e45b7c5ef75",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/redis_cluster/test_cluster_failover_drill.py"
+      ],
+      "cwd": ".",
+      "timeout": 3600.0,
+      "env": "local-api",
       "env_scope": "shared",
       "parallel_safe": false,
       "profile": "changed",
@@ -1557,8 +1576,14 @@
       "kind": "functional",
       "boundary": "真实 3 主 3 从 Redis Cluster（本地单容器 6 进程）+ 真实 Gateway/Runtime/Worker 子进程 + 真实 Connector 租约实现 + 真实 PostgreSQL",
       "owner": "TASK-008",
-      "status": "planned",
-      "command": null,
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/redis_cluster/test_cluster_failover_drill.py"
+      ],
       "cwd": ".",
       "timeout": 3600.0,
       "depends_on": [],
@@ -1621,6 +1646,94 @@
       "preconditions": [
         "本地 3M3R 集群，16384 槽位全覆盖",
         "可对一个 master 执行受控 failover 并对空闲 slot 执行 reshard"
+      ],
+      "check": "CHK-9e45b7c5ef75",
+      "revision": 1,
+      "evidence": {
+        "id": "E-01",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 15167.924084,
+        "check_id": "CHK-9e45b7c5ef75",
+        "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+        "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+        "check_config": {
+          "id": "CHK-9e45b7c5ef75",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_failover_drill.py"
+          ],
+          "cwd": ".",
+          "timeout": 3600.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "02e114f4b1294206ba739aa8f2ffff24",
+        "executed_at": "2026-11-04T04:01:44.760306+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/redis_cluster/test_cluster_failover_drill.py"
+        ],
+        "cwd": ".",
+        "timeout": 3600.0,
+        "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+      },
+      "runs": [
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 15167.924084,
+          "check_id": "CHK-9e45b7c5ef75",
+          "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-9e45b7c5ef75",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_failover_drill.py"
+            ],
+            "cwd": ".",
+            "timeout": 3600.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "02e114f4b1294206ba739aa8f2ffff24",
+          "executed_at": "2026-11-04T04:01:44.760306+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_failover_drill.py"
+          ],
+          "cwd": ".",
+          "timeout": 3600.0,
+          "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        }
       ]
     },
     {

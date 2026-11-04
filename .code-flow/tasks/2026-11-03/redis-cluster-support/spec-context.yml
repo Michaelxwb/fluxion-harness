@@ -1,7 +1,7 @@
 version: 1
 task: Redis 单机/Cluster 双模式接入
 enforcement: required
-updated_at: '2026-11-04T03:48:34.583691+00:00'
+updated_at: '2026-11-04T04:01:55.107570+00:00'
 sources:
 - type: cli
   ref: bind
@@ -53,7 +53,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
+          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
         decision: null
         evidence: []
       code:
@@ -165,6 +165,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-11-04T04:01:44.928401+00:00'
+          status: unverified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -194,7 +206,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
+          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
         decision: null
         evidence: []
       code:
@@ -326,6 +338,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-11-04T04:01:44.928426+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -371,7 +395,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
+          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
         decision: null
         evidence: []
       code:
@@ -548,6 +572,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-04T04:01:45.023931+00:00'
+          status: unverified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -592,7 +628,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
+          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
         decision: null
         evidence: []
       code:
@@ -948,6 +984,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-11-04T04:01:45.088878+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -978,7 +1026,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
+          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
         decision: null
         evidence: []
       code:
@@ -1159,6 +1207,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-11-04T04:01:45.088892+00:00'
+          status: unverified
+          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1206,7 +1266,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
+          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
         decision: null
         evidence: []
       code:
@@ -1384,6 +1444,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-11-04T04:01:45.181375+00:00'
+          status: unverified
+          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1427,7 +1499,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-platform-001
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         decision: null
         evidence: []
       plan:
@@ -1436,7 +1508,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
+          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
         decision: null
         evidence: []
       code:
@@ -1579,6 +1651,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-11-04T04:01:45.246244+00:00'
+          status: unverified
+          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: stale
         refs: []
@@ -1625,7 +1709,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
+          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
         decision: null
         evidence: []
       code:
@@ -1799,6 +1883,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-04T04:01:45.311129+00:00'
+          status: unverified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1845,7 +1941,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
+          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
         decision: null
         evidence: []
       code:
@@ -1925,6 +2021,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-04T04:01:45.377278+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1969,7 +2077,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
+          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
         decision: null
         evidence: []
       code:
@@ -2026,7 +2134,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
+          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
         decision: null
         evidence: []
       code:
@@ -2220,6 +2328,18 @@ bindings:
           rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
           artifact_sha256: null
           diff_sha256: 8ff875b2cff8971f0ec65c9811bafeb58d3f28e296523e8666b2cd7c69da7643
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-11-04T04:01:45.479461+00:00'
+          status: unverified
+          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+          artifact_sha256: null
+          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
