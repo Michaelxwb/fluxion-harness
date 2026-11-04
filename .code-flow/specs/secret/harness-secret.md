@@ -73,7 +73,7 @@ return {"api_key": model.api_key}                                     # 出现�
 - 运行时凭据解析走内部 API-09（`POST /internal/runtime/resolve-credentials`）：按冻结引用（`deployment_id`/`credential_id`/`expected_revision` 三个同生同灭；缺省时按模型级首个可用成员作过渡解析）实时读取 Owner 表当前密钥，仅在执行内存使用；模型密钥清空明确 `CREDENTIAL_MISSING`，资源移除明确 `COMMON_NOT_FOUND`，禁止退回环境变量。MCP 鉴权可选，未配置时返回 `auth_secret: null`，客户端不发送 Authorization；已配置时读取当前值，轮换即时生效。新 Run 与 resume/重试均按运行流程实时解析。
   - ✅ 无鉴权 MCP 的 Owner 行存在且 `auth_secret=None` 时正常返回；❌ 把可选 MCP 凭据缺失当成模型密钥缺失。
   - 机检：`tests/console_internal/test_runtime_credentials.py::test_runtime_credentials_support_mcp_without_auth`。
-- **Redis 凭据在 Secret、拓扑在 ConfigMap**：`muad-external`/`muad-connector-external` 的 `REDIS_URL` 只承载密码 + 一个 seed（Redis Cluster 只支持 db 0，路径必须 `/0`），两处值必须一致；`REDIS_MODE`/`REDIS_CLUSTER_SEEDS` 是非敏感项，放 `muad-common` ConfigMap。内网 3M3R 的 6 个通告地址（`10.74.145.45/46/47` × `6393/6394`）由防火墙放行，客户端按 `CLUSTER SLOTS` 连全部 master；上线前用 `scripts/probe_redis_cluster*.py` 在跳板机做只读预检，不打进镜像。✅ ConfigMap 改完 `kubectl rollout restart`；❌ 把 seeds 或完整 DSN 写进 ConfigMap/镜像。
+- **Redis 凭据在 Secret、拓扑在 ConfigMap**：`REDIS_URL` 只承载密码 + 一个 seed，集群只支持 db 0，使用方 Secret 的值必须一致；`REDIS_MODE`/`REDIS_CLUSTER_SEEDS` 属于非敏感拓扑，放 ConfigMap。集群客户端会连接 `CLUSTER SLOTS` 通告的全部 master，部署前必须放行所有通告地址；预检在能访问这些地址的运维机执行，不打进镜像。✅ ConfigMap 变更后显式重启工作负载；❌ 把 seeds 或完整 DSN 写进 ConfigMap/镜像。
 
 ✅ 内存凭据（轮换后 resume 用新值）：
 

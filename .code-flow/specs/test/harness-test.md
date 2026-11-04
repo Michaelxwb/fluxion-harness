@@ -65,8 +65,8 @@ verifiers:
 - **进程破坏型浏览器用例必须独立项目并最后跑**：SIGKILL/重启 Gateway 的用例把重启进程挂在自己的 Playwright worker 下；Playwright 在任一条用例失败后会停掉并重建 worker，看护进程随之退出，后续每条用例都会在入口快照阶段 502，把一条失败放大成整域雪崩。✅ `playwright.webchat-regression.config.ts` 用 `projects` 拆分，`capacity-recovery.spec.ts` 作为依赖项目最后执行；❌ 与只读回归混在同一 worker，靠「应该不会失败」保证顺序。
 - **同步点用服务端事实，不抓瞬时流式 DOM**：需要「Run 正在执行」时读 API-15 `active_run` 或 PG 状态；需要「确认结果已写入」时读 canonical 事件/记忆行。✅ `waitForActiveRun` + `MEMORY_CONFIRMATION_RESOLVED` 行断言；❌ `getByTestId('chat-streaming-reply')` 可见性当切换/撤销前提（快 Run 在首次轮询前就收敛，单跑绿、整跑红）。
 - **运行前 Redis claim 预清理**：`make acceptance` 先跑 `scripts/clean_acceptance_claims.py`；仅当没有活跃 pytest/Playwright 进程时清 10–15 号 claim。`make acceptance-clean` 是显式 `--force` 入口；异常中断仍由 7200s TTL 兜底。
-- **集群验收用独立 3M3R，环境切换必须是模块作用域**：`tests/acceptance/redis_cluster/` 的 `isolated_datastores` 只在集群模块内把 `REDIS_URL` 指向本地 3M3R（默认 6391–6396）并在模块结束恢复；写成 session 作用域会把 cluster URL 泄漏给其后按字母序执行的 `wecom_attachments` 等模块（实测 6 failed/3 errors）。集群不可达时 `cluster_client` 以 `env_blocked` 失败而非 skip；probe 的临时键用 `muad_probe:{uuid}` 前缀并在收尾删除。✅ `make cluster-acceptance`；❌ 用 DB 10–15 隔离集群（集群只有 db 0）。
-- **两步写不能等到第一步就断言第二步**：Connector 先写 `command_result`、随后才推进 `outbound_cursor`；测试必须对 cursor 做有界等待（`_wait_cursor`），❌ 等到 result 立即断言 cursor（全量负载下偶发失败，实例：S-04）。
+- **集群验收使用独立 3M3R，环境切换必须是模块作用域**：集群用例的环境覆盖只在集群模块内生效并在模块结束恢复，禁止 session 作用域（会把集群 URL 泄漏给后续模块）。集群不可达时以 `env_blocked` 失败而非 skip；测试写入的临时 key 必须有唯一前缀并在收尾清理。✅ 一条命令入口跑集群套件；❌ 用 DB 号位隔离集群（集群只有 db 0）。
+- **两步写不能等到第一步就断言第二步**：被测组件分两步写共享状态时，测试必须对第二步做有界等待；❌ 等到第一个事实出现就立即断言第二个（全量负载下偶发失败）。
 - **容量压测分层**：`tests/acceptance/capacity/test_capacity.py` 标记 `integration + capacity_load`，默认 `make acceptance` / `make test` 用 `-m "not capacity_load"` 排除；显式入口 `make capacity-smoke`（100 用户）、`make capacity-load`（200）、`make capacity-soak`（400，需 `MUAD_CAPACITY_SOAK=1`）。SLO 判定走 `tests/capacity/slo.py`，状态/速率由 `tests/capacity/metrics.py` 采集。1000 用户 × 8 轮是 manual/staging 未验证边界，不进 Done Gate。
 
 **Runtime 真实环境与收口**：
