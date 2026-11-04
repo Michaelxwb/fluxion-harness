@@ -70,6 +70,7 @@
 | RULE-09/RULE-10 | 同 S-07 | PASS: pub/sub 派生与异常归用例通过 | test_pubsub_from_cluster_derives_primary_node / test_topology_normalizes_cluster_exception | fake cluster + fake redis | verified |
 - S-07: verified — automated command passed; run_id=e15f3e0d9dcb4559a811c7ab0233b5dc (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=bd470983b08a493986bea2eb4af783c2 (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
 
 ### Log
 
@@ -119,6 +120,7 @@
 | RULE-02/RULE-06 | — | PASS: 32 inbound 单 slot / lease+epoch 单 slot / 同租户出站单 slot | 同上 slot 断言 | 无 IO | verified |
 | harness-im#RULE-im-001 | — | PASS: 533 passed（tests/console_channel tests/gateway） | tests/console_channel、tests/gateway | 真实 PG + 进程 | verified |
 - S-08: verified — automated command passed; run_id=ab25d40104ca4895afe7b6e6b7149acd (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
 
 ### Log
 
@@ -176,6 +178,7 @@
 | harness-api#RULE-api-001/002 | — | PASS: 18 passed + 5 passed | tests/test_api_i18n.py、test_error_catalog.py、test_foundation_api_envelope.py、tests/console_skill/test_import_idempotency.py | 真实 API 封套/幂等套件 | verified |
 
 - S-02: verified — automated command passed; run_id=e2a9f5d0f50b4d06b9e82884c8ba5121 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
 
 ### Log
 - [2026-11-04] 生产代码完成：keyed/pubsub 双客户端、RedisClusterException 归一捕获、周期 XTRIM MINID（pending + last-delivered 双下界）、触顶指标 `inbound_stream_backlog_overflow_total`、出站 XADD MINID、/readyz 暴露 redis_mode；mypy 57 文件全绿。
@@ -236,6 +239,8 @@ Connector 主客户端改由 `create_redis_client` 创建；删除启动日志�
 | harness-im#RULE-im-001/002 | — | PASS: Done Gate 内 tests/gateway + channel neutrality | tests/gateway、tests/architecture/test_channel_neutrality.py | 真实栈 | verified |
 - S-03: verified — automated command passed; run_id=e0dd1fddf00e4618ba1e251265c0ff0c (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=e0dd1fddf00e4618ba1e251265c0ff0c (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
 
 ### Log
 
@@ -302,6 +307,9 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 - S-05: verified — automated command passed; run_id=67632f7d1f92413b961757418a32e6e2 (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=67632f7d1f92413b961757418a32e6e2 (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=67632f7d1f92413b961757418a32e6e2 (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
 
 ### Log
 
@@ -402,6 +410,7 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 | 夹具 | 集群不可达时原实现是裸 ConnectionError（非明确 env_blocked） | `MUAD_CLUSTER_SEEDS=127.0.0.1:1` 时 fixture 以 `env_blocked: ...` 失败（ERROR），不是 skip | conftest `cluster_client` | 真实不可达端点 | verified |
 - S-01: verified — automated command passed; run_id=0f791c7948664f5184732700b35867b9 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=92560761d4ee4d6cb56b56f3247c5862 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
 
 ### Log
 
