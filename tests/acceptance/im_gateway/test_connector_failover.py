@@ -7,7 +7,7 @@
 - E-03 的平台重投由 WS 探针再次推送同一条 message_id，随后让真实 Runtime 以同一
   `Idempotency-Key` 受理两次，断言最终只有一个 Run；
 - E-07 不重投：重启扫描必须把标记置 LOST、记指标/ERROR，且不补造 Run；
-- E-04 的命令都进真实 `im.outbound:{tenant}:{bot}` Stream，结果由真实 OutboundRunner 回写。
+- E-04 的命令都进真实 `im.outbound:{tenant}:{bot}`（hash tag 布局）Stream，结果由真实 OutboundRunner 回写。
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from typing import Any
 import httpx
 import pytest
 import redis.asyncio as redis
+from muad_contracts.im import lease_key, outbound_stream_key_for
 from redis.asyncio import Redis
 
 from tests.acceptance.im_gateway.connector_environment import (
@@ -40,8 +41,8 @@ from tests.e2e.wecom_probe_app import WeComProbe
 
 pytestmark = pytest.mark.integration
 
-LEASE_KEY = f"connector:bot:{TENANT}:{BOT_ID}"
-OUTBOUND_KEY = f"im.outbound:{TENANT}:{BOT_ID}"
+LEASE_KEY = lease_key(TENANT, BOT_ID)
+OUTBOUND_KEY = outbound_stream_key_for(TENANT, BOT_ID)
 
 
 @pytest.fixture(scope="module")

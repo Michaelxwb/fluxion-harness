@@ -7,8 +7,6 @@ Null/降级实现，验证进程不会因 RedisClusterException 崩溃。
 from __future__ import annotations
 
 import pytest
-from redis.exceptions import ConnectionError as RedisConnectionError
-
 from muad_agent_runtime.infrastructure.cancel_hint import (
     NullCancelHintStore,
     create_cancel_hint_store,
@@ -25,6 +23,7 @@ from muad_common.redis_client import (
     create_redis_client,
     verify_redis_topology,
 )
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 DEAD_URL = "redis://127.0.0.1:1/0"
 DEAD_SEEDS = ["127.0.0.1:1"]

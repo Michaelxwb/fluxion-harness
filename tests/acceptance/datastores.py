@@ -29,7 +29,8 @@ import tempfile
 import threading
 import time
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -297,6 +298,40 @@ def drop_datastore(name: str, admin_database_url: str | None = None, redis_url: 
     except RedisError as exc:
         # 不阻塞收尾（占号有 TTL 兜底），但显式告警而非静默吞掉
         print(f"[acceptance] Redis 占号释放失败（{name}）：{exc}", file=sys.stderr)
+
+
+@contextmanager
+def isolated_datastore_env() -> Iterator[None]:
+    """把进程环境指向本轮独立的空库与 Redis DB；退出时恢复并丢弃。
+
+    pytest 侧（`tests/acceptance/conftest.py`）与 cluster 套件共用这一份实现：cluster 目录下
+    的 conftest 会按用例类型决定走独立库还是集群 db 0，不能各写一份建库逻辑。
+
+    `MUAD_ACCEPTANCE_SHARED_DB=1` 是逃生阀；没有基准 `DATABASE_URL` 时不做任何事 ——
+    `tests/acceptance/dfx/test_dfx_layer_baseline.py` 会用净化过的环境跑内层 pytest，
+    无条件建库会在 session setup 报错。只要基准 `DATABASE_URL` 存在，就一律建独立库，
+    **绝不静默退回共享库**（退回等于隔离失效）。
+    """
+    if os.environ.get("MUAD_ACCEPTANCE_SHARED_DB") == "1":
+        yield
+        return
+    if not SharedSettings().database_url:
+        yield
+        return
+
+    saved = {key: os.environ.get(key) for key in ("DATABASE_URL", "REDIS_URL")}
+    info = create_datastore()
+    os.environ["DATABASE_URL"] = info["database_url"]
+    os.environ["REDIS_URL"] = info["redis_url"]
+    try:
+        yield
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        drop_datastore(info["name"])
 
 
 def seed_console_admin(

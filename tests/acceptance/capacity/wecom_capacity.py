@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import redis.asyncio as redis_async
+from muad_contracts.im import outbound_stream_key_for
 
 from tests.acceptance.capacity.delivery_harness import (
     WECOM_BOT_ID,
@@ -437,7 +438,9 @@ async def _sample_pressure(
                 except Exception:  # 流被 reclaim/清理的瞬时窗口不中止采样
                     continue
             try:
-                outbound = int(await client.xlen(f"im.outbound:{tenant_id}:{bot_id}"))
+                outbound = int(
+                    await client.xlen(outbound_stream_key_for(tenant_id, bot_id))
+                )
             except Exception:
                 outbound = 0
             result.peak_inbound_stream = max(result.peak_inbound_stream, inbound)

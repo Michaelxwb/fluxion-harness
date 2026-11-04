@@ -21,7 +21,16 @@ from datetime import UTC, datetime
 import pytest
 from muad_common import SharedSettings
 from muad_contracts import AttachmentRef, DeliveryMessage, DeliveryRouteInput
-from muad_contracts.im import DeliveryCommand, DeliveryKind, InboundEvent
+from muad_contracts.im import (
+    DeliveryCommand,
+    DeliveryKind,
+    InboundEvent,
+    command_result_key,
+    inbound_stream_key_for_shard,
+    lease_epoch_key,
+    lease_key,
+    outbound_stream_key_for,
+)
 from muad_im_connector.lease import RedisLeaseManager
 from muad_im_connector.outbound import (
     CommandExecutor,
@@ -85,11 +94,9 @@ def _command(kind: DeliveryKind, **overrides: object) -> DeliveryCommand:
 async def _lease(
     redis: Redis, owner: str = "owner-a", ttl: float = 5.0, epoch: int | None = None
 ) -> tuple[RedisLeaseManager, object]:
-    await redis.delete(
-        f"connector:bot:{TENANT}:{BOT}", f"connector:bot:{TENANT}:{BOT}:epoch"
-    )
+    await redis.delete(lease_key(TENANT, BOT), lease_epoch_key(TENANT, BOT))
     if epoch is not None:
-        await redis.set(f"connector:bot:{TENANT}:{BOT}:epoch", epoch)
+        await redis.set(lease_epoch_key(TENANT, BOT), epoch)
     manager = RedisLeaseManager(redis, owner_id=owner, ttl_sec=ttl)
     lease = await manager.acquire(TENANT, BOT)
     assert lease is not None
@@ -113,9 +120,7 @@ async def test_lease_has_single_owner_and_monotonic_epoch(redis: Redis) -> None:
 
 
 async def test_expired_lease_is_taken_over_with_higher_epoch(redis: Redis) -> None:
-    await redis.delete(
-        f"connector:bot:{TENANT}:{BOT}", f"connector:bot:{TENANT}:{BOT}:epoch"
-    )
+    await redis.delete(lease_key(TENANT, BOT), lease_epoch_key(TENANT, BOT))
     a = RedisLeaseManager(redis, owner_id="owner-a", ttl_sec=1.0)
     b = RedisLeaseManager(redis, owner_id="owner-b", ttl_sec=1.0)
     lease_a = await a.acquire(TENANT, BOT)
@@ -190,7 +195,7 @@ async def test_inbound_sweep_marks_stale_received_as_lost_and_never_creates_run(
     assert (await redis.get(key) or "").startswith("LOST:")
     assert "connector_inbound_lost" in caplog.text
     # 没有 Stream 记录：没有用户可见 Run 被假装创建。
-    assert await redis.xlen("im.inbound:0") == 0
+    assert await redis.xlen(inbound_stream_key_for_shard(0)) == 0
 
 
 @dataclass
@@ -347,7 +352,7 @@ async def test_outbound_runner_consumes_command_and_writes_result(redis: Redis) 
     runner.set_bots(((TENANT, BOT),))
     command = _command(DeliveryKind.TEXT, reply_ref="req-1", epoch=lease.epoch, text="runner")
     await redis.xadd(
-        f"im.outbound:{TENANT}:{BOT}",
+        outbound_stream_key_for(TENANT, BOT),
         {"event": command.model_dump_json()},
         maxlen=1000,
         approximate=True,
@@ -355,7 +360,7 @@ async def test_outbound_runner_consumes_command_and_writes_result(redis: Redis) 
     task = asyncio.create_task(runner.run_forever())
     try:
         deadline = time.monotonic() + 5
-        result_key = f"im:outbound:result:{command.command_id}"
+        result_key = command_result_key(command.command_id)
         while time.monotonic() < deadline and not await redis.exists(result_key):
             await asyncio.sleep(0.05)
         assert await redis.exists(result_key), "OutboundRunner 必须回写结果"
@@ -412,14 +417,14 @@ async def test_outbound_runner_deduplicates_same_command_id(redis: Redis) -> Non
     )
     for _ in range(2):
         await redis.xadd(
-            f"im.outbound:{TENANT}:{BOT}",
+            outbound_stream_key_for(TENANT, BOT),
             {"event": command.model_dump_json()},
             maxlen=1000,
             approximate=True,
         )
     task = asyncio.create_task(runner.run_forever())
     try:
-        result_key = f"im:outbound:result:{command.command_id}"
+        result_key = command_result_key(command.command_id)
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline and not await redis.exists(result_key):
             await asyncio.sleep(0.05)
@@ -488,7 +493,7 @@ async def test_outbound_runner_retries_until_bot_connection_is_ready(redis: Redi
     runner.set_bots(((TENANT, BOT),))
     command = _command(DeliveryKind.TEXT, text="wait-connection", epoch=lease.epoch)
     await redis.xadd(
-        f"im.outbound:{TENANT}:{BOT}",
+        outbound_stream_key_for(TENANT, BOT),
         {"event": command.model_dump_json()},
         maxlen=1000,
         approximate=True,
@@ -496,10 +501,10 @@ async def test_outbound_runner_retries_until_bot_connection_is_ready(redis: Redi
     task = asyncio.create_task(runner.run_forever())
     try:
         await asyncio.sleep(0.6)
-        assert not await redis.exists(f"im:outbound:result:{command.command_id}")
+        assert not await redis.exists(command_result_key(command.command_id))
         assert channel.actives == []
         channel.ready = True
-        result_key = f"im:outbound:result:{command.command_id}"
+        result_key = command_result_key(command.command_id)
         deadline = time.monotonic() + 6
         while time.monotonic() < deadline and not await redis.exists(result_key):
             await asyncio.sleep(0.1)
@@ -516,9 +521,9 @@ async def test_outbound_runner_retries_until_bot_connection_is_ready(redis: Redi
 async def test_outbound_runner_lost_owner_does_not_write_result_or_cursor(redis: Redis) -> None:
     await redis.delete(
         f"connector:outbound-cursor:{TENANT}:{BOT}",
-        f"im.outbound:{TENANT}:{BOT}",
-        f"connector:bot:{TENANT}:{BOT}",
-        f"connector:bot:{TENANT}:{BOT}:epoch",
+        outbound_stream_key_for(TENANT, BOT),
+        lease_key(TENANT, BOT),
+        lease_epoch_key(TENANT, BOT),
     )
     owner = RedisLeaseManager(redis, owner_id="owner-a", ttl_sec=10.0)
     lease = await owner.acquire(TENANT, BOT)
@@ -538,7 +543,7 @@ async def test_outbound_runner_lost_owner_does_not_write_result_or_cursor(redis:
     runner.set_bots(((TENANT, BOT),))
     command = _command(DeliveryKind.TEXT, text="not-mine", epoch=lease.epoch)
     await redis.xadd(
-        f"im.outbound:{TENANT}:{BOT}",
+        outbound_stream_key_for(TENANT, BOT),
         {"event": command.model_dump_json()},
         maxlen=1000,
         approximate=True,
@@ -546,7 +551,7 @@ async def test_outbound_runner_lost_owner_does_not_write_result_or_cursor(redis:
     task = asyncio.create_task(runner.run_forever())
     try:
         await asyncio.sleep(0.6)
-        assert not await redis.exists(f"im:outbound:result:{command.command_id}")
+        assert not await redis.exists(command_result_key(command.command_id))
         assert not await redis.exists(f"connector:outbound-cursor:{TENANT}:{BOT}")
         assert channel.actives == []
     finally:

@@ -13,17 +13,21 @@ from collections.abc import AsyncIterator, Iterator
 from unittest.mock import patch
 from urllib.parse import urlsplit
 
-import redis as redis_sync
-
 import pytest
+import redis as redis_sync
 from muad_common import SharedSettings, reset_settings_cache
 from muad_common.redis_client import (
     RedisClient,
     create_redis_client,
     verify_redis_topology,
 )
+from redis.exceptions import RedisClusterException, RedisError
 
 import tests.acceptance.im_gateway.environment as im_environment
+from tests.acceptance.datastores import (
+    DatastoreUnavailableError,
+    isolated_datastore_env,
+)
 from tests.acceptance.im_gateway.environment import (
     BOT_ID,
     GatewayStack,
@@ -44,11 +48,34 @@ _MANAGED = (
     "REDIS_CLUSTER_SEEDS",
     "INBOUND_STREAM_RETENTION_SEC",
 )
+_CLUSTER_MODULE_PREFIX = "test_cluster_"
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """标记真正跑集群的模块：S-01 standalone 回归必须走独立库而不是集群 db 0。"""
+    for item in items:
+        if item.path.name.startswith(_CLUSTER_MODULE_PREFIX):
+            item.add_marker("cluster_datastores")
+
+
+def _wants_cluster(request: pytest.FixtureRequest) -> bool:
+    return any(
+        item.get_closest_marker("cluster_datastores") is not None
+        for item in request.session.items
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)
-def isolated_datastores() -> Iterator[None]:
-    """覆盖父级 DB 10–15 隔离：cluster 只支持 db 0。"""
+def isolated_datastores(request: pytest.FixtureRequest) -> Iterator[None]:
+    """集群模块覆盖父级 DB 10–15 隔离（cluster 只支持 db 0）；S-01 沿用独立库。"""
+    if not _wants_cluster(request):
+        try:
+            with isolated_datastore_env():
+                yield
+        except DatastoreUnavailableError as exc:  # pragma: no cover - 环境前提
+            pytest.fail(str(exc))
+        return
+
     saved = {key: os.environ.get(key) for key in _MANAGED}
     os.environ.update(
         {
@@ -72,6 +99,8 @@ def isolated_datastores() -> Iterator[None]:
 
 def _reset_cluster_state(redis_url: str | None = None) -> None:
     """集群版栈级清理：同步单机客户端在跨 slot 批量 DEL 时会 CROSSSLOT。"""
+    if os.environ.get("MUAD_ACCEPTANCE_SHARED_DB") == "1":
+        return
     target = redis_url or CLUSTER_URL
     parts = urlsplit(target)
     client = redis_sync.RedisCluster(
@@ -103,6 +132,15 @@ async def cluster_client() -> AsyncIterator[RedisClient]:
     )
     try:
         await verify_redis_topology(client, mode="cluster")
+    except (RedisError, RedisClusterException, OSError) as exc:
+        await client.aclose()
+        pytest.fail(
+            "env_blocked: Redis Cluster 不可达 "
+            f"({CLUSTER_URL}; seeds={CLUSTER_SEEDS}): {exc}. "
+            "本地启动: docker compose -f /Users/jahan/workspace/localdb/docker-compose.yaml "
+            "--profile redis-cluster up -d redis-cluster"
+        )
+    try:
         yield client
     finally:
         await client.aclose()
@@ -132,6 +170,7 @@ async def gateway_stack(
         yield stack
     finally:
         stop_gateway_stack(processes)
+        _reset_cluster_state()
         await purge_tenant()
         clear_engine_caches()
 
@@ -160,6 +199,7 @@ async def connector_stack(
         yield stack
     finally:
         stop_connector_stack(processes)
+        _reset_cluster_state()
         await probe.stop()
         await purge_tenant()
 

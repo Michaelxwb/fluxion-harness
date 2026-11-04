@@ -14,7 +14,7 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | 工作目录 | 超时 | 优先级 | 执行方式 | 环境 | 输入 | E2E理由 | 触发路径 | 冒烟 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| S-01 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程子进程 + 真实 standalone Redis + 真实 PostgreSQL | TASK-007 | planned | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_standalone_regression.py"] | . | 1800 | P0 | auto | local-api | - | - | - | no |
+| S-01 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实五进程子进程 + 真实 standalone Redis + 真实 PostgreSQL | TASK-007 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_standalone_regression.py"] | . | 1800 | P0 | auto | local-api | - | - | - | no |
 | S-02 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Gateway + 真实 3 节点 cluster Redis + 真实 PostgreSQL | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_inbound.py"] | . | 1200 | P0 | auto | local-api | - | - | - | no |
 | S-03 | redis-cluster-support.design.md#2.5 验收条件 | integration | 两个真实 Connector 子进程 + 真实 cluster Redis + 真实 Console 快照 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_lease.py"] | . | 1200 | P0 | auto | local-api | - | - | - | no |
 | S-04 | redis-cluster-support.design.md#2.5 验收条件 | integration | 真实 Gateway 入队 + 真实 Connector XREAD + 真实 cluster Redis + 真实 PG | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/acceptance/redis_cluster/test_cluster_outbound.py"] | . | 1200 | P1 | auto | local-api | - | - | - | no |
@@ -362,7 +362,7 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 
 ## TASK-007: 测试设施与 standalone 回归（3 节点集群、隔离、探针）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: redis-cluster-support.design.md#3.5.5 测试策略, redis-cluster-support.design.md#2.5.4 验证环境假设
@@ -378,26 +378,35 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/acceptance/redis_cluster/test_standalone_regression.py`
-- [ ] 集群夹具：未启动时 `env_blocked` 失败而非 skip；用例用 key 前缀隔离并清理
-- [ ] 探针脚本（同 slot `XREADGROUP`、`XAUTOCLAIM`、双 key `EVAL`、`SCAN`、跨节点 `PUBLISH`、跨 slot 拒绝）
-- [ ] 更新既有 key 断言与清理模式；`tests/acceptance/im_gateway` 等套件在 standalone 下全绿
-- [ ] [harness-test#RULE-test-001] verifier：`uv run pytest -q tests/acceptance/redis_cluster/test_standalone_regression.py`；真实 PG/Redis/进程，不 mock 业务边界
-- [ ] `[S-01][integration]` 断言 standalone 行为与 key 布局（含 tag）、`/readyz` 200、无 MovedError/CROSSSLOT
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/acceptance/redis_cluster/test_standalone_regression.py`
+- [x] 集群夹具：未启动时 `env_blocked` 失败而非 skip；用例用 key 前缀隔离并清理
+- [x] 探针脚本（同 slot `XREADGROUP`、`XAUTOCLAIM`、双 key `EVAL`、`SCAN`、跨节点 `PUBLISH`、跨 slot 拒绝）
+- [x] 更新既有 key 断言与清理模式；`tests/acceptance/im_gateway` 等套件在 standalone 下全绿
+- [x] [harness-test#RULE-test-001] verifier：`uv run pytest -q tests/acceptance/redis_cluster/test_standalone_regression.py`；真实 PG/Redis/进程，不 mock 业务边界
+- [x] `[S-01][integration]` 断言 standalone 行为与 key 布局（含 tag）、`/readyz` 200、无 MovedError/CROSSSLOT
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| S-01 | integration | 真实五进程子进程 + 真实 standalone Redis + 真实 PostgreSQL | Redis 相关回归全绿；`/readyz` 200；日志无 MovedError/CROSSSLOT；三族 key 与设计一致 | tests/acceptance/redis_cluster/test_standalone_regression.py | uv run pytest -q tests/acceptance/redis_cluster/test_standalone_regression.py | planned |
+| S-01 | integration | 真实五进程子进程 + 真实 standalone Redis + 真实 PostgreSQL | Redis 相关回归全绿；`/readyz` 200；日志无 MovedError/CROSSSLOT；三族 key 与设计一致 | tests/acceptance/redis_cluster/test_standalone_regression.py | uv run pytest -q tests/acceptance/redis_cluster/test_standalone_regression.py | verified |
 
 ### Acceptance Evidence
 
-> 由 `cf-task-start` 在编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| S-01 | 纯回归补测（无对应缺陷）；首跑暴露断言位置错误：`/readyz` 是 api-kit Envelope，`payload["status"]` KeyError | PASS: 1 passed（`test_standalone_regression.py`，8.24s）；五进程 + 带 tag 入站事件产生 Run | 五进程集合、`/readyz data.status/redis_mode`、三族 key slot、日志无 MovedError/CROSSSLOT、Run 计数 | 真实 uvicorn 子进程 + standalone Redis + PostgreSQL | verified |
+| S-01（回归） | 旧 key 布局写入不被新实现消费：`test_connector_primitives.py` 4 failed / 12 passed（outbound runner 读 tagged 流，测试写旧键） | PASS: 16 passed；`tests/acceptance/im_gateway` 111 passed；failover+lease 20 passed（含 primitives） | `outbound_stream_key_for`/`lease_key`/`lease_epoch_key`/`inbound_stream_key_for_shard` 替换旧字面量 | 真实 Redis + 真实 Connector 子进程 | verified |
+| 探针 | 首跑 2 项失败：双 key EVAL 脚本只写 KEYS[1] 读 KEYS[2]；跨 slot 由客户端侧拒绝（无 CROSSSLOT 字样） | PASS: 11/11（`scripts/probe_redis_cluster_commands.py` 与 `test_cluster_commands.py`） | cluster_state/槽位/primaries/版本/三族 key 同 slot/XREADGROUP/XAUTOCLAIM/EVAL/SCAN/跨节点 PUBLISH/跨 slot 拒绝 | 真实 3 节点 Redis 6.2.18 | verified |
+| 夹具 | 集群不可达时原实现是裸 ConnectionError（非明确 env_blocked） | `MUAD_CLUSTER_SEEDS=127.0.0.1:1` 时 fixture 以 `env_blocked: ...` 失败（ERROR），不是 skip | conftest `cluster_client` | 真实不可达端点 | verified |
+- S-01: verified — automated command passed; run_id=0f791c7948664f5184732700b35867b9 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=92560761d4ee4d6cb56b56f3247c5862 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-03] created (draft)
+- [2026-11-04] started
+- [2026-11-04] completed (done)
 
 ---
 

@@ -20,9 +20,8 @@ from muad_contracts.im import (
     outbound_cursor_key,
     outbound_stream_key_for,
 )
-from redis.crc import key_slot
-
 from muad_im_gateway.infrastructure.streams import DeliveryStreams
+from redis.crc import key_slot
 
 from tests.acceptance.im_gateway.connector_environment import BOT_ID
 from tests.acceptance.im_gateway.environment import TENANT
