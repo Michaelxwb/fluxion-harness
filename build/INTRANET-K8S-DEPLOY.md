@@ -41,37 +41,52 @@ MountPath: /mnt/muad-artifacts
 
 ```bash
 export INTERNAL_TOKEN="$(openssl rand -hex 32)"
+# 内网 Redis 只有 Cluster（3 主 3 从），且只支持 db 0；密码含 @ : / ? # 时先做 URL 编码。
+export REDIS_PASSWORD='CHANGE_ME'
+export REDIS_SEED='10.74.145.45:6393'
 
 kubectl -n muad create secret generic muad-external \
   --from-literal=DATABASE_URL='postgresql+asyncpg://muad:CHANGE_ME@postgres:5432/muad_db' \
-  --from-literal=REDIS_URL='redis://redis:6379/0' \
+  --from-literal=REDIS_URL="redis://:${REDIS_PASSWORD}@${REDIS_SEED}/0" \
   --from-literal=INTERNAL_SERVICE_TOKEN="$INTERNAL_TOKEN" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl -n muad create secret generic muad-connector-external \
-  --from-literal=REDIS_URL='redis://redis:6379/0' \
+  --from-literal=REDIS_URL="redis://:${REDIS_PASSWORD}@${REDIS_SEED}/0" \
   --from-literal=INTERNAL_SERVICE_TOKEN="$INTERNAL_TOKEN" \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-`DATABASE_URL` 用 `postgresql+asyncpg://`；两个 Secret 的 `INTERNAL_SERVICE_TOKEN` 必须一致。
+`DATABASE_URL` 用 `postgresql+asyncpg://`；两个 Secret 的 `INTERNAL_SERVICE_TOKEN` 与
+`REDIS_URL` 必须一致（同一集群、同一凭据）。
 
-外部托管 PostgreSQL / Redis 时，URL 格式：
+`REDIS_URL` 在 Cluster 模式下只承载**凭据 + 一个 seed**；`REDIS_MODE=cluster` 与
+`REDIS_CLUSTER_SEEDS` 是非敏感配置，放 `muad-common` ConfigMap（见 §1.3），不要写进 Secret。
+Cluster 只有 db 0，URL 路径必须是 `/0`。dev/本地单机仍可用 `REDIS_MODE=standalone` +
+`REDIS_URL=redis://redis:6379/0`。
+
+外部托管 PostgreSQL / Redis 时的完整变量：
 
 ```text
 DATABASE_URL=postgresql+asyncpg://<user>:<password>@<pg-host>:5432/<db>
-REDIS_URL=redis://:<password>@<redis-host>:6379/0
+REDIS_MODE=cluster
+REDIS_URL=redis://:<password>@<seed1>:6393/0
+REDIS_CLUSTER_SEEDS=<seed1>:6393,<seed2>:6393,<seed3>:6393
 ```
 
-- 密码含 `@ : / ? #` 等字符时先做 URL 编码。
-- `REDIS_MODE=standalone`（默认）连接单机/主从 Redis；`REDIS_MODE=cluster` 连接原生 Redis
-  Cluster（3 主 3 从）。cluster 模式下 `REDIS_URL` 指向任一节点（主 seed 与凭据/TLS 来源），
-  `REDIS_CLUSTER_SEEDS` 追加其余 seed，例如：
-  `10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393`。
-- 客户端按 `CLUSTER SLOTS` 的**通告地址**连接所有 master，不只是 seed：防火墙必须放行全部节点
-  的客户端端口（内网为 6393 与 6394），否则 1/3 的 key 无法路由。上线前用
-  `scripts/probe_redis_cluster.py` 做只读预检（六地址可达、版本 ≥6.2、`redis_mode=cluster`、
-  槽位全覆盖、maxmemory/maxclients）。
+- `REDIS_CLUSTER_SEEDS` 写全部发现 seed（内网为
+  `10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393`）。
+- 客户端按 `CLUSTER SLOTS` 的**通告地址**连接所有 master，不只是 seed：内网 3 个 master
+  分别监听 `10.74.145.46:6393`（5461–10922）、`10.74.145.46:6394`（0–5460）、
+  `10.74.145.47:6393`（10923–16383）。防火墙必须放行 **6 个通告地址**
+  （`10.74.145.45/46/47` × `6393/6394`），否则部分 key 无法路由。
+- 服务端版本必须 ≥ 6.2（`XAUTOCLAIM` 下限；内网实测 6.2.18）。
+- 上线前跑两条只读探针：
+  - `python scripts/probe_redis_cluster.py --url "$REDIS_URL" --nodes <6 个通告地址>`：
+    地址可达、`redis_mode=cluster`、版本、槽位全覆盖、`maxmemory`/`maxclients`；
+  - `python scripts/probe_redis_cluster_commands.py --url "$REDIS_URL" --seeds "$REDIS_CLUSTER_SEEDS"`：
+    同 slot `XREADGROUP`/`XAUTOCLAIM`/双 key `EVAL`、跨节点 `PUBLISH`、`SCAN`、跨 slot 拒绝
+    与三族 key 的 hash tag 布局（11 项）。
 
 ### 1.3 共享 ConfigMap
 
@@ -82,8 +97,16 @@ kubectl apply -f deploy/k8s/base/configmap.yaml
 kubectl -n muad get configmap muad-common
 ```
 
-包含 `DEFAULT_TENANT_ID`、服务地址、SSE/CHAT 上限等非敏感项。需要调整时改这个
-文件后重新 apply，不要用 `kubectl create configmap` 局部覆盖。
+包含 `DEFAULT_TENANT_ID`、服务地址、SSE/CHAT 上限等非敏感项，以及 Redis 接入模式：
+
+```yaml
+REDIS_MODE: cluster
+REDIS_CLUSTER_SEEDS: "10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"
+```
+
+内网必须显式 `cluster`（默认值是 `standalone`，只适用于本地/dev）；`REDIS_CLUSTER_SEEDS`
+只写非敏感 seed，密码只放 Secret。需要调整时改这个文件后重新 apply，不要用
+`kubectl create configmap` 局部覆盖。
 
 ### 1.4 镜像拉取 Secret（不需要）
 
@@ -354,9 +377,15 @@ data:
   DELIVERY_STREAM_WAIT_SEC: "2.0"
   WEBHOOK_TIMESTAMP_TOLERANCE_SEC: "300"
 
+  REDIS_MODE: "cluster"
+  REDIS_CLUSTER_SEEDS: "10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"
+  REDIS_MAX_CONNECTIONS: "50"
+
   INBOUND_STREAM_SHARDS: "32"
-  INBOUND_STREAM_MAXLEN: "100000"
+  INBOUND_STREAM_MAXLEN: "5000"
   INBOUND_STREAM_LOST_AFTER_SEC: "60"
+  INBOUND_STREAM_RETENTION_SEC: "600"
+  OUTBOUND_STREAM_RETENTION_SEC: "3600"
 
   RUNTIME_ADMISSION_QUEUE_LIMIT: "256"
   MEMORY_CONSOLIDATION_QUEUE_MAX: "10000"
@@ -364,7 +393,6 @@ data:
   DB_POOL_SIZE: "10"
   DB_MAX_OVERFLOW: "0"
   DB_POOL_TIMEOUT_SEC: "5"
-  REDIS_MAX_CONNECTIONS: "50"
 
   CONTROL_HTTP_MAX_CONNECTIONS: "32"
   CONTROL_HTTP_MAX_KEEPALIVE: "16"
@@ -422,7 +450,7 @@ data:
 | Key | Secret | 必填 | 说明 |
 |---|---|---|---|
 | `DATABASE_URL` | `muad-external` | 是 | PostgreSQL DSN，`postgresql+asyncpg://` |
-| `REDIS_URL` | `muad-external` | 是 | Redis DSN |
+| `REDIS_URL` | `muad-external` | 是 | Redis Cluster 凭据 + 主 seed：`redis://:<pwd>@<seed>:6393/0`（只支持 db 0） |
 | `INTERNAL_SERVICE_TOKEN` | `muad-external` | 是 | 内部服务鉴权，随机值 |
 | `GATEWAY_WEBHOOK_CHANNELS` | `muad-external` | 否 | 仅启用 webhook 通道时使用，JSON 数组，内含 secret |
 
@@ -433,6 +461,10 @@ muad-connector-external
   REDIS_URL                 (必填)
   INTERNAL_SERVICE_TOKEN    (必填，和 muad-external 相同)
 ```
+
+`REDIS_MODE` / `REDIS_CLUSTER_SEEDS` / `REDIS_MAX_CONNECTIONS` / `INBOUND_STREAM_*` 是
+非敏感项，放 `muad-common` ConfigMap；内网必须显式 `REDIS_MODE=cluster`，否则会按
+`standalone` 连接并因拓扑不匹配启动失败。
 
 `GATEWAY_WEBHOOK_CHANNELS` 格式：
 
@@ -524,6 +556,13 @@ kubectl -n muad logs deploy/muad-console-platform --tail=100
 kubectl -n muad port-forward svc/muad-console-platform 8000:8000
 curl -fsS http://127.0.0.1:8000/healthz
 curl -fsS http://127.0.0.1:8000/readyz
+```
+
+Redis 拓扑自检（Gateway 的 `/readyz` detail 会带 `redis_mode`）：
+
+```bash
+kubectl -n muad port-forward svc/muad-im-gateway 8003:8003
+curl -fsS http://127.0.0.1:8003/readyz   # data.redis_mode 应为 "cluster"
 ```
 
 端口：

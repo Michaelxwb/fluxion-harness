@@ -302,6 +302,37 @@ build/INTRANET-K8S-DEPLOY.md
 
 所有 `.env` 配置的完整映射见该文档的 **2.7 节**。
 
+### 5.1 Redis Cluster（内网必配）
+
+内网 Redis 只有 **3 主 3 从 Cluster**（客户端端口 6393/6394），没有单机可切换；部署前确认：
+
+1. **Secret**（`muad-external` 与 `muad-connector-external`）的 `REDIS_URL` 用
+   `redis://:<password>@<seed>:6393/0`：Cluster 只支持 db 0，URL 路径必须是 `/0`，
+   两个 Secret 的值一致；密码含 `@ : / ? #` 时先做 URL 编码。
+2. **ConfigMap `muad-common`** 显式设置：
+
+   ```yaml
+   REDIS_MODE: cluster
+   REDIS_CLUSTER_SEEDS: "10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"
+   ```
+
+   默认 `standalone` 会因实际拓扑不匹配而启动失败。
+3. **网络**放行 6 个通告地址（`10.74.145.45/46/47` × `6393/6394`）：客户端按
+   `CLUSTER SLOTS` 连接所有 master，不只是 seed。
+4. **上线前跑探针**：
+
+   ```bash
+   python scripts/probe_redis_cluster.py --url "$REDIS_URL" \
+     --nodes 10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393,10.74.145.45:6394,10.74.145.46:6394,10.74.145.47:6394
+   python scripts/probe_redis_cluster_commands.py --url "$REDIS_URL" --seeds "$REDIS_CLUSTER_SEEDS"
+   ```
+
+   第一条检查地址可达、版本 ≥6.2、`redis_mode=cluster`、槽位与内存/连接上限；第二条检查
+   11 项命令面与 key 契约（同 slot `XREADGROUP`/`XAUTOCLAIM`/双 key `EVAL`、跨节点
+   `PUBLISH`、跨 slot 拒绝等）。
+
+完整 Secret/ConfigMap 示例见 `build/INTRANET-K8S-DEPLOY.md` §1.2、§1.3。
+
 顺序：
 
 ```text
