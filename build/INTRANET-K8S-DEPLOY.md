@@ -87,8 +87,7 @@ REDIS_CLUSTER_SEEDS=<seed1>:6393,<seed2>:6393,<seed3>:6393
   - `python scripts/probe_redis_cluster_commands.py --url "$REDIS_URL" --seeds "$REDIS_CLUSTER_SEEDS"`：
     同 slot `XREADGROUP`/`XAUTOCLAIM`/双 key `EVAL`、跨节点 `PUBLISH`、`SCAN`、跨 slot 拒绝
     与三族 key 的 hash tag 布局（11 项）。
-- 两条探针在能访问集群的运维机/跳板机执行；镜像没有 COPY `scripts/`，如需在 Pod 内执行，
-  先 `kubectl cp scripts/probe_redis_cluster.py scripts/probe_redis_cluster_commands.py <pod>:/tmp/`。
+- 两条探针在能访问集群 6 个通告地址的运维机/跳板机执行；不需要打进应用镜像。
 
 ### 1.3 共享 ConfigMap
 
