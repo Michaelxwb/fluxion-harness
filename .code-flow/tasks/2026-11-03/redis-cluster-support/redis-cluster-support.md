@@ -29,7 +29,7 @@
 
 ## TASK-001: 公共 Redis 客户端入口（keyed + pub/sub + 异常归一 + 拓扑自校验）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: redis-cluster-support.design.md#3.4 接口设计, redis-cluster-support.design.md#3.5.2 可靠性设计, redis-cluster-support.design.md#3.1 方案选型
@@ -71,6 +71,7 @@
 - S-07: verified — automated command passed; run_id=e15f3e0d9dcb4559a811c7ab0233b5dc (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=bd470983b08a493986bea2eb4af783c2 (confirmed_by: runner)
 - S-07: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
+- S-07: verified — automated command passed; run_id=7156e64b606c4d6e8a89e93dd23bf569 (confirmed_by: runner)
 
 ### Log
 
@@ -82,7 +83,7 @@
 
 ## TASK-002: key 契约收敛（三族 hash tag、单一来源、删除本地副本）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**:
 - **Source**: redis-cluster-support.design.md#3.3 数据设计, redis-cluster-support.design.md#3.4 接口设计
@@ -121,6 +122,7 @@
 | harness-im#RULE-im-001 | — | PASS: 533 passed（tests/console_channel tests/gateway） | tests/console_channel、tests/gateway | 真实 PG + 进程 | verified |
 - S-08: verified — automated command passed; run_id=ab25d40104ca4895afe7b6e6b7149acd (confirmed_by: runner)
 - S-08: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=7156e64b606c4d6e8a89e93dd23bf569 (confirmed_by: runner)
 
 ### Log
 
@@ -132,7 +134,7 @@
 
 ## TASK-003: Gateway 接入集群（keyed + pub/sub 拆分、入站保留裁剪、降级可见）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: redis-cluster-support.design.md#3.2 架构设计, redis-cluster-support.design.md#3.3 数据设计, redis-cluster-support.design.md#3.5.2 可靠性设计, redis-cluster-support.design.md#3.5.4 可观测性设计
@@ -179,6 +181,7 @@
 
 - S-02: verified — automated command passed; run_id=e2a9f5d0f50b4d06b9e82884c8ba5121 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=7156e64b606c4d6e8a89e93dd23bf569 (confirmed_by: runner)
 
 ### Log
 - [2026-11-04] 生产代码完成：keyed/pubsub 双客户端、RedisClusterException 归一捕获、周期 XTRIM MINID（pending + last-delivered 双下界）、触顶指标 `inbound_stream_backlog_overflow_total`、出站 XADD MINID、/readyz 暴露 redis_mode；mypy 57 文件全绿。
@@ -196,7 +199,7 @@
 
 ## TASK-004: Connector 接入集群（租约、出站读取、入站发布）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: redis-cluster-support.design.md#3.2 架构设计, redis-cluster-support.design.md#3.3 数据设计, redis-cluster-support.design.md#3.4 接口设计
@@ -241,6 +244,8 @@ Connector 主客户端改由 `create_redis_client` 创建；删除启动日志�
 - S-04: verified — automated command passed; run_id=e0dd1fddf00e4618ba1e251265c0ff0c (confirmed_by: runner)
 - S-03: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=7156e64b606c4d6e8a89e93dd23bf569 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=7156e64b606c4d6e8a89e93dd23bf569 (confirmed_by: runner)
 
 ### Log
 
@@ -252,7 +257,7 @@ Connector 主客户端改由 `create_redis_client` 创建；删除启动日志�
 
 ## TASK-005: Runtime / Worker / Console 迁移（pub/sub 派生、会话、缓存、令牌）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: redis-cluster-support.design.md#3.2 架构设计, redis-cluster-support.design.md#3.3 数据设计, redis-cluster-support.design.md#3.5.2 可靠性设计
@@ -310,6 +315,9 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 - S-05: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
 - S-06: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
 - E-02: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
+- S-05: verified — automated command passed; run_id=7156e64b606c4d6e8a89e93dd23bf569 (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=7156e64b606c4d6e8a89e93dd23bf569 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=7156e64b606c4d6e8a89e93dd23bf569 (confirmed_by: runner)
 
 ### Log
 
@@ -322,13 +330,13 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 
 ## TASK-006: 部署与配置收口（ConfigMap、清单、配置清单、前置检查）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: redis-cluster-support.design.md#2.3 功能方案, redis-cluster-support.design.md#4.1 部署架构, redis-cluster-support.design.md#3.5.5 测试策略
 - **Spec-Refs**: harness-secret#RULE-secret-001
 - **Rule-Owner-Refs**: N/A
-- **Acceptance-Refs**: S-07, RULE-04
+- **Acceptance-Refs**: N/A
 - **Estimate**: 1d
 - **Capability**: 一份可部署的清单：`REDIS_MODE`/seeds/保留参数进入 ConfigMap，配置清单与部署文档同步，上线前置检查可执行
 
@@ -342,23 +350,20 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 - [x] ConfigMap 与 connector 清单增加新配置键；`tests/architecture` 的 settings↔manifest 一致性测试同步
 - [x] `docs/configuration-inventory.csv`/`.md` 同步；`tests/test_configuration_inventory.py` 通过
 - [x] `build/INTRANET-K8S-DEPLOY.md` 更新为"支持原生 Redis Cluster"，写明 seeds/端口/前置检查
-- [x] 新增上线前置检查脚本（六地址可达 + 版本/模式/槽位/maxmemory/maxclients），可从 Pod 内执行
+- [x] 新增上线前置检查脚本（六地址可达 + 版本/模式/槽位/maxmemory/maxclients），可从跳板机执行
 - [x] `[RULE-04]` 断言清单默认 `standalone`，生产由 ConfigMap 显式 `cluster`；启动自校验已接线
-- [x] `[S-07]` 清单键与 SharedSettings 字段一致；工厂纯配置校验由 TASK-001 证据覆盖（27 passed）
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
 | RULE-04 | contract | 清单文件 + SharedSettings 字段一致性 | ConfigMap 含 `REDIS_MODE` 等键；清单测试通过；配置清单无漂移 | tests/architecture, tests/test_configuration_inventory.py | uv run pytest -q tests/architecture tests/test_configuration_inventory.py | verified |
-| S-07 | contract | SharedSettings + 工厂纯校验（不建连接） | `REDIS_MODE`/seeds 默认值与 ConfigMap 声明一致；工厂按配置返回 Redis/RedisCluster 或抛 RedisConfigError | tests/common/test_redis_client.py, tests/architecture | uv run pytest -q tests/common/test_redis_client.py tests/architecture | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | RULE-04 | ConfigMap 新增键缺字段/消费点会让 manifest 测试直接失败；常量行号漂移曾使盘点测试红 | PASS: 216 passed（tests/architecture + tests/test_configuration_inventory.py） | ConfigMap 声明测试、消费点测试、常量盘点 | 清单文件 + SharedSettings 字段一致性 | verified |
-| S-07 | 工厂/配置校验先于本任务已由 TASK-001 落地（见该任务证据）；本任务补充清单侧不变量 | PASS: 216 passed（tests/architecture + tests/test_configuration_inventory.py）；工厂纯校验 27 passed（tests/common） | ConfigMap 键与 SharedSettings 字段一致；`REDIS_MODE` 默认 `standalone` | 清单文件 + 工厂纯校验（TASK-001 证据） | verified |
 | 预检脚本 | 本地集群未设 maxmemory 时脚本 FAIL（符合预期：生产前置要求） | 六地址/版本/模式/槽位/primaries 全 PASS；maxmemory 按预期 FAIL | scripts/probe_redis_cluster.py 实跑 | 真实本地 3 主集群 | verified |
 
 ### Log
@@ -371,7 +376,7 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 
 ## TASK-007: 测试设施与 standalone 回归（3 节点集群、隔离、探针）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002
 - **Source**: redis-cluster-support.design.md#3.5.5 测试策略, redis-cluster-support.design.md#2.5.4 验证环境假设
@@ -411,6 +416,7 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 - S-01: verified — automated command passed; run_id=0f791c7948664f5184732700b35867b9 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=92560761d4ee4d6cb56b56f3247c5862 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=d8b1eabc22b24c6cbf8e2d300730148f (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=7156e64b606c4d6e8a89e93dd23bf569 (confirmed_by: runner)
 
 ### Log
 
@@ -422,7 +428,7 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 
 ## TASK-008: 3M3R 本地故障与 reshard 演练（E-01）
 
-- **Status**: done
+- **Status**: verified
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004, TASK-005
 - **Source**: redis-cluster-support.design.md#3.5.2 可靠性设计, redis-cluster-support.design.md#4.2 发布与回滚, redis-cluster-support.design.md#3.5.5 测试策略
@@ -454,6 +460,7 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 |--------|-----|-------|---------|-------------|------|
 | E-01 | 纯演练用例，无对应缺陷；首跑 1 passed（13s）。负向对照：集群不可达时 cluster 夹具以 `env_blocked` 失败而非 skip（见 TASK-007 证据） | PASS: 1 passed（12.17s）；受控 failover 后 replica 接管入站槽位、空槽 reshard 到新 master、12 条入站各产生 1 个 Run、租约单 owner/epoch 递增、仅非主 seed 可发现 | `_controlled_failover` 槽位归属与旧 master 降级；`_reshard_empty_slot` 槽位迁移与 `get_node_from_key`；Run 计数；`_lease_roundtrip`；`verify_redis_topology` | 真实本地 3M3R（6391–6396）+ 真实 Gateway/Runtime×2/Worker 子进程 + 真实 PostgreSQL | verified |
 - E-01: verified — automated command passed; run_id=02e114f4b1294206ba739aa8f2ffff24 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=7156e64b606c4d6e8a89e93dd23bf569 (confirmed_by: runner)
 
 ### Log
 

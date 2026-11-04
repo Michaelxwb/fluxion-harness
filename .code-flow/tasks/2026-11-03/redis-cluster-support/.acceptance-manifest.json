@@ -266,15 +266,15 @@
         "真实单机 Redis 与验收独立库可用"
       ],
       "check": "CHK-c55db5278187",
-      "revision": 3,
+      "revision": 4,
       "evidence": {
         "id": "S-01",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "execution_ms": 7938.860082999781,
+        "execution_ms": 7991.982749999806,
         "check_id": "CHK-c55db5278187",
-        "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+        "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
         "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
         "check_config": {
           "id": "CHK-c55db5278187",
@@ -295,9 +295,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 3,
-        "run_id": "d8b1eabc22b24c6cbf8e2d300730148f",
-        "executed_at": "2026-11-04T05:32:28.609349+00:00",
+        "revision": 4,
+        "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+        "executed_at": "2026-11-04T11:59:35.485631+00:00",
         "command": [
           "uv",
           "run",
@@ -307,7 +307,7 @@
         ],
         "cwd": ".",
         "timeout": 1800.0,
-        "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
       },
       "runs": [
         {
@@ -435,6 +435,48 @@
           "cwd": ".",
           "timeout": 1800.0,
           "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        },
+        {
+          "id": "S-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 7991.982749999806,
+          "check_id": "CHK-c55db5278187",
+          "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-c55db5278187",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_standalone_regression.py"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+          "executed_at": "2026-11-04T11:59:35.485631+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_standalone_regression.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
         }
       ]
     },
@@ -517,15 +559,15 @@
         "每个 shard 至少一条已发布事件"
       ],
       "check": "CHK-fefaf9fddea4",
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "S-02",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "execution_ms": 81552.794833,
+        "execution_ms": 84404.04170800047,
         "check_id": "CHK-fefaf9fddea4",
-        "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+        "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
         "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
         "check_config": {
           "id": "CHK-fefaf9fddea4",
@@ -546,9 +588,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "d8b1eabc22b24c6cbf8e2d300730148f",
-        "executed_at": "2026-11-04T05:32:28.609349+00:00",
+        "revision": 3,
+        "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+        "executed_at": "2026-11-04T11:59:35.485631+00:00",
         "command": [
           "uv",
           "run",
@@ -558,7 +600,7 @@
         ],
         "cwd": ".",
         "timeout": 1200.0,
-        "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
       },
       "runs": [
         {
@@ -644,6 +686,48 @@
           "cwd": ".",
           "timeout": 1200.0,
           "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        },
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 84404.04170800047,
+          "check_id": "CHK-fefaf9fddea4",
+          "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-fefaf9fddea4",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_inbound.py"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+          "executed_at": "2026-11-04T11:59:35.485631+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_inbound.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
         }
       ]
     },
@@ -717,15 +801,15 @@
         "lease TTL 与 heartbeat 使用测试可接受的小值"
       ],
       "check": "CHK-c5ead33cdc45",
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "S-03",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "execution_ms": 15773.908709000352,
+        "execution_ms": 15293.271125000501,
         "check_id": "CHK-c5ead33cdc45",
-        "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+        "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
         "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
         "check_config": {
           "id": "CHK-c5ead33cdc45",
@@ -746,9 +830,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "d8b1eabc22b24c6cbf8e2d300730148f",
-        "executed_at": "2026-11-04T05:32:28.609349+00:00",
+        "revision": 3,
+        "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+        "executed_at": "2026-11-04T11:59:35.485631+00:00",
         "command": [
           "uv",
           "run",
@@ -758,7 +842,7 @@
         ],
         "cwd": ".",
         "timeout": 1200.0,
-        "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
       },
       "runs": [
         {
@@ -844,6 +928,48 @@
           "cwd": ".",
           "timeout": 1200.0,
           "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 15293.271125000501,
+          "check_id": "CHK-c5ead33cdc45",
+          "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-c5ead33cdc45",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_lease.py"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+          "executed_at": "2026-11-04T11:59:35.485631+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_lease.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
         }
       ]
     },
@@ -925,15 +1051,15 @@
         "同一 tenant 下至少两个 bot stream"
       ],
       "check": "CHK-5003a5e45c52",
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "S-04",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "execution_ms": 7498.390875000041,
+        "execution_ms": 5892.185917000461,
         "check_id": "CHK-5003a5e45c52",
-        "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+        "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
         "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
         "check_config": {
           "id": "CHK-5003a5e45c52",
@@ -954,9 +1080,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "d8b1eabc22b24c6cbf8e2d300730148f",
-        "executed_at": "2026-11-04T05:32:28.609349+00:00",
+        "revision": 3,
+        "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+        "executed_at": "2026-11-04T11:59:35.485631+00:00",
         "command": [
           "uv",
           "run",
@@ -966,7 +1092,7 @@
         ],
         "cwd": ".",
         "timeout": 1200.0,
-        "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
       },
       "runs": [
         {
@@ -1052,6 +1178,48 @@
           "cwd": ".",
           "timeout": 1200.0,
           "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 5892.185917000461,
+          "check_id": "CHK-5003a5e45c52",
+          "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-5003a5e45c52",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_outbound.py"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+          "executed_at": "2026-11-04T11:59:35.485631+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_outbound.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
         }
       ]
     },
@@ -1132,15 +1300,15 @@
         "同一 tenant/platform 下至少三个 actor session"
       ],
       "check": "CHK-634a447f27e8",
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "S-05",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "execution_ms": 1447.764417000144,
+        "execution_ms": 1418.9161249996687,
         "check_id": "CHK-634a447f27e8",
-        "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+        "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
         "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
         "check_config": {
           "id": "CHK-634a447f27e8",
@@ -1161,9 +1329,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "d8b1eabc22b24c6cbf8e2d300730148f",
-        "executed_at": "2026-11-04T05:32:28.609349+00:00",
+        "revision": 3,
+        "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+        "executed_at": "2026-11-04T11:59:35.485631+00:00",
         "command": [
           "uv",
           "run",
@@ -1173,7 +1341,7 @@
         ],
         "cwd": ".",
         "timeout": 900.0,
-        "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
       },
       "runs": [
         {
@@ -1259,6 +1427,48 @@
           "cwd": ".",
           "timeout": 900.0,
           "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        },
+        {
+          "id": "S-05",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1418.9161249996687,
+          "check_id": "CHK-634a447f27e8",
+          "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-634a447f27e8",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_session.py"
+            ],
+            "cwd": ".",
+            "timeout": 900.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+          "executed_at": "2026-11-04T11:59:35.485631+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_session.py"
+          ],
+          "cwd": ".",
+          "timeout": 900.0,
+          "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
         }
       ]
     },
@@ -1332,15 +1542,15 @@
         "真实 PostgreSQL 与 Console/Runtime/Worker 可用"
       ],
       "check": "CHK-08ef7d3ce569",
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "S-06",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "execution_ms": 1430.244125000172,
+        "execution_ms": 1414.2161250001664,
         "check_id": "CHK-08ef7d3ce569",
-        "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+        "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
         "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
         "check_config": {
           "id": "CHK-08ef7d3ce569",
@@ -1361,9 +1571,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "d8b1eabc22b24c6cbf8e2d300730148f",
-        "executed_at": "2026-11-04T05:32:28.609349+00:00",
+        "revision": 3,
+        "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+        "executed_at": "2026-11-04T11:59:35.485631+00:00",
         "command": [
           "uv",
           "run",
@@ -1373,7 +1583,7 @@
         ],
         "cwd": ".",
         "timeout": 1800.0,
-        "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
       },
       "runs": [
         {
@@ -1459,6 +1669,48 @@
           "cwd": ".",
           "timeout": 1800.0,
           "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        },
+        {
+          "id": "S-06",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1414.2161250001664,
+          "check_id": "CHK-08ef7d3ce569",
+          "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-08ef7d3ce569",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_surfaces.py"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+          "executed_at": "2026-11-04T11:59:35.485631+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_surfaces.py"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
         }
       ]
     },
@@ -1534,15 +1786,15 @@
         "不依赖真实 Redis"
       ],
       "check": "CHK-838fd30e1d73",
-      "revision": 3,
+      "revision": 4,
       "evidence": {
         "id": "S-07",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "execution_ms": 841.2282079998477,
+        "execution_ms": 818.6074590003045,
         "check_id": "CHK-838fd30e1d73",
-        "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+        "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
         "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
         "check_config": {
           "id": "CHK-838fd30e1d73",
@@ -1563,9 +1815,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 3,
-        "run_id": "d8b1eabc22b24c6cbf8e2d300730148f",
-        "executed_at": "2026-11-04T05:32:28.609349+00:00",
+        "revision": 4,
+        "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+        "executed_at": "2026-11-04T11:59:35.485631+00:00",
         "command": [
           "uv",
           "run",
@@ -1575,7 +1827,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
       },
       "runs": [
         {
@@ -1703,6 +1955,48 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        },
+        {
+          "id": "S-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 818.6074590003045,
+          "check_id": "CHK-838fd30e1d73",
+          "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-838fd30e1d73",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/common/test_redis_client.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+          "executed_at": "2026-11-04T11:59:35.485631+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/common/test_redis_client.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
         }
       ]
     },
@@ -1771,15 +2065,15 @@
         "无"
       ],
       "check": "CHK-9af5d3920650",
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "S-08",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "execution_ms": 2005.2144170003885,
+        "execution_ms": 1794.243207999898,
         "check_id": "CHK-9af5d3920650",
-        "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+        "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
         "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
         "check_config": {
           "id": "CHK-9af5d3920650",
@@ -1801,9 +2095,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "d8b1eabc22b24c6cbf8e2d300730148f",
-        "executed_at": "2026-11-04T05:32:28.609349+00:00",
+        "revision": 3,
+        "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+        "executed_at": "2026-11-04T11:59:35.485631+00:00",
         "command": [
           "uv",
           "run",
@@ -1814,7 +2108,7 @@
         ],
         "cwd": ".",
         "timeout": 300.0,
-        "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
       },
       "runs": [
         {
@@ -1904,6 +2198,50 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        },
+        {
+          "id": "S-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1794.243207999898,
+          "check_id": "CHK-9af5d3920650",
+          "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-9af5d3920650",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/contracts/test_im_contracts.py",
+              "tests/architecture/test_redis_client_construction.py"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+          "executed_at": "2026-11-04T11:59:35.485631+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_im_contracts.py",
+            "tests/architecture/test_redis_client_construction.py"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
         }
       ]
     },
@@ -1986,15 +2324,15 @@
         "可对一个 master 执行受控 failover 并对空闲 slot 执行 reshard"
       ],
       "check": "CHK-9e45b7c5ef75",
-      "revision": 1,
+      "revision": 2,
       "evidence": {
         "id": "E-01",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "execution_ms": 15167.924084,
+        "execution_ms": 12309.291208000104,
         "check_id": "CHK-9e45b7c5ef75",
-        "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+        "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
         "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
         "check_config": {
           "id": "CHK-9e45b7c5ef75",
@@ -2015,9 +2353,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "02e114f4b1294206ba739aa8f2ffff24",
-        "executed_at": "2026-11-04T04:01:44.760306+00:00",
+        "revision": 2,
+        "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+        "executed_at": "2026-11-04T11:59:35.485631+00:00",
         "command": [
           "uv",
           "run",
@@ -2027,7 +2365,7 @@
         ],
         "cwd": ".",
         "timeout": 3600.0,
-        "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
       },
       "runs": [
         {
@@ -2071,6 +2409,48 @@
           "cwd": ".",
           "timeout": 3600.0,
           "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        },
+        {
+          "id": "E-01",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 12309.291208000104,
+          "check_id": "CHK-9e45b7c5ef75",
+          "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-9e45b7c5ef75",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_failover_drill.py"
+            ],
+            "cwd": ".",
+            "timeout": 3600.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+          "executed_at": "2026-11-04T11:59:35.485631+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_failover_drill.py"
+          ],
+          "cwd": ".",
+          "timeout": 3600.0,
+          "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
         }
       ]
     },
@@ -2146,15 +2526,15 @@
         "Gateway 配置了 IM/webhook 路由，stream_reliant=true"
       ],
       "check": "CHK-8565db1c8d43",
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "E-02",
         "kind": "functional",
         "status": "passed",
         "exit_code": 0,
-        "execution_ms": 868.7829580003381,
+        "execution_ms": 857.2077500002706,
         "check_id": "CHK-8565db1c8d43",
-        "input_hash": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6",
+        "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
         "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
         "check_config": {
           "id": "CHK-8565db1c8d43",
@@ -2175,9 +2555,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 2,
-        "run_id": "d8b1eabc22b24c6cbf8e2d300730148f",
-        "executed_at": "2026-11-04T05:32:28.609349+00:00",
+        "revision": 3,
+        "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+        "executed_at": "2026-11-04T11:59:35.485631+00:00",
         "command": [
           "uv",
           "run",
@@ -2187,7 +2567,7 @@
         ],
         "cwd": ".",
         "timeout": 1200.0,
-        "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
       },
       "runs": [
         {
@@ -2273,6 +2653,48 @@
           "cwd": ".",
           "timeout": 1200.0,
           "fingerprint": "d055fcb624f1f548d8a72e2b99250771d5e804542e638bfb5d078e7cdb6c72e6"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 857.2077500002706,
+          "check_id": "CHK-8565db1c8d43",
+          "input_hash": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672",
+          "environment_hash": "e541e2f08e14377d04061f75a390b3cf0ed529c0455d2469357e604efa02a233",
+          "check_config": {
+            "id": "CHK-8565db1c8d43",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/redis_cluster/test_cluster_degradation.py"
+            ],
+            "cwd": ".",
+            "timeout": 1200.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "7156e64b606c4d6e8a89e93dd23bf569",
+          "executed_at": "2026-11-04T11:59:35.485631+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/redis_cluster/test_cluster_degradation.py"
+          ],
+          "cwd": ".",
+          "timeout": 1200.0,
+          "fingerprint": "ad51a2a275002e8a45c33199be00f11d4e036d41a6ee53b1937df3ec7fa92672"
         }
       ]
     }

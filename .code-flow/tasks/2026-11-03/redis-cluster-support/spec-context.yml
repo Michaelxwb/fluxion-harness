@@ -1,7 +1,7 @@
 version: 1
 task: Redis 单机/Cluster 双模式接入
 enforcement: required
-updated_at: '2026-11-04T04:01:55.107570+00:00'
+updated_at: '2026-11-04T12:36:48.148183+00:00'
 sources:
 - type: cli
   ref: bind
@@ -53,7 +53,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
+          artifact_sha256: f7c64bebf394fa0d46dd91daf34121ce2ed9178466bd1a8405b326f35ca6d3e2
         decision: null
         evidence: []
       code:
@@ -62,12 +62,12 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-api#RULE-api-002
-          executed_at: '2026-11-03T17:52:01.484563+00:00'
+          executed_at: '2026-11-04T12:36:54.257188+00:00'
           status: verified
           rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
           artifact_sha256: null
-          diff_sha256: a79b9dc4d412c36b3847dd78f0b50de115f98fc79799db93c286cfb202a5a246
-          result_sha256: 445911d17694a49d7974136f1b5462da27429491fae1ce37787d7c1ee3581118
+          diff_sha256: head:380cf08160fbe251417e5cdd34fa4a038be3bbec
+          result_sha256: 00b22925ccf1d353db34e50d741d864dfcab61ce2ef6b75991685d10fa70da40
           error_code: null
           details:
             argv:
@@ -77,127 +77,11 @@ bindings:
             - -q
             - tests/console_skill/test_import_idempotency.py
             exit_code: 0
-            stdout_sha256: 42aa27fe2cd2eed1543ebbf0ad635ab3a3941254ddff5778d3f2f599f3e8a16d
+            stdout_sha256: 1325a0f72cdd42f97f3c8930fd6c71dffe58bb38021eb829f2a3131a98ef5332
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: '.....                                                                    [100%]
 
-              5 passed in 1.02s
-
-              '
-        - verifier_ref: harness-api#RULE-api-002
-          executed_at: '2026-11-03T18:27:27.314362+00:00'
-          status: unverified
-          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
-          artifact_sha256: null
-          diff_sha256: 2f90d27789a60ff345248abaf9ad095daca9137a80fc65ac96351222ec435437
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-002
-          executed_at: '2026-11-03T18:53:51.375934+00:00'
-          status: unverified
-          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
-          artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-api#RULE-api-002
-          executed_at: '2026-11-03T19:24:33.033574+00:00'
-          status: verified
-          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
-          artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: fe2bbdccd66f34c22861d97e79dfa636ad1719b2b086ab9ffb9f0a707e9307dd
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/console_skill/test_import_idempotency.py
-            exit_code: 0
-            stdout_sha256: e28611f2d30249abf59105ff5823738026af7b8188c61888ccc6f351adfa26dc
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '.....                                                                    [100%]
-
-              5 passed in 1.05s
-
-              '
-        - verifier_ref: harness-api#RULE-api-002
-          executed_at: '2026-11-04T00:33:00.784819+00:00'
-          status: unverified
-          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
-          artifact_sha256: null
-          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-002
-          executed_at: '2026-11-04T00:58:06.533559+00:00'
-          status: unverified
-          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
-          artifact_sha256: null
-          diff_sha256: 8c918232b36110051e85a5786a5375ca09adf09f1b16bb6ef7872a37c9ced913
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-002
-          executed_at: '2026-11-04T00:58:38.480604+00:00'
-          status: unverified
-          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
-          artifact_sha256: null
-          diff_sha256: 8ff875b2cff8971f0ec65c9811bafeb58d3f28e296523e8666b2cd7c69da7643
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-002
-          executed_at: '2026-11-04T04:01:44.928401+00:00'
-          status: unverified
-          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-002
-          executed_at: '2026-11-04T05:04:40.801124+00:00'
-          status: verified
-          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
-          artifact_sha256: null
-          diff_sha256: head:c79a155e711cb8010b6e8ea11e42df0930585e24
-          result_sha256: 90378f74ff642b80903e29e4d6eb1d8412042cdd51cee68fdcd593c7ef7a3752
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/console_skill/test_import_idempotency.py
-            exit_code: 0
-            stdout_sha256: d6b818a379e6a77517c3301ee64d9fc0361f0d384f662b3f3a1d8bea2d848e8a
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '.....                                                                    [100%]
-
-              5 passed in 1.08s
+              5 passed in 1.04s
 
               '
       review:
@@ -229,7 +113,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
+          artifact_sha256: f7c64bebf394fa0d46dd91daf34121ce2ed9178466bd1a8405b326f35ca6d3e2
         decision: null
         evidence: []
       code:
@@ -238,12 +122,12 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-11-03T17:52:05.378334+00:00'
+          executed_at: '2026-11-04T12:36:58.063692+00:00'
           status: verified
           rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
           artifact_sha256: null
-          diff_sha256: a79b9dc4d412c36b3847dd78f0b50de115f98fc79799db93c286cfb202a5a246
-          result_sha256: de5125f7a0b40fc8eeda3628db4848f2d820e6ce51e7919bd6b350367a01286a
+          diff_sha256: head:380cf08160fbe251417e5cdd34fa4a038be3bbec
+          result_sha256: e716e7a62f333e5f72a8da469f9fbe92d58597d635c373f9a7c471877d93649c
           error_code: null
           details:
             argv:
@@ -255,7 +139,7 @@ bindings:
             - tests/test_error_catalog.py
             - tests/acceptance/test_foundation_api_envelope.py
             exit_code: 0
-            stdout_sha256: 3583973279e73d12da4a9a0417e10ba9d0079dcf7926643ce2fe39a9bee31da9
+            stdout_sha256: 9766164ffecbf569868a51eac3f398f40a03b53404c4674c15a8a2d9decd7ad0
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: "..................                                          \
               \             [100%]\n=============================== warnings summary\
@@ -269,143 +153,7 @@ bindings:
               \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 2 warnings in 3.48s\n"
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-11-03T18:27:27.314388+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 2f90d27789a60ff345248abaf9ad095daca9137a80fc65ac96351222ec435437
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-11-03T18:53:51.376109+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-11-03T19:24:36.648114+00:00'
-          status: verified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: 16cc20ec1164a9768f8bac53d103f01729eb030ca980ebfd8e98892f77a1de53
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_api_i18n.py
-            - tests/test_error_catalog.py
-            - tests/acceptance/test_foundation_api_envelope.py
-            exit_code: 0
-            stdout_sha256: b72502632cbbc9036e8dc57346ace92dbb274dc0a361770e37ea616d0ab0001e
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                          \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
-              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
-              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
-              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 2 warnings in 3.20s\n"
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-11-04T00:33:00.785018+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-11-04T00:58:06.533580+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 8c918232b36110051e85a5786a5375ca09adf09f1b16bb6ef7872a37c9ced913
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-11-04T00:58:38.480626+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: 8ff875b2cff8971f0ec65c9811bafeb58d3f28e296523e8666b2cd7c69da7643
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-11-04T04:01:44.928426+00:00'
-          status: unverified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-api#RULE-api-001
-          executed_at: '2026-11-04T05:04:44.441979+00:00'
-          status: verified
-          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
-          artifact_sha256: null
-          diff_sha256: head:c79a155e711cb8010b6e8ea11e42df0930585e24
-          result_sha256: 234ae06d60eda651eaf18537503df552c4d25f260aa956fddc88bea21951986d
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_api_i18n.py
-            - tests/test_error_catalog.py
-            - tests/acceptance/test_foundation_api_envelope.py
-            exit_code: 0
-            stdout_sha256: 5ed6f96280ba72b18ccc90302881e0aee85934f8e9b0b3f6cc8738cdc935c911
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                          \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
-              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
-              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
-              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              18 passed, 2 warnings in 3.14s\n"
+              18 passed, 2 warnings in 3.40s\n"
       review:
         status: pending
         refs: []
@@ -451,7 +199,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
+          artifact_sha256: f7c64bebf394fa0d46dd91daf34121ce2ed9178466bd1a8405b326f35ca6d3e2
         decision: null
         evidence: []
       code:
@@ -460,12 +208,12 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-03T13:52:36.637758+00:00'
+          executed_at: '2026-11-04T12:37:26.098478+00:00'
           status: verified
           rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
           artifact_sha256: null
-          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
-          result_sha256: 19625920f6e429bb14ff41b444503119f6e513212247d2c73a8cb4cb092f6ab4
+          diff_sha256: head:380cf08160fbe251417e5cdd34fa4a038be3bbec
+          result_sha256: 89c920e9ffb7088f35b8165ca920b7e4f0d404b962b950986c88ad50df3671de
           error_code: null
           details:
             argv:
@@ -475,123 +223,7 @@ bindings:
             - -q
             - tests/architecture
             exit_code: 0
-            stdout_sha256: c914852d8200f5f27e87b3907b135e1cb3e19219198f1ce4eeaa92c5fcb6c4ec
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '........................................................................
-              [ 34%]
-
-              ........................................................................
-              [ 68%]
-
-              ..................................................................       [100%]
-
-              210 passed in 24.82s
-
-              '
-        - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-03T13:54:00.601265+00:00'
-          status: verified
-          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
-          artifact_sha256: null
-          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
-          result_sha256: d2ffd399ac1f89670128f365235424e5dc89e2c54d71e3519bf1187f00f186ba
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/architecture
-            exit_code: 0
-            stdout_sha256: e45a8809c48406c81b15bb34f03ec2ac194b030d649bb3caf6e32106d72e4457
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '........................................................................
-              [ 34%]
-
-              ........................................................................
-              [ 68%]
-
-              ..................................................................       [100%]
-
-              210 passed in 24.72s
-
-              '
-        - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-03T14:01:40.261953+00:00'
-          status: unverified
-          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
-          artifact_sha256: null
-          diff_sha256: 2bd703697dc02f71ec90206f07954e4705c05d088871b7d75cdc9ebf186db6a7
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-03T14:22:36.908056+00:00'
-          status: unverified
-          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-03T17:52:05.475196+00:00'
-          status: unverified
-          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
-          artifact_sha256: null
-          diff_sha256: a79b9dc4d412c36b3847dd78f0b50de115f98fc79799db93c286cfb202a5a246
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-03T18:27:27.409754+00:00'
-          status: unverified
-          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
-          artifact_sha256: null
-          diff_sha256: 2f90d27789a60ff345248abaf9ad095daca9137a80fc65ac96351222ec435437
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-03T19:24:36.749252+00:00'
-          status: unverified
-          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
-          artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-04T00:33:27.507165+00:00'
-          status: verified
-          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
-          artifact_sha256: null
-          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
-          result_sha256: 564544f29de8b48b8853d6aa056674257a08c8ec29934cd471742c1affe9cadb
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/architecture
-            exit_code: 0
-            stdout_sha256: 68fda4eb0a40531d46c5bdae13879e257cf10f05eea77ad892980915268939de
+            stdout_sha256: 4ba79aae730d1a079e58acf49e9c4d9bc6797f292b9bd9a8891fce15090f6dae
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: '........................................................................
               [ 33%]
@@ -601,72 +233,7 @@ bindings:
 
               ....................................................................     [100%]
 
-              212 passed in 26.21s
-
-              '
-        - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-04T00:58:06.636111+00:00'
-          status: unverified
-          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
-          artifact_sha256: null
-          diff_sha256: 8c918232b36110051e85a5786a5375ca09adf09f1b16bb6ef7872a37c9ced913
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-04T00:58:38.582422+00:00'
-          status: unverified
-          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
-          artifact_sha256: null
-          diff_sha256: 8ff875b2cff8971f0ec65c9811bafeb58d3f28e296523e8666b2cd7c69da7643
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-04T04:01:45.023931+00:00'
-          status: unverified
-          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-arch#RULE-arch-001
-          executed_at: '2026-11-04T05:05:12.227187+00:00'
-          status: verified
-          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
-          artifact_sha256: null
-          diff_sha256: head:c79a155e711cb8010b6e8ea11e42df0930585e24
-          result_sha256: 682d47abe2668745c4b67d06319e28783381bf332bbb694ee4b630ab6b6541f7
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/architecture
-            exit_code: 0
-            stdout_sha256: 311c45f447a3a675e3e25c96a588c8055154d2f53af753a53728536d316c6f58
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '........................................................................
-              [ 33%]
-
-              ........................................................................
-              [ 67%]
-
-              ....................................................................     [100%]
-
-              212 passed in 27.25s
+              212 passed in 27.55s
 
               '
       review:
@@ -713,7 +280,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
+          artifact_sha256: f7c64bebf394fa0d46dd91daf34121ce2ed9178466bd1a8405b326f35ca6d3e2
         decision: null
         evidence: []
       code:
@@ -722,36 +289,12 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-03T13:52:36.714603+00:00'
-          status: unverified
-          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
-          artifact_sha256: null
-          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-03T13:54:00.672772+00:00'
-          status: unverified
-          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
-          artifact_sha256: null
-          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-03T14:04:00.802441+00:00'
+          executed_at: '2026-11-04T12:39:46.723752+00:00'
           status: verified
           rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
           artifact_sha256: null
-          diff_sha256: 2bd703697dc02f71ec90206f07954e4705c05d088871b7d75cdc9ebf186db6a7
-          result_sha256: afa43a08b9c714871da16e9c693228eddf777e1d6401ad2a17aae00c2aaf8c90
+          diff_sha256: head:380cf08160fbe251417e5cdd34fa4a038be3bbec
+          result_sha256: af45928341e80e56ee05232f7ba231c905e2dce3baff20dcd271c45d3c26dcf3
           error_code: null
           details:
             argv:
@@ -762,75 +305,7 @@ bindings:
             - tests/console_channel
             - tests/gateway
             exit_code: 0
-            stdout_sha256: 224de6d39e2360333437ef9e73bb794846982d177f8b373539b174a6c3c7f0ad
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "........................................................................\
-              \ [ 13%]\n........................................................................\
-              \ [ 27%]\n........................................................................\
-              \ [ 40%]\n........................................................................\
-              \ [ 54%]\n........................................................................\
-              \ [ 67%]\n........................................................................\
-              \ [ 81%]\n........................................................................\
-              \ [ 94%]\n.............................                            \
-              \                [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
-              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
-              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
-              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
-              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
-              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_sse_subscriber_limit_rejects_explicitly_before_opening_the_owner_stream\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1768:\
-              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
-              \ because the expected behaviour on cookie persistence is ambiguous.\
-              \ Set cookies directly on the client instance instead.\n    return await\
-              \ self.request(\n\ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_shutdown_drains_subscription_and_restart_never_rebuilds_the_run\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1859:\
-              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
-              \ because the expected behaviour on cookie persistence is ambiguous.\
-              \ Set cookies directly on the client instance instead.\n    return await\
-              \ self.request(\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
-              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
-              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6:\
-              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
-              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
-              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              533 passed, 8 warnings in 139.13s (0:02:19)\n"
-        - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-03T14:22:36.977869+00:00'
-          status: unverified
-          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-03T17:54:25.839942+00:00'
-          status: verified
-          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
-          artifact_sha256: null
-          diff_sha256: a79b9dc4d412c36b3847dd78f0b50de115f98fc79799db93c286cfb202a5a246
-          result_sha256: ae51d61ba200121f9cebef7893026b4a9984fb122072fc58807b0bdaaad70ea1
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/console_channel
-            - tests/gateway
-            exit_code: 0
-            stdout_sha256: c5c0909873b4b9469620e5298cf64208189cf29084c92290746895ae6d464348
+            stdout_sha256: b969e60f713add13c030dad89cc4fb3d66bb08ec4a383453fe826599d0474c6e
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: "........................................................................\
               \ [ 13%]\n........................................................................\
@@ -870,275 +345,7 @@ bindings:
               \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
               \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
               \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              540 passed, 8 warnings in 138.96s (0:02:18)\n"
-        - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-03T18:29:44.777842+00:00'
-          status: verified
-          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
-          artifact_sha256: null
-          diff_sha256: 2f90d27789a60ff345248abaf9ad095daca9137a80fc65ac96351222ec435437
-          result_sha256: 002e5da229d13afea31f4da0792069890219d4124a7f51b404cfc914a1e2b6b8
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/console_channel
-            - tests/gateway
-            exit_code: 0
-            stdout_sha256: 320aa6cd818b839f77aad34c416d9ba0effd869171ec3ddf6b00e5352b797bf1
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "........................................................................\
-              \ [ 13%]\n........................................................................\
-              \ [ 26%]\n........................................................................\
-              \ [ 40%]\n........................................................................\
-              \ [ 53%]\n........................................................................\
-              \ [ 66%]\n........................................................................\
-              \ [ 80%]\n........................................................................\
-              \ [ 93%]\n....................................                     \
-              \                [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
-              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
-              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
-              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
-              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
-              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_sse_subscriber_limit_rejects_explicitly_before_opening_the_owner_stream\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1768:\
-              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
-              \ because the expected behaviour on cookie persistence is ambiguous.\
-              \ Set cookies directly on the client instance instead.\n    return await\
-              \ self.request(\n\ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_shutdown_drains_subscription_and_restart_never_rebuilds_the_run\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1859:\
-              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
-              \ because the expected behaviour on cookie persistence is ambiguous.\
-              \ Set cookies directly on the client instance instead.\n    return await\
-              \ self.request(\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
-              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
-              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6:\
-              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
-              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
-              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              540 passed, 8 warnings in 135.94s (0:02:15)\n"
-        - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-03T19:26:56.692317+00:00'
-          status: verified
-          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
-          artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: 78188c427940369977cfc8a47f9311f24fc9cbe7209a70d86c69877e9bec5b81
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/console_channel
-            - tests/gateway
-            exit_code: 0
-            stdout_sha256: a0660048673af6f16fac5eecbb9fffe08068939ba7135db45082891d27e6d729
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "........................................................................\
-              \ [ 13%]\n........................................................................\
-              \ [ 26%]\n........................................................................\
-              \ [ 40%]\n........................................................................\
-              \ [ 53%]\n........................................................................\
-              \ [ 66%]\n........................................................................\
-              \ [ 80%]\n........................................................................\
-              \ [ 93%]\n....................................                     \
-              \                [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
-              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
-              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
-              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
-              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
-              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_sse_subscriber_limit_rejects_explicitly_before_opening_the_owner_stream\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1768:\
-              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
-              \ because the expected behaviour on cookie persistence is ambiguous.\
-              \ Set cookies directly on the client instance instead.\n    return await\
-              \ self.request(\n\ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_shutdown_drains_subscription_and_restart_never_rebuilds_the_run\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1859:\
-              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
-              \ because the expected behaviour on cookie persistence is ambiguous.\
-              \ Set cookies directly on the client instance instead.\n    return await\
-              \ self.request(\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
-              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
-              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6:\
-              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
-              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
-              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              540 passed, 8 warnings in 138.53s (0:02:18)\n"
-        - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-04T00:35:46.306342+00:00'
-          status: verified
-          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
-          artifact_sha256: null
-          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
-          result_sha256: 1e71be4ea9ac6aed70c99da5e8999de3d26ebe135334d7ab083658a8f2b605e0
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/console_channel
-            - tests/gateway
-            exit_code: 0
-            stdout_sha256: 7c116158872b28eb387f6fcb3f0a9239217f8d962b77d35aaaf37cdbce9ebd3d
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "........................................................................\
-              \ [ 13%]\n........................................................................\
-              \ [ 26%]\n........................................................................\
-              \ [ 40%]\n........................................................................\
-              \ [ 53%]\n........................................................................\
-              \ [ 66%]\n........................................................................\
-              \ [ 80%]\n........................................................................\
-              \ [ 93%]\n....................................                     \
-              \                [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
-              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
-              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
-              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
-              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
-              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_sse_subscriber_limit_rejects_explicitly_before_opening_the_owner_stream\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1768:\
-              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
-              \ because the expected behaviour on cookie persistence is ambiguous.\
-              \ Set cookies directly on the client instance instead.\n    return await\
-              \ self.request(\n\ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_shutdown_drains_subscription_and_restart_never_rebuilds_the_run\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1859:\
-              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
-              \ because the expected behaviour on cookie persistence is ambiguous.\
-              \ Set cookies directly on the client instance instead.\n    return await\
-              \ self.request(\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
-              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
-              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6:\
-              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
-              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
-              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              540 passed, 8 warnings in 137.37s (0:02:17)\n"
-        - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-04T00:58:06.707669+00:00'
-          status: unverified
-          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
-          artifact_sha256: null
-          diff_sha256: 8c918232b36110051e85a5786a5375ca09adf09f1b16bb6ef7872a37c9ced913
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-04T00:58:38.655922+00:00'
-          status: unverified
-          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
-          artifact_sha256: null
-          diff_sha256: 8ff875b2cff8971f0ec65c9811bafeb58d3f28e296523e8666b2cd7c69da7643
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-04T04:01:45.088878+00:00'
-          status: unverified
-          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-im#RULE-im-001
-          executed_at: '2026-11-04T05:07:32.479178+00:00'
-          status: verified
-          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
-          artifact_sha256: null
-          diff_sha256: head:c79a155e711cb8010b6e8ea11e42df0930585e24
-          result_sha256: 4e93f585823913658ad4cbdcf0cc93f1168d0e71d630ecca497e35f896e66435
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/console_channel
-            - tests/gateway
-            exit_code: 0
-            stdout_sha256: 8c55616502b3e49b1756adac7a0742b68f86ac6da033f78c787763c9b44ebe5a
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "........................................................................\
-              \ [ 13%]\n........................................................................\
-              \ [ 26%]\n........................................................................\
-              \ [ 40%]\n........................................................................\
-              \ [ 53%]\n........................................................................\
-              \ [ 66%]\n........................................................................\
-              \ [ 80%]\n........................................................................\
-              \ [ 93%]\n....................................                     \
-              \                [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
-              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
-              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
-              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
-              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
-              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_sse_subscriber_limit_rejects_explicitly_before_opening_the_owner_stream\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1768:\
-              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
-              \ because the expected behaviour on cookie persistence is ambiguous.\
-              \ Set cookies directly on the client instance instead.\n    return await\
-              \ self.request(\n\ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_shutdown_drains_subscription_and_restart_never_rebuilds_the_run\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1859:\
-              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
-              \ because the expected behaviour on cookie persistence is ambiguous.\
-              \ Set cookies directly on the client instance instead.\n    return await\
-              \ self.request(\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
-              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
-              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6:\
-              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
-              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
-              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              540 passed, 8 warnings in 138.77s (0:02:18)\n"
+              540 passed, 8 warnings in 139.17s (0:02:19)\n"
       review:
         status: pending
         refs: []
@@ -1169,7 +376,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
+          artifact_sha256: f7c64bebf394fa0d46dd91daf34121ce2ed9178466bd1a8405b326f35ca6d3e2
         decision: null
         evidence: []
       code:
@@ -1178,196 +385,11 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-03T13:52:36.714620+00:00'
-          status: unverified
-          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
-          artifact_sha256: null
-          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-03T13:54:00.672789+00:00'
-          status: unverified
-          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
-          artifact_sha256: null
-          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-03T14:04:02.478403+00:00'
+          executed_at: '2026-11-04T12:13:44.892795+00:00'
           status: verified
           rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
           artifact_sha256: null
-          diff_sha256: 2bd703697dc02f71ec90206f07954e4705c05d088871b7d75cdc9ebf186db6a7
-          result_sha256: 570ee76f0620979ca76b23c6799b5b14e2e542fb1bbf261f4a9d413552c62ffa
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/architecture/test_channel_neutrality.py
-            exit_code: 0
-            stdout_sha256: 4bd788fbcad8e8972da1ce949801dab03fbd19dd69d28195afc8dfbeda6d1f03
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '...                                                                      [100%]
-
-              3 passed in 1.36s
-
-              '
-        - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-03T14:22:36.977886+00:00'
-          status: unverified
-          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-03T17:54:27.518220+00:00'
-          status: verified
-          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
-          artifact_sha256: null
-          diff_sha256: a79b9dc4d412c36b3847dd78f0b50de115f98fc79799db93c286cfb202a5a246
-          result_sha256: 570ee76f0620979ca76b23c6799b5b14e2e542fb1bbf261f4a9d413552c62ffa
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/architecture/test_channel_neutrality.py
-            exit_code: 0
-            stdout_sha256: 4bd788fbcad8e8972da1ce949801dab03fbd19dd69d28195afc8dfbeda6d1f03
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '...                                                                      [100%]
-
-              3 passed in 1.36s
-
-              '
-        - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-03T18:29:46.490806+00:00'
-          status: verified
-          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
-          artifact_sha256: null
-          diff_sha256: 2f90d27789a60ff345248abaf9ad095daca9137a80fc65ac96351222ec435437
-          result_sha256: ed42081a847869365bfd3e491dc623437e218bb6b56c744a7ea23429c7477e99
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/architecture/test_channel_neutrality.py
-            exit_code: 0
-            stdout_sha256: 06ddfb28e27d979f5a838dbef804065fff847615db4344cc366aa5bca4d1a842
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '...                                                                      [100%]
-
-              3 passed in 1.39s
-
-              '
-        - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-03T19:26:58.366199+00:00'
-          status: verified
-          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
-          artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: 09b45f059f836a795a7d7aab2b9cfbbad745606090fd92900be19a24bb314686
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/architecture/test_channel_neutrality.py
-            exit_code: 0
-            stdout_sha256: 287792db5570d430e9962fe0f5e7c637d14e5c1cacb084059a467f7d30a0b560
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '...                                                                      [100%]
-
-              3 passed in 1.35s
-
-              '
-        - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-04T00:35:48.003775+00:00'
-          status: verified
-          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
-          artifact_sha256: null
-          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
-          result_sha256: a7e26d5e5279e890c5de98b7b328e2ba6c82a08571498040ecb9b80f99ead042
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/architecture/test_channel_neutrality.py
-            exit_code: 0
-            stdout_sha256: ca38ec9f74e12343a8366405fa8bc214a48045899c5f51fdc93ac6c8960b8893
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '...                                                                      [100%]
-
-              3 passed in 1.37s
-
-              '
-        - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-04T00:58:06.707685+00:00'
-          status: unverified
-          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
-          artifact_sha256: null
-          diff_sha256: 8c918232b36110051e85a5786a5375ca09adf09f1b16bb6ef7872a37c9ced913
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-04T00:58:38.655935+00:00'
-          status: unverified
-          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
-          artifact_sha256: null
-          diff_sha256: 8ff875b2cff8971f0ec65c9811bafeb58d3f28e296523e8666b2cd7c69da7643
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-04T04:01:45.088892+00:00'
-          status: unverified
-          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-im#RULE-im-002
-          executed_at: '2026-11-04T05:07:34.170673+00:00'
-          status: verified
-          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
-          artifact_sha256: null
-          diff_sha256: head:c79a155e711cb8010b6e8ea11e42df0930585e24
+          diff_sha256: head:380cf08160fbe251417e5cdd34fa4a038be3bbec
           result_sha256: a7e26d5e5279e890c5de98b7b328e2ba6c82a08571498040ecb9b80f99ead042
           error_code: null
           details:
@@ -1432,7 +454,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
+          artifact_sha256: f7c64bebf394fa0d46dd91daf34121ce2ed9178466bd1a8405b326f35ca6d3e2
         decision: null
         evidence: []
       code:
@@ -1441,193 +463,11 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-03T13:52:39.757028+00:00'
+          executed_at: '2026-11-04T12:39:51.386694+00:00'
           status: verified
           rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
           artifact_sha256: null
-          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
-          result_sha256: 332d25994b24ca134bf1f417cc12e12b07d9b7015332adf97019cfa2f5f8f003
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_logging.py
-            - tests/test_logging_redaction.py
-            - tests/acceptance/test_foundation_logging.py
-            exit_code: 0
-            stdout_sha256: d54d1bf7d293d857be447b98d612d0cbcc84fdbb345976c44f93191d80c0f8d9
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '..............                                                           [100%]
-
-              14 passed in 2.37s
-
-              '
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-03T13:54:04.387093+00:00'
-          status: verified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
-          result_sha256: b748064fed3048b42c32aef86f483c3d8a490dc81bd6e29f55dc5f111c54091c
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_logging.py
-            - tests/test_logging_redaction.py
-            - tests/acceptance/test_foundation_logging.py
-            exit_code: 0
-            stdout_sha256: 8c831d002261f7f94135ba38b82b3135fbf6a5fee25854ed79ce4a55836e5083
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '..............                                                           [100%]
-
-              14 passed in 3.23s
-
-              '
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-03T14:04:02.573670+00:00'
-          status: unverified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: 2bd703697dc02f71ec90206f07954e4705c05d088871b7d75cdc9ebf186db6a7
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-03T14:22:37.065585+00:00'
-          status: unverified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-03T17:54:30.643336+00:00'
-          status: verified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: a79b9dc4d412c36b3847dd78f0b50de115f98fc79799db93c286cfb202a5a246
-          result_sha256: b460e39792250f26547f50249d8b07d226f71225e5532d75f3793a6159c0c309
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_logging.py
-            - tests/test_logging_redaction.py
-            - tests/acceptance/test_foundation_logging.py
-            exit_code: 0
-            stdout_sha256: cfd40ead646aa9ee7803e59d8fd530592f5c619e542804ac6256d1d5d7fd467b
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '..............                                                           [100%]
-
-              14 passed in 2.63s
-
-              '
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-03T18:29:46.589859+00:00'
-          status: unverified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: 2f90d27789a60ff345248abaf9ad095daca9137a80fc65ac96351222ec435437
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-03T19:27:01.365265+00:00'
-          status: verified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: 79dabacb63cc126665af264a6e72c461ce7d2b059d2b3266038d56df9e164067
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_logging.py
-            - tests/test_logging_redaction.py
-            - tests/acceptance/test_foundation_logging.py
-            exit_code: 0
-            stdout_sha256: 115969eb71894fce6f7faaf1d564d55dd00fb420d727fd1c8732c92177bd54ae
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '..............                                                           [100%]
-
-              14 passed in 2.45s
-
-              '
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-04T00:35:48.100571+00:00'
-          status: unverified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-04T00:58:06.805827+00:00'
-          status: unverified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: 8c918232b36110051e85a5786a5375ca09adf09f1b16bb6ef7872a37c9ced913
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-04T00:58:38.753854+00:00'
-          status: unverified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: 8ff875b2cff8971f0ec65c9811bafeb58d3f28e296523e8666b2cd7c69da7643
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-04T04:01:45.181375+00:00'
-          status: unverified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-04T05:07:37.193633+00:00'
-          status: verified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: head:c79a155e711cb8010b6e8ea11e42df0930585e24
+          diff_sha256: head:380cf08160fbe251417e5cdd34fa4a038be3bbec
           result_sha256: ec582a450474283406ae5f28ba7fdecac3e3759ba8e85b3d7c15c4c19a9dba4b
           error_code: null
           details:
@@ -1699,7 +539,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
+          artifact_sha256: f7c64bebf394fa0d46dd91daf34121ce2ed9178466bd1a8405b326f35ca6d3e2
         decision: null
         evidence: []
       code:
@@ -1708,82 +548,12 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-03T13:52:39.830320+00:00'
-          status: unverified
-          rule_text_sha256: 9bfa326bb7da3ce17fab7298a71fd493548b90109dc9850a2645170ba1ce61c1
-          artifact_sha256: null
-          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-03T13:54:04.457421+00:00'
-          status: unverified
-          rule_text_sha256: 9bfa326bb7da3ce17fab7298a71fd493548b90109dc9850a2645170ba1ce61c1
-          artifact_sha256: null
-          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-03T14:04:02.637564+00:00'
-          status: unverified
-          rule_text_sha256: 9bfa326bb7da3ce17fab7298a71fd493548b90109dc9850a2645170ba1ce61c1
-          artifact_sha256: null
-          diff_sha256: 2bd703697dc02f71ec90206f07954e4705c05d088871b7d75cdc9ebf186db6a7
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-03T14:22:37.129125+00:00'
-          status: unverified
-          rule_text_sha256: 9bfa326bb7da3ce17fab7298a71fd493548b90109dc9850a2645170ba1ce61c1
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-03T17:54:30.714959+00:00'
-          status: unverified
-          rule_text_sha256: 9bfa326bb7da3ce17fab7298a71fd493548b90109dc9850a2645170ba1ce61c1
-          artifact_sha256: null
-          diff_sha256: a79b9dc4d412c36b3847dd78f0b50de115f98fc79799db93c286cfb202a5a246
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-03T18:29:46.659594+00:00'
-          status: unverified
-          rule_text_sha256: 9bfa326bb7da3ce17fab7298a71fd493548b90109dc9850a2645170ba1ce61c1
-          artifact_sha256: null
-          diff_sha256: 2f90d27789a60ff345248abaf9ad095daca9137a80fc65ac96351222ec435437
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-03T19:27:29.955465+00:00'
+          executed_at: '2026-11-04T12:40:22.373684+00:00'
           status: verified
           rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
           artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: 68e62d4a869a658bd497332f89de4e5bf6750e15f0a434230d5a0cf688d4cd48
+          diff_sha256: head:380cf08160fbe251417e5cdd34fa4a038be3bbec
+          result_sha256: 8ffecca19b87ef8cb7477c1f61973d1cadf0ef0e75ca42cde842048f39336e17
           error_code: null
           details:
             argv:
@@ -1791,7 +561,7 @@ bindings:
             - -lc
             - uv run pytest -q tests -k schema_parity
             exit_code: 0
-            stdout_sha256: 28530f9a865cf25517e786c9454b9beed5fa0f190ea6cab2fb9eb4e67fc6f932
+            stdout_sha256: cc1ed324c5af940efc1ba6b467c468605cf275fb20db62882c9bd9eb73327639
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: ".......................................................     \
               \             [100%]\n=============================== warnings summary\
@@ -1805,84 +575,7 @@ bindings:
               \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              55 passed, 6302 deselected, 2 warnings in 27.58s\n"
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-04T00:35:48.166902+00:00'
-          status: unverified
-          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
-          artifact_sha256: null
-          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-04T00:58:06.874906+00:00'
-          status: unverified
-          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
-          artifact_sha256: null
-          diff_sha256: 8c918232b36110051e85a5786a5375ca09adf09f1b16bb6ef7872a37c9ced913
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-04T00:58:38.824347+00:00'
-          status: unverified
-          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
-          artifact_sha256: null
-          diff_sha256: 8ff875b2cff8971f0ec65c9811bafeb58d3f28e296523e8666b2cd7c69da7643
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-04T04:01:45.246244+00:00'
-          status: unverified
-          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-04T05:08:10.159957+00:00'
-          status: verified
-          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
-          artifact_sha256: null
-          diff_sha256: head:c79a155e711cb8010b6e8ea11e42df0930585e24
-          result_sha256: 94f6bd285b07b3d19ff2e57596098a98feb23f0507e11592d0c31331492459bf
-          error_code: null
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests -k schema_parity
-            exit_code: 0
-            stdout_sha256: 2acd3376761181478024d98ad448416e17e0fc64aa6f6bea56828b221f32fe73
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: ".......................................................     \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
-              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
-              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
-              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              55 passed, 6305 deselected, 2 warnings in 31.89s\n"
+              55 passed, 6305 deselected, 2 warnings in 29.99s\n"
       review:
         status: stale
         refs: []
@@ -1929,7 +622,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
+          artifact_sha256: f7c64bebf394fa0d46dd91daf34121ce2ed9178466bd1a8405b326f35ca6d3e2
         decision: null
         evidence: []
       code:
@@ -1938,12 +631,12 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-03T13:52:42.717526+00:00'
+          executed_at: '2026-11-04T12:40:25.536798+00:00'
           status: verified
           rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
           artifact_sha256: null
-          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
-          result_sha256: 1d633545694bfe72823999f7fc6ce463dfe1f6b6db35225d11e23f2637728641
+          diff_sha256: head:380cf08160fbe251417e5cdd34fa4a038be3bbec
+          result_sha256: 279a7582170e9d6123dd4284031c36fb994d609c7623dabdb23da40480a99d22
           error_code: null
           details:
             argv:
@@ -1954,189 +647,11 @@ bindings:
             - tests/test_logging_redaction.py
             - tests/acceptance/test_foundation_ops_audit.py
             exit_code: 0
-            stdout_sha256: 0352cd95bf8aa06837afef8c6b845f5ec03edad0dfb05041a07a66e94c4a535b
+            stdout_sha256: fa0b8667251aa219251a6207bf4a77937d1540e89f011eca429b70d96eb725f6
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: '..............                                                           [100%]
 
-              14 passed in 2.42s
-
-              '
-        - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-03T13:54:07.758993+00:00'
-          status: verified
-          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
-          artifact_sha256: null
-          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
-          result_sha256: 52fd0a844e2ae9e09449137ed6fe49aa1ca780b3991292d9d8f4eb0628ef8f5b
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_logging_redaction.py
-            - tests/acceptance/test_foundation_ops_audit.py
-            exit_code: 0
-            stdout_sha256: 9558480b987591ecbe38bf366fc27240dff99fa0f3c28499136d3842d7f3eb22
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '..............                                                           [100%]
-
-              14 passed in 2.85s
-
-              '
-        - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-03T14:04:02.701794+00:00'
-          status: unverified
-          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
-          artifact_sha256: null
-          diff_sha256: 2bd703697dc02f71ec90206f07954e4705c05d088871b7d75cdc9ebf186db6a7
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-03T14:22:37.192513+00:00'
-          status: unverified
-          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-03T17:54:30.780533+00:00'
-          status: unverified
-          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
-          artifact_sha256: null
-          diff_sha256: a79b9dc4d412c36b3847dd78f0b50de115f98fc79799db93c286cfb202a5a246
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-03T18:29:46.725802+00:00'
-          status: unverified
-          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
-          artifact_sha256: null
-          diff_sha256: 2f90d27789a60ff345248abaf9ad095daca9137a80fc65ac96351222ec435437
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-03T19:27:32.390152+00:00'
-          status: verified
-          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
-          artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: 6f1bbadd1d10f40f4da95f0fbf928dfccb5ee3862953fc244aea5fd47fb3e78e
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_logging_redaction.py
-            - tests/acceptance/test_foundation_ops_audit.py
-            exit_code: 0
-            stdout_sha256: d4df0090bca40915f0eb06ea11a50ef637fe195be7e5c2c2b363c650a851fb49
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '..............                                                           [100%]
-
-              14 passed in 1.97s
-
-              '
-        - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-04T00:35:51.417010+00:00'
-          status: verified
-          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
-          artifact_sha256: null
-          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
-          result_sha256: e158af928af912a31f269311bc0e989143b6995a0bc58d70bf6f7568abb1861f
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_logging_redaction.py
-            - tests/acceptance/test_foundation_ops_audit.py
-            exit_code: 0
-            stdout_sha256: 1bf8231ef5b2248811a555070b12bbf5ae2968977215c6418e0d8f5ebc244545
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '..............                                                           [100%]
-
-              14 passed in 2.79s
-
-              '
-        - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-04T00:58:06.948946+00:00'
-          status: unverified
-          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
-          artifact_sha256: null
-          diff_sha256: 8c918232b36110051e85a5786a5375ca09adf09f1b16bb6ef7872a37c9ced913
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-04T00:58:38.892539+00:00'
-          status: unverified
-          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
-          artifact_sha256: null
-          diff_sha256: 8ff875b2cff8971f0ec65c9811bafeb58d3f28e296523e8666b2cd7c69da7643
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-04T04:01:45.311129+00:00'
-          status: unverified
-          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-secret#RULE-secret-001
-          executed_at: '2026-11-04T05:08:13.289321+00:00'
-          status: verified
-          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
-          artifact_sha256: null
-          diff_sha256: head:c79a155e711cb8010b6e8ea11e42df0930585e24
-          result_sha256: 4df5d0caebad41dc67b519d3a7368ee9643dcd3976516cd5f93e8710e5f2eced
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_logging_redaction.py
-            - tests/acceptance/test_foundation_ops_audit.py
-            exit_code: 0
-            stdout_sha256: 2de0d81451051ccf9b6678e6fe4788d7d86949acfb4fcf4fbe0ebc6820917304
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '..............                                                           [100%]
-
-              14 passed in 2.65s
+              14 passed in 2.70s
 
               '
       review:
@@ -2185,7 +700,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
+          artifact_sha256: f7c64bebf394fa0d46dd91daf34121ce2ed9178466bd1a8405b326f35ca6d3e2
         decision: null
         evidence: []
       code:
@@ -2194,22 +709,12 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-03T18:53:51.941845+00:00'
-          status: unverified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-03T19:27:50.637817+00:00'
+          executed_at: '2026-11-04T12:40:45.723710+00:00'
           status: verified
           rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
           artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: 98a66e9d838d74720a396d7481a37536e13baf1e1b05729767826da600531bcd
+          diff_sha256: head:380cf08160fbe251417e5cdd34fa4a038be3bbec
+          result_sha256: 12178d93d869cc4b637a7d99ba3f61bd38e2b38286af18cbc0ec6ab10e4a25ec
           error_code: null
           details:
             argv:
@@ -2218,7 +723,7 @@ bindings:
             - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
               && uv run pytest -q tests/agent_runtime -k "executor or resolve"
             exit_code: 0
-            stdout_sha256: 8b81e37b7021b88fad0770a876fd1a7c14aa8911f3d40b09bea847943e099f3d
+            stdout_sha256: ba40f7f5d41c9551349f6974a548b8cc130b8aa03c721ac5049363c11988a92d
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: '....                                                                     [100%]
 
@@ -2226,81 +731,7 @@ bindings:
 
               .......................................                                  [100%]
 
-              39 passed, 1128 deselected in 15.24s
-
-              '
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-04T00:35:51.501804+00:00'
-          status: unverified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-04T00:58:07.019233+00:00'
-          status: unverified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: 8c918232b36110051e85a5786a5375ca09adf09f1b16bb6ef7872a37c9ced913
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-04T00:58:38.963335+00:00'
-          status: unverified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: 8ff875b2cff8971f0ec65c9811bafeb58d3f28e296523e8666b2cd7c69da7643
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-04T04:01:45.377278+00:00'
-          status: unverified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-04T05:08:33.946650+00:00'
-          status: verified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: head:c79a155e711cb8010b6e8ea11e42df0930585e24
-          result_sha256: dce103470207076ce699d43f4f016c3dcec624fa58840d45b5319306e908ca45
-          error_code: null
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
-              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
-            exit_code: 0
-            stdout_sha256: ee725e7e3717d18c09ddd4af097cd73bb234c54edd1975239c0f14c4d6180018
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '....                                                                     [100%]
-
-              4 passed in 1.12s
-
-              .......................................                                  [100%]
-
-              39 passed, 1128 deselected in 17.53s
+              39 passed, 1128 deselected in 17.19s
 
               '
       review:
@@ -2347,7 +778,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
+          artifact_sha256: f7c64bebf394fa0d46dd91daf34121ce2ed9178466bd1a8405b326f35ca6d3e2
         decision: null
         evidence: []
       code:
@@ -2361,12 +792,12 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-test#RULE-test-001
-          executed_at: '2026-11-04T05:08:51.971249+00:00'
+          executed_at: '2026-11-04T11:35:00.847722+00:00'
           status: verified
           rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
           artifact_sha256: null
-          diff_sha256: head:c79a155e711cb8010b6e8ea11e42df0930585e24
-          result_sha256: dcb4f05bc4949cc710dab7fb7725201e2e1593af5742730c92152276d1640c30
+          diff_sha256: head:380cf08160fbe251417e5cdd34fa4a038be3bbec
+          result_sha256: ec590ffc038d6ec7764d59e9acbbfa308684e3cfe911a869541a2e5fcdd8f3b5
           error_code: null
           details:
             argv:
@@ -2376,9 +807,9 @@ bindings:
               --json && npm --prefix apps/console-platform/frontend run build && npm
               --prefix e2e test
             exit_code: 0
-            stdout_sha256: df21f2ab70c8fb763dcd9f95acbf99c9676a1209d95d535e74dc9e5327fcc8bc
-            stderr_sha256: 63adb47f7d7370d1b1b11f567315a284ddddb4758edf7ef17e50438f4ecd0e9b
-            output: "   0.56 kB │ gzip:   0.39 kB\ndist/assets/IconDownload-CEH8HqAR.js\
+            stdout_sha256: c590cb66dad97665f2e5c40cae2b18ca27b7a32ed2ac6e07d928ff33410cfb0e
+            stderr_sha256: 4fbb856feaabcb54f87edbef51eb5275d8e25712ed7aafa03fe1c5a6d78b9dfc
+            output: "    0.56 kB │ gzip:   0.39 kB\ndist/assets/IconDownload-CEH8HqAR.js\
               \                  0.58 kB │ gzip:   0.41 kB\ndist/assets/FormModal-BC7IfNk_.js\
               \                     0.61 kB │ gzip:   0.38 kB\ndist/assets/ConsolePage-D0ScOvWq.js\
               \                   0.75 kB │ gzip:   0.32 kB\ndist/assets/EmptyState-DZO391J0.js\
@@ -2411,7 +842,7 @@ bindings:
               \                  156.92 kB │ gzip:  44.24 kB\ndist/assets/SkillPage-BLxOlj4R.js\
               \                   451.32 kB │ gzip: 136.18 kB\ndist/assets/OverviewPage-XOzZCfde.js\
               \              1,163.49 kB │ gzip: 390.94 kB\ndist/assets/index-DXAuc2jZ.js\
-              \                     1,436.43 kB │ gzip: 422.81 kB\n✓ built in 3.85s\n\
+              \                     1,436.43 kB │ gzip: 422.81 kB\n✓ built in 3.81s\n\
               \n> fluxion-harness-e2e@0.1.0 pretest\n> bash -c 'if command -v lsof\
               \ >/dev/null 2>&1; then bash ../scripts/dev.sh stop; else echo \"[e2e]\
               \ lsof unavailable; skip dev-service stop\"; fi'\n\n== 停止已有服务 ==\n \
@@ -2419,14 +850,14 @@ bindings:
               \  ✓ 8003 已释放\n  ✓ 8004 已释放\n\n> fluxion-harness-e2e@0.1.0 test\n> playwright\
               \ test\n\n\nRunning 4 tests using 1 worker\n\n  ✓  1 tests/foundation.spec.ts:17:1\
               \ › S-03 切到 English 后触发错误时页面文案与后端 msg 同步为 en-US (1.1s)\n  ✓  2 tests/foundation.spec.ts:36:1\
-              \ › S-12 切换模块路由时 Layout 不重建且菜单选中正确 (358ms)\n  ✓  3 tests/foundation.spec.ts:52:1\
-              \ › S-13 切换 English 后刷新语言保持且请求带 X-Locale=en-US (426ms)\n  ✓  4 tests/foundation.spec.ts:64:1\
-              \ › E-09 会话失效访问业务页跳转登录并保留 returnUrl，不渲染业务数据 (236ms)\n\n  4 passed (10.2s)\n\
+              \ › S-12 切换模块路由时 Layout 不重建且菜单选中正确 (350ms)\n  ✓  3 tests/foundation.spec.ts:52:1\
+              \ › S-13 切换 English 后刷新语言保持且请求带 X-Locale=en-US (372ms)\n  ✓  4 tests/foundation.spec.ts:64:1\
+              \ › E-09 会话失效访问业务页跳转登录并保留 returnUrl，不渲染业务数据 (237ms)\n\n  4 passed (9.5s)\n\
               \n(!) Some chunks are larger than 500 kB after minification. Consider:\n\
               - Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks\
               \ to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n\
               - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n\
-              [WebServer] INFO:     Started server process [37119]\n[WebServer] INFO:\
+              [WebServer] INFO:     Started server process [52288]\n[WebServer] INFO:\
               \     Waiting for application startup.\n[WebServer] INFO:     Application\
               \ startup complete.\n[WebServer] INFO:     Uvicorn running on http://127.0.0.1:4173\
               \ (Press CTRL+C to quit)\n"
@@ -2474,7 +905,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: e1a27657ae33d748fddf2a8ad9dbb02e1827fabf97437716c7ddae26f14bc2d0
+          artifact_sha256: f7c64bebf394fa0d46dd91daf34121ce2ed9178466bd1a8405b326f35ca6d3e2
         decision: null
         evidence: []
       code:
@@ -2483,82 +914,12 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-03T13:52:42.840802+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: 38aa49fd998b2082f9f3ae311fc38157c20a4b911333b36593c84dd7f10d77b4
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-03T13:54:07.867644+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: fab9c7f25ff0cd0e2173c333a9badb271441fde0c231e7dc6d50f037c6329b62
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-03T14:04:02.805570+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: 2bd703697dc02f71ec90206f07954e4705c05d088871b7d75cdc9ebf186db6a7
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-03T14:22:37.296021+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-03T17:54:30.884599+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: a79b9dc4d412c36b3847dd78f0b50de115f98fc79799db93c286cfb202a5a246
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-03T18:29:46.828467+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: 2f90d27789a60ff345248abaf9ad095daca9137a80fc65ac96351222ec435437
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-03T19:48:37.474961+00:00'
+          executed_at: '2026-11-04T13:02:42.798310+00:00'
           status: verified
           rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
           artifact_sha256: null
-          diff_sha256: a64704b6dd678affc62b349f1fa56ead9dafada3d23fdf4ae74b39346d8da8be
-          result_sha256: c3d124a2ac71497341732cb658c9f5da4fa94193864287c38b23935f12a7e108
+          diff_sha256: head:380cf08160fbe251417e5cdd34fa4a038be3bbec
+          result_sha256: 0084a9896f1f9315a739cbb46b25a887ecc852a2ad6d42c8d46ccde110877bec
           error_code: null
           details:
             argv:
@@ -2567,7 +928,7 @@ bindings:
             - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
               --ignore=tests/agent_runtime/test_runner_executor.py
             exit_code: 0
-            stdout_sha256: 70b9d5ee65d7d3d132c16200addc3714dd90c9556736f25ff295be49fe3be0a5
+            stdout_sha256: 48a858eba993020266a810ff5e203e9ca755b76cefa8ed0d6f7bb75213e2c1d1
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: '........................................................................
               [ 21%]
@@ -2583,7 +944,7 @@ bindings:
 
               ........................................                                 [100%]
 
-              328 passed in 127.79s (0:02:07)
+              328 passed in 130.68s (0:02:10)
 
               ........................................................................
               [  6%]
@@ -2635,141 +996,7 @@ bindings:
 
               ......                                                                   [100%]
 
-              1158 passed in 1113.75s (0:18:33)
-
-              '
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-04T00:35:51.610299+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-04T00:58:07.132918+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: 8c918232b36110051e85a5786a5375ca09adf09f1b16bb6ef7872a37c9ced913
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-04T00:58:39.072763+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: 8ff875b2cff8971f0ec65c9811bafeb58d3f28e296523e8666b2cd7c69da7643
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-04T04:01:45.479461+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-04T05:30:28.662628+00:00'
-          status: verified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: head:c79a155e711cb8010b6e8ea11e42df0930585e24
-          result_sha256: bdff16fa44f1a8d27c6e87192e26328a6dcb79cb15299d3a9f03ecdba944ead9
-          error_code: null
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
-              --ignore=tests/agent_runtime/test_runner_executor.py
-            exit_code: 0
-            stdout_sha256: eb37387e6b60940c59db4ff88c65c5fe99b33af21e5bc15a82b79a125997ccf5
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '........................................................................
-              [ 21%]
-
-              ........................................................................
-              [ 43%]
-
-              ........................................................................
-              [ 65%]
-
-              ........................................................................
-              [ 87%]
-
-              ........................................                                 [100%]
-
-              328 passed in 131.54s (0:02:11)
-
-              ........................................................................
-              [  6%]
-
-              ........................................................................
-              [ 12%]
-
-              ........................................................................
-              [ 18%]
-
-              ........................................................................
-              [ 24%]
-
-              ........................................................................
-              [ 31%]
-
-              ........................................................................
-              [ 37%]
-
-              ........................................................................
-              [ 43%]
-
-              ........................................................................
-              [ 49%]
-
-              ........................................................................
-              [ 55%]
-
-              ........................................................................
-              [ 62%]
-
-              ........................................................................
-              [ 68%]
-
-              ........................................................................
-              [ 74%]
-
-              ........................................................................
-              [ 80%]
-
-              ........................................................................
-              [ 87%]
-
-              ........................................................................
-              [ 93%]
-
-              ........................................................................
-              [ 99%]
-
-              ......                                                                   [100%]
-
-              1158 passed in 1159.66s (0:19:19)
+              1158 passed in 1180.51s (0:19:40)
 
               '
       review:
