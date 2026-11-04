@@ -84,6 +84,7 @@ httpx==0.28.1
     #   muad-console-platform
     #   muad-im-connector
     #   muad-im-gateway
+    #   muad-platform-sdk
 idna==3.19
     # via
     #   anyio

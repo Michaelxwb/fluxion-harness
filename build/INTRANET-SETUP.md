@@ -332,7 +332,8 @@ build/INTRANET-K8S-DEPLOY.md
 
    第一条检查地址可达、版本 ≥6.2、`redis_mode=cluster`、槽位与内存/连接上限；第二条检查
    11 项命令面与 key 契约（同 slot `XREADGROUP`/`XAUTOCLAIM`/双 key `EVAL`、跨节点
-   `PUBLISH`、跨 slot 拒绝等）。
+   `PUBLISH`、跨 slot 拒绝等）。探针在能访问集群的运维机/跳板机执行；镜像未包含
+   `scripts/`，如需 Pod 内执行先 `kubectl cp` 拷入。
 
 完整 Secret/ConfigMap 示例见 `build/INTRANET-K8S-DEPLOY.md` §1.2、§1.3。
 
