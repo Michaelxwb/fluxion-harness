@@ -320,7 +320,7 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 - **Source**: redis-cluster-support.design.md#2.3 功能方案, redis-cluster-support.design.md#4.1 部署架构, redis-cluster-support.design.md#3.5.5 测试策略
 - **Spec-Refs**: harness-secret#RULE-secret-001
 - **Rule-Owner-Refs**: N/A
-- **Acceptance-Refs**: RULE-04
+- **Acceptance-Refs**: S-07, RULE-04
 - **Estimate**: 1d
 - **Capability**: 一份可部署的清单：`REDIS_MODE`/seeds/保留参数进入 ConfigMap，配置清单与部署文档同步，上线前置检查可执行
 
@@ -342,12 +342,14 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
 | RULE-04 | contract | 清单文件 + SharedSettings 字段一致性 | ConfigMap 含 `REDIS_MODE` 等键；清单测试通过；配置清单无漂移 | tests/architecture, tests/test_configuration_inventory.py | uv run pytest -q tests/architecture tests/test_configuration_inventory.py | verified |
+| S-07 | contract | SharedSettings + 工厂纯校验（不建连接） | `REDIS_MODE`/seeds 默认值与 ConfigMap 声明一致；工厂按配置返回 Redis/RedisCluster 或抛 RedisConfigError | tests/common/test_redis_client.py, tests/architecture | uv run pytest -q tests/common/test_redis_client.py tests/architecture | verified |
 
 ### Acceptance Evidence
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |--------|-----|-------|---------|-------------|------|
 | RULE-04 | ConfigMap 新增键缺字段/消费点会让 manifest 测试直接失败；常量行号漂移曾使盘点测试红 | PASS: 216 passed（tests/architecture + tests/test_configuration_inventory.py） | ConfigMap 声明测试、消费点测试、常量盘点 | 清单文件 + SharedSettings 字段一致性 | verified |
+| S-07 | 工厂/配置校验先于本任务已由 TASK-001 落地（见该任务证据）；本任务补充清单侧不变量 | PASS: 216 passed（tests/architecture + tests/test_configuration_inventory.py）；工厂纯校验 27 passed（tests/common） | ConfigMap 键与 SharedSettings 字段一致；`REDIS_MODE` 默认 `standalone` | 清单文件 + 工厂纯校验（TASK-001 证据） | verified |
 | 预检脚本 | 本地集群未设 maxmemory 时脚本 FAIL（符合预期：生产前置要求） | 六地址/版本/模式/槽位/primaries 全 PASS；maxmemory 按预期 FAIL | scripts/probe_redis_cluster.py 实跑 | 真实本地 3 主集群 | verified |
 
 ### Log
