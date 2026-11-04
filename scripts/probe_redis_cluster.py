@@ -76,11 +76,11 @@ async def _probe(nodes: list[tuple[str, int]], url: str | None) -> int:
         all(reachable),
         ", ".join(
             f"{host}:{port}={'ok' if ok else 'refused'}"
-            for (host, port), ok in zip(nodes, reachable)
+            for (host, port), ok in zip(nodes, reachable, strict=True)
         ),
     )
 
-    seed = next((node for node, ok in zip(nodes, reachable) if ok), nodes[0])
+    seed = next((node for node, ok in zip(nodes, reachable, strict=True) if ok), nodes[0])
     username, password, use_tls = _credential_values(url)
     client = RedisCluster(
         host=seed[0],

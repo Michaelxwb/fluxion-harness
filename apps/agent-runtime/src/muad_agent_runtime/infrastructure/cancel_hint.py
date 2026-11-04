@@ -6,7 +6,6 @@ from collections.abc import Callable
 from typing import Protocol, cast
 
 from muad_common.redis_client import create_redis_client
-from redis.asyncio import Redis
 from redis.exceptions import RedisClusterException, RedisError
 
 CANCEL_HINT_KEY_PREFIX = "run:cancel:"

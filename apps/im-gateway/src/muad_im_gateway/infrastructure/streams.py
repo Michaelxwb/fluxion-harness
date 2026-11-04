@@ -17,8 +17,8 @@ from typing import Any
 from uuid import UUID
 
 import redis.asyncio
-from redis.asyncio.cluster import RedisCluster
 from muad_contracts.im import DeliveryCommand, command_result_key, outbound_stream_key
+from redis.asyncio.cluster import RedisCluster
 
 RESULT_POLL_SEC = 0.1
 

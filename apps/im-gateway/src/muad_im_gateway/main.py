@@ -7,9 +7,6 @@ from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 
 import redis.asyncio
-from redis.crc import key_slot
-from redis.exceptions import ConnectionError as RedisConnectionError
-from redis.exceptions import RedisError as RedisErrorType
 from fastapi import FastAPI
 from muad_api import (
     install_api_foundation,
@@ -30,6 +27,9 @@ from muad_common.redis_client import (
 from muad_common.session_store import RedisSessionStore
 from muad_im_core import BotSnapshotCache, InboundPublisher
 from muad_logging import configure_logging
+from redis.crc import key_slot
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import RedisError as RedisErrorType
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .api.delivery import router as delivery_router

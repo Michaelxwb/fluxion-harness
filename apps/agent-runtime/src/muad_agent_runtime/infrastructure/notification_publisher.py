@@ -13,17 +13,17 @@ import uuid
 from typing import Final, cast
 
 import redis.asyncio
-from redis.asyncio.cluster import RedisCluster
-from muad_common.redis_client import (
-    create_pubsub_client_sync,
-    create_redis_client,
-)
 from muad_common import process_settings
 from muad_common.notification_keys import (
     NOTIFICATION_WATERMARK_TTL_SEC,
     notification_watermark_key,
 )
-from redis.exceptions import RedisClusterException, RedisError
+from muad_common.redis_client import (
+    create_pubsub_client_sync,
+    create_redis_client,
+)
+from redis.asyncio.cluster import RedisCluster
+from redis.exceptions import RedisError
 
 logger = logging.getLogger(__name__)
 

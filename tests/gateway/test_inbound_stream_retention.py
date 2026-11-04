@@ -7,12 +7,11 @@ import time
 from typing import Any
 
 import pytest
-from redis.exceptions import RedisClusterException
-
 from muad_im_gateway.application.inbound_streams import (
     INBOUND_GROUP,
     InboundStreamConsumer,
 )
+from redis.exceptions import RedisClusterException
 
 KEY = "im.inbound:{inbound}:0"
 

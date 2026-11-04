@@ -5,12 +5,6 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
-from muad_common.redis_client import (
-    RedisTopologyMismatch,
-    create_redis_client,
-    verify_redis_topology,
-)
-from redis.exceptions import RedisError as RedisErrorType
 from fastapi import FastAPI, Request, Response
 from muad_api import (
     database_readiness,
@@ -23,8 +17,14 @@ from muad_api import (
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_common.db_counters import db_stage, publish_db_counters
+from muad_common.redis_client import (
+    RedisTopologyMismatch,
+    create_redis_client,
+    verify_redis_topology,
+)
 from muad_common.session_store import RedisSessionStore
 from muad_logging import configure_logging
+from redis.exceptions import RedisError as RedisErrorType
 from sqlalchemy.exc import SQLAlchemyError
 
 from .api.deps import ConsoleRoleResolver, ConsoleSessionVerifier

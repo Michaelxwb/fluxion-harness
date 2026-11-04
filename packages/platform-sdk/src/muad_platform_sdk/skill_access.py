@@ -10,7 +10,6 @@ from urllib.parse import urlsplit
 
 import httpx
 from muad_common.redis_client import create_redis_client
-from redis.asyncio import Redis
 
 from .adapter import MSSAdapter, PlatformAdapterRegistry
 from .adapter.mss import check, send

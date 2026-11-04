@@ -3,13 +3,13 @@ from collections.abc import Callable
 from typing import Annotated, Any, cast
 
 import httpx
-from muad_common.redis_client import create_redis_client
 from fastapi import Depends, Request
 from muad_api import AppError, require_roles, require_session
 from muad_api.context import current_tenant_id
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
+from muad_common.redis_client import create_redis_client
 from muad_platform_sdk import PlatformAdapterRegistry, RedisPlatformSessionInvalidator
 
 from ..application.artifact_fetch_service import ArtifactFetchService, ArtifactResolvePort

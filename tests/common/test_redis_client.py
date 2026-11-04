@@ -5,10 +5,6 @@ from __future__ import annotations
 import logging
 
 import pytest
-from redis.asyncio import Redis
-from redis.asyncio.cluster import RedisCluster
-from redis.exceptions import RedisClusterException
-
 from muad_common.redis_client import (
     RedisConfigError,
     RedisTopologyMismatch,
@@ -18,6 +14,9 @@ from muad_common.redis_client import (
     parse_seed,
     verify_redis_topology,
 )
+from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
+from redis.exceptions import RedisClusterException
 
 
 def test_standalone_returns_plain_client() -> None:

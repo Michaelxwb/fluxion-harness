@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import pytest
-from redis.asyncio import Redis
-from redis.asyncio.cluster import RedisCluster
-from redis.exceptions import ConnectionError as RedisConnectionError
-
 from muad_common.redis_client import (
     create_pubsub_client,
     create_pubsub_client_from_cluster,
 )
+from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 
 async def test_standalone_pubsub_returns_plain_client() -> None:

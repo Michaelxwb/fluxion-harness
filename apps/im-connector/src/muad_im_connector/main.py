@@ -25,7 +25,6 @@ from muad_im_core import BotSnapshotCache, InboundPublisher
 from muad_im_gateway.application.inbound_attachments import InboundAttachmentStore
 from muad_im_gateway.channels.base import ArtifactLinkIssuer
 from muad_logging import configure_logging
-from redis.asyncio import Redis
 from redis.exceptions import RedisError as RedisErrorType
 
 from .channels.probe import HttpProbeChannelAdapter

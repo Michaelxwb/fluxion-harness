@@ -42,7 +42,6 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_common.db_counters import db_stage_scope
 from muad_common.redis_client import create_pubsub_client_sync
-from redis.asyncio import Redis
 from redis.exceptions import RedisClusterException, RedisError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 

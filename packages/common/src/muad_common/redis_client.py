@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from typing import Literal, TypeAlias, cast
+from typing import Literal, cast
 from urllib.parse import SplitResult, unquote, urlsplit
 
 from redis.asyncio import Redis
@@ -28,8 +28,8 @@ from redis.exceptions import RedisClusterException, RedisError
 
 logger = logging.getLogger(__name__)
 
-RedisMode: TypeAlias = Literal["standalone", "cluster"]
-RedisClient: TypeAlias = Redis | RedisCluster
+type RedisMode = Literal["standalone", "cluster"]
+type RedisClient = Redis | RedisCluster
 
 
 class RedisConfigError(ValueError):
