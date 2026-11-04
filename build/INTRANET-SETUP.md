@@ -117,8 +117,10 @@ FRONTEND_CACHE_DIR        默认 /tmp/muad-console-frontend（前端任务和 co
 本地直接跑 `build-image.sh` / `package-service.sh` 时可以不配，只构建/打包不上传；
 需要强制不推送/不上传时才设 `PUSH=0` / `UPLOAD=0`。
 
-默认 tag 用构建时间，每次运行流水线都不同；部署按服务读取 `release-<service>.env`。
-需要所有服务共用一个 tag 时，在流水线最前面统一设置 `TAG`。
+默认 tag 用**本次流水线运行的构建时间**：同一次运行的所有服务共用一个 tag，下一次
+运行是新 tag；部署按服务读取 `release-<service>.env`，不要重新算。时间戳来自流水线级
+变量（`TAG_TIMESTAMP`，或平台提供的 `CI_PIPELINE_CREATED_AT`），不是各任务自己的时钟，
+否则并行任务会得到不同 tag。
 
 ### 2.2 任务镜像
 
@@ -238,13 +240,12 @@ console-platform: service.type=ClusterIP
 im-gateway:       service.type=ClusterIP
 ```
 
-用 Helm 部署。`--set` 参数块（和 5 个服务格式一致）：
+用 Helm 部署。`--set` 参数块（和 5 个服务格式一致，镜像 tag 由平台从
+`release-<service>.env` 注入，不要写 `$TAG`）：
 
 ```bash
 --set global.imageRegistry=docker.sangfor.com/mss-release \
---set global.imageTag="$TAG" \
 --set global.imagePullPolicy=Always \
---set 'global.imagePullSecrets[0].name=regcred' \
 --set service.image=muad-nginx \
 --set service.port=8080 \
 --set service.type=NodePort \
@@ -301,10 +302,45 @@ build/INTRANET-K8S-DEPLOY.md
 
 所有 `.env` 配置的完整映射见该文档的 **2.7 节**。
 
+### 5.1 Redis Cluster（内网必配）
+
+内网 Redis 只有 **3 主 3 从 Cluster**（客户端端口 6393/6394），没有单机可切换；部署前确认：
+
+1. **Secret**（`muad-external` 与 `muad-connector-external`）的 `REDIS_URL` 用
+   `redis://:<password>@<seed>:6393/0`：Cluster 只支持 db 0，URL 路径必须是 `/0`，
+   两个 Secret 的值一致；密码含 `@ : / ? #` 时先做 URL 编码。
+2. **ConfigMap `muad-common`** 显式设置：
+
+   ```yaml
+   REDIS_MODE: cluster
+   REDIS_CLUSTER_SEEDS: "10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"
+   ```
+
+   默认 `standalone` 会因实际拓扑不匹配而启动失败。部署步骤不变：照常
+   `kubectl apply -f deploy/k8s/base/configmap.yaml`，再补一次 merge patch 把这两个键改成
+   上面的值（命令见 `deploy/k8s/README.md` 的「内网 Redis Cluster」）。patch 可重复执行；
+   ConfigMap 更新不会自动重启 Pod，改完需 `kubectl rollout restart` 5 个 Deployment。
+3. **网络**放行 6 个通告地址（`10.74.145.45/46/47` × `6393/6394`）：客户端按
+   `CLUSTER SLOTS` 连接所有 master，不只是 seed。
+4. **上线前跑探针**：
+
+   ```bash
+   python scripts/probe_redis_cluster.py --url "$REDIS_URL" \
+     --nodes 10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393,10.74.145.45:6394,10.74.145.46:6394,10.74.145.47:6394
+   python scripts/probe_redis_cluster_commands.py --url "$REDIS_URL" --seeds "$REDIS_CLUSTER_SEEDS"
+   ```
+
+   第一条检查地址可达、版本 ≥6.2、`redis_mode=cluster`、槽位与内存/连接上限；第二条检查
+   11 项命令面与 key 契约（同 slot `XREADGROUP`/`XAUTOCLAIM`/双 key `EVAL`、跨节点
+   `PUBLISH`、跨 slot 拒绝等）。探针在能访问集群 6 个通告地址的运维机/跳板机执行，
+   不需要打进应用镜像。
+
+完整 Secret/ConfigMap 示例见 `build/INTRANET-K8S-DEPLOY.md` §1.2、§1.3。
+
 顺序：
 
 ```text
-1. 建 namespace、Secret、muad-common ConfigMap、artifacts PVC、regcred
+1. 建 namespace、Secret、muad-common ConfigMap、artifacts PVC
 2. 部署前手动执行数据库迁移
 3. 安装 5 个服务（无顺序依赖，可以并行）
 4. 验证 /healthz、/readyz
@@ -342,7 +378,7 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
 | 镜像 push 401 | 检查 `DOCKER_USER` / `DOCKER_PASS` |
 | console 报前端缓存缺失 | 检查前端节点上传和 console release 节点下载都是 `/tmp/muad-console-frontend/` |
 | release 报 `helm` / `sfspm` 不存在 | 任务镜像缺命令，安装或改用单独的 `task2-helm.sh` |
-| 5 个镜像 tag 不一致 | 默认按构建时间生成，各服务可能不同；需要统一时流水线设置同一个 `TAG` |
+| 5 个镜像 tag 不一致 | 构建日志里找 `[image-tag] warning`：流水线没提供 `TAG_TIMESTAMP` / `CI_PIPELINE_CREATED_AT`，各任务用了自己的时钟；在流水线里设置一次 `TAG_TIMESTAMP` |
 | chart 重复上传 | 用了 `task-release-*` 就不要再跑 `task2-helm.sh` |
 | nginx 报 `libprofiler.so.0` | RPM 缺 gperftools 依赖；构建会自动尝试 `gperftools-libs` 等包，仍失败改用 copy 模式 |
 | nginx RPM 安装失败 | 改用 `NGINX_BUILD_MODE=copy`，或把 `NGINX_SOURCE_IMAGE` 指向 `portal-nginx` 镜像 |

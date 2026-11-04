@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Protocol, cast
 
 from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
 
 from ..adapter import PlatformAdapterRegistry
 from ..adapter.mss_config import PlatformAuthError
@@ -42,7 +43,7 @@ class AsyncRedisCommands(Protocol):
 class RedisPlatformSessionManager:
     def __init__(
         self,
-        client: Redis,
+        client: Redis | RedisCluster,
         registry: PlatformAdapterRegistry,
         *,
         tenant_id: str,
@@ -152,7 +153,9 @@ class RedisPlatformSessionManager:
 
     async def invalidate(self, *, platform: PlatformConfig, actor_scope: str) -> None:
         # Exact prefix from the platform index; never use KEYS/SCAN.
-        prefix = f"platform_session:{self.tenant_id}:{self.platform_id}:{actor_scope}:"
+        prefix = (
+            f"platform_session:{{{self.tenant_id}:{self.platform_id}}}:{actor_scope}:"
+        )
         keys = [
             k
             for k in cast(list[bytes], await self.commands.execute_command("SMEMBERS", self.index))

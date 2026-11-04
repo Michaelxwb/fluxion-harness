@@ -6,8 +6,9 @@ import logging
 from collections.abc import Callable
 from typing import Protocol, cast
 
+from muad_common.redis_client import create_pubsub_client_sync
 from redis.asyncio import Redis
-from redis.exceptions import RedisError
+from redis.exceptions import RedisClusterException, RedisError
 
 from ..metrics import record_outcome
 
@@ -48,7 +49,7 @@ class RedisWakeupNotifier:
     async def notify(self) -> None:
         try:
             await self._client.publish(TASK_WAKEUP_KEY, "1")
-        except RedisError:
+        except (RedisError, RedisClusterException):
             # hint 只是低延迟优化，权威状态在 PG；发不出去不影响已提交的任务。
             logger.warning("task_wakeup_hint_failed")
             record_outcome("task_hint_degraded_total", "TASK_WAKEUP_HINT_FAILED")
@@ -57,20 +58,29 @@ class RedisWakeupNotifier:
         await self._client.aclose()
 
 
-def _build_client(redis_url: str) -> AsyncRedisLike:
-    return cast(AsyncRedisLike, Redis.from_url(redis_url, decode_responses=True))
+def _build_client(
+    redis_url: str, *, mode: str = "standalone", seeds: list[str] | None = None
+) -> AsyncRedisLike:
+    return cast(
+        AsyncRedisLike,
+        create_pubsub_client_sync(redis_url, mode=mode, seeds=seeds, decode_responses=True),
+    )
 
 
 async def create_wakeup_notifier(
     redis_url: str | None,
-    client_factory: Callable[[str], AsyncRedisLike] = _build_client,
+    *,
+    mode: str = "standalone",
+    seeds: list[str] | None = None,
+    client_factory: Callable[[str], AsyncRedisLike] | None = None,
 ) -> WakeupNotifier:
     if not redis_url:
         return NullWakeupNotifier()
-    client = client_factory(redis_url)
+    factory = client_factory or (lambda url: _build_client(url, mode=mode, seeds=seeds))
+    client = factory(redis_url)
     try:
         await client.ping()
-    except RedisError:
+    except (RedisError, RedisClusterException):
         logger.warning("task_wakeup_redis_unavailable")
         record_outcome("task_hint_degraded_total", "TASK_WAKEUP_REDIS_UNAVAILABLE")
         await client.aclose()
@@ -117,7 +127,7 @@ class RedisWakeupListener:
                     async for message in pubsub.listen():
                         if message.get("type") == "message":
                             self._event.set()
-            except RedisError:
+            except (RedisError, RedisClusterException):
                 logger.warning("task_wakeup_listen_failed")
             await asyncio.sleep(LISTEN_RETRY_SEC)
 
@@ -134,13 +144,20 @@ class RedisWakeupListener:
         await self._client.aclose()
 
 
-async def create_wakeup_listener(redis_url: str | None) -> WakeupListener:
+async def create_wakeup_listener(
+    redis_url: str | None,
+    *,
+    mode: str = "standalone",
+    seeds: list[str] | None = None,
+) -> WakeupListener:
     if not redis_url:
         return NullWakeupListener()
-    client = Redis.from_url(redis_url, decode_responses=True)
+    client = create_pubsub_client_sync(
+        redis_url, mode=mode, seeds=seeds, decode_responses=True
+    )
     try:
         await client.ping()
-    except RedisError:
+    except (RedisError, RedisClusterException):
         logger.warning("task_wakeup_redis_unavailable")
         record_outcome("task_hint_degraded_total", "TASK_WAKEUP_REDIS_UNAVAILABLE")
         await client.aclose()

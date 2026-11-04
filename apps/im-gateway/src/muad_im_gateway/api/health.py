@@ -64,11 +64,15 @@ def readiness_checks(app: FastAPI) -> Mapping[str, ReadinessCheck]:
 
 def readiness_detail(app: FastAPI) -> Mapping[str, Any]:
     registry = getattr(app.state, "registry", None)
+    settings = getattr(app.state, "settings", None)
     dedupe = getattr(app.state, "dedupe_store", None)
     snapshot = getattr(app.state, "bot_snapshot", None)
-    return {
+    detail: dict[str, Any] = {
         "adapters": registry.adapter_states if registry is not None else {},
         "degraded_bots": registry.degraded_bots if registry is not None else {},
         "dedupe": dedupe_mode(dedupe) if dedupe is not None else DEDUPE_MODE_DISABLED,
         "bots_revision": snapshot.revision if snapshot is not None else None,
     }
+    if settings is not None:
+        detail["redis_mode"] = getattr(settings, "redis_mode", None)
+    return detail

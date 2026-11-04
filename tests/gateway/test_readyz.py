@@ -65,7 +65,14 @@ async def api_client(
         # 这些是**本探针**读取的全部 app.state（含多 worker 改造新增的 stream 依赖）：
         # 不清理会让上一个用例的装配残留（真实 streams 对象 + stream_reliant=True）改变
         # 本用例的 /readyz 结论（整跑红、单跑绿）。
-        for name in ("registry", "dedupe_store", "bot_snapshot", "stream_reliant", "delivery_streams"):
+        for name in (
+            "registry",
+            "dedupe_store",
+            "bot_snapshot",
+            "stream_reliant",
+            "delivery_streams",
+            "settings",
+        ):
             setattr(app.state, name, None)
 
 

@@ -1,4 +1,4 @@
-.PHONY: check compile test acceptance acceptance-clean acceptance-e2e smoke capacity-smoke capacity-load capacity-soak capacity-wecom e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck base-images export-requirements verify-build-assets
+.PHONY: check compile test acceptance cluster-acceptance acceptance-clean acceptance-e2e smoke capacity-smoke capacity-load capacity-soak capacity-wecom e2e-changed e2e-changed-plan i18n-check error-message-check lint typecheck base-images export-requirements verify-build-assets
 
 # 内网底座镜像（Python 3.12.13 / Python 3.12.13 + Node 24）；发布需显式 PUSH=1。
 base-images:
@@ -22,6 +22,10 @@ test:
 acceptance:
 	uv run python scripts/clean_acceptance_claims.py
 	uv run python -m pytest -q -m "not capacity_load" tests/acceptance
+
+# 集群验收：先跑 11 项命令面/key 探针；集群未起时按需拉起 localdb 的 compose profile。
+cluster-acceptance:
+	./scripts/run_cluster_acceptance.sh
 
 # 浏览器验收（按域）：make acceptance-e2e DOMAIN=console-auth
 # DOMAIN=console-auth-ui 是 component 套件（mock API、无后端）；其余域仍是 E2E。

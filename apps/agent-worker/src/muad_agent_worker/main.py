@@ -59,10 +59,21 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         migrations_dir=settings.migrations_dir,
     )
     session_factory = get_session_factory()
-    wakeup_notifier = await create_wakeup_notifier(settings.redis_url)
+    _seeds = [
+        item.strip()
+        for item in (settings.redis_cluster_seeds or "").split(",")
+        if item.strip()
+    ]
+    wakeup_notifier = await create_wakeup_notifier(
+        settings.redis_url, mode=settings.redis_mode, seeds=_seeds
+    )
     app.state.wakeup_notifier = wakeup_notifier
-    wakeup_listener = await create_wakeup_listener(settings.redis_url)
-    cancel_hints = await create_cancel_hint_store(settings.redis_url)
+    wakeup_listener = await create_wakeup_listener(
+        settings.redis_url, mode=settings.redis_mode, seeds=_seeds
+    )
+    cancel_hints = await create_cancel_hint_store(
+        settings.redis_url, mode=settings.redis_mode, seeds=_seeds
+    )
     app.state.cancel_hints = cancel_hints
     # Redis 只是低延迟 hint：不可用时降级为 PG 扫描，不阻塞就绪；仅作为诊断详情上报。
     app.state.wakeup_mode = "redis" if isinstance(wakeup_notifier, RedisWakeupNotifier) else "disabled"

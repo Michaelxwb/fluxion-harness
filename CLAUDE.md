@@ -36,6 +36,7 @@
 - PRD, Design, Plan, Start, Coding, and Done inherit one persisted Context. Required rules must be applied and verified before their stage gate passes.
 - A corrupt marker, Context hash drift, or required scope expansion is `SPEC_WORKFLOW_BLOCKED`; run `cf-spec refresh/doctor` instead of falling back.
 - Tier 0 `_map.md` files are navigation only. Rule constraints live in metadata-bearing Tier 1 Specs.
+- Specs 只写规范与编码要求，不写会随代码/配置变化的实现值（指标名、超时/重试秒数、计数/容量上限、默认值、端口/IP、源码行号）；需要时引用配置或契约所有者（`*Settings`、`MAX_*`、ConfigMap 键），具体值以代码/配置为准。设计模板中的示例占位值除外。
 
 Do NOT ask the user which Specs to load—the Context-first router is authoritative.
 <!-- code-flow:spec-loading schema=1 end -->

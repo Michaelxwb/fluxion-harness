@@ -1,0 +1,13 @@
+# 统一文本文件行尾，避免 Windows/IDE 把 LF 写成 CRLF。
+# 只约束需要固定 LF 的文本类型；CSV 等导出文件不在内（仓库内现有 CSV 保留 CRLF）。
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+*.fish text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+Dockerfile text eol=lf
+Dockerfile.* text eol=lf
+*.conf text eol=lf
+*.tpl text eol=lf

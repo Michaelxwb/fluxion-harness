@@ -15,11 +15,17 @@ from fastapi import FastAPI
 from muad_api import install_health_probes
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
+from muad_common.redis_client import (
+    RedisClient,
+    RedisTopologyMismatch,
+    create_redis_client,
+    verify_redis_topology,
+)
 from muad_im_core import BotSnapshotCache, InboundPublisher
 from muad_im_gateway.application.inbound_attachments import InboundAttachmentStore
 from muad_im_gateway.channels.base import ArtifactLinkIssuer
 from muad_logging import configure_logging
-from redis.asyncio import Redis
+from redis.exceptions import RedisError as RedisErrorType
 
 from .channels.probe import HttpProbeChannelAdapter
 from .channels.wecom.adapter import WeComAdapter
@@ -37,10 +43,15 @@ SERVICE_NAME = "muad-im-connector"
 
 @dataclass
 class ConnectorResources:
-    redis: Redis
+    redis: RedisClient
     console: object
     adapter: ConnectorAdapterPort
     runtime: ConnectorRuntime
+
+
+def _cluster_seeds(settings: SharedSettings) -> list[str]:
+    raw = (settings.redis_cluster_seeds or "").strip()
+    return [item.strip() for item in raw.split(",") if item.strip()]
 
 
 def _require(value: str | None, name: str) -> str:
@@ -72,14 +83,16 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
     from muad_im_gateway.application.console_client import ConsoleClient
 
     connector = connector_settings()
-    redis = Redis.from_url(
+    redis = create_redis_client(
         _require(settings.redis_url, "REDIS_URL"),
+        mode=settings.redis_mode,
+        seeds=_cluster_seeds(settings),
         decode_responses=True,
         max_connections=64,
     )
     logger.info(
-        "connector_redis_configured db=%s owner=%s",
-        redis.connection_pool.connection_kwargs.get("db"),
+        "connector_redis_configured mode=%s owner=%s",
+        settings.redis_mode,
         connector.owner_id,
     )
     console = ConsoleClient(
@@ -94,8 +107,8 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
     replies = ReplyStore(redis)
     publisher = InboundPublisher(
         redis,
-        shards=connector.connector_inbound_shards,
-        stream_maxlen=connector.connector_inbound_stream_maxlen,
+        shards=settings.inbound_stream_shards,
+        stream_maxlen=settings.inbound_stream_maxlen,
         lost_after_sec=connector.connector_inbound_lost_after_sec,
         pause_before_xadd_sec=connector.connector_test_pause_before_xadd_sec,
     )
@@ -144,6 +157,18 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = SharedSettings()
     resources = _build_resources(settings)
+    try:
+        await verify_redis_topology(resources.redis, mode=settings.redis_mode)
+    except RedisTopologyMismatch:
+        await resources.redis.aclose()
+        raise
+    except (RedisErrorType, OSError) as exc:
+        # 不可达属于可用性问题：租约/入站在循环里降级重试，不阻断进程启动。
+        logger.warning(
+            "connector_redis_topology_unverified mode=%s error=%s",
+            settings.redis_mode,
+            type(exc).__name__,
+        )
     app.state.resources = resources
     await resources.runtime.start()
     try:

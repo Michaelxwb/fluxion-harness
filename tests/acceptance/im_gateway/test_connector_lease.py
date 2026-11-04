@@ -20,10 +20,12 @@ from collections.abc import AsyncIterator, Iterator
 
 import pytest
 import redis.asyncio as redis
+from muad_contracts.im import lease_key
 from redis.asyncio import Redis
 
 from tests.acceptance.im_gateway.connector_environment import (
     BOT_ID,
+    TENANT,
     ConnectorStack,
     kill_process,
     start_connector_stack,
@@ -33,7 +35,7 @@ from tests.e2e.wecom_probe_app import CMD_SUBSCRIBE, WeComProbe
 
 pytestmark = pytest.mark.integration
 
-LEASE_KEY = f"connector:bot:e2e-im-gateway:{BOT_ID}"
+LEASE_KEY = lease_key(TENANT, BOT_ID)
 
 
 @pytest.fixture(scope="module")

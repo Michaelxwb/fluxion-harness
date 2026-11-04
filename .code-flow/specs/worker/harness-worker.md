@@ -16,7 +16,7 @@ verifiers:
     - -lc
     - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py
     cwd: .
-    # 全量 agent_runtime 已增至 1000+ 用例（约 13 分钟），600s 会在正常全绿时误报超时。
+    # 用例数增长后固定超时会误报；超时预算按实测调整。
     timeout: 1800
 ---
 
@@ -41,8 +41,8 @@ verifiers:
 - **Final Delivery 去重与模式**：delivery key 固定为 `task:{task_id}:final`（Child 为 `:{child_id}:final`），以 `delivery_key` 去重；`delivery_mode` 仅 `FINAL_ONLY` / `NONE`。**可投递状态只有 `PENDING`**，`FAILED` 是终态（4xx / 路由缺失 / 次数耗尽）：可重试失败写回 `PENDING`，否则「还在退避中」和「已经没救了」在库里长得一样，耗尽的租户会永远占着跨租户扫描名额（`delivery/service.py` 的 `_query_pending_tenants` 与可重试失败分支）。**HTTP 2xx 不等于送达**：只有封套里**明确** `data.delivered == true` 才置 `SENT`，解析不了按可重试失败退避重投（`delivery/client.py` 的 ack 解析）。✅ `{"accepted": true, "delivered": true}` ⇒ SENT；❌ 非法 JSON / 缺 `delivered` 字段也当成功（结果再也不会重投，用户就是收不到）。
 - **投递队列跨租户，必须公平且互不连坐**：按 `(最早待投递记录的 create_time, tenant_id)` 的**前进游标**逐租户取快照（`delivery/service.py` 的 `_query_pending_tenants`），单租户取快照失败只跳过它自己；预留（发送前自增 `delivery_attempts` 并提交）超过 `DELIVERY_RESERVATION_LEASE_SEC` 仍未回执的，按「那次尝试随进程没了」结算成 `FAILED`，不留永远无法再被领取的 `PENDING`（`delivery/service.py` 的预留结算路径）。✅ 固定前缀之外的租户每轮都会被看到；❌ 取「最早的前 N 个」且失败即抛——前 N 个选不出候选或读不到设置时，后面的租户永远轮不到。
 - **回收同样受重试预算与退避约束**：`attempt >= max_attempts` 的崩溃任务终态 `FAILED(TASK_ATTEMPTS_EXHAUSTED)`，其余置回 `QUEUED` 并退避 `RETRY_BACKOFF_BASE_SEC * 2**(attempt-1)`（`worker/service.py` 的 reclaim 与退避路径）。
-- **指标归属见 `harness-arch.md`**：`run_reclaim_total` 属 Runtime，Worker 对应指标是 `task_reclaim_total`；带 label 的计数器只进 `/metrics`，不写结构化 metric 日志。
-- **指标是双出口，且仍有两枚计数器未进 `CATALOG`**：Worker 的计数既写结构化 `metric` 日志（`metric/amount/total`），也经 `inc_counter` 进 `/metrics`；无 label 的计数走 `increment()`，两出口同时写（`apps/agent-worker/src/muad_agent_worker/metrics.py`）。目前只剩 `task_claim_total`（`worker/claimer.py`）与 `task_deadline_exceeded_total`（`scheduler/service.py`）**不在 `CATALOG`**，因而无流量时不会出现在 `/metrics` 目录中（`delivery_attempt_total`/`delivery_failed_total` 已登记）。✅ 无 label 计数用 `increment()`（如需零流量可见须先登记进 `CATALOG`）；❌ 假设所有计数器都能在 `/metrics` 里凭空看到。
+- **指标归属见 `harness-arch.md`**：回收指标归 Runtime，Worker 对应指标见各自 catalog；带 label 的计数器只进 `/metrics`，不写结构化 metric 日志。
+- **指标是双出口，且仍有两枚计数器未进 `CATALOG`**：Worker 的计数既写结构化 `metric` 日志（`metric/amount/total`），也经 `inc_counter` 进 `/metrics`；无 label 的计数走 `increment()`，两出口同时写（`apps/agent-worker/src/muad_agent_worker/metrics.py`）。仍有个别计数器**不在 `CATALOG`**，因而无流量时不会出现在 `/metrics` 目录中（具体清单以 `metrics.py` 为准）。✅ 无 label 计数用 `increment()`（如需零流量可见须先登记进 `CATALOG`）；❌ 假设所有计数器都能在 `/metrics` 里凭空看到。
 - **claim 不止 Task**：Delivery 与 Scheduler 各自持有 `FOR UPDATE SKIP LOCKED` 的取候选路径（`delivery/service.py`、`scheduler/service.py`），Scheduler 在事务内还会按 `revision`/`next_fire_at` 复检一次 CAS，暂停/删除若已赢得竞态则不返回行。投递退避为 `delivery_backoff_base_sec`（设置项，**生产默认 5**）× `2**delivery_attempts`，且 `delivery_attempts` 在发起请求前自增并提交，崩溃重启不丢退避进度（`delivery/service.py`）。
 - **租约守卫式 CAS**：写任务状态的条件必须同时含 `lease_owner = 本实例` 与 `lease_until > now`——租约失效即失约，避免卡住后恢复的 Worker 用过期结果覆盖别人的执行（`worker/service.py` 的终态 CAS）；Schedule 侧口径为「状态判断与写入在同一行锁内完成」（`scheduler/service.py`）。**续租同口径**（`worker/service.py` 的心跳路径）：只认**当前租约仍有效**，否则卡顿超过租期后一次心跳就能把失效的执行权续到未来。✅ 续租条件含 `lease_until > now`；❌ 只看 `status`/`lease_owner` 就续租。
 - **执行与租约维护共同受监督**：`run_once` 等的是「执行结束」与「心跳退出」中的先者，心跳先退出（续租连续失败或失约）即叫停本地执行（`worker/service.py` 的 `_supervise_task`）。续租的瞬时 DB 错误有界重试，重试用尽就退出心跳；**绝不**让执行器脱离租约监控——终态 CAS 拦得住写库，拦不住已经发生的外部副作用。

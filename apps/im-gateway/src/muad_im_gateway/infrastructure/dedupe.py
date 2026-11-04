@@ -21,6 +21,8 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Protocol, cast
 
 import redis.asyncio
+from muad_common.redis_client import create_redis_client
+from redis.exceptions import RedisClusterException
 
 logger = logging.getLogger(__name__)
 
@@ -252,14 +254,20 @@ class NullDedupeStore:
         return None
 
 
-async def build_dedupe_store(redis_url: str | None) -> DedupeStore:
+async def build_dedupe_store(
+    redis_url: str | None,
+    *,
+    mode: str = "standalone",
+    seeds: list[str] | None = None,
+) -> DedupeStore:
     if not redis_url:
         logger.warning("dedupe_redis_url_missing using_null_store")
         return NullDedupeStore()
-    client = redis.asyncio.Redis.from_url(redis_url)
+    # 使用到的命令（SET NX/EVAL/GET/EXISTS）在两种客户端上同形。
+    client = cast(redis.asyncio.Redis, create_redis_client(redis_url, mode=mode, seeds=seeds))
     try:
         await client.ping()
-    except (redis.RedisError, OSError) as exc:
+    except (redis.RedisError, RedisClusterException, OSError) as exc:
         logger.warning("dedupe_redis_ping_failed error=%s using_null_store", exc)
         await client.aclose()
         return NullDedupeStore()

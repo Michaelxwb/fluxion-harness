@@ -11,6 +11,7 @@ from importlib import import_module
 import pytest
 import sqlalchemy as sa
 from muad_agent_runtime.application.memory_service import MemoryService
+from muad_agent_runtime.infrastructure.db_clock import database_now
 from muad_agent_runtime.infrastructure.models.runtime import MemoryConsolidationJob, UserMemory
 
 from tests.agent_runtime.memory_consolidation_effect_support import (
@@ -63,7 +64,7 @@ async def test_b11_memory_redesign_attempt_limit_records_one_failure_event(async
         async with factory.begin() as session:
             row = await session.get(MemoryConsolidationJob, job.id)
             before_hash = row.input_hash
-            row.next_attempt_at = datetime.now(UTC)
+            row.next_attempt_at = await database_now(session)
         result = await worker.execute(await owners.claim("second"))
         assert result["reason"] == "FAILED" and result["attempt"] == 2 and result["written"] == 0
         assert await owners.claim("third") is None

@@ -1437,6 +1437,7 @@ version = "0.1.0"
 source = { editable = "packages/platform-sdk" }
 dependencies = [
     { name = "httpx" },
+    { name = "muad-common" },
     { name = "muad-contracts" },
     { name = "pydantic" },
     { name = "redis" },
@@ -1445,6 +1446,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "muad-common", editable = "packages/common" },
     { name = "muad-contracts", editable = "packages/contracts" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "redis", specifier = ">=6.4.0" },

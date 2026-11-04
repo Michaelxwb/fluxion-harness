@@ -28,7 +28,7 @@ verifiers:
 
 ## Conventions
 
-- 模型批量测试为 Console 侧 OpenAI 兼容探测：`GET {base_url}/models`（Bearer `api_key`），404/405 回退最小 chat（`max_tokens=1`）；超时 5s、受限并发 ≤4，禁止接入 Runtime 的模型调用实现（`ModelGateway` 只被 `tests/agent_runtime/test_model_recovery.py` 导入、不在生产链路；Runtime 真实调用链是 `apps/agent-runtime/src/muad_agent_runtime/application/executor.py` 的 `AuditedModelProvider` 包 `OpenAIProvider`）。
+- 模型批量测试为 Console 侧 OpenAI 兼容探测：`GET {base_url}/models`（Bearer `api_key`），404/405 回退最小 chat（`max_tokens=1`）；超时与并发由探测配置定义，禁止接入 Runtime 的模型调用实现（`ModelGateway` 只被 `tests/agent_runtime/test_model_recovery.py` 导入、不在生产链路；Runtime 真实调用链是 `apps/agent-runtime/src/muad_agent_runtime/application/executor.py` 的 `AuditedModelProvider` 包 `OpenAIProvider`）。
 - `enabled=false` 短路为 `FAILED + MODEL_DISABLED` 且不发请求；401/403 → `CREDENTIAL_MISSING`；超时/连接失败/5xx → `MODEL_UNAVAILABLE`；其它 → `COMMON_INTERNAL_ERROR`；单项失败不改变整体 HTTP 200。
 - 批量测试只更新 `last_test_status/last_test_at`，不递增 `revision`、不写 `model_invocation_audit`、不产生计费/上下文语义。
 - **`protocol` 创建后不可变更**：`PUT /api/v1/models/{id}` 带 `protocol` 或改 `key` 均返回 422 `COMMON_VALIDATION_ERROR`（`tests/console_platform/test_models_api.py` 的 PUT 用例）。✅ 只更新 `name/model_id/provider_key/params/enabled` 等可变字段；❌ 让 `protocol` 可改（同一模型的存量大面积调用语义会无声切换）。`base_url`/`api_key` 已不在 `model_definition` 上（0027 物理删除），连接与密钥只能经成员凭据改。

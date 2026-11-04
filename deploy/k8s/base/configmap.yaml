@@ -40,3 +40,16 @@ data:
   # `im.outbound` 交给持有长连接的角色。没有 Connector 的部署里该键无效（无入站事件）。
   # 启用企微时由 `deploy/k8s/with-connector` 增加 Connector Deployment/Service/PDB。
   GATEWAY_ROUTED_CHANNELS: WECOM
+
+  # —— Redis 接入（design API-01 / RET-01；非敏感，凭据仍在 Secret）——
+  # dev/CI/verify-multipod 保持 standalone。内网 UAT/生产部署步骤不变：apply 本文件后补一次
+  # merge patch：
+  #   kubectl -n muad patch configmap muad-common --type merge -p \
+  #     '{"data":{"REDIS_MODE":"cluster","REDIS_CLUSTER_SEEDS":"10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"}}'
+  REDIS_MODE: standalone
+  REDIS_CLUSTER_SEEDS: ""
+  REDIS_MAX_CONNECTIONS: "50"
+  # Stream 保留：入站窗口 10 分钟、出站 1 小时；MAXLEN 只作兜底。
+  INBOUND_STREAM_MAXLEN: "5000"
+  INBOUND_STREAM_RETENTION_SEC: "600"
+  OUTBOUND_STREAM_RETENTION_SEC: "3600"

@@ -11,8 +11,8 @@ import uuid
 from collections.abc import Callable
 from typing import Protocol, cast
 
-from redis.asyncio import Redis
-from redis.exceptions import RedisError
+from muad_common.redis_client import create_redis_client
+from redis.exceptions import RedisClusterException, RedisError
 
 from ..metrics import record_outcome
 
@@ -61,14 +61,14 @@ class RedisCancelHintStore:
             await self._client.setex(
                 f"{TASK_CANCEL_KEY_PREFIX}{task_id}", TASK_CANCEL_TTL_SEC, TASK_CANCEL_VALUE
             )
-        except RedisError:
+        except (RedisError, RedisClusterException):
             logger.warning("task_cancel_hint_write_failed")
             record_outcome("task_hint_degraded_total", "TASK_CANCEL_HINT_WRITE_FAILED")
 
     async def is_marked(self, task_id: uuid.UUID) -> bool:
         try:
             return bool(await self._client.exists(f"{TASK_CANCEL_KEY_PREFIX}{task_id}"))
-        except RedisError:
+        except (RedisError, RedisClusterException):
             logger.warning("task_cancel_hint_read_failed")
             record_outcome("task_hint_degraded_total", "TASK_CANCEL_HINT_READ_FAILED")
             return False
@@ -77,20 +77,28 @@ class RedisCancelHintStore:
         await self._client.aclose()
 
 
-def _build_client(redis_url: str) -> AsyncRedisLike:
-    return cast(AsyncRedisLike, Redis.from_url(redis_url, decode_responses=True))
+def _build_client(
+    redis_url: str, *, mode: str = "standalone", seeds: list[str] | None = None
+) -> AsyncRedisLike:
+    return cast(
+        AsyncRedisLike, create_redis_client(redis_url, mode=mode, seeds=seeds)
+    )
 
 
 async def create_cancel_hint_store(
     redis_url: str | None,
-    client_factory: Callable[[str], AsyncRedisLike] = _build_client,
+    *,
+    mode: str = "standalone",
+    seeds: list[str] | None = None,
+    client_factory: Callable[[str], AsyncRedisLike] | None = None,
 ) -> CancelHintStore:
     if not redis_url:
         return NullCancelHintStore()
-    client = client_factory(redis_url)
+    factory = client_factory or (lambda url: _build_client(url, mode=mode, seeds=seeds))
+    client = factory(redis_url)
     try:
         await client.ping()
-    except RedisError:
+    except (RedisError, RedisClusterException):
         logger.warning("task_cancel_hint_redis_unavailable")
         record_outcome("task_hint_degraded_total", "TASK_CANCEL_HINT_REDIS_UNAVAILABLE")
         await client.aclose()

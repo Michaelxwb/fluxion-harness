@@ -19,8 +19,11 @@ from muad_contracts.im import (
     DeliveryKind,
     InboundEvent,
     inbound_stream_key,
+    inbound_stream_key_for_shard,
+    lease_epoch_key,
     lease_key,
     outbound_stream_key,
+    outbound_stream_key_for,
     route_key,
     shard_for,
 )
@@ -33,6 +36,7 @@ from muad_im_core import (
     SyncPrincipal,
 )
 from pydantic import ValidationError
+from redis.crc import key_slot
 
 
 def _event(**overrides: object) -> InboundEvent:
@@ -132,7 +136,7 @@ def test_route_and_stream_keys_are_deterministic_and_channel_scoped() -> None:
     event = _event()
     same = _event(event_id=uuid.uuid4())
     assert inbound_stream_key(event) == inbound_stream_key(same)
-    assert inbound_stream_key(event, shards=8).startswith("im.inbound:")
+    assert inbound_stream_key(event, shards=8).startswith("im.inbound:{inbound}:")
     assert inbound_stream_key(event) != inbound_stream_key(_event(bot_id="bot-2"))
     assert route_key(
         channel=event.channel,
@@ -155,22 +159,32 @@ def test_route_and_stream_keys_are_deterministic_and_channel_scoped() -> None:
     assert outbound_stream_key(command) == outbound_stream_key(
         _command(command_id=uuid.uuid4())
     )
-    assert outbound_stream_key(command) == f"im.outbound:{command.tenant_id}:{command.bot_id}"
+    assert outbound_stream_key(command) == (
+        f"im.outbound:{{{command.tenant_id}}}:{command.bot_id}"
+    )
     # 出站按 bot 分流：同 bot 的不同用户/会话仍进同一条流（由 Connector 单 owner 串行消费）。
     assert outbound_stream_key(command) == outbound_stream_key(
         _command(external_user_id="user-2", external_conversation_id="chat-2")
     )
     assert outbound_stream_key(command) != outbound_stream_key(_command(bot_id="bot-2"))
-    assert lease_key(
-        ConnectorLease(
-            channel="WECOM",
-            tenant_id="t",
-            bot_id="b",
-            owner_id="o",
-            epoch=1,
-            expires_at=datetime.now(UTC),
-        )
-    ) == "connector:bot:t:b"
+    assert lease_key("t", "b") == "connector:bot:{t:b}:lease"
+    assert lease_epoch_key("t", "b") == "connector:bot:{t:b}:epoch"
+
+
+def test_key_contracts_share_hash_slots() -> None:
+    """S-08: 三族 key 的 hash tag 保证多 key 命令同 slot。"""
+    inbound = [inbound_stream_key_for_shard(shard) for shard in range(32)]
+    assert len({key_slot(key.encode()) for key in inbound}) == 1
+
+    assert key_slot(lease_key("t", "b").encode()) == key_slot(
+        lease_epoch_key("t", "b").encode()
+    )
+
+    outbound = [outbound_stream_key_for("t", bot) for bot in ("bot-1", "bot-2")]
+    assert len({key_slot(key.encode()) for key in outbound}) == 1
+
+    with pytest.raises(ValueError):
+        inbound_stream_key_for_shard(-1)
 
 
 class _Adapter:

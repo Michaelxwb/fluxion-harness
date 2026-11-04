@@ -44,6 +44,33 @@ kubectl apply -k deploy/k8s/base        # 或逐个 apply 四个 *.yaml
 kubectl -n muad rollout status deploy/muad-console-platform --timeout=180s
 ```
 
+## 内网 Redis Cluster（UAT/生产）
+
+内网 Redis 只有集群（3 主 3 从，客户端端口 6393/6394），base ConfigMap 的
+`REDIS_MODE: standalone` 只适用于 dev/CI/verify-multipod。**部署步骤不变**：照常
+`kubectl apply -f deploy/k8s/base/configmap.yaml`，随后补一次 merge patch（非敏感项）：
+
+```bash
+kubectl -n muad patch configmap muad-common --type merge -p \
+  '{"data":{"REDIS_MODE":"cluster","REDIS_CLUSTER_SEEDS":"10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"}}'
+kubectl -n muad get configmap muad-common -o jsonpath='{.data.REDIS_MODE}'   # cluster
+```
+
+patch 可重复执行；ConfigMap 更新不会自动重启 Pod，改完需重启 5 个 Deployment：
+
+```bash
+kubectl -n muad rollout restart deploy/muad-console-platform deploy/muad-agent-runtime \
+  deploy/muad-agent-worker deploy/muad-im-gateway
+# 启用 Connector 时再加 deploy/muad-connector
+```
+
+服务仍按 `build/INTRANET-K8S-DEPLOY.md` 的 Helm 步骤安装；不要把 base 清单用
+`kubectl apply -k` 铺进由 Helm 管理的 namespace（会产生未纳管的 Deployment）。
+
+Secret 的 `REDIS_URL` 用 `redis://:<password>@<seed>:6393/0`（只支持 db 0），上线前跑
+`scripts/probe_redis_cluster.py` 与 `scripts/probe_redis_cluster_commands.py`，详见
+`build/INTRANET-K8S-DEPLOY.md` §1.2/§1.3。
+
 ## 发布前预检（渲染清单 → typed 容量配置，失败阻断发布）
 
 压测拓扑：**Console 1 Pod（容量口径）、Gateway/Connector N 副本（按 profile 声明）、Runtime/Worker 可多副本**。

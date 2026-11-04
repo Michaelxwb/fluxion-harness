@@ -1,6 +1,6 @@
 """bot 所有权租约：Redis 原子 acquire/renew/release + 单调 fencing epoch。
 
-语义（design §3.3「connector:bot:{tenant}:{bot_id}」）：
+语义（design §3.3「connector:bot:{tenant_id:bot_id}:lease|:epoch」）：
 
 - **单 owner**：同一 bot 在任意时刻只有一个 Connector 可以建立长连接；
 - **epoch 单调**：epoch 存在独立计数器里（不随 lease 过期删除），旧 owner 的 fencing token
@@ -17,7 +17,9 @@ from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import Any, cast
 
+from muad_contracts.im import lease_epoch_key, lease_key
 from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
 
 ACQUIRE_SCRIPT = """
 local lease_key = KEYS[1]
@@ -105,7 +107,7 @@ class BotLease:
 class RedisLeaseManager:
     """Redis 租约管理器；所有方法都用 Lua 保证原子性。"""
 
-    def __init__(self, redis: Redis, *, owner_id: str, ttl_sec: float) -> None:
+    def __init__(self, redis: Redis | RedisCluster, *, owner_id: str, ttl_sec: float) -> None:
         if not owner_id:
             raise ValueError("owner_id is required")
         if ttl_sec < 1:
@@ -123,14 +125,6 @@ class RedisLeaseManager:
     def ttl_sec(self) -> float:
         return self._ttl_sec
 
-    @staticmethod
-    def lease_key(tenant_id: str, bot_id: str) -> str:
-        return f"connector:bot:{tenant_id}:{bot_id}"
-
-    @staticmethod
-    def epoch_key(tenant_id: str, bot_id: str) -> str:
-        return f"connector:bot:{tenant_id}:{bot_id}:epoch"
-
     async def _eval(self, script: str, keys: list[str], *args: str) -> Any:
         return await cast(
             Awaitable[Any], self._redis.eval(script, len(keys), *keys, *args)
@@ -139,7 +133,7 @@ class RedisLeaseManager:
     async def acquire(self, tenant_id: str, bot_id: str) -> BotLease | None:
         result = await self._eval(
             ACQUIRE_SCRIPT,
-            [self.lease_key(tenant_id, bot_id), self.epoch_key(tenant_id, bot_id)],
+            [lease_key(tenant_id, bot_id), lease_epoch_key(tenant_id, bot_id)],
             self._owner_id,
             str(self._ttl_ms),
             str(self._ttl_sec),
@@ -158,7 +152,7 @@ class RedisLeaseManager:
     async def renew(self, lease: BotLease) -> BotLease | None:
         result = await self._eval(
             RENEW_SCRIPT,
-            [self.lease_key(lease.tenant_id, lease.bot_id)],
+            [lease_key(lease.tenant_id, lease.bot_id)],
             self._owner_id,
             str(lease.epoch),
             str(self._ttl_ms),
@@ -178,14 +172,14 @@ class RedisLeaseManager:
     async def release(self, lease: BotLease) -> bool:
         result = await self._eval(
             RELEASE_SCRIPT,
-            [self.lease_key(lease.tenant_id, lease.bot_id)],
+            [lease_key(lease.tenant_id, lease.bot_id)],
             self._owner_id,
             str(lease.epoch),
         )
         return bool(result)
 
     async def read(self, tenant_id: str, bot_id: str) -> BotLease | None:
-        raw = await cast(Awaitable[Any], self._redis.get(self.lease_key(tenant_id, bot_id)))
+        raw = await cast(Awaitable[Any], self._redis.get(lease_key(tenant_id, bot_id)))
         if not raw:
             return None
         return _decode(raw, tenant_id=tenant_id, bot_id=bot_id)
