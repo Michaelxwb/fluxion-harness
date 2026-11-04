@@ -24,10 +24,6 @@ from muad_common.redis_client import (
 from redis.exceptions import RedisClusterException, RedisError
 
 import tests.acceptance.im_gateway.environment as im_environment
-from tests.acceptance.datastores import (
-    DatastoreUnavailableError,
-    isolated_datastore_env,
-)
 from tests.acceptance.im_gateway.environment import (
     BOT_ID,
     GatewayStack,
@@ -51,29 +47,18 @@ _MANAGED = (
 _CLUSTER_MODULE_PREFIX = "test_cluster_"
 
 
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """标记真正跑集群的模块：S-01 standalone 回归必须走独立库而不是集群 db 0。"""
-    for item in items:
-        if item.path.name.startswith(_CLUSTER_MODULE_PREFIX):
-            item.add_marker("cluster_datastores")
-
-
-def _wants_cluster(request: pytest.FixtureRequest) -> bool:
-    return any(
-        item.get_closest_marker("cluster_datastores") is not None
-        for item in request.session.items
-    )
-
-
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def isolated_datastores(request: pytest.FixtureRequest) -> Iterator[None]:
-    """集群模块覆盖父级 DB 10–15 隔离（cluster 只支持 db 0）；S-01 沿用独立库。"""
-    if not _wants_cluster(request):
-        try:
-            with isolated_datastore_env():
-                yield
-        except DatastoreUnavailableError as exc:  # pragma: no cover - 环境前提
-            pytest.fail(str(exc))
+    """集群模块覆盖父级 DB 10–15 隔离（cluster 只支持 db 0）；S-01 沿用独立库。
+
+    必须是 module 作用域：`os.environ` 是进程级的，session 作用域会把
+    `REDIS_URL=cluster` 一直留到会话结束，污染其后按字母序执行的其它套件
+    （实测整仓 acceptance 中 wecom_attachments 因此失败）。
+    """
+    module = request.module.__name__.rsplit(".", 1)[-1]
+    if not module.startswith(_CLUSTER_MODULE_PREFIX):
+        # standalone 模块由 `test_standalone_regression.standalone_env` 自行准备独立库。
+        yield
         return
 
     saved = {key: os.environ.get(key) for key in _MANAGED}
