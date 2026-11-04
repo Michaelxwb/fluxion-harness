@@ -56,6 +56,14 @@ kubectl -n muad patch configmap muad-common --type merge -p \
 kubectl -n muad get configmap muad-common -o jsonpath='{.data.REDIS_MODE}'   # cluster
 ```
 
+patch 可重复执行；ConfigMap 更新不会自动重启 Pod，改完需重启 5 个 Deployment：
+
+```bash
+kubectl -n muad rollout restart deploy/muad-console-platform deploy/muad-agent-runtime \
+  deploy/muad-agent-worker deploy/muad-im-gateway
+# 启用 Connector 时再加 deploy/muad-connector
+```
+
 服务仍按 `build/INTRANET-K8S-DEPLOY.md` 的 Helm 步骤安装；不要把 base 清单用
 `kubectl apply -k` 铺进由 Helm 管理的 namespace（会产生未纳管的 Deployment）。
 

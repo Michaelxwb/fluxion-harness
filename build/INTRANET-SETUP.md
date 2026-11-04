@@ -318,7 +318,8 @@ build/INTRANET-K8S-DEPLOY.md
 
    默认 `standalone` 会因实际拓扑不匹配而启动失败。部署步骤不变：照常
    `kubectl apply -f deploy/k8s/base/configmap.yaml`，再补一次 merge patch 把这两个键改成
-   上面的值（命令见 `deploy/k8s/README.md` 的「内网 Redis Cluster」）。
+   上面的值（命令见 `deploy/k8s/README.md` 的「内网 Redis Cluster」）。patch 可重复执行；
+   ConfigMap 更新不会自动重启 Pod，改完需 `kubectl rollout restart` 5 个 Deployment。
 3. **网络**放行 6 个通告地址（`10.74.145.45/46/47` × `6393/6394`）：客户端按
    `CLUSTER SLOTS` 连接所有 master，不只是 seed。
 4. **上线前跑探针**：

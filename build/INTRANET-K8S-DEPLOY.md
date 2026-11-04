@@ -112,6 +112,17 @@ REDIS_CLUSTER_SEEDS: "10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"
 `helm upgrade --install` 步骤安装，不要用 `kubectl apply -k deploy/k8s/base` 把原始清单
 铺进 Helm 管理的 namespace。
 
+已有 ConfigMap 时 `kubectl apply` 会原地更新，但**不会重启 Pod**；`kubectl patch` 可重复
+执行。顺序固定为「先 apply（会把值重置为 standalone）→ 再 patch」，然后重启 5 个
+Deployment（`muad-common` 是外部资源，Helm 不会因它变化自动滚动）：
+
+```bash
+kubectl -n muad rollout restart deploy/muad-console-platform deploy/muad-agent-runtime \
+  deploy/muad-agent-worker deploy/muad-im-gateway
+# 启用 Connector 时再加 deploy/muad-connector
+kubectl -n muad rollout status deploy/muad-im-gateway --timeout=180s
+```
+
 ### 1.4 镜像拉取 Secret（不需要）
 
 内网集群的节点可以直接匿名拉取 `docker.sangfor.com` 的镜像，5 个服务和 nginx 都**不用**
