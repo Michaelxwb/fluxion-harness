@@ -64,8 +64,14 @@ REDIS_URL=redis://:<password>@<redis-host>:6379/0
 ```
 
 - 密码含 `@ : / ? #` 等字符时先做 URL 编码。
-- `REDIS_URL` 只支持单节点或代理地址。原生 Redis Cluster（多个 master + MOVED 重定向）
-  当前版本不支持，需要前面有 VIP / 代理，或改代码改用 `RedisCluster`。
+- `REDIS_MODE=standalone`（默认）连接单机/主从 Redis；`REDIS_MODE=cluster` 连接原生 Redis
+  Cluster（3 主 3 从）。cluster 模式下 `REDIS_URL` 指向任一节点（主 seed 与凭据/TLS 来源），
+  `REDIS_CLUSTER_SEEDS` 追加其余 seed，例如：
+  `10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393`。
+- 客户端按 `CLUSTER SLOTS` 的**通告地址**连接所有 master，不只是 seed：防火墙必须放行全部节点
+  的客户端端口（内网为 6393 与 6394），否则 1/3 的 key 无法路由。上线前用
+  `scripts/probe_redis_cluster.py` 做只读预检（六地址可达、版本 ≥6.2、`redis_mode=cluster`、
+  槽位全覆盖、maxmemory/maxclients）。
 
 ### 1.3 共享 ConfigMap
 

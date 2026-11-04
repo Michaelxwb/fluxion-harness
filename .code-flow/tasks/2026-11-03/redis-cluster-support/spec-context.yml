@@ -1,7 +1,7 @@
 version: 1
 task: Redis 单机/Cluster 双模式接入
 enforcement: required
-updated_at: '2026-11-03T18:43:27.669795+00:00'
+updated_at: '2026-11-04T00:32:55.153742+00:00'
 sources:
 - type: cli
   ref: bind
@@ -53,11 +53,11 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 3294049bdd1d60b2c5aef63d4d3fdc142da03d3cf0f961d694383a28b98a3b17
+          artifact_sha256: d03a68e1850e3ed81fc07f448ef82285155a2af329d78faf930b77546ffaae56
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -129,6 +129,18 @@ bindings:
               5 passed in 1.05s
 
               '
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-11-04T00:33:00.784819+00:00'
+          status: unverified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -158,11 +170,11 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 3294049bdd1d60b2c5aef63d4d3fdc142da03d3cf0f961d694383a28b98a3b17
+          artifact_sha256: d03a68e1850e3ed81fc07f448ef82285155a2af329d78faf930b77546ffaae56
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -254,6 +266,18 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               18 passed, 2 warnings in 3.20s\n"
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-11-04T00:33:00.785018+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -299,11 +323,11 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 3294049bdd1d60b2c5aef63d4d3fdc142da03d3cf0f961d694383a28b98a3b17
+          artifact_sha256: d03a68e1850e3ed81fc07f448ef82285155a2af329d78faf930b77546ffaae56
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -423,6 +447,35 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-04T00:33:27.507165+00:00'
+          status: verified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
+          result_sha256: 564544f29de8b48b8853d6aa056674257a08c8ec29934cd471742c1affe9cadb
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: 68fda4eb0a40531d46c5bdae13879e257cf10f05eea77ad892980915268939de
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 33%]
+
+              ........................................................................
+              [ 67%]
+
+              ....................................................................     [100%]
+
+              212 passed in 26.21s
+
+              '
       review:
         status: pending
         refs: []
@@ -467,7 +520,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 3294049bdd1d60b2c5aef63d4d3fdc142da03d3cf0f961d694383a28b98a3b17
+          artifact_sha256: d03a68e1850e3ed81fc07f448ef82285155a2af329d78faf930b77546ffaae56
         decision: null
         evidence: []
       code:
@@ -741,6 +794,64 @@ bindings:
               \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
               \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               540 passed, 8 warnings in 138.53s (0:02:18)\n"
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-11-04T00:35:46.306342+00:00'
+          status: verified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
+          result_sha256: 1e71be4ea9ac6aed70c99da5e8999de3d26ebe135334d7ab083658a8f2b605e0
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_channel
+            - tests/gateway
+            exit_code: 0
+            stdout_sha256: 7c116158872b28eb387f6fcb3f0a9239217f8d962b77d35aaaf37cdbce9ebd3d
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "........................................................................\
+              \ [ 13%]\n........................................................................\
+              \ [ 26%]\n........................................................................\
+              \ [ 40%]\n........................................................................\
+              \ [ 53%]\n........................................................................\
+              \ [ 66%]\n........................................................................\
+              \ [ 80%]\n........................................................................\
+              \ [ 93%]\n....................................                     \
+              \                [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
+              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
+              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_sse_subscriber_limit_rejects_explicitly_before_opening_the_owner_stream\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1768:\
+              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
+              \ because the expected behaviour on cookie persistence is ambiguous.\
+              \ Set cookies directly on the client instance instead.\n    return await\
+              \ self.request(\n\ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_shutdown_drains_subscription_and_restart_never_rebuilds_the_run\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/httpx/_client.py:1859:\
+              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
+              \ because the expected behaviour on cookie persistence is ambiguous.\
+              \ Set cookies directly on the client instance instead.\n    return await\
+              \ self.request(\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              540 passed, 8 warnings in 137.37s (0:02:17)\n"
       review:
         status: pending
         refs: []
@@ -771,7 +882,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 3294049bdd1d60b2c5aef63d4d3fdc142da03d3cf0f961d694383a28b98a3b17
+          artifact_sha256: d03a68e1850e3ed81fc07f448ef82285155a2af329d78faf930b77546ffaae56
         decision: null
         evidence: []
       code:
@@ -905,6 +1016,29 @@ bindings:
               3 passed in 1.35s
 
               '
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-11-04T00:35:48.003775+00:00'
+          status: verified
+          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
+          artifact_sha256: null
+          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
+          result_sha256: a7e26d5e5279e890c5de98b7b328e2ba6c82a08571498040ecb9b80f99ead042
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture/test_channel_neutrality.py
+            exit_code: 0
+            stdout_sha256: ca38ec9f74e12343a8366405fa8bc214a48045899c5f51fdc93ac6c8960b8893
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 1.37s
+
+              '
       review:
         status: pending
         refs: []
@@ -952,11 +1086,11 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 3294049bdd1d60b2c5aef63d4d3fdc142da03d3cf0f961d694383a28b98a3b17
+          artifact_sha256: d03a68e1850e3ed81fc07f448ef82285155a2af329d78faf930b77546ffaae56
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -1094,6 +1228,18 @@ bindings:
               14 passed in 2.45s
 
               '
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-11-04T00:35:48.100571+00:00'
+          status: unverified
+          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+          artifact_sha256: null
+          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1137,7 +1283,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-platform-001
-          artifact_sha256: fd9ae7fd548a4c8794b0d46e84e0f51d41017e0f866443ecf199073171400b1b
+          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
         decision: null
         evidence: []
       plan:
@@ -1146,11 +1292,11 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 3294049bdd1d60b2c5aef63d4d3fdc142da03d3cf0f961d694383a28b98a3b17
+          artifact_sha256: d03a68e1850e3ed81fc07f448ef82285155a2af329d78faf930b77546ffaae56
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -1253,6 +1399,18 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               55 passed, 6302 deselected, 2 warnings in 27.58s\n"
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-11-04T00:35:48.166902+00:00'
+          status: unverified
+          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
+          artifact_sha256: null
+          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: stale
         refs: []
@@ -1299,7 +1457,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 3294049bdd1d60b2c5aef63d4d3fdc142da03d3cf0f961d694383a28b98a3b17
+          artifact_sha256: d03a68e1850e3ed81fc07f448ef82285155a2af329d78faf930b77546ffaae56
         decision: null
         evidence: []
       code:
@@ -1425,6 +1583,30 @@ bindings:
               14 passed in 1.97s
 
               '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-04T00:35:51.417010+00:00'
+          status: verified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
+          result_sha256: e158af928af912a31f269311bc0e989143b6995a0bc58d70bf6f7568abb1861f
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 1bf8231ef5b2248811a555070b12bbf5ae2968977215c6418e0d8f5ebc244545
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.79s
+
+              '
       review:
         status: pending
         refs: []
@@ -1471,11 +1653,11 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 3294049bdd1d60b2c5aef63d4d3fdc142da03d3cf0f961d694383a28b98a3b17
+          artifact_sha256: d03a68e1850e3ed81fc07f448ef82285155a2af329d78faf930b77546ffaae56
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -1515,6 +1697,18 @@ bindings:
               39 passed, 1128 deselected in 15.24s
 
               '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-04T00:35:51.501804+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1559,7 +1753,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 3294049bdd1d60b2c5aef63d4d3fdc142da03d3cf0f961d694383a28b98a3b17
+          artifact_sha256: d03a68e1850e3ed81fc07f448ef82285155a2af329d78faf930b77546ffaae56
         decision: null
         evidence: []
       code:
@@ -1616,11 +1810,11 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 3294049bdd1d60b2c5aef63d4d3fdc142da03d3cf0f961d694383a28b98a3b17
+          artifact_sha256: d03a68e1850e3ed81fc07f448ef82285155a2af329d78faf930b77546ffaae56
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -1780,6 +1974,18 @@ bindings:
               1158 passed in 1113.75s (0:18:33)
 
               '
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-11-04T00:35:51.610299+00:00'
+          status: unverified
+          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+          artifact_sha256: null
+          diff_sha256: 5cfbbc073ed05c75844455e79434bd9cdf62501353832c940a1d53d4b905c84d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []

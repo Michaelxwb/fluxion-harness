@@ -108,8 +108,8 @@ def _build_resources(settings: SharedSettings) -> ConnectorResources:
     replies = ReplyStore(redis)
     publisher = InboundPublisher(
         redis,
-        shards=connector.connector_inbound_shards,
-        stream_maxlen=connector.connector_inbound_stream_maxlen,
+        shards=settings.inbound_stream_shards,
+        stream_maxlen=settings.inbound_stream_maxlen,
         lost_after_sec=connector.connector_inbound_lost_after_sec,
         pause_before_xadd_sec=connector.connector_test_pause_before_xadd_sec,
     )

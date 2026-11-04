@@ -314,7 +314,7 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 
 ## TASK-006: 部署与配置收口（ConfigMap、清单、配置清单、前置检查）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: redis-cluster-support.design.md#2.3 功能方案, redis-cluster-support.design.md#4.1 部署架构, redis-cluster-support.design.md#3.5.5 测试策略
@@ -330,26 +330,31 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/architecture tests/test_configuration_inventory.py`
-- [ ] ConfigMap 与 connector 清单增加新配置键；`tests/architecture` 的 settings↔manifest 一致性测试同步
-- [ ] `docs/configuration-inventory.csv`/`.md` 同步；`tests/test_configuration_inventory.py` 通过
-- [ ] `build/INTRANET-K8S-DEPLOY.md` 更新为"支持原生 Redis Cluster"，写明 seeds/端口/前置检查
-- [ ] 新增上线前置检查脚本（六地址可达 + 版本/模式/槽位/maxmemory/maxclients），可从 Pod 内执行
-- [ ] `[RULE-04]` 断言清单默认 `standalone`，生产由 ConfigMap 显式 `cluster`；启动自校验已接线
+- [x] 交付 `<Capability>`，演示命令：`uv run pytest -q tests/architecture tests/test_configuration_inventory.py`
+- [x] ConfigMap 与 connector 清单增加新配置键；`tests/architecture` 的 settings↔manifest 一致性测试同步
+- [x] `docs/configuration-inventory.csv`/`.md` 同步；`tests/test_configuration_inventory.py` 通过
+- [x] `build/INTRANET-K8S-DEPLOY.md` 更新为"支持原生 Redis Cluster"，写明 seeds/端口/前置检查
+- [x] 新增上线前置检查脚本（六地址可达 + 版本/模式/槽位/maxmemory/maxclients），可从 Pod 内执行
+- [x] `[RULE-04]` 断言清单默认 `standalone`，生产由 ConfigMap 显式 `cluster`；启动自校验已接线
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| RULE-04 | contract | 清单文件 + SharedSettings 字段一致性 | ConfigMap 含 `REDIS_MODE` 等键；清单测试通过；配置清单无漂移 | tests/architecture, tests/test_configuration_inventory.py | uv run pytest -q tests/architecture tests/test_configuration_inventory.py | planned |
+| RULE-04 | contract | 清单文件 + SharedSettings 字段一致性 | ConfigMap 含 `REDIS_MODE` 等键；清单测试通过；配置清单无漂移 | tests/architecture, tests/test_configuration_inventory.py | uv run pytest -q tests/architecture tests/test_configuration_inventory.py | verified |
 
 ### Acceptance Evidence
 
-> 由 `cf-task-start` 在编码期填写。
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|--------|-----|-------|---------|-------------|------|
+| RULE-04 | ConfigMap 新增键缺字段/消费点会让 manifest 测试直接失败；常量行号漂移曾使盘点测试红 | PASS: 216 passed（tests/architecture + tests/test_configuration_inventory.py） | ConfigMap 声明测试、消费点测试、常量盘点 | 清单文件 + SharedSettings 字段一致性 | verified |
+| 预检脚本 | 本地集群未设 maxmemory 时脚本 FAIL（符合预期：生产前置要求） | 六地址/版本/模式/槽位/primaries 全 PASS；maxmemory 按预期 FAIL | scripts/probe_redis_cluster.py 实跑 | 真实本地 3 主集群 | verified |
 
 ### Log
 
 - [2026-11-03] created (draft)
+- [2026-11-04] started
+- [2026-11-04] completed (done)
 
 ---
 

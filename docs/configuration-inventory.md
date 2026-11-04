@@ -24,16 +24,17 @@
 
 **当前声明点合计 1775**：`code` 1512、`environment` 139、`business` 112、`business-resource` 12。其中大量 `code` 行是状态码、事件名、协议文本与各服务持有的实现常量。分类由 `tests/test_configuration_inventory.py` 的机检与分类断言兜底（路径/行号/符号/默认值直接与源码 AST 对齐；分类主张逐条钉住）。
 
-## SharedSettings：当前 106 项全部是环境设置
+## SharedSettings：当前 110 项全部是环境设置
 
-迁移已把 12 个业务键从启动 settings 摘除（`default_locale`、`default_timezone`、`artifact_retention_days`、`mcp_max_tools_per_server`、`im_progress_interval_sec`、`task_default_deadline_hours`、`task_max_attempts`、`batch_max_concurrency`、`misfire_grace_sec`、`delivery_max_attempts`、`delivery_backoff_base_sec`、`context_settings_cache_ttl_sec`）；它们的值现由平台设置提供（见下节）。`.env.example` 已补全为 **106 个键**，与 `SharedSettings` 的字段集一一对应，形成完整运维契约。
+迁移已把 12 个业务键从启动 settings 摘除（`default_locale`、`default_timezone`、`artifact_retention_days`、`mcp_max_tools_per_server`、`im_progress_interval_sec`、`task_default_deadline_hours`、`task_max_attempts`、`batch_max_concurrency`、`misfire_grace_sec`、`delivery_max_attempts`、`delivery_backoff_base_sec`、`context_settings_cache_ttl_sec`）；它们的值现由平台设置提供（见下节）。`.env.example` 已补全为 **110 个键**，与 `SharedSettings` 的字段集一一对应，形成完整运维契约。
 
-余下 106 项**全部保留为环境项**（`packages/common/src/muad_common/settings.py`；下表为分组示例，完整键集以 `.env.example` 为准），分三类：
+余下 110 项**全部保留为环境项**（`packages/common/src/muad_common/settings.py`；下表为分组示例，完整键集以 `.env.example` 为准），分三类：
 
 | 类别 | 字段 |
 |---|---|
 | 运行环境与路径 | `env` / `log_dir` / `log_level` / `api_messages_file` / `artifact_root` / `skill_cache_root` / `migrations_dir` |
 | 连接与身份 | `default_tenant_id` / `database_url` / `redis_url` / `internal_service_token` / `channel_probe_url` / `wecom_ws_url` / `wecom_ws_ca_file` |
+| Redis 接入与 Stream 保留 | `redis_mode` / `redis_cluster_seeds` / `redis_max_connections` / `inbound_stream_shards` / `inbound_stream_maxlen` / `inbound_stream_lost_after_sec` / `inbound_stream_retention_sec` / `outbound_stream_retention_sec` |
 | 服务 URL 与租约/心跳/轮询/批次 | `console_platform_url` / `agent_runtime_url` / `agent_worker_url` / `im_gateway_url` / `run_lease_sec` / `run_heartbeat_sec` / `run_reaper_interval_sec` / `run_event_heartbeat_sec` / `task_lease_sec` / `task_heartbeat_sec` / `task_cancel_check_sec` / `worker_poll_interval_sec` / `batch_platform_limit` / `scheduler_poll_interval_sec` / `scheduler_batch_size` / `task_deadline_sweep_interval_sec` / `delivery_poll_interval_sec` / `delivery_batch_size` / `im_progress_updates_per_second` / `async_tool_dispatch_timeout_sec` / `async_tool_dispatch_lease_sec` / `async_tool_dispatch_poll_sec` / `async_tool_dispatch_batch_size` / `async_tool_dispatch_retry_base_sec` / `async_tool_dispatch_retry_cap_sec` / `async_tool_dispatch_max_attempts` |
 
 `im_progress_updates_per_second` 是每机器人状态刷新的**服务资源预算上限**，留在环境；面向用户的刷新节拍是平台设置 `im.progress_interval_sec`（见下节），两者语义不同。

@@ -31,9 +31,6 @@ class ConnectorSettings(BaseSettings):
     #: bot lease 的存活时间与续租节拍。续租必须显著早于过期，避免抖动即掉线。
     connector_lease_ttl_sec: float = Field(default=30.0, ge=5.0)
     connector_lease_renew_sec: float = Field(default=10.0, gt=0.0)
-    #: 入站 Stream 分片数与单 Stream 上限（与 design §3.3.1 同口径）。
-    connector_inbound_shards: int = Field(default=32, ge=1)
-    connector_inbound_stream_maxlen: int = Field(default=100_000, ge=1)
     #: 入站标记超过该时长仍是 RECEIVED（XADD 前崩溃）即显式记 LOST；不假装成功。
     connector_inbound_lost_after_sec: int = Field(default=60, ge=1)
     #: 验收故障注入：在写 RECEIVED 之后、XADD 之前暂停（0 = 关闭）。生产必须为 0。

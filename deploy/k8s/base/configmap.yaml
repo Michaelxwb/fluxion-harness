@@ -40,3 +40,13 @@ data:
   # `im.outbound` 交给持有长连接的角色。没有 Connector 的部署里该键无效（无入站事件）。
   # 启用企微时由 `deploy/k8s/with-connector` 增加 Connector Deployment/Service/PDB。
   GATEWAY_ROUTED_CHANNELS: WECOM
+
+  # —— Redis 接入（design API-01 / RET-01；非敏感，凭据仍在 Secret）——
+  # dev/CI 保持 standalone；UAT/生产显式改为 cluster，并用 REDIS_CLUSTER_SEEDS 列出其余 seed。
+  REDIS_MODE: standalone
+  REDIS_CLUSTER_SEEDS: ""
+  REDIS_MAX_CONNECTIONS: "50"
+  # Stream 保留：入站窗口 10 分钟、出站 1 小时；MAXLEN 只作兜底。
+  INBOUND_STREAM_MAXLEN: "5000"
+  INBOUND_STREAM_RETENTION_SEC: "600"
+  OUTBOUND_STREAM_RETENTION_SEC: "3600"
