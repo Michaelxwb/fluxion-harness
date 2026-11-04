@@ -63,7 +63,7 @@ config.headers['X-Request-Id'] = crypto.randomUUID();
 - **业务码非 `'0'` 由响应拦截器统一处理**：`Toast.error(body.msg)` 后 reject 原始 body；`/auth/me` 的会话探测失败是**唯一不弹 Toast** 的例外（避免启动期噪音）。不得改成 `Toast.error(body.code)`（后端返回的是本地化 msg）。机检：`tests/frontend/test_api_client_contract.py::test_e07_non_zero_code_uses_localized_backend_message`。
 - **401 统一跳登录**：`/login?returnUrl=<encodeURIComponent(pathname + search)>`；**已在 `/login` 时不跳**（防重定向循环）。机检：`tests/frontend/test_api_client_contract.py::test_e09_unauthorized_redirects_to_login_with_return_url`。
 - **组件层取错误码只走纯函数 `apiErrorBody(error)`**：先读 `error.response.data.code`，再回退 `error.code`，两者皆无返回 `null`。不要在组件里手工拼 `error.response?.data?.code`（`src/api/client.ts` 的 `apiErrorBody`，现网 18 个调用点）。
-- **模块骨架是两件套**：`modules/<module>/services/<x>.ts`（该模块唯一的 HTTP 出口）+ `tests/frontend/test_<module>_contract.py`（**源码契约测试**：正则读源码断言结构与拦截器约定，而非渲染单测——本仓 `tests/frontend/` 现有 46 个 `*_contract.py`）。
+- **模块骨架是两件套**：`modules/<module>/services/<x>.ts`（该模块唯一的 HTTP 出口）+ `tests/frontend/test_<module>_contract.py`（**源码契约测试**：正则读源码断言结构与拦截器约定，而非渲染单测——本仓 `tests/frontend/` 现有 `*_contract.py`）。
 
 **凭据入口仅 ADMIN（2026-09-28 落地）**：`ProjectPlatform` 的平台详情与用户详情的 `credentials` TabPane 都包在 `isAdmin && (`（`account?.role === 'ADMIN'`）门控内，非 ADMIN 不渲染该页签，自动切换到凭据 Tab 也受同一门控约束。这是「前端隐藏 + 后端 403 兜底」的前端一半；后端门控见 auth spec。
 

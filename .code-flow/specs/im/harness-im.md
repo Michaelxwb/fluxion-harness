@@ -49,9 +49,9 @@ verifiers:
 
 **入站、绑定与幂等**：
 
-- **入站按 `message_id` 去重，且只有「已受理」才落终值**：键 `im:dedupe:{channel}:{message_id}`、TTL 600s。入口先 `reserve` 占位（值带所有者 token），**受理之后**才升级终值；受理前的依赖故障（设置拉取/授权解析/附件落盘/Runtime 提交被拒）一律**释放占位**让平台重投。受理后的重复由下游幂等键兜底（`message_id` 作 `Idempotency-Key` 透传）。去重存储不可用时降级 at-least-once（`NullDedupeStore` 放行 + 告警），不阻断投递（`application/inbound.py`、`infrastructure/dedupe.py`）。
-- **Bot 快照按固定节拍轮询并整批发布**：默认 30s、分页上限 100；跨页 `revision`/`total` 不一致、页数超上限、实收条目数 ≠ `total` 三种不完整读取都整批丢弃、保留旧快照；拉取失败保留最近一次完整快照。**适配器应用成功后才认定 revision 生效**（回调抛错保留待应用状态、下一轮重试）。共享实现在 `packages/im-core/src/muad_im_core/snapshot.py` 的 `BotSnapshotCache`。
-- **投递确认语义 `reserve` → 发送 → `mark`，且占位「有主」**：`reserve` 是 in-flight 占位（TTL 30s），只有 `mark` 的送达标记（TTL 604800s）代表成功；占位冲突最多等 2s，超时回可重试 500；发送失败释放占位。占位值带 owner token，释放/升级/续租都是「比较值再动作」（Lua 脚本）；长发送按 `DELIVERY_IN_FLIGHT_RENEW_SEC` 续租。✅ 成功键存首次交付结果（`outcome`/`fallback_url`）供重放；❌ 把「占位存在」当「已送达」，或无条件 `DEL` 误删新主人的标记。
+- **入站按 `message_id` 去重，且只有「已受理」才落终值**：键由去重实现定义、TTL 按实现配置。入口先 `reserve` 占位（值带所有者 token），**受理之后**才升级终值；受理前的依赖故障（设置拉取/授权解析/附件落盘/Runtime 提交被拒）一律**释放占位**让平台重投。受理后的重复由下游幂等键兜底（`message_id` 作 `Idempotency-Key` 透传）。去重存储不可用时降级 at-least-once（`NullDedupeStore` 放行 + 告警），不阻断投递（`application/inbound.py`、`infrastructure/dedupe.py`）。
+- **Bot 快照按固定节拍轮询并整批发布**：固定节拍与分页上限由快照实现定义；跨页 `revision`/`total` 不一致、页数超上限、实收条目数 ≠ `total` 三种不完整读取都整批丢弃、保留旧快照；拉取失败保留最近一次完整快照。**适配器应用成功后才认定 revision 生效**（回调抛错保留待应用状态、下一轮重试）。共享实现在 `packages/im-core/src/muad_im_core/snapshot.py` 的 `BotSnapshotCache`。
+- **投递确认语义 `reserve` → 发送 → `mark`，且占位「有主」**：`reserve` 是带 TTL 的 in-flight 占位，只有 `mark` 的送达标记代表成功；占位冲突有界等待，超时回可重试 500；发送失败释放占位。占位值带 owner token，释放/升级/续租都是「比较值再动作」（Lua 脚本）；长发送按 `DELIVERY_IN_FLIGHT_RENEW_SEC` 续租。✅ 成功键存首次交付结果（`outcome`/`fallback_url`）供重放；❌ 把「占位存在」当「已送达」，或无条件 `DEL` 误删新主人的标记。
 - **幂等指纹含 `endpoint` 与 `tenant_id`，但不含正文文案**：Worker 每次尝试按当前 locale 重渲染正文，把文案算进指纹会让无害重试变成不可重试的 409（`RULE-api-002`）。
 - **`/internal/deliveries` 是受信内部端点，产物归属由网关自己核**：要求 `X-Internal-Service`；投递 `tenant_id` 必须等于本网关部署租户；产物形态必须按 `artifact_id` 经 Runtime `/internal/artifacts/{id}` 在本租户内解析出权威引用，调用方 `storage_key` 只用于比对。❌ 相信调用方 `storage_key` 直接读共享存储。
 - **通道注册由 contracts/registry 驱动**：`ChannelName` 是开放 string，内建名只在 `packages/contracts/src/muad_contracts/enums.py` 声明一次（当前 `("WECOM","WEBCHAT")`），路由由 `ChannelRegistry` 的适配器名决定；新增通道必须同步内建名/适配器/DB 列/能力清单，不能只加 adapter。重名直接抛 `DuplicateChannelAdapterError`（`channels/base.py`；Gateway 装配根 `channels/registry.py`，Connector 适配器在 `apps/im-connector/.../channels/`）。
@@ -88,7 +88,7 @@ verifiers:
 - **计时不创造执行状态**：当前 submission 的 `run.created` 恢复本段起点，monotonic 计秒；等待确认、后台受理、完成/失败/取消/断流停止当前段；后台 Task 沿既有 Worker 投递通知结果。
 - **正文由有界计时事件冲出**：读取循环醒来节拍 = `min(计时节拍, 正文合并窗口)`；每个 tick 先 `renderer.flush()` 再更新计时（节拍按 `im.progress_interval_sec` 节流）。✅ 静默 1 秒内正文已出去；❌ 正文只在下一条 delta 到来才可能被冲出。
 - **状态发送有界**：默认 5 秒一拍（平台设置 `im.progress_interval_sec`），每机器人共享令牌预算；额度不足跳过当前刷新，不积压 tick。正文与收尾绕过状态预算；状态帧与正文帧共用一条 session 流（任何时刻一个写者）；一字不差的状态帧不重发。❌ 每秒排队等上一拍，或状态帧与正文帧并发写同一条 stream。
-- **节拍按客户端重排成本定**：1 秒一拍会让企微对话框滚动发涩，产品口径 5 秒；`已执行 mm:ss` 跳秒变粗是有意取舍。节拍做成平台设置（生产默认由单测钉住，验收栈按租户种设置行），❌ 用环境变量当节拍来源。
+- **节拍按客户端重排成本定**：节拍过快会让企微对话框滚动发涩；具体值由平台设置定义；`已执行 mm:ss` 跳秒变粗是有意取舍。节拍做成平台设置（生产默认由单测钉住，验收栈按租户种设置行），❌ 用环境变量当节拍来源。
 - **等待是执行事实，不是终态**：`run.waiting_tool` 只停本段计时，`run.resumed` 开新执行段；等待期不发完成帧、不伪造活动。断流不等于取消，重连按最后确认 `seq` 经 `open_events(after_seq)` 续读，绝不重复 POST 建 Run。`WAITING_TOOL` 不允许显式 human resume（只服务 `WAITING_INPUT`），`/stop` 走独立命令容量。ReplySession 失效走渠道中立的主动投递，无能力或失败必须显式失败、不得回「已送达」。
 
 ## Avoid
