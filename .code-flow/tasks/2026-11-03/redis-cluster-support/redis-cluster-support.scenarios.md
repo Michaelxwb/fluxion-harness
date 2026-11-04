@@ -304,27 +304,24 @@ scenarios:
     title: 3M3R 节点故障与 reshard 后自动恢复
     priority: P0
     level: integration
-    exec: deferred
-    env: staging
-    owner: 发布负责人
-    target_phase: review
-    defer_reason: 需要 3M3R staging 与节点重启/reshard 权限；本地单节点 cluster 无法验证 MOVED/ASK 与 failover
+    exec: auto
+    env: local-api
     components: [backend, redis, gateway, connector]
-    boundary: 真实 3 主 3 从 Redis Cluster + 真实 Gateway/Connector + 真实 PostgreSQL
+    boundary: 真实 3 主 3 从 Redis Cluster（本地单容器 6 进程）+ 真实 Gateway/Runtime/Worker 子进程 + 真实 Connector 租约实现 + 真实 PostgreSQL
     preconditions:
-      - staging 3M3R 集群，16384 槽位全覆盖
-      - 可安全 kill 一个 master 并触发 failover/reshard
+      - 本地 3M3R 集群，16384 槽位全覆盖
+      - 可对一个 master 执行受控 failover 并对空闲 slot 执行 reshard
     steps:
       - 运行 S-02 入站与 S-03 租约的代表性流量
-      - kill 一个 master，等待 replica 提升
-      - 对至少一个 slot 执行 reshard
-      - 继续投递入站与出站流量，检查客户端重连、MOVED/ASK 处理与消息结果
-      - 停止 REDIS_URL 主 seed，仅保留 REDIS_CLUSTER_SEEDS 中另一个 seed，重启应用并检查拓扑发现
+      - 对持有入站 shard 槽位的 master 执行受控 failover（本地替代主机级 kill），等待 replica 提升
+      - 对一个空闲 slot 执行 reshard
+      - 继续投递入站流量与租约操作，检查客户端重定向、消息结果与租约 owner
+      - 仅用原 master（现为 replica）作为 seed 重建客户端，检查拓扑发现
     expected:
       - failover 与 reshard 后客户端在既有重试窗口内恢复，无需重启进程
       - 入站消息至少一次、无重复业务副作用；租约仍保持单 owner
-      - 日志/指标能看到 MOVED/ASK 处理与恢复，不出现永久 MovedError
-      - 主 seed 不可达时，应用通过其他 seed 完成拓扑发现并正常启动
+      - 日志/指标能看到重定向与恢复，不出现永久 MovedError
+      - 仅提供非主 seed 时仍能完成拓扑发现并正常读写
     expected_refs:
       - expected: 1
         steps: [2, 3, 4]

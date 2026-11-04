@@ -208,7 +208,7 @@ status: draft
 | 维度 | 假设 | 验证方式 / 参数 | 不满足时 |
 |------|------|----------------|---------|
 | 容量 | 入站 32 shard；2 个 Connector；同 tenant 2 个 bot；PlatformSession ≥3 个 actor | S-02/S-03/S-04/S-05 fixture | 标记 `incomplete` 或拆分批次 |
-| 硬件 | dev/CI 单机即可跑 standalone 与**3 节点**本地 cluster；3M3R 在 staging | 本地 3 节点集群（1 节点测不出跨节点广播）+ staging 3M3R | 3M3R 缺失时 E-01 `env_blocked`，owner=发布负责人 |
+| 硬件 | dev/CI 单机跑 standalone 与本地 3M3R（单容器 6 进程）；staging 只补主机级故障 | 本地 `localdb` compose profile（3 主 6391–6393 / 3 从 6394–6396）+ staging 3M3R | 本地缺 3M3R 时 E-01 `env_blocked`；主机级故障缺 staging 时显式记录未覆盖 |
 | 网络 | 应用 Pod 可达全部 **6 个通告地址**（`10.74.145.45/46/47` × `6393/6394`） | 从 Pod 内对六地址做 TCP 连通 + `RedisCluster` 发现冒烟 | 返回 `env_blocked` 并列出不可达地址；不得降级为单机模式 |
 | 依赖 | 真实 Redis（standalone / 本地 3 节点 cluster / 3M3R）、真实 PostgreSQL、真实 Console/Runtime/Worker/Gateway/Connector | preflight：`PING`、`CLUSTER INFO`、`CLUSTER SLOTS`、`/readyz` | 返回 `env_blocked` 并列出缺失项 |
 | 服务端版本 | 内网生产 Redis **6.2.18**（满足 ≥6.2 下限） | `INFO server` 的 `redis_version`；本地 6.2.24 冒烟对照 | 低于 6.2 时标记 `env_blocked`（`XAUTOCLAIM` 不可用） |
@@ -598,7 +598,8 @@ graph LR
 | unit | key slot 不变量、工厂模式选择、seed 解析、异常归一 | 纯 Python + `redis.crc.key_slot` |
 | contract | `REDIS_MODE`/`REDIS_URL`/db 0 校验、拓扑自校验、无直连构造点 | `SharedSettings` + 源码扫描 |
 | integration | standalone 回归；**本地 3 节点 cluster** 的入站/租约/出站/session/pubsub | 真实进程 + 真实 Redis + 真实 PG |
-| integration（staging） | 3M3R failover/reshard、MOVED/ASK、恢复 | 真实 3M3R |
+| integration（本地 3M3R） | 受控 failover、空槽 reshard、MOVED/ASK、恢复、多 seed 发现 | 本地单容器 3M3R（6 进程） |
+| integration（staging，可选） | 主机级故障与跨主机通告地址变化 | 真实 staging 3M3R |
 | E2E | 本需求无浏览器用户界面，不新增 E2E | — |
 
 **测试清单**
@@ -607,7 +608,7 @@ graph LR
 - 扩充 `tests/contracts/test_im_contracts.py`：32 个 inbound key 同 slot、lease/epoch 同 slot、同 tenant outbound 同 slot、key 字面值。
 - 新增 `tests/architecture/test_redis_client_construction.py`：业务代码除工厂外不得出现 `Redis.from_url`/`RedisCluster`；不得出现本地 key 前缀常量。
 - `tests/sdk/test_platform_sliding_session.py` 增加 cluster 覆盖：4-key `EVAL` 同 slot、滑动续期、`invalidate` 清理；`tests/sdk/platform_server.py` 保持真实进程边界。
-- 新增 cluster 集成测试：**本地 3 节点集群**跑 S-02/S-03/S-04/S-05/S-06（1 节点测不出跨节点广播）；3M3R staging 跑 E-01。
+- 新增 cluster 集成测试：**本地 3M3R** 跑 S-02/S-03/S-04/S-05/S-06 与 E-01（受控 failover + 空槽 reshard + 多 seed 发现）；staging 仅补主机级故障与跨主机通告地址。
 - 本地集群镜像分别用 **Redis 6.2（内网实际版本/下限）与 7.x（升级预留）** 各跑一轮核心命令冒烟：同 slot `XREADGROUP`、`XAUTOCLAIM`、双 key `EVAL`、`SCAN`、跨节点 `PUBLISH`。
 - 新增 `tests/gateway/test_inbound_stream_retention.py`：窗口外的已确认条目被裁剪；**最早 pending 之前的条目保留**；裸裁 pending 时 `XAUTOCLAIM` 返回空条目、PEL 不清的回归断言。
 - 出站保留：`XADD MINID` 窗口外的命令被裁、窗口内保留；`OUTBOUND_STREAM_RETENTION_SEC < CONNECTOR_COMMAND_MAX_AGE_SEC` 时启动校验失败。

@@ -1,7 +1,7 @@
 version: 1
 task: Redis 单机/Cluster 双模式接入
 enforcement: required
-updated_at: '2026-11-04T00:37:35.990051+00:00'
+updated_at: '2026-11-04T03:48:34.583691+00:00'
 sources:
 - type: cli
   ref: bind
@@ -44,7 +44,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-api-002
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         decision: null
         evidence: []
       plan:
@@ -53,7 +53,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 1fd1045ee005956e31b25d1869f186e252a72bb9d22e36b4c83c9e25dd35928c
+          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
         decision: null
         evidence: []
       code:
@@ -185,7 +185,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-api-001
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         decision: null
         evidence: []
       plan:
@@ -194,7 +194,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 1fd1045ee005956e31b25d1869f186e252a72bb9d22e36b4c83c9e25dd35928c
+          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
         decision: null
         evidence: []
       code:
@@ -362,7 +362,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.2
           item_id: ARCH-01
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         decision: null
         evidence: []
       plan:
@@ -371,7 +371,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 1fd1045ee005956e31b25d1869f186e252a72bb9d22e36b4c83c9e25dd35928c
+          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
         decision: null
         evidence: []
       code:
@@ -583,7 +583,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.3
           item_id: IM-01
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         decision: null
         evidence: []
       plan:
@@ -592,7 +592,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 1fd1045ee005956e31b25d1869f186e252a72bb9d22e36b4c83c9e25dd35928c
+          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
         decision: null
         evidence: []
       code:
@@ -969,7 +969,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.3
           item_id: IM-02
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         decision: null
         evidence: []
       plan:
@@ -978,7 +978,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 1fd1045ee005956e31b25d1869f186e252a72bb9d22e36b4c83c9e25dd35928c
+          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
         decision: null
         evidence: []
       code:
@@ -1197,7 +1197,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.5.4
           item_id: LOG-01
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         decision: null
         evidence: []
       plan:
@@ -1206,7 +1206,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 1fd1045ee005956e31b25d1869f186e252a72bb9d22e36b4c83c9e25dd35928c
+          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
         decision: null
         evidence: []
       code:
@@ -1423,7 +1423,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.3
           item_id: PLAT-01
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         - artifact: redis-cluster-support.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-platform-001
@@ -1436,7 +1436,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 1fd1045ee005956e31b25d1869f186e252a72bb9d22e36b4c83c9e25dd35928c
+          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
         decision: null
         evidence: []
       code:
@@ -1616,7 +1616,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.5.3
           item_id: SEC-01
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         decision: null
         evidence: []
       plan:
@@ -1625,7 +1625,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 1fd1045ee005956e31b25d1869f186e252a72bb9d22e36b4c83c9e25dd35928c
+          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
         decision: null
         evidence: []
       code:
@@ -1836,7 +1836,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         decision: null
         evidence: []
       plan:
@@ -1845,7 +1845,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 1fd1045ee005956e31b25d1869f186e252a72bb9d22e36b4c83c9e25dd35928c
+          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
         decision: null
         evidence: []
       code:
@@ -1960,7 +1960,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.5.5
           item_id: TEST-01
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         decision: null
         evidence: []
       plan:
@@ -1969,7 +1969,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 1fd1045ee005956e31b25d1869f186e252a72bb9d22e36b4c83c9e25dd35928c
+          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
         decision: null
         evidence: []
       code:
@@ -2017,7 +2017,7 @@ bindings:
         - artifact: redis-cluster-support.design.md
           section_id: §3.5.2
           item_id: WORKER-01
-          artifact_sha256: 9294b5056d59e1822307400e616c71e5e13b8b9cde8eb38d4c93a05ae422e174
+          artifact_sha256: 903f877558a2050105ac45cb29551ceff139221421f16ed7078c5a9951622d3b
         decision: null
         evidence: []
       plan:
@@ -2026,7 +2026,7 @@ bindings:
         - artifact: redis-cluster-support.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 1fd1045ee005956e31b25d1869f186e252a72bb9d22e36b4c83c9e25dd35928c
+          artifact_sha256: da38fca10f49c3af9e1478bfc23748d394e2166ea514c96ec4fc4bac85678f34
         decision: null
         evidence: []
       code:

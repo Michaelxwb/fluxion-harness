@@ -410,37 +410,37 @@ Runtime：`event_tail_hub`、`notification_publisher` 改用 pub/sub 客户端�
 
 ---
 
-## TASK-008: 3M3R staging 故障与 reshard 演练（E-01，deferred）
+## TASK-008: 3M3R 本地故障与 reshard 演练（E-01）
 
 - **Status**: draft
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-004, TASK-005
-- **Source**: redis-cluster-support.design.md#3.5.2 可靠性设计, redis-cluster-support.design.md#4.2 发布与回滚
+- **Source**: redis-cluster-support.design.md#3.5.2 可靠性设计, redis-cluster-support.design.md#4.2 发布与回滚, redis-cluster-support.design.md#3.5.5 测试策略
 - **Spec-Refs**: harness-test#RULE-test-001
 - **Rule-Owner-Refs**: N/A
 - **Acceptance-Refs**: E-01
 - **Estimate**: 0.5d
-- **Capability**: 在 staging 3M3R 上演练节点故障与 reshard，客户端自动恢复、入站 at-least-once、租约单 owner
+- **Capability**: 在本地 3M3R 上演练受控 failover 与 reshard，客户端自动恢复、入站 at-least-once、租约单 owner、非主 seed 发现
 
 ### Description
 
-在 staging 3M3R 执行 E-01：运行 S-02/S-03 的代表性流量 → kill 一个 master 等待 replica 提升 → 对一个 slot 执行 reshard → 继续投递并检查重连、MOVED/ASK、消息结果 → 停止主 seed 仅保留备用 seed，验证多 seed 拓扑发现。由发布负责人在 `target_phase: review` 执行。
+在本地 3M3R（`localdb` compose profile，3 主 6391–6393 / 3 从 6394–6396）执行 E-01：运行 S-02/S-03 的代表性流量 → 对持有入站 shard 槽位的 master 执行受控 failover（本地替代主机级 kill）等待 replica 提升 → 对一个空闲 slot 执行 reshard → 继续投递并检查重定向、消息结果与租约 → 仅用原 master（现为 replica）作为 seed 重建客户端，验证拓扑发现。主机级故障与跨主机通告地址变化仍需 staging 复验（design §2.5.4）。
 
 ### Checklist
 
-- [ ] 交付 `<Capability>`，staging 3M3R 演练并记录：故障窗口、重连时间、入站重复/丢失、租约 owner 变化
+- [ ] 交付 `<Capability>`，本地 3M3R 演练并记录：failover 窗口、reshard 槽位、入站重复/丢失、租约 owner 变化
 - [ ] 复用入站消费与租约的代表性流量，在 failover/reshard 前后持续投递并核对结果
-- [ ] `[E-01][integration]` 断言客户端在既有重试窗口内恢复、无需重启；日志/指标可见 MOVED/ASK 与恢复；主 seed 不可达时经备用 seed 发现
+- [ ] `[E-01][integration]` 断言客户端在既有重试窗口内恢复、无需重启；日志/指标可见重定向与恢复；仅提供非主 seed 时仍可发现
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |--------|---------|--------------------|---------|----------------|---------|------|
-| E-01 | integration | 真实 3 主 3 从 Redis Cluster + 真实 Gateway/Connector + 真实 PostgreSQL | failover/reshard 后自动恢复；入站至少一次、无重复副作用；租约单 owner；主 seed 不可达仍可发现 | planned | planned | planned |
+| E-01 | integration | 真实 3 主 3 从 Redis Cluster（本地单容器 6 进程）+ 真实 Gateway/Runtime/Worker 子进程 + 真实 Connector 租约实现 + 真实 PostgreSQL | failover/reshard 后自动恢复；入站至少一次、无重复副作用；租约单 owner；仅非主 seed 时仍可发现 | tests/acceptance/redis_cluster/test_cluster_failover_drill.py | uv run pytest -q tests/acceptance/redis_cluster/test_cluster_failover_drill.py | planned |
 
 ### Acceptance Evidence
 
-> 由 `cf-task-start` 在编码期填写；E-01 由发布负责人在 staging 执行并登记证据。
+> 由 `cf-task-start` 在编码期填写。
 
 ### Log
 
