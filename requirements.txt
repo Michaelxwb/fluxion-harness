@@ -40,11 +40,14 @@ certifi==2026.7.22
     # via
     #   httpcore
     #   httpx
+    #   requests
     #   wecom-aibot-python-sdk
 cffi==2.1.1
     # via
     #   argon2-cffi-bindings
     #   cryptography
+charset-normalizer==3.5.2
+    # via requests
 click==8.5.0
     # via uvicorn
 croniter==2.0.7
@@ -89,6 +92,7 @@ idna==3.19
     # via
     #   anyio
     #   httpx
+    #   requests
     #   yarl
 jsonschema==4.26.0
     # via
@@ -174,6 +178,8 @@ referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
+requests==2.34.2
+    # via muad-agent-core
 rpds-py==2026.6.3
     # via
     #   jsonschema
@@ -216,6 +222,8 @@ typing-inspection==0.4.4
     #   pydantic-settings
 tzdata==2026.3 ; sys_platform == 'win32'
     # via psycopg
+urllib3==2.8.0
+    # via requests
 uvicorn==0.52.4
     # via
     #   fluxion-harness
