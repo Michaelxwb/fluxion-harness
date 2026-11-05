@@ -5,30 +5,16 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any, Protocol, cast
-from urllib.parse import urlsplit
+from typing import Any, cast
 
 import httpx
 from muad_common.redis_client import create_redis_client
 
 from .adapter import MSSAdapter, PlatformAdapterRegistry
-from .adapter.mss import check, send
-from .adapter.mss_config import PlatformAuthError, settings
+from .adapter.mss_config import PlatformAuthError
 from .session.manager import SessionRequest
 from .session.redis_manager import RedisPlatformSessionManager
-from .types import PlatformConfig, PlatformRequest, PlatformTarget, SecretValue
-
-
-class PlatformAudit(Protocol):
-    async def record_egress(
-        self,
-        *,
-        target_type: str,
-        target: str,
-        policy_decision: str,
-        method: str | None = None,
-        error_code: str | None = None,
-    ) -> None: ...
+from .types import PlatformConfig, SecretValue
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +29,6 @@ class SkillPlatformContext:
     service_token: str | None = field(repr=False)
     redis_mode: str = "standalone"
     redis_cluster_seeds: str = ""
-    audit: PlatformAudit | None = field(default=None, repr=False)
 
 
 class SkillPlatformAccess:
@@ -142,67 +127,3 @@ class SkillPlatformAccess:
         for key in self.context.platform_keys:
             _, request, manager = await self.resolve(key, "GET", "/")
             await manager.acquire(request)
-
-    async def request(self, key: str, method: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        try:
-            result = await self._request(key, method, path, payload)
-        except PlatformAuthError as exc:
-            await self._audit(key, method, path, exc.code)
-            raise
-        await self._audit(key, method, path, None)
-        return result
-
-    async def _audit(self, key: str, method: str, path: str, error: str | None) -> None:
-        if self.context.audit:
-            await self.context.audit.record_egress(
-                target_type="PLATFORM_SERVICE",
-                target=key + ":" + urlsplit(path).path,
-                method=method,
-                policy_decision="DENY" if error else "ALLOW",
-                error_code=error,
-            )
-
-    async def _request(self, key: str, method: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        platform, session_request, manager = await self.resolve(key, method, path)
-        adapter = self.registry.get(platform.adapter_key)
-        if not isinstance(adapter, MSSAdapter):
-            raise PlatformAuthError("PLATFORM_ADAPTER_UNSUPPORTED")
-        state = await manager.acquire(session_request)
-        request = PlatformRequest(target=PlatformTarget(method=method, path=path), payload=payload)
-        prepared = await adapter.prepare_request(platform, state, request, None)
-        async with adapter._client(settings(platform)) as client:
-            response = await send(client, prepared.method, prepared.url, prepared.headers, prepared.body)
-        if response.status_code == 403:
-            raise PlatformAuthError("PLATFORM_PERMISSION_DENIED")
-        # Re-authentication is bounded, and only a read request is replayed automatically.
-        try:
-            check(response)
-        except PlatformAuthError as exc:
-            if exc.code != "PLATFORM_AUTH_REJECTED":
-                raise
-            await manager.renew(session_request)
-            if prepared.method == "GET":
-                return await self._retry(adapter, platform, request, session_request, manager)
-            raise PlatformAuthError("PLATFORM_AUTH_RETRY_REQUIRED") from None
-        result = response.json()
-        if not isinstance(result, dict):
-            raise PlatformAuthError("PLATFORM_RESPONSE_INVALID")
-        return cast(dict[str, Any], result)
-
-    async def _retry(
-        self,
-        adapter: MSSAdapter,
-        platform: PlatformConfig,
-        request: PlatformRequest,
-        session_request: SessionRequest,
-        manager: RedisPlatformSessionManager,
-    ) -> dict[str, Any]:
-        state = await manager.acquire(session_request)
-        prepared = await adapter.prepare_request(platform, state, request, None)
-        async with adapter._client(settings(platform)) as client:
-            response = await send(client, prepared.method, prepared.url, prepared.headers, prepared.body)
-        check(response)
-        result = response.json()
-        if not isinstance(result, dict):
-            raise PlatformAuthError("PLATFORM_RESPONSE_INVALID")
-        return cast(dict[str, Any], result)

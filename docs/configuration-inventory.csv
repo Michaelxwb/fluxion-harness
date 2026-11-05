@@ -167,7 +167,7 @@ apps/agent-runtime/src/muad_agent_runtime/application/executor.py,161,MCP_TOOL_P
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,163,POOL_RESELECTION_LIMIT,3,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,165,POOL_CAPACITY_RETRY_INTERVAL_SEC,0.25,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,167,MESSAGE_PROTOCOL_OVERHEAD_BYTES,32,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,1982,SKILL_FAMILY_TOOLS,"frozenset({'execute_skill', 'run_skill_script'})",python-constant,code,实现常量；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,1981,SKILL_FAMILY_TOOLS,"frozenset({'execute_skill', 'run_skill_script'})",python-constant,code,实现常量；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/experience_candidates.py,39,EXPERIENCE_TTL,timedelta(days=365),python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/experience_candidates.py,40,PROCEDURE,MemoryCategory.PROCEDURE,python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/golden_set.py,26,NEGATIVE_SIGNAL_EVENT,'LEARNING_SIGNAL',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
@@ -1204,15 +1204,15 @@ packages/agent-core/src/muad_agent_core/prompt/builder.py,16,CATALOG_TRUNCATED_N
 packages/agent-core/src/muad_agent_core/prompt/builder.py,24,MAX_CATALOG_ENTRIES,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/prompt/builder.py,25,MAX_CATALOG_BYTES,8000,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/prompt/builder.py,26,_ENTRY_SEPARATOR_BYTES,1,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/executor.py,25,MAX_OUTPUT_BYTES,64 * 1024,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-packages/agent-core/src/muad_agent_core/skill/executor.py,26,TERMINATE_GRACE_SEC,2.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-packages/agent-core/src/muad_agent_core/skill/executor.py,27,SCRIPTS_DIR,'scripts',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/executor.py,28,MAIN_SCRIPT,'main.py',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/executor.py,29,ENV_ALLOWLIST,"('PATH', 'HOME', 'LANG')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/executor.py,48,SUCCEEDED,'SUCCEEDED',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/skill/executor.py,49,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/skill/executor.py,50,TIMED_OUT,'TIMED_OUT',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/skill/executor.py,51,CANCELLED,'CANCELLED',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/skill/executor.py,31,MAX_OUTPUT_BYTES,64 * 1024,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
+packages/agent-core/src/muad_agent_core/skill/executor.py,32,TERMINATE_GRACE_SEC,2.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+packages/agent-core/src/muad_agent_core/skill/executor.py,33,SCRIPTS_DIR,'scripts',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/executor.py,34,MAIN_SCRIPT,'main.py',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/executor.py,35,ENV_ALLOWLIST,"('PATH', 'HOME', 'LANG')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/executor.py,54,SUCCEEDED,'SUCCEEDED',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/skill/executor.py,55,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/skill/executor.py,56,TIMED_OUT,'TIMED_OUT',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/skill/executor.py,57,CANCELLED,'CANCELLED',python-constant,code,状态或错误码，不是时间参数
 packages/agent-core/src/muad_agent_core/tools/pipeline.py,19,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/pipeline.py,20,REDACTED_KEYS,"frozenset({'api_key', 'secret', 'token', 'password'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/planner.py,22,DEFAULT_PARALLEL_LIMIT,4,python-constant,code,协议标识、枚举、schema、文本或实现常量

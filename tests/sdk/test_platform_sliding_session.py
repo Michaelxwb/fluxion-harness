@@ -166,8 +166,14 @@ def skill_script(tmp_path):
         "platforms: [platform_server]\n---\nTest platform query"
     )
     (tmp_path / "scripts/main.py").write_text(
-        "from muad_skill_sdk import platform_request\nimport json\n"
-        'print(json.dumps(platform_request("platform_server", "GET", "/events")))'
+        "import subprocess,json,urllib.request\n"
+        "info=json.loads(subprocess.check_output(['session-manager','get-state','--skill-name','platform_server']))\n"
+        "state=json.load(open(info['sessionStateFile']))['platforms']['platform_server']\n"
+        "cookies={c['name']:c['value'] for c in state['cookies']}\n"
+        "req=urllib.request.Request(state['requestProfile']['baseUrl'] + '/events', "
+        "headers={'Cookie': '; '.join(k+'='+v for k,v in cookies.items()), "
+        "'X-CSRFToken': cookies['csrf_token']})\n"
+        "print(urllib.request.urlopen(req).read().decode())\n"
     )
     return tmp_path
 
@@ -205,14 +211,55 @@ async def test_script_cannot_override_execution_identity(tmp_path, execution_con
 
     root = skill_script(tmp_path)
     (root / "scripts/main.py").write_text(
-        "from muad_skill_sdk import platform_request\nimport json\ntry:\n"
-        ' platform_request("other", "GET", "/events")\nexcept RuntimeError as e:\n'
-        ' print(json.dumps({"error": str(e)}))'
+        "import subprocess,json\n"
+        "p=subprocess.run(['session-manager','get-state','--skill-name','other'],capture_output=True,text=True)\n"
+        "print(json.dumps({'exit':p.returncode,'error':json.loads(p.stderr)['error']['code']}))\n"
     )
     result = await ScriptSkillExecutor().execute(
         SkillExecutionRequest(ready_dir=root, input={}, timeout_sec=20, platform_context=execution_context)
     )
-    assert result.result == {"error": "PLATFORM_ACCESS_UNAVAILABLE"}
+    assert result.result == {"exit": 1, "error": "invalid_context"}
+
+
+async def test_session_file_is_removed_after_execution(tmp_path, execution_context):
+    from pathlib import Path
+
+    from muad_agent_core.skill import ScriptSkillExecutor, SkillExecutionRequest
+
+    root = skill_script(tmp_path)
+    (root / "scripts/main.py").write_text(
+        "import subprocess,json,os\n"
+        "s=json.loads(subprocess.check_output(['session-manager','get-state','--skill-name','platform_server']))\n"
+        "p=s['sessionStateFile']; data=json.load(open(p))\n"
+        "print(json.dumps({'path':p,'has_cookies':bool(data['platforms']['platform_server']['cookies']),"
+        "'mode':os.stat(p).st_mode & 0o777}))\n"
+    )
+    result = await ScriptSkillExecutor().execute(
+        SkillExecutionRequest(ready_dir=root, input={}, timeout_sec=20, platform_context=execution_context)
+    )
+    assert result.result and result.result["has_cookies"] and result.result["mode"] == 0o600
+    assert not Path(result.result["path"]).exists()
+
+
+def test_legacy_profile_uses_platform_business_configuration(platform_server):
+    from muad_platform_sdk.skill_bridge import _legacy_platform
+    from muad_platform_sdk.types import PlatformSession
+
+    _, platform, _ = platform_server
+    platform.adapter_config["business_headers"] = {"X-CSRFToken": "example-fixed-value"}
+    platform.adapter_config["host_header"] = "example.internal"
+    profile = _legacy_platform(platform, PlatformSession(cookie='[{"name":"x","value":"y"}]'))
+    assert profile["requestProfile"]["hostHeader"] == {"Host": "example.internal"}
+    assert profile["requestProfile"]["staticHeaders"]["X-CSRFToken"] == "example-fixed-value"
+    assert profile["requestProfile"]["baseUrl"] == platform.resolver_config["base_url"]
+
+
+def test_business_headers_reject_credentials():
+    from muad_platform_sdk.adapter.mss_config import MSSSettings
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        MSSSettings(business_headers={"Cookie": "example"})
 
 
 async def test_runtime_skill_tool_path_uses_platform_context(tmp_path, execution_context):
@@ -245,7 +292,7 @@ async def test_worker_skill_path_uses_task_identity(tmp_path, execution_context,
 
     from muad_agent_worker.infrastructure.models.task import TaskExecution
     from muad_agent_worker.worker import executor as module
-    from muad_agent_worker.worker.executor import SkillTaskExecutor, TaskPlatformAudit
+    from muad_agent_worker.worker.executor import SkillTaskExecutor
     from muad_common import process_settings
 
     root = skill_script(tmp_path)
@@ -280,12 +327,6 @@ async def test_worker_skill_path_uses_task_identity(tmp_path, execution_context,
         }
     )
     monkeypatch.setattr(module, "process_settings", lambda: settings)
-    recorded = []
-
-    async def audit(self, **kwargs):
-        recorded.append((self.tenant_id, self.task_id, kwargs))
-
-    monkeypatch.setattr(TaskPlatformAudit, "record_egress", audit)
 
     class Cache:
         async def ensure(self, **kwargs):
@@ -293,7 +334,6 @@ async def test_worker_skill_path_uses_task_identity(tmp_path, execution_context,
 
     result = await SkillTaskExecutor(Cache()).execute(task)
     assert result["result"] == {"code": 0}
-    assert recorded[0][0:2] == (task.tenant_id, task.id)
 
 
 async def test_invalidation_prevents_inflight_login_resurrection(platform_server, cache, monkeypatch):
