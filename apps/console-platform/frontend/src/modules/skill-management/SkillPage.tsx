@@ -3,6 +3,7 @@ import { Button, Input, Select, Switch, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { ListActionButton } from '../../components/common/ListActionButton';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
@@ -16,7 +17,7 @@ import { SkillDetailSideSheet } from './SkillDetailSideSheet';
 import { CopyableText } from '../../components/common/CopyableText';
 import { SkillScopeModal } from './SkillScopeModal';
 import { SkillImportModal } from './SkillImportModal';
-import { getSkill, listSkills, updateSkill, type SkillListItem } from './services/skills';
+import { deleteSkill, getSkill, listSkills, updateSkill, type SkillListItem } from './services/skills';
 
 const DEFAULT_PARAMS = { page: 1, page_size: 15, keyword: '', user_scope: '' };
 
@@ -91,7 +92,23 @@ export function SkillPage() {
       await updateSkill(skill.id, { enabled: !skill.enabled });
       await reload();
     } catch {
-      // 错误由 ApiClient 展示
+      // 错误由 ApiClient 的统一 Tips 展示
+    }
+  };
+
+  const remove = async (skill: SkillListItem): Promise<void> => {
+    try {
+      await deleteSkill(skill.id);
+    } catch {
+      return;
+    }
+    if (detail?.id === skill.id) {
+      setDetail(null);
+    }
+    if (items.length === 1 && params.page > 1) {
+      setParams((prev) => ({ ...prev, page: prev.page - 1 }));
+    } else {
+      await reload();
     }
   };
 
@@ -181,7 +198,7 @@ export function SkillPage() {
               render: (value: string) => <DateTimeText value={value} />
             },
             {
-              ...actionColumn(132),
+              ...actionColumn(200),
               title: t('skill.columns.actions'),
               render: (_: unknown, record: SkillListItem) => (
                 <>
@@ -191,6 +208,13 @@ export function SkillPage() {
                   <Button theme="borderless" data-testid={`import-artifact-${record.key}`} onClick={() => setImportTarget(record)}>
                     {t('skill.artifact.importNew')}
                   </Button>
+                  <ConfirmAction
+                    title={t('skill.confirmDelete')}
+                    testId={`delete-skill-${record.key}`}
+                    onConfirm={() => void remove(record)}
+                  >
+                    {t('skill.actions.delete')}
+                  </ConfirmAction>
                 </>
               )
             }

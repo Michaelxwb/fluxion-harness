@@ -34,6 +34,7 @@ from ..infrastructure.skill_artifact_store import (
 from ..infrastructure.skill_validator import (
     ValidatedSkillPackage,
     checksum_of,
+    invalid_package,
     validated_package,
 )
 from .audit_service import AuditActor, AuditService, sanitize_payload
@@ -256,6 +257,31 @@ class SkillService:
         await self._record_audit(tenant_id, actor, AUDIT_SKILL, skill.id, "UPDATE", before, skill)
         return await self.get_skill_detail(tenant_id, skill_id)
 
+    async def delete_skill(
+        self,
+        tenant_id: str,
+        skill_id: uuid.UUID,
+        actor: AuditActor,
+    ) -> None:
+        """Soft-delete a Skill once no active Agent still binds it.
+
+        Bound Skills are rejected with `SKILL_IN_USE` instead of silently removing the
+        capability from those Agents; the caller can unbind from the Agent detail first.
+        Artifact rows/files stay intact for audit and for re-importing the same key.
+        """
+        skill = await self.get_skill(tenant_id, skill_id)
+        bound = await self._skills.count_agent_bindings(skill.id)
+        if bound > 0:
+            raise AppError(
+                ErrorCode.SKILL_IN_USE,
+                message_args={"key": skill.key, "agent_count": bound},
+            )
+        before = skill_snapshot(skill)
+        skill.is_deleted = True
+        skill.update_time = datetime.now(UTC)
+        await self._session.flush()
+        await self._record_audit(tenant_id, actor, AUDIT_SKILL, skill.id, "DELETE", before, None)
+
     async def set_user_scope(
         self,
         tenant_id: str,
@@ -392,7 +418,7 @@ class SkillService:
     ) -> tuple[Skill, SkillArtifact]:
         chosen_key = key or package.default_key
         if not chosen_key:
-            raise AppError(ErrorCode.SKILL_PACKAGE_INVALID)
+            raise invalid_package("SKILL_KEY_MISSING")
         checksum = checksum_of(data)
         existing = await self._skills.find_by_key(tenant_id, chosen_key)
         if existing is not None:
@@ -707,12 +733,12 @@ class SkillService:
             return None
         path = PurePosixPath(value)
         if path.is_absolute() or ".." in path.parts or path.suffix.lower() != ".py":
-            raise AppError(ErrorCode.SKILL_PACKAGE_INVALID)
+            raise invalid_package("DEFAULT_SCRIPT_INVALID", path=value)
         if not any(
             entry["path"] == value or entry["path"].endswith(f"/{value}")
             for entry in package.files
         ):
-            raise AppError(ErrorCode.SKILL_PACKAGE_INVALID)
+            raise invalid_package("DEFAULT_SCRIPT_INVALID", path=value)
         return value
 
     async def _require_absent_version(
@@ -746,7 +772,7 @@ class SkillService:
         resource_id: uuid.UUID,
         action: str,
         before: dict[str, Any] | None,
-        skill: Skill,
+        skill: Skill | None,
     ) -> None:
         await self._audit.record_config_change(
             tenant_id=tenant_id,
@@ -755,7 +781,7 @@ class SkillService:
             resource_id=resource_id,
             action=action,
             before=before,
-            after=skill_snapshot(skill),
+            after=skill_snapshot(skill) if skill is not None else None,
         )
 
     async def _record_artifact_audit(

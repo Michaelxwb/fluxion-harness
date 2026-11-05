@@ -9,7 +9,7 @@ from ..application.audit_service import AuditActor
 from ..application.dto import SkillUpdateRequest, SkillUserScopeRequest
 from ..application.skill_service import SkillService
 from ..infrastructure.db import get_session
-from ..infrastructure.skill_validator import ZIP_BYTES_LIMIT, invalid_package
+from ..infrastructure.skill_validator import ZIP_BYTES_LIMIT, invalid_package, size_label
 from ..metrics import SKILL_IMPORT_METRIC, count_outcome
 from .deps import AccountTenantId, AdminAccount, CurrentAccount, get_source_ip
 
@@ -26,7 +26,7 @@ def _actor(account: CurrentAccount, request: Request) -> AuditActor:
 async def _upload_bytes(file: UploadFile) -> bytes:
     data = await file.read(ZIP_BYTES_LIMIT + 1)
     if len(data) > ZIP_BYTES_LIMIT:
-        raise invalid_package()
+        raise invalid_package("PACKAGE_TOO_LARGE", limit=size_label(ZIP_BYTES_LIMIT))
     return data
 
 
@@ -116,6 +116,20 @@ async def update_skill(
         _actor(account, request),
     )
     return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
+
+
+@router.delete("/{skill_id}")
+async def delete_skill(
+    skill_id: uuid.UUID,
+    request: Request,
+    account: CurrentAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    await SkillService(session).delete_skill(tenant_id, skill_id, _actor(account, request))
+    return ok(
+        request.app.state.message_catalog, {"id": str(skill_id), "is_deleted": True}
+    )
 
 
 @router.get("/{skill_id}/artifacts")

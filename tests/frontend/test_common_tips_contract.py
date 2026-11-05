@@ -104,27 +104,17 @@ def test_tips_unifies_position_duration_and_dedupes(tips: list[dict[str, Any]]) 
     )
     for item in tips:
         assert item["duration"] == 3
-        assert item["bottom"] == 24
-        assert item["right"] == 24
+        assert item["top"] == 24
+        assert "bottom" not in item
+        assert "right" not in item
     assert [item["content"] for item in tips] == ["ok", "bad", "after-reset"]
 
 
-def test_tips_wrapper_overrides_semi_default_top_centered_layout() -> None:
-    """Semi Toast 容器默认「顶部居中、height:0」，只传 bottom/right 并不会改变布局。
+def test_tips_keep_semi_default_top_centered_layout() -> None:
+    """Semi Toast 容器默认「顶部居中、height:0」，位置只由 Tips 传入的 top 决定。
 
-    app.css 必须把容器改成底部锚定、按内容撑开；选择器带 `body` 前缀以压过 Semi
-    运行时后注入的同名单类规则（否则会在真实浏览器里落回顶部居中）。
+    不要再写 `body .semi-toast-wrapper` 覆盖把容器改成右下角；所有页面共用同一套
+    顶部居中规则。
     """
     css = APP_CSS.read_text(encoding="utf-8")
-    match = re.search(r"body \.semi-toast-wrapper\s*\{(?P<body>[^}]*)\}", css)
-    assert match is not None, "缺少 Tips 容器的右下角布局覆盖"
-    body = match.group("body")
-    declarations = {
-        key.strip(): value.strip().rstrip(";")
-        for key, value in (line.split(":", 1) for line in body.splitlines() if ":" in line)
-    }
-    assert declarations["top"] == "auto"
-    assert declarations["left"] == "auto"
-    assert declarations["width"] == "auto"
-    assert declarations["height"] == "auto"
-    assert declarations["justify-content"] == "flex-end"
+    assert re.search(r"body \.semi-toast-wrapper\s*\{", css) is None

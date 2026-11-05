@@ -87,9 +87,9 @@ DESIGN_MANDATED_COMPONENTS = (
 
 
 def test_tips_is_the_single_transient_feedback_exit() -> None:
-    """一次性动作反馈只能经 `Tips`：统一右下角、自动消失、可选去重。"""
+    """一次性动作反馈只能经 `Tips`：统一顶部居中、自动消失、可选去重。"""
     source = _source("Tips.ts")
-    assert "bottom: TIP_BOTTOM_PX" in source and "right: TIP_RIGHT_PX" in source
+    assert "top: TIP_TOP_PX" in source
     assert "DEFAULT_TIP_DURATION_SEC" in source
     assert "dedupeKey" in source and "shouldEmit" in source
     for kind in ("success", "error", "warning", "info"):

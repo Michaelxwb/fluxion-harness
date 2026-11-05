@@ -84,4 +84,5 @@ def test_javascript_secret_scan_remains_active(extension: str) -> None:
         with validated_package(data):
             pass
     assert error.value.code == "SKILL_PACKAGE_INVALID"
+    assert error.value.data["reason"] == "SECRET_DETECTED"
     assert secret not in str(error.value)

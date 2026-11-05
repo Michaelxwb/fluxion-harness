@@ -103,7 +103,10 @@ export interface ImportSkillInput {
   user_scope?: 'ALL' | 'SELECTED';
 }
 
-export async function importSkill(input: ImportSkillInput): Promise<SkillImportResult> {
+export async function importSkill(
+  input: ImportSkillInput,
+  options: RequestOptions = {}
+): Promise<SkillImportResult> {
   const form = new FormData();
   form.append('file', input.file);
   form.append('version', input.version);
@@ -112,6 +115,7 @@ export async function importSkill(input: ImportSkillInput): Promise<SkillImportR
   if (input.user_scope) form.append('user_scope', input.user_scope);
   return unwrap(
     await api.post<ApiResponse<SkillImportResult>>('/skills/import', form, {
+      ...options,
       headers: {
         'Content-Type': 'multipart/form-data',
         'Idempotency-Key': newRequestId()
@@ -123,19 +127,42 @@ export async function importSkill(input: ImportSkillInput): Promise<SkillImportR
 export async function importArtifact(
   id: string,
   file: File,
-  version: string
+  version: string,
+  options: RequestOptions = {}
 ): Promise<SkillArtifactDetail> {
   const form = new FormData();
   form.append('file', file);
   form.append('version', version);
   return unwrap(
     await api.post<ApiResponse<SkillArtifactDetail>>(`/skills/${id}/artifacts`, form, {
+      ...options,
       headers: {
         'Content-Type': 'multipart/form-data',
         'Idempotency-Key': newRequestId()
       }
     })
   );
+}
+
+export async function deleteSkill(id: string): Promise<void> {
+  await unwrap(await api.delete<ApiResponse<Record<string, unknown>>>(`/skills/${id}`));
+}
+
+export interface SkillImportErrorDetail {
+  reason?: string;
+  path?: string;
+  limit?: string;
+  detail?: string;
+}
+
+/** Validation reason carried in `data` by `SKILL_PACKAGE_INVALID`. */
+export function skillImportErrorDetail(error: unknown): SkillImportErrorDetail | null {
+  const body = error as { response?: { data?: { data?: unknown } }; data?: unknown };
+  const data = body?.response?.data?.data ?? body?.data;
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+  return data as SkillImportErrorDetail;
 }
 
 export async function listArtifacts(

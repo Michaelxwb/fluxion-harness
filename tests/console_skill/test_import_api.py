@@ -23,25 +23,35 @@ from console_skill.packages import (
 
 
 @pytest.mark.parametrize(
-    "package",
+    ("package", "reason"),
     [
-        zip_bytes({"scripts/run.py": "print('no skill md')\n"}),
-        zip_bytes({"SKILL.md": "# no frontmatter\n"}),
-        zip_bytes({"SKILL.md": "---\nname: Only Name\n---\n"}),
-        zip_bytes({"SKILL.md": skill_md(), "../evil.py": "print('traversal')\n"}),
-        zip_bytes({"SKILL.md": skill_md(), "/etc/evil.py": "print('absolute')\n"}),
-        symlink_package(),
-        zip_bytes({"SKILL.md": skill_md(), "run.sh": "echo nope\n"}),
-        zip_bytes({"SKILL.md": skill_md(), "inner.zip": b"PK\x03\x04"}),
-        zip_bytes({"SKILL.md": skill_md(), "payload.txt": demo_package()}),
-        b"this is not a zip archive",
-        demo_package(extra_files={"scripts/leak.py": 'AWS_KEY = "AKIAIOSFODNN7EXAMPLE"\n'}),
+        (zip_bytes({"scripts/run.py": "print('no skill md')\n"}), "SKILL_MD_MISSING"),
+        (zip_bytes({"SKILL.md": "# no frontmatter\n"}), "MANIFEST_INVALID"),
+        (zip_bytes({"SKILL.md": "---\nname: Only Name\n---\n"}), "MANIFEST_INVALID"),
+        (
+            zip_bytes({"SKILL.md": skill_md(), "../evil.py": "print('traversal')\n"}),
+            "PATH_INVALID",
+        ),
+        (
+            zip_bytes({"SKILL.md": skill_md(), "/etc/evil.py": "print('absolute')\n"}),
+            "PATH_INVALID",
+        ),
+        (symlink_package(), "PATH_INVALID"),
+        (zip_bytes({"SKILL.md": skill_md(), "run.sh": "echo nope\n"}), "FILE_TYPE_UNSUPPORTED"),
+        (zip_bytes({"SKILL.md": skill_md(), "inner.zip": b"PK\x03\x04"}), "NESTED_ARCHIVE"),
+        (zip_bytes({"SKILL.md": skill_md(), "payload.txt": demo_package()}), "NESTED_ARCHIVE"),
+        (b"this is not a zip archive", "INVALID_ZIP"),
+        (
+            demo_package(extra_files={"scripts/leak.py": 'AWS_KEY = "AKIAIOSFODNN7EXAMPLE"\n'}),
+            "SECRET_DETECTED",
+        ),
     ],
 )
 async def test_invalid_packages_return_400(
     client: AsyncClient,
     skill_env: SkillContext,
     package: bytes,
+    reason: str,
 ) -> None:
     artifact_root = Path(SharedSettings().artifact_root)
     artifacts_before = set(artifact_root.glob("skills/*/*/skill.zip"))
@@ -58,7 +68,9 @@ async def test_invalid_packages_return_400(
 
     response = await import_skill(client, skill_env, package)
     assert response.status_code == 400
-    assert response.json()["code"] == "SKILL_PACKAGE_INVALID"
+    body = response.json()
+    assert body["code"] == "SKILL_PACKAGE_INVALID"
+    assert body["data"]["reason"] == reason
 
     async with get_session_factory()() as session:
         skills_after = await session.scalar(
@@ -225,7 +237,9 @@ async def test_import_zip_over_size_limit_returns_400(
     monkeypatch.setattr(skills_api, "ZIP_BYTES_LIMIT", 64)
     response = await import_skill(client, skill_env, demo_package())
     assert response.status_code == 400
-    assert response.json()["code"] == "SKILL_PACKAGE_INVALID"
+    body = response.json()
+    assert body["code"] == "SKILL_PACKAGE_INVALID"
+    assert body["data"] == {"reason": "PACKAGE_TOO_LARGE", "limit": "64 B"}
 
 
 async def test_import_unpacked_size_over_limit_returns_400(
@@ -236,7 +250,9 @@ async def test_import_unpacked_size_over_limit_returns_400(
     monkeypatch.setattr(skill_validator, "UNPACKED_BYTES_LIMIT", 32)
     response = await import_skill(client, skill_env, demo_package())
     assert response.status_code == 400
-    assert response.json()["code"] == "SKILL_PACKAGE_INVALID"
+    body = response.json()
+    assert body["code"] == "SKILL_PACKAGE_INVALID"
+    assert body["data"] == {"reason": "UNPACKED_TOO_LARGE", "limit": "32 B"}
 
 
 async def test_import_too_many_entries_returns_400(
@@ -246,7 +262,10 @@ async def test_import_too_many_entries_returns_400(
     package = many_entries_package(skill_validator.ENTRY_LIMIT + 1)
     response = await import_skill(client, skill_env, package)
     assert response.status_code == 400
-    assert response.json()["code"] == "SKILL_PACKAGE_INVALID"
+    body = response.json()
+    assert body["code"] == "SKILL_PACKAGE_INVALID"
+    assert body["data"]["reason"] == "TOO_MANY_FILES"
+    assert body["data"]["limit"] == str(skill_validator.ENTRY_LIMIT)
 
 
 async def test_import_invalid_default_script_returns_400(
@@ -260,7 +279,27 @@ async def test_import_invalid_default_script_returns_400(
         default_script="scripts/missing.py",
     )
     assert response.status_code == 400
-    assert response.json()["code"] == "SKILL_PACKAGE_INVALID"
+    body = response.json()
+    assert body["code"] == "SKILL_PACKAGE_INVALID"
+    assert body["data"] == {
+        "reason": "DEFAULT_SCRIPT_INVALID",
+        "path": "scripts/missing.py",
+    }
+
+
+async def test_import_without_a_derivable_key_returns_actionable_reason(
+    client: AsyncClient,
+    skill_env: SkillContext,
+) -> None:
+    response = await import_skill(
+        client,
+        skill_env,
+        demo_package(name="中文技能"),
+    )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["code"] == "SKILL_PACKAGE_INVALID"
+    assert body["data"] == {"reason": "SKILL_KEY_MISSING"}
 
 
 async def test_import_duplicate_key_returns_conflict(

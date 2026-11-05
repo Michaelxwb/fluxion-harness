@@ -36,6 +36,8 @@ verifiers:
 - **目录有界，且丢了要说出来**：`DefaultPromptBuilder.build` 按 `MAX_CATALOG_ENTRIES` / `MAX_CATALOG_BYTES` 取前缀，**超限整条丢弃并停止**（不挑小的凑、不截半行），丢弃顺序即 `sort_order`。被丢弃的技能模型看不见 key，因此必须：① 投影点留痕（warning + 目录截断指标）；② 目录尾部补 `CATALOG_TRUNCATED_NOTE`，**只在真的丢了条目时出现**。✅ `bounded_catalog(skills) -> (kept, dropped)`；❌ 无上限或静默丢弃。
 - **被预算挡在目录外的技能要有第二条发现路径**：`search_skills(query)` 在本次 Run 的全部生效技能上按 key/name/description 做空白切词 **AND** 子串匹配，返回与目录同一行格式的条目，结果用**同一个 `bounded_catalog`** 收口；不查库、不加端点。✅ 命中数 + 条目 + 截断时才带 `truncated`/`hint`，`externalizable_result=False`；❌ 返回自由格式文本、结果无上限、用 OR 匹配。
 - **一个生效技能都没有时，技能工具一个都不注册**（`SkillToolSet.registry` 早返回）：key 从哪来？注册只会让模型猜 key、白跑一轮换回 `SKILL_NOT_EFFECTIVE`。机检：`test_skill_tools.py::test_skill_tools_are_not_registered_without_effective_skills`。
+- **导入拒绝必须给出可定位的原因，不能只回 generic 文案**：`SKILL_PACKAGE_INVALID` 的 `data` 携带稳定 `reason`（缺 SKILL.md / 非法路径 / 不支持的文件类型 / 嵌套压缩包 / 命中密钥扫描 / 超大小或文件数 / manifest 不合法），并尽量带出 `path`、`limit`、`detail`；Console 在导入 Modal 内以常驻 Banner 展示本地化原因。✅ `{"reason":"FILE_TYPE_UNSUPPORTED","path":"run.sh"}` + 前端映射；❌ 只回「Skill 包结构或文件类型不合法」。机检：`tests/console_skill/test_import_api.py`、`tests/frontend/test_skill_module_contract.py`。
+- **Skill 删除是软删除，且不得静默破坏已绑定 Agent**：仍有活跃 `AgentSkillBinding` 时返回 `SKILL_IN_USE`（带 key 与绑定数），要求先解绑；删除保留 `skill_artifact` 行与文件供审计/版本追溯，partial unique 允许同 key 重新导入。机检：`tests/console_skill/test_skill_delete.py`。
 
 **产物写入与缓存**：
 

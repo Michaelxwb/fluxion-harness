@@ -45,7 +45,7 @@ def test_skill_page_error_state_and_race_guards() -> None:
 
 
 def test_skill_import_modal_contract() -> None:
-    """[S-05][E-05] 导入 Modal：ZIP 预检 + 校验错误保留 Modal。"""
+    """[S-05][E-05] 导入 Modal：ZIP 预检 + 具体校验原因 + 失败保留 Modal。"""
     source = _source("SkillImportModal.tsx")
     assert "FormModal" in source
     assert "accept=\".zip\"" in source
@@ -53,6 +53,23 @@ def test_skill_import_modal_contract() -> None:
     # 失败保留 Modal：catch 后不调用 onSaved/onCancel
     assert "props.onSaved(saved)" in source
     assert "Idempotency-Key" in _source("services/skills.ts")
+    # 失败原因持久展示在 Modal 内（Banner），不依赖转瞬即逝的全局 Toast
+    assert "<Banner" in source and "formError" in source
+    assert "skillImportErrorDetail" in source
+    assert "errorTip: 'never'" in source
+    assert "SKILL_MD_MISSING" in source and "SECRET_DETECTED" in source
+
+
+def test_skill_list_has_delete_action_with_confirmation() -> None:
+    """对象删除放在主列表，二次确认；删除走 services 层并关闭已删除对象的详情。"""
+    page = _source("SkillPage.tsx")
+    service = _source("services/skills.ts")
+    assert "ConfirmAction" in page
+    assert "skill.confirmDelete" in page
+    assert "delete-skill-${record.key}" in page
+    assert "deleteSkill" in service and "/skills/${id}`" in service
+    assert "detail?.id === skill.id" in page
+    assert "errorTip: 'never'" not in page, "删除失败统一走全局 Tips，不再做页面私有提示"
 
 
 def test_skill_copy_uses_navigator_clipboard() -> None:
@@ -77,6 +94,12 @@ def test_skill_i18n_keys_bilingual() -> None:
         "skill.columns.userScope",
         "skill.scope.all",
         "skill.scope.selected",
+        "skill.actions.delete",
+        "skill.confirmDelete",
+        "skill.import.error.skillMdMissing",
+        "skill.import.error.fileTypeUnsupported",
+        "skill.import.error.secretDetected",
+        "skill.import.error.manifestInvalid",
     ]
     for key in required:
         assert key in zh, f"zh-CN 缺 {key}"

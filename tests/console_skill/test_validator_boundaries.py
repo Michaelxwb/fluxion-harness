@@ -70,6 +70,7 @@ def test_b01_zip_size_exact_boundary_pass_and_reject() -> None:
         with skill_validator.validated_package(oversized):
             pass
     assert reject.value.code == "SKILL_PACKAGE_INVALID"
+    assert reject.value.data["reason"] == "PACKAGE_TOO_LARGE"
 
 
 def test_b02_unpacked_size_exact_boundary_pass_and_reject() -> None:
@@ -92,6 +93,7 @@ def test_b02_unpacked_size_exact_boundary_pass_and_reject() -> None:
         with skill_validator.validated_package(over):
             pass
     assert reject.value.code == "SKILL_PACKAGE_INVALID"
+    assert reject.value.data["reason"] == "UNPACKED_TOO_LARGE"
 
 
 def test_b03_entry_count_exact_boundary_pass_and_reject() -> None:
@@ -110,6 +112,7 @@ def test_b03_entry_count_exact_boundary_pass_and_reject() -> None:
                 with skill_validator.validated_package(package):
                     pass
             assert reject.value.code == "SKILL_PACKAGE_INVALID"
+            assert reject.value.data["reason"] == "TOO_MANY_FILES"
 
 
 def test_b04_renamed_nested_archive_is_rejected_by_magic_bytes() -> None:
@@ -120,6 +123,7 @@ def test_b04_renamed_nested_archive_is_rejected_by_magic_bytes() -> None:
         with skill_validator.validated_package(package):
             pass
     assert reject.value.code == "SKILL_PACKAGE_INVALID"
+    assert reject.value.data == {"reason": "NESTED_ARCHIVE", "path": "assets/payload.txt"}
 
 
 def test_e04_secret_scan_rejects_and_never_leaks_secret() -> None:
@@ -132,6 +136,7 @@ def test_e04_secret_scan_rejects_and_never_leaks_secret() -> None:
             pass
     error = reject.value
     assert error.code == "SKILL_PACKAGE_INVALID"
+    assert error.data == {"reason": "SECRET_DETECTED", "path": "scripts/leak.py"}
     assert secret not in str(error)
     assert secret not in repr(error)
     assert secret not in str(error.message_args)

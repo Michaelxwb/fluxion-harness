@@ -1510,7 +1510,7 @@ export default function ChatPage() {
   const onActionFailure = useCallback(
     (error: unknown): void => {
       if (error instanceof AttachmentUnavailableError) {
-        // 附件失效是单条附件的局部事实：统一 Tips 的右下角自动消失轻提示，不占整页置顶 Banner。
+        // 附件失效是单条附件的局部事实：统一 Tips 的顶部居中自动消失轻提示，不占整页置顶 Banner。
         Tips.error(t('chat.thread.attachmentUnavailable'));
         return;
       }

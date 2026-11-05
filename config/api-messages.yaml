@@ -211,14 +211,20 @@ codes:
   SKILL_PACKAGE_INVALID:
     http_status: 400
     messages:
-      zh-CN: Skill 包结构或文件类型不合法
-      en-US: The Skill package structure or file types are invalid
+      zh-CN: Skill 包校验失败
+      en-US: Skill package validation failed
 
   SKILL_VERSION_EXISTS:
     http_status: 409
     messages:
       zh-CN: 该 Skill 版本已存在
       en-US: This Skill version already exists
+
+  SKILL_IN_USE:
+    http_status: 409
+    messages:
+      zh-CN: Skill {key} 已被 {agent_count} 个 Agent 绑定，请先解除绑定再删除
+      en-US: Skill {key} is bound to {agent_count} agent(s); unbind it before deleting
 
   MCP_CONFIG_INVALID:
     http_status: 400

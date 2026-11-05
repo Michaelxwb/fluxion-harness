@@ -248,6 +248,11 @@ Tabs：
 
 Artifact 内容只读，不在 Console 编辑 Python。
 
+### 5.4 删除与导入失败反馈
+
+- Skill 删除为软删除：仍有活跃 `AgentSkillBinding` 时返回 `SKILL_IN_USE`（带 Skill key 与绑定 Agent 数），要求先在 Agent 详情解绑；删除后版本记录与审计保留，同一 key 可重新导入。
+- 导入失败由 `SKILL_PACKAGE_INVALID` 的 `data.reason` 指明具体原因（缺 `SKILL.md`、非法路径、不支持的文件类型、嵌套压缩包、命中密钥扫描、超出大小/文件数、manifest 不合法），并附带 `path`/`limit`/`detail`；Console 在导入 Modal 内常驻展示本地化错误，不再只给通用文案。
+
 
 ---
 

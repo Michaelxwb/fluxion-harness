@@ -60,7 +60,7 @@ config.headers['X-Request-Id'] = newRequestId();
 config.headers['X-Request-Id'] = crypto.randomUUID();
 ```
 
-- **业务错误按展示责任提示并继续 reject 原始错误**：页面 GET 加载失败由内联错误态负责，依赖全局提示的 GET 动作显式传 `errorTip: 'always'`；写操作自动提示，已有内联错误的操作传 `errorTip: 'never'`。提示统一使用 `Tips` 与后端本地化 `msg`，会话探测避免启动期噪音。✅ 打开编辑或范围弹窗失败有提示，页面错误不重复弹出；❌ 按 GET 一律静默却仍在调用方吞掉错误，或把错误码当文案展示。机检：`tests/frontend/test_api_client_contract.py`、`tests/frontend/test_capacity_webchat_chat_transport.py`、`tests/frontend/test_list_object_actions_contract.py`。
+- **业务错误按展示责任提示并继续 reject 原始错误**：页面 GET 加载失败由内联错误态负责，依赖全局提示的 GET 动作显式传 `errorTip: 'always'`；写操作自动提示，已有内联错误的操作传 `errorTip: 'never'`。提示统一使用 `Tips` 与后端本地化 `msg`，会话探测避免启动期噪音。**`Tips` 是全站唯一的一次性动作反馈组件，位置固定为顶部居中**（`Tips.ts` 的 `top` 偏移 + Semi 默认居中容器），任何模块不得再写页面私有的 Toast 定位或提示条。✅ 打开编辑或范围弹窗失败有提示，页面错误不重复弹出；❌ 按 GET 一律静默却仍在调用方吞掉错误，或把错误码当文案展示，或按页面改 Tips 位置。机检：`tests/frontend/test_api_client_contract.py`、`tests/frontend/test_common_tips_contract.py`、`tests/frontend/test_capacity_webchat_chat_transport.py`、`tests/frontend/test_list_object_actions_contract.py`。
 - **401 统一跳登录**：`/login?returnUrl=<encodeURIComponent(pathname + search)>`；**已在 `/login` 时不跳**（防重定向循环）。机检：`tests/frontend/test_api_client_contract.py::test_e09_unauthorized_redirects_to_login_with_return_url`。
 - **组件层取错误码只走纯函数 `apiErrorBody(error)`**：先读 `error.response.data.code`，再回退 `error.code`，两者皆无返回 `null`。不要在组件里手工拼 `error.response?.data?.code`（`src/api/client.ts` 的 `apiErrorBody`，现网 18 个调用点）。
 - **模块骨架是两件套**：`modules/<module>/services/<x>.ts`（该模块唯一的 HTTP 出口）+ `tests/frontend/test_<module>_contract.py`（**源码契约测试**：正则读源码断言结构与拦截器约定，而非渲染单测——本仓 `tests/frontend/` 现有 `*_contract.py`）。

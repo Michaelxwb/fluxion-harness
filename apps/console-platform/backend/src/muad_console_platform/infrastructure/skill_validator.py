@@ -78,8 +78,33 @@ class ValidatedSkillPackage:
     default_key: str
 
 
-def invalid_package() -> AppError:
-    return AppError(ErrorCode.SKILL_PACKAGE_INVALID)
+def invalid_package(reason: str = "INVALID_ZIP", **detail: Any) -> AppError:
+    """Package rejection with a machine-readable reason for the Console.
+
+    The localized message template lives in ``config/api-messages.yaml``; the ``data``
+    field only carries the stable reason plus the offending path/limit/detail so the
+    frontend can render a precise, bilingual error instead of a generic toast.
+    """
+    return AppError(ErrorCode.SKILL_PACKAGE_INVALID, data={"reason": reason, **detail})
+
+
+def _display_path(value: str) -> str:
+    cleaned = "".join(char if char.isprintable() else " " for char in value).strip()
+    return cleaned if len(cleaned) <= 200 else f"{cleaned[:197]}..."
+
+
+def _safe_detail(value: str) -> str:
+    cleaned = " ".join(value.split())
+    return cleaned if len(cleaned) <= 300 else f"{cleaned[:297]}..."
+
+
+def size_label(size: int) -> str:
+    value = float(size)
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if value < 1024 or unit == "GiB":
+            return f"{value:g} {unit}" if unit == "B" else f"{value:.0f} {unit}"
+        value /= 1024
+    return f"{value:g} B"
 
 
 def checksum_of(data: bytes) -> str:
@@ -93,8 +118,10 @@ def slugify(value: str) -> str:
 
 @contextmanager
 def validated_package(data: bytes) -> Iterator[ValidatedSkillPackage]:
-    if not data or len(data) > ZIP_BYTES_LIMIT:
+    if not data:
         raise invalid_package()
+    if len(data) > ZIP_BYTES_LIMIT:
+        raise invalid_package("PACKAGE_TOO_LARGE", limit=size_label(ZIP_BYTES_LIMIT))
     with tempfile.TemporaryDirectory(prefix="skill-import-") as temp_dir:
         yield _validate_package(data, Path(temp_dir))
 
@@ -107,13 +134,15 @@ def _validate_package(data: bytes, temp_root: Path) -> ValidatedSkillPackage:
     with archive:
         members = [member for member in archive.infolist() if not member.is_dir()]
         if len(members) > ENTRY_LIMIT:
-            raise invalid_package()
+            raise invalid_package("TOO_MANY_FILES", limit=str(ENTRY_LIMIT))
         total_size = 0
         for member in members:
             _check_member(member)
             total_size += member.file_size
         if total_size > UNPACKED_BYTES_LIMIT:
-            raise invalid_package()
+            raise invalid_package(
+                "UNPACKED_TOO_LARGE", limit=size_label(UNPACKED_BYTES_LIMIT)
+            )
         _extract(archive, temp_root)
     _scan_nested_archives(temp_root)
     package_root, inner_dir = _locate_package_root(temp_root)
@@ -131,18 +160,19 @@ def _validate_package(data: bytes, temp_root: Path) -> ValidatedSkillPackage:
 
 def _check_member(member: zipfile.ZipInfo) -> None:
     name = member.filename
+    display = _display_path(name)
     if not name or name.startswith("/") or "\\" in name or re.match(r"^[A-Za-z]:", name):
-        raise invalid_package()
+        raise invalid_package("PATH_INVALID", path=display)
     path = PurePosixPath(name)
     if path.is_absolute() or ".." in path.parts:
-        raise invalid_package()
+        raise invalid_package("PATH_INVALID", path=display)
     if _is_symlink(member):
-        raise invalid_package()
+        raise invalid_package("PATH_INVALID", path=display)
     suffix = path.suffix.lower()
     if suffix in ARCHIVE_EXTENSIONS:
-        raise invalid_package()
+        raise invalid_package("NESTED_ARCHIVE", path=display)
     if suffix not in ALLOWED_EXTENSIONS:
-        raise invalid_package()
+        raise invalid_package("FILE_TYPE_UNSUPPORTED", path=display)
 
 
 def _is_symlink(member: zipfile.ZipInfo) -> bool:
@@ -154,7 +184,7 @@ def _extract(archive: zipfile.ZipFile, destination: Path) -> None:
     for member in archive.infolist():
         target = (destination / member.filename).resolve()
         if target != root and root not in target.parents:
-            raise invalid_package()
+            raise invalid_package("PATH_INVALID", path=_display_path(member.filename))
     archive.extractall(destination)
 
 
@@ -168,14 +198,16 @@ def _locate_package_root(temp_root: Path) -> tuple[Path, str]:
     try:
         return locate_package_root(temp_root)
     except SkillPackageError as exc:
-        raise invalid_package() from exc
+        raise invalid_package("SKILL_MD_MISSING") from exc
 
 
 def _load_package(root: Path) -> SkillPackage:
     try:
         return SkillPackage.load(root)
     except SkillPackageError as exc:
-        raise invalid_package() from exc
+        raise invalid_package(
+            "MANIFEST_INVALID", detail=_safe_detail(exc.message)
+        ) from exc
 
 
 def _scan_secrets(root: Path) -> None:
@@ -183,19 +215,22 @@ def _scan_secrets(root: Path) -> None:
         if not path.is_file() or path.suffix.lower() not in TEXT_EXTENSIONS:
             continue
         if _contains_secret(path):
-            raise invalid_package()
+            raise invalid_package(
+                "SECRET_DETECTED", path=_display_path(path.relative_to(root).as_posix())
+            )
 
 
 def _scan_nested_archives(root: Path) -> None:
     for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
+        relative = _display_path(path.relative_to(root).as_posix())
         with path.open("rb") as stream:
             header = stream.read(512)
         if any(header.startswith(magic) for magic in ARCHIVE_MAGICS):
-            raise invalid_package()
+            raise invalid_package("NESTED_ARCHIVE", path=relative)
         if len(header) >= 262 and header[257:262] == b"ustar":
-            raise invalid_package()
+            raise invalid_package("NESTED_ARCHIVE", path=relative)
 
 
 def _contains_secret(path: Path) -> bool:

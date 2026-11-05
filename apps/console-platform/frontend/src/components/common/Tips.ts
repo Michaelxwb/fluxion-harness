@@ -23,8 +23,7 @@ export type TipKind = 'success' | 'error' | 'warning' | 'info';
 
 const DEFAULT_TIP_DURATION_SEC = 3;
 const DEDUPE_WINDOW_MS = 1500;
-const TIP_BOTTOM_PX = 24;
-const TIP_RIGHT_PX = 24;
+const TIP_TOP_PX = 24;
 
 const recent = new Map<string, number>();
 
@@ -48,8 +47,7 @@ function show(
   const payload = {
     content,
     duration: options?.duration ?? DEFAULT_TIP_DURATION_SEC,
-    bottom: TIP_BOTTOM_PX,
-    right: TIP_RIGHT_PX
+    top: TIP_TOP_PX
   };
   if (kind === 'success') Toast.success(payload);
   else if (kind === 'error') Toast.error(payload);
@@ -57,7 +55,7 @@ function show(
   else Toast.info(payload);
 }
 
-/** 一次性动作反馈：右下角、自动消失、统一宽度与时长。 */
+/** 一次性动作反馈：顶部居中、自动消失、统一宽度与时长。 */
 export const Tips = {
   success(content: ReactNode, options?: TipOptions): void {
     show('success', content, options);
