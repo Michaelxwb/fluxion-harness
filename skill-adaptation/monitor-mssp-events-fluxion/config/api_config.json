@@ -1,0 +1,14 @@
+{
+  "platforms": {
+    "mssp": {
+      "endpoints": {
+        "branch_dev": "/gateway/customer-mgr-service/order/v1/branch/dev?_method=GET",
+        "event_table": "/gateway/event-mgr/external/event_table",
+        "event_detail": "/gateway/event-mgr/external/event_table/event?_method=GET",
+        "alarm_list": "/gateway/alarm-mgr/v1/event_table/alarm_list?_method=GET",
+        "customer_search": "/gateway/customer-mgr-service/order/v1/user?_method=GET",
+        "asset_query": "/gateway/asset-mgr-service/order/v1/asset?_method=GET"
+      }
+    }
+  }
+}

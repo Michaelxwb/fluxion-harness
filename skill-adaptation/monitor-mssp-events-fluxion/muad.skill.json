@@ -1,0 +1,12 @@
+{
+  "name": "monitor-mssp-events",
+  "author": "古向高(13689)",
+  "platforms": [
+    "mssp"
+  ],
+  "runtime": "script",
+  "version": "0.7.6",
+  "capabilities": [],
+  "longTask": false,
+  "entrypoint": "scripts/run.py"
+}
