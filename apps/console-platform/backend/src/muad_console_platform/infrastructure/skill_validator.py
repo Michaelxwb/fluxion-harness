@@ -218,12 +218,15 @@ def _file_listing(root: Path, inner_dir: str) -> tuple[dict[str, Any], ...]:
 
 
 def _frontmatter(manifest: SkillManifest) -> dict[str, Any]:
-    return {
+    result: dict[str, Any] = {
         "name": manifest.name,
         "description": manifest.description,
         "execution": manifest.execution.value,
         "platform_label": manifest.platform_label,
     }
+    if manifest.platforms:
+        result["platforms"] = list(manifest.platforms)
+    return result
 
 
 def _default_key(name: str, inner_dir: str) -> str:

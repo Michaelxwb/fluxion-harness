@@ -3,7 +3,7 @@
 from typing import Literal
 from urllib.parse import urljoin, urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, SecretStr, ValidationError, field_validator
 
 from ..types import PlatformConfig, SecretValue
 
@@ -20,6 +20,7 @@ class MSSSettings(BaseModel):
     auth_mode: Literal["hmac", "json"] = Field(default="hmac", title="登录认证方式")
     login_body: dict[str, JsonValue] | None = Field(default=None, title="公共登录请求体")
     login_headers: dict[str, str] = Field(default_factory=dict, title="公共登录请求头")
+    business_headers: dict[str, str] = Field(default_factory=dict, title="公共业务请求头")
     login_cookie_name: str = Field(default="soc-token", min_length=1, title="登录 Cookie 名")
     session_endpoint: str = Field(
         default="/gateway/mss-auth-acl-service/v1/certification/login_agent", title="登录接口路径"
@@ -37,6 +38,13 @@ class MSSSettings(BaseModel):
     session_ttl_seconds: int = Field(default=7200, ge=60, le=86400, title="登录态最长缓存秒数")
     timeout_seconds: int = Field(default=20, ge=1, le=120, title="请求超时秒数")
     ca_bundle: str = Field(default="", title="内部 CA 文件路径（可选）")
+
+    @field_validator("business_headers")
+    @classmethod
+    def validate_business_headers(cls, value: dict[str, str]) -> dict[str, str]:
+        if any(key.lower() in {"authorization", "cookie", "set-cookie", "host"} for key in value):
+            raise ValueError("business headers must not contain credentials or Host")
+        return value
 
 
 class AKSKCredential(BaseModel):

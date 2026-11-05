@@ -18,7 +18,13 @@ from muad_contracts import ResolvedSkill
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
 from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_platform_sdk.skill_bridge import skill_platform_environment
-from muad_skill_sdk import SkillContext, SkillPackageError, declared_entrypoint, locate_package_root
+from muad_skill_sdk import (
+    SkillContext,
+    SkillPackage,
+    SkillPackageError,
+    declared_entrypoint,
+    locate_package_root,
+)
 from muad_skill_sdk.skill_package import is_script_path
 from redis.exceptions import RedisError
 
@@ -83,8 +89,14 @@ class ScriptSkillExecutor:
         from dataclasses import replace
 
         try:
-            async with skill_platform_environment(request.platform_context) as env:
+            name = ""
+            if request.platform_context and request.platform_context.platform_keys:
+                root, _ = locate_package_root(request.ready_dir)
+                name = SkillPackage.load(root).manifest.name
+            async with skill_platform_environment(request.platform_context, name) as env:
                 return await self._execute(replace(request, env={**request.env, **env}))
+        except SkillPackageError as exc:
+            raise SkillExecutionError(exc.message) from exc
         except PlatformAuthError as exc:
             raise SkillExecutionError(exc.code) from None
         except RedisError:

@@ -1916,7 +1916,6 @@ def build_registry(
         platform_context=SkillPlatformContext(
             tenant_id=request.run_context.tenant_id, actor_user_id=str(request.run_context.user_id),
             execution_id=str(request.run_context.run_id), execution_type="RUN", platform_keys=(),
-            audit=audit_writer,
             console_url=process_settings().console_platform_url,
             redis_url=process_settings().redis_url,
             redis_mode=process_settings().redis_mode,

@@ -79,6 +79,7 @@ class SkillManifest:
     description: str
     execution: SkillExecutionMode = SkillExecutionMode.SYNC
     platform_label: str | None = None
+    platforms: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +100,15 @@ class SkillPackage:
             raise SkillPackageError(f"{SKILL_FILE_NAME} is not valid UTF-8") from exc
         frontmatter, body = _split_frontmatter(text)
         declared_entrypoint(base)
+        frontmatter = dict(frontmatter)
+        legacy_manifest = base / "muad.skill.json"
+        if "platforms" not in frontmatter and legacy_manifest.is_file():
+            try:
+                legacy = json.loads(legacy_manifest.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                raise SkillPackageError("muad.skill.json must be valid UTF-8 JSON") from exc
+            if isinstance(legacy, dict) and "platforms" in legacy:
+                frontmatter["platforms"] = legacy["platforms"]
         return cls(
             root=base,
             manifest=_build_manifest(frontmatter),
@@ -221,10 +231,16 @@ def _build_manifest(frontmatter: Mapping[str, Any]) -> SkillManifest:
     platform_label = frontmatter.get("platform_label")
     if platform_label is not None and not isinstance(platform_label, str):
         raise SkillPackageError("frontmatter 'platform_label' must be a string")
+    platforms = frontmatter.get("platforms", [])
+    if not isinstance(platforms, list) or any(
+        not isinstance(key, str) or not key or key != key.strip() for key in platforms
+    ):
+        raise SkillPackageError("frontmatter 'platforms' must be a list of platform keys")
     return SkillManifest(
         name=_catalog_field(name, "name", MAX_NAME_BYTES),
         description=_catalog_field(description, "description", MAX_DESCRIPTION_BYTES),
         execution=_execution_mode(frontmatter.get("execution")),
+        platforms=tuple(dict.fromkeys(platforms)),
         platform_label=(
             None
             if platform_label is None

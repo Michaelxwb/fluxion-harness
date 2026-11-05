@@ -10,7 +10,28 @@ import pytest
 from muad_api import AppError
 from muad_console_platform.infrastructure import skill_validator
 
-from console_skill.packages import demo_package, skill_md
+from console_skill.packages import demo_package, skill_md, zip_bytes
+
+
+def test_import_preserves_platform_declaration() -> None:
+    data = zip_bytes({"SKILL.md": "---\nname: demo\ndescription: demo\nplatforms: [mssp]\n---\n"})
+    with skill_validator.validated_package(data) as package:
+        assert package.frontmatter["platforms"] == ["mssp"]
+
+
+def test_import_preserves_legacy_manifest_platforms() -> None:
+    data = zip_bytes(
+        {"SKILL.md": skill_md(), "muad.skill.json": '{"platforms": ["mssp"]}'}
+    )
+    with skill_validator.validated_package(data) as package:
+        assert package.frontmatter["platforms"] == ["mssp"]
+
+
+@pytest.mark.parametrize("platforms", ["mssp", "[null]", "[' mssp']"])
+def test_import_rejects_invalid_platform_declaration(platforms: str) -> None:
+    data = zip_bytes({"SKILL.md": f"---\nname: demo\ndescription: demo\nplatforms: {platforms}\n---\n"})
+    with pytest.raises(AppError), skill_validator.validated_package(data):
+        pass
 
 
 def _zip_deflated(files: dict[str, bytes]) -> bytes:

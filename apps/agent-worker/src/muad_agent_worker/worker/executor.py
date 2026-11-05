@@ -220,38 +220,4 @@ def task_platform_context(task: TaskExecution, skill: Mapping[str, Any]) -> Skil
         redis_mode=settings.redis_mode,
         redis_cluster_seeds=settings.redis_cluster_seeds,
         service_token=settings.internal_service_token,
-        audit=TaskPlatformAudit(task),
     )
-
-
-class TaskPlatformAudit:
-    def __init__(self, task: TaskExecution) -> None:
-        self.tenant_id, self.task_id = task.tenant_id, task.id
-
-    async def record_egress(
-        self,
-        *,
-        target_type: str,
-        target: str,
-        policy_decision: str,
-        method: str | None = None,
-        error_code: str | None = None,
-    ) -> None:
-        from ..application.task_events import TaskEventType, append_event
-        from ..infrastructure.db import get_session_factory
-
-        async with get_session_factory()() as session:
-            await append_event(
-                session,
-                tenant_id=self.tenant_id,
-                task_id=self.task_id,
-                event_type=TaskEventType.PLATFORM_REQUEST,
-                payload={
-                    "target_type": target_type,
-                    "target": target,
-                    "policy_decision": policy_decision,
-                    "method": method,
-                    "error_code": error_code,
-                },
-            )
-            await session.commit()
