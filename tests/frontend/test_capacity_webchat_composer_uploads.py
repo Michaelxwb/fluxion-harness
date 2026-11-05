@@ -43,6 +43,7 @@ FRONTEND = ROOT / "apps/console-platform/frontend"
 SRC = FRONTEND / "src"
 MODULE = SRC / "modules/webchat"
 COMPOSER_TSX = MODULE / "components/ChatComposer.tsx"
+COMPOSER_PASTE_TS = MODULE / "composerPaste.ts"
 PENDING_TS = MODULE / "hooks/usePendingSend.ts"
 SHELL_TSX = MODULE / "components/WebchatShell.tsx"
 THREAD_TSX = MODULE / "components/MessageThread.tsx"
@@ -103,6 +104,7 @@ REQUIRED_KEYS = (
     "chat.composer.hint.files",
     "chat.composer.hint.size",
     "chat.composer.hint.text",
+    "chat.composer.hint.paste",
     "chat.composer.error.empty",
     "chat.composer.error.entryRequired",
     "chat.composer.error.conversationRequired",
@@ -164,6 +166,7 @@ export * from '__STATE__';
 export * from '__CONFIG__';
 export * from '__SERVICE__';
 export * from '__TYPES__';
+export * from '__PASTE__';
 export { api } from '__CLIENT__';
 export { setChatContextId, chatContextForScope } from '__AUTH_SCOPE__';
 """
@@ -191,7 +194,8 @@ const {
   precheckSendInput,
   expiredStagedUploadIds,
   pendingSendErrorKey,
-  isUnknownSendOutcome
+  isUnknownSendOutcome,
+  clipboardFiles
 } = mod;
 
 const CONTEXT_A = '__CONTEXT_A__';
@@ -770,6 +774,25 @@ const obs = {};
   };
 }
 
+{
+  const pasted = { name: 'pasted.png', size: 3, type: 'image/png' };
+  obs.paste = {
+    items: clipboardFiles({
+      items: [{ kind: 'file', getAsFile: () => pasted }],
+      files: [pasted]
+    }).map((file) => file.name),
+    fallback: clipboardFiles({
+      items: [{ kind: 'string', getAsFile: () => null }],
+      files: [pasted]
+    }).map((file) => file.name),
+    textOnly: clipboardFiles({
+      items: [{ kind: 'string', getAsFile: () => null }],
+      files: []
+    }),
+    empty: clipboardFiles(null)
+  };
+}
+
 console.log(JSON.stringify(obs));
 """
 
@@ -1146,6 +1169,7 @@ def composer_logic(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
         .replace("__CONFIG__", str(CLIENT_CONFIG_TS))
         .replace("__SERVICE__", str(SERVICE_TS))
         .replace("__TYPES__", str(TYPES_TS))
+        .replace("__PASTE__", str(COMPOSER_PASTE_TS))
         .replace("__CLIENT__", str(CLIENT_TS))
         .replace("__AUTH_SCOPE__", str(AUTH_SCOPE_TS)),
         encoding="utf-8",
@@ -1494,6 +1518,18 @@ def test_b281_upload_failure_retries_the_same_attempt(composer_logic: dict[str, 
 # --------------------------------------------------------------------------- 真实组件渲染
 
 
+def test_b281_clipboard_files_are_extracted_from_items_or_files(
+    composer_logic: dict[str, Any],
+) -> None:
+    """粘贴图片走附件通道：items 优先、无文件项回退 files、纯文本/空剪贴板不产生附件。"""
+    assert composer_logic["paste"] == {
+        "items": ["pasted.png"],
+        "fallback": ["pasted.png"],
+        "textOnly": [],
+        "empty": [],
+    }
+
+
 def test_b281_composer_renders_text_files_progress_and_projection_limits(
     composer_render: dict[str, Any],
 ) -> None:
@@ -1521,6 +1557,7 @@ def test_b281_composer_renders_text_files_progress_and_projection_limits(
     assert f"最多 {UPLOAD_MAX_PER_MESSAGE} 个附件" in hints, "数量上限来自 API-19 投影"
     assert "3.0 KB" in hints, "单件大小上限来自 API-19 投影"
     assert f"{TEXT_MAX_BYTES} 字节" in hints, "文本字节上限来自 API-19 投影"
+    assert "支持直接粘贴图片" in hints, "粘贴上传提示可见"
     assert 'data-testid="chat-composer-send"' in markup
     assert not _is_disabled(markup, "chat-composer-send"), "有内容时可发送"
     assert 'data-testid="chat-composer-error"' not in markup
@@ -1679,6 +1716,15 @@ def test_b281_composer_and_hook_compile_and_keep_module_boundaries(
     )
     assert "newRequestId" in pending_source, "消息号沿用共享传输的 ID 生成器"
     assert "registerIdentityCleanup" in pending_source, "身份边界清空尝试与输入（TASK-074）"
+
+
+def test_b281_composer_wires_clipboard_paste_to_the_attachment_channel() -> None:
+    """粘贴图片必须交给 `onAddFiles`，不能作为正文/HTML 插入；文本粘贴保持原样。"""
+    source = _read(COMPOSER_TSX)
+    assert "clipboardFiles(event.clipboardData)" in source
+    assert "onPaste={handlePaste}" in source
+    assert "event.preventDefault()" in source
+    assert "props.onAddFiles(files)" in source
 
 
 def test_b281_composer_keys_are_localized_on_both_sides() -> None:

@@ -20,6 +20,7 @@
  */
 
 import { Button } from '@douyinfe/semi-ui';
+import { IconInfoCircle } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../../components/common/DateTimeText';
@@ -334,7 +335,7 @@ interface ConfirmationOptionListProps {
 function ConfirmationOptionList(props: ConfirmationOptionListProps) {
   return (
     <ul className="chat-confirmation-options">
-      {props.options.map((option) => (
+      {props.options.map((option, index) => (
         <li
           key={option.value}
           className="chat-confirmation-option"
@@ -343,6 +344,7 @@ function ConfirmationOptionList(props: ConfirmationOptionListProps) {
         >
           <Button
             size="small"
+            theme={index === 0 ? 'solid' : 'light'}
             className="chat-confirmation-choose"
             data-testid="chat-confirmation-choose"
             disabled={props.locked}
@@ -410,6 +412,10 @@ export function ConfirmationCard(props: ConfirmationCardProps) {
       data-expired={expired ? 'true' : 'false'}
       aria-label={t('chat.run.confirm.label')}
     >
+      <div className="chat-confirmation-heading">
+        <span className="chat-confirmation-icon" aria-hidden="true"><IconInfoCircle /></span>
+        <h3>{t('chat.run.confirm.label')}</h3>
+      </div>
       <p className="chat-confirmation-prompt" data-testid="chat-confirmation-prompt">
         {confirmation.prompt}
       </p>

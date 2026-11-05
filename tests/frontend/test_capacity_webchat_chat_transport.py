@@ -56,6 +56,15 @@ SEMI_STUB = """export const Toast = {
 
 TRANSPORT_ENTRY = """export * from '{client}';
 export * from '{auth_scope}';
+export {{ getPlatform, getAdapters }} from '{src}/modules/project-platform/services/platforms';
+export {{ listUsers as listPlatformUsers }} from '{src}/modules/project-platform/services/platforms';
+export {{ getSkill, listSkills }} from '{src}/modules/skill-management/services/skills';
+export {{ getMcpServer }} from '{src}/modules/mcp-management/services/mcpServers';
+export {{ listModels }} from '{src}/modules/model-management/services/models';
+export {{ listUsers, listAgentsForPicker }} from '{src}/modules/user-identity/services/users';
+export {{ getAgent }} from '{src}/modules/agent-management/services/agents';
+export {{ listQuotaGroups }} from '{src}/modules/model-management/services/modelCredentials';
+export {{ getFamily, getRunLearningDiagnostics }} from '{src}/modules/learning/services/learning';
 """
 
 HARNESS_JS = """
@@ -91,7 +100,7 @@ api.defaults.adapter = async (config) => {
     throw error;
   }
   return {
-    data: {
+    data: response.data ?? {
       code: '0',
       msg: 'ok',
       data: null,
@@ -200,6 +209,67 @@ observations.chatMeProbe = {
   notifications: chatUnauthorizedEvents.length
 };
 
+// 错误提示分层：GET 由页面 ErrorState 负责，写操作才全局 Tip；errorTip 可显式覆盖。
+window.location.pathname = '/agents';
+window.location.search = '';
+reset();
+response = { status: 500, data: { code: 'COMMON_INTERNAL_ERROR', msg: '读取失败' } };
+await capture(api.get('/agents'));
+observations.getErrorTip = { toasts: [...toasts] };
+
+reset();
+response = { status: 500, data: { code: 'COMMON_INTERNAL_ERROR', msg: '保存失败' } };
+await capture(api.post('/agents', {}));
+observations.postErrorTip = { toasts: [...toasts] };
+
+reset();
+response = { status: 500, data: { code: 'COMMON_INTERNAL_ERROR', msg: '下载失败' } };
+await capture(api.get('/agents', { errorTip: 'always' }));
+observations.getAlwaysTip = { toasts: [...toasts] };
+
+reset();
+response = { status: 500, data: { code: 'COMMON_INTERNAL_ERROR', msg: '静默失败' } };
+await capture(api.post('/agents', {}, { errorTip: 'never' }));
+observations.postNeverTip = { toasts: [...toasts] };
+
+reset();
+response = { status: 200, data: { code: 'COMMON_INTERNAL_ERROR', msg: '读取失败-envelope' } };
+await capture(api.get('/agents'));
+observations.getEnvelopeTip = { toasts: [...toasts] };
+
+reset();
+response = { status: 200, data: { code: 'COMMON_INTERNAL_ERROR', msg: '保存失败-envelope' } };
+await capture(api.post('/agents', {}));
+observations.postEnvelopeTip = { toasts: [...toasts] };
+
+observations.actionReads = [];
+const actionReads = [
+  ['getPlatform', (options) => mod.getPlatform('platform', options)],
+  ['getAdapters', (options) => mod.getAdapters(options)],
+  ['getSkill', (options) => mod.getSkill('skill', options)],
+  ['listSkills', (options) => mod.listSkills({ page: 1, page_size: 20 }, options)],
+  ['getMcpServer', (options) => mod.getMcpServer('mcp', options)],
+  ['listModels', (options) => mod.listModels({ page: 1, page_size: 20 }, options)],
+  ['listUsers', (options) => mod.listUsers({ page: 1, page_size: 20 }, options)],
+  ['listPlatformUsers', (options) => mod.listPlatformUsers({ page: 1, page_size: 20 }, options)],
+  ['getAgent', (options) => mod.getAgent('agent', options)],
+  ['listQuotaGroups', (options) => mod.listQuotaGroups(options)],
+  ['getFamily', (options) => mod.getFamily('family', options)],
+  ['getRunLearningDiagnostics', (options) => mod.getRunLearningDiagnostics('run', options)],
+  ['listAgentsForPicker', (options) => mod.listAgentsForPicker(options)]
+];
+for (const [name, read] of actionReads) {
+  for (const status of [200, 500]) {
+    for (const mode of ['auto', 'always']) {
+      reset();
+      const msg = `load failed: ${name}/${status}/${mode}`;
+      response = { status, data: { code: 'COMMON_INTERNAL_ERROR', msg } };
+      const rejected = await capture(read({ errorTip: mode }));
+      observations.actionReads.push({ name, status, mode, msg, rejected, toasts: [...toasts] });
+    }
+  }
+}
+
 observations.scopes = [
   '/chat',
   '/chat/',
@@ -256,7 +326,7 @@ def _run_transport_harness(tmp_path: Path) -> dict[str, Any]:
 
     (tmp_path / "semi-stub.mjs").write_text(SEMI_STUB, encoding="utf-8")
     (tmp_path / "entry.ts").write_text(
-        TRANSPORT_ENTRY.format(client=CLIENT_TS, auth_scope=AUTH_SCOPE_TS), encoding="utf-8"
+        TRANSPORT_ENTRY.format(client=CLIENT_TS, auth_scope=AUTH_SCOPE_TS, src=SRC), encoding="utf-8"
     )
     (tmp_path / "harness.mjs").write_text(HARNESS_JS, encoding="utf-8")
 
@@ -340,6 +410,20 @@ def test_real_transport_console_401_keeps_the_management_login_behaviour(
     assert login401["toasts"] == ["用户名或密码错误"], "登录失败文案仍由统一 Toast 提供"
 
 
+def test_real_transport_error_tips_follow_action_vs_page_ownership(
+    transport: dict[str, Any],
+) -> None:
+    """GET 的加载失败由页面 ErrorState 承担；写操作才全局 Tip；errorTip 可显式覆盖。"""
+    assert transport["getErrorTip"]["toasts"] == [], "GET 失败不得叠加全局轻提示"
+    assert transport["postErrorTip"]["toasts"] == ["保存失败"], "写操作失败保留全局轻提示"
+    assert transport["getAlwaysTip"]["toasts"] == ["下载失败"], "GET 动作可显式要求轻提示"
+    assert transport["postNeverTip"]["toasts"] == [], "页面自展示的写操作可显式关闭轻提示"
+    assert transport["getEnvelopeTip"]["toasts"] == [], "封套 code 失败同样按 GET 规则处理"
+    assert transport["postEnvelopeTip"]["toasts"] == ["保存失败-envelope"], (
+        "封套 code 失败在写操作上保留轻提示"
+    )
+
+
 def test_real_transport_session_probe_failures_do_not_toast(transport: dict[str, Any]) -> None:
     console_me = transport["consoleMeProbe"]
     assert console_me["toasts"] == [], "启动期 /auth/me 探测失败不得弹 Toast"
@@ -349,6 +433,23 @@ def test_real_transport_session_probe_failures_do_not_toast(transport: dict[str,
     assert chat_me["toasts"] == [], "CHAT /webchat/auth/me 探测失败不得弹启动 Toast"
     assert chat_me["redirects"] == [], "CHAT 会话探测失败不得跳 Console 登录"
     assert chat_me["notifications"] >= 1, "CHAT 会话探测失败必须通知认证层"
+
+
+@pytest.mark.parametrize("name", [
+    "getPlatform", "getAdapters", "getSkill", "listSkills", "getMcpServer",
+    "listModels", "listUsers", "listPlatformUsers", "listAgentsForPicker",
+    "getAgent", "listQuotaGroups", "getFamily", "getRunLearningDiagnostics",
+])
+@pytest.mark.parametrize("status", [200, 500])
+def test_action_read_services_forward_the_explicit_error_tip_policy(
+    transport: dict[str, Any], name: str, status: int,
+) -> None:
+    observations = [item for item in transport["actionReads"]
+                    if item["name"] == name and item["status"] == status]
+    assert len(observations) == 2
+    for item in observations:
+        assert item["rejected"] is not None, "请求失败仍应交给调用方保留界面状态"
+        assert item["toasts"] == ([item["msg"]] if item["mode"] == "always" else [])
 
 
 def test_real_auth_scope_resolution_covers_chat_route_only(transport: dict[str, Any]) -> None:

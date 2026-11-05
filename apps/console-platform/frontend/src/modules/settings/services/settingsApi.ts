@@ -6,7 +6,7 @@
  * （RULE-front-001）。错误码与字段级错误的提取也只在这里，供 hook 映射到 UI 状态。
  */
 
-import { api, apiErrorBody, type ApiResponse } from '../../../api/client';
+import { api, apiErrorBody, type ApiResponse, type RequestOptions } from '../../../api/client';
 import type {
   AppliesTo,
   PlatformSettingsSnapshot,
@@ -161,14 +161,21 @@ export async function getPlatformSettings(): Promise<PlatformSettingsSnapshot> {
 }
 
 /** 保存整份设置文档（API-02，admin + CSRF）；乐观并发靠 `revision`。 */
-export async function savePlatformSettings(payload: {
-  revision: number;
-  settings: SettingsValues;
-}): Promise<SaveSettingsResult> {
-  const response = await api.put<ApiResponse<RawSaveResult>>('/platform-settings', {
-    revision: payload.revision,
-    settings: payload.settings
-  });
+export async function savePlatformSettings(
+  payload: {
+    revision: number;
+    settings: SettingsValues;
+  },
+  options: RequestOptions = {}
+): Promise<SaveSettingsResult> {
+  const response = await api.put<ApiResponse<RawSaveResult>>(
+    '/platform-settings',
+    {
+      revision: payload.revision,
+      settings: payload.settings
+    },
+    options
+  );
   const data = unwrap(response.data);
   return { revision: data.revision, settings: data.settings };
 }

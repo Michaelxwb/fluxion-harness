@@ -1,4 +1,4 @@
-import { api, type ApiResponse } from '../../../api/client';
+import { api, type ApiResponse, type RequestOptions } from '../../../api/client';
 
 export interface Page<T> {
   items: T[];
@@ -101,13 +101,14 @@ export async function listPlatforms(params: {
   return unwrap(await api.get<ApiResponse<Page<PlatformItem>>>('/project-platforms', { params }));
 }
 
-export async function getPlatform(platformId: string): Promise<PlatformItem> {
-  return unwrap(await api.get<ApiResponse<PlatformItem>>(`/project-platforms/${platformId}`));
+export async function getPlatform(platformId: string, options: RequestOptions = {}): Promise<PlatformItem> {
+  return unwrap(await api.get<ApiResponse<PlatformItem>>(`/project-platforms/${platformId}`, options));
 }
 
-export async function getAdapters(): Promise<Page<AdapterMetadata>> {
+export async function getAdapters(options: RequestOptions = {}): Promise<Page<AdapterMetadata>> {
   return unwrap(
     await api.get<ApiResponse<Page<AdapterMetadata>>>('/platform-adapters', {
+      ...options,
       params: { page_size: 100 }
     })
   );
@@ -119,20 +120,25 @@ export async function getAdapter(adapterKey: string): Promise<AdapterMetadata> {
   );
 }
 
-export async function createPlatform(input: PlatformSaveInput): Promise<{ platform_id: string }> {
+export async function createPlatform(
+  input: PlatformSaveInput,
+  options: RequestOptions = {}
+): Promise<{ platform_id: string }> {
   return unwrap(
-    await api.post<ApiResponse<{ platform_id: string }>>('/project-platforms', input)
+    await api.post<ApiResponse<{ platform_id: string }>>('/project-platforms', input, options)
   );
 }
 
 export async function updatePlatform(
   platformId: string,
-  input: Partial<PlatformSaveInput>
+  input: Partial<PlatformSaveInput>,
+  options: RequestOptions = {}
 ): Promise<{ platform_id: string; credential_reconfigure_required: boolean }> {
   return unwrap(
     await api.put<ApiResponse<{ platform_id: string; credential_reconfigure_required: boolean }>>(
       `/project-platforms/${platformId}`,
-      input
+      input,
+      options
     )
   );
 }
@@ -143,12 +149,14 @@ export async function deletePlatform(platformId: string): Promise<void> {
 
 export async function testPlatform(
   platformId: string,
-  input: PlatformTestInput = {}
+  input: PlatformTestInput = {},
+  options: RequestOptions = {}
 ): Promise<PlatformTestResult> {
   return unwrap(
     await api.post<ApiResponse<PlatformTestResult>>(
       `/project-platforms/${platformId}/test`,
-      input
+      input,
+      options
     )
   );
 }
@@ -179,12 +187,14 @@ export async function getUserCredential(
 export async function saveUserCredential(
   platformId: string,
   userId: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  options: RequestOptions = {}
 ): Promise<{ status: string; credential_schema_version: string }> {
   return unwrap(
     await api.put<ApiResponse<{ status: string; credential_schema_version: string }>>(
       `/project-platforms/${platformId}/users/${userId}/credential`,
-      input
+      input,
+      options
     )
   );
 }
@@ -199,12 +209,14 @@ export async function getSharedCredential(platformId: string): Promise<Credentia
 
 export async function saveSharedCredential(
   platformId: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  options: RequestOptions = {}
 ): Promise<{ status: string; credential_schema_version: string }> {
   return unwrap(
     await api.put<ApiResponse<{ status: string; credential_schema_version: string }>>(
       `/project-platforms/${platformId}/shared-credential`,
-      input
+      input,
+      options
     )
   );
 }
@@ -217,6 +229,6 @@ export async function listUsers(params: {
   page?: number;
   page_size?: number;
   keyword?: string;
-}): Promise<Page<UserSummary>> {
-  return unwrap(await api.get<ApiResponse<Page<UserSummary>>>('/users', { params }));
+}, options: RequestOptions = {}): Promise<Page<UserSummary>> {
+  return unwrap(await api.get<ApiResponse<Page<UserSummary>>>('/users', { ...options, params }));
 }

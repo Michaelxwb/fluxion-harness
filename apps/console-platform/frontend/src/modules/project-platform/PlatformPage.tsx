@@ -82,7 +82,7 @@ export function PlatformPage() {
   }, [reload]);
 
   useEffect(() => {
-    getAdapters()
+    getAdapters({ errorTip: 'always' })
       .then((page) => setAdapters(page.items))
       .catch(() => setAdapters([]));
   }, []);
@@ -104,7 +104,7 @@ export function PlatformPage() {
 
   const openEdit = async (platform: PlatformItem): Promise<void> => {
     try {
-      setFormPlatform(await getPlatform(platform.platform_id));
+      setFormPlatform(await getPlatform(platform.platform_id, { errorTip: 'always' }));
       setFormVisible(true);
     } catch {
       // ApiClient displays the request failure; keep the modal closed.

@@ -1,4 +1,4 @@
-import { Banner, Form, Toast } from '@douyinfe/semi-ui';
+import { Banner, Form } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -40,7 +40,7 @@ export function AgentFormModal(props: AgentFormModalProps) {
     if (!props.visible) {
       return;
     }
-    listModels({ page: 1, page_size: 100, enabled: 'true' })
+    listModels({ page: 1, page_size: 100, enabled: 'true' }, { errorTip: 'always' })
       .then((page) => {
         setModels(page.items.map((model) => ({ value: model.id, label: `${model.name}（${model.model_id}）` })));
         // 创建模式默认选中第一个启用模型（异步列表无法用 initValue）
@@ -77,14 +77,18 @@ export function AgentFormModal(props: AgentFormModalProps) {
     setFormError(null);
     try {
       if (props.agent) {
-        await updateAgent(props.agent.id, {
-          expected_revision: props.agent.revision,
-          name: values.name,
-          description: values.description ?? '',
-          instructions: values.instructions,
-          model_id: values.model_id,
-          enabled: values.enabled === 'true'
-        });
+        await updateAgent(
+          props.agent.id,
+          {
+            expected_revision: props.agent.revision,
+            name: values.name,
+            description: values.description ?? '',
+            instructions: values.instructions,
+            model_id: values.model_id,
+            enabled: values.enabled === 'true'
+          },
+          { errorTip: 'never' }
+        );
       } else {
         await createAgent(
           {
@@ -95,7 +99,8 @@ export function AgentFormModal(props: AgentFormModalProps) {
             model_id: values.model_id,
             enabled: values.enabled === 'true'
           },
-          newRequestId()
+          newRequestId(),
+          { errorTip: 'never' }
         );
       }
       props.onSaved();

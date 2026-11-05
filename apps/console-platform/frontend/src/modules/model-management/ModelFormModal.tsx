@@ -101,8 +101,12 @@ export function ModelFormModal(props: ModelFormModalProps) {
     const formValues = toFormValues(values);
     try {
       const saved = props.model
-        ? await updateModel(props.model.id, buildModelUpdateInput(props.model, formValues))
-        : await createModel(buildModelCreateInput(formValues));
+        ? await updateModel(
+            props.model.id,
+            buildModelUpdateInput(props.model, formValues),
+            { errorTip: 'never' }
+          )
+        : await createModel(buildModelCreateInput(formValues), { errorTip: 'never' });
       props.onSaved(saved);
     } catch (error) {
       // 输入边界与冲突码都落到表单内提示；表单保持打开供用户修正后重试

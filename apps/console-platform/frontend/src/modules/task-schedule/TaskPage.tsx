@@ -135,7 +135,7 @@ export function TaskPage() {
   const agentPicker = usePickerOptions(
     useCallback(
       () =>
-        listAgentsForPicker().then((page) =>
+        listAgentsForPicker({ errorTip: 'always' }).then((page) =>
           page.items.map((agent) => ({ value: agent.id, label: `${agent.name} (${agent.key})` }))
         ),
       []
@@ -144,7 +144,7 @@ export function TaskPage() {
   const actorPicker = usePickerOptions(
     useCallback(
       () =>
-        listUsers({ page: 1, page_size: PICKER_PAGE_SIZE }).then((page) =>
+        listUsers({ page: 1, page_size: PICKER_PAGE_SIZE }, { errorTip: 'always' }).then((page) =>
           page.items.map((user) => ({
             value: user.id,
             label: `${user.display_name} (${user.user_code})`
@@ -156,7 +156,7 @@ export function TaskPage() {
   const skillPicker = usePickerOptions(
     useCallback(
       () =>
-        listSkills({ page: 1, page_size: PICKER_PAGE_SIZE }).then((page) =>
+        listSkills({ page: 1, page_size: PICKER_PAGE_SIZE }, { errorTip: 'always' }).then((page) =>
           page.items.map((skill) => ({ value: skill.id, label: `${skill.name} (${skill.key})` }))
         ),
       []

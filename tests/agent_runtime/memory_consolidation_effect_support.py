@@ -71,7 +71,7 @@ async def seed_admin(factory, run, *, key="infer.color"):
     return await MemoryService(factory).execute(admin_context(run), command(upsert(key=key)))
 
 
-async def seed_author(factory, run, author):
+async def seed_author(factory, run, author, *, key="infer.color", value="blue"):
     from muad_contracts.memory import MemorySourceEvidence
 
     async with factory() as session:
@@ -93,7 +93,7 @@ async def seed_author(factory, run, author):
             source_scope_revision=event.payload_json["source_scope_revision"],
         ),
     )
-    return await MemoryService(factory).execute(ctx, command(upsert(key="infer.color")))
+    return await MemoryService(factory).execute(ctx, command(upsert(key=key, value=value)))
 
 
 async def current_revision(factory, run):

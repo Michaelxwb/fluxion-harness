@@ -7,6 +7,7 @@ from datetime import timedelta
 
 from muad_contracts import ResolvedAgent
 from muad_contracts.memory import (
+    MemoryCandidate,
     MemoryCategory,
     MemoryRetirementReason,
     MemorySourceEvidence,
@@ -137,8 +138,8 @@ async def apply_batch(
         max_candidates=ctx.settings.consolidation_max_candidates,
         credential_canaries=credential_canaries,
     )
-    mutations = await _mutations(session, job, payload, checked, ctx)
-    return await _write(session, job, claim, ctx, checked, mutations)
+    mutations, duplicates = await _mutations(session, job, payload, checked, ctx)
+    return await _write(session, job, claim, ctx, checked, mutations, duplicates)
 
 
 async def _context(
@@ -194,24 +195,16 @@ async def _mutations(
     payload: ConsolidationInput,
     batch: ConsolidationBatch,
     ctx: MemoryWriteContext,
-) -> list[MemoryMutation]:
+) -> tuple[list[MemoryMutation], int]:
     versions = {row["memory_key"]: row["version"] for row in payload.memory_constraints}
-    keys = {candidate.memory_key for candidate in batch.candidates}
     root_key = payload.resume_ref.memory_key if payload.resume_ref else task_memory_key(job.conversation_id)
-    if batch.task_completed:
-        keys.add(root_key)
-    rows = {
-        row.memory_key: row
-        for row in await session.scalars(
-            select(UserMemory).where(
-                UserMemory.tenant_id == job.tenant_id,
-                UserMemory.user_id == job.user_id,
-                UserMemory.memory_key.in_(keys),
-            )
-        )
-    }
+    rows = await _candidate_rows(session, job, batch, root_key)
     mutations: list[MemoryMutation] = []
+    duplicates = 0
     for candidate in batch.candidates:
+        if _duplicates_base_fact(candidate, rows):
+            duplicates += 1
+            continue
         version = versions.get(candidate.memory_key)
         row = rows.get(candidate.memory_key)
         # Stable scope revision proves a retired row has not changed since input was frozen.
@@ -228,7 +221,50 @@ async def _mutations(
         retirement = _completion(row, expected, ctx)
         if retirement is not None:
             mutations.append(retirement)
-    return mutations
+    return mutations, duplicates
+
+
+async def _candidate_rows(
+    session: AsyncSession, job: MemoryConsolidationJob, batch: ConsolidationBatch, root_key: str
+) -> dict[str, UserMemory]:
+    keys = {candidate.memory_key for candidate in batch.candidates}
+    base_keys = {
+        candidate.memory_key.removeprefix("infer.")
+        for candidate in batch.candidates
+        if candidate.memory_key.startswith("infer.") and candidate.memory_key != "infer."
+    }
+    if batch.task_completed:
+        keys.add(root_key)
+    return {
+        row.memory_key: row
+        for row in await session.scalars(
+            select(UserMemory).where(
+                UserMemory.tenant_id == job.tenant_id,
+                UserMemory.user_id == job.user_id,
+                UserMemory.memory_key.in_(keys | base_keys),
+            )
+        )
+    }
+
+
+def _duplicates_base_fact(
+    candidate: MemoryCandidate, rows: dict[str, UserMemory]
+) -> bool:
+    """省略重复新增和无变化副本；已有不同值仍交给统一 writer 校验并更新。"""
+    prefix = "infer."
+    key = candidate.memory_key
+    if not key.startswith(prefix) or len(key) == len(prefix):
+        return False
+    base = rows.get(key[len(prefix) :])
+    if base is None:
+        return False
+    existing = rows.get(key)
+    content = candidate.content.model_dump(mode="json")
+    if existing is not None and (
+        existing.category != candidate.category.value or existing.content_json != content
+    ):
+        return False
+    return base.category == candidate.category.value and base.content_json == content
 
 
 def _completion(
@@ -263,13 +299,15 @@ async def _write(
     ctx: MemoryWriteContext,
     batch: ConsolidationBatch,
     mutations: list[MemoryMutation],
+    duplicates: int,
 ) -> dict[str, JsonValue]:
     if not mutations:
         return await finish_job(
             session,
             job,
             status="SKIPPED",
-            reason="POLICY" if batch.task_completed else "NO_CANDIDATES",
+            reason="POLICY" if (batch.task_completed or duplicates) else "NO_CANDIDATES",
+            skipped=duplicates,
             candidates=len(batch.candidates),
         )
     outcome = await MemoryService().execute_in_session(
@@ -285,7 +323,7 @@ async def _write(
     written = sum(
         item.status in {"CREATED", "UPDATED", "RESTORED", "RETIRED"} for item in outcome.response.items
     )
-    skipped = sum(item.status == "SKIPPED" for item in outcome.response.items)
+    skipped = sum(item.status == "SKIPPED" for item in outcome.response.items) + duplicates
     if not owns(job, claim, await database_now(session)):
         raise ConsolidationFenced()
     return await finish_job(

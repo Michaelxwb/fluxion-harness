@@ -8,15 +8,18 @@ from dataclasses import dataclass
 from typing import Any
 
 from muad_agent_core.context.summary import summary_from_payload, summary_message
-from muad_agent_core.model.provider import ModelMessage, ModelRole, ModelToolCall
+from muad_agent_core.model.provider import ModelMessage, ModelRole, ModelToolCall, text_of
 from muad_contracts.platform_settings import default_compaction_settings
+from pydantic import JsonValue
 from sqlalchemy import select, true
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactoryProvider
 from ..infrastructure.models.runtime import Artifact, CanonicalEvent, Conversation
 from .attachments.inbound import attachments_from_payload, render_attachment_reference
 from .attachments.tool_results import reference_payload
 from .context_events import covered_up_to, latest_summary
+from .memory_confirmation_outcome import confirmation_context_note
 
 HISTORY_EVENT_TYPES = (
     "USER_MESSAGE",
@@ -28,6 +31,7 @@ HISTORY_EVENT_TYPES = (
     "BACKGROUND_RESULT",
     "TOOL_SUBMISSION_FAILED",
 )
+
 
 @dataclass(frozen=True, slots=True)
 class BudgetPolicy:
@@ -143,7 +147,7 @@ class DbBackedContextBuilder:
 
     async def _to_messages(
         self,
-        session: Any,
+        session: AsyncSession,
         tenant_id: str,
         events: list[CanonicalEvent],
         max_history_tool_rounds: int,
@@ -151,114 +155,7 @@ class DbBackedContextBuilder:
         references = await self._artifact_references(
             session, tenant_id, [event.artifact_id for event in events if event.artifact_id]
         )
-
-        # 只有被 `ASSISTANT_TURN` **声明过**的工具调用才进历史。缺了这层校验，历史里会出现
-        # 「孤儿 tool 消息」（前面没有任何 assistant `tool_calls`），供应商会直接拒绝**整个**
-        # 请求 —— 实测：`Messages with role 'tool' must be a response to a preceding message
-        # with 'tool_calls'`。本事件类型上线前的存量会话全是这种孤儿，故一律跳过（丢那几轮
-        # 的工具上下文，换取会话立刻可用）。
-        #
-        # `answered` 是这层校验的**反向**：assistant 声明了、但库里没有对应 `TOOL_CALL` 行的
-        # 调用不能回放。中断/取消打断一个多工具回合、或工具预算耗尽时，声明已经落库而结果没有，
-        # 整份回放就得到「声明 2 个、只答 1 个」的请求 —— 同一类形状问题，供应商同样会拒整个请求
-        # （2026-10-06 review）。声明与结果必须成对：成不了对的那条声明整条丢掉，与
-        # `compactor.split_groups` 的孤儿口径同源。
-        declared: set[str] = set()
-        answered: set[str] = set()
-        for event in events:
-            payload = event.payload_json or {}
-            if event.event_type == "ASSISTANT_TURN":
-                for call in payload.get("tool_calls") or []:
-                    if isinstance(call, dict) and isinstance(call.get("id"), str):
-                        declared.add(call["id"])
-            elif event.event_type == "TOOL_CALL":
-                call_id = payload.get("tool_call_id")
-                if isinstance(call_id, str):
-                    answered.add(call_id)
-
-        # round_no 标记「属于哪个 tool 回合」；0 = 与工具无关的普通消息（永远保留）
-        entries: list[tuple[int, ModelMessage]] = []
-        round_no = 0
-        awaiting: set[str] = set()
-        external_pending: list[ModelMessage] = []
-        for event in events:
-            payload = event.payload_json or {}
-            if event.event_type == "USER_MESSAGE":
-                # 历史轮次的附件**只留文本引用**（设计 AD-3-B）：全量重发旧图会让请求体随
-                # 轮次线性膨胀，而多数轮次根本用不到它。模型要重看得主动调附件工具。
-                reference = render_attachment_reference(attachments_from_payload(payload.get("attachments")))
-                text = str(payload.get("text", ""))
-                entries.append(
-                    (
-                        0,
-                        ModelMessage(
-                            role=ModelRole.USER,
-                            content="\n".join(part for part in (text, reference) if part),
-                        ),
-                    )
-                )
-            elif event.event_type in ("TOOL_TASK_ACCEPTED", "BACKGROUND_RESULT", "TOOL_SUBMISSION_FAILED"):
-                from .async_tools.materialization import external_data
-
-                message = ModelMessage(role=ModelRole.USER, content=external_data(event.event_type, payload))
-                if awaiting:
-                    external_pending.append(message)
-                else:
-                    entries.append((0, message))
-            elif event.event_type in ("ASSISTANT_MESSAGE", "MEMORY_CONFIRMATION_RESOLVED"):
-                entries.append(
-                    (0, ModelMessage(role=ModelRole.ASSISTANT, content=str(payload.get("text", ""))))
-                )
-            elif event.event_type == "ASSISTANT_TURN":
-                # 只回放**真有结果落库**的调用（见上面 `answered` 的注释）：声明与 tool 结果
-                # 成不了对的那条声明整条丢弃，否则供应商会拒掉整个请求。
-                calls = tuple(call for call in _tool_calls(payload.get("tool_calls")) if call.id in answered)
-                if not calls:
-                    continue
-                awaiting = {call.id for call in calls}
-                round_no += 1
-                reasoning = payload.get("reasoning_content")
-                entries.append(
-                    (
-                        round_no,
-                        ModelMessage(
-                            role=ModelRole.ASSISTANT,
-                            content=str(payload.get("text") or ""),
-                            tool_calls=calls,
-                            reasoning_content=(
-                                reasoning if isinstance(reasoning, str) and reasoning else None
-                            ),
-                        ),
-                    )
-                )
-            elif event.event_type == "TOOL_CALL":
-                # 键名以事件 payload 为准：`tool_call_id` / `tool_name`（曾误读 `call_id` /
-                # `tool`，导致 tool 消息的 id 恒为 None —— 那正是「tool 消息配不上 assistant
-                # tool_calls」这个历史故障的根因；`tool` 那处还会把工具名显示成 None）。
-                call_id = payload.get("tool_call_id")
-                if not isinstance(call_id, str) or call_id not in declared:
-                    continue  # 孤儿 tool 消息：整条请求会因此被拒
-                # 外置过的结果按**当时发出去的那条引用 JSON** 还原（ADR-05）：模型据此既能
-                # 看到预览，也拿得到 `artifact_id` 去 `read_attachment`。没外置的按落库时那份
-                # **有界预览**还原（2026-10-06 review）：不落预览，这条结果过了一个 Run 就只剩
-                # 工具名，任务 id / 查询结论 / 短正文全部找不回来。
-                artifact_ref = references.get(event.artifact_id) if event.artifact_id else None
-                entries.append(
-                    (
-                        round_no,
-                        ModelMessage(
-                            role=ModelRole.TOOL,
-                            content=_tool_message_content(payload, artifact_ref),
-                            tool_call_id=call_id,
-                        ),
-                    )
-                )
-                awaiting.discard(call_id)
-                if not awaiting:
-                    entries.extend((0, message) for message in external_pending)
-                    external_pending.clear()
-
-        entries.extend((0, message) for message in external_pending)
+        entries = _history_entries(events, _paired_tool_results(events, references))
         keep = _kept_tool_rounds([value for value, _ in entries], max_history_tool_rounds)
         return [message for value, message in entries if value == 0 or value in keep]
 
@@ -267,7 +164,7 @@ class DbBackedContextBuilder:
         session: Any,
         tenant_id: str,
         artifact_ids: list[uuid.UUID],
-    ) -> dict[uuid.UUID, dict[str, Any]]:
+    ) -> dict[uuid.UUID, dict[str, JsonValue]]:
         """外置产物的完整引用（含落库时的头尾预览，**不再二次截断**）。
 
         重建要还原"当时发出去的那份"引用 JSON（ADR-05），而那份预览是 `preview_head_tail`
@@ -299,17 +196,125 @@ class DbBackedContextBuilder:
         }
 
 
-def _tool_calls(raw: Any) -> tuple[ModelToolCall, ...]:
+def _paired_tool_results(
+    events: list[CanonicalEvent], references: Mapping[uuid.UUID, dict[str, JsonValue]]
+) -> dict[int, dict[str, ModelMessage]]:
+    """按 Run 与声明轮次配对；跨轮可复用调用 ID，孤儿和重复结果不回放。"""
+    pending: dict[tuple[uuid.UUID | None, str], int] = {}
+    results: dict[int, dict[str, ModelMessage]] = {}
+    for event in events:
+        payload = event.payload_json or {}
+        if event.event_type == "ASSISTANT_TURN":
+            for call in _tool_calls(payload.get("tool_calls")):
+                pending[event.run_id, call.id] = event.seq
+        elif event.event_type == "TOOL_CALL":
+            call_id = payload.get("tool_call_id")
+            if not isinstance(call_id, str):
+                continue
+            turn_seq = pending.pop((event.run_id, call_id), None)
+            if turn_seq is None:
+                continue
+            artifact_ref = references.get(event.artifact_id) if event.artifact_id else None
+            results.setdefault(turn_seq, {})[call_id] = ModelMessage(
+                role=ModelRole.TOOL,
+                content=_tool_message_content(payload, artifact_ref),
+                tool_call_id=call_id,
+            )
+    return results
+
+
+def _history_entries(
+    events: list[CanonicalEvent], results: Mapping[int, dict[str, ModelMessage]]
+) -> list[tuple[int, ModelMessage]]:
+    entries: list[tuple[int, ModelMessage]] = []
+    round_no = 0
+    previous_event_type: str | None = None
+    for event in events:
+        if event.event_type == "ASSISTANT_TURN":
+            exchange = _tool_exchange(event, results.get(event.seq, {}))
+            if exchange:
+                round_no += 1
+                entries.extend((round_no, message) for message in exchange)
+        elif event.event_type == "MEMORY_CONFIRMATION_RESOLVED":
+            note = confirmation_context_note(event.payload_json or {})
+            if note is not None:
+                _append_confirmation(entries, note, previous_event_type)
+        else:
+            message = _ordinary_message(event)
+            if message is not None:
+                entries.append((0, message))
+        previous_event_type = event.event_type
+    return entries
+
+
+def _tool_exchange(
+    event: CanonicalEvent, results: Mapping[str, ModelMessage]
+) -> tuple[ModelMessage, ...]:
+    """完整结果紧跟声明展开，交错的入站/确认事件不能拆开工具往返。"""
+    payload = event.payload_json or {}
+    calls = tuple(call for call in _tool_calls(payload.get("tool_calls")) if call.id in results)
+    if not calls:
+        return ()
+    reasoning = payload.get("reasoning_content")
+    assistant = ModelMessage(
+        role=ModelRole.ASSISTANT,
+        content=str(payload.get("text") or ""),
+        tool_calls=calls,
+        reasoning_content=reasoning if isinstance(reasoning, str) and reasoning else None,
+    )
+    return (assistant, *(results[call.id] for call in calls))
+
+
+def _ordinary_message(event: CanonicalEvent) -> ModelMessage | None:
+    payload = event.payload_json or {}
+    if event.event_type == "USER_MESSAGE":
+        # 历史附件保留文本引用；模型需要正文时通过附件工具按需读取。
+        reference = render_attachment_reference(attachments_from_payload(payload.get("attachments")))
+        text = str(payload.get("text", ""))
+        return ModelMessage(
+            role=ModelRole.USER, content="\n".join(part for part in (text, reference) if part)
+        )
+    if event.event_type == "ASSISTANT_MESSAGE":
+        return ModelMessage(role=ModelRole.ASSISTANT, content=str(payload.get("text", "")))
+    if event.event_type in ("TOOL_TASK_ACCEPTED", "BACKGROUND_RESULT", "TOOL_SUBMISSION_FAILED"):
+        from .async_tools.materialization import external_data
+
+        return ModelMessage(role=ModelRole.USER, content=external_data(event.event_type, payload))
+    return None
+
+
+def _append_confirmation(
+    entries: list[tuple[int, ModelMessage]], note: str, previous_event_type: str | None
+) -> None:
+    """确认是引用事实，紧邻真实用户消息时合并，使请求仍以 user 结尾。"""
+    if (
+        previous_event_type == "USER_MESSAGE"
+        and entries
+        and entries[-1][0] == 0
+        and entries[-1][1].role is ModelRole.USER
+    ):
+        content = text_of(entries[-1][1].content)
+        entries[-1] = (
+            0,
+            ModelMessage(role=ModelRole.USER, content=f"{content}\n{note}" if content else note),
+        )
+    else:
+        entries.append((0, ModelMessage(role=ModelRole.USER, content=note)))
+
+
+def _tool_calls(raw: JsonValue) -> tuple[ModelToolCall, ...]:
     """把事件里的 tool_calls JSON 还原成契约对象；脏项跳过，不让一条坏数据崩掉整段历史。"""
     if not isinstance(raw, list):
         return ()
     calls: list[ModelToolCall] = []
+    seen: set[str] = set()
     for item in raw:
         if not isinstance(item, dict):
             continue
         call_id, name = item.get("id"), item.get("name")
-        if not isinstance(call_id, str) or not isinstance(name, str):
+        if not isinstance(call_id, str) or not isinstance(name, str) or call_id in seen:
             continue
+        seen.add(call_id)
         arguments = item.get("arguments")
         calls.append(
             ModelToolCall(
@@ -321,7 +326,7 @@ def _tool_calls(raw: Any) -> tuple[ModelToolCall, ...]:
     return tuple(calls)
 
 
-def _tool_message_content(payload: Mapping[str, Any], artifact_ref: dict[str, Any] | None) -> str:
+def _tool_message_content(payload: Mapping[str, JsonValue], artifact_ref: dict[str, JsonValue] | None) -> str:
     """TOOL 消息的正文：外置过 ⇒ 当时那条引用 JSON；没外置 ⇒ 落库的有界预览；都没有才回落工具名。
 
     第三条兜底只该出现在**老数据**（预览上线前落的行）与工具自己写脏引用的场景：那时

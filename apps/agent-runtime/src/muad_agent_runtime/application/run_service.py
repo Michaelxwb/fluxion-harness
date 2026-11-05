@@ -3567,8 +3567,6 @@ class RunService:
             if row is None:
                 return _TailStop(stop=True)
             status = str(row.status)
-            if status == RunStatus.WAITING_INPUT:
-                return _TailStop(stop=True)
             if status not in TERMINAL_RUN_STATUSES:
                 return _TailStop(stop=False)
             if await self._has_terminal_row(session, run_id):

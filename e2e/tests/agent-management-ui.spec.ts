@@ -166,6 +166,44 @@ async function openChannels(page: Page): Promise<void> {
   await sheet.getByRole('tab', { name: 'IM 接入' }).click();
 }
 
+test('HTTP 无 Clipboard API 时复制完整聊天地址', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+  });
+  const state = mockState();
+  state.channels = [
+    { ...CHANNEL, channel: 'WEBCHAT', name: 'Web', bot_id: 'webchat-e2e', secret_configured: false }
+  ];
+  await mockApi(page, state);
+  await openChannels(page);
+  await page.getByRole('button', { name: '复制聊天地址' }).click();
+  await expect(page.getByText('已复制', { exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    const input = document.createElement('input');
+    input.id = 'clipboard-check';
+    document.body.appendChild(input);
+    input.focus();
+  });
+  await page.keyboard.press('ControlOrMeta+V');
+  await expect(page.locator('#clipboard-check')).toHaveValue(/\/chat\/channel-1$/);
+});
+
+test('复制命令失败时显示错误', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    document.execCommand = () => false;
+  });
+  const state = mockState();
+  state.channels = [
+    { ...CHANNEL, channel: 'WEBCHAT', name: 'Web', bot_id: 'webchat-e2e', secret_configured: false }
+  ];
+  await mockApi(page, state);
+  await openChannels(page);
+  await page.getByRole('button', { name: '复制聊天地址' }).click();
+  await expect(page.getByText('复制失败', { exact: true })).toBeVisible();
+});
+
 test('S-10 详情无对象按钮，列表删除移除行', async ({ page }) => {
   const state = mockState();
   await mockApi(page, state);

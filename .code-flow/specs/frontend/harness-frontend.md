@@ -60,7 +60,7 @@ config.headers['X-Request-Id'] = newRequestId();
 config.headers['X-Request-Id'] = crypto.randomUUID();
 ```
 
-- **业务码非 `'0'` 由响应拦截器统一处理**：`Toast.error(body.msg)` 后 reject 原始 body；`/auth/me` 的会话探测失败是**唯一不弹 Toast** 的例外（避免启动期噪音）。不得改成 `Toast.error(body.code)`（后端返回的是本地化 msg）。机检：`tests/frontend/test_api_client_contract.py::test_e07_non_zero_code_uses_localized_backend_message`。
+- **业务错误按展示责任提示并继续 reject 原始错误**：页面 GET 加载失败由内联错误态负责，依赖全局提示的 GET 动作显式传 `errorTip: 'always'`；写操作自动提示，已有内联错误的操作传 `errorTip: 'never'`。提示统一使用 `Tips` 与后端本地化 `msg`，会话探测避免启动期噪音。✅ 打开编辑或范围弹窗失败有提示，页面错误不重复弹出；❌ 按 GET 一律静默却仍在调用方吞掉错误，或把错误码当文案展示。机检：`tests/frontend/test_api_client_contract.py`、`tests/frontend/test_capacity_webchat_chat_transport.py`、`tests/frontend/test_list_object_actions_contract.py`。
 - **401 统一跳登录**：`/login?returnUrl=<encodeURIComponent(pathname + search)>`；**已在 `/login` 时不跳**（防重定向循环）。机检：`tests/frontend/test_api_client_contract.py::test_e09_unauthorized_redirects_to_login_with_return_url`。
 - **组件层取错误码只走纯函数 `apiErrorBody(error)`**：先读 `error.response.data.code`，再回退 `error.code`，两者皆无返回 `null`。不要在组件里手工拼 `error.response?.data?.code`（`src/api/client.ts` 的 `apiErrorBody`，现网 18 个调用点）。
 - **模块骨架是两件套**：`modules/<module>/services/<x>.ts`（该模块唯一的 HTTP 出口）+ `tests/frontend/test_<module>_contract.py`（**源码契约测试**：正则读源码断言结构与拦截器约定，而非渲染单测——本仓 `tests/frontend/` 现有 `*_contract.py`）。

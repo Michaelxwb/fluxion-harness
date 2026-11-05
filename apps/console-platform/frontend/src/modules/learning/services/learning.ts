@@ -1,4 +1,4 @@
-import { api, type ApiResponse } from '../../../api/client';
+import { api, type ApiResponse, type RequestOptions } from '../../../api/client';
 import type {
   ActivationState,
   ExperienceDetail,
@@ -60,9 +60,12 @@ export async function listFamilies(params: {
   return unwrap(await api.get<ApiResponse<FamilyPage>>('/learning/families', { params }));
 }
 
-export async function getFamily(family: string, windowDays = 7): Promise<FamilyDetail> {
+export async function getFamily(
+  family: string, options: RequestOptions = {}, windowDays = 7
+): Promise<FamilyDetail> {
   return unwrap(
     await api.get<ApiResponse<FamilyDetail>>(`/learning/families/${encodeURIComponent(family)}`, {
+      ...options,
       params: { window_days: windowDays }
     })
   );
@@ -71,13 +74,14 @@ export async function getFamily(family: string, windowDays = 7): Promise<FamilyD
 export async function replayExperience(
   userId: string,
   key: string,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<{ id: string; status: string }> {
   return unwrap(
     await api.post<ApiResponse<{ id: string; status: string }>>(
       `/learning/experiences/${userId}/${key}/replay`,
       {},
-      { headers: { 'Idempotency-Key': idempotencyKey } }
+      { headers: { 'Idempotency-Key': idempotencyKey }, ...options }
     )
   );
 }
@@ -87,13 +91,14 @@ export async function experienceAction(
   key: string,
   action: 'activate' | 'retire' | 'regenerate',
   reason: string | undefined,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<{ activation_state: ActivationState; status: string }> {
   return unwrap(
     await api.post<ApiResponse<{ activation_state: ActivationState; status: string }>>(
       `/learning/experiences/${userId}/${key}/${action}`,
       { reason },
-      { headers: { 'Idempotency-Key': idempotencyKey } }
+      { headers: { 'Idempotency-Key': idempotencyKey }, ...options }
     )
   );
 }
@@ -104,13 +109,14 @@ export async function reviseExperience(
   value: string,
   expectedVersion: number,
   reason: string,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<{ activation_state: ActivationState; status: string }> {
   return unwrap(
     await api.patch<ApiResponse<{ activation_state: ActivationState; status: string }>>(
       `/learning/experiences/${userId}/${key}/content`,
       { value, expected_version: expectedVersion, reason },
-      { headers: { 'Idempotency-Key': idempotencyKey } }
+      { headers: { 'Idempotency-Key': idempotencyKey }, ...options }
     )
   );
 }
@@ -119,13 +125,14 @@ export async function reviseExperience(
 export async function stopRun(
   runId: string,
   reason: string,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<{ items: Array<Record<string, unknown>> }> {
   return unwrap(
     await api.post<ApiResponse<{ items: Array<Record<string, unknown>> }>>(
       `/learning/runs/${runId}/stop`,
       { reason },
-      { headers: { 'Idempotency-Key': idempotencyKey } }
+      { headers: { 'Idempotency-Key': idempotencyKey }, ...options }
     )
   );
 }
@@ -134,13 +141,14 @@ export async function familyControl(
   family: string,
   paused: boolean,
   reason: string,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<{ family: string; paused: boolean }> {
   return unwrap(
     await api.post<ApiResponse<{ family: string; paused: boolean }>>(
       `/learning/families/${encodeURIComponent(family)}/control`,
       { paused, reason },
-      { headers: { 'Idempotency-Key': idempotencyKey } }
+      { headers: { 'Idempotency-Key': idempotencyKey }, ...options }
     )
   );
 }
@@ -148,13 +156,14 @@ export async function familyControl(
 export async function feedbackRun(
   runId: string,
   reason: string,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<Record<string, unknown>> {
   return unwrap(
     await api.post<ApiResponse<Record<string, unknown>>>(
       `/learning/runs/${runId}/feedback`,
       { reason },
-      { headers: { 'Idempotency-Key': idempotencyKey } }
+      { headers: { 'Idempotency-Key': idempotencyKey }, ...options }
     )
   );
 }
@@ -173,9 +182,9 @@ export interface RunLearningDiagnostics {
 }
 
 export async function getRunLearningDiagnostics(
-  runId: string
+  runId: string, options: RequestOptions = {}
 ): Promise<RunLearningDiagnostics> {
   return unwrap(
-    await api.get<ApiResponse<RunLearningDiagnostics>>(`/learning/runs/${runId}/diagnostics`)
+    await api.get<ApiResponse<RunLearningDiagnostics>>(`/learning/runs/${runId}/diagnostics`, options)
   );
 }

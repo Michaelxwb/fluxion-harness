@@ -21,6 +21,7 @@ from muad_contracts.memory import (
 )
 from muad_contracts.platform_settings import MemoryPolicySettings
 from muad_contracts.tasks import ContractModel
+from muad_contracts.webchat import WebchatConfirmation, WebchatConfirmationOption
 from pydantic import AwareDatetime, StrictBool, ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -30,20 +31,24 @@ from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import CanonicalEvent, RunInterrupt, RunRecord, UserMemory
 from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
 from .memory_observability import after_commit, observe
-from .memory_proposals import confirmation_source
+from .memory_proposals import (
+    CONFIRM_VERB,
+    REJECT_VERB,
+    confirmation_source,
+)
 from .memory_service import MemoryService
 from .run_events import EventWriter
 
 logger = logging.getLogger(__name__)
 #: 用户确认/拒绝的动词：文本解析（`_ANSWER`）与 API-15 的选项值（`confirmation_selection`）
-#: **共用这一份**——投影出来的选项就是 resume 能消费的文本，两处各拼一份就会漂移。
-CONFIRM_VERB = "确认"
-REJECT_VERB = "拒绝"
+#: 共用 `memory_proposals` 的那一份——投影出来的选项就是 resume 能消费的文本，两处各拼一份就会漂移。
 _ANSWER = re.compile(
     rf"({CONFIRM_VERB}|{REJECT_VERB})\s+"
-    r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+    r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})[。.!！]?",
     re.I,
 )
+#: 文本渠道的短回答：只回复动词（可带句末标点）。仅当 Run 恰有一个待确认候选时消费。
+_SHORT_ANSWER = re.compile(rf"({CONFIRM_VERB}|{REJECT_VERB})[。.!！]?", re.I)
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +72,41 @@ class PendingConfirmation:
 def confirmation_selection(action: Literal["CONFIRM", "REJECT"], proposal_id: UUID) -> str:
     """选项值 = resume 能消费的文本：动词与编号格式与 `_ANSWER` 同源（不另拼一份）。"""
     return f"{CONFIRM_VERB if action == 'CONFIRM' else REJECT_VERB} {proposal_id}"
+
+
+def confirmation_view(
+    proposal: MemoryConfirmationProposal, proposal_id: UUID, prompt: str, expires_at: datetime
+) -> WebchatConfirmation:
+    return WebchatConfirmation(
+        submission_id=proposal.submission_id,
+        source_event_id=proposal.evidence.source_event_id,
+        prompt=_webchat_prompt(prompt, proposal_id),
+        options=[
+            WebchatConfirmationOption(
+                value=confirmation_selection("CONFIRM", proposal_id), label=CONFIRM_VERB
+            ),
+            WebchatConfirmationOption(value=confirmation_selection("REJECT", proposal_id), label=REJECT_VERB),
+        ],
+        expires_at=expires_at,
+    )
+
+
+def _webchat_prompt(prompt: str, proposal_id: UUID) -> str:
+    """WebChat 卡片已有独立期限与按钮：去掉文本渠道的期限行与回复指令。
+
+    用 rsplit 取**最后一个** `有效至：`：候选内容本身若包含同样文本，不会被误当成期限行。
+    兼容旧事件的 `\\n有效至：` 与新的 `\\n\\n有效至：` 两种排版。
+    """
+    for marker in ("\n\n有效至：", "\n有效至："):
+        if marker in prompt:
+            return prompt.rsplit(marker, 1)[0].rstrip()
+    return (
+        prompt.removesuffix(f"\n请回复“{CONFIRM_VERB}”或“{REJECT_VERB}”。")
+        .removesuffix(
+            f"\n请回复“{CONFIRM_VERB} {proposal_id}”或“{REJECT_VERB} {proposal_id}”。"
+        )
+        .rstrip()
+    )
 
 
 class ConfirmationResult(ContractModel):
@@ -94,7 +134,9 @@ def prepare_confirmation(
         for row in interrupts
         if row.interrupt_type == "MEMORY_CONFIRMATION" and row.status == "WAITING"
     ]
-    match = _ANSWER.fullmatch(text.strip())
+    stripped = text.strip()
+    match = _ANSWER.fullmatch(stripped)
+    short = _SHORT_ANSWER.fullmatch(stripped)
     if not pending:
         reference = UUID(match.group(2)) if match is not None else None
         revoked = [
@@ -112,16 +154,27 @@ def prepare_confirmation(
             logger.warning("memory_confirmation_binding_without_pending")
             raise AppError(ErrorCode.MEMORY_CONFIRMATION_EXPIRED)
         return None
-    if len(pending) != 1 or match is None or UUID(match.group(2)) != pending[0].id:
+    if len(pending) != 1:
+        observe("memory_confirmation_total", labels={"outcome": "INVALID"})
+        raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
+    # 文本渠道（企微等）没有 WebChat 的按钮，用户只回复动词即可；带编号时仍逐项核对，
+    # 编号不属于当前 Run 就显式 INVALID。短动词只在"恰有一个待确认"时成立，不会消费别的候选。
+    if match is not None:
+        if UUID(match.group(2)) != pending[0].id:
+            observe("memory_confirmation_total", labels={"outcome": "INVALID"})
+            raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
+        action: Literal["CONFIRM", "REJECT"] = (
+            "CONFIRM" if match.group(1) == CONFIRM_VERB else "REJECT"
+        )
+    elif short is not None:
+        action = "CONFIRM" if short.group(1) == CONFIRM_VERB else "REJECT"
+    else:
         observe("memory_confirmation_total", labels={"outcome": "INVALID"})
         raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
     _assert_binding(pending[0], confirmation)
     return PendingConfirmation(
         pending[0],
-        MemoryConfirmationInput(
-            proposal_id=pending[0].id,
-            action="CONFIRM" if match.group(1) == CONFIRM_VERB else "REJECT",
-        ),
+        MemoryConfirmationInput(proposal_id=pending[0].id, action=action),
     )
 
 
@@ -164,6 +217,15 @@ async def consume_confirmation(
         raise
 
 
+def _stream_type_for(run: RunRecord) -> str | None:
+    """WebChat 的确认回执不走进度流：它由历史刷新展示，避免与流式正文瞬时重复。
+
+    企微等文本渠道没有历史刷新入口，回执必须作为 `message.delta` 投递。
+    """
+    channel = run.channel_json or {}
+    return None if channel.get("type") == "WEBCHAT" else "message.delta"
+
+
 async def _consume_confirmation(
     session: AsyncSession,
     run: RunRecord,
@@ -198,8 +260,9 @@ async def _consume_confirmation(
         submission_id=submission_id,
         event_type="MEMORY_CONFIRMATION_RESOLVED",
         source_event_id=interrupt.id,
-        stream_type="message.delta",
-        payload={**payload, "proposal_id": str(interrupt.id), "text": text, "delta": text},
+        stream_type=_stream_type_for(run),
+        payload={**payload, "proposal_id": str(interrupt.id),
+                 "text": text + "\n" + result.model_dump_json(), "delta": text},
     )
     interrupt.status, interrupt.resolved_at, interrupt.update_time = "RESOLVED", now, now
     interrupt.resolution_json = {**payload, "submission_id": str(submission_id)}
@@ -357,7 +420,7 @@ def _ensure_deadline(run: RunRecord, now: datetime) -> None:
 
 def _result_text(result: ConfirmationResult) -> str:
     if result.outcome == "STALE":
-        return "原提议已失效，未保存记忆；请重新展示候选后确认。\n" + result.model_dump_json()
+        return "原提议已失效，未保存记忆；请重新展示候选后确认。"
     if result.outcome == "REJECTED":
-        return "已拒绝保存该记忆。\n" + result.model_dump_json()
-    return "记忆已保存。\n" + result.model_dump_json()
+        return "已拒绝保存该记忆。"
+    return "记忆已保存。"

@@ -29,7 +29,7 @@ def test_detail_uses_fetched_detail_for_edit_and_scope() -> None:
     """编辑/变更范围基于详情 API 数据（不拿列表行强转），详情读取成功后才打开表单。"""
     sheet = _source("McpDetailSideSheet.tsx")
     page = _source("McpPage.tsx")
-    assert "await getMcpServer(server.mcp_id)" in page
+    assert page.count("await getMcpServer(server.mcp_id, { errorTip: 'always' })") == 2
     assert "setFormServer(latest)" in page
     assert "setScopeTarget(latest)" in page
     assert "account?.role === 'ADMIN'" in page

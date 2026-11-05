@@ -923,21 +923,54 @@
 .chat-confirmation-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 24px;
   border: 1px solid var(--semi-color-border);
   border-radius: 12px;
   background: var(--semi-color-bg-1);
 }
 
-.chat-confirmation-prompt {
+.chat-confirmation-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   color: var(--semi-color-text-0);
+}
+
+.chat-confirmation-heading h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.chat-confirmation-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--semi-color-primary);
+  background: var(--semi-color-primary-light-default);
+}
+
+.chat-confirmation-prompt {
+  width: 100%;
+  margin: 0;
+  color: var(--semi-color-text-0);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .chat-confirmation-options {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .chat-confirmation-option {
@@ -946,12 +979,9 @@
   gap: 4px;
 }
 
-.chat-confirmation-choose {
-  color: var(--semi-color-primary);
-}
-
 .chat-confirmation-expires,
 .chat-confirmation-expired {
+  margin: 0;
   color: var(--semi-color-text-2);
   font-size: 12px;
 }

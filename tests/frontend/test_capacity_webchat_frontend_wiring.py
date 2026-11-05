@@ -179,6 +179,7 @@ export const IconPlus = () => null;
 export const IconClose = () => null;
 export const IconRefresh = () => null;
 export const IconCustomerSupport = () => null;
+export const IconInfoCircle = () => null;
 export const IconUser = () => null;
 export const IconPaperclip = () => null;
 export const IconDownload = () => null;
@@ -1448,7 +1449,10 @@ def test_b293_page_mounts_every_surface_and_cleans_up() -> None:
     assert compact.count("service.dispose();") == 2, "两个状态机都必须在卸载时释放"
     assert "unregister();" in compact, "身份边界登记必须可注销（不泄漏监听）"
     assert "setActionFailure(webchatErrorCode(error))" in compact, (
-        "本地动作失败必须显式上报（绝不静默）"
+        "非附件动作失败仍走显式失败面（绝不静默）"
+    )
+    assert "Tips.error(t('chat.thread.attachmentUnavailable'))" in compact, (
+        "附件 404/403 必须用统一轻提示，不占整页置顶 Banner"
     )
 
 

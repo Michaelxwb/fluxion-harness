@@ -23,6 +23,8 @@ from .channel_notifications import (
     run_waiting_delivery_key,
     write_run_notification,
 )
+from .execution_status import project_execution_status
+from .memory_confirmation_resume import confirmation_view
 from .memory_proposals import (
     confirmation_source,
     ensure_no_memory_confirmation,
@@ -62,6 +64,11 @@ async def suspend_memory_confirmation(
                 expires_at=proposal.expires_at,
             )
         )
+        run.status, run.lease_owner, run.lease_until, run.update_time = STATUS_WAITING_INPUT, None, None, now
+        await EventWriter(session).append_run_stage(
+            tenant_id=run.tenant_id, conversation_id=run.conversation_id,
+            run_id=run.id, status=project_execution_status(run),
+        )
         confirmation_event_id = uuid.uuid4()
         saved.context_upto_seq = await EventWriter(session).append(
             tenant_id=run.tenant_id,
@@ -73,12 +80,15 @@ async def suspend_memory_confirmation(
             payload={
                 "proposal_id": str(request.interrupt_id),
                 "prompt": request.prompt,
+                "text_prompt": request.text_prompt or request.prompt,
                 "expires_at": proposal.expires_at.isoformat(),
                 "proposal_hash": memory_hash(proposal.model_dump(mode="json")),
+                "confirmation": confirmation_view(
+                    proposal, request.interrupt_id, request.prompt, proposal.expires_at
+                ).model_dump(mode="json"),
             },
             event_id=confirmation_event_id,
         )
-        run.status, run.lease_owner, run.lease_until, run.update_time = STATUS_WAITING_INPUT, None, None, now
         await _notify_waiting_confirmation(
             session,
             run=run,

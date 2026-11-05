@@ -1,5 +1,5 @@
 import { actionColumn } from '../../components/common/tableLayout';
-import { Button, Input, Select, Tag, Toast } from '@douyinfe/semi-ui';
+import { Button, Input, Select, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -14,6 +14,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
+import { Tips } from '../../components/common/Tips';
 import { EntityLink } from '../../components/common/EntityLink';
 import { TableText } from '../../components/common/TableText';
 import { McpDetailSideSheet } from './McpDetailSideSheet';
@@ -104,7 +105,7 @@ export function McpPage() {
 
   const openEdit = async (server: McpServerListItem): Promise<void> => {
     try {
-      const latest = await getMcpServer(server.mcp_id);
+      const latest = await getMcpServer(server.mcp_id, { errorTip: 'always' });
       setFormServer(latest);
       setFormVisible(true);
     } catch {
@@ -114,7 +115,7 @@ export function McpPage() {
 
   const openScope = async (server: McpServerListItem): Promise<void> => {
     try {
-      const latest = await getMcpServer(server.mcp_id);
+      const latest = await getMcpServer(server.mcp_id, { errorTip: 'always' });
       setScopeTarget(latest);
     } catch {
       // ApiClient displays the request failure; keep the modal closed.
@@ -125,7 +126,7 @@ export function McpPage() {
     setRefreshingId(server.mcp_id);
     try {
       await discoverTools(server.mcp_id);
-      Toast.success(t('mcp.actions.discoverSuccess'));
+      Tips.success(t('mcp.actions.discoverSuccess'));
       setDetailReloadKey((value) => value + 1);
       await reload();
     } catch {

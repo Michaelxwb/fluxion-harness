@@ -1,4 +1,4 @@
-import { Button, Input, Spin, Tabs, Tag, Toast, Typography } from '@douyinfe/semi-ui';
+import { Button, Input, Spin, Tabs, Tag, Typography } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +7,7 @@ import { DataTable } from '../../components/common/DataTable';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
+import { Tips } from '../../components/common/Tips';
 import { ExperienceList } from './ExperienceList';
 import { familyControl } from './services/learning';
 import { familyLabel, ownerLabel, reportStatusLabel } from './labels';
@@ -31,7 +32,7 @@ export function FamilyDetailSideSheet(props: FamilyDetailSideSheetProps) {
       setDetail(null);
       return;
     }
-    getFamily(props.family)
+    getFamily(props.family, { errorTip: 'always' })
       .then((data) => {
         if (!cancelled) setDetail(data);
       })
@@ -89,15 +90,17 @@ export function FamilyDetailSideSheet(props: FamilyDetailSideSheetProps) {
           <Button
             onClick={async () => {
               if (!reason.trim()) {
-                Toast.warning(t('learning.errors.reasonRequired'));
+                Tips.warning(t('learning.errors.reasonRequired'));
                 return;
               }
               try {
-                await familyControl(detail.family, !detail.paused, reason, newRequestId());
-                setDetail(await getFamily(detail.family));
+                await familyControl(detail.family, !detail.paused, reason, newRequestId(), {
+                  errorTip: 'never'
+                });
+                setDetail(await getFamily(detail.family, { errorTip: 'always' }));
                 setReason('');
               } catch {
-                Toast.error(t('learning.errors.action'));
+                Tips.error(t('learning.errors.action'));
               }
             }}
           >

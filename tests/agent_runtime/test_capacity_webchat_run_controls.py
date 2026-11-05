@@ -605,11 +605,16 @@ async def test_b256_pending_confirmation_projects_the_complete_candidate(
         proposal_json = interrupt.proposal_json
         assert proposal_json is not None
         source_event_id = uuid.UUID(proposal_json["evidence"]["source_event_id"])
-        # 投影的候选就是**能被确认的那一份**：绑定字段与展示 prompt 逐项对齐。
+        # 投影的候选就是**能被确认的那一份**：绑定字段与展示候选逐项对齐。
         assert confirmation.submission_id == submission_id
         assert confirmation.source_event_id == source_event_id
-        assert confirmation.prompt == interrupt.prompt_text
+        # WebChat 已有确认/拒绝按钮：卡片不展示文本渠道的回复指令与期限行（期限单独展示），
+        # 但候选内容必须与中断里持久化的那份一致。
         assert "color" in confirmation.prompt and "blue" in confirmation.prompt
+        assert "来源原话：记住蓝色" in confirmation.prompt
+        assert "请回复“确认" not in confirmation.prompt
+        assert "有效至：" not in confirmation.prompt
+        assert "请回复“确认" in interrupt.prompt_text, "文本渠道仍保留完整提示"
         assert confirmation.expires_at == interrupt.expires_at
         assert [option.label for option in confirmation.options] == ["确认", "拒绝"]
         assert [option.value for option in confirmation.options] == [

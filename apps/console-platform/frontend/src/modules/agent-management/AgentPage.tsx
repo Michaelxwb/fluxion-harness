@@ -97,7 +97,7 @@ export function AgentPage() {
 
   const openEdit = async (agentId: string): Promise<void> => {
     try {
-      setFormAgent(await getAgent(agentId));
+      setFormAgent(await getAgent(agentId, { errorTip: 'always' }));
       setFormVisible(true);
     } catch {
       // 错误由 ApiClient 展示

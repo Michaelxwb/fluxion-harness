@@ -120,9 +120,13 @@ export function ModelCredentialForm(props: ModelCredentialFormProps) {
     const values = toServiceValues(raw);
     try {
       if (credential === null) {
-        await createCredential(buildCredentialCreateInput(values), idempotencyKey.current);
+        await createCredential(buildCredentialCreateInput(values), idempotencyKey.current, {
+          errorTip: 'never'
+        });
       } else {
-        await updateCredential(credential.id, buildCredentialUpdateInput(credential, values));
+        await updateCredential(credential.id, buildCredentialUpdateInput(credential, values), {
+          errorTip: 'never'
+        });
       }
       props.onSaved();
     } catch (error) {
@@ -175,7 +179,7 @@ function CredentialProbeModal(props: CredentialProbeModalProps) {
   const [results, setResults] = useState<ModelProbeResult[]>([]);
 
   useEffect(() => {
-    listModels({ page: 1, page_size: PROBE_MODEL_PAGE_SIZE })
+    listModels({ page: 1, page_size: PROBE_MODEL_PAGE_SIZE }, { errorTip: 'always' })
       .then((page) => {
         setModels(page.items);
         setModelsTotal(page.total);
@@ -446,7 +450,7 @@ export function ModelCredentialPanel(props: ModelCredentialPanelProps) {
     if (!isAdmin) {
       return;
     }
-    listQuotaGroups()
+    listQuotaGroups({ errorTip: 'always' })
       .then((result) => setQuotaGroups(result.items))
       .catch(() => setQuotaGroups([]));
   }, [isAdmin]);
@@ -467,7 +471,7 @@ export function ModelCredentialPanel(props: ModelCredentialPanelProps) {
   const remove = async (credential: ModelCredentialItem): Promise<void> => {
     setActionErrorKey(null);
     try {
-      await deleteCredential(credential.id);
+      await deleteCredential(credential.id, { errorTip: 'never' });
     } catch (error) {
       // 仍被成员引用等冲突：共享传输已提示后端文案，这里保留面板内定位
       setActionErrorKey(credentialSaveErrorKey(error));

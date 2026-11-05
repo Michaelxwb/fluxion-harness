@@ -38,6 +38,7 @@ verifiers:
   - ✅ `snapshot_settings = fetch_snapshot(...)` 在 `_create_run` 里取一次、冻进 `policy_json`；执行器 / `context_builder` / tool set 只读冻结值
   - ❌ 在 `build_registry`/`load_history`/每轮模型请求里重新 `fetch_snapshot`（把设置读取拖进热路径，且同一 Run 前后可能读到不同 revision）
 - **历史工具预算来自原policy.compaction.max_history_tool_rounds**：new/resume/continuation均传同一冻结值给history Builder，按完整 assistant/tool 回合保留；0省略全部历史工具回合，普通USER/ASSISTANT及摘要不受该预算影响。✅ 按schema默认初始化、执行期显式传冻结值；❌ 独立硬编码6或把0经真假判断换成默认值。
+- **历史工具结果按来源 Run 与声明轮次配对**：同一调用 ID 可在不同轮次复用，结果只能匹配同 Run 中此前声明的调用，并随该声明原子回放；孤儿与同次调用的重复结果不回放。✅ 裁剪后保留最新完整往返及其真实结果；❌ 全会话按调用 ID 去重，丢失后续回合或回放旧结果。
 
 ## Avoid
 

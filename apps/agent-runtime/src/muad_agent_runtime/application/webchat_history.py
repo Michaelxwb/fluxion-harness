@@ -12,7 +12,7 @@
   分页期间新消息不移动已固定水位；`through_seq` 超过会话持久水位显式 `CURSOR_AHEAD`；
   page 1 是最新窗口、页内正序、向前加载旧页；总量不被 200 条截断。
 - **安全公开投影**（与 SSE 侧**唯一实现**，见 `application/public_events.py`）：只投影
-  `USER_MESSAGE` / `ASSISTANT_MESSAGE` 两类可见消息与安全附件引用；工具参数/结果、SYSTEM、
+  用户消息、助手消息与记忆确认结果及安全附件引用；工具参数/结果、SYSTEM、
   原始推理、未知事件、存储键与 `TRANSCRIPT` 一律不公开；`through_seq` 是**会话持久水位**
   （含活跃 Run 已落库的增量事件），不是"已渲染正文"的证明 —— 活跃 Run 的恢复必须走该 Run
   自己的游标/安全快照。
@@ -35,7 +35,6 @@ from muad_contracts.webchat import (
     ConversationStatus,
     WebchatActiveRun,
     WebchatConfirmation,
-    WebchatConfirmationOption,
     WebchatConversationDetail,
     WebchatConversationItem,
     WebchatConversationPage,
@@ -57,9 +56,7 @@ from .channel_conversations import ConversationScope, display_title, load_explic
 from .conversation_policy import ConversationPolicy, assert_conversation_live
 from .execution_status import project_execution_status
 from .memory_confirmation_resume import (
-    CONFIRM_VERB,
-    REJECT_VERB,
-    confirmation_selection,
+    confirmation_view,
     validated_proposal,
 )
 from .public_events import PUBLIC_MESSAGE_EVENT_TYPES, project_public_fact, visible_attachment_ids
@@ -158,11 +155,34 @@ def _message_conditions(
         CanonicalEvent.tenant_id == scope.tenant_id,
         CanonicalEvent.conversation_id == conversation_id,
         CanonicalEvent.event_type.in_(PUBLIC_MESSAGE_EVENT_TYPES),
+        ~_hidden_confirmation_receipt(watermark),
         # 无 Run 归属的历史事件无法证实来源，不冒认成网页历史（与「无法证实归属保留审计」同口径）。
         CanonicalEvent.run_id.is_not(None),
         CanonicalEvent.seq <= watermark,
         CanonicalEvent.is_deleted.is_(False),
     ]
+
+
+def _hidden_confirmation_receipt(watermark: int) -> sa.ColumnElement[bool]:
+    """可见性只由固定水位内的事实决定，避免后页随 Run 状态变化而偏移。"""
+    later_event = sa.alias(CanonicalEvent.__table__, "receipt_progress")
+    same_run = (
+        later_event.c.tenant_id == CanonicalEvent.tenant_id,
+        later_event.c.conversation_id == CanonicalEvent.conversation_id,
+        later_event.c.run_id == CanonicalEvent.run_id,
+        later_event.c.seq > CanonicalEvent.seq,
+        later_event.c.seq <= watermark,
+        later_event.c.is_deleted.is_(False),
+    )
+    answer_exists = sa.exists().where(*same_run, later_event.c.event_type == "ASSISTANT_MESSAGE")
+    # 取消与正常完成都写 RUN_COMPLETED；失败（含 deadline/reaper）写 RUN_FAILED。
+    terminal_exists = sa.exists().where(
+        *same_run, later_event.c.event_type.in_(("RUN_COMPLETED", "RUN_FAILED"))
+    )
+    return sa.and_(
+        CanonicalEvent.event_type == "MEMORY_CONFIRMATION_RESOLVED",
+        sa.or_(answer_exists, ~terminal_exists),
+    )
 
 
 async def _paged_rows(
@@ -427,20 +447,7 @@ class WebchatHistoryService:
         proposal = await validated_proposal(self._session, run, interrupt)
         if proposal is None or interrupt.expires_at is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
-        return WebchatConfirmation(
-            submission_id=proposal.submission_id,
-            source_event_id=proposal.evidence.source_event_id,
-            prompt=interrupt.prompt_text,
-            options=[
-                WebchatConfirmationOption(
-                    value=confirmation_selection("CONFIRM", interrupt.id), label=CONFIRM_VERB
-                ),
-                WebchatConfirmationOption(
-                    value=confirmation_selection("REJECT", interrupt.id), label=REJECT_VERB
-                ),
-            ],
-            expires_at=interrupt.expires_at,
-        )
+        return confirmation_view(proposal, interrupt.id, interrupt.prompt_text, interrupt.expires_at)
 
     async def _message_page(
         self,

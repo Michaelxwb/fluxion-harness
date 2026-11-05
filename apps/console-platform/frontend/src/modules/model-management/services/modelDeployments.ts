@@ -1,4 +1,4 @@
-import { api, apiErrorBody, type ApiResponse } from '../../../api/client';
+import { api, apiErrorBody, type ApiResponse, type RequestOptions } from '../../../api/client';
 import type { Page } from '../../user-identity/services/users';
 
 /**
@@ -188,26 +188,37 @@ export async function listDeployments(
 
 export async function createDeployment(
   modelId: string,
-  input: ModelDeploymentCreateInput
+  input: ModelDeploymentCreateInput,
+  options: RequestOptions = {}
 ): Promise<ModelDeploymentItem> {
   return unwrap(
-    await api.post<ApiResponse<ModelDeploymentItem>>(`/models/${modelId}/deployments`, input)
+    await api.post<ApiResponse<ModelDeploymentItem>>(
+      `/models/${modelId}/deployments`,
+      input,
+      options
+    )
   );
 }
 
 export async function updateDeployment(
   modelId: string,
   deploymentId: string,
-  input: ModelDeploymentUpdateInput
+  input: ModelDeploymentUpdateInput,
+  options: RequestOptions = {}
 ): Promise<ModelDeploymentItem> {
   return unwrap(
     await api.put<ApiResponse<ModelDeploymentItem>>(
       `/models/${modelId}/deployments/${deploymentId}`,
-      input
+      input,
+      options
     )
   );
 }
 
-export async function deleteDeployment(modelId: string, deploymentId: string): Promise<void> {
-  await api.delete(`/models/${modelId}/deployments/${deploymentId}`);
+export async function deleteDeployment(
+  modelId: string,
+  deploymentId: string,
+  options: RequestOptions = {}
+): Promise<void> {
+  await api.delete(`/models/${modelId}/deployments/${deploymentId}`, options);
 }

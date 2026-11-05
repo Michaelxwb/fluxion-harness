@@ -41,7 +41,7 @@ def test_artifact_version_link_opens_manifest_modal() -> None:
 def test_detail_guards_scope_change_and_has_error_states() -> None:
     sheet = _source("SkillDetailSideSheet.tsx")
     page = _source("SkillPage.tsx")
-    assert "setScopeTarget(await getSkill(skill.id))" in page
+    assert "setScopeTarget(await getSkill(skill.id, { errorTip: 'always' }))" in page
     assert "SkillScopeModal" in page
     assert "ErrorState" in sheet
     assert "listSkillAgents" in sheet

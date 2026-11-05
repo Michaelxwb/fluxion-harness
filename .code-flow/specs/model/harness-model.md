@@ -33,6 +33,7 @@ verifiers:
 - 批量测试只更新 `last_test_status/last_test_at`，不递增 `revision`、不写 `model_invocation_audit`、不产生计费/上下文语义。
 - **`protocol` 创建后不可变更**：`PUT /api/v1/models/{id}` 带 `protocol` 或改 `key` 均返回 422 `COMMON_VALIDATION_ERROR`（`tests/console_platform/test_models_api.py` 的 PUT 用例）。✅ 只更新 `name/model_id/provider_key/params/enabled` 等可变字段；❌ 让 `protocol` 可改（同一模型的存量大面积调用语义会无声切换）。`base_url`/`api_key` 已不在 `model_definition` 上（0027 物理删除），连接与密钥只能经成员凭据改。
 - **429 走有界重试而非直接失败**：provider 遇限流抛 `ModelRateLimitedError(retry_after=...)`（`packages/agent-core/src/muad_agent_core/model/openai_provider.py` 的流式与完整调用两处 raise），`ModelGateway` 按 `retry_after` 或 `base_delay * 2**attempt` 指数退避，超过 `max_retries` 或逼近 deadline 才抛 `MODEL_UNAVAILABLE`（`apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py`）。✅ 退避有上界（重试次数 + deadline 双约束）；❌ 无界重试或把 429 当终态失败。
+- **4xx 归一化前留下安全原因**：上游拒绝请求时用户只看到 `MODEL_UNAVAILABLE`，执行链必须在归一化前记录 status 与 `type/code/param` 级原因（不透传 message/正文）。✅ 能定位请求形状错误；❌ 只留归一化错误码，事后无法判断是消息序列、参数还是鉴权问题。
 - **池化预占的输出预算是模型配置事实，不是用户请求参数**：`params.max_tokens` 必须是正整数；缺失/非法时 `reserved_tokens_for` 抛 `MODEL_OUTPUT_BUDGET_INVALID`（Runtime 带模型/Run 日志），不落 `COMMON_VALIDATION_ERROR`。✅ 用户看到「联系管理员补齐输出预算」并能定位到模型定义；❌ 让 IM 用户看到「请求参数校验失败」——用户的消息没问题，要改的是模型配置（`apps/agent-runtime/src/muad_agent_runtime/application/executor.py`）。
 
 模型池与容量（model-pool-control，0021/0022/0027）：

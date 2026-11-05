@@ -4,6 +4,45 @@
 
 ## 1. 前置资源
 
+### 时间同步前置检查
+
+部署前，确认 PostgreSQL **实际后端主机**及所有运行服务的 K8s 节点使用可靠、彼此一致的时间源（如内网 NTP），并在运行期间持续同步。时区可以不同；应比较换算为 UTC 后的实际时间。建议偏差保持在秒级以内，这不是系统已验证的容错上限。
+
+在各节点及 PG 后端主机上检查时间和同步状态；同步工具以现场配置为准：
+
+```bash
+date -u
+timedatectl status
+```
+
+若数据库入口是代理或虚拟 IP，请数据库管理员确认实际后端并检查其时钟。服务启动后，从 Runtime 实测 PG 与应用的时间差（不输出连接凭据）：
+
+```bash
+kubectl -n muad exec -i deployment/muad-agent-runtime -- python - <<'PY'
+import asyncio
+import os
+from datetime import datetime, timezone
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+
+async def main():
+    engine = create_async_engine(os.environ["DATABASE_URL"])
+    try:
+        async with engine.connect() as conn:
+            db_time = await conn.scalar(text("SELECT clock_timestamp()"))
+            app_time = datetime.now(timezone.utc)
+            print("数据库 UTC:", db_time.astimezone(timezone.utc))
+            print("Runtime UTC:", app_time)
+            print("数据库减 Runtime（秒）:", (db_time - app_time).total_seconds())
+    finally:
+        await engine.dispose()
+
+asyncio.run(main())
+PY
+```
+
+该命令检查选中的一个 Runtime Pod；多副本部署需对各 Runtime Pod 分别执行（将 `deployment/muad-agent-runtime` 替换为 Pod 名），并检查所有节点。测量包含查询和网络延迟，偏差较大时应由运维排查并校时。若 WebChat 刚发消息就出现 `RUN_DEADLINE_EXCEEDED`，应检查时钟；校时后用新 Run 验证回复和正常终态。
+
 ```bash
 kubectl create namespace muad --dry-run=client -o yaml | kubectl apply -f -
 ```

@@ -1,4 +1,4 @@
-import { api, newRequestId, type ApiResponse } from '../../../api/client';
+import { api, newRequestId, type ApiResponse, type RequestOptions } from '../../../api/client';
 import type { Page } from '../../user-identity/services/users';
 
 export interface SkillListItem {
@@ -78,12 +78,14 @@ export interface SkillListParams {
   enabled?: boolean;
 }
 
-export async function listSkills(params: SkillListParams): Promise<Page<SkillListItem>> {
-  return unwrap(await api.get<ApiResponse<Page<SkillListItem>>>('/skills', { params }));
+export async function listSkills(
+  params: SkillListParams, options: RequestOptions = {}
+): Promise<Page<SkillListItem>> {
+  return unwrap(await api.get<ApiResponse<Page<SkillListItem>>>('/skills', { ...options, params }));
 }
 
-export async function getSkill(id: string): Promise<SkillDetail> {
-  return unwrap(await api.get<ApiResponse<SkillDetail>>(`/skills/${id}`));
+export async function getSkill(id: string, options: RequestOptions = {}): Promise<SkillDetail> {
+  return unwrap(await api.get<ApiResponse<SkillDetail>>(`/skills/${id}`, options));
 }
 
 export async function updateSkill(

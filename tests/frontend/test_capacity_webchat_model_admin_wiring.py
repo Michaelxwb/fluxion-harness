@@ -491,7 +491,8 @@ def test_main_list_reads_only_the_final_model_facts() -> None:
     assert "api_key_configured" not in source, "逻辑模型不再回显密钥配置态"
     compact = _compact(source)
     assert re.search(
-        r"updateModel\(model\.id,\{expected_revision:model\.revision,enabled:!model\.enabled\}\)",
+        r"updateModel\(model\.id,\{expected_revision:model\.revision,enabled:!model\.enabled\},"
+        r"\{errorTip:'never'\}\)",
         compact,
     ), "启用切换是单字段版本更新（CAS），不重发连接/密钥字段"
     assert 'data-testid="batch-test"' in source and "batchTestModels" in source, "批量测试入口保持"

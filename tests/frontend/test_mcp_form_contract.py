@@ -29,7 +29,7 @@ def test_transport_invalid_local_guard() -> None:
     """[E-09] endpoint 协议校验在提交前本地拦截；transport 为只读 streamable-http。"""
     source = _form_source()
     assert "VALID_ENDPOINT" in source
-    assert "Toast.error(t('mcp.form.endpointInvalid'))" in source
+    assert "Tips.error(t('mcp.form.endpointInvalid'))" in source
     assert source.index("VALID_ENDPOINT") < source.index("setSaving(true)")
     assert 'field="transport"' in source
     assert 'initValue="streamable-http"' in source

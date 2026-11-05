@@ -37,7 +37,7 @@ export function PlatformTestModal(props: PlatformTestModalProps) {
     let cancelled = false;
     setResult(null);
     setErrorKey(null);
-    testPlatform(props.platformId)
+    testPlatform(props.platformId, {}, { errorTip: 'never' })
       .then((value) => {
         if (!cancelled) {
           setResult(value);

@@ -39,7 +39,7 @@ def test_mcp_form_local_transport_guard() -> None:
     """[E-09] endpoint 协议本地拦截不提交；transport 为只读 streamable-http 字段。"""
     source = _source("McpFormModal.tsx")
     assert "VALID_ENDPOINT" in source
-    assert "Toast.error(t('mcp.form.endpointInvalid'))" in source
+    assert "Tips.error(t('mcp.form.endpointInvalid'))" in source
     assert 'field="transport"' in source
     assert "disabled" in source
     assert 'initValue="streamable-http"' in source

@@ -257,6 +257,31 @@ async def test_b115_cancelled_abandoned_and_interrupt_copy(
     assert "分析中" in joined and "是否继续？" in joined and "取消" in joined
 
 
+async def test_b115_memory_confirmation_prefers_runtime_text_prompt(
+    adapter: WeComAdapter, probe: WeComProbe, catalog: MessageCatalog
+) -> None:
+    """企微优先用 Runtime 给的 `text_prompt`（列表 + 短指令），不展示 canonical prompt。"""
+    frames = await _run_once(
+        adapter,
+        probe,
+        catalog,
+        [
+            ("run.created", {"run_id": "run-b115"}),
+            (
+                "memory.confirmation_required",
+                {
+                    "prompt": "CANONICAL_PROMPT_SHOULD_NOT_RENDER",
+                    "text_prompt": "待保存记忆\n\n- 键：user.name\n\n请回复“确认”或“拒绝”。",
+                },
+            ),
+        ],
+        expect="请回复“确认”或“拒绝”。",
+    )
+    rendered = "".join(_frame_text(frame) for frame in frames)
+    assert "- 键：user.name" in rendered
+    assert "CANONICAL_PROMPT_SHOULD_NOT_RENDER" not in rendered
+
+
 async def test_b115_artifact_summary_has_no_links_or_internal_info(
     adapter: WeComAdapter, probe: WeComProbe, catalog: MessageCatalog
 ) -> None:

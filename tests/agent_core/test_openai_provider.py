@@ -237,6 +237,60 @@ async def test_client_error_maps_to_request_error() -> None:
         await provider.aclose()
 
 
+async def test_client_error_carries_safe_upstream_reason() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            400,
+            json={
+                "error": {
+                    "message": "messages[5]: last message must be user (CANARY_BODY)",
+                    "type": "invalid_request_error",
+                    "code": "invalid_request_error",
+                    "param": "messages",
+                }
+            },
+        )
+
+    provider = _provider(handler)
+    try:
+        with pytest.raises(ModelRequestError) as exc:
+            await provider.complete(_request())
+    finally:
+        await provider.aclose()
+    reason = str(exc.value)
+    assert "400" in reason
+    assert "type=invalid_request_error" in reason and "param=messages" in reason
+    assert "CANARY_BODY" not in reason, "上游 message/正文不得进入异常文本"
+
+
+async def test_stream_client_error_carries_safe_upstream_reason() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            400,
+            json={
+                "error": {
+                    "message": "CANARY_STREAM_BODY",
+                    "type": "invalid_request_error",
+                    "code": "invalid_request_error",
+                }
+            },
+        )
+
+    provider = _provider(handler)
+
+    async def on_delta(text: str) -> None:
+        raise AssertionError("no deltas expected")
+
+    try:
+        with pytest.raises(ModelRequestError) as exc:
+            await provider.stream(_request(), on_delta)
+    finally:
+        await provider.aclose()
+    reason = str(exc.value)
+    assert "400" in reason and "code=invalid_request_error" in reason
+    assert "CANARY_STREAM_BODY" not in reason
+
+
 async def test_invalid_json_maps_to_request_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, text="not json")

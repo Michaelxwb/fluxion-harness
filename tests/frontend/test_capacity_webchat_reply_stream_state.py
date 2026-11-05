@@ -701,6 +701,23 @@ const obs = {};
 
 // ---- 9) 配置未就绪：零请求、显式失败；就绪后显式 retry 才开订阅 -----------------------------------
 {
+  const { config, state } = await boot({ reconnect_max_attempts: 0 });
+  const controller = controllerOf(state, config);
+  planSse([{ id: 'failed', frames: frameOf(RUN_A, CONVERSATION_1, 1, 'run.error', {
+    code: 'MODEL_UNAVAILABLE', retryable: false
+  }) }]);
+  controller.watch(targetOf(CONVERSATION_1, RUN_A));
+  await until('持久失败已收敛', () => controller.snapshot().connection.state === 'closed');
+  obs.runFailure = {
+    status: controller.snapshot().run.status,
+    error: controller.snapshot().run.errorCode,
+    recovery: controller.snapshot().run.recovery,
+    phase: controller.snapshot().streaming.phase,
+    requests: sse.requests.length
+  };
+}
+
+{
   resetSse();
   resetHttp();
   setChatContextId(CONTEXT_A);
@@ -803,7 +820,13 @@ const obs = {};
   obs.phaseRunning = controller.snapshot().streaming;
   pushFrame(
     'a1',
-    confirmationFrame(RUN_A, CONVERSATION_1, 3, {
+    stageFrame(RUN_A, CONVERSATION_1, 3, stageOf('WAITING_INPUT', { started_at: '2026-10-18T00:00:03Z' }))
+  );
+  await until('等待输入', () => controller.snapshot().streaming.phase === 'waiting-input');
+  obs.phaseWaitingInput = controller.snapshot().streaming;
+  pushFrame(
+    'a1',
+    confirmationFrame(RUN_A, CONVERSATION_1, 4, {
       submission_id: SUBMISSION_A,
       source_event_id: SOURCE_EVENT_A,
       prompt: '继续吗',
@@ -818,13 +841,13 @@ const obs = {};
     options: controller.snapshot().run.confirmation.options.length,
     phase: controller.snapshot().streaming.phase
   };
-  pushFrame(
-    'a1',
-    stageFrame(RUN_A, CONVERSATION_1, 4, stageOf('WAITING_INPUT', { started_at: '2026-10-18T00:00:03Z' }))
-  );
-  await until('等待输入', () => controller.snapshot().streaming.phase === 'waiting-input');
-  obs.phaseWaitingInput = controller.snapshot().streaming;
-  pushFrame('a1', stageFrame(RUN_A, CONVERSATION_1, 5, stageOf('COMPLETED')));
+  pushFrame('a1', stageFrame(RUN_A, CONVERSATION_1, 5, stageOf('RUNNING')));
+  await until('确认后恢复执行', () => controller.snapshot().run.status === 'RUNNING');
+  obs.resumedAfterConfirmation = {
+    phase: controller.snapshot().streaming.phase,
+    confirmation: controller.snapshot().run.confirmation
+  };
+  pushFrame('a1', stageFrame(RUN_A, CONVERSATION_1, 6, stageOf('COMPLETED')));
   await until('终态阶段', () => controller.snapshot().streaming.phase === 'terminal');
   obs.phaseTerminal = {
     streaming: controller.snapshot().streaming,
@@ -1011,6 +1034,13 @@ def test_b282_only_the_visible_run_is_subscribed_and_reconnects_by_get(events: d
     assert observed["states"] == ["idle", "connecting", "open", "reconnecting", "open", "closed"], (
         f"连接状态必须显式反映重连：{observed['states']}"
     )
+
+
+def test_persisted_run_error_is_terminal(events: dict[str, Any]) -> None:
+    assert events["runFailure"] == {
+        "status": "FAILED", "error": "MODEL_UNAVAILABLE", "recovery": None,
+        "phase": "terminal", "requests": 1,
+    }
 
 
 def test_b282_eof_is_not_completion_and_the_budget_comes_from_the_projection(
@@ -1216,10 +1246,11 @@ def test_b282_streaming_projection_carries_persistent_phases_and_confirmation(
         "submissionId": SUBMISSION_A,
         "sourceEventId": SOURCE_EVENT_A,
         "options": 1,
-        "phase": "running",
+        "phase": "waiting-input",
     }, "确认事件必须完整落地（原 submission/source，不重新编号）"
     waiting_input = events["phaseWaitingInput"]
     assert waiting_input["phase"] == "waiting-input"
+    assert events["resumedAfterConfirmation"] == {"phase": "running", "confirmation": None}
     terminal = events["phaseTerminal"]
     assert terminal["streaming"]["phase"] == "terminal" and terminal["status"] == "COMPLETED"
     assert terminal["recovery"] is None, "终态收敛不留下恢复要求"

@@ -10,7 +10,8 @@
  *    链接只接受可独立解析的 `http:`/`https:`/`mailto:`，相对/协议相对/伪协议降级为文本。
  * 2. **附件只经授权下载面**：卡片只展示文件名/种类/大小与下载动作，取件走注入的下载端口
  *    （`createAttachmentDownloader` 绑到 `WebchatClient.download`，服务端逐请求复核授权）；
- *    组件不拼路径、不读存储键、不为附件生成任何 `href`；失效附件不出下载动作并如实标注。
+ *    取到字节后由本地临时对象 URL 触发浏览器保存（不拼服务端路径、不读存储键）；
+ *    失效附件不出下载动作并如实标注。
  * 3. **身份与锚点**：每条消息把 `event_id`/`seq` 落到 DOM（滚动锚点按身份定位，不按下标）；
  *    上翻动作由 `useMessages` 绑定，组件只触发 `onLoadOlder`（滚动触发留给浏览器层）。
  * 4. **模式显式**：首屏未落地 → 骨架；无消息 → 空态；服务端失败 → 就地重试且**不清空**已有消息；
@@ -35,6 +36,11 @@ import { useTranslation } from 'react-i18next';
 import { CopyButton } from '../../../components/common/CopyButton';
 import { formatDateTime } from '../../../components/common/DateTimeText';
 
+import {
+  attachmentDownloadName,
+  saveAttachmentBlob,
+  type AttachmentSaver
+} from '../attachmentDownload';
 import type {
   AttachmentKind,
   WebchatAttachment,
@@ -65,17 +71,40 @@ export interface MessageAttachmentDownloadPort {
 /** 附件动作失败端口：本地拒绝与取件失败都显式上报，绝不静默。 */
 export type MessageAttachmentFailureHandler = (error: unknown) => void;
 
+/** 取件时已经不可恢复的失败：404/403 统一收敛为附件失效（不提示用户重试）。 */
+function isAttachmentGone(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const status = (error as { response?: { status?: number } }).response?.status;
+  if (status === 404 || status === 403) return true;
+  const code = (error as { code?: unknown }).code;
+  return code === 'COMMON_NOT_FOUND' || code === 'FORBIDDEN';
+}
+
 /** 把附件下载绑到授权下载面：只传 `artifact_id`（不拼路径、不读存储键），失败显式上报。 */
 export function createAttachmentDownloader(
   port: MessageAttachmentDownloadPort,
-  onFailure: MessageAttachmentFailureHandler
+  onFailure: MessageAttachmentFailureHandler,
+  save: AttachmentSaver = saveAttachmentBlob
 ): (attachment: WebchatAttachment) => void {
   return (attachment) => {
     if (!attachment.available) {
       onFailure(new AttachmentUnavailableError());
       return;
     }
-    port.download(attachment.artifact_id).then(undefined, onFailure);
+    port.download(attachment.artifact_id).then(
+      (blob) => {
+        try {
+          save(blob, attachmentDownloadName(attachment));
+        } catch (error) {
+          // 浏览器保存动作失败（对象 URL/锚点/DOM 异常）同样显式上报，绝不静默吞掉。
+          onFailure(error);
+        }
+      },
+      (error) => {
+        // 字节/归属/授权已不可恢复：404/403 不再伪装成可重试的传输失败。
+        onFailure(isAttachmentGone(error) ? new AttachmentUnavailableError() : error);
+      }
+    );
   };
 }
 

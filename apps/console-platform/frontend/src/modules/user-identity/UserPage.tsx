@@ -1,5 +1,5 @@
 import { actionColumn } from '../../components/common/tableLayout';
-import { Button, Input, Select, Toast } from '@douyinfe/semi-ui';
+import { Button, Input, Select } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +13,7 @@ import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { TableText } from '../../components/common/TableText';
 import { StatusTag } from '../../components/common/StatusTag';
+import { Tips } from '../../components/common/Tips';
 import { UserDetailTabs } from './UserDetailTabs';
 import { UserFormModal } from './UserFormModal';
 import { getUser, listUsers, type UserBasic, type UserDetail, type UserListItem } from './services/users';
@@ -86,7 +87,7 @@ export function UserPage() {
     try {
       setDetail(await getUser(id));
     } catch {
-      Toast.error(t('common.loadFailed'));
+      Tips.error(t('common.loadFailed'));
     }
   };
 
@@ -95,7 +96,7 @@ export function UserPage() {
       setFormUser(await getUser(id));
       setFormVisible(true);
     } catch {
-      Toast.error(t('common.loadFailed'));
+      Tips.error(t('common.loadFailed'));
     }
   };
 

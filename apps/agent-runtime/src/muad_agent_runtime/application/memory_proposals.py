@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from muad_agent_core.memory.evidence import verify_quote
 from muad_api import AppError
@@ -28,6 +29,10 @@ from ..infrastructure.models.runtime import (
     UserMemory,
 )
 from .async_tools.continuation_service import ExecutionIdentity, ensure_execution, lock_execution
+
+#: 用户确认/拒绝的动词：文本解析、WebChat 选项值与文本渠道提示共用这一份。
+CONFIRM_VERB = "确认"
+REJECT_VERB = "拒绝"
 
 
 async def locked_confirmation_execution(
@@ -145,7 +150,13 @@ def _proposal(
 
 
 def _prompt(
-    proposal_id: UUID, proposal: MemoryConfirmationProposal, row: UserMemory | None, now: datetime
+    proposal_id: UUID,
+    proposal: MemoryConfirmationProposal,
+    row: UserMemory | None,
+    now: datetime,
+    *,
+    timezone: str = "UTC",
+    for_text_channel: bool = False,
 ) -> str:
     states: list[str] = []
     if row is not None:
@@ -164,11 +175,35 @@ def _prompt(
         "FAILURE_PATTERN": "失败模式",
         "VERIFICATION": "验证方法",
     }[candidate.category]
+    fields = [
+        f"待保存记忆，候选编号：{proposal_id}",
+        f"键：{candidate.memory_key}",
+        f"类别：{category}",
+        f"内容：{candidate.value}",
+    ]
+    if candidate.source_quote is not None:
+        fields.append(f"来源原话：{candidate.source_quote}")
+    if states:
+        fields.append("原条目状态：" + "；".join(states))
+    if for_text_channel:
+        # 企微等文本渠道：Markdown 列表给每个字段单独一行（单换行会折叠），且不展示有效期
+        # 字段——有效期由服务端强制，WebChat 卡片单独展示期限，文本里重复只会制造噪音。
+        body = "\n".join(f"- {field}" for field in fields[1:])
+        return (
+            f"{fields[0]}\n\n{body}\n\n"
+            f"请回复“{CONFIRM_VERB}”或“{REJECT_VERB}”。"
+        )
+    body = fields[0] + "\n\n" + "\n".join(fields[1:])
     return (
-        f"待保存记忆，候选编号：{proposal_id}\n键：{candidate.memory_key}\n"
-        f"类别：{category}\n内容：{candidate.value}\n"
-        + (f"来源原话：{candidate.source_quote}\n" if candidate.source_quote is not None else "")
-        + ("原条目状态：" + "；".join(states) + "\n" if states else "")
-        + f"有效至：{proposal.expires_at.isoformat()}\n"
-        + f"请回复“确认 {proposal_id}”或“拒绝 {proposal_id}”。"
+        f"{body}\n\n有效至：{_format_expiry(proposal.expires_at, timezone)}\n"
+        f"请回复“{CONFIRM_VERB}”或“{REJECT_VERB}”。"
     )
+
+
+def _format_expiry(expires_at: datetime, timezone: str) -> str:
+    """按 Run 冻结的用户时区展示期限；坏时区显式回退 UTC（不让确认消息发送失败）。"""
+    try:
+        local = expires_at.astimezone(ZoneInfo(timezone))
+    except (ZoneInfoNotFoundError, ValueError):
+        local = expires_at.astimezone(UTC)
+    return local.strftime("%Y-%m-%d %H:%M:%S %z")

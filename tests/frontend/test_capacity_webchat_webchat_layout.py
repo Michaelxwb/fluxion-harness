@@ -48,6 +48,24 @@ MODULE = SRC / "modules/webchat"
 COMPONENTS = MODULE / "components"
 
 WEBCHAT_CSS = MODULE / "webchat.css"
+
+
+def test_confirmation_prompt_preserves_server_line_breaks() -> None:
+    css = WEBCHAT_CSS.read_text(encoding="utf-8")
+    prompt = re.search(r"\.chat-confirmation-prompt\s*\{([^}]*)\}", css)
+    assert prompt is not None
+    assert "white-space: pre-wrap" in prompt.group(1)
+    assert "overflow-wrap: anywhere" in prompt.group(1)
+
+
+def test_confirmation_card_appearance_keeps_viewport_pinned_to_bottom() -> None:
+    """确认卡不在 history 里：它出现/消失也必须触发底部跟随，否则会被顶到视口下方。"""
+    page = (MODULE / "ChatPage.tsx").read_text(encoding="utf-8")
+    assert "const confirmationKey = state.run?.confirmation?.submission_id ?? '';" in page
+    assert "confirmationAppeared" in page and "seenConfirmation" in page
+    assert "[viewportRef, streamingText, messageCount, loadingOlder, confirmationKey]" in page
+
+
 APP_CSS = SRC / "styles/app.css"
 MAIN_TSX = SRC / "main.tsx"
 MENU_TS = SRC / "config/menu.ts"

@@ -204,9 +204,16 @@ export function ModelDeploymentForm(props: ModelDeploymentFormProps) {
     const values = toServiceValues({ ...raw, key });
     try {
       if (member === null) {
-        await createDeployment(props.modelId, buildDeploymentCreateInput(values));
+        await createDeployment(props.modelId, buildDeploymentCreateInput(values), {
+          errorTip: 'never'
+        });
       } else {
-        await updateDeployment(props.modelId, member.id, buildDeploymentUpdateInput(member, values));
+        await updateDeployment(
+          props.modelId,
+          member.id,
+          buildDeploymentUpdateInput(member, values),
+          { errorTip: 'never' }
+        );
       }
       props.onSaved();
     } catch (error) {
@@ -405,7 +412,7 @@ export function ModelDeploymentPanel(props: ModelDeploymentPanelProps) {
   const unbind = async (member: ModelDeploymentItem): Promise<void> => {
     setActionErrorKey(null);
     try {
-      await deleteDeployment(props.modelId, member.id);
+      await deleteDeployment(props.modelId, member.id, { errorTip: 'never' });
     } catch (error) {
       // 解绑冲突（版本/归属变化）：共享传输已提示后端文案，这里保留面板内定位
       setActionErrorKey(deploymentSaveErrorKey(error));

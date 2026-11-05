@@ -253,7 +253,9 @@ def test_envelope_error_toasts_and_rejects() -> None:
     """[RULE-front-001] 统一封套：`code != '0'` → Toast 本地化 `msg` 且 reject（调用方不失联）。"""
     client = _compact(_read(CLIENT_TS))
     assert "body.code!=='0'" in client, "未按封套 code 判定成功与否"
-    assert "Toast.error({content:body.msg})" in client, "封套失败未 Toast 本地化 msg"
+    assert "Tips.error(body.msg" in client and "dedupeKey" in client, (
+        "封套失败未经 Tips 展示本地化 msg（并带去重键）"
+    )
     assert "returnPromise.reject(body)" in client, "封套失败必须 reject，调用方才能复位 loading"
 
 

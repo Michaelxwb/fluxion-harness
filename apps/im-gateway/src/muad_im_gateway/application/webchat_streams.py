@@ -338,7 +338,7 @@ class WebchatPublicProjector:
             if public_type == "confirmation.required":
                 return WebchatConfirmationEvent(
                     type="confirmation.required",
-                    data=WebchatConfirmation.model_validate(payload),
+                    data=WebchatConfirmation.model_validate(payload.get("confirmation", payload)),
                     **identity,
                 )
             return WebchatArtifactEvent(

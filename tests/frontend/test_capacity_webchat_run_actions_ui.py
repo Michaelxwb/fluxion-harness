@@ -1704,16 +1704,18 @@ def test_b283_confirmation_card_renders_complete_candidates_and_states(
     assert card.index("确认（保留）") < card.index("拒绝") < card.index("稍后再说"), (
         "候选按服务端顺序展示（不重新编号）"
     )
-    assert "1." not in card and "2." not in card, "不得自行编号"
+    visible_text = re.sub(r"<[^>]+>", "", card)
+    assert "1." not in visible_text and "2." not in visible_text, "不得自行编号"
     assert CONFIRM_PROMPT in card, "prompt 原样展示"
-    assert "确认期限" in card
+    assert '<h3' in card and '待确认操作' in card, "确认卡需要清晰的标题"
+    assert "请在此时间前确认" in card
     assert re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", card), "期限经 DateTimeText 展示"
     assert not _is_disabled(card, "chat-confirmation-choose"), "未过期可确认"
     assert not _contains(card, "chat-confirmation-expired")
     assert not _contains(card, "chat-confirmation-error")
 
     english = markup["confirm-en"]
-    assert "Confirmation expires" in english, "英文词条即时渲染"
+    assert "Confirm before" in english, "英文词条即时渲染"
     assert "确认（保留）" in english, "候选文案来自服务端（不翻译、不重新编号）"
 
     expired = markup["confirm-expired-zh"]

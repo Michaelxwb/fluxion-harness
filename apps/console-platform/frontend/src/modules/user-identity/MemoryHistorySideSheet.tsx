@@ -113,7 +113,9 @@ export function MemoryHistorySideSheet(props: MemoryHistorySideSheetProps) {
     setRestoring(true);
     try {
       const key = commands.current.key(identity, input);
-      await restoreMemory(props.userId, props.memoryKey, input.expected_version, key);
+      await restoreMemory(props.userId, props.memoryKey, input.expected_version, key, {
+        errorTip: 'never'
+      });
       commands.current.release(identity);
       props.onRestored?.();
     } catch (error) {

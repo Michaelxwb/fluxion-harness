@@ -101,7 +101,7 @@ export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
       return;
     }
     let cancelled = false;
-    listUsers({ page: 1, page_size: 20, keyword: userSearch || undefined })
+    listUsers({ page: 1, page_size: 20, keyword: userSearch || undefined }, { errorTip: 'always' })
       .then((pageResult) => {
         if (!cancelled) {
           setUsers(pageResult.items);
@@ -150,9 +150,11 @@ export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
     setFormError(null);
     try {
       if (formMode === 'user' && targetUser) {
-        await saveUserCredential(props.platform.platform_id, targetUser, credential);
+        await saveUserCredential(props.platform.platform_id, targetUser, credential, {
+          errorTip: 'never'
+        });
       } else if (formMode === 'shared') {
-        await saveSharedCredential(props.platform.platform_id, credential);
+        await saveSharedCredential(props.platform.platform_id, credential, { errorTip: 'never' });
       }
       closeForm();
       await reload();

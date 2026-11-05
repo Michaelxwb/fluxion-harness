@@ -77,8 +77,8 @@ codes:
   MEMORY_CONFIRMATION_INVALID:
     http_status: 400
     messages:
-      zh-CN: "记忆确认无效，请使用展示的确认或拒绝编号"
-      en-US: "Invalid memory confirmation; use the displayed confirmation or rejection number"
+      zh-CN: "记忆确认无效，请回复“确认”或“拒绝”（也可使用展示的候选编号）"
+      en-US: "Invalid memory confirmation; reply “确认” or “拒绝” (or use the displayed candidate number)"
   MEMORY_CONFIRMATION_PENDING:
     http_status: 409
     messages:

@@ -213,7 +213,7 @@ export function MemoryTab(props: MemoryTabProps) {
       const saved = await runAction(
         identity,
         input,
-        (key) => createMemory(props.userId, input, key),
+        (key) => createMemory(props.userId, input, key, { errorTip: 'never' }),
         (error) => {
           setCreateError(memoryErrorLabel(t, memoryErrorCode(error)));
         }
@@ -235,7 +235,7 @@ export function MemoryTab(props: MemoryTabProps) {
     }
     const input = enabledCommand(entry);
     runToolbarAction(`toggle:${props.userId}:${entry.memory_key}`, input, (key) =>
-      updateMemoryEnabled(props.userId, entry.memory_key, input, key)
+      updateMemoryEnabled(props.userId, entry.memory_key, input, key, { errorTip: 'never' })
     );
   };
 
@@ -251,7 +251,13 @@ export function MemoryTab(props: MemoryTabProps) {
       const saved = await runAction(
         identity,
         input,
-        (key) => updateMemoryEnabled(props.userId, expiredTarget.memory_key, input, key),
+        (key) => updateMemoryEnabled(
+          props.userId,
+          expiredTarget.memory_key,
+          input,
+          key,
+          { errorTip: 'never' }
+        ),
         (error) => {
           setReenableError(memoryErrorLabel(t, memoryErrorCode(error)));
         }
@@ -268,13 +274,13 @@ export function MemoryTab(props: MemoryTabProps) {
     runToolbarAction(
       `delete:${props.userId}:${entry.id}`,
       { memory_id: entry.id, expected_version: entry.version },
-      (key) => deleteMemory(props.userId, entry.id, entry.version, key)
+      (key) => deleteMemory(props.userId, entry.id, entry.version, key, { errorTip: 'never' })
     );
   };
 
   const clearAll = (): void => {
     runToolbarAction(`clear:${props.userId}`, { user_id: props.userId }, (key) =>
-      clearMemory(props.userId, key)
+      clearMemory(props.userId, key, { errorTip: 'never' })
     );
   };
 
@@ -384,11 +390,9 @@ export function MemoryTab(props: MemoryTabProps) {
                       EXPIRED: { color: 'amber', label: memoryStatusLabel(t, 'EXPIRED') }
                     }}
                   />
-                  {entry.expires_at ? (
-                    <span className="memory-expiry" title={t('user.memory.expiresAt')}>
-                      <DateTimeText value={entry.expires_at} />
-                    </span>
-                  ) : null}
+                  <span className="memory-expiry" title={t('user.memory.expiresAt')}>
+                    {entry.expires_at ? <DateTimeText value={entry.expires_at} /> : t('user.memory.noExpiry')}
+                  </span>
                 </div>
               )
             },

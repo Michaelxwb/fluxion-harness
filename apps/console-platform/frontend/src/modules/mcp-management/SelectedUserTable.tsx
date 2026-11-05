@@ -85,7 +85,7 @@ export function McpSelectedUserTable(props: McpSelectedUserTableProps) {
       return;
     }
     let cancelled = false;
-    listUsers({ page: 1, page_size: CANDIDATE_PAGE_SIZE, keyword: search || undefined })
+    listUsers({ page: 1, page_size: CANDIDATE_PAGE_SIZE, keyword: search || undefined }, { errorTip: 'always' })
       .then((result) => {
         if (!cancelled) {
           setCandidates(

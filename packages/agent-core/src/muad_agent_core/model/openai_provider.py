@@ -46,6 +46,23 @@ SERVER_ERROR_STATUS = 500
 DEFAULT_TIMEOUT_SEC = MAX_MODEL_REQUEST_MS / 1000.0
 
 
+def _rejection_detail(response: httpx.Response) -> str:
+    """上游 4xx 的安全原因（只取 type/code/param，不透传 message/正文）。"""
+    try:
+        payload = response.json()
+    except ValueError:
+        return ""
+    error = payload.get("error") if isinstance(payload, dict) else None
+    if not isinstance(error, dict):
+        return ""
+    parts = [
+        f"{name}={error[name]}"
+        for name in ("type", "code", "param")
+        if isinstance(error.get(name), (str, int)) and error.get(name) not in ("", None)
+    ]
+    return f" ({', '.join(parts)})" if parts else ""
+
+
 class OpenAICompatibleProvider:
     def __init__(
         self,
@@ -91,6 +108,7 @@ class OpenAICompatibleProvider:
                     await response.aread()
                     raise ModelRequestError(
                         f"model request rejected: {response.status_code}"
+                        f"{_rejection_detail(response)}"
                     )
                 content_type = response.headers.get("content-type", "")
                 if "text/event-stream" not in content_type:
@@ -238,7 +256,9 @@ class OpenAICompatibleProvider:
         if response.status_code >= SERVER_ERROR_STATUS:
             raise ModelUnavailableError(f"model server error: {response.status_code}")
         if response.status_code >= 400:
-            raise ModelRequestError(f"model request rejected: {response.status_code}")
+            raise ModelRequestError(
+                f"model request rejected: {response.status_code}{_rejection_detail(response)}"
+            )
         return response
 
     def _headers(self) -> dict[str, str]:

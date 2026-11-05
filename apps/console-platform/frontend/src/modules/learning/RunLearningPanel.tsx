@@ -14,7 +14,7 @@ export function RunLearningPanel(props: { runId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    getRunLearningDiagnostics(props.runId)
+    getRunLearningDiagnostics(props.runId, { errorTip: 'always' })
       .then((value) => {
         if (!cancelled) setData(value);
       })

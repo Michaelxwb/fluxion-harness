@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Toast } from '@douyinfe/semi-ui';
+import { Tips } from '../../../components/common/Tips';
 import { useTranslation } from 'react-i18next';
 
 import { buildDocument, initialValues, isDirty } from '../formValues';
@@ -126,13 +126,16 @@ export function usePlatformSettings(): PlatformSettingsState {
     setErrors({});
     setConflict(false);
     try {
-      const result = await savePlatformSettings({
-        revision: snapshot.revision,
-        settings: buildDocument(snapshot.groups, values)
-      });
+      const result = await savePlatformSettings(
+        {
+          revision: snapshot.revision,
+          settings: buildDocument(snapshot.groups, values)
+        },
+        { errorTip: 'never' }
+      );
       setSnapshot((prev) => (prev === null ? prev : { ...prev, revision: result.revision }));
       setBaseValues(values);
-      Toast.success({ content: t('settings.save.success') });
+      Tips.success(t('settings.save.success'));
     } catch (error) {
       const code = errorCodeOf(error);
       if (code === VERSION_CONFLICT) {

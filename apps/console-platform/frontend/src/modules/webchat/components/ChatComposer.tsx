@@ -21,10 +21,11 @@
 
 import { Button } from '@douyinfe/semi-ui';
 import { IconPaperclip } from '@douyinfe/semi-icons';
-import type { ChangeEvent, KeyboardEvent, RefObject } from 'react';
+import type { ChangeEvent, ClipboardEvent, KeyboardEvent, RefObject } from 'react';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { clipboardFiles } from '../composerPaste';
 import { formatAttachmentSize } from './MessageThread';
 import type {
   ComposerAttachment,
@@ -143,6 +144,7 @@ function ComposerHints(props: { policy: ComposerAttachmentPolicy }) {
       <span data-testid="chat-composer-hint-text">
         {t('chat.composer.hint.text', { max: props.policy.text_max_bytes })}
       </span>
+      <span data-testid="chat-composer-hint-paste">{t('chat.composer.hint.paste')}</span>
     </p>
   );
 }
@@ -404,6 +406,14 @@ export function ChatComposer(props: ChatComposerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const flags = composerFlags(props);
   const handleKeyDown = composerKeyHandler(flags);
+  const handlePaste = (event: ClipboardEvent<HTMLElement>): void => {
+    if (flags.inputDisabled) return;
+    const files = clipboardFiles(event.clipboardData);
+    if (files.length === 0) return;
+    // 有文件就交给附件通道：阻止默认粘贴，避免把图片作为 blob/HTML 塞进正文。
+    event.preventDefault();
+    props.onAddFiles(files);
+  };
 
   return (
     <section
@@ -411,6 +421,7 @@ export function ChatComposer(props: ChatComposerProps) {
       data-testid="chat-composer"
       data-phase={props.phase}
       aria-label={t('chat.composer.label')}
+      onPaste={handlePaste}
     >
       <ComposerAttachments
         attachments={props.attachments}

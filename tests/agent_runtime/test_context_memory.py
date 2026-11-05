@@ -371,6 +371,276 @@ async def test_unanswered_tool_calls_are_dropped_from_history(async_tool_databas
     assert any("我先看看" in str(message.content) for message in messages)
 
 
+async def test_memory_confirmation_result_is_user_context_not_assistant_utterance(
+    async_tool_database,
+) -> None:
+    """确认结果必须作为用户确认的上下文说明回放，不能合成 assistant 消息。
+
+    合成 assistant 消息会让请求以 `assistant` 结尾（部分 OpenAI 兼容供应商按预填拒绝），
+    也会让模型以为自己已经回答过；结果文案应明确是引用事实。
+    """
+    tenant, conv_id = f"confirmation-{uuid.uuid4()}", uuid.uuid4()
+    async with _factory(async_tool_database).begin() as session:
+        session.add(
+            Conversation(
+                id=conv_id,
+                tenant_id=tenant,
+                user_id=USER_ID,
+                agent_id=uuid.uuid4(),
+                status="ACTIVE",
+                last_seq=5,
+            )
+        )
+        session.add_all(
+            [
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=1,
+                    event_type="USER_MESSAGE",
+                    payload_json={"text": "记住蓝色"},
+                ),
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=2,
+                    event_type="ASSISTANT_TURN",
+                    payload_json={
+                        "text": "",
+                        "tool_calls": [
+                            {"id": "c1", "name": "remember", "arguments": {}}
+                        ],
+                    },
+                    stream_type="assistant.turn",
+                ),
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=3,
+                    event_type="TOOL_CALL",
+                    payload_json={
+                        "tool_call_id": "c1",
+                        "tool_name": "remember",
+                        "preview": '{"saved":false}',
+                    },
+                ),
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=4,
+                    event_type="USER_MESSAGE",
+                    payload_json={"text": "确认 proposal"},
+                ),
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=5,
+                    event_type="MEMORY_CONFIRMATION_RESOLVED",
+                    payload_json={
+                        "outcome": "CONFIRMED",
+                        "saved": True,
+                        "memory_key": "color",
+                        "version": 1,
+                        "text": "记忆已保存。",
+                        "delta": "记忆已保存。",
+                    },
+                    stream_type="message.delta",
+                ),
+            ]
+        )
+
+    messages = await _builder(async_tool_database).load_history(
+        tenant_id=tenant,
+        conversation_id=conv_id,
+        user_id=USER_ID,
+        budget_messages=20,
+    )
+
+    assert [str(message.role) for message in messages] == [
+        "user",
+        "assistant",
+        "tool",
+        "user",
+    ]
+    assert messages[-1].role is ModelRole.USER, "请求必须以 user 结尾，不能是 assistant 预填"
+    assert "确认 proposal" in str(messages[-1].content)
+    assert "[Memory confirmation result: CONFIRMED (memory_key=color, version=1)" in str(
+        messages[-1].content
+    )
+    assert "记忆已保存" in str(messages[-1].content)
+    assert all(
+        "记忆已保存" not in str(message.content)
+        for message in messages
+        if message.role is ModelRole.ASSISTANT
+    ), "确认结果不是模型说过的话"
+
+
+async def test_tool_result_stays_attached_to_its_declaring_turn_when_events_interleave(
+    async_tool_database,
+) -> None:
+    """canonical 行交错时工具结果仍紧跟在声明它的 assistant 之后。
+
+    只按事件位置追加会产生「tool 消息在 user/assistant 之后」的非法请求；供应商会拒绝
+    整条请求（不是丢一条结果）。工具结果必须按声明 id 归位。
+    """
+    tenant, conv_id = f"interleaved-{uuid.uuid4()}", uuid.uuid4()
+    async with _factory(async_tool_database).begin() as session:
+        session.add(
+            Conversation(
+                id=conv_id,
+                tenant_id=tenant,
+                user_id=USER_ID,
+                agent_id=uuid.uuid4(),
+                status="ACTIVE",
+                last_seq=5,
+            )
+        )
+        session.add_all(
+            [
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=1,
+                    event_type="USER_MESSAGE",
+                    payload_json={"text": "记住蓝色"},
+                ),
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=2,
+                    event_type="ASSISTANT_TURN",
+                    payload_json={
+                        "text": "",
+                        "tool_calls": [
+                            {"id": "remember-1", "name": "remember", "arguments": {}}
+                        ],
+                    },
+                    stream_type="assistant.turn",
+                ),
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=3,
+                    event_type="MEMORY_CONFIRMATION_RESOLVED",
+                    payload_json={
+                        "outcome": "CONFIRMED",
+                        "saved": True,
+                        "text": "记忆已保存。",
+                    },
+                    stream_type="message.delta",
+                ),
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=4,
+                    event_type="USER_MESSAGE",
+                    payload_json={"text": "确认 proposal"},
+                ),
+                # 工具结果迟到：只按 seq 追加会把 tool 消息留在最后（紧跟在 user 之后）。
+                CanonicalEvent(
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    run_id=RUN_ID,
+                    seq=5,
+                    event_type="TOOL_CALL",
+                    payload_json={
+                        "tool_call_id": "remember-1",
+                        "tool_name": "remember",
+                        "preview": '{"saved":false}',
+                    },
+                ),
+            ]
+        )
+
+    messages = await _builder(async_tool_database).load_history(
+        tenant_id=tenant,
+        conversation_id=conv_id,
+        user_id=USER_ID,
+        budget_messages=20,
+    )
+    roles = [str(message.role) for message in messages]
+    declaration = next(index for index, message in enumerate(messages) if message.tool_calls)
+    assert roles[declaration + 1] == "tool"
+    assert messages[declaration + 1].tool_call_id == "remember-1"
+    assert roles[-1] == "user", "迟到工具结果不得把请求结尾改成 tool"
+
+
+async def _seed_reused_call_history(engine, *, same_run: bool) -> tuple[str, uuid.UUID]:
+    tenant, conversation_id = f"reused-call-{uuid.uuid4()}", uuid.uuid4()
+    async with _factory(engine).begin() as session:
+        session.add(Conversation(
+            id=conversation_id, tenant_id=tenant, user_id=USER_ID,
+            agent_id=uuid.uuid4(), status="ACTIVE", last_seq=12,
+        ))
+        for index, preview in enumerate(("old result", "new result")):
+            run_id = RUN_ID if same_run else uuid.uuid4()
+            facts = [
+                ("USER_MESSAGE", {"text": f"question {index}"}),
+                ("ASSISTANT_TURN", {"tool_calls": [
+                    {"id": "call_0", "name": "lookup", "arguments": {"round": index}}
+                ], "reasoning_content": f"reason {index}"}),
+                ("TOOL_CALL", {"tool_call_id": "call_0", "preview": preview}),
+                ("TOOL_CALL", {"tool_call_id": "call_0", "preview": "duplicate result"}),
+                ("ASSISTANT_MESSAGE", {"text": f"answer {index}"}),
+                ("TOOL_CALL", {"tool_call_id": "orphan", "preview": "orphan result"}),
+            ]
+            session.add_all(CanonicalEvent(
+                tenant_id=tenant, conversation_id=conversation_id, run_id=run_id,
+                seq=index * len(facts) + offset, event_type=event_type, payload_json=payload,
+            ) for offset, (event_type, payload) in enumerate(facts, start=1))
+    return tenant, conversation_id
+
+
+@pytest.mark.parametrize("same_run", [False, True])
+@pytest.mark.parametrize("limit", [0, 1, 2])
+async def test_reused_tool_call_ids_keep_each_rounds_own_result(
+    async_tool_database, same_run: bool, limit: int,
+) -> None:
+    tenant, conversation_id = await _seed_reused_call_history(async_tool_database, same_run=same_run)
+    messages = await _builder(async_tool_database).load_history(
+        tenant_id=tenant, conversation_id=conversation_id, user_id=USER_ID,
+        budget_messages=20, max_history_tool_rounds=limit,
+    )
+    results = [message.content for message in messages if message.role is ModelRole.TOOL]
+    assert results == (["old result", "new result"][-limit:] if limit else [])
+    ordinary = [message.content for message in messages if not message.tool_calls
+                and message.role is not ModelRole.TOOL]
+    assert ordinary == ["question 0", "answer 0", "question 1", "answer 1"]
+    for index, message in enumerate(messages):
+        if message.tool_calls:
+            round_index = message.tool_calls[0].arguments["round"]
+            assert message.reasoning_content == f"reason {round_index}"
+            assert messages[index + 1].role is ModelRole.TOOL
+            assert messages[index + 1].tool_call_id == message.tool_calls[0].id
+
+
+async def test_tool_results_from_another_run_do_not_answer_a_declared_call(
+    async_tool_database,
+) -> None:
+    tenant, conversation_id = await _seed_reused_call_history(async_tool_database, same_run=False)
+    async with _factory(async_tool_database).begin() as session:
+        await session.execute(sa.update(CanonicalEvent).where(
+            CanonicalEvent.tenant_id == tenant,
+            CanonicalEvent.conversation_id == conversation_id,
+            CanonicalEvent.seq.in_((3, 4)),
+        ).values(run_id=uuid.uuid4()))
+    messages = await _builder(async_tool_database).load_history(
+        tenant_id=tenant, conversation_id=conversation_id, user_id=USER_ID,
+        budget_messages=20, max_history_tool_rounds=2,
+    )
+    assert [message.content for message in messages if message.role is ModelRole.TOOL] == ["new result"]
+    assert [message.tool_calls[0].arguments["round"] for message in messages if message.tool_calls] == [1]
+
+
 async def test_s03_confirmed_memory_is_injected_with_provenance_and_non_instruction_wording(
     async_tool_database,
 ) -> None:

@@ -1,5 +1,5 @@
-import axios, { type AxiosError } from 'axios';
-import { Toast } from '@douyinfe/semi-ui';
+import axios, { type AxiosError, type AxiosRequestConfig } from 'axios';
+import { Tips } from '../components/common/Tips';
 
 import { currentLocale } from '../i18n';
 
@@ -12,6 +12,30 @@ import {
   notifyChatUnauthorized,
   type AuthScope
 } from './authScope';
+
+export type ErrorTipMode = 'auto' | 'always' | 'never';
+
+/** 业务 service 可透传的窄请求选项：只暴露错误提示策略，不放开任意传输配置。 */
+export interface RequestOptions {
+  errorTip?: ErrorTipMode;
+}
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /**
+     * 全局错误轻提示策略：默认 `auto`（GET 由页面 ErrorState 负责，写操作才弹）；
+     * GET 动作可显式 `always`，页面已有内联错误的写操作可显式 `never`。
+     */
+    errorTip?: ErrorTipMode;
+  }
+}
+
+function shouldShowErrorTip(config: AxiosRequestConfig | undefined): boolean {
+  const mode = config?.errorTip ?? 'auto';
+  if (mode === 'never') return false;
+  if (mode === 'always') return true;
+  return (config?.method ?? 'get').toLowerCase() !== 'get';
+}
 
 export interface ApiResponse<T> {
   code: string;
@@ -117,7 +141,10 @@ api.interceptors.response.use(
   (response) => {
     const body = response.data as ApiResponse<unknown>;
     if (body && typeof body.code === 'string' && body.code !== '0') {
-      Toast.error({ content: body.msg });
+      // GET 是页面加载：常驻 ErrorState/Banner 已负责；写操作才默认走全局轻提示。
+      if (shouldShowErrorTip(response.config)) {
+        Tips.error(body.msg, { dedupeKey: `${body.code}:${body.msg}` });
+      }
       return Promise.reject(body);
     }
     return response;
@@ -137,8 +164,8 @@ api.interceptors.response.use(
     }
     const body = error.response?.data;
     const isSessionProbe = error.config?.url?.includes('/auth/me') ?? false;
-    if (body?.msg && !isSessionProbe) {
-      Toast.error({ content: body.msg });
+    if (body?.msg && !isSessionProbe && shouldShowErrorTip(error.config)) {
+      Tips.error(body.msg, { dedupeKey: `${body.code ?? 'UNKNOWN'}:${body.msg}` });
     }
     return Promise.reject(error);
   }

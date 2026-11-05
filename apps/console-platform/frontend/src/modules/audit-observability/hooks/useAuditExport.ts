@@ -198,7 +198,7 @@ export function useAuditExport(): AuditExportState {
     async (req: AuditExportCreateRequest, idempotencyKey: string): Promise<void> => {
       const run = beginSubmission(submissionSeq, busyRef, { setStatus, setErrorCode, setBusy });
       try {
-        const created = await createExport(req, idempotencyKey);
+        const created = await createExport(req, idempotencyKey, { errorTip: 'never' });
         if (!run.isCurrent()) return;
         setStatus(created.status);
         const job = await pollUntilTerminal(created.exportId, run.isCurrent);

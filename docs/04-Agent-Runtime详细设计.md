@@ -734,8 +734,9 @@ latest-N 截断），随后：
 revision），来源（author）只由服务端派生：
 
 - **自然语言 remember**：模型只能提交候选（工具回执 `saved=false` + `confirmation_required=true`），
-  Runtime 展示完整候选（key/内容/原话证据/有效期/版本），用户真实确认（`确认 <候选编号>`）后
-  才以 `author=USER` 保存；每 Run 至多一个待确认候选，工具整轮完成后才暂停，resume 先查绝对 deadline。
+  Runtime 展示完整候选（key/内容/原话证据/版本；期限由服务端强制并在 WebChat 卡片展示），
+  用户真实确认（`确认`/`拒绝`，或 `确认 <候选编号>` 显式指定）后才以 `author=USER` 保存；每 Run
+  至多一个待确认候选，工具整轮完成后才暂停，resume 先查绝对 deadline。
 - **显式命令**：canonical 用户消息精确等于 `/memory remember <key> <category> <value>` 时直接保存
   （仍受内容闸门与配额约束），回执 `saved=true` + version。
 - **管理员**：Console 授权后的内部命令走同一 writer，`author=ADMIN`，调用方不能选择 authorship。

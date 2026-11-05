@@ -316,6 +316,8 @@ function applyStage(run: ActiveRunState, status: WebchatExecutionStatus): void {
   if (TERMINAL_STAGES.has(status.stage)) run.status = status.stage as RunStatus;
   else if (status.stage === 'WAITING_INPUT' || status.stage === 'WAITING_TOOL') {
     run.status = status.stage;
+  } else if (status.stage === 'RUNNING') {
+    run.status = 'RUNNING';
   }
 }
 
@@ -327,7 +329,6 @@ function recoveryFromStop(stop: WebchatReplyStop): RunRecoveryState | null {
     return { kind: 'auth', errorCode: stop.error.code, cursor: null };
   }
   if (stop.kind === 'failed') return { kind: 'retry', errorCode: stop.error.code, cursor: null };
-  if (stop.kind === 'run-error') return { kind: 'retry', errorCode: stop.code, cursor: null };
   return null;
 }
 
@@ -470,6 +471,8 @@ function applyApplied(
   } else if (update.kind === 'terminal') {
     run.status = update.status;
   } else if (update.kind === 'error') {
+    run.status = 'FAILED';
+    run.confirmation = null;
     run.errorCode = update.code;
     run.retryable = update.retryable;
   } else if (update.kind === 'confirmation') {
@@ -527,6 +530,10 @@ function applyStop(runtime: RunEventsRuntime, generation: number, stop: WebchatR
     if (stop.kind === 'terminal') run.status = stop.status;
     else {
       if (stop.kind === 'run-error') {
+        // run.error 是持久终态：即使错误帧没进入 onUpdate（连接在帧后立即结束），
+        // 停止原因也必须把 Run 收敛为 FAILED，不能让它停在 RUNNING。
+        run.status = 'FAILED';
+        run.confirmation = null;
         run.errorCode = stop.code;
         run.retryable = stop.retryable;
       }
@@ -534,7 +541,7 @@ function applyStop(runtime: RunEventsRuntime, generation: number, stop: WebchatR
     }
   }
   runtime.connection =
-    stop.kind === 'terminal' || stop.kind === 'closed'
+    stop.kind === 'terminal' || stop.kind === 'run-error' || stop.kind === 'closed'
       ? { ...runtime.connection, state: 'closed', cursor: null }
       : {
           ...runtime.connection,

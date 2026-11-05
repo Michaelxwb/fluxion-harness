@@ -41,6 +41,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams } from 'react-router-dom';
 
 import { newRequestId } from '../../api/client';
+import { Tips } from '../../components/common/Tips';
 import { ChatComposer } from './components/ChatComposer';
 import {
   ConfirmationCard,
@@ -50,6 +51,7 @@ import {
 } from './components/ConfirmationCard';
 import {
   ATTACHMENT_UNAVAILABLE,
+  AttachmentUnavailableError,
   MESSAGE_ROLE_KEYS,
   MessageContent,
   MessageThread,
@@ -1201,6 +1203,7 @@ function useTerminalRunRefresh(
   run: ActiveRunState | null,
   conversations: ConversationsController
 ): void {
+  const { t } = useTranslation();
   const refreshed = useRef<string | null>(null);
   const select = conversations.select;
   useEffect(() => {
@@ -1211,9 +1214,10 @@ function useTerminalRunRefresh(
     if (run.status === 'CANCELLED') return;
     if (refreshed.current === run.runId) return;
     refreshed.current = run.runId;
+    if (run.status === 'FAILED') Tips.error(t('chat.run.failure'));
     fireAndForget(select(conversationId));
     // Run 状态在控制器内原地更新：依赖必须取标量字段，不能只依赖 run 引用。
-  }, [conversationId, run?.runId, run?.status, run?.executionStatus?.stage, select]);
+  }, [conversationId, run?.runId, run?.status, run?.executionStatus?.stage, select, t]);
 }
 
 /**
@@ -1224,9 +1228,11 @@ function useStickToBottom(
   viewportRef: RefObject<HTMLDivElement>,
   streamingText: string,
   messageCount: number,
-  loadingOlder: boolean
+  loadingOlder: boolean,
+  confirmationKey: string
 ): void {
   const stick = useRef(true);
+  const seenConfirmation = useRef('');
   useLayoutEffect(() => {
     const element = viewportRef.current;
     if (element === null) return;
@@ -1240,11 +1246,17 @@ function useStickToBottom(
   }, [viewportRef]);
 
   useLayoutEffect(() => {
-    if (loadingOlder) return;
     const element = viewportRef.current;
-    if (element === null || !stick.current) return;
+    const confirmationAppeared =
+      confirmationKey !== '' && seenConfirmation.current !== confirmationKey;
+    seenConfirmation.current = confirmationKey;
+    if (loadingOlder || element === null) return;
+    // 新确认卡是阻塞交互：即使读者上翻过，也要把它带进视口；其余内容只在底部跟随时滚动。
+    if (!confirmationAppeared && !stick.current) return;
     element.scrollTop = element.scrollHeight;
-  }, [viewportRef, streamingText, messageCount, loadingOlder]);
+    // 确认卡出现/消失也是内容变化：卡片不在 history.items 里，只靠 streamingText/messageCount
+    // 无法触发滚动，会把新卡片顶到视口下方。用 submission_id 作为内容键，保持底部跟随。
+  }, [viewportRef, streamingText, messageCount, loadingOlder, confirmationKey]);
 }
 
 /**
@@ -1256,11 +1268,13 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
   const state = useChatWorkspaceState(props);
   useActiveConversationRead(props.notifications, state.conversationId);
   useTerminalRunRefresh(state.conversationId, state.run, props.conversations);
+  const confirmationKey = state.run?.confirmation?.submission_id ?? '';
   useStickToBottom(
     state.messages.viewportRef,
     state.streaming?.text ?? '',
     state.messages.history.items.length,
-    state.messages.history.loadingOlder
+    state.messages.history.loadingOlder,
+    confirmationKey
   );
   return (
     <WebchatShell
@@ -1493,9 +1507,17 @@ export default function ChatPage() {
   const runEvents = useRunEvents(conversations, config, auth, MAX_SCOPED_RUNS);
 
   const [actionFailure, setActionFailure] = useState<string | null>(null);
-  const onActionFailure = useCallback((error: unknown): void => {
-    setActionFailure(webchatErrorCode(error));
-  }, []);
+  const onActionFailure = useCallback(
+    (error: unknown): void => {
+      if (error instanceof AttachmentUnavailableError) {
+        // 附件失效是单条附件的局部事实：统一 Tips 的右下角自动消失轻提示，不占整页置顶 Banner。
+        Tips.error(t('chat.thread.attachmentUnavailable'));
+        return;
+      }
+      setActionFailure(webchatErrorCode(error));
+    },
+    [t]
+  );
   const notificationActivity = useMemo<NotificationActivityPort>(
     () => ({
       foreground: () => {

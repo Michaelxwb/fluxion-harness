@@ -54,9 +54,11 @@ class MemoryConfirmationService:
         submission_id: UUID,
         settings: MemoryPolicySettings | None = None,
         credential_canaries: tuple[str, ...] = (),
+        timezone: str = "UTC",
     ) -> None:
         self._factory, self._identity, self._submission_id = factory, identity, submission_id
         self._settings, self._canaries = settings or MemoryPolicySettings(), credential_canaries
+        self._timezone = timezone
         self._pending: MemorySuspendRequest | None = None
         self._lock = asyncio.Lock()
 
@@ -97,7 +99,17 @@ class MemoryConfirmationService:
                     proposal = _proposal(candidate, run, event, row, epoch, now)
                     proposal_id = uuid4()
                     request = MemorySuspendRequest(
-                        proposal_id, proposal, _prompt(proposal_id, proposal, row, now)
+                        proposal_id,
+                        proposal,
+                        _prompt(proposal_id, proposal, row, now, timezone=self._timezone),
+                        text_prompt=_prompt(
+                            proposal_id,
+                            proposal,
+                            row,
+                            now,
+                            timezone=self._timezone,
+                            for_text_channel=True,
+                        ),
                     )
                     after_commit(session, "memory_confirmation_total", labels={"outcome": "PROPOSED"})
             except SQLAlchemyError as exc:

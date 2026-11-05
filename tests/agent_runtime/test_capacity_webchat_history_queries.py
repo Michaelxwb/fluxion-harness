@@ -184,13 +184,18 @@ async def _append_messages_bulk(
 
 
 async def _append_internal_event(
-    tenant_id: str, conversation_id: uuid.UUID, event_type: str, payload: dict[str, Any]
+    tenant_id: str,
+    conversation_id: uuid.UUID,
+    event_type: str,
+    payload: dict[str, Any],
+    *,
+    run_id: uuid.UUID | None = None,
 ) -> int:
     async with get_session_factory()() as session:
         seq = await EventWriter(session).append(
             tenant_id=tenant_id,
             conversation_id=conversation_id,
-            run_id=uuid.uuid4(),
+            run_id=run_id or uuid.uuid4(),
             event_type=event_type,
             payload=payload,
         )
@@ -233,6 +238,22 @@ async def _seed_active_run(
         conversation.last_run_id = run_id
         await session.commit()
     return run_id
+
+
+async def _finish_history_run(
+    tenant_id: str, conversation_id: uuid.UUID, run_id: uuid.UUID, status: RunStatus
+) -> None:
+    """终态行与 canonical 事件同事务落库，匹配 Runtime 的真实写入边界。"""
+    async with get_session_factory()() as session:
+        run = await session.get(RunRecord, run_id)
+        assert run is not None
+        run.status = status
+        await EventWriter(session).append(
+            tenant_id=tenant_id, conversation_id=conversation_id, run_id=run_id,
+            event_type="RUN_FAILED" if status is RunStatus.FAILED else "RUN_COMPLETED",
+            payload={"status": status.value},
+        )
+        await session.commit()
 
 
 async def _seed_artifact(
@@ -656,6 +677,186 @@ async def test_b250_active_run_keeps_visible_body_and_recovery_identity(
     assert detail.active_run.id == run_id and detail.active_run.status == "RUNNING"
     assert detail.active_run.execution_status.stage == "RUNNING"
     assert detail.active_run.confirmation is None
+
+
+async def test_b250_memory_confirmation_result_is_visible_after_terminal_refresh(
+    client: AsyncClient, history_tenant: TenantContext
+) -> None:
+    """确认结果必须是历史消息：终态刷新后仍可见，且不把内部结果 JSON 带出去。
+
+    记忆确认的 `MEMORY_CONFIRMATION_RESOLVED` 同时是增量事件与可见历史事实；只走流式会让
+    后续终态刷新把它清掉（用户最后只看到失败提示）。公开投影按 outcome 取安全文案。
+    """
+    tenant = history_tenant
+    conversation_id = await _seed_conversation(tenant, title="确认结果")
+    run_id = await _seed_active_run(tenant, conversation_id)
+    await _append_message(
+        tenant.tenant_id, conversation_id, text="记住蓝色", run_id=run_id
+    )
+    await _append_internal_event(
+        tenant.tenant_id,
+        conversation_id,
+        "MEMORY_CONFIRMATION_RESOLVED",
+        {
+            "outcome": "CONFIRMED",
+            "saved": True,
+            "memory_key": "color",
+            "version": 1,
+            "text": '记忆已保存。\n{"outcome":"CONFIRMED","saved":true}',
+            "delta": "记忆已保存。",
+        },
+        run_id=run_id,
+    )
+    await _finish_history_run(tenant.tenant_id, conversation_id, run_id, RunStatus.FAILED)
+
+    page = _page_data(
+        await _get(
+            client, _messages_path(conversation_id), tenant, **_read_scope(tenant),
+            page=1, page_size=50,
+        ),
+        WebchatMessagePage,
+    )
+    assert [(item.role, item.text) for item in page.items] == [
+        ("USER", "记住蓝色"),
+        ("ASSISTANT", "记忆已保存。"),
+    ]
+    assert '"saved"' not in page.items[-1].text, "内部结果 JSON 不得进入公开历史"
+
+
+async def test_b250_memory_confirmation_receipt_waits_for_terminal_on_webchat(
+    client: AsyncClient, history_tenant: TenantContext
+) -> None:
+    """WebChat 的执行中 Run 不展示确认回执：流式层和确认刷新不能同时出现两条。
+
+    Run 失败/取消后没有最终回答，回执在终态刷新时出现；正常完成则由最终回答取代。
+    """
+    tenant = history_tenant
+    conversation_id = await _seed_conversation(tenant, title="确认执行中")
+    run_id = await _seed_active_run(tenant, conversation_id, status=RunStatus.RUNNING)
+    await _append_message(
+        tenant.tenant_id, conversation_id, text="记住蓝色", run_id=run_id
+    )
+    await _append_message(
+        tenant.tenant_id, conversation_id, text="确认 proposal", run_id=run_id
+    )
+    await _append_internal_event(
+        tenant.tenant_id,
+        conversation_id,
+        "MEMORY_CONFIRMATION_RESOLVED",
+        {"outcome": "CONFIRMED", "saved": True, "text": "记忆已保存。"},
+        run_id=run_id,
+    )
+
+    active = _page_data(
+        await _get(
+            client, _messages_path(conversation_id), tenant, **_read_scope(tenant),
+            page=1, page_size=50,
+        ),
+        WebchatMessagePage,
+    )
+    assert [item.text for item in active.items] == ["记住蓝色", "确认 proposal"]
+
+    await _finish_history_run(tenant.tenant_id, conversation_id, run_id, RunStatus.FAILED)
+
+    terminal = _page_data(
+        await _get(
+            client, _messages_path(conversation_id), tenant, **_read_scope(tenant),
+            page=1, page_size=50,
+        ),
+        WebchatMessagePage,
+    )
+    assert [item.text for item in terminal.items] == [
+        "记住蓝色",
+        "确认 proposal",
+        "记忆已保存。",
+    ]
+
+
+async def test_b250_memory_confirmation_receipt_is_replaced_by_the_final_answer(
+    client: AsyncClient, history_tenant: TenantContext
+) -> None:
+    """Run 正常完成时只保留模型最终回复，不重复展示「记忆已保存。」回执。
+
+    回执与模型自己的「已经保存好了」表达同一事实；两条 assistant 消息会让用户以为保存了两次。
+    失败/取消的 Run 没有最终回答（见上一条用例），回执仍然保留。
+    """
+    tenant = history_tenant
+    conversation_id = await _seed_conversation(tenant, title="确认完成")
+    run_id = uuid.uuid4()
+    await _append_message(
+        tenant.tenant_id, conversation_id, text="记住蓝色", run_id=run_id
+    )
+    await _append_message(
+        tenant.tenant_id,
+        conversation_id,
+        text="确认 proposal",
+        run_id=run_id,
+    )
+    await _append_internal_event(
+        tenant.tenant_id,
+        conversation_id,
+        "MEMORY_CONFIRMATION_RESOLVED",
+        {
+            "outcome": "CONFIRMED",
+            "saved": True,
+            "memory_key": "user.name",
+            "version": 1,
+            "text": '记忆已保存。\n{"outcome":"CONFIRMED","saved":true}',
+            "delta": "记忆已保存。",
+        },
+        run_id=run_id,
+    )
+    await _append_message(
+        tenant.tenant_id,
+        conversation_id,
+        text="已经保存好了，Bingo。",
+        event_type="ASSISTANT_MESSAGE",
+        run_id=run_id,
+    )
+
+    page = _page_data(
+        await _get(
+            client, _messages_path(conversation_id), tenant, **_read_scope(tenant),
+            page=1, page_size=50,
+        ),
+        WebchatMessagePage,
+    )
+    assert [(item.role, item.text) for item in page.items] == [
+        ("USER", "记住蓝色"),
+        ("USER", "确认 proposal"),
+        ("ASSISTANT", "已经保存好了，Bingo。"),
+    ]
+
+
+@pytest.mark.parametrize("status", [RunStatus.FAILED, RunStatus.CANCELLED, RunStatus.COMPLETED])
+async def test_confirmation_visibility_stays_frozen_across_terminal_pagination(
+    client: AsyncClient, history_tenant: TenantContext, status: RunStatus,
+) -> None:
+    tenant = history_tenant
+    conversation_id = await _seed_conversation(tenant)
+    run_id = await _seed_active_run(tenant, conversation_id)
+    for index in range(6):
+        await _append_message(tenant.tenant_id, conversation_id, text=f"question {index}", run_id=run_id)
+    await _append_internal_event(
+        tenant.tenant_id, conversation_id, "MEMORY_CONFIRMATION_RESOLVED",
+        {"outcome": "CONFIRMED", "saved": True}, run_id=run_id,
+    )
+    async def page(number: int, *, through_seq: int | None = None) -> WebchatMessagePage:
+        params = {"through_seq": through_seq} if through_seq is not None else {}
+        return _page_data(await _get(
+            client, _messages_path(conversation_id), tenant, **_read_scope(tenant),
+            page=number, page_size=2, **params,
+        ), WebchatMessagePage)
+
+    first = await page(1)
+    assert first.total == 6 and [item.seq for item in first.items] == [5, 6]
+    await _finish_history_run(tenant.tenant_id, conversation_id, run_id, status)
+    frozen = [first, await page(2, through_seq=first.through_seq),
+              await page(3, through_seq=first.through_seq)]
+    assert [item.seq for window in frozen for item in window.items] == [5, 6, 3, 4, 1, 2]
+    assert all(window.total == 6 for window in frozen)
+    refreshed = await page(1)
+    assert refreshed.total == 7 and [item.seq for item in refreshed.items] == [6, 7]
 
 
 # --------------------------------------------------------------------------------------

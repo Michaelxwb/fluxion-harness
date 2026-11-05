@@ -1,8 +1,9 @@
-import { Button, Input, Toast } from '@douyinfe/semi-ui';
+import { Button, Input } from '@douyinfe/semi-ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { newRequestId } from '../../api/client';
+import { Tips } from '../../components/common/Tips';
 import { feedbackRun, stopRun } from './services/learning';
 
 export function RunLearningActions(props: { runId: string; onMutated?(): void }) {
@@ -11,20 +12,20 @@ export function RunLearningActions(props: { runId: string; onMutated?(): void })
 
   async function submit(action: 'stop' | 'feedback') {
     if (!reason.trim()) {
-      Toast.warning(t('learning.errors.reasonRequired'));
+      Tips.warning(t('learning.errors.reasonRequired'));
       return;
     }
     try {
       if (action === 'stop') {
-        await stopRun(props.runId, reason, newRequestId());
+        await stopRun(props.runId, reason, newRequestId(), { errorTip: 'never' });
       } else {
-        await feedbackRun(props.runId, reason, newRequestId());
+        await feedbackRun(props.runId, reason, newRequestId(), { errorTip: 'never' });
       }
-      Toast.success(t('learning.actions.done'));
+      Tips.success(t('learning.actions.done'));
       setReason('');
       props.onMutated?.();
     } catch {
-      Toast.error(t('learning.errors.action'));
+      Tips.error(t('learning.errors.action'));
     }
   }
 

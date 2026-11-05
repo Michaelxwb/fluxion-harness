@@ -1,9 +1,10 @@
-import { Form, Toast } from '@douyinfe/semi-ui';
+import { Form } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FormModal } from '../../components/common/FormModal';
+import { Tips } from '../../components/common/Tips';
 import { createUser, updateUser, type UserBasic } from './services/users';
 
 export interface UserFormModalProps {
@@ -43,8 +44,12 @@ export function UserFormModal(props: UserFormModalProps) {
     setSaving(true);
     try {
       const saved = props.user
-        ? await updateUser(props.user.id, { display_name: values.display_name, status: values.status })
-        : await createUser(values);
+        ? await updateUser(
+            props.user.id,
+            { display_name: values.display_name, status: values.status },
+            { errorTip: 'never' }
+          )
+        : await createUser(values, { errorTip: 'never' });
       props.onSaved(saved);
     } catch (error) {
       const envelope =
@@ -54,7 +59,7 @@ export function UserFormModal(props: UserFormModalProps) {
       if (envelope.code === 'USER_CODE_EXISTS') {
         formApi.current?.setError('user_code', envelope.msg ?? t('user.form.userCode'));
       } else {
-        Toast.error(envelope.msg ?? t('common.saveFailed'));
+        Tips.error(envelope.msg ?? t('common.saveFailed'));
       }
     } finally {
       setSaving(false);

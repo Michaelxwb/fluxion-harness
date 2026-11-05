@@ -1917,3 +1917,18 @@ body {
 .run-event-arguments dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .run-event-file, .run-event-compaction { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 4px 0; font-size: 13px; overflow-wrap: anywhere; }
 .run-event-task-link { display: inline-flex; align-items: center; min-width: 0; }
+
+/* ---------- 统一轻提示（Tips） ---------- */
+/*
+ * Semi Toast 的默认容器是「顶部居中、高度 0」，只传 bottom/right 不会改变这条布局；
+ * 这里补上容器定位，让统一的 Tips 真正落在右下角并向上堆叠。偏移量仍由 Tips 传入的
+ * bottom/right 内联值决定，不在这里重复声明。
+ */
+body .semi-toast-wrapper {
+  top: auto;
+  left: auto;
+  width: auto;
+  height: auto;
+  justify-content: flex-end;
+  align-items: flex-end;
+}

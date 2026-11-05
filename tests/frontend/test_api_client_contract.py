@@ -20,8 +20,19 @@ def test_e07_client_injects_locale_header() -> None:
 def test_e07_non_zero_code_uses_localized_backend_message() -> None:
     source = _source()
     assert re.search(r"body\.code\s*!==\s*'0'", source)
-    assert re.search(r"Toast\.error\(\{\s*content:\s*body\.msg\s*\}\)", source)
-    assert not re.search(r"Toast\.error\(\{\s*content:\s*body\.code", source)
+    assert re.search(r"Tips\.error\(\s*body\.msg", source)
+    assert not re.search(r"Tips\.error\(\s*body\.code", source)
+    assert "dedupeKey" in source, "全局错误提示必须能按业务码去重"
+
+
+def test_error_tips_are_action_scoped() -> None:
+    """GET 由页面 ErrorState 负责；写操作才全局 Tip；errorTip 可显式覆盖。"""
+    source = _source()
+    assert "export type ErrorTipMode = 'auto' | 'always' | 'never'" in source
+    assert "errorTip?: ErrorTipMode" in source
+    assert "shouldShowErrorTip(response.config)" in source
+    assert "shouldShowErrorTip(error.config)" in source
+    assert "return (config?.method ?? 'get').toLowerCase() !== 'get';" in source
 
 
 def test_e09_unauthorized_redirects_to_login_with_return_url() -> None:

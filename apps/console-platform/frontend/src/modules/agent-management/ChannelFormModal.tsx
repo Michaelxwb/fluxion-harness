@@ -96,7 +96,9 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
         if (channel === DEFAULT_CHANNEL && values.secret) {
           input.secret = values.secret;
         }
-        await updateAgentChannel(props.agentId, props.channel.channel_account_id, input);
+        await updateAgentChannel(props.agentId, props.channel.channel_account_id, input, {
+          errorTip: 'never'
+        });
       } else {
         const input: ChannelSaveInput = {
           channel,
@@ -108,7 +110,7 @@ export function ChannelFormModal(props: ChannelFormModalProps) {
         if (channel === DEFAULT_CHANNEL) {
           input.secret = values.secret;
         }
-        await addAgentChannel(props.agentId, input);
+        await addAgentChannel(props.agentId, input, { errorTip: 'never' });
       }
       props.onSaved();
     } catch (error) {

@@ -179,7 +179,7 @@ function AgentGrantTab(props: { userId: string }) {
   const [grantVisible, setGrantVisible] = useState(false);
 
   useEffect(() => {
-    listAgentsForPicker()
+    listAgentsForPicker({ errorTip: 'always' })
       .then((page) => {
         setAgents(page.items);
         setAgentsTotal(page.total);

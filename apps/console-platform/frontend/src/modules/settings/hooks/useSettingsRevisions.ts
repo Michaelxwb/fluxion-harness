@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Toast } from '@douyinfe/semi-ui';
+import { Tips } from '../../../components/common/Tips';
 import { useTranslation } from 'react-i18next';
 
 import { listSettingsRevisions, restoreSettingsRevision } from '../services/settingsApi';
@@ -80,7 +80,7 @@ export function useSettingsRevisions(): SettingsRevisionsState {
       setRestoring(true);
       try {
         const result = await restoreSettingsRevision(revision);
-        Toast.success({ content: t('settings.history.restored', { revision: result.revision }) });
+        Tips.success(t('settings.history.restored', { revision: result.revision }));
         await load(1, pageSize);
       } catch {
         // 失败提示由 api 客户端拦截器给出（含 404 版本不存在 / 409 冲突 / 校验失败）；不回滚本地状态。

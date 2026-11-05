@@ -740,6 +740,17 @@ class AuditedModelProvider:
             if status == "RETRY"
             else str(ErrorCode.COMMON_INTERNAL_ERROR)
         )
+        if isinstance(exc, ModelRequestError):
+            # 4xx 是**不可重试的请求被拒**：Run 最终只会拿到归一化的 MODEL_UNAVAILABLE，
+            # 必须在这里留下安全原因（上游 status + type/code/param；不落 message/正文）。
+            logger.warning(
+                "model_request_rejected",
+                extra={
+                    "provider": self._provider,
+                    "model": self._model,
+                    "reason": str(exc),
+                },
+            )
         await self._record_failure(
             started,
             emitted,
@@ -2012,7 +2023,8 @@ def _memory_runtime_for(request: ExecutorRequest) -> RunMemory | None:
         preference_items=learning.preference_items,
         preference_bytes=learning.preference_bytes,
         learning_enabled=learning.enabled,
-        initial_task_family=f"agent:{request.agent.id}")
+        initial_task_family=f"agent:{request.agent.id}",
+        timezone=defaults.timezone)
 
 
 def tool_result_settings(request: ExecutorRequest) -> ToolResultSettings:

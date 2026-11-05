@@ -28,7 +28,7 @@ export function McpTestModal(props: McpTestModalProps) {
     setResult(null);
     setFailed(false);
     setLoading(true);
-    testMcp(props.serverId)
+    testMcp(props.serverId, undefined, { errorTip: 'never' })
       .then((value) => {
         if (!cancelled) {
           setResult(value);

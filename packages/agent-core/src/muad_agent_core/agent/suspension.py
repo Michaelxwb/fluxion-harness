@@ -14,6 +14,8 @@ class MemorySuspendRequest:
     interrupt_id: UUID
     proposal: MemoryConfirmationProposal
     prompt: str
+    #: 文本渠道（企微等）的排版版本；缺省回落到 `prompt`（旧构造点/旧事件兼容）。
+    text_prompt: str = ""
 
 
 class ToolSuspensionPort(Protocol):

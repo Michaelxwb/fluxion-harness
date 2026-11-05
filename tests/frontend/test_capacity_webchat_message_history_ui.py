@@ -43,6 +43,7 @@ FRONTEND = ROOT / "apps/console-platform/frontend"
 SRC = FRONTEND / "src"
 MODULE = SRC / "modules/webchat"
 THREAD_TSX = MODULE / "components/MessageThread.tsx"
+ATTACHMENT_DOWNLOAD_TS = MODULE / "attachmentDownload.ts"
 MESSAGES_TS = MODULE / "hooks/useMessages.ts"
 SHELL_TSX = MODULE / "components/WebchatShell.tsx"
 CONVERSATION_STATE_TS = MODULE / "conversationState.ts"
@@ -139,6 +140,7 @@ export const Typography = { Title: () => null, Text: () => null };
 """
 
 LOGIC_ENTRY = """export * from '{thread}';
+export * from '{download}';
 export * from '{messages}';
 export * from '{state}';
 export * from '{config}';
@@ -176,6 +178,7 @@ const {
   compensatedScrollTop,
   messagesFailureCode,
   createAttachmentDownloader,
+  saveAttachmentBlob,
   AttachmentUnavailableError,
   ATTACHMENT_UNAVAILABLE,
   parseMessageBlocks,
@@ -561,6 +564,7 @@ const obs = {};
 {
   const calls = [];
   const failures = [];
+  const saved = [];
   const downloader = createAttachmentDownloader(
     {
       download: async (artifactId, options) => {
@@ -568,7 +572,8 @@ const obs = {};
         return 'blob';
       }
     },
-    (error) => failures.push(error)
+    (error) => failures.push(error),
+    (blob, filename) => saved.push({ blob, filename })
   );
   const available = {
     artifact_id: ARTIFACT_A,
@@ -579,7 +584,15 @@ const obs = {};
     filename: '报表.pdf',
     checksum: 'sha256:aa'
   };
+  const unnamed = {
+    ...available,
+    artifact_id: '8d8d8d8d-8d8d-4d8d-8d8d-8d8d8d8d8d8d',
+    kind: 'IMAGE',
+    media_type: 'image/png',
+    filename: null
+  };
   downloader(available);
+  downloader(unnamed);
   downloader({ ...available, artifact_id: '7c7c7c7c-7c7c-4c7c-8c7c-7c7c7c7c7c7c', available: false });
   await tick();
   await tick();
@@ -591,21 +604,120 @@ const obs = {};
         throw new Error('boom');
       }
     },
-    (error) => brokenFailures.push(error)
+    (error) => brokenFailures.push(error),
+    () => {
+      throw new Error('save should not run');
+    }
   );
   broken(available);
   await tick();
   await tick();
 
+  const saveFailures = [];
+  const failingSave = createAttachmentDownloader(
+    { download: async () => 'blob' },
+    (error) => saveFailures.push(error),
+    () => {
+      throw new Error('save failed');
+    }
+  );
+  failingSave(available);
+  await tick();
+  await tick();
+
+  const goneFailures = [];
+  const gone = createAttachmentDownloader(
+    {
+      download: async () => {
+        const error = new Error('not found');
+        error.response = { status: 404 };
+        throw error;
+      }
+    },
+    (error) => goneFailures.push(error),
+    () => {
+      throw new Error('save should not run');
+    }
+  );
+  gone(available);
+  await tick();
+  await tick();
+
+  const forbiddenFailures = [];
+  const forbidden = createAttachmentDownloader(
+    {
+      download: async () => {
+        const error = new Error('forbidden');
+        error.code = 'FORBIDDEN';
+        throw error;
+      }
+    },
+    (error) => forbiddenFailures.push(error),
+    () => {
+      throw new Error('save should not run');
+    }
+  );
+  forbidden(available);
+  await tick();
+  await tick();
+
   obs.download = {
     calls,
+    saved,
     failures: failures.map((error) => ({
       name: error instanceof Error ? error.name : String(error),
       code: error instanceof AttachmentUnavailableError ? error.code : null
     })),
     unavailableCode: ATTACHMENT_UNAVAILABLE,
-    brokenFailures: brokenFailures.map((error) => (error instanceof Error ? error.message : String(error)))
+    brokenFailures: brokenFailures.map((error) => (error instanceof Error ? error.message : String(error))),
+    saveFailures: saveFailures.map((error) => (error instanceof Error ? error.message : String(error))),
+    goneFailures: goneFailures.map((error) => ({
+      name: error instanceof Error ? error.name : String(error),
+      code: error instanceof AttachmentUnavailableError ? error.code : null
+    })),
+    forbiddenFailures: forbiddenFailures.map((error) => ({
+      name: error instanceof Error ? error.name : String(error),
+      code: error instanceof AttachmentUnavailableError ? error.code : null
+    }))
   };
+}
+
+// ---- 6b) 真实浏览器保存动作：临时对象 URL + 下载锚点，点击后释放 -----------------------------
+{
+  const events = [];
+  const originalDocument = globalThis.document;
+  const originalURL = globalThis.URL;
+  let nextUrl = 0;
+  globalThis.URL = {
+    createObjectURL: (blob) => {
+      events.push({ type: 'create', blob });
+      nextUrl += 1;
+      return `blob:test-${nextUrl}`;
+    },
+    revokeObjectURL: (url) => events.push({ type: 'revoke', url })
+  };
+  globalThis.document = {
+    ...originalDocument,
+    body: {
+      appendChild: (node) => events.push({ type: 'append', download: node.download })
+    },
+    createElement: (tag) => {
+      const node = {
+        tag,
+        style: {},
+        click: () => events.push({ type: 'click', href: node.href, download: node.download }),
+        remove: () => events.push({ type: 'remove' })
+      };
+      return node;
+    }
+  };
+  try {
+    saveAttachmentBlob('blob', '报表.pdf');
+    obs.saveBlob = events;
+  } finally {
+    globalThis.document = originalDocument;
+    globalThis.URL = originalURL;
+  }
 }
 
 // ---- 7) 本地失败码：稳定码原样保留，未知失败收敛为显式码（不静默） -----------------------------
@@ -1015,6 +1127,7 @@ def message_logic(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     entry.write_text(
         LOGIC_ENTRY.format(
             thread=THREAD_TSX,
+            download=ATTACHMENT_DOWNLOAD_TS,
             messages=MESSAGES_TS,
             state=CONVERSATION_STATE_TS,
             config=CLIENT_CONFIG_TS,
@@ -1294,13 +1407,37 @@ def test_b280_attachments_only_download_through_the_authorized_port(
     """附件取件只经注入的授权下载面；失效附件本地拒绝并显式上报，失败不静默。"""
     observed = message_logic["download"]
     assert observed["calls"] == [
-        {"artifactId": ARTIFACT_A, "hasOptions": False}
+        {"artifactId": ARTIFACT_A, "hasOptions": False},
+        {"artifactId": "8d8d8d8d-8d8d-4d8d-8d8d-8d8d8d8d8d8d", "hasOptions": False},
     ], "可用附件只按 artifact_id 经注入端口取件（组件不拼路径、不读存储键）"
+    assert observed["saved"] == [
+        {"blob": "blob", "filename": "报表.pdf"},
+        {"blob": "blob", "filename": "image.png"},
+    ], "取件成功后必须真正保存 Blob；无文件名按媒体类型兜底"
     assert observed["failures"] == [
         {"name": "AttachmentUnavailableError", "code": "ATTACHMENT_UNAVAILABLE"}
     ], "失效附件不发请求并显式上报稳定码"
     assert observed["unavailableCode"] == "ATTACHMENT_UNAVAILABLE"
     assert observed["brokenFailures"] == ["boom"], "取件失败交给失败端口（不产生未处理拒绝）"
+    assert observed["saveFailures"] == ["save failed"], "浏览器保存失败也显式上报"
+    assert observed["goneFailures"] == [
+        {"name": "AttachmentUnavailableError", "code": "ATTACHMENT_UNAVAILABLE"}
+    ], "下载 404 必须收敛为附件失效，不再当可重试的发送失败"
+    assert observed["forbiddenFailures"] == [
+        {"name": "AttachmentUnavailableError", "code": "ATTACHMENT_UNAVAILABLE"}
+    ], "下载 403 同样收敛为附件失效"
+    save_blob = message_logic["saveBlob"]
+    assert [event["type"] for event in save_blob] == [
+        "create",
+        "append",
+        "click",
+        "remove",
+        "revoke",
+    ], "保存动作必须创建对象 URL、挂载/点击/移除锚点并释放 URL"
+    assert save_blob[0]["blob"] == "blob"
+    assert save_blob[1]["download"] == "报表.pdf"
+    assert save_blob[2] == {"type": "click", "href": "blob:test-1", "download": "报表.pdf"}
+    assert save_blob[4] == {"type": "revoke", "url": "blob:test-1"}
 
 
 def test_b280_local_failures_map_to_stable_codes(message_logic: dict[str, Any]) -> None:

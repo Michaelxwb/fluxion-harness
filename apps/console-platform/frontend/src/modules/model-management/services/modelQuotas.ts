@@ -1,4 +1,4 @@
-import { api, apiErrorBody, type ApiResponse } from '../../../api/client';
+import { api, apiErrorBody, type ApiResponse, type RequestOptions } from '../../../api/client';
 import type { Page } from '../../user-identity/services/users';
 
 /**
@@ -175,9 +175,9 @@ export function buildQuotaGroupUpdateInput(
 export async function listQuotaGroups(params: {
   page: number;
   page_size: number;
-}): Promise<Page<ModelQuotaGroupItem>> {
+}, options: RequestOptions = {}): Promise<Page<ModelQuotaGroupItem>> {
   return unwrap(
-    await api.get<ApiResponse<Page<ModelQuotaGroupItem>>>('/model-quota-groups', { params })
+    await api.get<ApiResponse<Page<ModelQuotaGroupItem>>>('/model-quota-groups', { ...options, params })
   );
 }
 

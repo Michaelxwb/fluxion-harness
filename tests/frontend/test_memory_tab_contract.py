@@ -137,7 +137,7 @@ def test_memory_create_form_field_order_and_writable_categories() -> None:
     assert "memoryWritableCategoryOptions(t)" in source, "分类选项必须来自可写分类出口"
     assert "memoryCategoryOptions(t)" not in source, "不得把 TASK_STATE 摆进可选分类"
     assert not re.search(r"\bauthor\s*:", _strip_comments(source)), "创建入参不得自选 author"
-    assert "(key)=>createMemory(props.userId,input,key)" in _compact(source)
+    assert "(key)=>createMemory(props.userId,input,key,{errorTip:'never'})" in _compact(source)
     assert "createMemoryCommandContext(newRequestId)" in _compact(source), (
         "命令号仍由调用方（操作上下文）生成"
     )
@@ -151,9 +151,15 @@ def test_memory_writes_carry_expected_version_and_caller_key() -> None:
         "过期条目重新启用必须显式给新有效期"
     )
     assert compact.count("expected_version:entry.version") >= 2, "两类启禁用都要带 expected_version"
-    assert "(key)=>updateMemoryEnabled(props.userId,entry.memory_key,input,key)" in compact
-    assert "(key)=>deleteMemory(props.userId,entry.id,entry.version,key)" in compact
-    assert "(key)=>clearMemory(props.userId,key)" in compact
+    assert (
+        "(key)=>updateMemoryEnabled(props.userId,entry.memory_key,input,key,{errorTip:'never'})"
+        in compact
+    )
+    assert (
+        "(key)=>deleteMemory(props.userId,entry.id,entry.version,key,{errorTip:'never'})"
+        in compact
+    )
+    assert "(key)=>clearMemory(props.userId,key,{errorTip:'never'})" in compact
     assert "from'../../api/client'" in compact
 
 
@@ -170,11 +176,11 @@ def test_memory_tab_writes_hold_command_context_until_success() -> None:
         "成功释放必须只有一个收口点（写操作统一经 runAction）"
     )
     for call in (
-        "(key)=>createMemory(props.userId,input,key)",
-        "(key)=>updateMemoryEnabled(props.userId,entry.memory_key,input,key)",
-        "(key)=>updateMemoryEnabled(props.userId,expiredTarget.memory_key,input,key)",
-        "(key)=>deleteMemory(props.userId,entry.id,entry.version,key)",
-        "(key)=>clearMemory(props.userId,key)",
+        "(key)=>createMemory(props.userId,input,key,{errorTip:'never'})",
+        "(key)=>updateMemoryEnabled(props.userId,entry.memory_key,input,key,{errorTip:'never'})",
+        "(key)=>updateMemoryEnabled(props.userId,expiredTarget.memory_key,input,key,{errorTip:'never'})",
+        "(key)=>deleteMemory(props.userId,entry.id,entry.version,key,{errorTip:'never'})",
+        "(key)=>clearMemory(props.userId,key,{errorTip:'never'})",
     ):
         assert call in compact, f"写操作必须经操作上下文取命令号：{call}"
 
@@ -254,9 +260,10 @@ def test_memory_history_sheet_restores_tombstone_through_ui() -> None:
     assert "canManage" in compact, "恢复动作只在 ADMIN 下渲染"
     assert "memoryTombstoneVersion" in compact, "恢复入口必须按最新版本的删除态判定（tombstone）"
     assert "constinput={expected_version:tombstoneVersion}" in compact, "恢复必须用保留版本"
-    assert "restoreMemory(props.userId,props.memoryKey,input.expected_version,key)" in compact, (
-        "恢复必须走 services 层并带调用方命令号"
-    )
+    assert (
+        "restoreMemory(props.userId,props.memoryKey,input.expected_version,key,"
+        "{errorTip:'never'})" in compact
+    ), "恢复必须走 services 层并带调用方命令号"
     assert "createMemoryCommandContext(newRequestId)" in compact, "恢复命令号由操作上下文持有"
     assert "memory-restore-${props.memoryKey}" in compact, "恢复动作必须有稳定 testid"
     assert "ConfirmAction" in compact, "恢复必须经管理员确认"

@@ -1,4 +1,4 @@
-import { api, type ApiResponse } from '../../../api/client';
+import { api, type ApiResponse, type RequestOptions } from '../../../api/client';
 import type { Page } from '../../user-identity/services/users';
 
 export interface McpServerListItem {
@@ -73,8 +73,8 @@ export async function listMcpServers(params: McpListParams): Promise<Page<McpSer
   return unwrap(await api.get<ApiResponse<Page<McpServerListItem>>>('/mcp-servers', { params }));
 }
 
-export async function getMcpServer(id: string): Promise<McpServerDetail> {
-  return unwrap(await api.get<ApiResponse<McpServerDetail>>(`/mcp-servers/${id}`));
+export async function getMcpServer(id: string, options: RequestOptions = {}): Promise<McpServerDetail> {
+  return unwrap(await api.get<ApiResponse<McpServerDetail>>(`/mcp-servers/${id}`, options));
 }
 
 export interface McpSaveInput {
@@ -91,17 +91,23 @@ export interface McpSaveInput {
 
 export async function createMcpServer(
   input: McpSaveInput,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<{ mcp_id: string }> {
   return unwrap(
     await api.post<ApiResponse<{ mcp_id: string }>>('/mcp-servers', input, {
-      headers: { 'Idempotency-Key': idempotencyKey }
+      headers: { 'Idempotency-Key': idempotencyKey },
+      ...options
     })
   );
 }
 
-export async function updateMcpServer(id: string, input: McpSaveInput): Promise<McpServerDetail> {
-  return unwrap(await api.put<ApiResponse<McpServerDetail>>(`/mcp-servers/${id}`, input));
+export async function updateMcpServer(
+  id: string,
+  input: McpSaveInput,
+  options: RequestOptions = {}
+): Promise<McpServerDetail> {
+  return unwrap(await api.put<ApiResponse<McpServerDetail>>(`/mcp-servers/${id}`, input, options));
 }
 
 export async function deleteMcpServer(id: string): Promise<void> {
@@ -116,11 +122,17 @@ export interface McpTestResult {
   tested_at: string;
 }
 
-export async function testMcp(id: string, timeoutMs?: number): Promise<McpTestResult> {
+export async function testMcp(
+  id: string,
+  timeoutMs?: number,
+  options: RequestOptions = {}
+): Promise<McpTestResult> {
   return unwrap(
-    await api.post<ApiResponse<McpTestResult>>(`/mcp-servers/${id}/test`, {
-      timeout_ms: timeoutMs
-    })
+    await api.post<ApiResponse<McpTestResult>>(
+      `/mcp-servers/${id}/test`,
+      { timeout_ms: timeoutMs },
+      options
+    )
   );
 }
 

@@ -1,4 +1,4 @@
-import { api, type ApiResponse } from '../../../api/client';
+import { api, type ApiResponse, type RequestOptions } from '../../../api/client';
 import type { Page } from '../../user-identity/services/users';
 
 export interface AgentListItem {
@@ -110,8 +110,8 @@ export async function listAgents(params: AgentListParams): Promise<Page<AgentLis
   return unwrap(await api.get<ApiResponse<Page<AgentListItem>>>('/agents', { params }));
 }
 
-export async function getAgent(id: string): Promise<AgentDetail> {
-  return unwrap(await api.get<ApiResponse<AgentDetail>>(`/agents/${id}`));
+export async function getAgent(id: string, options: RequestOptions = {}): Promise<AgentDetail> {
+  return unwrap(await api.get<ApiResponse<AgentDetail>>(`/agents/${id}`, options));
 }
 
 export interface AgentSaveInput {
@@ -126,11 +126,13 @@ export interface AgentSaveInput {
 
 export async function createAgent(
   input: AgentSaveInput,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<AgentDetail> {
   return unwrap(
     await api.post<ApiResponse<AgentDetail>>('/agents', input, {
-      headers: { 'Idempotency-Key': idempotencyKey }
+      headers: { 'Idempotency-Key': idempotencyKey },
+      ...options
     })
   );
 }
@@ -147,9 +149,16 @@ export interface AgentUpdateInput {
 
 export async function updateAgent(
   id: string,
-  input: AgentUpdateInput
+  input: AgentUpdateInput,
+  options: RequestOptions = {}
 ): Promise<{ id: string; revision: number; update_time: string }> {
-  return unwrap(await api.put<ApiResponse<{ id: string; revision: number; update_time: string }>>(`/agents/${id}`, input));
+  return unwrap(
+    await api.put<ApiResponse<{ id: string; revision: number; update_time: string }>>(
+      `/agents/${id}`,
+      input,
+      options
+    )
+  );
 }
 
 export async function deleteAgent(id: string): Promise<void> {
@@ -219,19 +228,25 @@ export interface ChannelSaveInput {
 
 export async function addAgentChannel(
   agentId: string,
-  input: ChannelSaveInput
+  input: ChannelSaveInput,
+  options: RequestOptions = {}
 ): Promise<{ channel_account_id: string }> {
   return unwrap(
-    await api.post<ApiResponse<{ channel_account_id: string }>>(`/agents/${agentId}/channels`, input)
+    await api.post<ApiResponse<{ channel_account_id: string }>>(
+      `/agents/${agentId}/channels`,
+      input,
+      options
+    )
   );
 }
 
 export async function updateAgentChannel(
   agentId: string,
   channelAccountId: string,
-  input: Partial<ChannelSaveInput>
+  input: Partial<ChannelSaveInput>,
+  options: RequestOptions = {}
 ): Promise<void> {
-  await api.put(`/agents/${agentId}/channels/${channelAccountId}`, input);
+  await api.put(`/agents/${agentId}/channels/${channelAccountId}`, input, options);
 }
 
 export async function removeAgentChannel(agentId: string, channelAccountId: string): Promise<void> {

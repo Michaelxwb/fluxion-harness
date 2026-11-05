@@ -5,7 +5,7 @@
  * camelCase 的字段映射只在本层发生，组件不直接消费原始 Envelope。
  */
 
-import { api, type ApiResponse } from '../../../api/client';
+import { api, type ApiResponse, type RequestOptions } from '../../../api/client';
 import {
   AUDIT_PAGE_SIZE_MAX,
   type AuditDetail,
@@ -248,11 +248,13 @@ export async function getAudit(
  */
 export async function createExport(
   req: AuditExportCreateRequest,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<AuditExportJob> {
   const created = await unwrap(
     await api.post<ApiResponse<RawExportCreated>>('/audits/exports', toExportBody(req), {
-      headers: { 'Idempotency-Key': idempotencyKey }
+      headers: { 'Idempotency-Key': idempotencyKey },
+      ...options
     })
   );
   // 创建响应只带 create_time：此刻 update_time 与之相同，后续以 getExport 轮询为准。

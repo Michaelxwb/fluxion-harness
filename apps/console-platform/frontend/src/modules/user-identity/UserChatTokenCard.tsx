@@ -141,14 +141,14 @@ export function UserChatTokenCard(props: UserChatTokenCardProps) {
 
   const issue = (): void => {
     void run(async () => {
-      setIssued(await issueWebchatToken(props.userId, expectedRevision));
+      setIssued(await issueWebchatToken(props.userId, expectedRevision, { errorTip: 'never' }));
       props.onChanged();
     });
   };
 
   const revoke = (): void => {
     void run(async () => {
-      await revokeWebchatToken(props.userId, expectedRevision);
+      await revokeWebchatToken(props.userId, expectedRevision, { errorTip: 'never' });
       // 撤销后原文立即不可见：已展示的凭据不再可用，结果框同步清空
       setIssued(null);
       props.onChanged();

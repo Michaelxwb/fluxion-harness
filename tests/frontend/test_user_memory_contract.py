@@ -224,13 +224,23 @@ def test_write_functions_require_caller_owned_idempotency_key() -> None:
     """写操作都收调用方持有的 `Idempotency-Key`（重试复用），service 不自行生成。"""
     source = _source(SERVICE)
     signatures = {
-        "createMemory": "(id:string,input:MemoryCreateInput,idempotencyKey:string)",
-        "updateMemoryEnabled": (
-            "(id:string,memoryKey:string,input:MemoryEnabledUpdateInput,idempotencyKey:string)"
+        "createMemory": (
+            "(id:string,input:MemoryCreateInput,idempotencyKey:string,"
+            "options:RequestOptions={})"
         ),
-        "deleteMemory": "(id:string,memoryId:string,expectedVersion:number,idempotencyKey:string)",
-        "clearMemory": "(id:string,idempotencyKey:string)",
-        "restoreMemory": "(id:string,memoryKey:string,expectedVersion:number,idempotencyKey:string)",
+        "updateMemoryEnabled": (
+            "(id:string,memoryKey:string,input:MemoryEnabledUpdateInput,idempotencyKey:string,"
+            "options:RequestOptions={})"
+        ),
+        "deleteMemory": (
+            "(id:string,memoryId:string,expectedVersion:number,idempotencyKey:string,"
+            "options:RequestOptions={})"
+        ),
+        "clearMemory": "(id:string,idempotencyKey:string,options:RequestOptions={})",
+        "restoreMemory": (
+            "(id:string,memoryKey:string,expectedVersion:number,idempotencyKey:string,"
+            "options:RequestOptions={})"
+        ),
     }
     for name, signature in signatures.items():
         body = _decl(source, f"export async function {name}(")
@@ -291,8 +301,11 @@ def test_memory_tab_renders_author_through_memory_options() -> None:
 def test_memory_tab_commands_carry_version_and_caller_key() -> None:
     """删除/清空传入读到的 version 与操作上下文命令号；HTTP 仍在 service 层。"""
     compact = _compact(_source(MEMORY_TAB))
-    assert "(key)=>deleteMemory(props.userId,entry.id,entry.version,key)" in compact
-    assert "(key)=>clearMemory(props.userId,key)" in compact
+    assert (
+        "(key)=>deleteMemory(props.userId,entry.id,entry.version,key,{errorTip:'never'})"
+        in compact
+    )
+    assert "(key)=>clearMemory(props.userId,key,{errorTip:'never'})" in compact
     assert "createMemoryCommandContext(newRequestId)" in compact
     assert "from'../../api/client'" in compact
 

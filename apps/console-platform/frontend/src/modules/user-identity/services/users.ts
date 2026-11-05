@@ -1,4 +1,4 @@
-import { api, apiErrorBody, type ApiResponse } from '../../../api/client';
+import { api, apiErrorBody, type ApiResponse, type RequestOptions } from '../../../api/client';
 import {
   isMemoryErrorCode,
   type MemoryCommandReceipt,
@@ -99,16 +99,19 @@ export async function listUsers(params: {
   page_size: number;
   keyword?: string;
   status?: string;
-}): Promise<Page<UserListItem>> {
-  return unwrap(await api.get<ApiResponse<Page<UserListItem>>>('/users', { params }));
+}, options: RequestOptions = {}): Promise<Page<UserListItem>> {
+  return unwrap(await api.get<ApiResponse<Page<UserListItem>>>('/users', { ...options, params }));
 }
 
-export async function createUser(input: {
-  user_code: string;
-  display_name: string;
-  status: string;
-}): Promise<UserBasic> {
-  return unwrap(await api.post<ApiResponse<UserBasic>>('/users', input));
+export async function createUser(
+  input: {
+    user_code: string;
+    display_name: string;
+    status: string;
+  },
+  options: RequestOptions = {}
+): Promise<UserBasic> {
+  return unwrap(await api.post<ApiResponse<UserBasic>>('/users', input, options));
 }
 
 export async function getUser(id: string): Promise<UserDetail> {
@@ -117,9 +120,10 @@ export async function getUser(id: string): Promise<UserDetail> {
 
 export async function updateUser(
   id: string,
-  input: { display_name?: string; status?: string }
+  input: { display_name?: string; status?: string },
+  options: RequestOptions = {}
 ): Promise<UserBasic> {
-  return unwrap(await api.put<ApiResponse<UserBasic>>(`/users/${id}`, input));
+  return unwrap(await api.put<ApiResponse<UserBasic>>(`/users/${id}`, input, options));
 }
 
 export async function listAgentGrants(id: string, params: PageParams): Promise<Page<AgentGrant>> {
@@ -173,11 +177,13 @@ export async function listMemoryHistory(
 export async function createMemory(
   id: string,
   input: MemoryCreateInput,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<MemoryCommandReceipt> {
   return unwrap(
     await api.post<ApiResponse<MemoryCommandReceipt>>(`/users/${id}/memory`, input, {
-      headers: { 'Idempotency-Key': idempotencyKey }
+      headers: { 'Idempotency-Key': idempotencyKey },
+      ...options
     })
   );
 }
@@ -186,11 +192,13 @@ export async function updateMemoryEnabled(
   id: string,
   memoryKey: string,
   input: MemoryEnabledUpdateInput,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<MemoryCommandReceipt> {
   return unwrap(
     await api.patch<ApiResponse<MemoryCommandReceipt>>(`/users/${id}/memory/${memoryKey}`, input, {
-      headers: { 'Idempotency-Key': idempotencyKey }
+      headers: { 'Idempotency-Key': idempotencyKey },
+      ...options
     })
   );
 }
@@ -199,12 +207,14 @@ export async function deleteMemory(
   id: string,
   memoryId: string,
   expectedVersion: number,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<MemoryCommandReceipt> {
   return unwrap(
     await api.delete<ApiResponse<MemoryCommandReceipt>>(`/users/${id}/memory/${memoryId}`, {
       params: { expected_version: expectedVersion },
-      headers: { 'Idempotency-Key': idempotencyKey }
+      headers: { 'Idempotency-Key': idempotencyKey },
+      ...options
     })
   );
 }
@@ -217,21 +227,27 @@ export async function restoreMemory(
   id: string,
   memoryKey: string,
   expectedVersion: number,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<MemoryCommandReceipt> {
   return unwrap(
     await api.post<ApiResponse<MemoryCommandReceipt>>(
       `/users/${id}/memory/${memoryKey}/restore`,
       { expected_version: expectedVersion },
-      { headers: { 'Idempotency-Key': idempotencyKey } }
+      { headers: { 'Idempotency-Key': idempotencyKey }, ...options }
     )
   );
 }
 
-export async function clearMemory(id: string, idempotencyKey: string): Promise<MemoryCommandReceipt> {
+export async function clearMemory(
+  id: string,
+  idempotencyKey: string,
+  options: RequestOptions = {}
+): Promise<MemoryCommandReceipt> {
   return unwrap(
     await api.delete<ApiResponse<MemoryCommandReceipt>>(`/users/${id}/memory`, {
-      headers: { 'Idempotency-Key': idempotencyKey }
+      headers: { 'Idempotency-Key': idempotencyKey },
+      ...options
     })
   );
 }
@@ -248,9 +264,10 @@ export function memoryErrorCode(error: unknown): MemoryErrorCode | null {
 // 授权对象下拉的可选项：后端 page_size 上限 100，超出部分无法在此选择。
 export const AGENT_PICKER_PAGE_SIZE = 100;
 
-export async function listAgentsForPicker(): Promise<Page<AgentSummary>> {
+export async function listAgentsForPicker(options: RequestOptions = {}): Promise<Page<AgentSummary>> {
   return unwrap(
     await api.get<ApiResponse<Page<AgentSummary>>>('/agents', {
+      ...options,
       params: { page: 1, page_size: AGENT_PICKER_PAGE_SIZE }
     })
   );
@@ -313,23 +330,28 @@ export async function getWebchatToken(id: string): Promise<WebchatTokenMetadata>
 /** 首签/重置：`expected_revision` 由调用方从元信息派生（见 `webchatTokenExpectedRevision`）。 */
 export async function issueWebchatToken(
   id: string,
-  expectedRevision: number
+  expectedRevision: number,
+  options: RequestOptions = {}
 ): Promise<WebchatTokenIssued> {
   return unwrap(
-    await api.put<ApiResponse<WebchatTokenIssued>>(`/users/${id}/webchat-token`, {
-      expected_revision: expectedRevision
-    })
+    await api.put<ApiResponse<WebchatTokenIssued>>(
+      `/users/${id}/webchat-token`,
+      { expected_revision: expectedRevision },
+      options
+    )
   );
 }
 
 /** 版本撤销：只作用于 `expected_revision` 指定的那一版及其关联会话。 */
 export async function revokeWebchatToken(
   id: string,
-  expectedRevision: number
+  expectedRevision: number,
+  options: RequestOptions = {}
 ): Promise<WebchatTokenMetadata> {
   return unwrap(
     await api.delete<ApiResponse<WebchatTokenMetadata>>(`/users/${id}/webchat-token`, {
-      params: { expected_revision: expectedRevision }
+      params: { expected_revision: expectedRevision },
+      ...options
     })
   );
 }

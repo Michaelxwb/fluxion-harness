@@ -1,4 +1,4 @@
-import { api, apiErrorBody, type ApiResponse } from '../../../api/client';
+import { api, apiErrorBody, type ApiResponse, type RequestOptions } from '../../../api/client';
 import type { Page } from '../../user-identity/services/users';
 
 /**
@@ -147,20 +147,27 @@ export async function listModels(params: {
   keyword?: string;
   enabled?: string;
   last_test_status?: string;
-}): Promise<Page<ModelItem>> {
-  return unwrap(await api.get<ApiResponse<Page<ModelItem>>>('/models', { params }));
+}, options: RequestOptions = {}): Promise<Page<ModelItem>> {
+  return unwrap(await api.get<ApiResponse<Page<ModelItem>>>('/models', { ...options, params }));
 }
 
-export async function createModel(input: ModelCreateInput): Promise<ModelItem> {
-  return unwrap(await api.post<ApiResponse<ModelItem>>('/models', input));
+export async function createModel(
+  input: ModelCreateInput,
+  options: RequestOptions = {}
+): Promise<ModelItem> {
+  return unwrap(await api.post<ApiResponse<ModelItem>>('/models', input, options));
 }
 
 export async function getModel(id: string): Promise<ModelItem> {
   return unwrap(await api.get<ApiResponse<ModelItem>>(`/models/${id}`));
 }
 
-export async function updateModel(id: string, input: ModelUpdateInput): Promise<ModelItem> {
-  return unwrap(await api.put<ApiResponse<ModelItem>>(`/models/${id}`, input));
+export async function updateModel(
+  id: string,
+  input: ModelUpdateInput,
+  options: RequestOptions = {}
+): Promise<ModelItem> {
+  return unwrap(await api.put<ApiResponse<ModelItem>>(`/models/${id}`, input, options));
 }
 
 export async function deleteModel(id: string): Promise<void> {

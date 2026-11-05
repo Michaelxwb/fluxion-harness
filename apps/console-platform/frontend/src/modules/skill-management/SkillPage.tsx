@@ -75,7 +75,7 @@ export function SkillPage() {
 
   const openScope = async (skill: SkillListItem): Promise<void> => {
     try {
-      setScopeTarget(await getSkill(skill.id));
+      setScopeTarget(await getSkill(skill.id, { errorTip: 'always' }));
     } catch {
       // ApiClient displays the request failure; keep the modal closed.
     }

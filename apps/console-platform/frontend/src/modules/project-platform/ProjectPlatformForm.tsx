@@ -46,7 +46,7 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
   const formApi = useRef<FormApi | null>(null);
 
   useEffect(() => {
-    getAdapters()
+    getAdapters({ errorTip: 'always' })
       .then((page) => setAdapters(page.items))
       .catch(() => setAdapters([]));
   }, []);
@@ -107,11 +107,13 @@ export function ProjectPlatformForm(props: ProjectPlatformFormProps) {
     };
     try {
       if (props.platform) {
-        const result = await updatePlatform(props.platform.platform_id, payload);
+        const result = await updatePlatform(props.platform.platform_id, payload, {
+          errorTip: 'never'
+        });
         props.onSaved(result.platform_id, result.credential_reconfigure_required);
       } else {
         payload.key = values.key;
-        const result = await createPlatform(payload);
+        const result = await createPlatform(payload, { errorTip: 'never' });
         props.onSaved(result.platform_id, false);
       }
     } catch (error) {

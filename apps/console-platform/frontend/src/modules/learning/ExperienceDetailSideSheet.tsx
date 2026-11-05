@@ -1,4 +1,4 @@
-import { Button, Input, Spin, Tabs, Tag, Toast, Typography } from '@douyinfe/semi-ui';
+import { Button, Input, Spin, Tabs, Tag, Typography } from '@douyinfe/semi-ui';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +7,7 @@ import { DataTable } from '../../components/common/DataTable';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
+import { Tips } from '../../components/common/Tips';
 import {
   actorLabel,
   authorityLabel,
@@ -54,7 +55,7 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
     try {
       setDetail(await getExperience(props.userId, key));
     } catch {
-      Toast.error(t('learning.errors.load'));
+      Tips.error(t('learning.errors.load'));
     } finally {
       setLoading(false);
     }
@@ -71,33 +72,36 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
   async function act(action: 'activate' | 'retire' | 'regenerate' | 'replay') {
     if (props.memoryKey === null) return;
     if (action !== 'activate' && action !== 'replay' && !reason.trim()) {
-      Toast.warning(t('learning.errors.reasonRequired'));
+      Tips.warning(t('learning.errors.reasonRequired'));
       return;
     }
     try {
       if (action === 'replay') {
-        await replayExperience(props.userId, props.memoryKey, newRequestId());
+        await replayExperience(props.userId, props.memoryKey, newRequestId(), {
+          errorTip: 'never'
+        });
       } else {
         await experienceAction(
           props.userId,
           props.memoryKey,
           action,
           reason || undefined,
-          newRequestId()
+          newRequestId(),
+          { errorTip: 'never' }
         );
       }
-      Toast.success(t('learning.actions.done'));
+      Tips.success(t('learning.actions.done'));
       setReason('');
       props.onMutated();
       await load(props.memoryKey);
     } catch {
-      Toast.error(t('learning.errors.action'));
+      Tips.error(t('learning.errors.action'));
     }
   }
 
   async function revise() {
     if (detail === null || !reason.trim() || !value.trim()) {
-      Toast.warning(t('learning.errors.reasonRequired'));
+      Tips.warning(t('learning.errors.reasonRequired'));
       return;
     }
     try {
@@ -107,15 +111,16 @@ export function ExperienceDetailSideSheet(props: ExperienceDetailSideSheetProps)
         value,
         detail.version,
         reason,
-        newRequestId()
+        newRequestId(),
+        { errorTip: 'never' }
       );
-      Toast.success(t('learning.actions.done'));
+      Tips.success(t('learning.actions.done'));
       setReason('');
       setValue('');
       props.onMutated();
       await load(detail.memory_key);
     } catch {
-      Toast.error(t('learning.errors.action'));
+      Tips.error(t('learning.errors.action'));
     }
   }
 

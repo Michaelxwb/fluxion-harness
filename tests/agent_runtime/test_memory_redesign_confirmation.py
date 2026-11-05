@@ -30,6 +30,64 @@ from tests.agent_runtime.test_memory_redesign_recall import metric
 pytestmark = pytest.mark.integration
 
 
+async def test_pending_memory_emits_live_public_confirmation(async_tool_database, monkeypatch):
+    from muad_agent_runtime.application.public_events import project_public_stream_event
+    from muad_im_gateway.application.sse import SseEvent
+    from muad_im_gateway.application.webchat_streams import WebchatPublicProjector
+
+    async with confirmation_stack(async_tool_database, monkeypatch) as stack:
+        events = sorted(await rows(stack, CanonicalEvent), key=lambda event: event.seq)
+        stage = next(event for event in events if event.stream_type == "run.stage" and
+                     event.payload_json.get("stage") == "WAITING_INPUT")
+        event = next(event for event in events if event.stream_type == "memory.confirmation_required")
+        assert stage.seq < event.seq
+        public = project_public_stream_event(event, {})
+        assert public is not None
+        assert public.data.submission_id == event.submission_id
+        assert public.data.options[0].value == f"确认 {stack.proposal_id}"
+        assert "有效至：" not in public.data.prompt
+        assert public.data.expires_at is not None
+        assert "有效至：" in event.payload_json["prompt"], "canonical prompt 保留期限供审计/API"
+        text_prompt = event.payload_json["text_prompt"]
+        assert "有效至：" not in text_prompt, "文本渠道不重复展示期限字段"
+        assert "- 键：" in text_prompt, "文本渠道按列表逐行展示候选"
+        assert "\n\n请回复“确认”或“拒绝”。" in text_prompt, "回复指令单独成行"
+        projector = WebchatPublicProjector(run_id=stack.run.id, conversation_id=stack.run.conversation_id)
+        projected = projector.project(
+            SseEvent(type=event.stream_type, data=event.payload_json, run_id=str(stack.run.id),
+                     seq=event.seq, timestamp=event.create_time.isoformat())
+        )
+        assert projected is not None
+        assert projected.data == public.data
+        old_payload = {key: value for key, value in event.payload_json.items() if key != "confirmation"}
+        assert projector.project(
+            SseEvent(type=event.stream_type, data=old_payload, run_id=str(stack.run.id),
+                     seq=event.seq, timestamp=event.create_time.isoformat())
+        ) is None, "旧事件缺少确认数据，必须能复现被过滤"
+
+
+async def test_waiting_stream_remains_open_until_confirmation_resumes(async_tool_database, monkeypatch):
+    from contextlib import aclosing
+
+    async with confirmation_stack(async_tool_database, monkeypatch) as stack:
+        events = stack.gateway.open_events(str(stack.run.id), tenant_id=stack.run.tenant_id)
+        async with aclosing(events) as stream:
+            async for event in stream:
+                if event.type == "memory.confirmation_required":
+                    break
+            next_event = asyncio.create_task(anext(stream))
+            try:
+                done, _ = await asyncio.wait({next_event}, timeout=0.3)
+                assert not done, "waiting for confirmation must not close the stream"
+                await stack.submit(f"确认 {stack.proposal_id}")
+                event = await asyncio.wait_for(next_event, timeout=10)
+                assert event.seq is not None
+            finally:
+                if not next_event.done():
+                    next_event.cancel()
+                    await asyncio.gather(next_event, return_exceptions=True)
+
+
 async def test_b15_gateway_replay_delivers_exact_persisted_prompt_and_confirmation_to_current_reply(
     async_tool_database,
     monkeypatch,
@@ -37,10 +95,20 @@ async def test_b15_gateway_replay_delivers_exact_persisted_prompt_and_confirmati
     async with confirmation_stack(async_tool_database, monkeypatch) as stack:
         gateway, adapter = pipeline(stack), Adapter()
         original = await original_submission(stack)
-        pending = (await rows(stack, RunInterrupt))[0]
         assert await gateway.handle(adapter, original)
         reply = adapter.replies[original.message_id]
-        assert reply.texts == [pending.prompt_text]
+        shown = next(
+            event
+            for event in await rows(stack, CanonicalEvent)
+            if event.event_type == "MEMORY_CONFIRMATION_REQUIRED"
+        )
+        assert reply.texts == [shown.payload_json["text_prompt"]]
+        assert shown.payload_json["text_prompt"] != shown.payload_json["prompt"]
+        assert "- 键：" in shown.payload_json["text_prompt"], "企微按列表逐行展示字段"
+        assert "有效至：" not in shown.payload_json["text_prompt"], "文本渠道不重复展示期限字段"
+        assert "\n\n请回复“确认”或“拒绝”。" in shown.payload_json["text_prompt"], (
+            "回复指令必须单独成行"
+        )
         displayed = tuple(reply.texts)
         assert reply.finished == 1 and await rows(stack, UserMemory) == []
         incoming = envelope(f"确认 {stack.proposal_id}")
@@ -52,6 +120,22 @@ async def test_b15_gateway_replay_delivers_exact_persisted_prompt_and_confirmati
         assert tuple(adapter.replies[original.message_id].texts) == displayed
         assert await gateway.handle(adapter, incoming)
         assert len(await rows(stack, UserMemoryHistory)) == len(await rows(stack, MemoryCommandReceipt)) == 1
+
+
+async def test_webchat_confirmation_receipt_is_history_only(async_tool_database, monkeypatch):
+    """WebChat 的确认回执不进入 SSE 正文：历史刷新负责展示，避免和流式正文瞬时重复。"""
+    async with confirmation_stack(async_tool_database, monkeypatch) as stack:
+        async with stack.factory.begin() as session:
+            run = await session.get(RunRecord, stack.run.id)
+            assert run is not None
+            run.channel_json = {**(run.channel_json or {}), "type": "WEBCHAT"}
+        await stack.submit(f"确认 {stack.proposal_id}")
+        resolved = next(
+            event
+            for event in await rows(stack, CanonicalEvent)
+            if event.event_type == "MEMORY_CONFIRMATION_RESOLVED"
+        )
+        assert resolved.stream_type is None
 
 
 @pytest.mark.parametrize("answer", ["1", "是", "确认 invalid", "确认 00000000-0000-0000-0000-000000000000"])
@@ -66,6 +150,41 @@ async def test_b15_gateway_invalid_answer_preserves_waiting_and_exact_pending_co
         assert (await rows(stack, RunInterrupt))[0].status == "WAITING"
         assert (await rows(stack, RunRecord))[0].status == "WAITING_INPUT"
         assert await rows(stack, UserMemory) == [] and stack.captured == []
+
+
+@pytest.mark.parametrize(
+    "answer,saved", [("确认", True), ("拒绝", False), ("确认。", True), ("拒绝！", False)]
+)
+async def test_b15_gateway_short_verb_consumes_the_only_pending_confirmation(
+    async_tool_database, monkeypatch, answer, saved
+):
+    """企微等文本渠道只回复“确认/拒绝”即可：恰有一个待确认时不需要抄候选编号。"""
+    async with confirmation_stack(async_tool_database, monkeypatch) as stack:
+        gateway, adapter = pipeline(stack), Adapter()
+        incoming = envelope(answer)
+        assert await gateway.handle(adapter, incoming)
+        assert (await rows(stack, RunInterrupt))[0].status == "RESOLVED"
+        assert bool(await rows(stack, UserMemory)) is saved
+        reply = "".join(adapter.replies[incoming.message_id].chunks)
+        assert ("已保存" if saved else "已拒绝") in reply
+
+
+def test_short_confirmation_without_pending_is_a_normal_message() -> None:
+    from muad_agent_runtime.application.memory_confirmation_resume import prepare_confirmation
+
+    assert prepare_confirmation([], "确认") is None
+    assert prepare_confirmation([], "拒绝") is None
+
+
+def test_memory_confirmation_prompt_formats_expiry_in_user_timezone() -> None:
+    """文本渠道的期限按冻结时区展示，避免 UTC 时间看起来像已过期。"""
+    from datetime import UTC, datetime
+
+    from muad_agent_runtime.application.memory_proposals import _format_expiry
+
+    expires_at = datetime(2026, 11, 5, 7, 11, 25, tzinfo=UTC)
+    assert _format_expiry(expires_at, "Asia/Shanghai") == "2026-11-05 15:11:25 +0800"
+    assert _format_expiry(expires_at, "Bad/Zone") == "2026-11-05 07:11:25 +0000"
 
 
 @pytest.mark.parametrize("status", ["RUNNING", "WAITING_TOOL"])
@@ -181,17 +300,24 @@ async def test_local_b15_real_gateway_confirmation_saves_displayed_content_and_n
         assert user.payload_json["source_scope_revision"] == 0
         resolved = next(event for event in canonical if event.event_type == "MEMORY_CONFIRMATION_RESOLVED")
         assert resolved.payload_json["saved"] is True and resolved.payload_json["version"] == row.version
+        assert resolved.payload_json["delta"] == "记忆已保存。"
+        assert '"saved":true' in resolved.payload_json["text"]
         assert resolved.source_event_id == stack.proposal_id
         assert [event.payload_json["preview"] for event in canonical if event.event_type == "TOOL_CALL"] == [
             '{"saved":false}'
         ]
         assert events[-1].data["status"] == "COMPLETED"
         assert row.memory_key in memory_text(stack.captured[0])
-        assert any(
-            "saved" in item["content"] and "true" in item["content"]
-            for item in stack.captured[0]["messages"]
-            if item["role"] == "assistant"
+        messages = stack.captured[0]["messages"]
+        assert messages[-1]["role"] == "user", (
+            "确认结果不得合成 assistant 消息：带预填 assistant 的请求会被供应商拒绝，"
+            "最后一条必须是 user"
         )
+        assert "记忆已保存" in str(messages[-1]["content"])
+        assert not any(
+            item["role"] == "assistant" and "记忆已保存" in str(item.get("content"))
+            for item in messages
+        ), "确认结果是人类可见事实，不是模型说过的话"
 
 
 async def test_local_b15_reject_consumes_only_memory_interrupt_and_resumes_without_saving(

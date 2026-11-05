@@ -1,9 +1,10 @@
-import { Button, Form, Toast, Upload } from '@douyinfe/semi-ui';
+import { Button, Form, Upload } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FormModal } from '../../components/common/FormModal';
+import { Tips } from '../../components/common/Tips';
 import {
   importArtifact,
   importSkill,
@@ -47,15 +48,15 @@ export function SkillImportModal(props: SkillImportModalProps) {
 
   const submit = async (values: FormValues): Promise<void> => {
     if (!file) {
-      Toast.error(t('skill.import.fileRequired'));
+      Tips.error(t('skill.import.fileRequired'));
       return;
     }
     if (!file.name.toLowerCase().endsWith('.zip')) {
-      Toast.error(t('skill.import.zipOnly'));
+      Tips.error(t('skill.import.zipOnly'));
       return;
     }
     if (file.size > SKILL_ZIP_LIMIT_BYTES) {
-      Toast.error(t('skill.import.tooLarge', { limit: '50MiB' }));
+      Tips.error(t('skill.import.tooLarge', { limit: '50MiB' }));
       return;
     }
     setSaving(true);

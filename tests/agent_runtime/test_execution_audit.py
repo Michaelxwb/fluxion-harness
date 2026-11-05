@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
@@ -15,6 +16,7 @@ from muad_agent_core.model import (
     ModelMessage,
     ModelRateLimitedError,
     ModelRequest,
+    ModelRequestError,
     ModelResponse,
     ModelRole,
     text_of,
@@ -309,6 +311,15 @@ class _FlakyProvider:
         return ModelResponse(content="ok", finish_reason="stop")
 
 
+class _RejectingProvider:
+    """400 语义：归一化成 MODEL_UNAVAILABLE 前必须留下可诊断的安全原因。"""
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        raise ModelRequestError(
+            "model request rejected: 400 (type=invalid_request_error, param=messages)"
+        )
+
+
 async def test_model_events_link_each_retry_to_its_exact_audit_row() -> None:
     """Real runner/executor and PostgreSQL audit writer; retry IDs must not alias another attempt."""
     trace = ModelCallTrace()
@@ -387,6 +398,41 @@ async def test_audited_model_provider_records_each_attempt() -> None:
         ]
         assert rows[0].retry_reason == "RATE_LIMITED"
         assert rows[-1].error_code is None
+
+
+async def test_request_rejection_is_logged_with_safe_reason_before_normalization(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """上游 4xx 归一化成 MODEL_UNAVAILABLE 前，日志必须留下 status/type/param 级原因。"""
+    provider = AuditedModelProvider(
+        _RejectingProvider(), _writer(), model="deepseek-flash", provider="openai-compatible"
+    )
+    request = ModelRequest(
+        model_id="deepseek-flash",
+        messages=(),
+        tools=(),
+        temperature=None,
+        max_tokens=None,
+        params={},
+    )
+    with caplog.at_level(
+        logging.WARNING, logger="muad_agent_runtime.application.executor"
+    ):
+        with pytest.raises(ModelRequestError):
+            await provider.complete(request)
+
+    record = next(item for item in caplog.records if item.message == "model_request_rejected")
+    assert record.provider == "openai-compatible" and record.model == "deepseek-flash"
+    assert "400" in record.reason
+    assert "invalid_request_error" in record.reason and "param=messages" in record.reason
+
+    async with get_session_factory()() as session:
+        row = (
+            await session.execute(
+                sa.select(ModelInvocationAudit).where(ModelInvocationAudit.tenant_id == TENANT)
+            )
+        ).scalar_one()
+        assert row.status == "ERROR" and row.error_code == "COMMON_INTERNAL_ERROR"
 
 
 async def test_run_request_carries_history_and_credentials_surface(

@@ -82,7 +82,32 @@ DESIGN_MANDATED_COMPONENTS = (
     "ErrorState.tsx",
     "PaginationFooter.tsx",
     "LocaleSwitch.tsx",
+    "Tips.ts",
 )
+
+
+def test_tips_is_the_single_transient_feedback_exit() -> None:
+    """一次性动作反馈只能经 `Tips`：统一右下角、自动消失、可选去重。"""
+    source = _source("Tips.ts")
+    assert "bottom: TIP_BOTTOM_PX" in source and "right: TIP_RIGHT_PX" in source
+    assert "DEFAULT_TIP_DURATION_SEC" in source
+    assert "dedupeKey" in source and "shouldEmit" in source
+    for kind in ("success", "error", "warning", "info"):
+        assert f"{kind}(content: ReactNode" in source, f"Tips missing {kind}"
+
+    allowed = {COMMON / "Tips.ts"}
+    offenders: list[str] = []
+    for path in FRONTEND.rglob("*.ts*"):
+        if path in allowed:
+            continue
+        text = path.read_text(encoding="utf-8")
+        direct_import = re.search(
+            r"import\s*\{[^}]*\bToast\b[^}]*\}\s*from\s*'@douyinfe/semi-ui'", text
+        )
+        direct_call = re.search(r"\bToast\.(error|success|warning|info)\s*\(", text)
+        if direct_import or direct_call:
+            offenders.append(str(path.relative_to(FRONTEND)))
+    assert offenders == [], "一次性提示必须统一走 Tips，不得直接使用 Semi Toast：" + ", ".join(offenders)
 
 
 def test_design_mandated_common_components_all_exist() -> None:

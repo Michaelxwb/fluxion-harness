@@ -1,4 +1,4 @@
-import { api, apiErrorBody, type ApiResponse } from '../../../api/client';
+import { api, apiErrorBody, type ApiResponse, type RequestOptions } from '../../../api/client';
 import type { Page } from '../../user-identity/services/users';
 import { listQuotaGroups as listQuotaGroupPage, type ModelQuotaGroupItem } from './modelQuotas';
 
@@ -178,29 +178,37 @@ export async function getCredential(id: string): Promise<ModelCredentialItem> {
 
 export async function createCredential(
   input: ModelCredentialCreateInput,
-  idempotencyKey: string
+  idempotencyKey: string,
+  options: RequestOptions = {}
 ): Promise<ModelCredentialItem> {
   return unwrap(
     await api.post<ApiResponse<ModelCredentialItem>>('/model-credentials', input, {
-      headers: { 'Idempotency-Key': idempotencyKey }
+      headers: { 'Idempotency-Key': idempotencyKey },
+      ...options
     })
   );
 }
 
 export async function updateCredential(
   id: string,
-  input: ModelCredentialUpdateInput
+  input: ModelCredentialUpdateInput,
+  options: RequestOptions = {}
 ): Promise<ModelCredentialItem> {
-  return unwrap(await api.put<ApiResponse<ModelCredentialItem>>(`/model-credentials/${id}`, input));
+  return unwrap(
+    await api.put<ApiResponse<ModelCredentialItem>>(`/model-credentials/${id}`, input, options)
+  );
 }
 
-export async function deleteCredential(id: string): Promise<void> {
-  await api.delete(`/model-credentials/${id}`);
+export async function deleteCredential(
+  id: string,
+  options: RequestOptions = {}
+): Promise<void> {
+  await api.delete(`/model-credentials/${id}`, options);
 }
 
 /** 归属选项：额度组维护面（`ModelQuotaPanel`，API-02）负责 CRUD，这里只取首屏选项（page_size≤100）。 */
-export async function listQuotaGroups(): Promise<Page<ModelQuotaGroupOption>> {
-  return listQuotaGroupPage({ page: 1, page_size: 100 });
+export async function listQuotaGroups(options: RequestOptions = {}): Promise<Page<ModelQuotaGroupOption>> {
+  return listQuotaGroupPage({ page: 1, page_size: 100 }, options);
 }
 
 /** 检测：只点名被选中的成员；占额、合并计量与结算都由服务端完成。 */

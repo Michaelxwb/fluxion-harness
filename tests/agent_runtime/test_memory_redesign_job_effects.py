@@ -370,6 +370,78 @@ async def test_b17_memory_redesign_confirmed_and_disabled_are_never_downgraded(
             assert row.confirmed_count == int(author == "USER")
 
 
+async def test_inferred_candidate_does_not_duplicate_confirmed_base_fact(
+    async_tool_database,
+) -> None:
+    """`infer.X` 与已确认 `X` 同类别同内容时不再新增一条重复记忆。"""
+    jobs = import_module("muad_agent_runtime.application.memory_jobs")
+    async with model_stack(async_tool_database, output=output("user.name")) as stack:
+        factory, run, job, _, client, requests, *_ = stack
+        await seed_author(factory, run, "USER", key="user.name")
+        await pending(factory, job, revision=await current_revision(factory, run))
+        result = await execution(factory, client).execute(
+            await jobs.MemoryJobs(factory).claim("dedupe")
+        )
+        assert len(requests) == 1
+        assert result["written"] == 0 and result["skipped"] == 1 and result["reason"] == "POLICY"
+        async with factory() as session:
+            rows = list(
+                await session.scalars(sa.select(UserMemory).order_by(UserMemory.memory_key))
+            )
+        assert [(row.memory_key, row.author) for row in rows] == [("user.name", "USER")]
+
+
+async def test_inferred_candidate_with_different_content_still_writes(
+    async_tool_database,
+) -> None:
+    """base key 相同但内容不同不是重复：仍写入 `infer.X`，不误删新事实。"""
+    jobs = import_module("muad_agent_runtime.application.memory_jobs")
+    async with model_stack(async_tool_database, output=output("user.name")) as stack:
+        factory, run, job, _, client, requests, *_ = stack
+        await seed_author(factory, run, "USER", key="user.name", value="green")
+        await pending(factory, job, revision=await current_revision(factory, run))
+        result = await execution(factory, client).execute(
+            await jobs.MemoryJobs(factory).claim("different")
+        )
+        assert len(requests) == 1
+        assert result["written"] == 1 and result["skipped"] == 0
+        async with factory() as session:
+            rows = list(
+                await session.scalars(sa.select(UserMemory).order_by(UserMemory.memory_key))
+            )
+        assert [(row.memory_key, row.content_json) for row in rows] == [
+            ("infer.user.name", {"value": "blue"}),
+            ("user.name", {"value": "green"}),
+        ]
+
+
+@pytest.mark.parametrize("author", ["AGENT", "USER", "ADMIN"])
+async def test_confirmed_base_does_not_hide_an_existing_inferred_key_update(
+    async_tool_database, author,
+) -> None:
+    """去重只能省略新增/无变化副本，已有推断仍按新来源更新且保护人工权威。"""
+    from tests.agent_runtime.memory_resume_support import inbound
+
+    jobs = import_module("muad_agent_runtime.application.memory_jobs")
+    async with model_stack(async_tool_database, output=output("user.name")) as stack:
+        factory, run, job, _, client, requests, *_ = stack
+        await seed_author(factory, run, author, key="infer.user.name", value="green")
+        await seed_author(factory, run, "USER", key="user.name", value="blue")
+        _, seq = await inbound(factory, run, "新的来源：我的名字是 blue")
+        async with factory.begin() as session:
+            (await session.get(MemoryConsolidationJob, job.id)).through_seq = seq
+        await pending(factory, job, revision=await current_revision(factory, run))
+        result = await execution(factory, client).execute(await jobs.MemoryJobs(factory).claim("update"))
+        assert len(requests) == 1 and result["written"] == int(author == "AGENT")
+        async with factory() as session:
+            rows = {row.memory_key: row for row in await session.scalars(sa.select(UserMemory))}
+        inferred = rows["infer.user.name"]
+        assert inferred.content_json == {"value": "blue" if author == "AGENT" else "green"}
+        assert inferred.version == (2 if author == "AGENT" else 1) and inferred.author == author
+        assert rows["user.name"].content_json == {"value": "blue"}
+        assert rows["user.name"].version == 1 and rows["user.name"].author == "USER"
+
+
 @pytest.mark.parametrize(
     "reason,fresh",
     [("QUOTA_EVICT", False), ("QUOTA_EVICT", True), ("ADMIN_DELETE", True), ("USER_DELETE", True)],

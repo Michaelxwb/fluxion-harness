@@ -115,7 +115,8 @@ class StreamRenderer:
     def _on_interrupt(self, event: SseEvent) -> tuple[RenderAction, ...]:
         data = event.data or {}
         actions = list(self.flush())
-        prompt = str(data.get("prompt") or "").strip()
+        # 文本渠道优先用 Runtime 给的排版版本（字段空行分隔）；旧事件/普通中断回落到 prompt。
+        prompt = str(data.get("text_prompt") or data.get("prompt") or "").strip()
         if prompt:
             actions.append(RenderAction(TEXT_KIND, prompt))
         options = [str(option) for option in _as_sequence(data.get("options")) if str(option).strip()]

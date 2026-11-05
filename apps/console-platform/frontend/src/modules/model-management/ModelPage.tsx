@@ -1,5 +1,5 @@
 import { actionColumn } from '../../components/common/tableLayout';
-import { Button, Input, Select, Tabs, Toast } from '@douyinfe/semi-ui';
+import { Button, Input, Select, Tabs } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +15,7 @@ import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { TableText } from '../../components/common/TableText';
+import { Tips } from '../../components/common/Tips';
 import { ModelCreateWizard } from './ModelCreateWizard';
 import { ModelCredentialPanel } from './ModelCredentialPanel';
 import { ModelDetailSideSheet, ModelTestResultModal } from './ModelDetailSideSheet';
@@ -124,7 +125,7 @@ export function ModelPage() {
       setDetailTab('basic');
       setDetail(await getModel(id));
     } catch {
-      Toast.error(t('common.loadFailed'));
+      Tips.error(t('common.loadFailed'));
     }
   };
 
@@ -135,7 +136,7 @@ export function ModelPage() {
     try {
       setDetail(await getModel(modelId));
     } catch {
-      Toast.error(t('common.loadFailed'));
+      Tips.error(t('common.loadFailed'));
     }
   };
 
@@ -148,11 +149,15 @@ export function ModelPage() {
     setSavingId(model.id);
     try {
       // 单字段版本更新：只翻转 enabled（CAS），不重发连接/密钥等本面不持有的字段
-      await updateModel(model.id, { expected_revision: model.revision, enabled: !model.enabled });
+      await updateModel(
+        model.id,
+        { expected_revision: model.revision, enabled: !model.enabled },
+        { errorTip: 'never' }
+      );
       await refreshDetail(model.id);
       await reload();
     } catch {
-      Toast.error(t('common.saveFailed'));
+      Tips.error(t('common.saveFailed'));
     } finally {
       setSavingId(null);
     }
@@ -345,7 +350,7 @@ export function ModelPage() {
             setDetailTab('members');
             setDetail(created);
             void reload();
-            Toast.success(t('model.create.created'));
+            Tips.success(t('model.create.created'));
           }}
           onRefresh={() => void reload()}
         />

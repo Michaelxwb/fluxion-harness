@@ -1,4 +1,4 @@
-import { Banner, Form, Toast } from '@douyinfe/semi-ui';
+import { Banner, Form } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { apiErrorBody, newRequestId } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import { FormModal } from '../../components/common/FormModal';
+import { Tips } from '../../components/common/Tips';
 import {
   createMcpServer,
   discoverTools,
@@ -66,7 +67,7 @@ export function McpFormModal(props: McpFormModalProps) {
   const submit = async (values: FormValues): Promise<void> => {
     // [E-09] transport 固定为 Streamable HTTP（只读字段）；endpoint 协议本地拦截，不提交
     if (!VALID_ENDPOINT.test(values.endpoint)) {
-      Toast.error(t('mcp.form.endpointInvalid'));
+      Tips.error(t('mcp.form.endpointInvalid'));
       return;
     }
     let authConfig: Record<string, unknown> = {};
@@ -99,14 +100,15 @@ export function McpFormModal(props: McpFormModalProps) {
         if (values.auth_secret) {
           (input as { auth_secret?: string }).auth_secret = values.auth_secret;
         }
-        await updateMcpServer(props.server.mcp_id, input);
+        await updateMcpServer(props.server.mcp_id, input, { errorTip: 'never' });
       } else {
         const created = await createMcpServer(
           {
             ...base, key: values.key, auth_secret: values.auth_secret || undefined,
             user_scope: isAdmin ? values.user_scope : 'SELECTED'
           },
-          newRequestId()
+          newRequestId(),
+          { errorTip: 'never' }
         );
         // 交互稿「保存并发现工具」：注册成功后立即执行一次目录发现；
         // 失败不阻塞（服务已保存，可在详情中重试，Toast 由 ApiClient 展示）

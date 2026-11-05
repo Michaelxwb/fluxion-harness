@@ -149,7 +149,9 @@ def test_one_idempotency_key_per_submission_reused_on_retry() -> None:
     assert "newRequestId" not in retry_body, "重试路径不得自行生成 key（提交复用调用方持有的 key）"
 
     submit_body = _segment(hook, "const submit = useCallback(", "const start = useCallback(")
-    assert "createExport(req,idempotencyKey)" in submit_body, "提交出口须把调用方的 key 透传给 service"
+    assert "createExport(req,idempotencyKey,{errorTip:'never'})" in submit_body, (
+        "提交出口须把调用方的 key 透传给 service"
+    )
     assert "newRequestId" not in submit_body, "提交（重试）出口不得生成 key"
 
 

@@ -11,8 +11,7 @@
   无权威行/尺寸不可投影/内部留档（`TRANSCRIPT`）的引用不伪造、不出现在公开投影里；
   `storage_key` 与内部载荷字段永不进入公开事实。
 - **错误显式**：已知公开事件类型的坏载荷显式失败（`COMMON_INTERNAL_ERROR`），不静默当过滤；
-  记忆确认的载荷只有本身就是完整安全 DTO 时才公开（内部 proposal 载荷不公开、不合成选项——
-  完整候选投影属 TASK-056）。
+  记忆确认仅公开载荷中完整安全 DTO，不公开内部 proposal 数据。
 """
 
 from __future__ import annotations
@@ -49,14 +48,18 @@ from pydantic import ValidationError
 from ..infrastructure.models.runtime import Artifact
 from .attachments.reference import attachment_ref
 from .attachments.transcripts import TRANSCRIPT_ARTIFACT_TYPE
+from .memory_confirmation_outcome import confirmation_result_text
 
 #: 可见消息事件白名单（canonical 协议标识，不是配置；写入方见 `channel_conversations` 与
 #: `run_service._finalize_run`）。
-PUBLIC_MESSAGE_EVENT_TYPES: tuple[str, ...] = ("USER_MESSAGE", "ASSISTANT_MESSAGE")
+PUBLIC_MESSAGE_EVENT_TYPES: tuple[str, ...] = (
+    "USER_MESSAGE", "ASSISTANT_MESSAGE", "MEMORY_CONFIRMATION_RESOLVED"
+)
 #: 事件类型 → 公开角色（只此两种可见角色；其余事件默认不公开）。
 PUBLIC_ROLE_BY_EVENT_TYPE: dict[str, Literal["USER", "ASSISTANT"]] = {
     "USER_MESSAGE": "USER",
     "ASSISTANT_MESSAGE": "ASSISTANT",
+    "MEMORY_CONFIRMATION_RESOLVED": "ASSISTANT",
 }
 #: canonical `stream_type` → 公开事件类型（TASK-006 判别联合的公开词表）；未知/内部默认不公开。
 PUBLIC_STREAM_EVENT_TYPES: dict[str, str] = {
@@ -145,7 +148,12 @@ def _project_message(
     if role is None or row.run_id is None:
         return None
     payload = _payload(row)
-    text = payload.get("text")
+    if row.event_type == "MEMORY_CONFIRMATION_RESOLVED":
+        text = confirmation_result_text(payload.get("outcome"))
+        if text is None:
+            return None
+    else:
+        text = payload.get("text")
     attachments = (
         _project_attachments(payload.get("attachments"), artifacts) if role == "USER" else []
     )
@@ -340,7 +348,8 @@ def _confirmation_event(row: CanonicalRow, run_id: uuid.UUID) -> WebchatConfirma
     完整候选投影属 TASK-056。坏形状不报错也不透传，避免内部载荷借确认事件外泄。
     """
     try:
-        data = WebchatConfirmation.model_validate(_payload(row))
+        payload = _payload(row)
+        data = WebchatConfirmation.model_validate(payload.get("confirmation", payload))
     except ValidationError:
         return None
     return WebchatConfirmationEvent(

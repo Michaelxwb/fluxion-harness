@@ -7,7 +7,7 @@ data:
   # 单租户部署的默认租户：Gateway 取 Bot 快照、Runtime/Worker 建会话都以它为准。
   # 不设会回落到设置默认值 `default`，多租户部署请按租户拆部署单元或改这里。
   DEFAULT_TENANT_ID: default
-  LOG_DIR: /var/log/muad
+  LOG_DIR: /app/.data/logs
   ARTIFACT_ROOT: /mnt/muad-artifacts
   SKILL_CACHE_ROOT: /var/cache/muad/skills
   API_MESSAGES_FILE: /app/config/api-messages.yaml

@@ -1,4 +1,4 @@
-import { apiErrorBody } from '../../../api/client';
+import { apiErrorBody, type RequestOptions } from '../../../api/client';
 import {
   createDeployment,
   type ModelDeploymentCreateInput,
@@ -76,11 +76,12 @@ export interface ModelWithMember {
 /** 创建逻辑模型并自动绑定第一条成员；绑定失败时保留已创建的模型供调用方重试。 */
 export async function createModelWithMember(
   values: ModelFormValues,
-  credential: ModelCredentialItem
+  credential: ModelCredentialItem,
+  options: RequestOptions = {}
 ): Promise<ModelWithMember> {
-  const model = await createModel(buildOnboardingModelInput(values, credential));
+  const model = await createModel(buildOnboardingModelInput(values, credential), options);
   try {
-    const member = await createDeployment(model.id, buildFirstMemberInput(credential));
+    const member = await createDeployment(model.id, buildFirstMemberInput(credential), options);
     return { model, member };
   } catch (error) {
     throw new MemberBindingFailedError(model, error);
@@ -90,7 +91,8 @@ export async function createModelWithMember(
 /** 重试绑定第一条成员（不重复创建逻辑模型）。 */
 export async function bindFirstMember(
   model: ModelItem,
-  credential: ModelCredentialItem
+  credential: ModelCredentialItem,
+  options: RequestOptions = {}
 ): Promise<ModelDeploymentItem> {
-  return createDeployment(model.id, buildFirstMemberInput(credential));
+  return createDeployment(model.id, buildFirstMemberInput(credential), options);
 }

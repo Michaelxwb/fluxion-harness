@@ -42,6 +42,7 @@ def create_run_memory(
     preference_bytes: int = 512,
     learning_enabled: bool = True,
     initial_task_family: str | None = None,
+    timezone: str = "UTC",
 ) -> RunMemory:
     if identity is not None and (identity.tenant_id, identity.run_id) != (scope.tenant_id, run_id):
         raise ValueError("memory execution identity must match the Run")
@@ -78,6 +79,7 @@ def create_run_memory(
             submission_id=submission_id,
             settings=settings,
             credential_canaries=credential_canaries,
+            timezone=timezone,
         )
     context = MemoryWriteContext(
         tenant_id=scope.tenant_id,

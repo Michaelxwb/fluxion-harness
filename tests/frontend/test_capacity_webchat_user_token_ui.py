@@ -460,8 +460,8 @@ def test_card_uses_confirm_action_and_versioned_mutations() -> None:
         LOCALES / "zh-CN.json"
     ), "重置/撤销必须明示关联登录会话将失效（本地化文案）"
     assert "webchatTokenExpectedRevision(props.metadata)" in source, "CAS 版本只能从元信息派生"
-    assert "issueWebchatToken(props.userId, expectedRevision)" in source
-    assert "revokeWebchatToken(props.userId, expectedRevision)" in source
+    assert "issueWebchatToken(props.userId, expectedRevision, { errorTip: 'never' })" in source
+    assert "revokeWebchatToken(props.userId, expectedRevision, { errorTip: 'never' })" in source
     assert "inFlight.current" in source, "生成/重置/撤销必须有单飞守卫"
     assert "disabled={pending}" in source, "生成按钮必须按在飞状态禁用"
 
