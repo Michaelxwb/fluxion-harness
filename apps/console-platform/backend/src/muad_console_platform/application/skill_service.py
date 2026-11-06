@@ -7,6 +7,7 @@ from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts import SkillReviewStatus, SkillSource
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -438,6 +439,7 @@ class SkillService:
             platform_label=package.manifest.platform_label,
             user_scope=user_scope,
             enabled=True,
+            source=SkillSource.ADMIN,
         )
         artifact = self._build_artifact(
             skill_id=skill_id,
@@ -724,6 +726,8 @@ class SkillService:
             package_size=len(data),
             validation_status=VALIDATION_READY,
             created_by=actor.account_id,
+            review_status=SkillReviewStatus.APPROVED,
+            source=SkillSource.ADMIN,
         )
 
     def _validated_default_script(

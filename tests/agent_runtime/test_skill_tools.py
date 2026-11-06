@@ -102,6 +102,7 @@ def _env_for(tmp_path: Path, files: Mapping[str, str]) -> SkillEnv:
         checksum="sha256:" + hashlib.sha256(data).hexdigest(),
         storage_key=STORAGE_KEY,
         execution_mode="SYNC",
+        source="ADMIN",
     )
     cache = SkillArtifactCache(NfsArtifactStore(artifact_root), tmp_path / "cache")
     registry = build_skill_registry(
@@ -439,6 +440,7 @@ def _registry_with_keys(tmp_path: Path, *keys: str) -> ToolRegistry:
             checksum="sha256:" + "0" * 64,
             storage_key=f"skills/{key}/1.0.0/skill.zip",
             execution_mode="SYNC",
+            source="ADMIN",
         )
         for key in keys
     )

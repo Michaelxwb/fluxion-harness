@@ -139,6 +139,8 @@ class Skill(StandardColumnsMixin, Base):
             unique=True,
             postgresql_where=sa.text("is_deleted = false"),
         ),
+        sa.Index("ix_skill_tenant_source", "tenant_id", "source"),
+        sa.Index("ix_skill_owner", "owner_user_id"),
         sa.Index("ix_skill_user_scope_enabled", "user_scope", "enabled"),
         {"schema": "control"},
     )
@@ -153,6 +155,14 @@ class Skill(StandardColumnsMixin, Base):
         nullable=False,
         server_default=sa.text("'SELECTED'"),
     )
+    source: Mapped[str] = mapped_column(
+        sa.String(16),
+        nullable=False,
+        server_default=sa.text("'ADMIN'"),
+    )
+    author: Mapped[str | None] = mapped_column(sa.String(128))
+    #: USER Skill 的鉴权归属；ADMIN/SYSTEM Skill 为空。
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     current_artifact_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     enabled: Mapped[bool] = mapped_column(
         sa.Boolean(),
@@ -178,6 +188,14 @@ class SkillArtifact(StandardColumnsMixin, Base):
             unique=True,
             postgresql_where=sa.text("is_deleted = false"),
         ),
+        sa.Index(
+            "uq_skill_artifact_one_pending",
+            "skill_id",
+            unique=True,
+            postgresql_where=sa.text("review_status = 'PENDING' AND is_deleted = false"),
+        ),
+        sa.Index("ix_skill_artifact_review", "review_status"),
+        sa.Index("ix_skill_artifact_submitter", "submitted_by_user_id"),
         sa.Index("ix_skill_artifact_skill_create_time", "skill_id", sa.text("create_time DESC")),
         {"schema": "control"},
     )
@@ -215,6 +233,61 @@ class SkillArtifact(StandardColumnsMixin, Base):
     validation_status: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     validation_message: Mapped[str | None] = mapped_column(sa.Text())
     created_by: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    review_status: Mapped[str] = mapped_column(
+        sa.String(16),
+        nullable=False,
+        server_default=sa.text("'APPROVED'"),
+    )
+    review_note: Mapped[str | None] = mapped_column(sa.Text())
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    reviewed_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    submitted_by_user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    submitted_agent_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    submitted_channel: Mapped[str | None] = mapped_column(sa.String(16))
+    #: 冗余自 Skill，快照/执行时避免回查漂移。
+    source: Mapped[str] = mapped_column(
+        sa.String(16),
+        nullable=False,
+        server_default=sa.text("'ADMIN'"),
+    )
+
+
+class SkillDraft(StandardColumnsMixin, Base):
+    """用户草稿元数据；文件内容在 Draft Store/PVC，revision 承担 CAS。"""
+
+    __tablename__ = "skill_draft"
+    __table_args__ = (
+        sa.Index(
+            "uq_skill_draft_tenant_owner_key",
+            "tenant_id",
+            "owner_user_id",
+            "key",
+            unique=True,
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    revision: Mapped[int] = mapped_column(
+        sa.BigInteger(),
+        nullable=False,
+        server_default=sa.text("1"),
+    )
+    last_submitted_artifact_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    last_submitted_revision: Mapped[int | None] = mapped_column(sa.BigInteger())
+    file_count: Mapped[int] = mapped_column(
+        sa.Integer(),
+        nullable=False,
+        server_default=sa.text("0"),
+    )
+    total_size: Mapped[int] = mapped_column(
+        sa.BigInteger(),
+        nullable=False,
+        server_default=sa.text("0"),
+    )
 
 
 class AgentSkillBinding(StandardColumnsMixin, Base):

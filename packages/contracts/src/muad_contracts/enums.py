@@ -118,6 +118,19 @@ class SkillExecutionMode(StrEnum):
     AUTO = "AUTO"
 
 
+class SkillSource(StrEnum):
+    SYSTEM = "SYSTEM"
+    ADMIN = "ADMIN"
+    USER = "USER"
+
+
+class SkillReviewStatus(StrEnum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    SUPERSEDED = "SUPERSEDED"
+
+
 class UserScope(StrEnum):
     ALL = "ALL"
     SELECTED = "SELECTED"

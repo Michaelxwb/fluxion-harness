@@ -33,6 +33,7 @@ import httpx
 from muad_contracts import (
     ResolveDefinitionResponse,
     TaskType,
+    WorkspaceRef,
     build_task_snapshot,
     snapshot_hash,
 )
@@ -390,7 +391,16 @@ def resolve_task_spec(stack: DfxStack, http: httpx.Client) -> TaskSpec:
     assert frozen, "Console resolve 未返回本租户的冻结 Skill（种子/授权未生效）"
     skill = frozen[0]
     return TaskSpec(
-        snapshot=build_task_snapshot(agent=resolved.agent, model=resolved.model, skill=skill),
+        snapshot=build_task_snapshot(
+            agent=resolved.agent,
+            model=resolved.model,
+            skill=skill,
+            workspace=WorkspaceRef(
+                tenant_id=stack.tenant_id,
+                user_id=stack.platform_user_id,
+                agent_id=stack.agent_id,
+            ),
+        ),
         skill_id=skill.skill_id,
         artifact_id=skill.artifact_id,
     )

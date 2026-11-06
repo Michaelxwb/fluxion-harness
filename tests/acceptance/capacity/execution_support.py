@@ -816,7 +816,13 @@ def build_task_body(
     `budget.retry_safety` 是设计 §3.6 的可信冻结键：Owner 侧工具声明一次冻结，Worker 侧只读它；
     未声明/未知一律 NON_RETRYABLE（空值 = 不声明该键，用于覆盖"未声明"分支）。
     """
-    from muad_contracts import ResolvedAgent, ResolvedModel, ResolvedSkill, SkillExecutionMode
+    from muad_contracts import (
+        ResolvedAgent,
+        ResolvedModel,
+        ResolvedSkill,
+        SkillExecutionMode,
+        WorkspaceRef,
+    )
     from muad_contracts.snapshot import build_task_snapshot, snapshot_hash
 
     agent = ResolvedAgent(
@@ -835,8 +841,14 @@ def build_task_body(
         checksum=checksum,
         storage_key=storage_key,
         execution_mode=SkillExecutionMode.ASYNC,
+        source="ADMIN",
     )
-    snapshot = build_task_snapshot(agent=agent, model=model, skill=skill)
+    snapshot = build_task_snapshot(
+        agent=agent,
+        model=model,
+        skill=skill,
+        workspace=WorkspaceRef(tenant_id=tenant_id, user_id=actor_user_id, agent_id=agent_id),
+    )
     budget: dict[str, Any] = {**snapshot["budget"], "max_attempts": max_attempts}
     if retry_safety:
         budget["retry_safety"] = retry_safety

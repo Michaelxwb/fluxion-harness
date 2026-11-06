@@ -10,6 +10,7 @@ from .control import (
     PlatformUser,
     Skill,
     SkillArtifact,
+    SkillDraft,
     SkillUserGrant,
 )
 from .mcp import AgentMcpBinding, McpServer, McpUserGrant
@@ -34,5 +35,6 @@ __all__ = [
     "PlatformUser",
     "Skill",
     "SkillArtifact",
+    "SkillDraft",
     "SkillUserGrant",
 ]

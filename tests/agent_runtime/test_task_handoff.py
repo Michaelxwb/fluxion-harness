@@ -103,6 +103,7 @@ def _async_skill() -> ResolvedSkill:
         storage_key="skills/policy_check.zip",
         execution_mode=SkillExecutionMode.ASYNC,
         frontmatter={},
+        source="ADMIN",
     )
 
 

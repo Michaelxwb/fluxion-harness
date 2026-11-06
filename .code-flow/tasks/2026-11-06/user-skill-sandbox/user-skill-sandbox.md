@@ -501,7 +501,7 @@
 
 ## TASK-007: 数据模型、迁移、契约与快照扩展
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: -
 - **Source**: user-skill-sandbox.backend.design.md#3.3 数据设计, user-skill-sandbox.backend.design.md#3.4 接口设计
@@ -517,18 +517,18 @@
 
 ### Checklist
 
-- [ ] 交付 `Skill/Artifact/Draft/Workspace schema、迁移、`source` 契约和 execution snapshot 可用`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 新增/修改模型、迁移、索引；存量回填 `source=ADMIN`、`review_status=APPROVED`
-- [ ] 单 Skill 最多一个 PENDING 的 partial unique；owner/key、review、last_access_time 索引
-- [ ] `ResolvedSkill.source`、snapshot `skills[]` 冻结 source/artifact/checksum/workspace/platform keys
-- [ ] 迁移可重复执行/回滚；旧数据/旧客户端缺失字段有明确默认或拒绝
-- [ ] [S-01][integration] 草稿表/revision 读写
-- [ ] [S-04][integration] PENDING artifact 字段完整
-- [ ] [S-10][integration] 执行快照含 source/artifact/workspace
-- [ ] [B-04][integration] 系统 Skill effective 查询字段一致
-- [ ] [harness-data#RULE-data-001][verifier] 运行 `uv run pytest -q tests/migrations/test_skill_sandbox_schema.py tests/console_skill/test_skill_repository.py`
-- [ ] [harness-snapshot#RULE-snapshot-001][verifier] 运行 `uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py -k snapshot`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `Skill/Artifact/Draft/Workspace schema、迁移、`source` 契约和 execution snapshot 可用`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 新增/修改模型、迁移、索引；存量回填 `source=ADMIN`、`review_status=APPROVED`
+- [x] 单 Skill 最多一个 PENDING 的 partial unique；owner/key、review、last_access_time 索引
+- [x] `ResolvedSkill.source`、snapshot `skills[]` 冻结 source/artifact/checksum/workspace/platform keys
+- [x] 迁移可重复执行/回滚；旧数据/旧客户端缺失字段有明确默认或拒绝
+- [x] [S-01][integration] 草稿表/revision 读写
+- [x] [S-04][integration] PENDING artifact 字段完整
+- [x] [S-10][integration] 执行快照含 source/artifact/workspace
+- [x] [B-04][integration] 系统 Skill effective 查询字段一致
+- [x] [harness-data#RULE-data-001][verifier] 运行 `uv run pytest -q tests/migrations/test_skill_sandbox_schema.py tests/console_skill/test_skill_repository.py`
+- [x] [harness-snapshot#RULE-snapshot-001][verifier] 运行 `uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py -k snapshot`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
@@ -543,8 +543,8 @@
 
 | Rule | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 执行命令 | 状态 |
 |---|---|---|---|---|---|
-| `harness-data#RULE-data-001` | integration | 真实 PG 迁移/schema | 标准列/软删唯一/timestamptz/jsonb | uv run pytest -q tests/migrations/test_skill_sandbox_schema.py tests/console_skill/test_skill_repository.py | planned |
-| `harness-snapshot#RULE-snapshot-001` | contract | 真实 execution snapshot/contract | source/artifact/workspace/platform keys 冻结 | uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py -k snapshot | planned |
+| `harness-data#RULE-data-001` | integration | 真实 PG 迁移/schema | 标准列/软删唯一/timestamptz/jsonb | uv run pytest -q tests/migrations/test_skill_sandbox_schema.py tests/console_skill/test_skill_repository.py | passed |
+| `harness-snapshot#RULE-snapshot-001` | contract | 真实 execution snapshot/contract | source/artifact/workspace/platform keys 冻结 | uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py -k snapshot | passed |
 
 ### Acceptance Evidence
 
@@ -552,14 +552,16 @@
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-01 | - | - | - | - | pending |
-| S-04 | - | - | - | - | pending |
-| S-10 | - | - | - | - | pending |
-| B-04 | - | - | - | - | pending |
+| S-01 | `uv run pytest -q tests/acceptance/user_skill_sandbox` → collection error：`SkillDraft`/`SkillSource` 未实现 | 3 passed（`test_s_01.py`）；`uv run pytest -q tests/acceptance/user_skill_sandbox` → 7 passed | `tests/acceptance/user_skill_sandbox/test_s_01.py:31,55,76` | 真实 PostgreSQL `control.skill_draft`；`SkillDraftRepository` revision CAS（过期返回 None）与 tenant/owner 隔离；文件/PVC 路径由 TASK-008 扩展 | passed |
+| S-04 | 0037 迁移缺席（`Can't locate revision identified by '0037'`）；实现前同目录验收被 `SkillSource`/`SkillDraft` collection error 中断，`source`/`review_status` 字段不存在 | 2 passed（`test_s_04.py`）；`uv run pytest -q tests/acceptance/user_skill_sandbox` → 7 passed | `tests/acceptance/user_skill_sandbox/test_s_04.py:69,101` | 真实 PostgreSQL：PENDING artifact 的 submitted_by/submitted_agent/submitted_channel/author 可读回；`uq_skill_artifact_one_pending` 拒绝第二个 PENDING，批准后可插入新 PENDING | passed |
+| S-10 | `ImportError: cannot import name 'SkillSource' from 'muad_contracts'` | 1 passed（`test_s_10.py`）；`uv run pytest -q tests/acceptance/user_skill_sandbox` → 7 passed | `tests/acceptance/user_skill_sandbox/test_s_10.py:92,101` | 真实 PostgreSQL `task.task_execution.execution_snapshot_json`：重读后 source/artifact/checksum/workspace/platforms 与 `snapshot_hash` 一致；bwrap/stdout 由 TASK-003 扩展 | passed |
+| B-04 | `ImportError: cannot import name 'SkillSource' from 'muad_contracts'` | 1 passed（`test_b_04.py`）；`uv run pytest -q tests/acceptance/user_skill_sandbox` → 7 passed | `tests/acceptance/user_skill_sandbox/test_b_04.py:119,155` | 真实 PostgreSQL `control.skill`+`agent_skill_binding` → `SkillRepository` → execution snapshot：SYSTEM/APPROVED 字段一致；SYSTEM 无需 binding 的可见性由 TASK-012 扩展 | passed |
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-06] started
+- [2026-11-06] completed (done)
 
 ---
 

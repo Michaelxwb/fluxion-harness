@@ -155,6 +155,7 @@ def build_resolve_response(
                 storage_key=f"skills/{skill_id}/{artifact_id}/skill.zip",
                 execution_mode=SkillExecutionMode.ASYNC,
                 frontmatter={},
+                source="ADMIN",
             )
         ],
         mcp_servers=[],
