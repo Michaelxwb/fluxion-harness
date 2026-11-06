@@ -1000,7 +1000,8 @@ erDiagram
 - 基础镜像 `python-node:3.12.13-node24` 内置 bwrap 0.13.1；
 - 不新增独立沙箱服务/Controller/CRD；
 - 系统 Python/Node 依赖随基础/服务镜像构建，runtime/worker 重建后所有副本一致；不在运行中的 Pod 安装；
-- runtime/worker 使用现有共享 Artifact PVC；workspace 使用独立 RWX PVC 或 `muad-artifacts-rwx` 子目录；
+- runtime/worker 使用现有共享 Artifact PVC；workspace 使用**独立 RWX PVC** `muad-workspaces-rwx`，挂载 `/mnt/muad-workspaces`；不复用 artifacts PVC，避免用户可写数据和不可变 Skill 包互相影响；
+- workspace PVC 根路径 `/mnt/muad-workspaces`；每个 user + Agent 目录 bind 到沙箱 `/workspace`，不把 PVC 根暴露给脚本；
 - 草稿 PVC 只挂 Console；
 - workspace PVC 同时挂 Runtime 和 Worker（清理需要）。
 

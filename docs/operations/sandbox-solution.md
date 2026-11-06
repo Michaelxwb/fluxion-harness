@@ -1294,8 +1294,7 @@ workspace 持久化的是**磁盘/PVC，不是运行内存**：
 
 - 在 Worker 中新增 `workspace.maintenance` 同级循环，随进程启动，按自己的节拍运行；
 - **不需要管理员在 Console 创建 Schedule，也不新增 K8s CronJob 或常驻清理服务**；
-- workspace 根所在 PVC 必须同时挂到 Worker 和 Runtime（可复用现有 `muad-artifacts-rwx`，
-  也可单独建卷）；否则 Runtime 写入的文件 Worker 看不到，TTL 会算错；
+- workspace 根所在 PVC 必须同时挂到 Worker 和 Runtime；使用独立 RWX PVC `muad-workspaces-rwx`，挂载 `/mnt/muad-workspaces`，不复用 `muad-artifacts-rwx`；否则 Runtime 写入的文件 Worker 看不到，TTL 会算错；
 - Worker 默认多副本，清理前必须用 PG advisory lock 或 DB 认领 + 租约，避免多个副本
   重复删除同一目录、重复计数；
 - 元数据表记录 `last_access_time`、`size_bytes`、`state`、`lease_until`；
