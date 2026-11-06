@@ -1055,7 +1055,8 @@ erDiagram
 | Gateway | `/v1` 调用带 `X-Internal-Service` | 待实现 | 高 |
 | Platform SDK | state 文件、legacy stdout 摘要 | 待实现 | 中 |
 | 前端 | `/skills` 审批/下载/解绑/系统 Skill | 待实现 | 中 |
-| 存储 | workspace PVC、配额、容量 | 待规划 | 中 |
+| 存储 | workspace 独立 RWX PVC、配额、容量；Runtime/Worker 挂载 | 待规划 | 中 |
+| 部署/Helm | runtime/worker workspace volumeMount/values；PVC 创建 | 待实现 | 中 |
 | 测试 | 真实 PG/Redis/HTTP/浏览器；内网 canary | 待执行 | 中 |
 
 ### 5.2 风险识别

@@ -1284,7 +1284,7 @@ workspace 持久化的是**磁盘/PVC，不是运行内存**：
 | 空闲 TTL | 30 天未访问自动清理 |
 | 清理前通知 | MVP 不做；如需要，后续再增加提前通知 |
 
-容量估算：1000 用户 × 500 MiB = 约 500 GiB；如果允许每人装大量 `pip/npm` 依赖，实际会更高，
+容量估算：1000 用户 × 500 MiB = 约 500 GiB；如果允许用户临时安装大量 `pip/npm` 依赖或保存大文件，实际会更高，
 必须按配额做容量规划。系统 Python/Node 解释器和系统 site-packages 只读继承基础镜像，
 不复制到 workspace；`pip`/`npm` 只写 workspace 内 venv/target/node_modules，并计入配额。
 

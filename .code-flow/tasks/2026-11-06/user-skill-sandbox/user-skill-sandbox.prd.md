@@ -459,7 +459,7 @@
 |------|------|
 | **范围（In Scope）** | 用户 Skill 草稿、校验、沙箱测试、提交、审批、驳回、覆盖、锁定、自动授权/绑定、下载审计、解绑+软删；统一 `SandboxedSkillExecutor`；bwrap 沙箱；`session-manager` 注入；`SKILL_DATA_DIR`/`SKILL_OUTPUT_DIR`；user + Agent workspace；`workspace_shell`；老 Skill 最小改造；`/v1` 服务身份门控；管理员 Console 界面；系统 Skill；**管理员系统依赖预装（镜像构建）**；审计/指标/错误码；workspace 配额/TTL/清理；多环境运行；数据模型和迁移。 |
 | **非范围（Out of Scope）** | 独立沙箱微服务、K8s Controller/CRD、每任务一个 Sandbox Pod；gVisor/Kata/独立内核隔离（后续评估）；Skill 表关联平台字段（后续需求）；Legacy 可写副本模式；按 Agent 开关 `workspace_shell`；内网 PyPI/npm mirror allowlist 或 egress proxy（当前跟 Pod 网络一致）；macOS Seatbelt 硬隔离（后续可选）；Skill 市场、评分、跨租户共享、计费；Skill 多版本并存 UI/一键回滚；Skill 包内任意系统依赖安装；**每个 workspace 复制完整 Python/Node 运行时或系统 site-packages**（系统环境只读共享，workspace 只装增量包）；**运行时修改单个 Pod 的 site-packages、用户级系统包安装、依赖管理 UI**（本期走现有镜像构建流程，UI 另开需求）。 |
-| **前置假设** | 现有 Console 登录、租户、PlatformUser、Agent、AgentAccessGrant、审计和 PVC/RWX 能力可复用；runtime/worker 可重建基础镜像；`session-manager` 和平台 adapter 已可用；Worker 已有进程内维护循环模式；管理员角色和 Console `/skills` 页面已存在；内网 Pod 允许 bwrap 所需的 namespace/mount。 |
+| **前置假设** | 现有 Console 登录、租户、PlatformUser、Agent、AgentAccessGrant、审计和 RWX PVC 能力可复用；可新建独立 workspace RWX PVC；runtime/worker 可增加 volumeMount/Helm values；runtime/worker 可重建基础镜像；`session-manager` 和平台 adapter 已可用；Worker 已有进程内维护循环模式；管理员角色和 Console `/skills` 页面已存在；内网 Pod 允许 bwrap 所需的 namespace/mount。 |
 
 ---
 
@@ -476,7 +476,8 @@
 | Worker | 统一执行器、workspace 清理循环、异步 Skill 验收 | P1 | 高 |
 | Gateway | `/v1` 调用携带 `X-Internal-Service`，覆盖 JSON/SSE/重连 | P1 首批 | 高 |
 | Platform SDK | `session-manager` state 文件、legacy stdout 摘要、平台 adapter | P1 | 中 |
-| 存储 | 共享 RWX PVC 容量、配额、TTL；workspace 根同时挂 Runtime/Worker | P1 | 中 |
+| 存储 | 新增 `muad-workspaces-rwx`；artifacts 与 workspace 独立 RWX PVC；Runtime/Worker 挂载；配额、TTL、容量 | P1 | 中 |
+| 部署/Helm | runtime/worker 增加 workspace volumeMount/`global.workspaces`；console/gateway/connector 不变；PVC/容量规划 | P1 | 中 |
 | 运维/镜像构建 | 管理员依赖清单、系统镜像构建/发布、image digest 记录 | P1 | 中 |
 | 测试环境 | 真实 PostgreSQL/Redis/HTTP/浏览器；本地 K8s 和内网 K8s canary | P1/P2 | 中 |
 
@@ -485,7 +486,7 @@
 | 风险ID | 描述 | 影响 | 缓解方案 |
 |--------|------|------|---------|
 | R-01 | bwrap 与 Runtime 共享内核，用户代码可执行未审批脚本 | 内核漏洞或提权影响同 Pod | 接受 bwrap 级隔离；最小挂载/凭据/网络边界；后续评估 gVisor/Kata/独立 Pod |
-| R-02 | Pod 有公网出口，`workspace_shell` 和 pip/npm 可访问公网 | 供应链包可能外传 workspace 数据 | 接受 Pod 网络边界；安装到 workspace；不提供平台 session；审计和配额；不承诺包安全 |
+| R-02 | Pod 有公网出口，`workspace_shell` 和临时 pip/npm 可访问公网 | 供应链包可能外传 workspace 数据 | 接受 Pod 网络边界；临时安装到 workspace；生产依赖管理员预装；不提供平台 session；审计和配额；不承诺包安全 |
 | R-03 | NFS/PVC 可能无法强制硬配额 | workspace 超限拖垮存储 | 配额 + 文件数 + TTL + 容量规划；验证 PVC/NFS 后端能力 |
 | R-04 | `/v1` 门控改动面大，漏掉 SSE 重连或内部客户端 | 沙箱脚本可访问内部 API，或正常调用被误拒 | 全调用面清单 + E2E + 安全测试；启动缓存本地比较；分批回归 |
 | R-05 | 审批并发/覆盖规则实现错误 | 跨用户覆盖、批准旧包、授权错乱 | owner 唯一约束 + partial unique index + 事务锁 + 并发测试 |

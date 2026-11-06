@@ -9,7 +9,7 @@ Runtime 与 Worker **无状态、可横向扩展**（`docs/01 §4.2`：runtime 2
 
 | 路径 | 内容 |
 |---|---|
-| `base/` | 四个 Deployment + Service + ConfigMap(=服务间接线) + RWX PVC + **迁移 Job** |
+| `base/` | 四个 Deployment + Service + ConfigMap(=服务间接线) + RWX PVC（artifacts + workspaces）+ **迁移 Job** |
 | `base/secret.example.yaml` | Secret 模板（**不含真实凭据**，键名是契约） |
 | `with-connector/` | 启用企微的 **5 单元 overlay**：只多一个 Connector Deployment/Service/PDB（自身 secret、无公开入口）；Gateway 多副本与远程通道开关在 base |
 | `with-connector/secret-connector.example.yaml` | Connector 专属 Secret 模板（只有 `REDIS_URL`/`INTERNAL_SERVICE_TOKEN`；**没有** `DATABASE_URL`） |
@@ -30,8 +30,10 @@ kubectl -n muad create secret generic muad-external \
   --from-literal=REDIS_URL='redis://redis:6379/0' \
   --from-literal=INTERNAL_SERVICE_TOKEN='<足够随机的值>'
 
-# 3) 配置（服务间地址 + 默认租户）与共享产物卷
-kubectl apply -f deploy/k8s/base/configmap.yaml -f deploy/k8s/base/pvc-artifacts.yaml
+# 3) 配置（服务间地址 + 默认租户）与共享卷
+kubectl apply -f deploy/k8s/base/configmap.yaml \
+  -f deploy/k8s/base/pvc-artifacts.yaml \
+  -f deploy/k8s/base/pvc-workspaces.yaml
 
 # 4) **先迁移再起服务**：维护窗口的备份/排空/单次迁移见下一节；
 #    Job 用 console-platform 镜像做载体（见 migrate-job.yaml 的注释）
