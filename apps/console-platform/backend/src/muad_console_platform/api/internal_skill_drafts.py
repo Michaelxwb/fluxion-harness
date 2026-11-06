@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, Query, Request
-from muad_api import ApiResponse, InternalServiceDep, ok
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from muad_api import ApiResponse, AppError, InternalServiceDep, ok
+from muad_api.error_codes import ErrorCode
 from muad_contracts import ChannelName
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..application.skill_draft_service import SkillDraftService
+from ..application.skill_draft_service import DraftChange, SkillDraftService
 from ..infrastructure.db import get_session
 
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -49,6 +52,20 @@ class DraftSubmitRequest(BaseModel):
     submitted_channel: ChannelName | None = Field(default=None, max_length=16)
 
 
+class DraftChangePayload(BaseModel):
+    path: str = Field(min_length=1, max_length=1024)
+    content: str | None = None
+    content_base64: str | None = None
+
+
+class DraftApplyRequest(BaseModel):
+    tenant_id: str = Field(min_length=1, max_length=64)
+    owner_user_id: uuid.UUID
+    expected_revision: int = Field(ge=1)
+    changes: list[DraftChangePayload] = Field(default_factory=list, max_length=10000)
+    deletions: list[str] = Field(default_factory=list, max_length=10000)
+
+
 @router.post("")
 async def create_draft(
     payload: DraftCreateRequest,
@@ -73,6 +90,61 @@ async def get_draft(
 ) -> ApiResponse[Any]:
     data = await SkillDraftService(session).metadata(tenant_id, owner_user_id, draft_id)
     return ok(request.app.state.message_catalog, data)
+
+
+@router.get("/{draft_id}/archive")
+async def archive_draft(
+    draft_id: uuid.UUID,
+    session: Session,
+    _internal: InternalServiceDep,
+    tenant_id: Annotated[str, Query(min_length=1, max_length=64)],
+    owner_user_id: Annotated[uuid.UUID, Query()],
+) -> Response:
+    """草稿 Shell 取件：zip 与 revision 同一响应，revision 走响应头。"""
+    view, data = await SkillDraftService(session).archive(tenant_id, owner_user_id, draft_id)
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={
+            "X-Draft-Revision": str(view["revision"]),
+            "X-Draft-File-Count": str(view["file_count"]),
+            "X-Draft-Total-Size": str(view["total_size"]),
+            "Content-Disposition": f'attachment; filename="draft-{draft_id}-r{view["revision"]}.zip"',
+        },
+    )
+
+
+@router.post("/{draft_id}/apply")
+async def apply_draft_changes(
+    draft_id: uuid.UUID,
+    payload: DraftApplyRequest,
+    request: Request,
+    session: Session,
+    _internal: InternalServiceDep,
+) -> ApiResponse[Any]:
+    """草稿 Shell 回写：一次批量变更 + expected_revision CAS。"""
+    data = await SkillDraftService(session).apply_changes(
+        payload.tenant_id,
+        payload.owner_user_id,
+        draft_id,
+        expected_revision=payload.expected_revision,
+        changes=[_decode_change(change) for change in payload.changes],
+        deletions=payload.deletions,
+    )
+    return ok(request.app.state.message_catalog, data)
+
+
+def _decode_change(change: DraftChangePayload) -> DraftChange:
+    if (change.content is None) == (change.content_base64 is None):
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+    if change.content is not None:
+        return DraftChange(path=change.path, content=change.content.encode("utf-8"))
+    assert change.content_base64 is not None
+    try:
+        content = base64.b64decode(change.content_base64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from exc
+    return DraftChange(path=change.path, content=content)
 
 
 @router.get("/{draft_id}/files")

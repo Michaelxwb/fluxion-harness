@@ -86,7 +86,7 @@ class DevUnsafeRunner:
         return await _execute(
             spec,
             spec.command,
-            cwd=spec.workspace_dir,
+            cwd=spec.dev_unsafe_cwd or spec.workspace_dir,
             env=env,
         )
 

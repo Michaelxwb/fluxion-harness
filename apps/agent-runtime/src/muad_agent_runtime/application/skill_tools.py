@@ -23,6 +23,9 @@ from muad_agent_core.sandbox import (
     WorkspaceUnavailable,
 )
 from muad_agent_core.skill import (
+    DraftShellError,
+    DraftShellRequest,
+    DraftShellRunner,
     OutputFile,
     SkillExecutionError,
     SkillExecutionRequest,
@@ -64,6 +67,7 @@ EXECUTE_SKILL_TOOL = "execute_skill"
 RUN_SKILL_SCRIPT_TOOL = "run_skill_script"
 SEARCH_SKILLS_TOOL = "search_skills"
 WORKSPACE_SHELL_TOOL = "workspace_shell"
+SKILL_DRAFT_SHELL_TOOL = "skill_draft_shell"
 
 LOAD_SKILL_DESCRIPTION = "Load a skill's manifest and full SKILL.md instructions by skill key."
 READ_SKILL_RESOURCE_TOOL_DESCRIPTION = (
@@ -78,6 +82,14 @@ WORKSPACE_SHELL_DESCRIPTION = (
     "System Python/Node dependencies are preinstalled; temporary pip/npm installs are allowed but "
     "live only inside this workspace and may be lost when the workspace is rebuilt. There is no "
     "session-manager or platform login state in this shell."
+)
+SKILL_DRAFT_SHELL_DESCRIPTION = (
+    "Run one command against the current user's skill draft copy. Use it to validate "
+    "SKILL.md/scripts before submitting: python -m py_compile, python scripts/<entry>.py, "
+    "node --check, and session-manager get-state are supported. Only files inside the draft are "
+    "written back, and only after path/extension/size/symlink validation and a revision CAS; "
+    "a revision conflict returns DRAFT_REVISION_CONFLICT. It is not an interactive session and "
+    "does not accept skill_key."
 )
 # 工具描述里写清**何时用**：系统提示里的目录只列了靠前的一部分，其余技能只能从这里找到。
 SEARCH_SKILLS_DESCRIPTION = (
@@ -114,6 +126,21 @@ class WorkspaceShellContext:
         for field_name in ("tenant_id", "user_id", "agent_id", "run_id"):
             if not str(getattr(self, field_name)).strip():
                 raise ValueError(f"workspace shell {field_name} must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
+class DraftShellContext:
+    """``skill_draft_shell`` 的受信身份：tenant/owner 从 Run 上下文取，模型只能选 draft_id。"""
+
+    tenant_id: str
+    owner_user_id: str
+    agent_id: str
+    run_id: str
+
+    def __post_init__(self) -> None:
+        for field_name in ("tenant_id", "owner_user_id", "agent_id", "run_id"):
+            if not str(getattr(self, field_name)).strip():
+                raise ValueError(f"draft shell {field_name} must not be empty")
 
 
 def _catalog_resource_key(arguments: Mapping[str, Any]) -> str:
@@ -180,6 +207,8 @@ def build_skill_registry(
     workspace_shell_context: WorkspaceShellContext | None = None,
     workspace_store: WorkspaceStore | None = None,
     workspace_context: WorkspaceShellContext | None = None,
+    draft_shell: DraftShellRunner | None = None,
+    draft_shell_context: DraftShellContext | None = None,
 ) -> ToolRegistry:
     tool_set = SkillToolSet(
         cache=cache,
@@ -196,6 +225,8 @@ def build_skill_registry(
         workspace_shell_context=workspace_shell_context,
         workspace_store=workspace_store,
         workspace_context=workspace_context,
+        draft_shell=draft_shell,
+        draft_shell_context=draft_shell_context,
     )
     return tool_set.registry()
 
@@ -218,6 +249,8 @@ class SkillToolSet:
         workspace_shell_context: WorkspaceShellContext | None = None,
         workspace_store: WorkspaceStore | None = None,
         workspace_context: WorkspaceShellContext | None = None,
+        draft_shell: DraftShellRunner | None = None,
+        draft_shell_context: DraftShellContext | None = None,
         async_retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY,
     ) -> None:
         self._cache = cache
@@ -236,6 +269,8 @@ class SkillToolSet:
         self._workspace_shell_context = workspace_shell_context
         self._workspace_store = workspace_store
         self._workspace_context = workspace_context
+        self._draft_shell = draft_shell
+        self._draft_shell_context = draft_shell_context
         # ASYNC Skill 的 Owner 侧重试安全声明（design §3.6）：默认 NON_RETRYABLE——未声明即未知，
         # 未知不得自动重做外部副作用。声明同时落在 EXECUTE_SKILL_TOOL 定义与操作提交上。
         self._async_retry_safety = async_retry_safety
@@ -245,6 +280,9 @@ class SkillToolSet:
         # workspace_shell 与技能目录无关：没有任何 Skill 的 Agent 也必须能执行一次性命令。
         if self._workspace_shell is not None and self._workspace_shell_context is not None:
             registry.register(self._workspace_shell_definition())
+        # 草稿 Shell 同样与已生效技能无关：用户可以在还没有任何已批准 Skill 时调试草稿。
+        if self._draft_shell is not None and self._draft_shell_context is not None:
+            registry.register(self._draft_shell_definition())
         if not self._skills:
             # 一个生效技能都没有时，这几个工具**全都无从调用**（key 从哪来？），目录段也是空的
             # —— 模型只能猜一个 key，白跑一轮换回 `SKILL_NOT_EFFECTIVE`。能力不存在就不提供工具。
@@ -373,6 +411,60 @@ class SkillToolSet:
             ensure_ascii=False,
         )
 
+    async def skill_draft_shell(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """在当前用户当前草稿的副本中执行一条命令；身份取自 Run 上下文。"""
+        runner = self._draft_shell
+        context = self._draft_shell_context
+        if runner is None or context is None:
+            return _error_result("COMMON_INTERNAL_ERROR", "draft shell is not configured")
+        if "skill_key" in arguments:
+            return _error_result(
+                ErrorCode.COMMON_VALIDATION_ERROR.value,
+                "skill_key is not accepted by skill_draft_shell; pass draft_id",
+            )
+        try:
+            draft_id = _require_string(arguments, "draft_id")
+            command = _require_string(arguments, "command")
+            cwd = arguments.get("cwd", ".")
+            if not isinstance(cwd, str):
+                raise SkillToolError(
+                    ErrorCode.COMMON_VALIDATION_ERROR.value, "cwd must be a string"
+                )
+            timeout_sec = _optional_timeout(arguments, limit=self._timeout_sec)
+            result = await runner.run(
+                DraftShellRequest(
+                    tenant_id=context.tenant_id,
+                    owner_user_id=context.owner_user_id,
+                    draft_id=draft_id,
+                    command=command,
+                    cwd=cwd,
+                    timeout_sec=timeout_sec,
+                    execution_id=_workspace_execution_id(context.run_id, call_id),
+                )
+            )
+        except DraftShellError as exc:
+            payload: dict[str, Any] = {"error": {"code": exc.code, "message": exc.message}}
+            if exc.result is not None:
+                payload["stdout"] = exc.result.stdout
+                payload["stderr"] = exc.result.stderr
+                payload["exit_code"] = exc.result.exit_code
+            return json.dumps(payload, ensure_ascii=False)
+        except SkillToolError as exc:
+            return _error_result(exc.code, exc.message)
+        except ValueError as exc:
+            return _error_result(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc))
+        return json.dumps(
+            {
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "exit_code": result.exit_code,
+                "duration_ms": result.duration_ms,
+                "changed_files": list(result.changed_files),
+                "revision": result.revision,
+            },
+            ensure_ascii=False,
+        )
+
     def _catalog(self) -> tuple[PromptSkill, ...]:
         """全部生效技能 → 目录条目，顺序与提示词目录一致（`sort_order, key`）。"""
         return tuple(prompt_skill(skill) for skill in self._skills.values())
@@ -391,6 +483,23 @@ class SkillToolSet:
             ),
             effect=ToolEffect.EXTERNAL,
             handler=self.workspace_shell,
+        )
+
+    def _draft_shell_definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name=SKILL_DRAFT_SHELL_TOOL,
+            description=SKILL_DRAFT_SHELL_DESCRIPTION,
+            input_schema=_input_schema(
+                {
+                    "draft_id": _STRING_SCHEMA,
+                    "command": _STRING_SCHEMA,
+                    "cwd": _STRING_SCHEMA,
+                    "timeout_sec": _NUMBER_SCHEMA,
+                },
+                ("draft_id", "command"),
+            ),
+            effect=ToolEffect.EXTERNAL,
+            handler=self.skill_draft_shell,
         )
 
     def _definitions(self) -> tuple[ToolDefinition, ...]:

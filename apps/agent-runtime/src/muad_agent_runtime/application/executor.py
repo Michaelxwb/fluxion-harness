@@ -120,6 +120,7 @@ from .attachments.tool_results import (
 from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
 from .context_settings import FrozenLearning, PoolExecutionPolicy
+from .draft_shell import build_draft_shell_runner
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_observability import memory_audit_preview
 from .memory_queries import MemoryReadScope
@@ -138,6 +139,7 @@ from .model_capacity_service import ModelCapacityService
 from .ports import CredentialsClient
 from .run_events import DeltaWindow, delta_payload, delta_window_from_settings
 from .skill_tools import (
+    DraftShellContext,
     TaskSubmissionProtocol,
     WorkspaceShellContext,
     build_default_skill_cache,
@@ -1960,6 +1962,8 @@ def build_registry(
     workspace_shell = None
     workspace_context = None
     workspace_store = None
+    draft_shell = None
+    draft_shell_context = None
     if request.run_context is not None:
         # 所有 Agent（无论是否有 Skill）都拿到同一个 workspace_shell；身份只从 Run 取。
         workspace_shell = build_workspace_shell_runner(process_settings())
@@ -1967,6 +1971,14 @@ def build_registry(
         workspace_context = WorkspaceShellContext(
             tenant_id=request.run_context.tenant_id,
             user_id=str(request.run_context.user_id),
+            agent_id=str(request.agent.id),
+            run_id=str(request.run_context.run_id),
+        )
+        # 草稿 Shell 也只认 Run 身份；模型只能提供 draft_id（Console 再校验 owner）。
+        draft_shell = build_draft_shell_runner(process_settings())
+        draft_shell_context = DraftShellContext(
+            tenant_id=request.run_context.tenant_id,
+            owner_user_id=str(request.run_context.user_id),
             agent_id=str(request.agent.id),
             run_id=str(request.run_context.run_id),
         )
@@ -1992,6 +2004,8 @@ def build_registry(
         workspace_shell_context=workspace_context,
         workspace_store=workspace_store,
         workspace_context=workspace_context,
+        draft_shell=draft_shell,
+        draft_shell_context=draft_shell_context,
     )
     if task_client is not None and task_context is not None:
         # docs/04 §7.5 内置任务工具：Schedule 创建/管理与后台 Task 查询/取消。
