@@ -62,6 +62,7 @@ from muad_contracts.platform_settings import (
 )
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
+from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
 METRICS_PATH = "/metrics"
 LISTEN_TIMEOUT_SEC = 15.0
@@ -256,7 +257,10 @@ async def _send(client: httpx.AsyncClient, tenant: TenantContext, text: str) -> 
             "channel": {"type": "WECOM", "bot_id": "bot-metrics"},
             "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
         },
-        headers={"X-Tenant-Id": tenant.tenant_id},
+        headers={
+            "X-Tenant-Id": tenant.tenant_id,
+            "X-Internal-Service": INTERNAL_SERVICE_TOKEN,
+        },
     )
     assert response.status_code == 200, response.text
     events = parse_sse(response.text)

@@ -292,7 +292,7 @@ def _run(
     with httpx.Client(timeout=wait) as client:
         with client.stream(
             "POST", f"{stack.runtime_url}/v1/runs", json=_payload(stack, target_text),
-            headers={"X-Tenant-Id": stack.tenant_id},
+            headers=stack.service_headers(),
         ) as response:
             assert response.status_code == 200, response.read()
             for line in response.iter_lines():
@@ -413,7 +413,7 @@ def test_e09_cancel_stops_retries_immediately(live_stack: LiveStack, fault_probe
         with client.stream(
             "POST", f"{live_stack.runtime_url}/v1/runs",
             json=_payload(live_stack, cancel_text),
-            headers={"X-Tenant-Id": live_stack.tenant_id},
+            headers=live_stack.service_headers(),
         ) as response:
             assert response.status_code == 200, response.read()
             for line in response.iter_lines():

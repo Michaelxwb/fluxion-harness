@@ -1356,10 +1356,10 @@ packages/api-kit/src/muad_api/metrics.py,46,PROCESS_UP_METRIC,'muad_process_up',
 packages/api-kit/src/muad_api/metrics.py,225,REGISTRY,MetricsRegistry(multiproc_dir=os.environ.get(MULTIPROC_ENV)),python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/response.py,15,DEFAULT_PAGE_SIZE,20,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/api-kit/src/muad_api/response.py,16,MAX_PAGE_SIZE,100,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/api-kit/src/muad_api/security.py,12,SESSION_COOKIE,'muad_session',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/security.py,13,AUTHORIZATION_HEADER,'Authorization',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/security.py,14,BEARER_PREFIX,'bearer ',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/api-kit/src/muad_api/security.py,15,INTERNAL_SERVICE_HEADER,'X-Internal-Service',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/security.py,13,SESSION_COOKIE,'muad_session',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/security.py,14,AUTHORIZATION_HEADER,'Authorization',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/security.py,15,BEARER_PREFIX,'bearer ',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/api-kit/src/muad_api/security.py,16,INTERNAL_SERVICE_HEADER,'X-Internal-Service',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/common/src/muad_common/db_counters.py,21,DEFAULT_STAGE,'bg:unlabeled',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/common/src/muad_common/db_counters.py,22,STAGES,"frozenset({'admission', 'model', 'event', 'finalize', 'turn', 'turn:history', 'turn:start', 'turn:resume', 'turn:build', 'turn:segment', 'turn:claim', 'poll', 'console', 'webchat', 'internal', 'api', 'bg:unlabeled', 'bg:tail', 'bg:delivery', 'bg:lease', 'bg:retention', 'bg:capacity', 'bg:worker'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/common/src/muad_common/db_counters.py,50,_STAGE,"ContextVar('muad_db_stage', default=DEFAULT_STAGE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1778,4 +1778,10 @@ packages/common/src/muad_common/settings.py,154,redis_mode,'standalone',shared-s
 packages/common/src/muad_common/settings.py,155,redis_cluster_seeds,'',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
 packages/common/src/muad_common/settings.py,157,inbound_stream_retention_sec,"Field(default=600, ge=60)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,158,outbound_stream_retention_sec,"Field(default=3600, ge=300)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,160,workspace_root,'/mnt/muad-workspaces',shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,161,workspace_quota_mib,"Field(default=500, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,162,workspace_user_quota_mib,"Field(default=500, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,163,workspace_file_limit,"Field(default=5000, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,164,workspace_output_ttl_days,"Field(default=30, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
+packages/common/src/muad_common/settings.py,165,workspace_data_ttl_days,"Field(default=30, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/api-kit/src/muad_api/error_codes.py,133,SKILL_IN_USE,'SKILL_IN_USE',python-constant,code,状态或错误码，不是时间参数

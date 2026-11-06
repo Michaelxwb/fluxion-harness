@@ -945,7 +945,7 @@ async def test_b250_waiting_input_detail_reports_the_real_run_state(
 
 
 async def test_task052_scope_resolution_derives_entry_and_agent_for_the_owner_only(
-    client: AsyncClient, history_tenant: TenantContext
+    client: AsyncClient, history_tenant: TenantContext, anonymous_client: AsyncClient
 ) -> None:
     """`.../scope` 只按 (tenant, user) 核属：入口/Agent 从行导出，他主体/不可归属一律 404。"""
     tenant = history_tenant
@@ -976,7 +976,7 @@ async def test_task052_scope_resolution_derives_entry_and_agent_for_the_owner_on
     assert missing.status_code == 422
 
     # 服务身份门控：无内部身份一律 403（真实应用）。
-    without_identity = await client.get(
+    without_identity = await anonymous_client.get(
         _scope_path(conversation_id),
         headers={"X-Tenant-Id": tenant.tenant_id},
         params={"user_id": str(tenant.platform_user_id)},
@@ -985,7 +985,7 @@ async def test_task052_scope_resolution_derives_entry_and_agent_for_the_owner_on
 
 
 async def test_task052_run_scope_returns_run_and_conversation_in_one_call(
-    client: AsyncClient, history_tenant: TenantContext
+    client: AsyncClient, history_tenant: TenantContext, anonymous_client: AsyncClient
 ) -> None:
     """打开公开流只需一次往返：Run 归属 + **该 Run 的会话**入口/Agent，调用方不能自选会话。"""
     tenant = history_tenant
@@ -1011,7 +1011,7 @@ async def test_task052_run_scope_returns_run_and_conversation_in_one_call(
     assert denied.status_code == 404 and denied.json()["code"] == "COMMON_NOT_FOUND"
 
     # 服务身份门控：无内部身份一律 403。
-    without_identity = await client.get(
+    without_identity = await anonymous_client.get(
         _run_scope_path(run_id),
         headers={"X-Tenant-Id": tenant.tenant_id},
         params={"user_id": str(tenant.platform_user_id)},
@@ -1132,7 +1132,7 @@ async def test_b04_projection_only_exposes_visible_messages_and_safe_attachments
 
 
 async def test_b250_internal_history_endpoints_require_service_identity(
-    client: AsyncClient, history_tenant: TenantContext
+    client: AsyncClient, history_tenant: TenantContext, anonymous_client: AsyncClient
 ) -> None:
     tenant = history_tenant
     conversation_id = await _seed_conversation(tenant)
@@ -1143,7 +1143,7 @@ async def test_b250_internal_history_endpoints_require_service_identity(
         {"X-Tenant-Id": tenant.tenant_id, "X-Internal-Service": "wrong-token"},
         {"X-Tenant-Id": tenant.tenant_id, "X-Internal-Service": ""},
     ):
-        denied = await client.get(path, headers=headers, params=params)
+        denied = await anonymous_client.get(path, headers=headers, params=params)
         assert denied.status_code == 403
 
     # 缺受信主体字段（user_id/agent_id/entry_id）在入口显式拒绝。

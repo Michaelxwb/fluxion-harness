@@ -180,9 +180,12 @@ def service_headers(tenant_id: str, token: str) -> dict[str, str]:
     return {"X-Tenant-Id": tenant_id, "X-Internal-Service": token}
 
 
-def runtime_headers(tenant_id: str) -> dict[str, str]:
-    """Runtime 公开受理面只按租户门控（执行身份来自 PG claim，不来自 HTTP 头）。"""
-    return {"X-Tenant-Id": tenant_id}
+def runtime_headers(tenant_id: str, internal_token: str | None = None) -> dict[str, str]:
+    """Runtime `/v1` 是受信面：租户 + 内部服务身份（执行身份仍来自 PG claim）。"""
+    headers = {"X-Tenant-Id": tenant_id}
+    if internal_token:
+        headers["X-Internal-Service"] = internal_token
+    return headers
 
 
 def console_headers(tenant_id: str) -> dict[str, str]:
@@ -598,6 +601,7 @@ def post_run(
     message_id: str | None = None,
     idempotency_key: str | None = None,
     payload: Mapping[str, Any] | None = None,
+    internal_token: str | None = None,
     timeout_sec: float = 60.0,
 ) -> RunPost:
     """真实 `POST /v1/runs`：受理持久化后才回 200/202，SSE 帧带真实 run_id。
@@ -615,7 +619,7 @@ def post_run(
             message_id=message_id,
         )
     )
-    headers = runtime_headers(tenant_id)
+    headers = runtime_headers(tenant_id, internal_token)
     if idempotency_key is not None:
         headers["Idempotency-Key"] = idempotency_key
     response = client.post(

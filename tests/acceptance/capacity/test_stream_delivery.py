@@ -115,14 +115,15 @@ class SseRead:
         )
 
 
-def _runtime_headers(tenant_id: str) -> dict[str, str]:
-    return {"X-Tenant-Id": tenant_id}
+def _runtime_headers(tenant_id: str, internal_token: str) -> dict[str, str]:
+    return {"X-Tenant-Id": tenant_id, "X-Internal-Service": internal_token}
 
 
 def read_sse(
     url: str,
     *,
     tenant_id: str,
+    internal_token: str,
     after_seq: int,
     until: Any,
     sink: SseRead | None = None,
@@ -142,7 +143,7 @@ def read_sse(
                 "GET",
                 url,
                 params={"after_seq": after_seq},
-                headers=_runtime_headers(tenant_id),
+                headers=_runtime_headers(tenant_id, internal_token),
             ) as stream:
                 if stream.status_code != 200:
                     read.error = f"HTTP {stream.status_code}: {stream.read().decode(errors='replace')}"
@@ -350,6 +351,7 @@ def test_s03_sse_disconnect_and_subscription_instance_replacement_keep_cursor_co
             read_sse(
                 url,
                 tenant_id=stack.tenant_id,
+                internal_token=stack.internal_token,
                 after_seq=0,
                 until=lambda read: read.terminal is not None,
                 sink=first,
@@ -397,6 +399,7 @@ def test_s03_sse_disconnect_and_subscription_instance_replacement_keep_cursor_co
     second = read_sse(
         f"{replacement.url}{RUNTIME_EVENTS_PATH.format(run_id=run_id)}",
         tenant_id=stack.tenant_id,
+        internal_token=stack.internal_token,
         after_seq=cursor,
         until=lambda read: read.terminal is not None,
     )
@@ -1307,7 +1310,7 @@ def test_s03_pool_two_hundred_sse_streams_do_not_hold_pg_connections(
                     "GET",
                     url,
                     params={"after_seq": 0},
-                    headers=_runtime_headers(stack.tenant_id),
+                    headers=_runtime_headers(stack.tenant_id, stack.internal_token),
                 ) as stream:
                     with status_lock:
                         statuses.append(stream.status_code)

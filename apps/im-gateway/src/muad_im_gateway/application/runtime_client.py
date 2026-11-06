@@ -169,8 +169,13 @@ def build_headers(
     trace_id: str,
     *,
     idempotency_key: str | None = None,
+    service_token: str | None = None,
 ) -> dict[str, str]:
-    """链路头 + 稳定幂等键（设计 API-06：Gateway 传 channel message id）。"""
+    """链路头 + 稳定幂等键（设计 API-06：Gateway 传 channel message id）。
+
+    服务 Token 只按**目标请求**注入：本函数从空白映射构造，不承接浏览器传入的任何头；
+    即使共享连接池里残留同名默认头，这里的请求级值也会覆盖它。
+    """
     headers = {"X-Caller-Service": CALLER_SERVICE}
     if tenant_id:
         headers["X-Tenant-Id"] = tenant_id
@@ -181,6 +186,8 @@ def build_headers(
         headers["X-Request-Id"] = request_id
     if idempotency_key:
         headers["Idempotency-Key"] = idempotency_key
+    if service_token:
+        headers[INTERNAL_SERVICE_HEADER] = service_token
     return headers
 
 
@@ -260,7 +267,10 @@ class RuntimeClient:
         # 稳定幂等键：默认使用原 channel message id（可重试提交不重复建 Run）；
         # 调用方显式传键时以它为准（`RuntimeClientPort.create_run`）。
         headers = build_headers(
-            tenant_id, trace_id, idempotency_key=idempotency_key or request.message.id
+            tenant_id,
+            trace_id,
+            idempotency_key=idempotency_key or request.message.id,
+            service_token=self._service_token,
         )
         headers["Accept"] = "text/event-stream"
         try:
@@ -289,7 +299,7 @@ class RuntimeClient:
         trace_id: str = "",
     ) -> AsyncIterator[SseEvent]:
         """按已确认 seq 重连既有 Run 的持久事件流；不创建 Run、不重复执行。"""
-        headers = build_headers(tenant_id, trace_id)
+        headers = build_headers(tenant_id, trace_id, service_token=self._service_token)
         headers["Accept"] = "text/event-stream"
         try:
             async with self._stream_client.stream(
@@ -322,7 +332,7 @@ class RuntimeClient:
         是 HTTP 错误封套，不能塞进已开始的流）；因此这里在 `__aenter__` 阶段就完成请求与状态码
         裁决，错误码连同 Owner 的游标窗口数据原样上抛，绝不夹取、不补造窗口字段。
         """
-        headers = build_headers(tenant_id, trace_id)
+        headers = build_headers(tenant_id, trace_id, service_token=self._service_token)
         headers["Accept"] = "text/event-stream"
         try:
             async with self._stream_client.stream(
@@ -432,7 +442,6 @@ class RuntimeClient:
             tenant_id,
             params={"user_id": str(user_id)},
             client=self._stream_client,
-            internal=True,
         )
 
     async def cancel_run(self, run_id: UUID, *, tenant_id: str) -> dict[str, Any]:
@@ -608,7 +617,9 @@ class RuntimeClient:
         idempotency_key: str,
     ) -> RunAdmission:
         """受理流：读到**首帧**（受理裁决）即返回并关闭读取流；非 2xx 按 Owner 错误码上抛。"""
-        headers = build_headers(tenant_id, "", idempotency_key=idempotency_key)
+        headers = build_headers(
+            tenant_id, "", idempotency_key=idempotency_key, service_token=self._service_token
+        )
         headers["Accept"] = "text/event-stream"
         try:
             async with self._stream_client.stream(
@@ -640,11 +651,8 @@ class RuntimeClient:
         *,
         params: dict[str, str] | None = None,
         client: httpx.AsyncClient | None = None,
-        internal: bool = False,
     ) -> dict[str, Any]:
-        headers = build_headers(tenant_id, "")
-        if internal and self._service_token:
-            headers[INTERNAL_SERVICE_HEADER] = self._service_token
+        headers = build_headers(tenant_id, "", service_token=self._service_token)
         pool: GatewayPool = "stream" if client is self._stream_client else "egress"
         try:
             response = await (client or self._client).get(
@@ -675,9 +683,7 @@ class RuntimeClient:
         `with_error_data`：游标类错误（`CURSOR_AHEAD` 等）必须携带 Owner 的真实窗口/水位数据
         原样上抛（公开面据此显式返回，不补造、不夹取）；普通读取错误不带数据。
         """
-        headers = build_headers(tenant_id, "")
-        if self._service_token:
-            headers[INTERNAL_SERVICE_HEADER] = self._service_token
+        headers = build_headers(tenant_id, "", service_token=self._service_token)
         try:
             response = await self._client.get(
                 self._url(path), params=params, headers=headers
@@ -700,9 +706,7 @@ class RuntimeClient:
         params: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """受信内部面写调用：与读取面同一门控（服务身份 + 部署租户）。"""
-        headers = build_headers(tenant_id, "")
-        if self._service_token:
-            headers[INTERNAL_SERVICE_HEADER] = self._service_token
+        headers = build_headers(tenant_id, "", service_token=self._service_token)
         try:
             response = await (client or self._client).post(
                 self._url(path), json=payload, params=params, headers=headers
@@ -734,7 +738,9 @@ class RuntimeClient:
         *,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        headers = build_headers(tenant_id, trace_id, idempotency_key=idempotency_key)
+        headers = build_headers(
+            tenant_id, trace_id, idempotency_key=idempotency_key, service_token=self._service_token
+        )
         try:
             response = await self._client.post(self._url(path), json=payload, headers=headers)
         except httpx.HTTPError as exc:

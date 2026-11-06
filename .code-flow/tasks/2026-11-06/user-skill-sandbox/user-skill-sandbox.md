@@ -96,8 +96,8 @@
 | E-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → 子进程管道 → 有界读取 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxRunner → bwrap → 完整进程树 | TASK-002 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | bwrap --clearenv + 最小 mount + 子进程环境 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_03.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| E-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway → Runtime /v1 → 服务身份校验 | TASK-001 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| S-20 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | TASK-001 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
+| E-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway → Runtime /v1 → 服务身份校验 | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
+| S-20 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | E-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | workspace_shell → bwrap → PATH/socket 检查 | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-22 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Console/Redis → 真实平台受保护接口 | TASK-004 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
 | E-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace quota check → PVC | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -132,7 +132,7 @@
 
 ## TASK-001: `/v1` 服务身份门控与 Gateway/SSE 内部身份
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: -
 - **Source**: user-skill-sandbox.backend.design.md#3.4 接口设计, user-skill-sandbox.backend.design.md#3.5 质量实现方案
@@ -161,8 +161,8 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-04 | integration | Gateway → Runtime /v1 → 服务身份校验 | 无 header 拒绝；错误 header 拒绝；正确 header 成功；浏览器传入的 header 不被透传 | tests/acceptance/user_skill_sandbox/test_e_04.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | planned |
-| S-20 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | 首次建连带服务身份；重连带服务身份；无/错误身份被拒绝；不逐事件校验、不增加网络往返 | tests/acceptance/user_skill_sandbox/test_s_20.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | planned |
+| E-04 | integration | Gateway → Runtime /v1 → 服务身份校验 | 无 header 拒绝；错误 header 拒绝；正确 header 成功；浏览器传入的 header 不被透传 | tests/acceptance/user_skill_sandbox/test_e_04.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | verified |
+| S-20 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | 首次建连带服务身份；重连带服务身份；无/错误身份被拒绝；不逐事件校验、不增加网络往返 | tests/acceptance/user_skill_sandbox/test_s_20.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -172,10 +172,16 @@
 |---|---|---|---|---|---|
 | E-04 | - | - | - | - | pending |
 | S-20 | - | - | - | - | pending |
+- E-04: verified — automated command passed; run_id=29f9d028f2c849e3bb38dbc621ab1965 (confirmed_by: runner)
+- S-20: verified — automated command passed; run_id=29f9d028f2c849e3bb38dbc621ab1965 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=00205986bfa349c98a0c13ad0723360a (confirmed_by: runner)
+- S-20: verified — automated command passed; run_id=00205986bfa349c98a0c13ad0723360a (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-06] started
+- [2026-11-06] completed (done)
 
 ---
 

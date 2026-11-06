@@ -38,6 +38,7 @@ from tests.agent_runtime.memory_confirmation_support import (
     service,
     source,
 )
+from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
 
 class FrozenOnlyResolver:
@@ -99,7 +100,11 @@ class ConfirmationStack:
         async with httpx.AsyncClient() as client:
             return await client.post(
                 f"{self.url}/v1/runs/{self.run.id}/resume",
-                headers={"X-Tenant-Id": self.run.tenant_id, **({"Idempotency-Key": key} if key else {})},
+                headers={
+                    "X-Tenant-Id": self.run.tenant_id,
+                    "X-Internal-Service": INTERNAL_SERVICE_TOKEN,
+                    **({"Idempotency-Key": key} if key else {}),
+                },
                 json=body,
             )
 
