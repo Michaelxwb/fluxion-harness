@@ -67,6 +67,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-11-06T18:01:59.118499+00:00'
+          status: unverified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       design:
         status: applied
         refs:
@@ -122,6 +134,18 @@ bindings:
           rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
           artifact_sha256: null
           diff_sha256: cf172a9dfbdc958d3290fbea568dd5744a91f4ef53b8341a11de9bd22658e7e2
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-11-06T18:01:59.118517+00:00'
+          status: unverified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -229,6 +253,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-06T18:01:59.215635+00:00'
+          status: unverified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       design:
         status: applied
         refs:
@@ -301,6 +337,18 @@ bindings:
           rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
           artifact_sha256: null
           diff_sha256: cf172a9dfbdc958d3290fbea568dd5744a91f4ef53b8341a11de9bd22658e7e2
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-auth#RULE-auth-001
+          executed_at: '2026-11-06T18:01:59.281904+00:00'
+          status: unverified
+          rule_text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -390,6 +438,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-data#RULE-data-001
+          executed_at: '2026-11-06T18:01:59.349234+00:00'
+          status: unverified
+          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       design:
         status: applied
         refs:
@@ -466,6 +526,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-e2e#RULE-e2e-001
+          executed_at: '2026-11-06T18:01:59.415379+00:00'
+          status: unverified
+          rule_text_sha256: de6cc1c02049cdb4c6b5213da64b69a9aa793c0ef6c5115fb48609c9b87eb55a
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       design:
         status: applied
         refs:
@@ -521,7 +593,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -549,6 +621,39 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-11-06T18:02:02.747466+00:00'
+          status: verified
+          rule_text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: 35b5cbd054da2e6a131df6de7cc5dadc5855af7c3a73b7fae71bf27128a3f38f
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run
+              python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: cd9548a319e12a8fef85c50915c5d9256d1c7fc6e02a44f2b2c1c2aa41c7610c
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 0.58s
+
+              frontend api usage check OK
+
+              i18n keys OK: 1850
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
       design:
         status: applied
         refs:
@@ -601,7 +706,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -629,6 +734,30 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-11-06T18:02:05.906963+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: fa5728a19e4c45028467ba1dc00e2866895f04a87be5f79edce6ed5de28ac998
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: 7e73772d382b69ec040ecc7b444f9428698f935a2c444f73ab0b9bfae6786e1c
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 2.61s
+
+              i18n keys OK: 1850
+
+              '
       design:
         status: applied
         refs:
@@ -709,6 +838,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-001
+          executed_at: '2026-11-06T18:02:05.980345+00:00'
+          status: unverified
+          rule_text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       design:
         status: applied
         refs:
@@ -765,6 +906,18 @@ bindings:
           rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
           artifact_sha256: null
           diff_sha256: cf172a9dfbdc958d3290fbea568dd5744a91f4ef53b8341a11de9bd22658e7e2
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-im#RULE-im-002
+          executed_at: '2026-11-06T18:02:05.980362+00:00'
+          status: unverified
+          rule_text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -850,6 +1003,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-11-06T18:02:06.074787+00:00'
+          status: unverified
+          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       design:
         status: applied
         refs:
@@ -920,6 +1085,18 @@ bindings:
           rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
           artifact_sha256: null
           diff_sha256: cf172a9dfbdc958d3290fbea568dd5744a91f4ef53b8341a11de9bd22658e7e2
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-11-06T18:02:06.145498+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -1244,6 +1421,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-model#RULE-model-001
+          executed_at: '2026-11-06T18:02:06.251883+00:00'
+          status: unverified
+          rule_text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       design:
         status: applied
         refs:
@@ -1296,7 +1485,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -1341,6 +1530,18 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               55 passed, 6627 deselected, 2 warnings in 32.77s\n"
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-11-06T18:02:06.322023+00:00'
+          status: unverified
+          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       design:
         status: applied
         refs:
@@ -1416,6 +1617,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-11-06T18:02:06.388119+00:00'
+          status: unverified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       design:
         status: applied
         refs:
@@ -1470,7 +1683,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -1510,6 +1723,18 @@ bindings:
               14 passed in 2.64s
 
               '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-06T18:02:06.452330+00:00'
+          status: unverified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       design:
         status: applied
         refs:
@@ -1585,6 +1810,18 @@ bindings:
           rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
           artifact_sha256: null
           diff_sha256: cf172a9dfbdc958d3290fbea568dd5744a91f4ef53b8341a11de9bd22658e7e2
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-11-06T18:02:06.520050+00:00'
+          status: unverified
+          rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -1677,6 +1914,18 @@ bindings:
           rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
           artifact_sha256: null
           diff_sha256: cf172a9dfbdc958d3290fbea568dd5744a91f4ef53b8341a11de9bd22658e7e2
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-06T18:02:06.590581+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -1811,6 +2060,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-time#RULE-time-001
+          executed_at: '2026-11-06T18:02:06.695831+00:00'
+          status: unverified
+          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       design:
         status: applied
         refs:
@@ -1859,7 +2120,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1887,6 +2148,172 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-11-06T18:02:13.821316+00:00'
+          status: verified
+          rule_text_sha256: 0410bf4fd26225f76a733564e42ebb4853e13562d1690d5c61d2e4db4d813fc2
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: d7551ebbc0e6e2d59bdbe4e0497e017c87bfe82f5bdb813e9dfd488cc9f039ec
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
+              && npm --prefix apps/console-platform/frontend run build
+            exit_code: 0
+            stdout_sha256: 5d95bd0162b057582bcc3350654e04508398627d6255dbfdb4b94151622b2ddb
+            stderr_sha256: ccb6bf354a0674eeb1e49df9a880a000b75240079fdb849282bb899d81eeb58c
+            output: 'M.css                   11.08 kB │ gzip:   2.45 kB
+
+              dist/assets/ModelPage-B06roWo5.css                   15.08 kB │ gzip:   1.86
+              kB
+
+              dist/assets/DetailGrid-F02iqEBA.css                  24.70 kB │ gzip:   3.28
+              kB
+
+              dist/assets/DetailSideSheet-6T4S8pYy.css             30.29 kB │ gzip:   3.44
+              kB
+
+              dist/assets/index-_wnfSANQ.css                      748.26 kB │ gzip:  88.72
+              kB
+
+              dist/assets/TableText-C9EYzYYx.js                     0.16 kB │ gzip:   0.15
+              kB
+
+              dist/assets/StatusTag-BxWobXba.js                     0.21 kB │ gzip:   0.19
+              kB
+
+              dist/assets/CopyableText-DZwzdYAs.js                  0.27 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconMinus-BR8vZ2Ee.js                     0.39 kB │ gzip:   0.30
+              kB
+
+              dist/assets/MetricCards-5ROk532X.js                   0.40 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconPlus-ZoVNqlvV.js                      0.42 kB │ gzip:   0.31
+              kB
+
+              dist/assets/IconMinusCircle-DAnYP1Hy.js               0.46 kB │ gzip:   0.33
+              kB
+
+              dist/assets/IconDownload-C4_tvjI3.js                  0.58 kB │ gzip:   0.41
+              kB
+
+              dist/assets/FormModal-CxHZ_h2c.js                     0.61 kB │ gzip:   0.38
+              kB
+
+              dist/assets/ConsolePage-YT_ykHZw.js                   0.75 kB │ gzip:   0.32
+              kB
+
+              dist/assets/EmptyState-C2nyV99f.js                    0.83 kB │ gzip:   0.40
+              kB
+
+              dist/assets/CopyButton-D8D6qFul.js                    0.87 kB │ gzip:   0.54
+              kB
+
+              dist/assets/models-DMsEuA4V.js                        1.50 kB │ gzip:   0.69
+              kB
+
+              dist/assets/mcpServers-HjDLFkw3.js                    1.51 kB │ gzip:   0.50
+              kB
+
+              dist/assets/platforms-_6Diu0wz.js                     1.76 kB │ gzip:   0.63
+              kB
+
+              dist/assets/index-BEu4tI-M.js                         2.16 kB │ gzip:   1.04
+              kB
+
+              dist/assets/users-CQEGILxa.js                         2.79 kB │ gzip:   0.92
+              kB
+
+              dist/assets/learning-BAFpmPok.js                      3.06 kB │ gzip:   1.02
+              kB
+
+              dist/assets/skills-Pgb0VJKT.js                        3.09 kB │ gzip:   1.17
+              kB
+
+              dist/assets/DateTimeText-DLfV4smn.js                  3.14 kB │ gzip:   1.38
+              kB
+
+              dist/assets/EntityNameText-BgYw7L0i.js                5.48 kB │ gzip:   2.12
+              kB
+
+              dist/assets/SchedulePage-DEx4H-O_.js                  5.80 kB │ gzip:   2.21
+              kB
+
+              dist/assets/LearningPage-BWaXMdcv.js                  5.88 kB │ gzip:   2.23
+              kB
+
+              dist/assets/TaskDetailSideSheet-yhh1XMkd.js           6.00 kB │ gzip:   2.37
+              kB
+
+              dist/assets/ConfirmAction-BEBYfMjc.js                 6.77 kB │ gzip:   2.33
+              kB
+
+              dist/assets/ExperienceList-CrU54A6N.js                7.25 kB │ gzip:   2.16
+              kB
+
+              dist/assets/TaskPage-uEaOqFxb.js                     12.26 kB │ gzip:   4.09
+              kB
+
+              dist/assets/SettingsPage-Ca1Go-Ag.js                 15.43 kB │ gzip:   4.97
+              kB
+
+              dist/assets/AuditPage-BQ3by3Og.js                    20.13 kB │ gzip:   7.00
+              kB
+
+              dist/assets/McpPage-B6nJBmVj.js                      20.36 kB │ gzip:   5.97
+              kB
+
+              dist/assets/AgentPage-D1gu5ty2.js                    22.31 kB │ gzip:   6.10
+              kB
+
+              dist/assets/PlatformPage-B3B9t-3L.js                 24.05 kB │ gzip:   7.37
+              kB
+
+              dist/assets/RelatedDetailController-C6cFAsAi.js      28.17 kB │ gzip:   8.64
+              kB
+
+              dist/assets/DetailSideSheet-D5O_SI3e.js              31.57 kB │ gzip:   9.26
+              kB
+
+              dist/assets/UserPage-zEEfNTF7.js                     32.71 kB │ gzip:   8.99
+              kB
+
+              dist/assets/ModelPage-DhRIaGt_.js                    59.10 kB │ gzip:  14.76
+              kB
+
+              dist/assets/ChatPage-D245Yhhb.js                    132.46 kB │ gzip:  36.28
+              kB
+
+              dist/assets/DetailGrid-q83kote7.js                  156.92 kB │ gzip:  44.24
+              kB
+
+              dist/assets/SkillPage-DKrogTwz.js                   465.87 kB │ gzip:
+              139.74 kB
+
+              dist/assets/OverviewPage-B5t7fsit.js              1,163.49 kB │ gzip:
+              390.94 kB
+
+              dist/assets/index-Br_ES1Q_.js                     1,446.96 kB │ gzip:
+              426.19 kB
+
+              ✓ built in 3.73s
+
+
+              (!) Some chunks are larger than 500 kB after minification. Consider:
+
+              - Using dynamic import() to code-split the application
+
+              - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+              '
       design:
         status: applied
         refs:
@@ -1939,7 +2366,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1967,6 +2394,34 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-ui-detail#RULE-ui-detail-001
+          executed_at: '2026-11-06T18:02:17.073560+00:00'
+          status: verified
+          rule_text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
+          result_sha256: 08470e3cbceb06936fadd5d5b25adf1ba0292be34e88700192d0c8e8c02c93ac
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: 7f9cbada8d6fa988d01540627f98709e729ea28094b283c13d0234ebff3a1df4
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '............                                                             [100%]
+
+              12 passed in 0.59s
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
       design:
         status: applied
         refs:
@@ -2119,6 +2574,18 @@ bindings:
           rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
           artifact_sha256: null
           diff_sha256: cf172a9dfbdc958d3290fbea568dd5744a91f4ef53b8341a11de9bd22658e7e2
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-11-06T18:02:17.152507+00:00'
+          status: unverified
+          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+          artifact_sha256: null
+          diff_sha256: 16f55a51f942690905fbd935f6167cb9178817eb50f714478d30aa7d4da56c46
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:

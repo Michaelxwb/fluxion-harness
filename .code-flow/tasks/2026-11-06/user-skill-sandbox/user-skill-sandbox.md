@@ -111,13 +111,13 @@
 | E-10 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 审批事务 → AgentAccessGrant 校验 | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_10.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-11 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 两个并发事务 → artifact 行锁/状态复核 | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_11.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | B-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console/Worker/Runtime effective 查询 | TASK-012 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| E-12 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | integration | Console API → 管理员权限校验 | TASK-014 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_12.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-35 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P0 | auto | none | - | - | - | no |
-| S-36 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P0 | auto | none | - | - | - | no |
-| S-37 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P0 | auto | none | - | - | - | no |
-| E-13 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
-| S-39 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限 | TASK-014 | planned | ["npm","run","skill-self-service-approve"] | . | 1800 | P0 | auto | browser | - | 审批是真实浏览器 + 真实登录/权限 + 真实 PG 事务 + 列表刷新的关键旅程；component 只能验 UI，integration 不能验浏览器交互、路由和真实鉴权组合。 | ["apps/console-platform/frontend/src/modules/skill-management/**", "apps/console-platform/backend/src/muad_console_platform/api/skills.py", "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py", "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"] | yes |
-| S-40 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | TASK-014 | planned | ["npm","run","skill-self-service-delete"] | . | 1800 | P1 | auto | browser | - | 破坏性操作 + 二次确认 + 真实关系删除 + 真实鉴权，低层测试无法覆盖完整浏览器旅程和权限组合。 | ["apps/console-platform/frontend/src/modules/skill-management/**", "apps/console-platform/backend/src/muad_console_platform/api/skills.py", "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py", "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"] | no |
+| E-12 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | integration | Console API → 管理员权限校验 | TASK-014 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_12.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-35 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | verified | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P0 | auto | none | - | - | - | no |
+| S-36 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | verified | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P0 | auto | none | - | - | - | no |
+| S-37 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | verified | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P0 | auto | none | - | - | - | no |
+| E-13 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | verified | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
+| S-39 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限 | TASK-014 | e2e_deferred | ["npm","run","skill-self-service-approve"] | . | 1800 | P0 | auto | browser | - | 审批是真实浏览器 + 真实登录/权限 + 真实 PG 事务 + 列表刷新的关键旅程；component 只能验 UI，integration 不能验浏览器交互、路由和真实鉴权组合。 | ["apps/console-platform/frontend/src/modules/skill-management/**", "apps/console-platform/backend/src/muad_console_platform/api/skills.py", "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py", "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"] | yes |
+| S-40 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | TASK-014 | e2e_deferred | ["npm","run","skill-self-service-delete"] | . | 1800 | P1 | auto | browser | - | 破坏性操作 + 二次确认 + 真实关系删除 + 真实鉴权，低层测试无法覆盖完整浏览器旅程和权限组合。 | ["apps/console-platform/frontend/src/modules/skill-management/**", "apps/console-platform/backend/src/muad_console_platform/api/skills.py", "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py", "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"] | no |
 | S-41 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 审计表/指标端点 → 查询 | TASK-013 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_41.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | E-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | contract | API 错误码 schema / 消息配置 | TASK-013 | stale | ["uv","run","pytest","-q","tests/contracts/test_skill_sandbox_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | E-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Artifact Store → checksum 校验 → 执行入口 | TASK-011 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -1026,7 +1026,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ## TASK-014: Console `/skills` 审批、下载、解绑与系统 Skill 上传
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-010, TASK-011, TASK-012, TASK-013
 - **Source**: user-skill-sandbox.frontend.design.md#3.2 页面与路由结构, user-skill-sandbox.frontend.design.md#3.3 组件设计, user-skill-sandbox.frontend.design.md#3.5 状态与数据流
@@ -1042,35 +1042,35 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ### Checklist
 
-- [ ] 交付 `管理员在 Console 完成 source/审批筛选、审批/驳回、下载、解绑软删、系统 Skill 上传`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 列表增加 source/review_status/author/agent_count；筛选与 pending 标记
-- [ ] 保留现有 artifact `platforms` 列/详情 hint（`SkillPlatforms`），不因 source/审批改造移除
-- [ ] 审批抽屉展示 artifact/校验/提交者/Agent/review_note；批准/驳回
-- [ ] 下载、解绑+软删二次确认、系统 Skill 上传 source 选择
-- [ ] service 层调用；组件 loading/empty/error/success；无权限隐藏/禁用
-- [ ] [S-35][component] 审批抽屉
-- [ ] [S-36][component] 解绑软删确认
-- [ ] [S-37][component] source/审批筛选
-- [ ] [E-12][integration] 非管理员拒绝
-- [ ] [E-13][component] 空态/错误/无权限
-- [ ] [S-39][E2E] 管理员真实浏览器审批
-- [ ] [S-40][E2E] 管理员真实浏览器解绑软删
-- [ ] [harness-frontend#RULE-front-001][verifier] 运行 `uv run pytest -q tests/frontend/test_skill_management_ui.py`
-- [ ] [harness-ui#RULE-ui-001][verifier] 运行 `uv run pytest -q tests/frontend/test_skill_management_ui.py -k layout`
-- [ ] [harness-ui-detail#RULE-ui-detail-001][verifier] 运行 `uv run pytest -q tests/frontend/test_skill_management_ui.py -k detail`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `管理员在 Console 完成 source/审批筛选、审批/驳回、下载、解绑软删、系统 Skill 上传`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 列表增加 source/review_status/author/agent_count；筛选与 pending 标记
+- [x] 保留现有 artifact `platforms` 列/详情 hint（`SkillPlatforms`），不因 source/审批改造移除
+- [x] 审批抽屉展示 artifact/校验/提交者/Agent/review_note；批准/驳回
+- [x] 下载、解绑+软删二次确认、系统 Skill 上传 source 选择
+- [x] service 层调用；组件 loading/empty/error/success；无权限隐藏/禁用
+- [x] [S-35][component] 审批抽屉
+- [x] [S-36][component] 解绑软删确认
+- [x] [S-37][component] source/审批筛选
+- [x] [E-12][integration] 非管理员拒绝
+- [x] [E-13][component] 空态/错误/无权限
+- [ ] [S-39][E2E] 管理员真实浏览器审批 — deferred 至 TASK-016（本任务只补入口/data-testid，不伪造 E2E 通过）
+- [ ] [S-40][E2E] 管理员真实浏览器解绑软删 — deferred 至 TASK-016（本任务只补入口/data-testid，不伪造 E2E 通过）
+- [x] [harness-frontend#RULE-front-001][verifier] 运行 `uv run pytest -q tests/frontend/test_skill_management_ui.py`
+- [x] [harness-ui#RULE-ui-001][verifier] 运行 `uv run pytest -q tests/frontend/test_skill_management_ui.py -k layout`
+- [x] [harness-ui-detail#RULE-ui-detail-001][verifier] 运行 `uv run pytest -q tests/frontend/test_skill_management_ui.py -k detail`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-35 | component | React component + mocked Console API | 展示 source、author、提交者、Agent、校验结果、文件清单、review_note；批准/驳回按钮按权限和状态启用；驳回必须填写原因 | tests/frontend/test_skill_management_ui.py | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | planned |
-| S-36 | component | React component + mocked Console API | 展示将解绑的 Agent 列表；二次确认前不调用删除 API；确认后调用删除并展示结果 | tests/frontend/test_skill_management_ui.py | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | planned |
-| S-37 | component | React component + mocked Console API | source 标签/筛选生效；PENDING 标记可见；分页/关键字/筛选组合正确 | tests/frontend/test_skill_management_ui.py | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | planned |
-| E-12 | integration | Console API → 管理员权限校验 | 审批、下载他人包、解绑、软删、系统 Skill 上传均返回 forbidden；不泄露他人资源存在性 | tests/acceptance/user_skill_sandbox/test_e_12.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_12.py"] | planned |
-| E-13 | component | React component + mocked Console API | 空态有说明和下一步；错误有重试且不丢筛选；无权限隐藏/禁用审批操作；状态不只靠颜色 | tests/frontend/test_skill_management_ui.py | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | planned |
-| S-39 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限 | 状态变为 APPROVED；当前 artifact 更新；提交者 grant 和上传 Agent binding 出现；审计记录可查询 | e2e/tests/skill-self-service-approve.spec.ts | ["npm","run","skill-self-service-approve"] | planned |
-| S-40 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | Skill 软删并从列表消失；Agent 绑定和用户 grant 解除；审计记录包含解绑 Agent 列表；普通用户无法执行该 Skill | e2e/tests/skill-self-service-delete.spec.ts | ["npm","run","skill-self-service-delete"] | planned |
+| S-35 | component | React component + mocked Console API | 展示 source、author、提交者、Agent、校验结果、文件清单、review_note；批准/驳回按钮按权限和状态启用；驳回必须填写原因 | tests/frontend/test_skill_management_ui.py | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | verified |
+| S-36 | component | React component + mocked Console API | 展示将解绑的 Agent 列表；二次确认前不调用删除 API；确认后调用删除并展示结果 | tests/frontend/test_skill_management_ui.py | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | verified |
+| S-37 | component | React component + mocked Console API | source 标签/筛选生效；PENDING 标记可见；分页/关键字/筛选组合正确 | tests/frontend/test_skill_management_ui.py | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | verified |
+| E-12 | integration | Console API → 管理员权限校验 | 审批、下载他人包、解绑、软删、系统 Skill 上传均返回 forbidden；不泄露他人资源存在性 | tests/acceptance/user_skill_sandbox/test_e_12.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_12.py"] | verified |
+| E-13 | component | React component + mocked Console API | 空态有说明和下一步；错误有重试且不丢筛选；无权限隐藏/禁用审批操作；状态不只靠颜色 | tests/frontend/test_skill_management_ui.py | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | verified |
+| S-39 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限 | 状态变为 APPROVED；当前 artifact 更新；提交者 grant 和上传 Agent binding 出现；审计记录可查询 | e2e/tests/skill-self-service-approve.spec.ts | ["npm","run","skill-self-service-approve"] | e2e_deferred |
+| S-40 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | Skill 软删并从列表消失；Agent 绑定和用户 grant 解除；审计记录包含解绑 Agent 列表；普通用户无法执行该 Skill | e2e/tests/skill-self-service-delete.spec.ts | ["npm","run","skill-self-service-delete"] | e2e_deferred |
 
 **Spec Verifier**
 
@@ -1086,17 +1086,27 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-35 | - | - | - | - | pending |
-| S-36 | - | - | - | - | pending |
-| S-37 | - | - | - | - | pending |
-| E-12 | - | - | - | - | pending |
-| E-13 | - | - | - | - | pending |
-| S-39 | - | - | - | - | pending |
-| S-40 | - | - | - | - | pending |
+| S-35 | `uv run pytest -q tests/frontend/test_skill_management_ui.py` → `17 failed, 1 passed`：审批面板/操作/下载/筛选/i18n 尚不存在 | 同命令 → `19 passed`；`npm --prefix apps/console-platform/frontend run typecheck` 通过 | `test_s35_review_panel_shows_artifact_validation_files_submitter_and_note`、`test_s35_review_actions_require_admin_pending_and_reject_note`、`test_s35_detail_sheet_exposes_review_tab_and_keeps_existing_tabs`、`test_service_routes_are_exercised_against_mocked_console_api` | 组件契约读取真实 `SkillReviewPanel/SkillReviewActions/SkillFileList` 源码；service 用例用 esbuild+node 执行真实 `services/skills.ts`，经共享 axios 实例的 mocked adapter 校验审批路由/体；真实浏览器交互留给 TASK-016 | verified |
+| S-36 | 同上首跑 `17 failed`：删除二次确认与 Agent 影响范围组件不存在 | 同命令 → `19 passed`；删除确认仅在 `confirmDelete` 调用 `deleteSkill({unbind:true,confirm:true})` | `test_s36_delete_confirm_lists_agents_and_waits_for_confirmation`、`test_s36_delete_result_drives_refresh_and_visible_feedback`、`test_service_routes_are_exercised_against_mocked_console_api` | 组件契约断言 `SkillDeleteConfirm` 展示 Agent 列表；真实 service 执行确认后的 DELETE 参数；打开确认弹窗只调用 `listAllSkillAgents`，不调删除 API | verified |
+| S-37 | 同上首跑 `17 failed`：source/审批筛选、标签与列缺失 | 同命令 → `19 passed` | `test_s37_list_adds_source_review_status_author_and_keeps_platforms`、`test_s37_source_and_review_filters_are_wired_to_list_params`、`test_s37_source_and_review_tags_are_text_labels_not_color_only`、`test_service_routes_are_exercised_against_mocked_console_api` | 真实 service 执行 `GET /skills` 并断言 `source`/`review_status` 与分页/关键字组合参数；`SkillPlatforms` 列与详情 hint 保留 | verified |
+| E-12 | 后端权限已由 TASK-010/011/012 实现，首次运行即为回归 GREEN，不伪造新 RED | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_e_12.py` → `2 passed`（与 S-07/S-09/S-10 联合 `10 passed`） | `tests/acceptance/user_skill_sandbox/test_e_12.py::test_e12_builder_is_forbidden_for_admin_skill_operations`、`::test_e12_admin_can_complete_review_after_forbidden_attempts` | 真实 BUILDER 登录 → 真实 ASGI 权限依赖 → 真实 PostgreSQL；审批/下载/解绑/系统上传均 403 FORBIDDEN；随机资源 ID 同样 403，不泄露存在性；403 后状态未变且管理员仍可审批 | verified |
+| E-13 | 同上首跑 `17 failed`：空态/错误/无权限门控缺失 | 同命令 → `19 passed` | `test_e13_permission_gating_uses_role_and_hides_admin_actions`、`test_e13_empty_error_loading_and_retry_keep_filters`、`test_e13_action_error_is_visible_and_retryable` | 组件契约断言 `useAuth` 角色门控、筛选保留重试、`role="alert"` 错误与文字标签；`SkillPlatforms`/状态 Tag 均带文字与 `aria-label`，不只靠颜色 | verified |
+| S-39 | - | - | `e2e/tests/skill-self-service-approve.spec.ts`（保持 `test.skip`） | deferred：本任务只提供审批入口/`data-testid`/fixture；真实浏览器 → Console → 真实 PG 审批旅程由 TASK-016 实现并取证，未伪造通过 | e2e_deferred |
+| S-40 | - | - | `e2e/tests/skill-self-service-delete.spec.ts`（保持 `test.skip`） | deferred：本任务只提供解绑软删入口/`data-testid`/fixture；真实浏览器关系删除旅程由 TASK-016 实现并取证，未伪造通过 | e2e_deferred |
+- E-12: verified — automated command passed; run_id=947b79fafad84a64995382545870c090 (confirmed_by: runner)
+- S-35: verified — automated command passed; run_id=947b79fafad84a64995382545870c090 (confirmed_by: runner)
+- S-36: verified — automated command passed; run_id=947b79fafad84a64995382545870c090 (confirmed_by: runner)
+- S-37: verified — automated command passed; run_id=947b79fafad84a64995382545870c090 (confirmed_by: runner)
+- E-13: verified — automated command passed; run_id=947b79fafad84a64995382545870c090 (confirmed_by: runner)
+- S-39: e2e_deferred — automated command e2e_deferred; run_id=947b79fafad84a64995382545870c090 (confirmed_by: runner)
+- S-40: e2e_deferred — automated command e2e_deferred; run_id=947b79fafad84a64995382545870c090 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-07] started
+- [2026-11-07] completed (done)
+- [2026-11-07] S-39/S-40 保持 `e2e_deferred`：真实浏览器审批/解绑软删步骤由 TASK-016 接管；本任务只补前端入口、`data-testid` 与 fixture，不把 `test.skip` 改为通过。
 
 ---
 
