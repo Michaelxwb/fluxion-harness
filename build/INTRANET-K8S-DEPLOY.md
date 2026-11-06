@@ -128,6 +128,57 @@ REDIS_CLUSTER_SEEDS=<seed1>:6393,<seed2>:6393,<seed3>:6393
     与三族 key 的 hash tag 布局（11 项）。
 - 两条探针在能访问集群 6 个通告地址的运维机/跳板机执行；不需要打进应用镜像。
 
+#### 平台 Session 的 Redis ACL（升级前检查）
+
+平台 Skill 获取 MSSP/MSSW 登录态时，Runtime/Worker 使用 Redis Session；保存、续期和
+释放锁会执行 `EVAL` Lua 脚本。Redis 应用账号需要有 `EVAL`、脚本实际使用的命令及
+Session 键的访问权限。`PING` 成功只说明基本连接可用，不代表这些权限已具备。
+
+升级前由 Redis 管理员检查 `REDIS_URL` 对应的账号及集群各节点 ACL；URL 未指定用户名时
+通常使用 `default`，以实际认证身份为准。自建 Redis 可在各节点的 `redis-cli` 中查看和授权：
+
+```redis
+ACL WHOAMI
+ACL GETUSER <应用用户名>
+ACL SETUSER <应用用户名> +eval
+```
+
+`ACL WHOAMI` 显示的是当前 CLI 的身份，不一定是应用身份；`ACL GETUSER` 包含密码哈希，
+不要复制到工单或聊天中。`ACL SETUSER` 会影响该用户的所有客户端；优先使用专用应用账号，
+不要为排障直接授予 `+@all` 或所有键权限。分别确认各节点权限一致，并按 Redis 部署的配置
+管理方式持久化（配置了外部 ACL 文件时可使用 `ACL SAVE`）；托管 Redis 按其管理平台操作。
+
+升级后可从实际 Runtime Pod 做一次只读 `EVAL` 检查，不打印 Redis 连接串或密码：
+
+```bash
+kubectl -n muad exec <runtime-pod> -- python -c '
+import asyncio, os, uuid
+from muad_common.redis_client import create_redis_client
+
+async def main():
+    seeds = [s.strip() for s in os.getenv("REDIS_CLUSTER_SEEDS", "").split(",") if s.strip()]
+    client = create_redis_client(os.environ["REDIS_URL"], mode=os.getenv("REDIS_MODE", "standalone"), seeds=seeds)
+    key = "platform_session:{" + uuid.uuid4().hex + "}:diagnostic"
+    try:
+        print("EVAL:", await asyncio.wait_for(client.execute_command("EVAL", "return 1", 1, key), 10))
+    except Exception as exc:
+        print("EVAL 失败，异常类型:", type(exc).__name__)
+    finally:
+        await client.aclose()
+
+asyncio.run(main())
+'
+```
+
+返回 `1` 表示本次命中的节点允许该测试；随机键只覆盖命中的 slot，不能代替各节点 ACL
+检查，也不能证明 Session 实际写入及平台登录成功。还需触发真实平台 Skill，验证客户解析和
+业务查询。出现 `PLATFORM_SESSION_STORE_UNAVAILABLE` 时，检查 Redis 配置、连接和 ACL；
+`NoPermissionError` 可能是命令或键权限不足，由管理员通过节点 ACL 日志区分。
+
+Runtime 日志可用 `kubectl -n muad logs -f -l app=muad-agent-runtime --since=1m
+--all-containers=true --prefix=true --max-log-requests=10` 查看；Skill 子进程的输出可能要
+等脚本结束才返回，没有实时输出不等于没有执行。
+
 ### 1.3 共享 ConfigMap
 
 `muad-common` 是 5 个服务共用的进程启动配置，不归属任何服务 chart：
