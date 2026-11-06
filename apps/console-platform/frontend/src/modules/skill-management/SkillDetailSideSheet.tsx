@@ -21,6 +21,7 @@ import { SelectedUserTable } from './SelectedUserTable';
 import { SkillArtifactDetailModal } from './SkillArtifactDetailModal';
 import { SkillContent } from './SkillContent';
 import { SkillDetailHeading } from './SkillDetailHeading';
+import { SkillPlatforms } from './SkillPlatforms';
 
 export interface SkillDetailSideSheetProps {
   skill: SkillListItem | null;
@@ -181,6 +182,7 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
                 items={[
                   { label: t('skill.form.key'), value: detail.key },
                   { label: t('skill.form.name'), value: detail.name },
+                  { label: t('skill.columns.platforms'), value: <SkillPlatforms platforms={detail.platforms} /> },
                   { label: t('skill.columns.currentVersion'), value: detail.current_version ?? '-' },
                   { label: t('skill.columns.executionMode'), value: detail.execution_mode ?? '-' },
                   {
@@ -195,6 +197,7 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
                   { label: t('skill.detail.userCount'), value: detail.user_count }
                 ]}
               />
+              <div className="detail-hint">{t('skill.platforms.hint')}</div>
               <SkillContent key={detail.current_artifact_id ?? detail.id}
                 description={detail.description} source={detail.current_artifact?.instructions ?? ''} />
             </>

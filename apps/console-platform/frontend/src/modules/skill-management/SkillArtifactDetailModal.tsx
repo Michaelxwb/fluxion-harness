@@ -8,6 +8,7 @@ import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { ErrorState } from '../../components/common/ErrorState';
 import { getArtifact, type SkillArtifactDetail } from './services/skills';
 import { SkillMarkdownViewer } from './SkillMarkdownViewer';
+import { SkillPlatforms } from './SkillPlatforms';
 
 export interface SkillArtifactDetailModalProps {
   visible: boolean;
@@ -77,6 +78,7 @@ export function SkillArtifactDetailModal(props: SkillArtifactDetailModalProps) {
                 { label: t('skill.artifact.checksum'), value: detail.checksum, fullWidth: true },
                 { label: t('skill.artifact.storageKey'), value: detail.storage_key, fullWidth: true },
                 { label: t('skill.columns.executionMode'), value: detail.execution_mode },
+                { label: t('skill.columns.platforms'), value: <SkillPlatforms platforms={detail.platforms} /> },
                 { label: t('skill.artifact.validationStatus'), value: detail.validation_status },
                 { label: t('skill.artifact.packageSize'), value: `${(detail.package_size / 1024).toFixed(1)} KiB` },
                 { label: t('skill.artifact.createdAt'), value: <DateTimeText value={detail.create_time} /> }

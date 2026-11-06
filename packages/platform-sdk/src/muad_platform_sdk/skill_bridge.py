@@ -57,7 +57,7 @@ async def _write_state(
             raise PlatformAuthError("PLATFORM_SESSION_REQUIRED")
         platforms[key] = _legacy_platform(platform, state)
     if hasattr(os, "memfd_create") and Path("/proc/self/fd").is_dir():
-        fd = os.memfd_create("skill-session", os.MFD_CLOEXEC)
+        fd = os.memfd_create("skill-session")
         os.fchmod(fd, 0o600)
         filename = f"/proc/{os.getpid()}/fd/{fd}"
         open_files.append(fd)
