@@ -22,6 +22,10 @@ const SKILL = {
   description: 'E2E skill',
   platform_label: null,
   platforms: ['mssp', 'mssw'],
+  source: 'ADMIN',
+  author: 'Skill Admin',
+  owner_user_id: ADMIN.id,
+  review_status: 'APPROVED',
   user_scope: 'SELECTED',
   enabled: true,
   current_artifact_id: 'artifact-1',
@@ -49,7 +53,16 @@ const ARTIFACT = {
   frontmatter: { name: 'E2E E07 Skill' },
   platforms: ['mssp'],
   manifest: { files: [], file_count: 0, total_size: 0 },
-  create_time: '2026-10-11 10:00:00'
+  created_by: ADMIN.id,
+  create_time: '2026-10-11 10:00:00',
+  review_status: 'APPROVED',
+  review_note: null,
+  reviewed_by: ADMIN.id,
+  reviewed_at: '2026-10-11 10:00:00',
+  submitted_by_user_id: null,
+  submitted_agent_id: null,
+  submitted_channel: null,
+  source: 'ADMIN'
 } satisfies SkillArtifactDetail;
 
 function envelope(data: unknown) {
