@@ -78,18 +78,18 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | 优先级 | 执行方式 | 环境 | 输入 | E2E理由 | 触发路径 | 冒烟 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| S-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 内部 API → Draft Store/PVC → PG revision | TASK-008 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 内部 API → Draft Store/PVC → PG revision | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | TASK-009 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | TASK-004 | deferred | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | . | 600 | P0 | deferred | local | - | - | - | no |
-| S-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → SkillValidator → Artifact Store → PG | TASK-008 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → SkillValidator → Artifact Store → PG | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批事务 → PG → 审计 | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Artifact Store → 下载响应 → 审计 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_07.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 解绑/软删事务 → PG → 审计 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Skill/Artifact → effective 查询 | TASK-012 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-10 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime/Worker → SandboxedSkillExecutor → bwrap → stdout/exit code | TASK-003 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_10.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-11 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules | TASK-005 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_11.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| B-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace 元数据 → PVC 目录 → 两次执行 | TASK-005 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-11 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules | TASK-005 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_11.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| B-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace 元数据 → PVC 目录 → 两次执行 | TASK-005 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-13 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Runtime → 真实 Console/Redis → 真实 mssp 平台 → 旧 Skill 脚本 | TASK-019 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
 | S-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Runtime/Worker → 真实平台 → 改造后的旧 Skill | TASK-019 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
 | S-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → 只读 /skill → 可写 /workspace | TASK-003 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -98,7 +98,7 @@
 | E-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | bwrap --clearenv + 最小 mount + 子进程环境 | TASK-003 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_03.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway → Runtime /v1 → 服务身份校验 | TASK-001 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-20 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | TASK-001 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| E-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | workspace_shell → bwrap → PATH/socket 检查 | TASK-005 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | workspace_shell → bwrap → PATH/socket 检查 | TASK-005 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-22 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Console/Redis → 真实平台受保护接口 | TASK-004 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
 | E-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace quota check → PVC | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-24 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 元数据 → PVC | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_24.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -440,9 +440,9 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-01 | integration | Workspace 元数据 → PVC 目录 → 两次执行 | 同 Agent 两次执行可读同一 data 文件；不同 Agent 看不到对方 workspace；outputs 每次执行独立；跨 tenant/user 不可见 | tests/acceptance/user_skill_sandbox/test_b_01.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_01.py"] | verified |
-| S-11 | integration | Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules | 普通 shell 命令成功；默认使用系统预装依赖；pip/npm 临时安装写入 workspace，不写系统目录；临时安装跨 Pod/重建后不保证存在，不作为生产依赖；无 session-manager；输出/超时/配额限制生效 | tests/acceptance/user_skill_sandbox/test_s_11.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_11.py"] | verified |
-| E-05 | integration | workspace_shell → bwrap → PATH/socket 检查 | session-manager 不在 PATH；MUAD_SESSION_SOCKET 不存在；调用 session-manager 返回 command not found/明确错误 | tests/acceptance/user_skill_sandbox/test_e_05.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | verified |
+| B-01 | integration | Workspace 元数据 → PVC 目录 → 两次执行 | 同 Agent 两次执行可读同一 data 文件；不同 Agent 看不到对方 workspace；outputs 每次执行独立；跨 tenant/user 不可见 | tests/acceptance/user_skill_sandbox/test_b_01.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_01.py"] | stale |
+| S-11 | integration | Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules | 普通 shell 命令成功；默认使用系统预装依赖；pip/npm 临时安装写入 workspace，不写系统目录；临时安装跨 Pod/重建后不保证存在，不作为生产依赖；无 session-manager；输出/超时/配额限制生效 | tests/acceptance/user_skill_sandbox/test_s_11.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_11.py"] | stale |
+| E-05 | integration | workspace_shell → bwrap → PATH/socket 检查 | session-manager 不在 PATH；MUAD_SESSION_SOCKET 不存在；调用 session-manager 返回 command not found/明确错误 | tests/acceptance/user_skill_sandbox/test_e_05.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | stale |
 
 ### Acceptance Evidence
 
@@ -459,6 +459,9 @@
 - S-11: verified — automated command passed; run_id=11f8d87e57f548c7966bacf673f211e1 (confirmed_by: runner)
 - B-01: verified — automated command passed; run_id=11f8d87e57f548c7966bacf673f211e1 (confirmed_by: runner)
 - E-05: verified — automated command passed; run_id=11f8d87e57f548c7966bacf673f211e1 (confirmed_by: runner)
+- S-11: stale — input changed: CHK-d45c13e873eb (confirmed_by: runtime)
+- B-01: stale — input changed: CHK-3036fe86f429 (confirmed_by: runtime)
+- E-05: stale — input changed: CHK-7fd060f09f01 (confirmed_by: runtime)
 
 ### Log
 
@@ -632,8 +635,8 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | integration | Console 内部 API → Draft Store/PVC → PG revision | 草稿创建成功，路径按 tenant/user/draft_key 隔离；写入、读取、列目录、删除单文件和删除整个草稿均成功；跨用户访问同一 draft_key 返回 not found/forbidden；revision 冲突返回 DRAFT_REVISION_CONFLICT | tests/acceptance/user_skill_sandbox/test_s_01.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | verified |
-| S-04 | integration | Console API → SkillValidator → Artifact Store → PG | 校验返回 pass/warn 明细；打包生成 checksum、文件清单和 PENDING artifact；记录 submitted_by、submitted_agent、submitted_channel、author；重复提交不产生多个 PENDING | tests/acceptance/user_skill_sandbox/test_s_04.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | verified |
+| S-01 | integration | Console 内部 API → Draft Store/PVC → PG revision | 草稿创建成功，路径按 tenant/user/draft_key 隔离；写入、读取、列目录、删除单文件和删除整个草稿均成功；跨用户访问同一 draft_key 返回 not found/forbidden；revision 冲突返回 DRAFT_REVISION_CONFLICT | tests/acceptance/user_skill_sandbox/test_s_01.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | stale |
+| S-04 | integration | Console API → SkillValidator → Artifact Store → PG | 校验返回 pass/warn 明细；打包生成 checksum、文件清单和 PENDING artifact；记录 submitted_by、submitted_agent、submitted_channel、author；重复提交不产生多个 PENDING | tests/acceptance/user_skill_sandbox/test_s_04.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | stale |
 
 **Spec Verifier**
 
@@ -653,6 +656,8 @@
 - S-04: verified — automated command passed; run_id=448d50e40d774bc080b0f56ed8807449 (confirmed_by: runner)
 - S-01: verified — automated command passed; run_id=ba11a5ecbfb34fdab8c79114c996b945 (confirmed_by: runner)
 - S-04: verified — automated command passed; run_id=ba11a5ecbfb34fdab8c79114c996b945 (confirmed_by: runner)
+- S-01: stale — input changed: CHK-d8c2a60db0c1 (confirmed_by: runtime)
+- S-04: stale — input changed: CHK-fa9379eba61b (confirmed_by: runtime)
 
 ### Log
 

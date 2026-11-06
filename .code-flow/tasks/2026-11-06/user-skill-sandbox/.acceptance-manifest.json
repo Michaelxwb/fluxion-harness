@@ -854,7 +854,7 @@
       "kind": "functional",
       "boundary": "Console 内部 API → Draft Store/PVC → PG revision",
       "owner": "TASK-008",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -1048,6 +1048,9 @@
           "timeout": 600.0,
           "fingerprint": "2c73e585183aa71924d0a3c76b39a6ddafdb06d9ead3213f172be3c1e5766b94"
         }
+      ],
+      "stale_checks": [
+        "CHK-d8c2a60db0c1"
       ]
     },
     {
@@ -1210,7 +1213,7 @@
       "kind": "functional",
       "boundary": "Console API → SkillValidator → Artifact Store → PG",
       "owner": "TASK-008",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -1403,6 +1406,9 @@
           "timeout": 600.0,
           "fingerprint": "2c73e585183aa71924d0a3c76b39a6ddafdb06d9ead3213f172be3c1e5766b94"
         }
+      ],
+      "stale_checks": [
+        "CHK-fa9379eba61b"
       ]
     },
     {
@@ -1980,7 +1986,7 @@
       "kind": "functional",
       "boundary": "Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules",
       "owner": "TASK-005",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -2183,6 +2189,9 @@
           "timeout": 600.0,
           "fingerprint": "e43ff7f7d393d60766318ff343ea8ee7bfbc47e526288c049753a9dc4ad3b868"
         }
+      ],
+      "stale_checks": [
+        "CHK-d45c13e873eb"
       ]
     },
     {
@@ -2192,7 +2201,7 @@
       "kind": "functional",
       "boundary": "Workspace 元数据 → PVC 目录 → 两次执行",
       "owner": "TASK-005",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -2386,6 +2395,9 @@
           "timeout": 600.0,
           "fingerprint": "e43ff7f7d393d60766318ff343ea8ee7bfbc47e526288c049753a9dc4ad3b868"
         }
+      ],
+      "stale_checks": [
+        "CHK-3036fe86f429"
       ]
     },
     {
@@ -3852,7 +3864,7 @@
       "kind": "functional",
       "boundary": "workspace_shell → bwrap → PATH/socket 检查",
       "owner": "TASK-005",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -4038,6 +4050,9 @@
           "timeout": 600.0,
           "fingerprint": "e43ff7f7d393d60766318ff343ea8ee7bfbc47e526288c049753a9dc4ad3b868"
         }
+      ],
+      "stale_checks": [
+        "CHK-7fd060f09f01"
       ]
     },
     {
