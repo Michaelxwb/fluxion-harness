@@ -1,7 +1,7 @@
 # Skill 自建与执行沙箱方案探索与定稿
 
 日期：2026-11-06  
-状态：**技术选型确定，执行策略与生产集成待验收**；P0.3 已证明真实 broker 的 session 交付与平台 HTTP 连通性；受保护业务接口的 Cookie 鉴权、P0.4 安全门控及执行层接入待验收。当前对话触发 Skill 仍走原执行路径。
+状态：**技术选型确定，执行策略与生产集成待验收**；P0.3 已证明真实 broker 的 session 交付、真实受保护接口 Cookie 正负向鉴权和平台 HTTP 连通性；原 P0.4 安全门控并入 P1 首批，执行层接入待实施。当前对话触发 Skill 仍走原执行路径。
 范围：用户自建 Skill 的草稿、审查、上传、审批、执行沙箱、通用 workspace_shell，以及 macOS Dev / 本地 K8s / 内网 Linux K8s 三端运行方式。
 手动测试证据：[`evidence/sandbox-2026-11-06/`](evidence/sandbox-2026-11-06/)
 
@@ -23,7 +23,7 @@
 | 管理员 / 系统 Skill 脚本 | `bwrap`，`TRUSTED` policy |
 | 用户 Skill 脚本 | `bwrap`，`UNTRUSTED` policy |
 | `skill_draft_shell` | `bwrap`，草稿副本 |
-| `workspace_shell`（若启用） | `bwrap`，用户持久 workspace |
+| `workspace_shell` | `bwrap`，所有 Agent 默认可用，user + Agent 隔离 workspace |
 
 不采用：
 
@@ -211,7 +211,7 @@ RESULT: PASS
   调真实受保护接口 `/order/v1/get_expert`：valid=200、none=403、invalid=403。
   这证明登录态真实生效，而不是只有 HTTP 连通性。
 
-尚未验证（P0.4/P1）：
+尚未验证（P1 首批）：
 
 - 真实用户 Skill 包通过 `SandboxedSkillExecutor` 在 bwrap 内执行；
 - Worker async Skill 通过 bwrap 执行；
@@ -295,6 +295,7 @@ Skill 工具、Shell、草稿、审批逻辑都不判断平台，只调用 `runn
 
 ```text
 bwrap --unshare-all --die-with-parent --new-session
+  --share-net
   --clearenv
   --setenv PATH /opt/python3.12/bin:/usr/local/bin:/usr/bin:/bin
   --setenv HOME /tmp
@@ -307,20 +308,21 @@ bwrap --unshare-all --die-with-parent --new-session
   --dev /dev
   --size <limit> --tmpfs /tmp
   --ro-bind <package> /skill      # 已批准 Skill：只读
-  --bind <execution-workdir> /work
-  --chdir /work
+  --bind <workspace> /workspace
+  --chdir /workspace
 ```
 
 - 不 bind `/mnt`、`/var/cache/muad/skills`、`/proc`、`/var/run`；
-- **不能把共享 `READY` 缓存直接可写 bind 到 `/work`**：一次执行改脚本会污染后续执行；
+- **不能把共享 `READY` 缓存直接可写 bind 到 `/workspace`**：一次执行改脚本会污染后续执行；
   已批准包只读，每次执行使用独立可写临时目录；草稿使用独立副本；
 - `/bin` 必须 bind：`session-manager` 启动器使用 `#!/bin/sh`；
 - `/etc`、`/opt` 只读仍可能泄露秘密，正式 policy 应清点并缩小到所需目录/文件；
   需要 `/proc` 兼容性时评估独立 PID namespace 内的新 procfs，不能 bind Pod 的 `/proc`；
-- 纯脚本：`--unshare-net`；
-- 平台脚本如阶段性使用 `--share-net`，须先完成受信 API 门控，并明确接受整个 Pod 网络可达；
-  `platforms` 声明不限制实际 socket 请求。要求只访问声明平台时，必须使用独立 net namespace
-  和强制出口代理；未审批的通用 Shell 不直接开放 `--share-net`；
+- 网络与 Pod 一致：`--unshare-all` 后显式 `--share-net`，所有 Skill、草稿 Shell、
+  `workspace_shell` 使用同一口径，不再按脚本类型分 `--unshare-net`；
+- `/v1` 受信 API 门控是硬前置；`platforms` 声明不限制实际 socket 请求；
+- 要求只访问声明平台或内网 mirror 时，必须另行引入独立 net namespace 和强制出口代理；
+  当前版本不做这层限制；
 - 资源：`resource.setrlimit` + 容器 cgroup + Pod 级预算 + 超时 + **流式输出上限**；
   容器 cgroup 不是单次执行配额，执行级硬限制的缺口见 §14.1；
 - 进程：`--die-with-parent` + 完整后代回收；验收正常结束、取消、超时、父进程退出、
@@ -364,6 +366,29 @@ python -E -s -B <script>
 - 老 Skill 之前加的 `sys.path.insert(0, dirname(__file__))` 可以保留，也可以删除；
 - 该改动属于 P1 执行器改造，不改变现有 Python CLI 参数契约。
 
+### 4.2.2 Skill 数据与输出目录
+
+统一执行环境挂载：
+
+```text
+/skill                         已批准 Skill 包，只读
+/workspace                     当前 tenant + user + Agent，可写
+  ├── data/                    SKILL_DATA_DIR
+  └── outputs/{run_id}/        SKILL_OUTPUT_DIR
+```
+
+约定：
+
+- `SKILL_OUTPUT_DIR` 每次执行独立，两次执行结果互不影响；
+- `SKILL_DATA_DIR` 按 user + Agent 持久化，跨 Run 共享；
+- 老 Skill 的 `cache` / `logs` / `companies` 迁到 `SKILL_DATA_DIR`，报告等单次结果写
+  `SKILL_OUTPUT_DIR`；
+- `SKILL_OUTPUT_DIR` 可能为空（非 Skill 上下文），脚本必须先判空；
+- `workspace_shell` 使用同一 workspace 根，但输出目录按本次命令生成，不注入
+  session-manager；
+- `execute_skill` / `run_skill_script` 与 `workspace_shell` 共用目录约定，区别只在
+  Skill 包与 session-manager。
+
 ### 4.3 session-manager
 
 `SkillPlatformContext` 继续负责平台登录态解析。bwrap 只做三件事：
@@ -384,6 +409,29 @@ python -E -s -B <script>
   不能承担身份授权，用户和平台集合必须来自受信 Run/Task。
 - state 中的 Cookie 是凭据，脚本能复制到 workspace、stdout 或产物；删除临时文件
   不会撤销副本。要求脚本不能获取 Cookie 原文时，需要父进程代发业务请求。
+
+`session-manager get-state` 的 stdout 兼容：
+
+- 当前 `_write_state()` 只返回 `version` / `status` / `skillName` / `sessionStateFile`，
+  没有旧版 `platforms` list；
+- 旧 Skill（如 `login-mssp-platform`）会遍历 stdout 的 `platforms` list，读取
+  `platform` / `expiresAt`；缺失时报 `platform_not_found`，退出码 3；
+- 在 `_write_state()` 返回值中追加旧版摘要，**不改变 `sessionStateFile` 内容**：
+
+```json
+{
+  "version": 1,
+  "status": "ready",
+  "skillName": "...",
+  "sessionStateFile": "...",
+  "platforms": [
+    {"platform": "mssp", "source": "session", "expiresAt": "..."}
+  ]
+}
+```
+
+- `source` 当前固定 `"session"`（`acquire()` 不暴露 cache/refresh）；`expiresAt` 必须存在；
+- 新 Skill 继续读 `sessionStateFile.platforms.<key>.cookies` / `requestProfile`，不受影响。
 
 用户草稿声明 `platforms` 后，Shell 内可以执行：
 
@@ -429,11 +477,11 @@ bwrap 是 Linux-only，macOS 原生进程不能用。两种模式：
 | `skill_draft_submit` | 打包 + 校验 + 创建 PENDING artifact |
 | `skill_draft_status` | 查最近提交状态/驳回原因 |
 | `skill_draft_shell` | 一次性命令，草稿范围内测试，工具名称唯一 |
-| `workspace_shell` | 通用用户工作区 Shell，按 Agent 能力开放；见 §14.3 |
+| `workspace_shell` | 通用用户工作区 Shell，所有 Agent 默认可用，不增加配置项；见 §14.3 |
 
 `skill_draft_shell` 是一次性命令，不做持久会话；支持 `python -m py_compile`、
 `python scripts/main.py`、`node --check`、`session-manager get-state` 等。
-`workspace_shell` 使用独立的用户 workspace，不与草稿混用。
+`workspace_shell` 使用独立的 user + Agent workspace，不与草稿混用。
 
 **草稿从第一次 Shell 开始就按用户代码执行，必须进沙箱。** 草稿里的 `platforms`
 声明只是“我想用哪些平台”，不是授权依据；父进程必须根据受信执行身份、用户凭据模式
@@ -509,14 +557,14 @@ bwrap 是 Linux-only，macOS 原生进程不能用。两种模式：
 | `packages/agent-core/.../skill/executor.py` | 统一实际 `execute(request)` 协议；`script_command()` 改为 `python -E -s -B`；新增 `SandboxedSkillExecutor`，流式有界读取 stdout/stderr |
 | `apps/agent-runtime/.../skill_tools.py` | 所有脚本统一走 `SandboxedSkillExecutor`；按 `source` 选 policy；已批准包只读挂载 |
 | `apps/agent-worker/.../worker/executor.py` | 所有脚本统一走 `SandboxedSkillExecutor`；按 `source` 选 policy；独立可写工作目录 |
-| `apps/agent-runtime/.../api/runs.py` | **P0 阻断项**：给 `/v1/runs` 等受信接口加 `require_internal_service`，或改为受控代理 |
+| `apps/agent-runtime/.../api/runs.py` | **P1 首批阻断项**：给 `/v1/runs` 等受信接口加 `require_internal_service`，或改为受控代理 |
 | `packages/contracts` | `ResolvedSkill` / snapshot 增加 `source`；非法/缺失拒绝执行 |
 | Console | `source`/`author`/`owner_user_id`/`review_status`、审批事务、并发约束、下载、草稿 API |
 | Runtime | `skill_draft_*`、`skill_draft_shell`、`workspace_shell`、Console 内部客户端 |
-| Workspace | 按用户/租户隔离的持久目录、配额、TTL、附件/产物接入 |
-| Egress | 内网 PyPI/npm mirror allowlist；通用 Shell 不允许任意公网 |
+| Workspace | 按 tenant + user + Agent 隔离的持久目录、配额、TTL、附件/产物接入 |
+| Egress | 与 Pod 网络一致（`--share-net`）；不做 mirror allowlist 或 egress proxy |
 | 前端 | source 标签/筛选、审批抽屉、下载、状态 |
-| 测试 | 沙箱对抗、真实 session 链路、输出洪泛、进程回收、workspace 配额/TTL、pip/npm allowlist、跨用户草稿、审批并发、E2E |
+| 测试 | 沙箱对抗、真实 session 链路、输出洪泛、进程回收、workspace 配额/TTL、pip/npm 安装边界、跨用户草稿、审批并发、E2E |
 
 ---
 
@@ -876,7 +924,7 @@ done
 | `session_cli` 读不到 state 文件 | 检查 session 目录是否 bind 到沙箱内同一路径 |
 | `probe-cookie` 不匹配 | 检查 broker 的 `skillName` 与 `--skill-name` 是否一致 |
 
-#### P0.4 启用用户执行前的安全阻断项
+#### P1 首批安全阻断项（原 P0.4）
 
 以下任一项未完成，不启用用户脚本/Shell 的生产执行；允许先开发和验收执行器本身：
 
@@ -906,11 +954,15 @@ kubectl -n muad exec "$POD" -- sh -ec '
 
 ### P1：沙箱执行层（1–2 周）
 
+- **首批硬前置**：`/v1` 服务身份门控 + Gateway/Console 出站带 `X-Internal-Service`；
 - `SandboxRunner` / `BwrapRunner`；
 - `SandboxedSkillExecutor`；
 - `script_command()` 改为 `python -E -s -B`，兼容相邻模块 import；
+- 流式有界输出、只读包、每次执行独立工作目录；
 - Runtime/Worker 统一走沙箱执行器，按 `source` 选择 policy；
-- Shell 工具；
+- Skill 执行挂载 user + Agent workspace，注入 `SKILL_DATA_DIR` / `SKILL_OUTPUT_DIR`；
+- `workspace_shell` 对所有 Agent 开放；`skill_draft_shell` 走草稿副本；
+- workspace 配额/TTL 与 Worker 内置清理循环（与挂载同批，避免磁盘无界增长）；
 - 超时、取消、进程组回收、审计、fail closed；
 - 对抗测试：越权文件、网络、fork bomb、环境变量泄漏。
 
@@ -920,6 +972,7 @@ kubectl -n muad exec "$POD" -- sh -ec '
 - `skill_draft_*` / `skill_draft_shell`；
 - `source`/`author`/`review_status`/审批队列/下载；
 - 待审批覆盖、已审批锁定、自动绑定/授权；
+- 老 Skill 按 `SKILL_DATA_DIR` / `SKILL_OUTPUT_DIR` / session-manager / Linux 路径做最小改造；
 - 前端筛选、审批抽屉、`/skills` 分组。
 
 ### P3（可选）：macOS Seatbelt
@@ -934,33 +987,46 @@ kubectl -n muad exec "$POD" -- sh -ec '
 | 风险 | 说明 | 处理 |
 |---|---|---|
 | bwrap 共享内核 | 草稿、Shell、第三方包可执行未审批代码 | 文件/网络/凭据/资源边界验收；需要内核隔离时评估 gVisor/Kata |
-| 网络未做 host 白名单 | `--share-net` 可访问内网任意地址和未鉴权 Runtime `/v1` | **P0 先门控受信 API**；真正限制出网需父进程代理 |
+| 网络未做 host 白名单 | `--share-net` 与 Pod 网络一致，可访问内网其他服务和公网，包括未鉴权 Runtime `/v1` | **P1 首批先门控受信 API**；接受 Pod 网络边界，不承诺执行级出网限制 |
 | 输出洪泛 | 现有 `communicate()` 先收全量再截断 | P1 改为流式有界读取，超限终止 |
 | 共享 READY 缓存被写 | 可写 bind 会污染后续执行 | 已批准包只读；每次独立工作目录 |
 | `/proc` 不可见 | 依赖 `/proc` 的脚本/memfd state 会失败 | 强制普通只读 state 文件；self-skill-creator 说明 |
 | 内核 4.18 较老 | 安全补丁/维护状态需关注 | 运维跟进；沙箱不替代内核升级 |
-| `sandbox-exec` 可能被移除 | macOS 已标记 deprecated | 原生 dev 可退回 `dev-unsafe`；生产不受影响 |
+| `sandbox-exec` 可能被移除 | macOS 已标记 deprecated | 原生 dev 使用 `dev-unsafe`；生产不受影响 |
 | 基础镜像需重建推送 | 已构建服务镜像不会自动继承新底座 | 重建 runtime/worker；记录 base/service digest 与 bwrap commit |
 | 真实业务鉴权已做 Cookie 对照 | 受保护接口 valid=200、none=403、invalid=403 | 仍需补冷/热 session、POST/CSRF、真实包和 Worker 链路 |
 | seccomp 结论范围有限 | `seccompProfile` 为空不代表具体策略 | 最终 Pod 记录实际 seccomp/UID/caps/节点 |
-| 用户 workspace 磁盘增长 | pip/npm/node_modules/cache 可能到 GB 级 | 每用户配额、文件数上限、TTL 清理、容量规划 |
-| pip/npm 供应链与出网 | 安装及后续导入均可能执行恶意代码；registry 配置可被绕过 | 独立 net namespace + 强制受限代理；内网 mirror；安装时不提供平台 session；NetworkPolicy 仅补充 |
-| 通用 Shell 越权 | 网络开放时可访问内网其他服务 | P0 门控 Runtime API；网络 allowlist；不挂生产目录/SA token |
-| session 凭据残留 | 脚本可复制 Cookie 到持久 workspace/输出，删除临时文件不等于撤销 | 默认不提供 session；显式授权凭据能力；需要隐藏 Cookie 时由父进程代发请求 |
+| 用户 workspace 磁盘增长 | pip/npm/node_modules/cache 可能到 GB 级 | 每个 user + Agent workspace 配额、文件数上限、30 天 TTL 清理、容量规划 |
+| pip/npm 供应链与出网 | 安装及后续导入均可能执行恶意代码；可以访问公网源 | 接受 Pod 网络边界；安装到 workspace venv/node_modules；安装时不提供平台 session；不承诺包安全 |
+| 通用 Shell 越权 | 网络开放时可访问内网其他服务 | P1 首批门控 Runtime API；不挂生产目录/SA token；审计命令 |
+| session 凭据残留 | 脚本可复制 Cookie 到持久 workspace/输出，删除临时文件不等于撤销 | `workspace_shell` 不注入 session；Skill 执行按 `platforms` 注入；需要隐藏 Cookie 时由父进程代发请求 |
 | 资源限制粒度不足 | 单进程 rlimit 和 Pod cgroup 不等于执行进程树硬配额 | 加权预算与有界排队；硬隔离要求需执行级 cgroup/独立 Pod |
 
 ---
 
-## 11. 待确认
+## 11. 已确认口径与剩余问题
 
-1. P0 前置底座与 broker canary 已完成，P0.3.2/P0.4 与 P1 的验收和生产启用安排；
-2. 原生 macOS Dev 默认使用 `dev-unsafe`，还是要求 `sandbox-exec` 硬隔离；
-3. 平台脚本网络是否接受“内网放开 + session-manager 按执行上下文发登录态”；
-4. 已审批 Skill 删除时，是否提供“一键解绑 + 软删”的管理员操作（推荐提供，需二次确认和审计）；
-5. `workspace_shell` 每用户配额默认 1 GiB、空闲 TTL 30 天是否合适；
-6. 是否只允许内网 PyPI/npm 镜像，不允许公网；
-7. 哪些 Agent 允许 `workspace_shell`：全部还是白名单；
-8. 接受 bwrap 级隔离，还是要求 gVisor/Kata 级强隔离。
+已确认：
+
+1. 所有 Skill 脚本统一走 `SandboxedSkillExecutor`，按 `TRUSTED` / `UNTRUSTED` policy 区分；
+2. `workspace_shell` 对所有 Agent 默认可用，不增加 Agent 配置项；
+3. workspace 按 **tenant + user + Agent** 隔离，同一 user + Agent 跨会话共享，不同 Agent 不共享；
+4. 网络与 Pod 一致：`--share-net`，可访问 Pod 网络和公网；不做 mirror allowlist 或 egress proxy；
+5. `workspace_shell` 默认不提供 `session-manager`；平台登录态只跟 Skill 执行绑定；
+6. 接受 bwrap 级隔离；gVisor/Kata/独立 Sandbox Pod 只作为后续增强；
+7. 原生 macOS Dev 默认 `dev-unsafe`；本地 K8s 与内网 K8s 走 bwrap；
+8. 已审批 Skill 删除提供“一键解绑 + 软删”，二次确认 + 审计；
+9. 老 Skill 做最小改造适配，不做 Legacy 可写副本模式；
+10. `SKILL_OUTPUT_DIR` 每次执行独立，`SKILL_DATA_DIR` 按 user + Agent 持久化；
+11. `outputs` 与 `data` 默认 TTL 均为 30 天；
+12. 清理复用 Worker 内置维护循环，不需要管理员创建定时任务，也不新增 CronJob。
+
+剩余：
+
+1. P1 首批的排期、canary 和真实 Skill 验收安排；
+2. workspace 配额初值（每 workspace 1 GiB、每用户聚合 5 GiB）和 PVC 容量规划；
+3. 清理循环的独立节拍、批量大小和告警阈值；
+4. 旧 Skill 清单和逐包改造验收。
 
 ---
 
@@ -997,7 +1063,7 @@ GPT 的复查结论成立：**bwrap 技术选型可以保留，但不能把当�
 
 | # | 复查问题 | 处理 |
 |---|---|---|
-| 1 | `--share-net` 保留 Pod 网络，包含 loopback 与未鉴权 Runtime `/v1/runs` | **P0 阻断项**：门控整个 Runtime 受信 router（含 conversations），Gateway 的 JSON/SSE/重连等调用带内部身份；完成前不启用用户生产执行。具体调用面/性能见 §13.2 |
+| 1 | `--share-net` 保留 Pod 网络，包含 loopback 与未鉴权 Runtime `/v1/runs` | **P1 首批阻断项**：门控整个 Runtime 受信 router（含 conversations），Gateway 的 JSON/SSE/重连等调用带内部身份；完成前不启用用户生产执行。具体调用面/性能见 §13.2 |
 | 2 | `session-manager` 启动器依赖 `/bin/sh`，只 bind `/usr` 会找不到 | bwrap 参数补 `--ro-bind /bin /bin`；probe 已按此修正并通过 |
 | 3 | `sessionStateFile` 可能走 memfd，返回父进程 `/proc/<pid>/fd`，与隐藏 `/proc` 冲突 | 待实现：沙箱模式强制普通只读 state 文件；当前仅受测环境命中文件分支，不视为策略已实现 |
 | 4 | 草稿在审批前已执行代码并取得登录态，审批不能承担这段安全保障 | 草稿 Shell 从第一次执行就进沙箱；平台 key 的允许集合从受信执行身份/凭据计算，**不能只信草稿 `platforms` 声明**；审批只决定发布，不补运行期授权 |
@@ -1110,7 +1176,7 @@ pip/npm 安装四单位。假设分别预留 256/512/1024 MiB，Runtime 占 2048
 ### 14.2 Shell 工具边界
 
 `skill_draft_shell` 专用于 Skill 草稿；通用用户工作区由独立工具 `workspace_shell` 提供，
-按 Agent 能力开放。两者共用执行引擎，权限与工作区目标分别由服务端确定。
+所有 Agent 默认可用，不增加 Agent 配置项。两者共用执行引擎，权限与工作区目标分别由服务端确定。
 
 建议：
 
@@ -1120,8 +1186,8 @@ pip/npm 安装四单位。假设分别预留 256/512/1024 MiB，Runtime 占 2048
 - Python 解释器参数由框架策略统一（`-E -s -B`），`SKILL.md` 仍写 `python scripts/run.py`；
   Shell 里普通 `python` 也可用，需要完全对齐时使用受控 wrapper 或显式参数；
 - 只作用于当前用户草稿的独立副本，不挂生产 PVC、不带服务 Token；
-- 默认断网；平台访问须受信身份授权，要求平台白名单时由强制代理执行；
-- 30 秒超时、64 KiB 输出上限、禁止后台进程、杀整个进程组；
+- 网络与 Pod 一致（`--share-net`），可访问 Pod 网络和公网；`/v1` 门控是硬前置；
+- 超时、输出上限、禁止后台进程、杀整个进程组；
 - 执行后校验变更文件路径/扩展名/大小/symlink，再按 revision 回写草稿；
 - 记录 `skill_draft_shell` 审计，包含用户、草稿、命令摘要、退出码、耗时。
 
@@ -1141,7 +1207,7 @@ pip/npm 安装四单位。假设分别预留 256/512/1024 MiB，Runtime 占 2048
 ```text
 WorkspaceShellRunner（bwrap）
   ├─ target = DRAFT        # skill_draft_shell：草稿副本，执行后校验并回写
-  └─ target = USER         # workspace_shell：用户持久工作区
+  └─ target = USER         # workspace_shell：user + Agent 持久工作区
 ```
 
 两个入口共用：
@@ -1154,17 +1220,38 @@ WorkspaceShellRunner（bwrap）
 
 | 项目 | `skill_draft_shell` | `workspace_shell` |
 |---|---|---|
-| 挂载 | 当前 Skill 草稿副本 | 当前用户 workspace |
+| 挂载 | 当前 Skill 草稿副本 | 当前 user + Agent workspace |
 | 持久化 | 回写草稿，revision CAS | 跨轮持久 |
-| 授权 | Skill 编写上下文 | Agent 的 shell 能力 |
-| 网络 | 受信平台授权 + 强制出口策略，不能只信草稿 `platforms` | 默认断网；显式 allowlist |
-| 生命周期 | 草稿存在期间 | 用户空闲 TTL + 配额 |
+| 授权 | Skill 编写上下文 | 所有 Agent 默认可用，不增加配置项 |
+| 网络 | 与 Pod 一致（`--share-net`） | 与 Pod 一致（`--share-net`） |
+| 生命周期 | 草稿存在期间 | user + Agent 空闲 TTL + 配额 |
 
 模型不能传 `owner_user_id` / `workspace_id` / 任意宿主机路径；target 由服务端根据 Run
 上下文决定。
 共用构造器不代表两种 policy 的最终 argv 相同。
 
-### 14.4 按用户持久化 workspace
+### 14.4 按 user + Agent 持久化 workspace
+
+workspace 以 tenant + user + Agent 三维定位。PVC 上的目录：
+
+```text
+<workspace-root>/{tenant_id}/{user_id}/{agent_id}/
+  ├── data/                 # SKILL_DATA_DIR：持久数据
+  └── outputs/
+      └── {run_id}/         # SKILL_OUTPUT_DIR：本次执行输出
+```
+
+沙箱内只绑定当前 user + Agent 目录，根路径统一为 `/workspace`：
+
+```text
+/workspace/
+  ├── data/
+  └── outputs/{run_id}/
+```
+
+- 同一 user + Agent 跨会话共享；
+- 不同 Agent 不共享；
+- 只有当前目录进入沙箱，父进程不把 workspace 根暴露给模型。
 
 workspace 持久化的是**磁盘/PVC，不是运行内存**：
 
@@ -1173,26 +1260,46 @@ workspace 持久化的是**磁盘/PVC，不是运行内存**：
 - 只有 workspace 文件留在磁盘，page cache 可回收；
 - 主要资源风险是磁盘增长，不是常驻内存。
 
-建议默认值（待确认）：
+目录约定：
 
-| 项目 | 建议 |
+| 变量 | 沙箱内路径 | 生命周期 |
+|---|---|---|
+| `SKILL_DATA_DIR` | `/workspace/data` | user + Agent 持久，30 天未访问清理 |
+| `SKILL_OUTPUT_DIR` | `/workspace/outputs/{run_id}` | 单次执行独立，30 天清理 |
+| `/skill` | 已批准 Skill 包 | 只读，随 Artifact 版本 |
+
+- `SKILL_OUTPUT_DIR` 每次执行新建，两次执行互不影响；
+- `SKILL_DATA_DIR` 跨 Run 共享，用于 `companies`、`logs`、`cache` 等持久数据；
+- 脚本必须先判空再写；`SKILL_OUTPUT_DIR` 为空时不写文件；
+- 持久数据写入用临时文件 + `os.replace`，避免半写。
+
+默认配额（待容量验证）：
+
+| 项目 | 默认 |
 |---|---|
-| 每用户 workspace 配额 | 默认 1 GiB，最大 5 GiB |
-| 租户总配额 | 按 PVC 容量设上限 |
+| 每个 user + Agent workspace | 1 GiB |
+| 每个用户聚合 | 5 GiB |
 | 文件数上限 | 防止海量小文件拖垮 NFS |
 | 空闲 TTL | 30 天未访问自动清理 |
-| 清理前通知 | 提前 7 天提示，允许导出/延期 |
-| 活跃租约 | 跨副本协调，有执行时禁止清理；租约失效按 fencing 处理 |
-| 并发 | 初期每用户一个写命令；Pod 级共享加权预算 |
+| 清理前通知 | MVP 不做；如需要，后续再增加提前通知 |
 
 容量估算：1000 用户 × 1 GiB = 约 1 TiB；如果允许每人装大量 `pip/npm` 依赖，实际会更高，
 必须按配额做容量规划。
 
-workspace 以 tenant + PlatformUser 稳定标识定位，只有当前目录进入沙箱。
 磁盘硬配额须覆盖 venv、node_modules、pip/npm cache 和 inode；定时 `du` 或单文件 rlimit
 不能替代硬配额，需要确认 PVC/NFS 后端能否强制实施。
-多个 Agent 共用同一用户 workspace，意味着共享可执行文件和依赖；权限不同的 Agent
-应隔离 workspace 或显式接受这条信任边界。父进程、broker 和 TRUSTED 执行不能导入用户可写依赖。
+
+清理复用 Worker 现有能力：
+
+- 在 Worker 中新增 `workspace.maintenance` 同级循环，随进程启动，按自己的节拍运行；
+- **不需要管理员在 Console 创建 Schedule，也不新增 K8s CronJob 或常驻清理服务**；
+- workspace 根所在 PVC 必须同时挂到 Worker 和 Runtime（可复用现有 `muad-artifacts-rwx`，
+  也可单独建卷）；否则 Runtime 写入的文件 Worker 看不到，TTL 会算错；
+- Worker 默认多副本，清理前必须用 PG advisory lock 或 DB 认领 + 租约，避免多个副本
+  重复删除同一目录、重复计数；
+- 元数据表记录 `last_access_time`、`size_bytes`、`state`、`lease_until`；
+- 有活跃 Run/租约的 workspace 跳过；删除失败保留状态、记日志和指标，不静默吞掉；
+- 先标记 `DELETING`，再删文件，最后置 `DELETED`。
 
 “自动释放”分两层：
 
@@ -1201,7 +1308,10 @@ workspace 以 tenant + PlatformUser 稳定标识定位，只有当前目录进�
 workspace 空闲超过 TTL → 清理任务删除目录
 ```
 
-### 14.5 允许 pip/npm 的边界
+父进程、broker 和 TRUSTED 执行不能导入用户可写依赖。不同 Agent 不共享 workspace，
+避免 A Agent 的可执行文件被 B Agent 直接使用。
+
+### 14.5 pip/npm 与网络边界
 
 允许 `pip` / `npm` 等常规命令，但必须满足：
 
@@ -1210,27 +1320,24 @@ workspace 空闲超过 TTL → 清理任务删除目录
    - Node 使用 workspace 内 `node_modules`；
    - 不写 `/usr`、不写共享缓存、不改镜像。
 
-2. **网络只允许内网镜像**
-   - 只允许内网 PyPI/npm mirror；
-   - 不允许任意公网；
-   - 当前 `--share-net` 会打开整个 Pod 网络，不能直接用于通用 Shell；
-   - 独立 net namespace + 不可绕过的受限代理是安装联网的前置条件；
-     可由父进程托管，经 Unix socket/受控桥接接入，不要求新增独立 Deployment；
-   - 代理校验 host/port、DNS 解析、跳转和 CONNECT；registry/HTTP_PROXY 环境变量不能承担强制限制；
-   - 标准 NetworkPolicy 按 Pod 生效，不能区分同 Pod 的 Runtime/Shell，也不能阻断 localhost，
-     仅作外围补充，不能替代当前架构里的执行级代理。
-     边界见 [Kubernetes NetworkPolicy 官方说明](https://kubernetes.io/docs/concepts/services-networking/network-policies/)。
+2. **网络与 Pod 一致**
+   - 沙箱使用 `--share-net`，与 Pod 网络完全一致；
+   - 可访问 Pod 网络内服务；Pod 有公网出口时也可访问公网；
+   - 不做内网 mirror allowlist，不做 egress proxy；
+   - `/v1` 受信 API 门控是硬前置，否则 Shell 可以直接打 Runtime 内部接口；
+   - 内网其他服务必须依赖自身鉴权；NetworkPolicy 只作为外围补充，不能区分同 Pod 内的
+     Runtime/Shell，也不能替代执行级出网限制。
 
 3. **文件与凭据边界**
-   - 只挂当前用户 workspace；
+   - 只挂当前 user + Agent workspace；
    - 不挂 `/mnt/muad-artifacts`、其他用户 workspace、`/var/run`、Docker socket；
    - 不挂 Kubernetes ServiceAccount Token；
    - 不把 `INTERNAL_SERVICE_TOKEN`、DB/Redis 连接串传入沙箱；
-   - 通用 Shell 默认不创建 session-manager socket；只有显式声明平台
-     且用户有权限时才提供。
+   - `workspace_shell` 不创建 session-manager socket；平台登录态只在
+     `execute_skill` / `run_skill_script` 中按 Skill `platforms` 注入；
    - 安装阶段不提供平台 session；显式提供 session 时承认脚本可读取 Cookie，不能再称为无凭据；
-   - 内网 mirror 只限制来源，不证明包安全；受控依赖可锁版本/哈希及限制源码包，
-     安装脚本、后续 import 和持久启动钩子始终按任意代码处理。
+   - 公网源不证明包安全；受控依赖可锁版本/哈希及限制源码包，安装脚本、后续 import
+     和持久启动钩子始终按任意代码处理。
 
 4. **资源与清理**
    - 超时、输出上限、`RLIMIT_AS/CPU/NPROC/FSIZE`；
@@ -1244,23 +1351,30 @@ workspace 空闲超过 TTL → 清理任务删除目录
    - 管理员可查。
 
 **不能承诺“绝对没有漏洞”**：bwrap 与 Runtime 共享内核；`pip/npm` 会执行第三方安装
-脚本；供应链包本身可能恶意；如果网络放开，恶意包可以外传 workspace 数据。准确表述是：
+脚本；供应链包本身可能恶意；网络与 Pod 一致意味着恶意包可以外传 workspace 数据。准确表述是：
 
-> bwrap + 强制网络约束 + 最小凭据 + 配额 + 审计可以降低风险。独立 Sandbox Pod 增强网络、
-> ServiceAccount 和 cgroup 边界；gVisor/Kata 增强内核隔离，两者不等价，出口策略仍需单独落实。
+> bwrap + 最小凭据 + 配额 + 审计可以降低风险，但不提供执行级网络白名单。需要限制出网时，
+> 必须另行引入独立 net namespace 和强制出口代理；独立 Sandbox Pod、gVisor/Kata 增强的是
+> 网络/内核边界，不能自动替代出口策略。
 
 ### 14.6 落地阶段
 
-1. **第一阶段**：`workspace_shell` 上线，默认断网，只允许镜像内已有依赖；先做配额、
-   TTL、并发、审计。覆盖处理文件、跑脚本、格式转换等大部分场景。
-2. **第二阶段**：强制出口策略通过绕过/拒绝路径验收后接入内网 PyPI/npm mirror，
-   允许安装到 workspace venv/node_modules；cache 计入硬配额，安装时不提供平台 session。
-3. **第三阶段**：按需求增加独立 Sandbox Pod 的网络/资源边界，或 gVisor/Kata 的内核隔离。
+1. **第一阶段**：`workspace_shell` 与统一 Skill 执行器上线；bwrap、`--share-net`、
+   配额/TTL（30 天）、并发、审计先落地；`/v1` 门控和流式输出是同一批硬前置。
+2. **第二阶段**：用户自建 Skill 的草稿、审批、owner、下载；老 Skill 按
+   `SKILL_DATA_DIR` / `SKILL_OUTPUT_DIR` / session-manager / Linux 路径做最小改造。
+3. **第三阶段**：按需求增加独立 Sandbox Pod、gVisor/Kata 等更强边界；不改变上层工具契约。
 
-### 14.7 待确认
+### 14.7 已确认口径
 
-1. 每用户 workspace 配额默认 1 GiB 是否合适？
-2. 空闲 TTL 30 天是否合适？
-3. 是否只允许内网 PyPI/npm 镜像，不允许公网？
-4. 哪些 Agent 允许 `workspace_shell`：全部还是白名单？
-5. 接受 bwrap 级隔离，还是要求 gVisor/Kata 级强隔离？
+| 项目 | 结论 |
+|---|---|
+| workspace 粒度 | tenant + user + Agent |
+| 配额 | 每个 workspace 1 GiB、每用户聚合 5 GiB（待容量验证） |
+| TTL | `outputs` 30 天、`data` 30 天 |
+| 网络 | 与 Pod 一致，`--share-net`，允许公网 |
+| 安装 | pip/npm 装到 workspace，不装系统 |
+| `workspace_shell` | 所有 Agent 默认可用，无 session-manager |
+| Skill 执行 | `/skill` 只读 + `/workspace` 可写 + 按 `platforms` 注入 session-manager |
+| 隔离 | bwrap；更强隔离后续评估 |
+| 清理 | Worker 内置维护循环，多副本认领；管理员不创建定时任务 |
