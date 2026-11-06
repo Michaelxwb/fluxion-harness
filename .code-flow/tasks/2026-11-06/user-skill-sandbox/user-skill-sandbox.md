@@ -941,6 +941,8 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 | B-04 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_b_04.py` → 1 failed（`listed_keys` 仅含 `b04-selected-granted`，缺无绑定的 `b04-system`） | 2 passed（`test_b_04.py`） | `tests/acceptance/user_skill_sandbox/test_b_04.py:334,335,344,347,362,377,394` | 真实 PostgreSQL `control.skill`/`agent_skill_binding`/`skill_user_grant` → `SkillRepository` list/count → `/internal/channel/skills` catalog → `/internal/runtime/resolve-definition` execution → `build_task_snapshot`：SYSTEM 无 binding 在五个入口均可见；无 binding 的 ADMIN/ALL、SELECTED 未授权、disabled SYSTEM、其他租户 SYSTEM 均不进入；第二 Agent 只看到 SYSTEM 与自己绑定的普通 Skill，普通 Skill 未被系统分支放大 | passed |
 - S-09: verified — automated command passed; run_id=503748cde8b948d4bf607516aafd542c (confirmed_by: runner)
 - B-04: verified — automated command passed; run_id=503748cde8b948d4bf607516aafd542c (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=b94c5d3330624691b61a088e64f477e0 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=b94c5d3330624691b61a088e64f477e0 (confirmed_by: runner)
 
 ### Log
 
