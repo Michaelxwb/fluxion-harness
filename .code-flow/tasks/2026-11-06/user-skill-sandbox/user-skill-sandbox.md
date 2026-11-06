@@ -80,7 +80,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | S-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 内部 API → Draft Store/PVC → PG revision | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | TASK-009 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | TASK-004 | deferred | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | . | 600 | P0 | deferred | local | - | - | - | no |
+| S-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | TASK-004 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | . | 600 | P0 | deferred | local | - | - | - | no |
 | S-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → SkillValidator → Artifact Store → PG | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批事务 → PG → 审计 | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -349,7 +349,7 @@
 
 ## TASK-004: session-manager 注入、state 文件与旧 stdout 兼容
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003
 - **Source**: user-skill-sandbox.backend.design.md#3.2 架构设计, user-skill-sandbox.backend.design.md#3.4 接口设计
@@ -365,23 +365,23 @@
 
 ### Checklist
 
-- [ ] 交付 `Skill 执行/草稿 Shell 可通过 session-manager 获取登录态；旧 `login-mssp-platform` 不改代码可运行`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 按受信 Run/Task 身份、凭据模式和平台权限计算允许集合，不只信 Skill 声明
-- [ ] 注入 `MUAD_SESSION_SOCKET`/PATH，bind `/bin`；`workspace_shell` 不注入
-- [ ] state 文件放执行专属只读目录，不用 memfd/`/proc`；执行结束删除
-- [ ] stdout 返回 `sessionStateFile` + `platforms` list（platform/source/expiresAt）；state 文件内部仍是 dict
-- [ ] broker 连接/并发/请求/state 文件数有执行级预算；Cookie 不写日志
-- [ ] [S-03][integration] 草稿 Shell 获取 mssp state，执行结束文件删除
-- [ ] [S-13][manual] 旧 login-mssp-platform 不改代码通过真实平台
-- [ ] [S-22][manual] 有效/无/无效 Cookie 正负向对照
-- [ ] [harness-project-platform#RULE-platform-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_session_manager.py tests/platform_sdk/test_skill_bridge.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `Skill 执行/草稿 Shell 可通过 session-manager 获取登录态；旧 `login-mssp-platform` 不改代码可运行`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 按受信 Run/Task 身份、凭据模式和平台权限计算允许集合，不只信 Skill 声明
+- [x] 注入 `MUAD_SESSION_SOCKET`/PATH，bind `/bin`；`workspace_shell` 不注入
+- [x] state 文件放执行专属只读目录，不用 memfd/`/proc`；执行结束删除
+- [x] stdout 返回 `sessionStateFile` + `platforms` list（platform/source/expiresAt）；state 文件内部仍是 dict
+- [x] broker 连接/并发/请求/state 文件数有执行级预算；Cookie 不写日志
+- [x] [S-03][integration] 草稿 Shell 获取 mssp state，执行结束文件删除
+- [x] [S-13][manual] 旧 login-mssp-platform 不改代码通过真实平台（登记 manual_pending，待内网真实平台）
+- [x] [S-22][manual] 有效/无/无效 Cookie 正负向对照（登记 manual_pending，待内网受保护接口）
+- [x] [harness-project-platform#RULE-platform-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_session_manager.py tests/platform_sdk/test_skill_bridge.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-03 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | session-manager get-state 返回 sessionStateFile 和 platforms list；state 文件内可读取 cookies 与 requestProfile；执行结束 state 文件删除；未授权平台返回 PLATFORM_SESSION_REQUIRED | tests/acceptance/user_skill_sandbox/test_s_03.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | deferred |
+| S-03 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | session-manager get-state 返回 sessionStateFile 和 platforms list；state 文件内可读取 cookies 与 requestProfile；执行结束 state 文件删除；未授权平台返回 PLATFORM_SESSION_REQUIRED | tests/acceptance/user_skill_sandbox/test_s_03.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | e2e_deferred |
 | S-13 | integration | 真实 Runtime → 真实 Console/Redis → 真实 mssp 平台 → 旧 Skill 脚本 | 旧脚本不修改即可调用 session-manager get-state；stdout platforms list 包含 mssp 和 expiresAt；退出码 0，输出 ok/expiresAt | manual | - | manual_pending |
 | S-22 | integration | 真实 Console/Redis → 真实平台受保护接口 | 有效 Cookie 200；无 Cookie 403；无效 Cookie 403；响应正文不写入证据/日志 | manual | - | manual_pending |
 
@@ -397,13 +397,19 @@
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-03 | - | - | - | - | pending |
-| S-13 | - | - | - | - | pending |
-| S-22 | - | - | - | - | pending |
+| S-03 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_03.py` → failed：旧 stdout 无 `platforms`，旧脚本 `KeyError: 'platforms'`；bwrap 场景 `FileNotFoundError: session-manager` | 同命令 → `2 passed`；`uv run pytest -q tests/acceptance/user_skill_sandbox/test_session_manager.py` → `4 passed`；bwrap 探针 `state_path=/tmp/fx-session/state/state-*.json`、`proc_path=false`、`bin_sh=true`、`leftover_session_dirs=[]` | `tests/acceptance/user_skill_sandbox/test_s_03.py::test_s03_session_state_file_and_legacy_stdout`、`::test_s03_unauthorized_platform_returns_platform_session_required`；`test_session_manager.py::test_sandboxed_executor_exposes_session_manager_inside_bwrap`、`::test_session_manager_state_is_bound_to_execution_and_deleted` | 真实 Redis 隔离库 + 真实 `AuthPlatformServer` HTTP 登录 + Console resolve 记录桩（校验 `X-Internal-Service`/租户/actor）+ 真实 Unix socket + 真实 `session_cli.py`；bwrap 在 `muad-skill-executor-probe`（真实 `BwrapRunner`，bwrap 0.13.2）内执行，未 mock 登录态/文件系统 | verified |
+| S-13 | - | manual_pending：旧脚本契约由 S-03 的 legacy probe（stdout `platforms` list + state dict + expiresAt）覆盖；真实内网 mssp 平台凭据不可得 | `tests/acceptance/user_skill_sandbox/test_s_03.py` | 验收方式：内网真实 Runtime/Console/Redis + 真实 mssp 平台运行未修改的 `login-mssp-platform`，断言退出码 0、stdout 含 mssp/expiresAt；由 TASK-019 在目标环境执行并回填 | manual_pending |
+| S-22 | - | manual_pending：需要真实受保护业务接口与浏览器 Cookie；本地只有测试平台桩 | - | 验收方式：`TEST_COOKIE_MODE=valid/none/invalid` 对照 200/403/403，响应正文不写入证据/日志；内网执行时只记录状态码与脱敏字段 | manual_pending |
+- S-03: e2e_deferred — automated command e2e_deferred; run_id=1167f7e8c2bf4e32b37e18e65a83bf24 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-06] started
+- [2026-11-06] RED：`tests/platform_sdk/test_skill_bridge.py` collection ImportError（`SessionBrokerBudget` 不存在）；`test_s_03.py` 旧 stdout `KeyError: 'platforms'`；bwrap 探针 `FileNotFoundError: session-manager`（`SandboxedSkillExecutor` 未注入）。
+- [2026-11-06] GREEN：broker 改为执行专属普通 state 文件（`state/` 只读 bind，不再 memfd/`/proc`），stdout 同时返回 `platforms` list；`SandboxedSkillExecutor` 注入 `MUAD_SESSION_SOCKET`/PATH 与 broker mounts，`workspace_shell` 不注入；`SkillPlatformAccess.allowed_keys()` 用 Console 决策收敛候选平台；broker 增加连接/请求/state 文件预算与不泄密错误路径。验收：broker `10 passed`、S-03 `2 passed`、session-manager `4 passed`；RULE-platform-001 verifier 同命令通过。
+- [2026-11-06] S-13/S-22：需要内网真实 mssp 平台/受保护接口与凭据，登记 manual_pending（边界与验收方式见 Acceptance Evidence），由需求级终验确认。
+- [2026-11-06] completed (done)
 
 ---
 

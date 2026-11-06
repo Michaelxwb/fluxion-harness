@@ -613,6 +613,13 @@
         "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py",
         "apps/console-platform/frontend/src/modules/skill-management/**"
       ],
+      "suite": "browser",
+      "test_ids": [
+        "e2e/tests/skill-self-service-approve.spec.ts:4@chrome"
+      ],
+      "markers": [
+        "smoke"
+      ],
       "collect": {
         "argv": [
           "e2e/node_modules/.bin/playwright",
@@ -625,14 +632,7 @@
         ],
         "format": "playwright",
         "timeout": 10
-      },
-      "test_ids": [
-        "e2e/tests/skill-self-service-approve.spec.ts:4@chrome"
-      ],
-      "markers": [
-        "smoke"
-      ],
-      "suite": "browser"
+      }
     },
     {
       "id": "CHK-93b18376d573",
@@ -655,6 +655,11 @@
         "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py",
         "apps/console-platform/frontend/src/modules/skill-management/**"
       ],
+      "suite": "browser",
+      "test_ids": [
+        "e2e/tests/skill-self-service-delete.spec.ts:4@chrome"
+      ],
+      "markers": [],
       "collect": {
         "argv": [
           "e2e/node_modules/.bin/playwright",
@@ -667,12 +672,7 @@
         ],
         "format": "playwright",
         "timeout": 10
-      },
-      "test_ids": [
-        "e2e/tests/skill-self-service-delete.spec.ts:4@chrome"
-      ],
-      "markers": [],
-      "suite": "browser"
+      }
     },
     {
       "id": "CHK-8acf6c8efcf7",
@@ -1135,7 +1135,7 @@
       "kind": "functional",
       "boundary": "Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件",
       "owner": "TASK-004",
-      "status": "deferred",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1204,7 +1204,82 @@
       "defer_reason": "需要内网真实平台凭据和隔离测试环境",
       "target_phase": "ci",
       "defer_owner": "TASK-004",
-      "check": "CHK-1acede229a5f"
+      "check": "CHK-1acede229a5f",
+      "revision": 1,
+      "evidence": {
+        "id": "S-03",
+        "kind": "functional",
+        "status": "e2e_deferred",
+        "check_config": {
+          "id": "CHK-1acede229a5f",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_s_03.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "1167f7e8c2bf4e32b37e18e65a83bf24",
+        "executed_at": "2026-11-06T14:43:01.063927+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_03.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-1acede229a5f",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/user_skill_sandbox/test_s_03.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "1167f7e8c2bf4e32b37e18e65a83bf24",
+          "executed_at": "2026-11-06T14:43:01.063927+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_s_03.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -8265,12 +8340,59 @@
   "scenarios_file": "user-skill-sandbox.scenarios.md",
   "e2e_gate": 1,
   "quality_schema": 2,
-  "registration": {
-    "ok": true,
-    "registered": [
-      "CHK-d4036e877e26",
-      "CHK-93b18376d573"
+  "relock": {
+    "preserved": [
+      "S-01",
+      "S-02",
+      "S-03",
+      "S-04",
+      "S-05",
+      "S-06",
+      "S-07",
+      "S-08",
+      "S-09",
+      "S-10",
+      "S-11",
+      "B-01",
+      "S-13",
+      "S-14",
+      "S-15",
+      "E-01",
+      "E-02",
+      "E-03",
+      "E-04",
+      "S-20",
+      "E-05",
+      "S-22",
+      "E-06",
+      "S-24",
+      "B-02",
+      "S-26",
+      "E-07",
+      "E-08",
+      "B-03",
+      "E-09",
+      "E-10",
+      "E-11",
+      "B-04",
+      "E-12",
+      "S-35",
+      "S-36",
+      "S-37",
+      "E-13",
+      "S-39",
+      "S-40",
+      "S-41",
+      "E-14",
+      "E-15",
+      "E-16",
+      "S-45",
+      "S-46",
+      "S-47",
+      "S-48",
+      "E-17"
     ],
-    "errors": []
+    "stale": [],
+    "removed": []
   }
 }

@@ -81,6 +81,7 @@ class DevUnsafeRunner:
             spec.env,
             default_path=default_host_path(),
             home="/tmp",
+            extra_keys=spec.policy.env_inject,
         )
         return await _execute(
             spec,
@@ -268,11 +269,7 @@ async def _execute(
     stderr_task = asyncio.create_task(stderr.pump(process.stderr))
     wait_task = asyncio.create_task(process.wait())
     stdin_task = asyncio.create_task(_write_stdin(process, spec.stdin))
-    cancel_task = (
-        asyncio.create_task(spec.cancel_event.wait())
-        if spec.cancel_event is not None
-        else None
-    )
+    cancel_task = asyncio.create_task(spec.cancel_event.wait()) if spec.cancel_event is not None else None
 
     timed_out = cancelled = overflow = False
     try:
@@ -286,9 +283,7 @@ async def _execute(
             if remaining <= 0:
                 timed_out = True
                 break
-            done, _ = await asyncio.wait(
-                watched, timeout=remaining, return_when=asyncio.FIRST_COMPLETED
-            )
+            done, _ = await asyncio.wait(watched, timeout=remaining, return_when=asyncio.FIRST_COMPLETED)
             if not done:
                 timed_out = True
                 break
@@ -321,9 +316,7 @@ async def _execute(
         if cancelled:
             raise SandboxCancelled("sandbox execution was cancelled", result=result)
         if timed_out:
-            raise SandboxTimeout(
-                f"sandbox execution exceeded {spec.timeout_sec:g}s", result=result
-            )
+            raise SandboxTimeout(f"sandbox execution exceeded {spec.timeout_sec:g}s", result=result)
         return result
     except asyncio.CancelledError:
         await _terminate(process, wait_task)

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
@@ -120,8 +120,7 @@ def _is_forbidden_mount_path(path: str) -> bool:
     if normalized in _FORBIDDEN_MOUNT_EXACT:
         return True
     return any(
-        normalized == prefix or normalized.startswith(prefix + "/")
-        for prefix in _FORBIDDEN_MOUNT_PREFIXES
+        normalized == prefix or normalized.startswith(prefix + "/") for prefix in _FORBIDDEN_MOUNT_PREFIXES
     )
 
 
@@ -141,8 +140,7 @@ def _validate_mount_source(source: Path) -> None:
     if normalized in _FORBIDDEN_SOURCE_EXACT or normalized in _FORBIDDEN_MOUNT_EXACT:
         raise SandboxUnavailable(f"forbidden sandbox mount source: {text!r}")
     if any(
-        normalized == prefix or normalized.startswith(prefix + "/")
-        for prefix in _FORBIDDEN_SOURCE_PREFIXES
+        normalized == prefix or normalized.startswith(prefix + "/") for prefix in _FORBIDDEN_SOURCE_PREFIXES
     ):
         raise SandboxUnavailable(f"forbidden sandbox mount source: {text!r}")
 
@@ -203,6 +201,9 @@ class SandboxPolicy:
     dev_unsafe: bool = False
     env_allowlist: tuple[str, ...] = SANDBOX_ENV_ALLOWLIST
     env_prefixes: tuple[str, ...] = SANDBOX_ENV_PREFIXES
+    #: 执行器可信注入的额外 env 键（如执行专属 ``MUAD_SESSION_SOCKET``）；
+    #: 与 allowlist 分开，避免调用方把任意同名键塞进沙箱。
+    env_inject: tuple[str, ...] = ()
     limits: SandboxLimits = field(default_factory=SandboxLimits)
     system_mounts: tuple[SandboxMount, ...] = field(default_factory=_system_mounts)
 
@@ -210,6 +211,7 @@ class SandboxPolicy:
         object.__setattr__(self, "profile", SandboxProfile(self.profile))
         object.__setattr__(self, "env_allowlist", tuple(self.env_allowlist))
         object.__setattr__(self, "env_prefixes", tuple(self.env_prefixes))
+        object.__setattr__(self, "env_inject", tuple(self.env_inject))
         object.__setattr__(self, "system_mounts", tuple(self.system_mounts))
         self.validate()
 
@@ -218,11 +220,11 @@ class SandboxPolicy:
             raise SandboxUnavailable("invalid sandbox policy: network/dev_unsafe must be bool")
         for key in self.env_allowlist:
             _validate_env_name(key, where="env_allowlist")
+        for key in self.env_inject:
+            _validate_env_name(key, where="env_inject")
         for prefix in self.env_prefixes:
             if not prefix.endswith("_") or not prefix.replace("_", "").isalnum():
-                raise SandboxUnavailable(
-                    f"invalid sandbox policy: env prefix {prefix!r} must end with '_'"
-                )
+                raise SandboxUnavailable(f"invalid sandbox policy: env prefix {prefix!r} must end with '_'")
         targets: set[str] = set()
         for mount in self.system_mounts:
             if not isinstance(mount, SandboxMount):
@@ -242,9 +244,15 @@ class SandboxPolicy:
         *,
         dev_unsafe: bool = False,
         limits: SandboxLimits | None = None,
+        env_inject: tuple[str, ...] = (),
     ) -> SandboxPolicy:
         profile = _profile_for_source(source)
-        return cls(profile=profile, dev_unsafe=dev_unsafe, limits=limits or SandboxLimits())
+        return cls(
+            profile=profile,
+            dev_unsafe=dev_unsafe,
+            limits=limits or SandboxLimits(),
+            env_inject=env_inject,
+        )
 
 
 def _profile_for_source(source: str) -> SandboxProfile:
@@ -325,15 +333,17 @@ def sanitize_env(
     *,
     default_path: str,
     home: str = "/tmp",
+    extra_keys: Iterable[str] = (),
 ) -> dict[str, str]:
-    """只保留 allowlist + ``SKILL_*``/``MUAD_SKILL_*``，并强制 ``HOME``。
+    """只保留 allowlist + ``SKILL_*``/``MUAD_SKILL_*`` + 执行器显式注入键。
 
     服务 Token、DB/Redis DSN、云凭据即使被调用方误传，也不会进入沙箱。
     """
+    injected = {str(key) for key in extra_keys}
     sanitized: dict[str, str] = {}
     for key, value in env.items():
         key = str(key)
-        if key in SANDBOX_ENV_ALLOWLIST:
+        if key in injected or key in SANDBOX_ENV_ALLOWLIST:
             if key == "HOME":
                 continue
             if value:

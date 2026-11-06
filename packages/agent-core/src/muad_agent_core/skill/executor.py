@@ -45,8 +45,8 @@ class ScriptSkillExecutor:
             if request.platform_context and request.platform_context.platform_keys:
                 root, _ = locate_package_root(request.ready_dir)
                 name = SkillPackage.load(root).manifest.name
-            async with skill_platform_environment(request.platform_context, name) as env:
-                return await self._execute(replace(request, env={**request.env, **env}))
+            async with skill_platform_environment(request.platform_context, name) as session:
+                return await self._execute(replace(request, env={**request.env, **session.env}))
         except SkillPackageError as exc:
             raise SkillExecutionError(exc.message) from exc
         except PlatformAuthError as exc:
@@ -96,9 +96,7 @@ async def _collect(
     request: SkillExecutionRequest,
 ) -> tuple[SkillExecutionStatus, bytes, bytes]:
     stdin_payload = json.dumps(dict(request.input), ensure_ascii=False).encode("utf-8")
-    communicate: asyncio.Task[tuple[bytes, bytes]] = asyncio.ensure_future(
-        process.communicate(stdin_payload)
-    )
+    communicate: asyncio.Task[tuple[bytes, bytes]] = asyncio.ensure_future(process.communicate(stdin_payload))
     cancel_waiter = asyncio.ensure_future(request.cancel_event.wait()) if request.cancel_event else None
     timed_out = False
     cancelled = False
@@ -167,9 +165,7 @@ def _signal_group(process: asyncio.subprocess.Process, sig: int) -> None:
             process.send_signal(sig)
 
 
-async def _terminate(
-    process: asyncio.subprocess.Process, communicate: asyncio.Future[Any]
-) -> None:
+async def _terminate(process: asyncio.subprocess.Process, communicate: asyncio.Future[Any]) -> None:
     """超时/取消时回收**整棵进程树**。
 
     这里**不按 `process.returncode` 早返回**：子进程自己先退出、而它 spawn 的孙进程还抓着

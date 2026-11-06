@@ -17,11 +17,15 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path
 
-from muad_skill_sdk.skill_package import SkillPackageError, locate_package_root
+from muad_platform_sdk.adapter.mss_config import PlatformAuthError
+from muad_platform_sdk.skill_bridge import PlatformSessionEnvironment, skill_platform_environment
+from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
+from redis.exceptions import RedisClusterException, RedisError
 
 from ..sandbox import (
     SandboxCancelled,
     SandboxError,
+    SandboxMount,
     SandboxOutputLimit,
     SandboxPolicy,
     SandboxResult,
@@ -54,6 +58,8 @@ _SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 _WORKSPACE_DATA = "data"
 _WORKSPACE_OUTPUTS = "outputs"
 _OUTPUT_LIMIT_NOTICE = "SANDBOX_OUTPUT_LIMIT"
+#: 沙箱内 broker 目录固定挂载点；每个 bwrap 进程有独立 mount namespace。
+SESSION_SANDBOX_ROOT = "/tmp/fx-session"
 
 
 class SandboxedSkillExecutor:
@@ -89,7 +95,66 @@ class SandboxedSkillExecutor:
             runner = self._require_runner()
         except SandboxUnavailable as exc:
             raise SkillExecutionError(str(exc), code="SANDBOX_UNAVAILABLE") from exc
+        try:
+            return await self._execute_with_session(
+                request, source, package_root, script, workspace, output_dir, execution_id, runner
+            )
+        except PlatformAuthError as exc:
+            raise SkillExecutionError(exc.code, code=exc.code) from None
+        except (RedisError, RedisClusterException):
+            raise SkillExecutionError(
+                "PLATFORM_SESSION_STORE_UNAVAILABLE",
+                code="PLATFORM_SESSION_STORE_UNAVAILABLE",
+            ) from None
+
+    async def _execute_with_session(
+        self,
+        request: SkillExecutionRequest,
+        source: str,
+        package_root: Path,
+        script: Path,
+        workspace: Path,
+        output_dir: Path,
+        execution_id: str,
+        runner: SandboxRunner,
+    ) -> SkillExecutionResult:
+        """按受信 platform_context 注入 session-manager；无平台时行为不变。"""
         dev_unsafe = getattr(runner, "name", "") == "dev-unsafe"
+        skill_name = ""
+        if request.platform_context and request.platform_context.platform_keys:
+            skill_name = _package_skill_name(package_root)
+        async with skill_platform_environment(
+            request.platform_context,
+            skill_name,
+            sandbox_root=None if dev_unsafe else SESSION_SANDBOX_ROOT,
+        ) as session:
+            return await self._run_in_sandbox(
+                request,
+                source,
+                package_root,
+                script,
+                workspace,
+                output_dir,
+                execution_id,
+                runner,
+                dev_unsafe=dev_unsafe,
+                session=session,
+            )
+
+    async def _run_in_sandbox(  # noqa: PLR0913 - 执行参数在装配处已冻结
+        self,
+        request: SkillExecutionRequest,
+        source: str,
+        package_root: Path,
+        script: Path,
+        workspace: Path,
+        output_dir: Path,
+        execution_id: str,
+        runner: SandboxRunner,
+        *,
+        dev_unsafe: bool,
+        session: PlatformSessionEnvironment,
+    ) -> SkillExecutionResult:
         host_path = os.environ.get("PATH", os.defpath)
         command = script_command(
             script if dev_unsafe else sandbox_script_path(package_root, script),
@@ -98,13 +163,18 @@ class SandboxedSkillExecutor:
         data_dir = workspace / _WORKSPACE_DATA
         env = {
             **dict(request.env),
+            **session.env,
             "SKILL_DATA_DIR": str(data_dir) if dev_unsafe else f"/workspace/{_WORKSPACE_DATA}",
             "SKILL_OUTPUT_DIR": str(output_dir)
             if dev_unsafe
             else f"/workspace/{_WORKSPACE_OUTPUTS}/{execution_id}",
         }
         spec = SandboxSpec(
-            policy=SandboxPolicy.for_source(source, dev_unsafe=self._dev_unsafe),
+            policy=SandboxPolicy.for_source(
+                source,
+                dev_unsafe=self._dev_unsafe,
+                env_inject=("MUAD_SESSION_SOCKET",) if session.env else (),
+            ),
             command=command,
             workspace_dir=workspace,
             package_dir=package_root,
@@ -114,6 +184,10 @@ class SandboxedSkillExecutor:
             cancel_event=request.cancel_event,
             stdin=json.dumps(dict(request.input), ensure_ascii=False).encode("utf-8"),
             cwd=str(workspace) if dev_unsafe else "/skill",
+            mounts=tuple(
+                SandboxMount(source=mount.source, target=mount.target, readonly=mount.readonly)
+                for mount in session.mounts
+            ),
             name=f"skill:{source}:{execution_id}",
         )
         started = time.monotonic()
@@ -132,23 +206,21 @@ class SandboxedSkillExecutor:
             status = SkillExecutionStatus.FAILED
             output_notice = _OUTPUT_LIMIT_NOTICE
         except SandboxTimeout as exc:
-            sandbox_result = exc.result or SandboxResult(
-                exit_code=None, stdout="", stderr="", duration_ms=0
-            )
+            sandbox_result = exc.result or SandboxResult(exit_code=None, stdout="", stderr="", duration_ms=0)
             status = SkillExecutionStatus.TIMED_OUT
             output_notice = None
         except SandboxCancelled as exc:
-            sandbox_result = exc.result or SandboxResult(
-                exit_code=None, stdout="", stderr="", duration_ms=0
-            )
+            sandbox_result = exc.result or SandboxResult(exit_code=None, stdout="", stderr="", duration_ms=0)
             status = SkillExecutionStatus.CANCELLED
             output_notice = None
         except SandboxUnavailable as exc:
-            self._emit(SkillExecutionEvent(
-                source=source,
-                status=SkillExecutionStatus.FAILED,
-                duration_ms=int((time.monotonic() - started) * 1000),
-            ))
+            self._emit(
+                SkillExecutionEvent(
+                    source=source,
+                    status=SkillExecutionStatus.FAILED,
+                    duration_ms=int((time.monotonic() - started) * 1000),
+                )
+            )
             raise SkillExecutionError(str(exc), code="SANDBOX_UNAVAILABLE") from exc
         except SandboxError as exc:
             sandbox_result = exc.result or SandboxResult(
@@ -168,9 +240,7 @@ class SandboxedSkillExecutor:
             status=status,
             stdout=sandbox_result.stdout,
             stderr=sandbox_result.stderr,
-            result=parse_result(sandbox_result.stdout)
-            if status is SkillExecutionStatus.SUCCEEDED
-            else None,
+            result=parse_result(sandbox_result.stdout) if status is SkillExecutionStatus.SUCCEEDED else None,
             duration_ms=duration_ms,
             exit_code=sandbox_result.exit_code,
             outputs=outputs,
@@ -239,6 +309,14 @@ def resolve_package_root(ready_dir: Path) -> Path:
     return located.resolve()
 
 
+def _package_skill_name(package_root: Path) -> str:
+    """broker 只认本次执行包的 SKILL.md 名称；Skill 无法用参数换身份。"""
+    try:
+        return SkillPackage.load(package_root).manifest.name
+    except SkillPackageError as exc:
+        raise SkillExecutionError(exc.message, code="SKILL_PACKAGE_INVALID") from exc
+
+
 def _safe_component(value: str, label: str) -> str:
     text = str(value)
     if not text or text in {".", ".."} or not _SAFE_COMPONENT_RE.fullmatch(text):
@@ -248,9 +326,7 @@ def _safe_component(value: str, label: str) -> str:
     return text
 
 
-def _prepare_workspace(
-    request: SkillExecutionRequest, package_root: Path
-) -> tuple[Path, Path, str]:
+def _prepare_workspace(request: SkillExecutionRequest, package_root: Path) -> tuple[Path, Path, str]:
     execution_id = _safe_component(request.execution_id or uuid.uuid4().hex, "execution_id")
     if request.workspace_dir is None:
         workspace = Path(tempfile.mkdtemp(prefix="muad-skill-workspace-")).resolve()
@@ -294,6 +370,7 @@ def build_sandboxed_skill_executor(
 
 
 __all__ = [
+    "SESSION_SANDBOX_ROOT",
     "SandboxedSkillExecutor",
     "VALID_SOURCES",
     "build_sandboxed_skill_executor",
