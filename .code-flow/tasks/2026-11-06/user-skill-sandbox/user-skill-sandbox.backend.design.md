@@ -694,6 +694,7 @@ erDiagram
         "review_status": "PENDING",
         "user_scope": "SELECTED",
         "enabled": true,
+        "platforms": ["mssp"],
         "current_version": "1.0.0",
         "agent_count": 1,
         "user_count": 1,
@@ -713,6 +714,8 @@ erDiagram
 **错误码**：`COMMON_VALIDATION_ERROR`、`COMMON_FORBIDDEN`。
 
 **处理逻辑**：`SkillService.list_skills` 增加 `source`/`review_status` 过滤；`skill_list_item` 增加字段；SYSTEM Skill 对所有租户用户可见的 effective 查询在 `SkillRepository` 统一处理，覆盖 `list`/`count`/`catalog`/`snapshot`/`execution` 所有入口。
+
+> 现有 `platforms`（artifact frontmatter 列表）和 `platform_label` 继续返回并展示；本需求不新增 Skill 表平台关联字段，也不移除 `SkillPlatforms` 列/详情 hint。
 
 ##### API-02: 导入 Skill（扩展 source）
 

@@ -843,6 +843,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 - [ ] 交付 `新增/扩展接口统一封套与错误码；审计/指标可查；日志不泄密`，并提供可重复的演示命令/操作（1–2 天可完成）
 - [ ] 错误码表含 `SKILL_KEY_EXISTS`/`SKILL_APPROVED_LOCKED`/`DRAFT_*`/`SANDBOX_*`/`WORKSPACE_*`/`PLATFORM_SESSION_*`
+- [ ] API-01/详情保留现有 `platforms`/`platform_label` 字段，不因 source/审批改造移除
 - [ ] Console/内部 API 统一封套与分页上限；业务只抛 error code
 - [ ] zh-CN/en-US 词条；用户侧不含堆栈/宿主路径/Token
 - [ ] 审计覆盖创建/提交/审批/下载/解绑/执行/清理；指标可查
@@ -903,6 +904,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 - [ ] 交付 `管理员在 Console 完成 source/审批筛选、审批/驳回、下载、解绑软删、系统 Skill 上传`，并提供可重复的演示命令/操作（1–2 天可完成）
 - [ ] 列表增加 source/review_status/author/agent_count；筛选与 pending 标记
+- [ ] 保留现有 artifact `platforms` 列/详情 hint（`SkillPlatforms`），不因 source/审批改造移除
 - [ ] 审批抽屉展示 artifact/校验/提交者/Agent/review_note；批准/驳回
 - [ ] 下载、解绑+软删二次确认、系统 Skill 上传 source 选择
 - [ ] service 层调用；组件 loading/empty/error/success；无权限隐藏/禁用

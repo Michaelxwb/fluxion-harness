@@ -74,7 +74,7 @@ requirement: user-skill-sandbox
 
 | 功能ID | 功能名称 | 功能描述 | 优先级 | 来源 |
 |--------|---------|---------|--------|------|
-| FEAT-12 | 管理员 Skill 管理界面与接口 | `/skills` 增加 source/审批筛选、审批抽屉、下载、解绑软删、系统 Skill 上传 | P0 | US-13, US-14, US-15, US-16 |
+| FEAT-12 | 管理员 Skill 管理界面与接口 | `/skills` 增加 source/审批筛选、审批抽屉、下载、解绑软删、系统 Skill 上传；保留现有 artifact `platforms` 列/详情展示 | P0 | US-13, US-14, US-15, US-16 |
 | FEAT-13 | 系统 Skill 上传 | 导入弹窗增加 `source=SYSTEM`，自动通过与全局生效 | P0 | US-17 |
 | FEAT-05 | 已审批包下载与审计 | 审批抽屉/详情提供下载按钮，下载失败有明确提示 | P0 | US-14 |
 | FEAT-14 | 审计/错误提示 | 审批/下载/删除结果显示，错误码有双语提示 | P0 | US-19, US-21 |
@@ -85,8 +85,8 @@ requirement: user-skill-sandbox
 
 | 类别 | 内容 |
 |------|------|
-| **范围（In Scope）** | `/skills` 列表扩展；审批抽屉；批准/驳回；下载；用户范围/grant；Agent 绑定；解绑+软删二次确认；系统 Skill 上传；空态/错误/无权限；i18n；可访问性。 |
-| **非范围（Out of Scope）** | 用户“我的 Skill”独立页面；草稿编辑器/文件树；在线代码编辑；`workspace_shell` 前端终端；Skill 市场/评分/版本回滚；移动端专门适配；系统依赖预装 UI（本期由管理员通过现有镜像构建清单完成，另开需求再做页面）。 |
+| **范围（In Scope）** | `/skills` 列表扩展；审批抽屉；批准/驳回；下载；用户范围/grant；Agent 绑定；解绑+软删二次确认；系统 Skill 上传；保留现有 artifact `platforms` 列/详情 hint；空态/错误/无权限；i18n；可访问性。 |
+| **非范围（Out of Scope）** | 用户“我的 Skill”独立页面；草稿编辑器/文件树；在线代码编辑；`workspace_shell` 前端终端；Skill 市场/评分/版本回滚；移动端专门适配；系统依赖预装 UI（本期由管理员通过现有镜像构建清单完成，另开需求再做页面）；**Skill 表新增平台关联字段**（现有 artifact frontmatter `platforms` 展示保留）。 |
 | **有意妥协 / 技术债** | 审批抽屉复用现有 `DetailSideSheet`/`Tabs` 结构，不重新设计一套详情框架；用户草稿状态继续通过对话工具 `skill_draft_status` 查看，不在 Console 增加通知中心。 |
 
 ### 2.4 验收条件 [必填]
@@ -159,6 +159,7 @@ requirement: user-skill-sandbox
 ├─ <RemoteTable>                    # 现有：列表
 │  ├─ <SkillSourceTag>              # 新增：SYSTEM/ADMIN/USER 标签
 │  ├─ <SkillReviewStatusTag>        # 新增：PENDING/APPROVED/REJECTED/SUPERSEDED
+│  ├─ <SkillPlatforms>              # 现有：artifact frontmatter platforms 展示，保留
 │  └─ <SkillRowActions>             # 现有操作列 + 审批/下载/删除
 ├─ <SkillDetailSideSheet>           # 现有：详情/包/Agent 绑定
 │  ├─ <SkillReviewPanel>            # 新增：审批信息 + 操作
@@ -285,6 +286,8 @@ export type SkillReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUPERSEDE
 
 export interface SkillListItem {
   // 现有字段...
+  platform_label: string | null;
+  platforms: string[];
   source: SkillSource;
   author: string | null;
   review_status: SkillReviewStatus | null;
@@ -292,6 +295,7 @@ export interface SkillListItem {
 
 export interface SkillArtifactDetail {
   // 现有字段...
+  platforms: string[];
   review_status: SkillReviewStatus;
   review_note: string | null;
   reviewed_by: string | null;
