@@ -134,7 +134,7 @@
 | US-20 | 作为租户终端用户，我希望在本地 macOS Dev、本地 K8s 和内网 K8s 获得一致的执行语义（macOS 原生 Dev 使用显式 `dev-unsafe`），以便开发和生产行为一致。 | P1 |
 | US-21 | 作为租户终端用户，我希望 Sandbox 失败（超时、输出超限、平台鉴权失败、配额不足、沙箱不可用）返回明确错误码和可重试性，以便修正脚本或重试。 | P0 |
 | US-22 | 作为租户终端用户/管理员，我希望 workspace 在 30 天未访问后自动清理，且清理失败可见，以便磁盘不会无界增长。 | P0 |
-| US-24 | 作为平台管理员/租户管理员，我希望把批准的 Python/Node 依赖预装到系统镜像/Pod 基线，以便所有 Skill 使用统一依赖，而不是每个用户自己在 workspace 安装。 | P1 |
+| US-23 | 作为平台管理员/租户管理员，我希望把批准的 Python/Node 依赖预装到系统镜像/Pod 基线，以便所有 Skill 使用统一依赖，而不是每个用户自己在 workspace 安装。 | P1 |
 
 ---
 
@@ -161,7 +161,7 @@
 | FEAT-15 | workspace 配额、TTL 与自动清理 | 每个 workspace/用户配额、30 天 TTL、Worker 内置清理循环、多副本认领、活跃执行跳过。 | P0 | US-22 |
 | FEAT-16 | 多环境部署与运行模式 | bwrap 内置基础镜像；macOS 原生 Dev 显式 `dev-unsafe`；本地 K8s/内网 K8s 走 bwrap；不可用 fail closed；记录镜像/内核指纹。 | P1 | US-20 |
 | FEAT-17 | 数据模型、迁移与存量兼容 | Skill/Artifact/Draft/Workspace 字段与索引、迁移回填、旧数据保持可用、契约与快照升级。 | P0 | US-01, US-05, US-07 |
-| FEAT-18 | 系统依赖预装 | 管理员通过现有镜像构建流程把批准的 Python/Node 依赖预装到系统基线；不运行时修改 Pod；workspace 安装仅作临时验证。 | P1 | US-24 |
+| FEAT-18 | 系统依赖预装 | 管理员通过现有镜像构建流程把批准的 Python/Node 依赖预装到系统基线；不运行时修改 Pod；workspace 安装仅作临时验证。 | P1 | US-23 |
 
 > P0=核心必做，P1=重要。
 

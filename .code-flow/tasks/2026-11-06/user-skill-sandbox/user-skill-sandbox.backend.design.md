@@ -113,7 +113,7 @@ requirement: user-skill-sandbox
 | US-20 | macOS Dev/本地 K8s/内网 K8s 执行语义一致 | P1 |
 | US-21 | Sandbox 失败返回明确错误码和 retryable | P0 |
 | US-22 | workspace 30 天未访问自动清理，失败可见 | P0 |
-| US-24 | 管理员把批准的 Python/Node 依赖预装到系统镜像/Pod 基线 | P1 |
+| US-23 | 管理员把批准的 Python/Node 依赖预装到系统镜像/Pod 基线 | P1 |
 
 ### 2.3 功能方案 [必填]
 
@@ -138,7 +138,7 @@ requirement: user-skill-sandbox
 | FEAT-15 | workspace 配额、TTL 与自动清理 | 配额、30 天 TTL、Worker 内置清理、多副本认领 | P0 | US-22 |
 | FEAT-16 | 多环境部署与运行模式 | bwrap 内置镜像、macOS dev-unsafe、K8s 一致、fail closed | P1 | US-20 |
 | FEAT-17 | 数据模型、迁移与存量兼容 | Skill/Artifact/Draft/Workspace 字段、索引、回填 | P0 | US-01, US-05, US-07 |
-| FEAT-18 | 系统依赖预装 | 管理员通过现有镜像构建流程预装批准的 Python/Node 依赖；不运行时改 Pod；workspace 安装仅临时验证 | P1 | US-24 |
+| FEAT-18 | 系统依赖预装 | 管理员通过现有镜像构建流程预装批准的 Python/Node 依赖；不运行时改 Pod；workspace 安装仅临时验证 | P1 | US-23 |
 
 #### 2.3.2 字段约束
 
@@ -1098,7 +1098,7 @@ erDiagram
 | US-22 | FEAT-15 | FN-04, FN-05 | E-06, S-24, B-02, E-16 | integration | auto | 待 plan | 待实现 |
 | US-20 | FEAT-16 | FN-02 | S-26, E-07 | unit/integration | auto | 待 plan | 待实现 |
 | US-01, US-05, US-07 | FEAT-17 | API-01, API-02, API-04 | S-01, S-04, S-10, B-04 | integration | auto | 待 plan | 待实现 |
-| US-24 | FEAT-18 | OPS-01 | S-48, E-17 | integration | auto | 待 plan | 待实现 |
+| US-23 | FEAT-18 | OPS-01 | S-48, E-17 | integration | auto | 待 plan | 待实现 |
 
 ---
 
