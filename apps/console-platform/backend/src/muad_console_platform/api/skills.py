@@ -6,7 +6,8 @@ from muad_api import ApiResponse, ok, paginate
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
-from ..application.dto import SkillUpdateRequest, SkillUserScopeRequest
+from ..application.dto import SkillReviewRequest, SkillUpdateRequest, SkillUserScopeRequest
+from ..application.skill_review_service import SkillReviewService
 from ..application.skill_service import SkillService
 from ..infrastructure.db import get_session
 from ..infrastructure.skill_validator import ZIP_BYTES_LIMIT, invalid_package, size_label
@@ -41,6 +42,10 @@ async def list_skills(
     user_scope: Literal["ALL", "SELECTED"] | None = Query(default=None),
     enabled: bool | None = Query(default=None),
     execution_mode: Literal["SYNC", "ASYNC", "AUTO"] | None = Query(default=None),
+    source: Literal["SYSTEM", "ADMIN", "USER"] | None = Query(default=None),
+    review_status: Literal["PENDING", "APPROVED", "REJECTED", "SUPERSEDED"] | None = Query(
+        default=None
+    ),
 ) -> ApiResponse[Any]:
     items, total = await SkillService(session).list_skills(
         tenant_id,
@@ -50,6 +55,8 @@ async def list_skills(
         user_scope,
         enabled,
         execution_mode,
+        source,
+        review_status,
     )
     return ok(
         request.app.state.message_catalog,
@@ -130,6 +137,26 @@ async def delete_skill(
     return ok(
         request.app.state.message_catalog, {"id": str(skill_id), "is_deleted": True}
     )
+
+
+@router.post("/{skill_id}/review")
+async def review_skill(
+    skill_id: uuid.UUID,
+    payload: SkillReviewRequest,
+    request: Request,
+    account: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> ApiResponse[Any]:
+    detail = await SkillReviewService(session).review(
+        tenant_id,
+        skill_id,
+        artifact_id=payload.artifact_id,
+        action=payload.action,
+        review_note=payload.review_note,
+        actor=_actor(account, request),
+    )
+    return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
 
 
 @router.get("/{skill_id}/artifacts")

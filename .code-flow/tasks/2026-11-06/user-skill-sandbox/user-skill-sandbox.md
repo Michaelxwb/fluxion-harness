@@ -82,8 +82,8 @@
 | S-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | TASK-009 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | TASK-004 | deferred | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | . | 600 | P0 | deferred | local | - | - | - | no |
 | S-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → SkillValidator → Artifact Store → PG | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批事务 → PG → 审计 | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批事务 → PG → 审计 | TASK-010 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Artifact Store → 下载响应 → 审计 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_07.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 解绑/软删事务 → PG → 审计 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Skill/Artifact → effective 查询 | TASK-012 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -105,11 +105,11 @@
 | B-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 多 Worker 并发 → PG advisory lock/认领 | TASK-006 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-26 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | TASK-002 | stale | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P1 | auto | none | - | - | - | no |
 | E-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner → bwrap 探测 | TASK-002 | stale | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P0 | auto | none | - | - | - | no |
-| E-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → owner 校验 → PG | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| B-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_03.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| E-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批状态校验 | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| E-10 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 审批事务 → AgentAccessGrant 校验 | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_10.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| E-11 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 两个并发事务 → artifact 行锁/状态复核 | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_11.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → owner 校验 → PG | TASK-010 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| B-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_03.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批状态校验 | TASK-010 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-10 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 审批事务 → AgentAccessGrant 校验 | TASK-010 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_10.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-11 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 两个并发事务 → artifact 行锁/状态复核 | TASK-010 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_11.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | B-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console/Worker/Runtime effective 查询 | TASK-012 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-12 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | integration | Console API → 管理员权限校验 | TASK-014 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_12.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-35 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P0 | auto | none | - | - | - | no |
@@ -736,7 +736,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ## TASK-010: 审批事务、owner 覆盖、授权与绑定
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007, TASK-008
 - **Source**: user-skill-sandbox.backend.design.md#3.3 数据设计, user-skill-sandbox.backend.design.md#3.4 接口设计
@@ -752,34 +752,34 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ### Checklist
 
-- [ ] 交付 `管理员可批准/驳回；owner 只能覆盖自己的 PENDING；审批自动授权/绑定；已审批锁定`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] owner 只认 `skill.owner_user_id`；不同用户同 key `SKILL_KEY_EXISTS`
-- [ ] 同一 owner 覆盖旧 PENDING -> SUPERSEDED；单 Skill 最多一个 PENDING
-- [ ] 审批事务锁 artifact 行、复核 PENDING、切 current_artifact_id、写 grant/binding/audit
-- [ ] 审批时复核 AgentAccessGrant；撤销返回 `AGENT_ACCESS_REVOKED`，不自动恢复
-- [ ] 已审批锁定；驳回必须 review_note；驳回可重提
-- [ ] [S-05][integration] 批准 + 自动授权/绑定 + 审计
-- [ ] [S-06][integration] 驳回/原因/重提
-- [ ] [B-03][integration] 同 owner PENDING 覆盖
-- [ ] [E-08][integration] 跨用户同 key 拒绝
-- [ ] [E-09][integration] 已审批锁定
-- [ ] [E-10][integration] AgentAccessGrant 撤销
-- [ ] [E-11][integration] 并发审批/提交单方成功
-- [ ] [harness-auth#RULE-auth-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_skill_authorization.py tests/console_skill/test_skill_rbac.py`
-- [ ] [harness-rel#RULE-rel-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_skill_authorization.py -k relation`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `管理员可批准/驳回；owner 只能覆盖自己的 PENDING；审批自动授权/绑定；已审批锁定`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] owner 只认 `skill.owner_user_id`；不同用户同 key `SKILL_KEY_EXISTS`
+- [x] 同一 owner 覆盖旧 PENDING -> SUPERSEDED；单 Skill 最多一个 PENDING
+- [x] 审批事务锁 artifact 行、复核 PENDING、切 current_artifact_id、写 grant/binding/audit
+- [x] 审批时复核 AgentAccessGrant；撤销返回 `AGENT_ACCESS_REVOKED`，不自动恢复
+- [x] 已审批锁定；驳回必须 review_note；驳回可重提
+- [x] [S-05][integration] 批准 + 自动授权/绑定 + 审计
+- [x] [S-06][integration] 驳回/原因/重提
+- [x] [B-03][integration] 同 owner PENDING 覆盖
+- [x] [E-08][integration] 跨用户同 key 拒绝
+- [x] [E-09][integration] 已审批锁定
+- [x] [E-10][integration] AgentAccessGrant 撤销
+- [x] [E-11][integration] 并发审批/提交单方成功
+- [x] [harness-auth#RULE-auth-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_skill_authorization.py tests/console_skill/test_skill_rbac.py`
+- [x] [harness-rel#RULE-rel-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_skill_authorization.py -k relation`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | integration | Console API → 审批事务 → PG → 审计 | artifact 变 APPROVED，current_artifact_id 更新；提交者获得 SkillUserGrant；上传时 Agent 获得 AgentSkillBinding；审计记录 actor/skill/artifact/agent | tests/acceptance/user_skill_sandbox/test_s_05.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_05.py"] | planned |
-| S-06 | integration | Console API → 状态机 → PG | 驳回要求 review_note，状态变 REJECTED；用户可看到驳回原因；修改后可重新提交新 PENDING | tests/acceptance/user_skill_sandbox/test_s_06.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_06.py"] | planned |
-| B-03 | integration | Console API → 状态机 → PG | 旧 PENDING 变 SUPERSEDED；新 PENDING 成为唯一待审；旧包审批返回冲突 | tests/acceptance/user_skill_sandbox/test_b_03.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_03.py"] | planned |
-| E-08 | integration | Console API → owner 校验 → PG | B 返回 SKILL_KEY_EXISTS；A 的 PENDING 不受影响；B 看不到 A 的草稿/PENDING | tests/acceptance/user_skill_sandbox/test_e_08.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_08.py"] | planned |
-| E-09 | integration | Console API → 审批状态校验 | 用户提交返回 SKILL_APPROVED_LOCKED；现有 artifact 不变 | tests/acceptance/user_skill_sandbox/test_e_09.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_09.py"] | planned |
-| E-10 | integration | Console 审批事务 → AgentAccessGrant 校验 | 审批失败 AGENT_ACCESS_REVOKED；不自动恢复授权；artifact 仍 PENDING，管理员可决定后续处理 | tests/acceptance/user_skill_sandbox/test_e_10.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_10.py"] | planned |
-| E-11 | integration | 两个并发事务 → artifact 行锁/状态复核 | 只有一方成功；另一方得到明确冲突；不出现 current_artifact_id 指向未批准版本 | tests/acceptance/user_skill_sandbox/test_e_11.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_11.py"] | planned |
+| S-05 | integration | Console API → 审批事务 → PG → 审计 | artifact 变 APPROVED，current_artifact_id 更新；提交者获得 SkillUserGrant；上传时 Agent 获得 AgentSkillBinding；审计记录 actor/skill/artifact/agent | tests/acceptance/user_skill_sandbox/test_s_05.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_05.py"] | verified |
+| S-06 | integration | Console API → 状态机 → PG | 驳回要求 review_note，状态变 REJECTED；用户可看到驳回原因；修改后可重新提交新 PENDING | tests/acceptance/user_skill_sandbox/test_s_06.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_06.py"] | verified |
+| B-03 | integration | Console API → 状态机 → PG | 旧 PENDING 变 SUPERSEDED；新 PENDING 成为唯一待审；旧包审批返回冲突 | tests/acceptance/user_skill_sandbox/test_b_03.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_03.py"] | verified |
+| E-08 | integration | Console API → owner 校验 → PG | B 返回 SKILL_KEY_EXISTS；A 的 PENDING 不受影响；B 看不到 A 的草稿/PENDING | tests/acceptance/user_skill_sandbox/test_e_08.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_08.py"] | verified |
+| E-09 | integration | Console API → 审批状态校验 | 用户提交返回 SKILL_APPROVED_LOCKED；现有 artifact 不变 | tests/acceptance/user_skill_sandbox/test_e_09.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_09.py"] | verified |
+| E-10 | integration | Console 审批事务 → AgentAccessGrant 校验 | 审批失败 AGENT_ACCESS_REVOKED；不自动恢复授权；artifact 仍 PENDING，管理员可决定后续处理 | tests/acceptance/user_skill_sandbox/test_e_10.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_10.py"] | verified |
+| E-11 | integration | 两个并发事务 → artifact 行锁/状态复核 | 只有一方成功；另一方得到明确冲突；不出现 current_artifact_id 指向未批准版本 | tests/acceptance/user_skill_sandbox/test_e_11.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_11.py"] | verified |
 
 **Spec Verifier**
 
@@ -794,17 +794,26 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-05 | - | - | - | - | pending |
-| S-06 | - | - | - | - | pending |
-| B-03 | - | - | - | - | pending |
-| E-08 | - | - | - | - | pending |
-| E-09 | - | - | - | - | pending |
-| E-10 | - | - | - | - | pending |
-| E-11 | - | - | - | - | pending |
+| S-05 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_05.py` → 1 failed（审批路由未注册，404 COMMON_NOT_FOUND） | 1 passed（`test_s_05.py`）；同批 8 passed（S-05/S-06/B-03/E-08/E-09/E-10/E-11） | `tests/acceptance/user_skill_sandbox/test_s_05.py:49,57,59,101` | 真实管理员登录 + Console API → 审批事务 → 真实 PostgreSQL；artifact APPROVED、`current_artifact_id` 切换、SkillUserGrant/AgentSkillBinding 各一行、`SKILL_REVIEW` 审计含 actor/skill/artifact/agent；列表 `review_status=PENDING/APPROVED` 过滤与详情回读一致 | passed |
+| S-06 | 同批 RED：审批路由 404 | 1 passed（`test_s_06.py`） | `tests/acceptance/user_skill_sandbox/test_s_06.py:42,52,71,80,98` | 真实 Console 审批 API → 真实 PG：无 note 422 COMMON_VALIDATION_ERROR；有 note 置 REJECTED 且内部 status 读回原因；修改草稿后可重提新 PENDING，旧 REJECTED 保留 | passed |
+| B-03 | 同批 RED：审批路由 404 | 1 passed（`test_b_03.py`） | `tests/acceptance/user_skill_sandbox/test_b_03.py:54,61,67,77` | 真实提交/审批 API → 真实 PG：同 owner 新提交把旧 PENDING 置 SUPERSEDED；单 Skill 仅一个 PENDING；旧包审批 409 且 current 不被错误切换，新包审批成功后才切换 | passed |
+| E-08 | 先测通过（owner 校验为 TASK-008 既有行为）；新增用例固化跨用户同 key 409 与不可见性 | 1 passed（`test_e_08.py`） | `tests/acceptance/user_skill_sandbox/test_e_08.py:53,78,102` | 真实内部 API/通道 effective 查询 → 真实 PG：B 同 key 提交 409 SKILL_KEY_EXISTS；A 的 PENDING 仍唯一；B 读 A 草稿/状态均为 DRAFT_NOT_FOUND；PENDING 不进入任何用户 effective 列表 | passed |
+| E-09 | 同批 RED：审批路由 404 | 1 passed（`test_e_09.py`） | `tests/acceptance/user_skill_sandbox/test_e_09.py:52,58,63,72` | 真实审批 + 草稿提交 API → 真实 PG：批准后同 revision 重放与修改后新 revision 提交均 409 SKILL_APPROVED_LOCKED；artifact 总数与 current 保持不变 | passed |
+| E-10 | 同批 RED：审批路由 404 | 1 passed（`test_e_10.py`） | `tests/acceptance/user_skill_sandbox/test_e_10.py:47,54,79,89` | 真实撤销 `AgentAccessGrant` → 审批事务复核 → 409 AGENT_ACCESS_REVOKED；artifact 仍 PENDING、无 grant/binding、授权未被自动恢复；管理员仍可驳回 | passed |
+| E-11 | 并发审批用例 RED（审批路由 404）；并发提交用例先测通过（TASK-008 草稿 CAS） | 2 passed（`test_e_11.py`） | `tests/acceptance/user_skill_sandbox/test_e_11.py:47,57,101,120,129` | 两个独立真实 HTTP 请求/数据库事务：并发审批一 200 一 409，current 指向唯一 APPROVED artifact；并发不同版本提交一 200 一 409，仅一个 PENDING 且 current 为空 | passed |
+- S-05: verified — automated command passed; run_id=8ec7612252354507988c0f16b322e63b (confirmed_by: runner)
+- S-06: verified — automated command passed; run_id=8ec7612252354507988c0f16b322e63b (confirmed_by: runner)
+- E-08: verified — automated command passed; run_id=8ec7612252354507988c0f16b322e63b (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=8ec7612252354507988c0f16b322e63b (confirmed_by: runner)
+- E-09: verified — automated command passed; run_id=8ec7612252354507988c0f16b322e63b (confirmed_by: runner)
+- E-10: verified — automated command passed; run_id=8ec7612252354507988c0f16b322e63b (confirmed_by: runner)
+- E-11: verified — automated command passed; run_id=8ec7612252354507988c0f16b322e63b (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-06] started
+- [2026-11-06] completed (done)
 
 ---
 

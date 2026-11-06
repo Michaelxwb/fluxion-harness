@@ -79,6 +79,28 @@ async def internal_client(draft_roots: Path) -> AsyncIterator[AsyncClient]:
 
 
 @pytest.fixture()
+async def approval_env(session: AsyncSession, draft_roots: Path) -> AsyncIterator[object]:
+    """TASK-010 审批参与者：管理员、提交者、其他用户、上传 Agent 与真实授权行。"""
+    from .approval_support import cleanup_approval_env, seed_approval_env
+
+    env = await seed_approval_env(session, "acc-approval")
+    try:
+        yield env
+    finally:
+        await cleanup_approval_env(session, env)
+
+
+@pytest.fixture()
+async def admin_client(approval_env: object) -> AsyncIterator[AsyncClient]:
+    """真实管理员登录（CSRF + 会话 Cookie），请求走真实 Console ASGI。"""
+    from .approval_support import ApprovalEnv, authenticated_admin
+
+    assert isinstance(approval_env, ApprovalEnv)
+    async with authenticated_admin(approval_env) as client:
+        yield client
+
+
+@pytest.fixture()
 async def draft_tenant(session: AsyncSession) -> AsyncIterator[Callable[[str], str]]:
     """按用例分配唯一租户，结束后清理本域写入的真实表行。"""
     tenants: list[str] = []

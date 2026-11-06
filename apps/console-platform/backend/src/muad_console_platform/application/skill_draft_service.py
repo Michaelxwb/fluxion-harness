@@ -406,7 +406,7 @@ class SkillDraftService:
         package: ValidatedSkillPackage,
         version: str,
     ) -> Skill:
-        skill = await self._skills.find_by_key(tenant_id, draft.key)
+        skill = await self._skills.find_by_key_for_update(tenant_id, draft.key)
         if skill is None:
             skill = Skill(
                 tenant_id=tenant_id,
