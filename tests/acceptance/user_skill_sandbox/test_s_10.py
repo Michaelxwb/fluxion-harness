@@ -23,6 +23,8 @@ from muad_contracts import (
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.acceptance.user_skill_sandbox.sandboxed_support import run_probe
+
 pytestmark = pytest.mark.integration
 
 TENANT = f"acc-s10-{uuid.uuid4()}"
@@ -107,3 +109,28 @@ async def test_s10_execution_snapshot_freezes_source_artifact_and_workspace(
         "agent_id": str(workspace.agent_id),
     }
     assert stored.snapshot_hash == snapshot_hash(stored.execution_snapshot_json)
+
+
+def test_s10_sandboxed_executor_runs_readonly_package_and_reports_audit() -> None:
+    """[S-10] 真实 bwrap：只读 /skill + 独立 /workspace + stdout/exit code/审计事件。"""
+    payload = run_probe("s10")
+
+    result = payload["result"]
+    assert payload["ok"] is True, payload
+    assert result["status"] == "SUCCEEDED", result
+    assert result["exit_code"] == 0
+    assert result["result"]["payload"] == {"question": "hello"}
+    assert result["result"]["flags"] == [1, 0, 1]
+    assert payload["helper_imported"] is True
+    assert len(result["outputs"]) == 1
+    output = result["outputs"][0]
+    assert output["relative_path"] == "result.json"
+    assert output["size"] > 0
+    assert output["checksum"].startswith("sha256:")
+    assert payload["output_file_exists"] is True
+    # 执行器不写 READY/缓存，包的树 checksum 前后一致。
+    before, after = payload["package_checksum_before_after"]
+    assert before == after
+    assert payload["events"] == [
+        {"source": "USER", "status": "SUCCEEDED", "output_count": 1}
+    ]

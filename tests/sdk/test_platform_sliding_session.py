@@ -284,7 +284,19 @@ async def test_runtime_skill_tool_path_uses_platform_context(tmp_path, execution
         async def ensure(self, **kwargs):
             return root
 
-    tools = SkillToolSet(cache=Cache(), skills=[skill], timeout_sec=20, platform_context=execution_context)
+    # 平台 session 注入由 TASK-004 接管；本用例只验证 Runtime 工具链仍把受信
+    # platform_context 传到执行器（沙箱化的无平台路径由 TASK-003 自己的用例覆盖）。
+    from muad_agent_core.skill import ScriptSkillExecutor
+
+    tools = SkillToolSet(
+        cache=Cache(),
+        skills=[skill],
+        timeout_sec=20,
+        platform_context=execution_context,
+        executor=ScriptSkillExecutor(),
+        workspace_dir=tmp_path.parent / (tmp_path.name + "-workspace"),
+        execution_id="runtime-platform",
+    )
     result = json.loads(await tools.execute_skill({"skill_key": skill.key, "input": {}}, call_id="test"))
     assert result["result"] == {"code": 0}
 
@@ -315,6 +327,12 @@ async def test_worker_skill_path_uses_task_identity(tmp_path, execution_context,
                     "artifact_id": str(artifact),
                     "storage_key": "test",
                     "checksum": "test",
+                    "source": "ADMIN",
+                    "workspace": {
+                        "tenant_id": execution_context.tenant_id,
+                        "user_id": execution_context.actor_user_id,
+                        "agent_id": str(uuid.uuid4()),
+                    },
                     "platforms": ["platform_server"],
                 }
             ]
@@ -325,6 +343,7 @@ async def test_worker_skill_path_uses_task_identity(tmp_path, execution_context,
             "redis_url": execution_context.redis_url,
             "console_platform_url": execution_context.console_url,
             "internal_service_token": execution_context.service_token,
+            "workspace_root": str(tmp_path.parent / (tmp_path.name + "-workspaces")),
         }
     )
     monkeypatch.setattr(module, "process_settings", lambda: settings)
@@ -333,7 +352,10 @@ async def test_worker_skill_path_uses_task_identity(tmp_path, execution_context,
         async def ensure(self, **kwargs):
             return root
 
-    result = await SkillTaskExecutor(Cache()).execute(task)
+    # 平台 session 注入由 TASK-004 接管（见上）。
+    from muad_agent_core.skill import ScriptSkillExecutor
+
+    result = await SkillTaskExecutor(Cache(), executor=ScriptSkillExecutor()).execute(task)
     assert result["result"] == {"code": 0}
 
 

@@ -11,6 +11,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Literal, Protocol, cast
 
 import httpx
@@ -41,6 +42,7 @@ from muad_agent_core.model import (
     text_of,
 )
 from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill
+from muad_agent_core.sandbox import workspace_layout_from_settings
 from muad_agent_core.tools import DEFAULT_PARALLEL_LIMIT, ToolDefinition, ToolRegistry
 from muad_agent_core.tools.pipeline import (
     PreparedToolCall,
@@ -103,7 +105,11 @@ from ..metrics import (
 )
 from .async_tools.continuation_service import ExecutionIdentity
 from .attachments.archive_tools import ArchiveToolSet
-from .attachments.output_service import OutputArtifactWriter, OutputScope
+from .attachments.output_service import (
+    OutputArtifactWriter,
+    OutputScope,
+    SkillOutputArtifactRegistrar,
+)
 from .attachments.tool_results import (
     ArtifactResultWriter,
     RoundCandidate,
@@ -1902,6 +1908,32 @@ def _task_submission_context(request: ExecutorRequest) -> TaskSubmissionContext 
     )
 
 
+def _skill_execution_scope(
+    request: ExecutorRequest,
+) -> tuple[Path | None, SkillOutputArtifactRegistrar | None]:
+    """Run 级 Skill workspace 与产物登记：workspace 只定位，不在此处做配额/清理。"""
+    context = request.run_context
+    if context is None:
+        return None, None
+    settings = process_settings()
+    layout = workspace_layout_from_settings(settings)
+    workspace = layout.workspace_dir(
+        tenant_id=context.tenant_id,
+        user_id=str(context.user_id),
+        agent_id=str(request.agent.id),
+    )
+    writer = OutputArtifactWriter(
+        artifact_root=settings.artifact_root,
+        session_factory=get_session_factory,
+        scope=OutputScope(
+            tenant_id=context.tenant_id,
+            run_id=context.run_id,
+            conversation_id=context.conversation_id,
+        ),
+    )
+    return workspace, SkillOutputArtifactRegistrar(writer)
+
+
 def build_registry(
     *,
     request: ExecutorRequest,
@@ -1918,12 +1950,16 @@ def build_registry(
     policy = agent_policy_for(request)
     execution = execution_defaults_for(request)
     task_context = _task_submission_context(request)
+    workspace_dir, output_registrar = _skill_execution_scope(request)
     registry = build_skill_registry(
         cache=cache,
         skills=request.skills,
         policy=policy,
         task_client=task_submitter,
         task_context=task_context,
+        workspace_dir=workspace_dir,
+        execution_id=str(request.run_context.run_id) if request.run_context else None,
+        output_registrar=output_registrar,
         platform_context=SkillPlatformContext(
             tenant_id=request.run_context.tenant_id, actor_user_id=str(request.run_context.user_id),
             execution_id=str(request.run_context.run_id), execution_type="RUN", platform_keys=(),

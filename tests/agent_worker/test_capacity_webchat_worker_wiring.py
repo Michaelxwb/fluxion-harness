@@ -258,6 +258,24 @@ def _snapshot(
     return snapshot
 
 
+def _fill_snapshot_contract(values: dict[str, Any]) -> None:
+    snapshot = values.get("execution_snapshot_json")
+    if not isinstance(snapshot, dict):
+        return
+    for skill in snapshot.get("skills") or []:
+        if not isinstance(skill, dict):
+            continue
+        skill.setdefault("source", "ADMIN")
+        skill.setdefault(
+            "workspace",
+            {
+                "tenant_id": values["tenant_id"],
+                "user_id": str(values["actor_user_id"]),
+                "agent_id": str(values["agent_id"]),
+            },
+        )
+
+
 async def _seed_task(
     factory: async_sessionmaker[AsyncSession],
     *,
@@ -295,6 +313,7 @@ async def _seed_task(
         "delivery_attempts": 0,
     }
     values.update(overrides)
+    _fill_snapshot_contract(values)
     async with factory() as session, session.begin():
         task = TaskExecution(**values)
         session.add(task)

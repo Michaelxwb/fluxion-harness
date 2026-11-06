@@ -38,6 +38,12 @@ AGENT_RUNS_METRIC: Final = "agent_runs_total"
 MODEL_INVOCATIONS_METRIC: Final = "model_invocations_total"
 TOOL_CALLS_METRIC: Final = "tool_calls_total"
 SKILL_LOAD_METRIC: Final = "skill_load_total"
+#: Skill 沙箱执行结局：来源维度区分 SYSTEM/ADMIN/USER，状态用 SkillExecutionStatus/错误码。
+SKILL_EXECUTION_METRIC: Final = "skill_execution_total"
+SKILL_EXECUTION_DURATION_SECONDS: Final = "skill_execution_duration_seconds"
+#: stdout 洪泛被终止、或 SKILL_OUTPUT_DIR 超限被拒绝/截断：两种输出边界都要可见。
+SANDBOX_OUTPUT_LIMIT_METRIC: Final = "sandbox_output_limit_total"
+SANDBOX_TIMEOUT_METRIC: Final = "sandbox_timeout_total"
 # 被目录上限丢掉的技能条数记在 **amount**（同 memory 注入/摘要 token 的口径：条数进 label 会
 # 裂出无界时间序列）。它不是"某条技能失败"，而是"这一轮有多少技能没能进提示词"。
 SKILL_CATALOG_TRUNCATED_METRIC: Final = "skill_catalog_truncated_total"
@@ -259,6 +265,11 @@ _LATENCY_FAMILIES: Final[tuple[tuple[str, tuple[str, ...], str], ...]] = (
         "Run create transaction split by internal stage",
     ),
     (
+        SKILL_EXECUTION_DURATION_SECONDS,
+        ("source",),
+        "Skill sandbox execution duration by skill source",
+    ),
+    (
         MODEL_CALL_SECONDS,
         ("stage",),
         "Model call split by stage (candidates/reserve/credentials/upstream/total)",
@@ -327,6 +338,24 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     ),
     (TOOL_CALLS_METRIC, COUNTER, ("kind", "tool", "status"), "Tool calls by kind, tool and status"),
     (SKILL_LOAD_METRIC, COUNTER, ("skill", "status"), "Skill package loads by skill key and status"),
+    (
+        SKILL_EXECUTION_METRIC,
+        COUNTER,
+        ("source", "status"),
+        "Skill sandbox executions by skill source and outcome",
+    ),
+    (
+        SANDBOX_OUTPUT_LIMIT_METRIC,
+        COUNTER,
+        ("source",),
+        "Skill executions terminated or rejected by an output limit",
+    ),
+    (
+        SANDBOX_TIMEOUT_METRIC,
+        COUNTER,
+        ("source",),
+        "Skill executions terminated by the sandbox timeout",
+    ),
     (
         SKILL_CATALOG_TRUNCATED_METRIC,
         COUNTER,

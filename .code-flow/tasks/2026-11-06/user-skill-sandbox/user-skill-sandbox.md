@@ -87,15 +87,15 @@
 | S-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Artifact Store → 下载响应 → 审计 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_07.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 解绑/软删事务 → PG → 审计 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Skill/Artifact → effective 查询 | TASK-012 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-10 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime/Worker → SandboxedSkillExecutor → bwrap → stdout/exit code | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_10.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-10 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime/Worker → SandboxedSkillExecutor → bwrap → stdout/exit code | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_10.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-11 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_11.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | B-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace 元数据 → PVC 目录 → 两次执行 | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-13 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Runtime → 真实 Console/Redis → 真实 mssp 平台 → 旧 Skill 脚本 | TASK-019 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
 | S-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Runtime/Worker → 真实平台 → 改造后的旧 Skill | TASK-019 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
-| S-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → 只读 /skill → 可写 /workspace | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| E-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → 子进程管道 → 有界读取 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → 只读 /skill → 可写 /workspace | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → 子进程管道 → 有界读取 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxRunner → bwrap → 完整进程树 | TASK-002 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| E-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | bwrap --clearenv + 最小 mount + 子进程环境 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_03.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | bwrap --clearenv + 最小 mount + 子进程环境 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_03.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway → Runtime /v1 → 服务身份校验 | TASK-001 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-20 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | TASK-001 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | E-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | workspace_shell → bwrap → PATH/socket 检查 | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -124,7 +124,7 @@
 | E-16 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 删除失败 → 状态/指标 | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_16.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | S-45 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-46 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | . | 600 | P0 | auto | none | - | - | - | no |
-| S-47 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → SKILL_OUTPUT_DIR → ArtifactStore → 现有附件交付 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_47.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-47 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → SKILL_OUTPUT_DIR → ArtifactStore → 现有附件交付 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_47.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-48 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require | TASK-015 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_48.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | E-17 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Pod A 临时安装 → Pod B/重建后执行同一 Skill | TASK-015 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_17.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 
@@ -261,7 +261,7 @@
 
 ## TASK-003: SandboxedSkillExecutor、流式输出、只读包与产物登记
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: user-skill-sandbox.backend.design.md#3.2 架构设计, user-skill-sandbox.backend.design.md#3.4 接口设计, user-skill-sandbox.backend.design.md#3.5 质量实现方案
@@ -277,37 +277,37 @@
 
 ### Checklist
 
-- [ ] 交付 `已批准 Skill 在只读包/独立 workspace 中执行，stdout 流式有界，输出文件登记为产物`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 实现 `SandboxedSkillExecutor.execute(request)`，统一 `SkillExecutor` 协议；`source` 缺失/非法拒绝执行
-- [ ] `script_command` 使用 `python -E -s -B <script>`，入口脚本目录可 import 相邻模块
-- [ ] 已批准包只读挂载；每次执行独立 workspace；不写共享 READY 缓存
-- [ ] stdout/stderr 按块读取，超限终止/有界丢弃；不能 `communicate()` 收全量
-- [ ] 扫描 `SKILL_OUTPUT_DIR`：文件数/大小/路径/symlink 边界，登记 artifact，交付走现有 `deliver_artifact`
-- [ ] [S-10][integration] 已批准 Skill 只读执行 + 结构化结果 + 审计/指标
-- [ ] [S-15][integration] 写 `/skill` 失败，并发执行互不影响，READY checksum 不变
-- [ ] [S-47][integration] 输出目录文件登记为 artifact，超限/ symlink 被拒绝
-- [ ] [E-01][integration] 持续输出不撑大父进程内存，超限有界失败
-- [ ] [E-03][integration] 沙箱读不到服务 Token/DB/Redis/SA Token/敏感挂载
-- [ ] [harness-skill#RULE-skill-001][verifier] 运行 `uv run pytest -q tests/agent_core/test_sandboxed_skill_executor.py tests/acceptance/user_skill_sandbox/test_skill_execution.py`
-- [ ] [harness-secret#RULE-secret-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_sandbox_boundary.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `已批准 Skill 在只读包/独立 workspace 中执行，stdout 流式有界，输出文件登记为产物`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 实现 `SandboxedSkillExecutor.execute(request)`，统一 `SkillExecutor` 协议；`source` 缺失/非法拒绝执行
+- [x] `script_command` 使用 `python -E -s -B <script>`，入口脚本目录可 import 相邻模块
+- [x] 已批准包只读挂载；每次执行独立 workspace；不写共享 READY 缓存
+- [x] stdout/stderr 按块读取，超限终止/有界丢弃；不能 `communicate()` 收全量
+- [x] 扫描 `SKILL_OUTPUT_DIR`：文件数/大小/路径/symlink 边界，登记 artifact，交付走现有 `deliver_artifact`
+- [x] [S-10][integration] 已批准 Skill 只读执行 + 结构化结果 + 审计/指标
+- [x] [S-15][integration] 写 `/skill` 失败，并发执行互不影响，READY checksum 不变
+- [x] [S-47][integration] 输出目录文件登记为 artifact，超限/ symlink 被拒绝
+- [x] [E-01][integration] 持续输出不撑大父进程内存，超限有界失败
+- [x] [E-03][integration] 沙箱读不到服务 Token/DB/Redis/SA Token/敏感挂载
+- [x] [harness-skill#RULE-skill-001][verifier] 运行 `uv run pytest -q tests/agent_core/test_sandboxed_skill_executor.py tests/acceptance/user_skill_sandbox/test_skill_execution.py`
+- [x] [harness-secret#RULE-secret-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_sandbox_boundary.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-10 | integration | Runtime/Worker → SandboxedSkillExecutor → bwrap → stdout/exit code | 脚本在只读包和独立 workspace 中执行；stdout/stderr/exit code 与现有 CLI 契约一致；结构化 JSON 解析成功；执行审计和指标产生 | tests/acceptance/user_skill_sandbox/test_s_10.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_10.py"] | planned |
-| S-15 | integration | SandboxedSkillExecutor → 只读 /skill → 可写 /workspace | 写 /skill 失败；两个并发执行互不影响；共享 READY 缓存 checksum 不变 | tests/acceptance/user_skill_sandbox/test_s_15.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_15.py"] | planned |
-| S-47 | integration | SandboxedSkillExecutor → SKILL_OUTPUT_DIR → ArtifactStore → 现有附件交付 | 输出文件的相对路径、大小、checksum 被登记；超过文件数/大小上限的产物被拒绝或截断并可见；symlink/越界路径不登记；交付仍走现有 deliver_artifact/附件机制 | tests/acceptance/user_skill_sandbox/test_s_47.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_47.py"] | planned |
-| E-01 | integration | SandboxedSkillExecutor → 子进程管道 → 有界读取 | 父进程内存有界，不随输出无限增长；超过上限返回 SANDBOX_OUTPUT_LIMIT 或截断标记；子进程被终止/回收 | tests/acceptance/user_skill_sandbox/test_e_01.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_01.py"] | planned |
-| E-03 | integration | bwrap --clearenv + 最小 mount + 子进程环境 | 脚本读不到 INTERNAL_SERVICE_TOKEN、DATABASE_URL、REDIS_URL；读不到 /mnt、/proc、/var/run、Docker socket、SA Token；只读包和 workspace 可见 | tests/acceptance/user_skill_sandbox/test_e_03.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_03.py"] | planned |
+| S-10 | integration | Runtime/Worker → SandboxedSkillExecutor → bwrap → stdout/exit code | 脚本在只读包和独立 workspace 中执行；stdout/stderr/exit code 与现有 CLI 契约一致；结构化 JSON 解析成功；执行审计和指标产生 | tests/acceptance/user_skill_sandbox/test_s_10.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_10.py"] | verified |
+| S-15 | integration | SandboxedSkillExecutor → 只读 /skill → 可写 /workspace | 写 /skill 失败；两个并发执行互不影响；共享 READY 缓存 checksum 不变 | tests/acceptance/user_skill_sandbox/test_s_15.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_15.py"] | verified |
+| S-47 | integration | SandboxedSkillExecutor → SKILL_OUTPUT_DIR → ArtifactStore → 现有附件交付 | 输出文件的相对路径、大小、checksum 被登记；超过文件数/大小上限的产物被拒绝或截断并可见；symlink/越界路径不登记；交付仍走现有 deliver_artifact/附件机制 | tests/acceptance/user_skill_sandbox/test_s_47.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_47.py"] | verified |
+| E-01 | integration | SandboxedSkillExecutor → 子进程管道 → 有界读取 | 父进程内存有界，不随输出无限增长；超过上限返回 SANDBOX_OUTPUT_LIMIT 或截断标记；子进程被终止/回收 | tests/acceptance/user_skill_sandbox/test_e_01.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_01.py"] | verified |
+| E-03 | integration | bwrap --clearenv + 最小 mount + 子进程环境 | 脚本读不到 INTERNAL_SERVICE_TOKEN、DATABASE_URL、REDIS_URL；读不到 /mnt、/proc、/var/run、Docker socket、SA Token；只读包和 workspace 可见 | tests/acceptance/user_skill_sandbox/test_e_03.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_03.py"] | verified |
 
 **Spec Verifier**
 
 | Rule | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 执行命令 | 状态 |
 |---|---|---|---|---|---|
-| `harness-skill#RULE-skill-001` | integration | 真实 Artifact Store/只读包/checksum | 只读包/READY/不可变/checksum | uv run pytest -q tests/agent_core/test_sandboxed_skill_executor.py tests/acceptance/user_skill_sandbox/test_skill_execution.py | planned |
-| `harness-secret#RULE-secret-001` | integration | 真实沙箱环境/日志/审计；不输出密钥 | 沙箱无服务 Token/DB/Redis/SA Token | uv run pytest -q tests/acceptance/user_skill_sandbox/test_sandbox_boundary.py | planned |
+| `harness-skill#RULE-skill-001` | integration | 真实 Artifact Store/只读包/checksum | 只读包/READY/不可变/checksum | uv run pytest -q tests/agent_core/test_sandboxed_skill_executor.py tests/acceptance/user_skill_sandbox/test_skill_execution.py | verified |
+| `harness-secret#RULE-secret-001` | integration | 真实沙箱环境/日志/审计；不输出密钥 | 沙箱无服务 Token/DB/Redis/SA Token | uv run pytest -q tests/acceptance/user_skill_sandbox/test_sandbox_boundary.py | verified |
 
 ### Acceptance Evidence
 
@@ -315,15 +315,30 @@
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-10 | - | - | - | - | pending |
-| S-15 | - | - | - | - | pending |
-| S-47 | - | - | - | - | pending |
-| E-01 | - | - | - | - | pending |
-| E-03 | - | - | - | - | pending |
+| S-10 | `uv run pytest -q tests/agent_core/test_sandboxed_skill_executor.py` 在基线 worktree（58c024f2）→ ImportError：`cannot import name 'OutputLimits' from 'muad_agent_core.skill'` | 同命令 → `22 passed in 4.51s`；真实 bwrap 探针 `test_s_10.py` → `result.status=SUCCEEDED`、`exit_code=0`、结构化 JSON、`/skill` 只读、`SKILL_OUTPUT_DIR` 产物登记、observer 事件 | `tests/acceptance/user_skill_sandbox/test_s_10.py::test_s10_sandboxed_executor_runs_readonly_package_and_reports_audit`；`tests/agent_core/test_sandboxed_skill_executor.py::test_execute_uses_e_s_b_flags_and_imports_adjacent_module` | macOS 无 bwrap：探针在 `muad-skill-executor-probe:8e8cd7dcaec3`（基于 `fx-sandbox-test:local`，bwrap 0.13.2）中真实执行；`--security-opt seccomp=unconfined`，真实 `BwrapRunner`/PID namespace，未 mock | verified |
+| S-15 | 同一基线 worktree：`uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_15.py` → 探针 ImportError `OutputLimits` | 同命令 → `1 passed`；两个并发执行各自 `/workspace/outputs/exec-*`、写 `/skill` 返回 `OSError`、READY sentinel 与包树 checksum 前后一致 | `tests/acceptance/user_skill_sandbox/test_s_15.py::test_s15_readonly_package_concurrent_workspaces_and_ready_unchanged` | 真实 bwrap 只读 bind `/skill`、可写 bind `/workspace`；READY 文件由测试现场放入并重读，未 mock 文件系统 | verified |
+| S-47 | 同一基线 worktree：探针 ImportError `OutputLimits` | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_47.py` → `2 passed`；相对路径/大小/checksum 登记，symlink（文件/目录）跳过，文件数超限 `SANDBOX_OUTPUT_LIMIT` 可见；`OutputArtifactWriter` 写真实 PG `runtime.artifact` + NFS，`AttachmentToolSet.deliver_artifact` 成功取出同一 artifact | `tests/acceptance/user_skill_sandbox/test_s_47.py::test_s47_outputs_are_bounded_relative_paths_and_symlinks_are_skipped`、`::test_s47_registered_output_is_deliverable_through_existing_artifact_path` | 真实 bwrap 产出文件；登记走真实 `NfsArtifactStore`/PG；只有外部渠道客户端用记录桩，ArtifactStore→deliver_artifact 边界未 mock | verified |
+| E-01 | 同一基线 worktree：探针 ImportError `OutputLimits` | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_e_01.py` → `1 passed`；32 MiB stdout 洪泛下 `stdout_bytes=65536`、父进程 RSS 增量 444 KiB、`orphans=[]`、`SANDBOX_OUTPUT_LIMIT` | `tests/acceptance/user_skill_sandbox/test_e_01.py::test_e01_stdout_flood_is_bounded_and_process_tree_reaped` | 真实 bwrap 子进程管道按 64 KiB 块读取；脚本结束后扫描 `/proc/*/cmdline` 无残留 | verified |
+| E-03 | 同一基线 worktree：探针 ImportError `OutputLimits` | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_e_03.py` → `1 passed`；`INTERNAL_SERVICE_TOKEN`/`DATABASE_URL`/`REDIS_URL`/AWS/`MUAD_SESSION_SOCKET`/`SKILL_TOKEN` 全为 None；`/mnt`、`/proc/1`、docker.sock、SA token 不存在；`/skill` 可读不可写、`/workspace` 可写；stdout/stderr 无密钥 | `tests/acceptance/user_skill_sandbox/test_e_03.py::test_e03_secret_boundary_and_minimal_mounts` | 真实 `bwrap --clearenv` + 最小 mount + 真实 UID 10001；宿主/请求两层 canary 均验证 | verified |
+- S-10: verified — automated command passed; run_id=0ade5b89be5b440b9203bfd8e9b65b92 (confirmed_by: runner)
+- S-15: verified — automated command passed; run_id=0ade5b89be5b440b9203bfd8e9b65b92 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=0ade5b89be5b440b9203bfd8e9b65b92 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=0ade5b89be5b440b9203bfd8e9b65b92 (confirmed_by: runner)
+- S-47: verified — automated command passed; run_id=0ade5b89be5b440b9203bfd8e9b65b92 (confirmed_by: runner)
+- S-10: verified — automated command passed; run_id=68af797eced44a468072a9eb7cd6a3b0 (confirmed_by: runner)
+- S-15: verified — automated command passed; run_id=68af797eced44a468072a9eb7cd6a3b0 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=68af797eced44a468072a9eb7cd6a3b0 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=68af797eced44a468072a9eb7cd6a3b0 (confirmed_by: runner)
+- S-47: verified — automated command passed; run_id=68af797eced44a468072a9eb7cd6a3b0 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-06] started
+- [2026-11-06] RED：在 `58c024f2` 基线 worktree 运行新用例，单元测试 `test_sandboxed_skill_executor.py` 与 bwrap 探针（S-15）均因 `muad_agent_core.skill` 缺 `OutputLimits`/`SandboxedSkillExecutor` 失败（ImportError/collection error）。
+- [2026-11-06] GREEN：`SandboxedSkillExecutor` + 统一 `SkillExecutor.execute(request)`、`-E -s -B`、只读 `/skill`、独立 `/workspace`、流式有界输出、`SKILL_OUTPUT_DIR` 产物登记；Runtime/Worker 默认装配改为沙箱执行器并冻结 source/workspace。验收：单元+skill verifier `22 passed`；secret verifier `1 passed`；S-10/S-15/S-47/E-01/E-03 `7 passed`。
+- [2026-11-06] 说明：本机 macOS 无 bwrap，验收探针在 `muad-skill-executor-probe:8e8cd7dcaec3`（`fx-sandbox-test:local` + 依赖）中运行真实 bwrap；S-47 的 ArtifactStore→deliver_artifact 用真实 PG/NFS，仅外部渠道客户端是记录桩。
+- [2026-11-06] completed (done)
 
 ---
 

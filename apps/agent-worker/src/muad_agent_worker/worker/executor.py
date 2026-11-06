@@ -3,14 +3,18 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Protocol, cast
 
+from muad_agent_core.sandbox import workspace_layout_from_settings
 from muad_agent_core.skill import (
-    ScriptSkillExecutor,
     SkillArtifactResolver,
     SkillExecutionError,
     SkillExecutionRequest,
+    SkillExecutionResult,
     SkillExecutionStatus,
+    SkillExecutor,
+    build_sandboxed_skill_executor,
 )
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import process_settings
@@ -28,11 +32,18 @@ from ..application.batch_fanout import (
     FanoutSummary,
 )
 from ..infrastructure.models.task import TaskExecution
+from ..metrics import (
+    SANDBOX_OUTPUT_LIMIT_METRIC,
+    SANDBOX_TIMEOUT_METRIC,
+    SKILL_EXECUTION_METRIC,
+    record_outcome,
+)
 
 EXECUTION_TIMEOUT_SEC = 300.0
 #: 剩余时间已经不够一秒时不再把它夹成 0：给子进程一个能正常启动/收尾的下限。
 MIN_EXECUTION_TIMEOUT_SEC = 1.0
 SKILL_ARTIFACT_KEYS = ("artifact_id", "storage_key", "checksum")
+VALID_SKILL_SOURCES = frozenset({"SYSTEM", "ADMIN", "USER"})
 # 确定性失败：重跑结果不会变（快照/计划/制品本身有问题），不消耗重试预算直接 FAILED。
 NON_RETRYABLE_CODES = frozenset(
     {
@@ -100,6 +111,56 @@ def frozen_skill(task: TaskExecution) -> Mapping[str, Any]:
     return cast(Mapping[str, Any], entry)
 
 
+def frozen_source(skill: Mapping[str, Any]) -> str:
+    """冻结的 Skill 来源决定 policy；缺失/非法一律拒绝执行（RULE-snapshot-001）。"""
+    source = skill.get("source")
+    if not isinstance(source, str) or not source.strip():
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen skill is missing source", retryable=False
+        )
+    normalized = source.strip().upper()
+    if normalized not in VALID_SKILL_SOURCES:
+        raise TaskExecutionError(
+            "SKILL_SOURCE_INVALID", f"invalid frozen skill source: {source!r}", retryable=False
+        )
+    return normalized
+
+
+def frozen_workspace(task: TaskExecution, skill: Mapping[str, Any]) -> Path:
+    """从冻结 Snapshot 取 tenant/user/Agent 归属；不信任 Task 行的可变列。"""
+    raw = skill.get("workspace")
+    if not isinstance(raw, Mapping):
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen skill is missing workspace", retryable=False
+        )
+    tenant_id = raw.get("tenant_id")
+    user_id = raw.get("user_id")
+    agent_id = raw.get("agent_id")
+    if not isinstance(tenant_id, str) or not tenant_id.strip():
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen workspace tenant is missing", retryable=False
+        )
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen workspace user is missing", retryable=False
+        )
+    if not isinstance(agent_id, str) or not agent_id.strip():
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen workspace agent is missing", retryable=False
+        )
+    if tenant_id != task.tenant_id:
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen workspace tenant does not match task", retryable=False
+        )
+    try:
+        layout = workspace_layout_from_settings(process_settings())
+        return layout.workspace_dir(tenant_id=tenant_id, user_id=user_id, agent_id=agent_id)
+    except ValueError as exc:
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", f"invalid frozen workspace: {exc}", retryable=False
+        ) from exc
+
+
 class SkillTaskExecutor:
     """按冻结 Snapshot 执行 Skill。
 
@@ -110,11 +171,11 @@ class SkillTaskExecutor:
     def __init__(
         self,
         resolver: SkillArtifactResolver,
-        executor: ScriptSkillExecutor | None = None,
+        executor: SkillExecutor | None = None,
         fanout: BatchFanoutProtocol | None = None,
     ) -> None:
         self._resolver = resolver
-        self._executor = executor or ScriptSkillExecutor()
+        self._executor = executor or build_sandboxed_skill_executor(process_settings())
         self._fanout = fanout
 
     async def execute(self, task: TaskExecution) -> dict[str, Any]:
@@ -122,6 +183,8 @@ class SkillTaskExecutor:
             # reclaim 后不重跑 Skill：已有 Child 的 Parent 只等待 fan-in。
             return self._batch_envelope(task)
         skill = frozen_skill(task)
+        source = frozen_source(skill)
+        workspace = frozen_workspace(task, skill)
         try:
             ready_dir = await self._resolver.ensure(
                 artifact_id=str(skill["artifact_id"]),
@@ -136,12 +199,16 @@ class SkillTaskExecutor:
                     ready_dir=ready_dir,
                     input=task.input_json or {},
                     timeout_sec=self._execution_timeout(task),
+                    source=source,
+                    workspace_dir=workspace,
+                    execution_id=str(task.id),
                     env=task_env(task),
                     platform_context=task_platform_context(task, skill),
                 )
             )
         except SkillExecutionError as exc:
             raise TaskExecutionError("SKILL_EXECUTION_FAILED", exc.message) from exc
+        self._record_result(source, result)
         payload = dict(result.result) if result.result else {}
         plan = self._parse_plan(payload)
         if plan is not None:
@@ -165,7 +232,24 @@ class SkillTaskExecutor:
             "stderr": result.stderr,
             "duration_ms": result.duration_ms,
             "exit_code": result.exit_code,
+            "outputs": [
+                {
+                    "relative_path": output.relative_path,
+                    "size": output.size,
+                    "checksum": output.checksum,
+                }
+                for output in result.outputs
+            ],
+            "output_notice": result.output_notice,
         }
+
+    def _record_result(self, source: str, result: SkillExecutionResult) -> None:
+        labels = {"source": source}
+        record_outcome(SKILL_EXECUTION_METRIC, result.status.value, labels)
+        if result.output_notice:
+            record_outcome(SANDBOX_OUTPUT_LIMIT_METRIC, result.output_notice, labels)
+        if result.status is SkillExecutionStatus.TIMED_OUT:
+            record_outcome(SANDBOX_TIMEOUT_METRIC, result.status.value, labels)
 
     def _parse_plan(self, payload: Mapping[str, Any]) -> BatchPlan | None:
         try:

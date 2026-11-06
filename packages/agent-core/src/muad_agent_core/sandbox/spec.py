@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 
 SANDBOX_ENV_ALLOWLIST: tuple[str, ...] = ("PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TZ")
-SANDBOX_ENV_PREFIXES: tuple[str, ...] = ("SKILL_", "MUAD_SKILL_")
+SANDBOX_ENV_PREFIXES: tuple[str, ...] = ("SKILL_", "MUAD_SKILL_", "MUAD_TASK_")
 #: allowlist 之外**永远不允许**进入沙箱的键片段；即使调用方把它伪装成 SKILL_* 也丢弃。
 SANDBOX_FORBIDDEN_ENV_PARTS: tuple[str, ...] = (
     "TOKEN",

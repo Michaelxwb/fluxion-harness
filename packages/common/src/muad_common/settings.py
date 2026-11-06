@@ -60,6 +60,10 @@ class SharedSettings(BaseSettings):
     sandbox_tmpfs_bytes: int = Field(default=64 * 1024 * 1024, ge=1024 * 1024)
     #: stdout/stderr 单流上限（字节）；超限终止并返回 SANDBOX_OUTPUT_LIMIT。
     sandbox_output_limit_bytes: int = Field(default=64 * 1024, ge=1024)
+    #: SKILL_OUTPUT_DIR 的产物登记边界：文件数、单文件、总大小（MiB）。
+    skill_output_max_files: int = Field(default=100, ge=1)
+    skill_output_max_file_mib: int = Field(default=16, ge=1)
+    skill_output_max_total_mib: int = Field(default=64, ge=1)
     migrations_dir: str = "./migrations/versions"
 
     console_platform_url: str = "http://127.0.0.1:8000"
@@ -174,13 +178,6 @@ class SharedSettings(BaseSettings):
     #: Stream 保留窗口（design RET-01）：入站周期 XTRIM MINID；出站 XADD MINID。
     inbound_stream_retention_sec: int = Field(default=600, ge=60)
     outbound_stream_retention_sec: int = Field(default=3_600, ge=300)
-    #: Workspace 共享卷与配额（TASK-006）：部署清单显式声明，代码从这里取唯一预算来源。
-    workspace_root: str = "/mnt/muad-workspaces"
-    workspace_quota_mib: int = Field(default=500, ge=1)
-    workspace_user_quota_mib: int = Field(default=500, ge=1)
-    workspace_file_limit: int = Field(default=5000, ge=1)
-    workspace_output_ttl_days: int = Field(default=30, ge=1)
-    workspace_data_ttl_days: int = Field(default=30, ge=1)
 
     @field_validator("*", mode="before")
     @classmethod
