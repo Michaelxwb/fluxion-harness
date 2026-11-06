@@ -190,6 +190,16 @@ kubectl exec -it <pod> -- env \
   python /tmp/real_broker_probe.py
 ```
 
+URL 可直接带 path/query；需要 query 对象或 POST body 时：
+
+```bash
+TEST_METHOD=POST \
+TEST_URL='/api/v1/query' \
+TEST_PARAMS_JSON='{"page":1}' \
+TEST_BODY_JSON='{"customer_id":"C-1001"}' \
+python /tmp/real_broker_probe.py
+```
+
 预期：
 
 ```text

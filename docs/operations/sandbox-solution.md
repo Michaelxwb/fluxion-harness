@@ -637,6 +637,9 @@ kubectl exec -it <canary-runtime-pod> -- env \
 可选参数：
 
 ```text
+TEST_PATH            TEST_URL 为空时使用的相对路径
+TEST_PARAMS_JSON     查询参数 JSON，例如 '{"page":1}'
+TEST_BODY_JSON       请求体 JSON，例如 '{"id":"A-1"}'（配合 TEST_METHOD=POST）
 TEST_TENANT_ID       默认 SharedSettings.default_tenant_id
 TEST_EXECUTION_ID    默认随机 UUID
 TEST_METHOD          默认 GET
@@ -644,6 +647,22 @@ TEST_TIMEOUT_SEC     默认 15
 TEST_EXPECT_STATUS   精确期望状态码；默认 2xx/3xx
 TEST_INSECURE=1      仅测试环境跳过 TLS 校验
 TEST_SHOW_BODY=1     输出 200 字节 body 前缀（默认关闭，避免泄露业务数据）
+```
+
+`TEST_URL` 可以直接带完整 path 和 query，不需要把参数写死在脚本里：
+
+```bash
+TEST_URL='http://soar-inner.sangfor.com.cn:30001/api/v1/health?foo=bar'
+```
+
+需要 query 对象或 POST body 时：
+
+```bash
+TEST_METHOD=POST \
+TEST_URL='/api/v1/query' \
+TEST_PARAMS_JSON='{"page":1,"size":20}' \
+TEST_BODY_JSON='{"customer_id":"C-1001"}' \
+python /tmp/real_broker_probe.py
 ```
 
 预期：

@@ -11,10 +11,14 @@ Required environment:
 
   TEST_ACTOR_USER_ID   platform user UUID that has the test platform credential
   TEST_PLATFORM_KEY    Console ProjectPlatform key (for example: mssp)
-  TEST_URL             non-destructive test endpoint, absolute URL or path
+  TEST_URL              test endpoint, absolute URL or path; may include query string
+                        (or use TEST_PATH when TEST_URL is empty)
 
 Optional:
 
+  TEST_PATH            path used when TEST_URL is empty
+  TEST_PARAMS_JSON     JSON object of query params, e.g. '{"page":1}'
+  TEST_BODY_JSON       JSON object sent as request body, e.g. '{"id":"A-1"}'
   TEST_TENANT_ID       defaults to SharedSettings.default_tenant_id
   TEST_SKILL_NAME      defaults to real-broker-probe
   TEST_EXECUTION_ID    defaults to a random UUID
@@ -65,12 +69,26 @@ import requests
 
 PLATFORM_KEY = os.environ["TEST_PLATFORM_KEY"]
 SKILL_NAME = os.environ["TEST_SKILL_NAME"]
-TEST_URL = os.environ["TEST_URL"]
+TEST_URL = os.environ.get("TEST_URL", "").strip() or os.environ.get("TEST_PATH", "").strip()
 METHOD = os.environ.get("TEST_METHOD", "GET").upper()
 TIMEOUT = float(os.environ.get("TEST_TIMEOUT_SEC", "15"))
 EXPECT = os.environ.get("TEST_EXPECT_STATUS", "").strip()
 INSECURE = os.environ.get("TEST_INSECURE") == "1"
 SHOW_BODY = os.environ.get("TEST_SHOW_BODY") == "1"
+
+
+def json_object(name: str) -> dict:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return {}
+    value = json.loads(raw)
+    if not isinstance(value, dict):
+        raise ValueError(f"{name} must be a JSON object")
+    return value
+
+
+PARAMS = json_object("TEST_PARAMS_JSON")
+BODY = json_object("TEST_BODY_JSON") or None
 
 
 def fail(message: str) -> int:
@@ -125,6 +143,8 @@ def main() -> int:
         url,
         headers=headers,
         cookies=cookies,
+        params=PARAMS or None,
+        json=BODY,
         timeout=TIMEOUT,
         verify=not INSECURE,
     )
@@ -245,7 +265,9 @@ async def main() -> int:
     tenant_id = os.environ.get("TEST_TENANT_ID", "").strip() or settings.default_tenant_id
     actor_user_id = _required("TEST_ACTOR_USER_ID")
     platform_key = _required("TEST_PLATFORM_KEY")
-    test_url = _required("TEST_URL")
+    test_url = os.environ.get("TEST_URL", "").strip() or os.environ.get("TEST_PATH", "").strip()
+    if not test_url:
+        raise SystemExit("missing required env: TEST_URL or TEST_PATH")
     skill_name = os.environ.get("TEST_SKILL_NAME", "real-broker-probe").strip()
     execution_id = os.environ.get("TEST_EXECUTION_ID", "").strip() or str(uuid.uuid4())
 
@@ -273,6 +295,8 @@ async def main() -> int:
         "TEST_PLATFORM_KEY": platform_key,
         "TEST_SKILL_NAME": skill_name,
         "TEST_URL": test_url,
+        "TEST_PARAMS_JSON": os.environ.get("TEST_PARAMS_JSON", ""),
+        "TEST_BODY_JSON": os.environ.get("TEST_BODY_JSON", ""),
         "TEST_METHOD": os.environ.get("TEST_METHOD", "GET"),
         "TEST_TIMEOUT_SEC": os.environ.get("TEST_TIMEOUT_SEC", "15"),
         "TEST_EXPECT_STATUS": os.environ.get("TEST_EXPECT_STATUS", ""),
