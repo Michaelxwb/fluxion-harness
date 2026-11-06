@@ -1236,6 +1236,7 @@ workspace 以 tenant + user + Agent 三维定位。PVC 上的目录：
 
 ```text
 <workspace-root>/{tenant_id}/{user_id}/{agent_id}/
+# 默认 <workspace-root> = /mnt/muad-artifacts/workspaces
   ├── data/                 # SKILL_DATA_DIR：持久数据
   └── outputs/
       └── {run_id}/         # SKILL_OUTPUT_DIR：本次执行输出
@@ -1294,7 +1295,7 @@ workspace 持久化的是**磁盘/PVC，不是运行内存**：
 
 - 在 Worker 中新增 `workspace.maintenance` 同级循环，随进程启动，按自己的节拍运行；
 - **不需要管理员在 Console 创建 Schedule，也不新增 K8s CronJob 或常驻清理服务**；
-- workspace 根所在 PVC 必须同时挂到 Worker 和 Runtime；使用独立 RWX PVC `muad-workspaces-rwx`，挂载 `/mnt/muad-workspaces`，不复用 `muad-artifacts-rwx`；否则 Runtime 写入的文件 Worker 看不到，TTL 会算错；
+- workspace 根复用 `muad-artifacts-rwx` 的 `workspaces/` 子目录，挂载 `/mnt/muad-artifacts/workspaces`，不新增 PVC/Helm volume；清理循环只处理该前缀，不得触碰 artifact 目录；同一 PVC 容量需同时容纳 Skill 包/附件和用户 workspace，必须监控使用率并预留容量；
 - Worker 默认多副本，清理前必须用 PG advisory lock 或 DB 认领 + 租约，避免多个副本
   重复删除同一目录、重复计数；
 - 元数据表记录 `last_access_time`、`size_bytes`、`state`、`lease_until`；

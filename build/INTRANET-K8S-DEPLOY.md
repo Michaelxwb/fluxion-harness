@@ -76,6 +76,37 @@ PV: muad-artifacts-rwx
 MountPath: /mnt/muad-artifacts
 ```
 
+Skill/Shell workspace **不新增 PVC**，复用该卷的 `workspaces/` 子目录：
+
+```text
+WORKSPACE_ROOT=/mnt/muad-artifacts/workspaces
+/mnt/muad-artifacts/workspaces/{tenant_id}/{user_id}/{agent_id}/
+  ├── data/
+  └── outputs/{run_id}/
+```
+
+因此 Helm 不需要新增 volume/volumeMount 或 `--set` 参数；Runtime/Worker 现有
+`global.artifacts` 挂载已经覆盖该路径。部署后验证目录可写（以 Runtime 的 UID 10001 执行）：
+
+```bash
+kubectl -n muad exec deploy/muad-agent-runtime -- python -c '
+from pathlib import Path
+root = Path("/mnt/muad-artifacts/workspaces")
+root.mkdir(parents=True, exist_ok=True)
+probe = root / ".write-probe"
+probe.write_text("ok")
+probe.unlink()
+print("workspace writable:", root)
+'
+```
+
+容量注意：
+
+- `muad-artifacts-rwx` 同时承载不可变 Skill 包/附件和用户可写 workspace；
+- 按每用户 500 MiB 估算，1000 用户约 500 GiB，100Gi 默认卷需要扩容或限制用户数；
+- 监控 PVC 使用率，为 artifacts 预留空间；workspace 写满会影响 Skill 包/附件；
+- 清理只处理 `workspaces/` 前缀，不触碰 artifact 目录；容量不足时再评估拆独立 PVC（需要 Helm 变更）。
+
 ### 1.2 Secret
 
 ```bash
@@ -152,6 +183,17 @@ REDIS_CLUSTER_SEEDS: "10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"
 `helm upgrade --install` 步骤安装，不要用 `kubectl apply -k deploy/k8s/base` 把原始清单
 铺进 Helm 管理的 namespace。
 
+Skill/Shell workspace 的配置也在 `muad-common` 中，复用 artifacts PVC，不需要新增 Helm 参数：
+
+```yaml
+WORKSPACE_ROOT: /mnt/muad-artifacts/workspaces
+WORKSPACE_QUOTA_MIB: "500"
+WORKSPACE_USER_QUOTA_MIB: "500"
+WORKSPACE_FILE_LIMIT: "5000"
+WORKSPACE_OUTPUT_TTL_DAYS: "30"
+WORKSPACE_DATA_TTL_DAYS: "30"
+```
+
 已有 ConfigMap 时 `kubectl apply` 会原地更新，但**不会重启 Pod**；`kubectl patch` 可重复
 执行。顺序固定为「先 apply（会把值重置为 standalone）→ 再 patch」，然后重启 5 个
 Deployment（`muad-common` 是外部资源，Helm 不会因它变化自动滚动）：
@@ -192,6 +234,10 @@ kubectl -n muad create secret docker-registry regcred \
 >
 > 也不要在参数块里写 `$TAG`：平台生成的脚本是 `set -euo pipefail`，未定义的变量会
 > 直接退出（`bash: line 22: TAG: unbound variable`），命令一行都不会执行。
+
+> **workspace 不需要新增 Helm 参数**：复用现有 `global.artifacts.existingClaim` / `mountPath`，
+> workspace 子目录和配额在 `muad-common` ConfigMap 中配置；不要为 workspace 新建 PVC 或
+> `--set global.workspaces...`（当前 chart 没有这个参数）。
 
 > 如果使用第 9 节的 nginx 统一入口，把 console 和 gateway 的 `service.type` 改成
 > `ClusterIP`，并去掉 `service.nodePort` / `service.externalTrafficPolicy`。
@@ -379,6 +425,12 @@ data:
   API_MESSAGES_FILE: /app/config/api-messages.yaml
 
   ARTIFACT_ROOT: /mnt/muad-artifacts
+  WORKSPACE_ROOT: /mnt/muad-artifacts/workspaces
+  WORKSPACE_QUOTA_MIB: "500"
+  WORKSPACE_USER_QUOTA_MIB: "500"
+  WORKSPACE_FILE_LIMIT: "5000"
+  WORKSPACE_OUTPUT_TTL_DAYS: "30"
+  WORKSPACE_DATA_TTL_DAYS: "30"
   SKILL_CACHE_ROOT: /var/cache/muad/skills
   MIGRATIONS_DIR: /app/migrations/versions
 

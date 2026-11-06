@@ -341,13 +341,45 @@ build/INTRANET-K8S-DEPLOY.md
 
 完整 Secret/ConfigMap 示例见 `build/INTRANET-K8S-DEPLOY.md` §1.2、§1.3。
 
+### 5.2 Skill/Shell workspace（复用 artifacts PVC）
+
+workspace 不新增 PVC，复用 `muad-artifacts-rwx` 的 `workspaces/` 子目录；Helm 参数不变。
+
+`muad-common` ConfigMap 已包含：
+
+```yaml
+WORKSPACE_ROOT: /mnt/muad-artifacts/workspaces
+WORKSPACE_QUOTA_MIB: "500"
+WORKSPACE_USER_QUOTA_MIB: "500"
+WORKSPACE_FILE_LIMIT: "5000"
+WORKSPACE_OUTPUT_TTL_DAYS: "30"
+WORKSPACE_DATA_TTL_DAYS: "30"
+```
+
+部署后验证 Runtime/Worker 都能在该目录写入（UID 10001）：
+
+```bash
+kubectl -n muad exec deploy/muad-agent-runtime -- python -c '
+from pathlib import Path
+root = Path("/mnt/muad-artifacts/workspaces")
+root.mkdir(parents=True, exist_ok=True)
+probe = root / ".write-probe"
+probe.write_text("ok")
+probe.unlink()
+print("workspace writable:", root)
+'
+```
+
+容量按每用户 500 MiB 估算；`muad-artifacts-rwx` 同时承载 Skill 包/附件，100Gi 默认卷在
+用户数较大时必须扩容，并监控 PVC 使用率。workspace 清理只处理 `workspaces/` 前缀。
+
 顺序：
 
 ```text
-1. 建 namespace、Secret、muad-common ConfigMap、artifacts PVC
+1. 建 namespace、Secret、muad-common ConfigMap、artifacts PVC（含 workspaces/ 子目录）
 2. 部署前手动执行数据库迁移
 3. 安装 5 个服务（无顺序依赖，可以并行）
-4. 验证 /healthz、/readyz
+4. 验证 /healthz、/readyz、workspace 目录可写
 ```
 
 如果使用 nginx 统一入口：

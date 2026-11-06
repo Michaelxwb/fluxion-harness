@@ -9,6 +9,14 @@ data:
   DEFAULT_TENANT_ID: default
   LOG_DIR: /app/.data/logs
   ARTIFACT_ROOT: /mnt/muad-artifacts
+  # Skill/Shell workspace：复用 artifacts PVC 的 workspaces/ 子目录，不新增 PVC/Helm volume。
+  # 清理循环只处理该前缀；同一 PVC 容量需同时容纳 Skill 包/附件与用户 workspace。
+  WORKSPACE_ROOT: /mnt/muad-artifacts/workspaces
+  WORKSPACE_QUOTA_MIB: "500"
+  WORKSPACE_USER_QUOTA_MIB: "500"
+  WORKSPACE_FILE_LIMIT: "5000"
+  WORKSPACE_OUTPUT_TTL_DAYS: "30"
+  WORKSPACE_DATA_TTL_DAYS: "30"
   SKILL_CACHE_ROOT: /var/cache/muad/skills
   API_MESSAGES_FILE: /app/config/api-messages.yaml
   # 服务间接线：**必须显式给**。缺了应用会回落到 `SharedSettings` 的 `http://127.0.0.1:8000`

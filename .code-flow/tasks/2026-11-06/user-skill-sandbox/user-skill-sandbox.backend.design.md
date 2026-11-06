@@ -568,7 +568,7 @@ WHERE review_status = 'PENDING' AND is_deleted = false;
 
 唯一：`(tenant_id, user_id, agent_id) WHERE is_deleted=false`。
 
-沙箱内路径：`<workspace-root>/{tenant_id}/{user_id}/{agent_id}/data` 与 `.../outputs/{execution_id}`；只把当前 user + Agent 目录 bind 到 `/workspace`，不暴露 workspace 根。
+沙箱内路径：`<workspace-root>/{tenant_id}/{user_id}/{agent_id}/data` 与 `.../outputs/{execution_id}`；`<workspace-root>` 默认 `/mnt/muad-artifacts/workspaces`；只把当前 user + Agent 目录 bind 到 `/workspace`，不暴露 workspace 根。
 
 系统运行时（Python/Node 解释器、系统 site-packages）只读继承 Pod 基础镜像，**不复制到 workspace**；workspace 只保存 `pip`/`npm` 安装包、venv、node_modules 和数据/输出。禁止每个 workspace 复制完整运行时。
 
@@ -1000,10 +1000,11 @@ erDiagram
 - 基础镜像 `python-node:3.12.13-node24` 内置 bwrap 0.13.1；
 - 不新增独立沙箱服务/Controller/CRD；
 - 系统 Python/Node 依赖随基础/服务镜像构建，runtime/worker 重建后所有副本一致；不在运行中的 Pod 安装；
-- runtime/worker 使用现有共享 Artifact PVC；workspace 使用**独立 RWX PVC** `muad-workspaces-rwx`，挂载 `/mnt/muad-workspaces`；不复用 artifacts PVC，避免用户可写数据和不可变 Skill 包互相影响；
-- workspace PVC 根路径 `/mnt/muad-workspaces`；每个 user + Agent 目录 bind 到沙箱 `/workspace`，不把 PVC 根暴露给脚本；
+- runtime/worker 使用现有共享 Artifact PVC；workspace 复用 `muad-artifacts-rwx` 的 `workspaces/` 子目录，**不新增 PVC、不改 Helm volume 配置**；
+- workspace 根路径 `/mnt/muad-artifacts/workspaces`；每个 user + Agent 目录 bind 到沙箱 `/workspace`，不把 PVC 根暴露给脚本；
 - 草稿 PVC 只挂 Console；
-- workspace PVC 同时挂 Runtime 和 Worker（清理需要）。
+- 同一 PVC 同时承载不可变 Skill 包/附件和用户可写 workspace：必须监控 PVC 使用率、给 workspace 配额/TTL，并为 artifacts 预留容量；容量不足时再评估拆分独立 PVC（需 Helm 变更）；
+- workspace 与 artifacts 共卷时，清理循环只处理 `workspaces/` 前缀，不得触碰 artifact 目录。
 
 ### 4.2 发布与回滚 [按需]
 
