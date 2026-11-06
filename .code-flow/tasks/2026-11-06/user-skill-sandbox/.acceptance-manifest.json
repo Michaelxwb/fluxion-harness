@@ -1418,7 +1418,7 @@
       "kind": "functional",
       "boundary": "Console API → 审批事务 → PG → 审计",
       "owner": "TASK-010",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -1571,6 +1571,9 @@
           "timeout": 600.0,
           "fingerprint": "c73b5e3bd1d18c37783c361ac7c4a2cde93c634185c75a3064af0e0e7a81ab8d"
         }
+      ],
+      "stale_checks": [
+        "CHK-e8f74f96e6e3"
       ]
     },
     {
@@ -1580,7 +1583,7 @@
       "kind": "functional",
       "boundary": "Console API → 状态机 → PG",
       "owner": "TASK-010",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -1723,6 +1726,9 @@
           "timeout": 600.0,
           "fingerprint": "c73b5e3bd1d18c37783c361ac7c4a2cde93c634185c75a3064af0e0e7a81ab8d"
         }
+      ],
+      "stale_checks": [
+        "CHK-7602fe3c28e6"
       ]
     },
     {
@@ -4304,7 +4310,7 @@
       "kind": "functional",
       "boundary": "Workspace quota check → PVC",
       "owner": "TASK-006",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -4531,6 +4537,9 @@
           "timeout": 600.0,
           "fingerprint": "9f2740696f2f813dd3a0a41ed8c2235bebe45c723c3c7d6fe6a60312cc57b9e3"
         }
+      ],
+      "stale_checks": [
+        "CHK-c2aafcb05a89"
       ]
     },
     {
@@ -4540,7 +4549,7 @@
       "kind": "functional",
       "boundary": "Worker workspace.maintenance → 元数据 → PVC",
       "owner": "TASK-006",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -4775,6 +4784,9 @@
           "timeout": 600.0,
           "fingerprint": "9f2740696f2f813dd3a0a41ed8c2235bebe45c723c3c7d6fe6a60312cc57b9e3"
         }
+      ],
+      "stale_checks": [
+        "CHK-9a49a7a1d0d7"
       ]
     },
     {
@@ -4784,7 +4796,7 @@
       "kind": "functional",
       "boundary": "多 Worker 并发 → PG advisory lock/认领",
       "owner": "TASK-006",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -5012,6 +5024,9 @@
           "timeout": 600.0,
           "fingerprint": "9f2740696f2f813dd3a0a41ed8c2235bebe45c723c3c7d6fe6a60312cc57b9e3"
         }
+      ],
+      "stale_checks": [
+        "CHK-41b9fa6e3b8f"
       ]
     },
     {
@@ -5497,7 +5512,7 @@
       "kind": "functional",
       "boundary": "Console API → owner 校验 → PG",
       "owner": "TASK-010",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -5641,6 +5656,9 @@
           "timeout": 600.0,
           "fingerprint": "c73b5e3bd1d18c37783c361ac7c4a2cde93c634185c75a3064af0e0e7a81ab8d"
         }
+      ],
+      "stale_checks": [
+        "CHK-c5a693c6ca28"
       ]
     },
     {
@@ -5650,7 +5668,7 @@
       "kind": "functional",
       "boundary": "Console API → 状态机 → PG",
       "owner": "TASK-010",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -5793,6 +5811,9 @@
           "timeout": 600.0,
           "fingerprint": "c73b5e3bd1d18c37783c361ac7c4a2cde93c634185c75a3064af0e0e7a81ab8d"
         }
+      ],
+      "stale_checks": [
+        "CHK-271bf7724d0e"
       ]
     },
     {
@@ -5802,7 +5823,7 @@
       "kind": "functional",
       "boundary": "Console API → 审批状态校验",
       "owner": "TASK-010",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -5937,6 +5958,9 @@
           "timeout": 600.0,
           "fingerprint": "c73b5e3bd1d18c37783c361ac7c4a2cde93c634185c75a3064af0e0e7a81ab8d"
         }
+      ],
+      "stale_checks": [
+        "CHK-a2fa43288567"
       ]
     },
     {
@@ -5946,7 +5970,7 @@
       "kind": "functional",
       "boundary": "Console 审批事务 → AgentAccessGrant 校验",
       "owner": "TASK-010",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -6089,6 +6113,9 @@
           "timeout": 600.0,
           "fingerprint": "c73b5e3bd1d18c37783c361ac7c4a2cde93c634185c75a3064af0e0e7a81ab8d"
         }
+      ],
+      "stale_checks": [
+        "CHK-a5ff90feccf4"
       ]
     },
     {
@@ -6098,7 +6125,7 @@
       "kind": "functional",
       "boundary": "两个并发事务 → artifact 行锁/状态复核",
       "owner": "TASK-010",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -6241,6 +6268,9 @@
           "timeout": 600.0,
           "fingerprint": "c73b5e3bd1d18c37783c361ac7c4a2cde93c634185c75a3064af0e0e7a81ab8d"
         }
+      ],
+      "stale_checks": [
+        "CHK-148108b28cec"
       ]
     },
     {
@@ -6803,7 +6833,7 @@
       "kind": "functional",
       "boundary": "审计表/指标端点 → 查询",
       "owner": "TASK-013",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -6946,6 +6976,9 @@
           "timeout": 600.0,
           "fingerprint": "2404052fbe3b73ca004ed0b1b09aec6fb444aff0956b40dbc5e0192cc957a56c"
         }
+      ],
+      "stale_checks": [
+        "CHK-8acf6c8efcf7"
       ]
     },
     {
@@ -6955,7 +6988,7 @@
       "kind": "functional",
       "boundary": "API 错误码 schema / 消息配置",
       "owner": "TASK-013",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -7097,6 +7130,9 @@
           "timeout": 600.0,
           "fingerprint": "2404052fbe3b73ca004ed0b1b09aec6fb444aff0956b40dbc5e0192cc957a56c"
         }
+      ],
+      "stale_checks": [
+        "CHK-efc5e13c10c2"
       ]
     },
     {
@@ -7171,7 +7207,7 @@
       "kind": "functional",
       "boundary": "Worker workspace.maintenance → 删除失败 → 状态/指标",
       "owner": "TASK-006",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -7398,6 +7434,9 @@
           "timeout": 600.0,
           "fingerprint": "9f2740696f2f813dd3a0a41ed8c2235bebe45c723c3c7d6fe6a60312cc57b9e3"
         }
+      ],
+      "stale_checks": [
+        "CHK-c5cd45a2684a"
       ]
     },
     {
