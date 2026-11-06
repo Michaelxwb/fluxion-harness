@@ -559,7 +559,7 @@ async def test_b248_accepted_redelivery_is_deduped_by_the_same_message_identity(
             )
             await asyncio.sleep(SETTLE_SEC)
 
-        identity = f"im:dedupe:WEBCHAT:{MESSAGE_A}"
+        identity = f"muad:im:dedupe:WEBCHAT:{MESSAGE_A}"
         assert [key for key, _ in store.reservations] == [identity, identity]
         # 第二次占位被拒 ⇒ 重投按同一 message 身份判定为已处理，不再提交第二个 Run
         assert store.reservations[0][1] is not None
@@ -602,7 +602,7 @@ async def test_b248_malformed_explicit_conversation_fails_loudly_without_falling
 
     assert runtime_probe.requests == [], "坏会话不得退回隐式指针去建 Run"
     assert sink.delivered == [] and sink.streamed == []
-    identity = f"im:dedupe:WEBCHAT:{envelope.message_id}"
+    identity = f"muad:im:dedupe:WEBCHAT:{envelope.message_id}"
     assert [key for key, _ in store.reservations] == [identity]
     assert store.reservations[0][1] is not None, "占位必须占过（否则无从判断重投）"
     assert await store.get_value(identity) is None, "未受理必须释放占位，让重投能真正重试"

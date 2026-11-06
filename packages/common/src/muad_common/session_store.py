@@ -1,6 +1,6 @@
 """Webchat 会话的 Redis 存储：首次鉴权写入，之后每请求读取/滑动，登出删除。
 
-- key 只用会话原文的 SHA-256（`webchat:session:<hash>`），不存原文；
+- key 只用会话原文的 SHA-256（`muad:webchat:session:<hash>`），不存原文；
 - value 是受信 principal + 当前授权 Agent 集合 + 绝对到期时刻 + idle TTL；
 - **滑动续期**：命中后 `EXPIRE` 到 `min(idle_ttl, absolute_expires_at - now)`，不超过绝对上限；
 - **fail closed**：Redis 不可用抛 `SessionStoreUnavailable`，调用方返回 503，不回源 Console；
@@ -19,7 +19,7 @@ from typing import Any, Final
 
 logger = logging.getLogger(__name__)
 
-SESSION_KEY_PREFIX: Final = "webchat:session:"
+SESSION_KEY_PREFIX: Final = "muad:webchat:session:"
 
 
 def hash_session_token(token: str) -> str:

@@ -93,7 +93,7 @@ async def test_redis_store_writes_setex_with_ttl_and_closes() -> None:
     await store.set(run_id)
     await store.aclose()
 
-    assert client.calls == [(f"run:cancel:{run_id}", CANCEL_HINT_TTL_SEC, CANCEL_HINT_VALUE)]
+    assert client.calls == [(f"muad:run:cancel:{run_id}", CANCEL_HINT_TTL_SEC, CANCEL_HINT_VALUE)]
     assert client.closed is True
 
 

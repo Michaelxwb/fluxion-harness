@@ -24,7 +24,7 @@ from tests.acceptance.im_gateway.environment import (
 )
 
 INBOUND_GROUP = "im-ingress"
-DEAD_STREAM = "im:inbound:dead"
+DEAD_STREAM = "muad:im:inbound:dead"
 
 
 def _event(stack: GatewayStack, message_id: str) -> InboundEvent:

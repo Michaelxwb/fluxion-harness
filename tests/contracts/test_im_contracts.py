@@ -136,7 +136,7 @@ def test_route_and_stream_keys_are_deterministic_and_channel_scoped() -> None:
     event = _event()
     same = _event(event_id=uuid.uuid4())
     assert inbound_stream_key(event) == inbound_stream_key(same)
-    assert inbound_stream_key(event, shards=8).startswith("im.inbound:{inbound}:")
+    assert inbound_stream_key(event, shards=8).startswith("muad:im.inbound:{inbound}:")
     assert inbound_stream_key(event) != inbound_stream_key(_event(bot_id="bot-2"))
     assert route_key(
         channel=event.channel,
@@ -160,15 +160,15 @@ def test_route_and_stream_keys_are_deterministic_and_channel_scoped() -> None:
         _command(command_id=uuid.uuid4())
     )
     assert outbound_stream_key(command) == (
-        f"im.outbound:{{{command.tenant_id}}}:{command.bot_id}"
+        f"muad:im.outbound:{{{command.tenant_id}}}:{command.bot_id}"
     )
     # 出站按 bot 分流：同 bot 的不同用户/会话仍进同一条流（由 Connector 单 owner 串行消费）。
     assert outbound_stream_key(command) == outbound_stream_key(
         _command(external_user_id="user-2", external_conversation_id="chat-2")
     )
     assert outbound_stream_key(command) != outbound_stream_key(_command(bot_id="bot-2"))
-    assert lease_key("t", "b") == "connector:bot:{t:b}:lease"
-    assert lease_epoch_key("t", "b") == "connector:bot:{t:b}:epoch"
+    assert lease_key("t", "b") == "muad:connector:bot:{t:b}:lease"
+    assert lease_epoch_key("t", "b") == "muad:connector:bot:{t:b}:epoch"
 
 
 def test_key_contracts_share_hash_slots() -> None:

@@ -34,7 +34,7 @@ def isolate_stack_redis() -> None:
     Connector→Gateway 的入站是**异步交接**（Connector 写 `im.inbound`，Gateway 的消费组
     读）：Stream、消费组与去重键都活在同一个 Redis DB 里。上一模块留下的事件（teardown 前
     推送的，或只写不读的 connector 原语套件写入的）会被本模块的 Gateway 当成新消息消费，
-    表现为「单跑绿、整跑红」；`test_connector_primitives` 的「sweep 后 `im.inbound:0` 为空」
+    表现为「单跑绿、整跑红」；`test_connector_primitives` 的「sweep 后 `muad:im.inbound:0` 为空」
     也会被上一模块的残留打破。PG 每个栈都清，Redis 的栈级工作键同样在模块边界清。
     """
     reset_redis_state()

@@ -55,7 +55,7 @@ from ..metrics import (
 logger = logging.getLogger(__name__)
 
 #: 跨进程轻量唤醒通道（Redis Pub/Sub 只通知，不承载事实；见 ADR-02）。
-WAKEUP_CHANNEL = "runtime:events"
+WAKEUP_CHANNEL = "muad:runtime:events"
 #: 单轮上游读取的页大小：水位内分页追平，不一次读全量（有界内存）。
 PAGE_ROWS = 200
 #: 共享窗口行数上限：超出即从窗口前部淘汰，落后订阅者按持久水位补查重建。

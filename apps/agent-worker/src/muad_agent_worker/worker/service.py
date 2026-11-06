@@ -259,7 +259,7 @@ class WorkerLoop:
         """领取循环：有界任务池，本地有槽才领取；执行独立监督。
 
         每拍只做一件快事：把空闲槽填满（`run_pending` 不等待任何执行收尾）；空闲时按 poll
-        间隔等待，`task:wakeup` hint 可提前唤醒。长跑/卡死的片段因此不会把领取排在自己后面；
+        间隔等待，`muad:task:wakeup` hint 可提前唤醒。长跑/卡死的片段因此不会把领取排在自己后面；
         回收由**独立**的 `run_maintenance_forever` 按自己的节拍驱动（design §3.2
         「reclaim/调度/投递独立循环」）。
         """
@@ -760,7 +760,7 @@ class WorkerLoop:
         """续租并检查取消标记。
 
         每 `task_heartbeat_sec` 续租一次并读 PG 取消标记（权威源，Redis 不可用时照常
-        生效）；两次续租之间每 `task_cancel_check_sec` 看一眼 `task:cancel:{id}` hint，
+        生效）；两次续租之间每 `task_cancel_check_sec` 看一眼 `muad:task:cancel:{id}` hint，
         命中就立即读 PG 确认。一旦用户已请求取消、或租约已不属于本实例（被回收/已终态），
         立即叫停本地执行——这就是「检查点停止」。
         """

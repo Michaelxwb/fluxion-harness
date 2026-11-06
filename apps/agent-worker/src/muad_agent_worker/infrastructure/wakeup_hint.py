@@ -12,7 +12,7 @@ from redis.exceptions import RedisClusterException, RedisError
 
 from ..metrics import record_outcome
 
-TASK_WAKEUP_KEY = "task:wakeup"
+TASK_WAKEUP_KEY = "muad:task:wakeup"
 LISTEN_RETRY_SEC = 5.0
 
 logger = logging.getLogger(__name__)
@@ -105,7 +105,7 @@ class NullWakeupListener:
 
 
 class RedisWakeupListener:
-    """订阅 `task:wakeup`：新 Task 提交后让空闲 Worker 提前结束 poll 等待。
+    """订阅 `muad:task:wakeup`：新 Task 提交后让空闲 Worker 提前结束 poll 等待。
 
     只是低延迟 hint——订阅断开时退避重连，期间 Worker 退化为按 poll 间隔扫描。
     """

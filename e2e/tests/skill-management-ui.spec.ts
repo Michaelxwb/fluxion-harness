@@ -201,8 +201,11 @@ test('selected ZIP stays local without progress and displays a full-width wrappi
   await expect(card).toContainText(name);
   await expect(card.locator('[role="progressbar"]')).toHaveCount(0);
   await expect(card.locator('.semi-progress')).toHaveCount(0);
-  const uploadWidth = (await modal.locator('.semi-upload').boundingBox())!.width;
-  expect(Math.abs((await card.boundingBox())!.width - uploadWidth)).toBeLessThanOrEqual(1);
+  // Read both boxes in one frame and retry while the Modal entrance animation settles.
+  await expect.poll(() => card.evaluate((node) => {
+    const upload = node.closest('.semi-upload')!;
+    return Math.abs(node.getBoundingClientRect().width - upload.getBoundingClientRect().width);
+  })).toBeLessThanOrEqual(1);
   const filename = card.locator('.semi-upload-file-card-info-name');
   await expect(filename).toHaveCSS('white-space', 'normal');
   expect(await filename.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(false);

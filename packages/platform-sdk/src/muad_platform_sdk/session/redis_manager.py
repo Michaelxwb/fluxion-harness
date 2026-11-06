@@ -154,7 +154,7 @@ class RedisPlatformSessionManager:
     async def invalidate(self, *, platform: PlatformConfig, actor_scope: str) -> None:
         # Exact prefix from the platform index; never use KEYS/SCAN.
         prefix = (
-            f"platform_session:{{{self.tenant_id}:{self.platform_id}}}:{actor_scope}:"
+            f"muad:platform_session:{{{self.tenant_id}:{self.platform_id}}}:{actor_scope}:"
         )
         keys = [
             k

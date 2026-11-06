@@ -4,8 +4,8 @@
 `im-gateway` 单元的 web 角色。于是 Gateway 也需要一个同名通道适配器，但它的能力被刻意
 缩到最小：
 
-- 入站：`iter_events()` 恒空 —— 入站事实经 `im.inbound:{shard}` 由 Gateway 的消费组读入；
-- 出站：所有文本/增量/收尾都写成 `im.outbound:{tenant}:{bot}` 命令，由持有 bot lease 的
+- 入站：`iter_events()` 恒空 —— 入站事实经 `muad:im.inbound:{shard}` 由 Gateway 的消费组读入；
+- 出站：所有文本/增量/收尾都写成 `muad:im.outbound:{tenant}:{bot}` 命令，由持有 bot lease 的
   Connector 执行；Gateway **不**声明 `LocalDeliverySurface`（`delivers_locally` 一律不写，
   否则 `isinstance(adapter, LocalDeliverySurface)` 会把它当成"本进程直发"）；
 - 回复目标：适配器只带**入站消息身份**（`message_id`）与不透明的 `stream_id`；reply_ref

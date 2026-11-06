@@ -54,7 +54,7 @@ router = APIRouter(prefix="/internal/deliveries", tags=["delivery"])
 
 #: 幂等指纹里的 endpoint 判别键（`RULE-api-002`）：同 key 换端点必须各算各的。
 DELIVERY_ENDPOINT = "/internal/deliveries"
-DELIVERY_DEDUPE_PREFIX = "delivery:dedupe"
+DELIVERY_DEDUPE_PREFIX = "muad:delivery:dedupe"
 DELIVERY_DEDUPE_TTL_SEC = 604800
 # 占位（in-flight）TTL 远短于送达标记：进程在占位后崩溃时占位会自动过期，
 # 允许 Worker 的重试真正补发，而不是被占位永久挡住。

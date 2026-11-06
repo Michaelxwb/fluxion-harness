@@ -297,7 +297,7 @@ async def _build_resources(
     logger.info(
         "redis_client_configured mode=%s inbound_slot=%s",
         settings.redis_mode,
-        key_slot(b"im.inbound:{inbound}:0"),
+        key_slot(b"muad:im.inbound:{inbound}:0"),
     )
     # 请求面只装配不含渠道长连接/私钥的适配器（WEBCHAT + 配置驱动的通用 webhook）；
     # 有状态通道（企微）的适配器活在 Connector。装配根不按通道分支。

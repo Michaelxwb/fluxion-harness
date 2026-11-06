@@ -84,7 +84,7 @@ from .stream_renderer import (
 
 logger = logging.getLogger(__name__)
 
-DEDUPE_PREFIX = "im:dedupe"
+DEDUPE_PREFIX = "muad:im:dedupe"
 DEDUPE_TTL_SEC = 600
 
 AUDIT_RECEIVED = "RECEIVED"

@@ -1,6 +1,6 @@
 """bot 所有权租约：Redis 原子 acquire/renew/release + 单调 fencing epoch。
 
-语义（design §3.3「connector:bot:{tenant_id:bot_id}:lease|:epoch」）：
+语义（design §3.3「muad:connector:bot:{tenant_id:bot_id}:lease|:epoch」）：
 
 - **单 owner**：同一 bot 在任意时刻只有一个 Connector 可以建立长连接；
 - **epoch 单调**：epoch 存在独立计数器里（不随 lease 过期删除），旧 owner 的 fencing token

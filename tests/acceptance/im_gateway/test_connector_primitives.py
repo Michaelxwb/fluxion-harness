@@ -175,7 +175,7 @@ async def test_inbound_publish_is_deduplicated_and_redelivery_republishes_after_
     assert await redis.xlen(stream_key) == 1
 
     # 模拟"标记已写、XADD 前崩溃"：RECEIVED 值；重投必须允许再次发布。
-    key = f"connector:inbound:{TENANT}:{BOT}:msg-crash"
+    key = f"muad:connector:inbound:{TENANT}:{BOT}:msg-crash"
     await redis.set(key, f"RECEIVED:{time.time()}", ex=60)
     crash_event = _event("msg-crash")
     assert await publisher.publish(crash_event) is PublishOutcome.PUBLISHED
@@ -188,7 +188,7 @@ async def test_inbound_sweep_marks_stale_received_as_lost_and_never_creates_run(
     publisher = InboundPublisher(
         redis, shards=4, stream_maxlen=1000, lost_after_sec=1, pause_before_xadd_sec=0
     )
-    key = f"connector:inbound:{TENANT}:{BOT}:msg-lost"
+    key = f"muad:connector:inbound:{TENANT}:{BOT}:msg-lost"
     await redis.set(key, f"RECEIVED:{time.time() - 5}", ex=60)
     result = await publisher.sweep_lost()
     assert result.lost == 1
@@ -368,7 +368,7 @@ async def test_outbound_runner_consumes_command_and_writes_result(redis: Redis) 
         assert payload is not None
         assert json.loads(payload)["status"] == "DELIVERED"
         assert channel.replies == [("req-1", "runner")]
-        assert await redis.get(f"connector:outbound-cursor:{TENANT}:{BOT}")
+        assert await redis.get(f"muad:connector:outbound-cursor:{TENANT}:{BOT}")
     finally:
         runner.stop()
         task.cancel()
@@ -520,7 +520,7 @@ async def test_outbound_runner_retries_until_bot_connection_is_ready(redis: Redi
 
 async def test_outbound_runner_lost_owner_does_not_write_result_or_cursor(redis: Redis) -> None:
     await redis.delete(
-        f"connector:outbound-cursor:{TENANT}:{BOT}",
+        f"muad:connector:outbound-cursor:{TENANT}:{BOT}",
         outbound_stream_key_for(TENANT, BOT),
         lease_key(TENANT, BOT),
         lease_epoch_key(TENANT, BOT),
@@ -552,7 +552,7 @@ async def test_outbound_runner_lost_owner_does_not_write_result_or_cursor(redis:
     try:
         await asyncio.sleep(0.6)
         assert not await redis.exists(command_result_key(command.command_id))
-        assert not await redis.exists(f"connector:outbound-cursor:{TENANT}:{BOT}")
+        assert not await redis.exists(f"muad:connector:outbound-cursor:{TENANT}:{BOT}")
         assert channel.actives == []
     finally:
         runner.stop()

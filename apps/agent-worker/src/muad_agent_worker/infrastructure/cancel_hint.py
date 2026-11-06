@@ -1,4 +1,4 @@
-"""Task 协作取消 hint：`task:cancel:{task_id}`（TTL 30m，设计 §3.3.6）。
+"""Task 协作取消 hint：`muad:task:cancel:{task_id}`（TTL 30m，设计 §3.3.6）。
 
 PG `cancel_requested` 才是权威；hint 只让执行中的 Worker 在两次心跳之间更快停下。
 Redis 不可用时降级为 Null 实现，取消照常由心跳读 PG 生效。
@@ -16,7 +16,7 @@ from redis.exceptions import RedisClusterException, RedisError
 
 from ..metrics import record_outcome
 
-TASK_CANCEL_KEY_PREFIX = "task:cancel:"
+TASK_CANCEL_KEY_PREFIX = "muad:task:cancel:"
 TASK_CANCEL_TTL_SEC = 1800
 TASK_CANCEL_VALUE = "1"
 

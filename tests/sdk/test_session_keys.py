@@ -26,10 +26,10 @@ def test_platform_session_key_is_exact() -> None:
     )
 
     assert key == (
-        "platform_session:{tenant-1:platform-1}:user:user-1:v1:generic-http:1.0.0"
+        "muad:platform_session:{tenant-1:platform-1}:user:user-1:v1:generic-http:1.0.0"
     )
     assert key.startswith(f"{SESSION_KEY_PREFIX}:")
-    assert len(key.split(":")) == 8
+    assert len(key.split(":")) == 9
 
 
 def test_platform_session_key_with_shared_actor_scope() -> None:
@@ -43,7 +43,7 @@ def test_platform_session_key_with_shared_actor_scope() -> None:
     )
 
     assert key == (
-        "platform_session:{tenant-1:platform-1}:shared:shared-cred-1:v2"
+        "muad:platform_session:{tenant-1:platform-1}:shared:shared-cred-1:v2"
         ":generic_http_session:2.1.0"
     )
 
@@ -51,6 +51,6 @@ def test_platform_session_key_with_shared_actor_scope() -> None:
 def test_platform_sessions_index_key_is_exact() -> None:
     index_key = platform_sessions_index_key(tenant_id="tenant-1", platform_id="platform-1")
 
-    assert index_key == "platform_sessions:{tenant-1:platform-1}"
+    assert index_key == "muad:platform_sessions:{tenant-1:platform-1}"
     assert index_key.startswith(f"{SESSION_INDEX_PREFIX}:")
-    assert len(index_key.split(":")) == 3
+    assert len(index_key.split(":")) == 4

@@ -585,13 +585,13 @@ def purge_residue(database_url: str) -> dict[str, int]:
 
 
 def purge_redis_hints(redis_url: str, task_ids: list[uuid.UUID]) -> int:
-    """删除本运行写入的 `task:cancel:{id}` hint，返回删除数（不留残留 key）。"""
+    """删除本运行写入的 `muad:task:cancel:{id}` hint，返回删除数（不留残留 key）。"""
     import redis.asyncio as redis
 
     async def purge() -> int:
         client = redis.from_url(redis_url, decode_responses=True)
         try:
-            keys = [f"task:cancel:{task_id}" for task_id in task_ids]
+            keys = [f"muad:task:cancel:{task_id}" for task_id in task_ids]
             return int(await client.delete(*keys)) if keys else 0
         finally:
             await client.aclose()

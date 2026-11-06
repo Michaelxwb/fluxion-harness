@@ -430,7 +430,7 @@ async def _sample_pressure(
         while not stop.is_set():
             inbound = 0
             pending = 0
-            async for key in client.scan_iter("im.inbound:*"):
+            async for key in client.scan_iter("muad:im.inbound:*"):
                 try:
                     inbound += int(await client.xlen(key))
                     for group in await client.xinfo_groups(key):
