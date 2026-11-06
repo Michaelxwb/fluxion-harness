@@ -274,7 +274,7 @@ scenarios:
     checks: []
 
   - id: S-11
-    title: workspace_shell 执行命令并安装依赖到 workspace
+    title: workspace_shell 执行命令并临时安装验证依赖
     priority: P0
     level: integration
     exec: auto
@@ -287,7 +287,8 @@ scenarios:
     steps: []
     expected:
       - 普通 shell 命令成功
-      - pip/npm 安装写入 workspace，不写系统目录
+      - 默认使用系统预装依赖；pip/npm 临时安装写入 workspace，不写系统目录
+      - 临时安装跨 Pod/重建后不保证存在，不作为生产依赖
       - 无 session-manager
       - 输出/超时/配额限制生效
     why_e2e: ""
@@ -1241,6 +1242,59 @@ scenarios:
     rules:
       - harness-skill#RULE-skill-001
       - harness-secret#RULE-secret-001
+    checks: []
+
+  - id: S-48
+    title: 管理员预装系统依赖后 Skill 直接使用
+    priority: P1
+    level: integration
+    exec: auto
+    env: local
+    components: [backend, sandbox, db]
+    boundary: 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require
+    preconditions:
+      - 管理员已把测试依赖加入镜像构建清单并完成部署
+    steps: []
+    expected:
+      - Skill 不需要 workspace 安装即可 import/require
+      - 所有 Runtime/Worker 副本依赖版本一致
+      - image digest 和依赖变更记录可查
+      - 不在运行中的 Pod 修改系统 site-packages
+    why_e2e: ""
+    trigger_paths: []
+    smoke: false
+    design_refs:
+      - backend design §3.5/§4.1
+    rules:
+      - harness-arch#RULE-arch-001
+      - harness-skill#RULE-skill-001
+    checks: []
+
+  - id: E-17
+    title: workspace 临时安装不作为生产依赖
+    priority: P1
+    level: integration
+    exec: auto
+    env: local
+    components: [backend, sandbox, db]
+    boundary: Pod A 临时安装 → Pod B/重建后执行同一 Skill
+    preconditions:
+      - Pod A 的 workspace 临时安装了一个依赖
+      - 同一 Skill 在另一个 Pod 执行
+    steps: []
+    expected:
+      - 新 Pod 不保证存在该依赖，import 失败可见
+      - 生产路径要求管理员预装到系统镜像
+      - 临时安装计入 workspace 配额，可被 TTL 清理
+    why_e2e: ""
+    trigger_paths: []
+    smoke: false
+    design_refs:
+      - backend design §3.5
+    rules:
+      - harness-arch#RULE-arch-001
+      - harness-skill#RULE-skill-001
+      - harness-log#RULE-log-001
     checks: []
 
 ---

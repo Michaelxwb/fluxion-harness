@@ -93,6 +93,7 @@
 | 旧 Skill 兼容 | 直接执行，写包根目录 | 样例老 Skill 在沙箱内通过最小改造运行 | 真实 Skill 验收 |
 | 沙箱执行可观测 | 仅进程内日志 | 每次执行有审计、指标、错误码 | 审计查询 + 指标 |
 | workspace 磁盘增长 | 无统一约束 | 每 workspace 配额 + 30 天 TTL 自动清理 | 配额/清理验收 |
+| 生产 Skill 系统依赖 | 依赖用户/管理员各自安装 | 生产依赖由管理员预装到系统镜像，Skill 不需要 workspace 安装 | 镜像清单 + 真实 Skill 验收 |
 
 > 未给出量化业务指标（如转化率）时，不编造数字；以上为可验证的交付指标。
 
@@ -121,7 +122,7 @@
 | US-08 | 作为租户终端用户，我希望所有 Skill 脚本在统一沙箱中执行，包只读、每次执行独立工作目录、输出流式有界，以便我的脚本不会破坏其他执行或拖垮服务。 | P0 |
 | US-09 | 作为租户终端用户，我希望平台登录态按 Skill 声明的 `platforms` 自动注入，旧 Skill 的 `session-manager get-state` stdout 结构继续可用。 | P0 |
 | US-10 | 作为租户终端用户，我希望有按 user + Agent 隔离的持久数据目录 `SKILL_DATA_DIR` 和每次执行独立的输出目录 `SKILL_OUTPUT_DIR`，以便报告不互相覆盖、配置可跨 Run 复用。 | P0 |
-| US-11 | 作为租户终端用户，我希望通过 `workspace_shell` 在自己的 workspace 中执行命令、处理文件、安装 pip/npm 依赖，且不同 Agent 的 workspace 互不可见。 | P0 |
+| US-11 | 作为租户终端用户，我希望通过 `workspace_shell` 在自己的 workspace 中执行命令、处理文件、临时验证依赖，且不同 Agent 的 workspace 互不可见。 | P0 |
 | US-12 | 作为租户终端用户，我希望老 Skill 只需少量路径/配置改造即可在新沙箱运行，不需要改 Python 命令行参数或 `SKILL.md` 调用方式。 | P0 |
 | US-13 | 作为租户管理员，我希望查看待审批 Skill 的包内容、元数据、校验结果和提交者信息，并批准或驳回（填写原因）。 | P0 |
 | US-14 | 作为租户管理员，我希望下载待审/已审批 Skill 包，并留下下载审计记录。 | P0 |
@@ -133,6 +134,7 @@
 | US-20 | 作为租户终端用户，我希望在本地 macOS Dev、本地 K8s 和内网 K8s 获得一致的执行语义（macOS 原生 Dev 使用显式 `dev-unsafe`），以便开发和生产行为一致。 | P1 |
 | US-21 | 作为租户终端用户，我希望 Sandbox 失败（超时、输出超限、平台鉴权失败、配额不足、沙箱不可用）返回明确错误码和可重试性，以便修正脚本或重试。 | P0 |
 | US-22 | 作为租户终端用户/管理员，我希望 workspace 在 30 天未访问后自动清理，且清理失败可见，以便磁盘不会无界增长。 | P0 |
+| US-24 | 作为平台管理员/租户管理员，我希望把批准的 Python/Node 依赖预装到系统镜像/Pod 基线，以便所有 Skill 使用统一依赖，而不是每个用户自己在 workspace 安装。 | P1 |
 
 ---
 
@@ -150,7 +152,7 @@
 | FEAT-06 | 统一沙箱执行器 | 所有 `source` 的 Skill 脚本统一走 `SandboxedSkillExecutor`；只读包、独立工作目录、流式输出、超时/取消/进程树回收、fail closed。 | P0 | US-07, US-08, US-12 |
 | FEAT-07 | `session-manager` 登录态注入 | 按 Skill `platforms` 和受信执行身份注入 session broker、Unix socket、只读 state 文件，兼容旧 stdout 结构。 | P0 | US-09, US-12 |
 | FEAT-08 | user + Agent workspace 与目录契约 | 按 tenant + user + Agent 隔离的持久 workspace，拆分 `data/` 与 `outputs/{run_id}/`，注入 `SKILL_DATA_DIR`/`SKILL_OUTPUT_DIR`。 | P0 | US-10, US-11 |
-| FEAT-09 | `workspace_shell` 通用命令 | 所有 Agent 默认可用的一次性 Shell；无 Skill 包、无 `session-manager`；Pod 网络；pip/npm 安装到 workspace；配额/超时/审计。 | P0 | US-11 |
+| FEAT-09 | `workspace_shell` 通用命令 | 所有 Agent 默认可用的一次性 Shell；无 Skill 包、无 `session-manager`；Pod 网络；默认使用系统预装依赖，允许临时 pip/npm 验证；配额/超时/审计。 | P0 | US-11 |
 | FEAT-10 | 老 Skill 兼容改造 | 老 Skill 的缓存/日志/数据/报告目录、Cookie、base_url、Linux 路径、调度、webhook 做最小改造。 | P0 | US-12 |
 | FEAT-11 | `/v1` 服务身份门控 | Runtime `/v1` 受信接口（runs/conversations）要求内部服务身份；Gateway/Console/Worker 调用统一携带；浏览器和沙箱不得持有。 | P0 | US-18 |
 | FEAT-12 | 管理员 Skill 管理界面与接口 | `/skills` 的 source/状态筛选、审批抽屉、下载、用户范围/Agent 绑定、解绑+软删、系统 Skill 上传。 | P0 | US-13, US-14, US-15, US-16 |
@@ -159,6 +161,7 @@
 | FEAT-15 | workspace 配额、TTL 与自动清理 | 每个 workspace/用户配额、30 天 TTL、Worker 内置清理循环、多副本认领、活跃执行跳过。 | P0 | US-22 |
 | FEAT-16 | 多环境部署与运行模式 | bwrap 内置基础镜像；macOS 原生 Dev 显式 `dev-unsafe`；本地 K8s/内网 K8s 走 bwrap；不可用 fail closed；记录镜像/内核指纹。 | P1 | US-20 |
 | FEAT-17 | 数据模型、迁移与存量兼容 | Skill/Artifact/Draft/Workspace 字段与索引、迁移回填、旧数据保持可用、契约与快照升级。 | P0 | US-01, US-05, US-07 |
+| FEAT-18 | 系统依赖预装 | 管理员通过现有镜像构建流程把批准的 Python/Node 依赖预装到系统基线；不运行时修改 Pod；workspace 安装仅作临时验证。 | P1 | US-24 |
 
 > P0=核心必做，P1=重要。
 
@@ -263,12 +266,13 @@
 
 #### FEAT-09: `workspace_shell` 通用命令
 
-- **描述**: 为所有 Agent 提供默认可用的一次性通用 Shell，用于文件处理、跑脚本、安装依赖。
+- **描述**: 为所有 Agent 提供默认可用的一次性通用 Shell，用于文件处理、跑脚本、临时验证依赖。
 - **验收标准**:
   - [ ] `workspace_shell` 对所有 Agent 默认注册，不增加 Agent 配置项。
   - [ ] 使用当前 user + Agent workspace；不挂 Skill 包；不注入 `session-manager`。
   - [ ] 网络与 Pod 一致（`--share-net`），可访问 Pod 网络和公网；`/v1` 门控是硬前置。
-  - [ ] 允许 `pip`/`npm` 安装到 workspace 内 venv/node_modules，不写 `/usr`、不写共享缓存。
+  - [ ] 默认使用系统预装 Python/Node 依赖；允许 `pip`/`npm` 临时安装到 workspace 内 venv/node_modules 做验证，但不作为生产依赖，跨 Pod/重建后不保证存在，不写 `/usr`、不写共享缓存。
+  - [ ] 生产依赖由管理员通过系统镜像预装（FEAT-18），不在运行时修改 Pod 的 site-packages。
   - [ ] 一次性命令，不保持交互式会话；超时、输出上限、进程树回收、并发信号量与 Skill 执行一致。
   - [ ] 沙箱内没有服务 Token、DB/Redis 连接串、SA Token；不挂 `/mnt`、`/proc`、`/var/run`、Docker socket。
   - [ ] 命令摘要、退出码、耗时、文件变更清单写审计；不记录完整密钥/Token。
@@ -336,10 +340,11 @@
 
 #### FEAT-15: workspace 配额、TTL 与自动清理
 
-- **描述**: 控制 workspace 磁盘增长，按 TTL 自动清理 `outputs` 和 `data`，不新增独立清理服务。
+- **描述**: workspace 主要存用户 Skill 执行的数据和输出，并允许临时验证文件；按 TTL 自动清理 `outputs` 和 `data`，不新增独立清理服务。
 - **验收标准**:
   - [ ] 每个 user + Agent workspace 默认 500 MiB，每用户聚合默认 500 MiB；文件数上限 5,000；超限返回 `WORKSPACE_QUOTA_EXCEEDED`。
-  - [ ] 系统 Python/Node 解释器和系统依赖只读继承 Pod 基础镜像，不复制到 workspace；`pip`/`npm` 只把安装包写入 workspace 的 venv/target/node_modules，并计入配额。
+  - [ ] 系统 Python/Node 解释器和系统依赖只读继承 Pod 基础镜像，不复制到 workspace；`pip`/`npm` 临时安装只写 workspace 的 venv/target/node_modules，并计入配额。
+  - [ ] workspace 不是生产依赖交付通道；生产依赖由管理员预装到系统镜像（FEAT-18）。
   - [ ] `outputs` 和 `data` 默认 30 天未访问清理；`last_access_time` 由 Skill 执行/Shell 访问更新，不依赖不可靠的 NFS atime。
   - [ ] 清理由 Worker 内置 `workspace.maintenance` 循环执行，随进程启动；不需要管理员创建 Schedule，也不新增 K8s CronJob。
   - [ ] 多副本清理使用 PG advisory lock 或 DB 认领 + 租约，避免重复删除/重复计数。
@@ -371,6 +376,18 @@
   - [ ] 软删保留 artifact、审批、下载、审计记录；执行入口按删除状态拒绝。
   - [ ] API/contracts 增加 `source` 等字段并更新快照；旧客户端/旧数据缺失字段时有明确默认或拒绝策略。
   - [ ] 迁移可重复执行/可回滚，配套迁移测试和存量兼容测试。
+
+#### FEAT-18: 系统依赖预装
+
+- **描述**: 管理员通过现有镜像构建流程把批准的 Python/Node 依赖预装到系统基线，所有 Skill 统一使用；不提供运行时 Pod 内安装或用户级系统包安装。
+- **验收标准**:
+  - [ ] 管理员可在系统镜像构建清单（如 `requirements.txt`/镜像依赖清单）中加入批准的 Python 包；Node 依赖同样通过镜像基线提供。
+  - [ ] 预装后的依赖对所有 Runtime/Worker 副本一致可用；Skill 不需要在 workspace 安装即可 import/require。
+  - [ ] 不在运行中的 Pod 上直接 `pip install` 到系统 site-packages；不修改正在运行的容器文件系统。
+  - [ ] 依赖升级/回滚通过镜像版本和部署完成，记录 image digest；失败可回滚到旧镜像。
+  - [ ] workspace 内临时 `pip`/`npm` 安装只用于验证，不作为生产依赖；清理后不保证存在。
+  - [ ] 系统依赖变更写审计/变更记录，包含包名、版本、申请人、审批人、镜像版本。
+  - [ ] 若后续需要管理员 UI 管理依赖清单，另开需求；本期沿用现有镜像构建流程。
 
 ### 4.2 边缘情况 [可选]
 
@@ -428,6 +445,7 @@
 | NFR-COMPAT-02 | 兼容性 | macOS 原生 Dev `dev-unsafe`；本地 K8s/内网 K8s 使用 bwrap；不新增独立沙箱服务、Controller/CRD 或镜像流水线。 |
 | NFR-COMPAT-03 | 兼容性 | 保留 `SKILL_OUTPUT_DIR`；新增 `SKILL_DATA_DIR`；旧 `session-manager get-state` stdout 的 `platforms` list 继续可用；老 Skill 只做最小路径/配置改造。 |
 | NFR-COMPAT-04 | 兼容性 | 存量 Skill 回填 `source=ADMIN`、`review_status=APPROVED`；现有管理员导入、effective 查询和执行行为不变。 |
+| NFR-COMPAT-05 | 兼容性 | 生产依赖通过系统镜像预装并随镜像版本化；不在运行中的 Pod 修改 site-packages；workspace 临时安装不作为生产依赖。 |
 | NFR-OBS-01 | 可观测性 | 每次 Skill 执行、审批、下载、解绑、软删、清理都有审计；执行/清理有指标；日志可按 tenant/user/agent/run/skill 关联；不记录密钥。 |
 | NFR-CAP-01 | 容量 | 每 workspace 500 MiB、每用户聚合 500 MiB、文件数 5,000、TTL 30 天；容量按 PVC 规划；配额覆盖 workspace venv/node_modules/pip/npm cache 和 inode，不计系统解释器/系统 site-packages。 |
 | NFR-UI-01 | 可用性 | 管理界面状态不能只用颜色表达；破坏性操作二次确认；支持键盘操作和 i18n；空态/错误/无权限有明确提示。 |
@@ -438,8 +456,8 @@
 
 | 类别 | 内容 |
 |------|------|
-| **范围（In Scope）** | 用户 Skill 草稿、校验、沙箱测试、提交、审批、驳回、覆盖、锁定、自动授权/绑定、下载审计、解绑+软删；统一 `SandboxedSkillExecutor`；bwrap 沙箱；`session-manager` 注入；`SKILL_DATA_DIR`/`SKILL_OUTPUT_DIR`；user + Agent workspace；`workspace_shell`；老 Skill 最小改造；`/v1` 服务身份门控；管理员 Console 界面；系统 Skill；审计/指标/错误码；workspace 配额/TTL/清理；多环境运行；数据模型和迁移。 |
-| **非范围（Out of Scope）** | 独立沙箱微服务、K8s Controller/CRD、每任务一个 Sandbox Pod；gVisor/Kata/独立内核隔离（后续评估）；Skill 表关联平台字段（后续需求）；Legacy 可写副本模式；按 Agent 开关 `workspace_shell`；内网 PyPI/npm mirror allowlist 或 egress proxy（当前跟 Pod 网络一致）；macOS Seatbelt 硬隔离（后续可选）；Skill 市场、评分、跨租户共享、计费；Skill 多版本并存 UI/一键回滚；Skill 包内任意系统依赖安装；**每个 workspace 复制完整 Python/Node 运行时或系统 site-packages**（系统环境只读共享，workspace 只装增量包）。 |
+| **范围（In Scope）** | 用户 Skill 草稿、校验、沙箱测试、提交、审批、驳回、覆盖、锁定、自动授权/绑定、下载审计、解绑+软删；统一 `SandboxedSkillExecutor`；bwrap 沙箱；`session-manager` 注入；`SKILL_DATA_DIR`/`SKILL_OUTPUT_DIR`；user + Agent workspace；`workspace_shell`；老 Skill 最小改造；`/v1` 服务身份门控；管理员 Console 界面；系统 Skill；**管理员系统依赖预装（镜像构建）**；审计/指标/错误码；workspace 配额/TTL/清理；多环境运行；数据模型和迁移。 |
+| **非范围（Out of Scope）** | 独立沙箱微服务、K8s Controller/CRD、每任务一个 Sandbox Pod；gVisor/Kata/独立内核隔离（后续评估）；Skill 表关联平台字段（后续需求）；Legacy 可写副本模式；按 Agent 开关 `workspace_shell`；内网 PyPI/npm mirror allowlist 或 egress proxy（当前跟 Pod 网络一致）；macOS Seatbelt 硬隔离（后续可选）；Skill 市场、评分、跨租户共享、计费；Skill 多版本并存 UI/一键回滚；Skill 包内任意系统依赖安装；**每个 workspace 复制完整 Python/Node 运行时或系统 site-packages**（系统环境只读共享，workspace 只装增量包）；**运行时修改单个 Pod 的 site-packages、用户级系统包安装、依赖管理 UI**（本期走现有镜像构建流程，UI 另开需求）。 |
 | **前置假设** | 现有 Console 登录、租户、PlatformUser、Agent、AgentAccessGrant、审计和 PVC/RWX 能力可复用；runtime/worker 可重建基础镜像；`session-manager` 和平台 adapter 已可用；Worker 已有进程内维护循环模式；管理员角色和 Console `/skills` 页面已存在；内网 Pod 允许 bwrap 所需的 namespace/mount。 |
 
 ---
@@ -458,6 +476,7 @@
 | Gateway | `/v1` 调用携带 `X-Internal-Service`，覆盖 JSON/SSE/重连 | P1 首批 | 高 |
 | Platform SDK | `session-manager` state 文件、legacy stdout 摘要、平台 adapter | P1 | 中 |
 | 存储 | 共享 RWX PVC 容量、配额、TTL；workspace 根同时挂 Runtime/Worker | P1 | 中 |
+| 运维/镜像构建 | 管理员依赖清单、系统镜像构建/发布、image digest 记录 | P1 | 中 |
 | 测试环境 | 真实 PostgreSQL/Redis/HTTP/浏览器；本地 K8s 和内网 K8s canary | P1/P2 | 中 |
 
 ### 7.2 风险识别
@@ -475,6 +494,7 @@
 | R-09 | 镜像/底座漂移 | 实际 Pod 与验收环境不一致 | 记录 base/service digest、imageID、kernel、seccomp、UID、caps；部署后复测 bwrap |
 | R-10 | 用户误解 `workspace_shell` 能获取平台登录态 | 老 Skill 在工作区跑拿不到 Cookie | 文档和错误码明确：平台登录态只跟 Skill 执行绑定；需要 session 时走 `execute_skill`/`run_skill_script` |
 | R-12 | 误解 workspace 配额需要复制 Python 环境 | 配额估算失真、workspace 膨胀 | 明确系统解释器/site-packages 只读共享；只统计 workspace venv/node_modules/安装包；禁止复制完整运行时 |
+| R-13 | 用户把临时 pip/npm 安装当成生产依赖 | 换 Pod/重建后 import 失败；结果不可复现 | 文档/错误码明确临时性；生产依赖走管理员镜像预装；验收覆盖跨 Pod 场景 |
 
 ---
 

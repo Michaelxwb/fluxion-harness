@@ -86,7 +86,7 @@ requirement: user-skill-sandbox
 | 类别 | 内容 |
 |------|------|
 | **范围（In Scope）** | `/skills` 列表扩展；审批抽屉；批准/驳回；下载；用户范围/grant；Agent 绑定；解绑+软删二次确认；系统 Skill 上传；空态/错误/无权限；i18n；可访问性。 |
-| **非范围（Out of Scope）** | 用户“我的 Skill”独立页面；草稿编辑器/文件树；在线代码编辑；`workspace_shell` 前端终端；Skill 市场/评分/版本回滚；移动端专门适配。 |
+| **非范围（Out of Scope）** | 用户“我的 Skill”独立页面；草稿编辑器/文件树；在线代码编辑；`workspace_shell` 前端终端；Skill 市场/评分/版本回滚；移动端专门适配；系统依赖预装 UI（本期由管理员通过现有镜像构建清单完成，另开需求再做页面）。 |
 | **有意妥协 / 技术债** | 审批抽屉复用现有 `DetailSideSheet`/`Tabs` 结构，不重新设计一套详情框架；用户草稿状态继续通过对话工具 `skill_draft_status` 查看，不在 Console 增加通知中心。 |
 
 ### 2.4 验收条件 [必填]

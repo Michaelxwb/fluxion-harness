@@ -1312,16 +1312,24 @@ workspace 空闲超过 TTL → 清理任务删除目录
 父进程、broker 和 TRUSTED 执行不能导入用户可写依赖。不同 Agent 不共享 workspace，
 避免 A Agent 的可执行文件被 B Agent 直接使用。
 
-### 14.5 pip/npm 与网络边界
+### 14.5 pip/npm、系统依赖与网络边界
 
-允许 `pip` / `npm` 等常规命令，但必须满足：
+workspace 主要用于保存用户 Skill 执行的数据和输出，不是生产依赖的分发通道。生产依赖分两层：
 
-1. **安装到 workspace，不装系统**
-   - Python 使用 workspace 内 venv；
-   - Node 使用 workspace 内 `node_modules`；
-   - 不写 `/usr`、不写共享缓存、不改镜像。
+1. **系统依赖基线（生产路径）**
+   - 管理员把批准的 Python 包加入 `requirements.txt`/基础镜像依赖清单，Node 依赖加入镜像基线；
+   - 重建 runtime/worker 镜像并滚动发布，所有副本一致；
+   - 不在运行中的 Pod 上 `pip install` 到系统 site-packages（重启/换副本会丢失）；
+   - 依赖随 image digest 版本化，升级失败回滚旧镜像；
+   - 本期不新增依赖管理 UI，沿用现有镜像构建流程。
 
-2. **网络与 Pod 一致**
+2. **workspace 临时安装（仅验证）**
+   - 用户可在 `workspace_shell` 里 `pip install` 到 workspace venv/target、`npm install` 到 `node_modules` 做临时验证；
+   - 跨 Pod/重建/清理后不保证存在，不作为 Skill 生产依赖；
+   - 不写 `/usr`、不写共享缓存、不改镜像；
+   - 计入 workspace 配额。
+
+3. **网络与 Pod 一致**
    - 沙箱使用 `--share-net`，与 Pod 网络完全一致；
    - 可访问 Pod 网络内服务；Pod 有公网出口时也可访问公网；
    - 不做内网 mirror allowlist，不做 egress proxy；
@@ -1329,7 +1337,7 @@ workspace 空闲超过 TTL → 清理任务删除目录
    - 内网其他服务必须依赖自身鉴权；NetworkPolicy 只作为外围补充，不能区分同 Pod 内的
      Runtime/Shell，也不能替代执行级出网限制。
 
-3. **文件与凭据边界**
+4. **文件与凭据边界**
    - 只挂当前 user + Agent workspace；
    - 不挂 `/mnt/muad-artifacts`、其他用户 workspace、`/var/run`、Docker socket；
    - 不挂 Kubernetes ServiceAccount Token；
@@ -1340,13 +1348,13 @@ workspace 空闲超过 TTL → 清理任务删除目录
    - 公网源不证明包安全；受控依赖可锁版本/哈希及限制源码包，安装脚本、后续 import
      和持久启动钩子始终按任意代码处理。
 
-4. **资源与清理**
+5. **资源与清理**
    - 超时、输出上限、`RLIMIT_AS/CPU/NPROC/FSIZE`；
    - 回收完整后代，覆盖脱离进程组和后台进程的情况；
    - `pip/npm` cache 计入 workspace 配额；
    - 并发信号量，避免多人同时安装依赖打满磁盘/网络。
 
-5. **审计**
+6. **审计**
    - 命令摘要、退出码、耗时、文件变更清单；
    - 不记录完整密钥/Token；
    - 管理员可查。
@@ -1363,7 +1371,8 @@ workspace 空闲超过 TTL → 清理任务删除目录
 1. **第一阶段**：`workspace_shell` 与统一 Skill 执行器上线；bwrap、`--share-net`、
    配额/TTL（30 天）、并发、审计先落地；`/v1` 门控和流式输出是同一批硬前置。
 2. **第二阶段**：用户自建 Skill 的草稿、审批、owner、下载；老 Skill 按
-   `SKILL_DATA_DIR` / `SKILL_OUTPUT_DIR` / session-manager / Linux 路径做最小改造。
+   `SKILL_DATA_DIR` / `SKILL_OUTPUT_DIR` / session-manager / Linux 路径做最小改造；
+   管理员把生产依赖加入镜像构建清单，重建 runtime/worker。
 3. **第三阶段**：按需求增加独立 Sandbox Pod、gVisor/Kata 等更强边界；不改变上层工具契约。
 
 ### 14.7 已确认口径
@@ -1374,7 +1383,7 @@ workspace 空闲超过 TTL → 清理任务删除目录
 | 配额 | 每个 workspace 500 MiB、每用户聚合 500 MiB、文件数 5,000（待容量验证） |
 | TTL | `outputs` 30 天、`data` 30 天 |
 | 网络 | 与 Pod 一致，`--share-net`，允许公网 |
-| 安装 | pip/npm 装到 workspace，不装系统 |
+| 安装 | 生产依赖管理员预装系统镜像；workspace 临时 pip/npm 仅验证 |
 | `workspace_shell` | 所有 Agent 默认可用，无 session-manager |
 | Skill 执行 | `/skill` 只读 + `/workspace` 可写 + 按 `platforms` 注入 session-manager |
 | 隔离 | bwrap；更强隔离后续评估 |

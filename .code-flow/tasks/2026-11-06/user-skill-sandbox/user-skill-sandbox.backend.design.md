@@ -113,6 +113,7 @@ requirement: user-skill-sandbox
 | US-20 | macOS Dev/本地 K8s/内网 K8s 执行语义一致 | P1 |
 | US-21 | Sandbox 失败返回明确错误码和 retryable | P0 |
 | US-22 | workspace 30 天未访问自动清理，失败可见 | P0 |
+| US-24 | 管理员把批准的 Python/Node 依赖预装到系统镜像/Pod 基线 | P1 |
 
 ### 2.3 功能方案 [必填]
 
@@ -128,7 +129,7 @@ requirement: user-skill-sandbox
 | FEAT-06 | 统一沙箱执行器 | 所有 source 走 `SandboxedSkillExecutor`、只读包、独立 workspace、流式输出、进程回收 | P0 | US-07, US-08, US-12 |
 | FEAT-07 | `session-manager` 登录态注入 | 按 platforms 注入 socket/state 文件，兼容旧 stdout | P0 | US-09, US-12 |
 | FEAT-08 | user + Agent workspace 与目录契约 | `data/` + `outputs/{run_id}`，`SKILL_DATA_DIR`/`SKILL_OUTPUT_DIR`，输出产物登记 | P0 | US-10, US-11 |
-| FEAT-09 | `workspace_shell` 通用命令 | 全 Agent、无 session-manager、Pod 网络、pip/npm 到 workspace | P0 | US-11 |
+| FEAT-09 | `workspace_shell` 通用命令 | 全 Agent、无 session-manager、Pod 网络；默认系统依赖，允许临时 pip/npm 验证 | P0 | US-11 |
 | FEAT-10 | 老 Skill 兼容改造 | 数据/输出目录、Cookie、base_url、Linux 路径、调度、webhook | P0 | US-12 |
 | FEAT-11 | `/v1` 服务身份门控 | Runtime 受信 router 门控，Gateway/Console/Worker 带身份 | P0 | US-18 |
 | FEAT-12 | 管理员 Skill 管理界面与接口 | source/审批筛选、审批抽屉、下载、范围/绑定、解绑软删 | P0 | US-13, US-14, US-15, US-16 |
@@ -137,6 +138,7 @@ requirement: user-skill-sandbox
 | FEAT-15 | workspace 配额、TTL 与自动清理 | 配额、30 天 TTL、Worker 内置清理、多副本认领 | P0 | US-22 |
 | FEAT-16 | 多环境部署与运行模式 | bwrap 内置镜像、macOS dev-unsafe、K8s 一致、fail closed | P1 | US-20 |
 | FEAT-17 | 数据模型、迁移与存量兼容 | Skill/Artifact/Draft/Workspace 字段、索引、回填 | P0 | US-01, US-05, US-07 |
+| FEAT-18 | 系统依赖预装 | 管理员通过现有镜像构建流程预装批准的 Python/Node 依赖；不运行时改 Pod；workspace 安装仅临时验证 | P1 | US-24 |
 
 #### 2.3.2 字段约束
 
@@ -272,6 +274,8 @@ requirement: user-skill-sandbox
 | S-11 | workspace_shell、Pod 网络、pip/npm |
 | B-01 | workspace user + Agent 隔离与持久化 |
 | S-47 | 输出目录产物登记、边界校验、交付 |
+| S-48 | 系统依赖预装后直接 import/require |
+| E-17 | workspace 临时安装不作为生产依赖 |
 | S-13 | 旧 login-mssp-platform 不改代码 |
 | S-14 | 旧 mss-report-skill 改造 |
 | S-15 | 只读包、独立工作目录 |
@@ -964,6 +968,14 @@ erDiagram
 - 系统 Python/Node 解释器与系统 site-packages 只读共享；workspace 配额只统计 venv/target/node_modules/安装包/数据/输出，不计基础运行时。
 - 执行结束后扫描 `SKILL_OUTPUT_DIR`：文件数、单文件大小、总大小有界；不跟随 symlink/越界路径；登记为本次执行 artifact，交付走现有 `deliver_artifact`/附件机制，不在本需求新增独立下载页。
 
+#### 系统依赖基线
+
+- **生产依赖走镜像构建**：管理员把批准的 Python 包加入 `requirements.txt`/基础镜像依赖清单，Node 依赖加入镜像基线；重建 runtime/worker 镜像并滚动发布。
+- **不在运行中的 Pod 上安装**：运行时 `pip install` 到系统 site-packages 会在重启/换副本后丢失，且副本间不一致，不纳入生产路径。
+- **版本化/回滚**：依赖随 image digest 版本化；升级失败回滚旧镜像；变更记录包含包名、版本、申请人、审批人、镜像版本。
+- **workspace 临时安装**：只用于验证；跨 Pod/重建/清理后不保证存在；计入 workspace 配额；不作为 Skill 的生产依赖。
+- **本期不新增依赖管理 UI**：沿用现有镜像构建流程；如后续需要管理员页面，另开需求。
+
 #### 可观测性设计
 
 | 场景 | 实现方案 |
@@ -987,6 +999,7 @@ erDiagram
 
 - 基础镜像 `python-node:3.12.13-node24` 内置 bwrap 0.13.1；
 - 不新增独立沙箱服务/Controller/CRD；
+- 系统 Python/Node 依赖随基础/服务镜像构建，runtime/worker 重建后所有副本一致；不在运行中的 Pod 安装；
 - runtime/worker 使用现有共享 Artifact PVC；workspace 使用独立 RWX PVC 或 `muad-artifacts-rwx` 子目录；
 - 草稿 PVC 只挂 Console；
 - workspace PVC 同时挂 Runtime 和 Worker（清理需要）。
@@ -1082,6 +1095,7 @@ erDiagram
 | US-22 | FEAT-15 | FN-04, FN-05 | E-06, S-24, B-02, E-16 | integration | auto | 待 plan | 待实现 |
 | US-20 | FEAT-16 | FN-02 | S-26, E-07 | unit/integration | auto | 待 plan | 待实现 |
 | US-01, US-05, US-07 | FEAT-17 | API-01, API-02, API-04 | S-01, S-04, S-10, B-04 | integration | auto | 待 plan | 待实现 |
+| US-24 | FEAT-18 | OPS-01 | S-48, E-17 | integration | auto | 待 plan | 待实现 |
 
 ---
 
