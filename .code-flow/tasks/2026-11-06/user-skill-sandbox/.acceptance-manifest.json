@@ -7962,7 +7962,7 @@
       "kind": "e2e",
       "boundary": "真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限",
       "owner": "TASK-014",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "npm",
         "run",
@@ -8038,11 +8038,16 @@
         "管理员账号可登录 Console"
       ],
       "check": "CHK-d4036e877e26",
-      "revision": 2,
+      "revision": 3,
       "evidence": {
         "id": "S-39",
         "kind": "e2e",
-        "status": "e2e_deferred",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 272.60324999999995,
+        "check_id": "CHK-d4036e877e26",
+        "input_hash": "55cc0c1fdeb1cc79d577f0f4ec39d525fd565da8ac86ff6369af738108f6ea33",
+        "environment_hash": "838c2a54329fe7d52e8a8d17e31618058f1e6e608dea6e77cf91b36bcd6ca22a",
         "check_config": {
           "id": "CHK-d4036e877e26",
           "command": [
@@ -8085,16 +8090,17 @@
             "timeout": 10
           }
         },
-        "revision": 2,
-        "run_id": "4f788a5bf9ce4a8e964eb1d788e41a8b",
-        "executed_at": "2026-11-06T18:05:45.783401+00:00",
+        "revision": 3,
+        "run_id": "fefae90b5c6d40ab88f6a12c6c0e72fd",
+        "executed_at": "2026-11-06T18:05:56.935580+00:00",
         "command": [
           "npm",
           "run",
           "skill-self-service-approve"
         ],
         "cwd": ".",
-        "timeout": 1800.0
+        "timeout": 1800.0,
+        "fingerprint": "55cc0c1fdeb1cc79d577f0f4ec39d525fd565da8ac86ff6369af738108f6ea33"
       },
       "runs": [
         {
@@ -8210,6 +8216,69 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "S-39",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 272.60324999999995,
+          "check_id": "CHK-d4036e877e26",
+          "input_hash": "55cc0c1fdeb1cc79d577f0f4ec39d525fd565da8ac86ff6369af738108f6ea33",
+          "environment_hash": "838c2a54329fe7d52e8a8d17e31618058f1e6e608dea6e77cf91b36bcd6ca22a",
+          "check_config": {
+            "id": "CHK-d4036e877e26",
+            "command": [
+              "npm",
+              "run",
+              "skill-self-service-approve"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "smoke",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/console-platform/backend/src/muad_console_platform/api/skills.py",
+              "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py",
+              "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py",
+              "apps/console-platform/frontend/src/modules/skill-management/**"
+            ],
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/skill-self-service-approve.spec.ts:4@chrome"
+            ],
+            "markers": [
+              "smoke"
+            ],
+            "collect": {
+              "argv": [
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.skill-self-service.config.ts",
+                "e2e/tests/skill-self-service-approve.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "format": "playwright",
+              "timeout": 10
+            }
+          },
+          "revision": 3,
+          "run_id": "fefae90b5c6d40ab88f6a12c6c0e72fd",
+          "executed_at": "2026-11-06T18:05:56.935580+00:00",
+          "command": [
+            "npm",
+            "run",
+            "skill-self-service-approve"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "55cc0c1fdeb1cc79d577f0f4ec39d525fd565da8ac86ff6369af738108f6ea33"
         }
       ]
     },

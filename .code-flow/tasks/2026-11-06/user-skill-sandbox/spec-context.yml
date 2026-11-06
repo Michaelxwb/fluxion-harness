@@ -1,7 +1,7 @@
 version: 1
 task: user-skill-sandbox
 enforcement: required
-updated_at: '2026-11-06T17:44:05.785474+00:00'
+updated_at: '2026-11-06T18:05:56.053128+00:00'
 sources:
 - type: cli
   ref: bind
@@ -94,7 +94,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-api#RULE-api-002
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -171,7 +171,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-api#RULE-api-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -280,7 +280,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-arch#RULE-arch-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -374,7 +374,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-auth#RULE-auth-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -465,7 +465,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-data#RULE-data-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -557,7 +557,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-e2e#RULE-e2e-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -593,7 +593,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -673,7 +673,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-frontend#RULE-front-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -706,7 +706,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -777,7 +777,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-i18n#RULE-i18n-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -865,7 +865,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-im#RULE-im-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -939,7 +939,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-im#RULE-im-002
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1030,7 +1030,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-log#RULE-log-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1118,7 +1118,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-mcp#RULE-mcp-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1171,7 +1171,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-memory#RULE-memory-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1208,7 +1208,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-memory#RULE-memory-002
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1248,7 +1248,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-memory#RULE-memory-003
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1285,7 +1285,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-memory#RULE-memory-004
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1323,7 +1323,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-memory#RULE-memory-005
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1360,7 +1360,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-memory#RULE-memory-006
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1448,7 +1448,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-model#RULE-model-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1557,7 +1557,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-project-platform#RULE-platform-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1648,7 +1648,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-rel#RULE-rel-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1750,7 +1750,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-secret#RULE-secret-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1843,7 +1843,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-skill#RULE-skill-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1947,7 +1947,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-snapshot#RULE-snapshot-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -1999,7 +1999,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-test#RULE-test-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -2087,7 +2087,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-time#RULE-time-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -2120,7 +2120,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -2333,7 +2333,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-ui#RULE-ui-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -2366,7 +2366,7 @@ bindings:
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -2441,7 +2441,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-ui-detail#RULE-ui-detail-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
@@ -2607,7 +2607,7 @@ bindings:
         - artifact: user-skill-sandbox.md
           section_id: Plan Compliance Matrix
           item_id: harness-worker#RULE-worker-001
-          artifact_sha256: edf097cfea21ca79eb50c0411ad45a58d22b524da1e9ab89849ba6bdeffb98bc
+          artifact_sha256: 452314d3daa8b294992c92e2528e50bc8d3e2beed3a79e385158ab09cc8a9d93
         decision: null
         evidence: []
       review:
