@@ -328,6 +328,42 @@ bwrap --unshare-all --die-with-parent --new-session
 - 输出：不能先用 `communicate()` 收完整流再截断；按块读取，超限终止或做有界丢弃，
   否则用户脚本持续输出会先吃满父进程内存。
 
+### 4.2.1 Python 解释器参数
+
+`script_command()` 统一使用：
+
+```text
+python -E -s -B <script>
+```
+
+而不是当前的 `python -I`：
+
+| 参数 | 作用 |
+|---|---|
+| `-E` | 忽略 `PYTHONPATH` / `PYTHONHOME` 等所有 `PYTHON*` 环境变量 |
+| `-s` | 不加载用户级 `site-packages` |
+| 不加 `-P` | 保留入口脚本目录在 `sys.path[0]`，`import shared` 正常 |
+| `-B` | 不写 `__pycache__`，避免往只读 Skill 包写 `.pyc` |
+
+原因：
+
+- `-I` 隐含 `-P`，不会把入口脚本目录加入 `sys.path`；同目录 `shared.py` 会
+  `ModuleNotFoundError`；
+- 设 `cwd` 或 `PYTHONPATH` 都不能绕过 `-I`；
+- 在 bwrap 内，环境已清空、`/usr`/`/opt` 只读、用户 site 为空，`-E -s` 已足够保持
+  环境隔离；真正的边界是 bwrap，不是 `-I`。
+
+约定：
+
+- **`-E -s -B` 由框架 `script_command()` 统一注入，不写进每个 `SKILL.md`**；
+- `SKILL.md` 继续写 `python scripts/run.py`，业务调用方式不变；
+- `execute_skill` / `run_skill_script` 自动带这些参数；
+- Shell 工具里普通 `python scripts/run.py` 也可以工作；如果要和框架完全一致，
+  可在 PATH 最前面放一个 `python` wrapper，或在 Shell 规范里使用
+  `python -E -s -B`，但不需要改 Skill 文档；
+- 老 Skill 之前加的 `sys.path.insert(0, dirname(__file__))` 可以保留，也可以删除；
+- 该改动属于 P1 执行器改造，不改变现有 Python CLI 参数契约。
+
 ### 4.3 session-manager
 
 `SkillPlatformContext` 继续负责平台登录态解析。bwrap 只做三件事：
@@ -470,7 +506,7 @@ bwrap 是 Linux-only，macOS 原生进程不能用。两种模式：
 |---|---|
 | `build/docker-build/base/Dockerfile.python-node` | builder stage 构建 bwrap；复制 musl loader/libcap；wrapper |
 | `packages/agent-core/.../sandbox/` | `SandboxRunner`、`BwrapRunner`、`SeatbeltRunner`、`policy` |
-| `packages/agent-core/.../skill/executor.py` | 统一实际 `execute(request)` 协议；新增 `SandboxedSkillExecutor`，流式有界读取 stdout/stderr |
+| `packages/agent-core/.../skill/executor.py` | 统一实际 `execute(request)` 协议；`script_command()` 改为 `python -E -s -B`；新增 `SandboxedSkillExecutor`，流式有界读取 stdout/stderr |
 | `apps/agent-runtime/.../skill_tools.py` | 所有脚本统一走 `SandboxedSkillExecutor`；按 `source` 选 policy；已批准包只读挂载 |
 | `apps/agent-worker/.../worker/executor.py` | 所有脚本统一走 `SandboxedSkillExecutor`；按 `source` 选 policy；独立可写工作目录 |
 | `apps/agent-runtime/.../api/runs.py` | **P0 阻断项**：给 `/v1/runs` 等受信接口加 `require_internal_service`，或改为受控代理 |
@@ -872,6 +908,7 @@ kubectl -n muad exec "$POD" -- sh -ec '
 
 - `SandboxRunner` / `BwrapRunner`；
 - `SandboxedSkillExecutor`；
+- `script_command()` 改为 `python -E -s -B`，兼容相邻模块 import；
 - Runtime/Worker 统一走沙箱执行器，按 `source` 选择 policy；
 - Shell 工具；
 - 超时、取消、进程组回收、审计、fail closed；
@@ -1080,6 +1117,8 @@ pip/npm 安装四单位。假设分别预留 256/512/1024 MiB，Runtime 占 2048
 - 工具名：`skill_draft_shell`，不保留旧名或兼容别名；
 - 只在存在用户草稿/Skill 编写上下文时注册，普通对话不提供；
 - 一次调用执行一条命令，不保持交互式会话；
+- Python 解释器参数由框架策略统一（`-E -s -B`），`SKILL.md` 仍写 `python scripts/run.py`；
+  Shell 里普通 `python` 也可用，需要完全对齐时使用受控 wrapper 或显式参数；
 - 只作用于当前用户草稿的独立副本，不挂生产 PVC、不带服务 Token；
 - 默认断网；平台访问须受信身份授权，要求平台白名单时由强制代理执行；
 - 30 秒超时、64 KiB 输出上限、禁止后台进程、杀整个进程组；
