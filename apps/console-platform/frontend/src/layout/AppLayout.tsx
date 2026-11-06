@@ -85,17 +85,45 @@ function SidebarToggle(props: { collapsed: boolean; onToggle(): void }) {
   );
 }
 
-function Sidebar() {
+function SidebarResizeHandle(props: { width: number; onResize(width: number): void }) {
   const { t } = useTranslation();
+  const resize = (width: number): void => props.onResize(Math.max(184, Math.min(360, width)));
+  return (
+    <div className="app-sidebar-resize" role="separator" tabIndex={0}
+      aria-label={t('app.sidebar.resize')} aria-orientation="vertical"
+      aria-valuemin={184} aria-valuemax={360} aria-valuenow={props.width}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          resize(event.clientX - event.currentTarget.parentElement!.getBoundingClientRect().left);
+        }
+      }}
+      onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault();
+          resize(props.width + (event.key === 'ArrowRight' ? 16 : -16));
+        }
+      }} />
+  );
+}
+
+function Sidebar() {
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { account } = useAuth();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('muad.sidebar.collapsed') === 'true');
   useEffect(() => { localStorage.setItem('muad.sidebar.collapsed', String(collapsed)); }, [collapsed]);
+  const [width, setWidth] = useState<number | null>(null);
+  const sidebarWidth = width ?? (i18n.language.startsWith('en') ? 248 : 184);
   const visibleItems = menuItems.filter((item) => !item.adminOnly || account?.role === 'ADMIN');
   return (
     <Sider className={`app-sider${collapsed ? ' app-sider-collapsed' : ''}`}
-      style={{ width: collapsed ? 64 : 'var(--app-sider-width, 184px)' }}>
+      style={{ width: collapsed ? 64 : sidebarWidth }}>
       <div className="app-brand">
         <span className="app-brand-mark" title={t('app.brand')}>
           {collapsed ? t('app.brand').slice(0, 1).toUpperCase() : t('app.brand')}
@@ -107,6 +135,7 @@ function Sidebar() {
           itemKey: item.path, text: t(item.key), icon: MENU_ICONS[item.path]
         }))} onSelect={({ itemKey }) => navigate(String(itemKey))}
         style={{ maxWidth: '100%' }} />
+      {!collapsed && <SidebarResizeHandle width={sidebarWidth} onResize={setWidth} />}
       <SidebarAccount collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
     </Sider>
   );

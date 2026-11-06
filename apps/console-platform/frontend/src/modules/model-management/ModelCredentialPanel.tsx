@@ -356,7 +356,7 @@ function CredentialTable(props: CredentialTableProps) {
               >
                 {t('model.credential.actions.test')}
               </Button>
-              <ConfirmAction
+              <ConfirmAction type="danger"
                 title={t('model.credential.confirmDelete')}
                 testId={`credential-delete-${credential.key}`}
                 onConfirm={() => props.onDelete(credential)}

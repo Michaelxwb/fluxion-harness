@@ -209,7 +209,7 @@ export function AgentPage() {
                   <Button theme="borderless" data-testid={`edit-agent-${record.key}`} onClick={() => void openEdit(record.id)}>
                     {t('agent.actions.edit')}
                   </Button>
-                  <ConfirmAction title={t('agent.confirmDelete')} onConfirm={() => void remove(record)}>
+                  <ConfirmAction type="danger" title={t('agent.confirmDelete')} onConfirm={() => void remove(record)}>
                     {t('agent.actions.delete')}
                   </ConfirmAction>
                 </>

@@ -208,7 +208,7 @@ export function SkillPage() {
                   <Button theme="borderless" data-testid={`import-artifact-${record.key}`} onClick={() => setImportTarget(record)}>
                     {t('skill.artifact.importNew')}
                   </Button>
-                  <ConfirmAction
+                  <ConfirmAction type="danger"
                     title={t('skill.confirmDelete')}
                     testId={`delete-skill-${record.key}`}
                     onConfirm={() => void remove(record)}

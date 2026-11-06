@@ -27,7 +27,7 @@ export function ScheduleRowActions({ schedule, onMutated, onDeleted }: ScheduleR
       >
         {t(active ? 'schedule.action.pause' : 'schedule.action.resume')}
       </Button>
-      <ConfirmAction
+      <ConfirmAction type="danger"
         title={t('schedule.confirm.delete')}
         testId={`schedule-delete-${schedule.schedule_id}`}
         onConfirm={() => void actions.remove(schedule.schedule_id)}

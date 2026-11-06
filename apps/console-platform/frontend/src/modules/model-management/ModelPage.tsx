@@ -324,7 +324,7 @@ export function ModelPage() {
                     >
                       {t('model.actions.edit')}
                     </Button>
-                    <ConfirmAction title={t('model.confirmDelete')} onConfirm={() => void remove(record)}>
+                    <ConfirmAction type="danger" title={t('model.confirmDelete')} onConfirm={() => void remove(record)}>
                       {t('model.actions.delete')}
                     </ConfirmAction>
                   </div>

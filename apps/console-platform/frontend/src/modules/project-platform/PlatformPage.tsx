@@ -254,7 +254,7 @@ export function PlatformPage() {
                   <Button theme="borderless" data-testid={`test-platform-${record.key}`} onClick={() => setTestTarget(record.platform_id)}>
                     {t('platform.actions.test')}
                   </Button>
-                  <ConfirmAction
+                  <ConfirmAction type="danger"
                     title={t('platform.confirmDelete')}
                     testId={`delete-platform-${record.key}`}
                     onConfirm={() => void remove(record)}

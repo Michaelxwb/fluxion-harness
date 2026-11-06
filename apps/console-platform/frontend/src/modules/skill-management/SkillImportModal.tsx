@@ -152,6 +152,8 @@ export function SkillImportModal(props: SkillImportModalProps) {
       ) : null}
       <Upload
         data-testid="skill-zip-upload"
+        className="skill-import-upload"
+        uploadTrigger="custom"
         limit={1}
         accept=".zip"
         draggable
@@ -165,7 +167,6 @@ export function SkillImportModal(props: SkillImportModalProps) {
           setFile(files[0] ?? null);
           setFormError(null);
         }}
-        customRequest={() => undefined}
       />
       <Form.Input
         field="version"

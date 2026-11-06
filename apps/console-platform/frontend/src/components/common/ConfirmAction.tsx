@@ -10,6 +10,7 @@ export interface ConfirmActionProps {
   style?: CSSProperties;
   onOpenChange?(visible: boolean): void;
   /** Button theme; defaults to borderless for list and associated row actions. */
+  type?: 'primary' | 'danger';
   theme?: 'borderless' | 'light' | 'outline' | 'solid';
 }
 
@@ -20,6 +21,7 @@ export function ConfirmAction({
   testId,
   style,
   onOpenChange,
+  type = 'primary',
   theme = 'borderless'
 }: ConfirmActionProps) {
   const { t } = useTranslation();
@@ -29,10 +31,11 @@ export function ConfirmAction({
       okText={t('common.confirm')}
       cancelText={t('common.cancel')}
       cancelType="primary"
+      okType={type}
       onConfirm={onConfirm}
       onVisibleChange={(visible: boolean) => onOpenChange?.(visible)}
     >
-      <Button theme={theme} type="primary" data-testid={testId} style={style}>
+      <Button theme={theme} type={type} data-testid={testId} style={style}>
         {children}
       </Button>
     </Popconfirm>
