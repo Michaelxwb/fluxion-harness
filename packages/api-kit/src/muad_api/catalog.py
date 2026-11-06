@@ -18,6 +18,8 @@ class MessageSpec:
     code: str
     http_status: int
     messages: dict[str, str]
+    #: 是否建议调用方重试（design §3.4 错误码表）；未显式声明的既有码一律不重试。
+    retryable: bool = False
 
 
 class MessageCatalog:
@@ -43,6 +45,9 @@ class MessageCatalog:
             messages = item.get("messages") or {}
             if not isinstance(messages, dict):
                 raise ValueError(f"invalid messages for code {code}")
+            retryable = item.get("retryable", False)
+            if not isinstance(retryable, bool):
+                raise ValueError(f"invalid retryable for code {code}: {retryable!r}")
             normalized = {str(key): str(value) for key, value in messages.items()}
             for locale in _REQUIRED_LOCALES:
                 if not normalized.get(locale):
@@ -51,6 +56,7 @@ class MessageCatalog:
                 code=str(code),
                 http_status=http_status,
                 messages=normalized,
+                retryable=retryable,
             )
 
         if _FALLBACK_CODE not in specs:
