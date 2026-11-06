@@ -1305,7 +1305,7 @@
       "kind": "functional",
       "boundary": "Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件",
       "owner": "TASK-004",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -1556,7 +1556,10 @@
         "inputs": [],
         "preflight": [],
         "paths": []
-      }
+      },
+      "stale_checks": [
+        "CHK-1acede229a5f"
+      ]
     },
     {
       "id": "S-04",
@@ -7657,7 +7660,7 @@
       "kind": "functional",
       "boundary": "Console API → 管理员权限校验",
       "owner": "TASK-014",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -7853,7 +7856,10 @@
         "inputs": [],
         "preflight": [],
         "paths": []
-      }
+      },
+      "stale_checks": [
+        "CHK-37ff0f47c874"
+      ]
     },
     {
       "id": "S-35",
@@ -7862,7 +7868,7 @@
       "kind": "functional",
       "boundary": "React component + mocked Console API",
       "owner": "TASK-014",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -8065,7 +8071,10 @@
         "inputs": [],
         "preflight": [],
         "paths": []
-      }
+      },
+      "stale_checks": [
+        "CHK-fcd487271ef9"
+      ]
     },
     {
       "id": "S-36",
@@ -8074,7 +8083,7 @@
       "kind": "functional",
       "boundary": "React component + mocked Console API",
       "owner": "TASK-014",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -8277,7 +8286,10 @@
         "inputs": [],
         "preflight": [],
         "paths": []
-      }
+      },
+      "stale_checks": [
+        "CHK-fcd487271ef9"
+      ]
     },
     {
       "id": "S-37",
@@ -8286,7 +8298,7 @@
       "kind": "functional",
       "boundary": "React component + mocked Console API",
       "owner": "TASK-014",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -8489,7 +8501,10 @@
         "inputs": [],
         "preflight": [],
         "paths": []
-      }
+      },
+      "stale_checks": [
+        "CHK-fcd487271ef9"
+      ]
     },
     {
       "id": "E-13",
@@ -8498,7 +8513,7 @@
       "kind": "functional",
       "boundary": "React component + mocked Console API",
       "owner": "TASK-014",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -8709,7 +8724,10 @@
         "inputs": [],
         "preflight": [],
         "paths": []
-      }
+      },
+      "stale_checks": [
+        "CHK-fcd487271ef9"
+      ]
     },
     {
       "id": "S-39",
@@ -8718,7 +8736,7 @@
       "kind": "e2e",
       "boundary": "真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限",
       "owner": "TASK-014",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "npm",
         "run",
@@ -9202,7 +9220,10 @@
           "format": "playwright",
           "timeout": 10
         }
-      }
+      },
+      "stale_checks": [
+        "CHK-d4036e877e26"
+      ]
     },
     {
       "id": "S-40",
@@ -9211,7 +9232,7 @@
       "kind": "e2e",
       "boundary": "真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除",
       "owner": "TASK-014",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "npm",
         "run",
@@ -9619,7 +9640,10 @@
           "format": "playwright",
           "timeout": 10
         }
-      }
+      },
+      "stale_checks": [
+        "CHK-93b18376d573"
+      ]
     },
     {
       "id": "S-41",
