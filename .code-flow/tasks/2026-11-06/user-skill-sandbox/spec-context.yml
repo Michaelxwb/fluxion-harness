@@ -1,0 +1,1369 @@
+version: 1
+task: user-skill-sandbox
+enforcement: required
+updated_at: '2026-11-06T07:07:27.229518+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: harness-api
+  path: api/harness-api.md
+  status: active
+  hashes:
+    file_sha256: 96011a2c158e476b7d6f27d645a221205fa6c1a24a4f08eeead70848d7405fa1
+    metadata_sha256: 8088eab95efc280aa8387d3ee7e4fee89ce481e1d041cadce8abfb6d2636ae96
+    rules_sha256: ef9934dfeef724180bb98891e188e0f090a02e13dec4fe0163970ded69ff33aa
+  selected_by: global
+  reason: 新增草稿/审批/下载/解绑接口必须使用统一封套、错误码和幂等键
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
+      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
+      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
+      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
+      unique 只作兜底（各服务的 `_lock_idempotency`）。console 侧 `agent_service`/`mcp_service`/`skill_service`
+      三处 `_fingerprint` 已收敛到同一口径：规范化 JSON 且含 `endpoint`/`tenant_id`/actor 与关键参数（合规参考
+      `channel_service.bind_fingerprint`、`auth_service.account_fingerprint`、`audit_export_service`
+      的指纹函数、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py`）。
+    text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-api#RULE-api-002
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-api#RULE-api-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        - artifact: user-skill-sandbox.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-api#RULE-api-001
+          artifact_sha256: 21aac3a505f811c695a470de7a5ed25ee76eacb213afc44add21dc02148ffc83
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-arch
+  path: arch/harness-arch.md
+  status: active
+  hashes:
+    file_sha256: 2a19dc8e7d9beb8fc68606e5ea7b283ab67345fc77c8945fc2fea156d6cc576b
+    metadata_sha256: d75360ccdc5ee3a53f2c49d7066be7a023eaf4d84bbab3e832fd9e751d953be8
+    rules_sha256: b15c6e014fbf77e741621ab306e2213360984615e4a54d608e0533477a8a5a2a
+  selected_by: path
+  reason: 沙箱运行在现有 runtime/worker 部署单元，不新增服务；部署边界和容量需承接 RULE-arch-001
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-arch-001
+    summary: 固定四个**逻辑业务部署单元**（console-platform / agent-runtime / agent-worker / im-gateway）；`im-gateway`
+      可拆为无状态 web 与有状态 connector 两个运行时角色，connector 不是第五个业务微服务。Runtime 与 Worker 无状态、可横向扩展，不绑定
+      Pod、bot_id 或用户；同一会话可被任意 Pod 执行；Connector 只持有 bot 传输所有权与回复上下文，不建立 agent→Pod 映射。
+    text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+    enforcement: required
+    verifier_ref: harness-arch#RULE-arch-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-arch#RULE-arch-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-auth
+  path: auth/harness-auth.md
+  status: active
+  hashes:
+    file_sha256: 7b12547af966b121ec29a6865bf2107c9398b6e5c47d09106a698e6d016c53f3
+    metadata_sha256: 5430fcb6d3c7d5e74881da16201bd6cf9661576d7b799848c8c456af37561841
+    rules_sha256: 2c0d8492b6adb9167c4309b44a5b1be42b1920f5e241f629d2f2bf9825cdc570
+  selected_by: global
+  reason: owner/审批/grant/binding 必须遵守三层授权关系和 effective capability
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-auth-001
+    summary: 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED
+      资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false`
+      与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill
+      Catalog。
+    text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
+    enforcement: required
+    verifier_ref: harness-auth#RULE-auth-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-auth#RULE-auth-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        - artifact: user-skill-sandbox.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-auth#RULE-auth-001
+          artifact_sha256: 21aac3a505f811c695a470de7a5ed25ee76eacb213afc44add21dc02148ffc83
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-data
+  path: persistence/harness-data.md
+  status: active
+  hashes:
+    file_sha256: 2addf56af33d7d98a09f5ecaf3bde58489de93fd87ebd82d78e1d7eee77bcbca
+    metadata_sha256: 4c0b58f383383267a768a0d1c93774dc8702f7e68e68de0bb654746611af262e
+    rules_sha256: bff4e046d47cecba0e97c8a83921f635292d2a2e009c836fece1462a9024a68d
+  selected_by: global
+  reason: 新增 skill_draft/workspace 等表和字段必须遵守软删/唯一键/timestamptz/jsonb 规范
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-data-001
+    summary: 产品表统一 `id/is_deleted/create_time/update_time`；普通软删除实体用 partial unique
+      `WHERE is_deleted=false`，稳定身份注册表 `runtime.user_memory` / `memory_scope` 的完整唯一键包含
+      tombstone，append-only history/receipt/job 保持 `is_deleted=false` 且使用完整唯一约束；时间统一
+      `timestamptz`；同 Owner Schema 的业务归属用物理 FK，跨 Owner Schema 与需跨清理保留的审计来源引用用逻辑 UUID；JSON
+      配置用 `jsonb`，关键查询字段必须有物理列。
+    text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
+    enforcement: required
+    verifier_ref: harness-data#RULE-data-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-data#RULE-data-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-e2e
+  path: e2e/harness-e2e.md
+  status: active
+  hashes:
+    file_sha256: e63ace2075c5910b9558378c2d70f0537cb5ab19368e2c76b01d6fdf040fce9a
+    metadata_sha256: 7af5a04f52f1c8e9396e82c4b18fb99228d966f11dedc29bfe3c7992780ddcce
+    rules_sha256: e5ef4913e259049d4ca3133c99df723dd47e49e04d5a9577387cd258de87849d
+  selected_by: global
+  reason: 审批、解绑和 /skills 筛选是关键浏览器旅程，需真实浏览器 E2E
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-e2e-001
+    summary: '浏览器 E2E 必须使用真实构建产物与真实浏览器：成功路径（`S-*`）不得改写路由或 mock 业务 API；失败/边界路径（`E-*`）允许制造超时/错误，但不得
+      fulfill 业务响应体。域配置必须 `channel: ''chrome''`、`preview --strictPort`、钉死浏览器时区，并只启动该域实际依赖的服务。'
+    text_sha256: de6cc1c02049cdb4c6b5213da64b69a9aa793c0ef6c5115fb48609c9b87eb55a
+    enforcement: required
+    verifier_ref: harness-e2e#RULE-e2e-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-e2e#RULE-e2e-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        - artifact: user-skill-sandbox.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-e2e#RULE-e2e-001
+          artifact_sha256: 21aac3a505f811c695a470de7a5ed25ee76eacb213afc44add21dc02148ffc83
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-frontend
+  path: frontend/harness-frontend.md
+  status: active
+  hashes:
+    file_sha256: 4716cc669cf013b7d145c7eac5a137c89b1015ba1a8221d36f042d3b3bb41b4c
+    metadata_sha256: 71fab0d58493599ad10b59554dcf8bfe6a74f8c42a64ec1fe8307573ad32409f
+    rules_sha256: 88e07734bcfcf99595bfe206a8a41e394709f8a1462dab8bf61cdd4c12ab4313
+  selected_by: path
+  reason: Console /skills 审批与下载界面走现有 service 层和 axios 实例
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-front-001
+    summary: 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的
+      service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿
+      `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId`
+      是无副作用的纯工具，组件可直接 import（现网多处，均为纯函数引用）。文案与词条规则见 RULE-i18n-001；列表/详情见 RULE-ui-001
+      与 RULE-ui-detail-001。
+    text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
+    enforcement: required
+    verifier_ref: harness-frontend#RULE-front-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-frontend#RULE-front-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        - artifact: user-skill-sandbox.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-frontend#RULE-front-001
+          artifact_sha256: 21aac3a505f811c695a470de7a5ed25ee76eacb213afc44add21dc02148ffc83
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-i18n
+  path: i18n/harness-i18n.md
+  status: active
+  hashes:
+    file_sha256: 4dcf6a2dbd3226b048bb7d3d3c21f149a3588831273cef713c62494fed898521
+    metadata_sha256: 5d5941a5c31c0b7fa6401848d6e780d04874476c8f77a8b5ff5c708885997155
+    rules_sha256: 2f76d4b7d9b26cf3be95f2d812aaca26dd9e576c7e57bf665b65b986a7a1829f
+  selected_by: global
+  reason: 新增错误码、审批状态、下载/删除提示需 zh-CN/en-US 词条
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-i18n-001
+    summary: 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language`
+      协商。
+    text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+    enforcement: required
+    verifier_ref: harness-i18n#RULE-i18n-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-i18n#RULE-i18n-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        - artifact: user-skill-sandbox.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-i18n#RULE-i18n-001
+          artifact_sha256: 21aac3a505f811c695a470de7a5ed25ee76eacb213afc44add21dc02148ffc83
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-im
+  path: im/harness-im.md
+  status: active
+  hashes:
+    file_sha256: c4afb32782fcada65045a88c5d3c4c15049506f7cb157741360045e0c8a1ac56
+    metadata_sha256: 130635b846da520813e5e9c04b8cb5d2c53192d21beacbefa0138d7b5145a551
+    rules_sha256: 09f02207a2563cb45cef691a626808f7cf2c0d7caf43f8fa670cf96ab32cd9a1
+  selected_by: global
+  reason: Skill 执行来自 IM/WebChat 时核心域不得出现渠道专有形状
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-im-001
+    summary: 一个逻辑 Agent 可绑定 0..N 个 IM 通道账号；每个 `bot_id` 只路由到一个 Agent；Bot 与 Runtime/Worker
+      Pod 无任何绑定；Gateway 不保存 `agent_id→Pod` 映射。
+    text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
+    enforcement: required
+    verifier_ref: harness-im#RULE-im-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-im#RULE-im-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-im-002
+    summary: '**渠道差异只活在适配器层**：核心域（`agent-runtime` / `agent-worker`）零渠道专有字样与取件形状；`im-gateway`
+      的 web 角色除 `channels/` 与装配根 `main.py` 外同样为零；`im-connector` 的协议/回复/媒体实现属于通道适配器表面，不得把渠道形状带回核心域。取件、下载、解密、媒体
+      URL/密钥**一律不出适配器**——上层只看到「已解密字节 + 元信息」。机检见 `tests/architecture/test_channel_neutrality.py`（三条：核心域全文零字样
+      / 核心域不得给 `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）。'
+    text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
+    enforcement: required
+    verifier_ref: harness-im#RULE-im-002
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-im#RULE-im-002
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-log
+  path: logging/harness-log.md
+  status: active
+  hashes:
+    file_sha256: ea4ae20f6077f5c45580050a63bab894c346058e31b04edeb73a52fa52d23ffb
+    metadata_sha256: b745153ac61a208ee536889d8e50d85dd08840ea237f2c619f417c3cd4780e4d
+    rules_sha256: 989697c773983b8c71c7bcfc8bfd3003c18e341e10bdd9287e2199c3eda28d18
+  selected_by: global
+  reason: 沙箱执行/审批/清理日志统一 logging-kit 并脱敏
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-log-001
+    summary: 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`（另读 `LOG_LEVEL`，缺省 `INFO`；非法级别直接 `raise
+      ValueError` 而非静默回退；`console=True` 为默认值，会额外挂一个 stdout handler）；日志按 `service/YYYY-MM-DD.log`
+      输出**单行文本**：`YYYY-MM-DD HH:mm:ss.SSS ±ZZZZ [LEVEL] service logger message | key=value
+      ...`，自动携带 `trace_id/request_id/tenant_id` 等关联字段（空串不打印），并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password
+      等敏感字段脱敏。
+    text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+    enforcement: required
+    verifier_ref: harness-log#RULE-log-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-log#RULE-log-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-mcp
+  path: mcp/harness-mcp.md
+  status: active
+  hashes:
+    file_sha256: 04d017a3bd4942acb4319bed9f4ef30ac4f3e84afaef350810d4037227a30ded
+    metadata_sha256: b0db57e5ec6f7febfef7b3a03e8c2989ff11da7454c75bc8eb2db0f04bdebdf4
+    rules_sha256: e17b2c3a76c397162bd3651ce8b9de3d4404d55ae0034cfaa209a2f2b41576c4
+  selected_by: global
+  reason: 本需求不改变 MCP；设计需保持 MCP catalog/tool registry 不受 Skill 执行路径影响
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-mcp-001
+    summary: V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅
+      Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。
+    text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+    enforcement: required
+    verifier_ref: harness-mcp#RULE-mcp-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-mcp#RULE-mcp-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-memory
+  path: memory/harness-memory.md
+  status: active
+  hashes:
+    file_sha256: 6f0093d8ae6debd99f84a0cc6e879d7438555f14bbd677ec1517a4f142e6cec6
+    metadata_sha256: 26d60b919fdbf7ae2ae359788599979e062819d2fde8e31ff3f5ff03e21e629d
+    rules_sha256: d74dfc24eb72fc17e685a51d708d2627a6f08952b1bc99264c9008ae2813d34a
+  selected_by: global
+  reason: 本需求不改变 Memory 协议；设计需保持记忆写入/召回路径不受沙箱执行影响
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-memory-001
+    summary: 原话仅证明文本来源，不能授予保存授权；模型不得提供 author/explicit_request。自然语言 remember 必须展示完整候选，绑定租户/用户/Run/submission、候选
+      hash、预期版本、forget_epoch 和有效期，由真实用户确认原子保存；只有真实入站的显式命令或已授权管理员可以直接保存。候选每 Run 至多一个，工具整轮完成后才暂停；resume
+      先检查绝对 deadline。options 消费以租户和 source_event_id 唯一，结果 outcome 不进入唯一键。
+    text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-002
+    summary: Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。同
+      tenant/user/key 使用完整唯一身份，软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope
+      revision 同事务提交。锁内按写后有效集合验证冻结条数/UTF-8 字节限额及绝对上限；仅可淘汰 AGENT，USER/ADMIN 不免除硬限；既有超额时治理可减少但不可增加。
+    text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-002
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-002
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-003
+    summary: 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖
+      query。注入选择在覆盖率之上加阈值门控（默认 0.35，平台可配）；偏好类先按独立条数/字节限额筛选且不受阈值过滤；同键只取最新版本；经验类只注入
+      ACTIVE，按任务族或目标文本命中，且不受注入推断开关影响。recall/SEARCH 的返回语义（零覆盖为空、LIST）保持不变。revision
+      缓存只存候选行：冷读取行与实际 revision 同快照，暖读取 revision 与当前语句时间，并逐次过滤 TTL、重新选择/渲染；读取失败清除旧缓存和
+      MemoryComponent。每个模型请求前刷新独立 MemoryComponent，完整 SYSTEM 块及 recall JSON 严守最终 UTF-8
+      字节与条数预算；0 关闭注入，长条跳过，无首条越限保底，压缩不能吞掉记忆组件。
+    text_sha256: a816a6f4610d83f84a228773e5f163d66f5e0601f53d9b9ede258ce1ef684ae9
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-003
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-003
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-004
+    summary: 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled
+      或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision
+      证明，不以 job 开始时间冒充新依据。自动批量提交核对原 scope revision，过期输入为 STALE；同任务 lineage 续接原稳定 key，完成后清除未决状态。
+    text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-004
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-004
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-005
+    summary: 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同
+      fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立
+      provider 使用冻结主模型、实时凭据并显式关闭。模型调用次数不保证一次，持久效果/历史/完成事件/job 终态必须同事务最多一次；失败整批回滚，warning/metric
+      可见，主 Run 终态不变。
+    text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-005
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-005
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-memory-006
+    summary: 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途
+      Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和
+      ORM 约束/索引同构；移除旧 ratio/source_type 协议，历史快照原样保留仅作审计，不加兼容写层。
+    text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
+    enforcement: required
+    verifier_ref: harness-memory#RULE-memory-006
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-memory#RULE-memory-006
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-model
+  path: model/harness-model.md
+  status: active
+  hashes:
+    file_sha256: 4c5bb9acc202af21c27c34f37c011371cc94903324ff6372ec6d5514d99448cc
+    metadata_sha256: 03eb70d05f4d2b1f491d9656e895ff4758c243f158d8ef170eb9ce8d81dd6f91
+    rules_sha256: ca794c666a9657f8e324ca978ce2aeade30bb0b4f48ddb36f7a204ac87fa77c6
+  selected_by: global
+  reason: 本需求不改变模型选择；设计不得引入平台默认模型回退
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-model-001
+    summary: '`model_definition` 不设 `is_default`；每个 Agent 必须显式保存 `model_id`，不存在平台默认模型回退；模型调用只允许
+      OPENAI 兼容协议。'
+    text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
+    enforcement: required
+    verifier_ref: harness-model#RULE-model-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-model#RULE-model-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-project-platform
+  path: platform/harness-project-platform.md
+  status: active
+  hashes:
+    file_sha256: 3671c1ea5b8d25490ae7cc03aac231908c535ea7c979a9a0414829b2aed16710
+    metadata_sha256: f96049e71930bae78aa61e211444baeb508c2abf1b61edd77db2699dc7b15a58
+    rules_sha256: 34aebfc7fe09131b718d3fc60668f9a9540e8b5dc838a275252a93079bba7e4f
+  selected_by: path
+  reason: session-manager 按平台实例和凭据模式解析登录态，需保持 PlatformSession 语义
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-platform-001
+    summary: ProjectPlatform 只保存实例与寻址配置，认证/Session 由 PlatformAdapter 承担（SPI 无独立 `refresh`，刷新属于
+      `authenticate` 内部）；凭据明文存于凭据表并由主键引用，`credential_mode` 仅表达选择策略（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）；PlatformSession
+      为可重建 Redis 缓存，键为 `platform_session:{tenant_id:platform_id}:{actor_scope}:{credential_version}:{adapter_key}:{adapter_version}`（`{tenant_id:platform_id}`
+      是字面 hash tag，session/index/generation/lock 同 slot，保证 4-key Lua 在 Redis Cluster
+      可执行），索引 `platform_sessions:{tenant_id:platform_id}` 以 Set 清理；更换 adapter_key
+      必须使旧凭据与会话失效。
+    text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
+    enforcement: required
+    verifier_ref: harness-project-platform#RULE-platform-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-project-platform#RULE-platform-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-rel
+  path: rel/harness-rel.md
+  status: active
+  hashes:
+    file_sha256: fb2c54d66e7910884d61cd7b6b9ec903a4e43d58421cade79134c18959351b16
+    metadata_sha256: 001d50a3ca1324eccfcabe353bc850172dc23521bd2a34815aac4a9eb285c4a9
+    rules_sha256: 7be20b1f02503c2865570605bc0dc751cff99da8487a1cec7be80bf7633416a5
+  selected_by: global
+  reason: grant/binding 使用单关系 POST/DELETE，禁止全量 PUT 覆盖
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-rel-001
+    summary: 关系类修改使用单关系 POST/DELETE 并由独立事务完成；禁止用全量 PUT 覆盖整个关系集合。
+    text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+    enforcement: required
+    verifier_ref: harness-rel#RULE-rel-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-rel#RULE-rel-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        - artifact: user-skill-sandbox.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-rel#RULE-rel-001
+          artifact_sha256: 21aac3a505f811c695a470de7a5ed25ee76eacb213afc44add21dc02148ffc83
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-secret
+  path: secret/harness-secret.md
+  status: active
+  hashes:
+    file_sha256: 5b229631a8398759846182002836a4eb5c2fcf4b743f3dd7869327d546bf55e4
+    metadata_sha256: f60d9416b440212e32513bd86e339d9671413a12e5a326f4adf1c6cce76cb935
+    rules_sha256: cb3c84e91771bfa9c479ad5bb860280b8fbc82eadd9bc062d047279945d38e08
+  selected_by: path
+  reason: 沙箱不得输出 Cookie/Token/密钥，审计和日志需脱敏
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-secret-001
+    summary: 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP
+      `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用
+      `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt
+      或 API 响应（对外以 `*_configured` 表达）。
+    text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+    enforcement: required
+    verifier_ref: harness-secret#RULE-secret-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-secret#RULE-secret-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-skill
+  path: artifact/harness-skill.md
+  status: active
+  hashes:
+    file_sha256: a74cc09b43af429dbffaabe04c7f37cd5b0baa0f63cca004d1e8bd06997e424b
+    metadata_sha256: c8f013af8b788916b59c964c6206537f1e87dd0e142e42743ac7403ece849104
+    rules_sha256: d7443dbc372078dabbbd48be6a6b30a5d49fa6990183af2e6dd1e674754962fd
+  selected_by: global
+  reason: 已批准 Skill 包只读、checksum 校验、READY 缓存和不可变 Artifact 约束直接适用
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-skill-001
+    summary: 'Artifact Store 为 **RWX PVC**（硬事实是 `accessModes: ReadWriteMany`，`deploy/k8s/base/pvc-artifacts.yaml`；是否落在
+      NFS 由部署侧 StorageClass 决定，清单里 `storageClassName` 并未固定；V1 不建 MinIO/S3）；数据库只保存相对
+      `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从
+      NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight（**限每进程内**：跨 Pod 的正确性由
+      `os.replace` 幂等与 DB CAS 承载，不得当作跨进程互斥）；Artifact 写入不可变（**目标不存在才发布**：临时文件 + `os.link`，同
+      `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans`
+      CLI 宽限期扫描清理（宽限期保护进行中事务）。'
+    text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
+    enforcement: required
+    verifier_ref: harness-skill#RULE-skill-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-skill#RULE-skill-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-snapshot
+  path: snapshot/harness-snapshot.md
+  status: active
+  hashes:
+    file_sha256: 8fee81424369829c428066cf6de56a193700d45148e51c01df0d9f86315b99e5
+    metadata_sha256: 34a1bcb1153a685aab40f9576748579d32b73598ab6210f99c7fb762dc6361f1
+    rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
+  selected_by: path
+  reason: Skill source/artifact/workspace 必须进入 Run/Task 执行快照并冻结
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-snapshot-001
+    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP
+      版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run
+      侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新
+      Run/Task；终态写入必须 CAS。
+    text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+    enforcement: required
+    verifier_ref: harness-snapshot#RULE-snapshot-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-snapshot#RULE-snapshot-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 238c44a095c2df92ccac06560cacc302901ba244bcbe3527903a8938da355425
+    metadata_sha256: 627002a69e1a9cee732368249c2d3cf50f8423bb58cbc426b5a6993b071c370e
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: global
+  reason: 审批事务、owner 冲突、沙箱进程回收和 /v1 门控需分层测试
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-test#RULE-test-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-time
+  path: time/harness-time.md
+  status: active
+  hashes:
+    file_sha256: 79c415b2d14313031688d5d26d76096f5eb20096850b239c75c0c334f7464fc5
+    metadata_sha256: cdae795612a48e448e96bc35b536f56fe9278de82f1c6b2be6d47e9d3a473c41
+    rules_sha256: 3f415b413ed6db83724cefc2f20674f24c10b3cdc9e2d3c6ae8487e991168d80
+  selected_by: global
+  reason: 审批时间、workspace TTL、清理节拍统一 timestamptz/IANA 时区
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-time-001
+    summary: 数据库时间存储遵循 RULE-data-001（统一 `timestamptz`）；Console 展示统一 `YYYY-MM-DD HH:mm:ss`（出参必须带
+      offset）；调度时区使用 IANA 时区（如 `Asia/Shanghai`）。
+    text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
+    enforcement: required
+    verifier_ref: harness-time#RULE-time-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-time#RULE-time-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui
+  path: ui/harness-ui.md
+  status: active
+  hashes:
+    file_sha256: eb0c3aea1313ffcfa65c61f30cbe0b7dfba49a60d706bf36c005f5cd79694375
+    metadata_sha256: e3676fc5a7369c049341d0151c4b62f692ad5760dc88453bd6248651446349a4
+    rules_sha256: 362fb10c5a0e3b4fc3f6d77fd4587a8797c9c45e39e3c6ea8206d9c92749df6c
+  selected_by: path
+  reason: Console Skill 列表和审批抽屉沿用 Semi Design 列表/操作规范
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-001
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十二项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/学习与经验/系统设置。
+    text_sha256: 0410bf4fd26225f76a733564e42ebb4853e13562d1690d5c61d2e4db4d813fc2
+    enforcement: required
+    verifier_ref: harness-ui#RULE-ui-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-ui#RULE-ui-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        - artifact: user-skill-sandbox.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-ui#RULE-ui-001
+          artifact_sha256: 21aac3a505f811c695a470de7a5ed25ee76eacb213afc44add21dc02148ffc83
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-ui-detail
+  path: ui-detail/harness-ui-detail.md
+  status: active
+  hashes:
+    file_sha256: 54e5da3573180fc74c6a11795788ed90bfdc54fce223f9619260192d79db9666
+    metadata_sha256: 2818f79232531f263002a64153f499315a8b03f2e93cb8079fe0492c9d5becde
+    rules_sha256: 4cd416fc91fef9809fdf6ef80701c09a46d3884e38e96ce0e9d814028449b989
+  selected_by: global
+  reason: Skill 详情/审批使用 SideSheet，操作集中在列表最后一列
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-detail-001
+    summary: 详情使用 SideSheet：标题与副标题居左，关闭 X 同行靠右；列表对象级操作集中到主列表最后一列「操作」，详情不重复渲染，Tabs
+      位于其下；关系操作保存后立即影响后续新 Run/Task。
+    text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
+    enforcement: required
+    verifier_ref: harness-ui-detail#RULE-ui-detail-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-ui-detail#RULE-ui-detail-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        - artifact: user-skill-sandbox.frontend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-ui-detail#RULE-ui-detail-001
+          artifact_sha256: 21aac3a505f811c695a470de7a5ed25ee76eacb213afc44add21dc02148ffc83
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-worker
+  path: worker/harness-worker.md
+  status: active
+  hashes:
+    file_sha256: ebdfa3b48c461646fc21ae25c6609298201269ea3536a1e2625b5fcc8d89997d
+    metadata_sha256: 3b1a0f32ac4f99b1ca467c7789fd1dbb8835461fc66d53c28bacae159fe8ac79
+    rules_sha256: ccc9ee98013107e1ecf0963ec8c4cd330287193995641298c437ce45ffdd99bb
+  selected_by: path
+  reason: 异步 Skill 执行和 workspace 清理复用 Worker 的 PG 权威、租约和维护循环
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-worker-001
+    summary: PostgreSQL 是 Task/Schedule/lease 的唯一权威源；Redis 仅作 wake-up/cancel hint；`task_type`
+      仅 `SKILL/BATCH`（外部等待用 WAITING 表达）；claim 使用 `FOR UPDATE SKIP LOCKED`，进入 WAITING
+      释放 lease，deadline 到期由 Scheduler sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`。**deadline
+      是领取与收尾两侧的硬条件**：claim 排除 `deadline_at <= now` 的行（过期任务绝不执行），执行跨过 deadline 也不得写
+      `COMPLETED`，同样以 `FAILED(TASK_DEADLINE_EXCEEDED)` 收尾（`worker/claimer.py` 的 `_claimable_conditions`、`worker/service.py`
+      的终态守卫）。
+    text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+    enforcement: required
+    verifier_ref: harness-worker#RULE-worker-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: user-skill-sandbox.backend.design.md
+          section_id: Spec Compliance Matrix
+          item_id: harness-worker#RULE-worker-001
+          artifact_sha256: e1c18290b8c944f6d8247e315302b3b4aefa38e7bed847b9a9af8fcd83d2228b
+        decision: null
+        evidence: []
+      plan:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
