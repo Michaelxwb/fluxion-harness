@@ -1,0 +1,4234 @@
+{
+  "schema": 3,
+  "task_file": "user-skill-sandbox.md",
+  "task_sha256": "cad85e6bb1570e39e299e8b0989a95e72df3d9bc71ba689564eabc6779e78848",
+  "checks": [
+    {
+      "id": "CHK-d8c2a60db0c1",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_01.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-71e9e6c27bf1",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_02.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-1acede229a5f",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_03.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-fa9379eba61b",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_04.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-e8f74f96e6e3",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_05.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-7602fe3c28e6",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_06.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-e5e70bae669f",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_07.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-308913cbbcb1",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_08.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-fde230e0cd67",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_09.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-f9149a38b729",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_10.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-d45c13e873eb",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_11.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-3036fe86f429",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_b_01.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-3cef22145e00",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_15.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-35cdf38d7a1c",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_01.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-28858b5b8379",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_02.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-7acb78f3a8a8",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_03.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-a5e8781f55ad",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_04.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-65644e7dc2a5",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_20.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local-api",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-7fd060f09f01",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_05.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-c2aafcb05a89",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_06.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-9a49a7a1d0d7",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_24.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-41b9fa6e3b8f",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_b_02.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-7d605d4fff3d",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_sandbox_runner.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-c5a693c6ca28",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_08.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-271bf7724d0e",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_b_03.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-a2fa43288567",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_09.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-a5ff90feccf4",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_10.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-148108b28cec",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_11.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-63c237ddb40f",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_b_04.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-37ff0f47c874",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_12.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-fcd487271ef9",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_skill_management_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-d4036e877e26",
+      "command": [
+        "npm",
+        "run",
+        "skill-self-service-approve"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "env": "browser",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "smoke",
+      "inputs": [],
+      "preflight": [],
+      "paths": [
+        "apps/console-platform/backend/src/muad_console_platform/api/skills.py",
+        "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py",
+        "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py",
+        "apps/console-platform/frontend/src/modules/skill-management/**"
+      ],
+      "collect": {
+        "argv": [
+          "e2e/node_modules/.bin/playwright",
+          "test",
+          "--config",
+          "e2e/playwright.skill-self-service.config.ts",
+          "e2e/tests/skill-self-service-approve.spec.ts",
+          "--list",
+          "--reporter=json"
+        ],
+        "format": "playwright",
+        "timeout": 10
+      },
+      "test_ids": [
+        "e2e/tests/skill-self-service-approve.spec.ts:4@chrome"
+      ],
+      "markers": [
+        "smoke"
+      ],
+      "suite": "browser"
+    },
+    {
+      "id": "CHK-93b18376d573",
+      "command": [
+        "npm",
+        "run",
+        "skill-self-service-delete"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "env": "browser",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": [
+        "apps/console-platform/backend/src/muad_console_platform/api/skills.py",
+        "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py",
+        "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py",
+        "apps/console-platform/frontend/src/modules/skill-management/**"
+      ],
+      "collect": {
+        "argv": [
+          "e2e/node_modules/.bin/playwright",
+          "test",
+          "--config",
+          "e2e/playwright.skill-self-service.config.ts",
+          "e2e/tests/skill-self-service-delete.spec.ts",
+          "--list",
+          "--reporter=json"
+        ],
+        "format": "playwright",
+        "timeout": 10
+      },
+      "test_ids": [
+        "e2e/tests/skill-self-service-delete.spec.ts:4@chrome"
+      ],
+      "markers": [],
+      "suite": "browser"
+    },
+    {
+      "id": "CHK-8acf6c8efcf7",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_41.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-efc5e13c10c2",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/contracts/test_skill_sandbox_contracts.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-d35bae7f436e",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_15.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-c5cd45a2684a",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_16.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-e3526d2237c9",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_45.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-e053c73829e3",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_46.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "none",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-83ee77dbbbd4",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_47.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-62857f0bce9d",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_48.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-d491931df65a",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_17.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [],
+      "preflight": [],
+      "paths": []
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "S-01",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console 内部 API → Draft Store/PVC → PG revision",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_01.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "草稿创建成功，路径按 tenant/user/draft_key 隔离",
+        "写入、读取、列目录、删除单文件和删除整个草稿均成功",
+        "跨用户访问同一 draft_key 返回 not found/forbidden",
+        "revision 冲突返回 DRAFT_REVISION_CONFLICT"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-01-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-01-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-01-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-01-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-01-1",
+        "A-S-01-2",
+        "A-S-01-3",
+        "A-S-01-4"
+      ],
+      "preconditions": [
+        "已登录租户用户",
+        "该租户与用户存在"
+      ],
+      "check": "CHK-d8c2a60db0c1"
+    },
+    {
+      "id": "S-02",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写",
+      "owner": "TASK-009",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_02.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "python scripts/run.py 和 node --check 可执行",
+        "变更文件按 revision CAS 回写到草稿",
+        "越界路径/symlink/超大文件被拒绝",
+        "命令超时/输出超限错误码正确"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-02-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-02-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-02-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-02-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-02-1",
+        "A-S-02-2",
+        "A-S-02-3",
+        "A-S-02-4"
+      ],
+      "preconditions": [
+        "用户已有草稿与入口脚本",
+        "沙箱可用"
+      ],
+      "check": "CHK-71e9e6c27bf1"
+    },
+    {
+      "id": "S-03",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件",
+      "owner": "TASK-004",
+      "status": "deferred",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_03.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "deferred",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "session-manager get-state 返回 sessionStateFile 和 platforms list",
+        "state 文件内可读取 cookies 与 requestProfile",
+        "执行结束 state 文件删除",
+        "未授权平台返回 PLATFORM_SESSION_REQUIRED"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-03-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-03-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-03-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-03-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-03-1",
+        "A-S-03-2",
+        "A-S-03-3",
+        "A-S-03-4"
+      ],
+      "preconditions": [
+        "草稿声明 mssp 平台",
+        "测试用户有平台凭据和 Agent 访问权"
+      ],
+      "defer_reason": "需要内网真实平台凭据和隔离测试环境",
+      "target_phase": "ci",
+      "defer_owner": "TASK-004",
+      "check": "CHK-1acede229a5f"
+    },
+    {
+      "id": "S-04",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → SkillValidator → Artifact Store → PG",
+      "owner": "TASK-008",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_04.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "校验返回 pass/warn 明细",
+        "打包生成 checksum、文件清单和 PENDING artifact",
+        "记录 submitted_by、submitted_agent、submitted_channel、author",
+        "重复提交不产生多个 PENDING"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-04-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-04-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-04-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-04-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-04-1",
+        "A-S-04-2",
+        "A-S-04-3",
+        "A-S-04-4"
+      ],
+      "preconditions": [
+        "草稿包含 SKILL.md、muad.skill.json 和入口脚本"
+      ],
+      "check": "CHK-fa9379eba61b"
+    },
+    {
+      "id": "S-05",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → 审批事务 → PG → 审计",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_05.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "artifact 变 APPROVED，current_artifact_id 更新",
+        "提交者获得 SkillUserGrant",
+        "上传时 Agent 获得 AgentSkillBinding",
+        "审计记录 actor/skill/artifact/agent"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-05-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-05-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-05-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-05-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-05-1",
+        "A-S-05-2",
+        "A-S-05-3",
+        "A-S-05-4"
+      ],
+      "preconditions": [
+        "存在 PENDING artifact",
+        "管理员有审批权限",
+        "提交者 AgentAccessGrant 仍 active"
+      ],
+      "check": "CHK-e8f74f96e6e3"
+    },
+    {
+      "id": "S-06",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → 状态机 → PG",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_06.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "驳回要求 review_note，状态变 REJECTED",
+        "用户可看到驳回原因",
+        "修改后可重新提交新 PENDING"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-06-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-06-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-06-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-06-1",
+        "A-S-06-2",
+        "A-S-06-3"
+      ],
+      "preconditions": [
+        "存在 PENDING artifact"
+      ],
+      "check": "CHK-7602fe3c28e6"
+    },
+    {
+      "id": "S-07",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → Artifact Store → 下载响应 → 审计",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_07.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "两种状态均可下载",
+        "响应包含正确 zip/checksum",
+        "写 SKILL_ARTIFACT_DOWNLOAD 审计",
+        "普通用户不能下载他人 artifact"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-07-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-07-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-07-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-07-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-07-1",
+        "A-S-07-2",
+        "A-S-07-3",
+        "A-S-07-4"
+      ],
+      "preconditions": [
+        "存在 PENDING 和 APPROVED artifact",
+        "管理员已登录"
+      ],
+      "check": "CHK-e5e70bae669f"
+    },
+    {
+      "id": "S-08",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → 解绑/软删事务 → PG → 审计",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_08.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "所有 AgentSkillBinding 解除",
+        "Skill 软删，执行入口拒绝",
+        "artifact/审批/审计保留",
+        "二次确认与审计记录存在"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-08-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-08-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-08-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-08-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-08-1",
+        "A-S-08-2",
+        "A-S-08-3",
+        "A-S-08-4"
+      ],
+      "preconditions": [
+        "Skill 已审批且绑定多个 Agent",
+        "管理员已登录"
+      ],
+      "check": "CHK-308913cbbcb1"
+    },
+    {
+      "id": "S-09",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → Skill/Artifact → effective 查询",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_09.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "自动 APPROVED、user_scope=ALL、enabled=true",
+        "不需要 AgentSkillBinding",
+        "任意用户/Agent 的 effective 查询可见",
+        "普通用户不能修改/删除"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-09-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-09-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-09-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-09-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-09-1",
+        "A-S-09-2",
+        "A-S-09-3",
+        "A-S-09-4"
+      ],
+      "preconditions": [
+        "管理员上传 source=SYSTEM 的合法包"
+      ],
+      "check": "CHK-fde230e0cd67"
+    },
+    {
+      "id": "S-10",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Runtime/Worker → SandboxedSkillExecutor → bwrap → stdout/exit code",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_10.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "脚本在只读包和独立 workspace 中执行",
+        "stdout/stderr/exit code 与现有 CLI 契约一致",
+        "结构化 JSON 解析成功",
+        "执行审计和指标产生"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-10-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-10-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-10-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-10-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-10-1",
+        "A-S-10-2",
+        "A-S-10-3",
+        "A-S-10-4"
+      ],
+      "preconditions": [
+        "Skill 已批准且用户有权限",
+        "沙箱可用"
+      ],
+      "check": "CHK-f9149a38b729"
+    },
+    {
+      "id": "S-11",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_11.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "普通 shell 命令成功",
+        "默认使用系统预装依赖；pip/npm 临时安装写入 workspace，不写系统目录",
+        "临时安装跨 Pod/重建后不保证存在，不作为生产依赖",
+        "无 session-manager",
+        "输出/超时/配额限制生效"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-11-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-11-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-11-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-11-4"
+          ]
+        },
+        {
+          "expected": 5,
+          "assertions": [
+            "A-S-11-5"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-11-1",
+        "A-S-11-2",
+        "A-S-11-3",
+        "A-S-11-4",
+        "A-S-11-5"
+      ],
+      "preconditions": [
+        "用户有 Agent 访问权",
+        "workspace 可用且未超配额"
+      ],
+      "check": "CHK-d45c13e873eb"
+    },
+    {
+      "id": "B-01",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Workspace 元数据 → PVC 目录 → 两次执行",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_b_01.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "同 Agent 两次执行可读同一 data 文件",
+        "不同 Agent 看不到对方 workspace",
+        "outputs 每次执行独立",
+        "跨 tenant/user 不可见"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-B-01-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-B-01-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-B-01-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-B-01-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-B-01-1",
+        "A-B-01-2",
+        "A-B-01-3",
+        "A-B-01-4"
+      ],
+      "preconditions": [
+        "同一用户有两个 Agent",
+        "两个 Agent 都执行过 workspace_shell"
+      ],
+      "check": "CHK-3036fe86f429"
+    },
+    {
+      "id": "S-13",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Runtime → 真实 Console/Redis → 真实 mssp 平台 → 旧 Skill 脚本",
+      "owner": "TASK-019",
+      "status": "manual_pending",
+      "command": null,
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "manual",
+      "env": "external",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "platform"
+      ],
+      "steps": [],
+      "expected": [
+        "旧脚本不修改即可调用 session-manager get-state",
+        "stdout platforms list 包含 mssp 和 expiresAt",
+        "退出码 0，输出 ok/expiresAt"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-13-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-13-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-13-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-13-1",
+        "A-S-13-2",
+        "A-S-13-3"
+      ],
+      "preconditions": [
+        "内网真实平台凭据可用",
+        "Skill 已导入/批准",
+        "沙箱可用"
+      ]
+    },
+    {
+      "id": "S-14",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Runtime/Worker → 真实平台 → 改造后的旧 Skill",
+      "owner": "TASK-019",
+      "status": "manual_pending",
+      "command": null,
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "manual",
+      "env": "external",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "platform"
+      ],
+      "steps": [],
+      "expected": [
+        "报告写入 SKILL_OUTPUT_DIR",
+        "cache/logs/companies 写入 SKILL_DATA_DIR",
+        "不再写 Skill 包根目录",
+        "平台地址来自 requestProfile"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-14-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-14-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-14-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-14-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-14-1",
+        "A-S-14-2",
+        "A-S-14-3",
+        "A-S-14-4"
+      ],
+      "preconditions": [
+        "完成 SKILL_DATA_DIR/SKILL_OUTPUT_DIR/base_url/路径/调度/webhook 改造",
+        "内网真实平台凭据可用"
+      ]
+    },
+    {
+      "id": "S-15",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "SandboxedSkillExecutor → 只读 /skill → 可写 /workspace",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_15.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "写 /skill 失败",
+        "两个并发执行互不影响",
+        "共享 READY 缓存 checksum 不变"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-15-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-15-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-15-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-15-1",
+        "A-S-15-2",
+        "A-S-15-3"
+      ],
+      "preconditions": [
+        "已批准 Skill 包含会写自身目录的脚本"
+      ],
+      "check": "CHK-3cef22145e00"
+    },
+    {
+      "id": "E-01",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "SandboxedSkillExecutor → 子进程管道 → 有界读取",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_01.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "父进程内存有界，不随输出无限增长",
+        "超过上限返回 SANDBOX_OUTPUT_LIMIT 或截断标记",
+        "子进程被终止/回收"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-01-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-01-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-01-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-01-1",
+        "A-E-01-2",
+        "A-E-01-3"
+      ],
+      "preconditions": [
+        "测试脚本持续输出大量数据"
+      ],
+      "check": "CHK-35cdf38d7a1c"
+    },
+    {
+      "id": "E-02",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "SandboxRunner → bwrap → 完整进程树",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_02.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "超时/取消后无孤儿进程",
+        "进程组/后代被回收",
+        "资源释放，后续执行可正常启动"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-02-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-02-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-02-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-02-1",
+        "A-E-02-2",
+        "A-E-02-3"
+      ],
+      "preconditions": [
+        "测试脚本创建后台进程、setsid、双重 fork"
+      ],
+      "check": "CHK-28858b5b8379"
+    },
+    {
+      "id": "E-03",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "bwrap --clearenv + 最小 mount + 子进程环境",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_03.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "脚本读不到 INTERNAL_SERVICE_TOKEN、DATABASE_URL、REDIS_URL",
+        "读不到 /mnt、/proc、/var/run、Docker socket、SA Token",
+        "只读包和 workspace 可见"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-03-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-03-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-03-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-03-1",
+        "A-E-03-2",
+        "A-E-03-3"
+      ],
+      "preconditions": [
+        "Runtime/Worker 持有服务 Token 和外部连接串"
+      ],
+      "check": "CHK-7acb78f3a8a8"
+    },
+    {
+      "id": "E-04",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway → Runtime /v1 → 服务身份校验",
+      "owner": "TASK-001",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_04.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "gateway"
+      ],
+      "steps": [],
+      "expected": [
+        "无 header 拒绝",
+        "错误 header 拒绝",
+        "正确 header 成功",
+        "浏览器传入的 header 不被透传"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-04-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-04-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-04-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-E-04-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-04-1",
+        "A-E-04-2",
+        "A-E-04-3",
+        "A-E-04-4"
+      ],
+      "preconditions": [
+        "Runtime 配置了 INTERNAL_SERVICE_TOKEN"
+      ],
+      "check": "CHK-a5e8781f55ad"
+    },
+    {
+      "id": "S-20",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连",
+      "owner": "TASK-001",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_20.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local-api",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "gateway"
+      ],
+      "steps": [],
+      "expected": [
+        "首次建连带服务身份",
+        "重连带服务身份",
+        "无/错误身份被拒绝",
+        "不逐事件校验、不增加网络往返"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-20-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-20-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-20-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-20-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-20-1",
+        "A-S-20-2",
+        "A-S-20-3",
+        "A-S-20-4"
+      ],
+      "preconditions": [
+        "Run 事件流可用"
+      ],
+      "check": "CHK-65644e7dc2a5"
+    },
+    {
+      "id": "E-05",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "workspace_shell → bwrap → PATH/socket 检查",
+      "owner": "TASK-005",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_05.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "session-manager 不在 PATH",
+        "MUAD_SESSION_SOCKET 不存在",
+        "调用 session-manager 返回 command not found/明确错误"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-05-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-05-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-05-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-05-1",
+        "A-E-05-2",
+        "A-E-05-3"
+      ],
+      "preconditions": [
+        "用户有 Agent 访问权"
+      ],
+      "check": "CHK-7fd060f09f01"
+    },
+    {
+      "id": "S-22",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "真实 Console/Redis → 真实平台受保护接口",
+      "owner": "TASK-004",
+      "status": "manual_pending",
+      "command": null,
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "manual",
+      "env": "external",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "platform"
+      ],
+      "steps": [],
+      "expected": [
+        "有效 Cookie 200",
+        "无 Cookie 403",
+        "无效 Cookie 403",
+        "响应正文不写入证据/日志"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-22-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-22-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-22-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-22-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-22-1",
+        "A-S-22-2",
+        "A-S-22-3",
+        "A-S-22-4"
+      ],
+      "preconditions": [
+        "内网真实平台凭据可用",
+        "受保护测试接口可用"
+      ]
+    },
+    {
+      "id": "E-06",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Workspace quota check → PVC",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_06.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "超限返回 WORKSPACE_QUOTA_EXCEEDED",
+        "不静默截断/不写系统目录",
+        "审计/指标记录"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-06-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-06-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-06-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-06-1",
+        "A-E-06-2",
+        "A-E-06-3"
+      ],
+      "preconditions": [
+        "workspace 已接近配额"
+      ],
+      "check": "CHK-c2aafcb05a89"
+    },
+    {
+      "id": "S-24",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Worker workspace.maintenance → 元数据 → PVC",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_24.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "过期目录被删除",
+        "活跃目录跳过",
+        "outputs/data 均按 30 天 TTL",
+        "清理指标记录扫描/删除/跳过"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-24-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-24-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-24-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-24-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-24-1",
+        "A-S-24-2",
+        "A-S-24-3",
+        "A-S-24-4"
+      ],
+      "preconditions": [
+        "一个过期 workspace 和一个活跃 workspace"
+      ],
+      "check": "CHK-9a49a7a1d0d7"
+    },
+    {
+      "id": "B-02",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "多 Worker 并发 → PG advisory lock/认领",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_b_02.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "只有一个副本删除",
+        "另一个副本跳过",
+        "不重复计数/不重复删除"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-B-02-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-B-02-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-B-02-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-B-02-1",
+        "A-B-02-2",
+        "A-B-02-3"
+      ],
+      "preconditions": [
+        "两个 Worker 使用同一测试库",
+        "存在过期 workspace"
+      ],
+      "check": "CHK-41b9fa6e3b8f"
+    },
+    {
+      "id": "S-26",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_sandbox_runner.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend"
+      ],
+      "steps": [],
+      "expected": [
+        "未显式开启 dev-unsafe 时拒绝执行",
+        "显式开启时执行并留下审计",
+        "生产配置不能启用 dev-unsafe"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-26-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-26-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-26-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-26-1",
+        "A-S-26-2",
+        "A-S-26-3"
+      ],
+      "preconditions": [
+        "非 Linux 平台"
+      ],
+      "check": "CHK-7d605d4fff3d"
+    },
+    {
+      "id": "E-07",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "unit",
+      "kind": "functional",
+      "boundary": "SandboxRunner → bwrap 探测",
+      "owner": "TASK-002",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/agent_core/test_sandbox_runner.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend"
+      ],
+      "steps": [],
+      "expected": [
+        "返回 SANDBOX_UNAVAILABLE",
+        "不回退宿主执行",
+        "日志/指标可见"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-07-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-07-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-07-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-07-1",
+        "A-E-07-2",
+        "A-E-07-3"
+      ],
+      "preconditions": [
+        "模拟 bwrap 不存在或版本不兼容"
+      ],
+      "check": "CHK-7d605d4fff3d"
+    },
+    {
+      "id": "E-08",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → owner 校验 → PG",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_08.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "B 返回 SKILL_KEY_EXISTS",
+        "A 的 PENDING 不受影响",
+        "B 看不到 A 的草稿/PENDING"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-08-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-08-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-08-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-08-1",
+        "A-E-08-2",
+        "A-E-08-3"
+      ],
+      "preconditions": [
+        "用户 A 已有同名 Skill/PENDING",
+        "用户 B 提交同 key"
+      ],
+      "check": "CHK-c5a693c6ca28"
+    },
+    {
+      "id": "B-03",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → 状态机 → PG",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_b_03.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "旧 PENDING 变 SUPERSEDED",
+        "新 PENDING 成为唯一待审",
+        "旧包审批返回冲突"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-B-03-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-B-03-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-B-03-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-B-03-1",
+        "A-B-03-2",
+        "A-B-03-3"
+      ],
+      "preconditions": [
+        "同一 owner 已有 PENDING"
+      ],
+      "check": "CHK-271bf7724d0e"
+    },
+    {
+      "id": "E-09",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → 审批状态校验",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_09.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "用户提交返回 SKILL_APPROVED_LOCKED",
+        "现有 artifact 不变"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-09-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-09-2"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-09-1",
+        "A-E-09-2"
+      ],
+      "preconditions": [
+        "Skill 已 APPROVED"
+      ],
+      "check": "CHK-a2fa43288567"
+    },
+    {
+      "id": "E-10",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console 审批事务 → AgentAccessGrant 校验",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_10.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "审批失败 AGENT_ACCESS_REVOKED",
+        "不自动恢复授权",
+        "artifact 仍 PENDING，管理员可决定后续处理"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-10-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-10-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-10-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-10-1",
+        "A-E-10-2",
+        "A-E-10-3"
+      ],
+      "preconditions": [
+        "PENDING 提交后，提交者对该 Agent 的访问权被撤销"
+      ],
+      "check": "CHK-a5ff90feccf4"
+    },
+    {
+      "id": "E-11",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "两个并发事务 → artifact 行锁/状态复核",
+      "owner": "TASK-010",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_11.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "只有一方成功",
+        "另一方得到明确冲突",
+        "不出现 current_artifact_id 指向未批准版本"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-11-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-11-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-11-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-11-1",
+        "A-E-11-2",
+        "A-E-11-3"
+      ],
+      "preconditions": [
+        "同一 PENDING 同时被管理员批准、用户提交新版"
+      ],
+      "check": "CHK-148108b28cec"
+    },
+    {
+      "id": "B-04",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console/Worker/Runtime effective 查询",
+      "owner": "TASK-012",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_b_04.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "list/count/catalog/snapshot/execution 均包含",
+        "不需要 binding",
+        "普通 Skill 查询不被误放大"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-B-04-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-B-04-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-B-04-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-B-04-1",
+        "A-B-04-2",
+        "A-B-04-3"
+      ],
+      "preconditions": [
+        "存在 source=SYSTEM 的 Skill"
+      ],
+      "check": "CHK-63c237ddb40f"
+    },
+    {
+      "id": "E-12",
+      "source": "user-skill-sandbox.frontend.design.md#2.4 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Console API → 管理员权限校验",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_12.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "审批、下载他人包、解绑、软删、系统 Skill 上传均返回 forbidden",
+        "不泄露他人资源存在性"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-12-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-12-2"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-12-1",
+        "A-E-12-2"
+      ],
+      "preconditions": [
+        "普通用户已登录"
+      ],
+      "check": "CHK-37ff0f47c874"
+    },
+    {
+      "id": "S-35",
+      "source": "user-skill-sandbox.frontend.design.md#2.4 验收条件",
+      "level": "component",
+      "kind": "functional",
+      "boundary": "React component + mocked Console API",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_skill_management_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "frontend"
+      ],
+      "steps": [],
+      "expected": [
+        "展示 source、author、提交者、Agent、校验结果、文件清单、review_note",
+        "批准/驳回按钮按权限和状态启用",
+        "驳回必须填写原因"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-35-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-35-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-35-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-35-1",
+        "A-S-35-2",
+        "A-S-35-3"
+      ],
+      "preconditions": [
+        "提供 PENDING artifact fixture"
+      ],
+      "check": "CHK-fcd487271ef9"
+    },
+    {
+      "id": "S-36",
+      "source": "user-skill-sandbox.frontend.design.md#2.4 验收条件",
+      "level": "component",
+      "kind": "functional",
+      "boundary": "React component + mocked Console API",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_skill_management_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "frontend"
+      ],
+      "steps": [],
+      "expected": [
+        "展示将解绑的 Agent 列表",
+        "二次确认前不调用删除 API",
+        "确认后调用删除并展示结果"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-36-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-36-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-36-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-36-1",
+        "A-S-36-2",
+        "A-S-36-3"
+      ],
+      "preconditions": [
+        "提供已绑定多个 Agent 的 Skill fixture"
+      ],
+      "check": "CHK-fcd487271ef9"
+    },
+    {
+      "id": "S-37",
+      "source": "user-skill-sandbox.frontend.design.md#2.4 验收条件",
+      "level": "component",
+      "kind": "functional",
+      "boundary": "React component + mocked Console API",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_skill_management_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "frontend"
+      ],
+      "steps": [],
+      "expected": [
+        "source 标签/筛选生效",
+        "PENDING 标记可见",
+        "分页/关键字/筛选组合正确"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-37-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-37-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-37-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-37-1",
+        "A-S-37-2",
+        "A-S-37-3"
+      ],
+      "preconditions": [
+        "提供 SYSTEM/ADMIN/USER 和不同审批状态 fixture"
+      ],
+      "check": "CHK-fcd487271ef9"
+    },
+    {
+      "id": "E-13",
+      "source": "user-skill-sandbox.frontend.design.md#2.4 验收条件",
+      "level": "component",
+      "kind": "functional",
+      "boundary": "React component + mocked Console API",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/frontend/test_skill_management_ui.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "frontend"
+      ],
+      "steps": [],
+      "expected": [
+        "空态有说明和下一步",
+        "错误有重试且不丢筛选",
+        "无权限隐藏/禁用审批操作",
+        "状态不只靠颜色"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-13-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-13-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-13-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-E-13-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-13-1",
+        "A-E-13-2",
+        "A-E-13-3",
+        "A-E-13-4"
+      ],
+      "preconditions": [
+        "空数据、接口错误、无管理员权限"
+      ],
+      "check": "CHK-fcd487271ef9"
+    },
+    {
+      "id": "S-39",
+      "source": "user-skill-sandbox.frontend.design.md#2.4 验收条件",
+      "level": "e2e",
+      "kind": "e2e",
+      "boundary": "真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "npm",
+        "run",
+        "skill-self-service-approve"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "browser",
+      "why_e2e": "审批是真实浏览器 + 真实登录/权限 + 真实 PG 事务 + 列表刷新的关键旅程；component 只能验 UI，integration 不能验浏览器交互、路由和真实鉴权组合。",
+      "trigger_paths": [
+        "apps/console-platform/frontend/src/modules/skill-management/**",
+        "apps/console-platform/backend/src/muad_console_platform/api/skills.py",
+        "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py",
+        "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"
+      ],
+      "smoke": true,
+      "components": [
+        "frontend",
+        "backend",
+        "db"
+      ],
+      "steps": [
+        "打开 /skills，按审批状态筛选 PENDING",
+        "打开目标 Skill 的审批抽屉",
+        "检查包信息、校验结果、提交者、Agent",
+        "填写审批意见并点击批准",
+        "刷新列表并重新打开详情"
+      ],
+      "expected": [
+        "状态变为 APPROVED",
+        "当前 artifact 更新",
+        "提交者 grant 和上传 Agent binding 出现",
+        "审计记录可查询"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-39-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-39-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-39-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-39-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-39-1",
+        "A-S-39-2",
+        "A-S-39-3",
+        "A-S-39-4"
+      ],
+      "preconditions": [
+        "已有 PENDING artifact",
+        "管理员账号可登录 Console"
+      ],
+      "check": "CHK-d4036e877e26"
+    },
+    {
+      "id": "S-40",
+      "source": "user-skill-sandbox.frontend.design.md#2.4 验收条件",
+      "level": "e2e",
+      "kind": "e2e",
+      "boundary": "真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除",
+      "owner": "TASK-014",
+      "status": "planned",
+      "command": [
+        "npm",
+        "run",
+        "skill-self-service-delete"
+      ],
+      "cwd": ".",
+      "timeout": 1800.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "browser",
+      "why_e2e": "破坏性操作 + 二次确认 + 真实关系删除 + 真实鉴权，低层测试无法覆盖完整浏览器旅程和权限组合。",
+      "trigger_paths": [
+        "apps/console-platform/frontend/src/modules/skill-management/**",
+        "apps/console-platform/backend/src/muad_console_platform/api/skills.py",
+        "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py",
+        "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"
+      ],
+      "smoke": false,
+      "components": [
+        "frontend",
+        "backend",
+        "db"
+      ],
+      "steps": [
+        "打开 /skills，进入目标 Skill 详情",
+        "点击删除，查看将解绑的 Agent 列表",
+        "二次确认删除",
+        "刷新列表并检查审计"
+      ],
+      "expected": [
+        "Skill 软删并从列表消失",
+        "Agent 绑定和用户 grant 解除",
+        "审计记录包含解绑 Agent 列表",
+        "普通用户无法执行该 Skill"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-40-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-40-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-40-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-40-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-40-1",
+        "A-S-40-2",
+        "A-S-40-3",
+        "A-S-40-4"
+      ],
+      "preconditions": [
+        "已审批 Skill 绑定多个 Agent",
+        "管理员账号可登录 Console"
+      ],
+      "check": "CHK-93b18376d573"
+    },
+    {
+      "id": "S-41",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "审计表/指标端点 → 查询",
+      "owner": "TASK-013",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_41.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "审计包含 actor/skill/artifact/agent/run/结果",
+        "指标包含执行/失败/清理计数",
+        "不包含 Cookie/Token/密钥原文"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-41-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-41-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-41-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-41-1",
+        "A-S-41-2",
+        "A-S-41-3"
+      ],
+      "preconditions": [
+        "完成一次审批、一次执行、一次下载、一次清理"
+      ],
+      "check": "CHK-8acf6c8efcf7"
+    },
+    {
+      "id": "E-14",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "contract",
+      "kind": "functional",
+      "boundary": "API 错误码 schema / 消息配置",
+      "owner": "TASK-013",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/contracts/test_skill_sandbox_contracts.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend"
+      ],
+      "steps": [],
+      "expected": [
+        "每个错误码有 msg、http_status、retryable",
+        "用户侧不泄露堆栈/宿主机路径/Token",
+        "zh-CN/en-US 均有词条"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-14-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-14-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-14-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-14-1",
+        "A-E-14-2",
+        "A-E-14-3"
+      ],
+      "preconditions": [
+        "错误码表已实现"
+      ],
+      "check": "CHK-efc5e13c10c2"
+    },
+    {
+      "id": "E-15",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Artifact Store → checksum 校验 → 执行入口",
+      "owner": "TASK-011",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_15.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "返回 SKILL_ARTIFACT_INTEGRITY_ERROR",
+        "不执行、不下载损坏包",
+        "记录审计/告警"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-15-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-15-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-15-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-15-1",
+        "A-E-15-2",
+        "A-E-15-3"
+      ],
+      "preconditions": [
+        "篡改 artifact 文件或 checksum 记录"
+      ],
+      "check": "CHK-d35bae7f436e"
+    },
+    {
+      "id": "E-16",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Worker workspace.maintenance → 删除失败 → 状态/指标",
+      "owner": "TASK-006",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_16.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "保留 DELETING/失败状态",
+        "记日志和指标",
+        "下一轮可重试，不静默吞掉"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-16-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-16-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-16-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-16-1",
+        "A-E-16-2",
+        "A-E-16-3"
+      ],
+      "preconditions": [
+        "模拟 PVC 删除失败"
+      ],
+      "check": "CHK-c5cd45a2684a"
+    },
+    {
+      "id": "S-45",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "现有 MCP catalog、Memory 写入/召回、模型选择测试",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_45.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "MCP catalog/tool registry 行为不变",
+        "Memory 写入/召回/软删/版本行为不变",
+        "Agent 模型选择不出现平台默认回退"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-45-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-45-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-45-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-45-1",
+        "A-S-45-2",
+        "A-S-45-3"
+      ],
+      "preconditions": [
+        "现有测试套件可用"
+      ],
+      "check": "CHK-e3526d2237c9"
+    },
+    {
+      "id": "S-46",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "架构扫描 tests/architecture/test_channel_neutrality.py",
+      "owner": "TASK-017",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_46.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "none",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend"
+      ],
+      "steps": [],
+      "expected": [
+        "核心域零渠道专有字样",
+        "核心域不向 ResolveDefinitionRequest.channel 传字面量",
+        "渠道字样只出现在允许表面"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-46-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-46-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-46-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-46-1",
+        "A-S-46-2",
+        "A-S-46-3"
+      ],
+      "preconditions": [
+        "现有架构测试可用"
+      ],
+      "check": "CHK-e053c73829e3"
+    },
+    {
+      "id": "S-47",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "SandboxedSkillExecutor → SKILL_OUTPUT_DIR → ArtifactStore → 现有附件交付",
+      "owner": "TASK-003",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_47.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "输出文件的相对路径、大小、checksum 被登记",
+        "超过文件数/大小上限的产物被拒绝或截断并可见",
+        "symlink/越界路径不登记",
+        "交付仍走现有 deliver_artifact/附件机制"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-47-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-47-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-47-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-47-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-47-1",
+        "A-S-47-2",
+        "A-S-47-3",
+        "A-S-47-4"
+      ],
+      "preconditions": [
+        "已批准 Skill 在输出目录写报告文件"
+      ],
+      "check": "CHK-83ee77dbbbd4"
+    },
+    {
+      "id": "S-48",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require",
+      "owner": "TASK-015",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_s_48.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "Skill 不需要 workspace 安装即可 import/require",
+        "所有 Runtime/Worker 副本依赖版本一致",
+        "image digest 和依赖变更记录可查",
+        "不在运行中的 Pod 修改系统 site-packages"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-S-48-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-S-48-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-S-48-3"
+          ]
+        },
+        {
+          "expected": 4,
+          "assertions": [
+            "A-S-48-4"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-S-48-1",
+        "A-S-48-2",
+        "A-S-48-3",
+        "A-S-48-4"
+      ],
+      "preconditions": [
+        "管理员已把测试依赖加入镜像构建清单并完成部署"
+      ],
+      "check": "CHK-62857f0bce9d"
+    },
+    {
+      "id": "E-17",
+      "source": "user-skill-sandbox.backend.design.md#2.5 验收条件",
+      "level": "integration",
+      "kind": "functional",
+      "boundary": "Pod A 临时安装 → Pod B/重建后执行同一 Skill",
+      "owner": "TASK-015",
+      "status": "planned",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/acceptance/user_skill_sandbox/test_e_17.py"
+      ],
+      "cwd": ".",
+      "timeout": 600.0,
+      "depends_on": [],
+      "priority": "P1",
+      "exec": "auto",
+      "env": "local",
+      "smoke": false,
+      "why_e2e": "",
+      "trigger_paths": [],
+      "components": [
+        "backend",
+        "sandbox",
+        "db"
+      ],
+      "steps": [],
+      "expected": [
+        "新 Pod 不保证存在该依赖，import 失败可见",
+        "生产路径要求管理员预装到系统镜像",
+        "临时安装计入 workspace 配额，可被 TTL 清理"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "assertions": [
+            "A-E-17-1"
+          ]
+        },
+        {
+          "expected": 2,
+          "assertions": [
+            "A-E-17-2"
+          ]
+        },
+        {
+          "expected": 3,
+          "assertions": [
+            "A-E-17-3"
+          ]
+        }
+      ],
+      "checks": [],
+      "assertions": [
+        "A-E-17-1",
+        "A-E-17-2",
+        "A-E-17-3"
+      ],
+      "preconditions": [
+        "Pod A 的 workspace 临时安装了一个依赖",
+        "同一 Skill 在另一个 Pod 执行"
+      ],
+      "check": "CHK-d491931df65a"
+    }
+  ],
+  "scenarios_file": "user-skill-sandbox.scenarios.md",
+  "e2e_gate": 1,
+  "quality_schema": 2,
+  "registration": {
+    "ok": true,
+    "registered": [
+      "CHK-d4036e877e26",
+      "CHK-93b18376d573"
+    ],
+    "errors": []
+  }
+}
