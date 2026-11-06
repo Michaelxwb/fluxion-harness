@@ -80,7 +80,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | S-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 内部 API → Draft Store/PVC → PG revision | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | TASK-009 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | TASK-004 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | . | 600 | P0 | deferred | local | - | - | - | no |
+| S-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | TASK-004 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | . | 600 | P0 | deferred | local | - | - | - | no |
 | S-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → SkillValidator → Artifact Store → PG | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批事务 → PG → 审计 | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -117,7 +117,7 @@
 | S-37 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | verified | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | E-13 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | verified | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
 | S-39 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限 | TASK-014 | verified | ["npm","run","skill-self-service-approve"] | . | 1800 | P0 | auto | browser | - | 审批是真实浏览器 + 真实登录/权限 + 真实 PG 事务 + 列表刷新的关键旅程；component 只能验 UI，integration 不能验浏览器交互、路由和真实鉴权组合。 | ["apps/console-platform/frontend/src/modules/skill-management/**", "apps/console-platform/backend/src/muad_console_platform/api/skills.py", "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py", "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"] | yes |
-| S-40 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | TASK-014 | e2e_deferred | ["npm","run","skill-self-service-delete"] | . | 1800 | P1 | auto | browser | - | 破坏性操作 + 二次确认 + 真实关系删除 + 真实鉴权，低层测试无法覆盖完整浏览器旅程和权限组合。 | ["apps/console-platform/frontend/src/modules/skill-management/**", "apps/console-platform/backend/src/muad_console_platform/api/skills.py", "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py", "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"] | no |
+| S-40 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | TASK-014 | verified | ["npm","run","skill-self-service-delete"] | . | 1800 | P1 | auto | browser | - | 破坏性操作 + 二次确认 + 真实关系删除 + 真实鉴权，低层测试无法覆盖完整浏览器旅程和权限组合。 | ["apps/console-platform/frontend/src/modules/skill-management/**", "apps/console-platform/backend/src/muad_console_platform/api/skills.py", "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py", "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"] | no |
 | S-41 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 审计表/指标端点 → 查询 | TASK-013 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_41.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | E-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | contract | API 错误码 schema / 消息配置 | TASK-013 | stale | ["uv","run","pytest","-q","tests/contracts/test_skill_sandbox_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | E-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Artifact Store → checksum 校验 → 执行入口 | TASK-011 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -381,7 +381,7 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-03 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | session-manager get-state 返回 sessionStateFile 和 platforms list；state 文件内可读取 cookies 与 requestProfile；执行结束 state 文件删除；未授权平台返回 PLATFORM_SESSION_REQUIRED | tests/acceptance/user_skill_sandbox/test_s_03.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | e2e_deferred |
+| S-03 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | session-manager get-state 返回 sessionStateFile 和 platforms list；state 文件内可读取 cookies 与 requestProfile；执行结束 state 文件删除；未授权平台返回 PLATFORM_SESSION_REQUIRED | tests/acceptance/user_skill_sandbox/test_s_03.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | verified |
 | S-13 | integration | 真实 Runtime → 真实 Console/Redis → 真实 mssp 平台 → 旧 Skill 脚本 | 旧脚本不修改即可调用 session-manager get-state；stdout platforms list 包含 mssp 和 expiresAt；退出码 0，输出 ok/expiresAt | manual | - | manual_pending |
 | S-22 | integration | 真实 Console/Redis → 真实平台受保护接口 | 有效 Cookie 200；无 Cookie 403；无效 Cookie 403；响应正文不写入证据/日志 | manual | - | manual_pending |
 
@@ -401,6 +401,8 @@
 | S-13 | - | manual_pending：旧脚本契约由 S-03 的 legacy probe（stdout `platforms` list + state dict + expiresAt）覆盖；真实内网 mssp 平台凭据不可得 | `tests/acceptance/user_skill_sandbox/test_s_03.py` | 验收方式：内网真实 Runtime/Console/Redis + 真实 mssp 平台运行未修改的 `login-mssp-platform`，断言退出码 0、stdout 含 mssp/expiresAt；由 TASK-019 在目标环境执行并回填 | manual_pending |
 | S-22 | - | manual_pending：需要真实受保护业务接口与浏览器 Cookie；本地只有测试平台桩 | - | 验收方式：`TEST_COOKIE_MODE=valid/none/invalid` 对照 200/403/403，响应正文不写入证据/日志；内网执行时只记录状态码与脱敏字段 | manual_pending |
 - S-03: e2e_deferred — automated command e2e_deferred; run_id=1167f7e8c2bf4e32b37e18e65a83bf24 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=aa0ae94e634e4aa5b05865be28192a4a (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=212537f4f3f54d9688371f9eb7b61b08 (confirmed_by: runner)
 
 ### Log
 
@@ -745,6 +747,10 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 - [2026-11-06] created (draft)
 - [2026-11-07] started
+- [2026-11-07] RED：`e2e/tests/skill-self-service-approve.spec.ts` 与 `skill-self-service-delete.spec.ts` 仍为 `test.skip`；`npm run skill-self-service-approve` → `1 skipped`，`npm run skill-self-service-delete` → `1 skipped`（无登录、无筛选、无审批/解绑步骤与 DB 断言）。
+- [2026-11-07] GREEN：实现真实 E2E + `tests/e2e/seed_skill_self_service.py`；配置接入 `useIsolatedDatastores()` / `globalTeardown` / 真实 uvicorn + `vite preview`（`--strictPort`），`--list` 不建库。S-39 → `1 passed`，S-40 → `1 passed`；combined `npm --prefix e2e test -- --config playwright.skill-self-service.config.ts` → `2 passed (6.8s)`，`--list` → `2 tests in 2 files`。
+- [2026-11-07] manifest：`cf_acceptance_manifest.py --register-checks --registration-file` 通过；49 个场景、42 个 check，S-39/S-40 的 `test_ids` 分别为 `e2e/tests/skill-self-service-approve.spec.ts:99@chrome` / `...delete.spec.ts:91@chrome`，`registration.ok=true`；E2E runner 写证据后均为 `verified`。
+- [2026-11-07] verifier：`uv run pytest -q tests/frontend/test_e2e_suite_contract.py` → `6 passed`；`uv run pytest -q tests/architecture tests/acceptance/user_skill_sandbox` → `349 passed (2:03)`。全量首跑发现 `test_s_41` 的 REJECT 计数硬编码为 1（同进程前序测试已累加）；改为与 `reject_before + 1` 比较后复跑全绿，断言事实不变。
 - [2026-11-07] completed (done)
 
 ---
@@ -896,6 +902,10 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 - [2026-11-06] created (draft)
 - [2026-11-07] started
+- [2026-11-07] RED：`e2e/tests/skill-self-service-approve.spec.ts` 与 `skill-self-service-delete.spec.ts` 仍为 `test.skip`；`npm run skill-self-service-approve` → `1 skipped`，`npm run skill-self-service-delete` → `1 skipped`（无登录、无筛选、无审批/解绑步骤与 DB 断言）。
+- [2026-11-07] GREEN：实现真实 E2E + `tests/e2e/seed_skill_self_service.py`；配置接入 `useIsolatedDatastores()` / `globalTeardown` / 真实 uvicorn + `vite preview`（`--strictPort`），`--list` 不建库。S-39 → `1 passed`，S-40 → `1 passed`；combined `npm --prefix e2e test -- --config playwright.skill-self-service.config.ts` → `2 passed (6.8s)`，`--list` → `2 tests in 2 files`。
+- [2026-11-07] manifest：`cf_acceptance_manifest.py --register-checks --registration-file` 通过；49 个场景、42 个 check，S-39/S-40 的 `test_ids` 分别为 `e2e/tests/skill-self-service-approve.spec.ts:99@chrome` / `...delete.spec.ts:91@chrome`，`registration.ok=true`；E2E runner 写证据后均为 `verified`。
+- [2026-11-07] verifier：`uv run pytest -q tests/frontend/test_e2e_suite_contract.py` → `6 passed`；`uv run pytest -q tests/architecture tests/acceptance/user_skill_sandbox` → `349 passed (2:03)`。全量首跑发现 `test_s_41` 的 REJECT 计数硬编码为 1（同进程前序测试已累加）；改为与 `reject_before + 1` 比较后复跑全绿，断言事实不变。
 - [2026-11-07] completed (done)
 
 ---
@@ -953,6 +963,10 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 - [2026-11-06] created (draft)
 - [2026-11-07] started
+- [2026-11-07] RED：`e2e/tests/skill-self-service-approve.spec.ts` 与 `skill-self-service-delete.spec.ts` 仍为 `test.skip`；`npm run skill-self-service-approve` → `1 skipped`，`npm run skill-self-service-delete` → `1 skipped`（无登录、无筛选、无审批/解绑步骤与 DB 断言）。
+- [2026-11-07] GREEN：实现真实 E2E + `tests/e2e/seed_skill_self_service.py`；配置接入 `useIsolatedDatastores()` / `globalTeardown` / 真实 uvicorn + `vite preview`（`--strictPort`），`--list` 不建库。S-39 → `1 passed`，S-40 → `1 passed`；combined `npm --prefix e2e test -- --config playwright.skill-self-service.config.ts` → `2 passed (6.8s)`，`--list` → `2 tests in 2 files`。
+- [2026-11-07] manifest：`cf_acceptance_manifest.py --register-checks --registration-file` 通过；49 个场景、42 个 check，S-39/S-40 的 `test_ids` 分别为 `e2e/tests/skill-self-service-approve.spec.ts:99@chrome` / `...delete.spec.ts:91@chrome`，`registration.ok=true`；E2E runner 写证据后均为 `verified`。
+- [2026-11-07] verifier：`uv run pytest -q tests/frontend/test_e2e_suite_contract.py` → `6 passed`；`uv run pytest -q tests/architecture tests/acceptance/user_skill_sandbox` → `349 passed (2:03)`。全量首跑发现 `test_s_41` 的 REJECT 计数硬编码为 1（同进程前序测试已累加）；改为与 `reject_before + 1` 比较后复跑全绿，断言事实不变。
 - [2026-11-07] completed (done)
 
 ---
@@ -1070,7 +1084,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 | E-12 | integration | Console API → 管理员权限校验 | 审批、下载他人包、解绑、软删、系统 Skill 上传均返回 forbidden；不泄露他人资源存在性 | tests/acceptance/user_skill_sandbox/test_e_12.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_12.py"] | verified |
 | E-13 | component | React component + mocked Console API | 空态有说明和下一步；错误有重试且不丢筛选；无权限隐藏/禁用审批操作；状态不只靠颜色 | tests/frontend/test_skill_management_ui.py | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | verified |
 | S-39 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限 | 状态变为 APPROVED；当前 artifact 更新；提交者 grant 和上传 Agent binding 出现；审计记录可查询 | e2e/tests/skill-self-service-approve.spec.ts | ["npm","run","skill-self-service-approve"] | verified |
-| S-40 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | Skill 软删并从列表消失；Agent 绑定和用户 grant 解除；审计记录包含解绑 Agent 列表；普通用户无法执行该 Skill | e2e/tests/skill-self-service-delete.spec.ts | ["npm","run","skill-self-service-delete"] | e2e_deferred |
+| S-40 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | Skill 软删并从列表消失；Agent 绑定和用户 grant 解除；审计记录包含解绑 Agent 列表；普通用户无法执行该 Skill | e2e/tests/skill-self-service-delete.spec.ts | ["npm","run","skill-self-service-delete"] | verified |
 
 **Spec Verifier**
 
@@ -1108,11 +1122,19 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 - S-39: e2e_deferred — automated command e2e_deferred; run_id=4f788a5bf9ce4a8e964eb1d788e41a8b (confirmed_by: runner)
 - S-40: e2e_deferred — automated command e2e_deferred; run_id=4f788a5bf9ce4a8e964eb1d788e41a8b (confirmed_by: runner)
 - S-39: verified — automated command passed; run_id=fefae90b5c6d40ab88f6a12c6c0e72fd (confirmed_by: runner)
+- S-39: verified — automated command passed; run_id=aa0ae94e634e4aa5b05865be28192a4a (confirmed_by: runner)
+- S-40: verified — automated command passed; run_id=aa0ae94e634e4aa5b05865be28192a4a (confirmed_by: runner)
+- S-39: verified — automated command passed; run_id=212537f4f3f54d9688371f9eb7b61b08 (confirmed_by: runner)
+- S-40: verified — automated command passed; run_id=212537f4f3f54d9688371f9eb7b61b08 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
 - [2026-11-07] started
+- [2026-11-07] RED：`e2e/tests/skill-self-service-approve.spec.ts` 与 `skill-self-service-delete.spec.ts` 仍为 `test.skip`；`npm run skill-self-service-approve` → `1 skipped`，`npm run skill-self-service-delete` → `1 skipped`（无登录、无筛选、无审批/解绑步骤与 DB 断言）。
+- [2026-11-07] GREEN：实现真实 E2E + `tests/e2e/seed_skill_self_service.py`；配置接入 `useIsolatedDatastores()` / `globalTeardown` / 真实 uvicorn + `vite preview`（`--strictPort`），`--list` 不建库。S-39 → `1 passed`，S-40 → `1 passed`；combined `npm --prefix e2e test -- --config playwright.skill-self-service.config.ts` → `2 passed (6.8s)`，`--list` → `2 tests in 2 files`。
+- [2026-11-07] manifest：`cf_acceptance_manifest.py --register-checks --registration-file` 通过；49 个场景、42 个 check，S-39/S-40 的 `test_ids` 分别为 `e2e/tests/skill-self-service-approve.spec.ts:99@chrome` / `...delete.spec.ts:91@chrome`，`registration.ok=true`；E2E runner 写证据后均为 `verified`。
+- [2026-11-07] verifier：`uv run pytest -q tests/frontend/test_e2e_suite_contract.py` → `6 passed`；`uv run pytest -q tests/architecture tests/acceptance/user_skill_sandbox` → `349 passed (2:03)`。全量首跑发现 `test_s_41` 的 REJECT 计数硬编码为 1（同进程前序测试已累加）；改为与 `reject_before + 1` 比较后复跑全绿，断言事实不变。
 - [2026-11-07] completed (done)
 - [2026-11-07] S-39/S-40 保持 `e2e_deferred`：真实浏览器审批/解绑软删步骤由 TASK-016 接管；本任务只补前端入口、`data-testid` 与 fixture，不把 `test.skip` 改为通过。
 
@@ -1179,7 +1201,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ## TASK-016: 验收骨架、E2E 与 manifest 锁定
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-003, TASK-005, TASK-010, TASK-014
 - **Source**: user-skill-sandbox.backend.design.md#2.5 验收条件, user-skill-sandbox.scenarios.md
@@ -1195,29 +1217,29 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ### Checklist
 
-- [ ] 交付 `验收场景有可收集测试骨架；管理员审批/解绑 E2E 可按触发路径运行；manifest 可锁定`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 为 49 个场景建立测试骨架/具体测试 ID 与命令（未实现模块的 import 放测试体内）
-- [ ] E2E 只保留 S-39/S-40，真实浏览器 + 真实后端 + 真实 PG；非 smoke 带 trigger_paths
-- [ ] 登记 pytest/Playwright check；锁定 manifest；运行收集/质量门禁
-- [ ] [S-39][E2E] 管理员审批关键旅程
-- [ ] [S-40][E2E] 管理员解绑软删关键旅程
-- [ ] [harness-e2e#RULE-e2e-001][verifier] 运行 `npm run skill-self-service-approve && npm run skill-self-service-delete`
-- [ ] [harness-test#RULE-test-001][verifier] 运行 `uv run pytest -q tests/architecture tests/acceptance/user_skill_sandbox`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `验收场景有可收集测试骨架；管理员审批/解绑 E2E 可按触发路径运行；manifest 可锁定`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 为 49 个场景建立测试骨架/具体测试 ID 与命令（未实现模块的 import 放测试体内）
+- [x] E2E 只保留 S-39/S-40，真实浏览器 + 真实后端 + 真实 PG；非 smoke 带 trigger_paths
+- [x] 登记 pytest/Playwright check；锁定 manifest；运行收集/质量门禁
+- [x] [S-39][E2E] 管理员审批关键旅程
+- [x] [S-40][E2E] 管理员解绑软删关键旅程
+- [x] [harness-e2e#RULE-e2e-001][verifier] 运行 `npm run skill-self-service-approve && npm run skill-self-service-delete`
+- [x] [harness-test#RULE-test-001][verifier] 运行 `uv run pytest -q tests/architecture tests/acceptance/user_skill_sandbox`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-39 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限 | 状态变为 APPROVED；当前 artifact 更新；提交者 grant 和上传 Agent binding 出现；审计记录可查询 | e2e/tests/skill-self-service-approve.spec.ts | ["npm","run","skill-self-service-approve"] | referenced |
-| S-40 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | Skill 软删并从列表消失；Agent 绑定和用户 grant 解除；审计记录包含解绑 Agent 列表；普通用户无法执行该 Skill | e2e/tests/skill-self-service-delete.spec.ts | ["npm","run","skill-self-service-delete"] | referenced |
+| S-39 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限 | 状态变为 APPROVED；当前 artifact 更新；提交者 grant 和上传 Agent binding 出现；审计记录可查询 | e2e/tests/skill-self-service-approve.spec.ts | ["npm","run","skill-self-service-approve"] | verified |
+| S-40 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | Skill 软删并从列表消失；Agent 绑定和用户 grant 解除；审计记录包含解绑 Agent 列表；普通用户无法执行该 Skill | e2e/tests/skill-self-service-delete.spec.ts | ["npm","run","skill-self-service-delete"] | verified |
 
 **Spec Verifier**
 
 | Rule | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 执行命令 | 状态 |
 |---|---|---|---|---|---|
-| `harness-e2e#RULE-e2e-001` | E2E | 真实浏览器 + 真实后端 + 真实 PG | 审批/解绑关键旅程；成功路径不 mock | npm run skill-self-service-approve && npm run skill-self-service-delete | planned |
-| `harness-test#RULE-test-001` | integration | 真实 PG/Redis/HTTP/浏览器边界 | 分层/真实边界/E2E 精度 | uv run pytest -q tests/architecture tests/acceptance/user_skill_sandbox | planned |
+| `harness-e2e#RULE-e2e-001` | E2E | 真实浏览器 + 真实后端 + 真实 PG | 审批/解绑关键旅程；成功路径不 mock | npm run skill-self-service-approve && npm run skill-self-service-delete | verified |
+| `harness-test#RULE-test-001` | integration | 真实 PG/Redis/HTTP/浏览器边界 | 分层/真实边界/E2E 精度 | uv run pytest -q tests/architecture tests/acceptance/user_skill_sandbox | verified |
 
 ### Acceptance Evidence
 
@@ -1225,12 +1247,18 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-39 | - | - | - | - | pending |
-| S-40 | - | - | - | - | pending |
+| S-39 | 两个 spec 均为 `test.skip`：`npm run skill-self-service-approve` → `1 skipped`，无真实登录/筛选/审批/DB 断言 | `npm run skill-self-service-approve` → `1 passed (5.2s)`；combined `npm --prefix e2e test -- --config playwright.skill-self-service.config.ts` → `2 passed (6.8s)` | `e2e/tests/skill-self-service-approve.spec.ts::S-39`：筛 `待审批` → 审批抽屉含 checksum/提交者/上传 Agent/`READY`/`SKILL.md`/`scripts/run.py` → 批准 → 列表 `skill-review-status-approved`；`dump` 断言 `current_artifact_id`、artifact `APPROVED`、`SkillUserGrant`、`AgentSkillBinding`、`SKILL_REVIEW` 审计；`GET /api/v1/audits?...action=SKILL_REVIEW` 命中 | 独立空 PG + 独立 Redis DB（`useIsolatedDatastores`）+ 真实 uvicorn Console + `vite preview` 构建产物 + 系统 Chrome；无 `page.route`；DB 关系/审计经真实 PG 查询，审计 API 经真实 HTTP | verified |
+| S-40 | 两个 spec 均为 `test.skip`：`npm run skill-self-service-delete` → `1 skipped`，无详情/解绑/软删/DB 断言 | `npm run skill-self-service-delete` → `1 passed (4.3s)`；combined `npm --prefix e2e test -- --config playwright.skill-self-service.config.ts` → `2 passed (6.8s)` | `e2e/tests/skill-self-service-delete.spec.ts::S-40`：打开删除确认展示将解绑 Agent；确认前 `DELETE` 请求数为 0；确认后请求带 `unbind=true&confirm=true`、列表行消失；`dump` 断言 `is_deleted=true`、binding/grant 全部 `is_deleted=true`、`SKILL_UNBIND` 审计含 Agent key/id、`SKILL_DELETE` 含 skill_key；真实 `ChannelSkillsService` Effective 查询不再返回该 key | 独立空 PG + 独立 Redis DB（`useIsolatedDatastores`）+ 真实 uvicorn Console + `vite preview` 构建产物 + 系统 Chrome；删除是真实 Console API 事务，DB/审计/Effective 查询均走真实 PG；成功路径无 mock | verified |
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-07] started
+- [2026-11-07] RED：`e2e/tests/skill-self-service-approve.spec.ts` 与 `skill-self-service-delete.spec.ts` 仍为 `test.skip`；`npm run skill-self-service-approve` → `1 skipped`，`npm run skill-self-service-delete` → `1 skipped`（无登录、无筛选、无审批/解绑步骤与 DB 断言）。
+- [2026-11-07] GREEN：实现真实 E2E + `tests/e2e/seed_skill_self_service.py`；配置接入 `useIsolatedDatastores()` / `globalTeardown` / 真实 uvicorn + `vite preview`（`--strictPort`），`--list` 不建库。S-39 → `1 passed`，S-40 → `1 passed`；combined `npm --prefix e2e test -- --config playwright.skill-self-service.config.ts` → `2 passed (6.8s)`，`--list` → `2 tests in 2 files`。
+- [2026-11-07] manifest：`cf_acceptance_manifest.py --register-checks --registration-file` 通过；49 个场景、42 个 check，S-39/S-40 的 `test_ids` 分别为 `e2e/tests/skill-self-service-approve.spec.ts:99@chrome` / `...delete.spec.ts:91@chrome`，`registration.ok=true`；E2E runner 写证据后均为 `verified`。
+- [2026-11-07] verifier：`uv run pytest -q tests/frontend/test_e2e_suite_contract.py` → `6 passed`；`uv run pytest -q tests/architecture tests/acceptance/user_skill_sandbox` → `349 passed (2:03)`。全量首跑发现 `test_s_41` 的 REJECT 计数硬编码为 1（同进程前序测试已累加）；改为与 `reject_before + 1` 比较后复跑全绿，断言事实不变。
+- [2026-11-07] completed (done)
 
 ---
 

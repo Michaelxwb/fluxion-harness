@@ -615,7 +615,7 @@
       ],
       "suite": "browser",
       "test_ids": [
-        "e2e/tests/skill-self-service-approve.spec.ts:4@chrome"
+        "e2e/tests/skill-self-service-approve.spec.ts:99@chrome"
       ],
       "markers": [
         "smoke"
@@ -657,7 +657,7 @@
       ],
       "suite": "browser",
       "test_ids": [
-        "e2e/tests/skill-self-service-delete.spec.ts:4@chrome"
+        "e2e/tests/skill-self-service-delete.spec.ts:91@chrome"
       ],
       "markers": [],
       "collect": {
@@ -1051,7 +1051,26 @@
       ],
       "stale_checks": [
         "CHK-d8c2a60db0c1"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-d8c2a60db0c1",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_01.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-02",
@@ -1258,7 +1277,26 @@
       ],
       "stale_checks": [
         "CHK-71e9e6c27bf1"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-71e9e6c27bf1",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_02.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-03",
@@ -1267,7 +1305,7 @@
       "kind": "functional",
       "boundary": "Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件",
       "owner": "TASK-004",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1337,11 +1375,16 @@
       "target_phase": "ci",
       "defer_owner": "TASK-004",
       "check": "CHK-1acede229a5f",
-      "revision": 1,
+      "revision": 3,
       "evidence": {
         "id": "S-03",
         "kind": "functional",
-        "status": "e2e_deferred",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 7710.864083841443,
+        "check_id": "CHK-1acede229a5f",
+        "input_hash": "",
+        "environment_hash": "4b74cdd809f671af02b8cada91c124827e97ad8c4764b1e694709aa20f44b7aa",
         "check_config": {
           "id": "CHK-1acede229a5f",
           "command": [
@@ -1361,9 +1404,9 @@
           "preflight": [],
           "paths": []
         },
-        "revision": 1,
-        "run_id": "1167f7e8c2bf4e32b37e18e65a83bf24",
-        "executed_at": "2026-11-06T14:43:01.063927+00:00",
+        "revision": 3,
+        "run_id": "212537f4f3f54d9688371f9eb7b61b08",
+        "executed_at": "2026-11-06T18:27:08.320907+00:00",
         "command": [
           "uv",
           "run",
@@ -1410,8 +1453,110 @@
           ],
           "cwd": ".",
           "timeout": 600.0
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 6711.356375366449,
+          "check_id": "CHK-1acede229a5f",
+          "input_hash": "99e2e1712d8b154391c2138d7fa5008a33ca221beb4462955e98861041fd60b2",
+          "environment_hash": "4b74cdd809f671af02b8cada91c124827e97ad8c4764b1e694709aa20f44b7aa",
+          "check_config": {
+            "id": "CHK-1acede229a5f",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/user_skill_sandbox/test_s_03.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "aa0ae94e634e4aa5b05865be28192a4a",
+          "executed_at": "2026-11-06T18:24:47.750194+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_s_03.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "99e2e1712d8b154391c2138d7fa5008a33ca221beb4462955e98861041fd60b2"
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 7710.864083841443,
+          "check_id": "CHK-1acede229a5f",
+          "input_hash": "",
+          "environment_hash": "4b74cdd809f671af02b8cada91c124827e97ad8c4764b1e694709aa20f44b7aa",
+          "check_config": {
+            "id": "CHK-1acede229a5f",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/user_skill_sandbox/test_s_03.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "212537f4f3f54d9688371f9eb7b61b08",
+          "executed_at": "2026-11-06T18:27:08.320907+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_s_03.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0
         }
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-1acede229a5f",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_03.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-04",
@@ -1616,7 +1761,26 @@
       ],
       "stale_checks": [
         "CHK-fa9379eba61b"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-fa9379eba61b",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_04.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-05",
@@ -1781,7 +1945,26 @@
       ],
       "stale_checks": [
         "CHK-e8f74f96e6e3"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-e8f74f96e6e3",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_05.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-06",
@@ -1936,7 +2119,26 @@
       ],
       "stale_checks": [
         "CHK-7602fe3c28e6"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-7602fe3c28e6",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_06.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-07",
@@ -2100,7 +2302,26 @@
       ],
       "stale_checks": [
         "CHK-e5e70bae669f"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-e5e70bae669f",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_07.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-08",
@@ -2264,7 +2485,26 @@
       ],
       "stale_checks": [
         "CHK-308913cbbcb1"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-308913cbbcb1",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_08.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-09",
@@ -2469,7 +2709,26 @@
       ],
       "stale_checks": [
         "CHK-fde230e0cd67"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-fde230e0cd67",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_09.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-10",
@@ -2676,7 +2935,26 @@
       ],
       "stale_checks": [
         "CHK-f9149a38b729"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-f9149a38b729",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_10.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-11",
@@ -2891,7 +3169,26 @@
       ],
       "stale_checks": [
         "CHK-d45c13e873eb"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-d45c13e873eb",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_11.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "B-01",
@@ -3097,7 +3394,26 @@
       ],
       "stale_checks": [
         "CHK-3036fe86f429"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-3036fe86f429",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_b_01.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-13",
@@ -3158,7 +3474,8 @@
         "内网真实平台凭据可用",
         "Skill 已导入/批准",
         "沙箱可用"
-      ]
+      ],
+      "check_config": {}
     },
     {
       "id": "S-14",
@@ -3226,7 +3543,8 @@
       "preconditions": [
         "完成 SKILL_DATA_DIR/SKILL_OUTPUT_DIR/base_url/路径/调度/webhook 改造",
         "内网真实平台凭据可用"
-      ]
+      ],
+      "check_config": {}
     },
     {
       "id": "S-15",
@@ -3424,7 +3742,26 @@
       ],
       "stale_checks": [
         "CHK-3cef22145e00"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-3cef22145e00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_15.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-01",
@@ -3622,7 +3959,26 @@
       ],
       "stale_checks": [
         "CHK-35cdf38d7a1c"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-35cdf38d7a1c",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_01.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-02",
@@ -3862,7 +4218,26 @@
       ],
       "stale_checks": [
         "CHK-28858b5b8379"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-28858b5b8379",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_02.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-03",
@@ -4060,7 +4435,26 @@
       ],
       "stale_checks": [
         "CHK-7acb78f3a8a8"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-7acb78f3a8a8",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_03.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-04",
@@ -4307,7 +4701,26 @@
       ],
       "stale_checks": [
         "CHK-a5e8781f55ad"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-a5e8781f55ad",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_04.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local-api",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-20",
@@ -4554,7 +4967,26 @@
       ],
       "stale_checks": [
         "CHK-65644e7dc2a5"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-65644e7dc2a5",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_20.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local-api",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-05",
@@ -4752,7 +5184,26 @@
       ],
       "stale_checks": [
         "CHK-7fd060f09f01"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-7fd060f09f01",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_05.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-22",
@@ -4820,7 +5271,8 @@
       "preconditions": [
         "内网真实平台凭据可用",
         "受保护测试接口可用"
-      ]
+      ],
+      "check_config": {}
     },
     {
       "id": "E-06",
@@ -5059,7 +5511,26 @@
       ],
       "stale_checks": [
         "CHK-c2aafcb05a89"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-c2aafcb05a89",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_06.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-24",
@@ -5306,7 +5777,26 @@
       ],
       "stale_checks": [
         "CHK-9a49a7a1d0d7"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-9a49a7a1d0d7",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_24.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "B-02",
@@ -5546,7 +6036,26 @@
       ],
       "stale_checks": [
         "CHK-41b9fa6e3b8f"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-41b9fa6e3b8f",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_b_02.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-26",
@@ -5784,7 +6293,26 @@
       ],
       "stale_checks": [
         "CHK-7d605d4fff3d"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-7d605d4fff3d",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_core/test_sandbox_runner.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "none",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-07",
@@ -6022,7 +6550,26 @@
       ],
       "stale_checks": [
         "CHK-7d605d4fff3d"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-7d605d4fff3d",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_core/test_sandbox_runner.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "none",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-08",
@@ -6178,7 +6725,26 @@
       ],
       "stale_checks": [
         "CHK-c5a693c6ca28"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-c5a693c6ca28",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_08.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "B-03",
@@ -6333,7 +6899,26 @@
       ],
       "stale_checks": [
         "CHK-271bf7724d0e"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-271bf7724d0e",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_b_03.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-09",
@@ -6480,7 +7065,26 @@
       ],
       "stale_checks": [
         "CHK-a2fa43288567"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-a2fa43288567",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_09.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-10",
@@ -6635,7 +7239,26 @@
       ],
       "stale_checks": [
         "CHK-a5ff90feccf4"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-a5ff90feccf4",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_10.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-11",
@@ -6790,7 +7413,26 @@
       ],
       "stale_checks": [
         "CHK-148108b28cec"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-148108b28cec",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_11.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "B-04",
@@ -6987,7 +7629,26 @@
       ],
       "stale_checks": [
         "CHK-63c237ddb40f"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-63c237ddb40f",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_b_04.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-12",
@@ -7173,7 +7834,26 @@
           "timeout": 600.0,
           "fingerprint": "eacac6ea5052e4f81fe39499db88f821fdd07724c96ab184d6dfb3abc7911d8a"
         }
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-37ff0f47c874",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_12.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-35",
@@ -7366,7 +8046,26 @@
           "timeout": 600.0,
           "fingerprint": "eacac6ea5052e4f81fe39499db88f821fdd07724c96ab184d6dfb3abc7911d8a"
         }
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-fcd487271ef9",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_skill_management_ui.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "none",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-36",
@@ -7559,7 +8258,26 @@
           "timeout": 600.0,
           "fingerprint": "eacac6ea5052e4f81fe39499db88f821fdd07724c96ab184d6dfb3abc7911d8a"
         }
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-fcd487271ef9",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_skill_management_ui.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "none",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-37",
@@ -7752,7 +8470,26 @@
           "timeout": 600.0,
           "fingerprint": "eacac6ea5052e4f81fe39499db88f821fdd07724c96ab184d6dfb3abc7911d8a"
         }
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-fcd487271ef9",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_skill_management_ui.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "none",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-13",
@@ -7953,7 +8690,26 @@
           "timeout": 600.0,
           "fingerprint": "eacac6ea5052e4f81fe39499db88f821fdd07724c96ab184d6dfb3abc7911d8a"
         }
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-fcd487271ef9",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/frontend/test_skill_management_ui.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "none",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-39",
@@ -8038,16 +8794,16 @@
         "管理员账号可登录 Console"
       ],
       "check": "CHK-d4036e877e26",
-      "revision": 3,
+      "revision": 5,
       "evidence": {
         "id": "S-39",
         "kind": "e2e",
         "status": "passed",
         "exit_code": 0,
-        "execution_ms": 272.60324999999995,
+        "execution_ms": 7420.06383324042,
         "check_id": "CHK-d4036e877e26",
-        "input_hash": "55cc0c1fdeb1cc79d577f0f4ec39d525fd565da8ac86ff6369af738108f6ea33",
-        "environment_hash": "838c2a54329fe7d52e8a8d17e31618058f1e6e608dea6e77cf91b36bcd6ca22a",
+        "input_hash": "",
+        "environment_hash": "4b74cdd809f671af02b8cada91c124827e97ad8c4764b1e694709aa20f44b7aa",
         "check_config": {
           "id": "CHK-d4036e877e26",
           "command": [
@@ -8071,7 +8827,7 @@
           ],
           "suite": "browser",
           "test_ids": [
-            "e2e/tests/skill-self-service-approve.spec.ts:4@chrome"
+            "e2e/tests/skill-self-service-approve.spec.ts:99@chrome"
           ],
           "markers": [
             "smoke"
@@ -8090,17 +8846,16 @@
             "timeout": 10
           }
         },
-        "revision": 3,
-        "run_id": "fefae90b5c6d40ab88f6a12c6c0e72fd",
-        "executed_at": "2026-11-06T18:05:56.935580+00:00",
+        "revision": 5,
+        "run_id": "212537f4f3f54d9688371f9eb7b61b08",
+        "executed_at": "2026-11-06T18:27:08.320907+00:00",
         "command": [
           "npm",
           "run",
           "skill-self-service-approve"
         ],
         "cwd": ".",
-        "timeout": 1800.0,
-        "fingerprint": "55cc0c1fdeb1cc79d577f0f4ec39d525fd565da8ac86ff6369af738108f6ea33"
+        "timeout": 1800.0
       },
       "runs": [
         {
@@ -8279,8 +9034,175 @@
           "cwd": ".",
           "timeout": 1800.0,
           "fingerprint": "55cc0c1fdeb1cc79d577f0f4ec39d525fd565da8ac86ff6369af738108f6ea33"
+        },
+        {
+          "id": "S-39",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 10618.685666937381,
+          "check_id": "CHK-d4036e877e26",
+          "input_hash": "71ccc8c9223adc737823603e606c928066925f4da1e840c868c0b8cdd076bd13",
+          "environment_hash": "4b74cdd809f671af02b8cada91c124827e97ad8c4764b1e694709aa20f44b7aa",
+          "check_config": {
+            "id": "CHK-d4036e877e26",
+            "command": [
+              "npm",
+              "run",
+              "skill-self-service-approve"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "smoke",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/console-platform/backend/src/muad_console_platform/api/skills.py",
+              "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py",
+              "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py",
+              "apps/console-platform/frontend/src/modules/skill-management/**"
+            ],
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/skill-self-service-approve.spec.ts:99@chrome"
+            ],
+            "markers": [
+              "smoke"
+            ],
+            "collect": {
+              "argv": [
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.skill-self-service.config.ts",
+                "e2e/tests/skill-self-service-approve.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "format": "playwright",
+              "timeout": 10
+            }
+          },
+          "revision": 4,
+          "run_id": "aa0ae94e634e4aa5b05865be28192a4a",
+          "executed_at": "2026-11-06T18:24:47.750194+00:00",
+          "command": [
+            "npm",
+            "run",
+            "skill-self-service-approve"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "71ccc8c9223adc737823603e606c928066925f4da1e840c868c0b8cdd076bd13"
+        },
+        {
+          "id": "S-39",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 7420.06383324042,
+          "check_id": "CHK-d4036e877e26",
+          "input_hash": "",
+          "environment_hash": "4b74cdd809f671af02b8cada91c124827e97ad8c4764b1e694709aa20f44b7aa",
+          "check_config": {
+            "id": "CHK-d4036e877e26",
+            "command": [
+              "npm",
+              "run",
+              "skill-self-service-approve"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "smoke",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/console-platform/backend/src/muad_console_platform/api/skills.py",
+              "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py",
+              "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py",
+              "apps/console-platform/frontend/src/modules/skill-management/**"
+            ],
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/skill-self-service-approve.spec.ts:99@chrome"
+            ],
+            "markers": [
+              "smoke"
+            ],
+            "collect": {
+              "argv": [
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.skill-self-service.config.ts",
+                "e2e/tests/skill-self-service-approve.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "format": "playwright",
+              "timeout": 10
+            }
+          },
+          "revision": 5,
+          "run_id": "212537f4f3f54d9688371f9eb7b61b08",
+          "executed_at": "2026-11-06T18:27:08.320907+00:00",
+          "command": [
+            "npm",
+            "run",
+            "skill-self-service-approve"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-d4036e877e26",
+        "command": [
+          "npm",
+          "run",
+          "skill-self-service-approve"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0,
+        "env": "browser",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "smoke",
+        "inputs": [],
+        "preflight": [],
+        "paths": [
+          "apps/console-platform/backend/src/muad_console_platform/api/skills.py",
+          "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py",
+          "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py",
+          "apps/console-platform/frontend/src/modules/skill-management/**"
+        ],
+        "suite": "browser",
+        "test_ids": [
+          "e2e/tests/skill-self-service-approve.spec.ts:99@chrome"
+        ],
+        "markers": [
+          "smoke"
+        ],
+        "collect": {
+          "argv": [
+            "e2e/node_modules/.bin/playwright",
+            "test",
+            "--config",
+            "e2e/playwright.skill-self-service.config.ts",
+            "e2e/tests/skill-self-service-approve.spec.ts",
+            "--list",
+            "--reporter=json"
+          ],
+          "format": "playwright",
+          "timeout": 10
+        }
+      }
     },
     {
       "id": "S-40",
@@ -8289,7 +9211,7 @@
       "kind": "e2e",
       "boundary": "真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除",
       "owner": "TASK-014",
-      "status": "e2e_deferred",
+      "status": "verified",
       "command": [
         "npm",
         "run",
@@ -8364,11 +9286,16 @@
         "管理员账号可登录 Console"
       ],
       "check": "CHK-93b18376d573",
-      "revision": 2,
+      "revision": 4,
       "evidence": {
         "id": "S-40",
         "kind": "e2e",
-        "status": "e2e_deferred",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 7093.3087090961635,
+        "check_id": "CHK-93b18376d573",
+        "input_hash": "",
+        "environment_hash": "4b74cdd809f671af02b8cada91c124827e97ad8c4764b1e694709aa20f44b7aa",
         "check_config": {
           "id": "CHK-93b18376d573",
           "command": [
@@ -8392,7 +9319,7 @@
           ],
           "suite": "browser",
           "test_ids": [
-            "e2e/tests/skill-self-service-delete.spec.ts:4@chrome"
+            "e2e/tests/skill-self-service-delete.spec.ts:91@chrome"
           ],
           "markers": [],
           "collect": {
@@ -8409,9 +9336,9 @@
             "timeout": 10
           }
         },
-        "revision": 2,
-        "run_id": "4f788a5bf9ce4a8e964eb1d788e41a8b",
-        "executed_at": "2026-11-06T18:05:45.783401+00:00",
+        "revision": 4,
+        "run_id": "212537f4f3f54d9688371f9eb7b61b08",
+        "executed_at": "2026-11-06T18:27:08.320907+00:00",
         "command": [
           "npm",
           "run",
@@ -8530,8 +9457,169 @@
           ],
           "cwd": ".",
           "timeout": 1800.0
+        },
+        {
+          "id": "S-40",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 6934.663875028491,
+          "check_id": "CHK-93b18376d573",
+          "input_hash": "b3b8de07de662571d4d296f117e2f27d28a7296bb82dc0434d54175e7aa40a69",
+          "environment_hash": "4b74cdd809f671af02b8cada91c124827e97ad8c4764b1e694709aa20f44b7aa",
+          "check_config": {
+            "id": "CHK-93b18376d573",
+            "command": [
+              "npm",
+              "run",
+              "skill-self-service-delete"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/console-platform/backend/src/muad_console_platform/api/skills.py",
+              "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py",
+              "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py",
+              "apps/console-platform/frontend/src/modules/skill-management/**"
+            ],
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/skill-self-service-delete.spec.ts:91@chrome"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.skill-self-service.config.ts",
+                "e2e/tests/skill-self-service-delete.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "format": "playwright",
+              "timeout": 10
+            }
+          },
+          "revision": 3,
+          "run_id": "aa0ae94e634e4aa5b05865be28192a4a",
+          "executed_at": "2026-11-06T18:24:47.750194+00:00",
+          "command": [
+            "npm",
+            "run",
+            "skill-self-service-delete"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0,
+          "fingerprint": "b3b8de07de662571d4d296f117e2f27d28a7296bb82dc0434d54175e7aa40a69"
+        },
+        {
+          "id": "S-40",
+          "kind": "e2e",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 7093.3087090961635,
+          "check_id": "CHK-93b18376d573",
+          "input_hash": "",
+          "environment_hash": "4b74cdd809f671af02b8cada91c124827e97ad8c4764b1e694709aa20f44b7aa",
+          "check_config": {
+            "id": "CHK-93b18376d573",
+            "command": [
+              "npm",
+              "run",
+              "skill-self-service-delete"
+            ],
+            "cwd": ".",
+            "timeout": 1800.0,
+            "env": "browser",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": [
+              "apps/console-platform/backend/src/muad_console_platform/api/skills.py",
+              "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py",
+              "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py",
+              "apps/console-platform/frontend/src/modules/skill-management/**"
+            ],
+            "suite": "browser",
+            "test_ids": [
+              "e2e/tests/skill-self-service-delete.spec.ts:91@chrome"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "e2e/node_modules/.bin/playwright",
+                "test",
+                "--config",
+                "e2e/playwright.skill-self-service.config.ts",
+                "e2e/tests/skill-self-service-delete.spec.ts",
+                "--list",
+                "--reporter=json"
+              ],
+              "format": "playwright",
+              "timeout": 10
+            }
+          },
+          "revision": 4,
+          "run_id": "212537f4f3f54d9688371f9eb7b61b08",
+          "executed_at": "2026-11-06T18:27:08.320907+00:00",
+          "command": [
+            "npm",
+            "run",
+            "skill-self-service-delete"
+          ],
+          "cwd": ".",
+          "timeout": 1800.0
         }
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-93b18376d573",
+        "command": [
+          "npm",
+          "run",
+          "skill-self-service-delete"
+        ],
+        "cwd": ".",
+        "timeout": 1800.0,
+        "env": "browser",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": [
+          "apps/console-platform/backend/src/muad_console_platform/api/skills.py",
+          "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py",
+          "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py",
+          "apps/console-platform/frontend/src/modules/skill-management/**"
+        ],
+        "suite": "browser",
+        "test_ids": [
+          "e2e/tests/skill-self-service-delete.spec.ts:91@chrome"
+        ],
+        "markers": [],
+        "collect": {
+          "argv": [
+            "e2e/node_modules/.bin/playwright",
+            "test",
+            "--config",
+            "e2e/playwright.skill-self-service.config.ts",
+            "e2e/tests/skill-self-service-delete.spec.ts",
+            "--list",
+            "--reporter=json"
+          ],
+          "format": "playwright",
+          "timeout": 10
+        }
+      }
     },
     {
       "id": "S-41",
@@ -8686,7 +9774,26 @@
       ],
       "stale_checks": [
         "CHK-8acf6c8efcf7"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-8acf6c8efcf7",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_41.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-14",
@@ -8840,7 +9947,26 @@
       ],
       "stale_checks": [
         "CHK-efc5e13c10c2"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-efc5e13c10c2",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_skill_sandbox_contracts.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "none",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-15",
@@ -8995,7 +10121,26 @@
       ],
       "stale_checks": [
         "CHK-d35bae7f436e"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-d35bae7f436e",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_15.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-16",
@@ -9234,7 +10379,26 @@
       ],
       "stale_checks": [
         "CHK-c5cd45a2684a"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-c5cd45a2684a",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_16.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-45",
@@ -9389,7 +10553,26 @@
       ],
       "stale_checks": [
         "CHK-e3526d2237c9"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-e3526d2237c9",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_45.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-46",
@@ -9543,7 +10726,26 @@
       ],
       "stale_checks": [
         "CHK-e053c73829e3"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-e053c73829e3",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_46.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "none",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-47",
@@ -9749,7 +10951,26 @@
       ],
       "stale_checks": [
         "CHK-83ee77dbbbd4"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-83ee77dbbbd4",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_47.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "S-48",
@@ -9996,7 +11217,26 @@
       ],
       "stale_checks": [
         "CHK-62857f0bce9d"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-62857f0bce9d",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_48.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     },
     {
       "id": "E-17",
@@ -10236,7 +11476,26 @@
       ],
       "stale_checks": [
         "CHK-d491931df65a"
-      ]
+      ],
+      "check_config": {
+        "id": "CHK-d491931df65a",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_17.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "env": "local",
+        "env_scope": "shared",
+        "parallel_safe": false,
+        "profile": "changed",
+        "inputs": [],
+        "preflight": [],
+        "paths": []
+      }
     }
   ],
   "scenarios_file": "user-skill-sandbox.scenarios.md",
@@ -10303,8 +11562,6 @@
       "E-17"
     ],
     "stale": [],
-    "removed": [
-      "S-19"
-    ]
+    "removed": []
   }
 }

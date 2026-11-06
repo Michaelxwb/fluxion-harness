@@ -292,13 +292,18 @@ async def test_s41_metrics_endpoints_expose_execution_failure_cleanup_and_review
     approve_before = _metric_value(
         console_before, "skill_review_total", {"action": "APPROVE"}
     ) or 0.0
+    reject_before = _metric_value(
+        console_before, "skill_review_total", {"action": "REJECT"}
+    ) or 0.0
     record_skill_review("APPROVE")
     record_skill_review("REJECT")
     console_after = await _metrics_text(console_app)
     assert _metric_value(
         console_after, "skill_review_total", {"action": "APPROVE"}
     ) == approve_before + 1
-    assert _metric_value(console_after, "skill_review_total", {"action": "REJECT"}) == 1
+    assert _metric_value(
+        console_after, "skill_review_total", {"action": "REJECT"}
+    ) == reject_before + 1
 
     for metrics_text in (runtime_after, worker_after, console_after):
         assert SECRET_CANARY not in metrics_text
