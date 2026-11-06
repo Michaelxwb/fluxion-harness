@@ -13,6 +13,7 @@
 | `base-image-inspection.txt` | 基础镜像 OS/glibc/Python/Node/包管理器检查 |
 | `landlock-seccomp.txt` | Landlock 不可用、seccomp 现状与结论 |
 | `bwrap-overhead.txt` | bwrap 每次执行的启动与 RSS 开销基准 |
+| `service-auth-overhead.txt` | 门控配置构造/同步调度的本地 ASGI 对照与复现命令 |
 | `local-macos-bwrap.txt` | macOS/OrbStack 探索阶段实测输出（bwrap 0.13.2） |
 | `new-base-bwrap-smoke.txt` | 最终底座 bwrap 0.13.1 的冒烟输出 |
 | `intranet-k8s-kernel-smoke.txt` | 内网 runtime/worker Pod 实测输出 |
@@ -31,11 +32,15 @@
 - bwrap 在实际 PlatOS 基础镜像中可运行（macOS amd64 模拟环境）。
 - 内网 runtime/worker 真实 Pod 均通过内核 namespace/mount 测试。
 - 内网 K8s Job 的 bwrap + 真实 `session_cli.py` + Unix socket probe 已 PASS（模拟 broker）。
-- P0.3 真实 Runtime broker + Console/Redis/用户 AK-SK + `requests` 已 PASS（真实平台 HTTP 200）。
-- 内网当前没有显式 `seccompProfile`，实际允许 `unshare`/`mount`，不需要改 seccomp。
+- P0.3 真实 Runtime broker + Console/Redis/session-manager + `requests` 已 PASS（根路径 HTTP 200）；
+  证明状态交付/HTTP 连通性，受保护业务接口的 Cookie 鉴权仍待实测。
+- 受测 Pod 没有显式 `seccompProfile`，实际允许 `unshare`/`mount`，本次无需修改；其他节点/运行时须复核。
 - 生产内核 4.18 不支持 Landlock，`nono-py` 路线不可用。
 - 基础镜像没有包管理器，bwrap 必须由 builder stage 构建后复制进镜像。
-- 尚未执行：内网 Pod 内的 bwrap 二进制、真实 `session-manager`、真实 Skill 包。这是 P0 的剩余项。
+- 内网 Runtime Pod 中的 bwrap 二进制和真实 session-manager 已在独立 canary 中执行。
+- 尚未验证：受保护业务接口的有效/无/无效 Cookie 对照、真实 Skill 包经统一执行器运行、
+  Worker async、受信 API 拒绝路径、输出/挂载/资源控制和最终镜像/Pod 指纹。
+- 当前对话 Skill 尚未接入 bwrap；本次为方案细化和手动联调准备，受保护接口真实结果待实测后记录。
 
 ## 复现方式
 
@@ -81,7 +86,7 @@ docker tag \
 ```bash
 docker run --rm --platform linux/amd64 \
   docker.sangfor.com/mss-base/python-node:3.12.13-node24-bwrap-20261106 \
-  sh -c 'bwrap --version; python --version; node --version'
+  sh -ec 'bwrap --version; python --version; node --version'
 ```
 
 预期：
@@ -140,7 +145,7 @@ docker run --rm --platform linux/amd64 \
 ```
 
 注意：本地 Docker 默认 seccomp 会拦截 `unshare`，所以本地测试需要
-`--security-opt seccomp=unconfined`；内网 K8s 默认策略已实测允许，不需要该参数。
+`--security-opt seccomp=unconfined`；受测内网 Pod 实际允许，本次不需该参数，结论不推广到其他环境。
 
 ### 5. 在现有 Pod 里测试 bwrap 二进制（可选，不构建镜像）
 
@@ -163,7 +168,7 @@ POD=$(kubectl -n muad get pod -l app=muad-agent-runtime \
 
 kubectl -n muad cp ./bwrap-test.tar.gz "$POD":/tmp/
 
-kubectl -n muad exec -i "$POD" -- sh -c '
+kubectl -n muad exec -i "$POD" -- sh -ec '
   rm -rf /tmp/bwrap-test && mkdir -p /tmp/bwrap-test
   tar xzf /tmp/bwrap-test.tar.gz -C /tmp/bwrap-test
   cd /tmp/bwrap-test
@@ -172,13 +177,13 @@ kubectl -n muad exec -i "$POD" -- sh -c '
 '
 ```
 
-这是测试路径；生产应把 bwrap 放进共享基础镜像，或使用只读 volume 挂载。
+这是探索测试路径；生产采用共享基础镜像内置 bwrap，不依赖临时复制或额外 volume 分发。
 
 ## P0.3 真实 broker canary
 
 `real_broker_probe.py` 不经过对话 Skill，直接调用真实
 `skill_platform_environment`，验证 Console/Redis/平台凭据 + bwrap +
-`session-manager` + `requests` 的完整链路。
+`session-manager` + `requests` 的状态交付与 HTTP 链路，不证明 Run 身份绑定或业务鉴权。
 
 在 canary runtime Pod 内：
 
@@ -207,9 +212,23 @@ python /tmp/real_broker_probe.py
 
 ```text
 bwrap_rc 0
-stdout {"ok": true, "status": 200, ...}
+stdout {"ok": true, "check_scope": "http_status", "status": 200, ...}
 RESULT: PASS
 ```
+
+探针已禁止自动跳转，默认仅接受 2xx，保留 POST 空 JSON `{}`，并区分 `/api` 根路径与
+`api` 相对路径。`TEST_REQUIRE_JSON=1` 检查 JSON；`TEST_EXPECT_JSON` 匹配非空的顶层业务字段。
+HTTP/JSON 检查通过不等于 Cookie 鉴权通过，成功码必须来自真实响应契约。
+
+受保护接口 `GET /order/v1/get_expert` 的三组实测命令与验收条件见
+[主文档 P0.3.2](../../sandbox-solution.md)。命令先复制最新脚本，再用 `TEST_COOKIE_MODE`
+分别发送 `valid`/`none`/`invalid`；`TEST_EXPECT_STATUS=any` 只输出 `RESULT: OBSERVED`，
+不能记为鉴权 PASS。Cookie/CSRF 来自 broker，不复制浏览器登录凭据。
+`TEST_HEADERS_JSON` 仅用于非凭据请求头；禁止 Cookie/Authorization 覆盖。
+`TEST_SHOW_BODY=1` 输出最多 200 字符的脱敏 JSON 前缀，仍可能含业务数据，不原样归档。
+
+基础镜像更新后仍须通过现有流水线重建、部署 runtime/worker 服务镜像；已有镜像不会自动继承。
+下述 tar SHA256 只校验归档文件，最终运行身份需记录 OCI digest、Pod imageID 与源码 commit SHA。
 
 ## 本地产物
 

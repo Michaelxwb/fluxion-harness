@@ -23,7 +23,8 @@ Interpretation:
   - bwrap is a process-level sandbox, not a container/VM per execution.
   - The interpreter is the dominant memory cost; bwrap adds roughly a few MB
     of RSS per execution (RSS sums count shared pages more than once).
-  - There is no idle per-user sandbox; memory is released when the process exits.
+  - There is no idle per-user process after the full descendant tree is reaped.
+    Process exit does not imply all cgroup charges (for example file cache) vanish.
   - Per-execution tmpfs must be bounded (for example 8-16 MiB). If many
     executions write large temp files, prefer a disk-backed per-execution dir.
   - Concurrency, not bwrap itself, is the main memory risk: N concurrent
@@ -35,3 +36,8 @@ Caveat:
   - Numbers are from a native arm64 container, not the intranet amd64 nodes or
     PlatOS Python. Re-run the same benchmark on a canary runtime Pod before
     setting production concurrency limits.
+  - Empty-interpreter RSS cannot predict real Skill/Node/install process trees,
+    tmpfs, native extensions, output buffers, or production cgroup peaks.
+  - Per-process rlimits and the Pod cgroup do not provide a per-execution memory
+    hard limit. See the main document section 14.1 for the provisional weighted
+    budget and the boundary requiring execution cgroups or separate Pods.

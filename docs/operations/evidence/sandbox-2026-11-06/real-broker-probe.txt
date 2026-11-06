@@ -47,7 +47,8 @@ What it proves:
   - The real Runtime broker resolves the user's MSSP credential and returns
     a session state file that is readable inside bwrap.
   - session-manager CLI works inside bwrap.
-  - The platform request carries the real session cookies and receives HTTP 200.
+  - The client constructs a request using real session cookies and receives HTTP 200.
+    The root-path HTML response does not establish successful business authentication.
 
 What it does not prove:
   - The full SandboxedSkillExecutor routing / user Skill execution path.
@@ -55,3 +56,18 @@ What it does not prove:
   - Untrusted-script isolation against Runtime /v1 APIs: this still requires
     the P0.4 service-identity gate.
   - Output flooding, read-only package and approval transaction behavior.
+  - Protected business access: valid / missing / invalid Cookie controls, expected
+    business fields, POST/CSRF, and redirect/HTTP-200-login-page rejection.
+  - A fresh AK/SK login in this invocation: a warm Redis session may be reused.
+  - Actual Run/Task ownership: the canary constructs trusted context and defaults
+    its execution ID to a random UUID.
+
+Review annotation (2026-11-06):
+  - The observed output above is historical and remains unchanged.
+  - The updated real_broker_probe.py disables redirects, defaults to 2xx, preserves
+    empty JSON objects, and adds Cookie controls and explicit JSON assertions.
+  - check_scope describes only the assertion performed; observation mode reports
+    RESULT: OBSERVED, never an authentication pass.
+  - GET https://sitsoar.sangfor.com.cn/order/v1/get_expert has been selected for the
+    next protected-endpoint test. No live result is recorded yet. See the main
+    document P0.3.2 for commands and acceptance criteria.
