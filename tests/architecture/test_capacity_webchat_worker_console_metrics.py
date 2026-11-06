@@ -90,7 +90,19 @@ FOREIGN_METRICS: dict[str, tuple[str, ...]] = {
 
 #: Worker/Console 目录允许的 label 名：固定低基数枚举，不得混入租户/用户/资源 ID/凭据。
 ALLOWED_LABEL_NAMES = frozenset(
-    {"type", "status", "caller", "result", "operation", "reason", "component", "pool"}
+    {
+        "type",
+        "status",
+        "caller",
+        "result",
+        "operation",
+        "reason",
+        "component",
+        "pool",
+        # Skill 执行来源（SYSTEM/ADMIN/USER）与审批动作（APPROVE/REJECT）都是封闭枚举。
+        "source",
+        "action",
+    }
 )
 SENSITIVE_LABEL_MARKERS = (
     "authorization",

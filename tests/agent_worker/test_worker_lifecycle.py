@@ -258,6 +258,24 @@ class _FakeLoop:
             raise
 
 
+class _FakeWorkspaceLoop:
+    instances: list[_FakeWorkspaceLoop] = []
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        self.started = asyncio.Event()
+        self.stopped = False
+        self._forever = asyncio.Event()
+        _FakeWorkspaceLoop.instances.append(self)
+
+    async def run_forever(self) -> None:
+        self.started.set()
+        try:
+            await self._forever.wait()
+        except asyncio.CancelledError:
+            self.stopped = True
+            raise
+
+
 class _FakeNotifier:
     def __init__(self) -> None:
         self.closed = False
@@ -277,14 +295,19 @@ async def test_b122_lifespan_runs_and_stops_all_background_loops(
 
     artifacts = tmp_path / "artifacts"
     artifacts.mkdir()
+    workspaces = tmp_path / "workspaces"
+    workspaces.mkdir()
     monkeypatch.setenv("ARTIFACT_ROOT", str(artifacts))
+    monkeypatch.setenv("WORKSPACE_ROOT", str(workspaces))
 
     _FakeLoop.instances = []
     _FakeLoop.maintenance_instances = []
+    _FakeWorkspaceLoop.instances = []
     notifier = _FakeNotifier()
     monkeypatch.setattr(main_module, "WorkerLoop", _FakeLoop)
     monkeypatch.setattr(main_module, "SchedulerLoop", _FakeLoop)
     monkeypatch.setattr(main_module, "DeliveryLoop", _FakeLoop)
+    monkeypatch.setattr(main_module, "WorkspaceMaintenanceLoop", _FakeWorkspaceLoop)
 
     async def fake_notifier(url: str | None, **_: object) -> _FakeNotifier:
         return notifier
@@ -300,12 +323,18 @@ async def test_b122_lifespan_runs_and_stops_all_background_loops(
         assert _FakeLoop.maintenance_instances == [worker_fake], (
             "Worker 的回收维护循环是独立后台任务（TASK-095）"
         )
+        assert len(_FakeWorkspaceLoop.instances) == 1
+        workspace_fake = _FakeWorkspaceLoop.instances[0]
+        await asyncio.wait_for(workspace_fake.started.wait(), timeout=5)
         assert all(not loop.stopped for loop in _FakeLoop.instances)
         assert not worker_fake.maintenance_stopped
+        assert not workspace_fake.stopped
         assert main_module.app.state.wakeup_notifier is notifier
+        assert main_module.app.state.workspace_maintenance is workspace_fake
 
     assert all(loop.stopped for loop in _FakeLoop.instances), "退出必须取消并等待后台任务"
     assert worker_fake.maintenance_stopped, "维护循环同样随退出停止"
+    assert workspace_fake.stopped, "workspace 清理循环同样随退出停止"
     assert notifier.closed is True
     leftover = [task for task in asyncio.all_tasks() - before if not task.done()]
     assert leftover == [], f"存在悬挂后台任务: {leftover}"

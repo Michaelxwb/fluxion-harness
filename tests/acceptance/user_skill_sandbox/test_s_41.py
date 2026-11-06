@@ -270,6 +270,9 @@ async def test_s41_metrics_endpoints_expose_execution_failure_cleanup_and_review
     cleanup_before = _metric_value(
         worker_before, WORKSPACE_CLEANUP_METRIC, {"status": "DELETED"}
     ) or 0.0
+    failed_before = _metric_value(
+        worker_before, WORKSPACE_CLEANUP_METRIC, {"status": "FAILED"}
+    ) or 0.0
     quota_before = _metric_value(worker_before, WORKSPACE_QUOTA_REJECTED_METRIC, {}) or 0.0
     record_workspace_cleanup("DELETED")
     record_workspace_cleanup("FAILED")
@@ -278,7 +281,9 @@ async def test_s41_metrics_endpoints_expose_execution_failure_cleanup_and_review
     assert _metric_value(
         worker_after, WORKSPACE_CLEANUP_METRIC, {"status": "DELETED"}
     ) == cleanup_before + 1
-    assert _metric_value(worker_after, WORKSPACE_CLEANUP_METRIC, {"status": "FAILED"}) == 1
+    assert _metric_value(
+        worker_after, WORKSPACE_CLEANUP_METRIC, {"status": "FAILED"}
+    ) == failed_before + 1
     assert _metric_value(
         worker_after, WORKSPACE_QUOTA_REJECTED_METRIC, {}
     ) == quota_before + 1

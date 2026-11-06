@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -12,9 +13,14 @@ from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill, r
 from muad_agent_core.sandbox import (
     WORKSPACE_MOUNT,
     SandboxError,
+    WorkspaceDeleting,
     WorkspaceError,
+    WorkspaceLease,
+    WorkspaceQuotaExceeded,
     WorkspaceShellRequest,
     WorkspaceShellRunner,
+    WorkspaceStore,
+    WorkspaceUnavailable,
 )
 from muad_agent_core.skill import (
     OutputFile,
@@ -172,6 +178,8 @@ def build_skill_registry(
     output_registrar: SkillOutputRegistrar | None = None,
     workspace_shell: WorkspaceShellRunner | None = None,
     workspace_shell_context: WorkspaceShellContext | None = None,
+    workspace_store: WorkspaceStore | None = None,
+    workspace_context: WorkspaceShellContext | None = None,
 ) -> ToolRegistry:
     tool_set = SkillToolSet(
         cache=cache,
@@ -186,6 +194,8 @@ def build_skill_registry(
         output_registrar=output_registrar,
         workspace_shell=workspace_shell,
         workspace_shell_context=workspace_shell_context,
+        workspace_store=workspace_store,
+        workspace_context=workspace_context,
     )
     return tool_set.registry()
 
@@ -206,6 +216,8 @@ class SkillToolSet:
         output_registrar: SkillOutputRegistrar | None = None,
         workspace_shell: WorkspaceShellRunner | None = None,
         workspace_shell_context: WorkspaceShellContext | None = None,
+        workspace_store: WorkspaceStore | None = None,
+        workspace_context: WorkspaceShellContext | None = None,
         async_retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY,
     ) -> None:
         self._cache = cache
@@ -222,6 +234,8 @@ class SkillToolSet:
         self._output_registrar = output_registrar
         self._workspace_shell = workspace_shell
         self._workspace_shell_context = workspace_shell_context
+        self._workspace_store = workspace_store
+        self._workspace_context = workspace_context
         # ASYNC Skill 的 Owner 侧重试安全声明（design §3.6）：默认 NON_RETRYABLE——未声明即未知，
         # 未知不得自动重做外部副作用。声明同时落在 EXECUTE_SKILL_TOOL 定义与操作提交上。
         self._async_retry_safety = async_retry_safety
@@ -528,15 +542,39 @@ class SkillToolSet:
             raise SkillToolError(
                 "PLATFORM_CONTEXT_REQUIRED", "Platform Skill requires a trusted execution context"
             )
+        execution_id = self._execution_id or uuid.uuid4().hex
+        lease = await self._acquire_execution_workspace(execution_id)
         try:
-            result = await self._executor.execute(
+            result = await self._run_executor(
+                ready_dir, input_data, script=script, skill=skill, execution_id=execution_id,
+                workspace_dir=lease.workspace_dir if lease is not None else self._workspace_dir,
+            )
+            self._record_execution(skill, result)
+            outputs = await self._register_outputs(result)
+            return _execution_payload(result, outputs)
+        finally:
+            if lease is not None:
+                await self._release_execution_workspace(lease)
+
+    async def _run_executor(
+        self,
+        ready_dir: Path,
+        input_data: Mapping[str, Any],
+        *,
+        script: Path | None,
+        skill: ResolvedSkill,
+        execution_id: str,
+        workspace_dir: Path | None,
+    ) -> SkillExecutionResult:
+        try:
+            return await self._executor.execute(
                 SkillExecutionRequest(
                     ready_dir=ready_dir,
                     input=input_data,
                     timeout_sec=self._timeout_sec,
                     source=str(skill.source),
-                    workspace_dir=self._workspace_dir,
-                    execution_id=self._execution_id,
+                    workspace_dir=workspace_dir,
+                    execution_id=execution_id,
                     script=script,
                     platform_context=replace(
                         self._platform_context, platform_keys=skill_platform_keys(skill.frontmatter)
@@ -547,9 +585,47 @@ class SkillToolSet:
             )
         except SkillExecutionError as exc:
             raise SkillToolError(SKILL_EXECUTION_FAILED, exc.message) from exc
-        self._record_execution(skill, result)
-        outputs = await self._register_outputs(result)
-        return _execution_payload(result, outputs)
+
+    async def _acquire_execution_workspace(
+        self, execution_id: str
+    ) -> WorkspaceLease | None:
+        if self._workspace_store is None or self._workspace_context is None:
+            return None
+        context = self._workspace_context
+        try:
+            return await self._workspace_store.acquire(
+                tenant_id=context.tenant_id,
+                user_id=context.user_id,
+                agent_id=context.agent_id,
+                execution_id=execution_id,
+                run_id=context.run_id,
+                lease_sec=max(60.0, self._timeout_sec + 30.0),
+            )
+        except WorkspaceQuotaExceeded as exc:
+            raise SkillToolError(ErrorCode.WORKSPACE_QUOTA_EXCEEDED.value, str(exc)) from exc
+        except WorkspaceDeleting as exc:
+            raise SkillToolError(ErrorCode.WORKSPACE_DELETING.value, str(exc)) from exc
+        except WorkspaceUnavailable as exc:
+            raise SkillToolError(ErrorCode.WORKSPACE_UNAVAILABLE.value, str(exc)) from exc
+
+    async def _release_execution_workspace(self, lease: WorkspaceLease) -> None:
+        assert self._workspace_store is not None
+        try:
+            await self._workspace_store.refresh_usage(lease)
+        except Exception as exc:  # noqa: BLE001 - 统计失败不得覆盖执行结果
+            logger.warning(
+                "skill_workspace_usage_refresh_failed execution_id=%s error=%s",
+                lease.execution_id,
+                type(exc).__name__,
+            )
+        try:
+            await self._workspace_store.release(lease)
+        except Exception as exc:  # noqa: BLE001 - 释放失败不得覆盖执行结果
+            logger.warning(
+                "skill_workspace_release_failed execution_id=%s error=%s",
+                lease.execution_id,
+                type(exc).__name__,
+            )
 
     def _record_execution(self, skill: ResolvedSkill, result: SkillExecutionResult) -> None:
         labels = {"source": str(skill.source)}

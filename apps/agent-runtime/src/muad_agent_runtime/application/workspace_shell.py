@@ -12,6 +12,7 @@ from muad_agent_core.sandbox import (
     SandboxPolicy,
     SandboxProfile,
     SandboxRunner,
+    WorkspaceQuotaPolicy,
     WorkspaceShellRunner,
     WorkspaceStore,
     build_sandbox_runner_from_settings,
@@ -21,6 +22,25 @@ from muad_common import SharedSettings, process_settings
 
 from ..infrastructure.db import get_session_factory
 from ..infrastructure.workspace_store import SessionFactoryProvider, SqlWorkspaceMetadataStore
+from ..metrics import record_workspace_quota_rejected
+
+
+def build_workspace_store(
+    settings: SharedSettings | None = None,
+    *,
+    session_factory_provider: SessionFactoryProvider = get_session_factory,
+) -> WorkspaceStore:
+    """唯一装配点：目录预算、PG 元数据、配额策略和拒绝指标一起注入。"""
+    resolved = settings or process_settings()
+    layout = workspace_layout_from_settings(resolved)
+    metadata = SqlWorkspaceMetadataStore(session_factory_provider)
+    return WorkspaceStore(
+        layout=layout,
+        metadata=metadata,
+        quota=WorkspaceQuotaPolicy.from_layout(layout),
+        usage=metadata,
+        on_quota_rejected=record_workspace_quota_rejected,
+    )
 
 
 def build_workspace_shell_runner(
@@ -29,10 +49,8 @@ def build_workspace_shell_runner(
     session_factory_provider: SessionFactoryProvider = get_session_factory,
 ) -> WorkspaceShellRunner:
     resolved = settings or process_settings()
-    layout = workspace_layout_from_settings(resolved)
-    store = WorkspaceStore(
-        layout=layout,
-        metadata=SqlWorkspaceMetadataStore(session_factory_provider),
+    store = build_workspace_store(
+        resolved, session_factory_provider=session_factory_provider
     )
     # dev-unsafe 是显式开发模式：runner 直接跑宿主进程，因此注入宿主可见的真实路径；
     # 生产 bwrap 一律只暴露 /workspace，绝不把 workspace 根或宿主路径带进沙箱。
@@ -58,4 +76,4 @@ def build_workspace_shell_runner(
     )
 
 
-__all__ = ["build_workspace_shell_runner"]
+__all__ = ["build_workspace_shell_runner", "build_workspace_store"]
