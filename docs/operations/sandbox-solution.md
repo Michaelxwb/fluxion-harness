@@ -818,6 +818,7 @@ RESULT: PASS
 | [`real_broker_probe.py`](evidence/sandbox-2026-11-06/real_broker_probe.py) | P0.3 真实 Runtime broker canary |
 | [`real-broker-probe.txt`](evidence/sandbox-2026-11-06/real-broker-probe.txt) | P0.3 真实平台 HTTP 200 实测输出 |
 | [`landlock-seccomp.txt`](evidence/sandbox-2026-11-06/landlock-seccomp.txt) | Landlock 不可用与 seccomp 结论 |
+| [`bwrap-overhead.txt`](evidence/sandbox-2026-11-06/bwrap-overhead.txt) | bwrap 每次执行的启动与 RSS 开销基准 |
 
 > 外部复查反馈的原文没有纳入仓库；逐项结论与修正见本文第 13 节。
 
@@ -848,3 +849,58 @@ GPT 的复查结论成立：**bwrap 技术选型可以保留，但不能把当�
 - **已完成**：bwrap 可行性、PlatOS 底座 + bwrap 构建、本地与内网 K8s session-manager probe（模拟 broker）、内网 runtime/worker 内核 primitives、真实 Runtime broker canary（真实平台 HTTP 200）。
 - **未完成/未闭环**：受信 API 门控、流式输出、只读包/独立工作目录、owner/审批事务、服务镜像 digest 记录、最终 Pod 指纹。
 - **结论**：可以继续按 bwrap 方向做 P0/P1，但在上述阻断项完成前，不宣称“生产执行方案已验收”。
+
+---
+
+## 14. 资源开销与 Shell 边界
+
+### 14.1 每次执行新建 bwrap 的开销
+
+bwrap 是**进程级沙箱**，不是每次创建容器/VM。原生 arm64 容器的基准（详见
+`evidence/sandbox-2026-11-06/bwrap-overhead.txt`）：
+
+| 执行 | 平均耗时 | bwrap 额外 |
+|---|---:|---:|
+| `/bin/true` | 0.13 ms | — |
+| `bwrap ... /bin/true` | 1.08 ms | ~0.95 ms |
+| `python -c pass` | 3.50 ms | — |
+| `bwrap ... python -c pass` | 4.77 ms | ~1.27 ms |
+
+RSS：
+
+- 直接 Python：约 9.3 MB；
+- bwrap 父/子进程：约 1.9 MB + 1.4 MB；
+- 沙箱内 Python：约 8.9 MB。
+
+结论：
+
+- 主要内存是 Python/Node 解释器，bwrap 只增加几 MB；
+- 执行结束进程退出，没有常驻用户沙箱、没有空闲内存占用；
+- 真正需要控制的是**并发解释器数量**和**临时目录大小**；
+- `--tmpfs /tmp` 要设小上限（例如 8–16 MiB）；大量临时文件建议用
+  disk-backed per-execution 目录，避免 tmpfs 计入内存；
+- 增加每 Pod 的 sandbox 并发信号量和每子进程 rlimit，按 runtime Pod 内存上限调优。
+
+### 14.2 Shell 工具边界
+
+**需要 Shell，但只作为 Skill 编写工具，不做通用聊天 Shell。**
+
+建议：
+
+- 工具名：`sandbox_shell`；
+- 只在存在用户草稿/Skill 编写上下文时注册，普通对话不提供；
+- 一次调用执行一条命令，不保持交互式会话；
+- 只作用于当前用户草稿的独立副本，不挂生产 PVC、不带服务 Token；
+- 无网络（无平台草稿）或仅内网（有平台草稿）；
+- 30 秒超时、64 KiB 输出上限、禁止后台进程、杀整个进程组；
+- 执行后校验变更文件路径/扩展名/大小/symlink，再按 revision 回写草稿；
+- 记录 `sandbox_shell` 审计，包含用户、草稿、命令摘要、退出码、耗时。
+
+不支持：
+
+- 通用交互式 Shell；
+- 持久 shell 会话/安装依赖；
+- 访问 `/mnt`、其他用户草稿、Runtime `/v1` 内部接口；
+- 绕过沙箱直接执行。
+
+如果以后要做通用代码解释器，那是独立的产品/安全决策，不复用这个“编写 Skill”的 Shell。

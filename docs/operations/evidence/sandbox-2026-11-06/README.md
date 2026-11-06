@@ -12,6 +12,7 @@
 | `Dockerfile.sandbox-test` | 从实际 `mss-base/python-node:3.12.13-node24` 构建的 bwrap 测试镜像 |
 | `base-image-inspection.txt` | 基础镜像 OS/glibc/Python/Node/包管理器检查 |
 | `landlock-seccomp.txt` | Landlock 不可用、seccomp 现状与结论 |
+| `bwrap-overhead.txt` | bwrap 每次执行的启动与 RSS 开销基准 |
 | `local-macos-bwrap.txt` | macOS/OrbStack 探索阶段实测输出（bwrap 0.13.2） |
 | `new-base-bwrap-smoke.txt` | 最终底座 bwrap 0.13.1 的冒烟输出 |
 | `intranet-k8s-kernel-smoke.txt` | 内网 runtime/worker Pod 实测输出 |
