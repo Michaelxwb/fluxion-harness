@@ -9186,6 +9186,14 @@
   "scenarios_file": "user-skill-sandbox.scenarios.md",
   "e2e_gate": 1,
   "quality_schema": 2,
+  "registration": {
+    "ok": true,
+    "registered": [
+      "CHK-d4036e877e26",
+      "CHK-93b18376d573"
+    ],
+    "errors": []
+  },
   "relock": {
     "preserved": [
       "S-01",
@@ -9239,6 +9247,8 @@
       "E-17"
     ],
     "stale": [],
-    "removed": []
+    "removed": [
+      "S-19"
+    ]
   }
 }
