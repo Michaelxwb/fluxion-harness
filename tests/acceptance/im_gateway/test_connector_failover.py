@@ -7,7 +7,8 @@
 - E-03 的平台重投由 WS 探针再次推送同一条 message_id，随后让真实 Runtime 以同一
   `Idempotency-Key` 受理两次，断言最终只有一个 Run；
 - E-07 不重投：重启扫描必须把标记置 LOST、记指标/ERROR，且不补造 Run；
-- E-04 的命令都进真实 `im.outbound:{tenant}:{bot}`（hash tag 布局）Stream，结果由真实 OutboundRunner 回写。
+- E-04 的命令都进真实 `muad:im.outbound:{tenant}:{bot}`（hash tag 布局）Stream，
+  结果由真实 OutboundRunner 回写。
 """
 
 from __future__ import annotations
@@ -143,7 +144,7 @@ async def _lease_ready(stack: ConnectorStack, probe: WeComProbe) -> bool:
 
 async def _inbound_entries(redis_client: Redis, message_id: str) -> list[dict[str, str]]:
     found: list[dict[str, str]] = []
-    for key in await redis_client.keys("im.inbound:*"):
+    for key in await redis_client.keys("muad:im.inbound:*"):
         for _entry_id, fields in await redis_client.xrange(key):
             if fields.get("external_message_id") == message_id:
                 found.append(fields)
@@ -172,7 +173,7 @@ async def _publish_command(
     await redis_client.xadd(
         OUTBOUND_KEY, {"event": command.model_dump_json()}, maxlen=10_000, approximate=True
     )
-    return command.command_id, f"im:outbound:result:{command.command_id}"
+    return command.command_id, f"muad:im:outbound:result:{command.command_id}"
 
 
 async def _result(redis_client: Redis, key: str, timeout: float = 15.0) -> dict[str, Any]:
@@ -243,7 +244,7 @@ async def test_e04_expired_reply_ref_degrades_to_active_without_wrong_callback(
         timeout=10.0,
     )
     stored = await redis_client.hgetall(
-        f"im:reply:message:{TENANT}:{BOT_ID}:{message_id}"
+        f"muad:im:reply:message:{TENANT}:{BOT_ID}:{message_id}"
     )
     assert stored.get("reply_ref") == reply_ref
 
@@ -261,8 +262,8 @@ async def test_e04_expired_reply_ref_degrades_to_active_without_wrong_callback(
 
     # ② 删除 reply 目标（模拟 5 分钟 TTL 过期）：必须主动发送 + DEGRADED，且不得冒用旧 req_id。
     await redis_client.delete(
-        f"im:reply:message:{TENANT}:{BOT_ID}:{message_id}",
-        f"im:reply:ref:{TENANT}:{BOT_ID}:{reply_ref}",
+        f"muad:im:reply:message:{TENANT}:{BOT_ID}:{message_id}",
+        f"muad:im:reply:ref:{TENANT}:{BOT_ID}:{reply_ref}",
     )
     expired_ref = f"req-expired-{uuid.uuid4().hex[:8]}"
     _command_id2, result_key2 = await _publish_command(
@@ -306,7 +307,7 @@ async def test_e03_crash_before_xadd_then_platform_redelivery_creates_one_run(
         reply_id=f"req-{message_id}",
         chat_id="e2e-im-chat",
     )
-    dedupe_key = f"connector:inbound:{TENANT}:{BOT_ID}:{message_id}"
+    dedupe_key = f"muad:connector:inbound:{TENANT}:{BOT_ID}:{message_id}"
     await _wait_for(
         lambda: _is_received(redis_client, dedupe_key),
         what="崩溃点未到达（RECEIVED 标记未写入）",
@@ -373,7 +374,7 @@ async def test_e07_no_redelivery_is_explicitly_lost_and_never_fakes_a_run(
         reply_id=f"req-{message_id}",
         chat_id="e2e-im-chat",
     )
-    dedupe_key = f"connector:inbound:{TENANT}:{BOT_ID}:{message_id}"
+    dedupe_key = f"muad:connector:inbound:{TENANT}:{BOT_ID}:{message_id}"
     await _wait_for(
         lambda: _is_received(redis_client, dedupe_key),
         what="崩溃点未到达",

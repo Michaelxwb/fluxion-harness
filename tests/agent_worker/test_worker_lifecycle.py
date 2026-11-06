@@ -373,7 +373,7 @@ async def test_b122_task_model_has_no_pod_or_user_binding() -> None:
 
 
 async def test_wakeup_hint_wakes_idle_listener_early(tenant: TenantContext) -> None:
-    """`task:wakeup` 有订阅方：真实 Redis 发布后，空闲 Worker 的 poll 等待提前结束。"""
+    """`muad:task:wakeup` 有订阅方：真实 Redis 发布后，空闲 Worker 的 poll 等待提前结束。"""
     import asyncio
     import time
 

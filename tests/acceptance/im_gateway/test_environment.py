@@ -154,7 +154,7 @@ async def test_b121_cleanup_leaves_no_tenant_residue(gateway_stack: GatewayStack
     assert redis_url is not None
     client = redis.asyncio.Redis.from_url(redis_url)
     try:
-        keys = [key.decode() for key in await client.keys("im:dedupe:*")]
+        keys = [key.decode() for key in await client.keys("muad:im:dedupe:*")]
     finally:
         await client.aclose()
     assert [key for key in keys if TENANT in key] == []

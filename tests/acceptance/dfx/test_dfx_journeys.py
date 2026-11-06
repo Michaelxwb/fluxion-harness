@@ -660,7 +660,7 @@ async def test_s09_cancel_running_is_cooperative_and_terminal(
         SharedSettings().require_redis_url(), decode_responses=True
     )
     try:
-        assert await client.exists(f"run:cancel:{run_id}") == 1, "取消未留下 Redis hint"
+        assert await client.exists(f"muad:run:cancel:{run_id}") == 1, "取消未留下 Redis hint"
     finally:
         await client.aclose()
 

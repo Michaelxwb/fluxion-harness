@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { listLayoutCases } from '../support/list-layout-fixtures';
-import { expectBlueActions } from '../support/action-colors';
+import { expectActionColors } from '../support/action-colors';
 
 // Visual layout tests use local fixtures; business workflows run in the domain suites.
 async function prepare(page: Page, theme: string, locale: string) {
@@ -98,7 +98,7 @@ for (const entry of listLayoutCases) {
         await expect(table.locator('.semi-table-row-head')).toHaveCount(entry.columns);
         await expectDesktopFits(table);
         if (entry.actions && width === 1920 && locale === 'zh-CN') {
-          await expectBlueActions(table.locator('.table-actions-cell .semi-button'));
+          await expectActionColors(table.locator('.table-actions-cell .semi-button'));
         }
         if (entry.path === 'audits') await expectAuditPrimary(table);
         await page.screenshot({ path: testInfo.outputPath(`${entry.path}-${width}-${locale}-${theme}.png`) });
@@ -130,7 +130,7 @@ for (const entry of listLayoutCases) {
       await expect(action.getByRole('button', { name: '更多', exact: true })).toBeInViewport({ ratio: 1 });
       await expect.poll(async () => (await action.boundingBox())!.x).toBeCloseTo(left!, 0);
       await action.getByRole('button', { name: '更多', exact: true }).click();
-      await expectBlueActions(page.locator('.table-actions-menu .semi-button'));
+      await expectActionColors(page.locator('.table-actions-menu .semi-button'));
       await page.mouse.click(0, 0);
     }
     await page.screenshot({ path: testInfo.outputPath(`${entry.path}-mobile.png`) });

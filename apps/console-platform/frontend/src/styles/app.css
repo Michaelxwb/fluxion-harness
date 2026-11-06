@@ -1920,3 +1920,56 @@ body {
 
 /* ---------- 统一轻提示（Tips） ---------- */
 /* 位置由 Tips.ts 的 top 偏移 + Semi 默认的顶部居中容器共同决定。 */
+
+/* A selected Skill ZIP stays local until the import form is submitted. */
+.skill-import-upload .semi-upload-file-card {
+  width: 100%;
+  height: auto;
+  min-height: 52px;
+  box-sizing: border-box;
+}
+
+.skill-import-upload .semi-upload-file-card-info-main {
+  min-width: 0;
+}
+
+.skill-import-upload .semi-upload-file-card-info-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.skill-import-upload .semi-upload-file-card-info-size,
+.skill-import-upload .semi-upload-file-card-close {
+  flex-shrink: 0;
+}
+
+.app-sidebar-resize {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+.app-sidebar-resize:hover,
+.app-sidebar-resize:focus-visible {
+  background: var(--semi-color-primary-light-default);
+}
+
+.app-sider:not(.app-sider-collapsed) .semi-navigation-item-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.app-sider:not(.app-sider-collapsed) .semi-navigation-item {
+  height: auto;
+  min-height: 36px;
+}
+
+/* Keep translated headings readable as navigation changes the available table width. */
+.app-table-fit .semi-table .semi-table-thead > .semi-table-row > .semi-table-row-head {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

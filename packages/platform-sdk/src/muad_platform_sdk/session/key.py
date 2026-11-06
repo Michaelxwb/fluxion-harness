@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-SESSION_KEY_PREFIX = "platform_session"
-SESSION_INDEX_PREFIX = "platform_sessions"
+SESSION_KEY_PREFIX = "muad:platform_session"
+SESSION_INDEX_PREFIX = "muad:platform_sessions"
 
 NONE_ACTOR_SCOPE = "none"
 

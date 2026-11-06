@@ -427,7 +427,7 @@ export function MemoryTab(props: MemoryTabProps) {
                           ? t('user.memory.disable')
                           : t('user.memory.enable')}
                       </Button>
-                      <ConfirmAction
+                      <ConfirmAction type="danger"
                         title={t('user.memory.confirmDelete')}
                         testId={`memory-delete-${entry.memory_key}`}
                         onConfirm={() => remove(entry)}

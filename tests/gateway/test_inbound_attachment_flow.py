@@ -552,7 +552,7 @@ async def test_e07_redelivery_creates_no_second_run_and_no_duplicate_artifact(
     await adapter.push(envelope, blobs=[blob])
 
     pipeline, console, runtime = _build_pipeline(tmp_path, redis_store)
-    key = f"im:dedupe:WECOM:{envelope.message_id}"
+    key = f"muad:im:dedupe:WECOM:{envelope.message_id}"
     try:
         await pipeline.handle(adapter, envelope)
         first = _digests(tmp_path)

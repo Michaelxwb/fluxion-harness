@@ -462,7 +462,7 @@ async def test_a_completed_delivery_survives_a_late_release_from_an_expired_hold
         first = await client.post(DELIVERIES_URL, json=body)
         assert first.status_code == 200, first.text
         # 另一个"旧主人"（占位早已不存在）尝试清理同一个键：必须落空
-        assert await dedupe.release(f"delivery:dedupe:{body['delivery_key']}", "ghost") is False
+        assert await dedupe.release(f"muad:delivery:dedupe:{body['delivery_key']}", "ghost") is False
         replay = await client.post(DELIVERIES_URL, json=body)
 
     assert replay.json()["data"]["deduplicated"] is True

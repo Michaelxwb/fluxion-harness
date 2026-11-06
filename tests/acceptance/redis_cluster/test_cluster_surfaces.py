@@ -55,7 +55,7 @@ async def test_s06_cluster_surfaces(cluster_client) -> None:
     )
     tenant_id, user_id = "cluster-s06", uuid.uuid4()
     try:
-        await pubsub.subscribe("webchat.notifications")
+        await pubsub.subscribe("muad:webchat.notifications")
         await publisher.publish(
             tenant_id=tenant_id,
             user_id=user_id,

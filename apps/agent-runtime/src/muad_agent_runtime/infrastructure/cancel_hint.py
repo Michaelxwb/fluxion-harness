@@ -8,7 +8,7 @@ from typing import Protocol, cast
 from muad_common.redis_client import create_redis_client
 from redis.exceptions import RedisClusterException, RedisError
 
-CANCEL_HINT_KEY_PREFIX = "run:cancel:"
+CANCEL_HINT_KEY_PREFIX = "muad:run:cancel:"
 CANCEL_HINT_TTL_SEC = 1800
 CANCEL_HINT_VALUE = "1"
 

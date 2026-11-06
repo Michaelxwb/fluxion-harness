@@ -905,10 +905,10 @@ async def wecom_harness(
 
 
 def _drop_reply_targets(redis_url: str, tenant_id: str) -> None:
-    """让回复窗口失效（等价真实过期）：删掉本租户的 `im:reply:*` 目标，只剩主动发送路径。"""
+    """让回复窗口失效（等价真实过期）：删掉本租户的 `muad:im:reply:*` 目标，只剩主动发送路径。"""
     client = redis_sync.Redis.from_url(redis_url, decode_responses=True)
     try:
-        for key in client.scan_iter(match=f"im:reply:*:{tenant_id}:*"):
+        for key in client.scan_iter(match=f"muad:im:reply:*:{tenant_id}:*"):
             client.delete(key)
     finally:
         client.close()

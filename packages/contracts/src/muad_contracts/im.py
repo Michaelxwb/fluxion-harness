@@ -81,7 +81,7 @@ class DeliveryCommand(ContractModel):
     bot_id: str = Field(min_length=1)
     run_id: UUID | None = None
     #: 发起该 Run 的**入站消息身份**（契约层的渠道中立字段）：Connector 据此找回
-    #: 本条消息自己的 reply target（`im:reply:message:*`），而不是退化成"本路由最新回调"。
+    #: 本条消息自己的 reply target（`muad:im:reply:message:*`），而不是退化成"本路由最新回调"。
     #: 后台任务/主动投递没有入站消息，为空时由 Connector 按 route 解析。
     message_id: str | None = None
     external_conversation_id: str | None = None
@@ -173,7 +173,7 @@ def inbound_stream_key_for_shard(shard: int) -> str:
     """
     if shard < 0:
         raise ValueError("shard must be non-negative")
-    return f"im.inbound:{{inbound}}:{shard}"
+    return f"muad:im.inbound:{{inbound}}:{shard}"
 
 
 def inbound_stream_key(event: InboundEvent, *, shards: int = 32) -> str:
@@ -191,7 +191,7 @@ def outbound_stream_key_for(tenant_id: str, bot_id: str) -> str:
     """按 **bot** 分流出站命令：`{tenant_id}` 是字面 hash tag，同租户 bot 同 slot。"""
     if not tenant_id or not bot_id:
         raise ValueError("tenant_id and bot_id are required")
-    return f"im.outbound:{{{tenant_id}}}:{bot_id}"
+    return f"muad:im.outbound:{{{tenant_id}}}:{bot_id}"
 
 
 def outbound_stream_key(command: DeliveryCommand) -> str:
@@ -205,30 +205,30 @@ def outbound_stream_key(command: DeliveryCommand) -> str:
 
 def outbound_dead_stream_key() -> str:
     """出站死信流（单 key，不参与 hash tag 契约）。"""
-    return "im.outbound:dead"
+    return "muad:im.outbound:dead"
 
 
 def command_result_key(command_id: UUID | str) -> str:
-    return f"im:outbound:result:{command_id}"
+    return f"muad:im:outbound:result:{command_id}"
 
 
 def outbound_cursor_key(tenant_id: str, bot_id: str) -> str:
-    return f"connector:outbound-cursor:{tenant_id}:{bot_id}"
+    return f"muad:connector:outbound-cursor:{tenant_id}:{bot_id}"
 
 
 def inbound_dedupe_key(tenant_id: str, bot_id: str, message_id: str) -> str:
-    return f"connector:inbound:{tenant_id}:{bot_id}:{message_id}"
+    return f"muad:connector:inbound:{tenant_id}:{bot_id}:{message_id}"
 
 
 def lease_key(tenant_id: str, bot_id: str) -> str:
     """bot 租约 key：与 epoch 共用字面 hash tag `{tenant_id:bot_id}`，保证 Lua 同 slot。"""
     if not tenant_id or not bot_id:
         raise ValueError("tenant_id and bot_id are required")
-    return f"connector:bot:{{{tenant_id}:{bot_id}}}:lease"
+    return f"muad:connector:bot:{{{tenant_id}:{bot_id}}}:lease"
 
 
 def lease_epoch_key(tenant_id: str, bot_id: str) -> str:
     """lease epoch 计数器（不随 lease 过期删除）：保证 fencing token 单调。"""
     if not tenant_id or not bot_id:
         raise ValueError("tenant_id and bot_id are required")
-    return f"connector:bot:{{{tenant_id}:{bot_id}}}:epoch"
+    return f"muad:connector:bot:{{{tenant_id}:{bot_id}}}:epoch"

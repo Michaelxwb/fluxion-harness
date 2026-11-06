@@ -143,10 +143,10 @@ async def test_memory_store_renew_extends_only_our_placeholder() -> None:
 async def test_redis_store_reserve_returns_a_unique_owner_token() -> None:
     client = _StubRedis(result=True)
     store = RedisDedupeStore(client)  # type: ignore[arg-type]
-    owner = await store.reserve("im:dedupe:WECOM:m1", 600)
+    owner = await store.reserve("muad:im:dedupe:WECOM:m1", 600)
     assert owner is not None
     key, value, nx, ttl = client.calls[0]
-    assert (key, nx, ttl) == ("im:dedupe:WECOM:m1", True, 600)
+    assert (key, nx, ttl) == ("muad:im:dedupe:WECOM:m1", True, 600)
     assert value == in_flight_value(owner)
 
 

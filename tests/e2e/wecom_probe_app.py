@@ -273,7 +273,7 @@ class WeComProbe:
     async def _send_to_bot(self, frame: dict[str, Any], bot_id: str) -> None:
         """只投递给目标 bot 的连接。
 
-        入站消息去重键是 `im:dedupe:{channel}:{msgid}`（与连接无关）：若把同一个 msgid 广播到
+        入站消息去重键是 `muad:im:dedupe:{channel}:{msgid}`（与连接无关）：若把同一个 msgid 广播到
         多个 bot 的连接，先收到的那条会抢先去重并成 Run，其余 bot 侧被静默去重 —— 表现为
         "推给 bot2 却在 bot1 侧回复、bot2 收不到回复"的随机失败（10-im-gateway S-01 偶发根因）。
         """

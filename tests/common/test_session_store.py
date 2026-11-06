@@ -66,7 +66,7 @@ def test_session_key_uses_hash_not_plaintext() -> None:
     key = session_key(digest)
     assert token not in key
     assert digest in key
-    assert key.startswith("webchat:session:")
+    assert key.startswith("muad:webchat:session:")
 
 
 async def test_write_read_touch_delete_roundtrip() -> None:

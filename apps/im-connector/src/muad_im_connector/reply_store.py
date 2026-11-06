@@ -1,4 +1,4 @@
-"""跨 Connector 副本的回复目标存储（design §3.3.1 `im:reply:*`）。
+"""跨 Connector 副本的回复目标存储（design §3.3.1 `muad:im:reply:*`）。
 
 为什么必须外置：reply_ref（企微 `req_id`）只在 Connector 的内存里时，owner 崩溃/接管后新
 owner 会把它当成"没有会话上下文"→ 主动发送。那是合法降级，但**能在 TTL 内继续会话内回复**
@@ -55,11 +55,11 @@ class ReplyStore:
     # ---- keys -----------------------------------------------------------------
     @staticmethod
     def message_key(tenant_id: str, bot_id: str, message_id: str) -> str:
-        return f"im:reply:message:{tenant_id}:{bot_id}:{message_id}"
+        return f"muad:im:reply:message:{tenant_id}:{bot_id}:{message_id}"
 
     @staticmethod
     def run_key(tenant_id: str, run_id: str) -> str:
-        return f"im:reply:run:{tenant_id}:{run_id}"
+        return f"muad:im:reply:run:{tenant_id}:{run_id}"
 
     @staticmethod
     def route_key(
@@ -69,17 +69,17 @@ class ReplyStore:
         external_conversation_id: str | None,
     ) -> str:
         return (
-            "im:reply:route:"
+            "muad:im:reply:route:"
             f"{tenant_id}:{bot_id}:{external_user_id}:{external_conversation_id or ''}"
         )
 
     @staticmethod
     def stream_key(tenant_id: str, run_id: str) -> str:
-        return f"im:reply:stream:{tenant_id}:{run_id}"
+        return f"muad:im:reply:stream:{tenant_id}:{run_id}"
 
     @staticmethod
     def ref_key(tenant_id: str, bot_id: str, reply_ref: str) -> str:
-        return f"im:reply:ref:{tenant_id}:{bot_id}:{reply_ref}"
+        return f"muad:im:reply:ref:{tenant_id}:{bot_id}:{reply_ref}"
 
     # ---- writes ---------------------------------------------------------------
     async def remember_message(

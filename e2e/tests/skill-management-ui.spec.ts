@@ -143,7 +143,7 @@ test('E-05 上传非法 ZIP 时 Modal 保留并显示本地化校验错误', asy
   await openImport(page);
   const modal = page.locator('.semi-modal');
   await expect(modal).toBeVisible();
-  await expect(page.locator('.semi-toast-content')).toContainText('包结构');
+  await expect(modal.locator('.semi-banner')).toContainText('包结构');
   await expect(modal.locator('.semi-upload')).toContainText('skill.zip');
 });
 
@@ -152,10 +152,10 @@ test('E-05b 扩展名白名单外被拒绝', async ({ page }) => {
   await openImport(page);
   const modal = page.locator('.semi-modal');
   await expect(modal).toBeVisible();
-  await expect(page.locator('.semi-toast-content')).toContainText('包结构');
+  await expect(modal.locator('.semi-banner')).toContainText('包结构');
 });
 
-test('E-07 导入重复版本时 Toast 提示且版本列表不新增重复行', async ({ page }) => {
+test('E-07 导入重复版本时 Banner 提示且版本列表不新增重复行', async ({ page }) => {
   const state: MockState = { importError: 'duplicate', imported: true };
   await mockApi(page, state);
 
@@ -176,10 +176,40 @@ test('E-07 导入重复版本时 Toast 提示且版本列表不新增重复行',
     buffer: Buffer.from('not a real zip')
   });
   await modal.getByRole('button', { name: 'confirm', exact: true }).click();
-  await expect(page.locator('.semi-toast-content')).toContainText('版本已存在');
+  await expect(modal.locator('.semi-banner')).toContainText('版本已存在');
 
   await modal.locator('.semi-modal-close').click();
   await page.getByTestId('skill-link-e2e-e07').click();
   const rows = page.getByTestId('artifact-list').locator('li').filter({ hasText: '1.0.0' });
   await expect(rows).toHaveCount(1);
+});
+
+test('selected ZIP stays local without progress and displays a full-width wrapping filename', async ({ page }) => {
+  await mockApi(page, { importError: null, imported: false });
+  let imports = 0;
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().includes('/skills/import')) imports += 1;
+  });
+  await page.goto('/skills');
+  await page.getByTestId('import-skill').click();
+  const modal = page.locator('.semi-modal');
+  const name = 'monitor-mssp-events-with-a-very-long-package-name-'.repeat(3) + '.zip';
+  await modal.locator('input.semi-upload-hidden-input').setInputFiles({
+    name, mimeType: 'application/zip', buffer: Buffer.from('selected locally')
+  });
+  const card = modal.locator('.semi-upload-file-card');
+  await expect(card).toContainText(name);
+  await expect(card.locator('[role="progressbar"]')).toHaveCount(0);
+  await expect(card.locator('.semi-progress')).toHaveCount(0);
+  // Read both boxes in one frame and retry while the Modal entrance animation settles.
+  await expect.poll(() => card.evaluate((node) => {
+    const upload = node.closest('.semi-upload')!;
+    return Math.abs(node.getBoundingClientRect().width - upload.getBoundingClientRect().width);
+  })).toBeLessThanOrEqual(1);
+  const filename = card.locator('.semi-upload-file-card-info-name');
+  await expect(filename).toHaveCSS('white-space', 'normal');
+  expect(await filename.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(false);
+  expect(imports).toBe(0);
+  await card.locator('.semi-upload-file-card-close').click();
+  await expect(card).toHaveCount(0);
 });

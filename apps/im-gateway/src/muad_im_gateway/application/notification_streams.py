@@ -23,7 +23,7 @@ from redis.exceptions import RedisError
 
 logger = logging.getLogger(__name__)
 
-NOTIFICATION_CHANNEL: Final = "webchat.notifications"
+NOTIFICATION_CHANNEL: Final = "muad:webchat.notifications"
 #: 单一订阅者缓冲：正常通知量远小于此；到界即结束流，由持久游标恢复。
 DEFAULT_QUEUE_SIZE: Final = 256
 

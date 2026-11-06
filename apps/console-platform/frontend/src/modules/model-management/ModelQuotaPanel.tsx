@@ -270,7 +270,7 @@ function QuotaGroupTable(props: QuotaGroupTableProps) {
               >
                 {t('model.quota.actions.edit')}
               </Button>
-              <ConfirmAction
+              <ConfirmAction type="danger"
                 title={t('model.quota.confirmDelete')}
                 testId={`quota-delete-${group.key}`}
                 onConfirm={() => props.onDelete(group)}
