@@ -19,8 +19,10 @@
 | 内网 Linux K8s（runtime / worker） | `bwrap`，在现有 Pod 内执行 |
 | Mac 本地 K8s（OrbStack） | `bwrap`，与生产同一路径 |
 | macOS 原生 Dev（`uv run` / uvicorn） | `sandbox-exec`（Seatbelt）或显式 `dev-unsafe` |
-| 管理员 / 系统 Skill 脚本 | 现有进程内执行（管理员可信） |
-| 用户 Skill 脚本 / Shell | `source=USER` 才进沙箱 |
+| 管理员 / 系统 Skill 脚本 | `bwrap`，`TRUSTED` policy |
+| 用户 Skill 脚本 | `bwrap`，`UNTRUSTED` policy |
+| `skill_draft_shell` | `bwrap`，草稿副本 |
+| `workspace_shell`（若启用） | `bwrap`，用户持久 workspace |
 
 不采用：
 
@@ -220,17 +222,23 @@ RESULT: PASS
                                   │
                           Skill / Shell 执行入口
                                   │
-                        SandboxPolicy（按 source 路由）
+                    SandboxedSkillExecutor（唯一执行路径）
+                                  │
+                        SandboxPolicy（按 source 选 profile）
                     ┌─────────────┴─────────────┐
                     │                           │
               USER + scripts             ADMIN / SYSTEM
                     │                           │
                     ▼                           ▼
-             SandboxRunner              现有 ScriptSkillExecutor
-             ┌──────┴──────┐              （进程内，可信）
-             │             │
-        Linux Pod      macOS 原生 Dev
-          bwrap        sandbox-exec（可选）
+             UNTRUSTED profile           TRUSTED profile
+                    │                           │
+                    └─────────────┬─────────────┘
+                                  ▼
+                            SandboxRunner
+                    ┌─────────────┴─────────────┐
+                    │                           │
+               Linux Pod                  macOS 原生 Dev
+                 bwrap                    sandbox-exec（可选）
 ```
 
 ### 4.1 代码抽象
@@ -249,9 +257,10 @@ packages/agent-core/src/muad_agent_core/sandbox/
 实际 `ScriptSkillExecutor.execute(request)` 不一致，Runtime/Worker 依赖的是具体类。P1 先
 统一实际使用的 `execute(request) -> SkillExecutionResult` 协议，再装配策略：
 
-- Runtime `SkillToolSet._execute` 和 Worker `SkillTaskExecutor.execute` 都改为按 `source` 选择 executor；
-- `ADMIN/SYSTEM` 继续使用现有 `ScriptSkillExecutor`；
-- `USER` 使用 `SandboxedSkillExecutor`；
+- Runtime `SkillToolSet._execute` 和 Worker `SkillTaskExecutor.execute` 都改为同一个
+  `SandboxedSkillExecutor`，不再保留进程内脚本路径；
+- `source=SYSTEM/ADMIN` 使用 `TRUSTED` policy，`source=USER` 使用 `UNTRUSTED` policy；
+  差异只在挂载/网络/资源，不在执行器代码；
 - 沙箱不可用时返回 `SKILL_SANDBOX_UNAVAILABLE`，绝不回退进程内；
 - `source` 必须来自服务端记录并进入冻结快照，缺失/非法值拒绝执行。
 
@@ -365,9 +374,12 @@ bwrap 是 Linux-only，macOS 原生进程不能用。两种模式：
 | `skill_draft_review` | 只读确定性检查 |
 | `skill_draft_submit` | 打包 + 校验 + 创建 PENDING artifact |
 | `skill_draft_status` | 查最近提交状态/驳回原因 |
-| `sandbox_shell` | 一次性命令，草稿范围内测试 |
+| `skill_draft_shell` | 一次性命令，草稿范围内测试（可保留 `sandbox_shell` 作为内部别名） |
+| `workspace_shell` | 通用用户工作区 Shell，按 Agent 能力开放；见 §14.3 |
 
-Shell 是一次性命令，不做持久会话；支持 `python -m py_compile`、`python scripts/main.py`、`node --check`、`session-manager get-state` 等。
+`skill_draft_shell` 是一次性命令，不做持久会话；支持 `python -m py_compile`、
+`python scripts/main.py`、`node --check`、`session-manager get-state` 等。
+`workspace_shell` 使用独立的用户 workspace，不与草稿混用。
 
 **草稿从第一次 Shell 开始就按用户代码执行，必须进沙箱。** 草稿里的 `platforms`
 声明只是“我想用哪些平台”，不是授权依据；父进程必须根据受信执行身份、用户凭据模式
@@ -441,14 +453,16 @@ Shell 是一次性命令，不做持久会话；支持 `python -m py_compile`、
 | `build/docker-build/base/Dockerfile.python-node` | builder stage 构建 bwrap；复制 musl loader/libcap；wrapper |
 | `packages/agent-core/.../sandbox/` | `SandboxRunner`、`BwrapRunner`、`SeatbeltRunner`、`policy` |
 | `packages/agent-core/.../skill/executor.py` | 统一实际 `execute(request)` 协议；新增 `SandboxedSkillExecutor`，流式有界读取 stdout/stderr |
-| `apps/agent-runtime/.../skill_tools.py` | 按 `source=USER` 路由；已批准包只读挂载 |
-| `apps/agent-worker/.../worker/executor.py` | 按 `source=USER` 路由；独立可写工作目录 |
+| `apps/agent-runtime/.../skill_tools.py` | 所有脚本统一走 `SandboxedSkillExecutor`；按 `source` 选 policy；已批准包只读挂载 |
+| `apps/agent-worker/.../worker/executor.py` | 所有脚本统一走 `SandboxedSkillExecutor`；按 `source` 选 policy；独立可写工作目录 |
 | `apps/agent-runtime/.../api/runs.py` | **P0 阻断项**：给 `/v1/runs` 等受信接口加 `require_internal_service`，或改为受控代理 |
 | `packages/contracts` | `ResolvedSkill` / snapshot 增加 `source`；非法/缺失拒绝执行 |
 | Console | `source`/`author`/`owner_user_id`/`review_status`、审批事务、并发约束、下载、草稿 API |
-| Runtime | `skill_draft_*`、`sandbox_shell`、Console 内部客户端 |
+| Runtime | `skill_draft_*`、`skill_draft_shell`、`workspace_shell`、Console 内部客户端 |
+| Workspace | 按用户/租户隔离的持久目录、配额、TTL、附件/产物接入 |
+| Egress | 内网 PyPI/npm mirror allowlist；通用 Shell 不允许任意公网 |
 | 前端 | source 标签/筛选、审批抽屉、下载、状态 |
-| 测试 | 沙箱对抗、真实 session 链路、输出洪泛、进程回收、跨用户草稿、审批并发、E2E |
+| 测试 | 沙箱对抗、真实 session 链路、输出洪泛、进程回收、workspace 配额/TTL、pip/npm allowlist、跨用户草稿、审批并发、E2E |
 
 ---
 
@@ -761,7 +775,7 @@ RESULT: PASS
 ### P2：Skill 自建业务（2–3 周）
 
 - 草稿 PVC + 内部 API；
-- `skill_draft_*` / `sandbox_shell`；
+- `skill_draft_*` / `skill_draft_shell`；
 - `source`/`author`/`review_status`/审批队列/下载；
 - 待审批覆盖、已审批锁定、自动绑定/授权；
 - 前端筛选、审批抽屉、`/skills` 分组。
@@ -787,6 +801,9 @@ RESULT: PASS
 | 基础镜像需重建推送 | 已构建服务镜像不会自动继承新底座 | 重建 runtime/worker；记录 base/service digest 与 bwrap commit |
 | 真实 session-manager 未在真实 broker 上跑过 | 目前只验证了 probe 模拟 broker | P0 必做完整链路 |
 | seccomp 结论范围有限 | `seccompProfile` 为空不代表具体策略 | 最终 Pod 记录实际 seccomp/UID/caps/节点 |
+| 用户 workspace 磁盘增长 | pip/npm/node_modules/cache 可能到 GB 级 | 每用户配额、文件数上限、TTL 清理、容量规划 |
+| pip/npm 供应链与出网 | 安装脚本可执行、可外传数据 | 只允许内网 mirror；egress proxy/NetworkPolicy；无密钥；审计 |
+| 通用 Shell 越权 | 网络开放时可访问内网其他服务 | P0 门控 Runtime API；网络 allowlist；不挂生产目录/SA token |
 
 ---
 
@@ -795,7 +812,11 @@ RESULT: PASS
 1. P0 是否按“先重建基础镜像，再改业务代码”的顺序执行；
 2. 原生 macOS Dev 默认使用 `dev-unsafe`，还是要求 `sandbox-exec` 硬隔离；
 3. 平台脚本网络是否接受“内网放开 + session-manager 按执行上下文发登录态”；
-4. 已审批 Skill 删除时，是否提供“一键解绑 + 软删”的管理员操作（推荐提供，需二次确认和审计）。
+4. 已审批 Skill 删除时，是否提供“一键解绑 + 软删”的管理员操作（推荐提供，需二次确认和审计）；
+5. `workspace_shell` 每用户配额默认 1 GiB、空闲 TTL 30 天是否合适；
+6. 是否只允许内网 PyPI/npm 镜像，不允许公网；
+7. 哪些 Agent 允许 `workspace_shell`：全部还是白名单；
+8. 接受 bwrap 级隔离，还是要求 gVisor/Kata 级强隔离。
 
 ---
 
@@ -887,20 +908,137 @@ RSS：
 
 建议：
 
-- 工具名：`sandbox_shell`；
+- 工具名：`skill_draft_shell`（`sandbox_shell` 可作内部别名）；
 - 只在存在用户草稿/Skill 编写上下文时注册，普通对话不提供；
 - 一次调用执行一条命令，不保持交互式会话；
 - 只作用于当前用户草稿的独立副本，不挂生产 PVC、不带服务 Token；
 - 无网络（无平台草稿）或仅内网（有平台草稿）；
 - 30 秒超时、64 KiB 输出上限、禁止后台进程、杀整个进程组；
 - 执行后校验变更文件路径/扩展名/大小/symlink，再按 revision 回写草稿；
-- 记录 `sandbox_shell` 审计，包含用户、草稿、命令摘要、退出码、耗时。
+- 记录 `skill_draft_shell` 审计，包含用户、草稿、命令摘要、退出码、耗时。
 
 不支持：
 
-- 通用交互式 Shell；
-- 持久 shell 会话/安装依赖；
+- 通用交互式 Shell（`workspace_shell` 另议）；
+- 持久 shell 会话/安装依赖（`workspace_shell` 另议）；
 - 访问 `/mnt`、其他用户草稿、Runtime `/v1` 内部接口；
 - 绕过沙箱直接执行。
 
 如果以后要做通用代码解释器，那是独立的产品/安全决策，不复用这个“编写 Skill”的 Shell。
+
+### 14.3 Workspace Shell（方案 A）
+
+`workspace_shell` 可以覆盖 `sandbox_shell` 的场景，但必须共用执行引擎、分离工作区目标：
+
+```text
+WorkspaceShellRunner（bwrap）
+  ├─ target = DRAFT        # skill_draft_shell：草稿副本，执行后校验并回写
+  └─ target = USER         # workspace_shell：用户持久工作区
+```
+
+两个入口共用：
+
+- bwrap 参数、超时、输出上限、进程组回收；
+- 资源限制、并发信号量、审计、错误码；
+- 文件变更收集与安全校验。
+
+差异只在：
+
+| 项目 | `skill_draft_shell` | `workspace_shell` |
+|---|---|---|
+| 挂载 | 当前 Skill 草稿副本 | 当前用户 workspace |
+| 持久化 | 回写草稿，revision CAS | 跨轮持久 |
+| 授权 | Skill 编写上下文 | Agent 的 shell 能力 |
+| 网络 | 按草稿 `platforms` | 默认断网；显式 allowlist |
+| 生命周期 | 草稿存在期间 | 用户空闲 TTL + 配额 |
+
+模型不能传 `owner_user_id` / `workspace_id` / 任意宿主机路径；target 由服务端根据 Run
+上下文决定。
+
+### 14.4 按用户持久化 workspace
+
+workspace 持久化的是**磁盘/PVC，不是运行内存**：
+
+- 每条命令仍然新建一个 bwrap，执行完进程退出；
+- 用户不使用时没有常驻 Shell/沙箱；
+- 只有 workspace 文件留在磁盘，page cache 可回收；
+- 主要资源风险是磁盘增长，不是常驻内存。
+
+建议默认值（待确认）：
+
+| 项目 | 建议 |
+|---|---|
+| 每用户 workspace 配额 | 默认 1 GiB，最大 5 GiB |
+| 租户总配额 | 按 PVC 容量设上限 |
+| 文件数上限 | 防止海量小文件拖垮 NFS |
+| 空闲 TTL | 30 天未访问自动清理 |
+| 清理前通知 | 提前 7 天提示，允许导出/延期 |
+| 活跃租约 | 有命令执行时禁止清理 |
+| 并发 | 每用户 1–2 条 Shell，Pod 级总并发信号量 |
+
+容量估算：1000 用户 × 1 GiB = 约 1 TiB；如果允许每人装大量 `pip/npm` 依赖，实际会更高，
+必须按配额做容量规划。
+
+“自动释放”分两层：
+
+```text
+命令结束 → bwrap 进程退出，内存释放
+workspace 空闲超过 TTL → 清理任务删除目录
+```
+
+### 14.5 允许 pip/npm 的边界
+
+允许 `pip` / `npm` 等常规命令，但必须满足：
+
+1. **安装到 workspace，不装系统**
+   - Python 使用 workspace 内 venv；
+   - Node 使用 workspace 内 `node_modules`；
+   - 不写 `/usr`、不写共享缓存、不改镜像。
+
+2. **网络只允许内网镜像**
+   - 只允许内网 PyPI/npm mirror；
+   - 不允许任意公网；
+   - 当前 `--share-net` 会打开整个 Pod 网络，不能直接用于通用 Shell；
+   - 需要 egress proxy / NetworkPolicy allowlist，并记录审计。
+
+3. **文件与凭据边界**
+   - 只挂当前用户 workspace；
+   - 不挂 `/mnt/muad-artifacts`、其他用户 workspace、`/var/run`、Docker socket；
+   - 不挂 Kubernetes ServiceAccount Token；
+   - 不把 `INTERNAL_SERVICE_TOKEN`、DB/Redis 连接串传入沙箱；
+   - 通用 Shell 默认不创建 session-manager socket；只有显式声明平台
+     且用户有权限时才提供。
+
+4. **资源与清理**
+   - 超时、输出上限、`RLIMIT_AS/CPU/NPROC/FSIZE`；
+   - 杀整个进程组；
+   - `pip/npm` cache 计入 workspace 配额；
+   - 并发信号量，避免多人同时安装依赖打满磁盘/网络。
+
+5. **审计**
+   - 命令摘要、退出码、耗时、文件变更清单；
+   - 不记录完整密钥/Token；
+   - 管理员可查。
+
+**不能承诺“绝对没有漏洞”**：bwrap 与 Runtime 共享内核；`pip/npm` 会执行第三方安装
+脚本；供应链包本身可能恶意；如果网络放开，恶意包可以外传 workspace 数据。准确表述是：
+
+> bwrap + 网络 allowlist + 无密钥 + 配额 + 审计，可以显著降低越权和资源风险，但不能
+> 承诺绝对无漏洞。要求强多租户/不可信代码隔离时，需要 gVisor/Kata/独立 Sandbox Pod +
+> egress proxy。
+
+### 14.6 落地阶段
+
+1. **第一阶段**：`workspace_shell` 上线，默认断网，只允许镜像内已有依赖；先做配额、
+   TTL、并发、审计。覆盖处理文件、跑脚本、格式转换等大部分场景。
+2. **第二阶段**：接入内网 PyPI/npm mirror allowlist，允许安装到 workspace
+   venv/node_modules；cache 计入配额。
+3. **第三阶段**：如要求更强隔离，升级 gVisor/Kata/独立 Sandbox Pod + egress proxy。
+
+### 14.7 待确认
+
+1. 每用户 workspace 配额默认 1 GiB 是否合适？
+2. 空闲 TTL 30 天是否合适？
+3. 是否只允许内网 PyPI/npm 镜像，不允许公网？
+4. 哪些 Agent 允许 `workspace_shell`：全部还是白名单？
+5. 接受 bwrap 级隔离，还是要求 gVisor/Kata 级强隔离？
