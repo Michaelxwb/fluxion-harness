@@ -122,6 +122,14 @@ class WorkspaceShellRunner:
             )
         finally:
             try:
+                await self._store.refresh_usage(lease)
+            except Exception as exc:  # noqa: BLE001 - 统计失败不得覆盖执行结果
+                logger.warning(
+                    "workspace_shell_usage_refresh_failed execution_id=%s error=%s",
+                    request.execution_id,
+                    type(exc).__name__,
+                )
+            try:
                 await self._store.release(lease)
             except Exception as exc:  # noqa: BLE001 - 释放失败不得覆盖执行结果
                 logger.warning(

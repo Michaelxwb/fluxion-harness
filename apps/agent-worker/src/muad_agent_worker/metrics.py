@@ -137,9 +137,13 @@ def record_gauge(name: str, amount: float, labels: Mapping[str, str] | None = No
     set_gauge(name, amount, labels)
 
 
-def record_workspace_cleanup(status: WorkspaceCleanupStatus) -> None:
+def record_workspace_cleanup(status: WorkspaceCleanupStatus, amount: int = 1) -> None:
     """记一次 workspace 维护结局；label 只取封闭状态，不含路径/租户/资源 ID。"""
-    inc_counter(WORKSPACE_CLEANUP_METRIC, 1, {"status": status})
+    if amount < 0:
+        raise ValueError("workspace cleanup metric amount must not be negative")
+    if amount == 0:
+        return
+    inc_counter(WORKSPACE_CLEANUP_METRIC, amount, {"status": status})
 
 
 def record_workspace_quota_rejected() -> None:

@@ -13,8 +13,26 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from tests.async_tool_datastores import async_tool_database, async_tool_datastore  # noqa: F401
 
 SCHEMA = "task"
-TABLES = ("delivery_route", "task_schedule", "task_execution", "task_event", "task_submission")
+TABLES = (
+    "delivery_route",
+    "task_schedule",
+    "task_execution",
+    "task_event",
+    "task_submission",
+    "workspace",
+    "workspace_lease",
+)
 
+DELETE_LEASES = text(
+    "DELETE FROM task.workspace_lease WHERE workspace_id IN "
+    "(SELECT id FROM task.workspace WHERE tenant_id = :tenant_id)"
+)
+DELETE_WORKSPACES = text("DELETE FROM task.workspace WHERE tenant_id = :tenant_id")
+SWEEP_LEASES = text(
+    "DELETE FROM task.workspace_lease WHERE workspace_id IN "
+    "(SELECT id FROM task.workspace WHERE tenant_id LIKE 'test-%')"
+)
+SWEEP_WORKSPACES = text("DELETE FROM task.workspace WHERE tenant_id LIKE 'test-%'")
 DELETE_EVENTS = text("DELETE FROM task.task_event WHERE tenant_id = :tenant_id")
 DELETE_SUBMISSIONS = text("DELETE FROM task.task_submission WHERE tenant_id = :tenant_id")
 DELETE_TASKS = text("DELETE FROM task.task_execution WHERE tenant_id = :tenant_id")
@@ -100,6 +118,9 @@ async def sweep_stale_test_rows(database_guard: None) -> None:
     )
     session_factory = get_session_factory()
     async with session_factory() as session:
+        # workspace 清理循环按租约/状态全局扫描；先清掉测试残留，避免跨用例串扰。
+        for statement in (SWEEP_LEASES, SWEEP_WORKSPACES):
+            await session.execute(statement)
         # 到期 Schedule 的清理同样必须先删引用行，否则被 task_execution/task_submission
         # 引用时整条清扫 FK 失败 → 残留越积越多（外键方向：task_event→task_execution→
         # task_schedule，task_submission→两者）。
@@ -154,6 +175,8 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
     finally:
         async with session_factory() as session:
             for statement in (
+                DELETE_LEASES,
+                DELETE_WORKSPACES,
                 DELETE_EVENTS,
                 DELETE_SUBMISSIONS,
                 DELETE_TASKS,

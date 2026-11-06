@@ -2,7 +2,7 @@
 
 - **Source**: `.code-flow/tasks/2026-11-06/user-skill-sandbox/`（backend/frontend design + scenarios 合并）
 - **Created**: 2026-11-06
-- **Updated**: 2026-11-06
+- **Updated**: 2026-11-07
 
 ## Proposal
 
@@ -100,9 +100,9 @@
 | S-20 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | TASK-001 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | E-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | workspace_shell → bwrap → PATH/socket 检查 | TASK-005 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-22 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Console/Redis → 真实平台受保护接口 | TASK-004 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
-| E-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace quota check → PVC | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-24 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 元数据 → PVC | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_24.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| B-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 多 Worker 并发 → PG advisory lock/认领 | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace quota check → PVC | TASK-006 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-24 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 元数据 → PVC | TASK-006 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_24.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| B-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 多 Worker 并发 → PG advisory lock/认领 | TASK-006 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-26 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | TASK-002 | stale | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P1 | auto | none | - | - | - | no |
 | E-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner → bwrap 探测 | TASK-002 | stale | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | E-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → owner 校验 → PG | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -121,7 +121,7 @@
 | S-41 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 审计表/指标端点 → 查询 | TASK-013 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_41.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | E-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | contract | API 错误码 schema / 消息配置 | TASK-013 | verified | ["uv","run","pytest","-q","tests/contracts/test_skill_sandbox_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | E-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Artifact Store → checksum 校验 → 执行入口 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| E-16 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 删除失败 → 状态/指标 | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_16.py"] | . | 600 | P1 | auto | local | - | - | - | no |
+| E-16 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 删除失败 → 状态/指标 | TASK-006 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_16.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | S-45 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-46 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-47 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → SKILL_OUTPUT_DIR → ArtifactStore → 现有附件交付 | TASK-003 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_47.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -475,7 +475,7 @@
 
 ## TASK-006: workspace 配额、TTL 与 Worker 清理循环
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-007
 - **Source**: user-skill-sandbox.backend.design.md#3.3 数据设计, user-skill-sandbox.backend.design.md#3.5 质量实现方案, user-skill-sandbox.backend.design.md#4.1 部署架构
@@ -491,34 +491,34 @@
 
 ### Checklist
 
-- [ ] 交付 `workspace 超限被拒绝；30 天未访问目录被清理，活跃执行跳过，多副本不重复`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 配额：每 workspace 500 MiB、每用户 500 MiB、文件数 5,000；超限 `WORKSPACE_QUOTA_EXCEEDED`
-- [ ] TTL：outputs/data 30 天，last_access_time 由执行/Shell 更新
-- [ ] Worker 内置 `workspace.maintenance` 循环，多副本用 DB 认领/advisory lock；活跃租约跳过
-- [ ] 先标记 DELETING，再删文件，最后 DELETED；失败保留状态、日志和指标，下轮重试
-- [ ] [E-06][integration] 超限拒绝，不静默截断
-- [ ] [S-24][integration] 过期删除、活跃跳过、指标记录
-- [ ] [B-02][integration] 两副本只有一个认领
-- [ ] [E-16][integration] 删除失败可见且可重试
-- [ ] [harness-worker#RULE-worker-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_workspace_cleanup.py tests/agent_worker/test_worker_maintenance.py`
-- [ ] [harness-time#RULE-time-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_workspace_cleanup.py -k ttl`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `workspace 超限被拒绝；30 天未访问目录被清理，活跃执行跳过，多副本不重复`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 配额：每 workspace 500 MiB、每用户 500 MiB、文件数 5,000；超限 `WORKSPACE_QUOTA_EXCEEDED`
+- [x] TTL：outputs/data 30 天，last_access_time 由执行/Shell 更新
+- [x] Worker 内置 `workspace.maintenance` 循环，多副本用 DB 认领/advisory lock；活跃租约跳过
+- [x] 先标记 DELETING，再删文件，最后 DELETED；失败保留状态、日志和指标，下轮重试
+- [x] [E-06][integration] 超限拒绝，不静默截断
+- [x] [S-24][integration] 过期删除、活跃跳过、指标记录
+- [x] [B-02][integration] 两副本只有一个认领
+- [x] [E-16][integration] 删除失败可见且可重试
+- [x] [harness-worker#RULE-worker-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_workspace_cleanup.py tests/agent_worker/test_worker_maintenance.py`
+- [x] [harness-time#RULE-time-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_workspace_cleanup.py -k ttl`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-06 | integration | Workspace quota check → PVC | 超限返回 WORKSPACE_QUOTA_EXCEEDED；不静默截断/不写系统目录；审计/指标记录 | tests/acceptance/user_skill_sandbox/test_e_06.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_06.py"] | planned |
-| S-24 | integration | Worker workspace.maintenance → 元数据 → PVC | 过期目录被删除；活跃目录跳过；outputs/data 均按 30 天 TTL；清理指标记录扫描/删除/跳过 | tests/acceptance/user_skill_sandbox/test_s_24.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_24.py"] | planned |
-| B-02 | integration | 多 Worker 并发 → PG advisory lock/认领 | 只有一个副本删除；另一个副本跳过；不重复计数/不重复删除 | tests/acceptance/user_skill_sandbox/test_b_02.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_02.py"] | planned |
-| E-16 | integration | Worker workspace.maintenance → 删除失败 → 状态/指标 | 保留 DELETING/失败状态；记日志和指标；下一轮可重试，不静默吞掉 | tests/acceptance/user_skill_sandbox/test_e_16.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_16.py"] | planned |
+| E-06 | integration | Workspace quota check → PVC | 超限返回 WORKSPACE_QUOTA_EXCEEDED；不静默截断/不写系统目录；审计/指标记录 | tests/acceptance/user_skill_sandbox/test_e_06.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_06.py"] | verified |
+| S-24 | integration | Worker workspace.maintenance → 元数据 → PVC | 过期目录被删除；活跃目录跳过；outputs/data 均按 30 天 TTL；清理指标记录扫描/删除/跳过 | tests/acceptance/user_skill_sandbox/test_s_24.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_24.py"] | verified |
+| B-02 | integration | 多 Worker 并发 → PG advisory lock/认领 | 只有一个副本删除；另一个副本跳过；不重复计数/不重复删除 | tests/acceptance/user_skill_sandbox/test_b_02.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_02.py"] | verified |
+| E-16 | integration | Worker workspace.maintenance → 删除失败 → 状态/指标 | 保留 DELETING/失败状态；记日志和指标；下一轮可重试，不静默吞掉 | tests/acceptance/user_skill_sandbox/test_e_16.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_16.py"] | verified |
 
 **Spec Verifier**
 
 | Rule | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 执行命令 | 状态 |
 |---|---|---|---|---|---|
-| `harness-worker#RULE-worker-001` | integration | 真实 PG/Worker 维护循环 | PG 权威/租约/清理幂等 | uv run pytest -q tests/acceptance/user_skill_sandbox/test_workspace_cleanup.py tests/agent_worker/test_worker_maintenance.py | planned |
-| `harness-time#RULE-time-001` | integration | 真实 PG timestamptz/TTL | 时间/时区/TTL 一致 | uv run pytest -q tests/acceptance/user_skill_sandbox/test_workspace_cleanup.py -k ttl | planned |
+| `harness-worker#RULE-worker-001` | integration | 真实 PG/Worker 维护循环 | PG 权威/租约/清理幂等 | uv run pytest -q tests/acceptance/user_skill_sandbox/test_workspace_cleanup.py tests/agent_worker/test_worker_maintenance.py | passed |
+| `harness-time#RULE-time-001` | integration | 真实 PG timestamptz/TTL | 时间/时区/TTL 一致 | uv run pytest -q tests/acceptance/user_skill_sandbox/test_workspace_cleanup.py -k ttl | passed |
 
 ### Acceptance Evidence
 
@@ -526,14 +526,31 @@
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| E-06 | - | - | - | - | pending |
-| S-24 | - | - | - | - | pending |
-| B-02 | - | - | - | - | pending |
-| E-16 | - | - | - | - | pending |
+| E-06 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_e_06.py` → collection `ImportError: cannot import name 'WorkspaceQuotaExceeded'` | 同命令 → `3 passed`；超限拒绝 + 文件数 + 用户聚合三组真实 PG/文件系统断言 | `test_e_06.py::test_e06_workspace_size_quota_rejects_without_truncating`、`::test_e06_file_count_quota_rejects`、`::test_e06_user_aggregate_quota_rejects_new_agent_workspace` | 真实 PostgreSQL `task.workspace`/`task.workspace_lease` + 真实稀疏文件（501 MiB/5,001 文件）+ `workspace_quota_rejected_total` 指标与 warning 日志；拒绝后文件字节数不变、无活跃租约、无系统目录写入 | verified |
+| S-24 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_24.py` → `ModuleNotFoundError: muad_agent_worker.worker.workspace_maintenance` | 同命令 → `2 passed`；过期删除、活跃跳过、30 天边界均通过 | `test_s_24.py::test_s24_expired_workspace_is_deleted_and_active_lease_is_skipped`、`::test_ttl_cutoff_is_30_days_and_uses_postgres_timestamptz` | 真实 PG 行 + 真实 workspace 目录；PG `now()` 作为时间权威；删除后 `data/` 与 `outputs/` 同时消失，活跃租约目录原样保留；`workspace_cleanup_total{status=SCANNED/DELETED/SKIPPED}` 逐项计数 | verified |
+| B-02 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_b_02.py` → 同上模块缺失 | 同命令 → `1 passed`；两个副本并发只产生一次删除与一次 DELETED 计数 | `test_b_02.py::test_b02_two_replicas_delete_once` | 两个独立 `WorkspaceMaintenanceLoop` 同时扫同一真实 PG；`FOR UPDATE SKIP LOCKED` + 会话级 advisory lock 使第二个副本认领失败；目录只删一次、行不重复 | verified |
+| E-16 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_e_16.py` → 同上模块缺失 | 同命令 → `1 passed`；首轮失败保留 DELETING，次轮重试成功 | `test_e_16.py::test_e16_failure_keeps_deleting_state_and_retries_next_round` | 真实 PG 状态机 + 真实目录；只注入 `OSError` 删除失败（场景前置），断言 `cleanup_error`、错误日志、`FAILED` 指标、目录仍在；下一轮真实 `shutil.rmtree` 删除并置 DELETED | verified |
+- E-06: verified — automated command passed; run_id=2ff9476312e0429e8452eb03dc46974b (confirmed_by: runner)
+- S-24: verified — automated command passed; run_id=2ff9476312e0429e8452eb03dc46974b (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=2ff9476312e0429e8452eb03dc46974b (confirmed_by: runner)
+- E-16: verified — automated command passed; run_id=2ff9476312e0429e8452eb03dc46974b (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=a5a6c252be4f4c28b8f6bdaf712819d3 (confirmed_by: runner)
+- S-24: verified — automated command passed; run_id=a5a6c252be4f4c28b8f6bdaf712819d3 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=a5a6c252be4f4c28b8f6bdaf712819d3 (confirmed_by: runner)
+- E-16: verified — automated command passed; run_id=a5a6c252be4f4c28b8f6bdaf712819d3 (confirmed_by: runner)
+- E-06: verified — automated command passed; run_id=403ce4aea25d446e95d124ec3912dff4 (confirmed_by: runner)
+- S-24: verified — automated command passed; run_id=403ce4aea25d446e95d124ec3912dff4 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=403ce4aea25d446e95d124ec3912dff4 (confirmed_by: runner)
+- E-16: verified — automated command passed; run_id=403ce4aea25d446e95d124ec3912dff4 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-06] started
+- [2026-11-06] RED: 新增 `test_e_06.py`/`test_s_24.py`/`test_b_02.py`/`test_e_16.py`/`test_workspace_cleanup.py`/`tests/agent_worker/test_worker_maintenance.py` 先跑 → 6 个模块 collection error（`WorkspaceQuotaExceeded`/`WorkspaceQuotaPolicy`/`workspace_maintenance` 不存在）。
+- [2026-11-06] GREEN: 配额/TTL/维护循环实现后，四个验收场景 `3+2+1+1 passed`；verifier `9 passed` 与 `-k ttl` `1 passed`；`tests/agent_worker` 331 passed、`tests/agent_runtime` 1202 passed、`tests/architecture` 215 passed、`user_skill_sandbox` 72 passed、迁移/契约 16 passed。
+- [2026-11-06] finish 首次 block：`finish validation failed: Python 类型检查`（`main.py` 固定长度 tuple 追加 workspace 循环）；改为 list 后 `uv run mypy apps packages` 524 files 通过，重跑 finish。
+- [2026-11-07] completed (done)
 
 ---
 

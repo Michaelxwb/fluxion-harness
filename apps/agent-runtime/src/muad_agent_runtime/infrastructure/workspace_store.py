@@ -20,6 +20,7 @@ from muad_agent_core.sandbox.workspace import (
     WorkspaceDeleting,
     WorkspaceLeaseRecord,
     WorkspaceUnavailable,
+    WorkspaceUsage,
 )
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -161,6 +162,72 @@ class SqlWorkspaceMetadataStore:
                         WorkspaceLease.is_deleted.is_(False),
                     )
                     .values(is_deleted=True, update_time=sa.func.now())
+                )
+
+    async def workspace_usage(self, workspace_id: uuid.UUID) -> WorkspaceUsage:
+        factory = self._session_factory_provider()
+        async with factory() as session:
+            row = (
+                await session.execute(
+                    sa.select(Workspace.size_bytes, Workspace.file_count).where(
+                        Workspace.id == workspace_id,
+                        Workspace.is_deleted.is_(False),
+                    )
+                )
+            ).one_or_none()
+        if row is None:
+            raise WorkspaceUnavailable(f"workspace metadata is unavailable: {workspace_id}")
+        return WorkspaceUsage(size_bytes=int(row.size_bytes), file_count=int(row.file_count))
+
+    async def user_usage(self, tenant_id: str, user_id: str) -> WorkspaceUsage:
+        user_uuid = _uuid(user_id, "user_id")
+        factory = self._session_factory_provider()
+        async with factory() as session:
+            row = (
+                await session.execute(
+                    sa.select(
+                        sa.func.coalesce(sa.func.sum(Workspace.size_bytes), 0),
+                        sa.func.coalesce(sa.func.sum(Workspace.file_count), 0),
+                    ).where(
+                        Workspace.tenant_id == tenant_id,
+                        Workspace.user_id == user_uuid,
+                        Workspace.is_deleted.is_(False),
+                    )
+                )
+            ).one()
+        return WorkspaceUsage(size_bytes=int(row[0]), file_count=int(row[1]))
+
+    async def record_usage(
+        self, workspace_id: uuid.UUID, usage: WorkspaceUsage
+    ) -> None:
+        factory = self._session_factory_provider()
+        async with factory() as session:
+            async with session.begin():
+                await session.execute(
+                    sa.update(Workspace)
+                    .where(
+                        Workspace.id == workspace_id,
+                        Workspace.is_deleted.is_(False),
+                    )
+                    .values(
+                        size_bytes=usage.size_bytes,
+                        file_count=usage.file_count,
+                        update_time=sa.func.now(),
+                    )
+                )
+
+    async def record_touch(self, workspace_id: uuid.UUID) -> None:
+        """Shell/Skill 访问只更新 last_access_time；配额统计由 ``record_usage`` 单独回写。"""
+        factory = self._session_factory_provider()
+        async with factory() as session:
+            async with session.begin():
+                await session.execute(
+                    sa.update(Workspace)
+                    .where(
+                        Workspace.id == workspace_id,
+                        Workspace.is_deleted.is_(False),
+                    )
+                    .values(last_access_time=sa.func.now(), update_time=sa.func.now())
                 )
 
 

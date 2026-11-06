@@ -109,7 +109,9 @@ async def test_persist_writes_artifact_rows_bound_to_the_run(tenant: TenantConte
 
     assert len(persisted) == 2
     assert len(rows) == 2
-    first = rows[0]
+    # 两行在同一事务内写入，create_time 相同；按类型定位，不依赖未定义的插入顺序。
+    first = next(row for row in rows if row.artifact_type == INBOUND_IMAGE)
+    document = next(row for row in rows if row.artifact_type == INBOUND_DOCUMENT)
     assert first.run_id == run_id
     assert first.task_id is None, "接 task 会让 ck_artifact_run_task_xor 失败"
     assert first.artifact_type == INBOUND_IMAGE
@@ -119,7 +121,7 @@ async def test_persist_writes_artifact_rows_bound_to_the_run(tenant: TenantConte
     assert first.checksum == ref.checksum
     assert first.metadata_json["filename"] == "截图.png"
     assert first.metadata_json["source"] == "WECOM"
-    assert rows[1].artifact_type == INBOUND_DOCUMENT
+    assert document.artifact_type == INBOUND_DOCUMENT
 
 
 def test_reference_names_the_artifact_so_the_agent_can_fetch_it() -> None:

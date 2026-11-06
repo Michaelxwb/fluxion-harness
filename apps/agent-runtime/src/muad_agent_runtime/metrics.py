@@ -44,6 +44,8 @@ SKILL_EXECUTION_DURATION_SECONDS: Final = "skill_execution_duration_seconds"
 #: stdout 洪泛被终止、或 SKILL_OUTPUT_DIR 超限被拒绝/截断：两种输出边界都要可见。
 SANDBOX_OUTPUT_LIMIT_METRIC: Final = "sandbox_output_limit_total"
 SANDBOX_TIMEOUT_METRIC: Final = "sandbox_timeout_total"
+#: workspace 配额拒绝：与 Worker 目录同名，按进程各自暴露；无 label（拒绝即唯一维度）。
+WORKSPACE_QUOTA_REJECTED_METRIC: Final = "workspace_quota_rejected_total"
 # 被目录上限丢掉的技能条数记在 **amount**（同 memory 注入/摘要 token 的口径：条数进 label 会
 # 裂出无界时间序列）。它不是"某条技能失败"，而是"这一轮有多少技能没能进提示词"。
 SKILL_CATALOG_TRUNCATED_METRIC: Final = "skill_catalog_truncated_total"
@@ -357,6 +359,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         "Skill executions terminated by the sandbox timeout",
     ),
     (
+        WORKSPACE_QUOTA_REJECTED_METRIC,
+        COUNTER,
+        (),
+        "Workspace acquisitions rejected by quota",
+    ),
+    (
         SKILL_CATALOG_TRUNCATED_METRIC,
         COUNTER,
         (),
@@ -595,6 +603,11 @@ def record_reason(name: str, reason: str, labels: Mapping[str, str] | None = Non
 def record_gauge(name: str, amount: float, labels: Mapping[str, str] | None = None) -> None:
     """发布一个瞬时值（如配置的执行槽数）：无流量时目录仍由 `declare_metric` 声明。"""
     set_gauge(name, amount, labels)
+
+
+def record_workspace_quota_rejected() -> None:
+    """记一次 workspace 配额拒绝；拒绝必须可见，不能静默截断。"""
+    inc_counter(WORKSPACE_QUOTA_REJECTED_METRIC, 1)
 
 
 def install_runtime_metrics(app: FastAPI) -> None:
