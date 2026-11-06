@@ -738,6 +738,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 | S-02 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_02.py` → 1 error（`ModuleNotFoundError: muad_agent_core.skill.draft_shell`，草稿 Shell 未实现） | 5 passed（`test_s_02.py`）；S-02/S-03/规则套件合计 15 passed | `tests/acceptance/user_skill_sandbox/test_s_02.py:162,164,203,206,209,240,243,301,339` | 真实 `SkillToolSet` 工具注册与参数校验 → 真实 Console ASGI 内部 API（archive/apply）→ 真实 PostgreSQL revision CAS；Docker 内真实 bwrap 执行 python/node/session-manager；symlink/`.exe`/超 1KiB/sleep 超时/输出超限/并发 CAS/跨 owner 全部按错误码拒绝且 revision 不变 | passed |
 | S-03 | 同批 RED：`test_s_03.py` 收集失败（`muad_agent_core.skill.draft_shell` 不存在） | 4 passed（`test_s_03.py`，含 2 条草稿 Shell 用例） | `tests/acceptance/user_skill_sandbox/test_s_03.py:167,177,201` | 真实 Console 凭据解析桩 → 真实 Redis Session → Unix socket → 真实 `session-manager` CLI → state 文件；草稿声明 mssp 时返回 sessionStateFile/platforms 并可读 cookies/requestProfile，执行结束 state 删除；未授权平台返回 PLATFORM_SESSION_REQUIRED | passed |
 - S-02: verified — automated command passed; run_id=ccc0fdd82f5841828b201ed139d146f7 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=95712d5b421c460689e59178afb4860d (confirmed_by: runner)
 
 ### Log
 
