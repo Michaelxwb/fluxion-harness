@@ -1515,7 +1515,7 @@
       "kind": "functional",
       "boundary": "Runtime/Worker → SandboxedSkillExecutor → bwrap → stdout/exit code",
       "owner": "TASK-003",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -1710,6 +1710,9 @@
           "timeout": 600.0,
           "fingerprint": "ea8933965bcd2d51fede42c4ab3e7bdbf7f291f72402474a7af23219712cfbfd"
         }
+      ],
+      "stale_checks": [
+        "CHK-f9149a38b729"
       ]
     },
     {
@@ -2263,7 +2266,7 @@
       "kind": "functional",
       "boundary": "SandboxedSkillExecutor → 只读 /skill → 可写 /workspace",
       "owner": "TASK-003",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -2449,6 +2452,9 @@
           "timeout": 600.0,
           "fingerprint": "ea8933965bcd2d51fede42c4ab3e7bdbf7f291f72402474a7af23219712cfbfd"
         }
+      ],
+      "stale_checks": [
+        "CHK-3cef22145e00"
       ]
     },
     {
@@ -2458,7 +2464,7 @@
       "kind": "functional",
       "boundary": "SandboxedSkillExecutor → 子进程管道 → 有界读取",
       "owner": "TASK-003",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -2644,6 +2650,9 @@
           "timeout": 600.0,
           "fingerprint": "ea8933965bcd2d51fede42c4ab3e7bdbf7f291f72402474a7af23219712cfbfd"
         }
+      ],
+      "stale_checks": [
+        "CHK-35cdf38d7a1c"
       ]
     },
     {
@@ -2893,7 +2902,7 @@
       "kind": "functional",
       "boundary": "bwrap --clearenv + 最小 mount + 子进程环境",
       "owner": "TASK-003",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -3079,6 +3088,9 @@
           "timeout": 600.0,
           "fingerprint": "ea8933965bcd2d51fede42c4ab3e7bdbf7f291f72402474a7af23219712cfbfd"
         }
+      ],
+      "stale_checks": [
+        "CHK-7acb78f3a8a8"
       ]
     },
     {
@@ -5784,7 +5796,7 @@
       "kind": "functional",
       "boundary": "SandboxedSkillExecutor → SKILL_OUTPUT_DIR → ArtifactStore → 现有附件交付",
       "owner": "TASK-003",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -5978,6 +5990,9 @@
           "timeout": 600.0,
           "fingerprint": "ea8933965bcd2d51fede42c4ab3e7bdbf7f291f72402474a7af23219712cfbfd"
         }
+      ],
+      "stale_checks": [
+        "CHK-83ee77dbbbd4"
       ]
     },
     {

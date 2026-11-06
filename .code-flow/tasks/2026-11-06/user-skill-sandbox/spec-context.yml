@@ -23,7 +23,16 @@ bindings:
   - review
   rules:
   - ref: RULE-api-002
-    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime 另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取 `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial unique 只作兜底（各服务的 `_lock_idempotency`）。console 侧 `agent_service`/`mcp_service`/`skill_service` 三处 `_fingerprint` 已收敛到同一口径：规范化 JSON 且含 `endpoint`/`tenant_id`/actor 与关键参数（合规参考 `channel_service.bind_fingerprint`、`auth_service.account_fingerprint`、`audit_export_service` 的指纹函数、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py`）。
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
+      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
+      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
+      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
+      unique 只作兜底（各服务的 `_lock_idempotency`）。console 侧 `agent_service`/`mcp_service`/`skill_service`
+      三处 `_fingerprint` 已收敛到同一口径：规范化 JSON 且含 `endpoint`/`tenant_id`/actor 与关键参数（合规参考
+      `channel_service.bind_fingerprint`、`auth_service.account_fingerprint`、`audit_export_service`
+      的指纹函数、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py`）。
     text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
     enforcement: required
     verifier_ref: harness-api#RULE-api-002
@@ -87,10 +96,53 @@ bindings:
             exit_code: 1
             stdout_sha256: 00d825d6b2f1de6736f0df4873d13b62bf1ac77867db9cac0d9731e2d3103986
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "ingle_context(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context\n    self._handle_dbapi_exception(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception\n    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context\n    self.dialect.do_execute(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute\n    cursor.execute(statement, parameters)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:585: in execute\n    self._adapt_connection.await_(\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132: in await_only\n    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196:\
-              \ in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:563: in _prepare_and_execute\n    self._handle_exception(error)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:513: in _handle_exception\n    self._adapt_connection._handle_exception(error)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <AdaptedConnection <asyncpg.connection.Connection object at 0x10c7f0aa0>>\nerror = UndefinedColumnError('column \"author\" of relation \"skill\" does not exist')\n\n    def _handle_exception(self, error):\n        if self._connection.is_closed():\n            self._transaction = None\n            self._started = False\n    \n        if not isinstance(error, AsyncAdapt_asyncpg_dbapi.Error):\n            exception_mapping = self.dbapi._asyncpg_error_translate\n    \n            for super_ in type(error).__mro__:\n       \
-              \         if super_ in exception_mapping:\n                    translated_error = exception_mapping[super_](\n                        \"%s: %s\" % (type(error), error)\n                    )\n                    translated_error.pgcode = translated_error.sqlstate = (\n                        getattr(error, \"sqlstate\", None)\n                    )\n>                   raise translated_error from error\nE                   sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedColumnError'>: column \"author\" of relation \"skill\" does not exist\nE                   [SQL: INSERT INTO control.skill (tenant_id, key, name, description, platform_label, user_scope, author, owner_user_id, current_artifact_id, enabled) VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::VARCHAR, $8::UUID, $9::UUID, $10::BOOLEAN) RETURNING control.skill.source, control.skill.id, control.skill.is_deleted,\
-              \ control.skill.create_time, control.skill.update_time]\nE                   [parameters: ('test-5234f675-d375-4c32-be15-6b3fabbd19bb', 'skill-all', 'Skill skill-all', 'Seeded skill.', None, 'ALL', None, None, None, True)]\nE                   (Background on this error at: https://sqlalche.me/e/20/f405)\n\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:797: ProgrammingError\n=========================== short test summary info ============================\nERROR tests/console_skill/test_import_idempotency.py::test_s04_import_replay_same_idempotency_key_returns_first_result\nERROR tests/console_skill/test_import_idempotency.py::test_s04_artifact_replay_same_idempotency_key_no_new_artifact\nERROR tests/console_skill/test_import_idempotency.py::test_s04_same_key_different_payload_returns_mismatch\nERROR tests/console_skill/test_import_idempotency.py::test_s04_concurrent_same_key_replays_single_import\nERROR tests/console_skill/test_import_idempotency.py::test_e03_duplicate_version_or_checksum_returns_skill_version_exists\n\
+            output: "ingle_context(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988:\
+              \ in _exec_single_context\n    self._handle_dbapi_exception(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365:\
+              \ in _handle_dbapi_exception\n    raise sqlalchemy_exception.with_traceback(exc_info[2])\
+              \ from e\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969:\
+              \ in _exec_single_context\n    self.dialect.do_execute(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952:\
+              \ in do_execute\n    cursor.execute(statement, parameters)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:585:\
+              \ in execute\n    self._adapt_connection.await_(\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132:\
+              \ in await_only\n    return current.parent.switch(awaitable)  # type:\
+              \ ignore[no-any-return,attr-defined] # noqa: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
+              .venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196:\
+              \ in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n\
+              .venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:563:\
+              \ in _prepare_and_execute\n    self._handle_exception(error)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:513:\
+              \ in _handle_exception\n    self._adapt_connection._handle_exception(error)\n\
+              _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ \n\nself = <AdaptedConnection <asyncpg.connection.Connection\
+              \ object at 0x10c7f0aa0>>\nerror = UndefinedColumnError('column \"author\"\
+              \ of relation \"skill\" does not exist')\n\n    def _handle_exception(self,\
+              \ error):\n        if self._connection.is_closed():\n            self._transaction\
+              \ = None\n            self._started = False\n    \n        if not isinstance(error,\
+              \ AsyncAdapt_asyncpg_dbapi.Error):\n            exception_mapping =\
+              \ self.dbapi._asyncpg_error_translate\n    \n            for super_\
+              \ in type(error).__mro__:\n                if super_ in exception_mapping:\n\
+              \                    translated_error = exception_mapping[super_](\n\
+              \                        \"%s: %s\" % (type(error), error)\n       \
+              \             )\n                    translated_error.pgcode = translated_error.sqlstate\
+              \ = (\n                        getattr(error, \"sqlstate\", None)\n\
+              \                    )\n>                   raise translated_error from\
+              \ error\nE                   sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError)\
+              \ <class 'asyncpg.exceptions.UndefinedColumnError'>: column \"author\"\
+              \ of relation \"skill\" does not exist\nE                   [SQL: INSERT\
+              \ INTO control.skill (tenant_id, key, name, description, platform_label,\
+              \ user_scope, author, owner_user_id, current_artifact_id, enabled) VALUES\
+              \ ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR,\
+              \ $6::VARCHAR, $7::VARCHAR, $8::UUID, $9::UUID, $10::BOOLEAN) RETURNING\
+              \ control.skill.source, control.skill.id, control.skill.is_deleted,\
+              \ control.skill.create_time, control.skill.update_time]\nE         \
+              \          [parameters: ('test-5234f675-d375-4c32-be15-6b3fabbd19bb',\
+              \ 'skill-all', 'Skill skill-all', 'Seeded skill.', None, 'ALL', None,\
+              \ None, None, True)]\nE                   (Background on this error\
+              \ at: https://sqlalche.me/e/20/f405)\n\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:797:\
+              \ ProgrammingError\n=========================== short test summary info\
+              \ ============================\nERROR tests/console_skill/test_import_idempotency.py::test_s04_import_replay_same_idempotency_key_returns_first_result\n\
+              ERROR tests/console_skill/test_import_idempotency.py::test_s04_artifact_replay_same_idempotency_key_no_new_artifact\n\
+              ERROR tests/console_skill/test_import_idempotency.py::test_s04_same_key_different_payload_returns_mismatch\n\
+              ERROR tests/console_skill/test_import_idempotency.py::test_s04_concurrent_same_key_replays_single_import\n\
+              ERROR tests/console_skill/test_import_idempotency.py::test_e03_duplicate_version_or_checksum_returns_skill_version_exists\n\
               5 errors in 1.21s\n"
         - verifier_ref: harness-api#RULE-api-002
           executed_at: '2026-11-06T12:53:58.338759+00:00'
@@ -151,7 +203,9 @@ bindings:
         decision: null
         evidence: []
   - ref: RULE-api-001
-    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一 `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status` 只来自 `config/api-messages.yaml`。
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
     text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
     enforcement: required
     verifier_ref: harness-api#RULE-api-001
@@ -182,8 +236,19 @@ bindings:
             exit_code: 0
             stdout_sha256: 90aea3c3b1d5ec1ea42926838a5e8dc986e8824b8baa7479e8a83ab1657f8a7a
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                                       [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs:\
-              \ https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n18 passed, 2 warnings in 2.59s\n"
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 2 warnings in 2.59s\n"
         - verifier_ref: harness-api#RULE-api-001
           executed_at: '2026-11-06T11:33:44.588582+00:00'
           status: unverified
@@ -216,8 +281,19 @@ bindings:
             exit_code: 0
             stdout_sha256: 5a8433e50ddc426e0a6a425f718f507e3ee31a0521b773b1549c5d069647f536
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                                       [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-003/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-003/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs:\
-              \ https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n18 passed, 2 warnings in 2.22s\n"
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-003/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-003/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 2 warnings in 2.22s\n"
         - verifier_ref: harness-api#RULE-api-001
           executed_at: '2026-11-06T12:54:01.621080+00:00'
           status: verified
@@ -238,8 +314,19 @@ bindings:
             exit_code: 0
             stdout_sha256: d71f0cd4a25876343a01725bcfe530e68e40a1b15bf266a9cdee0c43c3a8eaf5
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..................                                                       [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-003/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-003/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs:\
-              \ https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n18 passed, 2 warnings in 2.86s\n"
+            output: "..................                                          \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-003/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-003/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              18 passed, 2 warnings in 2.86s\n"
         - verifier_ref: harness-api#RULE-api-001
           executed_at: '2026-11-06T12:06:02.734325+00:00'
           status: unverified
@@ -296,7 +383,9 @@ bindings:
   - review
   rules:
   - ref: RULE-arch-001
-    summary: 固定四个**逻辑业务部署单元**（console-platform / agent-runtime / agent-worker / im-gateway）；`im-gateway` 可拆为无状态 web 与有状态 connector 两个运行时角色，connector 不是第五个业务微服务。Runtime 与 Worker 无状态、可横向扩展，不绑定 Pod、bot_id 或用户；同一会话可被任意 Pod 执行；Connector 只持有 bot 传输所有权与回复上下文，不建立 agent→Pod 映射。
+    summary: 固定四个**逻辑业务部署单元**（console-platform / agent-runtime / agent-worker / im-gateway）；`im-gateway`
+      可拆为无状态 web 与有状态 connector 两个运行时角色，connector 不是第五个业务微服务。Runtime 与 Worker 无状态、可横向扩展，不绑定
+      Pod、bot_id 或用户；同一会话可被任意 Pod 执行；Connector 只持有 bot 传输所有权与回复上下文，不建立 agent→Pod 映射。
     text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
     enforcement: required
     verifier_ref: harness-arch#RULE-arch-001
@@ -325,9 +414,11 @@ bindings:
             exit_code: 0
             stdout_sha256: 4dc2204b882eb049ddc18d3166365a510d17f41510af1ff7f0af94ed23d6f27f
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '........................................................................ [ 33%]
+            output: '........................................................................
+              [ 33%]
 
-              ........................................................................ [ 67%]
+              ........................................................................
+              [ 67%]
 
               ....................................................................     [100%]
 
@@ -352,9 +443,11 @@ bindings:
             exit_code: 0
             stdout_sha256: 87a62a0f6fa3e4098ed987666fef55b0813065a73502610abd75d7c7858198f6
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '........................................................................ [ 33%]
+            output: '........................................................................
+              [ 33%]
 
-              ........................................................................ [ 66%]
+              ........................................................................
+              [ 66%]
 
               .......................................................................  [100%]
 
@@ -437,7 +530,10 @@ bindings:
   - review
   rules:
   - ref: RULE-auth-001
-    summary: 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED 资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false` 与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill Catalog。
+    summary: 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED
+      资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false`
+      与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill
+      Catalog。
     text_sha256: f3519a0d7c997f4328e45c58d9132e3598a5d56fdd9b57eab3dc7d97865e57bd
     enforcement: required
     verifier_ref: harness-auth#RULE-auth-001
@@ -460,12 +556,25 @@ bindings:
             argv:
             - bash
             - -lc
-            - uv run pytest -q tests/console_platform/test_user_side_relations.py -k s04 && uv run pytest -q tests -k schema_parity
+            - uv run pytest -q tests/console_platform/test_user_side_relations.py
+              -k s04 && uv run pytest -q tests -k schema_parity
             exit_code: 0
             stdout_sha256: 9f7b64a2c1ccaf5195f142ed5da78d818f5d3aeef9b9560a4335354f2d537bb0
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..                                                                       [100%]\n2 passed, 1 deselected in 0.54s\n.......................................................                  [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal\
-              \ instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n55 passed, 6426 deselected, 2 warnings in 28.19s\n"
+            output: "..                                                          \
+              \             [100%]\n2 passed, 1 deselected in 0.54s\n.......................................................\
+              \                  [100%]\n=============================== warnings\
+              \ summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              55 passed, 6426 deselected, 2 warnings in 28.19s\n"
         - verifier_ref: harness-auth#RULE-auth-001
           executed_at: '2026-11-06T11:34:12.363441+00:00'
           status: unverified
@@ -558,14 +667,18 @@ bindings:
   - review
   rules:
   - ref: RULE-data-001
-    summary: 产品表统一 `id/is_deleted/create_time/update_time`；普通软删除实体用 partial unique `WHERE is_deleted=false`，稳定身份注册表 `runtime.user_memory` / `memory_scope` 的完整唯一键包含 tombstone，append-only history/receipt/job 保持 `is_deleted=false` 且使用完整唯一约束；时间统一 `timestamptz`；同 Owner Schema 的业务归属用物理 FK，跨 Owner Schema 与需跨清理保留的审计来源引用用逻辑 UUID；JSON 配置用 `jsonb`，关键查询字段必须有物理列。
+    summary: 产品表统一 `id/is_deleted/create_time/update_time`；普通软删除实体用 partial unique
+      `WHERE is_deleted=false`，稳定身份注册表 `runtime.user_memory` / `memory_scope` 的完整唯一键包含
+      tombstone，append-only history/receipt/job 保持 `is_deleted=false` 且使用完整唯一约束；时间统一
+      `timestamptz`；同 Owner Schema 的业务归属用物理 FK，跨 Owner Schema 与需跨清理保留的审计来源引用用逻辑 UUID；JSON
+      配置用 `jsonb`，关键查询字段必须有物理列。
     text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
     enforcement: required
     verifier_ref: harness-data#RULE-data-001
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -637,8 +750,19 @@ bindings:
             exit_code: 0
             stdout_sha256: 7ea2ca68077795c435e3b20688c64fbafde6b531fdb7e5c52e4c69f46e88e823
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: ".......................................................                  [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-005/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-005/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs:\
-              \ https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n55 passed, 6494 deselected, 2 warnings in 31.14s\n"
+            output: ".......................................................     \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-005/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-005/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              55 passed, 6494 deselected, 2 warnings in 31.14s\n"
       design:
         status: applied
         refs:
@@ -679,7 +803,8 @@ bindings:
   - review
   rules:
   - ref: RULE-e2e-001
-    summary: '浏览器 E2E 必须使用真实构建产物与真实浏览器：成功路径（`S-*`）不得改写路由或 mock 业务 API；失败/边界路径（`E-*`）允许制造超时/错误，但不得 fulfill 业务响应体。域配置必须 `channel: ''chrome''`、`preview --strictPort`、钉死浏览器时区，并只启动该域实际依赖的服务。'
+    summary: '浏览器 E2E 必须使用真实构建产物与真实浏览器：成功路径（`S-*`）不得改写路由或 mock 业务 API；失败/边界路径（`E-*`）允许制造超时/错误，但不得
+      fulfill 业务响应体。域配置必须 `channel: ''chrome''`、`preview --strictPort`、钉死浏览器时区，并只启动该域实际依赖的服务。'
     text_sha256: de6cc1c02049cdb4c6b5213da64b69a9aa793c0ef6c5115fb48609c9b87eb55a
     enforcement: required
     verifier_ref: harness-e2e#RULE-e2e-001
@@ -794,7 +919,11 @@ bindings:
   - review
   rules:
   - ref: RULE-front-001
-    summary: 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的 service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿 `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId` 是无副作用的纯工具，组件可直接 import（现网多处，均为纯函数引用）。文案与词条规则见 RULE-i18n-001；列表/详情见 RULE-ui-001 与 RULE-ui-detail-001。
+    summary: 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的
+      service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿
+      `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId`
+      是无副作用的纯工具，组件可直接 import（现网多处，均为纯函数引用）。文案与词条规则见 RULE-i18n-001；列表/详情见 RULE-ui-001
+      与 RULE-ui-detail-001。
     text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
     enforcement: required
     verifier_ref: harness-frontend#RULE-front-001
@@ -909,7 +1038,8 @@ bindings:
   - review
   rules:
   - ref: RULE-i18n-001
-    summary: 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language` 协商。
+    summary: 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language`
+      协商。
     text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
     enforcement: required
     verifier_ref: harness-i18n#RULE-i18n-001
@@ -1024,7 +1154,8 @@ bindings:
   - review
   rules:
   - ref: RULE-im-001
-    summary: 一个逻辑 Agent 可绑定 0..N 个 IM 通道账号；每个 `bot_id` 只路由到一个 Agent；Bot 与 Runtime/Worker Pod 无任何绑定；Gateway 不保存 `agent_id→Pod` 映射。
+    summary: 一个逻辑 Agent 可绑定 0..N 个 IM 通道账号；每个 `bot_id` 只路由到一个 Agent；Bot 与 Runtime/Worker
+      Pod 无任何绑定；Gateway 不保存 `agent_id→Pod` 映射。
     text_sha256: 8761e57a0e043f3c0dc2d97252f6603644a6299b176953b6656309725e901429
     enforcement: required
     verifier_ref: harness-im#RULE-im-001
@@ -1054,10 +1185,45 @@ bindings:
             exit_code: 0
             stdout_sha256: 23af07e0805e04ae591cddb46bf0f3764bc5b60d86ab69c18c991d139d241b94
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "........................................................................ [ 13%]\n........................................................................ [ 26%]\n........................................................................ [ 39%]\n........................................................................ [ 53%]\n........................................................................ [ 66%]\n........................................................................ [ 79%]\n........................................................................ [ 92%]\n......................................                                   [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with\
-              \ `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_sse_subscriber_limit_rejects_explicitly_before_opening_the_owner_stream\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/httpx/_client.py:1768:\
-              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated, because the expected behaviour on cookie persistence is ambiguous. Set cookies directly on the client instance instead.\n    return await self.request(\n\ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_shutdown_drains_subscription_and_restart_never_rebuilds_the_run\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/httpx/_client.py:1859: DeprecationWarning: Setting per-request cookies=<...> is being deprecated, because the expected behaviour on cookie persistence is ambiguous. Set cookies directly on the client instance instead.\n    return await self.request(\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
-              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions\n    warnings.warn(  # deprecated in 14.0 - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n542 passed, 8 warnings in 123.32s (0:02:03)\n"
+            output: "........................................................................\
+              \ [ 13%]\n........................................................................\
+              \ [ 26%]\n........................................................................\
+              \ [ 39%]\n........................................................................\
+              \ [ 53%]\n........................................................................\
+              \ [ 66%]\n........................................................................\
+              \ [ 79%]\n........................................................................\
+              \ [ 92%]\n......................................                   \
+              \                [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
+              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_production_app_registers_webchat_wecom_recheck_and_public_sse\n\
+              tests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_sse_subscriber_limit_rejects_explicitly_before_opening_the_owner_stream\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/httpx/_client.py:1768:\
+              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
+              \ because the expected behaviour on cookie persistence is ambiguous.\
+              \ Set cookies directly on the client instance instead.\n    return await\
+              \ self.request(\n\ntests/gateway/test_capacity_webchat_gateway_wiring.py::test_b296_shutdown_drains_subscription_and_restart_never_rebuilds_the_run\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/httpx/_client.py:1859:\
+              \ DeprecationWarning: Setting per-request cookies=<...> is being deprecated,\
+              \ because the expected behaviour on cookie persistence is ambiguous.\
+              \ Set cookies directly on the client instance instead.\n    return await\
+              \ self.request(\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/aibot/ws.py:28:\
+              \ DeprecationWarning: websockets.client.WebSocketClientProtocol is deprecated\n\
+              \    from websockets.client import WebSocketClientProtocol\n\ntests/gateway/test_connection_observability.py::test_b118_metrics_track_connection_transitions_and_isolate_bad_bot\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-161810/TASK-001/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6:\
+              \ DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html\
+              \ for upgrade instructions\n    warnings.warn(  # deprecated in 14.0\
+              \ - 2024-11-09\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              542 passed, 8 warnings in 123.32s (0:02:03)\n"
         - verifier_ref: harness-im#RULE-im-001
           executed_at: '2026-11-06T11:34:12.700461+00:00'
           status: unverified
@@ -1130,7 +1296,10 @@ bindings:
         decision: null
         evidence: []
   - ref: RULE-im-002
-    summary: '**渠道差异只活在适配器层**：核心域（`agent-runtime` / `agent-worker`）零渠道专有字样与取件形状；`im-gateway` 的 web 角色除 `channels/` 与装配根 `main.py` 外同样为零；`im-connector` 的协议/回复/媒体实现属于通道适配器表面，不得把渠道形状带回核心域。取件、下载、解密、媒体 URL/密钥**一律不出适配器**——上层只看到「已解密字节 + 元信息」。机检见 `tests/architecture/test_channel_neutrality.py`（三条：核心域全文零字样 / 核心域不得给 `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）。'
+    summary: '**渠道差异只活在适配器层**：核心域（`agent-runtime` / `agent-worker`）零渠道专有字样与取件形状；`im-gateway`
+      的 web 角色除 `channels/` 与装配根 `main.py` 外同样为零；`im-connector` 的协议/回复/媒体实现属于通道适配器表面，不得把渠道形状带回核心域。取件、下载、解密、媒体
+      URL/密钥**一律不出适配器**——上层只看到「已解密字节 + 元信息」。机检见 `tests/architecture/test_channel_neutrality.py`（三条：核心域全文零字样
+      / 核心域不得给 `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）。'
     text_sha256: 886664b96149bdb06f861158d4ca0277a9d877d23f77cb30afae177052622642
     enforcement: required
     verifier_ref: harness-im#RULE-im-002
@@ -1252,7 +1421,11 @@ bindings:
   - review
   rules:
   - ref: RULE-log-001
-    summary: 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`（另读 `LOG_LEVEL`，缺省 `INFO`；非法级别直接 `raise ValueError` 而非静默回退；`console=True` 为默认值，会额外挂一个 stdout handler）；日志按 `service/YYYY-MM-DD.log` 输出**单行文本**：`YYYY-MM-DD HH:mm:ss.SSS ±ZZZZ [LEVEL] service logger message | key=value ...`，自动携带 `trace_id/request_id/tenant_id` 等关联字段（空串不打印），并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password 等敏感字段脱敏。
+    summary: 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`（另读 `LOG_LEVEL`，缺省 `INFO`；非法级别直接 `raise
+      ValueError` 而非静默回退；`console=True` 为默认值，会额外挂一个 stdout handler）；日志按 `service/YYYY-MM-DD.log`
+      输出**单行文本**：`YYYY-MM-DD HH:mm:ss.SSS ±ZZZZ [LEVEL] service logger message | key=value
+      ...`，自动携带 `trace_id/request_id/tenant_id` 等关联字段（空串不打印），并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password
+      等敏感字段脱敏。
     text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
     enforcement: required
     verifier_ref: harness-log#RULE-log-001
@@ -1363,7 +1536,8 @@ bindings:
   - review
   rules:
   - ref: RULE-mcp-001
-    summary: V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅 Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。
+    summary: V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅
+      Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。
     text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
     enforcement: required
     verifier_ref: harness-mcp#RULE-mcp-001
@@ -1474,7 +1648,9 @@ bindings:
   - review
   rules:
   - ref: RULE-memory-001
-    summary: 原话仅证明文本来源，不能授予保存授权；模型不得提供 author/explicit_request。自然语言 remember 必须展示完整候选，绑定租户/用户/Run/submission、候选 hash、预期版本、forget_epoch 和有效期，由真实用户确认原子保存；只有真实入站的显式命令或已授权管理员可以直接保存。候选每 Run 至多一个，工具整轮完成后才暂停；resume 先检查绝对 deadline。options 消费以租户和 source_event_id 唯一，结果 outcome 不进入唯一键。
+    summary: 原话仅证明文本来源，不能授予保存授权；模型不得提供 author/explicit_request。自然语言 remember 必须展示完整候选，绑定租户/用户/Run/submission、候选
+      hash、预期版本、forget_epoch 和有效期，由真实用户确认原子保存；只有真实入站的显式命令或已授权管理员可以直接保存。候选每 Run 至多一个，工具整轮完成后才暂停；resume
+      先检查绝对 deadline。options 消费以租户和 source_event_id 唯一，结果 outcome 不进入唯一键。
     text_sha256: 45e94fd84a38203b37d6332389361b0e38af36731395999a213cc14a1f644dfe
     enforcement: required
     verifier_ref: harness-memory#RULE-memory-001
@@ -1509,7 +1685,9 @@ bindings:
         decision: null
         evidence: []
   - ref: RULE-memory-002
-    summary: Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。同 tenant/user/key 使用完整唯一身份，软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope revision 同事务提交。锁内按写后有效集合验证冻结条数/UTF-8 字节限额及绝对上限；仅可淘汰 AGENT，USER/ADMIN 不免除硬限；既有超额时治理可减少但不可增加。
+    summary: Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。同
+      tenant/user/key 使用完整唯一身份，软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope
+      revision 同事务提交。锁内按写后有效集合验证冻结条数/UTF-8 字节限额及绝对上限；仅可淘汰 AGENT，USER/ADMIN 不免除硬限；既有超额时治理可减少但不可增加。
     text_sha256: 88b56606991f570b88f503628b9ce8374d997600be4a9893c09d456e1aa6a386
     enforcement: required
     verifier_ref: harness-memory#RULE-memory-002
@@ -1544,7 +1722,12 @@ bindings:
         decision: null
         evidence: []
   - ref: RULE-memory-003
-    summary: 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖 query。注入选择在覆盖率之上加阈值门控（默认 0.35，平台可配）；偏好类先按独立条数/字节限额筛选且不受阈值过滤；同键只取最新版本；经验类只注入 ACTIVE，按任务族或目标文本命中，且不受注入推断开关影响。recall/SEARCH 的返回语义（零覆盖为空、LIST）保持不变。revision 缓存只存候选行：冷读取行与实际 revision 同快照，暖读取 revision 与当前语句时间，并逐次过滤 TTL、重新选择/渲染；读取失败清除旧缓存和 MemoryComponent。每个模型请求前刷新独立 MemoryComponent，完整 SYSTEM 块及 recall JSON 严守最终 UTF-8 字节与条数预算；0 关闭注入，长条跳过，无首条越限保底，压缩不能吞掉记忆组件。
+    summary: 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖
+      query。注入选择在覆盖率之上加阈值门控（默认 0.35，平台可配）；偏好类先按独立条数/字节限额筛选且不受阈值过滤；同键只取最新版本；经验类只注入
+      ACTIVE，按任务族或目标文本命中，且不受注入推断开关影响。recall/SEARCH 的返回语义（零覆盖为空、LIST）保持不变。revision
+      缓存只存候选行：冷读取行与实际 revision 同快照，暖读取 revision 与当前语句时间，并逐次过滤 TTL、重新选择/渲染；读取失败清除旧缓存和
+      MemoryComponent。每个模型请求前刷新独立 MemoryComponent，完整 SYSTEM 块及 recall JSON 严守最终 UTF-8
+      字节与条数预算；0 关闭注入，长条跳过，无首条越限保底，压缩不能吞掉记忆组件。
     text_sha256: a816a6f4610d83f84a228773e5f163d66f5e0601f53d9b9ede258ce1ef684ae9
     enforcement: required
     verifier_ref: harness-memory#RULE-memory-003
@@ -1579,7 +1762,9 @@ bindings:
         decision: null
         evidence: []
   - ref: RULE-memory-004
-    summary: 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled 或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision 证明，不以 job 开始时间冒充新依据。自动批量提交核对原 scope revision，过期输入为 STALE；同任务 lineage 续接原稳定 key，完成后清除未决状态。
+    summary: 用户/管理员删除保留 key tombstone，递增 forget_epoch 并撤销旧提议；自动写不能解除此删除、人工 disabled
+      或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision
+      证明，不以 job 开始时间冒充新依据。自动批量提交核对原 scope revision，过期输入为 STALE；同任务 lineage 续接原稳定 key，完成后清除未决状态。
     text_sha256: 4d14c92e266d1fc80172f5d85aeec08ebe83cf44cc237496c07750923785be8d
     enforcement: required
     verifier_ref: harness-memory#RULE-memory-004
@@ -1614,7 +1799,10 @@ bindings:
         decision: null
         evidence: []
   - ref: RULE-memory-005
-    summary: 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同 fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立 provider 使用冻结主模型、实时凭据并显式关闭。模型调用次数不保证一次，持久效果/历史/完成事件/job 终态必须同事务最多一次；失败整批回滚，warning/metric 可见，主 Run 终态不变。
+    summary: 只有 COMPLETED Run 可入队持久 consolidation job；唯一 job、claim epoch/lease 和终态共同
+      fence 提交权。输入事件 through_seq、摘要自身 seq/覆盖边界、hash、scope revision 与来源 Run 策略首次冻结后重试不刷新；独立
+      provider 使用冻结主模型、实时凭据并显式关闭。模型调用次数不保证一次，持久效果/历史/完成事件/job 终态必须同事务最多一次；失败整批回滚，warning/metric
+      可见，主 Run 终态不变。
     text_sha256: 9ee8a6ed30ce4e73c7b8c4b488d05a917ac31537b3023a74191aa738813a85bf
     enforcement: required
     verifier_ref: harness-memory#RULE-memory-005
@@ -1649,7 +1837,9 @@ bindings:
         decision: null
         evidence: []
   - ref: RULE-memory-006
-    summary: 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途 Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和 ORM 约束/索引同构；移除旧 ratio/source_type 协议，历史快照原样保留仅作审计，不加兼容写层。
+    summary: 新 Run/job 冻结完整 memory 设置、工具历史预算及提炼能力；设置执行期不重读，在线硬额度只提高，降低必须维护窗口排空。迁移需排空所有旧在途
+      Run/Task/job；每 key 单一稳定基线保留全部 legacy incarnation，不伪造确认来源，旧 AGENT 按原更新时间补 TTL。迁移和
+      ORM 约束/索引同构；移除旧 ratio/source_type 协议，历史快照原样保留仅作审计，不加兼容写层。
     text_sha256: 17a28a15fa3697552db91c2f86d4788ac14fe1261cde5934a36750e9dc2f5467
     enforcement: required
     verifier_ref: harness-memory#RULE-memory-006
@@ -1700,7 +1890,8 @@ bindings:
   - review
   rules:
   - ref: RULE-model-001
-    summary: '`model_definition` 不设 `is_default`；每个 Agent 必须显式保存 `model_id`，不存在平台默认模型回退；模型调用只允许 OPENAI 兼容协议。'
+    summary: '`model_definition` 不设 `is_default`；每个 Agent 必须显式保存 `model_id`，不存在平台默认模型回退；模型调用只允许
+      OPENAI 兼容协议。'
     text_sha256: 89d599298bbeda3552aa6049fcffb09362b6edb85064a5f1628ef87d281cc2ee
     enforcement: required
     verifier_ref: harness-model#RULE-model-001
@@ -1811,7 +2002,12 @@ bindings:
   - review
   rules:
   - ref: RULE-platform-001
-    summary: ProjectPlatform 只保存实例与寻址配置，认证/Session 由 PlatformAdapter 承担（SPI 无独立 `refresh`，刷新属于 `authenticate` 内部）；凭据明文存于凭据表并由主键引用，`credential_mode` 仅表达选择策略（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）；PlatformSession 为可重建 Redis 缓存，键为 `platform_session:{tenant_id:platform_id}:{actor_scope}:{credential_version}:{adapter_key}:{adapter_version}`（`{tenant_id:platform_id}` 是字面 hash tag，session/index/generation/lock 同 slot，保证 4-key Lua 在 Redis Cluster 可执行），索引 `platform_sessions:{tenant_id:platform_id}` 以 Set 清理；更换 adapter_key 必须使旧凭据与会话失效。
+    summary: ProjectPlatform 只保存实例与寻址配置，认证/Session 由 PlatformAdapter 承担（SPI 无独立 `refresh`，刷新属于
+      `authenticate` 内部）；凭据明文存于凭据表并由主键引用，`credential_mode` 仅表达选择策略（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）；PlatformSession
+      为可重建 Redis 缓存，键为 `platform_session:{tenant_id:platform_id}:{actor_scope}:{credential_version}:{adapter_key}:{adapter_version}`（`{tenant_id:platform_id}`
+      是字面 hash tag，session/index/generation/lock 同 slot，保证 4-key Lua 在 Redis Cluster
+      可执行），索引 `platform_sessions:{tenant_id:platform_id}` 以 Set 清理；更换 adapter_key
+      必须使旧凭据与会话失效。
     text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
     enforcement: required
     verifier_ref: harness-project-platform#RULE-platform-001
@@ -2037,7 +2233,10 @@ bindings:
   - review
   rules:
   - ref: RULE-secret-001
-    summary: 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt 或 API 响应（对外以 `*_configured` 表达）。
+    summary: 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP
+      `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用
+      `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt
+      或 API 响应（对外以 `*_configured` 表达）。
     text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
     enforcement: required
     verifier_ref: harness-secret#RULE-secret-001
@@ -2196,7 +2395,13 @@ bindings:
   - review
   rules:
   - ref: RULE-skill-001
-    summary: 'Artifact Store 为 **RWX PVC**（硬事实是 `accessModes: ReadWriteMany`，`deploy/k8s/base/pvc-artifacts.yaml`；是否落在 NFS 由部署侧 StorageClass 决定，清单里 `storageClassName` 并未固定；V1 不建 MinIO/S3）；数据库只保存相对 `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从 NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight（**限每进程内**：跨 Pod 的正确性由 `os.replace` 幂等与 DB CAS 承载，不得当作跨进程互斥）；Artifact 写入不可变（**目标不存在才发布**：临时文件 + `os.link`，同 `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans` CLI 宽限期扫描清理（宽限期保护进行中事务）。'
+    summary: 'Artifact Store 为 **RWX PVC**（硬事实是 `accessModes: ReadWriteMany`，`deploy/k8s/base/pvc-artifacts.yaml`；是否落在
+      NFS 由部署侧 StorageClass 决定，清单里 `storageClassName` 并未固定；V1 不建 MinIO/S3）；数据库只保存相对
+      `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从
+      NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight（**限每进程内**：跨 Pod 的正确性由
+      `os.replace` 幂等与 DB CAS 承载，不得当作跨进程互斥）；Artifact 写入不可变（**目标不存在才发布**：临时文件 + `os.link`，同
+      `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans`
+      CLI 宽限期扫描清理（宽限期保护进行中事务）。'
     text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
     enforcement: required
     verifier_ref: harness-skill#RULE-skill-001
@@ -2351,7 +2556,10 @@ bindings:
   - review
   rules:
   - ref: RULE-snapshot-001
-    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP 版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run 侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新 Run/Task；终态写入必须 CAS。
+    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP
+      版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run
+      侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新
+      Run/Task；终态写入必须 CAS。
     text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
     enforcement: required
     verifier_ref: harness-snapshot#RULE-snapshot-001
@@ -2374,7 +2582,8 @@ bindings:
             argv:
             - bash
             - -lc
-            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
             exit_code: 0
             stdout_sha256: 4cb72e458fdc82bff4dea1d93a53658e10e7b02cae4e6448026aefd17ef3b9d6
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
@@ -2411,7 +2620,8 @@ bindings:
             argv:
             - bash
             - -lc
-            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
             exit_code: 0
             stdout_sha256: d53d123e2eb9269e0e15118ae3abad82f987a5830fdd338a034b924ff9ecc2ce
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
@@ -2436,7 +2646,8 @@ bindings:
             argv:
             - bash
             - -lc
-            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
             exit_code: 0
             stdout_sha256: acd12787118608fcac65d3bb74e29f0b5c4d3f691b57ea876d58c0d024fb27ad
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
@@ -2461,7 +2672,8 @@ bindings:
             argv:
             - bash
             - -lc
-            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
             exit_code: 0
             stdout_sha256: b522ff6699ff0f3c3a5cfa08e13705d64a871590d9b70941a3a1ff5b61a83565
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
@@ -2514,7 +2726,8 @@ bindings:
   - review
   rules:
   - ref: RULE-test-001
-    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实 Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实
+      Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
     text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
     enforcement: required
     verifier_ref: harness-test#RULE-test-001
@@ -2565,14 +2778,15 @@ bindings:
   - review
   rules:
   - ref: RULE-time-001
-    summary: 数据库时间存储遵循 RULE-data-001（统一 `timestamptz`）；Console 展示统一 `YYYY-MM-DD HH:mm:ss`（出参必须带 offset）；调度时区使用 IANA 时区（如 `Asia/Shanghai`）。
+    summary: 数据库时间存储遵循 RULE-data-001（统一 `timestamptz`）；Console 展示统一 `YYYY-MM-DD HH:mm:ss`（出参必须带
+      offset）；调度时区使用 IANA 时区（如 `Asia/Shanghai`）。
     text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
     enforcement: required
     verifier_ref: harness-time#RULE-time-001
     verifier_stage: code
     stage_status:
       code:
-        status: verified
+        status: stale
         refs: []
         decision: null
         evidence:
@@ -2636,12 +2850,25 @@ bindings:
             argv:
             - bash
             - -lc
-            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q tests -k schema_parity
+            - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run
+              pytest -q tests -k schema_parity
             exit_code: 0
             stdout_sha256: 890374d902311b16021225a8b2a78653c11fac1d6dfa8f23d919385f614b6bdd
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "..                                                                       [100%]\n2 passed in 0.80s\n.......................................................                  [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-005/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-005/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n\
-              \    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n55 passed, 6494 deselected, 2 warnings in 24.15s\n"
+            output: "..                                                          \
+              \             [100%]\n2 passed in 0.80s\n.......................................................\
+              \                  [100%]\n=============================== warnings\
+              \ summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-005/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/jahan/workspace/fluxion-harness/.code-flow/worktrees/20261106-194206/TASK-005/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              55 passed, 6494 deselected, 2 warnings in 24.15s\n"
       design:
         status: applied
         refs:
@@ -2682,7 +2909,8 @@ bindings:
   - review
   rules:
   - ref: RULE-ui-001
-    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表 + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十二项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/学习与经验/系统设置。
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十二项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/学习与经验/系统设置。
     text_sha256: 0410bf4fd26225f76a733564e42ebb4853e13562d1690d5c61d2e4db4d813fc2
     enforcement: required
     verifier_ref: harness-ui#RULE-ui-001
@@ -2797,7 +3025,8 @@ bindings:
   - review
   rules:
   - ref: RULE-ui-detail-001
-    summary: 详情使用 SideSheet：标题与副标题居左，关闭 X 同行靠右；列表对象级操作集中到主列表最后一列「操作」，详情不重复渲染，Tabs 位于其下；关系操作保存后立即影响后续新 Run/Task。
+    summary: 详情使用 SideSheet：标题与副标题居左，关闭 X 同行靠右；列表对象级操作集中到主列表最后一列「操作」，详情不重复渲染，Tabs
+      位于其下；关系操作保存后立即影响后续新 Run/Task。
     text_sha256: 6c26ccc956d25ee71fb120cbabe15915ac8c08bc56d3567669374b86ba2f397d
     enforcement: required
     verifier_ref: harness-ui-detail#RULE-ui-detail-001
@@ -2912,7 +3141,12 @@ bindings:
   - review
   rules:
   - ref: RULE-worker-001
-    summary: PostgreSQL 是 Task/Schedule/lease 的唯一权威源；Redis 仅作 wake-up/cancel hint；`task_type` 仅 `SKILL/BATCH`（外部等待用 WAITING 表达）；claim 使用 `FOR UPDATE SKIP LOCKED`，进入 WAITING 释放 lease，deadline 到期由 Scheduler sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`。**deadline 是领取与收尾两侧的硬条件**：claim 排除 `deadline_at <= now` 的行（过期任务绝不执行），执行跨过 deadline 也不得写 `COMPLETED`，同样以 `FAILED(TASK_DEADLINE_EXCEEDED)` 收尾（`worker/claimer.py` 的 `_claimable_conditions`、`worker/service.py` 的终态守卫）。
+    summary: PostgreSQL 是 Task/Schedule/lease 的唯一权威源；Redis 仅作 wake-up/cancel hint；`task_type`
+      仅 `SKILL/BATCH`（外部等待用 WAITING 表达）；claim 使用 `FOR UPDATE SKIP LOCKED`，进入 WAITING
+      释放 lease，deadline 到期由 Scheduler sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`。**deadline
+      是领取与收尾两侧的硬条件**：claim 排除 `deadline_at <= now` 的行（过期任务绝不执行），执行跨过 deadline 也不得写
+      `COMPLETED`，同样以 `FAILED(TASK_DEADLINE_EXCEEDED)` 收尾（`worker/claimer.py` 的 `_claimable_conditions`、`worker/service.py`
+      的终态守卫）。
     text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
     enforcement: required
     verifier_ref: harness-worker#RULE-worker-001
@@ -2935,53 +3169,74 @@ bindings:
             argv:
             - bash
             - -lc
-            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
             exit_code: 0
             stdout_sha256: 8420a78bf629cecf3a7081b54182276fb30d03e8d9e6454ebf8347b685dfca76
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '........................................................................ [ 21%]
+            output: '........................................................................
+              [ 21%]
 
-              ........................................................................ [ 43%]
+              ........................................................................
+              [ 43%]
 
-              ........................................................................ [ 65%]
+              ........................................................................
+              [ 65%]
 
-              ........................................................................ [ 87%]
+              ........................................................................
+              [ 87%]
 
               ........................................                                 [100%]
 
               328 passed in 119.75s (0:01:59)
 
-              ........................................................................ [  6%]
+              ........................................................................
+              [  6%]
 
-              ........................................................................ [ 12%]
+              ........................................................................
+              [ 12%]
 
-              ........................................................................ [ 18%]
+              ........................................................................
+              [ 18%]
 
-              ........................................................................ [ 24%]
+              ........................................................................
+              [ 24%]
 
-              ........................................................................ [ 30%]
+              ........................................................................
+              [ 30%]
 
-              ........................................................................ [ 36%]
+              ........................................................................
+              [ 36%]
 
-              ........................................................................ [ 42%]
+              ........................................................................
+              [ 42%]
 
-              ........................................................................ [ 48%]
+              ........................................................................
+              [ 48%]
 
-              ........................................................................ [ 54%]
+              ........................................................................
+              [ 54%]
 
-              ........................................................................ [ 60%]
+              ........................................................................
+              [ 60%]
 
-              ........................................................................ [ 66%]
+              ........................................................................
+              [ 66%]
 
-              ........................................................................ [ 72%]
+              ........................................................................
+              [ 72%]
 
-              ........................................................................ [ 78%]
+              ........................................................................
+              [ 78%]
 
-              ........................................................................ [ 84%]
+              ........................................................................
+              [ 84%]
 
-              ........................................................................ [ 90%]
+              ........................................................................
+              [ 90%]
 
-              ........................................................................ [ 96%]
+              ........................................................................
+              [ 96%]
 
               ....................................                                     [100%]
 
@@ -3012,7 +3267,8 @@ bindings:
             argv:
             - bash
             - -lc
-            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
             exit_code: 1
             stdout_sha256: c006274813e845e0ff9e5b5df96a0a7569e714fa6f2b0ba2865b68fe28c6c8a5
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
@@ -3111,53 +3367,74 @@ bindings:
             argv:
             - bash
             - -lc
-            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
             exit_code: 0
             stdout_sha256: 6070c2901047e5f76b68dfe23137a4e34eb1286ab2261c98feddbfeb83d8fc2c
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '........................................................................ [ 21%]
+            output: '........................................................................
+              [ 21%]
 
-              ........................................................................ [ 43%]
+              ........................................................................
+              [ 43%]
 
-              ........................................................................ [ 65%]
+              ........................................................................
+              [ 65%]
 
-              ........................................................................ [ 87%]
+              ........................................................................
+              [ 87%]
 
               ........................................                                 [100%]
 
               328 passed in 120.87s (0:02:00)
 
-              ........................................................................ [  6%]
+              ........................................................................
+              [  6%]
 
-              ........................................................................ [ 12%]
+              ........................................................................
+              [ 12%]
 
-              ........................................................................ [ 18%]
+              ........................................................................
+              [ 18%]
 
-              ........................................................................ [ 24%]
+              ........................................................................
+              [ 24%]
 
-              ........................................................................ [ 30%]
+              ........................................................................
+              [ 30%]
 
-              ........................................................................ [ 36%]
+              ........................................................................
+              [ 36%]
 
-              ........................................................................ [ 42%]
+              ........................................................................
+              [ 42%]
 
-              ........................................................................ [ 48%]
+              ........................................................................
+              [ 48%]
 
-              ........................................................................ [ 54%]
+              ........................................................................
+              [ 54%]
 
-              ........................................................................ [ 60%]
+              ........................................................................
+              [ 60%]
 
-              ........................................................................ [ 66%]
+              ........................................................................
+              [ 66%]
 
-              ........................................................................ [ 72%]
+              ........................................................................
+              [ 72%]
 
-              ........................................................................ [ 78%]
+              ........................................................................
+              [ 78%]
 
-              ........................................................................ [ 84%]
+              ........................................................................
+              [ 84%]
 
-              ........................................................................ [ 90%]
+              ........................................................................
+              [ 90%]
 
-              ........................................................................ [ 96%]
+              ........................................................................
+              [ 96%]
 
               ....................................                                     [100%]
 
