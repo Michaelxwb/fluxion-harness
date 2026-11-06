@@ -63,6 +63,7 @@ from muad_contracts import (
 from muad_contracts.platform_settings import default_compaction_settings
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext
+from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
 LISTEN_TIMEOUT_SEC = 15.0
 #: 内部服务身份：与 Console `require_service_identity` 同源（env `INTERNAL_SERVICE_TOKEN`）。
@@ -282,7 +283,7 @@ async def _login_admin(http: httpx.AsyncClient, tenant_id: str) -> None:
     response = await http.post(
         "/api/v1/auth/login",
         json={"username": username, "password": "console-admin-password"},
-        headers={"X-Tenant-Id": tenant_id},
+        headers={"X-Tenant-Id": tenant_id, "X-Internal-Service": INTERNAL_SERVICE_TOKEN},
     )
     assert response.status_code == 200, response.text
 
@@ -332,7 +333,10 @@ async def test_e03_source_unavailable_fails_run_creation_with_failed_metric(
                             "channel": {"type": "WECOM", "bot_id": "bot-1"},
                             "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": "x"},
                         },
-                        headers={"X-Tenant-Id": tenant.tenant_id},
+                        headers={
+                            "X-Tenant-Id": tenant.tenant_id,
+                            "X-Internal-Service": INTERNAL_SERVICE_TOKEN,
+                        },
                     )
                     assert response.status_code >= 500, response.text
                     assert response.json()["code"] == "COMMON_INTERNAL_ERROR", response.text

@@ -46,7 +46,8 @@ class LiveStack:
     disabled_skill_key: str
 
     def runtime_headers(self) -> dict[str, str]:
-        return {"X-Tenant-Id": self.tenant_id}
+        # `/v1` 是受信面：验收调用方与 Gateway 同口径携带内部服务身份。
+        return {"X-Tenant-Id": self.tenant_id, "X-Internal-Service": INTERNAL_TOKEN}
 
     def console_headers(self) -> dict[str, str]:
         return {

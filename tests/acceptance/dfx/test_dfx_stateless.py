@@ -329,7 +329,7 @@ def _parse_sse(body: str) -> list[dict[str, Any]]:
 
 
 def _headers(stack: LiveStack) -> dict[str, str]:
-    return {"X-Tenant-Id": stack.tenant_id}
+    return stack.service_headers()
 
 
 def _payload(stack: LiveStack, conversation_id: uuid.UUID, text_body: str) -> dict[str, Any]:

@@ -13,7 +13,7 @@ from muad_api import (
     validate_startup,
 )
 from muad_artifact_store import NfsArtifactStore
-from muad_common import SharedSettings
+from muad_common import SharedSettings, workspace_policy_from_settings
 from muad_common.db_counters import publish_db_counters
 from muad_logging import configure_logging
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -52,6 +52,9 @@ configure_logging(SERVICE_NAME)
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = SharedSettings()
+    # 启动快照：内部服务门控等热路径只读这一份，不逐请求重读 env/.env。
+    app.state.settings = settings
+    app.state.workspace_policy = workspace_policy_from_settings(settings)
     await validate_startup(
         settings,
         get_engine(),
@@ -117,6 +120,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         app.state.platform_settings_client = NullPlatformSettingsClient()
         await pools.aclose()
     await dispose_engine()
+    # 测试/同进程重入不继承上一轮启动快照；生产退出后进程即结束。
+    app.state.settings = None
 
 
 async def _db_counters_loop() -> None:

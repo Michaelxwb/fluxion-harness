@@ -30,7 +30,12 @@ from ..application.run_service import RunService, RunStart
 from ..application.sse import SSE_HEADERS, SSE_MEDIA_TYPE, iter_sse_frames
 from .deps import RunServiceDep, TenantDep
 
-router = APIRouter(prefix="/v1", tags=["runs"])
+router = APIRouter(
+    prefix="/v1",
+    tags=["runs"],
+    # 受信面：整个 `/v1` 一次门控。SSE 只在建连/重连校验一次，流内事件不再逐条鉴权。
+    dependencies=[Depends(require_internal_service)],
+)
 
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 
@@ -144,9 +149,7 @@ async def get_run(
     return ok(request.app.state.message_catalog, run_view(run, snapshot, wait))
 
 
-@router.get(
-    "/runs/{run_id}/scope", dependencies=[Depends(require_internal_service)]
-)
+@router.get("/runs/{run_id}/scope")
 async def get_run_scope(
     run_id: uuid.UUID,
     request: Request,

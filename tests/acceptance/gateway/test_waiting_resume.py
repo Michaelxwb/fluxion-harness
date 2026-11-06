@@ -22,7 +22,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.acceptance.gateway.conftest import WaitingGatewayStack
-from tests.acceptance.task_schedule.environment import TENANT
+from tests.acceptance.task_schedule.environment import INTERNAL_TOKEN, TENANT
 from tests.e2e.wecom_probe_app import frame_text
 
 pytestmark = pytest.mark.e2e
@@ -372,7 +372,11 @@ async def test_e17_waiting_tool_rejects_resume_queues_message_and_recovers_after
     # 缺了会在校验层 422，到不了"忙态拒绝"这条断言。
     response = httpx.post(
         f"{stack.live.runtime_url}/v1/runs/{run_id}/resume",
-        headers={"X-Tenant-Id": TENANT, "Idempotency-Key": f"resume-rejected-{uuid.uuid4().hex}"},
+        headers={
+            "X-Tenant-Id": TENANT,
+            "X-Internal-Service": INTERNAL_TOKEN,
+            "Idempotency-Key": f"resume-rejected-{uuid.uuid4().hex}",
+        },
         json={
             "platform_user_id": str(stack.live.platform_user_id),
             "input": {"type": "text", "text": "替换等待输入"},

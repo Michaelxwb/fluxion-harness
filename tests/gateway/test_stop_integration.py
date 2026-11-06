@@ -268,8 +268,8 @@ def _build_stack(
     tenant_id: str,
 ) -> tuple[FakeChannelAdapter, InboundPipeline, ConsoleClient, RuntimeClient]:
     adapter = FakeChannelAdapter()
-    console = ConsoleClient(console_url)
-    runtime = RuntimeClient(runtime_url)
+    console = ConsoleClient(console_url, service_token=INTERNAL_TOKEN)
+    runtime = RuntimeClient(runtime_url, service_token=INTERNAL_TOKEN)
     pipeline = InboundPipeline(
         dedupe=NullDedupeStore(),
         console=console,
@@ -371,7 +371,10 @@ async def test_e05_stop_without_active_run_reports_no_active_task(
         raw = await client.post(
             "/v1/runs/cancel-active",
             json={"agent_id": str(channel.agent_id), "platform_user_id": str(channel.actor_user_id)},
-            headers={"X-Tenant-Id": channel.tenant_id},
+            headers={
+                "X-Tenant-Id": channel.tenant_id,
+                "X-Internal-Service": INTERNAL_TOKEN,
+            },
         )
     assert raw.status_code == 404
     assert raw.json()["code"] == "NO_ACTIVE_RUN"

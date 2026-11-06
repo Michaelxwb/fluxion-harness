@@ -197,6 +197,7 @@ def test_s04_equal_weight_idle_pool_balances_dispatch_across_two_runtimes(
             runtimes[index % 2],
             tenant_id=tenant.tenant_id,
             agent_id=pool.seed.agent_id,
+            internal_token=stack.internal_token,
             user_id=tenant.user_id,
             text=f"turn-{index}",
             conversation_id=conversation_id,
@@ -362,6 +363,7 @@ def test_s12_shared_physical_key_merges_members_probe_and_memory_calls(
         stack.url_of("agent-runtime", 0),
         tenant_id=tenant.tenant_id,
         agent_id=main.seed.agent_id,
+        internal_token=stack.internal_token,
         user_id=tenant.user_id,
         text="remember the shared key",
     )
@@ -394,6 +396,7 @@ def test_s12_shared_physical_key_merges_members_probe_and_memory_calls(
         stack.url_of("agent-runtime", 1),
         tenant_id=tenant.tenant_id,
         agent_id=second.seed.agent_id,
+        internal_token=stack.internal_token,
         user_id=tenant.user_id,
         text="second model member",
     )
@@ -454,6 +457,7 @@ def test_s12_shared_physical_key_merges_members_probe_and_memory_calls(
         stack.url_of("agent-runtime", 1),
         tenant_id=tenant.tenant_id,
         agent_id=second.seed.agent_id,
+        internal_token=stack.internal_token,
         user_id=tenant.user_id,
         text="blocked by shared key",
     )
@@ -496,6 +500,7 @@ def test_s12_shared_physical_key_merges_members_probe_and_memory_calls(
         stack.url_of("agent-runtime", 1),
         tenant_id=tenant.tenant_id,
         agent_id=second.seed.agent_id,
+        internal_token=stack.internal_token,
         user_id=tenant.user_id,
         text="after proof release",
     )
@@ -549,6 +554,7 @@ def test_e16_local_timeout_marks_unknown_and_keeps_occupancy(
             stack.url_of("agent-runtime", 0),
             tenant_id=tenant.tenant_id,
             agent_id=pool.seed.agent_id,
+            internal_token=stack.internal_token,
             user_id=tenant.user_id,
             text="local timeout",
         )
@@ -585,6 +591,7 @@ def test_e16_local_timeout_marks_unknown_and_keeps_occupancy(
             stack.url_of("agent-runtime", 1),
             tenant_id=tenant.tenant_id,
             agent_id=pool.seed.agent_id,
+            internal_token=stack.internal_token,
             user_id=tenant.user_id,
             text="must not over-issue",
         )

@@ -38,6 +38,7 @@ from muad_contracts import ResolvedModel
 from muad_contracts.model_pool import derive_model_key_resource_id
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
+from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
 SUMMARY_MODEL_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
 SUMMARY_BASE_URL = "https://summary.example/v1"
@@ -170,7 +171,7 @@ async def _send(client: AsyncClient, tenant: TenantContext, text: str) -> uuid.U
             "channel": {"type": "WECOM", "bot_id": "bot-summary"},
             "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
         },
-        headers={"X-Tenant-Id": tenant.tenant_id},
+        headers={"X-Tenant-Id": tenant.tenant_id, "X-Internal-Service": INTERNAL_SERVICE_TOKEN},
     )
     assert response.status_code == 200, response.text
     events = parse_sse(response.text)

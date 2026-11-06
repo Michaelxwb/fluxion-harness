@@ -241,7 +241,7 @@ async def _cancel_active_runs(stack: GatewayStack) -> None:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{stack.runtime_url}/v1/runs/{row['id']}/cancel",
-                headers={"X-Tenant-Id": stack.tenant_id},
+                headers={"X-Tenant-Id": stack.tenant_id, "X-Internal-Service": INTERNAL_TOKEN},
             )
             assert response.status_code == 200, response.text
 
@@ -393,12 +393,17 @@ async def test_s01_memory_redesign_cross_user_confirmation_is_refused(
     async with httpx.AsyncClient(timeout=30.0) as client:
         cross_user = await client.post(
             f"{gateway_stack.runtime_url}/v1/runs/{run_id}/resume", json=body,
-            headers={"X-Tenant-Id": gateway_stack.tenant_id, "Idempotency-Key": uuid.uuid4().hex},
+            headers={
+                "X-Tenant-Id": gateway_stack.tenant_id,
+                "X-Internal-Service": INTERNAL_TOKEN,
+                "Idempotency-Key": uuid.uuid4().hex,
+            },
         )
         assert cross_user.status_code == 404, cross_user.text
         cross_tenant = await client.post(
             f"{gateway_stack.runtime_url}/v1/runs/{run_id}/resume", json=body,
             headers={"X-Tenant-Id": f"e2e-im-other-{uuid.uuid4().hex[:8]}",
+                     "X-Internal-Service": INTERNAL_TOKEN,
                      "Idempotency-Key": uuid.uuid4().hex},
         )
         assert cross_tenant.status_code == 404, cross_tenant.text

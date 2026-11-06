@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import hmac
 from collections.abc import Awaitable, Callable, Collection
 from typing import Annotated, Any, Protocol
 
 from fastapi import Depends, FastAPI, Header, Request
-from muad_common import SharedSettings
+from muad_common import process_settings
 
 from .error_codes import ErrorCode
 from .errors import AppError
@@ -15,16 +16,37 @@ BEARER_PREFIX = "bearer "
 INTERNAL_SERVICE_HEADER = "X-Internal-Service"
 
 
-def require_internal_service(
+def _expected_internal_service_token(request: Request) -> str | None:
+    """启动快照优先：lifespan 把 `SharedSettings` 冻结到 `app.state.settings`。
+
+    未跑 lifespan 的测试/直构应用没有该快照，回落到进程级 `process_settings()`
+    （同样只在启动期构造一次；测试 fixture 会在改 env 后清缓存）。
+    """
+    settings = getattr(request.app.state, "settings", None)
+    if settings is not None:
+        return getattr(settings, "internal_service_token", None)
+    return process_settings().internal_service_token
+
+
+async def require_internal_service(
+    request: Request,
     x_internal_service: Annotated[str | None, Header()] = None,
 ) -> None:
     """内部凭据类端点只允许受信服务身份；缺失/错误身份一律 FORBIDDEN。
 
     与 09/08 的 Admin API 同一口径：`INTERNAL_SERVICE_TOKEN` 未配置时也一律拒绝，
     避免"未配置即放行"的默认放行面。
+
+    比较在事件循环内本地完成（异步依赖不占线程池），Token 来自启动缓存；
+    使用 `hmac.compare_digest` 做常量时间比较。
     """
-    expected = SharedSettings().internal_service_token
-    if not expected or x_internal_service != expected:
+    expected = _expected_internal_service_token(request)
+    provided = x_internal_service or ""
+    if (
+        not expected
+        or not provided
+        or not hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8"))
+    ):
         raise AppError(ErrorCode.FORBIDDEN)
 
 

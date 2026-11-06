@@ -215,6 +215,12 @@ def _artifacts_pvc() -> dict[str, Any]:
     return documents[0]
 
 
+def _workspaces_pvc() -> dict[str, Any]:
+    documents = [d for d in _docs("pvc-workspaces.yaml") if d.get("kind") == "PersistentVolumeClaim"]
+    assert len(documents) == 1, "pvc-workspaces.yaml 应有且仅有一个 PVC"
+    return documents[0]
+
+
 def _mounts(unit: DeployUnit) -> dict[str, dict[str, Any]]:
     return {mount["name"]: mount for mount in _container(unit).get("volumeMounts", [])}
 
@@ -345,8 +351,21 @@ def test_shared_artifact_volume_is_rwx_and_skill_cache_is_per_process(unit: Depl
     assert mounts["skill-cache"]["mountPath"] == configmap["SKILL_CACHE_ROOT"]
     assert not mounts["skill-cache"]["mountPath"].startswith(mounts["artifacts"]["mountPath"] + "/")
 
-    shared = [name for name, volume in volumes.items() if "persistentVolumeClaim" in volume]
-    assert shared == ["artifacts"], f"{unit.name}: 只允许制品卷共享；其余卷必须每进程独立：{shared}"
+    workspaces = volumes["workspaces"]
+    assert "persistentVolumeClaim" in workspaces and "emptyDir" not in workspaces, (
+        f"{unit.name}: workspace 卷必须是共享 PVC（任意 Pod 都能接管同一用户/Agent 工作区）"
+    )
+    assert workspaces["persistentVolumeClaim"]["claimName"] == "muad-workspaces-rwx"
+    assert mounts["workspaces"]["mountPath"] == configmap["WORKSPACE_ROOT"]
+    workspace_pvc = _workspaces_pvc()
+    assert workspace_pvc["spec"]["accessModes"] == ["ReadWriteMany"], "workspace 共享盘必须 RWX"
+
+    shared = sorted(
+        name for name, volume in volumes.items() if "persistentVolumeClaim" in volume
+    )
+    assert shared == ["artifacts", "workspaces"], (
+        f"{unit.name}: 只允许制品/工作区卷共享；其余卷必须每进程独立：{shared}"
+    )
 
 
 @pytest.mark.parametrize("unit", UNITS, ids=UNIT_IDS)

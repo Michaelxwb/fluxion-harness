@@ -37,6 +37,7 @@ from tests.acceptance.im_gateway.environment import (
     BOT_ID,
     BOUND_EXTERNAL_USER_ID,
     CHAT_ID,
+    INTERNAL_TOKEN,
     GatewayStack,
     restart_process,
     wait_for_memory_background_idle,
@@ -531,7 +532,11 @@ async def test_e02_memory_redesign_real_confirmation_replay_and_rejection(
         replay = await client.post(
             "/v1/runs",
             json=payload,
-            headers={"X-Tenant-Id": gateway_stack.tenant_id, "Idempotency-Key": confirm_id},
+            headers={
+                "X-Tenant-Id": gateway_stack.tenant_id,
+                "X-Internal-Service": INTERNAL_TOKEN,
+                "Idempotency-Key": confirm_id,
+            },
         )
     assert replay.status_code == 200, replay.text
     assert "run.created" in replay.text, replay.text

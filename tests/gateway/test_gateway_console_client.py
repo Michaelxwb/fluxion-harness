@@ -20,6 +20,8 @@ from muad_contracts import (
 )
 from muad_im_gateway.application.console_client import ConsoleClient
 
+from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
+
 RESOLVE_DATA = {
     "bound": True,
     "agent_id": str(uuid4()),
@@ -405,3 +407,31 @@ async def test_issue_fetch_link_returns_none_instead_of_raising() -> None:
             assert await client.issue_fetch_link(uuid4(), tenant_id="tenant-1") is None
         finally:
             await client.aclose()
+
+
+async def test_caller_supplied_internal_header_cannot_override_service_identity() -> None:
+    """调用方（浏览器字段映射）传来的同名头必须被剥离，受信身份以装配值为准。"""
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json={"code": "0", "msg": "成功", "data": RESOLVE_DATA})
+
+    client = ConsoleClient(
+        "http://console.test",
+        transport=httpx.MockTransport(handler),
+        service_token=INTERNAL_SERVICE_TOKEN,
+    )
+    try:
+        await client._request_model(
+            "POST",
+            "/internal/channel/resolve",
+            ChannelResolveResponse,
+            "tenant-1",
+            json_body=_resolve_request().model_dump(mode="json"),
+            headers={"X-Internal-Service": "browser-forged"},
+        )
+    finally:
+        await client.aclose()
+
+    assert captured[0].headers["x-internal-service"] == INTERNAL_SERVICE_TOKEN

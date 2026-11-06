@@ -156,6 +156,13 @@ class SharedSettings(BaseSettings):
     #: Stream 保留窗口（design RET-01）：入站周期 XTRIM MINID；出站 XADD MINID。
     inbound_stream_retention_sec: int = Field(default=600, ge=60)
     outbound_stream_retention_sec: int = Field(default=3_600, ge=300)
+    #: Workspace 共享卷与配额（TASK-006）：部署清单显式声明，代码从这里取唯一预算来源。
+    workspace_root: str = "/mnt/muad-workspaces"
+    workspace_quota_mib: int = Field(default=500, ge=1)
+    workspace_user_quota_mib: int = Field(default=500, ge=1)
+    workspace_file_limit: int = Field(default=5000, ge=1)
+    workspace_output_ttl_days: int = Field(default=30, ge=1)
+    workspace_data_ttl_days: int = Field(default=30, ge=1)
 
     @field_validator("*", mode="before")
     @classmethod

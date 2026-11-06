@@ -151,9 +151,14 @@ def _build_outbound_clients(
     settings: SharedSettings, pools: GatewayHttpPools
 ) -> tuple[ConsoleClient, RuntimeClient, ConsolePlatformSettingsClient, HttpArtifactResolver]:
     """出站客户端：全部消费装配根注入的分池（控制/stream/上传/业务各自独立预算）。"""
-    console = ConsoleClient(settings.console_platform_url, client=pools.control)
+    console = ConsoleClient(
+        settings.console_platform_url,
+        service_token=settings.internal_service_token,
+        client=pools.control,
+    )
     runtime = RuntimeClient(
         settings.agent_runtime_url,
+        service_token=settings.internal_service_token,
         client=pools.egress,
         stream_client=pools.stream,
         upload_client=pools.upload,

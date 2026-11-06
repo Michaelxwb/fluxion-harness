@@ -22,6 +22,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.acceptance.im_gateway.environment import (
+    INTERNAL_TOKEN,
     GatewayStack,
     count_tenant_rows,
     purge_tenant,
@@ -161,7 +162,11 @@ async def test_b126_same_key_different_fingerprint_is_mismatch_without_side_effe
         mismatch = await client.post(
             "/v1/runs",
             json=payload,
-            headers={"X-Tenant-Id": gateway_stack.tenant_id, "Idempotency-Key": key},
+            headers={
+                "X-Tenant-Id": gateway_stack.tenant_id,
+                "X-Internal-Service": INTERNAL_TOKEN,
+                "Idempotency-Key": key,
+            },
         )
     assert mismatch.status_code == 409, mismatch.text
     assert mismatch.json()["code"] == "IDEMPOTENCY_MISMATCH", mismatch.text
