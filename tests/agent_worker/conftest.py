@@ -62,6 +62,23 @@ def internal_service_token(monkeypatch: pytest.MonkeyPatch) -> str:
 
 
 @pytest.fixture(autouse=True)
+def dev_sandbox_executor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Worker 单测显式使用 dev-unsafe：真实子进程，无 bwrap 的本地主机可跑。
+
+    生产装配仍是 `build_sandboxed_skill_executor(settings)`（bwrap fail closed）；
+    真实 bwrap 边界由 acceptance 探针覆盖。
+    """
+    from muad_agent_core.sandbox import DevUnsafeRunner
+    from muad_agent_core.skill import SandboxedSkillExecutor
+    from muad_agent_worker.worker import executor as module
+
+    def build(settings: object) -> SandboxedSkillExecutor:
+        return SandboxedSkillExecutor(runner=DevUnsafeRunner(), dev_unsafe=True)
+
+    monkeypatch.setattr(module, "build_sandboxed_skill_executor", build)
+
+
+@pytest.fixture(autouse=True)
 async def sweep_stale_test_rows(database_guard: None) -> None:
     """claim 是全局的：清掉崩溃测试残留的到期 Schedule 与可 claim Task，避免跨测试串扰。"""
     stale_tasks = (

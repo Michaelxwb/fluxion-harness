@@ -243,7 +243,9 @@ def _skill_package(tmp_path: Path, artifact_id: uuid.UUID) -> tuple[Path, Path]:
     return tmp_path / "skill", marker
 
 
-def _snapshot(skill_artifact_id: uuid.UUID) -> dict[str, Any]:
+def _snapshot(
+    skill_artifact_id: uuid.UUID, *, tenant_id: str, user_id: uuid.UUID, agent_id: uuid.UUID
+) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "budget": {"retry_safety": "IDEMPOTENT"},
@@ -252,6 +254,12 @@ def _snapshot(skill_artifact_id: uuid.UUID) -> dict[str, Any]:
                 "artifact_id": str(skill_artifact_id),
                 "storage_key": "skills/b268/probe.zip",
                 "checksum": SKILL_CHECKSUM,
+                "source": "ADMIN",
+                "workspace": {
+                    "tenant_id": tenant_id,
+                    "user_id": str(user_id),
+                    "agent_id": str(agent_id),
+                },
             }
         ],
     }
@@ -366,7 +374,9 @@ async def _seed_offline_task(
                 status=str(TaskStatus.QUEUED),
                 input_json={"customers": ["A"]},
                 execution_snapshot_schema_version=1,
-                execution_snapshot_json=_snapshot(skill_artifact_id),
+                execution_snapshot_json=_snapshot(
+                    skill_artifact_id, tenant_id=tenant_id, user_id=user_id, agent_id=agent_id
+                ),
                 snapshot_hash=HASH,
                 idempotency_key=f"b268-{task_id}",
                 priority=100,

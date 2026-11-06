@@ -242,11 +242,14 @@ async def _seed_task(
     moment = datetime.now(UTC)
     task_id = uuid.uuid4()
     artifact_id = uuid.uuid4()
+    tenant_id = f"retry-safety-{uuid.uuid4().hex[:12]}"
+    agent_id = uuid.uuid4()
+    actor_id = uuid.uuid4()
     values: dict[str, Any] = {
         "id": task_id,
-        "tenant_id": f"retry-safety-{uuid.uuid4().hex[:12]}",
-        "agent_id": uuid.uuid4(),
-        "actor_user_id": uuid.uuid4(),
+        "tenant_id": tenant_id,
+        "agent_id": agent_id,
+        "actor_user_id": actor_id,
         "intent_key": "retry_safety_probe",
         "skill_id": uuid.uuid4(),
         "skill_artifact_id": artifact_id,
@@ -269,6 +272,12 @@ async def _seed_task(
                     "artifact_id": str(artifact_id),
                     "storage_key": "skills/probe.zip",
                     "checksum": "sha256:" + "a" * 64,
+                    "source": "ADMIN",
+                    "workspace": {
+                        "tenant_id": tenant_id,
+                        "user_id": str(actor_id),
+                        "agent_id": str(agent_id),
+                    },
                 }
             ],
             "budget": dict(budget),

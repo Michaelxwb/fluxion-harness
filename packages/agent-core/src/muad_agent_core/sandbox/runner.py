@@ -312,6 +312,7 @@ async def _execute(
             stdout=stdout.text(),
             stderr=stderr.text(),
             duration_ms=int((time.monotonic() - started) * 1000),
+            output_truncated=overflow,
         )
         if overflow:
             raise SandboxOutputLimit(

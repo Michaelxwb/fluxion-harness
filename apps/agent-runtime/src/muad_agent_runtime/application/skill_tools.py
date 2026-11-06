@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
@@ -9,10 +10,13 @@ from typing import Any, Protocol
 from muad_agent_core.agent import AgentPolicy
 from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill, render_skill_entry
 from muad_agent_core.skill import (
-    ScriptSkillExecutor,
+    OutputFile,
     SkillExecutionError,
     SkillExecutionRequest,
     SkillExecutionResult,
+    SkillExecutionStatus,
+    SkillExecutor,
+    build_sandboxed_skill_executor,
 )
 from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, ToolRegistry
 from muad_api import AppError
@@ -30,7 +34,15 @@ from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
 from pydantic import JsonValue
 
-from ..metrics import SKILL_LOAD_METRIC, record_outcome
+from ..metrics import (
+    SANDBOX_OUTPUT_LIMIT_METRIC,
+    SANDBOX_TIMEOUT_METRIC,
+    SKILL_EXECUTION_DURATION_SECONDS,
+    SKILL_EXECUTION_METRIC,
+    SKILL_LOAD_METRIC,
+    record_latency,
+    record_outcome,
+)
 from .task_client import TaskSubmissionContext
 
 LOAD_SKILL_TOOL = "load_skill"
@@ -63,6 +75,7 @@ BACKGROUND_SUBMIT_FAILED = "BACKGROUND_SUBMIT_FAILED"
 _STRING_SCHEMA: Mapping[str, Any] = {"type": "string"}
 _OBJECT_SCHEMA: Mapping[str, Any] = {"type": "object"}
 _CATALOG_RESOURCE_KEY = "skills:catalog"
+logger = logging.getLogger(__name__)
 
 
 def _catalog_resource_key(arguments: Mapping[str, Any]) -> str:
@@ -104,6 +117,15 @@ class TaskSubmissionProtocol(Protocol):
     ) -> dict[str, JsonValue]: ...
 
 
+class SkillOutputRegistrar(Protocol):
+    async def register(self, output: OutputFile) -> str: ...
+
+
+def default_skill_executor() -> SkillExecutor:
+    """装配统一沙箱执行器；bwrap 在首次执行时才探测，服务启动不受宿主机影响。"""
+    return build_sandboxed_skill_executor(process_settings())
+
+
 def build_skill_registry(
     *,
     cache: SkillArtifactCache,
@@ -112,6 +134,10 @@ def build_skill_registry(
     task_client: TaskSubmissionProtocol | None = None,
     task_context: TaskSubmissionContext | None = None,
     platform_context: SkillPlatformContext | None = None,
+    executor: SkillExecutor | None = None,
+    workspace_dir: Path | None = None,
+    execution_id: str | None = None,
+    output_registrar: SkillOutputRegistrar | None = None,
 ) -> ToolRegistry:
     tool_set = SkillToolSet(
         cache=cache,
@@ -120,6 +146,10 @@ def build_skill_registry(
         task_client=task_client,
         task_context=task_context,
         platform_context=platform_context,
+        executor=executor,
+        workspace_dir=workspace_dir,
+        execution_id=execution_id,
+        output_registrar=output_registrar,
     )
     return tool_set.registry()
 
@@ -131,21 +161,27 @@ class SkillToolSet:
         cache: SkillArtifactCache,
         skills: Sequence[ResolvedSkill],
         timeout_sec: float,
-        executor: ScriptSkillExecutor | None = None,
+        executor: SkillExecutor | None = None,
         task_client: TaskSubmissionProtocol | None = None,
         task_context: TaskSubmissionContext | None = None,
         platform_context: SkillPlatformContext | None = None,
+        workspace_dir: Path | None = None,
+        execution_id: str | None = None,
+        output_registrar: SkillOutputRegistrar | None = None,
         async_retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY,
     ) -> None:
         self._cache = cache
         self._skills = {skill.key: skill for skill in skills}
         self._timeout_sec = timeout_sec
-        self._executor = executor or ScriptSkillExecutor()
+        self._executor = executor or default_skill_executor()
         self._ready_dirs: dict[str, Path] = {}
         self._packages: dict[str, SkillPackage] = {}
         self._task_client = task_client
         self._task_context = task_context
         self._platform_context = platform_context
+        self._workspace_dir = workspace_dir
+        self._execution_id = execution_id
+        self._output_registrar = output_registrar
         # ASYNC Skill 的 Owner 侧重试安全声明（design §3.6）：默认 NON_RETRYABLE——未声明即未知，
         # 未知不得自动重做外部副作用。声明同时落在 EXECUTE_SKILL_TOOL 定义与操作提交上。
         self._async_retry_safety = async_retry_safety
@@ -396,6 +432,9 @@ class SkillToolSet:
                     ready_dir=ready_dir,
                     input=input_data,
                     timeout_sec=self._timeout_sec,
+                    source=str(skill.source),
+                    workspace_dir=self._workspace_dir,
+                    execution_id=self._execution_id,
                     script=script,
                     platform_context=replace(
                         self._platform_context, platform_keys=skill_platform_keys(skill.frontmatter)
@@ -406,7 +445,42 @@ class SkillToolSet:
             )
         except SkillExecutionError as exc:
             raise SkillToolError(SKILL_EXECUTION_FAILED, exc.message) from exc
-        return _execution_payload(result)
+        self._record_execution(skill, result)
+        outputs = await self._register_outputs(result)
+        return _execution_payload(result, outputs)
+
+    def _record_execution(self, skill: ResolvedSkill, result: SkillExecutionResult) -> None:
+        labels = {"source": str(skill.source)}
+        record_outcome(SKILL_EXECUTION_METRIC, result.status.value, labels)
+        record_latency(SKILL_EXECUTION_DURATION_SECONDS, result.duration_ms / 1000.0, labels)
+        if result.output_notice:
+            record_outcome(SANDBOX_OUTPUT_LIMIT_METRIC, result.output_notice, labels)
+        if result.status is SkillExecutionStatus.TIMED_OUT:
+            record_outcome(SANDBOX_TIMEOUT_METRIC, result.status.value, labels)
+
+    async def _register_outputs(
+        self, result: SkillExecutionResult
+    ) -> list[dict[str, Any]]:
+        entries: list[dict[str, Any]] = []
+        for output in result.outputs:
+            entry: dict[str, Any] = {
+                "relative_path": output.relative_path,
+                "size": output.size,
+                "checksum": output.checksum,
+                "artifact_id": None,
+            }
+            if self._output_registrar is not None and result.output_notice is None:
+                try:
+                    entry["artifact_id"] = await self._output_registrar.register(output)
+                except Exception as exc:  # noqa: BLE001 - 登记失败必须可见，不能吞掉
+                    entry["error"] = str(getattr(exc, "code", type(exc).__name__))
+                    logger.warning(
+                        "skill_output_registration_failed path=%s error=%s",
+                        output.relative_path,
+                        entry["error"],
+                    )
+            entries.append(entry)
+        return entries
 
 
 def _input_schema(properties: Mapping[str, Any], required: Sequence[str]) -> dict[str, Any]:
@@ -493,7 +567,9 @@ def _manifest_payload(package: SkillPackage) -> dict[str, Any]:
     }
 
 
-def _execution_payload(result: SkillExecutionResult) -> str:
+def _execution_payload(
+    result: SkillExecutionResult, outputs: Sequence[Mapping[str, Any]] = ()
+) -> str:
     return json.dumps(
         {
             "status": result.status.value,
@@ -502,6 +578,8 @@ def _execution_payload(result: SkillExecutionResult) -> str:
             "result": result.result,
             "duration_ms": result.duration_ms,
             "exit_code": result.exit_code,
+            "outputs": list(outputs),
+            "output_notice": result.output_notice,
         },
         ensure_ascii=False,
     )

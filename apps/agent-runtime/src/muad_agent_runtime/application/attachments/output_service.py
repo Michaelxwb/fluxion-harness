@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import mimetypes
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from muad_agent_core.skill import OutputFile
 from muad_artifact_store import NfsArtifactStore
 
 from ...infrastructure.db import SessionFactoryProvider
@@ -45,13 +48,19 @@ class OutputArtifactWriter:
         self.scope = scope
 
     async def save(
-        self, data: bytes, *, filename: str, media_type: str, kind: Literal["DOCUMENT", "OTHER"]
+        self,
+        data: bytes,
+        *,
+        filename: str,
+        media_type: str,
+        kind: Literal["DOCUMENT", "OTHER"],
+        metadata: dict[str, object] | None = None,
     ) -> Artifact:
         if self.scope.run_id is None:
             raise OutputArtifactError("ATTACHMENT_WRITE_UNAVAILABLE", "当前运行不支持写出产物")
         if len(data) > MAX_OUTPUT_BYTES:
             raise OutputArtifactError("ATTACHMENT_TOO_LARGE", f"产物超过上限（{MAX_OUTPUT_BYTES} 字节）")
-        row = self._row(data, filename=filename, media_type=media_type, kind=kind)
+        row = self._row(data, filename=filename, media_type=media_type, kind=kind, metadata=metadata)
         try:
             path = self._store.write(row.storage_key, data)
         except OSError as exc:
@@ -69,7 +78,13 @@ class OutputArtifactWriter:
         return row
 
     def _row(
-        self, data: bytes, *, filename: str, media_type: str, kind: Literal["DOCUMENT", "OTHER"]
+        self,
+        data: bytes,
+        *,
+        filename: str,
+        media_type: str,
+        kind: Literal["DOCUMENT", "OTHER"],
+        metadata: dict[str, object] | None = None,
     ) -> Artifact:
         artifact_id = uuid.uuid4()
         return Artifact(
@@ -89,5 +104,29 @@ class OutputArtifactWriter:
                 "source": "agent",
                 "version": 1,
                 "versions": [],
+                **dict(metadata or {}),
             },
         )
+
+
+class SkillOutputArtifactRegistrar:
+    """把 ``SKILL_OUTPUT_DIR`` 中已登记的产物写入既有 Artifact Store。
+
+    只复用 ``OutputArtifactWriter``：产物行仍是 ``AGENT_OUTPUT`` + 本次 Run，
+    因此后续仍由现有 ``deliver_artifact``/附件机制交付，不新增下载面。
+    """
+
+    def __init__(self, writer: OutputArtifactWriter) -> None:
+        self._writer = writer
+
+    async def register(self, output: OutputFile) -> str:
+        data = await asyncio.to_thread(output.path.read_bytes)
+        media_type = mimetypes.guess_type(output.relative_path)[0] or "application/octet-stream"
+        row = await self._writer.save(
+            data,
+            filename=Path(output.relative_path).name,
+            media_type=media_type,
+            kind="DOCUMENT",
+            metadata={"relative_path": output.relative_path, "skill_output": True},
+        )
+        return str(row.id)

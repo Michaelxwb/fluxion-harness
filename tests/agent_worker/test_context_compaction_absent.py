@@ -28,8 +28,8 @@ COMPACTION_SURFACE = (
     "muad_agent_runtime.application.context_compaction",
 )
 
-#: Worker 真正依赖的 agent-core 面：只到 Skill 执行。
-WORKER_ALLOWED_CORE_IMPORTS = ("muad_agent_core.skill",)
+#: Worker 真正依赖的 agent-core 面：Skill 执行（含统一沙箱边界）。
+WORKER_ALLOWED_CORE_IMPORTS = ("muad_agent_core.skill", "muad_agent_core.sandbox")
 
 
 def _imported_modules(path: Path) -> set[str]:

@@ -37,6 +37,10 @@ DELIVERY_ATTEMPT_METRIC: Final = "delivery_attempt_total"
 DELIVERY_FAILED_METRIC: Final = "delivery_failed_total"
 #: 产物引用解析不到（404）：退文本形态的计数——**看得见**才不会被当成"本来就没产物"。
 DELIVERY_ARTIFACT_GONE_METRIC: Final = "delivery_artifact_gone_total"
+#: Skill 沙箱执行结局：与 Runtime 同口径（source/status），Worker 侧单独目录可见。
+SKILL_EXECUTION_METRIC: Final = "skill_execution_total"
+SANDBOX_OUTPUT_LIMIT_METRIC: Final = "sandbox_output_limit_total"
+SANDBOX_TIMEOUT_METRIC: Final = "sandbox_timeout_total"
 #: 取平台设置快照的失败计数在**调用方**侧（Console 端点不可达时 Console 收不到请求）。
 PLATFORM_SETTINGS_FETCH_METRIC: Final = "platform_settings_fetch_total"
 
@@ -68,6 +72,24 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         COUNTER,
         ("caller", "result"),
         "Platform settings snapshot fetches by caller and result (ok/failed)",
+    ),
+    (
+        SKILL_EXECUTION_METRIC,
+        COUNTER,
+        ("source", "status"),
+        "Skill sandbox executions by skill source and outcome",
+    ),
+    (
+        SANDBOX_OUTPUT_LIMIT_METRIC,
+        COUNTER,
+        ("source",),
+        "Skill executions terminated or rejected by an output limit",
+    ),
+    (
+        SANDBOX_TIMEOUT_METRIC,
+        COUNTER,
+        ("source",),
+        "Skill executions terminated by the sandbox timeout",
     ),
 )
 
