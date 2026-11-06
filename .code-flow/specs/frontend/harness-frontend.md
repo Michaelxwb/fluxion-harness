@@ -27,6 +27,10 @@ verifiers:
 
 ## Conventions
 
+- API 响应字段变化时，同步组件测试 API 夹具、列表列数和历史版本断言，并在推送前执行 Console 提交前检查入口（`scripts/check_console_pr.sh`），仅 `tsc`/构建通过不能替代组件运行验证。
+  - ✅ 夹具使用服务 DTO 的 `satisfies` 约束，并覆盖空、单值、多值；实际运行涉及的 component 域。
+  - ❌ 新增必填数组后保留缺字段的无类型 mock，或通过放宽断言掩盖页面异常。
+
 Semi `Upload` 选择的文件用**组件 state** 保存，不放入 Semi Form 字段：`onFileChange` 签名是 `(files: Array<File>) => void`（不是 FileItem，无 `fileInstance`）；未注册的 Form 字段用 `formApi.setValue` 不会进入 `onSubmit` values，导致提交时文件恒为空（05 导入 Modal 真实事故）。
 
 ✅：

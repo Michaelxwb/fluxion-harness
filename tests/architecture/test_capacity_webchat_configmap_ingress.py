@@ -355,7 +355,7 @@ def test_configmap_declares_entry_budgets_equal_to_typed_defaults() -> None:
     for key, raw in data.items():
         field = key.lower()
         assert field in SharedSettings.model_fields, f"ConfigMap 的 {key} 不是 SharedSettings typed 字段"
-        declared = getattr(SharedSettings(), field)
+        declared = SharedSettings.model_fields[field].get_default(call_default_factory=True)
         if isinstance(declared, (int, float)) and not isinstance(declared, bool):
             assert _manifest_number(key, raw) == float(declared), (
                 f"ConfigMap 的 {key}={raw!r} 必须等于 typed 默认 {declared}（改默认要同步清单）"

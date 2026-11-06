@@ -20,7 +20,7 @@ const user: UserListItem = {
   create_time: model.create_time, update_time: model.update_time
 };
 const skill: SkillListItem = {
-  id: 'layout-skill', key: 'layout-skill', name: 'Layout skill', description: '', platform_label: null,
+  id: 'layout-skill', key: 'layout-skill', name: 'Layout skill', description: '', platform_label: null, platforms: [],
   user_scope: 'ALL', enabled: true, current_artifact_id: 'version', current_version: '1.0.0',
   execution_mode: 'SCRIPT', agent_count: 1, user_count: 0, update_time: model.update_time
 };
