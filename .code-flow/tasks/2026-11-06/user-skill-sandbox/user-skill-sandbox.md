@@ -125,8 +125,8 @@
 | S-45 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-46 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-47 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → SKILL_OUTPUT_DIR → ArtifactStore → 现有附件交付 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_47.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-48 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require | TASK-015 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_48.py"] | . | 600 | P1 | auto | local | - | - | - | no |
-| E-17 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Pod A 临时安装 → Pod B/重建后执行同一 Skill | TASK-015 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_17.py"] | . | 600 | P1 | auto | local | - | - | - | no |
+| S-48 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require | TASK-015 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_48.py"] | . | 600 | P1 | auto | local | - | - | - | no |
+| E-17 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Pod A 临时安装 → Pod B/重建后执行同一 Skill | TASK-015 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_17.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 
 ---
 
@@ -991,7 +991,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ## TASK-015: 系统依赖基线（镜像预装）
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P1
 - **Depends**: -
 - **Source**: user-skill-sandbox.backend.design.md#3.5 质量实现方案, user-skill-sandbox.backend.design.md#4.1 部署架构
@@ -1007,21 +1007,21 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ### Checklist
 
-- [ ] 交付 `管理员通过镜像构建预装 Python/Node 依赖；Skill 直接 import；workspace 临时安装不作为生产依赖`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 依赖清单/镜像构建流程与 image digest 记录
-- [ ] 所有副本一致；不在运行 Pod 安装系统包
-- [ ] workspace 临时安装标记为验证，TTL/配额/清理生效
-- [ ] [S-48][integration] 预装依赖直接 import/require
-- [ ] [E-17][integration] 临时安装在新 Pod 不存在，生产路径要求预装
-- [ ] [harness-arch#RULE-arch-001][verifier] 运行 `uv run pytest -q tests/architecture/test_k8s_deploy_manifests.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `管理员通过镜像构建预装 Python/Node 依赖；Skill 直接 import；workspace 临时安装不作为生产依赖`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 依赖清单/镜像构建流程与 image digest 记录
+- [x] 所有副本一致；不在运行 Pod 安装系统包
+- [x] workspace 临时安装标记为验证，TTL/配额/清理生效
+- [x] [S-48][integration] 预装依赖直接 import/require
+- [x] [E-17][integration] 临时安装在新 Pod 不存在，生产路径要求预装
+- [x] [harness-arch#RULE-arch-001][verifier] 运行 `uv run pytest -q tests/architecture/test_k8s_deploy_manifests.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-48 | integration | 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require | Skill 不需要 workspace 安装即可 import/require；所有 Runtime/Worker 副本依赖版本一致；image digest 和依赖变更记录可查；不在运行中的 Pod 修改系统 site-packages | tests/acceptance/user_skill_sandbox/test_s_48.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_48.py"] | planned |
-| E-17 | integration | Pod A 临时安装 → Pod B/重建后执行同一 Skill | 新 Pod 不保证存在该依赖，import 失败可见；生产路径要求管理员预装到系统镜像；临时安装计入 workspace 配额，可被 TTL 清理 | tests/acceptance/user_skill_sandbox/test_e_17.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_17.py"] | planned |
+| S-48 | integration | 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require | Skill 不需要 workspace 安装即可 import/require；所有 Runtime/Worker 副本依赖版本一致；image digest 和依赖变更记录可查；不在运行中的 Pod 修改系统 site-packages | tests/acceptance/user_skill_sandbox/test_s_48.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_48.py"] | verified |
+| E-17 | integration | Pod A 临时安装 → Pod B/重建后执行同一 Skill | 新 Pod 不保证存在该依赖，import 失败可见；生产路径要求管理员预装到系统镜像；临时安装计入 workspace 配额，可被 TTL 清理 | tests/acceptance/user_skill_sandbox/test_e_17.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_17.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -1029,12 +1029,20 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-48 | - | - | - | - | pending |
-| E-17 | - | - | - | - | pending |
+| S-48 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_48.py` → `4 failed in 2.49s`：脚本/基线/Dockerfile 接线尚不存在（`FileNotFoundError: scripts/skill_system_deps.py`） | 同命令 → `4 passed`；与 E-17 联合 `7 passed in 130.41s`；预装 `tabulate`/`uuid` 在真实 bwrap 中直接 import/require；runtime/worker 记录同为 `baseline_sha256=e0361c1c...`；运行用户对 site-packages/Node 全局目录不可写 | `tests/acceptance/user_skill_sandbox/test_s_48.py::test_s48_baseline_is_declared_and_both_images_install_it`、`::test_s48_skill_imports_python_and_requires_node_inside_bwrap_without_workspace`、`::test_s48_image_digest_and_dependency_record_are_verifiable`；`tests/architecture/test_skill_system_deps.py` | 探针镜像由带 bwrap 的基础镜像 + 同一 `build/docker-build/skill-deps/install.sh` 真实构建；bwrap `--unshare-all`、UID 10001；`record/verify-records/change` 读取真实 `docker image inspect` digest 与容器内实际版本，未 mock | verified |
+| E-17 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_e_17.py` → `3 failed in 2.44s`：缺少基线脚本与运维文档，无法建立 Pod A/Pod B 边界 | 同命令 → `3 passed`；与 S-48 联合 `7 passed in 130.41s`；Pod A 在 workspace `pip install --target` 成功，Pod B 空 workspace 报 `ModuleNotFoundError: e17_demo_dep`；系统基线 `tabulate` 仍可 import；删除 workspace 后临时依赖不可恢复 | `tests/acceptance/user_skill_sandbox/test_e_17.py::test_e17_temp_install_does_not_survive_a_new_pod`、`::test_e17_temp_install_is_confined_to_workspace_and_removed_by_cleanup`、`::test_e17_policy_requires_image_preinstall_and_counts_workspace_usage` | 两个真实容器 + 真实 bwrap + 真实 pip；临时安装只在 `/workspace`（含 build/target），未写入系统 site-packages/Node 全局目录；TTL 清理以删除 workspace 的最终效果验证，配额运行时实现归 TASK-005/006 | verified |
+- S-48: verified — automated command passed; run_id=1c47d35f8a2042e1b7c45521db235837 (confirmed_by: runner)
+- E-17: verified — automated command passed; run_id=1c47d35f8a2042e1b7c45521db235837 (confirmed_by: runner)
+- S-48: verified — automated command passed; run_id=94f8146b6c694d8aad1e0f06a5578392 (confirmed_by: runner)
+- E-17: verified — automated command passed; run_id=94f8146b6c694d8aad1e0f06a5578392 (confirmed_by: runner)
+- S-48: verified — automated command passed; run_id=f7299e96522d491191da4ef54a15d32e (confirmed_by: runner)
+- E-17: verified — automated command passed; run_id=f7299e96522d491191da4ef54a15d32e (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-06] started
+- [2026-11-06] completed (done)
 
 ---
 

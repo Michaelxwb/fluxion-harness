@@ -120,6 +120,35 @@ uv run python scripts/check_agent_capacity_deployment.py --profile tests/capacit
 **退出码**：`0` 通过；`1` 存在阻断发布的违规（逐项打印单元与预算明细）；`2` 渲染/配置读取
 失败（预检无法给出结论，同样阻断）。预检不连库、不读 Secret 值，输出只有预算数字与单元名。
 
+## 发布前预检（Skill 系统依赖基线）
+
+用户 Skill 的 Python/Node 依赖随 runtime/worker 镜像预装，**不在运行中的 Pod 上安装**：
+
+```bash
+# 基线文件 / Dockerfile / 构建脚本一致性
+uv run python scripts/skill_system_deps.py validate --json
+
+# 构建产出的两个记录必须来自同一基线，且记录 image digest
+uv run python scripts/skill_system_deps.py verify-records \
+  --runtime /tmp/muad-image-agent-runtime/system-deps-record.json \
+  --worker  /tmp/muad-image-agent-worker/system-deps-record.json
+
+# 所有副本的 imageID 必须与记录一致（只读检查，不改 Pod）
+kubectl -n muad get pods -l app=muad-agent-runtime \
+  -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.containerStatuses[0].imageID}{"\n"}{end}'
+kubectl -n muad get pods -l app=muad-agent-worker \
+  -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.containerStatuses[0].imageID}{"\n"}{end}'
+
+# 预装依赖在真实 Pod 内可 import/require（只读探针）
+kubectl -n muad exec deploy/muad-agent-runtime -- python -c "import tabulate; print(tabulate.__version__)"
+kubectl -n muad exec deploy/muad-agent-runtime -- node -e "console.log(require('uuid').version)"
+```
+
+新增/升级依赖、image digest/变更记录、回滚步骤见
+`docs/operations/system-dependencies.md`。**禁止**用
+`kubectl exec ... pip install` / `npm install -g` 在生产 Pod 上补装；重启/换副本会丢失，
+且副本间不一致。
+
 ## 维护窗口：备份、排空、单次迁移（§4.2 发布与迁移）
 
 先记录基线、再排空、再迁移，最后才发布四单元；迁移只走 Job（集群里唯一的 schema 变更入口）。

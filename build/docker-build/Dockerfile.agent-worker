@@ -4,14 +4,24 @@
 ARG BASE_IMAGE=docker.sangfor.com/mss-base/python-node:3.12.13-node24
 FROM ${BASE_IMAGE}
 
+ARG BASE_IMAGE
+ARG SKILL_DEPS_SHA256=unknown
+LABEL org.muad.base-image="${BASE_IMAGE}"
+LABEL org.muad.skill-deps.sha256="${SKILL_DEPS_SHA256}"
+
 ARG PIP_INDEX_URL=http://mirrors.sangfor.org/pypi/simple
 ARG PIP_TRUSTED_HOST=mirrors.sangfor.org
+ARG NPM_REGISTRY=http://npm.uedc.sangfor.com.cn/
 USER root
 WORKDIR /app
 
 COPY requirements.txt /tmp/requirements.txt
+COPY build/docker-build/skill-deps /tmp/skill-deps
 RUN python -m pip install --no-cache-dir -i "${PIP_INDEX_URL}" \
-      --trusted-host "${PIP_TRUSTED_HOST}" -r /tmp/requirements.txt
+      --trusted-host "${PIP_TRUSTED_HOST}" -r /tmp/requirements.txt \
+ && PIP_INDEX_URL="${PIP_INDEX_URL}" PIP_TRUSTED_HOST="${PIP_TRUSTED_HOST}" \
+      NPM_REGISTRY="${NPM_REGISTRY}" sh /tmp/skill-deps/install.sh /tmp/skill-deps \
+ && rm -rf /tmp/skill-deps
 
 COPY config /app/config
 # Startup validation reads the alembic head from ./migrations/versions and

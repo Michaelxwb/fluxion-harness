@@ -624,6 +624,14 @@ docker tag \
   构建时显式拉取或固定底座 digest，记录服务 image digest 和所有副本的实际 imageID；
   不新增独立沙箱服务或镜像流水线。
 
+runtime/worker 服务镜像在安装应用依赖后，还会执行
+`build/docker-build/skill-deps/install.sh` 安装管理员批准的用户 Skill 系统依赖基线
+（Python → 系统 site-packages；Node → `/usr/local/lib/node`）。镜像 label
+`org.muad.skill-deps.sha256` 固定基线内容；构建脚本写出 `image_id.txt`、
+`skill-deps.sha256`，推送时写 `image_digest.txt`。新增/升级依赖、记录 digest 与变更
+记录、回滚步骤见 [`system-dependencies.md`](system-dependencies.md)。**禁止**在运行中的
+Pod 上补装：依赖只随镜像发布，workspace 临时安装仅用于验证。
+
 session-manager 前置测试镜像：
 
 ```bash
@@ -1317,17 +1325,18 @@ workspace 空闲超过 TTL → 清理任务删除目录
 workspace 主要用于保存用户 Skill 执行的数据和输出，不是生产依赖的分发通道。生产依赖分两层：
 
 1. **系统依赖基线（生产路径）**
-   - 管理员把批准的 Python 包加入 `requirements.txt`/基础镜像依赖清单，Node 依赖加入镜像基线；
-   - 重建 runtime/worker 镜像并滚动发布，所有副本一致；
-   - 不在运行中的 Pod 上 `pip install` 到系统 site-packages（重启/换副本会丢失）；
-   - 依赖随 image digest 版本化，升级失败回滚旧镜像；
-   - 本期不新增依赖管理 UI，沿用现有镜像构建流程。
+   - 管理员把批准的 Python 包加入 `build/docker-build/skill-deps/python-requirements.txt`，Node 包加入 `build/docker-build/skill-deps/node/package.json` + `package-lock.json`；`baseline.json` 登记模块映射；
+   - runtime/worker Dockerfile 在构建期执行 `build/docker-build/skill-deps/install.sh`：Python 进系统 site-packages，Node 进 `/usr/local/lib/node`；
+   - 重建 runtime/worker 镜像并滚动发布，所有副本一致；镜像 label/record 记录 `org.muad.skill-deps.sha256` 与 image digest；
+   - 不在运行中的 Pod 上 `pip install` 到系统 site-packages，也不修改 `/usr/local/lib/node`（重启/换副本会丢失且副本不一致）；
+   - 依赖随 image digest 版本化，升级失败回滚旧镜像；变更记录包含包名、版本、申请人、审批人、镜像版本；
+   - 本期不新增依赖管理 UI，沿用现有镜像构建流程。操作步骤、机检命令与回滚口径见 [`system-dependencies.md`](system-dependencies.md)。
 
 2. **workspace 临时安装（仅验证）**
    - 用户可在 `workspace_shell` 里 `pip install` 到 workspace venv/target、`npm install` 到 `node_modules` 做临时验证；
    - 跨 Pod/重建/清理后不保证存在，不作为 Skill 生产依赖；
    - 不写 `/usr`、不写共享缓存、不改镜像；
-   - 计入 workspace 配额。
+   - 计入 workspace 配额，可被 TTL 清理（验收：E-17）。
 
 3. **网络与 Pod 一致**
    - 沙箱使用 `--share-net`，与 Pod 网络完全一致；

@@ -30,6 +30,8 @@ playwright-report
 test-results
 build/docker-build/*
 !build/docker-build/sandbox
+!build/docker-build/skill-deps
+!build/docker-build/skill-deps/**
 build/helm-build
 build/dist
 
