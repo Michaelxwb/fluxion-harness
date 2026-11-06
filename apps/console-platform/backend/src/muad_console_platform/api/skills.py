@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, Query, Request, Uplo
 from fastapi.responses import FileResponse
 from muad_api import ApiResponse, AppError, ok, paginate
 from muad_api.error_codes import ErrorCode
+from muad_contracts import SkillSource
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
@@ -25,7 +26,11 @@ router = APIRouter(prefix="/api/v1/skills", tags=["skills"])
 
 
 def _actor(account: CurrentAccount, request: Request) -> AuditActor:
-    return AuditActor(account_id=account.id, source_ip=get_source_ip(request))
+    return AuditActor(
+        account_id=account.id,
+        source_ip=get_source_ip(request),
+        role=account.role,
+    )
 
 
 async def _upload_bytes(file: UploadFile) -> bytes:
@@ -84,6 +89,7 @@ async def import_skill(
     key: Annotated[str | None, Form(min_length=1, max_length=128)] = None,
     default_script: Annotated[str | None, Form(max_length=256)] = None,
     user_scope: Annotated[str | None, Form(pattern="^(ALL|SELECTED)$")] = None,
+    source: Annotated[SkillSource | None, Form()] = None,
     idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ApiResponse[Any]:
     with count_outcome(SKILL_IMPORT_METRIC):
@@ -93,6 +99,7 @@ async def import_skill(
             key=key,
             default_script=default_script,
             user_scope=user_scope,
+            source=source,
             data=await _upload_bytes(file),
             actor=_actor(account, request),
             idempotency_key=idempotency_key,

@@ -13,12 +13,26 @@ from ..models.control import (
 )
 
 USER_SCOPE_ALL = "ALL"
+SKILL_SOURCE_SYSTEM = "SYSTEM"
 
 
 def current_artifact_join() -> ColumnElement[bool]:
     return and_(
         SkillArtifact.id == Skill.current_artifact_id,
         SkillArtifact.is_deleted.is_(False),
+    )
+
+
+def effective_binding_join(agent_id: uuid.UUID) -> ColumnElement[bool]:
+    """Effective 查询的 Agent→Skill 绑定腿：只匹配当前 Agent 的存活绑定。
+
+    绑定放在 JOIN 谓词里（而不是 WHERE），系统 Skill 才能在无绑定时仍保留一行；
+    同一 Agent+Skill 的 partial unique 保证不会因为多绑定行放大结果。
+    """
+    return and_(
+        AgentSkillBinding.skill_id == Skill.id,
+        AgentSkillBinding.agent_id == agent_id,
+        AgentSkillBinding.is_deleted.is_(False),
     )
 
 
@@ -40,21 +54,29 @@ def latest_artifact_status_subquery() -> ScalarSelect[str]:
 def _effective_conditions(
     tenant_id: str, agent_id: uuid.UUID, user_id: uuid.UUID
 ) -> tuple[ColumnElement[bool], ...]:
-    """Effective Skill 公式（单处定义，list/count 共用，避免复制授权逻辑）。"""
+    """Effective Skill 公式（单处定义，list/count/catalog/execution 共用）。
+
+    系统 Skill（source=SYSTEM）属于当前租户的全局能力，不依赖 AgentSkillBinding；
+    普通 Skill 仍然要求当前 Agent 的存活绑定，再叠加 ALL/SELECTED 授权。两条腿都
+    先经过 tenant/enabled/未软删过滤，普通 Skill 的授权条件不会被系统分支放大。
+    """
     granted_skill_ids = select(SkillUserGrant.skill_id).where(
         SkillUserGrant.user_id == user_id,
         SkillUserGrant.is_deleted.is_(False),
     )
-    return (
+    bound_and_authorized = and_(
         AgentSkillBinding.agent_id == agent_id,
         AgentSkillBinding.is_deleted.is_(False),
-        Skill.tenant_id == tenant_id,
-        Skill.enabled.is_(True),
-        Skill.is_deleted.is_(False),
         or_(
             Skill.user_scope == USER_SCOPE_ALL,
             Skill.id.in_(granted_skill_ids),
         ),
+    )
+    return (
+        Skill.tenant_id == tenant_id,
+        Skill.enabled.is_(True),
+        Skill.is_deleted.is_(False),
+        or_(Skill.source == SKILL_SOURCE_SYSTEM, bound_and_authorized),
     )
 
 
@@ -396,7 +418,7 @@ class SkillRepository:
     ) -> list[tuple[Skill, SkillArtifact]]:
         statement = (
             select(Skill, SkillArtifact)
-            .join(AgentSkillBinding, AgentSkillBinding.skill_id == Skill.id)
+            .outerjoin(AgentSkillBinding, effective_binding_join(agent_id))
             .join(SkillArtifact, current_artifact_join())
             .where(*_effective_conditions(tenant_id, agent_id, user_id))
             .order_by(AgentSkillBinding.sort_order, Skill.key)
@@ -416,7 +438,7 @@ class SkillRepository:
         total = await self._session.scalar(
             select(func.count())
             .select_from(Skill)
-            .join(AgentSkillBinding, AgentSkillBinding.skill_id == Skill.id)
+            .outerjoin(AgentSkillBinding, effective_binding_join(agent_id))
             .join(SkillArtifact, current_artifact_join())
             .where(*_effective_conditions(tenant_id, agent_id, user_id))
         )

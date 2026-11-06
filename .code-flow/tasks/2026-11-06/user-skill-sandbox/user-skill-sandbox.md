@@ -86,7 +86,7 @@
 | S-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Artifact Store → 下载响应 → 审计 | TASK-011 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_07.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 解绑/软删事务 → PG → 审计 | TASK-011 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Skill/Artifact → effective 查询 | TASK-012 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Skill/Artifact → effective 查询 | TASK-012 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-10 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime/Worker → SandboxedSkillExecutor → bwrap → stdout/exit code | TASK-003 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_10.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-11 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules | TASK-005 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_11.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | B-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace 元数据 → PVC 目录 → 两次执行 | TASK-005 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -110,7 +110,7 @@
 | E-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批状态校验 | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-10 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 审批事务 → AgentAccessGrant 校验 | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_10.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-11 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 两个并发事务 → artifact 行锁/状态复核 | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_11.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| B-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console/Worker/Runtime effective 查询 | TASK-012 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| B-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console/Worker/Runtime effective 查询 | TASK-012 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-12 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | integration | Console API → 管理员权限校验 | TASK-014 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_12.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-35 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-36 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P0 | auto | none | - | - | - | no |
@@ -899,7 +899,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ## TASK-012: 系统 Skill（source=SYSTEM）与 effective 查询
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007, TASK-010
 - **Source**: user-skill-sandbox.backend.design.md#3.3 数据设计, user-skill-sandbox.backend.design.md#3.4 接口设计
@@ -915,21 +915,21 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ### Checklist
 
-- [ ] 交付 `管理员上传 `source=SYSTEM` 自动通过、当前租户全局生效、无需绑定`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 导入 source=SYSTEM/ADMIN；SYSTEM 自动通过、user_scope=ALL、enabled=true
-- [ ] 系统 Skill 不需要 AgentSkillBinding；所有 effective 查询入口一致
-- [ ] 普通用户不能修改/删除系统 Skill；管理员删除走软删/审计
-- [ ] [S-09][integration] 系统 Skill 上传/全局生效/无绑定
-- [ ] [B-04][integration] list/count/catalog/snapshot/execution 一致
-- [ ] [harness-auth#RULE-auth-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_system_skill.py tests/console_skill/test_resolve_skills.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `管理员上传 `source=SYSTEM` 自动通过、当前租户全局生效、无需绑定`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 导入 source=SYSTEM/ADMIN；SYSTEM 自动通过、user_scope=ALL、enabled=true
+- [x] 系统 Skill 不需要 AgentSkillBinding；所有 effective 查询入口一致
+- [x] 普通用户不能修改/删除系统 Skill；管理员删除走软删/审计
+- [x] [S-09][integration] 系统 Skill 上传/全局生效/无绑定
+- [x] [B-04][integration] list/count/catalog/snapshot/execution 一致
+- [x] [harness-auth#RULE-auth-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_09.py tests/console_skill/test_resolve_skills.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-09 | integration | Console API → Skill/Artifact → effective 查询 | 自动 APPROVED、user_scope=ALL、enabled=true；不需要 AgentSkillBinding；任意用户/Agent 的 effective 查询可见；普通用户不能修改/删除 | tests/acceptance/user_skill_sandbox/test_s_09.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_09.py"] | planned |
-| B-04 | integration | Console/Worker/Runtime effective 查询 | list/count/catalog/snapshot/execution 均包含；不需要 binding；普通 Skill 查询不被误放大 | tests/acceptance/user_skill_sandbox/test_b_04.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_04.py"] | planned |
+| S-09 | integration | Console API → Skill/Artifact → effective 查询 | 自动 APPROVED、user_scope=ALL、enabled=true；不需要 AgentSkillBinding；任意用户/Agent 的 effective 查询可见；普通用户不能修改/删除 | tests/acceptance/user_skill_sandbox/test_s_09.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_09.py"] | verified |
+| B-04 | integration | Console/Worker/Runtime effective 查询 | list/count/catalog/snapshot/execution 均包含；不需要 binding；普通 Skill 查询不被误放大 | tests/acceptance/user_skill_sandbox/test_b_04.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_04.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -937,12 +937,18 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-09 | - | - | - | - | pending |
-| B-04 | - | - | - | - | pending |
+| S-09 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_09.py` → 1 failed（导入返回 `source=ADMIN`，`assert 'ADMIN' == 'SYSTEM'`）；builder 修改/删除用例因服务未做系统 Skill 门控尚未执行 | 4 passed（`test_s_09.py`） | `tests/acceptance/user_skill_sandbox/test_s_09.py:130,160,162,165,173,189,226,233,248,280,293` | 真实管理员/Builder 登录 + Console import/review API → 真实 PostgreSQL + Artifact Store：SYSTEM 导入后 `skill.source=SYSTEM`、`review_status=APPROVED`、`user_scope=ALL`、`enabled=true`、artifact.source=SYSTEM，`agent_skill_binding` 计数为 0；owner/other user/第二 Agent 的 `SkillRepository` effective 查询均包含；builder 显式 source=SYSTEM、PUT、DELETE、追加 artifact 均 403 FORBIDDEN；管理员 DELETE 软删并写 `SKILL` DELETE 审计（actor=admin） | passed |
+| B-04 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_b_04.py` → 1 failed（`listed_keys` 仅含 `b04-selected-granted`，缺无绑定的 `b04-system`） | 2 passed（`test_b_04.py`） | `tests/acceptance/user_skill_sandbox/test_b_04.py:334,335,344,347,362,377,394` | 真实 PostgreSQL `control.skill`/`agent_skill_binding`/`skill_user_grant` → `SkillRepository` list/count → `/internal/channel/skills` catalog → `/internal/runtime/resolve-definition` execution → `build_task_snapshot`：SYSTEM 无 binding 在五个入口均可见；无 binding 的 ADMIN/ALL、SELECTED 未授权、disabled SYSTEM、其他租户 SYSTEM 均不进入；第二 Agent 只看到 SYSTEM 与自己绑定的普通 Skill，普通 Skill 未被系统分支放大 | passed |
+- S-09: verified — automated command passed; run_id=503748cde8b948d4bf607516aafd542c (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=503748cde8b948d4bf607516aafd542c (confirmed_by: runner)
+- S-09: verified — automated command passed; run_id=b94c5d3330624691b61a088e64f477e0 (confirmed_by: runner)
+- B-04: verified — automated command passed; run_id=b94c5d3330624691b61a088e64f477e0 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-07] started
+- [2026-11-07] completed (done)
 
 ---
 
