@@ -16,7 +16,10 @@ const artifact = {
   checksum: 'abc123'.repeat(12), storage_key: 'skills/layout/artifact/'.repeat(6),
   execution_mode: 'SCRIPT', default_script: null, package_size: 2048, validation_status: 'VALID',
   instructions: '# Instructions\n\n' + longText, frontmatter: {}, platforms: ['mssp', 'mssw'],
-  manifest: { files: [{ path: 'scripts/' + 'nested/'.repeat(12) + 'main.py', size: 1024 }] }, create_time: time
+  manifest: { files: [{ path: 'scripts/' + 'nested/'.repeat(12) + 'main.py', size: 1024 }] },
+  created_by: 'layout', create_time: time, review_status: 'APPROVED', review_note: null,
+  reviewed_by: 'layout', reviewed_at: time, submitted_by_user_id: null,
+  submitted_agent_id: null, submitted_channel: null, source: 'ADMIN'
 } satisfies SkillArtifactDetail;
 const cases = [
   { path: 'models', api: 'models', link: 'model-link-layout', data: {
@@ -39,8 +42,10 @@ const cases = [
     tool_cache_ttl_sec: 300, auth_config: {}, auth_secret_configured: false
   } },
   { path: 'skills', api: 'skills', link: 'skill-link-layout', data: {
-    ...base, platform_label: null, platforms: ['mssp', 'mssw'], user_scope: 'ALL', current_artifact_id: 'version', current_version: '1.0.0',
-    execution_mode: 'SCRIPT', agent_count: 0, user_count: 0, current_artifact: artifact
+    ...base, platform_label: null, platforms: ['mssp', 'mssw'], source: 'ADMIN', author: 'Layout',
+    owner_user_id: 'layout', review_status: 'APPROVED', user_scope: 'ALL',
+    current_artifact_id: 'version', current_version: '1.0.0', execution_mode: 'SCRIPT',
+    agent_count: 0, user_count: 0, current_artifact: artifact
   } satisfies SkillDetail },
   { path: 'platforms', api: 'project-platforms', link: 'platform-link-layout', data: {
     ...base, platform_id: 'layout', resolver_type: 'BASE_URL', resolver_config: { base_url: 'https://example.com/' },

@@ -529,6 +529,8 @@ body {
 .table-actions,
 .copyable-text {
   max-width: 100%;
+  min-width: 0;
+  width: 100%;
   display: inline-flex;
   align-items: center;
   vertical-align: middle;
@@ -536,6 +538,7 @@ body {
 }
 
 .copyable-text > span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

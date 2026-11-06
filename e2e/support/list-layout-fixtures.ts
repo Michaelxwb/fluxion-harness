@@ -11,7 +11,8 @@ const id = 'f069722a-1234-4567-8901-234567890123';
 const longName = 'Layout name with enough text to overflow a narrow column '.repeat(2);
 const longKey = 'layout-key-that-would-otherwise-stretch-the-whole-table';
 const skill: SkillListItem = {
-  id, key: longKey, name: longName, description: '', platform_label: null, platforms: ['mssp', 'mssw'], user_scope: 'SELECTED',
+  id, key: longKey, name: longName, description: '', platform_label: null, platforms: ['mssp', 'mssw'],
+  source: 'ADMIN', author: longName, owner_user_id: id, review_status: 'APPROVED', user_scope: 'SELECTED',
   enabled: true, current_artifact_id: 'version', current_version: '1.0.0', execution_mode: 'SCRIPT',
   agent_count: 12345, user_count: 12345, update_time: time
 };
@@ -61,7 +62,7 @@ const audit = {
 };
 
 export const listLayoutCases = [
-  { path: 'skills', api: 'skills', data: [skill], columns: 10, dense: false, actions: true },
+  { path: 'skills', api: 'skills', data: [skill], columns: 13, dense: false, actions: true },
   { path: 'mcp', api: 'mcp-servers', data: [mcp, { ...mcp, mcp_id: 'unavailable-mcp', key: 'unavailable-mcp',
     enabled: false, user_scope: 'SELECTED', connection_status: 'DISCOVERY_FAILED' } satisfies McpServerListItem],
     columns: 11, dense: true, actions: true },
