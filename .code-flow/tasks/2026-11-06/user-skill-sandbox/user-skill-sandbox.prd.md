@@ -113,7 +113,7 @@
 |------|---------|--------|
 | US-01 | 作为租户终端用户，我希望在对话/Console 中创建 Skill 草稿并读写文件，以便把可复用流程封装成 Skill。 | P0 |
 | US-02 | 作为租户终端用户，我希望在提交前用一次性沙箱 Shell 测试草稿脚本，并能通过 `session-manager` 获取平台登录态，以便验证真实平台调用。 | P0 |
-| US-03 | 作为租户终端用户，我希望提交草稿后看到 PENDING/APPROVED/REJECTED 状态和驳回原因，以便知道何时可用、如何修改。 | P0 |
+| US-03 | 作为租户终端用户，我希望在对话中通过 `skill_draft_status` 查询 PENDING/APPROVED/REJECTED 状态和驳回原因，以便知道何时可用、如何修改。 | P0 |
 | US-04 | 作为租户终端用户，我希望只能覆盖自己尚未审批的 PENDING 提交，不能覆盖其他用户的同名 Skill，以便防止误覆盖和越权。 | P0 |
 | US-05 | 作为租户终端用户，我希望已审批的 Skill 版本不可修改，只有管理员解绑并软删后我才能重新提交，以便执行版本稳定可审计。 | P0 |
 | US-06 | 作为租户终端用户，我希望审批通过后 Skill 自动授权给我并绑定到我上传时所在的 Agent，以便无需额外配置即可使用。 | P0 |
@@ -338,7 +338,8 @@
 
 - **描述**: 控制 workspace 磁盘增长，按 TTL 自动清理 `outputs` 和 `data`，不新增独立清理服务。
 - **验收标准**:
-  - [ ] 每个 user + Agent workspace 默认 1 GiB，每用户聚合默认 5 GiB；文件数有上限；超限返回 `WORKSPACE_QUOTA_EXCEEDED`。
+  - [ ] 每个 user + Agent workspace 默认 500 MiB，每用户聚合默认 500 MiB；文件数上限 5,000；超限返回 `WORKSPACE_QUOTA_EXCEEDED`。
+  - [ ] 系统 Python/Node 解释器和系统依赖只读继承 Pod 基础镜像，不复制到 workspace；`pip`/`npm` 只把安装包写入 workspace 的 venv/target/node_modules，并计入配额。
   - [ ] `outputs` 和 `data` 默认 30 天未访问清理；`last_access_time` 由 Skill 执行/Shell 访问更新，不依赖不可靠的 NFS atime。
   - [ ] 清理由 Worker 内置 `workspace.maintenance` 循环执行，随进程启动；不需要管理员创建 Schedule，也不新增 K8s CronJob。
   - [ ] 多副本清理使用 PG advisory lock 或 DB 认领 + 租约，避免重复删除/重复计数。
@@ -428,7 +429,7 @@
 | NFR-COMPAT-03 | 兼容性 | 保留 `SKILL_OUTPUT_DIR`；新增 `SKILL_DATA_DIR`；旧 `session-manager get-state` stdout 的 `platforms` list 继续可用；老 Skill 只做最小路径/配置改造。 |
 | NFR-COMPAT-04 | 兼容性 | 存量 Skill 回填 `source=ADMIN`、`review_status=APPROVED`；现有管理员导入、effective 查询和执行行为不变。 |
 | NFR-OBS-01 | 可观测性 | 每次 Skill 执行、审批、下载、解绑、软删、清理都有审计；执行/清理有指标；日志可按 tenant/user/agent/run/skill 关联；不记录密钥。 |
-| NFR-CAP-01 | 容量 | 每 workspace 1 GiB、每用户聚合 5 GiB、TTL 30 天；容量按 PVC 规划；配额覆盖 venv/node_modules/pip/npm cache 和 inode。 |
+| NFR-CAP-01 | 容量 | 每 workspace 500 MiB、每用户聚合 500 MiB、文件数 5,000、TTL 30 天；容量按 PVC 规划；配额覆盖 workspace venv/node_modules/pip/npm cache 和 inode，不计系统解释器/系统 site-packages。 |
 | NFR-UI-01 | 可用性 | 管理界面状态不能只用颜色表达；破坏性操作二次确认；支持键盘操作和 i18n；空态/错误/无权限有明确提示。 |
 
 ---
@@ -438,7 +439,7 @@
 | 类别 | 内容 |
 |------|------|
 | **范围（In Scope）** | 用户 Skill 草稿、校验、沙箱测试、提交、审批、驳回、覆盖、锁定、自动授权/绑定、下载审计、解绑+软删；统一 `SandboxedSkillExecutor`；bwrap 沙箱；`session-manager` 注入；`SKILL_DATA_DIR`/`SKILL_OUTPUT_DIR`；user + Agent workspace；`workspace_shell`；老 Skill 最小改造；`/v1` 服务身份门控；管理员 Console 界面；系统 Skill；审计/指标/错误码；workspace 配额/TTL/清理；多环境运行；数据模型和迁移。 |
-| **非范围（Out of Scope）** | 独立沙箱微服务、K8s Controller/CRD、每任务一个 Sandbox Pod；gVisor/Kata/独立内核隔离（后续评估）；Skill 表关联平台字段（后续需求）；Legacy 可写副本模式；按 Agent 开关 `workspace_shell`；内网 PyPI/npm mirror allowlist 或 egress proxy（当前跟 Pod 网络一致）；macOS Seatbelt 硬隔离（后续可选）；Skill 市场、评分、跨租户共享、计费；Skill 多版本并存 UI/一键回滚；Skill 包内任意系统依赖安装。 |
+| **非范围（Out of Scope）** | 独立沙箱微服务、K8s Controller/CRD、每任务一个 Sandbox Pod；gVisor/Kata/独立内核隔离（后续评估）；Skill 表关联平台字段（后续需求）；Legacy 可写副本模式；按 Agent 开关 `workspace_shell`；内网 PyPI/npm mirror allowlist 或 egress proxy（当前跟 Pod 网络一致）；macOS Seatbelt 硬隔离（后续可选）；Skill 市场、评分、跨租户共享、计费；Skill 多版本并存 UI/一键回滚；Skill 包内任意系统依赖安装；**每个 workspace 复制完整 Python/Node 运行时或系统 site-packages**（系统环境只读共享，workspace 只装增量包）。 |
 | **前置假设** | 现有 Console 登录、租户、PlatformUser、Agent、AgentAccessGrant、审计和 PVC/RWX 能力可复用；runtime/worker 可重建基础镜像；`session-manager` 和平台 adapter 已可用；Worker 已有进程内维护循环模式；管理员角色和 Console `/skills` 页面已存在；内网 Pod 允许 bwrap 所需的 namespace/mount。 |
 
 ---
@@ -473,6 +474,7 @@
 | R-08 | workspace 清理与执行竞争 | 活跃目录被删或清理重复 | 元数据 `last_access_time` + 活跃租约跳过 + advisory lock/DB 认领 + `DELETING` 状态 |
 | R-09 | 镜像/底座漂移 | 实际 Pod 与验收环境不一致 | 记录 base/service digest、imageID、kernel、seccomp、UID、caps；部署后复测 bwrap |
 | R-10 | 用户误解 `workspace_shell` 能获取平台登录态 | 老 Skill 在工作区跑拿不到 Cookie | 文档和错误码明确：平台登录态只跟 Skill 执行绑定；需要 session 时走 `execute_skill`/`run_skill_script` |
+| R-12 | 误解 workspace 配额需要复制 Python 环境 | 配额估算失真、workspace 膨胀 | 明确系统解释器/site-packages 只读共享；只统计 workspace venv/node_modules/安装包；禁止复制完整运行时 |
 
 ---
 

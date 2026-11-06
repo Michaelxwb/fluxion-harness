@@ -1024,7 +1024,7 @@ kubectl -n muad exec "$POD" -- sh -ec '
 剩余：
 
 1. P1 首批的排期、canary 和真实 Skill 验收安排；
-2. workspace 配额初值（每 workspace 1 GiB、每用户聚合 5 GiB）和 PVC 容量规划；
+2. workspace 配额初值（每 workspace 500 MiB、每用户聚合 500 MiB、文件数 5,000）和 PVC 容量规划；
 3. 清理循环的独立节拍、批量大小和告警阈值；
 4. 旧 Skill 清单和逐包改造验收。
 
@@ -1277,14 +1277,15 @@ workspace 持久化的是**磁盘/PVC，不是运行内存**：
 
 | 项目 | 默认 |
 |---|---|
-| 每个 user + Agent workspace | 1 GiB |
-| 每个用户聚合 | 5 GiB |
-| 文件数上限 | 防止海量小文件拖垮 NFS |
+| 每个 user + Agent workspace | 500 MiB |
+| 每个用户聚合 | 500 MiB |
+| 文件数上限 | 5,000，防止海量小文件拖垮 NFS |
 | 空闲 TTL | 30 天未访问自动清理 |
 | 清理前通知 | MVP 不做；如需要，后续再增加提前通知 |
 
-容量估算：1000 用户 × 1 GiB = 约 1 TiB；如果允许每人装大量 `pip/npm` 依赖，实际会更高，
-必须按配额做容量规划。
+容量估算：1000 用户 × 500 MiB = 约 500 GiB；如果允许每人装大量 `pip/npm` 依赖，实际会更高，
+必须按配额做容量规划。系统 Python/Node 解释器和系统 site-packages 只读继承基础镜像，
+不复制到 workspace；`pip`/`npm` 只写 workspace 内 venv/target/node_modules，并计入配额。
 
 磁盘硬配额须覆盖 venv、node_modules、pip/npm cache 和 inode；定时 `du` 或单文件 rlimit
 不能替代硬配额，需要确认 PVC/NFS 后端能否强制实施。
@@ -1370,7 +1371,7 @@ workspace 空闲超过 TTL → 清理任务删除目录
 | 项目 | 结论 |
 |---|---|
 | workspace 粒度 | tenant + user + Agent |
-| 配额 | 每个 workspace 1 GiB、每用户聚合 5 GiB（待容量验证） |
+| 配额 | 每个 workspace 500 MiB、每用户聚合 500 MiB、文件数 5,000（待容量验证） |
 | TTL | `outputs` 30 天、`data` 30 天 |
 | 网络 | 与 Pod 一致，`--share-net`，允许公网 |
 | 安装 | pip/npm 装到 workspace，不装系统 |

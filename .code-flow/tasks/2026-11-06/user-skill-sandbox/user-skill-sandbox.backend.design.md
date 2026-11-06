@@ -566,6 +566,8 @@ WHERE review_status = 'PENDING' AND is_deleted = false;
 
 沙箱内路径：`<workspace-root>/{tenant_id}/{user_id}/{agent_id}/data` 与 `.../outputs/{execution_id}`；只把当前 user + Agent 目录 bind 到 `/workspace`，不暴露 workspace 根。
 
+系统运行时（Python/Node 解释器、系统 site-packages）只读继承 Pod 基础镜像，**不复制到 workspace**；workspace 只保存 `pip`/`npm` 安装包、venv、node_modules 和数据/输出。禁止每个 workspace 复制完整运行时。
+
 **task.workspace_lease**
 
 | 字段 | 类型 | 可空 | 默认值 | 索引 | 说明 |
@@ -632,7 +634,7 @@ erDiagram
 |------|--------|
 | Skill/Artifact 元数据 | 每租户万级，行大小 KB 级 |
 | 草稿文件 | 每用户百 MB 级；PVC 20 GiB 起，按租户增长 |
-| Workspace | 每 user+Agent 默认 1 GiB，每用户聚合 5 GiB；1000 用户约 1 TiB |
+| Workspace | 每 user+Agent 默认 500 MiB，每用户聚合 500 MiB，文件数 5,000；1000 用户约 500 GiB |
 | Workspace 租约 | 每次执行一行，按执行量增长；按 `lease_until` 清理过期行 |
 | 审计 | 复用 `config_audit_log`，按现有保留策略 |
 
@@ -959,6 +961,7 @@ erDiagram
 - 脚本仍可把 Cookie 复制到 workspace/output；删除 state 文件不撤销副本。要求脚本不能获取 Cookie 原文时，需要父进程代发业务请求（当前不支持）。
 - 执行器总是注入非空 `SKILL_OUTPUT_DIR`；脚本在非 Skill 上下文（本地调试/直接调用）必须判空，不写 cwd 或根目录。
 - workspace 配额在 NFS/PVC 无硬配额时为执行前检查 + 执行后统计，不能保证绝对不超；需要 PVC/NFS 后端提供硬配额。
+- 系统 Python/Node 解释器与系统 site-packages 只读共享；workspace 配额只统计 venv/target/node_modules/安装包/数据/输出，不计基础运行时。
 - 执行结束后扫描 `SKILL_OUTPUT_DIR`：文件数、单文件大小、总大小有界；不跟随 symlink/越界路径；登记为本次执行 artifact，交付走现有 `deliver_artifact`/附件机制，不在本需求新增独立下载页。
 
 #### 可观测性设计
