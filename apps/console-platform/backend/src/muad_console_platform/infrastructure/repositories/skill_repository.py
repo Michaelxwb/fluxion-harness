@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ColumnElement, and_, func, or_, select
+from sqlalchemy import ColumnElement, ScalarSelect, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.control import (
@@ -19,6 +19,21 @@ def current_artifact_join() -> ColumnElement[bool]:
     return and_(
         SkillArtifact.id == Skill.current_artifact_id,
         SkillArtifact.is_deleted.is_(False),
+    )
+
+
+def latest_artifact_status_subquery() -> ScalarSelect[str]:
+    """最近一次提交的审批状态：待审/驳回包不是 current artifact，但列表必须可见。"""
+    return (
+        select(SkillArtifact.review_status)
+        .where(
+            SkillArtifact.skill_id == Skill.id,
+            SkillArtifact.is_deleted.is_(False),
+        )
+        .order_by(SkillArtifact.create_time.desc(), SkillArtifact.id.desc())
+        .limit(1)
+        .correlate(Skill)
+        .scalar_subquery()
     )
 
 
@@ -56,7 +71,10 @@ class SkillRepository:
         user_scope: str | None,
         enabled: bool | None,
         execution_mode: str | None,
-    ) -> tuple[list[tuple[Skill, SkillArtifact | None, int, int]], int]:
+        source: str | None = None,
+        review_status: str | None = None,
+    ) -> tuple[list[tuple[Skill, SkillArtifact | None, int, int, str | None]], int]:
+        latest_status = latest_artifact_status_subquery()
         conditions = [Skill.tenant_id == tenant_id, Skill.is_deleted.is_(False)]
         if keyword:
             pattern = f"%{keyword}%"
@@ -65,6 +83,10 @@ class SkillRepository:
             conditions.append(Skill.user_scope == user_scope)
         if enabled is not None:
             conditions.append(Skill.enabled.is_(enabled))
+        if source is not None:
+            conditions.append(Skill.source == source)
+        if review_status is not None:
+            conditions.append(latest_status == review_status)
         if execution_mode is not None:
             conditions.append(SkillArtifact.execution_mode == execution_mode)
         total = await self._session.scalar(
@@ -94,7 +116,7 @@ class SkillRepository:
             .scalar_subquery()
         )
         result = await self._session.execute(
-            select(Skill, SkillArtifact, agent_count, user_count)
+            select(Skill, SkillArtifact, agent_count, user_count, latest_status)
             .outerjoin(SkillArtifact, current_artifact_join())
             .where(*conditions)
             .order_by(Skill.update_time.desc())
@@ -103,8 +125,8 @@ class SkillRepository:
         )
         rows = result.all()
         items = [
-            (skill, artifact, int(bound or 0), int(granted or 0))
-            for skill, artifact, bound, granted in rows
+            (skill, artifact, int(bound or 0), int(granted or 0), status)
+            for skill, artifact, bound, granted, status in rows
         ]
         return items, int(total or 0)
 
@@ -115,6 +137,19 @@ class SkillRepository:
                 Skill.tenant_id == tenant_id,
                 Skill.is_deleted.is_(False),
             )
+        )
+        return skill
+
+    async def get_for_update(self, tenant_id: str, skill_id: uuid.UUID) -> Skill | None:
+        """审批/提交串行化：锁住 Skill 行，避免审批与覆盖提交互相踩状态。"""
+        skill: Skill | None = await self._session.scalar(
+            select(Skill)
+            .where(
+                Skill.id == skill_id,
+                Skill.tenant_id == tenant_id,
+                Skill.is_deleted.is_(False),
+            )
+            .with_for_update()
         )
         return skill
 
@@ -136,6 +171,18 @@ class SkillRepository:
                 Skill.key == key,
                 Skill.is_deleted.is_(False),
             )
+        )
+        return skill
+
+    async def find_by_key_for_update(self, tenant_id: str, key: str) -> Skill | None:
+        skill: Skill | None = await self._session.scalar(
+            select(Skill)
+            .where(
+                Skill.tenant_id == tenant_id,
+                Skill.key == key,
+                Skill.is_deleted.is_(False),
+            )
+            .with_for_update()
         )
         return skill
 
@@ -199,6 +246,35 @@ class SkillRepository:
             )
         )
         return artifact
+
+    async def get_artifact_for_update(
+        self,
+        skill_id: uuid.UUID,
+        artifact_id: uuid.UUID,
+    ) -> SkillArtifact | None:
+        """审批事务锁 artifact 行；并发审批在同一行上串行复核状态。"""
+        artifact: SkillArtifact | None = await self._session.scalar(
+            select(SkillArtifact)
+            .where(
+                SkillArtifact.id == artifact_id,
+                SkillArtifact.skill_id == skill_id,
+                SkillArtifact.is_deleted.is_(False),
+            )
+            .with_for_update()
+        )
+        return artifact
+
+    async def latest_review_status(self, skill_id: uuid.UUID) -> str | None:
+        status: str | None = await self._session.scalar(
+            select(SkillArtifact.review_status)
+            .where(
+                SkillArtifact.skill_id == skill_id,
+                SkillArtifact.is_deleted.is_(False),
+            )
+            .order_by(SkillArtifact.create_time.desc(), SkillArtifact.id.desc())
+            .limit(1)
+        )
+        return status
 
     async def find_pending(self, skill_id: uuid.UUID) -> SkillArtifact | None:
         artifact: SkillArtifact | None = await self._session.scalar(

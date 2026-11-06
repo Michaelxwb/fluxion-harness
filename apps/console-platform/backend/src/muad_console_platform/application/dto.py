@@ -174,6 +174,14 @@ class SkillUserScopeRequest(BaseModel):
     user_scope: Literal["ALL", "SELECTED"]
 
 
+class SkillReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    artifact_id: uuid.UUID
+    action: Literal["APPROVE", "REJECT"]
+    review_note: str | None = Field(default=None, max_length=2000)
+
+
 class SkillArtifactDetail(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -194,6 +202,14 @@ class SkillArtifactDetail(BaseModel):
     manifest: dict[str, Any]
     created_by: uuid.UUID
     create_time: datetime
+    review_status: str
+    review_note: str | None = None
+    reviewed_by: uuid.UUID | None = None
+    reviewed_at: datetime | None = None
+    submitted_by_user_id: uuid.UUID | None = None
+    submitted_agent_id: uuid.UUID | None = None
+    submitted_channel: str | None = None
+    source: str
 
 
 class SkillListItem(BaseModel):
@@ -205,6 +221,10 @@ class SkillListItem(BaseModel):
     description: str
     platform_label: str | None
     platforms: list[str] = Field(default_factory=list)
+    source: str
+    author: str | None = None
+    owner_user_id: uuid.UUID | None = None
+    review_status: str | None = None
     user_scope: str
     enabled: bool
     current_artifact_id: uuid.UUID | None

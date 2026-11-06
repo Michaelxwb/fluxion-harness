@@ -103,6 +103,14 @@ def artifact_detail(artifact: SkillArtifact) -> SkillArtifactDetail:
         manifest=sanitize_payload(artifact.manifest_json),
         created_by=artifact.created_by,
         create_time=artifact.create_time,
+        review_status=artifact.review_status,
+        review_note=artifact.review_note,
+        reviewed_by=artifact.reviewed_by,
+        reviewed_at=artifact.reviewed_at,
+        submitted_by_user_id=artifact.submitted_by_user_id,
+        submitted_agent_id=artifact.submitted_agent_id,
+        submitted_channel=artifact.submitted_channel,
+        source=artifact.source,
     )
 
 
@@ -112,6 +120,7 @@ def skill_list_item(
     *,
     agent_count: int = 0,
     user_count: int = 0,
+    review_status: str | None = None,
 ) -> SkillListItem:
     return SkillListItem(
         id=skill.id,
@@ -120,6 +129,10 @@ def skill_list_item(
         description=skill.description,
         platform_label=skill.platform_label,
         platforms=artifact.frontmatter_json.get("platforms", []) if artifact else [],
+        source=skill.source,
+        author=skill.author,
+        owner_user_id=skill.owner_user_id,
+        review_status=review_status or (artifact.review_status if artifact else None),
         user_scope=skill.user_scope,
         enabled=skill.enabled,
         current_artifact_id=skill.current_artifact_id,
@@ -209,6 +222,8 @@ class SkillService:
         user_scope: str | None = None,
         enabled: bool | None = None,
         execution_mode: str | None = None,
+        source: str | None = None,
+        review_status: str | None = None,
     ) -> tuple[list[SkillListItem], int]:
         rows, total = await self._skills.list_skills(
             tenant_id,
@@ -218,10 +233,18 @@ class SkillService:
             user_scope,
             enabled,
             execution_mode,
+            source,
+            review_status,
         )
         return [
-            skill_list_item(skill, artifact, agent_count=bound, user_count=granted)
-            for skill, artifact, bound, granted in rows
+            skill_list_item(
+                skill,
+                artifact,
+                agent_count=bound,
+                user_count=granted,
+                review_status=status,
+            )
+            for skill, artifact, bound, granted, status in rows
         ], total
 
     async def get_skill(self, tenant_id: str, skill_id: uuid.UUID) -> Skill:
@@ -233,12 +256,14 @@ class SkillService:
     async def get_skill_detail(self, tenant_id: str, skill_id: uuid.UUID) -> SkillDetail:
         skill = await self.get_skill(tenant_id, skill_id)
         artifact = await self._skills.get_current_artifact(skill)
+        review_status = await self._skills.latest_review_status(skill.id)
         return SkillDetail(
             **skill_list_item(
                 skill,
                 artifact,
                 agent_count=await self._skills.count_agent_bindings(skill.id),
                 user_count=await self._grants.count_active(skill.id),
+                review_status=review_status,
             ).model_dump(),
             create_time=skill.create_time,
             current_artifact=artifact_detail(artifact) if artifact else None,
