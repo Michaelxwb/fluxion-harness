@@ -122,8 +122,8 @@
 | E-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | contract | API 错误码 schema / 消息配置 | TASK-013 | stale | ["uv","run","pytest","-q","tests/contracts/test_skill_sandbox_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | E-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Artifact Store → checksum 校验 → 执行入口 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-16 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 删除失败 → 状态/指标 | TASK-006 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_16.py"] | . | 600 | P1 | auto | local | - | - | - | no |
-| S-45 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-46 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | . | 600 | P0 | auto | none | - | - | - | no |
+| S-45 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | TASK-017 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-46 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | TASK-017 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-47 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → SKILL_OUTPUT_DIR → ArtifactStore → 现有附件交付 | TASK-003 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_47.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-48 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require | TASK-015 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_48.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | E-17 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Pod A 临时安装 → Pod B/重建后执行同一 Skill | TASK-015 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_17.py"] | . | 600 | P1 | auto | local | - | - | - | no |
@@ -1201,7 +1201,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ## TASK-017: MCP/Memory/Model/IM 非干扰回归
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-005, TASK-007
 - **Source**: user-skill-sandbox.backend.design.md#3.2 架构设计, user-skill-sandbox.backend.design.md#3.5 质量实现方案
@@ -1217,31 +1217,31 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ### Checklist
 
-- [ ] 交付 `现有 MCP catalog、Memory 写入/召回、模型选择、渠道中立性回归全绿`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] MCP catalog/tool registry 不变
-- [ ] Memory 写入/召回/软删/版本/consolidation 不变
-- [ ] Agent 模型选择无平台默认回退
-- [ ] 核心域零渠道专有字样/取件形状
-- [ ] [S-45][integration] MCP/Memory/Model 非干扰
-- [ ] [S-46][integration] 渠道中立性
-- [ ] [harness-im#RULE-im-001][verifier] 运行 `uv run pytest -q tests/architecture/test_channel_neutrality.py`
-- [ ] [harness-im#RULE-im-002][verifier] 运行 `uv run pytest -q tests/architecture/test_channel_neutrality.py`
-- [ ] [harness-mcp#RULE-mcp-001][verifier] 运行 `uv run pytest -q tests/frontend/test_mcp_module_contract.py`
-- [ ] [harness-memory#RULE-memory-001][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py tests/migrations/test_memory_redesign_migration.py tests/migrations/test_memory_redesign_schema_parity.py`
-- [ ] [harness-memory#RULE-memory-002][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py -k lock`
-- [ ] [harness-memory#RULE-memory-003][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py -k query`
-- [ ] [harness-memory#RULE-memory-004][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py -k delete`
-- [ ] [harness-memory#RULE-memory-005][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py -k consolidation`
-- [ ] [harness-memory#RULE-memory-006][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py -k migration`
-- [ ] [harness-model#RULE-model-001][verifier] 运行 `uv run pytest -q tests/contracts/test_capacity_webchat_model_contracts.py tests/frontend/test_model_form_contract.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `现有 MCP catalog、Memory 写入/召回、模型选择、渠道中立性回归全绿`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] MCP catalog/tool registry 不变
+- [x] Memory 写入/召回/软删/版本/consolidation 不变
+- [x] Agent 模型选择无平台默认回退
+- [x] 核心域零渠道专有字样/取件形状
+- [x] [S-45][integration] MCP/Memory/Model 非干扰
+- [x] [S-46][integration] 渠道中立性
+- [x] [harness-im#RULE-im-001][verifier] 运行 `uv run pytest -q tests/architecture/test_channel_neutrality.py`
+- [x] [harness-im#RULE-im-002][verifier] 运行 `uv run pytest -q tests/architecture/test_channel_neutrality.py`
+- [x] [harness-mcp#RULE-mcp-001][verifier] 运行 `uv run pytest -q tests/frontend/test_mcp_module_contract.py`
+- [x] [harness-memory#RULE-memory-001][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py tests/migrations/test_memory_redesign_migration.py tests/migrations/test_memory_redesign_schema_parity.py`
+- [x] [harness-memory#RULE-memory-002][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py -k lock`
+- [x] [harness-memory#RULE-memory-003][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py -k query`（该过滤无匹配用例；查询/注入行为由 finish 的 spec verifier 套件 `test_memory_redesign_cache.py` / `test_memory_redesign_context.py` / `test_memory_redesign_selection.py` 覆盖并通过）
+- [x] [harness-memory#RULE-memory-004][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py -k delete`（该过滤无匹配用例；删除/tombstone 行为由 S-45 真实 PG 用例与 finish 的 `test_memory_redesign_job_effects.py` / `test_memory_redesign_confirmation.py` 覆盖并通过）
+- [x] [harness-memory#RULE-memory-005][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py -k consolidation`（该过滤无匹配用例；consolidation 行为由 S-45 队列表约束/入队守卫与 finish 的 `test_memory_redesign_job_effects.py` / `test_memory_redesign_input_boundary.py` 覆盖并通过）
+- [x] [harness-memory#RULE-memory-006][verifier] 运行 `uv run pytest -q tests/test_memory_redesign_spec_contract.py -k migration`
+- [x] [harness-model#RULE-model-001][verifier] 运行 `uv run pytest -q tests/contracts/test_capacity_webchat_model_contracts.py tests/frontend/test_model_form_contract.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-45 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | MCP catalog/tool registry 行为不变；Memory 写入/召回/软删/版本行为不变；Agent 模型选择不出现平台默认回退 | tests/acceptance/user_skill_sandbox/test_s_45.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | planned |
-| S-46 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | 核心域零渠道专有字样；核心域不向 ResolveDefinitionRequest.channel 传字面量；渠道字样只出现在允许表面 | tests/acceptance/user_skill_sandbox/test_s_46.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | planned |
+| S-45 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | MCP catalog/tool registry 行为不变；Memory 写入/召回/软删/版本行为不变；Agent 模型选择不出现平台默认回退 | tests/acceptance/user_skill_sandbox/test_s_45.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | verified |
+| S-46 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | 核心域零渠道专有字样；核心域不向 ResolveDefinitionRequest.channel 传字面量；渠道字样只出现在允许表面 | tests/acceptance/user_skill_sandbox/test_s_46.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | verified |
 
 **Spec Verifier**
 
@@ -1264,12 +1264,19 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-45 | - | - | - | - | pending |
-| S-46 | - | - | - | - | pending |
+| S-45 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_45.py tests/acceptance/user_skill_sandbox/test_s_46.py` → 2 个 collection error：`ModuleNotFoundError: No module named 'user_skill_sandbox.non_interference_support'`（守卫/基线尚未落地） | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_45.py` → `3 passed in 2.21s` | `test_s_45.py::test_s45_mcp_catalog_and_tool_registry_behavior_is_unchanged`（A-S-45-1）、`test_s45_memory_write_recall_soft_delete_version_and_consolidation_are_unchanged`（A-S-45-2）、`test_s45_agent_model_selection_has_no_platform_default`（A-S-45-3） | 真实 `McpRuntimeAdapter`→`ToolRegistry` 注册（`mcp::server::tool`、effect、重复注册拒绝）与真实 `normalize_tools`/`catalog_hash`；真实 PostgreSQL `runtime.user_memory*`/`memory_scope` 经 `MemoryService` 完成写入→版本冲突→召回→软删→恢复→4 条历史，consolidation 表唯一键/状态约束与“非 COMPLETED 不入队”守卫；真实 PG `control.model_definition` 无 `is_default`、`agent_definition.model_id` 非空无默认。MCP/Memory/Model 共 76 个需求前生产文件 sha256 与 merge-base（4d406198）逐字节一致 | verified |
+| S-46 | 同上，collection error：`ModuleNotFoundError: No module named 'user_skill_sandbox.non_interference_support'` | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_46.py` → `3 passed in 2.71s` | `test_s_46.py::test_s46_core_domain_carries_no_channel_vocabulary`（A-S-46-1）、`test_s46_core_domain_never_fabricates_a_channel_value`（A-S-46-2）、`test_s46_channel_vocabulary_only_lives_on_allowed_surfaces`（A-S-46-3） | 直接调用真实架构扫描 `tests/architecture/test_channel_neutrality.py` 三条断言（不 mock），并逐一检查本需求改动过的 32 个核心域/runtime/worker/agent-core 文件：零渠道字样、无 `ResolveDefinitionRequest.channel` 字面量、无 `ALLOWED_SURFACES` 例外 | verified |
+- S-45: verified — automated command passed; run_id=d4262c5b9ac84f508caa2b95e00a8e2c (confirmed_by: runner)
+- S-46: verified — automated command passed; run_id=d4262c5b9ac84f508caa2b95e00a8e2c (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-07] started
+- [2026-11-07] RED：`tests/acceptance/user_skill_sandbox/test_s_45.py` 与 `test_s_46.py` 先落盘后运行，均因 `ModuleNotFoundError: user_skill_sandbox.non_interference_support`（非干扰基线/守卫未实现）collection error。
+- [2026-11-07] GREEN：`test_s_45.py` → 3 passed；`test_s_46.py` → 3 passed。非干扰基线由需求前 merge-base `4d406198` 生成：MCP 9 / Memory 44 / Model 23 个生产文件 sha256 与当前工作树逐字节一致；S-46 复用真实 `test_channel_neutrality.py` 并覆盖本需求 32 个核心域文件。
+- [2026-11-07] verifier：`tests/architecture/test_channel_neutrality.py` 3 passed；`tests/frontend/test_mcp_module_contract.py` 9 passed；`tests/test_memory_redesign_spec_contract.py + migrations` 14 passed；`-k lock/migration` 各 1 passed，`-k query/delete/consolidation` 无匹配用例（行为由 finish 的 Memory spec verifier 套件覆盖）；模型契约 74 passed。
+- [2026-11-07] completed (done)
 
 ---
 
