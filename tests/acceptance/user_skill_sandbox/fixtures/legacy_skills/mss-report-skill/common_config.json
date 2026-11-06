@@ -1,0 +1,5 @@
+{
+  "baseUrl": "http://legacy-hardcoded.invalid",
+  "reportName": "mssp-report",
+  "note": "baseUrl 是旧配置，运行时必须改用 requestProfile.baseUrl"
+}

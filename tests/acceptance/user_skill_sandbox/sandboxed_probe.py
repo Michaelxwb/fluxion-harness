@@ -14,9 +14,11 @@ import hashlib
 import json
 import os
 import resource
+import shutil
 import sys
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -83,6 +85,31 @@ def _request(root: Path, workspace: Path, execution_id: str, **kwargs: Any) -> S
     }
     values.update(kwargs)
     return SkillExecutionRequest(**values)
+
+
+LEGACY_SKILLS = REPO_ROOT / "tests/acceptance/user_skill_sandbox/fixtures/legacy_skills"
+
+
+def _session_context_from_env() -> Any:
+    """容器内 broker 的连接参数由宿主测试经环境变量提供（真实 HTTP/Redis 协议）。"""
+    from muad_platform_sdk.skill_access import SkillPlatformContext
+
+    return SkillPlatformContext(
+        tenant_id=os.environ["FX_SESSION_TENANT"],
+        actor_user_id=os.environ["FX_SESSION_ACTOR"],
+        execution_id=str(uuid.uuid4()),
+        execution_type="RUN",
+        platform_keys=(os.environ["FX_SESSION_PLATFORM"],),
+        console_url=os.environ["FX_SESSION_CONSOLE_URL"],
+        redis_url=os.environ["FX_SESSION_REDIS_URL"],
+        service_token=os.environ["FX_SESSION_SERVICE_TOKEN"],
+    )
+
+
+def _copy_legacy_skill(name: str, base: Path) -> Path:
+    target = base / name
+    shutil.copytree(LEGACY_SKILLS / name, target)
+    return target
 
 
 def _result_payload(result: SkillExecutionResult) -> dict[str, Any]:
@@ -393,22 +420,9 @@ async def scenario_s03() -> dict[str, Any]:
     探针运行在容器内，broker 也运行在容器内；Redis/Console/平台桩由宿主机测试提供，
     通过 `host.docker.internal` 以真实 HTTP/Redis 协议访问。最终只回传脱敏形状。
     """
-    from muad_platform_sdk.skill_access import SkillPlatformContext
-
-    tenant = os.environ["FX_SESSION_TENANT"]
-    actor = os.environ["FX_SESSION_ACTOR"]
-    platform_key = os.environ["FX_SESSION_PLATFORM"]
     skill_name = os.environ["FX_SESSION_SKILL"]
-    context = SkillPlatformContext(
-        tenant_id=tenant,
-        actor_user_id=actor,
-        execution_id=str(__import__("uuid").uuid4()),
-        execution_type="RUN",
-        platform_keys=(platform_key,),
-        console_url=os.environ["FX_SESSION_CONSOLE_URL"],
-        redis_url=os.environ["FX_SESSION_REDIS_URL"],
-        service_token=os.environ["FX_SESSION_SERVICE_TOKEN"],
-    )
+    platform_key = os.environ["FX_SESSION_PLATFORM"]
+    context = _session_context_from_env()
     base = Path(tempfile.mkdtemp(prefix="fx-s03-"))
     root = base / "skill"
     scripts = root / "scripts"
@@ -449,9 +463,61 @@ async def scenario_s03() -> dict[str, Any]:
     }
 
 
+async def scenario_s13() -> dict[str, Any]:
+    """S-13：未修改的 login-mssp-platform 在真实 bwrap 中只靠 session-manager 运行。"""
+    context = _session_context_from_env()
+    base = Path(tempfile.mkdtemp(prefix="fx-s13-"))
+    root = _copy_legacy_skill("login-mssp-platform", base)
+    before = _tree_checksum(root)
+    executor = SandboxedSkillExecutor(runner=_runner())
+    result = await executor.execute(_request(root, base / "workspace", "s13-exec", platform_context=context))
+    leftovers = sorted(str(path) for path in Path("/tmp").glob("fx-session-*"))
+    return {
+        "ok": result.status.value == "SUCCEEDED" and result.exit_code == 0,
+        "result": _result_payload(result),
+        "package_checksum_before": before,
+        "package_checksum_after": _tree_checksum(root),
+        "leftover_session_dirs": leftovers,
+    }
+
+
+async def scenario_s14() -> dict[str, Any]:
+    """S-14：最小改造后的 mss-report-skill 使用 data/output 目录并登记报告。"""
+    context = _session_context_from_env()
+    base = Path(tempfile.mkdtemp(prefix="fx-s14-"))
+    root = _copy_legacy_skill("mss-report-skill", base)
+    workspace = base / "workspace"
+    execution_id = "s14-exec"
+    before = _tree_checksum(root)
+    executor = SandboxedSkillExecutor(runner=_runner())
+    result = await executor.execute(_request(root, workspace, execution_id, platform_context=context))
+    data_dir = workspace / "data"
+    output_dir = workspace / "outputs" / execution_id
+    report_path = output_dir / "reports" / "mssp-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.is_file() else None
+    return {
+        "ok": result.status.value == "SUCCEEDED" and result.exit_code == 0,
+        "result": _result_payload(result),
+        "package_checksum_before": before,
+        "package_checksum_after": _tree_checksum(root),
+        "data_files": sorted(
+            path.relative_to(data_dir).as_posix() for path in data_dir.rglob("*") if path.is_file()
+        ),
+        "output_files": sorted(
+            path.relative_to(output_dir).as_posix() for path in output_dir.rglob("*") if path.is_file()
+        ),
+        "package_business_dirs": sorted(
+            name for name in ("cache", "logs", "companies", "reports") if (root / name).exists()
+        ),
+        "report": report,
+    }
+
+
 SCENARIOS = {
     "s03": scenario_s03,
     "s10": scenario_s10,
+    "s13": scenario_s13,
+    "s14": scenario_s14,
     "s15": scenario_s15,
     "s47": scenario_s47,
     "e01": scenario_e01,
