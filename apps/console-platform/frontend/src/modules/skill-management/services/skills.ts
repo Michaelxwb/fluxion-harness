@@ -7,6 +7,7 @@ export interface SkillListItem {
   name: string;
   description: string;
   platform_label: string | null;
+  platforms: string[];
   user_scope: 'ALL' | 'SELECTED';
   enabled: boolean;
   current_artifact_id: string | null;
@@ -31,6 +32,7 @@ export interface SkillArtifactDetail {
   validation_message?: string | null;
   instructions?: string;
   frontmatter: Record<string, unknown>;
+  platforms: string[];
   manifest: { files?: Array<{ path: string; size: number }>; file_count?: number; total_size?: number };
   create_time: string;
 }

@@ -1,4 +1,5 @@
 import hashlib
+import json
 import uuid
 from pathlib import Path
 
@@ -107,6 +108,56 @@ async def test_e04_secret_hit_is_rejected_without_log_leak_or_write(
     assert set(artifact_root.glob("skills/*/*/skill.zip")) == artifacts_before
 
 
+@pytest.mark.parametrize("platforms", [[], ["mssp"], ["mssp", "mssw"]])
+async def test_platform_declarations_persist_and_are_exposed(
+    client: AsyncClient, skill_env: SkillContext, platforms: list[str]
+) -> None:
+    package = zip_bytes({
+        "SKILL.md": "---\nname: platform-display\ndescription: example\n"
+        f"platforms: {json.dumps(platforms)}\n---\n",
+        "scripts/run.py": "print('{}')\n",
+    })
+    response = await import_skill(client, skill_env, package)
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["platforms"] == platforms
+    assert data["current_artifact"]["platforms"] == platforms
+    async with get_session_factory()() as session:
+        stored = await session.get(SkillArtifact, uuid.UUID(data["current_artifact_id"]))
+        assert stored is not None
+        assert stored.frontmatter_json.get("platforms", []) == platforms
+    listing = await client.get("/api/v1/skills", params={"keyword": "platform-display"})
+    assert listing.status_code == 200
+    assert listing.json()["data"]["items"][0]["platforms"] == platforms
+    artifact = await client.get(f"/api/v1/skills/{data['id']}/artifacts/{data['current_artifact_id']}")
+    assert artifact.status_code == 200
+    assert artifact.json()["data"]["platforms"] == platforms
+
+
+async def test_platform_display_follows_current_version_without_overwriting_history(
+    client: AsyncClient, skill_env: SkillContext
+) -> None:
+    first = await import_skill(client, skill_env, demo_package(name="version-platforms"))
+    assert first.status_code == 200
+    initial = first.json()["data"]
+    skill_id, artifact_id = initial["id"], initial["current_artifact_id"]
+    package = zip_bytes({
+        "SKILL.md": "---\nname: version-platforms\ndescription: next\nplatforms: [mssp, mssw]\n---\n",
+        "scripts/run.py": "print('{}')\n",
+    })
+    changed = await client.post(
+        f"/api/v1/skills/{skill_id}/artifacts", files={"file": ("skill.zip", package, "application/zip")},
+        data={"version": "2.0.0"}, headers=tenant_headers(skill_env),
+    )
+    assert changed.status_code == 200
+    current = await client.get(f"/api/v1/skills/{skill_id}")
+    assert current.status_code == 200
+    assert current.json()["data"]["platforms"] == ["mssp", "mssw"]
+    historical = await client.get(f"/api/v1/skills/{skill_id}/artifacts/{artifact_id}")
+    assert historical.status_code == 200
+    assert historical.json()["data"]["platforms"] == []
+
+
 async def test_import_creates_skill_and_artifact(
     client: AsyncClient,
     skill_env: SkillContext,
@@ -124,6 +175,7 @@ async def test_import_creates_skill_and_artifact(
     assert data["execution_mode"] == "SYNC"
     assert data["agent_count"] == 0
     assert data["user_count"] == 0
+    assert data["platforms"] == []
 
     artifact = data["current_artifact"]
     assert artifact["artifact_id"] == data["current_artifact_id"]
@@ -132,6 +184,7 @@ async def test_import_creates_skill_and_artifact(
     assert artifact["validation_status"] == "READY"
     assert artifact["package_size"] == len(package)
     assert artifact["created_by"] == str(skill_env.admin_id)
+    assert artifact["platforms"] == []
     assert artifact["frontmatter"] == {
         "name": "Imported Skill",
         "description": "Imported description.",

@@ -14,6 +14,7 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { SkillDetailSideSheet } from './SkillDetailSideSheet';
+import { SkillPlatforms } from './SkillPlatforms';
 import { CopyableText } from '../../components/common/CopyableText';
 import { SkillScopeModal } from './SkillScopeModal';
 import { SkillImportModal } from './SkillImportModal';
@@ -173,6 +174,12 @@ export function SkillPage() {
               render: (value: string) => <CopyableText display={value} full={value} copyLabel={t('skill.actions.copyKey')} />
             },
             { title: t('skill.columns.currentVersion'), dataIndex: 'current_version', width: 116, ellipsis: true },
+            {
+              title: t('skill.columns.platforms'),
+              dataIndex: 'platforms',
+              width: 'auto',
+              render: (platforms: string[]) => <SkillPlatforms platforms={platforms} />
+            },
             {
               title: t('skill.columns.userScope'),
               dataIndex: 'user_scope',
