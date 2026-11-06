@@ -24,6 +24,8 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 
 API_REQUESTS_METRIC: Final = "console_api_requests_total"
 SKILL_IMPORT_METRIC: Final = "skill_import_total"
+#: Skill 审批结局：action 只取 APPROVE/REJECT（封闭枚举），不把 review_note 放进 label。
+SKILL_REVIEW_METRIC: Final = "skill_review_total"
 RESOLVE_DEFINITION_METRIC: Final = "runtime_definition_resolve_total"
 BIND_METRIC: Final = "bind_total"
 # 平台设置（design §3.5 可观测性）：保存结局 + 内部取设置结局。
@@ -41,6 +43,8 @@ CONFIG_FAILURE_METRIC: Final = "console_config_failure_total"
 
 #: Console 出站池名（封闭枚举；`batch` 是既有批量测试自建客户端的池）。
 ConsolePool = Literal["control", "model", "batch"]
+#: Skill 审批动作（封闭枚举）。
+SkillReviewAction = Literal["APPROVE", "REJECT"]
 
 SUCCESS_STATUS: Final = "SUCCESS"
 FAILED_STATUS: Final = "FAILED"
@@ -50,6 +54,12 @@ UNMATCHED_PATH: Final = "unmatched"
 
 # 目录：(指标名, 类型, label 名, help)。安装时声明，使 `/metrics` 无流量时也暴露完整目录。
 CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
+    (
+        SKILL_REVIEW_METRIC,
+        COUNTER,
+        ("action",),
+        "Skill review decisions by action (APPROVE/REJECT)",
+    ),
     (
         PLATFORM_SETTINGS_SAVE_METRIC,
         COUNTER,
@@ -104,6 +114,11 @@ def record_reason(name: str, reason: str, labels: Mapping[str, str] | None = Non
 def record_pool_wait(pool: ConsolePool) -> None:
     """记一次出站池等待超时：家族本身即「等池超时」，`pool` 是封闭枚举（不冒充别的池）。"""
     inc_counter(HTTP_POOL_WAIT_METRIC, 1, {"pool": pool})
+
+
+def record_skill_review(action: SkillReviewAction) -> None:
+    """记一次 Skill 审批决定；label 只有封闭动作，不含审批意见/资源 ID。"""
+    inc_counter(SKILL_REVIEW_METRIC, 1, {"action": action})
 
 
 @contextmanager

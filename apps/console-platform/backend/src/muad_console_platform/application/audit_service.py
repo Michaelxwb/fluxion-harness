@@ -9,6 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import ConfigAuditLog
 from ..infrastructure.repositories.config_audit_log_repository import ConfigAuditLogRepository
+from .skill_audit import (
+    SKILL_RESOURCE_TYPE,
+    WORKSPACE_RESOURCE_TYPE,
+    SkillAuditEvent,
+    WorkspaceCleanupAuditEvent,
+    skill_event_summary,
+    workspace_cleanup_summary,
+)
 
 # 敏感键剔除与 JSON 序列化统一由 api-kit 提供（RULE-15 / LIB-09），此处不再保留第二套实现
 sanitize_payload = sanitize_audit_payload
@@ -89,4 +97,28 @@ class AuditService:
                     "audit_resource_id": str(resource_id),
                 }
             },
+        )
+
+    async def record_skill_event(self, event: SkillAuditEvent) -> None:
+        """写一条 Skill 生命周期审计；资源标识固定，detail 不得覆盖。"""
+        await self.record_config_change(
+            tenant_id=event.tenant_id,
+            actor=AuditActor(account_id=event.actor_id, source_ip=event.source_ip),
+            resource_type=SKILL_RESOURCE_TYPE,
+            resource_id=event.skill_id,
+            action=str(event.action),
+            before=None,
+            after=skill_event_summary(event),
+        )
+
+    async def record_workspace_cleanup_event(self, event: WorkspaceCleanupAuditEvent) -> None:
+        """写一条 workspace 清理审计；结果与租户/用户/Agent 摘要可回查。"""
+        await self.record_config_change(
+            tenant_id=event.tenant_id,
+            actor=AuditActor(account_id=event.actor_id, source_ip=event.source_ip),
+            resource_type=WORKSPACE_RESOURCE_TYPE,
+            resource_id=event.workspace_id,
+            action="WORKSPACE_CLEANUP",
+            before=None,
+            after=workspace_cleanup_summary(event),
         )

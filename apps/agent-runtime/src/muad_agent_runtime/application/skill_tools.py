@@ -559,6 +559,19 @@ class SkillToolSet:
             record_outcome(SANDBOX_OUTPUT_LIMIT_METRIC, result.output_notice, labels)
         if result.status is SkillExecutionStatus.TIMED_OUT:
             record_outcome(SANDBOX_TIMEOUT_METRIC, result.status.value, labels)
+        # 执行日志只带关联字段与封闭状态；trace/request/tenant/user/agent/run 由 logging-kit
+        # context 提供，stdout/stderr 正文与平台凭据不得进入日志（design §3.5 可观测性）。
+        logger.info(
+            "skill_execution",
+            extra={
+                "skill_key": skill.key,
+                "skill_artifact_id": str(skill.artifact_id),
+                "source": str(skill.source),
+                "status": result.status.value,
+                "duration_ms": result.duration_ms,
+                "execution_id": self._execution_id,
+            },
+        )
 
     async def _register_outputs(
         self, result: SkillExecutionResult

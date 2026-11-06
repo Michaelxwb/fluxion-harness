@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from collections import Counter
 from collections.abc import Mapping
-from typing import Final
+from typing import Final, Literal
 
 from fastapi import FastAPI
 from muad_api import declare_metric, inc_counter, install_metrics, set_gauge
@@ -43,6 +43,13 @@ SANDBOX_OUTPUT_LIMIT_METRIC: Final = "sandbox_output_limit_total"
 SANDBOX_TIMEOUT_METRIC: Final = "sandbox_timeout_total"
 #: 取平台设置快照的失败计数在**调用方**侧（Console 端点不可达时 Console 收不到请求）。
 PLATFORM_SETTINGS_FETCH_METRIC: Final = "platform_settings_fetch_total"
+#: workspace 维护循环结局（TASK-013 指标目录；TASK-006 清理实现消费）。
+WORKSPACE_CLEANUP_METRIC: Final = "workspace_cleanup_total"
+#: workspace 配额拒绝（无 label：拒绝本身就是唯一维度，资源 ID 不进 label）。
+WORKSPACE_QUOTA_REJECTED_METRIC: Final = "workspace_quota_rejected_total"
+
+#: 清理状态（封闭枚举）；SCANNED 记扫描批次，DELETED/SKIPPED/FAILED 记逐目录结局。
+WorkspaceCleanupStatus = Literal["SCANNED", "DELETED", "SKIPPED", "FAILED"]
 
 COUNTER: Final = "counter"
 GAUGE: Final = "gauge"
@@ -91,6 +98,18 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         ("source",),
         "Skill executions terminated by the sandbox timeout",
     ),
+    (
+        WORKSPACE_CLEANUP_METRIC,
+        COUNTER,
+        ("status",),
+        "Workspace maintenance outcomes by status (scanned/deleted/skipped/failed)",
+    ),
+    (
+        WORKSPACE_QUOTA_REJECTED_METRIC,
+        COUNTER,
+        (),
+        "Workspace acquisitions rejected by quota",
+    ),
 )
 
 
@@ -116,6 +135,16 @@ def record_outcome(name: str, status: str, labels: Mapping[str, str] | None = No
 
 def record_gauge(name: str, amount: float, labels: Mapping[str, str] | None = None) -> None:
     set_gauge(name, amount, labels)
+
+
+def record_workspace_cleanup(status: WorkspaceCleanupStatus) -> None:
+    """记一次 workspace 维护结局；label 只取封闭状态，不含路径/租户/资源 ID。"""
+    inc_counter(WORKSPACE_CLEANUP_METRIC, 1, {"status": status})
+
+
+def record_workspace_quota_rejected() -> None:
+    """记一次配额拒绝：拒绝必须可见，不能静默截断/跳过。"""
+    inc_counter(WORKSPACE_QUOTA_REJECTED_METRIC, 1)
 
 
 def install_worker_metrics(app: FastAPI) -> None:

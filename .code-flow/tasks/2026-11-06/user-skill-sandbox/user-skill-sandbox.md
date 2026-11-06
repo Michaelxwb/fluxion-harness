@@ -118,8 +118,8 @@
 | E-13 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | component | React component + mocked Console API | TASK-014 | planned | ["uv","run","pytest","-q","tests/frontend/test_skill_management_ui.py"] | . | 600 | P1 | auto | none | - | - | - | no |
 | S-39 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和管理员权限 | TASK-014 | planned | ["npm","run","skill-self-service-approve"] | . | 1800 | P0 | auto | browser | - | 审批是真实浏览器 + 真实登录/权限 + 真实 PG 事务 + 列表刷新的关键旅程；component 只能验 UI，integration 不能验浏览器交互、路由和真实鉴权组合。 | ["apps/console-platform/frontend/src/modules/skill-management/**", "apps/console-platform/backend/src/muad_console_platform/api/skills.py", "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py", "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"] | yes |
 | S-40 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | TASK-014 | planned | ["npm","run","skill-self-service-delete"] | . | 1800 | P1 | auto | browser | - | 破坏性操作 + 二次确认 + 真实关系删除 + 真实鉴权，低层测试无法覆盖完整浏览器旅程和权限组合。 | ["apps/console-platform/frontend/src/modules/skill-management/**", "apps/console-platform/backend/src/muad_console_platform/api/skills.py", "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py", "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"] | no |
-| S-41 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 审计表/指标端点 → 查询 | TASK-013 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_41.py"] | . | 600 | P1 | auto | local | - | - | - | no |
-| E-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | contract | API 错误码 schema / 消息配置 | TASK-013 | planned | ["uv","run","pytest","-q","tests/contracts/test_skill_sandbox_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
+| S-41 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 审计表/指标端点 → 查询 | TASK-013 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_41.py"] | . | 600 | P1 | auto | local | - | - | - | no |
+| E-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | contract | API 错误码 schema / 消息配置 | TASK-013 | verified | ["uv","run","pytest","-q","tests/contracts/test_skill_sandbox_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | E-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Artifact Store → checksum 校验 → 执行入口 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-16 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 删除失败 → 状态/指标 | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_16.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | S-45 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -890,7 +890,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ## TASK-013: 统一错误码、API 封套、i18n、审计与指标
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007
 - **Source**: user-skill-sandbox.backend.design.md#3.4 接口设计, user-skill-sandbox.backend.design.md#3.5 质量实现方案
@@ -906,33 +906,33 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ### Checklist
 
-- [ ] 交付 `新增/扩展接口统一封套与错误码；审计/指标可查；日志不泄密`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 错误码表含 `SKILL_KEY_EXISTS`/`SKILL_APPROVED_LOCKED`/`DRAFT_*`/`SANDBOX_*`/`WORKSPACE_*`/`PLATFORM_SESSION_*`
-- [ ] API-01/详情保留现有 `platforms`/`platform_label` 字段，不因 source/审批改造移除
-- [ ] Console/内部 API 统一封套与分页上限；业务只抛 error code
-- [ ] zh-CN/en-US 词条；用户侧不含堆栈/宿主路径/Token
-- [ ] 审计覆盖创建/提交/审批/下载/解绑/执行/清理；指标可查
-- [ ] [S-41][integration] 审计字段/指标/脱敏
-- [ ] [E-14][contract] 错误码/HTTP/retryable/i18n 一致
-- [ ] [harness-api#RULE-api-001][verifier] 运行 `uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py`
-- [ ] [harness-i18n#RULE-i18n-001][verifier] 运行 `uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py -k i18n`
-- [ ] [harness-log#RULE-log-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_audit_logging.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `新增/扩展接口统一封套与错误码；审计/指标可查；日志不泄密`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 错误码表含 `SKILL_KEY_EXISTS`/`SKILL_APPROVED_LOCKED`/`DRAFT_*`/`SANDBOX_*`/`WORKSPACE_*`/`PLATFORM_SESSION_*`
+- [x] API-01/详情保留现有 `platforms`/`platform_label` 字段，不因 source/审批改造移除
+- [x] Console/内部 API 统一封套与分页上限；业务只抛 error code
+- [x] zh-CN/en-US 词条；用户侧不含堆栈/宿主路径/Token
+- [x] 审计覆盖创建/提交/审批/下载/解绑/执行/清理；指标可查
+- [x] [S-41][integration] 审计字段/指标/脱敏
+- [x] [E-14][contract] 错误码/HTTP/retryable/i18n 一致
+- [x] [harness-api#RULE-api-001][verifier] 运行 `uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py`
+- [x] [harness-i18n#RULE-i18n-001][verifier] 运行 `uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py -k i18n`
+- [x] [harness-log#RULE-log-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_audit_logging.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-41 | integration | 审计表/指标端点 → 查询 | 审计包含 actor/skill/artifact/agent/run/结果；指标包含执行/失败/清理计数；不包含 Cookie/Token/密钥原文 | tests/acceptance/user_skill_sandbox/test_s_41.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_41.py"] | planned |
-| E-14 | contract | API 错误码 schema / 消息配置 | 每个错误码有 msg、http_status、retryable；用户侧不泄露堆栈/宿主机路径/Token；zh-CN/en-US 均有词条 | tests/contracts/test_skill_sandbox_contracts.py | ["uv","run","pytest","-q","tests/contracts/test_skill_sandbox_contracts.py"] | planned |
+| S-41 | integration | 审计表/指标端点 → 查询 | 审计包含 actor/skill/artifact/agent/run/结果；指标包含执行/失败/清理计数；不包含 Cookie/Token/密钥原文 | tests/acceptance/user_skill_sandbox/test_s_41.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_41.py"] | verified |
+| E-14 | contract | API 错误码 schema / 消息配置 | 每个错误码有 msg、http_status、retryable；用户侧不泄露堆栈/宿主机路径/Token；zh-CN/en-US 均有词条 | tests/contracts/test_skill_sandbox_contracts.py | ["uv","run","pytest","-q","tests/contracts/test_skill_sandbox_contracts.py"] | verified |
 
 **Spec Verifier**
 
 | Rule | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 执行命令 | 状态 |
 |---|---|---|---|---|---|
-| `harness-api#RULE-api-001` | contract | 统一封套/错误码 schema | 封套/分页/错误码一致 | uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py | planned |
-| `harness-i18n#RULE-i18n-001` | contract | 错误码/词条配置 | zh-CN/en-US 词条一致 | uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py -k i18n | planned |
-| `harness-log#RULE-log-001` | integration | 真实 logging-kit 输出 | 单行/关联字段/脱敏 | uv run pytest -q tests/acceptance/user_skill_sandbox/test_audit_logging.py | planned |
+| `harness-api#RULE-api-001` | contract | 统一封套/错误码 schema | 封套/分页/错误码一致 | uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py | passed |
+| `harness-i18n#RULE-i18n-001` | contract | 错误码/词条配置 | zh-CN/en-US 词条一致 | uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py -k i18n | passed |
+| `harness-log#RULE-log-001` | integration | 真实 logging-kit 输出 | 单行/关联字段/脱敏 | uv run pytest -q tests/acceptance/user_skill_sandbox/test_audit_logging.py | passed |
 
 ### Acceptance Evidence
 
@@ -940,12 +940,16 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-41 | - | - | - | - | pending |
-| E-14 | - | - | - | - | pending |
+| S-41 | `test_s_41.py` 首次收集失败：`WORKSPACE_CLEANUP_METRIC` 与 `skill_audit` 事件契约不存在；`test_audit_logging.py` 在 `_record_execution` 无日志时 `FileNotFoundError` | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_41.py` → 2 passed；`uv run pytest -q tests/acceptance/user_skill_sandbox/test_audit_logging.py` → 2 passed | `test_s41_skill_lifecycle_audit_rows_are_complete_and_sanitized`、`test_s41_metrics_endpoints_expose_execution_failure_cleanup_and_review`、`test_s41_skill_execution_log_is_single_line_and_correlated`、`test_s41_sensitive_log_fields_are_redacted` | 真实 PostgreSQL `control.config_audit_log` 回查 + 真实 `/metrics` ASGI HTTP 端点 + logging-kit 落盘日志；敏感 canary 不出现在审计/指标/日志 | verified |
+| E-14 | 首次 3 failed：设计表错误码缺失、`MessageSpec.retryable` 不存在、`WORKSPACE_QUOTA_EXCEEDED` 未登记 | `uv run pytest -q tests/contracts/test_skill_sandbox_contracts.py` → 10 passed；`-k i18n` → 1 passed | `test_e14_skill_sandbox_codes_have_status_and_retryable`、`test_e14_skill_sandbox_error_messages_i18n_are_safe`、`test_e14_error_envelope_is_localized_and_contains_no_internal_detail` | 真实 `config/api-messages.yaml` + `MessageCatalog` + 真实 ASGI 错误封套；18 个错误码逐项核对 HTTP/retryable/双语/无泄露 | verified |
+- S-41: verified — automated command passed; run_id=d1413a5a5461414890ee9d7b95bc0951 (confirmed_by: runner)
+- E-14: verified — automated command passed; run_id=d1413a5a5461414890ee9d7b95bc0951 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-06] started
+- [2026-11-06] completed (done)
 
 ---
 

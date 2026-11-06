@@ -5666,7 +5666,7 @@
       "kind": "functional",
       "boundary": "审计表/指标端点 → 查询",
       "owner": "TASK-013",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -5722,7 +5722,94 @@
       "preconditions": [
         "完成一次审批、一次执行、一次下载、一次清理"
       ],
-      "check": "CHK-8acf6c8efcf7"
+      "check": "CHK-8acf6c8efcf7",
+      "revision": 1,
+      "evidence": {
+        "id": "S-41",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 2965.4190830000002,
+        "check_id": "CHK-8acf6c8efcf7",
+        "input_hash": "2404052fbe3b73ca004ed0b1b09aec6fb444aff0956b40dbc5e0192cc957a56c",
+        "environment_hash": "c838ad88a7dd358620a38ab90a31afeb79f42e074319f97908720c42484534a2",
+        "check_config": {
+          "id": "CHK-8acf6c8efcf7",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_s_41.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "d1413a5a5461414890ee9d7b95bc0951",
+        "executed_at": "2026-11-06T13:54:37.077521+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_41.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "2404052fbe3b73ca004ed0b1b09aec6fb444aff0956b40dbc5e0192cc957a56c"
+      },
+      "runs": [
+        {
+          "id": "S-41",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2965.4190830000002,
+          "check_id": "CHK-8acf6c8efcf7",
+          "input_hash": "2404052fbe3b73ca004ed0b1b09aec6fb444aff0956b40dbc5e0192cc957a56c",
+          "environment_hash": "c838ad88a7dd358620a38ab90a31afeb79f42e074319f97908720c42484534a2",
+          "check_config": {
+            "id": "CHK-8acf6c8efcf7",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/user_skill_sandbox/test_s_41.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "d1413a5a5461414890ee9d7b95bc0951",
+          "executed_at": "2026-11-06T13:54:37.077521+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_s_41.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "2404052fbe3b73ca004ed0b1b09aec6fb444aff0956b40dbc5e0192cc957a56c"
+        }
+      ]
     },
     {
       "id": "E-14",
@@ -5731,7 +5818,7 @@
       "kind": "functional",
       "boundary": "API 错误码 schema / 消息配置",
       "owner": "TASK-013",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -5786,7 +5873,94 @@
       "preconditions": [
         "错误码表已实现"
       ],
-      "check": "CHK-efc5e13c10c2"
+      "check": "CHK-efc5e13c10c2",
+      "revision": 1,
+      "evidence": {
+        "id": "E-14",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 1036.1158749999997,
+        "check_id": "CHK-efc5e13c10c2",
+        "input_hash": "2404052fbe3b73ca004ed0b1b09aec6fb444aff0956b40dbc5e0192cc957a56c",
+        "environment_hash": "c838ad88a7dd358620a38ab90a31afeb79f42e074319f97908720c42484534a2",
+        "check_config": {
+          "id": "CHK-efc5e13c10c2",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_skill_sandbox_contracts.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "d1413a5a5461414890ee9d7b95bc0951",
+        "executed_at": "2026-11-06T13:54:37.077521+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/contracts/test_skill_sandbox_contracts.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "2404052fbe3b73ca004ed0b1b09aec6fb444aff0956b40dbc5e0192cc957a56c"
+      },
+      "runs": [
+        {
+          "id": "E-14",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1036.1158749999997,
+          "check_id": "CHK-efc5e13c10c2",
+          "input_hash": "2404052fbe3b73ca004ed0b1b09aec6fb444aff0956b40dbc5e0192cc957a56c",
+          "environment_hash": "c838ad88a7dd358620a38ab90a31afeb79f42e074319f97908720c42484534a2",
+          "check_config": {
+            "id": "CHK-efc5e13c10c2",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/contracts/test_skill_sandbox_contracts.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "d1413a5a5461414890ee9d7b95bc0951",
+          "executed_at": "2026-11-06T13:54:37.077521+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/contracts/test_skill_sandbox_contracts.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "2404052fbe3b73ca004ed0b1b09aec6fb444aff0956b40dbc5e0192cc957a56c"
+        }
+      ]
     },
     {
       "id": "E-15",
