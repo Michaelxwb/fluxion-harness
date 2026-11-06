@@ -1100,6 +1100,13 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 - E-13: verified — automated command passed; run_id=947b79fafad84a64995382545870c090 (confirmed_by: runner)
 - S-39: e2e_deferred — automated command e2e_deferred; run_id=947b79fafad84a64995382545870c090 (confirmed_by: runner)
 - S-40: e2e_deferred — automated command e2e_deferred; run_id=947b79fafad84a64995382545870c090 (confirmed_by: runner)
+- E-12: verified — automated command passed; run_id=4f788a5bf9ce4a8e964eb1d788e41a8b (confirmed_by: runner)
+- S-35: verified — automated command passed; run_id=4f788a5bf9ce4a8e964eb1d788e41a8b (confirmed_by: runner)
+- S-36: verified — automated command passed; run_id=4f788a5bf9ce4a8e964eb1d788e41a8b (confirmed_by: runner)
+- S-37: verified — automated command passed; run_id=4f788a5bf9ce4a8e964eb1d788e41a8b (confirmed_by: runner)
+- E-13: verified — automated command passed; run_id=4f788a5bf9ce4a8e964eb1d788e41a8b (confirmed_by: runner)
+- S-39: e2e_deferred — automated command e2e_deferred; run_id=4f788a5bf9ce4a8e964eb1d788e41a8b (confirmed_by: runner)
+- S-40: e2e_deferred — automated command e2e_deferred; run_id=4f788a5bf9ce4a8e964eb1d788e41a8b (confirmed_by: runner)
 
 ### Log
 
