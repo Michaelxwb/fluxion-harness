@@ -282,7 +282,7 @@ export function McpPage() {
                   >
                     {t('mcp.actions.discover')}
                   </Button>
-                  <ConfirmAction
+                  <ConfirmAction type="danger"
                     title={t('mcp.confirmDelete')}
                     testId={`delete-mcp-${record.key}`}
                     onConfirm={() => void remove(record)}

@@ -425,8 +425,8 @@ async def test_dedupe_key_uses_channel_and_message_id_with_ttl(catalog: MessageC
     await pipeline.handle(adapter, make_envelope(message_id="msg-42"))
 
     # 占位在入口占（TTL 600s），受理之后才升级成终值 —— 键的形态与 TTL 两处一致
-    assert store.calls == [("im:dedupe:WECOM:msg-42", 600)]
-    assert store.accepted == [("im:dedupe:WECOM:msg-42", DEDUPE_VALUE, 600)]
+    assert store.calls == [("muad:im:dedupe:WECOM:msg-42", 600)]
+    assert store.accepted == [("muad:im:dedupe:WECOM:msg-42", DEDUPE_VALUE, 600)]
 
 
 async def test_null_dedupe_store_stays_at_least_once(catalog: MessageCatalog) -> None:
@@ -740,7 +740,7 @@ async def test_dependency_failure_before_acceptance_keeps_the_message_retryable(
     await pipeline.handle(adapter, envelope)
     assert len(runtime.run_requests) == 1, "受理前的失败不该让重投被去重跳过"
     assert store is not None  # 键最终落成"已受理"
-    value = await store.get_value("im:dedupe:WECOM:transient")
+    value = await store.get_value("muad:im:dedupe:WECOM:transient")
     assert value is not None and value != "in-flight:"
 
 

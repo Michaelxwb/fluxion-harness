@@ -143,8 +143,8 @@ CONFIRM_EXPIRES_AT = "2026-10-19T06:00:00Z"
 
 #: 中英文的开关标签（证明 `aria-label` 来自词条而非写死文案）。
 SIDEBAR_CLOSE_LABEL = {"zh-CN": "关闭会话历史", "en-US": "Close conversation history"}
-THREAD_LABEL = {"zh-CN": "消息线程", "en-US": "Message thread"}
-COMPOSER_LABEL = {"zh-CN": "消息输入区", "en-US": "Message composer"}
+THREAD_LABEL = {"zh-CN": "消息线程", "en-US": "Message Thread"}
+COMPOSER_LABEL = {"zh-CN": "消息输入区", "en-US": "Message Composer"}
 
 SEMI_STUB = """export const Button = () => null;
 export const Empty = () => null;

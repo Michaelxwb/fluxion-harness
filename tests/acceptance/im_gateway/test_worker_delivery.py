@@ -171,7 +171,7 @@ async def test_s04_worker_delivers_to_route_with_7d_dedupe(
     assert redis_url, "REDIS_URL 未配置"
     redis_client = redis.asyncio.Redis.from_url(redis_url)
     try:
-        ttl = await redis_client.ttl(f"delivery:dedupe:{seeded['delivery_key']}")
+        ttl = await redis_client.ttl(f"muad:delivery:dedupe:{seeded['delivery_key']}")
     finally:
         await redis_client.aclose()
     assert DELIVERY_TTL_SEC - 120 < ttl <= DELIVERY_TTL_SEC, ttl

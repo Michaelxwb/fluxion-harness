@@ -14,6 +14,7 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { SkillDetailSideSheet } from './SkillDetailSideSheet';
+import { SkillPlatforms } from './SkillPlatforms';
 import { CopyableText } from '../../components/common/CopyableText';
 import { SkillScopeModal } from './SkillScopeModal';
 import { SkillImportModal } from './SkillImportModal';
@@ -174,9 +175,15 @@ export function SkillPage() {
             },
             { title: t('skill.columns.currentVersion'), dataIndex: 'current_version', width: 116, ellipsis: true },
             {
+              title: t('skill.columns.platforms'),
+              dataIndex: 'platforms',
+              width: 'auto',
+              render: (platforms: string[]) => <SkillPlatforms platforms={platforms} />
+            },
+            {
               title: t('skill.columns.userScope'),
               dataIndex: 'user_scope',
-              width: 128,
+              width: 116,
               render: (value: SkillListItem['user_scope']) => (
                 <Tag color={value === 'ALL' ? 'green' : 'blue'}>{t(`skill.scope.${value.toLowerCase()}`)}</Tag>
               )
@@ -198,7 +205,7 @@ export function SkillPage() {
               render: (value: string) => <DateTimeText value={value} />
             },
             {
-              ...actionColumn(200),
+              ...actionColumn(160),
               title: t('skill.columns.actions'),
               render: (_: unknown, record: SkillListItem) => (
                 <>
@@ -208,7 +215,7 @@ export function SkillPage() {
                   <Button theme="borderless" data-testid={`import-artifact-${record.key}`} onClick={() => setImportTarget(record)}>
                     {t('skill.artifact.importNew')}
                   </Button>
-                  <ConfirmAction
+                  <ConfirmAction type="danger"
                     title={t('skill.confirmDelete')}
                     testId={`delete-skill-${record.key}`}
                     onConfirm={() => void remove(record)}

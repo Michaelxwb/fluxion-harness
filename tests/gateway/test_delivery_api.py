@@ -345,7 +345,7 @@ async def test_adapter_failure_returns_internal_error_and_keeps_retry_available(
 
     assert response.status_code == 500
     assert response.json()["code"] == "COMMON_INTERNAL_ERROR"
-    assert await store.exists("delivery:dedupe:" + body["delivery_key"]) is False
+    assert await store.exists("muad:delivery:dedupe:" + body["delivery_key"]) is False
 
     working = FakeChannelAdapter()
     async with api_client(_registry_with(working), store) as client:
@@ -489,7 +489,7 @@ async def test_b121_atomic_dedupe_sends_once_under_concurrency() -> None:
     probe.start()
     client, store = await _redis_store()
     body = delivery_body()
-    key = "delivery:dedupe:" + body["delivery_key"]
+    key = "muad:delivery:dedupe:" + body["delivery_key"]
     gate = asyncio.Event()
     adapter = _ProbeAdapter(probe.url, gate=gate)
     try:
@@ -530,7 +530,7 @@ async def test_b121_duplicate_after_delivery_is_acknowledged_as_delivered() -> N
     probe.start()
     client, store = await _redis_store()
     body = delivery_body()
-    key = "delivery:dedupe:" + body["delivery_key"]
+    key = "muad:delivery:dedupe:" + body["delivery_key"]
     adapter = _ProbeAdapter(probe.url)
     try:
         async with api_client(_registry_with(adapter), store) as api:
@@ -560,7 +560,7 @@ async def test_b121_failed_send_releases_placeholder_for_retry() -> None:
     probe.start()
     client, store = await _redis_store()
     body = delivery_body()
-    key = "delivery:dedupe:" + body["delivery_key"]
+    key = "muad:delivery:dedupe:" + body["delivery_key"]
     try:
         async with api_client(_registry_with(_ProbeAdapter(probe.url, fail=True)), store) as api:
             failed = await api.post("/internal/deliveries", json=body)
@@ -589,7 +589,7 @@ async def test_b121_crash_window_releases_placeholder_without_faking_delivery() 
     probe.start()
     client, store = await _redis_store()
     body = delivery_body()
-    key = "delivery:dedupe:" + body["delivery_key"]
+    key = "muad:delivery:dedupe:" + body["delivery_key"]
     await client.set(key, "in-flight", ex=1)
     adapter = _ProbeAdapter(probe.url)
     try:
@@ -622,7 +622,7 @@ async def test_expired_placeholder_cannot_delete_a_newer_delivered_marker() -> N
     调用发出两条真消息）。现在释放/升级都带所有者条件。
     """
     redis_client, store = await _redis_store()
-    key = f"delivery:dedupe:{uuid.uuid4()}"
+    key = f"muad:delivery:dedupe:{uuid.uuid4()}"
     try:
         stale = await store.reserve(key, 1)
         assert stale is not None
@@ -636,7 +636,7 @@ async def test_expired_placeholder_cannot_delete_a_newer_delivered_marker() -> N
         assert await store.mark(key, stale, delivered_value({}), 3600) is False
 
         # 正控制：自己的占位仍然归自己管（否则上面那些 False 可能只是"什么都没生效"）
-        own_key = f"delivery:dedupe:{uuid.uuid4()}"
+        own_key = f"muad:delivery:dedupe:{uuid.uuid4()}"
         owner = await store.reserve(own_key, 60)
         assert owner is not None
         assert await store.release(own_key, owner) is True
@@ -692,7 +692,7 @@ async def test_e05_worker_http_to_gateway_redis_probe_end_to_end() -> None:
     tenant_id = f"test-{uuid.uuid4()}"
     task_id = uuid.uuid4()
     now = datetime.now(UTC)
-    key = f"delivery:dedupe:task:{task_id}:final"
+    key = f"muad:delivery:dedupe:task:{task_id}:final"
     try:
         async with session_factory() as session:
             async with session.begin():
@@ -904,7 +904,7 @@ def _b117_sent_frames(probe: Any) -> dict[str, str]:
 async def test_b117_replay_is_deduplicated_with_7d_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
     redis_client, store = await _redis_store()
     body = _b117_body()
-    key = "delivery:dedupe:" + body["delivery_key"]
+    key = "muad:delivery:dedupe:" + body["delivery_key"]
     try:
         async with _b117_wecom_stack([B117_BOT_A], monkeypatch) as (registry, adapter, probe):
             await _b117_wait_connected(adapter, B117_BOT_A)
@@ -944,7 +944,10 @@ async def test_b117_delivery_uses_bot_from_route(monkeypatch: pytest.MonkeyPatch
     redis_client, store = await _redis_store()
     body_a = _b117_body(bot_id=B117_BOT_A)
     body_b = _b117_body(bot_id=B117_BOT_B)
-    keys = ["delivery:dedupe:" + body_a["delivery_key"], "delivery:dedupe:" + body_b["delivery_key"]]
+    keys = [
+        "muad:delivery:dedupe:" + body_a["delivery_key"],
+        "muad:delivery:dedupe:" + body_b["delivery_key"],
+    ]
     try:
         async with _b117_wecom_stack([B117_BOT_A, B117_BOT_B], monkeypatch) as (
             registry,
@@ -980,7 +983,7 @@ async def test_b117_unknown_bot_is_not_found(monkeypatch: pytest.MonkeyPatch) ->
             assert response.json()["code"] == "BOT_NOT_FOUND"
             assert probe.replies == []
     finally:
-        await redis_client.delete("delivery:dedupe:" + body["delivery_key"])
+        await redis_client.delete("muad:delivery:dedupe:" + body["delivery_key"])
         await redis_client.aclose()
 
 
@@ -989,7 +992,7 @@ async def test_b117_send_failure_is_not_accepted_and_allows_retry(
 ) -> None:
     redis_client, store = await _redis_store()
     body = _b117_body()
-    key = "delivery:dedupe:" + body["delivery_key"]
+    key = "muad:delivery:dedupe:" + body["delivery_key"]
     try:
         async with _b117_wecom_stack([B117_BOT_A], monkeypatch) as (registry, adapter, probe):
             await _b117_wait_connected(adapter, B117_BOT_A)
@@ -1015,7 +1018,7 @@ async def test_b117_in_flight_duplicate_is_not_reported_as_success(
 ) -> None:
     redis_client, store = await _redis_store()
     body = _b117_body()
-    key = "delivery:dedupe:" + body["delivery_key"]
+    key = "muad:delivery:dedupe:" + body["delivery_key"]
     try:
         async with _b117_wecom_stack([B117_BOT_A], monkeypatch) as (registry, adapter, probe):
             await _b117_wait_connected(adapter, B117_BOT_A)

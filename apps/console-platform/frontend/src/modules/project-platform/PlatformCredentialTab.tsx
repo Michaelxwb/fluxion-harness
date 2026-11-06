@@ -253,7 +253,7 @@ export function PlatformCredentialTab(props: PlatformCredentialTabProps) {
             {t('platform.credentials.update')}
           </Button>
           {sharedCredential?.configured ? (
-            <ConfirmAction
+            <ConfirmAction type="danger"
               title={t('platform.credentials.confirmDeleteShared')}
               onConfirm={() => void removeShared()}
             >

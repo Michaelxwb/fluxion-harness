@@ -129,7 +129,7 @@ class InboundPublisher:
         scanned = 0
         lost = 0
         async for raw_key in self._redis.scan_iter(
-            match="connector:inbound:*", count=500
+            match="muad:connector:inbound:*", count=500
         ):
             scanned += 1
             if scanned > SWEEP_SCAN_LIMIT:

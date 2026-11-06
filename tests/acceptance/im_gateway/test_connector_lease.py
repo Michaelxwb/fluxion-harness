@@ -177,7 +177,7 @@ async def test_s05_single_owner_takeover_after_sigkill_and_no_duplicate_inbound(
     assert event["external_message_id"] == message_id
 
     stored = await redis_client.hgetall(
-        f"im:reply:message:e2e-im-gateway:{BOT_ID}:{message_id}"
+        f"muad:im:reply:message:e2e-im-gateway:{BOT_ID}:{message_id}"
     )
     assert stored.get("reply_ref") == "s05-req-1", "接管后的 reply store 必须可跨进程读取"
 
@@ -201,7 +201,7 @@ async def _owned_by(redis: Redis, owner: str) -> bool:
 
 async def _inbound_entries(redis: Redis, message_id: str) -> list[dict[str, str]]:
     found: list[dict[str, str]] = []
-    for key in await redis.keys("im.inbound:*"):
+    for key in await redis.keys("muad:im.inbound:*"):
         for _entry_id, fields in await redis.xrange(key):
             if fields.get("external_message_id") == message_id:
                 found.append(fields)

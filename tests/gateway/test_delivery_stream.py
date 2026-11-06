@@ -209,7 +209,7 @@ async def test_stream_timeout_returns_retryable_error_and_releases_placeholder()
 
     assert response.status_code == 500
     assert response.json()["code"] == "COMMON_INTERNAL_ERROR"
-    assert await dedupe.exists(f"delivery:dedupe:{body['delivery_key']}") is False
+    assert await dedupe.exists(f"muad:delivery:dedupe:{body['delivery_key']}") is False
 
 
 async def test_stream_failed_result_is_not_reported_as_delivered() -> None:
@@ -221,7 +221,7 @@ async def test_stream_failed_result_is_not_reported_as_delivered() -> None:
 
     assert response.status_code == 500
     assert response.json()["code"] == "COMMON_INTERNAL_ERROR"
-    assert await dedupe.exists(f"delivery:dedupe:{body['delivery_key']}") is False
+    assert await dedupe.exists(f"muad:delivery:dedupe:{body['delivery_key']}") is False
 
 
 async def test_stream_enqueue_failure_is_explicit() -> None:

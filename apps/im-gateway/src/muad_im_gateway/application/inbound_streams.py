@@ -1,12 +1,12 @@
 """入站 Stream 消费组（API-05 的 Gateway 侧；design §3.2 IM ASYNC 路径）。
 
-Connector（以及 Generic Webhook 路由）把规范化事件 XADD 到 `im.inbound:{shard}`；Gateway 用
+Connector（以及 Generic Webhook 路由）把规范化事件 XADD 到 `muad:im.inbound:{shard}`；Gateway 用
 消费组 `im-ingress` 读取，按事件里的 `channel` 选适配器，交给统一入站管线建 Run。
 
 诚实边界：
 
 - **at-least-once**：处理成功才 XACK；处理异常保留 pending，由 `XAUTOCLAIM` 在空闲阈值后重试；
-- 重试有上界：超过 `MAX_ATTEMPTS` 写 `im:inbound:dead`（原事件 + 错误）后 ACK，不无限重试；
+- 重试有上界：超过 `MAX_ATTEMPTS` 写 `muad:im:inbound:dead`（原事件 + 错误）后 ACK，不无限重试；
 - 未知通道**不静默丢**：同样进 dead stream，日志与指标可见；
 - 读循环不阻塞在长流上：每条事件一个任务，用 `max_inflight` 封顶（与 WebChat backlog 同口径）。
 """
@@ -35,9 +35,9 @@ from .inbound import InboundPipeline
 logger = logging.getLogger(__name__)
 
 INBOUND_GROUP = "im-ingress"
-INBOUND_DEAD_STREAM = "im:inbound:dead"
+INBOUND_DEAD_STREAM = "muad:im:inbound:dead"
 DEAD_STREAM_MAXLEN = 10_000
-ENTRY_ATTEMPTS_PREFIX = "im:inbound:attempts:"
+ENTRY_ATTEMPTS_PREFIX = "muad:im:inbound:attempts:"
 ENTRY_ATTEMPTS_TTL_SEC = 86_400
 MAX_ATTEMPTS = 5
 RECLAIM_IDLE_MS = 60_000

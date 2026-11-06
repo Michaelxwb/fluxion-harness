@@ -1,6 +1,6 @@
 """Connector 出站命令消费：按 bot 流读取、幂等执行、fencing 与降级回报。
 
-为什么按 bot 分流（`im.outbound:{tenant}:{bot_id}`）：bot lease 是逐 bot 的，两个 Connector
+为什么按 bot 分流（`muad:im.outbound:{tenant}:{bot_id}`）：bot lease 是逐 bot 的，两个 Connector
 可以各自持有同一 shard 里的不同 bot；只要命令进入共享 shard，非 owner 就可能读到别人的命令。
 按 bot 分流后，Connector 只读自己持有 lease 的 bot 流，命令归属由键本身保证。
 
@@ -51,7 +51,7 @@ from .reply_store import ReplyStore
 logger = logging.getLogger(__name__)
 
 RESULT_TTL_SEC = 600
-COMMAND_MARKER_PREFIX = "connector:cmd"
+COMMAND_MARKER_PREFIX = "muad:connector:cmd"
 STREAM_MAXLEN = 100_000
 RESULT_CODE_REPLY_EXPIRED = "REPLY_REF_EXPIRED"
 RESULT_CODE_REPLY_FAILED = "REPLY_SEND_FAILED"

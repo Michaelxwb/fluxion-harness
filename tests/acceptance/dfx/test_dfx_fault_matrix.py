@@ -79,7 +79,7 @@ READY_TIMEOUT_SEC = 60.0
 TERMINAL_TIMEOUT_SEC = 120.0
 PROCESS_WAIT_SEC = 30.0
 # 网关投递去重键口径（apps/im-gateway/src/muad_im_gateway/api/delivery.py）。
-DELIVERY_DEDUPE_PREFIX = "delivery:dedupe"
+DELIVERY_DEDUPE_PREFIX = "muad:delivery:dedupe"
 DELIVERY_DEDUPE_TTL_SEC = 604800
 # 本用例自造键的可识别前缀：收尾按前缀核对「没有残留 key」。
 FAULT_KEY_PREFIX = "dfx-fault-matrix"
@@ -215,10 +215,10 @@ def _digest(path: Path) -> str:
 
 
 async def _cancel_hint_keys(task_ids: list[uuid.UUID]) -> list[str]:
-    """本运行提交过的 Task 在真实 Redis 里残留的 `task:cancel:{id}`（精确到本运行的 id）。"""
+    """本运行提交过的 Task 在真实 Redis 里残留的 `muad:task:cancel:{id}`（精确到本运行的 id）。"""
     client = redis_client.from_url(_redis_url(), decode_responses=True)
     try:
-        keys = [f"task:cancel:{task_id}" for task_id in task_ids]
+        keys = [f"muad:task:cancel:{task_id}" for task_id in task_ids]
         return [key for key in keys if await client.exists(key)]
     finally:
         await client.aclose()

@@ -190,6 +190,7 @@ class SkillArtifactDetail(BaseModel):
     validation_message: str | None = None
     instructions: str = ""
     frontmatter: dict[str, Any]
+    platforms: list[str] = Field(default_factory=list)
     manifest: dict[str, Any]
     created_by: uuid.UUID
     create_time: datetime
@@ -203,6 +204,7 @@ class SkillListItem(BaseModel):
     name: str
     description: str
     platform_label: str | None
+    platforms: list[str] = Field(default_factory=list)
     user_scope: str
     enabled: bool
     current_artifact_id: uuid.UUID | None

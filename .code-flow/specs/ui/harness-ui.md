@@ -37,11 +37,11 @@ verifiers:
 - 表单字段布局与详情基本信息栅格的完整口径见 `harness-ui-detail.md`（本 spec 不重复定义）。
 - 新增/编辑表单统一走 `FormModal`（宽度按表单复杂度取自交互稿，**不设固定枚举**——现网档位为 480/520/560/620/640/720/760，简单表单 520，含代码/结构化配置的按稿加宽；标签置顶；确认文案**由调用方按动作语义显式传 `okText`**，如「授权」「导入」「保存并发现」，组件兜底为 `common.confirm`）；字段补充说明用 `extraText`（如协议、Base URL、API Key、不可改编码），不得用占位符承载说明。
 - Shell：侧栏品牌区 + 图标菜单 + 底部用户区（头像/退出）；顶栏放主题切换与语言切换。
-- **业务操作按钮统一蓝色**：列表、详情、表单与设置页的操作按钮使用 Semi `type="primary"`（默认类型也为 primary），边框/背景由 `theme` 决定；删除、解绑、撤销、取消任务、清空等确认操作也统一该颜色，悬停不切换成红色。`ConfirmAction`、`FormModal` 的确认/取消操作遵循同一口径，禁用态使用 Semi 内建样式。
+- **删除操作统一红色**：所有模块的删除入口及二次确认按钮使用 Semi `type="danger"`；共享 `ConfirmAction` 显式传 `type="danger"`。其他业务操作默认使用 primary，禁用态沿用 Semi 内建样式。
 
-  ✅：`<Button type="primary" theme="borderless">...</Button>`；`ConfirmAction` 统一 primary，并保留操作确认。
+  ✅：`<ConfirmAction type="danger" ...>` 删除对象，确认按钮继承 danger。
 
-  ❌：删除常态灰色、悬停红色；详情关系操作或设置页重置/恢复按钮使用 tertiary 灰色。
+  ❌：删除按钮仍为蓝色，或仅在某个页面用内联颜色覆盖，导致其他模块不一致。
 
 ✅ 正确：
 

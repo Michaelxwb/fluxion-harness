@@ -28,7 +28,7 @@ from redis.exceptions import RedisError
 logger = logging.getLogger(__name__)
 
 #: 全局通知频道：gateway 每个 Pod 订阅一次，按 tenant/user 路由到本 Pod 的 SSE 流。
-NOTIFICATION_CHANNEL: Final = "webchat.notifications"
+NOTIFICATION_CHANNEL: Final = "muad:webchat.notifications"
 
 
 class NullNotificationPublisher:

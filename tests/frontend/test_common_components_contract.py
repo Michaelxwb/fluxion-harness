@@ -134,7 +134,9 @@ def test_confirm_action_wraps_popconfirm_around_button() -> None:
     source = _source("ConfirmAction.tsx")
     assert "Popconfirm" in source
     assert "onConfirm(): void" in source
-    assert 'type="primary"' in source
+    assert "type = 'primary'" in source
+    assert 'type={type}' in source
+    assert 'okType={type}' in source
     assert 'cancelType="primary"' in source
     assert "danger?: boolean" not in source
 

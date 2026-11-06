@@ -203,8 +203,8 @@ async def _write_phantom_hints(task_id: uuid.UUID) -> None:
 
     client = redis.from_url(_redis_url(), decode_responses=True)
     try:
-        await client.setex(f"task:cancel:{task_id}", 1800, "1")
-        await client.publish("task:wakeup", "1")
+        await client.setex(f"muad:task:cancel:{task_id}", 1800, "1")
+        await client.publish("muad:task:wakeup", "1")
         await asyncio.sleep(0.3)
     finally:
         await client.aclose()
@@ -391,6 +391,6 @@ async def _drop_phantom_hint(task_id: uuid.UUID) -> None:
 
     client = redis.from_url(_redis_url(), decode_responses=True)
     try:
-        await client.delete(f"task:cancel:{task_id}")
+        await client.delete(f"muad:task:cancel:{task_id}")
     finally:
         await client.aclose()

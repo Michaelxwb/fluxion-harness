@@ -4,7 +4,7 @@
 
 - 真实 uvicorn 子进程里的 Gateway（真实 HTTP 路由、真实验签）与 Console/Runtime/Worker；
 - 真实本地 HTTP 客户端扮演 **webhook 提供方**（HMAC 签名 + 时间戳）；
-- 真实 Redis（`im.inbound:*` 逐条回读）与真实 PostgreSQL（Run 逐行回读）。
+- 真实 Redis（`muad:im.inbound:*` 逐条回读）与真实 PostgreSQL（Run 逐行回读）。
 
 断言口径（scenarios.md S-07）：
 
@@ -112,7 +112,7 @@ async def _redis() -> redis.asyncio.Redis:
 async def _inbound_entries(redis: redis.asyncio.Redis, *, event_id: str) -> list[tuple[str, dict[str, str]]]:
     """按 event_id 回读所有入站 Stream 条目（真实 Redis，不做进程内断言）。"""
     found: list[tuple[str, dict[str, str]]] = []
-    for key in sorted(await redis.keys("im.inbound:*")):
+    for key in sorted(await redis.keys("muad:im.inbound:*")):
         for entry_id, fields in await redis.xrange(key):
             raw = fields.get("event", "")
             try:

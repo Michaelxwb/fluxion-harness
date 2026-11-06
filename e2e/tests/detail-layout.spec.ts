@@ -1,7 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { AgentSkillItem, AuditItem } from '../../apps/console-platform/frontend/src/modules/agent-management/services/agents';
 import { expectTableSurfaces } from '../support/table-surface';
-import { expectBlueActions } from '../support/action-colors';
+import { expectActionColors } from '../support/action-colors';
+import type { SkillArtifactDetail, SkillDetail } from '../../apps/console-platform/frontend/src/modules/skill-management/services/skills';
 
 // Frontend browser/layout tests using local API fixtures, without backend services.
 const time = '2026-09-30T00:00:00Z';
@@ -14,9 +15,9 @@ const artifact = {
   id: 'version', artifact_id: 'version', skill_id: 'layout', version: '1.0.0',
   checksum: 'abc123'.repeat(12), storage_key: 'skills/layout/artifact/'.repeat(6),
   execution_mode: 'SCRIPT', default_script: null, package_size: 2048, validation_status: 'VALID',
-  instructions: '# Instructions\n\n' + longText, frontmatter: {},
+  instructions: '# Instructions\n\n' + longText, frontmatter: {}, platforms: ['mssp', 'mssw'],
   manifest: { files: [{ path: 'scripts/' + 'nested/'.repeat(12) + 'main.py', size: 1024 }] }, create_time: time
-};
+} satisfies SkillArtifactDetail;
 const cases = [
   { path: 'models', api: 'models', link: 'model-link-layout', data: {
     ...base, protocol: 'OPENAI', model_id: 'gpt-4o-mini', base_url: 'https://example.com/' + 'path/'.repeat(25),
@@ -38,9 +39,9 @@ const cases = [
     tool_cache_ttl_sec: 300, auth_config: {}, auth_secret_configured: false
   } },
   { path: 'skills', api: 'skills', link: 'skill-link-layout', data: {
-    ...base, platform_label: null, user_scope: 'ALL', current_artifact_id: 'version', current_version: '1.0.0',
+    ...base, platform_label: null, platforms: ['mssp', 'mssw'], user_scope: 'ALL', current_artifact_id: 'version', current_version: '1.0.0',
     execution_mode: 'SCRIPT', agent_count: 0, user_count: 0, current_artifact: artifact
-  } },
+  } satisfies SkillDetail },
   { path: 'platforms', api: 'project-platforms', link: 'platform-link-layout', data: {
     ...base, platform_id: 'layout', resolver_type: 'BASE_URL', resolver_config: { base_url: 'https://example.com/' },
     adapter_key: 'http', adapter_config: {}, adapter_schema_version: '1', credential_mode: 'NONE',
@@ -193,7 +194,7 @@ for (const theme of ['light', 'dark']) {
     const table = page.getByRole('dialog').locator('.semi-table-wrapper');
     await expect(table).toContainText('layout-skill');
     await expectTableSurfaces(table);
-    await expectBlueActions(table.locator('.table-actions-cell .semi-button'));
+    await expectActionColors(table.locator('.table-actions-cell .semi-button'));
     let removals = 0;
     page.on('request', (request) => { if (request.method() === 'DELETE') removals += 1; });
     await table.getByRole('button', { name: '解除', exact: true }).click();
@@ -351,7 +352,7 @@ for (const { locale, scope } of SKILL_SCOPE_CELLS) {
       await icon.focus();
       await expect(page.getByRole('tooltip')).toHaveText(hint);
       await expect(sheet.locator('.semi-banner')).toHaveCount(0);
-      await sheet.getByRole('tab', { name: chinese ? '指定用户' : 'Selected users', exact: true }).click();
+      await sheet.getByRole('tab', { name: chinese ? '指定用户' : 'Selected Users', exact: true }).click();
       if (scope === 'ALL') {
         await expect(sheet).toContainText(chinese ? '无需单独指定用户' : 'No need to select individual users');
         await expect(sheet.getByTestId('add-selected-user')).toHaveCount(0);

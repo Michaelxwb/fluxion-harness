@@ -2,8 +2,8 @@
 
 投递 facade 的诚实边界（design §3.4.1 API-04）：
 
-- **先入队、再有界等待结果**：命令进 `im.outbound:{tenant}:{bot}` 之后才等 Connector 写
-  `im:outbound:result:{command_id}`；等待超时回**可重试错误**，绝不把"已入队"当"已送达"；
+- **先入队、再有界等待结果**：命令进 `muad:im.outbound:{tenant}:{bot}` 之后才等 Connector 写
+  `muad:im:outbound:result:{command_id}`；等待超时回**可重试错误**，绝不把"已入队"当"已送达"；
 - 结果键里带 `route_key`（Connector 侧适配器产出）：网关写交付审计时不需要认识渠道私有形状；
 - Redis 故障显式失败（不能持久化就没有"先持久化再 ACK"这回事）。
 """

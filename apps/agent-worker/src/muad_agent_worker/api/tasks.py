@@ -157,7 +157,7 @@ async def list_payloads(
 async def _publish_cancel_hint(
     request: Request, task_id: uuid.UUID, status: str, cancel_requested: bool
 ) -> None:
-    """RUNNING 协作取消在 PG 提交后写 `task:cancel:{task_id}` hint；失败只告警（PG 仍权威）。"""
+    """RUNNING 协作取消在 PG 提交后写 `muad:task:cancel:{task_id}` hint；失败只告警（PG 仍权威）。"""
     if status != str(TaskStatus.RUNNING) or not cancel_requested:
         return
     hints = getattr(request.app.state, "cancel_hints", None)

@@ -14,8 +14,8 @@ from muad_common.redis_client import RedisClient
 from tests.acceptance.im_gateway.connector_environment import BOT_ID, kill_process
 from tests.acceptance.im_gateway.environment import TENANT
 
-LEASE_KEY = f"connector:bot:{{{TENANT}:{BOT_ID}}}:lease"
-EPOCH_KEY = f"connector:bot:{{{TENANT}:{BOT_ID}}}:epoch"
+LEASE_KEY = f"muad:connector:bot:{{{TENANT}:{BOT_ID}}}:lease"
+EPOCH_KEY = f"muad:connector:bot:{{{TENANT}:{BOT_ID}}}:epoch"
 
 
 def _lease(raw: str | None) -> tuple[str, int] | None:

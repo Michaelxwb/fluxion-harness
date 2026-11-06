@@ -57,7 +57,7 @@ async def test_publish_emits_lightweight_event() -> None:
     assert body["notification_id"] == str(notification_id)
     assert body["seq"] == 7
     assert body["notification"] == notification
-    assert client.values[f"webchat:notify:seq:t1:{user_id}"] == "7"
+    assert client.values[f"muad:webchat:notify:seq:t1:{user_id}"] == "7"
 
 
 async def test_publish_failure_is_visible_but_not_raised(

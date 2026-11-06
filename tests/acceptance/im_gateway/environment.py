@@ -429,15 +429,15 @@ def cleanup(database_url: str) -> None:
 #: **新消息**——在同一租户下建 Run、占会话，表现为「单跑绿、整跑红」。PG 每个栈都清，
 #: Redis 的栈级工作状态同样要清；只删工作键，不碰其它键。
 _STACK_REDIS_PATTERNS = (
-    "im.inbound:*",
-    "im.outbound:*",
-    "im:outbound:result:*",
-    "im:dedupe:*",
-    "im:reply:*",
-    "connector:bot:*",
-    "connector:cmd:*",
-    "connector:inbound:*",
-    "connector:outbound-cursor:*",
+    "muad:im.inbound:*",
+    "muad:im.outbound:*",
+    "muad:im:outbound:result:*",
+    "muad:im:dedupe:*",
+    "muad:im:reply:*",
+    "muad:connector:bot:*",
+    "muad:connector:cmd:*",
+    "muad:connector:inbound:*",
+    "muad:connector:outbound-cursor:*",
 )
 
 

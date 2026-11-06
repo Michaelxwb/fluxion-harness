@@ -18,7 +18,7 @@ KEY_OWNER = "packages/contracts/src/muad_contracts/im.py"
 CONSTRUCTION_PATTERN = re.compile(
     r"(?:Redis|redis\.asyncio\.Redis|redis)\.from_url\(|\bRedisCluster\("
 )
-KEY_LITERAL_PREFIXES = ("im.inbound:", "im.outbound:", "connector:bot:")
+KEY_LITERAL_PREFIXES = ("muad:im.inbound:", "muad:im.outbound:", "muad:connector:bot:")
 
 #: 尚未迁移的构造点：只允许缩减，不允许新增。
 PENDING_CONSTRUCTION_SITES: frozenset[str] = frozenset()

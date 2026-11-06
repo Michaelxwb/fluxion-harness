@@ -13,7 +13,7 @@ from muad_im_gateway.application.inbound_streams import (
 )
 from redis.exceptions import RedisClusterException
 
-KEY = "im.inbound:{inbound}:0"
+KEY = "muad:im.inbound:{inbound}:0"
 
 
 class _FakeStreamsRedis:

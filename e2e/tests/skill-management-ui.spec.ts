@@ -6,6 +6,7 @@
  */
 
 import { expect, test, type Page, type Route } from '@playwright/test';
+import type { SkillArtifactDetail, SkillDetail } from '../../apps/console-platform/frontend/src/modules/skill-management/services/skills';
 
 const ADMIN = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -20,6 +21,7 @@ const SKILL = {
   name: 'E2E E07 Skill',
   description: 'E2E skill',
   platform_label: null,
+  platforms: ['mssp', 'mssw'],
   user_scope: 'SELECTED',
   enabled: true,
   current_artifact_id: 'artifact-1',
@@ -30,7 +32,7 @@ const SKILL = {
   update_time: '2026-10-11 10:00:00',
   create_time: '2026-10-11 10:00:00',
   current_artifact: null
-};
+} satisfies SkillDetail;
 
 const ARTIFACT = {
   id: 'artifact-1',
@@ -45,9 +47,10 @@ const ARTIFACT = {
   validation_status: 'READY',
   instructions: '# E2E E07 Skill',
   frontmatter: { name: 'E2E E07 Skill' },
+  platforms: ['mssp'],
   manifest: { files: [], file_count: 0, total_size: 0 },
   create_time: '2026-10-11 10:00:00'
-};
+} satisfies SkillArtifactDetail;
 
 function envelope(data: unknown) {
   return {
@@ -80,7 +83,7 @@ interface MockState {
   imported: boolean;
 }
 
-async function mockApi(page: Page, state: MockState): Promise<void> {
+async function mockApi(page: Page, state: MockState, platforms: string[] = SKILL.platforms): Promise<void> {
   await page.route('**/api/v1/**', async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -100,11 +103,15 @@ async function mockApi(page: Page, state: MockState): Promise<void> {
       return;
     }
     if (path === '/api/v1/skills') {
-      await route.fulfill({ json: envelope(pageData(state.imported ? [SKILL] : [SKILL])) });
+      await route.fulfill({ json: envelope(pageData([{ ...SKILL, platforms }])) });
       return;
     }
     if (path === '/api/v1/skills/skill-1/artifacts' && request.method() === 'GET') {
       await route.fulfill({ json: envelope(pageData([ARTIFACT])) });
+      return;
+    }
+    if (path === '/api/v1/skills/skill-1/artifacts/artifact-1' && request.method() === 'GET') {
+      await route.fulfill({ json: envelope(ARTIFACT) });
       return;
     }
     if (path === '/api/v1/skills/skill-1/artifacts' && request.method() === 'POST') {
@@ -115,7 +122,7 @@ async function mockApi(page: Page, state: MockState): Promise<void> {
       return;
     }
     if (path === '/api/v1/skills/skill-1') {
-      await route.fulfill({ json: envelope({ ...SKILL, current_artifact: ARTIFACT }) });
+      await route.fulfill({ json: envelope({ ...SKILL, platforms, current_artifact: { ...ARTIFACT, platforms } }) });
       return;
     }
     await route.fulfill({ json: envelope(pageData([])) });
@@ -138,12 +145,32 @@ async function openImport(page: Page): Promise<void> {
   await modal.getByRole('button', { name: 'confirm', exact: true }).click();
 }
 
+for (const platforms of [[], ['mssp'], ['mssp', 'mssw']]) {
+  test(`platform declaration is visible in list and detail: ${platforms.join(',') || 'empty'}`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await mockApi(page, { importError: null, imported: true }, platforms);
+    await page.goto('/skills');
+    const row = page.locator('.semi-table-tbody .semi-table-row');
+    const text = platforms.length ? platforms.join(', ') : '未声明';
+    await expect(row.getByText(text, { exact: true })).toBeVisible();
+    await page.getByTestId('skill-link-e2e-e07').click();
+    const sheet = page.locator('.semi-sidesheet');
+    await sheet.getByRole('tab', { name: '基本信息', exact: true }).click();
+    await expect(sheet.getByText(text, { exact: true })).toBeVisible();
+    await sheet.getByRole('tab', { name: '版本记录', exact: true }).click();
+    await page.getByTestId('artifact-link-1.0.0').click();
+    await expect(page.locator('.semi-sidesheet').last().getByText('mssp', { exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
+
 test('E-05 上传非法 ZIP 时 Modal 保留并显示本地化校验错误', async ({ page }) => {
   await mockApi(page, { importError: 'package', imported: false });
   await openImport(page);
   const modal = page.locator('.semi-modal');
   await expect(modal).toBeVisible();
-  await expect(page.locator('.semi-toast-content')).toContainText('包结构');
+  await expect(modal.locator('.semi-banner')).toContainText('包结构');
   await expect(modal.locator('.semi-upload')).toContainText('skill.zip');
 });
 
@@ -152,10 +179,10 @@ test('E-05b 扩展名白名单外被拒绝', async ({ page }) => {
   await openImport(page);
   const modal = page.locator('.semi-modal');
   await expect(modal).toBeVisible();
-  await expect(page.locator('.semi-toast-content')).toContainText('包结构');
+  await expect(modal.locator('.semi-banner')).toContainText('包结构');
 });
 
-test('E-07 导入重复版本时 Toast 提示且版本列表不新增重复行', async ({ page }) => {
+test('E-07 导入重复版本时 Banner 提示且版本列表不新增重复行', async ({ page }) => {
   const state: MockState = { importError: 'duplicate', imported: true };
   await mockApi(page, state);
 
@@ -176,10 +203,40 @@ test('E-07 导入重复版本时 Toast 提示且版本列表不新增重复行',
     buffer: Buffer.from('not a real zip')
   });
   await modal.getByRole('button', { name: 'confirm', exact: true }).click();
-  await expect(page.locator('.semi-toast-content')).toContainText('版本已存在');
+  await expect(modal.locator('.semi-banner')).toContainText('版本已存在');
 
   await modal.locator('.semi-modal-close').click();
   await page.getByTestId('skill-link-e2e-e07').click();
   const rows = page.getByTestId('artifact-list').locator('li').filter({ hasText: '1.0.0' });
   await expect(rows).toHaveCount(1);
+});
+
+test('selected ZIP stays local without progress and displays a full-width wrapping filename', async ({ page }) => {
+  await mockApi(page, { importError: null, imported: false });
+  let imports = 0;
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().includes('/skills/import')) imports += 1;
+  });
+  await page.goto('/skills');
+  await page.getByTestId('import-skill').click();
+  const modal = page.locator('.semi-modal');
+  const name = 'monitor-mssp-events-with-a-very-long-package-name-'.repeat(3) + '.zip';
+  await modal.locator('input.semi-upload-hidden-input').setInputFiles({
+    name, mimeType: 'application/zip', buffer: Buffer.from('selected locally')
+  });
+  const card = modal.locator('.semi-upload-file-card');
+  await expect(card).toContainText(name);
+  await expect(card.locator('[role="progressbar"]')).toHaveCount(0);
+  await expect(card.locator('.semi-progress')).toHaveCount(0);
+  // Read both boxes in one frame and retry while the Modal entrance animation settles.
+  await expect.poll(() => card.evaluate((node) => {
+    const upload = node.closest('.semi-upload')!;
+    return Math.abs(node.getBoundingClientRect().width - upload.getBoundingClientRect().width);
+  })).toBeLessThanOrEqual(1);
+  const filename = card.locator('.semi-upload-file-card-info-name');
+  await expect(filename).toHaveCSS('white-space', 'normal');
+  expect(await filename.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(false);
+  expect(imports).toBe(0);
+  await card.locator('.semi-upload-file-card-close').click();
+  await expect(card).toHaveCount(0);
 });

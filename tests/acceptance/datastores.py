@@ -109,7 +109,7 @@ def _claim_redis_db(url_with_db: str, owner: str) -> bool:
     """在该号上原子占位（`SET NX EX`）并**清空号位内既有键**；True = 本运行独占该号。
 
     只占位不清空是不够的：号位按值释放后会被后续运行复用，上一轮（尤其被 SIGKILL 的）
-    遗留的 `delivery:dedupe:*`、`run:cancel:*` 等键会让新运行继承旧状态，表现为
+    遗留的 `muad:delivery:dedupe:*`、`muad:run:cancel:*` 等键会让新运行继承旧状态，表现为
     「单跑绿、串跑红」。清空保留占位键本身（SCAN+DEL 跳过它），避免出现「已清空但未占位」
     的竞态窗口。
     """

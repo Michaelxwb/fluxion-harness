@@ -93,7 +93,7 @@ for (const theme of ['light', 'dark']) {
     await openSidebar(page, theme);
     const sidebar = page.locator('.app-sider');
     const toggle = page.getByTestId('sidebar-toggle');
-    await expect(sidebar).toHaveCSS('width', '184px');
+    await expect(sidebar).toHaveCSS('width', '224px');
     await expect(toggle).toHaveAccessibleName('Collapse navigation');
     await expect(toggle).toBeInViewport({ ratio: 1 });
     await expectToggleAtSidebarEdge(page);
@@ -125,7 +125,7 @@ for (const theme of ['light', 'dark']) {
     await expect(sidebar).toHaveCSS('width', '64px');
     await page.screenshot({ path: testInfo.outputPath(`sidebar-collapsed-${theme}.png`) });
     await toggle.click();
-    await expect(sidebar).toHaveCSS('width', '184px');
+    await expect(sidebar).toHaveCSS('width', '224px');
     await expect(page.locator('.app-user-name')).toBeVisible();
     await expect(page.locator('.app-user-role')).toBeVisible();
   });
@@ -142,4 +142,28 @@ test('collapsed builder navigation stays restricted in a short viewport', async 
   await expect(page.getByTestId('account-menu')).toBeInViewport({ ratio: 1 });
   await expect(page.getByTestId('sidebar-toggle')).toBeInViewport({ ratio: 1 });
   expect(await page.locator('.app-sider').evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(false);
+});
+
+test('English labels fit and sidebar supports pointer and keyboard resizing', async ({ page }) => {
+  await openSidebar(page, 'light');
+  const sidebar = page.locator('.app-sider');
+  const handle = page.getByRole('separator', { name: 'Resize Sidebar' });
+  await expect(sidebar).toHaveCSS('width', '224px');
+  const clipped = await page.locator('.app-nav .semi-navigation-item-text').evaluateAll((nodes) =>
+    nodes.filter((node) => node.scrollWidth > node.clientWidth).map((node) => node.textContent));
+  expect(clipped).toEqual([]);
+  const bounds = (await handle.boundingBox())!;
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 100);
+  await page.mouse.down();
+  await page.mouse.move((await sidebar.boundingBox())!.x + 284, bounds.y + 100);
+  await page.mouse.up();
+  await expect(sidebar).toHaveCSS('width', '284px');
+  await handle.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(sidebar).toHaveCSS('width', '268px');
+  expect(await sidebar.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(false);
+  await page.getByTestId('sidebar-toggle').click();
+  await expect(sidebar).toHaveCSS('width', '64px');
+  await page.getByTestId('sidebar-toggle').click();
+  await expect(sidebar).toHaveCSS('width', '268px');
 });

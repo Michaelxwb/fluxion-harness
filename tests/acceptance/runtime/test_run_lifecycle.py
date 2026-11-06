@@ -384,7 +384,7 @@ def test_e08_cancel_running_run_cooperatively(live_stack: LiveStack, http: httpx
 
     redis_client = redis.from_url(SharedSettings().require_redis_url(), decode_responses=True)
     try:
-        assert redis_client.exists(f"run:cancel:{run_id}") == 1
+        assert redis_client.exists(f"muad:run:cancel:{run_id}") == 1
     finally:
         redis_client.close()
 

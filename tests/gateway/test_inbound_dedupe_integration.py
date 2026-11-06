@@ -31,7 +31,7 @@ from muad_im_gateway.infrastructure.dedupe import (
     build_dedupe_store,
 )
 
-DEDUPE_PREFIX = "im:dedupe"
+DEDUPE_PREFIX = "muad:im:dedupe"
 RUNS_PATH = "/v1/runs"
 READY_TIMEOUT_SEC = 15.0
 TENANT_ID = "tenant-dedupe"

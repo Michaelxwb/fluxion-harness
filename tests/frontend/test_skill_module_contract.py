@@ -89,6 +89,9 @@ def test_skill_i18n_keys_bilingual() -> None:
         "skill.title",
         "skill.import.action",
         "skill.columns.currentVersion",
+        "skill.columns.platforms",
+        "skill.platforms.undeclared",
+        "skill.platforms.hint",
         "skill.columns.agentCount",
         "skill.columns.userCount",
         "skill.columns.userScope",
@@ -127,3 +130,32 @@ def test_skill_module_i18n_keys_complete() -> None:
         data = json.loads((LOCALES / f"{locale}.json").read_text(encoding="utf-8"))
         missing = sorted(key for key in static_keys if key not in data)
         assert not missing, f"{locale} 缺少词条: {missing}"
+
+
+def test_skill_zip_selection_is_manual_and_full_width() -> None:
+    """Selected packages must not pretend to upload, or truncate their names."""
+    source = _source("SkillImportModal.tsx")
+    assert 'uploadTrigger="custom"' in source
+    assert "customRequest=" not in source
+    assert 'className="skill-import-upload"' in source
+    css = (ROOT / "apps/console-platform/frontend/src/styles/app.css").read_text()
+    import re
+
+    def rule(selector: str) -> str:
+        match = re.search(re.escape(selector) + r"\s*\{([^}]+)\}", css)
+        assert match is not None, selector
+        return match.group(1)
+
+    card = rule(".skill-import-upload .semi-upload-file-card")
+    assert "width: 100%" in card and "height: auto" in card
+    name = rule(".skill-import-upload .semi-upload-file-card-info-name")
+    assert "white-space: normal" in name and "overflow-wrap: anywhere" in name
+
+
+def test_skill_row_action_labels_and_delete_color() -> None:
+    import json
+
+    zh = json.loads((LOCALES / "zh-CN.json").read_text(encoding="utf-8"))
+    assert zh["skill.scope.changeAction"] == "编辑"
+    assert zh["skill.artifact.importNew"] == "更新"
+    assert '<ConfirmAction type="danger"' in _source("SkillPage.tsx")
