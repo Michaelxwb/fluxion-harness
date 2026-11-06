@@ -10,11 +10,20 @@ SRC = ROOT / "apps/console-platform/frontend/src"
 def test_all_delete_confirmations_use_danger() -> None:
     controls = []
     for path in (SRC / "modules").rglob("*.tsx"):
-        for match in re.finditer(r"<ConfirmAction\b.*?</ConfirmAction>", path.read_text(), re.S):
+        source = path.read_text()
+        for match in re.finditer(
+            r"<(?:ConfirmAction|Modal)\b.*?</(?:ConfirmAction|Modal)>", source, re.S
+        ):
             control = match.group()
-            if re.search(r"t\('[^']*[Dd]elete[^']*'\)", control):
-                controls.append(path)
-                assert 'type="danger"' in control, str(path)
+            if not re.search(r"t\('[^']*[Dd]elete[^']*'\)", control):
+                continue
+            controls.append(path)
+            danger = (
+                'type="danger"' in control
+                or 'okType="danger"' in control
+                or ("okButtonProps={{" in control and "danger" in control)
+            )
+            assert danger, str(path)
     assert len(controls) >= 10
 
 

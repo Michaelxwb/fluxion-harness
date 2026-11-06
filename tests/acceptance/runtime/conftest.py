@@ -19,7 +19,7 @@ from typing import Any
 import httpx
 import pytest
 import uvicorn
-from muad_common import SharedSettings
+from muad_common import SharedSettings, reset_settings_cache
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -355,10 +355,13 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveStack]:
     skill_cache_root = tmp_path_factory.mktemp("acceptance-skill-cache")
     os.environ["ARTIFACT_ROOT"] = str(artifact_root)
     os.environ["SKILL_CACHE_ROOT"] = str(skill_cache_root)
+    # 验收栈在宿主直接执行受控测试 Skill；生产仍必须 bwrap。
+    os.environ["SANDBOX_MODE"] = "dev-unsafe"
     os.environ["INTERNAL_SERVICE_TOKEN"] = INTERNAL_TOKEN
     os.environ["RUN_LEASE_SEC"] = "5"
     os.environ["RUN_HEARTBEAT_SEC"] = "1"
     os.environ["RUN_REAPER_INTERVAL_SEC"] = "1"
+    reset_settings_cache()
 
     from tests.e2e.mcp_probe_app import app as mcp_app
     from tests.e2e.openai_probe_app import app as llm_app
@@ -394,6 +397,7 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveStack]:
         mcp_server.stop()
         llm_server.stop()
         _cleanup(database_url, ids, artifact_root)
+        reset_settings_cache()
         _clear_engine_caches()
 
 

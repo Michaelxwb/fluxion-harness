@@ -1058,6 +1058,7 @@
   "audit.resourceType.PLATFORM_USER": "平台用户",
   "audit.resourceType.SKILL": "Skill",
   "audit.resourceType.SKILL_ARTIFACT": "技能制品",
+  "audit.resourceType.SKILL_DRAFT": "技能草稿",
   "audit.resourceType.SKILL_USER_GRANT": "技能用户授权",
   "audit.resourceType.TOOL": "工具",
   "audit.resourceType.USER_MEMORY": "用户记忆",

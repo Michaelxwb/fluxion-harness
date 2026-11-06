@@ -1058,6 +1058,7 @@
   "audit.resourceType.PLATFORM_USER": "Platform user",
   "audit.resourceType.SKILL": "Skill",
   "audit.resourceType.SKILL_ARTIFACT": "Skill artifact",
+  "audit.resourceType.SKILL_DRAFT": "Skill draft",
   "audit.resourceType.SKILL_USER_GRANT": "Skill user grant",
   "audit.resourceType.TOOL": "Tool",
   "audit.resourceType.USER_MEMORY": "User memory",
