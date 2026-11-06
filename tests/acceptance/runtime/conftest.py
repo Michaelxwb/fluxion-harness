@@ -49,6 +49,10 @@ class LiveStack:
         # `/v1` 是受信面：验收调用方与 Gateway 同口径携带内部服务身份。
         return {"X-Tenant-Id": self.tenant_id, "X-Internal-Service": INTERNAL_TOKEN}
 
+    def service_headers(self) -> dict[str, str]:
+        """DFX 等复用 Runtime 栈的套件沿用旧名；身份口径与 `/v1` 一致。"""
+        return self.runtime_headers()
+
     def console_headers(self) -> dict[str, str]:
         return {
             "X-Tenant-Id": self.tenant_id,

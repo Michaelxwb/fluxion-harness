@@ -17,6 +17,7 @@ Playwright 侧（`e2e/support/isolated-datastores.ts` 调其 CLI）共用，避�
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -25,6 +26,9 @@ from tests.acceptance.datastores import (
     DatastoreUnavailableError,
     isolated_datastore_env,
 )
+
+# 验收栈在宿主直接执行受控测试 Skill；生产/K8s 仍由 ConfigMap 显式 pin bwrap。
+os.environ.setdefault("SANDBOX_MODE", "dev-unsafe")
 
 
 @pytest.fixture(scope="session", autouse=True)
