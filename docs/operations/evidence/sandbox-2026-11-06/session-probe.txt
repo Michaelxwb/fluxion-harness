@@ -30,7 +30,19 @@ Local run:
     --security-opt seccomp=unconfined \
     docker.sangfor.com/mss-base/sandbox-session-probe:0.1
 
-Observed:
+Local observed:
+  bwrap_rc 0
+  stdout session_ok probe-cookie
+  stderr
+  RESULT: PASS
+
+Intranet K8s run (2026-11-06):
+  # Imported the tar on the target node with:
+  #   ctr -n k8s.io images import muad-python-node-bwrap-20261106.tar
+  # Then created the Job from session-probe-job.yaml and ran:
+  kubectl -n muad logs job/fx-session-probe
+
+Intranet observed:
   bwrap_rc 0
   stdout session_ok probe-cookie
   stderr
@@ -44,3 +56,6 @@ Notes:
     /bin is required for the `session-manager` launcher's `#!/bin/sh`.
   - It does not call a real business platform. It validates the transport and
     state-file visibility that the real session-manager path depends on.
+  - The intranet success confirms bwrap + real session_cli.py + Unix socket +
+    state file work on the actual node runtime. It still uses a synthetic broker,
+    not the Runtime's real session_platform_environment.

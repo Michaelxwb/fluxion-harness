@@ -1,7 +1,7 @@
 # Skill 自建与执行沙箱方案探索与定稿
 
 日期：2026-11-06  
-状态：**技术选型确定，执行策略与生产集成待验收**；P0 前置镜像与本地 session-manager probe 已完成，待内网 Pod 验证  
+状态：**技术选型确定，执行策略与生产集成待验收**；P0 前置镜像、本地/内网 session-manager probe 已完成，待真实 Runtime broker 验证。
 范围：用户自建 Skill 的草稿、审查、上传、审批、执行沙箱，以及 macOS Dev / 本地 K8s / 内网 Linux K8s 三端运行方式。  
 手动测试证据：[`evidence/sandbox-2026-11-06/`](evidence/sandbox-2026-11-06/)
 
@@ -131,7 +131,7 @@ Unix socket: {"session":"ok"}   # session-manager 桥接机制可用
   FAIL unshare-user 1 Operation not permitted
 ```
 
-session-manager 前置 probe：
+session-manager 前置 probe（本地与内网 K8s 均 PASS）：
 
 ```text
 bwrap_rc 0
@@ -143,7 +143,8 @@ RESULT: PASS
 probe 使用真实 `session_cli.py`：在 bwrap 外启动 Unix socket broker，bwrap 内执行
 `session-manager get-state --skill-name sandbox-session-probe`，读取返回的
 `sessionStateFile` 并打印 cookie。它验证了 bwrap 内的 Unix socket、session 目录
-bind、真实 CLI 和 state 文件可见性。
+bind、真实 CLI 和 state 文件可见性。内网 K8s Job 的相同输出见
+`evidence/sandbox-2026-11-06/session-probe.txt`。
 
 注意：本地 Docker 默认 seccomp 会拦截 `unshare`；内网 K8s 默认策略不同，见下。
 
@@ -186,11 +187,11 @@ RESULT: PASS
 - 网络 namespace 可断网，`--share-net` 可访问内网；
 - Unix socket 可桥接；
 - 真实 `session_cli.py` 可在 bwrap 内通过 Unix socket 获取 state 文件并读取 cookie；
-- 内网 runtime/worker Pod 支持所需 namespace/mount。
+- 内网 runtime/worker Pod 支持所需 namespace/mount；
+- 内网 K8s Job 内直接执行 bwrap + 真实 `session_cli.py`（模拟 broker）PASS。
 
 尚未验证（P0）：
 
-- 内网 Pod 内直接执行 bwrap 二进制；
 - 真实 `session-manager` 在 bwrap 内通过 Runtime 的真实 broker 获取业务平台登录态；
 - 真实 Skill 包在 bwrap 内完成一次完整执行。
 
@@ -563,7 +564,7 @@ Python 3.12.13
 v24.22.2
 ```
 
-#### P0.2 前置 session-manager probe
+#### P0.2 前置 session-manager probe（已完成）
 
 在 K8s 里用测试 Job 跑（不依赖 Runtime 代码）：
 
@@ -573,7 +574,7 @@ kubectl -n muad wait --for=condition=complete job/fx-session-probe --timeout=120
 kubectl -n muad logs job/fx-session-probe
 ```
 
-预期：
+2026-11-06 内网实测结果：
 
 ```text
 bwrap_rc 0
@@ -581,6 +582,10 @@ stdout session_ok probe-cookie
 stderr
 RESULT: PASS
 ```
+
+注意：这是**模拟 broker**。它证明 bwrap 能在内网节点执行，`session-manager` CLI 能
+通过 Unix socket 读取 state 文件；还没有证明 Runtime 的真实
+`session_platform_environment` + Console/Redis + 真实平台凭据链路。
 
 也可以在已导入镜像的 Docker 节点上直接跑：
 
@@ -611,7 +616,8 @@ P0.2 PASS 说明：
 
 1. 用新底座重建 runtime/worker 镜像；
 2. 在真实 runtime/worker Pod 里跑一次 `bwrap --version` 和最小 Skill；
-3. 通过后开始 P1 代码改造。
+3. 跑真实 Runtime broker：`session-manager get-state` → state 文件 → `requests` 调测试平台；
+4. 通过后开始 P1 代码改造。
 
 如果 P0.2 FAIL：
 
@@ -733,6 +739,6 @@ GPT 的复查结论成立：**bwrap 技术选型可以保留，但不能把当�
 
 ### 13.1 修正后的状态
 
-- **已完成**：bwrap 可行性、PlatOS 底座 + bwrap 构建、本地 session-manager probe、内网 runtime/worker 内核 primitives。
+- **已完成**：bwrap 可行性、PlatOS 底座 + bwrap 构建、本地与内网 K8s session-manager probe（模拟 broker）、内网 runtime/worker 内核 primitives。
 - **未完成/未闭环**：受信 API 门控、真实 runtime broker 链路、流式输出、只读包/独立工作目录、owner/审批事务、服务镜像重建与 digest 记录、最终 Pod 指纹。
 - **结论**：可以继续按 bwrap 方向做 P0/P1，但在上述阻断项完成前，不宣称“生产执行方案已验收”。
