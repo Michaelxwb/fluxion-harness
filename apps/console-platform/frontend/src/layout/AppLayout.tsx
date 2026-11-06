@@ -119,7 +119,7 @@ function Sidebar() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('muad.sidebar.collapsed') === 'true');
   useEffect(() => { localStorage.setItem('muad.sidebar.collapsed', String(collapsed)); }, [collapsed]);
   const [width, setWidth] = useState<number | null>(null);
-  const sidebarWidth = width ?? (i18n.language.startsWith('en') ? 248 : 184);
+  const sidebarWidth = width ?? (i18n.language.startsWith('en') ? 224 : 184);
   const visibleItems = menuItems.filter((item) => !item.adminOnly || account?.role === 'ADMIN');
   return (
     <Sider className={`app-sider${collapsed ? ' app-sider-collapsed' : ''}`}

@@ -1946,7 +1946,7 @@ body {
 
 .app-sidebar-resize {
   position: absolute;
-  inset: 0 -4px 0 auto;
+  inset: 0 0 0 auto;
   width: 8px;
   cursor: col-resize;
   touch-action: none;
@@ -1966,4 +1966,10 @@ body {
 .app-sider:not(.app-sider-collapsed) .semi-navigation-item {
   height: auto;
   min-height: 36px;
+}
+
+/* Keep translated headings readable as navigation changes the available table width. */
+.app-table-fit .semi-table .semi-table-thead > .semi-table-row > .semi-table-row-head {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

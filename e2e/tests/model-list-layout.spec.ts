@@ -3,7 +3,7 @@ import type { ModelItem } from '../../apps/console-platform/frontend/src/modules
 import type { UserListItem } from '../../apps/console-platform/frontend/src/modules/user-identity/services/users';
 import type { SkillListItem } from '../../apps/console-platform/frontend/src/modules/skill-management/services/skills';
 import { expectTableSurfaces } from '../support/table-surface';
-import { expectBlueActions } from '../support/action-colors';
+import { expectActionColors } from '../support/action-colors';
 import type { AgentDetail } from '../../apps/console-platform/frontend/src/modules/agent-management/services/agents';
 
 const model: ModelItem = {
@@ -126,7 +126,7 @@ for (const { width, locale, theme } of AGENT_CELLS) {
       await expectAgentListFits(page);
       await expectAgentColumnsBalanced(page);
       if (width === 2048 && locale === 'zh-CN') {
-        await expectBlueActions(page.locator('.agent-table .table-actions-cell .semi-button'));
+        await expectActionColors(page.locator('.agent-table .table-actions-cell .semi-button'));
       }
       await page.screenshot({ path: testInfo.outputPath(`agent-list-${width}-${locale}-${theme}.png`) });
       await page.setViewportSize({ width: 2048, height: 900 });
@@ -175,7 +175,7 @@ for (const { width, theme } of MODEL_ROW_CELLS) {
       await page.goto('/models');
       const rows = page.locator('.model-table .semi-table-tbody .semi-table-row');
       await expect(rows).toHaveCount(3);
-      await expectBlueActions(rows.first().locator('.model-table-actions .semi-button'));
+      await expectActionColors(rows.first().locator('.model-table-actions .semi-button'));
       await expect(page.getByRole('columnheader', { name: '状态', exact: true })).toHaveCount(1);
       for (const name of ['API Key', '启用状态', '测试状态']) {
         await expect(page.getByRole('columnheader', { name, exact: true })).toHaveCount(0);

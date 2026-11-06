@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { AgentSkillItem, AuditItem } from '../../apps/console-platform/frontend/src/modules/agent-management/services/agents';
 import { expectTableSurfaces } from '../support/table-surface';
-import { expectBlueActions } from '../support/action-colors';
+import { expectActionColors } from '../support/action-colors';
 
 // Frontend browser/layout tests using local API fixtures, without backend services.
 const time = '2026-09-30T00:00:00Z';
@@ -193,7 +193,7 @@ for (const theme of ['light', 'dark']) {
     const table = page.getByRole('dialog').locator('.semi-table-wrapper');
     await expect(table).toContainText('layout-skill');
     await expectTableSurfaces(table);
-    await expectBlueActions(table.locator('.table-actions-cell .semi-button'));
+    await expectActionColors(table.locator('.table-actions-cell .semi-button'));
     let removals = 0;
     page.on('request', (request) => { if (request.method() === 'DELETE') removals += 1; });
     await table.getByRole('button', { name: '解除', exact: true }).click();
@@ -351,7 +351,7 @@ for (const { locale, scope } of SKILL_SCOPE_CELLS) {
       await icon.focus();
       await expect(page.getByRole('tooltip')).toHaveText(hint);
       await expect(sheet.locator('.semi-banner')).toHaveCount(0);
-      await sheet.getByRole('tab', { name: chinese ? '指定用户' : 'Selected users', exact: true }).click();
+      await sheet.getByRole('tab', { name: chinese ? '指定用户' : 'Selected Users', exact: true }).click();
       if (scope === 'ALL') {
         await expect(sheet).toContainText(chinese ? '无需单独指定用户' : 'No need to select individual users');
         await expect(sheet.getByTestId('add-selected-user')).toHaveCount(0);

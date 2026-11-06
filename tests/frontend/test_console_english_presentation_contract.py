@@ -26,7 +26,7 @@ def test_sidebar_resizes_without_changing_navigation_or_requests() -> None:
     assert "hasPointerCapture(event.pointerId)" in source
     assert "onKeyDown=" in source
     assert "collapsed ? 64 : sidebarWidth" in source
-    assert "i18n.language.startsWith('en') ? 248 : 184" in source
+    assert "i18n.language.startsWith('en') ? 224 : 184" in source
     css = (SRC / "styles/app.css").read_text()
     assert ".app-sidebar-resize" in css and "cursor: col-resize" in css
     assert ".app-sider:not(.app-sider-collapsed) .semi-navigation-item-text" in css

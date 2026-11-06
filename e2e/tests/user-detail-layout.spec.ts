@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { AgentGrant, Identity, UserDetail } from '../../apps/console-platform/frontend/src/modules/user-identity/services/users';
 import type { MemoryItem } from '../../apps/console-platform/frontend/src/modules/user-identity/memoryTypes';
 import type { PlatformItem } from '../../apps/console-platform/frontend/src/modules/project-platform/services/platforms';
-import { expectBlueActions } from '../support/action-colors';
+import { expectActionColors } from '../support/action-colors';
 import { expectTableSurfaces } from '../support/table-surface';
 
 // Layout fixtures cover long and short values without changing development data.
@@ -40,9 +40,9 @@ const memories: MemoryItem[] = [true, false].map((enabled, index) => ({
   create_time: time, update_time: time
 }));
 const cases = [
-  { key: 'grants', zh: 'Agent 授权', en: 'Agent grants', columns: 5, flexible: [0, 1], status: 2, statusMax: 128, actionWidth: 112 },
+  { key: 'grants', zh: 'Agent 授权', en: 'Agent Grants', columns: 5, flexible: [0, 1], status: 2, statusMax: 128, actionWidth: 112 },
   { key: 'credentials', zh: '项目平台凭据', en: 'Credentials', columns: 6, flexible: [0], status: 3, statusMax: 128, actionWidth: 104 },
-  { key: 'identities', zh: 'IM 身份', en: 'IM identities', columns: 7, flexible: [1, 2], status: 5, statusMax: 128, actionWidth: 80 },
+  { key: 'identities', zh: 'IM 身份', en: 'IM Identities', columns: 7, flexible: [1, 2], status: 5, statusMax: 128, actionWidth: 80 },
   // 记忆表（记忆重设计后的列契约）：内容/类别/来源(author)/状态/更新时间/操作；状态列 140，操作列 196。
   { key: 'memory', zh: '用户记忆', en: 'Memories', columns: 6, flexible: [0], status: 3, statusMax: 140, actionWidth: 196 }
 ] as const;
@@ -194,10 +194,10 @@ async function expectFixedActions(table: Locator, locale: string): Promise<void>
   const more = first.getByRole('button', { name: locale === 'zh-CN' ? '更多' : 'More', exact: true });
   if (await more.count()) {
     await more.click();
-    await expectBlueActions(table.page().locator('.table-actions-menu .semi-button'));
+    await expectActionColors(table.page().locator('.table-actions-menu .semi-button'));
     await table.page().mouse.click(0, 0);
   } else {
-    await expectBlueActions(actions.locator('.semi-button'));
+    await expectActionColors(actions.locator('.semi-button'));
   }
 }
 
@@ -225,7 +225,7 @@ for (const entry of cases) {
         await expectContentFits(table);
         if (width === 1280) {
           await expectDesktopFits(table, entry);
-          await expectBlueActions(table.locator('.table-actions-cell .semi-button'));
+          await expectActionColors(table.locator('.table-actions-cell .semi-button'));
         } else {
           await expectFixedActions(table, locale);
         }
