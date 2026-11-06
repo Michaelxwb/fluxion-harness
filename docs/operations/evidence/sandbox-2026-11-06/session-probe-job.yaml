@@ -1,0 +1,37 @@
+# Session-manager pre-flight Job
+#
+# Import the image tar on an intranet node first:
+#   docker load -i muad-python-node-bwrap-20261106.tar
+#
+# The intranet runtime/worker Pods already proved that the default container
+# runtime allows unshare/mount. This Job uses the same default (no explicit
+# seccompProfile) so it tests the real target configuration.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fx-session-probe
+  namespace: muad
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      containers:
+        - name: probe
+          image: docker.sangfor.com/mss-base/sandbox-session-probe:0.1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi

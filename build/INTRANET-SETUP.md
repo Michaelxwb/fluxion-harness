@@ -23,6 +23,10 @@
 
 ## 1. 底座镜像
 
+> 2026-11 起 `python-node` 底座内置 bwrap（用户 Skill 脚本沙箱）。带 bwrap 的底座
+> 构建、导入和 session-manager 前置 probe 步骤见
+> `docs/operations/sandbox-solution.md` 第 8–9 节。
+
 ### 1.1 导入现成 tar（推荐）
 
 ```bash

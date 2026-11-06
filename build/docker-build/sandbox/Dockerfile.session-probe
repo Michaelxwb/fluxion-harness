@@ -1,0 +1,14 @@
+# syntax=docker/dockerfile:1
+# Test-only image: bwrap + the real session_cli.py + a local Unix-socket broker.
+ARG BASE_IMAGE=docker.sangfor.com/mss-base/python-node:3.12.13-node24
+
+FROM ${BASE_IMAGE}
+
+USER root
+COPY packages/platform-sdk/src/muad_platform_sdk/session_cli.py /opt/muad-sandbox/session_cli.py
+COPY build/docker-build/sandbox/session_probe.py /opt/muad-sandbox/session_probe.py
+RUN chmod 0755 /opt/muad-sandbox/session_cli.py /opt/muad-sandbox/session_probe.py
+
+USER 10001:10001
+WORKDIR /app
+CMD ["python", "/opt/muad-sandbox/session_probe.py"]

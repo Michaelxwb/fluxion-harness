@@ -1,0 +1,75 @@
+Intranet Kubernetes kernel smoke evidence
+=========================================
+
+Date: 2026-11-06
+Namespace: muad
+Command source: operator shell on xos-03ce80d9
+Script: kernel_smoke.py (in this directory)
+
+Pod placement observed before the test
+--------------------------------------
+  NAME                                  READY   STATUS    AGE   NODE
+  muad-agent-runtime-5c4cf5db5f-97kh7   1/1     Running   10h   middleware03
+  muad-agent-runtime-5c4cf5db5f-xs89m   1/1     Running   10h   middleware02
+  muad-agent-worker-7c444594c5-7kvgl    1/1     Running   10h   middleware02
+  muad-agent-worker-7c444594c5-lztwz    1/1     Running   10h   middleware01
+
+seccompProfile on both deployments: empty (no explicit profile)
+  kubectl -n muad get deploy muad-agent-runtime \
+    -o jsonpath='{.spec.template.spec.containers[*].securityContext.seccompProfile}'
+  kubectl -n muad get deploy muad-agent-worker \
+    -o jsonpath='{.spec.template.spec.containers[*].securityContext.seccompProfile}'
+
+Runtime Pod result
+------------------
+Command:
+  POD=$(kubectl -n muad get pod -l app=muad-agent-runtime \
+    -o jsonpath='{.items[0].metadata.name}')
+  kubectl -n muad exec -i "$POD" -- python - < kernel_smoke.py
+
+Observed:
+  uid: 10001 gid: 10001
+  kernel: 4.18.0-372.19.1.30.po1.x86_64
+  /proc/sys/user/max_user_namespaces=126141
+  /proc/sys/kernel/unprivileged_userns_clone=<No such file or directory>
+  OK user
+  OK namespaces
+  OK mount
+  OK pid 1
+  OK net 101
+  RESULT: PASS
+
+Worker Pod result
+-----------------
+Command:
+  POD=$(kubectl -n muad get pod -l app=muad-agent-worker \
+    -o jsonpath='{.items[0].metadata.name}')
+  kubectl -n muad exec -i "$POD" -- python - < kernel_smoke.py
+
+Observed:
+  uid: 10001 gid: 10001
+  kernel: 4.18.0-372.19.1.30.po1.x86_64
+  /proc/sys/user/max_user_namespaces=126141
+  /proc/sys/kernel/unprivileged_userns_clone=<No such file or directory>
+  OK user
+  OK namespaces
+  OK mount
+  OK pid 1
+  OK net 101
+  RESULT: PASS
+
+What this proves
+----------------
+  - UID 10001 can create a user namespace.
+  - Mount / PID / network / IPC / UTS namespaces can be created.
+  - tmpfs can be mounted inside the user namespace.
+  - The new network namespace has no usable external connectivity.
+  - The current intranet pod security context allows the primitives bwrap needs.
+
+What this does NOT prove
+------------------------
+  - It does not execute the bwrap binary in the intranet Pod.
+  - It does not execute the real session-manager CLI inside bwrap.
+  - It does not test the real Skill package through bwrap.
+  These are the remaining P0 items, after the shared base image is rebuilt with
+  bwrap.

@@ -28,7 +28,8 @@ data
 .data
 playwright-report
 test-results
-build/docker-build
+build/docker-build/*
+!build/docker-build/sandbox
 build/helm-build
 build/dist
 

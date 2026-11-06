@@ -1,0 +1,46 @@
+Session-manager pre-flight probe
+=================================
+
+Image:
+  docker.sangfor.com/mss-base/sandbox-session-probe:0.1
+  base: docker.sangfor.com/mss-base/python-node:3.12.13-node24-bwrap-20261106
+  base: docker.sangfor.com/mss-base/python-node:3.12.13-node24 (canonical alias)
+  bwrap: 0.13.1
+
+What it tests
+-------------
+The probe starts a Unix-socket broker outside bwrap (simulating the Runtime's
+session broker), installs the real session_cli.py behind a `session-manager`
+launcher, then runs a client inside bwrap.
+
+The client must:
+  1. execute `session-manager get-state --skill-name sandbox-session-probe`;
+  2. connect through MUAD_SESSION_SOCKET;
+  3. read the returned sessionStateFile;
+  4. print the cookie from that state file.
+
+Build:
+  docker build --platform linux/amd64 \
+    --build-arg BASE_IMAGE=docker.sangfor.com/mss-base/python-node:3.12.13-node24-bwrap-20261106 \
+    -t docker.sangfor.com/mss-base/sandbox-session-probe:0.1 \
+    -f build/docker-build/sandbox/Dockerfile.session-probe .
+
+Local run:
+  docker run --rm --platform linux/amd64 \
+    --security-opt seccomp=unconfined \
+    docker.sangfor.com/mss-base/sandbox-session-probe:0.1
+
+Observed:
+  bwrap_rc 0
+  stdout session_ok probe-cookie
+  stderr
+  RESULT: PASS
+
+Notes:
+  - Local Docker needs --security-opt seccomp=unconfined because Docker's
+    default seccomp blocks unshare. The intranet Kubernetes default was already
+    verified to allow unshare, so the K8s probe does not set seccompProfile.
+  - The probe deliberately binds /bin, /usr, /lib, /lib64, /etc, /opt and /dev;
+    /bin is required for the `session-manager` launcher's `#!/bin/sh`.
+  - It does not call a real business platform. It validates the transport and
+    state-file visibility that the real session-manager path depends on.

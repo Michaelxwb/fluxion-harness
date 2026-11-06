@@ -1,0 +1,50 @@
+Landlock and seccomp observations
+=================================
+
+Landlock in the local amd64 emulated base image
+-----------------------------------------------
+Command (inside docker.sangfor.com/mss-base/python-node:3.12.13-node24):
+
+  python -c '
+  import ctypes
+  libc = ctypes.CDLL(None, use_errno=True)
+  r = libc.syscall(444, 0, 0, 1)
+  print("landlock_abi", r, "errno", ctypes.get_errno())
+  '
+
+Observed:
+  landlock_abi -1 errno 38
+
+  errno 38 = ENOSYS (Landlock syscall not implemented from this process view).
+
+Production Pod observation recorded by the GPT exploration document
+--------------------------------------------------------------------
+  Pod: muad-agent-runtime-... (namespace muad)
+  Kernel: 4.18.0-372.19.1.30.po1.x86_64
+  Landlock probe: errno=38, Function not implemented
+
+Conclusion:
+  - Landlock / nono-py is not a viable path for the current production kernel.
+  - Rebuilding the container base image cannot add the missing kernel feature.
+
+seccomp
+-------
+Deployment check:
+  kubectl -n muad get deploy muad-agent-runtime \
+    -o jsonpath='{.spec.template.spec.containers[*].securityContext.seccompProfile}'
+  kubectl -n muad get deploy muad-agent-worker \
+    -o jsonpath='{.spec.template.spec.containers[*].securityContext.seccompProfile}'
+
+Observed:
+  both empty (no explicit seccompProfile).
+
+Real intranet Pod kernel smoke:
+  RESULT: PASS
+
+Important distinction:
+  - Docker's default seccomp profile blocks unshare in the local test environment.
+  - The intranet Kubernetes/container runtime default, with no explicit
+    seccompProfile, allowed unshare and mount in the real runtime/worker Pods.
+  - Therefore no seccompProfile change is required on the tested intranet nodes.
+  - The local Docker result must not be used to conclude that intranet Pods need
+    seccompProfile: Unconfined.

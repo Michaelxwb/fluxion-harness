@@ -1,0 +1,98 @@
+Local macOS / OrbStack bwrap evidence
+=====================================
+
+Environment:
+  macOS 27.0.1 (arm64)
+  OrbStack container kernel: 7.2.12-orbstack-00394-gbecdd6130068
+  Docker image platform: linux/amd64 (emulated on arm64)
+  Test image: fx-sandbox-test:local
+  Test image base: docker.sangfor.com/mss-base/python-node:3.12.13-node24
+  bwrap: 0.13.2, built in Alpine 3.20, copied with musl loader + libcap
+
+Build:
+  See Dockerfile.sandbox-test in this directory.
+
+Kernel smoke in the actual PlatOS base image
+--------------------------------------------
+Command:
+  docker run --rm --platform linux/amd64 \
+    --security-opt seccomp=unconfined \
+    -v "$PWD/kernel_smoke.py:/smoke.py:ro" \
+    docker.sangfor.com/mss-base/python-node:3.12.13-node24 \
+    python /smoke.py
+
+Observed:
+  uid: 10001 gid: 10001
+  kernel: 7.2.12-orbstack-00394-gbecdd6130068
+  /proc/sys/user/max_user_namespaces=64278
+  /proc/sys/kernel/unprivileged_userns_clone=<No such file or directory>
+  OK user
+  OK namespaces
+  OK mount
+  OK pid 1
+  OK net 101
+  RESULT: PASS
+
+Same command without --security-opt seccomp=unconfined:
+  FAIL unshare-user 1 Operation not permitted
+  RESULT: FAIL
+
+Note:
+  Docker's default seccomp blocks unshare locally. The intranet Kubernetes
+  default did not block it (see intranet-k8s-kernel-smoke.txt).
+
+bwrap smoke in the PlatOS test image
+------------------------------------
+Command:
+  docker run --rm --platform linux/amd64 \
+    --security-opt seccomp=unconfined \
+    -v "$PWD/bwrap_smoke.sh:/smoke.sh:ro" \
+    fx-sandbox-test:local sh /smoke.sh
+
+Observed:
+  == identity ==
+  uid=10001(muad) gid=10001(muad) groups=10001(muad)
+  Linux ... 7.2.12-orbstack-00394-gbecdd6130068 ... x86_64 GNU/Linux
+
+  == kernel knobs ==
+  /proc/sys/user/max_user_namespaces=64278
+  /proc/sys/kernel/unprivileged_userns_clone=<absent>
+
+  == bwrap ==
+  bubblewrap 0.13.2
+
+  == python in sandbox ==
+  cwd /work
+  mnt_exists False
+  proc_exists False
+  token_env False
+  net_connect_ex 101
+
+  == node in sandbox ==
+  node_ok /work
+
+  == network shared ==
+  net_shared 0
+
+  == unix socket inside sandbox ==
+  rc 0
+  out {"session":"ok"}
+  err
+
+  == done ==
+
+bwrap invocation notes that were required by the actual base image:
+  - Bind /opt read-only: Python is at /opt/python3.12/bin/python.
+  - Bind /lib64 (try): the PlatOS Python needs
+    /lib64/ld-linux-x86-64.so.2.
+  - Bind /usr, /lib, /etc, /opt and /dev.
+  - Do not bind /mnt or /proc.
+  - Use --clearenv and set only PATH / HOME / LANG / MUAD_SESSION_SOCKET.
+  - Use --size <bytes> before --tmpfs /tmp (bwrap syntax).
+
+Unix socket test:
+  A Python Unix socket server was started outside bwrap. The session directory
+  was bind-mounted into the sandbox. A Python client inside bwrap connected to
+  the socket and received {"session":"ok"}.
+  This validates the mechanism needed by session-manager; the real
+  session-manager CLI still needs a P0 test in an intranet Pod.
