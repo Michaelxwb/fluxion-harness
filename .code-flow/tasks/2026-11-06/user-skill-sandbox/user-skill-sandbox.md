@@ -94,17 +94,17 @@
 | S-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Runtime/Worker → 真实平台 → 改造后的旧 Skill | TASK-019 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
 | S-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → 只读 /skill → 可写 /workspace | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → 子进程管道 → 有界读取 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| E-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxRunner → bwrap → 完整进程树 | TASK-002 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxRunner → bwrap → 完整进程树 | TASK-002 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | bwrap --clearenv + 最小 mount + 子进程环境 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_03.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| E-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway → Runtime /v1 → 服务身份校验 | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| S-20 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
+| E-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway → Runtime /v1 → 服务身份校验 | TASK-001 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
+| S-20 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | TASK-001 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | E-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | workspace_shell → bwrap → PATH/socket 检查 | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-22 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Console/Redis → 真实平台受保护接口 | TASK-004 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
 | E-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace quota check → PVC | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-24 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 元数据 → PVC | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_24.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | B-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 多 Worker 并发 → PG advisory lock/认领 | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-26 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P1 | auto | none | - | - | - | no |
-| E-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner → bwrap 探测 | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P0 | auto | none | - | - | - | no |
+| S-26 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | TASK-002 | stale | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P1 | auto | none | - | - | - | no |
+| E-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner → bwrap 探测 | TASK-002 | stale | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | E-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → owner 校验 → PG | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | B-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_03.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批状态校验 | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -161,8 +161,8 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-04 | integration | Gateway → Runtime /v1 → 服务身份校验 | 无 header 拒绝；错误 header 拒绝；正确 header 成功；浏览器传入的 header 不被透传 | tests/acceptance/user_skill_sandbox/test_e_04.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | verified |
-| S-20 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | 首次建连带服务身份；重连带服务身份；无/错误身份被拒绝；不逐事件校验、不增加网络往返 | tests/acceptance/user_skill_sandbox/test_s_20.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | verified |
+| E-04 | integration | Gateway → Runtime /v1 → 服务身份校验 | 无 header 拒绝；错误 header 拒绝；正确 header 成功；浏览器传入的 header 不被透传 | tests/acceptance/user_skill_sandbox/test_e_04.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | stale |
+| S-20 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | 首次建连带服务身份；重连带服务身份；无/错误身份被拒绝；不逐事件校验、不增加网络往返 | tests/acceptance/user_skill_sandbox/test_s_20.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | stale |
 
 ### Acceptance Evidence
 
@@ -178,6 +178,8 @@
 - S-20: verified — automated command passed; run_id=00205986bfa349c98a0c13ad0723360a (confirmed_by: runner)
 - E-04: verified — automated command passed; run_id=9f23ab3198224d76830ff288225db214 (confirmed_by: runner)
 - S-20: verified — automated command passed; run_id=9f23ab3198224d76830ff288225db214 (confirmed_by: runner)
+- E-04: stale — input changed: CHK-a5e8781f55ad (confirmed_by: runtime)
+- S-20: stale — input changed: CHK-65644e7dc2a5 (confirmed_by: runtime)
 
 ### Log
 
@@ -220,9 +222,9 @@
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-02 | integration | SandboxRunner → bwrap → 完整进程树 | 超时/取消后无孤儿进程；进程组/后代被回收；资源释放，后续执行可正常启动 | tests/acceptance/user_skill_sandbox/test_e_02.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_02.py"] | verified |
-| E-07 | unit | SandboxRunner → bwrap 探测 | 返回 SANDBOX_UNAVAILABLE；不回退宿主执行；日志/指标可见 | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | verified |
-| S-26 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | 未显式开启 dev-unsafe 时拒绝执行；显式开启时执行并留下审计；生产配置不能启用 dev-unsafe | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | verified |
+| E-02 | integration | SandboxRunner → bwrap → 完整进程树 | 超时/取消后无孤儿进程；进程组/后代被回收；资源释放，后续执行可正常启动 | tests/acceptance/user_skill_sandbox/test_e_02.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_02.py"] | stale |
+| E-07 | unit | SandboxRunner → bwrap 探测 | 返回 SANDBOX_UNAVAILABLE；不回退宿主执行；日志/指标可见 | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | stale |
+| S-26 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | 未显式开启 dev-unsafe 时拒绝执行；显式开启时执行并留下审计；生产配置不能启用 dev-unsafe | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | stale |
 
 ### Acceptance Evidence
 
@@ -242,6 +244,9 @@
 - E-02: verified — automated command passed; run_id=ab159137af234923bb4af8cf566d2fd0 (confirmed_by: runner)
 - S-26: verified — automated command passed; run_id=ab159137af234923bb4af8cf566d2fd0 (confirmed_by: runner)
 - E-07: verified — automated command passed; run_id=ab159137af234923bb4af8cf566d2fd0 (confirmed_by: runner)
+- E-02: stale — input changed: CHK-28858b5b8379 (confirmed_by: runtime)
+- S-26: stale — input changed: CHK-7d605d4fff3d (confirmed_by: runtime)
+- E-07: stale — input changed: CHK-7d605d4fff3d (confirmed_by: runtime)
 
 ### Log
 
