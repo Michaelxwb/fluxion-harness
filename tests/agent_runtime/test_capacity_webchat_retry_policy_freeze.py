@@ -114,6 +114,7 @@ def _async_skill() -> ResolvedSkill:
         checksum="sha256:" + "a" * 64,
         storage_key="skills/async_effect.zip",
         execution_mode=SkillExecutionMode.ASYNC,
+        source="ADMIN",
     )
 
 

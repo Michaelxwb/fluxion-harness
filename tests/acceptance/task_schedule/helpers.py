@@ -88,6 +88,7 @@ def load_resolved(live_stack: LiveStack) -> dict[str, Any]:
                 storage_key=artifact[2],
                 execution_mode=SkillExecutionMode.ASYNC,
                 frontmatter={},
+                source="ADMIN",
             ),
         }
 

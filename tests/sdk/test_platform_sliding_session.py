@@ -277,6 +277,7 @@ async def test_runtime_skill_tool_path_uses_platform_context(tmp_path, execution
         checksum="test",
         storage_key="test",
         frontmatter={"platforms": ["platform_server"]},
+        source="ADMIN",
     )
 
     class Cache:
@@ -365,7 +366,7 @@ async def test_invalidation_prevents_inflight_login_resurrection(platform_server
 
 
 def test_task_snapshot_freezes_only_platform_keys():
-    from muad_contracts import ResolvedSkill
+    from muad_contracts import ResolvedSkill, WorkspaceRef
     from muad_contracts.snapshot import _skill_entry
 
     skill = ResolvedSkill(
@@ -378,8 +379,12 @@ def test_task_snapshot_freezes_only_platform_keys():
         checksum="test",
         storage_key="test",
         frontmatter={"platforms": ["mssp", "mssw", "mssp"], "unrelated_private_field": "excluded"},
+        source="ADMIN",
     )
-    frozen = _skill_entry(skill)
+    frozen = _skill_entry(
+        skill,
+        WorkspaceRef(tenant_id="tenant-1", user_id=uuid.uuid4(), agent_id=uuid.uuid4()),
+    )
     assert frozen["platforms"] == ["mssp", "mssw"]
     assert "frontmatter" not in frozen and "unrelated_private_field" not in frozen
 

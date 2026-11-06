@@ -30,6 +30,7 @@ def _resolved_skill() -> ResolvedSkill:
         checksum="sha256:" + "0" * 64,
         storage_key="skills/device-policy-check/1.0.0/skill.zip",
         execution_mode=SkillExecutionMode.SYNC,
+        source="ADMIN",
     )
 
 

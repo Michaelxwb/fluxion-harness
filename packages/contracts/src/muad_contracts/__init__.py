@@ -40,6 +40,8 @@ from .enums import (
     RunStatus,
     ScheduleStatus,
     SkillExecutionMode,
+    SkillReviewStatus,
+    SkillSource,
     TaskStatus,
     TaskType,
     TerminalStatus,
@@ -78,6 +80,7 @@ from .resolve import (
     ResolveModelRequest,
     ResolveModelResponse,
     RuntimeExecutionRef,
+    WorkspaceRef,
 )
 from .runtime import ChannelContext, MessageInput, RunRequest
 from .snapshot import (
@@ -139,6 +142,7 @@ __all__ = [
     "ToolSubmissionReceipt",
     "UNTRUSTED_RETRY_HINT_KEYS",
     "WaitReason",
+    "WorkspaceRef",
     "frozen_retry_safety",
     "task_retry_safety",
     "tool_waiting_reason",
@@ -215,6 +219,8 @@ __all__ = [
     "ScheduleSpec",
     "ScheduleStatus",
     "SkillExecutionMode",
+    "SkillReviewStatus",
+    "SkillSource",
     "TaskListQuery",
     "TaskStatus",
     "TaskType",

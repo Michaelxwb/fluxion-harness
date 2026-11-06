@@ -199,6 +199,7 @@ def resolved(tenant: TenantContext) -> ResolveDefinitionResponse:
                 checksum="sha256:" + "a" * 64,
                 storage_key="skills/demo/policy-check.zip",
                 execution_mode="SYNC",
+                source="ADMIN",
             )
         ],
         mcp_servers=[

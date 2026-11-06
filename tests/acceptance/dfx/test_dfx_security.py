@@ -52,7 +52,12 @@ import uvicorn
 from muad_agent_runtime.infrastructure.audit_writer import RuntimeAuditWriter
 from muad_api.audit import sanitize_audit_payload, write_config_audit
 from muad_common import SharedSettings
-from muad_contracts import ResolveDefinitionResponse, build_task_snapshot, snapshot_hash
+from muad_contracts import (
+    ResolveDefinitionResponse,
+    WorkspaceRef,
+    build_task_snapshot,
+    snapshot_hash,
+)
 from muad_platform_sdk.egress_boundary import (
     MAX_BYTES_DEFAULT,
     EgressBoundary,
@@ -477,7 +482,16 @@ def _submit_final_delivery(stack: LiveStack, http: httpx.Client) -> str:
     assert response.status_code == 200, response.text
     resolved = ResolveDefinitionResponse.model_validate(response.json()["data"])
     skill = next(item for item in resolved.skills if item.key == stack.skill_key)
-    snapshot = build_task_snapshot(agent=resolved.agent, model=resolved.model, skill=skill)
+    snapshot = build_task_snapshot(
+        agent=resolved.agent,
+        model=resolved.model,
+        skill=skill,
+        workspace=WorkspaceRef(
+            tenant_id=stack.tenant_id,
+            user_id=stack.platform_user_id,
+            agent_id=stack.agent_id,
+        ),
+    )
     submitted = http.post(
         f"{stack.worker_url}/internal/tasks",
         json={

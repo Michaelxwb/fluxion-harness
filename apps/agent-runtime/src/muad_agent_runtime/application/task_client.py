@@ -24,6 +24,7 @@ from muad_contracts import (
     ResolvedMcpServer,
     ResolvedModel,
     ResolvedSkill,
+    WorkspaceRef,
     snapshot_hash,
 )
 from muad_contracts import build_task_snapshot as build_execution_snapshot
@@ -62,6 +63,11 @@ def build_task_snapshot(context: TaskSubmissionContext, skill: ResolvedSkill) ->
         agent=context.agent,
         model=context.model,
         skill=skill,
+        workspace=WorkspaceRef(
+            tenant_id=context.tenant_id,
+            user_id=context.actor_user_id,
+            agent_id=context.agent.id,
+        ),
         mcp_servers=context.mcp_servers,
     )
     return snapshot, snapshot_hash(snapshot)

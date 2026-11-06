@@ -2,6 +2,7 @@ from .base import Base, StandardColumnsMixin
 from .runtime_operations import RuntimeOperation, RuntimeResultOutbox
 from .task import DeliveryRoute, TaskEvent, TaskExecution, TaskSchedule
 from .task_submission import TaskSubmission
+from .workspace import WORKSPACE_STATES, Workspace, WorkspaceLease
 
 __all__ = [
     "Base",
@@ -13,4 +14,7 @@ __all__ = [
     "TaskExecution",
     "TaskSchedule",
     "TaskSubmission",
+    "WORKSPACE_STATES",
+    "Workspace",
+    "WorkspaceLease",
 ]

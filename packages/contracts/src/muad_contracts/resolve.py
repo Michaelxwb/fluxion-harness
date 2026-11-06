@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
-from .enums import ChannelName, SkillExecutionMode
+from .enums import ChannelName, SkillExecutionMode, SkillSource
 from .model_pool import PositiveCount
 from .tasks import ContractModel
 
@@ -38,6 +38,14 @@ class ResolvedModel(ContractModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
+class WorkspaceRef(ContractModel):
+    """执行快照冻结的 workspace 归属：tenant + user + Agent 唯一确定一个可写目录。"""
+
+    tenant_id: str = Field(min_length=1)
+    user_id: UUID
+    agent_id: UUID
+
+
 class ResolvedSkill(ContractModel):
     skill_id: UUID
     artifact_id: UUID
@@ -49,6 +57,8 @@ class ResolvedSkill(ContractModel):
     storage_key: str
     execution_mode: SkillExecutionMode = SkillExecutionMode.SYNC
     frontmatter: dict[str, Any] = Field(default_factory=dict)
+    #: 服务端记录的唯一来源；加密/执行策略由它决定，缺失或非法一律拒绝执行（RULE-snapshot-001）。
+    source: SkillSource
 
 
 class ResolvedMcpServer(ContractModel):

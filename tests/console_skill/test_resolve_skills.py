@@ -50,6 +50,7 @@ async def test_resolve_returns_effective_skills(
         "storage_key": skill_env.artifact_all_storage_key,
         "execution_mode": "SYNC",
         "frontmatter": {"name": "Skill skill-all", "description": "Seeded skill."},
+        "source": "ADMIN",
     }
     assert data["mcp_servers"] == []
 
