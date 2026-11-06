@@ -2,11 +2,24 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+import shutil
+import tempfile
+from collections.abc import AsyncIterator, Iterator
+from pathlib import Path
 
 import pytest
 from muad_common import SharedSettings
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+
+@pytest.fixture()
+def shared_tmp_path() -> Iterator[Path]:
+    """Docker Desktop 只共享部分宿主机路径；用 /tmp 让 bind mount 真实可见。"""
+    path = Path(tempfile.mkdtemp(prefix="muad-system-deps-", dir="/tmp"))
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
 
 
 @pytest.fixture()

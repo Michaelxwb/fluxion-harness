@@ -26,6 +26,7 @@ PYTHON_BASE_IMAGE="${PYTHON_BASE_IMAGE:-docker.sangfor.com/mss-base/python:3.12.
 NODE_BASE_IMAGE="${NODE_BASE_IMAGE:-docker.sangfor.com/mss-base/python-node:3.12.13-node24}"
 PIP_INDEX_URL="${PIP_INDEX_URL:-http://mirrors.sangfor.org/pypi/simple}"
 PIP_TRUSTED_HOST="${PIP_TRUSTED_HOST:-mirrors.sangfor.org}"
+NPM_REGISTRY="${NPM_REGISTRY:-http://npm.uedc.sangfor.com.cn/}"
 # PUSH is optional: with registry credentials present the scripts push by
 # default, without credentials they only build. Set PUSH=0 to force a local
 # build even when credentials are exported.
@@ -41,6 +42,29 @@ IMAGE_CACHE_DIR="${IMAGE_CACHE_DIR:-/tmp/muad-image-${SERVICE}}"
 
 log() { printf '[image:%s] %s\n' "${SERVICE}" "$*"; }
 die() { printf '[image:%s][ERROR] %s\n' "${SERVICE}" "$*" >&2; exit 1; }
+
+hash_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+# Content digest shared with scripts/skill_system_deps.py; the image label and
+# the dependency record both carry exactly this value.
+skill_deps_digest() {
+  local directory="$1" manifest
+  manifest="$(mktemp)"
+  (
+    cd "${directory}"
+    find . -type f | LC_ALL=C sort | while IFS= read -r file; do
+      printf '%s  %s\n' "$(hash_file "${file}")" "${file#./}"
+    done
+  ) > "${manifest}"
+  hash_file "${manifest}"
+  rm -f "${manifest}"
+}
 
 STARTED_AT="$(date +%s)"
 TOTAL_STEPS=6
@@ -76,9 +100,13 @@ case "${SERVICE}" in
   *) base_image="${PYTHON_BASE_IMAGE}" ;;
 esac
 
+SKILL_DEPS_SHA256="$(skill_deps_digest "${REPO_ROOT}/build/docker-build/skill-deps")"
+[[ -n "${SKILL_DEPS_SHA256}" ]] || die "cannot compute skill dependency baseline digest"
+
 image="${IMAGE_NAMESPACE}/${IMAGE_PREFIX}${SERVICE}:${TAG}"
 log "image=${image}"
 log "base=${base_image} platform=${PLATFORM} push=${PUSH}"
+log "skill-deps=${SKILL_DEPS_SHA256}"
 log "dockerfile=build/docker-build/Dockerfile.${SERVICE} context=."
 
 # Console image is assembled from the separately built frontend cache.
@@ -123,6 +151,10 @@ docker build \
   --build-arg "BASE_IMAGE=${base_image}" \
   --build-arg "PIP_INDEX_URL=${PIP_INDEX_URL}" \
   --build-arg "PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}" \
+  --build-arg "NPM_REGISTRY=${NPM_REGISTRY}" \
+  --build-arg "SKILL_DEPS_SHA256=${SKILL_DEPS_SHA256}" \
+  --label "org.muad.base-image=${base_image}" \
+  --label "org.muad.skill-deps.sha256=${SKILL_DEPS_SHA256}" \
   -t "${image}" \
   -f "build/docker-build/Dockerfile.${SERVICE}" \
   .
@@ -145,6 +177,15 @@ step "write build metadata"
 mkdir -p "${IMAGE_CACHE_DIR}"
 printf '%s\n' "${image}" > "${IMAGE_CACHE_DIR}/image.txt"
 printf '%s\n' "${TAG}" > "${IMAGE_CACHE_DIR}/IMAGE_TAG"
-log "metadata=${IMAGE_CACHE_DIR} (image.txt, IMAGE_TAG)"
+printf '%s\n' "${SKILL_DEPS_SHA256}" > "${IMAGE_CACHE_DIR}/skill-deps.sha256"
+IMAGE_ID="$(docker image inspect --format '{{.Id}}' "${image}")"
+printf '%s\n' "${IMAGE_ID}" > "${IMAGE_CACHE_DIR}/image_id.txt"
+if [[ "${PUSH}" == "1" ]]; then
+  REPO_DIGEST="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "${image}" | head -n 1)"
+  if [[ -n "${REPO_DIGEST}" ]]; then
+    printf '%s\n' "${REPO_DIGEST}" > "${IMAGE_CACHE_DIR}/image_digest.txt"
+  fi
+fi
+log "metadata=${IMAGE_CACHE_DIR} (image.txt, IMAGE_TAG, image_id.txt, skill-deps.sha256)"
 
 log "done in $(( $(date +%s) - STARTED_AT ))s: ${image}"
