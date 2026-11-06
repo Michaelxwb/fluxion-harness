@@ -137,11 +137,17 @@ from .model_call_trace import ModelCallTrace
 from .model_capacity_service import ModelCapacityService
 from .ports import CredentialsClient
 from .run_events import DeltaWindow, delta_payload, delta_window_from_settings
-from .skill_tools import TaskSubmissionProtocol, build_default_skill_cache, build_skill_registry
+from .skill_tools import (
+    TaskSubmissionProtocol,
+    WorkspaceShellContext,
+    build_default_skill_cache,
+    build_skill_registry,
+)
 from .task_client import TaskSubmissionContext, WorkerTaskClient
 from .task_family import SKILL_TOOLS, skill_key_for_call
 from .task_tools import BackgroundTaskToolSet
 from .time_tools import TimeToolSet, resolve_zone
+from .workspace_shell import build_workspace_shell_runner
 
 logger = logging.getLogger(__name__)
 
@@ -1951,6 +1957,17 @@ def build_registry(
     execution = execution_defaults_for(request)
     task_context = _task_submission_context(request)
     workspace_dir, output_registrar = _skill_execution_scope(request)
+    workspace_shell = None
+    workspace_context = None
+    if request.run_context is not None:
+        # 所有 Agent（无论是否有 Skill）都拿到同一个 workspace_shell；身份只从 Run 取。
+        workspace_shell = build_workspace_shell_runner(process_settings())
+        workspace_context = WorkspaceShellContext(
+            tenant_id=request.run_context.tenant_id,
+            user_id=str(request.run_context.user_id),
+            agent_id=str(request.agent.id),
+            run_id=str(request.run_context.run_id),
+        )
     registry = build_skill_registry(
         cache=cache,
         skills=request.skills,
@@ -1969,6 +1986,8 @@ def build_registry(
             redis_cluster_seeds=process_settings().redis_cluster_seeds,
             service_token=process_settings().internal_service_token,
         ) if request.run_context else None,
+        workspace_shell=workspace_shell,
+        workspace_shell_context=workspace_context,
     )
     if task_client is not None and task_context is not None:
         # docs/04 §7.5 内置任务工具：Schedule 创建/管理与后台 Task 查询/取消。

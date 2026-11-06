@@ -88,8 +88,8 @@
 | S-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 解绑/软删事务 → PG → 审计 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Skill/Artifact → effective 查询 | TASK-012 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-10 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime/Worker → SandboxedSkillExecutor → bwrap → stdout/exit code | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_10.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-11 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_11.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| B-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace 元数据 → PVC 目录 → 两次执行 | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-11 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules | TASK-005 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_11.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| B-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace 元数据 → PVC 目录 → 两次执行 | TASK-005 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-13 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Runtime → 真实 Console/Redis → 真实 mssp 平台 → 旧 Skill 脚本 | TASK-019 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
 | S-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Runtime/Worker → 真实平台 → 改造后的旧 Skill | TASK-019 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
 | S-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → 只读 /skill → 可写 /workspace | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -98,7 +98,7 @@
 | E-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | bwrap --clearenv + 最小 mount + 子进程环境 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_03.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway → Runtime /v1 → 服务身份校验 | TASK-001 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-20 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | TASK-001 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
-| E-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | workspace_shell → bwrap → PATH/socket 检查 | TASK-005 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | workspace_shell → bwrap → PATH/socket 检查 | TASK-005 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-22 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Console/Redis → 真实平台受保护接口 | TASK-004 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
 | E-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace quota check → PVC | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-24 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 元数据 → PVC | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_24.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -404,7 +404,7 @@
 
 ## TASK-005: WorkspaceStore、数据/输出目录与 workspace_shell
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007
 - **Source**: user-skill-sandbox.backend.design.md#3.2 架构设计, user-skill-sandbox.backend.design.md#3.3 数据设计, user-skill-sandbox.backend.design.md#3.4 接口设计
@@ -420,24 +420,24 @@
 
 ### Checklist
 
-- [ ] 交付 `user + Agent workspace 隔离可写，`SKILL_DATA_DIR`/`SKILL_OUTPUT_DIR` 注入；workspace_shell 可用且无 session-manager`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] WorkspaceStore 按 tenant+user+agent 定位，独立 `muad-workspaces-rwx`；不读 artifacts 目录
-- [ ] 执行前 acquire lease/touch，执行后 release；输出目录按 execution_id 独立
-- [ ] `SKILL_DATA_DIR`/`SKILL_OUTPUT_DIR` 注入；空值路径处理与原子写约定
-- [ ] `workspace_shell` 无条件注册，不接受 `skill_key`；默认系统依赖，pip/npm 仅临时验证
-- [ ] [B-01][integration] 同 user+Agent 跨会话共享 data，不同 Agent 隔离
-- [ ] [S-11][integration] workspace_shell 命令/临时安装/无 session-manager/配额限制
-- [ ] [E-05][integration] session-manager 不在 PATH、无 socket
-- [ ] [harness-data#RULE-data-001][verifier] 运行 `uv run pytest -q tests/migrations/test_skill_sandbox_schema.py tests/acceptance/user_skill_sandbox/test_workspace_store.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `user + Agent workspace 隔离可写，`SKILL_DATA_DIR`/`SKILL_OUTPUT_DIR` 注入；workspace_shell 可用且无 session-manager`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] WorkspaceStore 按 tenant+user+agent 定位，独立 `muad-workspaces-rwx`；不读 artifacts 目录
+- [x] 执行前 acquire lease/touch，执行后 release；输出目录按 execution_id 独立
+- [x] `SKILL_DATA_DIR`/`SKILL_OUTPUT_DIR` 注入；空值路径处理与原子写约定
+- [x] `workspace_shell` 无条件注册，不接受 `skill_key`；默认系统依赖，pip/npm 仅临时验证
+- [x] [B-01][integration] 同 user+Agent 跨会话共享 data，不同 Agent 隔离
+- [x] [S-11][integration] workspace_shell 命令/临时安装/无 session-manager/配额限制
+- [x] [E-05][integration] session-manager 不在 PATH、无 socket
+- [x] [harness-data#RULE-data-001][verifier] 运行 `uv run pytest -q tests/migrations/test_skill_sandbox_schema.py tests/acceptance/user_skill_sandbox/test_workspace_store.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| B-01 | integration | Workspace 元数据 → PVC 目录 → 两次执行 | 同 Agent 两次执行可读同一 data 文件；不同 Agent 看不到对方 workspace；outputs 每次执行独立；跨 tenant/user 不可见 | tests/acceptance/user_skill_sandbox/test_b_01.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_01.py"] | planned |
-| S-11 | integration | Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules | 普通 shell 命令成功；默认使用系统预装依赖；pip/npm 临时安装写入 workspace，不写系统目录；临时安装跨 Pod/重建后不保证存在，不作为生产依赖；无 session-manager；输出/超时/配额限制生效 | tests/acceptance/user_skill_sandbox/test_s_11.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_11.py"] | planned |
-| E-05 | integration | workspace_shell → bwrap → PATH/socket 检查 | session-manager 不在 PATH；MUAD_SESSION_SOCKET 不存在；调用 session-manager 返回 command not found/明确错误 | tests/acceptance/user_skill_sandbox/test_e_05.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | planned |
+| B-01 | integration | Workspace 元数据 → PVC 目录 → 两次执行 | 同 Agent 两次执行可读同一 data 文件；不同 Agent 看不到对方 workspace；outputs 每次执行独立；跨 tenant/user 不可见 | tests/acceptance/user_skill_sandbox/test_b_01.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_01.py"] | verified |
+| S-11 | integration | Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules | 普通 shell 命令成功；默认使用系统预装依赖；pip/npm 临时安装写入 workspace，不写系统目录；临时安装跨 Pod/重建后不保证存在，不作为生产依赖；无 session-manager；输出/超时/配额限制生效 | tests/acceptance/user_skill_sandbox/test_s_11.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_11.py"] | verified |
+| E-05 | integration | workspace_shell → bwrap → PATH/socket 检查 | session-manager 不在 PATH；MUAD_SESSION_SOCKET 不存在；调用 session-manager 返回 command not found/明确错误 | tests/acceptance/user_skill_sandbox/test_e_05.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_05.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -445,13 +445,23 @@
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| B-01 | - | - | - | - | pending |
-| S-11 | - | - | - | - | pending |
-| E-05 | - | - | - | - | pending |
+| B-01 | 同命令 → `1 error during collection`：`ImportError: cannot import name 'WorkspaceLayout' from 'muad_agent_core.sandbox'`（实现前） | 同命令 → `4 passed`；`test_workspace_store.py` + `test_b_01.py` 联合 `8 passed` | `tests/acceptance/user_skill_sandbox/test_b_01.py::test_b01_same_agent_keeps_data_and_isolates_outputs_per_execution`、`::test_b01_other_agent_user_tenant_cannot_see_workspace`、`::test_b01_workspace_root_does_not_touch_artifact_root` | 真实 PG（`task.workspace`/`task.workspace_lease`）+ `/tmp` workspace 根 + `muad-skill-deps-probe` 内真实 bwrap 0.13.1；bwrap 只 bind 当前 Agent 目录到 `/workspace`，`/workspace/../<other-tenant>` 与 `/mnt` 不可见；两次执行共享 data、outputs 按 execution 独立；artifacts 根零写入 | verified |
+| S-11 | 同命令 → `1 error during collection`：`ImportError: cannot import name 'WorkspaceStore'`（实现前） | 同命令 → `4 passed`；探针内 `WorkspaceShellRunner` → `BwrapRunner` → bwrap 0.13.1 全链真实执行 | `.../test_s_11.py::test_s11_workspace_shell_runs_command_with_system_dependencies`、`::test_s11_temp_installs_stay_inside_workspace_and_are_not_guaranteed`、`::test_s11_timeout_and_output_limits_are_enforced_with_recovery`、`::test_s11_workspace_shell_is_registered_for_every_agent_without_skill_key` | 系统基线 `tabulate` 直接 import；真实 pip/npm 临时安装全部落在 workspace（`system_hits=[]`），新 Pod/新 Agent workspace `ModuleNotFoundError`；超时 `SANDBOX_TIMEOUT`、输出上限 `SANDBOX_OUTPUT_LIMIT`，失败后同一 workspace 可继续执行；配额拒绝/TTL 清理由依赖 TASK-006 承担，本任务不重复实现 | verified |
+| E-05 | 同命令 → `1 failed`；探针 `ImportError: cannot import name 'WorkspaceLeaseRecord' from 'muad_agent_core.sandbox'`（实现前） | 同命令 → `1 passed in 3.11s` | `tests/acceptance/user_skill_sandbox/test_e_05.py::test_e05_workspace_shell_has_no_session_manager_path_or_socket` | 真实 bwrap 内 PATH=`/opt/python3.12/bin:/usr/local/bin:/usr/bin:/bin`；`shutil.which('session-manager')=None`；`MUAD_SESSION_SOCKET=null`；`session-manager get-state` → exit 127、`sh: session-manager: command not found` | verified |
+- S-11: verified — automated command passed; run_id=bad66a2d4d3c4825896508574214e7e9 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=bad66a2d4d3c4825896508574214e7e9 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=bad66a2d4d3c4825896508574214e7e9 (confirmed_by: runner)
+- S-11: verified — automated command passed; run_id=11f8d87e57f548c7966bacf673f211e1 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=11f8d87e57f548c7966bacf673f211e1 (confirmed_by: runner)
+- E-05: verified — automated command passed; run_id=11f8d87e57f548c7966bacf673f211e1 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-06] started
+- [2026-11-06] RED: 新增 B-01/S-11/E-05 与 WorkspaceStore 测试在实现前失败：B-01/S-11/WorkspaceStore/tool 用例 collection error（`ImportError: cannot import name 'WorkspaceLayout'/'WorkspaceStore'/'WorkspaceDeleting'`），E-05 探针失败于 `ImportError: cannot import name 'WorkspaceLeaseRecord'`。
+- [2026-11-06] GREEN: `uv run pytest -q tests/acceptance/user_skill_sandbox/{test_workspace_store,test_b_01,test_s_11,test_e_05}.py tests/agent_runtime/test_workspace_shell_tool.py` → `19 passed`；`tests/migrations/test_skill_sandbox_schema.py + test_workspace_store.py` → `11 passed`；`tests/architecture` → `215 passed`。
+- [2026-11-06] completed (done)
 
 ---
 
