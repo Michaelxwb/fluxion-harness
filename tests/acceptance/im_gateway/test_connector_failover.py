@@ -7,7 +7,8 @@
 - E-03 的平台重投由 WS 探针再次推送同一条 message_id，随后让真实 Runtime 以同一
   `Idempotency-Key` 受理两次，断言最终只有一个 Run；
 - E-07 不重投：重启扫描必须把标记置 LOST、记指标/ERROR，且不补造 Run；
-- E-04 的命令都进真实 `muad:im.outbound:{tenant}:{bot}`（hash tag 布局）Stream，结果由真实 OutboundRunner 回写。
+- E-04 的命令都进真实 `muad:im.outbound:{tenant}:{bot}`（hash tag 布局）Stream，
+  结果由真实 OutboundRunner 回写。
 """
 
 from __future__ import annotations

@@ -944,7 +944,10 @@ async def test_b117_delivery_uses_bot_from_route(monkeypatch: pytest.MonkeyPatch
     redis_client, store = await _redis_store()
     body_a = _b117_body(bot_id=B117_BOT_A)
     body_b = _b117_body(bot_id=B117_BOT_B)
-    keys = ["muad:delivery:dedupe:" + body_a["delivery_key"], "muad:delivery:dedupe:" + body_b["delivery_key"]]
+    keys = [
+        "muad:delivery:dedupe:" + body_a["delivery_key"],
+        "muad:delivery:dedupe:" + body_b["delivery_key"],
+    ]
     try:
         async with _b117_wecom_stack([B117_BOT_A, B117_BOT_B], monkeypatch) as (
             registry,
