@@ -1060,7 +1060,7 @@
       "kind": "functional",
       "boundary": "Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写",
       "owner": "TASK-009",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -1255,6 +1255,9 @@
           "timeout": 600.0,
           "fingerprint": "9d5c65409e3614298aa56aafa7a3ae492599d833cd9eb5c1996561d46c4c32f0"
         }
+      ],
+      "stale_checks": [
+        "CHK-71e9e6c27bf1"
       ]
     },
     {
@@ -7650,7 +7653,7 @@
       "kind": "functional",
       "boundary": "现有 MCP catalog、Memory 写入/召回、模型选择测试",
       "owner": "TASK-017",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -7793,6 +7796,9 @@
           "timeout": 600.0,
           "fingerprint": "c954a4344e3f69d2f5567d2faa14ad70ef6502bcbab67a1be55a2f890fe4cb0b"
         }
+      ],
+      "stale_checks": [
+        "CHK-e3526d2237c9"
       ]
     },
     {
@@ -7802,7 +7808,7 @@
       "kind": "functional",
       "boundary": "架构扫描 tests/architecture/test_channel_neutrality.py",
       "owner": "TASK-017",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -7944,6 +7950,9 @@
           "timeout": 600.0,
           "fingerprint": "c954a4344e3f69d2f5567d2faa14ad70ef6502bcbab67a1be55a2f890fe4cb0b"
         }
+      ],
+      "stale_checks": [
+        "CHK-e053c73829e3"
       ]
     },
     {

@@ -79,7 +79,7 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | 优先级 | 执行方式 | 环境 | 输入 | E2E理由 | 触发路径 | 冒烟 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | S-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 内部 API → Draft Store/PVC → PG revision | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | TASK-009 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | TASK-009 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | TASK-004 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | . | 600 | P0 | deferred | local | - | - | - | no |
 | S-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → SkillValidator → Artifact Store → PG | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批事务 → PG → 审计 | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -122,8 +122,8 @@
 | E-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | contract | API 错误码 schema / 消息配置 | TASK-013 | stale | ["uv","run","pytest","-q","tests/contracts/test_skill_sandbox_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | E-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Artifact Store → checksum 校验 → 执行入口 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-16 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 删除失败 → 状态/指标 | TASK-006 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_16.py"] | . | 600 | P1 | auto | local | - | - | - | no |
-| S-45 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | TASK-017 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-46 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | TASK-017 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | . | 600 | P0 | auto | none | - | - | - | no |
+| S-45 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | TASK-017 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-46 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | TASK-017 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-47 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → SKILL_OUTPUT_DIR → ArtifactStore → 现有附件交付 | TASK-003 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_47.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-48 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require | TASK-015 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_48.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | E-17 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Pod A 临时安装 → Pod B/重建后执行同一 Skill | TASK-015 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_17.py"] | . | 600 | P1 | auto | local | - | - | - | no |
@@ -726,7 +726,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-02 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | python scripts/run.py 和 node --check 可执行；变更文件按 revision CAS 回写到草稿；越界路径/symlink/超大文件被拒绝；命令超时/输出超限错误码正确 | tests/acceptance/user_skill_sandbox/test_s_02.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | verified |
+| S-02 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | python scripts/run.py 和 node --check 可执行；变更文件按 revision CAS 回写到草稿；越界路径/symlink/超大文件被拒绝；命令超时/输出超限错误码正确 | tests/acceptance/user_skill_sandbox/test_s_02.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | stale |
 | S-03 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | session-manager get-state 返回 sessionStateFile 和 platforms list；state 文件内可读取 cookies 与 requestProfile；执行结束 state 文件删除；未授权平台返回 PLATFORM_SESSION_REQUIRED | tests/acceptance/user_skill_sandbox/test_s_03.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | deferred |
 
 ### Acceptance Evidence
@@ -739,6 +739,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 | S-03 | 同批 RED：`test_s_03.py` 收集失败（`muad_agent_core.skill.draft_shell` 不存在） | 4 passed（`test_s_03.py`，含 2 条草稿 Shell 用例） | `tests/acceptance/user_skill_sandbox/test_s_03.py:167,177,201` | 真实 Console 凭据解析桩 → 真实 Redis Session → Unix socket → 真实 `session-manager` CLI → state 文件；草稿声明 mssp 时返回 sessionStateFile/platforms 并可读 cookies/requestProfile，执行结束 state 删除；未授权平台返回 PLATFORM_SESSION_REQUIRED | passed |
 - S-02: verified — automated command passed; run_id=ccc0fdd82f5841828b201ed139d146f7 (confirmed_by: runner)
 - S-02: verified — automated command passed; run_id=95712d5b421c460689e59178afb4860d (confirmed_by: runner)
+- S-02: stale — input changed: CHK-71e9e6c27bf1 (confirmed_by: runtime)
 
 ### Log
 
@@ -1240,8 +1241,8 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-45 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | MCP catalog/tool registry 行为不变；Memory 写入/召回/软删/版本行为不变；Agent 模型选择不出现平台默认回退 | tests/acceptance/user_skill_sandbox/test_s_45.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | verified |
-| S-46 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | 核心域零渠道专有字样；核心域不向 ResolveDefinitionRequest.channel 传字面量；渠道字样只出现在允许表面 | tests/acceptance/user_skill_sandbox/test_s_46.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | verified |
+| S-45 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | MCP catalog/tool registry 行为不变；Memory 写入/召回/软删/版本行为不变；Agent 模型选择不出现平台默认回退 | tests/acceptance/user_skill_sandbox/test_s_45.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | stale |
+| S-46 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | 核心域零渠道专有字样；核心域不向 ResolveDefinitionRequest.channel 传字面量；渠道字样只出现在允许表面 | tests/acceptance/user_skill_sandbox/test_s_46.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | stale |
 
 **Spec Verifier**
 
@@ -1268,6 +1269,8 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 | S-46 | 同上，collection error：`ModuleNotFoundError: No module named 'user_skill_sandbox.non_interference_support'` | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_46.py` → `3 passed in 2.71s` | `test_s_46.py::test_s46_core_domain_carries_no_channel_vocabulary`（A-S-46-1）、`test_s46_core_domain_never_fabricates_a_channel_value`（A-S-46-2）、`test_s46_channel_vocabulary_only_lives_on_allowed_surfaces`（A-S-46-3） | 直接调用真实架构扫描 `tests/architecture/test_channel_neutrality.py` 三条断言（不 mock），并逐一检查本需求改动过的 32 个核心域/runtime/worker/agent-core 文件：零渠道字样、无 `ResolveDefinitionRequest.channel` 字面量、无 `ALLOWED_SURFACES` 例外 | verified |
 - S-45: verified — automated command passed; run_id=d4262c5b9ac84f508caa2b95e00a8e2c (confirmed_by: runner)
 - S-46: verified — automated command passed; run_id=d4262c5b9ac84f508caa2b95e00a8e2c (confirmed_by: runner)
+- S-45: stale — input changed: CHK-e3526d2237c9 (confirmed_by: runtime)
+- S-46: stale — input changed: CHK-e053c73829e3 (confirmed_by: runtime)
 
 ### Log
 
