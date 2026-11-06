@@ -34,3 +34,16 @@ async def session() -> AsyncIterator[AsyncSession]:
             yield active
     finally:
         await engine.dispose()
+
+
+@pytest.fixture()
+async def session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    """独立 session 工厂：WorkspaceStore 的 acquire/release 必须各自短事务。"""
+    settings = SharedSettings()
+    if settings.database_url is None:
+        pytest.skip("DATABASE_URL not configured")
+    engine = create_async_engine(settings.database_url)
+    try:
+        yield async_sessionmaker(engine, expire_on_commit=False)
+    finally:
+        await engine.dispose()

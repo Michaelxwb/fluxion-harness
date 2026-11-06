@@ -45,9 +45,29 @@ from .spec import (
     SandboxUnavailable,
     sanitize_env,
 )
-from .workspace import WorkspaceLayout, workspace_layout_from_settings
+from .workspace import (
+    WORKSPACE_DATA_MOUNT,
+    WORKSPACE_MOUNT,
+    WORKSPACE_STATE_ACTIVE,
+    WorkspaceDeleting,
+    WorkspaceError,
+    WorkspaceLayout,
+    WorkspaceLease,
+    WorkspaceLeaseRecord,
+    WorkspaceMetadataStore,
+    WorkspaceStore,
+    WorkspaceUnavailable,
+    workspace_layout_from_settings,
+)
+from .workspace_shell import (
+    DEFAULT_WORKSPACE_LEASE_SEC,
+    WorkspaceShellRequest,
+    WorkspaceShellResult,
+    WorkspaceShellRunner,
+)
 
 __all__ = [
+    "DEFAULT_WORKSPACE_LEASE_SEC",
     "MIN_BWRAP_VERSION",
     "SANDBOX_DEFAULT_PATH",
     "SANDBOX_ENV_ALLOWLIST",
@@ -55,6 +75,9 @@ __all__ = [
     "SANDBOX_OUTPUT_LIMIT_BYTES",
     "SANDBOX_TMPFS_BYTES",
     "TERMINATE_GRACE_SEC",
+    "WORKSPACE_DATA_MOUNT",
+    "WORKSPACE_MOUNT",
+    "WORKSPACE_STATE_ACTIVE",
     "BwrapProbe",
     "BwrapRunner",
     "DevUnsafeRunner",
@@ -74,7 +97,17 @@ __all__ = [
     "SandboxSpec",
     "SandboxTimeout",
     "SandboxUnavailable",
+    "WorkspaceDeleting",
+    "WorkspaceError",
     "WorkspaceLayout",
+    "WorkspaceLease",
+    "WorkspaceLeaseRecord",
+    "WorkspaceMetadataStore",
+    "WorkspaceShellRequest",
+    "WorkspaceShellResult",
+    "WorkspaceShellRunner",
+    "WorkspaceStore",
+    "WorkspaceUnavailable",
     "build_bwrap_argv",
     "build_sandbox_runner",
     "build_sandbox_runner_from_settings",
