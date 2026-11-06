@@ -1945,7 +1945,7 @@
       "kind": "functional",
       "boundary": "Console API → Artifact Store → 下载响应 → 审计",
       "owner": "TASK-011",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -2097,6 +2097,9 @@
           "timeout": 600.0,
           "fingerprint": "e7bb7837f1e95fbda4327df45f040bba0c94bfc9244167c2632af2f97210a689"
         }
+      ],
+      "stale_checks": [
+        "CHK-e5e70bae669f"
       ]
     },
     {
@@ -2106,7 +2109,7 @@
       "kind": "functional",
       "boundary": "Console API → 解绑/软删事务 → PG → 审计",
       "owner": "TASK-011",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -2258,6 +2261,9 @@
           "timeout": 600.0,
           "fingerprint": "e7bb7837f1e95fbda4327df45f040bba0c94bfc9244167c2632af2f97210a689"
         }
+      ],
+      "stale_checks": [
+        "CHK-308913cbbcb1"
       ]
     },
     {
@@ -2267,7 +2273,7 @@
       "kind": "functional",
       "boundary": "Console API → Skill/Artifact → effective 查询",
       "owner": "TASK-012",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -2460,6 +2466,9 @@
           "timeout": 600.0,
           "fingerprint": "7502129362f0bb75f047cdee8997503576e7a4909090b7adf89ced773c000a15"
         }
+      ],
+      "stale_checks": [
+        "CHK-fde230e0cd67"
       ]
     },
     {
@@ -6790,7 +6799,7 @@
       "kind": "functional",
       "boundary": "Console/Worker/Runtime effective 查询",
       "owner": "TASK-012",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -6975,6 +6984,9 @@
           "timeout": 600.0,
           "fingerprint": "7502129362f0bb75f047cdee8997503576e7a4909090b7adf89ced773c000a15"
         }
+      ],
+      "stale_checks": [
+        "CHK-63c237ddb40f"
       ]
     },
     {
@@ -7781,7 +7793,7 @@
       "kind": "functional",
       "boundary": "Artifact Store → checksum 校验 → 执行入口",
       "owner": "TASK-011",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -7924,6 +7936,9 @@
           "timeout": 600.0,
           "fingerprint": "e7bb7837f1e95fbda4327df45f040bba0c94bfc9244167c2632af2f97210a689"
         }
+      ],
+      "stale_checks": [
+        "CHK-d35bae7f436e"
       ]
     },
     {
