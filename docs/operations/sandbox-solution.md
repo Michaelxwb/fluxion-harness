@@ -1,7 +1,7 @@
 # Skill 自建与执行沙箱方案探索与定稿
 
 日期：2026-11-06  
-状态：**技术选型确定，执行策略与生产集成待验收**；P0 前置镜像、本地/内网 session-manager probe 已完成，待真实 Runtime broker 验证。
+状态：**技术选型确定，执行策略与生产集成待验收**；P0 前置镜像、session-manager probe、真实 Runtime broker canary 已完成，待 P0.4 安全门控与执行层接入。
 范围：用户自建 Skill 的草稿、审查、上传、审批、执行沙箱，以及 macOS Dev / 本地 K8s / 内网 Linux K8s 三端运行方式。  
 手动测试证据：[`evidence/sandbox-2026-11-06/`](evidence/sandbox-2026-11-06/)
 
@@ -146,6 +146,18 @@ probe 使用真实 `session_cli.py`：在 bwrap 外启动 Unix socket broker，b
 bind、真实 CLI 和 state 文件可见性。内网 K8s Job 的相同输出见
 `evidence/sandbox-2026-11-06/session-probe.txt`。
 
+真实 Runtime broker canary 也已通过（2026-11-06）：
+
+```text
+bwrap_rc 0
+{"ok": true, "status": 200, "url": "http://soar-inner.sangfor.com.cn:30001/",
+ "cookie_names": ["login-source", "soc-token"], "content_type": "text/html"}
+RESULT: PASS
+```
+
+它使用真实 Console/Redis/平台凭据，不是模拟 broker；详见
+`evidence/sandbox-2026-11-06/real-broker-probe.txt`。
+
 注意：本地 Docker 默认 seccomp 会拦截 `unshare`；内网 K8s 默认策略不同，见下。
 
 ### 3.3 内网 runtime / worker 真实 Pod
@@ -188,12 +200,16 @@ RESULT: PASS
 - Unix socket 可桥接；
 - 真实 `session_cli.py` 可在 bwrap 内通过 Unix socket 获取 state 文件并读取 cookie；
 - 内网 runtime/worker Pod 支持所需 namespace/mount；
-- 内网 K8s Job 内直接执行 bwrap + 真实 `session_cli.py`（模拟 broker）PASS。
+- 内网 K8s Job 内直接执行 bwrap + 真实 `session_cli.py`（模拟 broker）PASS；
+- 真实 Runtime broker + Console/Redis/用户 AK-SK + `session-manager` + `requests`
+  调 `soar-inner` 返回 HTTP 200（P0.3 PASS）。
 
-尚未验证（P0）：
+尚未验证（P0.4/P1）：
 
-- 真实 `session-manager` 在 bwrap 内通过 Runtime 的真实 broker 获取业务平台登录态；
-- 真实 Skill 包在 bwrap 内完成一次完整执行。
+- 真实用户 Skill 包通过 `SandboxedSkillExecutor` 在 bwrap 内执行；
+- Worker async Skill 通过 bwrap 执行；
+- 受信 Runtime API 门控后的拒绝路径；
+- 输出流式上限、只读包/独立工作目录、审批事务。
 
 ---
 
@@ -602,7 +618,7 @@ docker run --rm --platform linux/amd64 \
 
 内网 K8s 已验证默认策略允许 `unshare`，Job 不需要设置 `seccompProfile`。
 
-#### P0.3 真实 Runtime broker canary（脚本）
+#### P0.3 真实 Runtime broker canary（已完成）
 
 脚本：`docs/operations/evidence/sandbox-2026-11-06/real_broker_probe.py`
 
@@ -682,20 +698,28 @@ RESULT: PASS
 
 #### P0.3.1 通过后的下一步
 
-P0.2 PASS 说明：
+P0.2 + P0.3 PASS 说明：
 
 - bwrap 能在实际底座里启动；
 - `/bin`、`/usr`、`/lib`、`/lib64`、`/etc`、`/opt` 的 bind 组合正确；
 - Unix socket 能进入沙箱；
 - 真实 `session_cli.py` 能通过 `session-manager` 读取 state 文件；
-- 用户脚本测试所需的传输链路成立。
+- 真实 Console/Redis/用户凭据 + `requests` 调测试平台成功。
+
+P0.3 实测：
+
+```text
+bwrap_rc 0
+{"ok": true, "status": 200, "url": "http://soar-inner.sangfor.com.cn:30001/",
+ "cookie_names": ["login-source", "soc-token"]}
+RESULT: PASS
+```
 
 之后再：
 
-1. 用新底座重建 runtime/worker 镜像；
-2. 在真实 runtime/worker Pod 里跑一次 `bwrap --version` 和最小 Skill；
-3. 跑真实 Runtime broker：`session-manager get-state` → state 文件 → `requests` 调测试平台；
-4. 通过后开始 P1 代码改造。
+1. 通过 P0.4 的受信 API 门控、流式输出、只读包/独立工作目录；
+2. 进入 P1 `SandboxedSkillExecutor` 代码改造；
+3. 用真实 Skill 包做完整执行测试。
 
 如果 P0.2 FAIL：
 
@@ -718,8 +742,7 @@ P0.2 PASS 说明：
    超限终止/有界丢弃，避免 stdout 洪泛吃满父进程内存。
 3. **只读包 / 独立工作目录**：已批准包只读，草稿用独立副本，不能可写 bind 共享
    `READY` 缓存。
-4. **真实 session 链路**：P0.2 probe 通过后，仍要用新底座重建 runtime/worker，
-   在真实 Pod 里跑一次真实 broker + `session-manager` + `requests`。
+4. **真实 session 链路**：已完成（P0.3 PASS，真实 broker + 真实平台 HTTP 200）。
 5. **最终指纹**：记录最终 Pod 的 kernel、`seccompProfile`、UID、capabilities、节点、
    base image digest、runtime/worker image digest、bwrap 源码 commit（v0.13.1）。
 
@@ -790,6 +813,7 @@ P0.2 PASS 说明：
 | [`session_probe.py`](evidence/sandbox-2026-11-06/session_probe.py) | session-manager 前置 probe 源码（模拟 broker） |
 | [`Dockerfile.session-probe`](evidence/sandbox-2026-11-06/Dockerfile.session-probe) | probe 测试镜像 Dockerfile |
 | [`real_broker_probe.py`](evidence/sandbox-2026-11-06/real_broker_probe.py) | P0.3 真实 Runtime broker canary |
+| [`real-broker-probe.txt`](evidence/sandbox-2026-11-06/real-broker-probe.txt) | P0.3 真实平台 HTTP 200 实测输出 |
 | [`landlock-seccomp.txt`](evidence/sandbox-2026-11-06/landlock-seccomp.txt) | Landlock 不可用与 seccomp 结论 |
 
 > 外部复查反馈的原文没有纳入仓库；逐项结论与修正见本文第 13 节。
@@ -818,6 +842,6 @@ GPT 的复查结论成立：**bwrap 技术选型可以保留，但不能把当�
 
 ### 13.1 修正后的状态
 
-- **已完成**：bwrap 可行性、PlatOS 底座 + bwrap 构建、本地与内网 K8s session-manager probe（模拟 broker）、内网 runtime/worker 内核 primitives。
-- **未完成/未闭环**：受信 API 门控、真实 runtime broker 链路、流式输出、只读包/独立工作目录、owner/审批事务、服务镜像重建与 digest 记录、最终 Pod 指纹。
+- **已完成**：bwrap 可行性、PlatOS 底座 + bwrap 构建、本地与内网 K8s session-manager probe（模拟 broker）、内网 runtime/worker 内核 primitives、真实 Runtime broker canary（真实平台 HTTP 200）。
+- **未完成/未闭环**：受信 API 门控、流式输出、只读包/独立工作目录、owner/审批事务、服务镜像 digest 记录、最终 Pod 指纹。
 - **结论**：可以继续按 bwrap 方向做 P0/P1，但在上述阻断项完成前，不宣称“生产执行方案已验收”。

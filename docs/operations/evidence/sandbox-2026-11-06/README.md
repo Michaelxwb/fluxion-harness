@@ -20,6 +20,7 @@
 | `session_probe.py` | session-manager 前置 probe 源码（模拟 broker） |
 | `Dockerfile.session-probe` | probe 测试镜像 Dockerfile |
 | `real_broker_probe.py` | P0.3 真实 Runtime broker canary（Console/Redis/真实凭据 + bwrap） |
+| `real-broker-probe.txt` | P0.3 真实链路实测输出（真实平台 HTTP 200） |
 
 > 外部复查反馈没有纳入仓库原文；问题与处理结论已归纳到主文档
 > [`../../sandbox-solution.md`](../../sandbox-solution.md) 第 13 节。
@@ -29,6 +30,7 @@
 - bwrap 在实际 PlatOS 基础镜像中可运行（macOS amd64 模拟环境）。
 - 内网 runtime/worker 真实 Pod 均通过内核 namespace/mount 测试。
 - 内网 K8s Job 的 bwrap + 真实 `session_cli.py` + Unix socket probe 已 PASS（模拟 broker）。
+- P0.3 真实 Runtime broker + Console/Redis/用户 AK-SK + `requests` 已 PASS（真实平台 HTTP 200）。
 - 内网当前没有显式 `seccompProfile`，实际允许 `unshare`/`mount`，不需要改 seccomp。
 - 生产内核 4.18 不支持 Landlock，`nono-py` 路线不可用。
 - 基础镜像没有包管理器，bwrap 必须由 builder stage 构建后复制进镜像。
