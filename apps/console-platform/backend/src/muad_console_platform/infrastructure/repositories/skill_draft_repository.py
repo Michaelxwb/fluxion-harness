@@ -33,6 +33,21 @@ class SkillDraftRepository:
         )
         return draft
 
+    async def get_for_update(
+        self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
+    ) -> SkillDraft | None:
+        draft: SkillDraft | None = await self._session.scalar(
+            select(SkillDraft)
+            .where(
+                SkillDraft.id == draft_id,
+                SkillDraft.tenant_id == tenant_id,
+                SkillDraft.owner_user_id == owner_user_id,
+                SkillDraft.is_deleted.is_(False),
+            )
+            .with_for_update()
+        )
+        return draft
+
     async def find_by_key(
         self, tenant_id: str, owner_user_id: uuid.UUID, key: str
     ) -> SkillDraft | None:
@@ -81,6 +96,35 @@ class SkillDraftRepository:
                 SkillDraft.is_deleted.is_(False),
             )
             .values(**values)
+            .returning(SkillDraft)
+        )
+        result = await self._session.scalars(statement)
+        return result.one_or_none()
+
+    async def mark_submitted(
+        self,
+        tenant_id: str,
+        owner_user_id: uuid.UUID,
+        draft_id: uuid.UUID,
+        *,
+        revision: int,
+        artifact_id: uuid.UUID,
+    ) -> SkillDraft | None:
+        """提交不回写 revision；只记录最近提交的 revision/artifact。"""
+        statement = (
+            update(SkillDraft)
+            .where(
+                SkillDraft.id == draft_id,
+                SkillDraft.tenant_id == tenant_id,
+                SkillDraft.owner_user_id == owner_user_id,
+                SkillDraft.revision == revision,
+                SkillDraft.is_deleted.is_(False),
+            )
+            .values(
+                last_submitted_artifact_id=artifact_id,
+                last_submitted_revision=revision,
+                update_time=func.now(),
+            )
             .returning(SkillDraft)
         )
         result = await self._session.scalars(statement)

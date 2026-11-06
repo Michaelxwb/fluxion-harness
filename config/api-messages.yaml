@@ -220,6 +220,42 @@ codes:
       zh-CN: 该 Skill 版本已存在
       en-US: This Skill version already exists
 
+  DRAFT_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: Skill 草稿不存在
+      en-US: Skill draft not found
+
+  DRAFT_REVISION_CONFLICT:
+    http_status: 409
+    messages:
+      zh-CN: 草稿已被其他操作修改，请刷新后重试
+      en-US: The draft was modified by another operation. Refresh and retry.
+
+  DRAFT_QUOTA_EXCEEDED:
+    http_status: 413
+    messages:
+      zh-CN: 草稿超过文件数或大小配额
+      en-US: Draft exceeds the file count or size quota
+
+  DRAFT_PATH_INVALID:
+    http_status: 400
+    messages:
+      zh-CN: 草稿路径不合法
+      en-US: Draft path is invalid
+
+  SKILL_PENDING_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: 该 Skill 已有待审版本，请等待审批或先撤回
+      en-US: This Skill already has a pending version. Wait for review or withdraw it first.
+
+  SKILL_APPROVED_LOCKED:
+    http_status: 409
+    messages:
+      zh-CN: 该 Skill 已审批通过并锁定，不能直接提交新版本
+      en-US: This Skill is approved and locked; a new version cannot be submitted directly
+
   SKILL_IN_USE:
     http_status: 409
     messages:

@@ -12,6 +12,7 @@ from .internal_artifacts import router as internal_artifacts_router
 from .internal_channel import router as internal_channel_router
 from .internal_platform_settings import router as internal_platform_settings_router
 from .internal_runtime import router as internal_runtime_router
+from .internal_skill_drafts import router as internal_skill_drafts_router
 from .learning import router as learning_router
 from .mcp_servers import router as mcp_servers_router
 from .model_resources import quota_router as model_quota_groups_router
@@ -72,6 +73,7 @@ router.include_router(internal_runtime_router)
 router.include_router(internal_channel_router)
 router.include_router(internal_artifacts_router)
 router.include_router(internal_platform_settings_router)
+router.include_router(internal_skill_drafts_router)
 # 取件端点**不在** authenticated/admin 组里：它的调用方可能没有 Console 会话（签名令牌路径）。
 # 鉴权在路由内部二选一完成，见 `artifacts.authorize_artifact_fetch`。
 router.include_router(artifacts_router)

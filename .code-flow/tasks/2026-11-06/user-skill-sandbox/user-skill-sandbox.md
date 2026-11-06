@@ -78,10 +78,10 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | 优先级 | 执行方式 | 环境 | 输入 | E2E理由 | 触发路径 | 冒烟 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| S-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 内部 API → Draft Store/PVC → PG revision | TASK-008 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 内部 API → Draft Store/PVC → PG revision | TASK-008 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | TASK-009 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | TASK-004 | deferred | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | . | 600 | P0 | deferred | local | - | - | - | no |
-| S-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → SkillValidator → Artifact Store → PG | TASK-008 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → SkillValidator → Artifact Store → PG | TASK-008 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批事务 → PG → 审计 | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Artifact Store → 下载响应 → 审计 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_07.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -602,7 +602,7 @@
 
 ## TASK-008: 草稿 API、校验打包、提交 PENDING 与状态查询
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-007
 - **Source**: user-skill-sandbox.backend.design.md#3.3 数据设计, user-skill-sandbox.backend.design.md#3.4 接口设计
@@ -618,28 +618,28 @@
 
 ### Checklist
 
-- [ ] 交付 `用户可创建/读写草稿、校验打包、提交 PENDING、查询状态和驳回原因`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 草稿 CRUD + revision CAS + 路径/配额校验；跨用户隔离
-- [ ] `skill_draft_review` 只读校验；`skill_draft_submit` 打包/checksum/PENDING
-- [ ] `skill_draft_status` 返回最近 artifact/review_status/review_note
-- [ ] 导入/提交 `Idempotency-Key`：规范化指纹含 endpoint/tenant/actor，重放首次结果
-- [ ] [S-01][integration] 草稿读写/冲突/越权
-- [ ] [S-04][integration] 校验/打包/PENDING/幂等
-- [ ] [harness-api#RULE-api-002][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_draft_idempotency.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `用户可创建/读写草稿、校验打包、提交 PENDING、查询状态和驳回原因`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 草稿 CRUD + revision CAS + 路径/配额校验；跨用户隔离
+- [x] `skill_draft_review` 只读校验；`skill_draft_submit` 打包/checksum/PENDING
+- [x] `skill_draft_status` 返回最近 artifact/review_status/review_note
+- [x] 导入/提交 `Idempotency-Key`：规范化指纹含 endpoint/tenant/actor，重放首次结果
+- [x] [S-01][integration] 草稿读写/冲突/越权
+- [x] [S-04][integration] 校验/打包/PENDING/幂等
+- [x] [harness-api#RULE-api-002][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_draft_idempotency.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | integration | Console 内部 API → Draft Store/PVC → PG revision | 草稿创建成功，路径按 tenant/user/draft_key 隔离；写入、读取、列目录、删除单文件和删除整个草稿均成功；跨用户访问同一 draft_key 返回 not found/forbidden；revision 冲突返回 DRAFT_REVISION_CONFLICT | tests/acceptance/user_skill_sandbox/test_s_01.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | planned |
-| S-04 | integration | Console API → SkillValidator → Artifact Store → PG | 校验返回 pass/warn 明细；打包生成 checksum、文件清单和 PENDING artifact；记录 submitted_by、submitted_agent、submitted_channel、author；重复提交不产生多个 PENDING | tests/acceptance/user_skill_sandbox/test_s_04.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | planned |
+| S-01 | integration | Console 内部 API → Draft Store/PVC → PG revision | 草稿创建成功，路径按 tenant/user/draft_key 隔离；写入、读取、列目录、删除单文件和删除整个草稿均成功；跨用户访问同一 draft_key 返回 not found/forbidden；revision 冲突返回 DRAFT_REVISION_CONFLICT | tests/acceptance/user_skill_sandbox/test_s_01.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | verified |
+| S-04 | integration | Console API → SkillValidator → Artifact Store → PG | 校验返回 pass/warn 明细；打包生成 checksum、文件清单和 PENDING artifact；记录 submitted_by、submitted_agent、submitted_channel、author；重复提交不产生多个 PENDING | tests/acceptance/user_skill_sandbox/test_s_04.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | verified |
 
 **Spec Verifier**
 
 | Rule | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 执行命令 | 状态 |
 |---|---|---|---|---|---|
-| `harness-api#RULE-api-002` | integration | 真实 PG 幂等表/并发 | 同 key 同指纹重放，不同指纹冲突 | uv run pytest -q tests/acceptance/user_skill_sandbox/test_draft_idempotency.py | planned |
+| `harness-api#RULE-api-002` | integration | 真实 PG 幂等表/并发 | 同 key 同指纹重放，不同指纹冲突 | uv run pytest -q tests/acceptance/user_skill_sandbox/test_draft_idempotency.py | passed |
 
 ### Acceptance Evidence
 
@@ -647,12 +647,18 @@
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-01 | - | - | - | - | pending |
-| S-04 | - | - | - | - | pending |
+| S-01 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_01.py` → 2 failed（内部草稿 API 未注册，404） | 5 passed（`test_s_01.py`）；同目录 `uv run pytest -q tests/acceptance/user_skill_sandbox` → 33 passed | `tests/acceptance/user_skill_sandbox/test_s_01.py:195,218,238,348` | 真实 ASGI 内部 API → `SkillDraftStore` 独立临时 PVC 根 → 真实 PostgreSQL `control.skill_draft` revision CAS；跨用户/租户 404、路径穿越 400、文件数配额 413；删除草稿后目录与 DB 软删一致 | passed |
+| S-04 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_04.py` → 4 failed（内部草稿 API 404） | 4 passed（`test_s_04.py`）；幂等验收集 4 passed | `tests/acceptance/user_skill_sandbox/test_s_04.py:311,389,453` | 真实内部 API → `review_package`/`validated_package` → 不可变 artifact zip（checksum 回读一致）→ 真实 PG PENDING artifact + partial unique；review 无 artifact/无 revision 副作用；重复提交同 revision 只保留一个 PENDING，新 revision 将旧 PENDING 置 SUPERSEDED | passed |
+- S-01: verified — automated command passed; run_id=448d50e40d774bc080b0f56ed8807449 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=448d50e40d774bc080b0f56ed8807449 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=ba11a5ecbfb34fdab8c79114c996b945 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=ba11a5ecbfb34fdab8c79114c996b945 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-06] started
+- [2026-11-06] completed (done)
 
 ---
 
