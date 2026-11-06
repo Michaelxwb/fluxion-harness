@@ -391,6 +391,9 @@ Shell 是一次性命令，不做持久会话；支持 `python -m py_compile`、
 
 - 待审批同名覆盖：只允许同一 `owner_user_id` 覆盖自己的 PENDING；旧 PENDING →
   `SUPERSEDED`，新 PENDING；每个 Skill 同时只允许一个 PENDING（partial unique index）；
+- **覆盖判定只认 `skill.owner_user_id`（首次提交的 PlatformUser）**，不认
+  `skill.author`、不认 Console 账号、不认上传时 Agent；不同用户提交同 key 返回
+  `SKILL_KEY_EXISTS`，不能覆盖、不能看到对方的草稿；
 - 已审批锁定：用户不能提交新版；管理员解绑 + 软删旧 Skill 后重新提交；
 - 被驳回可修改重提；
 - 审批通过自动：
@@ -833,7 +836,7 @@ GPT 的复查结论成立：**bwrap 技术选型可以保留，但不能把当�
 | 4 | 草稿在审批前已执行代码并取得登录态，审批不能承担这段安全保障 | 草稿 Shell 从第一次执行就进沙箱；平台 key 的允许集合从受信执行身份/凭据计算，**不能只信草稿 `platforms` 声明**；审批只决定发布，不补运行期授权 |
 | 5 | 现有输出上限先 `communicate()` 收全量再截断，stdout 洪泛会吃内存 | 新执行层必须流式读取、超限终止/有界丢弃；补并发、工作目录、文件数、子进程、session broker 请求预算 |
 | 6 | 已批准包不能可写 bind 共享 `READY` 缓存，否则污染后续执行 | 已批准包只读；每次执行独立可写临时目录；草稿用独立副本；回写按 revision 做条件更新 |
-| 7 | 没有稳定 owner 时，用户 B 可能覆盖用户 A 的 PENDING | `skill.owner_user_id` 仅作为 `USER` Skill 内部鉴权归属；PENDING 只允许同一 owner 覆盖；每个 Skill 最多一个 PENDING；审批事务锁定并复核状态 |
+| 7 | 没有稳定 owner 时，用户 B 可能覆盖用户 A 的 PENDING | `skill.owner_user_id` 仅作为 `USER` Skill 内部鉴权归属；PENDING 只允许同一 owner 覆盖（不认 author/Console 账号/Agent）；不同用户同 key 拒绝；每个 Skill 最多一个 PENDING；审批事务锁定并复核状态 |
 | 8 | 审批通过自动恢复 `AgentAccessGrant` 会覆盖审批期间的撤权 | 审批时复核 `AgentAccessGrant` 仍 active；已撤销则失败并返回 `AGENT_ACCESS_REVOKED`，不自动恢复 |
 | 9 | `SkillExecutor` 协议签名与实际 `ScriptSkillExecutor.execute(request)` 不一致 | 统一实际使用的 `execute(request)` 协议，再装配 `SandboxedSkillExecutor`；`source` 必须来自服务端记录并进入冻结快照，缺失/非法拒绝执行 |
 | 10 | `source=SYSTEM` 全局生效会改现有 effective 查询 | 同步改 `list/count/catalog/snapshot/execution` 所有入口，并补测试 |
