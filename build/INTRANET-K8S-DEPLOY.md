@@ -133,6 +133,23 @@ print("workspace writable:", root)
 '
 ```
 
+**workspace canary（P1 发布门禁，先跑 1 个 Runtime/Worker 副本）**
+
+```bash
+uv run python scripts/workspace_canary.py --namespace muad \
+  --runtime deployment/muad-agent-runtime \
+  --worker deployment/muad-agent-worker \
+  --expected-root /mnt/muad-workspaces \
+  --output docs/operations/evidence/workspace-canary/$(date +%Y-%m-%d)-canary.json
+```
+
+脚本在真实 Pod 内检查并以 JSON 记录：PVC `Bound` + `ReadWriteMany`、两个 Pod 挂同一
+claim 且可写、Runtime 写入后 Worker 能跨 Pod 读到、两个 Pod 内 `bwrap --version` 与
+workspace 子目录 bind 写入（真实执行器映射为 `/workspace`）、两个 Pod 的 imageID
+（`sha256:` digest）和节点内核/OS/容器运行时
+指纹；结束清理 `.canary/<run-id>` 临时目录。任一项失败返回非零，**不得进入全量发布**。
+本地/内网证据目录见 `docs/operations/evidence/workspace-canary/`。
+
 容量注意：
 
 - workspace 与 artifacts 分开计费；`muad-artifacts-rwx` 继续只存不可变 Skill 包/附件；

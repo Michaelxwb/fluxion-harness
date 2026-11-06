@@ -149,6 +149,25 @@ kubectl -n muad exec deploy/muad-agent-runtime -- node -e "console.log(require('
 `kubectl exec ... pip install` / `npm install -g` 在生产 Pod 上补装；重启/换副本会丢失，
 且副本间不一致。
 
+## P1 workspace canary（bwrap + 共享 PVC，发布门禁）
+
+全量发布前先让 **1 个 Runtime/Worker 副本**通过 canary（design §4.2 P1 canary）：
+
+```bash
+uv run python scripts/workspace_canary.py --namespace muad \
+  --runtime deployment/muad-agent-runtime \
+  --worker deployment/muad-agent-worker \
+  --expected-root /mnt/muad-workspaces \
+  --output docs/operations/evidence/workspace-canary/$(date +%Y-%m-%d)-canary.json
+```
+
+真实边界：`kubectl exec` 进入两个真实 Pod，以运行用户（UID 10001）写共享 PVC；Runtime
+写标记后 Worker 读取，验证 `muad-workspaces-rwx` 跨 Pod 共享；两个 Pod 内执行
+`bwrap --version` 并把 workspace 子目录 bind 到可写挂载点写入文件（真实执行器映射为
+`/workspace`）。证据 JSON 记录
+PVC 状态、Pod image/imageID（digest）、节点内核/OS/容器运行时指纹和清理结果。任一项
+失败返回非零，阻断全量发布；回滚条件与步骤见本文件「维护窗口」及 design §4.2。
+
 ## 维护窗口：备份、排空、单次迁移（§4.2 发布与迁移）
 
 先记录基线、再排空、再迁移，最后才发布四单元；迁移只走 Job（集群里唯一的 schema 变更入口）。

@@ -16,6 +16,9 @@ data:
   WORKSPACE_FILE_LIMIT: "5000"
   WORKSPACE_OUTPUT_TTL_DAYS: "30"
   WORKSPACE_DATA_TTL_DAYS: "30"
+  # 沙箱执行模式：K8s（本地/内网）一律 bwrap；dev-unsafe 只能由 macOS 原生 Dev 显式开启，
+  # 生产配置出现 dev-unsafe/disabled 会在启动期被 SharedSettings 拒绝。
+  SANDBOX_MODE: bwrap
   SKILL_CACHE_ROOT: /var/cache/muad/skills
   API_MESSAGES_FILE: /app/config/api-messages.yaml
   # 服务间接线：**必须显式给**。缺了应用会回落到 `SharedSettings` 的 `http://127.0.0.1:8000`

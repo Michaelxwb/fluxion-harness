@@ -1296,7 +1296,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ## TASK-018: 部署：workspace PVC、Helm、ConfigMap 与 canary
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-005, TASK-006
 - **Source**: user-skill-sandbox.backend.design.md#4.1 部署架构, user-skill-sandbox.backend.design.md#4.2 发布与回滚
@@ -1312,28 +1312,28 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ### Checklist
 
-- [ ] 交付 `本地/内网 K8s 部署包含独立 workspace PVC，runtime/worker 挂载，canary 通过`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 新增 PVC + kustomization；runtime/worker 挂载 `/mnt/muad-workspaces`
-- [ ] Helm runtime/worker values/templates；console/gateway/connector 不变
-- [ ] ConfigMap workspace 配额/TTL；内网文档同步
-- [ ] bwrap/PVC writable canary；记录 image digest/节点指纹
-- [ ] [S-26][unit] macOS dev-unsafe/fail closed
-- [ ] [E-07][unit] bwrap 不可用 fail closed
-- [ ] [harness-arch#RULE-arch-001][verifier] 运行 `uv run pytest -q tests/architecture/test_k8s_deploy_manifests.py tests/architecture/test_capacity_webchat_runtime_worker_deploy.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `本地/内网 K8s 部署包含独立 workspace PVC，runtime/worker 挂载，canary 通过`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 新增 PVC + kustomization；runtime/worker 挂载 `/mnt/muad-workspaces`（已有清单校验 + 新增 Helm/排除断言）
+- [x] Helm runtime/worker values/templates；console/gateway/connector 不变（真实 `helm template` 渲染）
+- [x] ConfigMap workspace 配额/TTL + 生产 `SANDBOX_MODE=bwrap`；内网文档同步
+- [x] bwrap/PVC writable canary；记录 image digest/节点指纹（`scripts/workspace_canary.py` + 本地 OrbStack 证据）
+- [x] [S-26][unit] macOS dev-unsafe/fail closed + K8s 配置不启用 dev-unsafe
+- [x] [E-07][unit] bwrap 不可用 fail closed（引用 TASK-002 用例复跑）
+- [x] [harness-arch#RULE-arch-001][verifier] 运行 `uv run pytest -q tests/architecture/test_k8s_deploy_manifests.py tests/architecture/test_capacity_webchat_runtime_worker_deploy.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-26 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | 未显式开启 dev-unsafe 时拒绝执行；显式开启时执行并留下审计；生产配置不能启用 dev-unsafe | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | referenced |
-| E-07 | unit | SandboxRunner → bwrap 探测 | 返回 SANDBOX_UNAVAILABLE；不回退宿主执行；日志/指标可见 | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | referenced |
+| S-26 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | 未显式开启 dev-unsafe 时拒绝执行；显式开启时执行并留下审计；生产配置不能启用 dev-unsafe | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | verified |
+| E-07 | unit | SandboxRunner → bwrap 探测 | 返回 SANDBOX_UNAVAILABLE；不回退宿主执行；日志/指标可见 | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | verified |
 
 **Spec Verifier**
 
 | Rule | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 执行命令 | 状态 |
 |---|---|---|---|---|---|
-| `harness-arch#RULE-arch-001` | integration | 真实 k8s manifest/Helm 渲染；不 mock 部署单元 | 四单元不变；workspace PVC 挂载正确 | uv run pytest -q tests/architecture/test_k8s_deploy_manifests.py tests/architecture/test_capacity_webchat_runtime_worker_deploy.py | planned |
+| `harness-arch#RULE-arch-001` | integration | 真实 k8s manifest/Helm 渲染；不 mock 部署单元 | 四单元不变；workspace PVC 挂载正确 | uv run pytest -q tests/architecture/test_k8s_deploy_manifests.py tests/architecture/test_capacity_webchat_runtime_worker_deploy.py | verified |
 
 ### Acceptance Evidence
 
@@ -1341,12 +1341,17 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-26 | - | - | - | - | pending |
-| E-07 | - | - | - | - | pending |
+| S-26 | `uv run pytest -q tests/agent_core/test_sandbox_runner.py -k k8s_deploy_manifests_pin_bwrap` → failed：`assert None == 'bwrap'`（ConfigMap 未显式 pin `SANDBOX_MODE`） | 同命令 → `1 passed`；整文件 `16 passed` | `tests/agent_core/test_sandbox_runner.py::test_k8s_deploy_manifests_pin_bwrap_and_never_enable_dev_unsafe`；既有 `::test_macos_without_explicit_dev_unsafe_is_refused`、`::test_dev_unsafe_mode_is_only_allowed_in_dev`、`::test_dev_unsafe_requires_policy_flag_and_emits_audit` | 真实 `deploy/k8s/base/configmap.yaml` 与 `deploy/k8s/**/*.yaml` 解析后断言 `SANDBOX_MODE=bwrap`、无 `dev-unsafe` 值；真实 `SharedSettings`/工厂拒绝 prod+dev-unsafe；dev-unsafe 显式执行留下审计事件（既有真实子进程审计） | verified |
+| E-07 | 引用 TASK-002 的历史 RED（同一用例在模块缺失时 collection error）；本任务未新增 E-07 逻辑 | `uv run pytest -q tests/agent_core/test_sandbox_runner.py` → `16 passed` | `tests/agent_core/test_sandbox_runner.py::test_missing_bwrap_fails_closed_with_visible_event`、`::test_incompatible_bwrap_version_fails_closed` | 真实临时 `bwrap` 可执行文件被 `subprocess` 探测；缺失/0.11.0/0.13.1 分别 fail closed / fail closed / 返回 `BwrapRunner`，未回退宿主执行，WARNING 与事件可见 | verified |
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-07] started
+- [2026-11-07] RED：新增部署断言先跑 → `S-26` 失败（ConfigMap 无 `SANDBOX_MODE`）；`test_workspace_canary_dry_run...`/`test_workspace_canary_evaluation...` 因 `scripts/workspace_canary.py` 不存在失败（3 failed, 1 error）。
+- [2026-11-07] GREEN：ConfigMap 显式 `SANDBOX_MODE=bwrap`；新增 `scripts/workspace_canary.py`（PVC Bound/RWX、双 Pod 挂载、UID 10001 写入、跨 Pod 读取、bwrap bind 写入、imageID digest/节点指纹、清理）与 Helm/排除/配额断言；`tests/architecture` `227 passed`，verifier `59 passed`，`test_sandbox_runner.py` `16 passed`，`test_workspace_shell_tool.py` `21 passed`。
+- [2026-11-07] canary：本地 OrbStack K8s 临时命名空间用 `muad-skill-executor-probe`（bwrap 0.13.2，UID 10001）跑 `scripts/workspace_canary.py` → PASS；证据 `docs/operations/evidence/workspace-canary/2026-11-07-local-orbstack.json`（PVC Bound/RWX、跨 Pod 可写、imageID digest、节点指纹、cleanup_ok）。内网真实 runtime/worker 镜像需用同一命令重跑并回填。
+- [2026-11-07] completed (done)
 
 ---
 

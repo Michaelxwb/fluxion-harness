@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from muad_agent_core.sandbox import (
     BwrapRunner,
     DevUnsafeRunner,
@@ -188,6 +189,26 @@ def test_dev_unsafe_mode_is_only_allowed_in_dev() -> None:
 
     with pytest.raises(ValidationError):
         SharedSettings(_env_file=None, env="prod", sandbox_mode="dev-unsafe")
+
+
+def test_k8s_deploy_manifests_pin_bwrap_and_never_enable_dev_unsafe() -> None:
+    """[S-26] 生产/本地 K8s 配置必须显式 bwrap；dev-unsafe 只能由 macOS Dev 显式开启。"""
+    root = Path(__file__).resolve().parents[2]
+    deploy = root / "deploy/k8s"
+    configmap = next(
+        doc
+        for doc in yaml.safe_load_all((deploy / "base/configmap.yaml").read_text(encoding="utf-8"))
+        if isinstance(doc, dict) and doc.get("kind") == "ConfigMap"
+    )
+    assert configmap["data"].get("SANDBOX_MODE") == "bwrap", (
+        "K8s ConfigMap 必须显式 pin SANDBOX_MODE=bwrap（不靠 SharedSettings 默认值）"
+    )
+    for path in sorted(deploy.rglob("*.yaml")):
+        documents = [doc for doc in yaml.safe_load_all(path.read_text(encoding="utf-8")) if doc]
+        values = yaml.safe_dump_all(documents, allow_unicode=True)
+        assert "dev-unsafe" not in values, (
+            f"{path.relative_to(root)} 不得启用 dev-unsafe（生产配置不能绕过 bwrap）"
+        )
 
 
 async def test_dev_unsafe_requires_policy_flag_and_emits_audit(

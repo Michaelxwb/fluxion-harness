@@ -357,7 +357,17 @@ WORKSPACE_OUTPUT_TTL_DAYS: "30"
 WORKSPACE_DATA_TTL_DAYS: "30"
 ```
 
-部署后验证 Runtime/Worker 都能在该目录写入（UID 10001）：
+部署后先跑 workspace canary（P1 发布门禁；真实 Pod 内验证 bwrap、共享 PVC 与镜像/节点指纹）：
+
+```bash
+uv run python scripts/workspace_canary.py --namespace muad \
+  --runtime deployment/muad-agent-runtime \
+  --worker deployment/muad-agent-worker \
+  --expected-root /mnt/muad-workspaces \
+  --output docs/operations/evidence/workspace-canary/$(date +%Y-%m-%d)-canary.json
+```
+
+也可以只验证目录可写（UID 10001）：
 
 ```bash
 kubectl -n muad exec deploy/muad-agent-runtime -- python -c '
