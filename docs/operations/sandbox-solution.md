@@ -151,16 +151,16 @@ probe 使用真实 `session_cli.py`：在 bwrap 外启动 Unix socket broker，b
 bind、真实 CLI 和 state 文件可见性。内网 K8s Job 的相同输出见
 `evidence/sandbox-2026-11-06/session-probe.txt`。
 
-真实 Runtime broker canary 也已通过（2026-11-06）：
+真实 Runtime broker canary 也已通过（2026-11-06），并补了 Cookie 正负向对照：
 
 ```text
-bwrap_rc 0
-{"ok": true, "status": 200, "url": "http://soar-inner.sangfor.com.cn:30001/",
- "cookie_names": ["login-source", "soc-token"], "content_type": "text/html"}
-RESULT: PASS
+valid   -> 200，cookies login-source + soc-token
+none    -> 403，code 9451（非法操作）
+invalid -> 403，code 9451（非法操作）
 ```
 
-它使用真实 Console/Redis/平台凭据，不是模拟 broker；详见
+请求的是真实受保护接口 `/order/v1/get_expert`，不是平台根路径。它使用真实
+Console/Redis/平台凭据，不是模拟 broker；详见
 `evidence/sandbox-2026-11-06/real-broker-probe.txt`。
 
 注意：本地 Docker 默认 seccomp 会拦截 `unshare`；内网 K8s 默认策略不同，见下。
@@ -208,7 +208,8 @@ RESULT: PASS
 - 内网 runtime/worker Pod 支持所需 namespace/mount；
 - 内网 K8s Job 内直接执行 bwrap + 真实 `session_cli.py`（模拟 broker）PASS；
 - 真实 Runtime broker + Console/Redis/用户 AK-SK + `session-manager` + `requests`
-  调 `soar-inner` 根路径返回 HTTP 200（P0.3 PASS，仅代表状态交付和 HTTP 连通性）。
+  调真实受保护接口 `/order/v1/get_expert`：valid=200、none=403、invalid=403。
+  这证明登录态真实生效，而不是只有 HTTP 连通性。
 
 尚未验证（P0.4/P1）：
 
@@ -732,7 +733,8 @@ RESULT: PASS
 
 `PASS` 只表示所选 `check_scope` 通过。探针已禁止自动跳转，默认只接受 2xx；
 `http_json` 还检查 JSON，只有提供 `TEST_EXPECT_JSON` 才断言指定业务字段。
-这些变化尚未在内网重跑；历史 P0.3 输出保留为原始证据，不据此补写业务鉴权 PASS。
+
+2026-11-06 已在内网对受保护接口重跑 Cookie 正负向对照，结果见 P0.3.1。
 
 失败时脚本会明确输出：
 
@@ -750,17 +752,21 @@ P0.2 + P0.3 PASS 说明：
   尚未验证最小挂载权限及所有真实 Skill 依赖；
 - Unix socket 能进入沙箱；
 - 真实 `session_cli.py` 能通过 `session-manager` 读取 state 文件；
-- 真实 Console/Redis 解析与 session 文件交付可用，`requests` 请求平台根路径返回 HTTP 200。
-  根路径可能不要求登录，不能据此证明 Cookie 鉴权有效；热 session 命中也不能证明本轮重新登录。
+- 真实 Console/Redis 解析与 session 文件交付可用；
+- 真实受保护接口 `/order/v1/get_expert` 的正负向 Cookie 对照通过。
 
-P0.3 实测：
+P0.3 受保护接口实测（`TEST_EXPECT_STATUS=any`，只观察）：
 
-```text
-bwrap_rc 0
-{"ok": true, "status": 200, "url": "http://soar-inner.sangfor.com.cn:30001/",
- "cookie_names": ["login-source", "soc-token"]}
-RESULT: PASS
-```
+| Cookie 模式 | 状态 | Cookie | 结论 |
+|---|---:|---|---|
+| `valid` | 200 | `login-source` + `soc-token` | 真实登录态可用 |
+| `none` | 403 | 无 | 缺失登录态被拒绝 |
+| `invalid` | 403 | 存在但 `soc-token` 被篡改 | 无效登录态被拒绝 |
+
+三种请求使用同一 URL、同一组 Host/Referer/Timezone 头和同一 CSRF 逻辑，只改变 Cookie。
+
+这说明 P0.3 不再只是“根路径 200/请求能发出去”，而是**真实业务接口 + 正负向鉴权对照**。
+响应正文含业务数据，未写入证据文件。
 
 之后再：
 
@@ -898,7 +904,7 @@ kubectl -n muad exec "$POD" -- sh -ec '
 | 内核 4.18 较老 | 安全补丁/维护状态需关注 | 运维跟进；沙箱不替代内核升级 |
 | `sandbox-exec` 可能被移除 | macOS 已标记 deprecated | 原生 dev 可退回 `dev-unsafe`；生产不受影响 |
 | 基础镜像需重建推送 | 已构建服务镜像不会自动继承新底座 | 重建 runtime/worker；记录 base/service digest 与 bwrap commit |
-| 真实业务鉴权尚未闭环 | P0.3 已验证真实 broker/session-manager 与根路径 HTTP 200 | 补受保护接口 Cookie 对照、业务断言、真实包和 Worker 链路 |
+| 真实业务鉴权已做 Cookie 对照 | 受保护接口 valid=200、none=403、invalid=403 | 仍需补冷/热 session、POST/CSRF、真实包和 Worker 链路 |
 | seccomp 结论范围有限 | `seccompProfile` 为空不代表具体策略 | 最终 Pod 记录实际 seccomp/UID/caps/节点 |
 | 用户 workspace 磁盘增长 | pip/npm/node_modules/cache 可能到 GB 级 | 每用户配额、文件数上限、TTL 清理、容量规划 |
 | pip/npm 供应链与出网 | 安装及后续导入均可能执行恶意代码；registry 配置可被绕过 | 独立 net namespace + 强制受限代理；内网 mirror；安装时不提供平台 session；NetworkPolicy 仅补充 |
@@ -966,13 +972,13 @@ GPT 的复查结论成立：**bwrap 技术选型可以保留，但不能把当�
 | 10 | `source=SYSTEM` 全局生效会改现有 effective 查询 | 同步改 `list/count/catalog/snapshot/execution` 所有入口，并补测试 |
 | 11 | 已有 runtime/worker 镜像不会随底座自动更新；`build-image.sh` 本地有同名底座会跳过拉取 | 底座更新后重建 runtime/worker；记录 base/service digest 与 bwrap commit；构建前强制按 digest 或 `docker pull` 获取底座 |
 | 12 | seccomp 结论只能限定于当前受测环境 | 最终 Pod 记录实际 `seccompProfile`、UID、capabilities、节点、kernel；本地 `seccomp=unconfined` 结果不作为生产结论 |
-| 13 | 原 canary 跟随跳转、接受 3xx，空 JSON 丢失，根路径拼接不明确 | 已修手动探针：禁止跳转、默认仅 2xx、保留 `{}`、区分根/相对路径；新增 Cookie 对照、业务字段断言和观察模式，待内网实测后记录结论 |
-| 14 | Cookie/业务鉴权和 Run 身份不能由根路径 HTTP 200 推导 | P0.3.2 必测有效/无/无效 Cookie 与真实业务成功，另验冷/热 session、POST/CSRF 和 Run/Task 身份绑定 |
+| 13 | 原 canary 跟随跳转、接受 3xx，空 JSON 丢失，根路径拼接不明确 | 已修手动探针：禁止跳转、默认仅 2xx、保留 `{}`、区分根/相对路径；新增 Cookie 对照、业务字段断言和观察模式。2026-11-06 内网重跑通过 |
+| 14 | Cookie/业务鉴权和 Run 身份不能由根路径 HTTP 200 推导 | 已测受保护接口：valid=200、none=403、invalid=403；仍待冷/热 session、POST/CSRF 和 Run/Task 身份绑定 |
 
 ### 13.1 修正后的状态
 
-- **已完成**：bwrap 可行性、PlatOS 底座 + bwrap 构建、本地与内网 K8s session-manager probe（模拟 broker）、内网 runtime/worker 内核 primitives、真实 Runtime broker canary（真实平台 HTTP 200）。
-- **未完成/未闭环**：真实业务 Cookie 鉴权、受信 API 门控、流式输出、只读包/独立工作目录、
+- **已完成**：bwrap 可行性、PlatOS 底座 + bwrap 构建、本地与内网 K8s session-manager probe（模拟 broker）、内网 runtime/worker 内核 primitives、真实 Runtime broker canary、真实受保护接口 Cookie 正负向对照（valid=200、none=403、invalid=403）。
+- **未完成/未闭环**：受信 API 门控、流式输出、只读包/独立工作目录、
   真实 Runtime/Worker 包执行、资源/网络边界、服务镜像 digest 记录、最终 Pod 指纹。
 - **P2 功能门禁**：owner/审批事务可随自建发布功能实现，但在功能开放前必须验收。
   owner 只决定包修改归属，平台凭据按当前 actor 获取；审批绑定包 digest，执行使用已批准快照。

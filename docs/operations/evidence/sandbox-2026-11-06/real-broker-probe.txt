@@ -56,6 +56,39 @@ What it does not prove:
   - Untrusted-script isolation against Runtime /v1 APIs: this still requires
     the P0.4 service-identity gate.
   - Output flooding, read-only package and approval transaction behavior.
+
+P0.3 strengthened: authentication positive/negative controls
+------------------------------------------------------------
+Endpoint:
+  GET http://soar-inner.sangfor.com.cn:30001/order/v1/get_expert
+
+Additional headers:
+  Accept: application/json
+  Content-Type: application/json
+  Host: sitsoar.sangfor.com.cn
+  Referer: https://sitsoar.sangfor.com.cn/index.html
+  X-Requested-With: XMLHttpRequest
+  Timezone: +08:00
+
+Cookie modes (TEST_COOKIE_MODE):
+  valid    -> use broker cookies as-is
+  none     -> remove all cookies
+  invalid  -> replace soc-token with an invalid value
+
+Observed:
+  valid    status=200, cookies login-source + soc-token, is_json=true
+  none     status=403, cookies [], response code 9451 (非法操作)
+  invalid  status=403, cookies present, response code 9451 (非法操作)
+
+Conclusion:
+  - The valid request reaches the real protected business endpoint with HTTP 200.
+  - Removing or tampering with the auth cookie is rejected with HTTP 403.
+  - This is a positive + negative authentication control, not just "request sent".
+  - Response body is intentionally not stored here because it contains business data.
+
+Note:
+  TEST_EXPECT_STATUS=any makes the probe print RESULT: OBSERVED and does not
+  assert PASS/FAIL; the three statuses above are the evidence.
   - Protected business access: valid / missing / invalid Cookie controls, expected
     business fields, POST/CSRF, and redirect/HTTP-200-login-page rejection.
   - A fresh AK/SK login in this invocation: a warm Redis session may be reused.
