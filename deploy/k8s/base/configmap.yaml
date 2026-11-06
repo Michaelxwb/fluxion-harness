@@ -9,9 +9,8 @@ data:
   DEFAULT_TENANT_ID: default
   LOG_DIR: /app/.data/logs
   ARTIFACT_ROOT: /mnt/muad-artifacts
-  # Skill/Shell workspace：复用 artifacts PVC 的 workspaces/ 子目录，不新增 PVC/Helm volume。
-  # 清理循环只处理该前缀；同一 PVC 容量需同时容纳 Skill 包/附件与用户 workspace。
-  WORKSPACE_ROOT: /mnt/muad-artifacts/workspaces
+  # Skill/Shell workspace：独立 RWX PVC，按 tenant + user + Agent 隔离；不与 artifacts 共卷。
+  WORKSPACE_ROOT: /mnt/muad-workspaces
   WORKSPACE_QUOTA_MIB: "500"
   WORKSPACE_USER_QUOTA_MIB: "500"
   WORKSPACE_FILE_LIMIT: "5000"

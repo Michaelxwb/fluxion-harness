@@ -341,14 +341,15 @@ build/INTRANET-K8S-DEPLOY.md
 
 完整 Secret/ConfigMap 示例见 `build/INTRANET-K8S-DEPLOY.md` §1.2、§1.3。
 
-### 5.2 Skill/Shell workspace（复用 artifacts PVC）
+### 5.2 Skill/Shell workspace（独立 PVC）
 
-workspace 不新增 PVC，复用 `muad-artifacts-rwx` 的 `workspaces/` 子目录；Helm 参数不变。
+workspace 使用独立 `muad-workspaces-rwx`，不与 `muad-artifacts-rwx` 共卷；Runtime/Worker 挂载
+`/mnt/muad-workspaces`，Helm 参数见 `build/INTRANET-K8S-DEPLOY.md` §1.1/§2.2/§2.3。
 
 `muad-common` ConfigMap 已包含：
 
 ```yaml
-WORKSPACE_ROOT: /mnt/muad-artifacts/workspaces
+WORKSPACE_ROOT: /mnt/muad-workspaces
 WORKSPACE_QUOTA_MIB: "500"
 WORKSPACE_USER_QUOTA_MIB: "500"
 WORKSPACE_FILE_LIMIT: "5000"
@@ -361,7 +362,7 @@ WORKSPACE_DATA_TTL_DAYS: "30"
 ```bash
 kubectl -n muad exec deploy/muad-agent-runtime -- python -c '
 from pathlib import Path
-root = Path("/mnt/muad-artifacts/workspaces")
+root = Path("/mnt/muad-workspaces")
 root.mkdir(parents=True, exist_ok=True)
 probe = root / ".write-probe"
 probe.write_text("ok")
@@ -370,13 +371,13 @@ print("workspace writable:", root)
 '
 ```
 
-容量按每用户 500 MiB 估算；`muad-artifacts-rwx` 同时承载 Skill 包/附件，100Gi 默认卷在
-用户数较大时必须扩容，并监控 PVC 使用率。workspace 清理只处理 `workspaces/` 前缀。
+容量按每用户 500 MiB 估算；`muad-workspaces-rwx` 初始 100Gi，按实际用户数扩容。artifacts PVC
+继续只存 Skill 包/附件，两者分开监控。workspace 清理只处理 `WORKSPACE_ROOT`。
 
 顺序：
 
 ```text
-1. 建 namespace、Secret、muad-common ConfigMap、artifacts PVC（含 workspaces/ 子目录）
+1. 建 namespace、Secret、muad-common ConfigMap、artifacts PVC、workspaces PVC
 2. 部署前手动执行数据库迁移
 3. 安装 5 个服务（无顺序依赖，可以并行）
 4. 验证 /healthz、/readyz、workspace 目录可写

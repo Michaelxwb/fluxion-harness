@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: muad-workspaces-rwx
+  namespace: muad
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      # 初始容量；按「每用户聚合 500 MiB × 用户数 + 余量」扩容。
+      # 1000 用户约 500 GiB，上线前按实际租户规模调整。
+      storage: 100Gi
+  # 按实际环境填写现有 NFS/RWX StorageClass。
+  # storageClassName: muad-nfs-public-provisoner

@@ -343,6 +343,7 @@
 - **描述**: workspace 主要存用户 Skill 执行的数据和输出，并允许临时验证文件；按 TTL 自动清理 `outputs` 和 `data`，不新增独立清理服务。
 - **验收标准**:
   - [ ] 每个 user + Agent workspace 默认 500 MiB，每用户聚合默认 500 MiB；文件数上限 5,000；超限返回 `WORKSPACE_QUOTA_EXCEEDED`。
+  - [ ] workspace 使用独立 RWX PVC `muad-workspaces-rwx`，挂载 `/mnt/muad-workspaces`，不与 artifacts PVC 共卷；Runtime/Worker 同时挂载。
   - [ ] 系统 Python/Node 解释器和系统依赖只读继承 Pod 基础镜像，不复制到 workspace；`pip`/`npm` 临时安装只写 workspace 的 venv/target/node_modules，并计入配额。
   - [ ] workspace 不是生产依赖交付通道；生产依赖由管理员预装到系统镜像（FEAT-18）。
   - [ ] `outputs` 和 `data` 默认 30 天未访问清理；`last_access_time` 由 Skill 执行/Shell 访问更新，不依赖不可靠的 NFS atime。
