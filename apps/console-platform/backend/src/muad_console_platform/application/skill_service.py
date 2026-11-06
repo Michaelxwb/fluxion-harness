@@ -48,6 +48,7 @@ from .dto import (
     SkillUpdateRequest,
     SkillUserGrantItem,
 )
+from .skill_audit import SkillAuditAction, SkillAuditEvent
 
 AUDIT_SKILL = "SKILL"
 AUDIT_ARTIFACT = "SKILL_ARTIFACT"
@@ -309,6 +310,88 @@ class SkillService:
         skill.update_time = datetime.now(UTC)
         await self._session.flush()
         await self._record_audit(tenant_id, actor, AUDIT_SKILL, skill.id, "DELETE", before, None)
+
+    async def delete_skill_with_unbind(
+        self,
+        tenant_id: str,
+        skill_id: uuid.UUID,
+        *,
+        confirm: bool,
+        actor: AuditActor,
+    ) -> dict[str, Any]:
+        """一键解绑并软删：单事务解除全部绑定/grant，保留 artifact/审批/审计。
+
+        `confirm` 是服务端强制的二次确认参数；缺少时返回校验错误，而不是把破坏性
+        操作交给客户端自觉。已软删的 Skill 再调用返回成功（幂等），不重复写审计。
+        """
+        skill = await self._skills.get_including_deleted(tenant_id, skill_id)
+        if skill is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        if skill.is_deleted:
+            return {"skill_id": str(skill.id), "unbound_agents": [], "deleted": True}
+        if not confirm:
+            raise AppError(
+                ErrorCode.COMMON_VALIDATION_ERROR,
+                data={"field": "confirm"},
+            )
+
+        unbound_agents, grant_count = await self._unbind_active_relations(skill.id)
+        skill.is_deleted = True
+        skill.update_time = datetime.now(UTC)
+        await self._session.flush()
+        await self._record_unbind_delete_audit(
+            tenant_id,
+            skill,
+            actor,
+            {"skill_key": skill.key, "unbound_agents": unbound_agents, "user_grant_count": grant_count},
+        )
+        return {
+            "skill_id": str(skill.id),
+            "unbound_agents": unbound_agents,
+            "deleted": True,
+        }
+
+    async def _unbind_active_relations(
+        self, skill_id: uuid.UUID
+    ) -> tuple[list[dict[str, str]], int]:
+        """解除全部 active 绑定/用户 grant，返回解绑 Agent 列表与 grant 数。"""
+        binding_rows = await self._skills.list_active_bindings_for_skill(skill_id)
+        grants = await self._grants.list_active_for_skill(skill_id)
+        moment = datetime.now(UTC)
+        for _agent, binding in binding_rows:
+            binding.is_deleted = True
+            binding.update_time = moment
+        for grant in grants:
+            grant.is_deleted = True
+            grant.update_time = moment
+        unbound_agents = [
+            {"agent_id": str(agent.id), "key": agent.key, "name": agent.name}
+            for agent, _binding in binding_rows
+        ]
+        return unbound_agents, len(grants)
+
+    async def _record_unbind_delete_audit(
+        self,
+        tenant_id: str,
+        skill: Skill,
+        actor: AuditActor,
+        detail: dict[str, Any],
+    ) -> None:
+        for action, result in (
+            (SkillAuditAction.UNBIND, "SUCCESS"),
+            (SkillAuditAction.DELETE, "DELETED"),
+        ):
+            await self._audit.record_skill_event(
+                SkillAuditEvent(
+                    tenant_id=tenant_id,
+                    actor_id=actor.account_id,
+                    action=action,
+                    skill_id=skill.id,
+                    result=result,
+                    detail=detail,
+                    source_ip=actor.source_ip,
+                )
+            )
 
     async def set_user_scope(
         self,

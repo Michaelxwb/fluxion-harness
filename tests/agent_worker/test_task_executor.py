@@ -149,7 +149,7 @@ async def test_checksum_mismatch_is_rejected(tenant: TenantContext) -> None:
         with pytest.raises(TaskExecutionError) as excinfo:
             await SkillTaskExecutor(cache).execute(task)
 
-    assert excinfo.value.code == "SKILL_ARTIFACT_CHECKSUM_MISMATCH"
+    assert excinfo.value.code == "SKILL_ARTIFACT_INTEGRITY_ERROR"
 
 
 async def test_same_checksum_concurrent_prepare_is_singleflight(
@@ -367,7 +367,7 @@ async def test_empty_structured_result_is_not_replaced_by_stdout(tenant: TenantC
 def test_skill_artifact_unavailable_is_a_deterministic_failure() -> None:
     """cache miss + store unavailable 是确定性失败，不得落成 TASK_RESULT_UNVERIFIED。
 
-    `SKILL_ARTIFACT_CHECKSUM_MISMATCH` 早已在 NON_RETRYABLE_CODES；同族的
+    `SKILL_ARTIFACT_INTEGRITY_ERROR` 早已在 NON_RETRYABLE_CODES；同族的
     `SKILL_ARTIFACT_UNAVAILABLE` 漏登记时，非幂等任务的 retry_safety 会把明确的
     artifact 失败误归为「外部副作用待核实」（2026-10-24 DFX E-03 实测）。
     """

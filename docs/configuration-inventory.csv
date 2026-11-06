@@ -610,7 +610,7 @@ apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,47,UNVERIFI
 apps/agent-worker/src/muad_agent_worker/worker/executor.py,32,EXECUTION_TIMEOUT_SEC,300.0,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
 apps/agent-worker/src/muad_agent_worker/worker/executor.py,34,MIN_EXECUTION_TIMEOUT_SEC,1.0,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
 apps/agent-worker/src/muad_agent_worker/worker/executor.py,35,SKILL_ARTIFACT_KEYS,"('artifact_id', 'storage_key', 'checksum')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/executor.py,37,NON_RETRYABLE_CODES,"frozenset({'SKILL_SNAPSHOT_MISSING', 'BATCH_PLAN_INVALID', 'BATCH_FANOUT_STALE', 'BATCH_FANOUT_UNAVAILABLE', 'SKILL_ARTIFACT_UNAVAILABLE', 'SKILL_ARTIFACT_CHECKSUM_MISMATCH', 'SKILL_RESULT_INVALID'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/executor.py,59,NON_RETRYABLE_CODES,"frozenset({'SKILL_SNAPSHOT_MISSING', 'BATCH_PLAN_INVALID', 'BATCH_FANOUT_STALE', 'BATCH_FANOUT_UNAVAILABLE', 'SKILL_ARTIFACT_UNAVAILABLE', 'SKILL_ARTIFACT_INTEGRITY_ERROR', 'SKILL_RESULT_INVALID'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/executor.py,49,ENV_TASK_ID,'MUAD_TASK_ID',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/executor.py,50,ENV_TASK_IDEMPOTENCY_KEY,'MUAD_TASK_IDEMPOTENCY_KEY',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/executor.py,51,ENV_TASK_ATTEMPT,'MUAD_TASK_ATTEMPT',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -747,12 +747,12 @@ apps/console-platform/backend/src/muad_console_platform/application/run_event_qu
 apps/console-platform/backend/src/muad_console_platform/application/run_event_view.py,37,TEXT_LIMIT,12000,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/console-platform/backend/src/muad_console_platform/application/run_event_view.py,38,ITEM_LIMIT,20,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/console-platform/backend/src/muad_console_platform/application/run_event_view.py,39,_QUOTED_PAIR,"re.compile('""(?P<key>[^""\\\\\\r\\n]{1,128})""\\s*:\\s*""(?P<value>(?:\\\\.|[^""\\\\])*)""')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,51,AUDIT_SKILL,'SKILL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,52,AUDIT_ARTIFACT,'SKILL_ARTIFACT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,53,AUDIT_GRANT,'SKILL_USER_GRANT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,54,AUDIT_BINDING,'AGENT_SKILL_BINDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,55,USER_SCOPE_SELECTED,'SELECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,56,VALIDATION_READY,'READY',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,53,AUDIT_SKILL,'SKILL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,54,AUDIT_ARTIFACT,'SKILL_ARTIFACT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,55,AUDIT_GRANT,'SKILL_USER_GRANT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,56,AUDIT_BINDING,'AGENT_SKILL_BINDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,57,USER_SCOPE_SELECTED,'SELECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,58,VALIDATION_READY,'READY',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/user_service.py,17,AUDIT_RESOURCE_TYPE,'PLATFORM_USER',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/cli.py,20,DEFAULT_TENANT,SharedSettings().default_tenant_id,python-constant,environment,必须复用 DEFAULT_TENANT_ID，不能独立默认
 apps/console-platform/backend/src/muad_console_platform/cli.py,22,SECRET_TABLES,"(('bot_account', 'secret_ref', 'secret', False), ('mcp_server', 'auth_secret_ref', 'auth_secret', False), ('user_credential_ref', 'secret_ref', 'credential_json', True), ('shared_credential_ref', 'secret_ref', 'credential_json', True))",python-constant,code,协议标识、枚举、schema、文本或实现常量

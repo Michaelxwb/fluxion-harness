@@ -140,6 +140,16 @@ class SkillRepository:
         )
         return skill
 
+    async def get_including_deleted(self, tenant_id: str, skill_id: uuid.UUID) -> Skill | None:
+        """幂等删除要区分「已软删」与「不存在」：已删除仍返回行。"""
+        skill: Skill | None = await self._session.scalar(
+            select(Skill).where(
+                Skill.id == skill_id,
+                Skill.tenant_id == tenant_id,
+            )
+        )
+        return skill
+
     async def get_for_update(self, tenant_id: str, skill_id: uuid.UUID) -> Skill | None:
         """审批/提交串行化：锁住 Skill 行，避免审批与覆盖提交互相踩状态。"""
         skill: Skill | None = await self._session.scalar(
@@ -355,6 +365,25 @@ class SkillRepository:
             )
         ).all()
         return [(agent, binding) for agent, binding in rows], int(total or 0)
+
+    async def list_active_bindings_for_skill(
+        self, skill_id: uuid.UUID
+    ) -> list[tuple[AgentDefinition, AgentSkillBinding]]:
+        """一键解绑读取全部 active 绑定（含 Agent 身份，供审计记录解绑列表）。"""
+        conditions = (
+            AgentSkillBinding.skill_id == skill_id,
+            AgentSkillBinding.is_deleted.is_(False),
+            AgentDefinition.is_deleted.is_(False),
+        )
+        rows = (
+            await self._session.execute(
+                select(AgentDefinition, AgentSkillBinding)
+                .join(AgentDefinition, AgentDefinition.id == AgentSkillBinding.agent_id)
+                .where(*conditions)
+                .order_by(AgentSkillBinding.sort_order, AgentDefinition.key)
+            )
+        ).all()
+        return [(agent, binding) for agent, binding in rows]
 
     async def list_effective_for_agent(
         self,

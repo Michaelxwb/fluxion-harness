@@ -63,7 +63,7 @@ NON_RETRYABLE_CODES = frozenset(
         "BATCH_FANOUT_STALE",
         "BATCH_FANOUT_UNAVAILABLE",
         "SKILL_ARTIFACT_UNAVAILABLE",
-        "SKILL_ARTIFACT_CHECKSUM_MISMATCH",
+        "SKILL_ARTIFACT_INTEGRITY_ERROR",
         "SKILL_RESULT_INVALID",
     }
 )
@@ -240,6 +240,14 @@ class SkillTaskExecutor:
                 checksum=str(skill["checksum"]),
             )
         except SkillArtifactCacheError as exc:
+            if exc.code == "SKILL_ARTIFACT_INTEGRITY_ERROR":
+                # checksum 不匹配是安全事件：拒绝执行并留下可聚合的告警（RULE-skill-001）。
+                logger.warning(
+                    "skill_artifact_integrity_error skill_id=%s artifact_id=%s",
+                    skill.get("skill_id"),
+                    skill.get("artifact_id"),
+                )
+                record_outcome(SKILL_EXECUTION_METRIC, "FAILED", {"source": source})
             raise TaskExecutionError(exc.code, f"skill artifact rejected: {exc.code}") from exc
         try:
             result = await self._executor.execute(
