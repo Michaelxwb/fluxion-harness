@@ -21,9 +21,7 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-for candidate in sorted((REPO_ROOT / "packages").glob("*/src")) + sorted(
-    (REPO_ROOT / "apps").glob("*/src")
-):
+for candidate in sorted((REPO_ROOT / "packages").glob("*/src")) + sorted((REPO_ROOT / "apps").glob("*/src")):
     if str(candidate) not in sys.path:
         sys.path.insert(0, str(candidate))
 
@@ -183,16 +181,11 @@ print(json.dumps({'write_error': write_error, 'skill_readable': os.path.isfile('
         "ready_sentinel": (root / "READY").read_text(encoding="utf-8"),
         "package_checksum_before": before,
         "package_checksum_after": after,
-        "cross_workspace_visible": (
-            first_workspace / "outputs" / "exec-a" / "result.txt"
-        ).exists() and (second_workspace / "outputs" / "exec-b" / "result.txt").exists(),
-        "first_workspace_only_a": sorted(
-            path.name for path in (first_workspace / "outputs").iterdir()
-        )
+        "cross_workspace_visible": (first_workspace / "outputs" / "exec-a" / "result.txt").exists()
+        and (second_workspace / "outputs" / "exec-b" / "result.txt").exists(),
+        "first_workspace_only_a": sorted(path.name for path in (first_workspace / "outputs").iterdir())
         == ["exec-a"],
-        "second_workspace_only_b": sorted(
-            path.name for path in (second_workspace / "outputs").iterdir()
-        )
+        "second_workspace_only_b": sorted(path.name for path in (second_workspace / "outputs").iterdir())
         == ["exec-b"],
     }
 
@@ -394,7 +387,70 @@ async def scenario_cache() -> dict[str, Any]:
     }
 
 
+async def scenario_s03() -> dict[str, Any]:
+    """真实 broker（Redis/Console/平台 adapter）+ bwrap + 旧 `session-manager` CLI。
+
+    探针运行在容器内，broker 也运行在容器内；Redis/Console/平台桩由宿主机测试提供，
+    通过 `host.docker.internal` 以真实 HTTP/Redis 协议访问。最终只回传脱敏形状。
+    """
+    from muad_platform_sdk.skill_access import SkillPlatformContext
+
+    tenant = os.environ["FX_SESSION_TENANT"]
+    actor = os.environ["FX_SESSION_ACTOR"]
+    platform_key = os.environ["FX_SESSION_PLATFORM"]
+    skill_name = os.environ["FX_SESSION_SKILL"]
+    context = SkillPlatformContext(
+        tenant_id=tenant,
+        actor_user_id=actor,
+        execution_id=str(__import__("uuid").uuid4()),
+        execution_type="RUN",
+        platform_keys=(platform_key,),
+        console_url=os.environ["FX_SESSION_CONSOLE_URL"],
+        redis_url=os.environ["FX_SESSION_REDIS_URL"],
+        service_token=os.environ["FX_SESSION_SERVICE_TOKEN"],
+    )
+    base = Path(tempfile.mkdtemp(prefix="fx-s03-"))
+    root = base / "skill"
+    scripts = root / "scripts"
+    scripts.mkdir(parents=True)
+    (root / "SKILL.md").write_text(
+        f"---\nname: {skill_name}\ndescription: {skill_name}\n"
+        f"platforms: [{platform_key}]\n---\nSession probe\n",
+        encoding="utf-8",
+    )
+    (scripts / "main.py").write_text(
+        "import json, os, subprocess\n"
+        f"info = json.loads(subprocess.check_output(['session-manager', 'get-state', "
+        f"'--skill-name', {skill_name!r}]))\n"
+        "state = json.load(open(info['sessionStateFile'], encoding='utf-8'))\n"
+        f"platform = state['platforms'][{platform_key!r}]\n"
+        "cookies = sorted({item['name'] for item in platform['cookies']})\n"
+        "print(json.dumps({\n"
+        "    'state_path': info['sessionStateFile'],\n"
+        "    'platforms': info['platforms'],\n"
+        "    'expires_at': platform['expiresAt'],\n"
+        "    'cookie_names': cookies,\n"
+        "    'base_url': platform['requestProfile']['baseUrl'],\n"
+        "    'socket': bool(os.environ.get('MUAD_SESSION_SOCKET')),\n"
+        "    'path_has_session': any('fx-session' in part "
+        "for part in os.environ.get('PATH', '').split(':')),\n"
+        "    'proc_path': info['sessionStateFile'].startswith('/proc/'),\n"
+        "    'bin_sh': os.path.exists('/bin/sh'),\n"
+        "}))\n",
+        encoding="utf-8",
+    )
+    executor = SandboxedSkillExecutor(runner=_runner())
+    result = await executor.execute(_request(root, base / "workspace", "s03-exec", platform_context=context))
+    leftovers = sorted(str(path) for path in Path("/tmp").glob("fx-session-*"))
+    return {
+        "ok": result.status.value == "SUCCEEDED" and result.exit_code == 0,
+        "result": _result_payload(result),
+        "leftover_session_dirs": leftovers,
+    }
+
+
 SCENARIOS = {
+    "s03": scenario_s03,
     "s10": scenario_s10,
     "s15": scenario_s15,
     "s47": scenario_s47,

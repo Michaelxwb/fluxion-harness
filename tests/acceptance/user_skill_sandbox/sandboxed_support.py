@@ -105,6 +105,7 @@ def run_probe(
     *,
     env: Mapping[str, str] | None = None,
     timeout: int = RUN_TIMEOUT_SEC,
+    docker_args: Sequence[str] = (),
 ) -> dict[str, object]:
     image = probe_image()
     command = [
@@ -117,6 +118,7 @@ def run_probe(
         "seccomp=unconfined",
         "-v",
         f"{ROOT}:/repo:ro",
+        *docker_args,
     ]
     for key, value in (env or {}).items():
         command.extend(("-e", f"{key}={value}"))

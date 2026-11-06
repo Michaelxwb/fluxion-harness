@@ -53,18 +53,14 @@ def probe_bwrap(
         raise SandboxUnavailable(f"bwrap probe failed: {exc}") from exc
     output = (completed.stdout or completed.stderr or "").strip()
     if completed.returncode != 0:
-        raise SandboxUnavailable(
-            f"bwrap probe failed with exit {completed.returncode}: {output[:200]}"
-        )
+        raise SandboxUnavailable(f"bwrap probe failed with exit {completed.returncode}: {output[:200]}")
     match = _VERSION_RE.search(output)
     if match is None:
         raise SandboxUnavailable(f"bwrap version is not recognized: {output[:200]!r}")
     version = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
     if version < min_version:
         minimum = ".".join(str(part) for part in min_version)
-        raise SandboxUnavailable(
-            f"bwrap {output!r} is older than required {minimum}; refusing to fall back"
-        )
+        raise SandboxUnavailable(f"bwrap {output!r} is older than required {minimum}; refusing to fall back")
     return BwrapProbe(path=str(path), version=version, raw_version=output)
 
 
@@ -72,7 +68,12 @@ def build_bwrap_argv(spec: SandboxSpec, bwrap_path: str) -> list[str]:
     """把受校验的 SandboxSpec 编译成 bwrap argv（服务端生成，模型不可传）。"""
     policy = spec.policy
     limits = spec.effective_limits
-    env = sanitize_env(spec.env, default_path=SANDBOX_DEFAULT_PATH, home="/tmp")
+    env = sanitize_env(
+        spec.env,
+        default_path=SANDBOX_DEFAULT_PATH,
+        home="/tmp",
+        extra_keys=policy.env_inject,
+    )
 
     argv = [bwrap_path, "--unshare-all", "--die-with-parent", "--new-session"]
     if policy.network:
@@ -111,9 +112,7 @@ class BwrapRunner:
 
     def __init__(self, probe: BwrapProbe, *, observer: object | None = None) -> None:
         if probe.version < MIN_BWRAP_VERSION:
-            raise SandboxUnavailable(
-                f"bwrap {probe.raw_version!r} is not supported"
-            )
+            raise SandboxUnavailable(f"bwrap {probe.raw_version!r} is not supported")
         self._probe = probe
         self._observer = observer
 
