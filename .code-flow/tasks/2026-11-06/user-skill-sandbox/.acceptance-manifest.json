@@ -5600,7 +5600,7 @@
       "kind": "functional",
       "boundary": "镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require",
       "owner": "TASK-015",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -5835,6 +5835,9 @@
           "timeout": 600.0,
           "fingerprint": "5311dca41d5c3b5143f6f4dfd98c332d048340f8d1502788fe2bdb32496150fc"
         }
+      ],
+      "stale_checks": [
+        "CHK-62857f0bce9d"
       ]
     },
     {
@@ -5844,7 +5847,7 @@
       "kind": "functional",
       "boundary": "Pod A 临时安装 → Pod B/重建后执行同一 Skill",
       "owner": "TASK-015",
-      "status": "verified",
+      "status": "stale",
       "command": [
         "uv",
         "run",
@@ -6072,6 +6075,9 @@
           "timeout": 600.0,
           "fingerprint": "5311dca41d5c3b5143f6f4dfd98c332d048340f8d1502788fe2bdb32496150fc"
         }
+      ],
+      "stale_checks": [
+        "CHK-d491931df65a"
       ]
     }
   ],

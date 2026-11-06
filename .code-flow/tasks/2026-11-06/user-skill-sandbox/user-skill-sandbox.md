@@ -125,8 +125,8 @@
 | S-45 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-46 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | TASK-017 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | S-47 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → SKILL_OUTPUT_DIR → ArtifactStore → 现有附件交付 | TASK-003 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_47.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-48 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require | TASK-015 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_48.py"] | . | 600 | P1 | auto | local | - | - | - | no |
-| E-17 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Pod A 临时安装 → Pod B/重建后执行同一 Skill | TASK-015 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_17.py"] | . | 600 | P1 | auto | local | - | - | - | no |
+| S-48 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require | TASK-015 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_48.py"] | . | 600 | P1 | auto | local | - | - | - | no |
+| E-17 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Pod A 临时安装 → Pod B/重建后执行同一 Skill | TASK-015 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_17.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 
 ---
 
@@ -1035,8 +1035,8 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-48 | integration | 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require | Skill 不需要 workspace 安装即可 import/require；所有 Runtime/Worker 副本依赖版本一致；image digest 和依赖变更记录可查；不在运行中的 Pod 修改系统 site-packages | tests/acceptance/user_skill_sandbox/test_s_48.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_48.py"] | verified |
-| E-17 | integration | Pod A 临时安装 → Pod B/重建后执行同一 Skill | 新 Pod 不保证存在该依赖，import 失败可见；生产路径要求管理员预装到系统镜像；临时安装计入 workspace 配额，可被 TTL 清理 | tests/acceptance/user_skill_sandbox/test_e_17.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_17.py"] | verified |
+| S-48 | integration | 镜像依赖清单 → runtime/worker 镜像 → bwrap 系统 site-packages → Skill import/require | Skill 不需要 workspace 安装即可 import/require；所有 Runtime/Worker 副本依赖版本一致；image digest 和依赖变更记录可查；不在运行中的 Pod 修改系统 site-packages | tests/acceptance/user_skill_sandbox/test_s_48.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_48.py"] | stale |
+| E-17 | integration | Pod A 临时安装 → Pod B/重建后执行同一 Skill | 新 Pod 不保证存在该依赖，import 失败可见；生产路径要求管理员预装到系统镜像；临时安装计入 workspace 配额，可被 TTL 清理 | tests/acceptance/user_skill_sandbox/test_e_17.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_17.py"] | stale |
 
 ### Acceptance Evidence
 
@@ -1052,6 +1052,8 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 - E-17: verified — automated command passed; run_id=94f8146b6c694d8aad1e0f06a5578392 (confirmed_by: runner)
 - S-48: verified — automated command passed; run_id=f7299e96522d491191da4ef54a15d32e (confirmed_by: runner)
 - E-17: verified — automated command passed; run_id=f7299e96522d491191da4ef54a15d32e (confirmed_by: runner)
+- S-48: stale — input changed: CHK-62857f0bce9d (confirmed_by: runtime)
+- E-17: stale — input changed: CHK-d491931df65a (confirmed_by: runtime)
 
 ### Log
 
