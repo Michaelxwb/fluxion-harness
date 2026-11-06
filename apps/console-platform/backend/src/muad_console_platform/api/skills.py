@@ -2,14 +2,18 @@ import uuid
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, Form, Header, Query, Request, UploadFile
-from muad_api import ApiResponse, ok, paginate
+from fastapi.responses import FileResponse
+from muad_api import ApiResponse, AppError, ok, paginate
+from muad_api.error_codes import ErrorCode
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
 from ..application.dto import SkillReviewRequest, SkillUpdateRequest, SkillUserScopeRequest
+from ..application.skill_artifact_download import SkillArtifactDownloadService
 from ..application.skill_review_service import SkillReviewService
 from ..application.skill_service import SkillService
 from ..infrastructure.db import get_session
+from ..infrastructure.models.auth import ROLE_ADMIN
 from ..infrastructure.skill_validator import ZIP_BYTES_LIMIT, invalid_package, size_label
 from ..metrics import SKILL_IMPORT_METRIC, count_outcome
 from .deps import AccountTenantId, AdminAccount, CurrentAccount, get_source_ip
@@ -132,7 +136,19 @@ async def delete_skill(
     account: CurrentAccount,
     tenant_id: TenantId,
     session: Session,
+    unbind: bool = Query(default=False),
+    confirm: bool = Query(default=False),
 ) -> ApiResponse[Any]:
+    if unbind:
+        if account.role != ROLE_ADMIN:
+            raise AppError(ErrorCode.FORBIDDEN)
+        data = await SkillService(session).delete_skill_with_unbind(
+            tenant_id,
+            skill_id,
+            confirm=confirm,
+            actor=_actor(account, request),
+        )
+        return ok(request.app.state.message_catalog, data)
     await SkillService(session).delete_skill(tenant_id, skill_id, _actor(account, request))
     return ok(
         request.app.state.message_catalog, {"id": str(skill_id), "is_deleted": True}
@@ -214,6 +230,31 @@ async def get_artifact(
 ) -> ApiResponse[Any]:
     detail = await SkillService(session).get_artifact(tenant_id, skill_id, artifact_id)
     return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
+
+
+@router.get("/{skill_id}/artifacts/{artifact_id}/download")
+async def download_artifact(
+    skill_id: uuid.UUID,
+    artifact_id: uuid.UUID,
+    request: Request,
+    account: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+) -> FileResponse:
+    """管理员下载 PENDING/APPROVED 包；响应只有 zip 流、Content-Disposition 与 X-Checksum。"""
+    download = await SkillArtifactDownloadService(session).download(
+        tenant_id, skill_id, artifact_id, _actor(account, request)
+    )
+    return FileResponse(
+        path=download.path,
+        media_type="application/zip",
+        filename=download.filename,
+        headers={
+            "X-Checksum": download.checksum,
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.put("/{skill_id}/user-scope")

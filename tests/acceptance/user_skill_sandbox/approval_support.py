@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -15,11 +16,17 @@ import sqlalchemy as sa
 from httpx import ASGITransport, AsyncClient, Response
 from muad_console_platform.api.security import CSRF_COOKIE, CSRF_HEADER
 from muad_console_platform.application.auth_service import hash_password
-from muad_console_platform.infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
+from muad_console_platform.infrastructure.models.auth import (
+    ROLE_ADMIN,
+    ROLE_BUILDER,
+    ConsoleAccount,
+)
 from muad_console_platform.infrastructure.models.control import (
     AgentAccessGrant,
     AgentDefinition,
+    ModelCredential,
     ModelDefinition,
+    ModelDeployment,
     PlatformUser,
 )
 from muad_console_platform.main import app
@@ -28,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .draft_support import create_draft, skill_md, submit_draft, write_file
 
 ADMIN_PASSWORD = "approval-admin-password"
+BUILDER_PASSWORD = "approval-builder-password"
 
 
 @dataclass(frozen=True)
@@ -130,6 +138,8 @@ async def cleanup_approval_env(session: AsyncSession, env: ApprovalEnv) -> None:
         "DELETE FROM control.agent_access_grant WHERE agent_id IN "
         "(SELECT id FROM control.agent_definition WHERE tenant_id = :tenant)",
         "DELETE FROM control.agent_definition WHERE tenant_id = :tenant",
+        "DELETE FROM control.model_deployment WHERE tenant_id = :tenant",
+        "DELETE FROM control.model_credential WHERE tenant_id = :tenant",
         "DELETE FROM control.model_definition WHERE tenant_id = :tenant",
         "DELETE FROM control.platform_user WHERE tenant_id = :tenant",
         "DELETE FROM control.console_session WHERE account_id IN "
@@ -155,22 +165,101 @@ async def seed_second_agent(session: AsyncSession, env: ApprovalEnv) -> uuid.UUI
     return agent.id
 
 
+async def seed_builder_account(session: AsyncSession, env: ApprovalEnv) -> str:
+    """为租户补一个真实 BUILDER 账号（普通用户），返回登录用户名。"""
+    username = _unique("approval-builder")
+    session.add(
+        ConsoleAccount(
+            tenant_id=env.tenant,
+            username=username,
+            display_name="Approval Builder",
+            password_hash=hash_password(BUILDER_PASSWORD),
+            role=ROLE_BUILDER,
+        )
+    )
+    await session.commit()
+    return username
+
+
+async def seed_model_credential(session: AsyncSession, env: ApprovalEnv) -> uuid.UUID:
+    """给审批环境的逻辑模型挂一个真实成员凭据，使 resolve-definition 可执行。"""
+    api_key = f"sk-acceptance-{uuid.uuid4().hex}"
+    credential = ModelCredential(
+        tenant_id=env.tenant,
+        key=_unique("approval-credential"),
+        provider_key="openai",
+        base_url="https://model.example/v1",
+        api_key=api_key,
+        api_key_digest=hashlib.sha256(api_key.encode()).hexdigest(),
+        max_inflight=8,
+    )
+    session.add(credential)
+    await session.flush()
+    session.add(
+        ModelDeployment(
+            tenant_id=env.tenant,
+            key=_unique("approval-deployment"),
+            model_id=env.model_id,
+            credential_id=credential.id,
+            weight=1,
+        )
+    )
+    await session.commit()
+    return credential.id
+
+
 @asynccontextmanager
-async def authenticated_admin(env: ApprovalEnv) -> AsyncIterator[AsyncClient]:
-    """真实登录 + CSRF 头；与浏览器管理员路径一致。"""
+async def _authenticated_client(
+    tenant: str, username: str, password: str
+) -> AsyncIterator[AsyncClient]:
+    """真实登录 + CSRF 头；管理员/普通用户共用同一条真实登录链路。"""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
             "/api/v1/auth/login",
-            json={"username": env.admin_username, "password": ADMIN_PASSWORD},
-            headers={"X-Tenant-Id": env.tenant},
+            json={"username": username, "password": password},
+            headers={"X-Tenant-Id": tenant},
         )
         assert response.status_code == 200, response.text
         csrf_token = client.cookies.get(CSRF_COOKIE)
         assert csrf_token
         client.headers[CSRF_HEADER] = csrf_token
-        client.headers["X-Tenant-Id"] = env.tenant
+        client.headers["X-Tenant-Id"] = tenant
         yield client
+
+
+@asynccontextmanager
+async def authenticated_admin(env: ApprovalEnv) -> AsyncIterator[AsyncClient]:
+    """真实管理员登录（浏览器同路径）。"""
+    async with _authenticated_client(env.tenant, env.admin_username, ADMIN_PASSWORD) as client:
+        yield client
+
+
+@asynccontextmanager
+async def authenticated_builder(env: ApprovalEnv, username: str) -> AsyncIterator[AsyncClient]:
+    """真实普通用户（BUILDER）登录。"""
+    async with _authenticated_client(env.tenant, username, BUILDER_PASSWORD) as client:
+        yield client
+
+
+async def resolve_definition(
+    client: AsyncClient,
+    env: ApprovalEnv,
+    *,
+    agent_id: uuid.UUID | None = None,
+    actor_user_id: uuid.UUID | None = None,
+) -> dict[str, Any]:
+    """调用真实内部 resolve-definition；返回契约 data（含 effective skills）。"""
+    response = await client.post(
+        "/internal/runtime/resolve-definition",
+        json={
+            "agent_id": str(agent_id or env.agent_id),
+            "actor_user_id": str(actor_user_id or env.owner_id),
+        },
+        headers={"X-Tenant-Id": env.tenant},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["data"]
 
 
 def review_request(

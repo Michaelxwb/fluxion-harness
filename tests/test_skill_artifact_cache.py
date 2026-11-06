@@ -107,5 +107,5 @@ async def test_e01_checksum_mismatch_rejected(tmp_path: Path) -> None:
         await cache.ensure(
             artifact_id="a7", storage_key=storage_key, checksum="sha256:" + "f" * 64
         )
-    assert getattr(exc.value, "code", "") == "SKILL_ARTIFACT_CHECKSUM_MISMATCH"
+    assert getattr(exc.value, "code", "") == "SKILL_ARTIFACT_INTEGRITY_ERROR"
     assert not any((cache_root / "skills").rglob("READY")) if (cache_root / "skills").exists() else True

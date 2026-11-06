@@ -46,6 +46,16 @@ class SkillUserGrantRepository:
         )
         return [(grant, user) for grant, user in result.all()], int(total or 0)
 
+    async def list_active_for_skill(self, skill_id: uuid.UUID) -> list[SkillUserGrant]:
+        """一键解绑时解除全部 active 用户 grant。"""
+        rows = await self._session.scalars(
+            select(SkillUserGrant).where(
+                SkillUserGrant.skill_id == skill_id,
+                SkillUserGrant.is_deleted.is_(False),
+            )
+        )
+        return list(rows.all())
+
     async def count_active(self, skill_id: uuid.UUID) -> int:
         total = await self._session.scalar(
             select(func.count())

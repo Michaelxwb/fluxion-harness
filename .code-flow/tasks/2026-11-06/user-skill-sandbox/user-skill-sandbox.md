@@ -84,8 +84,8 @@
 | S-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → SkillValidator → Artifact Store → PG | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批事务 → PG → 审计 | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Artifact Store → 下载响应 → 审计 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_07.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 解绑/软删事务 → PG → 审计 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Artifact Store → 下载响应 → 审计 | TASK-011 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_07.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 解绑/软删事务 → PG → 审计 | TASK-011 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → Skill/Artifact → effective 查询 | TASK-012 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-10 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime/Worker → SandboxedSkillExecutor → bwrap → stdout/exit code | TASK-003 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_10.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-11 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → WorkspaceShellRunner → bwrap → Pod 网络 → workspace venv/node_modules | TASK-005 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_11.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -120,7 +120,7 @@
 | S-40 | user-skill-sandbox.frontend.design.md#2.4 验收条件 | E2E | 真实浏览器 → Console 前端 → Console API → 真实 PG；真实登录和关系删除 | TASK-014 | planned | ["npm","run","skill-self-service-delete"] | . | 1800 | P1 | auto | browser | - | 破坏性操作 + 二次确认 + 真实关系删除 + 真实鉴权，低层测试无法覆盖完整浏览器旅程和权限组合。 | ["apps/console-platform/frontend/src/modules/skill-management/**", "apps/console-platform/backend/src/muad_console_platform/api/skills.py", "apps/console-platform/backend/src/muad_console_platform/application/skill_service.py", "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/skill_repository.py"] | no |
 | S-41 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 审计表/指标端点 → 查询 | TASK-013 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_41.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | E-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | contract | API 错误码 schema / 消息配置 | TASK-013 | stale | ["uv","run","pytest","-q","tests/contracts/test_skill_sandbox_contracts.py"] | . | 600 | P0 | auto | none | - | - | - | no |
-| E-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Artifact Store → checksum 校验 → 执行入口 | TASK-011 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Artifact Store → checksum 校验 → 执行入口 | TASK-011 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-16 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 删除失败 → 状态/指标 | TASK-006 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_16.py"] | . | 600 | P1 | auto | local | - | - | - | no |
 | S-45 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 现有 MCP catalog、Memory 写入/召回、模型选择测试 | TASK-017 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_45.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-46 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 架构扫描 tests/architecture/test_channel_neutrality.py | TASK-017 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_46.py"] | . | 600 | P0 | auto | none | - | - | - | no |
@@ -841,7 +841,7 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ## TASK-011: Artifact 下载、checksum 与解绑软删
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-010
 - **Source**: user-skill-sandbox.backend.design.md#3.4 接口设计, user-skill-sandbox.backend.design.md#3.5 质量实现方案
@@ -857,24 +857,24 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ### Checklist
 
-- [ ] 交付 `管理员可下载待审/已审批包并写审计；checksum 不匹配拒绝；一键解绑+软删`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 管理员可下载 PENDING/APPROVED；校验 artifact 归属/checksum；不暴露 storage_key
-- [ ] 下载写审计；普通用户不能下载他人包
-- [ ] 解绑+软删单事务；二次确认参数；记录解绑 Agent 列表
-- [ ] 软删后执行入口拒绝；artifact/审批/审计保留
-- [ ] [S-07][integration] 下载 + checksum + 审计
-- [ ] [S-08][integration] 解绑+软删+保留证据
-- [ ] [E-15][integration] checksum 不匹配拒绝执行/下载
-- [ ] [harness-skill#RULE-skill-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_artifact_download.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `管理员可下载待审/已审批包并写审计；checksum 不匹配拒绝；一键解绑+软删`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 管理员可下载 PENDING/APPROVED；校验 artifact 归属/checksum；不暴露 storage_key
+- [x] 下载写审计；普通用户不能下载他人包
+- [x] 解绑+软删单事务；二次确认参数；记录解绑 Agent 列表
+- [x] 软删后执行入口拒绝；artifact/审批/审计保留
+- [x] [S-07][integration] 下载 + checksum + 审计
+- [x] [S-08][integration] 解绑+软删+保留证据
+- [x] [E-15][integration] checksum 不匹配拒绝执行/下载
+- [x] [harness-skill#RULE-skill-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_artifact_download.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-07 | integration | Console API → Artifact Store → 下载响应 → 审计 | 两种状态均可下载；响应包含正确 zip/checksum；写 SKILL_ARTIFACT_DOWNLOAD 审计；普通用户不能下载他人 artifact | tests/acceptance/user_skill_sandbox/test_s_07.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_07.py"] | planned |
-| S-08 | integration | Console API → 解绑/软删事务 → PG → 审计 | 所有 AgentSkillBinding 解除；Skill 软删，执行入口拒绝；artifact/审批/审计保留；二次确认与审计记录存在 | tests/acceptance/user_skill_sandbox/test_s_08.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_08.py"] | planned |
-| E-15 | integration | Artifact Store → checksum 校验 → 执行入口 | 返回 SKILL_ARTIFACT_INTEGRITY_ERROR；不执行、不下载损坏包；记录审计/告警 | tests/acceptance/user_skill_sandbox/test_e_15.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_15.py"] | planned |
+| S-07 | integration | Console API → Artifact Store → 下载响应 → 审计 | 两种状态均可下载；响应包含正确 zip/checksum；写 SKILL_ARTIFACT_DOWNLOAD 审计；普通用户不能下载他人 artifact | tests/acceptance/user_skill_sandbox/test_s_07.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_07.py"] | verified |
+| S-08 | integration | Console API → 解绑/软删事务 → PG → 审计 | 所有 AgentSkillBinding 解除；Skill 软删，执行入口拒绝；artifact/审批/审计保留；二次确认与审计记录存在 | tests/acceptance/user_skill_sandbox/test_s_08.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_08.py"] | verified |
+| E-15 | integration | Artifact Store → checksum 校验 → 执行入口 | 返回 SKILL_ARTIFACT_INTEGRITY_ERROR；不执行、不下载损坏包；记录审计/告警 | tests/acceptance/user_skill_sandbox/test_e_15.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_15.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -882,13 +882,18 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-07 | - | - | - | - | pending |
-| S-08 | - | - | - | - | pending |
-| E-15 | - | - | - | - | pending |
+| S-07 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_07.py` → 2 failed（下载路由未注册，404 COMMON_NOT_FOUND） | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_07.py` → 2 passed | `test_s07_admin_downloads_pending_and_approved_with_checksum_and_audit`（test_s_07.py:46,51,71,87）、`test_s07_builder_cannot_download_and_artifact_must_belong_to_skill`（test_s_07.py:106,115） | 真实管理员/Builder 登录 + CSRF、真实 ASGI、真实 PostgreSQL `config_audit_log`、`ARTIFACT_ROOT` 临时 NFS：PENDING/APPROVED 下载字节与 store 文件一致，`X-Checksum` 等于 DB checksum；`SKILL_ARTIFACT_DOWNLOAD` 审计含 actor/artifact/review_status；`storage_key` 不出现在响应头/响应体/审计；Builder 403、跨 Skill artifact 404 | verified |
+| S-08 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_08.py` → 1 failed（`?unbind=true` 未实现：无 confirm 仍返回 409 SKILL_IN_USE） | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_08.py` → 1 passed | `test_s08_unbind_and_soft_delete_keeps_artifact_review_and_audit`（test_s_08.py:79,102,114,156,163,169,173） | 真实 Console API → 单事务 PostgreSQL：2 个 AgentSkillBinding 与 2 个 SkillUserGrant 全部软删；Skill `is_deleted=true`；artifact 行/审批状态/文件保留；`SKILL_UNBIND`/`SKILL_DELETE` 审计均含解绑 Agent 列表；`resolve-definition` 删除前后对照证明执行入口拒绝；重复删除幂等 | verified |
+| E-15 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_e_15.py` → 1 failed（下载路由 404；Worker 返回旧的 SKILL_ARTIFACT_CHECKSUM_MISMATCH） | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_e_15.py` → 1 passed | `test_e15_tampered_artifact_is_rejected_by_download_and_execution`（test_e_15.py:97,104,147,148,150,156） | 真实 `ARTIFACT_ROOT` 文件被篡改而 DB checksum 不变：Console 下载 422 `SKILL_ARTIFACT_INTEGRITY_ERROR` 且不返回损坏字节；Worker `SkillTaskExecutor` + 真实 `SkillArtifactCache`/NFS 拒绝执行、无 READY 目录、TaskExecution 保持 QUEUED；下载与执行两条路径均产生 `skill_artifact_integrity_error` 告警日志 | verified |
+- S-07: verified — automated command passed; run_id=eb0978eba0674bc696d27fdc7733560c (confirmed_by: runner)
+- S-08: verified — automated command passed; run_id=eb0978eba0674bc696d27fdc7733560c (confirmed_by: runner)
+- E-15: verified — automated command passed; run_id=eb0978eba0674bc696d27fdc7733560c (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-07] started
+- [2026-11-07] completed (done)
 
 ---
 

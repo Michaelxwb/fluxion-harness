@@ -71,7 +71,7 @@ class SkillArtifactCache:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
         if digest.hexdigest() != checksum:
-            raise SkillArtifactCacheError("SKILL_ARTIFACT_CHECKSUM_MISMATCH")
+            raise SkillArtifactCacheError("SKILL_ARTIFACT_INTEGRITY_ERROR")
 
         temp_root = Path(tempfile.mkdtemp(prefix=f".tmp-{checksum[:12]}-", dir=self.cache_root))
         try:
