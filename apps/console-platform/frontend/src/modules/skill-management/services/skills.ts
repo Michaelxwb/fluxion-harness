@@ -1,5 +1,14 @@
-import { api, newRequestId, type ApiResponse, type RequestOptions } from '../../../api/client';
+import {
+  api,
+  apiErrorBody,
+  newRequestId,
+  type ApiResponse,
+  type RequestOptions
+} from '../../../api/client';
 import type { Page } from '../../user-identity/services/users';
+
+export type SkillSource = 'SYSTEM' | 'ADMIN' | 'USER';
+export type SkillReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUPERSEDED';
 
 export interface SkillListItem {
   id: string;
@@ -8,6 +17,10 @@ export interface SkillListItem {
   description: string;
   platform_label: string | null;
   platforms: string[];
+  source: SkillSource;
+  author: string | null;
+  owner_user_id?: string | null;
+  review_status: SkillReviewStatus | null;
   user_scope: 'ALL' | 'SELECTED';
   enabled: boolean;
   current_artifact_id: string | null;
@@ -34,7 +47,16 @@ export interface SkillArtifactDetail {
   frontmatter: Record<string, unknown>;
   platforms: string[];
   manifest: { files?: Array<{ path: string; size: number }>; file_count?: number; total_size?: number };
+  created_by: string;
   create_time: string;
+  review_status: SkillReviewStatus;
+  review_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  submitted_by_user_id: string | null;
+  submitted_agent_id: string | null;
+  submitted_channel: 'WECOM' | 'WEBCHAT' | null;
+  source: SkillSource;
 }
 
 export interface SkillDetail extends SkillListItem {
@@ -78,6 +100,8 @@ export interface SkillListParams {
   keyword?: string;
   user_scope?: 'ALL' | 'SELECTED';
   enabled?: boolean;
+  source?: SkillSource;
+  review_status?: SkillReviewStatus;
 }
 
 export async function listSkills(
@@ -103,6 +127,7 @@ export interface ImportSkillInput {
   key?: string;
   default_script?: string;
   user_scope?: 'ALL' | 'SELECTED';
+  source?: 'SYSTEM' | 'ADMIN';
 }
 
 export async function importSkill(
@@ -115,6 +140,7 @@ export async function importSkill(
   if (input.key) form.append('key', input.key);
   if (input.default_script) form.append('default_script', input.default_script);
   if (input.user_scope) form.append('user_scope', input.user_scope);
+  if (input.source) form.append('source', input.source);
   return unwrap(
     await api.post<ApiResponse<SkillImportResult>>('/skills/import', form, {
       ...options,
@@ -146,8 +172,33 @@ export async function importArtifact(
   );
 }
 
-export async function deleteSkill(id: string): Promise<void> {
-  await unwrap(await api.delete<ApiResponse<Record<string, unknown>>>(`/skills/${id}`));
+export interface SkillUnboundAgent {
+  agent_id: string;
+  key: string;
+  name: string;
+}
+
+export interface SkillDeleteOptions {
+  unbind?: boolean;
+  confirm?: boolean;
+}
+
+export type SkillDeleteResult =
+  | { skill_id: string; unbound_agents: SkillUnboundAgent[]; deleted: true }
+  | { id: string; is_deleted: true };
+
+/**
+ * 删除/解绑软删。默认保留旧行为（普通软删）；管理台二次确认后显式传
+ * `{unbind: true, confirm: true}` 走 API-07，服务端强制校验 `confirm`。
+ */
+export async function deleteSkill(
+  id: string,
+  options: SkillDeleteOptions = {}
+): Promise<SkillDeleteResult> {
+  const params = options.unbind
+    ? { unbind: true, confirm: options.confirm === true }
+    : undefined;
+  return unwrap(await api.delete<ApiResponse<SkillDeleteResult>>(`/skills/${id}`, { params }));
 }
 
 export interface SkillImportErrorDetail {
@@ -178,6 +229,75 @@ export async function getArtifact(id: string, artifactId: string): Promise<Skill
   return unwrap(await api.get<ApiResponse<SkillArtifactDetail>>(`/skills/${id}/artifacts/${artifactId}`));
 }
 
+export interface SkillReviewInput {
+  artifact_id: string;
+  action: 'APPROVE' | 'REJECT';
+  review_note?: string;
+}
+
+/** 审批/驳回（API-05）。错误由审批面板常驻展示，避免与全局 Toast 重复。 */
+export async function reviewSkill(id: string, input: SkillReviewInput): Promise<SkillDetail> {
+  return unwrap(
+    await api.post<ApiResponse<SkillDetail>>(`/skills/${id}/review`, input, { errorTip: 'never' })
+  );
+}
+
+export interface SkillArtifactDownload {
+  blob: Blob;
+  checksum: string | null;
+  fileName: string | null;
+}
+
+function fileNameFromDisposition(disposition: string): string | null {
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+  if (encoded) {
+    return decodeURIComponent(encoded[1].trim().replace(/^"|"$/g, ''));
+  }
+  const quoted = /filename="?([^";]+)"?/i.exec(disposition);
+  return quoted ? quoted[1].trim() : null;
+}
+
+/**
+ * 下载任意 PENDING/APPROVED artifact（API-06）。响应是 zip 字节流而非封套，
+ * checksum 只从 `X-Checksum` 读取，前端不解析 Blob 猜测错误。
+ */
+export async function downloadArtifact(
+  skillId: string,
+  artifactId: string
+): Promise<SkillArtifactDownload> {
+  const response = await api.get<Blob>(
+    `/skills/${skillId}/artifacts/${artifactId}/download`,
+    { responseType: 'blob', errorTip: 'never' }
+  );
+  const headers = response.headers ?? {};
+  return {
+    blob: response.data,
+    checksum: (headers['x-checksum'] as string | undefined) ?? null,
+    fileName: fileNameFromDisposition(String(headers['content-disposition'] ?? ''))
+  };
+}
+
+/**
+ * 下载失败响应体是 Blob，`apiErrorBody` 取不到封套；这里按需读取 Blob 文本并解析
+ * JSON 错误码，仍无法解析时返回 null 由调用方使用兜底文案。
+ */
+export async function skillDownloadErrorCode(error: unknown): Promise<string | null> {
+  const direct = apiErrorBody(error);
+  if (direct?.code) {
+    return direct.code;
+  }
+  const data = (error as { response?: { data?: unknown } })?.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const parsed = JSON.parse(await data.text()) as { code?: string };
+      return parsed.code ?? null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export async function setUserScope(
   id: string,
   user_scope: 'ALL' | 'SELECTED'
@@ -197,6 +317,24 @@ export async function listSkillAgents(
   params: { page: number; page_size: number }
 ): Promise<Page<SkillAgentItem>> {
   return unwrap(await api.get<ApiResponse<Page<SkillAgentItem>>>(`/skills/${id}/agents`, { params }));
+}
+
+/** 全量绑定 Agent：删除确认必须展示完整影响范围（FE-RISK-03），按页汇总到 total。 */
+export async function listAllSkillAgents(id: string): Promise<SkillAgentItem[]> {
+  const pageSize = 100;
+  const items: SkillAgentItem[] = [];
+  let total = 1;
+  let page = 1;
+  while (items.length < total) {
+    const result = await listSkillAgents(id, { page, page_size: pageSize });
+    total = result.total;
+    items.push(...result.items);
+    if (result.items.length === 0) {
+      break;
+    }
+    page += 1;
+  }
+  return items;
 }
 
 export async function addSelectedUser(id: string, userId: string): Promise<void> {

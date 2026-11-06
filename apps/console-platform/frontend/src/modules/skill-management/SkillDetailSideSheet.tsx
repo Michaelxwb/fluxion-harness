@@ -19,15 +19,23 @@ import {
 } from './services/skills';
 import { SelectedUserTable } from './SelectedUserTable';
 import { SkillArtifactDetailModal } from './SkillArtifactDetailModal';
+import { SkillArtifactDownloadButton } from './SkillArtifactDownloadButton';
 import { SkillContent } from './SkillContent';
 import { SkillDetailHeading } from './SkillDetailHeading';
 import { SkillPlatforms } from './SkillPlatforms';
+import { SkillReviewPanel } from './SkillReviewPanel';
+import { SkillReviewStatusTag } from './SkillReviewStatusTag';
+import { SkillSourceTag } from './SkillSourceTag';
 
 export interface SkillDetailSideSheetProps {
   skill: SkillListItem | null;
   onCancel(): void;
   reloadKey?: number;
   onSkillMutated?(): void;
+  /** 管理员才可审批/下载；普通用户只读详情。 */
+  canManage?: boolean;
+  /** 从列表“审批”入口打开时直达 review Tab。 */
+  initialTab?: string;
 }
 
 const DETAIL_PAGE_SIZE = 15;
@@ -143,9 +151,9 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
   }, [props.skill, artifactPage]);
 
   useEffect(() => {
-    setActiveTab('basic');
+    setActiveTab(props.initialTab ?? 'basic');
     setArtifactPage(1);
-  }, [props.skill?.id]);
+  }, [props.skill?.id, props.initialTab]);
 
   useEffect(() => {
     void reload();
@@ -156,6 +164,9 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
   }
 
   const currentVersion = detail?.current_version ?? props.skill.current_version;
+  const skillId = props.skill.id;
+  const canManage = props.canManage === true;
+  const pendingArtifact = artifacts.find((artifact) => artifact.review_status === 'PENDING') ?? null;
 
   return (
     <>
@@ -182,6 +193,12 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
                 items={[
                   { label: t('skill.form.key'), value: detail.key },
                   { label: t('skill.form.name'), value: detail.name },
+                  { label: t('skill.columns.source'), value: <SkillSourceTag source={detail.source} /> },
+                  { label: t('skill.columns.author'), value: detail.author ?? '-' },
+                  {
+                    label: t('skill.columns.reviewStatus'),
+                    value: <SkillReviewStatusTag status={detail.review_status} />
+                  },
                   { label: t('skill.columns.platforms'), value: <SkillPlatforms platforms={detail.platforms} /> },
                   { label: t('skill.columns.currentVersion'), value: detail.current_version ?? '-' },
                   { label: t('skill.columns.executionMode'), value: detail.execution_mode ?? '-' },
@@ -232,6 +249,17 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
                     <span style={{ marginLeft: 16, color: 'var(--semi-color-text-2)' }}>
                       <DateTimeText value={artifact.create_time} />
                     </span>
+                    <span style={{ marginLeft: 12 }}>
+                      <SkillReviewStatusTag status={artifact.review_status} />
+                    </span>
+                    <span style={{ marginLeft: 8 }}>
+                      <SkillArtifactDownloadButton
+                        skillId={skillId}
+                        artifactId={artifact.artifact_id}
+                        version={artifact.version}
+                        disabled={!canManage}
+                      />
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -244,9 +272,32 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
             </>
           )}
         </Tabs.TabPane>
+        <Tabs.TabPane itemKey="review" tab={t('skill.review.tab')}>
+          <div className="detail-section-title">{t('skill.review.tab')}</div>
+          {failed ? (
+            <ErrorState onRetry={() => void reload()} />
+          ) : loading ? (
+            <Spin />
+          ) : pendingArtifact !== null && detail !== null ? (
+            <SkillReviewPanel
+              skill={detail}
+              artifact={pendingArtifact}
+              canReview={canManage}
+              onReviewed={() => {
+                void reload();
+                props.onSkillMutated?.();
+              }}
+            />
+          ) : (
+            <EmptyState
+              title={t('skill.review.empty')}
+              description={t('skill.review.emptyHint')}
+            />
+          )}
+        </Tabs.TabPane>
         <Tabs.TabPane itemKey="agents" tab={t('skill.detail.tabs.agents')}>
           <div className="detail-section-title">{t('skill.detail.tabs.agents')}</div>
-          <SkillAgentsTable skillId={props.skill.id} />
+          <SkillAgentsTable skillId={skillId} />
         </Tabs.TabPane>
         <Tabs.TabPane itemKey="users" tab={t('skill.detail.tabs.users')}>
           <div className="detail-section-title">{t('skill.detail.tabs.users')}</div>
@@ -256,7 +307,7 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
             <Spin />
           ) : (
             <SelectedUserTable
-              skillId={props.skill.id}
+              skillId={skillId}
               userScope={detail.user_scope}
               onChanged={() => { void reload(); props.onSkillMutated?.(); }}
             />
@@ -265,7 +316,7 @@ export function SkillDetailSideSheet(props: SkillDetailSideSheetProps) {
       </DetailSideSheet>
       <SkillArtifactDetailModal
         visible={artifactDetailId !== null}
-        skillId={props.skill.id}
+        skillId={skillId}
         artifactId={artifactDetailId}
         onCancel={() => setArtifactDetailId(null)}
       />
