@@ -28,6 +28,8 @@ _logger = logging.getLogger(__name__)
 class AuditActor:
     account_id: uuid.UUID
     source_ip: str | None = None
+    #: Console 账号角色（ADMIN/BUILDER）；内部服务驱动的 actor 为空。
+    role: str | None = None
 
 
 class AuditService:

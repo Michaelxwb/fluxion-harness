@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..infrastructure.models.auth import ROLE_ADMIN
 from ..infrastructure.models.control import (
     AgentDefinition,
     AgentSkillBinding,
@@ -24,7 +25,7 @@ from ..infrastructure.models.control import (
 from ..infrastructure.repositories.agent_repository import AgentRepository
 from ..infrastructure.repositories.agent_skill_binding_repository import AgentSkillBindingRepository
 from ..infrastructure.repositories.platform_user_repository import PlatformUserRepository
-from ..infrastructure.repositories.skill_repository import SkillRepository
+from ..infrastructure.repositories.skill_repository import USER_SCOPE_ALL, SkillRepository
 from ..infrastructure.repositories.skill_user_grant_repository import SkillUserGrantRepository
 from ..infrastructure.skill_artifact_store import (
     artifact_storage_key,
@@ -65,6 +66,7 @@ def skill_snapshot(skill: Skill) -> dict[str, Any]:
         "description": skill.description,
         "platform_label": skill.platform_label,
         "user_scope": skill.user_scope,
+        "source": skill.source,
         "enabled": skill.enabled,
         "current_artifact_id": str(skill.current_artifact_id) if skill.current_artifact_id else None,
     }
@@ -278,6 +280,7 @@ class SkillService:
         actor: AuditActor,
     ) -> SkillDetail:
         skill = await self.get_skill(tenant_id, skill_id)
+        self._require_system_skill_admin(skill, actor)
         before = skill_snapshot(skill)
         for field, value in payload.model_dump(exclude_unset=True).items():
             setattr(skill, field, value)
@@ -299,6 +302,7 @@ class SkillService:
         Artifact rows/files stay intact for audit and for re-importing the same key.
         """
         skill = await self.get_skill(tenant_id, skill_id)
+        self._require_system_skill_admin(skill, actor)
         bound = await self._skills.count_agent_bindings(skill.id)
         if bound > 0:
             raise AppError(
@@ -476,9 +480,16 @@ class SkillService:
         data: bytes,
         actor: AuditActor,
         user_scope: str | None = None,
+        source: SkillSource | None = None,
         idempotency_key: str | None = None,
     ) -> SkillDetail:
-        scope = user_scope or USER_SCOPE_SELECTED
+        requested_source = SkillSource(source) if source is not None else SkillSource.ADMIN
+        self._validate_import_source(requested_source, actor, explicit=source is not None)
+        scope = (
+            USER_SCOPE_ALL
+            if requested_source == SkillSource.SYSTEM
+            else user_scope or USER_SCOPE_SELECTED
+        )
         fingerprint = self._fingerprint(
             "import",
             tenant_id,
@@ -487,6 +498,7 @@ class SkillService:
                 "version": version,
                 "default_script": default_script,
                 "user_scope": scope,
+                "source": requested_source.value,
                 "data_checksum": checksum_of(data),
             },
         )
@@ -507,6 +519,7 @@ class SkillService:
                 package=package,
                 actor=actor,
                 user_scope=scope,
+                source=requested_source,
             )
         detail = await self.get_skill_detail(tenant_id, skill.id)
         if idempotency_key:
@@ -514,6 +527,18 @@ class SkillService:
                 tenant_id, idempotency_key, "import", fingerprint, detail.model_dump(mode="json")
             )
         return detail
+
+    def _validate_import_source(
+        self, source: SkillSource, actor: AuditActor, *, explicit: bool
+    ) -> None:
+        """管理员导入只接受 SYSTEM/ADMIN，且显式声明来源必须是管理员。"""
+        if source == SkillSource.USER:
+            raise AppError(
+                ErrorCode.COMMON_VALIDATION_ERROR,
+                data={"field": "source"},
+            )
+        if explicit and actor.role != ROLE_ADMIN:
+            raise AppError(ErrorCode.FORBIDDEN)
 
     async def _persist_imported_skill(
         self,
@@ -526,6 +551,7 @@ class SkillService:
         package: ValidatedSkillPackage,
         actor: AuditActor,
         user_scope: str,
+        source: SkillSource,
     ) -> tuple[Skill, SkillArtifact]:
         chosen_key = key or package.default_key
         if not chosen_key:
@@ -547,7 +573,7 @@ class SkillService:
             platform_label=package.manifest.platform_label,
             user_scope=user_scope,
             enabled=True,
-            source=SkillSource.ADMIN,
+            source=source,
         )
         artifact = self._build_artifact(
             skill_id=skill_id,
@@ -559,6 +585,7 @@ class SkillService:
             data=data,
             package=package,
             actor=actor,
+            source=source,
         )
         skill.current_artifact_id = artifact_id
         write_artifact(storage_key, data)
@@ -605,6 +632,7 @@ class SkillService:
             if replayed is not None:
                 return SkillArtifactDetail(**replayed)
         skill = await self.get_skill(tenant_id, skill_id)
+        self._require_system_skill_admin(skill, actor)
         with validated_package(data) as package:
             checksum = checksum_of(data)
             await self._require_absent_version(skill.id, version, checksum)
@@ -620,6 +648,7 @@ class SkillService:
                 data=data,
                 package=package,
                 actor=actor,
+                source=SkillSource(skill.source),
             )
             before = skill_snapshot(skill)
             write_artifact(storage_key, data)
@@ -815,6 +844,7 @@ class SkillService:
         data: bytes,
         package: ValidatedSkillPackage,
         actor: AuditActor,
+        source: SkillSource,
     ) -> SkillArtifact:
         return SkillArtifact(
             id=artifact_id,
@@ -835,7 +865,7 @@ class SkillService:
             validation_status=VALIDATION_READY,
             created_by=actor.account_id,
             review_status=SkillReviewStatus.APPROVED,
-            source=SkillSource.ADMIN,
+            source=source,
         )
 
     def _validated_default_script(
@@ -865,6 +895,11 @@ class SkillService:
             raise AppError(ErrorCode.SKILL_VERSION_EXISTS)
         if await self._skills.find_artifact_by_checksum(skill_id, checksum) is not None:
             raise AppError(ErrorCode.SKILL_VERSION_EXISTS)
+
+    def _require_system_skill_admin(self, skill: Skill, actor: AuditActor) -> None:
+        """系统 Skill 是管理员能力：普通用户不得改字段、追加 artifact 或删除。"""
+        if skill.source == SkillSource.SYSTEM and actor.role != ROLE_ADMIN:
+            raise AppError(ErrorCode.FORBIDDEN)
 
     async def _require_platform_user(self, tenant_id: str, user_id: uuid.UUID) -> PlatformUser:
         user = await self._platform_users.get(tenant_id, user_id)
