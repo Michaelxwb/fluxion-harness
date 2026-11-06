@@ -42,6 +42,12 @@ class SharedSettings(BaseSettings):
 
     artifact_root: str = "./.data/artifacts"
     skill_cache_root: str = "./.data/skill-cache"
+    #: 用户 Skill 草稿根目录（生产挂 muad-skill-drafts-rwx，只挂 Console）。
+    skill_draft_root: str = "./.data/skill-drafts"
+    #: 草稿配额：总大小、单文件大小与文件数上限。具体值以部署配置为准。
+    skill_draft_quota_mib: int = Field(default=100, ge=1)
+    skill_draft_file_max_bytes: int = Field(default=5 * 1024 * 1024, ge=1)
+    skill_draft_file_limit: int = Field(default=2000, ge=1)
     #: Workspace 根目录（生产挂 muad-workspaces-rwx；dev 用本地目录）。
     workspace_root: str = "./.data/workspaces"
     #: workspace 配额：单 workspace / 单用户聚合（MiB）与文件数上限。

@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-from collections.abc import AsyncIterator, Iterator
+import uuid
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 from muad_common import SharedSettings
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from .draft_support import INTERNAL_TOKEN
 
 
 @pytest.fixture()
@@ -47,3 +52,51 @@ async def session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
         yield async_sessionmaker(engine, expire_on_commit=False)
     finally:
         await engine.dispose()
+
+
+@pytest.fixture()
+def draft_roots(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """草稿/制品落到独立临时目录，避免依赖 dev PVC 与共享 `.data`。"""
+    root = tmp_path / "skill-drafts"
+    monkeypatch.setenv("SKILL_DRAFT_ROOT", str(root))
+    monkeypatch.setenv("ARTIFACT_ROOT", str(tmp_path / "artifacts"))
+    monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", INTERNAL_TOKEN)
+    return root
+
+
+@pytest.fixture()
+async def internal_client(draft_roots: Path) -> AsyncIterator[AsyncClient]:
+    """内部服务身份 + 真实 ASGI 路由；数据库由 acceptance 基座注入。"""
+    from muad_console_platform.main import app
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"X-Internal-Service": INTERNAL_TOKEN},
+    ) as client:
+        yield client
+
+
+@pytest.fixture()
+async def draft_tenant(session: AsyncSession) -> AsyncIterator[Callable[[str], str]]:
+    """按用例分配唯一租户，结束后清理本域写入的真实表行。"""
+    tenants: list[str] = []
+
+    def make(prefix: str = "acc-draft") -> str:
+        tenant = f"{prefix}-{uuid.uuid4()}"
+        tenants.append(tenant)
+        return tenant
+
+    yield make
+    for tenant in tenants:
+        for statement in (
+            "DELETE FROM control.skill_import_idempotency WHERE tenant_id = :tenant_id",
+            "DELETE FROM control.skill_artifact WHERE skill_id IN "
+            "(SELECT id FROM control.skill WHERE tenant_id = :tenant_id)",
+            "DELETE FROM control.skill WHERE tenant_id = :tenant_id",
+            "DELETE FROM control.skill_draft WHERE tenant_id = :tenant_id",
+            "DELETE FROM control.config_audit_log WHERE tenant_id = :tenant_id",
+        ):
+            await session.execute(text(statement), {"tenant_id": tenant})
+    await session.commit()

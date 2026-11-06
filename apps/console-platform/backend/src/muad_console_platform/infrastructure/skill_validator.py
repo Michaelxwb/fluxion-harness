@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import re
 import tempfile
 import zipfile
@@ -76,6 +77,38 @@ class ValidatedSkillPackage:
     files: tuple[dict[str, Any], ...]
     total_size: int
     default_key: str
+    author: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PackageCheck:
+    code: str
+    status: str
+    message: str
+    path: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        data: dict[str, Any] = {"code": self.code, "status": self.status, "message": self.message}
+        if self.path is not None:
+            data["path"] = self.path
+        return data
+
+
+@dataclass(frozen=True, slots=True)
+class PackageReview:
+    status: str
+    checks: tuple[PackageCheck, ...]
+    package: ValidatedSkillPackage | None
+
+    def as_dict(self) -> dict[str, Any]:
+        errors = [check.as_dict() for check in self.checks if check.status == "error"]
+        warnings = [check.as_dict() for check in self.checks if check.status == "warn"]
+        return {
+            "status": self.status,
+            "checks": [check.as_dict() for check in self.checks],
+            "errors": errors,
+            "warnings": warnings,
+        }
 
 
 def invalid_package(reason: str = "INVALID_ZIP", **detail: Any) -> AppError:
@@ -116,6 +149,82 @@ def slugify(value: str) -> str:
     return slug[:128]
 
 
+def review_package(
+    data: bytes,
+    *,
+    default_script: str | None = None,
+) -> PackageReview:
+    """只读校验草稿 zip：返回 pass/warn/error 明细，不写 artifact、不碰数据库。"""
+    try:
+        with validated_package(data) as package:
+            checks = [
+                PackageCheck("PACKAGE_ARCHIVE", "pass", "zip 结构合法"),
+                PackageCheck("MANIFEST", "pass", f"manifest: {package.manifest.name}"),
+                PackageCheck("FILE_SAFETY", "pass", f"{len(package.files)} 个文件通过安全检查"),
+                PackageCheck("SECRET_SCAN", "pass", "未发现明显密钥"),
+            ]
+            entrypoint = _entrypoint_check(default_script, package)
+            if entrypoint is not None:
+                checks.append(entrypoint)
+            if package.manifest.platforms:
+                checks.append(PackageCheck("PLATFORMS", "pass", "已声明平台登录态"))
+            else:
+                checks.append(
+                    PackageCheck(
+                        "PLATFORMS",
+                        "warn",
+                        "未声明 platforms，草稿 Shell 不会获得平台登录态",
+                    )
+                )
+            status = "error" if any(check.status == "error" for check in checks) else (
+                "warn" if any(check.status == "warn" for check in checks) else "pass"
+            )
+            return PackageReview(status=status, checks=tuple(checks), package=package)
+    except AppError as exc:
+        if exc.code != ErrorCode.SKILL_PACKAGE_INVALID:
+            raise
+        detail = exc.data if isinstance(exc.data, dict) else {}
+        reason = str(detail.get("reason") or "INVALID_PACKAGE")
+        path = detail.get("path")
+        detail_path = None if path is None else str(path)
+        return PackageReview(
+            status="error",
+            checks=(PackageCheck(reason, "error", _reason_message(reason), detail_path),),
+            package=None,
+        )
+
+
+def _entrypoint_check(
+    value: str | None,
+    package: ValidatedSkillPackage,
+) -> PackageCheck | None:
+    if value is None:
+        return PackageCheck("ENTRYPOINT", "warn", "未指定默认脚本，执行时按 SKILL.md 约定选择")
+    path = PurePosixPath(value)
+    if path.is_absolute() or ".." in path.parts or path.suffix.lower() != ".py":
+        return PackageCheck("ENTRYPOINT", "error", "默认脚本必须是包内相对 .py 路径", value)
+    if not any(
+        entry["path"] == value or entry["path"].endswith(f"/{value}")
+        for entry in package.files
+    ):
+        return PackageCheck("ENTRYPOINT", "error", "默认脚本不在包内", value)
+    return PackageCheck("ENTRYPOINT", "pass", f"默认脚本: {value}", value)
+
+
+def _reason_message(reason: str) -> str:
+    return {
+        "SKILL_MD_MISSING": "缺少 SKILL.md",
+        "MANIFEST_INVALID": "SKILL.md frontmatter 不合法",
+        "PATH_INVALID": "包含路径穿越或 symlink",
+        "NESTED_ARCHIVE": "包含嵌套压缩包",
+        "FILE_TYPE_UNSUPPORTED": "包含不允许的文件类型",
+        "SECRET_DETECTED": "发现疑似密钥",
+        "PACKAGE_TOO_LARGE": "压缩包过大",
+        "UNPACKED_TOO_LARGE": "解压后过大",
+        "TOO_MANY_FILES": "文件数过多",
+    }.get(reason, "Skill 包校验失败")
+
+
 @contextmanager
 def validated_package(data: bytes) -> Iterator[ValidatedSkillPackage]:
     if not data:
@@ -148,14 +257,36 @@ def _validate_package(data: bytes, temp_root: Path) -> ValidatedSkillPackage:
     package_root, inner_dir = _locate_package_root(temp_root)
     package = _load_package(package_root)
     _scan_secrets(package_root)
+    author = _package_author(package_root)
+    frontmatter = _frontmatter(package.manifest)
+    if author is not None:
+        frontmatter["author"] = author
     return ValidatedSkillPackage(
         manifest=package.manifest,
         instructions=package.instructions,
-        frontmatter=_frontmatter(package.manifest),
+        frontmatter=frontmatter,
         files=_file_listing(package_root, inner_dir),
         total_size=total_size,
         default_key=_default_key(package.manifest.name, inner_dir),
+        author=author,
     )
+
+
+def _package_author(root: Path) -> str | None:
+    """作者是展示用自由文本，来源固定为 `muad.skill.json`；缺失/非法类型按无作者处理。"""
+    manifest_file = root / "muad.skill.json"
+    if not manifest_file.is_file():
+        return None
+    try:
+        data = json.loads(manifest_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    author = data.get("author")
+    if not isinstance(author, str) or not author.strip():
+        return None
+    return author.strip()[:128]
 
 
 def _check_member(member: zipfile.ZipInfo) -> None:

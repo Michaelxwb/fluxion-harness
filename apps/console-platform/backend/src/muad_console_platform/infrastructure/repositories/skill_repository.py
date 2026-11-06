@@ -200,6 +200,16 @@ class SkillRepository:
         )
         return artifact
 
+    async def find_pending(self, skill_id: uuid.UUID) -> SkillArtifact | None:
+        artifact: SkillArtifact | None = await self._session.scalar(
+            select(SkillArtifact).where(
+                SkillArtifact.skill_id == skill_id,
+                SkillArtifact.review_status == "PENDING",
+                SkillArtifact.is_deleted.is_(False),
+            )
+        )
+        return artifact
+
     async def find_artifact_by_version(
         self,
         skill_id: uuid.UUID,
