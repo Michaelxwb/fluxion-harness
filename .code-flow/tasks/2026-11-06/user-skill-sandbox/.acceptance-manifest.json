@@ -2008,7 +2008,7 @@
       "kind": "functional",
       "boundary": "SandboxRunner → bwrap → 完整进程树",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2065,7 +2065,178 @@
       "preconditions": [
         "测试脚本创建后台进程、setsid、双重 fork"
       ],
-      "check": "CHK-28858b5b8379"
+      "check": "CHK-28858b5b8379",
+      "revision": 3,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 11350.378958000001,
+        "check_id": "CHK-28858b5b8379",
+        "input_hash": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3",
+        "environment_hash": "3601ea003853bd86a1c7b6171c3d1b26befcd093b72b3596a9009052d931ddf4",
+        "check_config": {
+          "id": "CHK-28858b5b8379",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_e_02.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 3,
+        "run_id": "ab159137af234923bb4af8cf566d2fd0",
+        "executed_at": "2026-11-06T11:08:47.763927+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_e_02.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 10771.642333000002,
+          "check_id": "CHK-28858b5b8379",
+          "input_hash": "a7b8f33a5e1df6f896d4261b6e1ac71bfff93a67232bf86f068aefb328087732",
+          "environment_hash": "3926f76c5772dee8ee49478e8cf21cf699fed559588eef0bd3d9f6827754bdb2",
+          "check_config": {
+            "id": "CHK-28858b5b8379",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/user_skill_sandbox/test_e_02.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "1174a509b5024964b7a05fdd7e17dc84",
+          "executed_at": "2026-11-06T08:38:39.288878+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_e_02.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "a7b8f33a5e1df6f896d4261b6e1ac71bfff93a67232bf86f068aefb328087732"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 10789.002166999999,
+          "check_id": "CHK-28858b5b8379",
+          "input_hash": "1d61717905a7d4550f3259fef298b224dd16008137873f303175c3e6be16ca45",
+          "environment_hash": "3926f76c5772dee8ee49478e8cf21cf699fed559588eef0bd3d9f6827754bdb2",
+          "check_config": {
+            "id": "CHK-28858b5b8379",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/user_skill_sandbox/test_e_02.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "edebe6f1d8f44771ad754302851164c8",
+          "executed_at": "2026-11-06T08:46:16.156177+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_e_02.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "1d61717905a7d4550f3259fef298b224dd16008137873f303175c3e6be16ca45"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 11350.378958000001,
+          "check_id": "CHK-28858b5b8379",
+          "input_hash": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3",
+          "environment_hash": "3601ea003853bd86a1c7b6171c3d1b26befcd093b72b3596a9009052d931ddf4",
+          "check_config": {
+            "id": "CHK-28858b5b8379",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/user_skill_sandbox/test_e_02.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "ab159137af234923bb4af8cf566d2fd0",
+          "executed_at": "2026-11-06T11:08:47.763927+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_e_02.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3"
+        }
+      ]
     },
     {
       "id": "E-03",
@@ -2966,7 +3137,7 @@
       "kind": "functional",
       "boundary": "SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3021,7 +3192,178 @@
       "preconditions": [
         "非 Linux 平台"
       ],
-      "check": "CHK-7d605d4fff3d"
+      "check": "CHK-7d605d4fff3d",
+      "revision": 3,
+      "evidence": {
+        "id": "S-26",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 2709.1959170000005,
+        "check_id": "CHK-7d605d4fff3d",
+        "input_hash": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3",
+        "environment_hash": "3601ea003853bd86a1c7b6171c3d1b26befcd093b72b3596a9009052d931ddf4",
+        "check_config": {
+          "id": "CHK-7d605d4fff3d",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_sandbox_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 3,
+        "run_id": "ab159137af234923bb4af8cf566d2fd0",
+        "executed_at": "2026-11-06T11:08:47.763927+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_core/test_sandbox_runner.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3"
+      },
+      "runs": [
+        {
+          "id": "S-26",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2087.8773749999996,
+          "check_id": "CHK-7d605d4fff3d",
+          "input_hash": "a7b8f33a5e1df6f896d4261b6e1ac71bfff93a67232bf86f068aefb328087732",
+          "environment_hash": "3926f76c5772dee8ee49478e8cf21cf699fed559588eef0bd3d9f6827754bdb2",
+          "check_config": {
+            "id": "CHK-7d605d4fff3d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_sandbox_runner.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "1174a509b5024964b7a05fdd7e17dc84",
+          "executed_at": "2026-11-06T08:38:39.288878+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_sandbox_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "a7b8f33a5e1df6f896d4261b6e1ac71bfff93a67232bf86f068aefb328087732"
+        },
+        {
+          "id": "S-26",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2182.0759170000006,
+          "check_id": "CHK-7d605d4fff3d",
+          "input_hash": "1d61717905a7d4550f3259fef298b224dd16008137873f303175c3e6be16ca45",
+          "environment_hash": "3926f76c5772dee8ee49478e8cf21cf699fed559588eef0bd3d9f6827754bdb2",
+          "check_config": {
+            "id": "CHK-7d605d4fff3d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_sandbox_runner.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "edebe6f1d8f44771ad754302851164c8",
+          "executed_at": "2026-11-06T08:46:16.156177+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_sandbox_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "1d61717905a7d4550f3259fef298b224dd16008137873f303175c3e6be16ca45"
+        },
+        {
+          "id": "S-26",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2709.1959170000005,
+          "check_id": "CHK-7d605d4fff3d",
+          "input_hash": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3",
+          "environment_hash": "3601ea003853bd86a1c7b6171c3d1b26befcd093b72b3596a9009052d931ddf4",
+          "check_config": {
+            "id": "CHK-7d605d4fff3d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_sandbox_runner.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "ab159137af234923bb4af8cf566d2fd0",
+          "executed_at": "2026-11-06T11:08:47.763927+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_sandbox_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3"
+        }
+      ]
     },
     {
       "id": "E-07",
@@ -3030,7 +3372,7 @@
       "kind": "functional",
       "boundary": "SandboxRunner → bwrap 探测",
       "owner": "TASK-002",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3085,7 +3427,178 @@
       "preconditions": [
         "模拟 bwrap 不存在或版本不兼容"
       ],
-      "check": "CHK-7d605d4fff3d"
+      "check": "CHK-7d605d4fff3d",
+      "revision": 3,
+      "evidence": {
+        "id": "E-07",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 2709.1959170000005,
+        "check_id": "CHK-7d605d4fff3d",
+        "input_hash": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3",
+        "environment_hash": "3601ea003853bd86a1c7b6171c3d1b26befcd093b72b3596a9009052d931ddf4",
+        "check_config": {
+          "id": "CHK-7d605d4fff3d",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_sandbox_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "none",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 3,
+        "run_id": "ab159137af234923bb4af8cf566d2fd0",
+        "executed_at": "2026-11-06T11:08:47.763927+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_core/test_sandbox_runner.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3"
+      },
+      "runs": [
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2087.8773749999996,
+          "check_id": "CHK-7d605d4fff3d",
+          "input_hash": "a7b8f33a5e1df6f896d4261b6e1ac71bfff93a67232bf86f068aefb328087732",
+          "environment_hash": "3926f76c5772dee8ee49478e8cf21cf699fed559588eef0bd3d9f6827754bdb2",
+          "check_config": {
+            "id": "CHK-7d605d4fff3d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_sandbox_runner.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "1174a509b5024964b7a05fdd7e17dc84",
+          "executed_at": "2026-11-06T08:38:39.288878+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_sandbox_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "a7b8f33a5e1df6f896d4261b6e1ac71bfff93a67232bf86f068aefb328087732"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2182.0759170000006,
+          "check_id": "CHK-7d605d4fff3d",
+          "input_hash": "1d61717905a7d4550f3259fef298b224dd16008137873f303175c3e6be16ca45",
+          "environment_hash": "3926f76c5772dee8ee49478e8cf21cf699fed559588eef0bd3d9f6827754bdb2",
+          "check_config": {
+            "id": "CHK-7d605d4fff3d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_sandbox_runner.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "edebe6f1d8f44771ad754302851164c8",
+          "executed_at": "2026-11-06T08:46:16.156177+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_sandbox_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "1d61717905a7d4550f3259fef298b224dd16008137873f303175c3e6be16ca45"
+        },
+        {
+          "id": "E-07",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2709.1959170000005,
+          "check_id": "CHK-7d605d4fff3d",
+          "input_hash": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3",
+          "environment_hash": "3601ea003853bd86a1c7b6171c3d1b26befcd093b72b3596a9009052d931ddf4",
+          "check_config": {
+            "id": "CHK-7d605d4fff3d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_core/test_sandbox_runner.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "none",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "ab159137af234923bb4af8cf566d2fd0",
+          "executed_at": "2026-11-06T11:08:47.763927+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_core/test_sandbox_runner.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "a999d4a0e673938b245fdcefb4a16c98ec14fec1684d6bdf35ef16f57fe9afb3"
+        }
+      ]
     },
     {
       "id": "E-08",

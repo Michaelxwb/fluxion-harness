@@ -10,7 +10,7 @@
 覆盖 B-301 关键断言：
 1. requests/limits 显式，且与容量 profile 的 `resources.hardware` 一致；
 2. 进程/执行槽显式，且等于 typed 默认（清单列出有效值，不靠静默默认）；
-3. 共享 RWX 制品卷（唯一共享卷、容量与 profile 的 artifact 预算一致）+ 每进程独立本地
+3. 共享 RWX 制品卷 + 共享 RWX workspace 卷（按 tenant + user + Agent 隔离）+ 每进程独立本地
    skill cache（emptyDir，不落共享盘）；
 4. 不按 bot/user/具体 Pod 绑定（无 nodeName/hostname/affinity，无 bot_id/user 命名）；
 5. 最大副本下 PG/HTTP/FD 预算可计算且不超 profile 预算。
@@ -353,12 +353,14 @@ def test_shared_artifact_volume_is_rwx_and_skill_cache_is_per_process(unit: Depl
 
     workspaces = volumes["workspaces"]
     assert "persistentVolumeClaim" in workspaces and "emptyDir" not in workspaces, (
-        f"{unit.name}: workspace 卷必须是共享 PVC（任意 Pod 都能接管同一用户/Agent 工作区）"
+        f"{unit.name}: workspace 必须是共享 PVC（跨 Pod 持久），不能是 emptyDir"
     )
     assert workspaces["persistentVolumeClaim"]["claimName"] == "muad-workspaces-rwx"
-    assert mounts["workspaces"]["mountPath"] == configmap["WORKSPACE_ROOT"]
-    workspace_pvc = _workspaces_pvc()
-    assert workspace_pvc["spec"]["accessModes"] == ["ReadWriteMany"], "workspace 共享盘必须 RWX"
+    assert mounts["workspaces"]["mountPath"] == configmap["WORKSPACE_ROOT"] == "/mnt/muad-workspaces"
+    assert mounts["workspaces"].get("readOnly") is not True, "workspace 必须可写（data/outputs）"
+    assert _workspaces_pvc()["spec"]["accessModes"] == ["ReadWriteMany"], (
+        "workspace PVC 必须 RWX，Runtime/Worker 多 Pod 才能共享同一 user + Agent 目录"
+    )
 
     shared = sorted(
         name for name, volume in volumes.items() if "persistentVolumeClaim" in volume

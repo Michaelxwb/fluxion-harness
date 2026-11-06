@@ -94,7 +94,7 @@
 | S-14 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 真实 Runtime/Worker → 真实平台 → 改造后的旧 Skill | TASK-019 | manual_pending | - | . | 600 | P0 | manual | external | - | - | - | no |
 | S-15 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → 只读 /skill → 可写 /workspace | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_15.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxedSkillExecutor → 子进程管道 → 有界读取 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| E-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxRunner → bwrap → 完整进程树 | TASK-002 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| E-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | SandboxRunner → bwrap → 完整进程树 | TASK-002 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | bwrap --clearenv + 最小 mount + 子进程环境 | TASK-003 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_03.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway → Runtime /v1 → 服务身份校验 | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_04.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
 | S-20 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Gateway SSE 客户端 → Runtime /v1/runs/{id}/events → 重连 | TASK-001 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_20.py"] | . | 600 | P0 | auto | local-api | - | - | - | no |
@@ -103,8 +103,8 @@
 | E-06 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Workspace quota check → PVC | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_06.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-24 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Worker workspace.maintenance → 元数据 → PVC | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_24.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | B-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | 多 Worker 并发 → PG advisory lock/认领 | TASK-006 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-26 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P1 | auto | none | - | - | - | no |
-| E-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner → bwrap 探测 | TASK-002 | planned | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P0 | auto | none | - | - | - | no |
+| S-26 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P1 | auto | none | - | - | - | no |
+| E-07 | user-skill-sandbox.backend.design.md#2.5 验收条件 | unit | SandboxRunner → bwrap 探测 | TASK-002 | verified | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | . | 600 | P0 | auto | none | - | - | - | no |
 | E-08 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → owner 校验 → PG | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_08.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | B-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 状态机 → PG | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_b_03.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | E-09 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批状态校验 | TASK-010 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_09.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -189,7 +189,7 @@
 
 ## TASK-002: bwrap Runner、policy、资源限制与进程树回收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: -
 - **Source**: user-skill-sandbox.backend.design.md#3.1 方案选型, user-skill-sandbox.backend.design.md#3.2 架构设计, user-skill-sandbox.backend.design.md#3.5 质量实现方案
@@ -205,24 +205,24 @@
 
 ### Checklist
 
-- [ ] 交付 `bwrap 沙箱可启动/超时/取消，完整后代被回收；bwrap 不可用时 fail closed`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 实现 `SandboxSpec`/`SandboxPolicy` 与 bwrap argv 构造，所有字段服务端生成
-- [ ] env 只保留 allowlist + `SKILL_*`/Task 上下文；不传服务 Token/DB/Redis/SA Token
-- [ ] 超时、取消、父进程退出、setsid、双重 fork、后台进程都回收完整后代
-- [ ] bwrap 不可用/版本不兼容/policy 非法时 fail closed；生产禁止 `dev-unsafe`
-- [ ] [E-02][integration] 超时/取消/后台进程/双重 fork 无孤儿
-- [ ] [E-07][unit] bwrap 缺失/版本不兼容返回 `SANDBOX_UNAVAILABLE`，不回退宿主执行
-- [ ] [S-26][unit] macOS 原生 Dev 未显式开启 `dev-unsafe` 时拒绝执行
-- [ ] [harness-arch#RULE-arch-001][verifier] 运行 `uv run pytest -q tests/architecture/test_k8s_deploy_manifests.py tests/architecture/test_capacity_webchat_runtime_worker_deploy.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `bwrap 沙箱可启动/超时/取消，完整后代被回收；bwrap 不可用时 fail closed`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 实现 `SandboxSpec`/`SandboxPolicy` 与 bwrap argv 构造，所有字段服务端生成
+- [x] env 只保留 allowlist + `SKILL_*`/Task 上下文；不传服务 Token/DB/Redis/SA Token
+- [x] 超时、取消、父进程退出、setsid、双重 fork、后台进程都回收完整后代
+- [x] bwrap 不可用/版本不兼容/policy 非法时 fail closed；生产禁止 `dev-unsafe`
+- [x] [E-02][integration] 超时/取消/后台进程/双重 fork 无孤儿
+- [x] [E-07][unit] bwrap 缺失/版本不兼容返回 `SANDBOX_UNAVAILABLE`，不回退宿主执行
+- [x] [S-26][unit] macOS 原生 Dev 未显式开启 `dev-unsafe` 时拒绝执行
+- [x] [harness-arch#RULE-arch-001][verifier] 运行 `uv run pytest -q tests/architecture/test_k8s_deploy_manifests.py tests/architecture/test_capacity_webchat_runtime_worker_deploy.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-02 | integration | SandboxRunner → bwrap → 完整进程树 | 超时/取消后无孤儿进程；进程组/后代被回收；资源释放，后续执行可正常启动 | tests/acceptance/user_skill_sandbox/test_e_02.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_02.py"] | planned |
-| E-07 | unit | SandboxRunner → bwrap 探测 | 返回 SANDBOX_UNAVAILABLE；不回退宿主执行；日志/指标可见 | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | planned |
-| S-26 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | 未显式开启 dev-unsafe 时拒绝执行；显式开启时执行并留下审计；生产配置不能启用 dev-unsafe | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | planned |
+| E-02 | integration | SandboxRunner → bwrap → 完整进程树 | 超时/取消后无孤儿进程；进程组/后代被回收；资源释放，后续执行可正常启动 | tests/acceptance/user_skill_sandbox/test_e_02.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_e_02.py"] | verified |
+| E-07 | unit | SandboxRunner → bwrap 探测 | 返回 SANDBOX_UNAVAILABLE；不回退宿主执行；日志/指标可见 | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | verified |
+| S-26 | unit | SandboxRunner 工厂 → 平台检测 → dev-unsafe 开关 | 未显式开启 dev-unsafe 时拒绝执行；显式开启时执行并留下审计；生产配置不能启用 dev-unsafe | tests/agent_core/test_sandbox_runner.py | ["uv","run","pytest","-q","tests/agent_core/test_sandbox_runner.py"] | verified |
 
 ### Acceptance Evidence
 
@@ -230,13 +230,27 @@
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| E-02 | - | - | - | - | pending |
-| E-07 | - | - | - | - | pending |
-| S-26 | - | - | - | - | pending |
+| E-02 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_e_02.py` → failed：容器内 `ModuleNotFoundError: No module named 'muad_agent_core.sandbox'` | 同命令 → `1 passed in 10.67s`；探针输出 timeout 3017ms/cancel 522ms，三场景 `orphans=[]`，超时后再次执行 `exit_code=0` | `tests/acceptance/user_skill_sandbox/test_e_02.py::test_e02_timeout_cancel_parent_death_reap_complete_tree`；探针 `e_02_probe.py::_async_main` | macOS 无 bwrap，测试把探针放进 `fx-sandbox-test:local`（bwrap 0.13.2，`--security-opt seccomp=unconfined`）真实执行；探针内走真实 `BwrapRunner`/`bwrap`/PID namespace，未 mock | verified |
+| E-07 | `uv run pytest -q tests/agent_core/test_sandbox_runner.py` → collection error：`ModuleNotFoundError: No module named 'muad_agent_core.sandbox'` | 同命令 → `16 passed`；缺失/0.11.0/0.13.1 三类真实可执行探测分别 fail closed / fail closed / 返回 `BwrapRunner` | `tests/agent_core/test_sandbox_runner.py::test_missing_bwrap_fails_closed_with_visible_event`、`::test_incompatible_bwrap_version_fails_closed`、`::test_supported_bwrap_probe_returns_bwrap_runner` | 临时目录内真实 `bwrap` 脚本被 `subprocess` 执行；工厂事件 + WARNING 日志可见，未回退宿主 runner | verified |
+| S-26 | 同 E-07 的 collection error（同一文件） | `16 passed`；darwin+bwrap 模式拒绝、dev-unsafe 缺 policy flag 拒绝、显式 dev-unsafe 真实子进程执行并产生审计事件；`env=prod` 配置在 `SharedSettings` 与工厂两层拒绝 | `tests/agent_core/test_sandbox_runner.py::test_macos_without_explicit_dev_unsafe_is_refused`、`::test_dev_unsafe_requires_policy_flag_and_emits_audit`、`::test_dev_unsafe_mode_is_only_allowed_in_dev` | 真实 `DevUnsafeRunner` 子进程 + 真实 `caplog`/observer 审计事件；rlimit 由子进程 `resource.getrlimit` 读回（FSIZE/NOFILE） | verified |
+- E-02: verified — automated command passed; run_id=1174a509b5024964b7a05fdd7e17dc84 (confirmed_by: runner)
+- S-26: verified — automated command passed; run_id=1174a509b5024964b7a05fdd7e17dc84 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=1174a509b5024964b7a05fdd7e17dc84 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=edebe6f1d8f44771ad754302851164c8 (confirmed_by: runner)
+- S-26: verified — automated command passed; run_id=edebe6f1d8f44771ad754302851164c8 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=edebe6f1d8f44771ad754302851164c8 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=ab159137af234923bb4af8cf566d2fd0 (confirmed_by: runner)
+- S-26: verified — automated command passed; run_id=ab159137af234923bb4af8cf566d2fd0 (confirmed_by: runner)
+- E-07: verified — automated command passed; run_id=ab159137af234923bb4af8cf566d2fd0 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-06] started
+- [2026-11-06] RED: `tests/agent_core/test_sandbox_runner.py` 与 `tests/acceptance/user_skill_sandbox/test_e_02.py` 均因 `muad_agent_core.sandbox` 不存在失败（E-07/S-26 collection error；E-02 在真实 bwrap 镜像内 `ModuleNotFoundError`）。
+- [2026-11-06] GREEN: 新增 `muad_agent_core.sandbox`（spec/policy/bwrap/runner/workspace）后 `16 passed`；E-02 探针在真实 bwrap 0.13.2 中验证超时/取消/父进程退出后 `orphans=[]` 且可再次执行。
+- [2026-11-06] 首次 finish blocked：`harness-arch#RULE-arch-001` 的 `tests/architecture` 因 base 上 ConfigMap `WORKSPACE_*` 无 typed 字段/消费点而红（workspace PVC 提交早于 TASK-005 代码）。补齐 `SharedSettings` 的 workspace 配置 + `WorkspaceLayout` 投影，并把旧「唯一共享卷=artifacts」断言更新为 artifacts + workspaces 两个 RWX 共享卷；`tests/architecture` 212 passed。
+- [2026-11-06] completed (done)
 
 ---
 
