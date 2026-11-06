@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -78,6 +80,30 @@ def submission_view(artifact: SkillArtifact) -> dict[str, Any]:
     }
 
 
+@dataclass(frozen=True, slots=True)
+class DraftChange:
+    path: str
+    content: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class DraftApplyResult:
+    revision: int
+    file_count: int
+    total_size: int
+    changed_files: tuple[str, ...]
+    deleted_files: tuple[str, ...]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "revision": self.revision,
+            "file_count": self.file_count,
+            "total_size": self.total_size,
+            "changed_files": list(self.changed_files),
+            "deleted_files": list(self.deleted_files),
+        }
+
+
 class SkillDraftService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -118,6 +144,13 @@ class SkillDraftService:
     ) -> dict[str, Any]:
         draft = await self._require(tenant_id, owner_user_id, draft_id)
         return draft_view(draft)
+
+    async def archive(
+        self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
+    ) -> tuple[dict[str, Any], bytes]:
+        """草稿 Shell 取件：zip 与 revision 必须在同一响应里返回，避免取件/执行间漂移。"""
+        draft = await self._require(tenant_id, owner_user_id, draft_id)
+        return draft_view(draft), self._store.export_zip(draft)
 
     async def read(
         self,
@@ -182,6 +215,100 @@ class SkillDraftService:
             "file_count": advanced.file_count,
             "total_size": advanced.total_size,
         }
+
+    async def apply_changes(
+        self,
+        tenant_id: str,
+        owner_user_id: uuid.UUID,
+        draft_id: uuid.UUID,
+        *,
+        expected_revision: int,
+        changes: Sequence[DraftChange],
+        deletions: Sequence[str],
+    ) -> dict[str, Any]:
+        """草稿 Shell 一次性回写：所有变更在同一个 revision CAS 内提交。
+
+        先校验全部路径与配额，再推进 revision，最后落盘；任一校验失败不会推进 revision。
+        """
+        draft = await self._require_for_update(tenant_id, owner_user_id, draft_id)
+        if draft.revision != expected_revision:
+            raise AppError(ErrorCode.DRAFT_REVISION_CONFLICT)
+        file_count = draft.file_count
+        total_size = draft.total_size
+        normalized_changes: list[tuple[str, bytes]] = []
+        seen: set[str] = set()
+        for change in changes:
+            relative = normalize_relative_path(change.path)
+            key = relative.as_posix()
+            if key in seen:
+                raise AppError(ErrorCode.DRAFT_PATH_INVALID, data={"path": key})
+            seen.add(key)
+            if len(change.content) > self._store.file_max_bytes:
+                raise AppError(
+                    ErrorCode.DRAFT_QUOTA_EXCEEDED,
+                    data={"reason": "FILE_TOO_LARGE", "path": key},
+                )
+            old_size = self._store.existing_size(draft, key)
+            file_count += 0 if old_size is not None else 1
+            total_size += len(change.content) - (old_size or 0)
+            normalized_changes.append((key, change.content))
+        normalized_deletions: list[str] = []
+        for raw_path in deletions:
+            relative = normalize_relative_path(raw_path)
+            key = relative.as_posix()
+            if key in seen:
+                raise AppError(ErrorCode.DRAFT_PATH_INVALID, data={"path": key})
+            seen.add(key)
+            old_size = self._store.existing_size(draft, key)
+            if old_size is None:
+                raise AppError(ErrorCode.DRAFT_NOT_FOUND)
+            file_count -= 1
+            total_size -= old_size
+            normalized_deletions.append(key)
+        first_path = ""
+        if normalized_changes:
+            first_path = normalized_changes[0][0]
+        elif normalized_deletions:
+            first_path = normalized_deletions[0]
+        self._enforce_quota(
+            file_count=file_count,
+            total_size=total_size,
+            path=first_path,
+        )
+        advanced = await self._drafts.advance_revision(
+            tenant_id,
+            owner_user_id,
+            draft_id,
+            expected_revision=expected_revision,
+            file_count=file_count,
+            total_size=total_size,
+        )
+        if advanced is None:
+            raise AppError(ErrorCode.DRAFT_REVISION_CONFLICT)
+        for key, data in normalized_changes:
+            self._store.write_bytes(draft, key, data)
+        for key in normalized_deletions:
+            self._store.remove_file(draft, key)
+        result = DraftApplyResult(
+            revision=advanced.revision,
+            file_count=advanced.file_count,
+            total_size=advanced.total_size,
+            changed_files=tuple(key for key, _ in normalized_changes),
+            deleted_files=tuple(normalized_deletions),
+        )
+        await self._audit_draft(
+            tenant_id,
+            owner_user_id,
+            "SHELL_APPLY",
+            advanced,
+            {
+                "changed_files": list(result.changed_files),
+                "deleted_files": list(result.deleted_files),
+                "file_count": result.file_count,
+                "total_size": result.total_size,
+            },
+        )
+        return result.as_dict()
 
     async def delete_file(
         self,

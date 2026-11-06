@@ -277,6 +277,8 @@ class SandboxSpec:
     stdin: bytes = b""
     mounts: tuple[SandboxMount, ...] = ()
     cwd: str = "/workspace"
+    #: 仅 dev-unsafe 使用的宿主 cwd（沙箱内路径无法直接当宿主路径）；bwrap 忽略。
+    dev_unsafe_cwd: Path | None = None
     limits: SandboxLimits | None = None
     name: str = "skill"
 
@@ -304,6 +306,11 @@ class SandboxSpec:
             raise SandboxUnavailable("invalid sandbox spec: output_limit_bytes must be positive")
         if not self.cwd.startswith("/") or ".." in PurePosixPath(self.cwd).parts:
             raise SandboxUnavailable(f"invalid sandbox spec: cwd {self.cwd!r}")
+
+        dev_cwd = Path(self.dev_unsafe_cwd) if self.dev_unsafe_cwd is not None else None
+        if dev_cwd is not None and not dev_cwd.is_absolute():
+            raise SandboxUnavailable("invalid sandbox spec: dev_unsafe_cwd must be absolute")
+        object.__setattr__(self, "dev_unsafe_cwd", dev_cwd)
 
         mounts = tuple(self.mounts)
         targets = {mount.target for mount in mounts}

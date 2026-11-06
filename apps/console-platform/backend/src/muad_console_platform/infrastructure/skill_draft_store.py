@@ -109,9 +109,11 @@ class SkillDraftStore:
         return DraftFile(path=relative.as_posix(), content=content, encoding=encoding, size=len(data))
 
     def write(self, draft: SkillDraft, raw_path: str, content: str) -> int:
+        return self.write_bytes(draft, raw_path, content.encode("utf-8"))
+
+    def write_bytes(self, draft: SkillDraft, raw_path: str, data: bytes) -> int:
         relative = normalize_relative_path(raw_path)
         target = self._safe_target(draft, relative)
-        data = content.encode("utf-8")
         if len(data) > self.file_max_bytes:
             raise AppError(
                 ErrorCode.DRAFT_QUOTA_EXCEEDED,

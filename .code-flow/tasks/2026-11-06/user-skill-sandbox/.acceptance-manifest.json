@@ -1060,7 +1060,7 @@
       "kind": "functional",
       "boundary": "Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写",
       "owner": "TASK-009",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1126,7 +1126,94 @@
         "用户已有草稿与入口脚本",
         "沙箱可用"
       ],
-      "check": "CHK-71e9e6c27bf1"
+      "check": "CHK-71e9e6c27bf1",
+      "revision": 1,
+      "evidence": {
+        "id": "S-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 12881.629166,
+        "check_id": "CHK-71e9e6c27bf1",
+        "input_hash": "60f636958d3d52e4c14f6d36db0c8dd0cb19b200c39e803db1773b046157e553",
+        "environment_hash": "2dba009773f0628103166a9dd0e2655b9b880b82dda8e1f88fd9aeb5118dbf3a",
+        "check_config": {
+          "id": "CHK-71e9e6c27bf1",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_s_02.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "ccc0fdd82f5841828b201ed139d146f7",
+        "executed_at": "2026-11-06T16:45:13.371268+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/acceptance/user_skill_sandbox/test_s_02.py"
+        ],
+        "cwd": ".",
+        "timeout": 600.0,
+        "fingerprint": "60f636958d3d52e4c14f6d36db0c8dd0cb19b200c39e803db1773b046157e553"
+      },
+      "runs": [
+        {
+          "id": "S-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 12881.629166,
+          "check_id": "CHK-71e9e6c27bf1",
+          "input_hash": "60f636958d3d52e4c14f6d36db0c8dd0cb19b200c39e803db1773b046157e553",
+          "environment_hash": "2dba009773f0628103166a9dd0e2655b9b880b82dda8e1f88fd9aeb5118dbf3a",
+          "check_config": {
+            "id": "CHK-71e9e6c27bf1",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/acceptance/user_skill_sandbox/test_s_02.py"
+            ],
+            "cwd": ".",
+            "timeout": 600.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "ccc0fdd82f5841828b201ed139d146f7",
+          "executed_at": "2026-11-06T16:45:13.371268+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/acceptance/user_skill_sandbox/test_s_02.py"
+          ],
+          "cwd": ".",
+          "timeout": 600.0,
+          "fingerprint": "60f636958d3d52e4c14f6d36db0c8dd0cb19b200c39e803db1773b046157e553"
+        }
+      ]
     },
     {
       "id": "S-03",

@@ -15,12 +15,34 @@ from .contracts import (
     collect_outputs,
     collect_outputs_async,
 )
+from .draft_shell import (
+    DRAFT_SHELL_ALLOWED_EXTENSIONS,
+    DraftShellApplyResult,
+    DraftShellArchive,
+    DraftShellChange,
+    DraftShellError,
+    DraftShellRequest,
+    DraftShellResult,
+    DraftShellRunner,
+    DraftShellStore,
+    extract_draft_archive,
+)
 from .executor import ScriptSkillExecutor
 from .package import SkillManifest, SkillPackage, SkillPackageError
 from .sandboxed import SandboxedSkillExecutor, build_sandboxed_skill_executor
 
 __all__ = [
+    "DRAFT_SHELL_ALLOWED_EXTENSIONS",
     "MAX_OUTPUT_BYTES",
+    "DraftShellApplyResult",
+    "DraftShellArchive",
+    "DraftShellChange",
+    "DraftShellError",
+    "DraftShellRequest",
+    "DraftShellResult",
+    "DraftShellRunner",
+    "DraftShellStore",
+    "extract_draft_archive",
     "OutputFile",
     "OutputLimits",
     "SandboxedSkillExecutor",

@@ -79,7 +79,7 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | 优先级 | 执行方式 | 环境 | 输入 | E2E理由 | 触发路径 | 冒烟 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | S-01 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console 内部 API → Draft Store/PVC → PG revision | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_01.py"] | . | 600 | P0 | auto | local | - | - | - | no |
-| S-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | TASK-009 | planned | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
+| S-02 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | TASK-009 | verified | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-03 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | TASK-004 | e2e_deferred | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | . | 600 | P0 | deferred | local | - | - | - | no |
 | S-04 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → SkillValidator → Artifact Store → PG | TASK-008 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_04.py"] | . | 600 | P0 | auto | local | - | - | - | no |
 | S-05 | user-skill-sandbox.backend.design.md#2.5 验收条件 | integration | Console API → 审批事务 → PG → 审计 | TASK-010 | stale | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_05.py"] | . | 600 | P0 | auto | local | - | - | - | no |
@@ -696,7 +696,7 @@
 
 ## TASK-009: 草稿 Sandbox Shell 与 revision CAS 回写
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002, TASK-003, TASK-008
 - **Source**: user-skill-sandbox.backend.design.md#3.2 架构设计, user-skill-sandbox.backend.design.md#3.4 接口设计
@@ -712,21 +712,21 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 ### Checklist
 
-- [ ] 交付 `草稿 Shell 可执行 Python/Node/session-manager，合法变更按 revision CAS 回写`，并提供可重复的演示命令/操作（1–2 天可完成）
-- [ ] 工具名唯一 `skill_draft_shell`，不接受旧别名/兼容名
-- [ ] 只作用于当前用户当前草稿副本；不挂生产 PVC/其他草稿
-- [ ] 支持 `python -m py_compile`、`python scripts/run.py`、`node --check`、`session-manager get-state`
-- [ ] 变更校验 + revision CAS；冲突 `DRAFT_REVISION_CONFLICT`
-- [ ] [S-02][integration] Python/Node 执行 + 合法回写 + 越界拒绝
-- [ ] [S-03][integration] 草稿 Shell session-manager state 获取
-- [ ] [harness-skill#RULE-skill-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_draft_shell.py`
-- [ ] 运行验收命令并填写 Acceptance Evidence
+- [x] 交付 `草稿 Shell 可执行 Python/Node/session-manager，合法变更按 revision CAS 回写`，并提供可重复的演示命令/操作（1–2 天可完成）
+- [x] 工具名唯一 `skill_draft_shell`，不接受旧别名/兼容名
+- [x] 只作用于当前用户当前草稿副本；不挂生产 PVC/其他草稿
+- [x] 支持 `python -m py_compile`、`python scripts/run.py`、`node --check`、`session-manager get-state`
+- [x] 变更校验 + revision CAS；冲突 `DRAFT_REVISION_CONFLICT`
+- [x] [S-02][integration] Python/Node 执行 + 合法回写 + 越界拒绝
+- [x] [S-03][integration] 草稿 Shell session-manager state 获取
+- [x] [harness-skill#RULE-skill-001][verifier] 运行 `uv run pytest -q tests/acceptance/user_skill_sandbox/test_draft_shell.py`
+- [x] 运行验收命令并填写 Acceptance Evidence
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-02 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | python scripts/run.py 和 node --check 可执行；变更文件按 revision CAS 回写到草稿；越界路径/symlink/超大文件被拒绝；命令超时/输出超限错误码正确 | tests/acceptance/user_skill_sandbox/test_s_02.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | planned |
+| S-02 | integration | Runtime 工具 → 草稿副本 → bwrap → 变更校验 → Console 回写 | python scripts/run.py 和 node --check 可执行；变更文件按 revision CAS 回写到草稿；越界路径/symlink/超大文件被拒绝；命令超时/输出超限错误码正确 | tests/acceptance/user_skill_sandbox/test_s_02.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_02.py"] | verified |
 | S-03 | integration | Runtime broker → Console 凭据解析 → Redis Session → Unix socket → state 文件 | session-manager get-state 返回 sessionStateFile 和 platforms list；state 文件内可读取 cookies 与 requestProfile；执行结束 state 文件删除；未授权平台返回 PLATFORM_SESSION_REQUIRED | tests/acceptance/user_skill_sandbox/test_s_03.py | ["uv","run","pytest","-q","tests/acceptance/user_skill_sandbox/test_s_03.py"] | deferred |
 
 ### Acceptance Evidence
@@ -735,12 +735,15 @@ Runtime `skill_draft_shell` 调用 Console 内部 API 取草稿 zip；在沙箱�
 
 | 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
 |---|---|---|---|---|---|
-| S-02 | - | - | - | - | pending |
-| S-03 | - | - | - | - | pending |
+| S-02 | `uv run pytest -q tests/acceptance/user_skill_sandbox/test_s_02.py` → 1 error（`ModuleNotFoundError: muad_agent_core.skill.draft_shell`，草稿 Shell 未实现） | 5 passed（`test_s_02.py`）；S-02/S-03/规则套件合计 15 passed | `tests/acceptance/user_skill_sandbox/test_s_02.py:162,164,203,206,209,240,243,301,339` | 真实 `SkillToolSet` 工具注册与参数校验 → 真实 Console ASGI 内部 API（archive/apply）→ 真实 PostgreSQL revision CAS；Docker 内真实 bwrap 执行 python/node/session-manager；symlink/`.exe`/超 1KiB/sleep 超时/输出超限/并发 CAS/跨 owner 全部按错误码拒绝且 revision 不变 | passed |
+| S-03 | 同批 RED：`test_s_03.py` 收集失败（`muad_agent_core.skill.draft_shell` 不存在） | 4 passed（`test_s_03.py`，含 2 条草稿 Shell 用例） | `tests/acceptance/user_skill_sandbox/test_s_03.py:167,177,201` | 真实 Console 凭据解析桩 → 真实 Redis Session → Unix socket → 真实 `session-manager` CLI → state 文件；草稿声明 mssp 时返回 sessionStateFile/platforms 并可读 cookies/requestProfile，执行结束 state 删除；未授权平台返回 PLATFORM_SESSION_REQUIRED | passed |
+- S-02: verified — automated command passed; run_id=ccc0fdd82f5841828b201ed139d146f7 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-06] created (draft)
+- [2026-11-07] started
+- [2026-11-07] completed (done)
 
 ---
 
