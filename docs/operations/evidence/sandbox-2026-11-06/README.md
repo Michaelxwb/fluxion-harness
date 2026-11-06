@@ -17,8 +17,9 @@
 | `intranet-k8s-kernel-smoke.txt` | 内网 runtime/worker Pod 实测输出 |
 | `session-probe.txt` | bwrap + 真实 session_cli + Unix socket 前置测试输出 |
 | `session-probe-job.yaml` | 内网 K8s 运行 session probe 的 Job |
-| `session_probe.py` | session-manager 前置 probe 源码 |
+| `session_probe.py` | session-manager 前置 probe 源码（模拟 broker） |
 | `Dockerfile.session-probe` | probe 测试镜像 Dockerfile |
+| `real_broker_probe.py` | P0.3 真实 Runtime broker canary（Console/Redis/真实凭据 + bwrap） |
 
 > 外部复查反馈没有纳入仓库原文；问题与处理结论已归纳到主文档
 > [`../../sandbox-solution.md`](../../sandbox-solution.md) 第 13 节。
@@ -169,6 +170,33 @@ kubectl -n muad exec -i "$POD" -- sh -c '
 ```
 
 这是测试路径；生产应把 bwrap 放进共享基础镜像，或使用只读 volume 挂载。
+
+## P0.3 真实 broker canary
+
+`real_broker_probe.py` 不经过对话 Skill，直接调用真实
+`skill_platform_environment`，验证 Console/Redis/平台凭据 + bwrap +
+`session-manager` + `requests` 的完整链路。
+
+在 canary runtime Pod 内：
+
+```bash
+kubectl cp real_broker_probe.py <pod>:/tmp/real_broker_probe.py
+
+kubectl exec -it <pod> -- env \
+  TEST_ACTOR_USER_ID='<platform-user-uuid>' \
+  TEST_PLATFORM_KEY='<platform-key>' \
+  TEST_URL='https://test-platform.example/health' \
+  TEST_SKILL_NAME='real-broker-probe' \
+  python /tmp/real_broker_probe.py
+```
+
+预期：
+
+```text
+bwrap_rc 0
+stdout {"ok": true, "status": 200, ...}
+RESULT: PASS
+```
 
 ## 本地产物
 

@@ -602,7 +602,66 @@ docker run --rm --platform linux/amd64 \
 
 内网 K8s 已验证默认策略允许 `unshare`，Job 不需要设置 `seccompProfile`。
 
-#### P0.3 通过后的下一步
+#### P0.3 真实 Runtime broker canary（脚本）
+
+脚本：`docs/operations/evidence/sandbox-2026-11-06/real_broker_probe.py`
+
+它直接调用真实的 `skill_platform_environment`，不经过对话 Skill、不改业务代码：
+
+```text
+真实 broker → Console resolve-egress-access → Redis Session
+  → 真实平台凭据 → bwrap → session-manager get-state
+  → sessionStateFile → requests 调测试平台
+```
+
+前提：
+
+- runtime/worker 已用新底座重建，Pod 内 `bwrap` 可用；
+- 有一个有测试平台凭据的 PlatformUser；
+- 有一个非破坏性的测试接口。
+
+在 canary runtime Pod 内执行：
+
+```bash
+kubectl cp docs/operations/evidence/sandbox-2026-11-06/real_broker_probe.py \
+  <canary-runtime-pod>:/tmp/real_broker_probe.py
+
+kubectl exec -it <canary-runtime-pod> -- env \
+  TEST_ACTOR_USER_ID='<platform-user-uuid>' \
+  TEST_PLATFORM_KEY='<platform-key>' \
+  TEST_URL='https://test-platform.example/health' \
+  TEST_SKILL_NAME='real-broker-probe' \
+  python /tmp/real_broker_probe.py
+```
+
+可选参数：
+
+```text
+TEST_TENANT_ID       默认 SharedSettings.default_tenant_id
+TEST_EXECUTION_ID    默认随机 UUID
+TEST_METHOD          默认 GET
+TEST_TIMEOUT_SEC     默认 15
+TEST_EXPECT_STATUS   精确期望状态码；默认 2xx/3xx
+TEST_INSECURE=1      仅测试环境跳过 TLS 校验
+TEST_SHOW_BODY=1     输出 200 字节 body 前缀（默认关闭，避免泄露业务数据）
+```
+
+预期：
+
+```text
+bwrap_rc 0
+stdout {"ok": true, "status": 200, ...}
+RESULT: PASS
+```
+
+失败时脚本会明确输出：
+
+- `bwrap not found`：镜像是旧底座；
+- `sessionStateFile points into /proc`：需要强制文件模式；
+- `PLATFORM_ACCESS_DENIED` / `CREDENTIAL_MISSING`：测试用户没有该平台凭据；
+- HTTP 非预期状态：测试 URL、CSRF/Cookie 或平台权限问题。
+
+#### P0.3.1 通过后的下一步
 
 P0.2 PASS 说明：
 
@@ -709,8 +768,9 @@ P0.2 PASS 说明：
 | [`intranet-k8s-kernel-smoke.txt`](evidence/sandbox-2026-11-06/intranet-k8s-kernel-smoke.txt) | 内网 runtime/worker Pod 实测输出 |
 | [`session-probe.txt`](evidence/sandbox-2026-11-06/session-probe.txt) | bwrap + 真实 session_cli + Unix socket 前置测试输出 |
 | [`session-probe-job.yaml`](evidence/sandbox-2026-11-06/session-probe-job.yaml) | 内网 K8s 运行 session probe 的 Job |
-| [`session_probe.py`](evidence/sandbox-2026-11-06/session_probe.py) | session-manager 前置 probe 源码 |
+| [`session_probe.py`](evidence/sandbox-2026-11-06/session_probe.py) | session-manager 前置 probe 源码（模拟 broker） |
 | [`Dockerfile.session-probe`](evidence/sandbox-2026-11-06/Dockerfile.session-probe) | probe 测试镜像 Dockerfile |
+| [`real_broker_probe.py`](evidence/sandbox-2026-11-06/real_broker_probe.py) | P0.3 真实 Runtime broker canary |
 | [`landlock-seccomp.txt`](evidence/sandbox-2026-11-06/landlock-seccomp.txt) | Landlock 不可用与 seccomp 结论 |
 
 > 外部复查反馈的原文没有纳入仓库；逐项结论与修正见本文第 13 节。
