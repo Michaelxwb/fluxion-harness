@@ -58,6 +58,29 @@ def live_stack(_runtime_live_stack: LiveStack) -> LiveStack:  # noqa: F811  (参
     """
     return _runtime_live_stack
 
+
+@pytest.fixture(autouse=True)
+def _cancel_active_runs(live_stack: LiveStack) -> Iterator[None]:
+    """每个 E-09 用例开始前收掉上一用例可能留下的活跃 Run。
+
+    取消用例会在退避窗口内关闭 SSE，执行器可能晚于断言到达终态；下一个用例复用同一
+    agent/user 时会被 `RUN_BUSY` 拒绝。这里只改测试库的运行态，不伪造业务结果。
+    """
+
+    async def cancel(factory: Any) -> None:
+        async with factory() as session, session.begin():
+            await session.execute(
+                text(
+                    "UPDATE runtime.run_record SET status = 'CANCELLED', end_time = now() "
+                    "WHERE tenant_id = :tenant_id AND is_deleted = false AND status IN "
+                    "('CREATED', 'RUNNING', 'WAITING_INPUT', 'WAITING_TOOL')"
+                ),
+                {"tenant_id": live_stack.tenant_id},
+            )
+
+    run_db(cancel)
+    yield
+
 MODEL_API_KEY = "recovery-probe-key-9f2c"
 RUN_TIMEOUT_SEC = 60.0
 CANCEL_TIMEOUT_SEC = 20.0
@@ -438,7 +461,7 @@ def test_e09_cancel_stops_retries_immediately(live_stack: LiveStack, fault_probe
                             "agent_id": str(live_stack.agent_id),
                             "platform_user_id": str(live_stack.platform_user_id),
                         },
-                        headers={"X-Tenant-Id": live_stack.tenant_id},
+                        headers=live_stack.service_headers(),
                     )
                     assert cancelled.status_code == 200, cancelled.text
                     assert cancelled.json()["data"]["status"] == "CANCELLING", cancelled.text
