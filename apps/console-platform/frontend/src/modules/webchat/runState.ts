@@ -295,7 +295,9 @@ function refreshRunFacts(run: ActiveRunState, target: RunSubscriptionTarget): vo
   if (target.submissionId !== null) run.submissionId = target.submissionId;
   if (!isTerminalRunStatus(run.status) && target.status !== run.status) run.status = target.status;
   if (target.executionStatus !== null) run.executionStatus = target.executionStatus;
-  if (target.confirmation !== null) run.confirmation = target.confirmation;
+  // API-15 详情是确认的权威投影：重新观察同一 Run 时，服务端返回 null 必须清掉旧确认，
+  // 否则记忆被删除/提议被撤销后，旧确认卡会在重开会话时复活。
+  run.confirmation = target.confirmation;
 }
 
 /** 附件按 `artifact_id` 身份合并（重复事件不重复累计，新版本覆盖旧版本）。 */

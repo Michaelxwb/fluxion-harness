@@ -71,7 +71,9 @@ validators:
       on_fail: "测试失败，检查断言和 mock 是否需要更新"
     - name: "Pytest (unit: worker)"
       trigger: "**/*.py"
-      command: ".venv/bin/python -m pytest --tb=short -q -m \"not capacity_load\" --durations=30 tests/agent_worker tests/capacity tests/migrations"
+      # 三个目录都使用真实 datastore 隔离；同一 pytest 会话会同时占用多个 Redis DB，
+      # 加上容量栈自身的临时库后 6 个号位可能耗尽。拆成独立进程，各自退出即释放 claim。
+      command: "bash -lc '.venv/bin/python -m pytest --tb=short -q -m \"not capacity_load\" --durations=30 tests/agent_worker && .venv/bin/python -m pytest --tb=short -q -m \"not capacity_load\" --durations=30 tests/capacity && .venv/bin/python -m pytest --tb=short -q -m \"not capacity_load\" --durations=30 tests/migrations'"
       heavy: true
       timeout: 1200000
       on_fail: "测试失败，检查断言和 mock 是否需要更新"
