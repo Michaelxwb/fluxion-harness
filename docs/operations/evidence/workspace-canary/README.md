@@ -7,12 +7,18 @@ bwrap 可执行、`muad-workspaces-rwx` 共享 PVC 可写、Runtime/Worker 跨 P
 ## 运行
 
 ```bash
-uv run python scripts/workspace_canary.py --namespace muad \
+python3 scripts/workspace_canary.py --namespace muad \
   --runtime deployment/muad-agent-runtime \
   --worker deployment/muad-agent-worker \
   --expected-root /mnt/muad-workspaces \
   --output docs/operations/evidence/workspace-canary/$(date +%Y-%m-%d)-canary.json
 ```
+
+脚本只用标准库，宿主机有 Python 3.9+ 即可（不需要 uv）。宿主机没有 Python 时，把
+`scripts/workspace_canary.py` 拷进 Runtime/Worker Pod，用 `--probe-only` 跑探针、
+`--cleanup-only` 清理；完整命令见 `deploy/k8s/README.md`「P1 workspace canary」。
+Pod 内方式没有编排模式的证据 JSON，需把两段探针输出与 kubectl 采集的 PVC/镜像/节点
+信息一并存入本目录。
 
 先在 **1 个 canary Runtime/Worker 副本**上跑，通过后再全量（design §4.2）。退出码
 `0` 通过、`1` 检查失败、`2` kubectl/参数错误；失败即阻断发布。

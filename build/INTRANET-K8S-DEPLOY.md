@@ -136,12 +136,16 @@ print("workspace writable:", root)
 **workspace canary（P1 发布门禁，先跑 1 个 Runtime/Worker 副本）**
 
 ```bash
-uv run python scripts/workspace_canary.py --namespace muad \
+python3 scripts/workspace_canary.py --namespace muad \
   --runtime deployment/muad-agent-runtime \
   --worker deployment/muad-agent-worker \
   --expected-root /mnt/muad-workspaces \
   --output docs/operations/evidence/workspace-canary/$(date +%Y-%m-%d)-canary.json
 ```
+
+脚本只用标准库，宿主机有 Python 3.9+ 即可（不需要 uv）。宿主机没有 Python 时，按
+`deploy/k8s/README.md`「P1 workspace canary」一节的 Pod 内步骤执行：把脚本拷进
+Runtime/Worker Pod，用 `--probe-only` 跑探针、`--cleanup-only` 清理，其余证据用 kubectl 采集。
 
 脚本在真实 Pod 内检查并以 JSON 记录：PVC `Bound` + `ReadWriteMany`、两个 Pod 挂同一
 claim 且可写、Runtime 写入后 Worker 能跨 Pod 读到、两个 Pod 内 `bwrap --version` 与

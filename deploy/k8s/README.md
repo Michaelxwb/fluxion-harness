@@ -154,12 +154,54 @@ kubectl -n muad exec deploy/muad-agent-runtime -- node -e "console.log(require('
 全量发布前先让 **1 个 Runtime/Worker 副本**通过 canary（design §4.2 P1 canary）：
 
 ```bash
-uv run python scripts/workspace_canary.py --namespace muad \
+python3 scripts/workspace_canary.py --namespace muad \
   --runtime deployment/muad-agent-runtime \
   --worker deployment/muad-agent-worker \
   --expected-root /mnt/muad-workspaces \
   --output docs/operations/evidence/workspace-canary/$(date +%Y-%m-%d)-canary.json
 ```
+
+`scripts/workspace_canary.py` 只用标准库，宿主机有 Python 3.9+ 就能直接用，不需要
+uv/venv/pip。宿主机没有 Python 时，把脚本拷进 Pod 用 `--probe-only` 在 Pod 内执行
+（镜像自带 Python），其余证据用 kubectl 采集：
+
+```bash
+NS=muad
+RUN_ID=canary-$(date +%Y%m%d%H%M%S)
+RUNTIME_POD=$(kubectl -n "$NS" get pod -l app=muad-agent-runtime -o jsonpath='{.items[0].metadata.name}')
+WORKER_POD=$(kubectl -n "$NS" get pod -l app=muad-agent-worker -o jsonpath='{.items[0].metadata.name}')
+
+kubectl -n "$NS" cp scripts/workspace_canary.py "$RUNTIME_POD":/tmp/workspace_canary.py
+kubectl -n "$NS" cp scripts/workspace_canary.py "$WORKER_POD":/tmp/workspace_canary.py
+# 镜像里没有 tar 时 kubectl cp 会失败，改用管道（等价）：
+#   kubectl -n "$NS" exec -i "$POD" -- sh -c 'cat > /tmp/workspace_canary.py' < scripts/workspace_canary.py
+
+# 必须先 runtime 后 worker：worker 的探针要读到 runtime 写下的标记
+kubectl -n "$NS" exec "$RUNTIME_POD" -- env CANARY_ROLE=runtime CANARY_RUN_ID="$RUN_ID" \
+  WORKSPACE_ROOT=/mnt/muad-workspaces python /tmp/workspace_canary.py --probe-only
+kubectl -n "$NS" exec "$WORKER_POD" -- env CANARY_ROLE=worker CANARY_RUN_ID="$RUN_ID" \
+  WORKSPACE_ROOT=/mnt/muad-workspaces python /tmp/workspace_canary.py --probe-only
+
+# 证据：PVC 状态 / 挂载与 imageID / 节点指纹
+kubectl -n "$NS" get pvc muad-workspaces-rwx \
+  -o jsonpath='{.status.phase}{" "}{.spec.accessModes}{" "}{.spec.storageClassName}{"\n"}'
+for POD in "$RUNTIME_POD" "$WORKER_POD"; do
+  kubectl -n "$NS" get pod "$POD" -o go-template='{{.metadata.name}} {{.spec.nodeName}} {{(index .status.containerStatuses 0).imageID}} {{range .spec.containers}}{{range .volumeMounts}}{{if eq .name "workspaces"}}{{.mountPath}}{{end}}{{end}}{{end}}{{"\n"}}'
+done
+for NODE in $(kubectl -n "$NS" get pod "$RUNTIME_POD" "$WORKER_POD" -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' | sort -u); do
+  kubectl get node "$NODE" -o jsonpath='{.metadata.name}{" "}{.status.nodeInfo.kernelVersion}{" "}{.status.nodeInfo.osImage}{" "}{.status.nodeInfo.containerRuntimeVersion}{"\n"}'
+done
+
+# 清理共享 PVC 上的临时目录
+kubectl -n "$NS" exec "$RUNTIME_POD" -- env CANARY_RUN_ID="$RUN_ID" \
+  WORKSPACE_ROOT=/mnt/muad-workspaces python /tmp/workspace_canary.py --cleanup-only
+```
+
+两种方式判定相同：两个 Pod 的探针 JSON 里 `bwrap_ok`/`pvc_write_ok`/`bwrap_write_ok`
+全为 `true`、worker 的 `cross_pod_ok` 为 `true`，PVC `Bound` + `ReadWriteMany`，imageID
+带 `sha256:` digest；`--probe-only` / `--cleanup-only` 通过时退出码 0。Pod 内方式没有
+编排模式的证据 JSON，把两段探针输出与上面的 kubectl 结果一并存进
+`docs/operations/evidence/workspace-canary/`。
 
 真实边界：`kubectl exec` 进入两个真实 Pod，以运行用户（UID 10001）写共享 PVC；Runtime
 写标记后 Worker 读取，验证 `muad-workspaces-rwx` 跨 Pod 共享；两个 Pod 内执行

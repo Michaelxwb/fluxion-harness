@@ -360,12 +360,16 @@ WORKSPACE_DATA_TTL_DAYS: "30"
 部署后先跑 workspace canary（P1 发布门禁；真实 Pod 内验证 bwrap、共享 PVC 与镜像/节点指纹）：
 
 ```bash
-uv run python scripts/workspace_canary.py --namespace muad \
+python3 scripts/workspace_canary.py --namespace muad \
   --runtime deployment/muad-agent-runtime \
   --worker deployment/muad-agent-worker \
   --expected-root /mnt/muad-workspaces \
   --output docs/operations/evidence/workspace-canary/$(date +%Y-%m-%d)-canary.json
 ```
+
+脚本只用标准库，宿主机有 Python 3.9+ 即可（不需要 uv）；宿主机没有 Python 时按
+`deploy/k8s/README.md`「P1 workspace canary」的 Pod 内步骤执行（拷贝脚本 +
+`--probe-only`/`--cleanup-only`）。
 
 也可以只验证目录可写（UID 10001）：
 

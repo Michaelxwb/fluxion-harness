@@ -12,15 +12,32 @@
 
 不读取 Secret、不执行用户 Skill、不修改 Deployment；只读检查 + 受限写探针。
 
-用法：
+用法（宿主机有 Python 3.9+ 即可，脚本只用标准库，不需要 uv）：
 
-    uv run python scripts/workspace_canary.py --namespace muad \
+    python3 scripts/workspace_canary.py --namespace muad \
       --runtime deployment/muad-agent-runtime \
       --worker deployment/muad-agent-worker \
       --output docs/operations/evidence/workspace-canary/<date>.json
 
     # 只检查参数/探针组合，不连集群：
-    uv run python scripts/workspace_canary.py --dry-run --json
+    python3 scripts/workspace_canary.py --dry-run --json
+
+宿主机没有 Python 时，把本文件拷进 Pod，用 ``--probe-only`` / ``--cleanup-only``
+在 Pod 内执行探针与清理（镜像自带 Python），PVC/Pod/节点指纹在宿主机用 kubectl 采集：
+
+    kubectl -n muad cp scripts/workspace_canary.py "$RUNTIME_POD":/tmp/workspace_canary.py
+    kubectl -n muad cp scripts/workspace_canary.py "$WORKER_POD":/tmp/workspace_canary.py
+    # 镜像里没有 tar 时 kubectl cp 会失败，改用等价管道：
+    #   kubectl -n muad exec -i "$POD" -- sh -c 'cat > /tmp/workspace_canary.py' < scripts/workspace_canary.py
+    kubectl -n muad exec "$RUNTIME_POD" -- \
+      env CANARY_ROLE=runtime CANARY_RUN_ID="$RUN_ID" WORKSPACE_ROOT=/mnt/muad-workspaces \
+      python /tmp/workspace_canary.py --probe-only
+    kubectl -n muad exec "$WORKER_POD" -- \
+      env CANARY_ROLE=worker CANARY_RUN_ID="$RUN_ID" WORKSPACE_ROOT=/mnt/muad-workspaces \
+      python /tmp/workspace_canary.py --probe-only
+    kubectl -n muad exec "$RUNTIME_POD" -- \
+      env CANARY_RUN_ID="$RUN_ID" WORKSPACE_ROOT=/mnt/muad-workspaces \
+      python /tmp/workspace_canary.py --cleanup-only
 
 退出码：0 通过；1 有检查失败；2 kubectl/参数/输出错误。
 """
@@ -29,10 +46,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -450,7 +468,8 @@ def dry_run_plan(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def run_canary(args: argparse.Namespace) -> dict[str, Any]:
-    run_id = datetime.now(UTC).strftime("canary-%Y%m%d%H%M%S%f")
+    # 宿主机可能只有 Python 3.9（没有 datetime.UTC），保持 timezone.utc 写法。
+    run_id = datetime.now(timezone.utc).strftime("canary-%Y%m%d%H%M%S%f")  # noqa: UP017
     runtime_pod = resolve_pod(args.kubectl, args.namespace, args.runtime, args.timeout_sec)
     worker_pod = resolve_pod(args.kubectl, args.namespace, args.worker, args.timeout_sec)
     pvc = _pvc_summary(_pvc_record(args.kubectl, args.namespace, args.workspace_claim, args.timeout_sec))
@@ -470,7 +489,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             nodes[node] = _node_fingerprint(_node_record(args.kubectl, node, args.timeout_sec))
     evidence: dict[str, Any] = {
         "schema": SCHEMA,
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017
         "namespace": args.namespace,
         "expected_root": args.expected_root,
         "workspace_claim": args.workspace_claim,
@@ -486,6 +505,66 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
     return evidence
 
 
+PROBE_ROLES = ("runtime", "worker")
+
+
+def _run_embedded(
+    code: str, env: Mapping[str, str], *, timeout: int
+) -> subprocess.CompletedProcess[str]:
+    merged = dict(os.environ)
+    merged.update(env)
+    return subprocess.run(
+        [sys.executable, "-c", code],
+        env=merged,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
+def run_probe_only(role: str, run_id: str, *, timeout: int) -> int:
+    """Pod 内执行探针（镜像自带 Python），输出与编排模式相同的探针 JSON。"""
+    try:
+        completed = _run_embedded(
+            _PROBE_CODE, {"CANARY_ROLE": role, "CANARY_RUN_ID": run_id}, timeout=timeout
+        )
+    except subprocess.TimeoutExpired:
+        print("workspace canary error: probe timed out", file=sys.stderr)
+        return 2
+    if completed.stderr.strip():
+        print(completed.stderr.strip(), file=sys.stderr)
+    if not completed.stdout.strip():
+        return 2
+    try:
+        probe = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        print(f"workspace canary error: probe output is not JSON: {exc}", file=sys.stderr)
+        return 2
+    print(completed.stdout.strip())
+    checks = [probe.get("pvc_write_ok"), probe.get("bwrap_ok"), probe.get("bwrap_write_ok")]
+    if role == "worker":
+        checks.append(probe.get("cross_pod_ok"))
+    return 0 if all(check is True for check in checks) else 1
+
+
+def run_cleanup_only(run_id: str, *, timeout: int) -> int:
+    """Pod 内清理本次 canary 临时目录。"""
+    try:
+        completed = _run_embedded(_CLEANUP_CODE, {"CANARY_RUN_ID": run_id}, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        print("workspace canary error: cleanup timed out", file=sys.stderr)
+        return 2
+    if completed.stderr.strip():
+        print(completed.stderr.strip(), file=sys.stderr)
+    try:
+        result = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        print(f"workspace canary error: cleanup output is not JSON: {exc}", file=sys.stderr)
+        return 2
+    print(completed.stdout.strip())
+    return 0 if result.get("removed") is True else 1
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Workspace bwrap/PVC canary（只读检查 + 受限写探针）")
     parser.add_argument("--namespace", default=DEFAULT_NAMESPACE)
@@ -498,11 +577,39 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, default=None, help="证据 JSON 输出路径")
     parser.add_argument("--dry-run", action="store_true", help="只输出将执行的检查计划")
     parser.add_argument("--json", action="store_true", help="以 JSON 输出")
+    parser.add_argument(
+        "--probe-only",
+        action="store_true",
+        help="Pod 内执行探针（读 CANARY_ROLE/CANARY_RUN_ID），不做 kubectl 编排",
+    )
+    parser.add_argument(
+        "--cleanup-only",
+        action="store_true",
+        help="Pod 内清理本次 canary 临时目录（读 CANARY_RUN_ID）",
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.probe_only or args.cleanup_only:
+        run_id = os.environ.get("CANARY_RUN_ID", "").strip()
+        if not run_id:
+            print(
+                "workspace canary error: --probe-only/--cleanup-only require CANARY_RUN_ID",
+                file=sys.stderr,
+            )
+            return 2
+        if args.cleanup_only:
+            return run_cleanup_only(run_id, timeout=args.timeout_sec)
+        role = os.environ.get("CANARY_ROLE", "").strip()
+        if role not in PROBE_ROLES:
+            print(
+                f"workspace canary error: CANARY_ROLE must be one of {PROBE_ROLES}",
+                file=sys.stderr,
+            )
+            return 2
+        return run_probe_only(role, run_id, timeout=args.timeout_sec * 4)
     if args.dry_run:
         plan = dry_run_plan(args)
         print(json.dumps(plan, ensure_ascii=False, indent=2))

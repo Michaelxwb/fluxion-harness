@@ -21,6 +21,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -713,3 +714,65 @@ def test_workspace_canary_evaluation_rejects_broken_deployment(
     joined = "\n".join(failures)
     for expected in ("pvc", "ReadWriteMany", "bwrap", "image", "cross", "mount", "kernel"):
         assert expected.lower() in joined.lower(), f"canary 必须报告 {expected} 失败：{joined}"
+
+
+def _canary_env(**extra: str) -> dict[str, str]:
+    env = {key: value for key, value in os.environ.items() if not key.startswith("CANARY_")}
+    env.update(extra)
+    return env
+
+
+def test_workspace_canary_probe_only_runs_inside_pod_without_kubectl(tmp_path: Path) -> None:
+    """宿主机没有 Python 时把脚本拷进 Pod：探针不依赖 kubectl。"""
+    env = _canary_env(
+        CANARY_ROLE="runtime",
+        CANARY_RUN_ID="canary-probe",
+        WORKSPACE_ROOT=str(tmp_path),
+        PATH=str(tmp_path / "empty-bin"),
+    )
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/workspace_canary.py"), "--probe-only"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+        env=env,
+    )
+    probe = json.loads(completed.stdout)
+    assert probe["role"] == "runtime"
+    assert probe["workspace_root"] == str(tmp_path)
+    assert probe["pvc_write_ok"] is True
+    assert "bwrap" in str(probe["error"]), "空 PATH 下探针应报告 bwrap 不可用而非调用 kubectl"
+    marker = tmp_path / ".canary" / "canary-probe" / "runtime-pvc.txt"
+    assert marker.read_text(encoding="utf-8") == "runtime"
+    assert completed.returncode == 1
+
+
+def test_workspace_canary_probe_only_requires_container_env() -> None:
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/workspace_canary.py"), "--probe-only"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+        env=_canary_env(),
+    )
+    assert completed.returncode == 2
+    assert "CANARY_RUN_ID" in completed.stderr
+
+
+def test_workspace_canary_cleanup_only_removes_shared_run_dir(tmp_path: Path) -> None:
+    run_dir = tmp_path / ".canary" / "canary-cleanup"
+    run_dir.mkdir(parents=True)
+    (run_dir / "runtime-pvc.txt").write_text("runtime", encoding="utf-8")
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/workspace_canary.py"), "--cleanup-only"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+        env=_canary_env(CANARY_RUN_ID="canary-cleanup", WORKSPACE_ROOT=str(tmp_path)),
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == {"removed": True}
+    assert not run_dir.exists()
