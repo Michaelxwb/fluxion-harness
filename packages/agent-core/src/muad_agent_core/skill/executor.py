@@ -4,87 +4,39 @@ import asyncio
 import contextlib
 import json
 import os
-import shutil
 import signal
-import sys
 import time
 from collections.abc import Mapping
-from dataclasses import dataclass, field
-from enum import StrEnum
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
-from muad_contracts import ResolvedSkill
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
-from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_platform_sdk.skill_bridge import skill_platform_environment
-from muad_skill_sdk import (
-    SkillContext,
-    SkillPackage,
-    SkillPackageError,
-    declared_entrypoint,
-    locate_package_root,
-)
-from muad_skill_sdk.skill_package import is_script_path
+from muad_skill_sdk import SkillPackage, SkillPackageError, locate_package_root
 from redis.exceptions import RedisError
 
-MAX_OUTPUT_BYTES = 64 * 1024
+from .contracts import (
+    MAX_OUTPUT_BYTES,
+    SkillArtifactResolver,
+    SkillExecutionError,
+    SkillExecutionRequest,
+    SkillExecutionResult,
+    SkillExecutionStatus,
+    SkillExecutor,
+)
+from .selection import script_command, select_entry_script, select_script
+
 TERMINATE_GRACE_SEC = 2.0
-SCRIPTS_DIR = "scripts"
-MAIN_SCRIPT = "main.py"
 ENV_ALLOWLIST = ("PATH", "HOME", "LANG")
 
 
-class SkillArtifactResolver(Protocol):
-    async def ensure(self, *, artifact_id: str, storage_key: str, checksum: str) -> Path: ...
-
-
-class SkillExecutor(Protocol):
-    async def execute(
-        self,
-        *,
-        artifact: ResolvedSkill,
-        local_path: Path,
-        input_data: Mapping[str, Any],
-        context: SkillContext,
-    ) -> Mapping[str, Any]: ...
-
-
-class SkillExecutionStatus(StrEnum):
-    SUCCEEDED = "SUCCEEDED"
-    FAILED = "FAILED"
-    TIMED_OUT = "TIMED_OUT"
-    CANCELLED = "CANCELLED"
-
-
-class SkillExecutionError(RuntimeError):
-    def __init__(self, message: str) -> None:
-        self.message = message
-        super().__init__(message)
-
-
-@dataclass(frozen=True, slots=True)
-class SkillExecutionRequest:
-    ready_dir: Path
-    input: Mapping[str, Any]
-    timeout_sec: float
-    env: Mapping[str, str] = field(default_factory=dict)
-    cancel_event: asyncio.Event | None = None
-    script: Path | None = None
-    platform_context: SkillPlatformContext | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class SkillExecutionResult:
-    status: SkillExecutionStatus
-    stdout: str = ""
-    stderr: str = ""
-    result: Mapping[str, Any] | None = None
-    duration_ms: int = 0
-    exit_code: int | None = None
-
-
 class ScriptSkillExecutor:
+    """宿主进程执行器：只用于本地开发/测试，不提供沙箱隔离。
+
+    Runtime/Worker 的装配必须使用 ``SandboxedSkillExecutor``；保留本类是为了让
+    本地脚本调试与旧单元测试仍能在无 bwrap 的机器上跑通。
+    """
+
     async def execute(self, request: SkillExecutionRequest) -> SkillExecutionResult:
         from dataclasses import replace
 
@@ -93,8 +45,8 @@ class ScriptSkillExecutor:
             if request.platform_context and request.platform_context.platform_keys:
                 root, _ = locate_package_root(request.ready_dir)
                 name = SkillPackage.load(root).manifest.name
-            async with skill_platform_environment(request.platform_context, name) as env:
-                return await self._execute(replace(request, env={**request.env, **env}))
+            async with skill_platform_environment(request.platform_context, name) as session:
+                return await self._execute(replace(request, env={**request.env, **session.env}))
         except SkillPackageError as exc:
             raise SkillExecutionError(exc.message) from exc
         except PlatformAuthError as exc:
@@ -104,7 +56,7 @@ class ScriptSkillExecutor:
 
     async def _execute(self, request: SkillExecutionRequest) -> SkillExecutionResult:
         ready_dir = Path(request.ready_dir).resolve()
-        if not (ready_dir / SCRIPTS_DIR).is_dir() and not (ready_dir / "SKILL.md").is_file():
+        if not (ready_dir / "scripts").is_dir() and not (ready_dir / "SKILL.md").is_file():
             try:
                 ready_dir, _ = locate_package_root(ready_dir)
             except SkillPackageError as exc:
@@ -204,9 +156,6 @@ def _signal_group(process: asyncio.subprocess.Process, sig: int) -> None:
     既是会话首进程也是组长，组 id 就等于自己的 pid。**不调 `os.getpgid(pid)`** 是有意的：
     子进程被回收之后 `getpgid` 就查不到了，而"孙进程还抓着管道"恰恰发生在它已退出之后 ——
     那时唯一还有效的线索就是组 id 本身（组里只要还有活着的成员，组 id 就不会被回收）。
-
-    安全性同理：组非空时这个 id **不可能**属于别的进程组；组真的空了 `killpg` 会以
-    `ProcessLookupError` 失败，落进下面的兜底（2026-10-03 review）。
     """
     try:
         os.killpg(process.pid, sig)
@@ -230,50 +179,6 @@ async def _terminate(process: asyncio.subprocess.Process, communicate: asyncio.F
         _signal_group(process, signal.SIGKILL)
 
 
-def select_script(ready_dir: Path, script: Path | None) -> Path:
-    if script is None:
-        script = select_entry_script(ready_dir)
-    root = ready_dir.resolve()
-    resolved = script.resolve()
-    if root not in resolved.parents:
-        raise SkillExecutionError("script path escapes the skill package")
-    if not resolved.is_file():
-        raise SkillExecutionError(f"skill script not found: {script.name}")
-    if not is_script_path(resolved):
-        raise SkillExecutionError("unsupported skill script extension")
-    return resolved
-
-
-def select_entry_script(ready_dir: Path) -> Path:
-    try:
-        entrypoint = declared_entrypoint(ready_dir)
-    except SkillPackageError as exc:
-        raise SkillExecutionError(exc.message) from exc
-    if entrypoint is not None:
-        return entrypoint
-    scripts_dir = ready_dir / SCRIPTS_DIR
-    if not scripts_dir.is_dir():
-        raise SkillExecutionError("skill package has no scripts directory")
-    main = scripts_dir / MAIN_SCRIPT
-    if main.is_file():
-        return main.resolve()
-    candidates = sorted(path for path in scripts_dir.glob("*.py") if path.is_file())
-    if not candidates:
-        candidates = sorted(path for path in scripts_dir.iterdir() if path.is_file() and is_script_path(path))
-    if not candidates:
-        raise SkillExecutionError("skill package has no scripts")
-    return candidates[0].resolve()
-
-
-def script_command(script: Path, env: Mapping[str, str]) -> tuple[str, ...]:
-    if script.suffix.lower() == ".py":
-        return sys.executable, "-I", str(script)
-    node = shutil.which("node", path=env.get("PATH", os.defpath))
-    if node is None:
-        raise SkillExecutionError("Node.js is required to execute JavaScript skills")
-    return node, str(script)
-
-
 def build_child_env(extra: Mapping[str, str]) -> dict[str, str]:
     env = {key: os.environ[key] for key in ENV_ALLOWLIST if key in os.environ}
     env.update(extra)
@@ -284,7 +189,7 @@ def decode_capped(data: bytes) -> str:
     return data[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")
 
 
-def parse_result(stdout: str) -> Mapping[str, Any] | None:
+def parse_result(stdout: str) -> Mapping[str, object] | None:
     """从**末尾往前**找第一个可解析为 JSON 对象的非空行。
 
     结果行**不必是最后一行**：脚本常会在结果之后再打印一行日志。旧实现只看最后一行、
@@ -305,3 +210,21 @@ def parse_result(stdout: str) -> Mapping[str, Any] | None:
         if isinstance(payload, dict):
             return payload
     return None
+
+
+__all__ = [
+    "MAX_OUTPUT_BYTES",
+    "ScriptSkillExecutor",
+    "SkillArtifactResolver",
+    "SkillExecutionError",
+    "SkillExecutionRequest",
+    "SkillExecutionResult",
+    "SkillExecutionStatus",
+    "SkillExecutor",
+    "build_child_env",
+    "decode_capped",
+    "parse_result",
+    "script_command",
+    "select_entry_script",
+    "select_script",
+]

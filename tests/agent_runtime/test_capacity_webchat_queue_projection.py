@@ -1250,6 +1250,7 @@ async def test_b236_tool_wait_stage_is_persisted_and_recovered_from_persisted_fa
         checksum="sha256:" + "a" * 64,
         storage_key="skills/async.zip",
         execution_mode=SkillExecutionMode.ASYNC,
+        source="ADMIN",
     )
     seeded = await _seed_claimable_run(tenant, skill)
     run_id = seeded["run_id"]

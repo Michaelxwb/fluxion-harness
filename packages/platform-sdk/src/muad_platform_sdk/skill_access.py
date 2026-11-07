@@ -16,6 +16,11 @@ from .session.manager import SessionRequest
 from .session.redis_manager import RedisPlatformSessionManager
 from .types import PlatformConfig, SecretValue
 
+#: Console 拒绝（无权限/无凭据）只收敛该平台，不把整个执行判为失败；其余错误原样上抛。
+_AUTHORIZATION_DENIALS = frozenset(
+    {"PLATFORM_ACCESS_DENIED", "PLATFORM_ACCESS_UNAVAILABLE", "CREDENTIAL_MISSING"}
+)
+
 
 @dataclass(frozen=True, slots=True)
 class SkillPlatformContext:
@@ -39,9 +44,7 @@ class SkillPlatformAccess:
                 context.redis_url,
                 mode=context.redis_mode,
                 seeds=[
-                    item.strip()
-                    for item in (context.redis_cluster_seeds or "").split(",")
-                    if item.strip()
+                    item.strip() for item in (context.redis_cluster_seeds or "").split(",") if item.strip()
                 ],
             )
             if context.redis_url
@@ -50,6 +53,11 @@ class SkillPlatformAccess:
         self.registry = PlatformAdapterRegistry()
         for adapter in (MSSAdapter(),):
             self.registry.register(adapter)
+        #: 同一执行内 Console 解析结果复用：broker 的授权计算、会话续期与 state 写入
+        #: 都读同一份平台/凭据快照，避免每次 get-state 重复出网。
+        self._resolved_bindings: dict[
+            str, tuple[PlatformConfig, SessionRequest, RedisPlatformSessionManager]
+        ] = {}
 
     async def close(self) -> None:
         if self.redis:
@@ -63,6 +71,35 @@ class SkillPlatformAccess:
             raise PlatformAuthError("PLATFORM_ACCESS_UNAVAILABLE")
         data = await self._resolve_http(key, method)
         return self._resolved(key, data)
+
+    async def resolve_platform(
+        self, key: str
+    ) -> tuple[PlatformConfig, SessionRequest, RedisPlatformSessionManager]:
+        """同一执行内复用 Console 解析结果（平台只读配置 + 凭据版本）。"""
+        cached = self._resolved_bindings.get(key)
+        if cached is None:
+            cached = await self.resolve(key, "GET", "/")
+            self._resolved_bindings[key] = cached
+        return cached
+
+    async def allowed_keys(self) -> tuple[str, ...]:
+        """受信 Run/Task 上下文内、Console 实际放行的平台集合。
+
+        Skill 声明的 ``platforms`` 只是候选上界；凭据模式与平台权限由 Console 判定。
+        全部被拒绝时按契约返回 ``PLATFORM_SESSION_REQUIRED``，部分拒绝只收敛该平台。
+        """
+        allowed: list[str] = []
+        for key in self.context.platform_keys:
+            try:
+                await self.resolve_platform(key)
+            except PlatformAuthError as exc:
+                if exc.code in _AUTHORIZATION_DENIALS:
+                    continue
+                raise
+            allowed.append(key)
+        if not allowed:
+            raise PlatformAuthError("PLATFORM_SESSION_REQUIRED")
+        return tuple(allowed)
 
     async def _resolve_http(self, key: str, method: str) -> dict[str, Any]:
         ctx = self.context
@@ -124,6 +161,7 @@ class SkillPlatformAccess:
 
     async def start(self) -> None:
         # Skill execution, including scripts without a business call, resets idle TTL.
-        for key in self.context.platform_keys:
-            _, request, manager = await self.resolve(key, "GET", "/")
+        # 只续期 Console 放行的平台；未授权平台不触发登录，也不进入 state 文件。
+        for key in await self.allowed_keys():
+            _, request, manager = await self.resolve_platform(key)
             await manager.acquire(request)

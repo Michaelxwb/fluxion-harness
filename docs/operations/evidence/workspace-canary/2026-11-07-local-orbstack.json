@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "generated_at": "2026-11-06T17:02:29.655538+00:00",
+  "namespace": "muad-workspace-canary",
+  "expected_root": "/mnt/muad-workspaces",
+  "workspace_claim": "muad-workspaces-rwx",
+  "pvc": {
+    "name": "muad-workspaces-rwx",
+    "phase": "Bound",
+    "access_modes": [
+      "ReadWriteMany"
+    ],
+    "storage": "1Gi",
+    "storage_class": "muad-workspaces-canary"
+  },
+  "pods": {
+    "runtime": {
+      "role": "runtime",
+      "name": "muad-agent-runtime-7b78b6cc74-mv9qb",
+      "node": "orbstack",
+      "image": "muad-skill-executor-probe:8e8cd7dcaec3",
+      "image_id": "docker-pullable://muad-skill-executor-probe@sha256:09541c7336f210b47699365be4d223809014bd82c2c0a550ef187057a968802c",
+      "mount_path": "/mnt/muad-workspaces",
+      "mount_path_ok": true,
+      "claim_name_ok": true,
+      "read_only": false,
+      "probe": {
+        "role": "runtime",
+        "uid": 10001,
+        "gid": 10001,
+        "hostname": "muad-agent-runtime-7b78b6cc74-mv9qb",
+        "workspace_root": "/mnt/muad-workspaces",
+        "bwrap_ok": true,
+        "bwrap_version": "bubblewrap 0.13.2",
+        "pvc_write_ok": true,
+        "bwrap_write_ok": true,
+        "cross_pod_ok": null,
+        "error": null
+      }
+    },
+    "worker": {
+      "role": "worker",
+      "name": "muad-agent-worker-685994697b-h9rsn",
+      "node": "orbstack",
+      "image": "muad-skill-executor-probe:8e8cd7dcaec3",
+      "image_id": "docker-pullable://muad-skill-executor-probe@sha256:09541c7336f210b47699365be4d223809014bd82c2c0a550ef187057a968802c",
+      "mount_path": "/mnt/muad-workspaces",
+      "mount_path_ok": true,
+      "claim_name_ok": true,
+      "read_only": false,
+      "probe": {
+        "role": "worker",
+        "uid": 10001,
+        "gid": 10001,
+        "hostname": "muad-agent-worker-685994697b-h9rsn",
+        "workspace_root": "/mnt/muad-workspaces",
+        "bwrap_ok": true,
+        "bwrap_version": "bubblewrap 0.13.2",
+        "pvc_write_ok": true,
+        "bwrap_write_ok": true,
+        "cross_pod_ok": true,
+        "error": null
+      }
+    }
+  },
+  "nodes": {
+    "orbstack": {
+      "kernel_version": "7.2.12-orbstack-00394-gbecdd6130068",
+      "os_image": "OrbStack",
+      "container_runtime": "docker://29.8.2",
+      "kubelet_version": "v1.36.5+orb1"
+    }
+  },
+  "cleanup_ok": true,
+  "checks": [
+    "image_digest",
+    "node_fingerprint",
+    "pvc_bound_rwx",
+    "runtime_bwrap",
+    "runtime_mounts_workspace",
+    "runtime_pvc_write",
+    "worker_bwrap",
+    "worker_cross_pod_read",
+    "worker_mounts_workspace",
+    "workspace_cleanup"
+  ],
+  "failures": [],
+  "ok": true
+}

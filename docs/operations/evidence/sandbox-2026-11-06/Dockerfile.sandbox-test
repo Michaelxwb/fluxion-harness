@@ -1,0 +1,17 @@
+# syntax=docker/dockerfile:1
+FROM alpine:3.20 AS bwrap-build
+RUN apk add --no-cache build-base meson ninja linux-headers libcap-dev git
+RUN git clone --depth 1 https://github.com/containers/bubblewrap.git /src
+WORKDIR /src
+RUN meson setup build -Dselinux=disabled -Dman=disabled -Dtests=false \
+ && ninja -C build
+
+FROM docker.sangfor.com/mss-base/python-node:3.12.13-node24
+USER root
+COPY --from=bwrap-build /src/build/bwrap /usr/local/bin/bwrap
+COPY --from=bwrap-build /lib/ld-musl-x86_64.so.1 /lib/ld-musl-x86_64.so.1
+COPY --from=bwrap-build /usr/lib/libcap.so.2 /usr/lib/libcap.so.2
+RUN chmod 0755 /usr/local/bin/bwrap
+USER 10001:10001
+WORKDIR /app
+CMD ["sleep", "infinity"]

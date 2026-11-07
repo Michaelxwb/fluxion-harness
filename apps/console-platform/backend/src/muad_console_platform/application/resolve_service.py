@@ -11,6 +11,7 @@ from muad_contracts import (
     ResolveModelRequest,
     ResolveModelResponse,
     SkillExecutionMode,
+    SkillSource,
 )
 from muad_contracts.model_pool import SelectedModelCredential
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -153,6 +154,7 @@ class ResolveService:
                 storage_key=artifact.storage_key,
                 execution_mode=cast(SkillExecutionMode, artifact.execution_mode),
                 frontmatter=artifact.frontmatter_json,
+                source=SkillSource(skill.source),
             )
             for skill, artifact in rows
         ]

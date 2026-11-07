@@ -61,15 +61,17 @@ def test_skill_import_modal_contract() -> None:
 
 
 def test_skill_list_has_delete_action_with_confirmation() -> None:
-    """对象删除放在主列表，二次确认；删除走 services 层并关闭已删除对象的详情。"""
+    """对象删除放在主列表，二次确认展示解绑影响；删除走 services 层并关闭已删除对象的详情。"""
     page = _source("SkillPage.tsx")
     service = _source("services/skills.ts")
-    assert "ConfirmAction" in page
-    assert "skill.confirmDelete" in page
+    confirm = _source("SkillDeleteConfirm.tsx")
+    assert "SkillDeleteConfirm" in page
+    assert "listAllSkillAgents" in page
+    assert "skill.delete.title" in confirm
     assert "delete-skill-${record.key}" in page
     assert "deleteSkill" in service and "/skills/${id}`" in service
-    assert "detail?.id === skill.id" in page
-    assert "errorTip: 'never'" not in page, "删除失败统一走全局 Tips，不再做页面私有提示"
+    assert "detail?.id === deleteTarget.id" in page
+    assert "errorTip: 'never'" not in page, "删除失败统一在确认弹窗内展示，不再做页面私有 Toast"
 
 
 def test_skill_copy_uses_navigator_clipboard() -> None:
@@ -158,4 +160,5 @@ def test_skill_row_action_labels_and_delete_color() -> None:
     zh = json.loads((LOCALES / "zh-CN.json").read_text(encoding="utf-8"))
     assert zh["skill.scope.changeAction"] == "编辑"
     assert zh["skill.artifact.importNew"] == "更新"
-    assert '<ConfirmAction type="danger"' in _source("SkillPage.tsx")
+    assert '<Button\n                      type="danger"' in _source("SkillPage.tsx")
+    assert "type: 'danger'" in _source("SkillDeleteConfirm.tsx")

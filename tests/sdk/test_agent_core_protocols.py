@@ -1,5 +1,5 @@
 import inspect
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -13,10 +13,15 @@ from muad_agent_core.model import (
     ModelRole,
 )
 from muad_agent_core.prompt import PromptBuilder, PromptSkill
-from muad_agent_core.skill import SkillArtifactResolver, SkillExecutor
+from muad_agent_core.skill import (
+    SkillArtifactResolver,
+    SkillExecutionRequest,
+    SkillExecutionResult,
+    SkillExecutionStatus,
+    SkillExecutor,
+)
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_contracts import ResolvedSkill, SkillExecutionMode
-from muad_skill_sdk import SkillContext
 
 
 def _resolved_skill() -> ResolvedSkill:
@@ -30,6 +35,7 @@ def _resolved_skill() -> ResolvedSkill:
         checksum="sha256:" + "0" * 64,
         storage_key="skills/device-policy-check/1.0.0/skill.zip",
         execution_mode=SkillExecutionMode.SYNC,
+        source="ADMIN",
     )
 
 
@@ -50,20 +56,15 @@ class DummyPromptBuilder:
 
 
 class DummySkillExecutor:
-    async def execute(
-        self,
-        *,
-        artifact: ResolvedSkill,
-        local_path: Path,
-        input_data: Mapping[str, Any],
-        context: SkillContext,
-    ) -> Mapping[str, Any]:
-        return {
-            "skill_key": artifact.key,
-            "local_path": str(local_path),
-            "input": dict(input_data),
-            "user_id": context.user.user_id,
-        }
+    async def execute(self, request: SkillExecutionRequest) -> SkillExecutionResult:
+        return SkillExecutionResult(
+            status=SkillExecutionStatus.SUCCEEDED,
+            result={
+                "ready_dir": str(request.ready_dir),
+                "input": dict(request.input),
+                "source": request.source,
+            },
+        )
 
 
 async def test_model_messages_and_provider_shape() -> None:
@@ -99,7 +100,7 @@ def test_skill_executor_is_a_protocol_not_the_old_stub() -> None:
     assert inspect.iscoroutinefunction(SkillExecutor.execute)
 
     parameters = set(inspect.signature(SkillExecutor.execute).parameters)
-    assert {"artifact", "local_path", "input_data", "context"} <= parameters
+    assert parameters == {"self", "request"}
 
     with pytest.raises(TypeError):
         _instantiate(SkillExecutor)
@@ -109,19 +110,24 @@ def _instantiate(cls: type[Any]) -> Any:
     return cls()
 
 
-async def test_dummy_skill_executor_satisfies_protocol(skill_context: SkillContext, tmp_path: Path) -> None:
+async def test_dummy_skill_executor_satisfies_protocol(tmp_path: Path) -> None:
     executor: SkillExecutor = DummySkillExecutor()
 
     result = await executor.execute(
-        artifact=_resolved_skill(),
-        local_path=tmp_path,
-        input_data={"question": "hello"},
-        context=skill_context,
+        SkillExecutionRequest(
+            ready_dir=tmp_path,
+            input={"question": "hello"},
+            timeout_sec=10,
+            source="ADMIN",
+        )
     )
 
-    assert result["skill_key"] == "device-policy-check"
-    assert result["input"] == {"question": "hello"}
-    assert result["user_id"] == "user-1"
+    assert result.status is SkillExecutionStatus.SUCCEEDED
+    assert result.result == {
+        "ready_dir": str(tmp_path),
+        "input": {"question": "hello"},
+        "source": "ADMIN",
+    }
 
 
 def test_real_skill_artifact_cache_satisfies_resolver_protocol(tmp_path: Path) -> None:

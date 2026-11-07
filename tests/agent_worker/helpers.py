@@ -155,6 +155,7 @@ def build_resolve_response(
                 storage_key=f"skills/{skill_id}/{artifact_id}/skill.zip",
                 execution_mode=SkillExecutionMode.ASYNC,
                 frontmatter={},
+                source="ADMIN",
             )
         ],
         mcp_servers=[],
@@ -194,6 +195,28 @@ class FakeResolver:
         return self._response
 
 
+def _fill_execution_snapshot_contract(values: dict[str, Any]) -> None:
+    """测试快照补齐 v2 冻结字段：真实构建器总会写 source/workspace（RULE-snapshot-001）。"""
+    snapshot = values.get("execution_snapshot_json")
+    if not isinstance(snapshot, dict):
+        return
+    skills = snapshot.get("skills")
+    if not isinstance(skills, list):
+        return
+    for skill in skills:
+        if not isinstance(skill, dict):
+            continue
+        skill.setdefault("source", "ADMIN")
+        skill.setdefault(
+            "workspace",
+            {
+                "tenant_id": values["tenant_id"],
+                "user_id": str(values["actor_user_id"]),
+                "agent_id": str(values["agent_id"]),
+            },
+        )
+
+
 async def persist_task(
     tenant: TenantContext,
     *,
@@ -230,6 +253,7 @@ async def persist_task(
         "delivery_attempts": 0,
     }
     values.update(overrides)
+    _fill_execution_snapshot_contract(values)
     if values["delivery_mode"] == "NONE":
         values["delivery_status"] = "NONE"
     async with tenant.session_factory() as session:

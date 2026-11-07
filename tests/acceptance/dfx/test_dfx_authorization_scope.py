@@ -467,7 +467,7 @@ def _start_run(stack: LiveStack, http: httpx.Client, text_body: str) -> uuid.UUI
             },
             "message": {"id": f"msg-{uuid.uuid4().hex[:10]}", "type": "text", "text": text_body},
         },
-        headers={"X-Tenant-Id": stack.tenant_id},
+        headers=stack.service_headers(),
         timeout=RUN_TIMEOUT_SEC,
     )
     assert response.status_code == 200, response.text

@@ -529,6 +529,8 @@ body {
 .table-actions,
 .copyable-text {
   max-width: 100%;
+  min-width: 0;
+  width: 100%;
   display: inline-flex;
   align-items: center;
   vertical-align: middle;
@@ -536,6 +538,7 @@ body {
 }
 
 .copyable-text > span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1971,5 +1974,34 @@ body {
 /* Keep translated headings readable as navigation changes the available table width. */
 .app-table-fit .semi-table .semi-table-thead > .semi-table-row > .semi-table-row-head {
   white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Skill 审批 / 下载 / 解绑 ---------- */
+.skill-review-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.skill-review-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skill-download {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.skill-action-error {
+  color: var(--semi-color-danger);
+  font-size: 13px;
+  line-height: 20px;
   overflow-wrap: anywhere;
 }

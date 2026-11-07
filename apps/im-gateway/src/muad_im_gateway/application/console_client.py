@@ -307,9 +307,11 @@ class ConsoleClient:
         params: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
     ) -> ContractT:
+        # 受信头最后合并：调用方（可能来自浏览器字段映射）传入的同名头不得覆盖
+        # 服务身份/租户/链路身份。
         request_headers = {
-            **_headers(tenant_id, self._service_token),
             **(headers or {}),
+            **_headers(tenant_id, self._service_token),
         }
         try:
             response = await self._client.request(

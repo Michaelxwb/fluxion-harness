@@ -18,6 +18,8 @@ from muad_agent_core.model import (
     ModelToolCall,
 )
 from muad_agent_core.prompt import MAX_CATALOG_ENTRIES
+from muad_agent_core.sandbox import DevUnsafeRunner
+from muad_agent_core.skill import SandboxedSkillExecutor
 from muad_agent_core.tools import ToolEffect, ToolRegistry
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
@@ -41,6 +43,11 @@ from muad_contracts.platform_settings import ToolResultSettings
 
 #: 外置阈值只从 schema 取（TASK-011 收敛：源码里不再有第二套默认常量）。
 TOOL_RESULT_ARTIFACT_BYTES = ToolResultSettings().persist_threshold_bytes
+
+
+def _dev_executor() -> SandboxedSkillExecutor:
+    """测试用显式 dev-unsafe：真实子进程，无 bwrap 的 macOS 也能验证执行链路。"""
+    return SandboxedSkillExecutor(runner=DevUnsafeRunner(), dev_unsafe=True)
 
 SKILL_KEY = "demo-skill"
 STORAGE_KEY = "skills/demo-skill/1.0.0/skill.zip"
@@ -102,12 +109,16 @@ def _env_for(tmp_path: Path, files: Mapping[str, str]) -> SkillEnv:
         checksum="sha256:" + hashlib.sha256(data).hexdigest(),
         storage_key=STORAGE_KEY,
         execution_mode="SYNC",
+        source="ADMIN",
     )
     cache = SkillArtifactCache(NfsArtifactStore(artifact_root), tmp_path / "cache")
     registry = build_skill_registry(
         cache=cache,
         skills=(skill,),
         policy=AgentPolicy(deadline_ms=30_000),
+        executor=_dev_executor(),
+        workspace_dir=tmp_path / "workspace",
+        execution_id=f"exec-{uuid.uuid4()}",
     )
     return SkillEnv(registry=registry, skill=skill, cache=cache)
 
@@ -439,6 +450,7 @@ def _registry_with_keys(tmp_path: Path, *keys: str) -> ToolRegistry:
             checksum="sha256:" + "0" * 64,
             storage_key=f"skills/{key}/1.0.0/skill.zip",
             execution_mode="SYNC",
+            source="ADMIN",
         )
         for key in keys
     )

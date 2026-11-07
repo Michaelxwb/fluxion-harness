@@ -69,12 +69,97 @@ kubectl apply -f muad-artifacts-rwx.yaml
 kubectl -n muad get pvc muad-artifacts-rwx
 ```
 
-5 个服务都挂载：
+5 个服务都挂载 artifacts：
 
 ```text
 PV: muad-artifacts-rwx
 MountPath: /mnt/muad-artifacts
 ```
+
+Skill/Shell workspace 使用**独立 PVC**，不与 artifacts 共卷：
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: muad-workspaces-rwx
+  namespace: muad
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: muad-nfs-public-provisoner
+  resources:
+    requests:
+      storage: 100Gi
+```
+
+```bash
+kubectl apply -f muad-workspaces-rwx.yaml
+kubectl -n muad get pvc muad-workspaces-rwx
+```
+
+只有 Runtime/Worker 挂载：
+
+```text
+PV: muad-workspaces-rwx
+MountPath: /mnt/muad-workspaces
+```
+
+```text
+WORKSPACE_ROOT=/mnt/muad-workspaces
+/mnt/muad-workspaces/{tenant_id}/{user_id}/{agent_id}/
+  ├── data/
+  └── outputs/{run_id}/
+```
+
+Helm 的 runtime/worker 需要加 workspace 参数（console/gateway/connector 不需要）：
+
+```text
+--set global.workspaces.existingClaim=muad-workspaces-rwx \
+--set global.workspaces.mountPath=/mnt/muad-workspaces
+```
+
+部署后验证目录可写（以 Runtime 的 UID 10001 执行）：
+
+```bash
+kubectl -n muad exec deploy/muad-agent-runtime -- python -c '
+from pathlib import Path
+root = Path("/mnt/muad-workspaces")
+root.mkdir(parents=True, exist_ok=True)
+probe = root / ".write-probe"
+probe.write_text("ok")
+probe.unlink()
+print("workspace writable:", root)
+'
+```
+
+**workspace canary（P1 发布门禁，先跑 1 个 Runtime/Worker 副本）**
+
+```bash
+python3 scripts/workspace_canary.py --namespace muad \
+  --runtime deployment/muad-agent-runtime \
+  --worker deployment/muad-agent-worker \
+  --expected-root /mnt/muad-workspaces \
+  --output docs/operations/evidence/workspace-canary/$(date +%Y-%m-%d)-canary.json
+```
+
+脚本只用标准库，宿主机有 Python 3.9+ 即可（不需要 uv）。宿主机没有 Python 时，按
+`deploy/k8s/README.md`「P1 workspace canary」一节的 Pod 内步骤执行：把脚本拷进
+Runtime/Worker Pod，用 `--probe-only` 跑探针、`--cleanup-only` 清理，其余证据用 kubectl 采集。
+
+脚本在真实 Pod 内检查并以 JSON 记录：PVC `Bound` + `ReadWriteMany`、两个 Pod 挂同一
+claim 且可写、Runtime 写入后 Worker 能跨 Pod 读到、两个 Pod 内 `bwrap --version` 与
+workspace 子目录 bind 写入（真实执行器映射为 `/workspace`）、两个 Pod 的 imageID
+（`sha256:` digest）和节点内核/OS/容器运行时
+指纹；结束清理 `.canary/<run-id>` 临时目录。任一项失败返回非零，**不得进入全量发布**。
+本地/内网证据目录见 `docs/operations/evidence/workspace-canary/`。
+
+容量注意：
+
+- workspace 与 artifacts 分开计费；`muad-artifacts-rwx` 继续只存不可变 Skill 包/附件；
+- 按每用户 500 MiB 估算，1000 用户约 500 GiB，100Gi 初始卷按实际用户数扩容；
+- 监控两个 PVC 的使用率；workspace 写满不应影响 Skill 包/附件；
+- 清理只处理 `WORKSPACE_ROOT`，不触碰 artifact 目录。
 
 ### 1.2 Secret
 
@@ -203,6 +288,17 @@ REDIS_CLUSTER_SEEDS: "10.74.145.45:6393,10.74.145.46:6393,10.74.145.47:6393"
 `helm upgrade --install` 步骤安装，不要用 `kubectl apply -k deploy/k8s/base` 把原始清单
 铺进 Helm 管理的 namespace。
 
+Skill/Shell workspace 使用独立 PVC；配置在 `muad-common`，Runtime/Worker Helm 参数见 §2.2/§2.3：
+
+```yaml
+WORKSPACE_ROOT: /mnt/muad-workspaces
+WORKSPACE_QUOTA_MIB: "500"
+WORKSPACE_USER_QUOTA_MIB: "500"
+WORKSPACE_FILE_LIMIT: "5000"
+WORKSPACE_OUTPUT_TTL_DAYS: "30"
+WORKSPACE_DATA_TTL_DAYS: "30"
+```
+
 已有 ConfigMap 时 `kubectl apply` 会原地更新，但**不会重启 Pod**；`kubectl patch` 可重复
 执行。顺序固定为「先 apply（会把值重置为 standalone）→ 再 patch」，然后重启 5 个
 Deployment（`muad-common` 是外部资源，Helm 不会因它变化自动滚动）：
@@ -244,6 +340,10 @@ kubectl -n muad create secret docker-registry regcred \
 > 也不要在参数块里写 `$TAG`：平台生成的脚本是 `set -euo pipefail`，未定义的变量会
 > 直接退出（`bash: line 22: TAG: unbound variable`），命令一行都不会执行。
 
+> **workspace 使用独立 PVC**：runtime/worker 的 chart 已支持 `global.workspaces.existingClaim` /
+> `global.workspaces.mountPath`；console/gateway/connector 不挂 workspace，不要给它们加参数。
+> workspace 配额/TTL 在 `muad-common` ConfigMap 中配置。
+
 > 如果使用第 9 节的 nginx 统一入口，把 console 和 gateway 的 `service.type` 改成
 > `ClusterIP`，并去掉 `service.nodePort` / `service.externalTrafficPolicy`。
 
@@ -283,6 +383,8 @@ kubectl -n muad create secret docker-registry regcred \
 --set global.connectorSecret=muad-connector-external \
 --set global.artifacts.existingClaim=muad-artifacts-rwx \
 --set global.artifacts.mountPath=/mnt/muad-artifacts \
+--set global.workspaces.existingClaim=muad-workspaces-rwx \
+--set global.workspaces.mountPath=/mnt/muad-workspaces \
 --set serviceAccount.create=true \
 --set service.image=muad-agent-runtime \
 --set service.port=8001 \
@@ -305,6 +407,8 @@ kubectl -n muad create secret docker-registry regcred \
 --set global.connectorSecret=muad-connector-external \
 --set global.artifacts.existingClaim=muad-artifacts-rwx \
 --set global.artifacts.mountPath=/mnt/muad-artifacts \
+--set global.workspaces.existingClaim=muad-workspaces-rwx \
+--set global.workspaces.mountPath=/mnt/muad-workspaces \
 --set serviceAccount.create=true \
 --set service.image=muad-agent-worker \
 --set service.port=8002 \
@@ -430,6 +534,12 @@ data:
   API_MESSAGES_FILE: /app/config/api-messages.yaml
 
   ARTIFACT_ROOT: /mnt/muad-artifacts
+  WORKSPACE_ROOT: /mnt/muad-workspaces
+  WORKSPACE_QUOTA_MIB: "500"
+  WORKSPACE_USER_QUOTA_MIB: "500"
+  WORKSPACE_FILE_LIMIT: "5000"
+  WORKSPACE_OUTPUT_TTL_DAYS: "30"
+  WORKSPACE_DATA_TTL_DAYS: "30"
   SKILL_CACHE_ROOT: /var/cache/muad/skills
   MIGRATIONS_DIR: /app/migrations/versions
 

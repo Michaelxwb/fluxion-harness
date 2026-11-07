@@ -163,6 +163,7 @@ def test_prompt_projection_keeps_no_artifact_details() -> None:
         checksum="sha256:" + "a" * 64,
         storage_key="skills/policy-check/9.9.9/skill.zip",
         frontmatter={"platform_label": "Demo"},
+        source="ADMIN",
     )
 
     projected = prompt_skill(resolved)

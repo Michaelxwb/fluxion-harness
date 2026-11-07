@@ -1,16 +1,29 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Protocol, cast
 
+from muad_agent_core.sandbox import (
+    WorkspaceDeleting,
+    WorkspaceLease,
+    WorkspaceQuotaExceeded,
+    WorkspaceStore,
+    WorkspaceUnavailable,
+    workspace_layout_from_settings,
+)
 from muad_agent_core.skill import (
-    ScriptSkillExecutor,
     SkillArtifactResolver,
     SkillExecutionError,
     SkillExecutionRequest,
+    SkillExecutionResult,
     SkillExecutionStatus,
+    SkillExecutor,
+    build_sandboxed_skill_executor,
 )
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import process_settings
@@ -28,11 +41,20 @@ from ..application.batch_fanout import (
     FanoutSummary,
 )
 from ..infrastructure.models.task import TaskExecution
+from ..metrics import (
+    SANDBOX_OUTPUT_LIMIT_METRIC,
+    SANDBOX_TIMEOUT_METRIC,
+    SKILL_EXECUTION_METRIC,
+    record_outcome,
+)
+
+logger = logging.getLogger("muad_agent_worker.worker.executor")
 
 EXECUTION_TIMEOUT_SEC = 300.0
 #: 剩余时间已经不够一秒时不再把它夹成 0：给子进程一个能正常启动/收尾的下限。
 MIN_EXECUTION_TIMEOUT_SEC = 1.0
 SKILL_ARTIFACT_KEYS = ("artifact_id", "storage_key", "checksum")
+VALID_SKILL_SOURCES = frozenset({"SYSTEM", "ADMIN", "USER"})
 # 确定性失败：重跑结果不会变（快照/计划/制品本身有问题），不消耗重试预算直接 FAILED。
 NON_RETRYABLE_CODES = frozenset(
     {
@@ -41,7 +63,7 @@ NON_RETRYABLE_CODES = frozenset(
         "BATCH_FANOUT_STALE",
         "BATCH_FANOUT_UNAVAILABLE",
         "SKILL_ARTIFACT_UNAVAILABLE",
-        "SKILL_ARTIFACT_CHECKSUM_MISMATCH",
+        "SKILL_ARTIFACT_INTEGRITY_ERROR",
         "SKILL_RESULT_INVALID",
     }
 )
@@ -100,6 +122,72 @@ def frozen_skill(task: TaskExecution) -> Mapping[str, Any]:
     return cast(Mapping[str, Any], entry)
 
 
+def frozen_source(skill: Mapping[str, Any]) -> str:
+    """冻结的 Skill 来源决定 policy；缺失/非法一律拒绝执行（RULE-snapshot-001）。"""
+    source = skill.get("source")
+    if not isinstance(source, str) or not source.strip():
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen skill is missing source", retryable=False
+        )
+    normalized = source.strip().upper()
+    if normalized not in VALID_SKILL_SOURCES:
+        raise TaskExecutionError(
+            "SKILL_SOURCE_INVALID", f"invalid frozen skill source: {source!r}", retryable=False
+        )
+    return normalized
+
+
+@dataclass(frozen=True, slots=True)
+class FrozenWorkspace:
+    tenant_id: str
+    user_id: str
+    agent_id: str
+
+
+def frozen_workspace_identity(task: TaskExecution, skill: Mapping[str, Any]) -> FrozenWorkspace:
+    """从冻结 Snapshot 取 tenant/user/Agent 归属；不信任 Task 行的可变列。"""
+    raw = skill.get("workspace")
+    if not isinstance(raw, Mapping):
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen skill is missing workspace", retryable=False
+        )
+    tenant_id = raw.get("tenant_id")
+    user_id = raw.get("user_id")
+    agent_id = raw.get("agent_id")
+    if not isinstance(tenant_id, str) or not tenant_id.strip():
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen workspace tenant is missing", retryable=False
+        )
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen workspace user is missing", retryable=False
+        )
+    if not isinstance(agent_id, str) or not agent_id.strip():
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen workspace agent is missing", retryable=False
+        )
+    if tenant_id != task.tenant_id:
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", "frozen workspace tenant does not match task", retryable=False
+        )
+    return FrozenWorkspace(tenant_id=tenant_id, user_id=user_id, agent_id=agent_id)
+
+
+def frozen_workspace(task: TaskExecution, skill: Mapping[str, Any]) -> Path:
+    identity = frozen_workspace_identity(task, skill)
+    try:
+        layout = workspace_layout_from_settings(process_settings())
+        return layout.workspace_dir(
+            tenant_id=identity.tenant_id,
+            user_id=identity.user_id,
+            agent_id=identity.agent_id,
+        )
+    except ValueError as exc:
+        raise TaskExecutionError(
+            "SKILL_SNAPSHOT_MISSING", f"invalid frozen workspace: {exc}", retryable=False
+        ) from exc
+
+
 class SkillTaskExecutor:
     """按冻结 Snapshot 执行 Skill。
 
@@ -110,18 +198,41 @@ class SkillTaskExecutor:
     def __init__(
         self,
         resolver: SkillArtifactResolver,
-        executor: ScriptSkillExecutor | None = None,
+        executor: SkillExecutor | None = None,
         fanout: BatchFanoutProtocol | None = None,
+        workspace_store: WorkspaceStore | None = None,
     ) -> None:
         self._resolver = resolver
-        self._executor = executor or ScriptSkillExecutor()
+        self._executor = executor or build_sandboxed_skill_executor(process_settings())
         self._fanout = fanout
+        self._workspace_store = workspace_store
 
     async def execute(self, task: TaskExecution) -> dict[str, Any]:
         if task.task_type == TASK_TYPE_BATCH:
             # reclaim 后不重跑 Skill：已有 Child 的 Parent 只等待 fan-in。
             return self._batch_envelope(task)
         skill = frozen_skill(task)
+        source = frozen_source(skill)
+        lease = None
+        if self._workspace_store is None:
+            workspace = frozen_workspace(task, skill)
+        else:
+            identity = frozen_workspace_identity(task, skill)
+            lease = await self._acquire_workspace(task, identity)
+            workspace = lease.workspace_dir
+        try:
+            return await self._run_skill(task, skill, source, workspace)
+        finally:
+            if lease is not None:
+                await self._finish_workspace(lease)
+
+    async def _run_skill(
+        self,
+        task: TaskExecution,
+        skill: Mapping[str, Any],
+        source: str,
+        workspace: Path,
+    ) -> dict[str, Any]:
         try:
             ready_dir = await self._resolver.ensure(
                 artifact_id=str(skill["artifact_id"]),
@@ -129,6 +240,14 @@ class SkillTaskExecutor:
                 checksum=str(skill["checksum"]),
             )
         except SkillArtifactCacheError as exc:
+            if exc.code == "SKILL_ARTIFACT_INTEGRITY_ERROR":
+                # checksum 不匹配是安全事件：拒绝执行并留下可聚合的告警（RULE-skill-001）。
+                logger.warning(
+                    "skill_artifact_integrity_error skill_id=%s artifact_id=%s",
+                    skill.get("skill_id"),
+                    skill.get("artifact_id"),
+                )
+                record_outcome(SKILL_EXECUTION_METRIC, "FAILED", {"source": source})
             raise TaskExecutionError(exc.code, f"skill artifact rejected: {exc.code}") from exc
         try:
             result = await self._executor.execute(
@@ -136,12 +255,16 @@ class SkillTaskExecutor:
                     ready_dir=ready_dir,
                     input=task.input_json or {},
                     timeout_sec=self._execution_timeout(task),
+                    source=source,
+                    workspace_dir=workspace,
+                    execution_id=str(task.id),
                     env=task_env(task),
                     platform_context=task_platform_context(task, skill),
                 )
             )
         except SkillExecutionError as exc:
             raise TaskExecutionError("SKILL_EXECUTION_FAILED", exc.message) from exc
+        self._record_result(source, result)
         payload = dict(result.result) if result.result else {}
         plan = self._parse_plan(payload)
         if plan is not None:
@@ -165,7 +288,68 @@ class SkillTaskExecutor:
             "stderr": result.stderr,
             "duration_ms": result.duration_ms,
             "exit_code": result.exit_code,
+            "outputs": [
+                {
+                    "relative_path": output.relative_path,
+                    "size": output.size,
+                    "checksum": output.checksum,
+                }
+                for output in result.outputs
+            ],
+            "output_notice": result.output_notice,
         }
+
+    async def _acquire_workspace(
+        self, task: TaskExecution, identity: FrozenWorkspace
+    ) -> WorkspaceLease:
+        assert self._workspace_store is not None
+        try:
+            return await self._workspace_store.acquire(
+                tenant_id=identity.tenant_id,
+                user_id=identity.user_id,
+                agent_id=identity.agent_id,
+                execution_id=str(task.id),
+                run_id=str(task.source_run_id or ""),
+                task_id=str(task.id),
+                lease_sec=max(60.0, self._execution_timeout(task) + 30.0),
+            )
+        except WorkspaceQuotaExceeded as exc:
+            raise TaskExecutionError(
+                "WORKSPACE_QUOTA_EXCEEDED", str(exc), retryable=False
+            ) from exc
+        except WorkspaceDeleting as exc:
+            raise TaskExecutionError(
+                "WORKSPACE_DELETING", str(exc), retryable=False
+            ) from exc
+        except WorkspaceUnavailable as exc:
+            raise TaskExecutionError("WORKSPACE_UNAVAILABLE", str(exc)) from exc
+
+    async def _finish_workspace(self, lease: WorkspaceLease) -> None:
+        assert self._workspace_store is not None
+        try:
+            await self._workspace_store.refresh_usage(lease)
+        except Exception as exc:  # noqa: BLE001 - 统计失败不得覆盖执行结果
+            logger.warning(
+                "skill_workspace_usage_refresh_failed execution_id=%s error=%s",
+                lease.execution_id,
+                type(exc).__name__,
+            )
+        try:
+            await self._workspace_store.release(lease)
+        except Exception as exc:  # noqa: BLE001 - 释放失败不得覆盖执行结果
+            logger.warning(
+                "skill_workspace_release_failed execution_id=%s error=%s",
+                lease.execution_id,
+                type(exc).__name__,
+            )
+
+    def _record_result(self, source: str, result: SkillExecutionResult) -> None:
+        labels = {"source": source}
+        record_outcome(SKILL_EXECUTION_METRIC, result.status.value, labels)
+        if result.output_notice:
+            record_outcome(SANDBOX_OUTPUT_LIMIT_METRIC, result.output_notice, labels)
+        if result.status is SkillExecutionStatus.TIMED_OUT:
+            record_outcome(SANDBOX_TIMEOUT_METRIC, result.status.value, labels)
 
     def _parse_plan(self, payload: Mapping[str, Any]) -> BatchPlan | None:
         try:

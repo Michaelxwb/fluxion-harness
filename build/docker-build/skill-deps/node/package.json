@@ -1,0 +1,9 @@
+{
+  "name": "muad-skill-node-baseline",
+  "private": true,
+  "version": "1.0.0",
+  "description": "管理员批准的用户 Skill Node 系统依赖基线（runtime/worker 镜像构建期安装）",
+  "dependencies": {
+    "uuid": "14.0.3"
+  }
+}

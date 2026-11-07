@@ -1,0 +1,43 @@
+bwrap per-execution overhead
+============================
+
+Environment:
+  native linux/arm64 container (python:3.12-slim)
+  bubblewrap installed from Debian package
+  Docker seccomp=unconfined (only because Docker's default blocks unshare)
+  Not the intranet amd64/PlatOS node; use this as an order-of-magnitude check.
+
+Startup benchmark (50 iterations):
+  /bin/true                  mean 0.13 ms
+  bwrap ... /bin/true        mean 1.08 ms   (+~0.95 ms)
+  python -c pass             mean 3.50 ms
+  bwrap ... python -c pass   mean 4.77 ms   (+~1.27 ms)
+
+RSS while sleeping (one execution):
+  direct python              9380 KB RSS
+  bwrap parent               1916 KB RSS
+  bwrap child                1360 KB RSS
+  python inside bwrap        8852 KB RSS
+
+Interpretation:
+  - bwrap is a process-level sandbox, not a container/VM per execution.
+  - The interpreter is the dominant memory cost; bwrap adds roughly a few MB
+    of RSS per execution (RSS sums count shared pages more than once).
+  - There is no idle per-user process after the full descendant tree is reaped.
+    Process exit does not imply all cgroup charges (for example file cache) vanish.
+  - Per-execution tmpfs must be bounded (for example 8-16 MiB). If many
+    executions write large temp files, prefer a disk-backed per-execution dir.
+  - Concurrency, not bwrap itself, is the main memory risk: N concurrent
+    interpreters each pay interpreter RSS + a small bwrap overhead.
+  - Add a per-pod sandbox concurrency semaphore and per-child rlimits; tune
+    them against the runtime Pod memory limit.
+
+Caveat:
+  - Numbers are from a native arm64 container, not the intranet amd64 nodes or
+    PlatOS Python. Re-run the same benchmark on a canary runtime Pod before
+    setting production concurrency limits.
+  - Empty-interpreter RSS cannot predict real Skill/Node/install process trees,
+    tmpfs, native extensions, output buffers, or production cgroup peaks.
+  - Per-process rlimits and the Pod cgroup do not provide a per-execution memory
+    hard limit. See the main document section 14.1 for the provisional weighted
+    budget and the boundary requiring execution cgroups or separate Pods.

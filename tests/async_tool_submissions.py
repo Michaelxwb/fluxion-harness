@@ -34,6 +34,7 @@ async def seed_submission(factory, *, pending_limit=1, resolved=None, tenant=Non
             checksum="sha256:" + "a" * 64,
             storage_key="skills/async.zip",
             execution_mode=SkillExecutionMode.ASYNC,
+            source="ADMIN",
         )
     )
     tenant, actor = tenant or str(uuid4()), actor or uuid4()

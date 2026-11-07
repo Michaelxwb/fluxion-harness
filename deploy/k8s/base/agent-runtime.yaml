@@ -116,12 +116,18 @@ spec:
             # 每进程独立本地 Skill cache：不共享，不从共享盘直接执行（RULE-skill-001）
             - name: skill-cache
               mountPath: /var/cache/muad/skills
-      # 共享存储约束（design §4.1）：只有制品卷是共享 RWX PVC（100Gi 与容量 profile 的
-      # artifact 预算一致）；skill-cache 是每进程独立 emptyDir，不得改成共享卷。
+            # 用户 Skill 执行数据/输出：按 tenant + user + Agent 隔离，可写、带配额/TTL
+            - name: workspaces
+              mountPath: /mnt/muad-workspaces
+      # 共享存储约束（design §4.1）：artifacts/workspaces 是共享 RWX PVC；skill-cache 是每进程
+      # 独立 emptyDir，不得改成共享卷。
       volumes:
         - name: artifacts
           persistentVolumeClaim:
             claimName: muad-artifacts-rwx
+        - name: workspaces
+          persistentVolumeClaim:
+            claimName: muad-workspaces-rwx
         - name: skill-cache
           emptyDir: {}
 ---

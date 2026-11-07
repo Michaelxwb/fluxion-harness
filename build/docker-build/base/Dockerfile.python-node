@@ -10,7 +10,24 @@
 # tarfile) instead of `tar -xzf`.
 #
 # Offline builds: put node-v24.22.2-linux-x64.tar.gz (or -arm64) in ./vendor/.
+#
+# bubblewrap is also built here. It is the process-level sandbox used by
+# runtime/worker for user-authored Skill scripts. The PlatOS base has no
+# package manager and glibc 2.28, so bwrap is built against musl in an Alpine
+# builder stage and shipped with its private musl loader + libcap. The wrapper
+# is /usr/local/bin/bwrap; callers use the normal bwrap CLI.
 ARG BASE_IMAGE=docker.sangfor.com/mss-base/python:3.12.13
+
+FROM alpine:3.20 AS bwrap-build
+RUN apk add --no-cache build-base meson ninja linux-headers libcap-dev git
+RUN git clone --depth 1 --branch v0.13.1 https://github.com/containers/bubblewrap.git /src
+WORKDIR /src
+RUN meson setup build -Dselinux=disabled -Dman=disabled -Dtests=false \
+ && ninja -C build \
+ && mkdir -p /out \
+ && cp build/bwrap /out/bwrap \
+ && cp /lib/ld-musl-*.so.1 /out/ld-musl.so.1 \
+ && cp /usr/lib/libcap.so.2 /out/libcap.so.2
 
 FROM ${BASE_IMAGE}
 
@@ -44,6 +61,14 @@ RUN set -eux; \
     rm -rf /tmp/node-vendor /tmp/extract.py; \
     node --version; \
     npm --version
+
+COPY --from=bwrap-build /out/bwrap /usr/local/lib/muad-sandbox/bwrap
+COPY --from=bwrap-build /out/ld-musl.so.1 /usr/local/lib/muad-sandbox/ld-musl.so.1
+COPY --from=bwrap-build /out/libcap.so.2 /usr/local/lib/muad-sandbox/libcap.so.2
+COPY bwrap-wrapper.sh /usr/local/bin/bwrap
+RUN set -eux; \
+    chmod 0755 /usr/local/bin/bwrap /usr/local/lib/muad-sandbox/bwrap; \
+    bwrap --version
 
 USER 10001:10001
 WORKDIR /app

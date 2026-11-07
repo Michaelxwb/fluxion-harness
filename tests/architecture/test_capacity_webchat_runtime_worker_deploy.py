@@ -10,7 +10,7 @@
 覆盖 B-301 关键断言：
 1. requests/limits 显式，且与容量 profile 的 `resources.hardware` 一致；
 2. 进程/执行槽显式，且等于 typed 默认（清单列出有效值，不靠静默默认）；
-3. 共享 RWX 制品卷（唯一共享卷、容量与 profile 的 artifact 预算一致）+ 每进程独立本地
+3. 共享 RWX 制品卷 + 共享 RWX workspace 卷（按 tenant + user + Agent 隔离）+ 每进程独立本地
    skill cache（emptyDir，不落共享盘）；
 4. 不按 bot/user/具体 Pod 绑定（无 nodeName/hostname/affinity，无 bot_id/user 命名）；
 5. 最大副本下 PG/HTTP/FD 预算可计算且不超 profile 预算。
@@ -19,11 +19,18 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
+import json
+import os
 import re
+import shutil
+import subprocess
+import sys
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 import pytest
@@ -32,7 +39,7 @@ from muad_agent_runtime.infrastructure import db as runtime_db
 from muad_agent_runtime.infrastructure.http_clients import RUNTIME_HTTP_POOLS
 from muad_agent_worker.infrastructure import db as worker_db
 from muad_agent_worker.infrastructure.http_clients import WORKER_HTTP_POOLS
-from muad_common import SharedSettings
+from muad_common import SharedSettings, workspace_policy_from_settings
 from muad_console_platform.infrastructure import db as console_db
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -43,6 +50,42 @@ pytestmark = pytest.mark.integration
 ROOT = Path(__file__).resolve().parents[2]
 BASE = ROOT / "deploy/k8s/base"
 PROFILE_PATH = ROOT / "tests/capacity/profiles/agent-capacity-webchat.example.yml"
+HELM_ROOT = ROOT / "build/helm-build"
+HELM_TIMEOUT_SEC = 90
+
+#: workspace 配置项 → `SharedSettings` typed 字段（ConfigMap 是部署事实，代码默认值不得漂移）。
+WORKSPACE_CONFIG_FIELDS = {
+    "WORKSPACE_ROOT": "workspace_root",
+    "WORKSPACE_QUOTA_MIB": "workspace_quota_mib",
+    "WORKSPACE_USER_QUOTA_MIB": "workspace_user_quota_mib",
+    "WORKSPACE_FILE_LIMIT": "workspace_file_limit",
+    "WORKSPACE_OUTPUT_TTL_DAYS": "workspace_output_ttl_days",
+    "WORKSPACE_DATA_TTL_DAYS": "workspace_data_ttl_days",
+}
+
+#: Helm 里只有 Runtime/Worker 挂 workspace（design §4.1）；其余单元不得出现该卷。
+WORKSPACE_HELM_CHARTS = ("muad-agent-runtime", "muad-agent-worker")
+NON_WORKSPACE_HELM_CHARTS = (
+    "muad-console-platform",
+    "muad-im-gateway",
+    "muad-im-connector",
+)
+
+#: canary 必须覆盖的检查项：PVC 共享卷、bwrap、跨 Pod 可写、镜像 digest 与节点指纹。
+CANARY_REQUIRED_CHECKS = frozenset(
+    {
+        "pvc_bound_rwx",
+        "runtime_mounts_workspace",
+        "worker_mounts_workspace",
+        "runtime_bwrap",
+        "worker_bwrap",
+        "runtime_pvc_write",
+        "worker_cross_pod_read",
+        "image_digest",
+        "node_fingerprint",
+        "workspace_cleanup",
+    }
+)
 
 #: 清单里不走 SharedSettings 的注入键：Secret 引用与 Pod 名（源码里用 os.getenv 读）。
 NON_SETTINGS_ENV = frozenset({"DATABASE_URL", "REDIS_URL", "INTERNAL_SERVICE_TOKEN", "POD_NAME"})
@@ -215,6 +258,12 @@ def _artifacts_pvc() -> dict[str, Any]:
     return documents[0]
 
 
+def _workspaces_pvc() -> dict[str, Any]:
+    documents = [d for d in _docs("pvc-workspaces.yaml") if d.get("kind") == "PersistentVolumeClaim"]
+    assert len(documents) == 1, "pvc-workspaces.yaml 应有且仅有一个 PVC"
+    return documents[0]
+
+
 def _mounts(unit: DeployUnit) -> dict[str, dict[str, Any]]:
     return {mount["name"]: mount for mount in _container(unit).get("volumeMounts", [])}
 
@@ -345,8 +394,23 @@ def test_shared_artifact_volume_is_rwx_and_skill_cache_is_per_process(unit: Depl
     assert mounts["skill-cache"]["mountPath"] == configmap["SKILL_CACHE_ROOT"]
     assert not mounts["skill-cache"]["mountPath"].startswith(mounts["artifacts"]["mountPath"] + "/")
 
-    shared = [name for name, volume in volumes.items() if "persistentVolumeClaim" in volume]
-    assert shared == ["artifacts"], f"{unit.name}: 只允许制品卷共享；其余卷必须每进程独立：{shared}"
+    workspaces = volumes["workspaces"]
+    assert "persistentVolumeClaim" in workspaces and "emptyDir" not in workspaces, (
+        f"{unit.name}: workspace 必须是共享 PVC（跨 Pod 持久），不能是 emptyDir"
+    )
+    assert workspaces["persistentVolumeClaim"]["claimName"] == "muad-workspaces-rwx"
+    assert mounts["workspaces"]["mountPath"] == configmap["WORKSPACE_ROOT"] == "/mnt/muad-workspaces"
+    assert mounts["workspaces"].get("readOnly") is not True, "workspace 必须可写（data/outputs）"
+    assert _workspaces_pvc()["spec"]["accessModes"] == ["ReadWriteMany"], (
+        "workspace PVC 必须 RWX，Runtime/Worker 多 Pod 才能共享同一 user + Agent 目录"
+    )
+
+    shared = sorted(
+        name for name, volume in volumes.items() if "persistentVolumeClaim" in volume
+    )
+    assert shared == ["artifacts", "workspaces"], (
+        f"{unit.name}: 只允许制品/工作区卷共享；其余卷必须每进程独立：{shared}"
+    )
 
 
 @pytest.mark.parametrize("unit", UNITS, ids=UNIT_IDS)
@@ -417,3 +481,298 @@ def test_per_process_http_pg_and_fd_budget_fits_the_nofile_budget(
         assert memory_limit_mb * 1024 * 1024 >= settings.sse_total_buffer_bytes, (
             "内存上限必须覆盖进程级 SSE 总缓冲预算（design §3.7 跨字段约束）"
         )
+
+
+# --------------------------------------------------------------------------------------
+# TASK-018：workspace 独立 PVC、Helm 参数、Canary 与生产 bwrap 配置
+# --------------------------------------------------------------------------------------
+
+
+def _helm_documents(chart: str, overrides: tuple[str, ...] = ()) -> list[dict[str, Any]]:
+    """真实 `helm template` 渲染：Helm 是本次发布路径，不能用 YAML 字面量代替。"""
+    binary = shutil.which("helm")
+    assert binary is not None, "workspace 部署验收需要 helm（发布路径的真实渲染器）"
+    argv = [binary, "template", chart, str(HELM_ROOT / chart)]
+    for override in overrides:
+        argv.extend(["--set", override])
+    completed = subprocess.run(argv, capture_output=True, text=True, timeout=HELM_TIMEOUT_SEC, check=False)
+    assert completed.returncode == 0, f"helm template {chart} 失败：{completed.stderr.strip()}"
+    return [doc for doc in yaml.safe_load_all(completed.stdout) if isinstance(doc, dict)]
+
+
+def _helm_pod_spec(chart: str, overrides: tuple[str, ...] = ()) -> dict[str, Any]:
+    deployments = [doc for doc in _helm_documents(chart, overrides) if doc.get("kind") == "Deployment"]
+    assert len(deployments) == 1, f"{chart}: 预期恰好一个 Deployment"
+    return deployments[0]["spec"]["template"]["spec"]
+
+
+@pytest.mark.parametrize("chart", WORKSPACE_HELM_CHARTS)
+def test_helm_runtime_and_worker_mount_the_shared_workspace_claim(chart: str) -> None:
+    pod = _helm_pod_spec(chart)
+    container = pod["containers"][0]
+    mounts = {mount["name"]: mount for mount in container.get("volumeMounts", [])}
+    volumes = {volume["name"]: volume for volume in pod.get("volumes", [])}
+    assert "workspaces" in mounts and "workspaces" in volumes, (
+        f"{chart}: Helm 渲染缺 workspaces 挂载（Runtime/Worker 必须共享 workspace PVC）"
+    )
+    assert mounts["workspaces"]["mountPath"] == _configmap_data()["WORKSPACE_ROOT"] == "/mnt/muad-workspaces"
+    assert mounts["workspaces"].get("readOnly") is not True, f"{chart}: workspace 必须可写（data/outputs）"
+    assert volumes["workspaces"]["persistentVolumeClaim"]["claimName"] == "muad-workspaces-rwx", (
+        f"{chart}: workspace 必须使用独立共享 PVC muad-workspaces-rwx"
+    )
+
+
+@pytest.mark.parametrize("chart", WORKSPACE_HELM_CHARTS)
+def test_helm_workspace_claim_and_mount_path_are_overridable(chart: str) -> None:
+    pod = _helm_pod_spec(
+        chart,
+        (
+            "global.workspaces.existingClaim=canary-workspaces",
+            "global.workspaces.mountPath=/mnt/canary-workspaces",
+        ),
+    )
+    container = pod["containers"][0]
+    mounts = {mount["name"]: mount for mount in container.get("volumeMounts", [])}
+    volumes = {volume["name"]: volume for volume in pod.get("volumes", [])}
+    assert volumes["workspaces"]["persistentVolumeClaim"]["claimName"] == "canary-workspaces"
+    assert mounts["workspaces"]["mountPath"] == "/mnt/canary-workspaces"
+
+
+@pytest.mark.parametrize("chart", NON_WORKSPACE_HELM_CHARTS)
+def test_helm_console_gateway_and_connector_do_not_mount_workspaces(chart: str) -> None:
+    pod = _helm_pod_spec(chart)
+    container = pod["containers"][0]
+    volumes = {volume["name"]: volume for volume in pod.get("volumes", [])}
+    mounts = {mount["name"]: mount for mount in container.get("volumeMounts", [])}
+    assert "workspaces" not in volumes and "workspaces" not in mounts, (
+        f"{chart}: console/gateway/connector 不挂 workspace（design §4.1）"
+    )
+    assert "muad-workspaces" not in json.dumps(pod, ensure_ascii=False), (
+        f"{chart}: 不得引用 workspace PVC 或挂载路径"
+    )
+
+
+def test_workspace_pvc_is_collected_and_not_mounted_by_console_or_gateway() -> None:
+    resources = next(
+        doc for doc in yaml.safe_load_all((BASE / "kustomization.yaml").read_text(encoding="utf-8"))
+        if isinstance(doc, dict) and doc.get("kind") == "Kustomization"
+    )["resources"]
+    assert "pvc-workspaces.yaml" in resources, "workspace PVC 必须被 kustomize 收集（未收集 = 部署不生效）"
+    for unit in ("console-platform", "im-gateway"):
+        pod = [doc for doc in _docs(f"{unit}.yaml") if doc.get("kind") == "Deployment"][0]["spec"][
+            "template"
+        ]["spec"]
+        assert "muad-workspaces" not in json.dumps(pod, ensure_ascii=False), (
+            f"{unit}: 不得挂载 workspace（只有 Runtime/Worker 挂）"
+        )
+
+
+def test_workspace_configmap_keys_are_typed_consumed_and_quota_consistent() -> None:
+    data = _configmap_data()
+    missing = [key for key in WORKSPACE_CONFIG_FIELDS if key not in data]
+    assert missing == [], f"ConfigMap 必须显式列出 workspace 配额/TTL：缺 {missing}"
+    settings = SharedSettings(_env_file=None, workspace_root=data["WORKSPACE_ROOT"])
+    for key, field in WORKSPACE_CONFIG_FIELDS.items():
+        assert field in SharedSettings.model_fields, f"{key} 不是 SharedSettings typed 字段"
+        raw = data[key]
+        declared = getattr(settings, field)
+        if isinstance(declared, int):
+            assert int(raw) == declared, f"{key}={raw!r} 必须等于 typed 默认 {declared}"
+        else:
+            assert raw.strip(), f"{key} 不能为空"
+            assert raw.startswith("/"), f"{key} 必须是容器内绝对路径（实际 {raw!r}）"
+    policy = workspace_policy_from_settings(settings)
+    assert policy.root == data["WORKSPACE_ROOT"]
+    assert policy.quota_bytes <= policy.user_quota_bytes, (
+        "单 workspace 配额不得超过单用户聚合配额（否则聚合配额永远无法先触发）"
+    )
+    assert policy.file_limit == settings.workspace_file_limit
+    assert policy.output_ttl_days == settings.workspace_output_ttl_days
+    assert policy.data_ttl_days == settings.workspace_data_ttl_days
+
+
+def test_production_manifest_pins_bwrap_sandbox_mode() -> None:
+    data = _configmap_data()
+    assert data.get("SANDBOX_MODE") == "bwrap", (
+        "生产/本地 K8s 必须显式 pin SANDBOX_MODE=bwrap；dev-unsafe 只能由 macOS Dev 显式开启"
+    )
+    assert "dev-unsafe" not in json.dumps(data), "生产 ConfigMap 不得出现 dev-unsafe"
+
+
+@pytest.fixture(scope="module")
+def workspace_canary() -> ModuleType:
+    path = ROOT / "scripts/workspace_canary.py"
+    assert path.is_file(), "TASK-018 需要可执行的 workspace canary：scripts/workspace_canary.py"
+    spec = importlib.util.spec_from_file_location("workspace_canary", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _canary_evidence() -> dict[str, Any]:
+    return {
+        "schema": 1,
+        "namespace": "muad",
+        "expected_root": "/mnt/muad-workspaces",
+        "workspace_claim": "muad-workspaces-rwx",
+        "pvc": {
+            "name": "muad-workspaces-rwx",
+            "phase": "Bound",
+            "access_modes": ["ReadWriteMany"],
+            "storage": "100Gi",
+            "storage_class": "muad-local-rwx",
+        },
+        "pods": {
+            "runtime": {
+                "name": "muad-agent-runtime-0",
+                "image": "docker.sangfor.com/mss-dev/muad-agent-runtime:test",
+                "image_id": "docker-pullable://muad-agent-runtime@sha256:" + "a" * 64,
+                "node": "orbstack",
+                "mount_path": "/mnt/muad-workspaces",
+                "mount_path_ok": True,
+                "claim_name_ok": True,
+                "read_only": False,
+                "probe": {
+                    "uid": 10001,
+                    "bwrap_ok": True,
+                    "bwrap_version": "bubblewrap 0.13.2",
+                    "pvc_write_ok": True,
+                    "bwrap_write_ok": True,
+                    "cross_pod_ok": None,
+                },
+            },
+            "worker": {
+                "name": "muad-agent-worker-0",
+                "image": "docker.sangfor.com/mss-dev/muad-agent-worker:test",
+                "image_id": "docker-pullable://muad-agent-worker@sha256:" + "b" * 64,
+                "node": "orbstack",
+                "mount_path": "/mnt/muad-workspaces",
+                "mount_path_ok": True,
+                "claim_name_ok": True,
+                "read_only": False,
+                "probe": {
+                    "uid": 10001,
+                    "bwrap_ok": True,
+                    "bwrap_version": "bubblewrap 0.13.2",
+                    "pvc_write_ok": True,
+                    "bwrap_write_ok": True,
+                    "cross_pod_ok": True,
+                },
+            },
+        },
+        "nodes": {
+            "orbstack": {
+                "kernel_version": "7.2.12-orbstack",
+                "os_image": "OrbStack",
+                "container_runtime": "docker://29.8.2",
+                "kubelet_version": "v1.36.5+orb1",
+            }
+        },
+        "cleanup_ok": True,
+    }
+
+
+def test_workspace_canary_dry_run_covers_bwrap_pvc_and_fingerprint() -> None:
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/workspace_canary.py"), "--dry-run", "--json"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    plan = json.loads(completed.stdout)
+    assert set(plan["checks"]) == CANARY_REQUIRED_CHECKS
+    roles = {step["role"] for step in plan["steps"]}
+    kinds = {step["kind"] for step in plan["steps"]}
+    assert {"runtime", "worker"} <= roles
+    assert {"pvc", "pod", "probe", "node"} <= kinds
+    probe_argv = " ".join(
+        " ".join(str(token) for token in step["argv"])
+        for step in plan["steps"]
+        if step["kind"] == "probe"
+    )
+    assert "bwrap" in probe_argv and "WORKSPACE_ROOT" in probe_argv
+
+
+def test_workspace_canary_evaluation_rejects_broken_deployment(
+    workspace_canary: ModuleType,
+) -> None:
+    evidence = _canary_evidence()
+    assert workspace_canary.evaluate_evidence(evidence) == []
+
+    broken = _canary_evidence()
+    broken["pvc"]["phase"] = "Pending"
+    broken["pvc"]["access_modes"] = ["ReadWriteOnce"]
+    broken["pods"]["runtime"]["probe"]["bwrap_ok"] = False
+    broken["pods"]["runtime"]["image_id"] = ""
+    broken["pods"]["worker"]["probe"]["cross_pod_ok"] = False
+    broken["pods"]["worker"]["mount_path_ok"] = False
+    broken["nodes"]["orbstack"]["kernel_version"] = ""
+    failures = workspace_canary.evaluate_evidence(broken)
+    joined = "\n".join(failures)
+    for expected in ("pvc", "ReadWriteMany", "bwrap", "image", "cross", "mount", "kernel"):
+        assert expected.lower() in joined.lower(), f"canary 必须报告 {expected} 失败：{joined}"
+
+
+def _canary_env(**extra: str) -> dict[str, str]:
+    env = {key: value for key, value in os.environ.items() if not key.startswith("CANARY_")}
+    env.update(extra)
+    return env
+
+
+def test_workspace_canary_probe_only_runs_inside_pod_without_kubectl(tmp_path: Path) -> None:
+    """宿主机没有 Python 时把脚本拷进 Pod：探针不依赖 kubectl。"""
+    env = _canary_env(
+        CANARY_ROLE="runtime",
+        CANARY_RUN_ID="canary-probe",
+        WORKSPACE_ROOT=str(tmp_path),
+        PATH=str(tmp_path / "empty-bin"),
+    )
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/workspace_canary.py"), "--probe-only"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+        env=env,
+    )
+    probe = json.loads(completed.stdout)
+    assert probe["role"] == "runtime"
+    assert probe["workspace_root"] == str(tmp_path)
+    assert probe["pvc_write_ok"] is True
+    assert "bwrap" in str(probe["error"]), "空 PATH 下探针应报告 bwrap 不可用而非调用 kubectl"
+    marker = tmp_path / ".canary" / "canary-probe" / "runtime-pvc.txt"
+    assert marker.read_text(encoding="utf-8") == "runtime"
+    assert completed.returncode == 1
+
+
+def test_workspace_canary_probe_only_requires_container_env() -> None:
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/workspace_canary.py"), "--probe-only"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+        env=_canary_env(),
+    )
+    assert completed.returncode == 2
+    assert "CANARY_RUN_ID" in completed.stderr
+
+
+def test_workspace_canary_cleanup_only_removes_shared_run_dir(tmp_path: Path) -> None:
+    run_dir = tmp_path / ".canary" / "canary-cleanup"
+    run_dir.mkdir(parents=True)
+    (run_dir / "runtime-pvc.txt").write_text("runtime", encoding="utf-8")
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/workspace_canary.py"), "--cleanup-only"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+        env=_canary_env(CANARY_RUN_ID="canary-cleanup", WORKSPACE_ROOT=str(tmp_path)),
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == {"removed": True}
+    assert not run_dir.exists()

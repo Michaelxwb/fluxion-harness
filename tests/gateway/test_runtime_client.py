@@ -9,6 +9,8 @@ from muad_api import AppError
 from muad_contracts import ChannelContext, MessageInput, RunRequest
 from muad_im_gateway.application.runtime_client import RuntimeClient
 
+from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
+
 SSE_BODY = (
     ": heartbeat\n"
     "event: run.created\n"
@@ -62,6 +64,7 @@ async def test_create_run_parses_sse_and_sends_headers() -> None:
     assert captured[0].headers["x-tenant-id"] == "tenant-1"
     assert captured[0].headers["x-trace-id"] == "trace-1"
     assert captured[0].headers["x-caller-service"] == "muad-im-gateway"
+    assert captured[0].headers["x-internal-service"] == INTERNAL_SERVICE_TOKEN
 
 
 async def test_create_run_maps_error_envelope() -> None:

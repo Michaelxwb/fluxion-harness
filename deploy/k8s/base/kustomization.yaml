@@ -6,6 +6,7 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - pvc-artifacts.yaml
+  - pvc-workspaces.yaml
   - migrate-job.yaml
   - console-platform.yaml
   - agent-runtime.yaml

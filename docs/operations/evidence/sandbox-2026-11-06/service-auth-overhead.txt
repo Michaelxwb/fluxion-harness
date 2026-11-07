@@ -1,0 +1,93 @@
+Runtime service-identity gate: local diagnostic benchmark (2026-11-06)
+=====================================================================
+
+Scope:
+  - Python 3.12.13, native arm64 local development environment.
+  - httpx ASGITransport calls a temporary FastAPI app in the same process.
+  - 10 warm-up requests, then 200 sequential requests per route.
+  - No TCP/TLS, production Pod, business work, DB, Redis, or platform requests.
+  - /current uses the repository's require_internal_service unchanged.
+  - /cached is an illustrative async dependency using a startup-cached token.
+    This is not an optimization already applied to production code.
+  - Credentials are synthetic; no real token is printed or sent over the network.
+
+Observed milliseconds (diagnostic, not a performance gate):
+  Route        mean      p50       p95
+  /baseline    0.1181    0.1149    0.1420
+  /current     3.1376    3.1379    3.1949
+  /cached      0.1364    0.1339    0.1500
+
+Separate settings-only measurement:
+  SharedSettings(): 5 repeats x 100 constructions.
+  Median repeat: 2.80675 ms/construction; repeat range 2.79014-2.81924 ms.
+  This includes local environment/.env parsing and validation, not remote I/O.
+
+Reproduce from the repository root (timings will vary):
+
+.venv/bin/python - <<'PY'
+import asyncio
+import hmac
+import json
+import os
+import statistics
+import time
+
+import httpx
+from fastapi import Depends, FastAPI, Header
+from muad_api.security import require_internal_service
+from muad_common import process_settings, reset_settings_cache
+
+os.environ['INTERNAL_SERVICE_TOKEN'] = 'synthetic-local-performance-probe'
+reset_settings_cache()
+expected = process_settings().internal_service_token
+
+async def cached_gate(x_internal_service: str | None = Header(default=None)) -> None:
+    if not expected or not x_internal_service or not hmac.compare_digest(x_internal_service, expected):
+        raise RuntimeError('unexpected test token')
+
+app = FastAPI()
+
+@app.get('/baseline')
+async def baseline():
+    return {'ok': True}
+
+@app.get('/current', dependencies=[Depends(require_internal_service)])
+async def current():
+    return {'ok': True}
+
+@app.get('/cached', dependencies=[Depends(cached_gate)])
+async def cached():
+    return {'ok': True}
+
+async def main():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url='http://synthetic',
+            headers={'X-Internal-Service': 'synthetic-local-performance-probe'}) as client:
+        for path in ['/baseline', '/current', '/cached']:
+            for _ in range(10):
+                response = await client.get(path)
+                assert response.status_code == 200
+        rows = {}
+        for path in ['/baseline', '/current', '/cached']:
+            timings = []
+            for _ in range(200):
+                start = time.perf_counter_ns()
+                response = await client.get(path)
+                timings.append((time.perf_counter_ns() - start) / 1e6)
+                assert response.status_code == 200
+            timings.sort()
+            rows[path] = {'mean_ms': statistics.mean(timings),
+                          'p50_ms': statistics.median(timings), 'p95_ms': timings[189]}
+        print(json.dumps(rows))
+
+asyncio.run(main())
+PY
+
+Interpretation:
+  - Per-request SharedSettings construction and sync dependency scheduling are
+    avoidable overhead. Use the existing process_settings startup snapshot and
+    a lightweight async dependency; retain fail-closed token validation.
+  - Service-token checking need not add DB/Redis/remote authentication calls.
+  - SSE checks run at connection/reconnection admission, not per event.
+  - Validate CPU, throughput, latency and SSE admission under equal real load.
+    Concurrent Runs are not equivalent to request rate.

@@ -367,7 +367,10 @@ async def _snapshot(row: ChannelUpload) -> dict[str, Any]:
 
 
 async def test_b258_registration_is_only_reachable_through_the_service_gate(
-    client: AsyncClient, upload_tenant: TenantContext, isolated_artifact_root: Path
+    client: AsyncClient,
+    anonymous_client: AsyncClient,
+    upload_tenant: TenantContext,
+    isolated_artifact_root: Path,
 ) -> None:
     tenant = upload_tenant
     entry = await _seed_entry(tenant.tenant_id, agent_id=tenant.agent_id)
@@ -376,7 +379,7 @@ async def test_b258_registration_is_only_reachable_through_the_service_gate(
     body = _upload_body(tenant, entry_id=entry, storage_key=key)
 
     for token in (None, "", "wrong-token"):
-        denied = await _post_upload(client, tenant, body, token=token)
+        denied = await _post_upload(anonymous_client, tenant, body, token=token)
         assert denied.status_code == 403, denied.text
         assert denied.json()["code"] == "FORBIDDEN"
     assert await _upload_count(tenant.tenant_id) == 0, "门控拒绝不得留下登记行"

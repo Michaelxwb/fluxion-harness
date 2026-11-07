@@ -19,7 +19,7 @@ from typing import Any
 import httpx
 import pytest
 import uvicorn
-from muad_common import SharedSettings
+from muad_common import SharedSettings, reset_settings_cache
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -46,7 +46,12 @@ class LiveStack:
     disabled_skill_key: str
 
     def runtime_headers(self) -> dict[str, str]:
-        return {"X-Tenant-Id": self.tenant_id}
+        # `/v1` 是受信面：验收调用方与 Gateway 同口径携带内部服务身份。
+        return {"X-Tenant-Id": self.tenant_id, "X-Internal-Service": INTERNAL_TOKEN}
+
+    def service_headers(self) -> dict[str, str]:
+        """DFX 等复用 Runtime 栈的套件沿用旧名；身份口径与 `/v1` 一致。"""
+        return self.runtime_headers()
 
     def console_headers(self) -> dict[str, str]:
         return {
@@ -354,10 +359,13 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveStack]:
     skill_cache_root = tmp_path_factory.mktemp("acceptance-skill-cache")
     os.environ["ARTIFACT_ROOT"] = str(artifact_root)
     os.environ["SKILL_CACHE_ROOT"] = str(skill_cache_root)
+    # 验收栈在宿主直接执行受控测试 Skill；生产仍必须 bwrap。
+    os.environ["SANDBOX_MODE"] = "dev-unsafe"
     os.environ["INTERNAL_SERVICE_TOKEN"] = INTERNAL_TOKEN
     os.environ["RUN_LEASE_SEC"] = "5"
     os.environ["RUN_HEARTBEAT_SEC"] = "1"
     os.environ["RUN_REAPER_INTERVAL_SEC"] = "1"
+    reset_settings_cache()
 
     from tests.e2e.mcp_probe_app import app as mcp_app
     from tests.e2e.openai_probe_app import app as llm_app
@@ -393,6 +401,7 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveStack]:
         mcp_server.stop()
         llm_server.stop()
         _cleanup(database_url, ids, artifact_root)
+        reset_settings_cache()
         _clear_engine_caches()
 
 

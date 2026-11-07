@@ -220,6 +220,121 @@ codes:
       zh-CN: 该 Skill 版本已存在
       en-US: This Skill version already exists
 
+  DRAFT_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: Skill 草稿不存在
+      en-US: Skill draft not found
+
+  DRAFT_REVISION_CONFLICT:
+    http_status: 409
+    retryable: true
+    messages:
+      zh-CN: 草稿已被其他操作修改，请刷新后重试
+      en-US: The draft was modified by another operation. Refresh and retry.
+
+  DRAFT_QUOTA_EXCEEDED:
+    http_status: 413
+    messages:
+      zh-CN: 草稿超过文件数或大小配额
+      en-US: Draft exceeds the file count or size quota
+
+  DRAFT_PATH_INVALID:
+    http_status: 400
+    messages:
+      zh-CN: 草稿路径不合法
+      en-US: Draft path is invalid
+
+  SKILL_PENDING_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: 该 Skill 已有待审版本，请等待审批或先撤回
+      en-US: This Skill already has a pending version. Wait for review or withdraw it first.
+
+  SKILL_APPROVED_LOCKED:
+    http_status: 409
+    messages:
+      zh-CN: 该 Skill 已审批通过并锁定，不能直接提交新版本
+      en-US: This Skill is approved and locked; a new version cannot be submitted directly
+
+  SKILL_ARTIFACT_NOT_PENDING:
+    http_status: 409
+    messages:
+      zh-CN: 该 Skill 包不是待审状态，无法执行审批
+      en-US: This Skill package is not pending review
+
+  SKILL_REVIEW_CONFLICT:
+    http_status: 409
+    retryable: true
+    messages:
+      zh-CN: 审批或提交发生并发冲突，请刷新后重试
+      en-US: A concurrent review or submission conflict occurred. Refresh and retry.
+
+  SKILL_ARTIFACT_INTEGRITY_ERROR:
+    http_status: 422
+    messages:
+      zh-CN: Skill 包校验失败，文件可能已损坏
+      en-US: Skill package integrity check failed; the file may be corrupted
+
+  AGENT_ACCESS_REVOKED:
+    http_status: 409
+    messages:
+      zh-CN: 提交者对目标 Agent 的访问权限已撤销，无法完成审批
+      en-US: The submitter's access to the target agent has been revoked; approval cannot complete
+
+  SANDBOX_UNAVAILABLE:
+    http_status: 503
+    retryable: true
+    messages:
+      zh-CN: 沙箱暂不可用，请稍后重试
+      en-US: The sandbox is temporarily unavailable; try again later
+
+  SANDBOX_TIMEOUT:
+    http_status: 504
+    retryable: true
+    messages:
+      zh-CN: 脚本执行超时，请缩小任务范围后重试
+      en-US: Script execution timed out; reduce the workload and retry
+
+  SANDBOX_OUTPUT_LIMIT:
+    http_status: 422
+    messages:
+      zh-CN: 脚本输出超过大小限制
+      en-US: Script output exceeded the size limit
+
+  WORKSPACE_QUOTA_EXCEEDED:
+    http_status: 413
+    messages:
+      zh-CN: 工作目录超过配额限制，请清理后重试
+      en-US: The workspace exceeded its quota; clean it up and retry
+
+  WORKSPACE_UNAVAILABLE:
+    http_status: 503
+    retryable: true
+    messages:
+      zh-CN: 工作目录暂不可用，请稍后重试
+      en-US: The workspace is temporarily unavailable; try again later
+
+  WORKSPACE_DELETING:
+    http_status: 409
+    retryable: true
+    messages:
+      zh-CN: 工作目录正在清理，暂时不能执行
+      en-US: The workspace is being cleaned up and cannot run tasks right now
+
+  PLATFORM_SESSION_REQUIRED:
+    http_status: 401
+    messages:
+      zh-CN: 缺少平台登录态，请先完成登录
+      en-US: Platform session is required; sign in first
+
+  PLATFORM_SESSION_STORE_UNAVAILABLE:
+    http_status: 503
+    retryable: true
+    messages:
+      zh-CN: 平台登录态存储暂不可用，请稍后重试
+      en-US: The platform session store is temporarily unavailable; try again later
+
   SKILL_IN_USE:
     http_status: 409
     messages:

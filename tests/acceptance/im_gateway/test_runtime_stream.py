@@ -23,6 +23,7 @@ from tests.acceptance.im_gateway.environment import (
     BOT_ID,
     BOUND_EXTERNAL_USER_ID,
     CHAT_ID,
+    INTERNAL_TOKEN,
     GatewayStack,
     count_tenant_rows,
     latest_run_id,
@@ -242,7 +243,7 @@ async def test_b125_waiting_input_run_is_auto_resumed_and_snapshot_frozen(
         gateway_stack, status="WAITING_INPUT", with_interrupt=True
     )
     # 真实 Runtime HTTP：显式指向种子会话，验证"存在 WAITING_INPUT Run 即自动 resume"
-    client = RuntimeClient(gateway_stack.runtime_url)
+    client = RuntimeClient(gateway_stack.runtime_url, service_token=INTERNAL_TOKEN)
     try:
         request = RunRequest(
             agent_id=gateway_stack.agent_id,

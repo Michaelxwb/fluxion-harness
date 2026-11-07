@@ -21,6 +21,7 @@ const user: UserListItem = {
 };
 const skill: SkillListItem = {
   id: 'layout-skill', key: 'layout-skill', name: 'Layout skill', description: '', platform_label: null, platforms: [],
+  source: 'ADMIN', author: 'Layout', owner_user_id: 'layout-skill', review_status: 'APPROVED',
   user_scope: 'ALL', enabled: true, current_artifact_id: 'version', current_version: '1.0.0',
   execution_mode: 'SCRIPT', agent_count: 1, user_count: 0, update_time: model.update_time
 };
@@ -150,7 +151,8 @@ for (const { width, theme } of SKILL_ACTION_CELLS) {
       await page.goto('/skills');
       const table = page.locator('.semi-table-wrapper');
       await expect(table).toContainText('layout-skill');
-      await expectTableSurfaces(table, width === 390);
+      // 13 列 Skill 表在 1280px 下需要横向滚动；390px 同样滚动。
+      await expectTableSurfaces(table, width <= 1280);
       await page.screenshot({ path: testInfo.outputPath(`skill-actions-${width}-${theme}.png`) });
     });
 }

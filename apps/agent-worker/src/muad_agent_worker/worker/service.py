@@ -224,9 +224,26 @@ class WorkerLoop:
         if self._executor is None:
             # 延迟到真正执行时才构造：bootstrap 在导入时创建 artifact/cache 目录，
             # 只做 claim/reclaim 的 WorkerLoop 不该有文件系统副作用。
+            from muad_agent_core.sandbox import (
+                WorkspaceQuotaPolicy,
+                WorkspaceStore,
+                workspace_layout_from_settings,
+            )
+
             from ..application.batch_fanout import BatchFanoutService
             from ..bootstrap.artifacts import skill_artifact_cache
+            from ..infrastructure.workspace_store import WorkerWorkspaceMetadataStore
+            from ..metrics import record_workspace_quota_rejected
 
+            layout = workspace_layout_from_settings(self._settings)
+            metadata = WorkerWorkspaceMetadataStore(lambda: self._session_factory)
+            workspace_store = WorkspaceStore(
+                layout=layout,
+                metadata=metadata,
+                quota=WorkspaceQuotaPolicy.from_layout(layout),
+                usage=metadata,
+                on_quota_rejected=record_workspace_quota_rejected,
+            )
             self._executor = SkillTaskExecutor(
                 skill_artifact_cache,
                 fanout=BatchFanoutService(
@@ -234,6 +251,7 @@ class WorkerLoop:
                     self._settings,
                     settings_client=self._settings_client,
                 ),
+                workspace_store=workspace_store,
             )
         return self._executor
 

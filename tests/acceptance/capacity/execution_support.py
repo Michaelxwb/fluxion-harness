@@ -180,9 +180,12 @@ def service_headers(tenant_id: str, token: str) -> dict[str, str]:
     return {"X-Tenant-Id": tenant_id, "X-Internal-Service": token}
 
 
-def runtime_headers(tenant_id: str) -> dict[str, str]:
-    """Runtime 公开受理面只按租户门控（执行身份来自 PG claim，不来自 HTTP 头）。"""
-    return {"X-Tenant-Id": tenant_id}
+def runtime_headers(tenant_id: str, internal_token: str | None = None) -> dict[str, str]:
+    """Runtime `/v1` 是受信面：租户 + 内部服务身份（执行身份仍来自 PG claim）。"""
+    headers = {"X-Tenant-Id": tenant_id}
+    if internal_token:
+        headers["X-Internal-Service"] = internal_token
+    return headers
 
 
 def console_headers(tenant_id: str) -> dict[str, str]:
@@ -598,6 +601,7 @@ def post_run(
     message_id: str | None = None,
     idempotency_key: str | None = None,
     payload: Mapping[str, Any] | None = None,
+    internal_token: str | None = None,
     timeout_sec: float = 60.0,
 ) -> RunPost:
     """真实 `POST /v1/runs`：受理持久化后才回 200/202，SSE 帧带真实 run_id。
@@ -615,7 +619,7 @@ def post_run(
             message_id=message_id,
         )
     )
-    headers = runtime_headers(tenant_id)
+    headers = runtime_headers(tenant_id, internal_token)
     if idempotency_key is not None:
         headers["Idempotency-Key"] = idempotency_key
     response = client.post(
@@ -812,7 +816,13 @@ def build_task_body(
     `budget.retry_safety` 是设计 §3.6 的可信冻结键：Owner 侧工具声明一次冻结，Worker 侧只读它；
     未声明/未知一律 NON_RETRYABLE（空值 = 不声明该键，用于覆盖"未声明"分支）。
     """
-    from muad_contracts import ResolvedAgent, ResolvedModel, ResolvedSkill, SkillExecutionMode
+    from muad_contracts import (
+        ResolvedAgent,
+        ResolvedModel,
+        ResolvedSkill,
+        SkillExecutionMode,
+        WorkspaceRef,
+    )
     from muad_contracts.snapshot import build_task_snapshot, snapshot_hash
 
     agent = ResolvedAgent(
@@ -831,8 +841,14 @@ def build_task_body(
         checksum=checksum,
         storage_key=storage_key,
         execution_mode=SkillExecutionMode.ASYNC,
+        source="ADMIN",
     )
-    snapshot = build_task_snapshot(agent=agent, model=model, skill=skill)
+    snapshot = build_task_snapshot(
+        agent=agent,
+        model=model,
+        skill=skill,
+        workspace=WorkspaceRef(tenant_id=tenant_id, user_id=actor_user_id, agent_id=agent_id),
+    )
     budget: dict[str, Any] = {**snapshot["budget"], "max_attempts": max_attempts}
     if retry_safety:
         budget["retry_safety"] = retry_safety

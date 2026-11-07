@@ -298,7 +298,7 @@ def _payload(stack: GatewayStack, text: str, *, conversation_id: Any = None) -> 
 
 
 def _runtime_headers(stack: GatewayStack) -> dict[str, str]:
-    return {"X-Tenant-Id": stack.tenant_id}
+    return stack.service_headers()
 
 
 def _parse_sse(body: str) -> list[dict[str, Any]]:

@@ -40,6 +40,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 SCHEMA = "runtime"
 from tests.async_tool_datastores import async_tool_database, async_tool_datastore  # noqa: F401, E402
+from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN  # noqa: E402
 from tests.internal_service import internal_service_token  # noqa: F401, E402  (fixture 注册)
 
 RUNTIME_TABLES = ("conversation", "run_record", "runtime_snapshot", "canonical_event", "run_interrupt")
@@ -198,6 +199,7 @@ def resolved(tenant: TenantContext) -> ResolveDefinitionResponse:
                 checksum="sha256:" + "a" * 64,
                 storage_key="skills/demo/policy-check.zip",
                 execution_mode="SYNC",
+                source="ADMIN",
             )
         ],
         mcp_servers=[
@@ -293,8 +295,26 @@ async def client(
     app.dependency_overrides[get_executor_factory] = lambda: executor_factory
     app.dependency_overrides[get_credentials_client] = lambda: None
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as http_client:
+    # `/v1` 是受信面：测试默认模拟已认证的 Gateway 调用；需要验证缺失/错误身份的用例
+    # 在请求级显式覆盖（请求头优先于客户端默认头）。
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"X-Internal-Service": INTERNAL_SERVICE_TOKEN},
+    ) as http_client:
         yield http_client
     app.dependency_overrides.pop(get_resolve_client, None)
     app.dependency_overrides.pop(get_executor_factory, None)
     app.dependency_overrides.pop(get_credentials_client, None)
+
+
+@pytest.fixture
+async def anonymous_client(client: AsyncClient) -> AsyncIterator[AsyncClient]:
+    """与 `client` 共用同一应用/依赖覆盖，但不带内部服务身份（门控拒绝路径）。
+
+    依赖 `client` 只为让本用例的 dependency_overrides 生效；连接本身是独立实例，
+    因此没有 `/v1` 受信面的默认 `X-Internal-Service`。
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as http_client:
+        yield http_client

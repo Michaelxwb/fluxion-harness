@@ -518,6 +518,8 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
         "REDIS_URL": redis_url,
         "ARTIFACT_ROOT": str(artifact_root),
         "SKILL_CACHE_ROOT": str(skill_cache_root),
+        # 验收栈在宿主直接执行受控测试 Skill；生产仍必须 bwrap。
+        "SANDBOX_MODE": "dev-unsafe",
         "WORKER_POLL_INTERVAL_SEC": str(WORKER_POLL_INTERVAL_SEC),
         "SCHEDULER_POLL_INTERVAL_SEC": str(SCHEDULER_POLL_INTERVAL_SEC),
         "TASK_DEADLINE_SWEEP_INTERVAL_SEC": str(TASK_DEADLINE_SWEEP_INTERVAL_SEC),

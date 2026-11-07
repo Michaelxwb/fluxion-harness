@@ -23,6 +23,7 @@ from muad_contracts import (
     TerminalStatus,
     TriggerType,
     UpdateScheduleRequest,
+    WorkspaceRef,
     build_task_snapshot,
     snapshot_hash,
 )
@@ -147,7 +148,11 @@ def _next_cron_fire(cron: str, base: datetime, zone: ZoneInfo) -> datetime:
 
 
 def build_scheduled_snapshot(
-    resolved: ResolveDefinitionResponse, skill: ResolvedSkill
+    resolved: ResolveDefinitionResponse,
+    skill: ResolvedSkill,
+    *,
+    tenant_id: str,
+    user_id: uuid.UUID,
 ) -> tuple[dict[str, Any], str]:
     """触发时按当前有效定义冻结快照：与 Runtime 同一构建口径，只含目标 Skill。
 
@@ -158,6 +163,7 @@ def build_scheduled_snapshot(
         agent=resolved.agent,
         model=resolved.model,
         skill=skill,
+        workspace=WorkspaceRef(tenant_id=tenant_id, user_id=user_id, agent_id=resolved.agent.id),
         mcp_servers=resolved.mcp_servers,
     )
     validate_execution_snapshot(snapshot)
@@ -584,7 +590,12 @@ class SchedulerLoop:
         moment: datetime,
         task_settings: TaskSettings,
     ) -> uuid.UUID | None:
-        snapshot, frozen_hash = build_scheduled_snapshot(resolved, skill)
+        snapshot, frozen_hash = build_scheduled_snapshot(
+            resolved,
+            skill,
+            tenant_id=schedule.tenant_id,
+            user_id=schedule.actor_user_id,
+        )
         task_id = uuid.uuid4()
         values: dict[str, Any] = {
             "id": task_id,

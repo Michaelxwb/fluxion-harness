@@ -45,7 +45,7 @@ from muad_console_platform.infrastructure.models.control import (
     Skill,
     SkillArtifact,
 )
-from muad_contracts import ResolveDefinitionResponse, build_task_snapshot
+from muad_contracts import ResolveDefinitionResponse, WorkspaceRef, build_task_snapshot
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from tests.acceptance.capacity.stack import DatastoreHandle, run_async
@@ -575,7 +575,12 @@ def resolve_task_spec(
     resolved = ResolveDefinitionResponse.model_validate(response.json()["data"])
     assert resolved.skills, "Console resolve 未返回冻结 Skill（种子/绑定未生效）"
     skill = resolved.skills[0]
-    snapshot = build_task_snapshot(agent=resolved.agent, model=resolved.model, skill=skill)
+    snapshot = build_task_snapshot(
+        agent=resolved.agent,
+        model=resolved.model,
+        skill=skill,
+        workspace=WorkspaceRef(tenant_id=tenant_id, user_id=actor_user_id, agent_id=agent_id),
+    )
     return TaskSpec(snapshot=snapshot, skill_id=skill.skill_id, artifact_id=skill.artifact_id)
 
 

@@ -9,7 +9,7 @@ Runtime 与 Worker **无状态、可横向扩展**（`docs/01 §4.2`：runtime 2
 
 | 路径 | 内容 |
 |---|---|
-| `base/` | 四个 Deployment + Service + ConfigMap(=服务间接线) + RWX PVC + **迁移 Job** |
+| `base/` | 四个 Deployment + Service + ConfigMap(=服务间接线) + RWX PVC（artifacts + workspaces）+ **迁移 Job** |
 | `base/secret.example.yaml` | Secret 模板（**不含真实凭据**，键名是契约） |
 | `with-connector/` | 启用企微的 **5 单元 overlay**：只多一个 Connector Deployment/Service/PDB（自身 secret、无公开入口）；Gateway 多副本与远程通道开关在 base |
 | `with-connector/secret-connector.example.yaml` | Connector 专属 Secret 模板（只有 `REDIS_URL`/`INTERNAL_SERVICE_TOKEN`；**没有** `DATABASE_URL`） |
@@ -30,8 +30,10 @@ kubectl -n muad create secret generic muad-external \
   --from-literal=REDIS_URL='redis://redis:6379/0' \
   --from-literal=INTERNAL_SERVICE_TOKEN='<足够随机的值>'
 
-# 3) 配置（服务间地址 + 默认租户）与共享产物卷
-kubectl apply -f deploy/k8s/base/configmap.yaml -f deploy/k8s/base/pvc-artifacts.yaml
+# 3) 配置（服务间地址 + 默认租户）与共享卷
+kubectl apply -f deploy/k8s/base/configmap.yaml \
+  -f deploy/k8s/base/pvc-artifacts.yaml \
+  -f deploy/k8s/base/pvc-workspaces.yaml
 
 # 4) **先迁移再起服务**：维护窗口的备份/排空/单次迁移见下一节；
 #    Job 用 console-platform 镜像做载体（见 migrate-job.yaml 的注释）
@@ -117,6 +119,96 @@ uv run python scripts/check_agent_capacity_deployment.py --profile tests/capacit
 
 **退出码**：`0` 通过；`1` 存在阻断发布的违规（逐项打印单元与预算明细）；`2` 渲染/配置读取
 失败（预检无法给出结论，同样阻断）。预检不连库、不读 Secret 值，输出只有预算数字与单元名。
+
+## 发布前预检（Skill 系统依赖基线）
+
+用户 Skill 的 Python/Node 依赖随 runtime/worker 镜像预装，**不在运行中的 Pod 上安装**：
+
+```bash
+# 基线文件 / Dockerfile / 构建脚本一致性
+uv run python scripts/skill_system_deps.py validate --json
+
+# 构建产出的两个记录必须来自同一基线，且记录 image digest
+uv run python scripts/skill_system_deps.py verify-records \
+  --runtime /tmp/muad-image-agent-runtime/system-deps-record.json \
+  --worker  /tmp/muad-image-agent-worker/system-deps-record.json
+
+# 所有副本的 imageID 必须与记录一致（只读检查，不改 Pod）
+kubectl -n muad get pods -l app=muad-agent-runtime \
+  -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.containerStatuses[0].imageID}{"\n"}{end}'
+kubectl -n muad get pods -l app=muad-agent-worker \
+  -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.containerStatuses[0].imageID}{"\n"}{end}'
+
+# 预装依赖在真实 Pod 内可 import/require（只读探针）
+kubectl -n muad exec deploy/muad-agent-runtime -- python -c "import tabulate; print(tabulate.__version__)"
+kubectl -n muad exec deploy/muad-agent-runtime -- node -e "console.log(require('uuid').version)"
+```
+
+新增/升级依赖、image digest/变更记录、回滚步骤见
+`docs/operations/system-dependencies.md`。**禁止**用
+`kubectl exec ... pip install` / `npm install -g` 在生产 Pod 上补装；重启/换副本会丢失，
+且副本间不一致。
+
+## P1 workspace canary（bwrap + 共享 PVC，发布门禁）
+
+全量发布前先让 **1 个 Runtime/Worker 副本**通过 canary（design §4.2 P1 canary）：
+
+```bash
+python3 scripts/workspace_canary.py --namespace muad \
+  --runtime deployment/muad-agent-runtime \
+  --worker deployment/muad-agent-worker \
+  --expected-root /mnt/muad-workspaces \
+  --output docs/operations/evidence/workspace-canary/$(date +%Y-%m-%d)-canary.json
+```
+
+`scripts/workspace_canary.py` 只用标准库，宿主机有 Python 3.9+ 就能直接用，不需要
+uv/venv/pip。宿主机没有 Python 时，把脚本拷进 Pod 用 `--probe-only` 在 Pod 内执行
+（镜像自带 Python），其余证据用 kubectl 采集：
+
+```bash
+NS=muad
+RUN_ID=canary-$(date +%Y%m%d%H%M%S)
+RUNTIME_POD=$(kubectl -n "$NS" get pod -l app=muad-agent-runtime -o jsonpath='{.items[0].metadata.name}')
+WORKER_POD=$(kubectl -n "$NS" get pod -l app=muad-agent-worker -o jsonpath='{.items[0].metadata.name}')
+
+kubectl -n "$NS" cp scripts/workspace_canary.py "$RUNTIME_POD":/tmp/workspace_canary.py
+kubectl -n "$NS" cp scripts/workspace_canary.py "$WORKER_POD":/tmp/workspace_canary.py
+# 镜像里没有 tar 时 kubectl cp 会失败，改用管道（等价）：
+#   kubectl -n "$NS" exec -i "$POD" -- sh -c 'cat > /tmp/workspace_canary.py' < scripts/workspace_canary.py
+
+# 必须先 runtime 后 worker：worker 的探针要读到 runtime 写下的标记
+kubectl -n "$NS" exec "$RUNTIME_POD" -- env CANARY_ROLE=runtime CANARY_RUN_ID="$RUN_ID" \
+  WORKSPACE_ROOT=/mnt/muad-workspaces python /tmp/workspace_canary.py --probe-only
+kubectl -n "$NS" exec "$WORKER_POD" -- env CANARY_ROLE=worker CANARY_RUN_ID="$RUN_ID" \
+  WORKSPACE_ROOT=/mnt/muad-workspaces python /tmp/workspace_canary.py --probe-only
+
+# 证据：PVC 状态 / 挂载与 imageID / 节点指纹
+kubectl -n "$NS" get pvc muad-workspaces-rwx \
+  -o jsonpath='{.status.phase}{" "}{.spec.accessModes}{" "}{.spec.storageClassName}{"\n"}'
+for POD in "$RUNTIME_POD" "$WORKER_POD"; do
+  kubectl -n "$NS" get pod "$POD" -o go-template='{{.metadata.name}} {{.spec.nodeName}} {{(index .status.containerStatuses 0).imageID}} {{range .spec.containers}}{{range .volumeMounts}}{{if eq .name "workspaces"}}{{.mountPath}}{{end}}{{end}}{{end}}{{"\n"}}'
+done
+for NODE in $(kubectl -n "$NS" get pod "$RUNTIME_POD" "$WORKER_POD" -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' | sort -u); do
+  kubectl get node "$NODE" -o jsonpath='{.metadata.name}{" "}{.status.nodeInfo.kernelVersion}{" "}{.status.nodeInfo.osImage}{" "}{.status.nodeInfo.containerRuntimeVersion}{"\n"}'
+done
+
+# 清理共享 PVC 上的临时目录
+kubectl -n "$NS" exec "$RUNTIME_POD" -- env CANARY_RUN_ID="$RUN_ID" \
+  WORKSPACE_ROOT=/mnt/muad-workspaces python /tmp/workspace_canary.py --cleanup-only
+```
+
+两种方式判定相同：两个 Pod 的探针 JSON 里 `bwrap_ok`/`pvc_write_ok`/`bwrap_write_ok`
+全为 `true`、worker 的 `cross_pod_ok` 为 `true`，PVC `Bound` + `ReadWriteMany`，imageID
+带 `sha256:` digest；`--probe-only` / `--cleanup-only` 通过时退出码 0。Pod 内方式没有
+编排模式的证据 JSON，把两段探针输出与上面的 kubectl 结果一并存进
+`docs/operations/evidence/workspace-canary/`。
+
+真实边界：`kubectl exec` 进入两个真实 Pod，以运行用户（UID 10001）写共享 PVC；Runtime
+写标记后 Worker 读取，验证 `muad-workspaces-rwx` 跨 Pod 共享；两个 Pod 内执行
+`bwrap --version` 并把 workspace 子目录 bind 到可写挂载点写入文件（真实执行器映射为
+`/workspace`）。证据 JSON 记录
+PVC 状态、Pod image/imageID（digest）、节点内核/OS/容器运行时指纹和清理结果。任一项
+失败返回非零，阻断全量发布；回滚条件与步骤见本文件「维护窗口」及 design §4.2。
 
 ## 维护窗口：备份、排空、单次迁移（§4.2 发布与迁移）
 

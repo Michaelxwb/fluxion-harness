@@ -37,6 +37,7 @@ from muad_agent_runtime.main import app
 from muad_contracts import ResolveDefinitionResponse
 
 from agent_runtime.conftest import TenantContext, parse_sse
+from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
 METRICS_PATH = "/metrics"
 PROMETHEUS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
@@ -164,7 +165,10 @@ async def _runtime_http(
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
-    return {"X-Tenant-Id": tenant.tenant_id}
+    return {
+        "X-Tenant-Id": tenant.tenant_id,
+        "X-Internal-Service": INTERNAL_SERVICE_TOKEN,
+    }
 
 
 def _payload(tenant: TenantContext) -> dict[str, Any]:

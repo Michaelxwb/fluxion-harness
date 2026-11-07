@@ -135,6 +135,39 @@ RUN pip install --no-deps --no-build-isolation /app/packages/* /app/apps/<servic
 因此不要手动往 `requirements.txt` 里加 `-e ./packages/...`。所有服务镜像都执行
 `pip install -r requirements.txt`，不按服务拆分依赖文件。
 
+### 2.1 用户 Skill 系统依赖基线（runtime/worker）
+
+用户 Skill 生产依赖走镜像预装，不在运行中的 Pod 上安装：
+
+```text
+build/docker-build/skill-deps/
+├── baseline.json              # 管理员批准清单 + 模块映射
+├── python-requirements.txt    # Python 精确版本
+├── node/package.json          # Node 精确版本
+├── node/package-lock.json
+└── install.sh                 # 构建期唯一安装入口
+```
+
+- `Dockerfile.agent-runtime` / `Dockerfile.agent-worker` 在应用依赖之后执行
+  `install.sh`：Python 进系统 site-packages，Node 进 `/usr/local/lib/node`（Skill 内
+  `require(name)` 可解析，无需 `NODE_PATH`）；
+- 镜像 label `org.muad.skill-deps.sha256` 记录基线内容 hash；`build-image.sh` 同时写
+  `image_id.txt`、`skill-deps.sha256`，推送时写 `image_digest.txt`；
+- 构建参数：`NPM_REGISTRY`（默认内网 `http://npm.uedc.sangfor.com.cn/`）、
+  `PIP_INDEX_URL` / `PIP_TRUSTED_HOST`（已有）；
+- 机检与记录：
+
+```bash
+uv run python scripts/skill_system_deps.py validate --json
+uv run python scripts/skill_system_deps.py record --image <ref> --service agent-runtime --output <json>
+uv run python scripts/skill_system_deps.py verify-records --runtime <json> --worker <json>
+uv run python scripts/skill_system_deps.py change --record <json> \
+  --applicant <申请人> --approver <审批人> --log build/docker-build/skill-deps/change-log.jsonl
+```
+
+完整流程（新增依赖、digest、变更记录、回滚、workspace 临时安装边界）见
+`docs/operations/system-dependencies.md`。
+
 ## 3. 千流任务编排
 
 千流按“一个服务一条流水线”编排，不在一个脚本里同时构建多个镜像；构建任务只做打包，
@@ -254,8 +287,9 @@ Task2 一次打包 5 个 per-service chart，并可选上传 5 个 tgz；不依�
 | `NODE_BASE_IMAGE` | 否 | `docker.sangfor.com/mss-base/python-node:3.12.13-node24` | Node 底座 |
 | `PIP_INDEX_URL` | 否 | `http://mirrors.sangfor.org/pypi/simple` | 内网 pip 源 |
 | `PIP_TRUSTED_HOST` | 否 | `mirrors.sangfor.org` | http 源 |
+| `NPM_REGISTRY` | 否 | `http://npm.uedc.sangfor.com.cn/` | 内网 npm 源；runtime/worker 的 Skill Node 基线也用它 |
 | `FRONTEND_CACHE_DIR` | console 任务 | `/tmp/muad-console-frontend` | 前端缓存下载路径 |
-| `IMAGE_CACHE_DIR` | 否 | `/tmp/muad-image-<service>` | 单镜像元数据缓存 |
+| `IMAGE_CACHE_DIR` | 否 | `/tmp/muad-image-<service>` | 单镜像元数据缓存（含 `image_id.txt`、`skill-deps.sha256`） |
 
 分支路由与老项目一致：
 

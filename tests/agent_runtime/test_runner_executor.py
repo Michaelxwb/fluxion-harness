@@ -241,6 +241,7 @@ def test_effective_skills_enter_the_model_prompt() -> None:
         checksum="sha256:" + "0" * 64,
         storage_key="skills/a/b/skill.zip",
         frontmatter={"platform_label": "演示"},
+        source="ADMIN",
     )
 
     async def _never_cancelled() -> bool:
@@ -292,6 +293,7 @@ def test_skill_catalog_is_bounded_and_the_drop_is_reported(
             version="1.0.0",
             checksum="sha256:" + "0" * 64,
             storage_key=f"skills/{index}/1.0.0/skill.zip",
+            source="ADMIN",
         )
         for index in range(MAX_CATALOG_ENTRIES + 5)
     )

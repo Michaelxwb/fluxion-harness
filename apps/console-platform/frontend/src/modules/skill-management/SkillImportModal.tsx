@@ -22,6 +22,8 @@ export interface SkillImportModalProps {
   visible: boolean;
   /** 传入则为已有 Skill 导入新版本（隐藏 key/范围，走 /artifacts） */
   skillId?: string;
+  /** 只有管理员可以显式选择 SYSTEM/ADMIN 来源；普通用户保持服务端默认。 */
+  canManageSource?: boolean;
   onCancel(): void;
   onSaved(result: SkillImportResult | SkillArtifactDetail): void;
 }
@@ -31,6 +33,7 @@ interface FormValues {
   key?: string;
   default_script?: string;
   user_scope: 'ALL' | 'SELECTED';
+  source?: 'SYSTEM' | 'ADMIN';
 }
 
 /** Map the backend's machine-readable package reason to a precise bilingual message. */
@@ -71,6 +74,7 @@ export function SkillImportModal(props: SkillImportModalProps) {
   const [saving, setSaving] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [source, setSource] = useState<'SYSTEM' | 'ADMIN'>('ADMIN');
   const formApi = useRef<FormApi | null>(null);
 
   useEffect(() => {
@@ -79,9 +83,10 @@ export function SkillImportModal(props: SkillImportModalProps) {
     }
     setFile(null);
     setFormError(null);
+    setSource('ADMIN');
     formApi.current?.reset();
     if (!props.skillId) {
-      formApi.current?.setValues({ user_scope: 'SELECTED' });
+      formApi.current?.setValues({ user_scope: 'SELECTED', source: 'ADMIN' });
     }
   }, [props.visible, props.skillId]);
 
@@ -109,7 +114,8 @@ export function SkillImportModal(props: SkillImportModalProps) {
               version: values.version,
               key: values.key || undefined,
               default_script: values.default_script || undefined,
-              user_scope: values.user_scope
+              user_scope: values.user_scope,
+              source: props.canManageSource ? (values.source ?? source) : undefined
             },
             { errorTip: 'never' }
           );
@@ -173,6 +179,25 @@ export function SkillImportModal(props: SkillImportModalProps) {
         label={t('skill.columns.currentVersion')}
         rules={[{ required: true, message: t('skill.columns.currentVersion') }]}
       />
+      {props.skillId || !props.canManageSource ? null : (
+        <>
+          <Form.Select
+            field="source"
+            label={t('skill.import.source.label')}
+            initValue="ADMIN"
+            optionList={[
+              { value: 'ADMIN', label: t('skill.source.admin') },
+              { value: 'SYSTEM', label: t('skill.source.system') }
+            ]}
+            onChange={(value) => setSource(value as 'SYSTEM' | 'ADMIN')}
+          />
+          <div className="detail-hint">
+            {source === 'SYSTEM'
+              ? t('skill.import.source.systemHint')
+              : t('skill.import.source.adminHint')}
+          </div>
+        </>
+      )}
       {props.skillId ? null : (
         <>
           <Form.Input field="key" label={t('skill.form.key')} extraText={t('skill.form.keyHint')} />

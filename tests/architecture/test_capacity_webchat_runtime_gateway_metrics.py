@@ -109,6 +109,8 @@ ALLOWED_LABEL_NAMES = frozenset(
         "tool",
         "skill",
         "platform",
+        # Skill 执行来源是封闭枚举 SYSTEM/ADMIN/USER（TASK-003 起目录已含该维度）。
+        "source",
         # 既有 runtime/gateway 目录的其它低基数维度（记忆命中、压缩层、调用类别、错误码）。
         "hit",
         "layer",

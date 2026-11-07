@@ -7,10 +7,12 @@ from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts import SkillReviewStatus, SkillSource
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..infrastructure.models.auth import ROLE_ADMIN
 from ..infrastructure.models.control import (
     AgentDefinition,
     AgentSkillBinding,
@@ -23,7 +25,7 @@ from ..infrastructure.models.control import (
 from ..infrastructure.repositories.agent_repository import AgentRepository
 from ..infrastructure.repositories.agent_skill_binding_repository import AgentSkillBindingRepository
 from ..infrastructure.repositories.platform_user_repository import PlatformUserRepository
-from ..infrastructure.repositories.skill_repository import SkillRepository
+from ..infrastructure.repositories.skill_repository import USER_SCOPE_ALL, SkillRepository
 from ..infrastructure.repositories.skill_user_grant_repository import SkillUserGrantRepository
 from ..infrastructure.skill_artifact_store import (
     artifact_storage_key,
@@ -47,6 +49,7 @@ from .dto import (
     SkillUpdateRequest,
     SkillUserGrantItem,
 )
+from .skill_audit import SkillAuditAction, SkillAuditEvent
 
 AUDIT_SKILL = "SKILL"
 AUDIT_ARTIFACT = "SKILL_ARTIFACT"
@@ -63,6 +66,7 @@ def skill_snapshot(skill: Skill) -> dict[str, Any]:
         "description": skill.description,
         "platform_label": skill.platform_label,
         "user_scope": skill.user_scope,
+        "source": skill.source,
         "enabled": skill.enabled,
         "current_artifact_id": str(skill.current_artifact_id) if skill.current_artifact_id else None,
     }
@@ -102,6 +106,14 @@ def artifact_detail(artifact: SkillArtifact) -> SkillArtifactDetail:
         manifest=sanitize_payload(artifact.manifest_json),
         created_by=artifact.created_by,
         create_time=artifact.create_time,
+        review_status=artifact.review_status,
+        review_note=artifact.review_note,
+        reviewed_by=artifact.reviewed_by,
+        reviewed_at=artifact.reviewed_at,
+        submitted_by_user_id=artifact.submitted_by_user_id,
+        submitted_agent_id=artifact.submitted_agent_id,
+        submitted_channel=artifact.submitted_channel,
+        source=artifact.source,
     )
 
 
@@ -111,6 +123,7 @@ def skill_list_item(
     *,
     agent_count: int = 0,
     user_count: int = 0,
+    review_status: str | None = None,
 ) -> SkillListItem:
     return SkillListItem(
         id=skill.id,
@@ -119,6 +132,10 @@ def skill_list_item(
         description=skill.description,
         platform_label=skill.platform_label,
         platforms=artifact.frontmatter_json.get("platforms", []) if artifact else [],
+        source=skill.source,
+        author=skill.author,
+        owner_user_id=skill.owner_user_id,
+        review_status=review_status or (artifact.review_status if artifact else None),
         user_scope=skill.user_scope,
         enabled=skill.enabled,
         current_artifact_id=skill.current_artifact_id,
@@ -208,6 +225,8 @@ class SkillService:
         user_scope: str | None = None,
         enabled: bool | None = None,
         execution_mode: str | None = None,
+        source: str | None = None,
+        review_status: str | None = None,
     ) -> tuple[list[SkillListItem], int]:
         rows, total = await self._skills.list_skills(
             tenant_id,
@@ -217,10 +236,18 @@ class SkillService:
             user_scope,
             enabled,
             execution_mode,
+            source,
+            review_status,
         )
         return [
-            skill_list_item(skill, artifact, agent_count=bound, user_count=granted)
-            for skill, artifact, bound, granted in rows
+            skill_list_item(
+                skill,
+                artifact,
+                agent_count=bound,
+                user_count=granted,
+                review_status=status,
+            )
+            for skill, artifact, bound, granted, status in rows
         ], total
 
     async def get_skill(self, tenant_id: str, skill_id: uuid.UUID) -> Skill:
@@ -232,12 +259,14 @@ class SkillService:
     async def get_skill_detail(self, tenant_id: str, skill_id: uuid.UUID) -> SkillDetail:
         skill = await self.get_skill(tenant_id, skill_id)
         artifact = await self._skills.get_current_artifact(skill)
+        review_status = await self._skills.latest_review_status(skill.id)
         return SkillDetail(
             **skill_list_item(
                 skill,
                 artifact,
                 agent_count=await self._skills.count_agent_bindings(skill.id),
                 user_count=await self._grants.count_active(skill.id),
+                review_status=review_status,
             ).model_dump(),
             create_time=skill.create_time,
             current_artifact=artifact_detail(artifact) if artifact else None,
@@ -251,6 +280,7 @@ class SkillService:
         actor: AuditActor,
     ) -> SkillDetail:
         skill = await self.get_skill(tenant_id, skill_id)
+        self._require_system_skill_admin(skill, actor)
         before = skill_snapshot(skill)
         for field, value in payload.model_dump(exclude_unset=True).items():
             setattr(skill, field, value)
@@ -272,6 +302,7 @@ class SkillService:
         Artifact rows/files stay intact for audit and for re-importing the same key.
         """
         skill = await self.get_skill(tenant_id, skill_id)
+        self._require_system_skill_admin(skill, actor)
         bound = await self._skills.count_agent_bindings(skill.id)
         if bound > 0:
             raise AppError(
@@ -283,6 +314,88 @@ class SkillService:
         skill.update_time = datetime.now(UTC)
         await self._session.flush()
         await self._record_audit(tenant_id, actor, AUDIT_SKILL, skill.id, "DELETE", before, None)
+
+    async def delete_skill_with_unbind(
+        self,
+        tenant_id: str,
+        skill_id: uuid.UUID,
+        *,
+        confirm: bool,
+        actor: AuditActor,
+    ) -> dict[str, Any]:
+        """一键解绑并软删：单事务解除全部绑定/grant，保留 artifact/审批/审计。
+
+        `confirm` 是服务端强制的二次确认参数；缺少时返回校验错误，而不是把破坏性
+        操作交给客户端自觉。已软删的 Skill 再调用返回成功（幂等），不重复写审计。
+        """
+        skill = await self._skills.get_including_deleted(tenant_id, skill_id)
+        if skill is None:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        if skill.is_deleted:
+            return {"skill_id": str(skill.id), "unbound_agents": [], "deleted": True}
+        if not confirm:
+            raise AppError(
+                ErrorCode.COMMON_VALIDATION_ERROR,
+                data={"field": "confirm"},
+            )
+
+        unbound_agents, grant_count = await self._unbind_active_relations(skill.id)
+        skill.is_deleted = True
+        skill.update_time = datetime.now(UTC)
+        await self._session.flush()
+        await self._record_unbind_delete_audit(
+            tenant_id,
+            skill,
+            actor,
+            {"skill_key": skill.key, "unbound_agents": unbound_agents, "user_grant_count": grant_count},
+        )
+        return {
+            "skill_id": str(skill.id),
+            "unbound_agents": unbound_agents,
+            "deleted": True,
+        }
+
+    async def _unbind_active_relations(
+        self, skill_id: uuid.UUID
+    ) -> tuple[list[dict[str, str]], int]:
+        """解除全部 active 绑定/用户 grant，返回解绑 Agent 列表与 grant 数。"""
+        binding_rows = await self._skills.list_active_bindings_for_skill(skill_id)
+        grants = await self._grants.list_active_for_skill(skill_id)
+        moment = datetime.now(UTC)
+        for _agent, binding in binding_rows:
+            binding.is_deleted = True
+            binding.update_time = moment
+        for grant in grants:
+            grant.is_deleted = True
+            grant.update_time = moment
+        unbound_agents = [
+            {"agent_id": str(agent.id), "key": agent.key, "name": agent.name}
+            for agent, _binding in binding_rows
+        ]
+        return unbound_agents, len(grants)
+
+    async def _record_unbind_delete_audit(
+        self,
+        tenant_id: str,
+        skill: Skill,
+        actor: AuditActor,
+        detail: dict[str, Any],
+    ) -> None:
+        for action, result in (
+            (SkillAuditAction.UNBIND, "SUCCESS"),
+            (SkillAuditAction.DELETE, "DELETED"),
+        ):
+            await self._audit.record_skill_event(
+                SkillAuditEvent(
+                    tenant_id=tenant_id,
+                    actor_id=actor.account_id,
+                    action=action,
+                    skill_id=skill.id,
+                    result=result,
+                    detail=detail,
+                    source_ip=actor.source_ip,
+                )
+            )
 
     async def set_user_scope(
         self,
@@ -367,9 +480,16 @@ class SkillService:
         data: bytes,
         actor: AuditActor,
         user_scope: str | None = None,
+        source: SkillSource | None = None,
         idempotency_key: str | None = None,
     ) -> SkillDetail:
-        scope = user_scope or USER_SCOPE_SELECTED
+        requested_source = SkillSource(source) if source is not None else SkillSource.ADMIN
+        self._validate_import_source(requested_source, actor, explicit=source is not None)
+        scope = (
+            USER_SCOPE_ALL
+            if requested_source == SkillSource.SYSTEM
+            else user_scope or USER_SCOPE_SELECTED
+        )
         fingerprint = self._fingerprint(
             "import",
             tenant_id,
@@ -378,6 +498,7 @@ class SkillService:
                 "version": version,
                 "default_script": default_script,
                 "user_scope": scope,
+                "source": requested_source.value,
                 "data_checksum": checksum_of(data),
             },
         )
@@ -398,6 +519,7 @@ class SkillService:
                 package=package,
                 actor=actor,
                 user_scope=scope,
+                source=requested_source,
             )
         detail = await self.get_skill_detail(tenant_id, skill.id)
         if idempotency_key:
@@ -405,6 +527,18 @@ class SkillService:
                 tenant_id, idempotency_key, "import", fingerprint, detail.model_dump(mode="json")
             )
         return detail
+
+    def _validate_import_source(
+        self, source: SkillSource, actor: AuditActor, *, explicit: bool
+    ) -> None:
+        """管理员导入只接受 SYSTEM/ADMIN，且显式声明来源必须是管理员。"""
+        if source == SkillSource.USER:
+            raise AppError(
+                ErrorCode.COMMON_VALIDATION_ERROR,
+                data={"field": "source"},
+            )
+        if explicit and actor.role != ROLE_ADMIN:
+            raise AppError(ErrorCode.FORBIDDEN)
 
     async def _persist_imported_skill(
         self,
@@ -417,6 +551,7 @@ class SkillService:
         package: ValidatedSkillPackage,
         actor: AuditActor,
         user_scope: str,
+        source: SkillSource,
     ) -> tuple[Skill, SkillArtifact]:
         chosen_key = key or package.default_key
         if not chosen_key:
@@ -438,6 +573,7 @@ class SkillService:
             platform_label=package.manifest.platform_label,
             user_scope=user_scope,
             enabled=True,
+            source=source,
         )
         artifact = self._build_artifact(
             skill_id=skill_id,
@@ -449,6 +585,7 @@ class SkillService:
             data=data,
             package=package,
             actor=actor,
+            source=source,
         )
         skill.current_artifact_id = artifact_id
         write_artifact(storage_key, data)
@@ -495,6 +632,7 @@ class SkillService:
             if replayed is not None:
                 return SkillArtifactDetail(**replayed)
         skill = await self.get_skill(tenant_id, skill_id)
+        self._require_system_skill_admin(skill, actor)
         with validated_package(data) as package:
             checksum = checksum_of(data)
             await self._require_absent_version(skill.id, version, checksum)
@@ -510,6 +648,7 @@ class SkillService:
                 data=data,
                 package=package,
                 actor=actor,
+                source=SkillSource(skill.source),
             )
             before = skill_snapshot(skill)
             write_artifact(storage_key, data)
@@ -705,6 +844,7 @@ class SkillService:
         data: bytes,
         package: ValidatedSkillPackage,
         actor: AuditActor,
+        source: SkillSource,
     ) -> SkillArtifact:
         return SkillArtifact(
             id=artifact_id,
@@ -724,6 +864,8 @@ class SkillService:
             package_size=len(data),
             validation_status=VALIDATION_READY,
             created_by=actor.account_id,
+            review_status=SkillReviewStatus.APPROVED,
+            source=source,
         )
 
     def _validated_default_script(
@@ -753,6 +895,11 @@ class SkillService:
             raise AppError(ErrorCode.SKILL_VERSION_EXISTS)
         if await self._skills.find_artifact_by_checksum(skill_id, checksum) is not None:
             raise AppError(ErrorCode.SKILL_VERSION_EXISTS)
+
+    def _require_system_skill_admin(self, skill: Skill, actor: AuditActor) -> None:
+        """系统 Skill 是管理员能力：普通用户不得改字段、追加 artifact 或删除。"""
+        if skill.source == SkillSource.SYSTEM and actor.role != ROLE_ADMIN:
+            raise AppError(ErrorCode.FORBIDDEN)
 
     async def _require_platform_user(self, tenant_id: str, user_id: uuid.UUID) -> PlatformUser:
         user = await self._platform_users.get(tenant_id, user_id)

@@ -11,6 +11,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Literal, Protocol, cast
 
 import httpx
@@ -41,6 +42,7 @@ from muad_agent_core.model import (
     text_of,
 )
 from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill
+from muad_agent_core.sandbox import workspace_layout_from_settings
 from muad_agent_core.tools import DEFAULT_PARALLEL_LIMIT, ToolDefinition, ToolRegistry
 from muad_agent_core.tools.pipeline import (
     PreparedToolCall,
@@ -103,7 +105,11 @@ from ..metrics import (
 )
 from .async_tools.continuation_service import ExecutionIdentity
 from .attachments.archive_tools import ArchiveToolSet
-from .attachments.output_service import OutputArtifactWriter, OutputScope
+from .attachments.output_service import (
+    OutputArtifactWriter,
+    OutputScope,
+    SkillOutputArtifactRegistrar,
+)
 from .attachments.tool_results import (
     ArtifactResultWriter,
     RoundCandidate,
@@ -114,6 +120,7 @@ from .attachments.tool_results import (
 from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
 from .context_settings import FrozenLearning, PoolExecutionPolicy
+from .draft_shell import build_draft_shell_runner
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_observability import memory_audit_preview
 from .memory_queries import MemoryReadScope
@@ -131,11 +138,18 @@ from .model_call_trace import ModelCallTrace
 from .model_capacity_service import ModelCapacityService
 from .ports import CredentialsClient
 from .run_events import DeltaWindow, delta_payload, delta_window_from_settings
-from .skill_tools import TaskSubmissionProtocol, build_default_skill_cache, build_skill_registry
+from .skill_tools import (
+    DraftShellContext,
+    TaskSubmissionProtocol,
+    WorkspaceShellContext,
+    build_default_skill_cache,
+    build_skill_registry,
+)
 from .task_client import TaskSubmissionContext, WorkerTaskClient
 from .task_family import SKILL_TOOLS, skill_key_for_call
 from .task_tools import BackgroundTaskToolSet
 from .time_tools import TimeToolSet, resolve_zone
+from .workspace_shell import build_workspace_shell_runner, build_workspace_store
 
 logger = logging.getLogger(__name__)
 
@@ -1902,6 +1916,32 @@ def _task_submission_context(request: ExecutorRequest) -> TaskSubmissionContext 
     )
 
 
+def _skill_execution_scope(
+    request: ExecutorRequest,
+) -> tuple[Path | None, SkillOutputArtifactRegistrar | None]:
+    """Run 级 Skill workspace 与产物登记：workspace 只定位，不在此处做配额/清理。"""
+    context = request.run_context
+    if context is None:
+        return None, None
+    settings = process_settings()
+    layout = workspace_layout_from_settings(settings)
+    workspace = layout.workspace_dir(
+        tenant_id=context.tenant_id,
+        user_id=str(context.user_id),
+        agent_id=str(request.agent.id),
+    )
+    writer = OutputArtifactWriter(
+        artifact_root=settings.artifact_root,
+        session_factory=get_session_factory,
+        scope=OutputScope(
+            tenant_id=context.tenant_id,
+            run_id=context.run_id,
+            conversation_id=context.conversation_id,
+        ),
+    )
+    return workspace, SkillOutputArtifactRegistrar(writer)
+
+
 def build_registry(
     *,
     request: ExecutorRequest,
@@ -1918,12 +1958,39 @@ def build_registry(
     policy = agent_policy_for(request)
     execution = execution_defaults_for(request)
     task_context = _task_submission_context(request)
+    workspace_dir, output_registrar = _skill_execution_scope(request)
+    workspace_shell = None
+    workspace_context = None
+    workspace_store = None
+    draft_shell = None
+    draft_shell_context = None
+    if request.run_context is not None:
+        # 所有 Agent（无论是否有 Skill）都拿到同一个 workspace_shell；身份只从 Run 取。
+        workspace_shell = build_workspace_shell_runner(process_settings())
+        workspace_store = build_workspace_store(process_settings())
+        workspace_context = WorkspaceShellContext(
+            tenant_id=request.run_context.tenant_id,
+            user_id=str(request.run_context.user_id),
+            agent_id=str(request.agent.id),
+            run_id=str(request.run_context.run_id),
+        )
+        # 草稿 Shell 也只认 Run 身份；模型只能提供 draft_id（Console 再校验 owner）。
+        draft_shell = build_draft_shell_runner(process_settings())
+        draft_shell_context = DraftShellContext(
+            tenant_id=request.run_context.tenant_id,
+            owner_user_id=str(request.run_context.user_id),
+            agent_id=str(request.agent.id),
+            run_id=str(request.run_context.run_id),
+        )
     registry = build_skill_registry(
         cache=cache,
         skills=request.skills,
         policy=policy,
         task_client=task_submitter,
         task_context=task_context,
+        workspace_dir=workspace_dir,
+        execution_id=str(request.run_context.run_id) if request.run_context else None,
+        output_registrar=output_registrar,
         platform_context=SkillPlatformContext(
             tenant_id=request.run_context.tenant_id, actor_user_id=str(request.run_context.user_id),
             execution_id=str(request.run_context.run_id), execution_type="RUN", platform_keys=(),
@@ -1933,6 +2000,12 @@ def build_registry(
             redis_cluster_seeds=process_settings().redis_cluster_seeds,
             service_token=process_settings().internal_service_token,
         ) if request.run_context else None,
+        workspace_shell=workspace_shell,
+        workspace_shell_context=workspace_context,
+        workspace_store=workspace_store,
+        workspace_context=workspace_context,
+        draft_shell=draft_shell,
+        draft_shell_context=draft_shell_context,
     )
     if task_client is not None and task_context is not None:
         # docs/04 §7.5 内置任务工具：Schedule 创建/管理与后台 Task 查询/取消。

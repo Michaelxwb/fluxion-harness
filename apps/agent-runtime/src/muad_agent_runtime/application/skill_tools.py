@@ -1,18 +1,38 @@
 from __future__ import annotations
 
 import json
+import logging
+import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol
 
 from muad_agent_core.agent import AgentPolicy
 from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill, render_skill_entry
+from muad_agent_core.sandbox import (
+    WORKSPACE_MOUNT,
+    SandboxError,
+    WorkspaceDeleting,
+    WorkspaceError,
+    WorkspaceLease,
+    WorkspaceQuotaExceeded,
+    WorkspaceShellRequest,
+    WorkspaceShellRunner,
+    WorkspaceStore,
+    WorkspaceUnavailable,
+)
 from muad_agent_core.skill import (
-    ScriptSkillExecutor,
+    DraftShellError,
+    DraftShellRequest,
+    DraftShellRunner,
+    OutputFile,
     SkillExecutionError,
     SkillExecutionRequest,
     SkillExecutionResult,
+    SkillExecutionStatus,
+    SkillExecutor,
+    build_sandboxed_skill_executor,
 )
 from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, ToolRegistry
 from muad_api import AppError
@@ -30,7 +50,15 @@ from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
 from pydantic import JsonValue
 
-from ..metrics import SKILL_LOAD_METRIC, record_outcome
+from ..metrics import (
+    SANDBOX_OUTPUT_LIMIT_METRIC,
+    SANDBOX_TIMEOUT_METRIC,
+    SKILL_EXECUTION_DURATION_SECONDS,
+    SKILL_EXECUTION_METRIC,
+    SKILL_LOAD_METRIC,
+    record_latency,
+    record_outcome,
+)
 from .task_client import TaskSubmissionContext
 
 LOAD_SKILL_TOOL = "load_skill"
@@ -38,6 +66,8 @@ READ_SKILL_RESOURCE_TOOL = "read_skill_resource"
 EXECUTE_SKILL_TOOL = "execute_skill"
 RUN_SKILL_SCRIPT_TOOL = "run_skill_script"
 SEARCH_SKILLS_TOOL = "search_skills"
+WORKSPACE_SHELL_TOOL = "workspace_shell"
+SKILL_DRAFT_SHELL_TOOL = "skill_draft_shell"
 
 LOAD_SKILL_DESCRIPTION = "Load a skill's manifest and full SKILL.md instructions by skill key."
 READ_SKILL_RESOURCE_TOOL_DESCRIPTION = (
@@ -45,6 +75,22 @@ READ_SKILL_RESOURCE_TOOL_DESCRIPTION = (
 )
 EXECUTE_SKILL_DESCRIPTION = "Execute a skill's deterministic entry script with a normalized JSON input."
 RUN_SKILL_SCRIPT_DESCRIPTION = "Execute a named script under a skill package's scripts directory."
+WORKSPACE_SHELL_DESCRIPTION = (
+    "Run a one-off shell command inside this user's persistent workspace for the current Agent. "
+    "The workspace is shared across runs of the same user + Agent: keep durable files under "
+    "$SKILL_DATA_DIR and write per-call results under $SKILL_OUTPUT_DIR. Network is available. "
+    "System Python/Node dependencies are preinstalled; temporary pip/npm installs are allowed but "
+    "live only inside this workspace and may be lost when the workspace is rebuilt. There is no "
+    "session-manager or platform login state in this shell."
+)
+SKILL_DRAFT_SHELL_DESCRIPTION = (
+    "Run one command against the current user's skill draft copy. Use it to validate "
+    "SKILL.md/scripts before submitting: python -m py_compile, python scripts/<entry>.py, "
+    "node --check, and session-manager get-state are supported. Only files inside the draft are "
+    "written back, and only after path/extension/size/symlink validation and a revision CAS; "
+    "a revision conflict returns DRAFT_REVISION_CONFLICT. It is not an interactive session and "
+    "does not accept skill_key."
+)
 # 工具描述里写清**何时用**：系统提示里的目录只列了靠前的一部分，其余技能只能从这里找到。
 SEARCH_SKILLS_DESCRIPTION = (
     "Search the available skills by keyword (matches key, name and description). "
@@ -62,7 +108,39 @@ SKILL_EXECUTION_FAILED = "SKILL_EXECUTION_FAILED"
 BACKGROUND_SUBMIT_FAILED = "BACKGROUND_SUBMIT_FAILED"
 _STRING_SCHEMA: Mapping[str, Any] = {"type": "string"}
 _OBJECT_SCHEMA: Mapping[str, Any] = {"type": "object"}
+_NUMBER_SCHEMA: Mapping[str, Any] = {"type": "number", "exclusiveMinimum": 0}
 _CATALOG_RESOURCE_KEY = "skills:catalog"
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceShellContext:
+    """``workspace_shell`` 的受信身份：只从 Run 上下文取，不接受模型参数。"""
+
+    tenant_id: str
+    user_id: str
+    agent_id: str
+    run_id: str
+
+    def __post_init__(self) -> None:
+        for field_name in ("tenant_id", "user_id", "agent_id", "run_id"):
+            if not str(getattr(self, field_name)).strip():
+                raise ValueError(f"workspace shell {field_name} must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
+class DraftShellContext:
+    """``skill_draft_shell`` 的受信身份：tenant/owner 从 Run 上下文取，模型只能选 draft_id。"""
+
+    tenant_id: str
+    owner_user_id: str
+    agent_id: str
+    run_id: str
+
+    def __post_init__(self) -> None:
+        for field_name in ("tenant_id", "owner_user_id", "agent_id", "run_id"):
+            if not str(getattr(self, field_name)).strip():
+                raise ValueError(f"draft shell {field_name} must not be empty")
 
 
 def _catalog_resource_key(arguments: Mapping[str, Any]) -> str:
@@ -104,6 +182,15 @@ class TaskSubmissionProtocol(Protocol):
     ) -> dict[str, JsonValue]: ...
 
 
+class SkillOutputRegistrar(Protocol):
+    async def register(self, output: OutputFile) -> str: ...
+
+
+def default_skill_executor() -> SkillExecutor:
+    """装配统一沙箱执行器；bwrap 在首次执行时才探测，服务启动不受宿主机影响。"""
+    return build_sandboxed_skill_executor(process_settings())
+
+
 def build_skill_registry(
     *,
     cache: SkillArtifactCache,
@@ -112,6 +199,16 @@ def build_skill_registry(
     task_client: TaskSubmissionProtocol | None = None,
     task_context: TaskSubmissionContext | None = None,
     platform_context: SkillPlatformContext | None = None,
+    executor: SkillExecutor | None = None,
+    workspace_dir: Path | None = None,
+    execution_id: str | None = None,
+    output_registrar: SkillOutputRegistrar | None = None,
+    workspace_shell: WorkspaceShellRunner | None = None,
+    workspace_shell_context: WorkspaceShellContext | None = None,
+    workspace_store: WorkspaceStore | None = None,
+    workspace_context: WorkspaceShellContext | None = None,
+    draft_shell: DraftShellRunner | None = None,
+    draft_shell_context: DraftShellContext | None = None,
 ) -> ToolRegistry:
     tool_set = SkillToolSet(
         cache=cache,
@@ -120,6 +217,16 @@ def build_skill_registry(
         task_client=task_client,
         task_context=task_context,
         platform_context=platform_context,
+        executor=executor,
+        workspace_dir=workspace_dir,
+        execution_id=execution_id,
+        output_registrar=output_registrar,
+        workspace_shell=workspace_shell,
+        workspace_shell_context=workspace_shell_context,
+        workspace_store=workspace_store,
+        workspace_context=workspace_context,
+        draft_shell=draft_shell,
+        draft_shell_context=draft_shell_context,
     )
     return tool_set.registry()
 
@@ -131,27 +238,51 @@ class SkillToolSet:
         cache: SkillArtifactCache,
         skills: Sequence[ResolvedSkill],
         timeout_sec: float,
-        executor: ScriptSkillExecutor | None = None,
+        executor: SkillExecutor | None = None,
         task_client: TaskSubmissionProtocol | None = None,
         task_context: TaskSubmissionContext | None = None,
         platform_context: SkillPlatformContext | None = None,
+        workspace_dir: Path | None = None,
+        execution_id: str | None = None,
+        output_registrar: SkillOutputRegistrar | None = None,
+        workspace_shell: WorkspaceShellRunner | None = None,
+        workspace_shell_context: WorkspaceShellContext | None = None,
+        workspace_store: WorkspaceStore | None = None,
+        workspace_context: WorkspaceShellContext | None = None,
+        draft_shell: DraftShellRunner | None = None,
+        draft_shell_context: DraftShellContext | None = None,
         async_retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY,
     ) -> None:
         self._cache = cache
         self._skills = {skill.key: skill for skill in skills}
         self._timeout_sec = timeout_sec
-        self._executor = executor or ScriptSkillExecutor()
+        self._executor = executor or default_skill_executor()
         self._ready_dirs: dict[str, Path] = {}
         self._packages: dict[str, SkillPackage] = {}
         self._task_client = task_client
         self._task_context = task_context
         self._platform_context = platform_context
+        self._workspace_dir = workspace_dir
+        self._execution_id = execution_id
+        self._output_registrar = output_registrar
+        self._workspace_shell = workspace_shell
+        self._workspace_shell_context = workspace_shell_context
+        self._workspace_store = workspace_store
+        self._workspace_context = workspace_context
+        self._draft_shell = draft_shell
+        self._draft_shell_context = draft_shell_context
         # ASYNC Skill 的 Owner 侧重试安全声明（design §3.6）：默认 NON_RETRYABLE——未声明即未知，
         # 未知不得自动重做外部副作用。声明同时落在 EXECUTE_SKILL_TOOL 定义与操作提交上。
         self._async_retry_safety = async_retry_safety
 
     def registry(self) -> ToolRegistry:
         registry = ToolRegistry()
+        # workspace_shell 与技能目录无关：没有任何 Skill 的 Agent 也必须能执行一次性命令。
+        if self._workspace_shell is not None and self._workspace_shell_context is not None:
+            registry.register(self._workspace_shell_definition())
+        # 草稿 Shell 同样与已生效技能无关：用户可以在还没有任何已批准 Skill 时调试草稿。
+        if self._draft_shell is not None and self._draft_shell_context is not None:
+            registry.register(self._draft_shell_definition())
         if not self._skills:
             # 一个生效技能都没有时，这几个工具**全都无从调用**（key 从哪来？），目录段也是空的
             # —— 模型只能猜一个 key，白跑一轮换回 `SKILL_NOT_EFFECTIVE`。能力不存在就不提供工具。
@@ -237,9 +368,139 @@ class SkillToolSet:
             result["hint"] = "only the leading matches are shown; narrow the query"
         return json.dumps(result, ensure_ascii=False)
 
+    async def workspace_shell(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """执行一次性 Shell；身份取自 Run 上下文，模型不能选择 tenant/user/agent。"""
+        runner = self._workspace_shell
+        context = self._workspace_shell_context
+        if runner is None or context is None:
+            raise SkillToolError("WORKSPACE_UNAVAILABLE", "workspace shell is not configured")
+        try:
+            command = _require_string(arguments, "command")
+            cwd = arguments.get("cwd", WORKSPACE_MOUNT)
+            if not isinstance(cwd, str) or not cwd.strip():
+                raise SkillToolError(
+                    ErrorCode.COMMON_VALIDATION_ERROR.value, "cwd must be a non-empty string"
+                )
+            timeout_sec = _optional_timeout(arguments, limit=self._timeout_sec)
+            result = await runner.run(
+                WorkspaceShellRequest(
+                    tenant_id=context.tenant_id,
+                    user_id=context.user_id,
+                    agent_id=context.agent_id,
+                    execution_id=_workspace_execution_id(context.run_id, call_id),
+                    command=command,
+                    cwd=cwd.strip(),
+                    timeout_sec=timeout_sec,
+                    run_id=context.run_id,
+                )
+            )
+        except (WorkspaceError, SandboxError) as exc:
+            return _error_result(exc.code, exc.message)
+        except SkillToolError as exc:
+            return _error_result(exc.code, exc.message)
+        except ValueError as exc:
+            return _error_result(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc))
+        return json.dumps(
+            {
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "exit_code": result.exit_code,
+                "duration_ms": result.duration_ms,
+                "changed_files": list(result.changed_files),
+            },
+            ensure_ascii=False,
+        )
+
+    async def skill_draft_shell(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """在当前用户当前草稿的副本中执行一条命令；身份取自 Run 上下文。"""
+        runner = self._draft_shell
+        context = self._draft_shell_context
+        if runner is None or context is None:
+            return _error_result("COMMON_INTERNAL_ERROR", "draft shell is not configured")
+        if "skill_key" in arguments:
+            return _error_result(
+                ErrorCode.COMMON_VALIDATION_ERROR.value,
+                "skill_key is not accepted by skill_draft_shell; pass draft_id",
+            )
+        try:
+            draft_id = _require_string(arguments, "draft_id")
+            command = _require_string(arguments, "command")
+            cwd = arguments.get("cwd", ".")
+            if not isinstance(cwd, str):
+                raise SkillToolError(
+                    ErrorCode.COMMON_VALIDATION_ERROR.value, "cwd must be a string"
+                )
+            timeout_sec = _optional_timeout(arguments, limit=self._timeout_sec)
+            result = await runner.run(
+                DraftShellRequest(
+                    tenant_id=context.tenant_id,
+                    owner_user_id=context.owner_user_id,
+                    draft_id=draft_id,
+                    command=command,
+                    cwd=cwd,
+                    timeout_sec=timeout_sec,
+                    execution_id=_workspace_execution_id(context.run_id, call_id),
+                )
+            )
+        except DraftShellError as exc:
+            payload: dict[str, Any] = {"error": {"code": exc.code, "message": exc.message}}
+            if exc.result is not None:
+                payload["stdout"] = exc.result.stdout
+                payload["stderr"] = exc.result.stderr
+                payload["exit_code"] = exc.result.exit_code
+            return json.dumps(payload, ensure_ascii=False)
+        except SkillToolError as exc:
+            return _error_result(exc.code, exc.message)
+        except ValueError as exc:
+            return _error_result(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc))
+        return json.dumps(
+            {
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "exit_code": result.exit_code,
+                "duration_ms": result.duration_ms,
+                "changed_files": list(result.changed_files),
+                "revision": result.revision,
+            },
+            ensure_ascii=False,
+        )
+
     def _catalog(self) -> tuple[PromptSkill, ...]:
         """全部生效技能 → 目录条目，顺序与提示词目录一致（`sort_order, key`）。"""
         return tuple(prompt_skill(skill) for skill in self._skills.values())
+
+    def _workspace_shell_definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name=WORKSPACE_SHELL_TOOL,
+            description=WORKSPACE_SHELL_DESCRIPTION,
+            input_schema=_input_schema(
+                {
+                    "command": _STRING_SCHEMA,
+                    "cwd": _STRING_SCHEMA,
+                    "timeout_sec": _NUMBER_SCHEMA,
+                },
+                ("command",),
+            ),
+            effect=ToolEffect.EXTERNAL,
+            handler=self.workspace_shell,
+        )
+
+    def _draft_shell_definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name=SKILL_DRAFT_SHELL_TOOL,
+            description=SKILL_DRAFT_SHELL_DESCRIPTION,
+            input_schema=_input_schema(
+                {
+                    "draft_id": _STRING_SCHEMA,
+                    "command": _STRING_SCHEMA,
+                    "cwd": _STRING_SCHEMA,
+                    "timeout_sec": _NUMBER_SCHEMA,
+                },
+                ("draft_id", "command"),
+            ),
+            effect=ToolEffect.EXTERNAL,
+            handler=self.skill_draft_shell,
+        )
 
     def _definitions(self) -> tuple[ToolDefinition, ...]:
         return (
@@ -390,12 +651,39 @@ class SkillToolSet:
             raise SkillToolError(
                 "PLATFORM_CONTEXT_REQUIRED", "Platform Skill requires a trusted execution context"
             )
+        execution_id = self._execution_id or uuid.uuid4().hex
+        lease = await self._acquire_execution_workspace(execution_id)
         try:
-            result = await self._executor.execute(
+            result = await self._run_executor(
+                ready_dir, input_data, script=script, skill=skill, execution_id=execution_id,
+                workspace_dir=lease.workspace_dir if lease is not None else self._workspace_dir,
+            )
+            self._record_execution(skill, result)
+            outputs = await self._register_outputs(result)
+            return _execution_payload(result, outputs)
+        finally:
+            if lease is not None:
+                await self._release_execution_workspace(lease)
+
+    async def _run_executor(
+        self,
+        ready_dir: Path,
+        input_data: Mapping[str, Any],
+        *,
+        script: Path | None,
+        skill: ResolvedSkill,
+        execution_id: str,
+        workspace_dir: Path | None,
+    ) -> SkillExecutionResult:
+        try:
+            return await self._executor.execute(
                 SkillExecutionRequest(
                     ready_dir=ready_dir,
                     input=input_data,
                     timeout_sec=self._timeout_sec,
+                    source=str(skill.source),
+                    workspace_dir=workspace_dir,
+                    execution_id=execution_id,
                     script=script,
                     platform_context=replace(
                         self._platform_context, platform_keys=skill_platform_keys(skill.frontmatter)
@@ -406,7 +694,93 @@ class SkillToolSet:
             )
         except SkillExecutionError as exc:
             raise SkillToolError(SKILL_EXECUTION_FAILED, exc.message) from exc
-        return _execution_payload(result)
+
+    async def _acquire_execution_workspace(
+        self, execution_id: str
+    ) -> WorkspaceLease | None:
+        if self._workspace_store is None or self._workspace_context is None:
+            return None
+        context = self._workspace_context
+        try:
+            return await self._workspace_store.acquire(
+                tenant_id=context.tenant_id,
+                user_id=context.user_id,
+                agent_id=context.agent_id,
+                execution_id=execution_id,
+                run_id=context.run_id,
+                lease_sec=max(60.0, self._timeout_sec + 30.0),
+            )
+        except WorkspaceQuotaExceeded as exc:
+            raise SkillToolError(ErrorCode.WORKSPACE_QUOTA_EXCEEDED.value, str(exc)) from exc
+        except WorkspaceDeleting as exc:
+            raise SkillToolError(ErrorCode.WORKSPACE_DELETING.value, str(exc)) from exc
+        except WorkspaceUnavailable as exc:
+            raise SkillToolError(ErrorCode.WORKSPACE_UNAVAILABLE.value, str(exc)) from exc
+
+    async def _release_execution_workspace(self, lease: WorkspaceLease) -> None:
+        assert self._workspace_store is not None
+        try:
+            await self._workspace_store.refresh_usage(lease)
+        except Exception as exc:  # noqa: BLE001 - 统计失败不得覆盖执行结果
+            logger.warning(
+                "skill_workspace_usage_refresh_failed execution_id=%s error=%s",
+                lease.execution_id,
+                type(exc).__name__,
+            )
+        try:
+            await self._workspace_store.release(lease)
+        except Exception as exc:  # noqa: BLE001 - 释放失败不得覆盖执行结果
+            logger.warning(
+                "skill_workspace_release_failed execution_id=%s error=%s",
+                lease.execution_id,
+                type(exc).__name__,
+            )
+
+    def _record_execution(self, skill: ResolvedSkill, result: SkillExecutionResult) -> None:
+        labels = {"source": str(skill.source)}
+        record_outcome(SKILL_EXECUTION_METRIC, result.status.value, labels)
+        record_latency(SKILL_EXECUTION_DURATION_SECONDS, result.duration_ms / 1000.0, labels)
+        if result.output_notice:
+            record_outcome(SANDBOX_OUTPUT_LIMIT_METRIC, result.output_notice, labels)
+        if result.status is SkillExecutionStatus.TIMED_OUT:
+            record_outcome(SANDBOX_TIMEOUT_METRIC, result.status.value, labels)
+        # 执行日志只带关联字段与封闭状态；trace/request/tenant/user/agent/run 由 logging-kit
+        # context 提供，stdout/stderr 正文与平台凭据不得进入日志（design §3.5 可观测性）。
+        logger.info(
+            "skill_execution",
+            extra={
+                "skill_key": skill.key,
+                "skill_artifact_id": str(skill.artifact_id),
+                "source": str(skill.source),
+                "status": result.status.value,
+                "duration_ms": result.duration_ms,
+                "execution_id": self._execution_id,
+            },
+        )
+
+    async def _register_outputs(
+        self, result: SkillExecutionResult
+    ) -> list[dict[str, Any]]:
+        entries: list[dict[str, Any]] = []
+        for output in result.outputs:
+            entry: dict[str, Any] = {
+                "relative_path": output.relative_path,
+                "size": output.size,
+                "checksum": output.checksum,
+                "artifact_id": None,
+            }
+            if self._output_registrar is not None and result.output_notice is None:
+                try:
+                    entry["artifact_id"] = await self._output_registrar.register(output)
+                except Exception as exc:  # noqa: BLE001 - 登记失败必须可见，不能吞掉
+                    entry["error"] = str(getattr(exc, "code", type(exc).__name__))
+                    logger.warning(
+                        "skill_output_registration_failed path=%s error=%s",
+                        output.relative_path,
+                        entry["error"],
+                    )
+            entries.append(entry)
+        return entries
 
 
 def _input_schema(properties: Mapping[str, Any], required: Sequence[str]) -> dict[str, Any]:
@@ -438,6 +812,25 @@ def _require_input(arguments: Mapping[str, Any]) -> Mapping[str, Any]:
             "input must be a JSON object",
         )
     return value
+
+
+def _optional_timeout(arguments: Mapping[str, Any], *, limit: float) -> float:
+    value = arguments.get("timeout_sec")
+    if value is None:
+        return max(limit, 0.001)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        raise ValueError("timeout_sec must be a positive number")
+    return min(float(value), max(limit, 0.001))
+
+
+def _workspace_execution_id(run_id: str, call_id: str) -> str:
+    """一次工具调用 = 一个独立 output 目录；只保留安全字符并受列长限制。"""
+    safe = "".join(
+        character if character.isalnum() or character in "-_." else "_"
+        for character in str(call_id)
+    ).strip("._-") or "call"
+    prefix = str(run_id).replace("-", "")[:8] or "run"
+    return f"{prefix}-{safe}"[:64]
 
 
 def _matches(skill: PromptSkill, terms: Sequence[str]) -> bool:
@@ -493,7 +886,9 @@ def _manifest_payload(package: SkillPackage) -> dict[str, Any]:
     }
 
 
-def _execution_payload(result: SkillExecutionResult) -> str:
+def _execution_payload(
+    result: SkillExecutionResult, outputs: Sequence[Mapping[str, Any]] = ()
+) -> str:
     return json.dumps(
         {
             "status": result.status.value,
@@ -502,6 +897,8 @@ def _execution_payload(result: SkillExecutionResult) -> str:
             "result": result.result,
             "duration_ms": result.duration_ms,
             "exit_code": result.exit_code,
+            "outputs": list(outputs),
+            "output_notice": result.output_notice,
         },
         ensure_ascii=False,
     )

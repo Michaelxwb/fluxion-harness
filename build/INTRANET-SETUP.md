@@ -23,6 +23,10 @@
 
 ## 1. 底座镜像
 
+> 2026-11 起 `python-node` 底座内置 bwrap（用户 Skill 脚本沙箱）。带 bwrap 的底座
+> 构建、导入和 session-manager 前置 probe 步骤见
+> `docs/operations/sandbox-solution.md` 第 8–9 节。
+
 ### 1.1 导入现成 tar（推荐）
 
 ```bash
@@ -337,13 +341,60 @@ build/INTRANET-K8S-DEPLOY.md
 
 完整 Secret/ConfigMap 示例见 `build/INTRANET-K8S-DEPLOY.md` §1.2、§1.3。
 
+### 5.2 Skill/Shell workspace（独立 PVC）
+
+workspace 使用独立 `muad-workspaces-rwx`，不与 `muad-artifacts-rwx` 共卷；Runtime/Worker 挂载
+`/mnt/muad-workspaces`，Helm 参数见 `build/INTRANET-K8S-DEPLOY.md` §1.1/§2.2/§2.3。
+
+`muad-common` ConfigMap 已包含：
+
+```yaml
+WORKSPACE_ROOT: /mnt/muad-workspaces
+WORKSPACE_QUOTA_MIB: "500"
+WORKSPACE_USER_QUOTA_MIB: "500"
+WORKSPACE_FILE_LIMIT: "5000"
+WORKSPACE_OUTPUT_TTL_DAYS: "30"
+WORKSPACE_DATA_TTL_DAYS: "30"
+```
+
+部署后先跑 workspace canary（P1 发布门禁；真实 Pod 内验证 bwrap、共享 PVC 与镜像/节点指纹）：
+
+```bash
+python3 scripts/workspace_canary.py --namespace muad \
+  --runtime deployment/muad-agent-runtime \
+  --worker deployment/muad-agent-worker \
+  --expected-root /mnt/muad-workspaces \
+  --output docs/operations/evidence/workspace-canary/$(date +%Y-%m-%d)-canary.json
+```
+
+脚本只用标准库，宿主机有 Python 3.9+ 即可（不需要 uv）；宿主机没有 Python 时按
+`deploy/k8s/README.md`「P1 workspace canary」的 Pod 内步骤执行（拷贝脚本 +
+`--probe-only`/`--cleanup-only`）。
+
+也可以只验证目录可写（UID 10001）：
+
+```bash
+kubectl -n muad exec deploy/muad-agent-runtime -- python -c '
+from pathlib import Path
+root = Path("/mnt/muad-workspaces")
+root.mkdir(parents=True, exist_ok=True)
+probe = root / ".write-probe"
+probe.write_text("ok")
+probe.unlink()
+print("workspace writable:", root)
+'
+```
+
+容量按每用户 500 MiB 估算；`muad-workspaces-rwx` 初始 100Gi，按实际用户数扩容。artifacts PVC
+继续只存 Skill 包/附件，两者分开监控。workspace 清理只处理 `WORKSPACE_ROOT`。
+
 顺序：
 
 ```text
-1. 建 namespace、Secret、muad-common ConfigMap、artifacts PVC
+1. 建 namespace、Secret、muad-common ConfigMap、artifacts PVC、workspaces PVC
 2. 部署前手动执行数据库迁移
 3. 安装 5 个服务（无顺序依赖，可以并行）
-4. 验证 /healthz、/readyz
+4. 验证 /healthz、/readyz、workspace 目录可写
 ```
 
 如果使用 nginx 统一入口：

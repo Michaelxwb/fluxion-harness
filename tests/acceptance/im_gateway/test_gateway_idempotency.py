@@ -22,6 +22,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.acceptance.im_gateway.environment import (
+    INTERNAL_TOKEN,
     GatewayStack,
     count_tenant_rows,
     purge_tenant,
@@ -87,7 +88,7 @@ def _run_request(gateway_stack: GatewayStack, *, message_id: str, text: str) -> 
 
 async def _run(runtime_url: str, gateway_stack: GatewayStack, *, key: str, text: str) -> dict[str, str]:
     """经生产 RuntimeClient 提交一次 Run（显式 Idempotency-Key），返回终态与 run/conversation id。"""
-    client = RuntimeClient(runtime_url)
+    client = RuntimeClient(runtime_url, service_token=INTERNAL_TOKEN)
     try:
         request = _run_request(gateway_stack, message_id=key, text=text)
         result = {"run_id": "", "conversation_id": "", "status": ""}
@@ -161,7 +162,11 @@ async def test_b126_same_key_different_fingerprint_is_mismatch_without_side_effe
         mismatch = await client.post(
             "/v1/runs",
             json=payload,
-            headers={"X-Tenant-Id": gateway_stack.tenant_id, "Idempotency-Key": key},
+            headers={
+                "X-Tenant-Id": gateway_stack.tenant_id,
+                "X-Internal-Service": INTERNAL_TOKEN,
+                "Idempotency-Key": key,
+            },
         )
     assert mismatch.status_code == 409, mismatch.text
     assert mismatch.json()["code"] == "IDEMPOTENCY_MISMATCH", mismatch.text
@@ -255,7 +260,7 @@ async def test_b126_bind_and_new_replay_have_single_side_effect(
 
     # /new 同命令重放不创建第二会话
     new_key = f"b126-new-{uuid.uuid4().hex[:10]}"
-    client = RuntimeClient(gateway_stack.runtime_url)
+    client = RuntimeClient(gateway_stack.runtime_url, service_token=INTERNAL_TOKEN)
     try:
         first_conversation = await client.create_conversation(
             gateway_stack.agent_id,

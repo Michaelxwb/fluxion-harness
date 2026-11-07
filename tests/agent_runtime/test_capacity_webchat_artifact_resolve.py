@@ -302,12 +302,12 @@ async def test_b255_resolve_refuses_other_user_cross_tenant_and_deleted(
 
 
 async def test_b255_resolve_requires_internal_service_identity(
-    resolve_tenant: TenantContext, client: AsyncClient
+    resolve_tenant: TenantContext, client: AsyncClient, anonymous_client: AsyncClient
 ) -> None:
     """受信身份门控：无内部服务身份（或缺租户）一律 403，不触达归属解析。"""
     seeded = await _seed_owned_artifact(resolve_tenant)
 
-    anonymous = await client.get(
+    anonymous = await anonymous_client.get(
         _path(seeded.artifact_id),
         params={"user_id": str(resolve_tenant.platform_user_id)},
         headers={"X-Tenant-Id": resolve_tenant.tenant_id},

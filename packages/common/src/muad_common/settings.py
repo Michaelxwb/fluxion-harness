@@ -42,6 +42,34 @@ class SharedSettings(BaseSettings):
 
     artifact_root: str = "./.data/artifacts"
     skill_cache_root: str = "./.data/skill-cache"
+    #: 用户 Skill 草稿根目录（生产挂 muad-skill-drafts-rwx，只挂 Console）。
+    skill_draft_root: str = "./.data/skill-drafts"
+    #: 草稿配额：总大小、单文件大小与文件数上限。具体值以部署配置为准。
+    skill_draft_quota_mib: int = Field(default=100, ge=1)
+    skill_draft_file_max_bytes: int = Field(default=5 * 1024 * 1024, ge=1)
+    skill_draft_file_limit: int = Field(default=2000, ge=1)
+    #: Workspace 根目录（生产挂 muad-workspaces-rwx；dev 用本地目录）。
+    workspace_root: str = "./.data/workspaces"
+    #: workspace 配额：单 workspace / 单用户聚合（MiB）与文件数上限。
+    workspace_quota_mib: int = Field(default=500, ge=1)
+    workspace_user_quota_mib: int = Field(default=500, ge=1)
+    workspace_file_limit: int = Field(default=5000, ge=1)
+    #: data 跨 Run 持久、outputs 每次执行独立；清理 TTL 按天。
+    workspace_output_ttl_days: int = Field(default=30, ge=1)
+    workspace_data_ttl_days: int = Field(default=30, ge=1)
+    #: Skill/Shell 沙箱执行模式：bwrap（生产默认）/ dev-unsafe（仅 ENV=dev）/ disabled（仅 dev）。
+    #: dev-unsafe 直接执行宿主进程，**生产必须保持 bwrap**；非 dev 配 dev-unsafe 会在启动期报错。
+    sandbox_mode: str = "bwrap"
+    #: bwrap 可执行文件路径；空 = 从 PATH 查找。探测失败/版本过旧一律 fail closed。
+    sandbox_bwrap_path: str | None = None
+    #: 单次执行的 /tmp tmpfs 上限（字节）。
+    sandbox_tmpfs_bytes: int = Field(default=64 * 1024 * 1024, ge=1024 * 1024)
+    #: stdout/stderr 单流上限（字节）；超限终止并返回 SANDBOX_OUTPUT_LIMIT。
+    sandbox_output_limit_bytes: int = Field(default=64 * 1024, ge=1024)
+    #: SKILL_OUTPUT_DIR 的产物登记边界：文件数、单文件、总大小（MiB）。
+    skill_output_max_files: int = Field(default=100, ge=1)
+    skill_output_max_file_mib: int = Field(default=16, ge=1)
+    skill_output_max_total_mib: int = Field(default=64, ge=1)
     migrations_dir: str = "./migrations/versions"
 
     console_platform_url: str = "http://127.0.0.1:8000"
@@ -188,7 +216,18 @@ class SharedSettings(BaseSettings):
         self._validate_http_budgets()
         self._validate_stream_budgets()
         self._validate_delivery_budgets()
+        self._validate_sandbox_budgets()
         return self
+
+    def _validate_sandbox_budgets(self) -> None:
+        allowed = {"bwrap", "dev-unsafe", "disabled"}
+        if self.sandbox_mode not in allowed:
+            raise ValueError(f"sandbox_mode must be one of {sorted(allowed)}")
+        if self.env != "dev" and self.sandbox_mode != "bwrap":
+            raise ValueError(
+                "sandbox_mode=dev-unsafe/disabled is only allowed when ENV=dev; "
+                "production must use bwrap"
+            )
 
     def _validate_lease_budgets(self) -> None:
         for prefix in ("run", "task", "model_call"):

@@ -1,0 +1,7 @@
+{
+  "name": "s11-demo-dep",
+  "version": "1.0.0",
+  "description": "S-11 fixture: temporary npm dependency installed inside the workspace only",
+  "main": "index.js",
+  "license": "UNLICENSED"
+}

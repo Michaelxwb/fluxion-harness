@@ -26,6 +26,7 @@ from tests.acceptance.im_gateway.environment import (
     BOT_ID,
     BOUND_EXTERNAL_USER_ID,
     CHAT_ID,
+    INTERNAL_TOKEN,
     GatewayStack,
     count_tenant_rows,
     purge_tenant,
@@ -144,7 +145,7 @@ async def _push(stack: GatewayStack, *, bot_id: str, external_user_id: str, text
 async def _run_directly(
     runtime_url: str, stack: GatewayStack, *, message_id: str
 ) -> dict[str, str]:
-    client = RuntimeClient(runtime_url)
+    client = RuntimeClient(runtime_url, service_token=INTERNAL_TOKEN)
     try:
         request = RunRequest(
             agent_id=stack.agent_id,

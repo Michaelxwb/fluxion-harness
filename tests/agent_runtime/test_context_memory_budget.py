@@ -71,6 +71,7 @@ from tests.agent_runtime.memory_redesign_write_support import (
     writer,
 )
 from tests.e2e.openai_probe_app import app as probe_app
+from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
 LISTEN_TIMEOUT_SEC = 15.0
 TOOL_NAME = "dump"
@@ -281,7 +282,7 @@ async def _send(client: httpx.AsyncClient, tenant: TenantContext, text: str) -> 
             "channel": {"type": "WECOM", "bot_id": "bot-memory"},
             "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
         },
-        headers={"X-Tenant-Id": tenant.tenant_id},
+        headers={"X-Tenant-Id": tenant.tenant_id, "X-Internal-Service": INTERNAL_SERVICE_TOKEN},
     )
     assert response.status_code == 200, response.text
     events = parse_sse(response.text)

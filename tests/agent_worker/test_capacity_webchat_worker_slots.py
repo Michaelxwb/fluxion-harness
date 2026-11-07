@@ -94,6 +94,27 @@ def _settings(**overrides: Any) -> SharedSettings:
     return SharedSettings(**values)
 
 
+def _fill_snapshot_contract(values: dict[str, Any]) -> None:
+    snapshot = values.get("execution_snapshot_json")
+    if not isinstance(snapshot, dict):
+        return
+    skills = snapshot.get("skills")
+    if not isinstance(skills, list):
+        return
+    for skill in skills:
+        if not isinstance(skill, dict):
+            continue
+        skill.setdefault("source", "ADMIN")
+        skill.setdefault(
+            "workspace",
+            {
+                "tenant_id": values["tenant_id"],
+                "user_id": str(values["actor_user_id"]),
+                "agent_id": str(values["agent_id"]),
+            },
+        )
+
+
 async def _seed_task(
     factory: async_sessionmaker[AsyncSession], *, now: datetime | None = None, **overrides: Any
 ) -> TaskExecution:
@@ -127,6 +148,7 @@ async def _seed_task(
         "delivery_attempts": 0,
     }
     values.update(overrides)
+    _fill_snapshot_contract(values)
     async with factory() as session, session.begin():
         task = TaskExecution(**values)
         session.add(task)

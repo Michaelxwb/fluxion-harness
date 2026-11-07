@@ -1,0 +1,41 @@
+Base image inspection
+=====================
+
+Image:
+  docker.sangfor.com/mss-base/python-node:3.12.13-node24
+  linux/amd64
+  local size: 1.7GB
+
+Command:
+  docker run --rm --platform linux/amd64 \
+    docker.sangfor.com/mss-base/python-node:3.12.13-node24 \
+    sh -c 'cat /etc/os-release; command -v apt-get apk dnf yum microdnf tdnf; \
+           command -v bwrap nsjail unshare prlimit; ldd --version; \
+           python --version; node --version'
+
+Observed:
+  NAME="PlatOS"
+  VERSION="1.3 (LTS)"
+  ID="PlatOS"
+  VERSION_ID="1.3"
+  PRETTY_NAME="PlatOS 1.3 (LTS)"
+  ANSI_COLOR="0;31"
+
+  No apt-get / apk / dnf / yum / microdnf / tdnf found.
+  No bwrap / nsjail / unshare / prlimit found.
+
+  ldd (GNU libc) 2.28
+  Python 3.12.13
+  node v24.22.2
+
+Python location:
+  /opt/python3.12/bin/python
+  /usr/local/bin/python -> /opt/python3.12/bin/python3.12
+  /usr/local/bin/node
+
+Implication:
+  - The shared base has no package manager, so bwrap cannot be installed with
+    apt/apk/dnf inside this image.
+  - bwrap must be built in a builder stage and copied in, together with its
+    musl loader / libcap dependencies (or a fully static binary).
+  - Python lives under /opt, so a bwrap sandbox must bind /opt read-only.

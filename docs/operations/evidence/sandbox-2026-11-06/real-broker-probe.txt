@@ -1,0 +1,106 @@
+P0.3 real Runtime broker canary
+================================
+
+Date: 2026-11-06
+Environment: intranet Kubernetes, namespace muad
+Runtime image: rebuilt from docker.sangfor.com/mss-base/python-node:3.12.13-node24
+bwrap: 0.13.1
+Probe: real_broker_probe.py
+
+Inputs used:
+  TEST_ACTOR_USER_ID = 142c789b-cd22-4dc7-9e69-b6a84a493eef
+  TEST_PLATFORM_KEY  = mssp
+  TEST_URL           = http://soar-inner.sangfor.com.cn:30001/
+  TEST_SKILL_NAME    = mssp-canary
+
+What this exercised:
+  - real muad_platform_sdk.skill_bridge.skill_platform_environment
+  - Console /internal/runtime/resolve-egress-access
+  - Redis-backed platform session
+  - the user's configured MSSP AK/SK credential
+  - bwrap inside the deployed runtime Pod
+  - session-manager get-state through the Unix socket broker
+  - reading sessionStateFile
+  - requests against the real test platform through --share-net
+
+Command:
+  POD=$(kubectl -n muad get pod -l app=muad-agent-runtime \
+    -o jsonpath='{.items[0].metadata.name}')
+
+  kubectl -n muad cp ./real_broker_probe.py "$POD":/tmp/real_broker_probe.py
+
+  kubectl -n muad exec -it "$POD" -- env \
+    TEST_ACTOR_USER_ID='142c789b-cd22-4dc7-9e69-b6a84a493eef' \
+    TEST_PLATFORM_KEY='mssp' \
+    TEST_URL='http://soar-inner.sangfor.com.cn:30001/' \
+    TEST_SKILL_NAME='mssp-canary' \
+    python /tmp/real_broker_probe.py
+
+Observed:
+  bwrap_rc 0
+  stdout {"ok": true, "status": 200, "url": "http://soar-inner.sangfor.com.cn:30001/", "cookie_names": ["login-source", "soc-token"], "content_type": "text/html", "content_length": 1342}
+  stderr
+  RESULT: PASS
+
+What it proves:
+  - bwrap can execute in the real runtime Pod.
+  - The real Runtime broker resolves the user's MSSP credential and returns
+    a session state file that is readable inside bwrap.
+  - session-manager CLI works inside bwrap.
+  - The client constructs a request using real session cookies and receives HTTP 200.
+    The root-path HTML response does not establish successful business authentication.
+
+What it does not prove:
+  - The full SandboxedSkillExecutor routing / user Skill execution path.
+  - Worker async Skill execution through bwrap.
+  - Untrusted-script isolation against Runtime /v1 APIs: this still requires
+    the P0.4 service-identity gate.
+  - Output flooding, read-only package and approval transaction behavior.
+
+P0.3 strengthened: authentication positive/negative controls
+------------------------------------------------------------
+Endpoint:
+  GET http://soar-inner.sangfor.com.cn:30001/order/v1/get_expert
+
+Additional headers:
+  Accept: application/json
+  Content-Type: application/json
+  Host: sitsoar.sangfor.com.cn
+  Referer: https://sitsoar.sangfor.com.cn/index.html
+  X-Requested-With: XMLHttpRequest
+  Timezone: +08:00
+
+Cookie modes (TEST_COOKIE_MODE):
+  valid    -> use broker cookies as-is
+  none     -> remove all cookies
+  invalid  -> replace soc-token with an invalid value
+
+Observed:
+  valid    status=200, cookies login-source + soc-token, is_json=true
+  none     status=403, cookies [], response code 9451 (非法操作)
+  invalid  status=403, cookies present, response code 9451 (非法操作)
+
+Conclusion:
+  - The valid request reaches the real protected business endpoint with HTTP 200.
+  - Removing or tampering with the auth cookie is rejected with HTTP 403.
+  - This is a positive + negative authentication control, not just "request sent".
+  - Response body is intentionally not stored here because it contains business data.
+
+Note:
+  TEST_EXPECT_STATUS=any makes the probe print RESULT: OBSERVED and does not
+  assert PASS/FAIL; the three statuses above are the evidence.
+  - Protected business access: valid / missing / invalid Cookie controls, expected
+    business fields, POST/CSRF, and redirect/HTTP-200-login-page rejection.
+  - A fresh AK/SK login in this invocation: a warm Redis session may be reused.
+  - Actual Run/Task ownership: the canary constructs trusted context and defaults
+    its execution ID to a random UUID.
+
+Review annotation (2026-11-06):
+  - The observed output above is historical and remains unchanged.
+  - The updated real_broker_probe.py disables redirects, defaults to 2xx, preserves
+    empty JSON objects, and adds Cookie controls and explicit JSON assertions.
+  - check_scope describes only the assertion performed; observation mode reports
+    RESULT: OBSERVED, never an authentication pass.
+  - GET https://sitsoar.sangfor.com.cn/order/v1/get_expert has been selected for the
+    next protected-endpoint test. No live result is recorded yet. See the main
+    document P0.3.2 for commands and acceptance criteria.

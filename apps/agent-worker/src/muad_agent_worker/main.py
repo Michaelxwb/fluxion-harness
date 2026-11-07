@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
 import httpx
 from fastapi import FastAPI
+from muad_agent_core.sandbox import workspace_layout_from_settings
 from muad_api import (
     database_readiness,
     install_api_foundation,
@@ -13,7 +15,7 @@ from muad_api import (
     validate_startup,
 )
 from muad_artifact_store import NfsArtifactStore
-from muad_common import SharedSettings
+from muad_common import SharedSettings, workspace_policy_from_settings
 from muad_common.db_counters import publish_db_counters
 from muad_logging import configure_logging
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -43,15 +45,20 @@ from .results.dispatcher import ResultDispatcher, ResultDispatchPolicy
 from .scheduler.client import ConsoleResolveClient
 from .scheduler.service import SchedulerLoop
 from .worker.service import WorkerLoop
+from .worker.workspace_maintenance import WorkspaceMaintenanceLoop
 
 SERVICE_NAME = "muad-agent-worker"
 
 configure_logging(SERVICE_NAME)
+logger = logging.getLogger("muad_agent_worker.main")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = SharedSettings()
+    # 启动快照：内部服务门控等热路径只读这一份，不逐请求重读 env/.env。
+    app.state.settings = settings
+    app.state.workspace_policy = workspace_policy_from_settings(settings)
     await validate_startup(
         settings,
         get_engine(),
@@ -117,6 +124,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         app.state.platform_settings_client = NullPlatformSettingsClient()
         await pools.aclose()
     await dispose_engine()
+    # 测试/同进程重入不继承上一轮启动快照；生产退出后进程即结束。
+    app.state.settings = None
 
 
 async def _db_counters_loop() -> None:
@@ -184,15 +193,38 @@ def _start_background(
     app.state.delivery_loop = delivery
     results = _result_dispatcher(session_factory, pools.egress, settings)
     app.state.result_dispatcher = results
-    loops = (
+    loops = [
         (worker.run_forever(), "worker.claim"),
         # 维护循环：回收的独立节拍，不排在领取/执行/投递后面（§3.2）。
         (worker.run_maintenance_forever(), "worker.maintenance"),
         (scheduler.run_forever(), "worker.scheduler"),
         (delivery.run_forever(), "worker.delivery"),
         (results.run_forever(), "worker.results"),
-    )
+    ]
+    workspace_loop = _workspace_maintenance(settings, session_factory)
+    app.state.workspace_maintenance = workspace_loop
+    if workspace_loop is not None:
+        loops.append((workspace_loop.run_forever(), "worker.workspace.maintenance"))
     return [asyncio.create_task(loop, name=name) for loop, name in loops]
+
+
+def _workspace_maintenance(
+    settings: SharedSettings,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> WorkspaceMaintenanceLoop | None:
+    """workspace 根未挂载时不得启用清理（PRD：PVC 须同时挂 Runtime/Worker）。"""
+    layout = workspace_layout_from_settings(settings)
+    if not layout.root.is_dir():
+        logger.warning(
+            "workspace_cleanup_disabled_root_missing",
+            extra={"workspace_root": str(layout.root)},
+        )
+        return None
+    return WorkspaceMaintenanceLoop(
+        session_factory,
+        layout,
+        interval_sec=settings.run_reaper_interval_sec,
+    )
 
 
 def _result_dispatcher(

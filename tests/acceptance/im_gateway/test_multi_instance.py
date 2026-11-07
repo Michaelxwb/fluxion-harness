@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.acceptance.im_gateway.environment import (
+    INTERNAL_TOKEN,
     GatewayStack,
     count_tenant_rows,
     purge_tenant,
@@ -48,7 +49,7 @@ async def _run_until_terminal(
     runtime_url: str, gateway_stack: GatewayStack, *, message_id: str
 ) -> dict[str, str]:
     """经生产 RuntimeClient（真实 SSE 封套解析）跑完整 Run，返回终态与 conversation_id。"""
-    client = RuntimeClient(runtime_url)
+    client = RuntimeClient(runtime_url, service_token=INTERNAL_TOKEN)
     try:
         request = RunRequest(
             agent_id=gateway_stack.agent_id,

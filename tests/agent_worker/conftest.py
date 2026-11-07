@@ -13,8 +13,26 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from tests.async_tool_datastores import async_tool_database, async_tool_datastore  # noqa: F401
 
 SCHEMA = "task"
-TABLES = ("delivery_route", "task_schedule", "task_execution", "task_event", "task_submission")
+TABLES = (
+    "delivery_route",
+    "task_schedule",
+    "task_execution",
+    "task_event",
+    "task_submission",
+    "workspace",
+    "workspace_lease",
+)
 
+DELETE_LEASES = text(
+    "DELETE FROM task.workspace_lease WHERE workspace_id IN "
+    "(SELECT id FROM task.workspace WHERE tenant_id = :tenant_id)"
+)
+DELETE_WORKSPACES = text("DELETE FROM task.workspace WHERE tenant_id = :tenant_id")
+SWEEP_LEASES = text(
+    "DELETE FROM task.workspace_lease WHERE workspace_id IN "
+    "(SELECT id FROM task.workspace WHERE tenant_id LIKE 'test-%')"
+)
+SWEEP_WORKSPACES = text("DELETE FROM task.workspace WHERE tenant_id LIKE 'test-%'")
 DELETE_EVENTS = text("DELETE FROM task.task_event WHERE tenant_id = :tenant_id")
 DELETE_SUBMISSIONS = text("DELETE FROM task.task_submission WHERE tenant_id = :tenant_id")
 DELETE_TASKS = text("DELETE FROM task.task_execution WHERE tenant_id = :tenant_id")
@@ -62,6 +80,23 @@ def internal_service_token(monkeypatch: pytest.MonkeyPatch) -> str:
 
 
 @pytest.fixture(autouse=True)
+def dev_sandbox_executor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Worker 单测显式使用 dev-unsafe：真实子进程，无 bwrap 的本地主机可跑。
+
+    生产装配仍是 `build_sandboxed_skill_executor(settings)`（bwrap fail closed）；
+    真实 bwrap 边界由 acceptance 探针覆盖。
+    """
+    from muad_agent_core.sandbox import DevUnsafeRunner
+    from muad_agent_core.skill import SandboxedSkillExecutor
+    from muad_agent_worker.worker import executor as module
+
+    def build(settings: object) -> SandboxedSkillExecutor:
+        return SandboxedSkillExecutor(runner=DevUnsafeRunner(), dev_unsafe=True)
+
+    monkeypatch.setattr(module, "build_sandboxed_skill_executor", build)
+
+
+@pytest.fixture(autouse=True)
 async def sweep_stale_test_rows(database_guard: None) -> None:
     """claim 是全局的：清掉崩溃测试残留的到期 Schedule 与可 claim Task，避免跨测试串扰。"""
     stale_tasks = (
@@ -83,6 +118,9 @@ async def sweep_stale_test_rows(database_guard: None) -> None:
     )
     session_factory = get_session_factory()
     async with session_factory() as session:
+        # workspace 清理循环按租约/状态全局扫描；先清掉测试残留，避免跨用例串扰。
+        for statement in (SWEEP_LEASES, SWEEP_WORKSPACES):
+            await session.execute(statement)
         # 到期 Schedule 的清理同样必须先删引用行，否则被 task_execution/task_submission
         # 引用时整条清扫 FK 失败 → 残留越积越多（外键方向：task_event→task_execution→
         # task_schedule，task_submission→两者）。
@@ -137,6 +175,8 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
     finally:
         async with session_factory() as session:
             for statement in (
+                DELETE_LEASES,
+                DELETE_WORKSPACES,
                 DELETE_EVENTS,
                 DELETE_SUBMISSIONS,
                 DELETE_TASKS,
