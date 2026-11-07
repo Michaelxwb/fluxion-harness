@@ -12,6 +12,9 @@ global:
   artifacts:
     existingClaim: muad-artifacts-rwx
     mountPath: /mnt/muad-artifacts
+  workspaces:
+    existingClaim: muad-workspaces-rwx
+    mountPath: /mnt/muad-workspaces
   skillCache:
     mountPath: /var/cache/muad/skills
   nodeSelector: {}

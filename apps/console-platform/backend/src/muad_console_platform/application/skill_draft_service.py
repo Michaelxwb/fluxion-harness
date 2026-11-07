@@ -113,28 +113,30 @@ class SkillDraftService:
         self._audit = AuditService(session)
 
     async def create(
-        self, tenant_id: str, owner_user_id: uuid.UUID, key: str
+        self, tenant_id: str, owner_user_id: uuid.UUID, agent_id: uuid.UUID, key: str
     ) -> dict[str, Any]:
         validate_draft_key(key)
-        existing = await self._drafts.find_by_key(tenant_id, owner_user_id, key)
+        existing = await self._drafts.find_by_key(tenant_id, owner_user_id, agent_id, key)
         if existing is not None:
             self._store.ensure(existing)
             return draft_view(existing)
-        draft = await self._insert_draft(tenant_id, owner_user_id, key)
+        draft = await self._insert_draft(tenant_id, owner_user_id, agent_id, key)
         self._store.ensure(draft)
         await self._audit_draft(tenant_id, owner_user_id, "CREATE", draft, {"key": draft.key})
         return draft_view(draft)
 
     async def _insert_draft(
-        self, tenant_id: str, owner_user_id: uuid.UUID, key: str
+        self, tenant_id: str, owner_user_id: uuid.UUID, agent_id: uuid.UUID, key: str
     ) -> SkillDraft:
         try:
-            draft = await self._drafts.create(tenant_id, owner_user_id, key)
+            draft = await self._drafts.create(tenant_id, owner_user_id, agent_id, key)
             await self._session.flush()
             return draft
         except IntegrityError as exc:
             await self._session.rollback()
-            existing = await self._drafts.find_by_key(tenant_id, owner_user_id, key)
+            existing = await self._drafts.find_by_key(
+                tenant_id, owner_user_id, agent_id, key
+            )
             if existing is None:
                 raise AppError(ErrorCode.COMMON_CONFLICT) from exc
             return existing

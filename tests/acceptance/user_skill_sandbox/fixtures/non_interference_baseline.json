@@ -123,7 +123,7 @@
     "apps/agent-runtime/src/muad_agent_runtime/application/model_call_trace.py": "45cc9ef9ff07b19c6aa0308911a2d7b4afaa4113e420123b60fe8bcaea93b25d",
     "apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py": "7709434412c4d9415449e5dbe83cfe71b68c0a16e536fdd5d1fe73ff014af307",
     "apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py": "172ab0b2811bf9890f7adc83063df6ed2427d55c0d6919b85c2a4cfeb6c44bd6",
-    "apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py": "b5f3443af9e84b2ad0cd2bc225f521d380236ee5a453b212225d41f166e97874",
+    "apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py": "6fb4818afc9b830c665af7807bb2c4712da9e007986beeaaf2e089996c916c6d",
     "apps/console-platform/backend/src/muad_console_platform/api/mcp_servers.py": "77c6c994ed8e5f3c70df9324580c92ad6f9729955c8800e21727890682abee2a",
     "apps/console-platform/backend/src/muad_console_platform/api/models.py": "0a7df4fc7f53d94d127b430c2989f79e39e7226cc33300fac954fd8310c76c36",
     "apps/console-platform/backend/src/muad_console_platform/application/agent_mcp_service.py": "ba7fea69e7558288d1e31178697c90b98803a055ccab8f72e81dc4a9926b699f",

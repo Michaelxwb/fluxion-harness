@@ -52,7 +52,6 @@ def make_layout(
         quota_bytes=quota_bytes,
         user_quota_bytes=user_quota_bytes,
         file_limit=file_limit,
-        output_ttl_seconds=output_ttl_days * DAY,
         data_ttl_seconds=data_ttl_days * DAY,
     )
 

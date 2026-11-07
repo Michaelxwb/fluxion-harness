@@ -85,7 +85,7 @@ async def import_skill(
     tenant_id: TenantId,
     session: Session,
     file: Annotated[UploadFile, File()],
-    version: Annotated[str, Form(min_length=1, max_length=64)],
+    version: Annotated[str | None, Form(max_length=64)] = None,
     key: Annotated[str | None, Form(min_length=1, max_length=128)] = None,
     default_script: Annotated[str | None, Form(max_length=256)] = None,
     user_scope: Annotated[str | None, Form(pattern="^(ALL|SELECTED)$")] = None,
@@ -211,7 +211,7 @@ async def add_artifact(
     tenant_id: TenantId,
     session: Session,
     file: Annotated[UploadFile, File()],
-    version: Annotated[str, Form(min_length=1, max_length=64)],
+    version: Annotated[str | None, Form(max_length=64)] = None,
     default_script: Annotated[str | None, Form(max_length=256)] = None,
     idempotency_key: Annotated[str | None, Header(max_length=128)] = None,
 ) -> ApiResponse[Any]:

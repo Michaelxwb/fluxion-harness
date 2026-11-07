@@ -11,6 +11,9 @@ from pathlib import Path
 import pytest
 from muad_agent_core.sandbox import DevUnsafeRunner
 from muad_agent_core.skill import (
+    MAX_SKILL_ARG_BYTES,
+    MAX_SKILL_ARGS,
+    MAX_SKILL_ARGS_TOTAL_BYTES,
     OutputLimits,
     SandboxedSkillExecutor,
     SkillExecutionError,
@@ -81,6 +84,77 @@ async def test_execute_receives_stdin_and_structured_result(tmp_path: Path) -> N
     result = await _executor().execute(_request(root))
 
     assert result.result == {"echo": {"question": "hello"}}
+
+
+async def test_execute_appends_cli_args_without_shell(tmp_path: Path) -> None:
+    root = _package(
+        tmp_path / "skill",
+        "import json, sys\nprint(json.dumps({'argv': sys.argv[1:]}))\n",
+    )
+
+    result = await _executor().execute(
+        _request(root, args=("--company-id", "42", "a b; echo not-executed"))
+    )
+
+    assert result.result == {
+        "argv": ["--company-id", "42", "a b; echo not-executed"]
+    }
+
+
+async def test_nested_entrypoint_can_import_package_root_module(tmp_path: Path) -> None:
+    """去掉 ``-I`` 后入口目录仍在 sys.path[0]；嵌套入口可自行加入包根 import 兄弟模块。"""
+    root = _package(tmp_path / "skill", "print('unused')\n")
+    (root / "shared.py").write_text("VALUE = 7\n", encoding="utf-8")
+    phase = root / "phase1"
+    phase.mkdir()
+    trigger = phase / "trigger.py"
+    trigger.write_text(
+        "import json, os, sys\n"
+        "root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))\n"
+        "sys.path.insert(0, root)\n"
+        "import shared\n"
+        "print(json.dumps({'value': shared.VALUE}))\n",
+        encoding="utf-8",
+    )
+
+    result = await _executor().execute(_request(root, script=trigger))
+
+    assert result.status is SkillExecutionStatus.SUCCEEDED
+    assert result.result == {"value": 7}
+
+
+async def test_relative_paths_resolve_from_package_root_in_dev_unsafe(tmp_path: Path) -> None:
+    """dev-unsafe 与生产沙箱同 cwd（包根），相对路径不会出现“本机行、沙箱不行”。"""
+    root = _package(
+        tmp_path / "skill",
+        "import json\n"
+        "with open('config/settings.json', encoding='utf-8') as handle:\n"
+        "    print(json.dumps(json.load(handle)))\n",
+    )
+    config = root / "config"
+    config.mkdir()
+    (config / "settings.json").write_text('{"value": "relative-ok"}', encoding="utf-8")
+
+    result = await _executor().execute(_request(root))
+
+    assert result.result == {"value": "relative-ok"}
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("",),
+        ("has\x00nul",),
+        ("x" * (MAX_SKILL_ARG_BYTES + 1),),
+        tuple("x" for _ in range(MAX_SKILL_ARGS + 1)),
+        tuple("x" * 1024 for _ in range(MAX_SKILL_ARGS_TOTAL_BYTES // 1024 + 1)),
+    ],
+)
+def test_invalid_cli_args_are_rejected(tmp_path: Path, args: tuple[str, ...]) -> None:
+    root = _package(tmp_path / "skill", "print('should not run')\n")
+
+    with pytest.raises(ValueError):
+        _request(root, args=args)
 
 
 @pytest.mark.parametrize("source", [None, "", "ROOT", "user' OR 1=1"])

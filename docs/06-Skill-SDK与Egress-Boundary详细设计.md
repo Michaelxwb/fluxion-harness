@@ -167,7 +167,7 @@ flowchart LR
 在模型已经加载 SKILL.md、完成必要澄清后，统一调用：
 
 ```text
-execute_skill(skill_key, normalized_input)
+execute_skill(skill_key, normalized_input, args?)
 ```
 
 ```mermaid
@@ -201,7 +201,7 @@ flowchart TD
     K --> L[Write Tool Audit]
 ```
 
-**图说明**：此处不再把 Skill 包装成 `skill::<key>` 固定 Tool。ToolRegistry 常驻的是框架工具 `load_skill/read_skill_resource/execute_skill/run_skill_script`；`load_skill`（Catalog 命中）与 `execute_skill` 都先经 `SkillArtifactCache.ensure`，再由 `SkillExecutor` 执行脚本。具体业务流程由已加载的 SKILL.md 指导，脚本只是其中可按需执行的一部分。
+**图说明**：此处不再把 Skill 包装成 `skill::<key>` 固定 Tool。ToolRegistry 常驻的是框架工具 `load_skill/read_skill_resource/execute_skill`（`run_skill_script` 默认不注册，仅调试开关）；`load_skill`（Catalog 命中）与 `execute_skill` 都先经 `SkillArtifactCache.ensure`，再由 `SkillExecutor` 执行脚本。具体业务流程由已加载的 SKILL.md 指导，脚本只是其中可按需执行的一部分。
 
 ### 4.1 本地 cache
 

@@ -462,16 +462,17 @@ ToolRegistry 常驻四个框架工具：
 ```text
 load_skill(skill_key)
 read_skill_resource(skill_key, path)
-execute_skill(skill_key, input)
-run_skill_script(skill_key, script_path, args)
+execute_skill(skill_key, input, args?)
+run_skill_script(skill_key, script_path, args?)
 ```
 
 其中：
 
 - `load_skill` 加载并注入完整 SKILL.md；
 - `read_skill_resource` 读取 references/assets 中按需资料；
-- `execute_skill` 是业务执行的统一边界：先进入 `ExecutionRouter`，再选择 Inline 或 Background；它不是为每个 Skill 单独生成一个 Tool；
-- `run_skill_script` 是已进入某个 Skill 执行上下文后的脚本原语，执行 Skill 自带 Python 脚本，脚本通过受控 `SkillContext`（含 `http.get/post/request`）调业务平台/MCP/HTTP，禁止直接 import `httpx/requests/aiohttp`；
+- `execute_skill` 是业务执行的统一边界：先进入 `ExecutionRouter`，再选择 Inline 或 Background；它不是为每个 Skill 单独生成一个 Tool；`args` 是脚本的 CLI argv（`execve` 参数，不经过 shell），ASYNC 后台 Task 当前只冻结 `input`，不接受 `args`；
+- `run_skill_script` 是已进入某个 Skill 执行上下文后的脚本原语，按包内相对路径执行 Skill 自带脚本（如 `scripts/run.py`、`phase2/phase2_wait_check.py`），`args` 同样按 CLI argv 原样传递；它始终 inline，不读取 `execution_mode`、不提交后台 Task，因此不能替代 `execute_skill` 的业务入口；脚本通过受控 `SkillContext`（含 `http.get/post/request`）调业务平台/MCP/HTTP，禁止直接 import `httpx/requests/aiohttp`；
+- 选择规则：模型只使用 `execute_skill`（Skill 的 `entrypoint` 负责内部分发 Phase）；`run_skill_script` 默认不注册，仅调试开关下可用。ASYNC Skill 的主入口由平台强制走 `execute_skill`；
 
 ### 7.4 加载流程
 
@@ -506,7 +507,7 @@ Catalog
  -> ExecutionRouter
 ```
 
-同步 Skill 的 `execute_skill` 在当前 Runtime 中建立 `SkillExecutionSession`，允许继续使用 `run_skill_script/read_skill_resource/MCP`。
+同步 Skill 的 `execute_skill` 在当前 Runtime 中建立 `SkillExecutionSession`，允许继续使用 `read_skill_resource/MCP`；`run_skill_script` 仅在调试开关下可用。
 
 异步 Skill 的 `execute_skill` 不在当前 Pod 继续跑业务步骤，而是将规范化输入与 Snapshot 提交给 Worker。这样 Agent 仍然只理解一个业务意图，且执行策略有明确的框架控制点。
 

@@ -252,6 +252,7 @@ class WorkerLoop:
                     settings_client=self._settings_client,
                 ),
                 workspace_store=workspace_store,
+                execution_timeout_sec=self._settings.worker_execution_timeout_sec,
             )
         return self._executor
 

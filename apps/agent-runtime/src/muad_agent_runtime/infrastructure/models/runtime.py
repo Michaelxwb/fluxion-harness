@@ -892,6 +892,13 @@ class Artifact(StandardColumnsMixin, Base):
         ),
         sa.Index("ix_artifact_run", "run_id"),
         sa.Index("ix_artifact_conversation", "conversation_id"),
+        sa.Index(
+            "ix_artifact_agent_user_time",
+            "tenant_id",
+            "agent_id",
+            "user_id",
+            sa.text("create_time DESC"),
+        ),
         {"schema": "runtime"},
     )
 
@@ -901,6 +908,9 @@ class Artifact(StandardColumnsMixin, Base):
     )
     task_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), nullable=True)
+    #: 产物归属（user + agent）：历史产出跨会话检索用；历史行可为 NULL。
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), nullable=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), nullable=True)
     artifact_type: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     storage_key: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     media_type: Mapped[str] = mapped_column(sa.String(128), nullable=False)

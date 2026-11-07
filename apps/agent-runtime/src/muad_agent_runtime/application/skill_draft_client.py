@@ -118,12 +118,11 @@ class ConsoleDraftShellClient:
             headers[INTERNAL_SERVICE_HEADER] = self._service_token
         url = f"{self._base_url}{path}"
         try:
-            if self._client is not None:
-                return await self._client.request(
-                    method, url, params=params, json=json, headers=headers
-                )
-            async with httpx.AsyncClient(timeout=self._timeout_sec, trust_env=False) as client:
-                return await client.request(method, url, params=params, json=json, headers=headers)
+            if self._client is None:
+                self._client = httpx.AsyncClient(timeout=self._timeout_sec, trust_env=False)
+            return await self._client.request(
+                method, url, params=params, json=json, headers=headers
+            )
         except httpx.HTTPError as exc:
             logger.warning(
                 "draft_shell_console_unavailable method=%s path=%s error=%s",
@@ -169,4 +168,197 @@ def _response_error(response: httpx.Response) -> DraftShellError:
     )
 
 
-__all__ = ["ConsoleDraftShellClient"]
+class ConsoleSkillDraftClient:
+    """草稿 CRUD / 校验 / 提交的 Console 内部客户端（API-03 / API-04 / API-12）。
+
+    身份（tenant_id / owner_user_id）由 Runtime 工具从受信 Run 上下文注入，模型参数不可覆盖。
+    """
+
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        service_token: str | None = None,
+        timeout_sec: float = DEFAULT_TIMEOUT_SEC,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        if timeout_sec <= 0:
+            raise ValueError("draft client timeout_sec must be positive")
+        self._base_url = base_url.rstrip("/")
+        self._service_token = service_token
+        self._timeout_sec = timeout_sec
+        self._client = client
+
+    async def aclose(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def create(
+        self, *, tenant_id: str, owner_user_id: str, agent_id: str, key: str
+    ) -> dict[str, Any]:
+        return await self._call(
+            "POST",
+            "/internal/skills/drafts",
+            json={
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "agent_id": agent_id,
+                "key": key,
+            },
+        )
+
+    async def metadata(
+        self, draft_id: str, *, tenant_id: str, owner_user_id: str
+    ) -> dict[str, Any]:
+        return await self._call(
+            "GET",
+            f"/internal/skills/drafts/{draft_id}",
+            params={"tenant_id": tenant_id, "owner_user_id": owner_user_id},
+        )
+
+    async def read(
+        self, draft_id: str, *, tenant_id: str, owner_user_id: str, path: str
+    ) -> dict[str, Any]:
+        return await self._call(
+            "GET",
+            f"/internal/skills/drafts/{draft_id}/files",
+            params={"tenant_id": tenant_id, "owner_user_id": owner_user_id, "path": path},
+        )
+
+    async def write(
+        self,
+        draft_id: str,
+        *,
+        tenant_id: str,
+        owner_user_id: str,
+        path: str,
+        content: str,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        return await self._call(
+            "PUT",
+            f"/internal/skills/drafts/{draft_id}/files",
+            json={
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "path": path,
+                "content": content,
+                "expected_revision": expected_revision,
+            },
+        )
+
+    async def delete_file(
+        self,
+        draft_id: str,
+        *,
+        tenant_id: str,
+        owner_user_id: str,
+        path: str,
+        expected_revision: int | None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "tenant_id": tenant_id,
+            "owner_user_id": owner_user_id,
+            "path": path,
+        }
+        if expected_revision is not None:
+            params["expected_revision"] = expected_revision
+        return await self._call(
+            "DELETE", f"/internal/skills/drafts/{draft_id}/files", params=params
+        )
+
+    async def delete(
+        self, draft_id: str, *, tenant_id: str, owner_user_id: str
+    ) -> dict[str, Any]:
+        return await self._call(
+            "DELETE",
+            f"/internal/skills/drafts/{draft_id}",
+            params={"tenant_id": tenant_id, "owner_user_id": owner_user_id},
+        )
+
+    async def review(
+        self, draft_id: str, *, tenant_id: str, owner_user_id: str
+    ) -> dict[str, Any]:
+        return await self._call(
+            "POST",
+            f"/internal/skills/drafts/{draft_id}/review",
+            json={"tenant_id": tenant_id, "owner_user_id": owner_user_id},
+        )
+
+    async def status(
+        self, draft_id: str, *, tenant_id: str, owner_user_id: str
+    ) -> dict[str, Any]:
+        return await self._call(
+            "GET",
+            f"/internal/skills/drafts/{draft_id}/status",
+            params={"tenant_id": tenant_id, "owner_user_id": owner_user_id},
+        )
+
+    async def submit(
+        self,
+        draft_id: str,
+        *,
+        tenant_id: str,
+        owner_user_id: str,
+        expected_revision: int,
+        version: str | None,
+        default_script: str | None,
+        submitted_agent_id: str | None,
+        submitted_channel: str | None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "tenant_id": tenant_id,
+            "owner_user_id": owner_user_id,
+            "expected_revision": expected_revision,
+        }
+        if version is not None:
+            body["version"] = version
+        if default_script is not None:
+            body["default_script"] = default_script
+        if submitted_agent_id is not None:
+            body["submitted_agent_id"] = submitted_agent_id
+        if submitted_channel is not None:
+            body["submitted_channel"] = submitted_channel
+        return await self._call(
+            "POST", f"/internal/skills/drafts/{draft_id}/submit", json=body
+        )
+
+    async def _call(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        json: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        headers = {"Accept": "application/json"}
+        if self._service_token:
+            headers[INTERNAL_SERVICE_HEADER] = self._service_token
+        url = f"{self._base_url}{path}"
+        try:
+            if self._client is None:
+                self._client = httpx.AsyncClient(timeout=self._timeout_sec, trust_env=False)
+            response = await self._client.request(
+                method, url, params=params, json=json, headers=headers
+            )
+        except httpx.HTTPError as exc:
+            logger.warning(
+                "skill_draft_console_unavailable method=%s path=%s error=%s",
+                method,
+                path,
+                type(exc).__name__,
+            )
+            raise DraftShellError(
+                "COMMON_INTERNAL_ERROR", "console draft API is unavailable"
+            ) from exc
+        if response.status_code >= 400:
+            raise _response_error(response)
+        payload = _payload(response)
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            raise DraftShellError("COMMON_INTERNAL_ERROR", "console draft response is invalid")
+        return data
+
+
+__all__ = ["ConsoleDraftShellClient", "ConsoleSkillDraftClient"]

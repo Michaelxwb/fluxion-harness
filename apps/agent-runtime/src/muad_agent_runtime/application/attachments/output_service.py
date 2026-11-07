@@ -32,6 +32,9 @@ class OutputScope:
     tenant_id: str
     run_id: uuid.UUID | None
     conversation_id: uuid.UUID | None
+    #: 产物归属：历史产出按 agent + user 检索（跨会话）。
+    agent_id: uuid.UUID | None = None
+    user_id: uuid.UUID | None = None
 
 
 def output_version_key(run_id: uuid.UUID | None, artifact_id: uuid.UUID, version: int | str) -> str:
@@ -93,6 +96,8 @@ class OutputArtifactWriter:
             run_id=self.scope.run_id,
             task_id=None,
             conversation_id=self.scope.conversation_id,
+            agent_id=self.scope.agent_id,
+            user_id=self.scope.user_id,
             artifact_type=AGENT_OUTPUT_ARTIFACT_TYPE,
             storage_key=output_version_key(self.scope.run_id, artifact_id, 1),
             media_type=media_type,

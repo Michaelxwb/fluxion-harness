@@ -86,7 +86,55 @@ if output_dir:
 
 - `SKILL_DATA_DIR` 跨执行持久，按 tenant + user + Agent 隔离；`cache` / `logs` / `companies` 都放这里。
 - `SKILL_OUTPUT_DIR` 每次执行独立；执行器会扫描并登记为本次执行的产物。
+- 宿主目录已经是 `<WORKSPACE_ROOT>/<tenant_id>/<user_id>/<agent_id>/outputs/<execution_id>`，沙箱内只挂当前 user + Agent 的根到 `/workspace`，因此不同用户/Agent 互相看不到对方的产物。
 - 本地直接调试时 `SKILL_OUTPUT_DIR` 可能为空：脚本必须判空，不能回退写当前目录或包根目录。
+
+导入 Skill 时不再手填版本、Skill key 和默认脚本：版本取 `muad.skill.json` 的 `version`（缺省 `1.0.0`），
+Skill key 由 `SKILL.md` 的 `name` 生成，默认脚本取 manifest 的 `entrypoint`。
+
+新平台的业务 Skill 模板见 `skills/_templates/business-skill-python/`；`smoke_platform` 的端到端样例见
+`skills/smoke-platform-sample/` 与 `tools/fake-business-platform/`。
+
+### 2.1.1 命令行参数与包内脚本路径
+
+`execute_skill`（以及调试开关下的 `run_skill_script`）的 `args` 会原样追加到解释器命令之后，等价于：
+
+```bash
+python3 scripts/run.py --company-id 123 --minutes 30
+```
+
+```json
+{
+  "skill_key": "monitor-mssw-events",
+  "args": ["--company-id", "123", "--minutes", "30"]
+}
+```
+
+约定：
+
+- `args` 是 `execve` argv，不经过 shell；`;`、`|`、`$()`、通配符都不会被解释，需要 shell 语义时由脚本自己处理。
+- `args` 上限为 64 个参数、单个 4096 UTF-8 字节、总计 32 KiB；空字符串和 NUL 会被拒绝。
+- `run_skill_script` 的 `script` 支持 `scripts/run.py`、`run.py` 和包内相对路径（如 `phase2/phase2_wait_check.py`）；绝对路径、`..`、反斜杠和跳出包根的符号链接会被拒绝。
+- `execute_skill` 的 `args` 只支持 SYNC Skill；ASYNC Skill 目前只接收 `input`，后台 Task 不会替 `args` 做持久化。
+- Python 解释器使用 `-E -s -B`：不读 `PYTHON*` 环境、不加用户 site-packages、不写 `__pycache__`；入口脚本目录仍在 `sys.path[0]`，相邻模块可以直接 import。
+- 生产沙箱的 cwd 固定为只读包根 `/skill`；读包内相对文件可以直接用 `open("config/xxx.json")`，更推荐用 `Path(__file__).resolve().parent` 定位，避免依赖 cwd。
+
+### 2.1.2 Skill 的执行入口：只用 `execute_skill`
+
+平台对模型只暴露 `execute_skill` 一个 Skill 执行入口；`run_skill_script` 默认不注册（仅调试开关下可用）。这样用户和模型都不需要判断"该调哪个工具"。
+
+多 Phase / 多子脚本的旧 Skill，在**接入层**加一个薄分发器（不改业务逻辑）：
+
+- `muad.skill.json` 的 `entrypoint` 指向 `scripts/run.py`；
+- `scripts/run.py` 只解析 `--phase N`，把剩余 argv 原样交给已有的 Phase 脚本
+  （`runpy.run_path`，与直接 `python3 phaseN/xxx.py` 完全同构：`sys.argv`、stdout、退出码不变）；
+- `SKILL.md` 写清"用户意图 → `--phase` 参数"，模型始终调用：
+
+```text
+execute_skill(skill_key="policy-check-mssp", args=["--phase", "2", "--latest"])
+```
+
+不要为了适配而改业务逻辑：Phase 脚本保持原样，本地仍可单独运行。`run_skill_script` 只在调试时显式打开，不能作为技能的正常入口。
 
 ### 2.2 登录态：session-manager 替代 cookies.txt
 

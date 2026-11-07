@@ -34,9 +34,13 @@ def build_workspace_store(
     resolved = settings or process_settings()
     layout = workspace_layout_from_settings(resolved)
     metadata = SqlWorkspaceMetadataStore(session_factory_provider)
+    # dev-unsafe 直接在宿主执行：租约必须给出宿主可见的真实路径，
+    # 否则导出的 SKILL_DATA_DIR/SKILL_OUTPUT_DIR 会指向不存在的 /workspace。
+    dev_unsafe = resolved.env == "dev" and resolved.sandbox_mode == "dev-unsafe"
     return WorkspaceStore(
         layout=layout,
         metadata=metadata,
+        sandbox_mount=None if dev_unsafe else WORKSPACE_MOUNT,
         quota=WorkspaceQuotaPolicy.from_layout(layout),
         usage=metadata,
         on_quota_rejected=record_workspace_quota_rejected,

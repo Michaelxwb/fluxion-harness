@@ -14,8 +14,12 @@ data:
   WORKSPACE_QUOTA_MIB: "500"
   WORKSPACE_USER_QUOTA_MIB: "500"
   WORKSPACE_FILE_LIMIT: "5000"
-  WORKSPACE_OUTPUT_TTL_DAYS: "30"
   WORKSPACE_DATA_TTL_DAYS: "30"
+  # Skill 草稿：落在 workspaces 卷的 {tenant}/{user}/{agent}/skill-drafts，
+  # 由 WORKSPACE_ROOT 推导，不再单独配置根路径。
+  SKILL_DRAFT_QUOTA_MIB: "100"
+  SKILL_DRAFT_FILE_LIMIT: "2000"
+  SKILL_DRAFT_FILE_MAX_BYTES: "5242880"
   # 沙箱执行模式：K8s（本地/内网）一律 bwrap；dev-unsafe 只能由 macOS 原生 Dev 显式开启，
   # 生产配置出现 dev-unsafe/disabled 会在启动期被 SharedSettings 拒绝。
   SANDBOX_MODE: bwrap

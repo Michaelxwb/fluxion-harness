@@ -17,6 +17,7 @@ import logging
 import shutil
 import uuid
 from collections.abc import Callable
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -24,6 +25,7 @@ from typing import Any, cast
 
 import sqlalchemy as sa
 from muad_agent_core.sandbox.workspace import WorkspaceLayout
+from muad_common.workspaces import DRAFT_ACTIVITY_MARKER
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -111,10 +113,16 @@ class WorkspaceMaintenanceLoop:
 
     async def run_once(self, *, now: datetime | None = None) -> MaintenanceSummary:
         """一轮清理：认领 → 删目录 → 置终态/失败；返回可测试的显式计数。"""
-        async with self._session_factory() as session:
+        async with AsyncExitStack() as stack:
+            session = await stack.enter_async_context(self._session_factory())
+            locks = await stack.enter_async_context(self._session_factory())
+            # 事务级 advisory lock 固定在同一条连接上：整个清理循环期间有效，事务结束自动释放。
+            # 不用会话级 pg_advisory_lock + 跨事务 unlock —— 连接归还池后 unlock 可能落到
+            # 另一条连接上而静默失败，锁永久泄漏、DELETING 行再也不会被重试。
+            await stack.enter_async_context(locks.begin())
             async with session.begin():
                 reference = await self._reference_time(session, now)
-                outcome = await self._claim(session, reference)
+                outcome = await self._claim(session, reference, locks)
             scanned = len(outcome.claimed) + outcome.skipped
             if scanned:
                 record_workspace_cleanup("SCANNED", amount=scanned)
@@ -154,8 +162,6 @@ class WorkspaceMaintenanceLoop:
                     else:
                         failed += 1
                         record_workspace_cleanup("FAILED")
-                finally:
-                    await self._unlock(session, item.id)
 
             return MaintenanceSummary(
                 scanned=scanned,
@@ -198,7 +204,9 @@ class WorkspaceMaintenanceLoop:
             raise ValueError("workspace maintenance reference time must be timezone-aware")
         return reference
 
-    async def _claim(self, session: AsyncSession, reference: datetime) -> ClaimOutcome:
+    async def _claim(
+        self, session: AsyncSession, reference: datetime, locks: AsyncSession
+    ) -> ClaimOutcome:
         cutoff = reference - timedelta(seconds=self._layout.data_ttl_seconds)
         skipped = int(
             await session.scalar(
@@ -227,7 +235,9 @@ class WorkspaceMaintenanceLoop:
         ).all()
         claimed: list[ClaimedWorkspace] = []
         for row in rows:
-            if not await self._try_lock(session, row.id):
+            if self._draft_recently_active(row, cutoff):
+                continue
+            if not await self._try_lock(locks, row.id):
                 continue
             row.state = WORKSPACE_DELETING
             row.update_time = reference
@@ -242,22 +252,25 @@ class WorkspaceMaintenanceLoop:
             )
         return ClaimOutcome(claimed=tuple(claimed), skipped=skipped)
 
-    async def _try_lock(self, session: AsyncSession, workspace_id: uuid.UUID) -> bool:
-        return bool(
-            await session.scalar(select(sa.func.pg_try_advisory_lock(_advisory_key(workspace_id))))
+    def _draft_recently_active(self, row: Workspace, cutoff: datetime) -> bool:
+        """草稿活动标记比清理截止时间新：保留整个 agent 目录（含草稿）。"""
+        directory = self._layout.workspace_dir(
+            tenant_id=row.tenant_id,
+            user_id=str(row.user_id),
+            agent_id=str(row.agent_id),
         )
-
-    async def _unlock(self, session: AsyncSession, workspace_id: uuid.UUID) -> None:
         try:
-            async with session.begin():
-                await session.scalar(
-                    select(sa.func.pg_advisory_unlock(_advisory_key(workspace_id)))
-                )
-        except Exception:  # noqa: BLE001 - 会话关闭也会释放锁；日志保留可见
-            logger.warning(
-                "workspace_cleanup_unlock_failed",
-                extra={"workspace_id": str(workspace_id)},
+            return (directory / DRAFT_ACTIVITY_MARKER).stat().st_mtime > cutoff.timestamp()
+        except OSError:
+            return False
+
+    async def _try_lock(self, locks: AsyncSession, workspace_id: uuid.UUID) -> bool:
+        """在锁连接的事务里取事务级 advisory lock（事务结束自动释放）。"""
+        return bool(
+            await locks.scalar(
+                select(sa.func.pg_try_advisory_xact_lock(_advisory_key(workspace_id)))
             )
+        )
 
     async def _remove(self, item: ClaimedWorkspace) -> None:
         directory = self._layout.workspace_dir(

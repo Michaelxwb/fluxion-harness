@@ -80,6 +80,8 @@ class SkillManifest:
     execution: SkillExecutionMode = SkillExecutionMode.SYNC
     platform_label: str | None = None
     platforms: tuple[str, ...] = ()
+    #: ``muad.skill.json`` 的 version；缺省时由导入侧给默认值。
+    version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,13 +104,16 @@ class SkillPackage:
         declared_entrypoint(base)
         frontmatter = dict(frontmatter)
         legacy_manifest = base / "muad.skill.json"
-        if "platforms" not in frontmatter and legacy_manifest.is_file():
+        if legacy_manifest.is_file():
             try:
                 legacy = json.loads(legacy_manifest.read_text(encoding="utf-8"))
             except (OSError, ValueError) as exc:
                 raise SkillPackageError("muad.skill.json must be valid UTF-8 JSON") from exc
-            if isinstance(legacy, dict) and "platforms" in legacy:
-                frontmatter["platforms"] = legacy["platforms"]
+            if isinstance(legacy, dict):
+                if "platforms" not in frontmatter and "platforms" in legacy:
+                    frontmatter["platforms"] = legacy["platforms"]
+                if "version" not in frontmatter and "version" in legacy:
+                    frontmatter["version"] = legacy["version"]
         return cls(
             root=base,
             manifest=_build_manifest(frontmatter),
@@ -236,11 +241,17 @@ def _build_manifest(frontmatter: Mapping[str, Any]) -> SkillManifest:
         not isinstance(key, str) or not key or key != key.strip() for key in platforms
     ):
         raise SkillPackageError("frontmatter 'platforms' must be a list of platform keys")
+    version = frontmatter.get("version")
+    if version is not None and (
+        not isinstance(version, str) or not version.strip() or len(version.strip()) > 64
+    ):
+        raise SkillPackageError("'version' must be a non-empty string of at most 64 characters")
     return SkillManifest(
         name=_catalog_field(name, "name", MAX_NAME_BYTES),
         description=_catalog_field(description, "description", MAX_DESCRIPTION_BYTES),
         execution=_execution_mode(frontmatter.get("execution")),
         platforms=tuple(dict.fromkeys(platforms)),
+        version=None if version is None else version.strip(),
         platform_label=(
             None
             if platform_label is None

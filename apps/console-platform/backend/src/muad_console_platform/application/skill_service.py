@@ -52,6 +52,8 @@ from .dto import (
 from .skill_audit import SkillAuditAction, SkillAuditEvent
 
 AUDIT_SKILL = "SKILL"
+#: 导入未提供版本且 manifest 也没写 version 时的稳定默认值。
+DEFAULT_SKILL_VERSION = "1.0.0"
 AUDIT_ARTIFACT = "SKILL_ARTIFACT"
 AUDIT_GRANT = "SKILL_USER_GRANT"
 AUDIT_BINDING = "AGENT_SKILL_BINDING"
@@ -280,7 +282,7 @@ class SkillService:
         actor: AuditActor,
     ) -> SkillDetail:
         skill = await self.get_skill(tenant_id, skill_id)
-        self._require_system_skill_admin(skill, actor)
+        self._require_skill_mutable(skill, actor)
         before = skill_snapshot(skill)
         for field, value in payload.model_dump(exclude_unset=True).items():
             setattr(skill, field, value)
@@ -302,7 +304,7 @@ class SkillService:
         Artifact rows/files stay intact for audit and for re-importing the same key.
         """
         skill = await self.get_skill(tenant_id, skill_id)
-        self._require_system_skill_admin(skill, actor)
+        self._require_skill_mutable(skill, actor)
         bound = await self._skills.count_agent_bindings(skill.id)
         if bound > 0:
             raise AppError(
@@ -474,7 +476,7 @@ class SkillService:
         self,
         tenant_id: str,
         *,
-        version: str,
+        version: str | None,
         key: str | None,
         default_script: str | None,
         data: bytes,
@@ -484,35 +486,38 @@ class SkillService:
         idempotency_key: str | None = None,
     ) -> SkillDetail:
         requested_source = SkillSource(source) if source is not None else SkillSource.ADMIN
-        self._validate_import_source(requested_source, actor, explicit=source is not None)
+        self._validate_import_source(requested_source, actor)
         scope = (
             USER_SCOPE_ALL
             if requested_source == SkillSource.SYSTEM
             else user_scope or USER_SCOPE_SELECTED
         )
-        fingerprint = self._fingerprint(
-            "import",
-            tenant_id,
-            {
-                "key": key,
-                "version": version,
-                "default_script": default_script,
-                "user_scope": scope,
-                "source": requested_source.value,
-                "data_checksum": checksum_of(data),
-            },
-        )
-        if idempotency_key:
-            await self._lock_idempotency(tenant_id, idempotency_key, "import")
-            replayed = await self._idempotency_replay(
-                tenant_id, idempotency_key, "import", fingerprint
-            )
-            if replayed is not None:
-                return SkillDetail(**replayed)
         with validated_package(data) as package:
+            effective_version = (
+                version or package.manifest.version or DEFAULT_SKILL_VERSION
+            ).strip()
+            fingerprint = self._fingerprint(
+                "import",
+                tenant_id,
+                {
+                    "key": key,
+                    "version": effective_version,
+                    "default_script": default_script,
+                    "user_scope": scope,
+                    "source": requested_source.value,
+                    "data_checksum": checksum_of(data),
+                },
+            )
+            if idempotency_key:
+                await self._lock_idempotency(tenant_id, idempotency_key, "import")
+                replayed = await self._idempotency_replay(
+                    tenant_id, idempotency_key, "import", fingerprint
+                )
+                if replayed is not None:
+                    return SkillDetail(**replayed)
             skill, _ = await self._persist_imported_skill(
                 tenant_id,
-                version=version,
+                version=effective_version,
                 key=key,
                 default_script=default_script,
                 data=data,
@@ -528,16 +533,14 @@ class SkillService:
             )
         return detail
 
-    def _validate_import_source(
-        self, source: SkillSource, actor: AuditActor, *, explicit: bool
-    ) -> None:
-        """管理员导入只接受 SYSTEM/ADMIN，且显式声明来源必须是管理员。"""
+    def _validate_import_source(self, source: SkillSource, actor: AuditActor) -> None:
+        """导入只接受 SYSTEM/ADMIN；SYSTEM 只允许管理员，ADMIN 允许 BUILDER（显式与缺省同权）。"""
         if source == SkillSource.USER:
             raise AppError(
                 ErrorCode.COMMON_VALIDATION_ERROR,
                 data={"field": "source"},
             )
-        if explicit and actor.role != ROLE_ADMIN:
+        if source == SkillSource.SYSTEM and actor.role != ROLE_ADMIN:
             raise AppError(ErrorCode.FORBIDDEN)
 
     async def _persist_imported_skill(
@@ -608,41 +611,44 @@ class SkillService:
         tenant_id: str,
         skill_id: uuid.UUID,
         *,
-        version: str,
+        version: str | None,
         default_script: str | None,
         data: bytes,
         actor: AuditActor,
         idempotency_key: str | None = None,
     ) -> SkillArtifactDetail:
-        fingerprint = self._fingerprint(
-            "artifact",
-            tenant_id,
-            {
-                "skill_id": str(skill_id),
-                "version": version,
-                "default_script": default_script,
-                "data_checksum": checksum_of(data),
-            },
-        )
-        if idempotency_key:
-            await self._lock_idempotency(tenant_id, idempotency_key, "artifact")
-            replayed = await self._idempotency_replay(
-                tenant_id, idempotency_key, "artifact", fingerprint
-            )
-            if replayed is not None:
-                return SkillArtifactDetail(**replayed)
-        skill = await self.get_skill(tenant_id, skill_id)
-        self._require_system_skill_admin(skill, actor)
         with validated_package(data) as package:
+            effective_version = (
+                version or package.manifest.version or DEFAULT_SKILL_VERSION
+            ).strip()
+            fingerprint = self._fingerprint(
+                "artifact",
+                tenant_id,
+                {
+                    "skill_id": str(skill_id),
+                    "version": effective_version,
+                    "default_script": default_script,
+                    "data_checksum": checksum_of(data),
+                },
+            )
+            if idempotency_key:
+                await self._lock_idempotency(tenant_id, idempotency_key, "artifact")
+                replayed = await self._idempotency_replay(
+                    tenant_id, idempotency_key, "artifact", fingerprint
+                )
+                if replayed is not None:
+                    return SkillArtifactDetail(**replayed)
+            skill = await self.get_skill(tenant_id, skill_id)
+            self._require_skill_mutable(skill, actor)
             checksum = checksum_of(data)
-            await self._require_absent_version(skill.id, version, checksum)
+            await self._require_absent_version(skill.id, effective_version, checksum)
             artifact_id = uuid.uuid4()
             storage_key = artifact_storage_key(skill.id, artifact_id)
             artifact = self._build_artifact(
                 skill_id=skill.id,
                 artifact_id=artifact_id,
                 storage_key=storage_key,
-                version=version,
+                version=effective_version,
                 checksum=checksum,
                 default_script=self._validated_default_script(default_script, package),
                 data=data,
@@ -795,6 +801,13 @@ class SkillService:
     ) -> AgentSkillBindingItem:
         agent = await self._require_agent(tenant_id, agent_id)
         skill = await self.get_skill(tenant_id, skill_id)
+        if skill.source == SkillSource.SYSTEM:
+            # 系统 Skill 是租户全局能力（不依赖 AgentSkillBinding）；绑定行没有效果，
+            # 直接拒绝，避免 UI 之外的调用制造无效数据。
+            raise AppError(
+                ErrorCode.COMMON_VALIDATION_ERROR,
+                data={"field": "skill_id", "reason": "SYSTEM_SKILL_GLOBAL"},
+            )
         binding = await self._bindings.find(agent.id, skill.id)
         artifact = await self._skills.get_current_artifact(skill)
         if binding is not None and not binding.is_deleted:
@@ -896,9 +909,14 @@ class SkillService:
         if await self._skills.find_artifact_by_checksum(skill_id, checksum) is not None:
             raise AppError(ErrorCode.SKILL_VERSION_EXISTS)
 
-    def _require_system_skill_admin(self, skill: Skill, actor: AuditActor) -> None:
-        """系统 Skill 是管理员能力：普通用户不得改字段、追加 artifact 或删除。"""
-        if skill.source == SkillSource.SYSTEM and actor.role != ROLE_ADMIN:
+    def _require_skill_mutable(self, skill: Skill, actor: AuditActor) -> None:
+        """Console 侧可变性门控。
+
+        - USER 与 SYSTEM Skill 都只允许 ADMIN：BUILDER 不得改字段、追加 artifact 或软删；
+          USER Skill 的正常变更仍走草稿提交链路，管理员可用「解绑 + 软删」专用端点。
+        - ADMIN Skill 是 Console 账号共同维护的业务面，ADMIN/BUILDER 都可改。
+        """
+        if skill.source in (SkillSource.USER, SkillSource.SYSTEM) and actor.role != ROLE_ADMIN:
             raise AppError(ErrorCode.FORBIDDEN)
 
     async def _require_platform_user(self, tenant_id: str, user_id: uuid.UUID) -> PlatformUser:

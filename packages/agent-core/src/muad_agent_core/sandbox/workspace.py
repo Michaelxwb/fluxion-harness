@@ -40,7 +40,6 @@ class WorkspaceSettings(Protocol):
     workspace_quota_mib: int
     workspace_user_quota_mib: int
     workspace_file_limit: int
-    workspace_output_ttl_days: int
     workspace_data_ttl_days: int
 
 
@@ -217,7 +216,6 @@ class WorkspaceLayout:
     quota_bytes: int
     user_quota_bytes: int
     file_limit: int
-    output_ttl_seconds: int
     data_ttl_seconds: int
 
     def __post_init__(self) -> None:
@@ -259,7 +257,6 @@ def workspace_layout_from_settings(settings: WorkspaceSettings) -> WorkspaceLayo
         quota_bytes=settings.workspace_quota_mib * MIB,
         user_quota_bytes=settings.workspace_user_quota_mib * MIB,
         file_limit=settings.workspace_file_limit,
-        output_ttl_seconds=settings.workspace_output_ttl_days * DAY_SECONDS,
         data_ttl_seconds=settings.workspace_data_ttl_days * DAY_SECONDS,
     )
 

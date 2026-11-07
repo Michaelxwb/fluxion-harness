@@ -1714,7 +1714,6 @@ packages/common/src/muad_common/settings.py,39,inbound_stream_lost_after_sec,"Fi
 packages/common/src/muad_common/settings.py,41,delivery_stream_wait_sec,"Field(default=2.0, gt=0)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,43,artifact_root,'./.data/artifacts',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
 packages/common/src/muad_common/settings.py,44,skill_cache_root,'./.data/skill-cache',shared-setting,environment,启动、连接、服务资源或调度节拍；重启相关服务
-packages/common/src/muad_common/settings.py,46,skill_draft_root,'./.data/skill-drafts',shared-setting,environment,进程启动环境配置；按部署单元注入
 packages/common/src/muad_common/settings.py,48,skill_draft_quota_mib,"Field(default=100, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
 packages/common/src/muad_common/settings.py,49,skill_draft_file_max_bytes,"Field(default=5 * 1024 * 1024, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
 packages/common/src/muad_common/settings.py,50,skill_draft_file_limit,"Field(default=2000, ge=1)",shared-setting,environment,进程启动环境配置；按部署单元注入
@@ -1722,7 +1721,6 @@ packages/common/src/muad_common/settings.py,52,workspace_root,'./.data/workspace
 packages/common/src/muad_common/settings.py,54,workspace_quota_mib,"Field(default=500, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,55,workspace_user_quota_mib,"Field(default=500, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,56,workspace_file_limit,"Field(default=5000, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
-packages/common/src/muad_common/settings.py,58,workspace_output_ttl_days,"Field(default=30, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,59,workspace_data_ttl_days,"Field(default=30, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,62,sandbox_mode,'bwrap',shared-setting,environment,进程启动环境配置；按部署单元注入
 packages/common/src/muad_common/settings.py,64,sandbox_bwrap_path,None,shared-setting,environment,进程启动环境配置；按部署单元注入
@@ -1741,6 +1739,7 @@ packages/common/src/muad_common/settings.py,84,runtime_execution_concurrency,"Fi
 packages/common/src/muad_common/settings.py,87,runtime_admission_queue_limit,"Field(default=256, ge=0, le=10000)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,89,memory_consolidation_queue_max,"Field(default=10000, ge=1)",shared-setting,environment,部署环境/连接/凭据配置（环境变量提供）
 packages/common/src/muad_common/settings.py,90,worker_execution_concurrency,"Field(default=4, ge=1, le=64)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,90,worker_execution_timeout_sec,Field(default=300, ge=1, le=3600),shared-setting,environment,单次 Skill 执行进程总时长上限（秒）
 packages/common/src/muad_common/settings.py,91,gateway_max_concurrent_handlers,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
 packages/common/src/muad_common/settings.py,92,gateway_max_pending_handlers,"Field(default=256, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
 packages/common/src/muad_common/settings.py,93,gateway_max_pending_per_route,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）

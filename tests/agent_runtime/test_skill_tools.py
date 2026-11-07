@@ -19,7 +19,7 @@ from muad_agent_core.model import (
 )
 from muad_agent_core.prompt import MAX_CATALOG_ENTRIES
 from muad_agent_core.sandbox import DevUnsafeRunner
-from muad_agent_core.skill import SandboxedSkillExecutor
+from muad_agent_core.skill import MAX_SKILL_ARG_BYTES, MAX_SKILL_ARGS, SandboxedSkillExecutor
 from muad_agent_core.tools import ToolEffect, ToolRegistry
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
@@ -93,7 +93,9 @@ def _zip_bytes(files: Mapping[str, str]) -> bytes:
     return buffer.getvalue()
 
 
-def _env_for(tmp_path: Path, files: Mapping[str, str]) -> SkillEnv:
+def _env_for(
+    tmp_path: Path, files: Mapping[str, str], *, execution_mode: str = "SYNC"
+) -> SkillEnv:
     data = _zip_bytes(files)
     artifact_root = tmp_path / "artifacts"
     artifact_path = artifact_root / STORAGE_KEY
@@ -108,7 +110,7 @@ def _env_for(tmp_path: Path, files: Mapping[str, str]) -> SkillEnv:
         version="1.0.0",
         checksum="sha256:" + hashlib.sha256(data).hexdigest(),
         storage_key=STORAGE_KEY,
-        execution_mode="SYNC",
+        execution_mode=execution_mode,
         source="ADMIN",
     )
     cache = SkillArtifactCache(NfsArtifactStore(artifact_root), tmp_path / "cache")
@@ -119,6 +121,7 @@ def _env_for(tmp_path: Path, files: Mapping[str, str]) -> SkillEnv:
         executor=_dev_executor(),
         workspace_dir=tmp_path / "workspace",
         execution_id=f"exec-{uuid.uuid4()}",
+        enable_run_skill_script=True,
     )
     return SkillEnv(registry=registry, skill=skill, cache=cache)
 
@@ -336,6 +339,180 @@ async def test_run_skill_script_rejects_invalid_name(skill_env: SkillEnv) -> Non
     assert _error_code(missing) == "SKILL_SCRIPT_NOT_FOUND"
 
 
+async def test_execute_skill_passes_cli_args_without_shell(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {
+            "SKILL.md": SKILL_MD,
+            "scripts/main.py": "import json, sys\nprint(json.dumps({'argv': sys.argv[1:]}))\n",
+        },
+    )
+
+    payload = await _call(
+        env.registry,
+        EXECUTE_SKILL_TOOL,
+        {"skill_key": SKILL_KEY, "args": ["--company-id", "42", "a b; echo not-executed"]},
+    )
+
+    assert payload["status"] == "SUCCEEDED"
+    assert payload["result"] == {"argv": ["--company-id", "42", "a b; echo not-executed"]}
+
+
+async def test_run_skill_script_passes_cli_args(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {
+            "SKILL.md": SKILL_MD,
+            "scripts/main.py": "import json, sys\nprint(json.dumps({'argv': sys.argv[1:]}))\n",
+        },
+    )
+
+    payload = await _call(
+        env.registry,
+        RUN_SKILL_SCRIPT_TOOL,
+        {"skill_key": SKILL_KEY, "script": "scripts/main.py", "args": ["--minutes", "30"]},
+    )
+
+    assert payload["status"] == "SUCCEEDED"
+    assert payload["result"] == {"argv": ["--minutes", "30"]}
+
+
+async def test_run_skill_script_accepts_nested_package_relative_path(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {
+            "SKILL.md": SKILL_MD,
+            "scripts/main.py": MAIN_SCRIPT,
+            "phase2/phase2_wait_check.py": (
+                "import json, sys\n"
+                "print(json.dumps({'script': 'phase2', 'argv': sys.argv[1:]}))\n"
+            ),
+        },
+    )
+
+    payload = await _call(
+        env.registry,
+        RUN_SKILL_SCRIPT_TOOL,
+        {
+            "skill_key": SKILL_KEY,
+            "script": "phase2/phase2_wait_check.py",
+            "args": ["--task-id", "t-1"],
+        },
+    )
+
+    assert payload["status"] == "SUCCEEDED"
+    assert payload["result"] == {"script": "phase2", "argv": ["--task-id", "t-1"]}
+
+
+@pytest.mark.parametrize(
+    "script",
+    ["/etc/passwd", "phase2/../../scripts/main.py", "phase2\\check.py", "references/guide.md"],
+)
+async def test_run_skill_script_rejects_escaping_or_non_script_paths(
+    skill_env: SkillEnv, script: str
+) -> None:
+    payload = await _call(
+        skill_env.registry,
+        RUN_SKILL_SCRIPT_TOOL,
+        {"skill_key": SKILL_KEY, "script": script},
+    )
+
+    assert _error_code(payload) == "COMMON_VALIDATION_ERROR"
+
+
+@pytest.mark.parametrize(
+    "args",
+    ["--company-id", [1], [""], ["bad\x00arg"], None],
+)
+async def test_skill_tools_reject_invalid_args(
+    skill_env: SkillEnv, args: Any
+) -> None:
+    arguments: dict[str, Any] = {"skill_key": SKILL_KEY}
+    if args is not None:
+        arguments["args"] = args
+
+    for tool in (EXECUTE_SKILL_TOOL, RUN_SKILL_SCRIPT_TOOL):
+        call_arguments = dict(arguments)
+        if tool == RUN_SKILL_SCRIPT_TOOL:
+            call_arguments["script"] = "main.py"
+        payload = await _call(skill_env.registry, tool, call_arguments)
+        if args is None:
+            assert payload["status"] == "SUCCEEDED"
+        else:
+            assert _error_code(payload) == "COMMON_VALIDATION_ERROR"
+
+
+async def test_execute_skill_rejects_args_for_async_skills(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {"SKILL.md": SKILL_MD, "scripts/main.py": MAIN_SCRIPT},
+        execution_mode="ASYNC",
+    )
+
+    payload = await _call(
+        env.registry,
+        EXECUTE_SKILL_TOOL,
+        {"skill_key": SKILL_KEY, "args": ["--company-id", "42"]},
+    )
+
+    assert _error_code(payload) == "COMMON_VALIDATION_ERROR"
+
+
+async def test_run_skill_script_rejects_async_entrypoint_bypass(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {
+            "SKILL.md": SKILL_MD,
+            "muad.skill.json": json.dumps({"runtime": "script", "entrypoint": "scripts/main.py"}),
+            "scripts/main.py": MAIN_SCRIPT,
+        },
+        execution_mode="ASYNC",
+    )
+
+    payload = await _call(
+        env.registry,
+        RUN_SKILL_SCRIPT_TOOL,
+        {"skill_key": SKILL_KEY, "script": "scripts/main.py"},
+    )
+
+    assert _error_code(payload) == "COMMON_VALIDATION_ERROR"
+    assert "execute_skill" in payload["error"]["message"]
+
+
+async def test_run_skill_script_allows_async_auxiliary_script(tmp_path: Path) -> None:
+    env = _env_for(
+        tmp_path,
+        {
+            "SKILL.md": SKILL_MD,
+            "muad.skill.json": json.dumps({"runtime": "script", "entrypoint": "scripts/main.py"}),
+            "scripts/main.py": MAIN_SCRIPT,
+            "scripts/check_status.py": "import json\nprint(json.dumps({'ok': True}))\n",
+        },
+        execution_mode="ASYNC",
+    )
+
+    payload = await _call(
+        env.registry,
+        RUN_SKILL_SCRIPT_TOOL,
+        {"skill_key": SKILL_KEY, "script": "scripts/check_status.py"},
+    )
+
+    assert payload["status"] == "SUCCEEDED"
+    assert payload["result"] == {"ok": True}
+
+
+def test_skill_tool_schemas_expose_bounded_args(skill_env: SkillEnv) -> None:
+    for tool in (EXECUTE_SKILL_TOOL, RUN_SKILL_SCRIPT_TOOL):
+        properties = skill_env.registry.get(tool).input_schema["properties"]
+        assert properties["args"]["type"] == "array"
+        assert properties["args"]["items"] == {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": MAX_SKILL_ARG_BYTES,
+        }
+        assert properties["args"]["maxItems"] == MAX_SKILL_ARGS
+
+
 @pytest.mark.parametrize(
     "tool_name",
     (LOAD_SKILL_TOOL, READ_SKILL_RESOURCE_TOOL, EXECUTE_SKILL_TOOL, RUN_SKILL_SCRIPT_TOOL),
@@ -356,6 +533,7 @@ async def test_missing_artifact_surfaces_unavailable_code(skill_env: SkillEnv) -
         cache=skill_env.cache,
         skills=(missing,),
         policy=AgentPolicy(deadline_ms=30_000),
+        enable_run_skill_script=True,
     )
 
     payload = await _call(registry, LOAD_SKILL_TOOL, {"skill_key": SKILL_KEY})
@@ -458,6 +636,7 @@ def _registry_with_keys(tmp_path: Path, *keys: str) -> ToolRegistry:
         cache=SkillArtifactCache(NfsArtifactStore(tmp_path / "artifacts"), tmp_path / "cache"),
         skills=skills,
         policy=AgentPolicy(deadline_ms=30_000),
+        enable_run_skill_script=True,
     )
 
 

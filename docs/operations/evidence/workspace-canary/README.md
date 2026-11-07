@@ -41,6 +41,7 @@ Pod 内方式没有编排模式的证据 JSON，需把两段探针输出与 kube
 | 文件 | 环境 | 结果 |
 |---|---|---|
 | `2026-11-07-local-orbstack.json` | 本地 OrbStack K8s，`muad-workspace-canary` 临时命名空间；Runtime/Worker 用 `muad-skill-executor-probe`（bwrap 0.13.2 + UID 10001）验证 PVC 跨 Pod 共享与 bwrap bind 写入 | PASS（PVC Bound/RWX、两 Pod 可写、Worker 跨 Pod 读到 Runtime 标记、imageID digest 与节点指纹已记录） |
+| `2026-11-07-intranet.md` | 内网 K8s `muad` 命名空间，真实 runtime/worker 镜像的 1 个副本（`middleware02`，PlatOS 1.3，containerd 1.6.20）；Pod 内 `--probe-only`/`--cleanup-only` 执行 | PASS（PVC Bound/RWX、bwrap 0.13.1、UID 10001 可写、Worker 跨 Pod 读到 Runtime 标记、imageID digest 与节点指纹已记录） |
 
 内网生产 canary 必须在真实 runtime/worker 镜像的 1 个副本上重跑同一命令，并把输出写入
 本目录；本地 probe 结果不能替代内网真实镜像记录。

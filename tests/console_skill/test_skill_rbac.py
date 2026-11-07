@@ -131,3 +131,28 @@ async def test_skill_mutations_require_csrf_and_session(skill_env: SkillContext)
         )
         assert missing_csrf.status_code == 403
         assert missing_csrf.json()["code"] == "FORBIDDEN"
+
+
+async def test_system_skill_cannot_be_bound_to_an_agent(
+    client: AsyncClient,
+    skill_env: SkillContext,
+) -> None:
+    """系统 Skill 是租户全局能力，绑定行无效；API 必须显式拒绝而不是写脏数据。"""
+    imported = await import_skill(
+        client,
+        skill_env,
+        demo_package(name="System Skill"),
+        version=None,
+        source="SYSTEM",
+    )
+    assert imported.status_code == 200, imported.text
+    skill_id = imported.json()["data"]["id"]
+
+    bound = await client.post(
+        f"/api/v1/agents/{skill_env.agent_id}/skills/{skill_id}",
+        headers=tenant_headers(skill_env),
+    )
+    assert bound.status_code == 422, bound.text
+    body = bound.json()
+    assert body["code"] == "COMMON_VALIDATION_ERROR"
+    assert (body.get("data") or {}).get("reason") == "SYSTEM_SKILL_GLOBAL"

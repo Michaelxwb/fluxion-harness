@@ -10,6 +10,9 @@ from dataclasses import dataclass
 
 from .settings import SharedSettings
 
+#: agent 目录上的草稿活动标记；worker 清理按它的 mtime 给活跃草稿保活。
+DRAFT_ACTIVITY_MARKER = ".draft-activity"
+
 
 @dataclass(frozen=True, slots=True)
 class WorkspacePolicy:
@@ -17,7 +20,6 @@ class WorkspacePolicy:
     quota_bytes: int
     user_quota_bytes: int
     file_limit: int
-    output_ttl_days: int
     data_ttl_days: int
 
 
@@ -27,6 +29,5 @@ def workspace_policy_from_settings(settings: SharedSettings) -> WorkspacePolicy:
         quota_bytes=settings.workspace_quota_mib * 1024 * 1024,
         user_quota_bytes=settings.workspace_user_quota_mib * 1024 * 1024,
         file_limit=settings.workspace_file_limit,
-        output_ttl_days=settings.workspace_output_ttl_days,
         data_ttl_days=settings.workspace_data_ttl_days,
     )

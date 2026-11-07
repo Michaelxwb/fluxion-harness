@@ -21,6 +21,7 @@ pytestmark = pytest.mark.integration
 
 TENANT = f"acc-s01-{uuid.uuid4()}"
 OTHER_TENANT = f"acc-s01-other-{uuid.uuid4()}"
+AGENT = uuid.uuid4()
 
 
 @pytest.fixture(autouse=True)
@@ -34,22 +35,22 @@ async def test_s01_draft_is_scoped_by_tenant_owner_and_key(session: AsyncSession
     """[S-01] 同一 draft_key 在不同 owner/tenant 下互不可见。"""
     repo = SkillDraftRepository(session)
     owner, other_owner = uuid.uuid4(), uuid.uuid4()
-    draft = await repo.create(TENANT, owner, "my-skill")
+    draft = await repo.create(TENANT, owner, AGENT, "my-skill")
     await session.commit()
 
     assert draft.revision == 1
     assert (await repo.get(TENANT, owner, draft.id)) is not None
     assert await repo.get(TENANT, other_owner, draft.id) is None
     assert await repo.get(OTHER_TENANT, owner, draft.id) is None
-    assert await repo.find_by_key(TENANT, owner, "my-skill") is not None
-    assert await repo.find_by_key(TENANT, other_owner, "my-skill") is None
+    assert await repo.find_by_key(TENANT, owner, AGENT, "my-skill") is not None
+    assert await repo.find_by_key(TENANT, other_owner, AGENT, "my-skill") is None
 
 
 async def test_s01_stale_revision_is_rejected_then_writes_advance(session: AsyncSession) -> None:
     """[S-01] revision CAS：期望版本过期返回 None，成功写入单调递增 revision。"""
     repo = SkillDraftRepository(session)
     owner = uuid.uuid4()
-    draft = await repo.create(TENANT, owner, "cas-skill")
+    draft = await repo.create(TENANT, owner, AGENT, "cas-skill")
     await session.commit()
 
     first = await repo.advance_revision(
@@ -72,14 +73,14 @@ async def test_s01_soft_delete_hides_and_allows_recreate(session: AsyncSession) 
     """[S-01] 删除整个草稿为软删；同 key 可重新创建。"""
     repo = SkillDraftRepository(session)
     owner = uuid.uuid4()
-    draft = await repo.create(TENANT, owner, "recreate-skill")
+    draft = await repo.create(TENANT, owner, AGENT, "recreate-skill")
     await session.commit()
 
     assert await repo.soft_delete(TENANT, owner, draft.id) is True
     await session.commit()
     assert await repo.get(TENANT, owner, draft.id) is None
 
-    recreated = await repo.create(TENANT, owner, "recreate-skill")
+    recreated = await repo.create(TENANT, owner, AGENT, "recreate-skill")
     await session.commit()
     assert recreated.id != draft.id
     assert recreated.revision == 1
@@ -114,7 +115,9 @@ async def test_s01_internal_api_crud_scopes_files_and_revision(
     draft = await create_draft(internal_client, tenant_id=tenant, owner_user_id=owner, key="my-skill")
     draft_id = draft["id"]
     assert draft["revision"] == 1
-    assert (draft_roots / tenant / str(owner) / "my-skill").is_dir()
+    from tests.acceptance.user_skill_sandbox.draft_support import DEFAULT_AGENT
+
+    assert (draft_roots / tenant / str(owner) / str(DEFAULT_AGENT) / "skill-drafts" / "my-skill").is_dir()
 
     first = await write_file(
         internal_client,
@@ -237,7 +240,8 @@ async def test_s01_internal_api_crud_scopes_files_and_revision(
     )
     assert traversal.status_code == 400
     assert traversal.json()["code"] == "DRAFT_PATH_INVALID"
-    assert not (draft_roots / tenant / str(owner) / "escape.md").exists()
+    escape_path = draft_roots / tenant / str(owner) / str(DEFAULT_AGENT) / "skill-drafts" / "escape.md"
+    assert not escape_path.exists()
 
     removed_file = await delete_file(
         internal_client,
@@ -265,7 +269,7 @@ async def test_s01_internal_api_crud_scopes_files_and_revision(
     )
     assert deleted.status_code == 200, deleted.text
     assert deleted.json()["data"]["deleted"] is True
-    assert not (draft_roots / tenant / str(owner) / "my-skill").exists()
+    assert not (draft_roots / tenant / str(owner) / str(DEFAULT_AGENT) / "skill-drafts" / "my-skill").exists()
     gone = await draft_metadata(
         internal_client, tenant_id=tenant, owner_user_id=owner, draft_id=draft_id
     )
@@ -283,6 +287,8 @@ async def test_s01_quota_rejects_third_file_without_writing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """[S-01] 文件数配额在真实写盘前拒绝，已写文件与 revision 不受影响。"""
+    from muad_common import reset_settings_cache
+
     from tests.acceptance.user_skill_sandbox.draft_support import (
         create_draft,
         new_tenant,
@@ -292,6 +298,7 @@ async def test_s01_quota_rejects_third_file_without_writing(
     )
 
     monkeypatch.setenv("SKILL_DRAFT_FILE_LIMIT", "2")
+    reset_settings_cache()
     tenant = new_tenant("acc-s01-quota")
     owner = uuid.uuid4()
     draft = await create_draft(internal_client, tenant_id=tenant, owner_user_id=owner, key="quota-skill")

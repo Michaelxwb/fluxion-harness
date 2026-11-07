@@ -1,0 +1,7 @@
+{
+  "name": "business-skill-python-template",
+  "author": "<作者姓名/工号>",
+  "platforms": ["example_platform"],
+  "version": "0.1.0",
+  "entrypoint": "scripts/run.py"
+}

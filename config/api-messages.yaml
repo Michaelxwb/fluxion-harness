@@ -658,6 +658,11 @@ codes:
     messages:
       zh-CN: 本轮请求排队超时，未开始执行
       en-US: This request timed out in the queue before execution started.
+  RUN_DEADLINE_EXCEEDED:
+    http_status: 504
+    messages:
+      zh-CN: 本轮请求执行超时，已停止
+      en-US: This request exceeded its execution deadline and was stopped.
   MODEL_CAPACITY_UNAVAILABLE:
     http_status: 503
     messages:

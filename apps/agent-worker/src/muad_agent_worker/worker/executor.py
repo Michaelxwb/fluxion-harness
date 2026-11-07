@@ -50,7 +50,7 @@ from ..metrics import (
 
 logger = logging.getLogger("muad_agent_worker.worker.executor")
 
-EXECUTION_TIMEOUT_SEC = 300.0
+DEFAULT_EXECUTION_TIMEOUT_SEC = 300.0
 #: 剩余时间已经不够一秒时不再把它夹成 0：给子进程一个能正常启动/收尾的下限。
 MIN_EXECUTION_TIMEOUT_SEC = 1.0
 SKILL_ARTIFACT_KEYS = ("artifact_id", "storage_key", "checksum")
@@ -201,11 +201,21 @@ class SkillTaskExecutor:
         executor: SkillExecutor | None = None,
         fanout: BatchFanoutProtocol | None = None,
         workspace_store: WorkspaceStore | None = None,
+        execution_timeout_sec: float | None = None,
     ) -> None:
         self._resolver = resolver
         self._executor = executor or build_sandboxed_skill_executor(process_settings())
         self._fanout = fanout
         self._workspace_store = workspace_store
+        settings = process_settings()
+        configured = (
+            float(execution_timeout_sec)
+            if execution_timeout_sec is not None
+            else float(settings.worker_execution_timeout_sec)
+        )
+        if configured <= 0:
+            raise ValueError("execution_timeout_sec must be positive")
+        self._execution_timeout_sec = configured
 
     async def execute(self, task: TaskExecution) -> dict[str, Any]:
         if task.task_type == TASK_TYPE_BATCH:
@@ -364,7 +374,10 @@ class SkillTaskExecutor:
         了，只是最后被写成 FAILED 而已；夹住它，过期之后执行器主动收手。
         """
         remaining = (task.deadline_at - datetime.now(UTC)).total_seconds()
-        return max(MIN_EXECUTION_TIMEOUT_SEC, min(EXECUTION_TIMEOUT_SEC, remaining))
+        return max(
+            MIN_EXECUTION_TIMEOUT_SEC,
+            min(self._execution_timeout_sec, remaining),
+        )
 
     def _batch_envelope(self, task: TaskExecution, summary: FanoutSummary | None = None) -> dict[str, Any]:
         """Parent 以 WAITING 收尾：`not_before` 远期停放，等 fan-in 聚合后置终态。"""

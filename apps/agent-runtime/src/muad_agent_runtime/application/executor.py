@@ -120,7 +120,7 @@ from .attachments.tool_results import (
 from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
 from .context_settings import FrozenLearning, PoolExecutionPolicy
-from .draft_shell import build_draft_shell_runner
+from .draft_shell import build_draft_shell_runner, build_draft_tools
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_observability import memory_audit_preview
 from .memory_queries import MemoryReadScope
@@ -1937,6 +1937,8 @@ def _skill_execution_scope(
             tenant_id=context.tenant_id,
             run_id=context.run_id,
             conversation_id=context.conversation_id,
+            agent_id=request.agent.id,
+            user_id=context.user_id,
         ),
     )
     return workspace, SkillOutputArtifactRegistrar(writer)
@@ -1964,6 +1966,7 @@ def build_registry(
     workspace_store = None
     draft_shell = None
     draft_shell_context = None
+    draft_tools = None
     if request.run_context is not None:
         # 所有 Agent（无论是否有 Skill）都拿到同一个 workspace_shell；身份只从 Run 取。
         workspace_shell = build_workspace_shell_runner(process_settings())
@@ -1981,6 +1984,9 @@ def build_registry(
             owner_user_id=str(request.run_context.user_id),
             agent_id=str(request.agent.id),
             run_id=str(request.run_context.run_id),
+        )
+        draft_tools = build_draft_tools(
+            process_settings(), context=draft_shell_context
         )
     registry = build_skill_registry(
         cache=cache,
@@ -2006,6 +2012,7 @@ def build_registry(
         workspace_context=workspace_context,
         draft_shell=draft_shell,
         draft_shell_context=draft_shell_context,
+        draft_tools=draft_tools,
     )
     if task_client is not None and task_context is not None:
         # docs/04 §7.5 内置任务工具：Schedule 创建/管理与后台 Task 查询/取消。
@@ -2025,11 +2032,15 @@ def build_registry(
             run_id=request.run_context.run_id,
             conversation_id=request.run_context.conversation_id,
             user_id=request.run_context.user_id,
+            agent_id=request.agent.id,
             # TASK-005 起「写」不再依赖交付路由；`has_delivery_route` 只喂返回文案里的提示。
             has_delivery_route=request.run_context.delivery_route is not None,
             # 交付动作才需要路由与客户端（TASK-006）：没有路由时 `deliver_artifact` 明确报错
             delivery_route=request.run_context.delivery_route,
             delivery_client=delivery_client,
+            # deliver_artifact(path=...) 的校验根与产物登记器（同一 Run 的 workspace）。
+            workspace_dir=workspace_dir,
+            output_registrar=output_registrar,
         ).register(registry)
         ArchiveToolSet(
             # 回执裁剪与外置判定必须用**同一个生效阈值**（否则调低阈值后回执自己会被外置，
@@ -2043,6 +2054,8 @@ def build_registry(
                     request.run_context.tenant_id,
                     request.run_context.run_id,
                     request.run_context.conversation_id,
+                    agent_id=request.agent.id,
+                    user_id=request.run_context.user_id,
                 ),
             ),
         ).register(registry)

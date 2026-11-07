@@ -40,12 +40,18 @@ SCRIPT_MAIN = """\
 import json, os, sys
 payload = json.loads(sys.stdin.read() or '{}')
 out = os.environ['SKILL_OUTPUT_DIR']
+config = None
+if os.path.isfile('config/probe.json'):
+    with open('config/probe.json', encoding='utf-8') as handle:
+        config = json.load(handle)
 with open(os.path.join(out, 'result.json'), 'w', encoding='utf-8') as handle:
     json.dump({'payload': payload, 'output': out, 'data': os.environ['SKILL_DATA_DIR']}, handle)
 print(json.dumps({
     'payload': payload,
     'output': out,
     'data': os.environ['SKILL_DATA_DIR'],
+    'argv': sys.argv[1:],
+    'config': config,
     'flags': [sys.flags.ignore_environment, sys.flags.no_site, sys.flags.dont_write_bytecode],
     'helper': __import__('helper').VALUE,
 }))
@@ -59,6 +65,8 @@ def _package(base: Path, *, name: str = "skill", main: str | None = None) -> Pat
     (root / "SKILL.md").write_text("# probe\n", encoding="utf-8")
     (scripts / "helper.py").write_text("VALUE = 41\n", encoding="utf-8")
     (scripts / "main.py").write_text(main or SCRIPT_MAIN, encoding="utf-8")
+    (root / "config").mkdir()
+    (root / "config" / "probe.json").write_text('{"value": "relative-ok"}', encoding="utf-8")
     return root
 
 
@@ -139,7 +147,14 @@ async def scenario_s10() -> dict[str, Any]:
     workspace = base / "workspace"
     events: list[SkillExecutionEvent] = []
     executor = SandboxedSkillExecutor(runner=_runner(), observer=events.append)
-    result = await executor.execute(_request(root, workspace, "s10-exec"))
+    result = await executor.execute(
+        _request(
+            root,
+            workspace,
+            "s10-exec",
+            args=("--company-id", "42", "a b; echo not-executed"),
+        )
+    )
 
     return {
         "ok": result.status.value == "SUCCEEDED" and result.exit_code == 0,

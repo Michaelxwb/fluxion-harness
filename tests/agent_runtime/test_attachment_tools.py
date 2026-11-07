@@ -1042,26 +1042,31 @@ async def test_deliver_artifact_refuses_inbound_attachments_from_another_convers
     assert not client.requests, "被拒的交付不得真的去调网关"
 
 
-async def test_deliver_artifact_refuses_artifacts_this_run_did_not_produce(
+async def test_deliver_artifact_allows_historical_agent_output(
     tenant, artifact_root
 ) -> None:
-    """**别的 Run 自产**的产物仍然拒绝（原意图保留）。"""
+    """同一用户的**历史 Run 自产**产物可以重发。
+
+    这是 `list_attachments(scope="agent")` 的配套：能列出来的历史产出必须能再发一次，
+    否则「把昨天的报告发我」永远会撞在交付准入上。归属仍由 `_load` 按会话/Run 的 user 校验。
+    """
     run_id, conversation_id = await _seed_run(tenant)
-    other_run_artifact = await _seed_artifact(
+    historical = await _seed_artifact(
         tenant, artifact_root, data=b"agent file", kind="DOCUMENT",
-        media_type="text/markdown", filename="别处产物.md",
+        media_type="text/markdown", filename="历史产物.md",
         artifact_type=AGENT_OUTPUT_ARTIFACT_TYPE,
     )
-    client = _FakeDeliveryClient()
+    client = _FakeDeliveryClient(
+        DeliveryResponse(accepted=True, delivered=True, deduplicated=False, outcome="DELIVERED")
+    )
     tool_set = _delivery_tool_set(
         tenant, artifact_root, run_id=run_id, conversation_id=conversation_id, client=client
     )
 
-    with pytest.raises(AttachmentToolError) as exc:
-        await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(other_run_artifact)})
+    result = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(historical)})
 
-    assert "只能交付本次运行自己写出的产物" in exc.value.message
-    assert not client.requests
+    assert "已交付" in result
+    assert client.requests
 
 
 async def test_deliver_artifact_refuses_tool_result_artifacts(tenant, artifact_root) -> None:
@@ -1085,3 +1090,36 @@ async def test_deliver_artifact_refuses_tool_result_artifacts(tenant, artifact_r
 
     assert "不能交付给用户" in exc.value.message
     assert not client.requests
+
+
+def test_historical_agent_output_is_deliverable_but_tool_results_are_not() -> None:
+    """历史 Run 的 AGENT_OUTPUT 可重发；TOOL_RESULT 与外会话入站仍拒绝。"""
+    from types import SimpleNamespace
+
+    tools = AttachmentToolSet(
+        session_factory=lambda: None,  # type: ignore[arg-type]
+        artifact_root="/tmp/artifacts",
+        tenant_id="tenant-a",
+        run_id=uuid.uuid4(),
+        conversation_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        agent_id=uuid.uuid4(),
+    )
+
+    def row(artifact_type: str, *, conversation_id: uuid.UUID | None) -> Any:
+        return SimpleNamespace(
+            artifact_type=artifact_type,
+            run_id=uuid.uuid4(),
+            conversation_id=conversation_id,
+            metadata_json={"filename": "report.json"},
+        )
+
+    assert tools._delivery_refusal(
+        row(AGENT_OUTPUT_ARTIFACT_TYPE, conversation_id=tools._conversation_id)
+    ) is None
+    assert tools._delivery_refusal(
+        row("TOOL_RESULT", conversation_id=tools._conversation_id)
+    ) is not None
+    assert tools._delivery_refusal(
+        row("INBOUND_DOCUMENT", conversation_id=uuid.uuid4())
+    ) is not None

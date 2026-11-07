@@ -156,9 +156,16 @@ class SandboxedSkillExecutor:
         session: PlatformSessionEnvironment,
     ) -> SkillExecutionResult:
         host_path = os.environ.get("PATH", os.defpath)
-        command = script_command(
-            script if dev_unsafe else sandbox_script_path(package_root, script),
-            {"PATH": host_path if dev_unsafe else "/opt/python3.12/bin:/usr/local/bin:/usr/bin:/bin"},
+        command = (
+            *script_command(
+                script if dev_unsafe else sandbox_script_path(package_root, script),
+                {
+                    "PATH": host_path
+                    if dev_unsafe
+                    else "/opt/python3.12/bin:/usr/local/bin:/usr/bin:/bin"
+                },
+            ),
+            *request.args,
         )
         data_dir = workspace / _WORKSPACE_DATA
         env = {
@@ -183,7 +190,10 @@ class SandboxedSkillExecutor:
             output_limit_bytes=self._stdout_limit_bytes,
             cancel_event=request.cancel_event,
             stdin=json.dumps(dict(request.input), ensure_ascii=False).encode("utf-8"),
-            cwd=str(workspace) if dev_unsafe else "/skill",
+            # 生产沙箱的 cwd 是只读包根 /skill；dev-unsafe 也以包根为 cwd，避免
+            # 「本机相对路径能跑、进沙箱就找不到文件」的调试/生产错位。
+            cwd="/skill",
+            dev_unsafe_cwd=package_root,
             mounts=tuple(
                 SandboxMount(source=mount.source, target=mount.target, readonly=mount.readonly)
                 for mount in session.mounts

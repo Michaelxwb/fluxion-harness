@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from muad_common import SharedSettings
+from muad_common import SharedSettings, reset_settings_cache
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -54,13 +54,20 @@ async def session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
         await engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def _reset_settings_after_test() -> object:
+    yield
+    reset_settings_cache()
+
+
 @pytest.fixture()
 def draft_roots(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """草稿/制品落到独立临时目录，避免依赖 dev PVC 与共享 `.data`。"""
-    root = tmp_path / "skill-drafts"
-    monkeypatch.setenv("SKILL_DRAFT_ROOT", str(root))
+    root = tmp_path / "workspaces"
+    monkeypatch.setenv("WORKSPACE_ROOT", str(root))
     monkeypatch.setenv("ARTIFACT_ROOT", str(tmp_path / "artifacts"))
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", INTERNAL_TOKEN)
+    reset_settings_cache()
     return root
 
 

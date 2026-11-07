@@ -16,10 +16,12 @@ import io
 import uuid
 from collections import OrderedDict
 from collections.abc import Awaitable, Mapping
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import sqlalchemy as sa
 from muad_agent_core.model import ImagePart, ModelMessage, ModelRole
+from muad_agent_core.skill import OutputFile, checksum_file
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import (
@@ -38,9 +40,11 @@ from ...infrastructure.models.runtime import Artifact, Conversation, RunRecord
 from .inbound import INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER
 from .output_service import (
     AGENT_OUTPUT_ARTIFACT_TYPE,
+    MAX_OUTPUT_BYTES,
     OutputArtifactError,
     OutputArtifactWriter,
     OutputScope,
+    SkillOutputArtifactRegistrar,
 )
 from .output_service import (
     output_version_key as _version_key,
@@ -119,6 +123,7 @@ ATTACHMENT_OFFSET_INVALID = "ATTACHMENT_OFFSET_INVALID"
 ATTACHMENT_LIMIT_INVALID = "ATTACHMENT_LIMIT_INVALID"
 ATTACHMENT_QUERY_INVALID = "ATTACHMENT_QUERY_INVALID"
 ATTACHMENT_SCOPE_INVALID = "ATTACHMENT_SCOPE_INVALID"
+ATTACHMENT_PATH_INVALID = "ATTACHMENT_PATH_INVALID"
 ATTACHMENT_DIRECTION_INVALID = "ATTACHMENT_DIRECTION_INVALID"
 
 DEFAULT_OFFSET = 0
@@ -134,7 +139,9 @@ MAX_TEXT_CACHE_ENTRIES = 4
 #: 枚举范围：本次 Run 内 / 整个会话（缺省会话——历史引用被裁掉的附件靠它找回）
 SCOPE_RUN = "run"
 SCOPE_CONVERSATION = "conversation"
-SCOPES = frozenset({SCOPE_RUN, SCOPE_CONVERSATION})
+#: 当前 user + agent 的跨会话历史（历史产出检索）。
+SCOPE_AGENT = "agent"
+SCOPES = frozenset({SCOPE_RUN, SCOPE_CONVERSATION, SCOPE_AGENT})
 SCOPE_DEFAULT = SCOPE_CONVERSATION
 #: 方向：用户发来的 / Agent 自产（缺省不限）
 DIRECTION_INBOUND = "inbound"
@@ -258,6 +265,39 @@ def list_window(arguments: Mapping[str, Any]) -> tuple[int, int]:
     return offset, limit
 
 
+def resolve_workspace_file(workspace_dir: Path, value: object) -> OutputFile:
+    """校验 workspace 相对路径并返回可登记的产物事实。
+
+    只接受当前 agent 目录内的常规文件：绝对路径、``..``、反斜杠、NUL、symlink 逃逸
+    与超大文件都被拒绝。
+    """
+    if not isinstance(value, str) or not value.strip():
+        raise AttachmentToolError(ATTACHMENT_PATH_INVALID, "path must be a non-empty string")
+    raw = value.strip()
+    relative = PurePosixPath(raw)
+    if relative.is_absolute() or ".." in relative.parts or "\\" in raw or "\x00" in raw:
+        raise AttachmentToolError(ATTACHMENT_PATH_INVALID, "path must be workspace-relative")
+    root = workspace_dir.resolve()
+    target = (root / relative).resolve()
+    if target == root or root not in target.parents:
+        raise AttachmentToolError(
+            ATTACHMENT_PATH_INVALID, "path escapes the current agent workspace"
+        )
+    if not target.is_file():
+        raise AttachmentToolError(ATTACHMENT_NOT_FOUND, "文件不存在或路径不可访问")
+    size = target.stat().st_size
+    if size > MAX_OUTPUT_BYTES:
+        raise AttachmentToolError(
+            ATTACHMENT_TOO_LARGE, f"文件超过可交付上限（{MAX_OUTPUT_BYTES} 字节）"
+        )
+    return OutputFile(
+        relative_path=relative.as_posix(),
+        size=size,
+        checksum=checksum_file(target),
+        path=target,
+    )
+
+
 class AttachmentToolSet:
     def __init__(
         self,
@@ -268,9 +308,12 @@ class AttachmentToolSet:
         run_id: uuid.UUID | None = None,
         conversation_id: uuid.UUID | None = None,
         user_id: uuid.UUID | None = None,
+        agent_id: uuid.UUID | None = None,
         has_delivery_route: bool = False,
         delivery_route: DeliveryRouteInput | None = None,
         delivery_client: GatewayDeliveryClient | None = None,
+        workspace_dir: Path | None = None,
+        output_registrar: SkillOutputArtifactRegistrar | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._artifact_root = artifact_root
@@ -279,10 +322,14 @@ class AttachmentToolSet:
         self._conversation_id = conversation_id
         #: 本 Run 的归属用户：按 id 取附件时用它判定"这一行是不是我的"（见 `_owned_by_actor`）。
         self._user_id = user_id
+        self._agent_id = agent_id
         self._has_delivery_route = has_delivery_route
         #: 会话的交付路由（来自 Run 上下文）。**只有交付动作依赖它**——写不需要。
         self._delivery_route = delivery_route
         self._delivery_client = delivery_client
+        #: `deliver_artifact(path=...)`：当前 user + agent 的 workspace 与产物登记器。
+        self._workspace_dir = workspace_dir
+        self._output_registrar = output_registrar
         #: 抽取结果按 Run 复用：同一份长文档分多次读，只解析一次（NFR-PERF-01）
         self._text_cache: OrderedDict[uuid.UUID, str] = OrderedDict()
 
@@ -373,8 +420,10 @@ class AttachmentToolSet:
                 description=DELIVER_ARTIFACT_DESCRIPTION,
                 input_schema={
                     "type": "object",
-                    "properties": {"artifact_id": string_schema},
-                    "required": ["artifact_id"],
+                    "properties": {
+                        "artifact_id": string_schema,
+                        "path": string_schema,
+                    },
                     "additionalProperties": False,
                 },
                 effect=ToolEffect.WRITE,
@@ -493,6 +542,15 @@ class AttachmentToolSet:
         )
         if scope == SCOPE_RUN:
             stmt = stmt.where(Artifact.run_id == self._run_id)
+        elif scope == SCOPE_AGENT:
+            if self._agent_id is None or self._user_id is None:
+                raise AttachmentToolError(
+                    ATTACHMENT_SCOPE_INVALID, "agent scope requires a trusted agent/user context"
+                )
+            stmt = stmt.where(
+                Artifact.agent_id == self._agent_id,
+                Artifact.user_id == self._user_id,
+            )
         else:
             stmt = stmt.where(Artifact.conversation_id == self._conversation_id)
         if direction == DIRECTION_INBOUND:
@@ -556,7 +614,13 @@ class AttachmentToolSet:
         writer = OutputArtifactWriter(
             artifact_root=self._artifact_root,
             session_factory=self._session_factory,
-            scope=OutputScope(self._tenant_id, self._run_id, self._conversation_id),
+            scope=OutputScope(
+                self._tenant_id,
+                self._run_id,
+                self._conversation_id,
+                agent_id=self._agent_id,
+                user_id=self._user_id,
+            ),
         )
         try:
             row = await writer.save(data, filename=name, media_type="text/markdown", kind="DOCUMENT")
@@ -635,7 +699,17 @@ class AttachmentToolSet:
         """
         if self._delivery_client is None or self._delivery_route is None:
             raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前会话没有可交付的通道，产物发不出去")
-        row = await self._load(arguments.get("artifact_id"))
+        artifact_id = arguments.get("artifact_id")
+        path = arguments.get("path")
+        if (artifact_id is None) == (path is None):
+            raise AttachmentToolError(
+                ATTACHMENT_PATH_INVALID, "exactly one of artifact_id or path is required"
+            )
+        row = (
+            await self._register_workspace_path(path)
+            if path is not None
+            else await self._load(artifact_id)
+        )
         refusal = self._delivery_refusal(row)
         if refusal is not None:
             raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, refusal)
@@ -693,9 +767,11 @@ class AttachmentToolSet:
     def _delivery_refusal(self, row: Artifact) -> str | None:
         """这一行能不能交付给用户？不能则返回**给模型看的原因**，能则 `None`。
 
-        **两条准入**，其余一律拒绝：
+        **准入**：
 
-        1. **本次 Run 自己写出的**（`AGENT_OUTPUT` + `run_id` 相同）——原本唯一的一条；
+        1. **本用户的 AGENT_OUTPUT**（含历史 Run 的产出）——归属由 `_load` 按会话/Run 的
+           user 校验；用户要求「把之前的结果再发给我」时必须能重发，否则
+           `list_attachments(scope="agent")` 列出来的东西永远发不出去；
         2. **本会话里的入站附件**（`INBOUND_*` + `conversation_id` 相同）—— 2026-10-03 新增。
 
         第 2 条不是"顺手放宽"，而是补一个**结构性空洞**：在此之前 `write_artifact` 只吃文本
@@ -711,9 +787,8 @@ class AttachmentToolSet:
           那是**中间产物**，把它发给用户等于泄漏上下文。
         """
         if row.artifact_type == AGENT_OUTPUT_ARTIFACT_TYPE:
-            if row.run_id == self._run_id:
-                return None
-            return f"{_filename(row)}：只能交付本次运行自己写出的产物"
+            # 归属已由 `_load` 校验（会话或 Run 的 user）；历史 Run 的产出同样可重发。
+            return None
         if row.artifact_type in INBOUND_ARTIFACT_TYPES:
             if self._conversation_id is not None and row.conversation_id == self._conversation_id:
                 return None
@@ -766,6 +841,16 @@ class AttachmentToolSet:
             Artifact.is_deleted.is_(False),
             owned,
         )
+
+    async def _register_workspace_path(self, value: object) -> Artifact:
+        """把 workspace 里已有文件登记成当前 Run 的产物，再交给交付链路。"""
+        if self._workspace_dir is None or self._output_registrar is None:
+            raise AttachmentToolError(
+                ATTACHMENT_WRITE_UNAVAILABLE, "当前运行没有可交付的 workspace"
+            )
+        output = resolve_workspace_file(self._workspace_dir, value)
+        artifact_id = await self._output_registrar.register(output)
+        return await self._load(artifact_id)
 
     async def _load(self, artifact_id: object) -> Artifact:
         """按标识取附件行。**租户 + 归属**：越权一律按"不存在"处理 —— 不回显对方的存在性、

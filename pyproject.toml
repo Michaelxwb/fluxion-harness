@@ -110,6 +110,8 @@ select = ["E", "F", "I", "B", "UP"]
 "tests/migrations/test_capacity_webchat_*.py" = ["E501"]
 "tests/agent_runtime/test_capacity_webchat_upload_staging.py" = ["E501"]
 "tests/agent_runtime/test_memory_redesign_admin_api.py" = ["E501"]
+# `violating-skill` 是审查器的**故意不合规**输入（安全/规范反例），不能为了通过 lint 把它改成合规写法。
+"tests/skills/self_skill_review/fixtures/violating-skill/**" = ["E", "F", "I", "B", "UP"]
 
 
 [tool.mypy]

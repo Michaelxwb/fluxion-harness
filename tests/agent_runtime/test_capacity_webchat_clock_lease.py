@@ -462,6 +462,31 @@ async def test_b235_absolute_deadline_sweep_follows_pg_clock(
     assert expired.end_time is not None and abs(expired.end_time - pg) <= CLOCK_TOLERANCE
 
 
+async def test_b235_absolute_deadline_writes_terminal_channel_notification(
+    runtime_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """绝对期限收尾必须同时写通道出站意图，否则 Gateway 交付时拿不到 intent。"""
+    factory = runtime_factory
+    _context, _skill, run = await seed_submission(factory)
+    pg = await _pg_now(factory)
+    await _set_run_lease(
+        factory,
+        run.id,
+        lease_until=pg + timedelta(seconds=300),
+        deadline_at=pg - timedelta(seconds=1),
+    )
+    calls: dict[str, object] = {}
+
+    async def fake_write(session, **kwargs):  # type: ignore[no-untyped-def]
+        calls.update(kwargs)
+        return None
+
+    monkeypatch.setattr(run_deadline, "write_run_notification", fake_write)
+    assert await run_deadline.expire_runs(factory) == 1
+    assert calls["delivery_key"] == f"run:{run.id}:terminal"
+    assert calls["kind"] == "RUN_COMPLETED"
+
+
 # --------------------------------------------------------------------------------------
 # 5. Reaper 回收过期租约按 PG 时钟
 # --------------------------------------------------------------------------------------

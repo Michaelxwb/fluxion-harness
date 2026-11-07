@@ -334,7 +334,10 @@ export function AgentDetailSideSheet(props: AgentDetailSideSheetProps) {
             onLoad={async () => {
               const { listSkills } = await import('../skill-management/services/skills');
               const items = await loadAllRelationItems(listSkills);
-              return items.map((s) => ({ value: s.id, label: `${s.name}（${s.key}）` }));
+              // 系统 Skill 全局生效，不需要（也不允许）绑定。
+              return items
+                .filter((s) => s.source !== 'SYSTEM')
+                .map((s) => ({ value: s.id, label: `${s.name}（${s.key}）` }));
             }}
             onSelect={async (value) => {
               await bindSkill(props.agentId, value);

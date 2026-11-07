@@ -29,9 +29,6 @@ export interface SkillImportModalProps {
 }
 
 interface FormValues {
-  version: string;
-  key?: string;
-  default_script?: string;
   user_scope: 'ALL' | 'SELECTED';
   source?: 'SYSTEM' | 'ADMIN';
 }
@@ -107,14 +104,11 @@ export function SkillImportModal(props: SkillImportModalProps) {
     setSaving(true);
     try {
       const saved = props.skillId
-        ? await importArtifact(props.skillId, file, values.version, { errorTip: 'never' })
+        ? await importArtifact(props.skillId, file, { errorTip: 'never' })
         : await importSkill(
             {
               file,
-              version: values.version,
-              key: values.key || undefined,
-              default_script: values.default_script || undefined,
-              user_scope: values.user_scope,
+              user_scope: source === 'SYSTEM' ? 'ALL' : values.user_scope,
               source: props.canManageSource ? (values.source ?? source) : undefined
             },
             { errorTip: 'never' }
@@ -174,11 +168,6 @@ export function SkillImportModal(props: SkillImportModalProps) {
           setFormError(null);
         }}
       />
-      <Form.Input
-        field="version"
-        label={t('skill.columns.currentVersion')}
-        rules={[{ required: true, message: t('skill.columns.currentVersion') }]}
-      />
       {props.skillId || !props.canManageSource ? null : (
         <>
           <Form.Select
@@ -198,21 +187,17 @@ export function SkillImportModal(props: SkillImportModalProps) {
           </div>
         </>
       )}
-      {props.skillId ? null : (
-        <>
-          <Form.Input field="key" label={t('skill.form.key')} extraText={t('skill.form.keyHint')} />
-          <Form.Input field="default_script" label={t('skill.form.defaultScript')} placeholder="scripts/main.py" />
-          <Form.Select
-            field="user_scope"
-            label={t('skill.columns.userScope')}
-            initValue="SELECTED"
-            extraText={t('skill.form.scopeHint')}
-            optionList={[
-              { value: 'SELECTED', label: t('skill.scope.selected') },
-              { value: 'ALL', label: t('skill.scope.all') }
-            ]}
-          />
-        </>
+      {props.skillId || source === 'SYSTEM' ? null : (
+        <Form.Select
+          field="user_scope"
+          label={t('skill.columns.userScope')}
+          initValue="SELECTED"
+          extraText={t('skill.form.scopeHint')}
+          optionList={[
+            { value: 'ALL', label: t('skill.scope.all') },
+            { value: 'SELECTED', label: t('skill.scope.selected') }
+          ]}
+        />
       )}
     </FormModal>
   );

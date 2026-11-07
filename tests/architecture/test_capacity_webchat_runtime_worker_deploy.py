@@ -59,17 +59,13 @@ WORKSPACE_CONFIG_FIELDS = {
     "WORKSPACE_QUOTA_MIB": "workspace_quota_mib",
     "WORKSPACE_USER_QUOTA_MIB": "workspace_user_quota_mib",
     "WORKSPACE_FILE_LIMIT": "workspace_file_limit",
-    "WORKSPACE_OUTPUT_TTL_DAYS": "workspace_output_ttl_days",
     "WORKSPACE_DATA_TTL_DAYS": "workspace_data_ttl_days",
 }
 
-#: Helm 里只有 Runtime/Worker 挂 workspace（design §4.1）；其余单元不得出现该卷。
-WORKSPACE_HELM_CHARTS = ("muad-agent-runtime", "muad-agent-worker")
-NON_WORKSPACE_HELM_CHARTS = (
-    "muad-console-platform",
-    "muad-im-gateway",
-    "muad-im-connector",
-)
+#: Helm 里 Console/Runtime/Worker 挂 workspace（Console 只写 skill-drafts 子目录）；
+#: Gateway/Connector 不得出现该卷。
+WORKSPACE_HELM_CHARTS = ("muad-console-platform", "muad-agent-runtime", "muad-agent-worker")
+NON_WORKSPACE_HELM_CHARTS = ("muad-im-gateway", "muad-im-connector")
 
 #: canary 必须覆盖的检查项：PVC 共享卷、bwrap、跨 Pod 可写、镜像 digest 与节点指纹。
 CANARY_REQUIRED_CHECKS = frozenset(
@@ -106,13 +102,14 @@ class DeployUnit:
     slot_env: str
     slot_field: str
     concurrency_env: tuple[str, ...] = ()
+    extra_settings_env: tuple[str, ...] = ()
 
     def expected_settings_env(self) -> set[str]:
-        """清单必须显式列出的预算键：执行槽 + 本进程真实创建的池 + 其他消费中并发上限。"""
+        """清单必须显式列出的预算键：执行槽 + 本进程真实创建的池 + 其他消费中上限。"""
         pools = {
             f"{pool.upper()}_HTTP_MAX_{suffix}" for pool in self.pools for suffix in _POOL_SUFFIXES
         }
-        return {self.slot_env, *pools, *self.concurrency_env}
+        return {self.slot_env, *pools, *self.concurrency_env, *self.extra_settings_env}
 
 
 UNITS = (
@@ -131,6 +128,8 @@ UNITS = (
         pools=WORKER_HTTP_POOLS,
         slot_env="WORKER_EXECUTION_CONCURRENCY",
         slot_field="worker_execution_concurrency",
+        # 单次 Skill 执行进程的总时长上限（configured_execution_timeout）。
+        extra_settings_env=("WORKER_EXECUTION_TIMEOUT_SEC",),
     ),
 )
 UNIT_IDS = tuple(unit.name for unit in UNITS)
@@ -539,32 +538,37 @@ def test_helm_workspace_claim_and_mount_path_are_overridable(chart: str) -> None
 
 
 @pytest.mark.parametrize("chart", NON_WORKSPACE_HELM_CHARTS)
-def test_helm_console_gateway_and_connector_do_not_mount_workspaces(chart: str) -> None:
+def test_helm_gateway_and_connector_do_not_mount_workspaces(chart: str) -> None:
     pod = _helm_pod_spec(chart)
     container = pod["containers"][0]
     volumes = {volume["name"]: volume for volume in pod.get("volumes", [])}
     mounts = {mount["name"]: mount for mount in container.get("volumeMounts", [])}
     assert "workspaces" not in volumes and "workspaces" not in mounts, (
-        f"{chart}: console/gateway/connector 不挂 workspace（design §4.1）"
+        f"{chart}: gateway/connector 不挂 workspace"
     )
     assert "muad-workspaces" not in json.dumps(pod, ensure_ascii=False), (
         f"{chart}: 不得引用 workspace PVC 或挂载路径"
     )
 
 
-def test_workspace_pvc_is_collected_and_not_mounted_by_console_or_gateway() -> None:
+def test_workspace_pvc_is_collected_and_not_mounted_by_gateway() -> None:
     resources = next(
         doc for doc in yaml.safe_load_all((BASE / "kustomization.yaml").read_text(encoding="utf-8"))
         if isinstance(doc, dict) and doc.get("kind") == "Kustomization"
     )["resources"]
     assert "pvc-workspaces.yaml" in resources, "workspace PVC 必须被 kustomize 收集（未收集 = 部署不生效）"
-    for unit in ("console-platform", "im-gateway"):
-        pod = [doc for doc in _docs(f"{unit}.yaml") if doc.get("kind") == "Deployment"][0]["spec"][
-            "template"
-        ]["spec"]
-        assert "muad-workspaces" not in json.dumps(pod, ensure_ascii=False), (
-            f"{unit}: 不得挂载 workspace（只有 Runtime/Worker 挂）"
-        )
+    console = [doc for doc in _docs("console-platform.yaml") if doc.get("kind") == "Deployment"][0][
+        "spec"
+    ]["template"]["spec"]
+    assert "muad-workspaces" in json.dumps(console, ensure_ascii=False), (
+        "Console 必须挂载 workspace 卷：用户草稿落在 {root}/{tenant}/{user}/{agent}/skill-drafts"
+    )
+    gateway = [doc for doc in _docs("im-gateway.yaml") if doc.get("kind") == "Deployment"][0][
+        "spec"
+    ]["template"]["spec"]
+    assert "muad-workspaces" not in json.dumps(gateway, ensure_ascii=False), (
+        "im-gateway: 不得挂载 workspace"
+    )
 
 
 def test_workspace_configmap_keys_are_typed_consumed_and_quota_consistent() -> None:
@@ -587,7 +591,6 @@ def test_workspace_configmap_keys_are_typed_consumed_and_quota_consistent() -> N
         "单 workspace 配额不得超过单用户聚合配额（否则聚合配额永远无法先触发）"
     )
     assert policy.file_limit == settings.workspace_file_limit
-    assert policy.output_ttl_days == settings.workspace_output_ttl_days
     assert policy.data_ttl_days == settings.workspace_data_ttl_days
 
 

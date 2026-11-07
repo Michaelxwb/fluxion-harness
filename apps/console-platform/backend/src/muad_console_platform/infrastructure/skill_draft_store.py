@@ -15,7 +15,8 @@ from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_common import SharedSettings
+from muad_common import SharedSettings, process_settings
+from muad_common.workspaces import DRAFT_ACTIVITY_MARKER
 
 from ..infrastructure.models.control import SkillDraft
 
@@ -33,6 +34,13 @@ class DraftFile:
 
 def invalid_path(path: str) -> AppError:
     return AppError(ErrorCode.DRAFT_PATH_INVALID, data={"path": path})
+
+
+def _safe_component(value: str, label: str) -> str:
+    text = str(value)
+    if not text or text in {".", ".."} or "/" in text or "\\" in text or "\x00" in text:
+        raise ValueError(f"invalid draft {label}: {value!r}")
+    return text
 
 
 def validate_draft_key(key: str) -> str:
@@ -70,22 +78,38 @@ class SkillDraftStore:
 
     @classmethod
     def from_settings(cls, settings: SharedSettings | None = None) -> SkillDraftStore:
-        active = settings or SharedSettings()
+        settings = settings or process_settings()
+        # 草稿落在 workspaces 卷内：{root}/{tenant}/{user}/{agent}/skill-drafts/{key}，
+        # 与 outputs 同级，随 agent 目录统一清理。
         return cls(
-            active.skill_draft_root,
-            quota_bytes=active.skill_draft_quota_mib * 1024 * 1024,
-            file_limit=active.skill_draft_file_limit,
-            file_max_bytes=active.skill_draft_file_max_bytes,
+            settings.workspace_root,
+            quota_bytes=settings.skill_draft_quota_mib * 1024 * 1024,
+            file_limit=settings.skill_draft_file_limit,
+            file_max_bytes=settings.skill_draft_file_max_bytes,
         )
 
     def draft_dir(self, draft: SkillDraft) -> Path:
         validate_draft_key(draft.key)
-        return self._root / draft.tenant_id / str(draft.owner_user_id) / draft.key
+        return (
+            self._root
+            / _safe_component(draft.tenant_id, "tenant_id")
+            / _safe_component(str(draft.owner_user_id), "owner_user_id")
+            / _safe_component(str(draft.agent_id), "agent_id")
+            / "skill-drafts"
+            / draft.key
+        )
 
     def ensure(self, draft: SkillDraft) -> Path:
         directory = self.draft_dir(draft)
         directory.mkdir(parents=True, exist_ok=True)
+        self._touch_activity(draft)
         return directory
+
+    def _touch_activity(self, draft: SkillDraft) -> None:
+        """刷新 agent 目录上的草稿活动标记：workspace 清理据此保活。"""
+        agent_dir = self.draft_dir(draft).parent.parent
+        agent_dir.mkdir(parents=True, exist_ok=True)
+        (agent_dir / DRAFT_ACTIVITY_MARKER).touch(exist_ok=True)
 
     def read(self, draft: SkillDraft, raw_path: str) -> DraftFile | dict[str, Any]:
         relative = normalize_relative_path(raw_path, allow_empty=True)
@@ -133,6 +157,7 @@ class SkillDraftStore:
         except BaseException:
             Path(temp_name).unlink(missing_ok=True)
             raise
+        self._touch_activity(draft)
         return len(data)
 
     def remove_file(self, draft: SkillDraft, raw_path: str) -> int:
@@ -145,6 +170,7 @@ class SkillDraftStore:
         size = target.stat().st_size
         target.unlink()
         self._prune_empty_dirs(target.parent, self.draft_dir(draft))
+        self._touch_activity(draft)
         return size
 
     def remove_draft(self, draft: SkillDraft) -> None:
