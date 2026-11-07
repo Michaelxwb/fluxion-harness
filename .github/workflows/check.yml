@@ -115,6 +115,22 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --extra dev
+      - name: 调大 PostgreSQL 连接上限（容量栈多副本）
+        run: |
+          # worker 分片包含容量栈用例（多副本 × pool），默认 100 连接会被打满。
+          container="${{ job.services.postgres.id }}"
+          docker exec "$container" psql -U muad -d muad -v ON_ERROR_STOP=1 \
+            -c "ALTER SYSTEM SET max_connections = 300;"
+          docker restart "$container" >/dev/null
+          for _ in $(seq 1 60); do
+            if docker exec "$container" pg_isready -U muad -d muad >/dev/null 2>&1; then
+              echo "PostgreSQL ready (max_connections=300)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::PostgreSQL 未在 60s 内恢复"
+          exit 1
       # 迁移配置「各环境各一份」：每个分片用自己的 service DSN 现场生成 CI 专用 ini，
       # 仓库里的 migrations/alembic.ini 是 **dev 的**配置，两者互不影响（迁移只认 ini，不读环境变量）。
       - name: 生成 CI 专用 alembic ini 并迁移到 head
