@@ -155,6 +155,9 @@ def _seed_run(
                     agent_id=channel_context.agent_id,
                     status="ACTIVE",
                     last_seq=0,
+                    # 与真实入站同形：会话归属入口账号，外线线程取信封的会话 id。
+                    channel_account_id=channel_context.bot_account_id,
+                    external_thread_id="conv-stop",
                 )
             )
             session.add(
@@ -370,7 +373,14 @@ async def test_e05_stop_without_active_run_reports_no_active_task(
     async with httpx.AsyncClient(base_url=runtime_server.url, timeout=5.0) as client:
         raw = await client.post(
             "/v1/runs/cancel-active",
-            json={"agent_id": str(channel.agent_id), "platform_user_id": str(channel.actor_user_id)},
+            json={
+                "agent_id": str(channel.agent_id),
+                "platform_user_id": str(channel.actor_user_id),
+                "source": {
+                    "entry_id": str(channel.bot_account_id),
+                    "external_thread_id": channel.bound_external_user_id,
+                },
+            },
             headers={
                 "X-Tenant-Id": channel.tenant_id,
                 "X-Internal-Service": INTERNAL_TOKEN,

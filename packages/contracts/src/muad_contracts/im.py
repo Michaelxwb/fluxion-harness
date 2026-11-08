@@ -49,6 +49,17 @@ class DeliveryKind(StrEnum):
     ARTIFACT = "ARTIFACT"
 
 
+def message_stream_id(bot_id: str, message_id: str) -> str:
+    """一条入站消息的**确定性** stream id（渠道中立的稳定身份）。
+
+    回复会话与终态收尾必须落在同一条流上：Gateway 的实时增量与 Runtime 投递泵的终态
+    都由它派生，Connector 重启/换副本后仍能写回原消息的气泡。`bot_id` 租户间全局唯一
+    （`uq_bot_account_bot_id`），(bot_id, message_id) 足以稳定派生。
+    """
+    digest = hashlib.sha256(f"{bot_id}:{message_id}".encode()).hexdigest()
+    return digest[:32]
+
+
 class InboundEvent(ContractModel):
     """Connector → 统一核心的入站事实（已规范化，不含渠道取件凭据）。"""
 
@@ -94,6 +105,11 @@ class DeliveryCommand(ContractModel):
     #: 会话内回复目标；epoch/过期不匹配时 Connector 必须降级主动发送并回报 DEGRADED。
     reply_ref: str | None = None
     stream_id: str | None = None
+    #: 逻辑投递键与投递租约身份（终态命令必填）：Connector 按 (tenant, delivery_key) 做
+    #: 持久去重与 fencing；`epoch` 仍是 bot 连接租约，两者不得混用。
+    delivery_key: str | None = None
+    delivery_attempt_id: UUID | None = None
+    delivery_epoch: int | None = None
     epoch: int = Field(default=0, ge=0)
     created_at: datetime
 

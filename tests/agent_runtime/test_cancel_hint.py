@@ -13,9 +13,13 @@ from muad_agent_runtime.infrastructure.cancel_hint import (
 )
 from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord
+from muad_contracts import CancelSource
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext
+
+ENTRY_ID = uuid.uuid4()
+THREAD_ID = "thread-cancel"
 
 
 class StubRedisClient:
@@ -67,6 +71,8 @@ async def _insert_run(tenant: TenantContext, status: str) -> uuid.UUID:
             agent_id=tenant.agent_id,
             status="ACTIVE",
             last_seq=0,
+            channel_account_id=ENTRY_ID,
+            external_thread_id=THREAD_ID,
         )
         session.add(conversation)
         await session.flush()
@@ -209,7 +215,12 @@ async def test_cancel_active_writes_hint(
             cancel_hints=hints,
             supervisor=ExecutionSupervisor(),
         )
-        await service.cancel_active(tenant.agent_id, tenant.platform_user_id, tenant.tenant_id)
+        await service.cancel_active(
+            tenant.agent_id,
+            tenant.platform_user_id,
+            tenant.tenant_id,
+            source=CancelSource(entry_id=ENTRY_ID, external_thread_id=THREAD_ID),
+        )
 
     assert hints.run_ids == [run_id]
 

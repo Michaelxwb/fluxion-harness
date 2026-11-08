@@ -39,6 +39,9 @@ from muad_contracts import ResolveDefinitionResponse
 from agent_runtime.conftest import TenantContext, parse_sse
 from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
+#: 稳定入口身份：同一测试的多条消息必须落在同一条会话上（入口是会话作用域的一部分）。
+ENTRY_ID = uuid.uuid4()
+
 METRICS_PATH = "/metrics"
 PROMETHEUS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 LISTEN_TIMEOUT_SEC = 15.0
@@ -175,7 +178,12 @@ def _payload(tenant: TenantContext) -> dict[str, Any]:
     return {
         "agent_id": str(tenant.agent_id),
         "platform_user_id": str(tenant.platform_user_id),
-        "channel": {"type": "WECOM", "bot_id": "bot-1", "external_conversation_id": "ext-1"},
+        "channel": {
+            "type": "WECOM",
+            "entry_id": str(ENTRY_ID),
+            "bot_id": "bot-1",
+            "external_conversation_id": "ext-1",
+        },
         "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": "hello metrics"},
     }
 

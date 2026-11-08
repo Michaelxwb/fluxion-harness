@@ -109,6 +109,7 @@ class GatewayStack:
     agent_id: uuid.UUID
     platform_user_id: uuid.UUID
     model_id: uuid.UUID
+    bot_account_id: uuid.UUID
     bot_id: str
     bot_secret: str
     bound_external_user_id: str
@@ -309,6 +310,7 @@ def start_gateway_stack(
         agent_id=seeded["agent_id"],
         platform_user_id=seeded["platform_user_id"],
         model_id=seeded["model_id"],
+        bot_account_id=seeded["bot_account_id"],
         bot_id=seeded["bot_id"],
         bot_secret=seeded["bot_secret"],
         bound_external_user_id=seeded["bound_external_user_id"],

@@ -62,6 +62,7 @@ class ChannelContext:
     agent_id: uuid.UUID
     other_agent_id: uuid.UUID
     bot_id: str
+    bot_account_id: uuid.UUID
     disabled_bot_id: str
     deleted_bot_id: str
     other_bot_id: str
@@ -302,6 +303,7 @@ async def channel(database_guard: None) -> AsyncIterator[ChannelContext]:
             agent_id=agent.id,
             other_agent_id=other_agent.id,
             bot_id=bot_id,
+            bot_account_id=enabled_bot.id,
             disabled_bot_id=disabled_bot_id,
             deleted_bot_id=deleted_bot_id,
             other_bot_id=other_bot_id,

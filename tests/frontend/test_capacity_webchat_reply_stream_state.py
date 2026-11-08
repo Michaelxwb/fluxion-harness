@@ -548,6 +548,40 @@ const obs = {};
   };
 }
 
+// ---- 3b) 同一产物的不同发布版本是两张卡（去重键含 checksum） -----------------------------------
+{
+  const { config, state } = await boot({ reconnect_max_attempts: 0 });
+  const tracked = trackedConversations(state);
+  const controller = controllerOf(tracked.port, config);
+  const attachment = (checksum, size) => ({
+    artifact_id: ARTIFACT_A,
+    kind: 'DOCUMENT',
+    available: true,
+    media_type: 'application/json',
+    size,
+    filename: '结果.json',
+    checksum
+  });
+  planSse([
+    {
+      id: 'v1',
+      frames:
+        artifactFrame(RUN_A, CONVERSATION_1, 1, attachment('sha256:v1', 10)) +
+        artifactFrame(RUN_A, CONVERSATION_1, 2, attachment('sha256:v2', 20))
+    }
+  ]);
+  controller.watch(targetOf(CONVERSATION_1, RUN_A));
+  await until('两版附件', () => controller.snapshot().run.attachments.length === 2);
+  const snapshot = controller.snapshot();
+  obs.artifactVersions = {
+    keys: snapshot.run.attachments.map((item) => `${item.artifact_id}:${item.checksum}`),
+    streaming:
+      snapshot.streaming === null
+        ? null
+        : snapshot.streaming.attachments.map((item) => item.checksum)
+  };
+}
+
 // ---- 4) 迟到旧 attempt 不能串正文（服务端忽略断开仍推送） ----------------------------------------
 {
   const { config, state } = await boot();
@@ -602,6 +636,55 @@ const obs = {};
     requests: requestsOf(),
     serverCancelled: sse.handles.get('a1').cancelled,
     cachedA: state.appliedSeq(CONVERSATION_1, RUN_A)
+  };
+}
+
+// ---- 5b) 工具进度：run.tool 只带名字/阶段；FINISHED 撤掉；终态清空；旧快照不打回阶段 --------
+{
+  const { config, state } = await boot({ reconnect_max_attempts: 1 });
+  const controller = controllerOf(state, config);
+  planSse([{ id: 'a1', manual: true }]);
+  controller.watch(targetOf(CONVERSATION_1, RUN_A));
+  await until('工具进度首连', () => sse.handles.has('a1'));
+  pushFrame('a1', stageFrame(RUN_A, CONVERSATION_1, 1, stageOf('RUNNING', {
+    started_at: '2026-10-18T00:00:00Z'
+  })));
+  pushFrame('a1', frameOf(RUN_A, CONVERSATION_1, 2, 'run.tool', {
+    name: 'workspace_shell', phase: 'STARTED', status: null, preview: 'private-canary'
+  }));
+  await until('工具开始', () => controller.snapshot().run.tool !== null);
+  obs.toolStarted = {
+    tool: controller.snapshot().run.tool,
+    appliedSeq: controller.snapshot().run.lastAppliedSeq,
+    stage: controller.snapshot().run.executionStatus.stage
+  };
+  // 重新观察同一 Run：旧详情快照（受理瞬间的 WAITING_RUNTIME + 排队期限）不得打回阶段。
+  controller.watch(targetOf(CONVERSATION_1, RUN_A, 'RUNNING', stageOf('WAITING_RUNTIME', {
+    queued_at: '2026-10-18T00:00:00Z', deadline_at: '2026-10-18T00:01:00Z'
+  })));
+  await settle(20);
+  obs.toolStaleSnapshot = {
+    stage: controller.snapshot().run.executionStatus.stage,
+    phase: controller.snapshot().streaming.phase,
+    tool: controller.snapshot().run.tool
+  };
+  pushFrame('a1', frameOf(RUN_A, CONVERSATION_1, 3, 'run.tool', {
+    name: 'workspace_shell', phase: 'FINISHED', status: 'OK'
+  }));
+  await until('工具结束', () => controller.snapshot().run.lastAppliedSeq === 3);
+  obs.toolFinished = {
+    tool: controller.snapshot().run.tool,
+    appliedSeq: controller.snapshot().run.lastAppliedSeq
+  };
+  pushFrame('a1', frameOf(RUN_A, CONVERSATION_1, 4, 'run.tool', {
+    name: 'workspace_shell', phase: 'STARTED', status: null
+  }));
+  await until('工具再次开始', () => controller.snapshot().run.tool !== null);
+  pushFrame('a1', terminalFrame(RUN_A, CONVERSATION_1, 5, 'COMPLETED'));
+  await until('工具后终态', () => controller.snapshot().run.status === 'COMPLETED');
+  obs.toolTerminal = {
+    tool: controller.snapshot().run.tool,
+    status: controller.snapshot().run.status
   };
 }
 
@@ -704,13 +787,14 @@ const obs = {};
   const { config, state } = await boot({ reconnect_max_attempts: 0 });
   const controller = controllerOf(state, config);
   planSse([{ id: 'failed', frames: frameOf(RUN_A, CONVERSATION_1, 1, 'run.error', {
-    code: 'MODEL_UNAVAILABLE', retryable: false
+    code: 'MODEL_UNAVAILABLE', retryable: false, has_reply: true
   }) }]);
   controller.watch(targetOf(CONVERSATION_1, RUN_A));
   await until('持久失败已收敛', () => controller.snapshot().connection.state === 'closed');
   obs.runFailure = {
     status: controller.snapshot().run.status,
     error: controller.snapshot().run.errorCode,
+    hasReply: controller.snapshot().run.hasReply,
     recovery: controller.snapshot().run.recovery,
     phase: controller.snapshot().streaming.phase,
     requests: sse.requests.length
@@ -1036,11 +1120,37 @@ def test_b282_only_the_visible_run_is_subscribed_and_reconnects_by_get(events: d
     )
 
 
+def test_tool_progress_tracks_the_public_event_only(events: dict[str, Any]) -> None:
+    """`run.tool` 只驱动工具名/开始时刻：私有字段不上状态，FINISHED 与终态都撤掉进度。"""
+    started = events["toolStarted"]
+    assert started["tool"] == {
+        "name": "workspace_shell",
+        "startedAt": "2026-10-18T00:00:00Z",
+    }, f"工具进度只带公开字段与 STARTED 时刻：{started}"
+    assert started["appliedSeq"] == 2, "工具进度是正常公开事件，必须推进已应用水位"
+    assert started["stage"] == "RUNNING"
+    assert events["toolFinished"] == {"tool": None, "appliedSeq": 3}, (
+        f"FINISHED 必须撤掉进度行：{events['toolFinished']}"
+    )
+    assert events["toolTerminal"] == {"tool": None, "status": "COMPLETED"}, (
+        f"终态必须清空工具进度：{events['toolTerminal']}"
+    )
+
+
+def test_stale_detail_snapshot_never_downgrades_the_stream_stage(events: dict[str, Any]) -> None:
+    """重新观察同一 Run 时，受理瞬间的旧阶段快照不得把已应用的 RUNNING 打回排队。"""
+    assert events["toolStaleSnapshot"] == {
+        "stage": "RUNNING",
+        "phase": "running",
+        "tool": {"name": "workspace_shell", "startedAt": "2026-10-18T00:00:00Z"},
+    }, f"流已应用事件后阶段以流为权威：{events['toolStaleSnapshot']}"
+
+
 def test_persisted_run_error_is_terminal(events: dict[str, Any]) -> None:
     assert events["runFailure"] == {
-        "status": "FAILED", "error": "MODEL_UNAVAILABLE", "recovery": None,
-        "phase": "terminal", "requests": 1,
-    }
+        "status": "FAILED", "error": "MODEL_UNAVAILABLE", "hasReply": True,
+        "recovery": None, "phase": "terminal", "requests": 1,
+    }, "失败已落结论消息：客户端据此不再弹「失败，请重发」"
 
 
 def test_b282_eof_is_not_completion_and_the_budget_comes_from_the_projection(
@@ -1374,3 +1484,14 @@ def test_b282_attempt_observer_is_typed_on_the_shared_stream_layer() -> None:
     for field in ("attempt: number;", "retries: number;", "cursor: number;"):
         assert field in source, f"连接尝试必须带显式字段：{field}"
     assert "export function openReplyStream(" in source
+
+
+def test_b282_same_artifact_versions_render_as_two_cards(events: dict[str, Any]) -> None:
+    """同一产物先后发布两版：去重键是 (artifact_id, checksum)，后一版不覆盖前一版。"""
+    observed = events["artifactVersions"]
+    assert observed["keys"] == [f"{ARTIFACT_A}:sha256:v1", f"{ARTIFACT_A}:sha256:v2"], (
+        "同一产物不同版本必须各自成卡（发布冻结版本）"
+    )
+    assert observed["streaming"] == ["sha256:v1", "sha256:v2"], (
+        "进行中的回复要把已发布附件交给渲染层（实时卡片）"
+    )

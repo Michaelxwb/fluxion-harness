@@ -2,12 +2,11 @@
 
 职责与边界：
 
-- **入口身份**：`RunRequest.channel.bot_id` 是入口键。UUID 形状的入口键就是入口账号的逻辑
-  UUID（`conversation.channel_account_id` / `channel_conversation.channel_account_id`）；非
-  UUID 形状的入口键**不编造 UUID**——这类入口暂按既有 (tenant,user,agent) 口径解析，且只认
-  **未归属**会话（TASK-049 遗留：把入口账号 UUID 带进 RunRequest 由后续装配任务收口）。
-- **显式会话核属**：tenant/user/agent 必配；入口可归属时同时核入口归属。跨租户、越权、
-  借其他入口（或不可归属入口借用已归属）会话一律 `COMMON_NOT_FOUND`，不泄露存在性。
+- **入口身份**：`RunRequest.channel.entry_id` 是入口账号的逻辑 UUID（Console 解析结论，
+  必填）。会话归属、入口指针与终态通知都用它，**不从 `bot_id` 的字符串形状推断**；
+  `bot_id` 只保留平台侧原值供出站路由。
+- **显式会话核属**：tenant/user/agent/入口全部必配。跨租户、越权、借其他入口的会话一律
+  `COMMON_NOT_FOUND`，不泄露存在性。
 - **入口指针**：无显式会话的入口按 (tenant,user,agent,入口,外线线程) 五元组在锁内切换当前
   指针；指针缺失时按同一五元组取最近会话（升级连续性），无候选才新建（与消息同事务）。
 - **标题**：复用 `conversation.title`——首条真实用户文本归一化后截取 80 个字符，纯附件用
@@ -73,23 +72,8 @@ class ConversationScope:
     tenant_id: str
     user_id: uuid.UUID
     agent_id: uuid.UUID
-    entry_id: uuid.UUID | None
+    entry_id: uuid.UUID
     external_thread_id: str
-
-
-def entry_id_of(bot_id: str) -> uuid.UUID | None:
-    """入口键 → 入口账号 UUID；**非 UUID 形状返回 None**（不编造入口身份）。"""
-    try:
-        return uuid.UUID(bot_id)
-    except ValueError:
-        return None
-
-
-def external_thread_id_of(
-    external_conversation_id: str | None, external_user_id: str | None
-) -> str:
-    """外线线程：优先外部会话（如 chatid），1:1 回落外部用户（与 0025 回填同一口径）。"""
-    return external_conversation_id or external_user_id or ""
 
 
 def scope_of(request: RunRequest, tenant_id: str) -> ConversationScope:
@@ -98,10 +82,8 @@ def scope_of(request: RunRequest, tenant_id: str) -> ConversationScope:
         tenant_id=tenant_id,
         user_id=request.platform_user_id,
         agent_id=request.agent_id,
-        entry_id=entry_id_of(request.channel.bot_id),
-        external_thread_id=external_thread_id_of(
-            request.channel.external_conversation_id, request.channel.external_user_id
-        ),
+        entry_id=request.channel.entry_id,
+        external_thread_id=request.channel.external_thread_id,
     )
 
 
@@ -179,9 +161,7 @@ MAX_ARCHIVE_PER_REQUEST = 100
 
 
 def _entry_condition(scope: ConversationScope) -> Any:
-    """入口谓词与核属同口径：可归属入口只命同一入口；不可归属只命未归属行。"""
-    if scope.entry_id is None:
-        return Conversation.channel_account_id.is_(None)
+    """入口谓词与核属同口径：只命中请求的入口账号。"""
     return Conversation.channel_account_id == scope.entry_id
 
 
@@ -209,7 +189,7 @@ def _no_active_run() -> Any:
 
 async def lock_conversation_scope(session: AsyncSession, scope: ConversationScope) -> None:
     """同一 (tenant,user,agent,入口) 的建会话/归档串行化（事务级 advisory lock）。"""
-    key = f"conversation-limit:{scope.tenant_id}:{scope.user_id}:{scope.agent_id}:{scope.entry_id or ''}"
+    key = f"conversation-limit:{scope.tenant_id}:{scope.user_id}:{scope.agent_id}:{scope.entry_id}"
     await session.execute(
         sa.select(sa.func.pg_advisory_xact_lock(sa.cast(sa.func.hashtext(key), sa.BigInteger)))
     )
@@ -335,11 +315,8 @@ async def enforce_conversation_limit(
 
 
 def assert_entry_attribution(conversation: Conversation, scope: ConversationScope) -> None:
-    """入口核属（双向严格）：可归属入口必须命中同一入口账号；不可归属入口不得借用已归属会话。"""
-    if scope.entry_id is not None:
-        if conversation.channel_account_id != scope.entry_id:
-            raise AppError(ErrorCode.COMMON_NOT_FOUND)
-    elif conversation.channel_account_id is not None:
+    """入口核属（严格）：会话必须属于请求的入口账号；跨入口一律 `COMMON_NOT_FOUND`。"""
+    if conversation.channel_account_id != scope.entry_id:
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
 
 
@@ -499,22 +476,6 @@ async def _latest_entry_thread_conversation(
     return conversation
 
 
-async def _latest_unattributed_conversation(
-    session: AsyncSession, scope: ConversationScope
-) -> Conversation | None:
-    """不可归属入口的既有口径：只取**未归属**会话的「用户最近发言」。
-
-    已归属其他入口的会话对不可归属入口**不可借用**（不把网页/其他入口的历史串进来）。
-    """
-    conversation: Conversation | None = await session.scalar(
-        sa.select(Conversation)
-        .where(*_scope_conditions(scope), Conversation.channel_account_id.is_(None))
-        .order_by(conversation_recency_key().desc(), Conversation.create_time.desc())
-        .limit(1)
-    )
-    return conversation
-
-
 async def _load_pointer_target(
     session: AsyncSession, scope: ConversationScope, conversation_id: uuid.UUID
 ) -> Conversation | None:
@@ -548,8 +509,6 @@ async def resolve_source_conversation(
     """
     if conversation_id is not None:
         return await load_explicit_conversation(session, scope, conversation_id)
-    if scope.entry_id is None:
-        return None
     pointer = await session.scalar(
         sa.select(ChannelConversation).where(*_pointer_conditions(scope))
     )
@@ -566,16 +525,7 @@ async def resolve_pointer_conversation(
     """无显式会话的入口：按五元组**锁内切换当前指针**并返回其会话。
 
     指针缺失时按同一五元组取最近会话（升级连续性）；无候选才新建（与消息同事务）。
-    入口不可归属（入口键不是 UUID 形状）时不编造入口身份：退回 (tenant,user,agent) 口径，
-    且只认未归属会话（TASK-049 遗留：把入口账号 UUID 带进 RunRequest 由后续装配任务收口）。
     """
-    if scope.entry_id is None:
-        latest = await _latest_unattributed_conversation(session, scope)
-        if latest is not None:
-            return latest
-        return await create_entry_conversation(
-            session, scope, last_message_at=await database_now(session)
-        )
     pointer = await lock_pointer(session, scope)
     if pointer is not None:
         target = await _load_pointer_target(session, scope, pointer.conversation_id)

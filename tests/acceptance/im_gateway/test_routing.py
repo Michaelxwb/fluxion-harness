@@ -100,7 +100,7 @@ async def extra_bots(gateway_stack: GatewayStack) -> Any:
             )
         )
         await session.commit()
-    yield {"bot2": BOT2_ID, "disabled": DISABLED_BOT_ID}
+    yield {"bot2": BOT2_ID, "bot2_account_id": enabled.id, "disabled": DISABLED_BOT_ID}
 
 
 def _frames_for_bot(stack: GatewayStack, bot_id: str) -> list[str]:
@@ -151,7 +151,12 @@ async def _run_directly(
             agent_id=stack.agent_id,
             platform_user_id=stack.platform_user_id,
             conversation_id=None,
-            channel=ChannelContext(type="WECOM", bot_id=BOT_ID, external_conversation_id=CHAT_ID),
+            channel=ChannelContext(
+                type="WECOM",
+                entry_id=stack.bot_account_id,
+                bot_id=BOT_ID,
+                external_conversation_id=CHAT_ID,
+            ),
             message=MessageInput(id=message_id, type="text", text="B-122 直连"),
         )
         conversation_id = ""
@@ -213,7 +218,8 @@ async def test_s01_two_bots_share_one_agent_and_any_runtime_serves(
         timeout=PUSH_REPLY_TIMEOUT_SEC,
     )
 
-    # 两个 bot 的 Run 落到同一逻辑 Agent，且属于同一平台用户的同一会话（无 bot→Pod 绑定）
+    # 两个 bot 的 Run 落到同一逻辑 Agent；但**每个入口有自己的会话**（入口身份是
+    # `bot_account.id`，同用户/同 Agent 的两个 bot 不共用会话或指针）。
     runs = await _scalar(
         "SELECT count(DISTINCT agent_id) FROM runtime.run_record "
         "WHERE tenant_id = :t AND is_deleted = false",
@@ -225,7 +231,19 @@ async def test_s01_two_bots_share_one_agent_and_any_runtime_serves(
         "WHERE tenant_id = :t AND is_deleted = false",
         {"t": gateway_stack.tenant_id},
     )
-    assert int(conversations or 0) == 1, "同一平台用户的多 bot 消息应落在同一会话"
+    assert int(conversations or 0) == 2, "每个入口独立会话：两个 bot 不得共用会话/指针"
+    attributed = await _scalar(
+        "SELECT count(DISTINCT c.channel_account_id) FROM runtime.conversation c "
+        "JOIN runtime.run_record r ON r.conversation_id = c.id "
+        "WHERE r.tenant_id = :t AND r.is_deleted = false "
+        "AND c.channel_account_id IN (:bot1, :bot2)",
+        {
+            "t": gateway_stack.tenant_id,
+            "bot1": gateway_stack.bot_account_id,
+            "bot2": extra_bots["bot2_account_id"],
+        },
+    )
+    assert int(attributed or 0) == 2, "两个 bot 的会话必须各自归属到自己的入口账号"
 
     # 任意 Runtime 实例都能承载同一逻辑 Agent 的会话（实例可替换、无 Pod 亲和）
     first = await _run_directly(

@@ -48,6 +48,9 @@ from muad_contracts.platform_settings import ToolResultSettings
 
 from agent_runtime.conftest import TenantContext, parse_sse
 
+#: 稳定入口身份：同一测试的多条消息必须落在同一条会话上（入口是会话作用域的一部分）。
+ENTRY_ID = uuid.uuid4()
+
 TOOL_NAME = "dump"
 CALL_ID = "call-dump"
 #: 单条就超外置阈值（8 KiB）⇒ 走"单条必落盘"那条腿，与本用例的整轮预算无关。
@@ -146,7 +149,7 @@ async def _send(client: AsyncClient, tenant: TenantContext, text: str) -> dict[s
         json={
             "agent_id": str(tenant.agent_id),
             "platform_user_id": str(tenant.platform_user_id),
-            "channel": {"type": "WECOM", "bot_id": "bot-history"},
+            "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-history"},
             "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
         },
         headers={"X-Tenant-Id": tenant.tenant_id},

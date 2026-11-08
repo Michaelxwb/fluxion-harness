@@ -43,7 +43,6 @@ class SharedSettings(BaseSettings):
     artifact_root: str = "./.data/artifacts"
     skill_cache_root: str = "./.data/skill-cache"
     #: 用户 Skill 草稿根目录（生产挂 muad-skill-drafts-rwx，只挂 Console）。
-    skill_draft_root: str = "./.data/skill-drafts"
     #: 草稿配额：总大小、单文件大小与文件数上限。具体值以部署配置为准。
     skill_draft_quota_mib: int = Field(default=100, ge=1)
     skill_draft_file_max_bytes: int = Field(default=5 * 1024 * 1024, ge=1)
@@ -55,7 +54,6 @@ class SharedSettings(BaseSettings):
     workspace_user_quota_mib: int = Field(default=500, ge=1)
     workspace_file_limit: int = Field(default=5000, ge=1)
     #: data 跨 Run 持久、outputs 每次执行独立；清理 TTL 按天。
-    workspace_output_ttl_days: int = Field(default=30, ge=1)
     workspace_data_ttl_days: int = Field(default=30, ge=1)
     #: Skill/Shell 沙箱执行模式：bwrap（生产默认）/ dev-unsafe（仅 ENV=dev）/ disabled（仅 dev）。
     #: dev-unsafe 直接执行宿主进程，**生产必须保持 bwrap**；非 dev 配 dev-unsafe 会在启动期报错。
@@ -88,6 +86,8 @@ class SharedSettings(BaseSettings):
     #: memory consolidation 的租户级待处理上限；到界后不再入队（不阻塞已完成的 Run）。
     memory_consolidation_queue_max: int = Field(default=10000, ge=1)
     worker_execution_concurrency: int = Field(default=4, ge=1, le=64)
+    #: 单次 Skill 执行进程的总时长上限（秒）；与到 Task deadline 的剩余时间取较小值。
+    worker_execution_timeout_sec: int = Field(default=300, ge=1, le=3600)
     gateway_max_concurrent_handlers: int = Field(default=8, ge=1)
     gateway_max_pending_handlers: int = Field(default=256, ge=1)
     gateway_max_pending_per_route: int = Field(default=8, ge=1)

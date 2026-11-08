@@ -16,7 +16,9 @@ from muad_api.context import current_trace_id
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
     DEFAULT_PAGE_SIZE,
+    OUTBOUND_CHANNELS,
     AttachmentRef,
+    CancelSource,
     ChannelBindRequest,
     ChannelContext,
     ChannelEnvelope,
@@ -195,6 +197,19 @@ def _writes(actions: Sequence[RenderAction]) -> bool:
 def route_from_envelope(envelope: ChannelEnvelope) -> DeliveryRouteInput:
     return DeliveryRouteInput(
         channel=envelope.channel,
+        bot_id=envelope.bot_id,
+        external_user_id=envelope.external_user_id,
+        external_conversation_id=envelope.external_conversation_id,
+    )
+
+
+def channel_context_of(
+    envelope: ChannelEnvelope, resolved: ChannelResolveResponse
+) -> ChannelContext:
+    """入站渠道身份：入口 UUID 来自解析结论，`bot_id` 保留平台原值（只做路由）。"""
+    return ChannelContext(
+        type=envelope.channel,
+        entry_id=resolved.entry_id,
         bot_id=envelope.bot_id,
         external_user_id=envelope.external_user_id,
         external_conversation_id=envelope.external_conversation_id,
@@ -888,6 +903,7 @@ class InboundPipeline:
                 tenant_id=self._tenant_id,
                 # 稳定幂等键：同命令重试由 Runtime Owner 持久重放，不创建第二会话
                 idempotency_key=envelope.message_id,
+                channel=channel_context_of(envelope, resolved),
             )
         except AppError as exc:
             await self._reply_error(adapter, route, exc)
@@ -910,11 +926,16 @@ class InboundPipeline:
         if not resolved.authorized:
             await self._send_text(adapter, route, NO_PERMISSION_TEXT)
             return True
+        channel = channel_context_of(envelope, resolved)
         try:
             result = await self._runtime.cancel_active(
                 resolved.agent_id,
                 resolved.platform_user_id,
                 tenant_id=self._tenant_id,
+                source=CancelSource(
+                    entry_id=channel.entry_id,
+                    external_thread_id=channel.external_thread_id,
+                ),
             )
         except AppError as exc:
             if exc.code == str(ErrorCode.NO_ACTIVE_RUN):
@@ -996,12 +1017,7 @@ class InboundPipeline:
             # 会话"指针选，同用户的多条历史会话就会串写（RULE-10 / RISK-09）。企微没有这个
             # 能力 ⇒ None ⇒ 按原入口指针（`channel_conversation`）选会话。
             conversation_id=_explicit_conversation(adapter, envelope),
-            channel=ChannelContext(
-                type=envelope.channel,
-                bot_id=envelope.bot_id,
-                external_user_id=envelope.external_user_id,
-                external_conversation_id=envelope.external_conversation_id,
-            ),
+            channel=channel_context_of(envelope, resolved),
             message=MessageInput(
                 id=envelope.message_id,
                 type="attachment" if collected.refs else "text",
@@ -1324,7 +1340,22 @@ class InboundPipeline:
             return False
         finally:
             if not finalized:
-                await self._run_actions(adapter, route, state, state.renderer.finalize())
+                if state.terminal and route.channel in OUTBOUND_CHANNELS:
+                    # 机器人终态：先冲出已缓冲的增量（实时内容），然后**放弃本地收尾**——
+                    # 终态正文与 finish 由持久投递链写回同一条流（handle 的兜底 finish 变成空操作）。
+                    await self._run_actions(adapter, route, state, state.renderer.flush())
+                    reply = state.reply
+                    flush_now = getattr(reply, "flush_now", None)
+                    if flush_now is not None:
+                        try:
+                            await flush_now()
+                        except ChannelAdapterUnavailable:
+                            logger.warning("channel_reply_flush_failed channel=%s", route.channel)
+                    abort = getattr(reply, "abort", None)
+                    if abort is not None:
+                        abort()
+                else:
+                    await self._run_actions(adapter, route, state, state.renderer.finalize())
         metrics.set_gauge(
             STREAM_LATENCY_METRIC,
             _elapsed_ms(state.started_at),
@@ -1559,55 +1590,21 @@ class InboundPipeline:
             return
         if event.type == RUN_COMPLETED_EVENT:
             state.final_text = str((event.data or {}).get("final_text") or "")
+        if event.type in (RUN_COMPLETED_EVENT, RUN_FAILED_EVENT) and (
+            route.channel in OUTBOUND_CHANNELS
+        ):
+            # **机器人终态单发送者**：有持久出站意图的通道，终态正文由持久投递链（Runtime
+            # 投递泵）唯一发送，它按原入站消息的回复流写完整正文并 finish。Gateway 只停止
+            # 状态/增量生产，不再发送终态正文、收尾帧或自行主动兜底（否则必然重复）。
+            # WebChat 等无出站意图的通道仍走原有流式收尾（没有第二条发送路径）。
+            state.terminal = True
+            return
         await self._run_actions(adapter, route, state, state.renderer.apply(event))
         if event.type in (INTERRUPT_REQUIRED_EVENT, "memory.confirmation_required"):
             state.awaiting_input = True
-        if event.type in (TASK_ACCEPTED_EVENT, RUN_COMPLETED_EVENT, RUN_FAILED_EVENT):
-            # run.waiting_tool / run.resumed 是**非终态**事实：不在这里收尾、不发完成帧。
+        if event.type == TASK_ACCEPTED_EVENT:
+            # 任务受理回执是本轮自己的内容（不是 Run 终态正文），保留既有发送与收尾。
             state.terminal = True
-        if state.terminal:
-            await self._deliver_final_text(adapter, route, state, platform_user_id)
-
-    async def _deliver_final_text(
-        self,
-        adapter: ChannelAdapter,
-        route: DeliveryRouteInput,
-        state: _RunStreamState,
-        platform_user_id: UUID,
-    ) -> None:
-        """终态交付的同键协调（设计 §3.6）：活跃会话收尾与兜底主动交付共用稳定键。
-
-        - **活跃回复会话的收尾**：终态内容已经写进会话流 ⇒ 按同一键认领并确认送达，阻止兜底重发；
-        - **会话失联的兜底**：按同一键 reserve → 主动发送 → 实际发送成功才 ack。
-
-        两条路都**不静默**：结局进 `im_final_delivery_total`，失败留日志——用户没收到就是没收到。
-        """
-        if state.final_delivery_done:
-            return
-        if state.run_id is None:
-            logger.error("final_delivery_missing_run_id channel=%s", route.channel)
-            return
-        state.final_delivery_done = True
-        if state.reply is not None and not state.reply_lost:
-            status = await self._channel_delivery.confirm(
-                tenant_id=self._tenant_id, run_id=state.run_id
-            )
-        else:
-            status = await self._channel_delivery.deliver(
-                adapter,
-                route,
-                tenant_id=self._tenant_id,
-                run_id=state.run_id,
-                text=state.final_text,
-                agent_id=state.agent_id,
-                platform_user_id=platform_user_id,
-            )
-        metrics.inc_counter(
-            FINAL_DELIVERY_METRIC,
-            1,
-            {"status": status},
-            help="Run final text deliveries",
-        )
 
     async def _run_actions(
         self,

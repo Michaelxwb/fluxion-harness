@@ -60,11 +60,19 @@ async def get_user_credential(
     session: Session,
     registry: Registry,
     sessions: Sessions,
+    include_secret: bool = Query(default=False),
 ) -> ApiResponse[Any]:
+    """读用户凭据：默认只回「已配置」事实；`include_secret=true` 才回明文（编辑回显用）。
+
+    明文出口只服务 Console 凭据编辑弹窗：本路由仅 ADMIN、租户取登录账号、响应 `no-store`；
+    明文不得进日志/审计/快照。
+    """
     response.headers["Cache-Control"] = "no-store"
     return ok(
         request.app.state.message_catalog,
-        await _service(session, registry, sessions).get_user_credential(tenant_id, platform_id, user_id),
+        await _service(session, registry, sessions).get_user_credential(
+            tenant_id, platform_id, user_id, include_secret=include_secret
+        ),
     )
 
 

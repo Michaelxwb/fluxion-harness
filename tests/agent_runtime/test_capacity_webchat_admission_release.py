@@ -57,6 +57,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from agent_runtime.conftest import CLEANUP_ORDER, FakeResolveClient, TenantContext
 
+ENTRY_ID = uuid.uuid4()
+
 pytestmark = pytest.mark.integration
 
 #: 内部服务身份：与 Console `require_service_identity` 同源（env `INTERNAL_SERVICE_TOKEN`）。
@@ -393,7 +395,7 @@ def _request(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.platform_user_id,
         conversation_id=conversation_id,
-        channel=ChannelContext(type="WECOM", bot_id=bot_id),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id=bot_id),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text=text),
     )
 
@@ -453,11 +455,12 @@ async def _seed_conversation(tenant: TenantContext) -> uuid.UUID:
     async with get_session_factory()() as session:
         await session.execute(
             sa.text(
-                "INSERT INTO runtime.conversation (id, tenant_id, user_id, agent_id, status, last_seq)"
-                " VALUES (:id, :tenant_id, :user_id, :agent_id, 'ACTIVE', 0)"
+                "INSERT INTO runtime.conversation"
+                " (id, tenant_id, user_id, agent_id, status, last_seq, channel_account_id)"
+                " VALUES (:id, :tenant_id, :user_id, :agent_id, 'ACTIVE', 0, :entry_id)"
             ).bindparams(
                 id=conversation_id, tenant_id=tenant.tenant_id, user_id=tenant.platform_user_id,
-                agent_id=tenant.agent_id,
+                agent_id=tenant.agent_id, entry_id=ENTRY_ID,
             )
         )
         await session.commit()
@@ -500,11 +503,12 @@ async def _seed_open_run(tenant: TenantContext, *, status: str = "RUNNING") -> u
     async with get_session_factory()() as session:
         await session.execute(
             sa.text(
-                "INSERT INTO runtime.conversation (id, tenant_id, user_id, agent_id, status, last_seq)"
-                " VALUES (:id, :tenant_id, :user_id, :agent_id, 'ACTIVE', 0)"
+                "INSERT INTO runtime.conversation"
+                " (id, tenant_id, user_id, agent_id, status, last_seq, channel_account_id)"
+                " VALUES (:id, :tenant_id, :user_id, :agent_id, 'ACTIVE', 0, :entry_id)"
             ).bindparams(
                 id=conversation_id, tenant_id=tenant.tenant_id, user_id=tenant.platform_user_id,
-                agent_id=tenant.agent_id,
+                agent_id=tenant.agent_id, entry_id=ENTRY_ID,
             )
         )
         await session.execute(

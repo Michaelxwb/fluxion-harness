@@ -590,20 +590,20 @@ const obs = {};
     { status: 200, blob: IMAGE_BYTES }
   ]);
   const downloadStart = http.requests.length;
-  const first = await controller.openPreview(image);
+  const first = await controller.openPreview(image, CONVERSATION_1);
   const firstRequests = requestsOf(downloadStart);
   const firstBlob = preview.created[0].blob;
-  const second = await controller.openPreview(imageB);
+  const second = await controller.openPreview(imageB, CONVERSATION_1);
   const afterReplace = { revoked: [...preview.revoked], preview: controller.snapshot().preview };
   controller.closePreview();
   const afterClose = { revoked: [...preview.revoked], preview: controller.snapshot().preview };
 
   const rejectedStart = http.requests.length;
   const unavailableError = await errorCodeOf(
-    controller.openPreview(attachment(ARTIFACT_IMAGE, { available: false }))
+    controller.openPreview(attachment(ARTIFACT_IMAGE, { available: false }), CONVERSATION_1)
   );
-  const documentError = await errorCodeOf(controller.openPreview(document));
-  const svgError = await errorCodeOf(controller.openPreview(svg));
+  const documentError = await errorCodeOf(controller.openPreview(document, CONVERSATION_1));
+  const svgError = await errorCodeOf(controller.openPreview(svg, CONVERSATION_1));
   const rejectedRequests = http.requests.length - rejectedStart;
   obs.preview = {
     first: first === null ? null : { artifactId: first.artifactId, url: first.url },
@@ -641,7 +641,7 @@ const obs = {};
   ]);
   controller.start();
   await settle();
-  const previewed = await controller.openPreview(attachment(ARTIFACT_IMAGE));
+  const previewed = await controller.openPreview(attachment(ARTIFACT_IMAGE), CONVERSATION_1);
   const url = previewed === null ? null : previewed.url;
 
   planHttp([{ status: 401, body: { code: 'UNAUTHORIZED', msg: '会话失效' } }]);

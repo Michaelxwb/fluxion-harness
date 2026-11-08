@@ -92,7 +92,7 @@ async def test_skill_draft_revision_cas_and_owner_scope(skill_env: SkillContext)
     try:
         async with factory() as session:
             repo = SkillDraftRepository(session)
-            draft = await repo.create(skill_env.tenant_id, owner, key)
+            draft = await repo.create(skill_env.tenant_id, owner, skill_env.agent_id, key)
             await session.commit()
             draft_id = draft.id
             assert draft.revision == 1

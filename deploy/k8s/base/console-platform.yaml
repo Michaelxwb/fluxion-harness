@@ -99,10 +99,16 @@ spec:
           volumeMounts:
             - name: artifacts
               mountPath: /mnt/muad-artifacts
+            # 用户 Skill 草稿：{tenant}/{user}/{agent}/skill-drafts，与 Runtime/Worker 共用同一个卷
+            - name: workspaces
+              mountPath: /mnt/muad-workspaces
       volumes:
         - name: artifacts
           persistentVolumeClaim:
             claimName: muad-artifacts-rwx
+        - name: workspaces
+          persistentVolumeClaim:
+            claimName: muad-workspaces-rwx
 ---
 apiVersion: v1
 kind: Service

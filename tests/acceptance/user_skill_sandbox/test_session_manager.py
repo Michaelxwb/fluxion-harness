@@ -158,7 +158,6 @@ async def test_workspace_shell_never_receives_session_manager(tmp_path: Path) ->
             quota_bytes=1024**3,
             user_quota_bytes=1024**3,
             file_limit=100,
-            output_ttl_seconds=86400,
             data_ttl_seconds=86400,
         ),
         metadata=_Metadata(),

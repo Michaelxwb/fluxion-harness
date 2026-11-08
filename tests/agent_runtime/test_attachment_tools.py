@@ -14,6 +14,7 @@ import uuid
 from typing import Any
 
 import pytest
+import sqlalchemy as sa
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.application.attachments.tools import (
     AGENT_OUTPUT_ARTIFACT_TYPE,
@@ -44,7 +45,12 @@ from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.gateway_delivery_client import (
     DeliveryUnavailableError,
 )
-from muad_agent_runtime.infrastructure.models.runtime import Artifact, Conversation, RunRecord
+from muad_agent_runtime.infrastructure.models.runtime import (
+    Artifact,
+    CanonicalEvent,
+    Conversation,
+    RunRecord,
+)
 from muad_artifact_store import NfsArtifactStore
 from muad_contracts import DeliveryResponse, DeliveryRouteInput
 
@@ -1042,26 +1048,31 @@ async def test_deliver_artifact_refuses_inbound_attachments_from_another_convers
     assert not client.requests, "被拒的交付不得真的去调网关"
 
 
-async def test_deliver_artifact_refuses_artifacts_this_run_did_not_produce(
+async def test_deliver_artifact_allows_historical_agent_output(
     tenant, artifact_root
 ) -> None:
-    """**别的 Run 自产**的产物仍然拒绝（原意图保留）。"""
+    """同一用户的**历史 Run 自产**产物可以重发。
+
+    这是 `list_attachments(scope="agent")` 的配套：能列出来的历史产出必须能再发一次，
+    否则「把昨天的报告发我」永远会撞在交付准入上。归属仍由 `_load` 按会话/Run 的 user 校验。
+    """
     run_id, conversation_id = await _seed_run(tenant)
-    other_run_artifact = await _seed_artifact(
+    historical = await _seed_artifact(
         tenant, artifact_root, data=b"agent file", kind="DOCUMENT",
-        media_type="text/markdown", filename="别处产物.md",
+        media_type="text/markdown", filename="历史产物.md",
         artifact_type=AGENT_OUTPUT_ARTIFACT_TYPE,
     )
-    client = _FakeDeliveryClient()
+    client = _FakeDeliveryClient(
+        DeliveryResponse(accepted=True, delivered=True, deduplicated=False, outcome="DELIVERED")
+    )
     tool_set = _delivery_tool_set(
         tenant, artifact_root, run_id=run_id, conversation_id=conversation_id, client=client
     )
 
-    with pytest.raises(AttachmentToolError) as exc:
-        await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(other_run_artifact)})
+    result = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(historical)})
 
-    assert "只能交付本次运行自己写出的产物" in exc.value.message
-    assert not client.requests
+    assert "已交付" in result
+    assert client.requests
 
 
 async def test_deliver_artifact_refuses_tool_result_artifacts(tenant, artifact_root) -> None:
@@ -1085,3 +1096,227 @@ async def test_deliver_artifact_refuses_tool_result_artifacts(tenant, artifact_r
 
     assert "不能交付给用户" in exc.value.message
     assert not client.requests
+
+
+def test_historical_agent_output_is_deliverable_but_tool_results_are_not() -> None:
+    """历史 Run 的 AGENT_OUTPUT 可重发；TOOL_RESULT 与外会话入站仍拒绝。"""
+    from types import SimpleNamespace
+
+    tools = AttachmentToolSet(
+        session_factory=lambda: None,  # type: ignore[arg-type]
+        artifact_root="/tmp/artifacts",
+        tenant_id="tenant-a",
+        run_id=uuid.uuid4(),
+        conversation_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        agent_id=uuid.uuid4(),
+    )
+
+    def row(artifact_type: str, *, conversation_id: uuid.UUID | None) -> Any:
+        return SimpleNamespace(
+            artifact_type=artifact_type,
+            run_id=uuid.uuid4(),
+            conversation_id=conversation_id,
+            metadata_json={"filename": "report.json"},
+        )
+
+    assert tools._delivery_refusal(
+        row(AGENT_OUTPUT_ARTIFACT_TYPE, conversation_id=tools._conversation_id)
+    ) is None
+    assert tools._delivery_refusal(
+        row("TOOL_RESULT", conversation_id=tools._conversation_id)
+    ) is not None
+    assert tools._delivery_refusal(
+        row("INBOUND_DOCUMENT", conversation_id=uuid.uuid4())
+    ) is not None
+
+
+# --------------------------------------------------------------------------------------
+# 站内入口的交付：发布到目标会话的持久流（WebChat 的"收到"就是这条事实）
+# --------------------------------------------------------------------------------------
+
+_WEBCHAT_ROUTE = DeliveryRouteInput(
+    channel="WEBCHAT", bot_id="webchat-demo01", external_user_id=str(uuid.uuid4())
+)
+
+
+async def _publication_rows(tenant: TenantContext, run_id: uuid.UUID) -> list[CanonicalEvent]:
+    async with get_session_factory()() as session:
+        rows = await session.scalars(
+            sa.select(CanonicalEvent)
+            .where(
+                CanonicalEvent.tenant_id == tenant.tenant_id,
+                CanonicalEvent.run_id == run_id,
+                CanonicalEvent.event_type == "ARTIFACT_CREATED",
+            )
+            .order_by(CanonicalEvent.seq)
+        )
+        return list(rows)
+
+
+async def test_deliver_artifact_publishes_to_the_conversation_on_a_local_stream_channel(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """站内入口不走网关投递：交付 = 目标会话里的一条发布事实（完整公开 DTO 载荷）。"""
+    run_id, conversation_id = await _seed_run(tenant)
+    client = _FakeDeliveryClient()
+    tool_set = AttachmentToolSet(
+        session_factory=get_session_factory,
+        artifact_root=artifact_root,
+        tenant_id=tenant.tenant_id,
+        run_id=run_id,
+        conversation_id=conversation_id,
+        user_id=tenant.platform_user_id,
+        has_delivery_route=True,
+        delivery_route=_WEBCHAT_ROUTE,
+        delivery_client=client,
+    )
+    written = await _call(tool_set, WRITE_ARTIFACT_TOOL, {"content": "正文", "filename": "汇总.md"})
+    artifact_id = _artifact_id_of(written)
+
+    result = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": artifact_id})
+
+    assert "已交付" in result and artifact_id in result
+    assert client.requests == [], "站内入口不得再走网关投递（同一交付只有一个出口）"
+    rows = await _publication_rows(tenant, run_id)
+    assert len(rows) == 1
+    published = rows[0]
+    assert published.conversation_id == conversation_id
+    assert str(published.artifact_id) == artifact_id
+    payload = published.payload_json
+    assert payload["artifact_id"] == artifact_id
+    assert payload["filename"] == "汇总.md"
+    assert payload["available"] is True
+    assert set(payload) == {
+        "artifact_id", "kind", "media_type", "size", "filename", "checksum", "available"
+    }, "载荷必须是完整公开 DTO（网关实时投影按严格形状校验）"
+
+    # 同一次发布的重试：拿回原回执，不产生第二张卡。
+    again = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": artifact_id})
+    assert "已交付" in again
+    assert len(await _publication_rows(tenant, run_id)) == 1
+
+
+async def test_deliver_artifact_on_an_unknown_channel_is_refused(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """未知通道既不猜成站内、也不猜成外部推送：显式失败且不留发布事实。"""
+    run_id, conversation_id = await _seed_run(tenant)
+    client = _FakeDeliveryClient()
+    tool_set = AttachmentToolSet(
+        session_factory=get_session_factory,
+        artifact_root=artifact_root,
+        tenant_id=tenant.tenant_id,
+        run_id=run_id,
+        conversation_id=conversation_id,
+        user_id=tenant.platform_user_id,
+        has_delivery_route=True,
+        delivery_route=DeliveryRouteInput(
+            channel="FUTURE-CHANNEL", bot_id="bot", external_user_id="user"
+        ),
+        delivery_client=client,
+    )
+    written = await _call(tool_set, WRITE_ARTIFACT_TOOL, {"content": "正文", "filename": "汇总.md"})
+
+    with pytest.raises(AttachmentToolError) as exc:
+        await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": _artifact_id_of(written)})
+
+    assert exc.value.code == ATTACHMENT_WRITE_UNAVAILABLE
+    assert client.requests == []
+    assert await _publication_rows(tenant, run_id) == []
+
+
+async def test_deliver_artifact_path_retry_reuses_the_same_artifact_and_publication(
+    tenant: TenantContext, artifact_root, tmp_path
+) -> None:
+    """同一 Run 内对同一 workspace 文件的重复交付：复用产物行 ⇒ 只发布一次、只出一张卡。"""
+    from muad_agent_runtime.application.attachments.output_service import (
+        OutputArtifactWriter,
+        OutputScope,
+        SkillOutputArtifactRegistrar,
+    )
+
+    run_id, conversation_id = await _seed_run(tenant)
+    workspace = tmp_path / "ws"
+    (workspace / "outputs").mkdir(parents=True)
+    (workspace / "outputs" / "result.json").write_text('{"ok": true}', encoding="utf-8")
+    registrar = SkillOutputArtifactRegistrar(
+        OutputArtifactWriter(
+            artifact_root=artifact_root,
+            session_factory=get_session_factory,
+            scope=OutputScope(
+                tenant.tenant_id,
+                run_id,
+                conversation_id,
+                agent_id=tenant.agent_id,
+                user_id=tenant.platform_user_id,
+            ),
+        )
+    )
+    client = _FakeDeliveryClient()
+    tool_set = AttachmentToolSet(
+        session_factory=get_session_factory,
+        artifact_root=artifact_root,
+        tenant_id=tenant.tenant_id,
+        run_id=run_id,
+        conversation_id=conversation_id,
+        user_id=tenant.platform_user_id,
+        has_delivery_route=True,
+        delivery_route=_WEBCHAT_ROUTE,
+        delivery_client=client,
+        workspace_dir=workspace,
+        output_registrar=registrar,
+    )
+
+    first = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"path": "outputs/result.json"})
+    second = await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"path": "outputs/result.json"})
+
+    assert "已交付" in first and "已交付" in second
+    assert client.requests == []
+    async with get_session_factory()() as session:
+        artifacts = await session.scalars(
+            sa.select(Artifact).where(
+                Artifact.tenant_id == tenant.tenant_id, Artifact.run_id == run_id
+            )
+        )
+        assert len(list(artifacts)) == 1, "同路径同内容的重试不得造出第二份产物"
+    assert len(await _publication_rows(tenant, run_id)) == 1, "只允许一条发布事实"
+
+
+async def test_deliver_artifact_refuses_an_artifact_without_a_conversation(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """无会话归属的产物在网页取件面拿不到字节：发布前显式拒绝，不出一张点了 404 的卡。"""
+    run_id, conversation_id = await _seed_run(tenant)
+    async with get_session_factory()() as session:
+        artifact = Artifact(
+            id=uuid.uuid4(),
+            tenant_id=tenant.tenant_id,
+            run_id=run_id,
+            conversation_id=None,
+            artifact_type=AGENT_OUTPUT_ARTIFACT_TYPE,
+            storage_key=f"outbound/{run_id}/{uuid.uuid4()}/v1",
+            media_type="text/markdown",
+            size=4,
+            checksum="sha256:" + "d" * 64,
+            metadata_json={"kind": "DOCUMENT", "filename": "孤儿.md"},
+        )
+        session.add(artifact)
+        await session.commit()
+    tool_set = AttachmentToolSet(
+        session_factory=get_session_factory,
+        artifact_root=artifact_root,
+        tenant_id=tenant.tenant_id,
+        run_id=run_id,
+        conversation_id=conversation_id,
+        user_id=tenant.platform_user_id,
+        has_delivery_route=True,
+        delivery_route=_WEBCHAT_ROUTE,
+        delivery_client=_FakeDeliveryClient(),
+    )
+
+    with pytest.raises(AttachmentToolError) as exc:
+        await _call(tool_set, DELIVER_ARTIFACT_TOOL, {"artifact_id": str(artifact.id)})
+
+    assert exc.value.code == ATTACHMENT_WRITE_UNAVAILABLE
+    assert await _publication_rows(tenant, run_id) == []

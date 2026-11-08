@@ -634,17 +634,18 @@ test.describe('TASK-114 附件与通知', () => {
     });
     expect(submitted.status).toBe(202);
     await waitForRunSettled(session, conversationId);
-    const history = await session.get<{ items: { text: string; attachments: { artifact_id: string }[] }[] }>(
-      `/api/v1/webchat/conversations/${conversationId}/messages`
-    );
-    const artifactId = (history.body?.data?.items ?? [])
-      .flatMap((item) => item.attachments)
-      .map((attachment) => attachment.artifact_id)[0];
+    const history = await session.get<{
+      items: { text: string; attachments: { artifact_id: string; checksum: string }[] }[];
+    }>(`/api/v1/webchat/conversations/${conversationId}/messages`);
+    const attachment = (history.body?.data?.items ?? []).flatMap((item) => item.attachments)[0];
+    const artifactId = attachment?.artifact_id;
     expect(artifactId).toBeTruthy();
 
     // 下载越权：他主体（B）取 A 的制品一律 404（不泄露存在性）。
+    // API-10：请求必须带 (会话, 制品, checksum)，否则先被参数校验拦成 422。
     const forbidden = await otherSession.fetchRaw(
       `/api/v1/webchat/artifacts/${artifactId}/content`
+        + `?conversation_id=${conversationId}&checksum=${encodeURIComponent(String(attachment?.checksum))}`
     );
     expect(forbidden.status()).toBe(404);
 

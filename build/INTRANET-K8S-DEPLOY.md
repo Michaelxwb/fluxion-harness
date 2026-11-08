@@ -98,7 +98,7 @@ kubectl apply -f muad-workspaces-rwx.yaml
 kubectl -n muad get pvc muad-workspaces-rwx
 ```
 
-只有 Runtime/Worker 挂载：
+Console/Runtime/Worker 挂载（Console 只写 `skill-drafts/` 子目录）：
 
 ```text
 PV: muad-workspaces-rwx
@@ -340,8 +340,9 @@ kubectl -n muad create secret docker-registry regcred \
 > 也不要在参数块里写 `$TAG`：平台生成的脚本是 `set -euo pipefail`，未定义的变量会
 > 直接退出（`bash: line 22: TAG: unbound variable`），命令一行都不会执行。
 
-> **workspace 使用独立 PVC**：runtime/worker 的 chart 已支持 `global.workspaces.existingClaim` /
-> `global.workspaces.mountPath`；console/gateway/connector 不挂 workspace，不要给它们加参数。
+> **workspace 使用独立 PVC**：console/runtime/worker 的 chart 已支持
+> `global.workspaces.existingClaim` / `global.workspaces.mountPath`（Console 用它写
+> `{tenant}/{user}/{agent}/skill-drafts`）；gateway/connector 不挂 workspace，不要给它们加参数。
 > workspace 配额/TTL 在 `muad-common` ConfigMap 中配置。
 
 > 如果使用第 9 节的 nginx 统一入口，把 console 和 gateway 的 `service.type` 改成

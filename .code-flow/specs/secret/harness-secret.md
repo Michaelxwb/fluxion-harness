@@ -32,7 +32,7 @@ checks:
 
 ## Rules
 
-- [RULE-secret-001] 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt 或 API 响应（对外以 `*_configured` 表达）。
+- [RULE-secret-001] 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt 或 API 响应（对外以 `*_configured` 表达）；Console 凭据编辑弹窗的**按需回显**是下文列出的受控例外，只允许那一条显式路径回明文。
 
 ## Conventions
 
@@ -44,6 +44,10 @@ checks:
 - **第三条明文出口（受控例外，与 API-08/09 并列）**：`POST /internal/runtime/resolve-definition` 的响应含模型明文 `api_key`，这是**有意契约**（`tests/console_internal/test_resolve_definition_api.py` 断言该字段必在响应里），故只能门控、不能删字段。Console 的内部解析端点统一由 `require_service_identity` 门控（`internal_runtime` 的 `resolve-definition`/`admission-materials`/`resolve-model`/`resolve-credentials`/`resolve-egress-access`，以及 `internal_platform_settings`；2026-09-28 补齐），调用方 Worker/Runtime 必须发 `X-Internal-Service`。
   - ✅ 端点带 `require_service_identity` + 调用方带 `X-Internal-Service` 头。
   - ❌ 裸端点（修复前状态）：无门控却回明文密钥 ⇒ 任意可达该端口的调用方都能取走模型密钥。
+- **第三方原文回传前必须擦除本次凭据值**：平台失败原因（HTTP 非 2xx / 业务 `code != 0`）会经 `PlatformAuthError.detail.message` 进入 Skill stderr 与工具结果（模型可见、可落 canonical/审计）。适配器在离开通道前必须把本次 `ak`/`sk`/`headers` 的具体值替换成 `***`；日志仍只记 code 与状态，不记原文。✅ `message` 里凭据值已变 `***`；❌ 平台回显的 sk 原样进模型/日志/审计。
+- **第四条明文出口（受控例外：Console 凭据编辑回显）**：`GET /api/v1/project-platforms/{platform_id}/users/{user_id}/credential?include_secret=true` 在 **ADMIN 组**（非 ADMIN → 403）、租户取登录账号（`AccountTenantId`）、响应 `no-store` 的前提下返回明文 `credential_json`，只服务用户详情页的凭据编辑弹窗。默认读接口（不带该参数）、列表、保存响应与审计、平台连通性探测一律仍只回 `configured`/状态。
+  - ✅ 仅带 `include_secret=true` 的 ADMIN 读取回明文，关闭弹窗即清空；❌ 默认读接口回明文，或明文进入日志/审计/Snapshot。
+  - 机检：`tests/console_platform/test_credentials_api.py`（默认不回明文 + `include_secret` 才回 + 保存响应/审计不含明文）、`tests/frontend/test_user_credential_tab_contract.py`（编辑时预填、列表不渲染明文）。
 - **敏感键清单三处独立维护，无单一来源**：`packages/api-kit/src/muad_api/audit.py`（`SENSITIVE_KEY_MARKERS`，9 键 password/secret/token/api_key/credential/authorization/cookie/muad_chat_session/muad_chat_csrf）、`packages/logging-kit/src/muad_logging/redaction.py`（更宽，另含 `set-cookie`/`id_token`/`passwd`/`private_key`，两枚 CHAT Cookie 名写作 `muad[_-]?chat[_-]?session|muad[_-]?chat[_-]?csrf`）、`apps/agent-runtime/src/muad_agent_runtime/infrastructure/audit_writer.py`（与 api-kit 同 9 键）。新增敏感键必须三处同改。
   - ✅ 一处新增 → 另两处同步补齐。
   - ❌ 只加 api-kit → 日志与 runtime 三张审计表两侧漏脱敏。

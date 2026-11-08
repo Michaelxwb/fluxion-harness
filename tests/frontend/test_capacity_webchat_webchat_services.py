@@ -52,6 +52,7 @@ CONVERSATION_ID = "22222222-2222-4222-8222-222222222222"
 RUN_ID = "33333333-3333-4333-8333-333333333333"
 UPLOAD_ID = "44444444-4444-4444-8444-444444444444"
 ARTIFACT_ID = "55555555-5555-4555-8555-555555555555"
+DOWNLOAD_CHECKSUM = "sha256:" + "a" * 64
 NOTIFICATION_ID = "66666666-6666-4666-8666-666666666666"
 SUBMISSION_ID = "77777777-7777-4777-8777-777777777777"
 SOURCE_EVENT_ID = "88888888-8888-4888-8888-888888888888"
@@ -473,7 +474,11 @@ observations.upload.request = observed();
 
 mode = 'blob';
 blobPayload = new Blob([new Uint8Array([37, 80, 68, 70, 45, 49])], { type: 'application/pdf' });
-const downloaded = await client.download(ARTIFACT_ID, signalOption);
+const downloaded = await client.download(
+  ARTIFACT_ID,
+  { conversationId: CONVERSATION_ID, checksum: '__DOWNLOAD_CHECKSUM__' },
+  signalOption
+);
 observations.download = {
   request: observed(),
   size: downloaded.size,
@@ -695,6 +700,7 @@ def _run_service_harness(tmp_path: Path) -> dict[str, Any]:
         ("__RUN_ID__", RUN_ID),
         ("__UPLOAD_ID__", UPLOAD_ID),
         ("__ARTIFACT_ID__", ARTIFACT_ID),
+        ("__DOWNLOAD_CHECKSUM__", DOWNLOAD_CHECKSUM),
         ("__NOTIFICATION_ID__", NOTIFICATION_ID),
         ("__SUBMISSION_ID__", SUBMISSION_ID),
         ("__SOURCE_EVENT_ID__", SOURCE_EVENT_ID),
@@ -916,6 +922,10 @@ def test_real_client_streams_upload_and_authorized_download(webchat: dict[str, A
         f"/webchat/artifacts/{ARTIFACT_ID}/content",
     )
     assert download["responseType"] == "blob", "下载必须走二进制响应，不能按 JSON 封套解析"
+    assert download["params"] == {
+        "conversation_id": CONVERSATION_ID,
+        "checksum": DOWNLOAD_CHECKSUM,
+    }, "取件必须带目标会话与版本（授权按会话裁决、checksum 选定版本）"
     assert webchat["download"]["size"] == 6
     assert webchat["download"]["type"] == "application/pdf"
 

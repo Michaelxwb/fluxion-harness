@@ -373,3 +373,16 @@ def test_skill_artifact_unavailable_is_a_deterministic_failure() -> None:
     """
     error = TaskExecutionError("SKILL_ARTIFACT_UNAVAILABLE", "artifact unavailable")
     assert error.retryable is False
+
+
+def test_configured_execution_timeout_caps_one_skill_run() -> None:
+    """单次 Skill 执行总时长由配置决定，并仍被 Task deadline 剩余时间夹住。"""
+    from datetime import timedelta
+    from types import SimpleNamespace
+
+    executor = SkillTaskExecutor(object(), executor=object(), execution_timeout_sec=1200)
+    far = SimpleNamespace(deadline_at=datetime.now(UTC) + timedelta(seconds=7200))
+    near = SimpleNamespace(deadline_at=datetime.now(UTC) + timedelta(seconds=10))
+
+    assert executor._execution_timeout(far) == 1200
+    assert 0 < executor._execution_timeout(near) <= 10

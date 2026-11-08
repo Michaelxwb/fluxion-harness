@@ -80,7 +80,12 @@ def _run(stack, client, arguments, *, routed=False):
             "final_text": "submitted",
         },
     ).raise_for_status()
-    channel = {"type": "WECOM", "bot_id": stack.bot_id, "external_conversation_id": str(uuid4())}
+    channel = {
+        "type": "WECOM",
+        "entry_id": str(stack.bot_account_id),
+        "bot_id": stack.bot_id,
+        "external_conversation_id": str(uuid4()),
+    }
     if routed:
         channel["external_user_id"] = "submission-recipient"
     response = client.post(
@@ -96,6 +101,17 @@ def _run(stack, client, arguments, *, routed=False):
     assert response.status_code == 200, response.text
     events = [json.loads(line[5:]) for line in response.text.splitlines() if line.startswith("data:")]
     return UUID(events[0]["run_id"]), events
+
+
+def _probe_deliveries(live_stack, http, run) -> list[dict]:
+    """本 Run 会话在该 bot 上的探针投递（全局探针按会话过滤，避免跨用例污染）。"""
+    conversation = (run.channel_json or {}).get("external_conversation_id")
+    return [
+        item
+        for item in http.get(live_stack.channel_url + "/probe/deliveries").json()["deliveries"]
+        if item.get("bot_id") == live_stack.bot_id
+        and item.get("external_conversation_id") == conversation
+    ]
 
 
 @pytest.mark.parametrize("routed", [True, False])
@@ -139,15 +155,12 @@ def test_s02_detach_completion_and_independent_delivery(live_stack, http, routed
         assert final.delivery_key == f"task:{final.id}:final"
         # 探针负载不带 delivery_key（适配器只发渠道字段），按既有口径用 DB 行断言幂等键、
         # 用本 bot 的探针投递条数断言「恰好触达一次」。
-        deliveries = [
-            item
-            for item in http.get(live_stack.channel_url + "/probe/deliveries").json()["deliveries"]
-            if item.get("bot_id") == live_stack.bot_id
-        ]
+        deliveries = _probe_deliveries(live_stack, http, terminal)
         assert len(deliveries) == 1, deliveries
     else:
         assert task.delivery_mode == "NONE"
-        assert http.get(live_stack.channel_url + "/probe/deliveries").json()["deliveries"] == []
+        # 只按**本 Run 的会话**断言：探针是共享的，前一参数化用例迟到的投递会污染全局计数。
+        assert _probe_deliveries(live_stack, http, terminal) == []
 
 
 @pytest.mark.parametrize("arguments", [{"skill_key": "not-authorized"}, {"skill_key": 42}])

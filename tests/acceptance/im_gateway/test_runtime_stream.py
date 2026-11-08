@@ -115,14 +115,17 @@ async def _seed_run(
             await connection.execute(
                 text(
                     "INSERT INTO runtime.conversation "
-                    "(id, tenant_id, user_id, agent_id, status, last_seq) "
-                    "VALUES (:id, :t, :u, :a, 'ACTIVE', 0)"
+                    "(id, tenant_id, user_id, agent_id, status, last_seq, "
+                    "channel_account_id, external_thread_id) "
+                    "VALUES (:id, :t, :u, :a, 'ACTIVE', 0, :entry, :thread)"
                 ),
                 {
                     "id": conversation_id,
                     "t": stack.tenant_id,
                     "u": stack.platform_user_id,
                     "a": stack.agent_id,
+                    "entry": stack.bot_account_id,
+                    "thread": CHAT_ID,
                 },
             )
             await connection.execute(
@@ -141,6 +144,28 @@ async def _seed_run(
                     "a": stack.agent_id,
                     "status": status,
                     "trace": uuid.uuid4().hex,
+                },
+            )
+            # 推送按「入口 + 外线线程」指针解析会话：把指针指向本用例的 RUNNING 会话，
+            # 否则忙碌判定看不到它（会误开新 Run）。
+            await connection.execute(
+                text(
+                    "INSERT INTO runtime.channel_conversation "
+                    "(id, tenant_id, user_id, agent_id, channel_account_id, "
+                    "external_thread_id, conversation_id) "
+                    "VALUES (:id, :t, :u, :a, :entry, :thread, :c) "
+                    "ON CONFLICT (tenant_id, user_id, agent_id, channel_account_id, "
+                    "external_thread_id) WHERE is_deleted = false "
+                    "DO UPDATE SET conversation_id = EXCLUDED.conversation_id, update_time = now()"
+                ),
+                {
+                    "id": uuid.uuid4(),
+                    "t": stack.tenant_id,
+                    "u": stack.platform_user_id,
+                    "a": stack.agent_id,
+                    "entry": stack.bot_account_id,
+                    "thread": CHAT_ID,
+                    "c": conversation_id,
                 },
             )
             if with_interrupt:
@@ -249,7 +274,12 @@ async def test_b125_waiting_input_run_is_auto_resumed_and_snapshot_frozen(
             agent_id=gateway_stack.agent_id,
             platform_user_id=gateway_stack.platform_user_id,
             conversation_id=uuid.UUID(conversation_id),
-            channel=ChannelContext(type="WECOM", bot_id=BOT_ID, external_conversation_id=CHAT_ID),
+            channel=ChannelContext(
+                type="WECOM",
+                entry_id=gateway_stack.bot_account_id,
+                bot_id=BOT_ID,
+                external_conversation_id=CHAT_ID,
+            ),
             message=MessageInput(
                 id=f"resume-{uuid.uuid4().hex[:8]}", type="text", text="恢复等待中的运行"
             ),
@@ -314,16 +344,46 @@ async def _seed_conversation(stack: GatewayStack) -> str:
     conversation_id = uuid.uuid4()
     await _execute(
         "INSERT INTO runtime.conversation "
-        "(id, tenant_id, user_id, agent_id, status, last_seq) "
-        "VALUES (:id, :t, :u, :a, 'ACTIVE', 0)",
+        "(id, tenant_id, user_id, agent_id, status, last_seq, "
+        "channel_account_id, external_thread_id) "
+        "VALUES (:id, :t, :u, :a, 'ACTIVE', 0, :entry, :thread)",
         {
             "id": conversation_id,
             "t": stack.tenant_id,
             "u": stack.platform_user_id,
             "a": stack.agent_id,
+            "entry": stack.bot_account_id,
+            "thread": CHAT_ID,
         },
     )
+    await _point_conversation(stack, conversation_id)
     return str(conversation_id)
+
+
+async def _point_conversation(stack: GatewayStack, conversation_id: uuid.UUID) -> None:
+    """把 (入口, 外线线程) 的当前指针指向本用例会话。
+
+    WS 推送不带 conversation_id，Runtime 按「入口 + 外线线程」的当前指针解析会话
+    （RISK-F03 的显式入口身份）。只种会话不种指针，推送会落到指针的旧目标或新建会话，
+    表现为「推送未落在本用例会话」/「忙碌未被拒绝为 RUN_BUSY」。
+    """
+    await _execute(
+        "INSERT INTO runtime.channel_conversation "
+        "(id, tenant_id, user_id, agent_id, channel_account_id, external_thread_id, conversation_id) "
+        "VALUES (:id, :t, :u, :a, :entry, :thread, :c) "
+        "ON CONFLICT (tenant_id, user_id, agent_id, channel_account_id, external_thread_id) "
+        "WHERE is_deleted = false "
+        "DO UPDATE SET conversation_id = EXCLUDED.conversation_id, update_time = now()",
+        {
+            "id": uuid.uuid4(),
+            "t": stack.tenant_id,
+            "u": stack.platform_user_id,
+            "a": stack.agent_id,
+            "entry": stack.bot_account_id,
+            "thread": CHAT_ID,
+            "c": conversation_id,
+        },
+    )
 
 
 async def _run_conversation_id(run_id: str) -> str:

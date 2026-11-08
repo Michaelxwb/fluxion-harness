@@ -12,6 +12,9 @@ from muad_contracts import ResolveDefinitionResponse
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
 
+#: 稳定入口身份：同一测试的多条消息必须落在同一条会话上（入口是会话作用域的一部分）。
+ENTRY_ID = uuid.uuid4()
+
 # ---- B-104（08 TASK-004）：Snapshot 非密钥 + 稳定 hash + 认证隔离 ----
 
 def test_b104_snapshot_hash_stable_across_key_rotation() -> None:
@@ -65,7 +68,12 @@ def _payload(tenant: TenantContext, text: str = "freeze baseline") -> dict[str, 
     return {
         "agent_id": str(tenant.agent_id),
         "platform_user_id": str(tenant.platform_user_id),
-        "channel": {"type": "WECOM", "bot_id": "bot-1", "external_conversation_id": "ext-1"},
+        "channel": {
+            "type": "WECOM",
+            "entry_id": str(ENTRY_ID),
+            "bot_id": "bot-1",
+            "external_conversation_id": "ext-1",
+        },
         "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
     }
 

@@ -43,6 +43,21 @@ def test_loads_manifest_from_frontmatter(tmp_path: Path) -> None:
     assert package.manifest.platform_label == "example-platform"
 
 
+def test_manifest_version_is_read_from_legacy_json(tmp_path: Path) -> None:
+    root = _write(tmp_path / "skill", "name: demo\ndescription: demo skill")
+    (root / "muad.skill.json").write_text('{"version": "2.3.4"}', encoding="utf-8")
+
+    assert SkillPackage.load(root).manifest.version == "2.3.4"
+
+
+def test_manifest_version_must_be_a_bounded_string(tmp_path: Path) -> None:
+    root = _write(tmp_path / "skill", "name: demo\ndescription: demo skill")
+    (root / "muad.skill.json").write_text('{"version": 12}', encoding="utf-8")
+
+    with pytest.raises(SkillPackageError):
+        SkillPackage.load(root)
+
+
 def test_execution_defaults_to_sync_and_label_is_optional(tmp_path: Path) -> None:
     root = _write(tmp_path / "skill", "name: demo\ndescription: demo skill")
 

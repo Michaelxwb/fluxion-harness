@@ -310,6 +310,8 @@ class RunRecord(StandardColumnsMixin, Base):
     deadline_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     execution_epoch: Mapped[int] = mapped_column(sa.BigInteger(), server_default=sa.text("0"))
     input_text: Mapped[str] = mapped_column(sa.Text(), nullable=False)
+    #: 本轮输入消息的渠道身份（终态投递按它找回**原消息**的回复流；旧行/非渠道 Run 为 NULL）。
+    input_message_id: Mapped[str | None] = mapped_column(sa.String(256))
     trace_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     start_time: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     end_time: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
@@ -376,6 +378,15 @@ class CanonicalEvent(StandardColumnsMixin, Base):
             "run_id",
             unique=True,
             postgresql_where=sa.text("event_type = 'MEMORY_CONSOLIDATED' AND is_deleted = false"),
+        ),
+        # 站内交付的取件定位（目标会话 + 产物）：只索引发布行，扫不到会话里成千上万条增量行。
+        sa.Index(
+            "ix_canonical_event_publication",
+            "conversation_id",
+            "artifact_id",
+            postgresql_where=sa.text(
+                "event_type = 'ARTIFACT_CREATED' AND is_deleted = false"
+            ),
         ),
         {"schema": "runtime"},
     )
@@ -892,6 +903,13 @@ class Artifact(StandardColumnsMixin, Base):
         ),
         sa.Index("ix_artifact_run", "run_id"),
         sa.Index("ix_artifact_conversation", "conversation_id"),
+        sa.Index(
+            "ix_artifact_agent_user_time",
+            "tenant_id",
+            "agent_id",
+            "user_id",
+            sa.text("create_time DESC"),
+        ),
         {"schema": "runtime"},
     )
 
@@ -901,6 +919,9 @@ class Artifact(StandardColumnsMixin, Base):
     )
     task_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), nullable=True)
+    #: 产物归属（user + agent）：历史产出跨会话检索用；历史行可为 NULL。
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), nullable=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), nullable=True)
     artifact_type: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     storage_key: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     media_type: Mapped[str] = mapped_column(sa.String(128), nullable=False)

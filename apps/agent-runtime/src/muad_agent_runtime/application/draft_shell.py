@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from muad_agent_core.sandbox import SandboxRunner, build_sandbox_runner_from_settings
 from muad_agent_core.skill.draft_shell import DraftShellRequest, DraftShellRunner
 from muad_common import SharedSettings, process_settings
 from muad_platform_sdk.skill_access import SkillPlatformContext
 
-from .skill_draft_client import ConsoleDraftShellClient
+from .draft_tools import SkillDraftTools
+from .skill_draft_client import ConsoleDraftShellClient, ConsoleSkillDraftClient
 
 DRAFT_SHELL_EXECUTION_TYPE = "DRAFT_SHELL"
 
@@ -55,4 +58,19 @@ def build_draft_shell_runner(
     )
 
 
-__all__ = ["build_draft_shell_runner"]
+def build_draft_tools(
+    settings: SharedSettings | None = None,
+    *,
+    context: Any,
+    client: ConsoleSkillDraftClient | None = None,
+) -> SkillDraftTools:
+    """草稿 CRUD/校验/提交工具的装配点；身份来自 Run 上下文。"""
+    resolved = settings or process_settings()
+    draft_client = client or ConsoleSkillDraftClient(
+        resolved.console_platform_url,
+        service_token=resolved.internal_service_token,
+    )
+    return SkillDraftTools(draft_client, context)
+
+
+__all__ = ["build_draft_shell_runner", "build_draft_tools"]

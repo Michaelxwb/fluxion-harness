@@ -50,6 +50,7 @@ class ReplySession:
         *,
         client: Callable[[], WeComSdkPort],
         reply_ref: str,
+        stream_id: str | None = None,
         flush_interval_sec: float = 0.5,
         budget: StatusBudget | None = None,
         on_finish: Callable[[], None] | None = None,
@@ -60,7 +61,8 @@ class ReplySession:
     ) -> None:
         self._client = client
         self._reply_ref = reply_ref
-        self._stream_id = uuid4().hex
+        # 入站消息的消息级确定性 stream id（终态投递据此写回同一条流）；无消息身份时随机。
+        self._stream_id = stream_id or uuid4().hex
         self._flush_interval_sec = flush_interval_sec
         self._budget = budget
         self._on_finish = on_finish
@@ -133,6 +135,22 @@ class ReplySession:
             raise
         except Exception as exc:
             raise ChannelAdapterUnavailable("reply text send failed") from exc
+
+    async def flush_now(self) -> None:
+        """把已缓冲的正文立即写成**非终态**帧（终态由持久投递链发送，不在这里 finish）。"""
+        if self._closed or self._closing or not self._body:
+            return
+        try:
+            await self._flush(self._body)
+        except ChannelAdapterUnavailable:
+            logger.warning("reply_flush_failed reply_ref=%s", self._reply_ref)
+
+    def abort(self) -> None:
+        """放弃由本会话收尾（终态由持久投递链发送）：关闭并释放，不发送任何帧。"""
+        if self._closed:
+            return
+        self._closed = True
+        self._notify_finish()
 
     async def finish(self) -> None:
         """收尾。**只有终帧真的发出去了才关闭**（2026-10-06 修）。

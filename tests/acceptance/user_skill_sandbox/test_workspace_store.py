@@ -33,7 +33,6 @@ def _layout(tmp_path) -> WorkspaceLayout:
         quota_bytes=500 * 1024 * 1024,
         user_quota_bytes=500 * 1024 * 1024,
         file_limit=5000,
-        output_ttl_seconds=30 * 24 * 60 * 60,
         data_ttl_seconds=30 * 24 * 60 * 60,
     )
 
@@ -214,7 +213,6 @@ async def test_workspace_store_rejects_path_components_and_empty_root(
             quota_bytes=1,
             user_quota_bytes=1,
             file_limit=1,
-            output_ttl_seconds=1,
             data_ttl_seconds=1,
         )
     with pytest.raises(ValueError, match="workspace root"):
@@ -223,7 +221,6 @@ async def test_workspace_store_rejects_path_components_and_empty_root(
             quota_bytes=1,
             user_quota_bytes=1,
             file_limit=1,
-            output_ttl_seconds=1,
             data_ttl_seconds=1,
         )
     with pytest.raises(ValueError, match="workspace_root"):

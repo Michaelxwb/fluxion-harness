@@ -239,6 +239,7 @@ async def test_gateway_sync_admission_hands_the_verified_principal_to_the_port()
         platform_user_id=uuid.uuid4(),
         agent_id=uuid.uuid4(),
         idempotency_key="idem-sync-1",
+        entry_id=uuid.uuid4(),
     )
     accepted = await gateway.admit_sync(
         _event(channel="WEBCHAT"), adapter=_Adapter("WEBCHAT"), principal_context=principal
@@ -259,3 +260,53 @@ def test_legacy_channel_envelope_still_round_trips() -> None:
     )
     payload = json.loads(envelope.model_dump_json())
     assert ChannelEnvelope.model_validate(payload) == envelope
+
+
+def test_channel_identity_is_explicit_and_never_inferred_from_bot_id() -> None:
+    """[入口身份收口] `entry_id` 必填；`bot_id` 是平台原值，不从字符串形状推断入口。
+
+    ✅ 企微的非 UUID `bot_id` + 显式 `entry_id` 得到正确身份与外线线程；
+    ❌ 省略 `entry_id`，或把入口 UUID 塞进 `bot_id` 冒充入口。
+    """
+    from muad_contracts import CancelSource, ChannelContext
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ChannelContext(type="WECOM", bot_id="aiblnVCKe3oM4XPUTeuwEwfAYU06O15Komp")
+
+    entry = uuid.uuid4()
+    channel = ChannelContext(
+        type="WECOM",
+        entry_id=entry,
+        bot_id="aiblnVCKe3oM4XPUTeuwEwfAYU06O15Komp",
+        external_conversation_id="chat-1",
+    )
+    assert channel.entry_id == entry
+    assert channel.external_thread_id == "chat-1"
+
+    assert CancelSource(entry_id=entry, external_thread_id="chat-1").entry_id == entry
+    with pytest.raises(ValidationError):
+        CancelSource(external_thread_id="chat-1")
+
+
+def test_message_stream_id_is_deterministic_per_bot_and_message() -> None:
+    """实时增量与终态收尾共用同一 stream id：同 (bot, message) 必须稳定。"""
+    from muad_contracts.im import message_stream_id
+
+    first = message_stream_id("bot-a", "msg-1")
+    assert first == message_stream_id("bot-a", "msg-1")
+    assert first != message_stream_id("bot-a", "msg-2")
+    assert first != message_stream_id("bot-b", "msg-1")
+    assert len(first) == 32
+
+
+def test_terminal_delivery_message_allows_empty_text_with_status() -> None:
+    """终态消息的正文可为空（失败/取消由 Gateway 按 status/error_code 渲染），但 status 必填。"""
+    from muad_contracts.delivery import DeliveryMessage
+    from pydantic import ValidationError
+
+    failed = DeliveryMessage(type="terminal", status="FAILED", error_code="RUN_DEADLINE_EXCEEDED")
+    assert failed.text == ""
+
+    with pytest.raises(ValidationError):
+        DeliveryMessage(type="terminal")

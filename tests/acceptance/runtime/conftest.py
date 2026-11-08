@@ -278,6 +278,18 @@ def _cleanup(database_url: str, ids: dict[str, object], artifact_root: Path) -> 
                 text("DELETE FROM runtime.runtime_snapshot WHERE tenant_id = :t"), {"t": TENANT}
             )
             await connection.execute(
+                text("DELETE FROM runtime.channel_notification WHERE tenant_id = :t"),
+                {"t": TENANT},
+            )
+            await connection.execute(
+                text("DELETE FROM runtime.channel_notification_feed WHERE tenant_id = :t"),
+                {"t": TENANT},
+            )
+            await connection.execute(
+                text("DELETE FROM runtime.channel_conversation WHERE tenant_id = :t"),
+                {"t": TENANT},
+            )
+            await connection.execute(
                 text("DELETE FROM runtime.run_record WHERE tenant_id = :t"), {"t": TENANT}
             )
             await connection.execute(

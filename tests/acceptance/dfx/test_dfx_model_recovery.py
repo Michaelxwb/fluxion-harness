@@ -41,6 +41,7 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from sqlalchemy import text
 
+from tests.acceptance.dfx.environment import ENTRY_ID
 from tests.acceptance.runtime.conftest import LiveStack
 from tests.acceptance.runtime.conftest import (
     live_stack as _runtime_live_stack,  # noqa: F401  (跨 conftest 复用夹具，本模块同名夹具优先)
@@ -48,6 +49,9 @@ from tests.acceptance.runtime.conftest import (
 from tests.acceptance.task_schedule.environment import run_db
 
 pytestmark = pytest.mark.integration
+
+#: 固定外线线程：取消只带入口时必须能按「入口 + 线程」定位到同一会话。
+RECOVERY_THREAD = "dfx-model-recovery"
 
 @pytest.fixture(scope="module")
 def live_stack(_runtime_live_stack: LiveStack) -> LiveStack:  # noqa: F811  (参数名即夹具名)
@@ -284,8 +288,9 @@ def _payload(stack: LiveStack, text: str) -> dict[str, Any]:
         "platform_user_id": str(stack.platform_user_id),
         "channel": {
             "type": "WECOM",
+            "entry_id": str(ENTRY_ID),
             "bot_id": "bot-acc",
-            "external_conversation_id": f"c-{uuid.uuid4().hex[:8]}",
+            "external_conversation_id": RECOVERY_THREAD,
         },
         "message": {"id": f"m-{uuid.uuid4().hex[:8]}", "type": "text", "text": text},
     }
@@ -460,6 +465,7 @@ def test_e09_cancel_stops_retries_immediately(live_stack: LiveStack, fault_probe
                         json={
                             "agent_id": str(live_stack.agent_id),
                             "platform_user_id": str(live_stack.platform_user_id),
+                            "source": {"entry_id": str(ENTRY_ID), "external_thread_id": RECOVERY_THREAD},
                         },
                         headers=live_stack.service_headers(),
                     )

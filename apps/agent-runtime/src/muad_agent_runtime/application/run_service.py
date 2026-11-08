@@ -15,7 +15,12 @@ from pathlib import Path
 from typing import Any, cast
 
 import sqlalchemy as sa
-from muad_agent_core.agent import AgentPolicy, RunnerModelError, RunnerVerificationExhausted
+from muad_agent_core.agent import (
+    AgentPolicy,
+    RunnerEmptyReply,
+    RunnerModelError,
+    RunnerVerificationExhausted,
+)
 from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.agent.runner import AgentRunStatus, RunnerDeadlineExceeded
 from muad_agent_core.model import ModelMessage
@@ -28,6 +33,7 @@ from muad_common.db_counters import db_stage, db_stage_scope
 from muad_contracts import (
     AsyncToolPolicy,
     AttachmentRef,
+    CancelSource,
     ChannelContext,
     CompletionMode,
     DeliveryRouteInput,
@@ -133,6 +139,7 @@ from .channel_conversations import (
 )
 from .channel_notification_queries import KIND_SUMMARIES
 from .channel_notifications import (
+    DELIVERY_NOT_REQUIRED,
     KIND_RUN_COMPLETED,
     NotificationKind,
     RunNotificationReceipt,
@@ -159,7 +166,7 @@ from .conversation_policy import (
     assert_conversation_live,
     conversation_policy_from_settings,
 )
-from .dto import CancelSource, RunWaitSummary
+from .dto import RunWaitSummary
 from .event_batcher import EventBatchEntry, get_event_batcher
 from .event_tail_hub import CanonicalEventView, EventTailHub, TailBatch, get_event_tail_hub
 from .execution_status import project_execution_status
@@ -395,6 +402,9 @@ def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults
             max_tool_calls=_frozen_int(policy, "max_tool_calls", agent_defaults.max_tool_calls),
             deadline_ms=_frozen_int(policy, "deadline_ms", agent_defaults.deadline_ms),
             max_model_retries=_frozen_int(policy, "max_model_retries", agent_defaults.max_model_retries),
+            max_identical_failures=_frozen_int(
+                policy, "max_identical_failures", agent_defaults.max_identical_failures
+            ),
         ),
         egress_budget=EffectiveEgressBudget.model_validate(policy.get("egress_budget", {})),
         memory_policy=_frozen_memory_policy(policy),
@@ -426,6 +436,7 @@ def execution_defaults_from_platform(document: Mapping[str, Any] | None) -> Exec
             max_tool_calls=agent.max_tool_calls,
             deadline_ms=agent.deadline_ms,
             max_model_retries=agent.max_model_retries,
+            max_identical_failures=agent.max_identical_failures,
         ),
         memory_policy=parsed.memory,
         learning=frozen_learning_from_settings(parsed.learning),
@@ -534,6 +545,9 @@ class SegmentResult:
     outcome: AgentRunStatus = AgentRunStatus.COMPLETED
     final_text: str = ""
     failure: Exception | None = None
+    #: 执行器是否给出了终态（`runner.outcome`）。取消/中断时执行器不产终态，此时 outcome
+    #: 保持默认 COMPLETED、正文为空——那不是"成功但没有正文"，不能套空正文失败判定。
+    terminal_seen: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -883,6 +897,7 @@ def _creation_fingerprint(request: RunRequest, tenant_id: str) -> str:
             # 指纹只含 upload_id，不含权威元信息——那些在受理时从登记行读取。
             "upload_ids": sorted(str(upload_id) for upload_id in request.message.upload_ids),
             "route": {
+                "entry_id": str(request.channel.entry_id),
                 "bot_id": request.channel.bot_id,
                 "external_user_id": request.channel.external_user_id,
                 "external_conversation_id": request.channel.external_conversation_id,
@@ -1532,13 +1547,12 @@ class RunService:
         platform_user_id: uuid.UUID,
         tenant_id: str,
         *,
-        source: CancelSource | None = None,
+        source: CancelSource,
     ) -> RunRecord:
         """停止命令：按**来源身份**定位该来源的活跃 Run（RISK-F03：不用「用户+Agent 最新 Run」）。
 
-        `source` 给出显式会话或入口+外线线程时，只在该来源的会话里找活跃 Run —— 同 Agent/用户的
-        其他会话（网页 vs 企微、两个历史会话）完全不受影响；未给来源时保留既有 (agent,user)
-        口径（调用方没有来源事实时不猜来源）。
+        `source` 必填：只在该来源的会话里找活跃 Run —— 同 Agent/用户的其他会话
+        （网页 vs 企微、两个入口）完全不受影响。
         """
         run = await self._active_run_for(agent_id, platform_user_id, tenant_id, source)
         if run is None:
@@ -1550,23 +1564,9 @@ class RunService:
         agent_id: uuid.UUID,
         platform_user_id: uuid.UUID,
         tenant_id: str,
-        source: CancelSource | None,
+        source: CancelSource,
     ) -> RunRecord | None:
-        """来源 → 活跃 Run：给来源就核属到具体会话再取该会话的活跃 Run（只读定位，不建会话）。"""
-        if source is None:
-            latest: RunRecord | None = await self._session.scalar(
-                sa.select(RunRecord)
-                .where(
-                    RunRecord.tenant_id == tenant_id,
-                    RunRecord.agent_id == agent_id,
-                    RunRecord.user_id == platform_user_id,
-                    RunRecord.status.in_(ACTIVE_RUN_STATUSES),
-                    RunRecord.is_deleted.is_(False),
-                )
-                .order_by(RunRecord.create_time.desc())
-                .limit(1)
-            )
-            return latest
+        """来源 → 活跃 Run：核属到具体会话再取该会话的活跃 Run（只读定位，不建会话）。"""
         scope = ConversationScope(
             tenant_id=tenant_id,
             user_id=platform_user_id,
@@ -1725,8 +1725,7 @@ class RunService:
         tenant_id: str,
         idempotency_key: str | None = None,
         *,
-        entry_id: uuid.UUID | None = None,
-        external_thread_id: str = "",
+        channel: ChannelContext,
     ) -> Conversation:
         """建会话也走准入闸门：瞬时突发下先有界排队/拒绝，不让 Console/DB 超时冒成 500。"""
         try:
@@ -1736,8 +1735,7 @@ class RunService:
                     platform_user_id,
                     tenant_id,
                     idempotency_key,
-                    entry_id=entry_id,
-                    external_thread_id=external_thread_id,
+                    channel=channel,
                 )
         except AdmissionQueueFull as exc:
             record_outcome(RUN_ADMISSION_METRIC, "QUEUE_FULL")
@@ -1750,20 +1748,19 @@ class RunService:
         tenant_id: str,
         idempotency_key: str | None = None,
         *,
-        entry_id: uuid.UUID | None = None,
-        external_thread_id: str = "",
+        channel: ChannelContext,
     ) -> Conversation:
         """新建会话；带 Idempotency-Key 时按设计 §3.4.2 持久重放，不创建第二会话。
 
-        入口可归属时（`entry_id` 非空）会话同时归因入口与外线线程，并把该入口线程的
-        **当前指针原地切换**到新会话（design §3.3）；新建**不取消**任何既有会话的 Run。
+        渠道身份（入口 + 外线线程）随会话冻结，并把该入口线程的**当前指针原地切换**到新会话
+        （design §3.3）；新建**不取消**任何既有会话的 Run。
         """
         scope = ConversationScope(
             tenant_id=tenant_id,
             user_id=platform_user_id,
             agent_id=agent_id,
-            entry_id=entry_id,
-            external_thread_id=external_thread_id,
+            entry_id=channel.entry_id,
+            external_thread_id=channel.external_thread_id,
         )
         fingerprint = submission_fingerprint(
             endpoint=ENDPOINT_CREATE_CONVERSATION,
@@ -1772,8 +1769,8 @@ class RunService:
                 "tenant_id": tenant_id,
                 "agent_id": str(agent_id),
                 "platform_user_id": str(platform_user_id),
-                "entry_id": str(entry_id) if entry_id is not None else None,
-                "external_thread_id": external_thread_id,
+                "entry_id": str(channel.entry_id),
+                "external_thread_id": channel.external_thread_id,
             },
         )
         if idempotency_key:
@@ -1789,9 +1786,8 @@ class RunService:
         )
         policy = conversation_policy_from_settings(snapshot.settings)
         await lock_conversation_scope(self._session, scope)
-        if scope.entry_id is not None:
-            # 与提交路径同序：先锁入口指针，再锁会话行，避免「归档等待指针 / 提交等待会话」死锁。
-            await lock_pointer(self._session, scope)
+        # 与提交路径同序：先锁入口指针，再锁会话行，避免「归档等待指针 / 提交等待会话」死锁。
+        await lock_pointer(self._session, scope)
         now = await database_now(self._session)
         missing = await enforce_conversation_limit(
             self._session, scope, policy, now=now, extra_slots=1
@@ -1937,15 +1933,10 @@ class RunService:
     async def _resolve_message_uploads(
         self, request: RunRequest, tenant_id: str, settings: Mapping[str, Any]
     ) -> tuple[ChannelUpload, ...]:
-        """暂存上传核属（B-253）：upload_ids 只作不透明引用，权威元信息从登记行读取。
-
-        不可归属入口（入口键不是 UUID 形状）不能承载暂存上传——显式校验失败，不静默丢。
-        """
+        """暂存上传核属（B-253）：upload_ids 只作不透明引用，权威元信息从登记行读取。"""
         if not request.message.upload_ids:
             return ()
         entry_id = scope_of(request, tenant_id).entry_id
-        if entry_id is None:
-            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         return await resolve_message_uploads(
             self._session,
             tenant_id=tenant_id,
@@ -2081,6 +2072,7 @@ class RunService:
             agent_id=request.agent_id,
             status=RunStatus.CREATED,
             input_text=request.message.text,
+            input_message_id=request.message.id,
             trace_id=current_trace_id() or uuid.uuid4().hex,
             start_time=now,
             deadline_at=deadline_at,
@@ -2393,6 +2385,8 @@ class RunService:
             self._assert_replay_owner(replay, run.user_id, run.conversation_id)
             return replay, (), True
         interrupts = await lock_human_resume(self._session, run)
+        # 续跑输入也是“当前 submission 的消息”：终态投递必须收尾**这条新消息**的回复流。
+        run.input_message_id = message_id
         # 绑定复核在行锁之后：原提议身份必须与**锁内读到的**那一份一致，否则显式拒绝且不消费。
         pending = prepare_confirmation(interrupts, input_text, confirmation=confirmation)
         submission = await self._submissions.record_in(self._session,
@@ -3052,6 +3046,7 @@ class RunService:
         self, run: RunRecord, submission_id: uuid.UUID, executor: RunExecutor
     ) -> SegmentResult:
         text, outcome = "", AgentRunStatus.COMPLETED
+        terminal_seen = False
         consume_started = time.monotonic()
         first_event = True
         first_delta_ms: int | None = None
@@ -3077,6 +3072,7 @@ class RunService:
                 if event.type == "runner.outcome":
                     outcome = AgentRunStatus(event.data["status"])
                     text = str(event.data.get("final_text", text))
+                    terminal_seen = True
                     continue
                 is_first_delta = event.type == "message.delta" and first_delta_ms is None
                 if event.type == "message.delta":
@@ -3108,7 +3104,7 @@ class RunService:
             record_latency(
                 RUN_CONSUME_SECONDS, max(0.0, total - persist_seconds), {"stage": "wait"}
             )
-        return SegmentResult(outcome, text)
+        return SegmentResult(outcome, text, terminal_seen=terminal_seen)
 
     async def _timed_finalize(self, finalize: Awaitable[ExecutorEvent]) -> ExecutorEvent:
         """终态收尾计时：终态事件/通知/记忆入队的整段事务耗时（容量诊断，成功失败都记）。"""
@@ -3135,6 +3131,32 @@ class RunService:
                     submission_id,
                     RunnerBudgetExceeded("frozen budget exhausted"),
                     agent_key=agent_key,
+                    # 预算打满同样有收尾结论：失败终态也要把这段正文交给用户。
+                    final_text=result.final_text or None,
+                )
+            )
+        if result.outcome == AgentRunStatus.NO_PROGRESS:
+            return await self._timed_finalize(
+                self._finalize_failed(
+                    run,
+                    submission_id,
+                    RunnerNoProgress("identical tool failures reached the configured limit"),
+                    agent_key=agent_key,
+                    # 收尾回合已把失败原因整理好：终态正文原样投递，用户看到的是结论而不是一句提示。
+                    final_text=result.final_text or None,
+                )
+            )
+        if (
+            result.outcome == AgentRunStatus.COMPLETED
+            and result.terminal_seen
+            and not result.final_text.strip()
+        ):
+            # 成功必须有可见正文。空回复从产生端已被 RunnerEmptyReply 拦住，这里是同一不变量
+            # 的持久化边界断言（resume 等旁路仍可能直接给出空正文）——绝不能落一条空
+            # ASSISTANT_MESSAGE，让用户看到空气泡、让历史记成一个"成功但没说话"的回答。
+            return await self._timed_finalize(
+                self._finalize_failed(
+                    run, submission_id, RunnerEmptyReply("empty reply"), agent_key=agent_key
                 )
             )
         return await self._timed_finalize(
@@ -3282,12 +3304,15 @@ class RunService:
             marker = mark("submission", marker)
             # 用户通知与终态**同一事务**（design §3.6）：feed 锁在 Conversation/Run 锁之后；
             # 写不进去就整体回滚，绝不先提交终态再补通知。
+            # DETACH 后台任务自己投递结果：Run 终态不再重复外发（否则用户收到两条）。
+            detached = target == RunStatus.COMPLETED and await _submitted_detached_task(session, row)
             receipt = await write_run_notification(
                 session,
                 run=row,
                 kind=KIND_RUN_COMPLETED,
                 delivery_key=run_terminal_delivery_key(row.id),
                 event_id=terminal_event_id,
+                delivery_state=DELIVERY_NOT_REQUIRED if detached else None,
             )
             marker = mark("notification", marker)
             if target == RunStatus.COMPLETED:
@@ -3338,7 +3363,13 @@ class RunService:
         )
 
     async def _finalize_failed(
-        self, run: RunRecord, submission_id: uuid.UUID, exc: Exception, *, agent_key: str
+        self,
+        run: RunRecord,
+        submission_id: uuid.UUID,
+        exc: Exception,
+        *,
+        agent_key: str,
+        final_text: str | None = None,
     ) -> ExecutorEvent:
         code = _error_code_for(exc)
         async with get_session_factory()() as session:
@@ -3374,6 +3405,20 @@ class RunService:
             # 终态释放与终态更新同事务：CAS 落败（并发收尾/回收已释放）即不递减。
             await release_admission_in(session, run=current)
             payload = {"status": str(RunStatus.FAILED), "error_code": code}
+            if final_text:
+                # 终态投递读的是已持久载荷里的 `final_text`（投递泵 `_TEXT_KEYS`）：
+                # 失败也要把**原因结论**发给用户，不能只剩目录里的一句提示。
+                payload["final_text"] = final_text
+                # 站内入口（WebChat）的历史只投影可见消息：结论先落一条 ASSISTANT_MESSAGE，
+                # 页面刷新后看到的才是这段结论，而不是只有「任务执行失败」的提示。
+                await EventWriter(session).append(
+                    tenant_id=run.tenant_id,
+                    conversation_id=run.conversation_id,
+                    run_id=run.id,
+                    event_type="ASSISTANT_MESSAGE",
+                    payload={"text": final_text},
+                    submission_id=submission_id,
+                )
             terminal_event_id = uuid.uuid4()
             seq = await EventWriter(session).append(
                 tenant_id=run.tenant_id,
@@ -3592,15 +3637,44 @@ class RunService:
         return found is not None
 
 
+async def _submitted_detached_task(session: AsyncSession, run: RunRecord) -> bool:
+    """本 Run 是否提交了 DETACH 后台任务（结果由任务自己投递）。
+
+    DETACH 的终态正文只是"任务已受理"，用户随后会收到任务的最终结果；再按 Run 终态外发一次
+    就是同一条结果两条消息。
+    """
+    rows = await session.execute(
+        sa.select(CanonicalEvent.payload_json).where(
+            CanonicalEvent.tenant_id == run.tenant_id,
+            CanonicalEvent.run_id == run.id,
+            CanonicalEvent.event_type == "ASSISTANT_TURN",
+            CanonicalEvent.is_deleted.is_(False),
+        )
+    )
+    for (payload,) in rows.all():
+        calls = payload.get("tool_calls") if isinstance(payload, dict) else None
+        for call in calls or ():
+            arguments = call.get("arguments") if isinstance(call, dict) else None
+            if isinstance(arguments, dict) and str(
+                arguments.get("completion_mode", "")
+            ).upper() == "DETACH":
+                return True
+    return False
+
+
 def _error_code_for(exc: Exception) -> str:
+    if isinstance(exc, RunnerNoProgress):
+        return str(ErrorCode.RUN_NO_PROGRESS)
     if isinstance(exc, RunnerBudgetExceeded):
-        return "RUN_BUDGET_EXCEEDED"
+        return str(ErrorCode.RUN_BUDGET_EXCEEDED)
     if isinstance(exc, RunnerDeadlineExceeded):
         return "RUN_DEADLINE_EXCEEDED"
     if isinstance(exc, RunnerShutdown):
         return "RUN_SHUTDOWN"
     if isinstance(exc, RunnerVerificationExhausted):
         return str(ErrorCode.VERIFICATION_EXHAUSTED)
+    if isinstance(exc, RunnerEmptyReply):
+        return str(ErrorCode.MODEL_EMPTY_REPLY)
     if isinstance(exc, AppError):
         return str(exc.code)
     if isinstance(exc, RunnerModelError):
@@ -3610,6 +3684,10 @@ def _error_code_for(exc: Exception) -> str:
 
 class RunnerBudgetExceeded(RuntimeError):
     pass
+
+
+class RunnerNoProgress(RuntimeError):
+    """同一 (工具, 错误码) 连续失败达到上限：确定性失败原地打转，主动停止。"""
 
 
 class RunnerShutdown(RuntimeError):

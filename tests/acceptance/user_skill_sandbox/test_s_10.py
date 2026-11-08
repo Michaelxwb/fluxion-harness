@@ -120,6 +120,8 @@ def test_s10_sandboxed_executor_runs_readonly_package_and_reports_audit() -> Non
     assert result["status"] == "SUCCEEDED", result
     assert result["exit_code"] == 0
     assert result["result"]["payload"] == {"question": "hello"}
+    assert result["result"]["argv"] == ["--company-id", "42", "a b; echo not-executed"]
+    assert result["result"]["config"] == {"value": "relative-ok"}
     assert result["result"]["flags"] == [1, 0, 1]
     assert payload["helper_imported"] is True
     assert len(result["outputs"]) == 1

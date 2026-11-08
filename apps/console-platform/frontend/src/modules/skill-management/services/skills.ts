@@ -123,9 +123,6 @@ export async function updateSkill(
 
 export interface ImportSkillInput {
   file: File;
-  version: string;
-  key?: string;
-  default_script?: string;
   user_scope?: 'ALL' | 'SELECTED';
   source?: 'SYSTEM' | 'ADMIN';
 }
@@ -136,9 +133,6 @@ export async function importSkill(
 ): Promise<SkillImportResult> {
   const form = new FormData();
   form.append('file', input.file);
-  form.append('version', input.version);
-  if (input.key) form.append('key', input.key);
-  if (input.default_script) form.append('default_script', input.default_script);
   if (input.user_scope) form.append('user_scope', input.user_scope);
   if (input.source) form.append('source', input.source);
   return unwrap(
@@ -155,12 +149,10 @@ export async function importSkill(
 export async function importArtifact(
   id: string,
   file: File,
-  version: string,
   options: RequestOptions = {}
 ): Promise<SkillArtifactDetail> {
   const form = new FormData();
   form.append('file', file);
-  form.append('version', version);
   return unwrap(
     await api.post<ApiResponse<SkillArtifactDetail>>(`/skills/${id}/artifacts`, form, {
       ...options,

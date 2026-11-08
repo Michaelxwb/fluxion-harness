@@ -258,9 +258,10 @@ class SkillDraft(StandardColumnsMixin, Base):
     __tablename__ = "skill_draft"
     __table_args__ = (
         sa.Index(
-            "uq_skill_draft_tenant_owner_key",
+            "uq_skill_draft_tenant_owner_agent_key",
             "tenant_id",
             "owner_user_id",
+            "agent_id",
             "key",
             unique=True,
             postgresql_where=sa.text("is_deleted = false"),
@@ -270,6 +271,8 @@ class SkillDraft(StandardColumnsMixin, Base):
 
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     owner_user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    #: 草稿归属的 Agent：存储路径按 tenant/user/agent 隔离，随 workspace 统一清理。
+    agent_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     revision: Mapped[int] = mapped_column(
         sa.BigInteger(),

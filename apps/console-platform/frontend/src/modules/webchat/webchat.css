@@ -862,6 +862,23 @@
   font-size: 11px;
 }
 
+.chat-run-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--semi-color-text-1);
+  font-size: 11px;
+}
+
+.chat-run-tool-name {
+  font-weight: 600;
+}
+
+.chat-run-tool-elapsed {
+  color: var(--semi-color-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
 .chat-run-connection {
   display: flex;
   align-items: center;

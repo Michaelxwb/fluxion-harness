@@ -31,6 +31,8 @@ from .mss_config import (
 from .mss_signing import login_authorization
 
 MAX_RESPONSE = 1024 * 1024
+#: 平台失败原文的展示上限：够定位原因，又不把整页错误灌进工具结果/模型上下文。
+MAX_ERROR_DETAIL_CHARS = 512
 
 
 async def send(
@@ -71,12 +73,49 @@ async def _send(
         raise PlatformAuthError("PLATFORM_NETWORK_ERROR", retryable=True) from None
 
 
+def _clip(text: str) -> str:
+    """截断并去控制字符：原文只用于定位原因，不做任何本机渲染。"""
+    printable = "".join(char for char in text if char.isprintable() or char in "\n\t")
+    return printable.strip()[:MAX_ERROR_DETAIL_CHARS]
+
+
+def _message_of(payload: object, response: httpx.Response) -> str:
+    """平台原文：只认 JSON 的 ``msg``/``message``/``error``；文本类响应才退回截断正文。"""
+    if isinstance(payload, dict):
+        for key in ("msg", "message", "error"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return _clip(value)
+            if isinstance(value, dict):
+                inner = value.get("message") or value.get("msg")
+                if isinstance(inner, str) and inner.strip():
+                    return _clip(inner)
+        return ""
+    content_type = response.headers.get("content-type", "")
+    if "json" in content_type or "text" in content_type:
+        return _clip(response.content.decode("utf-8", errors="replace"))
+    return ""
+
+
+def _http_detail(response: httpx.Response) -> dict[str, object]:
+    """非 2xx 的可读原因（HTTP 状态 + 平台原文）；二进制响应不带正文。"""
+    payload: object = None
+    if response.content:
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = None
+    return {"http_status": response.status_code, "message": _message_of(payload, response)}
+
+
 def check(response: httpx.Response) -> None:
     if response.status_code in {401, 403}:
-        raise PlatformAuthError("PLATFORM_AUTH_REJECTED")
+        raise PlatformAuthError("PLATFORM_AUTH_REJECTED", detail=_http_detail(response))
     if not response.is_success:
         raise PlatformAuthError(
-            "PLATFORM_HTTP_ERROR", retryable=response.status_code >= 500 or response.status_code == 429
+            "PLATFORM_HTTP_ERROR",
+            retryable=response.status_code >= 500 or response.status_code == 429,
+            detail=_http_detail(response),
         )
     if not response.content:
         return
@@ -88,9 +127,44 @@ def check(response: httpx.Response) -> None:
         raise PlatformAuthError("PLATFORM_RESPONSE_INVALID")
     code = payload.get("code", 0)
     if code != 0:
+        detail = {
+            "http_status": response.status_code,
+            "business_code": code,
+            "message": _message_of(payload, response),
+        }
         if code in (9348, 9001):
-            raise PlatformAuthError("PLATFORM_AUTH_REJECTED")
-        raise PlatformAuthError("PLATFORM_BUSINESS_ERROR", retryable=code in (9000, 12001))
+            raise PlatformAuthError("PLATFORM_AUTH_REJECTED", detail=detail)
+        raise PlatformAuthError(
+            "PLATFORM_BUSINESS_ERROR", retryable=code in (9000, 12001), detail=detail
+        )
+
+
+def _scrub(exc: PlatformAuthError, secret: MSSCredential) -> PlatformAuthError:
+    """把本次凭据的具体值从平台原文里擦掉（平台可能回显 ak/sk/自定义头）。"""
+    detail = exc.detail
+    if not isinstance(detail, dict):
+        return exc
+    message = detail.get("message")
+    if not isinstance(message, str):
+        return exc
+    values: list[str] = []
+    if secret.ak is not None:
+        values.append(secret.ak.get_secret_value())
+    if secret.sk is not None:
+        values.append(secret.sk.get_secret_value())
+    values.extend(str(value) for value in secret.headers.values())
+    for value in values:
+        if len(value) >= 4:
+            message = message.replace(value, "***")
+    return PlatformAuthError(exc.code, retryable=exc.retryable, detail={**detail, "message": message})
+
+
+def _checked(response: httpx.Response, secret: MSSCredential) -> None:
+    """登录链路专用：失败原因先擦除本次凭据值再向上抛。"""
+    try:
+        check(response)
+    except PlatformAuthError as exc:
+        raise _scrub(exc, secret) from None
 
 
 def restore_cookies(session: PlatformSession) -> httpx.Cookies:
@@ -161,7 +235,7 @@ class MSSAdapter:
                 response = await self._send(
                     platform, client, "GET", platform_url(platform, config.csrf_endpoint), headers
                 )
-                check(response)
+                _checked(response, secret)
                 csrf = next((c.value for c in client.cookies.jar if c.name == "csrf_token"), "")
                 if not csrf:
                     raise PlatformAuthError("PLATFORM_CSRF_MISSING")
@@ -180,7 +254,7 @@ class MSSAdapter:
                     url, signing.ak.get_secret_value(), signing.sk.get_secret_value(), int(time.time()), body
                 )
             response = await self._send(platform, client, "POST", url, headers, body)
-            check(response)
+            _checked(response, secret)
             if not any(c.name == config.login_cookie_name and c.value for c in response.cookies.jar):
                 raise PlatformAuthError("PLATFORM_LOGIN_NO_COOKIE")
             return self._session(client, platform, config)

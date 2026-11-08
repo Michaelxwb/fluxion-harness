@@ -38,10 +38,15 @@ class WebchatReplySnapshot(WebchatReplyDelta):
 
 
 class WebchatSafeError(WebchatContract):
-    """Stable catalog code only; no raw upstream message, details or exception."""
+    """Stable catalog code only; no raw upstream message, details or exception.
+
+    `has_reply` 表示这次失败**已经落了一条结论消息**（失败收尾回合的正文）：客户端据此
+    不再弹「失败，请重发」的通用提示，避免与结论正文自相矛盾。
+    """
 
     code: Annotated[StrictStr, Field(pattern=r"^[A-Z][A-Z0-9_]+$")]
     retryable: StrictBool
+    has_reply: StrictBool = False
 
 
 class WebchatTerminal(WebchatContract):
@@ -69,6 +74,23 @@ class WebchatSnapshotEvent(WebchatEventIdentity):
 class WebchatStageEvent(WebchatEventIdentity):
     type: Literal["run.stage"]
     data: WebchatExecutionStatus
+
+
+class WebchatToolProgress(WebchatContract):
+    """工具执行进度：只带工具名、阶段与终态，参数/结果/异常不上公开边。
+
+    长工具调用（例如一次整盘 `find`）可以持续数分钟，客户端据此显示"正在执行 X"，
+    不再把"长时间无正文"误报成卡住。
+    """
+
+    name: StrictStr
+    phase: Literal["STARTED", "FINISHED"]
+    status: Literal["OK", "ERROR"] | None = None
+
+
+class WebchatToolEvent(WebchatEventIdentity):
+    type: Literal["run.tool"]
+    data: WebchatToolProgress
 
 
 class WebchatTerminalEvent(WebchatEventIdentity):
@@ -105,8 +127,9 @@ class WebchatCheckpoint(WebchatContract):
 
 
 PublicWebchatEvent = Annotated[
-    WebchatDeltaEvent | WebchatSnapshotEvent | WebchatStageEvent | WebchatTerminalEvent
-    | WebchatErrorEvent | WebchatConfirmationEvent | WebchatArtifactEvent | WebchatCheckpoint,
+    WebchatDeltaEvent | WebchatSnapshotEvent | WebchatStageEvent | WebchatToolEvent
+    | WebchatTerminalEvent | WebchatErrorEvent | WebchatConfirmationEvent | WebchatArtifactEvent
+    | WebchatCheckpoint,
     Field(discriminator="type"),
 ]
 _event_adapter: TypeAdapter[PublicWebchatEvent] = TypeAdapter(

@@ -104,8 +104,18 @@ export interface ActiveRunState {
   text: string;
   errorCode: string | null;
   retryable: boolean | null;
+  /** 失败时是否已落一条结论消息：有结论就不再弹「失败，请重发」。 */
+  hasReply: boolean;
+  /** 正在执行的工具（长工具调用据此显示进度）；无工具在执行时为 null。 */
+  tool: ActiveRunTool | null;
   /** 需显式动作才能重开的停止事实；null = 可继续（未停止/正常关闭）。 */
   recovery: RunRecoveryState | null;
+}
+
+/** 正在执行的工具：名字 + 原始开始时刻（服务端事件时间，重连后仍从真实开始算）。 */
+export interface ActiveRunTool {
+  name: string;
+  startedAt: string | null;
 }
 
 /** 展示阶段（design §3.6 发送/回复）：等待与执行计时分开，终态/等待输入停止活动计时。 */
@@ -115,6 +125,8 @@ export type RunReplyPhase = 'queued' | 'running' | 'waiting-tool' | 'waiting-inp
 export interface StreamingReplyProps {
   runId: string;
   text: string;
+  /** 本 Run 已发布的附件（实时卡片）：与历史读取同一份发布事实。 */
+  attachments: WebchatAttachment[];
   phase: RunReplyPhase;
   queuedAt: string | null;
   queueReason: string | null;
@@ -193,7 +205,9 @@ const TERMINAL_STAGES = new Set<WebchatExecutionStatus['stage']>([
 /** 已应用更新：会推进已应用水位的事件（分片未齐与 checkpoint 不在其列）。 */
 type AppliedUpdate = Extract<
   ReplyStreamUpdate,
-  { kind: 'delta' | 'snapshot' | 'stage' | 'terminal' | 'error' | 'confirmation' | 'artifact' }
+  {
+    kind: 'delta' | 'snapshot' | 'stage' | 'tool' | 'terminal' | 'error' | 'confirmation' | 'artifact';
+  }
 >;
 
 /** 终态 Run 不重新打开（`muad_contracts.enums.TerminalStatus`）。 */
@@ -226,6 +240,7 @@ export function streamingReply(
   return {
     runId: run.runId,
     text: run.text,
+    attachments: run.attachments,
     phase: replyPhase(run.status, status),
     queuedAt: status === null ? null : status.queued_at,
     queueReason: status === null ? null : status.reason,
@@ -286,6 +301,8 @@ function initialRunState(target: RunSubscriptionTarget): ActiveRunState {
     text: '',
     errorCode: null,
     retryable: null,
+    hasReply: false,
+    tool: null,
     recovery: null
   };
 }
@@ -294,7 +311,12 @@ function initialRunState(target: RunSubscriptionTarget): ActiveRunState {
 function refreshRunFacts(run: ActiveRunState, target: RunSubscriptionTarget): void {
   if (target.submissionId !== null) run.submissionId = target.submissionId;
   if (!isTerminalRunStatus(run.status) && target.status !== run.status) run.status = target.status;
-  if (target.executionStatus !== null) run.executionStatus = target.executionStatus;
+  // 已从流里应用过事件 ⇒ 阶段以流为权威：重新观察时带回来的详情快照可能是受理瞬间抓的旧值
+  // （受理回执 WAITING_RUNTIME），覆盖会把「正在执行/正在调工具」打回「排队」。
+  // 新 Run（lastAppliedSeq 仍为 0，例如重开会话）没有流事实，才取目标快照。
+  if (run.lastAppliedSeq === 0 && target.executionStatus !== null) {
+    run.executionStatus = target.executionStatus;
+  }
   // API-15 详情是确认的权威投影：重新观察同一 Run 时，服务端返回 null 必须清掉旧确认，
   // 否则记忆被删除/提议被撤销后，旧确认卡会在重开会话时复活。
   run.confirmation = target.confirmation;
@@ -305,15 +327,22 @@ function mergeAttachments(
   existing: readonly WebchatAttachment[],
   incoming: WebchatAttachment
 ): WebchatAttachment[] {
-  const byId = new Map<string, WebchatAttachment>();
-  for (const item of existing) byId.set(item.artifact_id, item);
-  byId.set(incoming.artifact_id, incoming);
-  return [...byId.values()];
+  // 同一产物的不同版本是**两张卡**（发布冻结）：去重键必须含 checksum，否则后一版覆盖前一版。
+  const byVersion = new Map<string, WebchatAttachment>();
+  for (const item of existing) byVersion.set(attachmentVersionKey(item), item);
+  byVersion.set(attachmentVersionKey(incoming), incoming);
+  return [...byVersion.values()];
+}
+
+/** 附件版本键：产物 + 发布时的校验和（服务端按它选定版本）。 */
+export function attachmentVersionKey(attachment: WebchatAttachment): string {
+  return `${attachment.artifact_id}:${attachment.checksum}`;
 }
 
 /** 阶段事件：持久阶段同时驱动业务状态（等待输入与终态才改变状态，排队不假装执行）。 */
 function applyStage(run: ActiveRunState, status: WebchatExecutionStatus): void {
   run.executionStatus = status;
+  if (TERMINAL_STAGES.has(status.stage)) run.tool = null;
   if (status.stage !== 'WAITING_INPUT') run.confirmation = null; // 确认只在等待输入阶段有效
   if (TERMINAL_STAGES.has(status.stage)) run.status = status.stage as RunStatus;
   else if (status.stage === 'WAITING_INPUT' || status.stage === 'WAITING_TOOL') {
@@ -470,13 +499,22 @@ function applyApplied(
     run.replyGeneration = update.replyGeneration;
   } else if (update.kind === 'stage') {
     applyStage(run, update.data);
+  } else if (update.kind === 'tool') {
+    // 只展示工具名：参数与结果不上公开边。FINISHED 即撤掉进度行（失败也照撤）。
+    run.tool =
+      update.data.phase === 'STARTED'
+        ? { name: update.data.name, startedAt: update.startedAt }
+        : null;
   } else if (update.kind === 'terminal') {
     run.status = update.status;
+    run.tool = null;
   } else if (update.kind === 'error') {
     run.status = 'FAILED';
     run.confirmation = null;
+    run.tool = null;
     run.errorCode = update.code;
     run.retryable = update.retryable;
+    run.hasReply = update.hasReply;
   } else if (update.kind === 'confirmation') {
     run.confirmation = update.data;
   } else {

@@ -1,6 +1,8 @@
 import uuid
 
 from httpx import AsyncClient
+from muad_console_platform.infrastructure.db import get_session_factory
+from muad_console_platform.infrastructure.models.control import Skill, SkillArtifact
 
 from console_skill.conftest import SkillContext, import_skill, tenant_headers
 from console_skill.packages import demo_package
@@ -204,3 +206,61 @@ async def test_other_tenant_skill_returns_not_found(
     )
     assert update.status_code == 404
     assert update.json()["code"] == "COMMON_NOT_FOUND"
+
+
+async def test_pending_only_skill_shows_latest_version_in_list_and_detail(
+    client: AsyncClient,
+    skill_env: SkillContext,
+) -> None:
+    """待审批技能没有 current artifact，列表/详情仍要显示待审版本号（回归：列为空）。"""
+    key = f"pending-only-{uuid.uuid4()}"
+    async with get_session_factory()() as session:
+        skill = Skill(
+            tenant_id=skill_env.tenant_id,
+            key=key,
+            name="Pending Only",
+            description="Submitted, awaiting review.",
+            user_scope="ALL",
+            source="USER",
+            owner_user_id=skill_env.actor_user_id,
+        )
+        session.add(skill)
+        await session.flush()
+        artifact = SkillArtifact(
+            skill_id=skill.id,
+            version="1.0.1",
+            checksum="sha256:" + "b" * 64,
+            storage_key=f"skills/{skill.id}/{uuid.uuid4()}/skill.zip",
+            frontmatter_json={"name": "Pending Only"},
+            manifest_json={"files": [], "file_count": 0, "total_size": 0},
+            execution_mode="SYNC",
+            package_size=128,
+            validation_status="READY",
+            review_status="PENDING",
+            created_by=skill_env.actor_user_id,
+        )
+        session.add(artifact)
+        await session.commit()
+        skill_id = skill.id
+
+    listing = (
+        await client.get(
+            "/api/v1/skills",
+            params={"keyword": key, "page": 1, "page_size": 10},
+            headers=tenant_headers(skill_env),
+        )
+    ).json()["data"]
+    assert listing["total"] == 1
+    item = listing["items"][0]
+    assert item["current_artifact_id"] is None
+    assert item["current_version"] == "1.0.1"
+    assert item["review_status"] == "PENDING"
+    assert item["execution_mode"] == "SYNC"
+
+    detail = (
+        await client.get(f"/api/v1/skills/{skill_id}", headers=tenant_headers(skill_env))
+    ).json()["data"]
+    assert detail["current_version"] == "1.0.1"
+    assert detail["review_status"] == "PENDING"
+    # 待审版本还不是可执行基线：current_artifact 仍为空
+    assert detail["current_artifact"] is None

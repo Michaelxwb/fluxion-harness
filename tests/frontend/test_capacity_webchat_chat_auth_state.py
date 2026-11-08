@@ -286,7 +286,10 @@ const obs = {};
   await client.listEntries();
   const entries = requests[entriesStart];
   const downloadStart = requests.length;
-  const blob = await client.download(ARTIFACT_ID);
+  const blob = await client.download(ARTIFACT_ID, {
+    conversationId: CONVERSATION_ID,
+    checksum: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+  });
   const download = requests[downloadStart];
 
   const generationBeforeSame = service.generation();

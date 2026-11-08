@@ -4,6 +4,7 @@
 （`database_now`，行锁之后取值）；进程墙钟只用于计时与展示。`now` 是显式的测试注入点。
 """
 
+import uuid
 from datetime import datetime
 
 from muad_contracts import RunStatus
@@ -14,6 +15,12 @@ from ..infrastructure.db import SessionFactory
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import RunInterrupt, RunRecord, RunSubmission
 from .async_tools.operations import cancel_operations
+from .channel_notifications import (
+    KIND_RUN_COMPLETED,
+    run_terminal_delivery_key,
+    write_run_notification,
+)
+from .event_tail_hub import get_event_tail_hub
 from .run_admission import release_admission_in
 from .run_events import EventWriter
 from .tool_result_receipts import lock_run_source
@@ -60,6 +67,7 @@ async def _expire_one(
         run.queue_stage = None
         # 绝对期限收尾同样释放准入份额：与终态同事务，重复扫描不再递减（CAS 幂等）。
         await release_admission_in(session, run=run)
+        terminal_event_id = uuid.uuid4()
         seq = await EventWriter(session).append(
             tenant_id=run.tenant_id,
             conversation_id=run.conversation_id,
@@ -67,10 +75,25 @@ async def _expire_one(
             event_type="RUN_FAILED",
             stream_type="run.failed",
             payload={"status": "FAILED", "error_code": run.error_code},
+            event_id=terminal_event_id,
         )
         if checkpoint is not None:
             checkpoint.ready = False
         await _close_waits(session, run, seq, moment)
+        # 通道入口（企微等）的终态必须有持久出站意图，否则 Gateway 的 channel_delivery
+        # 拿不到 intent（COMMON_NOT_FOUND），流式消息会一直停在“正在输入”。与终态同事务。
+        await write_run_notification(
+            session,
+            run=run,
+            kind=KIND_RUN_COMPLETED,
+            delivery_key=run_terminal_delivery_key(run.id),
+            event_id=terminal_event_id,
+        )
+    # 提交后唤醒追尾订阅者：和其它事件写入方一致。提示失败只降级为 5s PG 补查，
+    # 不影响已经提交的终态；否则正在看的 UI 只能等下一次补查/用户下次发消息才发现 Run 已失败。
+    await get_event_tail_hub().publish(
+        tenant_id=run.tenant_id, conversation_id=run.conversation_id
+    )
     return 1
 
 

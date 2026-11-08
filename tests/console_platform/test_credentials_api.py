@@ -86,29 +86,32 @@ async def test_credentials_tenant_comes_from_account_not_header(
     assert forged.json()["code"] == "0"
 
 
-async def test_s02_user_credential_plaintext_is_stored_but_never_echoed(
+async def test_s02_user_credential_plaintext_is_revealed_only_on_request(
     client: AsyncClient, tenant: TenantContext, platform_bundle: dict[str, Any]
 ) -> None:
+    """默认读接口只回「已配置」；`include_secret=true` 才回明文（Console 编辑弹窗的唯一出口）。"""
     platform_id, user_id = platform_bundle["platform_id"], platform_bundle["user_id"]
     url = f"/api/v1/project-platforms/{platform_id}/users/{user_id}/credential"
 
     saved = await client.put(url, json={"token": "plain-secret-token"}, headers=_headers(tenant))
     assert saved.status_code == 200
     assert saved.json()["data"]["status"] == "ACTIVE"
-    assert "plain-secret-token" not in saved.text
+    assert "plain-secret-token" not in saved.text, "保存响应不得回明文"
 
     fetched = await client.get(url, headers=_headers(tenant))
     assert fetched.status_code == 200
     body = fetched.json()["data"]
     assert body["configured"] is True
     assert body["status"] == "ACTIVE"
-    assert "plain-secret-token" not in fetched.text
+    assert "plain-secret-token" not in fetched.text, "默认读接口不得回明文"
     assert "credential_json" not in body
 
-    revealed = await client.get(url, params={"reveal": True}, headers=_headers(tenant))
+    revealed = await client.get(
+        url, params={"include_secret": "true"}, headers=_headers(tenant)
+    )
     assert revealed.status_code == 200
-    assert "credential_json" not in revealed.json()["data"]
-    assert "plain-secret-token" not in revealed.text
+    assert revealed.json()["data"]["credential_json"] == {"token": "plain-secret-token"}
+    assert "plain-secret-token" in revealed.text, "编辑回显必须拿到已存明文"
     assert revealed.headers["cache-control"] == "no-store"
 
     stored = await _stored_credential(tenant.tenant_id, user_id, platform_id)

@@ -47,6 +47,9 @@ from muad_contracts.platform_settings import ToolResultSettings
 
 from agent_runtime.conftest import TenantContext, parse_sse
 
+#: 稳定入口身份：同一测试的多条消息必须落在同一条会话上（入口是会话作用域的一部分）。
+ENTRY_ID = uuid.uuid4()
+
 #: 三条结果各自都**没超**单条阈值（8 KiB），合计 10.2 KiB 却超了下面这个整轮预算。
 SIZES = {"alpha": 4000, "beta": 3500, "gamma": 3000}
 ROUND_BUDGET_BYTES = 5_000
@@ -160,7 +163,7 @@ async def _run(client: AsyncClient, tenant: TenantContext) -> tuple[list[dict[st
         json={
             "agent_id": str(tenant.agent_id),
             "platform_user_id": str(tenant.platform_user_id),
-            "channel": {"type": "WECOM", "bot_id": "bot-round"},
+            "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-round"},
             "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": "核对一下"},
         },
         headers={"X-Tenant-Id": tenant.tenant_id},

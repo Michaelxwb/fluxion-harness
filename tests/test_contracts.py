@@ -209,7 +209,7 @@ def test_run_request_literal_enforcement():
     request = RunRequest(
         agent_id=uuid4(),
         platform_user_id=uuid4(),
-        channel={'type': 'WECOM', 'bot_id': 'bot-1'},
+        channel={'type': 'WECOM', 'entry_id': str(uuid4()), 'bot_id': 'bot-1'},
         message={'id': 'msg-1', 'text': 'hello'},
     )
     assert request.channel.type == 'WECOM'
@@ -218,7 +218,7 @@ def test_run_request_literal_enforcement():
     dingtalk = RunRequest(
         agent_id=uuid4(),
         platform_user_id=uuid4(),
-        channel={'type': 'DINGTALK', 'bot_id': 'bot-1'},
+        channel={'type': 'DINGTALK', 'entry_id': str(uuid4()), 'bot_id': 'bot-1'},
         message={'id': 'msg-1', 'text': 'hello'},
     )
     assert dingtalk.channel.type == 'DINGTALK'
@@ -226,14 +226,14 @@ def test_run_request_literal_enforcement():
         RunRequest(
             agent_id=uuid4(),
             platform_user_id=uuid4(),
-            channel={'type': '', 'bot_id': 'bot-1'},
+            channel={'type': '', 'entry_id': str(uuid4()), 'bot_id': 'bot-1'},
             message={'id': 'msg-1', 'text': 'hello'},
         )
     with pytest.raises(ValidationError):
         RunRequest(
             agent_id=uuid4(),
             platform_user_id=uuid4(),
-            channel={'type': 'WECOM', 'bot_id': 'bot-1'},
+            channel={'type': 'WECOM', 'entry_id': str(uuid4()), 'bot_id': 'bot-1'},
             message={'id': 'msg-1', 'type': 'markdown', 'text': 'hello'},
         )
 

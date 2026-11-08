@@ -12,6 +12,7 @@ from muad_agent_core.agent import (
     AgentRunStatus,
     RunnerCancelled,
     RunnerDeadlineExceeded,
+    RunnerEmptyReply,
     RunnerModelError,
 )
 from muad_agent_core.context.compactor import split_groups
@@ -21,6 +22,7 @@ from muad_agent_core.model import (
     ModelProvider,
     ModelRateLimitedError,
     ModelRequest,
+    ModelRequestError,
     ModelResponse,
     ModelRole,
     ModelToolCall,
@@ -244,8 +246,15 @@ async def test_unknown_tool_is_fed_back_to_model() -> None:
 
 
 async def test_tool_handler_failure_is_fed_back_to_model() -> None:
+    """可重试的工具失败会喂回模型（确定性失败改为直接终止，见下方 NO_PROGRESS 用例）。"""
+
+    class _Transient(RuntimeError):
+        code = "TOOL_TRANSIENT"
+        message = "handler exploded"
+        retryable = True
+
     async def failing(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        raise RuntimeError("handler exploded")
+        raise _Transient("handler exploded")
 
     registry = ToolRegistry()
     registry.register(
@@ -268,9 +277,10 @@ async def test_tool_handler_failure_is_fed_back_to_model() -> None:
 class _CodedToolError(RuntimeError):
     """模拟 `AttachmentToolError` / `ArchiveToolError`：工具自己的错误类型，携带 `.code`。"""
 
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self, code: str, message: str, *, retryable: bool = False) -> None:
         self.code = code
         self.message = message
+        self.retryable = retryable
         super().__init__(message)
 
 
@@ -283,7 +293,7 @@ async def test_coded_tool_failure_reaches_the_model_with_its_code() -> None:
     说法，而且模型看不到错误码（2026-10-03 review）。
     """
     async def failing(arguments: Mapping[str, Any], *, call_id: str) -> str:
-        raise _CodedToolError("ATTACHMENT_NOT_FOUND", "附件不存在或不可访问")
+        raise _CodedToolError("ARTIFACT_WRITE_FAILED", "存储暂时不可用", retryable=True)
 
     registry = ToolRegistry()
     registry.register(
@@ -302,7 +312,7 @@ async def test_coded_tool_failure_reaches_the_model_with_its_code() -> None:
     assert result.final_text == "recovered"
     payload = json.loads(provider.requests[1].messages[-1].content)
     assert payload == {
-        "error": {"code": "ATTACHMENT_NOT_FOUND", "message": "附件不存在或不可访问"}
+        "error": {"code": "ARTIFACT_WRITE_FAILED", "message": "存储暂时不可用", "retryable": True}
     }
 
 
@@ -320,8 +330,11 @@ async def test_pre_tool_use_hook_can_block_execution() -> None:
 
     result = await AgentRunner(provider=provider, registry=registry, hooks=hooks).run(_request())
 
-    assert calls == []
+    assert calls == [], "被策略拦截的调用不得执行"
+    # 策略拦截属于「模型可纠正」的失败：按阈值重试，不把 Run 直接停掉。
+    assert result.status is AgentRunStatus.COMPLETED
     assert result.final_text == "done"
+    assert len(provider.requests) == 2
     assert "denied by policy" in provider.requests[1].messages[-1].content
 
 
@@ -537,3 +550,266 @@ async def test_incomplete_model_stream_is_not_reported_as_success() -> None:
 
     with pytest.raises(RunnerModelError):
         await runner.run(_request())
+
+
+async def test_empty_reply_is_retried_once_with_a_nudge_and_completes() -> None:
+    """空正文 + 无工具调用不是"回答完了"：补答一次，补到正文就正常完成。"""
+    provider = ScriptedModelProvider([_text(""), _text("结论")])
+    runner = AgentRunner(provider=provider, registry=ToolRegistry())
+
+    result = await runner.run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert result.final_text == "结论"
+    assert len(provider.requests) == 2
+    nudge = provider.requests[1].messages[-1]
+    assert nudge.role is ModelRole.USER and "没有输出任何正文" in text_of(nudge.content)
+
+
+async def test_empty_reply_twice_fails_the_run_instead_of_completing_without_text() -> None:
+    """补答仍空（含纯空白）⇒ 明确失败，不得以 COMPLETED 收下一个没有正文的回答。"""
+    provider = ScriptedModelProvider([_text(""), _text("   ")])
+    runner = AgentRunner(provider=provider, registry=ToolRegistry())
+
+    with pytest.raises(RunnerEmptyReply):
+        await runner.run(_request())
+    assert len(provider.requests) == 2
+
+
+async def test_tool_result_then_empty_reply_still_ends_with_an_answer() -> None:
+    """事故形态：工具返回业务失败负载后模型空回答 —— 补答要出结论，且**不重跑工具**。"""
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "echo", {"text": "x"}), _text(""), _text("工具返回 exit_code=2：参数不合法")]
+    )
+    registry = ToolRegistry()
+    calls: list[dict[str, Any]] = []
+    _echo_tool(registry, calls)
+    runner = AgentRunner(provider=provider, registry=registry)
+
+    result = await runner.run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert result.final_text == "工具返回 exit_code=2：参数不合法"
+    assert calls == [{"text": "x"}], "补答只补文本，不重复执行已跑过的工具"
+    assert [m.role for m in provider.requests[2].messages][-2:] == [ModelRole.TOOL, ModelRole.USER]
+
+
+async def test_blank_content_after_streamed_text_is_not_retried() -> None:
+    """正文已外发给用户但 content 为空：不补答，直接失败（再试会把同一段话吐两遍）。"""
+
+    class _StreamsThenEmpty:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def complete(self, request: ModelRequest) -> ModelResponse:
+            raise AssertionError("streaming provider must not fall back to complete()")
+
+        async def stream(self, request: ModelRequest, on_delta: Any) -> ModelResponse:
+            self.calls += 1
+            await on_delta("已经说了一段")
+            return ModelResponse(content="", finish_reason="stop")
+
+    provider = _StreamsThenEmpty()
+    runner = AgentRunner(provider=provider, registry=ToolRegistry())
+    seen: list[str] = []
+
+    async def collect(text: str) -> None:
+        seen.append(text)
+
+    with pytest.raises(RunnerEmptyReply):
+        await runner.run(_request(), on_delta=collect)
+    assert provider.calls == 1
+    assert seen == ["已经说了一段"]
+
+
+# --------------------------------------------------------------------------------------
+# 失败跟进：确定性失败第一次即停；可重试失败按阈值
+# --------------------------------------------------------------------------------------
+
+
+class _CodedError(RuntimeError):
+    def __init__(self, code: str, *, retryable: bool = False) -> None:
+        self.code = code
+        self.message = code
+        self.retryable = retryable
+        super().__init__(code)
+
+
+def _failing_tool(registry: ToolRegistry) -> None:
+    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        raise _CodedError(
+            str(arguments.get("code", "FAIL")),
+            retryable=bool(arguments.get("retryable", False)),
+        )
+
+    registry.register(
+        ToolDefinition(
+            name="failing",
+            description="always fails with the given code",
+            input_schema={"type": "object"},
+            effect=ToolEffect.READ,
+            handler=handler,
+        )
+    )
+
+
+def _error_returning_tool(registry: ToolRegistry) -> None:
+    """工具**返回**错误体（状态 OK）——Skill/附件工具的真实形状。"""
+
+    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        return json.dumps({"error": {"code": "PLATFORM_AUTH_REJECTED", "message": "rejected"}})
+
+    registry.register(
+        ToolDefinition(
+            name="rejecting",
+            description="returns an error body instead of raising",
+            input_schema={"type": "object"},
+            effect=ToolEffect.READ,
+            handler=handler,
+        )
+    )
+
+
+async def test_deterministic_failure_stops_the_run_immediately() -> None:
+    """平台/环境类确定性失败第一次即进入收尾，不再走正常工具循环。"""
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "failing", {"code": "PLATFORM_AUTH_REJECTED"}), _text("done")]
+    )
+    registry = ToolRegistry()
+    _failing_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert len(provider.requests) == 2, "只允许一次收尾回合，不得再走正常工具循环"
+    assert result.tool_calls == 1
+    assert provider.requests[1].tools == (), "收尾回合必须禁用工具"
+    assert result.final_text == "done", "终态正文用收尾回合的结论"
+
+
+async def test_returned_error_body_counts_as_a_failure_too() -> None:
+    """工具返回的错误体（status=OK）同样是"环节失败"，不能当成功放过。"""
+    provider = ScriptedModelProvider([_tool_call("c1", "rejecting"), _text("done")])
+    registry = ToolRegistry()
+    _error_returning_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert len(provider.requests) == 2
+    assert result.final_text == "done"
+
+
+async def test_retryable_failures_follow_the_configured_threshold() -> None:
+    """可重试失败（网络/超时类）按阈值计数：默认 2 次后停，期间允许继续尝试。"""
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "failing", {"code": "NET", "retryable": True}),
+            _tool_call("c2", "failing", {"code": "NET", "retryable": True}),
+            _text("done"),
+        ]
+    )
+    registry = ToolRegistry()
+    _failing_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert len(provider.requests) == 3, "两次真实失败 + 一次收尾回合"
+
+
+async def test_different_retryable_codes_do_not_accumulate() -> None:
+    """不同错误码是不同问题：各计各的，不因总数凑够就停。"""
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "failing", {"code": "A", "retryable": True}),
+            _tool_call("c2", "failing", {"code": "B", "retryable": True}),
+            _text("done"),
+        ]
+    )
+    registry = ToolRegistry()
+    _failing_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert len(provider.requests) == 3
+
+
+async def test_a_successful_tool_call_resets_the_failure_counter() -> None:
+    """中间有成功＝有进展：旧的可重试失败计数清零，随后同码失败从头计。"""
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "failing", {"code": "NET", "retryable": True}),
+            _tool_call("c2", "echo"),
+            _tool_call("c3", "failing", {"code": "NET", "retryable": True}),
+            _text("done"),
+        ]
+    )
+    registry = ToolRegistry()
+    _failing_tool(registry)
+    calls: list[dict[str, Any]] = []
+    _echo_tool(registry, calls)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert len(provider.requests) == 4
+
+
+async def test_threshold_comes_from_the_policy() -> None:
+    """阈值取自冻结策略：设为 3 时前两次可重试失败仍可继续。"""
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "failing", {"code": "NET", "retryable": True}),
+            _tool_call("c2", "failing", {"code": "NET", "retryable": True}),
+            _text("done"),
+        ]
+    )
+    registry = ToolRegistry()
+    _failing_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(
+        _request(AgentPolicy(max_identical_failures=3))
+    )
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert len(provider.requests) == 3
+
+
+async def test_conclude_falls_back_to_the_failure_summary() -> None:
+    """收尾回合调用失败也必须给出结论：用最后失败码 + 平台原文兜底，绝不只剩一句提示。"""
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "rejecting"),
+            ModelRequestError("conclude unavailable"),
+        ]
+    )
+    registry = ToolRegistry()
+    _error_returning_tool(registry)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(_request())
+
+    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert "PLATFORM_AUTH_REJECTED" in result.final_text
+    assert "rejected" in result.final_text
+
+
+async def test_turn_budget_exhaustion_also_gets_a_conclusion() -> None:
+    """轮次预算打满也要有收尾结论：一次禁用工具的模型回合，正文作为终态文本。"""
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "echo"), _text("预算用尽：未能完成执行。")]
+    )
+    registry = ToolRegistry()
+    calls: list[dict[str, Any]] = []
+    _echo_tool(registry, calls)
+
+    result = await AgentRunner(provider=provider, registry=registry).run(
+        _request(AgentPolicy(max_turns=1))
+    )
+
+    assert result.status is AgentRunStatus.BUDGET_EXCEEDED
+    assert result.final_text == "预算用尽：未能完成执行。"
+    assert len(provider.requests) == 2
+    assert provider.requests[1].tools == (), "收尾回合必须禁用工具"
+    assert calls == [], "轮次打满后不再执行工具"

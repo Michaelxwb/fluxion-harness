@@ -17,7 +17,8 @@
  *    本层不自动重连、不自动补拉；认证失效只提示重新进入（没有重试动作）。
  * 4. **阶段只由持久事实派生**：`runActivityView` 从持久状态与持久执行阶段派生展示阶段
  *    （`WAITING_RUNTIME` ≠ `WAITING_MODEL` ≠ `RUNNING`），排队期限只在排队阶段展示（不显示名次或预计
- *    耗时），时间统一经 `DateTimeText`；本文件不持有定时器、不推算耗时。
+ *    耗时），时间统一经 `DateTimeText`；本文件不持有定时器、不推算耗时——工具进度秒表在
+ *    `ToolProgress` 子组件里，只吃公开事件给的工具名与开始时刻。
  *
  * 展示组件只收 typed props 与事件；不发 HTTP、不读 Cookie、不落持久存储、不自带定时器、不持有状态。
  */
@@ -26,7 +27,8 @@ import { Button } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
 import { DateTimeText } from '../../../components/common/DateTimeText';
-import { isTerminalRunStatus, type RunConnectionSnapshot } from '../runState';
+import { isTerminalRunStatus, type ActiveRunTool, type RunConnectionSnapshot } from '../runState';
+import { ToolProgress } from './ToolProgress';
 import { webchatErrorCode } from '../services/webchatApi';
 import type {
   ExecutionStage,
@@ -74,6 +76,8 @@ export interface RunActivityView {
   queuedAt: string | null;
   queueDeadlineAt: string | null;
   startedAt: string | null;
+  /** 正在执行的工具（`run.tool` STARTED 到 FINISHED 之间）；无工具为 null。 */
+  tool: ActiveRunTool | null;
 }
 
 const TERMINAL_STAGES: ReadonlySet<ExecutionStage> = new Set<ExecutionStage>([
@@ -100,7 +104,8 @@ export function runActivityPhase(
 /** 活动投影：排队期限只在排队阶段展示（已开始执行的过期期限不再展示）。 */
 export function runActivityView(
   status: RunStatus,
-  executionStatus: WebchatExecutionStatus | null
+  executionStatus: WebchatExecutionStatus | null,
+  tool: ActiveRunTool | null = null
 ): RunActivityView {
   const phase = runActivityPhase(status, executionStatus);
   return {
@@ -109,7 +114,8 @@ export function runActivityView(
     queuedAt: executionStatus === null ? null : executionStatus.queued_at,
     queueDeadlineAt:
       executionStatus !== null && QUEUE_PHASES.has(phase) ? executionStatus.deadline_at : null,
-    startedAt: executionStatus === null ? null : executionStatus.started_at
+    startedAt: executionStatus === null ? null : executionStatus.started_at,
+    tool
   };
 }
 
@@ -468,6 +474,9 @@ function RunActivityRegion(props: RunActivityRegionProps) {
           <DateTimeText value={activity.startedAt} />
         </span>
       )}
+      {activity.tool === null || activity.phase === 'terminal' ? null : (
+        <ToolProgress tool={activity.tool} />
+      )}
     </div>
   );
 }
@@ -535,6 +544,8 @@ export interface RunActionsProps {
   status: RunStatus;
   /** 持久执行阶段（API-15/受理回执原样带出）；未就绪为 null。 */
   executionStatus: WebchatExecutionStatus | null;
+  /** 正在执行的工具（公开事件 `run.tool`）；无工具为 null。 */
+  tool: ActiveRunTool | null;
   /** 连接状态（TASK-082 快照；与执行状态分开表达）。 */
   connection: RunConnectionSnapshot;
   /** 停止状态机快照（`createRunStopController`）。 */
@@ -565,7 +576,9 @@ export function RunActions(props: RunActionsProps) {
       data-execution-stage={props.executionStatus?.stage ?? undefined}
       aria-label={t('chat.run.label')}
     >
-      <RunActivityRegion activity={runActivityView(props.status, props.executionStatus)} />
+      <RunActivityRegion
+        activity={runActivityView(props.status, props.executionStatus, props.tool)}
+      />
       <RunConnectionRegion
         connection={props.connection}
         onRetry={props.onRetry}

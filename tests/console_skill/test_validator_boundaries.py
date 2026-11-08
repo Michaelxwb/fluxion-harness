@@ -141,3 +141,22 @@ def test_e04_secret_scan_rejects_and_never_leaks_secret() -> None:
     assert secret not in repr(error)
     assert secret not in str(error.message_args)
     assert secret not in str(error.data)
+
+
+def test_review_falls_back_to_the_declared_manifest_entrypoint() -> None:
+    """manifest 已声明 entrypoint 时不再误报「未指定默认脚本」，并校验该入口在包内。"""
+    data = demo_package(
+        extra_files={
+            "muad.skill.json": '{"name": "Demo Skill", "author": "tester", "entrypoint": "scripts/run.py"}'
+        }
+    )
+    review = skill_validator.review_package(data)
+    entrypoint = next(check for check in review.checks if check.code == "ENTRYPOINT")
+    assert entrypoint.status == "pass"
+    assert entrypoint.path == "scripts/run.py"
+
+
+def test_review_warns_only_when_nothing_declares_an_entrypoint() -> None:
+    review = skill_validator.review_package(demo_package())
+    entrypoint = next(check for check in review.checks if check.code == "ENTRYPOINT")
+    assert entrypoint.status == "warn"

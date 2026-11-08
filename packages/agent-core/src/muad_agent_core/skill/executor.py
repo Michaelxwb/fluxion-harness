@@ -50,7 +50,7 @@ class ScriptSkillExecutor:
         except SkillPackageError as exc:
             raise SkillExecutionError(exc.message) from exc
         except PlatformAuthError as exc:
-            raise SkillExecutionError(exc.code) from None
+            raise SkillExecutionError(exc.code, detail=exc.detail, retryable=exc.retryable) from None
         except RedisError:
             raise SkillExecutionError("PLATFORM_SESSION_STORE_UNAVAILABLE") from None
 

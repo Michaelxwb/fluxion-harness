@@ -336,6 +336,8 @@ def test_rule_ui_detail_keeps_object_actions_in_list_and_reuses_sidesheet() -> N
     assert "actionColumn" in page
     assert "delete-skill-${record.key}" in page
     assert "approve-skill-${record.key}" in page
+    # 审批入口只在有待审版本时出现：已批准/已驳回的行走详情里的审批 Tab，不给空面板入口
+    assert "record.review_status === 'PENDING'" in page
 
 
 # ---------------------------------------------------------------------------
@@ -480,6 +482,8 @@ api.defaults.adapter = async (config) => {
         : null,
     formSource: config.data instanceof FormData ? config.data.get('source') : null,
     formVersion: config.data instanceof FormData ? config.data.get('version') : null,
+    formKey: config.data instanceof FormData ? config.data.get('key') : null,
+    formDefaultScript: config.data instanceof FormData ? config.data.get('default_script') : null,
     formHasFile: config.data instanceof FormData ? Boolean(config.data.get('file')) : false,
     responseType: config.responseType ?? null
   };
@@ -645,7 +649,10 @@ def test_service_routes_are_exercised_against_mocked_console_api(tmp_path: Path)
 
     imports = by_url[("POST", "/skills/import")]
     assert imports["formSource"] == "SYSTEM"
-    assert imports["formVersion"] == "1.0.0"
+    # 版本/ key / 默认脚本由 zip 包解析（manifest version / SKILL.md name / entrypoint），不再由表单提交。
+    assert imports["formVersion"] is None
+    assert imports["formKey"] is None
+    assert imports["formDefaultScript"] is None
     assert imports["formHasFile"] is True
 
     agent_pages = [item for item in requests if item["url"] == "/skills/skill-1/agents"]

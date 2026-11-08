@@ -34,6 +34,7 @@ from muad_contracts.webchat import (
     ActiveRunStatus,
     ConversationStatus,
     WebchatActiveRun,
+    WebchatAttachment,
     WebchatConfirmation,
     WebchatConversationDetail,
     WebchatConversationItem,
@@ -42,6 +43,7 @@ from muad_contracts.webchat import (
     WebchatHistoryMessage,
     WebchatMessagePage,
 )
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db_clock import database_now
@@ -52,6 +54,7 @@ from ..infrastructure.models.runtime import (
     RunInterrupt,
     RunRecord,
 )
+from .attachments.publication import PUBLISH_EVENT_TYPE
 from .channel_conversations import ConversationScope, display_title, load_explicit_conversation
 from .conversation_policy import ConversationPolicy, assert_conversation_live
 from .execution_status import project_execution_status
@@ -154,7 +157,8 @@ def _message_conditions(
     return [
         CanonicalEvent.tenant_id == scope.tenant_id,
         CanonicalEvent.conversation_id == conversation_id,
-        CanonicalEvent.event_type.in_(PUBLIC_MESSAGE_EVENT_TYPES),
+        # 发布事实是**可见条目**（承载已发布的文件）：它参加分页与总量，总水位因此自洽。
+        CanonicalEvent.event_type.in_((*PUBLIC_MESSAGE_EVENT_TYPES, PUBLISH_EVENT_TYPE)),
         ~_hidden_confirmation_receipt(watermark),
         # 无 Run 归属的历史事件无法证实来源，不冒认成网页历史（与「无法证实归属保留审计」同口径）。
         CanonicalEvent.run_id.is_not(None),
@@ -239,6 +243,33 @@ def _visible_message(
     """canonical 行 → 可见消息（共用投影的唯一入口；非消息/不可证实归属返回 None）。"""
     fact = project_public_fact(row, artifacts)
     return fact if isinstance(fact, WebchatHistoryMessage) else None
+
+
+def _publication_message(
+    row: Any, artifacts: Mapping[uuid.UUID, Artifact]
+) -> WebchatHistoryMessage:
+    """发布事实 → 一条承载附件的助手条目（用事件自己的 identity/seq/时间，不另造事实）。
+
+    坏载荷是已知公开事件的内部错误：显式失败，不静默当过滤。
+    """
+    try:
+        attachment = WebchatAttachment.model_validate(row.payload_json)
+    except ValidationError as exc:
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+    stored = artifacts.get(attachment.artifact_id)
+    return WebchatHistoryMessage(
+        event_id=row.id,
+        seq=row.seq,
+        run_id=row.run_id,
+        role="ASSISTANT",
+        text="",
+        attachments=[
+            attachment.model_copy(
+                update={"available": stored is not None and not stored.is_deleted}
+            )
+        ],
+        created_at=row.create_time,
+    )
 
 
 class WebchatHistoryService:
@@ -348,11 +379,7 @@ class WebchatHistoryService:
             scope, conversation.id, watermark, page=page, page_size=page_size
         )
         artifacts = await self._artifacts_for(scope, rows)
-        items = [
-            item
-            for row in reversed(rows)
-            if (item := _visible_message(row, artifacts)) is not None
-        ]
+        items = self._message_items(rows, artifacts)
         return WebchatMessagePage(
             items=items, page=page, page_size=page_size, total=total, through_seq=watermark
         )
@@ -481,11 +508,54 @@ class WebchatHistoryService:
         )
         return await _paged_rows(self._session, page_stmt=page_stmt, total_stmt=total_stmt)
 
+    def _message_items(
+        self, rows: Sequence[Any], artifacts: Mapping[uuid.UUID, Artifact]
+    ) -> list[WebchatHistoryMessage]:
+        """页内条目：可见消息 + 发布事实。
+
+        发布事实是**真实 canonical 行**（它参加分页与总量）。同一轮既有正文又有发布时，卡片
+        挂到该 Run 的助手消息上（用户看到的是"回复带文件"），不再重复列出独立条目；Run 没有
+        正文（失败/取消）时它就作为一条空正文助手条目出现 —— 已发布的文件不会因此消失。
+        """
+        publications: dict[uuid.UUID, list[WebchatHistoryMessage]] = {}
+        entries: list[tuple[int, WebchatHistoryMessage]] = []
+        answers: set[int] = set()
+        for row in reversed(rows):
+            if row.event_type == PUBLISH_EVENT_TYPE:
+                published = _publication_message(row, artifacts)
+                publications.setdefault(published.run_id, []).append(published)
+                continue
+            item = _visible_message(row, artifacts)
+            if item is not None:
+                if row.event_type == "ASSISTANT_MESSAGE":
+                    answers.add(len(entries))
+                entries.append((item.seq, item))
+        merged: set[uuid.UUID] = set()
+        for index, (seq, item) in enumerate(entries):
+            if index not in answers or item.run_id not in publications:
+                continue
+            attachments = [
+                attachment
+                for message in publications[item.run_id]
+                for attachment in message.attachments
+            ]
+            entries[index] = (seq, item.model_copy(update={"attachments": attachments}))
+            merged.add(item.run_id)
+        for run_id, messages in publications.items():
+            if run_id in merged:
+                continue
+            entries.extend((message.seq, message) for message in messages)
+        entries.sort(key=lambda pair: pair[0])
+        return [item for _, item in entries]
+
     async def _artifacts_for(
         self, scope: HistoryScope, rows: Sequence[Any]
     ) -> dict[uuid.UUID, Artifact]:
         """按页批量取附件权威行（含软删 tombstone：失效附件要投影 `available=false`）。"""
-        artifact_ids = visible_attachment_ids(rows)
+        artifact_ids = list(visible_attachment_ids(rows))
+        for row in rows:
+            if row.event_type == PUBLISH_EVENT_TYPE and row.artifact_id is not None:
+                artifact_ids.append(row.artifact_id)
         if not artifact_ids:
             return {}
         artifacts = await self._session.scalars(

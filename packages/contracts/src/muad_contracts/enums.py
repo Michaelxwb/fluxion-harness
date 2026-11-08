@@ -168,3 +168,8 @@ DEFAULT_CHANNEL: ChannelName = "WECOM"
 #: 通道写 `PENDING` 出站意图，其余（站内入口）写 `NOT_REQUIRED`。Runtime 只消费本常量，不在
 #: 核心域按通道分支。
 OUTBOUND_CHANNELS: frozenset[ChannelName] = frozenset({"WECOM"})
+
+#: 出站由**本进程的持久会话流**完成的通道（站内入口）：产物不经过 IM 出站管道，直接落目标
+#: 会话的 canonical 流（`artifact.created`），由该会话的订阅面与历史面读取同一事实。
+#: 与 `OUTBOUND_CHANNELS` 一起覆盖内建通道；不属于任一组的未知通道必须显式拒绝，不猜。
+LOCAL_STREAM_CHANNELS: frozenset[ChannelName] = frozenset({"WEBCHAT"})

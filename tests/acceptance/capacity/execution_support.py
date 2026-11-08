@@ -557,6 +557,9 @@ def _sse_events(body: str) -> tuple[dict[str, Any], ...]:
     return tuple(events)
 
 
+#: 直连 `/v1/runs` 的入口身份（本 harness 的 WebChat 直连，不依赖 Console 解析）。
+CAPACITY_DIRECT_ENTRY = uuid.uuid4()
+
 def build_run_payload(
     *,
     agent_id: uuid.UUID,
@@ -566,6 +569,7 @@ def build_run_payload(
     message_id: str | None = None,
     attachments: Sequence[Mapping[str, Any]] = (),
     bot_id: str = "capacity-webchat",
+    entry_id: uuid.UUID = CAPACITY_DIRECT_ENTRY,
 ) -> dict[str, Any]:
     """真实 `POST /v1/runs` 的请求体（受理指纹含 message 的正文与附件）。"""
     payload: dict[str, Any] = {
@@ -573,6 +577,7 @@ def build_run_payload(
         "platform_user_id": str(user_id),
         "channel": {
             "type": "WEBCHAT",
+            "entry_id": str(entry_id),
             "bot_id": bot_id,
             "external_user_id": str(user_id),
             "external_conversation_id": str(conversation_id) if conversation_id else None,

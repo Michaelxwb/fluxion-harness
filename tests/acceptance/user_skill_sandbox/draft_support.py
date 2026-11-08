@@ -8,6 +8,8 @@ from typing import Any
 from httpx import AsyncClient, Response
 
 INTERNAL_TOKEN = "acceptance-internal-token"
+#: 验收默认 Agent（草稿按 tenant+user+agent 隔离）。
+DEFAULT_AGENT = uuid.uuid4()
 
 
 def new_tenant(prefix: str) -> str:
@@ -20,12 +22,14 @@ async def create_draft(
     tenant_id: str,
     owner_user_id: uuid.UUID,
     key: str,
+    agent_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
     response = await client.post(
         "/internal/skills/drafts",
         json={
             "tenant_id": tenant_id,
             "owner_user_id": str(owner_user_id),
+            "agent_id": str(agent_id or DEFAULT_AGENT),
             "key": key,
         },
     )

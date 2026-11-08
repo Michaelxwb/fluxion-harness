@@ -48,6 +48,9 @@ from muad_contracts.platform_settings import ToolResultSettings
 
 from agent_runtime.conftest import FakeExecutor, TenantContext, parse_sse
 
+#: 稳定入口身份：同一测试的多条消息必须落在同一条会话上（入口是会话作用域的一部分）。
+ENTRY_ID = uuid.uuid4()
+
 #: 外置阈值只从 schema 取（TASK-011 收敛：源码里不再有第二套默认常量）。
 TOOL_RESULT_ARTIFACT_BYTES = ToolResultSettings().persist_threshold_bytes
 
@@ -450,7 +453,7 @@ async def test_run_request_carries_history_and_credentials_surface(
     payload = {
         "agent_id": str(tenant.agent_id),
         "platform_user_id": str(tenant.platform_user_id),
-        "channel": {"type": "WECOM", "bot_id": "bot-1"},
+        "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-1"},
         "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": "first"},
     }
     first = await client.post("/v1/runs", json=payload, headers={"X-Tenant-Id": tenant.tenant_id})

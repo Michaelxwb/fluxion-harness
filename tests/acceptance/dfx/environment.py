@@ -58,6 +58,9 @@ TENANT_PREFIX = "dfx-reliability"
 # 每次运行唯一租户：可识别前缀 + 随机后缀；跨租户对照样本同样唯一，不与历史残留相撞。
 TENANT = f"{TENANT_PREFIX}-{uuid.uuid4().hex[:12]}"
 CROSS_TENANT = f"{TENANT_PREFIX}-cross-{uuid.uuid4().hex[:12]}"
+#: 入口身份（`ChannelContext.entry_id` 必填）：DFX 用例只要求它是稳定 UUID，
+#: 不校验入口归属（投递按 `bot_id` 路由），故用会话级常量而不是真实 bot 行。
+ENTRY_ID = uuid.uuid4()
 INTERNAL_TOKEN = "dfx-reliability-internal-token"
 MODEL_API_KEY = "dfx-reliability-model-key"
 SKILL_KEY = "dfx_reliability_probe"
@@ -138,6 +141,8 @@ PURGE_COUNTS: tuple[tuple[str, str], ...] = (
      "agent_id IN (SELECT id FROM control.agent_definition WHERE tenant_id = :t)"),
     ("control.agent_access_grant",
      "agent_id IN (SELECT id FROM control.agent_definition WHERE tenant_id = :t)"),
+    # 绑定行引用 platform_user 与 bot_account：必须先删，否则 FK 拒绝清库。
+    ("control.channel_identity", "tenant_id = :t"),
     ("control.platform_user", "tenant_id = :t"),
     ("control.agent_definition", "tenant_id = :t"),
     ("control.model_definition", "tenant_id = :t"),
@@ -249,7 +254,7 @@ def worker_instance_id(stack: DfxStack) -> str:
 
 def seed_control(database_url: str, artifact_root: Path) -> dict[str, Any]:
     """本租户控制面真实行 + 真实 Skill 包（Artifact Store 根下一个真 zip）。"""
-    from muad_console_platform.infrastructure.models.channel import BotAccount
+    from muad_console_platform.infrastructure.models.channel import BotAccount, ChannelIdentity
     from muad_console_platform.infrastructure.models.control import (
         AgentAccessGrant,
         AgentDefinition,
@@ -319,18 +324,36 @@ def seed_control(database_url: str, artifact_root: Path) -> dict[str, Any]:
             # 生产同形的 WECOM bot 行：Connector 的 bot 快照按 (tenant, channel, enabled) 取，
             # 缺行时它不会持有 lease，`im.outbound` 命令就没有消费方（表现为投递等待超时）。
             # secret 每次运行随机生成且只入库，不进日志/响应。
-            for bot_id in WECOM_BOT_IDS:
-                session.add(
-                    BotAccount(
+            bots = [
+                BotAccount(
+                    tenant_id=TENANT,
+                    channel="WECOM",
+                    name=f"DFX Bot {bot_id}",
+                    bot_id=bot_id,
+                    secret=f"dfx-bot-secret-{uuid.uuid4().hex}",
+                    agent_id=agent.id,
+                    enabled=True,
+                )
+                for bot_id in WECOM_BOT_IDS
+            ]
+            session.add_all(bots)
+            await session.flush()
+            # 投递前复核按「原入口 + 接收者」重建授权：没有绑定行就是未授权（403），
+            # 投递永远到不了渠道探针。为本套件固定的外部接收者补绑定。
+            session.add_all(
+                [
+                    ChannelIdentity(
                         tenant_id=TENANT,
                         channel="WECOM",
-                        name=f"DFX Bot {bot_id}",
-                        bot_id=bot_id,
-                        secret=f"dfx-bot-secret-{uuid.uuid4().hex}",
-                        agent_id=agent.id,
-                        enabled=True,
+                        identity_key=f"WECOM:{bot.bot_id}:{external_user_id}",
+                        external_user_id=external_user_id,
+                        bot_account_id=bot.id,
+                        platform_user_id=user.id,
                     )
-                )
+                    for bot in bots
+                    for external_user_id in ("dfx-delivery-user", "dfx-recovery-user")
+                ]
+            )
             await session.flush()
             skill = Skill(
                 tenant_id=TENANT,

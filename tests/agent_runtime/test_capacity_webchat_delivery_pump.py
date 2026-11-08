@@ -83,6 +83,7 @@ BOT_ID = "bot-wecom-1"
 EXTERNAL_USER_ID = "external-user-1"
 EXTERNAL_THREAD_ID = "external-thread-1"
 FINAL_TEXT = "真实终态正文：任务已完成"
+INPUT_MESSAGE_ID = "msg-pump-1"
 INTERNAL_TOKEN = "pump-internal-token"
 BACKOFF_BASE_SEC = 5
 WAIT_TIMEOUT_SEC = 15.0
@@ -322,6 +323,7 @@ async def pump_builder(
 def _channel_json() -> dict[str, Any]:
     return ChannelContext(
         type="WECOM",
+        entry_id=ENTRY_ID,
         bot_id=BOT_ID,
         external_user_id=EXTERNAL_USER_ID,
         external_conversation_id=EXTERNAL_THREAD_ID,
@@ -365,6 +367,7 @@ async def _seed_intent(
                 agent_id=tenant.agent_id,
                 status=RunStatus.COMPLETED,
                 input_text="seed",
+                input_message_id=INPUT_MESSAGE_ID,
                 trace_id=f"pump-seed-{seq}",
                 start_time=now,
                 deadline_at=now + timedelta(seconds=600),
@@ -579,7 +582,14 @@ async def test_b266_pending_intent_is_delivered_to_the_original_entry_over_real_
         "external_user_id": EXTERNAL_USER_ID,
         "external_conversation_id": EXTERNAL_THREAD_ID,
     }
-    assert body["message"] == {"type": "text", "text": FINAL_TEXT, "artifact": None}
+    assert body["message"] == {
+        "type": "terminal",
+        "text": FINAL_TEXT,
+        "artifact": None,
+        "status": "COMPLETED",
+        "error_code": None,
+    }
+    assert body["message_id"] == INPUT_MESSAGE_ID
     assert request["headers"]["x-internal-service"] == INTERNAL_TOKEN
     row = await _row(seed.notification_id)
     assert row["delivery_state"] == "DELIVERED"

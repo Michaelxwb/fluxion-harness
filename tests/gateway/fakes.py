@@ -21,8 +21,10 @@ from muad_contracts import (
     DEFAULT_PAGE_SIZE,
     ArtifactDeliveryAuditRequest,
     BotSnapshotResponse,
+    CancelSource,
     ChannelBindRequest,
     ChannelBindResponse,
+    ChannelContext,
     ChannelEnvelope,
     ChannelResolveRequest,
     ChannelResolveResponse,
@@ -37,7 +39,7 @@ from muad_im_gateway.application.runtime_client import SseEvent
 
 class FakeConsoleClient:
     def __init__(self) -> None:
-        self.resolve_response = ChannelResolveResponse(bound=False)
+        self.resolve_response = ChannelResolveResponse(bound=False, entry_id=uuid4())
         self.resolve_error: AppError | None = None
         self.bind_response = ChannelBindResponse(platform_user_id=uuid4())
         self.bind_error: AppError | None = None
@@ -136,7 +138,9 @@ class FakeRuntimeClient:
         self.run_keys: list[str | None] = []
         self.conversations: list[tuple[UUID, UUID]] = []
         self.conversation_keys: list[str | None] = []
+        self.conversation_channels: list[ChannelContext] = []
         self.cancel_calls: list[tuple[UUID, UUID]] = []
+        self.cancel_sources: list[CancelSource] = []
 
     async def create_run(
         self,
@@ -177,11 +181,13 @@ class FakeRuntimeClient:
         tenant_id: str = "",
         trace_id: str = "",
         idempotency_key: str | None = None,
+        channel: ChannelContext,
     ) -> dict[str, Any]:
         if self.conversation_error is not None:
             raise self.conversation_error
         self.conversations.append((agent_id, platform_user_id))
         self.conversation_keys.append(idempotency_key)
+        self.conversation_channels.append(channel)
         return {"conversation_id": str(uuid4())}
 
     async def cancel_active(
@@ -191,8 +197,10 @@ class FakeRuntimeClient:
         *,
         tenant_id: str = "",
         trace_id: str = "",
+        source: CancelSource,
     ) -> dict[str, Any]:
         self.cancel_calls.append((agent_id, platform_user_id))
+        self.cancel_sources.append(source)
         if self.cancel_error is not None:
             raise self.cancel_error
         return {"run_id": str(uuid4()), "status": "CANCELLING"}
@@ -338,6 +346,7 @@ def make_envelope(
 def resolved_response(*, bound: bool = True, authorized: bool = True) -> ChannelResolveResponse:
     return ChannelResolveResponse(
         bound=bound,
+        entry_id=uuid4(),
         agent_id=uuid4(),
         platform_user_id=uuid4() if bound else None,
         authorized=authorized,

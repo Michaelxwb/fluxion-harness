@@ -25,7 +25,10 @@ from tests.gateway.test_stream_renderer import (
     B115_BOT,
     B115_CHAT,
     B115_EXTERNAL_USER,
+    _parse_real_sse,
+    _pipeline,
     _run_once,
+    _wait_for,
 )
 from tests.gateway.test_stream_renderer import (
     adapter as adapter,
@@ -121,13 +124,13 @@ def test_b401_budget_caps_refreshes_and_refills_without_backlog():
 @pytest.mark.parametrize(
     ("terminal", "data", "expected"),
     [
-        ("run.completed", {"status": "CANCELLED"}, "当前任务已停止"),
-        ("run.failed", {"error_code": "MODEL_UNAVAILABLE"}, "模型服务暂时不可用"),
+        # Run 终态（completed/failed）不再由 Gateway 收尾：机器人通道的终态正文与
+        # finish 由持久投递泵发送（见 test_capacity_webchat_gateway_delivery 的单发送者用例）。
         ("interrupt.required", {"prompt": "请确认", "options": ["继续", "停止"]}, "继续"),
         ("task.accepted", {}, "任务已受理"),
     ],
 )
-async def test_e401_pipeline_closes_real_reply_on_stop_or_wait(
+async def test_e401_pipeline_closes_real_reply_on_wait_or_task_accept(
     adapter: WeComAdapter,
     probe: WeComProbe,
     catalog: MessageCatalog,
@@ -250,22 +253,36 @@ async def test_e401_rejected_status_does_not_abort_run_or_leak_session(
     catalog: MessageCatalog,
     caplog: pytest.LogCaptureFixture,
 ):
+    """状态帧被渠道拒绝只丢状态；Run 继续，会话随后由持久投递链收尾并释放。"""
     probe.fail_reply_bots.add(B115_BOT)
-    frames = await _run_once(
-        adapter,
-        probe,
-        catalog,
+    events = await _parse_real_sse(
         [
             ("run.created", {}),
             ("model.started", {}),
             ("tool.started", {"tool_call_id": "work"}),
             ("run.completed", {"status": "COMPLETED", "final_text": "仍然完成"}),
-        ],
-        expect="仍然完成",
+        ]
     )
-    assert any("仍然完成" in frame_text(frame) for frame in frames)
-    assert "channel_status_update_failed" in caplog.text
-    assert not adapter._replies
+    pipeline = _pipeline(events, catalog)
+    consumer = asyncio.create_task(pipeline.consume(adapter))
+    try:
+        await probe.push_message(
+            bot_id=B115_BOT,
+            message_id=f"b115-{uuid4().hex[:8]}",
+            external_user_id=B115_EXTERNAL_USER,
+            text="检查设备",
+            reply_id="req-b115",
+            chat_id=B115_CHAT,
+        )
+        await _wait_for(
+            lambda: "channel_status_update_failed" in caplog.text,
+            what="被拒绝的状态帧没有留痕",
+        )
+        await _wait_for(lambda: not adapter._replies, what="终态后回复会话未释放")
+    finally:
+        consumer.cancel()
+        with suppress(asyncio.CancelledError):
+            await consumer
 
 
 @pytest.mark.parametrize("rate", [0, 0.5, -1])

@@ -131,7 +131,31 @@ if output_dir:
 
 - `SKILL_DATA_DIR` 跨执行持久，按 tenant + user + Agent 隔离；`cache` / `logs` / `companies` 都放这里。
 - `SKILL_OUTPUT_DIR` 每次执行独立；执行器会扫描并登记为本次执行的产物。
+- 宿主目录已经是 `<WORKSPACE_ROOT>/<tenant_id>/<user_id>/<agent_id>/outputs/<execution_id>`，沙箱内只挂当前 user + Agent 的根到 `/workspace`，因此不同用户/Agent 互相看不到对方的产物。
 - 本地直接调试时 `SKILL_OUTPUT_DIR` 可能为空：脚本必须判空，不能回退写当前目录或包根目录。
+
+导入 Skill 时不再手填版本、Skill key 和默认脚本：版本取 `muad.skill.json` 的 `version`（缺省 `1.0.0`），
+Skill key 由 `SKILL.md` 的 `name` 生成，默认脚本取 manifest 的 `entrypoint`。
+
+新平台的业务 Skill 模板见 `skills/_templates/business-skill-python/`；`smoke_platform` 的端到端样例见
+`skills/smoke-platform-sample/` 与 `tools/fake-business-platform/`。
+
+### 2.1.1 Skill 的执行入口：只用 `execute_skill`
+
+平台对模型只暴露 `execute_skill` 一个 Skill 执行入口；`run_skill_script` 默认不注册（仅调试开关下可用）。这样用户和模型都不需要判断"该调哪个工具"。
+
+多 Phase / 多子脚本的旧 Skill，在**接入层**加一个薄分发器（不改业务逻辑）：
+
+- `muad.skill.json` 的 `entrypoint` 指向 `scripts/run.py`；
+- `scripts/run.py` 只解析 `--phase N`，把剩余 argv 原样交给已有的 Phase 脚本
+  （`runpy.run_path`，与直接 `python3 phaseN/xxx.py` 完全同构：`sys.argv`、stdout、退出码不变）；
+- `SKILL.md` 写清"用户意图 → `--phase` 参数"，模型始终调用：
+
+```text
+execute_skill(skill_key="policy-check-mssp", argv=["--phase", "2", "--latest"])
+```
+
+不要为了适配而改业务逻辑：Phase 脚本保持原样，本地仍可单独运行。`run_skill_script` 只在调试时显式打开，不能作为技能的正常入口。
 
 ### 2.2 登录态：session-manager 替代 cookies.txt
 

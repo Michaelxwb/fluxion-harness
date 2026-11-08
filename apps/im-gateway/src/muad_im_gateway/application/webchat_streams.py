@@ -50,6 +50,8 @@ from muad_contracts.webchat_events import (
     WebchatStageEvent,
     WebchatTerminal,
     WebchatTerminalEvent,
+    WebchatToolEvent,
+    WebchatToolProgress,
 )
 from pydantic import ValidationError
 
@@ -78,6 +80,8 @@ PUBLIC_STREAM_EVENT_TYPES: dict[str, str] = {
     "artifact.created": "artifact.created",
     "interrupt.required": "confirmation.required",
     "memory.confirmation_required": "confirmation.required",
+    "tool.started": "run.tool",
+    "tool.completed": "run.tool",
 }
 #: 公开事件身份的派生命名空间：canonical 行 id 不在 Owner 流封套里，公开身份只由 (run, seq) 派生。
 PUBLIC_IDENTITY_NAMESPACE = uuid.UUID("2c9d4f6a-5b18-4e73-9a20-7d1f3b8c6e54")
@@ -239,20 +243,30 @@ class WebchatPublicProjector:
         if public_type is None:
             return None
         payload = event.data if isinstance(event.data, dict) else {}
+        if public_type == "run.tool" and not isinstance(payload.get("tool_name"), str):
+            # 历史行可能没有工具名（本次改动前写的 `tool.completed`）：没有可公开的工具有意义
+            # 信息就按内部行过滤，绝不能因为缺字段关闭整条订阅。
+            return None
         timestamp = _aware_timestamp(event.timestamp)
         if public_type == "message.snapshot":
             return self._snapshot(payload, event.seq, timestamp)
         if public_type in ("confirmation.required", "artifact.created"):
             return self._optional(public_type, payload, event.seq, timestamp)
         try:
-            return self._build(public_type, payload, event.seq, timestamp)
+            return self._build(public_type, payload, event.seq, timestamp, source=event.type)
         except ValidationError as exc:
             raise MalformedPublicEvent(
                 f"stream_type={event.type} seq={event.seq}"
             ) from exc
 
     def _build(
-        self, public_type: str, payload: dict[str, Any], seq: int, timestamp: datetime
+        self,
+        public_type: str,
+        payload: dict[str, Any],
+        seq: int,
+        timestamp: datetime,
+        *,
+        source: str,
     ) -> PublicWebchatEvent:
         """白名单内的公开事件：字段逐项显式取值，内部载荷字段没有位置。"""
         identity = _identity(
@@ -279,6 +293,19 @@ class WebchatPublicProjector:
                 data=WebchatExecutionStatus.model_validate(payload),
                 **identity,
             )
+        if public_type == "run.tool":
+            # 只公开工具名与阶段：参数、结果预览与异常都留在内部帧里。
+            return WebchatToolEvent(
+                type="run.tool",
+                data=WebchatToolProgress.model_validate(
+                    {
+                        "name": payload.get("tool_name"),
+                        "phase": "STARTED" if source == "tool.started" else "FINISHED",
+                        "status": payload.get("status"),
+                    }
+                ),
+                **identity,
+            )
         if public_type == "run.terminal":
             return WebchatTerminalEvent(
                 type="run.terminal",
@@ -292,6 +319,9 @@ class WebchatPublicProjector:
                     {
                         "code": payload.get("error_code"),
                         "retryable": payload.get("retryable", False),
+                        # 失败终态里带了收尾结论正文（`final_text`）⇒ 客户端不再弹「失败，请重发」。
+                        "has_reply": bool(payload.get("final_text"))
+                        or payload.get("has_reply") is True,
                     }
                 ),
                 **identity,

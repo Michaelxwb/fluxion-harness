@@ -46,7 +46,6 @@ def test_workspace_quota_defaults_are_500mib_5000_files_and_30_days() -> None:
     assert fields["workspace_quota_mib"].default == 500
     assert fields["workspace_user_quota_mib"].default == 500
     assert fields["workspace_file_limit"].default == 5000
-    assert fields["workspace_output_ttl_days"].default == 30
     assert fields["workspace_data_ttl_days"].default == 30
 
     policy = WorkspaceQuotaPolicy.from_layout(make_layout(Path("/tmp/workspace-layout-check")))

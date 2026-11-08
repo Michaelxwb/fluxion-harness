@@ -129,6 +129,14 @@ def _chat_headers(context: UUID | str = SESSION_ID) -> dict[str, str]:
     return {"X-Chat-Context": str(context)}
 
 
+#: 取件必须带目标会话 + 版本：授权按目标会话裁决，checksum 选定发布过的版本。
+DOWNLOAD_CHECKSUM = "sha256:" + "a" * 64
+
+
+def _download_params(**extra: str) -> dict[str, str]:
+    return {"conversation_id": str(CONVERSATION_ID), "checksum": DOWNLOAD_CHECKSUM, **extra}
+
+
 def _sha256(data: bytes) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
@@ -218,6 +226,8 @@ class _ResolveCall:
     headers: dict[str, str]
     artifact_id: str
     user_id: str | None
+    conversation_id: str | None = None
+    checksum: str | None = None
 
 
 @dataclass
@@ -248,6 +258,8 @@ class _RuntimeProbe:
                 headers=dict(request.headers),
                 artifact_id=artifact_id,
                 user_id=request.query_params.get("user_id"),
+                conversation_id=request.query_params.get("conversation_id"),
+                checksum=request.query_params.get("checksum"),
             )
             self.calls.append(call)
             record = self.artifacts.get(artifact_id)
@@ -461,7 +473,7 @@ async def test_b255_download_serves_authorized_bytes_without_leaking_storage_key
     )
 
     async with _gateway_client(stub_console, runtime_probe, store) as client:
-        response = await client.get(CONTENT_URL, headers=_chat_headers())
+        response = await client.get(CONTENT_URL, headers=_chat_headers(), params=_download_params())
 
     assert response.status_code == 200, response.text
     assert response.content == PDF_BYTES, "响应字节必须与共享存储逐字节一致"
@@ -483,6 +495,9 @@ async def test_b255_download_serves_authorized_bytes_without_leaking_storage_key
     call = runtime_probe.calls[0]
     assert call.artifact_id == str(ARTIFACT_ID)
     assert call.user_id == str(PLATFORM_USER_ID)
+    # 目标会话与版本原样转给 Owner：授权按目标会话裁决，checksum 选定发布过的版本。
+    assert call.conversation_id == str(CONVERSATION_ID)
+    assert call.checksum == DOWNLOAD_CHECKSUM
     assert call.headers["x-tenant-id"] == GATEWAY_TENANT
     assert call.headers["x-internal-service"] == INTERNAL_TOKEN
     assert store.resolved_keys == [STORAGE_KEY], "取件键只来自 Owner 解析，不由客户端提供"
@@ -544,16 +559,23 @@ async def test_b255_image_preview_is_inline_while_executable_content_downloads(
 
     async with _gateway_client(stub_console, runtime_probe, store) as client:
         image = await client.get(
-            f"/api/v1/webchat/artifacts/{ARTIFACT_ID}/content", headers=_chat_headers()
+            f"/api/v1/webchat/artifacts/{ARTIFACT_ID}/content", headers=_chat_headers(),
+            params=_download_params(),
         )
         html = await client.get(
-            f"/api/v1/webchat/artifacts/{OTHER_ARTIFACT_ID}/content", headers=_chat_headers()
+            f"/api/v1/webchat/artifacts/{OTHER_ARTIFACT_ID}/content",
+            headers=_chat_headers(),
+            params=_download_params(),
         )
         svg = await client.get(
-            f"/api/v1/webchat/artifacts/{DELETED_ARTIFACT_ID}/content", headers=_chat_headers()
+            f"/api/v1/webchat/artifacts/{DELETED_ARTIFACT_ID}/content",
+            headers=_chat_headers(),
+            params=_download_params(),
         )
         broken = await client.get(
-            f"/api/v1/webchat/artifacts/{TRANSCRIPT_ARTIFACT_ID}/content", headers=_chat_headers()
+            f"/api/v1/webchat/artifacts/{TRANSCRIPT_ARTIFACT_ID}/content",
+            headers=_chat_headers(),
+            params=_download_params(),
         )
 
     assert image.status_code == 200, image.text
@@ -612,7 +634,9 @@ async def test_b255_cross_user_cross_tenant_and_deleted_artifacts_are_refused(
     async with _gateway_client(stub_console, runtime_probe, store) as client:
         responses = [
             await client.get(
-                f"/api/v1/webchat/artifacts/{artifact_id}/content", headers=_chat_headers()
+                f"/api/v1/webchat/artifacts/{artifact_id}/content",
+                headers=_chat_headers(),
+                params=_download_params(),
             )
             for artifact_id in (
                 OTHER_ARTIFACT_ID,
@@ -659,7 +683,7 @@ async def test_b255_revoked_agent_and_disabled_entry_refuse_before_reading_bytes
     # ① Console 的当前授权集合里已没有该 Agent（撤销）：403，不读字节。
     console_probe.agents = []
     async with _gateway_client(stub_console, runtime_probe, store) as client:
-        revoked = await client.get(CONTENT_URL, headers=_chat_headers())
+        revoked = await client.get(CONTENT_URL, headers=_chat_headers(), params=_download_params())
     assert revoked.status_code == 403, revoked.text
     assert revoked.json()["code"] == "FORBIDDEN"
     assert store.resolved_keys == []
@@ -676,7 +700,7 @@ async def test_b255_revoked_agent_and_disabled_entry_refuse_before_reading_bytes
         entry_id=DISABLED_ENTRY_ID,
     )
     async with _gateway_client(stub_console, runtime_probe, store) as client:
-        disabled = await client.get(CONTENT_URL, headers=_chat_headers())
+        disabled = await client.get(CONTENT_URL, headers=_chat_headers(), params=_download_params())
     assert disabled.status_code == 404, disabled.text
     assert disabled.json()["code"] == "COMMON_NOT_FOUND"
     assert store.resolved_keys == []
@@ -697,7 +721,7 @@ async def test_b255_revoked_agent_and_disabled_entry_refuse_before_reading_bytes
         agent_id=AGENT_ID,
     )
     async with _gateway_client(stub_console, runtime_probe, store) as client:
-        rebound = await client.get(CONTENT_URL, headers=_chat_headers())
+        rebound = await client.get(CONTENT_URL, headers=_chat_headers(), params=_download_params())
     assert rebound.status_code == 404, rebound.text
     assert rebound.json()["code"] == "COMMON_NOT_FOUND"
     assert store.resolved_keys == []
@@ -705,7 +729,7 @@ async def test_b255_revoked_agent_and_disabled_entry_refuse_before_reading_bytes
     # ④ 撤销的 CHAT 会话：主体门控在解析之前就拒（401，沿用 Console 口径）。
     console_probe.revoked_code = "CHAT_SESSION_REVOKED"
     async with _gateway_client(stub_console, runtime_probe, store) as client:
-        revoked_session = await client.get(CONTENT_URL, headers=_chat_headers())
+        revoked_session = await client.get(CONTENT_URL, headers=_chat_headers(), params=_download_params())
     assert revoked_session.status_code == 401
     assert revoked_session.json()["code"] == "CHAT_SESSION_REVOKED"
     assert store.resolved_keys == []
@@ -736,7 +760,7 @@ async def test_b255_client_supplied_storage_key_is_ignored_and_bad_bytes_are_ref
         ignored = await client.get(
             CONTENT_URL,
             headers=_chat_headers(),
-            params={"storage_key": CANARY_KEY, "path": CANARY_KEY},
+            params=_download_params(storage_key=CANARY_KEY, path=CANARY_KEY),
         )
         # ② 行内长度与实际字节不符：视同"拿不到"（绝不按错误长度声明 Content-Length）。
         _seed(
@@ -750,7 +774,9 @@ async def test_b255_client_supplied_storage_key_is_ignored_and_bad_bytes_are_ref
             size=len(PDF_BYTES) + 1,
         )
         mismatch = await client.get(
-            f"/api/v1/webchat/artifacts/{OTHER_ARTIFACT_ID}/content", headers=_chat_headers()
+            f"/api/v1/webchat/artifacts/{OTHER_ARTIFACT_ID}/content",
+            headers=_chat_headers(),
+            params=_download_params(),
         )
         # ③ 键越界（逃出共享存储根）：视同不存在，不落字节也不读字节。
         runtime_probe.artifacts[str(DELETED_ARTIFACT_ID)] = _ArtifactRecord(
@@ -761,7 +787,9 @@ async def test_b255_client_supplied_storage_key_is_ignored_and_bad_bytes_are_ref
             filename=None,
         )
         escaping = await client.get(
-            f"/api/v1/webchat/artifacts/{DELETED_ARTIFACT_ID}/content", headers=_chat_headers()
+            f"/api/v1/webchat/artifacts/{DELETED_ARTIFACT_ID}/content",
+            headers=_chat_headers(),
+            params=_download_params(),
         )
         # ④ 字节在磁盘上缺失（清理过/盘掉过）：对取件者同样是"没有"。
         _seed(
@@ -775,7 +803,9 @@ async def test_b255_client_supplied_storage_key_is_ignored_and_bad_bytes_are_ref
         )
         (artifact_root / missing_key).unlink()
         missing = await client.get(
-            f"/api/v1/webchat/artifacts/{TRANSCRIPT_ARTIFACT_ID}/content", headers=_chat_headers()
+            f"/api/v1/webchat/artifacts/{TRANSCRIPT_ARTIFACT_ID}/content",
+            headers=_chat_headers(),
+            params=_download_params(),
         )
 
     assert ignored.status_code == 200, ignored.text
@@ -808,7 +838,7 @@ async def test_b255_owner_resolution_completes_before_shared_bytes_are_read(
     )
 
     async with _gateway_client(stub_console, runtime_probe, store) as client:
-        response = await client.get(CONTENT_URL, headers=_chat_headers())
+        response = await client.get(CONTENT_URL, headers=_chat_headers(), params=_download_params())
 
     assert response.status_code == 200
     assert response.content == PDF_BYTES

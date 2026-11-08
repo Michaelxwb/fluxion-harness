@@ -115,7 +115,6 @@ async def test_s11_workspace_shell_is_registered_for_every_agent_without_skill_k
         quota_bytes=500 * 1024 * 1024,
         user_quota_bytes=500 * 1024 * 1024,
         file_limit=5000,
-        output_ttl_seconds=30 * 24 * 60 * 60,
         data_ttl_seconds=30 * 24 * 60 * 60,
     )
     store = WorkspaceStore(layout=layout, metadata=metadata, sandbox_mount=None)

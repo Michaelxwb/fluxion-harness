@@ -659,6 +659,9 @@ asyncio.run(main())
     webchatFaults
   }) => {
     test.slow();
+    // CI runner 比开发机慢：**正等待**（等某状态出现）按倍率放大，负等待窗口（证明
+    // "这段时间内没有发生"）保持原值——放宽的是耐心，不是断言。
+    const scaled = (ms: number) => Math.round(ms * Number(process.env.E2E_WAIT_SCALE ?? '1'));
     const seed = new WebchatSeed(webchatStack.tenant);
     const user: WebchatUserSession = webchatUsers.a;
     const session = await openChatSession(request, webchatStack, user.chatToken.token);
@@ -679,12 +682,12 @@ asyncio.run(main())
     await openChatConversation(page, user.entry.entryId, oversized.conversation_id);
     // 超预算帧前已持久化的公开增量先到（按 seq 补齐），随后订阅被显式关闭并进入重连。
     await expect(page.getByTestId('chat-streaming-reply')).toHaveText(oversized.text, {
-      timeout: 30_000
+      timeout: scaled(30_000)
     });
     await expect(page.getByTestId('chat-run-connection')).toHaveAttribute(
       'data-connection-state',
       /reconnecting|failed/,
-      { timeout: 60_000 }
+      { timeout: scaled(60_000) }
     );
     await page.waitForTimeout(15_000);
     const oversizedState =
@@ -728,7 +731,7 @@ asyncio.run(main())
     await expect(page.getByTestId('chat-run-connection')).toHaveAttribute(
       'data-connection-state',
       'cursor-recovery',
-      { timeout: 30_000 }
+      { timeout: scaled(30_000) }
     );
     await expect(page.getByTestId('chat-run-connection')).toHaveAttribute(
       'data-cursor-earliest',
@@ -741,12 +744,12 @@ asyncio.run(main())
     // 显式恢复动作只重开 GET 事件流：保留已淘汰的会话再次显式要求游标恢复（不伪造正文/成功）。
     await page.getByTestId('chat-run-connection-recover').click();
     await expect
-      .poll(() => gapGets.length, { timeout: 30_000 })
+      .poll(() => gapGets.length, { timeout: scaled(30_000) })
       .toBe(2);
     await expect(page.getByTestId('chat-run-connection')).toHaveAttribute(
       'data-connection-state',
       'cursor-recovery',
-      { timeout: 30_000 }
+      { timeout: scaled(30_000) }
     );
     await expect(page.getByTestId('chat-streaming-reply')).toHaveCount(0);
     expect(gapPosts, '显式恢复也不重发消息').toHaveLength(0);

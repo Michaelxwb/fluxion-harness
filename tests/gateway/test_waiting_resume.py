@@ -26,8 +26,8 @@ from muad_contracts.channel_delivery import (
     DeliveryReceiptPayload,
     DeliveryReservationRequest,
 )
-from muad_im_gateway.application.channel_delivery import ActiveChannelDelivery, terminal_delivery_key
-from muad_im_gateway.application.inbound import InboundPipeline, route_from_envelope
+from muad_im_gateway.application.channel_delivery import ActiveChannelDelivery
+from muad_im_gateway.application.inbound import InboundPipeline
 from muad_im_gateway.application.progress import ExecutionProgress, ProgressPhase
 from muad_im_gateway.application.sse import SseEvent, iter_sse_events
 from muad_im_gateway.application.stream_renderer import BROKEN_STREAM_TEXT
@@ -384,9 +384,10 @@ async def test_reconnect_exhaustion_reports_broken_stream_once(catalog: MessageC
     assert session.finished == 1
 
 
-async def test_lost_reply_session_delivers_final_text_once_with_stable_key(
+async def test_lost_reply_session_leaves_terminal_to_the_pump(
     catalog: MessageCatalog,
 ) -> None:
+    """回复会话失效不再由 Gateway 主动兜底：终态只由持久投递泵发送。"""
     runtime = FakeRuntimeClient(
         [
             SseEvent("run.created", {"run_id": "run-final"}, seq=1),
@@ -401,29 +402,15 @@ async def test_lost_reply_session_delivers_final_text_once_with_stable_key(
     pipeline = _pipeline(catalog, runtime, channel_delivery=delivery)
 
     assert await pipeline.handle(adapter, make_envelope("兜底")) is True
-    assert [message.text for _route, message in adapter.sent_active] == ["完整答案"]
-    assert adapter.streamed == () and adapter.sent == (), "失败会话不得再落路由级回调"
-    # 同稳定键预留/确认：与 Runtime 持久通知/投递泵**同一个** delivery_key
-    assert [request.delivery_key for request in protocol.reserves] == [
-        terminal_delivery_key("run-final")
-    ]
-    assert [ack.delivery_key for ack in protocol.acks] == [terminal_delivery_key("run-final")]
-    assert [ack.outcome for ack in protocol.acks] == ["DELIVERED"], "实际发送成功才 ack"
-    # 同投递键重放：不再真发，但如实回报"已送达（去重）"。
-    route = route_from_envelope(make_envelope("兜底"))
-    assert (
-        await delivery.deliver(
-            adapter, route, tenant_id="tenant-waiting", run_id="run-final", text="完整答案"
-        )
-        == "deduplicated"
-    )
-    assert len(adapter.sent_active) == 1
+    # Gateway 不再主动发送终态、不占投递键；持久投递泵按稳定键负责唯一一次真实发送。
+    assert adapter.sent_active == ()
+    assert protocol.reserves == [] and protocol.acks == []
 
 
-async def test_expired_reply_session_falls_back_to_active_delivery(
+async def test_expired_reply_session_leaves_terminal_to_the_pump(
     catalog: MessageCatalog,
 ) -> None:
-    """回调已过期（open 失败）也是 ReplySession 失效：终态文本走主动投递，不冒充最新回调。"""
+    """回调过期同样不触发 Gateway 主动投递：终态交给持久投递链。"""
     runtime = FakeRuntimeClient(
         [
             SseEvent("run.created", {"run_id": "run-expired"}, seq=1),
@@ -436,7 +423,7 @@ async def test_expired_reply_session_falls_back_to_active_delivery(
     pipeline = _pipeline(catalog, runtime, dedupe=dedupe)
 
     assert await pipeline.handle(adapter, make_envelope("过期")) is True
-    assert [message.text for _route, message in adapter.sent_active] == ["过期答案"]
+    assert adapter.sent_active == ()
     assert adapter.streamed == () and adapter.sent == ()
 
 

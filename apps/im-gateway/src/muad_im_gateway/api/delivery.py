@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Request
 from muad_api import ApiResponse, AppError, ErrorCode, InternalServiceDep, metrics, ok
+from muad_api.catalog import MessageCatalog
 from muad_api.context import current_trace_id
 from muad_contracts import (
     ArtifactDeliveryAuditRequest,
@@ -17,8 +18,11 @@ from muad_contracts import (
     DeliveryRequest,
     canonical_json,
 )
+from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.im import DeliveryCommand, DeliveryKind
 
+from ..application.channel_delivery import ConsoleDeliveryPermission
+from ..application.stream_renderer import BROKEN_STREAM_TEXT, STOPPED_TEXT
 from ..channels.base import (
     ArtifactDeliveryError,
     ArtifactDeliveryOutcome,
@@ -111,6 +115,20 @@ async def deliver(
     key = f"{DELIVERY_DEDUPE_PREFIX}:{body.delivery_key}"
     trace_id = current_trace_id() or ""
     _require_gateway_tenant(body, gateway_tenant)
+    # 有主动投递能力（IM 绑定）的入口才做发送前复核：撤权/换人一律不发。
+    # WebChat 等通道的授权走 CHAT 身份与持久入箱，不经 `ChannelIdentity`；
+    # 用 IM 的 resolve 去复核会把合法的 WebChat 交付误判为未绑定。
+    if body.route.channel in OUTBOUND_CHANNELS:
+        permitted = await ConsoleDeliveryPermission(console).may_deliver(
+            body.route,
+            tenant_id=body.tenant_id,
+            agent_id=body.agent_id,
+            platform_user_id=body.platform_user_id,
+        )
+        if not permitted:
+            # 被拒绝也是一次失败的投递：计数口径与实际结果一致（聚合断言读这个计数）。
+            _count_delivery("failed")
+            raise AppError(ErrorCode.FORBIDDEN)
     use_stream = _uses_outbound_stream(registry, body.route.channel)
     fingerprint = _fingerprint(body)
     try:
@@ -129,6 +147,7 @@ async def deliver(
             held=None,
             trace_id=trace_id,
             use_stream=use_stream,
+            catalog=request.app.state.message_catalog,
             stream_wait_sec=stream_wait_sec,
         )
         _count_delivery("accepted")
@@ -147,6 +166,7 @@ async def deliver(
             held=held,
             trace_id=trace_id,
             use_stream=use_stream,
+            catalog=request.app.state.message_catalog,
             stream_wait_sec=stream_wait_sec,
         )
     finally:
@@ -250,14 +270,16 @@ async def _dispatch(
     trace_id: str,
     use_stream: bool,
     stream_wait_sec: float,
+    catalog: MessageCatalog,
 ) -> ArtifactDeliveryOutcome | None:
     if use_stream:
         return await _deliver_via_stream(
             streams, console, body, resolver=resolver, held=held,
-            trace_id=trace_id, wait_sec=stream_wait_sec,
+            trace_id=trace_id, wait_sec=stream_wait_sec, catalog=catalog,
         )
     return await _send_audited(
-        registry, console, body, resolver=resolver, held=held, trace_id=trace_id
+        registry, console, body, resolver=resolver, held=held, trace_id=trace_id,
+        catalog=catalog,
     )
 
 
@@ -270,6 +292,7 @@ async def _deliver_via_stream(
     held: _Held | None,
     trace_id: str,
     wait_sec: float,
+    catalog: MessageCatalog,
 ) -> ArtifactDeliveryOutcome | None:
     """校验产物归属 → XADD `im.outbound` → **有界等待**结果；超时不宣称送达。"""
     try:
@@ -279,7 +302,7 @@ async def _deliver_via_stream(
         await _release(held, body.delivery_key)
         _count_delivery("failed")
         raise AppError(ErrorCode.COMMON_NOT_FOUND) from exc
-    command = _build_command(verified)
+    command = _build_command(verified, catalog)
     try:
         await streams.enqueue(command)
         result = await streams.await_result(command.command_id, timeout_sec=wait_sec)
@@ -322,22 +345,54 @@ async def _deliver_via_stream(
     return outcome
 
 
-def _build_command(body: DeliveryRequest) -> DeliveryCommand:
-    """交付请求 → 出站命令（渠道中立；reply 目标由 Connector 按 run/route 解析）。"""
+def _render_message(message: Any, catalog: MessageCatalog) -> Any:
+    """终态空正文按 status/error_code 渲染（消息目录是 Gateway 的资产）。"""
+    if message.type != "terminal" or str(message.text).strip():
+        return message
+    if message.status == "CANCELLED":
+        text = STOPPED_TEXT
+    elif message.error_code == "RUN_ABANDONED":
+        text = BROKEN_STREAM_TEXT
+    elif message.error_code:
+        text = catalog.message(message.error_code, catalog.default_locale)
+    elif message.status == "FAILED":
+        text = catalog.message(str(ErrorCode.COMMON_INTERNAL_ERROR), catalog.default_locale)
+    else:
+        text = ""
+    return message.model_copy(update={"text": text})
+
+
+def _build_command(body: DeliveryRequest, catalog: MessageCatalog) -> DeliveryCommand:
+    """交付请求 → 出站命令（渠道中立；reply 目标由 Connector 按 message/route 解析）。
+
+    终态（`type=terminal`）的空正文在这里按 `status`/`error_code` 渲染：消息目录是 Gateway
+    的资产，Runtime/投递泵只带已持久的事实（状态与错误码），不复制文案。
+    """
     message = body.message
     artifact = message.artifact
     run_id = UUID(body.run_id) if body.run_id else None
+    message = _render_message(message, catalog)
+    if message.type == "terminal":
+        kind = DeliveryKind.TERMINAL
+        text = message.text
+    else:
+        kind = DeliveryKind.ARTIFACT if artifact is not None else DeliveryKind.TEXT
+        text = message.text
     return DeliveryCommand(
         command_id=uuid4(),
         channel=body.route.channel,
         tenant_id=body.tenant_id,
         bot_id=body.route.bot_id,
         run_id=run_id,
+        message_id=body.message_id,
         external_conversation_id=body.route.external_conversation_id,
         external_user_id=body.route.external_user_id,
-        kind=DeliveryKind.ARTIFACT if artifact is not None else DeliveryKind.TEXT,
-        text=message.text,
+        kind=kind,
+        text=text,
         artifact=artifact,
+        delivery_key=body.delivery_key,
+        delivery_attempt_id=body.delivery_attempt_id,
+        delivery_epoch=body.delivery_epoch,
         created_at=datetime.now(UTC),
     )
 
@@ -378,6 +433,7 @@ async def _send_audited(
     resolver: ArtifactResolverPort,
     held: _Held | None,
     trace_id: str,
+    catalog: MessageCatalog,
 ) -> ArtifactDeliveryOutcome | None:
     """发送 + 写交付审计（设计 §3.6 跳 5）。
 
@@ -385,7 +441,7 @@ async def _send_audited(
     是把事情做反了；但必须留 ERROR 痕迹（"交付过却查不到"比失败更难查）。
     """
     try:
-        outcome = await _send(registry, body, resolver=resolver, held=held)
+        outcome = await _send(registry, body, resolver=resolver, held=held, catalog=catalog)
     except AppError as exc:
         # 失败也要留痕：这正是 E-06 断言"审计记 FAILED"的来源
         await _audit_delivery(
@@ -530,6 +586,7 @@ async def _send(
     *,
     resolver: ArtifactResolverPort,
     held: _Held | None,
+    catalog: MessageCatalog,
 ) -> ArtifactDeliveryOutcome | None:
     """真实发送；失败时释放占位（若有）让调用方重试，未送达不宣称成功。
 
@@ -539,7 +596,7 @@ async def _send(
     try:
         verified = await _verified_body(body, resolver)
         adapter = registry.get(verified.route.channel)
-        outcome = await _deliver(adapter, verified)
+        outcome = await _deliver(adapter, verified, catalog=catalog)
     except ArtifactGoneError as exc:
         logger.warning("delivery_artifact_unresolved delivery_key=%s error=%s", body.delivery_key, exc)
         await _release(held, body.delivery_key)
@@ -581,7 +638,7 @@ async def _verified_body(body: DeliveryRequest, resolver: ArtifactResolverPort) 
     权利交付的东西。文本形态原样返回（没有产物就没有可校验的东西）。
     """
     message = body.message
-    if message.type == "text":
+    if message.type in ("text", "terminal"):
         return body
     artifact = message.artifact
     if artifact is None or artifact.artifact_id is None:
@@ -601,7 +658,7 @@ async def _verified_body(body: DeliveryRequest, resolver: ArtifactResolverPort) 
 
 
 async def _deliver(
-    adapter: ChannelAdapter, body: DeliveryRequest
+    adapter: ChannelAdapter, body: DeliveryRequest, *, catalog: MessageCatalog
 ) -> ArtifactDeliveryOutcome | None:
     """按载荷形态分发。**渠道差异只活在适配器里**（RULE-im-002）：这里只问"你能不能发"。
 
@@ -609,8 +666,8 @@ async def _deliver(
     换成一段文字（那会让用户以为文件发了）。降级成取件链接是**适配器内部**的决定（它会返回
     `DEGRADED` + `fallback_url`），不是这里的兜底。
     """
-    message = body.message
-    if message.type == "text":
+    message = _render_message(body.message, catalog)
+    if message.type in ("text", "terminal"):
         await adapter.send(body.route, message)
         return None
     artifact = message.artifact

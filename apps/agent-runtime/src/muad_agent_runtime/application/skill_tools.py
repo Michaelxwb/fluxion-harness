@@ -5,7 +5,7 @@ import logging
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
 from muad_agent_core.agent import AgentPolicy
@@ -34,6 +34,7 @@ from muad_agent_core.skill import (
     SkillExecutor,
     build_sandboxed_skill_executor,
 )
+from muad_agent_core.skill.selection import select_entry_script
 from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
@@ -51,7 +52,12 @@ from muad_contracts.skill_invocation import (
     validate_skill_argv,
 )
 from muad_platform_sdk.skill_access import SkillPlatformContext
-from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
+from muad_skill_sdk.skill_package import (
+    SkillPackage,
+    SkillPackageError,
+    is_script_path,
+    locate_package_root,
+)
 from pydantic import JsonValue
 
 from ..metrics import (
@@ -63,6 +69,7 @@ from ..metrics import (
     record_latency,
     record_outcome,
 )
+from .draft_tools import SkillDraftTools
 from .task_client import TaskSubmissionContext
 
 LOAD_SKILL_TOOL = "load_skill"
@@ -72,22 +79,30 @@ RUN_SKILL_SCRIPT_TOOL = "run_skill_script"
 SEARCH_SKILLS_TOOL = "search_skills"
 WORKSPACE_SHELL_TOOL = "workspace_shell"
 SKILL_DRAFT_SHELL_TOOL = "skill_draft_shell"
-
 LOAD_SKILL_DESCRIPTION = "Load a skill's manifest and full SKILL.md instructions by skill key."
 READ_SKILL_RESOURCE_TOOL_DESCRIPTION = (
     "Read a file shipped inside a skill package (references/assets) by skill key and path."
 )
-_SKILL_INPUT_DESCRIPTION = (
-    "Pass legacy CLI flags from SKILL.md as argv (strings after the script path, "
-    "without python/node or shell quoting). input is optional JSON stdin; "
-    "it is not converted to CLI flags."
+EXECUTE_SKILL_DESCRIPTION = (
+    "Preferred way to run a skill's main business action. Executes the declared entry script and "
+    "honors the skill's execution mode (SYNC runs inline; ASYNC submits a background Task). "
+    "Pass legacy CLI flags from SKILL.md as argv (strings after the script path, without "
+    "python/node or shell quoting); input is optional JSON stdin and is not converted to CLI "
+    "flags. Do not use run_skill_script as a substitute for this tool."
 )
-EXECUTE_SKILL_DESCRIPTION = "Execute a skill's entry script. " + _SKILL_INPUT_DESCRIPTION
 RUN_SKILL_SCRIPT_DESCRIPTION = (
-    "Execute a named script in a skill's scripts directory. " + _SKILL_INPUT_DESCRIPTION
+    "Debug-only primitive for one specific script inside a skill package, addressed by "
+    "package-relative path. It is not exposed by default: skills must route their own actions "
+    "through execute_skill. When enabled (debug), it always runs inline and bypasses "
+    "SYNC/ASYNC execution routing. argv is passed as CLI arguments (no shell)."
 )
 WORKSPACE_SHELL_DESCRIPTION = (
     "Run a one-off shell command inside this user's persistent workspace for the current Agent. "
+    "The command runs with the workspace as its working directory: locate files with `ls`/`grep` "
+    "inside the workspace instead of scanning the whole filesystem (`find /` can take minutes and "
+    "will not find anything the workspace does not already contain). Do not run or write files "
+    "under skill-drafts/ — that is the live skill draft managed by the platform; test draft code "
+    "with skill_draft_shell instead. "
     "The workspace is shared across runs of the same user + Agent: keep durable files under "
     "$SKILL_DATA_DIR and write per-call results under $SKILL_OUTPUT_DIR. Network is available. "
     "System Python/Node dependencies are preinstalled; temporary pip/npm installs are allowed but "
@@ -111,7 +126,6 @@ SEARCH_SKILLS_DESCRIPTION = (
 )
 
 MAX_RESOURCE_BYTES = 256 * 1024
-SCRIPTS_PREFIX = "scripts/"
 SKILL_NOT_EFFECTIVE = "SKILL_NOT_EFFECTIVE"
 SKILL_RESOURCE_NOT_FOUND = "SKILL_RESOURCE_NOT_FOUND"
 SKILL_SCRIPT_NOT_FOUND = "SKILL_SCRIPT_NOT_FOUND"
@@ -170,9 +184,17 @@ def _skill_resource_key(arguments: Mapping[str, Any]) -> str | None:
 
 
 class SkillToolError(RuntimeError):
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        detail: dict[str, object] | None = None,
+        retryable: bool = False,
+    ) -> None:
         self.code = code
         self.message = message
+        self.detail = detail
+        self.retryable = retryable
         super().__init__(message)
 
 
@@ -225,6 +247,8 @@ def build_skill_registry(
     workspace_context: WorkspaceShellContext | None = None,
     draft_shell: DraftShellRunner | None = None,
     draft_shell_context: DraftShellContext | None = None,
+    draft_tools: SkillDraftTools | None = None,
+    enable_run_skill_script: bool = False,
 ) -> ToolRegistry:
     tool_set = SkillToolSet(
         cache=cache,
@@ -243,6 +267,8 @@ def build_skill_registry(
         workspace_context=workspace_context,
         draft_shell=draft_shell,
         draft_shell_context=draft_shell_context,
+        draft_tools=draft_tools,
+        enable_run_skill_script=enable_run_skill_script,
     )
     return tool_set.registry()
 
@@ -267,6 +293,8 @@ class SkillToolSet:
         workspace_context: WorkspaceShellContext | None = None,
         draft_shell: DraftShellRunner | None = None,
         draft_shell_context: DraftShellContext | None = None,
+        draft_tools: SkillDraftTools | None = None,
+        enable_run_skill_script: bool = False,
         async_retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY,
     ) -> None:
         self._cache = cache
@@ -287,6 +315,9 @@ class SkillToolSet:
         self._workspace_context = workspace_context
         self._draft_shell = draft_shell
         self._draft_shell_context = draft_shell_context
+        self._draft_tools = draft_tools
+        #: 高级/调试工具，默认不暴露给模型：Skill 用 execute_skill 单一入口。
+        self._enable_run_skill_script = enable_run_skill_script
         # ASYNC Skill 的 Owner 侧重试安全声明（design §3.6）：默认 NON_RETRYABLE——未声明即未知，
         # 未知不得自动重做外部副作用。声明同时落在 EXECUTE_SKILL_TOOL 定义与操作提交上。
         self._async_retry_safety = async_retry_safety
@@ -299,12 +330,18 @@ class SkillToolSet:
         # 草稿 Shell 同样与已生效技能无关：用户可以在还没有任何已批准 Skill 时调试草稿。
         if self._draft_shell is not None and self._draft_shell_context is not None:
             registry.register(self._draft_shell_definition())
+        # 草稿工具与已生效技能无关：用户可能在还没有任何已批准 Skill 时创建第一份草稿。
+        if self._draft_tools is not None:
+            for definition in self._draft_tools.definitions():
+                registry.register(definition)
         if not self._skills:
             # 一个生效技能都没有时，这几个工具**全都无从调用**（key 从哪来？），目录段也是空的
             # —— 模型只能猜一个 key，白跑一轮换回 `SKILL_NOT_EFFECTIVE`。能力不存在就不提供工具。
             return registry
         for definition in self._definitions():
             registry.register(definition)
+        if self._enable_run_skill_script:
+            registry.register(self._run_skill_script_definition())
         return registry
 
     async def load_skill(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
@@ -350,10 +387,12 @@ class SkillToolSet:
                 )
             package = await self._package(skill)
             return await self._execute(
-                package.root, input_data, script=None, skill=skill, argv=argv, invocation_id=call_id
+                package.root, input_data, script=None, skill=skill, argv=argv, call_id=call_id
             )
         except SkillToolError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(
+                exc.code, exc.message, exc.detail, retryable=exc.retryable
+            )
 
     async def run_skill_script(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
@@ -363,11 +402,15 @@ class SkillToolSet:
             argv = _require_argv(arguments)
             package = await self._package(skill)
             script = _select_script(package, name)
+            if skill.execution_mode is SkillExecutionMode.ASYNC:
+                _reject_async_entrypoint_bypass(package, script)
             return await self._execute(
-                package.root, input_data, script=script, skill=skill, argv=argv, invocation_id=call_id
+                package.root, input_data, script=script, skill=skill, argv=argv, call_id=call_id
             )
         except SkillToolError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(
+                exc.code, exc.message, exc.detail, retryable=exc.retryable
+            )
 
     async def search_skills(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         """按关键词检索**本次 Run 的全部生效技能**，返回目录条目。
@@ -578,21 +621,24 @@ class SkillToolSet:
                 handler=self.execute_skill,
                 retry_safety=self._async_retry_safety,
             ),
-            ToolDefinition(
-                name=RUN_SKILL_SCRIPT_TOOL,
-                description=RUN_SKILL_SCRIPT_DESCRIPTION,
-                input_schema=_input_schema(
-                    {
-                        "skill_key": _STRING_SCHEMA,
-                        "script": _STRING_SCHEMA,
-                        "input": _OBJECT_SCHEMA,
-                        "argv": _ARGV_SCHEMA,
-                    },
-                    ("skill_key", "script"),
-                ),
-                effect=ToolEffect.EXTERNAL,
-                handler=self.run_skill_script,
+        )
+
+    def _run_skill_script_definition(self) -> ToolDefinition:
+        """调试/高级工具：默认不注册（模型只能通过 execute_skill 执行 Skill）。"""
+        return ToolDefinition(
+            name=RUN_SKILL_SCRIPT_TOOL,
+            description=RUN_SKILL_SCRIPT_DESCRIPTION,
+            input_schema=_input_schema(
+                {
+                    "skill_key": _STRING_SCHEMA,
+                    "script": _STRING_SCHEMA,
+                    "input": _OBJECT_SCHEMA,
+                    "argv": _ARGV_SCHEMA,
+                },
+                ("skill_key", "script"),
             ),
+            effect=ToolEffect.EXTERNAL,
+            handler=self.run_skill_script,
         )
 
     def _require_skill(self, arguments: Mapping[str, Any]) -> ResolvedSkill:
@@ -672,20 +718,27 @@ class SkillToolSet:
         *,
         script: Path | None,
         skill: ResolvedSkill,
+        call_id: str,
         argv: tuple[str, ...] = (),
-        invocation_id: str,
     ) -> str:
         if skill_platform_keys(skill.frontmatter) and self._platform_context is None:
             raise SkillToolError(
                 "PLATFORM_CONTEXT_REQUIRED", "Platform Skill requires a trusted execution context"
             )
-        execution_id = self._execution_id or uuid.uuid4().hex
+        # 一次工具调用 = 一个独立执行 id：同一 Run 内的多次 Skill 调用不得共用
+        # outputs/<run_id>，否则后一次会把前一次留下的文件当成自己的输出。
+        execution_id = (
+            _workspace_execution_id(self._execution_id, call_id)
+            if self._execution_id
+            else uuid.uuid4().hex
+        )
         lease = await self._acquire_execution_workspace(execution_id)
         try:
             result = await self._run_executor(
-                ready_dir, input_data, script=script, skill=skill, execution_id=execution_id,
+                ready_dir, input_data, script=script, skill=skill, argv=argv,
+                execution_id=execution_id,
                 workspace_dir=lease.workspace_dir if lease is not None else self._workspace_dir,
-                argv=argv, invocation_id=invocation_id,
+
             )
             self._record_execution(skill, result)
             outputs = await self._register_outputs(result)
@@ -704,9 +757,10 @@ class SkillToolSet:
         execution_id: str,
         workspace_dir: Path | None,
         argv: tuple[str, ...] = (),
-        invocation_id: str,
+        invocation_id: str | None = None,
     ) -> SkillExecutionResult:
         platform_context = self._platform_context
+        invocation_id = invocation_id or execution_id
         budget_event = None
         if platform_context is not None and platform_context.budget_scope is not None:
             controller = platform_context.budget_scope.controller
@@ -739,7 +793,9 @@ class SkillToolSet:
         except SkillExecutionError as exc:
             if exc.code == "LOCAL_BUDGET_EXHAUSTED":
                 raise SkillToolError(exc.code, exc.message) from exc
-            raise SkillToolError(SKILL_EXECUTION_FAILED, exc.message) from exc
+            raise SkillToolError(
+                SKILL_EXECUTION_FAILED, exc.message, detail=exc.detail, retryable=exc.retryable
+            ) from exc
 
     async def _acquire_execution_workspace(
         self, execution_id: str
@@ -916,17 +972,74 @@ def _resolve_resource(root: Path, relative: str) -> Path:
     return target
 
 
+def _reject_async_entrypoint_bypass(package: SkillPackage, script: Path) -> None:
+    """ASYNC Skill 的主入口只能走 ``execute_skill``。
+
+    ``run_skill_script`` 不提交后台 Task，直接用主入口会在 Runtime 内联执行长任务，
+    绕开 Worker 的租约/重试/交付链路。辅助脚本仍允许按需 inline 执行。
+    """
+    try:
+        entrypoint = select_entry_script(package.root)
+    except SkillExecutionError:
+        return
+    if script.resolve() == entrypoint.resolve():
+        raise SkillToolError(
+            ErrorCode.COMMON_VALIDATION_ERROR.value,
+            "ASYNC skill entrypoints must be executed via execute_skill; "
+            "run_skill_script bypasses background task routing",
+        )
+
+
 def _select_script(package: SkillPackage, name: str) -> Path:
-    candidate = name[len(SCRIPTS_PREFIX) :] if name.startswith(SCRIPTS_PREFIX) else name
-    if not candidate or candidate in {".", ".."} or "/" in candidate or "\\" in candidate:
+    """解析 ``scripts/foo.py``、``foo.py`` 或包内相对路径 ``phase2/check.py``。
+
+    单段名字保留旧行为：在 ``scripts/`` 顶层按 basename 查找。多段路径按包根解析；
+    绝对路径、``..``、反斜杠、NUL 和跳出包根的符号链接一律拒绝。
+    """
+    text = name.strip()
+    if not text or "\x00" in text or "\\" in text:
         raise SkillToolError(
             ErrorCode.COMMON_VALIDATION_ERROR.value,
             f"invalid script name: {name}",
         )
-    for path in package.scripts():
-        if path.name == candidate:
-            return path
-    raise SkillToolError(SKILL_SCRIPT_NOT_FOUND, f"script is not part of the skill: {name}")
+    relative = PurePosixPath(text)
+    if relative.is_absolute() or ".." in relative.parts or "." in relative.parts:
+        raise SkillToolError(
+            ErrorCode.COMMON_VALIDATION_ERROR.value,
+            f"invalid script name: {name}",
+        )
+    root = package.root.resolve()
+    if len(relative.parts) == 1:
+        for path in package.scripts():
+            if path.name == text:
+                target = path.resolve()
+                if root not in target.parents:
+                    raise SkillToolError(
+                        ErrorCode.COMMON_VALIDATION_ERROR.value,
+                        f"script escapes the skill package: {name}",
+                    )
+                if not is_script_path(target):
+                    raise SkillToolError(
+                        ErrorCode.COMMON_VALIDATION_ERROR.value,
+                        f"unsupported script extension: {name}",
+                    )
+                return target
+        raise SkillToolError(SKILL_SCRIPT_NOT_FOUND, f"script is not part of the skill: {name}")
+
+    target = (root / relative).resolve()
+    if root not in target.parents:
+        raise SkillToolError(
+            ErrorCode.COMMON_VALIDATION_ERROR.value,
+            f"script escapes the skill package: {name}",
+        )
+    if not target.is_file():
+        raise SkillToolError(SKILL_SCRIPT_NOT_FOUND, f"script is not part of the skill: {name}")
+    if not is_script_path(target):
+        raise SkillToolError(
+            ErrorCode.COMMON_VALIDATION_ERROR.value,
+            f"unsupported script extension: {name}",
+        )
+    return target
 
 
 def _manifest_payload(package: SkillPackage) -> dict[str, Any]:
@@ -957,8 +1070,21 @@ def _execution_payload(
     )
 
 
-def _error_result(code: str, message: str) -> str:
-    return json.dumps({"error": {"code": code, "message": message}}, ensure_ascii=False)
+def _error_result(
+    code: str,
+    message: str,
+    detail: dict[str, object] | None = None,
+    *,
+    retryable: bool = False,
+) -> str:
+    error: dict[str, object] = {"code": code, "message": message}
+    if detail:
+        # 平台非正常响应的可读原因（HTTP 非 2xx / 业务 code≠0）；成功与其它失败没有它。
+        error["detail"] = detail
+    if retryable:
+        # 只有可重试失败（网络/超时/5xx/429）才标注；缺省不写＝确定性失败，第一次即终止 Run。
+        error["retryable"] = True
+    return json.dumps({"error": error}, ensure_ascii=False)
 
 
 def skill_platform_keys(frontmatter: Mapping[str, Any]) -> tuple[str, ...]:

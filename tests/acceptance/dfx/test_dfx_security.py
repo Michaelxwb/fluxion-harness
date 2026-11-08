@@ -408,14 +408,15 @@ def _new_conversation(stack: LiveStack) -> uuid.UUID:
             await session.execute(
                 text(
                     "INSERT INTO runtime.conversation"
-                    " (id, tenant_id, user_id, agent_id, status, last_seq)"
-                    " VALUES (:id, :t, :u, :a, 'ACTIVE', 0)"
+                    " (id, tenant_id, user_id, agent_id, status, last_seq, channel_account_id)"
+                    " VALUES (:id, :t, :u, :a, 'ACTIVE', 0, :entry)"
                 ),
                 {
                     "id": conversation_id,
                     "t": stack.tenant_id,
                     "u": stack.platform_user_id,
                     "a": stack.agent_id,
+                    "entry": stack.bot_account_id,
                 },
             )
             await session.commit()
@@ -453,6 +454,7 @@ def _start_run(stack: LiveStack, http: httpx.Client, text_body: str) -> uuid.UUI
             "conversation_id": str(_new_conversation(stack)),
             "channel": {
                 "type": "WECOM",
+                "entry_id": str(stack.bot_account_id),
                 "bot_id": DELIVERY_BOT_ID,
                 "external_conversation_id": f"e07-conv-{uuid.uuid4().hex[:8]}",
             },

@@ -117,6 +117,10 @@ RUNTIME_CLEANUP = (
     "DELETE FROM runtime.canonical_event WHERE tenant_id = :t",
     "DELETE FROM runtime.run_interrupt WHERE tenant_id = :t",
     "DELETE FROM runtime.run_submission WHERE tenant_id = :t",
+    # 0026/终态通知：通知行引用 run_record/conversation；入口指针引用 conversation。
+    "DELETE FROM runtime.channel_notification WHERE tenant_id = :t",
+    "DELETE FROM runtime.channel_notification_feed WHERE tenant_id = :t",
+    "DELETE FROM runtime.channel_conversation WHERE tenant_id = :t",
     "DELETE FROM runtime.runtime_snapshot WHERE tenant_id = :t",
     "DELETE FROM runtime.run_record WHERE tenant_id = :t",
     "DELETE FROM runtime.conversation WHERE tenant_id = :t",
@@ -138,6 +142,8 @@ CONTROL_CLEANUP = (
     "(SELECT id FROM control.agent_definition WHERE tenant_id = :t)",
     "DELETE FROM control.agent_mcp_binding WHERE agent_id IN "
     "(SELECT id FROM control.agent_definition WHERE tenant_id = :t)",
+    # 绑定行引用 bot 与 platform_user：必须先删，否则 FK 拒绝清库。
+    "DELETE FROM control.channel_identity WHERE tenant_id = :t",
     "DELETE FROM control.bot_account WHERE tenant_id = :t",
     "DELETE FROM control.skill_artifact WHERE skill_id IN "
     "(SELECT id FROM control.skill WHERE tenant_id = :t)",
@@ -255,6 +261,7 @@ class LiveStack:
     model_id: uuid.UUID
     skill_id: uuid.UUID
     skill_key: str
+    bot_account_id: uuid.UUID
     bot_id: str
     batch_artifact_id: uuid.UUID = uuid.UUID(int=0)
     batch_storage_key: str = ""
@@ -279,7 +286,7 @@ def seed_control(
 ) -> dict[str, Any]:
     from muad_console_platform.application.auth_service import hash_password
     from muad_console_platform.infrastructure.models.auth import ConsoleAccount
-    from muad_console_platform.infrastructure.models.channel import BotAccount
+    from muad_console_platform.infrastructure.models.channel import BotAccount, ChannelIdentity
     from muad_console_platform.infrastructure.models.control import (
         AgentAccessGrant,
         AgentDefinition,
@@ -391,17 +398,41 @@ def seed_control(
             session.add(batch_artifact)
             await session.flush()
             session.add(AgentSkillBinding(agent_id=agent.id, skill_id=skill.id, sort_order=0))
-            session.add(
-                BotAccount(
-                    tenant_id=TENANT,
-                    channel="WECOM",
-                    name="E2E Bot",
-                    bot_id=BOT_ID,
-                    secret=BOT_SECRET,
-                    agent_id=agent.id,
-                    enabled=True,
-                )
+            bot = BotAccount(
+                tenant_id=TENANT,
+                channel="WECOM",
+                name="E2E Bot",
+                bot_id=BOT_ID,
+                secret=BOT_SECRET,
+                agent_id=agent.id,
+                enabled=True,
             )
+            session.add(bot)
+            await session.flush()
+            # 投递前复核按「原入口 + 接收者」重建授权：没有绑定行就是未授权（403）。
+            # 验收的接收者是固定外部 id，绑定到本栈的平台用户（该用户已有 ACTIVE 状态与 Agent 授权）。
+            session.add_all(
+                [
+                    ChannelIdentity(
+                        tenant_id=TENANT,
+                        channel="WECOM",
+                        identity_key=f"WECOM:{BOT_ID}:{external_user_id}",
+                        external_user_id=external_user_id,
+                        bot_account_id=bot.id,
+                        platform_user_id=user.id,
+                    )
+                    for external_user_id in (
+                        "e2e-external-user",
+                        "submission-recipient",
+                        "e07-canary-user",
+                        "s07-external-user",
+                        "dfx-delivery-user",
+                        "dfx-recovery-user",
+                        "user-1",
+                    )
+                ]
+            )
+            await session.flush()
             # 真实 Console 管理员（S-02 用真实登录会话 + CSRF 走 Console API 保存设置）。
             session.add(
                 ConsoleAccount(
@@ -423,6 +454,7 @@ def seed_control(
                 "batch_artifact_id": batch_artifact.id,
                 "batch_storage_key": batch_storage_key,
                 "batch_checksum": batch_checksum,
+                "bot_account_id": bot.id,
             }
         await engine.dispose()
         return ids
@@ -571,6 +603,9 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
         runtime_port,
         CONSOLE_PLATFORM_URL=console_url,
         AGENT_WORKER_URL=worker_url,
+        # Run 终态由 Runtime 的投递泵按持久意图（channel_notification PENDING）发到 Gateway：
+        # 缺这个 env 泵会打到默认地址，终态文本永远到不了网关。
+        IM_GATEWAY_URL=gateway_url,
     )
     worker = spawn(
         "worker-1",
@@ -642,6 +677,7 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
         model_id=ids["model_id"],
         skill_id=ids["skill_id"],
         skill_key=ids["skill_key"],
+        bot_account_id=ids["bot_account_id"],
         bot_id=BOT_ID,
         batch_artifact_id=ids["batch_artifact_id"],
         batch_storage_key=ids["batch_storage_key"],

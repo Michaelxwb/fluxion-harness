@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal, Self
 
-from muad_contracts import RunStatus, WaitReason
+from muad_contracts import CancelSource, ChannelContext, RunStatus, WaitReason
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from ..infrastructure.models.runtime import Conversation, RunRecord, RuntimeSnapshot
@@ -57,35 +57,13 @@ class ResumeRunRequest(BaseModel):
         )
 
 
-class CancelSource(BaseModel):
-    """精确取消的来源身份（design §3.4 API-08 / RISK-F03：不用「用户+Agent 最新 Run」定位）。
-
-    显式会话（网页：`conversation_id`）或入口+外线线程（入口指针：`entry_id`/
-    `external_thread_id`）**至少给一个**；两个都给时以会话为准，入口归属仍要一致
-    （核属在应用层完成，不在这里猜）。
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    conversation_id: uuid.UUID | None = None
-    entry_id: uuid.UUID | None = None
-    external_thread_id: str = ""
-
-    @model_validator(mode="after")
-    def _identifies_a_source(self) -> Self:
-        if self.conversation_id is None and self.entry_id is None:
-            raise ValueError("cancel source must carry a conversation_id or an entry_id")
-        return self
-
-
 class CancelActiveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     agent_id: uuid.UUID
     platform_user_id: uuid.UUID
-    #: 来源身份：给了就只取消**该来源**的活跃 Run；没给保留既有 (agent,user) 口径
-    #: （调用方没有来源事实时不猜来源）。
-    source: CancelSource | None = None
+    #: 来源身份：只取消**该来源**的活跃 Run（不猜「用户+Agent 最新 Run」）。
+    source: CancelSource
 
 
 class CreateConversationRequest(BaseModel):
@@ -93,11 +71,8 @@ class CreateConversationRequest(BaseModel):
 
     agent_id: uuid.UUID
     platform_user_id: uuid.UUID
-    #: 入口账号（网页稳定入口的 `bot_account_id`）：可归属入口随会话冻结入口归属并登记当前指针；
-    #: 缺省 = 不可归属入口（与 `RunRequest.channel.bot_id` 的非 UUID 口径同一语义，不编造入口）。
-    entry_id: uuid.UUID | None = None
-    #: 外线线程：无显式会话的入口按 (入口, 线程) 维护当前指针；网页不依赖该指针（RULE-10）。
-    external_thread_id: str = ""
+    #: 入站渠道身份：入口 UUID 决定会话归属与当前指针，外线线程由同一份身份派生。
+    channel: ChannelContext
 
 
 def display_run_status(status: str, cancel_requested: bool) -> str:

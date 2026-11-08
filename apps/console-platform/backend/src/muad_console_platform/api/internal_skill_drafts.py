@@ -25,6 +25,7 @@ router = APIRouter(prefix="/internal/skills/drafts", tags=["internal-skill-draft
 class DraftCreateRequest(BaseModel):
     tenant_id: str = Field(min_length=1, max_length=64)
     owner_user_id: uuid.UUID
+    agent_id: uuid.UUID
     key: str = Field(min_length=1, max_length=128)
 
 
@@ -74,7 +75,7 @@ async def create_draft(
     _internal: InternalServiceDep,
 ) -> ApiResponse[Any]:
     data = await SkillDraftService(session).create(
-        payload.tenant_id, payload.owner_user_id, payload.key
+        payload.tenant_id, payload.owner_user_id, payload.agent_id, payload.key
     )
     return ok(request.app.state.message_catalog, data)
 

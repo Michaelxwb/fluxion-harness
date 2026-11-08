@@ -386,7 +386,8 @@ async def test_b123_actor_cannot_be_forged_through_tool_arguments() -> None:
         definition = tool_set.registry().get(EXECUTE_SKILL_TOOL)
         schema = definition.input_schema
         assert set(schema["properties"]) == {"skill_key", "input", "completion_mode", "argv"}
-        assert "actor_user_id" not in json.dumps(schema)
+        for forged_field in ("actor_user_id", "tenant_id", "agent_id", "user_id"):
+            assert forged_field not in json.dumps(schema)
 
         payload = await _call_tool(
             tool_set,
@@ -513,10 +514,16 @@ async def test_b123_tools_cannot_touch_other_users_schedule_or_task() -> None:
 async def test_b123_run_channel_builds_delivery_route_for_background_tasks() -> None:
     """Run 持久化的入站渠道 → DeliveryRoute；缺接收方时不投递。"""
     route = delivery_route_of(
-        {"type": "WECOM", "bot_id": "bot-1", "external_user_id": "wotv-1", "external_conversation_id": "c1"}
+        {
+            "type": "WECOM",
+            "entry_id": str(uuid.uuid4()),
+            "bot_id": "bot-1",
+            "external_user_id": "wotv-1",
+            "external_conversation_id": "c1",
+        }
     )
     assert route == DeliveryRouteInput(
         channel="WECOM", bot_id="bot-1", external_user_id="wotv-1", external_conversation_id="c1"
     )
-    assert delivery_route_of({"type": "WECOM", "bot_id": "bot-1"}) is None
+    assert delivery_route_of({"type": "WECOM", "entry_id": str(uuid.uuid4()), "bot_id": "bot-1"}) is None
     assert delivery_route_of(None) is None

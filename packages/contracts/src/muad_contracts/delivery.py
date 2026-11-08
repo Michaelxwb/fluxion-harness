@@ -24,17 +24,27 @@ class DeliveryMessage(ContractModel):
 
     **载荷里没有任何渠道私有发送形状**：产物走 `AttachmentRef`，由适配器决定怎么发
     （直发，或降级为取件直链）。核心域与交付契约都不认渠道的发送体（`RULE-im-002`）。
+
+    `type="terminal"` 是 Run 终态的单发送者形态：正文可以省略（失败/取消由网关按
+    `status`/`error_code` 用消息目录渲染），但必须给出终态 `status`。
     """
 
-    type: Literal["text", "artifact", "image"] = "text"
+    type: Literal["text", "artifact", "image", "terminal"] = "text"
     text: str = ""
     artifact: AttachmentRef | None = None
+    #: 仅 terminal：Run 终态（COMPLETED/FAILED/CANCELLED），网关据此渲染空正文的终态文案。
+    status: str = ""
+    #: 仅 terminal：失败码（消息目录的 code），用于渲染用户可见的错误文案。
+    error_code: str | None = None
 
     @model_validator(mode="after")
     def _payload_matches_type(self) -> Self:
         if self.type == "text":
             if not self.text:
                 raise ValueError("type=text 时 text 必填且非空")
+        elif self.type == "terminal":
+            if not self.status:
+                raise ValueError("type=terminal 时 status 必填")
         elif self.artifact is None:
             raise ValueError(f"type={self.type} 时 artifact 必填")
         return self
@@ -60,6 +70,15 @@ class DeliveryRequest(ContractModel):
     route: DeliveryRouteInput
     message: DeliveryMessage
     artifact_ids: list[UUID] = Field(default_factory=list)
+    #: 发起本次 Run 的入站消息身份（终态用于找回**原消息**的回复流；后台任务为空）。
+    message_id: str | None = None
+    #: 投递仲裁身份（Runtime 投递泵的租约）：发送端按 (tenant, delivery_key) 持久去重与 fencing。
+    delivery_attempt_id: UUID | None = None
+    delivery_epoch: int | None = None
+    #: 受理时的接收者/Agent 身份：Gateway 在真实发送前按原入口复核权限，
+    #: 授权被撤销或接收者/Agent 变了就不发（与受理时的身份比对）。
+    agent_id: UUID | None = None
+    platform_user_id: UUID | None = None
 
     @property
     def run_id(self) -> str | None:

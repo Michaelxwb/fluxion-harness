@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -44,6 +45,8 @@ from ..infrastructure.models.runtime import (
     Conversation,
     RunRecord,
 )
+
+logger = logging.getLogger(__name__)
 
 #: `channel_notification.kind` 取值（与 0026 的 CHECK 同词表）。
 NotificationKind = Literal["RUN_COMPLETED", "RUN_WAITING_INPUT", "TASK_RESULT"]
@@ -67,16 +70,23 @@ DELIVERY_STATES = (DELIVERY_PENDING, "DELIVERING", "DELIVERED", "UNKNOWN", DELIV
 def terminal_delivery_state(run: RunRecord) -> str:
     """Run 终态通知的投递状态：机器人入口写 `PENDING` 出站意图，其余（网页入箱）`NOT_REQUIRED`。
 
-    路由只从 Run 自己持久化的 `channel_json` 读：缺接收方/坏载荷一律按网页入箱处理
-    （没有可交付的目标就不该占投递泵的重试预算），不猜来源。
+    路由只从 Run 自己持久化的 `channel_json` 读。**没有渠道**（内部/异步 Run）才是合法的
+    网页入箱；有渠道但载荷坏、缺接收方属于内部一致性错误——显式留 ERROR 痕迹，但仍在终态
+    事务内按网页入箱完成（通知判定不得回滚用户的结果）。
     """
     if not run.channel_json:
         return DELIVERY_NOT_REQUIRED
     try:
         channel = ChannelContext.model_validate(run.channel_json)
     except ValidationError:
+        logger.error("run_channel_payload_invalid run_id=%s", run.id)
         return DELIVERY_NOT_REQUIRED
-    if not channel.external_user_id or channel.type not in OUTBOUND_CHANNELS:
+    if not channel.external_user_id:
+        logger.error(
+            "run_channel_recipient_missing run_id=%s channel=%s", run.id, channel.type
+        )
+        return DELIVERY_NOT_REQUIRED
+    if channel.type not in OUTBOUND_CHANNELS:
         return DELIVERY_NOT_REQUIRED
     return DELIVERY_PENDING
 
@@ -142,6 +152,8 @@ async def write_run_notification(
     _validate(kind=kind, delivery_state=state, task_id=task_id)
     entry_id = await _entry_id_of(session, run)
     if entry_id is None:
+        # 新会话必带入口；命中这里只可能是历史未归属会话（明确留痕，不静默）。
+        logger.warning("run_notification_without_entry run_id=%s kind=%s", run.id, kind)
         return None
     feed_id = await _lock_feed(session, run.tenant_id, run.user_id)
     existing = await _existing_receipt(session, run.tenant_id, delivery_key)
@@ -195,13 +207,27 @@ def _validate(*, kind: str, delivery_state: str, task_id: uuid.UUID | None) -> N
 
 
 async def _entry_id_of(session: AsyncSession, run: RunRecord) -> uuid.UUID | None:
-    """会话的入口归属：NULL 表示不是网页入口会话（不编造入口身份）。"""
+    """会话的入口归属：NULL 只可能是历史未归属会话（新会话必带入口）。
+
+    `run.channel_json` 与 `conversation.channel_account_id` 是同一事实的两份载体：
+    两者都带入口且不一致是内部一致性错误，显式留 ERROR 痕迹（以会话行为准）。
+    """
     entry_id = await session.scalar(
         sa.select(Conversation.channel_account_id).where(
             Conversation.id == run.conversation_id, Conversation.tenant_id == run.tenant_id
         )
     )
-    return None if entry_id is None else uuid.UUID(str(entry_id))
+    if entry_id is None:
+        return None
+    channel_entry = (run.channel_json or {}).get("entry_id")
+    if channel_entry is not None and str(channel_entry) != str(entry_id):
+        logger.error(
+            "run_entry_attribution_mismatch run_id=%s channel_entry=%s conversation_entry=%s",
+            run.id,
+            channel_entry,
+            entry_id,
+        )
+    return uuid.UUID(str(entry_id))
 
 
 async def _existing_receipt(

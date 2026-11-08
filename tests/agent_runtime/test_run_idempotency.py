@@ -182,7 +182,11 @@ async def test_b01_http_create_run_replays_and_rejects_mismatch(
     payload = {
         "agent_id": str(tenant.agent_id),
         "platform_user_id": str(tenant.platform_user_id),
-        "channel": {"type": "WECOM", "bot_id": "bot-1"},
+        "channel": {
+            "type": "WECOM",
+            "entry_id": str(uuid_module.uuid4()),
+            "bot_id": "bot-1",
+        },
         "message": {"id": f"msg-{uuid_module.uuid4()}", "type": "text", "text": "idem"},
     }
     headers = {"X-Tenant-Id": tenant.tenant_id, "Idempotency-Key": f"k-{uuid_module.uuid4()}"}

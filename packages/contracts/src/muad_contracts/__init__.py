@@ -23,6 +23,7 @@ from .channel import (
 from .delivery import DeliveryMessage, DeliveryRequest, DeliveryResponse
 from .enums import (
     BUILTIN_CHANNEL_NAMES,
+    LOCAL_STREAM_CHANNELS,
     OUTBOUND_CHANNELS,
     ArtifactValidationStatus,
     ChannelName,
@@ -82,7 +83,7 @@ from .resolve import (
     RuntimeExecutionRef,
     WorkspaceRef,
 )
-from .runtime import ChannelContext, MessageInput, RunRequest
+from .runtime import CancelSource, ChannelContext, MessageInput, RunRequest
 from .snapshot import (
     REQUIRED_SNAPSHOT_KEYS,
     TASK_PROMPT_TEMPLATE_VERSION,
@@ -131,6 +132,7 @@ __all__ = [
     "InboxMaterializationState",
     "MAX_TOOL_RESULT_BYTES",
     "OperationErrorPhase",
+    "LOCAL_STREAM_CHANNELS",
     "OUTBOUND_CHANNELS",
     "OperationStatus",
     "RETRY_SAFETY_POLICY_KEY",
@@ -158,6 +160,7 @@ __all__ = [
     "CancelTaskResponse",
     "ChannelBindRequest",
     "ChannelBindResponse",
+    "CancelSource",
     "ChannelContext",
     "AttachmentFailure",
     "AttachmentRef",

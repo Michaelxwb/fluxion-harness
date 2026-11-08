@@ -442,7 +442,12 @@ def _run_payload(tenant: TenantContext, conversation_id: uuid.UUID | None) -> di
     payload: dict[str, Any] = {
         "agent_id": str(tenant.agent_id),
         "platform_user_id": str(tenant.platform_user_id),
-        "channel": {"type": "WECOM", "bot_id": "bot-1", "external_conversation_id": "ext-1"},
+        "channel": {
+            "type": "WECOM",
+            "entry_id": str(ENTRY),
+            "bot_id": "bot-1",
+            "external_conversation_id": "ext-1",
+        },
         "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": "继续会话"},
     }
     if conversation_id is not None:
@@ -459,7 +464,7 @@ async def test_expired_conversation_cannot_be_continued(
     now = datetime.now(UTC)
     expired = await _seed_conversation(
         tenant,
-        entry_id=None,
+        entry_id=ENTRY,
         last_message_at=now - timedelta(days=31),
         now=now,
     )
@@ -483,7 +488,7 @@ async def test_unexpired_archived_conversation_can_be_continued_and_reactivates(
     now = datetime.now(UTC)
     archived = await _seed_conversation(
         tenant,
-        entry_id=None,
+        entry_id=ENTRY,
         last_message_at=now - timedelta(days=1),
         status="ARCHIVED",
         now=now,
@@ -510,6 +515,7 @@ async def test_create_conversation_archives_the_oldest_when_at_the_limit(
     body = {
         "agent_id": str(tenant.agent_id),
         "platform_user_id": str(tenant.platform_user_id),
+        "channel": {"type": "WECOM", "entry_id": str(ENTRY), "bot_id": "bot-1"},
     }
 
     first = await client.post("/v1/conversations", json=body, headers=_headers(tenant))
@@ -532,7 +538,7 @@ async def test_create_conversation_rejects_when_every_active_conversation_is_bus
     now = datetime.now(UTC)
     busy = await _seed_conversation(
         tenant,
-        entry_id=None,
+        entry_id=ENTRY,
         last_message_at=now - timedelta(minutes=1),
         now=now,
     )
@@ -541,6 +547,7 @@ async def test_create_conversation_rejects_when_every_active_conversation_is_bus
     body = {
         "agent_id": str(tenant.agent_id),
         "platform_user_id": str(tenant.platform_user_id),
+        "channel": {"type": "WECOM", "entry_id": str(ENTRY), "bot_id": "bot-1"},
     }
 
     response = await client.post("/v1/conversations", json=body, headers=_headers(tenant))

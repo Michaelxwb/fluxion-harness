@@ -401,14 +401,15 @@ def _new_conversation(stack: LiveStack) -> uuid.UUID:
             await session.execute(
                 text(
                     "INSERT INTO runtime.conversation"
-                    " (id, tenant_id, user_id, agent_id, status, last_seq)"
-                    " VALUES (:id, :t, :u, :a, 'ACTIVE', 0)"
+                    " (id, tenant_id, user_id, agent_id, status, last_seq, channel_account_id)"
+                    " VALUES (:id, :t, :u, :a, 'ACTIVE', 0, :entry)"
                 ),
                 {
                     "id": conversation_id,
                     "t": stack.tenant_id,
                     "u": stack.platform_user_id,
                     "a": stack.agent_id,
+                    "entry": stack.bot_account_id,
                 },
             )
             await session.commit()
@@ -462,6 +463,8 @@ def _start_run(stack: LiveStack, http: httpx.Client, text_body: str) -> uuid.UUI
             "conversation_id": str(_new_conversation(stack)),
             "channel": {
                 "type": "WECOM",
+                # 入口身份必填（ChannelContext.entry_id）：会话归属与投递复核都按它。
+                "entry_id": str(stack.bot_account_id),
                 "bot_id": stack.bot_id,
                 "external_conversation_id": f"s10-conv-{uuid.uuid4().hex[:8]}",
             },

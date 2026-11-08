@@ -14,8 +14,12 @@ class SkillDraftRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def create(self, tenant_id: str, owner_user_id: uuid.UUID, key: str) -> SkillDraft:
-        draft = SkillDraft(tenant_id=tenant_id, owner_user_id=owner_user_id, key=key)
+    async def create(
+        self, tenant_id: str, owner_user_id: uuid.UUID, agent_id: uuid.UUID, key: str
+    ) -> SkillDraft:
+        draft = SkillDraft(
+            tenant_id=tenant_id, owner_user_id=owner_user_id, agent_id=agent_id, key=key
+        )
         self._session.add(draft)
         await self._session.flush()
         return draft
@@ -49,12 +53,13 @@ class SkillDraftRepository:
         return draft
 
     async def find_by_key(
-        self, tenant_id: str, owner_user_id: uuid.UUID, key: str
+        self, tenant_id: str, owner_user_id: uuid.UUID, agent_id: uuid.UUID, key: str
     ) -> SkillDraft | None:
         draft: SkillDraft | None = await self._session.scalar(
             select(SkillDraft).where(
                 SkillDraft.tenant_id == tenant_id,
                 SkillDraft.owner_user_id == owner_user_id,
+                SkillDraft.agent_id == agent_id,
                 SkillDraft.key == key,
                 SkillDraft.is_deleted.is_(False),
             )

@@ -105,10 +105,15 @@ spec:
           volumeMounts:
             - name: artifacts
               mountPath: {{ .Values.global.artifacts.mountPath }}
+            - name: workspaces
+              mountPath: {{ .Values.global.workspaces.mountPath }}
       volumes:
         - name: artifacts
           persistentVolumeClaim:
             claimName: {{ .Values.global.artifacts.existingClaim }}
+        - name: workspaces
+          persistentVolumeClaim:
+            claimName: {{ .Values.global.workspaces.existingClaim }}
 ---
 apiVersion: v1
 kind: Service

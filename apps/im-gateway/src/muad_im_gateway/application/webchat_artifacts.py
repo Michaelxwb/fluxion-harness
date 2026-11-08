@@ -71,7 +71,13 @@ class WebchatArtifactOwnerPort(Protocol):
     """解析端口：`artifact_id` → 本主体名下会话的归属 + 渠道中立引用（Runtime 是唯一实现）。"""
 
     async def resolve_webchat_artifact(
-        self, artifact_id: UUID, *, tenant_id: str, user_id: UUID
+        self,
+        artifact_id: UUID,
+        *,
+        tenant_id: str,
+        user_id: UUID,
+        conversation_id: UUID,
+        checksum: str,
     ) -> dict[str, Any]: ...
 
 
@@ -91,19 +97,34 @@ class WebchatArtifactService:
         self._store = store
         self._tenant_id = tenant_id
 
-    async def open_download(self, identity: ChatIdentity, artifact_id: UUID) -> ArtifactDownload:
-        """一次下载/预览的完整授权与取件准备；任一环不成立就显式拒绝（不读字节）。"""
-        reference = await self._authorized_reference(identity, artifact_id)
+    async def open_download(
+        self,
+        identity: ChatIdentity,
+        artifact_id: UUID,
+        *,
+        conversation_id: UUID,
+        checksum: str,
+    ) -> ArtifactDownload:
+        """一次下载/预览的完整授权与取件准备；任一环不成立就显式拒绝（不读字节）。
+
+        `conversation_id` 是客户端正在看的会话（授权按它裁决），`checksum` 是卡片上那个
+        版本（同一产物可能发布过多个版本，必须选定一份）。
+        """
+        reference = await self._authorized_reference(
+            identity, artifact_id, conversation_id=conversation_id, checksum=checksum
+        )
         return self._open(reference)
 
     async def _authorized_reference(
-        self, identity: ChatIdentity, artifact_id: UUID
+        self, identity: ChatIdentity, artifact_id: UUID, *, conversation_id: UUID, checksum: str
     ) -> AttachmentRef:
         """Owner 归属解析 + **当前**入口/Agent 授权复核（授权只来自本次 Console 核验）。"""
         data = await self._runtime.resolve_webchat_artifact(
             artifact_id,
             tenant_id=self._tenant_id,
             user_id=identity.principal.platform_user_id,
+            conversation_id=conversation_id,
+            checksum=checksum,
         )
         scope = _project(WebchatConversationScope, data.get("scope"))
         resolved = resolve_authorized_entry(self._entries, identity, scope.entry_id)

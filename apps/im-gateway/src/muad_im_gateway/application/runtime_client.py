@@ -13,7 +13,7 @@ from muad_api.context import current_request_id
 from muad_api.error_codes import ErrorCode
 from muad_api.security import INTERNAL_SERVICE_HEADER
 from muad_common import SharedSettings
-from muad_contracts import RunRequest, RunStatus
+from muad_contracts import CancelSource, ChannelContext, RunRequest, RunStatus
 from muad_contracts.channel_delivery import (
     DeliveryAck,
     DeliveryAckReceipt,
@@ -152,6 +152,7 @@ class RuntimeClientPort(Protocol):
         tenant_id: str = "",
         trace_id: str = "",
         idempotency_key: str | None = None,
+        channel: ChannelContext,
     ) -> dict[str, Any]: ...
 
     async def cancel_active(
@@ -161,6 +162,7 @@ class RuntimeClientPort(Protocol):
         *,
         tenant_id: str = "",
         trace_id: str = "",
+        source: CancelSource,
     ) -> dict[str, Any]: ...
 
 
@@ -368,22 +370,18 @@ class RuntimeClient:
         tenant_id: str = "",
         trace_id: str = "",
         idempotency_key: str | None = None,
-        entry_id: UUID | None = None,
-        external_thread_id: str = "",
+        channel: ChannelContext,
     ) -> dict[str, Any]:
-        """新建会话（API-08）：可归属入口（`entry_id`）随会话冻结入口归属并登记当前指针。
+        """新建会话（API-08）：渠道身份随会话冻结入口归属并登记当前指针。
 
-        入口/线程字段**只在显式给出时上送**：既有 IM 调用点（无入口事实）的请求体保持原形，
-        不把"不可归属"编造成一个入口身份。
+        `channel` 必须携带入口 UUID；外线线程由 Runtime 从同一份渠道身份派生，
+        调用方不重复计算（消息、`/new`、`/stop` 同一条口径）。
         """
         payload: dict[str, Any] = {
             "agent_id": str(agent_id),
             "platform_user_id": str(platform_user_id),
+            "channel": channel.model_dump(mode="json"),
         }
-        if entry_id is not None:
-            payload["entry_id"] = str(entry_id)
-        if external_thread_id:
-            payload["external_thread_id"] = external_thread_id
         return await self._post_json(
             CONVERSATIONS_PATH, payload, tenant_id, trace_id, idempotency_key=idempotency_key
         )
@@ -536,16 +534,27 @@ class RuntimeClient:
         )
 
     async def resolve_webchat_artifact(
-        self, artifact_id: UUID, *, tenant_id: str, user_id: UUID
+        self,
+        artifact_id: UUID,
+        *,
+        tenant_id: str,
+        user_id: UUID,
+        conversation_id: UUID,
+        checksum: str,
     ) -> dict[str, Any]:
-        """API-10 下载/预览的归属解析（TASK-055）：只带受信主体，入口/Agent 由 Owner 从会话行导出。
+        """API-10 下载/预览的归属解析（TASK-055）：受信主体 + 目标会话 + 版本三件。
 
-        响应含渠道中立引用（存储键只在受信面传递）；跨租户/他主体/已失效由 Owner 判为 404。
+        入口/Agent 由 Owner 从**目标会话**行导出；跨租户/他主体/未发布的跨会话产物由 Owner
+        判为 404。`checksum` 选择同一产物发布过的那一个版本。
         """
         return await self._get_internal_json(
             INTERNAL_ARTIFACT_PATH.format(artifact_id=artifact_id),
             tenant_id,
-            {"user_id": str(user_id)},
+            {
+                "user_id": str(user_id),
+                "conversation_id": str(conversation_id),
+                "checksum": checksum,
+            },
         )
 
     async def list_notifications(
@@ -725,8 +734,13 @@ class RuntimeClient:
         *,
         tenant_id: str = "",
         trace_id: str = "",
+        source: CancelSource,
     ) -> dict[str, Any]:
-        payload = {"agent_id": str(agent_id), "platform_user_id": str(platform_user_id)}
+        payload = {
+            "agent_id": str(agent_id),
+            "platform_user_id": str(platform_user_id),
+            "source": source.model_dump(mode="json"),
+        }
         return await self._post_json(CANCEL_ACTIVE_PATH, payload, tenant_id, trace_id)
 
     async def _post_json(

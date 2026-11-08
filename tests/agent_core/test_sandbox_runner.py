@@ -337,7 +337,6 @@ def test_workspace_layout_projects_typed_settings(tmp_path: Path) -> None:
         workspace_quota_mib=600,
         workspace_user_quota_mib=700,
         workspace_file_limit=123,
-        workspace_output_ttl_days=2,
         workspace_data_ttl_days=3,
     )
 
@@ -347,7 +346,6 @@ def test_workspace_layout_projects_typed_settings(tmp_path: Path) -> None:
     assert layout.quota_bytes == 600 * MIB
     assert layout.user_quota_bytes == 700 * MIB
     assert layout.file_limit == 123
-    assert layout.output_ttl_seconds == 2 * DAY_SECONDS
     assert layout.data_ttl_seconds == 3 * DAY_SECONDS
     assert layout.workspace_dir(tenant_id="t", user_id="u", agent_id="a") == (
         tmp_path / "workspaces" / "t" / "u" / "a"
@@ -355,6 +353,40 @@ def test_workspace_layout_projects_typed_settings(tmp_path: Path) -> None:
     assert layout.output_dir(
         tenant_id="t", user_id="u", agent_id="a", execution_id="run-1"
     ) == tmp_path / "workspaces" / "t" / "u" / "a" / "outputs" / "run-1"
+
+
+def test_workspace_outputs_are_isolated_by_tenant_user_and_agent(tmp_path: Path) -> None:
+    """`SKILL_OUTPUT_DIR` 落在 user + Agent workspace 内：换用户/Agent 必换目录。"""
+    from muad_agent_core.sandbox.workspace import WorkspaceLayout
+
+    layout = WorkspaceLayout(
+        root=tmp_path / "workspaces",
+        quota_bytes=1,
+        user_quota_bytes=1,
+        file_limit=1,
+        data_ttl_seconds=1,
+    )
+
+    alice_agent_a = layout.output_dir(
+        tenant_id="tenant-1", user_id="alice", agent_id="agent-a", execution_id="run-1"
+    )
+    alice_agent_b = layout.output_dir(
+        tenant_id="tenant-1", user_id="alice", agent_id="agent-b", execution_id="run-1"
+    )
+    bob_agent_a = layout.output_dir(
+        tenant_id="tenant-1", user_id="bob", agent_id="agent-a", execution_id="run-1"
+    )
+    other_tenant = layout.output_dir(
+        tenant_id="tenant-2", user_id="alice", agent_id="agent-a", execution_id="run-1"
+    )
+
+    assert len({alice_agent_a, alice_agent_b, bob_agent_a, other_tenant}) == 4
+    assert alice_agent_a.is_relative_to(
+        layout.workspace_dir(tenant_id="tenant-1", user_id="alice", agent_id="agent-a")
+    )
+    assert bob_agent_a.is_relative_to(
+        layout.workspace_dir(tenant_id="tenant-1", user_id="bob", agent_id="agent-a")
+    )
 
 
 async def test_rlimits_are_applied_to_the_child(tmp_path: Path) -> None:

@@ -817,6 +817,53 @@ async def test_b261_snapshot_parts_share_identity_and_only_complete_groups_apply
     assert runtime_probe.event_calls()[0].query == {"after_seq": "4"}
 
 
+async def test_tool_progress_is_projected_without_arguments_or_results(
+    stub_console: StubConsole,
+    console_probe: _ConsoleProbe,
+    runtime_probe: _RuntimeProbe,
+) -> None:
+    """canonical tool.started/tool.completed → 公开 run.tool，只带工具名/阶段/终态。
+
+    长工具调用（实测一次整盘 `find` 跑了 106 秒）期间客户端要能显示"正在执行 X"，
+    但工具参数、结果预览与异常都不能上公开边。
+    """
+    runtime_probe.plan = _StreamPlan(
+        frames=[
+            (3, "tool.started", {"tool_call_id": "call_1", "tool_name": "workspace_shell"}),
+            (
+                4,
+                "tool.completed",
+                {
+                    "tool_call_id": "call_1",
+                    "tool_name": "workspace_shell",
+                    "status": "OK",
+                    "preview": "private-canary",
+                },
+            ),
+            (5, "run.completed", {"status": "COMPLETED", "final_text": "done"}),
+        ],
+        watermark=5,
+    )
+    async with _gateway_env(stub_console, runtime_probe) as env:
+        async with _chat_client(env) as client:
+            response = await client.get(
+                EVENTS_URL, headers=_chat_headers(), params={"after_seq": 2}
+            )
+            assert response.status_code == 200, response.text
+            body = response.text
+
+    events = _public_events([frame for frame in _parse_sse(body) if not frame.is_heartbeat])
+    tool_events = [event for event in events if event["type"] == "run.tool"]
+    assert [event["data"] for event in tool_events] == [
+        {"name": "workspace_shell", "phase": "STARTED", "status": None},
+        {"name": "workspace_shell", "phase": "FINISHED", "status": "OK"},
+    ]
+    assert [event["seq"] for event in tool_events] == [3, 4]
+    assert all(set(event["data"]) == {"name", "phase", "status"} for event in tool_events)
+    assert "private-canary" not in body
+    assert "call_1" not in body
+
+
 # --- B-261：单订阅缓冲有界 + 慢消费者断开可恢复 ------------------------------------------------
 
 
@@ -1033,14 +1080,14 @@ def test_b261_stream_modules_hold_no_database_and_only_speak_the_public_contract
         "message.delta",
         "message.snapshot",
         "run.stage",
+        # 工具进度（只公开名字/阶段/终态）：长工具调用期间客户端要能显示"正在执行 X"。
+        "run.tool",
         "run.terminal",
         "run.error",
         "artifact.created",
         "confirmation.required",
     }
     internal = {
-        "tool.completed",
-        "tool.started",
         "tool.result",
         "model.started",
         "model.completed",
@@ -1050,3 +1097,31 @@ def test_b261_stream_modules_hold_no_database_and_only_speak_the_public_contract
     assert internal.isdisjoint(webchat_streams.PUBLIC_STREAM_EVENT_TYPES)
     # 公开词表的 canonical 键必须先被 Owner 流解析器认识：否则公开事件会被解析层静默丢弃。
     assert set(webchat_streams.PUBLIC_STREAM_EVENT_TYPES) <= KNOWN_EVENT_TYPES
+
+
+def test_b261_failed_run_with_a_conclusion_marks_has_reply() -> None:
+    """失败终态带收尾结论正文时投影 `has_reply=true`：前端据此不再弹「失败，请重发」。"""
+    from uuid import uuid4
+
+    from muad_im_gateway.application.sse import SseEvent
+    from muad_im_gateway.application.webchat_streams import WebchatPublicProjector
+
+    run_id, conversation_id = uuid4(), uuid4()
+    projector = WebchatPublicProjector(run_id=run_id, conversation_id=conversation_id)
+
+    def failed(seq: int, **extra: object) -> object:
+        return projector.project(
+            SseEvent(
+                type="run.failed",
+                data={"status": "FAILED", "error_code": "RUN_NO_PROGRESS", **extra},
+                run_id=str(run_id),
+                seq=seq,
+                timestamp="2026-11-08T03:15:35+00:00",
+            )
+        )
+
+    with_conclusion = failed(7, final_text="执行失败：平台 401 signature invalid。")
+    without_conclusion = failed(8)
+
+    assert with_conclusion is not None and with_conclusion.data.has_reply is True
+    assert without_conclusion is not None and without_conclusion.data.has_reply is False

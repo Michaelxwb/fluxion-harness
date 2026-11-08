@@ -134,6 +134,30 @@ async def test_platform_declarations_persist_and_are_exposed(
     assert artifact.json()["data"]["platforms"] == platforms
 
 
+async def test_import_derives_version_from_manifest_when_omitted(
+    client: AsyncClient,
+    skill_env: SkillContext,
+) -> None:
+    """导入不再要求手填版本：优先用包内 muad.skill.json 的 version。"""
+    package = demo_package(
+        name="manifest-version",
+        extra_files={"muad.skill.json": '{"version": "2.3.4"}'},
+    )
+    response = await import_skill(client, skill_env, package, version=None)
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["current_version"] == "2.3.4"
+
+
+async def test_import_defaults_version_when_manifest_has_none(
+    client: AsyncClient,
+    skill_env: SkillContext,
+) -> None:
+    """manifest 没写 version 时落到稳定默认值，导入不因缺字段失败。"""
+    response = await import_skill(client, skill_env, demo_package(name="no-version"), version=None)
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["current_version"] == "1.0.0"
+
+
 async def test_platform_display_follows_current_version_without_overwriting_history(
     client: AsyncClient, skill_env: SkillContext
 ) -> None:
@@ -397,3 +421,20 @@ async def test_import_requires_authentication(skill_env: SkillContext) -> None:
         response = await anon.get("/api/v1/skills", headers=tenant_headers(skill_env))
     assert response.status_code == 401
     assert response.json()["code"] == "UNAUTHORIZED"
+
+
+async def test_system_import_forces_all_user_scope(
+    client: AsyncClient,
+    skill_env: SkillContext,
+) -> None:
+    """系统 Skill 全局生效：即使用户范围传 SELECTED，服务端也强制 ALL。"""
+    response = await import_skill(
+        client,
+        skill_env,
+        demo_package(name="System Global"),
+        version=None,
+        source="SYSTEM",
+        user_scope="SELECTED",
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["user_scope"] == "ALL"

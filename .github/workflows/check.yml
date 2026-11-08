@@ -622,6 +622,9 @@ jobs:
       - name: 构建前端产物（e2e 各域共用）
         run: npm --prefix apps/console-platform/frontend run build
       - name: 逐域浏览器验收（汇总失败，不 fail-fast）
+        env:
+          # CI runner 比开发机慢：正等待（等到某状态出现）统一放大，负等待窗口不变。
+          E2E_WAIT_SCALE: "2"
         run: |
           set -u
           failed=""

@@ -215,7 +215,13 @@ def _broker_error(exc: Exception) -> dict[str, Any]:
     if isinstance(exc, LocalRateLimitError):
         return {"error": str(exc)}
     if isinstance(exc, (_BudgetExceeded, PlatformAuthError)):
-        return {"error": exc.code}
+        result: dict[str, Any] = {"error": exc.code}
+        # 非正常响应的可读原因（HTTP 非 2xx / 业务 code≠0）原样带给 Skill；
+        # 成功路径与其它失败没有该字段。
+        detail = getattr(exc, "detail", None)
+        if isinstance(detail, dict) and detail:
+            result["detail"] = detail
+        return result
     return {"error": BROKER_INTERNAL_ERROR}
 
 

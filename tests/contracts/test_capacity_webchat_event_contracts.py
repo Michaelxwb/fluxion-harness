@@ -36,6 +36,7 @@ def _notification(seq: int, **changes: object) -> dict[str, object]:
     ("message.delta", {"reply_generation": 0, "text": "你好"}),
     ("message.snapshot", {"reply_generation": 1, "text": "replacement", "part_index": 0, "part_count": 1}),
     ("run.stage", {"stage": "RUNNING", "started_at": STAMP.isoformat()}),
+    ("run.tool", {"name": "workspace_shell", "phase": "STARTED", "status": None}),
     ("run.terminal", {"status": "COMPLETED"}),
     ("run.error", {"code": "MODEL_CAPACITY_UNAVAILABLE", "retryable": True}),
     ("confirmation.required", {"submission_id": str(uuid4()), "source_event_id": str(uuid4()),
@@ -54,6 +55,20 @@ def test_b206_whitelisted_events_parse_to_typed_public_payloads_and_round_trip(
     assert str(parsed.run_id) == wire["run_id"] and str(parsed.event_id) == wire["event_id"]
     assert isinstance(parsed.data, BaseModel)
     assert _module().decode_public_event_json(parsed.model_dump_json()) == parsed
+
+
+def test_tool_progress_exposes_only_name_phase_and_status() -> None:
+    """工具进度只公开名字/阶段/终态：参数、结果预览与异常字段一律拒绝。"""
+    module = _module()
+    parsed = module.parse_public_event(_envelope(
+        "run.tool", {"name": "workspace_shell", "phase": "STARTED", "status": None},
+    ))
+    assert parsed is not None
+    assert parsed.data.model_dump() == {"name": "workspace_shell", "phase": "STARTED", "status": None}
+    with pytest.raises(ValidationError):
+        module.parse_public_event(_envelope("run.tool", {
+            "name": "workspace_shell", "phase": "STARTED", "preview": "private-canary",
+        }))
 
 
 @pytest.mark.parametrize("event_type", [
@@ -133,7 +148,15 @@ def test_b206_checkpoint_uses_a_scanned_watermark_without_inventing_a_canonical_
 
 def test_b206_public_errors_accept_codes_but_no_arbitrary_provider_text() -> None:
     safe = _contract("WebchatSafeError")(code="MODEL_CAPACITY_UNAVAILABLE", retryable=True)
-    assert safe.model_dump() == {"code": "MODEL_CAPACITY_UNAVAILABLE", "retryable": True}
+    assert safe.model_dump() == {
+        "code": "MODEL_CAPACITY_UNAVAILABLE",
+        "retryable": True,
+        "has_reply": False,
+    }
+    # 失败已落结论消息：客户端据此不再弹「失败，请重发」。
+    assert _contract("WebchatSafeError")(
+        code="RUN_NO_PROGRESS", retryable=False, has_reply=True
+    ).has_reply is True
     with pytest.raises(ValidationError, match="message"):
         _contract("WebchatSafeError")(code="MODEL_FAILED", retryable=False, message="provider secret canary")
     with pytest.raises(ValidationError, match="code"):
@@ -201,7 +224,7 @@ def test_b206_notification_page_rejects_ambiguous_order_or_cursor_and_task_witho
 
 
 @pytest.mark.parametrize("event_type", [
-    "message.delta", "message.snapshot", "run.stage", "run.terminal",
+    "message.delta", "message.snapshot", "run.stage", "run.tool", "run.terminal",
     "run.error", "confirmation.required", "artifact.created", "checkpoint",
 ])
 def test_b206_every_public_payload_forbids_additional_fields(event_type: str) -> None:

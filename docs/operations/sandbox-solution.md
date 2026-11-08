@@ -374,7 +374,7 @@ python -E -s -B <script>
 /skill                         已批准 Skill 包，只读
 /workspace                     当前 tenant + user + Agent，可写
   ├── data/                    SKILL_DATA_DIR
-  └── outputs/{run_id}/        SKILL_OUTPUT_DIR
+  └── outputs/{execution_id}/  SKILL_OUTPUT_DIR
 ```
 
 约定：
@@ -461,10 +461,11 @@ bwrap 是 Linux-only，macOS 原生进程不能用。两种模式：
 
 ### 5.1 草稿
 
-- 独立 PVC：`muad-skill-drafts-rwx`，只挂 Console；
-- 路径：`/mnt/muad-skill-drafts/{tenant}/{user_id}/{draft_key}/`；
-- Runtime/Worker 不挂该 PVC；Shell 通过 Console 内部 API 取草稿 zip，执行后回写变更；
-- 沙箱只看到当前草稿副本，看不到其他用户草稿。
+- 落在共享 workspace 卷（`muad-workspaces-rwx`），Console 挂载该卷写草稿；
+- 路径：`/mnt/muad-workspaces/{tenant_id}/{user_id}/{agent_id}/skill-drafts/{draft_key}/`，与
+  `data/`、`outputs/` 同级，随 agent 目录统一清理；
+- Shell 通过 Console 内部 API 取草稿 zip，执行后回写变更；草稿属于同一个 user + agent，
+  与 workspace 数据一致地对该主体的沙箱可见。
 
 ### 5.2 工具
 
@@ -1247,7 +1248,7 @@ workspace 以 tenant + user + Agent 三维定位。PVC 上的目录：
 # 默认 <workspace-root> = /mnt/muad-workspaces
   ├── data/                 # SKILL_DATA_DIR：持久数据
   └── outputs/
-      └── {run_id}/         # SKILL_OUTPUT_DIR：本次执行输出
+      └── {execution_id}/   # SKILL_OUTPUT_DIR：本次执行输出
 ```
 
 沙箱内只绑定当前 user + Agent 目录，根路径统一为 `/workspace`：
@@ -1255,7 +1256,7 @@ workspace 以 tenant + user + Agent 三维定位。PVC 上的目录：
 ```text
 /workspace/
   ├── data/
-  └── outputs/{run_id}/
+  └── outputs/{execution_id}/
 ```
 
 - 同一 user + Agent 跨会话共享；
@@ -1274,10 +1275,10 @@ workspace 持久化的是**磁盘/PVC，不是运行内存**：
 | 变量 | 沙箱内路径 | 生命周期 |
 |---|---|---|
 | `SKILL_DATA_DIR` | `/workspace/data` | user + Agent 持久，30 天未访问清理 |
-| `SKILL_OUTPUT_DIR` | `/workspace/outputs/{run_id}` | 单次执行独立，30 天清理 |
+| `SKILL_OUTPUT_DIR` | `/workspace/outputs/{execution_id}` | 单次执行独立，30 天清理 |
 | `/skill` | 已批准 Skill 包 | 只读，随 Artifact 版本 |
 
-- `SKILL_OUTPUT_DIR` 每次执行新建，两次执行互不影响；
+- `SKILL_OUTPUT_DIR` 每次执行新建，两次执行互不影响；`execution_id` 由调用方生成（Runtime 按 Run + 工具调用，Worker 用 Task ID），同一 user + Agent 内不复用；
 - `SKILL_DATA_DIR` 跨 Run 共享，用于 `companies`、`logs`、`cache` 等持久数据；
 - 脚本必须先判空再写；`SKILL_OUTPUT_DIR` 为空时不写文件；
 - 持久数据写入用临时文件 + `os.replace`，避免半写。

@@ -24,6 +24,7 @@ from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
 RESOLVE_DATA = {
     "bound": True,
+    "entry_id": str(uuid4()),
     "agent_id": str(uuid4()),
     "platform_user_id": str(uuid4()),
     "authorized": True,

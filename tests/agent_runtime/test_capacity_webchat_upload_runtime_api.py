@@ -623,7 +623,12 @@ def _run_payload(
         "agent_id": str(tenant.agent_id),
         "platform_user_id": str(user_id or tenant.platform_user_id),
         "conversation_id": str(conversation_id),
-        "channel": {"type": "WEBCHAT", "bot_id": str(entry_id), "external_user_id": "web-1"},
+        "channel": {
+            "type": "WEBCHAT",
+            "entry_id": str(entry_id),
+            "bot_id": str(entry_id),
+            "external_user_id": "web-1",
+        },
         "message": {
             "id": f"msg-{uuid.uuid4()}",
             "text": text,

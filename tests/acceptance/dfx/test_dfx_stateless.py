@@ -339,6 +339,7 @@ def _payload(stack: LiveStack, conversation_id: uuid.UUID, text_body: str) -> di
         "conversation_id": str(conversation_id),
         "channel": {
             "type": "WECOM",
+            "entry_id": str(stack.bot_account_id),
             "bot_id": stack.bot_id,
             "external_conversation_id": f"s12-{conversation_id}",
         },
@@ -349,7 +350,16 @@ def _payload(stack: LiveStack, conversation_id: uuid.UUID, text_body: str) -> di
 def _create_conversation(pod: RuntimePod, stack: LiveStack) -> uuid.UUID:
     response = httpx.post(
         f"{pod.url}/v1/conversations",
-        json={"agent_id": str(stack.agent_id), "platform_user_id": str(stack.platform_user_id)},
+        json={
+            "agent_id": str(stack.agent_id),
+            "platform_user_id": str(stack.platform_user_id),
+            # 会话必须归属入口（ChannelContext.entry_id 必填）。
+            "channel": {
+                "type": "WECOM",
+                "entry_id": str(stack.bot_account_id),
+                "bot_id": stack.bot_id,
+            },
+        },
         headers=_headers(stack),
         timeout=10,
     )

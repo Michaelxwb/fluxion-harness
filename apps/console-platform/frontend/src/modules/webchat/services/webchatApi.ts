@@ -15,6 +15,7 @@
 
 import { api, apiErrorBody, type ApiResponse } from '../../../api/client';
 import type {
+  WebchatAttachmentQuery,
   WebchatClient,
   WebchatClientConfig,
   WebchatConversationCreated,
@@ -362,14 +363,25 @@ export async function uploadAttachment(
   );
 }
 
-/** API-10：下载/预览经带认证上下文的 service 取字节；服务端复核授权，不凭客户端存储键取件。 */
+/** API-10：下载/预览经带认证上下文的 service 取字节；服务端复核授权，不凭客户端存储键取件。
+
+`conversationId` 是客户端正在看的会话（授权按目标会话裁决），`checksum` 选定卡片上的版本。
+*/
 export async function downloadArtifact(
   artifactId: string,
+  query: WebchatAttachmentQuery,
   options: WebchatRequestOptions = {}
 ): Promise<Blob> {
   const response = await api.get<Blob>(
     `${WEBCHAT_BASE}/artifacts/${requireText(artifactId, 'ARTIFACT_REQUIRED')}/content`,
-    { responseType: 'blob', signal: options.signal }
+    {
+      responseType: 'blob',
+      params: {
+        conversation_id: requireText(query.conversationId, 'CONVERSATION_REQUIRED'),
+        checksum: requireText(query.checksum, 'CHECKSUM_REQUIRED')
+      },
+      signal: options.signal
+    }
   );
   return response.data;
 }

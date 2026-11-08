@@ -469,6 +469,12 @@ codes:
       zh-CN: 模型服务暂时不可用，请稍后重试
       en-US: The model service is temporarily unavailable
 
+  MODEL_EMPTY_REPLY:
+    http_status: 502
+    messages:
+      zh-CN: 模型没有返回任何内容，请稍后重试
+      en-US: The model returned no content. Please try again.
+
   VERIFICATION_EXHAUSTED:
     http_status: 422
     messages:
@@ -658,6 +664,21 @@ codes:
     messages:
       zh-CN: 本轮请求排队超时，未开始执行
       en-US: This request timed out in the queue before execution started.
+  RUN_DEADLINE_EXCEEDED:
+    http_status: 504
+    messages:
+      zh-CN: 本轮请求执行超时，已停止
+      en-US: This request exceeded its execution deadline and was stopped.
+  RUN_BUDGET_EXCEEDED:
+    http_status: 504
+    messages:
+      zh-CN: 本轮执行预算已用尽（达到最大轮次或工具调用上限），已停止
+      en-US: This run exhausted its execution budget (maximum turns or tool calls) and was stopped.
+  RUN_NO_PROGRESS:
+    http_status: 409
+    messages:
+      zh-CN: 工具调用失败，继续尝试没有意义，已停止（详见最后一次工具结果）
+      en-US: The run stopped after a tool failure because retrying would not help; see the last tool result.
   MODEL_CAPACITY_UNAVAILABLE:
     http_status: 503
     messages:

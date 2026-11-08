@@ -1,0 +1,7 @@
+{
+  "name": "smoke-platform-sample",
+  "author": "fluxion-harness",
+  "platforms": ["smoke_platform"],
+  "version": "0.1.0",
+  "entrypoint": "scripts/run.py"
+}

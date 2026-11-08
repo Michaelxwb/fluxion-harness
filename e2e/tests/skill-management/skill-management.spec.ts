@@ -80,12 +80,11 @@ function skillMd(name: string): string {
   return `---\nname: ${name}\ndescription: E2E skill.\n---\n\n# ${name}\n`;
 }
 
-async function importViaUi(page: Page, key: string, zip: Buffer, version = '1.0.0'): Promise<void> {
+async function importViaUi(page: Page, key: string, zip: Buffer): Promise<void> {
+  // key/version 由包内 SKILL.md 的 name 与 muad.skill.json 决定，表单不再有这两个输入。
   await page.goto('/skills');
   await page.getByTestId('import-skill').click();
   const modal = page.locator('.semi-modal');
-  await modal.getByRole('textbox', { name: /当前版本/ }).fill(version);
-  await modal.getByRole('textbox', { name: /Skill key/ }).fill(key);
   const chooser = page.waitForEvent('filechooser');
   await modal.locator('.semi-upload').click();
   (await chooser).setFiles({
@@ -104,7 +103,7 @@ test('S-05 导入合法 Skill 后 DB/NFS 落库且列表默认 SELECTED @smoke',
     await importViaUi(
       page,
       key,
-      skillZip({ 'SKILL.md': skillMd('E2E S05 Skill'), 'scripts/run.py': 'print(1)\n' })
+      skillZip({ 'SKILL.md': skillMd(key), 'scripts/run.py': 'print(1)\n' })
     );
 
     const row = page.locator('.semi-table-row', { hasText: key });
@@ -133,7 +132,7 @@ test('S-05m 导入内置归档逻辑生成的 Node greeting Skill', async ({ pag
   await login(page);
   try {
     const files = [
-      { path: 'SKILL.md', content: skillMd('greeting') },
+      { path: 'SKILL.md', content: skillMd(key) },
       { path: 'muad.skill.json', content: JSON.stringify({ runtime: 'script', entrypoint: 'scripts/run.mjs' }) },
       { path: 'scripts/run.mjs', content: 'process.stdout.write("你好，见到你很高兴\\n");' }
     ];
@@ -156,7 +155,7 @@ test('S-06 详情导入新版本后版本记录/当前版本更新且 SKILL.md �
     await importViaUi(
       page,
       key,
-      skillZip({ 'SKILL.md': skillMd('E2E S06 Skill'), 'scripts/run.py': 'print(1)\n' })
+      skillZip({ 'SKILL.md': skillMd(key), 'scripts/run.py': 'print(1)\n' })
     );
     await page.getByTestId(`skill-link-${key}`).click();
     const sheet = page.locator('.semi-sidesheet');
@@ -167,13 +166,14 @@ test('S-06 详情导入新版本后版本记录/当前版本更新且 SKILL.md �
     await sheet.locator('.semi-sidesheet-close').click();
     await page.getByTestId(`import-artifact-${key}`).click();
     const modal = page.locator('.semi-modal');
-    await modal.getByRole('textbox', { name: /当前版本/ }).fill('2.0.0');
     const chooser = page.waitForEvent('filechooser');
     await modal.locator('.semi-upload').click();
     (await chooser).setFiles({
       name: 'skill.zip',
       mimeType: 'application/zip',
       buffer: skillZip({
+        // 新版本号来自 manifest：表单不再手填版本。
+        'muad.skill.json': JSON.stringify({ version: '2.0.0' }),
         'SKILL.md': skillMd('E2E S06 Skill v2'),
         'scripts/run.py': 'print(2)\n'
       })
@@ -218,7 +218,7 @@ test('S-07 ALL 范围的指定用户 Tab 只提示不提供维护操作', async 
     await importViaUi(
       page,
       key,
-      skillZip({ 'SKILL.md': skillMd('E2E S07 Skill'), 'scripts/run.py': 'print(1)\n' })
+      skillZip({ 'SKILL.md': skillMd(key), 'scripts/run.py': 'print(1)\n' })
     );
     await expect(page.locator('.semi-table-row', { hasText: key })).toBeVisible();
     const payload = (await (await page.request.get(`/api/v1/skills?keyword=${key}`)).json()) as {
@@ -262,7 +262,7 @@ test('S-07b SELECTED 范围远端搜索添加指定用户', async ({ page }) => 
     await importViaUi(
       page,
       key,
-      skillZip({ 'SKILL.md': skillMd('E2E S07B Skill'), 'scripts/run.py': 'print(1)\n' })
+      skillZip({ 'SKILL.md': skillMd(key), 'scripts/run.py': 'print(1)\n' })
     );
     await expect(page.locator('.semi-table-row', { hasText: key })).toBeVisible();
     await page.getByTestId(`skill-link-${key}`).click();

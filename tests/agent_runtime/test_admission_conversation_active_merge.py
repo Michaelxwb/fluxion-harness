@@ -43,17 +43,19 @@ async def _seed(
     factory: async_sessionmaker[Any],
     *,
     status: RunStatus,
-    channel_account_id: uuid.UUID | None = None,
+    entry_id: uuid.UUID | None = None,
+    conversation_entry_id: uuid.UUID | None = None,
 ) -> tuple[ConversationScope, uuid.UUID, uuid.UUID]:
     tenant_id = f"merge-{uuid.uuid4().hex[:8]}"
     user_id = uuid.uuid4()
     agent_id = uuid.uuid4()
+    entry_id = entry_id or uuid.uuid4()
     async with factory() as session:
         conversation = Conversation(
             tenant_id=tenant_id,
             user_id=user_id,
             agent_id=agent_id,
-            channel_account_id=channel_account_id,
+            channel_account_id=conversation_entry_id or entry_id,
         )
         session.add(conversation)
         await session.flush()
@@ -76,7 +78,7 @@ async def _seed(
                 tenant_id=tenant_id,
                 user_id=user_id,
                 agent_id=agent_id,
-                entry_id=None,
+                entry_id=entry_id,
                 external_thread_id="",
             ),
             conversation.id,
@@ -117,7 +119,7 @@ async def test_wrong_tenant_is_not_found(
         tenant_id=f"{scope.tenant_id}-other",
         user_id=scope.user_id,
         agent_id=scope.agent_id,
-        entry_id=None,
+        entry_id=scope.entry_id,
         external_thread_id="",
     )
     async with session_factory() as session:
@@ -134,7 +136,8 @@ async def test_entry_attribution_is_preserved(
     scope, conversation_id, _ = await _seed(
         session_factory,
         status=RunStatus.RUNNING,
-        channel_account_id=uuid.uuid4(),
+        entry_id=uuid.uuid4(),
+        conversation_entry_id=uuid.uuid4(),
     )
     async with session_factory() as session:
         with pytest.raises(AppError) as error:
