@@ -525,7 +525,11 @@ class SkillDraftService:
                 raise AppError(ErrorCode.SKILL_PENDING_EXISTS)
             return submission_view(artifact)
         if artifact.review_status == SkillReviewStatus.APPROVED:
-            raise AppError(ErrorCode.SKILL_APPROVED_LOCKED)
+            # 已审批技能才构成"锁定"；技能**已被删除**时旧审批不再挡路，允许用同一草稿
+            # 重新提交（会按 key 新建技能与 PENDING artifact）。
+            skill = await self._session.get(Skill, artifact.skill_id)
+            if skill is not None and not skill.is_deleted:
+                raise AppError(ErrorCode.SKILL_APPROVED_LOCKED)
         return None
 
     async def _ensure_skill(

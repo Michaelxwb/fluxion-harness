@@ -260,7 +260,10 @@ class SkillService:
 
     async def get_skill_detail(self, tenant_id: str, skill_id: uuid.UUID) -> SkillDetail:
         skill = await self.get_skill(tenant_id, skill_id)
-        artifact = await self._skills.get_current_artifact(skill)
+        current = await self._skills.get_current_artifact(skill)
+        # 展示用版本：待审/驳回版本还不是 current artifact，但详情要如实显示版本号；
+        # current_artifact 字段仍只给已审批版本，避免待审版本被当成可执行/可编辑基线。
+        artifact = current if current is not None else await self._skills.get_latest_artifact(skill)
         review_status = await self._skills.latest_review_status(skill.id)
         return SkillDetail(
             **skill_list_item(
@@ -271,7 +274,7 @@ class SkillService:
                 review_status=review_status,
             ).model_dump(),
             create_time=skill.create_time,
-            current_artifact=artifact_detail(artifact) if artifact else None,
+            current_artifact=artifact_detail(current) if current else None,
         )
 
     async def update_skill(

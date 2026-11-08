@@ -16,9 +16,37 @@ USER_SCOPE_ALL = "ALL"
 SKILL_SOURCE_SYSTEM = "SYSTEM"
 
 
+def latest_artifact_id_subquery() -> ScalarSelect[uuid.UUID]:
+    """最近一次提交的版本 id（待审/驳回版本不是 current artifact，但列表要能看见它）。"""
+    return (
+        select(SkillArtifact.id)
+        .where(
+            SkillArtifact.skill_id == Skill.id,
+            SkillArtifact.is_deleted.is_(False),
+        )
+        .order_by(SkillArtifact.create_time.desc(), SkillArtifact.id.desc())
+        .limit(1)
+        .correlate(Skill)
+        .scalar_subquery()
+    )
+
+
 def current_artifact_join() -> ColumnElement[bool]:
+    """执行/生效口径：只认 current artifact（审批通过后才切换指针），待审版本不可执行。"""
     return and_(
         SkillArtifact.id == Skill.current_artifact_id,
+        SkillArtifact.is_deleted.is_(False),
+    )
+
+
+def display_artifact_join() -> ColumnElement[bool]:
+    """列表展示口径：current artifact 优先，没有 current（仅待审/驳回）时退回最近一版。
+
+    审批通过前技能没有 current artifact：只认 current 会让「当前版本」为空，看起来像
+    没上传成功；退回最近一版才能如实展示待审版本号。执行路径仍用 current_artifact_join。
+    """
+    return and_(
+        SkillArtifact.id == func.coalesce(Skill.current_artifact_id, latest_artifact_id_subquery()),
         SkillArtifact.is_deleted.is_(False),
     )
 
@@ -114,7 +142,7 @@ class SkillRepository:
         total = await self._session.scalar(
             select(func.count())
             .select_from(Skill)
-            .outerjoin(SkillArtifact, current_artifact_join())
+            .outerjoin(SkillArtifact, display_artifact_join())
             .where(*conditions)
         )
         agent_count = (
@@ -139,7 +167,7 @@ class SkillRepository:
         )
         result = await self._session.execute(
             select(Skill, SkillArtifact, agent_count, user_count, latest_status)
-            .outerjoin(SkillArtifact, current_artifact_join())
+            .outerjoin(SkillArtifact, display_artifact_join())
             .where(*conditions)
             .order_by(Skill.update_time.desc())
             .offset((page - 1) * page_size)
@@ -193,6 +221,19 @@ class SkillRepository:
                 SkillArtifact.id == skill.current_artifact_id,
                 SkillArtifact.is_deleted.is_(False),
             )
+        )
+        return artifact
+
+    async def get_latest_artifact(self, skill: Skill) -> SkillArtifact | None:
+        """最近一次提交的版本（待审/驳回版本不是 current artifact，详情展示要能看见）。"""
+        artifact: SkillArtifact | None = await self._session.scalar(
+            select(SkillArtifact)
+            .where(
+                SkillArtifact.skill_id == skill.id,
+                SkillArtifact.is_deleted.is_(False),
+            )
+            .order_by(SkillArtifact.create_time.desc(), SkillArtifact.id.desc())
+            .limit(1)
         )
         return artifact
 
