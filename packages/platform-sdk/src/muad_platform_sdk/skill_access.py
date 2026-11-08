@@ -12,6 +12,7 @@ from muad_common.redis_client import create_redis_client
 
 from .adapter import MSSAdapter, PlatformAdapterRegistry
 from .adapter.mss_config import PlatformAuthError
+from .platform_transport import PlatformBudgetScope
 from .session.manager import SessionRequest
 from .session.redis_manager import RedisPlatformSessionManager
 from .types import PlatformConfig, SecretValue
@@ -34,6 +35,7 @@ class SkillPlatformContext:
     service_token: str | None = field(repr=False)
     redis_mode: str = "standalone"
     redis_cluster_seeds: str = ""
+    budget_scope: PlatformBudgetScope | None = field(default=None, repr=False)
 
 
 class SkillPlatformAccess:
@@ -51,7 +53,7 @@ class SkillPlatformAccess:
             else None
         )
         self.registry = PlatformAdapterRegistry()
-        for adapter in (MSSAdapter(),):
+        for adapter in (MSSAdapter(budget=context.budget_scope),):
             self.registry.register(adapter)
         #: 同一执行内 Console 解析结果复用：broker 的授权计算、会话续期与 state 写入
         #: 都读同一份平台/凭据快照，避免每次 get-state 重复出网。

@@ -24,6 +24,7 @@ from typing import Any
 from redis.exceptions import RedisClusterException, RedisError
 
 from .adapter.mss_config import PlatformAuthError, settings
+from .request_budget import LocalRateLimitError
 from .skill_access import SkillPlatformAccess, SkillPlatformContext
 
 BROKER_BUDGET_EXCEEDED = "PLATFORM_SESSION_BUDGET_EXCEEDED"
@@ -211,6 +212,8 @@ async def _write_state(
 
 
 def _broker_error(exc: Exception) -> dict[str, Any]:
+    if isinstance(exc, LocalRateLimitError):
+        return {"error": str(exc)}
     if isinstance(exc, (_BudgetExceeded, PlatformAuthError)):
         return {"error": exc.code}
     return {"error": BROKER_INTERNAL_ERROR}

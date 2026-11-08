@@ -17,7 +17,7 @@
         "timeout": 15
       }
     },
-    "CHK-e0debd9a928d": {
+    "CHK-735f66bb3135": {
       "suite": "integration",
       "markers": [],
       "collect": {
@@ -27,7 +27,7 @@
           "pytest",
           "--collect-only",
           "-q",
-          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_02"
+          "tests/sdk/test_platform_budget_http.py::test_s_02_auth_validation_business_and_explicit_retry_share_gate"
         ],
         "format": "pytest",
         "timeout": 15
@@ -134,7 +134,7 @@
         "timeout": 15
       }
     },
-    "CHK-24b867f4c338": {
+    "CHK-49b9a9f601c5": {
       "suite": "integration",
       "markers": [],
       "collect": {
@@ -144,7 +144,7 @@
           "pytest",
           "--collect-only",
           "-q",
-          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_03"
+          "tests/sdk/test_platform_budget_http.py::test_b_03_stream_holds_slot_until_body_close"
         ],
         "format": "pytest",
         "timeout": 15

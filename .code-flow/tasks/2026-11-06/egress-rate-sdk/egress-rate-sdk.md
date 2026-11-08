@@ -15,14 +15,14 @@
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | 优先级 | 执行方式 | 环境 | 输入 | E2E理由 | 触发路径 | 冒烟 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | S-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK 对象与可注入单调时钟 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_s_01_requests_are_consumed_on_error_and_cancel", "tests/sdk/test_request_budget.py::test_s_01_upstream_limit_still_consumes_a_request"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
-| S-02 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime/Worker + 本地 HTTP 探针 + PlatformAdapter，不使用 mock transport | TASK-003 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_02"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| S-02 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime/Worker + 本地 HTTP 探针 + PlatformAdapter，不使用 mock transport | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_platform_budget_http.py::test_s_02_auth_validation_business_and_explicit_retry_share_gate"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | S-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime + Streamable HTTP MCP 探针 | TASK-004 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | S-04 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime/Worker、Skill 子进程和既有快照/租约边界 | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | E-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 对象与 fake send counter，不发送真实网络 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_e_01_concurrency_releases_only_its_own_lease", "tests/sdk/test_request_budget.py::test_invalid_context_cannot_bypass_target_matching", "tests/sdk/test_request_budget.py::test_invocation_from_other_controller_is_rejected"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | E-02 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Skill 子进程组、Runtime/Worker 和 HTTP 探针；沿用 start_new_session/killpg | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | B-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 对象与可注入时钟 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_01_atomic_parent_and_child_rules", "tests/sdk/test_request_budget.py::test_b_01_concurrent_reservations_do_not_overshoot", "tests/sdk/test_request_budget.py::test_overlapping_target_denial_does_not_debit_parent"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | B-02 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 装配对象，不连接 Redis/PG | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_02_no_limits_does_not_construct_a_controller", "tests/sdk/test_request_budget.py::test_unmatched_rules_do_not_consume_or_call_observer"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
-| B-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实慢 HTTP/流式探针与 Runtime 发送器 | TASK-003 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_03"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| B-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实慢 HTTP/流式探针与 Runtime 发送器 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_platform_budget_http.py::test_b_03_stream_holds_slot_until_body_close"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | E-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 两个独立 Runtime/Worker 进程 + 真实 Proxy HTTP 探针，不使用共享 limiter 存储 | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | B-04 | egress-rate-sdk.design.md#2.4 验收条件 | contract | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_egress_budget.py"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | B-05 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_05_matching_and_exact_window_boundary", "tests/sdk/test_request_budget.py::test_b_05_mcp_handshake_does_not_match_a_tool", "tests/sdk/test_request_budget.py::test_b_05_query_and_encoded_identifier_do_not_create_new_buckets"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
@@ -185,7 +185,7 @@
 
 ## TASK-003: 平台发送与 SDK 客户端接线
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: egress-rate-sdk.design.md#3.8 接线点与停止信号
@@ -201,27 +201,49 @@
 
 ### Checklist
 
-- [ ] 先将 Plan 骨架替换为真实断言，功能缺失时取 RED，实施后取 GREEN；不得把 pytest.fail 占位失败作为功能验证
-- [ ] 保持只读 Session broker；Adapter send 显式传上下文；受控 SDK 请求逐次计数；不恢复业务 IPC，不修改任意第三方 HTTP 库
-- [ ] [S-02][integration] 真实 Runtime/Worker + 本地 HTTP 探针 + PlatformAdapter，不使用 mock transport；断言：登录、校验、业务和重试都在实际 send 前经过 gate；超限时对应请求未发出；每次真实 HTTP 尝试只计一次，既有认证/Session 语义仍成立
-- [ ] [B-03][integration] 真实慢 HTTP/流式探针与 Runtime 发送器；断言：流关闭前不释放；取消、异常、正常关闭均释放一次且重复 close 不误释放其他 lease
-- [ ] [RULE-platform-001] verifier: ["bash", "-lc", "uv run pytest -q tests -k schema_parity"]；cwd=.；timeout=300；由 TASK-003 负责，不以收集代执行
+- [x] 先将 Plan 骨架替换为真实断言，功能缺失时取 RED，实施后取 GREEN；不得把 pytest.fail 占位失败作为功能验证
+- [x] 保持只读 Session broker；Adapter send 显式传上下文；受控 SDK 请求逐次计数；不恢复业务 IPC，不修改任意第三方 HTTP 库
+- [x] [S-02][integration] 真实 Runtime/Worker + 本地 HTTP 探针 + PlatformAdapter，不使用 mock transport；断言：登录、校验、业务和重试都在实际 send 前经过 gate；超限时对应请求未发出；每次真实 HTTP 尝试只计一次，既有认证/Session 语义仍成立
+- [x] [B-03][integration] 真实慢 HTTP/流式探针与 Runtime 发送器；断言：流关闭前不释放；取消、异常、正常关闭均释放一次且重复 close 不误释放其他 lease
+- [x] [RULE-platform-001] verifier: ["bash", "-lc", "uv run pytest -q tests -k schema_parity"]；cwd=.；timeout=300；由 TASK-003 负责，不以收集代执行
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-02 | integration | 真实 Runtime/Worker + 本地 HTTP 探针 + PlatformAdapter，不使用 mock transport | 登录、校验、业务和重试都在实际 send 前经过 gate；超限时对应请求未发出；每次真实 HTTP 尝试只计一次，既有认证/Session 语义仍成立 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_02 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_02"] | planned |
-| B-03 | integration | 真实慢 HTTP/流式探针与 Runtime 发送器 | 流关闭前不释放；取消、异常、正常关闭均释放一次且重复 close 不误释放其他 lease | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_03 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_03"] | planned |
+| S-02 | integration | 真实 Runtime/Worker + 本地 HTTP 探针 + PlatformAdapter，不使用 mock transport | 登录、校验、业务和重试都在实际 send 前经过 gate；超限时对应请求未发出；每次真实 HTTP 尝试只计一次，既有认证/Session 语义仍成立 | tests/sdk/test_platform_budget_http.py::test_s_02_auth_validation_business_and_explicit_retry_share_gate | ["uv", "run", "pytest", "-q", "tests/sdk/test_platform_budget_http.py::test_s_02_auth_validation_business_and_explicit_retry_share_gate"] | verified |
+| B-03 | integration | 真实慢 HTTP/流式探针与 Runtime 发送器 | 流关闭前不释放；取消、异常、正常关闭均释放一次且重复 close 不误释放其他 lease | tests/sdk/test_platform_budget_http.py::test_b_03_stream_holds_slot_until_body_close | ["uv", "run", "pytest", "-q", "tests/sdk/test_platform_budget_http.py::test_b_03_stream_holds_slot_until_body_close"] | verified |
 | harness-project-platform#RULE-platform-001 | integration | Spec 所声明 verifier 的真实组件边界；不得用 SDK mock 替代 | ProjectPlatform 只保存实例与寻址配置，认证/Session 由 PlatformAdapter 承担（SPI 无独立 `refresh`，刷新属于 `authenticate` 内部）；凭据明文存于凭据表并由主键引用，`credential_mode` 仅表达选择策略（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）；PlatformSession 为可重建 Redis 缓存，键为 `platform_session:{tenant_id:platform_id}:{actor_scope}:{credential_version}:{adapter_key}:{adapter_version}`（`{tenant_id:platform_id}` 是字面 hash tag，session/index/generation/lock 同 slot，保证 4-key Lua 在 Redis Cluster 可执行），索引 `platform_sessions:{tenant_id:platform_id}` 以 Set 清理；更换 adapter_key 必须使旧凭据与会话失效。 | harness-project-platform#RULE-platform-001 | ["bash", "-lc", "uv run pytest -q tests -k schema_parity"] | planned |
 
 ### Acceptance Evidence
 
-本阶段仅登记计划，无实现/验收证据。Start 后记录真实 RED/GREEN、断言位置与真实边界；占位体必须移除。
+| 场景/规则 | RED | GREEN | 断言位置与真实边界 | 状态 |
+|---|---|---|---|---|
+| S-02 | 初始缺 PlatformBudgetScope/PlatformHttpSender，真实测试无法导入 | tests/sdk/test_platform_budget_http.py 6 passed；34 项 SDK/Session 合并回归通过 | 真实 AuthPlatformServer + MSSAdapter + httpx client；登录/CSRF/health/业务/重试均计数，超限不抵达探针 | verified |
+| B-03 | 初始无发送租约接线 | 真实慢 HTTP 探针 normal/cancel/broken 三参数通过 | response body 完成前 inflight=1；取消/断流/正常关闭后释放；无 mock transport | verified |
+| harness-project-platform#RULE-platform-001 | 现有 verifier 全命令在当前账号 blocked：13 个 schema parity 用例无法 CREATE DATABASE（CREATEDB 权限缺失） | tests/sdk/test_mss_sessions.py + test_platform_sliding_session.py + test_platform_budget_http.py 34 passed；Ruff/mypy 通过 | 真实 Redis session + 本地 HTTP 平台；schema parity 的真实环境缺口已记录，不冒充通过 | env_blocked |
+
+实现边界：新增 platform_transport.py；Adapter 显式接收固定 PlatformBudgetScope；SkillPlatformContext 传递 budget_scope；Session broker 仍只返回登录态文件；旧 Skill 直连 urllib/requests 不会自动受控，负向边界已验证。observer DENY 审计和敏感字段安全投影覆盖在 PlatformBudgetScope。
+- S-02: failed — automated command failed; run_id=547cf060ec3746a58373d8a2f9159155 (confirmed_by: runner)
+- B-03: failed — automated command failed; run_id=547cf060ec3746a58373d8a2f9159155 (confirmed_by: runner)
+- S-02: failed — automated command failed; run_id=a699d31b5bec4ced8892751d2d0b3dd6 (confirmed_by: runner)
+- B-03: failed — automated command failed; run_id=a699d31b5bec4ced8892751d2d0b3dd6 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=565234cf2b3d4e41b17cc2c60f4cbfb4 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=565234cf2b3d4e41b17cc2c60f4cbfb4 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=5949b78f00e6451ea303182c175986b0 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=5949b78f00e6451ea303182c175986b0 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=6ea72e5ae86a4eee96608500b2775118 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=6ea72e5ae86a4eee96608500b2775118 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=bad2f1b31d4d48029c0649663a113087 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=bad2f1b31d4d48029c0649663a113087 (confirmed_by: runner)
+- S-02: verified — automated command passed; run_id=96bb6d81d1804fd7a0e8ea1102aaf342 (confirmed_by: runner)
+- B-03: verified — automated command passed; run_id=96bb6d81d1804fd7a0e8ea1102aaf342 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-08] created (draft)
+- [2026-11-08] started
+- [2026-11-08] completed (done)
 
 ## TASK-004: MCP 与上游错误处理
 

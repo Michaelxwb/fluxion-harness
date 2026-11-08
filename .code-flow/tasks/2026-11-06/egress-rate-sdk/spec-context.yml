@@ -1,7 +1,7 @@
 version: 1
 task: 出站请求限流 SDK
 enforcement: required
-updated_at: '2026-11-08T02:14:16.191082+00:00'
+updated_at: '2026-11-08T02:41:16.208073+00:00'
 sources:
 - type: cli
   ref: bind
@@ -46,7 +46,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
+          artifact_sha256: 2bcbbe97966ae91c324d14e02c4abf45776ee77983d8bb3df2a23a019d7ce0bf
         decision: null
         evidence: []
       code:
@@ -82,6 +82,18 @@ bindings:
           rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
           artifact_sha256: null
           diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-08T02:41:43.353872+00:00'
+          status: unverified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -135,11 +147,11 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
+          artifact_sha256: 2bcbbe97966ae91c324d14e02c4abf45776ee77983d8bb3df2a23a019d7ce0bf
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -190,6 +202,18 @@ bindings:
               14 passed in 2.20s
 
               '
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-11-08T02:41:43.462686+00:00'
+          status: unverified
+          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+          artifact_sha256: null
+          diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -234,7 +258,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
+          artifact_sha256: 2bcbbe97966ae91c324d14e02c4abf45776ee77983d8bb3df2a23a019d7ce0bf
         decision: null
         evidence: []
       code:
@@ -270,6 +294,18 @@ bindings:
           rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
           artifact_sha256: null
           diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-11-08T02:41:43.570214+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -324,7 +360,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
+          artifact_sha256: 2bcbbe97966ae91c324d14e02c4abf45776ee77983d8bb3df2a23a019d7ce0bf
         decision: null
         evidence: []
       code:
@@ -383,6 +419,98 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               55 passed, 6723 deselected, 2 warnings in 28.54s\n"
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-11-08T02:41:51.939489+00:00'
+          status: unverified
+          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
+          artifact_sha256: null
+          diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d
+          result_sha256: 66a7b6cef4e133575480e1e2f8cf320dde74187346591c04b135a6145ac77387
+          error_code: command_failed
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests -k schema_parity
+            exit_code: 1
+            stdout_sha256: 093232a27f930ab57ccd17faeab98684c289dc00b6933321330f67eba453a62b
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "revision: str = \"head\") -> dict[str, str]:\n        \"\"\"\
+              建空库 + 独立 Redis DB；默认迁到 head，迁移测试可显式指定旧 revision。\n    \n        返回 `database_url`\
+              \ / `redis_url` / `name`，以及 `admin_database_url`（**建库前的基准 DSN**）。\n\
+              \        后者是必需的：调用方随后会把 `DATABASE_URL` 覆盖成临时库，drop 时必须用基准 DSN 连回\n \
+              \       管理库，否则会连到临时库自身、报 `cannot drop the currently open database`。\n\
+              \        \"\"\"\n        settings = SharedSettings()\n        base_database_url\
+              \ = settings.require_database_url()\n        base_redis_url = settings.require_redis_url()\n\
+              \        name = new_database_name(prefix)\n        admin_dsn = _asyncpg_dsn(base_database_url)\n\
+              \    \n        # 先占 Redis 号位：抢不到就立刻失败，此时还没有库需要回收。之后每条失败路径都要把号位\n   \
+              \     # 还回去 —— 否则异常一次就永久吃掉一个号（只靠 TTL 兜底会让并发额度悄悄缩水）。\n        redis_url\
+              \ = isolated_redis_url(base_redis_url, name)\n        try:\n       \
+              \     _create_database(admin_dsn, name)\n        except asyncpg.InsufficientPrivilegeError\
+              \ as exc:\n            _release_redis_db(base_redis_url, name)\n>  \
+              \         raise DatastorePrivilegeError(\n                \"验收需要独立数据库，但当前角色没有\
+              \ CREATEDB：\\n\"\n                f\"  {exc}\\n\"\n                \"\
+              一次性授权：以超级用户执行 `ALTER ROLE muad CREATEDB;`（本地 dev 库用 mmuser）；\\n\"\n\
+              \                \"或先用 `MUAD_ACCEPTANCE_SHARED_DB=1` 退回共享库排查（不推荐长期使用）。\"\
+              \n            ) from exc\nE           tests.acceptance.datastores.DatastorePrivilegeError:\
+              \ 验收需要独立数据库，但当前角色没有 CREATEDB：\nE             permission denied to create\
+              \ database\nE           一次性授权：以超级用户执行 `ALTER ROLE muad CREATEDB;`（本地\
+              \ dev 库用 mmuser）；\nE           或先用 `MUAD_ACCEPTANCE_SHARED_DB=1` 退回共享库排查（不推荐长期使用）。\n\
+              \ntests/acceptance/datastores.py:258: DatastorePrivilegeError\n===============================\
+              \ warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              =========================== short test summary info ============================\n\
+              ERROR tests/acceptance/test_foundation_schema_parity.py::test_e05_migration_chain_has_single_head\n\
+              ERROR tests/acceptance/test_foundation_schema_parity.py::test_e05_every_orm_suite_has_parity_tests\n\
+              ERROR tests/acceptance/test_foundation_schema_parity.py::test_e05_parity_suite_detects_injected_column_drift\n\
+              ERROR tests/migrations/test_capacity_webchat_admission_schema.py::test_b211_empty_database_schema_parity\n\
+              ERROR tests/migrations/test_capacity_webchat_chat_auth_schema.py::test_b212_empty_database_schema_parity\n\
+              ERROR tests/migrations/test_capacity_webchat_control_pool_schema.py::test_b209_empty_database_schema_parity\n\
+              ERROR tests/migrations/test_capacity_webchat_conversation_upload_schema.py::test_b213_empty_database_schema_parity\n\
+              ERROR tests/migrations/test_capacity_webchat_notification_schema.py::test_b214_empty_database_schema_parity\n\
+              ERROR tests/migrations/test_capacity_webchat_runtime_pool_schema.py::test_b210_empty_database_schema_parity\n\
+              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_memory_redesign_schema_parity\n\
+              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_deleted_key_and_history_version_are_unique\n\
+              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_confirmation_and_options_cross_outcome_are_physically_exclusive\n\
+              ERROR tests/migrations/test_runtime_wait_parity.py::test_b08_empty_database_schema_parity\n\
+              30 passed, 12 skipped, 6729 deselected, 2 warnings, 13 errors in 6.79s\n"
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-11-08T02:48:51.271857+00:00'
+          status: verified
+          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
+          artifact_sha256: null
+          diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d
+          result_sha256: 2a3aa01bbef0e491f823f362edc2b4e727a9ae4466b06d1976508172d6c1a195
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: a02182d3b30d76edcb842da305e41edf4ca9f5c11a968357afda8975768d9350
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: ".......................................................     \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              55 passed, 6729 deselected, 2 warnings in 27.41s\n"
       review:
         status: pending
         refs: []
@@ -429,7 +557,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
+          artifact_sha256: 2bcbbe97966ae91c324d14e02c4abf45776ee77983d8bb3df2a23a019d7ce0bf
         decision: null
         evidence: []
       code:
@@ -483,6 +611,103 @@ bindings:
               14 passed in 2.24s
 
               '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-08T02:41:53.988685+00:00'
+          status: unverified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d
+          result_sha256: a15f4ef85c2d8963ecc9fec0a0f28f8bd34eb75030e02676b9960d9df5c49a9f
+          error_code: command_failed
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 1
+            stdout_sha256: 49af58f8e4428557d7c242dfe1d887aff951fb45559d321caba619bed7c750be
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "te(f'CREATE DATABASE \"{name}\"')\n.venv/lib/python3.12/site-packages/asyncpg/connection.py:354:\
+              \ in execute\n    result = await self._protocol.query(query, timeout)\n\
+              \             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ \n\n>   ???\nE   asyncpg.exceptions.InsufficientPrivilegeError:\
+              \ permission denied to create database\n\nasyncpg/protocol/protocol.pyx:369:\
+              \ InsufficientPrivilegeError\n\nThe above exception was the direct cause\
+              \ of the following exception:\n\n    @pytest.fixture(scope=\"session\"\
+              , autouse=True)\n    def isolated_datastores() -> Iterator[None]:\n\
+              \        \"\"\"本会话独占一个空库 + 独立 Redis DB；结束时丢弃。\"\"\"\n        try:\n\
+              >           with isolated_datastore_env():\n                 ^^^^^^^^^^^^^^^^^^^^^^^^\n\
+              \ntests/acceptance/conftest.py:38: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n../../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:137:\
+              \ in __enter__\n    return next(self.gen)\n           ^^^^^^^^^^^^^^\n\
+              tests/acceptance/datastores.py:323: in isolated_datastore_env\n    info\
+              \ = create_datastore()\n           ^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ \n\nprefix = 'muad_acc_'\n\n    def create_datastore(prefix: str =\
+              \ DEFAULT_PREFIX, *, revision: str = \"head\") -> dict[str, str]:\n\
+              \        \"\"\"建空库 + 独立 Redis DB；默认迁到 head，迁移测试可显式指定旧 revision。\n  \
+              \  \n        返回 `database_url` / `redis_url` / `name`，以及 `admin_database_url`（**建库前的基准\
+              \ DSN**）。\n        后者是必需的：调用方随后会把 `DATABASE_URL` 覆盖成临时库，drop 时必须用基准\
+              \ DSN 连回\n        管理库，否则会连到临时库自身、报 `cannot drop the currently open database`。\n\
+              \        \"\"\"\n        settings = SharedSettings()\n        base_database_url\
+              \ = settings.require_database_url()\n        base_redis_url = settings.require_redis_url()\n\
+              \        name = new_database_name(prefix)\n        admin_dsn = _asyncpg_dsn(base_database_url)\n\
+              \    \n        # 先占 Redis 号位：抢不到就立刻失败，此时还没有库需要回收。之后每条失败路径都要把号位\n   \
+              \     # 还回去 —— 否则异常一次就永久吃掉一个号（只靠 TTL 兜底会让并发额度悄悄缩水）。\n        redis_url\
+              \ = isolated_redis_url(base_redis_url, name)\n        try:\n       \
+              \     _create_database(admin_dsn, name)\n        except asyncpg.InsufficientPrivilegeError\
+              \ as exc:\n            _release_redis_db(base_redis_url, name)\n>  \
+              \         raise DatastorePrivilegeError(\n                \"验收需要独立数据库，但当前角色没有\
+              \ CREATEDB：\\n\"\n                f\"  {exc}\\n\"\n                \"\
+              一次性授权：以超级用户执行 `ALTER ROLE muad CREATEDB;`（本地 dev 库用 mmuser）；\\n\"\n\
+              \                \"或先用 `MUAD_ACCEPTANCE_SHARED_DB=1` 退回共享库排查（不推荐长期使用）。\"\
+              \n            ) from exc\nE           tests.acceptance.datastores.DatastorePrivilegeError:\
+              \ 验收需要独立数据库，但当前角色没有 CREATEDB：\nE             permission denied to create\
+              \ database\nE           一次性授权：以超级用户执行 `ALTER ROLE muad CREATEDB;`（本地\
+              \ dev 库用 mmuser）；\nE           或先用 `MUAD_ACCEPTANCE_SHARED_DB=1` 退回共享库排查（不推荐长期使用）。\n\
+              \ntests/acceptance/datastores.py:258: DatastorePrivilegeError\n\nDuring\
+              \ handling of the above exception, another exception occurred:\n\n \
+              \   @pytest.fixture(scope=\"session\", autouse=True)\n    def isolated_datastores()\
+              \ -> Iterator[None]:\n        \"\"\"本会话独占一个空库 + 独立 Redis DB；结束时丢弃。\"\
+              \"\"\n        try:\n            with isolated_datastore_env():\n   \
+              \             yield\n        except DatastoreUnavailableError as exc:\
+              \  # pragma: no cover - 环境前提\n>           pytest.fail(str(exc))\nE \
+              \          Failed: 验收需要独立数据库，但当前角色没有 CREATEDB：\nE             permission\
+              \ denied to create database\nE           一次性授权：以超级用户执行 `ALTER ROLE muad\
+              \ CREATEDB;`（本地 dev 库用 mmuser）；\nE           或先用 `MUAD_ACCEPTANCE_SHARED_DB=1`\
+              \ 退回共享库排查（不推荐长期使用）。\n\ntests/acceptance/conftest.py:41: Failed\n===========================\
+              \ short test summary info ============================\nERROR tests/acceptance/test_foundation_ops_audit.py::test_s11_business_change_and_audit_commit_together\n\
+              ERROR tests/acceptance/test_foundation_ops_audit.py::test_e06_audit_failure_rolls_back_business_change\n\
+              ERROR tests/acceptance/test_foundation_ops_audit.py::test_s11_console_audit_uses_api_kit_primitive\n\
+              11 passed, 3 errors in 1.16s\n"
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-08T02:48:54.481840+00:00'
+          status: verified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d
+          result_sha256: 1952d58dfee63abef6a545a62a90c09f19172370330fca0a8cdc387ab3bd1db8
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 66b8e29f85479272a6043d86c7cb30e56e6e1503c16e62791d76f1c53ed69283
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.36s
+
+              '
       review:
         status: pending
         refs: []
@@ -532,7 +757,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
+          artifact_sha256: 2bcbbe97966ae91c324d14e02c4abf45776ee77983d8bb3df2a23a019d7ce0bf
         decision: null
         evidence: []
       code:
@@ -568,6 +793,18 @@ bindings:
           rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
           artifact_sha256: null
           diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-11-08T02:41:54.118060+00:00'
+          status: unverified
+          rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
+          artifact_sha256: null
+          diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -620,7 +857,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
+          artifact_sha256: 2bcbbe97966ae91c324d14e02c4abf45776ee77983d8bb3df2a23a019d7ce0bf
         decision: null
         evidence: []
       code:
@@ -676,6 +913,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-08T02:41:54.244692+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -720,7 +969,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
+          artifact_sha256: 2bcbbe97966ae91c324d14e02c4abf45776ee77983d8bb3df2a23a019d7ce0bf
         decision: null
         evidence: []
       code:
@@ -776,7 +1025,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
+          artifact_sha256: 2bcbbe97966ae91c324d14e02c4abf45776ee77983d8bb3df2a23a019d7ce0bf
         decision: null
         evidence: []
       code:
@@ -812,6 +1061,18 @@ bindings:
           rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
           artifact_sha256: null
           diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-11-08T02:41:54.447882+00:00'
+          status: unverified
+          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+          artifact_sha256: null
+          diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
