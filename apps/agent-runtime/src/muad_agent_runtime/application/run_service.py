@@ -138,6 +138,7 @@ from .channel_conversations import (
 )
 from .channel_notification_queries import KIND_SUMMARIES
 from .channel_notifications import (
+    DELIVERY_NOT_REQUIRED,
     KIND_RUN_COMPLETED,
     NotificationKind,
     RunNotificationReceipt,
@@ -3298,12 +3299,15 @@ class RunService:
             marker = mark("submission", marker)
             # 用户通知与终态**同一事务**（design §3.6）：feed 锁在 Conversation/Run 锁之后；
             # 写不进去就整体回滚，绝不先提交终态再补通知。
+            # DETACH 后台任务自己投递结果：Run 终态不再重复外发（否则用户收到两条）。
+            detached = target == RunStatus.COMPLETED and await _submitted_detached_task(session, row)
             receipt = await write_run_notification(
                 session,
                 run=row,
                 kind=KIND_RUN_COMPLETED,
                 delivery_key=run_terminal_delivery_key(row.id),
                 event_id=terminal_event_id,
+                delivery_state=DELIVERY_NOT_REQUIRED if detached else None,
             )
             marker = mark("notification", marker)
             if target == RunStatus.COMPLETED:
@@ -3626,6 +3630,31 @@ class RunService:
             .limit(1)
         )
         return found is not None
+
+
+async def _submitted_detached_task(session: AsyncSession, run: RunRecord) -> bool:
+    """本 Run 是否提交了 DETACH 后台任务（结果由任务自己投递）。
+
+    DETACH 的终态正文只是"任务已受理"，用户随后会收到任务的最终结果；再按 Run 终态外发一次
+    就是同一条结果两条消息。
+    """
+    rows = await session.execute(
+        sa.select(CanonicalEvent.payload_json).where(
+            CanonicalEvent.tenant_id == run.tenant_id,
+            CanonicalEvent.run_id == run.id,
+            CanonicalEvent.event_type == "ASSISTANT_TURN",
+            CanonicalEvent.is_deleted.is_(False),
+        )
+    )
+    for (payload,) in rows.all():
+        calls = payload.get("tool_calls") if isinstance(payload, dict) else None
+        for call in calls or ():
+            arguments = call.get("arguments") if isinstance(call, dict) else None
+            if isinstance(arguments, dict) and str(
+                arguments.get("completion_mode", "")
+            ).upper() == "DETACH":
+                return True
+    return False
 
 
 def _error_code_for(exc: Exception) -> str:
