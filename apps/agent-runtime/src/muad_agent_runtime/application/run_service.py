@@ -542,6 +542,9 @@ class SegmentResult:
     outcome: AgentRunStatus = AgentRunStatus.COMPLETED
     final_text: str = ""
     failure: Exception | None = None
+    #: 执行器是否给出了终态（`runner.outcome`）。取消/中断时执行器不产终态，此时 outcome
+    #: 保持默认 COMPLETED、正文为空——那不是"成功但没有正文"，不能套空正文失败判定。
+    terminal_seen: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -3037,6 +3040,7 @@ class RunService:
         self, run: RunRecord, submission_id: uuid.UUID, executor: RunExecutor
     ) -> SegmentResult:
         text, outcome = "", AgentRunStatus.COMPLETED
+        terminal_seen = False
         consume_started = time.monotonic()
         first_event = True
         first_delta_ms: int | None = None
@@ -3062,6 +3066,7 @@ class RunService:
                 if event.type == "runner.outcome":
                     outcome = AgentRunStatus(event.data["status"])
                     text = str(event.data.get("final_text", text))
+                    terminal_seen = True
                     continue
                 is_first_delta = event.type == "message.delta" and first_delta_ms is None
                 if event.type == "message.delta":
@@ -3093,7 +3098,7 @@ class RunService:
             record_latency(
                 RUN_CONSUME_SECONDS, max(0.0, total - persist_seconds), {"stage": "wait"}
             )
-        return SegmentResult(outcome, text)
+        return SegmentResult(outcome, text, terminal_seen=terminal_seen)
 
     async def _timed_finalize(self, finalize: Awaitable[ExecutorEvent]) -> ExecutorEvent:
         """终态收尾计时：终态事件/通知/记忆入队的整段事务耗时（容量诊断，成功失败都记）。"""
@@ -3135,7 +3140,11 @@ class RunService:
                     final_text=result.final_text or None,
                 )
             )
-        if result.outcome == AgentRunStatus.COMPLETED and not result.final_text.strip():
+        if (
+            result.outcome == AgentRunStatus.COMPLETED
+            and result.terminal_seen
+            and not result.final_text.strip()
+        ):
             # 成功必须有可见正文。空回复从产生端已被 RunnerEmptyReply 拦住，这里是同一不变量
             # 的持久化边界断言（resume 等旁路仍可能直接给出空正文）——绝不能落一条空
             # ASSISTANT_MESSAGE，让用户看到空气泡、让历史记成一个"成功但没说话"的回答。
