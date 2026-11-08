@@ -98,6 +98,9 @@ export default defineConfig({
   // 单用例预算：真实链路里有 30s 入口快照传播、15s SSE 复核与多段慢模型调用，
   // 120s 会把「慢」误判成「失败」；这里给的是时间预算，不是放宽断言。
   timeout: 210_000,
+  // 断言默认等待（Playwright 默认 5s）：CI runner 慢，按 E2E_WAIT_SCALE 放大——
+  // 放宽的是耐心，断言内容不变。未显式给 timeout 的 expect 都吃这条。
+  expect: { timeout: 5_000 * Number(process.env.E2E_WAIT_SCALE ?? '1') },
   retries: 0,
   // 全部场景共用同一份租户级夹具（同一隔离库 + 同一探针栈 + 同一份故障控制）：并行会互相污染。
   workers: 1,
