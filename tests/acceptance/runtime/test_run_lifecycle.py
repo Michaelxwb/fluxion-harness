@@ -71,14 +71,7 @@ def _fresh_conversation(http: httpx.Client, stack: LiveStack) -> uuid.UUID:
         json={
             "agent_id": str(stack.agent_id),
             "platform_user_id": str(stack.platform_user_id),
-            "channel": {
-                "type": "WECOM",
-                "entry_id": str(ENTRY_ID),
-                "bot_id": "bot-acc",
-                # 取消按「入口 + 外线线程」定位会话（RISK-F03）：会话必须带同一个线程，
-                # 否则 cancel-active 找不到来源会话而返回 NO_ACTIVE_RUN。
-                "external_conversation_id": "ext-acc",
-            },
+            "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-acc"},
         },
         headers=_headers(stack),
     )
@@ -273,6 +266,8 @@ def test_e02_cancel_requested_waiting_input_writes_events(
             "platform_user_id": str(live_stack.platform_user_id),
             "source": {
                 "entry_id": str(ENTRY_ID),
+                # 显式会话优先于 (入口, 外线线程)：同线程的其它会话不会抢走定位。
+                "conversation_id": str(conv_id),
                 "external_thread_id": "ext-acc",
             },
         },
@@ -370,6 +365,8 @@ def test_e08_cancel_running_run_cooperatively(live_stack: LiveStack, http: httpx
                             "platform_user_id": str(live_stack.platform_user_id),
                             "source": {
                                 "entry_id": str(ENTRY_ID),
+                                # 显式会话优先：本用例的会话是刚建的、没有指针行。
+                                "conversation_id": str(conversation_id),
                                 "external_thread_id": "ext-acc",
                             },
                         },

@@ -595,6 +595,9 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
         runtime_port,
         CONSOLE_PLATFORM_URL=console_url,
         AGENT_WORKER_URL=worker_url,
+        # Run 终态由 Runtime 的投递泵按持久意图（channel_notification PENDING）发到 Gateway：
+        # 缺这个 env 泵会打到默认地址，终态文本永远到不了网关。
+        IM_GATEWAY_URL=gateway_url,
     )
     worker = spawn(
         "worker-1",
