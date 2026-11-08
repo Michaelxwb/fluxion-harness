@@ -121,7 +121,7 @@ def _begin(stack, client, tmp_path, *, calls=1):
             "platform_user_id": str(stack.platform_user_id),
             "channel": {
                 "type": "WECOM",
-                "entry_id": stack.bot_account_id,
+                "entry_id": str(stack.bot_account_id),
                 "bot_id": stack.bot_id,
             },
         },
@@ -133,7 +133,7 @@ def _begin(stack, client, tmp_path, *, calls=1):
         "conversation_id": conversation,
         "channel": {
             "type": "WECOM",
-            "entry_id": stack.bot_account_id,
+            "entry_id": str(stack.bot_account_id),
             "bot_id": stack.bot_id,
         },
         "message": {"id": str(uuid4()), "type": "text", "text": "Check the jobs"},
@@ -297,7 +297,7 @@ def test_s05_frozen_configuration_authorization_and_rotated_credentials(live_sta
                     "platform_user_id": str(live_stack.platform_user_id),
                     "channel": {
                         "type": "WECOM",
-                        "entry_id": live_stack.bot_account_id,
+                        "entry_id": str(live_stack.bot_account_id),
                         "bot_id": live_stack.bot_id,
                     },
                     "message": {"id": str(uuid4()), "type": "text", "text": "new"},

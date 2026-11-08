@@ -82,7 +82,7 @@ def _run(stack, client, arguments, *, routed=False):
     ).raise_for_status()
     channel = {
         "type": "WECOM",
-        "entry_id": stack.bot_account_id,
+        "entry_id": str(stack.bot_account_id),
         "bot_id": stack.bot_id,
         "external_conversation_id": str(uuid4()),
     }

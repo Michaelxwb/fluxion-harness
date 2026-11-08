@@ -71,7 +71,14 @@ def _fresh_conversation(http: httpx.Client, stack: LiveStack) -> uuid.UUID:
         json={
             "agent_id": str(stack.agent_id),
             "platform_user_id": str(stack.platform_user_id),
-            "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-acc"},
+            "channel": {
+                "type": "WECOM",
+                "entry_id": str(ENTRY_ID),
+                "bot_id": "bot-acc",
+                # 取消按「入口 + 外线线程」定位会话（RISK-F03）：会话必须带同一个线程，
+                # 否则 cancel-active 找不到来源会话而返回 NO_ACTIVE_RUN。
+                "external_conversation_id": "ext-acc",
+            },
         },
         headers=_headers(stack),
     )

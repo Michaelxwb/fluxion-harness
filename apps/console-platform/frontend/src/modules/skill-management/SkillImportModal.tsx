@@ -178,13 +178,15 @@ export function SkillImportModal(props: SkillImportModalProps) {
               { value: 'ADMIN', label: t('skill.source.admin') },
               { value: 'SYSTEM', label: t('skill.source.system') }
             ]}
+            // 说明并进字段本身：表单字段之间必须保持紧凑间距（form-layout 机检），
+            // 独立的说明块会把相邻字段撑出 50px 的缝。
+            extraText={
+              source === 'SYSTEM'
+                ? t('skill.import.source.systemHint')
+                : t('skill.import.source.adminHint')
+            }
             onChange={(value) => setSource(value as 'SYSTEM' | 'ADMIN')}
           />
-          <div className="detail-hint">
-            {source === 'SYSTEM'
-              ? t('skill.import.source.systemHint')
-              : t('skill.import.source.adminHint')}
-          </div>
         </>
       )}
       {props.skillId || source === 'SYSTEM' ? null : (

@@ -146,8 +146,6 @@ async function openImport(page: Page): Promise<void> {
   await page.goto('/skills');
   await page.getByTestId('import-skill').click();
   const modal = page.locator('.semi-modal');
-  await modal.getByRole('textbox', { name: /当前版本/ }).fill('1.0.0');
-  await modal.getByRole('textbox', { name: /Skill key/ }).fill('e2e-e07');
   const chooser = page.waitForEvent('filechooser');
   await modal.locator('.semi-upload').click();
   (await chooser).setFiles({
@@ -207,7 +205,6 @@ test('E-07 导入重复版本时 Banner 提示且版本列表不新增重复行'
 
   await page.getByTestId('import-artifact-e2e-e07').click();
   const modal = page.locator('.semi-modal');
-  await modal.getByRole('textbox', { name: /当前版本/ }).fill('1.0.0');
   const chooser = page.waitForEvent('filechooser');
   await modal.locator('.semi-upload').click();
   (await chooser).setFiles({

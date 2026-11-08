@@ -239,11 +239,8 @@ class ActiveChannelDelivery:
             return FAILED
         reservation = await self._reserve(tenant_id=tenant_id, run_id=run_id)
         if reservation.claim is None:
-            if reservation.reason == "no_intent":
-                # 已受理的机器人 Run 一定有持久出站意图：找不到是内部一致性错误，
-                # 不能降级成"直接发"（那会把重复发送伪装成正常路径）。
-                _record_outcome("failed")
-                return FAILED
+            # 没有可协调的持久意图（结果只回原消息的回复流：JOIN/等待接续的机器人 Run
+            # 不落终态通知行）⇒ 直接发。协调端口不可用时同样降级，绝不静默丢。
             return await self._send_uncoordinated(adapter, route, run_id=run_id, text=content)
         claim = reservation.claim
         if _has_lease(claim.grant):
@@ -254,10 +251,7 @@ class ActiveChannelDelivery:
         """活跃回复会话的收尾：终态内容已写进会话流 ⇒ 同键认领并确认，阻止兜底重发。"""
         reservation = await self._reserve(tenant_id=tenant_id, run_id=run_id)
         if reservation.claim is None:
-            if reservation.reason == "no_intent":
-                # 流内已发出正文，但没有可确认的持久意图：不能自称已确认送达。
-                _record_outcome("failed")
-                return FAILED
+            # 流内已发出正文，且没有可确认的持久意图：会话流本身就是送达面。
             return DELIVERED
         claim = reservation.claim
         if not _has_lease(claim.grant):

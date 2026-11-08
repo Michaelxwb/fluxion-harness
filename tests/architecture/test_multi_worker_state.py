@@ -232,8 +232,9 @@ def test_gateway_two_workers_aggregate_metrics_without_losing_counts(
                         "message": {"type": "text", "text": "multi worker"},
                     },
                 )
-            # 没有 Connector 消费 → 有界等待超时 → 显式 500，不假装送达。
-            assert response.status_code >= 500, response.text
+            # 未绑定的接收者被发送前复核拒绝（403，同样计失败）；绑定可用但无 Connector
+            # 消费时是有界等待超时（500）。两种都不假装送达，计数口径一致。
+            assert response.status_code >= 400, response.text
 
         # 多进程快照按 `FLUSH_INTERVAL_SEC` 刷新：等到**一次抓取**同时满足"两个 worker 都在"与
         # "counter 等于全部请求数"，再看断言（不是放宽：抓到的仍是一次完整聚合的结果）。

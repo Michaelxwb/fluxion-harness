@@ -126,6 +126,8 @@ async def deliver(
             platform_user_id=body.platform_user_id,
         )
         if not permitted:
+            # 被拒绝也是一次失败的投递：计数口径与实际结果一致（聚合断言读这个计数）。
+            _count_delivery("failed")
             raise AppError(ErrorCode.FORBIDDEN)
     use_stream = _uses_outbound_stream(registry, body.route.channel)
     fingerprint = _fingerprint(body)
