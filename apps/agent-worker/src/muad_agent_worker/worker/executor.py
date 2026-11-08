@@ -27,7 +27,10 @@ from muad_agent_core.skill import (
 )
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import process_settings
+from muad_contracts.egress_budget import EffectiveEgressBudget
 from muad_contracts.skill_invocation import validate_skill_argv
+from muad_platform_sdk.platform_transport import PlatformBudgetScope
+from muad_platform_sdk.request_budget import create_budget_controller
 from muad_platform_sdk.skill_access import SkillPlatformContext
 
 from ..application.batch_fanout import (
@@ -66,6 +69,7 @@ NON_RETRYABLE_CODES = frozenset(
         "SKILL_ARTIFACT_UNAVAILABLE",
         "SKILL_ARTIFACT_INTEGRITY_ERROR",
         "SKILL_RESULT_INVALID",
+        "LOCAL_BUDGET_EXHAUSTED",
     }
 )
 # 传给 Skill 子进程的 Task 上下文（环境变量，不改动 Skill 的 stdin 输入契约）。
@@ -258,6 +262,16 @@ class SkillTaskExecutor:
                 record_outcome(SKILL_EXECUTION_METRIC, "FAILED", {"source": source})
             raise TaskExecutionError(exc.code, f"skill artifact rejected: {exc.code}") from exc
         try:
+            budget_controller = create_budget_controller(
+                EffectiveEgressBudget.model_validate(
+                    (task.execution_snapshot_json.get("budget") or {}).get("egress_budget", {})
+                ),
+                segment_id=str(task.id),
+            )
+            invocation = (
+                budget_controller.invocation(str(skill.get("key", "")), str(task.id))
+                if budget_controller is not None else None
+            )
             result = await self._executor.execute(
                 SkillExecutionRequest(
                     ready_dir=ready_dir,
@@ -268,10 +282,20 @@ class SkillTaskExecutor:
                     workspace_dir=workspace,
                     execution_id=str(task.id),
                     env=task_env(task),
-                    platform_context=task_platform_context(task, skill),
+                    budget_exhausted_event=invocation.exhausted if invocation is not None else None,
+                    platform_context=task_platform_context(
+                        task,
+                        skill,
+                        budget_scope=(
+                            PlatformBudgetScope(budget_controller, invocation)
+                            if budget_controller is not None and invocation is not None else None
+                        ),
+                    ),
                 )
             )
         except SkillExecutionError as exc:
+            if exc.code == "LOCAL_BUDGET_EXHAUSTED":
+                raise TaskExecutionError(exc.code, exc.message, retryable=False) from exc
             raise TaskExecutionError("SKILL_EXECUTION_FAILED", exc.message) from exc
         self._record_result(source, result)
         payload = dict(result.result) if result.result else {}
@@ -397,7 +421,12 @@ class SkillTaskExecutor:
         }
 
 
-def task_platform_context(task: TaskExecution, skill: Mapping[str, Any]) -> SkillPlatformContext:
+def task_platform_context(
+    task: TaskExecution,
+    skill: Mapping[str, Any],
+    *,
+    budget_scope: PlatformBudgetScope | None = None,
+) -> SkillPlatformContext:
     keys = skill.get("platforms", [])
     if not isinstance(keys, list) or any(not isinstance(k, str) or not k for k in keys):
         raise TaskExecutionError("SKILL_PLATFORMS_INVALID", "Invalid Skill platforms", retryable=False)
@@ -413,4 +442,5 @@ def task_platform_context(task: TaskExecution, skill: Mapping[str, Any]) -> Skil
         redis_mode=settings.redis_mode,
         redis_cluster_seeds=settings.redis_cluster_seeds,
         service_token=settings.internal_service_token,
+        budget_scope=budget_scope,
     )

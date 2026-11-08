@@ -1741,7 +1741,7 @@
       "kind": "functional",
       "boundary": "真实 Runtime/Worker、Skill 子进程和既有快照/租约边界",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1813,7 +1813,594 @@
         "FEAT-04"
       ],
       "defer_owner": "TASK-005",
-      "check": "CHK-229e8d5fbb1e"
+      "check": "CHK-229e8d5fbb1e",
+      "revision": 8,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 636.6654999999998,
+        "check_id": "CHK-229e8d5fbb1e",
+        "input_hash": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b",
+        "environment_hash": "1a201ed3d76ae16aed1b81d3df3cdbe281aa47a0d4f24b00eabcc454b4b813ea",
+        "check_config": {
+          "id": "CHK-229e8d5fbb1e",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [
+            "packages/contracts/**",
+            "packages/platform-sdk/**",
+            "apps/agent-runtime/**",
+            "apps/agent-worker/**",
+            "tests/contracts/test_egress_budget.py"
+          ],
+          "preflight": [],
+          "paths": [],
+          "suite": "integration",
+          "test_ids": [
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+          ],
+          "markers": [],
+          "collect": {
+            "argv": [
+              "uv",
+              "run",
+              "pytest",
+              "--collect-only",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "format": "pytest",
+            "timeout": 15
+          }
+        },
+        "revision": 8,
+        "run_id": "c55ff994f8844dd39cf65b49894cc404",
+        "executed_at": "2026-11-08T08:26:08.622953+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 555.03525,
+          "check_id": "CHK-229e8d5fbb1e",
+          "input_hash": "",
+          "environment_hash": "b53b9aaadaa6d2463cef0cacc04f43c41ed510b29f6c08a53e9d984b2550195b",
+          "check_config": {
+            "id": "CHK-229e8d5fbb1e",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 1,
+          "run_id": "99bf2a8cf9514f478d196f2270c4554a",
+          "executed_at": "2026-11-08T06:14:45.075900+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 544.6262079999999,
+          "check_id": "CHK-229e8d5fbb1e",
+          "input_hash": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b",
+          "environment_hash": "54ceb48b7fada36ea2bd0cbe2f1d2570950ebc78c4d4776b7b5ba89c5bfff435",
+          "check_config": {
+            "id": "CHK-229e8d5fbb1e",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 2,
+          "run_id": "6374af3dd6ad42fc8a988d8c876af584",
+          "executed_at": "2026-11-08T06:16:16.866579+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 626.4317499999996,
+          "check_id": "CHK-229e8d5fbb1e",
+          "input_hash": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b",
+          "environment_hash": "76200aad98f743f05b7aa28fae1ab463629b7d6bd8feb7b40468eef9429b1f07",
+          "check_config": {
+            "id": "CHK-229e8d5fbb1e",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 3,
+          "run_id": "3e4b9af0e3d3408586d4dea0371750c6",
+          "executed_at": "2026-11-08T06:16:40.684048+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 644.8293329999997,
+          "check_id": "CHK-229e8d5fbb1e",
+          "input_hash": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b",
+          "environment_hash": "0c387c6d155ea82a62eda024d6a4e224cbf88213101dbfd72316facdfb5087d2",
+          "check_config": {
+            "id": "CHK-229e8d5fbb1e",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 4,
+          "run_id": "90fb102ce1884fdcbb58f9f844071932",
+          "executed_at": "2026-11-08T06:17:08.120559+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 711.3293340000002,
+          "check_id": "CHK-229e8d5fbb1e",
+          "input_hash": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b",
+          "environment_hash": "5556179ea5f1bdb02adb91a84dd3ac768d33df12e465ffd69870a41f8bee8353",
+          "check_config": {
+            "id": "CHK-229e8d5fbb1e",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 5,
+          "run_id": "bbf79c70b462441bb9bbc87107c30f7a",
+          "executed_at": "2026-11-08T06:17:32.932361+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 643.5119999999998,
+          "check_id": "CHK-229e8d5fbb1e",
+          "input_hash": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b",
+          "environment_hash": "bd18c344ccdca9f107b3bbec51626eb300d7aeec3cb72eb5a2e972a333582586",
+          "check_config": {
+            "id": "CHK-229e8d5fbb1e",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 6,
+          "run_id": "2b8e4e2dd9f24c289913d2409046e7a3",
+          "executed_at": "2026-11-08T06:21:21.413522+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 904.644958,
+          "check_id": "CHK-229e8d5fbb1e",
+          "input_hash": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b",
+          "environment_hash": "820421cc9d09a7c24c00637fef04d7b3afa53bce8354ed60cb8399e237049c07",
+          "check_config": {
+            "id": "CHK-229e8d5fbb1e",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 7,
+          "run_id": "80e308fcf16d48f38d64d93ae6e9a78e",
+          "executed_at": "2026-11-08T07:11:43.770887+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b"
+        },
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 636.6654999999998,
+          "check_id": "CHK-229e8d5fbb1e",
+          "input_hash": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b",
+          "environment_hash": "1a201ed3d76ae16aed1b81d3df3cdbe281aa47a0d4f24b00eabcc454b4b813ea",
+          "check_config": {
+            "id": "CHK-229e8d5fbb1e",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 8,
+          "run_id": "c55ff994f8844dd39cf65b49894cc404",
+          "executed_at": "2026-11-08T08:26:08.622953+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "5434b50ec443d43e118f1bba775dec706eca5453d5c1d67e2faac16b8f209e1b"
+        }
+      ]
     },
     {
       "id": "E-01",
@@ -2112,7 +2699,7 @@
       "kind": "functional",
       "boundary": "真实 Skill 子进程组、Runtime/Worker 和 HTTP 探针；沿用 start_new_session/killpg",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2172,7 +2759,594 @@
         "FEAT-04"
       ],
       "defer_owner": "TASK-005",
-      "check": "CHK-4760bc20f934"
+      "check": "CHK-4760bc20f934",
+      "revision": 8,
+      "evidence": {
+        "id": "E-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 606.0608749999998,
+        "check_id": "CHK-4760bc20f934",
+        "input_hash": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8",
+        "environment_hash": "1a201ed3d76ae16aed1b81d3df3cdbe281aa47a0d4f24b00eabcc454b4b813ea",
+        "check_config": {
+          "id": "CHK-4760bc20f934",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [
+            "packages/contracts/**",
+            "packages/platform-sdk/**",
+            "apps/agent-runtime/**",
+            "apps/agent-worker/**",
+            "tests/contracts/test_egress_budget.py"
+          ],
+          "preflight": [],
+          "paths": [],
+          "suite": "integration",
+          "test_ids": [
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+          ],
+          "markers": [],
+          "collect": {
+            "argv": [
+              "uv",
+              "run",
+              "pytest",
+              "--collect-only",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "format": "pytest",
+            "timeout": 15
+          }
+        },
+        "revision": 8,
+        "run_id": "c55ff994f8844dd39cf65b49894cc404",
+        "executed_at": "2026-11-08T08:26:08.622953+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8"
+      },
+      "runs": [
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 555.622,
+          "check_id": "CHK-4760bc20f934",
+          "input_hash": "",
+          "environment_hash": "b53b9aaadaa6d2463cef0cacc04f43c41ed510b29f6c08a53e9d984b2550195b",
+          "check_config": {
+            "id": "CHK-4760bc20f934",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 1,
+          "run_id": "99bf2a8cf9514f478d196f2270c4554a",
+          "executed_at": "2026-11-08T06:14:45.075900+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 566.5192499999998,
+          "check_id": "CHK-4760bc20f934",
+          "input_hash": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8",
+          "environment_hash": "54ceb48b7fada36ea2bd0cbe2f1d2570950ebc78c4d4776b7b5ba89c5bfff435",
+          "check_config": {
+            "id": "CHK-4760bc20f934",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 2,
+          "run_id": "6374af3dd6ad42fc8a988d8c876af584",
+          "executed_at": "2026-11-08T06:16:16.866579+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 627.9622920000003,
+          "check_id": "CHK-4760bc20f934",
+          "input_hash": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8",
+          "environment_hash": "76200aad98f743f05b7aa28fae1ab463629b7d6bd8feb7b40468eef9429b1f07",
+          "check_config": {
+            "id": "CHK-4760bc20f934",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 3,
+          "run_id": "3e4b9af0e3d3408586d4dea0371750c6",
+          "executed_at": "2026-11-08T06:16:40.684048+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 665.3958750000002,
+          "check_id": "CHK-4760bc20f934",
+          "input_hash": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8",
+          "environment_hash": "0c387c6d155ea82a62eda024d6a4e224cbf88213101dbfd72316facdfb5087d2",
+          "check_config": {
+            "id": "CHK-4760bc20f934",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 4,
+          "run_id": "90fb102ce1884fdcbb58f9f844071932",
+          "executed_at": "2026-11-08T06:17:08.120559+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 712.1835419999995,
+          "check_id": "CHK-4760bc20f934",
+          "input_hash": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8",
+          "environment_hash": "5556179ea5f1bdb02adb91a84dd3ac768d33df12e465ffd69870a41f8bee8353",
+          "check_config": {
+            "id": "CHK-4760bc20f934",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 5,
+          "run_id": "bbf79c70b462441bb9bbc87107c30f7a",
+          "executed_at": "2026-11-08T06:17:32.932361+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 602.516042,
+          "check_id": "CHK-4760bc20f934",
+          "input_hash": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8",
+          "environment_hash": "bd18c344ccdca9f107b3bbec51626eb300d7aeec3cb72eb5a2e972a333582586",
+          "check_config": {
+            "id": "CHK-4760bc20f934",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 6,
+          "run_id": "2b8e4e2dd9f24c289913d2409046e7a3",
+          "executed_at": "2026-11-08T06:21:21.413522+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 603.7622079999995,
+          "check_id": "CHK-4760bc20f934",
+          "input_hash": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8",
+          "environment_hash": "820421cc9d09a7c24c00637fef04d7b3afa53bce8354ed60cb8399e237049c07",
+          "check_config": {
+            "id": "CHK-4760bc20f934",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 7,
+          "run_id": "80e308fcf16d48f38d64d93ae6e9a78e",
+          "executed_at": "2026-11-08T07:11:43.770887+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 606.0608749999998,
+          "check_id": "CHK-4760bc20f934",
+          "input_hash": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8",
+          "environment_hash": "1a201ed3d76ae16aed1b81d3df3cdbe281aa47a0d4f24b00eabcc454b4b813ea",
+          "check_config": {
+            "id": "CHK-4760bc20f934",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 8,
+          "run_id": "c55ff994f8844dd39cf65b49894cc404",
+          "executed_at": "2026-11-08T08:26:08.622953+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "bb7d10a382bec4c5d01bcf547f35c220f9b2150973f2685f64cd74c71cef1cc8"
+        }
+      ]
     },
     {
       "id": "B-01",
@@ -3226,7 +4400,7 @@
       "kind": "functional",
       "boundary": "两个独立 Runtime/Worker 进程 + 真实 Proxy HTTP 探针，不使用共享 limiter 存储",
       "owner": "TASK-005",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -3284,7 +4458,594 @@
         "FEAT-05"
       ],
       "defer_owner": "TASK-005",
-      "check": "CHK-e88d45e14576"
+      "check": "CHK-e88d45e14576",
+      "revision": 8,
+      "evidence": {
+        "id": "E-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 611.9011669999996,
+        "check_id": "CHK-e88d45e14576",
+        "input_hash": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338",
+        "environment_hash": "1a201ed3d76ae16aed1b81d3df3cdbe281aa47a0d4f24b00eabcc454b4b813ea",
+        "check_config": {
+          "id": "CHK-e88d45e14576",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [
+            "packages/contracts/**",
+            "packages/platform-sdk/**",
+            "apps/agent-runtime/**",
+            "apps/agent-worker/**",
+            "tests/contracts/test_egress_budget.py"
+          ],
+          "preflight": [],
+          "paths": [],
+          "suite": "integration",
+          "test_ids": [
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+          ],
+          "markers": [],
+          "collect": {
+            "argv": [
+              "uv",
+              "run",
+              "pytest",
+              "--collect-only",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "format": "pytest",
+            "timeout": 15
+          }
+        },
+        "revision": 8,
+        "run_id": "c55ff994f8844dd39cf65b49894cc404",
+        "executed_at": "2026-11-08T08:26:08.622953+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338"
+      },
+      "runs": [
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 543.617042,
+          "check_id": "CHK-e88d45e14576",
+          "input_hash": "",
+          "environment_hash": "b53b9aaadaa6d2463cef0cacc04f43c41ed510b29f6c08a53e9d984b2550195b",
+          "check_config": {
+            "id": "CHK-e88d45e14576",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 1,
+          "run_id": "99bf2a8cf9514f478d196f2270c4554a",
+          "executed_at": "2026-11-08T06:14:45.075900+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 554.7127499999998,
+          "check_id": "CHK-e88d45e14576",
+          "input_hash": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338",
+          "environment_hash": "54ceb48b7fada36ea2bd0cbe2f1d2570950ebc78c4d4776b7b5ba89c5bfff435",
+          "check_config": {
+            "id": "CHK-e88d45e14576",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 2,
+          "run_id": "6374af3dd6ad42fc8a988d8c876af584",
+          "executed_at": "2026-11-08T06:16:16.866579+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 623.2154580000002,
+          "check_id": "CHK-e88d45e14576",
+          "input_hash": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338",
+          "environment_hash": "76200aad98f743f05b7aa28fae1ab463629b7d6bd8feb7b40468eef9429b1f07",
+          "check_config": {
+            "id": "CHK-e88d45e14576",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 3,
+          "run_id": "3e4b9af0e3d3408586d4dea0371750c6",
+          "executed_at": "2026-11-08T06:16:40.684048+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 682.6555829999999,
+          "check_id": "CHK-e88d45e14576",
+          "input_hash": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338",
+          "environment_hash": "0c387c6d155ea82a62eda024d6a4e224cbf88213101dbfd72316facdfb5087d2",
+          "check_config": {
+            "id": "CHK-e88d45e14576",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 4,
+          "run_id": "90fb102ce1884fdcbb58f9f844071932",
+          "executed_at": "2026-11-08T06:17:08.120559+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 755.331,
+          "check_id": "CHK-e88d45e14576",
+          "input_hash": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338",
+          "environment_hash": "5556179ea5f1bdb02adb91a84dd3ac768d33df12e465ffd69870a41f8bee8353",
+          "check_config": {
+            "id": "CHK-e88d45e14576",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 5,
+          "run_id": "bbf79c70b462441bb9bbc87107c30f7a",
+          "executed_at": "2026-11-08T06:17:32.932361+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 574.28825,
+          "check_id": "CHK-e88d45e14576",
+          "input_hash": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338",
+          "environment_hash": "bd18c344ccdca9f107b3bbec51626eb300d7aeec3cb72eb5a2e972a333582586",
+          "check_config": {
+            "id": "CHK-e88d45e14576",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 6,
+          "run_id": "2b8e4e2dd9f24c289913d2409046e7a3",
+          "executed_at": "2026-11-08T06:21:21.413522+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 556.6924999999995,
+          "check_id": "CHK-e88d45e14576",
+          "input_hash": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338",
+          "environment_hash": "820421cc9d09a7c24c00637fef04d7b3afa53bce8354ed60cb8399e237049c07",
+          "check_config": {
+            "id": "CHK-e88d45e14576",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 7,
+          "run_id": "80e308fcf16d48f38d64d93ae6e9a78e",
+          "executed_at": "2026-11-08T07:11:43.770887+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338"
+        },
+        {
+          "id": "E-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 611.9011669999996,
+          "check_id": "CHK-e88d45e14576",
+          "input_hash": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338",
+          "environment_hash": "1a201ed3d76ae16aed1b81d3df3cdbe281aa47a0d4f24b00eabcc454b4b813ea",
+          "check_config": {
+            "id": "CHK-e88d45e14576",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 8,
+          "run_id": "c55ff994f8844dd39cf65b49894cc404",
+          "executed_at": "2026-11-08T08:26:08.622953+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "53de78af956e8dcb8939476a4bb2df61e1187ee55da83c6d09d9b2fd43b8f338"
+        }
+      ]
     },
     {
       "id": "B-04",

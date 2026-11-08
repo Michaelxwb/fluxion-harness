@@ -24,6 +24,7 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import CompletionMode, OperationStatus, ResolveDefinitionResponse
+from muad_contracts.egress_budget import EffectiveEgressBudget
 from sqlalchemy import event, select
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
@@ -59,6 +60,7 @@ def _attachment_ref(storage_key: str) -> dict[str, Any]:
 def _expected_hash(resolved: ResolveDefinitionResponse) -> str:
     policy = snapshot_policy(members=())
     policy["learning"] = frozen_learning_payload({})
+    policy["egress_budget"] = EffectiveEgressBudget().model_dump(mode="json")
     canonical = json.dumps(
         {
             "agent": resolved.agent.model_dump(mode="json"),
@@ -202,6 +204,7 @@ async def test_create_run_streams_events_and_persists_records(
         # 真实创建路径的 policy_json = 直构策略 + 冻结的成员事实（该租户模型没有成员 ⇒ 空列表）
         expected = snapshot_policy(members=())
         expected["learning"] = frozen_learning_payload({})
+        expected["egress_budget"] = EffectiveEgressBudget().model_dump(mode="json")
         assert snapshot.policy_json == expected
         assert snapshot.agent_revision == resolved.agent.revision
         assert snapshot.model_revision == resolved.model.revision

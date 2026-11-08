@@ -28,6 +28,7 @@ def _request(
     timeout_sec: float = 10.0,
     env: dict[str, str] | None = None,
     cancel_event: asyncio.Event | None = None,
+    budget_exhausted_event: asyncio.Event | None = None,
 ) -> SkillExecutionRequest:
     return SkillExecutionRequest(
         ready_dir=root,
@@ -35,6 +36,7 @@ def _request(
         timeout_sec=timeout_sec,
         env=env or {},
         cancel_event=cancel_event,
+        budget_exhausted_event=budget_exhausted_event,
     )
 
 
@@ -226,6 +228,21 @@ async def test_cancel_event_terminates_process(tmp_path: Path) -> None:
         await trigger_task
 
     assert result.status is SkillExecutionStatus.CANCELLED
+
+
+async def test_budget_exhaustion_terminates_process_and_returns_deterministic_error(tmp_path: Path) -> None:
+    _script(tmp_path, "main.py", "import time\ntime.sleep(30)\n")
+    exhausted = asyncio.Event()
+
+    async def trigger() -> None:
+        await asyncio.sleep(0.1)
+        exhausted.set()
+
+    trigger_task = asyncio.create_task(trigger())
+    with pytest.raises(SkillExecutionError, match="LOCAL_BUDGET_EXHAUSTED") as raised:
+        await ScriptSkillExecutor().execute(_request(tmp_path, budget_exhausted_event=exhausted))
+    await trigger_task
+    assert raised.value.code == "LOCAL_BUDGET_EXHAUSTED"
 
 
 async def test_missing_scripts_raise_typed_error(tmp_path: Path) -> None:

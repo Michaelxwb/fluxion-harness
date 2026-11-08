@@ -1,7 +1,7 @@
 version: 1
 task: 出站请求限流 SDK
 enforcement: required
-updated_at: '2026-11-08T05:54:34.299074+00:00'
+updated_at: '2026-11-08T06:21:08.164620+00:00'
 sources:
 - type: cli
   ref: bind
@@ -46,11 +46,11 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 40a8dd8f0570ae8a84b6b8670bf96f86047d47d8a15141f11dc5d2cf2a021c11
+          artifact_sha256: e9f1f953aee9ceaef4bf20533cdee1d7d3370db6b2a6b2d44c5fe80286b640ac
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -112,6 +112,166 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-08T06:17:51.774941+00:00'
+          status: unverified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5
+          result_sha256: 242272f1c9ddd0b3eb2c99b2ef48bbd067050da548e6d1495812abc903f1ee8a
+          error_code: command_failed
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 1
+            stdout_sha256: abd3f706e05b2ef2c99405cf5451920acdc54cced1a04c0277132d312c81f044
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494:\
+              \ AssertionError\n_ test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-gateway]\
+              \ _\n\nchart = 'muad-im-gateway'\n\n    @pytest.mark.parametrize(\"\
+              chart\", NON_WORKSPACE_HELM_CHARTS)\n    def test_helm_console_gateway_and_connector_do_not_mount_workspaces(chart:\
+              \ str) -> None:\n>       pod = _helm_pod_spec(chart)\n             \
+              \ ^^^^^^^^^^^^^^^^^^^^^\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:543:\
+              \ \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:504:\
+              \ in _helm_pod_spec\n    deployments = [doc for doc in _helm_documents(chart,\
+              \ overrides) if doc.get(\"kind\") == \"Deployment\"]\n             \
+              \                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ \n\nchart = 'muad-im-gateway', overrides = ()\n\n    def _helm_documents(chart:\
+              \ str, overrides: tuple[str, ...] = ()) -> list[dict[str, Any]]:\n \
+              \       \"\"\"真实 `helm template` 渲染：Helm 是本次发布路径，不能用 YAML 字面量代替。\"\"\
+              \"\n        binary = shutil.which(\"helm\")\n>       assert binary is\
+              \ not None, \"workspace 部署验收需要 helm（发布路径的真实渲染器）\"\nE       AssertionError:\
+              \ workspace 部署验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\
+              \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494:\
+              \ AssertionError\n_ test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-connector]\
+              \ _\n\nchart = 'muad-im-connector'\n\n    @pytest.mark.parametrize(\"\
+              chart\", NON_WORKSPACE_HELM_CHARTS)\n    def test_helm_console_gateway_and_connector_do_not_mount_workspaces(chart:\
+              \ str) -> None:\n>       pod = _helm_pod_spec(chart)\n             \
+              \ ^^^^^^^^^^^^^^^^^^^^^\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:543:\
+              \ \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:504:\
+              \ in _helm_pod_spec\n    deployments = [doc for doc in _helm_documents(chart,\
+              \ overrides) if doc.get(\"kind\") == \"Deployment\"]\n             \
+              \                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ \n\nchart = 'muad-im-connector', overrides = ()\n\n    def _helm_documents(chart:\
+              \ str, overrides: tuple[str, ...] = ()) -> list[dict[str, Any]]:\n \
+              \       \"\"\"真实 `helm template` 渲染：Helm 是本次发布路径，不能用 YAML 字面量代替。\"\"\
+              \"\n        binary = shutil.which(\"helm\")\n>       assert binary is\
+              \ not None, \"workspace 部署验收需要 helm（发布路径的真实渲染器）\"\nE       AssertionError:\
+              \ workspace 部署验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\
+              \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494:\
+              \ AssertionError\n=========================== short test summary info\
+              \ ============================\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_runtime_and_worker_mount_the_shared_workspace_claim[muad-agent-runtime]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_runtime_and_worker_mount_the_shared_workspace_claim[muad-agent-worker]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_workspace_claim_and_mount_path_are_overridable[muad-agent-runtime]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_workspace_claim_and_mount_path_are_overridable[muad-agent-worker]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-console-platform]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-gateway]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-connector]\n\
+              7 failed, 223 passed in 42.50s\n"
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-08T07:12:22.308773+00:00'
+          status: unverified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: 3edec81a1d488aa19b0f6fab9be6f91673815d6ccd2a5ba143d244a034ca2cc6
+          error_code: command_failed
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 1
+            stdout_sha256: 2ed9b914c2542c2f7c893fccab252dd8fae4d6c39c0bb65dd83f506cb4bae4ec
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494:\
+              \ AssertionError\n_ test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-gateway]\
+              \ _\n\nchart = 'muad-im-gateway'\n\n    @pytest.mark.parametrize(\"\
+              chart\", NON_WORKSPACE_HELM_CHARTS)\n    def test_helm_console_gateway_and_connector_do_not_mount_workspaces(chart:\
+              \ str) -> None:\n>       pod = _helm_pod_spec(chart)\n             \
+              \ ^^^^^^^^^^^^^^^^^^^^^\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:543:\
+              \ \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:504:\
+              \ in _helm_pod_spec\n    deployments = [doc for doc in _helm_documents(chart,\
+              \ overrides) if doc.get(\"kind\") == \"Deployment\"]\n             \
+              \                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ \n\nchart = 'muad-im-gateway', overrides = ()\n\n    def _helm_documents(chart:\
+              \ str, overrides: tuple[str, ...] = ()) -> list[dict[str, Any]]:\n \
+              \       \"\"\"真实 `helm template` 渲染：Helm 是本次发布路径，不能用 YAML 字面量代替。\"\"\
+              \"\n        binary = shutil.which(\"helm\")\n>       assert binary is\
+              \ not None, \"workspace 部署验收需要 helm（发布路径的真实渲染器）\"\nE       AssertionError:\
+              \ workspace 部署验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\
+              \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494:\
+              \ AssertionError\n_ test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-connector]\
+              \ _\n\nchart = 'muad-im-connector'\n\n    @pytest.mark.parametrize(\"\
+              chart\", NON_WORKSPACE_HELM_CHARTS)\n    def test_helm_console_gateway_and_connector_do_not_mount_workspaces(chart:\
+              \ str) -> None:\n>       pod = _helm_pod_spec(chart)\n             \
+              \ ^^^^^^^^^^^^^^^^^^^^^\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:543:\
+              \ \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:504:\
+              \ in _helm_pod_spec\n    deployments = [doc for doc in _helm_documents(chart,\
+              \ overrides) if doc.get(\"kind\") == \"Deployment\"]\n             \
+              \                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _\
+              \ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
+              \ _ \n\nchart = 'muad-im-connector', overrides = ()\n\n    def _helm_documents(chart:\
+              \ str, overrides: tuple[str, ...] = ()) -> list[dict[str, Any]]:\n \
+              \       \"\"\"真实 `helm template` 渲染：Helm 是本次发布路径，不能用 YAML 字面量代替。\"\"\
+              \"\n        binary = shutil.which(\"helm\")\n>       assert binary is\
+              \ not None, \"workspace 部署验收需要 helm（发布路径的真实渲染器）\"\nE       AssertionError:\
+              \ workspace 部署验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\
+              \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494:\
+              \ AssertionError\n=========================== short test summary info\
+              \ ============================\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_runtime_and_worker_mount_the_shared_workspace_claim[muad-agent-runtime]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_runtime_and_worker_mount_the_shared_workspace_claim[muad-agent-worker]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_workspace_claim_and_mount_path_are_overridable[muad-agent-runtime]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_workspace_claim_and_mount_path_are_overridable[muad-agent-worker]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-console-platform]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-gateway]\n\
+              FAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-connector]\n\
+              7 failed, 223 passed in 37.54s\n"
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-08T08:26:47.757964+00:00'
+          status: verified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: 525a3c6cd3abdedc47a58bb093c961c91c823d246fd31b671b60543d8bed70ba
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: 337b0efa672b234ca677e1fcedc51b2208f6beecdcb85f787ebb35f3a1dee538
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 31%]
+
+              ........................................................................
+              [ 62%]
+
+              ........................................................................
+              [ 93%]
+
+              ..............                                                           [100%]
+
+              230 passed in 38.18s
+
+              '
       review:
         status: pending
         refs: []
@@ -159,7 +319,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 40a8dd8f0570ae8a84b6b8670bf96f86047d47d8a15141f11dc5d2cf2a021c11
+          artifact_sha256: e9f1f953aee9ceaef4bf20533cdee1d7d3370db6b2a6b2d44c5fe80286b640ac
         decision: null
         evidence: []
       code:
@@ -238,6 +398,30 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-11-08T06:17:51.887511+00:00'
+          status: unverified
+          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+          artifact_sha256: null
+          diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-11-08T07:12:22.389445+00:00'
+          status: unverified
+          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -282,11 +466,11 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 40a8dd8f0570ae8a84b6b8670bf96f86047d47d8a15141f11dc5d2cf2a021c11
+          artifact_sha256: e9f1f953aee9ceaef4bf20533cdee1d7d3370db6b2a6b2d44c5fe80286b640ac
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -359,6 +543,30 @@ bindings:
               3 passed in 0.07s
 
               '
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-11-08T06:17:52.001702+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-11-08T07:12:22.466766+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -407,11 +615,11 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: 40a8dd8f0570ae8a84b6b8670bf96f86047d47d8a15141f11dc5d2cf2a021c11
+          artifact_sha256: e9f1f953aee9ceaef4bf20533cdee1d7d3370db6b2a6b2d44c5fe80286b640ac
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -587,6 +795,30 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               55 passed, 6730 deselected, 2 warnings in 24.34s\n"
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-11-08T06:17:52.121805+00:00'
+          status: unverified
+          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
+          artifact_sha256: null
+          diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-11-08T07:12:22.543046+00:00'
+          status: unverified
+          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -633,11 +865,11 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: 40a8dd8f0570ae8a84b6b8670bf96f86047d47d8a15141f11dc5d2cf2a021c11
+          artifact_sha256: e9f1f953aee9ceaef4bf20533cdee1d7d3370db6b2a6b2d44c5fe80286b640ac
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -808,6 +1040,30 @@ bindings:
               14 passed in 2.13s
 
               '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-08T06:17:52.238186+00:00'
+          status: unverified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-08T07:12:22.621056+00:00'
+          status: unverified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -857,11 +1113,11 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 40a8dd8f0570ae8a84b6b8670bf96f86047d47d8a15141f11dc5d2cf2a021c11
+          artifact_sha256: e9f1f953aee9ceaef4bf20533cdee1d7d3370db6b2a6b2d44c5fe80286b640ac
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -923,6 +1179,75 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-11-08T06:17:53.931244+00:00'
+          status: verified
+          rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
+          artifact_sha256: null
+          diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5
+          result_sha256: 83dc80b344415b7bd7204f494d26ab6239bdf68961439850596be647d447c015
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_skill_artifact_cache.py
+            exit_code: 0
+            stdout_sha256: 5d0cc4658984d12ec4761f3cdd54060b37d5ee2346d2c58c35f23861d361d8d8
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.98s
+
+              '
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-11-08T07:12:24.209303+00:00'
+          status: verified
+          rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: 80ce5482bc9f94e3fb1e4911204a9668d4233ee82a7cb7ed18e90fd0e4bf9160
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_skill_artifact_cache.py
+            exit_code: 0
+            stdout_sha256: b59be68fb6adfb7d9fc7d91fadce2bc4dfc5c56c4256d1f498efef44320e1fa0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.82s
+
+              '
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-11-08T08:26:49.677505+00:00'
+          status: verified
+          rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: a0811cce598a5f2e057991f7515f9aede3268c73681f7846977a84a18eff84e3
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_skill_artifact_cache.py
+            exit_code: 0
+            stdout_sha256: ca3bc939e5ab70b14ab977548ae0e0576560d31e07665eb0d6c9ac2c7ee2a172
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 0.90s
+
+              '
       review:
         status: pending
         refs: []
@@ -969,7 +1294,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: 40a8dd8f0570ae8a84b6b8670bf96f86047d47d8a15141f11dc5d2cf2a021c11
+          artifact_sha256: e9f1f953aee9ceaef4bf20533cdee1d7d3370db6b2a6b2d44c5fe80286b640ac
         decision: null
         evidence: []
       code:
@@ -1063,6 +1388,84 @@ bindings:
               39 passed, 1177 deselected in 12.08s
 
               '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-08T06:18:13.219249+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5
+          result_sha256: ffd6522fe0e06d4570f6fc14a4c6926b93ac0333da4a1b1381f809fca9211467
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: 17f985a87009a43ed8d8079a543ecd601242745a1e35fbc763a368b7320e2cd3
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.22s
+
+              .......................................                                  [100%]
+
+              39 passed, 1177 deselected in 14.58s
+
+              '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-08T07:12:40.291759+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: 8b94a3225c048e807b4cb18387c5e8c3c30b9b812c339d3e56db69d00acdf888
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: ffc6b92d34cbe24fc5393513142621ce83abbb57db01ad87148f7d328a7b8efc
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.06s
+
+              .......................................                                  [100%]
+
+              39 passed, 1177 deselected in 12.09s
+
+              '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-08T08:27:06.536880+00:00'
+          status: verified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: cd1049ae7b35eef8ba3b10de2f504fde9d2f9e11917d2937cb2896da13deaa9f
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
+              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
+            exit_code: 0
+            stdout_sha256: ed0903febc4ed3350a9bacc9132fb483b9b5ceb0f3845af642b9659129f2dd21
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.09s
+
+              .......................................                                  [100%]
+
+              39 passed, 1177 deselected in 12.54s
+
+              '
       review:
         status: pending
         refs: []
@@ -1107,7 +1510,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 40a8dd8f0570ae8a84b6b8670bf96f86047d47d8a15141f11dc5d2cf2a021c11
+          artifact_sha256: e9f1f953aee9ceaef4bf20533cdee1d7d3370db6b2a6b2d44c5fe80286b640ac
         decision: null
         evidence: []
       code:
@@ -1163,11 +1566,11 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 40a8dd8f0570ae8a84b6b8670bf96f86047d47d8a15141f11dc5d2cf2a021c11
+          artifact_sha256: e9f1f953aee9ceaef4bf20533cdee1d7d3370db6b2a6b2d44c5fe80286b640ac
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1229,6 +1632,221 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-11-08T06:20:49.388709+00:00'
+          status: unverified
+          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+          artifact_sha256: null
+          diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5
+          result_sha256: c2ac0fff172205536b8d78d37becbb6859a26a0ce1501521a2d1983ca093cbb5
+          error_code: command_failed
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
+            exit_code: -15
+            stdout_sha256: 83e60be27d9c211baf31ffe5651bb5295cb6c457c76f0c4c516834cfb4b69ca5
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: 'ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 21%]
+
+              ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 42%]
+
+              ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 64%]
+
+              ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 85%]
+
+              sssssssssssssssssssssssssssssssssssssssssssssssss                        [100%]
+
+              337 skipped in 0.92s
+
+              ........................................................................
+              [  5%]
+
+              ........................................................................
+              [ 11%]
+
+              ........................................................................
+              [ 17%]
+
+              ........................................'
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-11-08T07:26:59.315240+00:00'
+          status: verified
+          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: 76a44bc8361c154313d020188e07089a78f8b815e1f97cafe4596778ec8af54a
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
+            exit_code: 0
+            stdout_sha256: bb9c72e6d96b2494c46d626c3636081fac764b7f26d6e24759870d6bd5718238
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: 'ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 21%]
+
+              ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 42%]
+
+              ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 64%]
+
+              ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 85%]
+
+              sssssssssssssssssssssssssssssssssssssssssssssssss                        [100%]
+
+              337 skipped in 0.80s
+
+              ........................................................................
+              [  5%]
+
+              ........................................................................
+              [ 11%]
+
+              ........................................................................
+              [ 17%]
+
+              ........................................................................
+              [ 23%]
+
+              ........................................................................
+              [ 29%]
+
+              ........................................................................
+              [ 35%]
+
+              ........................................................................
+              [ 41%]
+
+              ........................................................................
+              [ 47%]
+
+              ........................................................................
+              [ 53%]
+
+              ........................................................................
+              [ 59%]
+
+              ........................................................................
+              [ 65%]
+
+              ........................................................................
+              [ 71%]
+
+              ........................................................................
+              [ 77%]
+
+              ........................................................................
+              [ 83%]
+
+              ........................................................................
+              [ 89%]
+
+              ........................................................................
+              [ 95%]
+
+              .......................................................                  [100%]
+
+              1207 passed in 851.70s (0:14:11)
+
+              '
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-11-08T08:41:55.115902+00:00'
+          status: verified
+          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+          artifact_sha256: null
+          diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb
+          result_sha256: 08a19b8eb19be18749b9682b4ddbf97930289f3af0fbd28bb6419e6d6cdfa28b
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
+              --ignore=tests/agent_runtime/test_runner_executor.py
+            exit_code: 0
+            stdout_sha256: bd7ae0877e40173939f9d0987274781ecba69e0485bd8f7d6e4eccd5e8fcd861
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: 'ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 21%]
+
+              ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 42%]
+
+              ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 64%]
+
+              ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+              [ 85%]
+
+              sssssssssssssssssssssssssssssssssssssssssssssssss                        [100%]
+
+              337 skipped in 0.83s
+
+              ........................................................................
+              [  5%]
+
+              ........................................................................
+              [ 11%]
+
+              ........................................................................
+              [ 17%]
+
+              ........................................................................
+              [ 23%]
+
+              ........................................................................
+              [ 29%]
+
+              ........................................................................
+              [ 35%]
+
+              ........................................................................
+              [ 41%]
+
+              ........................................................................
+              [ 47%]
+
+              ........................................................................
+              [ 53%]
+
+              ........................................................................
+              [ 59%]
+
+              ........................................................................
+              [ 65%]
+
+              ........................................................................
+              [ 71%]
+
+              ........................................................................
+              [ 77%]
+
+              ........................................................................
+              [ 83%]
+
+              ........................................................................
+              [ 89%]
+
+              ........................................................................
+              [ 95%]
+
+              .......................................................                  [100%]
+
+              1207 passed in 880.93s (0:14:40)
+
+              '
       review:
         status: pending
         refs: []

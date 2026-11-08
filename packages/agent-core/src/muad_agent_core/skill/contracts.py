@@ -100,6 +100,7 @@ class SkillExecutionRequest:
     execution_id: str | None = None
     env: Mapping[str, str] = field(default_factory=dict)
     cancel_event: asyncio.Event | None = None
+    budget_exhausted_event: asyncio.Event | None = None
     script: Path | None = None
     platform_context: SkillPlatformContext | None = None
     output_limits: OutputLimits = field(default_factory=OutputLimits)

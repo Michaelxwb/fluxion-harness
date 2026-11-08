@@ -78,7 +78,9 @@ class ScriptSkillExecutor:
             )
         except OSError as exc:
             raise SkillExecutionError("failed to start skill interpreter") from exc
-        status, stdout_bytes, stderr_bytes = await _collect(process, request)
+        status, stdout_bytes, stderr_bytes, budget_exhausted = await _collect(process, request)
+        if budget_exhausted:
+            raise SkillExecutionError("LOCAL_BUDGET_EXHAUSTED", code="LOCAL_BUDGET_EXHAUSTED")
         duration_ms = int((time.monotonic() - started) * 1000)
         stdout = decode_capped(stdout_bytes)
         stderr = decode_capped(stderr_bytes)
@@ -95,16 +97,22 @@ class ScriptSkillExecutor:
 async def _collect(
     process: asyncio.subprocess.Process,
     request: SkillExecutionRequest,
-) -> tuple[SkillExecutionStatus, bytes, bytes]:
+) -> tuple[SkillExecutionStatus, bytes, bytes, bool]:
     stdin_payload = json.dumps(dict(request.input), ensure_ascii=False).encode("utf-8")
     communicate: asyncio.Task[tuple[bytes, bytes]] = asyncio.ensure_future(process.communicate(stdin_payload))
     cancel_waiter = asyncio.ensure_future(request.cancel_event.wait()) if request.cancel_event else None
+    budget_waiter = (
+        asyncio.ensure_future(request.budget_exhausted_event.wait())
+        if request.budget_exhausted_event else None
+    )
     timed_out = False
     cancelled = False
     try:
         watched: set[asyncio.Future[Any]] = {communicate}
         if cancel_waiter is not None:
             watched.add(cancel_waiter)
+        if budget_waiter is not None:
+            watched.add(budget_waiter)
         try:
             done, _ = await asyncio.wait(
                 watched,
@@ -116,7 +124,8 @@ async def _collect(
             raise
         timed_out = not done
         cancelled = cancel_waiter is not None and cancel_waiter in done and communicate not in done
-        if timed_out or cancelled:
+        budget_exhausted = budget_waiter is not None and budget_waiter in done and communicate not in done
+        if timed_out or cancelled or budget_exhausted:
             await _terminate(process, communicate)
         stdout_bytes, stderr_bytes = await _drain_output(communicate)
     finally:
@@ -124,13 +133,19 @@ async def _collect(
             cancel_waiter.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await cancel_waiter
+        if budget_waiter is not None:
+            budget_waiter.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await budget_waiter
+    if budget_exhausted:
+        return SkillExecutionStatus.FAILED, stdout_bytes, stderr_bytes, True
     if cancelled:
-        return SkillExecutionStatus.CANCELLED, stdout_bytes, stderr_bytes
+        return SkillExecutionStatus.CANCELLED, stdout_bytes, stderr_bytes, False
     if timed_out:
-        return SkillExecutionStatus.TIMED_OUT, stdout_bytes, stderr_bytes
+        return SkillExecutionStatus.TIMED_OUT, stdout_bytes, stderr_bytes, False
     if process.returncode != 0:
-        return SkillExecutionStatus.FAILED, stdout_bytes, stderr_bytes
-    return SkillExecutionStatus.SUCCEEDED, stdout_bytes, stderr_bytes
+        return SkillExecutionStatus.FAILED, stdout_bytes, stderr_bytes, False
+    return SkillExecutionStatus.SUCCEEDED, stdout_bytes, stderr_bytes, False
 
 
 async def _drain_output(communicate: asyncio.Future[tuple[bytes, bytes]]) -> tuple[bytes, bytes]:

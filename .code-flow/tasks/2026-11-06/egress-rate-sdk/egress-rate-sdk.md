@@ -17,13 +17,13 @@
 | S-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK 对象与可注入单调时钟 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_s_01_requests_are_consumed_on_error_and_cancel", "tests/sdk/test_request_budget.py::test_s_01_upstream_limit_still_consumes_a_request"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | S-02 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime/Worker + 本地 HTTP 探针 + PlatformAdapter，不使用 mock transport | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_platform_budget_http.py::test_s_02_auth_validation_business_and_explicit_retry_share_gate"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | S-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime + Streamable HTTP MCP 探针 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
-| S-04 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime/Worker、Skill 子进程和既有快照/租约边界 | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| S-04 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime/Worker、Skill 子进程和既有快照/租约边界 | TASK-005 | verified | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | E-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 对象与 fake send counter，不发送真实网络 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_e_01_concurrency_releases_only_its_own_lease", "tests/sdk/test_request_budget.py::test_invalid_context_cannot_bypass_target_matching", "tests/sdk/test_request_budget.py::test_invocation_from_other_controller_is_rejected"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
-| E-02 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Skill 子进程组、Runtime/Worker 和 HTTP 探针；沿用 start_new_session/killpg | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| E-02 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Skill 子进程组、Runtime/Worker 和 HTTP 探针；沿用 start_new_session/killpg | TASK-005 | verified | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | B-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 对象与可注入时钟 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_01_atomic_parent_and_child_rules", "tests/sdk/test_request_budget.py::test_b_01_concurrent_reservations_do_not_overshoot", "tests/sdk/test_request_budget.py::test_overlapping_target_denial_does_not_debit_parent"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | B-02 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 装配对象，不连接 Redis/PG | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_02_no_limits_does_not_construct_a_controller", "tests/sdk/test_request_budget.py::test_unmatched_rules_do_not_consume_or_call_observer"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | B-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实慢 HTTP/流式探针与 Runtime 发送器 | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_platform_budget_http.py::test_b_03_stream_holds_slot_until_body_close"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
-| E-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 两个独立 Runtime/Worker 进程 + 真实 Proxy HTTP 探针，不使用共享 limiter 存储 | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| E-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 两个独立 Runtime/Worker 进程 + 真实 Proxy HTTP 探针，不使用共享 limiter 存储 | TASK-005 | verified | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | B-04 | egress-rate-sdk.design.md#2.4 验收条件 | contract | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_egress_budget.py"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | B-05 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_05_matching_and_exact_window_boundary", "tests/sdk/test_request_budget.py::test_b_05_mcp_handshake_does_not_match_a_tool", "tests/sdk/test_request_budget.py::test_b_05_query_and_encoded_identifier_do_not_create_new_buckets"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | E-04 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_e_04_observer_failure_does_not_resend_or_leak", "tests/sdk/test_request_budget.py::test_observer_cancellation_cleans_the_acquired_lease", "tests/sdk/test_request_budget.py::test_e_04_diagnostic_outcome_cannot_carry_arbitrary_secret_text"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
@@ -288,6 +288,7 @@
 - S-03: verified — automated command passed; run_id=347075a4ac3f4870b0fc1c9df0a0dee7 (confirmed_by: runner)
 - S-03: verified — automated command passed; run_id=ec5e000f8b29475fb3332f946378e4b9 (confirmed_by: runner)
 - S-03: verified — automated command passed; run_id=2dcbe717d7e2485a9f18c0adf36ef9e4 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=64ae9e25fbc14fc0afb367e4d8f83373 (confirmed_by: runner)
 
 ### Log
 
@@ -297,7 +298,7 @@
 
 ## TASK-005: 脚本停止、生命周期与需求验收
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004
 - **Source**: egress-rate-sdk.design.md#3.6 作用域、匹配与恢复
@@ -313,36 +314,62 @@
 
 ### Checklist
 
-- [ ] [S-04][integration] 真实 Runtime/Worker、Skill 子进程和既有快照/租约边界；断言：策略始终沿用冻结值；同段脚本共用 execution 计数，各 invocation 有独立子计数；retry/resume 建立新段和新本地计数，并记录 segment 身份；不声称跨段累计硬上限；脚本输入不能改变可信预算/身份；已知预算耗尽不自动重试
+- [x] [S-04][integration] 真实 Runtime/Worker、Skill 子进程和既有快照/租约边界；断言：策略始终沿用冻结值；同段脚本共用 execution 计数，各 invocation 有独立子计数；retry/resume 建立新段和新本地计数，并记录 segment 身份；不声称跨段累计硬上限；脚本输入不能改变可信预算/身份；已知预算耗尽不自动重试
 
-- [ ] 先将 Plan 骨架替换为真实断言，功能缺失时取 RED，实施后取 GREEN；不得把 pytest.fail 占位失败作为功能验证
-- [ ] 第 N 次完成，第 N+1 次阻止并回收进程组；Task 确定性失败不自动重试；跨段新计数标识；收口 inventory/负向对照/CI 验收
-- [ ] [E-02][integration] 真实 Skill 子进程组、Runtime/Worker 和 HTTP 探针；沿用 start_new_session/killpg；断言：第 N 次正常完成；第 N+1 次被拦截，通知父进程回收 invocation 整个进程组及未完成请求，不自动重试；已有外部操作保留，Run 可汇报部分结果，Task 按确定性错误收尾
-- [ ] [E-03][integration] 两个独立 Runtime/Worker 进程 + 真实 Proxy HTTP 探针，不使用共享 limiter 存储；断言：新进程不宣称恢复旧进程计数，上游 429 可被上层识别；两个进程各有本地计数；只验证上游响应处理，不宣称验证 Proxy 全局算法
-- [ ] [RULE-arch-001] verifier: ["uv", "run", "pytest", "-q", "tests/architecture"]；cwd=.；timeout=300；由 TASK-005 负责，不以收集代执行
-- [ ] [RULE-skill-001] verifier: ["uv", "run", "pytest", "-q", "tests/test_skill_artifact_cache.py"]；cwd=.；timeout=300；由 TASK-005 负责，不以收集代执行
+- [x] 先将 Plan 骨架替换为真实断言，功能缺失时取 RED，实施后取 GREEN；不得把 pytest.fail 占位失败作为功能验证
+- [x] 第 N 次完成，第 N+1 次阻止并回收进程组；Task 确定性失败不自动重试；跨段新计数标识；收口 inventory/负向对照/CI 验收
+- [x] [E-02][integration] 真实 Skill 子进程组、Runtime/Worker 和 HTTP 探针；沿用 start_new_session/killpg；断言：第 N 次正常完成；第 N+1 次被拦截，通知父进程回收 invocation 整个进程组及未完成请求，不自动重试；已有外部操作保留，Run 可汇报部分结果，Task 按确定性错误收尾
+- [x] [E-03][integration] 两个独立 Runtime/Worker 进程 + 真实 Proxy HTTP 探针，不使用共享 limiter 存储；断言：新进程不宣称恢复旧进程计数，上游 429 可被上层识别；两个进程各有本地计数；只验证上游响应处理，不宣称验证 Proxy 全局算法
+- [x] [RULE-arch-001] verifier: ["uv", "run", "pytest", "-q", "tests/architecture"]；cwd=.；timeout=300；由 TASK-005 负责，不以收集代执行
+- [x] [RULE-skill-001] verifier: ["uv", "run", "pytest", "-q", "tests/test_skill_artifact_cache.py"]；cwd=.；timeout=300；由 TASK-005 负责，不以收集代执行
 - [ ] [RULE-test-001] verifier: ["bash", "-lc", "uv run python scripts/ci_validation_cache.py --validator \"Pytest (acceptance)\" --json && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"]；cwd=.；timeout=2700；由 TASK-005 负责，不以收集代执行
-- [ ] [RULE-worker-001] verifier: ["bash", "-lc", "uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"]；cwd=.；timeout=1800；由 TASK-005 负责，不以收集代执行
-- [ ] 建立 tests/egress_rate_sdk_inventory.py，校验全部 13 场景、9 条 Spec Rule、manifest/owner/执行证据与实际用例；至少四类扰动负向取证后还原
+- [x] [RULE-worker-001] verifier: ["bash", "-lc", "uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"]；cwd=.；timeout=1800；由 TASK-005 负责，不以收集代执行
+- [x] 建立 tests/egress_rate_sdk_inventory.py，校验全部 13 场景、9 条 Spec Rule、manifest/owner/执行证据与实际用例；至少四类扰动负向取证后还原
 - [ ] 根据实际改动补配置 inventory/CI 分片登记；按项目隔离规范完成需求级验收及 review，先读取 finish 实际裁决再写提交结论
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| E-02 | integration | 真实 Skill 子进程组、Runtime/Worker 和 HTTP 探针；沿用 start_new_session/killpg | 第 N 次正常完成；第 N+1 次被拦截，通知父进程回收 invocation 整个进程组及未完成请求，不自动重试；已有外部操作保留，Run 可汇报部分结果，Task 按确定性错误收尾 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"] | planned |
-| E-03 | integration | 两个独立 Runtime/Worker 进程 + 真实 Proxy HTTP 探针，不使用共享 limiter 存储 | 新进程不宣称恢复旧进程计数，上游 429 可被上层识别；两个进程各有本地计数；只验证上游响应处理，不宣称验证 Proxy 全局算法 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"] | planned |
+| E-02 | integration | 真实 Skill 子进程组、Runtime/Worker 和 HTTP 探针；沿用 start_new_session/killpg | 第 N 次正常完成；第 N+1 次被拦截，通知父进程回收 invocation 整个进程组及未完成请求，不自动重试；已有外部操作保留，Run 可汇报部分结果，Task 按确定性错误收尾 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"] | verified |
+| E-03 | integration | 两个独立 Runtime/Worker 进程 + 真实 Proxy HTTP 探针，不使用共享 limiter 存储 | 新进程不宣称恢复旧进程计数，上游 429 可被上层识别；两个进程各有本地计数；只验证上游响应处理，不宣称验证 Proxy 全局算法 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"] | verified |
 | harness-arch#RULE-arch-001 | integration | Spec 所声明 verifier 的真实组件边界；不得用 SDK mock 替代 | 固定四个**逻辑业务部署单元**（console-platform / agent-runtime / agent-worker / im-gateway）；`im-gateway` 可拆为无状态 web 与有状态 connector 两个运行时角色，connector 不是第五个业务微服务。Runtime 与 Worker 无状态、可横向扩展，不绑定 Pod、bot_id 或用户；同一会话可被任意 Pod 执行；Connector 只持有 bot 传输所有权与回复上下文，不建立 agent→Pod 映射。 | harness-arch#RULE-arch-001 | ["uv", "run", "pytest", "-q", "tests/architecture"] | planned |
 | harness-skill#RULE-skill-001 | integration | Spec 所声明 verifier 的真实组件边界；不得用 SDK mock 替代 | Artifact Store 为 **RWX PVC**（硬事实是 `accessModes: ReadWriteMany`，`deploy/k8s/base/pvc-artifacts.yaml`；是否落在 NFS 由部署侧 StorageClass 决定，清单里 `storageClassName` 并未固定；V1 不建 MinIO/S3）；数据库只保存相对 `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从 NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight（**限每进程内**：跨 Pod 的正确性由 `os.replace` 幂等与 DB CAS 承载，不得当作跨进程互斥）；Artifact 写入不可变（**目标不存在才发布**：临时文件 + `os.link`，同 `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans` CLI 宽限期扫描清理（宽限期保护进行中事务）。 | harness-skill#RULE-skill-001 | ["uv", "run", "pytest", "-q", "tests/test_skill_artifact_cache.py"] | planned |
 | harness-test#RULE-test-001 | integration | Spec 所声明 verifier 的真实组件边界；不得用 SDK mock 替代 | 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实 Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。 | harness-test#RULE-test-001 | ["bash", "-lc", "uv run python scripts/ci_validation_cache.py --validator \"Pytest (acceptance)\" --json && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test"] | planned |
 | harness-worker#RULE-worker-001 | integration | Spec 所声明 verifier 的真实组件边界；不得用 SDK mock 替代 | PostgreSQL 是 Task/Schedule/lease 的唯一权威源；Redis 仅作 wake-up/cancel hint；`task_type` 仅 `SKILL/BATCH`（外部等待用 WAITING 表达）；claim 使用 `FOR UPDATE SKIP LOCKED`，进入 WAITING 释放 lease，deadline 到期由 Scheduler sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`。**deadline 是领取与收尾两侧的硬条件**：claim 排除 `deadline_at <= now` 的行（过期任务绝不执行），执行跨过 deadline 也不得写 `COMPLETED`，同样以 `FAILED(TASK_DEADLINE_EXCEEDED)` 收尾（`worker/claimer.py` 的 `_claimable_conditions`、`worker/service.py` 的终态守卫）。 | harness-worker#RULE-worker-001 | ["bash", "-lc", "uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py"] | planned |
 
-| S-04 | integration | 真实 Runtime/Worker、Skill 子进程和既有快照/租约边界 | 策略始终沿用冻结值；同段脚本共用 execution 计数，各 invocation 有独立子计数；retry/resume 建立新段和新本地计数，并记录 segment 身份；不声称跨段累计硬上限；脚本输入不能改变可信预算/身份；已知预算耗尽不自动重试 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"] | planned |
+| S-04 | integration | 真实 Runtime/Worker、Skill 子进程和既有快照/租约边界 | 策略始终沿用冻结值；同段脚本共用 execution 计数，各 invocation 有独立子计数；retry/resume 建立新段和新本地计数，并记录 segment 身份；不声称跨段累计硬上限；脚本输入不能改变可信预算/身份；已知预算耗尽不自动重试 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"] | verified |
 
 ### Acceptance Evidence
 
 本阶段仅登记计划，无实现/验收证据。Start 后记录真实 RED/GREEN、断言位置与真实边界；占位体必须移除。
+- S-04: verified — automated command passed; run_id=99bf2a8cf9514f478d196f2270c4554a (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=99bf2a8cf9514f478d196f2270c4554a (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=99bf2a8cf9514f478d196f2270c4554a (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=6374af3dd6ad42fc8a988d8c876af584 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=6374af3dd6ad42fc8a988d8c876af584 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=6374af3dd6ad42fc8a988d8c876af584 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=3e4b9af0e3d3408586d4dea0371750c6 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=3e4b9af0e3d3408586d4dea0371750c6 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=3e4b9af0e3d3408586d4dea0371750c6 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=90fb102ce1884fdcbb58f9f844071932 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=90fb102ce1884fdcbb58f9f844071932 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=90fb102ce1884fdcbb58f9f844071932 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=bbf79c70b462441bb9bbc87107c30f7a (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=bbf79c70b462441bb9bbc87107c30f7a (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=bbf79c70b462441bb9bbc87107c30f7a (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=2b8e4e2dd9f24c289913d2409046e7a3 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=2b8e4e2dd9f24c289913d2409046e7a3 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=2b8e4e2dd9f24c289913d2409046e7a3 (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=80e308fcf16d48f38d64d93ae6e9a78e (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=80e308fcf16d48f38d64d93ae6e9a78e (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=80e308fcf16d48f38d64d93ae6e9a78e (confirmed_by: runner)
+- S-04: verified — automated command passed; run_id=c55ff994f8844dd39cf65b49894cc404 (confirmed_by: runner)
+- E-02: verified — automated command passed; run_id=c55ff994f8844dd39cf65b49894cc404 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=c55ff994f8844dd39cf65b49894cc404 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-08] created (draft)
+- [2026-11-08] started
+- [2026-11-08] completed (done)

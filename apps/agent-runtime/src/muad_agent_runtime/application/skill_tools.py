@@ -349,7 +349,9 @@ class SkillToolSet:
                     ErrorCode.TOOL_COMPLETION_MODE_INVALID.value, "SYNC Skill does not accept completion_mode"
                 )
             package = await self._package(skill)
-            return await self._execute(package.root, input_data, script=None, skill=skill, argv=argv)
+            return await self._execute(
+                package.root, input_data, script=None, skill=skill, argv=argv, invocation_id=call_id
+            )
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
 
@@ -361,7 +363,9 @@ class SkillToolSet:
             argv = _require_argv(arguments)
             package = await self._package(skill)
             script = _select_script(package, name)
-            return await self._execute(package.root, input_data, script=script, skill=skill, argv=argv)
+            return await self._execute(
+                package.root, input_data, script=script, skill=skill, argv=argv, invocation_id=call_id
+            )
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
 
@@ -669,6 +673,7 @@ class SkillToolSet:
         script: Path | None,
         skill: ResolvedSkill,
         argv: tuple[str, ...] = (),
+        invocation_id: str,
     ) -> str:
         if skill_platform_keys(skill.frontmatter) and self._platform_context is None:
             raise SkillToolError(
@@ -680,7 +685,7 @@ class SkillToolSet:
             result = await self._run_executor(
                 ready_dir, input_data, script=script, skill=skill, execution_id=execution_id,
                 workspace_dir=lease.workspace_dir if lease is not None else self._workspace_dir,
-                argv=argv,
+                argv=argv, invocation_id=invocation_id,
             )
             self._record_execution(skill, result)
             outputs = await self._register_outputs(result)
@@ -699,7 +704,19 @@ class SkillToolSet:
         execution_id: str,
         workspace_dir: Path | None,
         argv: tuple[str, ...] = (),
+        invocation_id: str,
     ) -> SkillExecutionResult:
+        platform_context = self._platform_context
+        budget_event = None
+        if platform_context is not None and platform_context.budget_scope is not None:
+            controller = platform_context.budget_scope.controller
+            if controller is not None:
+                invocation = controller.invocation(skill.key, invocation_id)
+                platform_context = replace(
+                    platform_context,
+                    budget_scope=replace(platform_context.budget_scope, invocation=invocation),
+                )
+                budget_event = invocation.exhausted
         try:
             return await self._executor.execute(
                 SkillExecutionRequest(
@@ -711,14 +728,17 @@ class SkillToolSet:
                     workspace_dir=workspace_dir,
                     execution_id=execution_id,
                     script=script,
+                    budget_exhausted_event=budget_event,
                     platform_context=replace(
-                        self._platform_context, platform_keys=skill_platform_keys(skill.frontmatter)
+                        platform_context, platform_keys=skill_platform_keys(skill.frontmatter)
                     )
-                    if self._platform_context
+                    if platform_context
                     else None,
                 )
             )
         except SkillExecutionError as exc:
+            if exc.code == "LOCAL_BUDGET_EXHAUSTED":
+                raise SkillToolError(exc.code, exc.message) from exc
             raise SkillToolError(SKILL_EXECUTION_FAILED, exc.message) from exc
 
     async def _acquire_execution_workspace(
