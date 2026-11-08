@@ -1066,17 +1066,19 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     # 多副本口径（TASK-009 起 Gateway 默认 N 副本）：只杀一个副本时，存活副本仍会把持久
     # 意图投递出去，窗口断言随之失效（实测为间歇失败）。所以“Gateway 下线”必须指**全部
     # 副本**下线——这才是多副本部署下“整层不可用”的真实语义。
-    replicas = [instance for instance in stack.instances("im-gateway") if instance.alive]
-    assert replicas, "下线前必须至少有一个存活的 Gateway 副本"
+    replicas = list(stack.instances("im-gateway"))
+    assert any(instance.alive for instance in replicas), "下线前必须至少有一个存活的 Gateway 副本"
+    # 杀掉**所有**副本（不按 alive 过滤）：正在重启中的副本 `alive` 为假但仍在服务，
+    # 漏杀会让"下线窗口"里仍有人 ack 投递（CI 实测：通知行被标 DELIVERED）。
     for instance in replicas:
         stack.kill_instance(instance)
     with pytest.raises(ProcessLookupError):
         os.killpg(gateway_pgid, 0)
     relay.stop()
-    # 确定性前提：Gateway 端口与投递端点（relay）都必须真的拒绝连接。
+    # 确定性前提：**每个** Gateway 副本的端口与投递端点（relay）都必须真的拒绝连接。
     # SIGKILL 后内核释放监听有短暂延迟（CI 实测过“刚杀完仍能完成握手”），所以有界重试，
     # 超出窗口仍是活的就显式失败——不把“释放中”当成“已下线”。
-    for port in (gateway_port, wecom_harness.relay_port):
+    for port in (*[instance.port for instance in replicas], wecom_harness.relay_port):
         _await_port_refused(port)
     # 确定性前提：投递端点真的不可用（runtime env 指向稳定 relay，且 relay 监听已关闭）。
     for runtime in stack.instances("agent-runtime"):
