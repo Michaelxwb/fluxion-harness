@@ -469,6 +469,12 @@ codes:
       zh-CN: 模型服务暂时不可用，请稍后重试
       en-US: The model service is temporarily unavailable
 
+  MODEL_EMPTY_REPLY:
+    http_status: 502
+    messages:
+      zh-CN: 模型没有返回任何内容，请稍后重试
+      en-US: The model returned no content. Please try again.
+
   VERIFICATION_EXHAUSTED:
     http_status: 422
     messages:

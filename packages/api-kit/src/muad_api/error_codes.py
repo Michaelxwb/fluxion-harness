@@ -40,6 +40,8 @@ class ErrorCode(StrEnum):
     MODEL_IN_USE = "MODEL_IN_USE"
     MODEL_KEY_EXISTS = "MODEL_KEY_EXISTS"
     MODEL_UNAVAILABLE = "MODEL_UNAVAILABLE"
+    #: 模型补答后仍没有输出任何正文：空回答不是完成，必须以独立码失败而不是成功落空消息。
+    MODEL_EMPTY_REPLY = "MODEL_EMPTY_REPLY"
     #: 逻辑模型缺少池化预占所需的输出预算（`params.max_tokens`）。这是**配置**事实，
     #: 不是用户请求参数错误：必须以独立码明示，不能落成 COMMON_VALIDATION_ERROR。
     MODEL_OUTPUT_BUDGET_INVALID = "MODEL_OUTPUT_BUDGET_INVALID"

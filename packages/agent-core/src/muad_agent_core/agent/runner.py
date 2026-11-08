@@ -58,6 +58,10 @@ NODE_FINALIZE = "finalize"
 NODE_DECIDE = "decide"
 TOOL_BUDGET_EXHAUSTED = "tool call budget exhausted"
 UNKNOWN_TOOL_TEMPLATE = "unknown tool: {name}"
+#: 空回复的补答指令：只陈述"没有正文"这个事实，不猜原因——模型在这一步没有可解释的事实。
+EMPTY_REPLY_NUDGE = (
+    "你上一轮没有输出任何正文。请直接给出结论；如果工具调用失败了，如实说明失败原因与下一步。"
+)
 TOOL_BLOCKED_TEMPLATE = "tool blocked before execution: {reason}"
 TOOL_FAILED_TEMPLATE = "tool failed: {reason}"
 
@@ -170,6 +174,10 @@ class RunnerCancelled(RunnerError):
 
 class RunnerVerificationExhausted(RunnerError):
     """候选在验证上限内全部未通过；Run 不得输出未验证答案。"""
+
+
+class RunnerEmptyReply(RunnerError):
+    """模型补答后仍没有输出任何正文：空回答不是"完成"，Run 必须以失败收口。"""
 
 
 class AgentRunStatus(StrEnum):
@@ -519,12 +527,25 @@ class AgentRunner:
         verifier = self._answer_verifier
         feedback: str | None = None
         attempts = 0
+        # 空回复的补答额度：每次模型回合只补一次；补完仍空就是模型失败，不是"完成"。
+        empty_retried = False
+        # 本次尝试是否已把正文外发给用户：content 为空但正文已流出时**不重试**（会重复吐字）。
+        streamed = {"value": False}
+        inner_delta = state["on_delta"]
+
+        async def track_delta(text: str) -> None:
+            streamed["value"] = True
+            if inner_delta is not None:
+                await inner_delta(text)
+
+        attempt_state = {**state, "on_delta": track_delta} if inner_delta is not None else state
         while True:
+            streamed["value"] = False
             outbound = tuple(state["messages"])
             if feedback is not None:
                 outbound = (*outbound, ModelMessage(role=ModelRole.USER, content=feedback))
             response = await self._complete_with_recovery(
-                state,
+                attempt_state,
                 ModelRequest(
                     model_id=state["model_id"],
                     messages=outbound,
@@ -546,6 +567,13 @@ class AgentRunner:
             # `_invoke_model` 里面的 provider 未必理会超时（stub / 自定义实现），不在这里兜一次，
             # 超预算的调用就会被当成功（2026-10-06 review）。
             self._ensure_runnable(state)
+            if not response.tool_calls and not response.content.strip():
+                # 空正文 + 无工具调用：既没有可见结果，也没有可继续的动作 —— 这不是"回答完了"。
+                if empty_retried or streamed["value"]:
+                    raise RunnerEmptyReply("model returned an empty reply")
+                empty_retried = True
+                feedback = EMPTY_REPLY_NUDGE
+                continue
             if verifier is None or response.tool_calls:
                 return await self._accept_response(state, response)
             passed, reason = await verifier(response.content)

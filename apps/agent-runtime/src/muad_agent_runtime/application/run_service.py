@@ -15,7 +15,12 @@ from pathlib import Path
 from typing import Any, cast
 
 import sqlalchemy as sa
-from muad_agent_core.agent import AgentPolicy, RunnerModelError, RunnerVerificationExhausted
+from muad_agent_core.agent import (
+    AgentPolicy,
+    RunnerEmptyReply,
+    RunnerModelError,
+    RunnerVerificationExhausted,
+)
 from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.agent.runner import AgentRunStatus, RunnerDeadlineExceeded
 from muad_agent_core.model import ModelMessage
@@ -3130,6 +3135,15 @@ class RunService:
                     final_text=result.final_text or None,
                 )
             )
+        if result.outcome == AgentRunStatus.COMPLETED and not result.final_text.strip():
+            # 成功必须有可见正文。空回复从产生端已被 RunnerEmptyReply 拦住，这里是同一不变量
+            # 的持久化边界断言（resume 等旁路仍可能直接给出空正文）——绝不能落一条空
+            # ASSISTANT_MESSAGE，让用户看到空气泡、让历史记成一个"成功但没说话"的回答。
+            return await self._timed_finalize(
+                self._finalize_failed(
+                    run, submission_id, RunnerEmptyReply("empty reply"), agent_key=agent_key
+                )
+            )
         return await self._timed_finalize(
             self._finalize_run(run, submission_id, result.final_text, agent_key=agent_key)
         )
@@ -3616,6 +3630,8 @@ def _error_code_for(exc: Exception) -> str:
         return "RUN_SHUTDOWN"
     if isinstance(exc, RunnerVerificationExhausted):
         return str(ErrorCode.VERIFICATION_EXHAUSTED)
+    if isinstance(exc, RunnerEmptyReply):
+        return str(ErrorCode.MODEL_EMPTY_REPLY)
     if isinstance(exc, AppError):
         return str(exc.code)
     if isinstance(exc, RunnerModelError):

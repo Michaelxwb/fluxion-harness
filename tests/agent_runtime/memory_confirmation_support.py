@@ -116,16 +116,21 @@ async def model_endpoint(tool_calls, *, on_request=None, fail_first=False):
             from fastapi.responses import JSONResponse
 
             return JSONResponse({"error": {"message": "retry probe"}}, status_code=503)
+        # 第一轮只在**真有工具调用**时报 tool_calls；没有调用时它就是最终回答——
+        # `finish_reason=tool_calls` + 空数组 + 空正文不是合法响应，也会把"空回答"
+        # 混进夹具（现在空回答会补答一次并可能失败）。
+        if len(requests) == 1 and tool_calls:
+            finish_reason, content, calls = "tool_calls", "", list(tool_calls)
+        elif len(requests) > 1:
+            finish_reason, content, calls = "stop", "should not be called", []
+        else:
+            finish_reason, content, calls = "stop", "ok", []
         return {
             "choices": [
                 {
                     "index": 0,
-                    "finish_reason": "tool_calls" if len(requests) == 1 else "stop",
-                    "message": {
-                        "role": "assistant",
-                        "content": "" if len(requests) == 1 else "should not be called",
-                        "tool_calls": tool_calls if len(requests) == 1 else [],
-                    },
+                    "finish_reason": finish_reason,
+                    "message": {"role": "assistant", "content": content, "tool_calls": calls},
                 }
             ],
             "usage": {"prompt_tokens": 3, "completion_tokens": 2},

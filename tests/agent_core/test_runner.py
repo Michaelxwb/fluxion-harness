@@ -12,6 +12,7 @@ from muad_agent_core.agent import (
     AgentRunStatus,
     RunnerCancelled,
     RunnerDeadlineExceeded,
+    RunnerEmptyReply,
     RunnerModelError,
 )
 from muad_agent_core.context.compactor import split_groups
@@ -549,6 +550,76 @@ async def test_incomplete_model_stream_is_not_reported_as_success() -> None:
 
     with pytest.raises(RunnerModelError):
         await runner.run(_request())
+
+
+async def test_empty_reply_is_retried_once_with_a_nudge_and_completes() -> None:
+    """空正文 + 无工具调用不是"回答完了"：补答一次，补到正文就正常完成。"""
+    provider = ScriptedModelProvider([_text(""), _text("结论")])
+    runner = AgentRunner(provider=provider, registry=ToolRegistry())
+
+    result = await runner.run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert result.final_text == "结论"
+    assert len(provider.requests) == 2
+    nudge = provider.requests[1].messages[-1]
+    assert nudge.role is ModelRole.USER and "没有输出任何正文" in text_of(nudge.content)
+
+
+async def test_empty_reply_twice_fails_the_run_instead_of_completing_without_text() -> None:
+    """补答仍空（含纯空白）⇒ 明确失败，不得以 COMPLETED 收下一个没有正文的回答。"""
+    provider = ScriptedModelProvider([_text(""), _text("   ")])
+    runner = AgentRunner(provider=provider, registry=ToolRegistry())
+
+    with pytest.raises(RunnerEmptyReply):
+        await runner.run(_request())
+    assert len(provider.requests) == 2
+
+
+async def test_tool_result_then_empty_reply_still_ends_with_an_answer() -> None:
+    """事故形态：工具返回业务失败负载后模型空回答 —— 补答要出结论，且**不重跑工具**。"""
+    provider = ScriptedModelProvider(
+        [_tool_call("c1", "echo", {"text": "x"}), _text(""), _text("工具返回 exit_code=2：参数不合法")]
+    )
+    registry = ToolRegistry()
+    calls: list[dict[str, Any]] = []
+    _echo_tool(registry, calls)
+    runner = AgentRunner(provider=provider, registry=registry)
+
+    result = await runner.run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert result.final_text == "工具返回 exit_code=2：参数不合法"
+    assert calls == [{"text": "x"}], "补答只补文本，不重复执行已跑过的工具"
+    assert [m.role for m in provider.requests[2].messages][-2:] == [ModelRole.TOOL, ModelRole.USER]
+
+
+async def test_blank_content_after_streamed_text_is_not_retried() -> None:
+    """正文已外发给用户但 content 为空：不补答，直接失败（再试会把同一段话吐两遍）。"""
+
+    class _StreamsThenEmpty:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def complete(self, request: ModelRequest) -> ModelResponse:
+            raise AssertionError("streaming provider must not fall back to complete()")
+
+        async def stream(self, request: ModelRequest, on_delta: Any) -> ModelResponse:
+            self.calls += 1
+            await on_delta("已经说了一段")
+            return ModelResponse(content="", finish_reason="stop")
+
+    provider = _StreamsThenEmpty()
+    runner = AgentRunner(provider=provider, registry=ToolRegistry())
+    seen: list[str] = []
+
+    async def collect(text: str) -> None:
+        seen.append(text)
+
+    with pytest.raises(RunnerEmptyReply):
+        await runner.run(_request(), on_delta=collect)
+    assert provider.calls == 1
+    assert seen == ["已经说了一段"]
 
 
 # --------------------------------------------------------------------------------------
