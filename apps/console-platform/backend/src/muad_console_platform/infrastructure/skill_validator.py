@@ -18,6 +18,7 @@ from muad_skill_sdk import (
     SkillManifest,
     SkillPackage,
     SkillPackageError,
+    declared_entrypoint,
     locate_package_root,
 )
 
@@ -78,6 +79,8 @@ class ValidatedSkillPackage:
     total_size: int
     default_key: str
     author: str | None = None
+    #: `muad.skill.json` 声明的入口（包内相对路径）；未声明或声明但文件缺失时为 None。
+    entrypoint: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,17 +201,34 @@ def _entrypoint_check(
     value: str | None,
     package: ValidatedSkillPackage,
 ) -> PackageCheck | None:
-    if value is None:
+    """入口校验：显式 default_script 优先，否则回退 manifest 声明的 entrypoint。
+
+    只认调用参数会让「manifest 已声明入口」的包永远显示“未指定默认脚本”——那是误报，
+    而且声明本身也就没人校验了。执行侧（`select_entry_script`）本来就会回退 manifest。
+    """
+    declared = value or package.entrypoint
+    if declared is None:
         return PackageCheck("ENTRYPOINT", "warn", "未指定默认脚本，执行时按 SKILL.md 约定选择")
-    path = PurePosixPath(value)
+    path = PurePosixPath(declared)
     if path.is_absolute() or ".." in path.parts or path.suffix.lower() != ".py":
-        return PackageCheck("ENTRYPOINT", "error", "默认脚本必须是包内相对 .py 路径", value)
+        return PackageCheck("ENTRYPOINT", "error", "默认脚本必须是包内相对 .py 路径", declared)
     if not any(
-        entry["path"] == value or entry["path"].endswith(f"/{value}")
+        entry["path"] == declared or entry["path"].endswith(f"/{declared}")
         for entry in package.files
     ):
-        return PackageCheck("ENTRYPOINT", "error", "默认脚本不在包内", value)
-    return PackageCheck("ENTRYPOINT", "pass", f"默认脚本: {value}", value)
+        return PackageCheck("ENTRYPOINT", "error", "默认脚本不在包内", declared)
+    return PackageCheck("ENTRYPOINT", "pass", f"默认脚本: {declared}", declared)
+
+
+def _declared_entrypoint(package_root: Path) -> str | None:
+    """manifest 声明的入口（包内相对路径）；未声明或声明但文件缺失返回 None。"""
+    declared = declared_entrypoint(package_root)
+    if declared is None:
+        return None
+    try:
+        return declared.resolve().relative_to(package_root.resolve()).as_posix()
+    except ValueError:
+        return None
 
 
 def _reason_message(reason: str) -> str:
@@ -269,6 +289,7 @@ def _validate_package(data: bytes, temp_root: Path) -> ValidatedSkillPackage:
         total_size=total_size,
         default_key=_default_key(package.manifest.name, inner_dir),
         author=author,
+        entrypoint=_declared_entrypoint(package_root),
     )
 
 

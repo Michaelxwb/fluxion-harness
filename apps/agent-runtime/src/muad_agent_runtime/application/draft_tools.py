@@ -48,7 +48,8 @@ DRAFT_TOOL_DESCRIPTION = (
     "self-skill-review skill (execute_skill with skill_key=self-skill-review, input={}, "
     "args=[\"--target\", \"<workspace>/skill-drafts/<key>\"]; get <workspace> from "
     "workspace_shell `pwd`): show the error/warning summary to the user and fix errors "
-    "first. The review is advisory and never blocks submit. "
+    "first. If the draft changed since that review (its revision moved), review again "
+    "before submitting. The review is advisory and never blocks submit. "
     "submit publishes the draft for approval. Identity comes from the run; "
     "never pass tenant/user/agent."
 )
