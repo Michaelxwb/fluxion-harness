@@ -115,14 +115,17 @@ async def _seed_run(
             await connection.execute(
                 text(
                     "INSERT INTO runtime.conversation "
-                    "(id, tenant_id, user_id, agent_id, status, last_seq) "
-                    "VALUES (:id, :t, :u, :a, 'ACTIVE', 0)"
+                    "(id, tenant_id, user_id, agent_id, status, last_seq, "
+                    "channel_account_id, external_thread_id) "
+                    "VALUES (:id, :t, :u, :a, 'ACTIVE', 0, :entry, :thread)"
                 ),
                 {
                     "id": conversation_id,
                     "t": stack.tenant_id,
                     "u": stack.platform_user_id,
                     "a": stack.agent_id,
+                    "entry": stack.bot_account_id,
+                    "thread": CHAT_ID,
                 },
             )
             await connection.execute(
@@ -249,7 +252,12 @@ async def test_b125_waiting_input_run_is_auto_resumed_and_snapshot_frozen(
             agent_id=gateway_stack.agent_id,
             platform_user_id=gateway_stack.platform_user_id,
             conversation_id=uuid.UUID(conversation_id),
-            channel=ChannelContext(type="WECOM", bot_id=BOT_ID, external_conversation_id=CHAT_ID),
+            channel=ChannelContext(
+                type="WECOM",
+                entry_id=gateway_stack.bot_account_id,
+                bot_id=BOT_ID,
+                external_conversation_id=CHAT_ID,
+            ),
             message=MessageInput(
                 id=f"resume-{uuid.uuid4().hex[:8]}", type="text", text="恢复等待中的运行"
             ),

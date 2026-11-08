@@ -58,6 +58,8 @@ PageNumber = Annotated[int, Query(ge=1)]
 PageSize = Annotated[int | None, Query(ge=1, le=MAX_PAGE_SIZE)]
 UserId = Annotated[uuid.UUID, Query()]
 AgentId = Annotated[uuid.UUID, Query()]
+ConversationId = Annotated[uuid.UUID, Query()]
+Checksum = Annotated[str, Query(min_length=1)]
 EntryId = Annotated[uuid.UUID, Query()]
 ThroughSeq = Annotated[int | None, Query(ge=0)]
 AfterSeq = Annotated[int, Query(ge=0)]
@@ -118,15 +120,26 @@ async def resolve_artifact(
     tenant_id: TenantDep,
     session: SessionDep,
     user_id: UserId,
+    conversation_id: ConversationId,
+    checksum: Checksum,
 ) -> ApiResponse[Any]:
-    """API-10 的 Owner 侧解析（TASK-055）：本主体名下会话的附件 → 会话归属 + 渠道中立引用。
+    """API-10 的 Owner 侧解析（TASK-055）：本主体名下**目标会话**的附件 → 归属 + 渠道中立引用。
 
-    只接受受信主体 `user_id`（浏览器自报字段没有位置）：入口/Agent 从会话行导出，Gateway 据此
-    复核**当前**入口/Agent 授权。跨租户/他主体/已失效/内部留档一律 `COMMON_NOT_FOUND`（不泄露
-    存在性）；存储键只在本受信面返回，由 Gateway 取字节、绝不进公开响应。
+    只接受受信主体 `user_id`（浏览器自报字段没有位置）与客户端正在看的会话/版本：
+    - `conversation_id`：授权按**目标会话**裁决；产物来自别的会话时，该会话里必须有对应的
+      发布事实（跨用户/跨 Agent 一律拿不到）。
+    - `checksum`：同一产物可能发布过多个版本，按卡片上的校验和定位**发布那一刻的字节**。
+    入口/Agent 从目标会话行导出，Gateway 据此复核**当前**入口/Agent 授权。跨租户/他主体/
+    已失效/内部留档一律 `COMMON_NOT_FOUND`（不泄露存在性）；存储键只在本受信面返回，
+    由 Gateway 取字节、绝不进公开响应。
     """
     download = await resolve_webchat_artifact(
-        session, tenant_id=tenant_id, user_id=user_id, artifact_id=artifact_id
+        session,
+        tenant_id=tenant_id,
+        user_id=user_id,
+        artifact_id=artifact_id,
+        conversation_id=conversation_id,
+        checksum=checksum,
     )
     return ok(
         request.app.state.message_catalog,

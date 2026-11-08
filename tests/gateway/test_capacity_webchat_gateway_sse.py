@@ -1050,3 +1050,31 @@ def test_b261_stream_modules_hold_no_database_and_only_speak_the_public_contract
     assert internal.isdisjoint(webchat_streams.PUBLIC_STREAM_EVENT_TYPES)
     # 公开词表的 canonical 键必须先被 Owner 流解析器认识：否则公开事件会被解析层静默丢弃。
     assert set(webchat_streams.PUBLIC_STREAM_EVENT_TYPES) <= KNOWN_EVENT_TYPES
+
+
+def test_b261_failed_run_with_a_conclusion_marks_has_reply() -> None:
+    """失败终态带收尾结论正文时投影 `has_reply=true`：前端据此不再弹「失败，请重发」。"""
+    from uuid import uuid4
+
+    from muad_im_gateway.application.sse import SseEvent
+    from muad_im_gateway.application.webchat_streams import WebchatPublicProjector
+
+    run_id, conversation_id = uuid4(), uuid4()
+    projector = WebchatPublicProjector(run_id=run_id, conversation_id=conversation_id)
+
+    def failed(seq: int, **extra: object) -> object:
+        return projector.project(
+            SseEvent(
+                type="run.failed",
+                data={"status": "FAILED", "error_code": "RUN_NO_PROGRESS", **extra},
+                run_id=str(run_id),
+                seq=seq,
+                timestamp="2026-11-08T03:15:35+00:00",
+            )
+        )
+
+    with_conclusion = failed(7, final_text="执行失败：平台 401 signature invalid。")
+    without_conclusion = failed(8)
+
+    assert with_conclusion is not None and with_conclusion.data.has_reply is True
+    assert without_conclusion is not None and without_conclusion.data.has_reply is False

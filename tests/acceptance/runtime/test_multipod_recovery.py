@@ -23,6 +23,8 @@ from muad_common import SharedSettings
 
 from tests.acceptance.runtime.conftest import LiveStack, run_db
 
+ENTRY_ID = uuid.uuid4()
+
 ROOT = Path(__file__).resolve().parents[3]
 READY_TIMEOUT_SEC = 20.0
 
@@ -114,7 +116,12 @@ def _payload(stack: LiveStack, text: str, conversation_id: uuid.UUID) -> dict[st
         "agent_id": str(stack.agent_id),
         "platform_user_id": str(stack.platform_user_id),
         "conversation_id": str(conversation_id),
-        "channel": {"type": "WECOM", "bot_id": "bot-acc", "external_conversation_id": "ext-acc"},
+        "channel": {
+            "type": "WECOM",
+            "entry_id": str(ENTRY_ID),
+            "bot_id": "bot-acc",
+            "external_conversation_id": "ext-acc",
+        },
         "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
     }
 
@@ -155,6 +162,7 @@ def test_s04_e07_process_kill_reaped_and_takeover(live_stack: LiveStack) -> None
             json={
                 "agent_id": str(live_stack.agent_id),
                 "platform_user_id": str(live_stack.platform_user_id),
+                "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-acc"},
             },
             headers=_headers(live_stack),
             timeout=10,

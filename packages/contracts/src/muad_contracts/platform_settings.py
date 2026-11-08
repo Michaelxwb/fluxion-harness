@@ -104,6 +104,9 @@ class AgentSettings:
     max_tool_calls: int = 30
     deadline_ms: int = 120_000
     max_model_retries: int = 3
+    #: 同一 (工具, 错误码) 连续失败达到该次数即停止 Run：防止模型对确定性失败反复尝试，
+    #: 让用户误以为卡住。任一工具成功会清零计数。
+    max_identical_failures: int = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -562,6 +565,10 @@ def _validate_agent(agent: AgentSettings) -> None:
     _at_least("agent.max_tool_calls", agent.max_tool_calls, 0)
     _at_least("agent.deadline_ms", agent.deadline_ms, 1)
     _at_least("agent.max_model_retries", agent.max_model_retries, 0)
+    # 上限 10：阈值过大等于没有刹车，用户仍会长时间等待"卡住"的 Run。
+    _at_least("agent.max_identical_failures", agent.max_identical_failures, 1)
+    if agent.max_identical_failures > 10:
+        raise PlatformSettingsError("agent.max_identical_failures 必须 ≤ 10")
 
 
 def _validate_task(task: TaskSettings, batch_platform_limit: int | None) -> None:

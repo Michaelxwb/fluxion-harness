@@ -6,7 +6,7 @@ from uuid import uuid4
 import httpx
 import pytest
 from muad_api import AppError
-from muad_contracts import ChannelContext, MessageInput, RunRequest
+from muad_contracts import CancelSource, ChannelContext, MessageInput, RunRequest
 from muad_im_gateway.application.runtime_client import RuntimeClient
 
 from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
@@ -27,7 +27,9 @@ def _run_request() -> RunRequest:
     return RunRequest(
         agent_id=uuid4(),
         platform_user_id=uuid4(),
-        channel=ChannelContext(type="WECOM", bot_id="bot-1", external_conversation_id="conv-1"),
+        channel=ChannelContext(
+            type="WECOM", entry_id=uuid4(), bot_id="bot-1", external_conversation_id="conv-1"
+        ),
         message=MessageInput(id="msg-1", text="你好"),
     )
 
@@ -113,6 +115,13 @@ async def test_create_conversation_posts_and_returns_data() -> None:
             agent_id,
             platform_user_id,
             tenant_id="tenant-1",
+            channel=ChannelContext(
+                type="WECOM",
+                entry_id=uuid4(),
+                bot_id="bot-1",
+                external_user_id="user-1",
+                external_conversation_id="conv-1",
+            ),
         )
     finally:
         await client.aclose()
@@ -131,7 +140,12 @@ async def test_cancel_active_maps_no_active_run() -> None:
     client = RuntimeClient("http://runtime.test", transport=httpx.MockTransport(handler))
     try:
         with pytest.raises(AppError) as excinfo:
-            await client.cancel_active(uuid4(), uuid4(), tenant_id="tenant-1")
+            await client.cancel_active(
+                uuid4(),
+                uuid4(),
+                tenant_id="tenant-1",
+                source=CancelSource(entry_id=uuid4(), external_thread_id="user-1"),
+            )
     finally:
         await client.aclose()
     assert excinfo.value.code == "NO_ACTIVE_RUN"
@@ -144,7 +158,12 @@ async def test_post_json_rejects_missing_envelope_data() -> None:
     client = RuntimeClient("http://runtime.test", transport=httpx.MockTransport(handler))
     try:
         with pytest.raises(AppError) as excinfo:
-            await client.create_conversation(uuid4(), uuid4(), tenant_id="tenant-1")
+            await client.create_conversation(
+                uuid4(),
+                uuid4(),
+                tenant_id="tenant-1",
+                channel=ChannelContext(type="WECOM", entry_id=uuid4(), bot_id="bot-1"),
+            )
     finally:
         await client.aclose()
     assert excinfo.value.code == "COMMON_INTERNAL_ERROR"
@@ -234,7 +253,9 @@ def _b113_request() -> _RunRequest:
         agent_id=uuid4(),
         platform_user_id=uuid4(),
         conversation_id=None,
-        channel=_ChannelContext(type="WECOM", bot_id="bot-b113", external_conversation_id="conv-b113"),
+        channel=_ChannelContext(
+            type="WECOM", entry_id=uuid4(), bot_id="bot-b113", external_conversation_id="conv-b113"
+        ),
         message=_MessageInput(id=B113_MESSAGE_ID, type="text", text="你好"),
     )
 

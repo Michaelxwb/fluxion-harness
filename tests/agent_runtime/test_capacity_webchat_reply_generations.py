@@ -91,6 +91,8 @@ from muad_contracts.webchat_events import (
 
 from agent_runtime.conftest import FakeResolveClient
 
+ENTRY_ID = uuid.uuid4()
+
 pytestmark = pytest.mark.integration
 
 MODEL_NAME = "gpt-4o-mini"
@@ -105,6 +107,8 @@ TERMINAL_STREAM_TYPES = ("run.completed", "run.failed")
 OLD_PARTIAL_TEXT = "旧代已外发正文。"
 #: 重试回合：新代的完整回答（可见正文只应等于它）。
 NEW_GENERATION_TEXT = "新代完整回答。"
+#: 控制面确定性 4xx 后收尾回合给出的失败结论（终态正文原样投递）。
+CONTROL_FAILURE_TEXT = "提交失败：控制面拒绝（CONTROL_HTTP_400）。"
 
 
 # --------------------------------------------------------------------------------------
@@ -481,7 +485,7 @@ async def _start_run(
     request = RunRequest(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.platform_user_id,
-        channel=ChannelContext(type="WECOM", bot_id="bot-1"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text="请回答"),
     )
     async with get_session_factory()() as session:
@@ -968,7 +972,7 @@ async def test_b262_committed_tool_operation_business_key_survives_model_retry(
     credentials: ConsoleCredentialsClient,
     supervisor: Any,
 ) -> None:
-    """工具回合提交的真实操作在"部分正文失败→重试"前后身份/业务键逐字节一致。"""
+    """控制面确定性失败：Run 立即收尾并投递结论；已提交操作的身份/业务键保持不变。"""
     from httpx import AsyncClient
     from muad_agent_runtime.application.async_tools.control_dispatcher import ControlDispatcher
     from muad_agent_runtime.application.async_tools.runtime import (
@@ -1024,12 +1028,22 @@ async def test_b262_committed_tool_operation_business_key_survives_model_retry(
     assert after[0]["source_tool_call_id"] == "call-1"
 
     run = await _run_row(run_id)
-    assert run is not None and run.status == RunStatus.COMPLETED
+    assert run is not None and run.status == RunStatus.FAILED
+    assert run.error_code == "RUN_NO_PROGRESS", "确定性失败第一次即收尾"
     rows = await _canonical_rows(run_id)
-    assert _delta_text(rows, 0) == OLD_PARTIAL_TEXT
-    assert _delta_text(rows, 1) == NEW_GENERATION_TEXT
-    assert _visible_body(rows) == NEW_GENERATION_TEXT
-    assert len(_rows_of(rows, SNAPSHOT_STREAM_TYPE)) == 1
+    terminal = [row for row in rows if row.event_type == "RUN_FAILED"][-1]
+    final_text = str(_payload(terminal).get("final_text") or "")
+    assert final_text, "失败终态必须带结论正文（不许只剩一句目录提示）"
+    # 站内入口（WebChat）的历史只投影可见消息：结论要以 ASSISTANT_MESSAGE 落库，
+    # 且必须排在 RUN_FAILED 之前，页面刷新后看到的才是这段结论。
+    assistant = [
+        row
+        for row in rows
+        if row.event_type == "ASSISTANT_MESSAGE"
+        and str(_payload(row).get("text") or "") == final_text
+    ]
+    assert assistant, "失败结论必须作为可见助手消息落库"
+    assert assistant[-1].seq < terminal.seq, "结论消息必须出现在终态行之前"
 
 
 def _worker_reject_app() -> FastAPI:

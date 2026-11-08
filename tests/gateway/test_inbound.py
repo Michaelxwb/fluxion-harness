@@ -185,7 +185,7 @@ async def test_authorized_message_dispatches_run(catalog: MessageCatalog) -> Non
     assert _sent_texts(adapter) == []
 
 
-async def test_run_completed_finalizes_stream(catalog: MessageCatalog) -> None:
+async def test_run_completed_does_not_finalize_the_bot_stream(catalog: MessageCatalog) -> None:
     console = FakeConsoleClient()
     console.resolve_response = resolved_response()
     runtime = FakeRuntimeClient(
@@ -201,8 +201,8 @@ async def test_run_completed_finalizes_stream(catalog: MessageCatalog) -> None:
     await pipeline.handle(adapter, make_envelope())
 
     assert _streamed_chunks(adapter) == [("你好",)]
-    assert len(adapter.finished) == 1
-    assert adapter.finished[0].bot_id == "bot-1"
+    # 机器人终态：正文与收尾帧由持久投递链发送，Gateway 不在这里 finish。
+    assert adapter.finished == []
 
 
 async def test_delta_throttle_coalesces_within_interval(catalog: MessageCatalog) -> None:
@@ -358,7 +358,8 @@ async def test_run_failed_uses_catalog_error_code(tmp_path: Path) -> None:
 
     await pipeline.handle(adapter, make_envelope())
 
-    assert _sent_texts(adapter) == ["服务暂时繁忙，请稍后重试"]
+    # 机器人终态正文由持久投递链（Gateway 投递 API）按错误码渲染；Pipeline 不再发送。
+    assert _sent_texts(adapter) == []
 
 
 async def test_run_busy_error_envelope_replies_catalog_text(catalog: MessageCatalog) -> None:

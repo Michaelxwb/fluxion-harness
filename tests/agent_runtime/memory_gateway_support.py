@@ -12,6 +12,8 @@ from muad_im_gateway.main import app
 
 from tests.gateway.fakes import FakeConsoleClient
 
+ENTRY_ID = uuid4()
+
 
 @dataclass
 class Reply:
@@ -66,7 +68,11 @@ def envelope(text, *, message_id=None):
 def pipeline(stack):
     console = FakeConsoleClient()
     console.resolve_response = ChannelResolveResponse(
-        bound=True, authorized=True, agent_id=stack.run.agent_id, platform_user_id=stack.run.user_id
+        bound=True,
+        entry_id=ENTRY_ID,
+        authorized=True,
+        agent_id=stack.run.agent_id,
+        platform_user_id=stack.run.user_id,
     )
     return InboundPipeline(
         console=console,
@@ -90,6 +96,7 @@ async def original_submission(stack):
         platform_user_id=stack.run.user_id,
         channel=ChannelContext(
             type=incoming.channel,
+            entry_id=ENTRY_ID,
             bot_id=incoming.bot_id,
             external_user_id=incoming.external_user_id,
             external_conversation_id=incoming.external_conversation_id,

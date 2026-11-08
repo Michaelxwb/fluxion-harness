@@ -21,7 +21,7 @@ from collections.abc import AsyncIterator
 from typing import Any, Protocol
 
 from muad_contracts import ChannelEnvelope, DeliveryMessage, DeliveryRouteInput
-from muad_contracts.im import DeliveryKind
+from muad_contracts.im import DeliveryKind, message_stream_id
 
 from .base import ChannelAdapterUnavailable
 
@@ -87,7 +87,11 @@ class OutboundReplySession:
         self._sink = sink
         self._route = route
         self._message_id = message_id
-        self._stream_id = stream_id or uuid.uuid4().hex
+        self._stream_id = stream_id or (
+            message_stream_id(route.bot_id, message_id)
+            if message_id
+            else uuid.uuid4().hex
+        )
         self._wait_sec = wait_sec
         self._run_id: str | None = None
         self._sent = False
@@ -153,6 +157,16 @@ class OutboundReplySession:
             )
         except Exception as exc:  # noqa: BLE001 - 统一翻译成渠道不可用
             raise ChannelAdapterUnavailable("reply text enqueue failed") from exc
+
+    async def flush_now(self) -> None:
+        """本实现的每次 `stream` 都已入队（无内部缓冲），无需强制刷新。"""
+
+    def abort(self) -> None:
+        """不再由 Gateway 收尾（机器人终态由持久投递链 finish）：本地关闭，后续 finish 空操作。
+
+        不发送任何帧；已流出的增量保持原样，终态正文/收尾由 Runtime 投递泵写回同一条流。
+        """
+        self._closed = True
 
     async def finish(self) -> None:
         """收尾：入队 TERMINAL 并**有界等待 Connector 的真实送达结论**。"""

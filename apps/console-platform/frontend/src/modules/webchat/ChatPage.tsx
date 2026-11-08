@@ -54,6 +54,7 @@ import {
   AttachmentUnavailableError,
   MESSAGE_ROLE_KEYS,
   MessageContent,
+  MessageAttachmentCard,
   MessageThread,
   createAttachmentDownloader,
   messageClock
@@ -864,13 +865,17 @@ function useConfirmationRefresh(input: ConfirmationRefreshInput): void {
 }
 
 /** 流式正文：把上游较大的 delta 块按固定节拍平滑吐字，并复用最终消息的 Markdown 渲染。 */
-function ChatStreamingReply(props: { streaming: StreamingReplyProps | null }) {
+function ChatStreamingReply(props: {
+  streaming: StreamingReplyProps | null;
+  onDownloadAttachment(attachment: WebchatAttachment): void;
+}) {
   const { t } = useTranslation();
   const streaming = props.streaming;
   const target = streaming?.text ?? '';
   const runId = streaming?.runId ?? '';
   const visible = useSmoothStreamingText(target, runId);
-  if (streaming === null || target === '') return null;
+  // 附件可能在正文之前就发布：没有正文也要把卡片显示出来（用户点的是文件，不是文字）。
+  if (streaming === null || (target === '' && streaming.attachments.length === 0)) return null;
   const clockSource = streaming.startedAt ?? streaming.queuedAt;
   const clock = messageClock(clockSource ?? undefined);
   const typing = visible.length < target.length;
@@ -896,6 +901,17 @@ function ChatStreamingReply(props: { streaming: StreamingReplyProps | null }) {
           <MessageContent text={visible} />
           {typing ? <span className="chat-message-cursor" aria-hidden="true" /> : null}
         </div>
+        {streaming.attachments.length === 0 ? null : (
+          <div className="chat-message-attachments">
+            {streaming.attachments.map((attachment) => (
+              <MessageAttachmentCard
+                key={`${attachment.artifact_id}:${attachment.checksum}`}
+                attachment={attachment}
+                onDownload={props.onDownloadAttachment}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -997,7 +1013,10 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
         onRetry={props.onRetryHistory}
         onDownloadAttachment={props.onDownloadAttachment}
       />
-      <ChatStreamingReply streaming={props.streaming} />
+      <ChatStreamingReply
+        streaming={props.streaming}
+        onDownloadAttachment={props.onDownloadAttachment}
+      />
       <ChatRunActions
         run={props.run}
         connection={props.connection}
@@ -1088,8 +1107,11 @@ function useChatWorkspaceActions(input: ChatWorkspaceActionsInput): ChatWorkspac
   const select = conversations.select;
   const create = conversations.create;
   const downloadAttachment = useMemo(
-    () => createAttachmentDownloader(client, onActionFailure),
-    [client, onActionFailure]
+    () =>
+      createAttachmentDownloader(client, onActionFailure, {
+        conversationId: conversationId ?? ''
+      }),
+    [client, onActionFailure, conversationId]
   );
   const retryHistory = useCallback((): void => {
     if (conversationId === null) return;
@@ -1214,7 +1236,8 @@ function useTerminalRunRefresh(
     if (run.status === 'CANCELLED') return;
     if (refreshed.current === run.runId) return;
     refreshed.current = run.runId;
-    if (run.status === 'FAILED') Tips.error(t('chat.run.failure'));
+    // 失败已落结论消息时不再弹通用提示（否则和结论正文自相矛盾，还让用户重发）。
+    if (run.status === 'FAILED' && !run.hasReply) Tips.error(t('chat.run.failure'));
     fireAndForget(select(conversationId));
     // Run 状态在控制器内原地更新：依赖必须取标量字段，不能只依赖 run 引用。
   }, [conversationId, run?.runId, run?.status, run?.executionStatus?.stage, select, t]);

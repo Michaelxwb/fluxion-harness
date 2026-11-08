@@ -155,17 +155,17 @@ class _ConsoleProbe:
         ]
         self.items: list[BotSnapshotItem] = [
             BotSnapshotItem(
-                bot_account_id=ENTRY_ID, bot_id=str(ENTRY_ID), channel="WEBCHAT", agent_id=AGENT_ID
+                bot_account_id=ENTRY_ID, bot_id="webchat-b252", channel="WEBCHAT", agent_id=AGENT_ID
             ),
             BotSnapshotItem(
                 bot_account_id=OTHER_ENTRY_ID,
-                bot_id=str(OTHER_ENTRY_ID),
+                bot_id="webchat-b252-other",
                 channel="WEBCHAT",
                 agent_id=OTHER_AGENT_ID,
             ),
             BotSnapshotItem(
                 bot_account_id=DISABLED_ENTRY_ID,
-                bot_id=str(DISABLED_ENTRY_ID),
+                bot_id="webchat-b252-disabled",
                 channel="WEBCHAT",
                 agent_id=AGENT_ID,
                 enabled=False,
@@ -340,7 +340,7 @@ class _RuntimeProbe:
                     "conversation_id": str(CONVERSATION_ID),
                     "agent_id": body.get("agent_id"),
                     "user_id": body.get("platform_user_id"),
-                    "entry_id": body.get("entry_id"),
+                    "entry_id": (body.get("channel") or {}).get("entry_id"),
                     "title": "新会话",
                     "status": "ACTIVE",
                     "last_seq": 0,
@@ -702,7 +702,8 @@ async def test_b252_message_submit_returns_real_accepted_run_without_holding_the
     assert create.body["conversation_id"] == str(CONVERSATION_ID)
     assert create.body["channel"] == {
         "type": "WEBCHAT",
-        "bot_id": str(ENTRY_ID),
+        "entry_id": str(ENTRY_ID),
+        "bot_id": "webchat-b252",
         "external_user_id": str(PLATFORM_USER_ID),
         "external_conversation_id": str(CONVERSATION_ID),
     }
@@ -806,8 +807,13 @@ async def test_b252_conversation_create_and_list_delegate_to_owner(
     assert create.body == {
         "agent_id": str(AGENT_ID),
         "platform_user_id": str(PLATFORM_USER_ID),
-        "entry_id": str(ENTRY_ID),
-        "external_thread_id": str(PLATFORM_USER_ID),
+        "channel": {
+            "type": "WEBCHAT",
+            "entry_id": str(ENTRY_ID),
+            "bot_id": "webchat-b252",
+            "external_user_id": str(PLATFORM_USER_ID),
+            "external_conversation_id": None,
+        },
     }
 
     assert listed.status_code == 200, listed.text

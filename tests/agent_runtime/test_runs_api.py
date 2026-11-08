@@ -29,6 +29,8 @@ from sqlalchemy import event, select
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
 from tests.internal_service import service_headers
 
+ENTRY_ID = uuid.uuid4()
+
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
     return {"X-Tenant-Id": tenant.tenant_id}
@@ -38,7 +40,12 @@ def _payload(tenant: TenantContext, text: str = "hello runtime") -> dict[str, An
     return {
         "agent_id": str(tenant.agent_id),
         "platform_user_id": str(tenant.platform_user_id),
-        "channel": {"type": "WECOM", "bot_id": "bot-1", "external_conversation_id": "ext-1"},
+        "channel": {
+            "type": "WECOM",
+            "entry_id": str(ENTRY_ID),
+            "bot_id": "bot-1",
+            "external_conversation_id": "ext-1",
+        },
         "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
     }
 
@@ -84,7 +91,7 @@ async def _insert_run(
     lease_until: datetime | None = None,
     with_interrupt: bool = False,
     resolved: ResolveDefinitionResponse | None = None,
-    entry_id: uuid.UUID | None = None,
+    entry_id: uuid.UUID = ENTRY_ID,
 ) -> tuple[uuid.UUID, uuid.UUID]:
     session_factory = get_session_factory()
     async with session_factory() as session:
@@ -95,6 +102,7 @@ async def _insert_run(
             status="ACTIVE",
             last_seq=0,
             channel_account_id=entry_id,
+            external_thread_id="ext-1",
         )
         session.add(conversation)
         await session.flush()
@@ -526,7 +534,11 @@ async def test_cancel_active_without_active_run_returns_not_found(
 ) -> None:
     response = await client.post(
         "/v1/runs/cancel-active",
-        json={"agent_id": str(tenant.agent_id), "platform_user_id": str(tenant.platform_user_id)},
+        json={
+            "agent_id": str(tenant.agent_id),
+            "platform_user_id": str(tenant.platform_user_id),
+            "source": {"entry_id": str(ENTRY_ID), "external_thread_id": "ext-1"},
+        },
         headers=_headers(tenant),
     )
     assert response.status_code == 404
@@ -540,7 +552,11 @@ async def test_cancel_active_cancels_waiting_input_run_immediately(
     _, run_id = await _insert_run(tenant, "WAITING_INPUT", with_interrupt=True)
     response = await client.post(
         "/v1/runs/cancel-active",
-        json={"agent_id": str(tenant.agent_id), "platform_user_id": str(tenant.platform_user_id)},
+        json={
+            "agent_id": str(tenant.agent_id),
+            "platform_user_id": str(tenant.platform_user_id),
+            "source": {"entry_id": str(ENTRY_ID), "external_thread_id": "ext-1"},
+        },
         headers=_headers(tenant),
     )
     assert response.status_code == 200
@@ -746,7 +762,11 @@ async def test_create_conversation_returns_conversation(
 ) -> None:
     response = await client.post(
         "/v1/conversations",
-        json={"agent_id": str(tenant.agent_id), "platform_user_id": str(tenant.platform_user_id)},
+        json={
+            "agent_id": str(tenant.agent_id),
+            "platform_user_id": str(tenant.platform_user_id),
+            "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-1"},
+        },
         headers=_headers(tenant),
     )
     assert response.status_code == 200
@@ -763,7 +783,11 @@ async def test_create_conversation_replays_by_idempotency_key(
     tenant: TenantContext,
 ) -> None:
     """design §3.4.2：同 key 同指纹重放首次会话；异指纹 409；无 key 仍每次新建。"""
-    body = {"agent_id": str(tenant.agent_id), "platform_user_id": str(tenant.platform_user_id)}
+    body = {
+        "agent_id": str(tenant.agent_id),
+        "platform_user_id": str(tenant.platform_user_id),
+        "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-1"},
+    }
     key = f"conv-{uuid.uuid4().hex[:8]}"
     keyed = {**_headers(tenant), "Idempotency-Key": key}
 
@@ -775,7 +799,11 @@ async def test_create_conversation_replays_by_idempotency_key(
 
     mismatch = await client.post(
         "/v1/conversations",
-        json={"agent_id": str(tenant.agent_id), "platform_user_id": str(uuid.uuid4())},
+        json={
+            "agent_id": str(tenant.agent_id),
+            "platform_user_id": str(uuid.uuid4()),
+            "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-1"},
+        },
         headers=keyed,
     )
     assert mismatch.status_code == 409, mismatch.text
@@ -1053,7 +1081,8 @@ async def test_s15_202_uses_the_admission_projection_and_never_reads_the_run(
     submitted, tenant_id, key = owner.submit_calls[0]
     assert tenant_id == tenant.tenant_id and key == "s15-key"
     assert submitted.agent_id == tenant.agent_id
-    assert submitted.channel.bot_id == str(entry_id)
+    assert submitted.channel.entry_id == entry_id
+    assert submitted.channel.bot_id == "s15-webchat"
 
     # 幂等重放：状态取自受理裁决（这里模拟已完成的 Run），仍然不需要 get_run。
     owner.admission = RunAdmission(

@@ -95,6 +95,8 @@ from sqlalchemy.pool import QueuePool
 
 from agent_runtime.conftest import FakeResolveClient
 
+ENTRY_ID = uuid.uuid4()
+
 pytestmark = pytest.mark.integration
 
 WAIT_TIMEOUT_SEC = 20.0
@@ -260,7 +262,7 @@ def _run_request(tenant: TailTenant) -> RunRequest:
     return RunRequest(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.user_id,
-        channel=ChannelContext(type="WECOM", bot_id="bot-1"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text="共享追尾正文"),
     )
 

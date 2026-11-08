@@ -298,7 +298,7 @@ export type ReplyStreamUpdate =
   | { kind: 'snapshot'; seq: number; replyGeneration: number; text: string; partCount: number }
   | { kind: 'stage'; seq: number; data: WebchatExecutionStatus }
   | { kind: 'terminal'; seq: number; status: RunStatus }
-  | { kind: 'error'; seq: number; code: string; retryable: boolean }
+  | { kind: 'error'; seq: number; code: string; retryable: boolean; hasReply: boolean }
   | { kind: 'confirmation'; seq: number; data: WebchatConfirmation }
   | { kind: 'artifact'; seq: number; data: WebchatAttachment }
   | { kind: 'checkpoint'; cursor: number }
@@ -604,8 +604,9 @@ function applyDataFrameEvent(
     if (typeof retryable !== 'boolean') {
       throw new WebchatStreamError('MALFORMED_FRAME', 'run.error.retryable must be a boolean');
     }
+    const hasReply = parsed.data['has_reply'] === true;
     state.applied = parsed.seq;
-    return { kind: 'error', seq: parsed.seq, code, retryable };
+    return { kind: 'error', seq: parsed.seq, code, retryable, hasReply };
   }
   if (frame.event === 'confirmation.required') {
     const data = readConfirmation(parsed.data);

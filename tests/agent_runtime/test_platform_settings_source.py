@@ -65,6 +65,8 @@ from muad_contracts.platform_settings import default_compaction_settings
 from agent_runtime.conftest import FakeResolveClient, TenantContext
 from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
+ENTRY_ID = uuid.uuid4()
+
 LISTEN_TIMEOUT_SEC = 15.0
 #: 内部服务身份：与 Console `require_service_identity` 同源（env `INTERNAL_SERVICE_TOKEN`）。
 INTERNAL_TOKEN = "test-internal-token"
@@ -200,7 +202,7 @@ def _request(tenant: TenantContext, text: str = "hello settings") -> RunRequest:
     return RunRequest(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.platform_user_id,
-        channel=ChannelContext(type="WECOM", bot_id="bot-1"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text=text),
     )
 
@@ -330,7 +332,11 @@ async def test_e03_source_unavailable_fails_run_creation_with_failed_metric(
                         json={
                             "agent_id": str(tenant.agent_id),
                             "platform_user_id": str(tenant.platform_user_id),
-                            "channel": {"type": "WECOM", "bot_id": "bot-1"},
+                            "channel": {
+                                "type": "WECOM",
+                                "entry_id": str(uuid.uuid4()),
+                                "bot_id": "bot-1",
+                            },
                             "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": "x"},
                         },
                         headers={

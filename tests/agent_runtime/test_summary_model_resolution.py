@@ -40,6 +40,9 @@ from muad_contracts.model_pool import derive_model_key_resource_id
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
 from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
+#: 稳定入口身份：同一测试的多条消息必须落在同一条会话上（入口是会话作用域的一部分）。
+ENTRY_ID = uuid.uuid4()
+
 SUMMARY_MODEL_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
 SUMMARY_BASE_URL = "https://summary.example/v1"
 SUMMARY_MODEL_NAME = "cheap-summary-model"
@@ -168,7 +171,7 @@ async def _send(client: AsyncClient, tenant: TenantContext, text: str) -> uuid.U
         json={
             "agent_id": str(tenant.agent_id),
             "platform_user_id": str(tenant.platform_user_id),
-            "channel": {"type": "WECOM", "bot_id": "bot-summary"},
+            "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-summary"},
             "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
         },
         headers={"X-Tenant-Id": tenant.tenant_id, "X-Internal-Service": INTERNAL_SERVICE_TOKEN},

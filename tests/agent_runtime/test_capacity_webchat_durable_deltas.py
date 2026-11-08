@@ -86,6 +86,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_runtime.conftest import FakeResolveClient
 
+ENTRY_ID = uuid.uuid4()
+
 pytestmark = pytest.mark.integration
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -293,7 +295,7 @@ def _run_request(tenant: DurableTenant) -> RunRequest:
     return RunRequest(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.user_id,
-        channel=ChannelContext(type="WECOM", bot_id="bot-1"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text="数一数正文"),
     )
 

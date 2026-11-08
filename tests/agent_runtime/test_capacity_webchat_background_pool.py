@@ -65,6 +65,8 @@ from muad_contracts.model_pool import (
 from muad_contracts.platform_settings import MemoryPolicySettings
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+ENTRY_ID = uuid.uuid4()
+
 pytestmark = pytest.mark.integration
 
 MAIN_MODEL_NAME = "gpt-4o-mini"
@@ -520,6 +522,9 @@ async def background_tenant(
                 "DELETE FROM runtime.canonical_event WHERE tenant_id = :tenant_id",
                 "DELETE FROM runtime.run_submission WHERE tenant_id = :tenant_id",
                 "DELETE FROM runtime.runtime_snapshot WHERE tenant_id = :tenant_id",
+                "DELETE FROM runtime.channel_notification WHERE tenant_id = :tenant_id",
+                "DELETE FROM runtime.channel_notification_feed WHERE tenant_id = :tenant_id",
+                "DELETE FROM runtime.channel_conversation WHERE tenant_id = :tenant_id",
                 "DELETE FROM runtime.run_record WHERE tenant_id = :tenant_id",
                 "DELETE FROM runtime.conversation WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.model_deployment WHERE tenant_id = :tenant_id",
@@ -648,7 +653,7 @@ async def _start_run(
     request = RunRequest(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.platform_user_id,
-        channel=ChannelContext(type="WECOM", bot_id="bot-1"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text=text),
         conversation_id=conversation_id,
     )

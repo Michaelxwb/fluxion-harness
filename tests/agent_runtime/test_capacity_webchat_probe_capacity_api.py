@@ -236,6 +236,9 @@ async def _cleanup_tenant(tenant_id: str) -> None:
             "DELETE FROM control.model_credential WHERE tenant_id = :tenant_id",
             "DELETE FROM control.model_definition WHERE tenant_id = :tenant_id",
             "DELETE FROM control.model_quota_group WHERE tenant_id = :tenant_id",
+            "DELETE FROM runtime.channel_notification WHERE tenant_id = :tenant_id",
+            "DELETE FROM runtime.channel_notification_feed WHERE tenant_id = :tenant_id",
+            "DELETE FROM runtime.channel_conversation WHERE tenant_id = :tenant_id",
             "DELETE FROM runtime.run_record WHERE tenant_id = :tenant_id",
             "DELETE FROM runtime.conversation WHERE tenant_id = :tenant_id",
         ):

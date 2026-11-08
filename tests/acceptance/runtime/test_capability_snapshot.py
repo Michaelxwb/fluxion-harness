@@ -31,6 +31,8 @@ from tests.acceptance.runtime.conftest import (
     run_db,
 )
 
+ENTRY_ID = uuid.uuid4()
+
 
 def _parse_sse(body: str) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
@@ -47,7 +49,12 @@ def _run_payload(stack: LiveStack, text: str = "hello") -> dict[str, Any]:
     return {
         "agent_id": str(stack.agent_id),
         "platform_user_id": str(stack.platform_user_id),
-        "channel": {"type": "WECOM", "bot_id": "bot-acc", "external_conversation_id": "ext-acc"},
+        "channel": {
+            "type": "WECOM",
+            "entry_id": str(ENTRY_ID),
+            "bot_id": "bot-acc",
+            "external_conversation_id": "ext-acc",
+        },
         "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
     }
 

@@ -28,6 +28,9 @@ from typing import Any
 import pytest
 import sqlalchemy as sa
 from httpx import AsyncClient
+from muad_agent_runtime.application.attachments.publication import (
+    publish_artifact_to_conversation,
+)
 from muad_agent_runtime.application.ports import PlatformSettingsSnapshot
 from muad_agent_runtime.application.run_events import EventWriter
 from muad_agent_runtime.infrastructure.db import get_engine, get_session_factory
@@ -1087,10 +1090,11 @@ async def test_b04_projection_only_exposes_visible_messages_and_safe_attachments
         event.remove(engine.sync_engine, "before_cursor_execute", capture)
     page = _page_data(response, WebchatMessagePage)
 
-    # 消息 list/count 同谓词同快照（单语句）；附件元信息按页批量取（不逐条回查，无 N+1）。
+    # 消息与发布事实是**同一页同谓词**（list/count 单语句，发布行本身就是条目，不再二次回捞）；
+    # 附件元信息按页批量取。查询数不随消息条数增长。
     message_statements = [s for s in statements if "runtime.canonical_event" in s]
     artifact_statements = [s for s in statements if "runtime.artifact" in s]
-    assert len(message_statements) == 1 and "count(*)" in message_statements[0]
+    assert len(message_statements) == 1 and "count(*)" in message_statements[0], message_statements
     assert len(artifact_statements) == 1
 
     assert [item.seq for item in page.items] == [user_seq, assistant_seq]
@@ -1149,3 +1153,90 @@ async def test_b250_internal_history_endpoints_require_service_identity(
     # 缺受信主体字段（user_id/agent_id/entry_id）在入口显式拒绝。
     missing = await _get(client, path, tenant, entry_id=str(ENTRY))
     assert missing.status_code == 422
+
+
+# --------------------------------------------------------------------------------------
+# 已发布附件：挂在同 Run 的助手消息上；Run 没有正文时也不能丢
+# --------------------------------------------------------------------------------------
+
+
+async def test_b250_published_attachment_rides_on_the_run_answer(
+    tenant: TenantContext, client: AsyncClient
+) -> None:
+    """发布事实与助手消息是**同一轮**：卡片挂在回复上，不单独成条（用户看到的是"回复带文件"）。"""
+    conversation_id = await _seed_conversation(tenant)
+    run_id = await _seed_active_run(tenant, conversation_id)
+    artifact_id = await _seed_artifact(tenant, conversation_id, run_id=run_id, filename="结果.json")
+    await _append_message(
+        tenant.tenant_id, conversation_id, text="把结果发我", run_id=run_id
+    )
+    await publish_artifact_to_conversation(
+        get_session_factory,
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation_id,
+        run_id=run_id,
+        artifact_id=artifact_id,
+    )
+    await _append_message(
+        tenant.tenant_id, conversation_id, text="给你", event_type="ASSISTANT_MESSAGE", run_id=run_id
+    )
+
+    response = await _get(
+        client, _messages_path(conversation_id), tenant, **_read_scope(tenant), page=1, page_size=50
+    )
+    page = _page_data(response, WebchatMessagePage)
+
+    assert [item.role for item in page.items] == ["USER", "ASSISTANT"], "附件不单独成条"
+    assert page.items[1].text == "给你"
+    assert [attachment.artifact_id for attachment in page.items[1].attachments] == [artifact_id]
+    assert page.items[1].attachments[0].filename == "结果.json"
+    assert page.items[1].attachments[0].available is True
+
+
+async def test_b250_published_attachment_survives_a_run_without_an_answer(
+    tenant: TenantContext, client: AsyncClient
+) -> None:
+    """Run 失败/取消没有助手正文：发布事实仍要能看见（补一条空正文助手条目，不静默丢）。"""
+    conversation_id = await _seed_conversation(tenant)
+    run_id = await _seed_active_run(tenant, conversation_id)
+    artifact_id = await _seed_artifact(tenant, conversation_id, run_id=run_id, filename="结果.json")
+    await _append_message(
+        tenant.tenant_id, conversation_id, text="把结果发我", run_id=run_id
+    )
+    await publish_artifact_to_conversation(
+        get_session_factory,
+        tenant_id=tenant.tenant_id,
+        conversation_id=conversation_id,
+        run_id=run_id,
+        artifact_id=artifact_id,
+    )
+    await _finish_history_run(tenant.tenant_id, conversation_id, run_id, RunStatus.FAILED)
+
+    response = await _get(
+        client, _messages_path(conversation_id), tenant, **_read_scope(tenant), page=1, page_size=50
+    )
+    page = _page_data(response, WebchatMessagePage)
+
+    assert [item.role for item in page.items] == ["USER", "ASSISTANT"]
+    attachment_entry = page.items[1]
+    assert attachment_entry.text == "", "空正文条目只承载附件"
+    assert [attachment.artifact_id for attachment in attachment_entry.attachments] == [artifact_id]
+
+
+async def test_b250_unpublished_artifacts_are_not_attached(
+    tenant: TenantContext, client: AsyncClient
+) -> None:
+    """Run 产出的文件**没有发布**就不出现在回复上（发布是显式动作，不是"生成即交付"）。"""
+    conversation_id = await _seed_conversation(tenant)
+    run_id = await _seed_active_run(tenant, conversation_id)
+    await _seed_artifact(tenant, conversation_id, run_id=run_id)
+    await _append_message(
+        tenant.tenant_id, conversation_id, text="说两句", event_type="ASSISTANT_MESSAGE", run_id=run_id
+    )
+
+    response = await _get(
+        client, _messages_path(conversation_id), tenant, **_read_scope(tenant), page=1, page_size=50
+    )
+    page = _page_data(response, WebchatMessagePage)
+
+    assert [item.attachments for item in page.items] == [[]]

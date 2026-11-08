@@ -18,6 +18,10 @@ class AuthPlatformServer(ThreadingHTTPServer):
         self.sessions: set[str] = set()
         self.csrf_token = secrets.token_urlsafe(24)
         self.issue_login_cookie = True
+        # 失败响应可定制（detail 断言用）：默认保持 MSSP 形状 HTTP 200 + code 9348。
+        self.reject_status = 200
+        self.reject_code = 9348
+        self.reject_message: str | None = None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -26,8 +30,13 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
         pass  # No credentials or request headers in test logs.
 
-    def reply(self, status: int, code: int, cookies: list[str] | None = None) -> None:
-        body = json.dumps({"code": code}).encode()
+    def reply(
+        self, status: int, code: int, cookies: list[str] | None = None, message: str | None = None
+    ) -> None:
+        payload: dict[str, object] = {"code": code}
+        if message is not None:
+            payload["msg"] = message
+        body = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -60,7 +69,10 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, KeyError):
             valid = False
         if not valid:
-            self.reply(200, 9348)  # Deliberately HTTP 200 like MSSP.
+            # Deliberately HTTP 200 like MSSP by default; tests may override for detail cases.
+            self.reply(
+                self.server.reject_status, self.server.reject_code, message=self.server.reject_message
+            )
             return
         if not self.server.issue_login_cookie:
             self.reply(200, 0, [f"csrf_token={self.server.csrf_token}; Path=/"])

@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
+import logging
 import uuid
 from collections import OrderedDict
 from collections.abc import Awaitable, Mapping
@@ -29,6 +30,7 @@ from muad_contracts import (
     DeliveryRequest,
     DeliveryRouteInput,
 )
+from muad_contracts.enums import LOCAL_STREAM_CHANNELS, OUTBOUND_CHANNELS
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.db import SessionFactoryProvider
@@ -49,6 +51,7 @@ from .output_service import (
 from .output_service import (
     output_version_key as _version_key,
 )
+from .publication import PublicationError, publish_artifact_to_conversation
 from .reference import artifact_kind, attachment_ref
 
 READ_ATTACHMENT_TOOL = "read_attachment"
@@ -135,6 +138,8 @@ SEARCH_CONTEXT_CHARS = 80
 #: 抽取结果缓存条数。按 Run 复用（`AttachmentToolSet` 每个 Run 一个），让"同一份文档读多段"
 #: 不再重复解析；有界，避免一次 Run 把多份大文档的全文留在内存里。
 MAX_TEXT_CACHE_ENTRIES = 4
+
+logger = logging.getLogger(__name__)
 
 #: 枚举范围：本次 Run 内 / 整个会话（缺省会话——历史引用被裁掉的附件靠它找回）
 SCOPE_RUN = "run"
@@ -665,8 +670,12 @@ class AttachmentToolSet:
                 )
 
             metadata = dict(row.metadata_json or {})
-            versions = [str(key) for key in (metadata.get("versions") or [])]
-            versions.append(row.storage_key)
+            # 版本历史记**这一版自己的**键/校验和/长度：交付要能按发布那一刻的 checksum
+            # 找回对应字节，只留键就定位不到内容（发布冻结）。
+            versions = [dict(entry) for entry in (metadata.get("versions") or [])]
+            versions.append(
+                {"key": row.storage_key, "checksum": row.checksum, "size": row.size}
+            )
             # 版本号只作**历史留痕**（给人看），不参与 storage_key：`len(versions) + 1` 是读-改-写，
             # 一旦有别的写入方不走这把行锁，它就还会撞出同一个键。键用不依赖旧值的 uuid 后缀
             # （2026-10-03 review）。
@@ -697,7 +706,7 @@ class AttachmentToolSet:
         （它会以为那句话附上去了）。要支持"文件 + 一句话"，应当由适配器发一条跟随文本，
         那是独立的一次改动。
         """
-        if self._delivery_client is None or self._delivery_route is None:
+        if self._delivery_route is None:
             raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前会话没有可交付的通道，产物发不出去")
         artifact_id = arguments.get("artifact_id")
         path = arguments.get("path")
@@ -713,6 +722,45 @@ class AttachmentToolSet:
         refusal = self._delivery_refusal(row)
         if refusal is not None:
             raise AttachmentToolError(ATTACHMENT_TYPE_UNSUPPORTED, refusal)
+        # 交付方式按**入口能力**显式选择：外部推送通道走网关投递，站内入口发布到目标会话
+        # 的持久流；不在任一能力组的通道显式拒绝，不把"未知"猜成"站内"。
+        channel = self._delivery_route.channel
+        if channel in LOCAL_STREAM_CHANNELS:
+            return await self._publish_to_conversation(row)
+        if channel in OUTBOUND_CHANNELS:
+            return await self._deliver_via_gateway(row)
+        raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前通道不支持交付产物")
+
+    async def _publish_to_conversation(self, row: Artifact) -> str:
+        """站内入口的交付：目标会话里的持久发布事实（站内入口的"收到"就是这条事实）。"""
+        if self._run_id is None or self._conversation_id is None:
+            raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前运行没有可交付的会话")
+        try:
+            await publish_artifact_to_conversation(
+                self._session_factory,
+                tenant_id=self._tenant_id,
+                conversation_id=self._conversation_id,
+                run_id=self._run_id,
+                artifact_id=row.id,
+            )
+        except PublicationError as exc:
+            raise AttachmentToolError(exc.code, exc.message) from exc
+        except Exception as exc:  # noqa: BLE001 - 存储/数据库抖动：如实回"可重试"，绝不谎报已交付
+            logger.warning(
+                "artifact_publication_failed artifact_id=%s error=%s",
+                row.id,
+                type(exc).__name__,
+                exc_info=True,
+            )
+            return DELIVERY_RESULT_FAILED.format(
+                reason=ATTACHMENT_WRITE_UNAVAILABLE, artifact_id=row.id
+            )
+        return DELIVERY_RESULT_DELIVERED.format(artifact_id=row.id, filename=_filename(row))
+
+    async def _deliver_via_gateway(self, row: Artifact) -> str:
+        """外部推送通道的交付：网关负责真实发送，结论只认它回来的真实结局。"""
+        if self._delivery_client is None or self._delivery_route is None:
+            raise AttachmentToolError(ATTACHMENT_WRITE_UNAVAILABLE, "当前会话没有可交付的通道，产物发不出去")
         request = DeliveryRequest(
             tenant_id=self._tenant_id,
             delivery_key=f"run:{self._run_id}:{row.id}",

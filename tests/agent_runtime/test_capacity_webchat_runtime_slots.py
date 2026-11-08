@@ -101,6 +101,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agent_runtime.conftest import FakeResolveClient
 
+ENTRY_ID = uuid.uuid4()
+
 pytestmark = pytest.mark.integration
 
 INSTANCE = "runtime-slots-b232"
@@ -592,7 +594,7 @@ def _run_request(
         agent_id=agent_id,
         platform_user_id=user_id,
         conversation_id=conversation_id,
-        channel=ChannelContext(type="WECOM", bot_id="bot-slots"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-slots"),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text="keep running"),
     )
 

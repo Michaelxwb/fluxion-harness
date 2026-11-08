@@ -225,7 +225,7 @@ def _request(
     tenant: ActivityTenant,
     conversation_id: uuid.UUID,
     *,
-    entry: uuid.UUID | None = ENTRY_ID,
+    entry: uuid.UUID = ENTRY_ID,
     text: str = "写一条消息",
 ) -> RunRequest:
     return RunRequest(
@@ -234,7 +234,8 @@ def _request(
         conversation_id=conversation_id,
         channel=ChannelContext(
             type="WEBCHAT",
-            bot_id=str(entry) if entry is not None else "console-agent",
+            entry_id=entry,
+            bot_id="console-agent",
             external_user_id="web-1",
         ),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text=text),
@@ -866,15 +867,22 @@ async def test_b263_socket_replay_does_not_mark_read(activity_tenant: ActivityTe
 async def test_b263_conversation_without_entry_has_no_inbox_row(
     activity_tenant: ActivityTenant,
 ):
-    """无入口归属的会话不进网页收件箱：entry_id 是 DTO 必填身份，不编造 UUID。"""
+    """历史未归属会话不进网页收件箱（新受理不会再产生这种行）。
+
+    旧数据只可能由修复前的入口参与产生；通知接缝仍必须显式跳过（留 WARNING），
+    不编造入口 UUID，也不因此回滚终态事务。
+    """
     tenant = activity_tenant
-    supervisor = ExecutionSupervisor()
     conversation_id = await _seed_conversation(tenant, entry=None)
-    started = await _start(
-        tenant, conversation_id, supervisor, executor_factory=_executor_factory(), entry=None
-    )
-    events = await _drain(started)
-    assert events[-1].type == "run.completed"
-    assert (await _run_row(started.run_id)).status == RunStatus.COMPLETED
+    run = await _seed_created_run(tenant, conversation_id)
+    async with runtime_db.get_session_factory()() as session:
+        receipt = await write_run_notification(
+            session,
+            run=run,
+            kind=KIND_RUN_COMPLETED,
+            delivery_key=run_terminal_delivery_key(run.id),
+        )
+        await session.commit()
+    assert receipt is None
     assert await _notifications(tenant.tenant_id, tenant.platform_user_id) == []
     assert await _feed(tenant.tenant_id, tenant.platform_user_id) is None

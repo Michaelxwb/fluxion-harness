@@ -39,7 +39,12 @@ def main() -> int:
         print(json.dumps({"error": {"code": "session_unavailable"}}), file=sys.stderr)
         return 1
     if "error" in response:
-        print(json.dumps({"error": {"code": response["error"]}}), file=sys.stderr)
+        error: dict[str, object] = {"code": response["error"]}
+        detail = response.get("detail")
+        if isinstance(detail, dict) and detail:
+            # 平台侧失败原因（HTTP 状态 / 业务码 / 原文）随 stderr 交给 Skill，再由 Skill 决定怎么呈现。
+            error["detail"] = detail
+        print(json.dumps({"error": error}, ensure_ascii=False), file=sys.stderr)
         return 1
     print(json.dumps(response))
     return 0

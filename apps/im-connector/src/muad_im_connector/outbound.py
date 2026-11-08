@@ -35,6 +35,7 @@ from muad_contracts.im import (
     DeliveryCommand,
     DeliveryKind,
     command_result_key,
+    message_stream_id,
     outbound_cursor_key,
     outbound_dead_stream_key,
     outbound_stream_key_for,
@@ -184,6 +185,22 @@ class CommandExecutor:
         self._buffers: dict[str, list[str]] = {}
 
     async def execute(self, command: DeliveryCommand) -> CommandResult:
+        # 逻辑投递键的持久仲裁：同一 (tenant, delivery_key) 的已送达/降级结果直接重放，
+        # 不管 command_id 是新的还是旧的；旧投递 epoch 的命令不得重新获得发送资格。
+        if command.delivery_key:
+            receipt = await self._replies.delivery_receipt(
+                tenant_id=command.tenant_id, delivery_key=command.delivery_key
+            )
+            if receipt is not None:
+                stored_epoch = int(receipt.get("delivery_epoch") or 0)
+                if command.delivery_epoch is None or stored_epoch >= command.delivery_epoch:
+                    return self._result(
+                        command,
+                        CommandStatus(receipt.get("status") or CommandStatus.FAILED.value),
+                        code=str(receipt.get("code") or ""),
+                        detail=str(receipt.get("detail") or "delivery receipt replay"),
+                        epoch=0,
+                    )
         lease = await self._leases.read(command.tenant_id, command.bot_id)
         if lease is None or lease.owner_id != self._owner_id:
             return self._result(
@@ -269,15 +286,9 @@ class CommandExecutor:
             if target is not None:
                 return target.reply_ref, ""
         if not command.reply_ref:
-            target = await self._replies.resolve_route(
-                tenant_id=command.tenant_id,
-                bot_id=command.bot_id,
-                external_user_id=command.external_user_id,
-                external_conversation_id=command.external_conversation_id,
-            )
-            if target is None:
-                return None, ""
-            return target.reply_ref, ""
+            # **没有原消息/显式回调就不借用“本路由最新回调”**：那会把后台投递挂到同会话
+            # 后来的那条消息上（甚至开出第二个气泡）。确认原目标不可用 ⇒ 只走主动发送。
+            return None, ""
         if command.epoch and command.epoch < lease.epoch:
             return None, RESULT_CODE_REPLY_EXPIRED
         target = await self._replies.resolve_ref(
@@ -303,6 +314,14 @@ class CommandExecutor:
             return self._result(
                 command, CommandStatus.ACCEPTED, detail="status dropped (no reply target)",
                 epoch=lease.epoch,
+            )
+        if command.message_id and await self._replies.is_finished(
+            tenant_id=command.tenant_id,
+            bot_id=command.bot_id,
+            message_id=command.message_id,
+        ):
+            return self._result(
+                command, CommandStatus.ACCEPTED, detail="stream already finished", epoch=lease.epoch
             )
         key = self._buffer_key(command)
         body = "".join(self._buffers.get(key, ()))
@@ -330,6 +349,15 @@ class CommandExecutor:
         reply_problem: str,
         lease: BotLease,
     ) -> CommandResult:
+        if command.message_id and await self._replies.is_finished(
+            tenant_id=command.tenant_id,
+            bot_id=command.bot_id,
+            message_id=command.message_id,
+        ):
+            # 该消息的流已经由终态/收尾关闭：迟到文本不得重新打开气泡。
+            return self._result(
+                command, CommandStatus.ACCEPTED, detail="stream already finished", epoch=lease.epoch
+            )
         if reply_ref is not None:
             try:
                 await self._adapter.send_reply_text(route, reply_ref, command.text)
@@ -355,6 +383,14 @@ class CommandExecutor:
         reply_problem: str,
         lease: BotLease,
     ) -> CommandResult:
+        if command.message_id and await self._replies.is_finished(
+            tenant_id=command.tenant_id,
+            bot_id=command.bot_id,
+            message_id=command.message_id,
+        ):
+            return self._result(
+                command, CommandStatus.ACCEPTED, detail="stream already finished", epoch=lease.epoch
+            )
         key = self._buffer_key(command)
         # 正文累积：渠道流式帧的内容是**累积值**（客户端每帧整体重绘），与旧 ReplySession
         # 同口径；只发最后一段会把前文从客户端抹掉。
@@ -392,25 +428,48 @@ class CommandExecutor:
         reply_problem: str,
         lease: BotLease,
     ) -> CommandResult:
+        if command.message_id and await self._replies.is_finished(
+            tenant_id=command.tenant_id,
+            bot_id=command.bot_id,
+            message_id=command.message_id,
+        ):
+            # 活跃会话已经收过尾（任务受理/等待输入等）：持久链不得再发一帧覆盖气泡。
+            return self._result(
+                command, CommandStatus.DELIVERED, detail="stream already finished", epoch=lease.epoch
+            )
         key = self._buffer_key(command)
         buffered = "".join(self._buffers.pop(key, []))
-        text = buffered + command.text
-        if reply_ref is not None and text:
+        # 持久投递链的终态是**完整替换**（不能把 final_text 追加到已流出的增量后面，
+        # 否则正文会重复）；空正文时用已流出的增量收尾。Gateway 自己的收尾命令仍沿用
+        # “缓冲 + 命令正文”的既有口径（等待输入等非终态场景）。
+        text = (command.text or buffered) if command.delivery_key else buffered + command.text
+        stream_id = command.stream_id or (
+            message_stream_id(command.bot_id, command.message_id)
+            if command.message_id
+            else key
+        )
+        if reply_ref is not None:
             try:
                 await self._adapter.send_reply_stream(
                     route,
                     reply_ref,
-                    command.stream_id or key,
+                    stream_id,
                     text,
                     finish=True,
                 )
                 await self._replies.remember_stream(
                     tenant_id=command.tenant_id,
                     run_id=str(command.run_id or key),
-                    stream_id=command.stream_id or key,
+                    stream_id=stream_id,
                     last_text=text,
                     epoch=lease.epoch,
                 )
+                if command.message_id:
+                    await self._replies.mark_finished(
+                        tenant_id=command.tenant_id,
+                        bot_id=command.bot_id,
+                        message_id=command.message_id,
+                    )
                 return self._result(command, CommandStatus.DELIVERED, epoch=lease.epoch)
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
@@ -421,6 +480,12 @@ class CommandExecutor:
                 reply_problem = RESULT_CODE_REPLY_FAILED
         if text:
             await self._adapter.send_active(route, DeliveryMessage(text=text))
+        if command.message_id:
+            await self._replies.mark_finished(
+                tenant_id=command.tenant_id,
+                bot_id=command.bot_id,
+                message_id=command.message_id,
+            )
         status = CommandStatus.DEGRADED if reply_problem else CommandStatus.DELIVERED
         return self._result(
             command,
@@ -483,6 +548,26 @@ class CommandExecutor:
 
     def _buffer_key(self, command: DeliveryCommand) -> str:
         return str(command.run_id or command.stream_id or command.command_id)
+
+    async def remember_delivery(
+        self, command: DeliveryCommand, result: CommandResult
+    ) -> None:
+        """把终态/降级的真实发送结果按 (tenant, delivery_key) 持久化，供重复命令重放。
+
+        失败（FAILED/RETRY/FENCED/EXPIRED）不冻结：它们必须允许后续尝试重新获得发送资格。
+        """
+        if not command.delivery_key:
+            return
+        if result.status not in (CommandStatus.DELIVERED, CommandStatus.DEGRADED):
+            return
+        await self._replies.remember_delivery(
+            tenant_id=command.tenant_id,
+            delivery_key=command.delivery_key,
+            delivery_epoch=command.delivery_epoch or 0,
+            status=result.status.value,
+            code=result.code,
+            detail=result.detail,
+        )
 
     def _result(
         self,
@@ -642,6 +727,7 @@ class OutboundRunner:
             record_outbound("EXPIRED", "age")
             return "advance"
         result = await self._executor.execute(command)
+        await self._executor.remember_delivery(command, result)
         if result.status is CommandStatus.RETRY:
             record_outbound("RETRY", result.code)
             return "retry"

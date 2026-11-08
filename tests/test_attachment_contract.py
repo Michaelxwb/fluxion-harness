@@ -18,6 +18,8 @@ from pathlib import Path
 import pytest
 from muad_contracts import (
     BUILTIN_CHANNEL_NAMES,
+    LOCAL_STREAM_CHANNELS,
+    OUTBOUND_CHANNELS,
     AttachmentRef,
     ChannelEnvelope,
     MessageInput,
@@ -216,3 +218,13 @@ async def test_s07_fake_adapter_carries_attachments_without_credentials() -> Non
     assert carried.filename == "截图.png"
     assert carried.source_channel == "WECOM"
     assert set(carried.model_dump()) & CREDENTIAL_FIELDS == set()
+
+
+def test_b07_delivery_capabilities_partition_the_builtin_channels() -> None:
+    """交付方式按**入口能力**显式分组：每个内建通道恰属于一组，未知通道不在任何一组。
+
+    产物交付只有两条真实出口（外部推送 / 站内持久流）；两组的补集不是"站内"，因此代码必须
+    对未知通道**显式拒绝**，不能把"不在 OUTBOUND 里"当成 WebChat。
+    """
+    assert OUTBOUND_CHANNELS.isdisjoint(LOCAL_STREAM_CHANNELS)
+    assert set(BUILTIN_CHANNEL_NAMES) == set(OUTBOUND_CHANNELS) | set(LOCAL_STREAM_CHANNELS)

@@ -67,6 +67,7 @@ def _run_request(event: InboundEvent, principal: SyncPrincipal) -> RunRequest:
         conversation_id=UUID(event.external_conversation_id),
         channel=ChannelContext(
             type=WEBCHAT_CHANNEL,
+            entry_id=principal.entry_id,
             bot_id=event.bot_id,
             external_user_id=event.external_user_id,
             external_conversation_id=event.external_conversation_id,

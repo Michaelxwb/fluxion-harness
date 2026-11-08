@@ -79,6 +79,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from agent_runtime.conftest import FakeResolveClient, TenantContext
 from tests.async_tool_submissions import seed_submission
 
+ENTRY_ID = uuid.uuid4()
+
 pytestmark = pytest.mark.integration
 
 INSTANCE_ID = "b235-clock-instance"
@@ -186,7 +188,7 @@ def _request(tenant: TenantContext, *, text: str = "clock probe") -> RunRequest:
     return RunRequest(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.platform_user_id,
-        channel=ChannelContext(type="WECOM", bot_id=f"bot-{uuid.uuid4().hex[:8]}"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id=f"bot-{uuid.uuid4().hex[:8]}"),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text=text),
     )
 

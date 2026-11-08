@@ -25,6 +25,7 @@ from muad_contracts import (
     DeliveryRouteInput,
     UnsupportedMedia,
 )
+from muad_contracts.im import message_stream_id
 from muad_im_gateway.channels.base import (
     ARTIFACT_DEGRADED,
     ARTIFACT_DELIVERED,
@@ -1130,6 +1131,7 @@ class WeComAdapter:
         session = ReplySession(
             client=lambda: self._require_client(route.bot_id),
             reply_ref=ref[0],
+            stream_id=message_stream_id(route.bot_id, message_id),
             flush_interval_sec=self._stream_flush_interval_sec,
             budget=budget,
             on_finish=lambda: self._replies.discard(session),

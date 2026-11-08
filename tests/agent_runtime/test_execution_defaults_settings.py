@@ -73,6 +73,8 @@ from muad_contracts.platform_settings import (
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext
 
+ENTRY_ID = uuid.uuid4()
+
 # ---- 被改动的 9 个叶子的目标值（刻意都不等于 schema 默认，改动才可见） ----
 AGENT_OVERRIDE = AgentSettings(max_turns=7, max_tool_calls=4, deadline_ms=90_000, max_model_retries=1)
 MEMORY_OVERRIDE = MemoryPolicySettings(
@@ -147,7 +149,7 @@ def _request(tenant: TenantContext, text: str = "hello defaults") -> RunRequest:
     return RunRequest(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.platform_user_id,
-        channel=ChannelContext(type="WECOM", bot_id="bot-1"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text=text),
     )
 

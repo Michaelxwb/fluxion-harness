@@ -178,9 +178,17 @@ def _skill_resource_key(arguments: Mapping[str, Any]) -> str | None:
 
 
 class SkillToolError(RuntimeError):
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        detail: dict[str, object] | None = None,
+        retryable: bool = False,
+    ) -> None:
         self.code = code
         self.message = message
+        self.detail = detail
+        self.retryable = retryable
         super().__init__(message)
 
 
@@ -382,7 +390,9 @@ class SkillToolSet:
                 package.root, input_data, script=None, skill=skill, args=args, call_id=call_id
             )
         except SkillToolError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(
+                exc.code, exc.message, exc.detail, retryable=exc.retryable
+            )
 
     async def run_skill_script(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
@@ -398,7 +408,9 @@ class SkillToolSet:
                 package.root, input_data, script=script, skill=skill, args=args, call_id=call_id
             )
         except SkillToolError as exc:
-            return _error_result(exc.code, exc.message)
+            return _error_result(
+                exc.code, exc.message, exc.detail, retryable=exc.retryable
+            )
 
     async def search_skills(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         """按关键词检索**本次 Run 的全部生效技能**，返回目录条目。
@@ -762,7 +774,9 @@ class SkillToolSet:
                 )
             )
         except SkillExecutionError as exc:
-            raise SkillToolError(SKILL_EXECUTION_FAILED, exc.message) from exc
+            raise SkillToolError(
+                SKILL_EXECUTION_FAILED, exc.message, detail=exc.detail, retryable=exc.retryable
+            ) from exc
 
     async def _acquire_execution_workspace(
         self, execution_id: str
@@ -1045,8 +1059,21 @@ def _execution_payload(
     )
 
 
-def _error_result(code: str, message: str) -> str:
-    return json.dumps({"error": {"code": code, "message": message}}, ensure_ascii=False)
+def _error_result(
+    code: str,
+    message: str,
+    detail: dict[str, object] | None = None,
+    *,
+    retryable: bool = False,
+) -> str:
+    error: dict[str, object] = {"code": code, "message": message}
+    if detail:
+        # 平台非正常响应的可读原因（HTTP 非 2xx / 业务 code≠0）；成功与其它失败没有它。
+        error["detail"] = detail
+    if retryable:
+        # 只有可重试失败（网络/超时/5xx/429）才标注；缺省不写＝确定性失败，第一次即终止 Run。
+        error["retryable"] = True
+    return json.dumps({"error": error}, ensure_ascii=False)
 
 
 def skill_platform_keys(frontmatter: Mapping[str, Any]) -> tuple[str, ...]:

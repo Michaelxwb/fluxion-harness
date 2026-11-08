@@ -38,11 +38,25 @@ class SkillExecutionStatus(StrEnum):
 
 
 class SkillExecutionError(RuntimeError):
-    """执行器拒绝执行或沙箱不可用。``message`` 保留给工具层作为错误码/原因。"""
+    """执行器拒绝执行或沙箱不可用。``message`` 保留给工具层作为错误码/原因。
 
-    def __init__(self, message: str, *, code: str | None = None) -> None:
+    ``detail`` 只在**平台非正常响应**（HTTP 非 2xx / 业务 code≠0）时携带可读原因，
+    由适配器采集并擦除凭据值后逐层透传到工具结果；成功路径与其它失败恒为 None。
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str | None = None,
+        detail: dict[str, object] | None = None,
+        retryable: bool = False,
+    ) -> None:
         self.message = message
         self.code = code or message
+        self.detail = detail
+        #: 只有**可重试**失败（网络/超时/5xx/429）才为 True；确定性失败第一次即终止 Run。
+        self.retryable = retryable
         super().__init__(message)
 
 

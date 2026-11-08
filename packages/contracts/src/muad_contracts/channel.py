@@ -149,6 +149,9 @@ class ChannelResolveRequest(ContractModel):
 
 class ChannelResolveResponse(ContractModel):
     bound: bool
+    #: 入口账号的逻辑 UUID（`control.bot_account.id`）：未知/禁用的 bot 在解析阶段即失败，
+    #: 所以解析成功时入口身份一定存在（下游据此建立会话归属与终态通知）。
+    entry_id: UUID
     agent_id: UUID | None = None
     platform_user_id: UUID | None = None
     authorized: bool = False

@@ -51,6 +51,7 @@ class ConnectorStack:
     tenant_id: str
     agent_id: object
     platform_user_id: object
+    bot_account_id: object
     bot_id: str
     bot_secret: str
     external_user_id: str
@@ -189,6 +190,7 @@ def start_connector_stack(
         tenant_id=seeded["tenant_id"],
         agent_id=seeded["agent_id"],
         platform_user_id=seeded["platform_user_id"],
+        bot_account_id=seeded["bot_account_id"],
         bot_id=seeded["bot_id"],
         bot_secret=seeded["bot_secret"],
         external_user_id=seeded["bound_external_user_id"],

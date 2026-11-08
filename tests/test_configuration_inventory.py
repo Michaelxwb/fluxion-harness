@@ -118,7 +118,13 @@ def test_configuration_inventory_classification_matches_migration_facts() -> Non
         if r["path"].endswith("agent-core/src/muad_agent_core/agent/runner.py")
         and r["kind"] == "policy-field"
     ]
-    assert {r["symbol"] for r in agent} == {"max_turns", "max_tool_calls", "deadline_ms", "max_model_retries"}
+    assert {r["symbol"] for r in agent} == {
+        "max_turns",
+        "max_tool_calls",
+        "deadline_ms",
+        "max_model_retries",
+        "max_identical_failures",
+    }
     assert all(r["category"] == "business" for r in agent), agent
     agent_defaults = [
         r for r in rows
@@ -126,7 +132,11 @@ def test_configuration_inventory_classification_matches_migration_facts() -> Non
         and r["symbol"].startswith("DEFAULT_")
     ]
     assert {r["symbol"] for r in agent_defaults} == {
-        "DEFAULT_MAX_TURNS", "DEFAULT_MAX_TOOL_CALLS", "DEFAULT_DEADLINE_MS", "DEFAULT_MAX_MODEL_RETRIES"
+        "DEFAULT_MAX_TURNS",
+        "DEFAULT_MAX_TOOL_CALLS",
+        "DEFAULT_DEADLINE_MS",
+        "DEFAULT_MAX_MODEL_RETRIES",
+        "DEFAULT_MAX_IDENTICAL_FAILURES",
     }
     assert all(r["category"] == "business" for r in agent_defaults), agent_defaults
 

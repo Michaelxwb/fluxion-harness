@@ -35,10 +35,7 @@ from typing import Any
 import pytest
 import sqlalchemy as sa
 from muad_agent_runtime.application.async_tools.supervisor import ExecutionSupervisor
-from muad_agent_runtime.application.channel_conversations import (
-    display_title,
-    entry_id_of,
-)
+from muad_agent_runtime.application.channel_conversations import display_title
 from muad_agent_runtime.application.executor import (
     ExecutorEvent,
     ExecutorFactory,
@@ -294,7 +291,7 @@ def _request(
     *,
     text: str = "继续",
     conversation_id: uuid.UUID | None = None,
-    entry_id: uuid.UUID | None = None,
+    entry_id: uuid.UUID,
     bot_id: str | None = None,
     user_id: uuid.UUID | None = None,
     agent_id: uuid.UUID | None = None,
@@ -308,7 +305,8 @@ def _request(
         conversation_id=conversation_id,
         channel=ChannelContext(
             type="WECOM",
-            bot_id=bot_id if bot_id is not None else str(entry_id),
+            entry_id=entry_id,
+            bot_id=bot_id if bot_id is not None else f"bot-{entry_id.hex[:8]}",
             external_user_id=external_user_id,
             external_conversation_id=external_conversation_id,
         ),
@@ -358,7 +356,7 @@ async def _create_conversation(
     fake_resolve: FakeResolveClient,
     supervisor: ExecutionSupervisor,
     *,
-    entry_id: uuid.UUID | None = None,
+    entry_id: uuid.UUID,
     thread: str = "",
     user_id: uuid.UUID | None = None,
     agent_id: uuid.UUID | None = None,
@@ -377,8 +375,12 @@ async def _create_conversation(
             user_id or tenant.platform_user_id,
             tenant.tenant_id,
             idempotency_key=key,
-            entry_id=entry_id,
-            external_thread_id=thread,
+            channel=ChannelContext(
+                type="WECOM",
+                entry_id=entry_id,
+                bot_id=f"bot-{entry_id.hex[:8]}",
+                external_conversation_id=thread or None,
+            ),
         )
         return conversation.id
 
@@ -438,11 +440,11 @@ async def test_b249_explicit_conversation_is_scoped_to_tenant_user_agent_entry(
     cases: list[tuple[str, RunRequest]] = [
         (
             "借其他入口",
-            _request(tenant, conversation_id=conversation_id, bot_id=str(other_entry)),
+            _request(tenant, conversation_id=conversation_id, entry_id=other_entry),
         ),
         (
-            "入口不可归属却借用已归属会话",
-            _request(tenant, conversation_id=conversation_id, bot_id="bot-wecom"),
+            "未知入口借用已归属会话",
+            _request(tenant, conversation_id=conversation_id, entry_id=uuid.uuid4()),
         ),
         (
             "越权用户",
@@ -871,15 +873,3 @@ async def test_b249_memory_scope_stays_shared_across_entries_and_conversations(
         "id", "is_deleted", "create_time", "update_time", "tenant_id", "user_id",
         "revision", "forget_epoch",
     }, "记忆 scope 不得长出会话/入口维度"
-
-
-# --------------------------------------------------------------------------------------
-# 入口键解析的显式边界
-# --------------------------------------------------------------------------------------
-
-
-def test_b249_entry_key_parsing_never_fabricates_an_entry_identity() -> None:
-    entry = uuid.uuid4()
-    assert entry_id_of(str(entry)) == entry
-    assert entry_id_of("bot-wecom-string") is None
-    assert entry_id_of("") is None

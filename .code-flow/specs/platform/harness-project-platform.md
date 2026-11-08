@@ -35,11 +35,12 @@ verifiers:
   - ✅ body 下的自定义嵌套字段实际进入登录请求体，获取 Cookie 后仍通过 Redis acquire 存取和续期。
   - ❌ 只放开输入框，保存或登录仍拒绝自定义字段；或修改请求体却不更新 HMAC body 摘要。
 
-- 用户凭据、共享凭据与用户详情页凭据入口统一使用自由 JSON 对象编辑器，不按 Adapter schema 生成 AK/SK 等固定字段。前端只校验 JSON 语法与对象根类型，原样提交字段及嵌套值；认证协议所需字段由后端 Adapter 校验。编辑新值关闭弹窗后清空，已存明文不回显。
+- 用户凭据、共享凭据与用户详情页凭据入口统一使用自由 JSON 对象编辑器，不按 Adapter schema 生成 AK/SK 等固定字段。前端只校验 JSON 语法与对象根类型，原样提交字段及嵌套值；认证协议所需字段由后端 Adapter 校验。编辑新值关闭弹窗后清空；**用户详情页（用户级凭据）点「编辑」按需回显已存明文**（`GET …/credential?include_secret=true`，仅 ADMIN 组、租户取登录账号、响应 `no-store`），共享凭据编辑入口仍不回显。明文不得进入日志、审计与快照。
   - ✅ 用户输入自定义 JSON 对象，经同一编辑器保存用户或共享凭据。
   - ❌ 从 `credential_schema.properties` 生成固定凭据输入栏，或丢弃未识别的 JSON 字段。
 
-凭据 HTTP API 的访问、出网与密钥面：
+- **平台失败原因随错误回传（仅非正常响应）**：HTTP 非 2xx 与响应体 `code != 0` 两类失败时，适配器把 `{"http_status", "business_code", "message"}` 作为 `PlatformAuthError.detail` 经 broker/`session-manager` 交到 Skill（stderr JSON），由模型如实转述；成功路径不产生该字段，网络/超时/响应过大/响应非 JSON 一律不带原文。`message` 只取平台 JSON 的 `msg`/`message`/`error`（文本类响应才退回截断正文）、截断到上限并去控制字符；进入模型前必须擦除本次凭据值（`ak`/`sk`/`headers`）。日志只记 code 与 `http_status`/`business_code`，不记原文。✅ 失败时 Skill stderr 里有 `{"error":{"code":"PLATFORM_AUTH_REJECTED","detail":{…}}}`；❌ 成功也带 detail，或把 headers/cookie/请求体塞进 detail。
+- **凭据 HTTP API 的访问、出网与密钥面：**
 
 - **凭据类 HTTP API 仅 ADMIN，且租户取自登录账号**：`credentials_router` 挂在 `admin` 组（`api/router.py` 的组装配，非 ADMIN → `403 FORBIDDEN`），路由内 `TenantId = AccountTenantId`（`api/credentials.py`）——租户/RBAC 口径的权威定义在 `harness-auth.md`（RULE-auth-001 的 Console 身份段），本条只记凭据面的落点。修复前是「已登录即可」× 请求头派生租户，任意已登录账号改一个头即可跨租户读写凭据。
   - ✅ `TenantId = AccountTenantId`；❌ `TenantId = Annotated[str, Depends(get_tenant_id)]`

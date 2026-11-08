@@ -442,11 +442,16 @@ def _write_file(root: Path, storage_key: str, *, file_age: timedelta) -> Path:
 
 
 async def _resolve_download(
-    client: AsyncClient, tenant: TenantContext, artifact_id: uuid.UUID
+    client: AsyncClient, tenant: TenantContext, artifact: Artifact
 ) -> Any:
+    """取件解析带**目标会话 + 版本**：产物自己的会话与校验和（保留期用例不涉及跨会话发布）。"""
     return await client.get(
-        f"/internal/webchat/artifacts/{artifact_id}",
-        params={"user_id": str(tenant.platform_user_id)},
+        f"/internal/webchat/artifacts/{artifact.id}",
+        params={
+            "user_id": str(tenant.platform_user_id),
+            "conversation_id": str(artifact.conversation_id),
+            "checksum": artifact.checksum,
+        },
         headers={
             "X-Tenant-Id": tenant.tenant_id,
             "X-Internal-Service": SharedSettings().internal_service_token or "",
@@ -1291,12 +1296,12 @@ async def test_b07_artifact_cleanup_protects_active_run_and_job_references(
             assert (row is not None) is alive, f"制品行存活状态不符：{artifact_id}"
 
     # 已清理字节的读取一律 404（真实内部解析路由；不泄露存在性）
-    cleaned = await _resolve_download(client, tenant, removed_artifact.id)
+    cleaned = await _resolve_download(client, tenant, removed_artifact)
     assert cleaned.status_code == 404, cleaned.text
     assert cleaned.json()["code"] == "COMMON_NOT_FOUND"
     # 仍被引用的制品照常可解析（保护不是"整表停摆"）
-    for artifact_id in (active_artifact.id, task_artifact.id, grace_artifact.id):
-        kept = await _resolve_download(client, tenant, artifact_id)
+    for kept_row in (active_artifact, task_artifact, grace_artifact):
+        kept = await _resolve_download(client, tenant, kept_row)
         assert kept.status_code == 200, kept.text
         assert kept.json()["data"]["reference"]["storage_key"]
 

@@ -81,6 +81,8 @@ export interface CredentialState {
   status?: string;
   credential_schema_version?: string;
   last_verified_at?: string | null;
+  /** 仅 `includeSecret=true` 时返回：Console 编辑弹窗的明文回显（ADMIN + no-store）。 */
+  credential_json?: Record<string, unknown>;
 }
 
 async function unwrap<T>(response: { data: ApiResponse<T> }): Promise<T> {
@@ -175,11 +177,13 @@ export async function listPlatformCredentials(
 
 export async function getUserCredential(
   platformId: string,
-  userId: string
+  userId: string,
+  includeSecret = false
 ): Promise<CredentialState> {
   return unwrap(
     await api.get<ApiResponse<CredentialState>>(
-      `/project-platforms/${platformId}/users/${userId}/credential`
+      `/project-platforms/${platformId}/users/${userId}/credential`,
+      includeSecret ? { params: { include_secret: true } } : undefined
     )
   );
 }

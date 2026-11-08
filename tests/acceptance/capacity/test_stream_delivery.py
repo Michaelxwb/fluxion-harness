@@ -997,19 +997,22 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
             )
         ]
 
-    def attribute_conversation(run_id: str) -> None:
+    def conversation_entry(run_id: str) -> object:
         """入口归属事实（design §3.3）：`conversation.channel_account_id` = 入口账号 UUID。
 
-        企微入站的 RunRequest 只带**字符串** bot_id（`entry_id_of` 要求 UUID 形状），把入口
-        账号 UUID 随请求带进来是 TASK-049 的遗留装配项（不在本任务 Files 内）。这里显式补上
-        这条归属事实；终态意图、投递泵、网关适配器与协议探针全部真实，无替身。
+        由真实入站链路写入（Console resolve → RunRequest.channel.entry_id）；本用例只读，
+        不补库——补库会让「归属没接通」也绿。
         """
-        db_execute(
+        rows = db_rows(
             stack.database_url,
-            "UPDATE runtime.conversation SET channel_account_id = $1 WHERE id = $2",
-            seeded.wecom_bot_account_id,
-            uuid.UUID(str(run_row(stack.database_url, run_id)["conversation_id"])),
+            "SELECT c.channel_account_id FROM runtime.conversation c "
+            "JOIN runtime.run_record r ON r.conversation_id = c.id "
+            "WHERE r.tenant_id = $1 AND r.id = $2",
+            stack.tenant_id,
+            uuid.UUID(run_id),
         )
+        assert len(rows) == 1
+        return rows[0]["channel_account_id"]
 
     async def push_and_wait_run(text: str) -> str:
         known = set(run_ids())
@@ -1037,7 +1040,9 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
         timeout=60.0,
     )
 
-    attribute_conversation(first_run)
+    assert conversation_entry(first_run) == seeded.wecom_bot_account_id, (
+        "真实入站必须自己写对入口归属（不允许测试补库）"
+    )
 
     # ② SIGKILL Gateway（整组）+ 停稳定入口（真实 Service 无端点）：Run 必须继续跑到终态，
     #    投递泵的尝试必须拿到**确定未送达**（连接拒绝 ⇒ NOT_SENT 可重试），而不是"没结论"。
@@ -1184,38 +1189,43 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
         what="第二条 Run 未进入执行",
         timeout=60.0,
     )
-    # 失败注入只针对终态主动发送；必须在 Run 已建、尚未完成时打开，
-    # 否则入站回执也会被探针拒绝，表现为「消息没建 Run」而不是投递失败。
-    probe.fail_reply_bots.add(WECOM_BOT_ID)
-    attribute_conversation(second_run)
+    # 可控屏障：直接把 Runtime→Gateway 的投递端点（稳定 relay）停掉，让终态投递**确定**
+    # 连接失败（NOT_SENT），而不是依赖“回复帧失败”的旧注入——新链路的终态走主动发送，
+    # 旧注入覆盖不到它。Run 已经完成入站受理，停 relay 不影响本条消息的建 Run。
+    relay.stop()
+    assert conversation_entry(second_run) == seeded.wecom_bot_account_id, (
+        "重启后的第二条真实入站同样必须自己写对入口归属"
+    )
     await await_until(
         lambda: run_row(stack.database_url, second_run)["status"] == "COMPLETED",
         what="第二条 Run 未完成",
         timeout=WAIT_TIMEOUT_SEC,
     )
-    try:
-        await await_until(
-            lambda: (
-                _wecom_notification(stack.database_url, second_run) is not None
-                and int(_wecom_notification(stack.database_url, second_run)["attempt"]) >= 1
-            ),
-            what="发送失败时投递未留下可追溯尝试",
-            timeout=60.0,
-        )
-        failing = _wecom_notification(stack.database_url, second_run)
-        assert failing["delivery_state"] != "DELIVERED", "渠道发送失败不得标送达"
-        assert _delivery_outcome(failing) != "DELIVERED", (
-            f"失败尝试不得写送达结果：{failing['delivery_result']}"
-        )
-    finally:
-        probe.clear_injections()
+    await await_until(
+        lambda: (
+            _wecom_notification(stack.database_url, second_run) is not None
+            and int(_wecom_notification(stack.database_url, second_run)["attempt"]) >= 1
+        ),
+        what="投递端点下线时未留下可追溯尝试",
+        timeout=60.0,
+    )
+    failing = _wecom_notification(stack.database_url, second_run)
+    assert failing["delivery_state"] != "DELIVERED", "没发出去不得标送达"
+    assert _delivery_outcome(failing) != "DELIVERED", (
+        f"失败尝试不得写送达结果：{failing['delivery_result']}"
+    )
 
+    # 恢复投递端点：持久意图按退避重投到同一稳定键，且只真实送达一次。
+    relay = repoint_relay(replacement.port)
     await await_until(
         lambda: _wecom_notification(stack.database_url, second_run)["delivery_state"]
         == "DELIVERED",
-        what="清除发送故障后未重投成功",
+        what="恢复投递端点后未重投成功",
         timeout=WAIT_TIMEOUT_SEC,
     )
+    assert _delivery_outcome(
+        _wecom_notification(stack.database_url, second_run)
+    ) == "DELIVERED"
     assert probe.throttled == 0 and probe.ack_losses == 0, "本用例只注入发送失败，不注入限流/ACK 丢失"
     assert scrape_metrics(stack.instance("agent-runtime", index=0).url), "Runtime /metrics 必须真实可抓"
     relay.stop()

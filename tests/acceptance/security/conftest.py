@@ -167,6 +167,18 @@ def clean_security_rows(live_stack: LiveStack) -> Iterator[None]:
                 text("DELETE FROM runtime.canonical_event WHERE tenant_id IN (:a, :b)"), tenants
             )
             await session.execute(
+                text("DELETE FROM runtime.channel_notification WHERE tenant_id IN (:a, :b)"),
+                tenants,
+            )
+            await session.execute(
+                text("DELETE FROM runtime.channel_notification_feed WHERE tenant_id IN (:a, :b)"),
+                tenants,
+            )
+            await session.execute(
+                text("DELETE FROM runtime.channel_conversation WHERE tenant_id IN (:a, :b)"),
+                tenants,
+            )
+            await session.execute(
                 text("DELETE FROM runtime.run_record WHERE tenant_id IN (:a, :b)"), tenants
             )
             await session.execute(

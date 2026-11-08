@@ -25,6 +25,8 @@ class SyncPrincipal:
     agent_id: UUID
     #: 调用方给出的幂等身份（WebChat 的 `Idempotency-Key`）：同键同指纹重放原 Run。
     idempotency_key: str
+    #: 本次提交的入口账号（已核属的 `control.bot_account.id`）：会话归属与终态通知的身份。
+    entry_id: UUID
     #: 先上传后提交的暂存引用（网页入口；其他渠道为空）。
     upload_ids: tuple[UUID, ...] = ()
 

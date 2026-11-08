@@ -100,7 +100,9 @@ class SandboxedSkillExecutor:
                 request, source, package_root, script, workspace, output_dir, execution_id, runner
             )
         except PlatformAuthError as exc:
-            raise SkillExecutionError(exc.code, code=exc.code) from None
+            raise SkillExecutionError(
+                exc.code, code=exc.code, detail=exc.detail, retryable=exc.retryable
+            ) from None
         except (RedisError, RedisClusterException):
             raise SkillExecutionError(
                 "PLATFORM_SESSION_STORE_UNAVAILABLE",

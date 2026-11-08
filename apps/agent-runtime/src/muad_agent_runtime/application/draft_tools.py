@@ -17,7 +17,7 @@ draft_id、路径、内容、版本等业务参数；不得覆盖 tenant/owner�
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 from muad_agent_core.skill.draft_shell import DraftShellError
@@ -69,12 +69,12 @@ def _optional_string(arguments: Mapping[str, Any], key: str) -> str | None:
 
 
 def _optional_int(arguments: Mapping[str, Any], key: str) -> int | None:
-    value = arguments.get(key)
+    value: object = arguments.get(key)
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise DraftShellError("COMMON_VALIDATION_ERROR", f"{key} must be a positive integer")
-    return value
+    return int(value)
 
 
 def _error_result(code: str, message: str) -> str:
@@ -122,7 +122,7 @@ class SkillDraftTools:
             return _error_result(
                 "COMMON_VALIDATION_ERROR", f"unsupported draft action: {action!r}"
             )
-        handler = getattr(self, str(action))
+        handler: Callable[..., Awaitable[str]] = getattr(self, str(action))
         return await handler(arguments, call_id=call_id)
 
     async def create(self, arguments: Mapping[str, Any], *, call_id: str) -> str:

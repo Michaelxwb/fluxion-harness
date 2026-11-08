@@ -14,7 +14,7 @@ from typing import Any
 
 from fakes import FakeConsoleClient
 from httpx import ASGITransport, AsyncClient
-from muad_contracts import AttachmentRef
+from muad_contracts import AttachmentRef, ChannelResolveResponse
 from muad_im_gateway.api.deps import (
     get_artifact_resolver,
     get_console_client,
@@ -121,7 +121,15 @@ async def _client(
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe or InMemoryDedupeStore()
     app.dependency_overrides[get_delivery_streams] = lambda: _StubStreams()
     app.dependency_overrides[get_delivery_stream_wait_sec] = lambda: 0.05
-    app.dependency_overrides[get_console_client] = lambda: console or FakeConsoleClient()
+    console = console or FakeConsoleClient()
+    console.resolve_response = ChannelResolveResponse(
+        bound=True,
+        entry_id=uuid.uuid4(),
+        agent_id=uuid.uuid4(),
+        platform_user_id=uuid.uuid4(),
+        authorized=True,
+    )
+    app.dependency_overrides[get_console_client] = lambda: console
     app.dependency_overrides[get_gateway_tenant] = lambda: tenant
     app.dependency_overrides[get_artifact_resolver] = lambda: resolver or _ArtifactResolver()
     transport = ASGITransport(app=app)

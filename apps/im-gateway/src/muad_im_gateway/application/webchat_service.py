@@ -33,7 +33,7 @@ from uuid import UUID, uuid4
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import BotSnapshotItem, RunRequest
+from muad_contracts import BotSnapshotItem, ChannelContext, RunRequest
 from muad_contracts.im import InboundEvent
 from muad_contracts.webchat import (
     WebchatConversationCreated,
@@ -94,8 +94,7 @@ class WebchatOwnerPort(Protocol):
         tenant_id: str = "",
         trace_id: str = "",
         idempotency_key: str | None = None,
-        entry_id: UUID | None = None,
-        external_thread_id: str = "",
+        channel: ChannelContext,
     ) -> dict[str, Any]: ...
 
     async def list_conversations(
@@ -232,7 +231,8 @@ class WebchatResourceService:
             event_id=uuid4(),
             channel=WEBCHAT_CHANNEL,
             tenant_id=self._tenant_id,
-            bot_id=str(ref.entry_id),
+            # `bot_id` 只保留平台标识；入口身份由 `SyncPrincipal.entry_id` 显式携带。
+            bot_id=ref.bot_id,
             external_message_id=request.message_id,
             external_conversation_id=str(request.conversation_id),
             external_user_id=str(principal.platform_user_id),
@@ -244,6 +244,7 @@ class WebchatResourceService:
             platform_user_id=principal.platform_user_id,
             agent_id=ref.agent_id,
             idempotency_key=idempotency_key,
+            entry_id=ref.entry_id,
             upload_ids=tuple(request.upload_ids),
         )
         started = time.monotonic()
@@ -276,8 +277,12 @@ class WebchatResourceService:
             principal.platform_user_id,
             tenant_id=self._tenant_id,
             idempotency_key=idempotency_key,
-            entry_id=ref.entry_id,
-            external_thread_id=str(principal.platform_user_id),
+            channel=ChannelContext(
+                type=WEBCHAT_CHANNEL,
+                entry_id=ref.entry_id,
+                bot_id=ref.bot_id,
+                external_user_id=str(principal.platform_user_id),
+            ),
         )
         if data.get("status") != "ACTIVE" or data.get("last_seq") != 0:
             # 创建回执只描述创建时事实；与行事实不符是坏封套，显式失败不伪造。
@@ -444,9 +449,10 @@ class WebchatResourceService:
 
 @dataclass(frozen=True, slots=True)
 class ResolvedEntry:
-    """入口解析结论：公开 entry_id 就是 Runtime 可归属的入口账号 UUID。"""
+    """入口解析结论：`entry_id` 是 Runtime 可归属的入口账号 UUID，`bot_id` 是平台标识。"""
 
     entry_id: UUID
+    bot_id: str
     agent_id: UUID
 
 
@@ -472,4 +478,4 @@ def resolve_authorized_entry(
         raise AppError(ErrorCode.COMMON_NOT_FOUND)
     if item.agent_id not in {agent.agent_id for agent in identity.agents}:
         raise AppError(ErrorCode.FORBIDDEN)
-    return ResolvedEntry(entry_id=entry_id, agent_id=item.agent_id)
+    return ResolvedEntry(entry_id=entry_id, bot_id=item.bot_id, agent_id=item.agent_id)

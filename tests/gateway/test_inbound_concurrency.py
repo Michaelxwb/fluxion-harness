@@ -80,7 +80,13 @@ class GatedRuntimeClient:
         yield SseEvent(type="run.completed", data={"status": "COMPLETED", "final_text": text})
 
     async def cancel_active(
-        self, agent_id: uuid.UUID, platform_user_id: uuid.UUID, *, tenant_id: str = "", trace_id: str = ""
+        self,
+        agent_id: uuid.UUID,
+        platform_user_id: uuid.UUID,
+        *,
+        tenant_id: str = "",
+        trace_id: str = "",
+        source: Any = None,
     ) -> dict[str, Any]:
         self.cancel_calls += 1
         return {"run_id": "run-cancel", "status": "CANCELLING"}
@@ -93,6 +99,7 @@ class GatedRuntimeClient:
         tenant_id: str = "",
         trace_id: str = "",
         idempotency_key: str | None = None,
+        channel: Any = None,
     ) -> dict[str, Any]:
         return {"conversation_id": str(uuid.uuid4())}
 

@@ -39,6 +39,9 @@ from muad_platform_sdk import SecretValue
 
 from agent_runtime.conftest import FakeExecutor, TenantContext, parse_sse
 
+#: 稳定入口身份：同一测试的多条消息必须落在同一条会话上（入口是会话作用域的一部分）。
+ENTRY_ID = uuid.uuid4()
+
 
 class StaticProvider:
     def __init__(self, *, content: str = "", error: Exception | None = None) -> None:
@@ -91,7 +94,7 @@ def _payload(tenant: TenantContext) -> dict[str, Any]:
     return {
         "agent_id": str(tenant.agent_id),
         "platform_user_id": str(tenant.platform_user_id),
-        "channel": {"type": "WECOM", "bot_id": "bot-1"},
+        "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-1"},
         "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": "run it"},
     }
 

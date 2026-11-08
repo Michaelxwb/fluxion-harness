@@ -20,6 +20,9 @@ from muad_agent_runtime.infrastructure.models.runtime import RunRecord, RuntimeS
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext, parse_sse
 
+#: 稳定入口身份：同一测试的多条消息必须落在同一条会话上（入口是会话作用域的一部分）。
+ENTRY_ID = uuid.uuid4()
+
 # design §2.3 字段约束表的逐键快照。写死期望值是刻意的：默认值若被静默改动，用例必须红。
 DEFAULT_COMPACTION: dict[str, Any] = {
     "snip": {
@@ -49,7 +52,12 @@ def _payload(tenant: TenantContext, text: str = "compaction config baseline") ->
     return {
         "agent_id": str(tenant.agent_id),
         "platform_user_id": str(tenant.platform_user_id),
-        "channel": {"type": "WECOM", "bot_id": "bot-1", "external_conversation_id": "ext-1"},
+        "channel": {
+            "type": "WECOM",
+            "entry_id": str(ENTRY_ID),
+            "bot_id": "bot-1",
+            "external_conversation_id": "ext-1",
+        },
         "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
     }
 

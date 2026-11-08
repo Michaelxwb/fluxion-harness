@@ -21,6 +21,8 @@ from redis.asyncio.cluster import RedisCluster
 DEFAULT_MESSAGE_TTL_SEC = 300
 DEFAULT_RUN_TTL_SEC = 3600
 DEFAULT_STREAM_TTL_SEC = 300
+#: 逻辑投递键（终态）回执的保留期：与 Gateway 的 delivery dedupe 同口径（7 天）。
+DEFAULT_DELIVERY_TTL_SEC = 604800
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +107,69 @@ class ReplyStore:
                 mapping={"epoch": epoch, "expires_at": expires_at, "message_id": message_id},
             )
             pipe.expire(self.ref_key(tenant_id, bot_id, reply_ref), self._message_ttl)
+            await pipe.execute()
+
+    async def mark_finished(self, *, tenant_id: str, bot_id: str, message_id: str) -> None:
+        """终态已收尾该消息的流：迟到的 delta/status 必须被拒绝，不能重新打开气泡。"""
+        await cast(
+            Awaitable[Any],
+            self._redis.hset(
+                self.message_key(tenant_id, bot_id, message_id), "finished", "1"
+            ),
+        )
+        await self._redis.expire(
+            self.message_key(tenant_id, bot_id, message_id), self._message_ttl
+        )
+
+    async def is_finished(self, *, tenant_id: str, bot_id: str, message_id: str) -> bool:
+        value = await cast(
+            Awaitable[Any],
+            self._redis.hget(self.message_key(tenant_id, bot_id, message_id), "finished"),
+        )
+        return value is not None
+
+    @staticmethod
+    def delivery_key(tenant_id: str, delivery_key: str) -> str:
+        return f"muad:im:delivery:{tenant_id}:{delivery_key}"
+
+    async def delivery_receipt(
+        self, *, tenant_id: str, delivery_key: str
+    ) -> dict[str, Any] | None:
+        raw = await cast(
+            Awaitable[Any], self._redis.hgetall(self.delivery_key(tenant_id, delivery_key))
+        )
+        if not raw:
+            return None
+        decoded = {
+            (key.decode() if isinstance(key, bytes) else key): (
+                value.decode() if isinstance(value, bytes) else value
+            )
+            for key, value in raw.items()
+        }
+        return decoded
+
+    async def remember_delivery(
+        self,
+        *,
+        tenant_id: str,
+        delivery_key: str,
+        delivery_epoch: int,
+        status: str,
+        code: str = "",
+        detail: str = "",
+    ) -> None:
+        key = self.delivery_key(tenant_id, delivery_key)
+        async with self._redis.pipeline(transaction=False) as pipe:
+            pipe.hset(
+                key,
+                mapping={
+                    "delivery_epoch": delivery_epoch,
+                    "status": status,
+                    "code": code,
+                    "detail": detail,
+                },
+            )
+            pipe.expire(key, DEFAULT_DELIVERY_TTL_SEC)
             await pipe.execute()
 
     async def remember_route(

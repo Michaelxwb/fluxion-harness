@@ -60,6 +60,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from agent_runtime.conftest import CLEANUP_ORDER, FakeResolveClient, TenantContext
 
+ENTRY_ID = uuid.uuid4()
+
 pytestmark = pytest.mark.integration
 
 #: 内部服务身份：与 Console `require_service_identity` 同源（env `INTERNAL_SERVICE_TOKEN`）。
@@ -299,10 +301,15 @@ async def _seed_conversation(
     async with get_session_factory()() as session:
         await session.execute(
             sa.text(
-                "INSERT INTO runtime.conversation (id, tenant_id, user_id, agent_id, status, last_seq)"
-                " VALUES (:id, :tenant_id, :user_id, :agent_id, 'ACTIVE', 0)"
+                "INSERT INTO runtime.conversation"
+                " (id, tenant_id, user_id, agent_id, status, last_seq, channel_account_id)"
+                " VALUES (:id, :tenant_id, :user_id, :agent_id, 'ACTIVE', 0, :entry_id)"
             ).bindparams(
-                id=conversation_id, tenant_id=tenant_id, user_id=user_id, agent_id=agent_id
+                id=conversation_id,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                agent_id=agent_id,
+                entry_id=ENTRY_ID,
             )
         )
         await session.commit()
@@ -390,6 +397,7 @@ def _request(
     *,
     text: str = "admission create",
     bot_id: str = "bot-1",
+    entry_id: uuid.UUID = ENTRY_ID,
     user_id: uuid.UUID | None = None,
     conversation_id: uuid.UUID | None = None,
 ) -> RunRequest:
@@ -397,7 +405,7 @@ def _request(
         agent_id=tenant.agent_id,
         platform_user_id=user_id or tenant.platform_user_id,
         conversation_id=conversation_id,
-        channel=ChannelContext(type="WECOM", bot_id=bot_id),
+        channel=ChannelContext(type="WECOM", entry_id=entry_id, bot_id=bot_id),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text=text),
     )
 
@@ -949,7 +957,8 @@ async def test_b230_fingerprint_covers_tenant_user_entry_and_conversation(
             )
             mismatches = {
                 "message": _request(tenant, text="changed text"),
-                "entry": _request(tenant, text="fingerprint base", bot_id="bot-2"),
+                "entry": _request(tenant, text="fingerprint base", entry_id=uuid.uuid4()),
+                "bot_id": _request(tenant, text="fingerprint base", bot_id="bot-2"),
                 "user": _request(tenant, text="fingerprint base", user_id=uuid.uuid4()),
                 "conversation": _request(
                     tenant, text="fingerprint base", conversation_id=other_conv

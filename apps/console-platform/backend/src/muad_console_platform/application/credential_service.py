@@ -74,13 +74,27 @@ class CredentialService:
         return items, total
 
     async def get_user_credential(
-        self, tenant_id: str, platform_id: uuid.UUID, user_id: uuid.UUID
+        self,
+        tenant_id: str,
+        platform_id: uuid.UUID,
+        user_id: uuid.UUID,
+        *,
+        include_secret: bool = False,
     ) -> dict[str, Any]:
+        """用户凭据读取：默认只回「已配置」事实；`include_secret` 才回明文供编辑回显。
+
+        明文只走这一条**显式**路径（Console 凭据编辑弹窗）：路由本身仅 ADMIN、租户取登录
+        账号、响应 `no-store`；保存审计/列表/测试探测等其它出口一律不含明文（见
+        `harness-secret#RULE-secret-001` 的受控例外）。
+        """
         await self._require_platform(tenant_id, platform_id)
         credential = await self._credentials.get_user(tenant_id, user_id, platform_id)
         if credential is None:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
-        return self._user_credential_payload(user_id, platform_id, credential)
+        payload = self._user_credential_payload(user_id, platform_id, credential)
+        if include_secret:
+            payload["credential_json"] = dict(credential.credential_json or {})
+        return payload
 
     def _user_credential_payload(
         self,

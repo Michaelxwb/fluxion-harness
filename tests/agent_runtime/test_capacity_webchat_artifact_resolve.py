@@ -25,7 +25,7 @@ import pytest
 import sqlalchemy as sa
 from httpx import AsyncClient
 from muad_agent_runtime.infrastructure.db import get_session_factory
-from muad_agent_runtime.infrastructure.models.runtime import Artifact, Conversation
+from muad_agent_runtime.infrastructure.models.runtime import Artifact, CanonicalEvent, Conversation
 from muad_common import SharedSettings
 
 from agent_runtime.conftest import CLEANUP_ORDER, TenantContext
@@ -171,13 +171,66 @@ def _path(artifact_id: uuid.UUID) -> str:
 
 
 async def _resolve(
-    client: AsyncClient, tenant: TenantContext, artifact_id: uuid.UUID, *, user_id: uuid.UUID | None = None
+    client: AsyncClient,
+    tenant: TenantContext,
+    artifact_id: uuid.UUID,
+    *,
+    conversation_id: uuid.UUID,
+    checksum: str,
+    user_id: uuid.UUID | None = None,
 ) -> Any:
     return await client.get(
         _path(artifact_id),
-        params={"user_id": str(user_id or tenant.platform_user_id)},
+        params={
+            "user_id": str(user_id or tenant.platform_user_id),
+            "conversation_id": str(conversation_id),
+            "checksum": checksum,
+        },
         headers=_headers(tenant),
     )
+
+
+async def _seed_publication(
+    tenant: TenantContext,
+    *,
+    conversation_id: uuid.UUID,
+    run_id: uuid.UUID,
+    artifact_id: uuid.UUID,
+    checksum: str,
+    size: int,
+    media_type: str = "application/pdf",
+    filename: str | None = "报告.pdf",
+    seq: int = 1,
+) -> uuid.UUID:
+    """发布事实（canonical `ARTIFACT_CREATED`）：载荷就是公开附件 DTO 的线格式。"""
+    payload = {
+        "artifact_id": str(artifact_id),
+        "kind": "DOCUMENT",
+        "media_type": media_type,
+        "size": size,
+        "filename": filename,
+        "checksum": checksum,
+        "available": True,
+    }
+    event_id = uuid.uuid4()
+    async with get_session_factory()() as session:
+        session.add(
+            CanonicalEvent(
+                id=event_id,
+                tenant_id=tenant.tenant_id,
+                conversation_id=conversation_id,
+                run_id=run_id,
+                seq=seq,
+                event_type="ARTIFACT_CREATED",
+                stream_type="artifact.created",
+                payload_json=payload,
+                artifact_id=artifact_id,
+                create_time=BASE_TIME,
+                update_time=BASE_TIME,
+            )
+        )
+        await session.commit()
+    return event_id
 
 
 async def _artifact_row(tenant_id: str, artifact_id: uuid.UUID) -> Artifact | None:
@@ -196,7 +249,13 @@ async def test_b255_resolve_returns_owned_scope_and_reference(
     """真实行事实逐项投影：入口/Agent 从会话行导出，引用带存储键与权威元信息，只读不写。"""
     seeded = await _seed_owned_artifact(resolve_tenant)
 
-    response = await _resolve(client, resolve_tenant, seeded.artifact_id)
+    response = await _resolve(
+        client,
+        resolve_tenant,
+        seeded.artifact_id,
+        conversation_id=seeded.conversation_id,
+        checksum=seeded.checksum,
+    )
 
     assert response.status_code == 200, response.text
     data = response.json()["data"]
@@ -262,24 +321,37 @@ async def test_b255_resolve_refuses_other_user_cross_tenant_and_deleted(
         conversation_id=await _seed_conversation(resolve_tenant, entry_id=None),
     )
 
+    owned_conversation = await _seed_conversation(resolve_tenant)
+    checksum = "sha256:" + "b" * 64
+
+    def resolve(
+        artifact_id: uuid.UUID,
+        *,
+        target: uuid.UUID = owned_conversation,
+        value: str = checksum,
+    ) -> Any:
+        return _resolve(
+            client, resolve_tenant, artifact_id, conversation_id=target, checksum=value
+        )
+
     try:
         responses = [
             # ① 同一租户、产物属于**别人**：会话主体核属失败。
-            await _resolve(client, resolve_tenant, other_user_artifact.artifact_id),
+            await resolve(other_user_artifact.artifact_id),
             # ② 产物在别的租户：租户谓词先落空。
-            await _resolve(client, resolve_tenant, foreign.artifact_id),
+            await resolve(foreign.artifact_id),
             # ③ 软删产物（tombstone）视同不存在。
-            await _resolve(client, resolve_tenant, deleted_artifact),
+            await resolve(deleted_artifact),
             # ④ 内部留档（TRANSCRIPT）不是公开附件。
-            await _resolve(client, resolve_tenant, transcript),
+            await resolve(transcript),
             # ⑤ 会话已软删：不可归属。
-            await _resolve(client, resolve_tenant, orphan_conversation_artifact),
+            await resolve(orphan_conversation_artifact),
             # ⑥ 产物没有会话归属（任务侧产物）：网页下载面无此语义。
-            await _resolve(client, resolve_tenant, no_conversation),
+            await resolve(no_conversation),
             # ⑦ 会话入口不可归属（无法落到任何公开入口）。
-            await _resolve(client, resolve_tenant, unattributable),
+            await resolve(unattributable),
             # ⑧ 未知 id。
-            await _resolve(client, resolve_tenant, uuid.uuid4()),
+            await resolve(uuid.uuid4()),
         ]
     finally:
         await _purge_tenant(foreign_tenant.tenant_id)
@@ -298,7 +370,14 @@ async def test_b255_resolve_refuses_other_user_cross_tenant_and_deleted(
 
     # 反向对照：同一主体自己的产物仍然解析得出来（拒绝不是因为实现整体失效）。
     own = await _seed_owned_artifact(resolve_tenant)
-    assert (await _resolve(client, resolve_tenant, own.artifact_id)).status_code == 200
+    reply = await _resolve(
+        client,
+        resolve_tenant,
+        own.artifact_id,
+        conversation_id=own.conversation_id,
+        checksum=own.checksum,
+    )
+    assert reply.status_code == 200
 
 
 async def test_b255_resolve_requires_internal_service_identity(
@@ -306,15 +385,20 @@ async def test_b255_resolve_requires_internal_service_identity(
 ) -> None:
     """受信身份门控：无内部服务身份（或缺租户）一律 403，不触达归属解析。"""
     seeded = await _seed_owned_artifact(resolve_tenant)
+    query = {
+        "user_id": str(resolve_tenant.platform_user_id),
+        "conversation_id": str(seeded.conversation_id),
+        "checksum": seeded.checksum,
+    }
 
     anonymous = await anonymous_client.get(
         _path(seeded.artifact_id),
-        params={"user_id": str(resolve_tenant.platform_user_id)},
+        params=query,
         headers={"X-Tenant-Id": resolve_tenant.tenant_id},
     )
     wrong_token = await client.get(
         _path(seeded.artifact_id),
-        params={"user_id": str(resolve_tenant.platform_user_id)},
+        params=query,
         headers={
             "X-Tenant-Id": resolve_tenant.tenant_id,
             "X-Internal-Service": "not-the-service-token",
@@ -323,3 +407,127 @@ async def test_b255_resolve_requires_internal_service_identity(
 
     assert anonymous.status_code == 403 and anonymous.json()["code"] == "FORBIDDEN"
     assert wrong_token.status_code == 403 and wrong_token.json()["code"] == "FORBIDDEN"
+
+
+# --------------------------------------------------------------------------------------
+# 跨会话交付：发布事实是唯一凭据；版本按发布时的 checksum 冻结
+# --------------------------------------------------------------------------------------
+
+
+async def test_b255_cross_conversation_requires_publication_in_target_conversation(
+    resolve_tenant: TenantContext, client: AsyncClient
+) -> None:
+    """别的会话的产物只能在**目标会话有发布事实**时取件；没有发布就是拿不到。"""
+    source = await _seed_owned_artifact(resolve_tenant)
+    target = await _seed_conversation(resolve_tenant)
+    run_id = uuid.uuid4()
+
+    denied = await _resolve(
+        client,
+        resolve_tenant,
+        source.artifact_id,
+        conversation_id=target,
+        checksum=source.checksum,
+    )
+    assert denied.status_code == 404, "没有发布事实的跨会话取件必须拿不到"
+    assert denied.json()["code"] == "COMMON_NOT_FOUND"
+
+    await _seed_publication(
+        resolve_tenant,
+        conversation_id=target,
+        run_id=run_id,
+        artifact_id=source.artifact_id,
+        checksum=source.checksum,
+        size=source.size,
+    )
+    granted = await _resolve(
+        client,
+        resolve_tenant,
+        source.artifact_id,
+        conversation_id=target,
+        checksum=source.checksum,
+    )
+    assert granted.status_code == 200, granted.text
+    data = granted.json()["data"]
+    assert data["scope"]["conversation_id"] == str(target), "归属属于目标会话"
+    assert data["reference"]["storage_key"] == source.storage_key
+    assert data["reference"]["checksum"] == source.checksum
+
+    # 版本不匹配（同一产物、另一个 checksum）不得借已经发布的那个版本取件。
+    other = "sha256:" + "c" * 64
+    mismatch = await _resolve(
+        client,
+        resolve_tenant,
+        source.artifact_id,
+        conversation_id=target,
+        checksum=other,
+    )
+    assert mismatch.status_code == 404
+
+
+async def test_b255_cross_agent_source_is_refused(
+    resolve_tenant: TenantContext, client: AsyncClient
+) -> None:
+    """源产物属于别的 Agent：即使目标会话里有发布行，也不得取件（发布行必须与源一致）。"""
+    foreign_agent = uuid.uuid4()
+    source_conversation = await _seed_conversation(resolve_tenant, agent_id=foreign_agent)
+    source_artifact = await _seed_artifact(
+        resolve_tenant, conversation_id=source_conversation, size=5
+    )
+    target = await _seed_conversation(resolve_tenant)
+    await _seed_publication(
+        resolve_tenant,
+        conversation_id=target,
+        run_id=uuid.uuid4(),
+        artifact_id=source_artifact,
+        checksum="sha256:" + "b" * 64,
+        size=5,
+    )
+
+    response = await _resolve(
+        client,
+        resolve_tenant,
+        source_artifact,
+        conversation_id=target,
+        checksum="sha256:" + "b" * 64,
+    )
+    assert response.status_code == 404
+
+
+async def test_b255_download_serves_the_published_version_not_the_current_bytes(
+    resolve_tenant: TenantContext, client: AsyncClient
+) -> None:
+    """发布后产物又被追加：取件只给**发布那一刻**的版本（存储键/长度/校验和三者一致）。"""
+    target = await _seed_conversation(resolve_tenant)
+    old_checksum = "sha256:" + "a" * 64
+    old_key = f"runs/{uuid.uuid4()}/attachments/old"
+    new_key = f"runs/{uuid.uuid4()}/attachments/new"
+    artifact_id = await _seed_artifact(
+        resolve_tenant, conversation_id=target, size=3, storage_key=new_key
+    )
+    async with get_session_factory()() as session:
+        row = await session.get(Artifact, artifact_id)
+        assert row is not None
+        row.metadata_json = {
+            **(row.metadata_json or {}),
+            "versions": [{"key": old_key, "checksum": old_checksum, "size": 2}],
+        }
+        row.checksum = "sha256:" + "b" * 64
+        await session.commit()
+    await _seed_publication(
+        resolve_tenant,
+        conversation_id=target,
+        run_id=uuid.uuid4(),
+        artifact_id=artifact_id,
+        checksum=old_checksum,
+        size=2,
+    )
+
+    response = await _resolve(
+        client, resolve_tenant, artifact_id, conversation_id=target, checksum=old_checksum
+    )
+    assert response.status_code == 200, response.text
+    reference = response.json()["data"]["reference"]
+    assert reference["storage_key"] == old_key
+    assert reference["size"] == 2
+    assert reference["checksum"] == old_checksum

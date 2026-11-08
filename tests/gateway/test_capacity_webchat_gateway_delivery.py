@@ -88,13 +88,11 @@ from muad_contracts.channel_delivery import (
     DeliveryLeaseRenewal,
     DeliveryReservationRequest,
 )
-from muad_contracts.delivery import TERMINAL_DELIVERY_KEY
 from muad_im_connector.channels.wecom.adapter import WeComAdapter
 from muad_im_connector.channels.wecom.sdk_port import WeComInboundMessage
 from muad_im_gateway.application.channel_delivery import (
     ActiveChannelDelivery,
     ConsoleDeliveryPermission,
-    terminal_delivery_key,
 )
 from muad_im_gateway.application.console_client import ConsoleClient
 from muad_im_gateway.application.inbound import InboundPipeline
@@ -321,6 +319,7 @@ def _console_resolve(
                 "msg": "stub",
                 "data": {
                     "bound": True,
+                    "entry_id": str(ENTRY_ID),
                     "authorized": authorized(len(bodies)),
                     "agent_id": str(agent_id),
                     "platform_user_id": str(platform_user_id),
@@ -348,6 +347,7 @@ def _channel_json() -> dict[str, Any]:
     """Run 持久化的原入口路由（主动兜底按它交付，不重新猜来源）。"""
     return ChannelContext(
         type="WECOM",
+        entry_id=ENTRY_ID,
         bot_id=BOT_ID,
         external_user_id=str(PLATFORM_USER_ID),
         external_conversation_id=CHAT,
@@ -381,6 +381,7 @@ async def _seed_intent(store: _Store) -> _Seeded:
             agent_id=AGENT_ID,
             status=RunStatus.COMPLETED,
             input_text=INPUT_TEXT,
+            input_message_id=MESSAGE_ID,
             trace_id="b267-seed",
             start_time=now,
             deadline_at=now + timedelta(seconds=600),
@@ -456,7 +457,9 @@ class _RecordingSender:
     def __init__(self) -> None:
         self.intents: list[DeliveryIntent] = []
 
-    async def send(self, intent: DeliveryIntent) -> DeliverySendOutcome:
+    async def send(
+        self, intent: DeliveryIntent, *, attempt_id: Any, lease_epoch: int
+    ) -> DeliverySendOutcome:
         self.intents.append(intent)
         return DeliverySendOutcome(outcome="DELIVERED", result={"delivered": True})
 
@@ -586,58 +589,18 @@ async def _wait_until(predicate: Callable[[], bool], *, what: str) -> None:
 # --------------------------------------------------------------------------------------
 
 
-async def test_b267_lost_reply_session_delivers_on_the_shared_key_and_the_pump_skips_it(
+# --------------------------------------------------------------------------------------
+# 终态单发送者：活跃会话只做增量展示，终态正文只由持久投递泵发送
+# --------------------------------------------------------------------------------------
+
+
+async def test_b267_terminal_is_sent_only_by_the_persistent_pump(
     store: _Store,
     stub_console: StubConsole,
     runtime_probe: Callable[..., _RuntimeProbe],
     catalog: MessageCatalog,
 ) -> None:
-    """回调失效（ReplySession 失联）⇒ 终态文本按稳定键主动交付，实际发送成功才 ack。"""
-    seeded = await _seed_intent(store)
-    _console_resolve(stub_console)
-    probe = runtime_probe()
-    sender = _RecordingSender()
-    async with _proactive_pump(store, sender) as pump:
-        async with _gateway_stack(
-            catalog, console_url=stub_console.url, runtime_url=probe.url
-        ) as gateway:
-            assert await gateway.pipeline.handle(gateway.adapter, _envelope()) is True
-
-    # ① 同一稳定键：与 Runtime 持久通知/投递泵**同一个** delivery_key
-    assert terminal_delivery_key(str(RUN_ID)) == run_terminal_delivery_key(RUN_ID)
-    assert terminal_delivery_key(str(RUN_ID)) == seeded.delivery_key
-    assert TERMINAL_DELIVERY_KEY.match(seeded.delivery_key) is not None
-
-    # ② 实际发送成功才 ack：原入口路由 + 正文（企微主动发送，不借过期回调）
-    assert gateway.sdk.sent_texts == [(CHAT, FINAL_TEXT)]
-    key = terminal_delivery_key(str(RUN_ID))
-    assert [request.delivery_key for request in probe.port.reserves] == [key]
-    assert [ack.delivery_key for ack in probe.port.acks] == [key]
-    assert [ack.outcome for ack in probe.port.acks] == ["DELIVERED"], "实际发送成功才 ack"
-    assert probe.port.acks[0].epoch == 1
-    row = await _row(store, seeded.notification_id)
-    assert row["delivery_key"] == f"run:{RUN_ID}:terminal"
-    assert row["delivery_state"] == "DELIVERED"
-    assert row["attempt"] == 1 and row["lease_epoch"] == 1
-    assert row["lease_owner"] is None and row["lease_until"] is None
-    assert row["delivery_result"] is not None
-    assert row["delivery_result"]["outcome"] == "DELIVERED"
-    assert row["read_at"] is None, "送达不得代替用户已读"
-
-    # ③ 主动兜底按同一键领取：已送达 ⇒ 不再重发（至少一次语义下的"至多一次真实发送"）
-    assert await pump.claim_due(limit=8) == []
-    assert await pump.run_once() == 0
-    assert sender.intents == [], "已确认送达的意图不得被兜底重投"
-    assert gateway.sdk.sent_texts == [(CHAT, FINAL_TEXT)]
-
-
-async def test_b267_active_finalization_confirms_the_shared_key_without_resending(
-    store: _Store,
-    stub_console: StubConsole,
-    runtime_probe: Callable[..., _RuntimeProbe],
-    catalog: MessageCatalog,
-) -> None:
-    """活跃 ReplySession 收尾：同键认领并确认（正文已经写进会话流），不重复主动发送。"""
+    """Run 终态：活跃 ReplySession 不再发送正文/收尾/主动兜底；持久投递泵是唯一发送者。"""
     seeded = await _seed_intent(store)
     _console_resolve(stub_console)
     probe = runtime_probe()
@@ -648,42 +611,35 @@ async def test_b267_active_finalization_confirms_the_shared_key_without_resendin
         ) as gateway:
             envelope = _live_envelope(gateway.adapter, gateway.sdk)
             assert await gateway.pipeline.handle(gateway.adapter, envelope) is True
-            # 活跃回复会话确实把终态内容写进了会话（收尾路径生效）
-            await _wait_until(
-                lambda: bool(gateway.sdk.stream_updates), what="活跃回复会话没有收尾"
-            )
+            # 活跃会话**不**发送终态正文、**不**收尾、**不**占用投递协调端口。
+            assert gateway.sdk.sent_texts == []
+            assert probe.port.reserves == [] and probe.port.acks == []
+            row = await _row(store, seeded.notification_id)
+            assert row["delivery_state"] == "PENDING" and row["attempt"] == 0
 
-        key = terminal_delivery_key(str(RUN_ID))
-        assert gateway.sdk.sent_texts == [], "会话已把正文写进流，不得再主动重发"
-        assert [request.delivery_key for request in probe.port.reserves] == [key]
-        assert [ack.delivery_key for ack in probe.port.acks] == [key]
-        assert [ack.outcome for ack in probe.port.acks] == ["DELIVERED"]
+        # 持久投递泵按稳定键发送：携带原消息身份、终态状态与受理身份。
+        assert await pump.run_once() == 1
+        await pump.drain()
+        assert [intent.delivery_key for intent in sender.intents] == [seeded.delivery_key]
+        intent = sender.intents[0]
+        assert intent.message_id == MESSAGE_ID, "终态必须带回原消息身份以收尾原回复流"
+        assert intent.status == "COMPLETED"
+        assert intent.agent_id == AGENT_ID and intent.platform_user_id == PLATFORM_USER_ID
+        assert intent.route is not None and intent.route.bot_id == BOT_ID
+        assert intent.text == FINAL_TEXT
 
-        row = await _row(store, seeded.notification_id)
-        assert row["delivery_state"] == "DELIVERED"
-        assert row["attempt"] == 1 and row["lease_epoch"] == 1
-        assert row["lease_owner"] is None and row["lease_until"] is None
-        assert row["delivery_result"] is not None
-        assert row["read_at"] is None
-
-        # 兜底泵按同一键领取：已确认送达 ⇒ 不再重发
-        assert await pump.claim_due(limit=8) == []
-        assert await pump.run_once() == 0
-        assert sender.intents == [], "活跃会话已确认的意图不得被兜底重投"
+    delivered = await _row(store, seeded.notification_id)
+    assert delivered["delivery_state"] == "DELIVERED"
+    assert delivered["delivery_result"] is not None
 
 
-# --------------------------------------------------------------------------------------
-# 2. 兜底先送达：活跃会话收尾命中冻结回执，不重发、不重写回执
-# --------------------------------------------------------------------------------------
-
-
-async def test_b267_proactive_delivery_first_is_replayed_by_the_active_finalization(
+async def test_b267_pump_delivery_is_not_repeated_by_the_gateway(
     store: _Store,
     stub_console: StubConsole,
     runtime_probe: Callable[..., _RuntimeProbe],
     catalog: MessageCatalog,
 ) -> None:
-    """兜底先按稳定键送达 ⇒ 活跃 ReplySession 收尾的同键认领命中回执，不再重投。"""
+    """泵先送达后，活跃会话不得再次发送/占键：首次回执保持不变。"""
     seeded = await _seed_intent(store)
     _console_resolve(stub_console)
     probe = runtime_probe()
@@ -691,120 +647,20 @@ async def test_b267_proactive_delivery_first_is_replayed_by_the_active_finalizat
     async with _proactive_pump(store, sender) as pump:
         assert await pump.run_once() == 1
         await pump.drain()
-        assert [intent.delivery_key for intent in sender.intents] == [seeded.delivery_key]
-        assert sender.intents[0].route is not None
-        assert sender.intents[0].route.bot_id == BOT_ID, "路由必须是原入口"
-        assert sender.intents[0].route.external_user_id == str(PLATFORM_USER_ID)
-        assert sender.intents[0].route.external_conversation_id == CHAT
-        assert sender.intents[0].text == FINAL_TEXT
-
-        delivered = await _row(store, seeded.notification_id)
-        assert delivered["delivery_state"] == "DELIVERED" and delivered["attempt"] == 1
-        first_receipt = delivered["delivery_result"]
-        assert first_receipt is not None
+        first = await _row(store, seeded.notification_id)
+        assert first["delivery_state"] == "DELIVERED"
+        receipt = first["delivery_result"]
+        reserves_before = list(probe.port.reserves)
 
         async with _gateway_stack(
             catalog, console_url=stub_console.url, runtime_url=probe.url
         ) as gateway:
             envelope = _live_envelope(gateway.adapter, gateway.sdk)
             assert await gateway.pipeline.handle(gateway.adapter, envelope) is True
-            # 活跃回复会话确实把终态内容写进了会话（收尾路径生效）
-            await _wait_until(
-                lambda: bool(gateway.sdk.stream_updates), what="活跃回复会话没有收尾"
-            )
 
-    # 同键认领命中已送达回执：不重发、不重写首次回执、不新增投递尝试
-    assert len(sender.intents) == 1, "已送达的稳定键不得被再次投递"
-    assert [request.delivery_key for request in probe.port.reserves] == [seeded.delivery_key]
-    assert probe.port.acks == [], "已送达的键不再确认（回执重放不推进状态）"
+        assert gateway.sdk.sent_texts == [], "已由持久链送达，会话路径不得重发"
+        assert probe.port.reserves == reserves_before, "活跃路径不得再占投递键"
+
     after = await _row(store, seeded.notification_id)
     assert after["delivery_state"] == "DELIVERED"
-    assert after["attempt"] == 1 and after["lease_epoch"] == 1
-    assert after["delivery_result"] == first_receipt, "首次投递结果被重放，不被改写"
-    assert after["read_at"] is None
-
-
-# --------------------------------------------------------------------------------------
-# 3. 交付时重核接收权限：保持原路由，复核不通过即不发送、不确认
-# --------------------------------------------------------------------------------------
-
-
-async def test_b267_delivery_rechecks_permission_and_keeps_the_original_route(
-    store: _Store,
-    stub_console: StubConsole,
-    runtime_probe: Callable[..., _RuntimeProbe],
-    catalog: MessageCatalog,
-) -> None:
-    """受理后被撤权：交付时按原入口复核 ⇒ 不发送、不占租约、不 ack（行仍是 PENDING）。"""
-    seeded = await _seed_intent(store)
-    resolves = _console_resolve(stub_console, authorized=lambda call: call == 1)
-    probe = runtime_probe()
-    async with _gateway_stack(
-        catalog, console_url=stub_console.url, runtime_url=probe.url
-    ) as gateway:
-        assert await gateway.pipeline.handle(gateway.adapter, _envelope()) is True
-
-    # 路由保持原 entry/Agent/user：两次解析（受理 + 交付）都带原入口身份
-    assert len(resolves) == 2, "交付时必须再核一次接收权限"
-    assert resolves[0] == {
-        "channel": "WECOM",
-        "bot_id": BOT_ID,
-        "external_user_id": str(PLATFORM_USER_ID),
-        "external_conversation_id": CHAT,
-    }
-    assert resolves[1] == resolves[0], "交付复核必须用原入口，不重新猜来源"
-
-    assert gateway.sdk.sent_texts == [], "撤权后不得向原接收者发送"
-    assert probe.port.reserves == [], "复核不通过就不该占投递资格"
-    assert probe.port.acks == []
-    row = await _row(store, seeded.notification_id)
-    assert row["delivery_state"] == "PENDING", "没发出去不得占租约、不得标送达"
-    assert row["attempt"] == 0 and row["lease_owner"] is None
-    assert row["delivery_result"] is None and row["read_at"] is None
-
-
-# --------------------------------------------------------------------------------------
-# 4. ACK 丢失：行留在 DELIVERING（可追溯），同键重来被接管并再次投递（至少一次）
-# --------------------------------------------------------------------------------------
-
-
-async def test_b267_lost_ack_stays_traceable_and_the_same_key_retries_at_least_once(
-    store: _Store,
-    stub_console: StubConsole,
-    runtime_probe: Callable[..., _RuntimeProbe],
-    catalog: MessageCatalog,
-) -> None:
-    """确认响应丢失：文本已发出但不标送达；租约到期后同键重来（epoch 前进）再次投递。"""
-    seeded = await _seed_intent(store)
-    _console_resolve(stub_console)
-    probe = runtime_probe(drop_first_ack=True)
-    key = terminal_delivery_key(str(RUN_ID))
-    async with _gateway_stack(
-        catalog, console_url=stub_console.url, runtime_url=probe.url
-    ) as gateway:
-        assert await gateway.pipeline.handle(gateway.adapter, _envelope()) is True
-        assert gateway.sdk.sent_texts == [(CHAT, FINAL_TEXT)], "第一次真实发送已发生"
-
-        # 确认没有落库：行仍是 DELIVERING（attempt/租约可追溯），不把占位标送达
-        row = await _row(store, seeded.notification_id)
-        assert probe.port.ack_calls == 1 and probe.port.acks == [], "确认响应丢失，没有回执"
-        assert row["delivery_state"] == "DELIVERING"
-        assert row["attempt"] == 1 and row["lease_epoch"] == 1
-        assert row["lease_owner"] is not None and row["lease_until"] is not None
-        assert row["delivery_result"] is None
-        assert row["read_at"] is None
-
-        # 租约到期（真实行事实）后同键重来：接管并再次投递 ⇒ 至少一次
-        await _expire_lease(store, seeded.notification_id)
-        assert await gateway.pipeline.handle(gateway.adapter, _envelope()) is True
-        assert gateway.sdk.sent_texts == [(CHAT, FINAL_TEXT), (CHAT, FINAL_TEXT)]
-
-    retried = await _row(store, seeded.notification_id)
-    assert retried["delivery_state"] == "DELIVERED"
-    assert retried["attempt"] == 2 and retried["lease_epoch"] == 2, "被接管的尝试必须前进 epoch"
-    assert retried["delivery_result"] is not None
-    assert retried["read_at"] is None
-    # 同键重来：两次 reserve 都落在同一个稳定键上，第二次确认（epoch 前进）才落库
-    assert [request.delivery_key for request in probe.port.reserves] == [key, key]
-    assert [ack.outcome for ack in probe.port.acks] == ["DELIVERED"]
-    assert probe.port.acks[0].epoch == 2 and probe.port.ack_calls == 2
+    assert after["delivery_result"] == receipt, "首次结果不被改写"

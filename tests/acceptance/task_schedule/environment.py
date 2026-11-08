@@ -117,6 +117,10 @@ RUNTIME_CLEANUP = (
     "DELETE FROM runtime.canonical_event WHERE tenant_id = :t",
     "DELETE FROM runtime.run_interrupt WHERE tenant_id = :t",
     "DELETE FROM runtime.run_submission WHERE tenant_id = :t",
+    # 0026/终态通知：通知行引用 run_record/conversation；入口指针引用 conversation。
+    "DELETE FROM runtime.channel_notification WHERE tenant_id = :t",
+    "DELETE FROM runtime.channel_notification_feed WHERE tenant_id = :t",
+    "DELETE FROM runtime.channel_conversation WHERE tenant_id = :t",
     "DELETE FROM runtime.runtime_snapshot WHERE tenant_id = :t",
     "DELETE FROM runtime.run_record WHERE tenant_id = :t",
     "DELETE FROM runtime.conversation WHERE tenant_id = :t",
@@ -255,6 +259,7 @@ class LiveStack:
     model_id: uuid.UUID
     skill_id: uuid.UUID
     skill_key: str
+    bot_account_id: uuid.UUID
     bot_id: str
     batch_artifact_id: uuid.UUID = uuid.UUID(int=0)
     batch_storage_key: str = ""
@@ -391,17 +396,17 @@ def seed_control(
             session.add(batch_artifact)
             await session.flush()
             session.add(AgentSkillBinding(agent_id=agent.id, skill_id=skill.id, sort_order=0))
-            session.add(
-                BotAccount(
-                    tenant_id=TENANT,
-                    channel="WECOM",
-                    name="E2E Bot",
-                    bot_id=BOT_ID,
-                    secret=BOT_SECRET,
-                    agent_id=agent.id,
-                    enabled=True,
-                )
+            bot = BotAccount(
+                tenant_id=TENANT,
+                channel="WECOM",
+                name="E2E Bot",
+                bot_id=BOT_ID,
+                secret=BOT_SECRET,
+                agent_id=agent.id,
+                enabled=True,
             )
+            session.add(bot)
+            await session.flush()
             # 真实 Console 管理员（S-02 用真实登录会话 + CSRF 走 Console API 保存设置）。
             session.add(
                 ConsoleAccount(
@@ -423,6 +428,7 @@ def seed_control(
                 "batch_artifact_id": batch_artifact.id,
                 "batch_storage_key": batch_storage_key,
                 "batch_checksum": batch_checksum,
+                "bot_account_id": bot.id,
             }
         await engine.dispose()
         return ids
@@ -642,6 +648,7 @@ def start_live_stack(root: Path) -> tuple[LiveStack, list[ServiceProcess]]:
         model_id=ids["model_id"],
         skill_id=ids["skill_id"],
         skill_key=ids["skill_key"],
+        bot_account_id=ids["bot_account_id"],
         bot_id=BOT_ID,
         batch_artifact_id=ids["batch_artifact_id"],
         batch_storage_key=ids["batch_storage_key"],

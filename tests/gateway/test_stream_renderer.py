@@ -183,7 +183,7 @@ async def _run_once(
     return _outbound_frames(probe, since)
 
 
-async def test_b115_stream_tail_is_complete_and_finalized_once(
+async def test_b115_stream_tail_is_complete_without_gateway_finalize(
     adapter: WeComAdapter, probe: WeComProbe, catalog: MessageCatalog
 ) -> None:
     frames = await _run_once(
@@ -206,39 +206,14 @@ async def test_b115_stream_tail_is_complete_and_finalized_once(
         _frame_text(frame).startswith("<think>") or "分析完成".startswith(_frame_text(frame))
         for frame in stream_frames
     ), [(_frame_text(frame)) for frame in stream_frames]
-    finished = [index for index, frame in enumerate(stream_frames) if _stream_finished(frame)]
-    assert finished == [len(stream_frames) - 1], stream_frames
+    # 机器人终态的收尾帧由持久投递链发送；Gateway 的实时流只负责增量，不再 finish。
+    assert not any(_stream_finished(frame) for frame in stream_frames), stream_frames
 
 
-async def test_b115_cancelled_abandoned_and_interrupt_copy(
+async def test_b115_interrupt_copy_stays_on_the_live_stream(
     adapter: WeComAdapter, probe: WeComProbe, catalog: MessageCatalog
 ) -> None:
-    cancelled = await _run_once(
-        adapter,
-        probe,
-        catalog,
-        [
-            ("run.created", {"run_id": "run-b115"}),
-            ("message.delta", {"delta": "半句"}),
-            ("run.completed", {"status": "CANCELLED", "final_text": ""}),
-        ],
-        expect=STOPPED_TEXT,
-    )
-    assert "半句" in "".join(_frame_text(frame) for frame in cancelled)
-    assert STOPPED_TEXT in "".join(_frame_text(frame) for frame in cancelled)
-
-    abandoned = await _run_once(
-        adapter,
-        probe,
-        catalog,
-        [
-            ("run.created", {"run_id": "run-b115"}),
-            ("run.failed", {"status": "FAILED", "error_code": "RUN_ABANDONED"}),
-        ],
-        expect=BROKEN_STREAM_TEXT,
-    )
-    assert BROKEN_STREAM_TEXT in "".join(_frame_text(frame) for frame in abandoned)
-
+    """中断/等待输入是**非 Run 终态**：仍由活跃回复流展示（终态正文另有单发送者）。"""
     interrupted = await _run_once(
         adapter,
         probe,

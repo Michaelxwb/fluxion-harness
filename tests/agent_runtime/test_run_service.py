@@ -33,12 +33,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext
 
+ENTRY_ID = uuid.uuid4()
+
 
 def _request(tenant: TenantContext, text: str = "hello") -> RunRequest:
     return RunRequest(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.platform_user_id,
-        channel=ChannelContext(type="WECOM", bot_id="bot-1"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text=text),
     )
 
@@ -57,6 +59,7 @@ async def _insert_run(
             agent_id=tenant.agent_id,
             status="ACTIVE",
             last_seq=0,
+            channel_account_id=ENTRY_ID,
         )
         session.add(conversation)
         await session.flush()
@@ -430,7 +433,11 @@ async def test_inbound_channel_reaches_executor_as_delivery_route(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.platform_user_id,
         channel=ChannelContext(
-            type="WECOM", bot_id="bot-1", external_user_id="wotv-9", external_conversation_id="conv-9"
+            type="WECOM",
+            entry_id=ENTRY_ID,
+            bot_id="bot-1",
+            external_user_id="wotv-9",
+            external_conversation_id="conv-9",
         ),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text="hi"),
     )
@@ -587,7 +594,7 @@ async def test_auto_resume_keeps_attachments_of_the_new_message(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.platform_user_id,
         conversation_id=conversation_id,
-        channel=ChannelContext(type="WECOM", bot_id="bot-1"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         message=MessageInput(
             id=f"msg-{uuid.uuid4()}",
             type="attachment",
@@ -656,6 +663,7 @@ async def _seed_conversation(tenant: TenantContext) -> uuid.UUID:
             agent_id=tenant.agent_id,
             status="ACTIVE",
             last_seq=0,
+            channel_account_id=ENTRY_ID,
         )
         session.add(conversation)
         await session.commit()
@@ -704,7 +712,11 @@ async def test_resolve_conversation_keeps_new_conversation_when_background_event
     await _append_event(tenant, conversation_a, "USER_MESSAGE", {"text": "第一句"})
     async with get_session_factory()() as session:
         conversation_b = await _resolution_service(session, fake_resolve).create_conversation(
-            tenant.agent_id, tenant.platform_user_id, tenant.tenant_id, idempotency_key="new-1"
+            tenant.agent_id,
+            tenant.platform_user_id,
+            tenant.tenant_id,
+            idempotency_key="new-1",
+            channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         )
         b_id = conversation_b.id
     await _append_event(tenant, conversation_a, "MEMORY_CONSOLIDATED", {"summary": "后台收尾"})
@@ -738,7 +750,11 @@ async def test_resolve_conversation_falls_back_to_create_time_without_user_messa
 
     async with get_session_factory()() as session:
         conversation_b = await _resolution_service(session, fake_resolve).create_conversation(
-            tenant.agent_id, tenant.platform_user_id, tenant.tenant_id, idempotency_key="new-2"
+            tenant.agent_id,
+            tenant.platform_user_id,
+            tenant.tenant_id,
+            idempotency_key="new-2",
+            channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         )
         b_id = conversation_b.id
     await _append_event(tenant, conversation_a, "RUN_FAILED", {"error_code": "RUN_ABANDONED"})
@@ -759,7 +775,11 @@ async def test_resolve_conversation_sticks_to_conversation_that_received_user_me
     await _append_event(tenant, conversation_a, "USER_MESSAGE", {"text": "第一句"})
     async with get_session_factory()() as session:
         conversation_b = await _resolution_service(session, fake_resolve).create_conversation(
-            tenant.agent_id, tenant.platform_user_id, tenant.tenant_id, idempotency_key="new-3"
+            tenant.agent_id,
+            tenant.platform_user_id,
+            tenant.tenant_id,
+            idempotency_key="new-3",
+            channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         )
         b_id = conversation_b.id
     await _append_event(tenant, conversation_a, "MEMORY_CONSOLIDATED", {"summary": "后台收尾"})
@@ -827,3 +847,9 @@ async def test_process_admission_gate_bounds_concurrency() -> None:
     assert peak == 2
     assert rs.process_admission_gate(limit=2) is gate  # 同循环复用同一实例
     rs._process_admission_gates.clear()
+
+def test_no_progress_maps_to_run_no_progress() -> None:
+    """同一工具失败打到阈值：终态码必须是 RUN_NO_PROGRESS（目录里有专门文案）。"""
+    from muad_agent_runtime.application.run_service import RunnerNoProgress, _error_code_for
+
+    assert _error_code_for(RunnerNoProgress("identical failures")) == "RUN_NO_PROGRESS"

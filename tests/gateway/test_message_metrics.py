@@ -163,7 +163,9 @@ async def metrics_http(adapter: WeComAdapter) -> AsyncIterator[httpx.AsyncClient
     registry.register(adapter)
     gateway_app.dependency_overrides[get_registry] = lambda: registry
     gateway_app.dependency_overrides[get_dedupe_store] = lambda: _DELIVERY_DEDUPE["store"]
-    gateway_app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
+    console = FakeConsoleClient()
+    console.resolve_response = resolved_response()
+    gateway_app.dependency_overrides[get_console_client] = lambda: console
     gateway_app.dependency_overrides[get_gateway_tenant] = lambda: "tenant-1"
     gateway_app.dependency_overrides[get_artifact_resolver] = lambda: _NoArtifacts()
     gateway_app.dependency_overrides[get_delivery_streams] = lambda: _StubStreams()

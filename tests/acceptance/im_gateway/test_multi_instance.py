@@ -57,6 +57,7 @@ async def _run_until_terminal(
             conversation_id=None,
             channel=ChannelContext(
                 type="WECOM",
+                entry_id=gateway_stack.bot_account_id,
                 bot_id=gateway_stack.bot_id,
                 external_conversation_id=gateway_stack.chat_id,
             ),

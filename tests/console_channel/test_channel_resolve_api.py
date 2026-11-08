@@ -107,6 +107,7 @@ async def test_known_bot_without_identity_returns_agent(
     )
     assert data == {
         "bound": False,
+        "entry_id": str(channel.bot_account_id),
         "agent_id": str(channel.agent_id),
         "platform_user_id": None,
         "authorized": False,
@@ -124,6 +125,7 @@ async def test_bound_without_grant_is_unauthorized(
     )
     assert data == {
         "bound": True,
+        "entry_id": str(channel.bot_account_id),
         "agent_id": str(channel.agent_id),
         "platform_user_id": str(channel.ungranted_user_id),
         "authorized": False,
@@ -141,6 +143,7 @@ async def test_bound_with_grant_is_authorized(
     )
     assert data == {
         "bound": True,
+        "entry_id": str(channel.bot_account_id),
         "agent_id": str(channel.agent_id),
         "platform_user_id": str(channel.actor_user_id),
         "authorized": True,
@@ -158,6 +161,7 @@ async def test_disabled_platform_user_is_unauthorized(
     )
     assert data == {
         "bound": True,
+        "entry_id": str(channel.bot_account_id),
         "agent_id": str(channel.agent_id),
         "platform_user_id": str(channel.disabled_user_id),
         "authorized": False,
@@ -190,6 +194,7 @@ async def test_disabled_agent_is_unauthorized(
     )
     assert data == {
         "bound": True,
+        "entry_id": str(channel.bot_account_id),
         "agent_id": str(channel.agent_id),
         "platform_user_id": str(channel.actor_user_id),
         "authorized": False,

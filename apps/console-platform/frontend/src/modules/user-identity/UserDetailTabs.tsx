@@ -24,11 +24,13 @@ import { MetricCards } from '../../components/common/MetricCards';
 import { PaginationFooter } from '../../components/common/PaginationFooter';
 import { StatusTag } from '../../components/common/StatusTag';
 import { TableText } from '../../components/common/TableText';
+import { Tips } from '../../components/common/Tips';
 import {
   CredentialSchemaFields,
   parseCredentialJson
 } from '../project-platform/CredentialSchemaFields';
 import {
+  getUserCredential,
   listPlatforms,
   saveUserCredential,
   type PlatformItem
@@ -395,9 +397,23 @@ function CredentialsTab(props: { userId: string }) {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const openForm = (platform: PlatformItem): void => {
-    setValues('');
+  const openForm = async (platform: PlatformItem): Promise<void> => {
     setFormError(null);
+    let prefill = '';
+    if (platform.user_credential_status === 'ACTIVE') {
+      try {
+        // 已配置：按需回显（仅 ADMIN 可达本页），编辑框拿到的是已存明文。
+        const state = await getUserCredential(platform.platform_id, props.userId, true);
+        prefill = state.credential_json
+          ? JSON.stringify(state.credential_json, null, 2)
+          : '';
+      } catch {
+        // 拿不到已存值就不打开编辑框：空框保存会覆盖原凭据。
+        Tips.error(t('common.loadFailed'));
+        return;
+      }
+    }
+    setValues(prefill);
     setTarget(platform);
   };
 

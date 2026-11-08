@@ -321,7 +321,12 @@ def _error_event(row: CanonicalRow, run_id: uuid.UUID) -> WebchatErrorEvent:
     payload = _payload(row)
     try:
         data = WebchatSafeError.model_validate(
-            {"code": payload.get("error_code"), "retryable": payload.get("retryable", False)}
+            {
+                "code": payload.get("error_code"),
+                "retryable": payload.get("retryable", False),
+                # 失败收尾回合写进同一载荷的结论正文：有它就不该再提示「失败，请重发」。
+                "has_reply": bool(payload.get("final_text")),
+            }
         )
     except ValidationError as exc:
         raise _malformed(row) from exc

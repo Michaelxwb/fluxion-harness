@@ -1,6 +1,6 @@
 # 全仓配置盘点与生效边界
 
-审计日期：2026-10-04；2026-10-05 随平台设置需求（TASK-001..TASK-015）迁移结果校准；2026-10-06 随概览指标化（`/overview/metrics` 聚合常量与 SQL）校准；同日随后续全站列表页量统一 15（前端分页展示契约）校准；**同日再随 im-gateway 评审修复校准**（投递鉴权与产物归属解析、入站排队调度、去重占位所有权、终帧重试、明文尺寸口径等新增常量）；**同日再随 agent-worker 评审修复校准**（回收重试预算与退避、心跳失联码、投递预留租约、执行超时下限、`SKILL_RESULT_INVALID`/`BATCH_FANOUT_STALE`/`DELIVERABLE_STATUSES` 等）；**2026-10-09 随异步工具结果回流与 Run 等待恢复需求（TASK-001..009）校准**（新增 `async_tool_dispatch_*` 环境项、工具并发声明与规划器、MCP 会话常量、契约状态枚举/错误码、等待/接续事件与只读投影常量等，并把全部行号对齐当前源码）；**2026-10-11 随 Console 管理视图、Run 事件详情与概览聚合扩展校准**（新增 Run 事件查询/投影常量与按需拉取 SQL、概览单快照 `OVERVIEW_SQL`，随概览常量内联删除 `MIN/MAX/DEFAULT_METRIC_DAYS`、`RECENT_TASK_LIMIT` 等登记行；Python 行按 AST 重对齐，前端常量行同步至声明行并删除 `TaskDetailSideSheet` 已移除的 `CANCELLABLE_STATUSES`；函数默认参数 / 环境读取 / 内联节拍行的历史漂移一并校正，`POD_NAME` 登记重指向 `main.py`）；**2026-10-15 随记忆体系重构需求（TASK-001..031）校准**（删除 `compaction.memory.budget_ratio`，新增 memory 分组 16 个叶子与 6 条 memory 规则 verifier；`MemoryPolicySettings` 进入 schema 字段精确盘点，新增 `packages/agent-core/src/muad_agent_core/memory/*`、`apps/agent-runtime/src/muad_agent_runtime/application/memory_*.py`、0020 迁移与前端记忆契约的常量行；全部 Python 行按 AST 重新对齐）。基于当前 `main`。
+审计日期：2026-10-04；2026-10-05 随平台设置需求（TASK-001..TASK-015）迁移结果校准；2026-10-06 随概览指标化（`/overview/metrics` 聚合常量与 SQL）校准；同日随后续全站列表页量统一 15（前端分页展示契约）校准；**同日再随 im-gateway 评审修复校准**（投递鉴权与产物归属解析、入站排队调度、去重占位所有权、终帧重试、明文尺寸口径等新增常量）；**同日再随 agent-worker 评审修复校准**（回收重试预算与退避、心跳失联码、投递预留租约、执行超时下限、`SKILL_RESULT_INVALID`/`BATCH_FANOUT_STALE`/`DELIVERABLE_STATUSES` 等）；**2026-10-09 随异步工具结果回流与 Run 等待恢复需求（TASK-001..009）校准**（新增 `async_tool_dispatch_*` 环境项、工具并发声明与规划器、MCP 会话常量、契约状态枚举/错误码、等待/接续事件与只读投影常量等，并把全部行号对齐当前源码）；**2026-10-11 随 Console 管理视图、Run 事件详情与概览聚合扩展校准**（新增 Run 事件查询/投影常量与按需拉取 SQL、概览单快照 `OVERVIEW_SQL`，随概览常量内联删除 `MIN/MAX/DEFAULT_METRIC_DAYS`、`RECENT_TASK_LIMIT` 等登记行；Python 行按 AST 重对齐，前端常量行同步至声明行并删除 `TaskDetailSideSheet` 已移除的 `CANCELLABLE_STATUSES`；函数默认参数 / 环境读取 / 内联节拍行的历史漂移一并校正，`POD_NAME` 登记重指向 `main.py`）；**2026-10-15 随记忆体系重构需求（TASK-001..031）校准**（删除 `compaction.memory.budget_ratio`，新增 memory 分组 16 个叶子与 6 条 memory 规则 verifier；`MemoryPolicySettings` 进入 schema 字段精确盘点，新增 `packages/agent-core/src/muad_agent_core/memory/*`、`apps/agent-runtime/src/muad_agent_runtime/application/memory_*.py`、0020 迁移与前端记忆契约的常量行；全部 Python 行按 AST 重新对齐）；**2026-11-08 随站内产物交付（会话发布事实）与重复失败上限（RUN_NO_PROGRESS）校准**；**2026-11-07 随入口身份收口校准**（`ChannelContext.entry_id` 必填、`bot_id` 只作平台路由，配置行按 AST 重对齐并修复 `default` 含逗号但未加引号的行）。基于当前 `main`。
 本文件是**迁移后的现状盘点与分类结论**：Console 系统设置页已交付，平台设置文档按租户持久化（`control.platform_setting`，append-only 版本行），57 个叶子已接入该唯一源，散落的重复默认已按收敛清单收敛。逐项清单见 [configuration-inventory.csv](configuration-inventory.csv)。
 
 ## 分类结论
@@ -22,7 +22,7 @@
 
 扫描不把每个 SQL `.limit(1)`、计数器初始零、CSS 尺寸或循环算术都当作配置；调用方传入且没有默认值的参数不属于常量默认。本清单是当前源码快照，不能宣称通过语法扫描穷尽所有隐含业务策略。
 
-**当前声明点合计 1775**：`code` 1512、`environment` 139、`business` 112、`business-resource` 12。其中大量 `code` 行是状态码、事件名、协议文本与各服务持有的实现常量。分类由 `tests/test_configuration_inventory.py` 的机检与分类断言兜底（路径/行号/符号/默认值直接与源码 AST 对齐；分类主张逐条钉住）。
+**当前声明点合计 1953**：`code` 1663、`environment` 163、`business` 115、`business-resource` 12。其中大量 `code` 行是状态码、事件名、协议文本与各服务持有的实现常量。分类由 `tests/test_configuration_inventory.py` 的机检与分类断言兜底（路径/行号/符号/默认值直接与源码 AST 对齐；分类主张逐条钉住）。
 
 ## SharedSettings：当前 110 项全部是环境设置
 

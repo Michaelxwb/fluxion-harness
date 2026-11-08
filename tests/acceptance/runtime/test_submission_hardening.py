@@ -80,7 +80,12 @@ def _run(stack, client, arguments, *, routed=False):
             "final_text": "submitted",
         },
     ).raise_for_status()
-    channel = {"type": "WECOM", "bot_id": stack.bot_id, "external_conversation_id": str(uuid4())}
+    channel = {
+        "type": "WECOM",
+        "entry_id": stack.bot_account_id,
+        "bot_id": stack.bot_id,
+        "external_conversation_id": str(uuid4()),
+    }
     if routed:
         channel["external_user_id"] = "submission-recipient"
     response = client.post(

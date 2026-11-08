@@ -165,3 +165,10 @@ def test_message_args_keys_exist_in_catalog_templates():
                     )
 
     assert problems == [], "message_args 与目录模板不匹配：\n" + "\n".join(sorted(set(problems)))
+
+
+def test_runner_terminal_codes_are_registered() -> None:
+    """Runner 终态码必须能被网关按目录渲染：缺一条就会退化成「内部错误」（真实事故）。"""
+    catalog = _catalog()
+    for code in ("RUN_BUDGET_EXCEEDED", "RUN_DEADLINE_EXCEEDED", "VERIFICATION_EXHAUSTED"):
+        assert catalog.has(code), f"{code} 必须在消息目录里"

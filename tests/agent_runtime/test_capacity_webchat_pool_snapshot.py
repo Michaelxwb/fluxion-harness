@@ -68,6 +68,8 @@ from muad_contracts.platform_settings import (
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext
 
+ENTRY_ID = uuid.uuid4()
+
 pytestmark = pytest.mark.integration
 
 MODEL_NAME = "gpt-4o-mini"
@@ -285,7 +287,7 @@ def _request(tenant: TenantContext, text: str) -> RunRequest:
     return RunRequest(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.platform_user_id,
-        channel=ChannelContext(type="WECOM", bot_id="bot-1"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text=text),
     )
 

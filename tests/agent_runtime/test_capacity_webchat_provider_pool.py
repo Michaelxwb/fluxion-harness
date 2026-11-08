@@ -63,6 +63,8 @@ from muad_contracts import ResolvedAgent, ResolveDefinitionResponse, ResolvedMod
 from muad_contracts.model_pool import RunCallOwner, derive_model_key_resource_id
 from muad_contracts.platform_settings import CapacitySettings, ModelPoolSettings
 
+ENTRY_ID = uuid.uuid4()
+
 pytestmark = pytest.mark.integration
 
 MODEL_NAME = "gpt-4o-mini"
@@ -336,6 +338,9 @@ async def pool_tenant(model_probe: tuple[ModelProbe, str]) -> AsyncIterator[Pool
                 "DELETE FROM runtime.canonical_event WHERE tenant_id = :tenant_id",
                 "DELETE FROM runtime.run_submission WHERE tenant_id = :tenant_id",
                 "DELETE FROM runtime.runtime_snapshot WHERE tenant_id = :tenant_id",
+                "DELETE FROM runtime.channel_notification WHERE tenant_id = :tenant_id",
+                "DELETE FROM runtime.channel_notification_feed WHERE tenant_id = :tenant_id",
+                "DELETE FROM runtime.channel_conversation WHERE tenant_id = :tenant_id",
                 "DELETE FROM runtime.run_record WHERE tenant_id = :tenant_id",
                 "DELETE FROM runtime.conversation WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.platform_setting WHERE tenant_id = :tenant_id",
@@ -649,7 +654,7 @@ async def _start_run(
     request = RunRequest(
         agent_id=tenant.agent_id,
         platform_user_id=tenant.platform_user_id,
-        channel=ChannelContext(type="WECOM", bot_id="bot-1"),
+        channel=ChannelContext(type="WECOM", entry_id=ENTRY_ID, bot_id="bot-1"),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text=text),
         conversation_id=conversation_id,
     )
@@ -788,13 +793,15 @@ async def _seed_run(tenant: PoolTenant) -> uuid.UUID:
     async with get_session_factory()() as session:
         await session.execute(
             sa.text(
-                "INSERT INTO runtime.conversation (id, tenant_id, user_id, agent_id, last_seq)"
-                " VALUES (:id, :tenant_id, :user_id, :agent_id, 0)"
+                "INSERT INTO runtime.conversation"
+                " (id, tenant_id, user_id, agent_id, last_seq, channel_account_id)"
+                " VALUES (:id, :tenant_id, :user_id, :agent_id, 0, :entry_id)"
             ).bindparams(
                 id=conversation_id,
                 tenant_id=tenant.tenant_id,
                 user_id=tenant.platform_user_id,
                 agent_id=tenant.agent_id,
+                entry_id=ENTRY_ID,
             )
         )
         await session.execute(

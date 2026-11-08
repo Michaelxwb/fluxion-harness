@@ -19,7 +19,12 @@ from muad_agent_core.model import (
 )
 from muad_agent_core.prompt import MAX_CATALOG_ENTRIES
 from muad_agent_core.sandbox import DevUnsafeRunner
-from muad_agent_core.skill import MAX_SKILL_ARG_BYTES, MAX_SKILL_ARGS, SandboxedSkillExecutor
+from muad_agent_core.skill import (
+    MAX_SKILL_ARG_BYTES,
+    MAX_SKILL_ARGS,
+    SandboxedSkillExecutor,
+    SkillExecutionError,
+)
 from muad_agent_core.tools import ToolEffect, ToolRegistry
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
@@ -694,3 +699,62 @@ def test_skill_tools_are_not_registered_without_effective_skills(tmp_path: Path)
     registry = _registry_with_keys(tmp_path)
 
     assert registry.list() == ()
+
+
+class _RejectingExecutor:
+    """平台取登录态失败：执行器带 detail 抛出（与真实适配器同形状）。"""
+
+    def __init__(self, *, retryable: bool = False) -> None:
+        self._retryable = retryable
+
+    async def execute(self, request: Any) -> Any:
+        raise SkillExecutionError(
+            "PLATFORM_AUTH_REJECTED",
+            code="PLATFORM_AUTH_REJECTED",
+            detail={"http_status": 200, "business_code": 9348, "message": "签名校验失败"},
+            retryable=self._retryable,
+        )
+
+
+async def test_execute_skill_surfaces_the_platform_reason(
+    skill_env: SkillEnv, tmp_path: Path
+) -> None:
+    """平台非正常响应：工具结果带上 detail（模型据此告诉用户平台侧原因）。"""
+    registry = build_skill_registry(
+        cache=skill_env.cache,
+        skills=(skill_env.skill,),
+        policy=AgentPolicy(deadline_ms=30_000),
+        executor=_RejectingExecutor(),
+        workspace_dir=tmp_path / "workspace",
+        execution_id=f"exec-{uuid.uuid4()}",
+    )
+
+    payload = await _call(
+        registry, EXECUTE_SKILL_TOOL, {"skill_key": SKILL_KEY, "input": {"demo": True}}
+    )
+
+    assert payload["error"]["code"] == "SKILL_EXECUTION_FAILED"
+    assert payload["error"]["message"] == "PLATFORM_AUTH_REJECTED"
+    assert payload["error"]["detail"] == {
+        "http_status": 200,
+        "business_code": 9348,
+        "message": "签名校验失败",
+    }
+
+
+async def test_retryable_skill_failure_carries_the_flag(skill_env: SkillEnv, tmp_path: Path) -> None:
+    """可重试失败（网络/超时类）必须在工具结果里标注，Runner 才允许按阈值再试。"""
+    registry = build_skill_registry(
+        cache=skill_env.cache,
+        skills=(skill_env.skill,),
+        policy=AgentPolicy(deadline_ms=30_000),
+        executor=_RejectingExecutor(retryable=True),
+        workspace_dir=tmp_path / "workspace",
+        execution_id=f"exec-{uuid.uuid4()}",
+    )
+
+    payload = await _call(
+        registry, EXECUTE_SKILL_TOOL, {"skill_key": SKILL_KEY, "input": {"demo": True}}
+    )
+
+    assert payload["error"]["retryable"] is True

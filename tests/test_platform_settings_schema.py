@@ -71,6 +71,7 @@ def test_other_groups_keep_designed_defaults() -> None:
     settings = default_platform_settings()
     assert (settings.agent.max_turns, settings.agent.max_tool_calls) == (20, 30)
     assert (settings.agent.deadline_ms, settings.agent.max_model_retries) == (120000, 3)
+    assert settings.agent.max_identical_failures == 2
     assert (
         settings.task.default_deadline_hours,
         settings.task.max_attempts,
@@ -123,6 +124,8 @@ _ACCEPT: list[tuple[str, Any]] = [
     ("agent.max_tool_calls", 0),
     ("agent.deadline_ms", 1),
     ("agent.max_model_retries", 0),
+    ("agent.max_identical_failures", 1),
+    ("agent.max_identical_failures", 10),
     ("task.default_deadline_hours", 1),
     ("task.max_attempts", 1),
     ("task.batch_max_concurrency", 1),
@@ -164,6 +167,8 @@ _REJECT: list[tuple[str, Any]] = [
     ("agent.max_tool_calls", -1),
     ("agent.deadline_ms", 0),
     ("agent.max_model_retries", -1),
+    ("agent.max_identical_failures", 0),
+    ("agent.max_identical_failures", 11),
     ("task.default_deadline_hours", 0),
     ("task.max_attempts", 0),
     ("task.batch_max_concurrency", 0),

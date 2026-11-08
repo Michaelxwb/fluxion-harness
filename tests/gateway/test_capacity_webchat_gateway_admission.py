@@ -71,6 +71,8 @@ pytestmark = pytest.mark.integration
 
 GATEWAY_TENANT = "tenant-b248"
 ENTRY_ID = "entry-b248"
+#: 入口账号的逻辑 UUID（与平台 bot_id 是两件事）。
+ENTRY_UUID = uuid.UUID("11111111-1111-1111-1111-111111111111")
 PLATFORM_USER_ID = UUID("9f4a1c22-6d3b-4c8e-9a10-2f5b7d8e0a11")
 AGENT_ID = UUID("a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d")
 CONVERSATION_A = UUID("3c7d5e91-0b24-4a6f-8d33-5e9a1c4b7f20")
@@ -151,6 +153,7 @@ class _OwnerProbe:
             return _envelope(
                 {
                     "bound": True,
+                    "entry_id": str(ENTRY_UUID),
                     "authorized": True,
                     "agent_id": str(AGENT_ID),
                     "platform_user_id": str(PLATFORM_USER_ID),
@@ -475,6 +478,7 @@ async def test_b248_admission_slot_covers_admission_only_and_sources_route_preci
             first, second = runtime_probe.requests
             assert first["channel"] == {
                 "type": "WEBCHAT",
+                "entry_id": str(ENTRY_UUID),
                 "bot_id": ENTRY_ID,
                 "external_user_id": str(PLATFORM_USER_ID),
                 "external_conversation_id": str(CONVERSATION_A),
@@ -655,6 +659,7 @@ async def test_b248_wecom_entry_pointer_and_commands_stay_on_their_own_source(
         wecom_request = runtime_probe.requests[0]
         assert wecom_request["channel"] == {
             "type": "WECOM",
+            "entry_id": str(ENTRY_UUID),
             "bot_id": WECOM_BOT,
             "external_user_id": str(PLATFORM_USER_ID),
             "external_conversation_id": WECOM_CHAT,
@@ -680,7 +685,15 @@ async def test_b248_wecom_entry_pointer_and_commands_stay_on_their_own_source(
         await _wait_for(lambda: runtime_probe.cancel_calls, what="/stop 未到达 Runtime")
         await _wait_for(lambda: sdk.replied_texts, what="/stop 回执未回到自己的消息")
         assert runtime_probe.cancel_calls == [
-            {"agent_id": str(AGENT_ID), "platform_user_id": str(PLATFORM_USER_ID)}
+            {
+                "agent_id": str(AGENT_ID),
+                "platform_user_id": str(PLATFORM_USER_ID),
+                "source": {
+                    "conversation_id": None,
+                    "entry_id": str(ENTRY_UUID),
+                    "external_thread_id": WECOM_CHAT,
+                },
+            }
         ]
         assert sdk.replied_texts == [("req-b248-stop", STOP_ACCEPTED_TEXT)]
         assert runtime_probe.finished == [], "断言前提：两条长流都仍挂着（命令不串别的 Run）"
@@ -689,7 +702,17 @@ async def test_b248_wecom_entry_pointer_and_commands_stay_on_their_own_source(
         sdk.push_message(_wecom_message(message_id="wecom-b248-new", text="/new", reply_id="req-b248-new"))
         await _wait_for(lambda: runtime_probe.conversations, what="/new 未到达 Runtime")
         assert runtime_probe.conversations == [
-            {"agent_id": str(AGENT_ID), "platform_user_id": str(PLATFORM_USER_ID)}
+            {
+                "agent_id": str(AGENT_ID),
+                "platform_user_id": str(PLATFORM_USER_ID),
+                "channel": {
+                    "type": "WECOM",
+                    "entry_id": str(ENTRY_UUID),
+                    "bot_id": WECOM_BOT,
+                    "external_user_id": str(PLATFORM_USER_ID),
+                    "external_conversation_id": WECOM_CHAT,
+                },
+            }
         ]
         await _wait_for(
             lambda: len(sdk.replied_texts) == 2, what="/new 回执未回到自己的消息"

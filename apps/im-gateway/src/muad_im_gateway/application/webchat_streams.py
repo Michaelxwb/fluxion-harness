@@ -292,6 +292,9 @@ class WebchatPublicProjector:
                     {
                         "code": payload.get("error_code"),
                         "retryable": payload.get("retryable", False),
+                        # 失败终态里带了收尾结论正文（`final_text`）⇒ 客户端不再弹「失败，请重发」。
+                        "has_reply": bool(payload.get("final_text"))
+                        or payload.get("has_reply") is True,
                     }
                 ),
                 **identity,

@@ -133,7 +133,15 @@ def test_b206_checkpoint_uses_a_scanned_watermark_without_inventing_a_canonical_
 
 def test_b206_public_errors_accept_codes_but_no_arbitrary_provider_text() -> None:
     safe = _contract("WebchatSafeError")(code="MODEL_CAPACITY_UNAVAILABLE", retryable=True)
-    assert safe.model_dump() == {"code": "MODEL_CAPACITY_UNAVAILABLE", "retryable": True}
+    assert safe.model_dump() == {
+        "code": "MODEL_CAPACITY_UNAVAILABLE",
+        "retryable": True,
+        "has_reply": False,
+    }
+    # 失败已落结论消息：客户端据此不再弹「失败，请重发」。
+    assert _contract("WebchatSafeError")(
+        code="RUN_NO_PROGRESS", retryable=False, has_reply=True
+    ).has_reply is True
     with pytest.raises(ValidationError, match="message"):
         _contract("WebchatSafeError")(code="MODEL_FAILED", retryable=False, message="provider secret canary")
     with pytest.raises(ValidationError, match="code"):

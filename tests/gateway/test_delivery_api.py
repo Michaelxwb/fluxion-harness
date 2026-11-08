@@ -16,7 +16,12 @@ import uvicorn
 from fakes import FakeConsoleClient
 from httpx import ASGITransport, AsyncClient
 from muad_agent_worker.delivery.client import HttpDeliveryClient
-from muad_contracts import AttachmentRef, BotSnapshotItem, DeliveryResponse
+from muad_contracts import (
+    AttachmentRef,
+    BotSnapshotItem,
+    ChannelResolveResponse,
+    DeliveryResponse,
+)
 from muad_im_connector.channels.wecom.adapter import ConnectionState, WeComAdapter
 from muad_im_gateway.api.deps import (
     get_artifact_resolver,
@@ -46,6 +51,17 @@ from tests.internal_service import internal_service_token  # noqa: F401  (fixtur
 GATEWAY_TENANT = "tenant-1"
 #: 每个投递请求都要带服务身份：`/internal/deliveries` 与 resolve-credentials 同门控（2026-10-06）。
 SERVICE_HEADERS = {"X-Internal-Service": INTERNAL_TOKEN}
+
+
+def _authorized_resolve() -> ChannelResolveResponse:
+    """交付前的接收权限复核：默认已授权（未绑定用例单独覆盖拒绝路径）。"""
+    return ChannelResolveResponse(
+        bound=True,
+        entry_id=uuid.uuid4(),
+        agent_id=uuid.uuid4(),
+        platform_user_id=uuid.uuid4(),
+        authorized=True,
+    )
 
 
 class _FakeResolver:
@@ -180,7 +196,9 @@ async def api_client(
 ) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides[get_registry] = lambda: registry
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe
-    app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
+    console = FakeConsoleClient()
+    console.resolve_response = _authorized_resolve()
+    app.dependency_overrides[get_console_client] = lambda: console
     app.dependency_overrides[get_gateway_tenant] = lambda: tenant
     app.dependency_overrides[get_artifact_resolver] = lambda: resolver or _FakeResolver()
     app.dependency_overrides[get_delivery_streams] = lambda: streams or FakeDeliveryStreams()
@@ -269,6 +287,19 @@ async def test_service_identity_header_is_the_only_gate_before_the_tenant_check(
 
     assert response.status_code == 200, response.text
     assert len(adapter.sent) == 1
+
+
+async def test_delivery_rechecks_receiver_permission_before_sending() -> None:
+    """真实发送前按原入口复核：授权被撤销 ⇒ 403，绝不发出去。"""
+    adapter = FakeChannelAdapter()
+    denied = FakeConsoleClient()
+    denied.resolve_response = _authorized_resolve().model_copy(update={"authorized": False})
+    async with api_client(_registry_with(adapter), InMemoryDedupeStore()) as client:
+        app.dependency_overrides[get_console_client] = lambda: denied
+        response = await client.post("/internal/deliveries", json=delivery_body())
+
+    assert response.status_code == 403, response.text
+    assert not adapter.sent
 
 
 async def test_first_delivery_is_accepted_and_sent() -> None:
@@ -832,7 +863,9 @@ async def _b117_gateway_http(registry: ChannelRegistry, dedupe: Any) -> AsyncIte
     """真实 Gateway HTTP（uvicorn + 真实 socket；lifespan 关闭只保留依赖注入）。"""
     app.dependency_overrides[get_registry] = lambda: registry
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe
-    app.dependency_overrides[get_console_client] = lambda: FakeConsoleClient()
+    console = FakeConsoleClient()
+    console.resolve_response = _authorized_resolve()
+    app.dependency_overrides[get_console_client] = lambda: console
     app.dependency_overrides[get_gateway_tenant] = lambda: GATEWAY_TENANT
     app.dependency_overrides[get_artifact_resolver] = lambda: _FakeResolver()
     app.dependency_overrides[get_delivery_streams] = lambda: _StubStreams()
@@ -1070,3 +1103,57 @@ async def test_delivery_response_parses_into_the_contract_model() -> None:
         assert parsed.delivered is True, label
     assert DeliveryResponse.model_validate(first).deduplicated is False
     assert DeliveryResponse.model_validate(replay).deduplicated is True
+
+
+def _terminal_body(*, status: str, error_code: str | None = None) -> dict[str, object]:
+    run_id = uuid.uuid4()
+    return {
+        "tenant_id": GATEWAY_TENANT,
+        "delivery_key": f"run:{run_id}:terminal",
+        "route": {
+            "channel": "WECOM",
+            "bot_id": "bot-1",
+            "external_user_id": "ext-1",
+            "external_conversation_id": "conv-1",
+        },
+        "message": {
+            "type": "terminal",
+            "text": "",
+            "status": status,
+            "error_code": error_code,
+        },
+        "message_id": "msg-terminal-1",
+    }
+
+
+async def test_terminal_delivery_renders_cancelled_text() -> None:
+    """终态空正文：取消由 Gateway 渲染“已停止”文案（消息目录不在 Runtime 复制）。"""
+    adapter = FakeChannelAdapter()
+    async with api_client(_registry_with(adapter), InMemoryDedupeStore()) as client:
+        response = await client.post(
+            "/internal/deliveries", json=_terminal_body(status="CANCELLED")
+        )
+    assert response.status_code == 200, response.text
+    assert adapter.sent[0][1].text == "当前任务已停止"
+
+
+async def test_terminal_delivery_renders_error_code_text() -> None:
+    adapter = FakeChannelAdapter()
+    async with api_client(_registry_with(adapter), InMemoryDedupeStore()) as client:
+        response = await client.post(
+            "/internal/deliveries",
+            json=_terminal_body(status="FAILED", error_code="RUN_DEADLINE_EXCEEDED"),
+        )
+    assert response.status_code == 200, response.text
+    assert "超时" in adapter.sent[0][1].text
+
+
+async def test_terminal_delivery_renders_abandoned_as_broken_stream_text() -> None:
+    adapter = FakeChannelAdapter()
+    async with api_client(_registry_with(adapter), InMemoryDedupeStore()) as client:
+        response = await client.post(
+            "/internal/deliveries",
+            json=_terminal_body(status="FAILED", error_code="RUN_ABANDONED"),
+        )
+    assert response.status_code == 200, response.text
+    assert "中断" in adapter.sent[0][1].text

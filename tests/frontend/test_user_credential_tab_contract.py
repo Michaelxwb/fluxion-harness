@@ -22,11 +22,17 @@ def test_credentials_tab_consumes_platform_service_with_user_status() -> None:
     assert "credentialTagKey" in source, "配置状态必须映射 Tag"
 
 
-def test_credentials_tab_never_renders_plaintext() -> None:
+def test_credentials_tab_prefills_saved_json_only_inside_the_editor() -> None:
+    """编辑时按需回显已存明文（仅 ADMIN 可达本页）；列表本身不渲染明文。"""
     source = USER_DETAIL.read_text(encoding="utf-8")
     assert "saveUserCredential" in source
     assert "'x-secret'" in source or "CredentialSchemaFields" in source
-    assert "credential_json" not in source
+    assert "getUserCredential(platform.platform_id, props.userId, true)" in source, (
+        "打开编辑必须按需回显（include_secret=true）"
+    )
+    assert "state.credential_json" in source and "JSON.stringify" in source, (
+        "回显的明文要序列化进编辑器"
+    )
     assert "user.credentials.notEchoed" in source
 
 

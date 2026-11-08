@@ -66,7 +66,7 @@ from ..metrics import (
     record_reason,
 )
 from .channel_delivery import DeliveryConfirmation, DeliveryLease
-from .channel_notifications import DELIVERY_PENDING
+from .channel_notifications import DELIVERY_PENDING, KIND_RUN_COMPLETED
 from .run_service import delivery_route_of
 
 logger = logging.getLogger(__name__)
@@ -130,6 +130,14 @@ class DeliveryIntent:
     attempt: int
     route: DeliveryRouteInput | None
     text: str
+    #: 发起本轮输入的入站消息身份：终态投递据此收尾**原消息**的回复流（旧行/内部 Run 为空）。
+    message_id: str | None
+    #: Run 终态（COMPLETED/FAILED/CANCELLED）与失败码：空正文时由 Gateway 渲染用户文案。
+    status: str
+    error_code: str | None
+    #: 受理时的 Agent/接收者身份：Gateway 发送前按原入口复核，撤权/换人即不发。
+    agent_id: uuid.UUID
+    platform_user_id: uuid.UUID
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,7 +187,13 @@ class DeliveryProtocolPort(Protocol):
 class DeliveryIntentSender(Protocol):
     """把一条意图真正发出去（渠道细节留在实现里；本泵只认结局）。"""
 
-    async def send(self, intent: DeliveryIntent) -> DeliverySendOutcome: ...
+    async def send(
+        self,
+        intent: DeliveryIntent,
+        *,
+        attempt_id: uuid.UUID,
+        lease_epoch: int,
+    ) -> DeliverySendOutcome: ...
 
 
 class DeliveryTransportPort(Protocol):
@@ -201,7 +215,15 @@ def due_intents_statement(*, now: datetime, max_attempts: int, limit: int) -> sa
     隐藏（软删）通知**不**被排除：投递回执与重试资格不因隐藏而消失（TASK-063/§3.6）。
     """
     return (
-        sa.select(ChannelNotification, RunRecord.channel_json, CanonicalEvent.payload_json)
+        sa.select(
+            ChannelNotification,
+            RunRecord.channel_json,
+            CanonicalEvent.payload_json,
+            RunRecord.input_message_id,
+            RunRecord.status,
+            RunRecord.error_code,
+            RunRecord.agent_id,
+        )
         .join(
             RunRecord,
             sa.and_(
@@ -242,7 +264,7 @@ def _deliverable_text(payload: Mapping[str, Any] | None) -> str:
 
 
 def _intent(row: sa.Row[Any]) -> DeliveryIntent:
-    notification, channel_json, payload = row
+    notification, channel_json, payload, input_message_id, status, error_code, agent_id = row
     return DeliveryIntent(
         notification_id=notification.id,
         tenant_id=notification.tenant_id,
@@ -256,6 +278,11 @@ def _intent(row: sa.Row[Any]) -> DeliveryIntent:
         attempt=int(notification.attempt),
         route=delivery_route_of(channel_json),
         text=_deliverable_text(payload),
+        message_id=input_message_id,
+        status=str(status),
+        error_code=error_code,
+        agent_id=agent_id,
+        platform_user_id=notification.user_id,
     )
 
 
@@ -400,7 +427,11 @@ class ChannelDeliveryPump:
             # 已送达重放 / UNKNOWN 保留：本次没有授出租约，不发送、不 ack（也不是"已送达"）。
             record_outcome(CHANNEL_DELIVERY_METRIC, "SKIPPED")
             return
-        send = asyncio.create_task(self._send_within_budget(intent))
+        send = asyncio.create_task(
+            self._send_within_budget(
+                intent, attempt_id=attempt_id, lease_epoch=lease.lease_epoch
+            )
+        )
         keep = asyncio.create_task(self._keep_lease(intent, attempt_id, lease.lease_epoch))
         try:
             done, _ = await asyncio.wait({send, keep}, return_when=asyncio.FIRST_COMPLETED)
@@ -423,11 +454,16 @@ class ChannelDeliveryPump:
         # 诚实结局：DELIVERED/NOT_SENT/UNKNOWN 按**实际发送结果**计数，不互相冒充。
         record_outcome(CHANNEL_DELIVERY_METRIC, _delivery_status(outcome.outcome))
 
-    async def _send_within_budget(self, intent: DeliveryIntent) -> DeliverySendOutcome:
+    async def _send_within_budget(
+        self, intent: DeliveryIntent, *, attempt_id: uuid.UUID, lease_epoch: int
+    ) -> DeliverySendOutcome:
         """发送预算（`channel_delivery_timeout_sec`）：超时只说明没拿到结论，不说明没发出去。"""
         try:
             return await asyncio.wait_for(
-                self._sender.send(intent), timeout=self._policy.timeout_sec
+                self._sender.send(
+                    intent, attempt_id=attempt_id, lease_epoch=lease_epoch
+                ),
+                timeout=self._policy.timeout_sec,
             )
         except TimeoutError:
             return DeliverySendOutcome(outcome="UNKNOWN", result={"reason": "timeout"})
@@ -458,18 +494,39 @@ class GatewayDeliverySender:
     def __init__(self, client: DeliveryTransportPort) -> None:
         self._client = client
 
-    async def send(self, intent: DeliveryIntent) -> DeliverySendOutcome:
+    async def send(
+        self,
+        intent: DeliveryIntent,
+        *,
+        attempt_id: uuid.UUID,
+        lease_epoch: int,
+    ) -> DeliverySendOutcome:
         text = intent.text.strip()
         if intent.route is None:
             return DeliverySendOutcome(outcome="NOT_SENT", result={"reason": "route_missing"})
-        if not text:
-            return DeliverySendOutcome(outcome="NOT_SENT", result={"reason": "text_missing"})
+        if intent.kind == KIND_RUN_COMPLETED:
+            # Run 终态单发送者形态：正文可为空（失败/取消由 Gateway 按 status/error_code 渲染）。
+            message = DeliveryMessage(
+                type="terminal",
+                text=text,
+                status=intent.status,
+                error_code=intent.error_code,
+            )
+        else:
+            if not text:
+                return DeliverySendOutcome(outcome="NOT_SENT", result={"reason": "text_missing"})
+            message = DeliveryMessage(type="text", text=text)
         request = DeliveryRequest(
             tenant_id=intent.tenant_id,
             delivery_key=intent.delivery_key,
             route=intent.route,
-            message=DeliveryMessage(type="text", text=text),
+            message=message,
             artifact_ids=list(intent.artifact_ids),
+            message_id=intent.message_id,
+            delivery_attempt_id=attempt_id,
+            delivery_epoch=lease_epoch,
+            agent_id=intent.agent_id,
+            platform_user_id=intent.platform_user_id,
         )
         try:
             response = await self._client.deliver(request)

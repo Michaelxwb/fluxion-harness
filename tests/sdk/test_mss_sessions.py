@@ -92,6 +92,62 @@ async def test_changed_platform_and_cross_origin_refused(platform_server):
         await adapter.prepare_request(platform, session, request, None)
 
 
+async def test_failed_login_carries_the_platform_reason(platform_server):
+    """业务 code≠0（HTTP 200）：失败原因要带回 http_status/business_code/平台 msg。"""
+    server, platform, credential = platform_server
+    server.reject_message = "签名校验失败"
+    data = json.loads(credential.value)
+    data["sk"] = secrets.token_hex(24)
+    with pytest.raises(PlatformAuthError) as caught:
+        await MSSAdapter().authenticate(platform, SecretValue(value=json.dumps(data), version="2"))
+    assert caught.value.code == "PLATFORM_AUTH_REJECTED"
+    assert caught.value.detail == {
+        "http_status": 200,
+        "business_code": 9348,
+        "message": "签名校验失败",
+    }
+
+
+async def test_http_error_carries_status_and_platform_message(platform_server):
+    """HTTP 非 2xx：带状态码与平台原文（5xx 仍可重试）。"""
+    server, platform, credential = platform_server
+    server.reject_status = 502
+    server.reject_code = 0
+    server.reject_message = "gateway exploded"
+    data = json.loads(credential.value)
+    data["sk"] = secrets.token_hex(24)
+    with pytest.raises(PlatformAuthError) as caught:
+        await MSSAdapter().authenticate(platform, SecretValue(value=json.dumps(data), version="2"))
+    assert caught.value.code == "PLATFORM_HTTP_ERROR"
+    assert caught.value.retryable is True
+    assert caught.value.detail == {"http_status": 502, "message": "gateway exploded"}
+
+
+async def test_platform_reason_never_echoes_the_submitted_credentials(platform_server):
+    """平台把 ak/sk 回显在错误里：进入 detail 前必须替换成 ***。"""
+    server, platform, credential = platform_server
+    data = json.loads(credential.value)
+    wrong_sk = secrets.token_hex(24)
+    data["sk"] = wrong_sk
+    server.reject_message = f"签名错误 ak={data['ak']} sk={wrong_sk}"
+    with pytest.raises(PlatformAuthError) as caught:
+        await MSSAdapter().authenticate(platform, SecretValue(value=json.dumps(data), version="2"))
+    message = caught.value.detail["message"]
+    assert data["ak"] not in message and wrong_sk not in message
+    assert message.count("***") == 2
+
+
+async def test_platform_reason_is_bounded(platform_server):
+    """原文只用于定位：超长一律截断到上限。"""
+    server, platform, credential = platform_server
+    server.reject_message = "x" * 4000
+    data = json.loads(credential.value)
+    data["sk"] = secrets.token_hex(24)
+    with pytest.raises(PlatformAuthError) as caught:
+        await MSSAdapter().authenticate(platform, SecretValue(value=json.dumps(data), version="2"))
+    assert len(caught.value.detail["message"]) == 512
+
+
 def test_schema_parity_custom_credentials():
     validate({"body": {"account": "example", "nested": {"flags": [True, 3]}}}, MSSAdapter.credential_schema)
     validate({"auth_mode": "json", "login_body": {"region": "example"}}, MSSAdapter.platform_config_schema)

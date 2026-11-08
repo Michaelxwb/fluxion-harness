@@ -9,9 +9,18 @@ from ..types import PlatformConfig, SecretValue
 
 
 class PlatformAuthError(RuntimeError):
-    def __init__(self, code: str, *, retryable: bool = False) -> None:
+    """平台交互失败：``detail`` 只承载**非正常响应**的可读原因（HTTP 非 2xx / 业务 code≠0）。
+
+    `detail` 形如 ``{"http_status": 401, "business_code": 9348, "message": "签名校验失败"}``，
+    由适配器按白名单字段采集、截断并擦除本次凭据值；成功路径不产生该字段。
+    """
+
+    def __init__(
+        self, code: str, *, retryable: bool = False, detail: dict[str, object] | None = None
+    ) -> None:
         self.code = code
         self.retryable = retryable
+        self.detail = detail
         super().__init__(code)
 
 

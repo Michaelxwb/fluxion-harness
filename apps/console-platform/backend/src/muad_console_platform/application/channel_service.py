@@ -110,6 +110,7 @@ class ChannelService:
         if identity is None:
             return ChannelResolveResponse(
                 bound=False,
+                entry_id=bot.id,
                 agent_id=bot.agent_id,
                 platform_user_id=None,
                 authorized=False,
@@ -121,6 +122,7 @@ class ChannelService:
         )
         return ChannelResolveResponse(
             bound=True,
+            entry_id=bot.id,
             agent_id=bot.agent_id,
             platform_user_id=identity.platform_user_id,
             authorized=authorized,

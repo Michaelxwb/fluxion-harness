@@ -17,7 +17,12 @@ from muad_agent_runtime.application.async_tools.supervisor import ExecutionSuper
 from muad_agent_runtime.application.ports import NullPlatformSettingsClient
 from muad_agent_runtime.application.run_service import RunService, snapshot_policy
 from muad_agent_runtime.infrastructure.console_client import ConsoleCredentialsClient
-from muad_agent_runtime.infrastructure.models.runtime import RunRecord, RuntimeSnapshot
+from muad_agent_runtime.infrastructure.models.runtime import (
+    ChannelConversation,
+    Conversation,
+    RunRecord,
+    RuntimeSnapshot,
+)
 from muad_api import install_api_foundation
 from muad_contracts import (
     ResolveDefinitionRequest,
@@ -38,6 +43,7 @@ from tests.agent_runtime.memory_confirmation_support import (
     service,
     source,
 )
+from tests.agent_runtime.memory_gateway_support import ENTRY_ID
 from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
 
@@ -76,7 +82,12 @@ class ConfirmationStack:
                 "agent_id": self.run.agent_id,
                 "platform_user_id": user or self.run.user_id,
                 "conversation_id": self.run.conversation_id,
-                "channel": {"type": "WECOM", "bot_id": "fixture", "external_conversation_id": "fixture"},
+                "channel": {
+                    "type": "WECOM",
+                    "entry_id": str(ENTRY_ID),
+                    "bot_id": "fixture",
+                    "external_conversation_id": "fixture",
+                },
                 "message": {"id": message_id or uuid4().hex, "type": "text", "text": text},
             }
         )
@@ -153,9 +164,27 @@ def runtime_app(factory, supervisor, monkeypatch, credentials):
     return app
 
 
+async def _attribute_conversation(factory, run) -> None:
+    """把种子会话挂到稳定入口上：入口归属与直连指针都要成立，受理才会续跑同一条会话。"""
+    async with factory.begin() as session:
+        conversation = await session.get(Conversation, run.conversation_id)
+        conversation.channel_account_id = ENTRY_ID
+        session.add(
+            ChannelConversation(
+                tenant_id=run.tenant_id,
+                user_id=run.user_id,
+                agent_id=run.agent_id,
+                channel_account_id=ENTRY_ID,
+                external_thread_id="fixture",
+                conversation_id=run.conversation_id,
+            )
+        )
+
+
 @asynccontextmanager
 async def confirmation_stack(engine, monkeypatch, *, policy=None):
     factory, run, identity, submission = await source(engine)
+    await _attribute_conversation(factory, run)
     policy = policy or MemoryPolicySettings()
     memory = service(factory, identity, submission)
     await memory.propose(candidate(source_quote="记住蓝色"), call_id="remember-1")

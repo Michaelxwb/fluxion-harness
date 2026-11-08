@@ -302,6 +302,7 @@ async def test_b111_empty_catalog_differs_from_unavailable(
             "msg": "成功",
             "data": {
                 "bound": True,
+                "entry_id": str(channel.bot_account_id),
                 "agent_id": str(channel.agent_id),
                 "platform_user_id": str(uuid.uuid4()),
                 "authorized": True,

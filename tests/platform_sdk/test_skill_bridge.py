@@ -97,6 +97,73 @@ async def _run_cli(env: dict[str, str], skill_name: str = "probe-skill") -> subp
     )
 
 
+class _RejectingManager:
+    """首次（access.start 的 TTL 续期）成功，第二次（CLI 取 state）才暴露平台失败。"""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def acquire(self, request: SessionRequest) -> PlatformSession:
+        self.calls += 1
+        if self.calls == 1:
+            return PlatformSession(
+                cookie=json.dumps([{"name": "csrf_token", "value": COOKIE}]),
+                expires_at=datetime.now(UTC) + timedelta(hours=2),
+            )
+        raise PlatformAuthError(
+            "PLATFORM_AUTH_REJECTED",
+            detail={"http_status": 200, "business_code": 9348, "message": "签名校验失败"},
+        )
+
+
+async def test_failed_session_carries_the_platform_reason_to_the_skill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """平台失败原因（非 2xx / code≠0）要经 broker → CLI stderr 交到 Skill 手里。"""
+
+    async def resolve(
+        self: SkillPlatformAccess, key: str, method: str, path: str
+    ) -> tuple[PlatformConfig, SessionRequest, _RejectingManager]:
+        platform = PlatformConfig(
+            key=key,
+            name=key,
+            resolver_type="BASE_URL",
+            resolver_config={"base_url": "https://mssp.example.internal"},
+            adapter_key="mss-session",
+            credential_mode="USER_ONLY",
+        )
+        request = SessionRequest(
+            platform, "user:" + key, "1", "credential-" + key, SecretValue(value="{}", version="1")
+        )
+        return platform, request, _RejectingManager()
+
+    monkeypatch.setattr(SkillPlatformAccess, "resolve", resolve)
+    async with skill_platform_environment(_context(), "probe-skill") as session:
+        completed = await _run_cli(dict(session.env))
+
+    assert completed.returncode == 1
+    error = json.loads(completed.stderr.decode("utf-8"))["error"]
+    assert error["code"] == "PLATFORM_AUTH_REJECTED"
+    assert error["detail"] == {
+        "http_status": 200,
+        "business_code": 9348,
+        "message": "签名校验失败",
+    }
+
+
+async def test_successful_session_has_no_error_detail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """成功路径不产生原因字段（正常返回不需要告诉用户任何平台细节）。"""
+    _patch_resolver(monkeypatch)
+    async with skill_platform_environment(_context(), "probe-skill") as session:
+        completed = await _run_cli(dict(session.env))
+    assert completed.returncode == 0
+    stdout = completed.stdout.decode("utf-8")
+    stderr = completed.stderr.decode("utf-8")
+    assert "detail" not in stdout and "detail" not in stderr
+
+
 async def test_get_state_stdout_keeps_legacy_platforms_and_writes_plain_state_file(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

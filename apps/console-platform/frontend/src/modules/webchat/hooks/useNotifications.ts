@@ -38,6 +38,7 @@ import type {
 import { isWebchatAuthError, webchatErrorCode } from '../services/webchatApi';
 import type {
   WebchatAttachment,
+  WebchatAttachmentQuery,
   WebchatClient,
   WebchatClientLimits,
   WebchatNotification,
@@ -177,7 +178,11 @@ export interface NotificationClientPort {
     notificationId: string,
     options?: WebchatRequestOptions
   ): Promise<WebchatNotificationReadReceipt>;
-  download(artifactId: string, options?: WebchatRequestOptions): Promise<Blob>;
+  download(
+    artifactId: string,
+    query: WebchatAttachmentQuery,
+    options?: WebchatRequestOptions
+  ): Promise<Blob>;
 }
 
 /** 轮询配置端口：`ClientConfigService`/`ClientConfigController` 结构满足（间隔只来自投影）。 */
@@ -266,6 +271,7 @@ export interface NotificationController {
   /** 经授权下载面预览白名单图片；本地拒绝显式抛出，请求失败返回 null 并留稳定码。 */
   openPreview(
     attachment: WebchatAttachment,
+    conversationId: string,
     options?: WebchatRequestOptions
   ): Promise<NotificationPreviewState | null>;
   closePreview(): void;
@@ -622,14 +628,17 @@ async function markConversationReadOnce(
 async function openPreviewOnce(
   runtime: NotificationRuntime,
   attachment: WebchatAttachment,
+  conversationId: string,
   options?: WebchatRequestOptions
 ): Promise<NotificationPreviewState | null> {
   if (!canPreviewAttachment(attachment)) throwLocal(runtime, 'ATTACHMENT_NOT_PREVIEWABLE');
   const epoch = (runtime.previewEpoch += 1);
   try {
-    const blob = await runtime.deps.client.download(attachment.artifact_id, {
-      signal: options?.signal ?? runtime.deps.identity.identitySignal()
-    });
+    const blob = await runtime.deps.client.download(
+      attachment.artifact_id,
+      { conversationId, checksum: attachment.checksum },
+      { signal: options?.signal ?? runtime.deps.identity.identitySignal() }
+    );
     const url = runtime.preview.createObjectUrl(blob);
     if (epoch !== runtime.previewEpoch) {
       runtime.preview.revokeObjectUrl(url);
@@ -812,7 +821,8 @@ export function createNotificationController(
     markRead: (notificationId, options) => markReadOnce(runtime, notificationId, options),
     markConversationRead: (conversationId, options) =>
       markConversationReadOnce(runtime, conversationId, options),
-    openPreview: (attachment, options) => openPreviewOnce(runtime, attachment, options),
+    openPreview: (attachment, conversationId, options) =>
+      openPreviewOnce(runtime, attachment, conversationId, options),
     closePreview: () => closePreviewRuntime(runtime),
     reset: () => resetRuntime(runtime),
     dispose: () => disposeRuntime(runtime)
@@ -851,7 +861,7 @@ export interface NotificationsController {
   markRead(notificationId: string): void;
   /** 活跃会话的未读整体标读：页面在“选中且可见”时调用。 */
   markConversationRead(conversationId: string): void;
-  openPreview(attachment: WebchatAttachment): void;
+  openPreview(attachment: WebchatAttachment, conversationId: string): void;
   closePreview(): void;
 }
 
@@ -988,8 +998,8 @@ export function useNotifications(
     [service]
   );
   const openPreview = useCallback(
-    (attachment: WebchatAttachment) => {
-      fireAndForget(service.openPreview(attachment));
+    (attachment: WebchatAttachment, conversationId: string) => {
+      fireAndForget(service.openPreview(attachment, conversationId));
     },
     [service]
   );

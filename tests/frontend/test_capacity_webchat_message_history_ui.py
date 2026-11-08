@@ -567,12 +567,13 @@ const obs = {};
   const saved = [];
   const downloader = createAttachmentDownloader(
     {
-      download: async (artifactId, options) => {
-        calls.push({ artifactId, hasOptions: options !== undefined });
+      download: async (artifactId, query, options) => {
+        calls.push({ artifactId, query, hasOptions: options !== undefined });
         return 'blob';
       }
     },
     (error) => failures.push(error),
+    { conversationId: CONVERSATION_1 },
     (blob, filename) => saved.push({ blob, filename })
   );
   const available = {
@@ -605,6 +606,7 @@ const obs = {};
       }
     },
     (error) => brokenFailures.push(error),
+    { conversationId: CONVERSATION_1 },
     () => {
       throw new Error('save should not run');
     }
@@ -617,6 +619,7 @@ const obs = {};
   const failingSave = createAttachmentDownloader(
     { download: async () => 'blob' },
     (error) => saveFailures.push(error),
+    { conversationId: CONVERSATION_1 },
     () => {
       throw new Error('save failed');
     }
@@ -635,6 +638,7 @@ const obs = {};
       }
     },
     (error) => goneFailures.push(error),
+    { conversationId: CONVERSATION_1 },
     () => {
       throw new Error('save should not run');
     }
@@ -653,6 +657,7 @@ const obs = {};
       }
     },
     (error) => forbiddenFailures.push(error),
+    { conversationId: CONVERSATION_1 },
     () => {
       throw new Error('save should not run');
     }
@@ -960,7 +965,11 @@ export async function renderScenarios(scenarios) {
     const i18n = await i18nFor(scenario.locale);
     const { port, download } = await controllerFor(scenario);
     const failures = [];
-    const onDownload = createAttachmentDownloader({ download }, (error) => failures.push(error));
+    const onDownload = createAttachmentDownloader(
+      { download },
+      (error) => failures.push(error),
+      { conversationId: CONVERSATION_1 }
+    );
     const area = React.createElement(MessageArea, {
       conversations: port,
       conversationId: scenario.select === false ? null : CONVERSATION_1,
@@ -1407,9 +1416,17 @@ def test_b280_attachments_only_download_through_the_authorized_port(
     """附件取件只经注入的授权下载面；失效附件本地拒绝并显式上报，失败不静默。"""
     observed = message_logic["download"]
     assert observed["calls"] == [
-        {"artifactId": ARTIFACT_A, "hasOptions": False},
-        {"artifactId": "8d8d8d8d-8d8d-4d8d-8d8d-8d8d8d8d8d8d", "hasOptions": False},
-    ], "可用附件只按 artifact_id 经注入端口取件（组件不拼路径、不读存储键）"
+        {
+            "artifactId": ARTIFACT_A,
+            "query": {"conversationId": CONVERSATION_1, "checksum": "sha256:aa"},
+            "hasOptions": False,
+        },
+        {
+            "artifactId": "8d8d8d8d-8d8d-4d8d-8d8d-8d8d8d8d8d8d",
+            "query": {"conversationId": CONVERSATION_1, "checksum": "sha256:aa"},
+            "hasOptions": False,
+        },
+    ], "可用附件按 (artifact, 目标会话, 版本) 经注入端口取件（组件不拼路径、不读存储键）"
     assert observed["saved"] == [
         {"blob": "blob", "filename": "报表.pdf"},
         {"blob": "blob", "filename": "image.png"},
@@ -1615,9 +1632,8 @@ def test_b280_components_compile_and_keep_the_module_boundaries(
         )
         assert not COLOR_LITERAL.search(stripped), f"{path.name} 不得散落主题色值"
         assert not CJK.search(stripped), f"{path.name} 不得承载硬编码文案（走 i18n 词条）"
-        assert "run_id" not in stripped and "checksum" not in stripped, (
-            f"{path.name} 不得消费/渲染未使用的内部字段"
-        )
+        # checksum 是**取件版本**（同一产物可能发布过多次）：下载面必须带上它，属已使用字段。
+        assert "run_id" not in stripped, f"{path.name} 不得消费/渲染未使用的内部字段"
 
 
 def test_b280_thread_and_view_binding_keep_their_seams() -> None:

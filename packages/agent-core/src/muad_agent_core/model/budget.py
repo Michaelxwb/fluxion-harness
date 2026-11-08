@@ -34,6 +34,8 @@ DEFAULT_MAX_TOOL_CALLS = _AGENT_DEFAULTS.max_tool_calls
 DEFAULT_DEADLINE_MS = _AGENT_DEFAULTS.deadline_ms
 #: 重试次数默认（等价平台设置 `agent.max_model_retries` 的 schema 默认）。
 DEFAULT_MAX_MODEL_RETRIES = _AGENT_DEFAULTS.max_model_retries
+#: 同一失败重复次数上限默认（等价平台设置 `agent.max_identical_failures` 的 schema 默认）。
+DEFAULT_MAX_IDENTICAL_FAILURES = _AGENT_DEFAULTS.max_identical_failures
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +82,7 @@ class ModelBudget:
 
 __all__ = [
     "DEFAULT_DEADLINE_MS",
+    "DEFAULT_MAX_IDENTICAL_FAILURES",
     "DEFAULT_MAX_MODEL_RETRIES",
     "DEFAULT_MAX_TOOL_CALLS",
     "DEFAULT_MAX_TURNS",

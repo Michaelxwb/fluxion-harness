@@ -287,6 +287,7 @@ def _payload(stack: GatewayStack, text: str, *, conversation_id: Any = None) -> 
         "platform_user_id": str(stack.platform_user_id),
         "channel": {
             "type": "WECOM",
+            "entry_id": stack.bot_account_id,
             "bot_id": stack.bot_id,
             "external_conversation_id": stack.chat_id,
         },
@@ -634,6 +635,10 @@ async def test_s09_cancel_running_is_cooperative_and_terminal(
                             json={
                                 "agent_id": str(stack.agent_id),
                                 "platform_user_id": str(stack.platform_user_id),
+                                "source": {
+                                    "entry_id": str(stack.bot_account_id),
+                                    "external_thread_id": stack.chat_id,
+                                },
                             },
                             headers=_runtime_headers(stack),
                         )
@@ -676,6 +681,10 @@ async def test_s09_cancel_waiting_input_is_cas_cancelled(gateway_stack: GatewayS
             json={
                 "agent_id": str(stack.agent_id),
                 "platform_user_id": str(stack.platform_user_id),
+                "source": {
+                    "entry_id": str(stack.bot_account_id),
+                    "external_thread_id": stack.chat_id,
+                },
             },
             headers=_runtime_headers(stack),
         )
@@ -718,6 +727,10 @@ async def _no_active_run(stack: GatewayStack) -> bool:
             json={
                 "agent_id": str(stack.agent_id),
                 "platform_user_id": str(stack.platform_user_id),
+                "source": {
+                    "entry_id": str(stack.bot_account_id),
+                    "external_thread_id": stack.chat_id,
+                },
             },
             headers=_runtime_headers(stack),
         )

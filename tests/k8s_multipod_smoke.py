@@ -124,6 +124,7 @@ async def _run_turn(base_url, seeded, text, *, conversation_id, message_id) -> d
             conversation_id=conversation_id,
             channel=ChannelContext(
                 type="WECOM",
+                entry_id=seeded["bot_account_id"],
                 bot_id=str(seeded["bot_id"]),
                 external_conversation_id=str(seeded["chat_id"]),
             ),

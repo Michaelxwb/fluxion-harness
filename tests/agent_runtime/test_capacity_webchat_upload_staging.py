@@ -222,7 +222,9 @@ def _request(
         agent_id=tenant.agent_id,
         platform_user_id=user_id or tenant.platform_user_id,
         conversation_id=conversation_id,
-        channel=ChannelContext(type="WEBCHAT", bot_id=str(entry_id), external_user_id="web-1"),
+        channel=ChannelContext(
+            type="WEBCHAT", entry_id=entry_id, bot_id=f"bot-{entry_id.hex[:8]}", external_user_id="web-1"
+        ),
         message=MessageInput(
             id=message_id or f"msg-{uuid.uuid4()}",
             text=text,
@@ -848,34 +850,3 @@ async def test_missing_or_tampered_staged_bytes_fail_explicitly_without_side_eff
     assert not (root / "runs").exists() or not any((root / "runs").rglob("*")), (
         "失败路径不得留下 Run 制品文件"
     )
-
-
-async def test_unattributable_entry_cannot_admit_staged_uploads(
-    staging_tenant: tuple[TenantContext, Path],
-    fake_resolve: FakeResolveClient,
-    executor_factory: ExecutorFactory,
-    execution_supervisor_boundary: Any,
-) -> None:
-    """入口不可归属（bot_id 非 UUID 形状）时不能承载暂存上传：显式校验失败，不静默丢内容。"""
-    tenant, root = staging_tenant
-    entry = uuid.uuid4()
-    conversation_id = await _seed_conversation(tenant, entry_id=None)
-    upload = await _register(tenant, root, entry_id=entry)
-    request = _request(
-        tenant, conversation_id=conversation_id, entry_id=entry, upload_ids=[upload.id]
-    )
-    request = request.model_copy(
-        update={"channel": request.channel.model_copy(update={"bot_id": "bot-wecom"})}
-    )
-    error = await _rejects(
-        _start_run(
-            tenant,
-            fake_resolve,
-            executor_factory,
-            execution_supervisor_boundary,
-            request,
-            root=root,
-        )
-    )
-    assert error.code == ErrorCode.COMMON_VALIDATION_ERROR
-    assert await _run_count(tenant.tenant_id) == 0

@@ -73,6 +73,8 @@ from tests.agent_runtime.memory_redesign_write_support import (
 from tests.e2e.openai_probe_app import app as probe_app
 from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 
+ENTRY_ID = uuid.uuid4()
+
 LISTEN_TIMEOUT_SEC = 15.0
 TOOL_NAME = "dump"
 RESULT_TEXT = "很长的工具结果" * 900  # ≈ 9 KiB ⇒ 单条超外置阈值，会被换成引用
@@ -279,7 +281,7 @@ async def _send(client: httpx.AsyncClient, tenant: TenantContext, text: str) -> 
         json={
             "agent_id": str(tenant.agent_id),
             "platform_user_id": str(tenant.platform_user_id),
-            "channel": {"type": "WECOM", "bot_id": "bot-memory"},
+            "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-memory"},
             "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
         },
         headers={"X-Tenant-Id": tenant.tenant_id, "X-Internal-Service": INTERNAL_SERVICE_TOKEN},

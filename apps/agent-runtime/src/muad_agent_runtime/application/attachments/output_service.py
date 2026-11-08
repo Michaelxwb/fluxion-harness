@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+import sqlalchemy as sa
 from muad_agent_core.skill import OutputFile
 from muad_artifact_store import NfsArtifactStore
 
@@ -80,6 +81,24 @@ class OutputArtifactWriter:
             raise
         return row
 
+    async def find_registered(self, *, relative_path: str, checksum: str) -> uuid.UUID | None:
+        """本 Run 里已经登记过的**同路径同内容**产物（重试复用；内容变了就是新产物）。"""
+        if self.scope.run_id is None:
+            return None
+        async with self._session_factory()() as session:
+            found = await session.scalar(
+                sa.select(Artifact.id)
+                .where(
+                    Artifact.tenant_id == self.scope.tenant_id,
+                    Artifact.run_id == self.scope.run_id,
+                    Artifact.checksum == checksum,
+                    Artifact.is_deleted.is_(False),
+                    Artifact.metadata_json["relative_path"].astext == relative_path,
+                )
+                .limit(1)
+            )
+        return found
+
     def _row(
         self,
         data: bytes,
@@ -127,6 +146,14 @@ class SkillOutputArtifactRegistrar:
     async def register(self, output: OutputFile) -> str:
         data = await asyncio.to_thread(output.path.read_bytes)
         media_type = mimetypes.guess_type(output.relative_path)[0] or "application/octet-stream"
+        checksum = "sha256:" + hashlib.sha256(data).hexdigest()
+        # 同一 Run 内对**同一路径同一内容**的重复登记复用原行：交付重试不该造出第二份产物
+        # （否则用户会收到两张同一文件的卡片）。
+        existing = await self._writer.find_registered(
+            relative_path=output.relative_path, checksum=checksum
+        )
+        if existing is not None:
+            return str(existing)
         row = await self._writer.save(
             data,
             filename=Path(output.relative_path).name,

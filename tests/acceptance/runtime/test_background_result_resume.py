@@ -116,14 +116,26 @@ def _begin(stack, client, tmp_path, *, calls=1):
     events, result = Queue(), Queue()
     conversation = client.post(
         stack.runtime_url + "/v1/conversations",
-        json={"agent_id": str(stack.agent_id), "platform_user_id": str(stack.platform_user_id)},
+        json={
+            "agent_id": str(stack.agent_id),
+            "platform_user_id": str(stack.platform_user_id),
+            "channel": {
+                "type": "WECOM",
+                "entry_id": stack.bot_account_id,
+                "bot_id": stack.bot_id,
+            },
+        },
         headers=stack.service_headers(),
     ).json()["data"]["conversation_id"]
     payload = {
         "agent_id": str(stack.agent_id),
         "platform_user_id": str(stack.platform_user_id),
         "conversation_id": conversation,
-        "channel": {"type": "WECOM", "bot_id": stack.bot_id},
+        "channel": {
+            "type": "WECOM",
+            "entry_id": stack.bot_account_id,
+            "bot_id": stack.bot_id,
+        },
         "message": {"id": str(uuid4()), "type": "text", "text": "Check the jobs"},
     }
 
@@ -283,7 +295,11 @@ def test_s05_frozen_configuration_authorization_and_rotated_credentials(live_sta
                 json={
                     "agent_id": str(live_stack.agent_id),
                     "platform_user_id": str(live_stack.platform_user_id),
-                    "channel": {"type": "WECOM", "bot_id": live_stack.bot_id},
+                    "channel": {
+                        "type": "WECOM",
+                        "entry_id": live_stack.bot_account_id,
+                        "bot_id": live_stack.bot_id,
+                    },
                     "message": {"id": str(uuid4()), "type": "text", "text": "new"},
                 },
             )

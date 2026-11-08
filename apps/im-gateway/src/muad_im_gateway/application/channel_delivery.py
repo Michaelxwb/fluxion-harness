@@ -117,6 +117,14 @@ class _Claim:
     attempt_id: UUID
 
 
+@dataclass(frozen=True, slots=True)
+class _Reservation:
+    """预占结论：有租约 / 没有持久意图 / 协调端口不可用（三者处置完全不同）。"""
+
+    claim: _Claim | None
+    reason: Literal["claimed", "no_intent", "unavailable"]
+
+
 def _record_outcome(status: TerminalDeliveryStatus) -> TerminalDeliveryStatus:
     """交付结局记一次（词表与 `TerminalDeliveryStatus` 同源）；返回原值便于直接 return。
 
@@ -229,18 +237,29 @@ class ActiveChannelDelivery:
         if not permitted:
             _record_outcome("failed")
             return FAILED
-        claim = await self._reserve(tenant_id=tenant_id, run_id=run_id)
-        if claim is None:
+        reservation = await self._reserve(tenant_id=tenant_id, run_id=run_id)
+        if reservation.claim is None:
+            if reservation.reason == "no_intent":
+                # 已受理的机器人 Run 一定有持久出站意图：找不到是内部一致性错误，
+                # 不能降级成"直接发"（那会把重复发送伪装成正常路径）。
+                _record_outcome("failed")
+                return FAILED
             return await self._send_uncoordinated(adapter, route, run_id=run_id, text=content)
+        claim = reservation.claim
         if _has_lease(claim.grant):
             return await self._send_and_ack(adapter, route, claim, run_id=run_id, text=content)
         return self._settle_grant(claim.grant, run_id=run_id, channel=route.channel)
 
     async def confirm(self, *, tenant_id: str, run_id: str) -> TerminalDeliveryStatus:
         """活跃回复会话的收尾：终态内容已写进会话流 ⇒ 同键认领并确认，阻止兜底重发。"""
-        claim = await self._reserve(tenant_id=tenant_id, run_id=run_id)
-        if claim is None:
+        reservation = await self._reserve(tenant_id=tenant_id, run_id=run_id)
+        if reservation.claim is None:
+            if reservation.reason == "no_intent":
+                # 流内已发出正文，但没有可确认的持久意图：不能自称已确认送达。
+                _record_outcome("failed")
+                return FAILED
             return DELIVERED
+        claim = reservation.claim
         if not _has_lease(claim.grant):
             return self._settle_grant(claim.grant, run_id=run_id, channel="")
         acknowledged = await self._ack(
@@ -266,12 +285,12 @@ class ActiveChannelDelivery:
             platform_user_id=platform_user_id,
         )
 
-    async def _reserve(self, *, tenant_id: str, run_id: str) -> _Claim | None:
-        """按稳定键预占；`None` = 没有可协调的对象（无意图 / 非出站意图 / 端口不可用）。"""
+    async def _reserve(self, *, tenant_id: str, run_id: str) -> _Reservation:
+        """按稳定键预占；三种结论分开：拿到租约 / 没有持久意图 / 协调端口不可用。"""
         protocol = self._protocol
         if protocol is None:
             logger.warning("channel_delivery_uncoordinated run_id=%s", run_id)
-            return None
+            return _Reservation(claim=None, reason="unavailable")
         attempt_id = uuid.uuid4()
         request = DeliveryReservationRequest(
             delivery_key=terminal_delivery_key(run_id),
@@ -282,16 +301,20 @@ class ActiveChannelDelivery:
             grant = await protocol.reserve_delivery(request, tenant_id=tenant_id)
         except AppError as exc:
             if exc.code in WITHOUT_INTENT_CODES:
-                # 没有持久出站意图（无入口归属的会话 / 网页持久入箱）：没有可协调的对象。
-                logger.info("channel_delivery_without_intent run_id=%s code=%s", run_id, exc.code)
-            else:
-                logger.warning(
-                    "channel_delivery_coordination_unavailable run_id=%s code=%s",
-                    run_id,
-                    exc.code,
-                )
-            return None
-        return _Claim(tenant_id=tenant_id, grant=grant, attempt_id=attempt_id)
+                # 机器人 Run 的终态通知在终态事务里写入；这里找不到意味着通知链路断了，
+                # 不是"可以正常降级"的场景（2026-11-07 入口身份收口后不再有未归属入口）。
+                logger.error("channel_delivery_without_intent run_id=%s code=%s", run_id, exc.code)
+                return _Reservation(claim=None, reason="no_intent")
+            logger.warning(
+                "channel_delivery_coordination_unavailable run_id=%s code=%s",
+                run_id,
+                exc.code,
+            )
+            return _Reservation(claim=None, reason="unavailable")
+        return _Reservation(
+            claim=_Claim(tenant_id=tenant_id, grant=grant, attempt_id=attempt_id),
+            reason="claimed",
+        )
 
     def _settle_grant(
         self, grant: DeliveryLeaseGrant, *, run_id: str, channel: str

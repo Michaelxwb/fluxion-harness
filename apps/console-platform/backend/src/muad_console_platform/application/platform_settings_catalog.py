@@ -64,6 +64,7 @@ _FIELD_META: dict[str, dict[str, Any]] = {
     "agent.max_tool_calls": {"min": 0},
     "agent.deadline_ms": {"min": 1, "unit_key": "settings.unit.ms"},
     "agent.max_model_retries": {"min": 0},
+    "agent.max_identical_failures": {"min": 1, "max": 10},
     "task.default_deadline_hours": {"min": 1, "unit_key": "settings.unit.hours"},
     "task.max_attempts": {"min": 1},
     "task.batch_max_concurrency": {"min": 1},
@@ -269,7 +270,13 @@ async def count_resource_overrides(session: AsyncSession, tenant_id: str) -> dic
     agent_override = or_(
         *(
             runtime_config[key].isnot(None)
-            for key in ("max_turns", "max_tool_calls", "deadline_ms", "max_model_retries")
+            for key in (
+                "max_turns",
+                "max_tool_calls",
+                "deadline_ms",
+                "max_model_retries",
+                "max_identical_failures",
+            )
         )
     )
     queries = {

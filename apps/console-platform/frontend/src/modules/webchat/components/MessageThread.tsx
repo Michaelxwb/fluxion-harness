@@ -44,6 +44,7 @@ import {
 import type {
   AttachmentKind,
   WebchatAttachment,
+  WebchatAttachmentQuery,
   WebchatHistoryMessage,
   WebchatMessageRole,
   WebchatRequestOptions
@@ -65,7 +66,11 @@ export class AttachmentUnavailableError extends Error {
 
 /** 附件下载端口：`WebchatClient.download`（TASK-055/073 的授权下载面）结构满足。 */
 export interface MessageAttachmentDownloadPort {
-  download(artifactId: string, options?: WebchatRequestOptions): Promise<Blob>;
+  download(
+    artifactId: string,
+    query: WebchatAttachmentQuery,
+    options?: WebchatRequestOptions
+  ): Promise<Blob>;
 }
 
 /** 附件动作失败端口：本地拒绝与取件失败都显式上报，绝不静默。 */
@@ -80,10 +85,14 @@ function isAttachmentGone(error: unknown): boolean {
   return code === 'COMMON_NOT_FOUND' || code === 'FORBIDDEN';
 }
 
-/** 把附件下载绑到授权下载面：只传 `artifact_id`（不拼路径、不读存储键），失败显式上报。 */
+/** 把附件下载绑到授权下载面：只传引用（不拼路径、不读存储键），失败显式上报。
+
+`target.conversationId` 是正在看的会话：授权按目标会话裁决，`checksum` 选定发布过的版本。
+*/
 export function createAttachmentDownloader(
   port: MessageAttachmentDownloadPort,
   onFailure: MessageAttachmentFailureHandler,
+  target: AttachmentDownloadTarget,
   save: AttachmentSaver = saveAttachmentBlob
 ): (attachment: WebchatAttachment) => void {
   return (attachment) => {
@@ -91,7 +100,12 @@ export function createAttachmentDownloader(
       onFailure(new AttachmentUnavailableError());
       return;
     }
-    port.download(attachment.artifact_id).then(
+    port
+      .download(attachment.artifact_id, {
+        conversationId: target.conversationId,
+        checksum: attachment.checksum
+      })
+      .then(
       (blob) => {
         try {
           save(blob, attachmentDownloadName(attachment));
@@ -480,6 +494,11 @@ interface MessageAttachmentCardProps {
   onDownload(attachment: WebchatAttachment): void;
 }
 
+/** 取件目标：当前会话（授权对象）。 */
+export interface AttachmentDownloadTarget {
+  conversationId: string;
+}
+
 /** 附件图标：按真实种类选图标；未知种类不伪造具体类型。 */
 function attachmentIcon(kind: AttachmentKind): ReactNode {
   if (kind === 'IMAGE') return <IconImage />;
@@ -488,7 +507,7 @@ function attachmentIcon(kind: AttachmentKind): ReactNode {
 }
 
 /** 附件卡片：文件图标 + 名称/类型/大小 + 授权下载；失效附件如实标注。 */
-function MessageAttachmentCard(props: MessageAttachmentCardProps) {
+export function MessageAttachmentCard(props: MessageAttachmentCardProps) {
   const { t } = useTranslation();
   const { attachment } = props;
   const filename = attachment.filename?.trim() ?? '';
@@ -582,7 +601,7 @@ function MessageItem(props: MessageItemProps) {
           <div className="chat-message-attachments">
             {message.attachments.map((attachment) => (
               <MessageAttachmentCard
-                key={attachment.artifact_id}
+                key={`${attachment.artifact_id}:${attachment.checksum}`}
                 attachment={attachment}
                 onDownload={props.onDownload}
               />

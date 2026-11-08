@@ -104,6 +104,8 @@ export interface ActiveRunState {
   text: string;
   errorCode: string | null;
   retryable: boolean | null;
+  /** 失败时是否已落一条结论消息：有结论就不再弹「失败，请重发」。 */
+  hasReply: boolean;
   /** 需显式动作才能重开的停止事实；null = 可继续（未停止/正常关闭）。 */
   recovery: RunRecoveryState | null;
 }
@@ -115,6 +117,8 @@ export type RunReplyPhase = 'queued' | 'running' | 'waiting-tool' | 'waiting-inp
 export interface StreamingReplyProps {
   runId: string;
   text: string;
+  /** 本 Run 已发布的附件（实时卡片）：与历史读取同一份发布事实。 */
+  attachments: WebchatAttachment[];
   phase: RunReplyPhase;
   queuedAt: string | null;
   queueReason: string | null;
@@ -226,6 +230,7 @@ export function streamingReply(
   return {
     runId: run.runId,
     text: run.text,
+    attachments: run.attachments,
     phase: replyPhase(run.status, status),
     queuedAt: status === null ? null : status.queued_at,
     queueReason: status === null ? null : status.reason,
@@ -286,6 +291,7 @@ function initialRunState(target: RunSubscriptionTarget): ActiveRunState {
     text: '',
     errorCode: null,
     retryable: null,
+    hasReply: false,
     recovery: null
   };
 }
@@ -305,10 +311,16 @@ function mergeAttachments(
   existing: readonly WebchatAttachment[],
   incoming: WebchatAttachment
 ): WebchatAttachment[] {
-  const byId = new Map<string, WebchatAttachment>();
-  for (const item of existing) byId.set(item.artifact_id, item);
-  byId.set(incoming.artifact_id, incoming);
-  return [...byId.values()];
+  // 同一产物的不同版本是**两张卡**（发布冻结）：去重键必须含 checksum，否则后一版覆盖前一版。
+  const byVersion = new Map<string, WebchatAttachment>();
+  for (const item of existing) byVersion.set(attachmentVersionKey(item), item);
+  byVersion.set(attachmentVersionKey(incoming), incoming);
+  return [...byVersion.values()];
+}
+
+/** 附件版本键：产物 + 发布时的校验和（服务端按它选定版本）。 */
+export function attachmentVersionKey(attachment: WebchatAttachment): string {
+  return `${attachment.artifact_id}:${attachment.checksum}`;
 }
 
 /** 阶段事件：持久阶段同时驱动业务状态（等待输入与终态才改变状态，排队不假装执行）。 */
@@ -477,6 +489,7 @@ function applyApplied(
     run.confirmation = null;
     run.errorCode = update.code;
     run.retryable = update.retryable;
+    run.hasReply = update.hasReply;
   } else if (update.kind === 'confirmation') {
     run.confirmation = update.data;
   } else {

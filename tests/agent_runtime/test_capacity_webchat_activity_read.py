@@ -480,7 +480,10 @@ def _request(
         platform_user_id=tenant.platform_user_id,
         conversation_id=conversation_id,
         channel=ChannelContext(
-            type="WEBCHAT", bot_id=str(tenant.entry_id), external_user_id="web-1"
+            type="WEBCHAT",
+            entry_id=tenant.entry_id,
+            bot_id=f"bot-{tenant.entry_id.hex[:8]}",
+            external_user_id="web-1",
         ),
         message=MessageInput(id=f"msg-{uuid.uuid4()}", text=text),
     )

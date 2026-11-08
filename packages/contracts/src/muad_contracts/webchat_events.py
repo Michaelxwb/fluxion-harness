@@ -38,10 +38,15 @@ class WebchatReplySnapshot(WebchatReplyDelta):
 
 
 class WebchatSafeError(WebchatContract):
-    """Stable catalog code only; no raw upstream message, details or exception."""
+    """Stable catalog code only; no raw upstream message, details or exception.
+
+    `has_reply` 表示这次失败**已经落了一条结论消息**（失败收尾回合的正文）：客户端据此
+    不再弹「失败，请重发」的通用提示，避免与结论正文自相矛盾。
+    """
 
     code: Annotated[StrictStr, Field(pattern=r"^[A-Z][A-Z0-9_]+$")]
     retryable: StrictBool
+    has_reply: StrictBool = False
 
 
 class WebchatTerminal(WebchatContract):

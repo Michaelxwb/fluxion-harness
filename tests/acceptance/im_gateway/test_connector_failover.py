@@ -436,6 +436,7 @@ async def _submit_inbound(stack: ConnectorStack, event: dict[str, Any]) -> None:
         "conversation_id": None,
         "channel": {
             "type": "WECOM",
+            "entry_id": str(stack.bot_account_id),
             "bot_id": event["bot_id"],
             "external_user_id": event["external_user_id"],
             "external_conversation_id": event.get("external_conversation_id"),

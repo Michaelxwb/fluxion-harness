@@ -79,6 +79,7 @@ def _run_request(gateway_stack: GatewayStack, *, message_id: str, text: str) -> 
         conversation_id=None,
         channel=ChannelContext(
             type="WECOM",
+            entry_id=gateway_stack.bot_account_id,
             bot_id=gateway_stack.bot_id,
             external_conversation_id=gateway_stack.chat_id,
         ),

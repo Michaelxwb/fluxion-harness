@@ -55,6 +55,7 @@ export type WebchatRequestErrorCode =
   | 'CONVERSATION_REQUIRED'
   | 'RUN_REQUIRED'
   | 'ARTIFACT_REQUIRED'
+  | 'CHECKSUM_REQUIRED'
   | 'NOTIFICATION_REQUIRED'
   | 'MESSAGE_ID_REQUIRED'
   | 'MESSAGE_EMPTY'
@@ -290,6 +291,12 @@ export interface WebchatHistoryQuery extends WebchatPageQuery {
   through_seq?: number;
 }
 
+/** API-10 取件对象：目标会话（授权按它裁决）+ 卡片上的版本（同一产物可能发布过多次）。 */
+export interface WebchatAttachmentQuery {
+  conversationId: string;
+  checksum: string;
+}
+
 /** API-11 增量查询：`after_seq` 取上一次响应的 `next_seq`。 */
 export interface WebchatNotificationQuery extends WebchatPageQuery {
   after_seq?: number;
@@ -364,7 +371,11 @@ export interface WebchatClient {
     options?: WebchatRequestOptions
   ): Promise<WebchatMessagePage>;
   upload(entryId: string, file: Blob, options?: WebchatRequestOptions): Promise<WebchatUpload>;
-  download(artifactId: string, options?: WebchatRequestOptions): Promise<Blob>;
+  download(
+    artifactId: string,
+    query: WebchatAttachmentQuery,
+    options?: WebchatRequestOptions
+  ): Promise<Blob>;
   notifications(
     query?: WebchatNotificationQuery,
     options?: WebchatRequestOptions

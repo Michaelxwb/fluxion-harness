@@ -122,6 +122,7 @@ def _payload() -> dict[str, object]:
         "platform_user_id": str(uuid.uuid4()),
         "channel": {
             "type": "WECOM",
+            "entry_id": str(uuid.uuid4()),
             "bot_id": "bot-e04",
             "external_conversation_id": "conv-e04",
         },
@@ -133,7 +134,12 @@ def _run_request() -> RunRequest:
     return RunRequest(
         agent_id=uuid.uuid4(),
         platform_user_id=uuid.uuid4(),
-        channel=ChannelContext(type="WECOM", bot_id="bot-e04", external_conversation_id="conv-e04"),
+        channel=ChannelContext(
+            type="WECOM",
+            entry_id=uuid.uuid4(),
+            bot_id="bot-e04",
+            external_conversation_id="conv-e04",
+        ),
         message=MessageInput(id=f"msg-{uuid.uuid4().hex[:8]}", text="你好"),
     )
 

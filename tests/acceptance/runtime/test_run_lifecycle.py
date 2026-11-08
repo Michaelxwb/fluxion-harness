@@ -25,6 +25,8 @@ from muad_contracts import ResolveDefinitionResponse
 
 from tests.acceptance.runtime.conftest import LiveStack, run_db
 
+ENTRY_ID = uuid.uuid4()
+
 
 def _parse_sse(body: str) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
@@ -50,7 +52,12 @@ def _payload(
     payload: dict[str, Any] = {
         "agent_id": str(stack.agent_id),
         "platform_user_id": str(stack.platform_user_id),
-        "channel": {"type": "WECOM", "bot_id": "bot-acc", "external_conversation_id": "ext-acc"},
+        "channel": {
+            "type": "WECOM",
+            "entry_id": str(ENTRY_ID),
+            "bot_id": "bot-acc",
+            "external_conversation_id": "ext-acc",
+        },
         "message": {"id": f"msg-{uuid.uuid4()}", "type": "text", "text": text},
     }
     if conversation_id is not None:
@@ -64,6 +71,7 @@ def _fresh_conversation(http: httpx.Client, stack: LiveStack) -> uuid.UUID:
         json={
             "agent_id": str(stack.agent_id),
             "platform_user_id": str(stack.platform_user_id),
+            "channel": {"type": "WECOM", "entry_id": str(ENTRY_ID), "bot_id": "bot-acc"},
         },
         headers=_headers(stack),
     )
@@ -122,6 +130,8 @@ def _seed_waiting(
                     agent_id=stack.agent_id,
                     status="ACTIVE",
                     last_seq=0,
+                    channel_account_id=ENTRY_ID,
+                    external_thread_id="ext-acc",
                 )
             )
             run = RunRecord(
@@ -254,6 +264,10 @@ def test_e02_cancel_requested_waiting_input_writes_events(
         json={
             "agent_id": str(live_stack.agent_id),
             "platform_user_id": str(live_stack.platform_user_id),
+            "source": {
+                "entry_id": str(ENTRY_ID),
+                "external_thread_id": "ext-acc",
+            },
         },
         headers=_headers(live_stack),
     )
@@ -347,6 +361,10 @@ def test_e08_cancel_running_run_cooperatively(live_stack: LiveStack, http: httpx
                         json={
                             "agent_id": str(live_stack.agent_id),
                             "platform_user_id": str(live_stack.platform_user_id),
+                            "source": {
+                                "entry_id": str(ENTRY_ID),
+                                "external_thread_id": "ext-acc",
+                            },
                         },
                         headers=_headers(live_stack),
                     )

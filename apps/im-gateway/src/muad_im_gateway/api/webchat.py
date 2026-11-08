@@ -565,11 +565,16 @@ async def download_artifact(
     artifact_id: uuid.UUID,
     chat: ChatIdentityDep,
     service: WebchatArtifactServiceDep,
+    conversation_id: Annotated[uuid.UUID, Query()],
+    checksum: Annotated[str, Query(min_length=1)],
 ) -> FileResponse:
-    """API-10：附件下载/图片预览（逐请求复核会话归属与当前入口/Agent 授权）。
+    """API-10：附件下载/图片预览（逐请求复核**目标会话**归属与当前入口/Agent 授权）。
 
-    客户端只给 `artifact_id`：存储键由 Owner 解析、由网关从共享存储读取（不凭客户端取件键取件）；
-    未授权/他主体/已失效一律 404、授权撤销 403，都不泄露存在性。
+    客户端只给引用：`artifact_id` + 当前会话 `conversation_id` + 卡片上的版本 `checksum`。
+    存储键由 Owner 解析、由网关从共享存储读取（不凭客户端取件键取件）；未授权/他主体/未发布
+    的跨会话产物/已失效一律 404、授权撤销 403，都不泄露存在性。
     """
-    download = await service.open_download(chat, artifact_id)
+    download = await service.open_download(
+        chat, artifact_id, conversation_id=conversation_id, checksum=checksum
+    )
     return _download_response(download)

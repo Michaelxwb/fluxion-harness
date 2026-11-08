@@ -513,8 +513,8 @@ async def test_b256_source_without_active_run_does_not_touch_other_conversations
                 "source": {"conversation_id": str(idle_conversation), "entry_id": str(ENTRY_A)},
             },
         )
-        # 无来源的既有口径仍然成立（调用方没有来源事实时按 (agent,user) 最近活跃 Run）。
-        legacy = await _post(
+        # 无来源不再被接受：取消必须带来源，不猜「用户+Agent 最新 Run」。
+        missing = await _post(
             url,
             "/v1/runs/cancel-active",
             run.tenant_id,
@@ -522,10 +522,9 @@ async def test_b256_source_without_active_run_does_not_touch_other_conversations
         )
 
     assert idle.status_code == 404 and idle.json()["code"] == "NO_ACTIVE_RUN"
-    assert legacy.status_code == 200, legacy.text
-    assert legacy.json()["data"]["run_id"] == str(busy_run)
+    assert missing.status_code == 422, missing.text
     row = await _run_row(factory, busy_run)
-    assert row.status == RunStatus.RUNNING and row.cancel_requested  # 协作取消已受理
+    assert row.status == RunStatus.RUNNING and not row.cancel_requested
     assert row.admission_released_at is None
 
 
