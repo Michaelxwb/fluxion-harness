@@ -179,8 +179,10 @@ test('E-05 篡改 user/tenant/entry/run/artifact 拒绝；Token 不进 URL/缓�
     { headers: sessionB.headers }
   );
   expect([403, 404]).toContain(foreignRun.status());
+  // API-10：下载按 (会话, 制品, checksum) 授权与版本冻结 —— 客户端必须带当前会话与卡片版本。
   const foreignArtifact = await sessionB.context.get(
-    `/api/v1/webchat/artifacts/${randomUUID()}/content`,
+    `/api/v1/webchat/artifacts/${randomUUID()}/content`
+      + `?conversation_id=${conversationId}&checksum=${encodeURIComponent('sha256:' + 'a'.repeat(64))}`,
     { headers: sessionB.headers }
   );
   expect([403, 404]).toContain(foreignArtifact.status());

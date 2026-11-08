@@ -654,14 +654,22 @@ test('E-111 配置加载失败单独可重试且不重复交换 Token，设置�
   );
   expect(history.status(), await history.text()).toBe(200);
   const historyBody = (await history.json()) as {
-    data: { items: { role: string; attachments: { artifact_id: string; available: boolean }[] }[] };
+    data: {
+      items: {
+        role: string;
+        attachments: { artifact_id: string; checksum: string; available: boolean }[];
+      }[];
+    };
   };
   const withAttachment = historyBody.data.items.find((item) => item.attachments.length > 0);
   expect(withAttachment).toBeDefined();
   expect(withAttachment?.attachments[0].available).toBe(true);
   const artifactId = String(withAttachment?.attachments[0].artifact_id);
+  const checksum = String(withAttachment?.attachments[0].checksum);
+  // API-10：下载按 (会话, 制品, checksum) 授权 —— 请求必须带上这三者。
   const download = await context.request.get(
-    `/api/v1/webchat/artifacts/${artifactId}/content`,
+    `/api/v1/webchat/artifacts/${artifactId}/content`
+      + `?conversation_id=${conversationId}&checksum=${encodeURIComponent(checksum)}`,
     { headers: { 'X-Chat-Context': api.authContextId } }
   );
   expect(download.status(), await download.text()).toBe(200);
@@ -776,14 +784,21 @@ test('E-111 配置加载失败单独可重试且不重复交换 Token，设置�
   );
   expect(historyAfter.status()).toBe(200);
   const afterBody = (await historyAfter.json()) as {
-    data: { items: { text: string; attachments: { artifact_id: string; available: boolean }[] }[] };
+    data: {
+      items: {
+        text: string;
+        attachments: { artifact_id: string; checksum: string; available: boolean }[];
+      }[];
+    };
   };
   const acceptedAfter = afterBody.data.items.find((item) => item.attachments.length > 0);
   expect(acceptedAfter?.text).toBe('E-111 附件轮');
   expect(acceptedAfter?.attachments[0].artifact_id).toBe(artifactId);
   expect(acceptedAfter?.attachments[0].available).toBe(true);
   const downloadAfter = await context.request.get(
-    `/api/v1/webchat/artifacts/${artifactId}/content`,
+    `/api/v1/webchat/artifacts/${artifactId}/content`
+      + `?conversation_id=${conversationId}&checksum=`
+      + encodeURIComponent(String(acceptedAfter?.attachments[0].checksum)),
     { headers: { 'X-Chat-Context': api.authContextId } }
   );
   expect(downloadAfter.status(), await downloadAfter.text()).toBe(200);
