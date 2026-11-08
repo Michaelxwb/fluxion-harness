@@ -120,7 +120,7 @@ body 用祈使句写指令，遵循“渐进式披露”——核心流程放 SK
 然后按顺序做两件事：
 
 1. `skill_draft`（action=`review`） 做平台结构校验；验证脚本能否跑通必须调用 `skill_draft_shell`（例如 `python -m py_compile scripts/run.py`、`python scripts/run.py <args>`），**不要用 `workspace_shell` 在工作区的草稿目录里直接运行**——那是活草稿，写入会绕过 revision CAS。
-2. 按 `self-skill-review` 做规范审查：先用 `workspace_shell` 执行 `pwd` 取工作区根，再 `execute_skill` 调用 `self-skill-review`，`args` 传 `["--target", "<工作区根>/skill-drafts/<key>"]`，然后按该 Skill 的语义清单逐项核对。把 error/warning 摘要**原文交给用户**；有 error 先修，修完重审。
+2. 按 `self-skill-review` 做规范审查：先用 `workspace_shell` 执行 `pwd` 取工作区根，再 `execute_skill` 调用 `self-skill-review`，`argv` 传 `["--target", "<工作区根>/skill-drafts/<key>"]`，然后按该 Skill 的语义清单逐项核对。把 error/warning 摘要**原文交给用户**；有 error 先修，修完重审。
 
 ### Step 7：交付草稿，等用户上传
 

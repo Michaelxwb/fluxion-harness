@@ -30,13 +30,13 @@ python3 scripts/check.py --target <skill-dir> --format json
 平台草稿在用户工作区的 `skill-drafts/<key>` 下。拿路径的可靠做法（**不要 `find /`**）：
 
 1. `workspace_shell` 执行 `pwd`，得到工作区根（开发环境是宿主路径，生产是 `/workspace`）。
-2. `execute_skill` 调用本 Skill，`args` 原样传给 `scripts/check.py`：
+2. `execute_skill` 调用本 Skill，`argv` 原样传给 `scripts/check.py`：
 
 ```json
 {
   "skill_key": "self-skill-review",
   "input": {},
-  "args": ["--target", "<工作区根>/skill-drafts/<key>"]
+  "argv": ["--target", "<工作区根>/skill-drafts/<key>"]
 }
 ```
 

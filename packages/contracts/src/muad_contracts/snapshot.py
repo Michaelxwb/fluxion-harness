@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from .resolve import ResolvedAgent, ResolvedMcpServer, ResolvedModel, ResolvedSkill, WorkspaceRef
+from .skill_invocation import validate_skill_argv
 
 #: v2：skills[] 增加 `source` 与 `workspace`（v1 快照缺这两个键，执行侧按失败处理）。
 TASK_SNAPSHOT_SCHEMA_VERSION = 2
@@ -69,6 +70,7 @@ def build_task_snapshot(
     skill: ResolvedSkill,
     workspace: WorkspaceRef,
     mcp_servers: Sequence[ResolvedMcpServer] = (),
+    argv: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     return {
         "schema_version": TASK_SNAPSHOT_SCHEMA_VERSION,
@@ -84,6 +86,7 @@ def build_task_snapshot(
         "mcp": [_mcp_entry(server) for server in mcp_servers],
         "prompt_template_version": TASK_PROMPT_TEMPLATE_VERSION,
         "budget": dict(agent.runtime_config.get("budget") or {}),
+        "argv": list(validate_skill_argv(argv)),
     }
 
 

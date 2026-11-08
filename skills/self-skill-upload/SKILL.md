@@ -31,7 +31,7 @@ description: 把当前用户的 Skill 草稿提交到控制台，生成待审批
 
 1. **规范审查**：用 `self-skill-review` 审当前草稿——
    - `workspace_shell` 执行 `pwd` 取工作区根；
-   - `execute_skill` `{"skill_key": "self-skill-review", "input": {}, "args": ["--target", "<工作区根>/skill-drafts/<key>"]}`；
+   - `execute_skill` `{"skill_key": "self-skill-review", "input": {}, "argv": ["--target", "<工作区根>/skill-drafts/<key>"]}`；
    - 把 error/warning 摘要原样告诉用户。审查**不阻断提交**，但有 error 时要说明风险并建议先修；
    - 审查之后草稿又被改过 ⇒ 旧报告失效，必须重跑；拿不到报告就**不要提交**。
 2. **平台结构校验**：调用 `skill_draft {"action": "review", "draft_id": "<draft_id>"}`：

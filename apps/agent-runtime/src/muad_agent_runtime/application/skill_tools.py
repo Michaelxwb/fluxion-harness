@@ -23,8 +23,6 @@ from muad_agent_core.sandbox import (
     WorkspaceUnavailable,
 )
 from muad_agent_core.skill import (
-    MAX_SKILL_ARG_BYTES,
-    MAX_SKILL_ARGS,
     DraftShellError,
     DraftShellRequest,
     DraftShellRunner,
@@ -35,7 +33,6 @@ from muad_agent_core.skill import (
     SkillExecutionStatus,
     SkillExecutor,
     build_sandboxed_skill_executor,
-    normalize_skill_args,
 )
 from muad_agent_core.skill.selection import select_entry_script
 from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, ToolRegistry
@@ -49,6 +46,10 @@ from muad_contracts import (
     ResolvedSkill,
     SkillExecutionMode,
     ToolRetrySafety,
+)
+from muad_contracts.skill_invocation import (
+    MAX_SKILL_ARGV_ITEMS,
+    validate_skill_argv,
 )
 from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_skill_sdk.skill_package import (
@@ -83,16 +84,17 @@ READ_SKILL_RESOURCE_TOOL_DESCRIPTION = (
     "Read a file shipped inside a skill package (references/assets) by skill key and path."
 )
 EXECUTE_SKILL_DESCRIPTION = (
-    "Preferred way to run a skill's main business action. Executes the declared entry script with "
-    "a normalized JSON input and honors the skill's execution mode (SYNC runs inline; ASYNC "
-    "submits a background Task). Optional args are CLI argv after the script path (no shell). "
-    "Do not use run_skill_script as a substitute for this tool."
+    "Preferred way to run a skill's main business action. Executes the declared entry script and "
+    "honors the skill's execution mode (SYNC runs inline; ASYNC submits a background Task). "
+    "Pass legacy CLI flags from SKILL.md as argv (strings after the script path, without "
+    "python/node or shell quoting); input is optional JSON stdin and is not converted to CLI "
+    "flags. Do not use run_skill_script as a substitute for this tool."
 )
 RUN_SKILL_SCRIPT_DESCRIPTION = (
     "Debug-only primitive for one specific script inside a skill package, addressed by "
     "package-relative path. It is not exposed by default: skills must route their own actions "
     "through execute_skill. When enabled (debug), it always runs inline and bypasses "
-    "SYNC/ASYNC execution routing. Optional args are CLI argv (no shell)."
+    "SYNC/ASYNC execution routing. argv is passed as CLI arguments (no shell)."
 )
 WORKSPACE_SHELL_DESCRIPTION = (
     "Run a one-off shell command inside this user's persistent workspace for the current Agent. "
@@ -131,12 +133,11 @@ SKILL_EXECUTION_FAILED = "SKILL_EXECUTION_FAILED"
 BACKGROUND_SUBMIT_FAILED = "BACKGROUND_SUBMIT_FAILED"
 _STRING_SCHEMA: Mapping[str, Any] = {"type": "string"}
 _OBJECT_SCHEMA: Mapping[str, Any] = {"type": "object"}
-_NUMBER_SCHEMA: Mapping[str, Any] = {"type": "number", "exclusiveMinimum": 0}
-_ARGS_SCHEMA: Mapping[str, Any] = {
-    "type": "array",
-    "items": {"type": "string", "minLength": 1, "maxLength": MAX_SKILL_ARG_BYTES},
-    "maxItems": MAX_SKILL_ARGS,
+_ARGV_SCHEMA: Mapping[str, Any] = {
+    "type": "array", "items": {"type": "string"}, "maxItems": MAX_SKILL_ARGV_ITEMS,
+    "description": "Script arguments in order, preserving spaces and repeated flags as separate items.",
 }
+_NUMBER_SCHEMA: Mapping[str, Any] = {"type": "number", "exclusiveMinimum": 0}
 _CATALOG_RESOURCE_KEY = "skills:catalog"
 logger = logging.getLogger(__name__)
 
@@ -215,6 +216,7 @@ class TaskSubmissionProtocol(Protocol):
         call_id: str,
         completion_mode: CompletionMode,
         retry_safety: ToolRetrySafety | None = None,
+        argv: tuple[str, ...] = (),
     ) -> dict[str, JsonValue]: ...
 
 
@@ -375,24 +377,17 @@ class SkillToolSet:
         try:
             skill = self._require_skill(arguments)
             input_data = _require_input(arguments)
-            args = _optional_args(arguments)
+            argv = _require_argv(arguments)
             if skill.execution_mode is SkillExecutionMode.ASYNC:
-                if args:
-                    # 后台 Task 目前只冻结 input，不持久化 argv；静默丢弃会让脚本按错误参数
-                    # 执行，宁可在提交前明确拒绝。
-                    raise SkillToolError(
-                        ErrorCode.COMMON_VALIDATION_ERROR.value,
-                        "args are not supported for ASYNC skills",
-                    )
                 mode = CompletionMode(arguments.get("completion_mode", "JOIN"))
-                return await self._submit_background(skill, input_data, call_id, mode)
+                return await self._submit_background(skill, input_data, call_id, mode, argv=argv)
             if "completion_mode" in arguments:
                 raise SkillToolError(
                     ErrorCode.TOOL_COMPLETION_MODE_INVALID.value, "SYNC Skill does not accept completion_mode"
                 )
             package = await self._package(skill)
             return await self._execute(
-                package.root, input_data, script=None, skill=skill, args=args, call_id=call_id
+                package.root, input_data, script=None, skill=skill, argv=argv, call_id=call_id
             )
         except SkillToolError as exc:
             return _error_result(
@@ -404,13 +399,13 @@ class SkillToolSet:
             skill = self._require_skill(arguments)
             name = _require_string(arguments, "script")
             input_data = _require_input(arguments)
-            args = _optional_args(arguments)
+            argv = _require_argv(arguments)
             package = await self._package(skill)
             script = _select_script(package, name)
             if skill.execution_mode is SkillExecutionMode.ASYNC:
                 _reject_async_entrypoint_bypass(package, script)
             return await self._execute(
-                package.root, input_data, script=script, skill=skill, args=args, call_id=call_id
+                package.root, input_data, script=script, skill=skill, argv=argv, call_id=call_id
             )
         except SkillToolError as exc:
             return _error_result(
@@ -617,8 +612,8 @@ class SkillToolSet:
                     {
                         "skill_key": _STRING_SCHEMA,
                         "input": _OBJECT_SCHEMA,
-                        "args": _ARGS_SCHEMA,
                         "completion_mode": {"type": "string", "enum": ["JOIN", "DETACH"]},
+                        "argv": _ARGV_SCHEMA,
                     },
                     ("skill_key",),
                 ),
@@ -638,7 +633,7 @@ class SkillToolSet:
                     "skill_key": _STRING_SCHEMA,
                     "script": _STRING_SCHEMA,
                     "input": _OBJECT_SCHEMA,
-                    "args": _ARGS_SCHEMA,
+                    "argv": _ARGV_SCHEMA,
                 },
                 ("skill_key", "script"),
             ),
@@ -663,7 +658,8 @@ class SkillToolSet:
         return skill
 
     async def _submit_background(
-        self, skill: ResolvedSkill, input_data: Mapping[str, Any], call_id: str, mode: CompletionMode
+        self, skill: ResolvedSkill, input_data: Mapping[str, Any], call_id: str, mode: CompletionMode,
+        *, argv: tuple[str, ...] = (),
     ) -> str:
         """ASYNC Skill 的 ExecutionRouter：只创建 Parent Task，不本地执行。"""
         if self._task_client is None or self._task_context is None:
@@ -676,6 +672,7 @@ class SkillToolSet:
                 call_id=call_id,
                 completion_mode=mode,
                 retry_safety=self._async_retry_safety,
+                argv=argv,
             )
         except AppError as exc:
             raise SkillToolError(BACKGROUND_SUBMIT_FAILED, str(exc.code)) from exc
@@ -721,9 +718,8 @@ class SkillToolSet:
         *,
         script: Path | None,
         skill: ResolvedSkill,
-        args: Sequence[str] = (),
         call_id: str,
-    ) -> str:
+        argv: tuple[str, ...] = (),    ) -> str:
         if skill_platform_keys(skill.frontmatter) and self._platform_context is None:
             raise SkillToolError(
                 "PLATFORM_CONTEXT_REQUIRED", "Platform Skill requires a trusted execution context"
@@ -738,7 +734,7 @@ class SkillToolSet:
         lease = await self._acquire_execution_workspace(execution_id)
         try:
             result = await self._run_executor(
-                ready_dir, input_data, script=script, skill=skill, args=args,
+                ready_dir, input_data, script=script, skill=skill, argv=argv,
                 execution_id=execution_id,
                 workspace_dir=lease.workspace_dir if lease is not None else self._workspace_dir,
             )
@@ -758,19 +754,19 @@ class SkillToolSet:
         skill: ResolvedSkill,
         execution_id: str,
         workspace_dir: Path | None,
-        args: Sequence[str] = (),
+        argv: tuple[str, ...] = (),
     ) -> SkillExecutionResult:
         try:
             return await self._executor.execute(
                 SkillExecutionRequest(
                     ready_dir=ready_dir,
                     input=input_data,
+                    argv=argv,
                     timeout_sec=self._timeout_sec,
                     source=str(skill.source),
                     workspace_dir=workspace_dir,
                     execution_id=execution_id,
                     script=script,
-                    args=tuple(args),
                     platform_context=replace(
                         self._platform_context, platform_keys=skill_platform_keys(skill.frontmatter)
                     )
@@ -890,6 +886,13 @@ def _require_string(arguments: Mapping[str, Any], key: str) -> str:
     return value.strip()
 
 
+def _require_argv(arguments: Mapping[str, Any]) -> tuple[str, ...]:
+    try:
+        return validate_skill_argv(arguments.get("argv", ()))
+    except ValueError as exc:
+        raise SkillToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc)) from exc
+
+
 def _require_input(arguments: Mapping[str, Any]) -> Mapping[str, Any]:
     value = arguments.get("input")
     if value is None:
@@ -900,21 +903,6 @@ def _require_input(arguments: Mapping[str, Any]) -> Mapping[str, Any]:
             "input must be a JSON object",
         )
     return value
-
-
-def _optional_args(arguments: Mapping[str, Any]) -> tuple[str, ...]:
-    value = arguments.get("args")
-    if value is None:
-        return ()
-    if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Sequence):
-        raise SkillToolError(
-            ErrorCode.COMMON_VALIDATION_ERROR.value,
-            "args must be a JSON array of strings",
-        )
-    try:
-        return normalize_skill_args(value)
-    except ValueError as exc:
-        raise SkillToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc)) from exc
 
 
 def _optional_timeout(arguments: Mapping[str, Any], *, limit: float) -> float:

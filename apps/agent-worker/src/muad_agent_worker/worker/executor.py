@@ -27,6 +27,7 @@ from muad_agent_core.skill import (
 )
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import process_settings
+from muad_contracts.skill_invocation import validate_skill_argv
 from muad_platform_sdk.skill_access import SkillPlatformContext
 
 from ..application.batch_fanout import (
@@ -120,6 +121,13 @@ def frozen_skill(task: TaskExecution) -> Mapping[str, Any]:
     if missing:
         raise TaskExecutionError("SKILL_SNAPSHOT_MISSING", f"frozen skill missing {missing}")
     return cast(Mapping[str, Any], entry)
+
+
+def frozen_argv(task: TaskExecution) -> tuple[str, ...]:
+    try:
+        return validate_skill_argv(task.execution_snapshot_json.get("argv", ()))
+    except ValueError as exc:
+        raise TaskExecutionError("SKILL_SNAPSHOT_INVALID", str(exc), retryable=False) from exc
 
 
 def frozen_source(skill: Mapping[str, Any]) -> str:
@@ -264,6 +272,7 @@ class SkillTaskExecutor:
                 SkillExecutionRequest(
                     ready_dir=ready_dir,
                     input=task.input_json or {},
+                    argv=frozen_argv(task),
                     timeout_sec=self._execution_timeout(task),
                     source=source,
                     workspace_dir=workspace,

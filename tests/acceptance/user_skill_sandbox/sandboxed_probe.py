@@ -152,7 +152,7 @@ async def scenario_s10() -> dict[str, Any]:
             root,
             workspace,
             "s10-exec",
-            args=("--company-id", "42", "a b; echo not-executed"),
+            argv=("--company-id", "42", "a b; echo not-executed"),
         )
     )
 

@@ -11,9 +11,6 @@ from pathlib import Path
 import pytest
 from muad_agent_core.sandbox import DevUnsafeRunner
 from muad_agent_core.skill import (
-    MAX_SKILL_ARG_BYTES,
-    MAX_SKILL_ARGS,
-    MAX_SKILL_ARGS_TOTAL_BYTES,
     OutputLimits,
     SandboxedSkillExecutor,
     SkillExecutionError,
@@ -86,21 +83,6 @@ async def test_execute_receives_stdin_and_structured_result(tmp_path: Path) -> N
     assert result.result == {"echo": {"question": "hello"}}
 
 
-async def test_execute_appends_cli_args_without_shell(tmp_path: Path) -> None:
-    root = _package(
-        tmp_path / "skill",
-        "import json, sys\nprint(json.dumps({'argv': sys.argv[1:]}))\n",
-    )
-
-    result = await _executor().execute(
-        _request(root, args=("--company-id", "42", "a b; echo not-executed"))
-    )
-
-    assert result.result == {
-        "argv": ["--company-id", "42", "a b; echo not-executed"]
-    }
-
-
 async def test_nested_entrypoint_can_import_package_root_module(tmp_path: Path) -> None:
     """去掉 ``-I`` 后入口目录仍在 sys.path[0]；嵌套入口可自行加入包根 import 兄弟模块。"""
     root = _package(tmp_path / "skill", "print('unused')\n")
@@ -140,21 +122,31 @@ async def test_relative_paths_resolve_from_package_root_in_dev_unsafe(tmp_path: 
     assert result.result == {"value": "relative-ok"}
 
 
-@pytest.mark.parametrize(
-    "args",
-    [
-        ("",),
-        ("has\x00nul",),
-        ("x" * (MAX_SKILL_ARG_BYTES + 1),),
-        tuple("x" for _ in range(MAX_SKILL_ARGS + 1)),
-        tuple("x" * 1024 for _ in range(MAX_SKILL_ARGS_TOTAL_BYTES // 1024 + 1)),
-    ],
-)
-def test_invalid_cli_args_are_rejected(tmp_path: Path, args: tuple[str, ...]) -> None:
-    root = _package(tmp_path / "skill", "print('should not run')\n")
-
-    with pytest.raises(ValueError):
-        _request(root, args=args)
+async def test_legacy_argparse_receives_argv_and_stdin_without_shell_expansion(tmp_path: Path) -> None:
+    root = _package(
+        tmp_path / "skill",
+        "import argparse, json, sys, helper\n"
+        "p = argparse.ArgumentParser()\n"
+        "p.add_argument('--company-id', action='append', required=True)\n"
+        "p.add_argument('--start', required=True)\n"
+        "p.add_argument('--notify-no-event', action='store_true')\n"
+        "p.add_argument('--text')\n"
+        "args = vars(p.parse_args())\n"
+        "print(json.dumps({'args': args, 'stdin': json.load(sys.stdin), 'helper': helper.VALUE}))\n",
+        helper="VALUE = 'adjacent module'\n",
+    )
+    literal = f"$(touch {tmp_path / 'expanded'}); * 'quoted'"
+    result = await _executor().execute(_request(root, argv=(
+        "--company-id", "123", "--company-id", "456", "--start", "2026-11-07 10:00",
+        "--notify-no-event", "--text", literal,
+    )))
+    assert result.status is SkillExecutionStatus.SUCCEEDED, result.stderr
+    assert result.result == {
+        "args": {"company_id": ["123", "456"], "start": "2026-11-07 10:00",
+                 "notify_no_event": True, "text": literal},
+        "stdin": {"question": "hello"}, "helper": "adjacent module",
+    }
+    assert not (tmp_path / "expanded").exists()
 
 
 @pytest.mark.parametrize("source", [None, "", "ROOT", "user' OR 1=1"])

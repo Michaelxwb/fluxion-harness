@@ -19,12 +19,7 @@ from muad_agent_core.model import (
 )
 from muad_agent_core.prompt import MAX_CATALOG_ENTRIES
 from muad_agent_core.sandbox import DevUnsafeRunner
-from muad_agent_core.skill import (
-    MAX_SKILL_ARG_BYTES,
-    MAX_SKILL_ARGS,
-    SandboxedSkillExecutor,
-    SkillExecutionError,
-)
+from muad_agent_core.skill import SandboxedSkillExecutor, SkillExecutionError
 from muad_agent_core.tools import ToolEffect, ToolRegistry
 from muad_agent_runtime.application.attachments.tool_results import ArtifactResultWriter
 from muad_agent_runtime.application.executor import (
@@ -45,6 +40,7 @@ from muad_agent_runtime.application.skill_tools import (
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_contracts import ResolvedAgent, ResolvedModel, ResolvedSkill
 from muad_contracts.platform_settings import ToolResultSettings
+from muad_contracts.skill_invocation import MAX_SKILL_ARGV_ITEMS
 
 #: 外置阈值只从 schema 取（TASK-011 收敛：源码里不再有第二套默认常量）。
 TOOL_RESULT_ARTIFACT_BYTES = ToolResultSettings().persist_threshold_bytes
@@ -356,7 +352,7 @@ async def test_execute_skill_passes_cli_args_without_shell(tmp_path: Path) -> No
     payload = await _call(
         env.registry,
         EXECUTE_SKILL_TOOL,
-        {"skill_key": SKILL_KEY, "args": ["--company-id", "42", "a b; echo not-executed"]},
+        {"skill_key": SKILL_KEY, "argv": ["--company-id", "42", "a b; echo not-executed"]},
     )
 
     assert payload["status"] == "SUCCEEDED"
@@ -375,7 +371,7 @@ async def test_run_skill_script_passes_cli_args(tmp_path: Path) -> None:
     payload = await _call(
         env.registry,
         RUN_SKILL_SCRIPT_TOOL,
-        {"skill_key": SKILL_KEY, "script": "scripts/main.py", "args": ["--minutes", "30"]},
+        {"skill_key": SKILL_KEY, "script": "scripts/main.py", "argv": ["--minutes", "30"]},
     )
 
     assert payload["status"] == "SUCCEEDED"
@@ -401,7 +397,7 @@ async def test_run_skill_script_accepts_nested_package_relative_path(tmp_path: P
         {
             "skill_key": SKILL_KEY,
             "script": "phase2/phase2_wait_check.py",
-            "args": ["--task-id", "t-1"],
+            "argv": ["--task-id", "t-1"],
         },
     )
 
@@ -426,41 +422,25 @@ async def test_run_skill_script_rejects_escaping_or_non_script_paths(
 
 
 @pytest.mark.parametrize(
-    "args",
-    ["--company-id", [1], [""], ["bad\x00arg"], None],
+    "argv",
+    ["--company-id", [1], ["bad\x00arg"], None],
 )
-async def test_skill_tools_reject_invalid_args(
-    skill_env: SkillEnv, args: Any
+async def test_skill_tools_reject_invalid_argv(
+    skill_env: SkillEnv, argv: Any
 ) -> None:
     arguments: dict[str, Any] = {"skill_key": SKILL_KEY}
-    if args is not None:
-        arguments["args"] = args
+    if argv is not None:
+        arguments["argv"] = argv
 
     for tool in (EXECUTE_SKILL_TOOL, RUN_SKILL_SCRIPT_TOOL):
         call_arguments = dict(arguments)
         if tool == RUN_SKILL_SCRIPT_TOOL:
             call_arguments["script"] = "main.py"
         payload = await _call(skill_env.registry, tool, call_arguments)
-        if args is None:
+        if argv is None:
             assert payload["status"] == "SUCCEEDED"
         else:
             assert _error_code(payload) == "COMMON_VALIDATION_ERROR"
-
-
-async def test_execute_skill_rejects_args_for_async_skills(tmp_path: Path) -> None:
-    env = _env_for(
-        tmp_path,
-        {"SKILL.md": SKILL_MD, "scripts/main.py": MAIN_SCRIPT},
-        execution_mode="ASYNC",
-    )
-
-    payload = await _call(
-        env.registry,
-        EXECUTE_SKILL_TOOL,
-        {"skill_key": SKILL_KEY, "args": ["--company-id", "42"]},
-    )
-
-    assert _error_code(payload) == "COMMON_VALIDATION_ERROR"
 
 
 async def test_run_skill_script_rejects_async_entrypoint_bypass(tmp_path: Path) -> None:
@@ -506,16 +486,12 @@ async def test_run_skill_script_allows_async_auxiliary_script(tmp_path: Path) ->
     assert payload["result"] == {"ok": True}
 
 
-def test_skill_tool_schemas_expose_bounded_args(skill_env: SkillEnv) -> None:
+def test_skill_tool_schemas_expose_bounded_argv(skill_env: SkillEnv) -> None:
     for tool in (EXECUTE_SKILL_TOOL, RUN_SKILL_SCRIPT_TOOL):
         properties = skill_env.registry.get(tool).input_schema["properties"]
-        assert properties["args"]["type"] == "array"
-        assert properties["args"]["items"] == {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": MAX_SKILL_ARG_BYTES,
-        }
-        assert properties["args"]["maxItems"] == MAX_SKILL_ARGS
+        assert properties["argv"]["type"] == "array"
+        assert properties["argv"]["items"] == {"type": "string"}
+        assert properties["argv"]["maxItems"] == MAX_SKILL_ARGV_ITEMS
 
 
 @pytest.mark.parametrize(

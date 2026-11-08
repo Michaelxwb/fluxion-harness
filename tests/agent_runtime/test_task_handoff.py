@@ -385,12 +385,7 @@ async def test_b123_actor_cannot_be_forged_through_tool_arguments() -> None:
     try:
         definition = tool_set.registry().get(EXECUTE_SKILL_TOOL)
         schema = definition.input_schema
-        assert set(schema["properties"]) == {
-            "skill_key",
-            "input",
-            "args",
-            "completion_mode",
-        }
+        assert set(schema["properties"]) == {"skill_key", "input", "completion_mode", "argv"}
         for forged_field in ("actor_user_id", "tenant_id", "agent_id", "user_id"):
             assert forged_field not in json.dumps(schema)
 

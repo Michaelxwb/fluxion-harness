@@ -12,7 +12,7 @@ description: Python 业务 Skill 模板：session-manager 取登录态，request
 模型只调用 `execute_skill`：
 
 ```text
-execute_skill(skill_key="business-skill-python-template", args=["--company-id", "123"])
+execute_skill(skill_key="business-skill-python-template", argv=["--company-id", "123"])
 ```
 
 脚本从 `session-manager get-state --skill-name <skill>` 读取登录态：

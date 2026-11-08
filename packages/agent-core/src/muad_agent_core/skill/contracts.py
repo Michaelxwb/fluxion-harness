@@ -1,6 +1,6 @@
 """Skill 执行的公共值对象与 ``SkillExecutor`` 协议。
 
-这个模块只依赖标准库：Runtime/Worker 与真实 bwrap 验收探针都直接导入它，
+这个模块只依赖标准库与共享参数校验：Runtime/Worker 与真实 bwrap 验收探针都直接导入它，
 避免因为平台 SDK/数据库驱动的导入副作用而把执行契约绑死在宿主进程里。
 """
 
@@ -9,11 +9,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
+
+from muad_contracts.skill_invocation import validate_skill_argv
 
 if TYPE_CHECKING:  # pragma: no cover - 仅类型检查导入，运行时不加载平台 SDK
     from muad_platform_sdk.skill_access import SkillPlatformContext
@@ -23,13 +25,6 @@ MAX_OUTPUT_BYTES = 64 * 1024
 DEFAULT_OUTPUT_MAX_FILES = 100
 DEFAULT_OUTPUT_MAX_FILE_BYTES = 16 * 1024 * 1024
 DEFAULT_OUTPUT_MAX_TOTAL_BYTES = 64 * 1024 * 1024
-#: Skill 命令行参数（execve argv）的边界：数量、单个 UTF-8 字节、总 UTF-8 字节。
-#: 参数不经过 shell，因此元字符只是普通文本；这些上限只防止调用方把 argv 撑爆。
-MAX_SKILL_ARGS = 64
-MAX_SKILL_ARG_BYTES = 4096
-MAX_SKILL_ARGS_TOTAL_BYTES = 32 * 1024
-
-
 class SkillExecutionStatus(StrEnum):
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
@@ -104,40 +99,6 @@ class OutputFile:
     path: Path
 
 
-def normalize_skill_args(args: Sequence[str]) -> tuple[str, ...]:
-    """校验并规范化 Skill argv（``execve`` 参数，不经过 shell）。
-
-    只接受有界的非空字符串：NUL 会让底层 ``execve`` 直接失败，空参数容易与“缺省”混淆，
-    两者都在边界处拒绝。长度按 UTF-8 字节判定，与平台其它预算口径一致。
-    """
-    if args is None:
-        return ()
-    if isinstance(args, (str, bytes, bytearray)):
-        raise ValueError("skill args must be a sequence of strings")
-    values = tuple(args)
-    if len(values) > MAX_SKILL_ARGS:
-        raise ValueError(f"skill args exceed the limit of {MAX_SKILL_ARGS} entries")
-    total = 0
-    for value in values:
-        if not isinstance(value, str):
-            raise ValueError("skill args must contain strings only")
-        if not value:
-            raise ValueError("skill args must not contain empty strings")
-        if "\x00" in value:
-            raise ValueError("skill args must not contain null bytes")
-        size = len(value.encode("utf-8"))
-        if size > MAX_SKILL_ARG_BYTES:
-            raise ValueError(
-                f"skill argument exceeds the limit of {MAX_SKILL_ARG_BYTES} UTF-8 bytes"
-            )
-        total += size
-    if total > MAX_SKILL_ARGS_TOTAL_BYTES:
-        raise ValueError(
-            f"skill args exceed the total limit of {MAX_SKILL_ARGS_TOTAL_BYTES} UTF-8 bytes"
-        )
-    return values
-
-
 @dataclass(frozen=True, slots=True)
 class SkillExecutionRequest:
     ready_dir: Path
@@ -152,13 +113,14 @@ class SkillExecutionRequest:
     env: Mapping[str, str] = field(default_factory=dict)
     cancel_event: asyncio.Event | None = None
     script: Path | None = None
-    #: 追加到解释器命令之后的 CLI 参数；不经过 shell，按 ``execve`` 原样传递。
-    args: tuple[str, ...] = ()
     platform_context: SkillPlatformContext | None = None
     output_limits: OutputLimits = field(default_factory=OutputLimits)
+    #: Business CLI arguments appended after the selected script, never parsed by a shell.
+    argv: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "args", normalize_skill_args(self.args))
+        object.__setattr__(self, "argv", validate_skill_argv(self.argv))
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -275,9 +237,6 @@ __all__ = [
     "DEFAULT_OUTPUT_MAX_FILE_BYTES",
     "DEFAULT_OUTPUT_MAX_TOTAL_BYTES",
     "MAX_OUTPUT_BYTES",
-    "MAX_SKILL_ARG_BYTES",
-    "MAX_SKILL_ARGS",
-    "MAX_SKILL_ARGS_TOTAL_BYTES",
     "OutputFile",
     "OutputLimits",
     "SkillArtifactResolver",
@@ -292,5 +251,4 @@ __all__ = [
     "checksum_file",
     "collect_outputs",
     "collect_outputs_async",
-    "normalize_skill_args",
 ]

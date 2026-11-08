@@ -46,7 +46,7 @@ DRAFT_TOOL_DESCRIPTION = (
     "__pycache__ ends up in the draft. "
     "Before you deliver the draft to the user or submit it, review it with the "
     "self-skill-review skill (execute_skill with skill_key=self-skill-review, input={}, "
-    "args=[\"--target\", \"<workspace>/skill-drafts/<key>\"]; get <workspace> from "
+    "argv=[\"--target\", \"<workspace>/skill-drafts/<key>\"]; get <workspace> from "
     "workspace_shell `pwd`): show the error/warning summary to the user and fix errors "
     "first. If the draft changed since that review (its revision moved), review again "
     "before submitting. The review is advisory and never blocks submit. "

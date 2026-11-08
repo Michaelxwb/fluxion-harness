@@ -25,6 +25,51 @@
 
 ## 1. 老 Skill 兼容契约
 
+### CLI 参数保持原样
+
+使用 `argparse` / `sys.argv` 的旧脚本无需改成读取 JSON。模型先 `load_skill`，
+按原 SKILL.md 的命令选择工具；只将脚本路径后面的业务参数放进 `argv`，
+不要包含 `python3`、解释器选项或脚本路径，也不要在字符串内再套 shell 引号。
+
+旧命令：
+
+```bash
+python3 scripts/run.py --company-id 123 --company-id 456 --start "2026-11-07 10:00" --end "2026-11-07 10:10"
+```
+
+对应工具调用：
+
+```json
+{
+  "skill_key": "monitor-mssp-events",
+  "argv": ["--company-id", "123", "--company-id", "456", "--start", "2026-11-07 10:00", "--end", "2026-11-07 10:10"]
+}
+```
+
+默认入口使用 `execute_skill`；其它入口（例如客户解析）使用 `run_skill_script`，
+增加 `"script": "resolve_customer.py"`，并传 `"argv": ["--company", "客户名称"]`。
+`input` 独立写入 JSON stdin，不自动映射为 CLI 参数；已有 JSON Skill 可以继续只传 `input`。
+Python 的 `-E -s -B` 由平台注入，保留相邻模块导入；参数按数组传递，空格、重复开关和
+JSON 字符串不经过 shell 拆词或展开。参数类型、编码、项数和字节上限由共享
+`validate_skill_argv` 校验。
+
+ASYNC `execute_skill` 将 `argv` 冻结到 execution snapshot，随操作持久化并进入 snapshot hash
+与幂等指纹；Worker 重试读取原数组，不改写业务 `input_json`。同一 call 更换参数会返回
+`IDEMPOTENCY_MISMATCH`。
+
+### monitor-mssp-events 样本验证边界
+
+标准旧样本为 `muad-openclaw/skills/mssp-mss-nges/new-skills/monitor-mssp-events`。
+其中文 description 超过旧目录字段上限，导入侧扩大有界容量，目录总预算与单行校验继续生效，
+无需修改原 SKILL.md。本次验证在临时副本中保留全部 Python 文件原始字节，只把平台地址配置
+改为本地 HTTP 桩，并用返回合成会话文件的 session-manager 桩：客户解析、最近分钟监控、
+指定起止监控（无事件）均成功。该结果证明原脚本的 CLI、相邻模块和查询路径能够执行，
+不代表真实平台认证、bwrap 部署或 Webhook 送达已通过。
+
+样本的 GPT/AV/C2 分支还会从同级目录或环境配置定位 `mssp-event-push-content`，而当前
+沙箱只挂载本次 Skill 包；对应会话 broker 也绑定本次 Skill 身份。跨 Skill 子进程调用
+需要另行设计受授权的依赖执行能力，不能仅靠 `argv` 或 workspace_shell 宣称全链路兼容。
+
 | 老 Skill 现状 | 新契约 | 说明 |
 |---|---|---|
 | `cache` / `logs` / `companies` 写在 Skill 包根目录 | `SKILL_DATA_DIR` | 包只读；持久数据迁到 user + Agent data 目录 |
@@ -95,31 +140,7 @@ Skill key 由 `SKILL.md` 的 `name` 生成，默认脚本取 manifest 的 `entry
 新平台的业务 Skill 模板见 `skills/_templates/business-skill-python/`；`smoke_platform` 的端到端样例见
 `skills/smoke-platform-sample/` 与 `tools/fake-business-platform/`。
 
-### 2.1.1 命令行参数与包内脚本路径
-
-`execute_skill`（以及调试开关下的 `run_skill_script`）的 `args` 会原样追加到解释器命令之后，等价于：
-
-```bash
-python3 scripts/run.py --company-id 123 --minutes 30
-```
-
-```json
-{
-  "skill_key": "monitor-mssw-events",
-  "args": ["--company-id", "123", "--minutes", "30"]
-}
-```
-
-约定：
-
-- `args` 是 `execve` argv，不经过 shell；`;`、`|`、`$()`、通配符都不会被解释，需要 shell 语义时由脚本自己处理。
-- `args` 上限为 64 个参数、单个 4096 UTF-8 字节、总计 32 KiB；空字符串和 NUL 会被拒绝。
-- `run_skill_script` 的 `script` 支持 `scripts/run.py`、`run.py` 和包内相对路径（如 `phase2/phase2_wait_check.py`）；绝对路径、`..`、反斜杠和跳出包根的符号链接会被拒绝。
-- `execute_skill` 的 `args` 只支持 SYNC Skill；ASYNC Skill 目前只接收 `input`，后台 Task 不会替 `args` 做持久化。
-- Python 解释器使用 `-E -s -B`：不读 `PYTHON*` 环境、不加用户 site-packages、不写 `__pycache__`；入口脚本目录仍在 `sys.path[0]`，相邻模块可以直接 import。
-- 生产沙箱的 cwd 固定为只读包根 `/skill`；读包内相对文件可以直接用 `open("config/xxx.json")`，更推荐用 `Path(__file__).resolve().parent` 定位，避免依赖 cwd。
-
-### 2.1.2 Skill 的执行入口：只用 `execute_skill`
+### 2.1.1 Skill 的执行入口：只用 `execute_skill`
 
 平台对模型只暴露 `execute_skill` 一个 Skill 执行入口；`run_skill_script` 默认不注册（仅调试开关下可用）。这样用户和模型都不需要判断"该调哪个工具"。
 
@@ -131,7 +152,7 @@ python3 scripts/run.py --company-id 123 --minutes 30
 - `SKILL.md` 写清"用户意图 → `--phase` 参数"，模型始终调用：
 
 ```text
-execute_skill(skill_key="policy-check-mssp", args=["--phase", "2", "--latest"])
+execute_skill(skill_key="policy-check-mssp", argv=["--phase", "2", "--latest"])
 ```
 
 不要为了适配而改业务逻辑：Phase 脚本保持原样，本地仍可单独运行。`run_skill_script` 只在调试时显式打开，不能作为技能的正常入口。

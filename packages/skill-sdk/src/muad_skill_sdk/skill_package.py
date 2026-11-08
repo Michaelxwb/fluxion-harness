@@ -22,11 +22,11 @@ SCRIPT_EXTENSIONS = frozenset({".py", ".js", ".mjs", ".cjs"})
 # 目录条目字段的上限（UTF-8 字节，口径同 `harness-skill` 的「阈值一律按字节判定」，边界为
 # **严格大于**）。`name`/`platform_label` 取 128：`control.skill` 的同名列是 varchar(128)
 # （字符），字节口径更严——列宽只保证能落库，这里要保证目录条目本身不失控。`description`
-# 取 500 是给目录预算用的：在「超限丢整条」的规则下，一条超长 description 排在队首就能把整个
-# 预算吃光、把其余条目全挤掉。（现网最长：description 254 B、name 21 B、label 无。）
+# description 容纳历史中文 Skill 的路由说明；单条仍有字节上限，目录总预算由
+# bounded_catalog 独立控制，不能让一条长描述打破整轮上下文预算。
 MAX_NAME_BYTES = 128
 MAX_PLATFORM_LABEL_BYTES = 128
-MAX_DESCRIPTION_BYTES = 500
+MAX_DESCRIPTION_BYTES = 1024
 
 
 def is_script_path(path: Path) -> bool:

@@ -167,7 +167,6 @@ class SandboxedSkillExecutor:
                     else "/opt/python3.12/bin:/usr/local/bin:/usr/bin:/bin"
                 },
             ),
-            *request.args,
         )
         data_dir = workspace / _WORKSPACE_DATA
         env = {
@@ -184,7 +183,7 @@ class SandboxedSkillExecutor:
                 dev_unsafe=self._dev_unsafe,
                 env_inject=("MUAD_SESSION_SOCKET",) if session.env else (),
             ),
-            command=command,
+            command=(*command, *request.argv),
             workspace_dir=workspace,
             package_dir=package_root,
             env=env,
