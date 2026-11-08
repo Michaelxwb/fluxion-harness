@@ -336,6 +336,8 @@ def test_rule_ui_detail_keeps_object_actions_in_list_and_reuses_sidesheet() -> N
     assert "actionColumn" in page
     assert "delete-skill-${record.key}" in page
     assert "approve-skill-${record.key}" in page
+    # 审批入口只在有待审版本时出现：已批准/已驳回的行走详情里的审批 Tab，不给空面板入口
+    assert "record.review_status === 'PENDING'" in page
 
 
 # ---------------------------------------------------------------------------

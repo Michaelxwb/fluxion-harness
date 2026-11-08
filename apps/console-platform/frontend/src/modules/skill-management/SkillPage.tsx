@@ -333,7 +333,7 @@ export function SkillPage() {
               title: t('skill.columns.actions'),
               render: (_: unknown, record: SkillListItem) => (
                 <>
-                  {canManage ? (
+                  {canManage && record.review_status === 'PENDING' ? (
                     <Button
                       theme="borderless"
                       data-testid={`approve-skill-${record.key}`}
