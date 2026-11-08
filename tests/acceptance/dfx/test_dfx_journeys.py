@@ -324,14 +324,15 @@ async def _seed_waiting_run(stack: GatewayStack) -> tuple[str, str]:
             await connection.execute(
                 text(
                     "INSERT INTO runtime.conversation "
-                    "(id, tenant_id, user_id, agent_id, status, last_seq) "
-                    "VALUES (:id, :t, :u, :a, 'ACTIVE', 0)"
+                    "(id, tenant_id, user_id, agent_id, status, last_seq, channel_account_id) "
+                    "VALUES (:id, :t, :u, :a, 'ACTIVE', 0, :entry)"
                 ),
                 {
                     "id": conversation_id,
                     "t": stack.tenant_id,
                     "u": stack.platform_user_id,
                     "a": stack.agent_id,
+                    "entry": stack.bot_account_id,
                 },
             )
             await connection.execute(

@@ -58,6 +58,9 @@ TENANT_PREFIX = "dfx-reliability"
 # 每次运行唯一租户：可识别前缀 + 随机后缀；跨租户对照样本同样唯一，不与历史残留相撞。
 TENANT = f"{TENANT_PREFIX}-{uuid.uuid4().hex[:12]}"
 CROSS_TENANT = f"{TENANT_PREFIX}-cross-{uuid.uuid4().hex[:12]}"
+#: 入口身份（`ChannelContext.entry_id` 必填）：DFX 用例只要求它是稳定 UUID，
+#: 不校验入口归属（投递按 `bot_id` 路由），故用会话级常量而不是真实 bot 行。
+ENTRY_ID = uuid.uuid4()
 INTERNAL_TOKEN = "dfx-reliability-internal-token"
 MODEL_API_KEY = "dfx-reliability-model-key"
 SKILL_KEY = "dfx_reliability_probe"

@@ -251,7 +251,11 @@ class ActiveChannelDelivery:
         """活跃回复会话的收尾：终态内容已写进会话流 ⇒ 同键认领并确认，阻止兜底重发。"""
         reservation = await self._reserve(tenant_id=tenant_id, run_id=run_id)
         if reservation.claim is None:
-            # 流内已发出正文，且没有可确认的持久意图：会话流本身就是送达面。
+            if reservation.reason == "no_intent":
+                # 没有可确认的持久意图就不能自称"已确认送达"：确认是**回执**语义，
+                # 没发出去却写 DELIVERED 会让失败不可追溯（E-19 断言的就是这条）。
+                _record_outcome("failed")
+                return FAILED
             return DELIVERED
         claim = reservation.claim
         if not _has_lease(claim.grant):

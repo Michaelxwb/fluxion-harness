@@ -263,17 +263,25 @@ async def test_b126_bind_and_new_replay_have_single_side_effect(
     new_key = f"b126-new-{uuid.uuid4().hex[:10]}"
     client = RuntimeClient(gateway_stack.runtime_url, service_token=INTERNAL_TOKEN)
     try:
+        channel = ChannelContext(
+            type="WECOM",
+            entry_id=gateway_stack.bot_account_id,
+            bot_id=gateway_stack.bot_id,
+            external_conversation_id=gateway_stack.chat_id,
+        )
         first_conversation = await client.create_conversation(
             gateway_stack.agent_id,
             gateway_stack.platform_user_id,
             tenant_id=gateway_stack.tenant_id,
             idempotency_key=new_key,
+            channel=channel,
         )
         replay_conversation = await client.create_conversation(
             gateway_stack.agent_id,
             gateway_stack.platform_user_id,
             tenant_id=gateway_stack.tenant_id,
             idempotency_key=new_key,
+            channel=channel,
         )
     finally:
         await client.aclose()

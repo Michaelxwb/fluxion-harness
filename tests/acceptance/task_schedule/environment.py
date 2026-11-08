@@ -421,7 +421,15 @@ def seed_control(
                         bot_account_id=bot.id,
                         platform_user_id=user.id,
                     )
-                    for external_user_id in ("e2e-external-user", "submission-recipient")
+                    for external_user_id in (
+                        "e2e-external-user",
+                        "submission-recipient",
+                        "e07-canary-user",
+                        "s07-external-user",
+                        "dfx-delivery-user",
+                        "dfx-recovery-user",
+                        "user-1",
+                    )
                 ]
             )
             await session.flush()
