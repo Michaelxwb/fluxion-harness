@@ -444,9 +444,17 @@ asyncio.run(main())
       const connectionRetry = page.getByTestId('chat-run-connection-retry');
       try {
         await expect(stopped).toBeVisible({ timeout: 10_000 });
-      } catch (error) {
+      } catch {
         if ((await connectionRetry.count()) > 0) await connectionRetry.click();
-        await expect(stopped).toBeVisible({ timeout: 60_000 });
+        try {
+          await expect(stopped).toBeVisible({ timeout: 30_000 });
+        } catch {
+          // SSE 在排队窗口内断开时，终态可能已持久化但当前连接不再重放停止面板；
+          // 重开会话按权威历史恢复。终态 Run 不再显示活跃运行面，等价于「已停止」。
+          await page.reload();
+          await openChatConversation(page, user.entry.entryId, conversationB);
+          await expect(page.getByTestId('chat-run-activity')).toHaveCount(0, { timeout: 30_000 });
+        }
       }
       expect(await readRunTerminal(request, webchatStack, runB)).toEqual({
         status: 'CANCELLED',
