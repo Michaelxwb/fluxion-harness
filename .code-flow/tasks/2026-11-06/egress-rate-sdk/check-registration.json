@@ -1,6 +1,6 @@
 {
   "checks": {
-    "CHK-188b78dad821": {
+    "CHK-1cb9e8f854e9": {
       "suite": "unit",
       "markers": [],
       "collect": {
@@ -10,7 +10,8 @@
           "pytest",
           "--collect-only",
           "-q",
-          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_01"
+          "tests/sdk/test_request_budget.py::test_s_01_requests_are_consumed_on_error_and_cancel",
+          "tests/sdk/test_request_budget.py::test_s_01_upstream_limit_still_consumes_a_request"
         ],
         "format": "pytest",
         "timeout": 15
@@ -64,7 +65,7 @@
         "timeout": 15
       }
     },
-    "CHK-aa1fb9c6fb28": {
+    "CHK-42f9e72a39f8": {
       "suite": "unit",
       "markers": [],
       "collect": {
@@ -74,7 +75,9 @@
           "pytest",
           "--collect-only",
           "-q",
-          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_01"
+          "tests/sdk/test_request_budget.py::test_e_01_concurrency_releases_only_its_own_lease",
+          "tests/sdk/test_request_budget.py::test_invalid_context_cannot_bypass_target_matching",
+          "tests/sdk/test_request_budget.py::test_invocation_from_other_controller_is_rejected"
         ],
         "format": "pytest",
         "timeout": 15
@@ -96,7 +99,7 @@
         "timeout": 15
       }
     },
-    "CHK-d7a9607c3106": {
+    "CHK-4ef4336247f5": {
       "suite": "unit",
       "markers": [],
       "collect": {
@@ -106,13 +109,15 @@
           "pytest",
           "--collect-only",
           "-q",
-          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_01"
+          "tests/sdk/test_request_budget.py::test_b_01_atomic_parent_and_child_rules",
+          "tests/sdk/test_request_budget.py::test_b_01_concurrent_reservations_do_not_overshoot",
+          "tests/sdk/test_request_budget.py::test_overlapping_target_denial_does_not_debit_parent"
         ],
         "format": "pytest",
         "timeout": 15
       }
     },
-    "CHK-a96a8f1d5a7c": {
+    "CHK-7f8fad84cdd4": {
       "suite": "unit",
       "markers": [],
       "collect": {
@@ -122,7 +127,8 @@
           "pytest",
           "--collect-only",
           "-q",
-          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_02"
+          "tests/sdk/test_request_budget.py::test_b_02_no_limits_does_not_construct_a_controller",
+          "tests/sdk/test_request_budget.py::test_unmatched_rules_do_not_consume_or_call_observer"
         ],
         "format": "pytest",
         "timeout": 15
@@ -176,7 +182,7 @@
         "timeout": 15
       }
     },
-    "CHK-910a9092c90b": {
+    "CHK-86d277c5aed7": {
       "suite": "unit",
       "markers": [],
       "collect": {
@@ -186,13 +192,15 @@
           "pytest",
           "--collect-only",
           "-q",
-          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_05"
+          "tests/sdk/test_request_budget.py::test_b_05_matching_and_exact_window_boundary",
+          "tests/sdk/test_request_budget.py::test_b_05_mcp_handshake_does_not_match_a_tool",
+          "tests/sdk/test_request_budget.py::test_b_05_query_and_encoded_identifier_do_not_create_new_buckets"
         ],
         "format": "pytest",
         "timeout": 15
       }
     },
-    "CHK-bede959b8f60": {
+    "CHK-215c52094040": {
       "suite": "unit",
       "markers": [],
       "collect": {
@@ -202,7 +210,9 @@
           "pytest",
           "--collect-only",
           "-q",
-          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_04"
+          "tests/sdk/test_request_budget.py::test_e_04_observer_failure_does_not_resend_or_leak",
+          "tests/sdk/test_request_budget.py::test_observer_cancellation_cleans_the_acquired_lease",
+          "tests/sdk/test_request_budget.py::test_e_04_diagnostic_outcome_cannot_carry_arbitrary_secret_text"
         ],
         "format": "pytest",
         "timeout": 15

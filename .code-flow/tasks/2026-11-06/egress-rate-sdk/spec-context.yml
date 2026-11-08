@@ -1,7 +1,7 @@
 version: 1
 task: 出站请求限流 SDK
 enforcement: required
-updated_at: '2026-11-08T02:06:53.372223+00:00'
+updated_at: '2026-11-08T02:14:16.191082+00:00'
 sources:
 - type: cli
   ref: bind
@@ -46,7 +46,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: cb44c6a85198914d704197797c13e506fe2ad2c823f2506b9bb14e48bcd59898
+          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
         decision: null
         evidence: []
       code:
@@ -70,6 +70,18 @@ bindings:
           rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
           artifact_sha256: null
           diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-08T02:14:26.575892+00:00'
+          status: unverified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -123,11 +135,11 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: cb44c6a85198914d704197797c13e506fe2ad2c823f2506b9bb14e48bcd59898
+          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -153,6 +165,31 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-11-08T02:14:29.483840+00:00'
+          status: verified
+          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+          artifact_sha256: null
+          diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
+          result_sha256: c27047cc8090d131e5864c523e81bccfb55fe5c6516e9fa290b2cdcb8d58a588
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging.py
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_logging.py
+            exit_code: 0
+            stdout_sha256: cfca134b9c01184c77a3fc0e6cc014cc7aaef4bb1b1bc94754f6377243e039a5
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.20s
+
+              '
       review:
         status: pending
         refs: []
@@ -197,7 +234,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: cb44c6a85198914d704197797c13e506fe2ad2c823f2506b9bb14e48bcd59898
+          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
         decision: null
         evidence: []
       code:
@@ -221,6 +258,18 @@ bindings:
           rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
           artifact_sha256: null
           diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-11-08T02:14:29.585971+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -275,11 +324,11 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-003
           item_id: TASK-003
-          artifact_sha256: cb44c6a85198914d704197797c13e506fe2ad2c823f2506b9bb14e48bcd59898
+          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -305,6 +354,35 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-11-08T02:14:59.604778+00:00'
+          status: verified
+          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
+          artifact_sha256: null
+          diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
+          result_sha256: 352bf5dad7c9107678eca3de22623d0194d9afabda83c9d3fdb87c1f97be5e66
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: 93705da8acee589c6127732f655635e12cfbdbe13cf6306a6cc1feb85f2ccf77
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: ".......................................................     \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              55 passed, 6723 deselected, 2 warnings in 28.54s\n"
       review:
         status: pending
         refs: []
@@ -351,11 +429,11 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-002
           item_id: TASK-002
-          artifact_sha256: cb44c6a85198914d704197797c13e506fe2ad2c823f2506b9bb14e48bcd59898
+          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -381,6 +459,30 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-08T02:15:02.671118+00:00'
+          status: verified
+          rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0
+          artifact_sha256: null
+          diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
+          result_sha256: 320df2a88aa3d635edfa828a5ee227a083ff0f8c4998c72bd2bc94094d2080fa
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 496e31f42a539a65827b26b2ca7bb96655aa0096fd2f73dd5bc2dad5c83f67e8
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.24s
+
+              '
       review:
         status: pending
         refs: []
@@ -430,7 +532,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: cb44c6a85198914d704197797c13e506fe2ad2c823f2506b9bb14e48bcd59898
+          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
         decision: null
         evidence: []
       code:
@@ -454,6 +556,18 @@ bindings:
           rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
           artifact_sha256: null
           diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-11-08T02:15:02.774898+00:00'
+          status: unverified
+          rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
+          artifact_sha256: null
+          diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -506,11 +620,11 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-001
           item_id: TASK-001
-          artifact_sha256: cb44c6a85198914d704197797c13e506fe2ad2c823f2506b9bb14e48bcd59898
+          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -550,6 +664,18 @@ bindings:
               39 passed, 1176 deselected in 12.86s
 
               '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-08T02:15:02.878037+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -594,7 +720,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: cb44c6a85198914d704197797c13e506fe2ad2c823f2506b9bb14e48bcd59898
+          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
         decision: null
         evidence: []
       code:
@@ -650,7 +776,7 @@ bindings:
         - artifact: egress-rate-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: cb44c6a85198914d704197797c13e506fe2ad2c823f2506b9bb14e48bcd59898
+          artifact_sha256: 980d59282395ade99330188f3fbc09158a65c4e81528febbb1e3cc22a3928fc9
         decision: null
         evidence: []
       code:
@@ -674,6 +800,18 @@ bindings:
           rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
           artifact_sha256: null
           diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
+        - verifier_ref: harness-worker#RULE-worker-001
+          executed_at: '2026-11-08T02:15:03.037823+00:00'
+          status: unverified
+          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+          artifact_sha256: null
+          diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:

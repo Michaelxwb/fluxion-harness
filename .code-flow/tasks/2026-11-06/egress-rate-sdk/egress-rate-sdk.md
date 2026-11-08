@@ -14,19 +14,19 @@
 
 | 场景ID | 来源设计 | 测试层级 | 关键真实边界 | 负责任务 | 状态 | 执行命令 | cwd | timeout | 优先级 | 执行方式 | 环境 | 输入 | E2E理由 | 触发路径 | 冒烟 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| S-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK 对象与可注入单调时钟 | TASK-002 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_01"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| S-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK 对象与可注入单调时钟 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_s_01_requests_are_consumed_on_error_and_cancel", "tests/sdk/test_request_budget.py::test_s_01_upstream_limit_still_consumes_a_request"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | S-02 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime/Worker + 本地 HTTP 探针 + PlatformAdapter，不使用 mock transport | TASK-003 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_02"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | S-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime + Streamable HTTP MCP 探针 | TASK-004 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | S-04 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime/Worker、Skill 子进程和既有快照/租约边界 | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
-| E-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 对象与 fake send counter，不发送真实网络 | TASK-002 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_01"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| E-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 对象与 fake send counter，不发送真实网络 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_e_01_concurrency_releases_only_its_own_lease", "tests/sdk/test_request_budget.py::test_invalid_context_cannot_bypass_target_matching", "tests/sdk/test_request_budget.py::test_invocation_from_other_controller_is_rejected"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | E-02 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Skill 子进程组、Runtime/Worker 和 HTTP 探针；沿用 start_new_session/killpg | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
-| B-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 对象与可注入时钟 | TASK-002 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_01"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
-| B-02 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 装配对象，不连接 Redis/PG | TASK-002 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_02"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| B-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 对象与可注入时钟 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_01_atomic_parent_and_child_rules", "tests/sdk/test_request_budget.py::test_b_01_concurrent_reservations_do_not_overshoot", "tests/sdk/test_request_budget.py::test_overlapping_target_denial_does_not_debit_parent"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| B-02 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 装配对象，不连接 Redis/PG | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_02_no_limits_does_not_construct_a_controller", "tests/sdk/test_request_budget.py::test_unmatched_rules_do_not_consume_or_call_observer"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | B-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实慢 HTTP/流式探针与 Runtime 发送器 | TASK-003 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_03"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | E-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 两个独立 Runtime/Worker 进程 + 真实 Proxy HTTP 探针，不使用共享 limiter 存储 | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | B-04 | egress-rate-sdk.design.md#2.4 验收条件 | contract | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_egress_budget.py"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
-| B-05 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | TASK-002 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_05"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
-| E-04 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | TASK-002 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_04"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| B-05 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_05_matching_and_exact_window_boundary", "tests/sdk/test_request_budget.py::test_b_05_mcp_handshake_does_not_match_a_tool", "tests/sdk/test_request_budget.py::test_b_05_query_and_encoded_identifier_do_not_create_new_buckets"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| E-04 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_e_04_observer_failure_does_not_resend_or_leak", "tests/sdk/test_request_budget.py::test_observer_cancellation_cleans_the_acquired_lease", "tests/sdk/test_request_budget.py::test_e_04_diagnostic_outcome_cannot_carry_arbitrary_secret_text"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 
 | S-05 | egress-rate-sdk.design.md#2.4 验收条件 | contract | 真实 Runtime build_snapshot/execution_defaults_of 与 contracts build_task_snapshot；只验证构建读回契约，不代表 DB/子进程生命周期 | TASK-001 | verified | ["uv", "run", "pytest", "-q", "tests/contracts/test_egress_budget.py::test_snapshot_builders_freeze_normalized_policy"] | . | 300 | P0 | auto | none | tests/contracts/test_egress_budget.py | - | - | no |
 
@@ -105,7 +105,7 @@
 
 ## TASK-002: 本地预算控制器与观测
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-001
 - **Source**: egress-rate-sdk.design.md#3.7 原子计数与发送租约
@@ -121,37 +121,67 @@
 
 ### Checklist
 
-- [ ] 先将 Plan 骨架替换为真实断言，功能缺失时取 RED，实施后取 GREEN；不得把 pytest.fail 占位失败作为功能验证
-- [ ] 单 controller 管父子规则；单调窗口；幂等同步释放；安全错误及 observer，限制检查无外部 IO
-- [ ] [S-01][unit] 真实 Python SDK 对象与可注入单调时钟；断言：每次 acquire 代表一次真实发送尝试，失败/取消/Proxy 429 不返还次数；正常关闭释放 inflight；错误和 callback 只有 scope/target/limit 元数据，不含 header/body/token/cookie
-- [ ] [E-01][unit] 真实 SDK 对象与 fake send counter，不发送真实网络；断言：返回结构化 LocalRateLimitError，底层发送调用数为零；规则失败不部分扣减；并发释放后可再次获取；拒绝不会增加请求次数
-- [ ] [B-01][unit] 真实 SDK 对象与可注入时钟；断言：任一规则不足时 lease 不成立，其他计数/占用保持不变；全部满足才一次提交；相同 scope 的并发调用不超过本地规则
-- [ ] [B-02][unit] 真实 SDK 装配对象，不连接 Redis/PG；断言：请求走原有发送路径，不创建计数结构、不访问外部计数依赖、不增加默认限制；Proxy 返回结果仍由原客户端处理
-- [ ] [B-05][unit] 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据；断言：query 不新建桶，所有命中规则共同生效，握手不冒充 Tool；窗口开左闭右，不受墙钟回拨影响，拒绝不部分扣减
-- [ ] [E-04][unit] 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据；断言：observer 失败可见，不重复发送业务请求或将拒绝变放行；lease 正确释放，日志不含头/正文/凭据
-- [ ] [RULE-log-001] verifier: ["uv", "run", "pytest", "-q", "tests/test_logging.py", "tests/test_logging_redaction.py", "tests/acceptance/test_foundation_logging.py"]；cwd=.；timeout=300；由 TASK-002 负责，不以收集代执行
-- [ ] [RULE-secret-001] verifier: ["uv", "run", "pytest", "-q", "tests/test_logging_redaction.py", "tests/acceptance/test_foundation_ops_audit.py"]；cwd=.；timeout=300；由 TASK-002 负责，不以收集代执行
+- [x] 先将 Plan 骨架替换为真实断言，功能缺失时取 RED，实施后取 GREEN；不得把 pytest.fail 占位失败作为功能验证
+- [x] 单 controller 管父子规则；单调窗口；幂等同步释放；安全错误及 observer，限制检查无外部 IO
+- [x] [S-01][unit] 真实 Python SDK 对象与可注入单调时钟；断言：每次 acquire 代表一次真实发送尝试，失败/取消/Proxy 429 不返还次数；正常关闭释放 inflight；错误和 callback 只有 scope/target/limit 元数据，不含 header/body/token/cookie
+- [x] [E-01][unit] 真实 SDK 对象与 fake send counter，不发送真实网络；断言：返回结构化 LocalRateLimitError，底层发送调用数为零；规则失败不部分扣减；并发释放后可再次获取；拒绝不会增加请求次数
+- [x] [B-01][unit] 真实 SDK 对象与可注入时钟；断言：任一规则不足时 lease 不成立，其他计数/占用保持不变；全部满足才一次提交；相同 scope 的并发调用不超过本地规则
+- [x] [B-02][unit] 真实 SDK 装配对象，不连接 Redis/PG；断言：请求走原有发送路径，不创建计数结构、不访问外部计数依赖、不增加默认限制；Proxy 返回结果仍由原客户端处理
+- [x] [B-05][unit] 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据；断言：query 不新建桶，所有命中规则共同生效，握手不冒充 Tool；窗口开左闭右，不受墙钟回拨影响，拒绝不部分扣减
+- [x] [E-04][unit] 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据；断言：observer 失败可见，不重复发送业务请求或将拒绝变放行；lease 正确释放，日志不含头/正文/凭据
+- [x] [RULE-log-001] verifier: ["uv", "run", "pytest", "-q", "tests/test_logging.py", "tests/test_logging_redaction.py", "tests/acceptance/test_foundation_logging.py"]；cwd=.；timeout=300；由 TASK-002 负责，不以收集代执行
+- [x] [RULE-secret-001] verifier: ["uv", "run", "pytest", "-q", "tests/test_logging_redaction.py", "tests/acceptance/test_foundation_ops_audit.py"]；cwd=.；timeout=300；由 TASK-002 负责，不以收集代执行
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-01 | unit | 真实 Python SDK 对象与可注入单调时钟 | 每次 acquire 代表一次真实发送尝试，失败/取消/Proxy 429 不返还次数；正常关闭释放 inflight；错误和 callback 只有 scope/target/limit 元数据，不含 header/body/token/cookie | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_01 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_01"] | planned |
-| E-01 | unit | 真实 SDK 对象与 fake send counter，不发送真实网络 | 返回结构化 LocalRateLimitError，底层发送调用数为零；规则失败不部分扣减；并发释放后可再次获取；拒绝不会增加请求次数 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_01 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_01"] | planned |
-| B-01 | unit | 真实 SDK 对象与可注入时钟 | 任一规则不足时 lease 不成立，其他计数/占用保持不变；全部满足才一次提交；相同 scope 的并发调用不超过本地规则 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_01 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_01"] | planned |
-| B-02 | unit | 真实 SDK 装配对象，不连接 Redis/PG | 请求走原有发送路径，不创建计数结构、不访问外部计数依赖、不增加默认限制；Proxy 返回结果仍由原客户端处理 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_02 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_02"] | planned |
-| B-05 | unit | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | query 不新建桶，所有命中规则共同生效，握手不冒充 Tool；窗口开左闭右，不受墙钟回拨影响，拒绝不部分扣减 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_05 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_05"] | planned |
-| E-04 | unit | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | observer 失败可见，不重复发送业务请求或将拒绝变放行；lease 正确释放，日志不含头/正文/凭据 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_04 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_04"] | planned |
-| harness-log#RULE-log-001 | integration | Spec 所声明 verifier 的真实组件边界；不得用 SDK mock 替代 | 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`（另读 `LOG_LEVEL`，缺省 `INFO`；非法级别直接 `raise ValueError` 而非静默回退；`console=True` 为默认值，会额外挂一个 stdout handler）；日志按 `service/YYYY-MM-DD.log` 输出**单行文本**：`YYYY-MM-DD HH:mm:ss.SSS ±ZZZZ [LEVEL] service logger message / key=value ...`，自动携带 `trace_id/request_id/tenant_id` 等关联字段（空串不打印），并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password 等敏感字段脱敏。 | harness-log#RULE-log-001 | ["uv", "run", "pytest", "-q", "tests/test_logging.py", "tests/test_logging_redaction.py", "tests/acceptance/test_foundation_logging.py"] | planned |
-| harness-secret#RULE-secret-001 | integration | Spec 所声明 verifier 的真实组件边界；不得用 SDK mock 替代 | 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt 或 API 响应（对外以 `*_configured` 表达）。 | harness-secret#RULE-secret-001 | ["uv", "run", "pytest", "-q", "tests/test_logging_redaction.py", "tests/acceptance/test_foundation_ops_audit.py"] | planned |
+| S-01 | unit | 真实 Python SDK 对象与可注入单调时钟 | 每次 acquire 代表一次真实发送尝试，失败/取消/Proxy 429 不返还次数；正常关闭释放 inflight；错误和 callback 只有 scope/target/limit 元数据，不含 header/body/token/cookie | tests/sdk/test_request_budget.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_s_01_requests_are_consumed_on_error_and_cancel", "tests/sdk/test_request_budget.py::test_s_01_upstream_limit_still_consumes_a_request"] | verified |
+| E-01 | unit | 真实 SDK 对象与 fake send counter，不发送真实网络 | 返回结构化 LocalRateLimitError，底层发送调用数为零；规则失败不部分扣减；并发释放后可再次获取；拒绝不会增加请求次数 | tests/sdk/test_request_budget.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_e_01_concurrency_releases_only_its_own_lease", "tests/sdk/test_request_budget.py::test_invalid_context_cannot_bypass_target_matching", "tests/sdk/test_request_budget.py::test_invocation_from_other_controller_is_rejected"] | verified |
+| B-01 | unit | 真实 SDK 对象与可注入时钟 | 任一规则不足时 lease 不成立，其他计数/占用保持不变；全部满足才一次提交；相同 scope 的并发调用不超过本地规则 | tests/sdk/test_request_budget.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_01_atomic_parent_and_child_rules", "tests/sdk/test_request_budget.py::test_b_01_concurrent_reservations_do_not_overshoot", "tests/sdk/test_request_budget.py::test_overlapping_target_denial_does_not_debit_parent"] | verified |
+| B-02 | unit | 真实 SDK 装配对象，不连接 Redis/PG | 请求走原有发送路径，不创建计数结构、不访问外部计数依赖、不增加默认限制；Proxy 返回结果仍由原客户端处理 | tests/sdk/test_request_budget.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_02_no_limits_does_not_construct_a_controller", "tests/sdk/test_request_budget.py::test_unmatched_rules_do_not_consume_or_call_observer"] | verified |
+| B-05 | unit | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | query 不新建桶，所有命中规则共同生效，握手不冒充 Tool；窗口开左闭右，不受墙钟回拨影响，拒绝不部分扣减 | tests/sdk/test_request_budget.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_b_05_matching_and_exact_window_boundary", "tests/sdk/test_request_budget.py::test_b_05_mcp_handshake_does_not_match_a_tool", "tests/sdk/test_request_budget.py::test_b_05_query_and_encoded_identifier_do_not_create_new_buckets"] | verified |
+| E-04 | unit | 真实 Python SDK/配置契约对象，可注入时钟和 observer；不代表产品执行证据 | observer 失败可见，不重复发送业务请求或将拒绝变放行；lease 正确释放，日志不含头/正文/凭据 | tests/sdk/test_request_budget.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_e_04_observer_failure_does_not_resend_or_leak", "tests/sdk/test_request_budget.py::test_observer_cancellation_cleans_the_acquired_lease", "tests/sdk/test_request_budget.py::test_e_04_diagnostic_outcome_cannot_carry_arbitrary_secret_text"] | verified |
+| harness-log#RULE-log-001 | integration | Spec 所声明 verifier 的真实组件边界；不得用 SDK mock 替代 | 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`（另读 `LOG_LEVEL`，缺省 `INFO`；非法级别直接 `raise ValueError` 而非静默回退；`console=True` 为默认值，会额外挂一个 stdout handler）；日志按 `service/YYYY-MM-DD.log` 输出**单行文本**：`YYYY-MM-DD HH:mm:ss.SSS ±ZZZZ [LEVEL] service logger message / key=value ...`，自动携带 `trace_id/request_id/tenant_id` 等关联字段（空串不打印），并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password 等敏感字段脱敏。 | harness-log#RULE-log-001 | ["uv", "run", "pytest", "-q", "tests/test_logging.py", "tests/test_logging_redaction.py", "tests/acceptance/test_foundation_logging.py"] | verified |
+| harness-secret#RULE-secret-001 | integration | Spec 所声明 verifier 的真实组件边界；不得用 SDK mock 替代 | 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt 或 API 响应（对外以 `*_configured` 表达）。 | harness-secret#RULE-secret-001 | ["uv", "run", "pytest", "-q", "tests/test_logging_redaction.py", "tests/acceptance/test_foundation_ops_audit.py"] | verified |
 
 ### Acceptance Evidence
 
 本阶段仅登记计划，无实现/验收证据。Start 后记录真实 RED/GREEN、断言位置与真实边界；占位体必须移除。
+- S-01: verified — automated command passed; run_id=ac841a12f3134c4fba231974c9b586d8 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=ac841a12f3134c4fba231974c9b586d8 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=ac841a12f3134c4fba231974c9b586d8 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=ac841a12f3134c4fba231974c9b586d8 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=ac841a12f3134c4fba231974c9b586d8 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=ac841a12f3134c4fba231974c9b586d8 (confirmed_by: runner)
+- S-01: verified — automated command passed; run_id=6b9f513112a949d98687302bd5ba7eb3 (confirmed_by: runner)
+- E-01: verified — automated command passed; run_id=6b9f513112a949d98687302bd5ba7eb3 (confirmed_by: runner)
+- B-01: verified — automated command passed; run_id=6b9f513112a949d98687302bd5ba7eb3 (confirmed_by: runner)
+- B-02: verified — automated command passed; run_id=6b9f513112a949d98687302bd5ba7eb3 (confirmed_by: runner)
+- B-05: verified — automated command passed; run_id=6b9f513112a949d98687302bd5ba7eb3 (confirmed_by: runner)
+- E-04: verified — automated command passed; run_id=6b9f513112a949d98687302bd5ba7eb3 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-08] created (draft)
+- [2026-11-08] started
+- [2026-11-08] completed (done)
+
+
+最新验证证据（2026-11-08）：
+
+| 场景ID | RED | GREEN | 断言位置 | 真实边界证据 | 状态 |
+|---|---|---|---|---|---|
+| S-01 | 初始真实测试因 request_budget 缺失失败 | runner passed；直接发送失败/取消/上游限流不返还次数断言通过 | tests/sdk/test_request_budget.py::test_s_01_requests_are_consumed_on_error_and_cancel、test_s_01_upstream_limit_still_consumes_a_request | 真实 SDK/事件回调，不发网络 | verified |
+| E-01 | 初始缺模块；追加并发释放发现总占用未同步失败，已修复 | runner passed | test_e_01_concurrency_releases_only_its_own_lease、test_invalid_context_cannot_bypass_target_matching、test_invocation_from_other_controller_is_rejected | 真实 lease、可信 scope 与错误对象 | verified |
+| B-01 | 初始缺模块；负向移除 check 后 20 个请求全放行、configured=3 的断言失败，逐字节还原后通过 | runner passed | 两个 test_b_01 和 test_overlapping_target_denial_does_not_debit_parent | asyncio 并发真实控制器，无存储替身 | verified |
+| B-02 | 初始缺模块 | runner passed | test_b_02_no_limits_does_not_construct_a_controller、test_unmatched_rules_do_not_consume_or_call_observer | 无预算返回 None、未命中不计数也不调用 observer | verified |
+| B-05 | 初始缺模块 | runner passed | 三个 test_b_05 | 注入单调时钟、query/编码路径/动态段、MCP 握手匹配 | verified |
+| E-04 | 回调取消时 lease 泄漏测试真实失败，已修复 | runner passed | test_e_04_observer_failure_does_not_resend_or_leak、test_observer_cancellation_cleans_the_acquired_lease、test_e_04_diagnostic_outcome_cannot_carry_arbitrary_secret_text | 日志捕获无原始异常/路径秘密；本地 observer_failures 记录失败 | verified |
+| harness-log#RULE-log-001 | 新观测约定沿用既有日志，无需伪造旧功能 RED | 合并回归 17 passed，包含原 verifier 全部用例；finish 独立执行原命令 | tests/test_logging.py、test_logging_redaction.py、tests/acceptance/test_foundation_logging.py | 既有 logging-kit/真实验收基础设施 | verified |
+| harness-secret#RULE-secret-001 | 新事件安全字段已取真实功能 RED | 同组合回归通过，包含原 verifier 全部用例；finish 独立执行原命令 | tests/test_logging_redaction.py、tests/acceptance/test_foundation_ops_audit.py | 既有脱敏与审计真实边界 | verified |
+
+核心/配置定向套件总计 42 passed；Ruff/mypy 与轻量 validators 通过。observer 失败在核心暴露本地 observer_failures 计数与 warning，应用 metrics 的装配仍由后续发送接线任务负责。此任务没有修改平台/MCP/legacy Skill 发送路径，不能据此宣称业务出站已全部限流。
 
 ## TASK-003: 平台发送与 SDK 客户端接线
 
