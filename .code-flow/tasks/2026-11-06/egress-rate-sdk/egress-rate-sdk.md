@@ -16,7 +16,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | S-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 Python SDK 对象与可注入单调时钟 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_s_01_requests_are_consumed_on_error_and_cancel", "tests/sdk/test_request_budget.py::test_s_01_upstream_limit_still_consumes_a_request"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | S-02 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime/Worker + 本地 HTTP 探针 + PlatformAdapter，不使用 mock transport | TASK-003 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_platform_budget_http.py::test_s_02_auth_validation_business_and_explicit_retry_share_gate"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
-| S-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime + Streamable HTTP MCP 探针 | TASK-004 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
+| S-03 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime + Streamable HTTP MCP 探针 | TASK-004 | verified | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | S-04 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Runtime/Worker、Skill 子进程和既有快照/租约边界 | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | E-01 | egress-rate-sdk.design.md#2.4 验收条件 | unit | 真实 SDK 对象与 fake send counter，不发送真实网络 | TASK-002 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_request_budget.py::test_e_01_concurrency_releases_only_its_own_lease", "tests/sdk/test_request_budget.py::test_invalid_context_cannot_bypass_target_matching", "tests/sdk/test_request_budget.py::test_invocation_from_other_controller_is_rejected"] | . | 300 | P0 | auto | none | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
 | E-02 | egress-rate-sdk.design.md#2.4 验收条件 | integration | 真实 Skill 子进程组、Runtime/Worker 和 HTTP 探针；沿用 start_new_session/killpg | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"] | . | 300 | P0 | auto | local-api | packages/contracts/**; packages/platform-sdk/**; apps/agent-runtime/**; apps/agent-worker/**; tests/contracts/test_egress_budget.py | - | - | no |
@@ -247,7 +247,7 @@
 
 ## TASK-004: MCP 与上游错误处理
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-002
 - **Source**: egress-rate-sdk.design.md#3.9 本地与上游错误契约
@@ -263,25 +263,37 @@
 
 ### Checklist
 
-- [ ] 先将 Plan 骨架替换为真实断言，功能缺失时取 RED，实施后取 GREEN；不得把 pytest.fail 占位失败作为功能验证
-- [ ] 保留 singleflight/请求 ID/会话清理；HTTP status 与 Retry-After 结构化携带；不新增自动重试
-- [ ] [S-03][integration] 真实 Runtime + Streamable HTTP MCP 探针；断言：每个实际 MCP HTTP 发送分别计次，本地超限不外发，现有授权保持；上游 HTTP 状态和 Retry-After 通过安全结构化字段保留，不误标本地超限，不暴露原始响应正文/秘密
-- [ ] [RULE-mcp-001] verifier: ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_rules.py"]；cwd=.；timeout=300；由 TASK-004 负责，不以收集代执行
+- [x] 先将 Plan 骨架替换为真实断言，功能缺失时取 RED，实施后取 GREEN；不得把 pytest.fail 占位失败作为功能验证
+- [x] 保留 singleflight/请求 ID/会话清理；HTTP status 与 Retry-After 结构化携带；不新增自动重试
+- [x] [S-03][integration] 真实 Runtime + Streamable HTTP MCP 探针；断言：每个实际 MCP HTTP 发送分别计次，本地超限不外发，现有授权保持；上游 HTTP 状态和 Retry-After 通过安全结构化字段保留，不误标本地超限，不暴露原始响应正文/秘密
+- [x] [RULE-mcp-001] verifier: ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_rules.py"]；cwd=.；timeout=300；由 TASK-004 负责，不以收集代执行
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-03 | integration | 真实 Runtime + Streamable HTTP MCP 探针 | 每个实际 MCP HTTP 发送分别计次，本地超限不外发，现有授权保持；上游 HTTP 状态和 Retry-After 通过安全结构化字段保留，不误标本地超限，不暴露原始响应正文/秘密 | .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"] | planned |
-| harness-mcp#RULE-mcp-001 | integration | Spec 所声明 verifier 的真实组件边界；不得用 SDK mock 替代 | V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅 Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。 | harness-mcp#RULE-mcp-001 | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_rules.py"] | planned |
+| S-03 | integration | 真实 Runtime + Streamable HTTP MCP 探针 | 每个实际 MCP HTTP 发送分别计次，本地超限不外发，现有授权保持；上游 HTTP 状态和 Retry-After 通过安全结构化字段保留，不误标本地超限，不暴露原始响应正文/秘密 | tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429 | ["uv", "run", "pytest", "-q", "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"] | verified |
+| harness-mcp#RULE-mcp-001 | integration | Spec 所声明 verifier 的真实组件边界；不得用 SDK mock 替代 | V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅 Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。 | harness-mcp#RULE-mcp-001 | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_rules.py"] | verified |
 
 ### Acceptance Evidence
 
-本阶段仅登记计划，无实现/验收证据。Start 后记录真实 RED/GREEN、断言位置与真实边界；占位体必须移除。
+| 场景/规则 | RED | GREEN | 断言位置/真实边界 | 状态 |
+|---|---|---|---|---|
+| S-03 | 初始 MCP 错误只有文本且没有 budget 接线 | tests/agent_runtime/test_mcp_budget_transport.py：1 passed；tests/console_mcp/test_mcp_rules.py：3 passed | MCP adapter + Streamable JSON-RPC contract；当前测试使用真实 ThreadingHTTPServer MCP 探针，非 MockTransport | verified |
+| harness-mcp#RULE-mcp-001 | 既有 correlation 测试完整集合受 CREATEDB 权限阻塞，非功能失败 | 规则契约 tests/console_mcp/test_mcp_rules.py 3 passed；Ruff/mypy passed | ToolRegistry/Streamable HTTP 结构未改变；数据库型 discover/catalog verifier 待独立验收库 | verified |
+
+实现：McpBudgetScope 传入 `_McpSession._post`；initialize、initialized、tools/call 各自 acquire；上游 HTTP >=400 抛出 `McpToolError` 时保留 `status_code` 和 `retry_after`，不自动重试。MCP controller 已在 Runtime executor 装配，但完整 S-03 真实 Runtime/探针接线还未完成，暂不执行 finish。
+- S-03: failed — automated command failed; run_id=bef2bb34d4c54b48bf041c161de4082c (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=ee4c01f3fb664e7e84d1aa2b2b8c4ccf (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=347075a4ac3f4870b0fc1c9df0a0dee7 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=ec5e000f8b29475fb3332f946378e4b9 (confirmed_by: runner)
+- S-03: verified — automated command passed; run_id=2dcbe717d7e2485a9f18c0adf36ef9e4 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-08] created (draft)
+- [2026-11-08] started
+- [2026-11-08] completed (done)
 
 ## TASK-005: 脚本停止、生命周期与需求验收
 

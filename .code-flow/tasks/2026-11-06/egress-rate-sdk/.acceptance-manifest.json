@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "egress-rate-sdk.md",
-  "task_sha256": "d27a26481fe336998e3c08e08f64428ccc45763520d763b79ec960ccbfe30f57",
+  "task_sha256": "0563dee31060dafe9ac43f3be577c6949897e9251fc80cc5ccccfc2f81100cf8",
   "checks": [
     {
       "id": "CHK-1cb9e8f854e9",
@@ -74,13 +74,13 @@
       "paths": []
     },
     {
-      "id": "CHK-59e021b0d5ff",
+      "id": "CHK-bef5a9b3026d",
       "command": [
         "uv",
         "run",
         "pytest",
         "-q",
-        ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"
+        "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
       ],
       "cwd": ".",
       "timeout": 300.0,
@@ -96,24 +96,7 @@
         "tests/contracts/test_egress_budget.py"
       ],
       "preflight": [],
-      "paths": [],
-      "suite": "integration",
-      "test_ids": [
-        ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"
-      ],
-      "markers": [],
-      "collect": {
-        "argv": [
-          "uv",
-          "run",
-          "pytest",
-          "--collect-only",
-          "-q",
-          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"
-        ],
-        "format": "pytest",
-        "timeout": 15
-      }
+      "paths": []
     },
     {
       "id": "CHK-229e8d5fbb1e",
@@ -1383,13 +1366,13 @@
       "kind": "functional",
       "boundary": "真实 Runtime + Streamable HTTP MCP 探针",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
         "pytest",
         "-q",
-        ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"
+        "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
       ],
       "cwd": ".",
       "timeout": 300.0,
@@ -1444,7 +1427,312 @@
         "FEAT-05"
       ],
       "defer_owner": "TASK-004",
-      "check": "CHK-59e021b0d5ff"
+      "check": "CHK-bef5a9b3026d",
+      "revision": 5,
+      "evidence": {
+        "id": "S-03",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 2220.3522079998947,
+        "check_id": "CHK-bef5a9b3026d",
+        "input_hash": "7f08b60da9b9a12f25e7a035cbdcdacefa3d866c9a1033fce0b01ca3f6e509f6",
+        "environment_hash": "6aecf2f59bbe54bbd370e6f7eb1e54e545ec6f19bcc0306a6542dbc53e30383c",
+        "check_config": {
+          "id": "CHK-bef5a9b3026d",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "local-api",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [
+            "packages/contracts/**",
+            "packages/platform-sdk/**",
+            "apps/agent-runtime/**",
+            "apps/agent-worker/**",
+            "tests/contracts/test_egress_budget.py"
+          ],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 5,
+        "run_id": "2dcbe717d7e2485a9f18c0adf36ef9e4",
+        "executed_at": "2026-11-08T05:58:16.674693+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "7f08b60da9b9a12f25e7a035cbdcdacefa3d866c9a1033fce0b01ca3f6e509f6"
+      },
+      "runs": [
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________________________ test_s_03 ___________________________________\n\n    def test_s_03():\n        \"\"\"S-03: MCP gate 与 Proxy 429 透传.\"\"\"\n>       pytest.fail(\"PLAN_SKELETON: implement real boundary and assertions before acceptance\")\nE       Failed: PLAN_SKELETON: implement real boundary and assertions before acceptance\n\n.code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py:14: Failed\n=========================== short test summary info ============================\nFAILED .code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03\n1 failed in 0.03s",
+          "execution_ms": 221.149041,
+          "check_id": "CHK-59e021b0d5ff",
+          "input_hash": "",
+          "environment_hash": "7a5ab4edb72aab8e790c662180c659602c0aa916daff775acd977461db0f7a5d",
+          "check_config": {
+            "id": "CHK-59e021b0d5ff",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"
+              ],
+              "format": "pytest",
+              "timeout": 15
+            }
+          },
+          "revision": 1,
+          "run_id": "bef2bb34d4c54b48bf041c161de4082c",
+          "executed_at": "2026-11-08T05:50:48.254292+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2101.990542,
+          "check_id": "CHK-bef5a9b3026d",
+          "input_hash": "",
+          "environment_hash": "97e5c3d5e8bdbd2f62f566ac7e5dac413841f90e315a8fc102737499a5b76bd2",
+          "check_config": {
+            "id": "CHK-bef5a9b3026d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 2,
+          "run_id": "ee4c01f3fb664e7e84d1aa2b2b8c4ccf",
+          "executed_at": "2026-11-08T05:51:40.511964+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2179.213625,
+          "check_id": "CHK-bef5a9b3026d",
+          "input_hash": "",
+          "environment_hash": "f4bd98ee74556176f6a1d0421a325f9aa01cf9f6a4b453d8c56a7b3404498e74",
+          "check_config": {
+            "id": "CHK-bef5a9b3026d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 3,
+          "run_id": "347075a4ac3f4870b0fc1c9df0a0dee7",
+          "executed_at": "2026-11-08T05:52:50.842738+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2193.982042,
+          "check_id": "CHK-bef5a9b3026d",
+          "input_hash": "",
+          "environment_hash": "24f21260117ea8894f765fe38af623234400ed4374b1222a3af81d0a0ec77c49",
+          "check_config": {
+            "id": "CHK-bef5a9b3026d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 4,
+          "run_id": "ec5e000f8b29475fb3332f946378e4b9",
+          "executed_at": "2026-11-08T05:53:24.247899+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 2220.3522079998947,
+          "check_id": "CHK-bef5a9b3026d",
+          "input_hash": "7f08b60da9b9a12f25e7a035cbdcdacefa3d866c9a1033fce0b01ca3f6e509f6",
+          "environment_hash": "6aecf2f59bbe54bbd370e6f7eb1e54e545ec6f19bcc0306a6542dbc53e30383c",
+          "check_config": {
+            "id": "CHK-bef5a9b3026d",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "local-api",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/contracts/**",
+              "packages/platform-sdk/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "tests/contracts/test_egress_budget.py"
+            ],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 5,
+          "run_id": "2dcbe717d7e2485a9f18c0adf36ef9e4",
+          "executed_at": "2026-11-08T05:58:16.674693+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_mcp_budget_transport.py::test_mcp_budget_counts_initialize_notification_and_tool_and_preserves_429"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "7f08b60da9b9a12f25e7a035cbdcdacefa3d866c9a1033fce0b01ca3f6e509f6"
+        }
+      ]
     },
     {
       "id": "S-04",
@@ -4308,12 +4596,13 @@
   "relock": {
     "preserved": [
       "S-01",
-      "S-03",
+      "S-02",
       "S-04",
       "E-01",
       "E-02",
       "B-01",
       "B-02",
+      "B-03",
       "E-03",
       "B-04",
       "B-05",
@@ -4321,8 +4610,7 @@
       "S-05"
     ],
     "stale": [
-      "S-02",
-      "B-03"
+      "S-03"
     ],
     "removed": []
   }

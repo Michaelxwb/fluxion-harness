@@ -105,3 +105,23 @@ class PlatformHttpSender:
     def _origin(url: SplitResult) -> tuple[str, str | None, int | None]:
         port = url.port if url.port is not None else {"http": 80, "https": 443}.get(url.scheme)
         return url.scheme, url.hostname, port
+
+@dataclass(frozen=True, slots=True)
+class McpBudgetScope:
+    controller: BudgetController | None
+    invocation: InvocationBudget | None = field(default=None, repr=False)
+
+    @asynccontextmanager
+    async def attempt(
+        self,
+        server_key: str,
+        rpc_method: str,
+        tool_name: str | None = None,
+    ) -> AsyncIterator[BudgetLease | None]:
+        if self.controller is None:
+            yield None
+            return
+        context = AttemptContext(mcp_server_key=server_key, rpc_method=rpc_method,
+                                 tool_name=tool_name, invocation=self.invocation)
+        async with self.controller.attempt(context) as lease:
+            yield lease

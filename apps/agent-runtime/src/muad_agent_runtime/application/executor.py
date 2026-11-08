@@ -83,6 +83,8 @@ from muad_contracts.platform_settings import (
     ToolResultSettings,
 )
 from muad_logging.redaction import redact_text
+from muad_platform_sdk.platform_transport import McpBudgetScope, PlatformBudgetScope
+from muad_platform_sdk.request_budget import BudgetController, create_budget_controller
 from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_platform_sdk.types import SecretValue
 from pydantic import JsonValue, ValidationError
@@ -1956,6 +1958,7 @@ def build_registry(
     delivery_client: GatewayDeliveryClient | None = None,
     recorder: ToolCallRecorder | None = None,
     memory: RunMemory | None = None,
+    budget_controller: BudgetController | None = None,
 ) -> ToolRegistry:
     policy = agent_policy_for(request)
     execution = execution_defaults_for(request)
@@ -2001,6 +2004,11 @@ def build_registry(
             redis_mode=process_settings().redis_mode,
             redis_cluster_seeds=process_settings().redis_cluster_seeds,
             service_token=process_settings().internal_service_token,
+            budget_scope=(
+                PlatformBudgetScope(budget_controller)
+                if budget_controller is not None
+                else None
+            ),
         ) if request.run_context else None,
         workspace_shell=workspace_shell,
         workspace_shell_context=workspace_context,
@@ -2169,7 +2177,19 @@ async def default_executor_factory(
         client=model_client,
         ledger=ledger,
     )
-    mcp_adapter = McpRuntimeAdapter(audit_writer=audit_writer, client=mcp_client)
+    budget_controller = (
+        create_budget_controller(
+            request.execution.egress_budget,
+            segment_id=str(request.run_context.run_id) if request.run_context else "executor",
+        )
+        if request.execution is not None
+        else None
+    )
+    mcp_adapter = McpRuntimeAdapter(
+        audit_writer=audit_writer,
+        client=mcp_client,
+        budget=McpBudgetScope(budget_controller) if budget_controller is not None else None,
+    )
     settings = process_settings()
     # 交付客户端：**只有本次 Run 有交付路由时才建**（没路由的 Run 谈不上交付）。
     # 与 task_client 同一条 owned/close 规矩：谁造谁收，避免每次 Run 漏一个 httpx 连接池。
@@ -2210,6 +2230,7 @@ async def default_executor_factory(
         delivery_client=delivery_client,
         recorder=recorder,
         memory=memory,
+        budget_controller=budget_controller,
     )
     hooks = HookPipeline()
     runner = AgentRunner(
