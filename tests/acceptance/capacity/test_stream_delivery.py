@@ -805,6 +805,15 @@ def _connector_ready(url: str) -> bool:
 
 
 
+def _port_refused(port: int) -> bool:
+    """端口当前是否拒绝连接（诊断用：区分"下线窗口没建立"与"投递真的成功了"）。"""
+    try:
+        socket.create_connection(("127.0.0.1", port), timeout=1.0).close()
+    except OSError:
+        return True
+    return False
+
+
 def _await_port_refused(port: int, *, timeout: float = 15.0) -> None:
     """等待端口停止接受连接；超时仍可连接则显式失败。"""
     deadline = time.monotonic() + timeout
@@ -1210,7 +1219,12 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
         timeout=60.0,
     )
     failing = _wecom_notification(stack.database_url, second_run)
-    assert failing["delivery_state"] != "DELIVERED", "没发出去不得标送达"
+    # 失败时把整行与"投递端点是否仍拒绝连接"一起带出来：CI 曾出现 DELIVERED，
+    # 需要能区分"下线窗口没建立"与"投递真的成功了"，而不是只看到一句断言。
+    assert failing["delivery_state"] != "DELIVERED", (
+        f"没发出去不得标送达：{failing}"
+        f"（relay listening={relay.listening}, port_refused={_port_refused(wecom_harness.relay_port)}）"
+    )
     assert _delivery_outcome(failing) != "DELIVERED", (
         f"失败尝试不得写送达结果：{failing['delivery_result']}"
     )
