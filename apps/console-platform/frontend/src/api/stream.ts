@@ -29,7 +29,8 @@ import type {
   WebchatClientConfig,
   WebchatClientTransport,
   WebchatConfirmation,
-  WebchatExecutionStatus
+  WebchatExecutionStatus,
+  WebchatToolProgress
 } from '../modules/webchat/types';
 
 import {
@@ -297,6 +298,13 @@ export type ReplyStreamUpdate =
     }
   | { kind: 'snapshot'; seq: number; replyGeneration: number; text: string; partCount: number }
   | { kind: 'stage'; seq: number; data: WebchatExecutionStatus }
+  | {
+      kind: 'tool';
+      seq: number;
+      data: WebchatToolProgress;
+      /** STARTED 事件的原始时刻（UTC ISO）；重连后计时仍从真实开始时刻算起。 */
+      startedAt: string | null;
+    }
   | { kind: 'terminal'; seq: number; status: RunStatus }
   | { kind: 'error'; seq: number; code: string; retryable: boolean; hasReply: boolean }
   | { kind: 'confirmation'; seq: number; data: WebchatConfirmation }
@@ -422,6 +430,7 @@ interface ParsedEvent {
   eventId: string;
   seq: number;
   data: Record<string, unknown>;
+  timestamp: string | null;
 }
 
 function parseEvent(frame: SseFrame): ParsedEvent {
@@ -434,7 +443,13 @@ function parseEvent(frame: SseFrame): ParsedEvent {
   if (frame.cursor !== null && frame.cursor !== seq) {
     throw new WebchatStreamError('MALFORMED_FRAME', `SSE id ${frame.cursor} != payload seq ${seq}`);
   }
-  return { eventId: readString(envelope, 'event_id'), seq, data: readObject(envelope, 'data') };
+  const timestamp = envelope['timestamp'];
+  return {
+    eventId: readString(envelope, 'event_id'),
+    seq,
+    data: readObject(envelope, 'data'),
+    timestamp: typeof timestamp === 'string' ? timestamp : null
+  };
 }
 
 function utf8Length(text: string): number {
@@ -590,6 +605,11 @@ function applyDataFrameEvent(
     state.applied = parsed.seq;
     return { kind: 'stage', seq: parsed.seq, data };
   }
+  if (frame.event === 'run.tool') {
+    const data = readToolProgress(parsed.data);
+    state.applied = parsed.seq;
+    return { kind: 'tool', seq: parsed.seq, data, startedAt: parsed.timestamp };
+  }
   if (frame.event === 'run.terminal') {
     const status = readString(parsed.data, 'status');
     if (!TERMINAL_STATUSES.has(status)) {
@@ -673,6 +693,24 @@ export function createReplyStreamCollector(
     disconnect: () => {
       state.pending = null;
     }
+  };
+}
+
+/** 工具进度：只认公开契约的三种取值，坏载荷显式失败（不静默当成正常事件）。 */
+function readToolProgress(source: Record<string, unknown>): WebchatToolProgress {
+  const name = readString(source, 'name');
+  const phase = readString(source, 'phase');
+  if (phase !== 'STARTED' && phase !== 'FINISHED') {
+    throw new WebchatStreamError('MALFORMED_FRAME', `unknown tool phase: ${phase}`);
+  }
+  const status = source['status'];
+  if (status !== null && status !== undefined && status !== 'OK' && status !== 'ERROR') {
+    throw new WebchatStreamError('MALFORMED_FRAME', 'run.tool.status must be OK, ERROR or null');
+  }
+  return {
+    name,
+    phase,
+    status: status === 'OK' || status === 'ERROR' ? status : null
   };
 }
 

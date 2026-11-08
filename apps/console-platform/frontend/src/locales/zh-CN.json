@@ -1644,6 +1644,8 @@
   "chat.run.queue.deadline": "排队期限：",
   "chat.run.queuedAt": "进入排队：",
   "chat.run.startedAt": "开始执行：",
+  "chat.run.tool.executing": "正在执行 {{name}}",
+  "chat.run.tool.elapsed": "已 {{seconds}} 秒",
   "chat.run.connection.label": "连接状态",
   "chat.run.connection.state.idle": "未订阅",
   "chat.run.connection.state.connecting": "正在连接",

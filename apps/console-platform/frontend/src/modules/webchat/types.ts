@@ -106,6 +106,13 @@ export interface WebchatExecutionStatus {
   started_at: string | null;
 }
 
+/** 工具执行进度（公开边只带工具名/阶段/终态，不含参数与结果）。 */
+export interface WebchatToolProgress {
+  name: string;
+  phase: 'STARTED' | 'FINISHED';
+  status: 'OK' | 'ERROR' | null;
+}
+
 export interface WebchatConfirmationOption {
   value: string;
   label: string;

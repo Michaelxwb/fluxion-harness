@@ -1644,6 +1644,8 @@
   "chat.run.queue.deadline": "Queue deadline: ",
   "chat.run.queuedAt": "Queued at: ",
   "chat.run.startedAt": "Started at: ",
+  "chat.run.tool.executing": "Running {{name}}",
+  "chat.run.tool.elapsed": "{{seconds}}s elapsed",
   "chat.run.connection.label": "Connection State",
   "chat.run.connection.state.idle": "Not subscribed",
   "chat.run.connection.state.connecting": "Connecting",

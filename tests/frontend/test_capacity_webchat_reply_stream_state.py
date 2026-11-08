@@ -639,6 +639,55 @@ const obs = {};
   };
 }
 
+// ---- 5b) 工具进度：run.tool 只带名字/阶段；FINISHED 撤掉；终态清空；旧快照不打回阶段 --------
+{
+  const { config, state } = await boot({ reconnect_max_attempts: 1 });
+  const controller = controllerOf(state, config);
+  planSse([{ id: 'a1', manual: true }]);
+  controller.watch(targetOf(CONVERSATION_1, RUN_A));
+  await until('工具进度首连', () => sse.handles.has('a1'));
+  pushFrame('a1', stageFrame(RUN_A, CONVERSATION_1, 1, stageOf('RUNNING', {
+    started_at: '2026-10-18T00:00:00Z'
+  })));
+  pushFrame('a1', frameOf(RUN_A, CONVERSATION_1, 2, 'run.tool', {
+    name: 'workspace_shell', phase: 'STARTED', status: null, preview: 'private-canary'
+  }));
+  await until('工具开始', () => controller.snapshot().run.tool !== null);
+  obs.toolStarted = {
+    tool: controller.snapshot().run.tool,
+    appliedSeq: controller.snapshot().run.lastAppliedSeq,
+    stage: controller.snapshot().run.executionStatus.stage
+  };
+  // 重新观察同一 Run：旧详情快照（受理瞬间的 WAITING_RUNTIME + 排队期限）不得打回阶段。
+  controller.watch(targetOf(CONVERSATION_1, RUN_A, 'RUNNING', stageOf('WAITING_RUNTIME', {
+    queued_at: '2026-10-18T00:00:00Z', deadline_at: '2026-10-18T00:01:00Z'
+  })));
+  await settle(20);
+  obs.toolStaleSnapshot = {
+    stage: controller.snapshot().run.executionStatus.stage,
+    phase: controller.snapshot().streaming.phase,
+    tool: controller.snapshot().run.tool
+  };
+  pushFrame('a1', frameOf(RUN_A, CONVERSATION_1, 3, 'run.tool', {
+    name: 'workspace_shell', phase: 'FINISHED', status: 'OK'
+  }));
+  await until('工具结束', () => controller.snapshot().run.lastAppliedSeq === 3);
+  obs.toolFinished = {
+    tool: controller.snapshot().run.tool,
+    appliedSeq: controller.snapshot().run.lastAppliedSeq
+  };
+  pushFrame('a1', frameOf(RUN_A, CONVERSATION_1, 4, 'run.tool', {
+    name: 'workspace_shell', phase: 'STARTED', status: null
+  }));
+  await until('工具再次开始', () => controller.snapshot().run.tool !== null);
+  pushFrame('a1', terminalFrame(RUN_A, CONVERSATION_1, 5, 'COMPLETED'));
+  await until('工具后终态', () => controller.snapshot().run.status === 'COMPLETED');
+  obs.toolTerminal = {
+    tool: controller.snapshot().run.tool,
+    status: controller.snapshot().run.status
+  };
+}
+
 // ---- 6) CURSOR_EXPIRED 显式处理 + recover() 从安全快照重开 + 恢复后游标可用 -----------------------
 {
   const { config, state } = await boot({ reconnect_max_attempts: 2 });
@@ -1069,6 +1118,32 @@ def test_b282_only_the_visible_run_is_subscribed_and_reconnects_by_get(events: d
     assert observed["states"] == ["idle", "connecting", "open", "reconnecting", "open", "closed"], (
         f"连接状态必须显式反映重连：{observed['states']}"
     )
+
+
+def test_tool_progress_tracks_the_public_event_only(events: dict[str, Any]) -> None:
+    """`run.tool` 只驱动工具名/开始时刻：私有字段不上状态，FINISHED 与终态都撤掉进度。"""
+    started = events["toolStarted"]
+    assert started["tool"] == {
+        "name": "workspace_shell",
+        "startedAt": "2026-10-18T00:00:00Z",
+    }, f"工具进度只带公开字段与 STARTED 时刻：{started}"
+    assert started["appliedSeq"] == 2, "工具进度是正常公开事件，必须推进已应用水位"
+    assert started["stage"] == "RUNNING"
+    assert events["toolFinished"] == {"tool": None, "appliedSeq": 3}, (
+        f"FINISHED 必须撤掉进度行：{events['toolFinished']}"
+    )
+    assert events["toolTerminal"] == {"tool": None, "status": "COMPLETED"}, (
+        f"终态必须清空工具进度：{events['toolTerminal']}"
+    )
+
+
+def test_stale_detail_snapshot_never_downgrades_the_stream_stage(events: dict[str, Any]) -> None:
+    """重新观察同一 Run 时，受理瞬间的旧阶段快照不得把已应用的 RUNNING 打回排队。"""
+    assert events["toolStaleSnapshot"] == {
+        "stage": "RUNNING",
+        "phase": "running",
+        "tool": {"name": "workspace_shell", "startedAt": "2026-10-18T00:00:00Z"},
+    }, f"流已应用事件后阶段以流为权威：{events['toolStaleSnapshot']}"
 
 
 def test_persisted_run_error_is_terminal(events: dict[str, Any]) -> None:

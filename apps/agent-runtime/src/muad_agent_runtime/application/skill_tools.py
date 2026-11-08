@@ -96,6 +96,9 @@ RUN_SKILL_SCRIPT_DESCRIPTION = (
 )
 WORKSPACE_SHELL_DESCRIPTION = (
     "Run a one-off shell command inside this user's persistent workspace for the current Agent. "
+    "The command runs with the workspace as its working directory: locate files with `ls`/`grep` "
+    "inside the workspace instead of scanning the whole filesystem (`find /` can take minutes and "
+    "will not find anything the workspace does not already contain). "
     "The workspace is shared across runs of the same user + Agent: keep durable files under "
     "$SKILL_DATA_DIR and write per-call results under $SKILL_OUTPUT_DIR. Network is available. "
     "System Python/Node dependencies are preinstalled; temporary pip/npm installs are allowed but "

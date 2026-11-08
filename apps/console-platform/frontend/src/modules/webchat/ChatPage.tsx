@@ -943,6 +943,7 @@ function ChatRunActions(props: ChatRunActionsProps) {
     <RunActions
       status={run.status}
       executionStatus={run.executionStatus}
+      tool={run.tool}
       connection={props.connection}
       stop={props.stop.snapshot}
       onRequestStop={() => controller.requestStop(run.runId)}
