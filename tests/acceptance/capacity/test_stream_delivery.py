@@ -1236,8 +1236,15 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     )
 
     # 恢复投递端点：持久意图按退避重投到同一稳定键，且只真实送达一次。
-    replacement = stack.start_instance("im-gateway", index=0)
+    # 原地重启（同端口）：其余单元与 Connector 在启动时就把 Gateway 地址写进了 env/后端表，
+    # 换端口会让它们指向死地址（CI 实测：恢复后 120s 内投递始终到不了 Connector）。
+    replacement = stack.restart_instance("im-gateway", index=0)
     relay = repoint_relay(replacement.port)
+    await await_until(
+        lambda: _connector_ready(replacement.url),
+        what="恢复后 Gateway 未就绪",
+        timeout=60.0,
+    )
     await await_until(
         lambda: _wecom_notification(stack.database_url, second_run)["delivery_state"]
         == "DELIVERED",
