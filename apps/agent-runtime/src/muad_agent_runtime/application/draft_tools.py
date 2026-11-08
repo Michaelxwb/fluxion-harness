@@ -35,8 +35,12 @@ DRAFT_TOOL_DESCRIPTION = (
     "Manage the current user's skill draft (tenant + user + agent scoped). Actions: "
     "create(key), get(draft_id), read(draft_id, path), write(draft_id, path, content, "
     "expected_revision), delete(draft_id[, path]), review(draft_id), status(draft_id), "
-    "submit(draft_id, expected_revision[, version, default_script]). Identity comes from the "
-    "run; never pass tenant/user/agent."
+    "submit(draft_id, expected_revision[, version, default_script]). "
+    "Before submit, self-test the draft with skill_draft_shell: run "
+    "`python -m py_compile scripts/<entry>.py`, then `python scripts/<entry>.py` "
+    "(and `session-manager get-state` for platform skills); fix failures before submitting. "
+    "submit publishes the draft for approval. Identity comes from the run; "
+    "never pass tenant/user/agent."
 )
 
 _STRING = {"type": "string"}
