@@ -1204,6 +1204,10 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     # 连接失败（NOT_SENT），而不是依赖“回复帧失败”的旧注入——新链路的终态走主动发送，
     # 旧注入覆盖不到它。Run 已经完成入站受理，停 relay 不影响本条消息的建 Run。
     relay.stop()
+    # 只关 relay 的监听不够：Runtime 投递客户端是连接池，**已建立的连接可能仍在**，
+    # 投递会沿着旧连接成功（CI 实测通知行被标 DELIVERED）。把当前 Gateway 副本也停掉，
+    # 两条腿都断才是真的"投递端点不可用"。
+    stack.kill_instance(replacement)
     assert conversation_entry(second_run) == seeded.wecom_bot_account_id, (
         "重启后的第二条真实入站同样必须自己写对入口归属"
     )
@@ -1232,6 +1236,7 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     )
 
     # 恢复投递端点：持久意图按退避重投到同一稳定键，且只真实送达一次。
+    replacement = stack.start_instance("im-gateway", index=0)
     relay = repoint_relay(replacement.port)
     await await_until(
         lambda: _wecom_notification(stack.database_url, second_run)["delivery_state"]
