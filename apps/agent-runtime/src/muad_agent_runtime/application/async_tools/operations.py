@@ -30,6 +30,7 @@ from muad_contracts import (
     task_retry_safety,
 )
 from muad_contracts.canonical import ensure_strict_json
+from muad_contracts.skill_invocation import validate_skill_argv
 from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -112,9 +113,10 @@ def _submission(
     mode: CompletionMode,
     call_id: str,
     retry_safety: ToolRetrySafety | None,
+    argv: tuple[str, ...] = (),
 ) -> CreateTaskRequest:
     operation_id = uuid4()
-    snapshot, _ = build_task_snapshot(context, skill)
+    snapshot, _ = build_task_snapshot(context, skill, argv=argv)
     budget = JSON_OBJECT.validate_python(snapshot["budget"])
     budget.update({"max_attempts": 1, "async_tools": policy.model_dump(mode="json")})
     # 冻结一次（design §3.6）：可信 retry_safety 只认 Owner 侧工具声明，未知/未声明/非法一律
@@ -160,9 +162,11 @@ async def reserve_operation(
     call_id: str,
     completion_mode: CompletionMode,
     retry_safety: ToolRetrySafety | None = None,
+    argv: tuple[str, ...] = (),
 ) -> ToolOperation:
     data = JSON_OBJECT.validate_python(ensure_strict_json(dict(input_data)))
-    fingerprint = _input_hash(skill, data, completion_mode)
+    argv = validate_skill_argv(argv)
+    fingerprint = _input_hash(skill, data, completion_mode, argv=argv)
     async with factory() as session, session.begin():
         run, snapshot = await _source(session, context)
         _authorize(snapshot, skill)
@@ -185,7 +189,7 @@ async def reserve_operation(
             raise AppError(ErrorCode.RUN_CHECKPOINT_INVALID)
         policy = AsyncToolPolicy.model_validate(snapshot.policy_json.get("async_tools", {}))
         await _capacity(session, run, policy)
-        body = _submission(context, skill, data, run, policy, completion_mode, call_id, retry_safety)
+        body = _submission(context, skill, data, run, policy, completion_mode, call_id, retry_safety, argv)
         operation = await _insert_operation(session, body, fingerprint)
         session.expunge(operation)
     return operation
@@ -202,8 +206,10 @@ def frozen_operation_retry_safety(operation: ToolOperation) -> ToolRetrySafety:
     return task_retry_safety(snapshot if isinstance(snapshot, Mapping) else {})
 
 
-def _input_hash(skill: ResolvedSkill, data: dict[str, JsonValue], mode: CompletionMode) -> str:
-    payload = {"skill": skill.model_dump(mode="json"), "input": data, "mode": mode.value}
+def _input_hash(
+    skill: ResolvedSkill, data: dict[str, JsonValue], mode: CompletionMode, *, argv: tuple[str, ...] = ()
+) -> str:
+    payload = {"skill": skill.model_dump(mode="json"), "input": data, "mode": mode.value, "argv": list(argv)}
     return "sha256:" + sha256(canonical_json(payload).encode()).hexdigest()
 
 
@@ -297,6 +303,7 @@ class DurableTaskSubmitter:
         call_id: str,
         completion_mode: CompletionMode,
         retry_safety: ToolRetrySafety | None = None,
+        argv: tuple[str, ...] = (),
     ) -> dict[str, JsonValue]:
         import asyncio
 
@@ -308,6 +315,7 @@ class DurableTaskSubmitter:
             call_id=call_id,
             completion_mode=completion_mode,
             retry_safety=retry_safety,
+            argv=argv,
         )
         try:
             async with asyncio.timeout(5):

@@ -57,7 +57,9 @@ class TaskSubmissionContext:
     locale: str = "zh-CN"
 
 
-def build_task_snapshot(context: TaskSubmissionContext, skill: ResolvedSkill) -> tuple[dict[str, Any], str]:
+def build_task_snapshot(
+    context: TaskSubmissionContext, skill: ResolvedSkill, *, argv: tuple[str, ...] = ()
+) -> tuple[dict[str, Any], str]:
     """冻结本次 Task 所需版本键：只含要执行的这一个 Skill，密钥字段不进入快照。"""
     snapshot = build_execution_snapshot(
         agent=context.agent,
@@ -69,6 +71,7 @@ def build_task_snapshot(context: TaskSubmissionContext, skill: ResolvedSkill) ->
             agent_id=context.agent.id,
         ),
         mcp_servers=context.mcp_servers,
+        argv=argv,
     )
     return snapshot, snapshot_hash(snapshot)
 
@@ -107,8 +110,9 @@ class WorkerTaskClient:
         input_data: Mapping[str, Any],
         call_id: str,
         intent_key: str | None = None,
+        argv: tuple[str, ...] = (),
     ) -> dict[str, Any]:
-        snapshot, frozen_hash = build_task_snapshot(context, skill)
+        snapshot, frozen_hash = build_task_snapshot(context, skill, argv=argv)
         route = context.delivery_route
         body: dict[str, Any] = {
             "tenant_id": context.tenant_id,

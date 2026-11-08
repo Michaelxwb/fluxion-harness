@@ -25,6 +25,51 @@
 
 ## 1. 老 Skill 兼容契约
 
+### CLI 参数保持原样
+
+使用 `argparse` / `sys.argv` 的旧脚本无需改成读取 JSON。模型先 `load_skill`，
+按原 SKILL.md 的命令选择工具；只将脚本路径后面的业务参数放进 `argv`，
+不要包含 `python3`、解释器选项或脚本路径，也不要在字符串内再套 shell 引号。
+
+旧命令：
+
+```bash
+python3 scripts/run.py --company-id 123 --company-id 456 --start "2026-11-07 10:00" --end "2026-11-07 10:10"
+```
+
+对应工具调用：
+
+```json
+{
+  "skill_key": "monitor-mssp-events",
+  "argv": ["--company-id", "123", "--company-id", "456", "--start", "2026-11-07 10:00", "--end", "2026-11-07 10:10"]
+}
+```
+
+默认入口使用 `execute_skill`；其它入口（例如客户解析）使用 `run_skill_script`，
+增加 `"script": "resolve_customer.py"`，并传 `"argv": ["--company", "客户名称"]`。
+`input` 独立写入 JSON stdin，不自动映射为 CLI 参数；已有 JSON Skill 可以继续只传 `input`。
+Python 的 `-E -s -B` 由平台注入，保留相邻模块导入；参数按数组传递，空格、重复开关和
+JSON 字符串不经过 shell 拆词或展开。参数类型、编码、项数和字节上限由共享
+`validate_skill_argv` 校验。
+
+ASYNC `execute_skill` 将 `argv` 冻结到 execution snapshot，随操作持久化并进入 snapshot hash
+与幂等指纹；Worker 重试读取原数组，不改写业务 `input_json`。同一 call 更换参数会返回
+`IDEMPOTENCY_MISMATCH`。
+
+### monitor-mssp-events 样本验证边界
+
+标准旧样本为 `muad-openclaw/skills/mssp-mss-nges/new-skills/monitor-mssp-events`。
+其中文 description 超过旧目录字段上限，导入侧扩大有界容量，目录总预算与单行校验继续生效，
+无需修改原 SKILL.md。本次验证在临时副本中保留全部 Python 文件原始字节，只把平台地址配置
+改为本地 HTTP 桩，并用返回合成会话文件的 session-manager 桩：客户解析、最近分钟监控、
+指定起止监控（无事件）均成功。该结果证明原脚本的 CLI、相邻模块和查询路径能够执行，
+不代表真实平台认证、bwrap 部署或 Webhook 送达已通过。
+
+样本的 GPT/AV/C2 分支还会从同级目录或环境配置定位 `mssp-event-push-content`，而当前
+沙箱只挂载本次 Skill 包；对应会话 broker 也绑定本次 Skill 身份。跨 Skill 子进程调用
+需要另行设计受授权的依赖执行能力，不能仅靠 `argv` 或 workspace_shell 宣称全链路兼容。
+
 | 老 Skill 现状 | 新契约 | 说明 |
 |---|---|---|
 | `cache` / `logs` / `companies` 写在 Skill 包根目录 | `SKILL_DATA_DIR` | 包只读；持久数据迁到 user + Agent data 目录 |

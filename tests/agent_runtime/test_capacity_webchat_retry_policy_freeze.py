@@ -51,6 +51,7 @@ from muad_agent_runtime.infrastructure.models.async_tools import ToolControlOutb
 from muad_agent_worker.infrastructure import db as worker_db
 from muad_agent_worker.infrastructure.models.task import TaskExecution
 from muad_agent_worker.main import app as worker_app
+from muad_api import AppError
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_contracts import (
     DEFAULT_TOOL_RETRY_SAFETY,
@@ -72,6 +73,35 @@ pytestmark = pytest.mark.integration
 
 TOKEN = "retry-policy-freeze-internal-token"
 CALL_ID = "call-freeze-1"
+
+
+async def test_cli_arguments_are_durable_and_part_of_operation_identity(
+    isolated_stack: async_sessionmaker[AsyncSession], tmp_path: Path,
+) -> None:
+    factory = isolated_stack
+    context, skill, _ = await _seed_run(factory)
+    argv = ["--company-id", "123", "--start", "2026-11-07 10:00"]
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=worker_app)) as client:
+        tools = _tool_set(context=context, factory=factory, client=client, tmp_path=tmp_path,
+                          declaration=ToolRetrySafety.NON_RETRYABLE)
+        receipt = json.loads(await tools.execute_skill(
+            {"skill_key": skill.key, "input": {"x": 1}, "argv": argv}, call_id="cli-call"
+        ))
+    operation = await _operation(factory, uuid.UUID(receipt["operation_id"]))
+    task = await _task(factory, uuid.UUID(receipt["task_id"]))
+    assert operation.submission_json["execution_snapshot"]["argv"] == argv
+    assert task.execution_snapshot_json["argv"] == argv
+    assert task.input_json == {"x": 1}
+    assert task.snapshot_hash == snapshot_hash(task.execution_snapshot_json)
+    replay = await reserve_operation(factory, context, skill=skill, input_data={"x": 1},
+                                     call_id="cli-call", completion_mode=CompletionMode.JOIN,
+                                     argv=tuple(argv))
+    assert replay.id == operation.id
+    with pytest.raises(AppError) as error:
+        await reserve_operation(factory, context, skill=skill, input_data={"x": 1},
+                                call_id="cli-call", completion_mode=CompletionMode.JOIN,
+                                argv=("--company-id", "456"))
+    assert str(error.value.code) == "IDEMPOTENCY_MISMATCH"
 
 
 # --------------------------------------------------------------------------- #
