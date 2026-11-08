@@ -1234,6 +1234,17 @@ async def test_e19_gateway_restart_persistent_intent_delivers_proactively(
     assert _delivery_outcome(failing) != "DELIVERED", (
         f"失败尝试不得写送达结果：{failing['delivery_result']}"
     )
+    if failing["delivery_state"] == "UNKNOWN":
+        # 连接中断时拿不到确定回执 ⇒ UNKNOWN（产品语义：保留核实、不自动重发）。
+        # 与 ④ 段同口径：模拟运维核实后放回 PENDING，再验证恢复后的重投。
+        db_execute(
+            stack.database_url,
+            "UPDATE runtime.channel_notification"
+            " SET delivery_state = 'PENDING', next_attempt_at = now(),"
+            " lease_owner = NULL, lease_until = NULL, update_time = now()"
+            " WHERE delivery_key = $1",
+            f"run:{second_run}:terminal",
+        )
 
     # 恢复投递端点：持久意图按退避重投到同一稳定键，且只真实送达一次。
     # 原地重启（同端口）：其余单元与 Connector 在启动时就把 Gateway 地址写进了 env/后端表，
