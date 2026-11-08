@@ -46,6 +46,10 @@ from muad_contracts import (
     SkillExecutionMode,
     ToolRetrySafety,
 )
+from muad_contracts.skill_invocation import (
+    MAX_SKILL_ARGV_ITEMS,
+    validate_skill_argv,
+)
 from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
 from pydantic import JsonValue
@@ -73,8 +77,15 @@ LOAD_SKILL_DESCRIPTION = "Load a skill's manifest and full SKILL.md instructions
 READ_SKILL_RESOURCE_TOOL_DESCRIPTION = (
     "Read a file shipped inside a skill package (references/assets) by skill key and path."
 )
-EXECUTE_SKILL_DESCRIPTION = "Execute a skill's deterministic entry script with a normalized JSON input."
-RUN_SKILL_SCRIPT_DESCRIPTION = "Execute a named script under a skill package's scripts directory."
+_SKILL_INPUT_DESCRIPTION = (
+    "Pass legacy CLI flags from SKILL.md as argv (strings after the script path, "
+    "without python/node or shell quoting). input is optional JSON stdin; "
+    "it is not converted to CLI flags."
+)
+EXECUTE_SKILL_DESCRIPTION = "Execute a skill's entry script. " + _SKILL_INPUT_DESCRIPTION
+RUN_SKILL_SCRIPT_DESCRIPTION = (
+    "Execute a named script in a skill's scripts directory. " + _SKILL_INPUT_DESCRIPTION
+)
 WORKSPACE_SHELL_DESCRIPTION = (
     "Run a one-off shell command inside this user's persistent workspace for the current Agent. "
     "The workspace is shared across runs of the same user + Agent: keep durable files under "
@@ -108,6 +119,10 @@ SKILL_EXECUTION_FAILED = "SKILL_EXECUTION_FAILED"
 BACKGROUND_SUBMIT_FAILED = "BACKGROUND_SUBMIT_FAILED"
 _STRING_SCHEMA: Mapping[str, Any] = {"type": "string"}
 _OBJECT_SCHEMA: Mapping[str, Any] = {"type": "object"}
+_ARGV_SCHEMA: Mapping[str, Any] = {
+    "type": "array", "items": {"type": "string"}, "maxItems": MAX_SKILL_ARGV_ITEMS,
+    "description": "Script arguments in order, preserving spaces and repeated flags as separate items.",
+}
 _NUMBER_SCHEMA: Mapping[str, Any] = {"type": "number", "exclusiveMinimum": 0}
 _CATALOG_RESOURCE_KEY = "skills:catalog"
 logger = logging.getLogger(__name__)
@@ -179,6 +194,7 @@ class TaskSubmissionProtocol(Protocol):
         call_id: str,
         completion_mode: CompletionMode,
         retry_safety: ToolRetrySafety | None = None,
+        argv: tuple[str, ...] = (),
     ) -> dict[str, JsonValue]: ...
 
 
@@ -324,15 +340,16 @@ class SkillToolSet:
         try:
             skill = self._require_skill(arguments)
             input_data = _require_input(arguments)
+            argv = _require_argv(arguments)
             if skill.execution_mode is SkillExecutionMode.ASYNC:
                 mode = CompletionMode(arguments.get("completion_mode", "JOIN"))
-                return await self._submit_background(skill, input_data, call_id, mode)
+                return await self._submit_background(skill, input_data, call_id, mode, argv=argv)
             if "completion_mode" in arguments:
                 raise SkillToolError(
                     ErrorCode.TOOL_COMPLETION_MODE_INVALID.value, "SYNC Skill does not accept completion_mode"
                 )
             package = await self._package(skill)
-            return await self._execute(package.root, input_data, script=None, skill=skill)
+            return await self._execute(package.root, input_data, script=None, skill=skill, argv=argv)
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
 
@@ -341,9 +358,10 @@ class SkillToolSet:
             skill = self._require_skill(arguments)
             name = _require_string(arguments, "script")
             input_data = _require_input(arguments)
+            argv = _require_argv(arguments)
             package = await self._package(skill)
             script = _select_script(package, name)
-            return await self._execute(package.root, input_data, script=script, skill=skill)
+            return await self._execute(package.root, input_data, script=script, skill=skill, argv=argv)
         except SkillToolError as exc:
             return _error_result(exc.code, exc.message)
 
@@ -548,6 +566,7 @@ class SkillToolSet:
                         "skill_key": _STRING_SCHEMA,
                         "input": _OBJECT_SCHEMA,
                         "completion_mode": {"type": "string", "enum": ["JOIN", "DETACH"]},
+                        "argv": _ARGV_SCHEMA,
                     },
                     ("skill_key",),
                 ),
@@ -563,6 +582,7 @@ class SkillToolSet:
                         "skill_key": _STRING_SCHEMA,
                         "script": _STRING_SCHEMA,
                         "input": _OBJECT_SCHEMA,
+                        "argv": _ARGV_SCHEMA,
                     },
                     ("skill_key", "script"),
                 ),
@@ -588,7 +608,8 @@ class SkillToolSet:
         return skill
 
     async def _submit_background(
-        self, skill: ResolvedSkill, input_data: Mapping[str, Any], call_id: str, mode: CompletionMode
+        self, skill: ResolvedSkill, input_data: Mapping[str, Any], call_id: str, mode: CompletionMode,
+        *, argv: tuple[str, ...] = (),
     ) -> str:
         """ASYNC Skill 的 ExecutionRouter：只创建 Parent Task，不本地执行。"""
         if self._task_client is None or self._task_context is None:
@@ -601,6 +622,7 @@ class SkillToolSet:
                 call_id=call_id,
                 completion_mode=mode,
                 retry_safety=self._async_retry_safety,
+                argv=argv,
             )
         except AppError as exc:
             raise SkillToolError(BACKGROUND_SUBMIT_FAILED, str(exc.code)) from exc
@@ -646,6 +668,7 @@ class SkillToolSet:
         *,
         script: Path | None,
         skill: ResolvedSkill,
+        argv: tuple[str, ...] = (),
     ) -> str:
         if skill_platform_keys(skill.frontmatter) and self._platform_context is None:
             raise SkillToolError(
@@ -657,6 +680,7 @@ class SkillToolSet:
             result = await self._run_executor(
                 ready_dir, input_data, script=script, skill=skill, execution_id=execution_id,
                 workspace_dir=lease.workspace_dir if lease is not None else self._workspace_dir,
+                argv=argv,
             )
             self._record_execution(skill, result)
             outputs = await self._register_outputs(result)
@@ -674,12 +698,14 @@ class SkillToolSet:
         skill: ResolvedSkill,
         execution_id: str,
         workspace_dir: Path | None,
+        argv: tuple[str, ...] = (),
     ) -> SkillExecutionResult:
         try:
             return await self._executor.execute(
                 SkillExecutionRequest(
                     ready_dir=ready_dir,
                     input=input_data,
+                    argv=argv,
                     timeout_sec=self._timeout_sec,
                     source=str(skill.source),
                     workspace_dir=workspace_dir,
@@ -800,6 +826,13 @@ def _require_string(arguments: Mapping[str, Any], key: str) -> str:
             f"{key} must be a non-empty string",
         )
     return value.strip()
+
+
+def _require_argv(arguments: Mapping[str, Any]) -> tuple[str, ...]:
+    try:
+        return validate_skill_argv(arguments.get("argv", ()))
+    except ValueError as exc:
+        raise SkillToolError(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc)) from exc
 
 
 def _require_input(arguments: Mapping[str, Any]) -> Mapping[str, Any]:

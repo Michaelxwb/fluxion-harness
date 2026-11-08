@@ -83,6 +83,33 @@ async def test_execute_receives_stdin_and_structured_result(tmp_path: Path) -> N
     assert result.result == {"echo": {"question": "hello"}}
 
 
+async def test_legacy_argparse_receives_argv_and_stdin_without_shell_expansion(tmp_path: Path) -> None:
+    root = _package(
+        tmp_path / "skill",
+        "import argparse, json, sys, helper\n"
+        "p = argparse.ArgumentParser()\n"
+        "p.add_argument('--company-id', action='append', required=True)\n"
+        "p.add_argument('--start', required=True)\n"
+        "p.add_argument('--notify-no-event', action='store_true')\n"
+        "p.add_argument('--text')\n"
+        "args = vars(p.parse_args())\n"
+        "print(json.dumps({'args': args, 'stdin': json.load(sys.stdin), 'helper': helper.VALUE}))\n",
+        helper="VALUE = 'adjacent module'\n",
+    )
+    literal = f"$(touch {tmp_path / 'expanded'}); * 'quoted'"
+    result = await _executor().execute(_request(root, argv=(
+        "--company-id", "123", "--company-id", "456", "--start", "2026-11-07 10:00",
+        "--notify-no-event", "--text", literal,
+    )))
+    assert result.status is SkillExecutionStatus.SUCCEEDED, result.stderr
+    assert result.result == {
+        "args": {"company_id": ["123", "456"], "start": "2026-11-07 10:00",
+                 "notify_no_event": True, "text": literal},
+        "stdin": {"question": "hello"}, "helper": "adjacent module",
+    }
+    assert not (tmp_path / "expanded").exists()
+
+
 @pytest.mark.parametrize("source", [None, "", "ROOT", "user' OR 1=1"])
 async def test_missing_or_invalid_source_is_rejected(tmp_path: Path, source: str | None) -> None:
     root = _package(tmp_path / "skill", "print('should not run')\n")

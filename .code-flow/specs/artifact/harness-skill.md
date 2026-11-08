@@ -49,6 +49,8 @@ verifiers:
 
 **执行与结果**：
 
+- **旧 CLI Skill 的业务参数由执行工具传递**：`execute_skill` / `run_skill_script` 接受独立的字符串数组 `argv`，按原顺序直接追加在受校验的脚本路径后，JSON `input` 仍仅进入 stdin。共用 `validate_skill_argv` 的类型、编码和容量校验，拒绝非法参数后再执行。工具描述解释如何从旧 SKILL.md 的命令提取参数，无需改写 Skill 为 JSON 入口。✅ 重复参数、含空格时间和布尔开关逐项传递；❌ 拼接 shell 命令、猜测 JSON→CLI 映射、把解释器参数交给模型选择。
+
 - **解包与执行的逃逸防护**：zip 解包做 zip-slip 校验，越界成员按 `SKILL_ARTIFACT_UNAVAILABLE` 拒绝；脚本路径必须落在 READY 目录内，越界抛 `SkillExecutionError("script path escapes the skill package")`；子进程环境只透传 `PATH/HOME/LANG`（`packages/agent-core/src/muad_agent_core/skill/executor.py` 的 `ENV_ALLOWLIST`）。
 - **Skill 子进程必须自成进程组，超时/取消回收整棵树**：`start_new_session=True` 启动，终止时给整个进程组发信号（`os.killpg`），不是只 `terminate()` 直接子进程。三个细节：组 id 直接用 `process.pid`（不要 `os.getpgid`，子进程被回收后查不到）；`_terminate` 不得按 `returncode` 早返回（孙进程仍持 stdout 管道时会让 worker 永久挂死）；终止后 `_drain_output` 有界等待。机检：`tests/agent_core/test_skill_executor.py::test_timeout_terminates_the_whole_process_group` 与 `::test_timeout_survives_a_child_that_exits_leaving_a_pipe_holder`。
 - **Skill stdout 结果行不必是最后一行**：解析从末尾往前找第一个 JSON 对象，跳过非 JSON 行；只看最后一行会把「结果 + 日志」的常见形状判成无结果，`interpret_execution` 的兜底随即把整坨 stdout 当 `{"text": ...}`。机检：`test_result_survives_a_log_line_printed_after_it`。

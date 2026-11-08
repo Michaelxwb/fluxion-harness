@@ -27,6 +27,8 @@ verifiers:
 
 ## Conventions
 
+- **后台 Skill 的 CLI 参数随执行快照冻结**：独立的 `argv` 与 JSON stdin 分开存储，纳入快照 hash 和 operation 输入指纹；Worker 重试只读取原快照并校验参数，省略表示没有 CLI 参数。✅ 同一 call 改参数返回幂等冲突，重试原样执行；❌ 从当前 Skill 说明重建参数、将控制字段混入业务 input、不同参数复用旧操作。
+
 - **异步容量与绝对 deadline 在 Run 创建时冻结**：policy_json.async_tools 由严格 AsyncToolPolicy 与 Agent 覆盖构建；deadline_at 从首次 start_time 与有效 AgentPolicy 计算。Runtime `async_tools/operations.py` 在 Conversation→Run 锁序内核对冻结能力、按真实 call 去重并预留容量，再同事务写 operation + SUBMIT outbox；取消、失败和 Reaper 同事务写 JOIN/未受理提交的取消意图。✅ 检查点恢复读取原 policy/deadline；❌ 在提交或恢复时重新取设置、延期 deadline，或在 HTTP 中持有业务行锁。
 
 - **快照 hash 口径统一为 `"sha256:"` + canonical JSON**：`json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)` 后取 SHA256。contracts 侧 `snapshot_hash` 与 Runtime 侧 `_snapshot_hash` 必须同口径，否则跨服务比对不等（`packages/contracts/src/muad_contracts/snapshot.py`；`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py` 的 `_canonical_json` / `_snapshot_hash`）。✅ 两侧都复用同一组 `sort_keys`/紧凑分隔符/`ensure_ascii=False`；❌ 任一侧漏掉其中一项（例如漏 `ensure_ascii=False` 导致中文被转义）→ hash 不等。

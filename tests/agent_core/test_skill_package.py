@@ -164,14 +164,22 @@ def test_oversized_description_is_rejected(tmp_path: Path) -> None:
         SkillPackage.load(root)
 
 
+def test_legacy_chinese_description_loads_without_editing_skill(tmp_path: Path) -> None:
+    description = "监控指定客户的安全事件并按分类准备材料。" * 12
+    assert 500 < len(description.encode("utf-8")) < MAX_DESCRIPTION_BYTES
+    root = _write(tmp_path / "skill", f"name: monitor-mssp-events\ndescription: {description}")
+    assert SkillPackage.load(root).manifest.description == description
+
+
 def test_catalog_field_maxima_are_byte_based_and_inclusive(tmp_path: Path) -> None:
     """口径是 UTF-8 字节、边界是**严格大于**（`harness-skill` 的阈值规则）。"""
     exact = _write(tmp_path / "exact", f"name: demo\ndescription: {'x' * MAX_DESCRIPTION_BYTES}")
     assert SkillPackage.load(exact).manifest.description == "x" * MAX_DESCRIPTION_BYTES
 
-    # 167 个汉字 = 501 字节 > 500，但字符数只有 167 —— 按字符数判会放它过去
-    wide = _write(tmp_path / "wide", f"name: demo\ndescription: {'说' * 167}")
-    assert len("说" * 167) == 167
+    # 超出 UTF-8 字节上限，但字符数仍在上限内。
+    characters = "说" * (MAX_DESCRIPTION_BYTES // 3 + 1)
+    wide = _write(tmp_path / "wide", f"name: demo\ndescription: {characters}")
+    assert len(characters) < MAX_DESCRIPTION_BYTES
     with pytest.raises(SkillPackageError):
         SkillPackage.load(wide)
 

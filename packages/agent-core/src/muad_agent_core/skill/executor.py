@@ -67,6 +67,7 @@ class ScriptSkillExecutor:
         try:
             process = await asyncio.create_subprocess_exec(
                 *script_command(script, env),
+                *request.argv,
                 cwd=str(ready_dir),
                 env=env,
                 stdin=asyncio.subprocess.PIPE,

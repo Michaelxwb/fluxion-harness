@@ -1,6 +1,6 @@
 """Skill 执行的公共值对象与 ``SkillExecutor`` 协议。
 
-这个模块只依赖标准库：Runtime/Worker 与真实 bwrap 验收探针都直接导入它，
+这个模块只依赖标准库与共享参数校验：Runtime/Worker 与真实 bwrap 验收探针都直接导入它，
 避免因为平台 SDK/数据库驱动的导入副作用而把执行契约绑死在宿主进程里。
 """
 
@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
+
+from muad_contracts.skill_invocation import validate_skill_argv
 
 if TYPE_CHECKING:  # pragma: no cover - 仅类型检查导入，运行时不加载平台 SDK
     from muad_platform_sdk.skill_access import SkillPlatformContext
@@ -101,6 +103,11 @@ class SkillExecutionRequest:
     script: Path | None = None
     platform_context: SkillPlatformContext | None = None
     output_limits: OutputLimits = field(default_factory=OutputLimits)
+    #: Business CLI arguments appended after the selected script, never parsed by a shell.
+    argv: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "argv", validate_skill_argv(self.argv))
 
 
 @dataclass(frozen=True, slots=True)
