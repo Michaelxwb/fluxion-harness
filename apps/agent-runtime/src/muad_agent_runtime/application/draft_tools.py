@@ -32,13 +32,23 @@ DRAFT_ACTIONS = frozenset(
 DRAFT_TOOL_NAMES = frozenset({DRAFT_TOOL_NAME})
 
 DRAFT_TOOL_DESCRIPTION = (
-    "Manage the current user's skill draft (tenant + user + agent scoped). Actions: "
-    "create(key), get(draft_id), read(draft_id, path), write(draft_id, path, content, "
-    "expected_revision), delete(draft_id[, path]), review(draft_id), status(draft_id), "
-    "submit(draft_id, expected_revision[, version, default_script]). "
-    "Before submit, self-test the draft with skill_draft_shell: run "
-    "`python -m py_compile scripts/<entry>.py`, then `python scripts/<entry>.py` "
-    "(and `session-manager get-state` for platform skills); fix failures before submitting. "
+    "Manage the current user's skill draft (tenant + user + agent scoped). "
+    "Address a draft by draft_id (UUID) or by key (the skill name); create(key) is "
+    "idempotent and returns draft_id/revision, and key works on every other action too. "
+    "Actions: create(key), get(draft_id|key), read(draft_id|key, path), "
+    "write(draft_id|key, path, content[, expected_revision]), delete(draft_id|key[, path]), "
+    "review(draft_id|key), status(draft_id|key), "
+    "submit(draft_id|key[, expected_revision, version, default_script]). "
+    "expected_revision defaults to the current revision when the draft is addressed by key. "
+    "Self-test the draft only with skill_draft_shell (`python -m py_compile {entry}`, then "
+    "`python {entry}`); never run draft code or write files under skill-drafts/ with "
+    "workspace_shell — that is the live draft, writes bypass revision CAS and junk such as "
+    "__pycache__ ends up in the draft. "
+    "Before you deliver the draft to the user or submit it, review it with the "
+    "self-skill-review skill (execute_skill with skill_key=self-skill-review, input={}, "
+    "args=[\"--target\", \"<workspace>/skill-drafts/<key>\"]; get <workspace> from "
+    "workspace_shell `pwd`): show the error/warning summary to the user and fix errors "
+    "first. The review is advisory and never blocks submit. "
     "submit publishes the draft for approval. Identity comes from the run; "
     "never pass tenant/user/agent."
 )
@@ -129,6 +139,37 @@ class SkillDraftTools:
         handler: Callable[..., Awaitable[str]] = getattr(self, str(action))
         return await handler(arguments, call_id=call_id)
 
+    async def _resolve_draft(self, arguments: Mapping[str, Any]) -> tuple[str, int | None]:
+        """draft_id 或 key 二选一；key 走幂等 create 解析成 draft_id 与当前 revision。
+
+        模型说“weather-query 草稿”时手里通常只有 key：让它为了拿 UUID 先失败一次再自查，
+        等于给流程加一道无意义的路障。
+        """
+        explicit = _optional_string(arguments, "draft_id")
+        if explicit and explicit.strip():
+            return explicit.strip(), None
+        key = _optional_string(arguments, "key")
+        if not key or not key.strip():
+            raise DraftShellError(
+                "COMMON_VALIDATION_ERROR",
+                "pass draft_id (UUID) or key (the skill name); create(key) returns draft_id",
+            )
+        tenant_id, owner_user_id = self._identity
+        data = await self._client.create(
+            tenant_id=tenant_id,
+            owner_user_id=owner_user_id,
+            agent_id=str(self._context.agent_id),
+            key=key.strip(),
+        )
+        draft_id = str(data.get("draft_id") or data.get("id") or "")
+        if not draft_id:
+            raise DraftShellError(
+                "COMMON_CONFLICT", f"draft {key.strip()!r} could not be resolved"
+            )
+        revision = data.get("revision")
+        resolved = int(revision) if isinstance(revision, int) and revision > 0 else None
+        return draft_id, resolved
+
     async def create(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             tenant_id, owner_user_id = self._identity
@@ -140,25 +181,27 @@ class SkillDraftTools:
             )
         except DraftShellError as exc:
             return _error_result(exc.code, exc.message)
-        return json.dumps(data, ensure_ascii=False)
+        return json.dumps(_with_draft_id(data), ensure_ascii=False)
 
     async def get(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             tenant_id, owner_user_id = self._identity
+            draft_id, _ = await self._resolve_draft(arguments)
             data = await self._client.metadata(
-                _require_string(arguments, "draft_id"),
+                draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
             )
         except DraftShellError as exc:
             return _error_result(exc.code, exc.message)
-        return json.dumps(data, ensure_ascii=False)
+        return json.dumps(_with_draft_id(data), ensure_ascii=False)
 
     async def read(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             tenant_id, owner_user_id = self._identity
+            draft_id, _ = await self._resolve_draft(arguments)
             data = await self._client.read(
-                _require_string(arguments, "draft_id"),
+                draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
                 path=_optional_string(arguments, "path") or "",
@@ -170,13 +213,14 @@ class SkillDraftTools:
     async def write(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             tenant_id, owner_user_id = self._identity
-            revision = _optional_int(arguments, "expected_revision")
+            draft_id, resolved = await self._resolve_draft(arguments)
+            revision = _optional_int(arguments, "expected_revision") or resolved
             if revision is None:
                 raise DraftShellError(
                     "COMMON_VALIDATION_ERROR", "expected_revision must be a positive integer"
                 )
             data = await self._client.write(
-                _require_string(arguments, "draft_id"),
+                draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
                 path=_require_string(arguments, "path"),
@@ -190,7 +234,7 @@ class SkillDraftTools:
     async def delete(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             tenant_id, owner_user_id = self._identity
-            draft_id = _require_string(arguments, "draft_id")
+            draft_id, resolved = await self._resolve_draft(arguments)
             path = _optional_string(arguments, "path")
             if path is None:
                 data = await self._client.delete(
@@ -202,7 +246,7 @@ class SkillDraftTools:
                     tenant_id=tenant_id,
                     owner_user_id=owner_user_id,
                     path=path,
-                    expected_revision=_optional_int(arguments, "expected_revision"),
+                    expected_revision=_optional_int(arguments, "expected_revision") or resolved,
                 )
         except DraftShellError as exc:
             return _error_result(exc.code, exc.message)
@@ -211,8 +255,9 @@ class SkillDraftTools:
     async def review(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             tenant_id, owner_user_id = self._identity
+            draft_id, _ = await self._resolve_draft(arguments)
             data = await self._client.review(
-                _require_string(arguments, "draft_id"),
+                draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
             )
@@ -223,8 +268,9 @@ class SkillDraftTools:
     async def status(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             tenant_id, owner_user_id = self._identity
+            draft_id, _ = await self._resolve_draft(arguments)
             data = await self._client.status(
-                _require_string(arguments, "draft_id"),
+                draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
             )
@@ -235,13 +281,14 @@ class SkillDraftTools:
     async def submit(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
             tenant_id, owner_user_id = self._identity
-            revision = _optional_int(arguments, "expected_revision")
+            draft_id, resolved = await self._resolve_draft(arguments)
+            revision = _optional_int(arguments, "expected_revision") or resolved
             if revision is None:
                 raise DraftShellError(
                     "COMMON_VALIDATION_ERROR", "expected_revision must be a positive integer"
                 )
             data = await self._client.submit(
-                _require_string(arguments, "draft_id"),
+                draft_id,
                 tenant_id=tenant_id,
                 owner_user_id=owner_user_id,
                 expected_revision=revision,
@@ -253,6 +300,13 @@ class SkillDraftTools:
         except DraftShellError as exc:
             return _error_result(exc.code, exc.message)
         return json.dumps(data, ensure_ascii=False)
+
+
+def _with_draft_id(data: dict[str, Any]) -> dict[str, Any]:
+    """Console 的 draft_view 用 `id`；工具返回同时给 `draft_id`，模型不必猜键名。"""
+    if "draft_id" not in data and isinstance(data.get("id"), str):
+        return {**data, "draft_id": data["id"]}
+    return data
 
 
 __all__ = ["DRAFT_TOOL_NAMES", "SkillDraftTools"]

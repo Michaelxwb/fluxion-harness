@@ -31,3 +31,6 @@ e2e/playwright-report/
 build/docker-build/base/vendor/*
 !build/docker-build/base/vendor/.gitkeep
 !build/docker-build/base/vendor/README.md
+
+# Skill 导入包是构建产物（./skills/package.sh 生成），不进版本库
+skills/*.zip

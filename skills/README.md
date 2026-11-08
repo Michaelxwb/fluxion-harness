@@ -4,7 +4,7 @@
 
 ## 可直接导入的 zip 包
 
-Console「Skill 管理 → 导入」直接上传对应 zip；包根就是 `SKILL.md` + `muad.skill.json` + `scripts/`（平铺包）。
+zip 是**构建产物**，不进版本库：先跑 `./skills/package.sh`（无参打包全部，或传目录名），产物在 `skills/*.zip`，再用 Console「Skill 管理 → 导入」上传；包根就是 `SKILL.md` + `muad.skill.json` + `scripts/`（平铺包）。
 
 | zip | 用途 |
 |---|---|

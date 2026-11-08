@@ -27,7 +27,8 @@ class _FakeClient:
 
     def _record(self, name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
         self.calls.append((name, args, kwargs))
-        return {"ok": True, "call": name}
+        # Console 的 draft_view 用 `id`；工具层再补 `draft_id` 别名
+        return {"ok": True, "call": name, "id": "draft-1", "revision": 4}
 
     async def create(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         return self._record("create", args, kwargs)
@@ -126,6 +127,52 @@ async def test_write_forwards_revision_cas() -> None:
     assert kwargs["path"] == "scripts/run.py"
     assert kwargs["expected_revision"] == 7
     assert kwargs["tenant_id"] == "tenant-a"
+
+
+async def test_key_addresses_the_draft_without_a_uuid() -> None:
+    """模型只给 key（skill 名）时：先幂等解析 draft_id，再执行目标动作。"""
+    client = _FakeClient()
+    tools = _tools(client)
+    payload = json.loads(
+        await tools.status({"action": "status", "key": "weather-query"}, call_id="c1")
+    )
+    assert [call[0] for call in client.calls] == ["create", "status"]
+    _, args, kwargs = client.calls[1]
+    assert args == ("draft-1",)
+    assert kwargs["tenant_id"] == "tenant-a"
+    assert payload["call"] == "status"
+
+
+async def test_key_resolution_supplies_the_current_revision_for_write_and_submit() -> None:
+    """按 key 写入/提交时，revision 默认取解析到的当前值，模型不必先猜数字。"""
+    client = _FakeClient()
+    tools = _tools(client)
+    await tools.write(
+        {"key": "weather-query", "path": "SKILL.md", "content": "x"}, call_id="c1"
+    )
+    await tools.submit({"key": "weather-query", "version": "1.0.3"}, call_id="c2")
+    write = client.calls[1]
+    submit = client.calls[3]
+    assert write[1] == ("draft-1",) and write[2]["expected_revision"] == 4
+    assert submit[1] == ("draft-1",) and submit[2]["expected_revision"] == 4
+
+
+async def test_create_and_get_expose_the_draft_id_alias() -> None:
+    """Console 返回 `id`；工具输出同时给 `draft_id`，模型不用猜键名。"""
+    client = _FakeClient()
+    tools = _tools(client)
+    created = json.loads(await tools.create({"key": "weather-query"}, call_id="c1"))
+    fetched = json.loads(await tools.get({"key": "weather-query"}, call_id="c2"))
+    assert created["draft_id"] == "draft-1" and created["id"] == "draft-1"
+    assert fetched["draft_id"] == "draft-1"
+
+
+async def test_missing_draft_id_and_key_names_both_options() -> None:
+    payload = json.loads(
+        await _tools(_FakeClient()).status({"action": "status"}, call_id="c1")
+    )
+    assert payload["error"]["code"] == "COMMON_VALIDATION_ERROR"
+    assert "draft_id" in payload["error"]["message"] and "key" in payload["error"]["message"]
 
 
 async def test_submit_binds_agent_and_passes_version() -> None:
