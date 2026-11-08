@@ -1,6 +1,5 @@
 """真实子进程与进程内预算段生命周期（TASK-005 E-02/E-03）。"""
 
-import asyncio
 from pathlib import Path
 
 import pytest
