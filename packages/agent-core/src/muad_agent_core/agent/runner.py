@@ -570,7 +570,8 @@ class AgentRunner:
             if not response.tool_calls and not response.content.strip():
                 # 空正文 + 无工具调用：既没有可见结果，也没有可继续的动作 —— 这不是"回答完了"。
                 # 取消优先：被取消的 Run 必须以 CANCELLED 收口，不能报成"模型空回复"。
-                if state["is_cancelled"]():
+                cancelled = state["is_cancelled"]
+                if cancelled is not None and cancelled():
                     raise RunnerCancelled("cancelled before an answer")
                 if empty_retried or streamed["value"]:
                     raise RunnerEmptyReply("model returned an empty reply")
