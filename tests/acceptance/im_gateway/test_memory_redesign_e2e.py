@@ -522,7 +522,7 @@ async def test_e02_memory_redesign_real_confirmation_replay_and_rejection(
         "conversation_id": None,
         "channel": {
             "type": "WECOM",
-            "entry_id": gateway_stack.bot_account_id,
+            "entry_id": str(gateway_stack.bot_account_id),
             "bot_id": gateway_stack.bot_id,
             "external_user_id": BOUND_EXTERNAL_USER_ID,
             "external_conversation_id": CHAT_ID,

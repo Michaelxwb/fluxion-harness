@@ -287,7 +287,7 @@ def _payload(stack: GatewayStack, text: str, *, conversation_id: Any = None) -> 
         "platform_user_id": str(stack.platform_user_id),
         "channel": {
             "type": "WECOM",
-            "entry_id": stack.bot_account_id,
+            "entry_id": str(stack.bot_account_id),
             "bot_id": stack.bot_id,
             "external_conversation_id": stack.chat_id,
         },
@@ -324,8 +324,9 @@ async def _seed_waiting_run(stack: GatewayStack) -> tuple[str, str]:
             await connection.execute(
                 text(
                     "INSERT INTO runtime.conversation "
-                    "(id, tenant_id, user_id, agent_id, status, last_seq, channel_account_id) "
-                    "VALUES (:id, :t, :u, :a, 'ACTIVE', 0, :entry)"
+                    "(id, tenant_id, user_id, agent_id, status, last_seq, channel_account_id, "
+                    "external_thread_id) "
+                    "VALUES (:id, :t, :u, :a, 'ACTIVE', 0, :entry, :thread)"
                 ),
                 {
                     "id": conversation_id,
@@ -333,6 +334,30 @@ async def _seed_waiting_run(stack: GatewayStack) -> tuple[str, str]:
                     "u": stack.platform_user_id,
                     "a": stack.agent_id,
                     "entry": stack.bot_account_id,
+                    # 取消按「入口 + 外线线程」定位会话：线程必须与取消来源一致。
+                    "thread": stack.chat_id,
+                },
+            )
+            # 推送/取消按「入口 + 外线线程」的当前指针解析会话：把指针指向本用例会话，
+            # 否则会落到真实执行留下的旧会话（表现为 NO_ACTIVE_RUN / 推送不在本会话）。
+            await connection.execute(
+                text(
+                    "INSERT INTO runtime.channel_conversation "
+                    "(id, tenant_id, user_id, agent_id, channel_account_id, "
+                    "external_thread_id, conversation_id) "
+                    "VALUES (:id, :t, :u, :a, :entry, :thread, :c) "
+                    "ON CONFLICT (tenant_id, user_id, agent_id, channel_account_id, "
+                    "external_thread_id) WHERE is_deleted = false "
+                    "DO UPDATE SET conversation_id = EXCLUDED.conversation_id, update_time = now()"
+                ),
+                {
+                    "id": uuid.uuid4(),
+                    "t": stack.tenant_id,
+                    "u": stack.platform_user_id,
+                    "a": stack.agent_id,
+                    "entry": stack.bot_account_id,
+                    "thread": stack.chat_id,
+                    "c": conversation_id,
                 },
             )
             await connection.execute(
