@@ -1,0 +1,228 @@
+{
+  "checks": {
+    "CHK-188b78dad821": {
+      "suite": "unit",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_01"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-e0debd9a928d": {
+      "suite": "integration",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_02"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-59e021b0d5ff": {
+      "suite": "integration",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_03"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-229e8d5fbb1e": {
+      "suite": "integration",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_s_04"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-aa1fb9c6fb28": {
+      "suite": "unit",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_01"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-4760bc20f934": {
+      "suite": "integration",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_02"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-d7a9607c3106": {
+      "suite": "unit",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_01"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-a96a8f1d5a7c": {
+      "suite": "unit",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_02"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-24b867f4c338": {
+      "suite": "integration",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_03"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-e88d45e14576": {
+      "suite": "integration",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_03"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-d17a0eeef1c4": {
+      "suite": "contract",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          "tests/contracts/test_egress_budget.py"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-910a9092c90b": {
+      "suite": "unit",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_b_05"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-bede959b8f60": {
+      "suite": "unit",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-06/egress-rate-sdk/planned_tests/test_egress_rate_sdk_acceptance.py::test_e_04"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    },
+    "CHK-6cd7ed761753": {
+      "suite": "contract",
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          "tests/contracts/test_egress_budget.py::test_snapshot_builders_freeze_normalized_policy"
+        ],
+        "format": "pytest",
+        "timeout": 15
+      }
+    }
+  }
+}

@@ -43,6 +43,7 @@ from muad_contracts import (
     RunStatus,
     tool_waiting_reason,
 )
+from muad_contracts.egress_budget import EffectiveEgressBudget, resolve_egress_budget
 from muad_contracts.memory import MemoryResumeRef
 from muad_contracts.platform_settings import (
     AgentSettings,
@@ -395,6 +396,7 @@ def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults
             deadline_ms=_frozen_int(policy, "deadline_ms", agent_defaults.deadline_ms),
             max_model_retries=_frozen_int(policy, "max_model_retries", agent_defaults.max_model_retries),
         ),
+        egress_budget=EffectiveEgressBudget.model_validate(policy.get("egress_budget", {})),
         memory_policy=_frozen_memory_policy(policy),
         learning=learning_of(policy),
         max_archive_files=_frozen_int(
@@ -600,6 +602,9 @@ def build_snapshot(
         else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
     policy = snapshot_policy(settings, execution, summary_model, pool, members, summary_members)
+    policy["egress_budget"] = resolve_egress_budget(
+        resolved.agent.runtime_config.get("egress_budget", {})
+    ).model_dump(mode="json")
     policy["learning"] = dict(learning or {})
     from muad_contracts import AsyncToolPolicy
 

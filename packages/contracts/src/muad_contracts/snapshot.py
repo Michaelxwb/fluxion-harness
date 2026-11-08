@@ -14,6 +14,7 @@ import json
 from collections.abc import Sequence
 from typing import Any
 
+from .egress_budget import resolve_egress_budget
 from .resolve import ResolvedAgent, ResolvedMcpServer, ResolvedModel, ResolvedSkill, WorkspaceRef
 from .skill_invocation import validate_skill_argv
 
@@ -85,7 +86,12 @@ def build_task_snapshot(
         "skills": [_skill_entry(skill, workspace)],
         "mcp": [_mcp_entry(server) for server in mcp_servers],
         "prompt_template_version": TASK_PROMPT_TEMPLATE_VERSION,
-        "budget": dict(agent.runtime_config.get("budget") or {}),
+        "budget": {
+            **dict(agent.runtime_config.get("budget") or {}),
+            "egress_budget": resolve_egress_budget(
+                agent.runtime_config.get("egress_budget", {})
+            ).model_dump(mode="json"),
+        },
         "argv": list(validate_skill_argv(argv)),
     }
 

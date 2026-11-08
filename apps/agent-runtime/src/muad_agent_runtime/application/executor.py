@@ -65,6 +65,7 @@ from muad_contracts import (
     ResolvedSkill,
     RuntimeExecutionRef,
 )
+from muad_contracts.egress_budget import EffectiveEgressBudget
 from muad_contracts.memory import MemoryResumeRef
 from muad_contracts.model_pool import (
     ModelCallOwner,
@@ -254,6 +255,7 @@ class ExecutionDefaults:
     `default_timezone`（`default_locale` 的 Run 侧消费方不存在）。
     """
 
+    egress_budget: EffectiveEgressBudget = field(default_factory=EffectiveEgressBudget)
     agent_policy: AgentPolicy = field(default_factory=AgentPolicy)
     memory_policy: MemoryPolicySettings = field(default_factory=MemoryPolicySettings)
     learning: FrozenLearning = field(default_factory=FrozenLearning)
