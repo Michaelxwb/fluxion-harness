@@ -7,7 +7,9 @@
   归属与**当前**入口/Agent 授权经 Owner 接口核验后才打开流（与资源面同一门控口径）。
 - **公开投影（公开边）**：canonical `stream_type` → TASK-006 契约的公开 DTO 只在这里发生；
   工具参数/结果、模型请求、推理、SYSTEM、记忆与未知事件**默认不公开**（过滤后 canonical seq
-  允许跳号，不补号、不重排、不判丢包）。已知公开事件的坏载荷显式失败，不伪装成过滤。
+  允许跳号，不补号、不重排、不判丢包）。已知公开事件的坏载荷按语义分级：**纯进度类**
+  （`run.tool`/`run.stage`）投影失败按过滤处理并让游标继续推进（告警 + 计数，展示提示绝不
+  卡住整条订阅）；正文/终态/可交付/可操作事件仍显式关闭，不伪装成过滤。
 - **安全 checkpoint**：需要推进过滤水位时下发 `checkpoint`，只带**真实已扫描水位**（严格小于下一条
   公开事件的 seq），不分配 canonical seq、不追加正文；心跳无 `id`，不推进业务游标。
 - **分片**：`message.snapshot`（整组替换正文）超过单帧预算即按 `part_index/part_count` 分片，
@@ -29,7 +31,7 @@ from collections.abc import AsyncIterator, Mapping
 from contextlib import AbstractAsyncContextManager, AsyncExitStack, suppress
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import UUID
 
 from muad_api import AppError
@@ -57,7 +59,11 @@ from pydantic import ValidationError
 
 from ..metrics import (
     SseCloseReason,
+    SseOptionalEvent,
+    SseProgressEvent,
     SseSubscriptionStatus,
+    record_optional_frame_dropped,
+    record_progress_frame_skipped,
     record_sse_close,
     record_sse_frame,
     record_sse_rejection,
@@ -83,6 +89,19 @@ PUBLIC_STREAM_EVENT_TYPES: dict[str, str] = {
     "tool.started": "run.tool",
     "tool.completed": "run.tool",
 }
+#: canonical `tool.completed.status`（内部词表：OK/ERROR/BLOCKED/NOT_FOUND）→ 公开三元组。
+#: 公开契约只区分 OK/ERROR：工具进度不暴露内部失败分类（策略拒绝/未知工具对用户都是"这次没成功"）。
+#: 未知取值按"终态未知"投影为 None 并告警，**绝不把内部词表的扩展当成公开帧坏载荷**。
+PUBLIC_TOOL_STATUSES: dict[str, str] = {
+    "OK": "OK",
+    "ERROR": "ERROR",
+    "BLOCKED": "ERROR",
+    "NOT_FOUND": "ERROR",
+}
+#: 纯进度类公开事件：载荷不可投影时跳过并让游标继续推进（告警 + 计数）。
+#: 正文/终态（`message.*`、`run.terminal`/`run.error`）与可交付/可操作事件
+#: （`artifact.created`、`confirmation.required`）不在其中——它们不可投影必须显式关闭。
+PROGRESS_PUBLIC_EVENT_TYPES: frozenset[str] = frozenset({"run.tool", "run.stage"})
 #: 公开事件身份的派生命名空间：canonical 行 id 不在 Owner 流封套里，公开身份只由 (run, seq) 派生。
 PUBLIC_IDENTITY_NAMESPACE = uuid.UUID("2c9d4f6a-5b18-4e73-9a20-7d1f3b8c6e54")
 #: 心跳帧：注释帧，无 `id`/`event`（心跳不推进业务游标，浏览器与网关解析器都跳过它）。
@@ -234,6 +253,10 @@ class WebchatPublicProjector:
     def __init__(self, *, run_id: UUID, conversation_id: UUID) -> None:
         self._run_id = run_id
         self._conversation_id = conversation_id
+        #: 同一条订阅内按取值去重告警，避免重连重放时刷屏（计数仍逐次累加）。
+        self._warned_statuses: set[str] = set()
+        self._warned_progress_skips: set[str] = set()
+        self._warned_optional_drops: set[str] = set()
 
     def project(self, event: SseEvent) -> PublicProjection | None:
         """公开投影：非本 Run/无 canonical 序号/未知或内部类型一律 None（合法过滤）。"""
@@ -255,6 +278,11 @@ class WebchatPublicProjector:
         try:
             return self._build(public_type, payload, event.seq, timestamp, source=event.type)
         except ValidationError as exc:
+            if public_type in PROGRESS_PUBLIC_EVENT_TYPES:
+                # 进度提示不值得关掉整条订阅：跳过这一帧，扫描器已推进的水位会在下一条公开
+                # 事件（或流结束）前由 checkpoint 补上，客户端重连即越过它。
+                self._skip_progress_frame(public_type, event.seq)
+                return None
             raise MalformedPublicEvent(
                 f"stream_type={event.type} seq={event.seq}"
             ) from exc
@@ -301,7 +329,7 @@ class WebchatPublicProjector:
                     {
                         "name": payload.get("tool_name"),
                         "phase": "STARTED" if source == "tool.started" else "FINISHED",
-                        "status": payload.get("status"),
+                        "status": self._public_tool_status(payload.get("status")),
                     }
                 ),
                 **identity,
@@ -327,6 +355,38 @@ class WebchatPublicProjector:
                 **identity,
             )
         raise MalformedPublicEvent(f"unmapped public type {public_type}")
+
+    def _public_tool_status(self, raw: object) -> str | None:
+        """canonical 工具终态 → 公开三元组；未知非空取值降级为 None 并留痕（不关订阅）。"""
+        if raw is None:
+            return None
+        if isinstance(raw, str):
+            mapped = PUBLIC_TOOL_STATUSES.get(raw)
+            if mapped is not None:
+                return mapped
+        key = str(raw)
+        if key not in self._warned_statuses:
+            self._warned_statuses.add(key)
+            logger.warning("webchat_tool_status_unmapped status=%s", key)
+        return None
+
+    def _skip_progress_frame(self, public_type: str, seq: int) -> None:
+        """进度帧投影失败：逐次计数 + 本条订阅首个值告警；游标由 checkpoint 继续推进。"""
+        record_progress_frame_skipped(cast(SseProgressEvent, public_type))
+        if public_type not in self._warned_progress_skips:
+            self._warned_progress_skips.add(public_type)
+            logger.warning(
+                "webchat_sse_progress_frame_skipped type=%s seq=%s", public_type, seq
+            )
+
+    def _note_optional_drop(self, public_type: str, seq: int) -> None:
+        """可选公开事实坏形状：逐次计数 + 每订阅按类型告警一次（仍按过滤处理，不关订阅）。"""
+        record_optional_frame_dropped(cast(SseOptionalEvent, public_type))
+        if public_type not in self._warned_optional_drops:
+            self._warned_optional_drops.add(public_type)
+            logger.warning(
+                "webchat_sse_optional_frame_dropped type=%s seq=%s", public_type, seq
+            )
 
     def _snapshot(
         self, payload: dict[str, Any], seq: int, timestamp: datetime
@@ -356,7 +416,7 @@ class WebchatPublicProjector:
     def _optional(
         self, public_type: str, payload: dict[str, Any], seq: int, timestamp: datetime
     ) -> PublicProjection | None:
-        """可选公开事实：只有载荷本身就是完整安全 DTO 才公开（坏形状不报错也不透传）。"""
+        """可选公开事实：只有载荷本身就是完整安全 DTO 才公开（坏形状不报错也不透传，但必须留痕）。"""
         identity = _identity(
             event_id=public_event_id(self._run_id, seq),
             conversation_id=self._conversation_id,
@@ -377,6 +437,7 @@ class WebchatPublicProjector:
                 **identity,
             )
         except ValidationError:
+            self._note_optional_drop(public_type, seq)
             return None
 
 

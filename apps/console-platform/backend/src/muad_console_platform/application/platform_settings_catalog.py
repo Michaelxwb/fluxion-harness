@@ -66,6 +66,7 @@ _FIELD_META: dict[str, dict[str, Any]] = {
     "agent.max_model_retries": {"min": 0},
     "agent.max_identical_failures": {"min": 1, "max": 10},
     "task.default_deadline_hours": {"min": 1, "unit_key": "settings.unit.hours"},
+    "task.execution_timeout_sec": {"effect_key": "settings.effect.task_execution_timeout"},
     "task.max_attempts": {"min": 1},
     "task.batch_max_concurrency": {"min": 1},
     "task.misfire_grace_sec": {"min": 0, "unit_key": "settings.unit.seconds"},
@@ -229,8 +230,10 @@ def _bounded_schema_metadata(
     defaults: PlatformSettings, message_hard_cap: int | None, upload_hard_cap: int | None,
 ) -> dict[str, dict[str, object]]:
     result: dict[str, dict[str, object]] = {}
-    for group_key in ("capacity", "model_pool", "webchat"):
+    for group_key in ("capacity", "model_pool", "webchat", "task"):
         for item in fields(getattr(defaults, group_key)):
+            if "minimum" not in item.metadata:
+                continue
             meta: dict[str, object] = {"min": item.metadata["minimum"]}
             if "maximum" in item.metadata:
                 meta["max"] = item.metadata["maximum"]

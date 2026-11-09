@@ -10,8 +10,8 @@
 
 - 运行时不做扇出（fan-out）：是否逐条调用 skill 完全由模型在单次响应里发出多少个 `tool call` 决定，没有任何机制保证 10 个目标都被处理。
 - 即使模型发出 10 个 `execute_skill`，它们也是**串行**执行的：`execute_skill` / `run_skill_script` 声明 `ToolEffect.EXTERNAL` 且未声明 `PARALLEL_READ`，planner 把外部工具当作串行屏障（`packages/agent-core/src/muad_agent_core/tools/planner.py` 顶部规则、`apps/agent-runtime/src/muad_agent_runtime/application/skill_tools.py` 中两个工具的定义）。
-- 单次 skill 执行超时取整个 Run 的 deadline（`skill_tools.py` 构造 `SkillExecutionRequest` 时 `timeout_sec=policy.deadline_ms / 1000.0`），默认 120s；10 次串行的总耗时很容易超过 Run 的 deadline。
-- 默认预算 `max_tool_calls=30`、`max_turns=20`、`deadline_ms=120000`（`packages/contracts/src/muad_contracts/platform_settings.py`）。超预算的调用不会执行，模型收到 `tool call budget exhausted`（`runner.py` 的 `_reserve_tool_calls`）。
+- 单次 skill 执行超时取整个 Run 的 deadline（`skill_tools.py` 构造 `SkillExecutionRequest` 时 `timeout_sec=policy.deadline_ms / 1000.0`），默认取平台设置 `agent.deadline_ms`（当前默认 1 小时）；10 次串行的总耗时仍可能超过 Run 的 deadline。
+- 默认预算 `max_tool_calls=30`、`max_turns=20`、`deadline_ms=3600000`（`packages/contracts/src/muad_contracts/platform_settings.py`）。超预算的调用不会执行，模型收到 `tool call budget exhausted`（`runner.py` 的 `_reserve_tool_calls`）。
 - 没有逐项账本：Run 只有终态与最终回答，无法自动判定"10 个里哪几个成功/失败"。
 
 结论：当前是"模型自觉 + 串行 + 预算内"，不是"系统保证逐项执行"。

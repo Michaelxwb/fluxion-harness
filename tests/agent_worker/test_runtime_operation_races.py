@@ -18,11 +18,15 @@ from muad_agent_worker.infrastructure.models.task import TaskEvent, TaskExecutio
 from muad_agent_worker.results.dispatcher import ResultDispatcher, ResultDispatchPolicy
 from muad_api import install_api_foundation
 from muad_contracts import ControlOutboxStatus, TerminalStatus
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from tests.acceptance.runtime.conftest import _Server
 from tests.async_tool_helpers import seed_operation
+
+#: Snapshot budget must freeze the per-execution timeout (v3); fixtures use the schema default.
+_TIMEOUT_SEC = default_platform_settings().task.execution_timeout_sec
 
 pytestmark = pytest.mark.integration
 
@@ -412,7 +416,7 @@ async def test_b07_cancel_before_submission_is_a_durable_tombstone(async_tool_da
         "skills": [],
         "mcp": [],
         "prompt_template_version": "v1",
-        "budget": {},
+        "budget": {"execution_timeout_sec": _TIMEOUT_SEC},
     }
     payload = CreateTaskRequest.model_validate(data)
     source = payload.runtime_operation

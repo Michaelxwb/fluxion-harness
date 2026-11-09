@@ -12,6 +12,7 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
     RETRY_SAFETY_POLICY_KEY,
+    TASK_SNAPSHOT_SCHEMA_VERSION,
     AsyncToolPolicy,
     CompletionMode,
     ControlCommand,
@@ -146,6 +147,7 @@ def _submission(
         skill_artifact_id=skill.artifact_id,
         input=input_data,
         execution_snapshot=snapshot,
+        execution_snapshot_schema_version=TASK_SNAPSHOT_SCHEMA_VERSION,
         snapshot_hash=snapshot_hash(snapshot),
         idempotency_key=f"runtime-op:{operation_id}:submit",
         delivery_route=route,

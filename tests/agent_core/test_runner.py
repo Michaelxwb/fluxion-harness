@@ -18,6 +18,7 @@ from muad_agent_core.agent import (
 from muad_agent_core.context.compactor import split_groups
 from muad_agent_core.hooks import HookEvent, HookPipeline
 from muad_agent_core.model import (
+    DEFAULT_DEADLINE_MS,
     ModelMessage,
     ModelProvider,
     ModelRateLimitedError,
@@ -29,7 +30,13 @@ from muad_agent_core.model import (
     ModelUnavailableError,
     text_of,
 )
-from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
+from muad_agent_core.tools import (
+    ToolDefinition,
+    ToolEffect,
+    ToolExecutionPipeline,
+    ToolPolicyDecision,
+    ToolRegistry,
+)
 
 
 class ScriptedModelProvider:
@@ -473,7 +480,7 @@ def test_policy_from_runtime_config_reads_valid_overrides() -> None:
 
     assert policy.max_turns == 5
     assert policy.max_tool_calls == 30
-    assert policy.deadline_ms == 120_000
+    assert policy.deadline_ms == DEFAULT_DEADLINE_MS
     assert policy.max_model_retries == 3
 
 
@@ -793,6 +800,52 @@ async def test_conclude_falls_back_to_the_failure_summary() -> None:
     assert result.status is AgentRunStatus.NO_PROGRESS
     assert "PLATFORM_AUTH_REJECTED" in result.final_text
     assert "rejected" in result.final_text
+
+
+async def test_policy_denied_tool_gets_a_conclusion_naming_tool_and_code() -> None:
+    """策略拒绝（canonical status=BLOCKED）必须收尾并给出可执行的结论：工具名 + 错误码 + 下一步。"""
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "echo", {"text": "x"}),
+            ModelRequestError("conclude unavailable"),
+        ]
+    )
+    registry = ToolRegistry()
+    _echo_tool(registry, [])
+    pipeline = ToolExecutionPipeline(
+        registry=registry,
+        policy=lambda call: ToolPolicyDecision(False, "该工具被策略拒绝", "POLICY_DENIED"),
+    )
+
+    result = await AgentRunner(
+        provider=provider, registry=registry, tool_pipeline=pipeline
+    ).run(_request(AgentPolicy(max_identical_failures=1)))
+
+    assert result.status is AgentRunStatus.NO_PROGRESS
+    assert "echo" in result.final_text
+    assert "POLICY_DENIED" in result.final_text
+    assert "请修正后重试" in result.final_text
+
+
+async def test_unknown_tool_is_a_correctable_turn_not_an_empty_stop() -> None:
+    """模型调用不存在的工具：拿到可读的工具错误并继续，Run 不空停、不静默。"""
+    provider = ScriptedModelProvider(
+        [
+            _tool_call("c1", "ghost", {}),
+            _text("已改用正确工具。"),
+        ]
+    )
+
+    result = await AgentRunner(provider=provider, registry=ToolRegistry()).run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert result.final_text == "已改用正确工具。"
+    tool_messages = [
+        message.content
+        for message in provider.requests[1].messages
+        if message.role is ModelRole.TOOL
+    ]
+    assert any("unknown tool: ghost" in content for content in tool_messages), tool_messages
 
 
 async def test_turn_budget_exhaustion_also_gets_a_conclusion() -> None:

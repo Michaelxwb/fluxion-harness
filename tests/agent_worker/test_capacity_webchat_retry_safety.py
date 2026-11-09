@@ -50,6 +50,7 @@ from muad_agent_worker.worker.executor import SkillTaskExecutor
 from muad_agent_worker.worker.service import WorkerLoop
 from muad_common import SharedSettings
 from muad_contracts import ToolRetrySafety
+from muad_contracts.platform_settings import default_platform_settings
 from muad_contracts.tool_runtime import frozen_retry_safety, task_retry_safety
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -58,6 +59,9 @@ INSTANCE = "worker-retry-safety-b234"
 WAIT_TIMEOUT_SEC = 20.0
 SNAPSHOT_HASH = "sha256:" + "c" * 64
 TERMINAL_STATUSES = ("COMPLETED", "FAILED", "CANCELLED")
+
+#: Snapshot budget must freeze the per-execution timeout (v3); fixtures use the schema default.
+_TIMEOUT_SEC = default_platform_settings().task.execution_timeout_sec
 
 
 # --------------------------------------------------------------------------- #
@@ -280,7 +284,7 @@ async def _seed_task(
                     },
                 }
             ],
-            "budget": dict(budget),
+            "budget": {"execution_timeout_sec": _TIMEOUT_SEC, **budget},
         },
         "snapshot_hash": SNAPSHOT_HASH,
         "idempotency_key": f"retry-safety-{uuid.uuid4()}",

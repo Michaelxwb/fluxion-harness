@@ -79,6 +79,21 @@ def test_settings_field_control_reads_backend_metadata() -> None:
     assert not re.search(r"\bmax=\{\s*\d", row), "不得写死范围上界字面量"
 
 
+def test_task_execution_timeout_is_an_editable_setting_with_schema_bounds() -> None:
+    groups = build_groups(PlatformSettings(), overrides={})
+    task = next(group for group in groups if group["key"] == "task")
+    field = next(item for item in task["fields"] if item["path"] == "task.execution_timeout_sec")
+    assert task["readonly"] is False
+    assert field["default"] == 300
+    assert field["min"] == 1
+    assert field["max"] == 3600
+    assert field["unit_key"] == "settings.unit.seconds"
+    assert field["applies_to"] == "new_task"
+    for locale, translations in _locales().items():
+        assert translations[field["label_key"]], locale
+        assert translations[field["effect_key"]], locale
+
+
 def test_settings_page_does_not_hardcode_field_or_group_lists() -> None:
     """分组与字段必须由 API 返回的元数据渲染，页面不得内联字段清单。
 

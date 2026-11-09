@@ -40,6 +40,8 @@ MODEL_PROBE_FAILURE_METRIC: Final = "model_probe_failure_total"
 HTTP_POOL_WAIT_METRIC: Final = "console_http_pool_wait_total"
 # 装配/启动配置失败（TASK-099）：缺服务身份、预算冲突等，不混进运行期结局。
 CONFIG_FAILURE_METRIC: Final = "console_config_failure_total"
+# 单次执行链路导出：kind/format/status 都是封闭枚举，不含执行 ID 或内容。
+EXECUTION_EXPORT_METRIC: Final = "execution_export_total"
 
 #: Console 出站池名（封闭枚举；`batch` 是既有批量测试自建客户端的池）。
 ConsolePool = Literal["control", "model", "batch"]
@@ -96,6 +98,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         COUNTER,
         ("component", "reason"),
         "Console outbound config failures by component and bounded reason",
+    ),
+    (
+        EXECUTION_EXPORT_METRIC,
+        COUNTER,
+        ("kind", "format", "status"),
+        "Single execution-chain exports by kind, format and outcome",
     ),
 )
 

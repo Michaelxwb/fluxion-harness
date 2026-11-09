@@ -1215,6 +1215,8 @@
   "settings.field.agent.max_model_retries": "Model retries",
   "settings.field.agent.max_identical_failures": "Max identical failures",
   "settings.field.task.default_deadline_hours": "Default deadline",
+  "settings.field.task.execution_timeout_sec": "Skill execution timeout per attempt",
+  "settings.effect.task_execution_timeout": "Applies to new standalone and scheduled tasks; Run-originated tasks use the setting frozen when their Run was created",
   "settings.field.task.max_attempts": "Max attempts",
   "settings.field.task.batch_max_concurrency": "Batch max concurrency",
   "settings.field.task.misfire_grace_sec": "Misfire grace",
@@ -1852,5 +1854,11 @@
   "audit.action.SEND": "Sent",
   "platform.credentials.jsonLabel": "Credential JSON",
   "platform.credentials.jsonPlaceholder": "Top-level fields: ak, sk, headers, body. Place custom request body fields inside body.",
-  "platform.credentials.errorJson": "Enter a valid JSON object, not an array, null or another type."
+  "platform.credentials.errorJson": "Enter a valid JSON object, not an array, null or another type.",
+  "executionExport.action": "Export chain",
+  "executionExport.tooltip": "Export this execution's full chain, failure node, services and log lookup keys; contains full diagnostic data—handle per internal policy",
+  "executionExport.busy": "Exporting…",
+  "executionExport.failed": "Export failed. Try again",
+  "executionExport.notFound": "Execution not found or unreadable",
+  "executionExport.ariaLabel": "Export execution chain"
 }

@@ -86,14 +86,20 @@ class SharedSettings(BaseSettings):
     #: memory consolidation 的租户级待处理上限；到界后不再入队（不阻塞已完成的 Run）。
     memory_consolidation_queue_max: int = Field(default=10000, ge=1)
     worker_execution_concurrency: int = Field(default=4, ge=1, le=64)
-    #: 单次 Skill 执行进程的总时长上限（秒）；与到 Task deadline 的剩余时间取较小值。
-    worker_execution_timeout_sec: int = Field(default=300, ge=1, le=3600)
     gateway_max_concurrent_handlers: int = Field(default=8, ge=1)
     gateway_max_pending_handlers: int = Field(default=256, ge=1)
     gateway_max_pending_per_route: int = Field(default=8, ge=1)
     gateway_max_pending_commands: int = Field(default=32, ge=1)
     gateway_max_sse_subscribers: int = Field(default=1100, ge=1, le=100000)
     runtime_max_sse_subscribers: int = Field(default=1100, ge=1, le=100000)
+
+    #: 单次执行链路导出（Console 只读诊断导出）的有界预算：诊断字段原样，但整体必须有界。
+    execution_export_max_events: int = Field(default=10_000, ge=1)
+    execution_export_max_task_events: int = Field(default=10_000, ge=1)
+    execution_export_max_task_children: int = Field(default=500, ge=1)
+    execution_export_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1024)
+    execution_export_event_excerpt_before: int = Field(default=5, ge=0)
+    execution_export_event_excerpt_after: int = Field(default=5, ge=0)
 
     db_pool_size: int = Field(default=10, ge=1)
     db_max_overflow: int = Field(default=0, ge=0)

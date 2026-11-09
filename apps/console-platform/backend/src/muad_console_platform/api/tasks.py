@@ -9,16 +9,18 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from muad_api import ApiResponse, ok
-from muad_api.context import current_trace_id
+from muad_api.context import current_locale, current_trace_id
 from muad_contracts import TaskStatus, TriggerType
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.entity_name_service import EntityNameService
+from ..application.execution_export_service import ExecutionExportService
 from ..infrastructure.db import get_session
 from .deps import AccountTenantId as TenantId
-from .deps import WorkerClient
+from .deps import AdminAccount, WorkerClient
+from .execution_export import execution_export_response
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
 
@@ -64,6 +66,20 @@ async def list_tasks(
     return ok(request.app.state.message_catalog, data)
 
 
+@router.get("/{task_id}/export")
+async def export_task(
+    task_id: uuid.UUID,
+    tenant_id: TenantId,
+    _account: AdminAccount,
+    session: Session,
+    export_format: str = Query(default="zip", alias="format"),
+) -> Response:
+    result = await ExecutionExportService(session).export_task(
+        tenant_id, task_id, export_format, locale=current_locale()
+    )
+    return execution_export_response(result)
+
+
 @router.get("/{task_id}")
 async def get_task(
     task_id: uuid.UUID,
@@ -71,9 +87,7 @@ async def get_task(
     tenant_id: TenantId,
     worker: WorkerClient,
 ) -> ApiResponse[Any]:
-    data = await worker.get_task(
-        tenant_id=tenant_id, task_id=task_id, trace_id=current_trace_id()
-    )
+    data = await worker.get_task(tenant_id=tenant_id, task_id=task_id, trace_id=current_trace_id())
     return ok(request.app.state.message_catalog, data)
 
 
@@ -84,7 +98,5 @@ async def cancel_task(
     tenant_id: TenantId,
     worker: WorkerClient,
 ) -> ApiResponse[Any]:
-    data = await worker.cancel_task(
-        tenant_id=tenant_id, task_id=task_id, trace_id=current_trace_id()
-    )
+    data = await worker.cancel_task(tenant_id=tenant_id, task_id=task_id, trace_id=current_trace_id())
     return ok(request.app.state.message_catalog, data)

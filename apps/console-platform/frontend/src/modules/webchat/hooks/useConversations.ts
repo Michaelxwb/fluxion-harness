@@ -50,6 +50,8 @@ export interface ConversationsController {
   appliedSeq(conversationId: string, runId: string): number | null;
   noteAppliedSeq(conversationId: string, runId: string, seq: number): void;
   historyFor(conversationId: string): ConversationHistorySnapshot;
+  /** 流式恢复失败后的只读水位探测（不改变选择/消息/视图信号）。 */
+  probeThroughSeq(conversationId: string): Promise<number | null>;
   /** 当前视图请求信号：入口/会话/身份边界变化即中止（回复订阅据此关流）。 */
   viewSignal(): AbortSignal;
 }
@@ -101,6 +103,7 @@ export function useConversations(
     appliedSeq: service.appliedSeq,
     noteAppliedSeq: service.noteAppliedSeq,
     historyFor: service.historyFor,
+    probeThroughSeq: service.probeThroughSeq,
     viewSignal: service.viewSignal
   };
 }

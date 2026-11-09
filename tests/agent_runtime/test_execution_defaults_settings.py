@@ -1,6 +1,6 @@
 """[E-20] 执行默认接入（agent / memory / artifact / locale 9 叶）。
 
-把平台设置里 Run 用到的 9 个叶子接到既有消费点，取值一律来自**本 Run 冻结的** `policy_json`
+把平台设置里 Run 用到的叶子接到既有消费点，取值一律来自**本 Run 冻结的** `policy_json`
 （`agent.max_turns`/`max_tool_calls`/`max_model_retries`/`deadline_ms`、`memory.*` 5 叶、
 `artifact.max_archive_files`、`locale.default_timezone`）；`artifact.retention_days` /
 `cleanup_batch_size` 属 Console 清理，在**当次操作边界**从当前平台设置取（清理不是 Run）。
@@ -69,6 +69,7 @@ from muad_contracts.platform_settings import (
     ArtifactSettings,
     LocaleSettings,
     MemoryPolicySettings,
+    TaskSettings,
 )
 
 from agent_runtime.conftest import FakeResolveClient, TenantContext
@@ -91,6 +92,7 @@ MEMORY_OVERRIDE = MemoryPolicySettings(
 )
 ARTIFACT_OVERRIDE = ArtifactSettings(retention_days=5, max_archive_files=2, cleanup_batch_size=1)
 LOCALE_OVERRIDE = LocaleSettings(default_timezone="America/New_York")
+TASK_OVERRIDE = TaskSettings(execution_timeout_sec=1800)
 RECALL_SCENARIO = MemoryPolicySettings(
     write_enabled=True,
     max_injected_memories=2,
@@ -188,19 +190,20 @@ def _cache(tmp_path: Path) -> SkillArtifactCache:
     return SkillArtifactCache(NfsArtifactStore(tmp_path / "artifacts"), tmp_path / "cache")
 
 
-# ---- E-20 主场景：新 Run 冻结九个叶子 ----
+# ---- E-20 主场景：新 Run 冻结平台设置里 Run 用到的每个叶子 ----
 
 
 async def test_e20_new_run_freezes_nine_execution_leaves(
     tenant: TenantContext, fake_resolve: FakeResolveClient
 ) -> None:
-    """改 9 个叶子后新建 Run：`policy_json` 逐键冻结为新值（真实 POST 路径 + 真实 PG）。"""
+    """改叶子后新建 Run：`policy_json` 逐键冻结为新值（真实 POST 路径 + 真实 PG）。"""
     await _save_settings(
         tenant.tenant_id,
         agent=AGENT_OVERRIDE,
         memory=MEMORY_OVERRIDE,
         artifact=ARTIFACT_OVERRIDE,
         locale=LOCALE_OVERRIDE,
+        task=TASK_OVERRIDE,
     )
     run_id = await _start_run(tenant, fake_resolve, _CapturingExecutorFactory(), _PgSettingsClient())
     policy = await _policy_json(run_id)
@@ -212,6 +215,7 @@ async def test_e20_new_run_freezes_nine_execution_leaves(
     assert policy["memory"] == asdict(MEMORY_OVERRIDE)
     assert policy["artifact"] == {"max_archive_files": ARTIFACT_OVERRIDE.max_archive_files}
     assert policy["locale"] == {"default_timezone": LOCALE_OVERRIDE.default_timezone}
+    assert policy["task"] == {"execution_timeout_sec": TASK_OVERRIDE.execution_timeout_sec}
     # `retention_days` / `cleanup_batch_size` 属 Console 清理，**不进 Run 快照**。
     assert "retention_days" not in policy["artifact"]
     assert "cleanup_batch_size" not in policy["artifact"]
@@ -234,6 +238,25 @@ async def test_e20_agent_policy_applies_frozen_defaults(
     )
     assert policy.deadline_ms == AGENT_OVERRIDE.deadline_ms
     assert policy.max_model_retries == AGENT_OVERRIDE.max_model_retries
+
+
+async def test_e20_task_submission_freezes_execution_timeout(
+    tenant: TenantContext, fake_resolve: FakeResolveClient
+) -> None:
+    """Run 冻结的单次执行超时随异步任务提交进入 Task 快照预算（不读 Worker 环境）。"""
+    from muad_agent_runtime.application.executor import _task_submission_context
+    from muad_agent_runtime.application.task_client import build_task_snapshot
+
+    await _save_settings(tenant.tenant_id, task=TASK_OVERRIDE)
+    capture = _CapturingExecutorFactory()
+    await _start_run(tenant, fake_resolve, capture, _PgSettingsClient())
+    request = capture.requests[0]
+
+    context = _task_submission_context(request)
+    assert context is not None
+    assert context.execution_timeout_sec == TASK_OVERRIDE.execution_timeout_sec
+    snapshot, _ = build_task_snapshot(context, request.skills[0])
+    assert snapshot["budget"]["execution_timeout_sec"] == TASK_OVERRIDE.execution_timeout_sec
 
 
 async def test_e20_registry_uses_frozen_artifact_memory_and_locale(

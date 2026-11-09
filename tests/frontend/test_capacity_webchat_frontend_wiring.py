@@ -1438,6 +1438,9 @@ def test_b293_page_mounts_every_surface_and_cleans_up() -> None:
     )
     assert "watch(target)" in compact, "受理回执必须经 TASK-082 的 watch 接缝订阅新 Run"
     assert "select(accepted.conversation_id)" in compact, "受理回执必须重读线程权威事实"
+    assert "fireAndForget(refresh())" in compact, (
+        "受理回执必须同时重读会话索引（新会话标题/最近活动/活跃状态随之更新）"
+    )
     assert "service.setVisibleRun(visibleRunId)" in compact, "停止状态机必须绑定当前可见 Run"
     assert "create().then((result)" in compact and "pendingSend.setText(text)" in compact, (
         "无会话发送必须先建会话并把当前输入交回新会话（不伪造会话号）"

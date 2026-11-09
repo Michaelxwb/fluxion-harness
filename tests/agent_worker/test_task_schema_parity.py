@@ -29,6 +29,7 @@ EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
         "ix_task_execution_status_not_before_priority_create_time",
         "ix_task_execution_running_lease_until",
         "ix_task_execution_root_parent_status",
+        "ix_task_execution_source_run",
         "ix_task_execution_actor_user_create_time",
         "ix_task_execution_schedule_create_time",
         "ix_task_execution_final_delivery",

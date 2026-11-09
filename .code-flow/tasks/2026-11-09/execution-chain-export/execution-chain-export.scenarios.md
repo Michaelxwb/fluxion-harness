@@ -1,0 +1,542 @@
+---
+id: execution-chain-export-scenarios
+description: 单次执行链路分析包导出验收场景唯一源
+stages:
+  - design
+enforcement: advisory
+schema: 1
+requirement: execution-chain-export
+scenarios:
+  - id: S-01
+    title: 失败 Run 从详情导出完整链路分析包
+    priority: P0
+    level: integration
+    exec: auto
+    env: local-api
+    components: [backend, frontend, console, postgres]
+    boundary: 真实 Console HTTP + 真实 PostgreSQL；seed 失败 Run/模型/工具/Egress/Operation/Task 事实；真实生成 ZIP 并解包检查，不 mock 导出服务与仓储
+    preconditions:
+      - 登录账号属于目标租户
+      - Run 状态 FAILED，run_record.error_code 非空
+      - 至少一条 MODEL_CALL 失败、一条 TOOL_CALL 失败、一个失败 Operation 和一个失败 Task
+      - 事件数超过 200，且失败节点位于 UI 轮廓截断点之后
+    steps:
+      - 调用 GET /api/v1/runs/{run_id}/export?format=zip
+      - 解包 ZIP，读取 report.json、report.md、events.csv、failures.csv、calls.csv、tasks.csv、README.md
+      - 核对 timeline 是否包含全部非 ASSISTANT_DELTA 事件，而不是 UI 的 200 条
+      - 核对 diagnosis.primary_failure、contributing_failures、services、log_lookup
+      - 核对 report.md 给出首个失败节点、服务与日志检索命令
+    expected:
+      - 响应 200，Content-Type 为 application/zip，Content-Disposition 带文件名
+      - report.json 含 execution、summary、diagnosis、timeline、model_calls、tool_calls、egress_calls、operations、tasks、links、supplemental、truncation、data_quality、database_snapshot
+      - events.csv 行数与全部非 delta 事件数一致；failures.csv 覆盖所有失败候选；calls.csv 覆盖模型/工具/Egress 调用
+      - report.md 可直接回答“哪里先失败、错误码、主责服务、用哪个 key 查日志”
+      - 导出包含对话正文、事件负载、工具参数、Task 输入结果等诊断字段原文；Secret/凭据原文不出现；日志正文不导出
+    expected_refs:
+      - expected: 1
+        steps: [1, 2]
+      - expected: 2
+        steps: [2, 3]
+      - expected: 3
+        steps: [2, 4]
+      - expected: 4
+        steps: [2, 4, 5]
+      - expected: 5
+        steps: [2, 5]
+    trigger_paths:
+      - apps/console-platform/backend/src/muad_console_platform/api/runs.py
+      - apps/console-platform/backend/src/muad_console_platform/application/execution_export_service.py
+      - apps/console-platform/backend/src/muad_console_platform/application/execution_diagnosis.py
+    smoke: false
+    design_refs:
+      - backend design §3.4
+      - backend design §3.5
+      - frontend design §3.4
+    rules: [RULE-01, RULE-02, RULE-03, RULE-06, RULE-08, RULE-09, RULE-10]
+    features: [FEAT-01, FEAT-03, FEAT-04, FEAT-05]
+    checks: []
+
+  - id: S-02
+    title: 失败 Task 从详情导出任务链路与来源 Run 上下文
+    priority: P0
+    level: integration
+    exec: auto
+    env: local-api
+    components: [backend, frontend, console, postgres]
+    boundary: 真实 Console HTTP + 真实 PostgreSQL；seed 失败 Task、TaskEvent、来源 Run、子 Task；真实生成 ZIP 并解包检查
+    preconditions:
+      - Task 状态 FAILED，task_execution.error_code 非空
+      - 存在 task_event、source_run_id、至少一个失败子 Task 和一个成功子 Task
+      - 来源 Run 的 canonical_event 中存在提交/结果相关事件
+    steps:
+      - 调用 GET /api/v1/tasks/{task_id}/export?format=zip
+      - 解包并读取 report.json、report.md、events.csv、failures.csv、calls.csv、tasks.csv
+      - 核对 Task 摘要、attempt/max_attempts、skill/artifact 版本、来源 Run 上下文
+      - 核对失败子 Task 的 task_event 被详列，成功子 Task 只给汇总
+      - 核对 log_lookup 主责服务为 muad-agent-worker
+    expected:
+      - 响应 200 且 ZIP 内容完整
+      - report.json.execution 含 Task 状态、error_code、attempt、skill_id、source_run_id；顶层含 data_quality 与 database_snapshot
+      - tasks.csv 覆盖父 Task 与全部子 Task；失败子任务有事件明细，成功子任务有状态汇总
+      - report.md 给出 Task 失败结论、来源 Run、日志检索键与命令
+      - 包含 Task 输入/结果等诊断字段原文；Secret/凭据原文不出现；日志正文不导出
+    expected_refs:
+      - expected: 1
+        steps: [1, 2]
+      - expected: 2
+        steps: [2, 3]
+      - expected: 3
+        steps: [2, 4]
+      - expected: 4
+        steps: [2, 3, 4]
+      - expected: 5
+        steps: [2, 5]
+    trigger_paths:
+      - apps/console-platform/backend/src/muad_console_platform/api/tasks.py
+      - apps/console-platform/backend/src/muad_console_platform/application/execution_export_service.py
+      - apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx
+    smoke: false
+    design_refs:
+      - backend design §3.4
+      - backend design §3.5
+      - frontend design §3.4
+    rules: [RULE-01, RULE-02, RULE-03, RULE-06, RULE-08, RULE-09, RULE-10]
+    features: [FEAT-02, FEAT-03, FEAT-04, FEAT-05]
+    checks: []
+
+  - id: S-03
+    title: 成功 Run 导出同结构分析包且不伪造失败
+    priority: P0
+    level: integration
+    exec: auto
+    env: local-api
+    components: [backend, console, postgres]
+    boundary: 真实 Console HTTP + 真实 PostgreSQL；seed 成功 Run 与若干模型/工具调用；真实生成 JSON/ZIP
+    preconditions:
+      - Run 状态 COMPLETED
+      - 含至少两个模型调用和一个成功工具调用
+      - 含一次已恢复的模型重试
+    steps:
+      - 调用 GET /api/v1/runs/{run_id}/export?format=json
+      - 检查 diagnosis.outcome、primary_failure、insights 与 failures 列表
+      - 检查 summary 的调用计数、耗时与慢步骤
+    expected:
+      - outcome 为 SUCCEEDED，primary_failure 为 null
+      - failures 为空或只包含已恢复的重试候选，且不标记为 primary
+      - insights 包含慢步骤/重试等性能提示，不包含“失败原因”虚构结论
+      - 报告结构与失败 Run 完全同构，可用于成功/失败样本对比
+    expected_refs:
+      - expected: 1
+        steps: [1, 2]
+      - expected: 2
+        steps: [2]
+      - expected: 3
+        steps: [2, 3]
+      - expected: 4
+        steps: [1, 2]
+    trigger_paths:
+      - apps/console-platform/backend/src/muad_console_platform/application/execution_diagnosis.py
+    smoke: false
+    design_refs:
+      - backend design §3.3
+      - backend design §3.5
+    rules: [RULE-02, RULE-03, RULE-04, RULE-06, RULE-08]
+    features: [FEAT-01, FEAT-03, FEAT-04]
+    checks: []
+
+  - id: S-04
+    title: Run/Task 详情“导出链路”按钮的加载、成功与失败态
+    priority: P0
+    level: component
+    exec: auto
+    env: local
+    components: [frontend]
+    boundary: React 组件 + mock service；不启动真实后端，不触发真实浏览器下载
+    preconditions:
+      - Run/Task 详情已打开且 id 非空
+      - service 可被 mock 为成功、404、网络失败
+    steps:
+      - 渲染 Run 详情，断言按钮文案为“导出链路”且 tooltip 说明导出内容
+      - 点击按钮，断言进入 loading、按钮禁用、service 只调用一次
+      - mock 成功响应，断言触发 Blob 下载且按钮恢复
+      - mock 404/网络失败，断言显示对应文案、按钮恢复、可再次点击重试
+      - 卸载详情或 id 置空，断言按钮不渲染
+      - 以非 ADMIN 账号渲染同一详情，断言按钮不渲染
+    expected:
+      - 按钮仅对 ADMIN 常驻在 Run/Task 详情头部操作区，成功/失败执行都可见
+      - loading 期间不重复请求；成功后下载一次
+      - 失败后按钮恢复，错误文案来自 i18n，不出现未完成文件
+      - 组件不裸调 axios/fetch，只经 execution-export service
+    expected_refs:
+      - expected: 1
+        steps: [1, 6]
+      - expected: 2
+        steps: [2, 3]
+      - expected: 3
+        steps: [3, 4]
+      - expected: 4
+        steps: [1, 2, 3, 4, 5, 6]
+    trigger_paths:
+      - apps/console-platform/frontend/src/modules/execution-export/**
+      - apps/console-platform/frontend/src/modules/run-observability/RunDetailSideSheet.tsx
+      - apps/console-platform/frontend/src/modules/task-schedule/TaskDetailSideSheet.tsx
+    smoke: false
+    design_refs:
+      - frontend design §3.3
+      - frontend design §3.4
+      - frontend design §3.6
+    rules: [RULE-08, RULE-11, RULE-13]
+    features: [FEAT-05, FEAT-06, FEAT-07]
+    checks: []
+
+  - id: E-01
+    title: 跨租户或不存在执行导出返回 404 且不泄漏存在性
+    priority: P0
+    level: integration
+    exec: auto
+    env: local-api
+    components: [backend, console, postgres]
+    boundary: 真实 Console HTTP + 真实 PostgreSQL；目标 Run/Task 落在另一个租户
+    preconditions:
+      - 当前账号属于 tenant-A
+      - 目标 Run/Task 属于 tenant-B 或完全不存在
+    steps:
+      - 以 tenant-A 账号请求 tenant-B 的 Run 导出
+      - 以 tenant-A 账号请求 tenant-B 的 Task 导出
+      - 以 tenant-A 账号请求不存在的 Run/Task 导出
+    expected:
+      - 三种请求均返回 404 COMMON_NOT_FOUND
+      - 响应体不包含目标 id、Agent、状态或任何链路字段
+      - 不产生下载文件
+    expected_refs:
+      - expected: 1
+        steps: [1, 2, 3]
+      - expected: 2
+        steps: [1, 2, 3]
+      - expected: 3
+        steps: [1, 2, 3]
+    trigger_paths:
+      - apps/console-platform/backend/src/muad_console_platform/api/runs.py
+      - apps/console-platform/backend/src/muad_console_platform/api/tasks.py
+    smoke: false
+    design_refs:
+      - backend design §3.4
+      - backend design §3.5
+    rules: [RULE-05]
+    features: [FEAT-01, FEAT-02]
+    checks: []
+
+  - id: E-02
+    title: 超出事件或字节上限时保留失败节点并显式标注截断
+    priority: P0
+    level: integration
+    exec: auto
+    env: local-api
+    components: [backend, console, postgres]
+    boundary: 真实 Console HTTP + 真实 PostgreSQL；通过测试配置把上限调小，seed 失败节点在尾部的事件流
+    preconditions:
+      - 事件数超过 ExecutionExportSettings.max_events
+      - 失败节点位于被截断的尾部区间
+    steps:
+      - 调用 GET /api/v1/runs/{run_id}/export?format=zip
+      - 检查 truncation、primary_failure、timeline 与 report.md
+      - 检查 X-Export-Truncated 响应头
+    expected:
+      - 响应 200，truncation.truncated 为 true，omitted_events 大于 0
+      - primary_failure 仍存在且指向真实失败节点，不因截断丢失
+      - timeline 保留失败窗口与首尾摘要；report.md 明确说明只展示部分事件
+      - 不返回 500，也不静默丢失败信息
+    expected_refs:
+      - expected: 1
+        steps: [1, 2]
+      - expected: 2
+        steps: [2]
+      - expected: 3
+        steps: [2, 3]
+      - expected: 4
+        steps: [1, 2]
+    trigger_paths:
+      - apps/console-platform/backend/src/muad_console_platform/application/execution_export_service.py
+      - apps/console-platform/backend/src/muad_console_platform/application/execution_export_render.py
+    smoke: false
+    design_refs:
+      - backend design §3.5
+    rules: [RULE-03, RULE-07]
+    features: [FEAT-04, FEAT-05]
+    checks: []
+
+  - id: E-03
+    title: 诊断字段原样与凭据掩码边界
+    priority: P0
+    level: integration
+    exec: auto
+    env: local-api
+    components: [backend, console, postgres]
+    boundary: 真实 Console HTTP + 真实 PostgreSQL；seed 含 Secret 的 run input、event payload、tool args、error message 与 Task input，同时埋入可识别的非敏感诊断标记
+    preconditions:
+      - Seed 数据包含 Authorization、api_key、password 等敏感值
+      - 工具参数、Task 输入和 error_message 中各有一处非敏感诊断标记
+    steps:
+      - 导出失败 Run 与失败 Task 的 ZIP/JSON
+      - 遍历 ZIP 中全部文件，搜索敏感值与诊断标记
+      - 检查 data_policy、error_message 长度与内容
+    expected:
+      - 所有文件中均不出现 Secret、Authorization、Cookie、api_key、password 原文
+      - 对话正文、事件负载、工具参数、Task 输入/结果、error_message 中的诊断标记原样出现，未被逐字段截断
+      - data_policy 为 diagnostic_fields=raw、credentials=masked、conversation_text=included、admin_only=true
+      - 不出现日志正文
+    expected_refs:
+      - expected: 1
+        steps: [1, 2]
+      - expected: 2
+        steps: [1, 2, 3]
+      - expected: 3
+        steps: [1, 3]
+      - expected: 4
+        steps: [1, 2]
+    trigger_paths:
+      - apps/console-platform/backend/src/muad_console_platform/application/execution_export_view.py
+      - apps/console-platform/backend/src/muad_console_platform/application/execution_export_render.py
+    smoke: false
+    design_refs:
+      - backend design §3.5
+    rules: [RULE-06, RULE-09]
+    features: [FEAT-05]
+    checks: []
+
+  - id: E-05
+    title: 非 ADMIN 账号不可导出诊断数据
+    priority: P0
+    level: integration
+    exec: auto
+    env: local-api
+    components: [backend, console, postgres]
+    boundary: 真实 Console HTTP + 真实 PostgreSQL；使用 BUILDER 账号直接请求导出接口，不经过前端
+    preconditions:
+      - 登录账号角色为 BUILDER
+      - 目标 Run/Task 属于同一租户且真实存在
+    steps:
+      - 以 BUILDER 身份请求 Run 导出
+      - 以 BUILDER 身份请求 Task 导出
+      - 以 ADMIN 身份请求同一 Run，确认对照可用
+    expected:
+      - 前两个请求返回 403 FORBIDDEN，不返回任何执行/链路字段
+      - 不产生下载文件，不写导出审计内容
+      - ADMIN 对照请求返回 200 且可下载
+    expected_refs:
+      - expected: 1
+        steps: [1, 2]
+      - expected: 2
+        steps: [1, 2]
+      - expected: 3
+        steps: [3]
+    trigger_paths:
+      - apps/console-platform/backend/src/muad_console_platform/api/runs.py
+      - apps/console-platform/backend/src/muad_console_platform/api/tasks.py
+    smoke: false
+    design_refs:
+      - backend design §3.4
+      - backend design §3.5
+      - frontend design §3.4
+    rules: [RULE-13]
+    features: [FEAT-05]
+    checks: []
+
+  - id: B-01
+    title: 超过 UI 200 条事件仍导出完整非 delta 链路
+    priority: P0
+    level: integration
+    exec: auto
+    env: local-api
+    components: [backend, console, postgres]
+    boundary: 真实 Console HTTP + 真实 PostgreSQL；seed 250 条非 ASSISTANT_DELTA 事件和若干 delta 事件
+    preconditions:
+      - canonical_event 中非 delta 事件数为 250
+      - 含 ASSISTANT_DELTA 事件用于验证剔除
+    steps:
+      - 调用 GET /api/v1/runs/{run_id}/export?format=json
+      - 统计 timeline 与 events.csv 行数
+      - 检查是否包含 ASSISTANT_DELTA
+    expected:
+      - timeline 与 events.csv 均包含 250 条非 delta 事件，不受 UI 200 条限制
+      - ASSISTANT_DELTA 默认不导出
+      - truncation.truncated 为 false（未超过导出上限）
+    expected_refs:
+      - expected: 1
+        steps: [1, 2]
+      - expected: 2
+        steps: [3]
+      - expected: 3
+        steps: [1]
+    trigger_paths:
+      - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/execution_export_repository.py
+    smoke: false
+    design_refs:
+      - backend design §3.3
+      - backend design §3.5
+    rules: [RULE-03]
+    features: [FEAT-01, FEAT-04]
+    checks: []
+
+  - id: B-02
+    title: 批量 Task 优先详列失败子任务，其他子任务只给汇总
+    priority: P1
+    level: integration
+    exec: auto
+    env: local-api
+    components: [backend, console, postgres]
+    boundary: 真实 Console HTTP + 真实 PostgreSQL；seed 一个 BATCH 父 Task、20 个子 Task，其中一个失败
+    preconditions:
+      - 父 Task task_type 为 BATCH
+      - 子 Task 数量超过单次详列上限
+      - 至少一个失败子 Task
+    steps:
+      - 调用 GET /api/v1/tasks/{parent_task_id}/export?format=zip
+      - 检查 tasks.csv、report.json.tasks 与 failures.csv
+      - 检查失败子任务是否包含 task_event，成功子任务是否只给汇总
+    expected:
+      - 父 Task 与全部子 Task 都出现在 tasks.csv
+      - 失败子任务详列事件与错误信息；成功子任务只给状态/耗时/attempt 汇总
+      - 超过详列上限时 truncation.omitted_task_events 大于 0 且失败子任务不被裁掉
+    expected_refs:
+      - expected: 1
+        steps: [1, 2]
+      - expected: 2
+        steps: [2, 3]
+      - expected: 3
+        steps: [2, 3]
+    trigger_paths:
+      - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/execution_export_repository.py
+    smoke: false
+    design_refs:
+      - backend design §3.5
+    rules: [RULE-01, RULE-03, RULE-07]
+    features: [FEAT-02, FEAT-04]
+    checks: []
+
+  - id: S-05
+    title: 浏览器从失败 Run 详情点击“导出链路”并下载 ZIP
+    priority: P0
+    level: E2E
+    exec: auto
+    owner: TASK-006
+    env: browser
+    components: [frontend, backend, console, postgres, browser]
+    boundary: 真实构建产物 + 真实浏览器 + 真实 Console HTTP + 真实 PostgreSQL + 真实登录会话；seed 一条失败 Run；下载事件落盘后解包检查
+    preconditions:
+      - Console 前端构建产物已启动
+      - 已有可登录的 ADMIN/操作员账号
+      - 目标租户内存在一条失败 Run
+    steps:
+      - 浏览器登录 Console 并打开该失败 Run 详情
+      - 断言头部“导出链路”按钮可见
+      - 点击按钮并捕获浏览器 download 事件
+      - 保存下载文件并解包，读取 report.json 与 report.md
+      - 断言失败节点、error_code、服务与日志检索键存在
+    expected:
+      - 按钮真实可见且可点击，点击后触发一次浏览器下载
+      - 下载文件名与 Content-Disposition 一致，ZIP 可解包
+      - report.json 的 execution.status=FAILED，diagnosis.primary_failure 非空
+      - report.md 给出主责服务与日志检索命令
+    expected_refs:
+      - expected: 1
+        steps: [1, 2, 3]
+      - expected: 2
+        steps: [3, 4]
+      - expected: 3
+        steps: [4, 5]
+      - expected: 4
+        steps: [4, 5]
+    why_e2e: 组件测试 mock service，无法证明真实浏览器下载、Content-Disposition、登录 Cookie 与真实 Console/DB 的接线；只有真实浏览器 + 真实后端能覆盖 click→HTTP→Blob→download 的端到端
+    trigger_paths:
+      - apps/console-platform/frontend/src/modules/execution-export/**
+      - apps/console-platform/frontend/src/modules/run-observability/RunDetailSideSheet.tsx
+      - apps/console-platform/backend/src/muad_console_platform/api/runs.py
+      - apps/console-platform/backend/src/muad_console_platform/application/execution_export_service.py
+    smoke: true
+    design_refs:
+      - backend design §3.4
+      - frontend design §3.4
+      - frontend design §3.6
+    rules: [RULE-08, RULE-11]
+    features: [FEAT-01, FEAT-06, FEAT-07]
+    checks: []
+
+  - id: E-04
+    title: 可选段读取失败时仍返回可分析包并显式标注不完整
+    priority: P0
+    level: integration
+    exec: auto
+    env: local-api
+    components: [backend, console, postgres]
+    boundary: 真实 Console HTTP + 真实 PostgreSQL；在仓储层注入一个可选段异常（如补充段查询失败），核心段仍走真实 PG
+    preconditions:
+      - Run 主体、canonical_event、审计等核心段可读
+      - 至少一个可选段（如 tool_control_outbox / artifact）被注入读取失败
+    steps:
+      - 调用 GET /api/v1/runs/{run_id}/export?format=zip
+      - 检查响应状态、X-Export-Complete 与 ZIP 内容
+      - 检查 data_quality.warnings、section_status 与 report.md
+    expected:
+      - 响应 200，X-Export-Complete=false，ZIP 仍可解包
+      - data_quality.complete=false；warnings 与 section_status 明确标出失败段
+      - 核心段与 primary_failure 不受影响；report.md 明确提示“部分数据不可读”
+      - 不静默丢段，也不因可选段失败返回 500
+    expected_refs:
+      - expected: 1
+        steps: [1, 2]
+      - expected: 2
+        steps: [2, 3]
+      - expected: 3
+        steps: [2, 3]
+      - expected: 4
+        steps: [1, 2, 3]
+    trigger_paths:
+      - apps/console-platform/backend/src/muad_console_platform/application/execution_export_service.py
+      - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/execution_export_repository.py
+    smoke: false
+    design_refs:
+      - backend design §3.1
+      - backend design §3.5
+    rules: [RULE-03, RULE-08]
+    features: [FEAT-01, FEAT-04, FEAT-05]
+    checks: []
+
+  - id: B-03
+    title: 导出读取同一只读快照并记录快照元信息
+    priority: P0
+    level: integration
+    exec: auto
+    env: local-api
+    components: [backend, console, postgres]
+    boundary: 真实 Console HTTP + 真实 PostgreSQL；检查事务隔离级别/只读事实，验证所有段来自同一快照
+    preconditions:
+      - 目标 Run 已持久化
+      - 导出执行器使用真实 PG 事务
+    steps:
+      - 调用 GET /api/v1/runs/{run_id}/export?format=json
+      - 检查 database_snapshot 的 snapshot_time、transaction_read_only、transaction_isolation
+      - 在导出前后分别写入一条新的 canonical_event，确认导出包只反映快照时刻
+    expected:
+      - database_snapshot.transaction_isolation 为 repeatable read，transaction_read_only 为 on
+      - snapshot_time 带 offset，且与报告生成时间同一时刻量级
+      - 导出后新增的事件不出现在本次报告；再次导出才可见
+    expected_refs:
+      - expected: 1
+        steps: [1, 2]
+      - expected: 2
+        steps: [2]
+      - expected: 3
+        steps: [1, 3]
+    trigger_paths:
+      - apps/console-platform/backend/src/muad_console_platform/application/execution_export_service.py
+      - apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/execution_export_repository.py
+    smoke: false
+    design_refs:
+      - backend design §3.3
+      - backend design §3.5
+    rules: [RULE-12]
+    features: [FEAT-01]
+    checks: []
+
+---

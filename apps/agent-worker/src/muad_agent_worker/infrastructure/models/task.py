@@ -130,6 +130,12 @@ class TaskExecution(StandardColumnsMixin, Base):
             postgresql_where=sa.text("status = 'RUNNING'"),
         ),
         sa.Index("ix_task_execution_root_parent_status", "root_id", "parent_id", "status"),
+        sa.Index(
+            "ix_task_execution_source_run",
+            "tenant_id",
+            "source_run_id",
+            postgresql_where=sa.text("is_deleted = false"),
+        ),
         sa.Index("ix_task_execution_actor_user_create_time", "actor_user_id", sa.text("create_time DESC")),
         sa.Index("ix_task_execution_schedule_create_time", "schedule_id", sa.text("create_time DESC")),
         sa.Index(

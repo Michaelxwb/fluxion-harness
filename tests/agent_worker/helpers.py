@@ -8,6 +8,7 @@ from typing import Any
 from muad_agent_worker.application.delivery_routes import upsert_delivery_route
 from muad_agent_worker.infrastructure.models.task import TaskEvent, TaskExecution, TaskSchedule
 from muad_contracts import (
+    TASK_SNAPSHOT_SCHEMA_VERSION,
     CreateScheduleRequest,
     CreateTaskRequest,
     DeliveryRouteInput,
@@ -20,6 +21,7 @@ from muad_contracts import (
     TaskStatus,
 )
 from muad_contracts.platform_settings import default_platform_settings
+from muad_contracts.snapshot import snapshot_hash
 from sqlalchemy import func, select
 
 from agent_worker.conftest import TEST_INTERNAL_SERVICE_TOKEN, TenantContext
@@ -41,7 +43,10 @@ def retry_safe_snapshot() -> dict[str, Any]:
     自 2026-10-18 起未声明安全性的 Task 不再自动重试（未知按 NON_RETRYABLE）：只有
     READ_ONLY/IDEMPOTENT 的冻结声明才可有界重试，重试机制用例据此显式声明。
     """
-    return {"schema_version": 1, "budget": {"retry_safety": "IDEMPOTENT"}}
+    return {"schema_version": TASK_SNAPSHOT_SCHEMA_VERSION, "budget": {
+        "retry_safety": "IDEMPOTENT",
+        "execution_timeout_sec": default_platform_settings().task.execution_timeout_sec,
+    }}
 
 
 def internal_service_headers(tenant_id: str | None = None, **extra: str) -> dict[str, str]:
@@ -81,14 +86,16 @@ def create_task_payload(
         "skill_artifact_id": uuid.uuid4(),
         "input": {"customers": ["A"]},
         "execution_snapshot": {
-            "schema_version": 1,
+            "schema_version": TASK_SNAPSHOT_SCHEMA_VERSION,
             "agent": {"key": "agent"},
             "model": {"key": "model"},
             "skills": [{"key": "policy_check"}],
             "mcp": [],
             "prompt_template_version": "v1",
-            "budget": {"max_tokens": 1024},
+            "budget": {"max_tokens": 1024,
+                       "execution_timeout_sec": default_platform_settings().task.execution_timeout_sec},
         },
+        "execution_snapshot_schema_version": TASK_SNAPSHOT_SCHEMA_VERSION,
         "snapshot_hash": SNAPSHOT_HASH,
         "idempotency_key": idempotency_key or f"test-{uuid.uuid4()}",
         "delivery_route": delivery_route if delivery_route is not None else (
@@ -96,6 +103,8 @@ def create_task_payload(
         ),
     }
     values.update(overrides)
+    if "snapshot_hash" not in overrides:
+        values["snapshot_hash"] = snapshot_hash(values["execution_snapshot"])
     return CreateTaskRequest.model_validate(values)
 
 
@@ -196,10 +205,17 @@ class FakeResolver:
 
 
 def _fill_execution_snapshot_contract(values: dict[str, Any]) -> None:
-    """测试快照补齐 v2 冻结字段：真实构建器总会写 source/workspace（RULE-snapshot-001）。"""
+    """测试数据构造时补齐冻结预算及 source/workspace，不在执行器中回填。"""
     snapshot = values.get("execution_snapshot_json")
     if not isinstance(snapshot, dict):
         return
+    budget = snapshot.get("budget")
+    if isinstance(budget, dict):
+        budget.setdefault("execution_timeout_sec", default_platform_settings().task.execution_timeout_sec)
+    else:
+        snapshot["budget"] = {
+            "execution_timeout_sec": default_platform_settings().task.execution_timeout_sec,
+        }
     skills = snapshot.get("skills")
     if not isinstance(skills, list):
         return

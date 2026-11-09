@@ -19,6 +19,7 @@ import pytest
 from muad_agent_worker.worker.execution_outcomes import interpret_execution
 from muad_agent_worker.worker.executor import SkillTaskExecutor, TaskExecutionError
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
+from muad_contracts.platform_settings import TaskSettings
 
 from agent_worker.conftest import TenantContext
 from agent_worker.helpers import persist_task
@@ -83,7 +84,7 @@ def _snapshot(checksum: str, *, storage_key: str = STORAGE_KEY) -> dict[str, obj
         ],
         "mcp": [],
         "prompt_template_version": "v1",
-        "budget": {"max_tokens": 1024},
+        "budget": {"max_tokens": 1024, "execution_timeout_sec": TaskSettings().execution_timeout_sec},
     }
 
 
@@ -375,14 +376,30 @@ def test_skill_artifact_unavailable_is_a_deterministic_failure() -> None:
     assert error.retryable is False
 
 
-def test_configured_execution_timeout_caps_one_skill_run() -> None:
-    """单次 Skill 执行总时长由配置决定，并仍被 Task deadline 剩余时间夹住。"""
+def test_frozen_execution_timeout_caps_one_skill_run() -> None:
+    """单次上限从 Task 快照读取，并被 Task deadline 剩余时间夹住。"""
     from datetime import timedelta
     from types import SimpleNamespace
 
-    executor = SkillTaskExecutor(object(), executor=object(), execution_timeout_sec=1200)
-    far = SimpleNamespace(deadline_at=datetime.now(UTC) + timedelta(seconds=7200))
-    near = SimpleNamespace(deadline_at=datetime.now(UTC) + timedelta(seconds=10))
+    executor = SkillTaskExecutor(object(), executor=object())
+    snapshot = {"budget": {"execution_timeout_sec": 1200}}
+    far = SimpleNamespace(deadline_at=datetime.now(UTC) + timedelta(seconds=7200),
+                          execution_snapshot_json=snapshot)
+    near = SimpleNamespace(deadline_at=datetime.now(UTC) + timedelta(seconds=10),
+                           execution_snapshot_json=snapshot)
 
     assert executor._execution_timeout(far) == 1200
     assert 0 < executor._execution_timeout(near) <= 10
+
+
+def test_missing_frozen_execution_timeout_is_a_non_retryable_snapshot_error() -> None:
+    from datetime import timedelta
+    from types import SimpleNamespace
+
+    executor = SkillTaskExecutor(object(), executor=object())
+    task = SimpleNamespace(deadline_at=datetime.now(UTC) + timedelta(hours=1),
+                           execution_snapshot_json={"budget": {}})
+    with pytest.raises(TaskExecutionError) as raised:
+        executor._execution_timeout(task)
+    assert raised.value.code == "SKILL_SNAPSHOT_MISSING"
+    assert raised.value.retryable is False

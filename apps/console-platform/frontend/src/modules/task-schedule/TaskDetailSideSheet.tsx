@@ -8,6 +8,7 @@ import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { EntityLink } from '../../components/common/EntityLink';
 import { ErrorState } from '../../components/common/ErrorState';
 import { StatusTag, type StatusTagOption } from '../../components/common/StatusTag';
+import { ExportExecutionButton } from '../execution-export/components/ExportExecutionButton';
 import { TaskTimeline } from './TaskTimeline';
 import { getTask, type TaskChild, type TaskDetail } from './services/tasks';
 
@@ -151,7 +152,13 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
         {loading ? <Spin /> : null}
         {detail ? (
           <>
-            <div className="detail-section-title">{t('task.detail.basic')}</div>
+            <div
+              className="detail-section-title"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <span>{t('task.detail.basic')}</span>
+              <ExportExecutionButton kind="TASK" id={props.taskId} />
+            </div>
             <DetailGrid
               items={[
                 { label: t('task.columns.taskId'), value: detail.task_id },

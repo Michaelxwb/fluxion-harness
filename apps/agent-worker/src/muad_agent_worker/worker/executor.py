@@ -29,6 +29,7 @@ from muad_artifact_store import SkillArtifactCacheError
 from muad_common import process_settings
 from muad_contracts.egress_budget import EffectiveEgressBudget
 from muad_contracts.skill_invocation import validate_skill_argv
+from muad_contracts.snapshot import task_execution_timeout
 from muad_platform_sdk.platform_transport import PlatformBudgetScope
 from muad_platform_sdk.request_budget import create_budget_controller
 from muad_platform_sdk.skill_access import SkillPlatformContext
@@ -54,7 +55,6 @@ from ..metrics import (
 
 logger = logging.getLogger("muad_agent_worker.worker.executor")
 
-DEFAULT_EXECUTION_TIMEOUT_SEC = 300.0
 #: 剩余时间已经不够一秒时不再把它夹成 0：给子进程一个能正常启动/收尾的下限。
 MIN_EXECUTION_TIMEOUT_SEC = 1.0
 SKILL_ARTIFACT_KEYS = ("artifact_id", "storage_key", "checksum")
@@ -213,21 +213,11 @@ class SkillTaskExecutor:
         executor: SkillExecutor | None = None,
         fanout: BatchFanoutProtocol | None = None,
         workspace_store: WorkspaceStore | None = None,
-        execution_timeout_sec: float | None = None,
     ) -> None:
         self._resolver = resolver
         self._executor = executor or build_sandboxed_skill_executor(process_settings())
         self._fanout = fanout
         self._workspace_store = workspace_store
-        settings = process_settings()
-        configured = (
-            float(execution_timeout_sec)
-            if execution_timeout_sec is not None
-            else float(settings.worker_execution_timeout_sec)
-        )
-        if configured <= 0:
-            raise ValueError("execution_timeout_sec must be positive")
-        self._execution_timeout_sec = configured
 
     async def execute(self, task: TaskExecution) -> dict[str, Any]:
         if task.task_type == TASK_TYPE_BATCH:
@@ -401,15 +391,22 @@ class SkillTaskExecutor:
             raise TaskExecutionError(exc.code, str(exc)) from exc
 
     def _execution_timeout(self, task: TaskExecution) -> float:
-        """Skill 超时 = `min(单次上限, 到 deadline 的剩余时间)`（评审 #8）。
+        """Skill 超时 = `min(快照冻结的单次上限, 到 deadline 的剩余时间)`（评审 #8）。
 
-        不夹这一下，deadline 只剩 10 秒的任务照样能再跑满 300 秒——超时的副作用真实发生
-        了，只是最后被写成 FAILED 而已；夹住它，过期之后执行器主动收手。
+        单次上限只认 Task 快照 `budget.execution_timeout_sec`，不读进程环境——创建边界
+        （Runtime 提交 / Schedule 触发 / 平台设置）已经冻结了它，执行期不再回头取配置。
+
+        不夹这一下，deadline 只剩 10 秒的任务照样能再跑满整个单次上限——超时的副作用真实
+        发生了，只是最后被写成 FAILED 而已；夹住它，过期之后执行器主动收手。
         """
+        try:
+            configured = task_execution_timeout(task.execution_snapshot_json)
+        except ValueError as exc:
+            raise TaskExecutionError("SKILL_SNAPSHOT_MISSING", str(exc), retryable=False) from exc
         remaining = (task.deadline_at - datetime.now(UTC)).total_seconds()
         return max(
             MIN_EXECUTION_TIMEOUT_SEC,
-            min(self._execution_timeout_sec, remaining),
+            min(configured, remaining),
         )
 
     def _batch_envelope(self, task: TaskExecution, summary: FanoutSummary | None = None) -> dict[str, Any]:

@@ -188,6 +188,11 @@ export interface ConversationStateService {
   noteAppliedSeq(conversationId: string, runId: string, seq: number): void;
   /** 任意会话的消息页快照（只读，不刷新最近使用顺序）。 */
   historyFor(conversationId: string): ConversationHistorySnapshot;
+  /**
+   * 只读水位探测（流式恢复失败后的兜底）：重读该会话首屏但**不应用**到视图，
+   * 返回冻结水位 `through_seq`（读取失败为 null）。不改变选择、不清消息、不动视图信号。
+   */
+  probeThroughSeq(conversationId: string, options?: WebchatRequestOptions): Promise<number | null>;
   /** 当前视图请求信号：入口/会话/身份边界变化即中止（旧 GET/SSE 一并释放）。 */
   viewSignal(): AbortSignal;
   /** 身份边界清场：清空索引/选择/按会话暂存并 fence 迟到响应。 */
@@ -963,6 +968,11 @@ export function createConversationState(deps: ConversationStateDeps): Conversati
       emit(runtime);
     },
     historyFor: (conversationId) => historySnapshot(runtime, conversationId),
+    probeThroughSeq: (conversationId, options = {}) =>
+      runtime.deps.client.history(conversationId, {}, requestOptions(runtime, options)).then(
+        (page) => page.through_seq,
+        () => null
+      ),
     viewSignal: () => runtime.controller.signal,
     reset() {
       reset(runtime);

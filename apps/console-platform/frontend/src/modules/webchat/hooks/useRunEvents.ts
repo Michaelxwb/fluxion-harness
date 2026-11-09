@@ -43,6 +43,8 @@ export interface RunEventsConversationPort {
   viewSignal(): AbortSignal;
   appliedSeq(conversationId: string, runId: string): number | null;
   noteAppliedSeq(conversationId: string, runId: string, seq: number): void;
+  /** 流式恢复失败后的只读水位探测（重读历史但不应用到视图）。 */
+  probeThroughSeq(conversationId: string): Promise<number | null>;
 }
 
 /** 配置端口：`ClientConfigController` 结构满足（首次成功前不订阅，新连接绑定有效版本）。 */
@@ -93,15 +95,16 @@ function useRunEventService(
   const viewSignal = conversations.viewSignal;
   const appliedSeq = conversations.appliedSeq;
   const noteAppliedSeq = conversations.noteAppliedSeq;
+  const probeThroughSeq = conversations.probeThroughSeq;
   const newConnectionConfig = config.newConnectionConfig;
   const service = useMemo(
     () =>
       createRunEventController({
-        conversations: { viewSignal, appliedSeq, noteAppliedSeq },
+        conversations: { viewSignal, appliedSeq, noteAppliedSeq, probeThroughSeq },
         config: { newConnectionConfig },
         maxScopedRuns
       }),
-    [viewSignal, appliedSeq, noteAppliedSeq, newConnectionConfig, maxScopedRuns]
+    [viewSignal, appliedSeq, noteAppliedSeq, probeThroughSeq, newConnectionConfig, maxScopedRuns]
   );
   const registerIdentityCleanup = auth.registerIdentityCleanup;
 

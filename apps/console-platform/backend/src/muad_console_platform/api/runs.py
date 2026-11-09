@@ -9,15 +9,18 @@ Run 属 `runtime` 且 Runtime 没有对外读接口；`harness-data.md` 允许�
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Path, Query, Request
+from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from muad_api import ApiResponse, ok, paginate
+from muad_api.context import current_locale
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application.execution_export_service import ExecutionExportService
 from ..application.run_event_query_service import RunEventQueryService
 from ..application.run_event_view import RunEventDetail
 from ..application.run_query_service import RunQueryService
 from ..infrastructure.db import get_session
-from .deps import AccountTenantId
+from .deps import AccountTenantId, AdminAccount
+from .execution_export import execution_export_response
 
 TenantId = AccountTenantId
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -39,6 +42,20 @@ async def get_run_event(
 ) -> ApiResponse[RunEventDetail]:
     data = await RunEventQueryService(session).get_event(tenant_id, run_id, seq)
     return ok(request.app.state.message_catalog, data)
+
+
+@router.get("/{run_id}/export")
+async def export_run(
+    run_id: uuid.UUID,
+    tenant_id: TenantId,
+    _account: AdminAccount,
+    session: Session,
+    export_format: str = Query(default="zip", alias="format"),
+) -> Response:
+    result = await ExecutionExportService(session).export_run(
+        tenant_id, run_id, export_format, locale=current_locale()
+    )
+    return execution_export_response(result)
 
 
 @router.get("/{run_id}")

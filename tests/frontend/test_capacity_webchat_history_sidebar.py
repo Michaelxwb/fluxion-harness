@@ -79,6 +79,7 @@ ACTIVITY_TODAY = "2026-10-18T17:30:00Z"  # 本地 2026-10-19 01:30
 ACTIVITY_TODAY_LATE = "2026-10-18T16:00:00Z"  # 本地 2026-10-19 00:00
 ACTIVITY_YESTERDAY = "2026-10-18T10:00:00Z"  # 本地 2026-10-18 18:00
 ACTIVITY_EARLIER = "2026-10-16T10:00:00Z"  # 本地 2026-10-16 18:00
+ACTIVITY_NEW = "2026-10-18T18:00:00Z"  # 新建会话：比现有条目都新，刷新后应置顶
 
 #: 新词条：历史侧栏与聊天工作区的全部文案（两侧必须齐平）。
 REQUIRED_KEYS = (
@@ -205,6 +206,7 @@ const ACTIVITY_TODAY = '__ACTIVITY_TODAY__';
 const ACTIVITY_TODAY_LATE = '__ACTIVITY_TODAY_LATE__';
 const ACTIVITY_YESTERDAY = '__ACTIVITY_YESTERDAY__';
 const ACTIVITY_EARLIER = '__ACTIVITY_EARLIER__';
+const ACTIVITY_NEW = '__ACTIVITY_NEW__';
 
 setChatContextId(CONTEXT_A);
 
@@ -517,12 +519,28 @@ const obs = {};
   };
 
   const newStart = requests.length;
-  script = [{ status: 200, data: CREATED }];
+  script = [
+    { status: 200, data: CREATED },
+    {
+      status: 200,
+      data: conversationPage(
+        [item(NEW_CONVERSATION, '新会话', ACTIVITY_NEW), ITEM_1, ITEM_2, ITEM_3],
+        1,
+        4,
+        5
+      )
+    }
+  ];
   bindings.onNew();
-  const createSettled = await waitUntil(() => state.snapshot().selection.created !== null);
+  const createSettled = await waitUntil(
+    () =>
+      state.snapshot().selection.created !== null &&
+      state.snapshot().index.items.some((entry) => entry.conversation_id === NEW_CONVERSATION)
+  );
   const afterNew = {
     settled: createSettled,
     selection: selectionOf(state.snapshot()),
+    index: indexOf(state.snapshot()),
     requests: requests.slice(newStart).map((entry) => ({
       method: entry.method,
       url: entry.url,
@@ -907,6 +925,7 @@ IDS: dict[str, str] = {
     "__ACTIVITY_TODAY_LATE__": ACTIVITY_TODAY_LATE,
     "__ACTIVITY_YESTERDAY__": ACTIVITY_YESTERDAY,
     "__ACTIVITY_EARLIER__": ACTIVITY_EARLIER,
+    "__ACTIVITY_NEW__": ACTIVITY_NEW,
 }
 
 
@@ -1181,26 +1200,36 @@ def test_b279_clicking_history_only_switches_the_view(sidebar_logic: dict[str, A
 
     after_new = observed["afterNew"]
     assert after_new["settled"] is True
-    assert len(after_new["requests"]) == 1, "新建只发一次创建请求（防重复）"
+    assert [entry["method"] for entry in after_new["requests"]] == ["POST", "GET"], (
+        "新建成功后必须立刻重读索引（只新增一次读请求）"
+    )
     created = after_new["requests"][0]
     assert created["method"] == "POST"
     assert created["url"] == f"/webchat/entries/{ENTRY_A}/conversations"
     assert created["body"] is None, "创建请求体必须为空（身份/标题由服务端持有）"
     assert created["idempotencyKey"], "新建必须携带幂等键（重试沿用同一键）"
     assert created["hasSignal"] is True
+    index_read = after_new["requests"][1]
+    assert index_read["url"] == f"/webchat/entries/{ENTRY_A}/conversations", "重读入口索引"
+    assert index_read["hasSignal"] is True
     assert after_new["cancelRequests"] == 0, "新建不得取消旧 Run"
     assert after_new["selection"]["createdId"] == NEW_CONVERSATION
+    assert after_new["index"]["ids"][0] == NEW_CONVERSATION, (
+        "新会话必须立刻出现在侧栏，并按最近活动置顶"
+    )
+    assert after_new["index"]["total"] == 5
     assert after_new["failures"] == 0
 
     after_more = observed["afterMore"]
     assert after_more["settled"] is True
     assert after_more["params"] == [{"page": 2}], "加载更多只追加页码（页面大小由服务端决定）"
     assert after_more["index"]["ids"] == [
+        NEW_CONVERSATION,
         CONVERSATION_1,
         CONVERSATION_2,
         CONVERSATION_3,
         CONVERSATION_4,
-    ], "分页按身份合并去重"
+    ], "分页按身份合并去重（新建会话仍在最近活动顶部）"
     assert after_more["failures"] == 0
 
     after_retry = observed["afterRetry"]

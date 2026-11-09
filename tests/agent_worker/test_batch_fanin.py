@@ -27,6 +27,7 @@ from muad_agent_worker.infrastructure.models.task import TaskEvent, TaskExecutio
 from muad_agent_worker.worker.executor import SkillTaskExecutor, TaskExecutionError
 from muad_agent_worker.worker.service import WorkerLoop
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import func, select
 
 from agent_worker.conftest import TenantContext
@@ -35,6 +36,9 @@ from agent_worker.helpers import fetch_task, persist_task
 STORAGE_KEY = "skills/batch_fanin.zip"
 ARTIFACT_ID = "7f4a3c1e-0000-4000-8000-000000000003"
 ARTIFACT_UUID = uuid.UUID(ARTIFACT_ID)
+
+#: Snapshot budget must freeze the per-execution timeout (v3); fixtures use the schema default.
+_TIMEOUT_SEC = default_platform_settings().task.execution_timeout_sec
 
 
 def _plan_script(customers: tuple[str, ...], mode: str, concurrency: int) -> str:
@@ -80,7 +84,7 @@ def _snapshot(checksum: str) -> dict[str, object]:
         ],
         "mcp": [],
         "prompt_template_version": "v1",
-        "budget": {"max_tokens": 1024},
+        "budget": {"max_tokens": 1024, "execution_timeout_sec": _TIMEOUT_SEC},
     }
 
 
