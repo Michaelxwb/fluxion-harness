@@ -16,6 +16,7 @@ from muad_console_platform.application.execution_export_render import (
     render_zip,
 )
 from muad_console_platform.application.execution_export_view import build_report
+
 from tests.console_platform.test_execution_diagnosis import _run_bundle
 
 
@@ -28,7 +29,7 @@ def test_mask_credentials_preserves_diagnostic_token_counts() -> None:
         "password": "p@ss",
         "Authorization": "Bearer abc.def",
         "nested": {"client_secret": "cs", "query": "原文参数"},
-        "message": 'Authorization: Bearer abc.def api_key=sk-live-secret',
+        "message": "Authorization: Bearer abc.def api_key=sk-live-secret",
     }
     masked = mask_credentials(value)
     assert masked["input_tokens"] == 123
