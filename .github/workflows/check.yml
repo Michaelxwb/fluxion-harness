@@ -402,6 +402,8 @@ jobs:
         with:
           name: verifier-cache
           path: .code-flow/.verifier-cache.json
+          # .code-flow/.verifier-cache.json 是隐藏文件；upload-artifact v4 默认不包含。
+          include-hidden-files: true
           retention-days: 7
           if-no-files-found: ignore
       - name: 上传 review 失败用例清单（无论成败）
