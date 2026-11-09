@@ -152,13 +152,10 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
         {loading ? <Spin /> : null}
         {detail ? (
           <>
-            <div
-              className="detail-section-title"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-            >
-              <span>{t('task.detail.basic')}</span>
+            <div className="detail-inline-toolbar" style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <ExportExecutionButton kind="TASK" id={props.taskId} />
             </div>
+            <div className="detail-section-title">{t('task.detail.basic')}</div>
             <DetailGrid
               items={[
                 { label: t('task.columns.taskId'), value: detail.task_id },
