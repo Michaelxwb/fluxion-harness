@@ -851,6 +851,18 @@ Console 里「从一条记录跳到它的关联记录」一律落到**列表页 
 节点首次展开加载，同一 Run 内折叠再展开复用缓存；刷新保留展开状态并重取已展开节点，未展开节点不请求。
 加载与重试局限于当前节点，关闭/切换 Run/刷新使旧请求失效；后台任务链接复用已有 Run→Task 详情切换。
 
+**单次执行链路导出（ADMIN 专属）**：Run/Task 详情头部提供「导出链路」，调用
+`GET /api/v1/runs/{run_id}/export?format=zip|json` 或
+`GET /api/v1/tasks/{task_id}/export?format=zip|json`，同步下载本次执行的完整链路。
+ZIP 固定包含 `report.json/report.md/events.csv/failures.csv/calls.csv/tasks.csv/README.md`；
+JSON 为同结构单文件。导出在同一 `REPEATABLE READ, READ ONLY` 快照内采集 Run/Task 主体、
+全部非 delta 事件、task_event、模型/工具/Egress 审计、Operation、递归 Task 树和补充段，
+不受 UI 事件轮廓 200 条上限影响。诊断字段原样保留（含对话正文、事件负载、工具参数、
+Task 输入/结果、错误信息）；仅 Authorization/Cookie/api_key/access_token/password/secret/
+私钥/DSN 等凭据字段掩码。响应带 `Cache-Control: no-store` 与 `X-Export-Truncated`/
+`X-Export-Complete`；跨租户/不存在 404，非 ADMIN 403。该导出与运行审计列表的批量导出
+是两个独立功能：前者用于单点精准排障，后者保留审计四表投影。
+
 
 ---
 

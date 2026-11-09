@@ -23,6 +23,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { PaginationFooter } from '../../components/common/PaginationFooter';
 import { StatusTag } from '../../components/common/StatusTag';
+import { ExportExecutionButton } from '../execution-export/components/ExportExecutionButton';
 import { RunLearningPanel } from '../learning/RunLearningPanel';
 import { RunOperationTable } from './components/RunOperationTable';
 import { RunTimelineOutline } from './components/RunTimelineOutline';
@@ -174,13 +175,16 @@ export function RunDetailSideSheet(props: RunDetailSideSheetProps) {
       title={props.runId ? <CopyableText display={shortId(props.runId)} full={props.runId} /> : ''}
       subtitle={detail ? `${t(`run.status.${detail.status}`)} · ${detail.trace_id}` : t('run.detail.basic')}
       actions={
-        <Button
-          icon={<IconRefresh />}
-          data-testid="run-detail-refresh"
-          onClick={handleRefresh}
-        >
-          {t('run.detail.refresh')}
-        </Button>
+        <>
+          <ExportExecutionButton kind="RUN" id={props.runId} />
+          <Button
+            icon={<IconRefresh />}
+            data-testid="run-detail-refresh"
+            onClick={handleRefresh}
+          >
+            {t('run.detail.refresh')}
+          </Button>
+        </>
       }
       activeTab={activeTab}
       onTabChange={setActiveTab}

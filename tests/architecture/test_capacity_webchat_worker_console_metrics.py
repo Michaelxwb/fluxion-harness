@@ -102,6 +102,9 @@ ALLOWED_LABEL_NAMES = frozenset(
         # Skill 执行来源（SYSTEM/ADMIN/USER）与审批动作（APPROVE/REJECT）都是封闭枚举。
         "source",
         "action",
+        # 执行链路导出：kind 是 RUN/TASK 封闭枚举，format 是 ZIP/JSON 封闭枚举。
+        "kind",
+        "format",
     }
 )
 SENSITIVE_LABEL_MARKERS = (

@@ -116,6 +116,8 @@ ALLOWED_LABEL_NAMES = frozenset(
         "layer",
         "mode",
         "code",
+        # 纯进度帧的 event 是 SseProgressEvent 封闭枚举（run.tool/run.stage）。
+        "event",
         "type",
         "status",
         "state",

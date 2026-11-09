@@ -19,7 +19,7 @@ from muad_contracts import (
     TerminalStatus,
     TriggerType,
 )
-from muad_contracts.platform_settings import TaskSettings
+from muad_contracts.platform_settings import TaskSettings, validate_task_execution_timeout
 from muad_contracts.snapshot import freeze_task_execution_timeout, snapshot_hash, task_execution_timeout
 from pydantic import JsonValue
 from sqlalchemy import false, func, select, update
@@ -150,7 +150,8 @@ class TaskService:
             "input_json": payload.input,
             "execution_snapshot_schema_version": (
                 payload.execution_snapshot_schema_version
-                if payload.runtime_operation else TASK_SNAPSHOT_SCHEMA_VERSION
+                if payload.runtime_operation
+                else TASK_SNAPSHOT_SCHEMA_VERSION
             ),
             "execution_snapshot_json": snapshot,
             "snapshot_hash": frozen_hash,
@@ -407,12 +408,17 @@ class TaskService:
 
 
 def _creation_snapshot(
-    payload: CreateTaskRequest, settings: TaskSettings,
+    payload: CreateTaskRequest,
+    settings: TaskSettings,
 ) -> tuple[dict[str, JsonValue], str]:
     try:
         if payload.runtime_operation is not None:
             task_execution_timeout(payload.execution_snapshot)
             return payload.execution_snapshot, payload.snapshot_hash
+        # 入站快照若已带冻结超时，先校验其 schema 范围；越界不得被创建期策略静默覆盖。
+        budget = payload.execution_snapshot.get("budget")
+        if isinstance(budget, dict) and "execution_timeout_sec" in budget:
+            validate_task_execution_timeout(budget["execution_timeout_sec"])
         frozen = freeze_task_execution_timeout(payload.execution_snapshot, settings.execution_timeout_sec)
     except ValueError as exc:
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from exc
