@@ -70,7 +70,8 @@ def test_default_document_has_designed_groups_and_defaults() -> None:
 def test_other_groups_keep_designed_defaults() -> None:
     settings = default_platform_settings()
     assert (settings.agent.max_turns, settings.agent.max_tool_calls) == (20, 30)
-    assert (settings.agent.deadline_ms, settings.agent.max_model_retries) == (120000, 3)
+    assert (settings.agent.deadline_ms, settings.agent.max_model_retries) == (3_600_000, 3)
+    assert settings.task.execution_timeout_sec == 300
     assert settings.agent.max_identical_failures == 2
     assert (
         settings.task.default_deadline_hours,
@@ -127,6 +128,8 @@ _ACCEPT: list[tuple[str, Any]] = [
     ("agent.max_identical_failures", 1),
     ("agent.max_identical_failures", 10),
     ("task.default_deadline_hours", 1),
+    ("task.execution_timeout_sec", 1),
+    ("task.execution_timeout_sec", 3600),
     ("task.max_attempts", 1),
     ("task.batch_max_concurrency", 1),
     ("task.misfire_grace_sec", 0),
@@ -170,6 +173,10 @@ _REJECT: list[tuple[str, Any]] = [
     ("agent.max_identical_failures", 0),
     ("agent.max_identical_failures", 11),
     ("task.default_deadline_hours", 0),
+    ("task.execution_timeout_sec", 0),
+    ("task.execution_timeout_sec", 3601),
+    ("task.execution_timeout_sec", True),
+    ("task.execution_timeout_sec", 1.5),
     ("task.max_attempts", 0),
     ("task.batch_max_concurrency", 0),
     ("task.misfire_grace_sec", -1),

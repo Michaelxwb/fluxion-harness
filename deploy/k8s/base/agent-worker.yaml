@@ -54,9 +54,6 @@ spec:
             # 任务执行槽：只限制本进程并发，领取/续租/回收/维护各自独立循环。
             - name: WORKER_EXECUTION_CONCURRENCY
               value: "4"
-            # 单次 Skill 执行进程的总时长上限（秒）；与 Task deadline 剩余时间取较小值。
-            - name: WORKER_EXECUTION_TIMEOUT_SEC
-              value: "300"
             # 分池 HTTP 连接预算（每进程；池名与 WORKER_HTTP_POOLS 一致）。
             # 总连接 = 进程数 × 最大副本数 求和，正式部署须由容量 profile 声明并校验（§4.1）。
             - name: CONTROL_HTTP_MAX_CONNECTIONS

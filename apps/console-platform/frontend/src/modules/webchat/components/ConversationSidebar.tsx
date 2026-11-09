@@ -177,8 +177,9 @@ export type ConversationSidebarFailureHandler = (error: unknown) => void;
 
 /**
  * 把侧栏事件绑到 TASK-078 会话控制器：事件只触发读/建动作——选择只读详情/消息并切视图，不取消
- * 旧 Run、不发消息、不改投会话。服务端/传输失败已由状态层收敛进快照 `errorCode`（侧栏就地重试），
- * 这里只把本地缺参等失败交给失败端口，保证事件处理器不抛异常、不产生未处理拒绝。
+ * 旧 Run、不发消息、不改投会话。新建成功后补一次索引读取（新会话立刻出现在列表）；新增的只是读。
+ * 服务端/传输失败已由状态层收敛进快照 `errorCode`（侧栏就地重试），这里只把本地缺参等失败交给
+ * 失败端口，保证事件处理器不抛异常、不产生未处理拒绝。
  */
 export function createConversationSidebarBindings(
   port: ConversationSidebarActionPort,
@@ -188,7 +189,13 @@ export function createConversationSidebarBindings(
     action().then(undefined, onFailure);
   };
   return {
-    onNew: () => run(() => port.create()),
+    onNew: () =>
+      run(async () => {
+        const result = await port.create();
+        // 新建是服务端事实：成功后立刻重读索引，让新会话（服务端占位标题）出现在列表，
+        // 而不是等手动刷新/重进页面。失败不刷新（错误由状态层快照就地展示）。
+        if (result.created) await port.refresh();
+      }),
     onSelect: (conversationId) => run(() => port.select(conversationId)),
     onLoadMore: () => run(() => port.loadMore()),
     onRetry: () => run(() => port.refresh())

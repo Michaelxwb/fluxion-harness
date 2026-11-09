@@ -158,6 +158,8 @@ export interface RunEventConversationPort {
   viewSignal(): AbortSignal;
   appliedSeq(conversationId: string, runId: string): number | null;
   noteAppliedSeq(conversationId: string, runId: string, seq: number): void;
+  /** 重连预算耗尽后的兜底：只读探测该会话的持久水位（不改变选择、不清消息）。 */
+  probeThroughSeq(conversationId: string): Promise<number | null>;
 }
 
 /** 配置端口：只取 API-19 投影的冻结构造（未就绪时显式失败，不回落默认）。 */
@@ -388,6 +390,10 @@ interface RunSubscriptionRuntime {
   recovery: boolean;
   /** 订阅已结束（终态/失败/关流）：结束之后到达的迟到帧不再写状态。 */
   stopped: boolean;
+  /** 历史回落只用一次：兜底后仍失败就保留显式 retry，不形成隐形循环。 */
+  historyRecoveryUsed: boolean;
+  /** 本次重开只重置正文与代号（跳过的区间可能含 snapshot），不改游标。 */
+  resetBody: boolean;
   /** 视图信号中止监听（换订阅/关流时移除，不累积监听）。 */
   detachView: (() => void) | null;
 }
@@ -589,6 +595,42 @@ function applyStop(runtime: RunEventsRuntime, generation: number, stop: WebchatR
           retries: runtime.connection.retries
         };
   emit(runtime);
+  if (stop.kind === 'failed') void recoverFromHistory(runtime, sub, generation);
+}
+
+/**
+ * 重连预算耗尽后的兜底：回落**持久历史**取真实水位，越过不可投影的帧再重开一次。
+ *
+ * 坏帧（无论出现在哪一类事件）可能让客户端游标永远停在同一 seq；持久历史由消息投影提供，
+ * 不经过公开事件投影，因此用它的冻结水位续传能把用户带回结论，而不是一直重连。
+ * 只用一次：兜底后仍失败就保留显式 retry，不再形成隐形循环。
+ */
+async function recoverFromHistory(
+  runtime: RunEventsRuntime,
+  sub: RunSubscriptionRuntime,
+  generation: number
+): Promise<void> {
+  if (sub.historyRecoveryUsed) return;
+  sub.historyRecoveryUsed = true;
+  if (sub.generation !== generation || runtime.subscription !== sub) return;
+  const run = runtime.runs.get(sub.conversationId);
+  if (run === undefined || run.runId !== sub.runId || isTerminalRunStatus(run.status)) return;
+  let cursor: number | null;
+  try {
+    cursor = await runtime.deps.conversations.probeThroughSeq(sub.conversationId);
+  } catch {
+    return;
+  }
+  if (cursor === null) return;
+  if (sub.generation !== generation || runtime.subscription !== sub) return;
+  if (isTerminalRunStatus(run.status)) return;
+  runtime.deps.conversations.noteAppliedSeq(sub.conversationId, sub.runId, cursor);
+  run.recovery = null;
+  // 跳过的区间可能含 snapshot：正文与代号在状态层一并清掉，由新游标之后的事件重建。
+  run.text = '';
+  run.replyGeneration = null;
+  sub.resetBody = true;
+  reopen(runtime, sub);
 }
 
 /** 非正常结束的连接状态补丁：恢复要求原样落到连接快照（服务端游标窗口原样带出）。 */
@@ -673,13 +715,16 @@ function openStream(runtime: RunEventsRuntime, sub: RunSubscriptionRuntime): voi
   const local = runtime.deps.conversations.appliedSeq(sub.conversationId, sub.runId);
   const signal = runtime.deps.conversations.viewSignal();
   sub.stopped = false;
+  // 历史回落只重置正文与代号（被跳过的区间可能含 snapshot），游标仍从已探测的真实水位续传。
+  const resetBody = sub.recovery || sub.resetBody || run === undefined;
+  sub.resetBody = false;
   const stream = openReplyStream({
     runId: sub.runId,
     config,
     afterSeq: sub.recovery ? 0 : (local ?? 0),
     // 重开恢复：本地已应用正文/代号交回共享收集器（同一处事实），游标失效时由服务端安全快照重建。
-    text: sub.recovery || run === undefined ? '' : run.text,
-    replyGeneration: sub.recovery || run === undefined ? null : run.replyGeneration,
+    text: resetBody ? '' : run.text,
+    replyGeneration: resetBody ? null : run.replyGeneration,
     signal,
     random: runtime.deps.random,
     onAttempt: (attempt) => {
@@ -731,6 +776,8 @@ function beginSubscription(runtime: RunEventsRuntime, target: RunSubscriptionTar
     stream: null,
     recovery: false,
     stopped: false,
+    historyRecoveryUsed: false,
+    resetBody: false,
     detachView: null
   };
   runtime.subscription = sub;

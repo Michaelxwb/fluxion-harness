@@ -79,6 +79,7 @@ from muad_contracts.platform_settings import (
     CompactionSettings,
     LocaleSettings,
     MemoryPolicySettings,
+    TaskSettings,
     ToolResultSettings,
 )
 from muad_logging.redaction import redact_text
@@ -259,6 +260,7 @@ class ExecutionDefaults:
     learning: FrozenLearning = field(default_factory=FrozenLearning)
     max_archive_files: int = field(default_factory=lambda: ArtifactSettings().max_archive_files)
     timezone: str = field(default_factory=lambda: LocaleSettings().default_timezone)
+    task_execution_timeout_sec: int = field(default_factory=lambda: TaskSettings().execution_timeout_sec)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1913,6 +1915,7 @@ def _task_submission_context(request: ExecutorRequest) -> TaskSubmissionContext 
         delivery_route=context.delivery_route,
         trace_id=current_trace_id(),
         locale=current_locale(),
+        execution_timeout_sec=execution_defaults_for(request).task_execution_timeout_sec,
     )
 
 

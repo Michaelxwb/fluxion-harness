@@ -27,6 +27,8 @@ COMPACTION_POLICY_KEY = "compaction"
 
 #: 记忆召回默认条数的上界（与 agent-runtime `memory_tools.RECALL_MAX_LIMIT` 同口径的容量上界）。
 RECALL_MAX_LIMIT = 20
+TASK_EXECUTION_TIMEOUT_MIN_SEC = 1
+TASK_EXECUTION_TIMEOUT_MAX_SEC = 3600
 
 
 class PlatformSettingsError(ValueError):
@@ -102,7 +104,7 @@ class AgentSettings:
 
     max_turns: int = 20
     max_tool_calls: int = 30
-    deadline_ms: int = 120_000
+    deadline_ms: int = 3_600_000
     max_model_retries: int = 3
     #: 同一 (工具, 错误码) 连续失败达到该次数即停止 Run：防止模型对确定性失败反复尝试，
     #: 让用户误以为卡住。任一工具成功会清零计数。
@@ -114,6 +116,11 @@ class TaskSettings:
     """任务默认与投递节拍；并发不得超过环境项 `batch_platform_limit`。"""
 
     default_deadline_hours: int = 24
+    execution_timeout_sec: int = field(default=300, metadata={
+        "minimum": TASK_EXECUTION_TIMEOUT_MIN_SEC,
+        "maximum": TASK_EXECUTION_TIMEOUT_MAX_SEC,
+        "unit": "seconds",
+    })
     max_attempts: int = 3
     batch_max_concurrency: int = 8
     misfire_grace_sec: int = 60
@@ -573,6 +580,7 @@ def _validate_agent(agent: AgentSettings) -> None:
 
 def _validate_task(task: TaskSettings, batch_platform_limit: int | None) -> None:
     _at_least("task.default_deadline_hours", task.default_deadline_hours, 1)
+    validate_task_execution_timeout(task.execution_timeout_sec)
     _at_least("task.max_attempts", task.max_attempts, 1)
     _at_least("task.batch_max_concurrency", task.batch_max_concurrency, 1)
     if batch_platform_limit is not None and task.batch_max_concurrency > batch_platform_limit:
@@ -582,6 +590,17 @@ def _validate_task(task: TaskSettings, batch_platform_limit: int | None) -> None
     _at_least("task.misfire_grace_sec", task.misfire_grace_sec, 0)
     _at_least("task.delivery_max_attempts", task.delivery_max_attempts, 1)
     _at_least("task.delivery_backoff_base_sec", task.delivery_backoff_base_sec, 1)
+
+
+def validate_task_execution_timeout(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise PlatformSettingsError("task.execution_timeout_sec must be an integer")
+    if not TASK_EXECUTION_TIMEOUT_MIN_SEC <= value <= TASK_EXECUTION_TIMEOUT_MAX_SEC:
+        raise PlatformSettingsError(
+            "task.execution_timeout_sec must be between "
+            f"{TASK_EXECUTION_TIMEOUT_MIN_SEC} and {TASK_EXECUTION_TIMEOUT_MAX_SEC}"
+        )
+    return value
 
 
 LEARNING_SETTING_BOUNDS: dict[str, tuple[float, float]] = {
@@ -782,4 +801,5 @@ __all__ = [
     "parse_compaction_settings",
     "parse_platform_settings",
     "validate_platform_settings",
+    "validate_task_execution_timeout",
 ]

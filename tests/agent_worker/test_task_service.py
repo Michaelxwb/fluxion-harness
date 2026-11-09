@@ -248,6 +248,24 @@ async def test_snapshot_required_keys_are_enforced(tenant: TenantContext) -> Non
     assert await _task_count(tenant, tenant.tenant_id) == 0
 
 
+async def test_snapshot_with_out_of_range_execution_timeout_is_rejected(
+    tenant: TenantContext,
+) -> None:
+    """快照冻结的单次执行超时必须在 schema 范围内（越界不落库）。"""
+    payload = create_task_payload(tenant, idempotency_key="snap-timeout-range")
+    tainted = {
+        **payload.execution_snapshot,
+        "budget": {**payload.execution_snapshot["budget"], "execution_timeout_sec": 3601},
+    }
+    invalid = payload.model_copy(update={"execution_snapshot": tainted})
+    async with tenant.session_factory() as session:
+        service = TaskService(session, tenant.settings)
+        with pytest.raises(AppError) as excinfo:
+            await service.create(invalid)
+    assert excinfo.value.code == "COMMON_VALIDATION_ERROR"
+    assert await _task_count(tenant, tenant.tenant_id) == 0
+
+
 async def test_snapshot_with_secret_is_rejected(tenant: TenantContext) -> None:
     """快照不得携带密钥。"""
     payload = create_task_payload(tenant, idempotency_key="snap-secret")

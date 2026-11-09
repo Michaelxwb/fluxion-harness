@@ -43,6 +43,7 @@ from muad_agent_worker.worker.claimer import TaskClaimer
 from muad_agent_worker.worker.executor import SkillTaskExecutor, TaskExecutionError
 from muad_agent_worker.worker.service import WorkerLoop
 from muad_common import SharedSettings
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -55,6 +56,9 @@ OTHER_INSTANCE = "worker-slots-other"
 WAIT_TIMEOUT_SEC = 15.0
 SNAPSHOT_HASH = "sha256:" + "b" * 64
 TERMINAL_EVENT_TYPES = ("COMPLETED", "FAILED", "CANCELLED", "DEADLINE_EXCEEDED")
+
+#: Snapshot budget must freeze the per-execution timeout (v3); fixtures use the schema default.
+_TIMEOUT_SEC = default_platform_settings().task.execution_timeout_sec
 
 
 # --------------------------------------------------------------------------- #
@@ -134,7 +138,7 @@ async def _seed_task(
         "status": "QUEUED",
         "input_json": {"probe": True},
         "execution_snapshot_schema_version": 1,
-        "execution_snapshot_json": {"schema_version": 1},
+        "execution_snapshot_json": {"schema_version": 1, "budget": {"execution_timeout_sec": _TIMEOUT_SEC}},
         "snapshot_hash": SNAPSHOT_HASH,
         "idempotency_key": f"slots-{uuid.uuid4()}",
         "priority": 100,
@@ -530,7 +534,7 @@ async def test_b233_lost_lease_stops_skill_process_group_and_releases_slot(
         skill_artifact_id=artifact_id,
         execution_snapshot_json={
             "schema_version": 1,
-            "budget": {"retry_safety": "IDEMPOTENT"},
+            "budget": {"retry_safety": "IDEMPOTENT", "execution_timeout_sec": _TIMEOUT_SEC},
             "skills": [
                 {
                     "artifact_id": str(artifact_id),

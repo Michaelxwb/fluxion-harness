@@ -68,8 +68,6 @@ spec:
                   key: INTERNAL_SERVICE_TOKEN
             - name: WORKER_EXECUTION_CONCURRENCY
               value: "4"
-            - name: WORKER_EXECUTION_TIMEOUT_SEC
-              value: "300"
             - name: CONTROL_HTTP_MAX_CONNECTIONS
               value: "32"
             - name: CONTROL_HTTP_MAX_KEEPALIVE

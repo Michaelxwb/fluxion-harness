@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -28,6 +28,7 @@ from muad_contracts import (
     snapshot_hash,
 )
 from muad_contracts import build_task_snapshot as build_execution_snapshot
+from muad_contracts.platform_settings import TaskSettings
 
 TASKS_PATH = "/internal/tasks"
 SCHEDULES_PATH = "/internal/schedules"
@@ -55,6 +56,7 @@ class TaskSubmissionContext:
     delivery_route: DeliveryRouteInput | None = None
     trace_id: str = ""
     locale: str = "zh-CN"
+    execution_timeout_sec: int = field(default_factory=lambda: TaskSettings().execution_timeout_sec)
 
 
 def build_task_snapshot(
@@ -72,6 +74,7 @@ def build_task_snapshot(
         ),
         mcp_servers=context.mcp_servers,
         argv=argv,
+        execution_timeout_sec=context.execution_timeout_sec,
     )
     return snapshot, snapshot_hash(snapshot)
 

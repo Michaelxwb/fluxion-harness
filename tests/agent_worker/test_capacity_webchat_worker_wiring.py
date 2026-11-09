@@ -65,7 +65,7 @@ from muad_agent_worker.worker.execution_outcomes import TASK_RESULT_UNVERIFIED
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import SharedSettings
 from muad_contracts import DeliveryRouteInput
-from muad_contracts.platform_settings import parse_platform_settings
+from muad_contracts.platform_settings import default_platform_settings, parse_platform_settings
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 pytestmark = pytest.mark.integration
@@ -258,10 +258,18 @@ def _snapshot(
     return snapshot
 
 
+#: Snapshot budget must freeze the per-execution timeout (v3); fixtures use the schema default.
+_TIMEOUT_SEC = default_platform_settings().task.execution_timeout_sec
+
 def _fill_snapshot_contract(values: dict[str, Any]) -> None:
     snapshot = values.get("execution_snapshot_json")
     if not isinstance(snapshot, dict):
         return
+    budget = snapshot.get("budget")
+    if isinstance(budget, dict):
+        budget.setdefault("execution_timeout_sec", _TIMEOUT_SEC)
+    else:
+        snapshot["budget"] = {"execution_timeout_sec": _TIMEOUT_SEC}
     for skill in snapshot.get("skills") or []:
         if not isinstance(skill, dict):
             continue

@@ -56,6 +56,10 @@ SSE_CLOSED_METRIC: Final = "gateway_sse_closed_total"
 SSE_REJECTED_METRIC: Final = "gateway_sse_subscribers_rejected_total"
 #: 下发帧量：公开事件/checkpoint/心跳/分片/过滤行（事件写入量可对账）。
 SSE_FRAMES_METRIC: Final = "gateway_sse_frames_total"
+#: 纯进度帧投影失败的降级计数（按公开事件类型；正文/终态不走这条路径，仍显式关闭）。
+SSE_PROGRESS_SKIPPED_METRIC: Final = "gateway_sse_progress_frame_skipped_total"
+#: 可选公开事实（确认/附件）坏形状被过滤的计数：不关订阅，但绝不静默丢。
+SSE_OPTIONAL_DROPPED_METRIC: Final = "gateway_sse_optional_frame_dropped_total"
 #: 出站池等待超时（按真实池名，与模型/上传/控制/业务分池同源）。
 HTTP_POOL_WAIT_METRIC: Final = "gateway_http_pool_wait_total"
 #: 渠道交付结局：发送/去重/失败不互相冒充（与 Runtime 泵的诚实结局同一口径）。
@@ -73,6 +77,10 @@ SseCloseReason = Literal[
 ]
 #: 帧种类的封闭词表（`gateway_sse_frames_total` 的 label 取值）。
 SseFrameKind = Literal["event", "checkpoint", "heartbeat", "snapshot_part", "filtered"]
+#: 纯进度类公开事件的封闭词表（`gateway_sse_progress_frame_skipped_total` 的 label 取值）。
+SseProgressEvent = Literal["run.tool", "run.stage"]
+#: 可选公开事实的封闭词表（`gateway_sse_optional_frame_dropped_total` 的 label 取值）。
+SseOptionalEvent = Literal["confirmation.required", "artifact.created"]
 #: 账本水位范围的封闭词表（`gateway_sse_ledger` 的 label 取值）。
 SseLedgerScope = Literal["active_subscribers", "pending_bytes"]
 #: 渠道交付结局的封闭词表（`gateway_channel_delivery_total` 的 label 取值）。
@@ -132,6 +140,18 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         "Public SSE frames by kind (event/checkpoint/heartbeat/snapshot/filtered)",
     ),
     (
+        SSE_PROGRESS_SKIPPED_METRIC,
+        COUNTER,
+        ("event",),
+        "Public SSE progress frames skipped after a projection failure (cursor still advances)",
+    ),
+    (
+        SSE_OPTIONAL_DROPPED_METRIC,
+        COUNTER,
+        ("event",),
+        "Optional public SSE facts dropped after a projection failure (visible, never silently)",
+    ),
+    (
         HTTP_POOL_WAIT_METRIC,
         COUNTER,
         ("pool",),
@@ -169,6 +189,16 @@ def record_sse_close(reason: SseCloseReason) -> None:
 def record_sse_frame(kind: SseFrameKind) -> None:
     """记一帧下发/过滤：帧量按种类可对账。"""
     inc_counter(SSE_FRAMES_METRIC, 1, {"kind": kind})
+
+
+def record_progress_frame_skipped(event: SseProgressEvent) -> None:
+    """记一次进度帧降级：帧被跳过但游标继续推进（告警可见，绝不因展示提示卡住订阅）。"""
+    inc_counter(SSE_PROGRESS_SKIPPED_METRIC, 1, {"event": event})
+
+
+def record_optional_frame_dropped(event: SseOptionalEvent) -> None:
+    """记一次可选公开事实被过滤：行为不变（不关订阅），但丢事实必须可见。"""
+    inc_counter(SSE_OPTIONAL_DROPPED_METRIC, 1, {"event": event})
 
 
 def record_sse_rejection() -> None:

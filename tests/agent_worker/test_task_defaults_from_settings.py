@@ -38,6 +38,7 @@ from muad_agent_worker.worker.service import WorkerLoop
 from muad_api import AppError, render_metrics
 from muad_common import SharedSettings
 from muad_contracts.platform_settings import parse_platform_settings
+from muad_contracts.snapshot import snapshot_hash
 from sqlalchemy import func, select, update
 
 from agent_worker.conftest import TenantContext
@@ -130,7 +131,9 @@ async def test_new_task_defaults_from_platform_settings(tenant: TenantContext) -
         deadline_at=datetime(2020, 1, 1, tzinfo=UTC),
     )
     before = datetime.now(UTC)
-    client = _StubSettingsClient(_snapshot(task={"max_attempts": 7, "default_deadline_hours": 2}))
+    client = _StubSettingsClient(_snapshot(task={
+        "max_attempts": 7, "default_deadline_hours": 2, "execution_timeout_sec": 1800,
+    }))
     async with tenant.session_factory() as session:
         task = await TaskService(session, tenant.settings, settings_client=client).create(
             create_task_payload(tenant, idempotency_key="platform-defaults")
@@ -138,6 +141,8 @@ async def test_new_task_defaults_from_platform_settings(tenant: TenantContext) -
         await session.commit()
 
     assert task.max_attempts == 7
+    assert task.execution_snapshot_json["budget"]["execution_timeout_sec"] == 1800
+    assert task.snapshot_hash == snapshot_hash(task.execution_snapshot_json)
     assert abs((task.deadline_at - (before + timedelta(hours=2))).total_seconds()) < 30, (
         task.deadline_at
     )
@@ -147,6 +152,28 @@ async def test_new_task_defaults_from_platform_settings(tenant: TenantContext) -
     unchanged = await fetch_task(tenant, existing.id)
     assert unchanged.max_attempts == 1
     assert unchanged.deadline_at == datetime(2020, 1, 1, tzinfo=UTC)
+
+
+async def test_replayed_task_keeps_frozen_timeout_after_settings_change(tenant: TenantContext) -> None:
+    client = _StubSettingsClient(_snapshot(task={"execution_timeout_sec": 1800}))
+    payload = create_task_payload(tenant, idempotency_key="frozen-timeout-replay")
+    async with tenant.session_factory() as session:
+        first = await TaskService(session, tenant.settings, settings_client=client).create(payload)
+        await session.commit()
+    client._snapshot = _snapshot(task={"execution_timeout_sec": 600})
+    async with tenant.session_factory() as session:
+        replay = await TaskService(session, tenant.settings, settings_client=client).create(payload)
+        await session.commit()
+    assert replay.id == first.id
+    assert replay.snapshot_hash == first.snapshot_hash
+    assert replay.execution_snapshot_json["budget"]["execution_timeout_sec"] == 1800
+    assert client.calls == [tenant.tenant_id]
+    async with tenant.session_factory() as session:
+        later = await TaskService(session, tenant.settings, settings_client=client).create(
+            create_task_payload(tenant, idempotency_key="new-timeout-after-save")
+        )
+        await session.commit()
+    assert later.execution_snapshot_json["budget"]["execution_timeout_sec"] == 600
 
 
 async def test_new_task_defaults_execution_does_not_rewrite_existing_rows(
@@ -338,7 +365,8 @@ async def test_new_task_defaults_scheduler_uses_platform_values(tenant: TenantCo
     fire_moment = datetime.now(UTC)
     await _set_next_fire_at(tenant, fresh.id, fire_moment - timedelta(seconds=40))
     firing_client = _StubSettingsClient(
-        _snapshot(task={"max_attempts": 9, "default_deadline_hours": 3, "misfire_grace_sec": 120})
+        _snapshot(task={"max_attempts": 9, "default_deadline_hours": 3, "misfire_grace_sec": 120,
+                        "execution_timeout_sec": 2400})
     )
     fire_loop = SchedulerLoop(
         tenant.session_factory,
@@ -350,6 +378,8 @@ async def test_new_task_defaults_scheduler_uses_platform_values(tenant: TenantCo
     assert created is not None
     task = await fetch_task(tenant, created)
     assert task.max_attempts == 9
+    assert task.execution_snapshot_json["budget"]["execution_timeout_sec"] == 2400
+    assert task.snapshot_hash == snapshot_hash(task.execution_snapshot_json)
     assert abs((task.deadline_at - (fire_moment + timedelta(hours=3))).total_seconds()) < 30
 
 

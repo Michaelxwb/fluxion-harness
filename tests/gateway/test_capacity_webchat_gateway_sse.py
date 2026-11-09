@@ -171,6 +171,17 @@ def _parse_sse(text: str) -> list[_WireFrame]:
     return frames
 
 
+def _optional_dropped(event: str) -> float:
+    """`gateway_sse_optional_frame_dropped_total{event}` 的当前值（进程内注册表）。"""
+    from muad_api.metrics import render_metrics
+
+    prefix = f'gateway_sse_optional_frame_dropped_total{{event="{event}"}}'
+    for line in render_metrics().splitlines():
+        if line.startswith(prefix):
+            return float(line.rsplit(" ", 1)[1])
+    return 0.0
+
+
 def _public_events(frames: list[_WireFrame]) -> list[dict[str, Any]]:
     """真实帧 → 公开契约事件（逐帧经 `parse_public_event` 校验：非法/内部类型即失败）。"""
     parsed: list[dict[str, Any]] = []
@@ -864,6 +875,106 @@ async def test_tool_progress_is_projected_without_arguments_or_results(
     assert "call_1" not in body
 
 
+async def test_internal_tool_terminal_statuses_keep_the_stream_open(
+    stub_console: StubConsole,
+    console_probe: _ConsoleProbe,
+    runtime_probe: _RuntimeProbe,
+) -> None:
+    """回归：canonical 工具终态是内部四值词表（OK/ERROR/BLOCKED/NOT_FOUND），公开边只认 OK/ERROR。
+
+    策略拒绝/未知工具的 `tool.completed` 曾被原样透传 → 公开投影抛 `MalformedPublicEvent` →
+    订阅关闭，而客户端游标无法越过该 seq，重连只能反复读到同一帧（无限重连，刷新才恢复）。
+    公开边必须显式映射，并且流要能继续走到终态。
+    """
+    runtime_probe.plan = _StreamPlan(
+        frames=[
+            (3, "tool.started", {"tool_call_id": "call_1", "tool_name": "workspace_shell"}),
+            (
+                4,
+                "tool.completed",
+                {"tool_call_id": "call_1", "tool_name": "workspace_shell", "status": "BLOCKED"},
+            ),
+            (
+                5,
+                "tool.completed",
+                {"tool_call_id": "call_2", "tool_name": "unknown_tool", "status": "NOT_FOUND"},
+            ),
+            (6, "run.completed", {"status": "COMPLETED", "final_text": "done"}),
+        ],
+        watermark=6,
+    )
+    async with _gateway_env(stub_console, runtime_probe) as env:
+        async with _chat_client(env) as client:
+            response = await client.get(
+                EVENTS_URL, headers=_chat_headers(), params={"after_seq": 2}
+            )
+            assert response.status_code == 200, response.text
+            body = response.text
+
+    events = _public_events([frame for frame in _parse_sse(body) if not frame.is_heartbeat])
+    tool_events = [event for event in events if event["type"] == "run.tool"]
+    assert [event["data"] for event in tool_events] == [
+        {"name": "workspace_shell", "phase": "STARTED", "status": None},
+        {"name": "workspace_shell", "phase": "FINISHED", "status": "ERROR"},
+        {"name": "unknown_tool", "phase": "FINISHED", "status": "ERROR"},
+    ]
+    assert any(event["type"] == "run.terminal" for event in events), "坏帧不应关闭订阅"
+
+
+async def test_malformed_progress_frame_is_skipped_and_the_cursor_advances(
+    stub_console: StubConsole,
+    console_probe: _ConsoleProbe,
+    runtime_probe: _RuntimeProbe,
+) -> None:
+    """纯进度帧投影失败按过滤处理：不关订阅，checkpoint 把游标推进过该帧。"""
+    runtime_probe.plan = _StreamPlan(
+        frames=[
+            (3, "run.stage", {"stage": "WAITING_MODEL"}),  # 缺 queued_at/deadline_at
+            (4, "run.completed", {"status": "COMPLETED", "final_text": "done"}),
+        ],
+        watermark=4,
+    )
+    async with _gateway_env(stub_console, runtime_probe) as env:
+        async with _chat_client(env) as client:
+            response = await client.get(
+                EVENTS_URL, headers=_chat_headers(), params={"after_seq": 2}
+            )
+            assert response.status_code == 200, response.text
+            body = response.text
+
+    events = _public_events([frame for frame in _parse_sse(body) if not frame.is_heartbeat])
+    public = [event for event in events if event["type"] != "checkpoint"]
+    checkpoints = [event for event in events if event["type"] == "checkpoint"]
+    assert [(event["type"], event["seq"]) for event in public] == [("run.terminal", 4)]
+    assert [event["seq"] for event in checkpoints] == [3], "被跳过的帧必须由 checkpoint 推进游标"
+
+
+async def test_malformed_confirmation_is_dropped_but_the_stream_continues(
+    stub_console: StubConsole,
+    console_probe: _ConsoleProbe,
+    runtime_probe: _RuntimeProbe,
+) -> None:
+    """可选公开事实（确认/附件）坏形状：仍按过滤处理（不关订阅），终态照常送达。"""
+    runtime_probe.plan = _StreamPlan(
+        frames=[
+            (3, "interrupt.required", {"confirmation": {"prompt": "?"}}),  # 缺 options/expires_at
+            (4, "run.completed", {"status": "COMPLETED", "final_text": "done"}),
+        ],
+        watermark=4,
+    )
+    async with _gateway_env(stub_console, runtime_probe) as env:
+        async with _chat_client(env) as client:
+            response = await client.get(
+                EVENTS_URL, headers=_chat_headers(), params={"after_seq": 2}
+            )
+            assert response.status_code == 200, response.text
+            body = response.text
+
+    events = _public_events([frame for frame in _parse_sse(body) if not frame.is_heartbeat])
+    public = [event for event in events if event["type"] != "checkpoint"]
+    assert [(event["type"], event["seq"]) for event in public] == [("run.terminal", 4)]
+
+
 # --- B-261：单订阅缓冲有界 + 慢消费者断开可恢复 ------------------------------------------------
 
 
@@ -1097,6 +1208,77 @@ def test_b261_stream_modules_hold_no_database_and_only_speak_the_public_contract
     assert internal.isdisjoint(webchat_streams.PUBLIC_STREAM_EVENT_TYPES)
     # 公开词表的 canonical 键必须先被 Owner 流解析器认识：否则公开事件会被解析层静默丢弃。
     assert set(webchat_streams.PUBLIC_STREAM_EVENT_TYPES) <= KNOWN_EVENT_TYPES
+
+
+def test_canonical_tool_statuses_project_onto_the_public_triplet() -> None:
+    """内部工具终态词表（含 BLOCKED/NOT_FOUND）在公开边映射为 OK/ERROR；未知取值按未知处理。"""
+    from uuid import uuid4
+
+    from muad_im_gateway.application.sse import SseEvent
+    from muad_im_gateway.application.webchat_streams import WebchatPublicProjector
+
+    run_id, conversation_id = uuid4(), uuid4()
+    projector = WebchatPublicProjector(run_id=run_id, conversation_id=conversation_id)
+
+    def projected(seq: int, status: object) -> object:
+        return projector.project(
+            SseEvent(
+                type="tool.completed",
+                data={"tool_call_id": "call_1", "tool_name": "workspace_shell", "status": status},
+                run_id=str(run_id),
+                seq=seq,
+                timestamp="2026-11-09T05:03:56+00:00",
+            )
+        )
+
+    statuses = ["OK", "ERROR", "BLOCKED", "NOT_FOUND"]
+    projected_status = {
+        status: projected(index, status).data.status
+        for index, status in enumerate(statuses, start=1)
+    }
+    assert projected_status == {
+        "OK": "OK",
+        "ERROR": "ERROR",
+        "BLOCKED": "ERROR",
+        "NOT_FOUND": "ERROR",
+    }
+    assert projected(10, "TIMEOUT").data.status is None
+    assert projected(11, None).data.status is None
+
+
+def test_optional_public_facts_are_never_dropped_silently(caplog: object) -> None:
+    """确认/附件坏形状仍按过滤处理，但必须留痕：计数 + 告警（不静默丢用户可见事实）。"""
+    import logging
+    from uuid import uuid4
+
+    from muad_im_gateway.application.sse import SseEvent
+    from muad_im_gateway.application.webchat_streams import WebchatPublicProjector
+
+    run_id, conversation_id = uuid4(), uuid4()
+    projector = WebchatPublicProjector(run_id=run_id, conversation_id=conversation_id)
+
+    def dropped(seq: int, event_type: str) -> object:
+        return projector.project(
+            SseEvent(
+                type=event_type,
+                data={"confirmation": {"prompt": "?"}} if event_type == "interrupt.required" else {},
+                run_id=str(run_id),
+                seq=seq,
+                timestamp="2026-11-09T05:03:56+00:00",
+            )
+        )
+
+    before_confirmation = _optional_dropped("confirmation.required")
+    before_artifact = _optional_dropped("artifact.created")
+    with caplog.at_level(  # type: ignore[attr-defined]
+        logging.WARNING, logger="muad_im_gateway.application.webchat_streams"
+    ):
+        assert dropped(3, "interrupt.required") is None
+        assert dropped(4, "artifact.created") is None
+    assert _optional_dropped("confirmation.required") == before_confirmation + 1
+    assert _optional_dropped("artifact.created") == before_artifact + 1
+    messages = [record.getMessage() for record in caplog.records]  # type: ignore[attr-defined]
+    assert sum("webchat_sse_optional_frame_dropped" in message for message in messages) == 2
 
 
 def test_b261_failed_run_with_a_conclusion_marks_has_reply() -> None:

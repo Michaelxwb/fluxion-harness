@@ -153,6 +153,7 @@ def build_scheduled_snapshot(
     *,
     tenant_id: str,
     user_id: uuid.UUID,
+    execution_timeout_sec: int,
 ) -> tuple[dict[str, Any], str]:
     """触发时按当前有效定义冻结快照：与 Runtime 同一构建口径，只含目标 Skill。
 
@@ -165,6 +166,7 @@ def build_scheduled_snapshot(
         skill=skill,
         workspace=WorkspaceRef(tenant_id=tenant_id, user_id=user_id, agent_id=resolved.agent.id),
         mcp_servers=resolved.mcp_servers,
+        execution_timeout_sec=execution_timeout_sec,
     )
     validate_execution_snapshot(snapshot)
     return snapshot, snapshot_hash(snapshot)
@@ -595,6 +597,7 @@ class SchedulerLoop:
             skill,
             tenant_id=schedule.tenant_id,
             user_id=schedule.actor_user_id,
+            execution_timeout_sec=task_settings.execution_timeout_sec,
         )
         task_id = uuid.uuid4()
         values: dict[str, Any] = {

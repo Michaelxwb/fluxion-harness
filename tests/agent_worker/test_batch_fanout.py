@@ -47,6 +47,9 @@ SKILL_MAIN = (
 
 STORAGE_KEY = "skills/batch_check.zip"
 ARTIFACT_ID = "7f4a3c1e-0000-4000-8000-000000000002"
+
+#: Snapshot budget must freeze the per-execution timeout (v3); fixtures use the schema default.
+_TIMEOUT_SEC = default_platform_settings().task.execution_timeout_sec
 ARTIFACT_UUID = uuid.UUID(ARTIFACT_ID)
 
 
@@ -80,7 +83,7 @@ def _snapshot(checksum: str) -> dict[str, object]:
         ],
         "mcp": [],
         "prompt_template_version": "v1",
-        "budget": {"max_tokens": 1024},
+        "budget": {"max_tokens": 1024, "execution_timeout_sec": _TIMEOUT_SEC},
     }
 
 

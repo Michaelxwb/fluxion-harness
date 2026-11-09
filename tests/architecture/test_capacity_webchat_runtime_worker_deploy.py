@@ -128,8 +128,6 @@ UNITS = (
         pools=WORKER_HTTP_POOLS,
         slot_env="WORKER_EXECUTION_CONCURRENCY",
         slot_field="worker_execution_concurrency",
-        # 单次 Skill 执行进程的总时长上限（configured_execution_timeout）。
-        extra_settings_env=("WORKER_EXECUTION_TIMEOUT_SEC",),
     ),
 )
 UNIT_IDS = tuple(unit.name for unit in UNITS)

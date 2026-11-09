@@ -213,7 +213,38 @@ for entry in "${SERVICES[@]}"; do
   fi
 done
 
+#: 读 `.env` 的 `KEY=value`（去掉成对引号）；未配置时用默认值。
+#: 不用 `source`：`.env` 不是脚本（值里可能有空格/注释），source 会产生副作用。
+env_value() {
+  local key="$1" default="$2" value
+  value="$(sed -n "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*//p" "$ROOT/.env" 2>/dev/null | tail -1)"
+  value="${value%\"}"; value="${value#\"}"
+  value="${value%\'}"; value="${value#\'}"
+  printf '%s' "${value:-$default}"
+}
+
+#: 服务的启动校验要求 `ARTIFACT_ROOT` **已存在**（未挂载即失败；k8s 同理，所以不在服务里自建）。
+#: `/tmp` 会被系统定期清理，这里按 `.env` 的配置补齐三个本地根目录（相对路径按仓库根解析）。
+ensure_local_dirs() {
+  local entry key default dir
+  for entry in \
+    "ARTIFACT_ROOT|./.data/artifacts" \
+    "SKILL_CACHE_ROOT|./.data/skill-cache" \
+    "WORKSPACE_ROOT|./.data/workspaces"; do
+    IFS='|' read -r key default <<<"$entry"
+    dir="$(env_value "$key" "$default")"
+    if [ -n "$dir" ] && [ ! -d "$dir" ]; then
+      if mkdir -p "$dir"; then
+        echo "  + 创建本地目录 $dir"
+      else
+        echo "  ✗ 无法创建本地目录 $dir（服务启动校验会失败）"
+      fi
+    fi
+  done
+}
+
 # ------------------------------------------------------------------ 4. 启动后端服务
+ensure_local_dirs
 echo
 echo "== 启动服务 =="
 for entry in "${SERVICES[@]}"; do

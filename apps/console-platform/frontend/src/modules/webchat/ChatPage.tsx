@@ -778,6 +778,7 @@ function useAcceptedRun(input: AcceptedRunInput): void {
   const { accepted, conversations, runEvents } = input;
   const handled = useRef<WebchatMessageAccepted | null>(null);
   const select = conversations.select;
+  const refresh = conversations.refresh;
   const watch = runEvents.watch;
 
   useEffect(() => {
@@ -792,17 +793,13 @@ function useAcceptedRun(input: AcceptedRunInput): void {
       confirmation: null
     };
     // 先重读详情（同步中止旧视图信号），详情落地后再订阅受理的 Run：不先开一条马上被关的流。
-    fireAndForget(
-      select(accepted.conversation_id).then(
-        () => {
-          watch(target);
-        },
-        () => {
-          watch(target);
-        }
-      )
-    );
-  }, [accepted, select, watch]);
+    // 受理回执是服务端事实：索引（派生标题/最近活动/活跃状态）随之重读；详情读取成败不影响这一点。
+    const settle = (): void => {
+      fireAndForget(refresh());
+      watch(target);
+    };
+    fireAndForget(select(accepted.conversation_id).then(settle, settle));
+  }, [accepted, select, refresh, watch]);
 }
 
 interface ScopedDraftInput {

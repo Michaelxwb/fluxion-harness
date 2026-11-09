@@ -366,6 +366,10 @@ const trackedConversations = (state) => {
       noteAppliedSeq: (conversationId, runId, seq) => {
         calls.push([conversationId, runId, seq]);
         state.noteAppliedSeq(conversationId, runId, seq);
+      },
+      probeThroughSeq: (conversationId) => {
+        calls.push(['probe', conversationId]);
+        return state.probeThroughSeq(conversationId);
       }
     }
   };
@@ -488,6 +492,54 @@ const obs = {};
     requests: requestsOf(),
     text: controller.snapshot().run.text,
     status: controller.snapshot().run.status
+  };
+}
+
+// ---- 2b) 重连预算耗尽 → 回落持久历史水位，越过不可投影的帧继续（兜底只用一次） -------------------
+{
+  const { config, state } = await boot({ reconnect_max_attempts: 1, reconnect_base_ms: 1, reconnect_cap_ms: 1 });
+  const tracked = trackedConversations(state);
+  const controller = controllerOf(tracked.port, config);
+  planSse([
+    { id: 'h1', frames: deltaFrame(RUN_A, CONVERSATION_1, 1, 0, '半') },
+    { id: 'h2' },
+    { id: 'h3', frames: terminalFrame(RUN_A, CONVERSATION_1, 12, 'COMPLETED') }
+  ]);
+  // 持久历史读到的冻结水位（messagePage 固定 through_seq=10）高于本地已应用 seq(1)。
+  planHttp([{ status: 200, data: messagePage([]) }]);
+  controller.watch(targetOf(CONVERSATION_1, RUN_A));
+  await until('回落历史后续传至终态', () => controller.snapshot().run?.status === 'COMPLETED');
+  const snapshot = controller.snapshot();
+  obs.historyRecovery = {
+    requests: requestsOf(),
+    probeCalls: tracked.calls.filter((call) => call[0] === 'probe'),
+    status: snapshot.run.status,
+    text: snapshot.run.text,
+    appliedSeq: snapshot.run.lastAppliedSeq,
+    cachedSeq: state.appliedSeq(CONVERSATION_1, RUN_A),
+    connection: snapshot.connection
+  };
+}
+{
+  const { config, state } = await boot({ reconnect_max_attempts: 1, reconnect_base_ms: 1, reconnect_cap_ms: 1 });
+  const tracked = trackedConversations(state);
+  const controller = controllerOf(tracked.port, config);
+  planSse([
+    { id: 'g1', frames: deltaFrame(RUN_A, CONVERSATION_1, 1, 0, '半') },
+    { id: 'g2' },
+    { id: 'g3' },
+    { id: 'g4' }
+  ]);
+  planHttp([{ status: 200, data: messagePage([]) }]);
+  controller.watch(targetOf(CONVERSATION_1, RUN_A));
+  await until(
+    '兜底后仍失败应停在显式失败',
+    () => controller.snapshot().connection.state === 'failed' && sse.requests.length === 4
+  );
+  obs.historyRecoveryBudget = {
+    requests: requestsOf(),
+    probeCalls: tracked.calls.filter((call) => call[0] === 'probe'),
+    connection: controller.snapshot().connection
   };
 }
 {
@@ -1188,6 +1240,34 @@ def test_b282_eof_is_not_completion_and_the_budget_comes_from_the_projection(
         f"attempts=3 时必须首连 + 3 次重连（预算只来自投影）：{budget}"
     )
     assert budget["lastError"] == "STREAM_INTERRUPTED"
+
+
+def test_b282_retry_exhaustion_falls_back_to_persisted_history(events: dict[str, Any]) -> None:
+    """重连耗尽后回落持久历史水位，从真实水位续传（越过不可投影的帧），而不是一直重连。"""
+    observed = events["historyRecovery"]
+    assert [entry["url"] for entry in observed["requests"]] == [
+        f"/api/v1/webchat/runs/{RUN_A}/events",
+        f"/api/v1/webchat/runs/{RUN_A}/events?after_seq=1",
+        f"/api/v1/webchat/runs/{RUN_A}/events?after_seq=10",
+    ], f"回落历史后必须从持久水位续传：{observed['requests']}"
+    assert observed["requests"][2]["lastEventId"] == "10"
+    assert observed["probeCalls"] == [["probe", CONVERSATION_1]], "兜底只探测一次历史水位"
+    assert observed["status"] == "COMPLETED"
+    assert observed["appliedSeq"] == 12 and observed["cachedSeq"] == 12
+    assert observed["text"] == "", "跳过的区间可能含 snapshot：正文从新游标重建"
+
+
+def test_b282_history_fallback_is_used_once_per_subscription(events: dict[str, Any]) -> None:
+    """兜底后仍失败：保留显式失败 + retry，不再探测历史（不形成隐形循环）。"""
+    observed = events["historyRecoveryBudget"]
+    assert len(observed["requests"]) == 4, observed["requests"]
+    assert [entry["url"] for entry in observed["requests"]][2:] == [
+        f"/api/v1/webchat/runs/{RUN_A}/events?after_seq=10",
+        f"/api/v1/webchat/runs/{RUN_A}/events?after_seq=10",
+    ], "兜底重开仍从同一持久水位续传"
+    assert observed["probeCalls"] == [["probe", CONVERSATION_1]], "第二次失败不得再探测历史"
+    assert observed["connection"]["state"] == "failed"
+    assert observed["connection"]["lastError"] == "STREAM_INTERRUPTED"
 
 
 def test_b282_dedup_and_generation_keep_the_body_and_the_applied_cursor(

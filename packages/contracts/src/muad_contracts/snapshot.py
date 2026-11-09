@@ -11,14 +11,18 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from typing import Any
 
+from pydantic import JsonValue
+
+from .platform_settings import TaskSettings, validate_task_execution_timeout
 from .resolve import ResolvedAgent, ResolvedMcpServer, ResolvedModel, ResolvedSkill, WorkspaceRef
 from .skill_invocation import validate_skill_argv
 
-#: v2：skills[] 增加 `source` 与 `workspace`（v1 快照缺这两个键，执行侧按失败处理）。
-TASK_SNAPSHOT_SCHEMA_VERSION = 2
+#: v3：budget 冻结单次 Skill 执行超时；缺失预算的旧快照不能参与执行。
+TASK_SNAPSHOT_SCHEMA_VERSION = 3
 TASK_PROMPT_TEMPLATE_VERSION = "v1"
 SNAPSHOT_HASH_PREFIX = "sha256:"
 REQUIRED_SNAPSHOT_KEYS = (
@@ -71,6 +75,7 @@ def build_task_snapshot(
     workspace: WorkspaceRef,
     mcp_servers: Sequence[ResolvedMcpServer] = (),
     argv: tuple[str, ...] = (),
+    execution_timeout_sec: int | None = None,
 ) -> dict[str, Any]:
     return {
         "schema_version": TASK_SNAPSHOT_SCHEMA_VERSION,
@@ -85,9 +90,34 @@ def build_task_snapshot(
         "skills": [_skill_entry(skill, workspace)],
         "mcp": [_mcp_entry(server) for server in mcp_servers],
         "prompt_template_version": TASK_PROMPT_TEMPLATE_VERSION,
-        "budget": dict(agent.runtime_config.get("budget") or {}),
+        "budget": {
+            **dict(agent.runtime_config.get("budget") or {}),
+            "execution_timeout_sec": validate_task_execution_timeout(
+                execution_timeout_sec
+                if execution_timeout_sec is not None else TaskSettings().execution_timeout_sec
+            ),
+        },
         "argv": list(validate_skill_argv(argv)),
     }
+
+
+def freeze_task_execution_timeout(
+    snapshot: Mapping[str, JsonValue], timeout_sec: int,
+) -> dict[str, JsonValue]:
+    frozen = deepcopy(dict(snapshot))
+    frozen["schema_version"] = TASK_SNAPSHOT_SCHEMA_VERSION
+    budget = frozen.get("budget")
+    if not isinstance(budget, dict):
+        raise ValueError("Task snapshot budget must be an object")
+    budget["execution_timeout_sec"] = validate_task_execution_timeout(timeout_sec)
+    return frozen
+
+
+def task_execution_timeout(snapshot: Mapping[str, JsonValue]) -> int:
+    budget = snapshot.get("budget")
+    if not isinstance(budget, dict):
+        raise ValueError("Task snapshot budget must be an object")
+    return validate_task_execution_timeout(budget.get("execution_timeout_sec"))
 
 
 def snapshot_hash(snapshot: dict[str, Any]) -> str:
@@ -100,5 +130,7 @@ __all__ = [
     "TASK_PROMPT_TEMPLATE_VERSION",
     "TASK_SNAPSHOT_SCHEMA_VERSION",
     "build_task_snapshot",
+    "freeze_task_execution_timeout",
     "snapshot_hash",
+    "task_execution_timeout",
 ]

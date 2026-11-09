@@ -1215,6 +1215,8 @@
   "settings.field.agent.max_model_retries": "模型重试次数",
   "settings.field.agent.max_identical_failures": "同一失败最多重复次数",
   "settings.field.task.default_deadline_hours": "默认截止时长",
+  "settings.field.task.execution_timeout_sec": "单次 Skill 执行超时",
+  "settings.effect.task_execution_timeout": "新建独立任务和定时任务生效；Run 发起的任务沿用该 Run 创建时的配置",
   "settings.field.task.max_attempts": "最大尝试次数",
   "settings.field.task.batch_max_concurrency": "批次最大并发",
   "settings.field.task.misfire_grace_sec": "错过宽限",

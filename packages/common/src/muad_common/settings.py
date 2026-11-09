@@ -86,8 +86,6 @@ class SharedSettings(BaseSettings):
     #: memory consolidation 的租户级待处理上限；到界后不再入队（不阻塞已完成的 Run）。
     memory_consolidation_queue_max: int = Field(default=10000, ge=1)
     worker_execution_concurrency: int = Field(default=4, ge=1, le=64)
-    #: 单次 Skill 执行进程的总时长上限（秒）；与到 Task deadline 的剩余时间取较小值。
-    worker_execution_timeout_sec: int = Field(default=300, ge=1, le=3600)
     gateway_max_concurrent_handlers: int = Field(default=8, ge=1)
     gateway_max_pending_handlers: int = Field(default=256, ge=1)
     gateway_max_pending_per_route: int = Field(default=8, ge=1)

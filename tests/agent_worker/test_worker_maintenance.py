@@ -21,6 +21,7 @@ from muad_agent_worker.infrastructure.workspace_store import WorkerWorkspaceMeta
 from muad_agent_worker.metrics import WORKSPACE_CLEANUP_METRIC
 from muad_agent_worker.worker.executor import SkillTaskExecutor
 from muad_agent_worker.worker.workspace_maintenance import WorkspaceMaintenanceLoop
+from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import select, update
 
 from agent_worker.conftest import TenantContext
@@ -57,6 +58,11 @@ class _RecordingSkillExecutor:
         )
 
 
+
+#: Snapshot budget must freeze the per-execution timeout (v3); fixtures use the schema default.
+_TIMEOUT_SEC = default_platform_settings().task.execution_timeout_sec
+
+
 def _snapshot(artifact_id: uuid.UUID, checksum: str) -> dict[str, object]:
     return {
         "schema_version": 1,
@@ -75,7 +81,7 @@ def _snapshot(artifact_id: uuid.UUID, checksum: str) -> dict[str, object]:
         ],
         "mcp": [],
         "prompt_template_version": "v1",
-        "budget": {"max_tokens": 1024},
+        "budget": {"max_tokens": 1024, "execution_timeout_sec": _TIMEOUT_SEC},
     }
 
 

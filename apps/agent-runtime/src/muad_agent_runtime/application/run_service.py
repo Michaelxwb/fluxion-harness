@@ -60,6 +60,7 @@ from muad_contracts.platform_settings import (
     compaction_payload,
     default_compaction_settings,
     parse_platform_settings,
+    validate_task_execution_timeout,
 )
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -238,8 +239,9 @@ def snapshot_policy(
     """Run 侧 execution snapshot 的执行期策略——`policy_json` 的唯一构建口径。
 
     `agent` 分组四叶（`max_turns` / `max_tool_calls` / `deadline_ms` / `max_model_retries`，见
-    ADR-07）、完整 `memory` 分组、`artifact.max_archive_files`、`locale.default_timezone` 与压缩
-    配置一并冻结在这里：配置变更只影响后续新 Run，在飞的 Run 用的是它自己那一份冻结值
+    ADR-07）、完整 `memory` 分组、`artifact.max_archive_files`、`locale.default_timezone`、
+    `task.execution_timeout_sec` 与压缩配置一并冻结在这里：配置变更只影响后续新 Run，在飞的
+    Run 用的是它自己那一份冻结值
     （`harness-snapshot#RULE-snapshot-001` 的"Run 侧等价载体"）。
 
     **模型池语义与非密钥执行策略**同样冻在这里（B-224）：
@@ -276,6 +278,7 @@ def snapshot_policy(
         "artifact": {"max_archive_files": defaults.max_archive_files},
         "locale": {"default_timezone": defaults.timezone},
         "compaction": compaction_payload(settings),
+        "task": {"execution_timeout_sec": defaults.task_execution_timeout_sec},
     }
     frozen_pool = pool if pool is not None else resolve_pool_execution_policy(None)
     policy.update(pool_policy_payload(frozen_pool))
@@ -406,6 +409,9 @@ def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults
             ),
         ),
         memory_policy=_frozen_memory_policy(policy),
+        task_execution_timeout_sec=validate_task_execution_timeout(
+            _section(policy, "task").get("execution_timeout_sec")
+        ),
         learning=learning_of(policy),
         max_archive_files=_frozen_int(
             _section(policy, "artifact"),
@@ -437,6 +443,7 @@ def execution_defaults_from_platform(document: Mapping[str, Any] | None) -> Exec
             max_identical_failures=agent.max_identical_failures,
         ),
         memory_policy=parsed.memory,
+        task_execution_timeout_sec=parsed.task.execution_timeout_sec,
         learning=frozen_learning_from_settings(parsed.learning),
         max_archive_files=parsed.artifact.max_archive_files,
         timezone=parsed.locale.default_timezone,

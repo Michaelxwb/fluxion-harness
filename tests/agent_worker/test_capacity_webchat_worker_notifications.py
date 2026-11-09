@@ -98,6 +98,9 @@ TASK_RESULTS_PATH = "/internal/webchat/task-results"
 NOTIFICATIONS_PATH = "/internal/webchat/notifications"
 TERMINAL_EVENT_TYPES = ("COMPLETED", "FAILED", "CANCELLED", "DEADLINE_EXCEEDED")
 
+#: Snapshot budget must freeze the per-execution timeout (v3); fixtures use the schema default.
+_TIMEOUT_SEC = default_platform_settings().task.execution_timeout_sec
+
 
 # --------------------------------------------------------------------------------------
 # 隔离 PostgreSQL / Redis + Worker 进程环境
@@ -248,7 +251,7 @@ def _snapshot(
 ) -> dict[str, Any]:
     return {
         "schema_version": 1,
-        "budget": {"retry_safety": "IDEMPOTENT"},
+        "budget": {"retry_safety": "IDEMPOTENT", "execution_timeout_sec": _TIMEOUT_SEC},
         "skills": [
             {
                 "artifact_id": str(skill_artifact_id),

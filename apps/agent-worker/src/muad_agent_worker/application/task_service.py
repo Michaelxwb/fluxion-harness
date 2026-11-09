@@ -11,6 +11,7 @@ from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
 from muad_contracts import (
     REQUIRED_SNAPSHOT_KEYS,
+    TASK_SNAPSHOT_SCHEMA_VERSION,
     CreateTaskRequest,
     DeliveryMode,
     DeliveryStatus,
@@ -19,6 +20,8 @@ from muad_contracts import (
     TriggerType,
 )
 from muad_contracts.platform_settings import TaskSettings
+from muad_contracts.snapshot import freeze_task_execution_timeout, snapshot_hash, task_execution_timeout
+from pydantic import JsonValue
 from sqlalchemy import false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -129,6 +132,7 @@ class TaskService:
     ) -> dict[str, object]:
         task_id = uuid.uuid4()
         now = datetime.now(UTC)
+        snapshot, frozen_hash = _creation_snapshot(payload, task_settings)
         return {
             "id": task_id,
             "tenant_id": payload.tenant_id,
@@ -144,9 +148,12 @@ class TaskService:
             "task_type": TASK_TYPE_SKILL,
             "status": str(TaskStatus.QUEUED),
             "input_json": payload.input,
-            "execution_snapshot_schema_version": payload.execution_snapshot_schema_version,
-            "execution_snapshot_json": payload.execution_snapshot,
-            "snapshot_hash": payload.snapshot_hash,
+            "execution_snapshot_schema_version": (
+                payload.execution_snapshot_schema_version
+                if payload.runtime_operation else TASK_SNAPSHOT_SCHEMA_VERSION
+            ),
+            "execution_snapshot_json": snapshot,
+            "snapshot_hash": frozen_hash,
             "idempotency_key": payload.idempotency_key,
             "priority": INITIAL_PRIORITY,
             "attempt": 0,
@@ -397,6 +404,19 @@ class TaskService:
         if mode is DeliveryMode.FINAL_ONLY:
             return DeliveryStatus.PENDING
         return DeliveryStatus.NONE
+
+
+def _creation_snapshot(
+    payload: CreateTaskRequest, settings: TaskSettings,
+) -> tuple[dict[str, JsonValue], str]:
+    try:
+        if payload.runtime_operation is not None:
+            task_execution_timeout(payload.execution_snapshot)
+            return payload.execution_snapshot, payload.snapshot_hash
+        frozen = freeze_task_execution_timeout(payload.execution_snapshot, settings.execution_timeout_sec)
+    except ValueError as exc:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from exc
+    return frozen, snapshot_hash(frozen)
 
 
 def _task_deadline(payload: CreateTaskRequest, settings: TaskSettings, now: datetime) -> datetime:
