@@ -160,6 +160,15 @@ python .code-flow/scripts/cf_acceptance_manifest.py \
 需要把 scenario 的 `status` 同步为 `accepted_risk` 时，再改 manifest 的 scenario 行；不要只改
 checkbox 而不登记 risk。accepted risk 只用于**环境/阶段延后**，不用于普通失败。
 
+CI 环境依赖的现行处理：
+
+- `tests/acceptance/redis_cluster`：CI 在 `acceptance (redis_cluster)` 和 `review-cache` job 内
+  启动真实 3M3R Redis Cluster（单容器 6 进程，6391–6396），不 skip；集群不可达仍按
+  `env_blocked` 失败。
+- `tests/acceptance/user_skill_sandbox`：需要带 bwrap 的测试镜像。GitHub runner 不提供该私有
+  镜像，CI 内由该域 `conftest.py` 在镜像不可用时明确 skip；本地有 `fx-sandbox-test:local` 或
+  显式 `MUAD_SKILL_EXECUTOR_*` 镜像时仍真实执行。
+
 ## 8. 常见故障
 
 | 现象 | 原因 | 处理 |

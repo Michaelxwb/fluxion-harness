@@ -184,6 +184,8 @@ jobs:
             paths: "tests/acceptance/capacity"
           - name: task_schedule
             paths: "tests/acceptance/task_schedule"
+          - name: redis_cluster
+            paths: "tests/acceptance/redis_cluster"
           - name: rest
             paths: "tests/acceptance/attachment_round_trip tests/acceptance/audit_observability tests/acceptance/console_auth_flow tests/acceptance/overview tests/acceptance/security tests/acceptance/wecom_attachments tests/acceptance/test_*.py"
     services:
@@ -246,6 +248,9 @@ jobs:
         run: uv run python scripts/clean_acceptance_claims.py
       - name: 预建干净检出缺失的 .data 挂载目录
         run: mkdir -p .data/artifacts .data/skill-cache
+      - name: 启动真实 3M3R Redis Cluster
+        if: matrix.shard.name == 'redis_cluster'
+        run: ./scripts/ci/start_redis_cluster.sh
       - name: 运行 ${{ matrix.shard.name }} 验收分片
         run: |
           set -u
@@ -275,6 +280,9 @@ jobs:
           else
             uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
           fi
+      - name: 停止 3M3R Redis Cluster
+        if: always() && matrix.shard.name == 'redis_cluster'
+        run: ./scripts/ci/stop_redis_cluster.sh
       - name: 上传失败用例清单（无论成败）
         if: always()
         uses: actions/upload-artifact@v4
@@ -287,6 +295,9 @@ jobs:
   # 需求级 review 终验包含完整 acceptance + 前端 build + 基础浏览器旅程，且
   # RULE-test-001 声明了 files 作用域，可按内容指纹缓存。仅在显式传入需求目录时
   # 运行；它同时写出 acceptance 的 validation cache 与 spec verifier cache。
+  # review 层会跑完整 acceptance：这里启动真实 3M3R Redis Cluster（6391-6396），
+  # 不跳过 cluster 验收。user_skill_sandbox 需要 bwrap 测试镜像，GitHub runner
+  # 不提供该私有镜像；该域 conftest 在 CI 内镜像不可用时明确 skip。
   review-cache:
     name: review-cache (spec verifiers)
     if: github.event_name == 'workflow_dispatch' && inputs.review_task_dir != ''
@@ -364,6 +375,8 @@ jobs:
         run: uv run python scripts/clean_acceptance_claims.py
       - name: 预建干净检出缺失的 .data 挂载目录
         run: mkdir -p .data/artifacts .data/skill-cache
+      - name: 启动真实 3M3R Redis Cluster
+        run: ./scripts/ci/start_redis_cluster.sh
       - name: 运行 review 层并写 verifier cache
         run: |
           uv run python .code-flow/scripts/cf_task_workflow.py verify \
@@ -399,6 +412,9 @@ jobs:
           path: /tmp/pytest-failures.log
           retention-days: 7
           if-no-files-found: ignore
+      - name: 停止 3M3R Redis Cluster
+        if: always()
+        run: ./scripts/ci/stop_redis_cluster.sh
 
   # 把并行 job 的 cache 分片合成一个文件给本地下载。各分片的 cache 文件名相同，
   # 所以 upload 时先按 job 复制成唯一文件名，再在这里统一 merge。
