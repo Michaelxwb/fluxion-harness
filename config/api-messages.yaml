@@ -233,6 +233,13 @@ codes:
       zh-CN: 草稿已被其他操作修改，请刷新后重试
       en-US: The draft was modified by another operation. Refresh and retry.
 
+  DRAFT_TEST_BUSY:
+    http_status: 409
+    retryable: true
+    messages:
+      zh-CN: 草稿正在测试，请在测试结束后重试
+      en-US: This draft is being tested. Retry after the test finishes.
+
   DRAFT_QUOTA_EXCEEDED:
     http_status: 413
     messages:

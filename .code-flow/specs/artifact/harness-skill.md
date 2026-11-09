@@ -49,6 +49,8 @@ verifiers:
 
 **执行与结果**：
 
+- **草稿测试必须使用真实草稿和独立持久测试数据**：源码在临时副本执行，只有合法源码变更按 revision CAS 回写；测试数据按受信租户、owner、草稿及其所属 Agent 隔离，跨工具调用和 Run 保留，与正式数据分离。测试数据不进入提交包，审批不迁移测试数据；源码修改、失败、超时或 CAS 冲突不隐式重置数据，显式重置只影响当前草稿。测试和删除必须跨实例互斥；测试访问接入 workspace 租约、用量、配额和 TTL，超配额仍可通过显式重置释放本草稿测试数据后重新校验配额。✅ 同一草稿分次调用真实 `start` / `status`，状态保留且草稿 revision 不因数据写入而变化；❌ 用 workspace 探针或另一份试玩脚本宣称原草稿验证通过。机检：`tests/acceptance/user_skill_sandbox/test_s_02.py`。
+
 - **旧 CLI Skill 的业务参数由执行工具传递**：`execute_skill` / `run_skill_script` 接受独立的字符串数组 `argv`，按原顺序直接追加在受校验的脚本路径后，JSON `input` 仍仅进入 stdin。共用 `validate_skill_argv` 的类型、编码和容量校验，拒绝非法参数后再执行。工具描述解释如何从旧 SKILL.md 的命令提取参数，无需改写 Skill 为 JSON 入口。✅ 重复参数、含空格时间和布尔开关逐项传递；❌ 拼接 shell 命令、猜测 JSON→CLI 映射、把解释器参数交给模型选择。
 
 - **解包与执行的逃逸防护**：zip 解包做 zip-slip 校验，越界成员按 `SKILL_ARTIFACT_UNAVAILABLE` 拒绝；脚本路径必须落在 READY 目录内，越界抛 `SkillExecutionError("script path escapes the skill package")`；子进程环境只透传 `PATH/HOME/LANG`（`packages/agent-core/src/muad_agent_core/skill/executor.py` 的 `ENV_ALLOWLIST`）。

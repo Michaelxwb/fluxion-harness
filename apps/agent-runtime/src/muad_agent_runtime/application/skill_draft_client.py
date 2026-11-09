@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import uuid
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -61,10 +62,16 @@ class ConsoleDraftShellClient:
         if not revision.isdigit():
             logger.warning("draft_shell_archive_missing_revision draft_id=%s", request.draft_id)
             raise DraftShellError("COMMON_INTERNAL_ERROR", "draft archive revision is missing")
+        try:
+            agent_id = str(uuid.UUID(response.headers.get("X-Draft-Agent-Id", "")))
+        except ValueError as exc:
+            logger.warning("draft_shell_archive_invalid_agent draft_id=%s", request.draft_id)
+            raise DraftShellError("COMMON_INTERNAL_ERROR", "draft archive agent is invalid") from exc
         return DraftShellArchive(
-            draft_id=request.draft_id,
+            draft_id=str(uuid.UUID(request.draft_id)),
             revision=int(revision),
             zip_bytes=response.content,
+            agent_id=agent_id,
         )
 
     async def apply_changes(

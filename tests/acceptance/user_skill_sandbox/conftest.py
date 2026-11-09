@@ -120,6 +120,9 @@ async def draft_tenant(session: AsyncSession) -> AsyncIterator[Callable[[str], s
     yield make
     for tenant in tenants:
         for statement in (
+            "DELETE FROM task.workspace_lease WHERE workspace_id IN "
+            "(SELECT id FROM task.workspace WHERE tenant_id = :tenant_id)",
+            "DELETE FROM task.workspace WHERE tenant_id = :tenant_id",
             "DELETE FROM control.skill_import_idempotency WHERE tenant_id = :tenant_id",
             "DELETE FROM control.skill_artifact WHERE skill_id IN "
             "(SELECT id FROM control.skill WHERE tenant_id = :tenant_id)",

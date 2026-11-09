@@ -9,8 +9,12 @@ from muad_agent_core.skill.draft_shell import DraftShellRequest, DraftShellRunne
 from muad_common import SharedSettings, process_settings
 from muad_platform_sdk.skill_access import SkillPlatformContext
 
+from ..infrastructure.db import get_session_factory
+from ..infrastructure.draft_test_workspace import SqlDraftTestWorkspaceStore
+from ..infrastructure.workspace_store import SessionFactoryProvider
 from .draft_tools import SkillDraftTools
 from .skill_draft_client import ConsoleDraftShellClient, ConsoleSkillDraftClient
+from .workspace_shell import build_workspace_store
 
 DRAFT_SHELL_EXECUTION_TYPE = "DRAFT_SHELL"
 
@@ -19,6 +23,7 @@ def build_draft_shell_runner(
     settings: SharedSettings | None = None,
     *,
     client: ConsoleDraftShellClient | None = None,
+    session_factory_provider: SessionFactoryProvider = get_session_factory,
 ) -> DraftShellRunner:
     resolved = settings or process_settings()
     console = client or ConsoleDraftShellClient(
@@ -49,6 +54,10 @@ def build_draft_shell_runner(
 
     return DraftShellRunner(
         store=console,
+        workspaces=SqlDraftTestWorkspaceStore(
+            build_workspace_store(resolved, session_factory_provider=session_factory_provider),
+            session_factory_provider,
+        ),
         runner_factory=runner_factory,
         max_file_bytes=resolved.skill_draft_file_max_bytes,
         max_total_bytes=resolved.skill_draft_quota_mib * 1024 * 1024,

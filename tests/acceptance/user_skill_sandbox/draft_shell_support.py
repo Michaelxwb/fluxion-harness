@@ -12,9 +12,12 @@ import io
 import os
 import shutil
 import subprocess
+import tempfile
 import uuid
 import zipfile
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
+from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from muad_agent_core.sandbox import (
@@ -29,6 +32,7 @@ from muad_agent_core.skill.draft_shell import (
     DraftShellChange,
     DraftShellRequest,
     DraftShellRunner,
+    DraftShellWorkspaceStore,
 )
 
 from .draft_support import create_draft, write_file
@@ -115,7 +119,12 @@ class MemoryDraftStore:
         self.deletions: list[str] = []
 
     async def fetch_archive(self, request: DraftShellRequest) -> DraftShellArchive:
-        return DraftShellArchive(draft_id=request.draft_id, revision=self.revision, zip_bytes=self._archive)
+        return DraftShellArchive(
+            draft_id=request.draft_id,
+            revision=self.revision,
+            zip_bytes=self._archive,
+            agent_id="00000000-0000-0000-0000-000000000001",
+        )
 
     async def apply_changes(
         self,
@@ -144,6 +153,32 @@ def docker_runner_factory():
     return runner
 
 
+class TemporaryDraftWorkspaces:
+    """单元/平台登录态测试使用临时持久根；S-02 显式注入真实 PG 实现。"""
+
+    def __init__(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory(prefix="fx-draft-test-", dir="/tmp")
+
+    @asynccontextmanager
+    async def guard(self, request: DraftShellRequest) -> AsyncIterator[None]:
+        yield
+
+    @asynccontextmanager
+    async def open(self, request: DraftShellRequest, archive: DraftShellArchive) -> AsyncIterator[Path]:
+        directory = (
+            Path(self._temporary.name)
+            / request.tenant_id
+            / request.owner_user_id
+            / archive.agent_id
+            / archive.draft_id
+            / "data"
+        )
+        if request.reset_data and directory.exists():
+            shutil.rmtree(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        yield directory
+
+
 def build_runner(
     store: object,
     *,
@@ -154,9 +189,11 @@ def build_runner(
     max_files: int = 2000,
     output_limit_bytes: int = 64 * 1024,
     temp_root: str | None = None,
+    workspaces: DraftShellWorkspaceStore | None = None,
 ) -> DraftShellRunner:
     return DraftShellRunner(
         store=store,  # type: ignore[arg-type]
+        workspaces=workspaces or TemporaryDraftWorkspaces(),
         runner_factory=runner_factory,
         platform_context_factory=platform_context_factory,
         max_file_bytes=max_file_bytes,

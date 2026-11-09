@@ -12,6 +12,7 @@ from typing import Any
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_common.draft_testing import draft_test_lock_key
 from muad_contracts import SkillReviewStatus, SkillSource
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -57,6 +58,7 @@ def draft_view(draft: SkillDraft) -> dict[str, Any]:
         "id": str(draft.id),
         "tenant_id": draft.tenant_id,
         "owner_user_id": str(draft.owner_user_id),
+        "agent_id": str(draft.agent_id),
         "key": draft.key,
         "revision": draft.revision,
         "last_submitted_artifact_id": (
@@ -360,6 +362,9 @@ class SkillDraftService:
         self, tenant_id: str, owner_user_id: uuid.UUID, draft_id: uuid.UUID
     ) -> dict[str, Any]:
         draft = await self._require_for_update(tenant_id, owner_user_id, draft_id)
+        key = draft_test_lock_key(tenant_id, str(owner_user_id), str(draft_id))
+        if not await self._session.scalar(select(func.pg_try_advisory_xact_lock(key))):
+            raise AppError(ErrorCode.DRAFT_TEST_BUSY)
         self._store.remove_draft(draft)
         deleted = await self._drafts.soft_delete(tenant_id, owner_user_id, draft_id)
         if not deleted:

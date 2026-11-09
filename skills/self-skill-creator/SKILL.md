@@ -37,7 +37,7 @@ description: 指导用户写一个符合本平台格式的自建 Skill。用户�
 
 1. **`muad.skill.json` 清单文件**：声明 name/author/platforms/version 等元数据。`author` 必填，写作者姓名/工号/用户名，便于追溯。详见 [`references/skill-manifest.md`](references/skill-manifest.md)。
 2. **对接平台 → 先取登录态，再用 requests 发请求**：脚本先用 `session-manager get-state --skill-name <skill>` 获取登录态，再从返回的 `sessionStateFile` 读取 `platforms.<平台名>.cookies` 和 `requestProfile.baseUrl`，用 `requests` 发请求。平台名按字面量写，必须与 `muad.skill.json` 的 `platforms` 一致。详见 [`references/http-headers.md`](references/http-headers.md) 与 [`references/session-manager.md`](references/session-manager.md)。
-3. **有输出文件 → 接入 `SKILL_OUTPUT_DIR`**：Skill 若要写文件（报告、临时结果），必须写到环境变量 `SKILL_OUTPUT_DIR` 指向的目录，**不要写 Skill 根目录（只读）或 `/tmp`（不隔离不持久）**。详见 [`references/skill-output-dir.md`](references/skill-output-dir.md)。
+3. **状态和结果分开保存**：跨轮次状态写到平台提供的 `SKILL_DATA_DIR`；报告、单次运行结果写到 `SKILL_OUTPUT_DIR`。不要覆盖这两个环境变量，也不要把持久状态写到 Skill 根目录或 `/tmp`。详见 [`references/skill-output-dir.md`](references/skill-output-dir.md)。
 
 ## 创作流程
 
@@ -113,13 +113,16 @@ body 用祈使句写指令，遵循“渐进式披露”——核心流程放 SK
 - [ ] `entrypoint` 若声明，指向 `scripts/*.py`
 - [ ] 若声明了 `platforms`：脚本调用 `session-manager get-state`，从状态文件取 cookies/baseUrl；平台名与 `platforms` 一致
 - [ ] 脚本用 `requests` 发业务请求；没有手工拼装凭据/内部 URL
-- [ ] 写文件只写 `SKILL_OUTPUT_DIR`，不写 Skill 根目录或 `/tmp`
+- [ ] 持久状态写 `SKILL_DATA_DIR`，运行结果写 `SKILL_OUTPUT_DIR`，不写 Skill 根目录或覆盖平台目录变量
 - [ ] 失败路径写 stderr 且 exit 非 0；成功 stdout 只有一个机器可读结果
 - [ ] SKILL.md frontmatter 只有 `name`/`description`（或加 `execution`），`description` 不含密钥/内部 URL/业务数据
 
 然后按顺序做两件事：
 
 1. `skill_draft`（action=`review`） 做平台结构校验；验证脚本能否跑通必须调用 `skill_draft_shell`（例如 `python -m py_compile scripts/run.py`、`python scripts/run.py <args>`），**不要用 `workspace_shell` 在工作区的草稿目录里直接运行**——那是活草稿，写入会绕过 revision CAS。
+   - 有状态 Skill 要用同一 `draft_id` 分多次调用真实脚本，例如先 `start`，再 `status` / `guess`；草稿的 `SKILL_DATA_DIR` 跨调用和 Run 保留。修改代码不会自动清空测试状态，需要从空状态重新验证时传 `reset_data=true`。
+   - 每次测试后的源码修改仍按 revision 回写；测试数据不进入提交包，也不在审批后迁移到正式数据。测试报错、超时或 revision 冲突不会撤销已写入的测试状态。
+   - 只报告真实草稿已经验证的行为；workspace 文件探针、重写的试玩脚本不能替代草稿验证。用户可以直接继续聊天测试，无需配置目录或先提交审批。
 2. 按 `self-skill-review` 做规范审查：先用 `workspace_shell` 执行 `pwd` 取工作区根，再 `execute_skill` 调用 `self-skill-review`，`argv` 传 `["--target", "<工作区根>/skill-drafts/<key>"]`，然后按该 Skill 的语义清单逐项核对。把 error/warning 摘要**原文交给用户**；有 error 先修，修完重审。
 
 ### Step 7：交付草稿，等用户上传

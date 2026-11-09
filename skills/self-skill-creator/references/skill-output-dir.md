@@ -1,35 +1,41 @@
-# SKILL_OUTPUT_DIR 输出目录
+# 状态与输出目录
 
-Skill 若要写文件（报告、临时结果），必须写到环境变量 `SKILL_OUTPUT_DIR` 指向的目录。
+使用平台注入的目录变量，不覆盖变量、不硬编码路径。
 
-## 为什么必须用 SKILL_OUTPUT_DIR
+| 内容 | 目录 | 生命周期 |
+|------|------|------------|
+| 游戏进度、缓存等跨轮次状态 | `SKILL_DATA_DIR` | 跨调用、跨 Run 保留；受 workspace 配额和 TTL 管理 |
+| 报告、单次执行结果 | `SKILL_OUTPUT_DIR` | 每次执行独立；草稿测试的输出目录为临时目录 |
+| 无需保留的临时文件 | `/tmp` | 当前沙箱结束即丢弃 |
 
-| 写入位置 | 问题 |
-|---------|------|
-| Skill 根目录 | 只读，Runtime Guard 不允许写 |
-| `/tmp` | 不隔离不持久，跨 Skill 串数据，Pod 重启丢失 |
-| `SKILL_OUTPUT_DIR` | Runtime Guard 注入的 per-agent 隔离目录，持久、隔离 |
+草稿通过 `skill_draft_shell` 执行时，`SKILL_DATA_DIR` 是该草稿独享的测试目录。
+正式 Skill 的 data 按用户与 Agent 共享，状态文件应放在业务自己的子目录中，避免同名覆盖。
+草稿测试数据不进入提交包，审批通过后也不迁移到正式 data。
 
 ## Python 最小用法
 
 ```python
 import json
 import os
+from pathlib import Path
 
-out_dir = os.environ.get("SKILL_OUTPUT_DIR")
-if out_dir:
-    os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, "result.json"), "w", encoding="utf-8") as f:
-        json.dump({"ok": True}, f, ensure_ascii=False)
+# 使用相同代码测试和正式运行，平台负责区分两种数据目录。
+data_dir = Path(os.environ["SKILL_DATA_DIR"]) / "my-skill"
+data_dir.mkdir(parents=True, exist_ok=True)
+(data_dir / "state.json").write_text(json.dumps({"step": 1}), encoding="utf-8")
+
+output_dir = Path(os.environ["SKILL_OUTPUT_DIR"])
+output_dir.mkdir(parents=True, exist_ok=True)
+(output_dir / "result.json").write_text(json.dumps({"ok": True}), encoding="utf-8")
 ```
 
-## 关键约束
+需要目录变量时应明确校验；缺失时报告错误，不回落到源码目录。
+Skill 根目录在正式执行中只读，不承载状态或结果。
 
-- **必须先判空**：`SKILL_OUTPUT_DIR` 可能为空（脚本被非 Skill 上下文调用时），空时不要写文件，避免误写到 cwd 或根目录。
-- **递归创建**：用 `os.makedirs(out_dir, exist_ok=True)`，目录可能不存在。
-- **不要写绝对路径**：所有写文件路径都以 `SKILL_OUTPUT_DIR` 为前缀拼接，不要硬编码其它绝对路径。
-- **文件名避免冲突**：per-agent 隔离，但同一 Skill 多次调用可能复用同一目录，需要时加时间戳或自增序号。
+## 草稿测试
 
-## 与最终回复的关系
+使用同一 `draft_id` 分次运行真实草稿，验证前一次写入的状态能在下一次读取。
+代码修改、失败、超时或 revision 冲突都不会自动清空已经写入的测试状态。
+需要重新测试初始状态时，给 `skill_draft_shell` 传 `reset_data=true`，只清空本草稿的数据。
 
-写文件后，**最终结果仍走 OpenClaw 原生最终回复**（脚本 stdout → 模型总结给用户）。`SKILL_OUTPUT_DIR` 里的文件是给后续步骤或用户下载用的，不是最终回复本身。
+最终结果仍通过脚本 stdout 交给模型总结；正式执行的输出文件由平台登记，供后续读取或下载。

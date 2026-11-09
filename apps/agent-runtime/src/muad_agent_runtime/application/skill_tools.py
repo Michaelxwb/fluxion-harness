@@ -102,7 +102,7 @@ WORKSPACE_SHELL_DESCRIPTION = (
     "inside the workspace instead of scanning the whole filesystem (`find /` can take minutes and "
     "will not find anything the workspace does not already contain). Do not run or write files "
     "under skill-drafts/ — that is the live skill draft managed by the platform; test draft code "
-    "with skill_draft_shell instead. "
+    "with skill_draft_shell instead, including tests that need persistent draft state. "
     "The workspace is shared across runs of the same user + Agent: keep durable files under "
     "$SKILL_DATA_DIR and write per-call results under $SKILL_OUTPUT_DIR. Network is available. "
     "System Python/Node dependencies are preinstalled; temporary pip/npm installs are allowed but "
@@ -115,7 +115,12 @@ SKILL_DRAFT_SHELL_DESCRIPTION = (
     "node --check, and session-manager get-state are supported. Only files inside the draft are "
     "written back, and only after path/extension/size/symlink validation and a revision CAS; "
     "a revision conflict returns DRAFT_REVISION_CONFLICT. It is not an interactive session and "
-    "does not accept skill_key."
+    "does not accept skill_key. $SKILL_DATA_DIR persists across calls and runs for this draft, "
+    "isolated from other drafts and approved skills. Use the provided directory without "
+    "overriding it; $SKILL_OUTPUT_DIR and /tmp are temporary. Pass reset_data=true to clear "
+    "this draft's test state before the command. Test data is never submitted or migrated "
+    "on approval. Always test the actual draft; a workspace probe or rewritten playtest "
+    "script does not verify it."
 )
 # 工具描述里写清**何时用**：系统提示里的目录只列了靠前的一部分，其余技能只能从这里找到。
 SEARCH_SKILLS_DESCRIPTION = (
@@ -134,7 +139,9 @@ BACKGROUND_SUBMIT_FAILED = "BACKGROUND_SUBMIT_FAILED"
 _STRING_SCHEMA: Mapping[str, Any] = {"type": "string"}
 _OBJECT_SCHEMA: Mapping[str, Any] = {"type": "object"}
 _ARGV_SCHEMA: Mapping[str, Any] = {
-    "type": "array", "items": {"type": "string"}, "maxItems": MAX_SKILL_ARGV_ITEMS,
+    "type": "array",
+    "items": {"type": "string"},
+    "maxItems": MAX_SKILL_ARGV_ITEMS,
     "description": "Script arguments in order, preserving spaces and repeated flags as separate items.",
 }
 _NUMBER_SCHEMA: Mapping[str, Any] = {"type": "number", "exclusiveMinimum": 0}
@@ -488,27 +495,11 @@ class SkillToolSet:
                 "skill_key is not accepted by skill_draft_shell; pass draft_id",
             )
         try:
-            draft_id = _require_string(arguments, "draft_id")
-            command = _require_string(arguments, "command")
-            cwd = arguments.get("cwd", ".")
-            if not isinstance(cwd, str):
-                raise SkillToolError(
-                    ErrorCode.COMMON_VALIDATION_ERROR.value, "cwd must be a string"
-                )
-            timeout_sec = _optional_timeout(arguments, limit=self._timeout_sec)
-            result = await runner.run(
-                DraftShellRequest(
-                    tenant_id=context.tenant_id,
-                    owner_user_id=context.owner_user_id,
-                    draft_id=draft_id,
-                    command=command,
-                    cwd=cwd,
-                    timeout_sec=timeout_sec,
-                    execution_id=_workspace_execution_id(context.run_id, call_id),
-                )
-            )
+            result = await runner.run(_draft_shell_request(arguments, context, call_id, self._timeout_sec))
         except DraftShellError as exc:
             payload: dict[str, Any] = {"error": {"code": exc.code, "message": exc.message}}
+            if exc.retryable:
+                payload["error"]["retryable"] = True
             if exc.result is not None:
                 payload["stdout"] = exc.result.stdout
                 payload["stderr"] = exc.result.stderr
@@ -560,6 +551,10 @@ class SkillToolSet:
                     "command": _STRING_SCHEMA,
                     "cwd": _STRING_SCHEMA,
                     "timeout_sec": _NUMBER_SCHEMA,
+                    "reset_data": {
+                        "type": "boolean",
+                        "description": "Clear only this draft's test data before running the command.",
+                    },
                 },
                 ("draft_id", "command"),
             ),
@@ -865,6 +860,29 @@ class SkillToolSet:
                     )
             entries.append(entry)
         return entries
+
+
+def _draft_shell_request(
+    arguments: Mapping[str, Any], context: DraftShellContext, call_id: str, timeout_limit: float
+) -> DraftShellRequest:
+    cwd = arguments.get("cwd", ".")
+    reset_data = arguments.get("reset_data", False)
+    if not isinstance(cwd, str) or not isinstance(reset_data, bool):
+        raise SkillToolError(
+            ErrorCode.COMMON_VALIDATION_ERROR.value,
+            "cwd must be a string and reset_data must be a boolean",
+        )
+    return DraftShellRequest(
+        tenant_id=context.tenant_id,
+        owner_user_id=context.owner_user_id,
+        draft_id=_require_string(arguments, "draft_id"),
+        command=_require_string(arguments, "command"),
+        cwd=cwd,
+        reset_data=reset_data,
+        timeout_sec=_optional_timeout(arguments, limit=timeout_limit),
+        execution_id=_workspace_execution_id(context.run_id, call_id),
+        run_id=context.run_id,
+    )
 
 
 def _input_schema(properties: Mapping[str, Any], required: Sequence[str]) -> dict[str, Any]:
