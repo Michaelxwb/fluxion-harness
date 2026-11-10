@@ -11,6 +11,7 @@ _PROBE = Path(__file__).resolve().parents[3] / (
     ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/"
     "test_egress_shared_repair.py"
 )
+_ACCEPTANCE_PROBE = _PROBE.with_name("test_egress_shared_acceptance.py")
 
 
 @pytest.fixture(autouse=True)
@@ -29,3 +30,13 @@ async def test_shared_egress_across_processes() -> None:
 @pytest.mark.integration
 async def test_shared_egress_sliding_window() -> None:
     await runpy.run_path(str(_PROBE))["test_b_01"]()
+
+
+@pytest.mark.integration
+async def test_shared_egress_execution_and_invocation_rules() -> None:
+    await runpy.run_path(str(_ACCEPTANCE_PROBE))["test_s_02"]()
+
+
+@pytest.mark.integration
+async def test_shared_egress_policy_changes_keep_frozen_budget() -> None:
+    await runpy.run_path(str(_PROBE))["test_b_04"]()

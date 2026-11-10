@@ -12,8 +12,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from muad_contracts.shared_egress import SharedEgressPolicy
+from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
 from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded, SharedRedisMeter
+from muad_platform_sdk.shared_redis_scripts import ADMIT
 from redis.asyncio import RedisCluster
 from redis.exceptions import RedisError
 
@@ -48,17 +49,20 @@ async def _worker(redis_url: str, domain: str, port: int, worker_id: int) -> Non
 
 
 async def _revision_worker(redis_url: str, domain: str, revision: int, limit: int,
-                           count: int, worker_id: str) -> None:
+                           count: int, worker_id: str, refresh: bool = False) -> None:
     client = RedisCluster.from_url(redis_url, decode_responses=True)
     meter = SharedRedisMeter(client, domain=domain, epoch="test-epoch")
     policy = _revision_policy(revision, limit)
     allowed = limited = stale = 0
     try:
+        await meter.resume_execution("execution-1", max_requests=60)
+        await meter.resume_invocation("execution-1", "invocation-1", max_requests=60)
         for number in range(count):
             try:
                 permit = await meter.admit(
                     policy, target_instance_id="platform", route_id="GET /assets",
                     attempt_id=f"{worker_id}-{number}", lease_seconds=30,
+                    invocation=TrustedInvocation("execution-1", "invocation-1", f"segment-{worker_id}"),
                 )
                 assert permit is not None
                 await meter.consume(permit)
@@ -70,6 +74,10 @@ async def _revision_worker(redis_url: str, domain: str, revision: int, limit: in
                 if "POLICY" not in str(exc):
                     raise
                 stale += 1
+                if refresh:
+                    current = await client.hget(f"fx:egress:{{{domain}}}:policy", "json")
+                    assert current is not None
+                    policy = SharedEgressPolicy.model_validate_json(current)
         print(json.dumps({"allowed": allowed, "limited": limited, "stale": stale}))
     finally:
         await client.aclose()
@@ -85,10 +93,12 @@ def _revision_policy(revision: int, limit: int, *, window_seconds: int | None = 
 
 async def _run_revision_worker(
     domain: str, revision: int, limit: int, count: int, name: str,
+    refresh: bool = False,
 ) -> dict[str, int]:
     process = await asyncio.create_subprocess_exec(
         sys.executable, str(Path(__file__).resolve()), "--revision-worker", str(revision),
-        str(limit), str(count), name, env={**os.environ, "EGRESS_TEST_DOMAIN": domain},
+        str(limit), str(count), name, *(["--refresh"] if refresh else []),
+        env={**os.environ, "EGRESS_TEST_DOMAIN": domain},
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
     )
     try:
@@ -120,6 +130,73 @@ class _Probe(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: object) -> None:
         pass
+
+
+class _IsolatedAdmissionClock:
+    """Replace only the admission script's TIME call in a test-owned domain."""
+
+    def __init__(self, client: RedisCluster, milliseconds: int) -> None:
+        self.client = client
+        self.milliseconds = milliseconds
+
+    async def execute_command(self, *args: str | int) -> object:
+        if args[0] == "EVAL" and args[1] == ADMIT:
+            marker = "local now = redis.call('TIME')"
+            assert ADMIT.count(marker) == 1
+            seconds, milliseconds = divmod(self.milliseconds, 1000)
+            clock = f"local now = {{'{seconds}', '{milliseconds * 1000}'}}"
+            args = (args[0], ADMIT.replace(marker, clock, 1), *args[2:])
+        return await self.client.execute_command(*args)
+
+
+async def _check_controlled_window(redis_url: str) -> None:
+    client = RedisCluster.from_url(redis_url, decode_responses=True)
+    domain = "egress-controlled-window-" + uuid.uuid4().hex
+    prefix = f"fx:egress:{{{domain}}}:"
+    try:
+        await client.hset(prefix + "guard", mapping={"epoch": "test-epoch"})
+        await SharedRedisMeter(client, domain=domain, epoch="test-epoch").publish(_policy())
+        last_ms = int(await client.hget(prefix + "guard", "last_ms"))
+        base = ((last_ms // 60_000) + 2) * 60_000 + 59_500
+        clock = _IsolatedAdmissionClock(client, base)
+        meter = SharedRedisMeter(clock, domain=domain, epoch="test-epoch")
+        for number in range(50):
+            assert await meter.admit(
+                _policy(), target_instance_id="platform", route_id="GET /assets",
+                attempt_id=f"controlled-{number}", lease_seconds=30,
+            ) is not None
+        for offset in (500, 59_999):
+            clock.milliseconds = base + offset
+            with pytest.raises(SharedLimitExceeded, match="window"):
+                await meter.admit(
+                    _policy(), target_instance_id="platform", route_id="GET /assets",
+                    attempt_id=f"denied-{offset}", lease_seconds=30,
+                )
+        clock.milliseconds = base + 60_000
+        assert await meter.admit(
+            _policy(), target_instance_id="platform", route_id="GET /assets",
+            attempt_id="exact-expiry", lease_seconds=30,
+        ) is not None
+        clock.milliseconds -= 1
+        with pytest.raises(MeteringUnavailable, match="CLOCK"):
+            await meter.admit(
+                _policy(), target_instance_id="platform", route_id="GET /assets",
+                attempt_id="controlled-backwards", lease_seconds=30,
+            )
+    finally:
+        try:
+            async for key in client.scan_iter(match=prefix + "*"):
+                await client.delete(key)
+        finally:
+            await client.aclose()
+
+
+@pytest.mark.integration
+async def test_b_01_controlled_boundary() -> None:
+    redis_url = os.environ.get("MUAD_CLUSTER_REDIS_URL")
+    if not redis_url:
+        pytest.fail("env_blocked: MUAD_CLUSTER_REDIS_URL must point to a real Redis Cluster")
+    await _check_controlled_window(redis_url)
 
 
 @pytest.mark.integration
@@ -179,6 +256,7 @@ async def test_b_01() -> None:
     redis_url = os.environ.get("MUAD_CLUSTER_REDIS_URL")
     if not redis_url:
         pytest.fail("env_blocked: MUAD_CLUSTER_REDIS_URL must point to a real Redis Cluster")
+    await _check_controlled_window(redis_url)
     client = RedisCluster.from_url(redis_url, decode_responses=True)
     domain = "egress-window-" + uuid.uuid4().hex
     prefix = f"fx:egress:{{{domain}}}:"
@@ -246,6 +324,8 @@ async def test_b_04() -> None:
             pytest.fail(f"env_blocked: Redis Cluster unavailable: {type(exc).__name__}")
         await client.hset(prefix + "guard", mapping={"epoch": "test-epoch"})
         await meter.publish(_revision_policy(1, 100))
+        await meter.register_execution("execution-1", max_requests=60)
+        await meter.register_invocation("execution-1", "invocation-1", max_requests=60)
         assert await _run_revision_worker(domain, 1, 100, 30, "old-before") == {
             "allowed": 30, "limited": 0, "stale": 0,
         }
@@ -256,6 +336,9 @@ async def test_b_04() -> None:
         )
         assert old == {"allowed": 0, "limited": 0, "stale": 1}
         assert new == {"allowed": 20, "limited": 10, "stale": 0}
+        assert await _run_revision_worker(domain, 1, 100, 2, "refresh", refresh=True) == {
+            "allowed": 0, "limited": 1, "stale": 1,
+        }
         await meter.publish(_revision_policy(3, 100, window_seconds=60))
         with pytest.raises(SharedLimitExceeded) as error:
             await meter.admit(
@@ -263,7 +346,14 @@ async def test_b_04() -> None:
                 route_id="GET /assets", attempt_id="new-window", lease_seconds=30,
             )
         assert error.value.kind == "WINDOW"
-        pytest.fail("INCOMPLETE: frozen execution budget is not yet wired to the shared meter")
+        await meter.publish(_revision_policy(4, 200))
+        assert await _run_revision_worker(domain, 4, 200, 12, "restored") == {
+            "allowed": 10, "limited": 2, "stale": 0,
+        }
+        await meter.publish(_revision_policy(5, 300))
+        assert await _run_revision_worker(domain, 5, 300, 1, "restored-again") == {
+            "allowed": 0, "limited": 1, "stale": 0,
+        }
     finally:
         try:
             keys = [key async for key in client.scan_iter(match=prefix + "*")]
@@ -276,6 +366,7 @@ async def test_b_04() -> None:
 if __name__ == "__main__" and len(sys.argv) == 4 and sys.argv[1] == "--worker":
     asyncio.run(_worker(os.environ["MUAD_CLUSTER_REDIS_URL"], os.environ["EGRESS_TEST_DOMAIN"],
                         int(sys.argv[2]), int(sys.argv[3])))
-elif __name__ == "__main__" and len(sys.argv) == 6 and sys.argv[1] == "--revision-worker":
+elif __name__ == "__main__" and len(sys.argv) in (6, 7) and sys.argv[1] == "--revision-worker":
+    refresh = len(sys.argv) == 7 and sys.argv[6] == "--refresh"
     asyncio.run(_revision_worker(os.environ["MUAD_CLUSTER_REDIS_URL"], os.environ["EGRESS_TEST_DOMAIN"],
-                                 int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), sys.argv[5]))
+                                 int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), sys.argv[5], refresh))

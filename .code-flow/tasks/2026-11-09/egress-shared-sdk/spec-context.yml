@@ -1,7 +1,7 @@
 version: 1
 task: 共享出口管控 SDK
 enforcement: required
-updated_at: '2026-11-10T06:54:33.116925+00:00'
+updated_at: '2026-11-10T11:38:46.742752+00:00'
 sources:
 - type: cli
   ref: bind
@@ -37,7 +37,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-arch-001
-          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
+          artifact_sha256: 97f0f24ca3e27f001d403cb6ff3952ccae3b1160401a8973e48ef1d08c9f1929
         decision: null
         evidence: []
       plan:
@@ -46,7 +46,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
+          artifact_sha256: 64525066f186170242894430270b636f6d7df9d1c0790be4e75ff9442bb3b7c1
         decision: null
         evidence: []
       code:
@@ -372,6 +372,102 @@ bindings:
               231 passed in 39.94s
 
               '
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-10T08:17:01.103840+00:00'
+          status: verified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 83a62f8d590777637bd69a8126f1de5b21940178405d3d9101e1404e17cffcc7
+          result_sha256: 339782f9fcb7fe58c51bd0a75bac9af1013ff34796e06122081af909a94a6d42
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: 779992fc3ff930414897ab774954e6cd10a31da665d4b6e7a0b8d5f75194dbd4
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 31%]
+
+              ........................................................................
+              [ 62%]
+
+              ........................................................................
+              [ 93%]
+
+              ...............                                                          [100%]
+
+              231 passed in 46.28s
+
+              '
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-10T09:02:01.363922+00:00'
+          status: verified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 83a62f8d590777637bd69a8126f1de5b21940178405d3d9101e1404e17cffcc7
+          result_sha256: cd7e0741e1258e2015d963bc057a162c518d62deca77b3568e9ae3bc366970a6
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: ba0f035ff0c22d72b770f450743e91e78693d5a88f2df6c643d7f7838190a8f5
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 31%]
+
+              ........................................................................
+              [ 62%]
+
+              ........................................................................
+              [ 93%]
+
+              ...............                                                          [100%]
+
+              231 passed in 39.98s
+
+              '
+        - verifier_ref: harness-arch#RULE-arch-001
+          executed_at: '2026-11-10T11:39:41.291164+00:00'
+          status: verified
+          rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+          artifact_sha256: null
+          diff_sha256: 1b482c1283163a90e80f662d534c14056fda9216ba1b68c6df79d4de2dbec9e1
+          result_sha256: 083401cd640c3ec435da10030fdea403192d2dcbb52939f7f533cab4ccebac57
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/architecture
+            exit_code: 0
+            stdout_sha256: 54ba141c9ffa804dcc38305bc6451102deb63733487d46b3faa9e8ea579ef997
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '........................................................................
+              [ 31%]
+
+              ........................................................................
+              [ 62%]
+
+              ........................................................................
+              [ 93%]
+
+              ...............                                                          [100%]
+
+              231 passed in 39.31s
+
+              '
       review:
         status: pending
         refs: []
@@ -385,7 +481,7 @@ bindings:
     metadata_sha256: 4c0b58f383383267a768a0d1c93774dc8702f7e68e68de0bb654746611af262e
     rules_sha256: bff4e046d47cecba0e97c8a83921f635292d2a2e009c836fece1462a9024a68d
   selected_by: agent
-  reason: 继承旧出口 SDK 需求的规范范围；新版重新建立证据，新增共享状态与稳定身份需要 data/time 约束
+  reason: TASK-010 持久身份前置任务，继承原 TASK-006 数据约束，不扩大功能需求
   enforcement: required
   stages:
   - design
@@ -410,16 +506,16 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
+          artifact_sha256: 97f0f24ca3e27f001d403cb6ff3952ccae3b1160401a8973e48ef1d08c9f1929
         decision: null
         evidence: []
       plan:
         status: applied
         refs:
         - artifact: egress-shared-sdk.md
-          section_id: TASK-006
-          item_id: TASK-006
-          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
+          section_id: TASK-010
+          item_id: TASK-010
+          artifact_sha256: 64525066f186170242894430270b636f6d7df9d1c0790be4e75ff9442bb3b7c1
         decision: null
         evidence: []
       code:
@@ -428,45 +524,11 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-data#RULE-data-001
-          executed_at: '2026-11-09T12:33:26.391604+00:00'
+          executed_at: '2026-11-10T11:39:41.386413+00:00'
           status: unverified
           rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
           artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-data#RULE-data-001
-          executed_at: '2026-11-09T12:34:12.498916+00:00'
-          status: unverified
-          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-data#RULE-data-001
-          executed_at: '2026-11-09T12:51:22.322774+00:00'
-          status: unverified
-          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
-          artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-data#RULE-data-001
-          executed_at: '2026-11-10T02:33:54.126437+00:00'
-          status: unverified
-          rule_text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
-          artifact_sha256: null
-          diff_sha256: e0e412999234157f35e721e40f47d6888440ab426400ea50a6c8b74c13e1ad4c
+          diff_sha256: 1b482c1283163a90e80f662d534c14056fda9216ba1b68c6df79d4de2dbec9e1
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -486,7 +548,7 @@ bindings:
     metadata_sha256: b745153ac61a208ee536889d8e50d85dd08840ea237f2c619f417c3cd4780e4d
     rules_sha256: 989697c773983b8c71c7bcfc8bfd3003c18e341e10bdd9287e2199c3eda28d18
   selected_by: agent
-  reason: 继承旧出口 SDK 需求的规范范围；新版重新建立证据，新增共享状态与稳定身份需要 data/time 约束
+  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
   enforcement: required
   stages:
   - design
@@ -511,7 +573,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-log-001
-          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
+          artifact_sha256: 97f0f24ca3e27f001d403cb6ff3952ccae3b1160401a8973e48ef1d08c9f1929
         decision: null
         evidence: []
       plan:
@@ -520,7 +582,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
+          artifact_sha256: 64525066f186170242894430270b636f6d7df9d1c0790be4e75ff9442bb3b7c1
         decision: null
         evidence: []
       code:
@@ -529,45 +591,11 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-09T12:33:26.497966+00:00'
+          executed_at: '2026-11-10T11:39:41.476025+00:00'
           status: unverified
           rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
           artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-09T12:34:12.605604+00:00'
-          status: unverified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-09T12:51:22.431850+00:00'
-          status: unverified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-log#RULE-log-001
-          executed_at: '2026-11-10T02:33:54.217969+00:00'
-          status: unverified
-          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
-          artifact_sha256: null
-          diff_sha256: e0e412999234157f35e721e40f47d6888440ab426400ea50a6c8b74c13e1ad4c
+          diff_sha256: 1b482c1283163a90e80f662d534c14056fda9216ba1b68c6df79d4de2dbec9e1
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -587,7 +615,7 @@ bindings:
     metadata_sha256: b0db57e5ec6f7febfef7b3a03e8c2989ff11da7454c75bc8eb2db0f04bdebdf4
     rules_sha256: e17b2c3a76c397162bd3651ce8b9de3d4404d55ae0034cfaa209a2f2b41576c4
   selected_by: agent
-  reason: 继承旧出口 SDK 需求的规范范围；新版重新建立证据，新增共享状态与稳定身份需要 data/time 约束
+  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
   enforcement: required
   stages:
   - design
@@ -609,7 +637,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-mcp-001
-          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
+          artifact_sha256: 97f0f24ca3e27f001d403cb6ff3952ccae3b1160401a8973e48ef1d08c9f1929
         decision: null
         evidence: []
       plan:
@@ -618,7 +646,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
+          artifact_sha256: 64525066f186170242894430270b636f6d7df9d1c0790be4e75ff9442bb3b7c1
         decision: null
         evidence: []
       code:
@@ -627,45 +655,11 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-mcp#RULE-mcp-001
-          executed_at: '2026-11-09T12:33:26.605498+00:00'
+          executed_at: '2026-11-10T11:39:41.566392+00:00'
           status: unverified
           rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
           artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-mcp#RULE-mcp-001
-          executed_at: '2026-11-09T12:34:12.709944+00:00'
-          status: unverified
-          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-mcp#RULE-mcp-001
-          executed_at: '2026-11-09T12:51:22.559806+00:00'
-          status: unverified
-          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
-          artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-mcp#RULE-mcp-001
-          executed_at: '2026-11-10T02:33:54.308320+00:00'
-          status: unverified
-          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
-          artifact_sha256: null
-          diff_sha256: e0e412999234157f35e721e40f47d6888440ab426400ea50a6c8b74c13e1ad4c
+          diff_sha256: 1b482c1283163a90e80f662d534c14056fda9216ba1b68c6df79d4de2dbec9e1
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -685,7 +679,7 @@ bindings:
     metadata_sha256: f96049e71930bae78aa61e211444baeb508c2abf1b61edd77db2699dc7b15a58
     rules_sha256: 34aebfc7fe09131b718d3fc60668f9a9540e8b5dc838a275252a93079bba7e4f
   selected_by: agent
-  reason: 继承旧出口 SDK 需求的规范范围；新版重新建立证据，新增共享状态与稳定身份需要 data/time 约束
+  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
   enforcement: required
   stages:
   - design
@@ -711,7 +705,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-platform-001
-          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
+          artifact_sha256: 97f0f24ca3e27f001d403cb6ff3952ccae3b1160401a8973e48ef1d08c9f1929
         decision: null
         evidence: []
       plan:
@@ -720,7 +714,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
+          artifact_sha256: 64525066f186170242894430270b636f6d7df9d1c0790be4e75ff9442bb3b7c1
         decision: null
         evidence: []
       code:
@@ -729,325 +723,12 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-09T12:33:26.706786+00:00'
-          status: unverified
-          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-09T12:34:28.718248+00:00'
-          status: unverified
-          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: a27d3dec6e4da456a67d70335a6188cf54a7fa87ef823c7aee3bb11ade5978d0
-          error_code: command_failed
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests -k schema_parity
-            exit_code: 1
-            stdout_sha256: 1f52d43040d0696424d30cbc2da4e74d15ed536f4b15e6f8dd476985f9eedee2
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '_schema_parity[run_record]
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_runtime_table_schema_parity[runtime_snapshot]
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_runtime_table_schema_parity[user_memory]
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_user_memory_defaults_and_experience_categories
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_eval_report_baseline_versions_are_append_only
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_eval_case_requires_existing_source_run
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_task_submission_schema_parity
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_task_submission_partial_unique_index
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_duplicate_submission_is_rejected
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_tenant_and_endpoint_are_isolated
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_soft_deleted_row_frees_the_key
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_rollback_leaves_no_submission
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_delivery_route_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_schedule_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_execution_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_event_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_same_schema_foreign_keys
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_execution_server_defaults
-
-              ERROR tests/console_channel/test_channel_schema_parity.py::test_bot_account_schema_parity
-
-              ERROR tests/console_channel/test_channel_schema_parity.py::test_channel_identity_schema_parity
-
-              ERROR tests/console_channel/test_channel_schema_parity.py::test_bind_code_schema_parity
-
-              ERROR tests/console_internal/test_resolve_schema_parity.py::test_agent_access_grant_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_agent_definition_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_model_definition_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_console_account_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_console_session_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_project_platform_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_user_credential_ref_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_shared_credential_ref_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_platform_setting_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_platform_setting_idempotency_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_admission_schema.py::test_b211_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_chat_auth_schema.py::test_b212_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_control_pool_schema.py::test_b209_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_conversation_upload_schema.py::test_b213_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_notification_schema.py::test_b214_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_runtime_pool_schema.py::test_b210_empty_database_schema_parity
-
-              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_memory_redesign_schema_parity
-
-              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_deleted_key_and_history_version_are_unique
-
-              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_confirmation_and_options_cross_outcome_are_physically_exclusive
-
-              ERROR tests/migrations/test_runtime_wait_parity.py::test_b08_empty_database_schema_parity
-
-              2 failed, 4 passed, 6918 deselected, 2 warnings, 49 errors in 13.82s
-
-              '
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-09T12:36:31.578650+00:00'
-          status: unverified
-          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: ae5cc4981aed355745c4c2bcc096d1937c75a03c9aaf512d826e8a2ff50fc52b
-          error_code: command_failed
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests -k schema_parity
-            exit_code: 1
-            stdout_sha256: fc2660591c3d2c69a2cca69dd82f1d57fb8c772850211c1bb0c3a9cbce2f5c88
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '_schema_parity[run_record]
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_runtime_table_schema_parity[runtime_snapshot]
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_runtime_table_schema_parity[user_memory]
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_user_memory_defaults_and_experience_categories
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_eval_report_baseline_versions_are_append_only
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_eval_case_requires_existing_source_run
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_task_submission_schema_parity
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_task_submission_partial_unique_index
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_duplicate_submission_is_rejected
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_tenant_and_endpoint_are_isolated
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_soft_deleted_row_frees_the_key
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_rollback_leaves_no_submission
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_delivery_route_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_schedule_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_execution_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_event_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_same_schema_foreign_keys
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_execution_server_defaults
-
-              ERROR tests/console_channel/test_channel_schema_parity.py::test_bot_account_schema_parity
-
-              ERROR tests/console_channel/test_channel_schema_parity.py::test_channel_identity_schema_parity
-
-              ERROR tests/console_channel/test_channel_schema_parity.py::test_bind_code_schema_parity
-
-              ERROR tests/console_internal/test_resolve_schema_parity.py::test_agent_access_grant_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_agent_definition_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_model_definition_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_console_account_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_console_session_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_project_platform_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_user_credential_ref_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_shared_credential_ref_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_platform_setting_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_platform_setting_idempotency_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_admission_schema.py::test_b211_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_chat_auth_schema.py::test_b212_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_control_pool_schema.py::test_b209_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_conversation_upload_schema.py::test_b213_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_notification_schema.py::test_b214_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_runtime_pool_schema.py::test_b210_empty_database_schema_parity
-
-              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_memory_redesign_schema_parity
-
-              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_deleted_key_and_history_version_are_unique
-
-              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_confirmation_and_options_cross_outcome_are_physically_exclusive
-
-              ERROR tests/migrations/test_runtime_wait_parity.py::test_b08_empty_database_schema_parity
-
-              2 failed, 4 passed, 6918 deselected, 2 warnings, 49 errors in 11.86s
-
-              '
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-09T12:41:02.295641+00:00'
-          status: unverified
-          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: 6eedc7c1fb73d60893dde7b065b095b9fbfbe278e08c7af80f0edb78a62fdaf2
-          error_code: command_failed
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests -k schema_parity
-            exit_code: 1
-            stdout_sha256: 8e41576c6bc3b0fd852088a4d4e7f785151bb187359443d1b19882fae9cd1cbf
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '_schema_parity[run_record]
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_runtime_table_schema_parity[runtime_snapshot]
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_runtime_table_schema_parity[user_memory]
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_user_memory_defaults_and_experience_categories
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_eval_report_baseline_versions_are_append_only
-
-              ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_eval_case_requires_existing_source_run
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_task_submission_schema_parity
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_task_submission_partial_unique_index
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_duplicate_submission_is_rejected
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_tenant_and_endpoint_are_isolated
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_soft_deleted_row_frees_the_key
-
-              ERROR tests/agent_worker/test_submission_schema_parity.py::test_rollback_leaves_no_submission
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_delivery_route_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_schedule_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_execution_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_event_schema_parity
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_same_schema_foreign_keys
-
-              ERROR tests/agent_worker/test_task_schema_parity.py::test_task_execution_server_defaults
-
-              ERROR tests/console_channel/test_channel_schema_parity.py::test_bot_account_schema_parity
-
-              ERROR tests/console_channel/test_channel_schema_parity.py::test_channel_identity_schema_parity
-
-              ERROR tests/console_channel/test_channel_schema_parity.py::test_bind_code_schema_parity
-
-              ERROR tests/console_internal/test_resolve_schema_parity.py::test_agent_access_grant_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_agent_definition_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_model_definition_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_console_account_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_console_session_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_project_platform_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_user_credential_ref_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_shared_credential_ref_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_platform_setting_schema_parity
-
-              ERROR tests/console_platform/test_schema_parity.py::test_platform_setting_idempotency_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_admission_schema.py::test_b211_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_chat_auth_schema.py::test_b212_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_control_pool_schema.py::test_b209_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_conversation_upload_schema.py::test_b213_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_notification_schema.py::test_b214_empty_database_schema_parity
-
-              ERROR tests/migrations/test_capacity_webchat_runtime_pool_schema.py::test_b210_empty_database_schema_parity
-
-              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_memory_redesign_schema_parity
-
-              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_deleted_key_and_history_version_are_unique
-
-              ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_confirmation_and_options_cross_outcome_are_physically_exclusive
-
-              ERROR tests/migrations/test_runtime_wait_parity.py::test_b08_empty_database_schema_parity
-
-              2 failed, 4 passed, 6918 deselected, 2 warnings, 49 errors in 11.73s
-
-              '
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-09T12:51:53.272532+00:00'
+          executed_at: '2026-11-10T09:02:29.717302+00:00'
           status: verified
           rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
           artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
-          result_sha256: 2dddd0c3f0ebc93df544958ae598ca11fbfc4a8d55f9ac4adcdb275951722fdc
+          diff_sha256: 83a62f8d590777637bd69a8126f1de5b21940178405d3d9101e1404e17cffcc7
+          result_sha256: bf2259e0c83138234073c167bb813c6f7ba151028c0bb0e471beaa059122e049
           error_code: null
           details:
             argv:
@@ -1055,7 +736,7 @@ bindings:
             - -lc
             - uv run pytest -q tests -k schema_parity
             exit_code: 0
-            stdout_sha256: a372dfe4301bf1c88c5e97512d1c765022e51a6a106989d136f33b51be48b425
+            stdout_sha256: bdbda8da942d597ec7aff3d07bf532028267e8b84b5694b3d9d9a8ff8389c1b5
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: ".......................................................     \
               \             [100%]\n=============================== warnings summary\
@@ -1069,14 +750,14 @@ bindings:
               \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              55 passed, 6929 deselected, 2 warnings in 28.85s\n"
+              55 passed, 6981 deselected, 2 warnings in 26.60s\n"
         - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-09T13:09:08.648224+00:00'
+          executed_at: '2026-11-10T11:40:09.063949+00:00'
           status: verified
           rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
           artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
-          result_sha256: 93cd6b5cb443619a462f9f57f6eff8d7134c505a1616e05c3785d07486626c2e
+          diff_sha256: 1b482c1283163a90e80f662d534c14056fda9216ba1b68c6df79d4de2dbec9e1
+          result_sha256: 79991a96ed7e94ea95305cf36a280ef2afcad0e8c00f2cce39e6eb6bf8b7d7a1
           error_code: null
           details:
             argv:
@@ -1084,7 +765,7 @@ bindings:
             - -lc
             - uv run pytest -q tests -k schema_parity
             exit_code: 0
-            stdout_sha256: 1bc6396a2eb5f642a07dd4d05be1dae98a8d7a19703e5991dfc2abba1bb9e56d
+            stdout_sha256: cc322e78048861ca4c7d9f71f8858c9d43c31a2d222e9db6eeff27d421379915
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: ".......................................................     \
               \             [100%]\n=============================== warnings summary\
@@ -1098,36 +779,7 @@ bindings:
               \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              55 passed, 6929 deselected, 2 warnings in 26.40s\n"
-        - verifier_ref: harness-project-platform#RULE-platform-001
-          executed_at: '2026-11-10T02:34:26.075084+00:00'
-          status: verified
-          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
-          artifact_sha256: null
-          diff_sha256: e0e412999234157f35e721e40f47d6888440ab426400ea50a6c8b74c13e1ad4c
-          result_sha256: 474d219793647de32c0a3aad268899844a2e2f7be71e471a4d234d2cf2499d95
-          error_code: null
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests -k schema_parity
-            exit_code: 0
-            stdout_sha256: 19439bfa0f0db2231e6440cc39018a401ce0a1e2e3b094b34c0b16f853fa52d3
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: ".......................................................     \
-              \             [100%]\n=============================== warnings summary\
-              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
-              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
-              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
-              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
-              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
-              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
-              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
-              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
-              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
-              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
-              55 passed, 6941 deselected, 2 warnings in 30.16s\n"
+              55 passed, 7011 deselected, 2 warnings in 25.86s\n"
       review:
         status: pending
         refs: []
@@ -1165,7 +817,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-secret-001
-          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
+          artifact_sha256: 97f0f24ca3e27f001d403cb6ff3952ccae3b1160401a8973e48ef1d08c9f1929
         decision: null
         evidence: []
       plan:
@@ -1174,7 +826,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
+          artifact_sha256: 64525066f186170242894430270b636f6d7df9d1c0790be4e75ff9442bb3b7c1
         decision: null
         evidence: []
       code:
@@ -1486,6 +1138,78 @@ bindings:
               14 passed in 2.91s
 
               '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-10T08:17:36.832510+00:00'
+          status: verified
+          rule_text_sha256: 43514644b4901c3cc9057086a5c30008be7ff98b46bb9af860cba450c6b8925d
+          artifact_sha256: null
+          diff_sha256: 83a62f8d590777637bd69a8126f1de5b21940178405d3d9101e1404e17cffcc7
+          result_sha256: 5476044f5694fc9a037760c1bb7b3a13078144e87770c908c6aa454700f3a8af
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: f6f2738f5f03978547b20e4e945b791edf8f9db7b497ce698a3420e1e11abb46
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.57s
+
+              '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-10T09:02:32.977511+00:00'
+          status: verified
+          rule_text_sha256: 43514644b4901c3cc9057086a5c30008be7ff98b46bb9af860cba450c6b8925d
+          artifact_sha256: null
+          diff_sha256: 83a62f8d590777637bd69a8126f1de5b21940178405d3d9101e1404e17cffcc7
+          result_sha256: 945fa93c8cbe05f6ea51f4440d089d40b482fbe3c78f26e557c2f7013376e709
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 02e35f8b650609ab75e62ac5c13bffb06e8c3bb0c8f40d83bedf0f4a255ecb6f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.41s
+
+              '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-10T11:40:12.306988+00:00'
+          status: verified
+          rule_text_sha256: 43514644b4901c3cc9057086a5c30008be7ff98b46bb9af860cba450c6b8925d
+          artifact_sha256: null
+          diff_sha256: 1b482c1283163a90e80f662d534c14056fda9216ba1b68c6df79d4de2dbec9e1
+          result_sha256: fd60180d5e21bee6e086ade6b68c0790d68dbf0da8fc32deda7a96f951c0630b
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 0135563fd1e159eddd11affd10359bb581267749b00bcc2afb7c80ada4bb5fd1
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 2.43s
+
+              '
       review:
         status: pending
         refs: []
@@ -1499,7 +1223,7 @@ bindings:
     metadata_sha256: c8f013af8b788916b59c964c6206537f1e87dd0e142e42743ac7403ece849104
     rules_sha256: d7443dbc372078dabbbd48be6a6b30a5d49fa6990183af2e6dd1e674754962fd
   selected_by: agent
-  reason: 继承旧出口 SDK 需求的规范范围；新版重新建立证据，新增共享状态与稳定身份需要 data/time 约束
+  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
   enforcement: required
   stages:
   - design
@@ -1526,7 +1250,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-skill-001
-          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
+          artifact_sha256: 97f0f24ca3e27f001d403cb6ff3952ccae3b1160401a8973e48ef1d08c9f1929
         decision: null
         evidence: []
       plan:
@@ -1535,99 +1259,20 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
+          artifact_sha256: 64525066f186170242894430270b636f6d7df9d1c0790be4e75ff9442bb3b7c1
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
         - verifier_ref: harness-skill#RULE-skill-001
-          executed_at: '2026-11-09T12:33:26.921585+00:00'
-          status: unverified
-          rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-skill#RULE-skill-001
-          executed_at: '2026-11-09T12:34:33.221090+00:00'
+          executed_at: '2026-11-10T09:02:34.759882+00:00'
           status: verified
           rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
           artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: 6a4aeb7ab7d54d6eeb4af076391fa917f2baa6511b43bb1fd6a6f91ad0d5feab
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_skill_artifact_cache.py
-            exit_code: 0
-            stdout_sha256: bfb4bd4c98a6f948ad0b8770c64130793357b693f61c65d3cc24fd314eeceaf3
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '....                                                                     [100%]
-
-              4 passed in 0.99s
-
-              '
-        - verifier_ref: harness-skill#RULE-skill-001
-          executed_at: '2026-11-09T12:41:05.915808+00:00'
-          status: verified
-          rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: 59309d08c94acf5eeb506491e7dd8a0e91e9dedd5bdf31b4bc6ca61abfc8f214
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_skill_artifact_cache.py
-            exit_code: 0
-            stdout_sha256: 54d23ef0b56f99d2cbe2d50ca07723596b53070e1dcae86069f33fb176336fed
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '....                                                                     [100%]
-
-              4 passed in 0.93s
-
-              '
-        - verifier_ref: harness-skill#RULE-skill-001
-          executed_at: '2026-11-09T12:51:59.474351+00:00'
-          status: verified
-          rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
-          artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
-          result_sha256: 92d872d8b9821bb95c2ae26d0492a6bc6fa3cdfc90aba558dbc2ca891650cdcc
-          error_code: null
-          details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_skill_artifact_cache.py
-            exit_code: 0
-            stdout_sha256: 4dea60bd496b3789e6f66e30b14478df45c4624aca9806f64567800409827333
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '....                                                                     [100%]
-
-              4 passed in 1.41s
-
-              '
-        - verifier_ref: harness-skill#RULE-skill-001
-          executed_at: '2026-11-09T13:09:13.466711+00:00'
-          status: verified
-          rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
-          artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
+          diff_sha256: 83a62f8d590777637bd69a8126f1de5b21940178405d3d9101e1404e17cffcc7
           result_sha256: a0811cce598a5f2e057991f7515f9aede3268c73681f7846977a84a18eff84e3
           error_code: null
           details:
@@ -1646,28 +1291,17 @@ bindings:
 
               '
         - verifier_ref: harness-skill#RULE-skill-001
-          executed_at: '2026-11-10T02:34:31.379736+00:00'
-          status: verified
+          executed_at: '2026-11-10T11:40:12.404233+00:00'
+          status: unverified
           rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
           artifact_sha256: null
-          diff_sha256: e0e412999234157f35e721e40f47d6888440ab426400ea50a6c8b74c13e1ad4c
-          result_sha256: 9ef0fa8eb437c7cc50a262be7947e15c41b28287bd3a87abc289c113516ec004
-          error_code: null
+          diff_sha256: 1b482c1283163a90e80f662d534c14056fda9216ba1b68c6df79d4de2dbec9e1
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
           details:
-            argv:
-            - uv
-            - run
-            - pytest
-            - -q
-            - tests/test_skill_artifact_cache.py
-            exit_code: 0
-            stdout_sha256: d9ba1a47006e2b7926efbf4c8c721509dfb0cc952fe2d95d9797b9ca5881acf6
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '....                                                                     [100%]
-
-              4 passed in 0.96s
-
-              '
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -1681,7 +1315,7 @@ bindings:
     metadata_sha256: 34a1bcb1153a685aab40f9576748579d32b73598ab6210f99c7fb762dc6361f1
     rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
   selected_by: agent
-  reason: 继承旧出口 SDK 需求的规范范围；新版重新建立证据，新增共享状态与稳定身份需要 data/time 约束
+  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
   enforcement: required
   stages:
   - design
@@ -1705,7 +1339,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
+          artifact_sha256: 97f0f24ca3e27f001d403cb6ff3952ccae3b1160401a8973e48ef1d08c9f1929
         decision: null
         evidence: []
       plan:
@@ -1714,297 +1348,21 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
+          artifact_sha256: 64525066f186170242894430270b636f6d7df9d1c0790be4e75ff9442bb3b7c1
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
         - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-09T12:33:27.032649+00:00'
-          status: unverified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-09T12:34:36.117118+00:00'
-          status: unverified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: c00fdb377de1d9fbbd5e3ec914059b4c63eff2d90e398b9b20b94749fab3bb90
-          error_code: command_failed
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
-              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
-            exit_code: 1
-            stdout_sha256: e2c5a46492bae29f5572478e667bce4410f68cca2a9b2fedaa7ec62524002fdc
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:630:\
-              \ in connect\n    return self.loaded_dbapi.connect(*cargs, **cparams)\
-              \  # type: ignore[no-any-return]  # NOQA: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:955:\
-              \ in connect\n    await_only(creator_fn(*arg, **kw)),\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132:\
-              \ in await_only\n    return current.parent.switch(awaitable)  # type:\
-              \ ignore[no-any-return,attr-defined] # noqa: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196:\
-              \ in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/asyncpg/connection.py:2443: in connect\n\
-              \    return await connect_utils._connect(\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1218:\
-              \ in _connect\n    conn = await _connect_addr(\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1054:\
-              \ in _connect_addr\n    return await __connect_addr(params, True, *args)\n\
-              \           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _\
-              \ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
-              \ \n\nparams = ConnectionParameters(user='muad', password='[REDACTED]',\
-              \ database='muad', ssl=<s...postgres'>, server_settings=None, target_session_attrs=<SessionAttribute.any:\
-              \ 'any'>, krbsrvname=None, gsslib='gssapi')\nretry = True, addr = ('127.0.0.1',\
-              \ 5432)\nloop = <_UnixSelectorEventLoop running=False closed=False debug=False>\n\
-              config = ConnectionConfiguration(command_timeout=None, statement_cache_size=100,\
-              \ max_cached_statement_lifetime=300, max_cacheable_statement_size=15360)\n\
-              connection_class = <class 'asyncpg.connection.Connection'>\nrecord_class\
-              \ = <class 'asyncpg.protocol.record.Record'>\nparams_input = ConnectionParameters(user='muad',\
-              \ password='[REDACTED]', database='muad', ssl=<s...postgres'>, server_settings=None,\
-              \ target_session_attrs=<SessionAttribute.any: 'any'>, krbsrvname=None,\
-              \ gsslib='gssapi')\n\n    async def __connect_addr(\n        params,\n\
-              \        retry,\n        addr,\n        loop,\n        config,\n   \
-              \     connection_class,\n        record_class,\n        params_input,\n\
-              \    ):\n        connected = _create_future(loop)\n    \n        proto_factory\
-              \ = lambda: protocol.Protocol(\n            addr, connected, params,\
-              \ record_class, loop)\n    \n        if isinstance(addr, str):\n   \
-              \         # UNIX socket\n            connector = loop.create_unix_connection(proto_factory,\
-              \ addr)\n    \n        elif params.ssl and params.ssl_negotiation is\
-              \ SSLNegotiation.direct:\n            # if ssl and ssl_negotiation is\
-              \ `direct`, skip STARTTLS and perform\n            # direct SSL connection\n\
-              \            connector = loop.create_connection(\n                proto_factory,\
-              \ *addr, ssl=params.ssl\n            )\n    \n        elif params.ssl:\n\
-              \            connector = _create_ssl_connection(\n                proto_factory,\
-              \ *addr, loop=loop, ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode\
-              \ == SSLMode.prefer)\n        else:\n            connector = loop.create_connection(proto_factory,\
-              \ *addr)\n    \n        tr, pr = await connector\n    \n        try:\n\
-              >           await connected\nE           asyncpg.exceptions.TooManyConnectionsError:\
-              \ remaining connection slots are reserved for roles with the SUPERUSER\
-              \ attribute\n\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1102:\
-              \ TooManyConnectionsError\n=========================== short test summary\
-              \ info ============================\nFAILED tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only\n\
-              ERROR tests/agent_runtime/test_snapshot_freeze.py::test_b104_definition_change_only_affects_new_runs\n\
-              ERROR tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only\n\
-              1 failed, 2 passed, 2 errors in 1.20s\n"
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-09T12:36:38.008757+00:00'
-          status: unverified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: 1b6b1a97a02cdd75aa00076c9b70a5b842f434a8de06558e0fabd43ded9c0775
-          error_code: command_failed
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
-              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
-            exit_code: 1
-            stdout_sha256: 8bfc80b3e987dfa26a332e2019f1d693299e7e90a2e8099110570bf8a5e5d3cf
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:630:\
-              \ in connect\n    return self.loaded_dbapi.connect(*cargs, **cparams)\
-              \  # type: ignore[no-any-return]  # NOQA: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:955:\
-              \ in connect\n    await_only(creator_fn(*arg, **kw)),\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132:\
-              \ in await_only\n    return current.parent.switch(awaitable)  # type:\
-              \ ignore[no-any-return,attr-defined] # noqa: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196:\
-              \ in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/asyncpg/connection.py:2443: in connect\n\
-              \    return await connect_utils._connect(\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1218:\
-              \ in _connect\n    conn = await _connect_addr(\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1054:\
-              \ in _connect_addr\n    return await __connect_addr(params, True, *args)\n\
-              \           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _\
-              \ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
-              \ \n\nparams = ConnectionParameters(user='muad', password='[REDACTED]',\
-              \ database='muad', ssl=<s...postgres'>, server_settings=None, target_session_attrs=<SessionAttribute.any:\
-              \ 'any'>, krbsrvname=None, gsslib='gssapi')\nretry = True, addr = ('127.0.0.1',\
-              \ 5432)\nloop = <_UnixSelectorEventLoop running=False closed=False debug=False>\n\
-              config = ConnectionConfiguration(command_timeout=None, statement_cache_size=100,\
-              \ max_cached_statement_lifetime=300, max_cacheable_statement_size=15360)\n\
-              connection_class = <class 'asyncpg.connection.Connection'>\nrecord_class\
-              \ = <class 'asyncpg.protocol.record.Record'>\nparams_input = ConnectionParameters(user='muad',\
-              \ password='[REDACTED]', database='muad', ssl=<s...postgres'>, server_settings=None,\
-              \ target_session_attrs=<SessionAttribute.any: 'any'>, krbsrvname=None,\
-              \ gsslib='gssapi')\n\n    async def __connect_addr(\n        params,\n\
-              \        retry,\n        addr,\n        loop,\n        config,\n   \
-              \     connection_class,\n        record_class,\n        params_input,\n\
-              \    ):\n        connected = _create_future(loop)\n    \n        proto_factory\
-              \ = lambda: protocol.Protocol(\n            addr, connected, params,\
-              \ record_class, loop)\n    \n        if isinstance(addr, str):\n   \
-              \         # UNIX socket\n            connector = loop.create_unix_connection(proto_factory,\
-              \ addr)\n    \n        elif params.ssl and params.ssl_negotiation is\
-              \ SSLNegotiation.direct:\n            # if ssl and ssl_negotiation is\
-              \ `direct`, skip STARTTLS and perform\n            # direct SSL connection\n\
-              \            connector = loop.create_connection(\n                proto_factory,\
-              \ *addr, ssl=params.ssl\n            )\n    \n        elif params.ssl:\n\
-              \            connector = _create_ssl_connection(\n                proto_factory,\
-              \ *addr, loop=loop, ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode\
-              \ == SSLMode.prefer)\n        else:\n            connector = loop.create_connection(proto_factory,\
-              \ *addr)\n    \n        tr, pr = await connector\n    \n        try:\n\
-              >           await connected\nE           asyncpg.exceptions.TooManyConnectionsError:\
-              \ remaining connection slots are reserved for roles with the SUPERUSER\
-              \ attribute\n\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1102:\
-              \ TooManyConnectionsError\n=========================== short test summary\
-              \ info ============================\nFAILED tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only\n\
-              ERROR tests/agent_runtime/test_snapshot_freeze.py::test_b104_definition_change_only_affects_new_runs\n\
-              ERROR tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only\n\
-              1 failed, 2 passed, 2 errors in 1.11s\n"
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-09T12:41:08.675675+00:00'
-          status: unverified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: fe50dba2c79e8e085a3a2e8ca4f93fe6caeef2c17db6e0747c6706ea7317e0dd
-          error_code: command_failed
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
-              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
-            exit_code: 1
-            stdout_sha256: 68dd0eae27b813d696269a6a7a788afa3f55d568ea18b7542b9c04481d5ae47f
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:630:\
-              \ in connect\n    return self.loaded_dbapi.connect(*cargs, **cparams)\
-              \  # type: ignore[no-any-return]  # NOQA: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:955:\
-              \ in connect\n    await_only(creator_fn(*arg, **kw)),\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132:\
-              \ in await_only\n    return current.parent.switch(awaitable)  # type:\
-              \ ignore[no-any-return,attr-defined] # noqa: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196:\
-              \ in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/asyncpg/connection.py:2443: in connect\n\
-              \    return await connect_utils._connect(\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1218:\
-              \ in _connect\n    conn = await _connect_addr(\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1054:\
-              \ in _connect_addr\n    return await __connect_addr(params, True, *args)\n\
-              \           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _\
-              \ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
-              \ \n\nparams = ConnectionParameters(user='muad', password='[REDACTED]',\
-              \ database='muad', ssl=<s...postgres'>, server_settings=None, target_session_attrs=<SessionAttribute.any:\
-              \ 'any'>, krbsrvname=None, gsslib='gssapi')\nretry = True, addr = ('127.0.0.1',\
-              \ 5432)\nloop = <_UnixSelectorEventLoop running=False closed=False debug=False>\n\
-              config = ConnectionConfiguration(command_timeout=None, statement_cache_size=100,\
-              \ max_cached_statement_lifetime=300, max_cacheable_statement_size=15360)\n\
-              connection_class = <class 'asyncpg.connection.Connection'>\nrecord_class\
-              \ = <class 'asyncpg.protocol.record.Record'>\nparams_input = ConnectionParameters(user='muad',\
-              \ password='[REDACTED]', database='muad', ssl=<s...postgres'>, server_settings=None,\
-              \ target_session_attrs=<SessionAttribute.any: 'any'>, krbsrvname=None,\
-              \ gsslib='gssapi')\n\n    async def __connect_addr(\n        params,\n\
-              \        retry,\n        addr,\n        loop,\n        config,\n   \
-              \     connection_class,\n        record_class,\n        params_input,\n\
-              \    ):\n        connected = _create_future(loop)\n    \n        proto_factory\
-              \ = lambda: protocol.Protocol(\n            addr, connected, params,\
-              \ record_class, loop)\n    \n        if isinstance(addr, str):\n   \
-              \         # UNIX socket\n            connector = loop.create_unix_connection(proto_factory,\
-              \ addr)\n    \n        elif params.ssl and params.ssl_negotiation is\
-              \ SSLNegotiation.direct:\n            # if ssl and ssl_negotiation is\
-              \ `direct`, skip STARTTLS and perform\n            # direct SSL connection\n\
-              \            connector = loop.create_connection(\n                proto_factory,\
-              \ *addr, ssl=params.ssl\n            )\n    \n        elif params.ssl:\n\
-              \            connector = _create_ssl_connection(\n                proto_factory,\
-              \ *addr, loop=loop, ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode\
-              \ == SSLMode.prefer)\n        else:\n            connector = loop.create_connection(proto_factory,\
-              \ *addr)\n    \n        tr, pr = await connector\n    \n        try:\n\
-              >           await connected\nE           asyncpg.exceptions.TooManyConnectionsError:\
-              \ remaining connection slots are reserved for roles with the SUPERUSER\
-              \ attribute\n\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1102:\
-              \ TooManyConnectionsError\n=========================== short test summary\
-              \ info ============================\nFAILED tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only\n\
-              ERROR tests/agent_runtime/test_snapshot_freeze.py::test_b104_definition_change_only_affects_new_runs\n\
-              ERROR tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only\n\
-              1 failed, 2 passed, 2 errors in 1.18s\n"
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-09T12:52:03.597976+00:00'
-          status: unverified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
-          result_sha256: c7fb88994236abafe9103b7cad44e79c409092eb392ef18214739b2c95173574
-          error_code: command_failed
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
-              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
-            exit_code: 1
-            stdout_sha256: f5bca43cf21e1015c0a12c09633a611698833ae8e58f53b68a0946ef048a368a
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: "clauseelement(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643:\
-              \ in _execute_clauseelement\n    ret = self._execute_context(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848:\
-              \ in _execute_context\n    return self._exec_single_context(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988:\
-              \ in _exec_single_context\n    self._handle_dbapi_exception(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365:\
-              \ in _handle_dbapi_exception\n    raise sqlalchemy_exception.with_traceback(exc_info[2])\
-              \ from e\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969:\
-              \ in _exec_single_context\n    self.dialect.do_execute(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952:\
-              \ in do_execute\n    cursor.execute(statement, parameters)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:585:\
-              \ in execute\n    self._adapt_connection.await_(\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132:\
-              \ in await_only\n    return current.parent.switch(awaitable)  # type:\
-              \ ignore[no-any-return,attr-defined] # noqa: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196:\
-              \ in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n\
-              .venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:563:\
-              \ in _prepare_and_execute\n    self._handle_exception(error)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:513:\
-              \ in _handle_exception\n    self._adapt_connection._handle_exception(error)\n\
-              _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _\
-              \ _ _ _ _ _ _ \n\nself = <AdaptedConnection <asyncpg.connection.Connection\
-              \ object at 0x10e0ecaa0>>\nerror = UndefinedTableError('relation \"\
-              runtime.conversation\" does not exist')\n\n    def _handle_exception(self,\
-              \ error):\n        if self._connection.is_closed():\n            self._transaction\
-              \ = None\n            self._started = False\n    \n        if not isinstance(error,\
-              \ AsyncAdapt_asyncpg_dbapi.Error):\n            exception_mapping =\
-              \ self.dbapi._asyncpg_error_translate\n    \n            for super_\
-              \ in type(error).__mro__:\n                if super_ in exception_mapping:\n\
-              \                    translated_error = exception_mapping[super_](\n\
-              \                        \"%s: %s\" % (type(error), error)\n       \
-              \             )\n                    translated_error.pgcode = translated_error.sqlstate\
-              \ = (\n                        getattr(error, \"sqlstate\", None)\n\
-              \                    )\n>                   raise translated_error from\
-              \ error\nE                   sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError)\
-              \ <class 'asyncpg.exceptions.UndefinedTableError'>: relation \"runtime.conversation\"\
-              \ does not exist\nE                   [SQL: INSERT INTO runtime.conversation\
-              \ (tenant_id, user_id, agent_id, title, status, last_seq, last_run_id,\
-              \ channel_account_id, external_thread_id, last_message_at, id) VALUES\
-              \ ($1::VARCHAR, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::BIGINT,\
-              \ $7::UUID, $8::UUID, $9::VARCHAR, $10::TIMESTAMP WITH TIME ZONE, $11::UUID)\
-              \ RETURNING runtime.conversation.is_deleted, runtime.conversation.create_time,\
-              \ runtime.conversation.update_time]\nE                   [parameters:\
-              \ ('reap-994b7810-2cfa-4db5-804d-f9f2b633163f', UUID('cf765c8a-00f4-4e3b-8824-a03e612b517e'),\
-              \ UUID('3ddfbaae-2d42-4e4d-a514-937d3da2447a'), None, 'ACTIVE', 0, None,\
-              \ None, None, None, UUID('2307548b-a5c4-4255-93bb-8458378fc3c3'))]\n\
-              E                   (Background on this error at: https://sqlalche.me/e/20/f405)\n\
-              \n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:797:\
-              \ ProgrammingError\n=========================== short test summary info\
-              \ ============================\nFAILED tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only\n\
-              ERROR tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only\n\
-              1 failed, 2 passed, 1 skipped, 1 error in 1.52s\n"
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-09T13:09:30.365458+00:00'
+          executed_at: '2026-11-10T09:02:52.475655+00:00'
           status: verified
           rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
           artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
-          result_sha256: ff5ee4d3662fb660af0af31b8aca4d26a7c5d5fa4e709ebac487576010ed31f3
+          diff_sha256: 83a62f8d590777637bd69a8126f1de5b21940178405d3d9101e1404e17cffcc7
+          result_sha256: 1968c7c2e56dc36d966c8baca196ad305afd37adf2dc86ccbd516d8cf8a01fee
           error_code: null
           details:
             argv:
@@ -2013,33 +1371,7 @@ bindings:
             - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
               && uv run pytest -q tests/agent_runtime -k "executor or resolve"
             exit_code: 0
-            stdout_sha256: 4527b53cebd66a22bac41f5b2cb75736724dbacb19f03549e5a2cf9eea1736ce
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '....                                                                     [100%]
-
-              4 passed in 1.02s
-
-              ...........................................                              [100%]
-
-              43 passed, 1222 deselected in 12.76s
-
-              '
-        - verifier_ref: harness-snapshot#RULE-snapshot-001
-          executed_at: '2026-11-10T02:34:50.440080+00:00'
-          status: verified
-          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
-          artifact_sha256: null
-          diff_sha256: e0e412999234157f35e721e40f47d6888440ab426400ea50a6c8b74c13e1ad4c
-          result_sha256: 9fe88929cb35218596be2130aa76c695338d57ddea18009f4d310afcd091befb
-          error_code: null
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py
-              && uv run pytest -q tests/agent_runtime -k "executor or resolve"
-            exit_code: 0
-            stdout_sha256: 4aa82d474e357f19f5194bbd59f8f003ba7c24468941f2c0a4cf926286ca3ef0
+            stdout_sha256: c48a19a58a6f4135704c6f0be6e3e0448091e714b09eb1f31104fd56f4395afb
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: '....                                                                     [100%]
 
@@ -2047,9 +1379,21 @@ bindings:
 
               ...........................................                              [100%]
 
-              43 passed, 1222 deselected in 14.65s
+              43 passed, 1222 deselected in 13.28s
 
               '
+        - verifier_ref: harness-snapshot#RULE-snapshot-001
+          executed_at: '2026-11-10T11:40:12.495724+00:00'
+          status: unverified
+          rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+          artifact_sha256: null
+          diff_sha256: 1b482c1283163a90e80f662d534c14056fda9216ba1b68c6df79d4de2dbec9e1
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -2085,7 +1429,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-test-001
-          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
+          artifact_sha256: 97f0f24ca3e27f001d403cb6ff3952ccae3b1160401a8973e48ef1d08c9f1929
         decision: null
         evidence: []
       plan:
@@ -2094,7 +1438,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
+          artifact_sha256: 64525066f186170242894430270b636f6d7df9d1c0790be4e75ff9442bb3b7c1
         decision: null
         evidence: []
       code:
@@ -2115,7 +1459,7 @@ bindings:
     metadata_sha256: cdae795612a48e448e96bc35b536f56fe9278de82f1c6b2be6d47e9d3a473c41
     rules_sha256: 3f415b413ed6db83724cefc2f20674f24c10b3cdc9e2d3c6ae8487e991168d80
   selected_by: agent
-  reason: 继承旧出口 SDK 需求的规范范围；新版重新建立证据，新增共享状态与稳定身份需要 data/time 约束
+  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
   enforcement: required
   stages:
   - design
@@ -2137,7 +1481,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-time-001
-          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
+          artifact_sha256: 97f0f24ca3e27f001d403cb6ff3952ccae3b1160401a8973e48ef1d08c9f1929
         decision: null
         evidence: []
       plan:
@@ -2146,7 +1490,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
+          artifact_sha256: 64525066f186170242894430270b636f6d7df9d1c0790be4e75ff9442bb3b7c1
         decision: null
         evidence: []
       code:
@@ -2155,45 +1499,11 @@ bindings:
         decision: null
         evidence:
         - verifier_ref: harness-time#RULE-time-001
-          executed_at: '2026-11-09T12:33:27.208080+00:00'
+          executed_at: '2026-11-10T11:40:12.639631+00:00'
           status: unverified
           rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
           artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-time#RULE-time-001
-          executed_at: '2026-11-09T12:34:36.291622+00:00'
-          status: unverified
-          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-time#RULE-time-001
-          executed_at: '2026-11-09T12:52:03.793680+00:00'
-          status: unverified
-          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
-          artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
-          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
-          error_code: deferred_to_review
-          details:
-            reason: review_stage
-            deferral_kind: review_stage
-            deferred_to_review: true
-        - verifier_ref: harness-time#RULE-time-001
-          executed_at: '2026-11-10T02:34:50.609069+00:00'
-          status: unverified
-          rule_text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
-          artifact_sha256: null
-          diff_sha256: e0e412999234157f35e721e40f47d6888440ab426400ea50a6c8b74c13e1ad4c
+          diff_sha256: 1b482c1283163a90e80f662d534c14056fda9216ba1b68c6df79d4de2dbec9e1
           result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
           error_code: deferred_to_review
           details:
@@ -2213,7 +1523,7 @@ bindings:
     metadata_sha256: 3b1a0f32ac4f99b1ca467c7789fd1dbb8835461fc66d53c28bacae159fe8ac79
     rules_sha256: ccc9ee98013107e1ecf0963ec8c4cd330287193995641298c437ce45ffdd99bb
   selected_by: agent
-  reason: 继承旧出口 SDK 需求的规范范围；新版重新建立证据，新增共享状态与稳定身份需要 data/time 约束
+  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
   enforcement: required
   stages:
   - design
@@ -2239,7 +1549,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-worker-001
-          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
+          artifact_sha256: 97f0f24ca3e27f001d403cb6ff3952ccae3b1160401a8973e48ef1d08c9f1929
         decision: null
         evidence: []
       plan:
@@ -2248,431 +1558,21 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
+          artifact_sha256: 64525066f186170242894430270b636f6d7df9d1c0790be4e75ff9442bb3b7c1
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
         - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-09T12:33:27.332942+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2
-          error_code: skipped_in_cheap_gate
-          details:
-            skipped: true
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-09T12:35:25.016386+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: aadd90ad46aa050622b38816cc13e4763521e198d1014988a13e046253148f53
-          error_code: command_failed
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
-              --ignore=tests/agent_runtime/test_runner_executor.py
-            exit_code: 1
-            stdout_sha256: 402137bb9a5ad7f45df245f714a81df5815e5b7fd72f9e75967bf644baaa1f20
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: 't_claimable
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_waiting_tasks_are_not_reclaimed
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_preserves_attempt_and_clears_lease
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaimed_task_rejects_previous_owner
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_expired_lease_owner_cannot_write_terminal_state
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_e01_crash_recovery_across_instances
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_expired_lease_cannot_be_renewed
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_gives_up_after_max_attempts
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_backs_off_before_the_row_is_claimable_again
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_heartbeat_failure_stops_the_local_execution
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_claim_sets_running_lease_and_completes
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_claim_respects_not_before_and_cancel_requested
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_failure_retries_with_exponential_backoff_then_fails
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_failure_after_cancel_request_ends_cancelled
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_reclaim_expired_lease
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_sweep_deadlines_marks_failed
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_lifespan_runs_and_stops_all_background_loops
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_lifespan_fails_fast_when_migrations_missing
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_readyz_uses_shared_probes_for_database_and_artifact_storage
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_task_model_has_no_pod_or_user_binding
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_wakeup_hint_wakes_idle_listener_early
-
-              ERROR tests/agent_worker/test_worker_maintenance.py::test_maintenance_forever_survives_failure_and_retries
-
-              ERROR tests/agent_worker/test_worker_maintenance.py::test_workspace_maintenance_is_disabled_when_root_is_not_mounted
-
-              ERROR tests/agent_worker/test_worker_maintenance.py::test_skill_executor_acquires_workspace_lease_and_updates_last_access
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_metrics_endpoint_exposes_worker_catalog
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_worker_loop_increments_task_counters
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_schedule_and_delivery_increment_counters
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_declared_catalog_matches_design_and_label_names_are_hygienic
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_interpret_maps_execution_into_explicit_outcomes
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_waiting_releases_lease_and_is_claimable_after_not_before
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_waiting_does_not_consume_retry_budget
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_repeated_waits_keep_retry_budget_for_real_failures
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_deterministic_failure_is_not_retried
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_retry_budget_is_exhausted_exactly_once
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_completed_result_is_persisted_before_terminal
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_terminal_task_is_not_overwritten_by_late_success
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_large_result_uses_artifact_reference
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_cancelled_execution_marks_task_cancelled
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_keyboard_interrupt_stops_worker
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_malformed_wait_result_fails_the_task_instead_of_parking_it
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_result_must_be_an_object
-
-              343 errors in 47.12s
-
-              '
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-09T12:37:23.918432+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: 05f16c4d8681f06c6e23a0b84715353c1cf1faffee60e23cd1c86e0783a9ed11
-          error_code: command_failed
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
-              --ignore=tests/agent_runtime/test_runner_executor.py
-            exit_code: 1
-            stdout_sha256: d297cb05e589fc26876f62f802d8105541441db0bc47e765bdd6ac4eb31f9f7e
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: 't_claimable
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_waiting_tasks_are_not_reclaimed
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_preserves_attempt_and_clears_lease
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaimed_task_rejects_previous_owner
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_expired_lease_owner_cannot_write_terminal_state
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_e01_crash_recovery_across_instances
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_expired_lease_cannot_be_renewed
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_gives_up_after_max_attempts
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_backs_off_before_the_row_is_claimable_again
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_heartbeat_failure_stops_the_local_execution
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_claim_sets_running_lease_and_completes
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_claim_respects_not_before_and_cancel_requested
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_failure_retries_with_exponential_backoff_then_fails
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_failure_after_cancel_request_ends_cancelled
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_reclaim_expired_lease
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_sweep_deadlines_marks_failed
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_lifespan_runs_and_stops_all_background_loops
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_lifespan_fails_fast_when_migrations_missing
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_readyz_uses_shared_probes_for_database_and_artifact_storage
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_task_model_has_no_pod_or_user_binding
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_wakeup_hint_wakes_idle_listener_early
-
-              ERROR tests/agent_worker/test_worker_maintenance.py::test_maintenance_forever_survives_failure_and_retries
-
-              ERROR tests/agent_worker/test_worker_maintenance.py::test_workspace_maintenance_is_disabled_when_root_is_not_mounted
-
-              ERROR tests/agent_worker/test_worker_maintenance.py::test_skill_executor_acquires_workspace_lease_and_updates_last_access
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_metrics_endpoint_exposes_worker_catalog
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_worker_loop_increments_task_counters
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_schedule_and_delivery_increment_counters
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_declared_catalog_matches_design_and_label_names_are_hygienic
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_interpret_maps_execution_into_explicit_outcomes
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_waiting_releases_lease_and_is_claimable_after_not_before
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_waiting_does_not_consume_retry_budget
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_repeated_waits_keep_retry_budget_for_real_failures
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_deterministic_failure_is_not_retried
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_retry_budget_is_exhausted_exactly_once
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_completed_result_is_persisted_before_terminal
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_terminal_task_is_not_overwritten_by_late_success
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_large_result_uses_artifact_reference
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_cancelled_execution_marks_task_cancelled
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_keyboard_interrupt_stops_worker
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_malformed_wait_result_fails_the_task_instead_of_parking_it
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_result_must_be_an_object
-
-              343 errors in 44.33s
-
-              '
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-09T12:41:55.838195+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: ffccdbbe1925c8a0361e58aada5aeabf6c2e383199631e0ad58b3e2e1da00aea
-          result_sha256: 68c5be1c2e7cada4e944b3844c9e8e7282ca3131b5eb66c78d7317090f59c137
-          error_code: command_failed
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
-              --ignore=tests/agent_runtime/test_runner_executor.py
-            exit_code: 1
-            stdout_sha256: e58cb02598173e80a57c87bcfc967a4394270d7f0539f8843b10d571a484ca46
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: 't_claimable
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_waiting_tasks_are_not_reclaimed
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_preserves_attempt_and_clears_lease
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaimed_task_rejects_previous_owner
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_expired_lease_owner_cannot_write_terminal_state
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_e01_crash_recovery_across_instances
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_expired_lease_cannot_be_renewed
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_gives_up_after_max_attempts
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_backs_off_before_the_row_is_claimable_again
-
-              ERROR tests/agent_worker/test_worker_leases.py::test_heartbeat_failure_stops_the_local_execution
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_claim_sets_running_lease_and_completes
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_claim_respects_not_before_and_cancel_requested
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_failure_retries_with_exponential_backoff_then_fails
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_failure_after_cancel_request_ends_cancelled
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_reclaim_expired_lease
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_sweep_deadlines_marks_failed
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_lifespan_runs_and_stops_all_background_loops
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_lifespan_fails_fast_when_migrations_missing
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_readyz_uses_shared_probes_for_database_and_artifact_storage
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_task_model_has_no_pod_or_user_binding
-
-              ERROR tests/agent_worker/test_worker_lifecycle.py::test_wakeup_hint_wakes_idle_listener_early
-
-              ERROR tests/agent_worker/test_worker_maintenance.py::test_maintenance_forever_survives_failure_and_retries
-
-              ERROR tests/agent_worker/test_worker_maintenance.py::test_workspace_maintenance_is_disabled_when_root_is_not_mounted
-
-              ERROR tests/agent_worker/test_worker_maintenance.py::test_skill_executor_acquires_workspace_lease_and_updates_last_access
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_metrics_endpoint_exposes_worker_catalog
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_worker_loop_increments_task_counters
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_schedule_and_delivery_increment_counters
-
-              ERROR tests/agent_worker/test_worker_metrics.py::test_b212_declared_catalog_matches_design_and_label_names_are_hygienic
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_interpret_maps_execution_into_explicit_outcomes
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_waiting_releases_lease_and_is_claimable_after_not_before
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_waiting_does_not_consume_retry_budget
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_repeated_waits_keep_retry_budget_for_real_failures
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_deterministic_failure_is_not_retried
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_retry_budget_is_exhausted_exactly_once
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_completed_result_is_persisted_before_terminal
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_terminal_task_is_not_overwritten_by_late_success
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_large_result_uses_artifact_reference
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_cancelled_execution_marks_task_cancelled
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_keyboard_interrupt_stops_worker
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_malformed_wait_result_fails_the_task_instead_of_parking_it
-
-              ERROR tests/agent_worker/test_worker_outcomes.py::test_result_must_be_an_object
-
-              343 errors in 45.52s
-
-              '
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-09T13:07:00.405926+00:00'
-          status: unverified
-          rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
-          artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
-          result_sha256: 6c96814328c6e1875c659b4ebbd59785fd8671b37a2dc92183d5f7d98d6be411
-          error_code: command_failed
-          details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
-              --ignore=tests/agent_runtime/test_runner_executor.py
-            exit_code: 1
-            stdout_sha256: 849a8d73c6c407efdfbe7464a25014406a42c7e2cdd20ca45f8b0bc672d8222e
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: 'hat_provider_pool.py::test_b225_lease_loss_stops_the_local_call_and_keeps_unknown_occupancy
-
-              ERROR tests/agent_runtime/test_capacity_webchat_provider_pool.py::test_e04_429_honors_retry_after_and_settles_each_attempt
-
-              ERROR tests/agent_runtime/test_capacity_webchat_provider_pool.py::test_e04_retry_after_beyond_deadline_stops_within_budget
-
-              ERROR tests/agent_runtime/test_capacity_webchat_provider_pool.py::test_e04_5xx_retries_are_bounded_and_occupancy_stays_unknown
-
-              ERROR tests/agent_runtime/test_capacity_webchat_provider_pool.py::test_e04_stream_break_terminates_without_mixing_another_round
-
-              ERROR tests/agent_runtime/test_capacity_webchat_provider_pool.py::test_b225_reservation_estimate_scales_with_frozen_multiplier
-
-              ERROR tests/agent_runtime/test_capacity_webchat_queue_projection.py::test_b236_model_wait_projects_reason_and_bounded_deadline_then_resumes
-
-              ERROR tests/agent_runtime/test_execution_audit.py::test_tool_recorder_audits_and_externalizes_large_result
-
-              ERROR tests/agent_runtime/test_execution_audit.py::test_content_delivery_tool_result_is_not_externalized
-
-              ERROR tests/agent_runtime/test_execution_audit.py::test_content_delivery_tool_result_is_externalized_above_inline_cap
-
-              ERROR tests/agent_runtime/test_execution_audit.py::test_tool_recorder_audits_failure_status
-
-              ERROR tests/agent_runtime/test_execution_audit.py::test_model_events_link_each_retry_to_its_exact_audit_row
-
-              ERROR tests/agent_runtime/test_execution_audit.py::test_audited_model_provider_records_each_attempt
-
-              ERROR tests/agent_runtime/test_execution_audit.py::test_request_rejection_is_logged_with_safe_reason_before_normalization
-
-              ERROR tests/agent_runtime/test_execution_audit.py::test_tool_recorder_keeps_repeated_same_tool_calls_distinct
-
-              ERROR tests/agent_runtime/test_execution_audit.py::test_tool_args_preview_is_redacted_before_it_reaches_the_audit_table
-
-              ERROR tests/agent_runtime/test_interrupt_checkpoint.py::test_b118_checkpoint_interrupt_persists_and_releases
-
-              ERROR tests/agent_runtime/test_interrupt_checkpoint.py::test_b118_rebuild_locates_waiting_point_after_restart
-
-              ERROR tests/agent_runtime/test_interrupt_checkpoint.py::test_b118_unauthorized_executor_cannot_resolve
-
-              ERROR tests/agent_runtime/test_interrupt_checkpoint.py::test_b118_resolve_updates_interrupt_and_run
-
-              ERROR tests/agent_runtime/test_model_recovery.py::test_s06_rate_limited_then_success_records_attempts
-
-              ERROR tests/agent_runtime/test_model_recovery.py::test_e06_exhausted_retries_fail_with_unavailable
-
-              ERROR tests/agent_runtime/test_model_recovery.py::test_e06_cancel_stops_backoff
-
-              ERROR tests/agent_runtime/test_resume_transactions.py::test_human_resume_restores_valid_queue_projection
-
-              ERROR tests/agent_runtime/test_resume_transactions.py::test_b119_resume_idempotency_key_scopes_by_run_and_input
-
-              ERROR tests/agent_runtime/test_resume_transactions.py::test_b119_missing_idempotency_key_and_input_id_is_validation_error
-
-              ERROR tests/agent_runtime/test_run_events.py::test_b102_concurrent_appends_no_duplicate_seq
-
-              ERROR tests/agent_runtime/test_run_events.py::test_b102_rollback_leaves_no_event
-
-              ERROR tests/agent_runtime/test_run_events.py::test_b102_seq_continues_across_submissions
-
-              ERROR tests/agent_runtime/test_run_events.py::test_b102_append_many_allocates_contiguous_seqs_in_one_update
-
-              ERROR tests/agent_runtime/test_run_idempotency.py::test_b105_same_key_same_fingerprint_replays_record
-
-              ERROR tests/agent_runtime/test_run_idempotency.py::test_b105_same_key_different_fingerprint_conflict
-
-              ERROR tests/agent_runtime/test_run_idempotency.py::test_b105_resume_submission_scoped_by_run
-
-              ERROR tests/agent_runtime/test_run_idempotency.py::test_fingerprint_rejects_non_finite_numbers
-
-              ERROR tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only
-
-              ERROR tests/agent_runtime/test_runtime_audit_write.py::test_s02_tool_egress_model_audits_share_one_run
-
-              ERROR tests/agent_runtime/test_runtime_audit_write.py::test_s02_audit_payloads_carry_no_secret
-
-              80 failed, 824 passed, 327 skipped, 92 errors in 888.76s (0:14:48)
-
-              '
-        - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-09T13:26:23.484441+00:00'
+          executed_at: '2026-11-10T09:23:17.176939+00:00'
           status: verified
           rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
           artifact_sha256: null
-          diff_sha256: e3ff3a79bbf15be595b4cd3d5cae9208b44e8f6beac4bb5266c5938a7d4502f1
-          result_sha256: 7e1ddc1f36f2a0335e964fa6c5a7b4fa3f6b07587c029c0e3596795b97cffa8f
+          diff_sha256: 83a62f8d590777637bd69a8126f1de5b21940178405d3d9101e1404e17cffcc7
+          result_sha256: 143c382a76ea5320fce807fd6cbc93d5906a5ec25e4a75e33df36dc1669f4daa
           error_code: null
           details:
             argv:
@@ -2681,7 +1581,7 @@ bindings:
             - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
               --ignore=tests/agent_runtime/test_runner_executor.py
             exit_code: 0
-            stdout_sha256: 440bc611480e3e8cb79ecc438cf171ebf8fe8b74ab8e8ae1087a284bcbbcb5a3
+            stdout_sha256: 25e1b9f687bf630c35180f9771bf04f39a0a8398e0aba2579cd75e832e12e875
             stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
             output: '........................................................................
               [ 20%]
@@ -2697,7 +1597,7 @@ bindings:
 
               .......................................................                  [100%]
 
-              343 passed in 108.57s (0:01:48)
+              343 passed in 112.34s (0:01:52)
 
               ........................................................................
               [  5%]
@@ -2752,98 +1652,21 @@ bindings:
 
               ................................                                         [100%]
 
-              1256 passed in 897.03s (0:14:57)
+              1256 passed in 1103.68s (0:18:23)
 
               '
         - verifier_ref: harness-worker#RULE-worker-001
-          executed_at: '2026-11-10T02:56:01.386642+00:00'
-          status: verified
+          executed_at: '2026-11-10T11:40:12.726888+00:00'
+          status: unverified
           rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
           artifact_sha256: null
-          diff_sha256: e0e412999234157f35e721e40f47d6888440ab426400ea50a6c8b74c13e1ad4c
-          result_sha256: af61821f4bde025088c3f7cea7c7dd53fbf7ec8a765a490744cd4e4f7b657485
-          error_code: null
+          diff_sha256: 1b482c1283163a90e80f662d534c14056fda9216ba1b68c6df79d4de2dbec9e1
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
           details:
-            argv:
-            - bash
-            - -lc
-            - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime
-              --ignore=tests/agent_runtime/test_runner_executor.py
-            exit_code: 0
-            stdout_sha256: 2535e686e5314bb591c267bc03c6413d265596222d01d7c113b6e4c86fd29c2c
-            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-            output: '........................................................................
-              [ 20%]
-
-              ........................................................................
-              [ 41%]
-
-              ........................................................................
-              [ 62%]
-
-              ........................................................................
-              [ 83%]
-
-              .......................................................                  [100%]
-
-              343 passed in 114.28s (0:01:54)
-
-              ........................................................................
-              [  5%]
-
-              ........................................................................
-              [ 11%]
-
-              ........................................................................
-              [ 17%]
-
-              ........................................................................
-              [ 22%]
-
-              ........................................................................
-              [ 28%]
-
-              ........................................................................
-              [ 34%]
-
-              ........................................................................
-              [ 40%]
-
-              ........................................................................
-              [ 45%]
-
-              ........................................................................
-              [ 51%]
-
-              ........................................................................
-              [ 57%]
-
-              ........................................................................
-              [ 63%]
-
-              ........................................................................
-              [ 68%]
-
-              ........................................................................
-              [ 74%]
-
-              ........................................................................
-              [ 80%]
-
-              ........................................................................
-              [ 85%]
-
-              ........................................................................
-              [ 91%]
-
-              ........................................................................
-              [ 97%]
-
-              ................................                                         [100%]
-
-              1256 passed in 1053.29s (0:17:33)
-
-              '
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []

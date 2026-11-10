@@ -395,7 +395,7 @@ scenarios:
   - egress-shared-sdk.design.md#3.2 架构设计
   rules: []
   checks: []
-  owner: TASK-003
+  owner: TASK-010
 - id: B-06
   title: 无规则与非法配置
   priority: P0
