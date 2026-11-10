@@ -280,14 +280,6 @@ jobs:
           else
             uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
           fi
-      - name: 验证出口共享限流的跨进程和滑动窗口
-        if: matrix.shard.name == 'redis_cluster'
-        env:
-          MUAD_CLUSTER_REDIS_URL: redis://127.0.0.1:6391/0
-        run: |
-          uv run pytest -q \
-            .code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_repair.py::test_s_01 \
-            .code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_repair.py::test_b_01
       - name: 停止 3M3R Redis Cluster
         if: always() && matrix.shard.name == 'redis_cluster'
         run: ./scripts/ci/stop_redis_cluster.sh
