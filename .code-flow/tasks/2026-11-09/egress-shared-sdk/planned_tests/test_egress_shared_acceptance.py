@@ -176,8 +176,27 @@ def test_b_04() -> None:
 
 @pytest.mark.integration
 async def test_b_05() -> None:
-    """PG persistent identity plus real Cluster recovery/failover remains required."""
-    pytest.fail("PLAN_SKELETON: TASK-010 must implement PG + Cluster recovery protocol")
+    """Run the real PG/Cluster composition; missing opt-in is an environment failure."""
+    import asyncio
+    import os
+    import sys
+
+    if os.environ.get("EGRESS_ALLOW_CLUSTER_FAILOVER") != "1":
+        pytest.fail("env_blocked: B-05 requires an explicitly disposable Redis Cluster")
+    process = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "pytest", "-q",
+        "tests/sdk/test_persistent_egress_failover.py",
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+    )
+    try:
+        async with asyncio.timeout(120):
+            output, _ = await process.communicate()
+    finally:
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
+    assert process.returncode == 0, output.decode(errors="replace")
+    assert b"2 passed" in output, output.decode(errors="replace")
 
 @pytest.mark.integration
 async def test_b_05_redis_state_probe() -> None:

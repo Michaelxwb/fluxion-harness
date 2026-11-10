@@ -1574,6 +1574,7 @@ dependencies = [
     { name = "muad-contracts" },
     { name = "pydantic" },
     { name = "redis" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
 ]
 
 [package.metadata]
@@ -1583,6 +1584,7 @@ requires-dist = [
     { name = "muad-contracts", editable = "packages/contracts" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "redis", specifier = ">=6.4.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0,<3" },
 ]
 
 [[package]]

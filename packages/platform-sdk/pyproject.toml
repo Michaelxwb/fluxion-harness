@@ -8,6 +8,7 @@ dependencies = [
     "muad-contracts",
     "muad-common",
     "redis>=6.4.0",
+    "sqlalchemy[asyncio]>=2.0,<3",
 ]
 
 [build-system]

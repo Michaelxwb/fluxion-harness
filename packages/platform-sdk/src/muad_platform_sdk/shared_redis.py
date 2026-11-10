@@ -47,6 +47,10 @@ class SharedRedisMeter:
         self._prefix = f"fx:egress:{{{domain}}}:"
         self._epoch = epoch
 
+    @property
+    def epoch(self) -> str:
+        return self._epoch
+
     def _key(self, suffix: str) -> str:
         return self._prefix + suffix
 

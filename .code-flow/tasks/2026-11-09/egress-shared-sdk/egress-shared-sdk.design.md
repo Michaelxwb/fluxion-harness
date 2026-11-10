@@ -281,8 +281,16 @@ execution预算继续由Task snapshot的budget和Run policy_json冻结；executi
 
 | 表 | 字段/约束 | 索引/用途 |
 |---|---|---|
-| runtime.egress_execution | id UUID PK；tenant_id UUID；source_kind RUN/TASK；source_id UUID逻辑引用；policy_json jsonb无密钥；policy_hash；state；current_fence bigint；计数epoch；is_deleted=false；create_time/update_time timestamptz | 完整UNIQUE(tenant_id,source_kind,source_id)含tombstone；终态清理索引(state,update_time) |
-| runtime.egress_invocation | id UUID PK；tenant_id UUID；execution_id UUID FK；operation_key text；skill_key text；state；init_token_hash；is_deleted=false；create_time/update_time timestamptz | 完整UNIQUE(execution_id,operation_key)；复合FK(tenant_id,execution_id)引用execution的对应唯一键，避免跨租户归属 |
+| runtime.egress_execution | id UUID PK；tenant_id UUID；source_kind RUN/TASK；source_id UUID逻辑引用；policy_json jsonb无密钥；policy_hash；state；current_fence bigint；计数epoch；init_token_hash（可空，初始化阶段填写）；is_deleted；create_time/update_time timestamptz | 完整UNIQUE(tenant_id,source_kind,source_id)含tombstone；终态清理索引(state,update_time) |
+| runtime.egress_invocation | id UUID PK；tenant_id UUID；execution_id UUID FK；operation_key text；skill_key text；state；init_token_hash（可空，初始化阶段填写）；is_deleted；create_time/update_time timestamptz | 完整UNIQUE(execution_id,operation_key)；复合FK(tenant_id,execution_id)引用execution的对应唯一键，避免跨租户归属 |
+
+身份 ORM 定义放在 platform-sdk 的独立 `egress_identity_models` 模块，Runtime/Worker 都可依赖，避免 SDK 反向引用 app。表仍归 runtime schema，SDK 的高频计量模块不导入这些模型。迁移使用独立 DDL，SQLAlchemy 作为 SDK 的显式依赖；本阶段仅建立注册表，不为每个请求写 PG。状态枚举为 NEW/INITIALIZING/READY/BLOCKED/TERMINAL；注册表允许保留软删除历史，完整唯一约束不排除 tombstone。业务恢复必须拒绝软删除或终态记录，不能仅凭 FK 存在认定可执行。
+
+`IdentityRegistry` 使用 PG 事务内 INSERT ON CONFLICT + tenant-scoped 行锁登记身份；同 source/operation_key 保持 ID，tombstone/终态拒绝重建。冻结配置由严格类型的 `FrozenIdentityBudgets` 序列化，包含执行总额和按 Skill key 的调用预算，持久保存 canonical JSON 哈希；恢复配置不符或校验失败则拒绝。映射没有对应 Skill 时不自动添加调用上限，Skill 授权由调用者验证；全部无限制的产品路径仍应由惰性装配旁路该协议。
+
+`PersistentEgressScopes` 的初始化顺序为：提交 NEW 身份 → PG 行锁领取 NEW→INITIALIZING 并仅存 token 哈希 → 调用 Redis register → PG 按 tenant/id/state/token 哈希 CAS 为 READY。原始 token 只在 repr 隐藏的内存 claim 中存在。确认时重查父执行和 fence，旧 fence 不得确认新执行段；本模块不授予执行权，完整 lease/fence 的领取和执行中验证仍归 TASK-006。READY 只走 Redis resume(existing-only)，不走 register；INITIALIZING/失败确认不会自动创建。网络不确定或取消时尽力置 BLOCKED，若 PG 也不可用则保留 INITIALIZING 并告警，仍然关闭恢复。PG 不在高频请求路径逐次扣数。
+
+source_id 是跨 Run/Task 清理保留的来源逻辑引用，不随源记录清理删除注册事实。PG 和 Redis 无分布式事务；若已写 Redis 但确认中断，宁可拒绝旧执行也不重建零额度。本模块是可信宿主内的身份协议，不认证脚本自报 ID，也不能撤回已外发请求。
 
 operation_key来源于持久化tool_call_id或Task逻辑调用路径；重领复用，显式新调用另建。原始随机token不入快照或日志。task跨Owner Schema为逻辑引用；SQLAlchemy模型、迁移、baseline与schema parity同步。
 
