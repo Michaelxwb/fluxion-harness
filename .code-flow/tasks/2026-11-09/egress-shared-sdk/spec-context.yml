@@ -1,7 +1,7 @@
 version: 1
 task: 共享出口管控 SDK
 enforcement: required
-updated_at: '2026-11-10T03:25:58.052145+00:00'
+updated_at: '2026-11-10T03:32:41.288617+00:00'
 sources:
 - type: cli
   ref: bind
@@ -46,7 +46,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 5261d010e1c9dc9bf389c3f0368f0f8d8d11d78db6308ac777a94d6b977d2670
+          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
         decision: null
         evidence: []
       code:
@@ -251,23 +251,22 @@ bindings:
               \ max_cached_statement_lifetime=300, max_cacheable_statement_size=15360)\n\
               connection_class = <class 'asyncpg.connection.Connection'>\nrecord_class\
               \ = <class 'asyncpg.protocol.record.Record'>\nparams_input = ConnectionParameters(user='muad',\
-              \ password='[REDACTED]', database='muad',\
-              \ ssl=<s...postgres'>, server_settings=None, target_session_attrs=<SessionAttribute.any:\
-              \ 'any'>, krbsrvname=None, gsslib='gssapi')\n\n    async def __connect_addr(\n\
-              \        params,\n        retry,\n        addr,\n        loop,\n   \
-              \     config,\n        connection_class,\n        record_class,\n  \
-              \      params_input,\n    ):\n        connected = _create_future(loop)\n\
-              \    \n        proto_factory = lambda: protocol.Protocol(\n        \
-              \    addr, connected, params, record_class, loop)\n    \n        if\
-              \ isinstance(addr, str):\n            # UNIX socket\n            connector\
-              \ = loop.create_unix_connection(proto_factory, addr)\n    \n       \
-              \ elif params.ssl and params.ssl_negotiation is SSLNegotiation.direct:\n\
-              \            # if ssl and ssl_negotiation is `direct`, skip STARTTLS\
-              \ and perform\n            # direct SSL connection\n            connector\
-              \ = loop.create_connection(\n                proto_factory, *addr, ssl=params.ssl\n\
-              \            )\n    \n        elif params.ssl:\n            connector\
-              \ = _create_ssl_connection(\n                proto_factory, *addr, loop=loop,\
-              \ ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode\
+              \ password='[REDACTED]', database='muad', ssl=<s...postgres'>, server_settings=None,\
+              \ target_session_attrs=<SessionAttribute.any: 'any'>, krbsrvname=None,\
+              \ gsslib='gssapi')\n\n    async def __connect_addr(\n        params,\n\
+              \        retry,\n        addr,\n        loop,\n        config,\n   \
+              \     connection_class,\n        record_class,\n        params_input,\n\
+              \    ):\n        connected = _create_future(loop)\n    \n        proto_factory\
+              \ = lambda: protocol.Protocol(\n            addr, connected, params,\
+              \ record_class, loop)\n    \n        if isinstance(addr, str):\n   \
+              \         # UNIX socket\n            connector = loop.create_unix_connection(proto_factory,\
+              \ addr)\n    \n        elif params.ssl and params.ssl_negotiation is\
+              \ SSLNegotiation.direct:\n            # if ssl and ssl_negotiation is\
+              \ `direct`, skip STARTTLS and perform\n            # direct SSL connection\n\
+              \            connector = loop.create_connection(\n                proto_factory,\
+              \ *addr, ssl=params.ssl\n            )\n    \n        elif params.ssl:\n\
+              \            connector = _create_ssl_connection(\n                proto_factory,\
+              \ *addr, loop=loop, ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode\
               \ == SSLMode.prefer)\n        else:\n            connector = loop.create_connection(proto_factory,\
               \ *addr)\n    \n        tr, pr = await connector\n    \n        try:\n\
               >           await connected\nE           asyncpg.exceptions.TooManyConnectionsError:\
@@ -420,7 +419,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 5261d010e1c9dc9bf389c3f0368f0f8d8d11d78db6308ac777a94d6b977d2670
+          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
         decision: null
         evidence: []
       code:
@@ -521,7 +520,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 5261d010e1c9dc9bf389c3f0368f0f8d8d11d78db6308ac777a94d6b977d2670
+          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
         decision: null
         evidence: []
       code:
@@ -619,7 +618,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 5261d010e1c9dc9bf389c3f0368f0f8d8d11d78db6308ac777a94d6b977d2670
+          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
         decision: null
         evidence: []
       code:
@@ -721,7 +720,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 5261d010e1c9dc9bf389c3f0368f0f8d8d11d78db6308ac777a94d6b977d2670
+          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
         decision: null
         evidence: []
       code:
@@ -1175,7 +1174,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 5261d010e1c9dc9bf389c3f0368f0f8d8d11d78db6308ac777a94d6b977d2670
+          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
         decision: null
         evidence: []
       code:
@@ -1496,7 +1495,7 @@ bindings:
   path: artifact/harness-skill.md
   status: active
   hashes:
-    file_sha256: 576f9fc78898df09ef55896d473b644206454defb4df15eec1138225a811c42d
+    file_sha256: 4fadecd8ff8d915b373cb341c7a202ccd6f8b685d04960246bbc93403bb04f74
     metadata_sha256: c8f013af8b788916b59c964c6206537f1e87dd0e142e42743ac7403ece849104
     rules_sha256: d7443dbc372078dabbbd48be6a6b30a5d49fa6990183af2e6dd1e674754962fd
   selected_by: agent
@@ -1536,7 +1535,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 5261d010e1c9dc9bf389c3f0368f0f8d8d11d78db6308ac777a94d6b977d2670
+          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
         decision: null
         evidence: []
       code:
@@ -1715,7 +1714,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 5261d010e1c9dc9bf389c3f0368f0f8d8d11d78db6308ac777a94d6b977d2670
+          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
         decision: null
         evidence: []
       code:
@@ -1774,23 +1773,22 @@ bindings:
               \ max_cached_statement_lifetime=300, max_cacheable_statement_size=15360)\n\
               connection_class = <class 'asyncpg.connection.Connection'>\nrecord_class\
               \ = <class 'asyncpg.protocol.record.Record'>\nparams_input = ConnectionParameters(user='muad',\
-              \ password='[REDACTED]', database='muad',\
-              \ ssl=<s...postgres'>, server_settings=None, target_session_attrs=<SessionAttribute.any:\
-              \ 'any'>, krbsrvname=None, gsslib='gssapi')\n\n    async def __connect_addr(\n\
-              \        params,\n        retry,\n        addr,\n        loop,\n   \
-              \     config,\n        connection_class,\n        record_class,\n  \
-              \      params_input,\n    ):\n        connected = _create_future(loop)\n\
-              \    \n        proto_factory = lambda: protocol.Protocol(\n        \
-              \    addr, connected, params, record_class, loop)\n    \n        if\
-              \ isinstance(addr, str):\n            # UNIX socket\n            connector\
-              \ = loop.create_unix_connection(proto_factory, addr)\n    \n       \
-              \ elif params.ssl and params.ssl_negotiation is SSLNegotiation.direct:\n\
-              \            # if ssl and ssl_negotiation is `direct`, skip STARTTLS\
-              \ and perform\n            # direct SSL connection\n            connector\
-              \ = loop.create_connection(\n                proto_factory, *addr, ssl=params.ssl\n\
-              \            )\n    \n        elif params.ssl:\n            connector\
-              \ = _create_ssl_connection(\n                proto_factory, *addr, loop=loop,\
-              \ ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode\
+              \ password='[REDACTED]', database='muad', ssl=<s...postgres'>, server_settings=None,\
+              \ target_session_attrs=<SessionAttribute.any: 'any'>, krbsrvname=None,\
+              \ gsslib='gssapi')\n\n    async def __connect_addr(\n        params,\n\
+              \        retry,\n        addr,\n        loop,\n        config,\n   \
+              \     connection_class,\n        record_class,\n        params_input,\n\
+              \    ):\n        connected = _create_future(loop)\n    \n        proto_factory\
+              \ = lambda: protocol.Protocol(\n            addr, connected, params,\
+              \ record_class, loop)\n    \n        if isinstance(addr, str):\n   \
+              \         # UNIX socket\n            connector = loop.create_unix_connection(proto_factory,\
+              \ addr)\n    \n        elif params.ssl and params.ssl_negotiation is\
+              \ SSLNegotiation.direct:\n            # if ssl and ssl_negotiation is\
+              \ `direct`, skip STARTTLS and perform\n            # direct SSL connection\n\
+              \            connector = loop.create_connection(\n                proto_factory,\
+              \ *addr, ssl=params.ssl\n            )\n    \n        elif params.ssl:\n\
+              \            connector = _create_ssl_connection(\n                proto_factory,\
+              \ *addr, loop=loop, ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode\
               \ == SSLMode.prefer)\n        else:\n            connector = loop.create_connection(proto_factory,\
               \ *addr)\n    \n        tr, pr = await connector\n    \n        try:\n\
               >           await connected\nE           asyncpg.exceptions.TooManyConnectionsError:\
@@ -1842,23 +1840,22 @@ bindings:
               \ max_cached_statement_lifetime=300, max_cacheable_statement_size=15360)\n\
               connection_class = <class 'asyncpg.connection.Connection'>\nrecord_class\
               \ = <class 'asyncpg.protocol.record.Record'>\nparams_input = ConnectionParameters(user='muad',\
-              \ password='[REDACTED]', database='muad',\
-              \ ssl=<s...postgres'>, server_settings=None, target_session_attrs=<SessionAttribute.any:\
-              \ 'any'>, krbsrvname=None, gsslib='gssapi')\n\n    async def __connect_addr(\n\
-              \        params,\n        retry,\n        addr,\n        loop,\n   \
-              \     config,\n        connection_class,\n        record_class,\n  \
-              \      params_input,\n    ):\n        connected = _create_future(loop)\n\
-              \    \n        proto_factory = lambda: protocol.Protocol(\n        \
-              \    addr, connected, params, record_class, loop)\n    \n        if\
-              \ isinstance(addr, str):\n            # UNIX socket\n            connector\
-              \ = loop.create_unix_connection(proto_factory, addr)\n    \n       \
-              \ elif params.ssl and params.ssl_negotiation is SSLNegotiation.direct:\n\
-              \            # if ssl and ssl_negotiation is `direct`, skip STARTTLS\
-              \ and perform\n            # direct SSL connection\n            connector\
-              \ = loop.create_connection(\n                proto_factory, *addr, ssl=params.ssl\n\
-              \            )\n    \n        elif params.ssl:\n            connector\
-              \ = _create_ssl_connection(\n                proto_factory, *addr, loop=loop,\
-              \ ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode\
+              \ password='[REDACTED]', database='muad', ssl=<s...postgres'>, server_settings=None,\
+              \ target_session_attrs=<SessionAttribute.any: 'any'>, krbsrvname=None,\
+              \ gsslib='gssapi')\n\n    async def __connect_addr(\n        params,\n\
+              \        retry,\n        addr,\n        loop,\n        config,\n   \
+              \     connection_class,\n        record_class,\n        params_input,\n\
+              \    ):\n        connected = _create_future(loop)\n    \n        proto_factory\
+              \ = lambda: protocol.Protocol(\n            addr, connected, params,\
+              \ record_class, loop)\n    \n        if isinstance(addr, str):\n   \
+              \         # UNIX socket\n            connector = loop.create_unix_connection(proto_factory,\
+              \ addr)\n    \n        elif params.ssl and params.ssl_negotiation is\
+              \ SSLNegotiation.direct:\n            # if ssl and ssl_negotiation is\
+              \ `direct`, skip STARTTLS and perform\n            # direct SSL connection\n\
+              \            connector = loop.create_connection(\n                proto_factory,\
+              \ *addr, ssl=params.ssl\n            )\n    \n        elif params.ssl:\n\
+              \            connector = _create_ssl_connection(\n                proto_factory,\
+              \ *addr, loop=loop, ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode\
               \ == SSLMode.prefer)\n        else:\n            connector = loop.create_connection(proto_factory,\
               \ *addr)\n    \n        tr, pr = await connector\n    \n        try:\n\
               >           await connected\nE           asyncpg.exceptions.TooManyConnectionsError:\
@@ -1910,23 +1907,22 @@ bindings:
               \ max_cached_statement_lifetime=300, max_cacheable_statement_size=15360)\n\
               connection_class = <class 'asyncpg.connection.Connection'>\nrecord_class\
               \ = <class 'asyncpg.protocol.record.Record'>\nparams_input = ConnectionParameters(user='muad',\
-              \ password='[REDACTED]', database='muad',\
-              \ ssl=<s...postgres'>, server_settings=None, target_session_attrs=<SessionAttribute.any:\
-              \ 'any'>, krbsrvname=None, gsslib='gssapi')\n\n    async def __connect_addr(\n\
-              \        params,\n        retry,\n        addr,\n        loop,\n   \
-              \     config,\n        connection_class,\n        record_class,\n  \
-              \      params_input,\n    ):\n        connected = _create_future(loop)\n\
-              \    \n        proto_factory = lambda: protocol.Protocol(\n        \
-              \    addr, connected, params, record_class, loop)\n    \n        if\
-              \ isinstance(addr, str):\n            # UNIX socket\n            connector\
-              \ = loop.create_unix_connection(proto_factory, addr)\n    \n       \
-              \ elif params.ssl and params.ssl_negotiation is SSLNegotiation.direct:\n\
-              \            # if ssl and ssl_negotiation is `direct`, skip STARTTLS\
-              \ and perform\n            # direct SSL connection\n            connector\
-              \ = loop.create_connection(\n                proto_factory, *addr, ssl=params.ssl\n\
-              \            )\n    \n        elif params.ssl:\n            connector\
-              \ = _create_ssl_connection(\n                proto_factory, *addr, loop=loop,\
-              \ ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode\
+              \ password='[REDACTED]', database='muad', ssl=<s...postgres'>, server_settings=None,\
+              \ target_session_attrs=<SessionAttribute.any: 'any'>, krbsrvname=None,\
+              \ gsslib='gssapi')\n\n    async def __connect_addr(\n        params,\n\
+              \        retry,\n        addr,\n        loop,\n        config,\n   \
+              \     connection_class,\n        record_class,\n        params_input,\n\
+              \    ):\n        connected = _create_future(loop)\n    \n        proto_factory\
+              \ = lambda: protocol.Protocol(\n            addr, connected, params,\
+              \ record_class, loop)\n    \n        if isinstance(addr, str):\n   \
+              \         # UNIX socket\n            connector = loop.create_unix_connection(proto_factory,\
+              \ addr)\n    \n        elif params.ssl and params.ssl_negotiation is\
+              \ SSLNegotiation.direct:\n            # if ssl and ssl_negotiation is\
+              \ `direct`, skip STARTTLS and perform\n            # direct SSL connection\n\
+              \            connector = loop.create_connection(\n                proto_factory,\
+              \ *addr, ssl=params.ssl\n            )\n    \n        elif params.ssl:\n\
+              \            connector = _create_ssl_connection(\n                proto_factory,\
+              \ *addr, loop=loop, ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode\
               \ == SSLMode.prefer)\n        else:\n            connector = loop.create_connection(proto_factory,\
               \ *addr)\n    \n        tr, pr = await connector\n    \n        try:\n\
               >           await connected\nE           asyncpg.exceptions.TooManyConnectionsError:\
@@ -2098,7 +2094,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 5261d010e1c9dc9bf389c3f0368f0f8d8d11d78db6308ac777a94d6b977d2670
+          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
         decision: null
         evidence: []
       code:
@@ -2150,7 +2146,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 5261d010e1c9dc9bf389c3f0368f0f8d8d11d78db6308ac777a94d6b977d2670
+          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
         decision: null
         evidence: []
       code:
@@ -2252,7 +2248,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 5261d010e1c9dc9bf389c3f0368f0f8d8d11d78db6308ac777a94d6b977d2670
+          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
         decision: null
         evidence: []
       code:

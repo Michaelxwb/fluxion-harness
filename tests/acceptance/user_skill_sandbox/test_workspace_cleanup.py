@@ -26,6 +26,7 @@ from muad_agent_runtime.infrastructure.workspace_store import SqlWorkspaceMetada
 from muad_agent_worker.infrastructure.models.workspace import Workspace
 from muad_agent_worker.worker.workspace_maintenance import WorkspaceMaintenanceLoop
 from muad_common import SharedSettings
+from muad_common.draft_testing import prepare_draft_test_data
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -98,12 +99,15 @@ async def test_ttl_uses_injected_postgres_reference_time(
             tenant_id=tenant,
             last_access_time=datetime.now(UTC) - timedelta(days=25),
         )
+        test_data = prepare_draft_test_data(target.directory, str(uuid.uuid4()), reset=False)
+        (test_data / "state.json").write_text("draft-only")
         loop = WorkspaceMaintenanceLoop(session_factory, layout)
         reference = datetime.now(UTC) + timedelta(days=10)
         summary = await loop.run_once(now=reference)
 
         assert summary.deleted == 1
         assert not target.directory.exists()
+        assert not test_data.exists()
         row = await fetch_workspace(session, target.id)
         assert row.state == "DELETED"
         assert row.last_access_time.tzinfo is not None
@@ -133,9 +137,7 @@ async def test_last_access_time_is_touched_by_workspace_acquire(
         )
         old = datetime.now(UTC) - timedelta(days=15)
         await session.execute(
-            update(Workspace)
-            .where(Workspace.id == lease.workspace_id)
-            .values(last_access_time=old)
+            update(Workspace).where(Workspace.id == lease.workspace_id).values(last_access_time=old)
         )
         await session.commit()
         await store.release(lease)

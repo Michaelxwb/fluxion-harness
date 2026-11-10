@@ -16,6 +16,7 @@ from typing import Any
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings, process_settings
+from muad_common.draft_testing import draft_test_data_dir
 from muad_common.workspaces import DRAFT_ACTIVITY_MARKER
 
 from ..infrastructure.models.control import SkillDraft
@@ -175,11 +176,16 @@ class SkillDraftStore:
 
     def remove_draft(self, draft: SkillDraft) -> None:
         directory = self.draft_dir(draft)
-        if not directory.exists() and not directory.is_symlink():
-            return
         if directory.is_symlink():
             raise invalid_path(draft.key)
-        shutil.rmtree(directory)
+        try:
+            test_data = draft_test_data_dir(directory.parent.parent, str(draft.id))
+        except ValueError as exc:
+            raise invalid_path(draft.key) from exc
+        if directory.exists():
+            shutil.rmtree(directory)
+        if test_data.parent.exists():
+            shutil.rmtree(test_data.parent)
 
     def existing_size(self, draft: SkillDraft, raw_path: str) -> int | None:
         relative = normalize_relative_path(raw_path)

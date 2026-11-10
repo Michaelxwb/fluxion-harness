@@ -3,8 +3,8 @@
 设计定位（backend design §3.2/§3.4 API-10）：
 
 - Runtime ``skill_draft_shell`` 从 Console 取回**当前用户当前草稿**的 zip 与 revision；
-- 在宿主临时目录解包成独立草稿副本，只把这个副本交给沙箱；不挂生产 PVC、其他草稿或
-  READY 缓存；``data/`` 与 ``outputs/`` 与草稿目录分离，运行产物不参与回写；
+- 草稿代码解包到独立临时副本；仅额外挂载本草稿的持久测试数据，不挂正式 data、其他
+  草稿或 READY 缓存；测试数据与临时 outputs 不参与 revision 回写或提交；
 - 草稿声明 ``platforms`` 时复用 TASK-004 的 ``skill_platform_environment`` 注入
   ``session-manager``；允许集合仍由 Console 按受信身份计算；
 - 执行后只接受普通文件、白名单扩展名、单文件/总量/文件数上限内的变更；路径穿越、
@@ -23,9 +23,11 @@ import logging
 import os
 import shutil
 import tempfile
+import uuid
 import zipfile
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Protocol
 
@@ -87,10 +89,14 @@ ZIP_SYMLINK_MODE = 0o120000
 class DraftShellError(RuntimeError):
     """草稿 Shell 的封闭错误码；``result`` 保留超时/输出超限前的有界输出。"""
 
-    def __init__(self, code: str, message: str, *, result: SandboxResult | None = None) -> None:
+    def __init__(
+        self, code: str, message: str, *,
+        result: SandboxResult | None = None, retryable: bool = False,
+    ) -> None:
         self.code = code
         self.message = message
         self.result = result
+        self.retryable = retryable
         super().__init__(message)
 
 
@@ -103,6 +109,8 @@ class DraftShellRequest:
     cwd: str = "."
     timeout_sec: float = DRAFT_SHELL_DEFAULT_TIMEOUT_SEC
     execution_id: str = ""
+    run_id: str = ""
+    reset_data: bool = False
 
     def __post_init__(self) -> None:
         for name in ("tenant_id", "owner_user_id", "draft_id", "command"):
@@ -111,6 +119,8 @@ class DraftShellRequest:
                 raise ValueError(f"draft shell {name} must not be empty")
         if self.timeout_sec <= 0:
             raise ValueError("draft shell timeout_sec must be positive")
+        if not isinstance(self.reset_data, bool):
+            raise ValueError("draft shell reset_data must be a boolean")
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +128,7 @@ class DraftShellArchive:
     draft_id: str
     revision: int
     zip_bytes: bytes
+    agent_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,13 +171,22 @@ class DraftShellStore(Protocol):
 PlatformContextFactory = Callable[[DraftShellRequest, tuple[str, ...]], SkillPlatformContext | None]
 
 
+class DraftShellWorkspaceStore(Protocol):
+    def guard(self, request: DraftShellRequest) -> AbstractAsyncContextManager[None]: ...
+
+    def open(
+        self, request: DraftShellRequest, archive: DraftShellArchive
+    ) -> AbstractAsyncContextManager[Path]: ...
+
+
 class DraftShellRunner:
-    """一次调用 = 一条命令：独立临时草稿副本 + 独立 workspace + 一次 CAS 回写。"""
+    """临时草稿副本 + 草稿专属持久测试数据 + 一次 CAS 回写。"""
 
     def __init__(
         self,
         *,
         store: DraftShellStore,
+        workspaces: DraftShellWorkspaceStore,
         runner_factory: Callable[[], SandboxRunner],
         max_file_bytes: int,
         max_total_bytes: int,
@@ -184,6 +204,7 @@ class DraftShellRunner:
             if value <= 0:
                 raise ValueError(f"draft shell {name} must be positive")
         self._store = store
+        self._workspaces = workspaces
         self._runner_factory = runner_factory
         self._max_file_bytes = max_file_bytes
         self._max_total_bytes = max_total_bytes
@@ -193,7 +214,16 @@ class DraftShellRunner:
         self._temp_root = temp_root
 
     async def run(self, request: DraftShellRequest) -> DraftShellResult:
-        archive = await self._store.fetch_archive(request)
+        if not request.execution_id:
+            request = replace(request, execution_id=f"draft-{uuid.uuid4()}")
+        async with self._workspaces.guard(request):
+            archive = await self._store.fetch_archive(request)
+            async with self._workspaces.open(request, archive) as data_dir:
+                return await self._run_copy(request, archive, data_dir)
+
+    async def _run_copy(
+        self, request: DraftShellRequest, archive: DraftShellArchive, data_dir: Path
+    ) -> DraftShellResult:
         workspace = Path(tempfile.mkdtemp(prefix=DRAFT_SHELL_TEMP_PREFIX, dir=self._temp_root))
         try:
             draft_root = workspace / "draft"
@@ -212,6 +242,7 @@ class DraftShellRunner:
                 workspace=workspace,
                 draft_root=draft_root,
                 package_root=package_root,
+                data_dir=data_dir,
             )
             changes, deletions = _collect_changes(
                 draft_root,
@@ -220,28 +251,36 @@ class DraftShellRunner:
                 max_total_bytes=self._max_total_bytes,
                 max_files=self._max_files,
             )
-            if changes or deletions:
-                applied = await self._store.apply_changes(
-                    request,
-                    expected_revision=archive.revision,
-                    changes=changes,
-                    deletions=deletions,
-                )
-                changed_paths = tuple([change.path for change in changes] + list(deletions))
-                revision = applied.revision
-            else:
-                changed_paths = ()
-                revision = archive.revision
-            return DraftShellResult(
-                stdout=result.stdout,
-                stderr=result.stderr,
-                exit_code=result.exit_code,
-                duration_ms=result.duration_ms,
-                changed_files=changed_paths,
-                revision=revision,
-            )
+            return await self._apply_result(request, archive.revision, result, changes, deletions)
         finally:
-            shutil.rmtree(workspace, ignore_errors=True)
+            try:
+                shutil.rmtree(workspace)
+            except OSError as exc:
+                logger.warning("draft_shell_temp_cleanup_failed error=%s", type(exc).__name__)
+
+    async def _apply_result(
+        self,
+        request: DraftShellRequest,
+        revision: int,
+        result: SandboxResult,
+        changes: Sequence[DraftShellChange],
+        deletions: Sequence[str],
+    ) -> DraftShellResult:
+        changed_paths: tuple[str, ...] = ()
+        if changes or deletions:
+            applied = await self._store.apply_changes(
+                request, expected_revision=revision, changes=changes, deletions=deletions
+            )
+            changed_paths = tuple([change.path for change in changes] + list(deletions))
+            revision = applied.revision
+        return DraftShellResult(
+            stdout=result.stdout,
+            stderr=result.stderr,
+            exit_code=result.exit_code,
+            duration_ms=result.duration_ms,
+            changed_files=changed_paths,
+            revision=revision,
+        )
 
     async def _execute(
         self,
@@ -250,41 +289,10 @@ class DraftShellRunner:
         workspace: Path,
         draft_root: Path,
         package_root: Path,
+        data_dir: Path,
     ) -> SandboxResult:
-        package_rel = _relative_package(package_root, draft_root)
-        cwd_rel = _resolve_cwd(request.cwd, package_rel, draft_root)
-        data_dir = workspace / "data"
-        output_dir = workspace / "outputs" / (request.execution_id or "shell")
-        data_dir.mkdir(parents=True, exist_ok=True)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        declared = _declared_platforms(package_root)
-        skill_name = _skill_name(package_root)
-        context = (
-            self._platform_context_factory(request, declared)
-            if self._platform_context_factory is not None and declared
-            else None
-        )
         try:
-            runner = self._runner_factory()
-            dev_unsafe = getattr(runner, "name", "") == "dev-unsafe"
-            async with skill_platform_environment(
-                context,
-                skill_name,
-                sandbox_root=None if dev_unsafe else SESSION_SANDBOX_ROOT,
-            ) as session:
-                spec = _sandbox_spec(
-                    request,
-                    workspace=workspace,
-                    draft_root=draft_root,
-                    cwd_rel=cwd_rel,
-                    data_dir=data_dir,
-                    output_dir=output_dir,
-                    dev_unsafe=dev_unsafe,
-                    session_env=session.env,
-                    session_mounts=session.mounts,
-                    output_limit_bytes=self._output_limit_bytes,
-                )
-                return await runner.run(spec)
+            return await self._execute_command(request, workspace, draft_root, package_root, data_dir)
         except PlatformAuthError as exc:
             raise DraftShellError(exc.code, str(exc)) from exc
         except (RedisError, RedisClusterException):
@@ -302,6 +310,47 @@ class DraftShellRunner:
             raise DraftShellError("SANDBOX_UNAVAILABLE", exc.message) from exc
         except SandboxError as exc:
             raise DraftShellError("SANDBOX_ERROR", str(exc), result=exc.result) from exc
+
+    async def _execute_command(
+        self,
+        request: DraftShellRequest,
+        workspace: Path,
+        draft_root: Path,
+        package_root: Path,
+        data_dir: Path,
+    ) -> SandboxResult:
+        package_rel = _relative_package(package_root, draft_root)
+        cwd_rel = _resolve_cwd(request.cwd, package_rel, draft_root)
+        (workspace / "data").mkdir()
+        output_dir = workspace / "outputs" / request.execution_id
+        output_dir.mkdir(parents=True)
+        declared = _declared_platforms(package_root)
+        context = (
+            self._platform_context_factory(request, declared)
+            if self._platform_context_factory is not None and declared
+            else None
+        )
+        runner = self._runner_factory()
+        dev_unsafe = getattr(runner, "name", "") == "dev-unsafe"
+        async with skill_platform_environment(
+            context,
+            _skill_name(package_root),
+            sandbox_root=None if dev_unsafe else SESSION_SANDBOX_ROOT,
+        ) as session:
+            return await runner.run(
+                _sandbox_spec(
+                    request,
+                    workspace=workspace,
+                    draft_root=draft_root,
+                    cwd_rel=cwd_rel,
+                    data_dir=data_dir,
+                    output_dir=output_dir,
+                    dev_unsafe=dev_unsafe,
+                    session_env=session.env,
+                    session_mounts=session.mounts,
+                    output_limit_bytes=self._output_limit_bytes,
+                )
+            )
 
 
 def extract_draft_archive(
@@ -432,6 +481,44 @@ def _sandbox_spec(
     session_mounts: Sequence[SessionMount],
     output_limit_bytes: int,
 ) -> SandboxSpec:
+    env, dev_unsafe_cwd = _sandbox_environment(
+        request, draft_root, cwd_rel, data_dir, output_dir, dev_unsafe, session_env
+    )
+    mounts = (
+        SandboxMount(source=data_dir, target="/workspace/data", readonly=False),
+        *(
+            SandboxMount(source=mount.source, target=mount.target, readonly=mount.readonly)
+            for mount in session_mounts
+        ),
+    )
+    return SandboxSpec(
+        policy=SandboxPolicy(
+            profile=SandboxProfile.UNTRUSTED,
+            network=True,
+            dev_unsafe=dev_unsafe,
+            env_inject=("MUAD_SESSION_SOCKET",) if session_env else (),
+        ),
+        command=("sh", "-c", request.command),
+        workspace_dir=workspace,
+        env=env,
+        timeout_sec=request.timeout_sec,
+        output_limit_bytes=output_limit_bytes,
+        cwd=f"{DRAFT_SHELL_MOUNT_ROOT}/{cwd_rel}",
+        dev_unsafe_cwd=dev_unsafe_cwd,
+        mounts=mounts,
+        name="draft_shell",
+    )
+
+
+def _sandbox_environment(
+    request: DraftShellRequest,
+    draft_root: Path,
+    cwd_rel: str,
+    data_dir: Path,
+    output_dir: Path,
+    dev_unsafe: bool,
+    session_env: Mapping[str, str],
+) -> tuple[dict[str, str], Path | None]:
     if dev_unsafe:
         env = {
             **dict(session_env),
@@ -448,28 +535,7 @@ def _sandbox_spec(
             "PATH": _session_path(session_env),
         }
         dev_unsafe_cwd = None
-    cwd = f"{DRAFT_SHELL_MOUNT_ROOT}/{cwd_rel}"
-    mounts = tuple(
-        SandboxMount(source=mount.source, target=mount.target, readonly=mount.readonly)
-        for mount in session_mounts
-    )
-    return SandboxSpec(
-        policy=SandboxPolicy(
-            profile=SandboxProfile.UNTRUSTED,
-            network=True,
-            dev_unsafe=dev_unsafe,
-            env_inject=("MUAD_SESSION_SOCKET",) if session_env else (),
-        ),
-        command=("sh", "-c", request.command),
-        workspace_dir=workspace,
-        env=env,
-        timeout_sec=request.timeout_sec,
-        output_limit_bytes=output_limit_bytes,
-        cwd=cwd,
-        dev_unsafe_cwd=dev_unsafe_cwd,
-        mounts=mounts,
-        name="draft_shell",
-    )
+    return env, dev_unsafe_cwd
 
 
 def _session_path(session_env: Mapping[str, str]) -> str:
@@ -584,5 +650,6 @@ __all__ = [
     "DraftShellResult",
     "DraftShellRunner",
     "DraftShellStore",
+    "DraftShellWorkspaceStore",
     "extract_draft_archive",
 ]

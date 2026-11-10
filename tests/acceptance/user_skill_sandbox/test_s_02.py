@@ -10,14 +10,24 @@
 from __future__ import annotations
 
 import json
+import shlex
+import sys
 import uuid
-from dataclasses import dataclass
+import zipfile
+from dataclasses import dataclass, replace
+from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 import pytest
 from muad_agent_core.skill.draft_shell import DraftShellApplyResult, DraftShellChange, DraftShellRequest
+from muad_agent_runtime.application.draft_shell import build_draft_shell_runner
 from muad_agent_runtime.application.skill_draft_client import ConsoleDraftShellClient
 from muad_agent_runtime.application.skill_tools import DraftShellContext, SkillToolSet
+from muad_agent_runtime.application.workspace_shell import build_workspace_store
+from muad_agent_runtime.infrastructure.draft_test_workspace import SqlDraftTestWorkspaceStore
+from muad_common import SharedSettings
+from muad_common.draft_testing import draft_test_data_dir
 
 from .draft_shell_support import build_runner, require_docker, seed_draft
 from .draft_support import INTERNAL_TOKEN, draft_metadata, read_file, write_file
@@ -45,16 +55,21 @@ print(json.dumps({"ok": True, "cwd": str(Path.cwd())}))
 CHECK_JS = "const value = 1;\nconsole.log(value);\n"
 
 PYTHON_NODE_CHECK = (
-    "python -m py_compile scripts/run.py && "
-    "python scripts/run.py && "
-    "node --check scripts/check.js"
+    "python -m py_compile scripts/run.py && python scripts/run.py && node --check scripts/check.js"
 )
 LINK_PY = "import os\nos.symlink('/etc/passwd', 'escaped-link')\n"
 BINARY_PY = "from pathlib import Path\nPath('payload.exe').write_text('MZ', encoding='utf-8')\n"
 BIG_PY = "from pathlib import Path\nPath('big.txt').write_text('x' * 4096, encoding='utf-8')\n"
 CAS_RUN_PY = (
-    "from pathlib import Path\n"
+    "import os\nfrom pathlib import Path\n"
     "Path('notes.txt').write_text('new', encoding='utf-8')\n"
+    "(Path(os.environ['SKILL_DATA_DIR'])/'state.txt').write_text('cas-test-state')\n"
+)
+STATEFUL_RUN = (
+    "import os, sys\nfrom pathlib import Path\n"
+    "p = Path(os.environ['SKILL_DATA_DIR']) / 'state.json'\n"
+    "if sys.argv[1] == 'start': p.write_text('round-one')\n"
+    "print(p.read_text() if p.exists() else 'NO_STATE')\n"
 )
 
 
@@ -65,6 +80,7 @@ class ShellEnv:
     owner_user_id: uuid.UUID
     agent_id: uuid.UUID
     run_id: str
+    workspaces: SqlDraftTestWorkspaceStore
 
 
 class _UnusedCache:
@@ -73,7 +89,7 @@ class _UnusedCache:
 
 
 @pytest.fixture()
-async def shell_env(internal_client: Any, draft_tenant: Any) -> ShellEnv:
+async def shell_env(internal_client: Any, draft_tenant: Any, session_factory: Any) -> ShellEnv:
     require_docker()
     return ShellEnv(
         client=internal_client,
@@ -81,11 +97,15 @@ async def shell_env(internal_client: Any, draft_tenant: Any) -> ShellEnv:
         owner_user_id=uuid.uuid4(),
         agent_id=uuid.uuid4(),
         run_id=str(uuid.uuid4()),
+        workspaces=SqlDraftTestWorkspaceStore(
+            build_workspace_store(SharedSettings(), session_factory_provider=lambda: session_factory),
+            lambda: session_factory,
+        ),
     )
 
 
 def _toolset(store: Any, env: ShellEnv, **runner_options: Any) -> SkillToolSet:
-    runner = build_runner(store, **runner_options)
+    runner = build_runner(store, workspaces=env.workspaces, **runner_options)
     return SkillToolSet(
         cache=_UnusedCache(),  # type: ignore[arg-type]
         skills=(),
@@ -115,12 +135,15 @@ async def _call_shell(
     command: str,
     cwd: str | None = None,
     timeout_sec: float | None = None,
+    reset_data: bool = False,
 ) -> dict[str, Any]:
     arguments: dict[str, Any] = {"draft_id": draft_id, "command": command}
     if cwd is not None:
         arguments["cwd"] = cwd
     if timeout_sec is not None:
         arguments["timeout_sec"] = timeout_sec
+    if reset_data:
+        arguments["reset_data"] = True
     return json.loads(await toolset.skill_draft_shell(arguments, call_id=f"call-{uuid.uuid4().hex[:8]}"))
 
 
@@ -317,6 +340,14 @@ async def test_s02_revision_conflict_rejects_stale_writeback(shell_env: ShellEnv
         path="notes.txt",
     )
     assert stale.status_code == 404
+    retained = await _call_shell(
+        toolset, draft_id=draft_id,
+        command=(
+            "python -c \"import os; from pathlib import Path; "
+            "print((Path(os.environ['SKILL_DATA_DIR'])/'state.txt').read_text())\""
+        ),
+    )
+    assert retained["stdout"].strip() == "cas-test-state", retained
 
 
 async def test_s02_other_owner_cannot_shell_someone_elses_draft(shell_env: ShellEnv) -> None:
@@ -326,9 +357,8 @@ async def test_s02_other_owner_cannot_shell_someone_elses_draft(shell_env: Shell
         {"SKILL.md": SKILL_MD, "scripts/run.py": "print('owned')\n"},
         key="s02-owner",
     )
-    other = ShellEnv(
-        client=shell_env.client,
-        tenant_id=shell_env.tenant_id,
+    other = replace(
+        shell_env,
         owner_user_id=uuid.uuid4(),
         agent_id=uuid.uuid4(),
         run_id=str(uuid.uuid4()),
@@ -338,3 +368,224 @@ async def test_s02_other_owner_cannot_shell_someone_elses_draft(shell_env: Shell
 
     assert payload["error"]["code"] == "DRAFT_NOT_FOUND", payload
     assert await _revision(shell_env, draft_id) == revision
+
+
+async def test_s02_test_state_survives_calls_and_runs(shell_env: ShellEnv) -> None:
+    """真实草稿跨工具调用及新 Run 保留测试状态，运行数据不写回包。"""
+    draft_id, revision = await _seed(
+        shell_env, {"SKILL.md": SKILL_MD, "scripts/run.py": STATEFUL_RUN}, key="stateful"
+    )
+    toolset = _toolset(_console_store(shell_env), shell_env)
+    first = await _call_shell(toolset, draft_id=draft_id, command="python scripts/run.py start")
+    second = await _call_shell(toolset, draft_id=draft_id, command="python scripts/run.py status")
+    other_run = replace(shell_env, run_id=str(uuid.uuid4()))
+    third = await _call_shell(
+        _toolset(_console_store(other_run), other_run),
+        draft_id=draft_id,
+        command="python scripts/run.py status",
+    )
+    for payload in (first, second, third):
+        assert payload["exit_code"] == 0, payload
+        assert payload["stdout"].strip() == "round-one", payload
+        assert payload["changed_files"] == []
+        assert payload["revision"] == revision
+    assert await _revision(shell_env, draft_id) == revision
+    content = await read_file(
+        shell_env.client,
+        tenant_id=shell_env.tenant_id,
+        owner_user_id=shell_env.owner_user_id,
+        draft_id=draft_id,
+        path="state.json",
+    )
+    assert content.status_code == 404
+    archive = await _console_store(shell_env).fetch_archive(
+        DraftShellRequest(
+            tenant_id=shell_env.tenant_id,
+            owner_user_id=str(shell_env.owner_user_id),
+            draft_id=draft_id,
+            command="unused",
+        )
+    )
+    with zipfile.ZipFile(BytesIO(archive.zip_bytes)) as package:
+        assert set(package.namelist()) == {"SKILL.md", "scripts/run.py"}
+
+
+async def _stateful_draft(env: ShellEnv, key: str) -> str:
+    draft_id, _ = await _seed(env, {"SKILL.md": SKILL_MD, "scripts/run.py": STATEFUL_RUN}, key=key)
+    return draft_id
+
+
+async def _agent_workspace(env: ShellEnv, draft_id: str) -> Path:
+    response = await draft_metadata(
+        env.client,
+        tenant_id=env.tenant_id,
+        owner_user_id=env.owner_user_id,
+        draft_id=draft_id,
+    )
+    assert response.status_code == 200
+    agent_id = response.json()["data"]["agent_id"]
+    return Path(SharedSettings().workspace_root) / env.tenant_id / str(env.owner_user_id) / agent_id
+
+
+async def test_s02_editing_source_keeps_test_data(shell_env: ShellEnv) -> None:
+    draft_id = await _stateful_draft(shell_env, "edited-state")
+    toolset = _toolset(_console_store(shell_env), shell_env)
+    first = await _call_shell(toolset, draft_id=draft_id, command="python scripts/run.py start")
+    assert first["stdout"].strip() == "round-one", first
+    updated = await write_file(
+        shell_env.client, tenant_id=shell_env.tenant_id, owner_user_id=shell_env.owner_user_id,
+        draft_id=draft_id, path="scripts/run.py", content=STATEFUL_RUN + "\n# edited\n",
+        expected_revision=first["revision"],
+    )
+    assert updated.status_code == 200, updated.text
+    continued = await _call_shell(toolset, draft_id=draft_id, command="python scripts/run.py status")
+    assert continued["stdout"].strip() == "round-one", continued
+    assert continued["revision"] == first["revision"] + 1
+
+
+async def _delete_draft(env: ShellEnv, draft_id: str):
+    return await env.client.delete(
+        f"/internal/skills/drafts/{draft_id}",
+        params={"tenant_id": env.tenant_id, "owner_user_id": str(env.owner_user_id)},
+    )
+
+
+async def test_s02_test_data_isolated_and_reset_only_affects_current_draft(shell_env: ShellEnv) -> None:
+    first = await _stateful_draft(shell_env, "first")
+    second = await _stateful_draft(shell_env, "second")
+    workspace = await _agent_workspace(shell_env, first)
+    formal = workspace / "data" / "state.json"
+    formal.parent.mkdir()
+    formal.write_text("formal-state")
+    toolset = _toolset(_console_store(shell_env), shell_env)
+    for draft_id in (first, second):
+        before = await _call_shell(toolset, draft_id=draft_id, command="python scripts/run.py status")
+        assert before["stdout"].strip() == "NO_STATE", before
+        started = await _call_shell(toolset, draft_id=draft_id, command="python scripts/run.py start")
+        assert started["stdout"].strip() == "round-one", started
+    reset = await _call_shell(
+        toolset,
+        draft_id=first,
+        command="python scripts/run.py status",
+        reset_data=True,
+    )
+    assert reset["stdout"].strip() == "NO_STATE", reset
+    kept = await _call_shell(toolset, draft_id=second, command="python scripts/run.py status")
+    assert kept["stdout"].strip() == "round-one", kept
+    assert formal.read_text() == "formal-state"
+    assert draft_test_data_dir(workspace, first) != draft_test_data_dir(workspace, second)
+
+
+async def test_s02_test_lock_blocks_concurrent_test_and_delete(shell_env: ShellEnv) -> None:
+    draft_id = await _stateful_draft(shell_env, "locked")
+    other = await _stateful_draft(shell_env, "unlocked")
+    toolset = _toolset(_console_store(shell_env), shell_env)
+    started = await _call_shell(toolset, draft_id=draft_id, command="python scripts/run.py start")
+    assert started["stdout"].strip() == "round-one", started
+    request = DraftShellRequest(
+        tenant_id=shell_env.tenant_id,
+        owner_user_id=str(shell_env.owner_user_id),
+        draft_id=draft_id,
+        command="unused",
+    )
+    async with shell_env.workspaces.guard(request):
+        blocked = await _call_shell(
+            toolset,
+            draft_id=draft_id,
+            command="python scripts/run.py status",
+            reset_data=True,
+        )
+        assert blocked["error"]["code"] == "DRAFT_TEST_BUSY", blocked
+        assert blocked["error"]["retryable"] is True
+        deleted = await _delete_draft(shell_env, draft_id)
+        assert deleted.status_code == 409, deleted.text
+        assert deleted.json()["code"] == "DRAFT_TEST_BUSY"
+        independent = await _call_shell(
+            toolset,
+            draft_id=other,
+            command="python scripts/run.py status",
+        )
+        assert independent["stdout"].strip() == "NO_STATE", independent
+    kept = await _call_shell(toolset, draft_id=draft_id, command="python scripts/run.py status")
+    assert kept["stdout"].strip() == "round-one", kept
+    data_dir = draft_test_data_dir(await _agent_workspace(shell_env, draft_id), draft_id)
+    assert (await _delete_draft(shell_env, draft_id)).status_code == 200
+    assert not data_dir.parent.exists()
+    missing = await _call_shell(toolset, draft_id=draft_id, command="python scripts/run.py status")
+    assert missing["error"]["code"] == "DRAFT_NOT_FOUND", missing
+    assert not data_dir.exists()
+
+
+async def test_s02_timeout_preserves_test_data_and_releases_lock(shell_env: ShellEnv) -> None:
+    draft_id = await _stateful_draft(shell_env, "timeout-state")
+    toolset = _toolset(_console_store(shell_env), shell_env)
+    failed = await _call_shell(
+        toolset,
+        draft_id=draft_id,
+        command="python scripts/run.py start && python -c 'import time; time.sleep(10)'",
+        timeout_sec=2.0,
+    )
+    assert failed["error"]["code"] == "SANDBOX_TIMEOUT", failed
+    continued = await _call_shell(toolset, draft_id=draft_id, command="python scripts/run.py status")
+    assert continued["stdout"].strip() == "round-one", continued
+
+
+async def test_s02_quota_counts_test_data_and_reset_recovers(
+    shell_env: ShellEnv,
+    session_factory: Any,
+) -> None:
+    settings = SharedSettings(workspace_quota_mib=1)
+    env = replace(
+        shell_env,
+        workspaces=SqlDraftTestWorkspaceStore(
+            build_workspace_store(settings, session_factory_provider=lambda: session_factory),
+            lambda: session_factory,
+        ),
+    )
+    draft_id = await _stateful_draft(env, "quota-state")
+    toolset = _toolset(_console_store(env), env)
+    written = await _call_shell(
+        toolset,
+        draft_id=draft_id,
+        command=(
+            'python -c "import os; from pathlib import Path; '
+            "(Path(os.environ['SKILL_DATA_DIR'])/'large.bin').write_bytes(b'x' * (2 * 1024 * 1024))\""
+        ),
+    )
+    assert written["exit_code"] == 0, written
+    rejected = await _call_shell(toolset, draft_id=draft_id, command="python scripts/run.py status")
+    assert rejected["error"]["code"] == "WORKSPACE_QUOTA_EXCEEDED", rejected
+    reset = await _call_shell(
+        toolset,
+        draft_id=draft_id,
+        command="python scripts/run.py status",
+        reset_data=True,
+    )
+    assert reset["stdout"].strip() == "NO_STATE", reset
+    data = draft_test_data_dir(await _agent_workspace(env, draft_id), draft_id)
+    assert not (data / "large.bin").exists()
+
+
+async def test_s02_runtime_factory_wires_persistent_draft_workspace(
+    shell_env: ShellEnv,
+    session_factory: Any,
+) -> None:
+    draft_id = await _stateful_draft(shell_env, "factory-state")
+    settings = SharedSettings(env="dev", sandbox_mode="dev-unsafe")
+    for action in ("start", "status"):
+        runner = build_draft_shell_runner(
+            settings,
+            client=_console_store(shell_env),
+            session_factory_provider=lambda: session_factory,
+        )
+        result = await runner.run(
+            DraftShellRequest(
+                tenant_id=shell_env.tenant_id,
+                owner_user_id=str(shell_env.owner_user_id),
+                draft_id=draft_id,
+                command=f"{shlex.quote(sys.executable)} scripts/run.py {action}",
+                run_id=str(uuid.uuid4()),
+            )
+        )
+        assert result.exit_code == 0, result
+        assert result.stdout.strip() == "round-one"

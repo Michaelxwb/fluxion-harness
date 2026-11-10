@@ -108,6 +108,7 @@ async def archive_draft(
         media_type="application/zip",
         headers={
             "X-Draft-Revision": str(view["revision"]),
+            "X-Draft-Agent-Id": str(view["agent_id"]),
             "X-Draft-File-Count": str(view["file_count"]),
             "X-Draft-Total-Size": str(view["total_size"]),
             "Content-Disposition": f'attachment; filename="draft-{draft_id}-r{view["revision"]}.zip"',

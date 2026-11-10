@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 import uuid
@@ -15,6 +16,34 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from .draft_support import INTERNAL_TOKEN
+from .sandboxed_support import DEFAULT_BASE_IMAGES, _image_exists
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """CI 没有私有 bwrap 测试镜像时明确 skip 整个域。
+
+    该域本来就不在 CI acceptance matrix 里；review-cache 会跑完整 acceptance，
+    这里负责让环境缺失表现为可见的 skip，而不是把私有镜像/网络问题伪装成产品失败。
+    本地有 fx-sandbox-test:local 或显式 MUAD_SKILL_EXECUTOR_* 镜像时仍真实执行。
+    """
+    if os.environ.get("CI", "").lower() not in {"1", "true"}:
+        return
+    configured = os.environ.get("MUAD_SKILL_EXECUTOR_TEST_IMAGE")
+    if configured:
+        candidates = (configured,)
+    else:
+        base = os.environ.get("MUAD_SKILL_EXECUTOR_BASE_IMAGE")
+        candidates = (base,) if base else DEFAULT_BASE_IMAGES
+    if any(_image_exists(image) for image in candidates):
+        return
+    skip = pytest.mark.skip(
+        reason=(
+            "CI 未提供 bwrap 测试镜像（fx-sandbox-test:local / "
+            "MUAD_SKILL_EXECUTOR_BASE_IMAGE）"
+        )
+    )
+    for item in items:
+        item.add_marker(skip)
 
 
 @pytest.fixture()
@@ -120,6 +149,9 @@ async def draft_tenant(session: AsyncSession) -> AsyncIterator[Callable[[str], s
     yield make
     for tenant in tenants:
         for statement in (
+            "DELETE FROM task.workspace_lease WHERE workspace_id IN "
+            "(SELECT id FROM task.workspace WHERE tenant_id = :tenant_id)",
+            "DELETE FROM task.workspace WHERE tenant_id = :tenant_id",
             "DELETE FROM control.skill_import_idempotency WHERE tenant_id = :tenant_id",
             "DELETE FROM control.skill_artifact WHERE skill_id IN "
             "(SELECT id FROM control.skill WHERE tenant_id = :tenant_id)",

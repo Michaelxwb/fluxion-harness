@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import threading
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
@@ -246,4 +248,40 @@ async def test_workspace_store_empty_sandbox_mount_uses_host_paths(
         assert lease.output_mount == str(lease.output_dir)
         assert lease.data_mount.startswith(str(tmp_path))
     finally:
+        await _cleanup(session, tenant)
+
+
+async def test_prepare_cancellation_holds_lease_until_filesystem_work_finishes(
+    tmp_path: Path, session: AsyncSession, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    tenant, execution = f"acc-prepare-{uuid.uuid4()}", str(uuid.uuid4())
+    started, finish = asyncio.Event(), threading.Event()
+    loop = asyncio.get_running_loop()
+
+    def prepare(root: Path) -> None:
+        loop.call_soon_threadsafe(started.set)
+        if not finish.wait(timeout=5):
+            raise TimeoutError("prepare diagnostic was not released")
+        root.mkdir(parents=True, exist_ok=True)
+
+    task = asyncio.create_task(_store(tmp_path, session_factory).acquire(
+        tenant_id=tenant, user_id=str(uuid.uuid4()), agent_id=str(uuid.uuid4()),
+        execution_id=execution, prepare=prepare,
+    ))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=3)
+        task.cancel()
+        await asyncio.sleep(0)
+        lease = await session.scalar(select(WorkspaceLease).where(
+            WorkspaceLease.execution_id == execution,
+        ))
+        assert lease is not None and lease.is_deleted is False
+        finish.set()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, timeout=3)
+        await session.refresh(lease)
+        assert lease.is_deleted is True
+    finally:
+        finish.set()
+        await asyncio.gather(task, return_exceptions=True)
         await _cleanup(session, tenant)

@@ -345,24 +345,13 @@ class WorkspaceStore:
         run_id: str = "",
         task_id: str = "",
         lease_sec: float = 300.0,
+        prepare: Callable[[Path], None] | None = None,
     ) -> WorkspaceLease:
         if lease_sec <= 0:
             raise WorkspaceUnavailable("workspace lease_sec must be positive")
-        try:
-            workspace_dir = self._layout.workspace_dir(
-                tenant_id=tenant_id, user_id=user_id, agent_id=agent_id
-            )
-            data_dir = self._layout.data_dir(
-                tenant_id=tenant_id, user_id=user_id, agent_id=agent_id
-            )
-            output_dir = self._layout.output_dir(
-                tenant_id=tenant_id,
-                user_id=user_id,
-                agent_id=agent_id,
-                execution_id=execution_id,
-            )
-        except ValueError as exc:
-            raise WorkspaceUnavailable(str(exc)) from exc
+        workspace_dir, data_dir, output_dir = self._directory_paths(
+            tenant_id, user_id, agent_id, execution_id
+        )
         record = await self._metadata.acquire(
             tenant_id=tenant_id,
             user_id=user_id,
@@ -373,30 +362,60 @@ class WorkspaceStore:
             lease_sec=lease_sec,
         )
         try:
+            if prepare is not None:
+                await self._prepare_workspace(record.workspace_id, workspace_dir, prepare)
             await self._ensure_quota(record, tenant_id, user_id, agent_id)
             data_dir.mkdir(parents=True, exist_ok=True)
             output_dir.mkdir(parents=True, exist_ok=True)
-        except WorkspaceQuotaExceeded:
-            await self._release_quietly(record.id)
-            raise
-        except WorkspaceError:
-            await self._release_quietly(record.id)
-            raise
         except (OSError, ValueError) as exc:
             await self._release_quietly(record.id)
             raise WorkspaceUnavailable(f"workspace directory is unavailable: {exc}") from exc
+        except BaseException:
+            await self._release_quietly(record.id)
+            raise
+        return self._lease(record, workspace_dir, data_dir, output_dir)
 
+    async def _prepare_workspace(
+        self, workspace_id: uuid.UUID, directory: Path, prepare: Callable[[Path], None]
+    ) -> None:
+        task = asyncio.create_task(asyncio.to_thread(prepare, directory))
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            # 线程中的清理不可取消；结束前必须继续持有租约与调用方的草稿锁。
+            try:
+                await task
+            except Exception as exc:  # noqa: BLE001 - 保留原取消，清理失败可见
+                logger.warning("workspace_prepare_failed_during_cancel error=%s", type(exc).__name__)
+            raise
+        await self._refresh_usage(workspace_id, directory)
+
+    def _directory_paths(
+        self, tenant_id: str, user_id: str, agent_id: str, execution_id: str
+    ) -> tuple[Path, Path, Path]:
+        try:
+            workspace = self._layout.workspace_dir(tenant_id=tenant_id, user_id=user_id, agent_id=agent_id)
+            output = self._layout.output_dir(
+                tenant_id=tenant_id, user_id=user_id, agent_id=agent_id, execution_id=execution_id
+            )
+            return workspace, workspace / "data", output
+        except ValueError as exc:
+            raise WorkspaceUnavailable(str(exc)) from exc
+
+    def _lease(
+        self, record: WorkspaceLeaseRecord, workspace_dir: Path, data_dir: Path, output_dir: Path
+    ) -> WorkspaceLease:
         workspace_mount = self._mount or str(workspace_dir)
         if self._mount is None:
             data_mount, output_mount = str(data_dir), str(output_dir)
         else:
             base = self._mount.rstrip("/") or "/"
             data_mount = f"{base}/data"
-            output_mount = f"{base}/outputs/{_safe_component(execution_id, 'execution_id')}"
+            output_mount = f"{base}/outputs/{record.execution_id}"
         return WorkspaceLease(
             id=record.id,
             workspace_id=record.workspace_id,
-            execution_id=execution_id,
+            execution_id=record.execution_id,
             lease_until=record.lease_until,
             workspace_dir=workspace_dir,
             data_dir=data_dir,
@@ -408,14 +427,17 @@ class WorkspaceStore:
 
     async def refresh_usage(self, lease: WorkspaceLease) -> WorkspaceUsage | None:
         """执行后统计：扫描当前目录并回写元数据；未配置 usage store 时为空操作。"""
+        return await self._refresh_usage(lease.workspace_id, lease.workspace_dir)
+
+    async def _refresh_usage(self, workspace_id: uuid.UUID, workspace_dir: Path) -> WorkspaceUsage | None:
         if self._usage is None:
             return None
         usage = await asyncio.to_thread(
             scan_workspace_usage,
-            lease.workspace_dir,
+            workspace_dir,
             file_limit=self._layout.file_limit,
         )
-        await self._usage.record_usage(lease.workspace_id, usage)
+        await self._usage.record_usage(workspace_id, usage)
         return usage
 
     async def release(self, lease: WorkspaceLease) -> None:
