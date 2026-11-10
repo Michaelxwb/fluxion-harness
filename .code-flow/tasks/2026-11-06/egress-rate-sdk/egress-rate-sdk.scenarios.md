@@ -167,7 +167,7 @@ scenarios:
   - RULE-SDK-05
   - RULE-SDK-06
   checks: []
-  owner: TASK-005
+  owner: TASK-006
 - id: E-01
   title: 本地次数或并发超限在发送前拒绝
   priority: P0
@@ -241,7 +241,7 @@ scenarios:
   rules:
   - RULE-SDK-06
   checks: []
-  owner: TASK-005
+  owner: TASK-006
 - id: B-01
   title: 多条本地规则原子判定
   priority: P0
@@ -380,7 +380,7 @@ scenarios:
   - RULE-SDK-04
   - RULE-SDK-07
   checks: []
-  owner: TASK-005
+  owner: TASK-006
 - id: B-04
   title: 配置合并及非法值边界
   priority: P0

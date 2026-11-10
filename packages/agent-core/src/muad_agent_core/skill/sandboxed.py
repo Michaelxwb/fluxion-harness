@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -60,6 +61,28 @@ _WORKSPACE_OUTPUTS = "outputs"
 _OUTPUT_LIMIT_NOTICE = "SANDBOX_OUTPUT_LIMIT"
 #: 沙箱内 broker 目录固定挂载点；每个 bwrap 进程有独立 mount namespace。
 SESSION_SANDBOX_ROOT = "/tmp/fx-session"
+
+
+async def _run_with_budget_stop(
+    runner: SandboxRunner, spec: SandboxSpec, exhausted: asyncio.Event | None,
+) -> SandboxResult:
+    """预算耗尽取消 runner；runner 负责有界回收整个进程组后再退出。"""
+    if exhausted is None:
+        return await runner.run(spec)
+    running = asyncio.create_task(runner.run(spec))
+    stopped = asyncio.create_task(exhausted.wait())
+    try:
+        done, _ = await asyncio.wait({running, stopped}, return_when=asyncio.FIRST_COMPLETED)
+        if stopped in done:
+            running.cancel()
+            await asyncio.gather(running, return_exceptions=True)
+            raise SkillExecutionError("LOCAL_BUDGET_EXHAUSTED", retryable=False)
+        return await running
+    finally:
+        stopped.cancel()
+        if not running.done():
+            running.cancel()
+        await asyncio.gather(running, stopped, return_exceptions=True)
 
 
 class SandboxedSkillExecutor:
@@ -203,7 +226,7 @@ class SandboxedSkillExecutor:
         )
         started = time.monotonic()
         try:
-            sandbox_result = await runner.run(spec)
+            sandbox_result = await _run_with_budget_stop(runner, spec, request.budget_exhausted_event)
             status = (
                 SkillExecutionStatus.SUCCEEDED
                 if sandbox_result.exit_code == 0

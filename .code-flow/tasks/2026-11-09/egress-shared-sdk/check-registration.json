@@ -1,0 +1,297 @@
+{
+  "checks": {
+    "CHK-686b313a364f": {
+      "suite": "integration",
+      "test_ids": [
+        "tests/sdk/test_shared_redis_meter.py::test_s_01"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          "tests/sdk/test_shared_redis_meter.py::test_s_01"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-c24865be48f7": {
+      "suite": "integration",
+      "test_ids": [
+        "tests/sdk/test_shared_redis_meter.py::test_s_02"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          "tests/sdk/test_shared_redis_meter.py::test_s_02"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-a52e49c30468": {
+      "suite": "integration",
+      "test_ids": [
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-9009bcf64f74": {
+      "suite": "integration",
+      "test_ids": [
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-6cd04b635f20": {
+      "suite": "integration",
+      "test_ids": [
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_05"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_05"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-bc23640890b2": {
+      "suite": "integration",
+      "test_ids": [
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_01"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_01"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-d1c20b8574a7": {
+      "suite": "integration",
+      "test_ids": [
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-d3fb02c37f45": {
+      "suite": "integration",
+      "test_ids": [
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_03"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_03"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-40d03deca068": {
+      "suite": "integration",
+      "test_ids": [
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_04"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_04"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-2cb378ebc4bf": {
+      "suite": "integration",
+      "test_ids": [
+        "tests/sdk/test_shared_redis_meter.py::test_b_01"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          "tests/sdk/test_shared_redis_meter.py::test_b_01"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-717825543759": {
+      "suite": "integration",
+      "test_ids": [
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-eca57f9dd900": {
+      "suite": "integration",
+      "test_ids": [
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_03"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_03"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-2fbadafbaa15": {
+      "suite": "integration",
+      "test_ids": [
+        "tests/sdk/test_shared_redis_meter.py::test_b_04"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          "tests/sdk/test_shared_redis_meter.py::test_b_04"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-59e70cf85f88": {
+      "suite": "integration",
+      "test_ids": [
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_05"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_05"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    },
+    "CHK-51c11c9f1c84": {
+      "suite": "integration",
+      "test_ids": [
+        "tests/contracts/test_shared_egress.py::test_b_06_empty_policy_is_disabled_without_creating_metering_state",
+        "tests/contracts/test_shared_egress.py::test_b_06_invalid_shared_rule_is_rejected",
+        "tests/contracts/test_shared_egress.py::test_b_06_stable_identity_does_not_follow_segment",
+        "tests/contracts/test_shared_egress.py::test_b_06_unknown_targets_and_unsupported_clients_are_explicit",
+        "tests/contracts/test_shared_egress.py::test_b_06_disabled_policy_never_constructs_metering_backend"
+      ],
+      "markers": [],
+      "collect": {
+        "argv": [
+          "uv",
+          "run",
+          "pytest",
+          "--collect-only",
+          "-q",
+          "tests/contracts/test_shared_egress.py::test_b_06_empty_policy_is_disabled_without_creating_metering_state",
+          "tests/contracts/test_shared_egress.py::test_b_06_invalid_shared_rule_is_rejected",
+          "tests/contracts/test_shared_egress.py::test_b_06_stable_identity_does_not_follow_segment",
+          "tests/contracts/test_shared_egress.py::test_b_06_unknown_targets_and_unsupported_clients_are_explicit",
+          "tests/contracts/test_shared_egress.py::test_b_06_disabled_policy_never_constructs_metering_backend"
+        ],
+        "format": "pytest",
+        "timeout": 30
+      }
+    }
+  }
+}

@@ -2269,7 +2269,7 @@ class RunService:
             submission_id=submission.id,
             resumed=False,
             compaction=compaction,
-            execution=execution,
+            execution=execution_defaults_of(snapshot.policy_json),
             summary_model=summary_model,
             pool=pool,
             members=members,

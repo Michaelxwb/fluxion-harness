@@ -30,6 +30,8 @@ async def test_s_01_requests_are_consumed_on_error_and_cancel():
             pytest.fail("exhausted request sent")
     assert error.value.used == 2
     assert error.value.limit_kind == "TOTAL"
+    assert error.value.code == "LOCAL_BUDGET_EXHAUSTED"
+    assert error.value.retryable is False
     assert controller.inflight == 0
     assert "secret" not in repr(events) + str(error.value)
     assert [e.outcome for e in events if e.phase == "completed"] == ["error", "cancelled"]

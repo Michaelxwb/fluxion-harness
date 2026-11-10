@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -31,7 +32,7 @@ from muad_contracts.egress_budget import EffectiveEgressBudget
 from muad_contracts.skill_invocation import validate_skill_argv
 from muad_contracts.snapshot import task_execution_timeout
 from muad_platform_sdk.platform_transport import PlatformBudgetScope
-from muad_platform_sdk.request_budget import create_budget_controller
+from muad_platform_sdk.request_budget import BudgetController, create_budget_controller
 from muad_platform_sdk.skill_access import SkillPlatformContext
 
 from ..application.batch_fanout import (
@@ -97,6 +98,16 @@ def task_env(task: TaskExecution) -> dict[str, str]:
         ENV_TASK_ATTEMPT: str(task.attempt),
         ENV_TASK_EXTERNAL_REF: json.dumps(task.external_ref_json or {}, ensure_ascii=False),
     }
+
+
+def task_budget_for(task: TaskExecution) -> BudgetController | None:
+    """每次领取执行建立新段，阈值只从 Task 冻结快照读取。"""
+    policy = EffectiveEgressBudget.model_validate(
+        (task.execution_snapshot_json.get("budget") or {}).get("egress_budget", {})
+    )
+    return create_budget_controller(
+        policy, segment_id=f"task:{task.id}:attempt:{task.attempt}:{uuid.uuid4()}",
+    )
 
 
 class TaskExecutorProtocol(Protocol):
@@ -262,12 +273,7 @@ class SkillTaskExecutor:
                 record_outcome(SKILL_EXECUTION_METRIC, "FAILED", {"source": source})
             raise TaskExecutionError(exc.code, f"skill artifact rejected: {exc.code}") from exc
         try:
-            budget_controller = create_budget_controller(
-                EffectiveEgressBudget.model_validate(
-                    (task.execution_snapshot_json.get("budget") or {}).get("egress_budget", {})
-                ),
-                segment_id=str(task.id),
-            )
+            budget_controller = task_budget_for(task)
             invocation = (
                 budget_controller.invocation(str(skill.get("key", "")), str(task.id))
                 if budget_controller is not None else None

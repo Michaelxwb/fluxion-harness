@@ -66,6 +66,8 @@ class BudgetEvent:
 
 class LocalRateLimitError(RuntimeError):
     origin = "LOCAL_BUDGET"
+    code = "LOCAL_BUDGET_EXHAUSTED"
+    retryable = False
 
     def __init__(self, scope_kind: str, scope_id: str, rule_id: str, limit_kind: str,
                  limit_value: int, used: int, retry_after_seconds: float | None = None) -> None:

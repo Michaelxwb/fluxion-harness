@@ -314,6 +314,16 @@ def execution_defaults_for(request: ExecutorRequest) -> ExecutionDefaults:
     return request.execution if request.execution is not None else ExecutionDefaults()
 
 
+def execution_budget_for(request: ExecutorRequest) -> BudgetController | None:
+    """每次 executor 激活创建新段；恢复仅复用冻结策略，不复用本地计数。"""
+    if request.execution is None:
+        return None
+    owner = str(request.run_context.run_id) if request.run_context else "executor"
+    return create_budget_controller(
+        request.execution.egress_budget, segment_id=f"run:{owner}:{uuid.uuid4()}",
+    )
+
+
 def agent_policy_for(request: ExecutorRequest) -> AgentPolicy:
     """执行期 AgentPolicy：平台设置（冻结后注入）为基，Agent runtime_config 覆盖优先级更高。
 
@@ -2193,14 +2203,7 @@ async def default_executor_factory(
         client=model_client,
         ledger=ledger,
     )
-    budget_controller = (
-        create_budget_controller(
-            request.execution.egress_budget,
-            segment_id=str(request.run_context.run_id) if request.run_context else "executor",
-        )
-        if request.execution is not None
-        else None
-    )
+    budget_controller = execution_budget_for(request)
     mcp_adapter = McpRuntimeAdapter(
         audit_writer=audit_writer,
         client=mcp_client,
