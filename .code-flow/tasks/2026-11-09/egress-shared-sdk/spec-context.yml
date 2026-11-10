@@ -1,7 +1,7 @@
 version: 1
 task: 共享出口管控 SDK
 enforcement: required
-updated_at: '2026-11-10T03:32:41.288617+00:00'
+updated_at: '2026-11-10T06:54:33.116925+00:00'
 sources:
 - type: cli
   ref: bind
@@ -37,7 +37,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-arch-001
-          artifact_sha256: 04e40161fa1d6bcbf98ce4840c7821461583bcc8070e5c0dfd5c08733004dc09
+          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
         decision: null
         evidence: []
       plan:
@@ -46,7 +46,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
+          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
         decision: null
         evidence: []
       code:
@@ -410,7 +410,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-data-001
-          artifact_sha256: 04e40161fa1d6bcbf98ce4840c7821461583bcc8070e5c0dfd5c08733004dc09
+          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
         decision: null
         evidence: []
       plan:
@@ -419,7 +419,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
+          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
         decision: null
         evidence: []
       code:
@@ -511,7 +511,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-log-001
-          artifact_sha256: 04e40161fa1d6bcbf98ce4840c7821461583bcc8070e5c0dfd5c08733004dc09
+          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
         decision: null
         evidence: []
       plan:
@@ -520,7 +520,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
+          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
         decision: null
         evidence: []
       code:
@@ -609,7 +609,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-mcp-001
-          artifact_sha256: 04e40161fa1d6bcbf98ce4840c7821461583bcc8070e5c0dfd5c08733004dc09
+          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
         decision: null
         evidence: []
       plan:
@@ -618,7 +618,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
+          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
         decision: null
         evidence: []
       code:
@@ -711,7 +711,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-platform-001
-          artifact_sha256: 04e40161fa1d6bcbf98ce4840c7821461583bcc8070e5c0dfd5c08733004dc09
+          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
         decision: null
         evidence: []
       plan:
@@ -720,7 +720,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
+          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
         decision: null
         evidence: []
       code:
@@ -1165,7 +1165,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-secret-001
-          artifact_sha256: 04e40161fa1d6bcbf98ce4840c7821461583bcc8070e5c0dfd5c08733004dc09
+          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
         decision: null
         evidence: []
       plan:
@@ -1174,7 +1174,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
+          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
         decision: null
         evidence: []
       code:
@@ -1526,7 +1526,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-skill-001
-          artifact_sha256: 04e40161fa1d6bcbf98ce4840c7821461583bcc8070e5c0dfd5c08733004dc09
+          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
         decision: null
         evidence: []
       plan:
@@ -1535,7 +1535,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
+          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
         decision: null
         evidence: []
       code:
@@ -1705,7 +1705,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-snapshot-001
-          artifact_sha256: 04e40161fa1d6bcbf98ce4840c7821461583bcc8070e5c0dfd5c08733004dc09
+          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
         decision: null
         evidence: []
       plan:
@@ -1714,7 +1714,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
+          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
         decision: null
         evidence: []
       code:
@@ -2085,7 +2085,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-test-001
-          artifact_sha256: 04e40161fa1d6bcbf98ce4840c7821461583bcc8070e5c0dfd5c08733004dc09
+          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
         decision: null
         evidence: []
       plan:
@@ -2094,7 +2094,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
+          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
         decision: null
         evidence: []
       code:
@@ -2137,7 +2137,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-time-001
-          artifact_sha256: 04e40161fa1d6bcbf98ce4840c7821461583bcc8070e5c0dfd5c08733004dc09
+          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
         decision: null
         evidence: []
       plan:
@@ -2146,7 +2146,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
+          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
         decision: null
         evidence: []
       code:
@@ -2239,7 +2239,7 @@ bindings:
         - artifact: egress-shared-sdk.design.md
           section_id: Spec Compliance Matrix
           item_id: RULE-worker-001
-          artifact_sha256: 04e40161fa1d6bcbf98ce4840c7821461583bcc8070e5c0dfd5c08733004dc09
+          artifact_sha256: 3b240b92448555e2f4df43134cbc5e99a23d1a07d21eb06a08f95000b8ca22d0
         decision: null
         evidence: []
       plan:
@@ -2248,7 +2248,7 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: d0efdcf8dd5fb3e10c93a9a1829c88b4d0a18123a2213d1027b8cddc525ad446
+          artifact_sha256: f92ccf82e573a86b2781da23439b8cb7d2ab45b6f843dc4241b9b7690b4e3a89
         decision: null
         evidence: []
       code:

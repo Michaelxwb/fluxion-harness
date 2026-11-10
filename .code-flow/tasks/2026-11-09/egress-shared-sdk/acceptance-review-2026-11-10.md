@@ -3,6 +3,7 @@
 上轮 Done Gate 返回 pass，但以下场景的已登记测试与真实边界不一致，该结果不能证明设计验收通过，也不能作为后续任务已具备正确前提的证据。不要删除历史运行记录。
 
 - S-01：`tests/sdk/test_shared_redis_meter.py::test_s_01` 只调用同进程内两个 SDK 对象，使用一个 Redis 客户端；没有两个宿主进程、真实 Redis Cluster、HTTP 探针或 50 次到达断言。
+- S-02：原测试只覆盖两个公共规则；场景要求两个 invocation 叠加 execution 和 target 规则，不足以证明冻结预算参与原子扣减。当前责任改为 TASK-009，原 verified 只保留为历史运行记录。
 - B-01：`test_b_01` 只验证新窗口初始阻断及 epoch；没有测试滑窗边界或时钟回拨。
 - B-04：`test_b_04` 在同一进程测试 revision 与累计桶；没有测试两个进程、窗口增长历史不足及冻结执行预算。
 - RED 记录描述的是占位测试，而不是针对功能缺陷的有效 RED。

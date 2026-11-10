@@ -59,7 +59,7 @@ scenarios:
   - egress-shared-sdk.design.md#3.2 架构设计
   rules: []
   checks: []
-  owner: TASK-002
+  owner: TASK-009
 - id: S-03
   title: 恢复与Task重领延续累计
   priority: P0

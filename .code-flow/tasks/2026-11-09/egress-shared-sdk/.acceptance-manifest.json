@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "egress-shared-sdk.md",
-  "task_sha256": "148af862a4ab5cfc3f6fbd7abec658817b90252a641487554f9197d39c603a90",
+  "task_sha256": "1affc5cdc4bd9841e42c23e09111008d7d15bc3ad680e21f90741a63fd0e90df",
   "checks": [
     {
       "id": "CHK-bceb7faf58ed",
@@ -28,13 +28,13 @@
       "paths": []
     },
     {
-      "id": "CHK-c24865be48f7",
+      "id": "CHK-3d00dd1c331b",
       "command": [
         "uv",
         "run",
         "pytest",
         "-q",
-        "tests/sdk/test_shared_redis_meter.py::test_s_02"
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_02"
       ],
       "cwd": ".",
       "timeout": 300.0,
@@ -49,24 +49,7 @@
         "migrations/**"
       ],
       "preflight": [],
-      "paths": [],
-      "suite": "integration",
-      "test_ids": [
-        "tests/sdk/test_shared_redis_meter.py::test_s_02"
-      ],
-      "markers": [],
-      "collect": {
-        "argv": [
-          "uv",
-          "run",
-          "pytest",
-          "--collect-only",
-          "-q",
-          "tests/sdk/test_shared_redis_meter.py::test_s_02"
-        ],
-        "format": "pytest",
-        "timeout": 30
-      }
+      "paths": []
     },
     {
       "id": "CHK-a52e49c30468",
@@ -774,14 +757,14 @@
       "level": "integration",
       "kind": "functional",
       "boundary": "真实Redis及两个SDK客户端",
-      "owner": "TASK-002",
-      "status": "verified",
+      "owner": "TASK-009",
+      "status": "stale",
       "command": [
         "uv",
         "run",
         "pytest",
         "-q",
-        "tests/sdk/test_shared_redis_meter.py::test_s_02"
+        ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_02"
       ],
       "cwd": ".",
       "timeout": 300.0,
@@ -821,8 +804,8 @@
       "features": [
         "FEAT-03"
       ],
-      "defer_owner": "TASK-002",
-      "check": "CHK-c24865be48f7",
+      "defer_owner": "TASK-009",
+      "check": "CHK-3d00dd1c331b",
       "revision": 1,
       "evidence": {
         "id": "S-02",
@@ -953,7 +936,11 @@
           "timeout": 300.0,
           "fingerprint": "cd3fa47d62b0d99a891318e685a0aefed2b0c1e4659ee7ec0f556331474e7a9a"
         }
-      ]
+      ],
+      "stale_checks": [
+        "CHK-3d00dd1c331b"
+      ],
+      "stale_reason": "scenario_or_check_contract_changed"
     },
     {
       "id": "S-03",
@@ -1959,7 +1946,7 @@
   "quality_schema": 2,
   "relock": {
     "preserved": [
-      "S-02",
+      "S-01",
       "S-03",
       "S-04",
       "S-05",
@@ -1967,15 +1954,15 @@
       "E-02",
       "E-03",
       "E-04",
+      "B-01",
       "B-02",
       "B-03",
+      "B-04",
       "B-05",
       "B-06"
     ],
     "stale": [
-      "S-01",
-      "B-01",
-      "B-04"
+      "S-02"
     ],
     "removed": []
   }

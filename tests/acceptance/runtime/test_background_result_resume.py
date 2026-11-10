@@ -212,22 +212,6 @@ def test_s03_two_results_original_tool_pair_and_reconstructed_request(live_stack
         gate.touch()
         _finish(result, thread)
         requests = client.get(live_stack.llm_url + "/requests").json()["requests"]
-        # 同一栈上还有记忆提炼等后台模型调用：不能用 `requests[-1]` 假定它一定属于本 Run。
-        # 结束时恢复请求必然带两条 tool 结果，按此定位（重试时取最后一条）。
-        candidates = [
-            entry["body"]["messages"]
-            for entry in requests
-            if sum(item["role"] == "tool" for item in entry["body"]["messages"]) == 2
-            and not any(
-                CONSOLIDATION_MARKER in str(item.get("content"))
-                for item in entry["body"]["messages"]
-            )
-        ]
-        assert candidates, requests[-1]["body"]["messages"]
-        final = candidates[-1]
-        assert sum(item["role"] == "tool" for item in final) == 2
-        assert sum("BACKGROUND_RESULT" in item["content"] for item in final) == 2
-
         async def rebuild(factory):
             from muad_agent_core.model.openai_provider import OpenAICompatibleProvider
             from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
@@ -238,8 +222,29 @@ def test_s03_two_results_original_tool_pair_and_reconstructed_request(live_stack
             )
             return [OpenAICompatibleProvider._message(message) for message in history]
 
-        # Final assistant was appended after the provider request; everything before it is identical.
-        assert _db(rebuild)[:-1] == final[1:]
+        # The final assistant is appended after the provider request. Match the full
+        # persisted conversation rather than another concurrent background request.
+        reconstructed = _db(rebuild)[:-1]
+        candidates = [
+            entry["body"]["messages"]
+            for entry in requests
+            if entry["body"]["messages"][1:] == reconstructed
+            and not any(
+                CONSOLIDATION_MARKER in str(item.get("content"))
+                for item in entry["body"]["messages"]
+            )
+        ]
+        assert candidates, requests[-1]["body"]["messages"]
+        final = candidates[-1]
+        assert sum(item["role"] == "tool" for item in final) == 2
+        results = [
+            json.loads(item["content"].split("\n", 1)[1])
+            for item in final
+            if item["role"] == "user"
+            and item["content"].startswith("[External tool data: BACKGROUND_RESULT;")
+        ]
+        assert len(results) == 2
+        assert len({item["event_id"] for item in results}) == 2
 
 
 def test_s05_frozen_configuration_authorization_and_rotated_credentials(live_stack, tmp_path):
