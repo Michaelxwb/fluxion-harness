@@ -292,6 +292,17 @@ async def test_b119_failure_metrics_and_trace_correlation(
             ),
             what="未收到错误文案回复",
         )
+        # 首帧可能是处理中提示；收到首帧不表示 Runtime 错误已计入指标。
+        deadline = time.monotonic() + WAIT_TIMEOUT_SEC
+        while time.monotonic() < deadline:
+            text = (await metrics_http.get(METRICS_PATH)).text
+            runtime_errors = _metric_value(text, "im_runtime_errors_total", '{code="MODEL_UNAVAILABLE"}') or 0
+            failures = _metric_value(text, "im_message_failures_total", '{reason="MODEL_UNAVAILABLE"}') or 0
+            if runtime_errors >= 1 and failures >= 1:
+                break
+            await asyncio.sleep(0.05)
+        else:
+            pytest.fail("错误回复已到达，但 Runtime 错误指标未在期限内写入")
     finally:
         consumer.cancel()
         with suppress(asyncio.CancelledError):
