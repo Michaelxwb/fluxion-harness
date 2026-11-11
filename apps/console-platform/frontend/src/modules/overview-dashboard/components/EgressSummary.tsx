@@ -4,8 +4,9 @@ import { PageSection } from '../../../components/common/ConsolePage';
 import { formatNumber } from '../formatters';
 import type { OverviewData } from '../types';
 
-export function EgressSummary({ egress }: { egress: OverviewData['egress'] }) {
+export function EgressSummary({ egress: input }: { egress: OverviewData['egress'] }) {
   const { t, i18n } = useTranslation();
+  const egress = input ?? { requestCount: 0, sentCount: 0, completedCount: 0, failedCount: 0, blockedCount: 0, averageLatencyMs: null, topTargets: [] };
   return <PageSection title={t('overview.egress.title')}>
     <div className="overview-egress-kpis">
       <span>{t('overview.egress.requests')}: <strong>{formatNumber(egress.requestCount, i18n.language)}</strong></span>

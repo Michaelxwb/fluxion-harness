@@ -24,7 +24,7 @@ interface RawOverview {
       model_request_count: number; token_reported_request_count: number; }[]; };
   status: OverviewData['status'];
   agent_ranking: { agent_id: string; agent_name: string | null; run_count: number; }[];
-  egress: { request_count: number; sent_count: number; completed_count: number; failed_count: number; blocked_count: number; average_latency_ms: number | null; top_targets: { target: string; route_id: string; request_count: number; blocked_count: number }[] };
+  egress?: { request_count: number; sent_count: number; completed_count: number; failed_count: number; blocked_count: number; average_latency_ms: number | null; top_targets: { target: string; route_id: string; request_count: number; blocked_count: number }[] };
 }
 function mapKpis(raw: RawKpis): OverviewKpis {
   return { runCount: raw.run_count, runSuccessRate: raw.run_success_rate,
@@ -55,10 +55,10 @@ function mapOverview(raw: RawOverview): OverviewData {
         tokenReportedRequestCount: point.token_reported_request_count })) },
     status: raw.status, agentRanking: raw.agent_ranking.map((row) => ({
       agentId: row.agent_id, agentName: row.agent_name, runCount: row.run_count })),
-    egress: { requestCount: raw.egress.request_count, sentCount: raw.egress.sent_count,
+    egress: raw.egress ? { requestCount: raw.egress.request_count, sentCount: raw.egress.sent_count,
       completedCount: raw.egress.completed_count, failedCount: raw.egress.failed_count,
       blockedCount: raw.egress.blocked_count, averageLatencyMs: raw.egress.average_latency_ms,
-      topTargets: raw.egress.top_targets.map((row) => ({ target: row.target, routeId: row.route_id, requestCount: row.request_count, blockedCount: row.blocked_count })) } };
+      topTargets: raw.egress.top_targets.map((row) => ({ target: row.target, routeId: row.route_id, requestCount: row.request_count, blockedCount: row.blocked_count })) } : undefined };
 }
 export async function getOverview(days = 7): Promise<OverviewData> {
   const response = await api.get<ApiResponse<RawOverview>>('/overview', { params: { days } });

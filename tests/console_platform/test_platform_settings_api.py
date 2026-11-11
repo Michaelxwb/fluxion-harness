@@ -288,6 +288,7 @@ async def test_read_settings_revisions_and_limits_envelope(
         "capacity",
         "model_pool",
         "webchat",
+        "egress",
     }
     assert _field_value(read.json(), "task.max_attempts") == 3
     assert data["readonly_notes"], "非本页管理的项须给出归属说明"
@@ -362,6 +363,7 @@ def test_business_key_boundary_default_schema_leaves_are_never_secret() -> None:
         "capacity",
         "model_pool",
         "webchat",
+        "egress",
     ], "分组集合变化时须复核本回归的覆盖面"
     leaves = _leaf_paths(document)
     memory_fields = {item.name for item in fields(default_platform_settings().memory)}

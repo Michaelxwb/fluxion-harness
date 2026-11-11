@@ -29,5 +29,5 @@ export interface OverviewData {
   trend: { runs: OverviewTrendPoint[]; tasks: OverviewTrendPoint[]; tokens: OverviewTokenPoint[]; };
   status: { runs: Record<string, number>; tasks: Record<string, number>; };
   agentRanking: OverviewAgentRanking[];
-  egress: { requestCount: number; sentCount: number; completedCount: number; failedCount: number; blockedCount: number; averageLatencyMs: number | null; topTargets: { target: string; routeId: string; requestCount: number; blockedCount: number }[] };
+  egress?: { requestCount: number; sentCount: number; completedCount: number; failedCount: number; blockedCount: number; averageLatencyMs: number | null; topTargets: { target: string; routeId: string; requestCount: number; blockedCount: number }[] };
 }
