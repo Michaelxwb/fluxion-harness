@@ -1863,5 +1863,16 @@
   "executionExport.ariaLabel": "Export execution chain",
   "settings.group.egress": "Egress request controls",
   "settings.field.egress.enabled": "Enable tenant egress rules",
-  "settings.field.egress.rules_json": "Egress URL/interface rules (JSON)"
+  "settings.field.egress.rules_json": "Egress URL/interface rules (JSON)",
+  "overview.egress.title": "Egress request monitoring",
+  "overview.egress.requests": "Requests",
+  "overview.egress.sent": "Sent",
+  "overview.egress.completed": "Completed",
+  "overview.egress.failed": "Failed",
+  "overview.egress.blocked": "Blocked",
+  "overview.egress.averageLatency": "Average latency",
+  "overview.egress.target": "URL",
+  "overview.egress.route": "Route",
+  "overview.egress.count": "Count",
+  "overview.egress.empty": "No egress requests"
 }

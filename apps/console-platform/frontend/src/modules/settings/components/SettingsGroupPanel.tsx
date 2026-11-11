@@ -14,6 +14,7 @@ import { appliesToLabelKey } from '../appliesTo';
 import type { SettingsGroupMeta, SettingsValues } from '../types';
 import { SettingsFieldRow } from './SettingsFieldRow';
 import { OverrideBadge } from './OverrideBadge';
+import { EgressRulesEditor } from './EgressRulesEditor';
 
 export interface SettingsGroupPanelProps {
   group: SettingsGroupMeta;
@@ -50,6 +51,14 @@ export function SettingsGroupPanel({
       </div>
       <div className="settings-group-body">
         {group.fields.map((field) => (
+          field.path === 'egress.rules_json' ? (
+            <EgressRulesEditor
+              key={field.path}
+              value={values[field.path]}
+              disabled={disabled}
+              onChange={(value) => onFieldChange(field.path, value)}
+            />
+          ) : (
           <SettingsFieldRow
             key={field.path}
             meta={field}
@@ -59,6 +68,7 @@ export function SettingsGroupPanel({
             disabled={disabled}
             onChange={(value) => onFieldChange(field.path, value)}
           />
+          )
         ))}
       </div>
     </div>

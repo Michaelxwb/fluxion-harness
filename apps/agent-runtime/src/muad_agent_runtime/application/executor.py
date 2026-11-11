@@ -264,6 +264,8 @@ class ExecutionDefaults:
     max_archive_files: int = field(default_factory=lambda: ArtifactSettings().max_archive_files)
     timezone: str = field(default_factory=lambda: LocaleSettings().default_timezone)
     task_execution_timeout_sec: int = field(default_factory=lambda: TaskSettings().execution_timeout_sec)
+    egress_enabled: bool = False
+    egress_rules_json: str = "[]"
 
 
 @dataclass(frozen=True, slots=True)

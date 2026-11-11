@@ -1863,5 +1863,16 @@
   "executionExport.ariaLabel": "导出执行链路",
   "settings.group.egress": "出站请求管控",
   "settings.field.egress.enabled": "启用租户出站规则",
-  "settings.field.egress.rules_json": "出站 URL/接口规则（JSON）"
+  "settings.field.egress.rules_json": "出站 URL/接口规则（JSON）",
+  "overview.egress.title": "出站请求监控",
+  "overview.egress.requests": "请求次数",
+  "overview.egress.sent": "已发送",
+  "overview.egress.completed": "已完成",
+  "overview.egress.failed": "失败",
+  "overview.egress.blocked": "被限流",
+  "overview.egress.averageLatency": "平均耗时",
+  "overview.egress.target": "URL",
+  "overview.egress.route": "接口",
+  "overview.egress.count": "次数",
+  "overview.egress.empty": "暂无出站请求"
 }

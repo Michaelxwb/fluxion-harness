@@ -6,6 +6,7 @@ import { ErrorState } from '../../../components/common/ErrorState';
 import { AttentionSummary } from '../components/AttentionSummary';
 import { KpiCards, OverviewSkeleton } from '../components/KpiCards';
 import { OverviewCharts } from '../components/OverviewCharts';
+import { EgressSummary } from '../components/EgressSummary';
 import { OverviewToolbar } from '../components/OverviewToolbar';
 import { ResourceSummary } from '../components/ResourceSummary';
 import { useOverview } from '../hooks/useOverview';
@@ -23,6 +24,7 @@ function OverviewContent({ data }: { data: OverviewData }) {
         </PageSection>
       </div>
       <KpiCards kpis={data.kpis} />
+      <EgressSummary egress={data.egress} />
       <OverviewCharts data={data} />
     </div>
   );
