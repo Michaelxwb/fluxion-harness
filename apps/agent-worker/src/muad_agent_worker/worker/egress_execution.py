@@ -15,10 +15,9 @@ from muad_platform_sdk.egress_source_authority import SourceClaim
 from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from muad_platform_sdk.shared_redis import MeteringUnavailable
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ..infrastructure.models.control import PlatformSetting  # type: ignore[import-untyped]
 from ..infrastructure.models.task import TaskExecution
 from .egress_source_lease import read_task_source_lease
 
@@ -79,10 +78,12 @@ async def execute_task_skill_with_egress(
     if sessions is not None:
         async with sessions() as session:
             row = await session.scalar(
-                select(PlatformSetting.settings_json)
-                .where(PlatformSetting.tenant_id == task.tenant_id, PlatformSetting.is_deleted.is_(False))
-                .order_by(PlatformSetting.revision.desc())
-                .limit(1)
+                text(
+                    "SELECT settings_json FROM control.platform_setting "
+                    "WHERE tenant_id = :tenant AND NOT is_deleted "
+                    "ORDER BY revision DESC LIMIT 1"
+                ),
+                {"tenant": task.tenant_id},
             )
         if isinstance(row, dict):
             from muad_contracts.platform_settings import egress_rules_from_settings, parse_platform_settings
