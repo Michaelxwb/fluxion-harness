@@ -9,7 +9,7 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol, cast
 
 from muad_contracts.shared_egress import SharedEgressPolicy, SharedRule, TrustedInvocation
 from redis.exceptions import RedisClusterException, RedisError
@@ -25,9 +25,13 @@ class MeteringUnavailable(RuntimeError):
     """Metering state cannot safely authorize an outbound request."""
 
 
+LimitScope = Literal["public", "execution", "invocation"]
+
+
 class SharedLimitExceeded(RuntimeError):
-    def __init__(self, kind: str, rule_id: str, detail: int) -> None:
+    def __init__(self, kind: str, rule_id: str, detail: int, *, scope: LimitScope) -> None:
         self.kind, self.rule_id, self.detail = kind, rule_id, detail
+        self.scope = scope
         super().__init__(f"shared egress {kind.lower()} limit exceeded")
 
 
@@ -196,8 +200,11 @@ class SharedRedisMeter:
     def _permit(
         result: list[str], attempt_id: str, proof: str, rules: tuple[SharedRule, ...],
     ) -> SharedPermit:
-        if result[0] in {"TOTAL", "WINDOW", "INFLIGHT"} and len(result) == 3:
-            raise SharedLimitExceeded(result[0], result[1], int(result[2]))
+        if result[0] in {"TOTAL", "WINDOW", "INFLIGHT"}:
+            if len(result) != 4 or result[3] not in {"public", "execution", "invocation"}:
+                raise MeteringUnavailable("invalid shared rejection response")
+            raise SharedLimitExceeded(result[0], result[1], int(result[2]),
+                                      scope=cast(LimitScope, result[3]))
         if result[0] not in {"OK", "DUPLICATE"} or len(result) != 2:
             raise MeteringUnavailable(f"shared admission failed: {result[0]}")
         inflight_ids = tuple(r.id for r in rules if r.max_inflight is not None)

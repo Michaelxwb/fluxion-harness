@@ -148,6 +148,14 @@ SDK 嵌入既有 Runtime/Worker 进程；Unix IPC 是执行进程内部的本地
 
 Skill 兼容包只处理同步客户端协议、请求元数据和响应关闭；宿主内核掌握 Redis、规则、计数、可信身份及停止事件。MCP 和认证发送在宿主直接调用同一内核。无需把 Redis DSN、密码或任意 Lua 权限下发给脚本。
 
+##### invocation 私有 IPC 基础
+
+`InvocationEgressBroker` 嵌在宿主进程内，以每个 invocation 独立的 Unix socket 提供元数据准入与完成确认，不代理业务 HTTP，也不新增服务。目录权限 0700、socket 0600；宿主固定 TrustedInvocation，通过可信 resolver 将 method/origin/path 解析到 target/route，脚本不能传 tenant/run/execution/invocation ID、正文或凭据。origin 必须规范化且不含用户信息，path 不带 query；帧长、并发连接数与绝对执行 deadline 有界。新连接不能重置该 deadline，probe 仅检查 IPC 协议可达，不代表 Redis 或 hook 完整链路健康。
+
+宿主完成 admit/consume 后返回受控标记、attempt ID 与剩余执行时长，permit proof 与 Redis 配置留在宿主。仅同一连接的 done 确认触发并发释放；IPC EOF、超时或断连本身不证明业务 HTTP 已关闭，因此保留占用至安全到期。该基础必须配合后续 hook 的传输关闭与宿主 deadline/进程监督，当前单独原语不具备强制关闭脚本 HTTP 的能力。
+
+共享拒绝增加明确 scope（public/execution/invocation）；只有冻结执行或调用累计耗尽才标记 invocation exhausted，公共接口限额只拒绝当前调用，避免误停脚本。脚本环境仅获得专属 socket 路径。Host 路由、系统 site、逐跳计量与 Linux 沙箱探针已在 TASK-004 接通；正式 Runtime/Worker 装配与进程组监督归 TASK-006。
+
 ##### requests 接管
 
 - 在受控镜像的系统 site-packages 安装启动 hook，适配项目实际 `-E -s -B` 启动方式，不依赖 PYTHONPATH 或用户 site。`-S`、自建解释器和独立虚拟环境不承诺覆盖。
@@ -156,6 +164,20 @@ Skill 兼容包只处理同步客户端协议、请求元数据和响应关闭�
 - `stream=True` 获取响应头后继续持有并发租约，EOF/close/read 异常/取消才完成；上层 helper 和 compat 不重复计数。
 - 重定向进入另一 Host/端口/协议时先重新判定授权。已受控请求跳到未获授权目标时拒绝，而非掉出白名单后悄悄直连；独立非业务请求仍按既有出网策略处理。
 - 保留 Cookie、Authorization、Host、CSRF、状态、headers、body、SSL verify 和超时语义。trace/request ID 采用项目现有契约，不生成假的 CSRF。
+
+当前新增 `RequestsEgressHook` 通过显式上下文安装在单个 invocation 进程，拦截标准 `Session.send` 与 `HTTPAdapter.send`：Session 层检查 adapter 覆盖，Adapter 层每次申请 IPC 准入，因而不在两层重复计数。仅接受标准 HTTPAdapter 且 total retry 为零，定制 adapter 或隐式重试明确拒绝，不静默改变其策略；业务显式重试每次重新申请。响应仍由 requests/urllib3 生成，保留其原始类型和 Cookie、认证、重定向、TLS/timeout 参数语义，不自行生成 CSRF；在原 raw response 上接入 read/stream/close 完成确认。读完或关闭后释放，完成确认故障只告警，不改写已收到的 Proxy 结果。Host 作为单独 authority 路由元数据交宿主校验，不传整组 headers，query 只留在实际请求中。
+
+系统 site 启动及失败阻断已通过受控 Linux 测试镜像验证；Runtime/Worker Dockerfile 已安装 `.pth`，但真实执行器还未激活该路径。独立非业务旁路及同步传输 deadline/断连监督已接通；正式执行器装配仍归 TASK-006，不能根据镜像内探针声称全平台已接入。SDK 无法保证其他兼容包主动改写认证值后仍保留调用前值，受控镜像需核查旧 compat 启动 hook 的冲突。
+
+系统启动采用 stdlib-only 顶层模块 `muad_egress_site`，无 `MUAD_EGRESS_SOCKET` 时不导入客户端或连接 IPC；该变量仅由宿主注入一次脚本进程，不是 Pod 级业务开关。镜像在包安装后执行 `python -m muad_egress_site --install` 将 `.pth` 安装到该解释器系统 site；Runtime/Worker Dockerfile 均加入该步骤。SDK 新增对其既有导入 `muad_api` 的显式依赖，保证独立 wheel 安装的依赖闭合。
+
+`.pth` 的成功不能只靠文件存在判断：`muad_egress_launch.py` 是可信只读文件启动器，验证 bootstrap 已成功连接并安装 hook 后才 runpy 执行业务脚本。Python 命令必须使用启动器的可信绝对路径，不能用可被 Skill 当前目录同名模块覆盖的 `-m` 入口；业务脚本目录恢复到 sys.path[0] 以兼容相邻模块，argv/stdin/stdout 沿用脚本语义。bootstrap 捕获启动错误后固定报告并以 SystemExit 阻断；`.pth` 缺失由启动器独立拒绝，因此不依赖 site.py 默认忽略导入错误的行为。真实 Runtime/Worker 选择该启动命令与挂载/env 注入归 TASK-006，未配置规则继续使用普通路径。
+
+S-04 使用锁定依赖构建的 Linux wheel 测试镜像与真实 bwrap，测试 `-E -s -B`、脚本无需调用 SDK、固定认证头、相邻模块、无 pycache、未携带 Redis/DB 凭据、隐藏 `.pth` 与断开 IPC 都不执行业务、未启用的请求不增加 Redis 计数。Docker Desktop 本地以 seccomp=unconfined 运行测试容器，只证明该受控环境，不推广为所有生产内核策略均已验证。构建入口 `scripts/build_egress_site_test_image.py` 从 uv.lock 导出依赖，第三方层与源码层分开缓存；没有新增限流部署服务。
+
+宿主 resolver 仅以显式 `UncontrolledTarget` 授权独立非业务旁路，此路径不访问 limiter Redis；未知目标仍拒绝。重定向链一旦受控不能降级旁路，嵌套 response hook 发起的独立请求不继承重定向标记。IPC 协议 v2 回传相对剩余时长，客户端以开始连接前的单调时钟保守确定 deadline；单一接收线程处理完成确认、宿主错误和断连，避免多个 reader 竞争。
+
+同步传输针对已验证的标准 urllib3 连接登记 socket 所有者，失去 IPC、执行到期或续租发现 Redis 代际变化时关闭该 attempt 的 socket；不得关闭后来复用连接的其他请求。原生 connect/read timeout 取调用者限制与执行剩余时间的较小值，较短的调用者 timeout 保留 requests 异常。HTTP/TLS 慢响应头、慢响应体均通过真实 socket 测试。系统 DNS 或阻塞解释器不能由 SDK 线程保证终止，仍须 TASK-006 父进程有界 deadline 与 killpg。未读完正文时依赖故障中断请求；正文已完成后仅 completion ACK 失败只告警，保留上游结果。
 
 ##### 一次请求的协议
 

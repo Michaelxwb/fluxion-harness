@@ -221,7 +221,8 @@ for i, scope in ipairs(scopes) do
        raw ~= string.format('%.0f', count) then return {'CORRUPT'} end
     if target.target_instance_id == ARGV[8] and target.route_id == ARGV[9] then
       table.insert(frozen_targets, {key=key, id=scope.name .. ':' .. target.id,
-        field='target:' .. target.id, used=count, limit=target.max_requests})
+        field='target:' .. target.id, used=count, limit=target.max_requests,
+        scope=i == 1 and 'execution' or 'invocation'})
     end
   end
 end
@@ -251,18 +252,18 @@ for i, rule in ipairs(rules) do
   if not used or used < 0 or used >= 9007199254740991 or used ~= math.floor(used) or
      raw_used ~= string.format('%.0f', used) then return {'CORRUPT'} end
   if rule.max_requests ~= cjson.null and rule.max_requests and used >= rule.max_requests then
-    return {'TOTAL', rule.id, tostring(used)}
+    return {'TOTAL', rule.id, tostring(used), 'public'}
   end
   if rule.window_seconds ~= cjson.null and rule.window_seconds then
     local blocked = tonumber(redis.call('HGET', policy, 'blocked:' .. rule.id) or '0')
-    if ms < blocked then return {'WINDOW', rule.id, tostring(blocked - ms)} end
+    if ms < blocked then return {'WINDOW', rule.id, tostring(blocked - ms), 'public'} end
     local cutoff = ms - math.ceil(rule.window_seconds * 1000)
     local count = redis.call('ZCOUNT', window, '(' .. cutoff, '+inf')
-    if count >= rule.window_requests then return {'WINDOW', rule.id, '0'} end
+    if count >= rule.window_requests then return {'WINDOW', rule.id, '0', 'public'} end
   end
   if rule.max_inflight ~= cjson.null and rule.max_inflight then
     if redis.call('ZCOUNT', leases, '(' .. ms, '+inf') >= rule.max_inflight then
-      return {'INFLIGHT', rule.id, '0'}
+      return {'INFLIGHT', rule.id, '0', 'public'}
     end
   end
 end
@@ -271,10 +272,12 @@ for i, scope in ipairs(scopes) do
   local used = tonumber(redis.call('HGET', key, 'used') or '')
   local raw_limit = redis.call('HGET', key, 'limit')
   local limit = tonumber(raw_limit or '')
-  if raw_limit ~= 'none' and used >= limit then return {'TOTAL', scope.name, tostring(used)} end
+  if raw_limit ~= 'none' and used >= limit then
+    return {'TOTAL', scope.name, tostring(used), i == 1 and 'execution' or 'invocation'}
+  end
 end
 for _, target in ipairs(frozen_targets) do
-  if target.used >= target.limit then return {'TOTAL', target.id, tostring(target.used)} end
+  if target.used >= target.limit then return {'TOTAL', target.id, tostring(target.used), target.scope} end
 end
 redis.call('HSET', guard, 'last_ms', ms)
 for i, rule in ipairs(rules) do

@@ -1347,7 +1347,7 @@
       "kind": "functional",
       "boundary": "Linux受控镜像、系统site hook、真实Skill子进程及HTTP",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -1394,7 +1394,138 @@
         "FEAT-01"
       ],
       "defer_owner": "TASK-004",
-      "check": "CHK-9009bcf64f74"
+      "check": "CHK-9009bcf64f74",
+      "revision": 1,
+      "evidence": {
+        "id": "S-04",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 4746.33025,
+        "check_id": "CHK-9009bcf64f74",
+        "input_hash": "39ebb894b7404feb0e9d1465bb4668fed305134341c12237fa9e34dce90c2553",
+        "environment_hash": "c1ab0bba177688b81b4de4ccdc3b8a8e2294de1831cfb31f46f106b674331c4c",
+        "check_config": {
+          "id": "CHK-9009bcf64f74",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "ci",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [
+            "packages/**",
+            "apps/agent-runtime/**",
+            "apps/agent-worker/**",
+            "migrations/**"
+          ],
+          "preflight": [],
+          "paths": [],
+          "suite": "integration",
+          "test_ids": [
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"
+          ],
+          "markers": [],
+          "collect": {
+            "argv": [
+              "uv",
+              "run",
+              "pytest",
+              "--collect-only",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"
+            ],
+            "format": "pytest",
+            "timeout": 30
+          }
+        },
+        "revision": 1,
+        "run_id": "e8eedbd3dc5047d9b9aa30464227c4a3",
+        "executed_at": "2026-11-11T01:21:20.734394+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "39ebb894b7404feb0e9d1465bb4668fed305134341c12237fa9e34dce90c2553"
+      },
+      "runs": [
+        {
+          "id": "S-04",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 4746.33025,
+          "check_id": "CHK-9009bcf64f74",
+          "input_hash": "39ebb894b7404feb0e9d1465bb4668fed305134341c12237fa9e34dce90c2553",
+          "environment_hash": "c1ab0bba177688b81b4de4ccdc3b8a8e2294de1831cfb31f46f106b674331c4c",
+          "check_config": {
+            "id": "CHK-9009bcf64f74",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "ci",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "migrations/**"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"
+              ],
+              "format": "pytest",
+              "timeout": 30
+            }
+          },
+          "revision": 1,
+          "run_id": "e8eedbd3dc5047d9b9aa30464227c4a3",
+          "executed_at": "2026-11-11T01:21:20.734394+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "39ebb894b7404feb0e9d1465bb4668fed305134341c12237fa9e34dce90c2553"
+        }
+      ]
     },
     {
       "id": "S-05",
@@ -2138,7 +2269,7 @@
       "kind": "functional",
       "boundary": "真实requests/urllib3、HTTP重定向及失败探针",
       "owner": "TASK-004",
-      "status": "planned",
+      "status": "verified",
       "command": [
         "uv",
         "run",
@@ -2185,7 +2316,138 @@
         "FEAT-01"
       ],
       "defer_owner": "TASK-004",
-      "check": "CHK-717825543759"
+      "check": "CHK-717825543759",
+      "revision": 1,
+      "evidence": {
+        "id": "B-02",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 6606.804291,
+        "check_id": "CHK-717825543759",
+        "input_hash": "9c3144b5f9861808cf8e24d46145082e7a1a75ee12479d9782ad3af546b7bc69",
+        "environment_hash": "c1ab0bba177688b81b4de4ccdc3b8a8e2294de1831cfb31f46f106b674331c4c",
+        "check_config": {
+          "id": "CHK-717825543759",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "env": "ci",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [
+            "packages/**",
+            "apps/agent-runtime/**",
+            "apps/agent-worker/**",
+            "migrations/**"
+          ],
+          "preflight": [],
+          "paths": [],
+          "suite": "integration",
+          "test_ids": [
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"
+          ],
+          "markers": [],
+          "collect": {
+            "argv": [
+              "uv",
+              "run",
+              "pytest",
+              "--collect-only",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"
+            ],
+            "format": "pytest",
+            "timeout": 30
+          }
+        },
+        "revision": 1,
+        "run_id": "e8eedbd3dc5047d9b9aa30464227c4a3",
+        "executed_at": "2026-11-11T01:21:20.734394+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"
+        ],
+        "cwd": ".",
+        "timeout": 300.0,
+        "fingerprint": "9c3144b5f9861808cf8e24d46145082e7a1a75ee12479d9782ad3af546b7bc69"
+      },
+      "runs": [
+        {
+          "id": "B-02",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 6606.804291,
+          "check_id": "CHK-717825543759",
+          "input_hash": "9c3144b5f9861808cf8e24d46145082e7a1a75ee12479d9782ad3af546b7bc69",
+          "environment_hash": "c1ab0bba177688b81b4de4ccdc3b8a8e2294de1831cfb31f46f106b674331c4c",
+          "check_config": {
+            "id": "CHK-717825543759",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "ci",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "migrations/**"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"
+              ],
+              "format": "pytest",
+              "timeout": 30
+            }
+          },
+          "revision": 1,
+          "run_id": "e8eedbd3dc5047d9b9aa30464227c4a3",
+          "executed_at": "2026-11-11T01:21:20.734394+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0,
+          "fingerprint": "9c3144b5f9861808cf8e24d46145082e7a1a75ee12479d9782ad3af546b7bc69"
+        }
+      ]
     },
     {
       "id": "B-03",

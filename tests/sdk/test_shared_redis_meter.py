@@ -531,11 +531,11 @@ async def test_expired_lease_cannot_be_resurrected(shared_meter):
     }])
     await meter.publish(config)
     permit = await meter.admit(config, target_instance_id="platform", route_id="GET /assets",
-                               attempt_id="expired", lease_seconds=0.05)
+                               attempt_id="expired", lease_seconds=0.5)
     await meter.consume(permit)
     key = meter._bucket("route", "leases")
     before = await redis.zscore(key, permit.attempt_id)
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.6)
     with pytest.raises(MeteringUnavailable):
         await meter.renew(permit, lease_seconds=30)
     assert await redis.zscore(key, permit.attempt_id) == before

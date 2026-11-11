@@ -21,7 +21,8 @@ COPY config ./config
 COPY migrations ./migrations
 COPY packages ./packages
 COPY apps ./apps
-RUN uv sync --frozen --no-dev --no-editable --package muad-agent-runtime
+RUN uv sync --frozen --no-dev --no-editable --package muad-agent-runtime \
+ && python -m muad_egress_site --install
 # 非 root 运行（固定 UID/GID 10001，便于 k8s securityContext 与 PVC fsGroup 对齐）
 RUN groupadd --gid 10001 muad \
  && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin muad \

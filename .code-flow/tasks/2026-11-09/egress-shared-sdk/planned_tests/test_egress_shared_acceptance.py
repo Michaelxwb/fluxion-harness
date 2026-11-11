@@ -90,9 +90,29 @@ def test_s_03() -> None:
     """恢复与Task重领延续累计：身份不变、segment变更不清零，Worker使用冻结超时。"""
     pytest.fail("PLAN_SKELETON: implement real S-03 boundary assertions before execution")
 
-def test_s_04() -> None:
-    """旧requests脚本透明接入: 无需改业务逻辑即受控；Cookie和固定CSRF保持；无hook启动自检明确失败."""
-    pytest.fail("PLAN_SKELETON: implement real S-04 boundary assertions before execution")
+@pytest.mark.integration
+async def test_s_04() -> None:
+    """Controlled Linux wheel/system-site/bwrap startup, not a host import smoke."""
+    import asyncio
+    import os
+    import sys
+
+    if not os.environ.get("EGRESS_SITE_TEST_IMAGE") or not os.environ.get("EGRESS_SITE_TEST_REDIS_URL"):
+        pytest.fail("env_blocked: provision controlled Linux image and its isolated Redis URL")
+    process = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "pytest", "-q", "tests/sdk/test_egress_site_linux.py",
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+    )
+    try:
+        async with asyncio.timeout(120):
+            output, _ = await process.communicate()
+    finally:
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
+    assert process.returncode == 0, output.decode(errors="replace")
+    assert b"1 passed" in output, output.decode(errors="replace")
+
 
 def test_s_05() -> None:
     """认证与MCP逐发送计量: 每个物理发送各计一次；超限不发送；不在运行时新增tools/list."""
@@ -145,9 +165,37 @@ def test_b_01() -> None:
     """连续窗口边界及时钟回拨: 有效区间为(now-window,now]，不存在跨整分放行100次；回拨不提前释放窗口."""
     pytest.fail("PLAN_SKELETON: implement real B-01 boundary assertions before execution")
 
-def test_b_02() -> None:
-    """跳转与重试逐次申请；拒绝未授权目标，明确声明adapter覆盖。"""
-    pytest.fail("PLAN_SKELETON: implement real B-02 boundary assertions before execution")
+@pytest.mark.integration
+async def test_b_02() -> None:
+    """Real requests sends, redirects and explicit retries through private IPC."""
+    import asyncio
+    import os
+    import sys
+
+    if not os.environ.get("REDIS_URL"):
+        pytest.fail("env_blocked: REDIS_URL must point to isolated Redis")
+    path = "tests/sdk/test_requests_egress_hook.py"
+    names = [
+        "test_redirects_are_counted_individually_and_auth_headers_preserved",
+        "test_explicit_retries_each_acquire_a_new_permit",
+        "test_implicit_retries_are_explicitly_rejected_without_sending",
+        "test_unauthorized_redirect_is_rejected_before_second_send",
+        "test_custom_adapter_is_rejected_before_its_send",
+    ]
+    process = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "pytest", "-q", *(f"{path}::{name}" for name in names),
+        "tests/sdk/test_requests_control_lifecycle.py",
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+    )
+    try:
+        async with asyncio.timeout(120):
+            output, _ = await process.communicate()
+    finally:
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
+    assert process.returncode == 0, output.decode(errors="replace")
+    assert b"17 passed" in output, output.decode(errors="replace")
 
 @pytest.mark.integration
 @pytest.mark.parametrize("case", [
