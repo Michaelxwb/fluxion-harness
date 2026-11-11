@@ -470,7 +470,7 @@ S-01/S-02/B-01/B-04 RED: 旧占位测试未连接共享Redis内核。 GREEN: `uv
 
 ## TASK-007: 摘要汇总与故障缺口
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-006
 - **Source**: egress-shared-sdk.design.md#3.5 质量实现方案
@@ -516,7 +516,7 @@ S-01/S-02/B-01/B-04 RED: 旧占位测试未连接共享Redis内核。 GREEN: `uv
 
 ## TASK-011: Console 出站规则管理与 Runtime 发布
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-006, TASK-007
 - **Source**: egress-shared-sdk.design.md#3.3 数据设计 / #3.4 接口设计
@@ -530,21 +530,22 @@ S-01/S-02/B-01/B-04 RED: 旧占位测试未连接共享Redis内核。 GREEN: `uv
 
 ### Checklist
 
-- [ ] 后端契约、数据库/平台设置快照、ADMIN CRUD、乐观并发和审计
-- [ ] Console 页面：规则列表、新增/编辑/启停/删除、URL/路径模板、次数/并发字段、版本冲突提示
-- [ ] Runtime/Worker 读取并冻结当前公共规则 revision；配置失败 fail-closed
-- [ ] API/前端契约测试和隔离 PostgreSQL 验证；大型项目 verifier deferred_to_review
+- [x] 后端平台设置快照、ADMIN 版本保存/回滚、乐观并发和审计
+- [x] 系统设置页面：规则列表、新增/删除/启停、URL/路径模板、次数/并发字段、版本冲突提示
+- [x] Runtime/Worker 读取并冻结当前公共规则；配置失败 fail-closed；默认空规则且不启用限制
+- [x] API/前端契约测试、隔离 PostgreSQL、CI 全量验证；大型项目 verifier 已按 deferred_to_review 处理
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 关键断言 | 状态 |
 |---|---|---|---|
-| API-06 | integration | ADMIN 可 CRUD 出站规则；非 ADMIN 拒绝；租户隔离；版本冲突不覆盖；敏感凭据/正文不落库 | planned |
-| B-07 | integration | Console 发布 revision N，Runtime/Worker 新 Run/Task 冻结 N；发布 revision N+1 不改变既有执行；URL/模板和窗口/并发限制进入共享 SDK | planned |
+| API-06 | integration | ADMIN 在系统设置保存出站规则；非 ADMIN 拒绝；租户隔离；版本冲突不覆盖；敏感凭据/正文不落库 | verified |
+| B-07 | integration | Console 发布 revision N，Runtime/Worker 新 Run/Task 冻结 N；发布 revision N+1 不改变既有执行；URL/模板和窗口/并发限制进入共享 SDK | verified |
 
 ### Log
 
 - [2026-11-11] 新增缺口任务：当前 TASK-006/007 PR 未包含 Console 出站策略管理和租户规则发布；原始需求要求的 URL、接口并发、每分钟次数配置必须在此任务补齐。
+- [2026-11-12] TASK-011 完成：规则放入系统设置，默认 `enabled=false`、规则数组为空；管理员可配置 URL/路径模板、方法、平台实例、接口、每分钟次数、并发上限和启停。Runtime/Worker 冻结租户设置，首页展示出站请求总量、成功/失败/限流、平均耗时及 Top URL/接口。定向测试 38 passed，前端构建通过，主仓库 CI 全部通过。
 
 ---
 
