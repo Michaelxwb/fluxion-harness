@@ -6,6 +6,7 @@ import json
 import ssl
 import time
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -209,9 +210,13 @@ class MSSAdapter:
     platform_config_schema = MSSSettings.model_json_schema()
     credential_schema = MSSCredential.model_json_schema()
 
-    def __init__(self, *, budget: PlatformBudgetScope | None = None) -> None:
+    def __init__(
+        self, *, budget: PlatformBudgetScope | None = None,
+        transport_factory: Callable[[ssl.SSLContext], httpx.AsyncBaseTransport] | None = None,
+    ) -> None:
         # Fixed execution context, never a mutable current-user field on a global Adapter.
         self._budget = budget
+        self._transport_factory = transport_factory
 
     async def _send(self, platform: PlatformConfig, client: httpx.AsyncClient, method: str,
                     url: str, headers: dict[str, str], body: str | None = None) -> httpx.Response:
@@ -221,7 +226,8 @@ class MSSAdapter:
     def _client(self, config: MSSSettings) -> httpx.AsyncClient:
         context = ssl.create_default_context(cafile=config.ca_bundle or None)
         return httpx.AsyncClient(
-            verify=context, timeout=config.timeout_seconds, follow_redirects=False, trust_env=False
+            verify=context, timeout=config.timeout_seconds, follow_redirects=False, trust_env=False,
+            transport=self._transport_factory(context) if self._transport_factory is not None else None,
         )
 
     async def authenticate(self, platform: PlatformConfig, credential: SecretValue) -> PlatformSession:

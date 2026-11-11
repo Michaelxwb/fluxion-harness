@@ -179,6 +179,14 @@ S-04 使用锁定依赖构建的 Linux wheel 测试镜像与真实 bwrap，测�
 
 同步传输针对已验证的标准 urllib3 连接登记 socket 所有者，失去 IPC、执行到期或续租发现 Redis 代际变化时关闭该 attempt 的 socket；不得关闭后来复用连接的其他请求。原生 connect/read timeout 取调用者限制与执行剩余时间的较小值，较短的调用者 timeout 保留 requests 异常。HTTP/TLS 慢响应头、慢响应体均通过真实 socket 测试。系统 DNS 或阻塞解释器不能由 SDK 线程保证终止，仍须 TASK-006 父进程有界 deadline 与 killpg。未读完正文时依赖故障中断请求；正文已完成后仅 completion ACK 失败只告警，保留上游结果。
 
+##### Adapter 与 MCP 的物理发送接线
+
+`SharedHostTransport` 是宿主内的标准 HTTPX transport，接在实际网络发送层。宿主 resolver 将请求授权为 `HostRoute(target_instance_id, route_id)`；未知目标、userinfo 或非法 scheme 在 Redis 与网络发送前拒绝。每次 transport 调用进入既有 `SharedHTTPTransport`，因此 HTTPX 的重定向及显式认证/业务重试每次重新授权、申请并消费许可。底层物理客户端固定无隐式重试、无自动重定向、无 client auth 流，不另建计数器、不回退本地计数。
+
+一个宿主 pump task 持有完整流式生命周期，向外层 HTTPX 用容量有界的队列传递原始响应字节；不跨 task 迁移 timeout context。响应头可先返回，流未 EOF/close 前维持租约；调用者取消、关闭响应或关闭客户端会取消 pump、确认物理关闭并释放并发。整个 pump 受绝对请求 deadline 限制，背压不会延长 deadline。原始压缩字节保留供外层 HTTPX 按原语义解码，避免重复解码；status/headers/body 保留，response extensions 增加 `egress_source=UPSTREAM`。明确设置的响应字节上限属于传输读取约束，不是默认限流额度；未配置该上限时不添加此约束。
+
+MSSAdapter 通过 `transport_factory(SSLContext)` 为每次认证/校验客户端注入 transport，沿用其 TLS 校验与 Cookie/CSRF 逻辑；业务客户端由调用方注入同一共享计量配置。MCP 沿用已有 client/transport 注入点，initialize、notification、tools/call 分别经过物理发送，不增加运行时 tools/list 或更改冻结 Catalog。新 transport 不封装或调用旧进程内 BudgetController。Runtime/Worker 的实际身份、授权映射、transport 工厂装配及旧计量装配移除仍归 TASK-006，本任务的真实注入测试不代表生产路径已激活。
+
 ##### 一次请求的协议
 
 1. 宿主基于发起连接绑定的可信 execution/invocation、当前租约与冻结授权，确认这次执行仍可运行。脚本上报的 tenant/run/task ID 不作权威。

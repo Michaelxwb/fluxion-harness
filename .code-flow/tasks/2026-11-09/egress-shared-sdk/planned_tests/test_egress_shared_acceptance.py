@@ -114,9 +114,14 @@ async def test_s_04() -> None:
     assert b"1 passed" in output, output.decode(errors="replace")
 
 
-def test_s_05() -> None:
-    """认证与MCP逐发送计量: 每个物理发送各计一次；超限不发送；不在运行时新增tools/list."""
-    pytest.fail("PLAN_SKELETON: implement real S-05 boundary assertions before execution")
+@pytest.mark.integration
+async def test_s_05() -> None:
+    """Real MSS auth/validation/retry and MCP initialize/notification/tool + Redis."""
+    await _run_host_cases(
+        "test_s_05_mss_auth_validate_business_and_retry_count_every_send",
+        "test_s_05_mcp_initialize_notification_tool_share_counter",
+    )
+
 
 @pytest.mark.integration
 @pytest.mark.parametrize("case", [
@@ -153,9 +158,11 @@ def test_e_02() -> None:
     """累计耗尽停止脚本，回收进程组；Task不重试，Run保留已完成结果。"""
     pytest.fail("PLAN_SKELETON: implement real E-02 boundary assertions before execution")
 
-def test_e_03() -> None:
-    """Proxy错误透传: 状态头正文保持原语义，标记UPSTREAM；已发送计数不返还；不变成本地拒绝."""
-    pytest.fail("PLAN_SKELETON: implement real E-03 boundary assertions before execution")
+@pytest.mark.integration
+async def test_e_03() -> None:
+    """Real Proxy 429 status/headers/body, UPSTREAM marker and no counter refund."""
+    await _run_host_cases("test_e_03_proxy_response_preserved_and_sent_attempt_not_refunded")
+
 
 def test_e_04() -> None:
     """补写去重；缓冲失效时记录缺口，准入不依赖日志写入。"""
@@ -271,3 +278,23 @@ async def test_b_05_redis_state_probe() -> None:
 def test_b_06() -> None:
     """无规则不访问Redis；非法配置拒绝，未知目标和未支持客户端明确区分。"""
     pytest.fail("PLAN_SKELETON: implement real B-06 boundary assertions before execution")
+
+
+async def _run_host_cases(*names: str) -> None:
+    import asyncio
+
+    nodes = ["tests/sdk/test_shared_host_transport.py::" + name for name in names]
+    process = await asyncio.create_subprocess_exec(
+        "uv", "run", "pytest", "-q", *nodes,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+    )
+    output = b""
+    try:
+        async with asyncio.timeout(120):
+            output, _ = await process.communicate()
+    finally:
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
+    assert process.returncode == 0, output.decode(errors="replace")
+    assert f"{len(names)} passed".encode() in output, output.decode(errors="replace")

@@ -26,10 +26,10 @@ TASK-009 验证共享内核，使用可信测试身份；TASK-006 验证 PG、Ru
 | S-02 | egress-shared-sdk.design.md#2.5 验收条件 | integration | 真实Redis及两个SDK客户端 | TASK-009 | verified | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_02"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
 | S-03 | egress-shared-sdk.design.md#2.5 验收条件 | integration | 真实PG、Redis、Runtime和Worker执行器进程 | TASK-006 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
 | S-04 | egress-shared-sdk.design.md#2.5 验收条件 | integration | Linux受控镜像、系统site hook、真实Skill子进程及HTTP | TASK-004 | verified | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
-| S-05 | egress-shared-sdk.design.md#2.5 验收条件 | integration | 真实Adapter、Streamable HTTP MCP、Redis和HTTP探针 | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_05"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
+| S-05 | egress-shared-sdk.design.md#2.5 验收条件 | integration | 真实Adapter、Streamable HTTP MCP、Redis和HTTP探针 | TASK-005 | verified | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_05"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
 | E-01 | egress-shared-sdk.design.md#2.5 验收条件 | integration | 真实Redis进程、网络故障代理与HTTP探针 | TASK-003 | verified | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_01[test_lost_redis_reply_never_sends_and_same_attempt_retry_does_not_recount]", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_01[test_admission_deadline_is_dependency_failure_not_http_timeout]"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
 | E-02 | egress-shared-sdk.design.md#2.5 验收条件 | integration | Linux bwrap、真实父子孙进程、Worker/Runtime、Redis及慢HTTP | TASK-006 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
-| E-03 | egress-shared-sdk.design.md#2.5 验收条件 | integration | 真实HTTP Proxy探针与SDK客户端 | TASK-005 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_03"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
+| E-03 | egress-shared-sdk.design.md#2.5 验收条件 | integration | 真实HTTP Proxy探针与SDK客户端 | TASK-005 | verified | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_03"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
 | E-04 | egress-shared-sdk.design.md#2.5 验收条件 | integration | 真实事件spool文件系统、PG汇总及Redis | TASK-007 | planned | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_04"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
 | B-01 | egress-shared-sdk.design.md#2.5 验收条件 | integration | 真实Redis Lua及可控隔离测试时钟 | TASK-009 | verified | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_repair.py::test_b_01"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
 | B-02 | egress-shared-sdk.design.md#2.5 验收条件 | integration | 真实requests/urllib3、HTTP重定向及失败探针 | TASK-004 | verified | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"] | . | 300 | P0 | auto | ci | packages/**; apps/agent-runtime/**; apps/agent-worker/**; migrations/** | - | - | no |
@@ -320,7 +320,7 @@ S-01/S-02/B-01/B-04 RED: 旧占位测试未连接共享Redis内核。 GREEN: `uv
 
 ## TASK-005: Adapter和MCP统一发送边界
 
-- **Status**: draft
+- **Status**: done
 - **Priority**: P0
 - **Depends**: TASK-003, TASK-010
 - **Source**: egress-shared-sdk.design.md#3.2 架构设计
@@ -336,30 +336,40 @@ S-01/S-02/B-01/B-04 RED: 旧占位测试未连接共享Redis内核。 GREEN: `uv
 
 ### Checklist
 
-- [ ] 先替换所拥有场景的PLAN_SKELETON为真实边界断言；取得功能RED后实施再取GREEN，收集与占位失败不算功能证据
-- [ ] [S-05][integration] 真实Adapter、Streamable HTTP MCP、Redis和HTTP探针；断言：每个物理发送各计一次；超限不发送；不在运行时新增tools/list
-- [ ] [E-03][integration] 真实HTTP Proxy探针与SDK客户端；断言：状态头正文保持原语义，标记UPSTREAM；已发送计数不返还；不变成本地拒绝
-- [ ] [RULE-mcp-001] verifier: ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_rules.py"]；cwd=.；timeout=300；真实执行或按CI runbook复用匹配证据，不以收集代替。
-- [ ] [RULE-platform-001] verifier: ["bash", "-lc", "uv run pytest -q tests -k schema_parity"]；cwd=.；timeout=300；真实执行或按CI runbook复用匹配证据，不以收集代替。
+- [x] 先替换所拥有场景的PLAN_SKELETON为真实边界断言；取得功能RED后实施再取GREEN，收集与占位失败不算功能证据
+- [x] [S-05][integration] 真实Adapter、Streamable HTTP MCP、Redis和HTTP探针；断言：每个物理发送各计一次；超限不发送；不在运行时新增tools/list
+- [x] [E-03][integration] 真实HTTP Proxy探针与SDK客户端；断言：状态头正文保持原语义，标记UPSTREAM；已发送计数不返还；不变成本地拒绝
+- [x] [RULE-mcp-001] verifier: ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_rules.py"]；cwd=.；timeout=300；真实执行或按CI runbook复用匹配证据，不以收集代替。
+- [x] [RULE-platform-001] verifier: ["bash", "-lc", "uv run pytest -q tests -k schema_parity"]；cwd=.；timeout=300；真实执行或按CI runbook复用匹配证据，不以收集代替。
 
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
 |---|---|---|---|---|---|---|
-| S-05 | integration | 真实Adapter、Streamable HTTP MCP、Redis和HTTP探针 | 每个物理发送各计一次；超限不发送；不在运行时新增tools/list | .code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_05"] | planned |
-| E-03 | integration | 真实HTTP Proxy探针与SDK客户端 | 状态头正文保持原语义，标记UPSTREAM；已发送计数不返还；不变成本地拒绝 | .code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_03"] | planned |
+| S-05 | integration | 真实Adapter、Streamable HTTP MCP、Redis和HTTP探针 | 每个物理发送各计一次；超限不发送；不在运行时新增tools/list | .code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_05"] | verified |
+| E-03 | integration | 真实HTTP Proxy探针与SDK客户端 | 状态头正文保持原语义，标记UPSTREAM；已发送计数不返还；不变成本地拒绝 | .code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_03"] | verified |
 | harness-mcp#RULE-mcp-001 | integration | Spec verifier声明的真实服务/存储边界，不以SDK mock替代 | V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅 Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。 | harness-mcp#RULE-mcp-001 | ["uv", "run", "pytest", "-q", "tests/console_mcp/test_mcp_rules.py"] | planned |
 | harness-project-platform#RULE-platform-001 | integration | Spec verifier声明的真实服务/存储边界，不以SDK mock替代 | ProjectPlatform 只保存实例与寻址配置，认证/Session 由 PlatformAdapter 承担（SPI 无独立 `refresh`，刷新属于 `authenticate` 内部）；凭据明文存于凭据表并由主键引用，`credential_mode` 仅表达选择策略（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）；PlatformSession 为可重建 Redis 缓存，键为 `platform_session:{tenant_id:platform_id}:{actor_scope}:{credential_version}:{adapter_key}:{adapter_version}`（`{tenant_id:platform_id}` 是字面 hash tag，session/index/generation/lock 同 slot，保证 4-key Lua 在 Redis Cluster 可执行），索引 `platform_sessions:{tenant_id:platform_id}` 以 Set 清理；更换 adapter_key 必须使旧凭据与会话失效。 | harness-project-platform#RULE-platform-001 | ["bash", "-lc", "uv run pytest -q tests -k schema_parity"] | planned |
 
 ### Acceptance Evidence
 
-仅登记计划；无实现测试证据。
+- 2026-11-11 启动 TASK-005，保留用户 `.codex/config.toml` 改动。实施前真实测试 3 failed（1.33 秒）：MSS 缺少 transport_factory、共享 transport 模块缺失；这是新接口缺失的 RED，不描述为已存在发送实现的行为缺陷。未把 PLAN_SKELETON 或环境故障当作功能证据。
+- 新增宿主 HTTPX transport，直接复用 SharedHTTPTransport；MSS 新增保留 SSLContext 的 transport 工厂，MCP 使用已有 client/transport 注入。新路径没有本地计数后备或双重扣减；生产装配及旧装配移除保留在 TASK-006。
+- 真实 MSS 的 CSRF/login/validate/业务/401 后重新认证及显式重试合计 8 次外发，下一次不发；真实 MCP initialize/notification/tools-call 合计 3 次，超限通过实际 adapter 调用拒绝，探针未收到 tools/list。Proxy 429/Retry-After/body 原样保留并标记 UPSTREAM，已发送次数不返还。
+- 新增 13 项真实 HTTP/TLS/Redis 测试，覆盖重定向逐跳授权、跨客户端冻结 invocation 预算、未知目标与缺失 Redis guard 不外发、空规则不访问 guard、流式关闭/客户端关闭/响应头前取消/deadline 的物理关闭和释放、压缩正文只解码一次、显式响应字节约束及 TLS 证书校验。不是 mock Store 或模拟 HTTP。
+- 新测试与正式 S-05/E-03 入口合计 15 passed（5.74 秒）；受影响 MSS/session/原 platform-budget/shared streaming/configuration inventory 回归 49 passed（21.11 秒）。相关 Ruff、两个源模块 mypy 通过；配置清单只更新两个常量行号，保持 LF。未推送、未触发全量 CI，当前等待 Done Gate 实际裁决。
+- S-05: verified — automated command passed; run_id=4fab741dc585421c8350288003d5ca61 (confirmed_by: runner)
+- E-03: verified — automated command passed; run_id=4fab741dc585421c8350288003d5ca61 (confirmed_by: runner)
 
 ### Log
 
 - [2026-11-09] created (draft)
+- [2026-11-11] started
+- [2026-11-11] completed (done)
 
 ---
+
+- 2026-11-11 Done Gate 实际裁决 pass（8 executed，0 reused，0 budget deferral，79.78 秒）：S-05/E-03、arch/mcp/platform/secret 规范及轻量 validators 通过。6 项需求级规范与 5 项 heavy validators 保留至需求终验；无本轮 Runtime/Worker 全目录回归。
 
 ## TASK-006: 持久执行身份与宿主进程监督
 
