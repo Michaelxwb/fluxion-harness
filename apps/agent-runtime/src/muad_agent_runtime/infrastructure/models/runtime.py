@@ -968,8 +968,12 @@ class EgressAudit(StandardColumnsMixin, Base):
     result_status: Mapped[str] = mapped_column(sa.String(16), nullable=False)
     latency_ms: Mapped[int | None] = mapped_column(sa.Integer())
     error_code: Mapped[str | None] = mapped_column(sa.String(64))
-    attempt_id: Mapped[str] = mapped_column(sa.String(128), nullable=False)
-    phase: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    attempt_id: Mapped[str] = mapped_column(
+        sa.String(128),
+        nullable=False,
+        server_default=sa.text("md5(random()::text || clock_timestamp()::text)"),
+    )
+    phase: Mapped[str] = mapped_column(sa.String(32), nullable=False, server_default=sa.text("'completed'"))
 
 
 class EgressInterfaceSummary(StandardColumnsMixin, Base):

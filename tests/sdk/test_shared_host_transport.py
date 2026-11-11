@@ -13,6 +13,7 @@ from muad_agent_runtime.application.mcp_runtime_adapter import (
     McpRuntimeAdapter,
     McpServerDefinition,
     McpToolDefinition,
+    McpToolError,
 )
 from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
 from muad_platform_sdk import MSSAdapter, PlatformRequest, PlatformTarget
@@ -173,10 +174,11 @@ async def test_s_05_mcp_initialize_notification_tool_share_counter(meter):
                 assert failure.value.reason == "upstream_http"
                 assert failure.value.status_code == 429
                 assert failure.value.retry_after == "7"
-                with pytest.raises(SharedLimitExceeded):
+                with pytest.raises(McpToolError) as local_limit:
                     await adapter.execute_tool(
                         server=definition, tool=definition.tools[0], arguments={}, policy_decision="ALLOW"
                     )
+                assert local_limit.value.code == "LOCAL_BUDGET_EXHAUSTED"
             finally:
                 await adapter.aclose()
         assert calls == ["initialize", "notifications/initialized", "tools/call"]

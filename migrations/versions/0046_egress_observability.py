@@ -11,8 +11,20 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("egress_audit", sa.Column("attempt_id", sa.String(128)), schema="runtime")
-    op.add_column("egress_audit", sa.Column("phase", sa.String(32)), schema="runtime")
+    op.add_column(
+        "egress_audit",
+        sa.Column(
+            "attempt_id",
+            sa.String(128),
+            server_default=sa.text("md5(random()::text || clock_timestamp()::text)"),
+        ),
+        schema="runtime",
+    )
+    op.add_column(
+        "egress_audit",
+        sa.Column("phase", sa.String(32), server_default=sa.text("'completed'")),
+        schema="runtime",
+    )
     op.execute(sa.text("UPDATE runtime.egress_audit SET attempt_id = id::text WHERE attempt_id IS NULL"))
     op.execute(sa.text("UPDATE runtime.egress_audit SET phase = 'completed' WHERE phase IS NULL"))
     op.alter_column("egress_audit", "attempt_id", nullable=False, schema="runtime")
