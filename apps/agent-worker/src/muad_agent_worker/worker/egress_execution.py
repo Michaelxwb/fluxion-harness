@@ -15,8 +15,10 @@ from muad_platform_sdk.egress_source_authority import SourceClaim
 from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from muad_platform_sdk.shared_redis import MeteringUnavailable
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..infrastructure.models.control import PlatformSetting  # type: ignore[import-untyped]
 from ..infrastructure.models.task import TaskExecution
 from .egress_source_lease import read_task_source_lease
 
@@ -73,6 +75,19 @@ async def execute_task_skill_with_egress(
     if sessions is not None:
         bound_sessions = sessions
         provider = lambda: bound_sessions  # noqa: E731 - lazy storage capture for disabled paths
+    route_overrides: tuple[dict[str, object], ...] = ()
+    if sessions is not None:
+        async with sessions() as session:
+            row = await session.scalar(
+                select(PlatformSetting.settings_json)
+                .where(PlatformSetting.tenant_id == task.tenant_id, PlatformSetting.is_deleted.is_(False))
+                .order_by(PlatformSetting.revision.desc())
+                .limit(1)
+            )
+        if isinstance(row, dict):
+            from muad_contracts.platform_settings import egress_rules_from_settings, parse_platform_settings
+
+            route_overrides = egress_rules_from_settings(parse_platform_settings(row).egress)
     async with configured_host_egress(
         settings=settings,
         policy=policy,
@@ -81,6 +96,7 @@ async def execute_task_skill_with_egress(
         claim=lambda: task_source_claim(task),
         reader=read_task_source_lease,
         minimum_stop_margin_seconds=4 * TERMINATE_GRACE_SEC,
+        route_overrides=route_overrides,
     ) as host:
         if host is None:
             return await executor.execute(request)
