@@ -83,7 +83,7 @@ def make_host(meter, policy, origin, *, deadline=3, allow_free=False):
             return api.UncontrolledTarget()
         return EgressTarget("platform", "GET /assets")
 
-    return InvocationEgressBroker(meter=meter, policy=policy,
+    return InvocationEgressBroker(meter=meter,
                                    invocation=TrustedInvocation("execution", "script", "segment"),
                                    resolve=resolve, deadline_seconds=deadline, cleanup_seconds=0.5,
                                    renewal_interval_seconds=0.05)

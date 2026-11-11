@@ -1,0 +1,259 @@
+"""Runtime executor with real PG, Redis, HTTP and Linux skill process tree."""
+
+import asyncio
+import hashlib
+import json
+import os
+import runpy
+import tempfile
+import uuid
+import zipfile
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import sqlalchemy as sa
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+
+class Provider:
+    def __init__(self, origin, marker):
+        self.origin, self.marker, self.calls = origin, marker, 0
+        self.messages = []
+
+    async def complete(self, request):
+        from muad_agent_core.model import ModelResponse, ModelToolCall
+
+        self.calls += 1
+        self.messages.append(request.messages)
+        if self.calls <= 1:
+            return ModelResponse(
+                content="",
+                finish_reason="tool_calls",
+                tool_calls=(
+                    ModelToolCall(
+                        id="fixed-call",
+                        name="execute_skill",
+                        arguments={
+                            "skill_key": "probe",
+                            "input": {
+                                "origin": self.origin,
+                                "marker": self.marker,
+                                "phase": self.calls,
+                            },
+                        },
+                    ),
+                ),
+            )
+        return ModelResponse(content="partial results retained", finish_reason="stop")
+
+
+async def run(parent, core, worker):
+    from muad_agent_core.agent import AgentPolicy, AgentRunner
+    from muad_agent_runtime.application.async_tools.continuation_service import ExecutionIdentity
+    from muad_agent_runtime.application.egress_execution import run_egress
+    from muad_agent_runtime.application.executor import (
+        AgentRunnerExecutor,
+        ExecutionDefaults,
+        ExecutorRequest,
+        ExecutorRunContext,
+    )
+    from muad_agent_runtime.application.skill_tools import build_skill_registry
+    from muad_agent_runtime.infrastructure.models.runtime import Conversation, RunRecord
+    from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
+    from muad_common import SharedSettings
+    from muad_contracts import ResolvedAgent, ResolvedModel, ResolvedSkill
+    from muad_contracts.egress_budget import resolve_egress_budget
+    from muad_contracts.shared_egress import SharedEgressPolicy
+    from muad_platform_sdk.shared_redis import SharedRedisMeter
+
+    settings = SharedSettings()
+    engine = create_async_engine(settings.require_database_url())
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    tenant, domain = "runtime-probe-" + uuid.uuid4().hex, "runtime-probe-" + uuid.uuid4().hex
+    run_id, conv_id, user_id, agent_id = (uuid.uuid4() for _ in range(4))
+    workspace = parent / "workspace"
+    workspace.mkdir()
+    network = core["Network"](workspace)
+    marker = "runtime-grandchild-" + uuid.uuid4().hex
+    meter = SharedRedisMeter(redis, domain=domain, epoch="epoch")
+    config = worker["configuration"](domain, network.origin)
+    (parent / "egress.json").write_text(json.dumps(config))
+    artifacts = parent / "artifacts"
+    artifacts.mkdir()
+    archive = artifacts / "probe.zip"
+    script = runpy.run_path("/opt/egress-worker-recovery-probe.py", run_name="fixture")["SCRIPT"]
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.writestr("SKILL.md", "---\nname: probe\ndescription: probe\n---\n")
+        bundle.writestr("scripts/main.py", script)
+    skill = ResolvedSkill(
+        skill_id=uuid.uuid4(),
+        artifact_id=uuid.uuid4(),
+        key="probe",
+        name="probe",
+        description="probe",
+        version="1",
+        checksum="sha256:" + hashlib.sha256(archive.read_bytes()).hexdigest(),
+        storage_key="probe.zip",
+        source="ADMIN",
+    )
+
+    async def cancelled():
+        return False
+
+    try:
+        await redis.hset(meter._key("guard"), mapping={"epoch": "epoch"})
+        await meter.publish(
+            SharedEgressPolicy.model_validate(
+                {
+                    "revision": 1,
+                    "rules": [
+                        {
+                            "id": "probe",
+                            "target_instance_id": "platform",
+                            "route_id": "GET /probe",
+                            "max_requests": 100,
+                            "max_inflight": 4,
+                        }
+                    ],
+                }
+            )
+        )
+        async with sessions.begin() as session:
+            session.add(
+                Conversation(
+                    id=conv_id,
+                    tenant_id=tenant,
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    status="ACTIVE",
+                    last_seq=0,
+                )
+            )
+            await session.flush()
+            session.add(
+                RunRecord(
+                    id=run_id,
+                    tenant_id=tenant,
+                    conversation_id=conv_id,
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    status="RUNNING",
+                    input_text="probe",
+                    trace_id=uuid.uuid4().hex,
+                    execution_epoch=1,
+                    lease_owner="runtime-probe",
+                    lease_until=datetime.now(UTC) + timedelta(minutes=5),
+                    deadline_at=datetime.now(UTC) + timedelta(minutes=10),
+                )
+            )
+        request = ExecutorRequest(
+            agent=ResolvedAgent(id=agent_id, key="probe", revision=1, instructions="probe"),
+            model=ResolvedModel(id=uuid.uuid4(), revision=1, model_id="probe", base_url="http://model"),
+            input_text="probe",
+            is_cancel_requested=cancelled,
+            skills=(skill,),
+            run_context=ExecutorRunContext(tenant, run_id, conv_id, user_id),
+            execution_identity=ExecutionIdentity(tenant, run_id, "runtime-probe", 1),
+            execution=ExecutionDefaults(
+                egress_budget=resolve_egress_budget(
+                    {"execution": {"max_requests": 50}, "skill_defaults": {"total": {"max_requests": 50}}}
+                )
+            ),
+        )
+
+        async def execute(current):
+            provider = Provider(network.origin, marker)
+            async with run_egress(current) as root:
+                registry = build_skill_registry(
+                    cache=SkillArtifactCache(NfsArtifactStore(artifacts), parent / "cache"),
+                    skills=(skill,),
+                    policy=AgentPolicy(deadline_ms=30000),
+                    workspace_dir=workspace,
+                    execution_id=str(run_id),
+                    egress=root,
+                )
+                executor = AgentRunnerExecutor(
+                    runner=AgentRunner(provider=provider, registry=registry),
+                    request=current,
+                    egress=root,
+                )
+                events = [event async for event in executor.run()]
+            results = [
+                str(message.content)
+                for batch in provider.messages
+                for message in batch
+                if message.role.value == "tool"
+            ]
+            assert any(event.type == "runner.outcome" for event in events)
+            return results
+
+        first_results = await execute(request)
+        assert any('"count": 30' in result for result in first_results), first_results
+        assert len(network.calls) == 30
+        async with sessions.begin() as session:
+            ids = (
+                await session.execute(
+                    sa.text(
+                        "SELECT e.id, i.id, e.current_fence FROM runtime.egress_execution e "
+                        "JOIN runtime.egress_invocation i ON i.execution_id=e.id WHERE e.tenant_id=:tenant"
+                    ),
+                    {"tenant": tenant},
+                )
+            ).one()
+            await session.execute(
+                sa.update(RunRecord)
+                .where(RunRecord.id == run_id)
+                .values(lease_owner="replacement", execution_epoch=2)
+            )
+        recovered = replace(request, execution_identity=ExecutionIdentity(tenant, run_id, "replacement", 2))
+        results = await execute(recovered)
+        assert any("LOCAL_BUDGET_EXHAUSTED" in result for result in results), results
+        assert len(network.calls) == 50, len(network.calls)
+        async with sessions() as session:
+            current = (
+                await session.execute(
+                    sa.text(
+                        "SELECT e.id, i.id, e.current_fence FROM runtime.egress_execution e "
+                        "JOIN runtime.egress_invocation i ON i.execution_id=e.id WHERE e.tenant_id=:tenant"
+                    ),
+                    {"tenant": tenant},
+                )
+            ).one()
+        assert current[:2] == ids[:2] and current[2] > ids[2]
+        return {"status": "passed", "first_requests": 30, "after_recovery": 20}
+    finally:
+        network.close()
+        async with sessions.begin() as session:
+            for table in (
+                "runtime.egress_invocation",
+                "runtime.egress_execution",
+                "runtime.run_record",
+                "runtime.conversation",
+            ):
+                await session.execute(
+                    sa.text(f"DELETE FROM {table} WHERE tenant_id=:tenant"), {"tenant": tenant}
+                )
+        keys = [key async for key in redis.scan_iter(f"fx:egress:{{{domain}}}:*")]
+        if keys:
+            await redis.delete(*keys)
+        await redis.aclose()
+        await engine.dispose()
+
+
+if __name__ == "__main__":
+    core = runpy.run_path("/opt/egress-core-probe.py", run_name="core_fixture")
+    worker = runpy.run_path("/opt/egress-worker-probe.py", run_name="worker_fixture")
+    with tempfile.TemporaryDirectory(prefix="runtime-egress-") as directory:
+        parent = Path(directory)
+        os.environ.update(
+            {
+                "ARTIFACT_ROOT": str(parent / "artifacts"),
+                "SKILL_CACHE_ROOT": str(parent / "cache"),
+                "WORKSPACE_ROOT": str(parent / "workspaces"),
+                "EGRESS_CONTROL_FILE": str(parent / "egress.json"),
+            }
+        )
+        print(json.dumps(asyncio.run(run(parent, core, worker))))

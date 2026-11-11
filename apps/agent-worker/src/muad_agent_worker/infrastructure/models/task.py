@@ -144,6 +144,7 @@ class TaskExecution(StandardColumnsMixin, Base):
             "delivered_at",
             postgresql_where=sa.text("delivery_mode = 'FINAL_ONLY' AND is_deleted = false"),
         ),
+        sa.CheckConstraint("lease_epoch >= 0", name="lease_epoch"),
         {"schema": "task"},
     )
 
@@ -219,6 +220,8 @@ class TaskExecution(StandardColumnsMixin, Base):
         nullable=False,
         server_default=sa.text("3"),
     )
+    #: 每次领取均递增（含 WAITING 续接）；attempt 仍只统计业务重试。
+    lease_epoch: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
     lease_owner: Mapped[str | None] = mapped_column(sa.String(128))
     lease_until: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     heartbeat_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))

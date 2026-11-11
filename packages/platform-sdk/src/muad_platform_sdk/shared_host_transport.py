@@ -15,7 +15,7 @@ import httpx
 from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
 
 from .shared_http_transport import RequestLifetime, SharedHTTPTransport
-from .shared_redis import MeteringUnavailable, SharedRedisMeter
+from .shared_redis import MeteringUnavailable, SharedLimitExceeded, SharedRedisMeter
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,20 +62,28 @@ class _Relay(httpx.AsyncByteStream):
 
 class SharedHostTransport(httpx.AsyncBaseTransport):
     def __init__(
-        self, meter: SharedRedisMeter, *, policy: SharedEgressPolicy,
+        self, meter: SharedRedisMeter, *, public_rules_enabled: bool,
         resolve: Callable[[httpx.Request], HostRoute | None], lifetime: RequestLifetime,
         invocation: TrustedInvocation | None = None,
         verify: ssl.SSLContext | bool = True,
         max_response_bytes: int | None = None,
+        on_limit: Callable[[SharedLimitExceeded], None] | None = None,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         if max_response_bytes is not None and (
             isinstance(max_response_bytes, bool) or max_response_bytes <= 0
         ):
             raise ValueError("positive response byte bound required")
         self._sender = SharedHTTPTransport(meter, lifetime=lifetime)
-        self._policy, self._resolve, self._invocation = policy, resolve, invocation
+        self._meter, self._resolve, self._invocation = meter, resolve, invocation
+        if not isinstance(public_rules_enabled, bool):
+            raise ValueError("explicit public policy control mode required")
+        self._controlled = public_rules_enabled or invocation is not None
+        self._timeout_seconds = lifetime.timeout_seconds
+        self._on_limit = on_limit
         self._max_response_bytes = max_response_bytes
-        self._client = httpx.AsyncClient(
+        self._owns_client = client is None
+        self._client = client or httpx.AsyncClient(
             transport=httpx.AsyncHTTPTransport(verify=verify, retries=0), trust_env=False,
         )
         self._relays: set[_Relay] = set()
@@ -101,29 +109,36 @@ class SharedHostTransport(httpx.AsyncBaseTransport):
 
     async def _pump(self, relay: _Relay, request: httpx.Request, route: HostRoute) -> None:
         try:
-            async with self._sender.stream(
-                self._client, request, policy=self._policy,
-                target_instance_id=route.target_instance_id, route_id=route.route_id,
-                invocation=self._invocation,
-            ) as response:
-                extensions = {**response.extensions, "egress_source": "UPSTREAM"}
-                relay.head.set_result(httpx.Response(
-                    response.status_code, headers=response.headers, extensions=extensions,
-                    stream=relay, request=request,
-                ))
-                await self._relay_body(relay, response)
-            await relay.queue.put(None)
+            async with asyncio.timeout(self._timeout_seconds):
+                await self._forward(relay, request, route)
         except asyncio.CancelledError:
             if not relay.head.done():
                 relay.head.cancel()
             raise
         except Exception as exc:
+            if isinstance(exc, SharedLimitExceeded) and self._on_limit is not None:
+                self._on_limit(exc)
+            if isinstance(exc, TimeoutError) and not relay.head.done():
+                exc = MeteringUnavailable("shared host request deadline exceeded")
             if not relay.head.done():
                 relay.head.set_exception(exc)
             else:
                 await relay.queue.put(exc)
         finally:
             self._relays.discard(relay)
+
+    async def _forward(self, relay: _Relay, request: httpx.Request, route: HostRoute) -> None:
+        policy = await self._meter.current_policy() if self._controlled else SharedEgressPolicy()
+        async with self._sender.stream(
+            self._client, request, policy=policy,
+            target_instance_id=route.target_instance_id, route_id=route.route_id,
+            invocation=self._invocation,
+        ) as response:
+            extensions = {**response.extensions, "egress_source": "UPSTREAM"}
+            relay.head.set_result(httpx.Response(response.status_code, headers=response.headers,
+                                               extensions=extensions, stream=relay, request=request))
+            await self._relay_body(relay, response)
+        await relay.queue.put(None)
 
     async def _relay_body(self, relay: _Relay, response: httpx.Response) -> None:
         received = 0
@@ -143,4 +158,5 @@ class SharedHostTransport(httpx.AsyncBaseTransport):
                 if isinstance(outcome, BaseException):
                     raise outcome
         finally:
-            await self._client.aclose()
+            if self._owns_client:
+                await self._client.aclose()

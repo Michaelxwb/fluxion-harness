@@ -20,6 +20,7 @@ from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolHandler, ToolR
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_platform_sdk.platform_transport import McpBudgetScope
+from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 from ..metrics import EGRESS_CALLS_METRIC, record_outcome
@@ -43,11 +44,14 @@ class McpToolError(RuntimeError):
         *,
         status_code: int | None = None,
         retry_after: str | None = None,
+        code: str = "COMMON_INTERNAL_ERROR",
     ) -> None:
         self.reason = reason
         self.detail = detail
         self.status_code = status_code
         self.retry_after = retry_after
+        self.code = code
+        self.retryable = False
         super().__init__(f"MCP {reason}: {detail}")
 
 
@@ -131,15 +135,27 @@ class _McpSession:
         request_id = payload.get("id")
         expects_response = request_id is not None
         try:
-            async with (self._budget.attempt(
-                self._server_key, str(payload.get("method", "")),
-                (payload.get("params") or {}).get("name") if payload.get("method") == "tools/call" else None
-            ) if self._budget is not None else _null_async_context()) as lease:
-                response = await self._client.post(
-                    self._endpoint, json=payload, headers=self._headers()
+            async with (
+                self._budget.attempt(
+                    self._server_key,
+                    str(payload.get("method", "")),
+                    (payload.get("params") or {}).get("name")
+                    if payload.get("method") == "tools/call"
+                    else None,
                 )
+                if self._budget is not None
+                else _null_async_context()
+            ) as lease:
+                response = await self._client.post(self._endpoint, json=payload, headers=self._headers())
                 if lease is not None and response.status_code == 429:
                     lease.outcome = "proxy_rate_limited"
+        except SharedLimitExceeded as exc:
+            code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
+            raise McpToolError("local_limit", str(exc), code=code) from exc
+        except MeteringUnavailable:
+            raise McpToolError(
+                "metering_unavailable", "shared metering unavailable", code="EGRESS_METERING_UNAVAILABLE"
+            ) from None
         except httpx.TimeoutException as exc:
             raise McpToolError("timeout", "request timed out") from exc
         except httpx.HTTPError as exc:
@@ -327,7 +343,8 @@ class McpRuntimeAdapter:
             session = await self._ready_session(server)
             content = await session.call_tool(tool.name, arguments)
         except McpToolError as exc:
-            await self._discard_session(server.key)
+            if exc.reason != "local_limit":
+                await self._discard_session(server.key)
             await self._audit(
                 target,
                 policy_decision,

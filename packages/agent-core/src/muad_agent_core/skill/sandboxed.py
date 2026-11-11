@@ -20,6 +20,7 @@ from pathlib import Path
 
 from muad_platform_sdk.adapter.mss_config import PlatformAuthError
 from muad_platform_sdk.skill_bridge import PlatformSessionEnvironment, skill_platform_environment
+from muad_platform_sdk.skill_egress import ScriptEgressEnvironment, skill_egress_environment
 from muad_skill_sdk.skill_package import SkillPackage, SkillPackageError, locate_package_root
 from redis.exceptions import RedisClusterException, RedisError
 
@@ -69,20 +70,152 @@ async def _run_with_budget_stop(
     """预算耗尽取消 runner；runner 负责有界回收整个进程组后再退出。"""
     if exhausted is None:
         return await runner.run(spec)
+    if exhausted.is_set():
+        raise SkillExecutionError("LOCAL_BUDGET_EXHAUSTED", retryable=False)
     running = asyncio.create_task(runner.run(spec))
     stopped = asyncio.create_task(exhausted.wait())
     try:
         done, _ = await asyncio.wait({running, stopped}, return_when=asyncio.FIRST_COMPLETED)
-        if stopped in done:
-            running.cancel()
-            await asyncio.gather(running, return_exceptions=True)
+        if stopped in done or exhausted.is_set():
+            await _cancel_runner(running)
             raise SkillExecutionError("LOCAL_BUDGET_EXHAUSTED", retryable=False)
         return await running
     finally:
         stopped.cancel()
         if not running.done():
-            running.cancel()
-        await asyncio.gather(running, stopped, return_exceptions=True)
+            await _cancel_runner(running)
+        await asyncio.gather(stopped, return_exceptions=True)
+
+
+async def _cancel_runner(running: asyncio.Task[SandboxResult]) -> None:
+    if not running.done():
+        running.cancel()
+    outcomes = await asyncio.gather(running, return_exceptions=True)
+    error = outcomes[0]
+    if (isinstance(error, Exception) and
+            not isinstance(error, (SandboxCancelled, SandboxTimeout, SandboxOutputLimit))):
+        raise SkillExecutionError("EGRESS_STOP_UNCONFIRMED", retryable=False) from error
+
+
+async def _run_controlled(runner: SandboxRunner, spec: SandboxSpec, request: SkillExecutionRequest,
+                          egress: ScriptEgressEnvironment) -> SandboxResult:
+    stopped = egress.exhausted if egress.exhausted is not None else request.budget_exhausted_event
+    confirmed = False
+    try:
+        if request.egress_broker is not None:
+            request.egress_broker.start_child()
+        result = await _run_with_budget_stop(runner, spec, stopped)
+        confirmed = True
+        return result
+    except (SandboxCancelled, SandboxTimeout, SandboxOutputLimit, asyncio.CancelledError):
+        confirmed = True  # Native runner finishes process cleanup before these outcomes.
+        raise
+    except SkillExecutionError as exc:
+        confirmed = exc.code == "LOCAL_BUDGET_EXHAUSTED"
+        raise
+    finally:
+        if confirmed and request.egress_broker is not None:
+            await request.egress_broker.confirm_clients_closed()
+
+
+def _sandbox_command(script: Path, package_root: Path, dev_unsafe: bool,
+                     egress: ScriptEgressEnvironment) -> tuple[str, ...]:
+    host_path = os.environ.get("PATH", os.defpath)
+    command = (
+        *script_command(
+            script if dev_unsafe else sandbox_script_path(package_root, script),
+            {
+                "PATH": host_path
+                if dev_unsafe
+                else "/opt/python3.12/bin:/usr/local/bin:/usr/bin:/bin"
+            },
+        ),
+    )
+    if egress.launcher is not None:
+        command = (*command[:4], str(egress.launcher), *command[4:])
+    return command
+
+
+def _sandbox_environment(request: SkillExecutionRequest, workspace: Path, output_dir: Path,
+                         execution_id: str, dev_unsafe: bool, session: PlatformSessionEnvironment,
+                         egress: ScriptEgressEnvironment) -> dict[str, str]:
+    data_dir = workspace / _WORKSPACE_DATA
+    return {
+        **dict(request.env),
+        **session.env,
+        **egress.env,
+        "SKILL_DATA_DIR": str(data_dir) if dev_unsafe else f"/workspace/{_WORKSPACE_DATA}",
+        "SKILL_OUTPUT_DIR": str(output_dir)
+        if dev_unsafe
+        else f"/workspace/{_WORKSPACE_OUTPUTS}/{execution_id}",
+    }
+
+
+def _sandbox_spec(request: SkillExecutionRequest, source: str, package_root: Path, script: Path,
+                  workspace: Path, output_dir: Path, execution_id: str, dev_unsafe: bool,
+                  session: PlatformSessionEnvironment, egress: ScriptEgressEnvironment,
+                  *, allow_dev_unsafe: bool, stdout_limit_bytes: int) -> SandboxSpec:
+    return SandboxSpec(
+        policy=SandboxPolicy.for_source(
+            source,
+            dev_unsafe=allow_dev_unsafe,
+            env_inject=(*session.env, *egress.env),
+        ),
+        command=(*_sandbox_command(script, package_root, dev_unsafe, egress), *request.argv),
+        workspace_dir=workspace,
+        package_dir=package_root,
+        env=_sandbox_environment(request, workspace, output_dir, execution_id, dev_unsafe, session, egress),
+        timeout_sec=request.timeout_sec,
+        output_limit_bytes=stdout_limit_bytes,
+        cancel_event=request.cancel_event,
+        stdin=json.dumps(dict(request.input), ensure_ascii=False).encode("utf-8"),
+        # 生产沙箱的 cwd 是只读包根 /skill；dev-unsafe 也以包根为 cwd，避免
+        # 「本机相对路径能跑、进沙箱就找不到文件」的调试/生产错位。
+        cwd="/skill",
+        dev_unsafe_cwd=package_root,
+        mounts=(
+            *(SandboxMount(mount.source, mount.target, readonly=mount.readonly) for mount in session.mounts),
+            *(SandboxMount(mount.source, mount.target, readonly=mount.readonly) for mount in egress.mounts),
+        ),
+        name=f"skill:{source}:{execution_id}",
+    )
+
+
+async def _sandbox_outcome(
+    runner: SandboxRunner, spec: SandboxSpec, request: SkillExecutionRequest, egress: ScriptEgressEnvironment,
+) -> tuple[SandboxResult, SkillExecutionStatus, str | None]:
+    try:
+        sandbox_result = await _run_controlled(runner, spec, request, egress)
+        status = (
+            SkillExecutionStatus.SUCCEEDED
+            if sandbox_result.exit_code == 0
+            else SkillExecutionStatus.FAILED
+        )
+        output_notice = None
+    except SandboxOutputLimit as exc:
+        sandbox_result = exc.result or SandboxResult(
+            exit_code=None, stdout="", stderr="", duration_ms=0, output_truncated=True
+        )
+        status = SkillExecutionStatus.FAILED
+        output_notice = _OUTPUT_LIMIT_NOTICE
+    except SandboxTimeout as exc:
+        sandbox_result = exc.result or SandboxResult(exit_code=None, stdout="", stderr="", duration_ms=0)
+        status = SkillExecutionStatus.TIMED_OUT
+        output_notice = None
+    except SandboxCancelled as exc:
+        sandbox_result = exc.result or SandboxResult(exit_code=None, stdout="", stderr="", duration_ms=0)
+        status = SkillExecutionStatus.CANCELLED
+        output_notice = None
+    except SandboxUnavailable:
+        raise
+    except SandboxError as exc:
+        sandbox_result = exc.result or SandboxResult(
+            exit_code=None, stdout="", stderr=str(exc), duration_ms=0
+        )
+        status = SkillExecutionStatus.FAILED
+        output_notice = None
+
+    return sandbox_result, status, output_notice
 
 
 class SandboxedSkillExecutor:
@@ -144,15 +277,19 @@ class SandboxedSkillExecutor:
         runner: SandboxRunner,
     ) -> SkillExecutionResult:
         """按受信 platform_context 注入 session-manager；无平台时行为不变。"""
+        if request.egress_broker is not None and script.suffix.lower() != ".py":
+            raise SkillExecutionError("EGRESS_CLIENT_UNSUPPORTED")
         dev_unsafe = getattr(runner, "name", "") == "dev-unsafe"
         skill_name = ""
         if request.platform_context and request.platform_context.platform_keys:
             skill_name = _package_skill_name(package_root)
-        async with skill_platform_environment(
-            request.platform_context,
-            skill_name,
-            sandbox_root=None if dev_unsafe else SESSION_SANDBOX_ROOT,
-        ) as session:
+        async with (
+            skill_egress_environment(request.egress_broker, dev_unsafe=dev_unsafe) as egress,
+            skill_platform_environment(
+                request.platform_context, skill_name,
+                sandbox_root=None if dev_unsafe else SESSION_SANDBOX_ROOT,
+            ) as session,
+        ):
             return await self._run_in_sandbox(
                 request,
                 source,
@@ -164,6 +301,7 @@ class SandboxedSkillExecutor:
                 runner,
                 dev_unsafe=dev_unsafe,
                 session=session,
+                egress=egress,
             )
 
     async def _run_in_sandbox(  # noqa: PLR0913 - 执行参数在装配处已冻结
@@ -179,89 +317,17 @@ class SandboxedSkillExecutor:
         *,
         dev_unsafe: bool,
         session: PlatformSessionEnvironment,
+        egress: ScriptEgressEnvironment,
     ) -> SkillExecutionResult:
-        host_path = os.environ.get("PATH", os.defpath)
-        command = (
-            *script_command(
-                script if dev_unsafe else sandbox_script_path(package_root, script),
-                {
-                    "PATH": host_path
-                    if dev_unsafe
-                    else "/opt/python3.12/bin:/usr/local/bin:/usr/bin:/bin"
-                },
-            ),
-        )
-        data_dir = workspace / _WORKSPACE_DATA
-        env = {
-            **dict(request.env),
-            **session.env,
-            "SKILL_DATA_DIR": str(data_dir) if dev_unsafe else f"/workspace/{_WORKSPACE_DATA}",
-            "SKILL_OUTPUT_DIR": str(output_dir)
-            if dev_unsafe
-            else f"/workspace/{_WORKSPACE_OUTPUTS}/{execution_id}",
-        }
-        spec = SandboxSpec(
-            policy=SandboxPolicy.for_source(
-                source,
-                dev_unsafe=self._dev_unsafe,
-                env_inject=("MUAD_SESSION_SOCKET",) if session.env else (),
-            ),
-            command=(*command, *request.argv),
-            workspace_dir=workspace,
-            package_dir=package_root,
-            env=env,
-            timeout_sec=request.timeout_sec,
-            output_limit_bytes=self._stdout_limit_bytes,
-            cancel_event=request.cancel_event,
-            stdin=json.dumps(dict(request.input), ensure_ascii=False).encode("utf-8"),
-            # 生产沙箱的 cwd 是只读包根 /skill；dev-unsafe 也以包根为 cwd，避免
-            # 「本机相对路径能跑、进沙箱就找不到文件」的调试/生产错位。
-            cwd="/skill",
-            dev_unsafe_cwd=package_root,
-            mounts=tuple(
-                SandboxMount(source=mount.source, target=mount.target, readonly=mount.readonly)
-                for mount in session.mounts
-            ),
-            name=f"skill:{source}:{execution_id}",
-        )
+        spec = _sandbox_spec(request, source, package_root, script, workspace, output_dir,
+                             execution_id, dev_unsafe, session, egress, allow_dev_unsafe=self._dev_unsafe,
+                             stdout_limit_bytes=self._stdout_limit_bytes)
         started = time.monotonic()
         try:
-            sandbox_result = await _run_with_budget_stop(runner, spec, request.budget_exhausted_event)
-            status = (
-                SkillExecutionStatus.SUCCEEDED
-                if sandbox_result.exit_code == 0
-                else SkillExecutionStatus.FAILED
-            )
-            output_notice = None
-        except SandboxOutputLimit as exc:
-            sandbox_result = exc.result or SandboxResult(
-                exit_code=None, stdout="", stderr="", duration_ms=0, output_truncated=True
-            )
-            status = SkillExecutionStatus.FAILED
-            output_notice = _OUTPUT_LIMIT_NOTICE
-        except SandboxTimeout as exc:
-            sandbox_result = exc.result or SandboxResult(exit_code=None, stdout="", stderr="", duration_ms=0)
-            status = SkillExecutionStatus.TIMED_OUT
-            output_notice = None
-        except SandboxCancelled as exc:
-            sandbox_result = exc.result or SandboxResult(exit_code=None, stdout="", stderr="", duration_ms=0)
-            status = SkillExecutionStatus.CANCELLED
-            output_notice = None
+            sandbox_result, status, output_notice = await _sandbox_outcome(runner, spec, request, egress)
         except SandboxUnavailable as exc:
-            self._emit(
-                SkillExecutionEvent(
-                    source=source,
-                    status=SkillExecutionStatus.FAILED,
-                    duration_ms=int((time.monotonic() - started) * 1000),
-                )
-            )
+            self._emit_failure(source, started)
             raise SkillExecutionError(str(exc), code="SANDBOX_UNAVAILABLE") from exc
-        except SandboxError as exc:
-            sandbox_result = exc.result or SandboxResult(
-                exit_code=None, stdout="", stderr=str(exc), duration_ms=0
-            )
-            status = SkillExecutionStatus.FAILED
-            output_notice = None
 
         outputs: tuple[OutputFile, ...] = ()
         try:
@@ -281,17 +347,18 @@ class SandboxedSkillExecutor:
             output_notice=output_notice,
             workspace_dir=workspace,
         )
-        self._emit(
-            SkillExecutionEvent(
-                source=source,
-                status=status,
-                duration_ms=duration_ms,
-                exit_code=sandbox_result.exit_code,
-                output_count=len(outputs),
-                output_notice=output_notice,
-            )
-        )
+        self._emit_result(source, result)
         return result
+
+    def _emit_failure(self, source: str, started: float) -> None:
+        self._emit(SkillExecutionEvent(source=source, status=SkillExecutionStatus.FAILED,
+                                      duration_ms=int((time.monotonic() - started) * 1000)))
+
+    def _emit_result(self, source: str, result: SkillExecutionResult) -> None:
+        self._emit(SkillExecutionEvent(
+            source=source, status=result.status, duration_ms=result.duration_ms,
+            exit_code=result.exit_code, output_count=len(result.outputs), output_notice=result.output_notice,
+        ))
 
     async def collect_outputs(
         self, output_dir: Path | str | None, limits: OutputLimits | None = None

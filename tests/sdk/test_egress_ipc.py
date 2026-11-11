@@ -47,7 +47,7 @@ def create_broker(meter, policy, *, deadline_seconds=2):
             return None
         return api.EgressTarget("platform", "GET /assets")
 
-    return api.InvocationEgressBroker(meter=meter, policy=policy,
+    return api.InvocationEgressBroker(meter=meter,
                                       invocation=TrustedInvocation("execution", "script", "segment"),
                                       resolve=resolve, deadline_seconds=deadline_seconds, cleanup_seconds=0.5)
 

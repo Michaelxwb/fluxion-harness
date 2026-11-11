@@ -12,12 +12,11 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Literal, Self
+from typing import Literal
 
 import sqlalchemy as sa
-from muad_contracts.egress_budget import PositiveCount
-from muad_contracts.shared_egress import SharedPolicyModel, SharedRule
-from pydantic import Field, ValidationError, model_validator
+from muad_contracts.shared_egress import FrozenIdentityBudgets, FrozenScopeBudget, SharedPolicyModel
+from pydantic import Field, ValidationError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -30,26 +29,6 @@ ScopeKind = Literal["execution", "invocation"]
 
 class IdentityUnavailable(MeteringUnavailable):
     """Identity cannot safely authorize initialization or recovery."""
-
-
-class FrozenScopeBudget(SharedPolicyModel):
-    max_requests: PositiveCount | None = None
-    targets: tuple[SharedRule, ...] = ()
-
-    @model_validator(mode="after")
-    def cumulative_targets(self) -> Self:
-        if len({rule.id for rule in self.targets}) != len(self.targets):
-            raise ValueError("duplicate frozen target rule")
-        if any(rule.max_requests is None or any(value is not None for value in (
-            rule.window_requests, rule.window_seconds, rule.max_inflight,
-        )) for rule in self.targets):
-            raise ValueError("frozen targets require cumulative limits only")
-        return self
-
-
-class FrozenIdentityBudgets(SharedPolicyModel):
-    execution: FrozenScopeBudget = Field(default_factory=FrozenScopeBudget)
-    invocations: dict[str, FrozenScopeBudget] = Field(default_factory=dict)
 
 
 class ExecutionRegistration(SharedPolicyModel):

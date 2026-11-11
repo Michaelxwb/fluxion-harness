@@ -6,17 +6,15 @@ These checks do not assert PostgreSQL lease recovery or a complete resumed Run.
 import uuid
 from dataclasses import replace
 
-import pytest
 from muad_agent_runtime.application.executor import (
     ExecutionDefaults,
     ExecutorRequest,
-    execution_budget_for,
+    execution_defaults_for,
 )
 from muad_agent_worker.infrastructure.models.task import TaskExecution
-from muad_agent_worker.worker.executor import task_budget_for
+from muad_agent_worker.worker.egress_execution import task_frozen_egress_budget
 from muad_contracts.egress_budget import resolve_egress_budget
 from muad_contracts.resolve import ResolvedAgent, ResolvedModel
-from muad_platform_sdk.request_budget import AttemptContext, BudgetController, LocalRateLimitError
 
 
 async def _never_cancelled() -> bool:
@@ -33,40 +31,26 @@ def _request() -> ExecutorRequest:
     )
 
 
-async def _consume_one_and_deny_next(controller: BudgetController) -> None:
-    context = AttemptContext(platform_key="probe", method="GET")
-    async with controller.attempt(context):
-        pass
-    with pytest.raises(LocalRateLimitError):
-        async with controller.attempt(context):
-            pytest.fail("input must not override the frozen budget")
-
-
-async def test_runtime_activation_has_new_segment_and_frozen_policy() -> None:
+def test_runtime_reads_frozen_policy_and_ignores_input_budget() -> None:
     request = _request()
-    first = execution_budget_for(request)
-    second = execution_budget_for(request)
-    assert first is not None and second is not None
-    assert first.segment_id != second.segment_id
-    await _consume_one_and_deny_next(first)
-    await _consume_one_and_deny_next(second)
-    assert execution_budget_for(replace(request, execution=None)) is None
-    assert execution_budget_for(replace(request, execution=ExecutionDefaults())) is None
+    first = execution_defaults_for(request).egress_budget
+    second = execution_defaults_for(request).egress_budget
+    assert first == second
+    assert first.execution.max_requests == 1
+    assert execution_defaults_for(replace(request, execution=None)).egress_budget.is_unlimited
+    assert execution_defaults_for(replace(request, execution=ExecutionDefaults())).egress_budget.is_unlimited
 
 
-async def test_worker_retry_has_new_segment_and_ignores_script_budget_input() -> None:
+def test_worker_freezes_snapshot_policy_and_ignores_script_budget_input() -> None:
     task = TaskExecution(
         id=uuid.uuid4(), attempt=1,
         input_json={"egress_budget": {"execution": {"max_requests": 999}}},
         execution_snapshot_json={"budget": {"egress_budget": {"execution": {"max_requests": 1}}}},
     )
-    first = task_budget_for(task)
+    first = task_frozen_egress_budget(task)
     task.attempt = 2
-    second = task_budget_for(task)
-    assert first is not None and second is not None
-    assert first.segment_id != second.segment_id
-    assert ":attempt:1:" in first.segment_id and ":attempt:2:" in second.segment_id
-    await _consume_one_and_deny_next(first)
-    await _consume_one_and_deny_next(second)
+    second = task_frozen_egress_budget(task)
+    assert first == second
+    assert first.execution.max_requests == 1
     task.execution_snapshot_json = {}
-    assert task_budget_for(task) is None
+    assert task_frozen_egress_budget(task).is_unlimited

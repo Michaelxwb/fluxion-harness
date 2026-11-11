@@ -90,7 +90,7 @@ async def exercise(meter, policy, redis, origin, seen):
         output.mkdir()
         (root / "business.py").write_text(BUSINESS)
         (root / "sibling.py").write_text("VALUE=42\n")
-        async with InvocationEgressBroker(meter=meter, policy=policy,
+        async with InvocationEgressBroker(meter=meter,
                                           invocation=TrustedInvocation("execution", "script", "segment"),
                                           resolve=resolve, deadline_seconds=30, cleanup_seconds=1) as broker:
             result = await child(root, output, broker.socket_path, origin)

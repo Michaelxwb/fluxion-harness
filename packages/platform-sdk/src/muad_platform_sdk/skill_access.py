@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import ssl
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -36,6 +38,13 @@ class SkillPlatformContext:
     redis_mode: str = "standalone"
     redis_cluster_seeds: str = ""
     budget_scope: PlatformBudgetScope | None = field(default=None, repr=False)
+    transport_factory: Callable[[ssl.SSLContext], httpx.AsyncBaseTransport] | None = field(
+        default=None, repr=False,
+    )
+
+    def __post_init__(self) -> None:
+        if self.budget_scope is not None and self.transport_factory is not None:
+            raise ValueError("shared transport and local budget cannot be combined")
 
 
 class SkillPlatformAccess:
@@ -53,8 +62,8 @@ class SkillPlatformAccess:
             else None
         )
         self.registry = PlatformAdapterRegistry()
-        for adapter in (MSSAdapter(budget=context.budget_scope),):
-            self.registry.register(adapter)
+        adapter = MSSAdapter(budget=context.budget_scope, transport_factory=context.transport_factory)
+        self.registry.register(adapter)
         #: 同一执行内 Console 解析结果复用：broker 的授权计算、会话续期与 state 写入
         #: 都读同一份平台/凭据快照，避免每次 get-state 重复出网。
         self._resolved_bindings: dict[

@@ -25,6 +25,7 @@ from redis.exceptions import RedisClusterException, RedisError
 
 from .adapter.mss_config import PlatformAuthError, settings
 from .request_budget import LocalRateLimitError
+from .shared_redis import SharedLimitExceeded
 from .skill_access import SkillPlatformAccess, SkillPlatformContext
 
 BROKER_BUDGET_EXCEEDED = "PLATFORM_SESSION_BUDGET_EXCEEDED"
@@ -214,6 +215,10 @@ async def _write_state(
 def _broker_error(exc: Exception) -> dict[str, Any]:
     if isinstance(exc, LocalRateLimitError):
         return {"error": str(exc)}
+    if isinstance(exc, SharedLimitExceeded):
+        return {"error": "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED",
+                "detail": {"limit_kind": exc.kind, "scope": exc.scope, "rule_id": exc.rule_id},
+                "retryable": False}
     if isinstance(exc, (_BudgetExceeded, PlatformAuthError)):
         result: dict[str, Any] = {"error": exc.code}
         # 非正常响应的可读原因（HTTP 非 2xx / 业务 code≠0）原样带给 Skill；
@@ -272,7 +277,7 @@ async def skill_platform_environment(
                         result = {"error": "invalid_arguments"}
                     except (RedisError, RedisClusterException):
                         result = {"error": "PLATFORM_SESSION_STORE_UNAVAILABLE"}
-                    except LocalRateLimitError as exc:
+                    except (LocalRateLimitError, SharedLimitExceeded) as exc:
                         result = _broker_error(exc)
                     except Exception as exc:  # noqa: BLE001 - 内部错误必须可见但不泄密
                         logger.warning("session_broker_internal_error type=%s", type(exc).__name__)

@@ -173,6 +173,28 @@ redis.call('HSET', policy, 'revision', ARGV[2], 'json', ARGV[3])
 return {'OK'}
 """
 
+READ_POLICY = r"""
+local guard, policy, decisions = KEYS[1], KEYS[2], KEYS[3]
+for _, key in ipairs(KEYS) do
+  if redis.call('TYPE', key).ok ~= 'hash' then return {'CORRUPT'} end
+end
+if redis.call('HGET', guard, 'epoch') ~= ARGV[1] then return {'EPOCH'} end
+if redis.call('HGET', guard, 'initialized') ~= '1' or
+   redis.call('HGET', decisions, '__guard__') ~= ARGV[1] then return {'CORRUPT'} end
+local generation_ok = server_generation(guard, false)
+if not generation_ok then return {'SERVER_GENERATION'} end
+local now = redis.call('TIME')
+local ms = tonumber(now[1]) * 1000 + math.floor(tonumber(now[2]) / 1000)
+local last_ms = tonumber(redis.call('HGET', guard, 'last_ms') or '')
+if not last_ms or ms < last_ms then return {'CLOCK'} end
+local raw = redis.call('HGET', policy, 'json')
+local revision = redis.call('HGET', policy, 'revision')
+local version = tonumber(revision or '')
+if not raw or not version or version < 0 or version >= 9007199254740991 or
+   revision ~= string.format('%.0f', version) then return {'CORRUPT'} end
+return {'OK', revision, raw}
+"""
+
 ADMIT = r"""
 local guard, policy, decision = KEYS[1], KEYS[2], KEYS[3]
 local function kind(key, expected)
@@ -399,6 +421,7 @@ return {'OK'}
 # topology-query/admission race between separate client commands.
 REGISTER_SCOPE = _SERVER_GENERATION + REGISTER_SCOPE
 PUBLISH = _SERVER_GENERATION + PUBLISH
+READ_POLICY = _SERVER_GENERATION + READ_POLICY
 ADMIT = _SERVER_GENERATION + ADMIT
 CONSUME = _SERVER_GENERATION + CONSUME
 RENEW = _SERVER_GENERATION + RENEW

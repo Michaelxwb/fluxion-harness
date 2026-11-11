@@ -56,7 +56,7 @@ def broker(meter, policy, origin, *, invocation_id="script"):
             return None
         return EgressTarget("platform", "GET /assets")
 
-    return InvocationEgressBroker(meter=meter, policy=policy,
+    return InvocationEgressBroker(meter=meter,
                                    invocation=TrustedInvocation("execution", invocation_id, "segment"),
                                    resolve=resolve, deadline_seconds=5, cleanup_seconds=0.5)
 

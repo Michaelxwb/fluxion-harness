@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -27,13 +26,13 @@ from muad_agent_core.skill import (
     build_sandboxed_skill_executor,
 )
 from muad_artifact_store import SkillArtifactCacheError
-from muad_common import process_settings
-from muad_contracts.egress_budget import EffectiveEgressBudget
+from muad_common import SharedSettings, process_settings
 from muad_contracts.skill_invocation import validate_skill_argv
 from muad_contracts.snapshot import task_execution_timeout
 from muad_platform_sdk.platform_transport import PlatformBudgetScope
-from muad_platform_sdk.request_budget import BudgetController, create_budget_controller
+from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 from muad_platform_sdk.skill_access import SkillPlatformContext
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.batch_fanout import (
     BATCH_PLAN_KEY,
@@ -53,6 +52,7 @@ from ..metrics import (
     SKILL_EXECUTION_METRIC,
     record_outcome,
 )
+from .egress_execution import execute_task_skill_with_egress
 
 logger = logging.getLogger("muad_agent_worker.worker.executor")
 
@@ -98,16 +98,6 @@ def task_env(task: TaskExecution) -> dict[str, str]:
         ENV_TASK_ATTEMPT: str(task.attempt),
         ENV_TASK_EXTERNAL_REF: json.dumps(task.external_ref_json or {}, ensure_ascii=False),
     }
-
-
-def task_budget_for(task: TaskExecution) -> BudgetController | None:
-    """每次领取执行建立新段，阈值只从 Task 冻结快照读取。"""
-    policy = EffectiveEgressBudget.model_validate(
-        (task.execution_snapshot_json.get("budget") or {}).get("egress_budget", {})
-    )
-    return create_budget_controller(
-        policy, segment_id=f"task:{task.id}:attempt:{task.attempt}:{uuid.uuid4()}",
-    )
 
 
 class TaskExecutorProtocol(Protocol):
@@ -196,10 +186,11 @@ def frozen_workspace_identity(task: TaskExecution, skill: Mapping[str, Any]) -> 
     return FrozenWorkspace(tenant_id=tenant_id, user_id=user_id, agent_id=agent_id)
 
 
-def frozen_workspace(task: TaskExecution, skill: Mapping[str, Any]) -> Path:
+def frozen_workspace(task: TaskExecution, skill: Mapping[str, Any], *,
+                     settings: SharedSettings | None = None) -> Path:
     identity = frozen_workspace_identity(task, skill)
     try:
-        layout = workspace_layout_from_settings(process_settings())
+        layout = workspace_layout_from_settings(settings or process_settings())
         return layout.workspace_dir(
             tenant_id=identity.tenant_id,
             user_id=identity.user_id,
@@ -224,9 +215,13 @@ class SkillTaskExecutor:
         executor: SkillExecutor | None = None,
         fanout: BatchFanoutProtocol | None = None,
         workspace_store: WorkspaceStore | None = None,
+        sessions: async_sessionmaker[AsyncSession] | None = None,
+        settings: SharedSettings | None = None,
     ) -> None:
         self._resolver = resolver
-        self._executor = executor or build_sandboxed_skill_executor(process_settings())
+        self._settings = settings or process_settings()
+        self._sessions = sessions
+        self._executor = executor or build_sandboxed_skill_executor(self._settings)
         self._fanout = fanout
         self._workspace_store = workspace_store
 
@@ -238,7 +233,7 @@ class SkillTaskExecutor:
         source = frozen_source(skill)
         lease = None
         if self._workspace_store is None:
-            workspace = frozen_workspace(task, skill)
+            workspace = frozen_workspace(task, skill, settings=self._settings)
         else:
             identity = frozen_workspace_identity(task, skill)
             lease = await self._acquire_workspace(task, identity)
@@ -249,13 +244,11 @@ class SkillTaskExecutor:
             if lease is not None:
                 await self._finish_workspace(lease)
 
-    async def _run_skill(
+    async def _ready_skill(
         self,
-        task: TaskExecution,
         skill: Mapping[str, Any],
         source: str,
-        workspace: Path,
-    ) -> dict[str, Any]:
+    ) -> Path:
         try:
             ready_dir = await self._resolver.ensure(
                 artifact_id=str(skill["artifact_id"]),
@@ -272,37 +265,43 @@ class SkillTaskExecutor:
                 )
                 record_outcome(SKILL_EXECUTION_METRIC, "FAILED", {"source": source})
             raise TaskExecutionError(exc.code, f"skill artifact rejected: {exc.code}") from exc
+        return ready_dir
+
+    def _skill_request(self, task: TaskExecution, skill: Mapping[str, Any], source: str,
+                       workspace: Path, ready_dir: Path) -> SkillExecutionRequest:
+        return SkillExecutionRequest(
+            ready_dir=ready_dir, input=task.input_json or {}, argv=frozen_argv(task),
+            timeout_sec=self._execution_timeout(task), source=source, workspace_dir=workspace,
+            execution_id=str(task.id), env=task_env(task),
+            platform_context=task_platform_context(task, skill, settings=self._settings),
+        )
+
+    async def _run_skill(self, task: TaskExecution, skill: Mapping[str, Any], source: str,
+                         workspace: Path) -> dict[str, Any]:
+        ready_dir = await self._ready_skill(skill, source)
+        request = self._skill_request(task, skill, source, workspace, ready_dir)
+        key = skill.get("key")
+        skill_key = key if isinstance(key, str) and key.strip() else None
         try:
-            budget_controller = task_budget_for(task)
-            invocation = (
-                budget_controller.invocation(str(skill.get("key", "")), str(task.id))
-                if budget_controller is not None else None
-            )
-            result = await self._executor.execute(
-                SkillExecutionRequest(
-                    ready_dir=ready_dir,
-                    input=task.input_json or {},
-                    argv=frozen_argv(task),
-                    timeout_sec=self._execution_timeout(task),
-                    source=source,
-                    workspace_dir=workspace,
-                    execution_id=str(task.id),
-                    env=task_env(task),
-                    budget_exhausted_event=invocation.exhausted if invocation is not None else None,
-                    platform_context=task_platform_context(
-                        task,
-                        skill,
-                        budget_scope=(
-                            PlatformBudgetScope(budget_controller, invocation)
-                            if budget_controller is not None and invocation is not None else None
-                        ),
-                    ),
-                )
+            result = await execute_task_skill_with_egress(
+                self._executor, request, task=task, skill_key=skill_key, settings=self._settings,
+                sessions=self._sessions,
             )
         except SkillExecutionError as exc:
-            if exc.code == "LOCAL_BUDGET_EXHAUSTED":
+            if exc.code in {"LOCAL_BUDGET_EXHAUSTED", "EGRESS_CLIENT_UNSUPPORTED",
+                            "EGRESS_SCOPE_CONFLICT", "EGRESS_STOP_UNCONFIRMED"}:
                 raise TaskExecutionError(exc.code, exc.message, retryable=False) from exc
             raise TaskExecutionError("SKILL_EXECUTION_FAILED", exc.message) from exc
+        except SharedLimitExceeded as exc:
+            code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
+            raise TaskExecutionError(code, str(exc), retryable=False) from exc
+        except MeteringUnavailable:
+            raise TaskExecutionError("EGRESS_METERING_UNAVAILABLE", "shared metering unavailable",
+                                     retryable=False) from None
+        return await self._finish_skill_result(task, source, result)
+
+    async def _finish_skill_result(self, task: TaskExecution, source: str,
+                                   result: SkillExecutionResult) -> dict[str, Any]:
         self._record_result(source, result)
         payload = dict(result.result) if result.result else {}
         plan = self._parse_plan(payload)
@@ -442,11 +441,12 @@ def task_platform_context(
     skill: Mapping[str, Any],
     *,
     budget_scope: PlatformBudgetScope | None = None,
+    settings: SharedSettings | None = None,
 ) -> SkillPlatformContext:
     keys = skill.get("platforms", [])
     if not isinstance(keys, list) or any(not isinstance(k, str) or not k for k in keys):
         raise TaskExecutionError("SKILL_PLATFORMS_INVALID", "Invalid Skill platforms", retryable=False)
-    settings = process_settings()
+    settings = settings or process_settings()
     return SkillPlatformContext(
         tenant_id=task.tenant_id,
         actor_user_id=str(task.actor_user_id),

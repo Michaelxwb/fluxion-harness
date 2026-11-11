@@ -99,8 +99,7 @@ class SharedHTTPTransport:
                 )
                 if permit is not None:
                     await self._meter.consume(permit)
-                    if permit.rule_ids:
-                        watch = _LeaseWatch(self._meter, permit, self._lifetime, deadline, timer)
+                    watch = _LeaseWatch(self._meter, permit, self._lifetime, deadline, timer)
                 sending_started = True
                 response = await client.send(request, stream=True, follow_redirects=False, auth=None)
                 yield response

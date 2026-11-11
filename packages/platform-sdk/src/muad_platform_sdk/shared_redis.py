@@ -12,9 +12,10 @@ from dataclasses import dataclass
 from typing import Literal, Protocol, cast
 
 from muad_contracts.shared_egress import SharedEgressPolicy, SharedRule, TrustedInvocation
+from pydantic import ValidationError
 from redis.exceptions import RedisClusterException, RedisError
 
-from .shared_redis_scripts import ADMIT, CONSUME, PUBLISH, REGISTER_SCOPE, RELEASE, RENEW
+from .shared_redis_scripts import ADMIT, CONSUME, PUBLISH, READ_POLICY, REGISTER_SCOPE, RELEASE, RENEW
 
 
 class RedisCommands(Protocol):
@@ -23,6 +24,9 @@ class RedisCommands(Protocol):
 
 class MeteringUnavailable(RuntimeError):
     """Metering state cannot safely authorize an outbound request."""
+
+    code = "EGRESS_METERING_UNAVAILABLE"
+    retryable = False
 
 
 LimitScope = Literal["public", "execution", "invocation"]
@@ -155,6 +159,24 @@ class SharedRedisMeter:
         result = await self._eval(PUBLISH, keys, args)
         if result[0] != "OK":
             raise MeteringUnavailable(f"shared policy publication failed: {result[0]}")
+
+    async def current_policy(self) -> SharedEgressPolicy:
+        """Read a guarded current revision, never publish or recreate missing state.
+
+        Admission rechecks this exact JSON atomically with all counters. A rule
+        publication racing this read therefore rejects before a physical send.
+        """
+        result = await self._eval(READ_POLICY, [self._key("guard"), self._key("policy"),
+                                              self._key("decisions")], [self.epoch])
+        if len(result) != 3 or result[0] != "OK":
+            raise MeteringUnavailable("current public policy unavailable")
+        try:
+            policy = SharedEgressPolicy.model_validate_json(result[2])
+        except ValidationError:
+            raise MeteringUnavailable("current public policy invalid") from None
+        if str(policy.revision) != result[1] or self._policy_json(policy) != result[2]:
+            raise MeteringUnavailable("current public policy identity mismatch")
+        return policy
 
     async def admit(
         self, policy: SharedEgressPolicy, *, target_instance_id: str, route_id: str,

@@ -1278,6 +1278,7 @@ dependencies = [
     { name = "muad-artifact-store" },
     { name = "muad-contracts" },
     { name = "muad-logging" },
+    { name = "muad-platform-sdk" },
     { name = "muad-skill-sdk" },
     { name = "requests" },
 ]
@@ -1289,6 +1290,7 @@ requires-dist = [
     { name = "muad-artifact-store", editable = "packages/artifact-store" },
     { name = "muad-contracts", editable = "packages/contracts" },
     { name = "muad-logging", editable = "packages/logging-kit" },
+    { name = "muad-platform-sdk", editable = "packages/platform-sdk" },
     { name = "muad-skill-sdk", editable = "packages/skill-sdk" },
     { name = "requests", specifier = ">=2.32,<3" },
 ]

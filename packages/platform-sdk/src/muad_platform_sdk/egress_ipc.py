@@ -18,7 +18,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self
 
-from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
+from muad_contracts.shared_egress import TrustedInvocation
 from pydantic import ValidationError
 
 from .egress_ipc_client import IPCAdmissionClient as IPCAdmissionClient
@@ -49,7 +49,7 @@ class UncontrolledTarget:
 
 class InvocationEgressBroker:
     def __init__(
-        self, *, meter: SharedRedisMeter, policy: SharedEgressPolicy, invocation: TrustedInvocation,
+        self, *, meter: SharedRedisMeter, invocation: TrustedInvocation,
         resolve: Callable[[AttemptMetadata], EgressTarget | UncontrolledTarget | None],
         deadline_seconds: float,
         cleanup_seconds: float, max_connections: int = 32, renewal_interval_seconds: float = 1.0,
@@ -58,19 +58,25 @@ class InvocationEgressBroker:
         if (any(not math.isfinite(v) or v <= 0 for v in lifetimes)
                 or not math.isfinite(deadline_seconds + cleanup_seconds) or max_connections <= 0):
             raise ValueError("valid IPC lifetime and resource bounds required")
-        self._meter, self._policy, self._invocation = meter, policy, invocation
+        self._meter, self._invocation = meter, invocation
         self._resolve, self._deadline, self._cleanup = resolve, deadline_seconds, cleanup_seconds
         self._max_connections = max_connections
         self._renewal_interval = renewal_interval_seconds
         self._handlers: set[asyncio.Task[None]] = set()
         self.exhausted = asyncio.Event()
+        self.clients_closed = asyncio.Event()
         self.exhausted_scope: LimitScope | None = None
+        self._pending: dict[str, SharedPermit] = {}
         self.socket_path = Path()
         self._server: asyncio.Server | None = None
         self._expires_at = 0.0
         self._closing = False
+        self._child_started = False
+        self._ever_admitted = False
 
     async def __aenter__(self) -> Self:
+        if self._server is not None or self._closing:
+            raise RuntimeError("invocation broker is single-use")
         self._expires_at = asyncio.get_running_loop().time() + self._deadline
         directory = Path(tempfile.mkdtemp(prefix="fx-egress-", dir="/tmp"))
         os.chmod(directory, 0o700)
@@ -80,7 +86,12 @@ class InvocationEgressBroker:
                 self._handle, path=str(self.socket_path), limit=MAX_FRAME_BYTES,
             )
             os.chmod(self.socket_path, 0o600)
+            if self._closing:
+                raise MeteringUnavailable("invocation closed during startup")
         except BaseException:
+            if self._server is not None:
+                self._server.close()
+                await self._server.wait_closed()
             self.socket_path.unlink(missing_ok=True)
             directory.rmdir()
             raise
@@ -88,6 +99,11 @@ class InvocationEgressBroker:
 
     async def __aexit__(self, exc_type: type[BaseException] | None,
                         exc: BaseException | None, traceback: TracebackType | None) -> None:
+        await self.stop_admissions()
+        self.socket_path.unlink(missing_ok=True)
+        self.socket_path.parent.rmdir()
+
+    async def stop_admissions(self) -> None:
         self._closing = True
         if self._server is not None:
             self._server.close()
@@ -97,8 +113,40 @@ class InvocationEgressBroker:
         await asyncio.gather(*tasks, return_exceptions=True)
         if self._server is not None:
             await self._server.wait_closed()
-        self.socket_path.unlink(missing_ok=True)
-        self.socket_path.parent.rmdir()
+
+    async def confirm_clients_closed(self) -> None:
+        """Only the supervising host may call this after child/HTTP termination.
+
+        IPC EOF alone is insufficient; ordinary __aexit__ never releases these
+        permits. Counts remain charged even when confirmed occupancy is released.
+        """
+        await self.stop_admissions()
+        for permit in tuple(self._pending.values()):
+            try:
+                await self._meter.release(permit)
+            except MeteringUnavailable:
+                logger.warning("egress_ipc_stopped_lease_release_failed")
+            else:
+                self._pending.pop(permit.attempt_id, None)
+        self.clients_closed.set()
+
+    def note_limit(self, error: SharedLimitExceeded) -> None:
+        if error.kind == "TOTAL" and error.scope in {"execution", "invocation"}:
+            self.exhausted_scope = error.scope
+            self.exhausted.set()
+
+    def start_child(self) -> None:
+        """Host-only barrier immediately before the sandbox runner may spawn."""
+        if self._closing or self._child_started:
+            raise MeteringUnavailable("invocation cannot start another child")
+        self._child_started = True
+
+    async def confirm_idle(self) -> None:
+        """After stop_admissions: no native child and no admitted sender existed."""
+        if not self._closing:
+            raise RuntimeError("close admissions before confirming idle invocation")
+        if not self._child_started and not self._ever_admitted:
+            await self.confirm_clients_closed()
 
     async def _reply(self, writer: asyncio.StreamWriter, value: dict[str, object]) -> None:
         writer.write(frame(value))
@@ -117,13 +165,17 @@ class InvocationEgressBroker:
             await self._reply(writer, {"ok": True, "controlled": False})
             return
         attempt_id = uuid.uuid4().hex
+        policy = await self._meter.current_policy()
         permit = await self._meter.admit(
-            self._policy, target_instance_id=target.target_instance_id, route_id=target.route_id,
+            policy, target_instance_id=target.target_instance_id, route_id=target.route_id,
             attempt_id=attempt_id, invocation=self._invocation,
             lease_seconds=self._expires_at - asyncio.get_running_loop().time() + self._cleanup,
         )
         if permit is not None:
+            if permit.rule_ids:
+                self._pending[permit.attempt_id] = permit
             await self._meter.consume(permit)
+            self._ever_admitted = True
         await self._reply(writer, {"ok": True, "controlled": True, "attempt_id": attempt_id,
                                    "remaining_seconds": self._expires_at - asyncio.get_running_loop().time()})
         completion = await self._completion(reader, permit)
@@ -131,6 +183,7 @@ class InvocationEgressBroker:
             raise ValueError("completion required")
         if permit is not None:
             await self._meter.release(permit)
+            self._pending.pop(permit.attempt_id, None)
         await self._reply(writer, {"ok": True})
 
     async def _completion(self, reader: asyncio.StreamReader, permit: SharedPermit | None) -> ControlRequest:
@@ -138,7 +191,7 @@ class InvocationEgressBroker:
         try:
             while not incoming.done():
                 await asyncio.wait({incoming}, timeout=self._renewal_interval)
-                if not incoming.done() and permit is not None and permit.rule_ids:
+                if not incoming.done() and permit is not None:
                     remaining = self._expires_at - asyncio.get_running_loop().time()
                     if remaining <= 0:
                         raise TimeoutError("execution deadline")
@@ -174,9 +227,7 @@ class InvocationEgressBroker:
             async with asyncio.timeout_at(self._expires_at):
                 await self._dispatch(reader, writer)
         except SharedLimitExceeded as exc:
-            if exc.kind == "TOTAL" and exc.scope in {"execution", "invocation"}:
-                self.exhausted_scope = exc.scope
-                self.exhausted.set()
+            self.note_limit(exc)
             await self._error_reply(writer, "IPC_LIMIT_" + exc.kind, scope=exc.scope)
         except MeteringUnavailable:
             await self._error_reply(writer, "IPC_DEPENDENCY_UNAVAILABLE")

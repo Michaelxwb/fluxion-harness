@@ -1,4 +1,5 @@
 """Real Adapter/MCP + HTTP sockets + isolated Redis shared-send boundaries."""
+
 import asyncio
 import importlib
 import json
@@ -29,8 +30,9 @@ meter = meter_fixture
 pytestmark = pytest.mark.integration
 
 
-def shared_transport(counter, policy, origin, *, verify=True, timeout=2,
-                     max_bytes=1024 * 1024, invocation=None):
+def shared_transport(
+    counter, policy, origin, *, verify=True, timeout=2, max_bytes=1024 * 1024, invocation=None, client=None
+):
     module = importlib.import_module("muad_platform_sdk.shared_host_transport")
     from muad_platform_sdk.shared_http_transport import RequestLifetime
 
@@ -40,17 +42,46 @@ def shared_transport(counter, policy, origin, *, verify=True, timeout=2,
         return module.HostRoute("platform", "GET /stream")
 
     return module.SharedHostTransport(
-        counter, policy=policy, resolve=resolve, max_response_bytes=max_bytes, verify=verify,
+        counter,
+        public_rules_enabled=policy.enabled,
+        resolve=resolve,
+        max_response_bytes=max_bytes,
+        verify=verify,
         invocation=invocation,
-        lifetime=RequestLifetime(timeout_seconds=timeout, cleanup_seconds=.5, renewal_interval_seconds=.05),
+        client=client,
+        lifetime=RequestLifetime(timeout_seconds=timeout, cleanup_seconds=0.5, renewal_interval_seconds=0.05),
     )
 
 
+async def test_scoped_transport_does_not_close_borrowed_process_pool(meter, http_probe):
+    counter, policy, redis = meter
+    probe, origin = http_probe
+    async with httpx.AsyncClient(trust_env=False) as pool:
+        async with httpx.AsyncClient(
+            transport=shared_transport(counter, policy, origin, client=pool)
+        ) as scoped:
+            assert (await scoped.get(origin + "/proxy")).status_code == 429
+        assert not pool.is_closed
+        assert (await pool.get(origin + "/proxy")).status_code == 429
+    assert probe.calls == 2
+    assert await redis.get(counter._bucket("stream", "total")) == "1"
+
+
 async def policy_limit(counter, limit):
-    policy = SharedEgressPolicy.model_validate({"revision": 2, "rules": [{
-        "id": "stream", "target_instance_id": "platform", "route_id": "GET /stream",
-        "max_requests": limit, "max_inflight": 1,
-    }]})
+    policy = SharedEgressPolicy.model_validate(
+        {
+            "revision": 2,
+            "rules": [
+                {
+                    "id": "stream",
+                    "target_instance_id": "platform",
+                    "route_id": "GET /stream",
+                    "max_requests": limit,
+                    "max_inflight": 1,
+                }
+            ],
+        }
+    )
     await counter.publish(policy)
     return policy
 
@@ -85,11 +116,15 @@ async def test_s_05_mss_auth_validate_business_and_retry_count_every_send(meter,
 @asynccontextmanager
 async def mcp_probe():
     calls = []
+
     async def handle(reader, writer):
         try:
             headers = await reader.readuntil(b"\r\n\r\n")
-            length = next(int(line.split(b":", 1)[1]) for line in headers.split(b"\r\n")
-                          if line.lower().startswith(b"content-length:"))
+            length = next(
+                int(line.split(b":", 1)[1])
+                for line in headers.split(b"\r\n")
+                if line.lower().startswith(b"content-length:")
+            )
             payload = json.loads(await reader.readexactly(length))
             calls.append(payload["method"])
             if payload["method"] == "initialize":
@@ -100,12 +135,19 @@ async def mcp_probe():
             else:
                 body, status = b'{"error":"proxy business"}', b"429 Too Many Requests"
                 extra = b"Retry-After: 7\r\n"
-            writer.write(b"HTTP/1.1 " + status + b"\r\n" + extra +
-                         f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode() + body)
+            writer.write(
+                b"HTTP/1.1 "
+                + status
+                + b"\r\n"
+                + extra
+                + f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode()
+                + body
+            )
             await writer.drain()
         finally:
             writer.close()
             await writer.wait_closed()
+
     server = await asyncio.start_server(handle, "127.0.0.1", 0)
     try:
         yield calls, f"http://127.0.0.1:{server.sockets[0].getsockname()[1]}"
@@ -120,18 +162,21 @@ async def test_s_05_mcp_initialize_notification_tool_share_counter(meter):
     async with mcp_probe() as (calls, origin):
         async with httpx.AsyncClient(transport=shared_transport(counter, policy, origin)) as client:
             adapter = McpRuntimeAdapter(audit_writer=None, client=client)
-            definition = McpServerDefinition(uuid.uuid4(), "knowledge", origin + "/mcp",
-                                             tools=[McpToolDefinition("search", "", {})])
+            definition = McpServerDefinition(
+                uuid.uuid4(), "knowledge", origin + "/mcp", tools=[McpToolDefinition("search", "", {})]
+            )
             try:
                 with pytest.raises(Exception) as failure:
-                    await adapter.execute_tool(server=definition, tool=definition.tools[0],
-                                               arguments={}, policy_decision="ALLOW")
+                    await adapter.execute_tool(
+                        server=definition, tool=definition.tools[0], arguments={}, policy_decision="ALLOW"
+                    )
                 assert failure.value.reason == "upstream_http"
                 assert failure.value.status_code == 429
                 assert failure.value.retry_after == "7"
                 with pytest.raises(SharedLimitExceeded):
-                    await adapter.execute_tool(server=definition, tool=definition.tools[0],
-                                               arguments={}, policy_decision="ALLOW")
+                    await adapter.execute_tool(
+                        server=definition, tool=definition.tools[0], arguments={}, policy_decision="ALLOW"
+                    )
             finally:
                 await adapter.aclose()
         assert calls == ["initialize", "notifications/initialized", "tools/call"]
@@ -203,13 +248,18 @@ async def test_raw_compressed_proxy_body_is_decoded_once(meter):
     counter, _, _ = meter
     policy = await policy_limit(counter, 1)
     body = gzip.compress(b'{"error":"business"}')
+
     async def handle(reader, writer):
         await reader.readuntil(b"\r\n\r\n")
-        writer.write(b"HTTP/1.1 429 Too Many Requests\r\nContent-Encoding: gzip\r\n" +
-                     f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode() + body)
+        writer.write(
+            b"HTTP/1.1 429 Too Many Requests\r\nContent-Encoding: gzip\r\n"
+            + f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode()
+            + body
+        )
         await writer.drain()
         writer.close()
         await writer.wait_closed()
+
     server = await asyncio.start_server(handle, "127.0.0.1", 0)
     origin = f"http://127.0.0.1:{server.sockets[0].getsockname()[1]}"
     try:
@@ -225,7 +275,7 @@ async def test_raw_compressed_proxy_body_is_decoded_once(meter):
 async def test_streaming_deadline_closes_physical_connection(meter, http_probe):
     counter, policy, redis = meter
     probe, origin = http_probe
-    transport = shared_transport(counter, policy, origin, timeout=.2)
+    transport = shared_transport(counter, policy, origin, timeout=0.2)
     async with httpx.AsyncClient(transport=transport) as client:
         with pytest.raises(TimeoutError):
             async with client.stream("GET", origin + "/stream") as response:
@@ -303,6 +353,7 @@ async def test_controlled_request_with_missing_guard_never_sends(meter, http_pro
 async def test_cancel_before_headers_closes_physical_connection(meter):
     counter, policy, redis = meter
     started, closed = asyncio.Event(), asyncio.Event()
+
     async def handle(reader, writer):
         try:
             await reader.readuntil(b"\r\n\r\n")
@@ -312,6 +363,7 @@ async def test_cancel_before_headers_closes_physical_connection(meter):
         finally:
             writer.close()
             await writer.wait_closed()
+
     server = await asyncio.start_server(handle, "127.0.0.1", 0)
     origin = f"http://127.0.0.1:{server.sockets[0].getsockname()[1]}"
     transport = shared_transport(counter, policy, origin)

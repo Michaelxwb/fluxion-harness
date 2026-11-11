@@ -42,7 +42,8 @@ from muad_agent_core.model import (
     text_of,
 )
 from muad_agent_core.prompt import PromptSkill, bounded_catalog, prompt_skill
-from muad_agent_core.sandbox import workspace_layout_from_settings
+from muad_agent_core.sandbox import WorkspaceShellRunner, WorkspaceStore, workspace_layout_from_settings
+from muad_agent_core.skill import DraftShellRunner
 from muad_agent_core.tools import DEFAULT_PARALLEL_LIMIT, ToolDefinition, ToolRegistry
 from muad_agent_core.tools.pipeline import (
     PreparedToolCall,
@@ -84,8 +85,7 @@ from muad_contracts.platform_settings import (
     ToolResultSettings,
 )
 from muad_logging.redaction import redact_text
-from muad_platform_sdk.platform_transport import McpBudgetScope, PlatformBudgetScope
-from muad_platform_sdk.request_budget import BudgetController, create_budget_controller
+from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_platform_sdk.types import SecretValue
 from pydantic import JsonValue, ValidationError
@@ -125,6 +125,8 @@ from .attachments.tools import AttachmentToolSet
 from .context_compaction import RuntimeContextCompactor, SummaryRunner, make_summary_runner
 from .context_settings import FrozenLearning, PoolExecutionPolicy
 from .draft_shell import build_draft_shell_runner, build_draft_tools
+from .draft_tools import SkillDraftTools
+from .egress_execution import run_egress
 from .mcp_runtime_adapter import McpRuntimeAdapter, McpServerDefinition, McpToolDefinition
 from .memory_observability import memory_audit_preview
 from .memory_queries import MemoryReadScope
@@ -185,7 +187,6 @@ POOL_CAPACITY_RETRY_INTERVAL_SEC = 0.25
 MESSAGE_PROTOCOL_OVERHEAD_BYTES = 32
 
 
-
 @dataclass(frozen=True, slots=True)
 class ExecutorEvent:
     type: str
@@ -203,9 +204,7 @@ def _delta_event(text: str, *, reply_generation: int) -> ExecutorEvent:
 
 def _snapshot_event(reply_generation: int) -> ExecutorEvent:
     """新代边界：以**空正文**整组替换旧代（`reply_generation` 之后的 delta 从零重建本代）。"""
-    return ExecutorEvent(
-        type=MESSAGE_SNAPSHOT_EVENT, data={"reply_generation": reply_generation, "text": ""}
-    )
+    return ExecutorEvent(type=MESSAGE_SNAPSHOT_EVENT, data={"reply_generation": reply_generation, "text": ""})
 
 
 @dataclass(frozen=True, slots=True)
@@ -312,16 +311,6 @@ class ExecutorRequest:
 def execution_defaults_for(request: ExecutorRequest) -> ExecutionDefaults:
     """本次 Run 生效的执行期平台默认：注入的冻结值为准，缺失时回落 schema 默认。"""
     return request.execution if request.execution is not None else ExecutionDefaults()
-
-
-def execution_budget_for(request: ExecutorRequest) -> BudgetController | None:
-    """每次 executor 激活创建新段；恢复仅复用冻结策略，不复用本地计数。"""
-    if request.execution is None:
-        return None
-    owner = str(request.run_context.run_id) if request.run_context else "executor"
-    return create_budget_controller(
-        request.execution.egress_budget, segment_id=f"run:{owner}:{uuid.uuid4()}",
-    )
 
 
 def agent_policy_for(request: ExecutorRequest) -> AgentPolicy:
@@ -477,12 +466,7 @@ class _ExecutorEventEmitter:
             "artifact_id": artifact_id,
         }
         skill_key = self._skill_keys.pop(call_id, None)
-        if (
-            skill_key is not None
-            and name in SKILL_TOOLS
-            and status == "OK"
-            and self._memory is not None
-        ):
+        if skill_key is not None and name in SKILL_TOOLS and status == "OK" and self._memory is not None:
             self._memory.loader.set_task_family(f"skill:{skill_key}")
         if result_text is not None:
             # 未外置的结果：正文在这里留一份**有界预览**（沿用引用预览的同一组字节上限）。
@@ -507,12 +491,14 @@ class AgentRunnerExecutor:
         model_trace: ModelCallTrace | None = None,
         delta_window: DeltaWindow | None = None,
         memory: RunMemory | None = None,
+        egress: HostEgressExecution | None = None,
     ) -> None:
         self._runner = runner
         self._request = request
         self._close = close
         self._model_trace = model_trace
         self._memory = memory
+        self._egress = egress
         # 有界合并窗口：装配根显式注入（`default_executor_factory`）；直构调用点按启动设置
         # 取值——窗口参数是每进程容量配置（design §3.7），不在调用点另立第二份默认。
         self._delta_window = (
@@ -538,12 +524,14 @@ class AgentRunnerExecutor:
             poller.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await poller
-            if not task.done():
-                task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await task
-            if self._close is not None:
-                await self._close()
+            try:
+                if not task.done():
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
+            finally:
+                if self._close is not None:
+                    await self._close()
 
     async def _consume_queue(
         self,
@@ -608,20 +596,25 @@ class AgentRunnerExecutor:
         self, cancelled: asyncio.Event, emitter: _ExecutorEventEmitter
     ) -> AgentRunResult | None:
         try:
-            return await self._runner.run(
-                self._build_run_request(),
-                is_cancelled=cancelled.is_set,
-                on_delta=emitter.on_delta,
-                on_model_started=emitter.on_model_started,
-                on_model_completed=emitter.on_model_completed,
-                on_tool_started=emitter.on_tool_started,
-                on_assistant_turn=emitter.on_assistant_turn,
-                on_tool_completed=emitter.on_tool_completed,
-                checkpoint=self._request.checkpoint,
-                context_cursor=self._request.context_cursor,
-            )
+            if self._egress is not None:
+                return await self._egress.run(lambda: self._run_agent(cancelled, emitter))
+            return await self._run_agent(cancelled, emitter)
         except RunnerCancelled:
             return None
+
+    async def _run_agent(self, cancelled: asyncio.Event, emitter: _ExecutorEventEmitter) -> AgentRunResult:
+        return await self._runner.run(
+            self._build_run_request(),
+            is_cancelled=cancelled.is_set,
+            on_delta=emitter.on_delta,
+            on_model_started=emitter.on_model_started,
+            on_model_completed=emitter.on_model_completed,
+            on_tool_started=emitter.on_tool_started,
+            on_assistant_turn=emitter.on_assistant_turn,
+            on_tool_completed=emitter.on_tool_completed,
+            checkpoint=self._request.checkpoint,
+            context_cursor=self._request.context_cursor,
+        )
 
     def _build_run_request(self) -> AgentRunRequest:
         params = dict(self._request.model.params)
@@ -755,9 +748,7 @@ class AuditedModelProvider:
         self._attempt = 0
         return response
 
-    async def _record_failure_for(
-        self, started: float, emitted: _Emitted, exc: Exception
-    ) -> None:
+    async def _record_failure_for(self, started: float, emitted: _Emitted, exc: Exception) -> None:
         """按异常分档留痕：429/5xx 记 RETRY，其余记 ERROR（与既有审计词表一致）。"""
         if isinstance(exc, ModelRateLimitedError):
             status, retry_reason, message = "RETRY", "RATE_LIMITED", str(exc)
@@ -765,11 +756,7 @@ class AuditedModelProvider:
             status, retry_reason, message = "RETRY", "UNAVAILABLE", str(exc)
         else:
             status, retry_reason, message = "ERROR", None, "model invocation failed"
-        code = (
-            str(ErrorCode.MODEL_UNAVAILABLE)
-            if status == "RETRY"
-            else str(ErrorCode.COMMON_INTERNAL_ERROR)
-        )
+        code = str(ErrorCode.MODEL_UNAVAILABLE) if status == "RETRY" else str(ErrorCode.COMMON_INTERNAL_ERROR)
         if isinstance(exc, ModelRequestError):
             # 4xx 是**不可重试的请求被拒**：Run 最终只会拿到归一化的 MODEL_UNAVAILABLE，
             # 必须在这里留下安全原因（上游 status + type/code/param；不落 message/正文）。
@@ -1015,9 +1002,7 @@ def _usage_of(response: ModelResponse) -> ModelTokenUsage | None:
     """实际 usage：两个计数都在才算已知（缺一即保守保留预占，不假定供方未计费）。"""
     if response.input_tokens is None or response.output_tokens is None:
         return None
-    return ModelTokenUsage(
-        input_tokens=response.input_tokens, output_tokens=response.output_tokens
-    )
+    return ModelTokenUsage(input_tokens=response.input_tokens, output_tokens=response.output_tokens)
 
 
 def _remote_proof_for(exc: BaseException, *, provider_name: str) -> RemoteCompletionProof | None:
@@ -1093,9 +1078,7 @@ class PooledModelProvider:
         self._audit_writer = audit_writer
         self._trace = model_trace
         self._heartbeat_sec = (
-            heartbeat_sec
-            if heartbeat_sec is not None
-            else float(process_settings().model_call_heartbeat_sec)
+            heartbeat_sec if heartbeat_sec is not None else float(process_settings().model_call_heartbeat_sec)
         )
         self._reselection_limit = reselection_limit
         #: 本段模型等待起点：同一执行片段内的重试不刷新该预算（design §3.2/§3.7）
@@ -1118,9 +1101,7 @@ class PooledModelProvider:
     async def aclose(self) -> None:
         """无常驻连接：每次尝试的上游 provider 在 `_send` 的 finally 里关闭。"""
 
-    async def _invoke(
-        self, request: ModelRequest, on_delta: DeltaCallback | None
-    ) -> ModelResponse:
+    async def _invoke(self, request: ModelRequest, on_delta: DeltaCallback | None) -> ModelResponse:
         try:
             reserved_tokens = reserved_tokens_for(request, policy=self._scope.policy)
         except AppError as exc:
@@ -1155,9 +1136,7 @@ class PooledModelProvider:
                 self._note_partial_output()
             raise
         finally:
-            record_latency(
-                MODEL_CALL_SECONDS, time.monotonic() - started, {"stage": "total"}
-            )
+            record_latency(MODEL_CALL_SECONDS, time.monotonic() - started, {"stage": "total"})
 
     @property
     def _dispatch_policy(self) -> ModelDispatchPolicy:
@@ -1250,10 +1229,7 @@ class PooledModelProvider:
                     ),
                 )
             except AppError as exc:
-                if (
-                    exc.code != str(ErrorCode.MODEL_CAPACITY_UNAVAILABLE)
-                    or datetime.now(UTC) >= wait_until
-                ):
+                if exc.code != str(ErrorCode.MODEL_CAPACITY_UNAVAILABLE) or datetime.now(UTC) >= wait_until:
                     raise
                 retry_started = time.monotonic()
                 await self._project_model_wait(exc, wait_until=wait_until)
@@ -1365,9 +1341,7 @@ class PooledModelProvider:
                 # 预占后、发上游前的任何解析失败都**确定未发送**：释放预占，不保留占用
                 await self._release_unsent(allocation, reason="RESOLVE_FAILED", error_code=exc.code)
                 raise
-            await self._release_unsent(
-                allocation, reason="CREDENTIAL_CHANGED", error_code=exc.code
-            )
+            await self._release_unsent(allocation, reason="CREDENTIAL_CHANGED", error_code=exc.code)
             raise _RotationRace from exc
         except (ValidationError, AttributeError) as exc:
             await self._release_unsent(
@@ -1390,9 +1364,7 @@ class PooledModelProvider:
         if self._trace is not None:
             self._trace.begin_attempt()
 
-    async def _release_unsent(
-        self, allocation: ModelAllocation, *, reason: str, error_code: str
-    ) -> None:
+    async def _release_unsent(self, allocation: ModelAllocation, *, reason: str, error_code: str) -> None:
         """确定未发送：释放该预占（回收在飞与窗口计数），并留一条 attempt 审计行。"""
         await self._capacity.release_unsent(
             tenant_id=self._scope.tenant_id,
@@ -1402,9 +1374,7 @@ class PooledModelProvider:
         )
         await self._record_attempt(status="RETRY", retry_reason=reason, error_code=error_code)
 
-    async def _record_attempt(
-        self, *, status: str, retry_reason: str, error_code: str
-    ) -> None:
+    async def _record_attempt(self, *, status: str, retry_reason: str, error_code: str) -> None:
         """逐 attempt 审计：资源池的每次尝试（含轮换释放）都有自己的审计行与尝试序号。"""
         if self._audit_writer is None:
             return
@@ -1449,9 +1419,7 @@ class PooledModelProvider:
         inner = self._provider_factory(attempt.credential)
         provider = self._audited_for(inner)
         lost, stop = asyncio.Event(), asyncio.Event()
-        renewer = asyncio.create_task(
-            self._renew_loop(attempt.allocation, stop=stop, lost=lost)
-        )
+        renewer = asyncio.create_task(self._renew_loop(attempt.allocation, stop=stop, lost=lost))
         try:
             response = await self._call_until_lost(provider, request, on_delta, emitted, lost)
         except asyncio.CancelledError:
@@ -1562,9 +1530,7 @@ class PooledModelProvider:
                     extra={"run_id": str(self._scope.run_id), "error": type(exc).__name__},
                 )
 
-    async def _settle_response(
-        self, allocation: ModelAllocation, response: ModelResponse
-    ) -> None:
+    async def _settle_response(self, allocation: ModelAllocation, response: ModelResponse) -> None:
         """按响应结算：有收尾信号才算远端确认结束；缺 usage 一律保守保留预占。"""
         if not response.finish_reason:
             # 断流：连接结束但没有收尾信号 ⇒ 无法确认远端结束，保留 UNKNOWN 占用
@@ -1590,9 +1556,7 @@ class PooledModelProvider:
             ),
         )
 
-    async def _settle_failure(
-        self, allocation: ModelAllocation, exc: BaseException
-    ) -> None:
+    async def _settle_failure(self, allocation: ModelAllocation, exc: BaseException) -> None:
         """失败结算：远端已应答的失败释放槽位、保留 token 预占；其余保留 UNKNOWN 占用。"""
         proof = _remote_proof_for(exc, provider_name=self._provider_name)
         await self._settle(
@@ -1652,6 +1616,7 @@ class PooledModelProvider:
 
 def _tool_kind(name: str) -> str:
     return "MCP" if name.startswith(MCP_TOOL_PREFIX) else "SKILL"
+
 
 def _args_hash(arguments: Mapping[str, Any]) -> str:
     canonical = json.dumps(dict(arguments), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -1715,8 +1680,13 @@ class ToolCallRecorder:
         self._previews: dict[str, dict[str, JsonValue]] = {}
 
     def prepare(self, call: PreparedToolCall) -> None:
-        self._previews[call.call_id] = _preview_args(call.arguments, tool_name=call.tool_name,
-            args_hash=call.args_hash, status="PREPARED", canaries=self._credential_canaries)
+        self._previews[call.call_id] = _preview_args(
+            call.arguments,
+            tool_name=call.tool_name,
+            args_hash=call.args_hash,
+            status="PREPARED",
+            canaries=self._credential_canaries,
+        )
 
     async def __call__(
         self,
@@ -1866,7 +1836,11 @@ class ToolCallRecorder:
 
 
 def _preview_args(
-    arguments: Mapping[str, object], *, tool_name: str = "", args_hash: str = "", status: str = "",
+    arguments: Mapping[str, object],
+    *,
+    tool_name: str = "",
+    args_hash: str = "",
+    status: str = "",
     canaries: tuple[str, ...] = (),
 ) -> dict[str, JsonValue]:
     """工具的入参预览（落 `runtime.tool_call_audit.args_preview_json`）。
@@ -1961,6 +1935,128 @@ def _skill_execution_scope(
     return workspace, SkillOutputArtifactRegistrar(writer)
 
 
+@dataclass(frozen=True, slots=True)
+class _RegistryWorkspace:
+    shell: WorkspaceShellRunner | None = None
+    context: WorkspaceShellContext | None = None
+    store: WorkspaceStore | None = None
+    draft: DraftShellRunner | None = None
+    draft_context: DraftShellContext | None = None
+    draft_tools: SkillDraftTools | None = None
+
+
+def _registry_workspace(request: ExecutorRequest) -> _RegistryWorkspace:
+    context = request.run_context
+    if context is None:
+        return _RegistryWorkspace()
+    settings = process_settings()
+    workspace = WorkspaceShellContext(
+        tenant_id=context.tenant_id,
+        user_id=str(context.user_id),
+        agent_id=str(request.agent.id),
+        run_id=str(context.run_id),
+    )
+    draft = DraftShellContext(
+        tenant_id=context.tenant_id,
+        owner_user_id=str(context.user_id),
+        agent_id=str(request.agent.id),
+        run_id=str(context.run_id),
+    )
+    return _RegistryWorkspace(
+        shell=build_workspace_shell_runner(settings),
+        context=workspace,
+        store=build_workspace_store(settings),
+        draft=build_draft_shell_runner(settings),
+        draft_context=draft,
+        draft_tools=build_draft_tools(settings, context=draft),
+    )
+
+
+def _skill_platform_context(request: ExecutorRequest) -> SkillPlatformContext | None:
+    context = request.run_context
+    if context is None:
+        return None
+    settings = process_settings()
+    return SkillPlatformContext(
+        tenant_id=context.tenant_id,
+        actor_user_id=str(context.user_id),
+        execution_id=str(context.run_id),
+        execution_type="RUN",
+        platform_keys=(),
+        console_url=settings.console_platform_url,
+        redis_url=settings.redis_url,
+        redis_mode=settings.redis_mode,
+        redis_cluster_seeds=settings.redis_cluster_seeds,
+        service_token=settings.internal_service_token,
+    )
+
+
+def _register_run_artifacts(
+    registry: ToolRegistry, request: ExecutorRequest, delivery_client: GatewayDeliveryClient | None
+) -> None:
+    context = request.run_context
+    if context is None:
+        return
+    settings, execution = process_settings(), execution_defaults_for(request)
+    workspace, registrar = _skill_execution_scope(request)
+    AttachmentToolSet(
+        session_factory=get_session_factory,
+        artifact_root=settings.artifact_root,
+        tenant_id=context.tenant_id,
+        run_id=context.run_id,
+        conversation_id=context.conversation_id,
+        user_id=context.user_id,
+        agent_id=request.agent.id,
+        has_delivery_route=context.delivery_route is not None,
+        delivery_route=context.delivery_route,
+        delivery_client=delivery_client,
+        workspace_dir=workspace,
+        output_registrar=registrar,
+    ).register(registry)
+    writer = OutputArtifactWriter(
+        artifact_root=settings.artifact_root,
+        session_factory=get_session_factory,
+        scope=OutputScope(
+            context.tenant_id,
+            context.run_id,
+            context.conversation_id,
+            agent_id=request.agent.id,
+            user_id=context.user_id,
+        ),
+    )
+    ArchiveToolSet(
+        receipt_limit_bytes=tool_result_settings(request).persist_threshold_bytes,
+        max_archive_files=execution.max_archive_files,
+        writer=writer,
+    ).register(registry)
+
+
+def _register_other_tools(
+    registry: ToolRegistry,
+    request: ExecutorRequest,
+    *,
+    task_client: WorkerTaskClient | None,
+    mcp_adapter: McpRuntimeAdapter | None,
+    memory: RunMemory | None,
+) -> None:
+    task_context = _task_submission_context(request)
+    if task_client is not None and task_context is not None:
+        BackgroundTaskToolSet(client=task_client, context=task_context, skills=request.skills).register(
+            registry
+        )
+    TimeToolSet(zone=resolve_zone(execution_defaults_for(request).timezone)).register(registry)
+    if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:
+        mcp_adapter.register_catalog(
+            registry=registry,
+            tenant_id=request.run_context.tenant_id,
+            run_id=request.run_context.run_id,
+            servers=[_mcp_server_definition(s, request.credentials.mcp_secrets) for s in request.mcp_servers],
+        )
+    active_memory = memory if memory is not None else _memory_runtime_for(request)
+    if active_memory is not None:
+        active_memory.tools.register(registry)
+
+
 def build_registry(
     *,
     request: ExecutorRequest,
@@ -1973,128 +2069,31 @@ def build_registry(
     delivery_client: GatewayDeliveryClient | None = None,
     recorder: ToolCallRecorder | None = None,
     memory: RunMemory | None = None,
-    budget_controller: BudgetController | None = None,
+    egress: HostEgressExecution | None = None,
 ) -> ToolRegistry:
-    policy = agent_policy_for(request)
-    execution = execution_defaults_for(request)
-    task_context = _task_submission_context(request)
-    workspace_dir, output_registrar = _skill_execution_scope(request)
-    workspace_shell = None
-    workspace_context = None
-    workspace_store = None
-    draft_shell = None
-    draft_shell_context = None
-    draft_tools = None
-    if request.run_context is not None:
-        # 所有 Agent（无论是否有 Skill）都拿到同一个 workspace_shell；身份只从 Run 取。
-        workspace_shell = build_workspace_shell_runner(process_settings())
-        workspace_store = build_workspace_store(process_settings())
-        workspace_context = WorkspaceShellContext(
-            tenant_id=request.run_context.tenant_id,
-            user_id=str(request.run_context.user_id),
-            agent_id=str(request.agent.id),
-            run_id=str(request.run_context.run_id),
-        )
-        # 草稿 Shell 也只认 Run 身份；模型只能提供 draft_id（Console 再校验 owner）。
-        draft_shell = build_draft_shell_runner(process_settings())
-        draft_shell_context = DraftShellContext(
-            tenant_id=request.run_context.tenant_id,
-            owner_user_id=str(request.run_context.user_id),
-            agent_id=str(request.agent.id),
-            run_id=str(request.run_context.run_id),
-        )
-        draft_tools = build_draft_tools(
-            process_settings(), context=draft_shell_context
-        )
+    workspace, registrar = _skill_execution_scope(request)
+    bindings = _registry_workspace(request)
     registry = build_skill_registry(
         cache=cache,
         skills=request.skills,
-        policy=policy,
+        policy=agent_policy_for(request),
         task_client=task_submitter,
-        task_context=task_context,
-        workspace_dir=workspace_dir,
+        task_context=_task_submission_context(request),
+        workspace_dir=workspace,
+        output_registrar=registrar,
         execution_id=str(request.run_context.run_id) if request.run_context else None,
-        output_registrar=output_registrar,
-        platform_context=SkillPlatformContext(
-            tenant_id=request.run_context.tenant_id, actor_user_id=str(request.run_context.user_id),
-            execution_id=str(request.run_context.run_id), execution_type="RUN", platform_keys=(),
-            console_url=process_settings().console_platform_url,
-            redis_url=process_settings().redis_url,
-            redis_mode=process_settings().redis_mode,
-            redis_cluster_seeds=process_settings().redis_cluster_seeds,
-            service_token=process_settings().internal_service_token,
-            budget_scope=(
-                PlatformBudgetScope(budget_controller)
-                if budget_controller is not None
-                else None
-            ),
-        ) if request.run_context else None,
-        workspace_shell=workspace_shell,
-        workspace_shell_context=workspace_context,
-        workspace_store=workspace_store,
-        workspace_context=workspace_context,
-        draft_shell=draft_shell,
-        draft_shell_context=draft_shell_context,
-        draft_tools=draft_tools,
+        platform_context=_skill_platform_context(request),
+        workspace_shell=bindings.shell,
+        workspace_shell_context=bindings.context,
+        workspace_store=bindings.store,
+        workspace_context=bindings.context,
+        draft_shell=bindings.draft,
+        draft_shell_context=bindings.draft_context,
+        draft_tools=bindings.draft_tools,
+        egress=egress,
     )
-    if task_client is not None and task_context is not None:
-        # docs/04 §7.5 内置任务工具：Schedule 创建/管理与后台 Task 查询/取消。
-        BackgroundTaskToolSet(client=task_client, context=task_context, skills=request.skills).register(
-            registry
-        )
-    # 内置时间工具：模型不知道"现在几点"，而 create_schedule 与相对时间（"明天早上 9 点"）都依赖它。
-    # 时区取**本次 Run 冻结的**平台默认 IANA 名，与调度侧口径一致（harness-time#RULE-time-001）。
-    TimeToolSet(zone=resolve_zone(execution.timezone)).register(registry)
-    if request.run_context is not None:
-        # 附件读取工具：类型无关、入口无关（AD-4-B）。租户与**归属用户**都从 Run 上下文取，
-        # **不进工具 schema**（归属一旦成为模型可填的参数，越权就只剩一层校验，NFR-SEC-01）。
-        AttachmentToolSet(
-            session_factory=get_session_factory,
-            artifact_root=process_settings().artifact_root,
-            tenant_id=request.run_context.tenant_id,
-            run_id=request.run_context.run_id,
-            conversation_id=request.run_context.conversation_id,
-            user_id=request.run_context.user_id,
-            agent_id=request.agent.id,
-            # TASK-005 起「写」不再依赖交付路由；`has_delivery_route` 只喂返回文案里的提示。
-            has_delivery_route=request.run_context.delivery_route is not None,
-            # 交付动作才需要路由与客户端（TASK-006）：没有路由时 `deliver_artifact` 明确报错
-            delivery_route=request.run_context.delivery_route,
-            delivery_client=delivery_client,
-            # deliver_artifact(path=...) 的校验根与产物登记器（同一 Run 的 workspace）。
-            workspace_dir=workspace_dir,
-            output_registrar=output_registrar,
-        ).register(registry)
-        ArchiveToolSet(
-            # 回执裁剪与外置判定必须用**同一个生效阈值**（否则调低阈值后回执自己会被外置，
-            # 模型看不到 deliver_artifact 指引）
-            receipt_limit_bytes=tool_result_settings(request).persist_threshold_bytes,
-            max_archive_files=execution.max_archive_files,
-            writer=OutputArtifactWriter(
-                artifact_root=process_settings().artifact_root,
-                session_factory=get_session_factory,
-                scope=OutputScope(
-                    request.run_context.tenant_id,
-                    request.run_context.run_id,
-                    request.run_context.conversation_id,
-                    agent_id=request.agent.id,
-                    user_id=request.run_context.user_id,
-                ),
-            ),
-        ).register(registry)
-    if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:
-        mcp_adapter.register_catalog(
-            registry=registry,
-            tenant_id=request.run_context.tenant_id,
-            run_id=request.run_context.run_id,
-            servers=[
-                _mcp_server_definition(server, request.credentials.mcp_secrets)
-                for server in request.mcp_servers
-            ],
-        )
-    memory = memory if memory is not None else _memory_runtime_for(request)
-    if memory is not None:
-        memory.tools.register(registry)
+    _register_run_artifacts(registry, request, delivery_client)
+    _register_other_tools(registry, request, task_client=task_client, mcp_adapter=mcp_adapter, memory=memory)
     return registry
 
 
@@ -2119,26 +2118,197 @@ def _memory_runtime_for(request: ExecutorRequest) -> RunMemory | None:
     defaults = execution_defaults_for(request)
     policy = defaults.memory_policy
     learning = defaults.learning
-    policy = replace(policy, write_enabled=memory_write_enabled(
-        request.agent.runtime_config, default=policy.write_enabled))
+    policy = replace(
+        policy, write_enabled=memory_write_enabled(request.agent.runtime_config, default=policy.write_enabled)
+    )
     credentials = (request.model.api_key, *request.credentials.mcp_secrets.values())
     canaries = tuple(value for value in credentials if value)
-    return create_run_memory(get_session_factory(),
-        scope=MemoryReadScope(tenant_id=context.tenant_id, user_id=context.user_id), run_id=context.run_id,
-        settings=policy, query=request.input_text, identity=request.execution_identity,
-        submission_id=context.submission_id, credential_canaries=canaries,
-        resume_ref=context.memory_resume_ref, conversation_id=context.conversation_id,
+    return create_run_memory(
+        get_session_factory(),
+        scope=MemoryReadScope(tenant_id=context.tenant_id, user_id=context.user_id),
+        run_id=context.run_id,
+        settings=policy,
+        query=request.input_text,
+        identity=request.execution_identity,
+        submission_id=context.submission_id,
+        credential_canaries=canaries,
+        resume_ref=context.memory_resume_ref,
+        conversation_id=context.conversation_id,
         min_score=learning.min_score,
         preference_items=learning.preference_items,
         preference_bytes=learning.preference_bytes,
         learning_enabled=learning.enabled,
         initial_task_family=f"agent:{request.agent.id}",
-        timezone=defaults.timezone)
+        timezone=defaults.timezone,
+    )
 
 
 def tool_result_settings(request: ExecutorRequest) -> ToolResultSettings:
     """整轮批次预算与预览阈值：取自**冻结**配置，没有冻结配置时回落 schema 默认值。"""
     return request.compaction.tool_result if request.compaction is not None else ToolResultSettings()
+
+
+@dataclass(frozen=True, slots=True)
+class _ExecutorInputs:
+    skill_cache: SkillArtifactCache | None
+    artifact_writer: ArtifactResultWriter | None
+    task_client: WorkerTaskClient | None
+    delivery_client: GatewayDeliveryClient | None
+    model_transport: httpx.AsyncBaseTransport | None
+    model_client: httpx.AsyncClient | None
+    mcp_client: httpx.AsyncClient | None
+
+
+@dataclass(frozen=True, slots=True)
+class _ModelResources:
+    provider: ModelProvider
+    summary: ModelProvider | None
+    audit: RuntimeAuditWriter | None
+    trace: ModelCallTrace
+    summary_pooled: bool
+
+
+async def _close_model(provider: ModelProvider) -> None:
+    await provider.aclose()  # type: ignore[attr-defined]
+
+
+async def _main_provider_for(
+    request: ExecutorRequest,
+    inputs: _ExecutorInputs,
+    *,
+    timeout: float,
+    audit: RuntimeAuditWriter | None,
+    trace: ModelCallTrace,
+    ledger: ModelAttemptLedger,
+) -> ModelProvider:
+    scope = _pool_scope_for(request)
+    if scope is not None:
+        return _pooled_provider_for(
+            request,
+            scope=scope,
+            audit_writer=audit,
+            model_trace=trace,
+            timeout_sec=timeout,
+            transport=inputs.model_transport,
+            client=inputs.model_client,
+            ledger=ledger,
+        )
+    provider = await _model_provider(
+        request.model, timeout_sec=timeout, transport=inputs.model_transport, client=inputs.model_client
+    )
+    return (
+        AuditedModelProvider(provider, audit, model=request.model.model_id, model_trace=trace, ledger=ledger)
+        if audit is not None
+        else provider
+    )
+
+
+async def _model_resources(
+    request: ExecutorRequest, inputs: _ExecutorInputs, stack: contextlib.AsyncExitStack
+) -> _ModelResources:
+    frozen = request.execution.agent_policy if request.execution is not None else AgentPolicy()
+    budget = ModelBudget(deadline_ms=frozen.deadline_ms, max_model_retries=frozen.max_model_retries)
+    audit, ledger = _audit_writer_for(request), ModelAttemptLedger()
+    trace = ModelCallTrace(audit_enabled=audit is not None)
+    provider = await _main_provider_for(
+        request, inputs, timeout=budget.request_timeout_sec(), audit=audit, trace=trace, ledger=ledger
+    )
+    stack.push_async_callback(_close_model, provider)
+    summary, owned = await _summary_provider_for(
+        request,
+        audit_writer=audit,
+        timeout_sec=budget.request_timeout_sec(),
+        transport=inputs.model_transport,
+        client=inputs.model_client,
+        ledger=ledger,
+    )
+    if owned is not None:
+        stack.push_async_callback(_close_model, owned)
+    return _ModelResources(provider, summary, audit, trace, _summary_pool_scope_for(request) is not None)
+
+
+async def _scoped_mcp_adapter(
+    request: ExecutorRequest,
+    inputs: _ExecutorInputs,
+    *,
+    egress: HostEgressExecution | None,
+    audit: RuntimeAuditWriter | None,
+    stack: contextlib.AsyncExitStack,
+) -> McpRuntimeAdapter:
+    client = inputs.mcp_client
+    if egress is not None and request.mcp_servers:
+        identity = await egress.host_invocation(operation_key="mcp:transport", skill_key="mcp:transport")
+        client = httpx.AsyncClient(transport=egress.transport(identity, client=client))
+        stack.push_async_callback(client.aclose)
+    adapter = McpRuntimeAdapter(audit_writer=audit, client=client)
+    stack.push_async_callback(adapter.aclose)
+    return adapter
+
+
+def _control_clients(
+    request: ExecutorRequest, inputs: _ExecutorInputs, stack: contextlib.AsyncExitStack
+) -> tuple[WorkerTaskClient, GatewayDeliveryClient | None]:
+    settings = process_settings()
+    delivery, task = inputs.delivery_client, inputs.task_client
+    if (
+        delivery is None
+        and request.run_context is not None
+        and request.run_context.delivery_route is not None
+    ):
+        delivery = GatewayDeliveryClient(
+            settings.im_gateway_url, service_token=settings.internal_service_token
+        )
+        stack.push_async_callback(delivery.aclose)
+    if task is None:
+        task = WorkerTaskClient(settings.agent_worker_url, service_token=settings.internal_service_token)
+        stack.push_async_callback(task.aclose)
+    return task, delivery
+
+
+def _recorder_for(
+    request: ExecutorRequest, audit: RuntimeAuditWriter | None, artifact_writer: ArtifactResultWriter | None
+) -> ToolCallRecorder | None:
+    if request.run_context is None:
+        return None
+    return ToolCallRecorder(
+        context=request.run_context,
+        audit_writer=audit,
+        artifact_writer=artifact_writer,
+        settings=tool_result_settings(request),
+        credential_canaries=tuple(
+            value for value in (request.model.api_key, *request.credentials.mcp_secrets.values()) if value
+        ),
+    )
+
+
+def _agent_runner(
+    request: ExecutorRequest,
+    models: _ModelResources,
+    registry: ToolRegistry,
+    recorder: ToolCallRecorder | None,
+    memory: RunMemory | None,
+) -> AgentRunner:
+    hooks = HookPipeline()
+    return AgentRunner(
+        provider=models.provider,
+        registry=registry,
+        hooks=hooks,
+        tool_pipeline=ToolExecutionPipeline(
+            registry=registry, audit=recorder, policy=_frozen_tool_policy(request), hooks=hooks
+        ),
+        context_compactor=_context_compactor(
+            request,
+            models.summary,
+            pooled=models.summary_pooled,
+            artifact_root=process_settings().artifact_root,
+        ),
+        tool_round_results=recorder,
+        runtime_events=request.runtime_events,
+        context_loader=memory.loader if memory is not None else None,
+        tool_suspension=memory.confirmation if memory is not None else None,
+        event_batch_size=request.event_batch_size,
+        parallel_limit=request.parallel_limit,
+    )
 
 
 async def default_executor_factory(
@@ -2152,142 +2322,42 @@ async def default_executor_factory(
     model_client: httpx.AsyncClient | None = None,
     mcp_client: httpx.AsyncClient | None = None,
 ) -> RunExecutor:
-    # 单次模型请求 I/O 超时由预算层级派生（单次请求预算被夹到剩余总预算），不再独立取默认。
-    # 基值取冻结的 platform agent 策略（与 `AgentPolicy` 的 deadline 同源）；I/O 超时是**单次请求
-    # 上限**，不含 Agent 的 runtime_config 覆盖（覆盖由 `AgentRunner` 在重试/截止判定里生效）。
-    # `model_client` 是装配根注入的模型池（进程级连接上限）；未注入时各 provider 自建自关。
-    frozen = request.execution.agent_policy if request.execution is not None else AgentPolicy()
-    budget = ModelBudget(deadline_ms=frozen.deadline_ms, max_model_retries=frozen.max_model_retries)
-    audit_writer = _audit_writer_for(request)
-    # 账本总是存在（分代是流正确性设施）；审计关联只在真实审计行会产生时才出现在事件里。
-    model_trace = ModelCallTrace(audit_enabled=audit_writer is not None)
-    # 逐 attempt 审计序号账本按**本次 Run 片段**共享：主调用与摘要调用（两条模型定义、两个
-    # provider 实例）的尝试序号因此不重复，审计可按序号逐条追溯。
-    ledger = ModelAttemptLedger()
-    scope = _pool_scope_for(request)
-    if scope is not None:
-        # 启用池的 Run：预占→按冻结引用解析 Key→发上游→续租→结算全在 `PooledModelProvider`
-        provider: ModelProvider = _pooled_provider_for(
-            request,
-            scope=scope,
-            audit_writer=audit_writer,
-            model_trace=model_trace,
-            timeout_sec=budget.request_timeout_sec(),
-            transport=model_transport,
-            client=model_client,
-            ledger=ledger,
-        )
-    else:
-        provider = await _model_provider(
-            request.model,
-            timeout_sec=budget.request_timeout_sec(),
-            transport=model_transport,
-            client=model_client,
-        )
-        if audit_writer is not None:
-            provider = AuditedModelProvider(
-                provider,
-                audit_writer,
-                model=request.model.model_id,
-                model_trace=model_trace,
-                ledger=ledger,
-            )
-    # 摘要模型是**另一条模型定义**（ADR-06）：endpoint / 模型名 / 凭据都取自它自己那一份，凭据
-    # 由 API-09 在调用边界按**冻结成员引用**实时解析（池化）。没有它就不装摘要层，绝不退回主模型。
-    summary_pooled = _summary_pool_scope_for(request) is not None
-    summary_provider, owned_summary_provider = await _summary_provider_for(
-        request,
-        audit_writer=audit_writer,
-        timeout_sec=budget.request_timeout_sec(),
-        transport=model_transport,
-        client=model_client,
-        ledger=ledger,
+    inputs = _ExecutorInputs(
+        skill_cache, artifact_writer, task_client, delivery_client, model_transport, model_client, mcp_client
     )
-    budget_controller = execution_budget_for(request)
-    mcp_adapter = McpRuntimeAdapter(
-        audit_writer=audit_writer,
-        client=mcp_client,
-        budget=McpBudgetScope(budget_controller) if budget_controller is not None else None,
-    )
-    settings = process_settings()
-    # 交付客户端：**只有本次 Run 有交付路由时才建**（没路由的 Run 谈不上交付）。
-    # 与 task_client 同一条 owned/close 规矩：谁造谁收，避免每次 Run 漏一个 httpx 连接池。
-    owned_delivery_client: GatewayDeliveryClient | None = None
-    if delivery_client is None and request.run_context is not None:
-        if request.run_context.delivery_route is not None:
-            owned_delivery_client = GatewayDeliveryClient(
-                settings.im_gateway_url, service_token=settings.internal_service_token
-            )
-            delivery_client = owned_delivery_client
-    owned_task_client: WorkerTaskClient | None = None
-    if task_client is None:
-        owned_task_client = WorkerTaskClient(
-            settings.agent_worker_url, service_token=settings.internal_service_token
-        )
-        task_client = owned_task_client
-    # 工具结果的**整轮批次预算**要同时挂在两个地方：注册表里逐条执行时缓冲结果，回合末由
-    # `AgentRunner` 调同一个对象收口（design ADR-04）——所以这里只建一份，两处共用。
-    recorder: ToolCallRecorder | None = None
-    if request.run_context is not None:
-        recorder = ToolCallRecorder(
-            context=request.run_context,
-            audit_writer=audit_writer,
+    stack = contextlib.AsyncExitStack()
+    try:
+        egress = await stack.enter_async_context(run_egress(request))
+        models = await _model_resources(request, inputs, stack)
+        mcp = await _scoped_mcp_adapter(request, inputs, egress=egress, audit=models.audit, stack=stack)
+        task, delivery = _control_clients(request, inputs, stack)
+        recorder = _recorder_for(request, models.audit, artifact_writer)
+        memory = _memory_runtime_for(request)
+        registry = build_registry(
+            request=request,
+            cache=skill_cache or build_default_skill_cache(),
+            audit_writer=models.audit,
+            mcp_adapter=mcp,
             artifact_writer=artifact_writer,
-            settings=tool_result_settings(request),
-            credential_canaries=tuple(value for value in
-                (request.model.api_key, *request.credentials.mcp_secrets.values()) if value),
+            task_client=task,
+            task_submitter=_durable_submitter(process_settings(), request),
+            delivery_client=delivery,
+            recorder=recorder,
+            memory=memory,
+            egress=egress,
         )
-    memory = _memory_runtime_for(request)
-    registry = build_registry(
-        request=request,
-        cache=skill_cache or build_default_skill_cache(),
-        audit_writer=audit_writer,
-        mcp_adapter=mcp_adapter,
-        artifact_writer=artifact_writer,
-        task_client=task_client,
-        task_submitter=_durable_submitter(settings, request),
-        delivery_client=delivery_client,
-        recorder=recorder,
-        memory=memory,
-        budget_controller=budget_controller,
-    )
-    hooks = HookPipeline()
-    runner = AgentRunner(
-        provider=provider,
-        registry=registry,
-        hooks=hooks,
-        tool_pipeline=ToolExecutionPipeline(
-            registry=registry, audit=recorder, policy=_frozen_tool_policy(request), hooks=hooks
-        ),
-        context_compactor=_context_compactor(
-            request, summary_provider, pooled=summary_pooled, artifact_root=settings.artifact_root
-        ),
-        tool_round_results=recorder,
-        runtime_events=request.runtime_events,
-        context_loader=memory.loader if memory is not None else None,
-        tool_suspension=memory.confirmation if memory is not None else None,
-        event_batch_size=request.event_batch_size,
-        parallel_limit=request.parallel_limit,
-    )
-
-    async def close() -> None:
-        await provider.aclose()  # type: ignore[attr-defined]
-        if owned_summary_provider is not None:
-            await owned_summary_provider.aclose()  # type: ignore[attr-defined]
-        await mcp_adapter.aclose()
-        if owned_task_client is not None:
-            await owned_task_client.aclose()
-        if owned_delivery_client is not None:
-            await owned_delivery_client.aclose()
-
-    return AgentRunnerExecutor(
-        runner=runner,
-        request=request,
-        close=close,
-        model_trace=model_trace,
-        delta_window=delta_window_from_settings(settings),
-        memory=memory,
-    )
+        return AgentRunnerExecutor(
+            runner=_agent_runner(request, models, registry, recorder, memory),
+            request=request,
+            close=stack.aclose,
+            model_trace=models.trace,
+            memory=memory,
+            delta_window=delta_window_from_settings(process_settings()),
+            egress=egress,
+        )
+    except BaseException:
+        await stack.aclose()
+        raise
 
 
 def _frozen_tool_policy(request: ExecutorRequest) -> Callable[[PreparedToolCall], ToolPolicyDecision]:
@@ -2528,8 +2598,9 @@ def _audit_writer_for(request: ExecutorRequest) -> RuntimeAuditWriter | None:
         conversation_id=context.conversation_id,
         user_id=context.user_id,
         session_factory=get_session_factory,
-        credential_canaries=tuple(value for value in
-            (request.model.api_key, *request.credentials.mcp_secrets.values()) if value),
+        credential_canaries=tuple(
+            value for value in (request.model.api_key, *request.credentials.mcp_secrets.values()) if value
+        ),
     )
 
 

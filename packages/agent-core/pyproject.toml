@@ -7,6 +7,7 @@ dependencies = [
   "muad-artifact-store",
   "muad-logging",
   "muad-skill-sdk",
+  "muad-platform-sdk",
   "httpx>=0.28,<1",
   "requests>=2.32,<3",
   # `tools/pipeline.py` 直接 import；缺声明时本地 venv 因 dev 依赖能跑，
@@ -29,3 +30,4 @@ muad-contracts = { workspace = true }
 muad-artifact-store = { workspace = true }
 muad-logging = { workspace = true }
 muad-skill-sdk = { workspace = true }
+muad-platform-sdk = { workspace = true }

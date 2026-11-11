@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from muad_contracts.skill_invocation import validate_skill_argv
 
 if TYPE_CHECKING:  # pragma: no cover - 仅类型检查导入，运行时不加载平台 SDK
+    from muad_platform_sdk.egress_ipc import InvocationEgressBroker
     from muad_platform_sdk.skill_access import SkillPlatformContext
 
 #: stdout/stderr 单流上限（字节）；与 SandboxSpec 的默认上限同口径。
@@ -113,6 +114,8 @@ class SkillExecutionRequest:
     env: Mapping[str, str] = field(default_factory=dict)
     cancel_event: asyncio.Event | None = None
     budget_exhausted_event: asyncio.Event | None = None
+    #: 仅可信宿主构造；脚本只获得专属 socket，不获得身份或 Redis 凭据。
+    egress_broker: InvocationEgressBroker | None = field(default=None, repr=False)
     script: Path | None = None
     platform_context: SkillPlatformContext | None = None
     output_limits: OutputLimits = field(default_factory=OutputLimits)
@@ -121,6 +124,11 @@ class SkillExecutionRequest:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "argv", validate_skill_argv(self.argv))
+        if self.egress_broker is not None and (
+            self.budget_exhausted_event is not None or
+            (self.platform_context is not None and self.platform_context.budget_scope is not None)
+        ):
+            raise SkillExecutionError("EGRESS_SCOPE_CONFLICT")
 
 
 

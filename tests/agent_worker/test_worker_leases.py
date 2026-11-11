@@ -246,7 +246,7 @@ async def test_expired_lease_cannot_be_renewed(tenant: TenantContext) -> None:
     )
     worker = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="worker-a")
 
-    owned, _requested = await worker._renew_lease(task.id)
+    owned, _requested = await worker._renew_lease(task.id, lease_epoch=task.lease_epoch)
 
     assert owned is False, "过期租约不得被续租"
     assert (await _status(tenant, task.id))["lease_until"] < _now(), "续租把失效的执行权写回了未来"
@@ -340,7 +340,7 @@ async def test_heartbeat_failure_stops_the_local_execution(
         tenant.session_factory, settings, executor=executor, instance_id="worker-a"
     )
 
-    async def failing_renew(task_id: uuid.UUID) -> tuple[bool, bool]:
+    async def failing_renew(task_id: uuid.UUID, *, lease_epoch: int) -> tuple[bool, bool]:
         raise RuntimeError("database is down")
 
     monkeypatch.setattr(worker, "_renew_lease", failing_renew)

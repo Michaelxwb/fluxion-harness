@@ -2,6 +2,7 @@
 
 Never treat PLAN_SKELETON failures as functional RED evidence.
 """
+
 import pytest
 
 from tests.sdk import test_shared_http_transport as stream_cases
@@ -15,6 +16,7 @@ from tests.sdk.test_shared_redis_meter import shared_meter as shared_meter
 def test_s_01() -> None:
     """跨进程共享接口上限: 两进程合计最多50次获准并到达HTTP探针；所有KEY同slot，无CROSSSLOT."""
     pytest.fail("PLAN_SKELETON: implement real S-01 boundary assertions before execution")
+
 
 @pytest.mark.integration
 async def test_s_02() -> None:
@@ -35,23 +37,37 @@ async def test_s_02() -> None:
     prefix = f"fx:egress:{{{domain}}}:"
     first = SharedRedisMeter(client, domain=domain, epoch="test-epoch")
     second = SharedRedisMeter(client, domain=domain, epoch="test-epoch")
-    policy = SharedEgressPolicy.model_validate({"revision": 1, "rules": [{
-        "id": "route", "target_instance_id": "platform", "route_id": "GET /assets",
-        "max_requests": 2,
-    }]})
+    policy = SharedEgressPolicy.model_validate(
+        {
+            "revision": 1,
+            "rules": [
+                {
+                    "id": "route",
+                    "target_instance_id": "platform",
+                    "route_id": "GET /assets",
+                    "max_requests": 2,
+                }
+            ],
+        }
+    )
     try:
         await client.hset(prefix + "guard", mapping={"epoch": "test-epoch"})
         await first.publish(policy)
-        await first.register_execution("execution-1", max_requests=3, targets=(
-            policy.rules[0].model_copy(update={"id": "frozen-route", "max_requests": 3}),
-        ))
+        await first.register_execution(
+            "execution-1",
+            max_requests=3,
+            targets=(policy.rules[0].model_copy(update={"id": "frozen-route", "max_requests": 3}),),
+        )
         for invocation in ("a", "b", "c", "d"):
             await first.register_invocation("execution-1", invocation, max_requests=1)
 
         async def acquire(meter, invocation, attempt, *, segment="segment-1", current=policy):
             return await meter.admit(
-                current, target_instance_id="platform", route_id="GET /assets",
-                attempt_id=attempt, lease_seconds=30,
+                current,
+                target_instance_id="platform",
+                route_id="GET /assets",
+                attempt_id=attempt,
+                lease_seconds=30,
                 invocation=TrustedInvocation("execution-1", invocation, segment),
             )
 
@@ -60,9 +76,9 @@ async def test_s_02() -> None:
         with pytest.raises(SharedLimitExceeded):
             await acquire(first, "c", "public-full")
 
-        larger = policy.model_copy(update={"revision": 2, "rules": (
-            policy.rules[0].model_copy(update={"max_requests": 4}),
-        )})
+        larger = policy.model_copy(
+            update={"revision": 2, "rules": (policy.rules[0].model_copy(update={"max_requests": 4}),)}
+        )
         await first.publish(larger)
         with pytest.raises(SharedLimitExceeded):
             await acquire(first, "a", "invocation-full", current=larger)
@@ -74,8 +90,11 @@ async def test_s_02() -> None:
         await first.register_execution("execution-2", max_requests=1)
         await first.register_invocation("execution-2", "e", max_requests=1)
         permit = await second.admit(
-            larger, target_instance_id="platform", route_id="GET /assets",
-            attempt_id="other-execution", lease_seconds=30,
+            larger,
+            target_instance_id="platform",
+            route_id="GET /assets",
+            attempt_id="other-execution",
+            lease_seconds=30,
             invocation=TrustedInvocation("execution-2", "e", "segment-1"),
         )
         assert permit is not None
@@ -86,9 +105,28 @@ async def test_s_02() -> None:
         finally:
             await client.aclose()
 
+
 def test_s_03() -> None:
-    """恢复与Task重领延续累计：身份不变、segment变更不清零，Worker使用冻结超时。"""
-    pytest.fail("PLAN_SKELETON: implement real S-03 boundary assertions before execution")
+    """Real Runtime recovery and Worker reclaim preserve shared counters."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/sdk/test_runtime_egress_recovery_linux.py",
+            "tests/sdk/test_worker_egress_recovery_linux.py",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=240,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "2 passed" in result.stdout, result.stdout
+
 
 @pytest.mark.integration
 async def test_s_04() -> None:
@@ -100,8 +138,13 @@ async def test_s_04() -> None:
     if not os.environ.get("EGRESS_SITE_TEST_IMAGE") or not os.environ.get("EGRESS_SITE_TEST_REDIS_URL"):
         pytest.fail("env_blocked: provision controlled Linux image and its isolated Redis URL")
     process = await asyncio.create_subprocess_exec(
-        sys.executable, "-m", "pytest", "-q", "tests/sdk/test_egress_site_linux.py",
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+        sys.executable,
+        "-m",
+        "pytest",
+        "-q",
+        "tests/sdk/test_egress_site_linux.py",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
     )
     try:
         async with asyncio.timeout(120):
@@ -124,13 +167,17 @@ async def test_s_05() -> None:
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("case", [
-    "test_lost_redis_reply_never_sends_and_same_attempt_retry_does_not_recount",
-    "test_admission_deadline_is_dependency_failure_not_http_timeout",
-])
+@pytest.mark.parametrize(
+    "case",
+    [
+        "test_lost_redis_reply_never_sends_and_same_attempt_retry_does_not_recount",
+        "test_admission_deadline_is_dependency_failure_not_http_timeout",
+    ],
+)
 async def test_e_01(case, meter, http_probe, fault_proxy) -> None:
     """Real Redis TCP reply loss and real HTTP zero-send boundary."""
     await getattr(stream_cases, case)(meter, http_probe, fault_proxy)
+
 
 @pytest.mark.integration
 async def test_e_01_connection_refused() -> None:
@@ -145,18 +192,51 @@ async def test_e_01_connection_refused() -> None:
     url = os.environ.get("EGRESS_FAULT_REDIS_URL", "redis://127.0.0.1:16499/0")
     client = Redis.from_url(url, decode_responses=True, socket_connect_timeout=0.2)
     meter = SharedRedisMeter(client, domain="fault-" + uuid.uuid4().hex, epoch="epoch")
-    policy = SharedEgressPolicy.model_validate({"revision": 1, "rules": [{
-        "id": "route", "target_instance_id": "platform", "route_id": "GET /assets",
-        "max_requests": 1,
-    }]})
+    policy = SharedEgressPolicy.model_validate(
+        {
+            "revision": 1,
+            "rules": [
+                {
+                    "id": "route",
+                    "target_instance_id": "platform",
+                    "route_id": "GET /assets",
+                    "max_requests": 1,
+                }
+            ],
+        }
+    )
     with pytest.raises(MeteringUnavailable):
-        await meter.admit(policy, target_instance_id="platform", route_id="GET /assets",
-                          attempt_id="faulted", lease_seconds=1)
+        await meter.admit(
+            policy,
+            target_instance_id="platform",
+            route_id="GET /assets",
+            attempt_id="faulted",
+            lease_seconds=1,
+        )
     await client.aclose()
 
+
 def test_e_02() -> None:
-    """累计耗尽停止脚本，回收进程组；Task不重试，Run保留已完成结果。"""
-    pytest.fail("PLAN_SKELETON: implement real E-02 boundary assertions before execution")
+    """Real Runtime and Worker Linux process trees, PG, Redis and slow HTTP."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/sdk/test_runtime_egress_linux.py",
+            "tests/sdk/test_worker_egress_linux.py",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=240,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "2 passed" in result.stdout, result.stdout
+
 
 @pytest.mark.integration
 async def test_e_03() -> None:
@@ -164,13 +244,33 @@ async def test_e_03() -> None:
     await _run_host_cases("test_e_03_proxy_response_preserved_and_sent_attempt_not_refunded")
 
 
-def test_e_04() -> None:
-    """补写去重；缓冲失效时记录缺口，准入不依赖日志写入。"""
-    pytest.fail("PLAN_SKELETON: implement real E-04 boundary assertions before execution")
+@pytest.mark.integration
+async def test_e_04() -> None:
+    """Lightweight PG/spool evidence; project-wide logging/time checks remain deferred."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "tests/agent_runtime/test_egress_observability.py",
+            "tests/agent_runtime/test_egress_observability_store.py",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "7 passed" in result.stdout, result.stdout
+
 
 def test_b_01() -> None:
     """连续窗口边界及时钟回拨: 有效区间为(now-window,now]，不存在跨整分放行100次；回拨不提前释放窗口."""
     pytest.fail("PLAN_SKELETON: implement real B-01 boundary assertions before execution")
+
 
 @pytest.mark.integration
 async def test_b_02() -> None:
@@ -190,9 +290,14 @@ async def test_b_02() -> None:
         "test_custom_adapter_is_rejected_before_its_send",
     ]
     process = await asyncio.create_subprocess_exec(
-        sys.executable, "-m", "pytest", "-q", *(f"{path}::{name}" for name in names),
+        sys.executable,
+        "-m",
+        "pytest",
+        "-q",
+        *(f"{path}::{name}" for name in names),
         "tests/sdk/test_requests_control_lifecycle.py",
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
     )
     try:
         async with asyncio.timeout(120):
@@ -204,16 +309,20 @@ async def test_b_02() -> None:
     assert process.returncode == 0, output.decode(errors="replace")
     assert b"17 passed" in output, output.decode(errors="replace")
 
+
 @pytest.mark.integration
-@pytest.mark.parametrize("case", [
-    "test_stream_holds_lease_until_close_and_preserves_proxy_response",
-    "test_deadline_covers_body_read_and_closes_real_socket",
-    "test_external_cancellation_closes_stream_and_keeps_cancelled_error",
-    "test_renewal_epoch_failure_closes_stream_as_dependency_error",
-    "test_renewal_network_timeout_closes_active_stream",
-    "lease_release_key_set",
-    "lease_renew_key_set",
-])
+@pytest.mark.parametrize(
+    "case",
+    [
+        "test_stream_holds_lease_until_close_and_preserves_proxy_response",
+        "test_deadline_covers_body_read_and_closes_real_socket",
+        "test_external_cancellation_closes_stream_and_keeps_cancelled_error",
+        "test_renewal_epoch_failure_closes_stream_as_dependency_error",
+        "test_renewal_network_timeout_closes_active_stream",
+        "lease_release_key_set",
+        "lease_renew_key_set",
+    ],
+)
 async def test_b_03(case, meter, http_probe, fault_proxy, shared_meter) -> None:
     """Real stream/deadline/renewal closure plus ownership-bound lease release."""
     if case.startswith("lease_"):
@@ -229,6 +338,7 @@ def test_b_04() -> None:
     """公共规则版本一致；旧缓存先拒后刷新，窗口阻断，冻结累计不变。"""
     pytest.fail("PLAN_SKELETON: implement real B-04 boundary assertions before execution")
 
+
 @pytest.mark.integration
 async def test_b_05() -> None:
     """Run the real PG/Cluster composition; missing opt-in is an environment failure."""
@@ -239,9 +349,13 @@ async def test_b_05() -> None:
     if os.environ.get("EGRESS_ALLOW_CLUSTER_FAILOVER") != "1":
         pytest.fail("env_blocked: B-05 requires an explicitly disposable Redis Cluster")
     process = await asyncio.create_subprocess_exec(
-        sys.executable, "-m", "pytest", "-q",
+        sys.executable,
+        "-m",
+        "pytest",
+        "-q",
         "tests/sdk/test_persistent_egress_failover.py",
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
     )
     try:
         async with asyncio.timeout(120):
@@ -252,6 +366,7 @@ async def test_b_05() -> None:
             await process.wait()
     assert process.returncode == 0, output.decode(errors="replace")
     assert b"2 passed" in output, output.decode(errors="replace")
+
 
 @pytest.mark.integration
 async def test_b_05_redis_state_probe() -> None:
@@ -275,6 +390,7 @@ async def test_b_05_redis_state_probe() -> None:
     finally:
         await client.aclose()
 
+
 def test_b_06() -> None:
     """无规则不访问Redis；非法配置拒绝，未知目标和未支持客户端明确区分。"""
     pytest.fail("PLAN_SKELETON: implement real B-06 boundary assertions before execution")
@@ -285,8 +401,13 @@ async def _run_host_cases(*names: str) -> None:
 
     nodes = ["tests/sdk/test_shared_host_transport.py::" + name for name in names]
     process = await asyncio.create_subprocess_exec(
-        "uv", "run", "pytest", "-q", *nodes,
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        *nodes,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
     )
     output = b""
     try:

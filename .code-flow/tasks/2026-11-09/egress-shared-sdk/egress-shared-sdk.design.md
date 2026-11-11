@@ -296,6 +296,25 @@ Skill requests 保持在脚本进程发送，IPC只交换准入、send-start、�
 
 旧Worker持有者在新fence启用后不能再申请许可；已经放行但尚未开始的客户端发送与fence切换不能跨Redis/网络事务做到完全原子。许可有效期需短于执行租约剩余安全期，发送前校验本地取消状态；已计数许可不退。新持有者必须先确认旧执行段终止或等其有界deadline结束，再建立互斥执行段；无法确认时阻断恢复。不能宣称Redis fencing能撤回已经发向平台的请求。
 
+##### 执行段原子约束与生产装配状态
+
+已新增 `SegmentGrant` 和 `FencedRedisMeter`，供可信宿主在已完成 PG/来源租约认证后绑定 execution、单调 fence 和 segment ID。这个值对象不认证调用者，`activate` 也不获取 Run/Task 执行权；尚不能直接从脚本参数或 Task.attempt 构造生产 grant。
+
+绑定后的准入、consume、renew 都将执行段检查与原计量 Lua 包在同一次 EVAL 中，完整声明额外同 slot keys；没有“先查 fence、再发另一次计数命令”的竞态。permit 在决策记录中绑定原执行段，新持有者也不能通过自己的客户端消费/续租旧 permit。release 仍允许旧发送方在确认关闭后清理自身 token，不把失权等同于已关闭 HTTP。
+
+执行段记录保留 fence、segment、租约截止和安全接管时间；scope 与 scope-index 同时保存段记录标记。记录丢失或标记不一致时拒绝恢复，不自动初始化。相同 fence 只允许同段在到期前续租，不能复活过期/已停止段；更高 fence 必须等旧段安全截止，或等待旧宿主确认进程组和宿主 HTTP 均停止后才能接管。时钟回拨拒绝改变执行权。不能据此承诺所有 Redis 历史丢失后精确恢复；仍受故障代际与 PG 恢复协议约束。
+
+生产接线及执行段监督：
+
+1. 已新增 PGSegmentAuthority 与 Run/Task 各自的来源读取器：同一事务先锁来源行，再锁 egress execution，最后取新鲜 PG 时钟；核对 tenant/source、RUNNING、lease_owner、独立代次、取消/软删除、lease_until 与业务 deadline，验证 READY 身份及冻结预算完整性后推进 current_fence。Runtime 与 Worker 的受控执行入口在启动和续期时调用该授权。
+2. Runtime 使用已有 execution_epoch；Worker 已新增 Task lease_epoch（0045 迁移），每次领取均递增，续租、WAITING/重试转换及受控终态 CAS 绑定捕获的代次。WAITING 续接不增加 attempt。先执行迁移再启动新 Worker，不以忽略代次的旧二进制证明 fencing 正确。
+3. 已新增 SourceSegmentSupervisor 组件：启动和每次续期先重新取得 PG 来源授权，再续 Redis 段；旧安全截止同时约束授权等待与 Redis 延迟。工作完成时再次检查本地截止，事件循环延迟不能产生过期成功。失权、续期超时或调用取消时先取消工作并执行宿主关闭回执；工作和关闭回执均确认结束后才 confirm_stopped。取消不合作或关闭不确定时有界返回失败，Redis 段保持保守占用，不提前允许接管；停止回执写 Redis 失败明确告警，不改写已确认关闭的原业务结果。停止余量须覆盖真实 runner 与 HTTP 关闭上限，由装配方提供，不能仅取消 IPC handler 后宣称业务连接已关闭。Runtime 与 Worker 的受控执行入口使用该组件监督整个执行作用域。
+4. Core 已接入系统 site/可信绝对 launcher、只读私有 IPC 挂载和独立预算停止信号；拒绝共享 broker 与旧本地 scope 同时注入。受控非 Python 脚本在业务启动前明确拒绝。Linux 实测覆盖忽略 SIGTERM 的孙进程、吞掉 SDK 异常的父脚本、慢 HTTP 关闭及无 hook 不启动业务。Runtime/Worker 已接入稳定 tool_call_id/Task 调用路径、冻结累计预算转换、当前公共规则和目标授权解析，受控执行不装配旧进程内 BudgetController。仅冻结累计预算而公共规则为空时也必须启用；全部无规则才完全旁路。
+
+PG 授权返回 AuthorizedSegment：segment ID 在同一来源 owner/epoch 内确定，领取代次变化则改变；execution/invocation 的 PG UUID 不变。有效窗口取来源租约与业务 deadline 的较早值，再以事务开始前的本地 monotonic 时间保守换算；锁等待或提交延迟不延长有效期，到期显式失败。来源读取器只加载执行权所需列，不加载任务输入、快照或凭据；PG 慢路径不逐请求扣数，也不在事务内调用 Redis。
+
+真实 PG/Redis、Runtime AgentRunnerExecutor、Worker SkillTaskExecutor 和 Linux bwrap 探针覆盖恢复后的累计额度及超限时进程组与慢连接关闭。Run 恢复测试通过修改真实 PG 持有者和代次模拟接管，Worker 经 TaskClaimer 重新领取；这不代表跨 Pod 故障演练或完整生产发布验证。
+
 ##### Redis时钟与故障代际
 共享内核现在在同一 Lua 执行中读取 `INFO server` 的 `run_id`，Cluster 模式再读取 `CLUSTER INFO` 的 `cluster_my_epoch`，组合为守卫的 `server_generation`。首次受控初始化策略时固定该值；后续发布、准入、消费、续租和作用域恢复都必须匹配，缺失、无权读取、集群状态非就绪或发生变化即拒绝。相同 revision 的普通发布也不允许重新学习代际。这样消除客户端先查拓扑再准入的两条命令竞态；受控切换以及原进程强制切回已有 Redis 7 本地演练，不代表所有托管 Redis 部署已验收。SDK Redis ACL 需允许脚本读取 `INFO server`，Cluster 另需 `CLUSTER INFO`；权限不足时关闭受控调用，不退回旧检测方式。该检查每次随 Lua 执行，不新增服务，其额外成本仍待容量验证。
 
@@ -304,6 +323,10 @@ Skill requests 保持在脚本进程发送，IPC只交换准入、send-start、�
 窗口使用Redis TIME并保存域级last_seen_time；检测到回拨时关闭准入，等待运维恢复而非提前清空窗口。epoch由受控发布/故障恢复流程变更，SDK不能仅靠Redis内一个可回滚key自动检测全部历史丢失。Cluster角色/主节点身份变化与守卫续期检查属于上线必需接线；存在检测间隙，Redis-only不能承诺异步故障切换零丢失写入。故障演练不能证明的保证保持未验收。
 
 ### 3.3 数据设计
+
+宿主装配配置入口为 `SharedSettings.egress_control_file` 指向的受控 JSON 文件：只承载保护域/epoch、公共控制启用标记、HTTP origin/模板到稳定平台实例/route 的映射，以及发送/关闭/来源续期时限；不承载凭据或 Run/Task 自身预算，也不复制 Redis 的当前公共阈值。公共控制标记属于部署级启用边界，不能从 Agent/Skill 冻结快照推导；首次启用/停用未受控链路按本设计排空后切换，已受控链路的公共规则阈值更新直接读取 Redis 当前 revision。初始无公共控制且冻结预算为空时不构造 PG/Redis 计量后端。配置了冻结限制却缺装配配置时明确报错，不退回本地控制器。
+
+冻结预算模型归 contracts 所有，PG 注册层只引用同一模型。`freeze_egress_identity_budgets` 转换现有有效快照的执行总额、Skill 默认与显式覆盖；当前仅转换累计总额，冻结窗口/并发和未完成授权映射的目标模板仍显式拒绝，后续完善前不得静默丢弃或转为无限制。`create_shared_metering` 与宿主装配都检查公共模式和冻结预算，避免“公共规则为空”误禁用单独的累计预算。配置解析和模板匹配不是网络安全边界；未知受控目标明确拒绝，路径模板同优先级歧义在加载时拒绝，具体路径优先于占位路径，Host authority 改写须与已配置 origin 一致。
 
 execution预算继续由Task snapshot的budget和Run policy_json冻结；execution_timeout_sec保留当前合并主线契约。公共规则由独立运维配置所有者持有，不从Agent/Skill snapshot读取，不属于用户配置覆盖；若扩展规范，应描述这一边界而不改变既有冻结含义。
 
@@ -323,6 +346,8 @@ execution预算继续由Task snapshot的budget和Run policy_json冻结；executi
 source_id 是跨 Run/Task 清理保留的来源逻辑引用，不随源记录清理删除注册事实。PG 和 Redis 无分布式事务；若已写 Redis 但确认中断，宁可拒绝旧执行也不重建零额度。本模块是可信宿主内的身份协议，不认证脚本自报 ID，也不能撤回已外发请求。
 
 operation_key来源于持久化tool_call_id或Task逻辑调用路径；重领复用，显式新调用另建。原始随机token不入快照或日志。task跨Owner Schema为逻辑引用；SQLAlchemy模型、迁移、baseline与schema parity同步。
+
+Runtime 已将逻辑调用键与输出目录分离：工具调用用完整持久化 call_id，Task 单次脚本用稳定 Task UUID，经 contracts 的 `egress_operation_key` 按来源类型做确定性 JSON 编码；不是 PID、attempt、lease_epoch 或清洗/截断后的目录名，不要求调用方生成 UUID。编码保留分隔符、Unicode 与控制字符的区别，实际 PG text 不含 NUL。Runtime 输出目录另由完整 Run/call 身份的确定性 UUID 派生，保持路径安全与恢复稳定，修复旧截断算法把不同调用合并的问题。根调用路径已传递这个独立逻辑键；PG invocation 的实际登记与恢复仍须由后续共享装配使用，不把单独的键传递测试当作 S-03 恢复证据。
 
 后端审计字段在TASK-007沿现有运行审计所有者追加；逐attempt摘要使用(tenant_id,attempt_id)唯一键和时序索引，聚合用(target_instance_id,route_id,bucket_start)键并包含tenant可见域。跨租户物理平台聚合仅向具备全域权限的运维显示，普通租户不透出其他租户明细。具体审计表复用点必须在该TASK start核对当前模型，不能在未读表结构时虚构完成DDL。
 

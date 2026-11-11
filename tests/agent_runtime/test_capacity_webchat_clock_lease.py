@@ -739,9 +739,10 @@ async def test_b235_worker_lease_renewal_and_deadline_judgment_follow_pg_clock(
         not_before=pg - timedelta(seconds=60),
         deadline_at=pg + timedelta(seconds=600),
     )
+    task_a_epoch = (await _task_row(factory, task_a)).lease_epoch
     with monkeypatch.context() as patch:
         _freeze_process_clock(patch, worker_service, pg + SKEW_FAST)
-        owned, requested = await loop._renew_lease(task_a)
+        owned, requested = await loop._renew_lease(task_a, lease_epoch=task_a_epoch)
     assert owned is True and requested is False
     renewed = await _task_state(factory, task_a)
     assert renewed.lease_until is not None
@@ -753,7 +754,7 @@ async def test_b235_worker_lease_renewal_and_deadline_judgment_follow_pg_clock(
     )
     with monkeypatch.context() as patch:
         _freeze_process_clock(patch, worker_service, pg - SKEW_SLOW)
-        owned, _requested = await loop._renew_lease(task_a)
+        owned, _requested = await loop._renew_lease(task_a, lease_epoch=task_a_epoch)
     assert owned is False
     # C) PG 期限未过 + 进程钟拨快：结果照常写 COMPLETED（不误判超期）
     stub = _StubExecutor({"status": "SUCCEEDED", "result": {"text": "ok"}})

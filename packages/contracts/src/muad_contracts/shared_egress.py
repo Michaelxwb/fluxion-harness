@@ -42,6 +42,34 @@ class RuleSelection:
     rule_ids: tuple[str, ...]
 
 
+class FrozenScopeBudget(SharedPolicyModel):
+    max_requests: PositiveCount | None = None
+    targets: tuple[SharedRule, ...] = ()
+
+    @model_validator(mode="after")
+    def cumulative_targets(self) -> Self:
+        if len({rule.id for rule in self.targets}) != len(self.targets):
+            raise ValueError("duplicate frozen target rule")
+        if any(rule.max_requests is None or any(value is not None for value in (
+            rule.window_requests, rule.window_seconds, rule.max_inflight,
+        )) for rule in self.targets):
+            raise ValueError("frozen targets require cumulative limits only")
+        return self
+
+    @property
+    def enabled(self) -> bool:
+        return self.max_requests is not None or bool(self.targets)
+
+
+class FrozenIdentityBudgets(SharedPolicyModel):
+    execution: FrozenScopeBudget = Field(default_factory=FrozenScopeBudget)
+    invocations: dict[str, FrozenScopeBudget] = Field(default_factory=dict)
+
+    @property
+    def enabled(self) -> bool:
+        return self.execution.enabled or any(scope.enabled for scope in self.invocations.values())
+
+
 class SharedEgressPolicy(SharedPolicyModel):
     revision: int = Field(default=0, ge=0, strict=True)
     rules: tuple[SharedRule, ...] = ()
