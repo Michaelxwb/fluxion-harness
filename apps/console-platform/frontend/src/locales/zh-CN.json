@@ -1874,5 +1874,11 @@
   "overview.egress.target": "URL",
   "overview.egress.route": "接口",
   "overview.egress.count": "次数",
-  "overview.egress.empty": "暂无出站请求"
+  "overview.egress.empty": "暂无出站请求",
+  "settings.egress.add": "新增规则",
+  "settings.egress.target": "平台实例",
+  "settings.egress.route": "接口标识",
+  "settings.egress.perMinute": "每分钟次数",
+  "settings.egress.concurrency": "并发上限",
+  "settings.egress.remove": "删除规则"
 }

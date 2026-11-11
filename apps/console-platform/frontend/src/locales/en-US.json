@@ -1874,5 +1874,11 @@
   "overview.egress.target": "URL",
   "overview.egress.route": "Route",
   "overview.egress.count": "Count",
-  "overview.egress.empty": "No egress requests"
+  "overview.egress.empty": "No egress requests",
+  "settings.egress.add": "Add rule",
+  "settings.egress.target": "Platform instance",
+  "settings.egress.route": "Route id",
+  "settings.egress.perMinute": "Per-minute requests",
+  "settings.egress.concurrency": "Concurrency limit",
+  "settings.egress.remove": "Remove rule"
 }
