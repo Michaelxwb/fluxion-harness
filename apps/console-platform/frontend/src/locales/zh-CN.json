@@ -1880,5 +1880,18 @@
   "settings.egress.route": "接口标识",
   "settings.egress.perMinute": "每分钟次数",
   "settings.egress.concurrency": "并发上限",
-  "settings.egress.remove": "删除规则"
+  "settings.egress.remove": "删除规则",
+  "settings.egress.help": "先选择平台实例和接口，再填写该接口的路径模板。平台的 Base URL 由平台配置提供，系统会自动拼接；用户不需要填写完整 URL。每分钟次数和并发上限留空表示不限制。",
+  "settings.egress.origin": "目标 URL",
+  "settings.egress.originHint": "平台接口的完整协议和域名，例如 https://api.example.com",
+  "settings.egress.method": "请求方法",
+  "settings.egress.methodHint": "通常填写 GET、POST、PUT 或 DELETE",
+  "settings.egress.path": "路径模板",
+  "settings.egress.pathHint": "只填写平台 Base URL 后面的路径，例如 /assets/{id}",
+  "settings.egress.targetHint": "选择要限制的已配置平台实例",
+  "settings.egress.routeHint": "选择该平台下的稳定接口标识，例如 GET /assets",
+  "settings.egress.perMinuteHint": "连续 60 秒内最多发送多少次",
+  "settings.egress.concurrencyHint": "同时处理中最多多少个请求",
+  "settings.egress.unlimited": "不限制",
+  "settings.egress.enabled": "启用规则"
 }

@@ -549,12 +549,10 @@ def egress_rules_from_settings(settings: EgressSettings) -> tuple[dict[str, Any]
         raise PlatformSettingsError("egress.rules_json 必须是 JSON 数组") from exc
     if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
         raise PlatformSettingsError("egress.rules_json 必须是对象数组")
-    required = {"origin", "method", "path_template", "target_instance_id", "route_id"}
+    required = {"method", "path_template", "target_instance_id", "route_id"}
     for index, item in enumerate(value):
         if not required.issubset(item):
             raise PlatformSettingsError(f"egress.rules_json[{index}] 缺少必要字段")
-        if not isinstance(item["origin"], str) or not item["origin"].startswith(("http://", "https://")):
-            raise PlatformSettingsError(f"egress.rules_json[{index}].origin 无效")
         if not isinstance(item["method"], str) or not item["method"].isupper():
             raise PlatformSettingsError(f"egress.rules_json[{index}].method 无效")
         for key in ("max_requests", "window_requests", "max_inflight"):

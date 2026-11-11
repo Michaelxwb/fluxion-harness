@@ -59,11 +59,18 @@ async def configured_host_egress(
         yield None
         return
     config = await load_egress_runtime_config(settings.egress_control_file)
-    routes = (
-        tuple(EgressHTTPRoute.model_validate(item) for item in route_overrides)
-        if route_overrides
-        else config.routes
-    )
+    if route_overrides:
+        catalog = {(route.target_instance_id, route.route_id): route.origin for route in config.routes}
+        normalized = []
+        for item in route_overrides:
+            key = (str(item.get("target_instance_id", "")), str(item.get("route_id", "")))
+            origin = catalog.get(key)
+            if origin is None:
+                raise MeteringUnavailable("tenant egress rule does not match a configured platform route")
+            normalized.append({**item, "origin": origin})
+        routes = tuple(EgressHTTPRoute.model_validate(item) for item in normalized)
+    else:
+        routes = config.routes
 
     def resolve(request: AttemptMetadata) -> EgressTarget | None:
         if not route_overrides:

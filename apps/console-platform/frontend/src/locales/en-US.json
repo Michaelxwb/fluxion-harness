@@ -1880,5 +1880,18 @@
   "settings.egress.route": "Route id",
   "settings.egress.perMinute": "Per-minute requests",
   "settings.egress.concurrency": "Concurrency limit",
-  "settings.egress.remove": "Remove rule"
+  "settings.egress.remove": "Remove rule",
+  "settings.egress.help": "Choose a configured platform and route, then enter the path template. The platform Base URL comes from platform configuration and is joined automatically; users do not enter a full URL. Leave per-minute and concurrency empty for no limit.",
+  "settings.egress.origin": "Target URL",
+  "settings.egress.originHint": "Full scheme and host, for example https://api.example.com",
+  "settings.egress.method": "HTTP method",
+  "settings.egress.methodHint": "Usually GET, POST, PUT, or DELETE",
+  "settings.egress.path": "Path template",
+  "settings.egress.pathHint": "Enter only the path after the platform Base URL, for example /assets/{id}",
+  "settings.egress.targetHint": "Choose a configured platform instance",
+  "settings.egress.routeHint": "Choose a stable route on that platform, for example GET /assets",
+  "settings.egress.perMinuteHint": "Maximum sends in any 60-second window",
+  "settings.egress.concurrencyHint": "Maximum requests being processed at once",
+  "settings.egress.unlimited": "Unlimited",
+  "settings.egress.enabled": "Enable rule"
 }
