@@ -1893,5 +1893,8 @@
   "settings.egress.perMinuteHint": "Maximum sends in any 60-second window",
   "settings.egress.concurrencyHint": "Maximum requests being processed at once",
   "settings.egress.unlimited": "Unlimited",
-  "settings.egress.enabled": "Enable rule"
+  "settings.egress.enabled": "Enable rule",
+  "settings.egress.ruleTitle": "Rule {{index}}",
+  "settings.egress.ruleSubtitle": "Configure rate and concurrency limits for this platform route",
+  "settings.egress.targetPlaceholder": "Select a configured platform"
 }

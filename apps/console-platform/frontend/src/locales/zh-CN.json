@@ -1893,5 +1893,8 @@
   "settings.egress.perMinuteHint": "连续 60 秒内最多发送多少次",
   "settings.egress.concurrencyHint": "同时处理中最多多少个请求",
   "settings.egress.unlimited": "不限制",
-  "settings.egress.enabled": "启用规则"
+  "settings.egress.enabled": "启用规则",
+  "settings.egress.ruleTitle": "规则 {{index}}",
+  "settings.egress.ruleSubtitle": "配置该平台接口的限流和并发策略",
+  "settings.egress.targetPlaceholder": "选择已配置的平台"
 }
