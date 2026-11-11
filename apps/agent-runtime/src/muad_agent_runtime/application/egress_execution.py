@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from contextlib import AbstractAsyncContextManager
 from typing import TYPE_CHECKING
 
@@ -42,4 +43,9 @@ def run_egress(request: ExecutorRequest) -> AbstractAsyncContextManager[HostEgre
         claim=lambda: run_source_claim(request),
         reader=read_run_source_lease,
         minimum_stop_margin_seconds=4 * TERMINATE_GRACE_SEC,
+        route_overrides=(
+            json.loads(request.execution.egress_rules_json)
+            if request.execution is not None and request.execution.egress_enabled
+            else ()
+        ),
     )

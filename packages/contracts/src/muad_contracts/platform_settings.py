@@ -14,6 +14,7 @@ Console 与三个执行服务共用。按 ADR-10，压缩分组 schema 由 `muad
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
@@ -116,11 +117,14 @@ class TaskSettings:
     """任务默认与投递节拍；并发不得超过环境项 `batch_platform_limit`。"""
 
     default_deadline_hours: int = 24
-    execution_timeout_sec: int = field(default=300, metadata={
-        "minimum": TASK_EXECUTION_TIMEOUT_MIN_SEC,
-        "maximum": TASK_EXECUTION_TIMEOUT_MAX_SEC,
-        "unit": "seconds",
-    })
+    execution_timeout_sec: int = field(
+        default=300,
+        metadata={
+            "minimum": TASK_EXECUTION_TIMEOUT_MIN_SEC,
+            "maximum": TASK_EXECUTION_TIMEOUT_MAX_SEC,
+            "unit": "seconds",
+        },
+    )
     max_attempts: int = 3
     batch_max_concurrency: int = 8
     misfire_grace_sec: int = 60
@@ -224,10 +228,12 @@ class CapacitySettings:
     max_open_runs_per_tenant: int = field(default=2000, metadata={"minimum": 2, "maximum": 100000})
     max_open_runs_per_user: int = field(default=2, metadata={"minimum": 2, "maximum": 100})
     queue_wait_timeout_sec: int = field(
-        default=60, metadata={"minimum": 1, "maximum": 3600, "unit": "seconds"},
+        default=60,
+        metadata={"minimum": 1, "maximum": 3600, "unit": "seconds"},
     )
     model_wait_timeout_sec: int = field(
-        default=30, metadata={"minimum": 1, "maximum": 600, "unit": "seconds"},
+        default=30,
+        metadata={"minimum": 1, "maximum": 600, "unit": "seconds"},
     )
 
 
@@ -236,13 +242,15 @@ class ModelPoolSettings:
     """新 Run/job 冻结的分配策略；不声明或放大供方实际额度。"""
 
     dispatch_epoch_sec: int = field(
-        default=60, metadata={"minimum": 10, "maximum": 3600, "unit": "seconds"},
+        default=60,
+        metadata={"minimum": 10, "maximum": 3600, "unit": "seconds"},
     )
     input_estimate_multiplier: float = field(default=1.25, metadata={"minimum": 1, "maximum": 4})
     interactive_weight: int = field(default=8, metadata={"minimum": 1, "maximum": 100})
     background_weight: int = field(default=1, metadata={"minimum": 1, "maximum": 100})
     aging_interval_sec: int = field(
-        default=30, metadata={"minimum": 1, "maximum": 300, "unit": "seconds"},
+        default=30,
+        metadata={"minimum": 1, "maximum": 300, "unit": "seconds"},
     )
 
 
@@ -256,29 +264,35 @@ class WebchatSettings:
     upload_max_bytes: int = field(default=52428800, metadata={"minimum": 1, "unit": "bytes"})
     upload_max_per_message: int = field(default=5, metadata={"minimum": 1, "maximum": 20})
     upload_staging_ttl_sec: int = field(
-        default=86400, metadata={"minimum": 60, "maximum": 604800, "unit": "seconds"},
+        default=86400,
+        metadata={"minimum": 60, "maximum": 604800, "unit": "seconds"},
     )
     history_page_size: int = field(default=50, metadata={"minimum": 1, "maximum": 100})
     notification_poll_sec: float = field(
-        default=5.0, metadata={"minimum": 1, "maximum": 60, "unit": "seconds"},
+        default=5.0,
+        metadata={"minimum": 1, "maximum": 60, "unit": "seconds"},
     )
     reconnect_base_ms: int = field(default=500, metadata={"minimum": 100, "maximum": 5000, "unit": "ms"})
     reconnect_cap_ms: int = field(default=30000, metadata={"minimum": 1000, "maximum": 120000, "unit": "ms"})
     reconnect_max_attempts: int = field(default=10, metadata={"minimum": 1, "maximum": 100})
     stream_replay_retention_hours: int = field(
-        default=24, metadata={"minimum": 1, "maximum": 168, "unit": "hours"},
+        default=24,
+        metadata={"minimum": 1, "maximum": 168, "unit": "hours"},
     )
     notification_retention_days: int = field(
-        default=30, metadata={"minimum": 1, "maximum": 365, "unit": "days"},
+        default=30,
+        metadata={"minimum": 1, "maximum": 365, "unit": "days"},
     )
     history_retention_days: int = field(default=0, metadata={"minimum": 0, "maximum": 3650, "unit": "days"})
     #: 单个 (tenant,user,agent,入口) 的活跃会话上限；达上限时自动归档最旧且无活跃 Run 的会话。
     max_conversations_per_entry: int = field(
-        default=50, metadata={"minimum": 1, "maximum": 1000},
+        default=50,
+        metadata={"minimum": 1, "maximum": 1000},
     )
     #: 会话保留期：超过 `last_message_at` 的行不再出现在历史列表、不可继续；0 = 永不过期。
     conversation_retention_days: int = field(
-        default=30, metadata={"minimum": 0, "maximum": 3650, "unit": "days"},
+        default=30,
+        metadata={"minimum": 0, "maximum": 3650, "unit": "days"},
     )
 
 
@@ -292,9 +306,7 @@ class LearningSettings:
     retrieval_preference_items: int = 3
     retrieval_preference_bytes: int = 512
     experience_min_success_runs: int = 3
-    experience_auto_activate: list[str] = field(
-        default_factory=lambda: ["PROCEDURE", "FAILURE_PATTERN"]
-    )
+    experience_auto_activate: list[str] = field(default_factory=lambda: ["PROCEDURE", "FAILURE_PATTERN"])
     experience_trial_runs: int = 20
     experience_trial_max_regression: float = 0.05
     verification_max_attempts: int = 2
@@ -302,6 +314,19 @@ class LearningSettings:
     eval_min_cases: int = 10
     eval_max_cases: int = 50
     eval_max_items_per_case: int = 10
+
+
+@dataclass(frozen=True, slots=True)
+class EgressSettings:
+    """Tenant-administered public egress rules.
+
+    `rules_json` is the versioned Console form value. Each item contains origin,
+    method, path_template, target_instance_id, route_id, max_requests,
+    window_seconds/window_requests and max_inflight.
+    """
+
+    enabled: bool = False
+    rules_json: str = "[]"
 
 
 @dataclass(frozen=True, slots=True)
@@ -321,6 +346,7 @@ class PlatformSettings:
     capacity: CapacitySettings = field(default_factory=CapacitySettings)
     model_pool: ModelPoolSettings = field(default_factory=ModelPoolSettings)
     webchat: WebchatSettings = field(default_factory=WebchatSettings)
+    egress: EgressSettings = field(default_factory=EgressSettings)
 
 
 _SECTIONS: dict[str, type] = {
@@ -345,6 +371,7 @@ _GROUPS: dict[str, type] = {
     "capacity": CapacitySettings,
     "model_pool": ModelPoolSettings,
     "webchat": WebchatSettings,
+    "egress": EgressSettings,
 }
 
 
@@ -478,8 +505,11 @@ def parse_compaction_settings(payload: Mapping[str, Any] | None) -> CompactionSe
 
 
 def parse_platform_settings(
-    payload: Mapping[str, Any] | None = None, *, batch_platform_limit: int | None = None,
-    chat_message_hard_max_bytes: int | None = None, chat_upload_hard_max_bytes: int | None = None,
+    payload: Mapping[str, Any] | None = None,
+    *,
+    batch_platform_limit: int | None = None,
+    chat_message_hard_max_bytes: int | None = None,
+    chat_upload_hard_max_bytes: int | None = None,
 ) -> PlatformSettings:
     """从（部分）JSON 解析出完整设置文档；任何非法输入显式抛 `PlatformSettingsError`。
 
@@ -503,11 +533,38 @@ def parse_platform_settings(
 
     settings = PlatformSettings(**kwargs)
     validate_platform_settings(
-        settings, batch_platform_limit=batch_platform_limit,
+        settings,
+        batch_platform_limit=batch_platform_limit,
         chat_message_hard_max_bytes=chat_message_hard_max_bytes,
         chat_upload_hard_max_bytes=chat_upload_hard_max_bytes,
     )
     return settings
+
+
+def egress_rules_from_settings(settings: EgressSettings) -> tuple[dict[str, Any], ...]:
+    """Parse the Console JSON editor value into validated route dictionaries."""
+    try:
+        value = json.loads(settings.rules_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise PlatformSettingsError("egress.rules_json 必须是 JSON 数组") from exc
+    if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+        raise PlatformSettingsError("egress.rules_json 必须是对象数组")
+    required = {"origin", "method", "path_template", "target_instance_id", "route_id"}
+    for index, item in enumerate(value):
+        if not required.issubset(item):
+            raise PlatformSettingsError(f"egress.rules_json[{index}] 缺少必要字段")
+        if not isinstance(item["origin"], str) or not item["origin"].startswith(("http://", "https://")):
+            raise PlatformSettingsError(f"egress.rules_json[{index}].origin 无效")
+        if not isinstance(item["method"], str) or not item["method"].isupper():
+            raise PlatformSettingsError(f"egress.rules_json[{index}].method 无效")
+        for key in ("max_requests", "window_requests", "max_inflight"):
+            if item.get(key) is not None and (
+                isinstance(item[key], bool) or not isinstance(item[key], int) or item[key] <= 0
+            ):
+                raise PlatformSettingsError(f"egress.rules_json[{index}].{key} 必须是正整数")
+        if item.get("window_requests") is not None and item.get("window_seconds") is None:
+            raise PlatformSettingsError(f"egress.rules_json[{index}] window_seconds 必填")
+    return tuple(value)
 
 
 def _at_least(path: str, value: float, minimum: float) -> None:
@@ -522,17 +579,13 @@ def _validate(settings: CompactionSettings) -> None:
     if snip.keep_tail_groups < 1:
         raise CompactionConfigError("snip.keep_tail_groups 必须 ≥ 1")
     if snip.max_groups < snip.keep_head_groups + snip.keep_tail_groups + 1:
-        raise CompactionConfigError(
-            "snip.max_groups 必须 ≥ keep_head_groups + keep_tail_groups + 1"
-        )
+        raise CompactionConfigError("snip.max_groups 必须 ≥ keep_head_groups + keep_tail_groups + 1")
 
     tool = settings.tool_result
     if tool.persist_threshold_bytes < 0:
         raise CompactionConfigError("tool_result.persist_threshold_bytes 必须 ≥ 0")
     if tool.round_budget_bytes < tool.persist_threshold_bytes:
-        raise CompactionConfigError(
-            "tool_result.round_budget_bytes 不得小于 persist_threshold_bytes"
-        )
+        raise CompactionConfigError("tool_result.round_budget_bytes 不得小于 persist_threshold_bytes")
     if tool.preview_head_bytes < 0 or tool.preview_tail_bytes < 0:
         raise CompactionConfigError("tool_result.preview_*_bytes 必须 ≥ 0")
     if tool.preview_head_bytes + tool.preview_tail_bytes > tool.round_budget_bytes:
@@ -562,9 +615,7 @@ def _validate_summary_model_ref(summary: SummarySettings) -> None:
     try:
         uuid.UUID((summary.model_ref or "").strip())
     except ValueError as exc:
-        raise CompactionConfigError(
-            "compaction.summary.model_ref 必须是既有模型定义的主键（UUID）"
-        ) from exc
+        raise CompactionConfigError("compaction.summary.model_ref 必须是既有模型定义的主键（UUID）") from exc
 
 
 def _validate_agent(agent: AgentSettings) -> None:
@@ -617,9 +668,7 @@ LEARNING_SETTING_BOUNDS: dict[str, tuple[float, float]] = {
     "eval_max_items_per_case": (1, 100),
 }
 
-_LEARNING_CATEGORIES = frozenset(
-    {"PROCEDURE", "FAILURE_PATTERN", "VERIFICATION"}
-)
+_LEARNING_CATEGORIES = frozenset({"PROCEDURE", "FAILURE_PATTERN", "VERIFICATION"})
 
 
 def _validate_learning(learning: LearningSettings) -> None:
@@ -635,9 +684,7 @@ def _validate_learning(learning: LearningSettings) -> None:
             raise PlatformSettingsError(f"learning.{name} 必须落在 [{minimum}, {maximum}]")
     unknown = sorted(set(learning.experience_auto_activate) - _LEARNING_CATEGORIES)
     if unknown:
-        raise PlatformSettingsError(
-            f"learning.experience_auto_activate 含未知类别: {', '.join(unknown)}"
-        )
+        raise PlatformSettingsError(f"learning.experience_auto_activate 含未知类别: {', '.join(unknown)}")
 
 
 def _validate_memory(memory: MemoryPolicySettings) -> None:
@@ -652,9 +699,7 @@ def _validate_memory(memory: MemoryPolicySettings) -> None:
         if not minimum <= value <= maximum:
             raise PlatformSettingsError(f"memory.{name} 必须落在 [{minimum}, {maximum}]")
     if memory.consolidation_lease_sec < memory.consolidation_timeout_sec + 15:
-        raise PlatformSettingsError(
-            "memory.consolidation_lease_sec 必须 ≥ consolidation_timeout_sec + 15"
-        )
+        raise PlatformSettingsError("memory.consolidation_lease_sec 必须 ≥ consolidation_timeout_sec + 15")
 
 
 def _validate_artifact(artifact: ArtifactSettings) -> None:
@@ -692,7 +737,8 @@ def _validate_mcp(mcp: McpSettings) -> None:
 
 
 def _validate_bounded_settings(
-    name: str, settings: CapacitySettings | ModelPoolSettings | WebchatSettings,
+    name: str,
+    settings: CapacitySettings | ModelPoolSettings | WebchatSettings,
 ) -> None:
     """同时保护解析输入和直接构造的 dataclass；有限范围也拒绝 NaN/Infinity。"""
     for item in fields(settings):
@@ -718,7 +764,9 @@ def _validate_capacity(capacity: CapacitySettings) -> None:
 
 
 def _validate_webchat(
-    webchat: WebchatSettings, *, chat_message_hard_max_bytes: int | None,
+    webchat: WebchatSettings,
+    *,
+    chat_message_hard_max_bytes: int | None,
     chat_upload_hard_max_bytes: int | None,
 ) -> None:
     _validate_bounded_settings("webchat", webchat)
@@ -737,8 +785,11 @@ def _validate_webchat(
 
 
 def validate_platform_settings(
-    settings: PlatformSettings, *, batch_platform_limit: int | None = None,
-    chat_message_hard_max_bytes: int | None = None, chat_upload_hard_max_bytes: int | None = None,
+    settings: PlatformSettings,
+    *,
+    batch_platform_limit: int | None = None,
+    chat_message_hard_max_bytes: int | None = None,
+    chat_upload_hard_max_bytes: int | None = None,
 ) -> None:
     """校验整份设置文档：分组内范围 + 跨字段联动（未知键在 parse 层拒绝）。
 
@@ -759,9 +810,11 @@ def validate_platform_settings(
     _validate_capacity(settings.capacity)
     _validate_bounded_settings("model_pool", settings.model_pool)
     _validate_webchat(
-        settings.webchat, chat_message_hard_max_bytes=chat_message_hard_max_bytes,
+        settings.webchat,
+        chat_message_hard_max_bytes=chat_message_hard_max_bytes,
         chat_upload_hard_max_bytes=chat_upload_hard_max_bytes,
     )
+    egress_rules_from_settings(settings.egress)
 
 
 #: `auth.min_password_length` 的**绝对下界**（schema 不变量，不是策略值）：策略值由平台设置给出，
@@ -797,6 +850,8 @@ __all__ = [
     "compaction_payload",
     "default_compaction_settings",
     "default_platform_settings",
+    "EgressSettings",
+    "egress_rules_from_settings",
     "merge_compaction_payload",
     "parse_compaction_settings",
     "parse_platform_settings",

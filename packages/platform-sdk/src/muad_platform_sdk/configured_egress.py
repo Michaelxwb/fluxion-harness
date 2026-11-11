@@ -7,17 +7,20 @@ import logging
 import sys
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import asynccontextmanager
+from typing import cast
 
 from muad_common import SharedSettings
 from muad_common.redis_client import create_redis_client
 from muad_contracts.egress_budget import EffectiveEgressBudget
 from muad_contracts.egress_identity import freeze_egress_identity_budgets
+from muad_contracts.shared_egress import SharedEgressPolicy, SharedRule
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from .egress_runtime_config import load_egress_runtime_config
+from .egress_ipc import AttemptMetadata, EgressTarget
+from .egress_runtime_config import EgressHTTPRoute, load_egress_runtime_config
 from .egress_source_authority import SourceClaim, SourceReader
 from .host_egress_execution import HostEgressExecution
-from .shared_redis import MeteringUnavailable
+from .shared_redis import MeteringUnavailable, SharedRedisMeter
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +47,7 @@ async def configured_host_egress(
     claim: Callable[[], SourceClaim],
     reader: SourceReader,
     minimum_stop_margin_seconds: float,
+    route_overrides: Sequence[dict[str, object]] = (),
 ) -> AsyncIterator[HostEgressExecution | None]:
     try:
         budget = freeze_egress_identity_budgets(policy, skill_keys=skill_keys)
@@ -55,6 +59,21 @@ async def configured_host_egress(
         yield None
         return
     config = await load_egress_runtime_config(settings.egress_control_file)
+    routes = (
+        tuple(EgressHTTPRoute.model_validate(item) for item in route_overrides)
+        if route_overrides
+        else config.routes
+    )
+
+    def resolve(request: AttemptMetadata) -> EgressTarget | None:
+        if not route_overrides:
+            return config.resolve(request)
+        matches = [route for route in routes if route.matches(request)]
+        if not matches:
+            return None
+        route = max(matches, key=lambda item: item.specificity)
+        return EgressTarget(route.target_instance_id, route.route_id)
+
     if not config.public_rules_enabled and not budget.enabled:
         yield None
         return
@@ -73,6 +92,23 @@ async def configured_host_egress(
     )
     root = None
     try:
+        if route_overrides:
+
+            def make_rule(item: dict[str, object]) -> SharedRule:
+                return SharedRule(
+                    id=str(item["route_id"]),
+                    target_instance_id=str(item["target_instance_id"]),
+                    route_id=str(item["route_id"]),
+                    max_requests=cast(int | None, item.get("max_requests")),
+                    window_requests=cast(int | None, item.get("window_requests")),
+                    window_seconds=cast(float | None, item.get("window_seconds")),
+                    max_inflight=cast(int | None, item.get("max_inflight")),
+                )
+
+            rules = tuple(make_rule(item) for item in route_overrides)
+            await SharedRedisMeter(redis, domain=config.domain, epoch=config.epoch).publish(
+                SharedEgressPolicy(revision=0, rules=rules)
+            )
         root = await HostEgressExecution.create(
             settings=config.host_settings(),
             budget=budget,
@@ -80,7 +116,7 @@ async def configured_host_egress(
             redis=redis,
             claim=source,
             reader=reader,
-            resolve=config.resolve,
+            resolve=resolve,
         )
         yield root
     finally:

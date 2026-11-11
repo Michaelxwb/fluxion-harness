@@ -1860,5 +1860,8 @@
   "executionExport.busy": "正在导出…",
   "executionExport.failed": "导出失败，请重试",
   "executionExport.notFound": "该执行不存在或不可读",
-  "executionExport.ariaLabel": "导出执行链路"
+  "executionExport.ariaLabel": "导出执行链路",
+  "settings.group.egress": "出站请求管控",
+  "settings.field.egress.enabled": "启用租户出站规则",
+  "settings.field.egress.rules_json": "出站 URL/接口规则（JSON）"
 }

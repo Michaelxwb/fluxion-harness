@@ -1860,5 +1860,8 @@
   "executionExport.busy": "Exporting…",
   "executionExport.failed": "Export failed. Try again",
   "executionExport.notFound": "Execution not found or unreadable",
-  "executionExport.ariaLabel": "Export execution chain"
+  "executionExport.ariaLabel": "Export execution chain",
+  "settings.group.egress": "Egress request controls",
+  "settings.field.egress.enabled": "Enable tenant egress rules",
+  "settings.field.egress.rules_json": "Egress URL/interface rules (JSON)"
 }
