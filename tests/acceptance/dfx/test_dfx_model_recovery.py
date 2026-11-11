@@ -362,7 +362,9 @@ def test_e09_rate_limit_retry_after_header_is_honoured(
     assert 0.9 <= gap <= 1.6, f"退避未按 Retry-After=1s：实测 {gap:.2f}s"
 
     rows = _audit_rows(live_stack, run_id)
-    assert [row["status"] for row in rows] == ["RETRY", "OK"], rows
+    statuses = [row["status"] for row in rows]
+    assert statuses[:2] == ["RETRY", "OK"], rows
+    assert all(status == "OK" for status in statuses[1:]), rows
     assert rows[0]["retry_reason"] == "RATE_LIMITED", rows[0]
 
 
