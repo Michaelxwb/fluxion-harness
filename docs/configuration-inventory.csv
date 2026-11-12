@@ -2001,10 +2001,10 @@ packages/platform-sdk/src/muad_platform_sdk/egress_segment_scripts.py,69,_SEGMEN
 packages/platform-sdk/src/muad_platform_sdk/egress_segment_scripts.py,118,FENCED_OPERATIONS,"{ADMIT: _fenced(ADMIT, 'admit', 3, 3), CONSUME: _fenced(CONSUME, 'consume', 2, 2), RENEW: _fenced(RENEW, 'renew', 1, 1)}",python-constant,code,执行段一致性协议与 Lua 原语；不作为业务可调限额
 packages/platform-sdk/src/muad_platform_sdk/requests_egress_hook.py,46,_REDIRECT,"ContextVar('egress_controlled_redirect', default=False)",python-constant,code,IPC 协议或请求连接所有权状态；不是默认业务限额
 packages/platform-sdk/src/muad_platform_sdk/requests_egress_hook.py,47,_CURRENT_SEND,"ContextVar('egress_current_send', default=None)",python-constant,code,IPC 协议或请求连接所有权状态；不是默认业务限额
-packages/platform-sdk/src/muad_platform_sdk/requests_egress_hook.py,153,_INSTALL_LOCK,threading.RLock(),python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
-packages/platform-sdk/src/muad_platform_sdk/requests_egress_hook.py,154,_ACTIVE,None,python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
-packages/platform-sdk/src/muad_platform_sdk/requests_egress_hook.py,189,_ACTIVE,self,python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
-packages/platform-sdk/src/muad_platform_sdk/requests_egress_hook.py,200,_ACTIVE,None,python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
+packages/platform-sdk/src/muad_platform_sdk/requests_egress_hook.py,156,_INSTALL_LOCK,threading.RLock(),python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
+packages/platform-sdk/src/muad_platform_sdk/requests_egress_hook.py,157,_ACTIVE,None,python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
+packages/platform-sdk/src/muad_platform_sdk/requests_egress_hook.py,192,_ACTIVE,self,python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
+packages/platform-sdk/src/muad_platform_sdk/requests_egress_hook.py,203,_ACTIVE,None,python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
 packages/platform-sdk/src/muad_platform_sdk/requests_transport_watch.py,23,_CURRENT,"ContextVar('egress_physical_attempt', default=None)",python-constant,code,IPC 协议或请求连接所有权状态；不是默认业务限额
 packages/platform-sdk/src/muad_platform_sdk/requests_transport_watch.py,24,_OWNERS,weakref.WeakKeyDictionary(),python-constant,code,IPC 协议或请求连接所有权状态；不是默认业务限额
 packages/platform-sdk/src/muad_platform_sdk/requests_transport_watch.py,25,_LOCK,threading.RLock(),python-constant,code,IPC 协议或请求连接所有权状态；不是默认业务限额
