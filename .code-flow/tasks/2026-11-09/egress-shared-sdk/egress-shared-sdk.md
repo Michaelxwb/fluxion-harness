@@ -42,6 +42,8 @@ TASK-009 验证共享内核，使用可信测试身份；TASK-006 验证 PG、Ru
 
 | B-08 | remove-egress-file.plan.md#1. 范围与验收 B-08 | contract | 真实Settings与SDK装配，计量依赖替身 | TASK-012 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_configured_egress.py"] | . | 60 | P0 | auto | local | packages/**; apps/agent-runtime/**; apps/agent-worker/**; config/**; scripts/** | - | - | no |
 
+| B-09 | ci-gateway-readiness.plan.md#1. B-09范围与证据 | contract | 真实快照cache及ASGI健康端点，Console故障替身 | TASK-013 | verified | ["uv", "run", "pytest", "-q", "tests/gateway/test_readyz.py::test_readyz_rejects_reachable_console_until_first_snapshot_is_applied"] | . | 60 | P0 | auto | local | apps/im-gateway/**; packages/im-core/**; tests/gateway/** | - | - | no |
+
 ## TASK-001: 共享规则与可信身份契约
 
 - **Status**: done
@@ -711,3 +713,40 @@ B-08 RED：`test_settings_only_budget_assembly_needs_no_configuration_file` 实�
 ### Log
 - [2026-11-12] started
 - [2026-11-12] completed (done)
+
+## TASK-013: 修复CI入口快照就绪时序
+
+- **Status**: done
+- **Priority**: P0
+- **Depends**: TASK-012
+- **Source**: ci-gateway-readiness.plan.md#1. B-09范围与证据
+- **Spec-Refs**: harness-im#RULE-im-001, harness-im#RULE-im-002, harness-arch#RULE-arch-001, harness-secret#RULE-secret-001, harness-test#RULE-test-001
+- **Rule-Owner-Refs**: harness-im#RULE-im-001, harness-im#RULE-im-002
+- **Acceptance-Refs**: B-09, harness-im#RULE-im-001, harness-im#RULE-im-002
+- **Capability**: Gateway首次入口快照成功应用后才能ready，离线验收等待所有入口副本
+
+### Checklist
+
+- [x] B-09：不完整/应用失败返回503，有完整快照后保留故障降级能力
+- [x] 验收仅等待所有Gateway入口前置条件，原创建及入箱断言保留
+- [ ] [RULE-im-001] verifier: ["uv", "run", "pytest", "-q", "tests/console_channel", "tests/gateway"]；cwd=.；timeout=600；完整套件review/CI延期，不算pass
+- [x] [RULE-im-002] verifier: ["uv", "run", "pytest", "-q", "tests/architecture/test_channel_neutrality.py"]；cwd=.；timeout=300
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得Mock的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-09 | contract | 真实cache、ASGI健康端点 | 连通不代表已应用；首次未应用503 | tests/gateway/test_readyz.py | ["uv", "run", "pytest", "-q", "tests/gateway/test_readyz.py::test_readyz_rejects_reachable_console_until_first_snapshot_is_applied"] | verified |
+| harness-im#RULE-im-001 | integration | 原规范全套边界 | 不新增Agent/Pod映射 | 原Spec verifier | ["uv", "run", "pytest", "-q", "tests/console_channel", "tests/gateway"] | planned |
+| harness-im#RULE-im-002 | contract | 真实源码边界 | 渠道中立性保留 | tests/architecture/test_channel_neutrality.py | ["uv", "run", "pytest", "-q", "tests/architecture/test_channel_neutrality.py"] | planned |
+
+### Acceptance Evidence
+
+B-09实际RED：两个分支健康端点均错误返回200；修复后由runner记录GREEN。CI唯一根因尚无服务日志证明，不夸大归因。
+- B-09: verified — automated command passed; run_id=21d7cb7a65d242e28c1677bb6cb90276 (confirmed_by: runner)
+
+### Log
+- [2026-11-12] started
+- [2026-11-12] completed (done)
+
+B-09 GREEN：readyz、快照及渠道中立性31 passed；配置盘点4 passed；原CI离线入箱用例在真实多副本栈中1 passed（24.55s）。完整capacity/IM仍待CI，不覆盖本机旧接管超时事实。
