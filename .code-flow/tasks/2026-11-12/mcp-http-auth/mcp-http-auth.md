@@ -131,7 +131,7 @@
 
 ## TASK-003: 前端注册表单简化与认证编辑
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: mcp-http-auth.frontend.design.md#33-组件设计, #34-组件接口契约
 - **Scenarios**: S-01, S-02, S-03, E-04, B-03
@@ -160,11 +160,11 @@
 
 ### Checklist
 
-- [ ] 常显字段收敛为名称、标识、服务地址、认证方式、用户范围、启用状态。
-- [ ] 三种认证模式可保存/回显，密钥不回显。
-- [ ] 请求头本地校验（重名/保留/敏感名/CRLF）。
-- [ ] 高级设置折叠与配置导入入口。
-- [ ] 契约测试与词条检查通过。
+- [x] 常显字段收敛为名称、标识、服务地址、认证方式、用户范围、启用状态。
+- [x] 三种认证模式可保存/回显，密钥不回显。
+- [x] 请求头本地校验（重名/保留/敏感名/CRLF）。
+- [x] 高级设置折叠与配置导入入口。
+- [x] 契约测试与词条检查通过。
 
 ### Spec Delta
 
@@ -175,11 +175,13 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T08:38:35.537Z] started tests=a9e5c6719151
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-12T08:58:07.732Z PASS commands=1/1 executed=1 deduped=0 elapsed=1069ms tests=a9e5c6719151 head=ab49f6ea4805 dirty=1
+  - mcp-form-contract PASS exit=0
 ## TASK-004: 本地假 MCP 服务
 
 - **Status**: done

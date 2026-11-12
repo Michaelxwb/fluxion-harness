@@ -17,13 +17,18 @@ export interface McpServerListItem {
   update_time: string;
 }
 
+export interface McpAuthConfig {
+  headers: Record<string, string>;
+  secret_header: string | null;
+}
+
 export interface McpServerDetail extends McpServerListItem {
   tool_catalog_revision: number;
   tool_catalog_hash: string | null;
   last_discovery_error: string | null;
   connect_timeout_ms: number;
   tool_cache_ttl_sec: number;
-  auth_config: Record<string, unknown>;
+  auth_config: McpAuthConfig;
   auth_secret_configured: boolean;
 }
 
@@ -84,7 +89,7 @@ export interface McpSaveInput {
   user_scope?: 'ALL' | 'SELECTED';
   enabled?: boolean;
   auth_secret?: string;
-  auth_config?: Record<string, unknown>;
+  auth_config?: McpAuthConfig;
   connect_timeout_ms?: number;
   tool_cache_ttl_sec?: number;
 }

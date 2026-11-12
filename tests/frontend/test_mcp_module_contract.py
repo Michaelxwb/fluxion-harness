@@ -36,24 +36,23 @@ def test_mcp_connection_and_enabled_distinct_tags() -> None:
 
 
 def test_mcp_form_local_transport_guard() -> None:
-    """[E-09] endpoint 协议本地拦截不提交；transport 为只读 streamable-http 字段。"""
+    """[E-09] endpoint 协议本地拦截不提交；transport 以静态文案展示。"""
     source = _source("McpFormModal.tsx")
     assert "VALID_ENDPOINT" in source
     assert "Tips.error(t('mcp.form.endpointInvalid'))" in source
-    assert 'field="transport"' in source
-    assert "disabled" in source
-    assert 'initValue="streamable-http"' in source
+    assert 'field="transport"' not in source
+    assert "mcp.form.transportStatic" in source
 
 
 def test_mcp_form_follows_interaction_layout() -> None:
-    """交互稿排版：双列栅格 + 整行字段 + Banner + 分区标题 + 高级配置。"""
+    """交互稿排版：双列栅格 + 整行字段 + Banner + 分区标题 + 认证方式。"""
     source = _source("McpFormModal.tsx")
     assert 'className="form-grid"' in source
     assert 'className="form-field-full"' in source
     assert 'className="form-field-banner"' in source
-    assert "form-section-title" in source and "form-section-hint" in source
+    assert "form-section" in source and "form-section-hint" in source
     assert "mcp.form.banner" in source
-    assert "mcp.form.authConfig" in source
+    assert "AuthModeFields" in source
     assert 'field="enabled"' in source
     assert "mcp.form.saveAndDiscover" in source
     assert "discoverTools" in source
