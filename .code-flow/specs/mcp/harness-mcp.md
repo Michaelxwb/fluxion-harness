@@ -14,6 +14,7 @@
 Runtime 消费冻结 catalog：
 
 - Run 内禁止 `tools/list`；按 Snapshot `definitions` 注册 `mcp::<server_key>::<tool_name>`，catalog revision/hash 随 Snapshot 冻结不漂移。
+- 注册名保留给 Registry/审计；发给 OpenAI-compatible 模型的 function name 使用 provider-safe `model_name`（非法字符替换为 `_`、长度受限、冲突加哈希），模型返回后先映射回注册名再规划/执行。
 - 执行经 Streamable HTTP `initialize → tools/call`（带 `Mcp-Session-Id`/`MCP-Protocol-Version`），`auth_secret` 经 API-09 按 server 主键内存读取。
 - MCP 调用写 `egress_audit`（target_type=MCP，DENY/ERROR 同样落库），工具执行写 `tool_call_audit`；MCP 返回的 `isError` 不得伪报成功。
 
