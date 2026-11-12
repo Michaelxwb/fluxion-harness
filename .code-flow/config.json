@@ -32,7 +32,7 @@
     "regression": null
   },
   "capture": {
-    "enabled": false,
+    "enabled": true,
     "path": ".code-flow/process"
   },
   "paths": {
