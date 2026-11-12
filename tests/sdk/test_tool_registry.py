@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from muad_agent_core.tools import (
     ToolAlreadyRegisteredError,
@@ -77,3 +79,32 @@ def test_namespaced_key_is_registrable() -> None:
     registry.register(_tool(name, ToolEffect.EXTERNAL))
 
     assert registry.get(name).name == "mcp::knowledge::search"
+
+
+def test_model_tools_sanitize_mcp_names_and_resolve_back() -> None:
+    registry = ToolRegistry()
+    name = ToolRegistry.namespaced("fake-mcp-bearer", "platform.ping")
+    registry.register(_tool(name, ToolEffect.EXTERNAL))
+
+    model_tool = registry.model_tools()[0]
+
+    assert model_tool.name == name
+    assert model_tool.model_name == "mcp__fake-mcp-bearer__platform_ping"
+    assert registry.get_by_model_name(model_tool.model_name).name == name
+
+
+def test_model_tools_keep_valid_names_and_avoid_collisions() -> None:
+    registry = ToolRegistry()
+    registry.register(_tool("load_skill"))
+    registry.register(_tool("mcp::a::b.c", ToolEffect.EXTERNAL))
+    registry.register(_tool("mcp::a::b_c", ToolEffect.EXTERNAL))
+
+    model_tools = registry.model_tools()
+    names = [definition.model_name for definition in model_tools]
+
+    assert model_tools[0].model_name == "load_skill"
+    assert len(set(names)) == len(names)
+    assert all(re.fullmatch(r"[A-Za-z0-9_-]{1,64}", name) for name in names)
+    for definition in model_tools:
+        assert registry.get_by_model_name(definition.model_name).name == definition.name
+

@@ -45,7 +45,7 @@ from ..tools.planner import (
     plan_tool_batches,
     validate_parallel_limit,
 )
-from ..tools.registry import ToolRegistry
+from ..tools.registry import ToolNotFoundError, ToolRegistry
 from ..tools.round_results import ToolResultRoundPort
 from .continuation import RunnerCheckpoint, RuntimeEventPort, WaitDecision
 from .suspension import ToolSuspensionPort
@@ -549,7 +549,7 @@ class AgentRunner:
                 ModelRequest(
                     model_id=state["model_id"],
                     messages=outbound,
-                    tools=self._registry.list(),
+                    tools=self._registry.model_tools(),
                     temperature=state["temperature"],
                     max_tokens=state["max_tokens"],
                     params=state["params"],
@@ -621,6 +621,10 @@ class AgentRunner:
     async def _execute_tools(self, state: AgentRunState) -> AgentRunState:
         self._ensure_runnable(state)
         messages = list(state["messages"])
+        state = {
+            **state,
+            "pending_tool_calls": self._resolve_model_calls(state["pending_tool_calls"]),
+        }
         runnable, exhausted_calls, used = self._reserve_tool_calls(state)
         # 本回合真正执行过的调用：(消息下标, 调用 id, 工具名, 状态)。整批判定与完成事件都在
         # 回合末一次性收口（ADR-04）——不在循环里逐条报，否则产物 id 赶不上那条事件。
@@ -682,6 +686,18 @@ class AgentRunner:
         if self._runtime_events is not None and not state["budget_exhausted"]:
             await self._runtime_events.checkpoint(self._checkpoint(state))
         return state
+
+    def _resolve_model_calls(self, calls: list[ModelToolCall]) -> list[ModelToolCall]:
+        """Map provider-safe names back to registry names before planning/execution."""
+        resolved: list[ModelToolCall] = []
+        for call in calls:
+            try:
+                definition = self._registry.get_by_model_name(call.name)
+            except ToolNotFoundError:
+                resolved.append(call)
+            else:
+                resolved.append(replace(call, name=definition.name))
+        return resolved
 
     def _reserve_tool_calls(
         self, state: AgentRunState

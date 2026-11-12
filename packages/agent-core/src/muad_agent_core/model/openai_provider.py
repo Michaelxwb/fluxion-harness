@@ -317,7 +317,7 @@ class OpenAICompatibleProvider:
         return {
             "type": "function",
             "function": {
-                "name": definition.name,
+                "name": definition.model_name or definition.name,
                 "description": definition.description,
                 "parameters": dict(definition.input_schema),
             },

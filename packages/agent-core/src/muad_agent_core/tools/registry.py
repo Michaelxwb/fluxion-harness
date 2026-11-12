@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import re
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -11,6 +13,13 @@ if TYPE_CHECKING:
     from ..model.provider import ModelMessage
 
 MCP_TOOL_NAMESPACE = "mcp"
+_MODEL_TOOL_NAME_MAX = 64
+_MODEL_TOOL_INVALID = re.compile(r"[^A-Za-z0-9_-]")
+
+
+def _safe_model_tool_name(name: str) -> str:
+    """OpenAI-compatible function names allow only letters, digits, `_` and `-`."""
+    return _MODEL_TOOL_INVALID.sub("_", name)[:_MODEL_TOOL_NAME_MAX] or "tool"
 
 
 class ToolEffect(StrEnum):
@@ -71,6 +80,9 @@ class ToolDefinition:
     # ToolDefinition 上、也不参与本值：目录 effect（可能由提示归一化而来）不等于重试安全。
     # 消费方在操作提交时把它冻进 execution policy（`operations.reserve_operation`）。
     retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY
+    #: Provider-safe function name (OpenAI-compatible `[A-Za-z0-9_-]{1,64}`).
+    #: Registry/audit still use `name`; `ToolRegistry.model_tools()` fills this.
+    model_name: str = ""
 
 
 class ToolNotFoundError(LookupError):
@@ -88,11 +100,16 @@ class ToolAlreadyRegisteredError(ValueError):
 class ToolRegistry:
     def __init__(self) -> None:
         self._items: dict[str, ToolDefinition] = {}
+        self._model_names: dict[str, str] = {}
+        self._model_name_for: dict[str, str] = {}
 
     def register(self, definition: ToolDefinition) -> None:
         if definition.name in self._items:
             raise ToolAlreadyRegisteredError(definition.name)
         self._items[definition.name] = definition
+        model_name = self._allocate_model_name(definition.name)
+        self._model_names[model_name] = definition.name
+        self._model_name_for[definition.name] = model_name
 
     def get(self, name: str) -> ToolDefinition:
         try:
@@ -100,8 +117,36 @@ class ToolRegistry:
         except KeyError as exc:
             raise ToolNotFoundError(name) from exc
 
+    def get_by_model_name(self, model_name: str) -> ToolDefinition:
+        """Resolve the provider-safe name back to the registry definition."""
+        try:
+            return self._items[self._model_names[model_name]]
+        except KeyError as exc:
+            raise ToolNotFoundError(model_name) from exc
+
     def list(self) -> tuple[ToolDefinition, ...]:
         return tuple(self._items.values())
+
+    def model_tools(self) -> tuple[ToolDefinition, ...]:
+        """Definitions with a provider-safe `model_name` for the model request."""
+        return tuple(
+            replace(definition, model_name=self._model_name_for[definition.name])
+            for definition in self._items.values()
+        )
+
+    def _allocate_model_name(self, name: str) -> str:
+        candidate = _safe_model_tool_name(name)
+        if candidate not in self._model_names:
+            return candidate
+        digest = hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]
+        base = candidate[: _MODEL_TOOL_NAME_MAX - len(digest) - 2]
+        candidate = f"{base}__{digest}"
+        counter = 2
+        while candidate in self._model_names:
+            suffix = f"__{digest}{counter}"
+            candidate = f"{candidate[: _MODEL_TOOL_NAME_MAX - len(suffix)]}{suffix}"
+            counter += 1
+        return candidate
 
     @staticmethod
     def namespaced(server: str, tool: str) -> str:

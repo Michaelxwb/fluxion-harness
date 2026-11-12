@@ -139,6 +139,39 @@ def _request(policy: AgentPolicy | None = None) -> AgentRunRequest:
     )
 
 
+async def test_mcp_model_tool_name_maps_back_to_registry_name() -> None:
+    """Provider-safe `model_name` is resolved back before planning/execution."""
+    registry = ToolRegistry()
+    calls: list[dict[str, Any]] = []
+
+    async def handler(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        calls.append(dict(arguments))
+        return "pong"
+
+    name = ToolRegistry.namespaced("fake-mcp-bearer", "platform.ping")
+    registry.register(
+        ToolDefinition(
+            name=name,
+            description="ping",
+            input_schema={"type": "object"},
+            effect=ToolEffect.READ,
+            handler=handler,
+        )
+    )
+    model_name = registry.model_tools()[0].model_name
+    assert model_name == "mcp__fake-mcp-bearer__platform_ping"
+    provider = ScriptedModelProvider([_tool_call("c1", model_name), _text("done")])
+    runner = AgentRunner(provider=provider, registry=registry)
+
+    result = await runner.run(_request())
+
+    assert result.status is AgentRunStatus.COMPLETED
+    assert result.tool_calls == 1
+    assert calls == [{}]
+    assert result.final_text == "done"
+    assert provider.requests[1].messages[-1].content == "pong"
+
+
 async def test_tool_call_then_final_answer_and_hook_order() -> None:
     provider = ScriptedModelProvider([_tool_call("c1", "echo", {"text": "ping"}), _text("done")])
     registry = ToolRegistry()
