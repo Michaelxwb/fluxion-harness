@@ -244,7 +244,7 @@
 
 ## TASK-005: Runtime 会话删除编排与通知收口
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: webchat-conversation-delete-and-attachment-formats.backend.design.md#33-数据设计, #34-接口设计, #35-质量实现方案
 - **Scenarios**: S-01, S-02, S-03, E-01, B-01
@@ -279,12 +279,12 @@
 
 ### Checklist
 
-- [ ] 删除成功后列表/详情/消息/续聊/产物下载一律不可见。
-- [ ] 重复删除返回成功且不再取消任何 Run。
-- [ ] 他人/不存在/无入口归属返回 404 同形错误。
-- [ ] 活跃 Run 先取消再软删；取消提交不与软删混在同一未提交事务。
-- [ ] 该会话历史通知被软删；收尾 Run 的终态通知不写入。
-- [ ] 未读数与其它会话的通知不受影响。
+- [x] 删除成功后列表/详情/消息/续聊/产物下载一律不可见。
+- [x] 重复删除返回成功且不再取消任何 Run。
+- [x] 他人/不存在/无入口归属返回 404 同形错误。
+- [x] 活跃 Run 先取消再软删；取消提交不与软删混在同一未提交事务。
+- [x] 该会话历史通知被软删；收尾 Run 的终态通知不写入。
+- [x] 未读数与其它会话的通知不受影响。
 
 ### Spec Delta
 
@@ -303,11 +303,15 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T15:02:56.091Z] started tests=4c6f10226e94
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-12T15:06:43.723Z FAIL commands=0/1 executed=1 deduped=0 elapsed=7767ms tests=4c6f10226e94 head=9e3d0534dfaa dirty=1
+  - runtime-conversation-delete FAIL exit=1
+- 2026-11-12T15:06:58.731Z PASS commands=1/1 executed=1 deduped=0 elapsed=7367ms tests=4c6f10226e94 head=9e3d0534dfaa dirty=1
+  - runtime-conversation-delete PASS exit=0
 ## TASK-006: Gateway 会话删除公开路径
 
 - **Status**: draft
