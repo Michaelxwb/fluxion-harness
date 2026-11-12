@@ -7,15 +7,7 @@ import { apiErrorBody, newRequestId } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import { FormModal } from '../../components/common/FormModal';
 import { Tips } from '../../components/common/Tips';
-import {
-  buildAuthPayload,
-  headerIssueKey,
-  summarizeAuthMode,
-  validateHeaderRows,
-  type AuthMode,
-  type HeaderRow
-} from './authPayload';
-import { AuthModeFields } from './AuthModeFields';
+import { buildAuthPayload, headersIssueKey, headersJsonForServer } from './authPayload';
 import { McpConfigImport, type ImportedMcpConfig } from './McpConfigImport';
 import {
   createMcpServer,
@@ -38,9 +30,7 @@ interface FormValues {
   endpoint: string;
   user_scope: 'ALL' | 'SELECTED';
   enabled: 'true' | 'false';
-  auth_mode: AuthMode;
-  auth_secret?: string;
-  secret_header?: string;
+  headers_json: string;
   connect_timeout_ms?: number;
   tool_cache_ttl_sec?: number;
 }
@@ -55,10 +45,6 @@ export function McpFormModal(props: McpFormModalProps) {
   const isAdmin = account?.role === 'ADMIN';
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<AuthMode>('none');
-  const [headers, setHeaders] = useState<HeaderRow[]>([]);
-  const [secretHeader, setSecretHeader] = useState('');
-  const [secretValue, setSecretValue] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [timeoutMs, setTimeoutMs] = useState(DEFAULT_CONNECT_TIMEOUT_MS);
   const [cacheTtlSec, setCacheTtlSec] = useState(DEFAULT_TOOL_CACHE_TTL_SEC);
@@ -69,15 +55,8 @@ export function McpFormModal(props: McpFormModalProps) {
       return;
     }
     const server = props.server;
-    const config = server?.auth_config ?? null;
-    const summary = summarizeAuthMode(config, server?.auth_secret_configured ?? false);
-    const rows = Object.entries(config?.headers ?? {}).map(([name, value]) => ({ name, value }));
     formApi.current?.reset();
     setFormError(null);
-    setAuthMode(summary.mode);
-    setHeaders(rows);
-    setSecretHeader(config?.secret_header ?? '');
-    setSecretValue('');
     setAdvancedOpen(false);
     setTimeoutMs(server?.connect_timeout_ms ?? DEFAULT_CONNECT_TIMEOUT_MS);
     setCacheTtlSec(server?.tool_cache_ttl_sec ?? DEFAULT_TOOL_CACHE_TTL_SEC);
@@ -87,46 +66,20 @@ export function McpFormModal(props: McpFormModalProps) {
       endpoint: server?.endpoint,
       user_scope: server?.user_scope ?? 'SELECTED',
       enabled: server?.enabled === false ? 'false' : 'true',
-      auth_mode: summary.mode,
-      auth_secret: '',
-      secret_header: config?.secret_header ?? '',
+      headers_json: headersJsonForServer(
+        server?.auth_config ?? null,
+        server?.auth_secret_configured ?? false
+      ),
       connect_timeout_ms: server?.connect_timeout_ms ?? DEFAULT_CONNECT_TIMEOUT_MS,
       tool_cache_ttl_sec: server?.tool_cache_ttl_sec ?? DEFAULT_TOOL_CACHE_TTL_SEC
     });
   }, [props.visible, props.server]);
 
-  // Conditional fields mount/unmount with the auth mode, so mirror the local state into
-  // the form after the field exists (e.g. an imported bearer token when starting from none).
-  useEffect(() => {
-    if (!props.visible) {
-      return;
-    }
-    formApi.current?.setValue('auth_secret', secretValue);
-    formApi.current?.setValue('secret_header', secretHeader);
-  }, [props.visible, authMode, secretValue, secretHeader]);
-
-  const changeAuthMode = (mode: AuthMode): void => {
-    setAuthMode(mode);
-    setSecretValue('');
-    formApi.current?.setValue('auth_secret', '');
-    if (mode !== 'headers') {
-      setHeaders([]);
-      setSecretHeader('');
-      formApi.current?.setValue('secret_header', '');
-    }
-  };
-
   const applyImport = (config: ImportedMcpConfig): void => {
-    setAuthMode(config.authMode);
-    setHeaders(config.headers);
-    setSecretHeader(config.secretHeader);
-    setSecretValue(config.authSecret);
     formApi.current?.setValues({
       name: config.name,
       endpoint: config.endpoint,
-      auth_mode: config.authMode,
-      secret_header: config.secretHeader,
-      auth_secret: config.authSecret
+      headers_json: config.headersJson
     });
   };
 
@@ -136,20 +89,16 @@ export function McpFormModal(props: McpFormModalProps) {
       Tips.error(t('mcp.form.endpointInvalid'));
       return;
     }
-    const secretConfigured = props.server?.auth_secret_configured ?? false;
-    if (authMode === 'headers') {
-      const issues = validateHeaderRows(headers, secretHeader, secretValue, secretConfigured);
-      if (issues.length > 0) {
-        Tips.error(t(headerIssueKey(issues[0].kind)));
-        return;
-      }
-    }
-    const auth = buildAuthPayload({
-      auth_mode: authMode,
-      auth_secret: secretValue,
-      secret_header: secretHeader,
-      headers
+    const auth = buildAuthPayload(values.headers_json, {
+      editing: props.server !== null,
+      secretConfigured: props.server?.auth_secret_configured ?? false
     });
+    if ('issue' in auth) {
+      const message = t(headersIssueKey(auth.issue));
+      formApi.current?.setError('headers_json', message);
+      Tips.error(message);
+      return;
+    }
     setSaving(true);
     setFormError(null);
     const input: McpSaveInput = {
@@ -184,7 +133,7 @@ export function McpFormModal(props: McpFormModalProps) {
     } catch (error) {
       const body = apiErrorBody(error);
       if (body?.code === 'MCP_CONFIG_INVALID') {
-        formApi.current?.setError('endpoint', body.msg);
+        formApi.current?.setError('headers_json', body.msg);
       } else if (body?.msg) {
         setFormError(body.msg);
       } else {
@@ -198,14 +147,6 @@ export function McpFormModal(props: McpFormModalProps) {
   const title = props.server ? t('mcp.form.editTitle') : t('mcp.form.createTitle');
   const advancedCustomized = timeoutMs !== DEFAULT_CONNECT_TIMEOUT_MS
     || cacheTtlSec !== DEFAULT_TOOL_CACHE_TTL_SEC;
-  const headerIssues = authMode === 'headers'
-    ? validateHeaderRows(
-      headers,
-      secretHeader,
-      secretValue,
-      props.server?.auth_secret_configured ?? false
-    )
-    : [];
 
   return (
     <FormModal
@@ -249,18 +190,13 @@ export function McpFormModal(props: McpFormModalProps) {
           <McpConfigImport onImported={applyImport} />
         </div>
         <div className="form-field-full">
-          <AuthModeFields
-            mode={authMode}
-            editing={props.server !== null}
-            secretConfigured={props.server?.auth_secret_configured ?? false}
-            headers={headers}
-            secretHeader={secretHeader}
-            secretValue={secretValue}
-            issues={headerIssues}
-            onModeChange={changeAuthMode}
-            onHeadersChange={setHeaders}
-            onSecretHeaderChange={setSecretHeader}
-            onSecretValueChange={setSecretValue}
+          <Form.TextArea
+            field="headers_json"
+            label={t('mcp.form.headersJson')}
+            initValue="{}"
+            autosize={{ minRows: 6, maxRows: 14 }}
+            data-testid="mcp-headers-json"
+            extraText={t('mcp.form.headersJsonHint')}
           />
         </div>
         {!props.server && isAdmin ? <Form.Select

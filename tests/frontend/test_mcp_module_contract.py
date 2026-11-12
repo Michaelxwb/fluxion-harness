@@ -52,7 +52,7 @@ def test_mcp_form_follows_interaction_layout() -> None:
     assert 'className="form-field-banner"' in source
     assert "form-section" in source and "form-section-hint" in source
     assert "mcp.form.banner" in source
-    assert "AuthModeFields" in source
+    assert 'field="headers_json"' in source
     assert 'field="enabled"' in source
     assert "mcp.form.saveAndDiscover" in source
     assert "discoverTools" in source
@@ -63,7 +63,7 @@ def test_mcp_form_failure_keeps_modal_and_values() -> None:
     source = _source("McpFormModal.tsx")
     assert "apiErrorBody" in source
     assert "MCP_CONFIG_INVALID" in source
-    assert "setError('endpoint'" in source
+    assert "setError('headers_json'" in source
     assert "props.onSaved()" in source
     assert "catch (error)" in source
     catch_block = source.split("catch (error)")[1]

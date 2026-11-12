@@ -1,40 +1,34 @@
 import type { McpAuthConfig } from './services/mcpServers';
 
-export const AUTH_MODES = ['none', 'bearer', 'headers'] as const;
-
-export type AuthMode = (typeof AUTH_MODES)[number];
-
-export interface HeaderRow {
-  name: string;
-  value: string;
-}
-
-export interface McpAuthValues {
-  auth_mode: AuthMode;
-  auth_secret?: string;
-  secret_header?: string;
-  headers: HeaderRow[];
-}
+/** Placeholder shown in the JSON editor for an already stored secret. */
+export const SECRET_PLACEHOLDER = '${auth_secret}';
 
 export interface McpAuthPayload {
   auth_config: McpAuthConfig;
   auth_secret?: string;
 }
 
-export type HeaderIssueKind =
-  | 'invalid'
-  | 'reserved'
-  | 'secretName'
-  | 'duplicate'
-  | 'secretConflict'
-  | 'secretHeaderRequired'
-  | 'secretValueRequired';
+export type HeadersJsonIssue =
+  | 'invalidJson'
+  | 'notObject'
+  | 'invalidHeader'
+  | 'reservedHeader'
+  | 'authorizationUnsupported'
+  | 'multipleSecrets'
+  | 'secretPlaceholderUnavailable'
+  | 'tooManyHeaders'
+  | 'valueTooLong'
+  | 'totalTooLarge';
 
-export interface HeaderValidationIssue {
-  /** Row index in the static header list; -1 means the secret header field. */
-  rowIndex: number;
-  kind: HeaderIssueKind;
+export interface ParsedHeaders {
+  headers: Record<string, string>;
+  secretHeader: string | null;
+  authSecret: string | null;
 }
+
+export type ParseHeadersResult = ParsedHeaders | { issue: HeadersJsonIssue };
+
+export type AuthMode = 'none' | 'bearer' | 'headers';
 
 export interface AuthModeSummary {
   mode: AuthMode;
@@ -43,6 +37,11 @@ export interface AuthModeSummary {
 
 const HEADER_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 const FORBIDDEN_HEADER_VALUE_CHARS = /[\r\n\u0000]/;
+const BEARER_PATTERN = /^Bearer\s+(.+)$/i;
+
+const MAX_HEADER_COUNT = 32;
+const MAX_HEADER_VALUE_BYTES = 4 * 1024;
+const MAX_HEADER_TOTAL_BYTES = 16 * 1024;
 
 const RESERVED_HEADERS = new Set([
   'host',
@@ -53,7 +52,6 @@ const RESERVED_HEADERS = new Set([
   'content-type',
   'mcp-session-id',
   'mcp-protocol-version',
-  'authorization',
   'cookie'
 ]);
 
@@ -67,135 +65,175 @@ const SENSITIVE_HEADER_MARKERS = [
   'private-key'
 ];
 
-/** A row with both fields empty is an unfinished input, not a configuration error. */
-export function isEmptyHeaderRow(row: HeaderRow): boolean {
-  return row.name.trim() === '' && row.value.trim() === '';
+function byteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
 }
 
-function validateStaticHeaderName(name: string, seen: Set<string>): HeaderIssueKind | null {
-  const lowered = name.toLowerCase();
-  if (!HEADER_NAME_PATTERN.test(name)) return 'invalid';
-  if (RESERVED_HEADERS.has(lowered)) return 'reserved';
-  if (SENSITIVE_HEADER_MARKERS.some((marker) => lowered.includes(marker))) return 'secretName';
-  if (seen.has(lowered)) return 'duplicate';
-  seen.add(lowered);
-  return null;
-}
-
-function validateStaticHeaderRow(row: HeaderRow, seen: Set<string>): HeaderIssueKind | null {
-  const name = row.name.trim();
-  if (name === '' || row.value.trim() === '') return 'invalid';
-  if (FORBIDDEN_HEADER_VALUE_CHARS.test(row.value)) return 'invalid';
-  return validateStaticHeaderName(name, seen);
-}
-
-function validateSecretHeaderName(name: string, seen: Set<string>): HeaderIssueKind | null {
-  if (!HEADER_NAME_PATTERN.test(name)) return 'invalid';
-  if (RESERVED_HEADERS.has(name.toLowerCase())) return 'reserved';
-  if (seen.has(name.toLowerCase())) return 'secretConflict';
-  return null;
+function isSensitiveHeader(name: string): boolean {
+  return SENSITIVE_HEADER_MARKERS.some((marker) => name.includes(marker));
 }
 
 /**
- * Local mirror of the backend header contract. Returns enum-like kinds so the UI can
- * translate them; the backend remains the final authority (MCP_CONFIG_INVALID).
+ * Parse the single headers JSON input and split the one secret header out.
+ *
+ * `Authorization: Bearer <token>` is the Bearer form; otherwise exactly one
+ * sensitive header name (X-Api-Key, X-Token, ...) is the secret header. All
+ * other headers are static. The backend never sees the secret in `auth_config`.
  */
-export function validateHeaderRows(
-  headers: HeaderRow[],
-  secretHeader: string,
-  secretValue: string,
-  secretConfigured: boolean
-): HeaderValidationIssue[] {
-  const issues: HeaderValidationIssue[] = [];
+export function parseHeadersJson(raw: string): ParseHeadersResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw.trim() === '' ? '{}' : raw);
+  } catch {
+    return { issue: 'invalidJson' };
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { issue: 'notObject' };
+  }
+  const entries = Object.entries(parsed);
+  if (entries.length > MAX_HEADER_COUNT) {
+    return { issue: 'tooManyHeaders' };
+  }
+
+  const headers: Record<string, string> = {};
   const seen = new Set<string>();
-  headers.forEach((row, index) => {
-    if (isEmptyHeaderRow(row)) return;
-    const kind = validateStaticHeaderRow(row, seen);
-    if (kind !== null) issues.push({ rowIndex: index, kind });
-  });
+  let secretHeader: string | null = null;
+  let authSecret: string | null = null;
+  let totalBytes = 0;
 
-  const secretName = secretHeader.trim();
-  if (secretName !== '') {
-    const kind = validateSecretHeaderName(secretName, seen);
-    if (kind !== null) issues.push({ rowIndex: -1, kind });
-    if (secretValue === '' && !secretConfigured) {
-      issues.push({ rowIndex: -1, kind: 'secretValueRequired' });
+  for (const [name, value] of entries) {
+    if (typeof value !== 'string' || !HEADER_NAME_PATTERN.test(name)) {
+      return { issue: 'invalidHeader' };
     }
-  } else if (secretValue !== '') {
-    issues.push({ rowIndex: -1, kind: 'secretHeaderRequired' });
-  }
-  return issues;
-}
+    if (FORBIDDEN_HEADER_VALUE_CHARS.test(value)) {
+      return { issue: 'invalidHeader' };
+    }
+    if (byteLength(value) > MAX_HEADER_VALUE_BYTES) {
+      return { issue: 'valueTooLong' };
+    }
+    totalBytes += byteLength(name) + byteLength(value);
+    if (totalBytes > MAX_HEADER_TOTAL_BYTES) {
+      return { issue: 'totalTooLarge' };
+    }
 
-export function headerIssueKey(kind: HeaderIssueKind): string {
-  switch (kind) {
-    case 'invalid':
-      return 'mcp.form.headersInvalid';
-    case 'reserved':
-      return 'mcp.form.headerReserved';
-    case 'secretName':
-      return 'mcp.form.headerSecretName';
-    case 'duplicate':
-    case 'secretConflict':
-      return 'mcp.form.headerDuplicate';
-    case 'secretHeaderRequired':
-      return 'mcp.form.secretHeaderRequired';
-    case 'secretValueRequired':
-      return 'mcp.form.secretValueRequired';
+    const lowered = name.toLowerCase();
+    if (lowered === 'authorization') {
+      if (secretHeader !== null || authSecret !== null) {
+        return { issue: 'multipleSecrets' };
+      }
+      const match = BEARER_PATTERN.exec(value.trim());
+      if (match === null) {
+        return { issue: 'authorizationUnsupported' };
+      }
+      authSecret = match[1].trim();
+      continue;
+    }
+    if (RESERVED_HEADERS.has(lowered)) {
+      return { issue: 'reservedHeader' };
+    }
+    if (seen.has(lowered)) {
+      return { issue: 'invalidHeader' };
+    }
+    seen.add(lowered);
+    if (isSensitiveHeader(lowered)) {
+      if (secretHeader !== null || authSecret !== null) {
+        return { issue: 'multipleSecrets' };
+      }
+      secretHeader = name;
+      authSecret = value;
+      continue;
+    }
+    headers[name] = value;
   }
-}
 
-function staticHeaderMap(headers: HeaderRow[]): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const row of headers) {
-    if (isEmptyHeaderRow(row)) continue;
-    map[row.name.trim()] = row.value;
-  }
-  return map;
+  return { headers, secretHeader, authSecret };
 }
 
 /**
- * The single assembly point for auth_config/auth_secret. Empty bearer/header secrets are
- * omitted so editing keeps the stored secret; "none" sends an empty secret to clear it.
+ * Build the API payload from the single JSON input. A missing secret header
+ * clears the stored secret on edit; `${auth_secret}` keeps the existing one.
  */
-export function buildAuthPayload(values: McpAuthValues): McpAuthPayload {
-  const secret = values.auth_secret ?? '';
-  if (values.auth_mode === 'bearer') {
+export function buildAuthPayload(
+  raw: string,
+  options: { editing: boolean; secretConfigured: boolean }
+): McpAuthPayload | { issue: HeadersJsonIssue } {
+  const parsed = parseHeadersJson(raw);
+  if ('issue' in parsed) {
+    return parsed;
+  }
+  const { headers, secretHeader, authSecret } = parsed;
+  if (authSecret === null) {
     return {
-      auth_config: { headers: {}, secret_header: null },
-      ...(secret === '' ? {} : { auth_secret: secret })
+      auth_config: { headers, secret_header: null },
+      ...(options.editing ? { auth_secret: '' } : {})
     };
   }
-  if (values.auth_mode === 'headers') {
-    const secretHeader = (values.secret_header ?? '').trim();
-    const auth_config: McpAuthConfig = {
-      headers: staticHeaderMap(values.headers),
-      secret_header: secretHeader === '' ? null : secretHeader
-    };
-    if (secretHeader === '') {
-      // No secret header means a stored bearer secret must not leak into Authorization.
-      return { auth_config, auth_secret: '' };
+  if (authSecret === SECRET_PLACEHOLDER) {
+    if (!options.secretConfigured) {
+      return { issue: 'secretPlaceholderUnavailable' };
     }
-    return { auth_config, ...(secret === '' ? {} : { auth_secret: secret }) };
+    return {
+      auth_config: { headers, secret_header: secretHeader }
+    };
   }
   return {
-    auth_config: { headers: {}, secret_header: null },
-    auth_secret: ''
+    auth_config: { headers, secret_header: secretHeader },
+    auth_secret: authSecret
   };
 }
 
+/** Render the stored auth config as the JSON shown when editing. */
+export function headersJsonForServer(
+  config: McpAuthConfig | null | undefined,
+  secretConfigured: boolean
+): string {
+  const headers: Record<string, string> = { ...(config?.headers ?? {}) };
+  const secretHeader = config?.secret_header ?? null;
+  if (secretHeader !== null && secretConfigured) {
+    headers[secretHeader] = SECRET_PLACEHOLDER;
+  } else if (secretHeader === null && secretConfigured) {
+    headers.Authorization = `Bearer ${SECRET_PLACEHOLDER}`;
+  }
+  return JSON.stringify(headers, null, 2);
+}
+
 export function summarizeAuthMode(
-  authConfig: McpAuthConfig | null | undefined,
+  config: McpAuthConfig | null | undefined,
   secretConfigured: boolean
 ): AuthModeSummary {
-  const headers = authConfig?.headers ?? {};
-  const secretHeader = authConfig?.secret_header ?? null;
+  const headers = config?.headers ?? {};
+  const secretHeader = config?.secret_header ?? null;
   const staticCount = Object.keys(headers).length;
-  if (secretHeader !== null || staticCount > 0) {
-    return {
-      mode: 'headers',
-      headerCount: staticCount + (secretHeader === null ? 0 : 1)
-    };
+  if (secretHeader !== null) {
+    return { mode: 'headers', headerCount: staticCount + 1 };
+  }
+  if (staticCount > 0) {
+    return { mode: secretConfigured ? 'bearer' : 'headers', headerCount: staticCount };
   }
   return { mode: secretConfigured ? 'bearer' : 'none', headerCount: 0 };
+}
+
+export function headersIssueKey(issue: HeadersJsonIssue): string {
+  switch (issue) {
+    case 'invalidJson':
+      return 'mcp.form.headersJsonInvalid';
+    case 'notObject':
+      return 'mcp.form.headersJsonNotObject';
+    case 'invalidHeader':
+      return 'mcp.form.headersJsonInvalidHeader';
+    case 'reservedHeader':
+      return 'mcp.form.headersJsonReserved';
+    case 'authorizationUnsupported':
+      return 'mcp.form.headersJsonAuthorization';
+    case 'multipleSecrets':
+      return 'mcp.form.headersJsonMultipleSecrets';
+    case 'secretPlaceholderUnavailable':
+      return 'mcp.form.headersJsonSecretUnavailable';
+    case 'tooManyHeaders':
+      return 'mcp.form.headersJsonTooMany';
+    case 'valueTooLong':
+      return 'mcp.form.headersJsonValueTooLong';
+    case 'totalTooLarge':
+      return 'mcp.form.headersJsonTotalTooLarge';
+  }
 }

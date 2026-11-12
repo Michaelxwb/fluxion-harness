@@ -52,13 +52,15 @@ def test_transport_is_static_text_not_an_input() -> None:
     assert "<Tag" in source
 
 
-def test_no_raw_auth_config_json_input() -> None:
-    """[S-01][S-02] 表单不再暴露原始 auth_config JSON，也不在组件里解析 JSON。"""
+def test_headers_json_is_the_only_auth_input() -> None:
+    """[S-01][S-02] 表单只暴露一个 headers JSON，不再有原始 auth_config 或认证方式。"""
     source = _form_source()
     assert 'field="auth_config"' not in source
-    assert "JSON.parse" not in source
+    assert 'field="headers_json"' in source
     assert "mcp.form.authConfig" not in source
     assert "auth_config:auth.auth_config" in _compact(source)
+    assert "AuthModeFields" not in source
+    assert "HeaderRowsEditor" not in source
 
 
 def test_advanced_settings_are_collapsed_by_default() -> None:
@@ -73,30 +75,13 @@ def test_advanced_settings_are_collapsed_by_default() -> None:
     assert 'field="tool_cache_ttl_sec"' in source
 
 
-def test_auth_mode_fields_cover_three_states() -> None:
-    """[S-01][S-02][S-03] 认证方式三选一，凭据字段按模式渲染。"""
+def test_edit_prefills_headers_json_without_echoing_secret() -> None:
+    """[E-04] 编辑用 headersJsonForServer 回填 JSON；密钥以占位符表示。"""
     source = _form_source()
-    assert "AuthModeFields" in source
-    assert "buildAuthPayload" in source
-    assert "validateHeaderRows" in source
-    auth = _source("AuthModeFields.tsx")
-    for mode in ("none", "bearer", "headers"):
-        assert f"value: '{mode}'" in auth
-    assert 'field="auth_secret"' in auth
-    assert 'field="secret_header"' in auth
-    assert "mcp.form.authSecretKeep" in auth
-    assert "mcp.form.authNoneClearsSecret" in auth
-
-
-def test_edit_initializes_structured_auth_without_echoing_secret() -> None:
-    """[E-04] 编辑从 headers/secret_header 回填；密钥框始终从空值开始。"""
-    source = _form_source()
-    assert "summarizeAuthMode" in source
-    assert "config?.headers" in source
-    assert "config?.secret_header" in source
-    assert "setSecretValue('')" in source
-    assert "auth_secret: ''" in source
-    assert "JSON.stringify(props.server.auth_config" not in source
+    assert "headersJsonForServer(" in source
+    assert "server?.auth_secret_configured" in source
+    assert "setSecretValue" not in source
+    assert "auth_secret: ''" not in source
 
 
 def test_create_discovers_tools_after_save() -> None:

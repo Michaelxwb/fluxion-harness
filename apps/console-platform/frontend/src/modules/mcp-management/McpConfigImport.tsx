@@ -3,15 +3,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Tips } from '../../components/common/Tips';
-import type { AuthMode, HeaderRow } from './authPayload';
 
 export interface ImportedMcpConfig {
   name: string;
   endpoint: string;
-  authMode: AuthMode;
-  headers: HeaderRow[];
-  secretHeader: string;
-  authSecret: string;
+  headersJson: string;
 }
 
 export interface McpConfigImportOutcome {
@@ -45,44 +41,23 @@ function stringHeaders(value: unknown): Record<string, string> {
   return headers;
 }
 
-function bearerToken(headers: Record<string, string>): string | null {
-  for (const [name, value] of Object.entries(headers)) {
-    if (name.toLowerCase() !== 'authorization') continue;
-    const match = /^Bearer\s+(.+)$/i.exec(value.trim());
-    return match === null ? null : match[1].trim();
-  }
-  return null;
-}
-
-function headerRows(headers: Record<string, string>): HeaderRow[] {
-  return Object.entries(headers)
-    .filter(([name]) => name.toLowerCase() !== 'authorization')
-    .map(([name, value]) => ({ name, value }));
-}
-
 function importEntry(name: string, entry: Record<string, unknown>): ImportedMcpConfig | null {
   const url = entry.url;
   if (typeof url !== 'string' || url.trim() === '') return null;
   const headers = stringHeaders(entry.headers);
-  const token = bearerToken(headers);
-  const rows = headerRows(headers);
   const displayName = typeof entry.name === 'string' && entry.name.trim() !== ''
     ? entry.name
     : name;
-  const authMode: AuthMode = token !== null ? 'bearer' : rows.length > 0 ? 'headers' : 'none';
   return {
     name: displayName,
     endpoint: url.trim(),
-    authMode,
-    headers: rows,
-    secretHeader: '',
-    authSecret: token ?? ''
+    headersJson: JSON.stringify(headers, null, 2)
   };
 }
 
 /**
- * Parses a Claude Desktop style mcpServers payload. It only returns form values: the
- * caller fills the form and the user still reviews/selects the secret header.
+ * Parses a Claude Desktop style mcpServers payload and fills the single headers
+ * JSON input. The form then splits Bearer/sensitive headers before submit.
  */
 export function parseMcpServersConfig(raw: string): McpConfigImportOutcome {
   let parsed: unknown;
