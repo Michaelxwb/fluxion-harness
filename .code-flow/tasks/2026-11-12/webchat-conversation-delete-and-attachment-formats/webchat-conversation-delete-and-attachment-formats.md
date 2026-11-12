@@ -6,7 +6,7 @@
 
 ## TASK-001: 附件格式单一事实与网络门控收口
 
-- **Status**: draft
+- **Status**: in-progress
 - **Depends**:
 - **Source**: webchat-conversation-delete-and-attachment-formats.backend.design.md#32-架构设计, #321-共同能力收口本次的硬要求, #34-接口设计
 - **Scenarios**: S-04, E-03
@@ -64,6 +64,7 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T14:54:07.951Z] started tests=eeb7a94e14dc
 
 ### Verification
 
