@@ -80,7 +80,7 @@
   - gateway-attachment-gate PASS exit=0
 ## TASK-002: Runtime 受限压缩包读取
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: webchat-conversation-delete-and-attachment-formats.backend.design.md#34-接口设计, #35-质量实现方案
 - **Scenarios**: S-04, E-02, E-03, B-02, B-03
@@ -115,11 +115,11 @@
 
 ### Checklist
 
-- [ ] 成员路径规范化只有一处实现，打包与读取共用，规则一致。
-- [ ] zip 读取返回「清单 + 文本正文」，可被 `offset/limit` 分段与 `search_attachment` 检索。
-- [ ] 加密、损坏、超限、嵌套、二进制成员各有显式结果（拒绝或标注），不含糊。
-- [ ] 解压全程不写盘。
-- [ ] 新增上限常量登记进配置清单。
+- [x] 成员路径规范化只有一处实现，打包与读取共用，规则一致。
+- [x] zip 读取返回「清单 + 文本正文」，可被 `offset/limit` 分段与 `search_attachment` 检索。
+- [x] 加密、损坏、超限、嵌套、二进制成员各有显式结果（拒绝或标注），不含糊。
+- [x] 解压全程不写盘。
+- [x] 新增上限常量登记进配置清单。
 
 ### Spec Delta
 
@@ -138,11 +138,15 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T15:11:27.341Z] started tests=0cee8bd5e824
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-12T15:11:42.545Z FAIL commands=0/1 executed=1 deduped=0 elapsed=10351ms tests=0cee8bd5e824 head=7373f6537fae dirty=1
+  - runtime-attachment-read FAIL exit=1
+- 2026-11-12T15:12:05.514Z PASS commands=1/1 executed=1 deduped=0 elapsed=6950ms tests=0cee8bd5e824 head=7373f6537fae dirty=1
+  - runtime-attachment-read PASS exit=0
 ## TASK-003: 客户端配置投影支持格式清单
 
 - **Status**: draft

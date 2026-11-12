@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import io
 import json
-import unicodedata
 import zipfile
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -15,10 +14,10 @@ from typing import Any
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_contracts.platform_settings import ArtifactSettings
 
+from .member_paths import MemberPathError, normalize_member_path
 from .output_service import MAX_OUTPUT_BYTES, OutputArtifactError, OutputArtifactWriter
 
 CREATE_ARCHIVE_TOOL = "create_archive"
-MAX_ARCHIVE_PATH_BYTES = 1024
 ARCHIVE_BYTES_LIMIT = MAX_OUTPUT_BYTES
 #: `_utf8_capped` 的分块大小（按**字符**计）
 _ENCODE_CHUNK_CHARS = 64 * 1024
@@ -68,28 +67,13 @@ def _utf8_capped(content: str, limit: int) -> bytes:
 def validate_member_path(value: object) -> str:
     """校验并**规范化**成员路径，返回最终写进 ZIP 的名字。
 
-    两处规范化/收紧是 2026-10-03 review 补的，都会**改写入包里的名字**或**收紧拒绝面**：
-
-    - **NFC 规范化**：NFC 与 NFD 是**同一个名字**（`é` 的两种编码）。不规范化的话它们会作为
-      两个成员写进 ZIP，而在 macOS/Windows 上解压时**互相覆盖**。规范化后二者自然撞成
-      "重复路径"，按既有规则拒绝——方向是安全的（拒绝，而不是静默丢一份）。
-    - **控制/格式字符按 Unicode 类别判**：原来只挡 `ord < 32` 与 127（纯 ASCII），
-      漏掉了 C1 控制符（`Cc`）与**零宽字符 / 双向覆盖符**（`Cf`，如 U+202E）——成员名里带这些
-      会造成**显示欺骗**（文件名看起来是 `gpj.png`，实际是 `gnp.png`）。
-    - **纯空白段**：`" "`、`"a/ /b"` 这类原来能过（空格不在 `{"", ".", ".."}` 里，也不落 ord 检查）。
+    规则与读取侧共用 `member_paths.normalize_member_path`（NFC、拒绝绝对路径/`..`/反斜杠/
+    控制与格式字符/纯空白段/超长）；这里只把它的异常翻成打包工具的错误码，消息保持原样。
     """
-    if not isinstance(value, str) or not value:
-        raise ArchiveToolError("ARCHIVE_PATH_INVALID", "文件路径必须是非空相对路径")
-    path = unicodedata.normalize("NFC", value)
-    if (
-        "\\" in path
-        or ":" in path
-        or any(unicodedata.category(char) in {"Cc", "Cf"} for char in path)
-        or any(part in {"", ".", ".."} or not part.strip() for part in path.split("/"))
-        or len(_utf8(path)) > MAX_ARCHIVE_PATH_BYTES
-    ):
-        raise ArchiveToolError("ARCHIVE_PATH_INVALID", "文件路径不能包含绝对路径、目录逃逸或无效字符")
-    return path
+    try:
+        return normalize_member_path(value)
+    except MemberPathError as exc:
+        raise ArchiveToolError("ARCHIVE_PATH_INVALID", str(exc)) from exc
 
 
 def archive_filename(value: object) -> str:
