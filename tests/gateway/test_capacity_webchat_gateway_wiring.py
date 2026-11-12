@@ -753,7 +753,10 @@ async def test_b296_production_app_registers_webchat_wecom_recheck_and_public_ss
                 "POST",
             }
             assert _route_methods("/api/v1/webchat/entries/{entry_id}/attachments") == {"POST"}
-            assert _route_methods("/api/v1/webchat/conversations/{conversation_id}") == {"GET"}
+            assert _route_methods("/api/v1/webchat/conversations/{conversation_id}") == {
+                "GET",
+                "DELETE",
+            }
             assert _route_methods("/api/v1/webchat/conversations/{conversation_id}/messages") == {
                 "GET"
             }
@@ -764,6 +767,9 @@ async def test_b296_production_app_registers_webchat_wecom_recheck_and_public_ss
             assert "get_chat_identity" in _route_dependencies(
                 "/api/v1/webchat/entries", "GET"
             ), "读写面必须经 ChatIdentityDep 收口主体"
+            assert "get_chat_identity" in _route_dependencies(
+                "/api/v1/webchat/conversations/{conversation_id}", "DELETE"
+            ), "删除也必须经 ChatIdentityDep 收口主体"
             stream_deps = _route_dependencies("/api/v1/webchat/runs/{run_id}/events", "GET")
             assert "get_chat_identity" in stream_deps, "SSE 也要经主体门控"
             assert "get_chat_stream_guard" in stream_deps, "长流必须挂复核定时器"

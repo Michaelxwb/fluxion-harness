@@ -994,8 +994,6 @@ apps/im-gateway/src/muad_im_gateway/api/delivery.py,72,DELIVERY_IN_FLIGHT_POLL_S
 apps/im-gateway/src/muad_im_gateway/api/health.py,17,DEDUPE_MODE_REDIS,'redis',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/api/health.py,18,DEDUPE_MODE_MEMORY,'memory',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/api/health.py,19,DEDUPE_MODE_DISABLED,'disabled',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/api/webchat.py,68,NO_STORE_CACHE_CONTROL,'no-store',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/api/webchat.py,447,_NOTIFICATION_BACKFILL_PAGES,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/channel_delivery.py,54,DELIVERED,'delivered',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/channel_delivery.py,56,DEDUPLICATED,'deduplicated',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/channel_delivery.py,57,FAILED,'failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1118,7 +1116,6 @@ apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,51,NOSNIFF_
 apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,54,_MEDIA_TYPE_PATTERN,re.compile('^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/webchat_core.py,38,WEBCHAT_CHANNEL,'WEBCHAT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/webchat_core.py,56,WEBCHAT_CHANNEL_IDENTITY,WebchatChannelIdentity(),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/webchat_service.py,66,MAX_ENTRIES,100,python-constant,code,入口列表上界（当前授权入口的完整集合，不静默截断）
 apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,80,PUBLIC_STREAM_EVENT_TYPES,"{'message.delta': 'message.delta', 'message.snapshot': 'message.snapshot', 'run.stage': 'run.stage', 'run.completed': 'run.terminal', 'run.failed': 'run.error', 'artifact.created': 'artifact.created', 'interrupt.required': 'confirmation.required', 'memory.confirmation_required': 'confirmation.required', 'tool.started': 'run.tool', 'tool.completed': 'run.tool'}",python-constant,code,公开流事件白名单（canonical stream_type → TASK-006 公开事件类型；B-251）
 apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,95,PUBLIC_TOOL_STATUSES,"{'OK': 'OK', 'ERROR': 'ERROR', 'BLOCKED': 'ERROR', 'NOT_FOUND': 'ERROR'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,104,PROGRESS_PUBLIC_EVENT_TYPES,"frozenset({'run.tool', 'run.stage'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -2057,9 +2054,12 @@ apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,165,W
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,170,_DOCX,'application/vnd.openxmlformats-officedocument.wordprocessingml.document',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,171,_XLSX,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,172,_PPTX,'application/vnd.openxmlformats-officedocument.presentationml.presentation',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/webchat_config.py,26,TRANSPORT_FINGERPRINT_HEX_LENGTH,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/webchat.py,330,ADMISSION_RUN_ID_HEADER,'X-Muad-Run-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/webchat.py,331,ADMISSION_CONVERSATION_ID_HEADER,'X-Muad-Conversation-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/webchat.py,332,ADMISSION_RESUMED_HEADER,'X-Muad-Resumed',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/webchat.py,333,ADMISSION_EXECUTION_STATUS_HEADER,'X-Muad-Execution-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/webchat.py,334,ADMISSION_RUN_STATUS_HEADER,'X-Muad-Run-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/webchat_config.py,26,TRANSPORT_FINGERPRINT_HEX_LENGTH,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/api/webchat.py,68,NO_STORE_CACHE_CONTROL,'no-store',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/api/webchat.py,459,_NOTIFICATION_BACKFILL_PAGES,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/webchat_service.py,67,MAX_ENTRIES,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
