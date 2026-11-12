@@ -103,7 +103,9 @@ export type PendingSendErrorCode =
   | 'SEND_FILE_TOO_LARGE'
   | 'SEND_VIEW_CHANGED'
   | 'SEND_ABORTED'
-  | 'SEND_ATTACHMENT_UPLOAD_FAILED';
+  | 'SEND_ATTACHMENT_UPLOAD_FAILED'
+  // 选择阶段的扩展名预检复用服务端目录码：界面提示与上传被拒时是同一条口径。
+  | 'ATTACHMENT_TYPE_NOT_ALLOWED';
 
 /** 动态限额端口：只取 API-19 投影里输入区需要的三个上限（`ClientConfigService` 结构满足）。 */
 export interface PendingSendLimitsPort {

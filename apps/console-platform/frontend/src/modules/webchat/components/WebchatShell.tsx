@@ -208,6 +208,7 @@ interface WebchatSidebarPaneProps {
   now?: Date;
   bindings: ConversationSidebarBindings;
   onSelect(conversationId: string): void;
+  onDeleteConversation?(conversationId: string): void;
 }
 
 /** 左侧栏位：历史侧栏；抽屉开关在会话头部（关闭时仍可达）。 */
@@ -299,6 +300,7 @@ export function WebchatShell(props: WebchatShellProps) {
         now={props.now}
         bindings={bindings}
         onSelect={selectConversation}
+        onDeleteConversation={props.onDeleteConversation}
       />
       <ChatPanel
         entry={entry}
