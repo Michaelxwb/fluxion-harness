@@ -38,8 +38,9 @@ class SourceSegmentSupervisor:
         self._used = False
 
     async def _refresh(self) -> None:
-        # The OLD deadline also bounds PG lock waits and Redis command latency.
-        limit = time.monotonic() + self._refresh_seconds
+        # Refresh cadence is not an I/O timeout. PG pool checkout/pre-ping may
+        # exceed one cadence; the shutdown margin still bounds authorization.
+        limit = time.monotonic() + self._stop_margin
         if self._stop_at is not None:
             limit = min(limit, self._stop_at)
         try:

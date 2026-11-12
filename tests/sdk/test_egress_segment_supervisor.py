@@ -22,10 +22,11 @@ pytestmark = pytest.mark.integration
 
 class Authority:
     def __init__(self, grant):
-        self.grant, self.calls, self.block, self.lost = grant, 0, False, False
+        self.grant, self.calls, self.block, self.lost, self.delay = grant, 0, False, False, 0.0
 
     async def authorize(self, execution_id, claim, reader):
         self.calls += 1
+        await asyncio.sleep(self.delay)
         if self.block and self.calls > 1:
             await asyncio.Event().wait()
         if self.lost:
@@ -91,6 +92,15 @@ async def test_initial_denial_does_not_start_business(environment):
     with pytest.raises(IdentityUnavailable):
         await supervisor.run(work)
     assert closed == []
+
+
+async def test_authorization_may_exceed_refresh_cadence_within_shutdown_margin(environment):
+    supervisor, authority, _, closed = environment
+    authority.delay = .07  # refresh cadence is .05; shutdown margin is .1.
+    async def work():
+        return "authorized"
+    assert await supervisor.run(work) == "authorized"
+    assert closed == ["closed"]
 
 
 async def test_failed_close_never_confirms_segment_stopped(environment):
