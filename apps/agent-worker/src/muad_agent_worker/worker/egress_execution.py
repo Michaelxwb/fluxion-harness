@@ -10,6 +10,7 @@ from muad_common import SharedSettings
 from muad_contracts.egress_budget import EffectiveEgressBudget
 from muad_contracts.egress_identity import egress_operation_key
 from muad_platform_sdk.configured_egress import configured_host_egress
+from muad_platform_sdk.egress_audit_store import EgressAuditIdentity
 from muad_platform_sdk.egress_identity_registry import IdentityUnavailable
 from muad_platform_sdk.egress_source_authority import SourceClaim
 from muad_platform_sdk.host_egress_execution import HostEgressExecution
@@ -80,6 +81,7 @@ async def execute_task_skill_with_egress(
         session_factory=provider,
         claim=lambda: task_source_claim(task),
         reader=read_task_source_lease,
+        audit_identity=EgressAuditIdentity(task.tenant_id, task.actor_user_id, task.source_run_id, task.id),
         minimum_stop_margin_seconds=4 * TERMINATE_GRACE_SEC,
         tenant_id=task.tenant_id if task.execution_snapshot_json.get("egress_enabled") is True else None,
     ) as host:

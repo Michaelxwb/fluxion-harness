@@ -16,6 +16,7 @@ from dataclasses import dataclass
 import httpx
 from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
 
+from .egress_attempt_audit import AttemptObserver
 from .shared_http_transport import RequestLifetime, SharedHTTPTransport
 from .shared_redis import MeteringUnavailable, SharedLimitExceeded, SharedRedisMeter
 
@@ -76,12 +77,13 @@ class SharedHostTransport(httpx.AsyncBaseTransport):
         max_response_bytes: int | None = None,
         on_limit: Callable[[SharedLimitExceeded], None] | None = None,
         client: httpx.AsyncClient | None = None,
+        observe: AttemptObserver | None = None,
     ) -> None:
         if max_response_bytes is not None and (
             isinstance(max_response_bytes, bool) or max_response_bytes <= 0
         ):
             raise ValueError("positive response byte bound required")
-        self._sender = SharedHTTPTransport(meter, lifetime=lifetime)
+        self._sender = SharedHTTPTransport(meter, lifetime=lifetime, observe=observe)
         self._meter, self._resolve, self._invocation = meter, resolve, invocation
         if not isinstance(public_rules_enabled, bool):
             raise ValueError("explicit public policy control mode required")

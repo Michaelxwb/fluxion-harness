@@ -9,6 +9,7 @@ from muad_agent_core.sandbox.spec import TERMINATE_GRACE_SEC
 from muad_common import process_settings
 from muad_contracts.egress_budget import EffectiveEgressBudget
 from muad_platform_sdk.configured_egress import configured_host_egress
+from muad_platform_sdk.egress_audit_store import EgressAuditIdentity
 from muad_platform_sdk.egress_identity_registry import IdentityUnavailable
 from muad_platform_sdk.egress_source_authority import SourceClaim
 from muad_platform_sdk.host_egress_execution import HostEgressExecution
@@ -41,6 +42,9 @@ def run_egress(request: ExecutorRequest) -> AbstractAsyncContextManager[HostEgre
         session_factory=get_session_factory,
         claim=lambda: run_source_claim(request),
         reader=read_run_source_lease,
+        audit_identity=EgressAuditIdentity(
+            request.run_context.tenant_id, request.run_context.user_id, request.run_context.run_id
+        ) if request.run_context is not None else None,
         minimum_stop_margin_seconds=4 * TERMINATE_GRACE_SEC,
         tenant_id=(
             request.run_context.tenant_id

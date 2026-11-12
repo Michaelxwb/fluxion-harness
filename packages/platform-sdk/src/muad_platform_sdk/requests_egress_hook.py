@@ -12,7 +12,7 @@ import threading
 from collections.abc import Generator
 from contextvars import ContextVar
 from types import TracebackType
-from typing import Protocol, Self, cast
+from typing import Literal, Protocol, Self, cast
 from urllib.parse import urlsplit
 
 import requests
@@ -79,9 +79,11 @@ def _replace_method(target: object, name: str, replacement: object) -> None:
 
 
 class _ResponseLease:
-    def __init__(self, raw: HTTPResponse, attempt: PhysicalAttempt) -> None:
+    def __init__(self, raw: HTTPResponse, attempt: PhysicalAttempt, status_code: int) -> None:
         self._raw, self._lease, self._attempt = raw, attempt.lease, attempt
         self._read, self._stream, self._close = raw.read, raw.stream, raw.close
+        self._status_code = status_code
+        self._error_code: Literal["TRANSPORT_ERROR", "RESPONSE_INCOMPLETE"] | None = None
         self._finished = False
         self._lock = threading.Lock()
         # Keep the actual urllib3 response instance and its remaining methods.
@@ -96,7 +98,7 @@ class _ResponseLease:
             self._finished = True
         self._attempt.complete()
         try:
-            self._lease.finish()
+            self._lease.finish(status_code=self._status_code, error_code=self._error_code)
         except IPCAdmissionError:
             logger.warning("requests_egress_completion_unconfirmed")
 
@@ -131,6 +133,8 @@ class _ResponseLease:
             self.close()
 
     def close(self) -> None:
+        if not self._raw.isclosed() and self._error_code is None:
+            self._error_code = "RESPONSE_INCOMPLETE"
         try:
             self._close()
         except BaseException:
@@ -139,6 +143,7 @@ class _ResponseLease:
         self._finish()
 
     def _abort(self) -> None:
+        self._error_code = "TRANSPORT_ERROR"
         try:
             self.close()
         except OSError:
@@ -238,6 +243,11 @@ class RequestsEgressHook:
         except BaseException as exc:
             failure = lease.failure
             attempt.complete()
+            if failure is None:
+                try:
+                    lease.finish(error_code="TRANSPORT_ERROR")
+                except IPCAdmissionError:
+                    logger.warning("requests_egress_failure_report_unconfirmed")
             lease.close()
             if failure is not None:
                 raise failure from exc
@@ -248,5 +258,5 @@ class RequestsEgressHook:
             lease.close()
             raise UnsupportedRequestsConfiguration("UNSUPPORTED_REQUESTS_RESPONSE")
         _replace_method(response, "_muad_egress_controlled", True)
-        _ResponseLease(response.raw, attempt)
+        _ResponseLease(response.raw, attempt, response.status_code)
         return response

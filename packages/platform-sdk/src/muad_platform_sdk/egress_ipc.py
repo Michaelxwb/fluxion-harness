@@ -12,8 +12,8 @@ import json
 import logging
 import math
 import os
+import sys
 import tempfile
-import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,12 +23,14 @@ from typing import Self
 from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
 from pydantic import ValidationError
 
+from .egress_attempt_audit import AttemptAudit, AttemptObserver
 from .egress_ipc_client import IPCAdmissionClient as IPCAdmissionClient
 from .egress_ipc_client import IPCAdmissionError as IPCAdmissionError
 from .egress_ipc_protocol import (
     MAX_FRAME_BYTES,
     PROTOCOL_VERSION,
     BeginRequest,
+    CompletionRequest,
     ControlRequest,
     frame,
 )
@@ -64,6 +66,7 @@ class InvocationEgressBroker:
         cleanup_seconds: float,
         max_connections: int = 32,
         renewal_interval_seconds: float = 1.0,
+        observe: AttemptObserver | None = None,
     ) -> None:
         lifetimes = (deadline_seconds, cleanup_seconds, renewal_interval_seconds)
         if (
@@ -74,6 +77,7 @@ class InvocationEgressBroker:
             raise ValueError("valid IPC lifetime and resource bounds required")
         self._meter, self._invocation = meter, invocation
         self._resolve, self._deadline, self._cleanup = resolve, deadline_seconds, cleanup_seconds
+        self._observe = observe
         self._max_connections = max_connections
         self._renewal_interval = renewal_interval_seconds
         self._handlers: set[asyncio.Task[None]] = set()
@@ -177,19 +181,28 @@ class InvocationEgressBroker:
         if target is None:
             await self._reply(writer, {"ok": False, "code": "IPC_TARGET_DENIED"})
             return
-        if self.exhausted.is_set():
-            await self._error_reply(writer, "IPC_LIMIT_TOTAL", scope=self.exhausted_scope)
-            return
         if isinstance(target, UncontrolledTarget):
             await self._reply(writer, {"ok": True, "controlled": False})
             return
-        attempt_id = uuid.uuid4().hex
+        audit = AttemptAudit(self._observe, origin=request.origin, path=request.path,
+                             method=request.method)
+        try:
+            await self._controlled_begin(reader, writer, target, audit)
+        finally:
+            await audit.finish(sys.exception())
+
+    async def _controlled_begin(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
+        target: EgressTarget, audit: AttemptAudit,
+    ) -> None:
+        if self.exhausted.is_set():
+            raise SharedLimitExceeded("TOTAL", "", 0, scope=self.exhausted_scope or "execution")
         policy = target.policy or await self._meter.current_policy()
         permit = await self._meter.admit(
             policy,
             target_instance_id=target.target_instance_id,
             route_id=target.route_id,
-            attempt_id=attempt_id,
+            attempt_id=audit.attempt_id,
             invocation=self._invocation,
             lease_seconds=self._expires_at - asyncio.get_running_loop().time() + self._cleanup,
         )
@@ -198,24 +211,24 @@ class InvocationEgressBroker:
                 self._pending[permit.attempt_id] = permit
             await self._meter.consume(permit)
             self._ever_admitted = True
-        await self._reply(
-            writer,
-            {
-                "ok": True,
-                "controlled": True,
-                "attempt_id": attempt_id,
-                "remaining_seconds": self._expires_at - asyncio.get_running_loop().time(),
-            },
-        )
+        await self._reply(writer, {
+            "ok": True, "controlled": True, "attempt_id": audit.attempt_id,
+            "remaining_seconds": self._expires_at - asyncio.get_running_loop().time(),
+        })
+        audit.sent = True
         completion = await self._completion(reader, permit)
-        if completion.op != "done":
-            raise ValueError("completion required")
+        audit.status_code, audit.error_code = completion.status_code, completion.error_code
         if permit is not None:
             await self._meter.release(permit)
             self._pending.pop(permit.attempt_id, None)
+        # The observer runs before the acknowledgement, so callers can inspect
+        # a completed attempt immediately after consuming/closing its response.
+        await audit.finish()
         await self._reply(writer, {"ok": True})
 
-    async def _completion(self, reader: asyncio.StreamReader, permit: SharedPermit | None) -> ControlRequest:
+    async def _completion(
+        self, reader: asyncio.StreamReader, permit: SharedPermit | None,
+    ) -> CompletionRequest:
         incoming = asyncio.create_task(reader.readline())
         try:
             while not incoming.done():
@@ -225,7 +238,7 @@ class InvocationEgressBroker:
                     if remaining <= 0:
                         raise TimeoutError("execution deadline")
                     await self._meter.renew(permit, lease_seconds=remaining + self._cleanup)
-            return ControlRequest.model_validate_json(incoming.result())
+            return CompletionRequest.model_validate_json(incoming.result())
         finally:
             incoming.cancel()
             await asyncio.gather(incoming, return_exceptions=True)

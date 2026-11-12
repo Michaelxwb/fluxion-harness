@@ -119,7 +119,8 @@ class IPCLease:
         except (OSError, ValueError):
             self._fail(IPCAdmissionError("IPC_UNAVAILABLE"))
 
-    def finish(self) -> None:
+    def finish(self, *, status_code: int | None = None,
+               error_code: Literal["TRANSPORT_ERROR", "RESPONSE_INCOMPLETE"] | None = None) -> None:
         """Confirm closure; do not race a second recv against the monitor."""
         with self._lock:
             if self._closed:
@@ -127,7 +128,9 @@ class IPCLease:
             self._completing = True
         try:
             self.raise_if_failed()
-            self._connection.sendall(frame({"op": "done"}))
+            self._connection.sendall(frame({
+                "op": "done", "status_code": status_code, "error_code": error_code,
+            }))
             if not self._ack.wait(timeout=self._timeout):
                 raise IPCAdmissionError("IPC_UNAVAILABLE")
             self.raise_if_failed()

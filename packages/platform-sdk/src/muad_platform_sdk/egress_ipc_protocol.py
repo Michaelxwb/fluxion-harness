@@ -5,10 +5,10 @@ import json
 from typing import Literal, Self
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
 
 MAX_FRAME_BYTES = 4096
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
 
 
 class AttemptMetadata(BaseModel):
@@ -54,6 +54,13 @@ class BeginRequest(AttemptMetadata):
 class ControlRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
     op: Literal["probe", "done"]
+
+
+class CompletionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    op: Literal["done"]
+    status_code: StrictInt | None = Field(default=None, ge=100, le=599)
+    error_code: Literal["TRANSPORT_ERROR", "RESPONSE_INCOMPLETE"] | None = None
 
 
 class WireResponse(BaseModel):

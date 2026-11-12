@@ -17,8 +17,9 @@ export function EgressSummary({ egress: input }: { egress: OverviewData['egress'
       <span>{t('overview.egress.averageLatency')}: <strong>{egress.averageLatencyMs === null ? '—' : `${Math.round(egress.averageLatencyMs)} ms`}</strong></span>
     </div>
     <Table dataSource={egress.topTargets} pagination={false} empty={t('overview.egress.empty')}>
-      <Table.Column title={t('overview.egress.target')} dataIndex="target" />
-      <Table.Column title={t('overview.egress.route')} dataIndex="routeId" />
+      <Table.Column title={t('overview.egress.platform')} dataIndex="platformName" render={(value: string | null) => value ?? '—'} />
+      <Table.Column title={t('overview.egress.method')} dataIndex="method" />
+      <Table.Column title={t('overview.egress.target')} dataIndex="url" />
       <Table.Column title={t('overview.egress.count')} dataIndex="requestCount" />
       <Table.Column title={t('overview.egress.blocked')} dataIndex="blockedCount" render={(value) => value > 0 ? <Tag color="red">{value}</Tag> : value} />
     </Table>

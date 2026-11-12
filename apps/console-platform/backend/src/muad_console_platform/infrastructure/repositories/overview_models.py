@@ -81,8 +81,9 @@ class OverviewAgentRanking(OverviewModel):
 
 
 class OverviewEgressTop(OverviewModel):
-    target: str
-    route_id: str
+    url: str
+    method: str | None
+    platform_name: str | None
     request_count: int
     blocked_count: int
 
