@@ -1,15 +1,5 @@
 ---
-id: harness-e2e
-description: 测试分层、验收隔离与 CI
-stages: [design, plan, code, review]
-enforcement: required
-verifiers:
-- rule: RULE-e2e-001
-  type: command
-  config:
-    argv: [uv, run, pytest, -q, tests/frontend/test_e2e_suite_contract.py]
-    cwd: .
-    timeout: 300
+{"description": "测试分层、验收隔离与 CI", "next_rule": 1}
 ---
 
 # harness-e2e

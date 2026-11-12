@@ -1,22 +1,5 @@
 ---
-id: harness-frontend
-description: 前端服务层与拦截器
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-front-001
-  type: command
-  config:
-    argv:
-    - bash
-    - -lc
-    - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck
-    cwd: .
-    timeout: 600
+{"description": "前端服务层与拦截器", "next_rule": 1}
 ---
 
 # harness-frontend

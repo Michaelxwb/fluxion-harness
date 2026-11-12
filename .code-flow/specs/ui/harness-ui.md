@@ -1,23 +1,5 @@
 ---
-id: harness-ui
-description: Console 视觉与列表
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-ui-001
-  type: command
-  config:
-    argv:
-    - bash
-    - -lc
-    - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
-      && npm --prefix apps/console-platform/frontend run build
-    cwd: .
-    timeout: 900
+{"description": "Console 视觉与列表", "next_rule": 1}
 ---
 
 # harness-ui

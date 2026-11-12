@@ -1,23 +1,5 @@
 ---
-id: harness-model
-description: 模型定义与模型池
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-model-001
-  type: command
-  config:
-    argv:
-    - bash
-    - -lc
-    - uv run pytest -q tests/console_platform/test_models_api.py && uv run pytest
-      -q tests/console_platform/test_agents_api.py -k disabled
-    cwd: .
-    timeout: 600
+{"description": "模型定义与模型池", "next_rule": 1}
 ---
 
 # harness-model

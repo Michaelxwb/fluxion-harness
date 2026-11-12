@@ -15,15 +15,8 @@ dist/
 .DS_Store
 
 # code-flow runtime state (local only)
-.code-flow/.session-log.jsonl
-.code-flow/.session-state.json
-.code-flow/.catalog-state.json
-.code-flow/.artifact-hash-cache.json
-.code-flow/.check-state.json
-.code-flow/.active-task.json
-.code-flow/.task-projection-state.json
-.code-flow/.active-task.lock
-.code-flow/specs/_session/
+.code-flow/process/
+.code-flow/worktrees/
 e2e/test-results/
 e2e/playwright-report/
 

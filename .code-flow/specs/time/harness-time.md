@@ -1,25 +1,5 @@
 ---
-id: harness-time
-description: 时间与时区口径
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-time-001
-  type: command
-  # 项目级套件按用户确认延后到review/CI；任务内运行定向验证，不伪造pass。
-  stage: review
-  config:
-    argv:
-    - bash
-    - -lc
-    - uv run pytest -q tests/frontend/test_datetime_contract.py && uv run pytest -q
-      tests -k schema_parity
-    cwd: .
-    timeout: 300
+{"description": "时间与时区口径", "next_rule": 1}
 ---
 
 # harness-time

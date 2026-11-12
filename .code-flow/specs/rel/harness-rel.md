@@ -1,24 +1,5 @@
 ---
-id: harness-rel
-description: 关系变更与审计
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-rel-001
-  type: command
-  config:
-    argv:
-    - uv
-    - run
-    - pytest
-    - -q
-    - tests/console_platform/test_user_side_relations.py
-    cwd: .
-    timeout: 300
+{"description": "关系变更与审计", "next_rule": 1}
 ---
 
 # harness-rel

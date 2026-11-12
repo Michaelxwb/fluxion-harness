@@ -1,30 +1,5 @@
 ---
-id: harness-mcp
-description: MCP 目录与运行时
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-mcp-001
-  type: command
-  config:
-    argv:
-    - uv
-    - run
-    - pytest
-    - -q
-    - tests/console_mcp/test_mcp_rules.py
-    cwd: .
-    timeout: 300
-checks:
-- id: no-tools-list-in-runtime
-  type: regex
-  pattern: '"tools/list"'
-  files: apps/agent-runtime/**
-  message: Run 内禁止调用 MCP tools/list；工具定义只能来自冻结 Snapshot 的 definitions
+{"description": "MCP 目录与运行时", "next_rule": 1}
 ---
 
 # harness-mcp

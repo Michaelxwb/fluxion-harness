@@ -7,11 +7,8 @@ from pathlib import Path
 
 import pytest
 
-_PROBE = Path(__file__).resolve().parents[3] / (
-    ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/"
-    "test_egress_shared_repair.py"
-)
-_ACCEPTANCE_PROBE = _PROBE.with_name("test_egress_shared_acceptance.py")
+_PROBE = Path(__file__).resolve().with_name("egress_shared_probes") / "repair.py"
+_ACCEPTANCE_PROBE = _PROBE.with_name("acceptance.py")
 
 
 @pytest.fixture(autouse=True)

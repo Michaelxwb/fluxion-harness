@@ -1,26 +1,5 @@
 ---
-id: harness-arch
-description: 部署单元、边界与容量
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-arch-001
-  type: command
-  # 项目级套件按用户确认延后到review/CI；任务内运行定向验证，不伪造pass。
-  stage: review
-  config:
-    argv:
-    - uv
-    - run
-    - pytest
-    - -q
-    - tests/architecture
-    cwd: .
-    timeout: 300
+{"description": "部署单元、边界与容量", "next_rule": 1}
 ---
 
 # harness-arch
@@ -47,7 +26,7 @@ verifiers:
 
 - **应用层可以按功能划分子包**：Runtime 附件与制品逻辑集中在 `application/attachments/`（`tools.py`、`inbound.py`、`reference.py`、`tool_results.py`、`archive_tools.py`、`output_service.py`、`transcripts.py`、`immutable_store.py`）；功能子包仍属于 application 层，数据库模型与存储实现归 infrastructure，执行器负责组装。✅ `application/attachments/tools.py` 引用 `infrastructure.models.runtime.Artifact`；❌ 在功能子包中复制数据库模型，或反向引用执行器和 Run 编排服务导致循环依赖。
 
-- **`py.typed` 只在 `packages/*`，五个 app 包里只有 Connector 例外**：9 个共享库（含 `muad_im_core`）都带 `py.typed`；四个既有 app 包（console/runtime/worker/gateway）不带，`muad_im_connector` **带**。后果：mypy 分析 **test 文件**时会把不带标记的 app 包当「已安装但未类型化」的库，报 `import-untyped`；**这是口径问题而非代码缺陷**，未改动目录同样复现。判定口径：`make typecheck` 只跑 `apps packages`，不含 tests；`cf_validation --files` 传 test 文件时的 mypy 失败按此折算，不要据此改实现。若要 test 文件也受严格检查，需先给四个 app 包补 `py.typed`（另立变更并评估新错误）。
+- **`py.typed` 只在 `packages/*`，五个 app 包里只有 Connector 例外**：9 个共享库（含 `muad_im_core`）都带 `py.typed`；四个既有 app 包（console/runtime/worker/gateway）不带，`muad_im_connector` **带**。后果：mypy 分析 **test 文件**时会把不带标记的 app 包当「已安装但未类型化」的库，报 `import-untyped`；**这是口径问题而非代码缺陷**，未改动目录同样复现。判定口径：`make typecheck` 只跑 `apps packages`，不含 tests；对 test 文件跑 mypy 时的失败按此折算，不要据此改实现。若要 test 文件也受严格检查，需先给四个 app 包补 `py.typed`（另立变更并评估新错误）。
 
 - **Pod 绑定门禁是「文本标记扫描」而非语义分析**：`POD_MARKERS = ("pod_id", "agent_pod", "pod_mapping", "agent_to_pod")`，每个运行时角色（含 Connector）的任一 `*.py` 源码文本命中任一标记即红（`tests/architecture/test_im_gateway_boundaries.py` 的 `POD_MARKERS` 与强制用例）。因此该门禁只约束**命名**——✅ 用 `lease_owner`/`instance_id` 表达执行者归属；❌ 变量名写成 `pod_mapping` 之类，即便语义上并未做 Pod 绑定也会在运行时角色内触发红。
 

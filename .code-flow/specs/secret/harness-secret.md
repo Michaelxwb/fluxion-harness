@@ -1,31 +1,5 @@
 ---
-id: harness-secret
-description: 密钥归属与脱敏
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-secret-001
-  type: command
-  config:
-    argv:
-    - uv
-    - run
-    - pytest
-    - -q
-    - tests/test_logging_redaction.py
-    - tests/acceptance/test_foundation_ops_audit.py
-    cwd: .
-    timeout: 300
-checks:
-- id: no-env-model-key
-  type: regex
-  pattern: MODEL_API_KEY
-  files: apps/agent-runtime/**
-  message: 运行时禁止用环境变量兜底模型密钥；凭据须经 API-09 从 Owner 表内存读取
+{"description": "密钥归属与脱敏", "next_rule": 1}
 ---
 
 # harness-secret

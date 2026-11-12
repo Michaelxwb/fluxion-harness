@@ -1,24 +1,5 @@
 ---
-id: harness-skill
-description: Skill 产物、缓存与子进程
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-skill-001
-  type: command
-  config:
-    argv:
-    - uv
-    - run
-    - pytest
-    - -q
-    - tests/test_skill_artifact_cache.py
-    cwd: .
-    timeout: 300
+{"description": "Skill 产物、缓存与子进程", "next_rule": 1}
 ---
 
 # harness-skill

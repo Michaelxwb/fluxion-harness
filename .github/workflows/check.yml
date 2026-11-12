@@ -10,19 +10,9 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
-  # 手动触发：在分支 HEAD 上跑同一套 check，并导出 validation cache 供本地
-  # `code-flow task verify-e2e` / `task archive` 复用。PR 的 merge commit 与
-  # 分支 HEAD 不同，无法用于本地内容指纹缓存，所以这里单独给一个 dispatch 入口。
+  # 手动触发：在分支 HEAD 上跑同一套 check，用于需要复用 CI 全量结果时
+  # 手动导出 artifact；PR 的 merge commit 与分支 HEAD 不同。
   workflow_dispatch:
-    inputs:
-      export_validation_cache:
-        description: "导出 validation cache（heavy validators 由 CI 并行执行）"
-        type: boolean
-        default: true
-      review_task_dir:
-        description: "可选：导出 spec review verifier cache 的需求目录（相对仓库根）"
-        type: string
-        default: ""
 
 # 同一 PR 连续推送时取消上一轮（避免旧提交占着 runner）；main 的验证不取消，
 # 保证每个合并点都完整跑完。
@@ -56,9 +46,8 @@ jobs:
 
   # 单测按目录切成 4 个互不重叠的分片并行。每个分片是独立 job，因而各自拿到一套 PG/Redis
   # service —— 不共享数据库、不共享 Redis 号位，跨分片不会互相污染。
-  # 每个 job 直接执行 `.code-flow/validation.yml` 中同名 heavy validator 的**原命令**，
-  # 因此成功后写出的 `.code-flow/.validation-cache.json` 能被本地 verify/archive 复用；
-  # 命令与 validator 的对应关系由 tests/test_ci_validation_cache.py 钉住。
+  # 每个 job 直接执行对应的 pytest 分片；v1 的 task finish 只跑任务声明的测试，
+  # 全量回归由 CI 独立承担。
   backend-tests:
     name: backend-tests (${{ matrix.shard.name }})
     runs-on: ubuntu-latest
@@ -68,13 +57,13 @@ jobs:
       matrix:
         shard:
           - name: fast
-            validator: "Pytest (unit: fast)"
+            command: 'uv run python -m pytest --tb=short -q -m "not capacity_load" --durations=30 tests/contracts tests/frontend tests/architecture tests/agent_core tests/test_*.py'
           - name: runtime
-            validator: "Pytest (unit: runtime)"
+            command: 'uv run python -m pytest --tb=short -q -m "not capacity_load" --durations=30 tests/agent_runtime tests/sdk'
           - name: console
-            validator: "Pytest (unit: console)"
+            command: 'uv run python -m pytest --tb=short -q -m "not capacity_load" --durations=30 tests/gateway tests/console_auth tests/console_channel tests/console_internal tests/console_mcp tests/console_platform tests/console_skill tests/console_tasks tests/e2e'
           - name: worker
-            validator: "Pytest (unit: worker)"
+            command: 'uv run python -m pytest --tb=short -q -m "not capacity_load" --durations=30 tests/agent_worker && uv run python -m pytest --tb=short -q -m "not capacity_load" --durations=30 tests/capacity && uv run python -m pytest --tb=short -q -m "not capacity_load" --durations=30 tests/migrations'
     services:
       postgres:
         image: postgres:16
@@ -138,19 +127,8 @@ jobs:
           printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
             "$DATABASE_URL" > "$RUNNER_TEMP/alembic.ci.ini"
           uv run python migrations/db_migrate.py -c "$RUNNER_TEMP/alembic.ci.ini"
-      - name: 运行 ${{ matrix.shard.name }} 分片并写 validation cache
-        run: uv run python scripts/ci_validation_cache.py --validator "${{ matrix.shard.validator }}" --json
-      - name: 准备 validation cache 分片
-        if: github.event_name == 'workflow_dispatch' && inputs.export_validation_cache
-        run: cp .code-flow/.validation-cache.json "validation-cache-${{ matrix.shard.name }}.json"
-      - name: 上传 validation cache 分片（仅手动导出）
-        if: github.event_name == 'workflow_dispatch' && inputs.export_validation_cache
-        uses: actions/upload-artifact@v4
-        with:
-          name: validation-cache-entry-${{ matrix.shard.name }}
-          path: validation-cache-${{ matrix.shard.name }}.json
-          retention-days: 7
-          if-no-files-found: error
+      - name: 运行 ${{ matrix.shard.name }} 分片
+        run: ${{ matrix.shard.command }}
       - name: 上传失败用例清单（无论成败）
         if: always()
         uses: actions/upload-artifact@v4
@@ -291,168 +269,6 @@ jobs:
           path: /tmp/pytest-failures.log
           retention-days: 7
           if-no-files-found: ignore
-
-  # 需求级 review 终验包含完整 acceptance + 前端 build + 基础浏览器旅程，且
-  # RULE-test-001 声明了 files 作用域，可按内容指纹缓存。仅在显式传入需求目录时
-  # 运行；它同时写出 acceptance 的 validation cache 与 spec verifier cache。
-  # review 层会跑完整 acceptance：这里启动真实 3M3R Redis Cluster（6391-6396），
-  # 不跳过 cluster 验收。user_skill_sandbox 需要 bwrap 测试镜像，GitHub runner
-  # 不提供该私有镜像；该域 conftest 在 CI 内镜像不可用时明确 skip。
-  review-cache:
-    name: review-cache (spec verifiers)
-    if: github.event_name == 'workflow_dispatch' && inputs.review_task_dir != ''
-    runs-on: ubuntu-latest
-    timeout-minutes: 75
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: muad
-          POSTGRES_PASSWORD: muad
-          POSTGRES_DB: muad
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U muad -d muad"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql+asyncpg://muad:muad@localhost:5432/muad
-      REDIS_URL: redis://localhost:6379/0
-      INTERNAL_SERVICE_TOKEN: test-internal-token
-      PYTEST_FAILURE_LOG: /tmp/pytest-failures.log
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.12"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: |
-            apps/console-platform/frontend/package-lock.json
-            e2e/package-lock.json
-      - run: uv sync --extra dev
-      - run: npm ci
-        working-directory: apps/console-platform/frontend
-      - run: npm ci
-        working-directory: e2e
-      - name: 预检系统 Chrome
-        run: google-chrome --version
-      - name: 调大 PostgreSQL 连接上限（CI 栈多副本）
-        run: |
-          # review 层会跑完整 acceptance：默认 max_connections=100 不够多副本容量栈。
-          container="${{ job.services.postgres.id }}"
-          docker exec "$container" psql -U muad -d muad -v ON_ERROR_STOP=1 \
-            -c "ALTER SYSTEM SET max_connections = 300;"
-          docker restart "$container" >/dev/null
-          for _ in $(seq 1 60); do
-            if docker exec "$container" pg_isready -U muad -d muad >/dev/null 2>&1; then
-              echo "PostgreSQL ready (max_connections=300)"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "::error::PostgreSQL 未在 60s 内恢复"
-          exit 1
-      - name: 生成 CI 专用 alembic ini 并迁移到 head
-        run: |
-          printf '[alembic]\nscript_location = migrations\nprepend_sys_path = .\nsqlalchemy.url = %s\n' \
-            "$DATABASE_URL" > "$RUNNER_TEMP/alembic.ci.ini"
-          uv run python migrations/db_migrate.py -c "$RUNNER_TEMP/alembic.ci.ini"
-      - name: 清理残留 Redis claim
-        run: uv run python scripts/clean_acceptance_claims.py
-      - name: 预建干净检出缺失的 .data 挂载目录
-        run: mkdir -p .data/artifacts .data/skill-cache
-      - name: 启动真实 3M3R Redis Cluster
-        run: ./scripts/ci/start_redis_cluster.sh
-      - name: 运行 review 层并写 verifier cache
-        run: |
-          uv run python .code-flow/scripts/cf_task_workflow.py verify \
-            --layers review --profile full \
-            --task-dir "${{ inputs.review_task_dir }}" --root "$PWD" --json
-      - name: 准备 validation cache 分片
-        if: always()
-        run: |
-          if [ -f .code-flow/.validation-cache.json ]; then
-            cp .code-flow/.validation-cache.json validation-cache-acceptance.json
-          fi
-      - name: 上传 acceptance validation cache 分片
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: validation-cache-entry-acceptance
-          path: validation-cache-acceptance.json
-          retention-days: 7
-          if-no-files-found: ignore
-      - name: 上传 verifier cache
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: verifier-cache
-          path: .code-flow/.verifier-cache.json
-          # .code-flow/.verifier-cache.json 是隐藏文件；upload-artifact v4 默认不包含。
-          include-hidden-files: true
-          retention-days: 7
-          if-no-files-found: ignore
-      - name: 上传 review 失败用例清单（无论成败）
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: review-cache-failures
-          path: /tmp/pytest-failures.log
-          retention-days: 7
-          if-no-files-found: ignore
-      - name: 停止 3M3R Redis Cluster
-        if: always()
-        run: ./scripts/ci/stop_redis_cluster.sh
-
-  # 把并行 job 的 cache 分片合成一个文件给本地下载。各分片的 cache 文件名相同，
-  # 所以 upload 时先按 job 复制成唯一文件名，再在这里统一 merge。
-  validation-cache-merge:
-    name: validation-cache (merge)
-    if: always() && github.event_name == 'workflow_dispatch' && inputs.export_validation_cache
-    needs: [backend-tests, review-cache]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: validation-cache-entry-*
-          path: caches
-          merge-multiple: true
-      - name: 合并 cache 分片
-        run: |
-          shopt -s nullglob
-          files=(caches/*.json)
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "没有 validation cache artifact" >&2
-            exit 1
-          fi
-          python3 scripts/merge_validation_cache.py --output validation-cache.json "${files[@]}"
-      - name: 写 cache provenance
-        run: |
-          printf '{"run_url":"%s","commit":"%s"}\n' \
-            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            "${{ github.sha }}" > validation-cache-provenance.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: validation-cache
-          path: |
-            validation-cache.json
-            validation-cache-provenance.json
-          retention-days: 7
 
   frontend:
     runs-on: ubuntu-latest

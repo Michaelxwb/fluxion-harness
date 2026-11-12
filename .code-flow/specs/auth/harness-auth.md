@@ -1,23 +1,5 @@
 ---
-id: harness-auth
-description: 认证、会话、RBAC 与 CHAT
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-auth-001
-  type: command
-  config:
-    argv:
-    - bash
-    - -lc
-    - uv run pytest -q tests/console_platform/test_user_side_relations.py
-      -k s04 && uv run pytest -q tests -k schema_parity
-    cwd: .
-    timeout: 600
+{"description": "认证、会话、RBAC 与 CHAT", "next_rule": 1}
 ---
 
 # harness-auth

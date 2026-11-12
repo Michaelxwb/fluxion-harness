@@ -1,24 +1,5 @@
 ---
-id: harness-snapshot
-description: Run/Task 快照冻结
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-snapshot-001
-  type: command
-  # 项目级套件按用户确认延后到review/CI；任务内运行定向验证，不伪造pass。
-  stage: review
-  config:
-    argv:
-    - bash
-    - -lc
-    - uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"
-    cwd: .
-    timeout: 600
+{"description": "Run/Task 快照冻结", "next_rule": 1}
 ---
 
 # harness-snapshot

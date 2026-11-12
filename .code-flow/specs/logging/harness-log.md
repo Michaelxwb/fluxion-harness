@@ -1,26 +1,5 @@
 ---
-id: harness-log
-description: 日志、trace 与脱敏
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-log-001
-  type: command
-  config:
-    argv:
-    - uv
-    - run
-    - pytest
-    - -q
-    - tests/test_logging.py
-    - tests/test_logging_redaction.py
-    - tests/acceptance/test_foundation_logging.py
-    cwd: .
-    timeout: 300
+{"description": "日志、trace 与脱敏", "next_rule": 1}
 ---
 
 # harness-log

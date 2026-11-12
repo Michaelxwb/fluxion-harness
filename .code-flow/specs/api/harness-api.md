@@ -1,37 +1,5 @@
 ---
-id: harness-api
-description: API 封套、错误码与幂等
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-api-001
-  type: command
-  config:
-    argv:
-    - uv
-    - run
-    - pytest
-    - -q
-    - tests/test_api_i18n.py
-    - tests/test_error_catalog.py
-    - tests/acceptance/test_foundation_api_envelope.py
-    cwd: .
-    timeout: 300
-- rule: RULE-api-002
-  type: command
-  config:
-    argv:
-    - uv
-    - run
-    - pytest
-    - -q
-    - tests/console_skill/test_import_idempotency.py
-    cwd: .
-    timeout: 300
+{"description": "API 封套、错误码与幂等", "next_rule": 1}
 ---
 
 # harness-api

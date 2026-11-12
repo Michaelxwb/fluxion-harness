@@ -1,36 +1,5 @@
 ---
-id: harness-im
-description: IM 网关、通道与 WebChat
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-im-001
-  type: command
-  config:
-    argv:
-    - uv
-    - run
-    - pytest
-    - -q
-    - tests/console_channel
-    - tests/gateway
-    cwd: .
-    timeout: 600
-- rule: RULE-im-002
-  type: command
-  config:
-    argv:
-    - uv
-    - run
-    - pytest
-    - -q
-    - tests/architecture/test_channel_neutrality.py
-    cwd: .
-    timeout: 300
+{"description": "IM 网关、通道与 WebChat", "next_rule": 1}
 ---
 
 # harness-im

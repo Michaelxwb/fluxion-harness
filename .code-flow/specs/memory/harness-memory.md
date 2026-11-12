@@ -1,51 +1,5 @@
 ---
-id: harness-memory
-description: 长期记忆协议
-stages: [design, plan, code, review]
-enforcement: required
-verifiers:
-  - rule: RULE-memory-001
-    type: command
-    stage: review
-    config:
-      argv: [uv, run, pytest, -q, tests/agent_core/test_memory_redesign_evidence.py, tests/agent_runtime/test_memory_redesign_confirmation.py]
-      cwd: .
-      timeout: 600
-  - rule: RULE-memory-002
-    type: command
-    stage: review
-    config:
-      argv: [uv, run, pytest, -q, tests/agent_runtime/test_memory_redesign_writes.py, tests/agent_runtime/test_memory_redesign_quotas.py]
-      cwd: .
-      timeout: 600
-  - rule: RULE-memory-003
-    type: command
-    stage: review
-    config:
-      argv: [uv, run, pytest, -q, tests/agent_runtime/test_memory_redesign_cache.py, tests/agent_runtime/test_memory_redesign_context.py, tests/agent_core/test_memory_redesign_selection.py]
-      cwd: .
-      timeout: 600
-  - rule: RULE-memory-004
-    type: command
-    stage: review
-    config:
-      argv: [uv, run, pytest, -q, tests/agent_runtime/test_memory_redesign_job_effects.py, tests/agent_runtime/test_memory_redesign_confirmation.py]
-      cwd: .
-      timeout: 600
-  - rule: RULE-memory-005
-    type: command
-    stage: review
-    config:
-      argv: [uv, run, pytest, -q, tests/agent_runtime/test_memory_redesign_job_effects.py, tests/agent_runtime/test_memory_redesign_input_boundary.py]
-      cwd: .
-      timeout: 600
-  - rule: RULE-memory-006
-    type: command
-    stage: review
-    config:
-      argv: [uv, run, pytest, -q, tests/migrations/test_memory_redesign_migration.py, tests/agent_runtime/test_memory_redesign_snapshot.py]
-      cwd: .
-      timeout: 600
+{"description": "长期记忆协议", "next_rule": 1}
 ---
 
 # harness-memory
@@ -78,4 +32,4 @@ verifiers:
 
 ## Avoid
 
-- 以上条款是目标实现约束；待对应真实验收通过才能宣称产品已经符合。不得降低测试真实边界、伪造 Gate/Evidence、全库租户存在性判断或删除 dev 数据作为验收准备。
+- 以上条款是目标实现约束；待对应真实验收通过才能宣称产品已经符合。不得降低测试真实边界、伪造验收结果、全库租户存在性判断或删除 dev 数据作为验收准备。

@@ -1,25 +1,5 @@
 ---
-id: harness-worker
-description: 任务、调度与投递
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-worker-001
-  type: command
-  # 项目级套件按用户确认延后到review/CI；任务内运行定向验证，不伪造pass。
-  stage: review
-  config:
-    argv:
-    - bash
-    - -lc
-    - uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py
-    cwd: .
-    # 用例数增长后固定超时会误报；超时预算按实测调整。
-    timeout: 1800
+{"description": "任务、调度与投递", "next_rule": 1}
 ---
 
 # harness-worker

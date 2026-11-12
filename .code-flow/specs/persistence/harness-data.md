@@ -1,28 +1,5 @@
 ---
-id: harness-data
-description: 表设计、迁移与索引
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-data-001
-  type: command
-  # 项目级套件按用户确认延后到review/CI；任务内运行定向验证，不伪造pass。
-  stage: review
-  config:
-    argv:
-    - uv
-    - run
-    - pytest
-    - -q
-    - tests
-    - -k
-    - schema_parity
-    cwd: .
-    timeout: 600
+{"description": "表设计、迁移与索引", "next_rule": 1}
 ---
 
 # harness-data

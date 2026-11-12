@@ -1,22 +1,5 @@
 ---
-id: harness-project-platform
-description: 项目平台与凭据
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-platform-001
-  type: command
-  config:
-    argv:
-    - bash
-    - -lc
-    - uv run pytest -q tests -k schema_parity
-    cwd: .
-    timeout: 300
+{"description": "项目平台与凭据", "next_rule": 1}
 ---
 
 # harness-project-platform

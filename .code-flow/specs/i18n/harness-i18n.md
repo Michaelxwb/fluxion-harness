@@ -1,22 +1,5 @@
 ---
-id: harness-i18n
-description: 词条与语言协商
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-i18n-001
-  type: command
-  config:
-    argv:
-    - bash
-    - -lc
-    - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py
-    cwd: .
-    timeout: 300
+{"description": "词条与语言协商", "next_rule": 1}
 ---
 
 # harness-i18n

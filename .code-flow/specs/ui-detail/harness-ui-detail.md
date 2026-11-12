@@ -1,23 +1,5 @@
 ---
-id: harness-ui-detail
-description: 详情 SideSheet 与表格
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-ui-detail-001
-  type: command
-  config:
-    argv:
-    - bash
-    - -lc
-    - uv run pytest -q tests/frontend/test_detail_sidesheet_contract.py tests/frontend/test_form_layout_contract.py && npm --prefix
-      apps/console-platform/frontend run typecheck
-    cwd: .
-    timeout: 600
+{"description": "详情 SideSheet 与表格", "next_rule": 1}
 ---
 
 # harness-ui-detail

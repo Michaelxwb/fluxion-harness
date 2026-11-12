@@ -1,5 +1,7 @@
 # 归档验收快照（E2E 分层后）
 
+> **v0.8 历史资料**：旧归档任务已移到项目外备份，v1 不再读取 `.acceptance-manifest.json`/`spec-context.yml`；相关 inventory 脚本已删除。本文仅作为历史快照说明保留。
+
 2026-10-23 的 E2E 精度改造把各域关键旅程收窄、把 UI/错误态下沉 component、把非关键真实栈
 用例拆成 regression。归档任务（`.code-flow/tasks/archived/**`）里的
 `.acceptance-manifest.json`、覆盖表命令与 Evidence 是**当时**的验证快照，**不回改**。

@@ -1,5 +1,7 @@
 # Agent 容量与 Webchat 验收映射核对（B-318 / TASK-118）
 
+> **v0.8 历史资料**：v1 已移除 acceptance manifest、validation/verifier cache 与 L0 映射审计；下文 L0 与第 4 节证据更新命令不再适用。L1-L5 的容量与浏览器验收命令仍然适用。
+
 本文是需求 `agent-capacity-webchat`（2026-10-16）的**验收收口运行手册**：说明每一层验收
 跑什么、证明什么、失败怎么读，以及哪些容量边界**没有被验证**。设计来源：
 `agent-capacity-webchat.backend.design.md` §2.5 验收条件 / §4.3 分层验收与报告 /

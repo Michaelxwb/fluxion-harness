@@ -19,46 +19,48 @@
 - Unparameterized SQL
 - Network calls inside tight loops
 
-<!-- code-flow:spec-loading schema=1 start -->
 ## 验收怎么跑（全量测试）
 
 - **pytest**：`make acceptance`（自动建空库 + Redis 10–15 号，无需环境变量）。
 - **浏览器**：`make acceptance-e2e DOMAIN=<域>`（含前端 build；preview 跑构建产物）。
 - **不要**共用 dev 库跑验收；跑前先停 dev 服务并查残留进程（`--reload` Worker 会抢任务，表现为 `SKILL_ARTIFACT_UNAVAILABLE` 一类假故障）。
-- **归档复用 CI 缓存**：heavy validators / review 结果从 `check` 的 `workflow_dispatch` 导出，本地 `--rebind-local` 合并后 `verify-e2e`/`archive` 复用；操作步骤、artifact 与排障见 `docs/operations/ci-validation-cache.md`。
-- **触发词**：用户说“复用 CI 流水线 / 复用 CI 缓存 / 用 CI 跑归档 / 用 CI 结果归档”时，不要直接跑本地全量；先读 `docs/operations/ci-validation-cache.md`，按 runbook 触发 `workflow_dispatch`、下载 artifact、`--rebind-local` 合并，再执行 `verify-e2e`/`archive`。**默认用 kimi-webbridge 控制已登录浏览器完成触发和 artifact 下载，不要等用户提供 token/gh。**
+- **全量校验**：由 CI 或手动执行；v1 的 `task finish` 只跑当前 TASK 声明的相关测试，`task archive` 只应用 Spec Delta 并移动需求，不执行测试。
+- **触发词**：用户说“复用 CI 流水线 / 复用 CI 缓存 / 用 CI 跑归档 / 用 CI 结果归档”时，不要直接跑本地全量；先读 `docs/operations/ci-validation-cache.md`，按 runbook 触发 `workflow_dispatch`、下载 artifact，再执行对应验收。**默认用 kimi-webbridge 控制已登录浏览器完成触发和 artifact 下载，不要等用户提供 token/gh。**
 - 隔离机制、残留处理与逃生阀 `MUAD_ACCEPTANCE_SHARED_DB=1` 见 `.code-flow/specs/test/harness-test.md`。
 
-## Spec Workflow (schema 1)
+## Spec 编写要求
 
-- If `.code-flow/.active-task.json` exists, validate it and `spec-context.yml`, then use only the active TASK's `Spec-Refs`, Design refs, and Acceptance Contract. Never reselect Specs from Catalog.
-- Without an active TASK, explicit file paths use deterministic `path_mapping` constraints; prompts without paths receive the Spec Catalog for exploration or creation of the next Context.
-- PRD, Design, Plan, Start, Coding, and Done inherit one persisted Context. Required rules must be applied and verified before their stage gate passes.
-- A corrupt marker, Context hash drift, or required scope expansion is `SPEC_WORKFLOW_BLOCKED`; run `cf-spec refresh/doctor` instead of falling back.
-- Tier 0 `_map.md` files are navigation only. Rule constraints live in metadata-bearing Tier 1 Specs.
 - Specs 只写规范与编码要求，不写会随代码/配置变化的实现值（指标名、超时/重试秒数、计数/容量上限、默认值、端口/IP、源码行号）；需要时引用配置或契约所有者（`*Settings`、`MAX_*`、ConfigMap 键），具体值以代码/配置为准。设计模板中的示例占位值除外。
+- 使用 JSON frontmatter（`description`、`next_rule`）和路径身份；规则放在 `## Rules`，保留稳定的 `RULE-*` ID。新增规则的编号来自 `next_rule`。
+- 修改已接受规则时通过 Task 的 Spec Delta；archive 应用 Delta，并保留 Applied Deltas 记录。
+- 新增/修改规范用 ✅/❌ 对照示例，写进 `## Conventions`；harness spec 只有 `## Rules` / `## Conventions` / `## Avoid` 三个 H2，不引入 H3。
 
-Do NOT ask the user which Specs to load—the Context-first router is authoritative.
-<!-- code-flow:spec-loading schema=1 end -->
+## 收尾提交纪律
 
-## 合规反馈协议（quality_loop）
+- 任务收尾提交信息**以 `code-flow task finish` 的实际结果为准**：先拿到返回，再写提交信息；禁止把 `finish` 与 `git commit` 串在同一条 `&&` 链里抢先写结论。
+- 测试失败时不得写“完成”；提交信息只陈述已发生的事实。
+- 排查/方案类请求先给证据和根因，再对齐方案，不盲猜或先改代码；门禁/测试“单跑通过、整跑偶发失败”先查残留（孤儿进程、共享测试库），复跑一次再下结论。
 
-1. 编辑代码后收到 **Spec 合规反馈 (auto-check)** 时，先按提示修正违规，再继续当前任务
-2. 用户表示某条反馈是误报（"这是误报"/"忽略这个检查"）时，代为执行：
-   `python3 .code-flow/scripts/cf_feedback.py ignore <check-id>`
-   （check-id 见反馈中的 `规则: <spec>#<check-id>`；同一规则误报达阈值会自动停用）
-3. 会话收尾被校验拦回（cf-stop 反馈未过项）时，修复后再结束；不要绕过
-4. 新增/修改规范用 ✅/❌ 对照示例，写进 `## Conventions`；harness spec 只有 `## Rules` / `## Conventions` / `## Avoid` 三个 H2，**不引入 H3**（解析只认 H2）。
+## Task Documents
 
-## 收尾提交纪律（Done Gate）
+- 一个需求一份任务文档 `.code-flow/tasks/<日期>/<需求>/<需求>.md`，包含多个 `## TASK-NNN` 段。
+- `workflow: full`：PRD/design/scenarios 与任务文档同放需求目录；模板在 `.code-flow/templates/`。
+- 流程：`cf-task:prd` → `.prd.md` → `cf-task:align` → design → `cf-task:plan` → 任务文档。
+- 全栈需求可有 `<需求>.frontend.design.md` + `<需求>.backend.design.md`；`cf-task:plan <需求目录>` 合并拆解，`cf-task:archive` 按整个需求目录归档。
+- 完成前用 `code-flow task finish <任务文档> --task TASK-NNN` 执行声明测试；`cf-task:archive` 只应用 Spec Delta 并移动需求。
 
-- 任务收尾提交信息**以 Done Gate 的实际裁决为准**：先拿到 `cf_task_workflow.py finish` 的返回，再写提交信息；禁止把 `finish` 与 `git commit` 串在同一条 `&&` 链里抢先写结论（本项目曾连续写错三次，`--amend` 后错误结论仍进过历史）。
-- Gate `block` 时不得写「Gate pass」；已 pass 时也不得写「阻塞待查」。提交信息只陈述已发生的事实。
-- 排查/方案类请求先给证据和根因，再对齐方案，不盲猜或先改代码；门禁/verifier「单跑通过、整跑偶发失败」先查残留（孤儿进程、共享测试库），复跑一次再下结论。
+<!-- code-flow:v1 start -->
+使用全局 code-flow CLI，以及 `.code-flow/config.json`、`.code-flow/specs/`、`.code-flow/tasks/`、`.code-flow/templates/` 中的当前项目数据。
 
-## Task Documents (cf-task workflow)
+一个需求一份任务文档 `<requirement>.md`，包含多个 `## TASK-NNN` 段。通过任务文档路径 + TASK ID，或 prompt Hook 提供的 session token 选择 Task；不要根据状态推断。
 
-- `.code-flow/specs/shared/` holds PRD/design templates（含前端 `design-frontend.md`）used by `/cf-task:prd` and `/cf-task:align`
-- 一个需求的 prd / design / tasks 同放需求目录 `.code-flow/tasks/<日期>/<需求>/`；全栈需求可有 `<需求>.frontend.design.md` + `<需求>.backend.design.md`，`/cf-task:plan <需求目录>` 合并拆解，`/cf-task:archive` 按整个需求目录归档（旧扁平布局仍兼容）
-- Workflow: `/cf-task:prd` → `.prd.md` → `/cf-task:align <.prd.md>` → `.design.md`(s) → `/cf-task:plan <需求目录>` → tasks
-- Templates are read by the commands themselves; you do not need to pre-load them
+实现前读取当前 Task 的 Spec 引用。Spec 引用是相对于 `.code-flow/specs` 的路径，不带 `.md`。
+
+工作流级别来自 `.code-flow/config.json` 的 `workflow`：`hook`（默认）使用 Spec 注入加一份带声明测试的任务文档，不要求 PRD/design/scenarios；`full` 增加 PRD/design/scenarios 流程。设计文档是项目资产，不作为 prompt 输入；只有 Spec 会被注入。
+
+标记完成前，用 `task finish <task-document>.md --task TASK-NNN` 执行声明的测试。测试应限定在有意义的 unit/integration 回归；优先一次框架调用，使用框架自己的 workers。
+
+archive 应用声明的 Spec Delta 并移动需求；CI 独立执行完整回归和 E2E。使用 `cf-task:prd`、`cf-task:align` 和 `cf-task:plan` 处理文档流程；不要为每个 Task 建一个文件。
+
+Hook 诊断永不阻止工作。缺少绑定时要显式提供任务文档 + TASK ID，或重新执行 task start。
+<!-- code-flow:v1 end -->

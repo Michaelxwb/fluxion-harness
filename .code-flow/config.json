@@ -1,0 +1,290 @@
+{
+  "_comment": {
+    "note": "本字段仅用于说明，code-flow 会忽略。JSON 不支持注释，因此用 _comment 记录参数含义。",
+    "version": "配置格式版本，当前固定为 1。",
+    "workflow": "工作流级别：hook（默认，Spec 注入 + 一份带声明测试的任务文档）或 full（额外 PRD/design/scenarios）。",
+    "always": "每次 prompt 都注入的 Spec 路径数组；路径相对 .code-flow/specs，不带 .md，可带 #RULE-...。",
+    "budget": {
+      "maxTokens": "一次注入的最大估算 token 数（正整数）；超出时按优先级省略并输出 omitted。",
+      "maxBytes": "一次注入的最大 UTF-8 字节数（正整数）；与 maxTokens 同时生效。"
+    },
+    "tests": {
+      "timeoutSeconds": "任务声明测试的默认超时秒数（正整数）；单个测试可用 timeout 覆盖。",
+      "jobs": "task finish 并行执行声明测试的默认并发数（正整数）。",
+      "regression": "合并后追加的回归命令：null 表示关闭；否则为对象，提供 argv 或 run 之一，可带 cwd/timeout/parallel/group/env。"
+    },
+    "capture": {
+      "enabled": "是否自动记录过程事件；只有 literal true 开启。",
+      "path": "过程事件目录，必须是 .code-flow 下的相对路径。"
+    },
+    "paths": "文件 glob 到 Spec 引用数组的映射；prompt 中出现匹配路径时注入对应 Spec。glob 支持 *、**、?，不支持 {}、[]、() 或 !。"
+  },
+  "version": 1,
+  "workflow": "full",
+  "always": [],
+  "budget": {
+    "maxTokens": 7500,
+    "maxBytes": 32768
+  },
+  "tests": {
+    "timeoutSeconds": 300,
+    "jobs": 2,
+    "regression": null
+  },
+  "capture": {
+    "enabled": false,
+    "path": ".code-flow/process"
+  },
+  "paths": {
+    "**/*.css": [
+      "ui/harness-ui"
+    ],
+    "**/*.jsx": [
+      "ui/harness-ui"
+    ],
+    "**/*.scss": [
+      "ui/harness-ui"
+    ],
+    "**/*.tsx": [
+      "ui/harness-ui"
+    ],
+    "**/*DetailSideSheet.tsx": [
+      "ui-detail/harness-ui-detail"
+    ],
+    "**/*DetailTabs.tsx": [
+      "ui-detail/harness-ui-detail"
+    ],
+    "**/*binding*": [
+      "rel/harness-rel"
+    ],
+    "**/*grant*": [
+      "auth/harness-auth"
+    ],
+    "**/*redact*": [
+      "secret/harness-secret"
+    ],
+    "**/*relations*": [
+      "rel/harness-rel"
+    ],
+    "**/*schedule*": [
+      "time/harness-time"
+    ],
+    "**/*scheduler*": [
+      "time/harness-time"
+    ],
+    "**/DateTimeText*": [
+      "time/harness-time"
+    ],
+    "**/DetailSideSheet.tsx": [
+      "ui-detail/harness-ui-detail"
+    ],
+    "**/auth/**": [
+      "auth/harness-auth"
+    ],
+    "**/chat_auth_service.py": [
+      "auth/harness-auth"
+    ],
+    "**/chat_security.py": [
+      "auth/harness-auth"
+    ],
+    "**/chat_token_service.py": [
+      "auth/harness-auth"
+    ],
+    "**/components/common/DetailGrid.tsx": [
+      "ui-detail/harness-ui-detail"
+    ],
+    "**/credential*/**": [
+      "secret/harness-secret"
+    ],
+    "**/mcp/**": [
+      "mcp/harness-mcp"
+    ],
+    "**/models/**": [
+      "persistence/harness-data",
+      "time/harness-time"
+    ],
+    "**/models/auth.py": [
+      "auth/harness-auth"
+    ],
+    "**/models/model*": [
+      "model/harness-model"
+    ],
+    "**/scheduler/**": [
+      "worker/harness-worker"
+    ],
+    "**/security*.py": [
+      "secret/harness-secret"
+    ],
+    "**/tools/**": [
+      "mcp/harness-mcp"
+    ],
+    "**/webchat_auth.py": [
+      "auth/harness-auth"
+    ],
+    ".github/**": [
+      "test/harness-test"
+    ],
+    "Makefile": [
+      "test/harness-test"
+    ],
+    "apps/**/api/**": [
+      "api/harness-api"
+    ],
+    "apps/**/frontend/**": [
+      "frontend/harness-frontend",
+      "ui/harness-ui"
+    ],
+    "apps/**/frontend/src/i18n/**": [
+      "i18n/harness-i18n"
+    ],
+    "apps/**/frontend/src/locales/**": [
+      "i18n/harness-i18n"
+    ],
+    "apps/agent-runtime/**": [
+      "snapshot/harness-snapshot"
+    ],
+    "apps/agent-runtime/src/muad_agent_runtime/api/memory*.py": [
+      "memory/harness-memory"
+    ],
+    "apps/agent-runtime/src/muad_agent_runtime/application/memory/**": [
+      "memory/harness-memory"
+    ],
+    "apps/agent-runtime/src/muad_agent_runtime/application/memory_*.py": [
+      "memory/harness-memory"
+    ],
+    "apps/agent-runtime/src/muad_agent_runtime/application/model_*.py": [
+      "model/harness-model"
+    ],
+    "apps/agent-runtime/src/muad_agent_runtime/infrastructure/repositories/memory*.py": [
+      "memory/harness-memory"
+    ],
+    "apps/agent-worker/**": [
+      "worker/harness-worker"
+    ],
+    "apps/console-platform/backend/src/muad_console_platform/application/memory*.py": [
+      "memory/harness-memory"
+    ],
+    "apps/console-platform/backend/src/muad_console_platform/application/model_*.py": [
+      "model/harness-model"
+    ],
+    "apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/memory*.py": [
+      "memory/harness-memory"
+    ],
+    "apps/im-connector/**": [
+      "im/harness-im"
+    ],
+    "apps/im-gateway/**": [
+      "im/harness-im"
+    ],
+    "config/api-messages.yaml": [
+      "api/harness-api"
+    ],
+    "deploy/**": [
+      "arch/harness-arch"
+    ],
+    "e2e/**": [
+      "e2e/harness-e2e"
+    ],
+    "e2e/tests/agent-management/memory-redesign.spec.ts": [
+      "memory/harness-memory"
+    ],
+    "migrations/**": [
+      "persistence/harness-data"
+    ],
+    "migrations/versions/0020_memory_redesign.py": [
+      "memory/harness-memory"
+    ],
+    "packages/agent-core/**/model/**": [
+      "model/harness-model"
+    ],
+    "packages/agent-core/**/skill/**": [
+      "artifact/harness-skill"
+    ],
+    "packages/agent-core/src/muad_agent_core/memory/**": [
+      "memory/harness-memory"
+    ],
+    "packages/api-kit/**": [
+      "api/harness-api",
+      "secret/harness-secret"
+    ],
+    "packages/artifact-store/**": [
+      "artifact/harness-skill"
+    ],
+    "packages/contracts/src/muad_contracts/channel.py": [
+      "im/harness-im"
+    ],
+    "packages/contracts/src/muad_contracts/delivery.py": [
+      "im/harness-im"
+    ],
+    "packages/contracts/src/muad_contracts/memory.py": [
+      "memory/harness-memory"
+    ],
+    "packages/contracts/src/muad_contracts/model_pool.py": [
+      "model/harness-model"
+    ],
+    "packages/contracts/src/muad_contracts/runtime.py": [
+      "snapshot/harness-snapshot"
+    ],
+    "packages/contracts/src/muad_contracts/tasks.py": [
+      "worker/harness-worker"
+    ],
+    "packages/contracts/src/muad_contracts/webchat.py": [
+      "im/harness-im"
+    ],
+    "packages/contracts/src/muad_contracts/webchat_events.py": [
+      "im/harness-im"
+    ],
+    "packages/im-core/**": [
+      "im/harness-im"
+    ],
+    "packages/logging-kit/**": [
+      "logging/harness-log",
+      "secret/harness-secret"
+    ],
+    "packages/platform-sdk/**": [
+      "platform/harness-project-platform",
+      "secret/harness-secret"
+    ],
+    "packages/skill-sdk/**": [
+      "artifact/harness-skill"
+    ],
+    "scripts/check_agent_capacity_deployment.py": [
+      "test/harness-test"
+    ],
+    "scripts/check_error_message_hardcode.py": [
+      "test/harness-test"
+    ],
+    "scripts/check_frontend_api_usage.py": [
+      "frontend/harness-frontend",
+      "test/harness-test"
+    ],
+    "scripts/check_frontend_i18n.py": [
+      "i18n/harness-i18n",
+      "test/harness-test"
+    ],
+    "scripts/check_secret_ref_residue.py": [
+      "test/harness-test"
+    ],
+    "scripts/clean_acceptance_claims.py": [
+      "test/harness-test"
+    ],
+    "scripts/dev.sh": [
+      "test/harness-test"
+    ],
+    "scripts/e2e_changed.py": [
+      "test/harness-test"
+    ],
+    "tests/**": [
+      "test/harness-test"
+    ],
+    "tests/**/test_memory_redesign*.py": [
+      "memory/harness-memory"
+    ],
+    "tests/frontend/test_e2e_suite_contract.py": [
+      "e2e/harness-e2e"
+    ],
+    "tests/test_memory_redesign*.py": [
+      "memory/harness-memory"
+    ]
+  }
+}

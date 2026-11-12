@@ -1,42 +1,5 @@
 ---
-id: harness-test
-description: 测试分层、验收隔离与 CI
-stages:
-- design
-- plan
-- code
-- review
-enforcement: required
-verifiers:
-- rule: RULE-test-001
-  type: command
-  # 全量 acceptance + 前端 build + Playwright 是需求级终验，不在每个写测试的 code TASK
-  # finish 中重跑；否则任何 tests/** 改动都会拉起全场 E2E。
-  stage: review
-  # 声明作用域后 command 结果可按 scope 内容指纹缓存；CI 手动导出 verifier cache
-  # 供本地 archive 复用（见 harness-test 的 CI 约定）。
-  files:
-    - apps/**
-    - packages/**
-    - tests/**
-    - e2e/**
-    - scripts/**
-    - migrations/**
-    - config/**
-    - Makefile
-    - pyproject.toml
-    - uv.lock
-  config:
-    argv:
-    - bash
-    - -lc
-    - uv run python scripts/ci_validation_cache.py --validator "Pytest (acceptance)"
-      --json && npm --prefix apps/console-platform/frontend run build && npm --prefix
-      e2e test
-    cwd: .
-    # 链 = 非容量 acceptance（经 validation cache helper，顺带写 acceptance 缓存）+
-    # 前端 build + Playwright e2e。capacity_load 是手动容量边界，不进 Done Gate。
-    timeout: 2700
+{"description": "测试分层、验收隔离与 CI", "next_rule": 1}
 ---
 
 # harness-test
@@ -67,20 +30,19 @@ verifiers:
 - **运行前 Redis claim 预清理**：`make acceptance` 先跑 `scripts/clean_acceptance_claims.py`；仅当没有活跃 pytest/Playwright 进程时清独立号位 claim。`make acceptance-clean` 是显式 `--force` 入口；异常中断仍由占位 TTL 兜底。
 - **集群验收使用独立 3M3R，环境切换必须是模块作用域**：集群用例的环境覆盖只在集群模块内生效并在模块结束恢复，禁止 session 作用域（会把集群 URL 泄漏给后续模块）。集群不可达时以 `env_blocked` 失败而非 skip；测试写入的临时 key 必须有唯一前缀并在收尾清理。✅ 一条命令入口跑集群套件；❌ 用 DB 号位隔离集群（集群只有 db 0）。
 - **两步写不能等到第一步就断言第二步**：被测组件分两步写共享状态时，测试必须对第二步做有界等待；❌ 等到第一个事实出现就立即断言第二个（全量负载下偶发失败）。
-- **容量压测分层**：`tests/acceptance/capacity/test_capacity.py` 标记 `integration + capacity_load`，默认 `make acceptance` / `make test` 用 `-m "not capacity_load"` 排除；显式入口 `make capacity-smoke`（100 用户）、`make capacity-load`（200）、`make capacity-soak`（400，需 `MUAD_CAPACITY_SOAK=1`）。SLO 判定走 `tests/capacity/slo.py`，状态/速率由 `tests/capacity/metrics.py` 采集。1000 用户 × 8 轮是 manual/staging 未验证边界，不进 Done Gate。
+- **容量压测分层**：`tests/acceptance/capacity/test_capacity.py` 标记 `integration + capacity_load`，默认 `make acceptance` / `make test` 用 `-m "not capacity_load"` 排除；显式入口 `make capacity-smoke`（100 用户）、`make capacity-load`（200）、`make capacity-soak`（400，需 `MUAD_CAPACITY_SOAK=1`）。SLO 判定走 `tests/capacity/slo.py`，状态/速率由 `tests/capacity/metrics.py` 采集。1000 用户 × 8 轮是 manual/staging 未验证边界，不进默认验收。
 
 **Runtime 真实环境与收口**：
 
 - **Runtime 验收真实环境基建**（`tests/acceptance/runtime/`）：module-scoped live stack——Console/Runtime 真实 uvicorn、LLM/MCP 本地 HTTP 探针、数据落真实 PostgreSQL/Redis/Artifact Store；禁止 `dependency_overrides`/mock 业务服务。跨 Pod/崩溃用真实子进程（SIGKILL 后由另一实例 Reaper 回收）；进程内服务线程与 pytest-asyncio 并存时清理 engine `lru_cache`，async 工具走独立线程（禁止 `asyncio.run` 污染主循环）。
 - **强杀/回收类用例的等待预算要给足整跑余量**：单跑能过的窗口在全量负载下会拉长；只放大等待预算，断言不变（实例：Reaper 回收与探针延迟）。
 - **多副本下在飞 SSE 与执行实例不保证同 Pod**：SIGKILL 执行实例后，订阅可能由另一实例继续追尾并先收到 Reaper 的 `run.error`。✅ 失败终态按 `run.error` 识别；重连游标已越过终态时允许空续跟；终态断言对两次订阅取并集；SSE 读取必须落实 `timeout_sec`。❌ 假设「在飞订阅断开时必无终态、重连必能读到终态」——多副本 + 入口代理下首个订阅会先消费 `run.error`，旧断言要么误判、要么因只等 `run.terminal` 且忽略 timeout 而永久挂起（2026-10-31 `test_e08_runtime_kill_*`）。
-- **验收命令由 acceptance manifest runner 统一复验并写证据**：相同 argv/cwd/timeout 复用；测试未收集、未执行或失败均视为 FAIL。
-- **改任务文档后重生成 manifest 会保留证据、把契约变化标 stale**（0.8 起）：`cf_acceptance_manifest.py --task-file … --output …` 保留已有 `evidence`/`runs`；契约变化置 `stale` 并列入 `relock.stale`。补证据可按 owner 回填：`cf_acceptance_runner.py --manifest <需求目录>/.acceptance-manifest.json --root "$PWD" --write-evidence --owner TASK-0XX`（无需 active marker；不带 `--include-e2e` 时 E2E 行保持 deferred）。
-- **每个需求收尾必须有 `tests/<domain>_inventory.py` 闭合清单**：以**真实盘面**为输入交叉核对，而不是自查断言——任务文档覆盖表/契约表/Evidence、`.acceptance-manifest.json`、`spec-context.yml` 的 required 规则、E2E 套件与场景名是否真的在盘。现网已有多份（console_auth/overview_dashboard/audit_observability/dfx/agent_memory/async_tool_runtime/context_compaction/memory_redesign/platform_settings/run_event_details 等）。
-  - 覆盖表每行（含 RULE 规则行）唯一负责人且终态，**不豁免收口任务自身**；manifest 与覆盖表同 ID/owner/命令，并比对 `level`/`boundary`/`cwd`。
-  - 终态场景与规则行在该 owner 的 Evidence 里登记且状态一致；**非 manual 行必须有同 ID 的证据表行**——runner 自动写条目不能替代（会掩盖整行缺失）。
-  - 契约表要为该任务 `Acceptance-Refs` 的每个 ID 留一行（只断言「行是否终态」查不出整行被删）；证据表不得残留占位行；`-k`/`-g` 令牌必须真实命中。
-  - **结构性 RED + 扰动取证**：清单缺失时 argv 必须失败；至少扰动 4 类（改状态/删证据行/伪造用例名或命令/改 manifest 字段），每类变红且指名条目，逐字节还原后复绿。扰动锚点读当前终态再改为非终态，不假设行处于 `e2e_deferred`。
+- **任务声明的 tests 必须真实执行**：相同 argv/cwd/timeout 复用；测试未收集、未执行或失败均视为 FAIL。
+- **每个需求收尾必须有 `tests/<domain>_inventory.py` 闭合清单**：以**真实盘面**为输入交叉核对，而不是自查断言——任务文档的 TASK 覆盖表与声明的 tests、Spec-Refs、Scenarios、E2E 套件与场景名是否真的在盘。现网已有多份（console_auth/overview_dashboard/audit_observability/dfx/agent_memory/async_tool_runtime/context_compaction/memory_redesign/platform_settings/run_event_details 等）。
+  - 覆盖表每行（含 RULE 规则行）唯一负责人且终态，**不豁免收口任务自身**；任务文档的 TASK 段与 inventory 同 ID/命令。
+  - 终态场景与规则行必须真实在盘且状态一致；**非 manual 行必须有对应测试路径**。
+  - 覆盖表要为该任务 `Spec-Refs`/`Scenarios` 的每个 ID 留一行（只断言「行是否终态」查不出整行被删）；不得残留占位行；`-k`/`-g` 令牌必须真实命中。
+  - **结构性 RED + 扰动取证**：清单缺失时 argv 必须失败；至少扰动 4 类（改状态/删行/伪造用例名或命令/改任务声明字段），每类变红且指名条目，逐字节还原后复绿。扰动锚点读当前终态再改为非终态，不假设行处于 `e2e_deferred`。
   - **路径双写 live→archived**：`_dir()` 先试 live，再取 `archived/`；硬编码 live 路径会让归档后整套验收变红。
   - **改动 `apps/`、`packages/` 模块级常量（大写赋值）的任务必须重生成 `docs/configuration-inventory.csv`**：`python-constant` 行由 AST 逐行比对，行号位移或增删都会红；重算后跑 `tests/test_configuration_inventory.py`。
 
@@ -91,18 +53,17 @@ verifiers:
 - **微基准不作为单测性能门禁**：5 chunk/1 repeat 的跨场景耗时排序会被预热/调度噪声翻转；单测只断言结构（场景存在、事件数、正数耗时），耗时只作诊断输出（`test_capacity_chunk_bench.py`）。
 - **本地跑测/Playwright 前停 dev 服务**：`scripts/dev.sh stop` 按精确仓库根 cwd + 端口持有者清理 multiprocessing/uvicorn reload 子进程；e2e 的 `pretest` 先停 dev，避免 `--reload` Worker 抢共享库任务。
 - **后端 CI 并行分片**：`backend-static` 只跑 compile/i18n/error-message/lint/typecheck（无 DB）；`backend-tests` 按目录切 `fast`/`runtime`/`console`/`worker` 四个 matrix job，**每个 job 自带 PG/Redis service**，互不共享库与 Redis 号位。`acceptance` 按模块切 `dfx`/`gateway`/`im_gateway`/`runtime`/`capacity`/`task_schedule`/`rest` 七片，各自一套 PG/Redis 与临时库——起真实 Worker/Runtime 的模块串在一个 job 会污染后续模块。CI 预建 `.data/artifacts` 与 `.data/skill-cache`。分片是人工清单：新增顶层测试目录（含 `tests/acceptance` 子目录）必须同步 `.github/workflows/check.yml`，否则静默漏跑；四个单测分片收集条数应互不重叠并等于拆分前的收集数。
-- **本地单测分片必须与 CI 同口径**：`.code-flow/validation.yml` 的 `Pytest (unit)` 按 `fast`/`runtime`/`console`/`worker` 静态分片、各自独立进程执行，并带 `-m "not capacity_load"`。✅ 本地路径与 `.github/workflows/check.yml` 逐项一致、新增顶层目录两处同步；❌ 单进程 `pytest --ignore=tests/acceptance` 跑全量——前序模块创建的 engine/日志/租户状态会污染后续文件（实测多条「单文件绿、整批红」：SQL 捕获为空、指标样本混入其它模块 label）。
-- **CI heavy validator 即缓存生产者**：`check.yml` 的 `backend-tests` 四个 job 必须执行 `.code-flow/validation.yml` 同名 validator 的**原命令**；手动 `workflow_dispatch` 时各 job 导出 `.validation-cache.json` 分片，`validation-cache-merge` 合并成 `validation-cache` artifact（含 `validation-cache-provenance.json`）。本地用 `scripts/merge_validation_cache.py --rebind-local --provenance ...` 合并：脚本校验 CI commit == 本地 HEAD、缓存 fingerprint == 本地工作树指纹，只把 execution identity 重绑定到本机并保留 CI identity/run URL 作审计；随后 `task verify-e2e`/`task archive` 复用，不再重跑 heavy 套件。✅ 在分支 HEAD 上 dispatch（PR 的 merge commit 与本地 HEAD 不同）；本地合并后保持工作区干净。❌ 另写一份“差不多”的 pytest 命令或改分片路径——argv 不同，缓存永远 miss；❌ 跳过 `--rebind-local` 直接拷 cache——code-flow 的 execution identity 含 cwd/env，跨机器永远 miss。
-- **review 层也走 CI 缓存**：`harness-test#RULE-test-001` 声明 `files` 作用域，`review-cache` job 在 dispatch 时传 `review_task_dir` 跑 `task verify --layers review --profile full`，导出 `.verifier-cache.json`；该命令内部用 `scripts/ci_validation_cache.py` 跑 acceptance，顺带写 acceptance 的 validation cache。本地把 `verifier-cache.json` 放到 `.code-flow/.verifier-cache.json`，`verify-e2e`/`archive` 的 review 层直接复用。✅ verifier cache key 由 spec/rule/verifier/scope 内容决定，不含 cwd/env；❌ 把 `files` 作用域扩到 `.code-flow/**`——任务文件变动会让缓存永远 miss。
+- **本地单测分片必须与 CI 同口径**：`fast`/`runtime`/`console`/`worker` 静态分片各自独立进程执行，并带 `-m "not capacity_load"`。✅ 本地路径与 `.github/workflows/check.yml` 逐项一致、新增顶层目录同步 CI；❌ 单进程 `pytest --ignore=tests/acceptance` 跑全量——前序模块创建的 engine/日志/租户状态会污染后续文件（实测多条「单文件绿、整批红」：SQL 捕获为空、指标样本混入其它模块 label）。
+- **CI 是全量验收的权威入口**：`check.yml` 的 `backend-tests` 四片与 acceptance 七片各自带 PG/Redis service；需要复用 CI 结果时按 `docs/operations/ci-validation-cache.md` 手动 `workflow_dispatch`、下载 artifact 并记录 run URL。v1 的 `task archive` 不消费验证缓存；归档前由人工确认全量结果。✅ 在分支 HEAD 上 dispatch；❌ 另写一份“差不多”的 pytest 命令或改分片路径。
 
 **验收反模式（Anti-Patterns）**：
 
 - ❌ 恒真断言：`assert reaped >= 0`、对可能为空集合 `all(...)`、`exclude={"api_key"}` 后再断言无 `api_key`——断言必须能真实失败。
-- ❌ 命令与场景不符：`-k` 未命中任何测试（退出码 5）却标记 verified；测试名/文件与 Acceptance Contract 声明不一致。
+- ❌ 命令与场景不符：`-k` 未命中任何测试（退出码 5）却标记 verified；测试名/文件与任务声明的 tests 不一致。
 - ❌ 验收层级注水：把 service/DB 级测试写成 E2E，或边界文案（真实 Gateway/进程/SSE）与测试实际行为不符；用 jsdom/组件单测冒充 E2E。
 - ❌ 空转用例：测试名说「跨 host 跳转拒绝」却请求 `/healthz`、`follow_redirects=False` 从未触发跳转。
 - ❌ **多输入断言的腿被合并**：断言「改配置/授权只影响新 Run」必须一次只改一个输入，并断言其余腿对应列不变。✅ 逐腿改 `agent.instructions` 与 `model.params_json` 各断言一次；❌ 同时改两处后只断言 hash 变了。
-- ❌ 把验收/Done Gate 输出接进会提前关闭的管道（典型 `| head`）：SIGPIPE 打断 pytest 收尾，留下 uvicorn/`muad_*.main` 孤儿进程继续连同一个本地测试库，后续随机失败。用 `> file` 或 `tail`，每次运行前确认无残留进程。**本条无机检，靠运行前自查与评审。**
+- ❌ 把验收输出接进会提前关闭的管道（典型 `| head`）：SIGPIPE 打断 pytest 收尾，留下 uvicorn/`muad_*.main` 孤儿进程继续连同一个本地测试库，后续随机失败。用 `> file` 或 `tail`，每次运行前确认无残留进程。**本条无机检，靠运行前自查与评审。**
 - ❌ 只断言「有变更时的主路径」：命令副作用边界（空库 CLEAR 也要撤销 pending 提议）、同响应多字段必须同快照（`total`/`items` 同一条 SQL）、删除后必须经界面入口可达，三类各写一条可独立失败的用例。
 - ❌ 把「单跑绿、整跑红」一律当测试竞态：先分类——测试时序假设改为确定性前提（放大在飞窗口/等待终态），**产品行为变化必须修产品**，不得用等待绕过去。
 - ❌ 修复类任务只贴 GREEN：必须带负向对照（移除修复或注入旧行为 → 必须红）的一次实证。

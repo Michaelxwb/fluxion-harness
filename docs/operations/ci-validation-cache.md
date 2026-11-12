@@ -1,5 +1,7 @@
 # CI validation cache 复用与本地归档
 
+> **v0.8 历史资料**：v1 已移除 validation/verifier cache 与 `task verify-e2e`/`task archive` 的缓存复用；`ci_validation_cache.py`、`merge_validation_cache.py` 与 `.code-flow/validation.yml` 已删除。本文仅保留 CI artifact 下载与人工复用的历史步骤，不再作为当前工作流依据。
+
 本文是 `.code-flow/specs/test/harness-test.md` CI 规则的**操作手册**：说明如何把 CI 已经跑过的
 heavy validator / review 结果复用到本地 `task verify-e2e` / `task archive`，以及常见故障怎么排查。
 
