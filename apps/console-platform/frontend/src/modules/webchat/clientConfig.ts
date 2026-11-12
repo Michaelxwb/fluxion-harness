@@ -24,7 +24,8 @@ import type {
   WebchatClientConfig,
   WebchatClientLimits,
   WebchatClientTransport,
-  WebchatRequestOptions
+  WebchatRequestOptions,
+  WebchatUploadFormat
 } from './types';
 
 /** 加载状态：首次成功（`ready`）前不开放发送/上传/订阅。 */
@@ -140,6 +141,61 @@ function readObject(source: Record<string, unknown>, key: string): Record<string
   return value;
 }
 
+/** 读取一个格式项：媒体类型非空、扩展名至少一个且都以点开头；同一项内不得重复。 */
+function readUploadFormat(value: unknown): WebchatUploadFormat {
+  if (!isRecord(value)) throw invalid();
+  const mediaType = value['media_type'];
+  if (typeof mediaType !== 'string' || mediaType.trim() === '') throw invalid();
+  const raw = value['extensions'];
+  if (!Array.isArray(raw) || raw.length === 0) throw invalid();
+  const extensions: string[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== 'string' || !entry.startsWith('.') || entry.length < 2) throw invalid();
+    if (extensions.includes(entry)) throw invalid();
+    extensions.push(entry);
+  }
+  return Object.freeze({ media_type: mediaType, extensions: Object.freeze(extensions) });
+}
+
+/**
+ * 读取允许上传的格式清单：非空数组、媒体类型互不重复。
+ *
+ * 扩展名允许跨条目重复（`.zip` 同时属于 `application/zip` 与 `x-zip-compressed`），
+ * 消费方用 `acceptedExtensions` 去重；同一项内重复仍视为非法投影。
+ */
+function readUploadFormats(value: unknown): readonly WebchatUploadFormat[] {
+  if (!Array.isArray(value) || value.length === 0) throw invalid();
+  const formats: WebchatUploadFormat[] = [];
+  const mediaTypes = new Set<string>();
+  for (const entry of value) {
+    const format = readUploadFormat(entry);
+    if (mediaTypes.has(format.media_type)) throw invalid();
+    mediaTypes.add(format.media_type);
+    formats.push(format);
+  }
+  return Object.freeze(formats);
+}
+
+/**
+ * 格式清单 → 去重后的扩展名列表（保持投影顺序）。
+ *
+ * 提示文案与 `accept` 的唯一派生点：不在组件里各自拼一份，避免两处展示不一致。
+ */
+export function acceptedExtensions(
+  formats: readonly WebchatUploadFormat[]
+): readonly string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const format of formats) {
+    for (const extension of format.extensions) {
+      if (seen.has(extension)) continue;
+      seen.add(extension);
+      result.push(extension);
+    }
+  }
+  return Object.freeze(result);
+}
+
 function parseLimits(value: unknown): WebchatClientLimits {
   if (!isRecord(value)) throw invalid();
   return {
@@ -147,7 +203,8 @@ function parseLimits(value: unknown): WebchatClientLimits {
     text_max_bytes: readPositiveInt(value, 'text_max_bytes'),
     upload_max_bytes: readPositiveInt(value, 'upload_max_bytes'),
     upload_max_per_message: readPositiveInt(value, 'upload_max_per_message'),
-    notification_poll_sec: readPositiveNumber(value, 'notification_poll_sec')
+    notification_poll_sec: readPositiveNumber(value, 'notification_poll_sec'),
+    upload_formats: readUploadFormats(value['upload_formats'])
   };
 }
 

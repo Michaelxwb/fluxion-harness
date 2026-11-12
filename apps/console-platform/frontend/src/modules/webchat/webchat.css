@@ -217,6 +217,48 @@
   border-radius: var(--app-radius-sm);
 }
 
+/* 条目行：选择按钮占满，操作区收在右侧（悬停/聚焦显形，触摸设备常显）。 */
+.chat-sidebar-item-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-sidebar-item-row .chat-sidebar-item-button {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-sidebar-item-actions {
+  flex: 0 0 auto;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.chat-sidebar-item-row:hover .chat-sidebar-item-actions,
+.chat-sidebar-item-row:focus-within .chat-sidebar-item-actions,
+.chat-sidebar-item[data-deleting='true'] .chat-sidebar-item-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .chat-sidebar-item-actions {
+    opacity: 1;
+  }
+}
+
+.chat-sidebar-item-deleting {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: 0 4px;
+}
+
+.chat-sidebar-delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .chat-sidebar-item-button {
   display: flex;
   align-items: center;
@@ -841,6 +883,18 @@
   background: var(--semi-color-bg-1);
   color: var(--semi-color-text-1);
   font-size: 12px;
+}
+
+/* 思考占位：与流式气泡同一版式，但内容只有一行等待文案。 */
+.chat-message-item-thinking .chat-message-body {
+  gap: 4px;
+}
+
+/* 思考占位：等待首个增量时的唯一可见信号；等宽数字避免每秒抖动。 */
+.chat-message-thinking-line {
+  color: var(--semi-color-text-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .chat-run-activity {

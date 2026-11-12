@@ -1,14 +1,17 @@
 """B-202: Webchat settings, explicit retention semantics and deployment budgets."""
 
 from dataclasses import asdict, fields, replace
+from uuid import UUID
 
 import pytest
+from muad_contracts.attachments import SUPPORTED_UPLOAD_FORMATS
 from muad_contracts.platform_settings import (
     PlatformSettingsError,
     default_platform_settings,
     parse_platform_settings,
     validate_platform_settings,
 )
+from muad_contracts.webchat import WebchatClientConfig, WebchatConversationDeletion
 
 pytestmark = pytest.mark.unit
 
@@ -195,3 +198,32 @@ def test_b202_defaults_and_direct_instances_must_fit_resource_budget(budget_key:
         parse_platform_settings(None, **{budget_key: budget})
     with pytest.raises(PlatformSettingsError, match=budget_key):
         validate_platform_settings(default_platform_settings(), **{budget_key: budget})
+
+
+def test_b202_client_limits_project_the_shared_upload_formats() -> None:
+    """客户端配置里的允许格式来自契约单一事实，不是设置字段、也不在前端另存一份。"""
+    config = WebchatClientConfig.from_settings(
+        settings_revision=1,
+        transport_revision="rev",
+        webchat=default_platform_settings().webchat,
+        sse_event_max_bytes=1024,
+        sse_heartbeat_sec=1.0,
+    )
+
+    assert config.webchat.upload_formats == SUPPORTED_UPLOAD_FORMATS
+    media_types = {item.media_type for item in config.webchat.upload_formats}
+    assert {"application/zip", "application/x-zip-compressed"} <= media_types
+    for item in config.webchat.upload_formats:
+        assert item.extensions and all(ext.startswith(".") for ext in item.extensions)
+
+
+def test_b202_conversation_deletion_receipt_is_a_single_shape() -> None:
+    """删除回执只有一种形状：`deleted` 恒为 True（重复删除同形），不接受伪造的其他值。"""
+    conversation_id = UUID("7d2f9b31-4c8a-4e5d-9f10-6a3b8c2d4e51")
+    receipt = WebchatConversationDeletion(conversation_id=conversation_id)
+    assert receipt.model_dump(mode="json") == {
+        "conversation_id": str(conversation_id),
+        "deleted": True,
+    }
+    with pytest.raises(ValueError):
+        WebchatConversationDeletion(conversation_id=conversation_id, deleted=False)  # type: ignore[arg-type]

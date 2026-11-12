@@ -338,6 +338,18 @@ async def get_conversation(
     return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
 
 
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: uuid.UUID,
+    request: Request,
+    chat: ChatIdentityDep,
+    service: WebchatServiceDep,
+) -> ApiResponse[Any]:
+    """API-16：删除自己的会话（软删；活跃 Run 在同一请求内按既有取消语义处理）。"""
+    deletion = await service.delete_conversation(chat, conversation_id)
+    return ok(request.app.state.message_catalog, deletion.model_dump(mode="json"))
+
+
 @router.get("/conversations/{conversation_id}/messages")
 async def list_messages(
     conversation_id: uuid.UUID,

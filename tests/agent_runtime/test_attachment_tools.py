@@ -11,6 +11,7 @@ import base64
 import io
 import re
 import uuid
+import zipfile
 from typing import Any
 
 import pytest
@@ -1320,3 +1321,213 @@ async def test_deliver_artifact_refuses_an_artifact_without_a_conversation(
 
     assert exc.value.code == ATTACHMENT_WRITE_UNAVAILABLE
     assert await _publication_rows(tenant, run_id) == []
+
+
+# ---------------------------------------------------------------------------
+# 压缩包读取：清单先行、只投影文本、超限/加密/损坏显式拒绝
+# ---------------------------------------------------------------------------
+
+
+def _zip_bytes(members: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, data in members.items():
+            archive.writestr(name, data)
+    return buffer.getvalue()
+
+
+def _mark_encrypted(data: bytes) -> bytes:
+    """把 local header 与 central directory 的通用位 0 置 1（模拟加密成员）。"""
+    buffer = bytearray(data)
+    for signature, offset in ((b"PK\x03\x04", 6), (b"PK\x01\x02", 8)):
+        index = buffer.find(signature)
+        while index != -1:
+            flags = int.from_bytes(buffer[index + offset : index + offset + 2], "little")
+            buffer[index + offset : index + offset + 2] = (flags | 1).to_bytes(2, "little")
+            index = buffer.find(signature, index + 4)
+    return bytes(buffer)
+
+
+async def _seed_zip(tenant: TenantContext, root, members: dict[str, bytes]) -> uuid.UUID:
+    return await _seed_artifact(
+        tenant, root, data=_zip_bytes(members), kind="DOCUMENT",
+        media_type="application/zip", filename="bundle.zip",
+    )
+
+
+async def test_reads_a_zip_as_manifest_then_text_members(tenant: TenantContext, artifact_root) -> None:
+    """S-04：清单（含二进制标注）+ 文本正文；二进制成员只列不读。"""
+    artifact_id = await _seed_zip(
+        tenant,
+        artifact_root,
+        {
+            "docs/a.md": "第一段正文".encode(),
+            "data/rows.txt": b"a,b\n1,2\n",
+            "logo.png": b"\x89PNG\r\n\x1a\npayload",
+        },
+    )
+
+    result = await _call(
+        _tool_set(tenant, artifact_root), READ_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id)}
+    )
+
+    assert "bundle.zip" in result
+    assert "共 3 个成员（可读文本 2 个" in result, result
+    assert "- docs/a.md · " in result and "- data/rows.txt · " in result
+    assert "- logo.png · " in result and "二进制（不读取）" in result
+    assert "--- docs/a.md ---" in result and "第一段正文" in result
+    assert "--- data/rows.txt ---" in result and "a,b" in result
+    assert "payload" not in result, "二进制成员的内容不得进入正文"
+
+
+async def test_zip_paging_and_search_use_the_same_semantics(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """分段与检索沿用既有口径：同一份投影文本，一样可以 offset 续读、按关键词定位。"""
+    body = "开头\nKEYWORD 出现在这里\n" + "填充段落。" * 200
+    artifact_id = await _seed_zip(tenant, artifact_root, {"notes.md": body.encode()})
+    tool_set = _tool_set(tenant, artifact_root)
+
+    first = await _call(
+        tool_set,
+        READ_ATTACHMENT_TOOL,
+        {"artifact_id": str(artifact_id), "offset": 0, "limit": 50},
+    )
+    assert "（片段 0–50 / 共 " in first and "未完" in first, first
+    second = await _call(
+        tool_set,
+        READ_ATTACHMENT_TOOL,
+        {"artifact_id": str(artifact_id), "offset": 50, "limit": 50},
+    )
+    assert "（片段 50–100 / 共 " in second
+
+    hits = await _call(
+        tool_set, SEARCH_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id), "query": "KEYWORD"}
+    )
+    assert hits.count("offset=") == 1 and "KEYWORD" in hits
+
+
+async def test_empty_zip_is_not_an_error(tenant: TenantContext, artifact_root) -> None:
+    """B-02：空包明确说「没有可读文件」，不当损坏、不编造内容。"""
+    artifact_id = await _seed_zip(tenant, artifact_root, {})
+
+    result = await _call(
+        _tool_set(tenant, artifact_root), READ_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id)}
+    )
+
+    assert "共 0 个成员" in result and "没有可读文件" in result
+
+
+async def test_zip_marks_unreadable_members_with_reasons(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """路径不合规、嵌套压缩包、非 UTF-8 文本都在清单里说明原因，不静默跳过。"""
+    nested = _zip_bytes({"inner.txt": b"x"})
+    artifact_id = await _seed_zip(
+        tenant,
+        artifact_root,
+        {
+            "../evil.txt": b"escape",
+            "inner.zip": nested,
+            "latin1.txt": b"caf\xe9",
+            "readable.txt": b"ok",
+        },
+    )
+
+    result = await _call(
+        _tool_set(tenant, artifact_root), READ_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id)}
+    )
+
+    assert "../evil.txt" in result and "路径不合法（不读取）" in result
+    assert "inner.zip" in result and "嵌套压缩包（不展开）" in result
+    assert "latin1.txt" in result and "非 UTF-8 文本（不读取）" in result
+    assert "--- readable.txt ---" in result
+    assert "escape" not in result and "caf\xe9" not in result
+
+
+async def test_zip_reads_code_and_config_members_as_text(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """代码/配置成员按文本读：上传白名单管的是准入，管不到包内该不该读。
+
+    只认白名单扩展名时，一个 skill 包里的 `scripts/run.py`、`muad_skill.json` 会被标成二进制，
+    模型读不到实现细节，只能猜着去执行一个并不存在的 Skill。
+    """
+    artifact_id = await _seed_zip(
+        tenant,
+        artifact_root,
+        {
+            "SKILL.md": "# demo\n".encode(),
+            "scripts/run.py": b'print("hi")\n',
+            "muad_skill.json": b'{"name": "demo"}\n',
+            "Dockerfile": b"FROM python:3.12\n",
+            "logo.png": b"\x89PNG\r\n\x1a\n" + b"\x00" * 8,
+            "blob.bin": bytes(range(256)),
+        },
+    )
+
+    result = await _call(
+        _tool_set(tenant, artifact_root), READ_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id)}
+    )
+
+    assert "--- scripts/run.py ---" in result and 'print("hi")' in result
+    assert "--- muad_skill.json ---" in result and '{"name": "demo"}' in result
+    assert "--- Dockerfile ---" in result and "FROM python:3.12" in result
+    assert "logo.png" in result and "二进制（不读取）" in result
+    assert "blob.bin" in result and "二进制（不读取）" in result
+
+
+async def test_zip_rejects_encrypted_and_corrupt_archives(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """E-02：加密包与损坏包都给出明确原因（`ATTACHMENT_EXTRACT_FAILED`）。"""
+    encrypted = await _seed_artifact(
+        tenant, artifact_root, data=_mark_encrypted(_zip_bytes({"a.txt": b"x"})),
+        kind="DOCUMENT", media_type="application/zip", filename="secret.zip",
+    )
+    corrupt = await _seed_artifact(
+        tenant, artifact_root, data=b"PK\x03\x04garbage",
+        kind="DOCUMENT", media_type="application/zip", filename="broken.zip",
+    )
+    tool_set = _tool_set(tenant, artifact_root)
+
+    with pytest.raises(AttachmentToolError) as encrypted_error:
+        await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": str(encrypted)})
+    assert encrypted_error.value.code == ATTACHMENT_EXTRACT_FAILED
+    assert "加密" in encrypted_error.value.message
+
+    with pytest.raises(AttachmentToolError) as corrupt_error:
+        await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": str(corrupt)})
+    assert corrupt_error.value.code == ATTACHMENT_EXTRACT_FAILED
+    assert "损坏" in corrupt_error.value.message
+
+
+async def test_zip_limits_are_explicit_and_abort(
+    tenant: TenantContext, artifact_root, monkeypatch
+) -> None:
+    """E-03：成员数、单成员、累计解压、压缩比四条上限都返回 `ATTACHMENT_TOO_LARGE`。"""
+    from muad_agent_runtime.application.attachments import archive_reader
+
+    tool_set = _tool_set(tenant, artifact_root)
+
+    async def _read(members: dict[str, bytes]) -> AttachmentToolError:
+        artifact_id = await _seed_zip(tenant, artifact_root, members)
+        with pytest.raises(AttachmentToolError) as error:
+            await _call(tool_set, READ_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id)})
+        return error.value
+
+    with monkeypatch.context() as patch:
+        patch.setattr(archive_reader, "MAX_ARCHIVE_MEMBERS", 2)
+        assert (await _read({"a.txt": b"1", "b.txt": b"2", "c.txt": b"3"})).code == ATTACHMENT_TOO_LARGE
+
+    with monkeypatch.context() as patch:
+        patch.setattr(archive_reader, "MAX_ARCHIVE_MEMBER_BYTES", 8)
+        assert (await _read({"big.txt": b"x" * 64})).code == ATTACHMENT_TOO_LARGE
+
+    with monkeypatch.context() as patch:
+        patch.setattr(archive_reader, "MAX_ARCHIVE_TOTAL_BYTES", 8)
+        assert (await _read({"a.txt": b"x" * 16})).code == ATTACHMENT_TOO_LARGE
+
+    with monkeypatch.context() as patch:
+        patch.setattr(archive_reader, "MAX_ARCHIVE_COMPRESSION_RATIO", 2)
+        assert (await _read({"zeros.txt": b"0" * 4096})).code == ATTACHMENT_TOO_LARGE

@@ -150,7 +150,12 @@ async def write_run_notification(
             else DELIVERY_NOT_REQUIRED
         )
     _validate(kind=kind, delivery_state=state, task_id=task_id)
-    entry_id = await _entry_id_of(session, run)
+    attribution = await _entry_id_of(session, run)
+    if attribution.deleted:
+        # 用户删除了会话：收尾中的 Run 仍会走这里，但入箱通知不再产生（口径：删除即收口）。
+        logger.warning("run_notification_conversation_deleted run_id=%s kind=%s", run.id, kind)
+        return None
+    entry_id = attribution.entry_id
     if entry_id is None:
         # 新会话必带入口；命中这里只可能是历史未归属会话（明确留痕，不静默）。
         logger.warning("run_notification_without_entry run_id=%s kind=%s", run.id, kind)
@@ -206,28 +211,44 @@ def _validate(*, kind: str, delivery_state: str, task_id: uuid.UUID | None) -> N
         raise ValueError("task_id is required for TASK_RESULT and has no place for other kinds")
 
 
-async def _entry_id_of(session: AsyncSession, run: RunRecord) -> uuid.UUID | None:
-    """会话的入口归属：NULL 只可能是历史未归属会话（新会话必带入口）。
+@dataclass(frozen=True, slots=True)
+class _EntryAttribution:
+    """会话入口归属与会话可见性：已软删的会话不再产出新的入箱通知。"""
+
+    entry_id: uuid.UUID | None
+    deleted: bool = False
+
+
+async def _entry_id_of(session: AsyncSession, run: RunRecord) -> _EntryAttribution:
+    """会话的入口归属与可见性：NULL 只可能是历史未归属会话（新会话必带入口）。
 
     `run.channel_json` 与 `conversation.channel_account_id` 是同一事实的两份载体：
     两者都带入口且不一致是内部一致性错误，显式留 ERROR 痕迹（以会话行为准）。
+
+    会话已软删（用户主动删除）时返回 `deleted=True`：调用方跳过写入并留可区分的告警——
+    「删除后再写一条指回已删会话的通知」既不新鲜也不可点开，属于应当消失的残留。
     """
-    entry_id = await session.scalar(
-        sa.select(Conversation.channel_account_id).where(
-            Conversation.id == run.conversation_id, Conversation.tenant_id == run.tenant_id
+    row = (
+        await session.execute(
+            sa.select(Conversation.channel_account_id, Conversation.is_deleted).where(
+                Conversation.id == run.conversation_id,
+                Conversation.tenant_id == run.tenant_id,
+            )
         )
-    )
-    if entry_id is None:
-        return None
+    ).first()
+    if row is None or row.channel_account_id is None:
+        return _EntryAttribution(None)
+    if row.is_deleted:
+        return _EntryAttribution(None, deleted=True)
     channel_entry = (run.channel_json or {}).get("entry_id")
-    if channel_entry is not None and str(channel_entry) != str(entry_id):
+    if channel_entry is not None and str(channel_entry) != str(row.channel_account_id):
         logger.error(
             "run_entry_attribution_mismatch run_id=%s channel_entry=%s conversation_entry=%s",
             run.id,
             channel_entry,
-            entry_id,
+            row.channel_account_id,
         )
-    return uuid.UUID(str(entry_id))
+    return _EntryAttribution(uuid.UUID(str(row.channel_account_id)))
 
 
 async def _existing_receipt(

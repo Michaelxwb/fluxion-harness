@@ -172,6 +172,8 @@ export const Input = () => null;
 export const Spin = () => null;
 export const Tooltip = () => null;
 export const Typography = { Title: () => null, Paragraph: () => null, Text: () => null };
+export const Dropdown = Object.assign(() => null, { Menu: () => null, Item: () => null });
+export const Modal = () => null;
 """
 
 SEMI_ICONS_STUB = """export const IconMenu = () => null;
@@ -186,6 +188,7 @@ export const IconDownload = () => null;
 export const IconFile = () => null;
 export const IconImage = () => null;
 export const IconCopy = () => null;
+export const IconMore = () => null;
 """
 
 REACT_ROUTER_STUB = """export function useParams() {
@@ -664,6 +667,7 @@ const CONFIG_A = {
     text_max_bytes: 4096,
     upload_max_bytes: 1048576,
     upload_max_per_message: 3,
+    upload_formats: [{ media_type: 'application/pdf', extensions: ['.pdf'] }],
     notification_poll_sec: 2.5
   },
   transport: {

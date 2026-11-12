@@ -9,10 +9,6 @@ apps/agent-runtime/src/muad_agent_runtime/application/async_tools/control_dispat
 apps/agent-runtime/src/muad_agent_runtime/application/async_tools/control_dispatcher.py,32,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/async_tools/operations.py,47,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/async_tools/operations.py,48,DEPENDENT_JOIN,"(OperationStatus.SUBMITTED, OperationStatus.TASK_ACCEPTED, OperationStatus.RUNNING, OperationStatus.RESULT_RECEIVED, OperationStatus.MATERIALIZED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,20,CREATE_ARCHIVE_TOOL,'create_archive',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,21,MAX_ARCHIVE_PATH_BYTES,1024,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,22,ARCHIVE_BYTES_LIMIT,MAX_OUTPUT_BYTES,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,24,_ENCODE_CHUNK_CHARS,64 * 1024,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/inbound.py,27,INBOUND_IMAGE,'INBOUND_IMAGE',python-constant,code,状态或错误码，不是时间参数
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/inbound.py,28,INBOUND_DOCUMENT,'INBOUND_DOCUMENT',python-constant,code,状态或错误码，不是时间参数
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/inbound.py,29,INBOUND_OTHER,'INBOUND_OTHER',python-constant,code,状态或错误码，不是时间参数
@@ -29,59 +25,6 @@ apps/agent-runtime/src/muad_agent_runtime/application/attachments/publication.py
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/publication.py,50,PUBLICATION_UNAVAILABLE,'ATTACHMENT_WRITE_UNAVAILABLE',python-constant,code,实现常量；由 AST 盘点补录（2026-11-08）
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/reference.py,17,_KNOWN_KINDS,"('IMAGE', 'DOCUMENT', 'OTHER')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/tool_results.py,28,TOOL_RESULT_ARTIFACT_TYPE,'TOOL_RESULT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,57,READ_ATTACHMENT_TOOL,'read_attachment',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,58,VIEW_IMAGE_TOOL,'view_image',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,59,WRITE_ARTIFACT_TOOL,'write_artifact',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,60,SEARCH_ATTACHMENT_TOOL,'search_attachment',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,61,LIST_ATTACHMENTS_TOOL,'list_attachments',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,62,APPEND_ARTIFACT_TOOL,'append_artifact',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,65,DELIVER_ARTIFACT_TOOL,'deliver_artifact',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,69,INBOUND_ARTIFACT_TYPES,"(INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,71,READ_ATTACHMENT_DESCRIPTION,'Read the content of a file the user sent (or that an earlier step produced) by its attachment id. Long documents come back one segment at a time: pass offset to continue where the previous segment ended. Returns extracted text for documents; for images use view_image instead.',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,77,SEARCH_ATTACHMENT_DESCRIPTION,"""Find where a keyword occurs in a file's extracted text and return the matching fragments with their character offsets. Use it to jump straight to the relevant part of a long document instead of paging through it.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,82,LIST_ATTACHMENTS_DESCRIPTION,'List the files you can currently address — both the ones the user sent and the ones you produced earlier. Use it when an id from an earlier turn is no longer in front of you.',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,90,_DEGRADED_OUTCOME,'DEGRADED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,92,DELIVERY_RESULT_DELIVERED,'已交付产物 {artifact_id} 到当前会话（{filename}）',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,93,DELIVERY_RESULT_DEGRADED,'已发送取件链接（当前渠道不支持直发文件）：{url}',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,94,DELIVERY_RESULT_FAILED,'交付失败（{reason}）：产物已保留（id={artifact_id}），可重试',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,96,DELIVER_ARTIFACT_DESCRIPTION,"'Send a file to the user you are talking to. This covers both files you produced in this run and files the user sent into this conversation (you can hand one back, e.g. ""send me that image again""). Writing a file does NOT send it — call this when the user should actually receive it.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,102,APPEND_ARTIFACT_DESCRIPTION,"'Append more text to a file you produced earlier in this run. Use it to build a long document across several turns, since a single reply has a length limit.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,106,VIEW_IMAGE_DESCRIPTION,'Attach a previously sent image to the conversation again so you can look at it. Use this when an earlier image is relevant but is no longer in front of you.',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,114,MAX_READ_BYTES,50 * 1024 * 1024,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,116,MAX_TEXT_CHARS,20000,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,118,ATTACHMENT_NOT_FOUND,'ATTACHMENT_NOT_FOUND',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,119,ATTACHMENT_TYPE_UNSUPPORTED,'ATTACHMENT_TYPE_UNSUPPORTED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,120,ATTACHMENT_EXTRACT_FAILED,'ATTACHMENT_EXTRACT_FAILED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,121,ATTACHMENT_TOO_LARGE,'ATTACHMENT_TOO_LARGE',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,122,ATTACHMENT_WRITE_UNAVAILABLE,'ATTACHMENT_WRITE_UNAVAILABLE',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,125,ATTACHMENT_OFFSET_INVALID,'ATTACHMENT_OFFSET_INVALID',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,126,ATTACHMENT_LIMIT_INVALID,'ATTACHMENT_LIMIT_INVALID',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,127,ATTACHMENT_QUERY_INVALID,'ATTACHMENT_QUERY_INVALID',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,128,ATTACHMENT_SCOPE_INVALID,'ATTACHMENT_SCOPE_INVALID',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,129,ATTACHMENT_PATH_INVALID,'ATTACHMENT_PATH_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,130,ATTACHMENT_DIRECTION_INVALID,'ATTACHMENT_DIRECTION_INVALID',python-constant,code,状态或错误码，不是时间参数
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,132,DEFAULT_OFFSET,0,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,134,DEFAULT_SEARCH_HITS,5,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,135,MAX_SEARCH_HITS,20,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,137,SEARCH_CONTEXT_CHARS,80,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,140,MAX_TEXT_CACHE_ENTRIES,4,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,145,SCOPE_RUN,'run',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,146,SCOPE_CONVERSATION,'conversation',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,148,SCOPE_AGENT,'agent',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,149,SCOPES,"frozenset({SCOPE_RUN, SCOPE_CONVERSATION, SCOPE_AGENT})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,150,SCOPE_DEFAULT,SCOPE_CONVERSATION,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,152,DIRECTION_INBOUND,'inbound',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,153,DIRECTION_OUTBOUND,'outbound',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,154,DIRECTIONS,"frozenset({DIRECTION_INBOUND, DIRECTION_OUTBOUND})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,156,DIRECTION_LABELS,"{DIRECTION_INBOUND: '入站', DIRECTION_OUTBOUND: '自产'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,157,DEFAULT_LIST_LIMIT,20,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,158,MAX_LIST_LIMIT,50,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,160,VIEW_IMAGE_RESULT_PREFIX,'已重新附上图片（附件 ID ',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,161,WRITE_ARTIFACT_RESULT_PREFIX,'已写出产物（附件 ID ',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,163,WRITE_ARTIFACT_DESCRIPTION,"'Write the result you produced as a file the user can receive, and return its attachment id. Use it when the outcome is a document rather than a short chat reply.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,168,_DOCX,'application/vnd.openxmlformats-officedocument.wordprocessingml.document',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,169,_XLSX,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,170,_PPTX,'application/vnd.openxmlformats-officedocument.presentationml.presentation',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/transcripts.py,25,TRANSCRIPT_ARTIFACT_TYPE,'TRANSCRIPT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/transcripts.py,27,TRANSCRIPT_PREFIX,'transcripts',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/capacity_metrics.py,42,QUEUE_STAGES,"('WAITING_RUNTIME', 'WAITING_MODEL')",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1000,19 +943,6 @@ apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,113,CONNECTED,
 apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,114,BACKOFF,'BACKOFF',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,115,DISCONNECTED,'DISCONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,116,STOPPING,'STOPPING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,42,MEDIA_TIMEOUT_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,48,ENCRYPTION_OVERHEAD_BYTES,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,50,_CHUNK_BYTES,64 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,51,_OCTET_STREAM,'application/octet-stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,53,_MAGIC_TYPES,"((b'\x89PNG\r\n\x1a\n', 'image/png'), (b'\xff\xd8\xff', 'image/jpeg'), (b'GIF87a', 'image/gif'), (b'GIF89a', 'image/gif'), (b'%PDF-', 'application/pdf'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,61,_EXTENSION_TYPES,"{'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.pdf': 'application/pdf', '.txt': 'text/plain', '.md': 'text/markdown', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,76,_FILENAME_UTF8_RE,"re.compile(""filename\\*=UTF-8''([^;\\s]+)"", re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,77,_FILENAME_RE,"re.compile('filename=""?([^"";\\s]+)""?', re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,205,UPLOAD_CHUNK_BYTES,512 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,208,MAX_UPLOAD_CHUNKS,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,210,UPLOAD_INIT_CMD,'aibot_upload_media_init',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,211,UPLOAD_CHUNK_CMD,'aibot_upload_media_chunk',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,212,UPLOAD_FINISH_CMD,'aibot_upload_media_finish',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/reply.py,20,STATUS_SEND_TIMEOUT_SEC,5.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/reply.py,24,FINISH_ATTEMPTS,3,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/reply.py,25,FINISH_RETRY_DELAY_SEC,0.5,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1064,16 +994,6 @@ apps/im-gateway/src/muad_im_gateway/api/delivery.py,72,DELIVERY_IN_FLIGHT_POLL_S
 apps/im-gateway/src/muad_im_gateway/api/health.py,17,DEDUPE_MODE_REDIS,'redis',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/api/health.py,18,DEDUPE_MODE_MEMORY,'memory',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/api/health.py,19,DEDUPE_MODE_DISABLED,'disabled',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/api/webchat.py,68,NO_STORE_CACHE_CONTROL,'no-store',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/api/webchat.py,447,_NOTIFICATION_BACKFILL_PAGES,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,22,MIB,1024 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,29,MAX_ATTACHMENT_BYTES,50 * MIB,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,31,MAX_ATTACHMENTS_PER_MESSAGE,5,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,35,ALLOWED_MEDIA_TYPES,"frozenset({'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'text/plain', 'text/markdown'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,51,ATTACHMENT_COUNT_EXCEEDED,'ATTACHMENT_COUNT_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,52,ATTACHMENT_TYPE_NOT_ALLOWED,'ATTACHMENT_TYPE_NOT_ALLOWED',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,54,ATTACHMENT_RECEIPT_ALL,'ATTACHMENT_RECEIPT_ALL',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,55,ATTACHMENT_RECEIPT_PARTIAL,'ATTACHMENT_RECEIPT_PARTIAL',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/application/channel_delivery.py,54,DELIVERED,'delivered',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/channel_delivery.py,56,DEDUPLICATED,'deduplicated',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/channel_delivery.py,57,FAILED,'failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1194,10 +1114,8 @@ apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,48,ATTACHME
 apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,49,INLINE_DISPOSITION,'inline',python-constant,code,白名单栅格图片的预览处置值
 apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,51,NOSNIFF_HEADER,'nosniff',python-constant,code,禁止 MIME 嗅探的响应头值（下载/预览统一）
 apps/im-gateway/src/muad_im_gateway/application/webchat_artifacts.py,54,_MEDIA_TYPE_PATTERN,re.compile('^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/webchat_config.py,25,TRANSPORT_FINGERPRINT_HEX_LENGTH,16,python-constant,code,API-19 传输指纹的十六进制摘要长度（不透明、不含内部值；TASK-057）
 apps/im-gateway/src/muad_im_gateway/application/webchat_core.py,38,WEBCHAT_CHANNEL,'WEBCHAT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/webchat_core.py,56,WEBCHAT_CHANNEL_IDENTITY,WebchatChannelIdentity(),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/webchat_service.py,66,MAX_ENTRIES,100,python-constant,code,入口列表上界（当前授权入口的完整集合，不静默截断）
 apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,80,PUBLIC_STREAM_EVENT_TYPES,"{'message.delta': 'message.delta', 'message.snapshot': 'message.snapshot', 'run.stage': 'run.stage', 'run.completed': 'run.terminal', 'run.failed': 'run.error', 'artifact.created': 'artifact.created', 'interrupt.required': 'confirmation.required', 'memory.confirmation_required': 'confirmation.required', 'tool.started': 'run.tool', 'tool.completed': 'run.tool'}",python-constant,code,公开流事件白名单（canonical stream_type → TASK-006 公开事件类型；B-251）
 apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,95,PUBLIC_TOOL_STATUSES,"{'OK': 'OK', 'ERROR': 'ERROR', 'BLOCKED': 'ERROR', 'NOT_FOUND': 'ERROR'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/webchat_streams.py,104,PROGRESS_PUBLIC_EVENT_TYPES,"frozenset({'run.tool', 'run.stage'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1953,11 +1871,6 @@ packages/contracts/src/muad_contracts/tool_runtime.py,29,READ_ONLY,'READ_ONLY',p
 packages/contracts/src/muad_contracts/tool_runtime.py,30,IDEMPOTENT,'IDEMPOTENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/tool_runtime.py,31,NON_RETRYABLE,'NON_RETRYABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/tool_runtime.py,35,DEFAULT_TOOL_RETRY_SAFETY,ToolRetrySafety.NON_RETRYABLE,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/webchat.py,329,ADMISSION_RUN_ID_HEADER,'X-Muad-Run-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/webchat.py,330,ADMISSION_CONVERSATION_ID_HEADER,'X-Muad-Conversation-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/webchat.py,331,ADMISSION_RESUMED_HEADER,'X-Muad-Resumed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/webchat.py,332,ADMISSION_EXECUTION_STATUS_HEADER,'X-Muad-Execution-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/webchat.py,333,ADMISSION_RUN_STATUS_HEADER,'X-Muad-Run-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/im-core/src/muad_im_core/ingress.py,28,STATE_RECEIVED,'RECEIVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/im-core/src/muad_im_core/ingress.py,29,STATE_PUBLISHED,'PUBLISHED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/im-core/src/muad_im_core/ingress.py,30,STATE_LOST,'LOST',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -2049,3 +1962,106 @@ packages/skill-sdk/src/muad_skill_sdk/skill_package.py,20,SCRIPT_EXTENSIONS,"fro
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,27,MAX_NAME_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,28,MAX_PLATFORM_LABEL_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,29,MAX_DESCRIPTION_BYTES,1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,24,MIB,1024 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,31,MAX_ATTACHMENT_BYTES,50 * MIB,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,33,MAX_ATTACHMENTS_PER_MESSAGE,5,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,36,ATTACHMENT_COUNT_EXCEEDED,'ATTACHMENT_COUNT_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,37,ATTACHMENT_TYPE_NOT_ALLOWED,'ATTACHMENT_TYPE_NOT_ALLOWED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,39,ATTACHMENT_RECEIPT_ALL,'ATTACHMENT_RECEIPT_ALL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,40,ATTACHMENT_RECEIPT_PARTIAL,'ATTACHMENT_RECEIPT_PARTIAL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,43,MEDIA_TIMEOUT_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,49,ENCRYPTION_OVERHEAD_BYTES,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,51,_CHUNK_BYTES,64 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,52,_OCTET_STREAM,'application/octet-stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,54,_MAGIC_TYPES,"((b'\x89PNG\r\n\x1a\n', 'image/png'), (b'\xff\xd8\xff', 'image/jpeg'), (b'GIF87a', 'image/gif'), (b'GIF89a', 'image/gif'), (b'%PDF-', 'application/pdf'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,64,_EXTENSION_TYPES,{},python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,70,_FILENAME_UTF8_RE,"re.compile(""filename\\*=UTF-8''([^;\\s]+)"", re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,71,_FILENAME_RE,"re.compile('filename=""?([^"";\\s]+)""?', re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,199,UPLOAD_CHUNK_BYTES,512 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,202,MAX_UPLOAD_CHUNKS,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,204,UPLOAD_INIT_CMD,'aibot_upload_media_init',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,205,UPLOAD_CHUNK_CMD,'aibot_upload_media_chunk',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,206,UPLOAD_FINISH_CMD,'aibot_upload_media_finish',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,20,CREATE_ARCHIVE_TOOL,'create_archive',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,21,ARCHIVE_BYTES_LIMIT,MAX_OUTPUT_BYTES,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_tools.py,23,_ENCODE_CHUNK_CHARS,64 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/member_paths.py,17,MAX_ARCHIVE_PATH_BYTES,1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,59,READ_ATTACHMENT_TOOL,'read_attachment',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,60,VIEW_IMAGE_TOOL,'view_image',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,61,WRITE_ARTIFACT_TOOL,'write_artifact',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,62,SEARCH_ATTACHMENT_TOOL,'search_attachment',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,63,LIST_ATTACHMENTS_TOOL,'list_attachments',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,64,APPEND_ARTIFACT_TOOL,'append_artifact',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,67,DELIVER_ARTIFACT_TOOL,'deliver_artifact',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,71,INBOUND_ARTIFACT_TYPES,"(INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,73,READ_ATTACHMENT_DESCRIPTION,'Read the content of a file the user sent (or that an earlier step produced) by its attachment id. Long documents come back one segment at a time: pass offset to continue where the previous segment ended. Returns extracted text for documents; for images use view_image instead.',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,79,SEARCH_ATTACHMENT_DESCRIPTION,"""Find where a keyword occurs in a file's extracted text and return the matching fragments with their character offsets. Use it to jump straight to the relevant part of a long document instead of paging through it.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,84,LIST_ATTACHMENTS_DESCRIPTION,'List the files you can currently address — both the ones the user sent and the ones you produced earlier. Use it when an id from an earlier turn is no longer in front of you.',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,92,_DEGRADED_OUTCOME,'DEGRADED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,94,DELIVERY_RESULT_DELIVERED,'已交付产物 {artifact_id} 到当前会话（{filename}）',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,95,DELIVERY_RESULT_DEGRADED,'已发送取件链接（当前渠道不支持直发文件）：{url}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,96,DELIVERY_RESULT_FAILED,'交付失败（{reason}）：产物已保留（id={artifact_id}），可重试',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,98,DELIVER_ARTIFACT_DESCRIPTION,"'Send a file to the user you are talking to. This covers both files you produced in this run and files the user sent into this conversation (you can hand one back, e.g. ""send me that image again""). Writing a file does NOT send it — call this when the user should actually receive it.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,104,APPEND_ARTIFACT_DESCRIPTION,"'Append more text to a file you produced earlier in this run. Use it to build a long document across several turns, since a single reply has a length limit.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,108,VIEW_IMAGE_DESCRIPTION,'Attach a previously sent image to the conversation again so you can look at it. Use this when an earlier image is relevant but is no longer in front of you.',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,116,MAX_READ_BYTES,50 * 1024 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,118,MAX_TEXT_CHARS,20000,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,120,ATTACHMENT_NOT_FOUND,'ATTACHMENT_NOT_FOUND',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,121,ATTACHMENT_TYPE_UNSUPPORTED,'ATTACHMENT_TYPE_UNSUPPORTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,122,ATTACHMENT_EXTRACT_FAILED,'ATTACHMENT_EXTRACT_FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,123,ATTACHMENT_TOO_LARGE,'ATTACHMENT_TOO_LARGE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,124,ATTACHMENT_WRITE_UNAVAILABLE,'ATTACHMENT_WRITE_UNAVAILABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,127,ATTACHMENT_OFFSET_INVALID,'ATTACHMENT_OFFSET_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,128,ATTACHMENT_LIMIT_INVALID,'ATTACHMENT_LIMIT_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,129,ATTACHMENT_QUERY_INVALID,'ATTACHMENT_QUERY_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,130,ATTACHMENT_SCOPE_INVALID,'ATTACHMENT_SCOPE_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,131,ATTACHMENT_PATH_INVALID,'ATTACHMENT_PATH_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,132,ATTACHMENT_DIRECTION_INVALID,'ATTACHMENT_DIRECTION_INVALID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,134,DEFAULT_OFFSET,0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,136,DEFAULT_SEARCH_HITS,5,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,137,MAX_SEARCH_HITS,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,139,SEARCH_CONTEXT_CHARS,80,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,142,MAX_TEXT_CACHE_ENTRIES,4,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,147,SCOPE_RUN,'run',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,148,SCOPE_CONVERSATION,'conversation',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,150,SCOPE_AGENT,'agent',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,151,SCOPES,"frozenset({SCOPE_RUN, SCOPE_CONVERSATION, SCOPE_AGENT})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,152,SCOPE_DEFAULT,SCOPE_CONVERSATION,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,154,DIRECTION_INBOUND,'inbound',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,155,DIRECTION_OUTBOUND,'outbound',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,156,DIRECTIONS,"frozenset({DIRECTION_INBOUND, DIRECTION_OUTBOUND})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,158,DIRECTION_LABELS,"{DIRECTION_INBOUND: '入站', DIRECTION_OUTBOUND: '自产'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,159,DEFAULT_LIST_LIMIT,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,160,MAX_LIST_LIMIT,50,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,162,VIEW_IMAGE_RESULT_PREFIX,'已重新附上图片（附件 ID ',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,163,WRITE_ARTIFACT_RESULT_PREFIX,'已写出产物（附件 ID ',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,165,WRITE_ARTIFACT_DESCRIPTION,"'Write the result you produced as a file the user can receive, and return its attachment id. Use it when the outcome is a document rather than a short chat reply.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,170,_DOCX,'application/vnd.openxmlformats-officedocument.wordprocessingml.document',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,171,_XLSX,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/tools.py,172,_PPTX,'application/vnd.openxmlformats-officedocument.presentationml.presentation',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/webchat_config.py,26,TRANSPORT_FINGERPRINT_HEX_LENGTH,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/webchat.py,330,ADMISSION_RUN_ID_HEADER,'X-Muad-Run-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/webchat.py,331,ADMISSION_CONVERSATION_ID_HEADER,'X-Muad-Conversation-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/webchat.py,332,ADMISSION_RESUMED_HEADER,'X-Muad-Resumed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/webchat.py,333,ADMISSION_EXECUTION_STATUS_HEADER,'X-Muad-Execution-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/webchat.py,334,ADMISSION_RUN_STATUS_HEADER,'X-Muad-Run-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/api/webchat.py,68,NO_STORE_CACHE_CONTROL,'no-store',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/api/webchat.py,459,_NOTIFICATION_BACKFILL_PAGES,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/webchat_service.py,67,MAX_ENTRIES,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/attachments.py,24,SUPPORTED_UPLOAD_FORMATS,"(AttachmentFormat(media_type='image/png', extensions=('.png',)), AttachmentFormat(media_type='image/jpeg', extensions=('.jpg', '.jpeg')), AttachmentFormat(media_type='image/gif', extensions=('.gif',)), AttachmentFormat(media_type='image/webp', extensions=('.webp',)), AttachmentFormat(media_type='application/pdf', extensions=('.pdf',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', extensions=('.docx',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', extensions=('.xlsx',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.presentationml.presentation', extensions=('.pptx',)), AttachmentFormat(media_type='text/plain', extensions=('.txt',)), AttachmentFormat(media_type='text/markdown', extensions=('.md',)), AttachmentFormat(media_type='text/csv', extensions=('.csv',)), AttachmentFormat(media_type='application/zip', extensions=('.zip',)), AttachmentFormat(media_type='application/x-zip-compressed', extensions=('.zip',)))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/attachments.py,50,ALLOWED_ATTACHMENT_MEDIA_TYPES,frozenset((item.media_type for item in SUPPORTED_UPLOAD_FORMATS)),python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/attachments.py,55,ARCHIVE_MEDIA_TYPES,"frozenset({'application/zip', 'application/x-zip-compressed'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,25,MAX_ARCHIVE_MEMBERS,200,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,27,MAX_ARCHIVE_MEMBER_BYTES,10 * 1024 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,29,MAX_ARCHIVE_TOTAL_BYTES,40 * 1024 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,31,MAX_ARCHIVE_COMPRESSION_RATIO,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,33,_READ_CHUNK_BYTES,64 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,34,_MIB,1024 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,38,TEXT_MEMBER_EXTENSIONS,"frozenset({'.py', '.pyi', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.json', '.jsonl', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.env', '.sh', '.bash', '.zsh', '.fish', '.bat', '.ps1', '.sql', '.xml', '.html', '.htm', '.css', '.scss', '.less', '.go', '.rs', '.java', '.kt', '.kts', '.rb', '.php', '.pl', '.lua', '.r', '.c', '.h', '.cc', '.cpp', '.hpp', '.cs', '.swift', '.dart', '.scala', '.gradle', '.properties', '.txt', '.md', '.csv', '.tsv', '.log', '.diff', '.patch', '.gitignore'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,50,TEXT_MEMBER_NAMES,"frozenset({'dockerfile', 'makefile', 'readme', 'license', 'notice', 'changelog', 'procfile', 'vagrantfile', 'gemfile', '.gitignore', '.dockerignore', '.env'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,57,_TEXT_LABEL,'text',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,58,_BINARY_LABEL,'二进制（不读取）',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,59,_NESTED_LABEL,'嵌套压缩包（不展开）',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,60,_PATH_LABEL,'路径不合法（不读取）',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,61,_ENCODING_LABEL,'非 UTF-8 文本（不读取）',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,62,_EMPTY_FILE_LABEL,'空文件',python-constant,code,协议标识、枚举、schema、文本或实现常量

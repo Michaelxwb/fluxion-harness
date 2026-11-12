@@ -146,7 +146,7 @@ CHANNEL_SURFACE: dict[str, set[str]] = {
     "/v1/runs/cancel-active": {"POST"},
     "/v1/conversations": {"POST"},
     "/internal/webchat/entries/{entry_id}/conversations": {"GET"},
-    "/internal/webchat/conversations/{conversation_id}": {"GET"},
+    "/internal/webchat/conversations/{conversation_id}": {"GET", "DELETE"},
     "/internal/webchat/conversations/{conversation_id}/messages": {"GET"},
     "/internal/webchat/conversations/{conversation_id}/scope": {"GET"},
     "/internal/webchat/uploads": {"POST"},

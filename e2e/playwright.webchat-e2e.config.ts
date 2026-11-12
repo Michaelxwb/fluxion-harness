@@ -94,7 +94,7 @@ const STACK_ENV: NodeJS.ProcessEnv = {
 export default defineConfig({
   globalTeardown: ISOLATED_DATASTORES_TEARDOWN,
   testDir: './tests/webchat',
-  grep: /S-101|S-102|S-103|S-108|S-109|S-112|S-114|E-20|E-101|E-110/,
+  grep: /S-101|S-102|S-103|S-108|S-109|S-112|S-114|E-20|E-101|E-110|S-115|S-116|S-117/,
   // 单用例预算：真实链路里有 30s 入口快照传播、15s SSE 复核与多段慢模型调用，
   // 120s 会把「慢」误判成「失败」；这里给的是时间预算，不是放宽断言。
   timeout: 210_000,

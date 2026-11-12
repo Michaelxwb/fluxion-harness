@@ -29,6 +29,7 @@ from muad_contracts import (
     DeliveryMessage,
     DeliveryRequest,
     DeliveryRouteInput,
+    is_archive_media_type,
 )
 from muad_contracts.enums import LOCAL_STREAM_CHANNELS, OUTBOUND_CHANNELS
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,6 +40,7 @@ from ...infrastructure.gateway_delivery_client import (
     GatewayDeliveryClient,
 )
 from ...infrastructure.models.runtime import Artifact, Conversation, RunRecord
+from .archive_reader import ArchiveReadError, render_archive_text
 from .inbound import INBOUND_DOCUMENT, INBOUND_IMAGE, INBOUND_OTHER
 from .output_service import (
     AGENT_OUTPUT_ARTIFACT_TYPE,
@@ -178,7 +180,17 @@ class AttachmentToolError(RuntimeError):
 
 
 def _extract_document(data: bytes, media_type: str) -> str:
-    """按 MIME 抽取文本。**任何解析器异常都转成明确错误**，绝不返回乱码或空内容冒充成功。"""
+    """按 MIME 抽取文本。**任何解析器异常都转成明确错误**，绝不返回乱码或空内容冒充成功。
+
+    压缩包走受限读取（清单 + 文本成员），沿用同一份分段语义；它的两种失败（超限 / 不可读）
+    分别映射到既有错误码，不新造词汇。
+    """
+    if is_archive_media_type(media_type):
+        try:
+            return render_archive_text(data)
+        except ArchiveReadError as exc:
+            code = ATTACHMENT_TOO_LARGE if exc.kind == "TOO_LARGE" else ATTACHMENT_EXTRACT_FAILED
+            raise AttachmentToolError(code, exc.message) from exc
     try:
         if media_type == "application/pdf":
             from pypdf import PdfReader

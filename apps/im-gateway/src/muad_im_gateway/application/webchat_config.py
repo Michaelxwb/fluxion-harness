@@ -3,7 +3,8 @@
 - **唯一来源**：业务上限/重连参数只来自 Console 权威设置快照（经 contracts schema 解析默认与
   范围，坏版本/未知键显式失败）；传输上限/心跳只来自 Gateway 启动参数（装配根注入的
   `SharedSettings` 值）。本模块不读环境、不复制默认值、不持库。
-- **白名单投影**：只经 `WebchatClientConfig.from_settings` 组装浏览器需要的 5+5 个字段；
+- **白名单投影**：只经 `WebchatClientConfig.from_settings` 组装浏览器需要的限额/传输字段，
+  外加**允许上传的格式清单**（来自 `muad_contracts.attachments` 的代码常量，不是设置字段）；
   内部地址、连接池、模型额度、密钥、保留期字段与启动硬上限**没有字段位置**（契约拒绝未知键）。
 - **失败即失败**：设置源不可达/文档非法/超启动硬预算 ⇒ 明确错误（RULE-06），绝不回退默认。
 - **transport_revision**：传输投影的确定性指纹（同值稳定、任一项变化即变化、纯十六进制不透明）

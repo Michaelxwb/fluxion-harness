@@ -461,6 +461,7 @@ const configOf = (overrides = {}) => ({
     text_max_bytes: 8192,
     upload_max_bytes: 10485760,
     upload_max_per_message: 5,
+    upload_formats: [{ media_type: 'application/pdf', extensions: ['.pdf'] }],
     notification_poll_sec: 30
   },
   transport: {

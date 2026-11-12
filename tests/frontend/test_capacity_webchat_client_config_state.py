@@ -124,6 +124,7 @@ const mod = await import('./config.mjs');
 const {
   api,
   createWebchatClient,
+  acceptedExtensions,
   createClientConfigService,
   createChatAuthenticationService,
   openReplyStream,
@@ -158,6 +159,13 @@ const SESSION_A_INFO = sessionOf(USER_A, SESSION_A, CONTEXT_A, '甲用户');
 const SESSION_B_INFO = sessionOf(USER_B, SESSION_B, CONTEXT_B, '乙用户');
 
 // 非常规投影值：逐项原样消费即可证明"单位/边界由投影确定、不复制默认"。
+const UPLOAD_FORMATS = [
+  { media_type: 'application/pdf', extensions: ['.pdf'] },
+  { media_type: 'text/plain', extensions: ['.txt'] },
+  { media_type: 'application/zip', extensions: ['.zip'] },
+  { media_type: 'application/x-zip-compressed', extensions: ['.zip'] }
+];
+
 const CONFIG_A = {
   settings_revision: 37,
   transport_revision: 'rev-a-276',
@@ -166,6 +174,7 @@ const CONFIG_A = {
     text_max_bytes: 4096,
     upload_max_bytes: 12345678,
     upload_max_per_message: 3,
+    upload_formats: UPLOAD_FORMATS,
     notification_poll_sec: 2.5
   },
   transport: {
@@ -184,6 +193,7 @@ const CONFIG_B = {
     text_max_bytes: 8192,
     upload_max_bytes: 23456789,
     upload_max_per_message: 4,
+    upload_formats: UPLOAD_FORMATS,
     notification_poll_sec: 7.5
   },
   transport: {
@@ -475,19 +485,31 @@ const obs = {};
   };
 }
 
+// ---- 2.5) 格式清单 → 扩展名：去重且保持投影顺序 ----------------------------------------------
+obs.formats = {
+  extensions: acceptedExtensions(CONFIG_A.webchat.upload_formats),
+  dedupedZip: acceptedExtensions([
+    { media_type: 'application/zip', extensions: ['.zip'] },
+    { media_type: 'application/x-zip-compressed', extensions: ['.zip'] }
+  ])
+};
+
 // ---- 3) 坏投影显式失败：不回落前端默认 ---------------------------------------------------------
 {
   const blankRevision = freshConfig();
   const zeroBudget = freshConfig();
+  const badFormats = freshConfig();
   const auth = freshAuth();
   script = [
     { status: 200, data: SESSION_A_INFO },
     { status: 200, data: { ...CONFIG_A, transport_revision: '' } },
-    { status: 200, data: { ...CONFIG_A, transport: { ...CONFIG_A.transport, sse_event_max_bytes: 0 } } }
+    { status: 200, data: { ...CONFIG_A, transport: { ...CONFIG_A.transport, sse_event_max_bytes: 0 } } },
+    { status: 200, data: { ...CONFIG_A, webchat: { ...CONFIG_A.webchat, upload_formats: [] } } }
   ];
   await auth.exchangeToken(TOKEN_A);
   const first = await blankRevision.load();
   const second = await zeroBudget.load();
+  const third = await badFormats.load();
 
   obs.invalidProjection = {
     blankRevision: {
@@ -501,8 +523,14 @@ const obs = {};
       ready: zeroBudget.ready(),
       connectionError: errorCodeOf(() => zeroBudget.newConnectionConfig())
     },
+    badFormats: {
+      snapshot: projectionOf(badFormats.snapshot()),
+      ready: badFormats.ready(),
+      limitsError: errorCodeOf(() => badFormats.limits())
+    },
     firstState: first.loadState,
-    secondState: second.loadState
+    secondState: second.loadState,
+    thirdState: third.loadState
   };
 }
 
@@ -815,7 +843,13 @@ def test_b276_config_loads_only_after_authentication_and_gates_send_upload_subsc
         "upload_max_bytes": 12345678,
         "upload_max_per_message": 3,
         "notification_poll_sec": 2.5,
-    }, "业务上限必须逐项等于投影值（无钳制、无默认）"
+        "upload_formats": [
+            {"media_type": "application/pdf", "extensions": [".pdf"]},
+            {"media_type": "text/plain", "extensions": [".txt"]},
+            {"media_type": "application/zip", "extensions": [".zip"]},
+            {"media_type": "application/x-zip-compressed", "extensions": [".zip"]},
+        ],
+    }, "业务上限与格式清单必须逐项等于投影值（无钳制、无默认）"
     assert observed["transport"] == {
         "sse_event_max_bytes": 512,
         "sse_heartbeat_sec": 3.5,
@@ -910,6 +944,25 @@ def test_b276_invalid_projection_fails_explicitly_without_frontend_defaults(
     assert zero["connectionError"] == "CLIENT_CONFIG_NOT_READY", (
         "越界投影不得被接受为新连接参数"
     )
+
+    formats = observed["badFormats"]
+    assert observed["thirdState"] == "failed"
+    assert formats["snapshot"]["errorCode"] == "CLIENT_CONFIG_INVALID", (
+        "空格式清单是非法投影，不得回落成「不过滤」"
+    )
+    assert formats["ready"] is False
+    assert formats["limitsError"] == "CLIENT_CONFIG_NOT_READY"
+
+
+def test_b276_accepted_extensions_dedupe_in_projection_order(
+    config_state: dict[str, Any],
+) -> None:
+    """`accept` 与提示共用的派生点：按投影顺序展平、去重（`.zip` 只在两个媒体类型里出现一次）。"""
+    observed = config_state["formats"]
+    assert observed["extensions"] == [".pdf", ".txt", ".zip"], (
+        "扩展名按投影顺序展平并去重"
+    )
+    assert observed["dedupedZip"] == [".zip"], "同一扩展名跨媒体类型重复时只保留一次"
 
 
 def test_b276_projection_units_drive_consumers_and_new_connections_rebind_the_revision(

@@ -25,6 +25,7 @@ import re
 from urllib.parse import unquote
 
 import httpx
+from muad_contracts import SUPPORTED_UPLOAD_FORMATS
 
 from .sdk_port import (
     WeComMediaContent,
@@ -58,20 +59,13 @@ _MAGIC_TYPES: tuple[tuple[bytes, str], ...] = (
     (b"%PDF-", "application/pdf"),
 )
 
-_EXTENSION_TYPES = {
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-    ".pdf": "application/pdf",
-    ".txt": "text/plain",
-    ".md": "text/markdown",
-    # 按扩展名兜底时，这几个必须用官方 MIME：按扩展名猜 MIME 会漏判白名单
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-}
+#: 扩展名 → 媒体类型：**从契约的展示清单派生**，不再维护第三份副本。
+#: 同一个扩展名可能对应多个可接受类型（例如 `.zip` 的两种写法），取清单里的第一个。
+_EXTENSION_TYPES: dict[str, str] = {}
+for _format in SUPPORTED_UPLOAD_FORMATS:
+    for _extension in _format.extensions:
+        _EXTENSION_TYPES.setdefault(_extension, _format.media_type)
+del _format, _extension
 
 _FILENAME_UTF8_RE = re.compile(r"filename\*=UTF-8''([^;\s]+)", re.IGNORECASE)
 _FILENAME_RE = re.compile(r'filename="?([^";\s]+)"?', re.IGNORECASE)

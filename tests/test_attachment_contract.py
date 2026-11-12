@@ -17,12 +17,17 @@ from pathlib import Path
 
 import pytest
 from muad_contracts import (
+    ALLOWED_ATTACHMENT_MEDIA_TYPES,
+    ARCHIVE_MEDIA_TYPES,
     BUILTIN_CHANNEL_NAMES,
     LOCAL_STREAM_CHANNELS,
     OUTBOUND_CHANNELS,
+    SUPPORTED_UPLOAD_FORMATS,
     AttachmentRef,
     ChannelEnvelope,
     MessageInput,
+    is_archive_media_type,
+    is_text_media_type,
 )
 from muad_contracts.im import InboundEvent
 from muad_im_gateway.channels.base import DuplicateChannelAdapterError, UnknownChannelAdapterError
@@ -228,3 +233,37 @@ def test_b07_delivery_capabilities_partition_the_builtin_channels() -> None:
     """
     assert OUTBOUND_CHANNELS.isdisjoint(LOCAL_STREAM_CHANNELS)
     assert set(BUILTIN_CHANNEL_NAMES) == set(OUTBOUND_CHANNELS) | set(LOCAL_STREAM_CHANNELS)
+
+
+def _upload_format_entries():
+    return [(item.media_type, item.extensions) for item in SUPPORTED_UPLOAD_FORMATS]
+
+
+def test_upload_format_list_is_the_single_source_for_the_gate() -> None:
+    """准入集合必须从展示清单派生：新增格式只改一处，门控与投影同时生效。
+
+    两边各自维护一份时，放宽某类型只会改到其中一边——用户遇到的是「能传不能读」或
+    「页面说支持、上传却被拒」。
+    """
+    entries = _upload_format_entries()
+    media_types = [media_type for media_type, _ in entries]
+    assert len(media_types) == len(set(media_types)), "媒体类型不得重复"
+    assert ALLOWED_ATTACHMENT_MEDIA_TYPES == set(media_types)
+    for media_type, extensions in entries:
+        assert extensions, f"{media_type} 缺少展示扩展名"
+        for extension in extensions:
+            assert extension.startswith(".") and extension == extension.lower(), (
+                f"{media_type} 的扩展名必须是含点小写：{extension!r}"
+            )
+
+
+def test_archive_media_types_are_uploadable_and_classified() -> None:
+    """压缩包是准入集合的一部分，并按压缩包分类；文本谓词沿用 `text/*` 口径。"""
+    assert ARCHIVE_MEDIA_TYPES <= ALLOWED_ATTACHMENT_MEDIA_TYPES
+    assert {"application/zip", "application/x-zip-compressed"} <= ARCHIVE_MEDIA_TYPES
+    assert is_archive_media_type("application/zip")
+    assert is_archive_media_type("  Application/ZIP ")
+    assert not is_archive_media_type("application/pdf")
+    assert is_text_media_type("text/markdown")
+    assert is_text_media_type("TEXT/CSV")
+    assert not is_text_media_type("application/zip")

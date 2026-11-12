@@ -35,7 +35,6 @@ from muad_im_gateway.application.attachment_gate import (
     ATTACHMENT_COUNT_EXCEEDED,
     ATTACHMENT_RECEIPT_ALL,
     ATTACHMENT_RECEIPT_PARTIAL,
-    ATTACHMENT_TYPE_NOT_ALLOWED,
     MAX_ATTACHMENTS_PER_MESSAGE,
 )
 from muad_im_gateway.application.inbound import DEDUPE_TTL_SEC, InboundPipeline
@@ -239,7 +238,7 @@ def _media_only_envelope(message_id: str) -> ChannelEnvelope:
 CASE: tuple[tuple[bytes, str, str], ...] = (
     (PNG, "image/png", "shot.png"),
     (TEXT_FILE, "text/plain", "notes.txt"),
-    (ZIP_FILE, "application/zip", "bundle.zip"),  # 不在白名单 → 实检拒绝
+    (ZIP_FILE, "application/zip", "bundle.zip"),  # 2026-11-12 起 zip 准入 → 接收
     (PNG + b"-second", "image/png", "shot-2.png"),
     (PNG + b"-third", "image/png", "shot-3.png"),
     (PNG + b"-sixth", "image/png", "shot-6.png"),  # 第 6 个 → 预检按位置丢弃
@@ -348,8 +347,14 @@ async def test_s07_two_fetch_paths_produce_identical_outcomes(
 
     # ① 契约产出完全一致（storage_key/kind/media_type/size/filename/checksum 逐字段）
     assert fake.refs == wecom.refs
-    assert len(fake.refs) == 4
-    assert [ref.filename for ref in fake.refs] == ["shot.png", "notes.txt", "shot-2.png", "shot-3.png"]
+    assert len(fake.refs) == 5
+    assert [ref.filename for ref in fake.refs] == [
+        "shot.png",
+        "notes.txt",
+        "bundle.zip",
+        "shot-2.png",
+        "shot-3.png",
+    ]
     for ref in fake.refs:
         assert ref.storage_key.startswith("inbound/") and not ref.storage_key.startswith("/")
         assert ref.checksum and ref.size > 0
@@ -363,10 +368,10 @@ async def test_s07_two_fetch_paths_produce_identical_outcomes(
         "zh-CN",
         {
             "accepted": len(fake.refs),
-            # CASE 里 6 条：zip 被实检拒、第 6 个被预检按位置丢弃 ⇒ 拒绝 2 条
-            "rejected": 2,
+            # CASE 里 6 条：前 5 条（含 zip）接收、第 6 个被预检按位置丢弃 ⇒ 拒绝 1 条
+            "rejected": 1,
             "reason": MessageCatalog(CATALOG_PATH).message(
-                ATTACHMENT_TYPE_NOT_ALLOWED, "zh-CN"
+                ATTACHMENT_COUNT_EXCEEDED, "zh-CN", {"limit": MAX_ATTACHMENTS_PER_MESSAGE}
             ),
         },
     )
@@ -377,13 +382,15 @@ async def test_s07_two_fetch_paths_produce_identical_outcomes(
     ]
     assert len(fake.audits) == 1
     assert fake.audits[0].outcome == "RECEIVED"  # 有附件落盘成功 ⇒ 不是整条被拒
-    assert fake.audits[0].attachment_count == 6 and fake.audits[0].accepted_count == 4
+    assert fake.audits[0].attachment_count == 6 and fake.audits[0].accepted_count == 5
     assert fake.audits[0].total_bytes == sum(ref.size for ref in fake.refs)
 
     # ④ 落盘字节一致：同一份明文，两种取件方式必须得到同一份字节
     assert sorted(fake.stored.values()) == sorted(wecom.stored.values())
-    assert sorted(fake.stored.values()) == sorted({PNG, TEXT_FILE, PNG + b"-second", PNG + b"-third"})
-    assert len(fake.stored) == 4
+    assert sorted(fake.stored.values()) == sorted(
+        {PNG, TEXT_FILE, ZIP_FILE, PNG + b"-second", PNG + b"-third"}
+    )
+    assert len(fake.stored) == 5
 
     # ⑤ 进 Run 的消息带上了附件（纯媒体消息也走得到这里），且 type 被置为 attachment
     assert fake.run_message is not None and wecom.run_message is not None

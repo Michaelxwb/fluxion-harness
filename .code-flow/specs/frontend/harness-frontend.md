@@ -1,5 +1,8 @@
 ---
-{"description": "前端服务层与拦截器", "next_rule": 1}
+{
+  "description": "前端服务层与拦截器",
+  "next_rule": 4
+}
 ---
 
 # harness-frontend
@@ -7,6 +10,10 @@
 ## Rules
 
 - [RULE-front-001] 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的 service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿 `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId` 是无副作用的纯工具，组件可直接 import（现网多处，均为纯函数引用）。文案与词条规则见 RULE-i18n-001；列表/详情见 RULE-ui-001 与 RULE-ui-detail-001。
+
+- [RULE-front-002] 前端展示与文件选择器使用的「允许上传格式」必须来自客户端配置投影，禁止在前端硬编码格式清单；投影字段缺失或非法时按配置非法显式失败，不回落猜测值。
+
+- [RULE-front-003] 长等待必须有可见占位：Run 受理后、首个正文增量到达前，消息流里给出「正在思考」与已等待时长；首字到达即撤占位、不再显示耗时。计时锚点取服务端时间戳，走秒只发生在专用时钟钩子（清理时清除定时器），展示组件保持无状态、不自带定时器，流式输出期间不得有周期性重渲染。
 
 ## Conventions
 
@@ -88,3 +95,9 @@ const tabs =
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-004#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"5d9972be3ef82291b5657546829895f7f55a211f128c63e39c7492d9ff3b12d0","at":"2026-11-12T16:21:37.941Z"}
+
+- {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-010#DELTA-001","op":"add","rule":"RULE-002","payload_sha256":"20a858aebf5fdca6adf167f444f0d842e681b728243c90237805ba60d3c30271","at":"2026-11-12T16:21:37.942Z"}

@@ -105,6 +105,7 @@ REQUIRED_KEYS = (
     "chat.composer.hint.size",
     "chat.composer.hint.text",
     "chat.composer.hint.paste",
+    "chat.composer.hint.formats",
     "chat.composer.error.empty",
     "chat.composer.error.entryRequired",
     "chat.composer.error.conversationRequired",
@@ -218,6 +219,13 @@ const TEXT_TOO_LONG = '__TEXT_TOO_LONG__';
 const TEXT_AT_LIMIT = '__TEXT_AT_LIMIT__';
 
 // ---- 数据构造 ----------------------------------------------------------------------------------
+const UPLOAD_FORMATS = [
+  { media_type: 'application/pdf', extensions: ['.pdf'] },
+  { media_type: 'text/csv', extensions: ['.csv'] },
+  { media_type: 'text/plain', extensions: ['.txt'] },
+  { media_type: 'application/zip', extensions: ['.zip'] }
+];
+
 const CONFIG_A = {
   settings_revision: 81,
   transport_revision: 'rev-281',
@@ -226,6 +234,7 @@ const CONFIG_A = {
     text_max_bytes: TEXT_MAX_BYTES,
     upload_max_bytes: UPLOAD_MAX_BYTES,
     upload_max_per_message: UPLOAD_MAX_PER_MESSAGE,
+    upload_formats: UPLOAD_FORMATS,
     notification_poll_sec: 2.5
   },
   transport: {
@@ -261,7 +270,7 @@ const bytesOf = (size) => Uint8Array.from({ length: size }, (_, index) => (index
 const makeFile = (name, type, size) => new File([bytesOf(size)], name, { type });
 const FILE_A = makeFile('报表.pdf', 'application/pdf', 5);
 const FILE_B = makeFile('数据.csv', 'text/csv', 7);
-const FILE_BIG = makeFile('big.bin', 'application/octet-stream', UPLOAD_MAX_BYTES + 1);
+const FILE_BIG = makeFile('big.pdf', 'application/pdf', UPLOAD_MAX_BYTES + 1);
 
 // ---- HTTP：真实 axios 实例经 adapter 观测方法/URL/体/头/文件部件 ----------------------------------
 const requests = [];
@@ -469,6 +478,20 @@ const obs = {};
     ]
   };
 }
+
+  const typed = await makeController();
+  typed.view.conversationId = CONVERSATION_1;
+  typed.controller.addFiles([makeFile('bad.exe', 'application/octet-stream', 4)]);
+  const badType = typed.controller.snapshot();
+  typed.controller.addFiles([makeFile('noext', 'text/plain', 2)]);
+  const noExtension = typed.controller.snapshot();
+  obs.formatPrecheck = {
+    badType: { code: badType.inputErrorCode, count: badType.attachments.length },
+    noExtension: {
+      code: noExtension.inputErrorCode,
+      names: noExtension.attachments.map((entry) => entry.filename)
+    }
+  };
 
 // ---- 2) 附件经 API-10 上传，提交只带 upload_id ---------------------------------------------------
 {
@@ -827,6 +850,13 @@ const UPLOAD_ID_FRESH = '__UPLOAD_ID_FRESH__';
 
 const ENTRY = { entry_id: ENTRY_A, agent_id: AGENT_A, display_name: '客服助手' };
 
+const UPLOAD_FORMATS = [
+  { media_type: 'application/pdf', extensions: ['.pdf'] },
+  { media_type: 'text/csv', extensions: ['.csv'] },
+  { media_type: 'text/plain', extensions: ['.txt'] },
+  { media_type: 'application/zip', extensions: ['.zip'] }
+];
+
 const CONFIG_A = {
   settings_revision: 81,
   transport_revision: 'rev-281',
@@ -835,6 +865,7 @@ const CONFIG_A = {
     text_max_bytes: TEXT_MAX_BYTES,
     upload_max_bytes: UPLOAD_MAX_BYTES,
     upload_max_per_message: UPLOAD_MAX_PER_MESSAGE,
+    upload_formats: UPLOAD_FORMATS,
     notification_poll_sec: 2.5
   },
   transport: {
@@ -848,7 +879,8 @@ const CONFIG_A = {
 const POLICY = {
   text_max_bytes: TEXT_MAX_BYTES,
   upload_max_bytes: UPLOAD_MAX_BYTES,
-  upload_max_per_message: UPLOAD_MAX_PER_MESSAGE
+  upload_max_per_message: UPLOAD_MAX_PER_MESSAGE,
+  upload_formats: UPLOAD_FORMATS
 };
 
 const attachment = (localId, filename, size, mediaType, status, uploadId, expiresAt, errorCode) => ({
@@ -1302,6 +1334,19 @@ def test_b281_precheck_uses_utf8_bytes_count_and_size_before_any_io(
     ], "预检纯函数与限额端口同源（超限显式码，合法返回 null）"
 
 
+def test_b281_selection_rejects_extensions_outside_the_projection(
+    composer_logic: dict[str, Any],
+) -> None:
+    """扩展名预检只认 API-19 投影：清单外类型就地拒绝，没有扩展名的文件交给服务端门控。"""
+    observed = composer_logic["formatPrecheck"]
+    assert observed["badType"] == {"code": "ATTACHMENT_TYPE_NOT_ALLOWED", "count": 0}, (
+        "清单外的扩展名不得进入附件集合"
+    )
+    assert observed["noExtension"] == {"code": None, "names": ["noext"]}, (
+        "无扩展名不就地拦截（避免误伤），由服务端门控裁决"
+    )
+
+
 # --------------------------------------------------------------------------- 附件经 API-10
 
 
@@ -1545,6 +1590,9 @@ def test_b281_composer_renders_text_files_progress_and_projection_limits(
     file_input = _tag(markup, "chat-composer-file-input")
     assert 'type="file"' in file_input and "multiple" in file_input, "附件用真实文件选择控件（多选）"
     assert 'aria-label="添加附件"' in file_input, "附件选择有可访问标签"
+    assert 'accept=".pdf,.csv,.txt,.zip"' in file_input, (
+        "选择器过滤来自 API-19 投影的扩展名清单（去重后保持顺序）"
+    )
 
     assert _count(markup, 'data-testid="chat-composer-attachment"') == 2, "两个附件逐条渲染"
     assert 'data-status="UPLOADED"' in markup and 'data-status="FAILED"' in markup
@@ -1558,6 +1606,8 @@ def test_b281_composer_renders_text_files_progress_and_projection_limits(
     assert "3.0 KB" in hints, "单件大小上限来自 API-19 投影"
     assert f"{TEXT_MAX_BYTES} 字节" in hints, "文本字节上限来自 API-19 投影"
     assert "支持直接粘贴图片" in hints, "粘贴上传提示可见"
+    assert 'data-testid="chat-composer-hint-formats"' in hints
+    assert "支持格式：PDF / CSV / TXT / ZIP" in hints, "格式清单一式一份地来自投影"
     assert 'data-testid="chat-composer-send"' in markup
     assert not _is_disabled(markup, "chat-composer-send"), "有内容时可发送"
     assert 'data-testid="chat-composer-error"' not in markup
@@ -1567,6 +1617,7 @@ def test_b281_composer_renders_text_files_progress_and_projection_limits(
     english = composer_render["markup"]["composer-en"]
     assert "Send" in english and "Add attachments" in english, "文案随语言切换"
     assert f"At most {UPLOAD_MAX_PER_MESSAGE} attachments" in english
+    assert "Supported formats: PDF / CSV / TXT / ZIP" in english
     assert "Uploaded" in english
     assert "report.pdf" in english and "报表.pdf" not in english, "附件条目随语言/数据如实渲染"
 

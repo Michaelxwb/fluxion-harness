@@ -5,6 +5,7 @@ from importlib import import_module
 from uuid import uuid4
 
 import pytest
+from muad_contracts import SUPPORTED_UPLOAD_FORMATS
 from muad_contracts.platform_settings import WebchatSettings
 from pydantic import BaseModel, ValidationError
 
@@ -254,6 +255,12 @@ def test_b205_client_config_is_a_whitelisted_projection_of_effective_settings() 
         sse_event_max_bytes=262144, sse_heartbeat_sec=10,
     )
     wire = config.model_dump(mode="json")
+    # 允许格式来自契约单一事实（代码常量），不是设置字段：单独核它，其余字段逐项核。
+    upload_formats = wire["webchat"].pop("upload_formats")
+    assert upload_formats == [
+        {"media_type": item.media_type, "extensions": list(item.extensions)}
+        for item in SUPPORTED_UPLOAD_FORMATS
+    ]
     assert wire == {
         "settings_revision": 7, "transport_revision": "transport-abc",
         "webchat": {"history_page_size": 75, "text_max_bytes": 8192, "upload_max_bytes": 52428800,
@@ -275,7 +282,8 @@ def test_b205_client_config_is_a_whitelisted_projection_of_effective_settings() 
 def test_b205_non_json_numbers_are_rejected_before_canonicalization(literal: str) -> None:
     limits = _contract("WebchatClientLimits")
     payload = ('{"history_page_size":50,"text_max_bytes":65536,"upload_max_bytes":52428800,'
-               '"upload_max_per_message":5,"notification_poll_sec":' + literal + '}')
+               '"upload_max_per_message":5,"upload_formats":[{"media_type":"application/pdf",'
+               '"extensions":[".pdf"]}],"notification_poll_sec":' + literal + '}')
     with pytest.raises(ValidationError):
         limits.model_validate_json(payload)
 
@@ -288,7 +296,9 @@ def test_b205_client_limits_use_the_authoritative_business_schema(changes: dict[
     with pytest.raises(ValidationError):
         _contract("WebchatClientLimits")(**{
             "history_page_size": 50, "text_max_bytes": 65536, "upload_max_bytes": 52428800,
-            "upload_max_per_message": 5, "notification_poll_sec": 5, **changes,
+            "upload_max_per_message": 5, "notification_poll_sec": 5,
+            "upload_formats": [{"media_type": "application/pdf", "extensions": (".pdf",)}],
+            **changes,
         })
 
 

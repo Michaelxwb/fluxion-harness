@@ -69,6 +69,7 @@ CLIENT_METHODS = (
     "listConversations",
     "createConversation",
     "getConversation",
+    "deleteConversation",
     "submit",
     "cancel",
     "resume",
@@ -248,6 +249,7 @@ const clientConfig = {
     text_max_bytes: 8192,
     upload_max_bytes: 10485760,
     upload_max_per_message: 5,
+    upload_formats: [{ media_type: 'application/pdf', extensions: ['.pdf'] }],
     notification_poll_sec: 30
   },
   transport: {
@@ -1082,6 +1084,7 @@ def test_module_source_keeps_dtos_and_client_contract_strict() -> None:
             "upload_max_bytes: number;",
             "upload_max_per_message: number;",
             "notification_poll_sec: number;",
+            "upload_formats: readonly WebchatUploadFormat[];",
         ),
     }.items():
         assert f"export interface {dto} " in types or f"export interface {dto} extends" in types, (

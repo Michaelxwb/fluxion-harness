@@ -89,10 +89,13 @@ export const Empty = () => null;
 export const Spin = () => null;
 export const Typography = { Text: () => null, Title: () => null, Paragraph: () => null };
 export const Toast = { error: () => {} };
+export const Dropdown = Object.assign(() => null, { Menu: () => null, Item: () => null });
+export const Modal = () => null;
 """
 
 SEMI_ICONS_STUB = """export const IconPlus = () => null;
 export const IconMenu = () => null;
+export const IconMore = () => null;
 """
 
 LOGIC_ENTRY = """export * from '{hook}';
@@ -281,6 +284,7 @@ const CONFIG_A = {
     text_max_bytes: 4096,
     upload_max_bytes: 1024,
     upload_max_per_message: 2,
+    upload_formats: [{ media_type: 'application/pdf', extensions: ['.pdf'] }],
     notification_poll_sec: 2.5
   },
   transport: {

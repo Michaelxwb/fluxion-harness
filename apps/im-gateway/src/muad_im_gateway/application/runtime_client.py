@@ -518,6 +518,16 @@ class RuntimeClient:
             {"user_id": str(user_id)},
         )
 
+    async def delete_conversation(
+        self, conversation_id: UUID, *, tenant_id: str, user_id: UUID
+    ) -> dict[str, Any]:
+        """API-16 会话删除：只带受信主体，归属由 Owner 按 (tenant, user) 核。"""
+        return await self._delete_internal_json(
+            INTERNAL_CONVERSATION_PATH.format(conversation_id=conversation_id),
+            tenant_id,
+            {"user_id": str(user_id)},
+        )
+
     async def register_upload(
         self, registration: WebchatUploadRegistration, *, tenant_id: str
     ) -> dict[str, Any]:
@@ -703,6 +713,20 @@ class RuntimeClient:
         if response.status_code >= 400:
             data = error_data_from_payload(body) if with_error_data else None
             raise AppError(error_code_from_payload(body), data=data)
+        return require_data_dict(body)
+
+    async def _delete_internal_json(
+        self, path: str, tenant_id: str, params: dict[str, str]
+    ) -> dict[str, Any]:
+        """受信内部面删除调用：与读取面同一门控（服务身份 + 部署租户）。"""
+        headers = build_headers(tenant_id, "", service_token=self._service_token)
+        try:
+            response = await self._client.delete(self._url(path), params=params, headers=headers)
+        except httpx.HTTPError as exc:
+            raise _transport_failure(exc, "egress") from exc
+        body = decode_json(response)
+        if response.status_code >= 400:
+            raise AppError(error_code_from_payload(body))
         return require_data_dict(body)
 
     async def _post_internal_json(

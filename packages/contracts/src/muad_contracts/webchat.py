@@ -15,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 
+from .attachments import SUPPORTED_UPLOAD_FORMATS, AttachmentFormat
 from .channel import MAX_PAGE_SIZE, AttachmentKind
 from .enums import RunStatus
 from .platform_settings import WebchatSettings, parse_platform_settings
@@ -364,6 +365,13 @@ class WebchatResumeReceipt(WebchatContract):
     execution_status: WebchatExecutionStatus
 
 
+class WebchatConversationDeletion(WebchatContract):
+    """会话删除回执：`deleted=True` 表示该会话当前已达成删除（重复删除同形）。"""
+
+    conversation_id: UUID
+    deleted: Literal[True] = True
+
+
 class WebchatConversationScope(WebchatContract):
     """内部归属解析（API-09/15 的入口解析接线；design §3.4 公共路径不带入口）。
 
@@ -420,16 +428,20 @@ class WebchatConversationDetail(WebchatContract):
         return self
 
 
+#: `upload_formats`（媒体类型 + 展示扩展名）来自 `muad_contracts.attachments` 的唯一事实，
+#: 与门控同一份清单；浏览器据此展示提示并过滤文件选择器，不在前端另存一份。
 class WebchatClientLimits(WebchatContract):
     history_page_size: ChatPageSize
     text_max_bytes: ChatPositiveCount
     upload_max_bytes: ChatPositiveCount
     upload_max_per_message: ChatPositiveCount
     notification_poll_sec: ChatPositiveSeconds
+    upload_formats: tuple[AttachmentFormat, ...]
 
     @model_validator(mode="after")
     def _business_schema_bounds(self) -> Self:
-        parse_platform_settings({"webchat": self.model_dump()})
+        # `upload_formats` 是代码常量投影、不是平台设置字段：只把设置字段交给 schema 复核。
+        parse_platform_settings({"webchat": self.model_dump(exclude={"upload_formats"})})
         return self
 
 
@@ -468,6 +480,7 @@ class WebchatClientConfig(WebchatContract):
                 upload_max_bytes=webchat.upload_max_bytes,
                 upload_max_per_message=webchat.upload_max_per_message,
                 notification_poll_sec=webchat.notification_poll_sec,
+                upload_formats=SUPPORTED_UPLOAD_FORMATS,
             ),
             transport=WebchatClientTransport(
                 sse_event_max_bytes=sse_event_max_bytes, sse_heartbeat_sec=sse_heartbeat_sec,

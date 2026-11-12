@@ -107,6 +107,8 @@ export interface WebchatShellProps {
   messageViewportRef?: RefObject<HTMLDivElement>;
   /** 分组参考时刻（页面时区）：缺省取当前时间。 */
   now?: Date;
+  /** 删除会话（二次确认由侧栏持有；这里只转发已确认的删除）。 */
+  onDeleteConversation?(conversationId: string): void;
   /** 本地动作失败端口（如控制器尚未绑定入口）：显式上报，绝不静默。 */
   onActionFailure(error: unknown): void;
 }
@@ -206,6 +208,7 @@ interface WebchatSidebarPaneProps {
   now?: Date;
   bindings: ConversationSidebarBindings;
   onSelect(conversationId: string): void;
+  onDeleteConversation?(conversationId: string): void;
 }
 
 /** 左侧栏位：历史侧栏；抽屉开关在会话头部（关闭时仍可达）。 */
@@ -222,8 +225,10 @@ function WebchatSidebarPane(props: WebchatSidebarPaneProps) {
         errorCode={props.index.errorCode}
         entryBound={props.index.entryId === props.entry.entry_id}
         unreadCounts={props.unreadCounts}
+        deletingIds={props.index.deletingIds}
         now={props.now}
         onNew={props.bindings.onNew}
+        onDelete={(conversationId) => props.onDeleteConversation?.(conversationId)}
         onSelect={props.onSelect}
         onLoadMore={props.bindings.onLoadMore}
         onRetry={props.bindings.onRetry}
@@ -295,6 +300,7 @@ export function WebchatShell(props: WebchatShellProps) {
         now={props.now}
         bindings={bindings}
         onSelect={selectConversation}
+        onDeleteConversation={props.onDeleteConversation}
       />
       <ChatPanel
         entry={entry}

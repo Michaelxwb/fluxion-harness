@@ -25,6 +25,7 @@ import type { ChangeEvent, ClipboardEvent, KeyboardEvent, RefObject } from 'reac
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { acceptedExtensions } from '../clientConfig';
 import { clipboardFiles } from '../composerPaste';
 import { formatAttachmentSize } from './MessageThread';
 import type {
@@ -34,6 +35,7 @@ import type {
   PendingSendPhase
 } from '../hooks/usePendingSend';
 import { pendingSendErrorKey } from '../hooks/usePendingSend';
+import type { WebchatUploadFormat } from '../types';
 
 /** 附件展示状态：暂存过期是本地判定（服务端仍权威），与上传状态分开表达。 */
 export type ComposerAttachmentDisplayStatus = ComposerFileStatus | 'EXPIRED';
@@ -145,8 +147,20 @@ function ComposerHints(props: { policy: ComposerAttachmentPolicy }) {
         {t('chat.composer.hint.text', { max: props.policy.text_max_bytes })}
       </span>
       <span data-testid="chat-composer-hint-paste">{t('chat.composer.hint.paste')}</span>
+      <span data-testid="chat-composer-hint-formats">
+        {t('chat.composer.hint.formats', {
+          formats: formatAcceptedExtensions(props.policy.upload_formats)
+        })}
+      </span>
     </p>
   );
+}
+
+/** 扩展名 → 提示文案：去点、大写、` / ` 连接（语言中立，不逐类型翻译）。 */
+function formatAcceptedExtensions(formats: readonly WebchatUploadFormat[]): string {
+  return acceptedExtensions(formats)
+    .map((extension) => extension.slice(1).toUpperCase())
+    .join(' / ');
 }
 
 /** 阶段提示：上传中/待受理显式可见（其余阶段不占位）。 */
@@ -221,6 +235,8 @@ interface ComposerActionsProps {
   /** 主操作文案词条（与 `onPrimary` 同一处推导，标签与行为不会分叉）。 */
   primaryLabel: string;
   fileInputRef: RefObject<HTMLInputElement>;
+  /** 文件选择器过滤（扩展名清单，来自 API-19 投影）。 */
+  accept: string;
   onAddFiles(files: readonly File[]): void;
   onPrimary(): void;
   onCancel(): void;
@@ -241,6 +257,7 @@ function ComposerActions(props: ComposerActionsProps) {
         className="chat-composer-file"
         data-testid="chat-composer-file-input"
         type="file"
+        accept={props.accept}
         multiple
         aria-label={t('chat.composer.attach')}
         disabled={props.disabled}
@@ -404,6 +421,10 @@ export interface ChatComposerProps {
 export function ChatComposer(props: ChatComposerProps) {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const acceptExtensions =
+    props.attachmentPolicy === null
+      ? ''
+      : acceptedExtensions(props.attachmentPolicy.upload_formats).join(',');
   const flags = composerFlags(props);
   const handleKeyDown = composerKeyHandler(flags);
   const handlePaste = (event: ClipboardEvent<HTMLElement>): void => {
@@ -442,6 +463,7 @@ export function ChatComposer(props: ChatComposerProps) {
           canSend={flags.canSubmit}
           primaryLabel={flags.primaryLabel}
           fileInputRef={fileInputRef}
+          accept={acceptExtensions}
           onAddFiles={props.onAddFiles}
           onPrimary={flags.primaryAction}
           onCancel={props.onCancel}

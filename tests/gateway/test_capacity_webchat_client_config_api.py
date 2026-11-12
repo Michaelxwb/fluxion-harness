@@ -39,6 +39,7 @@ from fakes import StubConsole
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response
 from httpx import ASGITransport, AsyncClient
+from muad_contracts import SUPPORTED_UPLOAD_FORMATS
 from muad_contracts.platform_settings import default_platform_settings
 from muad_im_gateway.api.webchat import router as webchat_router
 from muad_im_gateway.application.chat_principal import CHAT_SESSION_COOKIE
@@ -131,7 +132,7 @@ FORBIDDEN_TEXT = (
 )
 WEBCHAT_KEYS = {
     "history_page_size", "text_max_bytes", "upload_max_bytes", "upload_max_per_message",
-    "notification_poll_sec",
+    "notification_poll_sec", "upload_formats",
 }
 TRANSPORT_KEYS = {
     "sse_event_max_bytes", "sse_heartbeat_sec", "reconnect_base_ms", "reconnect_cap_ms",
@@ -366,6 +367,11 @@ async def test_b257_client_config_projects_the_effective_whitelist_and_revisions
     assert isinstance(revision, str)
     assert re.fullmatch(r"[0-9a-f]{16,64}", revision), "传输版本必须是不透明指纹（纯十六进制）"
 
+    upload_formats = data["webchat"].pop("upload_formats")
+    assert upload_formats == [
+        {"media_type": item.media_type, "extensions": list(item.extensions)}
+        for item in SUPPORTED_UPLOAD_FORMATS
+    ]
     assert data == {
         "settings_revision": SETTINGS_REVISION,
         "transport_revision": revision,
@@ -385,7 +391,7 @@ async def test_b257_client_config_projects_the_effective_whitelist_and_revisions
         },
     }
     assert set(data) == {"settings_revision", "transport_revision", "webchat", "transport"}
-    assert set(data["webchat"]) == WEBCHAT_KEYS
+    assert set(data["webchat"]) | {"upload_formats"} == WEBCHAT_KEYS
     assert set(data["transport"]) == TRANSPORT_KEYS
 
     # 设置源只被读一次，且只带服务身份/租户，不带 CHAT 凭据。
@@ -420,13 +426,19 @@ async def test_b257_client_config_defaults_come_only_from_the_shared_schema(
     defaults = default_platform_settings().webchat
     data = response.json()["data"]
     assert data["settings_revision"] == 0
-    assert data["webchat"] == {
+    projected = {key: value for key, value in data["webchat"].items() if key != "upload_formats"}
+    assert projected == {
         "history_page_size": defaults.history_page_size,
         "text_max_bytes": defaults.text_max_bytes,
         "upload_max_bytes": defaults.upload_max_bytes,
         "upload_max_per_message": defaults.upload_max_per_message,
         "notification_poll_sec": defaults.notification_poll_sec,
     }
+    # 允许的格式与门控同一份事实：投影里出现的就是 `muad_contracts.attachments` 的清单。
+    assert data["webchat"]["upload_formats"] == [
+        {"media_type": item.media_type, "extensions": list(item.extensions)}
+        for item in SUPPORTED_UPLOAD_FORMATS
+    ]
     assert data["transport"] == {
         "sse_event_max_bytes": SSE_EVENT_MAX_BYTES,
         "sse_heartbeat_sec": RUN_EVENT_HEARTBEAT_SEC,
