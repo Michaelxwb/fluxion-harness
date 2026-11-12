@@ -8,6 +8,7 @@ import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { getMcpServer, type McpServerDetail, type McpServerListItem } from './services/mcpServers';
+import { summarizeAuthMode } from './authPayload';
 import { McpAgentTable } from './McpAgentTable';
 import { McpSelectedUserTable } from './SelectedUserTable';
 import { McpToolTable } from './McpToolTable';
@@ -63,6 +64,14 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
     return null;
   }
 
+  const authSummary = summarizeAuthMode(
+    detail?.auth_config,
+    detail?.auth_secret_configured ?? false
+  );
+  const authModeText = authSummary.mode === 'headers'
+    ? t('mcp.detail.authModeHeaders', { count: authSummary.headerCount })
+    : t(authSummary.mode === 'bearer' ? 'mcp.detail.authModeBearer' : 'mcp.detail.authModeNone');
+
   return (
     <>
       <DetailSideSheet
@@ -94,6 +103,7 @@ export function McpDetailSideSheet(props: McpDetailSideSheetProps) {
                   { label: t('mcp.form.name'), value: detail.name },
                   { label: t('mcp.form.transport'), value: detail.transport },
                   { label: t('mcp.form.endpoint'), value: detail.endpoint },
+                  { label: t('mcp.detail.authMode'), value: authModeText },
                   {
                     label: t('mcp.columns.connectionStatus'),
                     value: t(`mcp.connection.${detail.connection_status}`)

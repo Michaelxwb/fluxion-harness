@@ -1,4 +1,4 @@
-import { Banner, Form } from '@douyinfe/semi-ui';
+import { Banner, Button, Form, Tag } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,9 +8,20 @@ import { useAuth } from '../../auth/AuthContext';
 import { FormModal } from '../../components/common/FormModal';
 import { Tips } from '../../components/common/Tips';
 import {
+  buildAuthPayload,
+  headerIssueKey,
+  summarizeAuthMode,
+  validateHeaderRows,
+  type AuthMode,
+  type HeaderRow
+} from './authPayload';
+import { AuthModeFields } from './AuthModeFields';
+import { McpConfigImport, type ImportedMcpConfig } from './McpConfigImport';
+import {
   createMcpServer,
   discoverTools,
   updateMcpServer,
+  type McpSaveInput,
   type McpServerDetail
 } from './services/mcpServers';
 
@@ -27,13 +38,16 @@ interface FormValues {
   endpoint: string;
   user_scope: 'ALL' | 'SELECTED';
   enabled: 'true' | 'false';
+  auth_mode: AuthMode;
   auth_secret?: string;
-  auth_config?: string;
+  secret_header?: string;
   connect_timeout_ms?: number;
   tool_cache_ttl_sec?: number;
 }
 
 const VALID_ENDPOINT = /^https?:\/\/.+/;
+const DEFAULT_CONNECT_TIMEOUT_MS = 5000;
+const DEFAULT_TOOL_CACHE_TTL_SEC = 300;
 
 export function McpFormModal(props: McpFormModalProps) {
   const { t } = useTranslation();
@@ -41,77 +55,129 @@ export function McpFormModal(props: McpFormModalProps) {
   const isAdmin = account?.role === 'ADMIN';
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>('none');
+  const [headers, setHeaders] = useState<HeaderRow[]>([]);
+  const [secretHeader, setSecretHeader] = useState('');
+  const [secretValue, setSecretValue] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [timeoutMs, setTimeoutMs] = useState(DEFAULT_CONNECT_TIMEOUT_MS);
+  const [cacheTtlSec, setCacheTtlSec] = useState(DEFAULT_TOOL_CACHE_TTL_SEC);
   const formApi = useRef<FormApi | null>(null);
 
   useEffect(() => {
     if (!props.visible) {
       return;
     }
+    const server = props.server;
+    const config = server?.auth_config ?? null;
+    const summary = summarizeAuthMode(config, server?.auth_secret_configured ?? false);
+    const rows = Object.entries(config?.headers ?? {}).map(([name, value]) => ({ name, value }));
     formApi.current?.reset();
     setFormError(null);
-    formApi.current?.setValues({ user_scope: 'SELECTED', enabled: 'true' });
-    if (props.server) {
-      formApi.current?.setValues({
-        name: props.server.name,
-        key: props.server.key,
-        endpoint: props.server.endpoint,
-        user_scope: props.server.user_scope,
-        enabled: props.server.enabled ? 'true' : 'false',
-        auth_config: JSON.stringify(props.server.auth_config ?? {}, null, 2),
-        connect_timeout_ms: props.server.connect_timeout_ms,
-        tool_cache_ttl_sec: props.server.tool_cache_ttl_sec
-      });
-    }
+    setAuthMode(summary.mode);
+    setHeaders(rows);
+    setSecretHeader(config?.secret_header ?? '');
+    setSecretValue('');
+    setAdvancedOpen(false);
+    setTimeoutMs(server?.connect_timeout_ms ?? DEFAULT_CONNECT_TIMEOUT_MS);
+    setCacheTtlSec(server?.tool_cache_ttl_sec ?? DEFAULT_TOOL_CACHE_TTL_SEC);
+    formApi.current?.setValues({
+      name: server?.name,
+      key: server?.key,
+      endpoint: server?.endpoint,
+      user_scope: server?.user_scope ?? 'SELECTED',
+      enabled: server?.enabled === false ? 'false' : 'true',
+      auth_mode: summary.mode,
+      auth_secret: '',
+      secret_header: config?.secret_header ?? '',
+      connect_timeout_ms: server?.connect_timeout_ms ?? DEFAULT_CONNECT_TIMEOUT_MS,
+      tool_cache_ttl_sec: server?.tool_cache_ttl_sec ?? DEFAULT_TOOL_CACHE_TTL_SEC
+    });
   }, [props.visible, props.server]);
 
+  // Conditional fields mount/unmount with the auth mode, so mirror the local state into
+  // the form after the field exists (e.g. an imported bearer token when starting from none).
+  useEffect(() => {
+    if (!props.visible) {
+      return;
+    }
+    formApi.current?.setValue('auth_secret', secretValue);
+    formApi.current?.setValue('secret_header', secretHeader);
+  }, [props.visible, authMode, secretValue, secretHeader]);
+
+  const changeAuthMode = (mode: AuthMode): void => {
+    setAuthMode(mode);
+    setSecretValue('');
+    formApi.current?.setValue('auth_secret', '');
+    if (mode !== 'headers') {
+      setHeaders([]);
+      setSecretHeader('');
+      formApi.current?.setValue('secret_header', '');
+    }
+  };
+
+  const applyImport = (config: ImportedMcpConfig): void => {
+    setAuthMode(config.authMode);
+    setHeaders(config.headers);
+    setSecretHeader(config.secretHeader);
+    setSecretValue(config.authSecret);
+    formApi.current?.setValues({
+      name: config.name,
+      endpoint: config.endpoint,
+      auth_mode: config.authMode,
+      secret_header: config.secretHeader,
+      auth_secret: config.authSecret
+    });
+  };
+
   const submit = async (values: FormValues): Promise<void> => {
-    // [E-09] transport 固定为 Streamable HTTP（只读字段）；endpoint 协议本地拦截，不提交
     if (!VALID_ENDPOINT.test(values.endpoint)) {
+      formApi.current?.setError('endpoint', t('mcp.form.endpointInvalid'));
       Tips.error(t('mcp.form.endpointInvalid'));
       return;
     }
-    let authConfig: Record<string, unknown> = {};
-    const rawAuthConfig = (values.auth_config ?? '').trim();
-    if (rawAuthConfig) {
-      try {
-        const parsed: unknown = JSON.parse(rawAuthConfig);
-        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          throw new Error('not an object');
-        }
-        authConfig = parsed as Record<string, unknown>;
-      } catch {
-        formApi.current?.setError('auth_config', t('mcp.form.authConfigInvalid'));
+    const secretConfigured = props.server?.auth_secret_configured ?? false;
+    if (authMode === 'headers') {
+      const issues = validateHeaderRows(headers, secretHeader, secretValue, secretConfigured);
+      if (issues.length > 0) {
+        Tips.error(t(headerIssueKey(issues[0].kind)));
         return;
       }
     }
+    const auth = buildAuthPayload({
+      auth_mode: authMode,
+      auth_secret: secretValue,
+      secret_header: secretHeader,
+      headers
+    });
     setSaving(true);
     setFormError(null);
-    const base = {
+    const input: McpSaveInput = {
       name: values.name,
       endpoint: values.endpoint,
       enabled: values.enabled === 'true',
-      auth_config: authConfig,
+      auth_config: auth.auth_config,
       connect_timeout_ms: values.connect_timeout_ms,
       tool_cache_ttl_sec: values.tool_cache_ttl_sec
     };
+    if (auth.auth_secret !== undefined) {
+      input.auth_secret = auth.auth_secret;
+    }
     try {
       if (props.server) {
-        const input = { ...base };
-        if (values.auth_secret) {
-          (input as { auth_secret?: string }).auth_secret = values.auth_secret;
-        }
         await updateMcpServer(props.server.mcp_id, input, { errorTip: 'never' });
       } else {
         const created = await createMcpServer(
           {
-            ...base, key: values.key, auth_secret: values.auth_secret || undefined,
+            ...input,
+            key: values.key,
             user_scope: isAdmin ? values.user_scope : 'SELECTED'
           },
           newRequestId(),
           { errorTip: 'never' }
         );
-        // 交互稿「保存并发现工具」：注册成功后立即执行一次目录发现；
-        // 失败不阻塞（服务已保存，可在详情中重试，Toast 由 ApiClient 展示）
+        // Saving and discovering are separate outcomes: a discovery failure keeps the
+        // server saved and surfaces the API error, so the modal still closes.
         await discoverTools(created.mcp_id).catch(() => undefined);
       }
       props.onSaved();
@@ -129,11 +195,27 @@ export function McpFormModal(props: McpFormModalProps) {
     }
   };
 
+  const title = props.server ? t('mcp.form.editTitle') : t('mcp.form.createTitle');
+  const advancedCustomized = timeoutMs !== DEFAULT_CONNECT_TIMEOUT_MS
+    || cacheTtlSec !== DEFAULT_TOOL_CACHE_TTL_SEC;
+  const headerIssues = authMode === 'headers'
+    ? validateHeaderRows(
+      headers,
+      secretHeader,
+      secretValue,
+      props.server?.auth_secret_configured ?? false
+    )
+    : [];
+
   return (
     <FormModal
       visible={props.visible}
       width={720}
-      title={props.server ? t('mcp.form.editTitle') : t('mcp.form.createTitle')}
+      title={(
+        <span>
+          {title} <Tag size="small" type="ghost">{t('mcp.form.transportStatic')}</Tag>
+        </span>
+      )}
       okText={props.server ? t('common.save') : t('mcp.form.saveAndDiscover')}
       confirmLoading={saving}
       onOk={() => formApi.current?.submitForm()}
@@ -164,14 +246,21 @@ export function McpFormModal(props: McpFormModalProps) {
             label={t('mcp.form.endpoint')}
             rules={[{ required: true, message: t('mcp.form.endpoint') }]}
           />
+          <McpConfigImport onImported={applyImport} />
         </div>
         <div className="form-field-full">
-          <Form.Input
-            field="transport"
-            label={t('mcp.form.transport')}
-            disabled
-            initValue="streamable-http"
-            extraText={t('mcp.form.transportHint')}
+          <AuthModeFields
+            mode={authMode}
+            editing={props.server !== null}
+            secretConfigured={props.server?.auth_secret_configured ?? false}
+            headers={headers}
+            secretHeader={secretHeader}
+            secretValue={secretValue}
+            issues={headerIssues}
+            onModeChange={changeAuthMode}
+            onHeadersChange={setHeaders}
+            onSecretHeaderChange={setSecretHeader}
+            onSecretValueChange={setSecretValue}
           />
         </div>
         {!props.server && isAdmin ? <Form.Select
@@ -193,42 +282,45 @@ export function McpFormModal(props: McpFormModalProps) {
           ]}
         />
         <div className="form-section">
-          <div className="form-section-title">{t('mcp.form.advancedSection')}</div>
+          <Button
+            theme="borderless"
+            data-testid="mcp-advanced-toggle"
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            {t('mcp.form.advancedToggle')}
+          </Button>
+          {advancedCustomized ? (
+            <Tag size="small">{t('mcp.form.advancedCustomized')}</Tag>
+          ) : null}
           <div className="form-section-hint">{t('mcp.form.advancedSectionHint')}</div>
         </div>
-        <div className="form-field-full">
-          <Form.Input
-            field="auth_secret"
-            label={t('mcp.form.authSecret')}
-            mode="password"
-            extraText={
-              props.server?.auth_secret_configured
-                ? t('mcp.form.authSecretKeep')
-                : t('mcp.form.authSecretHint')
-            }
-          />
-        </div>
-        <Form.InputNumber
-          field="connect_timeout_ms"
-          label={t('mcp.form.connectTimeout')}
-          initValue={5000}
-          min={100}
-          max={60000}
-        />
-        <Form.InputNumber
-          field="tool_cache_ttl_sec"
-          label={t('mcp.form.cacheTtl')}
-          initValue={300}
-          min={1}
-          max={86400}
-        />
-        <div className="form-field-full">
-          <Form.Input
-            field="auth_config"
-            label={t('mcp.form.authConfig')}
-            placeholder='{"header": "X-Api-Key"}'
-            extraText={t('mcp.form.authConfigHint')}
-          />
+        <div
+          className="form-field-full"
+          style={{ display: advancedOpen ? undefined : 'none' }}
+        >
+          <div className="form-grid">
+            <Form.InputNumber
+              field="connect_timeout_ms"
+              label={t('mcp.form.connectTimeout')}
+              initValue={DEFAULT_CONNECT_TIMEOUT_MS}
+              min={100}
+              max={60000}
+              onChange={(value) => setTimeoutMs(
+                typeof value === 'number' ? value : DEFAULT_CONNECT_TIMEOUT_MS
+              )}
+            />
+            <Form.InputNumber
+              field="tool_cache_ttl_sec"
+              label={t('mcp.form.cacheTtl')}
+              initValue={DEFAULT_TOOL_CACHE_TTL_SEC}
+              min={1}
+              max={86400}
+              onChange={(value) => setCacheTtlSec(
+                typeof value === 'number' ? value : DEFAULT_TOOL_CACHE_TTL_SEC
+              )}
+            />
+          </div>
         </div>
         <div className="form-field-banner">
           <Banner type="info" closeIcon={null} description={t('mcp.form.banner')} />
