@@ -29,6 +29,7 @@ import { ClientConfigError } from './clientConfig';
 import { webchatErrorCode } from './services/webchatApi';
 import type {
   WebchatConversationCreated,
+  WebchatConversationDeletion,
   WebchatConversationDetail,
   WebchatConversationItem,
   WebchatConversationPage,
@@ -86,6 +87,10 @@ export interface ConversationIndexSnapshot {
   creating: boolean;
   hasMore: boolean;
   errorCode: string | null;
+  /** 正在删除的会话（条目禁用并显示进度；同一会话单飞）。 */
+  deletingIds: readonly string[];
+  /** 最近一次删除失败的稳定码（条目保留，可重试）。 */
+  deleteErrorCode: string | null;
 }
 
 /** 选择快照（design §3.5 `entry/conversation`）；`created` 只在刚新建成功时非空。 */
@@ -124,6 +129,11 @@ export type ConversationCreationResult =
   | { created: true; conversation: WebchatConversationCreated }
   | { created: false; errorCode: string };
 
+/** 删除结果：失败是可预期分支（条目保留、可重试），不靠异常传递业务失败。 */
+export type ConversationDeletionResult =
+  | { deleted: true }
+  | { deleted: false; errorCode: string };
+
 /** 状态端口：只取 `WebchatClient` 的四个读/建方法（结构上没有任何取消/写消息能力）。 */
 export interface ConversationStateClient {
   listConversations(
@@ -140,6 +150,10 @@ export interface ConversationStateClient {
     conversationId: string,
     options?: WebchatRequestOptions
   ): Promise<WebchatConversationDetail>;
+  deleteConversation(
+    conversationId: string,
+    options?: WebchatRequestOptions
+  ): Promise<WebchatConversationDeletion>;
   history(
     conversationId: string,
     query?: WebchatHistoryQuery,
@@ -177,6 +191,11 @@ export interface ConversationStateService {
   ): Promise<ConversationStateSnapshot>;
   /** 新建会话：防重复、失败重试沿用同一幂等键；成功后成为当前选择。 */
   create(options?: WebchatRequestOptions): Promise<ConversationCreationResult>;
+  /** 删除会话：同一会话单飞；成功后移除条目并按需回退选择（不自动新建）。 */
+  remove(
+    conversationId: string,
+    options?: WebchatRequestOptions
+  ): Promise<ConversationDeletionResult>;
   /** 向前加载更早消息：沿用冻结水位，保持滚动锚点（只作用于当前所选会话）。 */
   loadOlder(options?: WebchatRequestOptions): Promise<ConversationStateSnapshot>;
   /** 登记滚动锚点（展示层按消息身份登记，不按列表下标）。 */
@@ -232,6 +251,8 @@ interface ConversationCore {
   indexLoading: boolean;
   loadingMore: boolean;
   creating: boolean;
+  deletingIds: string[];
+  deleteErrorCode: string | null;
   indexError: string | null;
   conversationId: string | null;
   conversation: WebchatConversationDetail | null;
@@ -253,6 +274,10 @@ interface ConversationRuntime {
   creationInFlight: Promise<ConversationCreationResult> | null;
   /** 未完成的创建尝试：同一入口失败重试必须沿用同一个幂等键。 */
   creationAttempt: { entryId: string; idempotencyKey: string } | null;
+  /** 未完成的删除：同一会话单飞（重复点击复用同一 promise）。 */
+  deletionInFlight: Map<string, Promise<ConversationDeletionResult>>;
+  /** 身份边界代数：`reset()` 递增，边界之后到达的删除结果不再改状态。 */
+  resetEpoch: number;
 }
 
 /** 入口标识：空串/空白显式失败（不构造无归属的索引请求）。 */
@@ -349,6 +374,8 @@ function initialCore(): ConversationCore {
     indexLoading: false,
     loadingMore: false,
     creating: false,
+    deletingIds: [],
+    deleteErrorCode: null,
     indexError: null,
     conversationId: null,
     conversation: null,
@@ -370,7 +397,9 @@ function createRuntime(deps: ConversationStateDeps): ConversationRuntime {
     indexInFlight: null,
     selectionInFlight: null,
     creationInFlight: null,
-    creationAttempt: null
+    creationAttempt: null,
+    deletionInFlight: new Map(),
+    resetEpoch: 0
   };
 }
 
@@ -392,7 +421,9 @@ function currentSnapshot(runtime: ConversationRuntime): ConversationStateSnapsho
       loadingMore: core.loadingMore,
       creating: core.creating,
       hasMore: hasMorePages(core),
-      errorCode: core.indexError
+      errorCode: core.indexError,
+      deletingIds: [...core.deletingIds],
+      deleteErrorCode: core.deleteErrorCode
     },
     selection: {
       entryId: core.entryId,
@@ -567,6 +598,8 @@ function beginEntryScope(runtime: ConversationRuntime, entryId: string): number 
   core.indexLoading = true;
   core.loadingMore = false;
   core.creating = false;
+  core.deletingIds = [];
+  core.deleteErrorCode = null;
   core.indexError = null;
   core.conversationId = null;
   core.conversation = null;
@@ -574,6 +607,8 @@ function beginEntryScope(runtime: ConversationRuntime, entryId: string): number 
   core.selectionLoading = false;
   core.selectionError = null;
   runtime.creationAttempt = null;
+  // 入口切换也换了一份索引：先前入口的删除结果不再适用于这份列表。
+  runtime.resetEpoch += 1;
   emit(runtime);
   return generation;
 }
@@ -896,6 +931,77 @@ function create(
   return trackCreation(runtime, action);
 }
 
+/** 删除成功落地：条目消失、按会话缓存清理、删的是当前所选则回退到空态（不自动新建）。 */
+function applyDeleted(
+  runtime: ConversationRuntime,
+  conversationId: string,
+  epoch: number
+): void {
+  if (runtime.resetEpoch !== epoch) return;
+  const { core } = runtime;
+  core.deletingIds = core.deletingIds.filter((id) => id !== conversationId);
+  core.items = core.items.filter((item) => item.conversation_id !== conversationId);
+  core.total = Math.max(0, core.total - 1);
+  runtime.scopes.delete(conversationId);
+  if (core.conversationId === conversationId) {
+    // 视图请求一并中止；已删会话不应再有迟到详情/消息写回。
+    beginScopeChange(runtime);
+    core.conversationId = null;
+    core.conversation = null;
+    core.created = null;
+    core.selectionLoading = false;
+    core.selectionError = null;
+  }
+  emit(runtime);
+}
+
+/** 删除失败：条目保留，只留稳定码（全局提示由共享拦截器负责，这里不重复文案）。 */
+function applyDeleteFailure(
+  runtime: ConversationRuntime,
+  conversationId: string,
+  epoch: number,
+  code: string
+): void {
+  if (runtime.resetEpoch !== epoch) return;
+  const { core } = runtime;
+  core.deletingIds = core.deletingIds.filter((id) => id !== conversationId);
+  core.deleteErrorCode = code;
+  emit(runtime);
+}
+
+function remove(
+  runtime: ConversationRuntime,
+  conversationId: string,
+  options: WebchatRequestOptions
+): Promise<ConversationDeletionResult> {
+  const id = conversationId.trim();
+  if (id === '') {
+    return Promise.reject(new ConversationStateError('CONVERSATION_NOT_SELECTED'));
+  }
+  const existing = runtime.deletionInFlight.get(id);
+  if (existing !== undefined) return existing;
+  const epoch = runtime.resetEpoch;
+  const { core } = runtime;
+  core.deletingIds = [...core.deletingIds, id];
+  core.deleteErrorCode = null;
+  emit(runtime);
+  const action = runtime.deps.client.deleteConversation(id, requestOptions(runtime, options)).then(
+    (): ConversationDeletionResult => {
+      runtime.deletionInFlight.delete(id);
+      applyDeleted(runtime, id, epoch);
+      return { deleted: true };
+    },
+    (error: unknown): ConversationDeletionResult => {
+      runtime.deletionInFlight.delete(id);
+      const code = stableErrorCode(error);
+      applyDeleteFailure(runtime, id, epoch, code);
+      return { deleted: false, errorCode: code };
+    }
+  );
+  runtime.deletionInFlight.set(id, action);
+  return action;
+}
+
 function reset(runtime: ConversationRuntime): void {
   beginScopeChange(runtime);
   const { core } = runtime;
@@ -907,6 +1013,8 @@ function reset(runtime: ConversationRuntime): void {
   core.indexLoading = false;
   core.loadingMore = false;
   core.creating = false;
+  core.deletingIds = [];
+  core.deleteErrorCode = null;
   core.indexError = null;
   core.conversationId = null;
   core.conversation = null;
@@ -915,6 +1023,8 @@ function reset(runtime: ConversationRuntime): void {
   core.selectionError = null;
   runtime.scopes.clear();
   runtime.creationAttempt = null;
+  runtime.deletionInFlight.clear();
+  runtime.resetEpoch += 1;
   emit(runtime);
 }
 
@@ -949,6 +1059,7 @@ export function createConversationState(deps: ConversationStateDeps): Conversati
     refresh: (options = {}) => refresh(runtime, options),
     select: (conversationId, options = {}) => select(runtime, conversationId, options),
     create: (options = {}) => create(runtime, options),
+    remove: (conversationId, options = {}) => remove(runtime, conversationId, options),
     loadOlder: (options = {}) => loadOlder(runtime, options),
     setScrollAnchor(conversationId, anchor) {
       const scope = touchScope(runtime, conversationId);

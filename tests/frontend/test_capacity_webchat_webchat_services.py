@@ -69,6 +69,7 @@ CLIENT_METHODS = (
     "listConversations",
     "createConversation",
     "getConversation",
+    "deleteConversation",
     "submit",
     "cancel",
     "resume",

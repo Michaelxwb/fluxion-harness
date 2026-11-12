@@ -178,6 +178,8 @@ export const Input = () => null;
 export const Spin = () => null;
 export const Tooltip = () => null;
 export const Typography = { Title: () => null, Paragraph: () => null, Text: () => null };
+export const Dropdown = Object.assign(() => null, { Menu: () => null, Item: () => null });
+export const Modal = () => null;
 """
 
 ENTRY = """export * from '{chat_page}';

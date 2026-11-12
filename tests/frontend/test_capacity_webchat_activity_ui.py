@@ -89,10 +89,13 @@ export const Empty = () => null;
 export const Spin = () => null;
 export const Typography = { Text: () => null, Title: () => null, Paragraph: () => null };
 export const Toast = { error: () => {} };
+export const Dropdown = Object.assign(() => null, { Menu: () => null, Item: () => null });
+export const Modal = () => null;
 """
 
 SEMI_ICONS_STUB = """export const IconPlus = () => null;
 export const IconMenu = () => null;
+export const IconMore = () => null;
 """
 
 LOGIC_ENTRY = """export * from '{hook}';

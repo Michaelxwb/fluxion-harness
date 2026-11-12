@@ -18,6 +18,7 @@ import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import {
   createConversationState,
   type ConversationCreationResult,
+  type ConversationDeletionResult,
   type ConversationHistorySnapshot,
   type ConversationLimitsPort,
   type ConversationStateClient,
@@ -43,6 +44,10 @@ export interface ConversationsController {
     options?: WebchatRequestOptions
   ): Promise<ConversationStateSnapshot>;
   create(options?: WebchatRequestOptions): Promise<ConversationCreationResult>;
+  remove(
+    conversationId: string,
+    options?: WebchatRequestOptions
+  ): Promise<ConversationDeletionResult>;
   loadOlder(options?: WebchatRequestOptions): Promise<ConversationStateSnapshot>;
   setScrollAnchor(conversationId: string, anchor: MessageScrollAnchor | null): void;
   draft(conversationId: string): string;
@@ -96,6 +101,7 @@ export function useConversations(
     refresh: service.refresh,
     select: service.select,
     create: service.create,
+    remove: service.remove,
     loadOlder: service.loadOlder,
     setScrollAnchor: service.setScrollAnchor,
     draft: service.draft,

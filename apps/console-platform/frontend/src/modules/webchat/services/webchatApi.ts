@@ -19,6 +19,7 @@ import type {
   WebchatClient,
   WebchatClientConfig,
   WebchatConversationCreated,
+  WebchatConversationDeletion,
   WebchatConversationDetail,
   WebchatConversationPage,
   WebchatEntryPage,
@@ -229,6 +230,19 @@ export async function createConversation(
   );
 }
 
+/** API-16：删除自己的会话（软删；服务端同请求处理活跃 Run）。 */
+export async function deleteConversation(
+  conversationId: string,
+  options: WebchatRequestOptions = {}
+): Promise<WebchatConversationDeletion> {
+  return unwrap(
+    await api.delete<ApiResponse<WebchatConversationDeletion>>(
+      `${WEBCHAT_BASE}/conversations/${requireText(conversationId, 'CONVERSATION_REQUIRED')}`,
+      { signal: options.signal }
+    )
+  );
+}
+
 /** API-15：核属后读取所选会话与活跃 Run。 */
 export async function getConversation(
   conversationId: string,
@@ -428,6 +442,7 @@ export function createWebchatClient(): WebchatClient {
     listConversations,
     createConversation,
     getConversation,
+    deleteConversation,
     submit: submitMessage,
     cancel: cancelRun,
     resume: resumeRun,

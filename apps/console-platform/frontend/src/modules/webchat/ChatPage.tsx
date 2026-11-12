@@ -33,7 +33,7 @@
  * 展示组件只收 typed props 与事件；HTTP、Cookie、传输头都在 `services/` 与 `api/` 里。
  */
 
-import { Avatar, Banner, Button, Empty, Spin, Typography } from '@douyinfe/semi-ui';
+import { Avatar, Banner, Button, Empty, Modal, Spin, Typography } from '@douyinfe/semi-ui';
 import { IconCustomerSupport } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { RefObject } from 'react';
@@ -100,6 +100,7 @@ import type {
   WebchatAttachment,
   WebchatClient,
   WebchatConversationDetail,
+  WebchatConversationItem,
   WebchatEntry,
   WebchatEntryPage,
   WebchatMessageAccepted,
@@ -1045,6 +1046,8 @@ export interface ChatWorkspaceProps extends ChatWorkspacePorts {
   entry: WebchatEntry;
   /** URL 已核属的会话：视图尚未落地时仍按加载态展示，不显示空态假象。 */
   expectedConversationId: string | null;
+  /** 删除成功后的收尾（页面层清 URL 参数；worktree 组合本身不依赖 Router）。 */
+  onConversationDeleted?(conversationId: string): void;
   onActionFailure(error: unknown): void;
 }
 
@@ -1286,7 +1289,25 @@ function useStickToBottom(
  * 控制器由页面持有；本组件只把真实快照与动作挂到 `WebchatShell` 的接缝上。
  */
 export function ChatWorkspace(props: ChatWorkspaceProps) {
+  const { t } = useTranslation();
   const state = useChatWorkspaceState(props);
+  const [deleteTarget, setDeleteTarget] = useState<WebchatConversationItem | null>(null);
+  // 删除成功后清掉 URL 里的会话参数：否则刷新会回到「会话不存在」的报错面。
+  const deleteConversation = (conversationId: string): void => {
+    props.conversations
+      .remove(conversationId)
+      .then((result) => {
+        if (!result.deleted) return;
+        props.onConversationDeleted?.(conversationId);
+        // 被删条目的操作按钮已从 DOM 移除：把焦点交给侧栏常驻的新建入口，不停在 body 上。
+        if (typeof document !== 'undefined') {
+          document
+            .querySelector<HTMLElement>('[data-testid="chat-sidebar-new"]')
+            ?.focus();
+        }
+      })
+      .catch((error: unknown) => props.onActionFailure(error));
+  };
   useActiveConversationRead(props.notifications, state.conversationId);
   useTerminalRunRefresh(state.conversationId, state.run, props.conversations);
   const confirmationKey = state.run?.confirmation?.submission_id ?? '';
@@ -1298,47 +1319,93 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
     confirmationKey
   );
   return (
-    <WebchatShell
-      entry={props.entry}
-      conversations={props.conversations}
-      unreadCounts={props.notifications.snapshot.unreadByConversation}
-      messageViewportRef={state.messages.viewportRef}
-      messageArea={
-        <ChatMessageArea
-          conversationId={state.conversationId}
-          loading={
-            state.selection.loading ||
-            (props.expectedConversationId !== null && state.conversationId === null)
+    <>
+      <WebchatShell
+        entry={props.entry}
+        conversations={props.conversations}
+        unreadCounts={props.notifications.snapshot.unreadByConversation}
+        messageViewportRef={state.messages.viewportRef}
+        messageArea={
+          <ChatMessageArea
+            conversationId={state.conversationId}
+            loading={
+              state.selection.loading ||
+              (props.expectedConversationId !== null && state.conversationId === null)
+            }
+            messages={state.messages}
+            run={state.run}
+            streaming={state.streaming}
+            connection={state.connection}
+            stop={state.stop}
+            confirmation={state.confirmation}
+            confirmationMessageId={state.confirmationMessageId}
+            runEvents={props.runEvents}
+            onRetryHistory={state.actions.retryHistory}
+            onDownloadAttachment={state.actions.downloadAttachment}
+          />
+        }
+        composer={
+          <ChatComposerSurface
+            disabled={!props.config.ready}
+            policy={props.config.snapshot.webchat}
+            pendingSend={props.pendingSend}
+            onTextChange={state.changeDraft}
+            onSend={state.actions.sendNow}
+          />
+        }
+        onDeleteConversation={(conversationId) =>
+          setDeleteTarget(
+            props.conversations.snapshot.index.items.find(
+              (item) => item.conversation_id === conversationId
+            ) ?? null
+          )
+        }
+        onActionFailure={props.onActionFailure}
+      />
+      {deleteTarget === null ? null : (
+        <Modal
+          centered
+          visible
+          title={t('chat.sidebar.deleteConfirmTitle')}
+          data-testid="chat-sidebar-delete-dialog"
+          onCancel={() => setDeleteTarget(null)}
+          footer={
+            <div className="chat-sidebar-delete-actions">
+              <Button
+                data-testid="chat-sidebar-delete-cancel"
+                onClick={() => setDeleteTarget(null)}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="danger"
+                theme="solid"
+                data-testid="chat-sidebar-delete-confirm"
+                onClick={() => {
+                  const target = deleteTarget.conversation_id;
+                  setDeleteTarget(null);
+                  deleteConversation(target);
+                }}
+              >
+                {t('chat.sidebar.deleteConfirmOk')}
+              </Button>
+            </div>
           }
-          messages={state.messages}
-          run={state.run}
-          streaming={state.streaming}
-          connection={state.connection}
-          stop={state.stop}
-          confirmation={state.confirmation}
-          confirmationMessageId={state.confirmationMessageId}
-          runEvents={props.runEvents}
-          onRetryHistory={state.actions.retryHistory}
-          onDownloadAttachment={state.actions.downloadAttachment}
-        />
-      }
-      composer={
-        <ChatComposerSurface
-          disabled={!props.config.ready}
-          policy={props.config.snapshot.webchat}
-          pendingSend={props.pendingSend}
-          onTextChange={state.changeDraft}
-          onSend={state.actions.sendNow}
-        />
-      }
-      onActionFailure={props.onActionFailure}
-    />
+        >
+          <p data-testid="chat-sidebar-delete-content">
+            {t('chat.sidebar.deleteConfirmContent', { title: deleteTarget.title })}
+          </p>
+        </Modal>
+      )}
+    </>
   );
 }
 
 interface ChatPageSurfaceProps {
   view: ChatPageView;
   submitting: boolean;
+  /** 会话删除成功：清掉 URL 里的会话参数（Router 上下文只在这一层保证存在）。 */
+  onConversationDeleted?(conversationId: string): void;
   /** TASK-078 的选择错误（越权/不存在）：按 TASK-077 的页面门控收敛成显式失败面。 */
   selectionErrorCode: string | null;
   workspace: ChatWorkspacePorts;
@@ -1382,6 +1449,7 @@ function ChatWorkspaceSurface(props: {
   view: Extract<ChatPageView, { kind: 'workspace' }>;
   selectionErrorCode: string | null;
   workspace: ChatWorkspacePorts;
+  onConversationDeleted?(conversationId: string): void;
   onActionFailure(error: unknown): void;
   onRetrySelection(): void;
 }) {
@@ -1406,6 +1474,7 @@ function ChatWorkspaceSurface(props: {
       runEvents={workspace.runEvents}
       pendingSend={workspace.pendingSend}
       expectedConversationId={props.view.conversationId}
+      onConversationDeleted={props.onConversationDeleted}
       onActionFailure={props.onActionFailure}
     />
   );
@@ -1454,6 +1523,7 @@ function ChatPageSurface(props: ChatPageSurfaceProps) {
           view={props.view}
           selectionErrorCode={props.selectionErrorCode}
           workspace={props.workspace}
+          onConversationDeleted={props.onConversationDeleted}
           onActionFailure={props.onActionFailure}
           onRetrySelection={props.onRetrySelection}
         />
@@ -1485,7 +1555,22 @@ export default function ChatPage() {
     bootstrap.snapshot,
     bootstrap.snapshot
   );
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const handleConversationDeleted = useCallback(
+    (conversationId: string): void => {
+      // 删除成功后清掉 URL 参数：否则刷新会回到「会话不存在」的报错面。
+      setSearchParams(
+        (previous) => {
+          if (previous.get('conversation') !== conversationId) return previous;
+          const next = new URLSearchParams(previous);
+          next.delete('conversation');
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
   const params = useParams<{ entryId?: string }>();
   const selection = useMemo(
     () => parseChatRoute(params.entryId, searchParams),
@@ -1632,6 +1717,7 @@ export default function ChatPage() {
           runEvents,
           pendingSend
         }}
+        onConversationDeleted={handleConversationDeleted}
         onActionFailure={onActionFailure}
         onTokenSubmit={submitToken}
         onRetryConfig={() => {
