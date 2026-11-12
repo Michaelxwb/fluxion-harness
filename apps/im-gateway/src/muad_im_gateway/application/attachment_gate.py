@@ -16,6 +16,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from muad_contracts import ALLOWED_ATTACHMENT_MEDIA_TYPES
+
 # 超限只有一种说法：码定义在中立的渠道边界词汇表里，这里只引用（单一来源）
 from ..channels.base import ATTACHMENT_TOO_LARGE
 
@@ -30,23 +32,6 @@ MAX_ATTACHMENT_BYTES = 50 * MIB
 #: 单消息附件数上限。与「只内联当前消息图片」的成本口径匹配（设计 AD-3-B）。
 MAX_ATTACHMENTS_PER_MESSAGE = 5
 
-#: 类型白名单（按 MIME，与 `AttachmentRef.media_type` 同口径）。
-#: 图片对齐模型的视觉输入能力；文档对齐 FEAT-06 的抽取能力（pdf/docx/xlsx/pptx/txt/md）。
-ALLOWED_MEDIA_TYPES = frozenset(
-    {
-        "image/png",
-        "image/jpeg",
-        "image/gif",
-        "image/webp",
-        "application/pdf",
-        # docx / xlsx / pptx 的官方 MIME 较长，是不可省的：按扩展名猜会漏判
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "text/plain",
-        "text/markdown",
-    }
-)
 
 ATTACHMENT_COUNT_EXCEEDED = "ATTACHMENT_COUNT_EXCEEDED"
 ATTACHMENT_TYPE_NOT_ALLOWED = "ATTACHMENT_TYPE_NOT_ALLOWED"
@@ -102,7 +87,7 @@ def evaluate_gate(candidates: Sequence[AttachmentCandidate]) -> GateDecision:
                 )
             )
             continue
-        if candidate.media_type not in ALLOWED_MEDIA_TYPES:
+        if candidate.media_type not in ALLOWED_ATTACHMENT_MEDIA_TYPES:
             rejected.append(
                 GateRejection(index, ATTACHMENT_TYPE_NOT_ALLOWED, f"不支持的媒体类型：{candidate.media_type}")
             )

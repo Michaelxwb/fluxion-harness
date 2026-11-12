@@ -1000,19 +1000,6 @@ apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,113,CONNECTED,
 apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,114,BACKOFF,'BACKOFF',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,115,DISCONNECTED,'DISCONNECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/adapter.py,116,STOPPING,'STOPPING',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,42,MEDIA_TIMEOUT_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,48,ENCRYPTION_OVERHEAD_BYTES,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,50,_CHUNK_BYTES,64 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,51,_OCTET_STREAM,'application/octet-stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,53,_MAGIC_TYPES,"((b'\x89PNG\r\n\x1a\n', 'image/png'), (b'\xff\xd8\xff', 'image/jpeg'), (b'GIF87a', 'image/gif'), (b'GIF89a', 'image/gif'), (b'%PDF-', 'application/pdf'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,61,_EXTENSION_TYPES,"{'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.pdf': 'application/pdf', '.txt': 'text/plain', '.md': 'text/markdown', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,76,_FILENAME_UTF8_RE,"re.compile(""filename\\*=UTF-8''([^;\\s]+)"", re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,77,_FILENAME_RE,"re.compile('filename=""?([^"";\\s]+)""?', re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,205,UPLOAD_CHUNK_BYTES,512 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,208,MAX_UPLOAD_CHUNKS,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,210,UPLOAD_INIT_CMD,'aibot_upload_media_init',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,211,UPLOAD_CHUNK_CMD,'aibot_upload_media_chunk',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-connector/src/muad_im_connector/channels/wecom/media.py,212,UPLOAD_FINISH_CMD,'aibot_upload_media_finish',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/reply.py,20,STATUS_SEND_TIMEOUT_SEC,5.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/reply.py,24,FINISH_ATTEMPTS,3,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-connector/src/muad_im_connector/channels/wecom/reply.py,25,FINISH_RETRY_DELAY_SEC,0.5,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1066,14 +1053,6 @@ apps/im-gateway/src/muad_im_gateway/api/health.py,18,DEDUPE_MODE_MEMORY,'memory'
 apps/im-gateway/src/muad_im_gateway/api/health.py,19,DEDUPE_MODE_DISABLED,'disabled',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/api/webchat.py,68,NO_STORE_CACHE_CONTROL,'no-store',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/api/webchat.py,447,_NOTIFICATION_BACKFILL_PAGES,20,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,22,MIB,1024 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,29,MAX_ATTACHMENT_BYTES,50 * MIB,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,31,MAX_ATTACHMENTS_PER_MESSAGE,5,python-constant,code,附件 / 工具限额实现常量（design §2.4 技术债③：留在各自服务，不迁入平台设置）
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,35,ALLOWED_MEDIA_TYPES,"frozenset({'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'text/plain', 'text/markdown'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,51,ATTACHMENT_COUNT_EXCEEDED,'ATTACHMENT_COUNT_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,52,ATTACHMENT_TYPE_NOT_ALLOWED,'ATTACHMENT_TYPE_NOT_ALLOWED',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,54,ATTACHMENT_RECEIPT_ALL,'ATTACHMENT_RECEIPT_ALL',python-constant,code,状态或错误码，不是时间参数
-apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,55,ATTACHMENT_RECEIPT_PARTIAL,'ATTACHMENT_RECEIPT_PARTIAL',python-constant,code,状态或错误码，不是时间参数
 apps/im-gateway/src/muad_im_gateway/application/channel_delivery.py,54,DELIVERED,'delivered',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/channel_delivery.py,56,DEDUPLICATED,'deduplicated',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/im-gateway/src/muad_im_gateway/application/channel_delivery.py,57,FAILED,'failed',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -2049,3 +2028,26 @@ packages/skill-sdk/src/muad_skill_sdk/skill_package.py,20,SCRIPT_EXTENSIONS,"fro
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,27,MAX_NAME_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,28,MAX_PLATFORM_LABEL_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,29,MAX_DESCRIPTION_BYTES,1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/attachments.py,24,SUPPORTED_UPLOAD_FORMATS,"(AttachmentFormat(media_type='image/png', extensions=('.png',)), AttachmentFormat(media_type='image/jpeg', extensions=('.jpg', '.jpeg')), AttachmentFormat(media_type='image/gif', extensions=('.gif',)), AttachmentFormat(media_type='image/webp', extensions=('.webp',)), AttachmentFormat(media_type='application/pdf', extensions=('.pdf',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', extensions=('.docx',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', extensions=('.xlsx',)), AttachmentFormat(media_type='application/vnd.openxmlformats-officedocument.presentationml.presentation', extensions=('.pptx',)), AttachmentFormat(media_type='text/plain', extensions=('.txt',)), AttachmentFormat(media_type='text/markdown', extensions=('.md',)), AttachmentFormat(media_type='application/zip', extensions=('.zip',)), AttachmentFormat(media_type='application/x-zip-compressed', extensions=('.zip',)))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/attachments.py,49,ALLOWED_ATTACHMENT_MEDIA_TYPES,frozenset((item.media_type for item in SUPPORTED_UPLOAD_FORMATS)),python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/attachments.py,54,ARCHIVE_MEDIA_TYPES,"frozenset({'application/zip', 'application/x-zip-compressed'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,24,MIB,1024 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,31,MAX_ATTACHMENT_BYTES,50 * MIB,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,33,MAX_ATTACHMENTS_PER_MESSAGE,5,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,36,ATTACHMENT_COUNT_EXCEEDED,'ATTACHMENT_COUNT_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,37,ATTACHMENT_TYPE_NOT_ALLOWED,'ATTACHMENT_TYPE_NOT_ALLOWED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,39,ATTACHMENT_RECEIPT_ALL,'ATTACHMENT_RECEIPT_ALL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py,40,ATTACHMENT_RECEIPT_PARTIAL,'ATTACHMENT_RECEIPT_PARTIAL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,43,MEDIA_TIMEOUT_SEC,30.0,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,49,ENCRYPTION_OVERHEAD_BYTES,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,51,_CHUNK_BYTES,64 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,52,_OCTET_STREAM,'application/octet-stream',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,54,_MAGIC_TYPES,"((b'\x89PNG\r\n\x1a\n', 'image/png'), (b'\xff\xd8\xff', 'image/jpeg'), (b'GIF87a', 'image/gif'), (b'GIF89a', 'image/gif'), (b'%PDF-', 'application/pdf'))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,64,_EXTENSION_TYPES,{},python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,70,_FILENAME_UTF8_RE,"re.compile(""filename\\*=UTF-8''([^;\\s]+)"", re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,71,_FILENAME_RE,"re.compile('filename=""?([^"";\\s]+)""?', re.IGNORECASE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,199,UPLOAD_CHUNK_BYTES,512 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,202,MAX_UPLOAD_CHUNKS,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,204,UPLOAD_INIT_CMD,'aibot_upload_media_init',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,205,UPLOAD_CHUNK_CMD,'aibot_upload_media_chunk',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/im-connector/src/muad_im_connector/channels/wecom/media.py,206,UPLOAD_FINISH_CMD,'aibot_upload_media_finish',python-constant,code,协议标识、枚举、schema、文本或实现常量

@@ -7,8 +7,8 @@
 
 from __future__ import annotations
 
+from muad_contracts import ALLOWED_ATTACHMENT_MEDIA_TYPES
 from muad_im_gateway.application.attachment_gate import (
-    ALLOWED_MEDIA_TYPES,
     ATTACHMENT_COUNT_EXCEEDED,
     ATTACHMENT_TOO_LARGE,
     ATTACHMENT_TYPE_NOT_ALLOWED,
@@ -35,8 +35,24 @@ def test_constants_match_the_designed_defaults() -> None:
     """
     assert MAX_ATTACHMENT_BYTES == 50 * MIB
     assert MAX_ATTACHMENTS_PER_MESSAGE == 5
-    assert "image/png" in ALLOWED_MEDIA_TYPES
-    assert "application/pdf" in ALLOWED_MEDIA_TYPES
+    assert "image/png" in ALLOWED_ATTACHMENT_MEDIA_TYPES
+    assert "application/pdf" in ALLOWED_ATTACHMENT_MEDIA_TYPES
+
+
+def test_zip_media_types_pass_the_gate() -> None:
+    """zip 两种浏览器写法都接收；未登记类型仍按类型拒绝（zip 放宽不改其它口径）。"""
+    decision = evaluate_gate(
+        [
+            _candidate(media_type="application/zip", filename="bundle.zip"),
+            _candidate(media_type="application/x-zip-compressed", filename="bundle.zip"),
+        ]
+    )
+
+    assert decision.ok, f"zip 必须接收，实际被拒：{decision.rejected}"
+    assert [item.media_type for item in decision.accepted] == [
+        "application/zip",
+        "application/x-zip-compressed",
+    ]
 
 
 def test_b01_size_exactly_at_limit_is_accepted() -> None:
