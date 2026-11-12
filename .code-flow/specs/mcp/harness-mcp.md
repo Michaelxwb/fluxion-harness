@@ -70,3 +70,7 @@ Console 侧 `discover-tools` 的 Catalog 维护与缓存（PG 为权威源）：
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-12/mcp-http-auth/mcp-http-auth.md#TASK-001#DELTA-001","op":"add","rule":"RULE-mcp-002","payload_sha256":"4677a6248fbcec589ff0f9a35111384adfacbe7d50609312df04961a460dff7a","at":"2026-11-12T09:16:05.266Z"}
