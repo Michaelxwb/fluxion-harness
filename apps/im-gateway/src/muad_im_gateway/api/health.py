@@ -45,7 +45,9 @@ def readiness_checks(app: FastAPI) -> Mapping[str, ReadinessCheck]:
         snapshot = getattr(app.state, "bot_snapshot", None)
         if snapshot is None:
             return False
-        return bool(snapshot.console_reachable or snapshot.is_ready())
+        # Reachability alone does not prove the first complete snapshot was applied.
+        # A previously applied snapshot remains usable during a Console outage.
+        return bool(snapshot.is_ready())
 
     async def streams_ready() -> bool:
         """声明了经 Redis Stream 的通道面（远程 Connector / webhook）时，Redis 是硬依赖。

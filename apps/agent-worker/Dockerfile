@@ -12,8 +12,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && node --version
 WORKDIR /app
-ENV EGRESS_CONTROL_FILE=/app/config/egress-runtime.json \
-    UV_COMPILE_BYTECODE=1 \
+ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/usr/local \
     LOG_DIR=/var/log/muad \

@@ -10,6 +10,8 @@ enforcement: required
 verifiers:
 - rule: RULE-im-001
   type: command
+  # 全套IM验证按用户确认留至review/CI，任务内执行定向回归。
+  stage: review
   config:
     argv:
     - uv

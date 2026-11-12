@@ -428,6 +428,59 @@ scenarios:
   rules: []
   checks: []
   owner: TASK-001
+- id: B-08
+  title: 统一Settings替代专用文件
+  priority: P0
+  level: contract
+  exec: auto
+  env: local
+  components:
+  - sdk
+  - backend
+  boundary: 真实SharedSettings与SDK装配；存储依赖替身不代表真实网络
+  preconditions:
+  - 不设置专用文件路径
+  steps:
+  - 仅用统一Settings构建受控宿主，再校验空规则和非法生命周期
+  expected:
+  - 启用装配无需JSON；空规则不构造Redis；非法参数明确拒绝
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  features:
+  - FEAT-01
+  design_refs:
+  - remove-egress-file.plan.md#1. 范围与验收 B-08
+  rules: []
+  checks: []
+  owner: TASK-012
+- id: B-09
+  title: Gateway首次快照就绪
+  priority: P0
+  level: contract
+  exec: auto
+  env: local
+  components:
+  - backend
+  boundary: 真实BotSnapshotCache和ASGI健康端点，Console故障替身
+  preconditions:
+  - 首次未应用完整快照
+  steps:
+  - 分别返回不完整快照和制造快照应用失败，查询readyz
+  expected:
+  - 两种情况均503；Console连通不等于已应用
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  features:
+  - FEAT-01
+  design_refs:
+  - ci-gateway-readiness.plan.md#1. B-09范围与证据
+  rules: []
+  checks: []
+  owner: TASK-013
 ---
 
 # 共享出口管控 SDK 验收场景

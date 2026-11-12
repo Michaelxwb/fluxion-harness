@@ -152,8 +152,7 @@ def task_events(database_url: str, task_id: str) -> list[Mapping[str, Any]]:
         dict(row)
         for row in db_rows(
             database_url,
-            "SELECT event_type, payload_json FROM task.task_event WHERE task_id = $1"
-            " ORDER BY seq",
+            "SELECT event_type, payload_json FROM task.task_event WHERE task_id = $1 ORDER BY seq",
             uuid.UUID(task_id),
         )
     ]
@@ -222,23 +221,50 @@ def worker_harness(
         platform_settings={"task": {"max_attempts": 3, "delivery_backoff_base_sec": 1}},
     )
     stack.start()
-    bind_probe_credential(
-        datastore.database_url, seeded.credential_id, f"{stack.model_probe.url}/v1"
-    )
-    session = exchange_chat_session(stack.proxy.url, seeded.token, seeded.user_id)
-    spec = resolve_task_spec(
-        stack.url_of("console-platform"),
-        stack.internal_token,
-        tenant_id=stack.tenant_id,
-        agent_id=seeded.agent_id,
-        actor_user_id=seeded.user_id,
-    )
     try:
-        yield WorkerHarness(
-            stack=stack, seeded=seeded, session=session, task_spec=spec, pid_dir=pid_dir
+        bind_probe_credential(datastore.database_url, seeded.credential_id, f"{stack.model_probe.url}/v1")
+        session = exchange_chat_session(stack.proxy.url, seeded.token, seeded.user_id)
+        wait_for_gateway_entry(stack, session, seeded.entry_id)
+        spec = resolve_task_spec(
+            stack.url_of("console-platform"),
+            stack.internal_token,
+            tenant_id=stack.tenant_id,
+            agent_id=seeded.agent_id,
+            actor_user_id=seeded.user_id,
         )
+        yield WorkerHarness(stack=stack, seeded=seeded, session=session, task_spec=spec, pid_dir=pid_dir)
     finally:
         stack.teardown()
+
+
+def wait_for_gateway_entry(stack: CapacityStack, session: ChatSession, entry_id: uuid.UUID) -> None:
+    """Wait for the seeded entry on every replica, without retrying business writes."""
+    gateways = stack.instances("im-gateway")
+    assert gateways, "离线交付验收必须启动Gateway"
+    missing: dict[str, int | str] = {}
+    with httpx.Client(
+        timeout=10,
+        trust_env=False,
+        cookies={"muad_chat_session": session.cookie},
+        headers={"X-Chat-Context": session.context},
+    ) as client:
+
+        def visible_everywhere() -> bool:
+            missing.clear()
+            for gateway in gateways:
+                response = client.get(f"{gateway.url}{WEBCHAT_ENTRY_PREFIX}")
+                assert response.status_code == 200, (
+                    f"Gateway入口查询失败: {gateway.url} status={response.status_code}"
+                )
+                items = response.json()["data"]["items"]
+                if str(entry_id) not in {item["entry_id"] for item in items}:
+                    missing[gateway.url] = len(items)
+            return not missing
+
+        try:
+            wait_until(visible_everywhere, what="所有Gateway副本尚未识别种子入口", timeout=35)
+        except AssertionError as exc:
+            raise AssertionError(f"Gateway入口前置条件未满足: entry={entry_id}, replicas={missing}") from exc
 
 
 def worker_instance_ids(stack: CapacityStack) -> set[str]:
@@ -433,9 +459,9 @@ def test_s07_frozen_worker_task_is_taken_over_and_stale_lease_cannot_write(
         assert task_result(row)["probe"] == "takeover"
         events_before_resume = task_events(stack.database_url, task_id)
         assert [event["event_type"] for event in events_before_resume].count("COMPLETED") == 1
-        assert any(
-            event["event_type"] == "RECLAIMED" for event in events_before_resume
-        ), f"回收必须留真实事件：{events_before_resume}"
+        assert any(event["event_type"] == "RECLAIMED" for event in events_before_resume), (
+            f"回收必须留真实事件：{events_before_resume}"
+        )
     finally:
         os.killpg(frozen.pgid, signal.SIGCONT)
 
@@ -514,10 +540,12 @@ def test_s07_offline_run_result_persists_into_inbox_and_is_re_readable(
         run_id = str(submitted.json()["data"]["run_id"])
 
     wait_until(
-        lambda: db_scalar(
-            stack.database_url, "SELECT status FROM runtime.run_record WHERE id = $1", uuid.UUID(run_id)
-        )
-        == "COMPLETED",
+        lambda: (
+            db_scalar(
+                stack.database_url, "SELECT status FROM runtime.run_record WHERE id = $1", uuid.UUID(run_id)
+            )
+            == "COMPLETED"
+        ),
         what="离线 Run 未在超时内完成",
         timeout=WAIT_TIMEOUT_SEC,
     )

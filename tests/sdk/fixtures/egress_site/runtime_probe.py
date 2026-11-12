@@ -78,8 +78,10 @@ async def run(parent, core, worker):
     network = core["Network"](workspace)
     marker = "runtime-grandchild-" + uuid.uuid4().hex
     meter = SharedRedisMeter(redis, domain=domain, epoch="epoch")
-    config = worker["configuration"](domain, network.origin)
-    (parent / "egress.json").write_text(json.dumps(config))
+    settings = settings.model_copy(update=worker["settings_overrides"](domain))
+    import muad_agent_runtime.application.egress_execution as egress_module
+
+    egress_module.process_settings = lambda: settings
     artifacts = parent / "artifacts"
     artifacts.mkdir()
     archive = artifacts / "probe.zip"
@@ -121,6 +123,11 @@ async def run(parent, core, worker):
                             "route_id": "GET /probe",
                             "max_requests": 100,
                             "max_inflight": 4,
+                            "http_match": {
+                                "origin": network.origin,
+                                "method": "GET",
+                                "path_template": "/{request}",
+                            },
                         }
                     ],
                 }
@@ -225,7 +232,6 @@ if __name__ == "__main__":
                 "ARTIFACT_ROOT": str(parent / "artifacts"),
                 "SKILL_CACHE_ROOT": str(parent / "cache"),
                 "WORKSPACE_ROOT": str(parent / "workspaces"),
-                "EGRESS_CONTROL_FILE": str(parent / "egress.json"),
             }
         )
         print(json.dumps(asyncio.run(run(parent, core, worker))))

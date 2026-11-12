@@ -60,7 +60,7 @@ async def probe(parent, worker, core):
         "execution": {"max_requests": 50},
         "skill_defaults": {"total": {"max_requests": 50}},
     }
-    (parent / "egress.json").write_text(json.dumps(worker["configuration"](domain, network.origin)))
+    settings = settings.model_copy(update=worker["settings_overrides"](domain))
     meter = SharedRedisMeter(redis, domain=domain, epoch="epoch")
     loop = WorkerLoop(sessions, settings=settings, instance_id="worker-a")
     claimer = TaskClaimer(sessions, settings)
@@ -77,6 +77,11 @@ async def probe(parent, worker, core):
                             "route_id": "GET /probe",
                             "max_requests": 100,
                             "max_inflight": 4,
+                            "http_match": {
+                                "origin": network.origin,
+                                "method": "GET",
+                                "path_template": "/{request}",
+                            },
                         }
                     ],
                 }
@@ -149,7 +154,6 @@ if __name__ == "__main__":
                 "ARTIFACT_ROOT": str(parent / "artifacts"),
                 "SKILL_CACHE_ROOT": str(parent / "cache"),
                 "WORKSPACE_ROOT": str(parent / "workspaces"),
-                "EGRESS_CONTROL_FILE": str(parent / "egress.json"),
             }
         )
         print(json.dumps(asyncio.run(probe(parent, worker, core))))
