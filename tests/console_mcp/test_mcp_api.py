@@ -189,7 +189,7 @@ async def test_b04_envelope_pagination_and_counts(
     assert detail_body["tool_catalog_revision"] == 0
     assert detail_body["connect_timeout_ms"] == 5000
     assert detail_body["tool_cache_ttl_sec"] == 300
-    assert detail_body["auth_config"] == {}
+    assert detail_body["auth_config"] == {"headers": {}, "secret_header": None}
 
     duplicate = await create_mcp(
         client, env, endpoint="http://127.0.0.1:9/mcp", key=b04_key

@@ -70,6 +70,23 @@ def probe_url() -> AsyncIterator[str]:
     server.should_exit = True
 
 
+@pytest.fixture(scope="session")
+def header_probe_url() -> AsyncIterator[str]:
+    config = uvicorn.Config(
+        "tests.console_mcp.header_probe_app:app", host="127.0.0.1", port=0, log_level="error"
+    )
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 10
+    while not server.started and time.monotonic() < deadline:
+        time.sleep(0.05)
+    port = server.servers[0].sockets[0].getsockname()[1] if server.servers else 0
+    yield f"http://127.0.0.1:{port}/mcp"
+    server.should_exit = True
+    thread.join(timeout=5)
+
+
 @pytest.fixture
 async def mcp_env(database_guard) -> AsyncIterator[dict[str, object]]:
     tenant_id = f"mcp-test-{uuid.uuid4()}"

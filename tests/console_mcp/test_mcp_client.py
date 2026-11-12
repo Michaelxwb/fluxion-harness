@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 import time
 from collections.abc import Iterator
 
+import httpx
 import pytest
 import uvicorn
 from muad_console_platform.infrastructure.mcp_client import (
@@ -113,6 +115,97 @@ async def test_auth_header_passthrough(probe_server: str, monkeypatch: pytest.Mo
     assert rejected.value.reason == "protocol"
     async with McpClient(probe_server, auth_secret="probe-secret") as client:
         assert (await client.initialize())["name"] == "mcp-probe"
+
+
+async def _captured_initialize_headers(client: McpClient) -> httpx.Headers:
+    """用真实 httpx 序列化捕获 initialize 请求头（不 mock 头组装）。"""
+    captured: list[httpx.Headers] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request.headers)
+        payload = json.loads(request.content)
+        if payload.get("id") is None:
+            return httpx.Response(202)
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": payload["id"],
+                "result": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {},
+                    "serverInfo": {"name": "header-capture", "version": "1.0.0"},
+                },
+            },
+        )
+
+    await client._client.aclose()
+    client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    async with client:
+        await client.initialize()
+    assert captured
+    return captured[0]
+
+
+async def test_headers_none_mode_sends_no_authorization() -> None:
+    headers = await _captured_initialize_headers(McpClient("http://mcp.test/mcp"))
+    assert "authorization" not in headers
+    assert headers["accept"] == "application/json, text/event-stream"
+
+
+async def test_headers_bearer_mode_sends_bearer_token() -> None:
+    headers = await _captured_initialize_headers(
+        McpClient("http://mcp.test/mcp", auth_secret="bearer-secret")
+    )
+    assert headers["authorization"] == "Bearer bearer-secret"
+    assert "x-api-key" not in headers
+
+
+async def test_headers_bearer_mode_when_secret_header_is_empty() -> None:
+    headers = await _captured_initialize_headers(
+        McpClient("http://mcp.test/mcp", auth_secret="bearer-secret", secret_header="")
+    )
+    assert headers["authorization"] == "Bearer bearer-secret"
+
+
+async def test_headers_custom_mode_sends_static_headers_and_raw_secret() -> None:
+    headers = await _captured_initialize_headers(
+        McpClient(
+            "http://mcp.test/mcp",
+            auth_secret="raw-secret",
+            headers={"X-App-Id": "app-1", "X-Platform-Uid": "53842"},
+            secret_header="X-Api-Key",
+        )
+    )
+    assert headers["x-app-id"] == "app-1"
+    assert headers["x-platform-uid"] == "53842"
+    assert headers["x-api-key"] == "raw-secret"
+    assert "authorization" not in headers
+
+
+async def test_headers_custom_mode_without_secret_omits_secret_header() -> None:
+    headers = await _captured_initialize_headers(
+        McpClient(
+            "http://mcp.test/mcp",
+            headers={"X-App-Id": "app-1"},
+            secret_header="X-Api-Key",
+        )
+    )
+    assert headers["x-app-id"] == "app-1"
+    assert "x-api-key" not in headers
+    assert "authorization" not in headers
+
+
+async def test_headers_input_mapping_is_not_mutated() -> None:
+    static_headers = {"X-App-Id": "app-1"}
+    client = McpClient(
+        "http://mcp.test/mcp",
+        auth_secret="raw-secret",
+        headers=static_headers,
+        secret_header="X-Api-Key",
+    )
+    await client._client.aclose()
+    assert static_headers == {"X-App-Id": "app-1"}
 
 
 async def test_tools_list_failure_raises_discovery_error(

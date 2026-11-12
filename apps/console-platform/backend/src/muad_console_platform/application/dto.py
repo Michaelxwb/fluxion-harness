@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal, Self
@@ -598,6 +599,103 @@ class PlatformUpdateRequest(BaseModel):
     enabled: bool | None = None
 
 
+MAX_MCP_AUTH_HEADER_COUNT = 32
+MAX_MCP_AUTH_HEADER_VALUE_BYTES = 4 * 1024
+MAX_MCP_AUTH_HEADER_TOTAL_BYTES = 16 * 1024
+MAX_MCP_AUTH_SECRET_LENGTH = 4096
+
+_RESERVED_AUTH_HEADERS = frozenset(
+    {
+        "host",
+        "content-length",
+        "transfer-encoding",
+        "connection",
+        "accept",
+        "content-type",
+        "mcp-session-id",
+        "mcp-protocol-version",
+        "authorization",
+        "cookie",
+    }
+)
+_SENSITIVE_AUTH_HEADER_MARKERS = (
+    "token",
+    "secret",
+    "password",
+    "credential",
+    "api-key",
+    "apikey",
+    "private-key",
+)
+_HEADER_NAME_PATTERN = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
+_FORBIDDEN_HEADER_VALUE_CHARS = ("\r", "\n", "\x00")
+
+
+def _validate_header_name(name: str) -> None:
+    if not _HEADER_NAME_PATTERN.fullmatch(name):
+        raise ValueError("header name must be an RFC 7230 token")
+    lowered = name.lower()
+    if lowered in _RESERVED_AUTH_HEADERS:
+        raise ValueError("reserved header name")
+    if any(marker in lowered for marker in _SENSITIVE_AUTH_HEADER_MARKERS):
+        raise ValueError("sensitive header name")
+
+
+def _validate_secret_header_name(name: str) -> None:
+    if not _HEADER_NAME_PATTERN.fullmatch(name):
+        raise ValueError("secret header name must be an RFC 7230 token")
+    if name.lower() in _RESERVED_AUTH_HEADERS:
+        raise ValueError("reserved secret header name")
+    if len(name.encode("utf-8")) > MAX_MCP_AUTH_HEADER_VALUE_BYTES:
+        raise ValueError("secret header name is too long")
+
+
+def _validate_header_value(value: str) -> None:
+    if any(char in value for char in _FORBIDDEN_HEADER_VALUE_CHARS):
+        raise ValueError("header value contains a forbidden control character")
+    if len(value.encode("utf-8")) > MAX_MCP_AUTH_HEADER_VALUE_BYTES:
+        raise ValueError("header value is too long")
+
+
+class McpAuthConfig(BaseModel):
+    """MCP 服务级非密认证配置：静态请求头 + 承载 auth_secret 的请求头名。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    headers: dict[str, str] = Field(default_factory=dict)
+    secret_header: str | None = None
+
+    @field_validator("secret_header")
+    @classmethod
+    def _normalize_secret_header(cls, value: str | None) -> str | None:
+        if value is None or value == "":
+            return None
+        _validate_secret_header_name(value)
+        return value
+
+    @model_validator(mode="after")
+    def _validate_config(self) -> Self:
+        if len(self.headers) > MAX_MCP_AUTH_HEADER_COUNT:
+            raise ValueError("too many static headers")
+        seen: set[str] = set()
+        total_bytes = 0
+        for name, value in self.headers.items():
+            _validate_header_name(name)
+            _validate_header_value(value)
+            lowered = name.lower()
+            if lowered in seen:
+                raise ValueError("duplicate static header")
+            seen.add(lowered)
+            total_bytes += len(name.encode("utf-8")) + len(value.encode("utf-8"))
+        if self.secret_header is not None:
+            if self.secret_header.lower() in seen:
+                raise ValueError("secret header conflicts with a static header")
+            total_bytes += len(self.secret_header.encode("utf-8"))
+        if total_bytes > MAX_MCP_AUTH_HEADER_TOTAL_BYTES:
+            raise ValueError("static headers exceed the total size limit")
+        return self
+
+
 class McpServerListItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -624,7 +722,7 @@ class McpServerDetail(McpServerListItem):
     last_discovery_error: str | None = None
     connect_timeout_ms: int
     tool_cache_ttl_sec: int
-    auth_config: dict[str, Any]
+    auth_config: McpAuthConfig
     auth_secret_configured: bool = False
 
 
@@ -637,7 +735,7 @@ class McpCreateRequest(BaseModel):
     transport: str | None = None
     user_scope: Literal["ALL", "SELECTED"] | None = None
     enabled: bool | None = None
-    auth_secret: str | None = None
+    auth_secret: str | None = Field(default=None, max_length=MAX_MCP_AUTH_SECRET_LENGTH)
     auth_config: dict[str, Any] | None = None
     connect_timeout_ms: int | None = Field(default=None, ge=100, le=60000)
     tool_cache_ttl_sec: int | None = Field(default=None, ge=1, le=86400)
@@ -650,7 +748,7 @@ class McpUpdateRequest(BaseModel):
     endpoint: str | None = None
     transport: str | None = None
     enabled: bool | None = None
-    auth_secret: str | None = None
+    auth_secret: str | None = Field(default=None, max_length=MAX_MCP_AUTH_SECRET_LENGTH)
     auth_config: dict[str, Any] | None = None
     connect_timeout_ms: int | None = Field(default=None, ge=100, le=60000)
     tool_cache_ttl_sec: int | None = Field(default=None, ge=1, le=86400)
