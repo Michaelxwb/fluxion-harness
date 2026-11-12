@@ -93,7 +93,8 @@ async function deleteConversationViaUi(page: Page, conversationId: string): Prom
   await expect(item).toBeVisible({ timeout: 30_000 });
   await row.getByTestId('chat-sidebar-item-actions').click();
   await page.getByTestId('chat-sidebar-item-delete').click();
-  await expect(page.getByTestId('chat-sidebar-delete-dialog')).toBeVisible();
+  // 断言确认按钮而不是弹窗外层包裹：Semi 的外层 div 无尺寸，内容在固定定位的子节点里。
+  await expect(page.getByTestId('chat-sidebar-delete-confirm')).toBeVisible();
   const deleted = page.waitForResponse(
     (response) =>
       response.request().method() === 'DELETE' &&
@@ -134,8 +135,9 @@ test.describe('TASK-008 会话删除与附件格式', () => {
     // 删的是当前所选会话：回到「新对话」空态，且不自动新建。
     await expect(page.getByTestId('chat-new-conversation')).toBeVisible({ timeout: 30_000 });
 
-    // 刷新后仍不可见；服务端也一致（列表不含、详情 404）。
-    await openConversation(page, user.entry.entryId, history.conversation_id);
+    // 刷新后仍不可见：再打开该 URL 得到显式「会话不可用」，不是正常面板，也不是伪成功。
+    await page.goto(`/chat/${user.entry.entryId}?conversation=${history.conversation_id}`);
+    await expect(page.getByTestId('chat-page-failure')).toBeVisible({ timeout: 30_000 });
     await expect(item).toHaveCount(0, { timeout: 30_000 });
     const listed = await session.get<{ items: { conversation_id: string }[] }>(
       `/api/v1/webchat/entries/${user.entry.entryId}/conversations`
