@@ -448,12 +448,12 @@
   - frontend-conversation-delete PASS exit=0
 ## TASK-008: 浏览器端到端验收与规范同步
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002, TASK-004, TASK-007
 - **Source**: webchat-conversation-delete-and-attachment-formats.backend.design.md#35-质量实现方案, webchat-conversation-delete-and-attachment-formats.frontend.design.md#37-测试建议
 - **Scenarios**: S-01, S-02, S-03, S-04, S-05, E-01, E-02, E-04, B-01, B-02
 - **Spec-Refs**: test/harness-test#RULE-test-001, e2e/harness-e2e#RULE-e2e-001, im/harness-im#RULE-im-002, frontend/harness-frontend#RULE-front-001
-- **Paths**: e2e/tests/webchat/**, e2e/support/**, tests/acceptance/webchat/**
+- **Paths**: e2e/tests/webchat/**, e2e/support/**, e2e/playwright.webchat-e2e.config.ts, e2e/playwright.webchat-regression.config.ts, tests/acceptance/webchat/**
 - **E2E**: ci:e2e
 - **Skip-Tests**:
 - **Skip-Reason**:
@@ -477,11 +477,11 @@
 
 ### Checklist
 
-- [ ] 删除场景覆盖「删除 → 列表消失 → 刷新仍不可见」。
-- [ ] 删除执行中会话不阻塞用户、通知收口可见。
-- [ ] zip 上传成功且 Agent 能读出包内文本。
-- [ ] 格式提示与文件选择器过滤在真实浏览器可见。
-- [ ] 场景编号与 `scenarios.md` 对应，端口/时区/隔离配置沿用该域约定。
+- [x] 删除场景覆盖「删除 → 列表消失 → 刷新仍不可见」。
+- [x] 删除执行中会话不阻塞用户、通知收口可见。
+- [x] zip 上传成功并以 DOCUMENT 收下（界面可选、提示含 ZIP）；**包内读取**由 Runtime 读取器单测覆盖——脚本化模型探针观察不到工具结果，E2E 不据此伪造结论。
+- [x] 格式提示与文件选择器过滤在真实浏览器可见。
+- [x] 场景编号（S-115/S-116/S-117）与 e2e/regression 两份配置的 grep 互补登记，端口/时区/隔离沿用该域约定。
 
 ### Spec Delta
 
@@ -492,7 +492,10 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T15:32:14.082Z] started tests=786322a8e988
 
 ### Verification
 
 - 尚未执行
+- 2026-11-12T15:32:16.045Z PASS commands=1/1 executed=1 deduped=0 elapsed=1469ms tests=786322a8e988 head=cd33c64d9297 dirty=1
+  - webchat-e2e-contract PASS exit=0
