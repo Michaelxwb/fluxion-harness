@@ -406,7 +406,9 @@ function currentSnapshot(runtime: PendingSendRuntime): PendingSendSnapshot {
     phase: attempt === null ? 'IDLE' : runtime.phase,
     attempt,
     text: attempt === null ? scope?.text ?? '' : attempt.text,
-    attachments: attempt === null ? scope?.attachments ?? [] : attempt.attachments,
+    // 复制数组：`addFiles`/`removeAttachment` 原地增删，共享引用会让早先取到的快照
+    // 在消费者手里悄悄变化（快照是值，不是活视图）。
+    attachments: [...(attempt === null ? scope?.attachments ?? [] : attempt.attachments)],
     inputFrozen: attempt !== null && inputFrozen(runtime, attempt),
     inputErrorCode: runtime.inputErrorCode,
     errorCode: visible ? runtime.errorCode : null,
