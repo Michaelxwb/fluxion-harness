@@ -41,12 +41,13 @@ from ..application.channel_uploads import (
     upload_limits_from_settings,
 )
 from ..application.conversation_policy import ConversationPolicy
+from ..application.conversation_deletion import ConversationDeletionService
 from ..application.ports import PlatformSettingsClient
 from ..application.run_service import stream_scope_gate
 from ..application.webchat_artifacts import resolve_webchat_artifact
 from ..application.webchat_history import HistoryScope, WebchatHistoryService
 from ..infrastructure.models.runtime import ChannelUpload
-from .deps import PlatformSettingsClientDep, SessionDep, TenantDep
+from .deps import PlatformSettingsClientDep, RunServiceDep, SessionDep, TenantDep
 
 router = APIRouter(
     prefix="/internal/webchat",
@@ -227,6 +228,26 @@ async def get_conversation(
         policy=_conversation_policy(webchat),
     )
     return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantDep,
+    session: SessionDep,
+    user_id: UserId,
+    runs: RunServiceDep,
+) -> ApiResponse[dict[str, Any]]:
+    """会话删除（API-12）：软删 + 同请求取消活跃 Run + 通知收口，不等 Run 终态。
+
+    归属只按 (tenant, user, 会话) 核属：**不要求**当前仍持有该 Agent 授权——授权撤销后用户
+    仍应能清理自己的历史；入口/Agent 不由调用方自报。已删除会话重复删除返回成功（幂等）。
+    """
+    deleted = await ConversationDeletionService(session, runs).delete(
+        tenant_id=tenant_id, user_id=user_id, conversation_id=conversation_id
+    )
+    return ok(request.app.state.message_catalog, deleted)
 
 
 @router.get("/conversations/{conversation_id}/scope")
