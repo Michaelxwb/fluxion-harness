@@ -158,6 +158,12 @@ export interface WebchatConversationItem {
 
 export interface WebchatConversationPage extends WebchatPage<WebchatConversationItem> {}
 
+/** API-16 删除回执：`deleted` 恒为 true（重复删除同形，幂等由契约保证）。 */
+export interface WebchatConversationDeletion {
+  conversation_id: string;
+  deleted: true;
+}
+
 /** API-15 会话详情：打开历史后按活跃 Run 恢复订阅。 */
 export interface WebchatConversationDetail {
   conversation_id: string;
@@ -369,6 +375,10 @@ export interface WebchatClient {
     conversationId: string,
     options?: WebchatRequestOptions
   ): Promise<WebchatConversationDetail>;
+  deleteConversation(
+    conversationId: string,
+    options?: WebchatRequestOptions
+  ): Promise<WebchatConversationDeletion>;
   submit(
     entryId: string,
     input: WebchatSubmitInput,

@@ -21,8 +21,8 @@
  * 展示组件只收 typed props 与事件；不发 HTTP、不读 Cookie、不落持久存储、不自带定时器、不持有状态。
  */
 
-import { Banner, Button, Empty, Spin, Typography } from '@douyinfe/semi-ui';
-import { IconPlus } from '@douyinfe/semi-icons';
+import { Banner, Button, Dropdown, Empty, Spin, Typography } from '@douyinfe/semi-ui';
+import { IconMore, IconPlus } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 
 import type {
@@ -217,8 +217,12 @@ export interface ConversationSidebarProps {
   unreadCounts?: Readonly<Record<string, number>> | null;
   /** 分组参考时刻（页面时区）：缺省取当前时间。 */
   now?: Date;
+  /** 正在删除的会话：条目禁用并显示进度（同一会话单飞）。
+   *  最近一次删除失败的稳定码由状态层保留，提示由共享拦截器统一 Toast，这里不再叠一条。 */
+  deletingIds?: readonly string[];
   onNew(): void;
   onSelect(conversationId: string): void;
+  onDelete(conversationId: string): void;
   onLoadMore(): void;
   onRetry(): void;
 }
@@ -227,7 +231,9 @@ interface ConversationSidebarEntryProps {
   item: WebchatConversationItem;
   selected: boolean;
   unread: number;
+  deleting: boolean;
   onSelect(conversationId: string): void;
+  onDelete(conversationId: string): void;
 }
 
 /** 单个历史条目：标题截断展示（完整标题在 `title` 里）、真实阶段/归档/未读徽标。 */
@@ -238,41 +244,78 @@ function ConversationSidebarEntry(props: ConversationSidebarEntryProps) {
     ? 'chat-sidebar-item-button chat-sidebar-item-selected'
     : 'chat-sidebar-item-button';
   return (
-    <li className="chat-sidebar-item">
-      <button
-        type="button"
-        className={className}
-        data-testid="chat-sidebar-item"
-        data-conversation-id={props.item.conversation_id}
-        data-active-run-status={props.item.active_run_status ?? undefined}
-        data-unread={props.unread > 0 ? 'true' : undefined}
-        aria-current={props.selected ? 'true' : undefined}
-        title={props.item.title}
-        onClick={() => props.onSelect(props.item.conversation_id)}
-      >
-        <span className="chat-sidebar-item-title">{props.item.title}</span>
-        {statusKey === null ? null : (
-          <span className="chat-sidebar-item-status" data-testid="chat-sidebar-item-status">
-            {t(statusKey)}
-          </span>
-        )}
-        {props.item.status === 'ARCHIVED' ? (
-          <span className="chat-sidebar-item-archived" data-testid="chat-sidebar-item-archived">
-            {t('chat.sidebar.archived')}
+    <li className="chat-sidebar-item" data-deleting={props.deleting ? 'true' : undefined}>
+      <div className="chat-sidebar-item-row">
+        <button
+          type="button"
+          className={className}
+          data-testid="chat-sidebar-item"
+          data-conversation-id={props.item.conversation_id}
+          data-active-run-status={props.item.active_run_status ?? undefined}
+          data-unread={props.unread > 0 ? 'true' : undefined}
+          aria-current={props.selected ? 'true' : undefined}
+          title={props.item.title}
+          onClick={() => props.onSelect(props.item.conversation_id)}
+        >
+          <span className="chat-sidebar-item-title">{props.item.title}</span>
+          {statusKey === null ? null : (
+            <span className="chat-sidebar-item-status" data-testid="chat-sidebar-item-status">
+              {t(statusKey)}
+            </span>
+          )}
+          {props.item.status === 'ARCHIVED' ? (
+            <span className="chat-sidebar-item-archived" data-testid="chat-sidebar-item-archived">
+              {t('chat.sidebar.archived')}
+            </span>
+          ) : null}
+          {props.unread === 0 ? null : (
+            <span
+              className="chat-sidebar-item-unread"
+              data-testid="chat-sidebar-item-unread"
+              aria-label={t('chat.sidebar.unread', { unread: props.unread })}
+              title={t('chat.sidebar.unread', { unread: props.unread })}
+            >
+              <span className="chat-sidebar-item-unread-dot" aria-hidden="true" />
+              <span className="chat-sidebar-item-unread-count">{props.unread}</span>
+            </span>
+          )}
+        </button>
+        <Dropdown
+          trigger="click"
+          position="bottomRight"
+          render={
+            <Dropdown.Menu>
+              <Dropdown.Item
+                data-testid="chat-sidebar-item-delete"
+                disabled={props.deleting}
+                onClick={() => props.onDelete(props.item.conversation_id)}
+              >
+                {t('chat.sidebar.delete')}
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          }
+        >
+          <Button
+            className="chat-sidebar-item-actions"
+            theme="borderless"
+            size="small"
+            icon={<IconMore />}
+            aria-haspopup="menu"
+            aria-label={t('chat.sidebar.deleteAria', { title: props.item.title })}
+            data-testid="chat-sidebar-item-actions"
+            disabled={props.deleting}
+          />
+        </Dropdown>
+        {props.deleting ? (
+          <span
+          className="chat-sidebar-item-deleting"
+          data-testid="chat-sidebar-item-deleting"
+          aria-label={t('chat.sidebar.deleting')}
+        >
+            <Spin size="small" />
           </span>
         ) : null}
-        {props.unread === 0 ? null : (
-          <span
-            className="chat-sidebar-item-unread"
-            data-testid="chat-sidebar-item-unread"
-            aria-label={t('chat.sidebar.unread', { unread: props.unread })}
-            title={t('chat.sidebar.unread', { unread: props.unread })}
-          >
-            <span className="chat-sidebar-item-unread-dot" aria-hidden="true" />
-            <span className="chat-sidebar-item-unread-count">{props.unread}</span>
-          </span>
-        )}
-      </button>
+      </div>
     </li>
   );
 }
@@ -340,7 +383,9 @@ interface ConversationGroupSectionProps {
   group: ConversationDayGroup;
   selectedId: string | null;
   unreadCounts: Readonly<Record<string, number>> | null;
+  deletingIds: readonly string[];
   onSelect(conversationId: string): void;
+  onDelete(conversationId: string): void;
 }
 
 /** 单个日期分组：组标题 + 组内条目（顺序即索引顺序）。 */
@@ -364,7 +409,9 @@ function ConversationGroupSection(props: ConversationGroupSectionProps) {
             item={item}
             selected={item.conversation_id === props.selectedId}
             unread={conversationUnread(props.unreadCounts, item.conversation_id)}
+            deleting={props.deletingIds.includes(item.conversation_id)}
             onSelect={props.onSelect}
+            onDelete={props.onDelete}
           />
         ))}
       </ul>
@@ -376,10 +423,12 @@ interface ConversationSidebarGroupsProps {
   groups: readonly ConversationDayGroup[];
   selectedId: string | null;
   unreadCounts: Readonly<Record<string, number>> | null;
+  deletingIds: readonly string[];
   hasMore: boolean;
   loadingMore: boolean;
   showRetry: boolean;
   onSelect(conversationId: string): void;
+  onDelete(conversationId: string): void;
   onLoadMore(): void;
   onRetry(): void;
 }
@@ -396,7 +445,9 @@ function ConversationSidebarGroups(props: ConversationSidebarGroupsProps) {
           group={group}
           selectedId={props.selectedId}
           unreadCounts={props.unreadCounts}
+          deletingIds={props.deletingIds}
           onSelect={props.onSelect}
+          onDelete={props.onDelete}
         />
       ))}
       {props.hasMore ? (
@@ -450,7 +501,9 @@ export function ConversationSidebar(props: ConversationSidebarProps) {
           hasMore={props.hasMore}
           loadingMore={props.loadingMore ?? false}
           showRetry={state.showRetry}
+          deletingIds={props.deletingIds ?? []}
           onSelect={props.onSelect}
+          onDelete={props.onDelete}
           onLoadMore={props.onLoadMore}
           onRetry={props.onRetry}
         />

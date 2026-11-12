@@ -142,10 +142,13 @@ export const Empty = () => null;
 export const Spin = () => null;
 export const Typography = { Title: () => null, Text: () => null };
 export const Badge = () => null;
+export const Dropdown = Object.assign(() => null, { Menu: () => null, Item: () => null });
+export const Modal = () => null;
 """
 
 SEMI_ICONS_STUB = """export const IconPlus = () => null;
 export const IconMenu = () => null;
+export const IconMore = () => null;
 """
 
 LOGIC_ENTRY = """export * from '{sidebar}';
@@ -1300,6 +1303,14 @@ def test_b279_sidebar_renders_groups_highlight_busy_unread_and_more(
     )
     assert 'title="甲会话"' in markup, "标题截断展示时必须保留完整 title 供查看"
 
+    # 每个条目都带「删除会话」操作入口：菜单触发按钮可键盘操作并带完整标题的无障碍名。
+    item_count = _count(markup, 'data-testid="chat-sidebar-item"')
+    assert item_count >= 1
+    assert _count(markup, 'data-testid="chat-sidebar-item-actions"') == item_count, (
+        "每个会话条目都必须有删除操作入口"
+    )
+    assert 'chat-sidebar-item-row' in markup, "选择按钮与操作区同为条目行子元素（按钮不得嵌套）"
+
     english = sidebar_render["markup"]["list-en"]["sidebar"]
     assert "Today" in english and "Yesterday" in english and "Earlier" in english, (
         "分组标题必须随语言切换（词条两侧齐平）"
@@ -1426,6 +1437,10 @@ def test_b279_components_compile_and_keep_the_module_boundaries(
 
     sidebar_source = _read(SIDEBAR_TSX)
     assert "export function ConversationSidebar(" in sidebar_source
+    # 删除入口的可访问性：菜单按钮带 aria-haspopup 与含标题的无障碍名（源码级，Semi 不保证透传）。
+    assert 'aria-haspopup="menu"' in sidebar_source
+    assert "chat.sidebar.deleteAria" in sidebar_source
+    assert "chat-sidebar-item-row" in sidebar_source
     assert "createConversationSidebarBindings(" in sidebar_source
     assert "groupConversationsByDay(" in sidebar_source
     datetime_source = _read(DATETIME_TSX)

@@ -395,7 +395,7 @@
   - gateway-conversation-delete PASS exit=0
 ## TASK-007: 前端删除入口与状态收敛
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-006
 - **Source**: webchat-conversation-delete-and-attachment-formats.frontend.design.md#32-组件与状态, #34-交互与可访问性, #36-词条清单
 - **Scenarios**: S-01, S-02, S-03, E-04, B-01
@@ -424,11 +424,11 @@
 
 ### Checklist
 
-- [ ] `remove` 成功/失败/单飞/身份边界四种路径都有确定快照。
-- [ ] 删除当前会话回到空态且不新建；其它会话与进行中 Run 不受影响。
-- [ ] 条目结构改动保留既有 data-testid 与 aria 语义。
-- [ ] 确认弹窗可键盘操作，删除后焦点回到可用控件。
-- [ ] 全部新增词条双语齐备。
+- [x] `remove` 成功/失败/单飞/身份边界四种路径都有确定快照。
+- [x] 删除当前会话回到空态且不新建；其它会话与进行中 Run 不受影响。
+- [x] 条目结构改动保留既有 data-testid 与 aria 语义。
+- [x] 确认弹窗可键盘操作，删除后焦点回到可用控件。
+- [x] 全部新增词条双语齐备。
 
 ### Spec Delta
 
@@ -439,11 +439,13 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T15:29:43.035Z] started tests=1f30188b75de
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-12T15:29:44.948Z PASS commands=1/1 executed=1 deduped=0 elapsed=1796ms tests=1f30188b75de head=4f73dcd8c888 dirty=1
+  - frontend-conversation-delete PASS exit=0
 ## TASK-008: 浏览器端到端验收与规范同步
 
 - **Status**: draft

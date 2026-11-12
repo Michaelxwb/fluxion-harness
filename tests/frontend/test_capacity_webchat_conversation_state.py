@@ -771,6 +771,109 @@ const obs = {};
   };
 }
 
+// ---- 6b) 删除：单飞、条目移除、选中回退、按会话缓存清理、失败保留、身份边界 fence -------------
+{
+  const state = newState(4);
+  let start = requests.length;
+  script = [{ status: 200, data: conversationPage([ITEM_1, ITEM_2], 1, 2, 2) }];
+  await state.open(ENTRY_A);
+  script = [
+    { status: 200, data: detail(CONVERSATION_1, '甲会话', ENTRY_A, runningRun()) },
+    { status: 200, data: messagePage(historyRange(1, 3), 1, 40, 3, 3) }
+  ];
+  await state.select(CONVERSATION_1);
+  state.setDraft(CONVERSATION_1, '甲草稿');
+  state.noteAppliedSeq(CONVERSATION_1, RUN_1, 7);
+  const scrollAnchorSet = state.snapshot().history.scrollAnchor;
+
+  const deleteStart = requests.length;
+  const gate = deferred();
+  script = [
+    { deferred: gate, status: 200, data: { conversation_id: CONVERSATION_1, deleted: true } }
+  ];
+  const pendingA = state.remove(CONVERSATION_1);
+  const pendingB = state.remove(CONVERSATION_1);
+  const singleFlight = pendingA === pendingB;
+  await waitForRequests(deleteStart + 1);
+  const deletingState = {
+    deletingIds: [...state.snapshot().index.deletingIds],
+    items: state.snapshot().index.items.map((entry) => entry.conversation_id)
+  };
+  gate.resolve();
+  const removed = await pendingA;
+  const afterDelete = {
+    items: state.snapshot().index.items.map((entry) => entry.conversation_id),
+    total: state.snapshot().index.total,
+    selection: selectionOf(state.snapshot()),
+    draft: state.draft(CONVERSATION_1),
+    appliedSeq: state.appliedSeq(CONVERSATION_1, RUN_1),
+    scrollAnchor: state.snapshot().history.scrollAnchor,
+    historyItems: state.snapshot().history.items.length,
+    deletingIds: [...state.snapshot().index.deletingIds]
+  };
+
+  // 失败：条目保留、稳定码落在快照、可再次删除
+  script = [{ status: 404, body: { code: 'COMMON_NOT_FOUND', msg: '未找到' } }];
+  const failed = await state.remove(CONVERSATION_2);
+  const afterFailure = {
+    items: state.snapshot().index.items.map((entry) => entry.conversation_id),
+    deleteErrorCode: state.snapshot().index.deleteErrorCode,
+    deletingIds: [...state.snapshot().index.deletingIds],
+    result: failed
+  };
+
+  // 身份边界：删除在飞时 reset，迟到成功不得改任何状态
+  const fenced = newState(4);
+  script = [{ status: 200, data: conversationPage([ITEM_1], 1, 1, 1) }];
+  await fenced.open(ENTRY_A);
+  const fenceGate = deferred();
+  script = [
+    { deferred: fenceGate, status: 200, data: { conversation_id: CONVERSATION_1, deleted: true } }
+  ];
+  const fencedStart = requests.length;
+  const fencedPending = fenced.remove(CONVERSATION_1);
+  await waitForRequests(fencedStart + 1);
+  fenced.reset();
+  fenceGate.resolve();
+  const fencedResult = await fencedPending;
+  const afterFence = {
+    items: fenced.snapshot().index.items.length,
+    deletingIds: [...fenced.snapshot().index.deletingIds],
+    deleteErrorCode: fenced.snapshot().index.deleteErrorCode,
+    result: fencedResult
+  };
+
+  // 空标识是调用方错误：显式抛稳定码，不发请求
+  let emptyId = null;
+  const beforeEmpty = requests.length;
+  try {
+    await state.remove('   ');
+  } catch (error) {
+    emptyId = error instanceof ConversationStateError ? error.code : String(error);
+  }
+  const emptyRequests = requests.length - beforeEmpty;
+
+  const deleteRequests = requests.slice(deleteStart, deleteStart + 1);
+  obs.deletion = {
+    singleFlight,
+    deletingState,
+    removed,
+    afterDelete,
+    afterFailure,
+    afterFence,
+    emptyId,
+    emptyRequests,
+    scrollAnchorSet,
+    requests: deleteRequests.map((entry) => ({
+      method: entry.method,
+      url: entry.url,
+      body: entry.body,
+      hasSignal: entry.hasSignal
+    })),
+    order: requestLog(start)
+  };
+}
+
 // ---- 7) 历史分页：冻结水位、身份合并去重、锚点位移、水位与已应用游标分离 -------------------------
 {
   const state = newState(4);
@@ -1399,6 +1502,56 @@ def test_b278_create_is_single_flight_idempotent_and_never_cancels_the_old_run(
     assert after["draft1"] == "甲草稿", "旧会话草稿必须保留（新建不改投）"
     assert after["search"] == f"conversation={NEW_CONVERSATION}", "新建后 URL 查询串按新会话 ID 渲染"
     assert after["index"]["creating"] is False and after["index"]["errorCode"] is None
+
+
+def test_b278_delete_removes_the_item_and_falls_back_without_creating(
+    conversation_state: dict[str, Any],
+) -> None:
+    """删除：同一会话单飞、条目消失、所选回退为空态、按会话缓存清理、失败保留可重试。
+
+    身份边界之后到达的删除结果按 epoch fence 丢弃（不把上一个主体的删除结果写进新状态）。
+    """
+    observed = conversation_state["deletion"]
+    assert observed["singleFlight"] is True, "同一会话的删除必须单飞（重复点击复用同一 promise）"
+    assert observed["deletingState"] == {
+        "deletingIds": [CONVERSATION_1],
+        "items": [CONVERSATION_1, CONVERSATION_2],
+    }, "删除中条目仍在列表，但标出正在删除"
+    assert observed["requests"] == [
+        {
+            "method": "DELETE",
+            "url": f"/webchat/conversations/{CONVERSATION_1}",
+            "body": None,
+            "hasSignal": True,
+        }
+    ], "删除只发一次 DELETE，走共享传输并带视图信号"
+    assert observed["removed"] == {"deleted": True}
+    after = observed["afterDelete"]
+    assert after["items"] == [CONVERSATION_2], "删除成功后条目从索引消失"
+    assert after["total"] == 1
+    assert after["selection"]["conversationId"] is None, "删除当前会话后回到空态"
+    assert after["selection"]["detailId"] is None
+    assert after["draft"] == "" and after["appliedSeq"] is None, "按会话缓存一并清理"
+    assert after["scrollAnchor"] is None and after["historyItems"] == 0
+    assert after["deletingIds"] == []
+
+    failure = observed["afterFailure"]
+    assert failure["items"] == [CONVERSATION_2], "删除失败保留条目"
+    assert failure["deleteErrorCode"] == "COMMON_NOT_FOUND"
+    assert failure["deletingIds"] == []
+    assert failure["result"] == {"deleted": False, "errorCode": "COMMON_NOT_FOUND"}
+
+    fence = observed["afterFence"]
+    # 身份边界同时中止了在途请求：结果是失败码，但**状态一个字都不改**（条目/删除中/错误码都空）。
+    assert fence == {
+        "items": 0,
+        "deletingIds": [],
+        "deleteErrorCode": None,
+        "result": {"deleted": False, "errorCode": "NETWORK_ERROR"},
+    }, "身份边界之后的迟到删除结果不得改状态"
+
+    assert observed["emptyId"] == "CONVERSATION_NOT_SELECTED"
+    assert observed["emptyRequests"] == 0, "空标识不构造请求"
 
 
 def test_b103_older_pages_keep_the_anchor_and_the_frozen_watermark(
