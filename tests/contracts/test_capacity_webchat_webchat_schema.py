@@ -3,12 +3,14 @@
 from dataclasses import asdict, fields, replace
 
 import pytest
+from muad_contracts.attachments import SUPPORTED_UPLOAD_FORMATS
 from muad_contracts.platform_settings import (
     PlatformSettingsError,
     default_platform_settings,
     parse_platform_settings,
     validate_platform_settings,
 )
+from muad_contracts.webchat import WebchatClientConfig
 
 pytestmark = pytest.mark.unit
 
@@ -195,3 +197,20 @@ def test_b202_defaults_and_direct_instances_must_fit_resource_budget(budget_key:
         parse_platform_settings(None, **{budget_key: budget})
     with pytest.raises(PlatformSettingsError, match=budget_key):
         validate_platform_settings(default_platform_settings(), **{budget_key: budget})
+
+
+def test_b202_client_limits_project_the_shared_upload_formats() -> None:
+    """客户端配置里的允许格式来自契约单一事实，不是设置字段、也不在前端另存一份。"""
+    config = WebchatClientConfig.from_settings(
+        settings_revision=1,
+        transport_revision="rev",
+        webchat=default_platform_settings().webchat,
+        sse_event_max_bytes=1024,
+        sse_heartbeat_sec=1.0,
+    )
+
+    assert config.webchat.upload_formats == SUPPORTED_UPLOAD_FORMATS
+    media_types = {item.media_type for item in config.webchat.upload_formats}
+    assert {"application/zip", "application/x-zip-compressed"} <= media_types
+    for item in config.webchat.upload_formats:
+        assert item.extensions and all(ext.startswith(".") for ext in item.extensions)

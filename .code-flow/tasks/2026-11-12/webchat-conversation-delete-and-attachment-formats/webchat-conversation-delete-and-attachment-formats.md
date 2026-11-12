@@ -145,7 +145,7 @@
 
 ## TASK-003: 客户端配置投影支持格式清单
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: webchat-conversation-delete-and-attachment-formats.backend.design.md#34-接口设计
 - **Scenarios**: S-05
@@ -174,9 +174,9 @@
 
 ### Checklist
 
-- [ ] `AttachmentFormat` 与 `upload_formats` 进入契约并在配置投影中赋值。
-- [ ] 投影内容与白名单一致（契约测试断言两者集合相等）。
-- [ ] 缺值/空值不会被静默补默认。
+- [x] `AttachmentFormat` 与 `upload_formats` 进入契约并在配置投影中赋值。
+- [x] 投影内容与白名单一致（契约测试断言两者集合相等）。
+- [x] 缺值/空值不会被静默补默认。
 
 ### Spec Delta
 
@@ -187,11 +187,17 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T15:10:10.254Z] started tests=62a0d8db1ab0
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-12T15:10:18.967Z FAIL commands=0/1 executed=1 deduped=0 elapsed=8476ms tests=62a0d8db1ab0 head=7373f6537fae dirty=1
+  - client-config-projection FAIL exit=1
+- 2026-11-12T15:10:34.109Z FAIL commands=0/1 executed=1 deduped=0 elapsed=4743ms tests=62a0d8db1ab0 head=7373f6537fae dirty=1
+  - client-config-projection FAIL exit=1
+- 2026-11-12T15:10:44.565Z PASS commands=1/1 executed=1 deduped=0 elapsed=6665ms tests=62a0d8db1ab0 head=7373f6537fae dirty=1
+  - client-config-projection PASS exit=0
 ## TASK-004: 前端支持格式提示与选择器过滤
 
 - **Status**: draft
