@@ -338,16 +338,28 @@ async def test_b_04() -> None:
         assert await _run_revision_worker(domain, 1, 100, 2, "refresh", refresh=True) == {
             "allowed": 0, "limited": 1, "stale": 1,
         }
-        await meter.publish(_revision_policy(3, 100, window_seconds=60))
+        window_policy = _revision_policy(3, 100, window_seconds=60)
+        window_policy = window_policy.model_copy(update={
+            "rules": (window_policy.rules[0].model_copy(update={"window_requests": 1}),),
+        })
+        await meter.publish(window_policy)
+        invocation = TrustedInvocation("execution-1", "invocation-1", "segment-activation")
+        permit = await meter.admit(
+            window_policy, target_instance_id="platform", route_id="GET /assets",
+            attempt_id="new-window-first", lease_seconds=30, invocation=invocation,
+        )
+        assert permit is not None
+        await meter.consume(permit)
+        await meter.release(permit)
         with pytest.raises(SharedLimitExceeded) as error:
             await meter.admit(
-                _revision_policy(3, 100, window_seconds=60), target_instance_id="platform",
-                route_id="GET /assets", attempt_id="new-window", lease_seconds=30,
+                window_policy, target_instance_id="platform", route_id="GET /assets",
+                attempt_id="new-window-next", lease_seconds=30, invocation=invocation,
             )
-        assert error.value.kind == "WINDOW"
+        assert error.value.kind == "WINDOW" and error.value.scope == "public"
         await meter.publish(_revision_policy(4, 200))
         assert await _run_revision_worker(domain, 4, 200, 12, "restored") == {
-            "allowed": 10, "limited": 2, "stale": 0,
+            "allowed": 9, "limited": 3, "stale": 0,
         }
         await meter.publish(_revision_policy(5, 300))
         assert await _run_revision_worker(domain, 5, 300, 1, "restored-again") == {
