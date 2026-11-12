@@ -7,6 +7,7 @@
 ## Rules
 
 - [RULE-mcp-001] V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅 Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。
+- [RULE-mcp-002] MCP HTTP 认证支持服务级三态：无认证、Authorization Bearer、自定义请求头；自定义头拆分为非密 headers 与单个 auth_secret 的 secret_header，密钥不得进入 auth_config、审计、Snapshot 或 API 响应。
 
 ## Conventions
 
