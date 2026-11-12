@@ -1,5 +1,8 @@
 ---
-{"description": "IM 网关、通道与 WebChat", "next_rule": 1}
+{
+  "description": "IM 网关、通道与 WebChat",
+  "next_rule": 6
+}
 ---
 
 # harness-im
@@ -8,6 +11,12 @@
 
 - [RULE-im-001] 一个逻辑 Agent 可绑定 0..N 个 IM 通道账号；每个 `bot_id` 只路由到一个 Agent；Bot 与 Runtime/Worker Pod 无任何绑定；Gateway 不保存 `agent_id→Pod` 映射。
 - [RULE-im-002] **渠道差异只活在适配器层**：核心域（`agent-runtime` / `agent-worker`）零渠道专有字样与取件形状；`im-gateway` 的 web 角色除 `channels/` 与装配根 `main.py` 外同样为零；`im-connector` 的协议/回复/媒体实现属于通道适配器表面，不得把渠道形状带回核心域。取件、下载、解密、媒体 URL/密钥**一律不出适配器**——上层只看到「已解密字节 + 元信息」。机检见 `tests/architecture/test_channel_neutrality.py`（三条：核心域全文零字样 / 核心域不得给 `ResolveDefinitionRequest.channel` 传字面量 / 全仓代码扫描只允许出现在 `ALLOWED_SURFACES`）。
+
+- [RULE-im-003] 附件格式清单是单一事实：允许的媒体类型、展示扩展名与压缩包/文本分类谓词只在 `muad_contracts.attachments` 定义；网关门控、Runtime 抽取与客户端配置投影共同引用，任何一方不得另立一份。zip 以 `application/zip` 与 `application/x-zip-compressed` 准入，未登记类型仍显式拒绝。
+
+- [RULE-im-004] 压缩包读取有界且只投影文本：内存解压不落盘；成员清单先行，文本成员可分段读取，二进制成员只列不读；加密、损坏、成员路径不合法与超出成员数/单成员/解压总量/压缩比上限都必须显式拒绝并说明原因，禁止先解完再判。
+
+- [RULE-im-005] 会话删除是 Owner 侧的软删：置 `is_deleted` 即可让列表、详情、消息、续聊与产物下载一致不可见；删除请求内先按既有取消语义处理该会话的活跃 Run 再软删，不等 Run 终态；删除幂等，重复删除返回成功；删除同时软删该会话的通知，且通知写入侧对已软删会话不再产出入箱行。
 
 ## Conventions
 
@@ -73,3 +82,11 @@
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-001#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"c08c858f77bbb78851e7f77b50eeee4778d3fe470d5d5c07397614651b01149e","at":"2026-11-12T16:21:37.940Z"}
+
+- {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-002#DELTA-001","op":"add","rule":"RULE-002","payload_sha256":"2dd6c8f15a64d46e21213c9dc11c14d0f6888e115eb8973a2001fcbb13a84ecf","at":"2026-11-12T16:21:37.941Z"}
+
+- {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-005#DELTA-001","op":"add","rule":"RULE-003","payload_sha256":"4f383632fabc8102f4db853af10a64812f26d3549e9e5c933a9090d913590a67","at":"2026-11-12T16:21:37.942Z"}
