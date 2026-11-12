@@ -6,12 +6,12 @@
 
 ## TASK-001: 附件格式单一事实与网络门控收口
 
-- **Status**: in-progress
+- **Status**: done
 - **Depends**:
 - **Source**: webchat-conversation-delete-and-attachment-formats.backend.design.md#32-架构设计, #321-共同能力收口本次的硬要求, #34-接口设计
 - **Scenarios**: S-04, E-03
 - **Spec-Refs**: im/harness-im#RULE-im-002, test/harness-test#RULE-test-001
-- **Paths**: packages/contracts/src/muad_contracts/attachments.py, packages/contracts/src/muad_contracts/__init__.py, apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py, apps/im-gateway/src/muad_im_gateway/application/webchat_uploads.py, docs/configuration-inventory.csv, tests/gateway/**, tests/test_attachment_contract.py, tests/test_configuration_inventory.py
+- **Paths**: packages/contracts/src/muad_contracts/attachments.py, packages/contracts/src/muad_contracts/__init__.py, apps/im-gateway/src/muad_im_gateway/application/attachment_gate.py, apps/im-gateway/src/muad_im_gateway/application/webchat_uploads.py, apps/im-connector/src/muad_im_connector/channels/wecom/media.py, docs/configuration-inventory.csv, tests/gateway/**, tests/test_attachment_contract.py, tests/test_configuration_inventory.py
 - **E2E**:
 - **Skip-Tests**:
 - **Skip-Reason**:
@@ -41,11 +41,12 @@
 
 ### Checklist
 
-- [ ] `muad_contracts.attachments` 定义允许集合、展示清单与分类谓词，并在 `__init__` 导出。
-- [ ] 网关门控与 WebChat 上传引用 contracts，本地不再持有第二份白名单。
-- [ ] zip 两种 MIME 通过门控；可执行内容与未登记类型仍被拒。
-- [ ] 白名单与展示清单一一对应（契约测试钉死，防止只改一边）。
-- [ ] 新增常量写入 `docs/configuration-inventory.csv` 且清单测试通过。
+- [x] `muad_contracts.attachments` 定义允许集合、展示清单与分类谓词，并在 `__init__` 导出。
+- [x] 网关门控与 WebChat 上传引用 contracts，本地不再持有第二份白名单。
+- [x] zip 两种 MIME 通过门控；可执行内容与未登记类型仍被拒。
+- [x] 白名单与展示清单一一对应（契约测试钉死，防止只改一边）。
+- [x] 企微入站适配器的扩展名→MIME 表改为从契约派生（不再有第三份副本），`.zip` 解析为 `application/zip`。
+- [x] 新增常量写入 `docs/configuration-inventory.csv` 且清单测试通过。
 
 ### Spec Delta
 
@@ -69,7 +70,14 @@
 ### Verification
 
 - 尚未执行
-
+- 2026-11-12T15:06:05.267Z FAIL commands=0/1 executed=1 deduped=0 elapsed=11427ms tests=eeb7a94e14dc head=9e3d0534dfaa dirty=1
+  - gateway-attachment-gate FAIL exit=1
+- 2026-11-12T15:06:46.913Z FAIL commands=0/1 executed=1 deduped=0 elapsed=7970ms tests=eeb7a94e14dc head=9e3d0534dfaa dirty=1
+  - gateway-attachment-gate FAIL exit=1
+- 2026-11-12T15:07:47.577Z FAIL commands=0/1 executed=1 deduped=0 elapsed=8087ms tests=eeb7a94e14dc head=9e3d0534dfaa dirty=1
+  - gateway-attachment-gate FAIL exit=1
+- 2026-11-12T15:08:15.869Z PASS commands=1/1 executed=1 deduped=0 elapsed=8129ms tests=eeb7a94e14dc head=9e3d0534dfaa dirty=1
+  - gateway-attachment-gate PASS exit=0
 ## TASK-002: Runtime 受限压缩包读取
 
 - **Status**: draft

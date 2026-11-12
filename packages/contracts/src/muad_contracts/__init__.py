@@ -1,3 +1,11 @@
+from .attachments import (
+    ALLOWED_ATTACHMENT_MEDIA_TYPES,
+    ARCHIVE_MEDIA_TYPES,
+    SUPPORTED_UPLOAD_FORMATS,
+    AttachmentFormat,
+    is_archive_media_type,
+    is_text_media_type,
+)
 from .canonical import NonCanonicalJsonError, canonical_json
 from .channel import (
     DEFAULT_PAGE_SIZE,
@@ -233,4 +241,10 @@ __all__ = [
     "build_task_snapshot",
     "canonical_json",
     "snapshot_hash",
+    "ALLOWED_ATTACHMENT_MEDIA_TYPES",
+    "ARCHIVE_MEDIA_TYPES",
+    "SUPPORTED_UPLOAD_FORMATS",
+    "AttachmentFormat",
+    "is_archive_media_type",
+    "is_text_media_type",
 ]

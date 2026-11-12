@@ -35,11 +35,11 @@ from typing import Any, BinaryIO, Protocol
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_artifact_store import NfsArtifactStore
+from muad_contracts import ALLOWED_ATTACHMENT_MEDIA_TYPES
 from muad_contracts.channel import AttachmentKind
 from muad_contracts.webchat import WebchatUpload, WebchatUploadRegistration
 from pydantic import ValidationError
 
-from .attachment_gate import ALLOWED_MEDIA_TYPES
 from .chat_principal import ChatIdentity
 from .inbound_attachments import kind_for
 from .platform_settings import resolve_platform_settings
@@ -464,7 +464,7 @@ def _decode_header_value(value: str) -> str:
 def _allowed_media_type(value: str | None) -> str:
     """部件 MIME 必须在既有附件白名单内（可执行内容默认拒绝），否则显式拒绝。"""
     media_type = (value or "").strip().lower()
-    if media_type not in ALLOWED_MEDIA_TYPES:
+    if media_type not in ALLOWED_ATTACHMENT_MEDIA_TYPES:
         raise AppError(ErrorCode.ATTACHMENT_TYPE_NOT_ALLOWED)
     return media_type
 
