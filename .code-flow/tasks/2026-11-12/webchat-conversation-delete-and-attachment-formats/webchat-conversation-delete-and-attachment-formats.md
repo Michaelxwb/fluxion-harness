@@ -499,3 +499,120 @@
 - 尚未执行
 - 2026-11-12T15:32:16.045Z PASS commands=1/1 executed=1 deduped=0 elapsed=1469ms tests=786322a8e988 head=cd33c64d9297 dirty=1
   - webchat-e2e-contract PASS exit=0
+
+## TASK-009: 压缩包内代码/配置成员按文本读取
+
+- **Status**: done
+- **Depends**: TASK-002
+- **Source**: webchat-conversation-delete-and-attachment-formats.backend.design.md#34-接口设计
+- **Scenarios**: S-04, B-03
+- **Spec-Refs**: im/harness-im#RULE-im-002, snapshot/harness-snapshot#RULE-snapshot-001, test/harness-test#RULE-test-001
+- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py, docs/configuration-inventory.csv, tests/agent_runtime/test_attachment_tools.py
+- **E2E**:
+- **Skip-Tests**:
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "runtime-archive-text-members",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_attachment_tools.py", "tests/agent_runtime/test_archive_tools.py", "tests/test_configuration_inventory.py"],
+    "timeout": 300,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+线上反馈：上传一个 skill 包后，模型只读到 `SKILL.md`，`scripts/run.py` 与 `muad_skill.json` 被标成「二进制（不读取）」，于是它把上传的文件当成已安装 Skill 去调 `execute_skill`，得到 `SKILL_ARTIFACT_UNAVAILABLE`。
+
+根因是归档内的文本判定只认「上传白名单里的扩展名」——上传准入与读取能力被绑成了一件事。本次把两者拆开：归档内按「代码/配置扩展名 + 常见无扩展名文件名」判定文本（仍需 UTF-8 可解码），上传白名单不变。
+
+### Checklist
+
+- [x] `.py/.json/.yaml/.toml/.sh/...` 与 `Dockerfile/Makefile/...` 在清单中标记为文本并可读。
+- [x] 未登记且不可解码的成员仍标「二进制（不读取）」，不输出内容。
+- [x] 上传白名单未因读取能力而扩大（`.py` 仍不能直接作为附件上传）。
+- [x] 新增常量登记进配置清单。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-13] created
+- [2026-11-12T16:14:55.951Z] started tests=fa1a0abccb40
+
+### Verification
+
+- 尚未执行
+- 2026-11-12T16:15:03.825Z PASS commands=1/1 executed=1 deduped=0 elapsed=7754ms tests=fa1a0abccb40 head=c234ee6f1dd0 dirty=1
+  - runtime-archive-text-members PASS exit=0
+## TASK-010: 思考阶段的计时占位
+
+- **Status**: done
+- **Depends**: TASK-007
+- **Source**: webchat-conversation-delete-and-attachment-formats.frontend.design.md#32-组件与状态
+- **Scenarios**: S-06
+- **Spec-Refs**: frontend/harness-frontend#RULE-front-001, i18n/harness-i18n#RULE-i18n-001, ui/harness-ui#RULE-ui-001, test/harness-test#RULE-test-001
+- **Paths**: apps/console-platform/frontend/src/modules/webchat/components/ChatThinking.tsx, apps/console-platform/frontend/src/modules/webchat/hooks/useRunClock.ts, apps/console-platform/frontend/src/modules/webchat/ChatPage.tsx, apps/console-platform/frontend/src/modules/webchat/webchat.css, apps/console-platform/frontend/src/locales/**, tests/frontend/**
+- **E2E**:
+- **Skip-Tests**:
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "frontend-thinking-timer",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/frontend/test_capacity_webchat_thinking_indicator.py", "tests/frontend/test_capacity_webchat_frontend_wiring.py", "tests/frontend/test_capacity_webchat_webchat_i18n.py"],
+    "timeout": 300,
+    "parallel": false
+  }
+]
+```
+
+### Description
+
+用户反馈：问一个长回答（例如「用 10000 字介绍 Python」）时，首个 token 之前消息区完全空白，看起来像"没反应"，直到很久后才收到。
+
+新增思考占位：Run 受理后、首个正文/附件增量到达前，在消息流里显示「正在思考… 已用时 mm:ss」。首字一到占位立即卸载——**回答阶段不显示耗时**。计时锚点取服务端 `started_at`（未开始执行时用 `queued_at`），每秒走秒只发生在 `useRunClock` 钩子里，流式输出期间零额外重渲染。
+
+### Checklist
+
+- [x] 非终态且无可见内容时显示占位；终态/已有正文/已有附件时不显示。
+- [x] 计时锚点缺失时只显示文案，不启动定时器。
+- [x] 走秒只在 `useRunClock`，展示组件无定时器与状态。
+- [x] 词条 zh-CN/en-US 齐备。
+
+### Spec Delta
+
+```json
+[
+  {
+    "id": "DELTA-001",
+    "op": "add",
+    "target": "frontend/harness-frontend",
+    "rule": "长等待必须有可见占位：Run 受理后、首个正文增量到达前，消息流里给出「正在思考」与已等待时长；首字到达即撤占位、不再显示耗时。计时锚点取服务端时间戳，走秒只发生在专用时钟钩子（清理时清除定时器），展示组件保持无状态、不自带定时器，流式输出期间不得有周期性重渲染。",
+    "evidence": "长回答在首个 token 前消息区完全空白，用户无法区分「慢」与「失败」；而流式期间每秒重渲染会拖慢长回复的渲染。"
+  }
+]
+```
+
+### Log
+
+- [2026-11-13] created
+- [2026-11-12T16:15:07.985Z] started tests=4b1a0343ad72
+
+### Verification
+
+- 尚未执行
+- 2026-11-12T16:15:11.032Z PASS commands=1/1 executed=1 deduped=0 elapsed=2934ms tests=4b1a0343ad72 head=c234ee6f1dd0 dirty=1
+  - frontend-thinking-timer PASS exit=0

@@ -1445,6 +1445,38 @@ async def test_zip_marks_unreadable_members_with_reasons(
     assert "escape" not in result and "caf\xe9" not in result
 
 
+async def test_zip_reads_code_and_config_members_as_text(
+    tenant: TenantContext, artifact_root
+) -> None:
+    """代码/配置成员按文本读：上传白名单管的是准入，管不到包内该不该读。
+
+    只认白名单扩展名时，一个 skill 包里的 `scripts/run.py`、`muad_skill.json` 会被标成二进制，
+    模型读不到实现细节，只能猜着去执行一个并不存在的 Skill。
+    """
+    artifact_id = await _seed_zip(
+        tenant,
+        artifact_root,
+        {
+            "SKILL.md": "# demo\n".encode(),
+            "scripts/run.py": b'print("hi")\n',
+            "muad_skill.json": b'{"name": "demo"}\n',
+            "Dockerfile": b"FROM python:3.12\n",
+            "logo.png": b"\x89PNG\r\n\x1a\n" + b"\x00" * 8,
+            "blob.bin": bytes(range(256)),
+        },
+    )
+
+    result = await _call(
+        _tool_set(tenant, artifact_root), READ_ATTACHMENT_TOOL, {"artifact_id": str(artifact_id)}
+    )
+
+    assert "--- scripts/run.py ---" in result and 'print("hi")' in result
+    assert "--- muad_skill.json ---" in result and '{"name": "demo"}' in result
+    assert "--- Dockerfile ---" in result and "FROM python:3.12" in result
+    assert "logo.png" in result and "二进制（不读取）" in result
+    assert "blob.bin" in result and "二进制（不读取）" in result
+
+
 async def test_zip_rejects_encrypted_and_corrupt_archives(
     tenant: TenantContext, artifact_root
 ) -> None:

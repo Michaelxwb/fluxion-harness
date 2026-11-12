@@ -32,6 +32,28 @@ MAX_ARCHIVE_COMPRESSION_RATIO = 100
 
 _READ_CHUNK_BYTES = 64 * 1024
 _MIB = 1024 * 1024
+#: 压缩包内按文本读取的**代码/配置**扩展名（含点、小写）。
+#: 与「可上传格式」刻意分开：上传白名单管的是用户能直接传什么，读取能力管的是包内文件能不能读；
+#: 用户传不了 .py，但一个 skill 包里的 .py 必须读得出来，否则模型只能猜。
+TEXT_MEMBER_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        ".py", ".pyi", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".json", ".jsonl",
+        ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".env", ".sh", ".bash", ".zsh",
+        ".fish", ".bat", ".ps1", ".sql", ".xml", ".html", ".htm", ".css", ".scss", ".less",
+        ".go", ".rs", ".java", ".kt", ".kts", ".rb", ".php", ".pl", ".lua", ".r", ".c", ".h",
+        ".cc", ".cpp", ".hpp", ".cs", ".swift", ".dart", ".scala", ".gradle", ".properties",
+        ".txt", ".md", ".csv", ".tsv", ".log", ".diff", ".patch", ".gitignore",
+    }
+)
+
+#: 没有扩展名、但按文本读取的常见文件名（大小写不敏感）。
+TEXT_MEMBER_NAMES: frozenset[str] = frozenset(
+    {
+        "dockerfile", "makefile", "readme", "license", "notice", "changelog",
+        "procfile", "vagrantfile", "gemfile", ".gitignore", ".dockerignore", ".env",
+    }
+)
+
 _TEXT_LABEL = "text"
 _BINARY_LABEL = "二进制（不读取）"
 _NESTED_LABEL = "嵌套压缩包（不展开）"
@@ -100,7 +122,7 @@ def _read_member(
     media_type = _member_media_type(path)
     if media_type is not None and is_archive_media_type(media_type):
         return _Member(path, info.file_size, None, _NESTED_LABEL), total
-    if media_type is None or not is_text_media_type(media_type):
+    if not _is_text_member(path, media_type):
         return _Member(path, info.file_size, None, _BINARY_LABEL), total
     if info.file_size == 0:
         return _Member(path, 0, "", _EMPTY_FILE_LABEL), total
@@ -177,6 +199,15 @@ def _display_path(name: str) -> str | None:
         return normalize_member_path(name)
     except MemberPathError:
         return None
+
+
+def _is_text_member(path: str, media_type: str | None) -> bool:
+    """成员是否按文本读取：已登记的文本类型、代码/配置扩展名，或常见无扩展名文件名。"""
+    if media_type is not None:
+        return is_text_media_type(media_type)
+    if _suffix(path) in TEXT_MEMBER_EXTENSIONS:
+        return True
+    return path.rsplit("/", 1)[-1].lower() in TEXT_MEMBER_NAMES
 
 
 def _member_media_type(path: str) -> str | None:
