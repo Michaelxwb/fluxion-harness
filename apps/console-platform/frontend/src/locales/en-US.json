@@ -1887,7 +1887,7 @@
   "settings.egress.method": "HTTP method",
   "settings.egress.methodHint": "Usually GET, POST, PUT, or DELETE",
   "settings.egress.path": "Path template",
-  "settings.egress.pathHint": "Enter only the path after the platform Base URL, for example /assets/{id}",
+  "settings.egress.pathHint": "Enter only the path after the platform Base URL, for example /assets/search",
   "settings.egress.targetHint": "Choose a configured platform instance",
   "settings.egress.routeHint": "Choose a stable route on that platform, for example GET /assets",
   "settings.egress.perMinuteHint": "Maximum sends in any 60-second window",

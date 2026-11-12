@@ -1887,7 +1887,7 @@
   "settings.egress.method": "请求方法",
   "settings.egress.methodHint": "通常填写 GET、POST、PUT 或 DELETE",
   "settings.egress.path": "路径模板",
-  "settings.egress.pathHint": "只填写平台 Base URL 后面的路径，例如 /assets/{id}",
+  "settings.egress.pathHint": "只填写平台 Base URL 后面的路径，例如 /assets/search",
   "settings.egress.targetHint": "选择要限制的已配置平台实例",
   "settings.egress.routeHint": "选择该平台下的稳定接口标识，例如 GET /assets",
   "settings.egress.perMinuteHint": "连续 60 秒内最多发送多少次",
