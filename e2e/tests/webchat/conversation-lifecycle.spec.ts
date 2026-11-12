@@ -167,7 +167,7 @@ test.describe('TASK-008 会话删除与附件格式', () => {
     // 慢模型：留出「执行中删除」的真实窗口。
     await webchatFaults.setBehavior({
       deltas: ['慢', '速', '回', '复'],
-      latency_ms: 1200,
+      latency_ms: 3000,
       chunk_interval_ms: 1500
     });
     await loginChat(page, user.entry.entryId, user.chatToken.token);
@@ -188,7 +188,13 @@ test.describe('TASK-008 会话删除与附件格式', () => {
     );
     await page.getByTestId('chat-composer-send').click();
     expect((await accepted).status()).toBe(202);
+
+    // 首个增量之前：消息流里有思考占位与计时（不能让用户面对空白猜"是不是没反应"）。
+    await expect(page.getByTestId('chat-thinking')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('chat-thinking-line')).toContainText('正在思考');
+    // 首字到达：占位与计时一并消失，只剩正在生成的正文。
     await expect(page.getByTestId('chat-streaming-reply')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('chat-thinking')).toHaveCount(0);
 
     // 删除不等 Run 终态：接口在慢模型仍在出增量时返回。
     const startedAt = Date.now();
