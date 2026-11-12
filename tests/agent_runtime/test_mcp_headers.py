@@ -21,8 +21,8 @@ from muad_agent_runtime.application.mcp_runtime_adapter import (
 )
 from muad_agent_runtime.application.run_service import build_snapshot
 from muad_contracts import (
-    ResolveDefinitionResponse,
     ResolvedAgent,
+    ResolveDefinitionResponse,
     ResolvedMcpServer,
     ResolvedModel,
     ResolvedSkill,

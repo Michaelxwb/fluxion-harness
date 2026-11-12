@@ -109,11 +109,11 @@ for (const [path, action, hasGrid] of forms) {
       expect(Math.abs(dimensions.centerY - (mobile ? 640 : 720) / 2)).toBeLessThanOrEqual(1);
       expect(dimensions.overflow).toBe(false);
       if (hasGrid) {
-        const columns = await dialog.locator('.form-grid').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length);
+        const columns = await dialog.locator('.form-grid').first().evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length);
         expect(columns).toBe(mobile ? 1 : 2);
         const body = dialog.locator('.semi-modal-body');
         await body.evaluate((node) => { node.scrollTop = node.scrollHeight; });
-        await expect(dialog.locator('.semi-form-field').last()).toBeInViewport();
+        await expect(dialog.locator('.semi-form-field:visible').last()).toBeInViewport();
         await expect(dialog.locator('.semi-modal-footer')).toBeInViewport({ ratio: 1 });
       }
       await page.screenshot({ path: testInfo.outputPath(`${path}-${mode}.png`) });

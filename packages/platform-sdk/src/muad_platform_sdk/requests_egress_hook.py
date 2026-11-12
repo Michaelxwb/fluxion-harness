@@ -69,8 +69,11 @@ def _metadata(request: PreparedRequest) -> AttemptMetadata:
         host = f"[{host}]"
     default = 443 if parsed.scheme == "https" else 80
     port = f":{parsed.port}" if parsed.port is not None and parsed.port != default else ""
+    authority = request.headers.get("Host")
+    if isinstance(authority, bytes):
+        authority = authority.decode("latin-1")
     return AttemptMetadata(method=request.method or "", origin=f"{parsed.scheme}://{host}{port}",
-                           path=parsed.path or "/", authority=request.headers.get("Host"))
+                           path=parsed.path or "/", authority=authority)
 
 
 def _replace_method(target: object, name: str, replacement: object) -> None:

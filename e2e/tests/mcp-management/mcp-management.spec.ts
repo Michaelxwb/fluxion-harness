@@ -106,12 +106,12 @@ test('S-07c 注册弹窗按交互稿排版并保存后自动发现', async ({ pa
     await page.goto('/mcp');
     await page.getByTestId('create-mcp').click();
     const modal = page.locator('.semi-modal');
-    await expect(modal.locator('.form-grid')).toBeVisible();
+    await expect(modal.locator('.form-grid').first()).toBeVisible();
     await expect(modal.getByRole('textbox', { name: /名称/ })).toBeVisible();
     await expect(modal.getByRole('textbox', { name: /标识/ })).toBeVisible();
     const endpoint = modal.getByRole('textbox', { name: /服务地址/ });
     await expect(endpoint).toBeVisible();
-    await expect(modal).toContainText('V1.4 仅支持 Streamable HTTP');
+    await expect(modal).toContainText('仅支持 Streamable HTTP');
     await expect(modal).toContainText('保存并发现工具');
     await modal.getByRole('textbox', { name: /名称/ }).fill('E2E Layout MCP');
     await modal.getByRole('textbox', { name: /标识/ }).fill(key);

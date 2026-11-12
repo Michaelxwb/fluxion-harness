@@ -146,6 +146,16 @@ def test_frontend_sensitive_and_reserved_names_match_backend_intent() -> None:
     for marker in ("token", "secret", "password", "credential", "api-key", "apikey", "private-key"):
         assert f"'{marker}'" in payload
         assert f'"{marker}"' in dto
-    for reserved in ("host", "content-length", "transfer-encoding", "connection", "accept", "content-type", "mcp-session-id", "mcp-protocol-version", "cookie"):
+    for reserved in (
+        "host",
+        "content-length",
+        "transfer-encoding",
+        "connection",
+        "accept",
+        "content-type",
+        "mcp-session-id",
+        "mcp-protocol-version",
+        "cookie",
+    ):
         assert f"'{reserved}'" in payload
         assert f'"{reserved}"' in dto
