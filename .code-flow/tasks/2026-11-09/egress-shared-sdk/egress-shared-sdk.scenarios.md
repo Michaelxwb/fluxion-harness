@@ -428,6 +428,33 @@ scenarios:
   rules: []
   checks: []
   owner: TASK-001
+- id: B-08
+  title: 统一Settings替代专用文件
+  priority: P0
+  level: contract
+  exec: auto
+  env: local
+  components:
+  - sdk
+  - backend
+  boundary: 真实SharedSettings与SDK装配；存储依赖替身不代表真实网络
+  preconditions:
+  - 不设置专用文件路径
+  steps:
+  - 仅用统一Settings构建受控宿主，再校验空规则和非法生命周期
+  expected:
+  - 启用装配无需JSON；空规则不构造Redis；非法参数明确拒绝
+  expected_refs:
+  - expected: 1
+    steps:
+    - 1
+  features:
+  - FEAT-01
+  design_refs:
+  - remove-egress-file.plan.md#1. 范围与验收 B-08
+  rules: []
+  checks: []
+  owner: TASK-012
 ---
 
 # 共享出口管控 SDK 验收场景

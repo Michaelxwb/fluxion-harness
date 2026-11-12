@@ -40,6 +40,8 @@ TASK-009 验证共享内核，使用可信测试身份；TASK-006 验证 PG、Ru
 
 ---
 
+| B-08 | remove-egress-file.plan.md#1. 范围与验收 B-08 | contract | 真实Settings与SDK装配，计量依赖替身 | TASK-012 | verified | ["uv", "run", "pytest", "-q", "tests/sdk/test_configured_egress.py"] | . | 60 | P0 | auto | local | packages/**; apps/agent-runtime/**; apps/agent-worker/**; config/**; scripts/** | - | - | no |
+
 ## TASK-001: 共享规则与可信身份契约
 
 - **Status**: done
@@ -405,6 +407,14 @@ S-01/S-02/B-01/B-04 RED: 旧占位测试未连接共享Redis内核。 GREEN: `uv
 - [x] Runtime/Worker 根调用传递稳定逻辑操作键，与输出目录、attempt、lease_epoch 分离；真实脚本验证目录隔离，Worker 捕获执行器验证键稳定（尚不代表 PG invocation 登记已接通）
 - [x] 将根调用逻辑键连接 PG PersistentEgressScopes，完成冻结累计/当前公共策略装配、移除旧进程内控制器；空公共规则但有累计预算时仍启用
 
+- [ ] [RULE-api-001] verifier: ["uv", "run", "pytest", "-q", "tests/test_api_i18n.py", "tests/test_error_catalog.py", "tests/acceptance/test_foundation_api_envelope.py"]；cwd=.；timeout=300；按实际runner证据或review/CI裁决，不从定向测试推导pass。
+- [ ] [RULE-api-002] verifier: ["uv", "run", "pytest", "-q", "tests/console_skill/test_import_idempotency.py"]；cwd=.；timeout=300；按实际runner证据或review/CI裁决，不从定向测试推导pass。
+- [ ] [RULE-e2e-001] verifier: ["uv", "run", "pytest", "-q", "tests/frontend/test_e2e_suite_contract.py"]；cwd=.；timeout=300；按实际runner证据或review/CI裁决，不从定向测试推导pass。
+- [ ] [RULE-front-001] verifier: ["bash", "-lc", "uv run pytest -q tests/frontend/test_api_client_contract.py && uv run python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py && npm --prefix apps/console-platform/frontend run typecheck"]；cwd=.；timeout=600；按实际runner证据或review/CI裁决，不从定向测试推导pass。
+- [ ] [RULE-i18n-001] verifier: ["bash", "-lc", "uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run python scripts/check_frontend_i18n.py"]；cwd=.；timeout=300；按实际runner证据或review/CI裁决，不从定向测试推导pass。
+- [ ] [RULE-rel-001] verifier: ["uv", "run", "pytest", "-q", "tests/console_platform/test_user_side_relations.py"]；cwd=.；timeout=300；按实际runner证据或review/CI裁决，不从定向测试推导pass。
+- [ ] [RULE-ui-001] verifier: ["bash", "-lc", "uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py && npm --prefix apps/console-platform/frontend run build"]；cwd=.；timeout=900；按实际runner证据或review/CI裁决，不从定向测试推导pass。
+
 ### Acceptance Contract
 
 | 场景ID | 测试层级 | 不得 Mock 的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
@@ -670,3 +680,34 @@ S-01/S-02/B-01/B-04 RED: 旧占位测试未连接共享Redis内核。 GREEN: `uv
 ## 2026-11-12 平台路由修正记录
 
 本轮事实与证据见 [platform-route-remediation.md](platform-route-remediation.md)。TASK-011早期手动标记的历史done不能代替此次修正后的CI及正式门禁；不声称需求已归档。
+
+## TASK-012: 移除专用文件入口，统一SDK运行参数
+
+- **Status**: done
+- **Priority**: P0
+- **Depends**: TASK-006
+- **Source**: remove-egress-file.plan.md#1. 范围与验收 B-08
+- **Spec-Refs**: harness-arch#RULE-arch-001, harness-secret#RULE-secret-001, harness-test#RULE-test-001, harness-snapshot#RULE-snapshot-001, harness-worker#RULE-worker-001, harness-data#RULE-data-001
+- **Acceptance-Refs**: B-08
+- **Capability**: 管理端唯一配置业务规则，SDK运行不再依赖专用JSON或Dockerfile入口
+
+### Checklist
+
+- [x] B-08：统一Settings、无文件装配、默认无规则不连Redis、非法运行参数拒绝
+- [x] 删除专用JSON/环境变量及文件规则分支；调整真实边界夹具
+- [x] 本地定向回归；重型探针仍deferred；完成后统一提交PR
+
+### Acceptance Contract
+
+| 场景ID | 测试层级 | 不得Mock的真实边界 | 关键断言 | 测试文件 / 用例 | 执行命令 | 状态 |
+|---|---|---|---|---|---|---|
+| B-08 | contract | Settings及宿主装配；计量依赖显式替身 | 无文件能启用、空规则零Redis、非法生命周期拒绝 | tests/sdk/test_configured_egress.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_configured_egress.py"] | verified |
+
+### Acceptance Evidence
+
+B-08 RED：`test_settings_only_budget_assembly_needs_no_configuration_file` 实际失败 `shared metering configuration required`。GREEN：新Settings装配及既有定向回归48 passed；Settings/盘点与装配契约13 passed；新增非法生命周期测试在最终runner复验。真实HTTP/PG/Redis与Linux重型边界分别记录，不把延期当pass。
+- B-08: verified — automated command passed; run_id=c54365b47e19455a893e243a2a99f94e (confirmed_by: runner)
+
+### Log
+- [2026-11-12] started
+- [2026-11-12] completed (done)

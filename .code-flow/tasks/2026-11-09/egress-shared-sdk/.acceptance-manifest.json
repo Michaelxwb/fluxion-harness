@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "egress-shared-sdk.md",
-  "task_sha256": "4846524c000444707dd1edfd1cdb10054d1b0629598995ea910a63502acf3641",
+  "task_sha256": "c5dfe138268e1862b38129142d220bd0cea3098e0fea1dd32db4b58a37b4a0a1",
   "checks": [
     {
       "id": "CHK-bceb7faf58ed",
@@ -651,6 +651,31 @@
         "format": "pytest",
         "timeout": 30
       }
+    },
+    {
+      "id": "CHK-20f9c1887589",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/sdk/test_configured_egress.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [
+        "packages/**",
+        "apps/agent-runtime/**",
+        "apps/agent-worker/**",
+        "config/**",
+        "scripts/**"
+      ],
+      "preflight": [],
+      "paths": []
     }
   ],
   "scenarios": [
@@ -4505,6 +4530,162 @@
       ],
       "defer_owner": "TASK-001",
       "check": "CHK-51c11c9f1c84"
+    },
+    {
+      "id": "B-08",
+      "source": "remove-egress-file.plan.md#1. 范围与验收 B-08",
+      "level": "contract",
+      "kind": "functional",
+      "boundary": "真实SharedSettings与SDK装配；存储依赖替身不代表真实网络",
+      "owner": "TASK-012",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/sdk/test_configured_egress.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "inputs": [
+        "packages/**",
+        "apps/agent-runtime/**",
+        "apps/agent-worker/**",
+        "config/**",
+        "scripts/**"
+      ],
+      "smoke": false,
+      "components": [
+        "sdk",
+        "backend"
+      ],
+      "steps": [
+        "仅用统一Settings构建受控宿主，再校验空规则和非法生命周期"
+      ],
+      "expected": [
+        "启用装配无需JSON；空规则不构造Redis；非法参数明确拒绝"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        }
+      ],
+      "checks": [],
+      "preconditions": [
+        "不设置专用文件路径"
+      ],
+      "features": [
+        "FEAT-01"
+      ],
+      "defer_owner": "TASK-012",
+      "check": "CHK-20f9c1887589",
+      "revision": 1,
+      "evidence": {
+        "id": "B-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 1411.7123330000002,
+        "check_id": "CHK-20f9c1887589",
+        "input_hash": "a0b4e48238c0b51d06428a0e035cbc002b462d8d6d6b55fc4573b380da5185d5",
+        "environment_hash": "814baefd6b41d733d692d0b62a8f5b02887922f269e24a8d4ab8f1bd1cd37ea0",
+        "check_config": {
+          "id": "CHK-20f9c1887589",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/sdk/test_configured_egress.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [
+            "packages/**",
+            "apps/agent-runtime/**",
+            "apps/agent-worker/**",
+            "config/**",
+            "scripts/**"
+          ],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "c54365b47e19455a893e243a2a99f94e",
+        "executed_at": "2026-11-12T02:22:41.888452+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/sdk/test_configured_egress.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "a0b4e48238c0b51d06428a0e035cbc002b462d8d6d6b55fc4573b380da5185d5"
+      },
+      "runs": [
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1411.7123330000002,
+          "check_id": "CHK-20f9c1887589",
+          "input_hash": "a0b4e48238c0b51d06428a0e035cbc002b462d8d6d6b55fc4573b380da5185d5",
+          "environment_hash": "814baefd6b41d733d692d0b62a8f5b02887922f269e24a8d4ab8f1bd1cd37ea0",
+          "check_config": {
+            "id": "CHK-20f9c1887589",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/sdk/test_configured_egress.py"
+            ],
+            "cwd": ".",
+            "timeout": 60.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "config/**",
+              "scripts/**"
+            ],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "c54365b47e19455a893e243a2a99f94e",
+          "executed_at": "2026-11-12T02:22:41.888452+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/sdk/test_configured_egress.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "a0b4e48238c0b51d06428a0e035cbc002b462d8d6d6b55fc4573b380da5185d5"
+        }
+      ]
     }
   ],
   "scenarios_file": "egress-shared-sdk.scenarios.md",
@@ -4535,9 +4716,11 @@
     "preserved": [
       "S-01",
       "S-02",
+      "S-03",
       "S-04",
       "S-05",
       "E-01",
+      "E-02",
       "E-03",
       "E-04",
       "B-01",
@@ -4545,12 +4728,10 @@
       "B-03",
       "B-04",
       "B-05",
-      "B-06"
+      "B-06",
+      "B-08"
     ],
-    "stale": [
-      "S-03",
-      "E-02"
-    ],
+    "stale": [],
     "removed": []
   }
 }
