@@ -10,7 +10,8 @@ import asyncio
 import json
 import time
 import uuid
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -18,6 +19,8 @@ import httpx
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolHandler, ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_platform_sdk.platform_transport import McpBudgetScope
+from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 
 from ..infrastructure.audit_writer import RuntimeAuditWriter
 from ..metrics import EGRESS_CALLS_METRIC, record_outcome
@@ -34,9 +37,21 @@ EGRESS_TARGET_TYPE = "MCP"
 class McpToolError(RuntimeError):
     """MCP 传输/协议/工具执行失败；详情不携带凭据。"""
 
-    def __init__(self, reason: str, detail: str) -> None:
+    def __init__(
+        self,
+        reason: str,
+        detail: str,
+        *,
+        status_code: int | None = None,
+        retry_after: str | None = None,
+        code: str = "COMMON_INTERNAL_ERROR",
+    ) -> None:
         self.reason = reason
         self.detail = detail
+        self.status_code = status_code
+        self.retry_after = retry_after
+        self.code = code
+        self.retryable = False
         super().__init__(f"MCP {reason}: {detail}")
 
 
@@ -78,7 +93,9 @@ class _McpSession:
         timeout_sec: float,
         transport: httpx.AsyncBaseTransport | None = None,
         client: httpx.AsyncClient | None = None,
+        budget: McpBudgetScope | None = None,
     ) -> None:
+        self._budget = budget
         headers = {"Accept": MCP_ACCEPT}
         if server.auth_secret:
             headers["Authorization"] = f"Bearer {server.auth_secret}"
@@ -90,6 +107,7 @@ class _McpSession:
         # 每个请求都显式带上 Accept/Authorization：借用的共享池客户端没有本会话的默认头。
         self._auth_headers = headers
         self._endpoint = server.endpoint
+        self._server_key = server.key
         self._session_id: str | None = None
         self._initialized = False
         self._request_seq = 0
@@ -117,9 +135,27 @@ class _McpSession:
         request_id = payload.get("id")
         expects_response = request_id is not None
         try:
-            response = await self._client.post(
-                self._endpoint, json=payload, headers=self._headers()
-            )
+            async with (
+                self._budget.attempt(
+                    self._server_key,
+                    str(payload.get("method", "")),
+                    (payload.get("params") or {}).get("name")
+                    if payload.get("method") == "tools/call"
+                    else None,
+                )
+                if self._budget is not None
+                else _null_async_context()
+            ) as lease:
+                response = await self._client.post(self._endpoint, json=payload, headers=self._headers())
+                if lease is not None and response.status_code == 429:
+                    lease.outcome = "proxy_rate_limited"
+        except SharedLimitExceeded as exc:
+            code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
+            raise McpToolError("local_limit", str(exc), code=code) from exc
+        except MeteringUnavailable:
+            raise McpToolError(
+                "metering_unavailable", "shared metering unavailable", code="EGRESS_METERING_UNAVAILABLE"
+            ) from None
         except httpx.TimeoutException as exc:
             raise McpToolError("timeout", "request timed out") from exc
         except httpx.HTTPError as exc:
@@ -129,7 +165,12 @@ class _McpSession:
         if session_id:
             self._session_id = session_id
         if response.status_code >= 400:
-            raise McpToolError("protocol", f"http {response.status_code}")
+            raise McpToolError(
+                "upstream_http",
+                f"http {response.status_code}",
+                status_code=response.status_code,
+                retry_after=response.headers.get("retry-after"),
+            )
         if response.status_code == 202 or not response.content:
             if expects_response:
                 raise McpToolError("protocol", "missing response payload")
@@ -227,11 +268,13 @@ class McpRuntimeAdapter:
         timeout_sec: float = MCP_CALL_TIMEOUT_SEC,
         transport: httpx.AsyncBaseTransport | None = None,
         client: httpx.AsyncClient | None = None,
+        budget: McpBudgetScope | None = None,
     ) -> None:
         self._audit_writer = audit_writer
         self._timeout_sec = timeout_sec
         self._transport = transport
         self._client = client
+        self._budget = budget
         self._sessions: dict[str, _McpSession] = {}
         # 每 server 一把初始化 singleflight 锁：并发调用只初始化一次；失败释放锁并允许重试。
         self._session_locks: dict[str, asyncio.Lock] = {}
@@ -300,7 +343,8 @@ class McpRuntimeAdapter:
             session = await self._ready_session(server)
             content = await session.call_tool(tool.name, arguments)
         except McpToolError as exc:
-            await self._discard_session(server.key)
+            if exc.reason != "local_limit":
+                await self._discard_session(server.key)
             await self._audit(
                 target,
                 policy_decision,
@@ -329,7 +373,7 @@ class McpRuntimeAdapter:
             session = self._sessions.get(server.key)
             if session is not None:
                 return session
-            session = _McpSession(server, self._timeout_sec, self._transport, self._client)
+            session = _McpSession(server, self._timeout_sec, self._transport, self._client, self._budget)
             try:
                 await session.initialize()
             except BaseException:
@@ -374,3 +418,8 @@ def _effect(raw: str) -> ToolEffect:
         return ToolEffect(raw)
     except ValueError:
         return ToolEffect.WRITE
+
+
+@asynccontextmanager
+async def _null_async_context() -> AsyncIterator[None]:
+    yield None

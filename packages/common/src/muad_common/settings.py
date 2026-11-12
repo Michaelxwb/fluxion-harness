@@ -121,6 +121,7 @@ class SharedSettings(BaseSettings):
     egress_http_max_connections: int = Field(default=1024, ge=1)
     egress_http_max_keepalive: int = Field(default=256, ge=0)
     egress_max_inflight: int = Field(default=8, ge=1)
+    egress_control_file: str | None = None
     upload_http_max_connections: int = Field(default=8, ge=1)
     upload_http_max_keepalive: int = Field(default=4, ge=0)
 

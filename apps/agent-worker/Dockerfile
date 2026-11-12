@@ -12,7 +12,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && node --version
 WORKDIR /app
-ENV UV_COMPILE_BYTECODE=1 \
+ENV EGRESS_CONTROL_FILE=/app/config/egress-runtime.json \
+    UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/usr/local \
     LOG_DIR=/var/log/muad \
@@ -22,7 +23,8 @@ COPY config ./config
 COPY migrations ./migrations
 COPY packages ./packages
 COPY apps ./apps
-RUN uv sync --frozen --no-dev --no-editable --package muad-agent-worker
+RUN uv sync --frozen --no-dev --no-editable --package muad-agent-worker \
+ && python -m muad_egress_site --install
 # 非 root 运行（固定 UID/GID 10001，便于 k8s securityContext 与 PVC fsGroup 对齐）
 RUN groupadd --gid 10001 muad \
  && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin muad \

@@ -66,6 +66,8 @@ function runSeedCli(args: string[]): string {
 }
 
 async function login(page: Page, username = state.account.username, password = state.account.password): Promise<void> {
+  // 先卸载旧页面，避免其在途请求在清 Cookie 后返回 401 并与主动导航竞争。
+  await page.goto('about:blank');
   // 先清会话：已登录时 `/login` 会在会话探测返回后立刻 Navigate 回首页，和填写表单竞争
   // （真实表现是 `input` 被卸载：`element was detached from the DOM, retrying` 直到超时）。
   // 本助手只承诺「拿到目标账号的会话」，从干净会话开始是唯一的确定性做法。

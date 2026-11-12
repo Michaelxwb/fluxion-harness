@@ -72,6 +72,7 @@ class TaskClaimer:
                 # 是外部轮询续接，不消耗 attempt，否则等待几轮后任何失败都会直接 FAILED。
                 resumed_from_wait = task.status == str(TaskStatus.WAITING)
                 task.status = str(TaskStatus.RUNNING)
+                task.lease_epoch += 1
                 task.lease_owner = instance_id
                 task.lease_until = claimed_at + timedelta(seconds=self._settings.task_lease_sec)
                 task.heartbeat_at = claimed_at
@@ -87,6 +88,7 @@ class TaskClaimer:
                     event_type=TaskEventType.CLAIMED,
                     payload={
                         "lease_owner": instance_id,
+                        "lease_epoch": task.lease_epoch,
                         "attempt": task.attempt,
                         "lease_until": task.lease_until.isoformat(),
                         "resumed_from_wait": resumed_from_wait,

@@ -80,6 +80,23 @@ class OverviewAgentRanking(OverviewModel):
     run_count: int
 
 
+class OverviewEgressTop(OverviewModel):
+    target: str
+    route_id: str
+    request_count: int
+    blocked_count: int
+
+
+class OverviewEgress(OverviewModel):
+    request_count: int
+    sent_count: int
+    completed_count: int
+    failed_count: int
+    blocked_count: int
+    average_latency_ms: float | None
+    top_targets: list[OverviewEgressTop]
+
+
 class OverviewMetrics(OverviewModel):
     resources: OverviewResources
     kpis: OverviewKpis
@@ -88,6 +105,7 @@ class OverviewMetrics(OverviewModel):
     trend: OverviewTrend
     status: OverviewStatus
     agent_ranking: list[OverviewAgentRanking]
+    egress: OverviewEgress
 
 
 class OverviewPayload(OverviewMetrics):

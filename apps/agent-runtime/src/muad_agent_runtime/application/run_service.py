@@ -49,6 +49,7 @@ from muad_contracts import (
     RunStatus,
     tool_waiting_reason,
 )
+from muad_contracts.egress_budget import EffectiveEgressBudget, resolve_egress_budget
 from muad_contracts.memory import MemoryResumeRef
 from muad_contracts.platform_settings import (
     AgentSettings,
@@ -279,6 +280,9 @@ def snapshot_policy(
         "locale": {"default_timezone": defaults.timezone},
         "compaction": compaction_payload(settings),
         "task": {"execution_timeout_sec": defaults.task_execution_timeout_sec},
+        "egress": {
+            "enabled": defaults.egress_enabled,
+        },
     }
     frozen_pool = pool if pool is not None else resolve_pool_execution_policy(None)
     policy.update(pool_policy_payload(frozen_pool))
@@ -323,9 +327,7 @@ def frozen_summary_members_of(policy: Mapping[str, Any] | None) -> tuple[MemberR
     return _frozen_members_section(policy, SUMMARY_MODEL_MEMBERS_POLICY_KEY)
 
 
-def _frozen_members_section(
-    policy: Mapping[str, Any] | None, key: str
-) -> tuple[MemberRef, ...] | None:
+def _frozen_members_section(policy: Mapping[str, Any] | None, key: str) -> tuple[MemberRef, ...] | None:
     entries = (policy or {}).get(key)
     if entries is None:
         return None
@@ -408,6 +410,7 @@ def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults
                 policy, "max_identical_failures", agent_defaults.max_identical_failures
             ),
         ),
+        egress_budget=EffectiveEgressBudget.model_validate(policy.get("egress_budget", {})),
         memory_policy=_frozen_memory_policy(policy),
         task_execution_timeout_sec=validate_task_execution_timeout(
             _section(policy, "task").get("execution_timeout_sec")
@@ -423,6 +426,7 @@ def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults
             "default_timezone",
             LocaleSettings().default_timezone,
         ),
+        egress_enabled=bool(_section(policy, "egress").get("enabled", False)),
     )
 
 
@@ -447,6 +451,7 @@ def execution_defaults_from_platform(document: Mapping[str, Any] | None) -> Exec
         learning=frozen_learning_from_settings(parsed.learning),
         max_archive_files=parsed.artifact.max_archive_files,
         timezone=parsed.locale.default_timezone,
+        egress_enabled=parsed.egress.enabled,
     )
 
 
@@ -499,6 +504,7 @@ class _AdmissionMaterials:
     model: ResolvedModel
     summary_model: ResolvedModel | None
     mcp_secrets: dict[str, str]
+
 
 STREAM_BUSINESS_TYPES: dict[str, str] = {
     RUN_CREATED_EVENT: "RUN_CREATED",
@@ -621,6 +627,9 @@ def build_snapshot(
         else resolve_compaction_settings(resolved.agent.runtime_config, platform_overrides={})
     )
     policy = snapshot_policy(settings, execution, summary_model, pool, members, summary_members)
+    policy["egress_budget"] = resolve_egress_budget(
+        resolved.agent.runtime_config.get("egress_budget", {})
+    ).model_dump(mode="json")
     policy["learning"] = dict(learning or {})
     from muad_contracts import AsyncToolPolicy
 
@@ -759,9 +768,7 @@ async def _reap_one(factory: async_sessionmaker[AsyncSession], candidate: RunRec
     return 1
 
 
-async def expire_queued_runs(
-    session_factory: async_sessionmaker[AsyncSession], *, limit: int = 128
-) -> int:
+async def expire_queued_runs(session_factory: async_sessionmaker[AsyncSession], *, limit: int = 128) -> int:
     """初始排队期限到期的 Run：CAS 置 FAILED/RUN_QUEUE_TIMEOUT 并释放份额（§3.2）。
 
     与「领取」竞争同一行状态 CAS：领取胜出即清 `queue_stage` ⇒ 本扫描不再命中；本扫描胜出
@@ -791,9 +798,7 @@ async def expire_queued_runs(
     return expired
 
 
-async def _expire_queued_one(
-    factory: async_sessionmaker[AsyncSession], candidate: RunRecord
-) -> int:
+async def _expire_queued_one(factory: async_sessionmaker[AsyncSession], candidate: RunRecord) -> int:
     from .tool_result_receipts import lock_run_source
 
     run_id, tenant_id = candidate.id, candidate.tenant_id
@@ -908,6 +913,7 @@ def _creation_fingerprint(request: RunRequest, tenant_id: str) -> str:
         message_id=request.message.id,
     )
 
+
 def _resume_fingerprint(
     run_id: uuid.UUID,
     tenant_id: str,
@@ -936,7 +942,9 @@ def _resume_fingerprint(
 
 
 def _credential_canaries(
-    model: ResolvedModel, summary: ResolvedModel | None, secrets: Mapping[str, str],
+    model: ResolvedModel,
+    summary: ResolvedModel | None,
+    secrets: Mapping[str, str],
 ) -> tuple[str, ...]:
     values = (model.api_key, summary.api_key if summary else None, *secrets.values())
     return tuple(value for value in values if value)
@@ -948,9 +956,9 @@ def _credential_canaries(
 ADMISSION_CONCURRENCY_LIMIT = 64
 
 
-_stream_scope_gates: weakref.WeakKeyDictionary[
-    asyncio.AbstractEventLoop, asyncio.Semaphore
-] = weakref.WeakKeyDictionary()
+_stream_scope_gates: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore] = (
+    weakref.WeakKeyDictionary()
+)
 
 
 def stream_scope_gate() -> asyncio.Semaphore:
@@ -965,9 +973,7 @@ def stream_scope_gate() -> asyncio.Semaphore:
     if gate is None:
         settings = process_settings()
         # 留一条连接给正在执行的 Run/维护循环；SSE 打开段永远不超过池容量的其余部分。
-        gate = asyncio.Semaphore(
-            max(1, settings.db_pool_size + settings.db_max_overflow - 1)
-        )
+        gate = asyncio.Semaphore(max(1, settings.db_pool_size + settings.db_max_overflow - 1))
         _stream_scope_gates[loop] = gate
     return gate
 
@@ -1031,14 +1037,12 @@ class BoundedAdmissionGate:
         )
 
 
-_process_admission_gates: weakref.WeakKeyDictionary[
-    asyncio.AbstractEventLoop, BoundedAdmissionGate
-] = weakref.WeakKeyDictionary()
+_process_admission_gates: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, BoundedAdmissionGate] = (
+    weakref.WeakKeyDictionary()
+)
 
 
-def process_admission_gate(
-    limit: int | None = None, queue_limit: int | None = None
-) -> BoundedAdmissionGate:
+def process_admission_gate(limit: int | None = None, queue_limit: int | None = None) -> BoundedAdmissionGate:
     """取当前事件循环的准入闸门（与执行/调度共享同一个 DB 池）。
 
     在飞准入不得超过本进程池容量：`pool + overflow` 是硬上限，admission gate 比它更大时
@@ -1092,9 +1096,7 @@ def _log_launch_failure(task: asyncio.Task[None]) -> None:
         return
     error = task.exception()
     if error is not None:
-        logger.warning(
-            "run_launch_failed", extra={"error_type": type(error).__name__}
-        )
+        logger.warning("run_launch_failed", extra={"error_type": type(error).__name__})
 
 
 class _CancelProbe:
@@ -1161,9 +1163,7 @@ class RunService:
         self._materials_client: AdmissionMaterialsClient = (
             materials_client
             if materials_client is not None
-            else ComposedAdmissionMaterialsClient(
-                resolve_client, settings_client, credentials_client
-            )
+            else ComposedAdmissionMaterialsClient(resolve_client, settings_client, credentials_client)
         )
         # 平台设置源是**必填**：新 Run 在创建边界取一次快照并冻结。不留隐式 Null 默认——
         # 新建调用点忘记注入真 client 会静默按空设置跑；取消/回收/直构的调用点若要
@@ -1171,9 +1171,7 @@ class RunService:
         self._settings_client: PlatformSettingsClient = settings_client
         # 全局准入（TASK-029/030）：策略版本应用与 USER→TENANT 计数都在 Run 创建事务内完成，
         # 与设置源同一份快照；显式注入用于测试或替换装配。
-        self._admission = admission or AdmissionPolicyService(
-            get_session_factory, settings_client
-        )
+        self._admission = admission or AdmissionPolicyService(get_session_factory, settings_client)
         self._submissions = submissions or RunSubmissionService(get_session_factory)
         self._context_builder = context_builder or DbBackedContextBuilder(
             session_factory=get_session_factory,
@@ -1228,9 +1226,7 @@ class RunService:
         try:
             async with process_admission_gate():
                 gate_ms = int((time.monotonic() - gate_started) * 1000)
-                record_latency(
-                    RUN_ADMISSION_STAGE_SECONDS, gate_ms / 1000.0, {"stage": "gate"}
-                )
+                record_latency(RUN_ADMISSION_STAGE_SECONDS, gate_ms / 1000.0, {"stage": "gate"})
                 for attempt in range(self._admission.stale_refresh_attempts + 1):
                     attempt_started = time.monotonic()
                     try:
@@ -1267,9 +1263,7 @@ class RunService:
             raise AppError(ErrorCode.RUN_CAPACITY_EXCEEDED) from exc
         raise AppError(ErrorCode.PLATFORM_SETTINGS_UNAVAILABLE)
 
-    async def _admit(
-        self, request: RunRequest, tenant_id: str, key: str, fingerprint: str
-    ) -> RunStart:
+    async def _admit(self, request: RunRequest, tenant_id: str, key: str, fingerprint: str) -> RunStart:
         """一次受理尝试：重放预检 →（事务外）定义/设置/凭据 → 短事务：同键串行化 + 建 Run。
 
         网络调用全部在写事务**之外**：预检后先 `rollback` 把连接还给池，再取 Console 材料；
@@ -1355,9 +1349,7 @@ class RunService:
             return await self._resume_active(active, request, key, fingerprint)
         if materials is None:  # 预检与写事务之间出现了活跃 Run 又被清理：补取材料
             materials = await self._admission_materials(request, tenant_id)
-        started = await self._create_run(
-            request, tenant_id, conversation, materials, key, fingerprint
-        )
+        started = await self._create_run(request, tenant_id, conversation, materials, key, fingerprint)
         t_write = time.monotonic() - t0 - t_precheck - t_materials
         record_latency(RUN_ADMISSION_STAGE_SECONDS, t_precheck, {"stage": "precheck"})
         record_latency(RUN_ADMISSION_STAGE_SECONDS, t_materials, {"stage": "materials"})
@@ -1382,9 +1374,7 @@ class RunService:
             )
         return started
 
-    async def _admission_materials(
-        self, request: RunRequest, tenant_id: str
-    ) -> _AdmissionMaterials:
+    async def _admission_materials(self, request: RunRequest, tenant_id: str) -> _AdmissionMaterials:
         """受理边界取齐的全部**非 DB**材料：一次 Console 请求取回定义、设置快照与认证值。
 
         调用方必须已结束当前事务（`_admit` 的预检后 `rollback`）：这里只发网络请求，不持有
@@ -1606,9 +1596,7 @@ class RunService:
             )
         return run, snapshot, await self._wait_summary(run, session=session)
 
-    async def get_run_scope(
-        self, run_id: uuid.UUID, tenant_id: str, *, user_id: uuid.UUID
-    ) -> dict[str, Any]:
+    async def get_run_scope(self, run_id: uuid.UUID, tenant_id: str, *, user_id: uuid.UUID) -> dict[str, Any]:
         """API-07 打开流的一步归属解析：Run 归属 + 该 Run 的会话入口/Agent，**一次 JOIN（≤2 SQL）**。
 
         只取核属所需的列（不读 snapshot / 不聚合等待摘要）：会话由已核属的 Run 行确定，
@@ -1649,9 +1637,7 @@ class RunService:
             },
         }
 
-    async def _wait_summary(
-        self, run: RunRecord, *, session: AsyncSession | None = None
-    ) -> RunWaitSummary:
+    async def _wait_summary(self, run: RunRecord, *, session: AsyncSession | None = None) -> RunWaitSummary:
         """API-05：等待起点/原因与异步操作计数；只读，一次聚合 + 一次检查点读取。"""
         active = session or self._session
         join_count, submission_count = (
@@ -1689,9 +1675,7 @@ class RunService:
             continuation_count=continuation.wait_generation if continuation is not None else 0,
         )
 
-    async def _waiting_since(
-        self, run: RunRecord, *, session: AsyncSession | None = None
-    ) -> datetime | None:
+    async def _waiting_since(self, run: RunRecord, *, session: AsyncSession | None = None) -> datetime | None:
         """等待起点：WAITING_TOOL 取最近一次 `RUN_WAITING_TOOL` 事件，WAITING_INPUT 取等待中断。"""
         active = session or self._session
         if run.status == RunStatus.WAITING_TOOL:
@@ -1776,9 +1760,7 @@ class RunService:
             },
         )
         if idempotency_key:
-            replay = await self._find_conversation_replay(
-                tenant_id, idempotency_key, fingerprint, scope
-            )
+            replay = await self._find_conversation_replay(tenant_id, idempotency_key, fingerprint, scope)
             if replay is not None:
                 return replay
         # 设置读取是网络调用：先结束预检事务，再进建会话写事务。
@@ -1791,9 +1773,7 @@ class RunService:
         # 与提交路径同序：先锁入口指针，再锁会话行，避免「归档等待指针 / 提交等待会话」死锁。
         await lock_pointer(self._session, scope)
         now = await database_now(self._session)
-        missing = await enforce_conversation_limit(
-            self._session, scope, policy, now=now, extra_slots=1
-        )
+        missing = await enforce_conversation_limit(self._session, scope, policy, now=now, extra_slots=1)
         if missing:
             await self._session.rollback()
             raise AppError(ErrorCode.CONVERSATION_LIMIT_REACHED)
@@ -1816,17 +1796,13 @@ class RunService:
         except IntegrityError as exc:
             # 并发同 key 幂等记录落败：读取首次提交结果（与 create-run 同口径）
             await self._session.rollback()
-            replay = await self._find_conversation_replay(
-                tenant_id, idempotency_key, fingerprint, scope
-            )
+            replay = await self._find_conversation_replay(tenant_id, idempotency_key, fingerprint, scope)
             if replay is not None:
                 return replay
             raise AppError(ErrorCode.COMMON_CONFLICT) from exc
         return conversation
 
-    async def _open_entry_conversation(
-        self, scope: ConversationScope, *, now: datetime
-    ) -> Conversation:
+    async def _open_entry_conversation(self, scope: ConversationScope, *, now: datetime) -> Conversation:
         """解析定义 → 建入口会话 → 可归属入口**原地切换**该入口线程的当前指针（design §3.3）。"""
         await self._resolve_client.resolve(
             ResolveDefinitionRequest(
@@ -1838,9 +1814,7 @@ class RunService:
             tenant_id=scope.tenant_id,
             trace_id=current_trace_id(),
         )
-        conversation = await create_entry_conversation(
-            self._session, scope, last_message_at=now
-        )
+        conversation = await create_entry_conversation(self._session, scope, last_message_at=now)
         if scope.entry_id is not None:
             await register_pointer(self._session, scope, conversation.id)
         return conversation
@@ -1895,9 +1869,7 @@ class RunService:
     async def _load_run(self, run_id: uuid.UUID, tenant_id: str) -> RunRecord:
         return await self._load_run_in(self._session, run_id, tenant_id)
 
-    async def _load_run_in(
-        self, session: AsyncSession, run_id: uuid.UUID, tenant_id: str
-    ) -> RunRecord:
+    async def _load_run_in(self, session: AsyncSession, run_id: uuid.UUID, tenant_id: str) -> RunRecord:
         run = await session.scalar(
             sa.select(RunRecord).where(
                 RunRecord.id == run_id,
@@ -1913,9 +1885,9 @@ class RunService:
         if run.snapshot_id is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
         snapshot = await self._session.scalar(
-            sa.select(RuntimeSnapshot).prefix_with("/* load_snapshot */").where(
-                RuntimeSnapshot.id == run.snapshot_id
-            )
+            sa.select(RuntimeSnapshot)
+            .prefix_with("/* load_snapshot */")
+            .where(RuntimeSnapshot.id == run.snapshot_id)
         )
         if snapshot is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
@@ -1988,8 +1960,7 @@ class RunService:
         # 只有显式续聊（webchat）或归档恢复需要 webchat 策略；指针入口的 IM 连续性不解析它。
         conversation_policy = (
             conversation_policy_from_settings(snapshot_settings.settings)
-            if request.conversation_id is not None
-            or conversation.status == CONVERSATION_ARCHIVED
+            if request.conversation_id is not None or conversation.status == CONVERSATION_ARCHIVED
             else None
         )
         if request.conversation_id is not None and conversation_policy is not None:
@@ -2026,9 +1997,7 @@ class RunService:
         # 暂存上传核属（B-253）：只在新受理路径调用（重放已在 `_admit` 返回）；归属/数量/TTL
         # 在**昂贵解析与模型调用之前**判定，失败不留任何半建状态。权威元信息只从登记行读，
         # 客户端给的 upload_id 不携带存储键。
-        staged_uploads = await self._resolve_message_uploads(
-            request, tenant_id, snapshot_settings.settings
-        )
+        staged_uploads = await self._resolve_message_uploads(request, tenant_id, snapshot_settings.settings)
         # 模型池路由（`model_pool` 五叶 + 规范 policy_hash）与模型等待预算（`capacity`）走**同一份**
         # 设置快照冻结：池策略变更只影响后续新 Run，旧 Run 的调度分布按自己那份 policy_hash 解释。
         pool = resolve_pool_execution_policy(snapshot_settings.settings)
@@ -2037,9 +2006,7 @@ class RunService:
         # 主模型与摘要模型的成员引用一次查询取齐（受理写事务里少一次往返）。
         summary_model = materials.summary_model
         model_ids = tuple(
-            dict.fromkeys(
-                [resolved.model.id] + ([summary_model.id] if summary_model is not None else [])
-            )
+            dict.fromkeys([resolved.model.id] + ([summary_model.id] if summary_model is not None else []))
         )
         member_refs = await ModelDispatchStore(self._session).read_member_refs_many(
             tenant_id=tenant_id, model_ids=model_ids
@@ -2047,17 +2014,13 @@ class RunService:
         members = member_refs.get(resolved.model.id, ())
         # 摘要模型（`compaction.summary.model_ref`）已在受理边界解析（ADR-06）；它的成员引用
         # 在此冻结（与主模型同一口径）：摘要调用与主调用共享物理资源上限。
-        summary_members = (
-            None if summary_model is None else member_refs.get(summary_model.id, ())
-        )
+        summary_members = None if summary_model is None else member_refs.get(summary_model.id, ())
         model, mcp_secrets = materials.model, materials.mcp_secrets
         run_id = materials.run_id
         # 准入段（事务内不联网）：策略版本用原子 upsert 应用（不锁策略行），随后 Run →
         # USER → TENANT 计数行锁。更低设置版本在此抛 `AdmissionPolicyStaleError`，由
         # `start` 退出事务后重取一次。
-        policy = await self._admission.apply_policy_in(
-            self._session, tenant_id=tenant_id, capacity=capacity
-        )
+        policy = await self._admission.apply_policy_in(self._session, tenant_id=tenant_id, capacity=capacity)
         mark("policy")
         # 初始排队投影在此冻结（与绝对期限同一份 `now`）：`queue_deadline = min(受理+配置,
         # 原 Run 绝对 deadline)`，只约束开始执行前的等待；领取/终态由各自的 CAS 清空 stage。
@@ -2090,8 +2053,16 @@ class RunService:
         try:
             await self._session.flush()
             snapshot = self._build_snapshot(
-                run.id, tenant_id, resolved, compaction, execution, summary_model,
-                frozen_learning_payload(snapshot_settings.settings), pool, members, summary_members,
+                run.id,
+                tenant_id,
+                resolved,
+                compaction,
+                execution,
+                summary_model,
+                frozen_learning_payload(snapshot_settings.settings),
+                pool,
+                members,
+                summary_members,
             )
             self._session.add(snapshot)
             await self._session.flush()
@@ -2132,7 +2103,10 @@ class RunService:
             persisted = persisted + staged_persisted
             mark("attachments")
             seq = await MemoryResumeService().append_inbound(
-                self._session, run, text=request.message.text, settings=execution.memory_policy,
+                self._session,
+                run,
+                text=request.message.text,
+                settings=execution.memory_policy,
                 payload={
                     "message_id": request.message.id,
                     "attachments": attachment_payload(persisted),
@@ -2155,9 +2129,7 @@ class RunService:
                         event_type=STREAM_BUSINESS_TYPES[RUN_CREATED_EVENT],
                         stream_type=RUN_CREATED_EVENT,
                         submission_id=submission.id,
-                        source_event_id=uuid.uuid5(
-                            uuid.NAMESPACE_URL, f"muad:run-start:{submission.id}"
-                        ),
+                        source_event_id=uuid.uuid5(uuid.NAMESPACE_URL, f"muad:run-start:{submission.id}"),
                         payload={
                             "conversation_id": str(run.conversation_id),
                             "resumed": False,
@@ -2226,6 +2198,7 @@ class RunService:
         mark("wake_head")
         await self._wake_tail(tenant_id, conversation.id)  # 提交后唤醒（ADR-02）：受理事务已落库
         mark("wake")
+
         async def load_history() -> tuple[ModelMessage, ...]:
             # 历史是执行材料，不是受理事实：放到后台 launch 任务里读，202 不再等它。
             return await self._load_history(
@@ -2264,7 +2237,7 @@ class RunService:
             submission_id=submission.id,
             resumed=False,
             compaction=compaction,
-            execution=execution,
+            execution=execution_defaults_of(snapshot.policy_json),
             summary_model=summary_model,
             pool=pool,
             members=members,
@@ -2281,8 +2254,15 @@ class RunService:
         )
 
     async def _resume_run(
-        self, run: RunRecord, input_text: str, *, attachments: Sequence[AttachmentRef] = (),
-        submission_key: str, request_fingerprint: str, endpoint: str, message_id: str | None,
+        self,
+        run: RunRecord,
+        input_text: str,
+        *,
+        attachments: Sequence[AttachmentRef] = (),
+        submission_key: str,
+        request_fingerprint: str,
+        endpoint: str,
+        message_id: str | None,
         confirmation: ConfirmationBinding | None = None,
     ) -> RunStart:
         """冻结快照续跑：锁内复核等待态/期限，再按本 Run 自己那份快照执行（不重新 resolve）。"""
@@ -2293,23 +2273,41 @@ class RunService:
         self.detach(snapshot)
         await self.release_session()
         agent, model, skills, servers = self._frozen_definitions(snapshot)
-        model, summary_model, secrets = await self._runtime_credentials(run.id, run.tenant_id,
-            run.user_id, model, servers, summary_model=summary_model_of(snapshot.policy_json))
+        model, summary_model, secrets = await self._runtime_credentials(
+            run.id,
+            run.tenant_id,
+            run.user_id,
+            model,
+            servers,
+            summary_model=summary_model_of(snapshot.policy_json),
+        )
         canaries = _credential_canaries(model, summary_model, secrets)
         try:
-            submission, persisted, replayed = await self._persist_human_resume(run, input_text,
-                message_id=message_id, attachments=attachments, submission_key=submission_key,
-                request_fingerprint=request_fingerprint, endpoint=endpoint,
+            submission, persisted, replayed = await self._persist_human_resume(
+                run,
+                input_text,
+                message_id=message_id,
+                attachments=attachments,
+                submission_key=submission_key,
+                request_fingerprint=request_fingerprint,
+                endpoint=endpoint,
                 settings=execution_defaults_of(snapshot.policy_json).memory_policy,
-                credential_canaries=canaries, confirmation=confirmation)
+                credential_canaries=canaries,
+                confirmation=confirmation,
+            )
             await self._session.commit()
             await self._wake_tail(run.tenant_id, run.conversation_id)  # 提交后唤醒（ADR-02）
             if replayed:
                 return await self._replay_start(submission)
         except IntegrityError as exc:
             await self._session.rollback()
-            replay = await self._submissions.find_replay_in(self._session, tenant_id=run.tenant_id,
-                idempotency_key=submission_key, endpoint=endpoint, fingerprint=request_fingerprint)
+            replay = await self._submissions.find_replay_in(
+                self._session,
+                tenant_id=run.tenant_id,
+                idempotency_key=submission_key,
+                endpoint=endpoint,
+                fingerprint=request_fingerprint,
+            )
             if replay is not None:
                 return await self._replay_start(replay)
             raise AppError(ErrorCode.RUN_BUSY) from exc
@@ -2318,13 +2316,21 @@ class RunService:
             raise
         except SQLAlchemyError as exc:
             await self._session.rollback()
-            logger.warning("human_resume_transaction_failed", extra={"tenant_id": run.tenant_id,
-                "run_id": str(run.id), "error_type": type(exc).__name__})
+            logger.warning(
+                "human_resume_transaction_failed",
+                extra={"tenant_id": run.tenant_id, "run_id": str(run.id), "error_type": type(exc).__name__},
+            )
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
+
         async def load_resume_history() -> tuple[ModelMessage, ...]:
-            return await self._load_history(run.conversation_id, run.tenant_id, run.user_id,
+            return await self._load_history(
+                run.conversation_id,
+                run.tenant_id,
+                run.user_id,
                 budget_messages=history_budget_of(snapshot.policy_json),
-                max_history_tool_rounds=history_tool_rounds_of(snapshot.policy_json))
+                max_history_tool_rounds=history_tool_rounds_of(snapshot.policy_json),
+            )
+
         stream = self._stream_run(
             run=run,
             agent=agent,
@@ -2334,12 +2340,16 @@ class RunService:
             mcp_secrets=secrets,
             history_loader=load_resume_history,
             submission_id=submission.id,
-            resumed=True, compaction=compaction_settings_of(snapshot.policy_json),
-            execution=execution_defaults_of(snapshot.policy_json), summary_model=summary_model,
-            current_text=input_text, current_attachments=persisted,
+            resumed=True,
+            compaction=compaction_settings_of(snapshot.policy_json),
+            execution=execution_defaults_of(snapshot.policy_json),
+            summary_model=summary_model,
+            current_text=input_text,
+            current_attachments=persisted,
             pool=pool_execution_policy_of(snapshot.policy_json),
             members=frozen_model_members_of(snapshot.policy_json),
-            summary_members=frozen_summary_members_of(snapshot.policy_json))
+            summary_members=frozen_summary_members_of(snapshot.policy_json),
+        )
         self._start_launch_task(run, stream)
         # 续跑事务已把 Run 转回 CREATED（`transition_human_resume`）：受理回执直接给这个事实，
         # 不为一枚回执再读一次 Run。detached 行只用于投影，不回写。
@@ -2361,9 +2371,7 @@ class RunService:
     @staticmethod
     def _frozen_definitions(
         snapshot: RuntimeSnapshot,
-    ) -> tuple[
-        ResolvedAgent, ResolvedModel, tuple[ResolvedSkill, ...], tuple[ResolvedMcpServer, ...]
-    ]:
+    ) -> tuple[ResolvedAgent, ResolvedModel, tuple[ResolvedSkill, ...], tuple[ResolvedMcpServer, ...]]:
         """冻结快照 → 本 Run 的定义：resume 只读它自己那一份，不重新 resolve 任何配置。"""
         return (
             ResolvedAgent.model_validate(snapshot.agent_json),
@@ -2373,16 +2381,30 @@ class RunService:
         )
 
     async def _persist_human_resume(
-        self, run: RunRecord, input_text: str, *, attachments: Sequence[AttachmentRef],
-        submission_key: str, request_fingerprint: str, endpoint: str, message_id: str | None,
-        settings: MemoryPolicySettings, credential_canaries: tuple[str, ...],
+        self,
+        run: RunRecord,
+        input_text: str,
+        *,
+        attachments: Sequence[AttachmentRef],
+        submission_key: str,
+        request_fingerprint: str,
+        endpoint: str,
+        message_id: str | None,
+        settings: MemoryPolicySettings,
+        credential_canaries: tuple[str, ...],
         confirmation: ConfirmationBinding | None = None,
     ) -> tuple[RunSubmission, tuple[PersistedAttachment, ...], bool]:
-        await self._submissions.lock_identity(self._session, tenant_id=run.tenant_id,
-            idempotency_key=submission_key, endpoint=endpoint)
+        await self._submissions.lock_identity(
+            self._session, tenant_id=run.tenant_id, idempotency_key=submission_key, endpoint=endpoint
+        )
         # 幂等重放先于任何复核：同一提交的重放返回**原回执**（中断已 RESOLVED，不能再复核一次）。
-        replay = await self._submissions.find_replay_in(self._session, tenant_id=run.tenant_id,
-            idempotency_key=submission_key, endpoint=endpoint, fingerprint=request_fingerprint)
+        replay = await self._submissions.find_replay_in(
+            self._session,
+            tenant_id=run.tenant_id,
+            idempotency_key=submission_key,
+            endpoint=endpoint,
+            fingerprint=request_fingerprint,
+        )
         if replay is not None:
             self._assert_replay_owner(replay, run.user_id, run.conversation_id)
             return replay, (), True
@@ -2391,20 +2413,42 @@ class RunService:
         run.input_message_id = message_id
         # 绑定复核在行锁之后：原提议身份必须与**锁内读到的**那一份一致，否则显式拒绝且不消费。
         pending = prepare_confirmation(interrupts, input_text, confirmation=confirmation)
-        submission = await self._submissions.record_in(self._session,
-            tenant_id=run.tenant_id, idempotency_key=submission_key, endpoint=endpoint,
-            actor_user_id=run.user_id, run_id=run.id, conversation_id=run.conversation_id,
-            request_fingerprint=request_fingerprint)
-        persisted = await persist_inbound_attachments(self._session,
-            tenant_id=run.tenant_id, run_id=run.id, conversation_id=run.conversation_id, refs=attachments)
-        seq = await MemoryResumeService().append_inbound(self._session, run, text=input_text,
-            settings=settings, payload={"resumed": True, "message_id": message_id,
-                "attachments": attachment_payload(persisted)}, submission_id=submission.id)
+        submission = await self._submissions.record_in(
+            self._session,
+            tenant_id=run.tenant_id,
+            idempotency_key=submission_key,
+            endpoint=endpoint,
+            actor_user_id=run.user_id,
+            run_id=run.id,
+            conversation_id=run.conversation_id,
+            request_fingerprint=request_fingerprint,
+        )
+        persisted = await persist_inbound_attachments(
+            self._session,
+            tenant_id=run.tenant_id,
+            run_id=run.id,
+            conversation_id=run.conversation_id,
+            refs=attachments,
+        )
+        seq = await MemoryResumeService().append_inbound(
+            self._session,
+            run,
+            text=input_text,
+            settings=settings,
+            payload={"resumed": True, "message_id": message_id, "attachments": attachment_payload(persisted)},
+            submission_id=submission.id,
+        )
         submission.first_seq = seq
         await self._append_submission_start(self._session, run, submission.id, resumed=True)
         if pending is not None:
-            await consume_confirmation(self._session, run, pending, submission_id=submission.id,
-                settings=settings, credential_canaries=credential_canaries)
+            await consume_confirmation(
+                self._session,
+                run,
+                pending,
+                submission_id=submission.id,
+                settings=settings,
+                credential_canaries=credential_canaries,
+            )
         else:
             await resolve_generic_interrupts(self._session, interrupts, input_text)
         await transition_human_resume(self._session, run)
@@ -2417,9 +2461,7 @@ class RunService:
         )
         return submission, tuple(persisted), False
 
-    def _start_launch_task(
-        self, run: RunRecord, stream: AsyncIterator[ExecutorEvent]
-    ) -> None:
+    def _start_launch_task(self, run: RunRecord, stream: AsyncIterator[ExecutorEvent]) -> None:
         """后台启动本地领取/消费：claim 与执行槽排队不计入受理响应时间。
 
         800 用户实测：内联 `claim_and_submit` 在准入响应里占约 14s（写事务分段只剩 2s）。
@@ -2459,8 +2501,13 @@ class RunService:
         async def claim(
             excluded: frozenset[uuid.UUID],
         ) -> tuple[uuid.UUID, Callable[[], Awaitable[object]]] | None:
-            claimed = await claim_continuation(get_session_factory(), instance_id=self._instance_id,
-                lease_sec=self._settings.run_lease_sec, run_id=run.id, exclude_runs=excluded)
+            claimed = await claim_continuation(
+                get_session_factory(),
+                instance_id=self._instance_id,
+                lease_sec=self._settings.run_lease_sec,
+                run_id=run.id,
+                exclude_runs=excluded,
+            )
             if claimed is None:
                 return None
             run.status, run.execution_epoch = claimed.status, claimed.execution_epoch
@@ -2481,17 +2528,23 @@ class RunService:
                 },
             )
 
-    async def _append_submission_start(self, session: AsyncSession, run: RunRecord,
-                                       submission_id: uuid.UUID, *, resumed: bool) -> int:
-        return await EventWriter(session).append(tenant_id=run.tenant_id,
-            conversation_id=run.conversation_id, run_id=run.id, submission_id=submission_id,
-            event_type="RUN_CREATED", stream_type=RUN_CREATED_EVENT,
+    async def _append_submission_start(
+        self, session: AsyncSession, run: RunRecord, submission_id: uuid.UUID, *, resumed: bool
+    ) -> int:
+        return await EventWriter(session).append(
+            tenant_id=run.tenant_id,
+            conversation_id=run.conversation_id,
+            run_id=run.id,
+            submission_id=submission_id,
+            event_type="RUN_CREATED",
+            stream_type=RUN_CREATED_EVENT,
             source_event_id=uuid.uuid5(uuid.NAMESPACE_URL, f"muad:run-start:{submission_id}"),
             payload={
                 "conversation_id": str(run.conversation_id),
                 "resumed": resumed,
                 "trace_id": run.trace_id,
-            })
+            },
+        )
 
     async def _append_run_stage(self, run: RunRecord) -> int:
         """把当前持久阶段投影写成 `run.stage` 事件（与行状态同一事务、同一词表；B-236）。"""
@@ -2835,9 +2888,7 @@ class RunService:
                 )
                 continue
             finally:
-                record_latency(
-                    RUN_LEASE_RENEW_SECONDS, time.monotonic() - renew_started
-                )
+                record_latency(RUN_LEASE_RENEW_SECONDS, time.monotonic() - renew_started)
             if not renewed:
                 record_counter(RUN_LEASE_RENEW_FAILURES_TOTAL)
                 return
@@ -2968,9 +3019,7 @@ class RunService:
         # 租约心跳必须覆盖**领取后的全部准备阶段**（history/凭据/executor 构建），不能只在
         # 执行器循环里：100 用户实测准备阶段可超过 30s lease，Reaper 会把仍在准备的 Run 判成
         # RUN_ABANDONED。心跳与执行器分离后，准备再慢也不会失约。
-        heartbeat = asyncio.create_task(
-            cast(Coroutine[Any, Any, None], self._renew_lease_loop(run))
-        )
+        heartbeat = asyncio.create_task(cast(Coroutine[Any, Any, None], self._renew_lease_loop(run)))
         try:
             if history is None:
                 if history_loader is None:
@@ -2981,18 +3030,28 @@ class RunService:
                 start_event = await self._start_segment_event(run, submission_id, resumed)
             yield start_event
             with db_stage("turn:resume"):
-                resume = await resume_decision(
-                    get_session_factory(), run, submission_id=submission_id
-                )
+                resume = await resume_decision(get_session_factory(), run, submission_id=submission_id)
 
             async def build() -> RunExecutor:
                 with db_stage("turn:build"):
                     return await self._build_executor(
-                        run, agent, model, skills, mcp_servers, mcp_secrets, history,
-                        compaction=compaction, execution=execution, summary_model=summary_model,
-                        current_text=current_text, current_attachments=current_attachments,
-                        submission_id=submission_id, memory_resume_ref=resume.reference,
-                        pool=pool, members=members, summary_members=summary_members,
+                        run,
+                        agent,
+                        model,
+                        skills,
+                        mcp_servers,
+                        mcp_secrets,
+                        history,
+                        compaction=compaction,
+                        execution=execution,
+                        summary_model=summary_model,
+                        current_text=current_text,
+                        current_attachments=current_attachments,
+                        submission_id=submission_id,
+                        memory_resume_ref=resume.reference,
+                        pool=pool,
+                        members=members,
+                        summary_members=summary_members,
                     )
 
             with db_stage("turn:segment"):
@@ -3014,19 +3073,40 @@ class RunService:
         self, run: RunRecord, submission_id: uuid.UUID, resumed: bool
     ) -> ExecutorEvent:
         async with get_session_factory()() as session:
-            existing = await session.scalar(sa.select(CanonicalEvent).where(
-                CanonicalEvent.tenant_id == run.tenant_id, CanonicalEvent.run_id == run.id,
-                CanonicalEvent.submission_id == submission_id, CanonicalEvent.event_type == "RUN_CREATED",
-                CanonicalEvent.is_deleted.is_(False)).order_by(CanonicalEvent.seq).limit(1))
+            existing = await session.scalar(
+                sa.select(CanonicalEvent)
+                .where(
+                    CanonicalEvent.tenant_id == run.tenant_id,
+                    CanonicalEvent.run_id == run.id,
+                    CanonicalEvent.submission_id == submission_id,
+                    CanonicalEvent.event_type == "RUN_CREATED",
+                    CanonicalEvent.is_deleted.is_(False),
+                )
+                .order_by(CanonicalEvent.seq)
+                .limit(1)
+            )
             if existing is not None:
-                return ExecutorEvent(type=RUN_CREATED_EVENT, data=dict(existing.payload_json),
-                    seq=int(existing.seq), timestamp=existing.create_time.isoformat())
-        return await self._persist_event(run, submission_id, RUN_CREATED_EVENT,
+                return ExecutorEvent(
+                    type=RUN_CREATED_EVENT,
+                    data=dict(existing.payload_json),
+                    seq=int(existing.seq),
+                    timestamp=existing.create_time.isoformat(),
+                )
+        return await self._persist_event(
+            run,
+            submission_id,
+            RUN_CREATED_EVENT,
             {"conversation_id": str(run.conversation_id), "resumed": resumed, "trace_id": run.trace_id},
-            flush_now=True)
+            flush_now=True,
+        )
 
-    async def _run_segment(self, run: RunRecord, submission_id: uuid.UUID, agent_key: str,
-                           build: Callable[[], Awaitable[RunExecutor]]) -> SegmentResult | None:
+    async def _run_segment(
+        self,
+        run: RunRecord,
+        submission_id: uuid.UUID,
+        agent_key: str,
+        build: Callable[[], Awaitable[RunExecutor]],
+    ) -> SegmentResult | None:
         # 租约心跳已由 `_stream_run` 在准备阶段之前启动并覆盖到这里；这里只负责执行。
         try:
             return cast(
@@ -3058,9 +3138,7 @@ class RunService:
                 if first_event:
                     first_event = False
                     first_ms = int((time.monotonic() - consume_started) * 1000)
-                    record_latency(
-                        RUN_CONSUME_SECONDS, first_ms / 1000.0, {"stage": "first_event"}
-                    )
+                    record_latency(RUN_CONSUME_SECONDS, first_ms / 1000.0, {"stage": "first_event"})
                     if first_ms > 5000:
                         logger.warning(
                             "run_first_event_slow",
@@ -3103,9 +3181,7 @@ class RunService:
             total = time.monotonic() - consume_started
             record_latency(RUN_CONSUME_SECONDS, total, {"stage": "total"})
             record_latency(RUN_CONSUME_SECONDS, persist_seconds, {"stage": "persist"})
-            record_latency(
-                RUN_CONSUME_SECONDS, max(0.0, total - persist_seconds), {"stage": "wait"}
-            )
+            record_latency(RUN_CONSUME_SECONDS, max(0.0, total - persist_seconds), {"stage": "wait"})
         return SegmentResult(outcome, text, terminal_seen=terminal_seen)
 
     async def _timed_finalize(self, finalize: Awaitable[ExecutorEvent]) -> ExecutorEvent:
@@ -3116,13 +3192,12 @@ class RunService:
         finally:
             record_latency(RUN_FINALIZE_SECONDS, time.monotonic() - started)
 
-    async def _finish_segment(self, run: RunRecord, submission_id: uuid.UUID, agent_key: str,
-                              result: SegmentResult) -> ExecutorEvent | None:
+    async def _finish_segment(
+        self, run: RunRecord, submission_id: uuid.UUID, agent_key: str, result: SegmentResult
+    ) -> ExecutorEvent | None:
         if result.failure is not None:
             return await self._timed_finalize(
-                self._finalize_failed(
-                    run, submission_id, result.failure, agent_key=agent_key
-                )
+                self._finalize_failed(run, submission_id, result.failure, agent_key=agent_key)
             )
         if result.outcome in (AgentRunStatus.WAITING_TOOL, AgentRunStatus.WAITING_INPUT):
             return None
@@ -3198,9 +3273,7 @@ class RunService:
             on_commit=lambda: self._wake_tail(tenant_id, conversation_id),
         )
         seq = await get_event_batcher(get_session_factory).submit(entry)
-        return ExecutorEvent(
-            type=sse_type, data=data, seq=int(seq), timestamp=_utcnow().isoformat()
-        )
+        return ExecutorEvent(type=sse_type, data=data, seq=int(seq), timestamp=_utcnow().isoformat())
 
     @db_stage_scope("finalize")
     async def _finalize_run(
@@ -3265,9 +3338,7 @@ class RunService:
             writer = EventWriter(session)
             # 业务事实行（ContextBuilder 读取）与对外 SSE 行分开，保证重放与历史互不混淆；
             # 两条事件同一会话、同一事务，用一次 seq 区间分配（assistant 在前、终态在后）。
-            assistant_payload: dict[str, Any] = (
-                {"reason": "cancelled"} if cancelled else {"text": final_text}
-            )
+            assistant_payload: dict[str, Any] = {"reason": "cancelled"} if cancelled else {"text": final_text}
             payload: dict[str, Any] = {"status": str(target), "final_text": final_text}
             if cancelled:
                 payload["reason"] = "cancelled"
@@ -3585,9 +3656,7 @@ class RunService:
             conversation_id=conversation_id,
             after_seq=max(0, after_seq),
         ):
-            rows = [
-                row for row in batch.rows if row.run_id == run_id and row.stream_type is not None
-            ]
+            rows = [row for row in batch.rows if row.run_id == run_id and row.stream_type is not None]
             for row in rows:
                 yield _executor_event(row)
                 if row.stream_type in TERMINAL_STREAM_TYPES:
@@ -3600,9 +3669,7 @@ class RunService:
             if stop.stop:
                 return
 
-    async def _tail_stop(
-        self, batch: TailBatch, run_id: uuid.UUID, tenant_id: str
-    ) -> _TailStop:
+    async def _tail_stop(self, batch: TailBatch, run_id: uuid.UUID, tenant_id: str) -> _TailStop:
         """本批没有本 Run 的行：按 Run 行事实判定停止（只在空闲轮/无关行批次上查一次）。
 
         终态可能刚提交而终态行尚未读入：此时**不合成**，让下一轮把已提交的终态行追平后送出
@@ -3657,9 +3724,7 @@ async def _submitted_detached_task(session: AsyncSession, run: RunRecord) -> boo
         calls = payload.get("tool_calls") if isinstance(payload, dict) else None
         for call in calls or ():
             arguments = call.get("arguments") if isinstance(call, dict) else None
-            if isinstance(arguments, dict) and str(
-                arguments.get("completion_mode", "")
-            ).upper() == "DETACH":
+            if isinstance(arguments, dict) and str(arguments.get("completion_mode", "")).upper() == "DETACH":
                 return True
     return False
 

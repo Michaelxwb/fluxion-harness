@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """One read-only SQL snapshot: aggregate before joining to avoid multiplying facts."""
 
 OVERVIEW_SQL = """
@@ -26,6 +27,11 @@ WITH all_runs AS MATERIALIZED (
     (CAST(:now AS timestamptz) AT TIME ZONE :tz)::date,
     interval '1 day'
   ) AS day
+), egress_requests AS MATERIALIZED (
+  SELECT target, operation AS route_id, result_status, policy_decision, latency_ms
+  FROM runtime.egress_audit
+  WHERE tenant_id = :tenant_id AND NOT is_deleted
+    AND create_time >= :start AND create_time <= :now
 ), run_stats AS (
   SELECT count(*) AS total, count(DISTINCT user_id) AS active_users,
     count(*) FILTER (WHERE status = 'FAILED') AS failed,
@@ -133,6 +139,20 @@ SELECT jsonb_build_object(
   ),
   'agent_ranking', coalesce((SELECT jsonb_agg(jsonb_build_object(
     'agent_id', agent_id, 'agent_name', agent_name, 'run_count', run_count)
-    ORDER BY run_count DESC, agent_id) FROM rank_names), '[]'::jsonb)
+    ORDER BY run_count DESC, agent_id) FROM rank_names), '[]'::jsonb),
+  'egress', jsonb_build_object(
+    'request_count', (SELECT count(*) FROM egress_requests),
+    'sent_count', (SELECT count(*) FROM egress_requests WHERE policy_decision IN ('ALLOW','ALLOWED')),
+    'completed_count', (SELECT count(*) FROM egress_requests WHERE result_status IN ('OK','COMPLETED','SUCCESS')),
+    'failed_count', (SELECT count(*) FROM egress_requests WHERE result_status IN ('FAILED','ERROR','TIMEOUT')),
+    'blocked_count', (SELECT count(*) FROM egress_requests WHERE policy_decision IN ('DENY','BLOCKED') OR result_status = 'BLOCKED'),
+    'average_latency_ms', (SELECT avg(latency_ms) FROM egress_requests WHERE latency_ms IS NOT NULL),
+    'top_targets', coalesce((SELECT jsonb_agg(jsonb_build_object(
+      'target', target, 'route_id', route_id, 'request_count', request_count,
+      'blocked_count', blocked_count) ORDER BY request_count DESC, target)
+      FROM (SELECT target, route_id, count(*) AS request_count,
+        count(*) FILTER (WHERE policy_decision IN ('DENY','BLOCKED') OR result_status = 'BLOCKED') AS blocked_count
+        FROM egress_requests GROUP BY target, route_id ORDER BY request_count DESC LIMIT 10) top), '[]'::jsonb)
+  )
 )
 """

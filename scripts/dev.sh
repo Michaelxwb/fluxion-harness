@@ -32,6 +32,9 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Only lifecycle settings: interface rules remain empty until configured in Console.
+export EGRESS_CONTROL_FILE="${EGRESS_CONTROL_FILE:-$ROOT/config/egress-runtime.json}"
+
 LOG_DIR="$ROOT/.data/dev"
 mkdir -p "$LOG_DIR"
 

@@ -45,6 +45,7 @@ _GROUP_APPLIES_TO: dict[str, str] = {
     "capacity": NEXT_OPERATION,
     "model_pool": NEW_RUN,
     "webchat": NEXT_OPERATION,
+    "egress": NEW_RUN,
 }
 
 #: 逐字段范围/枚举/单位/生效方式覆盖（键为前端使用的字段路径）。
@@ -116,6 +117,8 @@ _FIELD_META: dict[str, dict[str, Any]] = {
     "webchat.notification_retention_days": {"effect_key": "settings.effect.next_cleanup"},
     "webchat.history_retention_days": {"effect_key": "settings.effect.next_cleanup"},
     "webchat.max_conversations_per_entry": {"effect_key": "settings.effect.new_conversation"},
+    "egress.enabled": {"effect_key": "settings.effect.egress_policy"},
+    "egress.rules_json": {"effect_key": "settings.effect.egress_policy"},
     "webchat.conversation_retention_days": {"effect_key": "settings.effect.new_conversation"},
 }
 
@@ -193,8 +196,11 @@ def _field_meta(path: str, value: Any, applies_to: str) -> dict[str, Any]:
 
 
 def build_groups(
-    settings: PlatformSettings, *, overrides: Mapping[str, int],
-    chat_message_hard_max_bytes: int | None = None, chat_upload_hard_max_bytes: int | None = None,
+    settings: PlatformSettings,
+    *,
+    overrides: Mapping[str, int],
+    chat_message_hard_max_bytes: int | None = None,
+    chat_upload_hard_max_bytes: int | None = None,
 ) -> list[dict[str, Any]]:
     """默认/类型/新字段范围与单位取schema；部署硬上限只约束可编辑范围，不裁剪生效值。
 
@@ -227,7 +233,9 @@ def build_groups(
 
 
 def _bounded_schema_metadata(
-    defaults: PlatformSettings, message_hard_cap: int | None, upload_hard_cap: int | None,
+    defaults: PlatformSettings,
+    message_hard_cap: int | None,
+    upload_hard_cap: int | None,
 ) -> dict[str, dict[str, object]]:
     result: dict[str, dict[str, object]] = {}
     for group_key in ("capacity", "model_pool", "webchat", "task"):
@@ -240,8 +248,10 @@ def _bounded_schema_metadata(
             if "unit" in item.metadata:
                 meta["unit_key"] = f"settings.unit.{item.metadata['unit']}"
             result[f"{group_key}.{item.name}"] = meta
-    for path, hard_cap in (("webchat.text_max_bytes", message_hard_cap),
-                           ("webchat.upload_max_bytes", upload_hard_cap)):
+    for path, hard_cap in (
+        ("webchat.text_max_bytes", message_hard_cap),
+        ("webchat.upload_max_bytes", upload_hard_cap),
+    ):
         if hard_cap is not None:
             maximum = result[path].get("max", hard_cap)
             if not isinstance(maximum, (int, float)):

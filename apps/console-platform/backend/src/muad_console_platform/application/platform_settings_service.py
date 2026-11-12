@@ -176,6 +176,9 @@ class PlatformSettingsService:
         """校验 → 事务内比对版本 → `INSERT revision+1` → 同事务写审计。"""
         _validate_operation_settings(settings)
         await self._require_summary_model(tenant_id, settings)
+        from .egress_policy import platform_rules
+
+        await platform_rules(self._session, tenant_id, settings)
         current = await self._current_revision(tenant_id)
         if current != expected_revision:
             raise PlatformSettingsVersionConflict(
@@ -256,6 +259,9 @@ class PlatformSettingsService:
             target.settings_json, batch_platform_limit=_batch_platform_limit()
         )
         _validate_operation_settings(restored)
+        from .egress_policy import platform_rules
+
+        await platform_rules(self._session, tenant_id, restored)
         current = await self._current_revision(tenant_id)
         before = await self._revision_document(tenant_id, current) if current else None
         _require_non_decreasing_memory_quota(before, restored)

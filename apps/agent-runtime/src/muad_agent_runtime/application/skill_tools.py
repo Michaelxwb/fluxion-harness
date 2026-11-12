@@ -47,10 +47,14 @@ from muad_contracts import (
     SkillExecutionMode,
     ToolRetrySafety,
 )
+from muad_contracts.egress_identity import egress_operation_key
 from muad_contracts.skill_invocation import (
     MAX_SKILL_ARGV_ITEMS,
     validate_skill_argv,
 )
+from muad_platform_sdk.egress_ipc import InvocationEgressBroker
+from muad_platform_sdk.host_egress_execution import HostEgressExecution
+from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 from muad_platform_sdk.skill_access import SkillPlatformContext
 from muad_skill_sdk.skill_package import (
     SkillPackage,
@@ -256,6 +260,7 @@ def build_skill_registry(
     draft_shell_context: DraftShellContext | None = None,
     draft_tools: SkillDraftTools | None = None,
     enable_run_skill_script: bool = False,
+    egress: HostEgressExecution | None = None,
 ) -> ToolRegistry:
     tool_set = SkillToolSet(
         cache=cache,
@@ -276,6 +281,7 @@ def build_skill_registry(
         draft_shell_context=draft_shell_context,
         draft_tools=draft_tools,
         enable_run_skill_script=enable_run_skill_script,
+        egress=egress,
     )
     return tool_set.registry()
 
@@ -302,8 +308,12 @@ class SkillToolSet:
         draft_shell_context: DraftShellContext | None = None,
         draft_tools: SkillDraftTools | None = None,
         enable_run_skill_script: bool = False,
+        egress: HostEgressExecution | None = None,
         async_retry_safety: ToolRetrySafety = DEFAULT_TOOL_RETRY_SAFETY,
     ) -> None:
+        self._egress = egress
+        if platform_context is not None and platform_context.budget_scope is not None:
+            raise ValueError("Runtime local budget scopes are unsupported; configure shared egress")
         self._cache = cache
         self._skills = {skill.key: skill for skill in skills}
         self._timeout_sec = timeout_sec
@@ -397,9 +407,7 @@ class SkillToolSet:
                 package.root, input_data, script=None, skill=skill, argv=argv, call_id=call_id
             )
         except SkillToolError as exc:
-            return _error_result(
-                exc.code, exc.message, exc.detail, retryable=exc.retryable
-            )
+            return _error_result(exc.code, exc.message, exc.detail, retryable=exc.retryable)
 
     async def run_skill_script(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
@@ -415,9 +423,7 @@ class SkillToolSet:
                 package.root, input_data, script=script, skill=skill, argv=argv, call_id=call_id
             )
         except SkillToolError as exc:
-            return _error_result(
-                exc.code, exc.message, exc.detail, retryable=exc.retryable
-            )
+            return _error_result(exc.code, exc.message, exc.detail, retryable=exc.retryable)
 
     async def search_skills(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         """按关键词检索**本次 Run 的全部生效技能**，返回目录条目。
@@ -653,8 +659,13 @@ class SkillToolSet:
         return skill
 
     async def _submit_background(
-        self, skill: ResolvedSkill, input_data: Mapping[str, Any], call_id: str, mode: CompletionMode,
-        *, argv: tuple[str, ...] = (),
+        self,
+        skill: ResolvedSkill,
+        input_data: Mapping[str, Any],
+        call_id: str,
+        mode: CompletionMode,
+        *,
+        argv: tuple[str, ...] = (),
     ) -> str:
         """ASYNC Skill 的 ExecutionRouter：只创建 Parent Task，不本地执行。"""
         if self._task_client is None or self._task_context is None:
@@ -714,7 +725,14 @@ class SkillToolSet:
         script: Path | None,
         skill: ResolvedSkill,
         call_id: str,
-        argv: tuple[str, ...] = (),    ) -> str:
+        argv: tuple[str, ...] = (),
+    ) -> str:
+        try:
+            invocation_id = egress_operation_key("TOOL_CALL", call_id)
+        except ValueError as exc:
+            raise SkillToolError(
+                "SKILL_CALL_ID_INVALID", "A persisted tool call identity is required"
+            ) from exc
         if skill_platform_keys(skill.frontmatter) and self._platform_context is None:
             raise SkillToolError(
                 "PLATFORM_CONTEXT_REQUIRED", "Platform Skill requires a trusted execution context"
@@ -722,16 +740,19 @@ class SkillToolSet:
         # 一次工具调用 = 一个独立执行 id：同一 Run 内的多次 Skill 调用不得共用
         # outputs/<run_id>，否则后一次会把前一次留下的文件当成自己的输出。
         execution_id = (
-            _workspace_execution_id(self._execution_id, call_id)
-            if self._execution_id
-            else uuid.uuid4().hex
+            _workspace_execution_id(self._execution_id, call_id) if self._execution_id else uuid.uuid4().hex
         )
         lease = await self._acquire_execution_workspace(execution_id)
         try:
             result = await self._run_executor(
-                ready_dir, input_data, script=script, skill=skill, argv=argv,
+                ready_dir,
+                input_data,
+                script=script,
+                skill=skill,
+                argv=argv,
                 execution_id=execution_id,
                 workspace_dir=lease.workspace_dir if lease is not None else self._workspace_dir,
+                invocation_id=invocation_id,
             )
             self._record_execution(skill, result)
             outputs = await self._register_outputs(result)
@@ -749,9 +770,11 @@ class SkillToolSet:
         skill: ResolvedSkill,
         execution_id: str,
         workspace_dir: Path | None,
+        invocation_id: str,
         argv: tuple[str, ...] = (),
     ) -> SkillExecutionResult:
         try:
+            broker, platform_context = await self._execution_egress(skill, invocation_id)
             return await self._executor.execute(
                 SkillExecutionRequest(
                     ready_dir=ready_dir,
@@ -762,21 +785,44 @@ class SkillToolSet:
                     workspace_dir=workspace_dir,
                     execution_id=execution_id,
                     script=script,
-                    platform_context=replace(
-                        self._platform_context, platform_keys=skill_platform_keys(skill.frontmatter)
-                    )
-                    if self._platform_context
-                    else None,
+                    egress_broker=broker,
+                    platform_context=platform_context,
                 )
             )
         except SkillExecutionError as exc:
+            if exc.code == "LOCAL_BUDGET_EXHAUSTED":
+                raise SkillToolError(exc.code, exc.message) from exc
             raise SkillToolError(
                 SKILL_EXECUTION_FAILED, exc.message, detail=exc.detail, retryable=exc.retryable
             ) from exc
+        except SharedLimitExceeded as exc:
+            code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
+            raise SkillToolError(code, str(exc)) from exc
+        except MeteringUnavailable:
+            raise SkillToolError("EGRESS_METERING_UNAVAILABLE", "shared metering unavailable") from None
 
-    async def _acquire_execution_workspace(
-        self, execution_id: str
-    ) -> WorkspaceLease | None:
+    async def _execution_egress(
+        self, skill: ResolvedSkill, operation_key: str
+    ) -> tuple[InvocationEgressBroker | None, SkillPlatformContext | None]:
+        context, host = self._platform_context, self._egress
+        if context is not None:
+            context = replace(context, platform_keys=skill_platform_keys(skill.frontmatter))
+        if host is None:
+            return None, context
+        invocation = await host.host_invocation(operation_key=operation_key, skill_key=skill.key)
+        broker = host.broker(invocation, deadline_seconds=self._timeout_sec)
+        if context is not None:
+            context = replace(
+                context,
+                transport_factory=lambda verify: host.transport(
+                    invocation,
+                    verify=verify,
+                    on_limit=broker.note_limit,
+                ),
+            )
+        return broker, context
+
+    async def _acquire_execution_workspace(self, execution_id: str) -> WorkspaceLease | None:
         if self._workspace_store is None or self._workspace_context is None:
             return None
         context = self._workspace_context
@@ -837,9 +883,7 @@ class SkillToolSet:
             },
         )
 
-    async def _register_outputs(
-        self, result: SkillExecutionResult
-    ) -> list[dict[str, Any]]:
+    async def _register_outputs(self, result: SkillExecutionResult) -> list[dict[str, Any]]:
         entries: list[dict[str, Any]] = []
         for output in result.outputs:
             entry: dict[str, Any] = {
@@ -933,13 +977,9 @@ def _optional_timeout(arguments: Mapping[str, Any], *, limit: float) -> float:
 
 
 def _workspace_execution_id(run_id: str, call_id: str) -> str:
-    """一次工具调用 = 一个独立 output 目录；只保留安全字符并受列长限制。"""
-    safe = "".join(
-        character if character.isalnum() or character in "-_." else "_"
-        for character in str(call_id)
-    ).strip("._-") or "call"
-    prefix = str(run_id).replace("-", "")[:8] or "run"
-    return f"{prefix}-{safe}"[:64]
+    """Stable safe directory from the FULL Run/call identity, never a budget key."""
+    identity = json.dumps([str(run_id), str(call_id)], ensure_ascii=True, separators=(",", ":"))
+    return "skill-" + uuid.uuid5(uuid.NAMESPACE_URL, identity).hex
 
 
 def _matches(skill: PromptSkill, terms: Sequence[str]) -> bool:
@@ -1052,9 +1092,7 @@ def _manifest_payload(package: SkillPackage) -> dict[str, Any]:
     }
 
 
-def _execution_payload(
-    result: SkillExecutionResult, outputs: Sequence[Mapping[str, Any]] = ()
-) -> str:
+def _execution_payload(result: SkillExecutionResult, outputs: Sequence[Mapping[str, Any]] = ()) -> str:
     return json.dumps(
         {
             "status": result.status.value,

@@ -333,3 +333,21 @@ async def _task_count(tenant: TenantContext, tenant_id: str) -> int:
                 )
             ).scalar_one()
         )
+
+
+async def test_task_creation_freezes_egress_activation_from_trusted_settings(tenant: TenantContext):
+    from muad_agent_worker.application.ports import PlatformSettingsSnapshot
+    class SettingsClient:
+        calls = 0
+        async def fetch_snapshot(self, **kwargs):
+            self.calls += 1
+            return PlatformSettingsSnapshot(1, {'egress': {'enabled': True, 'rules_json': '[]'}})
+    source = SettingsClient()
+    async with tenant.session_factory() as session:
+        task = await TaskService(session, tenant.settings, settings_client=source).create(
+            create_task_payload(tenant, idempotency_key='egress-frozen'))
+        await session.commit()
+    assert source.calls == 1
+    assert task.execution_snapshot_json['egress_enabled'] is True
+    from muad_contracts.snapshot import snapshot_hash
+    assert task.snapshot_hash == snapshot_hash(task.execution_snapshot_json)

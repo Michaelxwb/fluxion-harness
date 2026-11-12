@@ -204,9 +204,10 @@ def _signal_group(process: asyncio.subprocess.Process, sig: int) -> None:
     """信号发给子进程所在**整个进程组**；组 id 直接用 process.pid（start_new_session）。"""
     try:
         os.killpg(process.pid, sig)
-    except OSError:
-        with contextlib.suppress(OSError):
-            process.send_signal(sig)
+    except ProcessLookupError:
+        return
+    except OSError as exc:
+        raise SandboxUnavailable("sandbox process group signal failed") from exc
 
 
 async def _terminate(process: asyncio.subprocess.Process, wait_task: asyncio.Task[int]) -> None:
@@ -222,7 +223,7 @@ async def _terminate(process: asyncio.subprocess.Process, wait_task: asyncio.Tas
     try:
         await asyncio.wait_for(asyncio.shield(wait_task), TERMINATE_GRACE_SEC)
     except TimeoutError:
-        logger.warning("sandbox_process_wait_timeout pid=%s", process.pid)
+        raise SandboxUnavailable("sandbox termination not confirmed") from None
 
 
 async def _drain(task: asyncio.Task[None]) -> None:

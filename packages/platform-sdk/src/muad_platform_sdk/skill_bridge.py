@@ -24,6 +24,8 @@ from typing import Any
 from redis.exceptions import RedisClusterException, RedisError
 
 from .adapter.mss_config import PlatformAuthError, settings
+from .request_budget import LocalRateLimitError
+from .shared_redis import SharedLimitExceeded
 from .skill_access import SkillPlatformAccess, SkillPlatformContext
 
 BROKER_BUDGET_EXCEEDED = "PLATFORM_SESSION_BUDGET_EXCEEDED"
@@ -211,6 +213,12 @@ async def _write_state(
 
 
 def _broker_error(exc: Exception) -> dict[str, Any]:
+    if isinstance(exc, LocalRateLimitError):
+        return {"error": str(exc)}
+    if isinstance(exc, SharedLimitExceeded):
+        return {"error": "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED",
+                "detail": {"limit_kind": exc.kind, "scope": exc.scope, "rule_id": exc.rule_id},
+                "retryable": False}
     if isinstance(exc, (_BudgetExceeded, PlatformAuthError)):
         result: dict[str, Any] = {"error": exc.code}
         # 非正常响应的可读原因（HTTP 非 2xx / 业务 code≠0）原样带给 Skill；
@@ -220,6 +228,14 @@ def _broker_error(exc: Exception) -> dict[str, Any]:
             result["detail"] = detail
         return result
     return {"error": BROKER_INTERNAL_ERROR}
+
+
+async def _close_broker_writer(writer: asyncio.StreamWriter) -> None:
+    writer.close()
+    try:
+        await writer.wait_closed()
+    except (BrokenPipeError, ConnectionResetError):
+        logger.debug("session_broker_peer_closed")
 
 
 @asynccontextmanager
@@ -261,18 +277,23 @@ async def skill_platform_environment(
                         result = {"error": "invalid_arguments"}
                     except (RedisError, RedisClusterException):
                         result = {"error": "PLATFORM_SESSION_STORE_UNAVAILABLE"}
+                    except (LocalRateLimitError, SharedLimitExceeded) as exc:
+                        result = _broker_error(exc)
                     except Exception as exc:  # noqa: BLE001 - 内部错误必须可见但不泄密
                         logger.warning("session_broker_internal_error type=%s", type(exc).__name__)
                         result = _broker_error(exc)
                 writer.write(json.dumps(result).encode() + b"\n")
                 await writer.drain()
+            except (BrokenPipeError, ConnectionResetError):
+                logger.debug("session_broker_peer_closed")
             finally:
                 if entered:
                     ledger.leave()
-                writer.close()
-                await writer.wait_closed()
-                if task:
-                    active.discard(task)
+                try:
+                    await _close_broker_writer(writer)
+                finally:
+                    if task:
+                        active.discard(task)
 
         await access.start()
         socket_path = str(run_dir / "session.sock")
@@ -288,10 +309,10 @@ async def skill_platform_environment(
             )
         finally:
             server.close()
-            await server.wait_closed()
             for task in list(active):
                 task.cancel()
             await asyncio.gather(*active, return_exceptions=True)
+            await server.wait_closed()
     finally:
         await access.close()
         shutil.rmtree(root, ignore_errors=True)

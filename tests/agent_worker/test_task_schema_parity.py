@@ -42,7 +42,7 @@ EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
 }
 
 EXPECTED_CHECKS: dict[str, tuple[str, ...]] = {
-    "task_execution": ("ck_task_execution_completion_mode",),
+    "task_execution": ("ck_task_execution_completion_mode", "ck_task_execution_lease_epoch"),
     "task_schedule": ("ck_task_schedule_trigger",),
 }
 

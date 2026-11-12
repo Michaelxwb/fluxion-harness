@@ -24,6 +24,7 @@ dev = [
   "mypy>=1.14,<2",
   "types-jsonschema>=4.23,<5",
   "types-PyYAML>=6.0,<7",
+  "types-requests>=2.32,<3",
   "muad-agent-core",
   "muad-api",
   "muad-artifact-store",

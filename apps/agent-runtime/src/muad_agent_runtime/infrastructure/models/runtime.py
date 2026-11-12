@@ -169,12 +169,8 @@ class ChannelNotification(StandardColumnsMixin, Base):
 
     __tablename__ = "channel_notification"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "tenant_id", "user_id", "seq", name="uq_channel_notification_tenant_user_seq"
-        ),
-        sa.UniqueConstraint(
-            "tenant_id", "delivery_key", name="uq_channel_notification_tenant_delivery_key"
-        ),
+        sa.UniqueConstraint("tenant_id", "user_id", "seq", name="uq_channel_notification_tenant_user_seq"),
+        sa.UniqueConstraint("tenant_id", "delivery_key", name="uq_channel_notification_tenant_delivery_key"),
         sa.Index(
             "ix_channel_notification_tenant_user_unread",
             "tenant_id",
@@ -384,9 +380,7 @@ class CanonicalEvent(StandardColumnsMixin, Base):
             "ix_canonical_event_publication",
             "conversation_id",
             "artifact_id",
-            postgresql_where=sa.text(
-                "event_type = 'ARTIFACT_CREATED' AND is_deleted = false"
-            ),
+            postgresql_where=sa.text("event_type = 'ARTIFACT_CREATED' AND is_deleted = false"),
         ),
         {"schema": "runtime"},
     )
@@ -507,9 +501,7 @@ class UserMemory(StandardColumnsMixin, Base):
             "user_id",
             "category",
             sa.text("update_time DESC"),
-            postgresql_where=sa.text(
-                "is_deleted = false AND enabled = true AND activation_state = 'ACTIVE'"
-            ),
+            postgresql_where=sa.text("is_deleted = false AND enabled = true AND activation_state = 'ACTIVE'"),
         ),
         sa.Index(
             "ix_user_memory_state_time",
@@ -517,8 +509,7 @@ class UserMemory(StandardColumnsMixin, Base):
             "activation_state",
             sa.text("update_time DESC"),
             postgresql_where=sa.text(
-                "is_deleted = false AND category IN "
-                "('PROCEDURE','FAILURE_PATTERN','VERIFICATION')"
+                "is_deleted = false AND category IN ('PROCEDURE','FAILURE_PATTERN','VERIFICATION')"
             ),
         ),
         sa.Index(
@@ -528,8 +519,7 @@ class UserMemory(StandardColumnsMixin, Base):
             "activation_state",
             sa.text("update_time DESC"),
             postgresql_where=sa.text(
-                "is_deleted = false AND category IN "
-                "('PROCEDURE','FAILURE_PATTERN','VERIFICATION')"
+                "is_deleted = false AND category IN ('PROCEDURE','FAILURE_PATTERN','VERIFICATION')"
             ),
         ),
         sa.Index(
@@ -541,9 +531,7 @@ class UserMemory(StandardColumnsMixin, Base):
             postgresql_where=sa.text("is_deleted = false"),
         ),
         sa.CheckConstraint("author IN ('USER','ADMIN','AGENT')", name="author"),
-        sa.CheckConstraint(
-            "authority IN ('USER_EXPLICIT','ADMIN_EDIT','AGENT_INFERRED')", name="authority"
-        ),
+        sa.CheckConstraint("authority IN ('USER_EXPLICIT','ADMIN_EDIT','AGENT_INFERRED')", name="authority"),
         sa.CheckConstraint(
             "category IN ('PREFERENCE','WORK_STYLE','EXPLICIT','TASK_STATE',"
             "'PROCEDURE','FAILURE_PATTERN','VERIFICATION')",
@@ -678,13 +666,9 @@ class EvalCase(StandardColumnsMixin, Base):
     )
     input_ref_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
     criteria_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
-    item_count: Mapped[int] = mapped_column(
-        sa.Integer(), nullable=False, server_default=sa.text("1")
-    )
+    item_count: Mapped[int] = mapped_column(sa.Integer(), nullable=False, server_default=sa.text("1"))
     content_hash: Mapped[str] = mapped_column(sa.String(128), nullable=False)
-    version: Mapped[int] = mapped_column(
-        sa.BigInteger(), nullable=False, server_default=sa.text("1")
-    )
+    version: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("1"))
 
 
 class EvalReport(StandardColumnsMixin, Base):
@@ -737,9 +721,7 @@ class EvalReport(StandardColumnsMixin, Base):
     decision_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
     report_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
     content_hash: Mapped[str] = mapped_column(sa.String(128), nullable=False)
-    version: Mapped[int] = mapped_column(
-        sa.BigInteger(), nullable=False, server_default=sa.text("1")
-    )
+    version: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("1"))
 
 
 class LearningFamilyControl(StandardColumnsMixin, Base):
@@ -964,6 +946,8 @@ class EgressAudit(StandardColumnsMixin, Base):
     __tablename__ = "egress_audit"
     __table_args__ = (
         sa.Index("ix_egress_audit_run", "run_id", "create_time"),
+        sa.Index("uq_egress_audit_attempt_phase", "tenant_id", "attempt_id", "phase", unique=True),
+        sa.Index("ix_egress_audit_interface_time", "tenant_id", "platform_id", "adapter_key", "create_time"),
         {"schema": "runtime"},
     )
 
@@ -984,6 +968,53 @@ class EgressAudit(StandardColumnsMixin, Base):
     result_status: Mapped[str] = mapped_column(sa.String(16), nullable=False)
     latency_ms: Mapped[int | None] = mapped_column(sa.Integer())
     error_code: Mapped[str | None] = mapped_column(sa.String(64))
+    attempt_id: Mapped[str] = mapped_column(
+        sa.String(128),
+        nullable=False,
+        server_default=sa.text("md5(random()::text || clock_timestamp()::text)"),
+    )
+    phase: Mapped[str] = mapped_column(sa.String(32), nullable=False, server_default=sa.text("'completed'"))
+
+
+class EgressInterfaceSummary(StandardColumnsMixin, Base):
+    __tablename__ = "egress_interface_summary"
+    __table_args__ = (
+        sa.Index(
+            "uq_egress_summary_bucket",
+            "tenant_id",
+            "target_instance_id",
+            "route_id",
+            "bucket_start",
+            unique=True,
+        ),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    target_instance_id: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    route_id: Mapped[str] = mapped_column(sa.String(256), nullable=False)
+    bucket_start: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    attempted: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, default=0)
+    allowed: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, default=0)
+    sent: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, default=0)
+    completed: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, default=0)
+    blocked: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, default=0)
+    failed: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, default=0)
+    latency_total_ms: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, default=0)
+
+
+class EgressAuditGap(StandardColumnsMixin, Base):
+    __tablename__ = "egress_audit_gap"
+    __table_args__ = (
+        sa.Index("uq_egress_gap_window", "tenant_id", "window_start", "window_end", unique=True),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    window_start: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    window_end: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False)
+    lost_count: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    reason: Mapped[str] = mapped_column(sa.String(64), nullable=False)
 
 
 class ModelInvocationAudit(StandardColumnsMixin, Base):
@@ -1091,9 +1122,7 @@ class ModelCallLease(StandardColumnsMixin, Base):
 
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     call_attempt_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
-    run_id: Mapped[uuid.UUID | None] = mapped_column(
-        sa.Uuid(), sa.ForeignKey("runtime.run_record.id")
-    )
+    run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), sa.ForeignKey("runtime.run_record.id"))
     memory_job_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid(), sa.ForeignKey("runtime.memory_consolidation_job.id")
     )

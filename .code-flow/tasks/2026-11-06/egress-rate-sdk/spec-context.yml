@@ -1,0 +1,1097 @@
+version: 1
+task: 出站请求限流 SDK
+enforcement: required
+updated_at: '2026-11-09T01:25:51.678909+00:00'
+sources:
+- type: cli
+  ref: bind
+bindings:
+- spec_id: harness-arch
+  path: arch/harness-arch.md
+  status: active
+  hashes:
+    file_sha256: e9108bd9f886b112abd5f75ba3d08a977bc16d5ef88942ebbaabe16f22f70c82
+    metadata_sha256: d75360ccdc5ee3a53f2c49d7066be7a023eaf4d84bbab3e832fd9e751d953be8
+    rules_sha256: b15c6e014fbf77e741621ab306e2213360984615e4a54d608e0533477a8a5a2a
+  selected_by: agent
+  reason: SDK 嵌入既有 Runtime/Worker，不增加部署单元或独立服务
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-arch-001
+    summary: 固定四个**逻辑业务部署单元**（console-platform / agent-runtime / agent-worker / im-gateway）；`im-gateway` 可拆为无状态 web 与有状态 connector 两个运行时角色，connector 不是第五个业务微服务。Runtime 与 Worker 无状态、可横向扩展，不绑定 Pod、bot_id 或用户；同一会话可被任意 Pod 执行；Connector 只持有 bot 传输所有权与回复上下文，不建立 agent→Pod 映射。
+    text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
+    enforcement: required
+    verifier_ref: harness-arch#RULE-arch-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-arch-001
+          artifact_sha256: c5537b00ff1528abb3a0dd66736059849ad48a172142d906e7f88d5be3b020e8
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 002168a74df193567d48028504d035aa1948ff255e7858a5f0d65d608b77566a
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence: [{verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-08T02:01:51.514507+00:00', status: unverified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: e93619008223c9124f9b97a45d48f6ded701a187d808e2bb5b6b1005a293cb8e, result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2, error_code: skipped_in_cheap_gate, details: {skipped: true}}, {verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-08T02:06:59.593677+00:00', status: unverified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-08T02:14:26.575892+00:00', status: unverified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-08T02:41:43.353872+00:00', status: unverified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-08T05:58:16.808773+00:00', status: unverified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: 39f5c16149cdfcc3c934341a6183e6467250c7ac5c8622f6262f793662eddffb, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-08T06:17:51.774941+00:00', status: unverified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5, result_sha256: 242272f1c9ddd0b3eb2c99b2ef48bbd067050da548e6d1495812abc903f1ee8a, error_code: command_failed, details: {argv: [uv, run, pytest, -q, tests/architecture], exit_code: 1, stdout_sha256: abd3f706e05b2ef2c99405cf5451920acdc54cced1a04c0277132d312c81f044, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: "验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494: AssertionError\n_ test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-gateway] _\n\nchart = 'muad-im-gateway'\n\n    @pytest.mark.parametrize(\"chart\", NON_WORKSPACE_HELM_CHARTS)\n    def test_helm_console_gateway_and_connector_do_not_mount_workspaces(chart: str) -> None:\n>       pod = _helm_pod_spec(chart)\n              ^^^^^^^^^^^^^^^^^^^^^\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:543: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:504: in _helm_pod_spec\n    deployments = [doc for doc in _helm_documents(chart, overrides) if doc.get(\"kind\") == \"Deployment\"]\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nchart = 'muad-im-gateway', overrides = ()\n\n    def _helm_documents(chart: str, overrides: tuple[str, ...] = ()) -> list[dict[str, Any]]:\n        \"\"\"真实 `helm template` 渲染：Helm 是本次发布路径，不能用 YAML 字面量代替。\"\"\"\n        binary = shutil.which(\"helm\")\n>       assert binary is not None, \"workspace 部署验收需要 helm（发布路径的真实渲染器）\"\nE       AssertionError: workspace 部署验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494: AssertionError\n_ test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-connector] _\n\nchart = 'muad-im-connector'\n\n    @pytest.mark.parametrize(\"chart\", NON_WORKSPACE_HELM_CHARTS)\n    def test_helm_console_gateway_and_connector_do_not_mount_workspaces(chart: str) -> None:\n>       pod = _helm_pod_spec(chart)\n              ^^^^^^^^^^^^^^^^^^^^^\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:543: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:504: in _helm_pod_spec\n    deployments = [doc for doc in _helm_documents(chart, overrides) if doc.get(\"kind\") == \"Deployment\"]\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nchart = 'muad-im-connector', overrides = ()\n\n    def _helm_documents(chart: str, overrides: tuple[str, ...] = ()) -> list[dict[str, Any]]:\n        \"\"\"真实 `helm template` 渲染：Helm 是本次发布路径，不能用 YAML 字面量代替。\"\"\"\n        binary = shutil.which(\"helm\")\n>       assert binary is not None, \"workspace 部署验收需要 helm（发布路径的真实渲染器）\"\nE       AssertionError: workspace 部署验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494: AssertionError\n=========================== short test summary info ============================\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_runtime_and_worker_mount_the_shared_workspace_claim[muad-agent-runtime]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_runtime_and_worker_mount_the_shared_workspace_claim[muad-agent-worker]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_workspace_claim_and_mount_path_are_overridable[muad-agent-runtime]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_workspace_claim_and_mount_path_are_overridable[muad-agent-worker]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-console-platform]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-gateway]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-connector]\n7 failed, 223 passed in 42.50s\n"}}, {verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-08T07:12:22.308773+00:00', status: unverified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: 3edec81a1d488aa19b0f6fab9be6f91673815d6ccd2a5ba143d244a034ca2cc6, error_code: command_failed, details: {argv: [uv, run, pytest, -q, tests/architecture], exit_code: 1, stdout_sha256: 2ed9b914c2542c2f7c893fccab252dd8fae4d6c39c0bb65dd83f506cb4bae4ec, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: "验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494: AssertionError\n_ test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-gateway] _\n\nchart = 'muad-im-gateway'\n\n    @pytest.mark.parametrize(\"chart\", NON_WORKSPACE_HELM_CHARTS)\n    def test_helm_console_gateway_and_connector_do_not_mount_workspaces(chart: str) -> None:\n>       pod = _helm_pod_spec(chart)\n              ^^^^^^^^^^^^^^^^^^^^^\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:543: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:504: in _helm_pod_spec\n    deployments = [doc for doc in _helm_documents(chart, overrides) if doc.get(\"kind\") == \"Deployment\"]\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nchart = 'muad-im-gateway', overrides = ()\n\n    def _helm_documents(chart: str, overrides: tuple[str, ...] = ()) -> list[dict[str, Any]]:\n        \"\"\"真实 `helm template` 渲染：Helm 是本次发布路径，不能用 YAML 字面量代替。\"\"\"\n        binary = shutil.which(\"helm\")\n>       assert binary is not None, \"workspace 部署验收需要 helm（发布路径的真实渲染器）\"\nE       AssertionError: workspace 部署验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494: AssertionError\n_ test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-connector] _\n\nchart = 'muad-im-connector'\n\n    @pytest.mark.parametrize(\"chart\", NON_WORKSPACE_HELM_CHARTS)\n    def test_helm_console_gateway_and_connector_do_not_mount_workspaces(chart: str) -> None:\n>       pod = _helm_pod_spec(chart)\n              ^^^^^^^^^^^^^^^^^^^^^\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:543: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:504: in _helm_pod_spec\n    deployments = [doc for doc in _helm_documents(chart, overrides) if doc.get(\"kind\") == \"Deployment\"]\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nchart = 'muad-im-connector', overrides = ()\n\n    def _helm_documents(chart: str, overrides: tuple[str, ...] = ()) -> list[dict[str, Any]]:\n        \"\"\"真实 `helm template` 渲染：Helm 是本次发布路径，不能用 YAML 字面量代替。\"\"\"\n        binary = shutil.which(\"helm\")\n>       assert binary is not None, \"workspace 部署验收需要 helm（发布路径的真实渲染器）\"\nE       AssertionError: workspace 部署验收需要 helm（发布路径的真实渲染器）\nE       assert None is not None\n\ntests/architecture/test_capacity_webchat_runtime_worker_deploy.py:494: AssertionError\n=========================== short test summary info ============================\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_runtime_and_worker_mount_the_shared_workspace_claim[muad-agent-runtime]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_runtime_and_worker_mount_the_shared_workspace_claim[muad-agent-worker]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_workspace_claim_and_mount_path_are_overridable[muad-agent-runtime]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_workspace_claim_and_mount_path_are_overridable[muad-agent-worker]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-console-platform]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-gateway]\nFAILED tests/architecture/test_capacity_webchat_runtime_worker_deploy.py::test_helm_console_gateway_and_connector_do_not_mount_workspaces[muad-im-connector]\n7 failed, 223 passed in 37.54s\n"}}, {verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-08T08:26:47.757964+00:00', status: verified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: 525a3c6cd3abdedc47a58bb093c961c91c823d246fd31b671b60543d8bed70ba, error_code: null, details: {argv: [uv, run, pytest, -q, tests/architecture], exit_code: 0, stdout_sha256: 337b0efa672b234ca677e1fcedc51b2208f6beecdcb85f787ebb35f3a1dee538, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '........................................................................ [ 31%]
+
+                ........................................................................ [ 62%]
+
+                ........................................................................ [ 93%]
+
+                ..............                                                           [100%]
+
+                230 passed in 38.18s
+
+                '}}, {verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-08T22:46:42.792169+00:00', status: verified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: de6fa0ebbbc81ffca322493266f9f4ebc307710842c8366557ed0ac6e6df0c12, result_sha256: 390a3b666acb13c099fa269dbbe5a9698be8dcc2b1aae5e5c3ae978836743146, error_code: null, details: {argv: [uv, run, pytest, -q, tests/architecture], exit_code: 0, stdout_sha256: a352aecb290d5aeccca110b6acd2bb9ebac5b90fd01800de72cf914dbedc8f21, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '........................................................................ [ 31%]
+
+                ........................................................................ [ 62%]
+
+                ........................................................................ [ 93%]
+
+                ...............                                                          [100%]
+
+                231 passed in 39.68s
+
+                '}}, {verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-09T01:27:30.294397+00:00', status: verified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: 1e9a83ae49621e435a7653b282bb69e817c130a87c327315c09d1f4a66149aeb, error_code: null, details: {argv: [uv, run, pytest, -q, tests/architecture], exit_code: 0, stdout_sha256: ff8ae5c728dc374657b3582b050b9fcb65ed412dd1b63038feb175c20ec5151a, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '........................................................................ [ 31%]
+
+                ........................................................................ [ 62%]
+
+                ........................................................................ [ 93%]
+
+                ...............                                                          [100%]
+
+                231 passed in 38.71s
+
+                '}}, {verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-09T01:49:00.906862+00:00', status: verified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: 083401cd640c3ec435da10030fdea403192d2dcbb52939f7f533cab4ccebac57, error_code: null, details: {argv: [uv, run, pytest, -q, tests/architecture], exit_code: 0, stdout_sha256: 54ba141c9ffa804dcc38305bc6451102deb63733487d46b3faa9e8ea579ef997, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '........................................................................ [ 31%]
+
+                ........................................................................ [ 62%]
+
+                ........................................................................ [ 93%]
+
+                ...............                                                          [100%]
+
+                231 passed in 39.31s
+
+                '}}, {verifier_ref: harness-arch#RULE-arch-001, executed_at: '2026-11-09T02:31:51.517247+00:00', status: unverified, rule_text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d, artifact_sha256: null, diff_sha256: 'head:19cb797d10939c04a01bacc2a95a6c649dd436fe', result_sha256: 9160bd46784d84ceb8dfcada1c71ad511235dbee34b31428d89f832f057d0622, error_code: command_failed, details: {argv: [uv, run, pytest, -q, tests/architecture], exit_code: 1, stdout_sha256: 60f7a457fa0158b0dc18dd00c3b2ddd0738cea2ef41d79bc8c36e7e176ea3f86, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: " _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nbase_redis_url = 'redis://127.0.0.1:6379/0', owner = 'muad_mw683e06200d'\n\n    def isolated_redis_url(base_redis_url: str, owner: str) -> str:\n        \"\"\"占一个**未被占用**的 10–15 号 Redis DB 并返回指向它的 URL。\n    \n        号位靠原子占位分配，不靠 `pid % 6` 取模：取模时两个并发运行只要 pid 同余就**共用同一个\n        DB**（1/6 概率），而 Redis 承载去重键与队列 —— 共用即隔离失效，退化成「单跑绿、串跑红」，\n        正是本机制要消除的那类症状。`owner` 传本次的库名，收尾时按值释放。\n        \"\"\"\n        first = os.getpid() % REDIS_DB_COUNT\n        for offset in range(REDIS_DB_COUNT):\n            index = REDIS_DB_START + (first + offset) % REDIS_DB_COUNT\n            candidate = _redis_url_with_db(base_redis_url, index)\n            if _claim_redis_db(candidate, owner):\n                return candidate\n>       raise DatastoreUnavailableError(\n            f\"{REDIS_DB_START}–{REDIS_DB_START + REDIS_DB_COUNT - 1} 号 Redis DB 全被占用：\"\n            f\"同机并发验收超过 {REDIS_DB_COUNT} 个。等其中一个跑完（收尾会释放占号，\"\n            f\"异常中断的由 {REDIS_CLAIM_TTL_SEC}s TTL 兜底）后重试；确认无残留时也可手动清：\\n\"\n            f\"  for n in $(seq {REDIS_DB_START} {REDIS_DB_START + REDIS_DB_COUNT - 1}); \"\n            f\"do redis-cli -n $n DEL {REDIS_CLAIM_KEY}; done\"\n        )\nE       tests.acceptance.datastores.DatastoreUnavailableError: 10–15 号 Redis DB 全被占用：同机并发验收超过 6 个。等其中一个跑完（收尾会释放占号，异常中断的由 7200s TTL 兜底）后重试；确认无残留时也可手动清：\nE         for n in $(seq 10 15); do redis-cli -n $n DEL muad:acceptance:db-claim; done\n\ntests/acceptance/datastores.py:172: DatastoreUnavailableError\n_ ERROR at setup of test_console_artifact_token_issued_in_one_worker_redeems_in_another _\n\n    @pytest.fixture(scope=\"module\")\n    def datastore() -> Iterator[dict[str, str]]:\n        if os.environ.get(\"MUAD_ACCEPTANCE_SHARED_DB\") == \"1\":\n            pytest.skip(\"多 worker 状态测试需要独立库（不能用共享 dev 库）\")\n>       info = create_datastore(\"muad_mw\")\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/architecture/test_multi_worker_state.py:163: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/acceptance/datastores.py:253: in create_datastore\n    redis_url = isolated_redis_url(base_redis_url, name)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nbase_redis_url = 'redis://127.0.0.1:6379/0', owner = 'muad_mw683e06200d'\n\n    def isolated_redis_url(base_redis_url: str, owner: str) -> str:\n        \"\"\"占一个**未被占用**的 10–15 号 Redis DB 并返回指向它的 URL。\n    \n        号位靠原子占位分配，不靠 `pid % 6` 取模：取模时两个并发运行只要 pid 同余就**共用同一个\n        DB**（1/6 概率），而 Redis 承载去重键与队列 —— 共用即隔离失效，退化成「单跑绿、串跑红」，\n        正是本机制要消除的那类症状。`owner` 传本次的库名，收尾时按值释放。\n        \"\"\"\n        first = os.getpid() % REDIS_DB_COUNT\n        for offset in range(REDIS_DB_COUNT):\n            index = REDIS_DB_START + (first + offset) % REDIS_DB_COUNT\n            candidate = _redis_url_with_db(base_redis_url, index)\n            if _claim_redis_db(candidate, owner):\n                return candidate\n>       raise DatastoreUnavailableError(\n            f\"{REDIS_DB_START}–{REDIS_DB_START + REDIS_DB_COUNT - 1} 号 Redis DB 全被占用：\"\n            f\"同机并发验收超过 {REDIS_DB_COUNT} 个。等其中一个跑完（收尾会释放占号，\"\n            f\"异常中断的由 {REDIS_CLAIM_TTL_SEC}s TTL 兜底）后重试；确认无残留时也可手动清：\\n\"\n            f\"  for n in $(seq {REDIS_DB_START} {REDIS_DB_START + REDIS_DB_COUNT - 1}); \"\n            f\"do redis-cli -n $n DEL {REDIS_CLAIM_KEY}; done\"\n        )\nE       tests.acceptance.datastores.DatastoreUnavailableError: 10–15 号 Redis DB 全被占用：同机并发验收超过 6 个。等其中一个跑完（收尾会释放占号，异常中断的由 7200s TTL 兜底）后重试；确认无残留时也可手动清：\nE         for n in $(seq 10 15); do redis-cli -n $n DEL muad:acceptance:db-claim; done\n\ntests/acceptance/datastores.py:172: DatastoreUnavailableError\n=========================== short test summary info ============================\nERROR tests/architecture/test_multi_worker_state.py::test_gateway_two_workers_aggregate_metrics_without_losing_counts\nERROR tests/architecture/test_multi_worker_state.py::test_console_artifact_token_issued_in_one_worker_redeems_in_another\n229 passed, 2 errors in 33.90s\n"}}]
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-log
+  path: logging/harness-log.md
+  status: active
+  hashes:
+    file_sha256: ea4ae20f6077f5c45580050a63bab894c346058e31b04edeb73a52fa52d23ffb
+    metadata_sha256: b745153ac61a208ee536889d8e50d85dd08840ea237f2c619f417c3cd4780e4d
+    rules_sha256: 989697c773983b8c71c7bcfc8bfd3003c18e341e10bdd9287e2199c3eda28d18
+  selected_by: agent
+  reason: 观测 callback 复用既有日志与 metrics 脱敏约束
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-log-001
+    summary: 所有服务统一使用 logging-kit，仅配置 `LOG_DIR`（另读 `LOG_LEVEL`，缺省 `INFO`；非法级别直接 `raise ValueError` 而非静默回退；`console=True` 为默认值，会额外挂一个 stdout handler）；日志按 `service/YYYY-MM-DD.log` 输出**单行文本**：`YYYY-MM-DD HH:mm:ss.SSS ±ZZZZ [LEVEL] service logger message | key=value ...`，自动携带 `trace_id/request_id/tenant_id` 等关联字段（空串不打印），并对 Authorization/Cookie/api_key/access_token/refresh_token/secret/password 等敏感字段脱敏。
+    text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+    enforcement: required
+    verifier_ref: harness-log#RULE-log-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-log-001
+          artifact_sha256: c5537b00ff1528abb3a0dd66736059849ad48a172142d906e7f88d5be3b020e8
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.md
+          section_id: TASK-002
+          item_id: TASK-002
+          artifact_sha256: 002168a74df193567d48028504d035aa1948ff255e7858a5f0d65d608b77566a
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence: [{verifier_ref: harness-log#RULE-log-001, executed_at: '2026-11-08T02:01:51.620548+00:00', status: unverified, rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f, artifact_sha256: null, diff_sha256: e93619008223c9124f9b97a45d48f6ded701a187d808e2bb5b6b1005a293cb8e, result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2, error_code: skipped_in_cheap_gate, details: {skipped: true}}, {verifier_ref: harness-log#RULE-log-001, executed_at: '2026-11-08T02:06:59.711096+00:00', status: unverified, rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f, artifact_sha256: null, diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-log#RULE-log-001, executed_at: '2026-11-08T02:14:29.483840+00:00', status: verified, rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f, artifact_sha256: null, diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955, result_sha256: c27047cc8090d131e5864c523e81bccfb55fe5c6516e9fa290b2cdcb8d58a588, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_logging.py, tests/test_logging_redaction.py, tests/acceptance/test_foundation_logging.py], exit_code: 0, stdout_sha256: cfca134b9c01184c77a3fc0e6cc014cc7aaef4bb1b1bc94754f6377243e039a5, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '..............                                                           [100%]
+
+                14 passed in 2.20s
+
+                '}}, {verifier_ref: harness-log#RULE-log-001, executed_at: '2026-11-08T02:41:43.462686+00:00', status: unverified, rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f, artifact_sha256: null, diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-log#RULE-log-001, executed_at: '2026-11-08T05:58:16.889516+00:00', status: unverified, rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f, artifact_sha256: null, diff_sha256: 39f5c16149cdfcc3c934341a6183e6467250c7ac5c8622f6262f793662eddffb, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-log#RULE-log-001, executed_at: '2026-11-08T06:17:51.887511+00:00', status: unverified, rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f, artifact_sha256: null, diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-log#RULE-log-001, executed_at: '2026-11-08T07:12:22.389445+00:00', status: unverified, rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-log#RULE-log-001, executed_at: '2026-11-08T23:05:12.740044+00:00', status: verified, rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f, artifact_sha256: null, diff_sha256: de6fa0ebbbc81ffca322493266f9f4ebc307710842c8366557ed0ac6e6df0c12, result_sha256: 989642533b6eb9d50c95c4455ed1c121cc1e707c9a574b2a772f76d44e288b3e, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_logging.py, tests/test_logging_redaction.py, tests/acceptance/test_foundation_logging.py], exit_code: 0, stdout_sha256: a5610c529fb985a2253d57b07b153f3e34867601fbd9f84b6bf1d6ed583680ab, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '..............                                                           [100%]
+
+                14 passed in 2.11s
+
+                '}}, {verifier_ref: harness-log#RULE-log-001, executed_at: '2026-11-09T01:27:30.392874+00:00', status: unverified, rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-log#RULE-log-001, executed_at: '2026-11-09T02:31:53.538101+00:00', status: unverified, rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f, artifact_sha256: null, diff_sha256: 'head:19cb797d10939c04a01bacc2a95a6c649dd436fe', result_sha256: 49b2544b1bb61e87d14c503f21a6b96ca848f9aa3a6568b1d754df7484333d70, error_code: command_failed, details: {argv: [uv, run, pytest, -q, tests/test_logging.py, tests/test_logging_redaction.py, tests/acceptance/test_foundation_logging.py], exit_code: 1, stdout_sha256: 5dc75fd56995742fef59afd0de48e96682f9c2ca43e1c417f5d96934870f1916, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: ".............EFAILED tests/acceptance/test_foundation_logging.py::test_s01_two_services_daily_text_logs_with_context_and_redaction [setup] (0.02s)\n                                                           [100%]\n==================================== ERRORS ====================================\n_ ERROR at setup of test_s01_two_services_daily_text_logs_with_context_and_redaction _\n\n    @pytest.fixture(scope=\"session\", autouse=True)\n    def isolated_datastores() -> Iterator[None]:\n        \"\"\"本会话独占一个空库 + 独立 Redis DB；结束时丢弃。\"\"\"\n        try:\n>           with isolated_datastore_env():\n                 ^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/acceptance/conftest.py:38: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n../../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:137: in __enter__\n    return next(self.gen)\n           ^^^^^^^^^^^^^^\ntests/acceptance/datastores.py:323: in isolated_datastore_env\n    info = create_datastore()\n           ^^^^^^^^^^^^^^^^^^\ntests/acceptance/datastores.py:253: in create_datastore\n    redis_url = isolated_redis_url(base_redis_url, name)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nbase_redis_url = 'redis://127.0.0.1:6379/0', owner = 'muad_acc_dc75b12532'\n\n    def isolated_redis_url(base_redis_url: str, owner: str) -> str:\n        \"\"\"占一个**未被占用**的 10–15 号 Redis DB 并返回指向它的 URL。\n    \n        号位靠原子占位分配，不靠 `pid % 6` 取模：取模时两个并发运行只要 pid 同余就**共用同一个\n        DB**（1/6 概率），而 Redis 承载去重键与队列 —— 共用即隔离失效，退化成「单跑绿、串跑红」，\n        正是本机制要消除的那类症状。`owner` 传本次的库名，收尾时按值释放。\n        \"\"\"\n        first = os.getpid() % REDIS_DB_COUNT\n        for offset in range(REDIS_DB_COUNT):\n            index = REDIS_DB_START + (first + offset) % REDIS_DB_COUNT\n            candidate = _redis_url_with_db(base_redis_url, index)\n            if _claim_redis_db(candidate, owner):\n                return candidate\n>       raise DatastoreUnavailableError(\n            f\"{REDIS_DB_START}–{REDIS_DB_START + REDIS_DB_COUNT - 1} 号 Redis DB 全被占用：\"\n            f\"同机并发验收超过 {REDIS_DB_COUNT} 个。等其中一个跑完（收尾会释放占号，\"\n            f\"异常中断的由 {REDIS_CLAIM_TTL_SEC}s TTL 兜底）后重试；确认无残留时也可手动清：\\n\"\n            f\"  for n in $(seq {REDIS_DB_START} {REDIS_DB_START + REDIS_DB_COUNT - 1}); \"\n            f\"do redis-cli -n $n DEL {REDIS_CLAIM_KEY}; done\"\n        )\nE       tests.acceptance.datastores.DatastoreUnavailableError: 10–15 号 Redis DB 全被占用：同机并发验收超过 6 个。等其中一个跑完（收尾会释放占号，异常中断的由 7200s TTL 兜底）后重试；确认无残留时也可手动清：\nE         for n in $(seq 10 15); do redis-cli -n $n DEL muad:acceptance:db-claim; done\n\ntests/acceptance/datastores.py:172: DatastoreUnavailableError\n\nDuring handling of the above exception, another exception occurred:\n\n    @pytest.fixture(scope=\"session\", autouse=True)\n    def isolated_datastores() -> Iterator[None]:\n        \"\"\"本会话独占一个空库 + 独立 Redis DB；结束时丢弃。\"\"\"\n        try:\n            with isolated_datastore_env():\n                yield\n        except DatastoreUnavailableError as exc:  # pragma: no cover - 环境前提\n>           pytest.fail(str(exc))\nE           Failed: 10–15 号 Redis DB 全被占用：同机并发验收超过 6 个。等其中一个跑完（收尾会释放占号，异常中断的由 7200s TTL 兜底）后重试；确认无残留时也可手动清：\nE             for n in $(seq 10 15); do redis-cli -n $n DEL muad:acceptance:db-claim; done\n\ntests/acceptance/conftest.py:41: Failed\n=========================== short test summary info ============================\nERROR tests/acceptance/test_foundation_logging.py::test_s01_two_services_daily_text_logs_with_context_and_redaction\n13 passed, 1 error in 1.01s\n"}}]
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-mcp
+  path: mcp/harness-mcp.md
+  status: active
+  hashes:
+    file_sha256: 04d017a3bd4942acb4319bed9f4ef30ac4f3e84afaef350810d4037227a30ded
+    metadata_sha256: b0db57e5ec6f7febfef7b3a03e8c2989ff11da7454c75bc8eb2db0f04bdebdf4
+    rules_sha256: e17b2c3a76c397162bd3651ce8b9de3d4404d55ae0034cfaa209a2f2b41576c4
+  selected_by: agent
+  reason: MCP Streamable HTTP 实际发送前接入本地预算
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-mcp-001
+    summary: V1 仅支持 Streamable HTTP；Tool Catalog 由 `discover-tools` 唯一维护并落 PostgreSQL；用户范围仅 Server 级（ALL/SELECTED），不做 Tool 级启停或授权；MCP Tool 必须进入统一 ToolRegistry。
+    text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+    enforcement: required
+    verifier_ref: harness-mcp#RULE-mcp-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-mcp-001
+          artifact_sha256: c5537b00ff1528abb3a0dd66736059849ad48a172142d906e7f88d5be3b020e8
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.md
+          section_id: TASK-004
+          item_id: TASK-004
+          artifact_sha256: 002168a74df193567d48028504d035aa1948ff255e7858a5f0d65d608b77566a
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence: [{verifier_ref: harness-mcp#RULE-mcp-001, executed_at: '2026-11-08T02:01:51.725062+00:00', status: unverified, rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae, artifact_sha256: null, diff_sha256: e93619008223c9124f9b97a45d48f6ded701a187d808e2bb5b6b1005a293cb8e, result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2, error_code: skipped_in_cheap_gate, details: {skipped: true}}, {verifier_ref: harness-mcp#RULE-mcp-001, executed_at: '2026-11-08T02:06:59.829942+00:00', status: unverified, rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae, artifact_sha256: null, diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-mcp#RULE-mcp-001, executed_at: '2026-11-08T02:14:29.585971+00:00', status: unverified, rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae, artifact_sha256: null, diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-mcp#RULE-mcp-001, executed_at: '2026-11-08T02:41:43.570214+00:00', status: unverified, rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae, artifact_sha256: null, diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-mcp#RULE-mcp-001, executed_at: '2026-11-08T05:58:18.259676+00:00', status: verified, rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae, artifact_sha256: null, diff_sha256: 39f5c16149cdfcc3c934341a6183e6467250c7ac5c8622f6262f793662eddffb, result_sha256: b58ca98f42507c49ff56eeea2a61a790109ede0fe63b494ed1945f72d03f8120, error_code: null, details: {argv: [uv, run, pytest, -q, tests/console_mcp/test_mcp_rules.py], exit_code: 0, stdout_sha256: f21802e5e24571b06b077e416af1539fdce6ad55b407e03af6af45b03968cb3b, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '...                                                                      [100%]
+
+                3 passed in 0.07s
+
+                '}}, {verifier_ref: harness-mcp#RULE-mcp-001, executed_at: '2026-11-08T06:17:52.001702+00:00', status: unverified, rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae, artifact_sha256: null, diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-mcp#RULE-mcp-001, executed_at: '2026-11-08T07:12:22.466766+00:00', status: unverified, rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-mcp#RULE-mcp-001, executed_at: '2026-11-08T23:05:14.231899+00:00', status: verified, rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae, artifact_sha256: null, diff_sha256: de6fa0ebbbc81ffca322493266f9f4ebc307710842c8366557ed0ac6e6df0c12, result_sha256: b58ca98f42507c49ff56eeea2a61a790109ede0fe63b494ed1945f72d03f8120, error_code: null, details: {argv: [uv, run, pytest, -q, tests/console_mcp/test_mcp_rules.py], exit_code: 0, stdout_sha256: f21802e5e24571b06b077e416af1539fdce6ad55b407e03af6af45b03968cb3b, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '...                                                                      [100%]
+
+                3 passed in 0.07s
+
+                '}}, {verifier_ref: harness-mcp#RULE-mcp-001, executed_at: '2026-11-09T01:27:30.492923+00:00', status: unverified, rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-mcp#RULE-mcp-001, executed_at: '2026-11-09T02:31:55.096565+00:00', status: verified, rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae, artifact_sha256: null, diff_sha256: 'head:19cb797d10939c04a01bacc2a95a6c649dd436fe', result_sha256: 25403e845c7bc6d74afdc1dcccaa585231f5a6dfd6bb77393c6d6d58f8d444f5, error_code: null, details: {argv: [uv, run, pytest, -q, tests/console_mcp/test_mcp_rules.py], exit_code: 0, stdout_sha256: db7f09414dbfd608dbdbc9dc30246e56e6598dc0e7fbf509c46c3bdd43c83e32, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '...                                                                      [100%]
+
+                3 passed in 0.08s
+
+                '}}]
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-project-platform
+  path: platform/harness-project-platform.md
+  status: active
+  hashes:
+    file_sha256: 8ef66e88d9c5159f992f93a609a8c0f1601e3e2bbe7c17dbad412c549fc5c017
+    metadata_sha256: f96049e71930bae78aa61e211444baeb508c2abf1b61edd77db2699dc7b15a58
+    rules_sha256: 34aebfc7fe09131b718d3fc60668f9a9540e8b5dc838a275252a93079bba7e4f
+  selected_by: agent
+  reason: PlatformAdapter 继续拥有认证/Session，SDK 只包住发送边界
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-platform-001
+    summary: ProjectPlatform 只保存实例与寻址配置，认证/Session 由 PlatformAdapter 承担（SPI 无独立 `refresh`，刷新属于 `authenticate` 内部）；凭据明文存于凭据表并由主键引用，`credential_mode` 仅表达选择策略（USER_ONLY/SHARED_ONLY/USER_THEN_SHARED/NONE）；PlatformSession 为可重建 Redis 缓存，键为 `platform_session:{tenant_id:platform_id}:{actor_scope}:{credential_version}:{adapter_key}:{adapter_version}`（`{tenant_id:platform_id}` 是字面 hash tag，session/index/generation/lock 同 slot，保证 4-key Lua 在 Redis Cluster 可执行），索引 `platform_sessions:{tenant_id:platform_id}` 以 Set 清理；更换 adapter_key 必须使旧凭据与会话失效。
+    text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
+    enforcement: required
+    verifier_ref: harness-project-platform#RULE-platform-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-platform-001
+          artifact_sha256: c5537b00ff1528abb3a0dd66736059849ad48a172142d906e7f88d5be3b020e8
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.md
+          section_id: TASK-003
+          item_id: TASK-003
+          artifact_sha256: 002168a74df193567d48028504d035aa1948ff255e7858a5f0d65d608b77566a
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence: [{verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-08T02:01:51.827731+00:00', status: unverified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: e93619008223c9124f9b97a45d48f6ded701a187d808e2bb5b6b1005a293cb8e, result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2, error_code: skipped_in_cheap_gate, details: {skipped: true}}, {verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-08T02:06:59.947463+00:00', status: unverified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-08T02:14:59.604778+00:00', status: verified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955, result_sha256: 352bf5dad7c9107678eca3de22623d0194d9afabda83c9d3fdb87c1f97be5e66, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests -k schema_parity], exit_code: 0, stdout_sha256: 93705da8acee589c6127732f655635e12cfbdbe13cf6306a6cc1feb85f2ccf77, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: ".......................................................                  [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n55 passed, 6723 deselected, 2 warnings in 28.54s\n"}}, {verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-08T02:41:51.939489+00:00', status: unverified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d, result_sha256: 66a7b6cef4e133575480e1e2f8cf320dde74187346591c04b135a6145ac77387, error_code: command_failed, details: {argv: [bash, -lc, uv run pytest -q tests -k schema_parity], exit_code: 1, stdout_sha256: 093232a27f930ab57ccd17faeab98684c289dc00b6933321330f67eba453a62b, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: "revision: str = \"head\") -> dict[str, str]:\n        \"\"\"建空库 + 独立 Redis DB；默认迁到 head，迁移测试可显式指定旧 revision。\n    \n        返回 `database_url` / `redis_url` / `name`，以及 `admin_database_url`（**建库前的基准 DSN**）。\n        后者是必需的：调用方随后会把 `DATABASE_URL` 覆盖成临时库，drop 时必须用基准 DSN 连回\n        管理库，否则会连到临时库自身、报 `cannot drop the currently open database`。\n        \"\"\"\n        settings = SharedSettings()\n        base_database_url = settings.require_database_url()\n        base_redis_url = settings.require_redis_url()\n        name = new_database_name(prefix)\n        admin_dsn = _asyncpg_dsn(base_database_url)\n    \n        # 先占 Redis 号位：抢不到就立刻失败，此时还没有库需要回收。之后每条失败路径都要把号位\n        # 还回去 —— 否则异常一次就永久吃掉一个号（只靠 TTL 兜底会让并发额度悄悄缩水）。\n        redis_url = isolated_redis_url(base_redis_url, name)\n        try:\n            _create_database(admin_dsn, name)\n        except asyncpg.InsufficientPrivilegeError as exc:\n            _release_redis_db(base_redis_url, name)\n>           raise DatastorePrivilegeError(\n                \"验收需要独立数据库，但当前角色没有 CREATEDB：\\n\"\n                f\"  {exc}\\n\"\n                \"一次性授权：以超级用户执行 `ALTER ROLE muad CREATEDB;`（本地 dev 库用 mmuser）；\\n\"\n                \"或先用 `MUAD_ACCEPTANCE_SHARED_DB=1` 退回共享库排查（不推荐长期使用）。\"\n            ) from exc\nE           tests.acceptance.datastores.DatastorePrivilegeError: 验收需要独立数据库，但当前角色没有 CREATEDB：\nE             permission denied to create database\nE           一次性授权：以超级用户执行 `ALTER ROLE muad CREATEDB;`（本地 dev 库用 mmuser）；\nE           或先用 `MUAD_ACCEPTANCE_SHARED_DB=1` 退回共享库排查（不推荐长期使用）。\n\ntests/acceptance/datastores.py:258: DatastorePrivilegeError\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nERROR tests/acceptance/test_foundation_schema_parity.py::test_e05_migration_chain_has_single_head\nERROR tests/acceptance/test_foundation_schema_parity.py::test_e05_every_orm_suite_has_parity_tests\nERROR tests/acceptance/test_foundation_schema_parity.py::test_e05_parity_suite_detects_injected_column_drift\nERROR tests/migrations/test_capacity_webchat_admission_schema.py::test_b211_empty_database_schema_parity\nERROR tests/migrations/test_capacity_webchat_chat_auth_schema.py::test_b212_empty_database_schema_parity\nERROR tests/migrations/test_capacity_webchat_control_pool_schema.py::test_b209_empty_database_schema_parity\nERROR tests/migrations/test_capacity_webchat_conversation_upload_schema.py::test_b213_empty_database_schema_parity\nERROR tests/migrations/test_capacity_webchat_notification_schema.py::test_b214_empty_database_schema_parity\nERROR tests/migrations/test_capacity_webchat_runtime_pool_schema.py::test_b210_empty_database_schema_parity\nERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_memory_redesign_schema_parity\nERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_deleted_key_and_history_version_are_unique\nERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_confirmation_and_options_cross_outcome_are_physically_exclusive\nERROR tests/migrations/test_runtime_wait_parity.py::test_b08_empty_database_schema_parity\n30 passed, 12 skipped, 6729 deselected, 2 warnings, 13 errors in 6.79s\n"}}, {verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-08T02:48:51.271857+00:00', status: verified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d, result_sha256: 2a3aa01bbef0e491f823f362edc2b4e727a9ae4466b06d1976508172d6c1a195, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests -k schema_parity], exit_code: 0, stdout_sha256: a02182d3b30d76edcb842da305e41edf4ca9f5c11a968357afda8975768d9350, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: ".......................................................                  [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n55 passed, 6729 deselected, 2 warnings in 27.41s\n"}}, {verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-08T05:58:44.072301+00:00', status: verified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: 39f5c16149cdfcc3c934341a6183e6467250c7ac5c8622f6262f793662eddffb, result_sha256: 86c48c8de85051a8affdb2eecfbb300534c23419de6da958eb938974e6502218, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests -k schema_parity], exit_code: 0, stdout_sha256: 95b599d05ffda24abf452d8ba49c2bf4544cb3838b00a9633a8c162a143c810c, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: ".......................................................                  [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n55 passed, 6730 deselected, 2 warnings in 24.34s\n"}}, {verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-08T06:17:52.121805+00:00', status: unverified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-08T07:12:22.543046+00:00', status: unverified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-08T23:05:39.505249+00:00', status: verified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: de6fa0ebbbc81ffca322493266f9f4ebc307710842c8366557ed0ac6e6df0c12, result_sha256: fd6062d88a01489940b167ef6690b4b4642bb7bc8ce16fe4de49fca42a030866, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests -k schema_parity], exit_code: 0, stdout_sha256: 84b060bcd45d1a0e7c3b46d54ddd6aca841ca01cbeb7a77be6d10e3fa8df3429, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: ".......................................................                  [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n55 passed, 6847 deselected, 2 warnings in 23.80s\n"}}, {verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-09T01:27:59.431420+00:00', status: verified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: b41b66e9028d3f898763a88c6f7c314fa4f3ab22ce378da0e3b778c2958b4e77, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests -k schema_parity], exit_code: 0, stdout_sha256: 59f0e4f2f85709d0c9b44c11cadf2aaf9a4f33f81af964e5d3329d3f0e4b0bfa, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: ".......................................................                  [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n55 passed, 6851 deselected, 2 warnings in 27.30s\n"}}, {verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-09T01:49:28.690321+00:00', status: verified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: b022cf15479f92271d283057a6588cc4f16c58fef8cdda9fbb43af31305c4733, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests -k schema_parity], exit_code: 0, stdout_sha256: 75df020bb92685a4de76f72ceaa7c8623815d507e54b10a394815524fa5659a4, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: ".......................................................                  [100%]\n=============================== warnings summary ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n55 passed, 6851 deselected, 2 warnings in 25.92s\n"}}, {verifier_ref: harness-project-platform#RULE-platform-001, executed_at: '2026-11-09T02:32:09.834357+00:00', status: unverified, rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2, artifact_sha256: null, diff_sha256: 'head:19cb797d10939c04a01bacc2a95a6c649dd436fe', result_sha256: 6d94e92784ad11ef73195f347d5fcc3548cff5310998cfb1d3ae10b226f7dca9, error_code: command_failed, details: {argv: [bash, -lc, uv run pytest -q tests -k schema_parity], exit_code: 1, stdout_sha256: 81e31cbdc3d48fa99aa7b75aa316ee01077e210436d6b618fadca8aaf4d77baa, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '_schema_parity[run_record]
+
+                ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_runtime_table_schema_parity[runtime_snapshot]
+
+                ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_runtime_table_schema_parity[user_memory]
+
+                ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_user_memory_defaults_and_experience_categories
+
+                ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_eval_report_baseline_versions_are_append_only
+
+                ERROR tests/agent_runtime/test_runtime_schema_parity.py::test_b04_eval_case_requires_existing_source_run
+
+                ERROR tests/agent_worker/test_submission_schema_parity.py::test_task_submission_schema_parity
+
+                ERROR tests/agent_worker/test_submission_schema_parity.py::test_task_submission_partial_unique_index
+
+                ERROR tests/agent_worker/test_submission_schema_parity.py::test_duplicate_submission_is_rejected
+
+                ERROR tests/agent_worker/test_submission_schema_parity.py::test_tenant_and_endpoint_are_isolated
+
+                ERROR tests/agent_worker/test_submission_schema_parity.py::test_soft_deleted_row_frees_the_key
+
+                ERROR tests/agent_worker/test_submission_schema_parity.py::test_rollback_leaves_no_submission
+
+                ERROR tests/agent_worker/test_task_schema_parity.py::test_delivery_route_schema_parity
+
+                ERROR tests/agent_worker/test_task_schema_parity.py::test_task_schedule_schema_parity
+
+                ERROR tests/agent_worker/test_task_schema_parity.py::test_task_execution_schema_parity
+
+                ERROR tests/agent_worker/test_task_schema_parity.py::test_task_event_schema_parity
+
+                ERROR tests/agent_worker/test_task_schema_parity.py::test_same_schema_foreign_keys
+
+                ERROR tests/agent_worker/test_task_schema_parity.py::test_task_execution_server_defaults
+
+                ERROR tests/console_channel/test_channel_schema_parity.py::test_bot_account_schema_parity
+
+                ERROR tests/console_channel/test_channel_schema_parity.py::test_channel_identity_schema_parity
+
+                ERROR tests/console_channel/test_channel_schema_parity.py::test_bind_code_schema_parity
+
+                ERROR tests/console_internal/test_resolve_schema_parity.py::test_agent_access_grant_schema_parity
+
+                ERROR tests/console_platform/test_schema_parity.py::test_agent_definition_schema_parity
+
+                ERROR tests/console_platform/test_schema_parity.py::test_model_definition_schema_parity
+
+                ERROR tests/console_platform/test_schema_parity.py::test_console_account_schema_parity
+
+                ERROR tests/console_platform/test_schema_parity.py::test_console_session_schema_parity
+
+                ERROR tests/console_platform/test_schema_parity.py::test_project_platform_schema_parity
+
+                ERROR tests/console_platform/test_schema_parity.py::test_user_credential_ref_schema_parity
+
+                ERROR tests/console_platform/test_schema_parity.py::test_shared_credential_ref_schema_parity
+
+                ERROR tests/console_platform/test_schema_parity.py::test_platform_setting_schema_parity
+
+                ERROR tests/console_platform/test_schema_parity.py::test_platform_setting_idempotency_schema_parity
+
+                ERROR tests/migrations/test_capacity_webchat_admission_schema.py::test_b211_empty_database_schema_parity
+
+                ERROR tests/migrations/test_capacity_webchat_chat_auth_schema.py::test_b212_empty_database_schema_parity
+
+                ERROR tests/migrations/test_capacity_webchat_control_pool_schema.py::test_b209_empty_database_schema_parity
+
+                ERROR tests/migrations/test_capacity_webchat_conversation_upload_schema.py::test_b213_empty_database_schema_parity
+
+                ERROR tests/migrations/test_capacity_webchat_notification_schema.py::test_b214_empty_database_schema_parity
+
+                ERROR tests/migrations/test_capacity_webchat_runtime_pool_schema.py::test_b210_empty_database_schema_parity
+
+                ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_memory_redesign_schema_parity
+
+                ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_deleted_key_and_history_version_are_unique
+
+                ERROR tests/migrations/test_memory_redesign_schema_parity.py::test_b13_confirmation_and_options_cross_outcome_are_physically_exclusive
+
+                ERROR tests/migrations/test_runtime_wait_parity.py::test_b08_empty_database_schema_parity
+
+                2 failed, 4 passed, 6851 deselected, 2 warnings, 49 errors in 12.86s
+
+                '}}]
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-secret
+  path: secret/harness-secret.md
+  status: active
+  hashes:
+    file_sha256: 115cc61eb3848ef84743f9071155afe547a12f660d20d407307503af5c671f31
+    metadata_sha256: f60d9416b440212e32513bd86e339d9671413a12e5a326f4adf1c6cce76cb935
+    rules_sha256: 9ba8e1ce5ed34d0a5d740660530acab3d7f825818d4d2c3239f6a0ff0c631496
+  selected_by: agent
+  reason: SDK 错误和观测 callback 不包含凭据或请求原文
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-secret-001
+    summary: 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt 或 API 响应（对外以 `*_configured` 表达）；Console 凭据编辑弹窗的**按需回显**是下文列出的受控例外，只允许那一条显式路径回明文。
+    text_sha256: 43514644b4901c3cc9057086a5c30008be7ff98b46bb9af860cba450c6b8925d
+    enforcement: required
+    verifier_ref: harness-secret#RULE-secret-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-secret-001
+          artifact_sha256: c5537b00ff1528abb3a0dd66736059849ad48a172142d906e7f88d5be3b020e8
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.md
+          section_id: TASK-002
+          item_id: TASK-002
+          artifact_sha256: 002168a74df193567d48028504d035aa1948ff255e7858a5f0d65d608b77566a
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence: [{verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-08T02:01:51.931148+00:00', status: unverified, rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0, artifact_sha256: null, diff_sha256: e93619008223c9124f9b97a45d48f6ded701a187d808e2bb5b6b1005a293cb8e, result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2, error_code: skipped_in_cheap_gate, details: {skipped: true}}, {verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-08T02:07:00.064271+00:00', status: unverified, rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0, artifact_sha256: null, diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-08T02:15:02.671118+00:00', status: verified, rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0, artifact_sha256: null, diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955, result_sha256: 320df2a88aa3d635edfa828a5ee227a083ff0f8c4998c72bd2bc94094d2080fa, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_logging_redaction.py, tests/acceptance/test_foundation_ops_audit.py], exit_code: 0, stdout_sha256: 496e31f42a539a65827b26b2ca7bb96655aa0096fd2f73dd5bc2dad5c83f67e8, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '..............                                                           [100%]
+
+                14 passed in 2.24s
+
+                '}}, {verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-08T02:41:53.988685+00:00', status: unverified, rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0, artifact_sha256: null, diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d, result_sha256: a15f4ef85c2d8963ecc9fec0a0f28f8bd34eb75030e02676b9960d9df5c49a9f, error_code: command_failed, details: {argv: [uv, run, pytest, -q, tests/test_logging_redaction.py, tests/acceptance/test_foundation_ops_audit.py], exit_code: 1, stdout_sha256: 49af58f8e4428557d7c242dfe1d887aff951fb45559d321caba619bed7c750be, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: "te(f'CREATE DATABASE \"{name}\"')\n.venv/lib/python3.12/site-packages/asyncpg/connection.py:354: in execute\n    result = await self._protocol.query(query, timeout)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\n>   ???\nE   asyncpg.exceptions.InsufficientPrivilegeError: permission denied to create database\n\nasyncpg/protocol/protocol.pyx:369: InsufficientPrivilegeError\n\nThe above exception was the direct cause of the following exception:\n\n    @pytest.fixture(scope=\"session\", autouse=True)\n    def isolated_datastores() -> Iterator[None]:\n        \"\"\"本会话独占一个空库 + 独立 Redis DB；结束时丢弃。\"\"\"\n        try:\n>           with isolated_datastore_env():\n                 ^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/acceptance/conftest.py:38: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n../../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:137: in __enter__\n    return next(self.gen)\n           ^^^^^^^^^^^^^^\ntests/acceptance/datastores.py:323: in isolated_datastore_env\n    info = create_datastore()\n           ^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nprefix = 'muad_acc_'\n\n    def create_datastore(prefix: str = DEFAULT_PREFIX, *, revision: str = \"head\") -> dict[str, str]:\n        \"\"\"建空库 + 独立 Redis DB；默认迁到 head，迁移测试可显式指定旧 revision。\n    \n        返回 `database_url` / `redis_url` / `name`，以及 `admin_database_url`（**建库前的基准 DSN**）。\n        后者是必需的：调用方随后会把 `DATABASE_URL` 覆盖成临时库，drop 时必须用基准 DSN 连回\n        管理库，否则会连到临时库自身、报 `cannot drop the currently open database`。\n        \"\"\"\n        settings = SharedSettings()\n        base_database_url = settings.require_database_url()\n        base_redis_url = settings.require_redis_url()\n        name = new_database_name(prefix)\n        admin_dsn = _asyncpg_dsn(base_database_url)\n    \n        # 先占 Redis 号位：抢不到就立刻失败，此时还没有库需要回收。之后每条失败路径都要把号位\n        # 还回去 —— 否则异常一次就永久吃掉一个号（只靠 TTL 兜底会让并发额度悄悄缩水）。\n        redis_url = isolated_redis_url(base_redis_url, name)\n        try:\n            _create_database(admin_dsn, name)\n        except asyncpg.InsufficientPrivilegeError as exc:\n            _release_redis_db(base_redis_url, name)\n>           raise DatastorePrivilegeError(\n                \"验收需要独立数据库，但当前角色没有 CREATEDB：\\n\"\n                f\"  {exc}\\n\"\n                \"一次性授权：以超级用户执行 `ALTER ROLE muad CREATEDB;`（本地 dev 库用 mmuser）；\\n\"\n                \"或先用 `MUAD_ACCEPTANCE_SHARED_DB=1` 退回共享库排查（不推荐长期使用）。\"\n            ) from exc\nE           tests.acceptance.datastores.DatastorePrivilegeError: 验收需要独立数据库，但当前角色没有 CREATEDB：\nE             permission denied to create database\nE           一次性授权：以超级用户执行 `ALTER ROLE muad CREATEDB;`（本地 dev 库用 mmuser）；\nE           或先用 `MUAD_ACCEPTANCE_SHARED_DB=1` 退回共享库排查（不推荐长期使用）。\n\ntests/acceptance/datastores.py:258: DatastorePrivilegeError\n\nDuring handling of the above exception, another exception occurred:\n\n    @pytest.fixture(scope=\"session\", autouse=True)\n    def isolated_datastores() -> Iterator[None]:\n        \"\"\"本会话独占一个空库 + 独立 Redis DB；结束时丢弃。\"\"\"\n        try:\n            with isolated_datastore_env():\n                yield\n        except DatastoreUnavailableError as exc:  # pragma: no cover - 环境前提\n>           pytest.fail(str(exc))\nE           Failed: 验收需要独立数据库，但当前角色没有 CREATEDB：\nE             permission denied to create database\nE           一次性授权：以超级用户执行 `ALTER ROLE muad CREATEDB;`（本地 dev 库用 mmuser）；\nE           或先用 `MUAD_ACCEPTANCE_SHARED_DB=1` 退回共享库排查（不推荐长期使用）。\n\ntests/acceptance/conftest.py:41: Failed\n=========================== short test summary info ============================\nERROR tests/acceptance/test_foundation_ops_audit.py::test_s11_business_change_and_audit_commit_together\nERROR tests/acceptance/test_foundation_ops_audit.py::test_e06_audit_failure_rolls_back_business_change\nERROR tests/acceptance/test_foundation_ops_audit.py::test_s11_console_audit_uses_api_kit_primitive\n11 passed, 3 errors in 1.16s\n"}}, {verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-08T02:48:54.481840+00:00', status: verified, rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0, artifact_sha256: null, diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d, result_sha256: 1952d58dfee63abef6a545a62a90c09f19172370330fca0a8cdc387ab3bd1db8, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_logging_redaction.py, tests/acceptance/test_foundation_ops_audit.py], exit_code: 0, stdout_sha256: 66b8e29f85479272a6043d86c7cb30e56e6e1503c16e62791d76f1c53ed69283, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '..............                                                           [100%]
+
+                14 passed in 2.36s
+
+                '}}, {verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-08T05:58:46.905140+00:00', status: verified, rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0, artifact_sha256: null, diff_sha256: 39f5c16149cdfcc3c934341a6183e6467250c7ac5c8622f6262f793662eddffb, result_sha256: 4ed6d57dd805b80a29669b70f407dafe30c55fca0190ea8d89be37c9cea32ef2, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_logging_redaction.py, tests/acceptance/test_foundation_ops_audit.py], exit_code: 0, stdout_sha256: 58c9bb8d9b8acba81a254c1270ecd02530ca2d5230da96d79875a02ac8e27916, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '..............                                                           [100%]
+
+                14 passed in 2.13s
+
+                '}}, {verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-08T06:17:52.238186+00:00', status: unverified, rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0, artifact_sha256: null, diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-08T07:12:22.621056+00:00', status: unverified, rule_text_sha256: d256d14d798e4a0c887dcf7cf0a64fefd8bbe4d880034e11e9b36a101ff56ea0, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-08T23:05:42.376384+00:00', status: verified, rule_text_sha256: 43514644b4901c3cc9057086a5c30008be7ff98b46bb9af860cba450c6b8925d, artifact_sha256: null, diff_sha256: de6fa0ebbbc81ffca322493266f9f4ebc307710842c8366557ed0ac6e6df0c12, result_sha256: bd2f6a5342c18b11ece348d5b4b4d92e9da56b8692faa6931786fe537f90211d, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_logging_redaction.py, tests/acceptance/test_foundation_ops_audit.py], exit_code: 0, stdout_sha256: a657db8e6c29a85a74dd3a879d2c4bbbb6ecfc9cf1f3a246f85789de9ab258dd, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '..............                                                           [100%]
+
+                14 passed in 2.07s
+
+                '}}, {verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-09T01:28:03.034280+00:00', status: verified, rule_text_sha256: 43514644b4901c3cc9057086a5c30008be7ff98b46bb9af860cba450c6b8925d, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: 7a31566efe4b44c805a462b7ba4c12d12b6adab0908ff16ea8910846e5013486, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_logging_redaction.py, tests/acceptance/test_foundation_ops_audit.py], exit_code: 0, stdout_sha256: 600edcb2ec81956cf2848c6dc21898d9ba2457c0f8ea7661b10856d5c39454cd, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '..............                                                           [100%]
+
+                14 passed in 2.81s
+
+                '}}, {verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-09T01:49:31.847384+00:00', status: verified, rule_text_sha256: 43514644b4901c3cc9057086a5c30008be7ff98b46bb9af860cba450c6b8925d, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: 5f490e2a29b47afc4f3f9dca19d2de68e0feed5915735bba35844ecf476fa8e3, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_logging_redaction.py, tests/acceptance/test_foundation_ops_audit.py], exit_code: 0, stdout_sha256: 4ef8dc8d8a9577917d7f7cbec29b460b643b97c212969b7b33cc25b2c13d4b06, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '..............                                                           [100%]
+
+                14 passed in 2.32s
+
+                '}}, {verifier_ref: harness-secret#RULE-secret-001, executed_at: '2026-11-09T02:32:12.358981+00:00', status: unverified, rule_text_sha256: 43514644b4901c3cc9057086a5c30008be7ff98b46bb9af860cba450c6b8925d, artifact_sha256: null, diff_sha256: 'head:19cb797d10939c04a01bacc2a95a6c649dd436fe', result_sha256: 15a92c7eea4d675ba8ea869d276b95203f26f5d253b1105105d3d11f43769f59, error_code: command_failed, details: {argv: [uv, run, pytest, -q, tests/test_logging_redaction.py, tests/acceptance/test_foundation_ops_audit.py], exit_code: 1, stdout_sha256: 6ef469e209b330c9d2de766a818dc768e0aa30b851bc62a8fc92fb4c8731d7da, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: "sion\", autouse=True)\n    def isolated_datastores() -> Iterator[None]:\n        \"\"\"本会话独占一个空库 + 独立 Redis DB；结束时丢弃。\"\"\"\n        try:\n            with isolated_datastore_env():\n                yield\n        except DatastoreUnavailableError as exc:  # pragma: no cover - 环境前提\n>           pytest.fail(str(exc))\nE           Failed: 10–15 号 Redis DB 全被占用：同机并发验收超过 6 个。等其中一个跑完（收尾会释放占号，异常中断的由 7200s TTL 兜底）后重试；确认无残留时也可手动清：\nE             for n in $(seq 10 15); do redis-cli -n $n DEL muad:acceptance:db-claim; done\n\ntests/acceptance/conftest.py:41: Failed\n_______ ERROR at setup of test_s11_console_audit_uses_api_kit_primitive ________\n\n    @pytest.fixture(scope=\"session\", autouse=True)\n    def isolated_datastores() -> Iterator[None]:\n        \"\"\"本会话独占一个空库 + 独立 Redis DB；结束时丢弃。\"\"\"\n        try:\n>           with isolated_datastore_env():\n                 ^^^^^^^^^^^^^^^^^^^^^^^^\n\ntests/acceptance/conftest.py:38: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n../../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/contextlib.py:137: in __enter__\n    return next(self.gen)\n           ^^^^^^^^^^^^^^\ntests/acceptance/datastores.py:323: in isolated_datastore_env\n    info = create_datastore()\n           ^^^^^^^^^^^^^^^^^^\ntests/acceptance/datastores.py:253: in create_datastore\n    redis_url = isolated_redis_url(base_redis_url, name)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nbase_redis_url = 'redis://127.0.0.1:6379/0', owner = 'muad_acc_2090b4155a'\n\n    def isolated_redis_url(base_redis_url: str, owner: str) -> str:\n        \"\"\"占一个**未被占用**的 10–15 号 Redis DB 并返回指向它的 URL。\n    \n        号位靠原子占位分配，不靠 `pid % 6` 取模：取模时两个并发运行只要 pid 同余就**共用同一个\n        DB**（1/6 概率），而 Redis 承载去重键与队列 —— 共用即隔离失效，退化成「单跑绿、串跑红」，\n        正是本机制要消除的那类症状。`owner` 传本次的库名，收尾时按值释放。\n        \"\"\"\n        first = os.getpid() % REDIS_DB_COUNT\n        for offset in range(REDIS_DB_COUNT):\n            index = REDIS_DB_START + (first + offset) % REDIS_DB_COUNT\n            candidate = _redis_url_with_db(base_redis_url, index)\n            if _claim_redis_db(candidate, owner):\n                return candidate\n>       raise DatastoreUnavailableError(\n            f\"{REDIS_DB_START}–{REDIS_DB_START + REDIS_DB_COUNT - 1} 号 Redis DB 全被占用：\"\n            f\"同机并发验收超过 {REDIS_DB_COUNT} 个。等其中一个跑完（收尾会释放占号，\"\n            f\"异常中断的由 {REDIS_CLAIM_TTL_SEC}s TTL 兜底）后重试；确认无残留时也可手动清：\\n\"\n            f\"  for n in $(seq {REDIS_DB_START} {REDIS_DB_START + REDIS_DB_COUNT - 1}); \"\n            f\"do redis-cli -n $n DEL {REDIS_CLAIM_KEY}; done\"\n        )\nE       tests.acceptance.datastores.DatastoreUnavailableError: 10–15 号 Redis DB 全被占用：同机并发验收超过 6 个。等其中一个跑完（收尾会释放占号，异常中断的由 7200s TTL 兜底）后重试；确认无残留时也可手动清：\nE         for n in $(seq 10 15); do redis-cli -n $n DEL muad:acceptance:db-claim; done\n\ntests/acceptance/datastores.py:172: DatastoreUnavailableError\n\nDuring handling of the above exception, another exception occurred:\n\n    @pytest.fixture(scope=\"session\", autouse=True)\n    def isolated_datastores() -> Iterator[None]:\n        \"\"\"本会话独占一个空库 + 独立 Redis DB；结束时丢弃。\"\"\"\n        try:\n            with isolated_datastore_env():\n                yield\n        except DatastoreUnavailableError as exc:  # pragma: no cover - 环境前提\n>           pytest.fail(str(exc))\nE           Failed: 10–15 号 Redis DB 全被占用：同机并发验收超过 6 个。等其中一个跑完（收尾会释放占号，异常中断的由 7200s TTL 兜底）后重试；确认无残留时也可手动清：\nE             for n in $(seq 10 15); do redis-cli -n $n DEL muad:acceptance:db-claim; done\n\ntests/acceptance/conftest.py:41: Failed\n=========================== short test summary info ============================\nERROR tests/acceptance/test_foundation_ops_audit.py::test_s11_business_change_and_audit_commit_together\nERROR tests/acceptance/test_foundation_ops_audit.py::test_e06_audit_failure_rolls_back_business_change\nERROR tests/acceptance/test_foundation_ops_audit.py::test_s11_console_audit_uses_api_kit_primitive\n11 passed, 3 errors in 1.31s\n"}}]
+      review:
+        status: stale
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-skill
+  path: artifact/harness-skill.md
+  status: active
+  hashes:
+    file_sha256: 576f9fc78898df09ef55896d473b644206454defb4df15eec1138225a811c42d
+    metadata_sha256: c8f013af8b788916b59c964c6206537f1e87dd0e142e42743ac7403ece849104
+    rules_sha256: d7443dbc372078dabbbd48be6a6b30a5d49fa6990183af2e6dd1e674754962fd
+  selected_by: agent
+  reason: 脚本 invocation 超限后的进程组回收和 Skill 执行边界
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-skill-001
+    summary: 'Artifact Store 为 **RWX PVC**（硬事实是 `accessModes: ReadWriteMany`，`deploy/k8s/base/pvc-artifacts.yaml`；是否落在 NFS 由部署侧 StorageClass 决定，清单里 `storageClassName` 并未固定；V1 不建 MinIO/S3）；数据库只保存相对 `storage_key`；Runtime/Worker 使用 emptyDir 本地缓存并在校验 checksum 后原子切换 READY；禁止直接从 NFS 目录执行 Python Skill；同一 checksum 并发首次加载必须 singleflight（**限每进程内**：跨 Pod 的正确性由 `os.replace` 幂等与 DB CAS 承载，不得当作跨进程互斥）；Artifact 写入不可变（**目标不存在才发布**：临时文件 + `os.link`，同 `storage_key` 二次写入抛 `FileExistsError`）；导入 DB 事务失败同步删除已写文件，进程级孤儿由 `cleanup-skill-orphans` CLI 宽限期扫描清理（宽限期保护进行中事务）。'
+    text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
+    enforcement: required
+    verifier_ref: harness-skill#RULE-skill-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-skill-001
+          artifact_sha256: c5537b00ff1528abb3a0dd66736059849ad48a172142d906e7f88d5be3b020e8
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 002168a74df193567d48028504d035aa1948ff255e7858a5f0d65d608b77566a
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence: [{verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-08T02:01:52.034570+00:00', status: unverified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: e93619008223c9124f9b97a45d48f6ded701a187d808e2bb5b6b1005a293cb8e, result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2, error_code: skipped_in_cheap_gate, details: {skipped: true}}, {verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-08T02:07:00.180999+00:00', status: unverified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-08T02:15:02.774898+00:00', status: unverified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-08T02:41:54.118060+00:00', status: unverified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-08T05:58:46.987628+00:00', status: unverified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: 39f5c16149cdfcc3c934341a6183e6467250c7ac5c8622f6262f793662eddffb, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-08T06:17:53.931244+00:00', status: verified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5, result_sha256: 83dc80b344415b7bd7204f494d26ab6239bdf68961439850596be647d447c015, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_skill_artifact_cache.py], exit_code: 0, stdout_sha256: 5d0cc4658984d12ec4761f3cdd54060b37d5ee2346d2c58c35f23861d361d8d8, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 0.98s
+
+                '}}, {verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-08T07:12:24.209303+00:00', status: verified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: 80ce5482bc9f94e3fb1e4911204a9668d4233ee82a7cb7ed18e90fd0e4bf9160, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_skill_artifact_cache.py], exit_code: 0, stdout_sha256: b59be68fb6adfb7d9fc7d91fadce2bc4dfc5c56c4256d1f498efef44320e1fa0, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 0.82s
+
+                '}}, {verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-08T08:26:49.677505+00:00', status: verified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: a0811cce598a5f2e057991f7515f9aede3268c73681f7846977a84a18eff84e3, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_skill_artifact_cache.py], exit_code: 0, stdout_sha256: ca3bc939e5ab70b14ab977548ae0e0576560d31e07665eb0d6c9ac2c7ee2a172, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 0.90s
+
+                '}}, {verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-08T22:46:44.477874+00:00', status: verified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: de6fa0ebbbc81ffca322493266f9f4ebc307710842c8366557ed0ac6e6df0c12, result_sha256: a0811cce598a5f2e057991f7515f9aede3268c73681f7846977a84a18eff84e3, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_skill_artifact_cache.py], exit_code: 0, stdout_sha256: ca3bc939e5ab70b14ab977548ae0e0576560d31e07665eb0d6c9ac2c7ee2a172, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 0.90s
+
+                '}}, {verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-09T01:28:04.534514+00:00', status: verified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: a0811cce598a5f2e057991f7515f9aede3268c73681f7846977a84a18eff84e3, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_skill_artifact_cache.py], exit_code: 0, stdout_sha256: ca3bc939e5ab70b14ab977548ae0e0576560d31e07665eb0d6c9ac2c7ee2a172, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 0.90s
+
+                '}}, {verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-09T01:49:33.364779+00:00', status: verified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: 3a5a897c98106802a4a912575ef4d517e96e495f3fc0ad05d6eeb4c1926fccec, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_skill_artifact_cache.py], exit_code: 0, stdout_sha256: d9d33fa6f0d3d2f665211b4daaca7a420ee8c9812a7e07084fcabe20033c38be, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 0.89s
+
+                '}}, {verifier_ref: harness-skill#RULE-skill-001, executed_at: '2026-11-09T02:32:14.075549+00:00', status: verified, rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb, artifact_sha256: null, diff_sha256: 'head:19cb797d10939c04a01bacc2a95a6c649dd436fe', result_sha256: 83dc80b344415b7bd7204f494d26ab6239bdf68961439850596be647d447c015, error_code: null, details: {argv: [uv, run, pytest, -q, tests/test_skill_artifact_cache.py], exit_code: 0, stdout_sha256: 5d0cc4658984d12ec4761f3cdd54060b37d5ee2346d2c58c35f23861d361d8d8, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 0.98s
+
+                '}}]
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-snapshot
+  path: snapshot/harness-snapshot.md
+  status: active
+  hashes:
+    file_sha256: 11c3b06ef6dc8011ab6a7635bc62350fdf9a426699cce20584fb4b2e862942ef
+    metadata_sha256: 34a1bcb1153a685aab40f9576748579d32b73598ab6210f99c7fb762dc6361f1
+    rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
+  selected_by: agent
+  reason: Run/Task 冻结本地预算，执行期不读控制面
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-snapshot-001
+    summary: 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP 版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run 侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新 Run/Task；终态写入必须 CAS。
+    text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
+    enforcement: required
+    verifier_ref: harness-snapshot#RULE-snapshot-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-snapshot-001
+          artifact_sha256: c5537b00ff1528abb3a0dd66736059849ad48a172142d906e7f88d5be3b020e8
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.md
+          section_id: TASK-001
+          item_id: TASK-001
+          artifact_sha256: 002168a74df193567d48028504d035aa1948ff255e7858a5f0d65d608b77566a
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence: [{verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-08T02:01:52.138641+00:00', status: unverified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: e93619008223c9124f9b97a45d48f6ded701a187d808e2bb5b6b1005a293cb8e, result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2, error_code: skipped_in_cheap_gate, details: {skipped: true}}, {verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-08T02:07:17.664225+00:00', status: verified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5, result_sha256: 855523b915f240ea008cee5868bea12bffe6088962206ef9a3255a2bc4245c67, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"], exit_code: 0, stdout_sha256: 09492508bdc9f6fa8ed8d59cf8b482cd96ae60bcdd9f602a67fa4c7e72cdc209, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 1.10s
+
+                .......................................                                  [100%]
+
+                39 passed, 1176 deselected in 12.86s
+
+                '}}, {verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-08T02:15:02.878037+00:00', status: unverified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-08T02:41:54.244692+00:00', status: unverified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-08T05:59:02.848194+00:00', status: verified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: 39f5c16149cdfcc3c934341a6183e6467250c7ac5c8622f6262f793662eddffb, result_sha256: def62f96c1b7bfd4d345c9b37171508779298a790cba1484d29a1c2e29a1f0c3, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"], exit_code: 0, stdout_sha256: 7836b24104a0ac760cf2fbdadfb29aaa0be85771b02cbc4451ec81a2b649baf9, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 0.96s
+
+                .......................................                                  [100%]
+
+                39 passed, 1177 deselected in 12.08s
+
+                '}}, {verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-08T06:18:13.219249+00:00', status: verified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5, result_sha256: ffd6522fe0e06d4570f6fc14a4c6926b93ac0333da4a1b1381f809fca9211467, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"], exit_code: 0, stdout_sha256: 17f985a87009a43ed8d8079a543ecd601242745a1e35fbc763a368b7320e2cd3, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 1.22s
+
+                .......................................                                  [100%]
+
+                39 passed, 1177 deselected in 14.58s
+
+                '}}, {verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-08T07:12:40.291759+00:00', status: verified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: 8b94a3225c048e807b4cb18387c5e8c3c30b9b812c339d3e56db69d00acdf888, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"], exit_code: 0, stdout_sha256: ffc6b92d34cbe24fc5393513142621ce83abbb57db01ad87148f7d328a7b8efc, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 1.06s
+
+                .......................................                                  [100%]
+
+                39 passed, 1177 deselected in 12.09s
+
+                '}}, {verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-08T08:27:06.536880+00:00', status: verified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: cd1049ae7b35eef8ba3b10de2f504fde9d2f9e11917d2937cb2896da13deaa9f, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"], exit_code: 0, stdout_sha256: ed0903febc4ed3350a9bacc9132fb483b9b5ceb0f3845af642b9659129f2dd21, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 1.09s
+
+                .......................................                                  [100%]
+
+                39 passed, 1177 deselected in 12.54s
+
+                '}}, {verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-08T22:47:02.267750+00:00', status: verified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: de6fa0ebbbc81ffca322493266f9f4ebc307710842c8366557ed0ac6e6df0c12, result_sha256: cb92a458e69bd1068c7efe115507c8ac48d401ce80a9bb668809789b91d10dfc, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"], exit_code: 0, stdout_sha256: f79582f9341c6eb05ca0033edba62e959aab3b6db0f8e6a0bb3d404a4d9bbf2e, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 1.05s
+
+                ...........................................                              [100%]
+
+                43 passed, 1221 deselected in 13.48s
+
+                '}}, {verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-09T01:28:07.211127+00:00', status: unverified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: 2305bb7b341e3566f395a5ae050fd53d76b28e34e48b88cfe8c78594b2b0d9be, error_code: command_failed, details: {argv: [bash, -lc, uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"], exit_code: 1, stdout_sha256: 53d7214f82705d85bdb2a2fdfb31efa1fbef7bd8803c814e53639aa7f32ee2ad, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: "c_single_context\n    self.dialect.do_execute(\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute\n    cursor.execute(statement, parameters)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:585: in execute\n    self._adapt_connection.await_(\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132: in await_only\n    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196: in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:563: in _prepare_and_execute\n    self._handle_exception(error)\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:513: in _handle_exception\n    self._adapt_connection._handle_exception(error)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <AdaptedConnection <asyncpg.connection.Connection object at 0x10d751040>>\nerror = UndefinedColumnError('column run_record.input_message_id does not exist')\n\n    def _handle_exception(self, error):\n        if self._connection.is_closed():\n            self._transaction = None\n            self._started = False\n    \n        if not isinstance(error, AsyncAdapt_asyncpg_dbapi.Error):\n            exception_mapping = self.dbapi._asyncpg_error_translate\n    \n            for super_ in type(error).__mro__:\n                if super_ in exception_mapping:\n                    translated_error = exception_mapping[super_](\n                        \"%s: %s\" % (type(error), error)\n                    )\n                    translated_error.pgcode = translated_error.sqlstate = (\n                        getattr(error, \"sqlstate\", None)\n                    )\n>                   raise translated_error from error\nE                   sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedColumnError'>: column run_record.input_message_id does not exist\nE                   [SQL: SELECT runtime.run_record.tenant_id, runtime.run_record.conversation_id, runtime.run_record.user_id, runtime.run_record.agent_id, runtime.run_record.task_family, runtime.run_record.snapshot_id, runtime.run_record.status, runtime.run_record.deadline_at, runtime.run_record.execution_epoch, runtime.run_record.input_text, runtime.run_record.input_message_id, runtime.run_record.trace_id, runtime.run_record.start_time, runtime.run_record.end_time, runtime.run_record.cancel_requested, runtime.run_record.error_code, runtime.run_record.error_message, runtime.run_record.lease_owner, runtime.run_record.lease_until, runtime.run_record.heartbeat_at, runtime.run_record.channel_json, runtime.run_record.queue_stage, runtime.run_record.queue_reason, runtime.run_record.queued_at, runtime.run_record.queue_deadline_at, runtime.run_record.admission_released_at, runtime.run_record.id, runtime.run_record.is_deleted, runtime.run_record.create_time, runtime.run_record.update_time \nE                   FROM runtime.run_record \nE                   WHERE runtime.run_record.status = $1 AND runtime.run_record.lease_until < now() AND runtime.run_record.is_deleted IS false ORDER BY runtime.run_record.lease_until, runtime.run_record.id \nE                    LIMIT $2::INTEGER]\nE                   [parameters: ('RUNNING', 128)]\nE                   (Background on this error at: https://sqlalche.me/e/20/f405)\n\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:797: ProgrammingError\n=========================== short test summary info ============================\nFAILED tests/agent_runtime/test_snapshot_freeze.py::test_b104_definition_change_only_affects_new_runs\nFAILED tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only\n2 failed, 2 passed in 1.28s\n"}}, {verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-09T01:49:50.847429+00:00', status: verified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: c47b5bc0c5985642cb48385c5bea30b633d7316e942f07c2d70b354a62ba87ae, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"], exit_code: 0, stdout_sha256: e455d7f26313f21096968249b58bcf032030dd6b7c5b4c93120dc18ffe0d2bb0, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '....                                                                     [100%]
+
+                4 passed in 1.04s
+
+                ...........................................                              [100%]
+
+                43 passed, 1221 deselected in 13.21s
+
+                '}}, {verifier_ref: harness-snapshot#RULE-snapshot-001, executed_at: '2026-11-09T02:32:17.100568+00:00', status: unverified, rule_text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb, artifact_sha256: null, diff_sha256: 'head:19cb797d10939c04a01bacc2a95a6c649dd436fe', result_sha256: f8451d21ebb970a3bd8815aa702e7add92da18eaaf7e8f922c4b7a1947c45181, error_code: command_failed, details: {argv: [bash, -lc, uv run pytest -q tests/agent_runtime/test_snapshot_freeze.py tests/agent_runtime/test_run_reaper.py && uv run pytest -q tests/agent_runtime -k "executor or resolve"], exit_code: 1, stdout_sha256: a6b40105fdb75506817c66c66791504f069265005c4b78b6989427656d969ece, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:630: in connect\n    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py:955: in connect\n    await_only(creator_fn(*arg, **kw)),\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:132: in await_only\n    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py:196: in greenlet_spawn\n    value = await result\n            ^^^^^^^^^^^^\n.venv/lib/python3.12/site-packages/asyncpg/connection.py:2443: in connect\n    return await connect_utils._connect(\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1218: in _connect\n    conn = await _connect_addr(\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1054: in _connect_addr\n    return await __connect_addr(params, True, *args)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nparams = ConnectionParameters(user='muad', password='[REDACTED]', database='muad', ssl=<s...postgres'>, server_settings=None, target_session_attrs=<SessionAttribute.any: 'any'>, krbsrvname=None, gsslib='gssapi')\nretry = True, addr = ('127.0.0.1', 5432)\nloop = <_UnixSelectorEventLoop running=False closed=False debug=False>\nconfig = ConnectionConfiguration(command_timeout=None, statement_cache_size=100, max_cached_statement_lifetime=300, max_cacheable_statement_size=15360)\nconnection_class = <class 'asyncpg.connection.Connection'>\nrecord_class = <class 'asyncpg.protocol.record.Record'>\nparams_input = ConnectionParameters(user='muad', password='[REDACTED]', database='muad', ssl=<s...postgres'>, server_settings=None, target_session_attrs=<SessionAttribute.any: 'any'>, krbsrvname=None, gsslib='gssapi')\n\n    async def __connect_addr(\n        params,\n        retry,\n        addr,\n        loop,\n        config,\n        connection_class,\n        record_class,\n        params_input,\n    ):\n        connected = _create_future(loop)\n    \n        proto_factory = lambda: protocol.Protocol(\n            addr, connected, params, record_class, loop)\n    \n        if isinstance(addr, str):\n            # UNIX socket\n            connector = loop.create_unix_connection(proto_factory, addr)\n    \n        elif params.ssl and params.ssl_negotiation is SSLNegotiation.direct:\n            # if ssl and ssl_negotiation is `direct`, skip STARTTLS and perform\n            # direct SSL connection\n            connector = loop.create_connection(\n                proto_factory, *addr, ssl=params.ssl\n            )\n    \n        elif params.ssl:\n            connector = _create_ssl_connection(\n                proto_factory, *addr, loop=loop, ssl_context=params.ssl,\n                ssl_is_advisory=params.sslmode == SSLMode.prefer)\n        else:\n            connector = loop.create_connection(proto_factory, *addr)\n    \n        tr, pr = await connector\n    \n        try:\n>           await connected\nE           asyncpg.exceptions.TooManyConnectionsError: remaining connection slots are reserved for roles with the SUPERUSER attribute\n\n.venv/lib/python3.12/site-packages/asyncpg/connect_utils.py:1102: TooManyConnectionsError\n=========================== short test summary info ============================\nFAILED tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only\nERROR tests/agent_runtime/test_snapshot_freeze.py::test_b104_definition_change_only_affects_new_runs\nERROR tests/agent_runtime/test_run_reaper.py::test_e04_reaper_cas_on_expired_running_only\n1 failed, 2 passed, 2 errors in 1.16s\n"}}]
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-test
+  path: test/harness-test.md
+  status: active
+  hashes:
+    file_sha256: 238c44a095c2df92ccac06560cacc302901ba244bcbe3527903a8938da355425
+    metadata_sha256: 627002a69e1a9cee732368249c2d3cf50f8423bb58cbc426b5a6993b071c370e
+    rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
+  selected_by: agent
+  reason: SDK unit/contract 与真实 Runtime/Worker/HTTP integration 分层
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-test-001
+    summary: 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实 Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+    text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac
+    enforcement: required
+    verifier_ref: harness-test#RULE-test-001
+    verifier_stage: review
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: c5537b00ff1528abb3a0dd66736059849ad48a172142d906e7f88d5be3b020e8
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 002168a74df193567d48028504d035aa1948ff255e7858a5f0d65d608b77566a
+        decision: null
+        evidence: []
+      code:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      review:
+        status: unverified
+        refs: []
+        decision: null
+        evidence: [{verifier_ref: harness-test#RULE-test-001, executed_at: '2026-11-09T02:32:27.663383+00:00', status: unverified, rule_text_sha256: bab83fe9dee30b1c16035587a06594e3415bad90eb31beb58d329025775136ac, artifact_sha256: null, diff_sha256: 'head:19cb797d10939c04a01bacc2a95a6c649dd436fe', result_sha256: 0e4086d90756d827ff50d512fb44da9240686c968950bd25c14c0bb9ebf0de28, error_code: command_failed, details: {argv: [bash, -lc, uv run python scripts/ci_validation_cache.py --validator "Pytest (acceptance)" --json && npm --prefix apps/console-platform/frontend run build && npm --prefix e2e test], exit_code: 3, stdout_sha256: 4779ea4425daf2a0a2d87da7088025b9a72b09703a1673ed6bf7c6b7d27b7994, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '{"validator": "Pytest (acceptance)", "command": ".venv/bin/python -m pytest --tb=short -q --durations=30 -m \"not capacity_load\" tests/acceptance", "files": 2416, "decision": "block", "failures": [{"name": "Pytest (acceptance)", "on_fail": "验收失败：检查真实栈/探针/租户清理与断言，参见 specs/test/harness-test.md", "detail": "s01_image_is_persisted_and_sent_to_the_model_as_a_content_block\nERROR tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s02_document_is_extracted_by_the_real_tool_and_answered\nERROR tests/acceptance/wecom_attachments/test_inbound_image_e2e.py::test_s05_historical_image_is_resent_as_a_content_block_after_view_image\n2 passed, 1 skipped, 10 deselected, 2 warnings, 523 errors in 8.85s"}], "incomplete": false, "reused": 0}
+
+                '}}]
+- spec_id: harness-worker
+  path: worker/harness-worker.md
+  status: active
+  hashes:
+    file_sha256: ebdfa3b48c461646fc21ae25c6609298201269ea3536a1e2625b5fcc8d89997d
+    metadata_sha256: 3b1a0f32ac4f99b1ca467c7789fd1dbb8835461fc66d53c28bacae159fe8ac79
+    rules_sha256: ccc9ee98013107e1ecf0963ec8c4cd330287193995641298c437ce45ffdd99bb
+  selected_by: agent
+  reason: Task 重试和脚本耗尽不能绕过本地预算
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-worker-001
+    summary: PostgreSQL 是 Task/Schedule/lease 的唯一权威源；Redis 仅作 wake-up/cancel hint；`task_type` 仅 `SKILL/BATCH`（外部等待用 WAITING 表达）；claim 使用 `FOR UPDATE SKIP LOCKED`，进入 WAITING 释放 lease，deadline 到期由 Scheduler sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`。**deadline 是领取与收尾两侧的硬条件**：claim 排除 `deadline_at <= now` 的行（过期任务绝不执行），执行跨过 deadline 也不得写 `COMPLETED`，同样以 `FAILED(TASK_DEADLINE_EXCEEDED)` 收尾（`worker/claimer.py` 的 `_claimable_conditions`、`worker/service.py` 的终态守卫）。
+    text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
+    enforcement: required
+    verifier_ref: harness-worker#RULE-worker-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.design.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-worker-001
+          artifact_sha256: c5537b00ff1528abb3a0dd66736059849ad48a172142d906e7f88d5be3b020e8
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: egress-rate-sdk.md
+          section_id: TASK-005
+          item_id: TASK-005
+          artifact_sha256: 002168a74df193567d48028504d035aa1948ff255e7858a5f0d65d608b77566a
+        decision: null
+        evidence: []
+      code:
+        status: unverified
+        refs: []
+        decision: null
+        evidence: [{verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-08T02:01:52.312034+00:00', status: unverified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: e93619008223c9124f9b97a45d48f6ded701a187d808e2bb5b6b1005a293cb8e, result_sha256: c7f147a32ebccf488eb5b95e4c210a1ca98eb97e585c8e10bdc023caaac4a7a2, error_code: skipped_in_cheap_gate, details: {skipped: true}}, {verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-08T02:07:17.847932+00:00', status: unverified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: 0d6313c053a23680a012551c8dbefcfdd4c22ed404690b3e8b175159e0f7dce5, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-08T02:15:03.037823+00:00', status: unverified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: 82c8b04975b5fcde04db2d304249534a9a2c2f922e9558673f71a93523d3b955, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-08T02:41:54.447882+00:00', status: unverified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: 90c1655df9bab4877e81b42277e9d045fd7af639df7acd8ed3ebf6f97f58737d, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-08T05:59:02.981860+00:00', status: unverified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: 39f5c16149cdfcc3c934341a6183e6467250c7ac5c8622f6262f793662eddffb, result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab, error_code: deferred_to_review, details: {reason: review_stage, deferral_kind: review_stage, deferred_to_review: true}}, {verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-08T06:20:49.388709+00:00', status: unverified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: 3007909c2685ca4e38b83bde23809abb77ec1d5e15a09c7abf8d6fd9695b8bf5, result_sha256: c2ac0fff172205536b8d78d37becbb6859a26a0ce1501521a2d1983ca093cbb5, error_code: command_failed, details: {argv: [bash, -lc, uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py], exit_code: -15, stdout_sha256: 83e60be27d9c211baf31ffe5651bb5295cb6c457c76f0c4c516834cfb4b69ca5, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: 'ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 21%]
+
+                ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 42%]
+
+                ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 64%]
+
+                ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 85%]
+
+                sssssssssssssssssssssssssssssssssssssssssssssssss                        [100%]
+
+                337 skipped in 0.92s
+
+                ........................................................................ [  5%]
+
+                ........................................................................ [ 11%]
+
+                ........................................................................ [ 17%]
+
+                ........................................'}}, {verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-08T07:26:59.315240+00:00', status: verified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: 76a44bc8361c154313d020188e07089a78f8b815e1f97cafe4596778ec8af54a, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py], exit_code: 0, stdout_sha256: bb9c72e6d96b2494c46d626c3636081fac764b7f26d6e24759870d6bd5718238, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: 'ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 21%]
+
+                ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 42%]
+
+                ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 64%]
+
+                ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 85%]
+
+                sssssssssssssssssssssssssssssssssssssssssssssssss                        [100%]
+
+                337 skipped in 0.80s
+
+                ........................................................................ [  5%]
+
+                ........................................................................ [ 11%]
+
+                ........................................................................ [ 17%]
+
+                ........................................................................ [ 23%]
+
+                ........................................................................ [ 29%]
+
+                ........................................................................ [ 35%]
+
+                ........................................................................ [ 41%]
+
+                ........................................................................ [ 47%]
+
+                ........................................................................ [ 53%]
+
+                ........................................................................ [ 59%]
+
+                ........................................................................ [ 65%]
+
+                ........................................................................ [ 71%]
+
+                ........................................................................ [ 77%]
+
+                ........................................................................ [ 83%]
+
+                ........................................................................ [ 89%]
+
+                ........................................................................ [ 95%]
+
+                .......................................................                  [100%]
+
+                1207 passed in 851.70s (0:14:11)
+
+                '}}, {verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-08T08:41:55.115902+00:00', status: verified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: 8f66281a01bdff5d2c123d5ed5a0e711748091f23189aec8cc6f7fdad294f3cb, result_sha256: 08a19b8eb19be18749b9682b4ddbf97930289f3af0fbd28bb6419e6d6cdfa28b, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py], exit_code: 0, stdout_sha256: bd7ae0877e40173939f9d0987274781ecba69e0485bd8f7d6e4eccd5e8fcd861, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: 'ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 21%]
+
+                ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 42%]
+
+                ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 64%]
+
+                ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 85%]
+
+                sssssssssssssssssssssssssssssssssssssssssssssssss                        [100%]
+
+                337 skipped in 0.83s
+
+                ........................................................................ [  5%]
+
+                ........................................................................ [ 11%]
+
+                ........................................................................ [ 17%]
+
+                ........................................................................ [ 23%]
+
+                ........................................................................ [ 29%]
+
+                ........................................................................ [ 35%]
+
+                ........................................................................ [ 41%]
+
+                ........................................................................ [ 47%]
+
+                ........................................................................ [ 53%]
+
+                ........................................................................ [ 59%]
+
+                ........................................................................ [ 65%]
+
+                ........................................................................ [ 71%]
+
+                ........................................................................ [ 77%]
+
+                ........................................................................ [ 83%]
+
+                ........................................................................ [ 89%]
+
+                ........................................................................ [ 95%]
+
+                .......................................................                  [100%]
+
+                1207 passed in 880.93s (0:14:40)
+
+                '}}, {verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-08T23:03:00.691515+00:00', status: verified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: de6fa0ebbbc81ffca322493266f9f4ebc307710842c8366557ed0ac6e6df0c12, result_sha256: 8b75f561f25546ee985b292e093c4c93efebada7f1a53bc7bfe32051d13d88cd, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py], exit_code: 0, stdout_sha256: 654571c893f0512ffe850477622e58842de002c6272dc1c46144a1612a037a8e, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '........................................................................ [ 21%]
+
+                ........................................................................ [ 42%]
+
+                ........................................................................ [ 63%]
+
+                ........................................................................ [ 85%]
+
+                ..................................................                       [100%]
+
+                338 passed in 104.44s (0:01:44)
+
+                ........................................................................ [  5%]
+
+                ........................................................................ [ 11%]
+
+                ........................................................................ [ 17%]
+
+                ........................................................................ [ 22%]
+
+                ........................................................................ [ 28%]
+
+                ........................................................................ [ 34%]
+
+                ........................................................................ [ 40%]
+
+                ........................................................................ [ 45%]
+
+                ........................................................................ [ 51%]
+
+                ........................................................................ [ 57%]
+
+                ........................................................................ [ 63%]
+
+                ........................................................................ [ 68%]
+
+                ........................................................................ [ 74%]
+
+                ........................................................................ [ 80%]
+
+                ........................................................................ [ 86%]
+
+                ........................................................................ [ 91%]
+
+                ........................................................................ [ 97%]
+
+                ...............................                                          [100%]
+
+                1255 passed in 846.79s (0:14:06)
+
+                '}}, {verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-09T01:44:57.854559+00:00', status: unverified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: 0986ff7ee860d2a7f3e81ec07f1476ae2aa25bd99b3301c2f9fc0129c09f3093, error_code: command_failed, details: {argv: [bash, -lc, uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py], exit_code: 1, stdout_sha256: 8fea556f4017173c55e61aa1045c73142a8560a5ededb49775cac61fa887b515, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: 'y::test_resume_without_key_or_input_id_is_validation_error
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_resume_endpoint_completes_waiting_input_run
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_create_run_idempotency_key_replays_persisted_stream
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_create_run_same_key_different_fingerprint_conflicts
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_create_run_same_key_with_a_different_attachment_conflicts
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_create_run_same_key_for_another_recipient_conflicts
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_cancel_active_cancels_waiting_input_run_immediately
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_cancel_run_is_idempotent_for_terminal_run
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_get_run_returns_status_and_snapshot_summary
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_get_run_reports_waiting_tool_projection
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_get_run_reports_resume_ready_and_task_result_reasons
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_get_run_waiting_input_and_terminal_have_no_waiting_reason
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_resolve_error_propagates_as_envelope
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_run_events_endpoint_replays_after_confirmed_seq_and_closes_on_terminal
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_run_events_endpoint_is_tenant_scoped_and_validates_after_seq
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_resume_endpoint_rejects_waiting_tool_run_with_run_busy
+
+                FAILED tests/agent_runtime/test_runs_api.py::test_s15_run_scope_is_bounded_and_projects_owner_facts
+
+                FAILED tests/agent_runtime/test_runtime_metrics.py::test_b212_run_creation_increments_agent_runs_counter
+
+                FAILED tests/agent_runtime/test_runtime_metrics.py::test_b212_run_reaper_increments_run_reclaim_counter
+
+                FAILED tests/agent_runtime/test_runtime_schema_parity.py::test_runtime_table_schema_parity[run_record]
+
+                FAILED tests/agent_runtime/test_snapshot_freeze.py::test_b104_definition_change_only_affects_new_runs
+
+                FAILED tests/agent_runtime/test_summary_model_resolution.py::test_summary_call_goes_to_the_frozen_summary_model
+
+                FAILED tests/agent_runtime/test_summary_model_resolution.py::test_unresolvable_summary_model_keeps_the_run_alive_and_skips_the_layer
+
+                FAILED tests/agent_runtime/test_task_handoff.py::test_b123_async_skill_tool_submits_task_with_frozen_snapshot
+
+                FAILED tests/agent_runtime/test_task_handoff.py::test_b123_multi_skill_agent_freezes_only_submitted_skill
+
+                FAILED tests/agent_runtime/test_task_handoff.py::test_b123_equal_inputs_have_distinct_calls_and_retry_reuses_operation
+
+                FAILED tests/agent_runtime/test_task_handoff.py::test_b123_query_and_cancel_read_back_through_worker_http
+
+                FAILED tests/agent_runtime/test_task_handoff.py::test_b123_actor_cannot_be_forged_through_tool_arguments
+
+                FAILED tests/agent_runtime/test_tool_result_history.py::test_e08_externalized_result_rebuilds_byte_identically
+
+                FAILED tests/agent_runtime/test_tool_result_history.py::test_e08_dirty_artifact_id_does_not_break_the_run
+
+                FAILED tests/agent_runtime/test_tool_result_history.py::test_small_tool_result_survives_across_runs_via_preview
+
+                FAILED tests/agent_runtime/test_tool_round_budget.py::test_e07_round_batch_lands_in_the_tool_loop
+
+                FAILED tests/agent_runtime/test_tool_round_budget.py::test_e07_round_within_budget_persists_nothing
+
+                FAILED tests/agent_runtime/test_tool_round_budget.py::test_e07_failed_batch_rolls_back_without_failing_the_run
+
+                ERROR tests/agent_runtime/test_interrupt_checkpoint.py::test_b118_checkpoint_interrupt_persists_and_releases
+
+                ERROR tests/agent_runtime/test_interrupt_checkpoint.py::test_b118_rebuild_locates_waiting_point_after_restart
+
+                ERROR tests/agent_runtime/test_interrupt_checkpoint.py::test_b118_unauthorized_executor_cannot_resolve
+
+                ERROR tests/agent_runtime/test_interrupt_checkpoint.py::test_b118_resolve_updates_interrupt_and_run
+
+                261 failed, 990 passed, 4 errors in 1002.92s (0:16:42)
+
+                '}}, {verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-09T02:06:59.319195+00:00', status: verified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: 0ad928791e968cdffbd2fe97b0ec4cd37bae6325df8f70dab524cc44e0a757f0, result_sha256: fd76e0a99cda6451dac1defb6490dcdbc5f1897a5f49edcab3ed5a7b8a433841, error_code: null, details: {argv: [bash, -lc, uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py], exit_code: 0, stdout_sha256: 9212448cf0f1182ed8c0b20b260fdfa01ce1e179a2e9517daf826551fec856d4, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: '........................................................................ [ 21%]
+
+                ........................................................................ [ 42%]
+
+                ........................................................................ [ 63%]
+
+                ........................................................................ [ 84%]
+
+                ....................................................                     [100%]
+
+                340 passed in 108.38s (0:01:48)
+
+                ........................................................................ [  5%]
+
+                ........................................................................ [ 11%]
+
+                ........................................................................ [ 17%]
+
+                ........................................................................ [ 22%]
+
+                ........................................................................ [ 28%]
+
+                ........................................................................ [ 34%]
+
+                ........................................................................ [ 40%]
+
+                ........................................................................ [ 45%]
+
+                ........................................................................ [ 51%]
+
+                ........................................................................ [ 57%]
+
+                ........................................................................ [ 63%]
+
+                ........................................................................ [ 68%]
+
+                ........................................................................ [ 74%]
+
+                ........................................................................ [ 80%]
+
+                ........................................................................ [ 86%]
+
+                ........................................................................ [ 91%]
+
+                ........................................................................ [ 97%]
+
+                ...............................                                          [100%]
+
+                1255 passed in 912.13s (0:15:12)
+
+                '}}, {verifier_ref: harness-worker#RULE-worker-001, executed_at: '2026-11-09T02:33:16.206766+00:00', status: unverified, rule_text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c, artifact_sha256: null, diff_sha256: 'head:19cb797d10939c04a01bacc2a95a6c649dd436fe', result_sha256: 14f075fc3f66f25edd9b7c79106f931e777e81b2717cdf71f856ab33fe66e39c, error_code: command_failed, details: {argv: [bash, -lc, uv run pytest -q tests/agent_worker && uv run pytest -q tests/agent_runtime --ignore=tests/agent_runtime/test_runner_executor.py], exit_code: 1, stdout_sha256: ae1de196926dac4a807469d5ef3ade2943cda343849761669b919592bcc87d9c, stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855, output: 't_claimable
+
+                ERROR tests/agent_worker/test_worker_leases.py::test_waiting_tasks_are_not_reclaimed
+
+                ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_preserves_attempt_and_clears_lease
+
+                ERROR tests/agent_worker/test_worker_leases.py::test_reclaimed_task_rejects_previous_owner
+
+                ERROR tests/agent_worker/test_worker_leases.py::test_expired_lease_owner_cannot_write_terminal_state
+
+                ERROR tests/agent_worker/test_worker_leases.py::test_e01_crash_recovery_across_instances
+
+                ERROR tests/agent_worker/test_worker_leases.py::test_expired_lease_cannot_be_renewed
+
+                ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_gives_up_after_max_attempts
+
+                ERROR tests/agent_worker/test_worker_leases.py::test_reclaim_backs_off_before_the_row_is_claimable_again
+
+                ERROR tests/agent_worker/test_worker_leases.py::test_heartbeat_failure_stops_the_local_execution
+
+                ERROR tests/agent_worker/test_worker_lifecycle.py::test_claim_sets_running_lease_and_completes
+
+                ERROR tests/agent_worker/test_worker_lifecycle.py::test_claim_respects_not_before_and_cancel_requested
+
+                ERROR tests/agent_worker/test_worker_lifecycle.py::test_failure_retries_with_exponential_backoff_then_fails
+
+                ERROR tests/agent_worker/test_worker_lifecycle.py::test_failure_after_cancel_request_ends_cancelled
+
+                ERROR tests/agent_worker/test_worker_lifecycle.py::test_reclaim_expired_lease
+
+                ERROR tests/agent_worker/test_worker_lifecycle.py::test_sweep_deadlines_marks_failed
+
+                ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_lifespan_runs_and_stops_all_background_loops
+
+                ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_lifespan_fails_fast_when_migrations_missing
+
+                ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_readyz_uses_shared_probes_for_database_and_artifact_storage
+
+                ERROR tests/agent_worker/test_worker_lifecycle.py::test_b122_task_model_has_no_pod_or_user_binding
+
+                ERROR tests/agent_worker/test_worker_lifecycle.py::test_wakeup_hint_wakes_idle_listener_early
+
+                ERROR tests/agent_worker/test_worker_maintenance.py::test_maintenance_forever_survives_failure_and_retries
+
+                ERROR tests/agent_worker/test_worker_maintenance.py::test_workspace_maintenance_is_disabled_when_root_is_not_mounted
+
+                ERROR tests/agent_worker/test_worker_maintenance.py::test_skill_executor_acquires_workspace_lease_and_updates_last_access
+
+                ERROR tests/agent_worker/test_worker_metrics.py::test_b212_metrics_endpoint_exposes_worker_catalog
+
+                ERROR tests/agent_worker/test_worker_metrics.py::test_b212_worker_loop_increments_task_counters
+
+                ERROR tests/agent_worker/test_worker_metrics.py::test_b212_schedule_and_delivery_increment_counters
+
+                ERROR tests/agent_worker/test_worker_metrics.py::test_b212_declared_catalog_matches_design_and_label_names_are_hygienic
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_interpret_maps_execution_into_explicit_outcomes
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_waiting_releases_lease_and_is_claimable_after_not_before
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_waiting_does_not_consume_retry_budget
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_repeated_waits_keep_retry_budget_for_real_failures
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_deterministic_failure_is_not_retried
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_retry_budget_is_exhausted_exactly_once
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_completed_result_is_persisted_before_terminal
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_terminal_task_is_not_overwritten_by_late_success
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_large_result_uses_artifact_reference
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_cancelled_execution_marks_task_cancelled
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_keyboard_interrupt_stops_worker
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_malformed_wait_result_fails_the_task_instead_of_parking_it
+
+                ERROR tests/agent_worker/test_worker_outcomes.py::test_result_must_be_an_object
+
+                340 errors in 46.98s
+
+                '}}]
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []

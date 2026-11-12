@@ -17,6 +17,7 @@ from typing import Any
 
 from pydantic import JsonValue
 
+from .egress_budget import resolve_egress_budget
 from .platform_settings import TaskSettings, validate_task_execution_timeout
 from .resolve import ResolvedAgent, ResolvedMcpServer, ResolvedModel, ResolvedSkill, WorkspaceRef
 from .skill_invocation import validate_skill_argv
@@ -92,6 +93,9 @@ def build_task_snapshot(
         "prompt_template_version": TASK_PROMPT_TEMPLATE_VERSION,
         "budget": {
             **dict(agent.runtime_config.get("budget") or {}),
+            "egress_budget": resolve_egress_budget(
+                agent.runtime_config.get("egress_budget", {})
+            ).model_dump(mode="json"),
             "execution_timeout_sec": validate_task_execution_timeout(
                 execution_timeout_sec
                 if execution_timeout_sec is not None else TaskSettings().execution_timeout_sec

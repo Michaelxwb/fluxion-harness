@@ -252,6 +252,8 @@ class WorkerLoop:
                     settings_client=self._settings_client,
                 ),
                 workspace_store=workspace_store,
+                sessions=self._session_factory,
+                settings=self._settings,
             )
         return self._executor
 
@@ -348,7 +350,9 @@ class WorkerLoop:
         moment = now if now is not None else await self._pg_clock()
         cancelled = asyncio.Event()
         execution = asyncio.create_task(self._resolve_executor().execute(task))
-        heartbeat = asyncio.create_task(self._heartbeat(task.id, execution, cancelled))
+        heartbeat = asyncio.create_task(
+            self._heartbeat(task.id, execution, cancelled, lease_epoch=task.lease_epoch)
+        )
         try:
             await self._supervise(execution, heartbeat)
             if not execution.done():
@@ -476,6 +480,7 @@ class WorkerLoop:
                         "update_time": moment,
                     },
                     moment=moment,
+                    lease_epoch=task.lease_epoch,
                     require_not_cancelled=True,
                 )
                 if rowcount != 1:
@@ -666,6 +671,7 @@ class WorkerLoop:
                 "update_time": moment,
             },
             moment=moment,
+            lease_epoch=task.lease_epoch,
             require_not_cancelled=True,
         )
         if rowcount != 1:
@@ -721,6 +727,7 @@ class WorkerLoop:
         conditions = [
             TaskExecution.status == str(TaskStatus.RUNNING),
             TaskExecution.lease_owner == self._instance_id,
+            TaskExecution.lease_epoch == task.lease_epoch,
             TaskExecution.lease_until > moment,
         ]
         if require_not_cancelled:
@@ -747,12 +754,14 @@ class WorkerLoop:
         values: dict[str, Any],
         *,
         moment: datetime,
+        lease_epoch: int,
         require_not_cancelled: bool = False,
     ) -> int:
         conditions: list[Any] = [
             TaskExecution.id == task_id,
             TaskExecution.status == str(TaskStatus.RUNNING),
             TaskExecution.lease_owner == self._instance_id,
+            TaskExecution.lease_epoch == lease_epoch,
             # 租约失效即失约：即使还没被 reclaim，持有者也不能再写状态，
             # 否则一个卡住后恢复的 Worker 会用过期结果覆盖别人的执行。
             TaskExecution.lease_until > moment,
@@ -774,6 +783,7 @@ class WorkerLoop:
         task_id: uuid.UUID,
         execution: asyncio.Task[dict[str, Any]] | None = None,
         cancelled: asyncio.Event | None = None,
+        *, lease_epoch: int,
     ) -> None:
         """续租并检查取消标记。
 
@@ -791,7 +801,7 @@ class WorkerLoop:
             if not hinted and elapsed < self._settings.task_heartbeat_sec:
                 continue
             elapsed = 0
-            renewal = await self._renew_with_retry(task_id)
+            renewal = await self._renew_with_retry(task_id, lease_epoch=lease_epoch)
             if renewal is None:
                 # 有界重试也没拿到续租结论：**退出本任务**（异常交给 run_once 的监督者），
                 # 让「执行器脱离租约监控」这件事不可能发生。
@@ -807,7 +817,7 @@ class WorkerLoop:
                 execution.cancel()
                 return
 
-    async def _renew_with_retry(self, task_id: uuid.UUID) -> tuple[bool, bool] | None:
+    async def _renew_with_retry(self, task_id: uuid.UUID, *, lease_epoch: int) -> tuple[bool, bool] | None:
         """续租的有界重试：瞬时 DB 抖动不该杀掉一个跑了五分钟的 Skill。
 
         重试耗尽仍无结论时返回 None（调用方退出心跳）；`(False, _)` 是**确定的**失约，
@@ -815,7 +825,7 @@ class WorkerLoop:
         """
         for attempt in range(HEARTBEAT_RENEW_ATTEMPTS):
             try:
-                return await self._renew_lease(task_id)
+                return await self._renew_lease(task_id, lease_epoch=lease_epoch)
             except Exception:
                 logger.warning(
                     "worker_heartbeat_renew_failed",
@@ -826,7 +836,7 @@ class WorkerLoop:
                     await asyncio.sleep(HEARTBEAT_RENEW_RETRY_SEC)
         return None
 
-    async def _renew_lease(self, task_id: uuid.UUID) -> tuple[bool, bool]:
+    async def _renew_lease(self, task_id: uuid.UUID, *, lease_epoch: int) -> tuple[bool, bool]:
         """续租并回读取消标记，返回 `(仍持有 lease, 已请求取消)`。
 
         续租条件与终态 CAS 同口径：**当前租约必须仍然有效**（`lease_until > now`）。少了
@@ -843,6 +853,7 @@ class WorkerLoop:
                         TaskExecution.id == task_id,
                         TaskExecution.status == str(TaskStatus.RUNNING),
                         TaskExecution.lease_owner == self._instance_id,
+                        TaskExecution.lease_epoch == lease_epoch,
                         TaskExecution.lease_until > moment,
                         TaskExecution.is_deleted.is_(False),
                     )

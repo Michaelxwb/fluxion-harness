@@ -1649,6 +1649,103 @@ body {
   max-width: 860px;
 }
 
+/* 出站规则编辑器：规则是一个完整对象，字段分成两列，避免连续输入框挤成一条灰带。 */
+.egress-rules-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.egress-rules-help {
+  padding: 12px 14px;
+  border: 1px solid var(--semi-color-primary-light-default);
+  border-radius: var(--app-radius-sm);
+  background: var(--semi-color-primary-light-default);
+  color: var(--semi-color-text-1);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.egress-rule-card {
+  border-radius: var(--app-radius-sm);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 4%);
+}
+
+.egress-rule-card .semi-card-body {
+  padding: 18px 20px 20px;
+}
+
+.egress-rule-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--semi-color-fill-1);
+}
+
+.egress-rule-card-title {
+  color: var(--semi-color-text-0);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.egress-rule-card-subtitle {
+  margin-top: 4px;
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.egress-rule-card-actions,
+.egress-rule-enabled {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.egress-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+}
+
+.egress-rule-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 5px;
+}
+
+.egress-rule-label {
+  color: var(--semi-color-text-0);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.egress-rule-hint {
+  min-height: 18px;
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.egress-rule-field .semi-input-wrapper,
+.egress-rule-field .semi-select {
+  width: 100%;
+}
+
+.egress-rule-enabled {
+  justify-self: start;
+  align-self: end;
+  min-height: 32px;
+  color: var(--semi-color-text-1);
+  font-size: 13px;
+}
+
 .settings-conflict {
   margin-bottom: 12px;
 }
@@ -1713,6 +1810,14 @@ body {
 
   .settings-field-control {
     justify-self: start;
+  }
+
+  .egress-rule-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .egress-rule-card-header {
+    align-items: flex-start;
   }
 }
 

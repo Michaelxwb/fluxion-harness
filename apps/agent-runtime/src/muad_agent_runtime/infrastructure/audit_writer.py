@@ -10,6 +10,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from ..application.egress_spool import EgressAuditSpool
 from ..application.memory_observability import memory_audit_preview
 from ..infrastructure.db import SessionFactoryProvider, get_session_factory
 from ..infrastructure.models.runtime import (
@@ -70,6 +71,7 @@ class RuntimeAuditWriter:
         user_id: uuid.UUID,
         session_factory: SessionFactoryProvider | None = None,
         credential_canaries: tuple[str, ...] = (),
+        egress_spool: EgressAuditSpool | None = None,
     ) -> None:
         self._tenant_id = tenant_id
         self._run_id = run_id
@@ -78,6 +80,7 @@ class RuntimeAuditWriter:
         self._user_id = user_id
         self._session_factory = session_factory or get_session_factory
         self._credential_canaries = credential_canaries
+        self._egress_spool = egress_spool
 
     async def record_tool_call(
         self,
@@ -102,8 +105,12 @@ class RuntimeAuditWriter:
         不把唯一约束冲突升级成 Run 失败。
         """
         if tool_name == "remember":
-            args_preview_json = memory_audit_preview(args_preview_json, args_hash=prepared_args_hash,
-                status=status, canaries=self._credential_canaries)
+            args_preview_json = memory_audit_preview(
+                args_preview_json,
+                args_hash=prepared_args_hash,
+                status=status,
+                canaries=self._credential_canaries,
+            )
         inserted = await self._insert_tool_call(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
@@ -183,26 +190,61 @@ class RuntimeAuditWriter:
         result_status: str = "OK",
         latency_ms: int | None = None,
         error_code: str | None = None,
+        attempt_id: str | None = None,
+        phase: str = "completed",
     ) -> None:
-        async with self._session_factory()() as session:
-            session.add(
-                EgressAudit(
-                    tenant_id=self._tenant_id,
-                    run_id=self._run_id,
-                    task_id=self._task_id,
-                    user_id=self._user_id,
-                    target_type=target_type,
-                    target=target,
-                    operation=operation,
-                    method=method,
-                    policy_decision=policy_decision,
-                    status_code=status_code,
-                    result_status=result_status,
-                    latency_ms=latency_ms,
-                    error_code=error_code,
+        """Write one redacted egress phase; replay of the same attempt phase is ignored."""
+        attempt_id = attempt_id or uuid.uuid4().hex
+        try:
+            async with self._session_factory()() as session:
+                inserted = await session.scalar(
+                    pg_insert(EgressAudit)
+                    .values(
+                        tenant_id=self._tenant_id,
+                        run_id=self._run_id,
+                        task_id=self._task_id,
+                        user_id=self._user_id,
+                        target_type=target_type,
+                        target=target,
+                        operation=operation,
+                        method=method,
+                        policy_decision=policy_decision,
+                        status_code=status_code,
+                        result_status=result_status,
+                        latency_ms=latency_ms,
+                        error_code=error_code,
+                        attempt_id=attempt_id,
+                        phase=phase,
+                    )
+                    .on_conflict_do_nothing(index_elements=["tenant_id", "attempt_id", "phase"])
+                    .returning(EgressAudit.id)
                 )
-            )
-            await session.commit()
+                await session.commit()
+        except Exception:
+            if self._egress_spool is None:
+                raise
+            event = {
+                "tenant_id": self._tenant_id,
+                "run_id": str(self._run_id),
+                "task_id": str(self._task_id) if self._task_id else None,
+                "user_id": str(self._user_id),
+                "target_type": target_type,
+                "target": target,
+                "policy_decision": policy_decision,
+                "operation": operation,
+                "method": method,
+                "status_code": status_code,
+                "result_status": result_status,
+                "latency_ms": latency_ms,
+                "error_code": error_code,
+                "attempt_id": attempt_id,
+                "phase": phase,
+            }
+            if not self._egress_spool.append(event):
+                logger.error("egress_audit_spool_overflow", extra={"tenant_id": self._tenant_id})
+            return
+        if inserted is None:
+            logger.info("egress_audit_replay_skipped", extra={"attempt_id": attempt_id, "phase": phase})
 
     async def record_model_invocation(
         self,

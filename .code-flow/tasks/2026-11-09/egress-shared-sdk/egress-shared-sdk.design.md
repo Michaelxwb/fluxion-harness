@@ -1,0 +1,445 @@
+---
+design_template: full
+version: 0.1
+date: 2026-11-09
+status: design-review
+implementation_status: partially-implemented
+baseline: a089b9e0
+supersedes: ../../2026-11-06/egress-rate-sdk/egress-rate-sdk.design.md
+---
+
+# 共享出口管控 SDK 模块需求与设计一体化文档
+
+## 1. 文档控制
+
+### 1.1 责任人
+
+需求决策：Max；设计与实施：当前Code Flow任务执行者；验收：各TASK唯一owner。目前仅共享规则和可信身份契约及惰性装配已实现；Redis共享计量、接入和需求级验收仍未完成。具体状态以任务记录为准。
+
+### 1.2 修订历史
+
+| 版本 | 日期 | 变更 |
+|---|---|---|
+| 0.1 | 2026-11-09 | 继承更新5.7聊天确认，合并a089b9e0后重新设计共享SDK |
+
+来源：聊天01a1be2e-5bdb-7632-b3e8-2e1e2848dd11最后确认及本聊天CSRF澄清。替代旧进程内方案的“跨Pod不共享、恢复清零、计数故障放行”结论；旧目录及测试证据保留，不迁移为新验收。现场已有暂存改动属于旧任务，本计划不改动其暂存状态。
+
+## 2. 需求分析
+
+### 2.1 需求概述
+
+在既有Runtime/Worker内嵌SDK，使用现有Redis实现本组件已接入请求的跨Pod限制；外部APIProxy继续做整个平台保护。不得新增独立限流服务。
+
+### 2.2 痛点与价值
+
+进程内限额随Pod数量放大，旧requests逻辑请求hook遗漏redirect/retry；恢复重新生成invocation会绕过累计预算。目标是在不改旧Skill业务逻辑的前提下，让已声明支持的发送路径共享计量并可核查。用户规模与峰值尚未统计，不编造收益比例。
+
+### 2.3 功能方案
+
+| 功能ID | 功能名称 | 功能描述 | 优先级 | 来源 |
+|---|---|---|---|---|
+| FEAT-01 | 统一接入与配置 | 旧requests透明hook、宿主Adapter/MCP、可信目标和无规则旁路 | P0 | 用户需求及更新5.7确认 |
+| FEAT-02 | 共享接口频率 | 统一当前公共护栏、连续窗口、多规则原子判定 | P0 | 用户需求及更新5.7确认 |
+| FEAT-03 | 冻结累计预算 | 稳定execution/invocation身份，恢复不清零 | P0 | 用户需求及更新5.7确认 |
+| FEAT-04 | 共享并发租约 | 流式请求持有至关闭，有界deadline和fencing | P0 | 用户需求及更新5.7确认 |
+| FEAT-05 | Proxy结果透传 | 上游429、Retry-After、业务错误与本地拒绝分离 | P0 | 用户需求及更新5.7确认 |
+| FEAT-06 | 故障与执行监督 | 计量fail closed、累计耗尽停止进程组 | P0 | 用户需求及更新5.7确认 |
+| FEAT-07 | 监控与缺口 | 摘要7天、汇总90天、有界缓冲和gap可见 | P0 | 用户需求及更新5.7确认 |
+
+### 2.4 范围与边界
+
+本阶段：共享内核、requests接入、Runtime/Worker/Adapter/MCP接线、后端摘要与接口聚合。模型/入站API单独管理；SDK不是防恶意绕过的网络边界。无规则无隐含限额、无计量Redis访问；非法配置不当无限制。
+
+监控Console查询视图与预警界面需求保留，交由后续前端设计；本后端计划不以“无UI”宣称全部产品需求完成。公共规则首期受控配置发布，无Console CRUD。所有首次接入客户端应登记支持范围。
+
+### 2.5 验收条件
+
+#### 2.5.1 业务规则与约束
+
+| ID | 规则 | 验证场景 |
+|---|---|---|
+| RULE-SHARED-01 | 全部适用规则先检查后共同扣减，拒绝不部分扣 | S-01, S-02 |
+| RULE-SHARED-02 | 每次真实发送重新申请；已放行未发送保守计数，不返还 | S-05, B-02 |
+| RULE-SHARED-03 | 恢复不清累计；计量未知关闭受控准入 | S-03, E-01, B-05 |
+| RULE-SHARED-04 | 上游响应与认证语义保持，本地累计拒绝停止脚本 | E-02, E-03, S-04 |
+
+#### 2.5.2 功能验收场景
+
+场景定义见egress-shared-sdk.scenarios.md，验证状态以egress-shared-sdk.md的验收记录为准；当前仅B-06契约场景已验证，其他共享限流场景尚未验证。后端跨进程旅程使用integration，不伪装浏览器E2E。设计落点：S-01/S-02/B-01/B-04对应共享Lua；S-03/B-05对应恢复；S-04/B-02对应hook；S-05/E-03对应宿主；E-01/E-02/B-03对应故障与监督；E-04对应监控；B-06对应typed配置。
+
+#### 2.5.3 非功能指标
+
+| 指标ID | 目标 | 测量方式 | 场景 |
+|---|---|---|---|
+| NFR-01 | 未配置规则时零计量Redis调用 | 依赖调用计数 | B-06 |
+| NFR-02 | 不向脚本、快照、日志泄露Redis凭据和请求正文 | 真实脚本与日志安全断言 | S-04, E-04 |
+| NFR-03 | 明细7天、汇总90天；故障可见gap | 隔离PG维护测试 | E-04 |
+
+#### 2.5.4 验证环境假设
+
+| 维度 | 假设 | 验证方式 | 不满足时 |
+|---|---|---|---|
+| 容量 | 峰值未知；测试阈值50只是fixture | 发布前记录热slot延迟/内存与实际峰值 | 不声明容量验收 |
+| 硬件 | Linux CI支持bwrap与进程组；本机macOS不能替代 | Linux隔离runner preflight | env_blocked，owner=运行环境维护者 |
+| 依赖 | 独立PG、Redis Cluster及故障代理、真实HTTP | 测试启动清单与health check | env_blocked，禁止共用dev库 |
+| profile | Plan只收集；实施先定向；全量按CI缓存runbook | 保存收集/执行/复用来源 | incomplete不自动降级 |
+
+## 3. 技术设计
+
+### 3.1 方案选型
+
+选Python现有SDK+Redis原子脚本：保留既有部署关系，较远程限流服务少一个业务RPC层。拒绝文件锁/内存计数，因为无法跨Pod；拒绝把全部正确性外包APIProxy，因为其不能定义本组件每次执行预算。单原子域同slot是正确性取舍，不能用多slot pipeline冒充事务。
+
+以下是已核对muad-skill-http 0.3.0发布源码与旧包探针的评估；这些结果不证明新实现有效。参考代码未复制进仓库，也未将临时目录作为测试依赖。
+
+
+### 3.1 可以复用什么
+
+| 模块 | 发布源码的实际行为 | 复用方式 |
+|---|---|---|
+| `compat.py` | 在开启开关且有 Host 列表时 patch requests.Session.request | 保留透明启动和目标过滤思路，修改实际发送 hook 层级 |
+| `_http.py` | requests 薄封装，返回原 Response | 可保留习惯用法；薄封装与 hook 只能有一个计量点 |
+| `_normalize.py` | query/fragment 不入路径，数字/UUID/长十六进制段归成 `{id}` | 用于接口发现建议；硬规则使用明确注册的 route ID/模板 |
+| `_trace.py` | 摘要、top interface、本地 JSONL、执行间文件锁 | 保留事件字段思路；spool 是受控缓冲，计量内核重写 |
+| `_local.py` | Cookie → 本地调试 state | 仅开发辅助；与生产认证和限流解耦 |
+
+该发布包的 setuptools 配置只收集 Python package；“镜像的 .pth 启动 hook”由 README 描述，并不等于 `pip install` 后已自动完成运行镜像接线。必须实际检查镜像与启动参数。
+
+### 3.2 不能原样保留什么
+
+1. `_SharedCounter` 是 `fcntl` 锁文件，无法提供跨 Pod 的统一原子计量。异常时退回本地字典会破坏共享上限；新内核必须 fail closed。
+2. `Session.request` 包住整个逻辑请求，会漏记 requests 重定向及 urllib3 底层自动重试；只换存储不修发送边界仍然漏算。
+3. 普通 `requests.get` 经 compat 且 Host 命中时，`compat.py` 强制 UUID 覆盖 CSRF；但 `muad_skill_http.get(headers=...)` 经 internal_request 跳过该覆盖，可传固定值。同事的说法适用于后一入口。新限流层保留有效固定值或真实Cookie配对值，不负责生成认证值。
+4. `_trace.admit` 在拒绝第 N+1 次前已递增总数；新监控必须拆分 attempted/allowed/blocked，blocked 不应计作实际已发送。
+5. `os._exit(86)` 只退出当前进程，不证明父脚本、兄弟进程和在途请求被回收。脚本可捕获异常，父执行器停止信号必须独立可靠。
+6. burst 的 10 秒峰值统计不是任意连续 60 秒的拒绝策略；旧版没有分布式并发租约或多规则原子判定。
+7. 日志写入异常被吞掉，最多 500 条明细、无可靠请求唯一 ID，不能宣称完整逐请求监控。
+8. Host 白名单是 Pod 所有平台的并集，不是本次用户/Skill 获授权平台集合；host:port 也不一定唯一识别一个平台实例。
+
+### 3.3 已做的最小真实探针
+
+环境：未改动的 0.3.0 发布源码，requests 2.34.2、urllib3 2.8.0，本机 ThreadingHTTPServer。只验证旧 SDK 的这三种行为，不代表 Redis 新设计或生产平台认证已验证。
+
+| 探针 | HTTP 服务实际收到 | SDK admit 次数 | 结果 |
+|---|---:|---:|---|
+| 一次 GET 跟随一次同 Host 重定向 | 2 | 1 | 漏计重定向 |
+| 配置 urllib3 对 503 重试两次 | 3 | 1 | 漏计自动重试 |
+| 普通requests + compat显式CSRF | 1 | 1 | 被UUID覆盖；封装入口不适用此结论 |
+
+因此可以“在旧包基础上升级”，但改动集中在核心发送与计量职责，不能承诺只改几行。同步 requests/返回 Response 的表面尽量保留，正确性差的旧行为直接替换，不并行运行文件/Redis 两套计数。
+
+
+### 3.2 架构设计
+
+
+```text
+Pod A / Runtime 或 Worker                         Pod B / Runtime 或 Worker
+  Skill requests                                 Skill requests
+      ↓ 兼容 transport hook                          ↓ 兼容 transport hook
+  invocation 专属 Unix IPC                        invocation 专属 Unix IPC
+      ↓                                              ↓
+  宿主 Egress SDK ← PlatformAdapter/MCP          宿主 Egress SDK ← PlatformAdapter/MCP
+      └─────────────── Redis 共享状态 ────────────────┘
+                      检查成功返回 permit
+  原 HTTP 客户端发送 ───────── 外部 APIProxy ───────── 业务平台
+```
+
+SDK 嵌入既有 Runtime/Worker 进程；Unix IPC 是执行进程内部的本地接线，不新增 Deployment、远程服务或独立常驻代理。Redis 不转发请求。代码分层保持 packages → contracts/shared packages，不能从 package 反向 import app。
+
+Skill 兼容包只处理同步客户端协议、请求元数据和响应关闭；宿主内核掌握 Redis、规则、计数、可信身份及停止事件。MCP 和认证发送在宿主直接调用同一内核。无需把 Redis DSN、密码或任意 Lua 权限下发给脚本。
+
+##### invocation 私有 IPC 基础
+
+`InvocationEgressBroker` 嵌在宿主进程内，以每个 invocation 独立的 Unix socket 提供元数据准入与完成确认，不代理业务 HTTP，也不新增服务。目录权限 0700、socket 0600；宿主固定 TrustedInvocation，通过可信 resolver 将 method/origin/path 解析到 target/route，脚本不能传 tenant/run/execution/invocation ID、正文或凭据。origin 必须规范化且不含用户信息，path 不带 query；帧长、并发连接数与绝对执行 deadline 有界。新连接不能重置该 deadline，probe 仅检查 IPC 协议可达，不代表 Redis 或 hook 完整链路健康。
+
+宿主完成 admit/consume 后返回受控标记、attempt ID 与剩余执行时长，permit proof 与 Redis 配置留在宿主。仅同一连接的 done 确认触发并发释放；IPC EOF、超时或断连本身不证明业务 HTTP 已关闭，因此保留占用至安全到期。该基础必须配合后续 hook 的传输关闭与宿主 deadline/进程监督，当前单独原语不具备强制关闭脚本 HTTP 的能力。
+
+共享拒绝增加明确 scope（public/execution/invocation）；只有冻结执行或调用累计耗尽才标记 invocation exhausted，公共接口限额只拒绝当前调用，避免误停脚本。脚本环境仅获得专属 socket 路径。Host 路由、系统 site、逐跳计量与 Linux 沙箱探针已在 TASK-004 接通；正式 Runtime/Worker 装配与进程组监督归 TASK-006。
+
+##### requests 接管
+
+- 在受控镜像的系统 site-packages 安装启动 hook，适配项目实际 `-E -s -B` 启动方式，不依赖 PYTHONPATH 或用户 site。`-S`、自建解释器和独立虚拟环境不承诺覆盖。
+- hook 选择 `HTTPAdapter.send(PreparedRequest)` 一类实际 transport 边界，对每个重定向跳转重新授权和计量；`Session.send(prepared)` 也被覆盖。
+- 受控 adapter 禁用隐藏的 urllib3 自动重试，确有重试需求时由受控循环每次重新申请 permit。对脚本已定制的 adapter/retry 策略显式报不支持或接入专门适配，不能静默减少其原重试行为而不记录迁移影响。
+- `stream=True` 获取响应头后继续持有并发租约，EOF/close/read 异常/取消才完成；上层 helper 和 compat 不重复计数。
+- 重定向进入另一 Host/端口/协议时先重新判定授权。已受控请求跳到未获授权目标时拒绝，而非掉出白名单后悄悄直连；独立非业务请求仍按既有出网策略处理。
+- 保留 Cookie、Authorization、Host、CSRF、状态、headers、body、SSL verify 和超时语义。trace/request ID 采用项目现有契约，不生成假的 CSRF。
+
+当前新增 `RequestsEgressHook` 通过显式上下文安装在单个 invocation 进程，拦截标准 `Session.send` 与 `HTTPAdapter.send`：Session 层检查 adapter 覆盖，Adapter 层每次申请 IPC 准入，因而不在两层重复计数。仅接受标准 HTTPAdapter 且 total retry 为零，定制 adapter 或隐式重试明确拒绝，不静默改变其策略；业务显式重试每次重新申请。响应仍由 requests/urllib3 生成，保留其原始类型和 Cookie、认证、重定向、TLS/timeout 参数语义，不自行生成 CSRF；在原 raw response 上接入 read/stream/close 完成确认。读完或关闭后释放，完成确认故障只告警，不改写已收到的 Proxy 结果。Host 作为单独 authority 路由元数据交宿主校验，不传整组 headers，query 只留在实际请求中。
+
+系统 site 启动及失败阻断已通过受控 Linux 测试镜像验证；Runtime/Worker Dockerfile 已安装 `.pth`，但真实执行器还未激活该路径。独立非业务旁路及同步传输 deadline/断连监督已接通；正式执行器装配仍归 TASK-006，不能根据镜像内探针声称全平台已接入。SDK 无法保证其他兼容包主动改写认证值后仍保留调用前值，受控镜像需核查旧 compat 启动 hook 的冲突。
+
+系统启动采用 stdlib-only 顶层模块 `muad_egress_site`，无 `MUAD_EGRESS_SOCKET` 时不导入客户端或连接 IPC；该变量仅由宿主注入一次脚本进程，不是 Pod 级业务开关。镜像在包安装后执行 `python -m muad_egress_site --install` 将 `.pth` 安装到该解释器系统 site；Runtime/Worker Dockerfile 均加入该步骤。SDK 新增对其既有导入 `muad_api` 的显式依赖，保证独立 wheel 安装的依赖闭合。
+
+`.pth` 的成功不能只靠文件存在判断：`muad_egress_launch.py` 是可信只读文件启动器，验证 bootstrap 已成功连接并安装 hook 后才 runpy 执行业务脚本。Python 命令必须使用启动器的可信绝对路径，不能用可被 Skill 当前目录同名模块覆盖的 `-m` 入口；业务脚本目录恢复到 sys.path[0] 以兼容相邻模块，argv/stdin/stdout 沿用脚本语义。bootstrap 捕获启动错误后固定报告并以 SystemExit 阻断；`.pth` 缺失由启动器独立拒绝，因此不依赖 site.py 默认忽略导入错误的行为。真实 Runtime/Worker 选择该启动命令与挂载/env 注入归 TASK-006，未配置规则继续使用普通路径。
+
+S-04 使用锁定依赖构建的 Linux wheel 测试镜像与真实 bwrap，测试 `-E -s -B`、脚本无需调用 SDK、固定认证头、相邻模块、无 pycache、未携带 Redis/DB 凭据、隐藏 `.pth` 与断开 IPC 都不执行业务、未启用的请求不增加 Redis 计数。Docker Desktop 本地以 seccomp=unconfined 运行测试容器，只证明该受控环境，不推广为所有生产内核策略均已验证。构建入口 `scripts/build_egress_site_test_image.py` 从 uv.lock 导出依赖，第三方层与源码层分开缓存；没有新增限流部署服务。
+
+宿主 resolver 仅以显式 `UncontrolledTarget` 授权独立非业务旁路，此路径不访问 limiter Redis；未知目标仍拒绝。重定向链一旦受控不能降级旁路，嵌套 response hook 发起的独立请求不继承重定向标记。IPC 协议 v2 回传相对剩余时长，客户端以开始连接前的单调时钟保守确定 deadline；单一接收线程处理完成确认、宿主错误和断连，避免多个 reader 竞争。
+
+同步传输针对已验证的标准 urllib3 连接登记 socket 所有者，失去 IPC、执行到期或续租发现 Redis 代际变化时关闭该 attempt 的 socket；不得关闭后来复用连接的其他请求。原生 connect/read timeout 取调用者限制与执行剩余时间的较小值，较短的调用者 timeout 保留 requests 异常。HTTP/TLS 慢响应头、慢响应体均通过真实 socket 测试。系统 DNS 或阻塞解释器不能由 SDK 线程保证终止，仍须 TASK-006 父进程有界 deadline 与 killpg。未读完正文时依赖故障中断请求；正文已完成后仅 completion ACK 失败只告警，保留上游结果。
+
+##### Adapter 与 MCP 的物理发送接线
+
+`SharedHostTransport` 是宿主内的标准 HTTPX transport，接在实际网络发送层。宿主 resolver 将请求授权为 `HostRoute(target_instance_id, route_id)`；未知目标、userinfo 或非法 scheme 在 Redis 与网络发送前拒绝。每次 transport 调用进入既有 `SharedHTTPTransport`，因此 HTTPX 的重定向及显式认证/业务重试每次重新授权、申请并消费许可。底层物理客户端固定无隐式重试、无自动重定向、无 client auth 流，不另建计数器、不回退本地计数。
+
+一个宿主 pump task 持有完整流式生命周期，向外层 HTTPX 用容量有界的队列传递原始响应字节；不跨 task 迁移 timeout context。响应头可先返回，流未 EOF/close 前维持租约；调用者取消、关闭响应或关闭客户端会取消 pump、确认物理关闭并释放并发。整个 pump 受绝对请求 deadline 限制，背压不会延长 deadline。原始压缩字节保留供外层 HTTPX 按原语义解码，避免重复解码；status/headers/body 保留，response extensions 增加 `egress_source=UPSTREAM`。明确设置的响应字节上限属于传输读取约束，不是默认限流额度；未配置该上限时不添加此约束。
+
+MSSAdapter 通过 `transport_factory(SSLContext)` 为每次认证/校验客户端注入 transport，沿用其 TLS 校验与 Cookie/CSRF 逻辑；业务客户端由调用方注入同一共享计量配置。MCP 沿用已有 client/transport 注入点，initialize、notification、tools/call 分别经过物理发送，不增加运行时 tools/list 或更改冻结 Catalog。新 transport 不封装或调用旧进程内 BudgetController。Runtime/Worker 的实际身份、授权映射、transport 工厂装配及旧计量装配移除仍归 TASK-006，本任务的真实注入测试不代表生产路径已激活。
+
+##### 一次请求的协议
+
+1. 宿主基于发起连接绑定的可信 execution/invocation、当前租约与冻结授权，确认这次执行仍可运行。脚本上报的 tenant/run/task ID 不作权威。
+2. 解析实际发送 URL，校验 scheme/origin/Host 配置、有效端口及路径编码；由可信注册表映射 physical platform instance 和 route。MCP 用 server identity + rpc_method + 可选 tool。
+3. 宿主产生唯一 attempt_id，收集全部适用的公共接口规则与冻结执行规则。
+4. Lua 验证运行状态、当前策略 revision、计数 epoch，清理滑动窗口和过期租约；先检查全部桶，再一次提交全部增量。不足则所有桶不扣。
+5. 允许时创建有界 permit/lease，然后立即进入底层发送。跨进程取消/连接失败导致 permit 已扣但没发出时，保守计一次，不返还累计和窗口次数；监控将 allowed 与 observed send start 分开。
+6. 完成时按 attempt_id + lease token 幂等释放并发、发摘要；失败/超时/Proxy 429 仍消耗发送配额。响应原样交还调用者。
+
+Redis admit 的通信重试沿用相同 attempt_id，只用于查询同次预占是否已提交，不能再次扣费；客户端不允许把已有 permit 复用到第二次物理发送。Redis 无法确认时不发请求。预算协议幂等不代表业务请求 exactly once，外部副作用仍由业务幂等键负责。
+
+##### 宿主 HTTP 生命周期原语
+
+`SharedHTTPTransport` 是 SDK 内的单次 prepared HTTP 发送与流式作用域，不新增服务。调用方先完成目标授权、路由解析及认证准备，并使用无隐藏重试的可信 httpx client；认证握手与重定向由调用方逐次重新进入原语。`RequestLifetime` 固定端到端 deadline、关闭余量及续租间隔。初始 lease 覆盖 deadline 与关闭余量，续租只按固定 deadline 的剩余时长计算，不能为每次续租重置执行时间。
+
+准入或 consume 不确定时不进入 HTTP send；读取超时、续租失败及取消都先关闭已取得的 response，再释放完整 token 集合。关闭不能确认则保留占用；释放失败只记录安全告警并等待 lease 到期，不改写已经获得的外部 Proxy 结果。无规则不访问计量 Redis。异步取消依赖事件循环可运行，不能阻止吞取消或阻塞事件循环的代码；正式 Runtime/Worker 接线必须同时应用可信执行权和进程级监督，不能把原语测试当成全链路交付。
+
+#### 稳定身份与规则版本
+
+##### 稳定身份
+
+| 身份 | 用途 | 恢复原则 |
+|---|---|---|
+| protection_domain | 本 Fluxion 部署的计数与原子性域 | 所有 Pod 使用同一域；不是 Pod 名 |
+| target_instance_id | 实际被保护的平台实例 | 不使用用户凭据 ID；同一实例的多个租户配置应显式映射到同 ID |
+| route_id | method + 已注册 path 模板 | query 不建桶；版本发布保持 ID 稳定 |
+| execution_id | Run 或 Task 业务执行 | PG 冻结并恢复；同 Task attempt 不生成新 execution |
+| invocation_id | 一次逻辑脚本调用 | 实际 call/operation 在启动前持久化；子进程共享，重领同一次调用复用 |
+| segment_id / lease_epoch | 当前执行实例的执行段/防旧持有者 | 每次激活更新，用于 fencing；不用于重建累计桶 |
+| attempt_id | 一次获准底层发送 | 业务重试新 ID；Redis 协议重试用原 ID |
+
+同一 Run 重新明确调用一次脚本是新 invocation，执行总预算继续约束；崩溃恢复同一次调用不得伪造新 invocation。定时任务下一次 fire 是新 Task。不同 Child Task 默认独立累计，需要父任务预算时显式绑定 root scope，不能隐式扩大。
+
+##### 公共保护与冻结预算分开
+
+- 公共平台/接口的频率和并发是共享护栏，在每次 admission 上使用同一权威当前版本；旧 Run 也受它约束。否则旧 Run=100、新 Run=50 虽共用桶，仍按各自阈值判断，无法保证统一的 50。
+- Agent/Skill 的执行/脚本累计预算在 Run/Task 创建边界冻结，后续恢复沿用同份快照；公共规则是附加护栏，只能收紧允许集合，不能被 Skill override 覆盖。
+- 公共规则首期由运维通过受控的版本化配置发布，宿主向 Redis 发布一致 revision；不新增 Console CRUD 页面。是否扩展现有平台设置 DTO 在实现 Plan 明确，不把规则硬塞进认证 adapter_config。
+- stable rule ID 和计数 key 不含 policy revision；修改阈值不重置已用次数。Lua 直接读取有效公共规则；宿主旧 revision 在扣费前被拒并刷新，不能按旧缓存放行。
+- 降额只拒后续新请求，不回滚已完成请求；当前 inflight 高于新上限时等其自然收尾。窗口长度增加需要保留足够长历史；若既有数据不完整，先进入至少新窗口长度的保守阻断期，不能假装从零开始。
+- 新增规则时无法重建过去未计量的历史：文档和界面明确以生效时刻为起点，并对涉及严格滚动窗口的切换采取保守阻断。
+
+#### Redis 数据与原子性
+
+##### 首期采用一个原子域同 slot
+
+为了同时支持接口跨租户共享及 execution 跨平台总预算，所有可能共同命中的 key 首期用同一 protection_domain hash tag，例如：
+
+```text
+fx:egress:{prod-domain}:policy
+fx:egress:{prod-domain}:guard
+fx:egress:{prod-domain}:target:<instance>:<route>:window
+fx:egress:{prod-domain}:execution:<execution_id>:total
+fx:egress:{prod-domain}:invocation:<invocation_id>:total
+fx:egress:{prod-domain}:lease:<attempt_id>
+fx:egress:{prod-domain}:decision:<attempt_id>
+```
+
+示例不是固定部署值，环境/产品前缀按配置生成。一次 Lua 涉及的所有 key 显式传 KEYS，校验 hash tag；不靠按平台或租户分 slot 后再宣称跨 slot 原子。首期一个 slot 是有意的容量取舍，不承诺自动横向扩展；上线前以真实峰值压测该热 slot、Lua 时间及内存。用户未提供峰值，不编造吞吐或 SLO 数字。
+
+需要进一步分片时必须按完整原子域划分；跨域 Run 总预算要另行设计协调，不能在本版“顺便支持”。
+
+##### 算法
+
+- 累计：执行/invocation 的受信计数，拒绝不增，已 admit 不退。
+- 连续窗口：Sorted Set 存 Redis 服务端 TIME 与 attempt_id，清理 `timestamp <= now-window`，有效区间 `(now-window,now]`；正常工作下任意连续窗口至多允许阈值次数。Redis 时钟漂移仍需运维约束和回拨测试，不能宣称服务端时间天然等同单调时钟。
+- 并发：token 化租约及 expiry 集合；每次 admit 清理安全过期项，release 只能释放自身。租约时长覆盖宿主强制端到端 deadline 和清理余量，流式续租只能在仍持合法执行租约且远端连接未终止时进行。
+- 发送许可到期与并发租约到期分别保存。续租仅对已消费且未释放、未过期的许可开放，校验 epoch 和原始并发 key 集合；只延长并发占用，不延长发送许可，也不缩短已有占用。宿主负责限制续租不超过合法执行 deadline 并在失去执行权时关闭传输，不能仅凭 Redis 中的 consumed 标记认定执行仍合法。
+- Lua 先做类型/参数/状态完整校验再修改，避免脚本中途报错留下部分写；Redis Lua 的隔离执行不意味着运行时错误自动回滚。检测到错误可能已写入时按计数不确定处理。
+- 计数 key 的生命周期由执行是否允许恢复决定，不由日志 7 天 TTL 决定；Run/Task 仍可恢复时不得删除累计 key。终态后保留覆盖最大重放期和并发清理期，再由既有维护循环清理。
+
+##### 故障保证的边界
+
+正常跨 Pod 重建、Worker reclaim、WAIT/resume：Redis 状态完整时，继续原 cumulative key；不按 segment/attempt 重置。无规则请求完全旁路计量。
+
+连接失败、Lua 超时、ACL 拒绝、状态缺失或损坏：拒绝受控新请求，记录依赖错误；不当成本地次数耗尽、不自动重跑整个 Skill。访问计数与记录日志的失败策略分开：日志故障可以继续请求，计数故障不行。
+
+**Redis 不是业务事实源，但限流状态也不能当作可随意丢弃的缓存。** 应隔离 key 空间、禁用受控计数的淘汰、启用合适持久化，拒绝脚本删除/改写计数。累计状态缺失时查 PG 确认旧 execution 存在，仍不能自动初始化为零。
+
+Redis 官方明确异步复制在故障切换时可能丢失已确认写入，不能承诺“Redis-only 在任意数据丢失下绝不突破历史累计”。本版采用可用性换保护：状态丢失/主节点代际不确定时关闭受影响保护域，停止继续恢复这些旧执行；窗口等待完整窗口过去，并发等待有界请求结束，确认后才开启新执行。不能用不完整审计简单 SUM 后继续。
+
+若产品还要求“Redis 丢数据后旧执行也必须精确恢复累计且继续运行”，必须增加 PG 权威累计账本/同步扣减或选择更强持久一致后端。这是额外正确性要求，需要另行评审成本；不能只靠 SDK、TTL、AOF 或 WAIT 口头保证。上线前 failover/drill 必须证明计量状态代际变化能触发阻断，否则不得验收该故障保证。
+
+**并发上限**约束 Fluxion 本地仍在发送/等待响应的请求；客户端断连不证明平台任务已停止。远端后台任务占用/执行并发仍需要 APIProxy/平台自身治理，不把 lease TTL 当作远端取消确认。
+
+#### 可信身份和终止
+
+兼容包的连接绑定由宿主创建的一次性私有 socket/启动清单建立，socket 只映射到该 invocation；请求不能任意选择 tenant/platform/run/规则。即便环境变量被脚本改写，也不能改变宿主计量作用域。脚本无需读取 Redis 认证信息。
+
+累计拒绝时，宿主先将 invocation 标记 exhausted，拒绝其后续 admission，再通知执行监督；停止进程组并取消该 invocation 的 broker 请求/关闭传输，最后确认 lease 释放。已完成的业务操作保留。不能先等待 server 关闭所有连接，再取消慢 handler 而造成退出相互等待。
+
+窗口/并发拒绝只拒当前调用，带可计算的 retry_after_seconds（并发未知则为空），SDK 不自动 sleep、排队或业务重试。累计拒绝停止本次脚本；Run 可以组织已完成结果，Task 返回确定性预算错误不重试。Redis 故障、平台故障与用户取消分别显示来源。
+
+#### 监控与预警
+
+- request/attempt identity：一条 attempt 的允许、开始、完成用同一 ID，重试用新的 ID 并链接 logical_request_id/retry_of；聚合以事实阶段和 attempt ID 去重，不累计多次事件为多次请求。
+- 允许字段：平台/route/规则 ID、method、Run/Task/invocation/segment、开始时间、耗时、允许/拒绝、结果、状态、重试关系、依赖错误和策略版本。正文、完整 query、Cookie/Authorization、响应体不写明细；展示 upstream reason 时只白名单提取安全错误码。
+- 限制检查指标与业务统计分离。Redis 窗口 key 随清理消失，不能拿它直接作为 90 天历史；top 10 或 500 条 detail cap 也不能代表全量。
+- 明细保留 7 天、汇总 90 天；复用现有审计/维护链路，需新增字段/索引时按 Owner 与 schema parity 评审，不为限流创建独立监控微服务。
+- 日志链路故障：有界 spool + 异步重放；超过缓冲产生明确 gap 区间、丢失数和告警，不静默吞错。控制器准入不依赖明细写库成功。
+- 接口请求量、允许/拒绝、上游429、错误/超时、P95/均值、重试、inflight、脚本中止和计量依赖健康可按接口查看；业务 ID 不放 Prometheus 高基数 label。
+- 阈值预警只告警、不扣额、不改变请求；限制达到才拒绝。界面显示监控覆盖范围、更新时间及缺口。APIProxy 指标仅补充其他系统流量，未接入不影响 Fluxion 自身预警。
+
+
+##### 发送所有权与 fencing 的边界
+Skill requests 保持在脚本进程发送，IPC只交换准入、send-start、完成和心跳元数据，宿主不代理业务正文。对累计耗尽，宿主终止整个受控进程组；hook在进程内关闭响应。这里“取消broker请求”仅指取消IPC handler，不能将其描述为宿主已代理并取消所有HTTP。宿主直接发出的Adapter/MCP请求由宿主取消。
+
+旧Worker持有者在新fence启用后不能再申请许可；已经放行但尚未开始的客户端发送与fence切换不能跨Redis/网络事务做到完全原子。许可有效期需短于执行租约剩余安全期，发送前校验本地取消状态；已计数许可不退。新持有者必须先确认旧执行段终止或等其有界deadline结束，再建立互斥执行段；无法确认时阻断恢复。不能宣称Redis fencing能撤回已经发向平台的请求。
+
+##### 执行段原子约束与生产装配状态
+
+已新增 `SegmentGrant` 和 `FencedRedisMeter`，供可信宿主在已完成 PG/来源租约认证后绑定 execution、单调 fence 和 segment ID。这个值对象不认证调用者，`activate` 也不获取 Run/Task 执行权；尚不能直接从脚本参数或 Task.attempt 构造生产 grant。
+
+绑定后的准入、consume、renew 都将执行段检查与原计量 Lua 包在同一次 EVAL 中，完整声明额外同 slot keys；没有“先查 fence、再发另一次计数命令”的竞态。permit 在决策记录中绑定原执行段，新持有者也不能通过自己的客户端消费/续租旧 permit。release 仍允许旧发送方在确认关闭后清理自身 token，不把失权等同于已关闭 HTTP。
+
+执行段记录保留 fence、segment、租约截止和安全接管时间；scope 与 scope-index 同时保存段记录标记。记录丢失或标记不一致时拒绝恢复，不自动初始化。相同 fence 只允许同段在到期前续租，不能复活过期/已停止段；更高 fence 必须等旧段安全截止，或等待旧宿主确认进程组和宿主 HTTP 均停止后才能接管。时钟回拨拒绝改变执行权。不能据此承诺所有 Redis 历史丢失后精确恢复；仍受故障代际与 PG 恢复协议约束。
+
+生产接线及执行段监督：
+
+1. 已新增 PGSegmentAuthority 与 Run/Task 各自的来源读取器：同一事务先锁来源行，再锁 egress execution，最后取新鲜 PG 时钟；核对 tenant/source、RUNNING、lease_owner、独立代次、取消/软删除、lease_until 与业务 deadline，验证 READY 身份及冻结预算完整性后推进 current_fence。Runtime 与 Worker 的受控执行入口在启动和续期时调用该授权。
+2. Runtime 使用已有 execution_epoch；Worker 已新增 Task lease_epoch（0045 迁移），每次领取均递增，续租、WAITING/重试转换及受控终态 CAS 绑定捕获的代次。WAITING 续接不增加 attempt。先执行迁移再启动新 Worker，不以忽略代次的旧二进制证明 fencing 正确。
+3. 已新增 SourceSegmentSupervisor 组件：启动和每次续期先重新取得 PG 来源授权，再续 Redis 段；旧安全截止同时约束授权等待与 Redis 延迟。工作完成时再次检查本地截止，事件循环延迟不能产生过期成功。失权、续期超时或调用取消时先取消工作并执行宿主关闭回执；工作和关闭回执均确认结束后才 confirm_stopped。取消不合作或关闭不确定时有界返回失败，Redis 段保持保守占用，不提前允许接管；停止回执写 Redis 失败明确告警，不改写已确认关闭的原业务结果。停止余量须覆盖真实 runner 与 HTTP 关闭上限，由装配方提供，不能仅取消 IPC handler 后宣称业务连接已关闭。Runtime 与 Worker 的受控执行入口使用该组件监督整个执行作用域。
+4. Core 已接入系统 site/可信绝对 launcher、只读私有 IPC 挂载和独立预算停止信号；拒绝共享 broker 与旧本地 scope 同时注入。受控非 Python 脚本在业务启动前明确拒绝。Linux 实测覆盖忽略 SIGTERM 的孙进程、吞掉 SDK 异常的父脚本、慢 HTTP 关闭及无 hook 不启动业务。Runtime/Worker 已接入稳定 tool_call_id/Task 调用路径、冻结累计预算转换、当前公共规则和目标授权解析，受控执行不装配旧进程内 BudgetController。仅冻结累计预算而公共规则为空时也必须启用；全部无规则才完全旁路。
+
+PG 授权返回 AuthorizedSegment：segment ID 在同一来源 owner/epoch 内确定，领取代次变化则改变；execution/invocation 的 PG UUID 不变。有效窗口取来源租约与业务 deadline 的较早值，再以事务开始前的本地 monotonic 时间保守换算；锁等待或提交延迟不延长有效期，到期显式失败。来源读取器只加载执行权所需列，不加载任务输入、快照或凭据；PG 慢路径不逐请求扣数，也不在事务内调用 Redis。
+
+真实 PG/Redis、Runtime AgentRunnerExecutor、Worker SkillTaskExecutor 和 Linux bwrap 探针覆盖恢复后的累计额度及超限时进程组与慢连接关闭。Run 恢复测试通过修改真实 PG 持有者和代次模拟接管，Worker 经 TaskClaimer 重新领取；这不代表跨 Pod 故障演练或完整生产发布验证。
+
+##### Redis时钟与故障代际
+共享内核现在在同一 Lua 执行中读取 `INFO server` 的 `run_id`，Cluster 模式再读取 `CLUSTER INFO` 的 `cluster_my_epoch`，组合为守卫的 `server_generation`。首次受控初始化策略时固定该值；后续发布、准入、消费、续租和作用域恢复都必须匹配，缺失、无权读取、集群状态非就绪或发生变化即拒绝。相同 revision 的普通发布也不允许重新学习代际。这样消除客户端先查拓扑再准入的两条命令竞态；受控切换以及原进程强制切回已有 Redis 7 本地演练，不代表所有托管 Redis 部署已验收。SDK Redis ACL 需允许脚本读取 `INFO server`，Cluster 另需 `CLUSTER INFO`；权限不足时关闭受控调用，不退回旧检测方式。该检查每次随 Lua 执行，不新增服务，其额外成本仍待容量验证。
+
+这是计量服务器代际检测，不能检测相同进程、相同代际内的任意历史篡改/回滚，不能撤回已经外发的业务请求，也不替代 PG 权威身份或合法执行 fencing。重新开放受影响域必须由受控恢复流程处理，不通过自动覆盖 generation 或清空累计进行恢复。
+
+窗口使用Redis TIME并保存域级last_seen_time；检测到回拨时关闭准入，等待运维恢复而非提前清空窗口。epoch由受控发布/故障恢复流程变更，SDK不能仅靠Redis内一个可回滚key自动检测全部历史丢失。Cluster角色/主节点身份变化与守卫续期检查属于上线必需接线；存在检测间隙，Redis-only不能承诺异步故障切换零丢失写入。故障演练不能证明的保证保持未验收。
+
+### 3.3 数据设计
+
+宿主装配配置入口为 `SharedSettings.egress_control_file` 指向的受控 JSON 文件：只承载保护域/epoch、公共控制启用标记、HTTP origin/模板到稳定平台实例/route 的映射，以及发送/关闭/来源续期时限；不承载凭据或 Run/Task 自身预算，也不复制 Redis 的当前公共阈值。公共控制标记属于部署级启用边界，不能从 Agent/Skill 冻结快照推导；首次启用/停用未受控链路按本设计排空后切换，已受控链路的公共规则阈值更新直接读取 Redis 当前 revision。初始无公共控制且冻结预算为空时不构造 PG/Redis 计量后端。配置了冻结限制却缺装配配置时明确报错，不退回本地控制器。
+
+冻结预算模型归 contracts 所有，PG 注册层只引用同一模型。`freeze_egress_identity_budgets` 转换现有有效快照的执行总额、Skill 默认与显式覆盖；当前仅转换累计总额，冻结窗口/并发和未完成授权映射的目标模板仍显式拒绝，后续完善前不得静默丢弃或转为无限制。`create_shared_metering` 与宿主装配都检查公共模式和冻结预算，避免“公共规则为空”误禁用单独的累计预算。配置解析和模板匹配不是网络安全边界；未知受控目标明确拒绝，路径模板同优先级歧义在加载时拒绝，具体路径优先于占位路径，Host authority 改写须与已配置 origin 一致。
+
+execution预算继续由Task snapshot的budget和Run policy_json冻结；execution_timeout_sec保留当前合并主线契约。公共规则由独立运维配置所有者持有，不从Agent/Skill snapshot读取，不属于用户配置覆盖；若扩展规范，应描述这一边界而不改变既有冻结含义。
+
+身份使用现有Run/Task ID与持久化逻辑调用键。新增runtime.egress_execution与runtime.egress_invocation注册表作为明确恢复协议，不在Redis缺key时盲建计数；PG不保存高频逐请求扣减。执行身份注册先提交，再启动脚本，状态转换CAS；PG与Redis非分布式事务，任何初始化不确定都阻断旧执行，首次初始化用显式一次性注册token与幂等确认。
+
+| 表 | 字段/约束 | 索引/用途 |
+|---|---|---|
+| runtime.egress_execution | id UUID PK；tenant_id UUID；source_kind RUN/TASK；source_id UUID逻辑引用；policy_json jsonb无密钥；policy_hash；state；current_fence bigint；计数epoch；init_token_hash（可空，初始化阶段填写）；is_deleted；create_time/update_time timestamptz | 完整UNIQUE(tenant_id,source_kind,source_id)含tombstone；终态清理索引(state,update_time) |
+| runtime.egress_invocation | id UUID PK；tenant_id UUID；execution_id UUID FK；operation_key text；skill_key text；state；init_token_hash（可空，初始化阶段填写）；is_deleted；create_time/update_time timestamptz | 完整UNIQUE(execution_id,operation_key)；复合FK(tenant_id,execution_id)引用execution的对应唯一键，避免跨租户归属 |
+
+身份 ORM 定义放在 platform-sdk 的独立 `egress_identity_models` 模块，Runtime/Worker 都可依赖，避免 SDK 反向引用 app。表仍归 runtime schema，SDK 的高频计量模块不导入这些模型。迁移使用独立 DDL，SQLAlchemy 作为 SDK 的显式依赖；本阶段仅建立注册表，不为每个请求写 PG。状态枚举为 NEW/INITIALIZING/READY/BLOCKED/TERMINAL；注册表允许保留软删除历史，完整唯一约束不排除 tombstone。业务恢复必须拒绝软删除或终态记录，不能仅凭 FK 存在认定可执行。
+
+`IdentityRegistry` 使用 PG 事务内 INSERT ON CONFLICT + tenant-scoped 行锁登记身份；同 source/operation_key 保持 ID，tombstone/终态拒绝重建。冻结配置由严格类型的 `FrozenIdentityBudgets` 序列化，包含执行总额和按 Skill key 的调用预算，持久保存 canonical JSON 哈希；恢复配置不符或校验失败则拒绝。映射没有对应 Skill 时不自动添加调用上限，Skill 授权由调用者验证；全部无限制的产品路径仍应由惰性装配旁路该协议。
+
+`PersistentEgressScopes` 的初始化顺序为：提交 NEW 身份 → PG 行锁领取 NEW→INITIALIZING 并仅存 token 哈希 → 调用 Redis register → PG 按 tenant/id/state/token 哈希 CAS 为 READY。原始 token 只在 repr 隐藏的内存 claim 中存在。确认时重查父执行和 fence，旧 fence 不得确认新执行段；本模块不授予执行权，完整 lease/fence 的领取和执行中验证仍归 TASK-006。READY 只走 Redis resume(existing-only)，不走 register；INITIALIZING/失败确认不会自动创建。网络不确定或取消时尽力置 BLOCKED，若 PG 也不可用则保留 INITIALIZING 并告警，仍然关闭恢复。PG 不在高频请求路径逐次扣数。
+
+source_id 是跨 Run/Task 清理保留的来源逻辑引用，不随源记录清理删除注册事实。PG 和 Redis 无分布式事务；若已写 Redis 但确认中断，宁可拒绝旧执行也不重建零额度。本模块是可信宿主内的身份协议，不认证脚本自报 ID，也不能撤回已外发请求。
+
+operation_key来源于持久化tool_call_id或Task逻辑调用路径；重领复用，显式新调用另建。原始随机token不入快照或日志。task跨Owner Schema为逻辑引用；SQLAlchemy模型、迁移、baseline与schema parity同步。
+
+Runtime 已将逻辑调用键与输出目录分离：工具调用用完整持久化 call_id，Task 单次脚本用稳定 Task UUID，经 contracts 的 `egress_operation_key` 按来源类型做确定性 JSON 编码；不是 PID、attempt、lease_epoch 或清洗/截断后的目录名，不要求调用方生成 UUID。编码保留分隔符、Unicode 与控制字符的区别，实际 PG text 不含 NUL。Runtime 输出目录另由完整 Run/call 身份的确定性 UUID 派生，保持路径安全与恢复稳定，修复旧截断算法把不同调用合并的问题。根调用路径已传递这个独立逻辑键；PG invocation 的实际登记与恢复仍须由后续共享装配使用，不把单独的键传递测试当作 S-03 恢复证据。
+
+后端审计字段在TASK-007沿现有运行审计所有者追加；逐attempt摘要使用(tenant_id,attempt_id)唯一键和时序索引，聚合用(target_instance_id,route_id,bucket_start)键并包含tenant可见域。跨租户物理平台聚合仅向具备全域权限的运维显示，普通租户不透出其他租户明细。具体审计表复用点必须在该TASK start核对当前模型，不能在未读表结构时虚构完成DDL。
+
+### 3.4 接口设计
+
+采用内部函数库接口，无新增远程HTTP限流API。
+
+| 接口ID | 类型化接口 | 返回与错误 | 功能 |
+|---|---|---|---|
+| API-01 | resolve_policy(raw: object) -> SharedEgressPolicy | 非法字段/阈值直接配置错误；空配置显式disabled | FEAT-01, FEAT-02, FEAT-03 |
+| API-02 | admit(identity: TrustedInvocation, request: AttemptDescriptor) -> Permit | permit含attempt_id/token/fence/valid_until；拒绝含scope/rule/kind/retry_after | FEAT-02, FEAT-03, FEAT-04, FEAT-06 |
+| API-03 | finish(permit: Permit, outcome: SafeOutcome) -> None | 自身token幂等释放；不可返还累计或窗口；失败显式告警 | FEAT-04, FEAT-05, FEAT-07 |
+| API-04 | bind_invocation(execution: ExecutionRef, operation_key: str) -> TrustedInvocation | PG持久注册与fence；不接受脚本自报业务身份 | FEAT-01, FEAT-03, FEAT-06 |
+| API-05 | emit(event: SafeAttemptEvent) -> RecordStatus | 返回recorded/buffered/gap，日志故障不阻塞准入 | FEAT-07 |
+
+LocalRateLimitError保留本地来源，TOTAL只停对应invocation（Run总额不足则阻断该Run其余调用）；WINDOW/INFLIGHT只拒当前调用。MeteringUnavailable区分依赖未知，不标为上游错误或可自动重试脚本。IPC消息仅准入/完成元数据，固定schema、长度限制、peer隔离、deadline与关闭协议，严禁正文和凭据。
+
+### 3.5 质量实现方案
+
+高频路径一次admit Lua完成多桶判定，完成另一次幂等release；不每请求写PG身份账本。滑窗清理按过期member，脚本输入与每次处理量受配置上限保护，超过安全工作量时关闭准入而非阻塞Redis。日志异步批量落库；Prometheus不含run/invocation等高基数label。性能数据待真实压测。
+
+无秘密进入脚本或snapshot；统一logging-kit与白名单SafeAttemptEvent。attempted/allowed/send-start/completed/blocked分别记录，不拿allowed冒充实际发送；SDK无法跨网络事务保证精确发送事实，已准入未发送保守占额。重复事件按attempt+phase去重。摘要不采集header/query/body。NFR-01由B-06，NFR-02由S-04/E-04，NFR-03由E-04验证。
+
+## 4. 部署与运维
+
+### 4.1 部署架构
+
+无新Deployment。Runtime/Worker镜像安装hook，沙箱挂载单invocation私有Unix socket。Redis隔离namespace和ACL，禁计数淘汰；所有Pod使用同protection_domain。Cluster同slot限制及故障接线须做真实测试。
+
+### 4.2 发布与回滚
+
+先通过新门禁和Linux/Cluster演练，再部署一致协议版本；禁止新旧计数内核混用同域。切换时停止领取新任务，排空旧执行后建立新域/规则；旧执行不得带空桶恢复。回滚需同样排空或阻断，不能悄悄降为内存限流。无策略路径保持原业务发送。
+
+### 4.3 监控告警
+
+计量依赖不可用、epoch不确定、脚本中止、spool溢出必须告警。摘要7天/汇总90天由既有维护循环清理；保留期不决定累计桶寿命。Console视图与阈值预警交互另立前端设计，当前后端接口不能替代产品视图验收。
+
+### 4.4 数据迁移
+
+TASK-006提供注册表模型/迁移/schema parity；TASK-007补审计字段与汇总迁移。先迁移再启用，不双写旧错误设计。既存无稳定身份的运行先排空，不猜测历史计数。
+
+## 5. 风险与依赖
+
+| 风险ID | 失效模式 | 措施 | 验证场景 |
+|---|---|---|---|
+| RISK-01 | Redis异步故障切换丢已确认计数 | 显式故障代际守卫；不能检测则不验收该保证，严禁声称Redis-only无损恢复 | E-01, B-05 |
+| RISK-02 | 系统site hook未加载/自定义adapter绕开 | 镜像启动自检、支持矩阵与真实发送探针 | S-04, B-02, B-06 |
+| RISK-03 | stream/旧执行段泄漏并发 | deadline、进程组监督、幂等lease释放 | E-02, B-03 |
+| RISK-04 | 规则降额/加窗清空历史 | 稳定key、当前revision、历史不足保守阻断 | B-04 |
+| RISK-05 | 身份或日志清理让恢复获得新额度 | PG持久身份、累计独立生命周期、缺状态阻断 | S-03, B-05 |
+| RISK-06 | 全域单slot热点 | 发布前压测；现阶段不承诺吞吐能力 | S-01 |
+
+## 6. 需求追溯矩阵
+
+> 由 `cf_traceability.py` 从 design §2.5 + manifest 生成，不手工维护。
+>
+> 场景 15 / 绑定 check 15 / aspirational 0 / 未绑定 0 / 缺失 0
+
+| 场景ID | 优先级 | 测试层级 | 执行方式 | 环境 | 输入 | 追溯 check | 执行命令 | 负责任务 | 状态 |
+|--------|--------|---------|---------|------|------|-----------|---------|---------|------|
+| S-01 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-796b96d5c4c0 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_01"] | TASK-002 | planned |
+| S-02 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-3d00dd1c331b | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_02"] | TASK-009 | planned |
+| S-03 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-a52e49c30468 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"] | TASK-006 | planned |
+| S-04 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-9009bcf64f74 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_04"] | TASK-004 | planned |
+| S-05 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-6cd04b635f20 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_05"] | TASK-005 | planned |
+| E-01 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-bc23640890b2 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_01"] | TASK-003 | planned |
+| E-02 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-d1c20b8574a7 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"] | TASK-006 | planned |
+| E-03 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-d3fb02c37f45 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_03"] | TASK-005 | planned |
+| E-04 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-40d03deca068 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_04"] | TASK-007 | planned |
+| B-01 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-b906d0200e02 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_01"] | TASK-002 | planned |
+| B-02 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-717825543759 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_02"] | TASK-004 | planned |
+| B-03 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-eca57f9dd900 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_03"] | TASK-003 | planned |
+| B-04 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-afd9f5788584 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_04"] | TASK-002 | planned |
+| B-05 | P0 | integration | auto | ci | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-59e70cf85f88 | ["uv", "run", "pytest", "-q", ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_b_05"] | TASK-003 | planned |
+| B-06 | P0 | contract | auto | none | packages/**, apps/agent-runtime/**, apps/agent-worker/**, migrations/** | CHK-51c11c9f1c84 | ["uv", "run", "pytest", "-q", "tests/contracts/test_shared_egress.py"] | TASK-001 | verified |
+
+## Spec Compliance Matrix
+
+| Spec/Rule | enforcement | 设计影响 | 设计落点 | 验证场景 | 状态/N/A 理由 |
+|---|---|---|---|---|---|
+| harness-arch#RULE-arch-001 | required | SDK嵌入既有服务，不增部署单元 | §3.2 架构设计 / RULE-arch-001 | S-01；对应任务执行真实verifier | applied（设计映射，非实现验证） |
+| harness-data#RULE-data-001 | required | 同ownerFK、跨owner逻辑UUID、迁移与模型同构 | §3.3 数据设计 / RULE-data-001 | S-03, E-04；对应任务执行真实verifier | applied（设计映射，非实现验证） |
+| harness-log#RULE-log-001 | required | 统一logging-kit、白名单摘要与缺口告警 | §3.5 质量实现方案 / RULE-log-001 | E-04；对应任务执行真实verifier | applied（设计映射，非实现验证） |
+| harness-mcp#RULE-mcp-001 | required | 冻结catalog，initialize/notification/tool逐次POST | §3.2 架构设计 / RULE-mcp-001 | S-05；对应任务执行真实verifier | applied（设计映射，非实现验证） |
+| harness-project-platform#RULE-platform-001 | required | 认证归Adapter，保留有效CSRF与Session | §3.1 方案选型 / RULE-platform-001 | S-05；对应任务执行真实verifier | applied（设计映射，非实现验证） |
+| harness-secret#RULE-secret-001 | required | 脚本无Redis凭据，快照与日志无秘密 | §3.5 质量实现方案 / RULE-secret-001 | S-04, E-04；对应任务执行真实verifier | applied（设计映射，非实现验证） |
+| harness-skill#RULE-skill-001 | required | READY本地缓存与argv保持，进程组监督 | §3.2 架构设计 / RULE-skill-001 | E-02；对应任务执行真实verifier | applied（设计映射，非实现验证） |
+| harness-snapshot#RULE-snapshot-001 | required | 累计与超时冻结；公共护栏独立且不写快照 | §3.3 数据设计 / RULE-snapshot-001 | S-03, B-04；对应任务执行真实verifier | applied（设计映射，非实现验证） |
+| harness-test#RULE-test-001 | required | 真实PG/Redis/HTTP/进程边界；独立验收环境 | §2.5 验收条件 / RULE-test-001 | S-01, S-03, E-02；对应任务执行真实verifier | applied（设计映射，非实现验证） |
+| harness-time#RULE-time-001 | required | PG timestamptz；Redis时间回拨明确阻断 | §3.3 数据设计 / RULE-time-001 | B-01；对应任务执行真实verifier | applied（设计映射，非实现验证） |
+| harness-worker#RULE-worker-001 | required | PG权威任务lease与CAS；Redis只管理限流状态 | §3.3 数据设计 / RULE-worker-001 | S-03, E-02；对应任务执行真实verifier | applied（设计映射，非实现验证） |
+
+## 附录：术语表
+
+execution为Run/Task；invocation为一次逻辑脚本调用；segment为一次持有执行段；attempt为一次发送准入；permit不等于业务exactly-once。

@@ -92,13 +92,17 @@ def _scheduler_diagnosis(live_stack: LiveStack, schedule_id: str) -> str:
         row = repr(_schedule_row(live_stack, schedule_id))
     except Exception as exc:  # noqa: BLE001 - 诊断路径不得掩盖原始失败
         row = f"<读取失败: {exc}>"
-    log_path = live_stack.processes["worker"].log_path if "worker" in live_stack.processes else None
-    tail = "(无 worker 日志)" if log_path is None or not log_path.is_file() else (
-        log_path.read_text(errors="replace")[-2000:]
-    )
+    logs = []
+    for name in ("worker-1", "worker-2"):
+        process = live_stack.processes.get(name)
+        log_path = process.log_path if process is not None else None
+        tail = "(无日志)" if log_path is None or not log_path.is_file() else (
+            log_path.read_text(errors="replace")[-4000:]
+        )
+        logs.append(f"--- {name} log tail ---\n{tail}")
     return (
         f"schedule={schedule_id} tenant={live_stack.tenant_id} row={row}\n"
-        f"--- worker log tail ---\n{tail}"
+        + "\n".join(logs)
     )
 
 
@@ -114,6 +118,14 @@ def _wait_task(live_stack: LiveStack, schedule_id: str, timeout_sec: float = 60.
             "Scheduler 必须在到期后创建 Task；" + _scheduler_diagnosis(live_stack, schedule_id)
         )
     return tasks[0]
+
+
+def test_scheduler_diagnosis_includes_both_worker_logs(live_stack: LiveStack) -> None:
+    diagnosis = _scheduler_diagnosis(live_stack, str(uuid.uuid4()))
+    for name in ("worker-1", "worker-2"):
+        assert live_stack.processes[name].log_path.is_file()
+        assert f"--- {name} log tail ---\n(无日志)" not in diagnosis
+        assert f"--- {name} log tail ---" in diagnosis
 
 
 def test_s02_cron_fire_creates_single_task_with_current_artifact(

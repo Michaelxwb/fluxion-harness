@@ -6,10 +6,12 @@ import json
 import ssl
 import time
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from ..platform_transport import PlatformBudgetScope
 from ..types import (
     PlatformConfig,
     PlatformRequest,
@@ -35,11 +37,27 @@ MAX_ERROR_DETAIL_CHARS = 512
 
 
 async def send(
-    client: httpx.AsyncClient, method: str, url: str, headers: dict[str, str], body: str | None = None
+    client: httpx.AsyncClient, method: str, url: str, headers: dict[str, str], body: str | None = None,
+    *, platform_key: str = "", budget: PlatformBudgetScope | None = None,
+) -> httpx.Response:
+    if budget is None or budget.controller is None:
+        return await _send(client, method, url, headers, body)
+    async with budget.attempt(platform_key, method, url) as lease:
+        response = await _send(client, method, url, headers, body)
+        if lease is not None:
+            if response.status_code == 429:
+                lease.outcome = "proxy_rate_limited"
+            elif response.is_error:
+                lease.outcome = "error"
+        return response
+
+
+async def _send(
+    client: httpx.AsyncClient, method: str, url: str, headers: dict[str, str], body: str | None,
 ) -> httpx.Response:
     try:
         async with client.stream(
-            method, url, headers=headers, content=body if body is not None else b""
+            method, url, headers=headers, content=body if body is not None else b"", follow_redirects=False
         ) as response:
             content = bytearray()
             async for chunk in response.aiter_bytes():
@@ -192,10 +210,24 @@ class MSSAdapter:
     platform_config_schema = MSSSettings.model_json_schema()
     credential_schema = MSSCredential.model_json_schema()
 
+    def __init__(
+        self, *, budget: PlatformBudgetScope | None = None,
+        transport_factory: Callable[[ssl.SSLContext], httpx.AsyncBaseTransport] | None = None,
+    ) -> None:
+        # Fixed execution context, never a mutable current-user field on a global Adapter.
+        self._budget = budget
+        self._transport_factory = transport_factory
+
+    async def _send(self, platform: PlatformConfig, client: httpx.AsyncClient, method: str,
+                    url: str, headers: dict[str, str], body: str | None = None) -> httpx.Response:
+        return await send(client, method, url, headers, body,
+                          platform_key=platform.key, budget=self._budget)
+
     def _client(self, config: MSSSettings) -> httpx.AsyncClient:
         context = ssl.create_default_context(cafile=config.ca_bundle or None)
         return httpx.AsyncClient(
-            verify=context, timeout=config.timeout_seconds, follow_redirects=False, trust_env=False
+            verify=context, timeout=config.timeout_seconds, follow_redirects=False, trust_env=False,
+            transport=self._transport_factory(context) if self._transport_factory is not None else None,
         )
 
     async def authenticate(self, platform: PlatformConfig, credential: SecretValue) -> PlatformSession:
@@ -206,7 +238,9 @@ class MSSAdapter:
             headers["host"] = config.host_header
         async with self._client(config) as client:
             if config.csrf_enabled:
-                response = await send(client, "GET", platform_url(platform, config.csrf_endpoint), headers)
+                response = await self._send(
+                    platform, client, "GET", platform_url(platform, config.csrf_endpoint), headers
+                )
                 _checked(response, secret)
                 csrf = next((c.value for c in client.cookies.jar if c.name == "csrf_token"), "")
                 if not csrf:
@@ -225,7 +259,7 @@ class MSSAdapter:
                 headers["authorization"] = login_authorization(
                     url, signing.ak.get_secret_value(), signing.sk.get_secret_value(), int(time.time()), body
                 )
-            response = await send(client, "POST", url, headers, body)
+            response = await self._send(platform, client, "POST", url, headers, body)
             _checked(response, secret)
             if not any(c.name == config.login_cookie_name and c.value for c in response.cookies.jar):
                 raise PlatformAuthError("PLATFORM_LOGIN_NO_COOKIE")
@@ -283,7 +317,7 @@ class MSSAdapter:
         try:
             headers = self._headers(platform, session, url)
             async with self._client(config) as client:
-                check(await send(client, "GET", url, headers))
+                check(await self._send(platform, client, "GET", url, headers))
             return True
         except PlatformAuthError as exc:
             if exc.code in {

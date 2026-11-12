@@ -1326,7 +1326,7 @@ def test_s03_pool_two_hundred_sse_streams_do_not_hold_pg_connections(
         {
             "latency_ms": 500,
             "chunk_interval_ms": 50,
-            "deltas": [f"流{index:03d}-" for index in range(100)],
+            "deltas": [f"流{index:03d}-" for index in range(400)],
         },
         api_key=PROBE_API_KEY,
     )
@@ -1408,9 +1408,21 @@ def test_s03_pool_two_hundred_sse_streams_do_not_hold_pg_connections(
         f"100 条流时 PG total 从 {baseline.connections_total} 涨到 "
         f"{snapshot.connections_total}，连接数随流数线性增长"
     )
-    assert snapshot.connections_idle_in_transaction <= 2, (
-        f"稳态 idle-in-tx={snapshot.connections_idle_in_transaction}，SSE 仍占着请求级 Session"
+    # A point-in-time sample can intersect short background transactions. Require
+    # three consecutive low samples while the streams remain open; a sustained
+    # request-scoped session leak cannot pass by hitting one quiet instant.
+    idle_samples = [snapshot.connections_idle_in_transaction]
+    deadline = time.monotonic() + 10.0
+    while time.monotonic() < deadline and (
+        len(idle_samples) < 3 or any(value > 2 for value in idle_samples[-3:])
+    ):
+        time.sleep(0.5)
+        snapshot = metrics.snapshot()
+        idle_samples.append(snapshot.connections_idle_in_transaction)
+    assert len(idle_samples) >= 3 and all(value <= 2 for value in idle_samples[-3:]), (
+        f"idle-in-tx 未稳定回落: {idle_samples}；最近查询: {snapshot.idle_in_tx_queries}"
     )
+    assert all(thread.is_alive() for thread in threads), "采样期间 SSE 流必须保持打开"
 
     stop.set()
     for thread in threads:

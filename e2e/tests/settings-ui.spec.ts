@@ -208,3 +208,45 @@ test('B-05 无改动时保存按钮禁用且显示当前版本号', async ({ pag
   await expect(page.getByTestId('settings-revision')).toContainText('当前版本 v1');
   await expect(page.getByTestId('settings-header')).toContainText('Settings Admin');
 });
+
+test('出站规则只需选择平台和填写路径，自动预览平台前缀', async ({ page }) => {
+  const state: MockState = { revision: 1, readFailure: false, saveMode: 'ok', settingsRequests: [] };
+  await mockApi(page, state);
+  await page.route('**/api/v1/platform-settings', async (route) => {
+    if (route.request().method() === 'PUT') {
+      await route.fulfill({ json: envelope({ revision: 2, settings: {} }) });
+      return;
+    }
+    const data = snapshot(1);
+    data.groups = [{ key: 'egress', label_key: 'settings.group.egress', applies_to: 'RUN', readonly: false,
+      fields: [{ path: 'egress.rules_json', label_key: 'settings.field.egress.rules_json', type: 'string',
+        default: '[]', value: '[]', applies_to: 'RUN', overridden_by_resources: 0,
+        unit_key: '', effect_key: 'settings.effect.newRuns' } as unknown as typeof data.groups[0]['fields'][0]] }];
+    await route.fulfill({ json: envelope(data) });
+  });
+  await page.route('**/api/v1/project-platforms?*', async (route) => {
+    await route.fulfill({ json: envelope({ items: [{ key: 'assets', name: '资产平台', enabled: true,
+      resolver_type: 'BASE_URL', resolver_config: { base_url: 'https://assets.test/gateway/v1' } }],
+      total: 1, page: 1, page_size: 100 }) });
+  });
+  await openSettings(page);
+  await page.getByTestId('settings-nav-egress').click();
+  const editor = page.getByTestId('egress-rules-editor');
+  await expect(editor.locator('.egress-rule-card')).toHaveCount(0);
+  await page.getByTestId('egress-rule-add').click();
+  await editor.locator('.semi-select').first().click();
+  await page.getByText('资产平台 (assets)', { exact: true }).click();
+  const path = editor.getByPlaceholder('/assets/{id}');
+  await path.fill('');
+  await path.pressSequentially('/assets/search');
+  await expect(path).toHaveValue('/assets/search');
+  await expect(page.getByTestId('egress-url-preview')).toContainText('https://assets.test/gateway/v1/assets/search');
+  await expect(editor.getByText('接口标识', { exact: true })).toHaveCount(0);
+  const pending = page.waitForRequest((request) => request.method() === 'PUT' && request.url().endsWith('/platform-settings'));
+  await page.getByTestId('settings-save').click();
+  const request = await pending;
+  const rules = JSON.parse(request.postDataJSON().settings.egress.rules_json);
+  expect(rules).toEqual([{ target_instance_id: 'assets', method: 'GET', path_template: '/assets/search',
+    route_id: 'GET /assets/search', enabled: true }]);
+  await page.screenshot({ path: '../.artifacts/egress-platform-editor.png', fullPage: true });
+});
