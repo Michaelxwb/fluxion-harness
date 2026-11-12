@@ -72,7 +72,7 @@ Runtime tools/call   ──> ResolvedMcpServer(headers, secret_header) + API-09 
 ```
 
 - `auth_config` 是非密配置，随 MCP Server 行持久化；`auth_secret` 仍是唯一密钥列。
-- 解析定义（`/internal/runtime/resolve-definition`）把 `headers`/`secret_header` 放进 `ResolvedMcpServer`；Snapshot 不写这些字段（与 endpoint 同等处理）。
+- 解析定义（`/internal/runtime/resolve-definition`）把 `headers`/`secret_header` 放进 `ResolvedMcpServer`；Task snapshot 不写这些字段；Run snapshot 可冻结非密 `headers`/`secret_header` 以保证 resume 使用同一套请求头（与 endpoint 同等处理），密钥仍只经 API-09 实时读取。
 - API-09 继续按 `mcp_server_id` 返回 `auth_secret`；密钥轮换对下一次调用即时生效。
 - 发现失败保留上一成功 Catalog，沿用现有 `DISCOVERY_FAILED` 路径。
 
@@ -144,7 +144,7 @@ secret_header: str | None = None
 
 - `McpClient._headers` 与 `_McpSession._headers` 只从已校验的 `headers` 合并；`Authorization` 仅在 Bearer 模式添加。
 - 错误与日志不打印头值；假 MCP 的 `_log_headers` 对 `authorization` 与配置的密钥头脱敏。
-- 测试断言：`config_audit_log`、`tool_call_audit`、`egress_audit`、`runtime_snapshot` 不含密钥值。
+- 测试断言：`config_audit_log`、`tool_call_audit`、`egress_audit`、`runtime_snapshot` 不含密钥值；Task snapshot 不含认证配置，Run snapshot 可含非密 `headers`/`secret_header` 以保证 resume 一致。
 
 **可靠性**
 

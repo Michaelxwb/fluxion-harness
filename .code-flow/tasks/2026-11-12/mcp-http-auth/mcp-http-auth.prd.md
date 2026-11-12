@@ -116,7 +116,7 @@
 
 - **描述**: `ResolvedMcpServer` 增加非密 `headers` 与 `secret_header`；Runtime 会话按同一规则组装请求头。
 - **验收标准**:
-  - [ ] 解析定义返回 headers/secret_header；Snapshot 不包含它们。
+  - [ ] 解析定义返回 headers/secret_header；Task snapshot 不包含认证配置，Run snapshot 可冻结非密 headers/secret_header 以保证 resume 一致；密钥永不进入。
   - [ ] `tools/call` 与 `initialize` 使用相同的头集合；会话重建后仍正确。
   - [ ] 密钥轮换后新调用使用 API-09 返回的新值；密钥不出现在日志/审计/Snapshot/`tool_call_audit`。
   - [ ] `isError: true` 仍按工具错误传播，不伪报成功。

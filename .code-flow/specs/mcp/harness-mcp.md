@@ -46,6 +46,26 @@ Console 侧 `discover-tools` 的 Catalog 维护与缓存（PG 为权威源）：
   - ✅ 失败后重试的 initialize 计数 +1（新会话、新连接）；❌ 复用坏会话继续发 `tools/call`，或并发调用各发一次 initialize
   - 机检：`tests/agent_runtime/test_mcp_request_correlation.py`（`apps/agent-runtime/src/muad_agent_runtime/application/mcp_runtime_adapter.py` 的 `_ready_session` / `_next_request_id` / `_discard_session`）
 
+**HTTP 认证与请求头**：
+
+- 服务级三态：无认证、`Authorization: Bearer <auth_secret>`、自定义请求头。`auth_config` 只存非密 `headers` 与 `secret_header`；`auth_secret` 是唯一密钥列。
+- `secret_header` 为空时按 Bearer 发送；非空时把 `auth_secret` 原值写入该头，不追加 `Bearer `。
+- 静态头校验：RFC 7230 token、大小写不敏感去重、保留头拒绝、敏感头名只允许作为 `secret_header`、CR/LF/NUL 与长度上限拒绝；非法配置返回 `MCP_CONFIG_INVALID`。
+- Console 的 `test_connection`/`discover_tools` 与 Runtime 的 `initialize`/`tools/call` 使用同一组装语义；Runtime 从解析定义读取非密 `headers`/`secret_header`，密钥仍走 API-09。
+- Task snapshot 不含认证配置；Run snapshot 可冻结非密 `headers`/`secret_header` 以保证 resume 一致；密钥不得进入任何 Snapshot、日志、审计或 API 响应。
+
+✅ 自定义头 + 单密钥：
+
+```json
+{"headers": {"X-App-Id": "sdspmcp"}, "secret_header": "X-Api-Key"}
+```
+
+❌ 把 `X-Api-Key` 的值写进 `headers`，或把多个密钥塞进 `auth_config`：
+
+```json
+{"headers": {"X-App-Id": "sdspmcp", "X-Api-Key": "test-key"}, "secret_header": null}
+```
+
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。

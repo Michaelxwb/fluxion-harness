@@ -184,7 +184,7 @@ apps/agent-runtime/src/muad_agent_runtime/application/executor.py,181,MCP_TOOL_P
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,183,POOL_RESELECTION_LIMIT,3,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,185,POOL_CAPACITY_RETRY_INTERVAL_SEC,0.25,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,187,MESSAGE_PROTOCOL_OVERHEAD_BYTES,32,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,2101,SKILL_FAMILY_TOOLS,"frozenset({'execute_skill', 'run_skill_script'})",python-constant,code,实现常量；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,2103,SKILL_FAMILY_TOOLS,"frozenset({'execute_skill', 'run_skill_script'})",python-constant,code,实现常量；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/experience_candidates.py,39,EXPERIENCE_TTL,timedelta(days=365),python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/experience_candidates.py,40,PROCEDURE,MemoryCategory.PROCEDURE,python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/golden_set.py,26,NEGATIVE_SIGNAL_EVENT,'LEARNING_SIGNAL',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
@@ -678,7 +678,7 @@ apps/console-platform/backend/src/muad_console_platform/api/security.py,10,CSRF_
 apps/console-platform/backend/src/muad_console_platform/api/security.py,11,CSRF_HEADER,'X-CSRF-Token',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/api/security.py,12,SAFE_METHODS,"frozenset({'GET', 'HEAD', 'OPTIONS', 'TRACE'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/api/security.py,13,ORIGIN_HEADER,'Origin',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/agent_mcp_service.py,22,AUDIT_RESOURCE_TYPE,'AGENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/agent_mcp_service.py,25,AUDIT_RESOURCE_TYPE,'AGENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/agent_service.py,19,AUDIT_RESOURCE_TYPE,'AGENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/artifact_cleanup_service.py,55,TEMP_PREFIX,'.tmp-',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/artifact_cleanup_service.py,58,ACTION_REMOVED,'REMOVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -731,12 +731,20 @@ apps/console-platform/backend/src/muad_console_platform/application/chat_token_s
 apps/console-platform/backend/src/muad_console_platform/application/chat_token_service.py,48,ACTION_UPDATE,'UPDATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/chat_token_service.py,49,ACTION_DELETE,'DELETE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/chat_token_service.py,51,TOKEN_ENTROPY_BYTES,32,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/console-platform/backend/src/muad_console_platform/application/dto.py,22,MAX_INSTRUCTIONS_BYTES,32 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/dto.py,353,CONSOLE_TIME_PATTERN,'^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}[+-]\\d{2}:\\d{2}$',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,23,MAX_INSTRUCTIONS_BYTES,32 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,354,CONSOLE_TIME_PATTERN,'^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}[+-]\\d{2}:\\d{2}$',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/dto.py,485,McpCreateRequest.connect_timeout_ms,"Field(default=None, ge=100, le=60000)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
 apps/console-platform/backend/src/muad_console_platform/application/dto.py,486,McpCreateRequest.tool_cache_ttl_sec,"Field(default=None, ge=1, le=86400)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
 apps/console-platform/backend/src/muad_console_platform/application/dto.py,498,McpUpdateRequest.connect_timeout_ms,"Field(default=None, ge=100, le=60000)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
 apps/console-platform/backend/src/muad_console_platform/application/dto.py,499,McpUpdateRequest.tool_cache_ttl_sec,"Field(default=None, ge=1, le=86400)",resource-field,business-resource,现有 Agent/MCP/模型/平台资源配置；系统设置只管理默认值
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,602,MAX_MCP_AUTH_HEADER_COUNT,32,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,603,MAX_MCP_AUTH_HEADER_VALUE_BYTES,4 * 1024,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,604,MAX_MCP_AUTH_HEADER_TOTAL_BYTES,16 * 1024,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,605,MAX_MCP_AUTH_SECRET_LENGTH,4096,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,607,_RESERVED_AUTH_HEADERS,"frozenset({'host', 'content-length', 'transfer-encoding', 'connection', 'accept', 'content-type', 'mcp-session-id', 'mcp-protocol-version', 'authorization', 'cookie'})",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,621,_SENSITIVE_AUTH_HEADER_MARKERS,"('token', 'secret', 'password', 'credential', 'api-key', 'apikey', 'private-key')",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,630,_HEADER_NAME_PATTERN,"re.compile(""^[!#$%&'*+\\-.^_`|~0-9A-Za-z]+$"")",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/console-platform/backend/src/muad_console_platform/application/dto.py,631,_FORBIDDEN_HEADER_VALUE_CHARS,"('\r', '\n', '\x00')",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/console-platform/backend/src/muad_console_platform/application/entity_name_service.py,23,_ENRICH_FIELDS,"(('agent_id', 'agent_name', AGENT, False), ('actor_user_id', 'actor_name', ACTOR, False), ('skill_id', 'skill_name', SKILL, True))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/execution_diagnosis.py,21,FAILURE_STATUSES,"frozenset({'ERROR', 'FAILED', 'DENY', 'DENIED'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/execution_diagnosis.py,22,RETRY_STATUSES,frozenset({'RETRY'}),python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -756,9 +764,10 @@ apps/console-platform/backend/src/muad_console_platform/application/execution_ex
 apps/console-platform/backend/src/muad_console_platform/application/grant_service.py,15,AUDIT_RESOURCE_TYPE,'AGENT_ACCESS_GRANT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/inbound_audit_service.py,23,_IDEMPOTENCY_COLUMNS,"('tenant_id', 'channel', 'external_message_id', 'outcome')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/inbound_audit_service.py,24,_PARTIAL_UNIQUE_WHERE,sa.text('is_deleted = false'),python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/mcp_service.py,39,AUDIT_MCP,'MCP_SERVER',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/mcp_service.py,40,USER_SCOPE_SELECTED,'SELECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/application/mcp_service.py,41,VALID_TRANSPORT,'streamable-http',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/mcp_service.py,43,AUDIT_MCP,'MCP_SERVER',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/mcp_service.py,44,USER_SCOPE_SELECTED,'SELECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/mcp_service.py,45,VALID_TRANSPORT,'streamable-http',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/mcp_service.py,46,_FORBIDDEN_AUTH_SECRET_CHARS,"('\r', '\n', '\x00')",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/console-platform/backend/src/muad_console_platform/application/memory_service.py,28,AUDIT_RESOURCE_TYPE,'USER_MEMORY',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/memory_service.py,32,_MEMORY_TIME_FIELDS,"('expires_at', 'last_confirmed_at', 'create_time', 'update_time')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/model_credential_service.py,38,AUDIT_RESOURCE_TYPE,'MODEL_CREDENTIAL',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1630,6 +1639,12 @@ packages/common/src/muad_common/settings.py,118,mcp_max_inflight,"Field(default=
 packages/common/src/muad_common/settings.py,121,egress_http_max_connections,"Field(default=1024, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
 packages/common/src/muad_common/settings.py,122,egress_http_max_keepalive,"Field(default=256, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
 packages/common/src/muad_common/settings.py,123,egress_max_inflight,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
+packages/common/src/muad_common/settings.py,124,egress_meter_domain,"Field(default='fluxion-egress', min_length=1, pattern='^[^{}\\s]+$')",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
+packages/common/src/muad_common/settings.py,125,egress_meter_epoch,"Field(default='managed-v1', min_length=1, max_length=128)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
+packages/common/src/muad_common/settings.py,126,egress_cleanup_sec,"Field(default=2.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
+packages/common/src/muad_common/settings.py,127,egress_renewal_interval_sec,"Field(default=1.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
+packages/common/src/muad_common/settings.py,128,egress_source_refresh_sec,"Field(default=1.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
+packages/common/src/muad_common/settings.py,129,egress_stop_margin_sec,"Field(default=12.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
 packages/common/src/muad_common/settings.py,130,upload_http_max_connections,"Field(default=8, ge=1)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
 packages/common/src/muad_common/settings.py,131,upload_http_max_keepalive,"Field(default=4, ge=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
 packages/common/src/muad_common/settings.py,133,http_connect_timeout_sec,"Field(default=5.0, gt=0)",shared-setting,environment,每进程启动资源预算；重启生效（agent-capacity-webchat design §3.7）
@@ -2031,9 +2046,3 @@ packages/skill-sdk/src/muad_skill_sdk/skill_package.py,20,SCRIPT_EXTENSIONS,"fro
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,27,MAX_NAME_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,28,MAX_PLATFORM_LABEL_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,29,MAX_DESCRIPTION_BYTES,1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/common/src/muad_common/settings.py,124,egress_meter_domain,"Field(default='fluxion-egress', min_length=1, pattern='^[^{}\\s]+$')",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
-packages/common/src/muad_common/settings.py,125,egress_meter_epoch,"Field(default='managed-v1', min_length=1, max_length=128)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
-packages/common/src/muad_common/settings.py,126,egress_cleanup_sec,"Field(default=2.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
-packages/common/src/muad_common/settings.py,127,egress_renewal_interval_sec,"Field(default=1.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
-packages/common/src/muad_common/settings.py,128,egress_source_refresh_sec,"Field(default=1.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置
-packages/common/src/muad_common/settings.py,129,egress_stop_margin_sec,"Field(default=12.0, gt=0)",shared-setting,environment,SDK计量域与生命周期运行参数；业务接口限制由管理端配置

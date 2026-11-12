@@ -241,12 +241,12 @@
   - fake-mcp PASS exit=0
 ## TASK-005: 数据迁移、规范与字段文档
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-004
 - **Source**: mcp-http-auth.backend.design.md#33-数据设计, #36-部署与运维
 - **Scenarios**: B-02
 - **Spec-Refs**: mcp/harness-mcp#RULE-mcp-001, secret/harness-secret#RULE-secret-001
-- **Paths**: migrations/versions/**, .code-flow/specs/mcp/harness-mcp.md, docs/03-Console-Platform详细设计.md, docs/15-Console字段词典与一致性规范.md, tools/fake-business-platform/README.md, tests/migrations/**
+- **Paths**: migrations/versions/**, .code-flow/specs/mcp/harness-mcp.md, docs/03-Console-Platform详细设计.md, docs/15-Console字段词典与一致性规范.md, docs/configuration-inventory.csv, .code-flow/tasks/2026-11-12/mcp-http-auth/*.md, tools/fake-business-platform/README.md, tests/migrations/**, tests/agent_runtime/test_mcp_headers.py
 - **E2E**:
 - **Skip-Tests**:
 - **Skip-Reason**:
@@ -260,20 +260,34 @@
     "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/migrations/test_mcp_auth_config_migration.py"],
     "timeout": 300,
     "parallel": false
+  },
+  {
+    "id": "configuration-inventory",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/test_configuration_inventory.py"],
+    "timeout": 300,
+    "parallel": false
+  },
+  {
+    "id": "runtime-mcp-snapshot",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_mcp_headers.py", "-k", "run_snapshot"],
+    "timeout": 300,
+    "parallel": false
   }
 ]
 ```
 
 ### Description
 
-新增 Alembic 数据迁移：`{"header": "X"}` → `{"secret_header": "X"}`，其他未知结构归 `{}`；提供可单测的纯函数。更新 `harness-mcp` 的 Conventions（认证三态、头校验、secret 边界）、Console 字段词典与假 MCP README。补充迁移测试，确保升级后详情可序列化、旧结构不再出现。
+新增 Alembic 数据迁移：`{"header": "X"}` → `{"secret_header": "X"}`，其他未知结构归 `{}`；提供可单测的纯函数。更新 `harness-mcp` 的 Conventions（认证三态、头校验、secret 边界）、Console 字段词典、配置常量清单与假 MCP README。同步修正设计/验收中关于 Run snapshot 的表述：Task snapshot 不含认证配置，Run snapshot 可冻结非密 `headers`/`secret_header`，密钥永不进入。补充迁移测试与配置清单测试，确保升级后详情可序列化、旧结构不再出现。
 
 ### Checklist
 
-- [ ] 迁移可升级且幂等，未知结构归零。
-- [ ] 迁移纯函数单测覆盖 header/headers/secret_header/异常结构。
-- [ ] `harness-mcp` 约定与字段词典更新。
-- [ ] 文档明确 V1 仍不支持 stdio。
+- [x] 迁移可升级且幂等，未知结构归零。
+- [x] 迁移纯函数单测覆盖 header/headers/secret_header/异常结构。
+- [x] `harness-mcp` 约定与字段词典更新。
+- [x] `docs/configuration-inventory.csv` 与实际大写常量一致。
+- [x] 设计/验收明确 Run snapshot 的非密认证配置边界。
+- [x] 文档明确 V1 仍不支持 stdio。
 
 ### Spec Delta
 
@@ -284,7 +298,12 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T09:03:06.819Z] started tests=8666ce7322cd
 
 ### Verification
 
 - 尚未执行
+- 2026-11-12T09:12:23.020Z PASS commands=3/3 executed=3 deduped=0 elapsed=4305ms tests=478f402b2e51 head=abbbba647387 dirty=1 tests-changed
+  - mcp-auth-migration PASS exit=0
+  - configuration-inventory PASS exit=0
+  - runtime-mcp-snapshot PASS exit=0

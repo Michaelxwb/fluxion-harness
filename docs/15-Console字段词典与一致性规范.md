@@ -31,6 +31,9 @@
 | Agent `instructions` | 系统 Prompt | Agent |
 | Skill current artifact version | 当前版本 | Skill |
 | `user_scope` | 用户范围 | Skill/MCP |
+| MCP `auth_config` | 认证配置 | MCP（API/UI 名 `auth_config`，含 `headers`/`secret_header`） |
+| MCP `secret_header` | 密钥请求头 | MCP（`auth_config` 子字段） |
+| MCP `auth_secret` | 认证密钥 | MCP（只回 `auth_secret_configured`） |
 | `base_url` | Base URL | Model |
 | Model `model_id` | 模型 ID | Model |
 | `resolver_type` | 接入方式 | ProjectPlatform |
@@ -118,6 +121,16 @@ Base URL = OpenAI-compatible 根地址
 
 DB 列名保留 `_json` 后缀；API 请求/响应与 UI 使用无后缀名（`resolver_config` / `adapter_config`）。
 禁止使用一个“访问地址 / 服务发现”文本字段承载两个语义。
+
+MCP 认证字段：
+
+```text
+认证方式 = 无认证 / Bearer Token / 自定义请求头（由 auth_config 与 auth_secret_configured 派生）
+认证配置 = headers（非密静态头）+ secret_header（承载密钥的请求头名）
+认证密钥 = auth_secret（详情只回 auth_secret_configured）
+```
+
+`secret_header` 为空时使用 `Authorization: Bearer`；非空时密钥原值写入该头。静态头不得包含密钥；V1 不支持 stdio。
 
 ## 7. 关联数量来源
 

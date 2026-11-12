@@ -19,7 +19,9 @@ from muad_agent_runtime.application.mcp_runtime_adapter import (
     McpToolDefinition,
     McpToolError,
 )
+from muad_agent_runtime.application.run_service import build_snapshot
 from muad_contracts import (
+    ResolveDefinitionResponse,
     ResolvedAgent,
     ResolvedMcpServer,
     ResolvedModel,
@@ -364,3 +366,35 @@ def test_task_snapshot_hash_ignores_header_config_changes() -> None:
     assert snapshot_hash(_task_snapshot(base, inputs)) == snapshot_hash(
         _task_snapshot(with_headers, inputs)
     )
+
+
+@pytest.mark.contract
+def test_run_snapshot_freezes_non_secret_headers_without_secret() -> None:
+    """Run snapshot 冻结非密认证头以保证 resume 一致；密钥值仍只来自 API-09。"""
+    agent, model, skill, _workspace = _snapshot_inputs()
+    server = ResolvedMcpServer(
+        mcp_server_id=uuid.uuid4(),
+        key=SERVER_KEY,
+        endpoint="http://mcp-probe/mcp",
+        catalog_revision=3,
+        definitions=[{"name": TOOL_NAME}],
+        headers={"X-App-Id": "sdspmcp"},
+        secret_header="X-Api-Key",
+    )
+
+    snapshot = build_snapshot(
+        run_id=uuid.uuid4(),
+        tenant_id="tenant-1",
+        resolved=ResolveDefinitionResponse(
+            agent=agent,
+            model=model,
+            skills=[skill],
+            mcp_servers=[server],
+        ),
+    )
+
+    entry = snapshot.mcp_catalog_json[0]
+    assert entry["headers"] == {"X-App-Id": "sdspmcp"}
+    assert entry["secret_header"] == "X-Api-Key"
+    assert "auth_secret" not in entry
+    assert SECRET not in json.dumps(entry, ensure_ascii=False)

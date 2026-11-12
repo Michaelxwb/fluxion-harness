@@ -366,7 +366,10 @@ MCP 列表/详情必须区分：
 启用状态 = enabled，管理员是否允许使用
 连接状态 = connection_status，MCP Server 当前连接/发现结果
 最近工具发现时间 = last_discovered_at
+认证方式 = 无认证 / Bearer Token / 自定义请求头（由 auth_config 与 auth_secret_configured 派生）
 ```
+
+认证配置只保存非密信息：`auth_config.headers` 是固定请求头，`auth_config.secret_header` 是承载密钥的请求头名；密钥本身只存 `auth_secret`，详情只回 `auth_secret_configured`。`secret_header` 为空时按 `Authorization: Bearer` 发送，非空时把密钥原值写入该头。V1 仍仅支持 Streamable HTTP，不支持 stdio。
 
 工具明细使用“操作类型”；V1 不提供 Tool 级启停，MCP Server 自身使用“启用状态/连接状态”。
 
