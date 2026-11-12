@@ -229,6 +229,7 @@ async def test_console_platform_policy_activates_real_runtime_host_without_execu
 
             await root.run(work)
         assert probe.calls == 1
+        await _assert_runtime_egress_audits(sessions, tenant, run_id)
     finally:
         async with sessions.begin() as session:
             await session.execute(sa.delete(RunRecord).where(RunRecord.id == run_id))
@@ -237,3 +238,16 @@ async def test_console_platform_policy_activates_real_runtime_host_without_execu
         keys = [key async for key in redis.scan_iter(prefix + "*")]
         if keys:
             await redis.delete(*keys)
+
+
+async def _assert_runtime_egress_audits(sessions, tenant, run_id):
+    from muad_agent_runtime.infrastructure.models.runtime import EgressAudit
+
+    async with sessions() as session:
+        audits = (await session.scalars(sa.select(EgressAudit).where(
+            EgressAudit.tenant_id == tenant, EgressAudit.run_id == run_id,
+        ).order_by(EgressAudit.create_time))).all()
+    assert len(audits) == 2
+    assert audits[0].status_code == 429 and audits[0].policy_decision == "ALLOW"
+    assert audits[0].result_status == "FAILED"
+    assert audits[1].result_status == "BLOCKED" and audits[1].error_code == "LIMIT_TOTAL"

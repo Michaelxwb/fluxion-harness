@@ -16,6 +16,7 @@ from muad_contracts.shared_egress import FrozenIdentityBudgets, SharedEgressPoli
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .console_egress import load_console_egress_policy, resolve_policy_target, tenant_domain
+from .egress_audit_store import DatabaseAttemptObserver, EgressAuditIdentity
 from .egress_domain import provision_tenant_domain
 from .egress_http_routes import _authority_matches
 from .egress_ipc import AttemptMetadata, EgressTarget
@@ -96,6 +97,7 @@ async def _active_host(
     source: SourceClaim,
     reader: SourceReader,
     public_policy: SharedEgressPolicy | None,
+    audit_identity: EgressAuditIdentity | None,
 ) -> AsyncIterator[HostEgressExecution | None]:
     redis = create_redis_client(
         settings.redis_url,
@@ -115,6 +117,8 @@ async def _active_host(
             claim=source,
             reader=reader,
             resolve=_resolver(meter),
+            observe=DatabaseAttemptObserver(sessions, audit_identity,
+                timeout_seconds=config.lifetime.cleanup_seconds) if audit_identity is not None else None,
         )
         yield root
     finally:
@@ -135,6 +139,7 @@ async def configured_host_egress(
     reader: SourceReader,
     minimum_stop_margin_seconds: float,
     tenant_id: str | None = None,
+    audit_identity: EgressAuditIdentity | None = None,
 ) -> AsyncIterator[HostEgressExecution | None]:
     try:
         budget = freeze_egress_identity_budgets(policy, skill_keys=skill_keys)
@@ -155,6 +160,6 @@ async def configured_host_egress(
     ):
         raise MeteringUnavailable("host storage and sufficient shutdown margin required")
     async with _active_host(
-        settings, config, budget, session_factory(), claim(), reader, public_policy
+        settings, config, budget, session_factory(), claim(), reader, public_policy, audit_identity
     ) as root:
         yield root

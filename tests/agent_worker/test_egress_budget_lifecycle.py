@@ -262,6 +262,21 @@ async def test_budget_exhaustion_fails_claimed_task_without_retry_and_releases_l
         )
         assert len(platform_server[0].requests) == 2  # CSRF + login; denied validation never arrived.
         assert len(platform_server[0].sessions) == 1
+        await _assert_task_egress_audits(tenant, task.id)
         await _assert_released_workspace(tenant)
     finally:
         reset_settings_cache()
+
+
+async def _assert_task_egress_audits(tenant, task_id):
+    from sqlalchemy import text
+
+    async with tenant.session_factory() as session:
+        rows = (await session.execute(text(
+            "SELECT run_id, policy_decision, result_status FROM runtime.egress_audit "
+            "WHERE tenant_id=:tenant AND task_id=:task"
+        ), {"tenant": tenant.tenant_id, "task": task_id})).mappings().all()
+    assert len(rows) == 3
+    assert all(row["run_id"] is None for row in rows)
+    assert sum(row["policy_decision"] == "ALLOW" for row in rows) == 2
+    assert sum(row["result_status"] == "BLOCKED" for row in rows) == 1

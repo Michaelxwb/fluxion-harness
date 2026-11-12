@@ -95,6 +95,7 @@ def test_semi_components_are_the_only_ui_library() -> None:
 # ChatPage 是独立 CHAT 入口的会话工作区（历史侧栏 + 单会话，不是管理列表），同属非列表页。
 NON_LIST_MODULE_PAGES = (
     "apps/console-platform/frontend/src/modules/overview-dashboard/pages/OverviewPage.tsx",
+    "apps/console-platform/frontend/src/modules/overview-dashboard/pages/EgressPage.tsx",
     "apps/console-platform/frontend/src/modules/settings/pages/SettingsPage.tsx",
     "apps/console-platform/frontend/src/modules/webchat/ChatPage.tsx",
 )

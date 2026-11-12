@@ -1667,6 +1667,26 @@ body {
   line-height: 20px;
 }
 
+.egress-rules-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.egress-rules-count { color: var(--semi-color-text-2); font-size: 13px; }
+.egress-rules-table { width: 100%; }
+.egress-rules-table .semi-table-row-cell { vertical-align: middle; }
+.egress-rules-table .semi-table-row-cell:nth-child(3) { max-width: 280px; overflow-wrap: anywhere; }
+.egress-rule-row-actions { display: inline-flex; align-items: center; gap: 2px; }
+.egress-rule-modal .semi-modal-content { max-height: calc(100vh - 48px); overflow: auto; }
+.egress-rule-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+  margin-bottom: 18px;
+}
+.egress-rule-form .egress-rule-enabled { align-self: end; }
+
 .egress-rule-card {
   border-radius: var(--app-radius-sm);
   box-shadow: 0 1px 3px rgb(0 0 0 / 4%);
@@ -1816,6 +1836,8 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .egress-rule-form { grid-template-columns: minmax(0, 1fr); }
+
   .egress-rule-card-header {
     align-items: flex-start;
   }
@@ -1856,6 +1878,9 @@ body {
 .overview-updated { font-size: 12px; color: var(--semi-color-text-2); }
 .overview-timezone { margin-left: 8px; color: var(--semi-color-text-3); }
 .overview-dashboard .semi-banner { flex: 0 0 auto; margin: 0; }
+.overview-view-tabs { flex: 0 0 auto; }
+.overview-view-tabs .semi-tabs-content { display: none; }
+.overview-view-tabs .semi-tabs-bar { margin: 0; }
 .overview-body {
   display: flex;
   flex: 1 1 auto;
@@ -1931,6 +1956,16 @@ body {
 .overview-kpis .metric-card { min-width: 0; padding: 10px 12px; }
 .overview-kpis .metric-card-value { margin: 2px 0 0; font-size: 20px; line-height: 28px; overflow-wrap: anywhere; }
 .overview-kpis .metric-card-hint { font-size: 11px; line-height: 16px; }
+.egress-monitoring-page > .page-section { margin: 0; overflow: auto; }
+.overview-egress-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.overview-egress-kpis strong { margin-left: 4px; font-variant-numeric: tabular-nums; }
+.overview-egress-danger { color: var(--semi-color-danger); }
 .overview-charts {
   display: grid;
   flex: 1 1 auto;

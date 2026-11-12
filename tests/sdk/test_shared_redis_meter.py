@@ -133,23 +133,22 @@ async def test_concurrency_release_is_idempotent_and_does_not_refund_total(share
         await acquire(meter, config, "third")
 
 
-async def test_new_window_waits_for_complete_history_and_epoch_must_match(shared_meter):
+async def test_new_window_starts_counting_immediately_and_epoch_must_match(shared_meter):
     redis, meter, prefix, _ = shared_meter
     config = policy(rules=[{
         "id": "window", "target_instance_id": "platform", "route_id": "GET /assets",
         "window_requests": 3, "window_seconds": 60.0,
     }])
     await meter.publish(config)
-    with pytest.raises(SharedLimitExceeded, match="window"):
-        await acquire(meter, config, "first")
+    assert await acquire(meter, config, "first") is not None
     await redis.hset(prefix + "guard", "epoch", "different")
     with pytest.raises(MeteringUnavailable):
         await acquire(meter, config, "second")
 
 
 async def test_b_01(shared_meter):
-    """B-01: a newly introduced sliding window blocks until history is complete."""
-    await test_new_window_waits_for_complete_history_and_epoch_must_match(shared_meter)
+    """B-01: a newly introduced sliding window starts at its activation boundary."""
+    await test_new_window_starts_counting_immediately_and_epoch_must_match(shared_meter)
 
 
 async def test_lost_decision_ledger_cannot_be_silently_reinitialized(shared_meter):

@@ -51,3 +51,14 @@ def test_no_obsolete_list_or_second_metric_types() -> None:
         assert "export interface " + name in types
     for removed in ("RecentTaskItem", "NextScheduleItem", "OverviewMetrics"):
         assert "interface " + removed not in types
+
+
+def test_egress_columns_keep_platform_method_and_full_url_separate() -> None:
+    component = source("components/EgressSummary.tsx")
+    assert 'dataIndex="platformName"' in component
+    assert 'dataIndex="method"' in component
+    assert 'dataIndex="url"' in component
+    assert 'dataIndex="routeId"' not in component
+    service = source("services/overviewService.ts")
+    assert "platformName: row.platform_name" in service
+    assert "method: row.method" in service and "url: row.url" in service

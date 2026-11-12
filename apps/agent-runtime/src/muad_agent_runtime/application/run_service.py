@@ -3121,6 +3121,13 @@ class RunService:
             )
             raise
         except Exception as exc:
+            logger.exception(
+                "run_segment_failed",
+                extra={
+                    "run_id": str(run.id),
+                    "exception_type": type(exc).__name__,
+                },
+            )
             return SegmentResult(failure=exc)
 
     @db_stage_scope("turn")

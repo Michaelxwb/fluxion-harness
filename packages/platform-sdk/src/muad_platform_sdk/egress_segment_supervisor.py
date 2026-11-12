@@ -38,25 +38,36 @@ class SourceSegmentSupervisor:
         self._used = False
 
     async def _refresh(self) -> None:
-        # The OLD deadline also bounds PG lock waits and Redis command latency.
-        limit = time.monotonic() + self._refresh_seconds
+        # Refresh cadence is not an I/O timeout. PG pool checkout/pre-ping may
+        # exceed one cadence; the shutdown margin still bounds authorization.
+        started = time.monotonic()
+        limit = started + self._stop_margin
         if self._stop_at is not None:
             limit = min(limit, self._stop_at)
         try:
-            async with asyncio.timeout_at(limit):
+            async with asyncio.timeout(max(limit - time.monotonic(), 0)):
                 bound = await self._authority.authorize(self._execution_id, self._claim, self._reader)
                 if bound.grant != self._meter.grant:
                     raise IdentityUnavailable("source authorization changed execution segment")
                 stop_at = bound.local_deadline - self._stop_margin
                 if stop_at <= time.monotonic():
                     raise IdentityUnavailable("source lease has no safe execution interval")
-                async with asyncio.timeout_at(stop_at):
+                async with asyncio.timeout(max(stop_at - time.monotonic(), 0)):
                     await self._meter.activate(lease_seconds=bound.remaining_seconds(),
                                                stop_margin_seconds=self._stop_margin)
                 if time.monotonic() >= stop_at:
                     raise IdentityUnavailable("source lease expired during activation")
                 self._stop_at = stop_at
         except TimeoutError as exc:
+            logger.error(
+                "egress_source_renewal_timeout",
+                extra={
+                    "elapsed_ms": int((time.monotonic() - started) * 1000),
+                    "refresh_seconds": self._refresh_seconds,
+                    "stop_margin_seconds": self._stop_margin,
+                    "timeout_budget_ms": int((limit - started) * 1000),
+                },
+            )
             raise IdentityUnavailable("source renewal exceeded safe deadline") from exc
 
     async def _watch(self) -> None:

@@ -28,10 +28,33 @@ WITH all_runs AS MATERIALIZED (
     interval '1 day'
   ) AS day
 ), egress_requests AS MATERIALIZED (
-  SELECT target, operation AS route_id, result_status, policy_decision, latency_ms
+  SELECT CASE WHEN method IS NOT NULL AND left(operation, length(method) + 2) = method || ' /'
+    THEN target || substring(operation FROM length(method) + 2) ELSE target END AS url,
+    method, platform_id, result_status, policy_decision, latency_ms
   FROM runtime.egress_audit
   WHERE tenant_id = :tenant_id AND NOT is_deleted
+    AND target_type = 'HTTP' AND phase = 'completed'
     AND create_time >= :start AND create_time <= :now
+), egress_top AS (
+  SELECT url, method, platform_id, count(*) AS request_count,
+    count(*) FILTER (WHERE policy_decision IN ('DENY','BLOCKED') OR result_status = 'BLOCKED') AS blocked_count
+  FROM egress_requests GROUP BY url, method, platform_id
+  ORDER BY request_count DESC, url, method, platform_id LIMIT 10
+), egress_platforms AS (
+  SELECT e.*, matched.platform_name FROM egress_top e
+  LEFT JOIN LATERAL (
+    SELECT CASE WHEN count(*) = 1 THEN min(name) END AS platform_name FROM (
+      SELECT p.name, dense_rank() OVER (ORDER BY
+        (p.id = e.platform_id) DESC NULLS LAST,
+        length(rtrim(p.resolver_config_json->>'base_url', '/')) DESC NULLS LAST) AS priority
+      FROM control.project_platform p
+      WHERE p.tenant_id = :tenant_id AND NOT p.is_deleted AND (
+        p.id = e.platform_id OR (e.platform_id IS NULL AND (
+          e.url = rtrim(p.resolver_config_json->>'base_url', '/') OR
+          left(e.url, length(rtrim(p.resolver_config_json->>'base_url', '/')) + 1) =
+            rtrim(p.resolver_config_json->>'base_url', '/') || '/')))
+    ) candidates WHERE priority = 1
+  ) matched ON true
 ), run_stats AS (
   SELECT count(*) AS total, count(DISTINCT user_id) AS active_users,
     count(*) FILTER (WHERE status = 'FAILED') AS failed,
@@ -148,11 +171,9 @@ SELECT jsonb_build_object(
     'blocked_count', (SELECT count(*) FROM egress_requests WHERE policy_decision IN ('DENY','BLOCKED') OR result_status = 'BLOCKED'),
     'average_latency_ms', (SELECT avg(latency_ms) FROM egress_requests WHERE latency_ms IS NOT NULL),
     'top_targets', coalesce((SELECT jsonb_agg(jsonb_build_object(
-      'target', target, 'route_id', route_id, 'request_count', request_count,
-      'blocked_count', blocked_count) ORDER BY request_count DESC, target)
-      FROM (SELECT target, route_id, count(*) AS request_count,
-        count(*) FILTER (WHERE policy_decision IN ('DENY','BLOCKED') OR result_status = 'BLOCKED') AS blocked_count
-        FROM egress_requests GROUP BY target, route_id ORDER BY request_count DESC LIMIT 10) top), '[]'::jsonb)
+      'url', url, 'method', method, 'platform_name', platform_name,
+      'request_count', request_count, 'blocked_count', blocked_count)
+      ORDER BY request_count DESC, url, method) FROM egress_platforms), '[]'::jsonb)
   )
 )
 """

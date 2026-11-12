@@ -6,8 +6,8 @@ import { ErrorState } from '../../../components/common/ErrorState';
 import { AttentionSummary } from '../components/AttentionSummary';
 import { KpiCards, OverviewSkeleton } from '../components/KpiCards';
 import { OverviewCharts } from '../components/OverviewCharts';
-import { EgressSummary } from '../components/EgressSummary';
 import { OverviewToolbar } from '../components/OverviewToolbar';
+import { OverviewViewTabs } from '../components/OverviewViewTabs';
 import { ResourceSummary } from '../components/ResourceSummary';
 import { useOverview } from '../hooks/useOverview';
 import type { OverviewData } from '../types';
@@ -24,7 +24,6 @@ function OverviewContent({ data }: { data: OverviewData }) {
         </PageSection>
       </div>
       <KpiCards kpis={data.kpis} />
-      <EgressSummary egress={data.egress} />
       <OverviewCharts data={data} />
     </div>
   );
@@ -50,6 +49,7 @@ export function OverviewPage() {
           />
         }
       />
+      <OverviewViewTabs activeKey="overview" />
       {overview.error && overview.data !== null ? (
         <Banner
           type="warning"
