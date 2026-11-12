@@ -51,7 +51,7 @@ async def test_unlimited_runtime_does_not_require_storage_or_source(monkeypatch)
     from muad_common import SharedSettings
 
     monkeypatch.setattr(
-        module, "process_settings", lambda: SharedSettings(_env_file=None, egress_control_file=None)
+        module, "process_settings", lambda: SharedSettings(_env_file=None)
     )
     monkeypatch.setattr(module, "get_session_factory", lambda: pytest.fail("storage constructed"))
     async with module.run_egress(request()) as host:

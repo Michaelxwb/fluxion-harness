@@ -135,8 +135,8 @@ def test_runtime_processes_use_independent_frozen_budgets(
     http: httpx.Client,
     budget_mcp_probe,
 ) -> None:
-    if not os.environ.get("EGRESS_CONTROL_FILE"):
-        pytest.skip("requires deployment egress control configuration; covered by deferred CI probe")
+    if os.environ.get("EGRESS_RUN_PROCESS_ACCEPTANCE") != "1":
+        pytest.skip("requires explicit process acceptance environment; covered by deferred CI probe")
     endpoint, calls = budget_mcp_probe
     _configure(live_stack, endpoint, 3)
     resolved = _resolve_over_console(live_stack, http)

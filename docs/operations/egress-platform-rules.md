@@ -8,7 +8,9 @@
 
 启用选择在新 Run/Task 创建时冻结，重试和恢复保留该选择以及执行累计预算。受控执行启动从 Console 读取当前公共规则投影并发布到共享 Redis；每次实际发送使用已发布的当前规则，路由和准入绑定同一版本。保存设置不等于同步发布 Redis，也不终止已经发出的请求。首次新增或扩大连续滑动窗口时，为避免历史未完整导致超放，会等待一个完整窗口；窗口及并发超限拒绝当前调用，不自动睡眠重跑。
 
-Runtime/Worker 镜像和 `scripts/dev.sh` 默认使用 `config/egress-runtime.json`。这个文件只提供宿主生命周期和保护域参数，默认接口列表为空、公共规则关闭；业务规则来自 Console。已有显式 `EGRESS_CONTROL_FILE` 配置仍由部署方负责。没有规则且没有执行累计预算时，不构造计量 Redis 连接。
+SDK运行参数统一来自 `SharedSettings`，不再使用专用JSON文件或Dockerfile配置入口。`EGRESS_METER_DOMAIN`、`EGRESS_METER_EPOCH` 与 `EGRESS_*_SEC` 配置计量状态命名空间、代次与生命周期；请求超时复用 `EGRESS_HTTP_READ_TIMEOUT_SEC`。默认值由Settings持有，不包含平台地址、接口列表、次数或并发规则。业务规则唯一来源为Console。没有规则且没有执行累计预算时，不构造计量Redis连接。
+
+从旧部署迁移时，移除原 `EGRESS_CONTROL_FILE` 环境变量及对应挂载；如果该文件曾用于已启用的受控执行，应把原域、epoch及生命周期值映射到统一Settings，不能随意修改域或epoch来清空历史。旧文件中的业务规则需在管理端维护，不再作为SDK备用规则来源。这次清理没有新增数据库表、字段或初始业务数据。
 
 共享保护域按租户隔离。首次使用时以 PostgreSQL 的租户执行历史证明未初始化后创建 Redis guard。有历史执行但 guard 丢失、Redis 故障或计数状态不确定时阻止受控请求，不自动重建或清空历史。Redis 切换和数据丢失不是无损恢复承诺，需要按既有故障恢复流程处理。旧的非租户保护域执行不自动迁移。
 

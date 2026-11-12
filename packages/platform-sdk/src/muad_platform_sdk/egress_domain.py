@@ -13,7 +13,7 @@ async def provision_tenant_domain(
     meter: SharedRedisMeter,
     sessions: async_sessionmaker[AsyncSession],
     tenant_id: str,
-) -> None:
+) -> bool:
     async with sessions() as session, session.begin():
         await session.execute(
             text("SELECT pg_advisory_xact_lock(hashtextextended(:tenant, 0))"),
@@ -34,12 +34,13 @@ for i = 2, #KEYS do
   if redis.call('EXISTS', KEYS[i]) ~= 0 then return {'CORRUPT'} end
 end
 redis.call('HSET', KEYS[1], 'epoch', ARGV[1])
-return {'OK'}
+return {'CREATED'}
 """,
             [meter._key(name) for name in ("guard", "policy", "decisions", "scope-index")],
             [meter.epoch, str(count)],
         )
-        if result != ["OK"]:
+        if result not in (["OK"], ["CREATED"]):
             raise MeteringUnavailable(
                 "tenant metering domain unavailable; existing state must not be recreated"
             )
+        return result == ["CREATED"]

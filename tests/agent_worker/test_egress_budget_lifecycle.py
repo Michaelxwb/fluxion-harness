@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import subprocess
 import sys
 import sysconfig
@@ -28,7 +27,6 @@ from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import reset_settings_cache
 from muad_contracts.shared_egress import SharedEgressPolicy
 from muad_platform_sdk import MSSAdapter, PlatformAdapterRegistry
-from muad_platform_sdk.adapter.mss_config import MSSSettings
 from muad_platform_sdk.session.redis_manager import RedisPlatformSessionManager
 from muad_platform_sdk.shared_redis import SharedRedisMeter
 from muad_platform_sdk.skill_access import SkillPlatformContext
@@ -74,35 +72,17 @@ async def shared_control(tenant, platform_server, tmp_path):
     meter = SharedRedisMeter(redis, domain=domain, epoch="epoch")
     await redis.hset(meter._key("guard"), mapping={"epoch": "epoch"})
     await meter.publish(SharedEgressPolicy(revision=1))
-    mss = MSSSettings()
     config = {
-        "domain": domain,
-        "epoch": "epoch",
-        "public_rules_enabled": False,
-        "request_timeout_seconds": 2,
-        "cleanup_seconds": 0.1,
-        "renewal_interval_seconds": 0.05,
-        "source_refresh_seconds": 0.5,
-        "stop_margin_seconds": 12,
-        "routes": [
-            {
-                "origin": platform.resolver_config["base_url"],
-                "method": method,
-                "path_template": path,
-                "target_instance_id": "platform",
-                "route_id": "auth",
-            }
-            for method, path in (
-                ("GET", mss.csrf_endpoint),
-                ("POST", mss.session_endpoint),
-                ("GET", mss.health_endpoint),
-            )
-        ],
+        "egress_meter_domain": domain,
+        "egress_meter_epoch": "epoch",
+        "egress_http_read_timeout_sec": 2,
+        "egress_cleanup_sec": 0.1,
+        "egress_renewal_interval_sec": 0.05,
+        "egress_source_refresh_sec": 0.5,
+        "egress_stop_margin_sec": 12,
     }
-    path = tmp_path / "egress.json"
-    path.write_text(json.dumps(config))
     try:
-        yield str(path)
+        yield config
     finally:
         async with tenant.session_factory.begin() as session:
             for table in ("runtime.egress_invocation", "runtime.egress_execution"):
@@ -256,7 +236,7 @@ async def test_budget_exhaustion_fails_claimed_task_without_retry_and_releases_l
         sessions=tenant.session_factory,
         settings=tenant.settings.model_copy(
             update={
-                "egress_control_file": shared_control,
+                **shared_control,
                 "console_platform_url": budget_platform.console_url,
             }
         ),

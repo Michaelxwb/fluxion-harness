@@ -350,8 +350,7 @@ async def test_b107_ready_with_snapshot_and_console_outage(
     try:
         async with running_gateway() as client:
             await _wait_until(
-                lambda: (app.state.bot_snapshot is not None)
-                and app.state.bot_snapshot.is_ready(),
+                lambda: (app.state.bot_snapshot is not None) and app.state.bot_snapshot.is_ready(),
                 what="入口快照未就绪",
             )
             readyz = await client.get("/readyz")
@@ -402,9 +401,7 @@ async def test_b107_gateway_requests_no_bot_secrets_and_needs_none(
 
     async def _bots(request: Any) -> Any:
         seen.update(dict(request.query_params))
-        return JSONResponse(
-            status_code=200, content=_bots_envelope([_bot_payload(B107_WEBCHAT_ENTRY, None)])
-        )
+        return JSONResponse(status_code=200, content=_bots_envelope([_bot_payload(B107_WEBCHAT_ENTRY, None)]))
 
     console.handlers[BOTS_PATH] = _bots
     _install_gateway_env(monkeypatch, console_url=console.url, artifact_root=tmp_path / "artifacts")
@@ -412,8 +409,7 @@ async def test_b107_gateway_requests_no_bot_secrets_and_needs_none(
         async with running_gateway() as client:
             assert (await client.get("/healthz")).status_code == 200
             await _wait_until(
-                lambda: (app.state.bot_snapshot is not None)
-                and app.state.bot_snapshot.is_ready(),
+                lambda: (app.state.bot_snapshot is not None) and app.state.bot_snapshot.is_ready(),
                 what="入口快照未就绪",
             )
             readyz = await client.get("/readyz")
@@ -482,3 +478,23 @@ async def test_b107_failed_initialization_releases_created_resources(
     assert sorted(released) == ["console", "runtime"]
     assert app.state.registry is marker
     assert await _wait_gateway_tasks_drained(baseline) == set()
+
+
+@pytest.mark.parametrize("failure", ["incomplete", "apply_failed"])
+async def test_readyz_rejects_reachable_console_until_first_snapshot_is_applied(failure: str) -> None:
+    console = FakeConsoleClient()
+    console.bot_snapshot = BotSnapshotResponse(revision="initial", total=1 if failure == "incomplete" else 0)
+
+    async def apply(items):
+        raise RuntimeError("snapshot apply unavailable")
+
+    snapshot = BotSnapshotCache(
+        console, tenant_id="t1", on_snapshot_changed=apply if failure == "apply_failed" else None
+    )
+    await snapshot.refresh()
+    assert snapshot.console_reachable
+    assert not snapshot.is_ready()
+    async with api_client(await _registry(started=True), InMemoryDedupeStore(), snapshot) as client:
+        response = await client.get("/readyz")
+    assert response.status_code == 503
+    assert response.json()["data"]["bots_revision"] is None

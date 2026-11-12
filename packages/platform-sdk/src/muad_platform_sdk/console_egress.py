@@ -9,8 +9,8 @@ from muad_common import SharedSettings
 from muad_contracts.shared_egress import SharedEgressPolicy
 from pydantic import ValidationError
 
+from .egress_http_routes import EgressHTTPRoute, _authority_matches
 from .egress_ipc import AttemptMetadata, EgressTarget
-from .egress_runtime_config import EgressHTTPRoute, _authority_matches
 from .shared_redis import MeteringUnavailable
 
 

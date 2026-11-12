@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "egress-shared-sdk.md",
-  "task_sha256": "4846524c000444707dd1edfd1cdb10054d1b0629598995ea910a63502acf3641",
+  "task_sha256": "a53d03395db0961c678a5876f911de217ddfc047ebb90ccd6513af10f1a9972f",
   "checks": [
     {
       "id": "CHK-bceb7faf58ed",
@@ -651,6 +651,54 @@
         "format": "pytest",
         "timeout": 30
       }
+    },
+    {
+      "id": "CHK-20f9c1887589",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/sdk/test_configured_egress.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [
+        "packages/**",
+        "apps/agent-runtime/**",
+        "apps/agent-worker/**",
+        "config/**",
+        "scripts/**"
+      ],
+      "preflight": [],
+      "paths": []
+    },
+    {
+      "id": "CHK-9b0596aa250f",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_readyz.py::test_readyz_rejects_reachable_console_until_first_snapshot_is_applied"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "env": "local",
+      "env_scope": "shared",
+      "parallel_safe": false,
+      "profile": "changed",
+      "inputs": [
+        "apps/im-gateway/**",
+        "packages/im-core/**",
+        "tests/gateway/**"
+      ],
+      "preflight": [],
+      "paths": []
     }
   ],
   "scenarios": [
@@ -4505,6 +4553,311 @@
       ],
       "defer_owner": "TASK-001",
       "check": "CHK-51c11c9f1c84"
+    },
+    {
+      "id": "B-08",
+      "source": "remove-egress-file.plan.md#1. 范围与验收 B-08",
+      "level": "contract",
+      "kind": "functional",
+      "boundary": "真实SharedSettings与SDK装配；存储依赖替身不代表真实网络",
+      "owner": "TASK-012",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/sdk/test_configured_egress.py"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "inputs": [
+        "packages/**",
+        "apps/agent-runtime/**",
+        "apps/agent-worker/**",
+        "config/**",
+        "scripts/**"
+      ],
+      "smoke": false,
+      "components": [
+        "sdk",
+        "backend"
+      ],
+      "steps": [
+        "仅用统一Settings构建受控宿主，再校验空规则和非法生命周期"
+      ],
+      "expected": [
+        "启用装配无需JSON；空规则不构造Redis；非法参数明确拒绝"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        }
+      ],
+      "checks": [],
+      "preconditions": [
+        "不设置专用文件路径"
+      ],
+      "features": [
+        "FEAT-01"
+      ],
+      "defer_owner": "TASK-012",
+      "check": "CHK-20f9c1887589",
+      "revision": 1,
+      "evidence": {
+        "id": "B-08",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 1411.7123330000002,
+        "check_id": "CHK-20f9c1887589",
+        "input_hash": "a0b4e48238c0b51d06428a0e035cbc002b462d8d6d6b55fc4573b380da5185d5",
+        "environment_hash": "814baefd6b41d733d692d0b62a8f5b02887922f269e24a8d4ab8f1bd1cd37ea0",
+        "check_config": {
+          "id": "CHK-20f9c1887589",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/sdk/test_configured_egress.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [
+            "packages/**",
+            "apps/agent-runtime/**",
+            "apps/agent-worker/**",
+            "config/**",
+            "scripts/**"
+          ],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "c54365b47e19455a893e243a2a99f94e",
+        "executed_at": "2026-11-12T02:22:41.888452+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/sdk/test_configured_egress.py"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "a0b4e48238c0b51d06428a0e035cbc002b462d8d6d6b55fc4573b380da5185d5"
+      },
+      "runs": [
+        {
+          "id": "B-08",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1411.7123330000002,
+          "check_id": "CHK-20f9c1887589",
+          "input_hash": "a0b4e48238c0b51d06428a0e035cbc002b462d8d6d6b55fc4573b380da5185d5",
+          "environment_hash": "814baefd6b41d733d692d0b62a8f5b02887922f269e24a8d4ab8f1bd1cd37ea0",
+          "check_config": {
+            "id": "CHK-20f9c1887589",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/sdk/test_configured_egress.py"
+            ],
+            "cwd": ".",
+            "timeout": 60.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "config/**",
+              "scripts/**"
+            ],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "c54365b47e19455a893e243a2a99f94e",
+          "executed_at": "2026-11-12T02:22:41.888452+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/sdk/test_configured_egress.py"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "a0b4e48238c0b51d06428a0e035cbc002b462d8d6d6b55fc4573b380da5185d5"
+        }
+      ]
+    },
+    {
+      "id": "B-09",
+      "source": "ci-gateway-readiness.plan.md#1. B-09范围与证据",
+      "level": "contract",
+      "kind": "functional",
+      "boundary": "真实BotSnapshotCache和ASGI健康端点，Console故障替身",
+      "owner": "TASK-013",
+      "status": "verified",
+      "command": [
+        "uv",
+        "run",
+        "pytest",
+        "-q",
+        "tests/gateway/test_readyz.py::test_readyz_rejects_reachable_console_until_first_snapshot_is_applied"
+      ],
+      "cwd": ".",
+      "timeout": 60.0,
+      "depends_on": [],
+      "priority": "P0",
+      "exec": "auto",
+      "env": "local",
+      "inputs": [
+        "apps/im-gateway/**",
+        "packages/im-core/**",
+        "tests/gateway/**"
+      ],
+      "smoke": false,
+      "components": [
+        "backend"
+      ],
+      "steps": [
+        "分别返回不完整快照和制造快照应用失败，查询readyz"
+      ],
+      "expected": [
+        "两种情况均503；Console连通不等于已应用"
+      ],
+      "expected_refs": [
+        {
+          "expected": 1,
+          "steps": [
+            1
+          ]
+        }
+      ],
+      "checks": [],
+      "preconditions": [
+        "首次未应用完整快照"
+      ],
+      "features": [
+        "FEAT-01"
+      ],
+      "defer_owner": "TASK-013",
+      "check": "CHK-9b0596aa250f",
+      "revision": 1,
+      "evidence": {
+        "id": "B-09",
+        "kind": "functional",
+        "status": "passed",
+        "exit_code": 0,
+        "execution_ms": 1658.0469999999998,
+        "check_id": "CHK-9b0596aa250f",
+        "input_hash": "637bf7520ab2e6dd2e4ca0f276315811ba527ed52c7e47d8e8d80d9e86b0fcbd",
+        "environment_hash": "9f5db13bb53ba05dde3bfbb1dcba92af135d1ea19275e2f6732f3e1511e1eaf3",
+        "check_config": {
+          "id": "CHK-9b0596aa250f",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/gateway/test_readyz.py::test_readyz_rejects_reachable_console_until_first_snapshot_is_applied"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "env": "local",
+          "env_scope": "shared",
+          "parallel_safe": false,
+          "profile": "changed",
+          "inputs": [
+            "apps/im-gateway/**",
+            "packages/im-core/**",
+            "tests/gateway/**"
+          ],
+          "preflight": [],
+          "paths": []
+        },
+        "revision": 1,
+        "run_id": "21d7cb7a65d242e28c1677bb6cb90276",
+        "executed_at": "2026-11-12T03:05:02.914942+00:00",
+        "command": [
+          "uv",
+          "run",
+          "pytest",
+          "-q",
+          "tests/gateway/test_readyz.py::test_readyz_rejects_reachable_console_until_first_snapshot_is_applied"
+        ],
+        "cwd": ".",
+        "timeout": 60.0,
+        "fingerprint": "637bf7520ab2e6dd2e4ca0f276315811ba527ed52c7e47d8e8d80d9e86b0fcbd"
+      },
+      "runs": [
+        {
+          "id": "B-09",
+          "kind": "functional",
+          "status": "passed",
+          "exit_code": 0,
+          "execution_ms": 1658.0469999999998,
+          "check_id": "CHK-9b0596aa250f",
+          "input_hash": "637bf7520ab2e6dd2e4ca0f276315811ba527ed52c7e47d8e8d80d9e86b0fcbd",
+          "environment_hash": "9f5db13bb53ba05dde3bfbb1dcba92af135d1ea19275e2f6732f3e1511e1eaf3",
+          "check_config": {
+            "id": "CHK-9b0596aa250f",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              "tests/gateway/test_readyz.py::test_readyz_rejects_reachable_console_until_first_snapshot_is_applied"
+            ],
+            "cwd": ".",
+            "timeout": 60.0,
+            "env": "local",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "apps/im-gateway/**",
+              "packages/im-core/**",
+              "tests/gateway/**"
+            ],
+            "preflight": [],
+            "paths": []
+          },
+          "revision": 1,
+          "run_id": "21d7cb7a65d242e28c1677bb6cb90276",
+          "executed_at": "2026-11-12T03:05:02.914942+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "tests/gateway/test_readyz.py::test_readyz_rejects_reachable_console_until_first_snapshot_is_applied"
+          ],
+          "cwd": ".",
+          "timeout": 60.0,
+          "fingerprint": "637bf7520ab2e6dd2e4ca0f276315811ba527ed52c7e47d8e8d80d9e86b0fcbd"
+        }
+      ]
     }
   ],
   "scenarios_file": "egress-shared-sdk.scenarios.md",
@@ -4535,9 +4888,11 @@
     "preserved": [
       "S-01",
       "S-02",
+      "S-03",
       "S-04",
       "S-05",
       "E-01",
+      "E-02",
       "E-03",
       "E-04",
       "B-01",
@@ -4545,12 +4900,11 @@
       "B-03",
       "B-04",
       "B-05",
-      "B-06"
+      "B-06",
+      "B-08",
+      "B-09"
     ],
-    "stale": [
-      "S-03",
-      "E-02"
-    ],
+    "stale": [],
     "removed": []
   }
 }

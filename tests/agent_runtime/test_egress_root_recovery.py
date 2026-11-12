@@ -1,6 +1,5 @@
 """Runtime assembly with real PostgreSQL, Redis and HTTP; not full S-03."""
 
-import json
 import uuid
 from dataclasses import replace
 
@@ -37,28 +36,33 @@ async def test_runtime_root_recovery_keeps_budget(
     sessions, _, scope, claim = run_source
     _, _, meter, _, _ = identity_environment
     probe, origin = http_probe
-    config = {
-        "domain": meter._prefix.split("{")[1].split("}")[0],
-        "epoch": "epoch",
-        "public_rules_enabled": True,
-        "request_timeout_seconds": 3,
-        "cleanup_seconds": 0.2,
-        "renewal_interval_seconds": 0.05,
-        "source_refresh_seconds": 0.1,
-        "stop_margin_seconds": 12,
-        "routes": [
-            {
-                "origin": origin,
-                "method": "GET",
-                "path_template": "/proxy",
-                "target_instance_id": "platform",
-                "route_id": "GET /assets",
+    from muad_contracts.shared_egress import SharedHTTPMatch
+
+    current = await meter.current_policy()
+    await meter.publish(
+        current.model_copy(
+            update={
+                "revision": 2,
+                "rules": tuple(
+                    rule.model_copy(
+                        update={
+                            "http_match": SharedHTTPMatch(origin=origin, method="GET", path_template="/proxy")
+                        }
+                    )
+                    for rule in current.rules
+                ),
             }
-        ],
-    }
-    path = tmp_path / "egress.json"
-    path.write_text(json.dumps(config))
-    settings = SharedSettings(egress_control_file=str(path))
+        )
+    )
+    settings = SharedSettings(
+        egress_meter_domain=meter._prefix.split("{")[1].split("}")[0],
+        egress_meter_epoch="epoch",
+        egress_http_read_timeout_sec=3,
+        egress_cleanup_sec=0.2,
+        egress_renewal_interval_sec=0.05,
+        egress_source_refresh_sec=0.1,
+        egress_stop_margin_sec=12,
+    )
     monkeypatch.setattr(runtime_egress, "process_settings", lambda: settings)
     monkeypatch.setattr(runtime_egress, "get_session_factory", lambda: sessions)
     async with sessions() as session:
@@ -131,7 +135,10 @@ async def test_runtime_root_recovery_keeps_budget(
 
 
 async def test_console_platform_policy_activates_real_runtime_host_without_execution_cap(
-    identity_environment, http_probe, tmp_path, monkeypatch,
+    identity_environment,
+    http_probe,
+    tmp_path,
+    monkeypatch,
 ):
     """Real Run claim, PG registry, Redis and HTTP; Console load is a typed policy fixture."""
     from datetime import timedelta
@@ -140,56 +147,93 @@ async def test_console_platform_policy_activates_real_runtime_host_without_execu
     from muad_agent_runtime.infrastructure.models.runtime import Conversation
     from muad_contracts.shared_egress import SharedEgressPolicy
     from muad_platform_sdk.console_egress import tenant_domain
+
     sessions, tenant, _, redis, _ = identity_environment
     probe, origin = http_probe
     conversation_id, run_id = uuid.uuid4(), uuid.uuid4()
     async with sessions.begin() as session:
         now = await session.scalar(sa.select(sa.func.statement_timestamp()))
         user, agent = uuid.uuid4(), uuid.uuid4()
-        session.add(Conversation(id=conversation_id, tenant_id=tenant, user_id=user,
-                                agent_id=agent, status='ACTIVE', last_seq=0))
+        session.add(
+            Conversation(
+                id=conversation_id,
+                tenant_id=tenant,
+                user_id=user,
+                agent_id=agent,
+                status="ACTIVE",
+                last_seq=0,
+            )
+        )
         await session.flush()
-        session.add(RunRecord(id=run_id, tenant_id=tenant, conversation_id=conversation_id,
-            user_id=user, agent_id=agent, status='RUNNING', input_text='test', trace_id=uuid.uuid4().hex,
-            execution_epoch=1, lease_owner='runtime-owner', lease_until=now + timedelta(minutes=5),
-            deadline_at=now + timedelta(minutes=10)))
-    config = json.loads(__import__('pathlib').Path('config/egress-runtime.json').read_text())
-    config.update(domain='runtime-console-' + uuid.uuid4().hex, epoch='epoch')
-    path = tmp_path / 'control.json'
-    path.write_text(json.dumps(config))
-    settings = SharedSettings(egress_control_file=str(path))
-    monkeypatch.setattr(runtime_egress, 'process_settings', lambda: settings)
-    monkeypatch.setattr(runtime_egress, 'get_session_factory', lambda: sessions)
+        session.add(
+            RunRecord(
+                id=run_id,
+                tenant_id=tenant,
+                conversation_id=conversation_id,
+                user_id=user,
+                agent_id=agent,
+                status="RUNNING",
+                input_text="test",
+                trace_id=uuid.uuid4().hex,
+                execution_epoch=1,
+                lease_owner="runtime-owner",
+                lease_until=now + timedelta(minutes=5),
+                deadline_at=now + timedelta(minutes=10),
+            )
+        )
+    domain = "runtime-console-" + uuid.uuid4().hex
+    settings = SharedSettings(egress_meter_domain=domain, egress_meter_epoch="epoch")
+    monkeypatch.setattr(runtime_egress, "process_settings", lambda: settings)
+    monkeypatch.setattr(runtime_egress, "get_session_factory", lambda: sessions)
+
     async def console_policy(*args):
-        return SharedEgressPolicy.model_validate({'revision': 1, 'rules': [{
-            'id': 'configured-platform', 'target_instance_id': 'assets', 'route_id': 'GET /proxy',
-            'max_requests': 1, 'http_match': {'origin': origin, 'method': 'GET', 'path_template': '/proxy'},
-        }]})
-    monkeypatch.setattr(assembly, 'load_console_egress_policy', console_policy)
+        return SharedEgressPolicy.model_validate(
+            {
+                "revision": 1,
+                "rules": [
+                    {
+                        "id": "configured-platform",
+                        "target_instance_id": "assets",
+                        "route_id": "GET /proxy",
+                        "max_requests": 1,
+                        "http_match": {"origin": origin, "method": "GET", "path_template": "/proxy"},
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr(assembly, "load_console_egress_policy", console_policy)
+
     async def cancelled():
         return False
-    request = ExecutorRequest(agent=ResolvedAgent(id=agent, key='agent', revision=1, instructions='test'),
-        model=ResolvedModel(id=uuid.uuid4(), revision=1, model_id='test', base_url='http://model'),
-        input_text='test', is_cancel_requested=cancelled,
+
+    request = ExecutorRequest(
+        agent=ResolvedAgent(id=agent, key="agent", revision=1, instructions="test"),
+        model=ResolvedModel(id=uuid.uuid4(), revision=1, model_id="test", base_url="http://model"),
+        input_text="test",
+        is_cancel_requested=cancelled,
         run_context=ExecutorRunContext(tenant, run_id, conversation_id, user),
-        execution_identity=ExecutionIdentity(tenant, run_id, 'runtime-owner', 1),
-        execution=ExecutionDefaults(egress_enabled=True))
+        execution_identity=ExecutionIdentity(tenant, run_id, "runtime-owner", 1),
+        execution=ExecutionDefaults(egress_enabled=True),
+    )
     try:
         async with runtime_egress.run_egress(request) as root:
             assert root is not None
+
             async def work():
-                invocation = await root.host_invocation(operation_key='skill-call', skill_key='skill')
+                invocation = await root.host_invocation(operation_key="skill-call", skill_key="skill")
                 async with httpx.AsyncClient(transport=root.transport(invocation)) as client:
-                    assert (await client.get(origin + '/proxy')).status_code == 429
+                    assert (await client.get(origin + "/proxy")).status_code == 429
                     with pytest.raises(SharedLimitExceeded):
-                        await client.get(origin + '/proxy')
+                        await client.get(origin + "/proxy")
+
             await root.run(work)
         assert probe.calls == 1
     finally:
         async with sessions.begin() as session:
             await session.execute(sa.delete(RunRecord).where(RunRecord.id == run_id))
             await session.execute(sa.delete(Conversation).where(Conversation.id == conversation_id))
-        prefix = 'fx:egress:{' + tenant_domain(config['domain'], tenant) + '}:'
-        keys = [key async for key in redis.scan_iter(prefix + '*')]
+        prefix = "fx:egress:{" + tenant_domain(domain, tenant) + "}:"
+        keys = [key async for key in redis.scan_iter(prefix + "*")]
         if keys:
             await redis.delete(*keys)
