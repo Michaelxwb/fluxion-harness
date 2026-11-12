@@ -1655,6 +1655,7 @@
   "chat.composer.hint.size": "Each attachment at most {{size}}",
   "chat.composer.hint.text": "Message at most {{max}} bytes",
   "chat.composer.hint.paste": "Paste images directly",
+  "chat.composer.hint.formats": "Supported formats: {{formats}}",
   "chat.composer.error.empty": "Enter a message or add an attachment",
   "chat.composer.error.entryRequired": "This chat entry is invalid, please enter again",
   "chat.composer.error.conversationRequired": "Select a conversation before sending",

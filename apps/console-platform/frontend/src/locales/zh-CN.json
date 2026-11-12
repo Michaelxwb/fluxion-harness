@@ -1655,6 +1655,7 @@
   "chat.composer.hint.size": "单个附件不超过 {{size}}",
   "chat.composer.hint.text": "消息最多 {{max}} 字节",
   "chat.composer.hint.paste": "支持直接粘贴图片",
+  "chat.composer.hint.formats": "支持格式：{{formats}}",
   "chat.composer.error.empty": "请输入内容或添加附件",
   "chat.composer.error.entryRequired": "当前聊天入口无效，请重新进入",
   "chat.composer.error.conversationRequired": "请先选择会话再发送",

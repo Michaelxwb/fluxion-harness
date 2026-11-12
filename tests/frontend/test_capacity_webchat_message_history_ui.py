@@ -261,6 +261,7 @@ const CONFIG_A = {
     text_max_bytes: 4096,
     upload_max_bytes: 12345678,
     upload_max_per_message: 3,
+    upload_formats: [{ media_type: 'application/pdf', extensions: ['.pdf'] }],
     notification_poll_sec: 2.5
   },
   transport: {
@@ -776,6 +777,7 @@ const CONFIG_A = {
     text_max_bytes: 4096,
     upload_max_bytes: 12345678,
     upload_max_per_message: 3,
+    upload_formats: [{ media_type: 'application/pdf', extensions: ['.pdf'] }],
     notification_poll_sec: 2.5
   },
   transport: {

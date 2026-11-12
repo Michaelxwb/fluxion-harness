@@ -261,13 +261,21 @@ export interface WebchatResumeReceipt {
   execution_status: WebchatExecutionStatus;
 }
 
-/** API-19 浏览器可见的业务上限（唯一来源是后端 schema 派生投影）。 */
+/** 一个可上传格式的浏览器投影：媒体类型 + 用户可见扩展名（含点）。 */
+export interface WebchatUploadFormat {
+  readonly media_type: string;
+  readonly extensions: readonly string[];
+}
+
+/** API-19 浏览器可见的业务上限（唯一来源是后端 schema 派生投影）。
+ * `upload_formats` 与门控同一份清单，提示与文件选择器都只认它。 */
 export interface WebchatClientLimits {
   history_page_size: number;
   text_max_bytes: number;
   upload_max_bytes: number;
   upload_max_per_message: number;
   notification_poll_sec: number;
+  upload_formats: readonly WebchatUploadFormat[];
 }
 
 /** API-19 传输参数；新连接绑定 `transport_revision`，活跃连接不突变。 */

@@ -421,14 +421,14 @@ class WebchatConversationDetail(WebchatContract):
         return self
 
 
+#: `upload_formats`（媒体类型 + 展示扩展名）来自 `muad_contracts.attachments` 的唯一事实，
+#: 与门控同一份清单；浏览器据此展示提示并过滤文件选择器，不在前端另存一份。
 class WebchatClientLimits(WebchatContract):
     history_page_size: ChatPageSize
     text_max_bytes: ChatPositiveCount
     upload_max_bytes: ChatPositiveCount
     upload_max_per_message: ChatPositiveCount
     notification_poll_sec: ChatPositiveSeconds
-    #: 允许上传的格式（媒体类型 + 展示扩展名）：来自 `muad_contracts.attachments` 的唯一事实，
-    #: 与门控同一份清单；浏览器据此展示提示并过滤文件选择器，不在前端另存一份。
     upload_formats: tuple[AttachmentFormat, ...]
 
     @model_validator(mode="after")
