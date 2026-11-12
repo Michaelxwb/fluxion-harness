@@ -885,6 +885,18 @@
   font-size: 12px;
 }
 
+/* 思考占位：与流式气泡同一版式，但内容只有一行等待文案。 */
+.chat-message-item-thinking .chat-message-body {
+  gap: 4px;
+}
+
+/* 思考占位：等待首个增量时的唯一可见信号；等宽数字避免每秒抖动。 */
+.chat-message-thinking-line {
+  color: var(--semi-color-text-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
 .chat-run-activity {
   display: flex;
   align-items: center;

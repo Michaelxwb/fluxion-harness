@@ -67,6 +67,7 @@ import {
   type RunStopState
 } from './components/RunActions';
 import { TokenAccess } from './components/TokenAccess';
+import { ChatThinking, thinkingAnchorOf } from './components/ChatThinking';
 import { WebchatShell } from './components/WebchatShell';
 import { useChatAuth, type ChatAuthController } from './hooks/useChatAuth';
 import { useClientConfig, type ClientConfigController } from './hooks/useClientConfig';
@@ -95,6 +96,7 @@ import { createWebchatClient, webchatErrorCode } from './services/webchatApi';
 import type { ChatAuthenticationSnapshot, ChatIdentityCleanup } from './authenticationState';
 import type { ClientConfigSnapshot } from './clientConfig';
 import type { ConversationLimitsPort, ConversationSelectionSnapshot } from './conversationState';
+import { isTerminalRunStatus } from './runState';
 import type { ActiveRunState, RunConnectionSnapshot, StreamingReplyProps } from './runState';
 import type {
   WebchatAttachment,
@@ -998,6 +1000,17 @@ interface ChatMessageAreaProps {
 /** 消息区装配：新对话提示 + 消息线程 + 流式正文 + 运行面 + 确认卡（同一滚动视口）。 */
 function ChatMessageArea(props: ChatMessageAreaProps) {
   const history = props.messages.history;
+  const run = props.run;
+  const thinkingAnchor =
+    run === null
+      ? undefined
+      : thinkingAnchorOf({
+          runStatus: run.status,
+          executionStatus: run.executionStatus,
+          hasVisibleContent:
+            props.streaming !== null &&
+            (props.streaming.text !== '' || props.streaming.attachments.length > 0)
+        });
   return (
     <div className="chat-message-column">
       {props.conversationId === null ? <ChatNewConversationNotice /> : null}
@@ -1012,6 +1025,7 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
         onRetry={props.onRetryHistory}
         onDownloadAttachment={props.onDownloadAttachment}
       />
+      {thinkingAnchor === undefined ? null : <ChatThinking anchor={thinkingAnchor} />}
       <ChatStreamingReply
         streaming={props.streaming}
         onDownloadAttachment={props.onDownloadAttachment}

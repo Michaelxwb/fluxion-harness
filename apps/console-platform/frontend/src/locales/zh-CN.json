@@ -1690,6 +1690,8 @@
   "chat.run.queue.deadline": "排队期限：",
   "chat.run.queuedAt": "进入排队：",
   "chat.run.startedAt": "开始执行：",
+  "chat.thinking": "正在思考…",
+  "chat.thinking.elapsed": "正在思考… 已用时 {{elapsed}}",
   "chat.run.tool.executing": "正在执行 {{name}}",
   "chat.run.tool.elapsed": "已 {{seconds}} 秒",
   "chat.run.connection.label": "连接状态",
