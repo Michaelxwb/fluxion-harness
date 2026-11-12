@@ -1,6 +1,7 @@
 """B-202: Webchat settings, explicit retention semantics and deployment budgets."""
 
 from dataclasses import asdict, fields, replace
+from uuid import UUID
 
 import pytest
 from muad_contracts.attachments import SUPPORTED_UPLOAD_FORMATS
@@ -10,7 +11,7 @@ from muad_contracts.platform_settings import (
     parse_platform_settings,
     validate_platform_settings,
 )
-from muad_contracts.webchat import WebchatClientConfig
+from muad_contracts.webchat import WebchatClientConfig, WebchatConversationDeletion
 
 pytestmark = pytest.mark.unit
 
@@ -214,3 +215,15 @@ def test_b202_client_limits_project_the_shared_upload_formats() -> None:
     assert {"application/zip", "application/x-zip-compressed"} <= media_types
     for item in config.webchat.upload_formats:
         assert item.extensions and all(ext.startswith(".") for ext in item.extensions)
+
+
+def test_b202_conversation_deletion_receipt_is_a_single_shape() -> None:
+    """删除回执只有一种形状：`deleted` 恒为 True（重复删除同形），不接受伪造的其他值。"""
+    conversation_id = UUID("7d2f9b31-4c8a-4e5d-9f10-6a3b8c2d4e51")
+    receipt = WebchatConversationDeletion(conversation_id=conversation_id)
+    assert receipt.model_dump(mode="json") == {
+        "conversation_id": str(conversation_id),
+        "deleted": True,
+    }
+    with pytest.raises(ValueError):
+        WebchatConversationDeletion(conversation_id=conversation_id, deleted=False)  # type: ignore[arg-type]

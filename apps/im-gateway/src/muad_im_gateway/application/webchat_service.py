@@ -37,6 +37,7 @@ from muad_contracts import BotSnapshotItem, ChannelContext, RunRequest
 from muad_contracts.im import InboundEvent
 from muad_contracts.webchat import (
     WebchatConversationCreated,
+    WebchatConversationDeletion,
     WebchatConversationDetail,
     WebchatConversationPage,
     WebchatConversationScope,
@@ -106,6 +107,10 @@ class WebchatOwnerPort(Protocol):
         agent_id: UUID,
         page: int,
         page_size: int | None,
+    ) -> dict[str, Any]: ...
+
+    async def delete_conversation(
+        self, conversation_id: UUID, *, tenant_id: str, user_id: UUID
     ) -> dict[str, Any]: ...
 
     async def get_conversation(
@@ -360,6 +365,17 @@ class WebchatResourceService:
             entry_id=scope.entry_id,
         )
         return _project(WebchatConversationDetail, data)
+
+    async def delete_conversation(
+        self, identity: ChatIdentity, conversation_id: UUID
+    ) -> WebchatConversationDeletion:
+        """API-16：删除自己的会话；入口/Agent 由 Owner 从会话行核，调用方不自报。"""
+        data = await self._runtime.delete_conversation(
+            conversation_id,
+            tenant_id=self._tenant_id,
+            user_id=identity.principal.platform_user_id,
+        )
+        return _project(WebchatConversationDeletion, data)
 
     async def list_messages(
         self,

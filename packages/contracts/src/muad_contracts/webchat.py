@@ -365,6 +365,13 @@ class WebchatResumeReceipt(WebchatContract):
     execution_status: WebchatExecutionStatus
 
 
+class WebchatConversationDeletion(WebchatContract):
+    """会话删除回执：`deleted=True` 表示该会话当前已达成删除（重复删除同形）。"""
+
+    conversation_id: UUID
+    deleted: Literal[True] = True
+
+
 class WebchatConversationScope(WebchatContract):
     """内部归属解析（API-09/15 的入口解析接线；design §3.4 公共路径不带入口）。
 

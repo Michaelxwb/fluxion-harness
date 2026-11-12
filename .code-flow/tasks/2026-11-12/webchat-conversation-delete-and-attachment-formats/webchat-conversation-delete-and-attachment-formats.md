@@ -338,7 +338,7 @@
   - runtime-conversation-delete PASS exit=0
 ## TASK-006: Gateway 会话删除公开路径
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-005
 - **Source**: webchat-conversation-delete-and-attachment-formats.backend.design.md#34-接口设计
 - **Scenarios**: S-01, E-01, B-01
@@ -354,7 +354,7 @@
 [
   {
     "id": "gateway-conversation-delete",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/gateway/test_capacity_webchat_webchat_resource_api.py", "tests/gateway/test_capacity_webchat_gateway_wiring.py", "tests/contracts/test_capacity_webchat_webchat_schema.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/gateway/test_capacity_webchat_webchat_resource_api.py", "tests/gateway/test_capacity_webchat_gateway_wiring.py", "tests/contracts/test_capacity_webchat_webchat_schema.py", "tests/test_configuration_inventory.py"],
     "timeout": 300,
     "parallel": false
   }
@@ -367,10 +367,10 @@
 
 ### Checklist
 
-- [ ] 契约 `WebchatConversationDeletion` 与内部/公开两端同形。
-- [ ] 路由经 CHAT 门控后转发，请求只带 user_id 与 conversation_id。
-- [ ] 幂等重放返回成功；他人会话与不存在会话返回 404。
-- [ ] 不新增错误码，响应符合统一封套。
+- [x] 契约 `WebchatConversationDeletion` 与内部/公开两端同形。
+- [x] 路由经 CHAT 门控后转发，请求只带 user_id 与 conversation_id。
+- [x] 幂等重放返回成功；他人会话与不存在会话返回 404。
+- [x] 不新增错误码，响应符合统一封套。
 
 ### Spec Delta
 
@@ -381,11 +381,18 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T15:15:18.630Z] started tests=5995641b8d98
+- [2026-11-12T15:16:35.721Z] reopen: declare configuration inventory check
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-12T15:15:33.574Z FAIL commands=0/1 executed=1 deduped=0 elapsed=14699ms tests=5995641b8d98 head=49af04388165 dirty=1
+  - gateway-conversation-delete FAIL exit=1
+- 2026-11-12T15:15:58.393Z PASS commands=1/1 executed=1 deduped=0 elapsed=12164ms tests=5995641b8d98 head=49af04388165 dirty=1
+  - gateway-conversation-delete PASS exit=0
+- 2026-11-12T15:16:48.940Z PASS commands=1/1 executed=1 deduped=0 elapsed=13061ms tests=16344ac99064 head=49af04388165 dirty=1 tests-changed
+  - gateway-conversation-delete PASS exit=0
 ## TASK-007: 前端删除入口与状态收敛
 
 - **Status**: draft

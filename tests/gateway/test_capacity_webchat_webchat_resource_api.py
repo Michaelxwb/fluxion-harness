@@ -408,6 +408,11 @@ class _RuntimeProbe:
                 }
             )
 
+        @runtime_app.delete("/internal/webchat/conversations/{conversation_id}")
+        async def _delete(conversation_id: str, request: Request) -> Response:
+            self._record(f"/internal/webchat/conversations/{conversation_id}", request)
+            return _json({"conversation_id": conversation_id, "deleted": True})
+
         @runtime_app.get("/internal/webchat/conversations/{conversation_id}/messages")
         async def _messages(conversation_id: str, request: Request) -> Response:
             self._record(f"/internal/webchat/conversations/{conversation_id}/messages", request)
@@ -933,6 +938,28 @@ async def test_b252_conversation_detail_and_history_resolve_scope_then_read_entr
 
 
 # --- B-252：API-08 精确取消与恢复 -----------------------------------------------------------
+
+
+async def test_b252_conversation_delete_sends_only_the_trusted_subject(
+    stub_console: StubConsole,
+    console_probe: _ConsoleProbe,
+    runtime_probe: _RuntimeProbe,
+) -> None:
+    """API-16：删除只带受信主体（不自报入口/Agent），Owner 回执原样投影。"""
+    async with _gateway_client(stub_console, runtime_probe) as client:
+        response = await client.delete(CONVERSATION_URL, headers=_chat_headers())
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"] == {
+        "conversation_id": str(CONVERSATION_ID),
+        "deleted": True,
+    }
+    calls = runtime_probe.calls[f"/internal/webchat/conversations/{CONVERSATION_ID}"]
+    assert len(calls) == 1
+    assert calls[0].query == {"user_id": str(PLATFORM_USER_ID)}, "入口/Agent 不得由调用方自报"
+    assert calls[0].headers["x-internal-service"] == INTERNAL_TOKEN
+    assert calls[0].headers["x-tenant-id"] == GATEWAY_TENANT
+    assert "cookie" not in calls[0].headers and "x-chat-context" not in calls[0].headers
 
 
 async def test_b252_cancel_and_resume_bind_the_original_run_and_replay(
