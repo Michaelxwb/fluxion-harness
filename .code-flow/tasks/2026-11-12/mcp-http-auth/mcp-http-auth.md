@@ -178,7 +178,7 @@
 
 ## TASK-004: 本地假 MCP 服务
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: mcp-http-auth.backend.design.md#37-本地假-mcp-设计
 - **Scenarios**: S-01, S-02
@@ -223,11 +223,13 @@
 
 - [2026-11-12] created
 - [2026-11-12T07:32:13.937Z] started tests=82cf59854178
+- [2026-11-12T07:44:02.610Z] started tests=82cf59854178
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-12T07:52:31.039Z PASS commands=1/1 executed=1 deduped=0 elapsed=1513ms tests=82cf59854178 head=764ff023bae7 dirty=1
+  - fake-mcp PASS exit=0
 ## TASK-005: 数据迁移、规范与字段文档
 
 - **Status**: draft

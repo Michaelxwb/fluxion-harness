@@ -12,6 +12,9 @@ Two modes:
   real `MSSAdapter` (`packages/platform-sdk/src/muad_platform_sdk/adapter/mss.py`):
   SigV4-style AK/SK login, CSRF cookie/header, health endpoint, Traceid echo.
 
+In both modes, `POST /mcp` additionally exposes a Streamable HTTP MCP subset
+(see [MCP mode](#mcp-mode-streamable-http)).
+
 ## Run
 
 ```bash
@@ -28,6 +31,92 @@ For a Runtime running inside a container/pod, `baseUrl` must be reachable from
 that network namespace: use `host.docker.internal` (Docker/OrbStack) or a node
 IP / cluster host alias. The value is deployment-specific and lives in the
 Console platform settings, not in the Skill.
+
+## MCP mode (Streamable HTTP)
+
+`POST /mcp` serves a JSON-RPC subset of MCP Streamable HTTP, so the Console
+discovery/test path and the Runtime `tools/call` path can run against a real
+HTTP endpoint. It is independent of `--platform`, uses the stdlib only, and
+implements exactly what the harness clients need:
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/mcp` | `initialize`, `notifications/initialized`, `tools/list`, `tools/call` |
+| GET | `/mcp` | `405` + `Allow: POST` (no SSE stream in this subset) |
+
+Session handling: `initialize` issues a random `Mcp-Session-Id`; every later
+request must send it back, otherwise the server answers `401`.
+
+### Authentication
+
+| `--mcp-auth` | Required request headers | Startup validation |
+|---|---|---|
+| `none` (default) | none | — |
+| `bearer` | `Authorization: Bearer <--mcp-token>` | `--mcp-token` must be non-empty |
+| `headers` | every `--mcp-header NAME=VALUE` (repeatable) | at least one `--mcp-header` |
+
+```bash
+# Bearer token
+python3 tools/fake-business-platform/server.py \
+  --host 127.0.0.1 --port 18081 \
+  --mcp-auth bearer --mcp-token test-mcp-token
+
+# Custom headers (one secret header + static headers)
+python3 tools/fake-business-platform/server.py \
+  --host 127.0.0.1 --port 18081 \
+  --mcp-auth headers \
+  --mcp-header X-App-Id=sdspmcp \
+  --mcp-header X-Platform-Uid=53842 \
+  --mcp-header X-Api-Key=test-key
+```
+
+`--mcp-path` changes the endpoint path (default `/mcp`). The first stdout line
+is still the readiness JSON; it now also contains `mcpUrl`, `mcpAuth` and
+`mcpTools` and never echoes the token or header values. Request logs on stderr
+redact `Authorization`, `Cookie` and every configured `--mcp-header` value.
+
+### Tools
+
+| Tool | Effect (`annotations`) | Result |
+|---|---|---|
+| `platform.ping` | READ (`readOnlyHint`) | `pong` |
+| `platform.targets.list` | READ (`readOnlyHint`) | three fake targets |
+| `platform.echo` | WRITE (no annotations) | echoes `message` |
+| `platform.targets.delete` | DESTRUCTIVE (`destructiveHint`) | `{"deleted": "<id>"}` |
+| `platform.fail` | WRITE (no annotations) | `isError: true` |
+
+### Console configuration
+
+Bearer mode (no `auth_config`; the secret is stored as the MCP server secret):
+
+```json
+{
+  "name": "Fake MCP (Bearer)",
+  "key": "fake-mcp-bearer",
+  "endpoint": "http://host.docker.internal:18081/mcp",
+  "auth_secret": "test-mcp-token",
+  "auth_config": {}
+}
+```
+
+Custom-headers mode (static headers in `auth_config`, the secret value in
+`auth_secret` and the header name in `secret_header`):
+
+```json
+{
+  "name": "Fake MCP (headers)",
+  "key": "fake-mcp-headers",
+  "endpoint": "http://host.docker.internal:18081/mcp",
+  "auth_secret": "test-key",
+  "auth_config": {
+    "headers": { "X-App-Id": "sdspmcp", "X-Platform-Uid": "53842" },
+    "secret_header": "X-Api-Key"
+  }
+}
+```
+
+`auth_secret` is the platform's MCP secret; it must not be written into Skills,
+README copies, logs or snapshots.
 
 ## mssw endpoints
 
