@@ -27,13 +27,14 @@ import { useEffect, useMemo, useSyncExternalStore } from 'react';
 
 import { newRequestId } from '../../../api/client';
 
-import { ClientConfigError } from '../clientConfig';
+import { ClientConfigError, acceptedExtensions } from '../clientConfig';
 import { webchatErrorCode } from '../services/webchatApi';
 import type {
   WebchatMessageAccepted,
   WebchatRequestOptions,
   WebchatSubmitInput,
   WebchatUpload,
+  WebchatUploadFormat,
   WebchatWriteOptions
 } from '../types';
 
@@ -114,6 +115,8 @@ export interface ComposerAttachmentPolicy {
   readonly text_max_bytes: number;
   readonly upload_max_bytes: number;
   readonly upload_max_per_message: number;
+  /** 允许上传的格式：与门控同一份清单，扩展名预检与选择器过滤都从这里派生。 */
+  readonly upload_formats: readonly WebchatUploadFormat[];
 }
 
 /** 写面端口：只取 `WebchatClient` 的上传与提交（结构上没有任何读/取消/认证能力）。 */
@@ -421,6 +424,13 @@ function setText(runtime: PendingSendRuntime, text: string): void {
   emit(runtime);
 }
 
+/** 文件名的扩展名（含点、小写）；没有扩展名返回 null（交给服务端门控，不就地误伤）。 */
+function extensionOf(name: string): string | null {
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0 || dot === name.length - 1) return null;
+  return name.slice(dot).toLowerCase();
+}
+
 function addFiles(runtime: PendingSendRuntime, files: readonly File[]): void {
   const target = editableTarget(runtime);
   if (target === null) return;
@@ -430,11 +440,17 @@ function addFiles(runtime: PendingSendRuntime, files: readonly File[]): void {
     emit(runtime);
     return;
   }
+  const accepted = new Set(acceptedExtensions(limits.upload_formats));
   let rejected: PendingSendErrorCode | null = null;
   for (const file of files) {
     if (target.attachments.length >= limits.upload_max_per_message) {
       rejected = 'SEND_TOO_MANY_FILES';
       break;
+    }
+    const extension = extensionOf(file.name);
+    if (extension !== null && !accepted.has(extension)) {
+      rejected = 'ATTACHMENT_TYPE_NOT_ALLOWED';
+      continue;
     }
     if (file.size > limits.upload_max_bytes) {
       rejected = 'SEND_FILE_TOO_LARGE';

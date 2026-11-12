@@ -204,7 +204,7 @@
   - client-config-projection PASS exit=0
 ## TASK-004: 前端支持格式提示与选择器过滤
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003
 - **Source**: webchat-conversation-delete-and-attachment-formats.frontend.design.md#33-数据与接口, #36-词条清单
 - **Scenarios**: S-05
@@ -220,7 +220,7 @@
 [
   {
     "id": "frontend-format-hints",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/frontend/test_capacity_webchat_client_config_state.py", "tests/frontend/test_capacity_webchat_composer_uploads.py", "tests/frontend/test_capacity_webchat_webchat_i18n.py"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/frontend/test_capacity_webchat_client_config_state.py", "tests/frontend/test_capacity_webchat_composer_uploads.py", "tests/frontend/test_capacity_webchat_webchat_i18n.py", "tests/frontend/test_capacity_webchat_webchat_services.py", "tests/frontend/test_capacity_webchat_webchat_layout.py", "tests/frontend/test_capacity_webchat_history_sidebar.py", "tests/frontend/test_capacity_webchat_run_actions_ui.py", "tests/frontend/test_capacity_webchat_chat_auth_state.py", "tests/frontend/test_capacity_webchat_conversation_state.py", "tests/frontend/test_capacity_webchat_message_history_ui.py", "tests/frontend/test_capacity_webchat_browser_sse_parser.py", "tests/frontend/test_capacity_webchat_frontend_wiring.py", "tests/frontend/test_capacity_webchat_chat_route.py", "tests/frontend/test_capacity_webchat_activity_ui.py", "tests/frontend/test_capacity_webchat_reply_stream_state.py"],
     "timeout": 300,
     "parallel": false
   }
@@ -233,10 +233,10 @@
 
 ### Checklist
 
-- [ ] `WebchatClientLimits` 类型包含 `upload_formats`，解析失败显式报配置非法。
-- [ ] `acceptedExtensions` 去重且保持投影顺序，提示与 `accept` 共用。
-- [ ] 选择不支持类型时附件不进入待发送列表，并有明确错误码。
-- [ ] 提示文案双语齐备且格式清单随投影变化。
+- [x] `WebchatClientLimits` 类型包含 `upload_formats`，解析失败显式报配置非法。
+- [x] `acceptedExtensions` 去重且保持投影顺序，提示与 `accept` 共用。
+- [x] 选择不支持类型时附件不进入待发送列表，并有明确错误码。
+- [x] 提示文案双语齐备且格式清单随投影变化。
 
 ### Spec Delta
 
@@ -255,11 +255,17 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T15:13:46.035Z] started tests=ad145362efef
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-12T15:17:59.451Z FAIL commands=0/1 executed=1 deduped=0 elapsed=3336ms tests=6ec41064170f head=49af04388165 dirty=1 tests-changed
+  - frontend-format-hints FAIL exit=1
+- 2026-11-12T15:18:07.099Z FAIL commands=0/1 executed=1 deduped=0 elapsed=1171ms tests=6ec41064170f head=49af04388165 dirty=1 tests-changed
+  - frontend-format-hints FAIL exit=1
+- 2026-11-12T15:18:20.692Z PASS commands=1/1 executed=1 deduped=0 elapsed=1159ms tests=6ec41064170f head=49af04388165 dirty=1 tests-changed
+  - frontend-format-hints PASS exit=0
 ## TASK-005: Runtime 会话删除编排与通知收口
 
 - **Status**: done
