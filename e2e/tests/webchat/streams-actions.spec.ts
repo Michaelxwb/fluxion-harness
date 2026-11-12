@@ -340,6 +340,12 @@ test.describe('TASK-113 容量排队与流恢复', () => {
     const edited = await webchatAdmin.readCredential(model.credentialId);
     expect(Number(edited.max_inflight)).toBe(1);
     try {
+      // 放宽模型等待预算：本用例在取消 B 前要完成刷新恢复与 C 排队，默认 30s 在 CI
+      // 慢机器上会被排队期限先收口成 MODEL_CAPACITY_UNAVAILABLE，掩盖取消语义。
+      const savedSettings = await saveSettings(page, webchatStack, {
+        capacity: { model_wait_timeout_sec: 120 }
+      });
+      expect(savedSettings.status, JSON.stringify(savedSettings)).toBe(200);
       // A 占住唯一模型槽（慢模型：首字节 2.5s + 16 段增量 ≈ 26s），B/C 的分配只能等待。
       await webchatFaults.setBehavior({
         latency_ms: 2_500,
@@ -489,6 +495,7 @@ asyncio.run(main())
     } finally {
       // 真实容量复原：后续用例不受本用例的容量改写影响。
       await setCredentialInflight(webchatAdmin, model.credentialId, Number(original.max_inflight));
+      await saveSettings(page, webchatStack, {});
     }
   });
 
