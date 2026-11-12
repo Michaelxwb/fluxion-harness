@@ -41,6 +41,7 @@ SUPPORTED_UPLOAD_FORMATS: tuple[AttachmentFormat, ...] = (
     ),
     AttachmentFormat(media_type="text/plain", extensions=(".txt",)),
     AttachmentFormat(media_type="text/markdown", extensions=(".md",)),
+    AttachmentFormat(media_type="text/csv", extensions=(".csv",)),
     AttachmentFormat(media_type="application/zip", extensions=(".zip",)),
     AttachmentFormat(media_type="application/x-zip-compressed", extensions=(".zip",)),
 )
