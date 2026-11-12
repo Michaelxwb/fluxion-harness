@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -9,6 +10,7 @@ from typing import Any
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import ResolvedMcpServer
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,8 +20,11 @@ from ..infrastructure.repositories.agent_mcp_binding_repository import (
     AgentMcpBindingRepository,
 )
 from .audit_service import AuditActor, AuditService
+from .dto import McpAuthConfig
 
 AUDIT_RESOURCE_TYPE = "AGENT"
+
+_logger = logging.getLogger(__name__)
 
 
 def binding_snapshot(binding: AgentMcpBinding) -> dict[str, Any]:
@@ -40,6 +45,19 @@ def binding_item(binding: AgentMcpBinding, server: McpServer) -> dict[str, Any]:
         "tool_count": len(server.tool_catalog_json or []),
         "create_time": binding.create_time.isoformat(),
     }
+
+
+def resolved_auth(server: McpServer) -> tuple[dict[str, str], str | None]:
+    """读取非密认证配置；脏行（迁移前结构）降级为无自定义头，避免阻塞整个 resolve。"""
+    try:
+        config = McpAuthConfig.model_validate(server.auth_config_json or {})
+    except ValidationError:
+        _logger.warning(
+            "mcp_auth_config_invalid_resolve",
+            extra={"fields": {"mcp_id": str(server.id)}},
+        )
+        return {}, None
+    return dict(config.headers), config.secret_header
 
 
 class AgentMcpService:
@@ -143,14 +161,19 @@ class AgentMcpService:
             )
             .order_by(AgentMcpBinding.create_time)
         )
-        return [
-            ResolvedMcpServer(
-                mcp_server_id=server.id,
-                key=server.key,
-                endpoint=server.endpoint,
-                catalog_revision=server.tool_catalog_revision,
-                catalog_hash=server.tool_catalog_hash,
-                definitions=list(server.tool_catalog_json or []),
+        servers: list[ResolvedMcpServer] = []
+        for _binding, server in rows.all():
+            headers, secret_header = resolved_auth(server)
+            servers.append(
+                ResolvedMcpServer(
+                    mcp_server_id=server.id,
+                    key=server.key,
+                    endpoint=server.endpoint,
+                    catalog_revision=server.tool_catalog_revision,
+                    catalog_hash=server.tool_catalog_hash,
+                    definitions=list(server.tool_catalog_json or []),
+                    headers=headers,
+                    secret_header=secret_header,
+                )
             )
-            for _binding, server in rows.all()
-        ]
+        return servers

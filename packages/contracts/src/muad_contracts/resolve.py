@@ -68,6 +68,10 @@ class ResolvedMcpServer(ContractModel):
     catalog_revision: int = Field(ge=0)
     catalog_hash: str | None = None
     definitions: list[dict[str, Any]] = Field(default_factory=list)
+    #: 非密静态请求头（Console 写入前已校验；Runtime 原样合并，不落 Task Snapshot）。
+    headers: dict[str, str] = Field(default_factory=dict)
+    #: 承载 `auth_secret` 的请求头名；空表示 `Authorization: Bearer`。
+    secret_header: str | None = None
 
 
 class ResolveDefinitionResponse(ContractModel):

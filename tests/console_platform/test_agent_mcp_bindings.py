@@ -119,10 +119,14 @@ async def test_s06_unbind_then_rebind_updates_resolve(
         headers=service_headers(tenant.tenant_id),
     )
     assert resolved.status_code == 200
-    assert any(
-        server["mcp_server_id"] == mcp_id
+    resolved_server = next(
+        server
         for server in resolved.json()["data"]["mcp_servers"]
+        if server["mcp_server_id"] == mcp_id
     )
+    # 未配置 auth_config 的既有 MCP：契约字段有安全默认值。
+    assert resolved_server["headers"] == {}
+    assert resolved_server["secret_header"] is None
 
     unbound = await client.delete(
         f"/api/v1/agents/{agent_id}/mcp-servers/{mcp_id}", headers=_headers(tenant)
@@ -256,6 +260,78 @@ async def test_b02_effective_mcp_formula_matrix(
         await session.execute(
             PlatformUser.__table__.delete().where(PlatformUser.id == user_id)
         )
+        await session.commit()
+
+
+async def test_s02_resolve_definition_carries_non_secret_auth_config(
+    client: AsyncClient, tenant: TenantContext, model_member: TenantContext
+) -> None:
+    """[S-02] resolve 透传非密 headers/secret_header；密钥值不进响应，脏行降级为空配置。"""
+    agent_id = await _make_agent(client, tenant)
+    created = await client.post(
+        "/api/v1/mcp-servers",
+        json={
+            "name": "Header MCP",
+            "key": f"mcp-{uuid.uuid4().hex[:8]}",
+            "endpoint": "http://127.0.0.1:9/mcp",
+            "user_scope": "ALL",
+            "auth_secret": "canary-secret-value",
+            "auth_config": {
+                "headers": {"X-App-Id": "sdspmcp"},
+                "secret_header": "X-Api-Key",
+            },
+        },
+        headers=_headers(tenant),
+    )
+    assert created.status_code == 200, created.text
+    mcp_id = created.json()["data"]["mcp_id"]
+
+    user_id, _ = await _grant_user(tenant)
+    async with get_session_factory()() as session:
+        session.add(
+            AgentAccessGrant(user_id=user_id, agent_id=uuid.UUID(agent_id), granted_by=user_id)
+        )
+        await session.commit()
+    bound = await client.post(
+        f"/api/v1/agents/{agent_id}/mcp-servers/{mcp_id}", headers=_headers(tenant)
+    )
+    assert bound.status_code == 200, bound.text
+
+    async def resolve_server() -> dict[str, object]:
+        resolved = await client.post(
+            "/internal/runtime/resolve-definition",
+            json={"agent_id": agent_id, "actor_user_id": str(user_id), "channel": "WECOM"},
+            headers=service_headers(tenant.tenant_id),
+        )
+        assert resolved.status_code == 200, resolved.text
+        return next(
+            server
+            for server in resolved.json()["data"]["mcp_servers"]
+            if server["mcp_server_id"] == mcp_id
+        )
+
+    server = await resolve_server()
+    assert server["headers"] == {"X-App-Id": "sdspmcp"}
+    assert server["secret_header"] == "X-Api-Key"
+    assert "canary-secret-value" not in str(server)
+
+    # 迁移前的旧结构（未知键）读取侧安全降级，不阻塞整个 resolve。
+    async with get_session_factory()() as session:
+        await session.execute(
+            update(McpServer)
+            .where(McpServer.id == uuid.UUID(mcp_id))
+            .values(auth_config_json={"header": "X-Api-Key"})
+        )
+        await session.commit()
+    legacy = await resolve_server()
+    assert legacy["headers"] == {}
+    assert legacy["secret_header"] is None
+
+    async with get_session_factory()() as session:
+        await session.execute(
+            AgentAccessGrant.__table__.delete().where(AgentAccessGrant.user_id == user_id)
+        )
+        await session.execute(PlatformUser.__table__.delete().where(PlatformUser.id == user_id))
         await session.commit()
 
 
