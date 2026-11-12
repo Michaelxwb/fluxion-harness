@@ -1391,12 +1391,14 @@ packages/agent-core/src/muad_agent_core/tools/pipeline.py,19,JSON_OBJECT,"TypeAd
 packages/agent-core/src/muad_agent_core/tools/pipeline.py,20,REDACTED_KEYS,"frozenset({'api_key', 'secret', 'token', 'password'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/planner.py,22,DEFAULT_PARALLEL_LIMIT,4,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/agent-core/src/muad_agent_core/tools/planner.py,23,MAX_PARALLEL_LIMIT,16,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/registry.py,13,MCP_TOOL_NAMESPACE,'mcp',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/registry.py,17,READ,'READ',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/tools/registry.py,18,WRITE,'WRITE',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/tools/registry.py,19,EXTERNAL,'EXTERNAL',python-constant,code,状态或错误码，不是时间参数
-packages/agent-core/src/muad_agent_core/tools/registry.py,29,SERIAL,'SERIAL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/agent-core/src/muad_agent_core/tools/registry.py,30,PARALLEL_READ,'PARALLEL_READ',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/registry.py,15,MCP_TOOL_NAMESPACE,'mcp',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/registry.py,16,_MODEL_TOOL_NAME_MAX,64,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/tools/registry.py,17,_MODEL_TOOL_INVALID,re.compile('[^A-Za-z0-9_-]'),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/agent-core/src/muad_agent_core/tools/registry.py,26,READ,'READ',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/tools/registry.py,27,WRITE,'WRITE',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/tools/registry.py,28,EXTERNAL,'EXTERNAL',python-constant,code,状态或错误码，不是时间参数
+packages/agent-core/src/muad_agent_core/tools/registry.py,38,SERIAL,'SERIAL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/agent-core/src/muad_agent_core/tools/registry.py,39,PARALLEL_READ,'PARALLEL_READ',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/audit.py,19,SENSITIVE_KEY_MARKERS,"('password', 'secret', 'token', 'api_key', 'credential', 'authorization', 'cookie', 'muad_chat_session', 'muad_chat_csrf')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/audit.py,31,_AUDIT_INSERT,"text('\n    INSERT INTO control.config_audit_log\n        (id, tenant_id, actor_user_id, resource_type, resource_id, action,\n         before_json, after_json, trace_id, source_ip)\n    VALUES\n        (:id, :tenant_id, :actor_user_id, :resource_type, :resource_id, :action,\n         CAST(:before_json AS jsonb), CAST(:after_json AS jsonb), :trace_id, :source_ip)\n    ')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/api-kit/src/muad_api/catalog.py,12,_REQUIRED_LOCALES,"('zh-CN', 'en-US')",python-constant,code,协议标识、枚举、schema、文本或实现常量

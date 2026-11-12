@@ -9,7 +9,7 @@ from types import ModuleType
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-MIGRATION = ROOT / "migrations/versions/0047_mcp_auth_config_headers.py"
+MIGRATION = ROOT / "migrations/versions/0048_mcp_auth_config_headers.py"
 
 
 def _load_migration() -> ModuleType:
@@ -22,8 +22,8 @@ def _load_migration() -> ModuleType:
 
 def test_migration_revision_chain() -> None:
     source = MIGRATION.read_text(encoding="utf-8")
-    assert 'revision = "0047"' in source
-    assert 'down_revision = "0046"' in source
+    assert 'revision = "0048"' in source
+    assert 'down_revision = "0047"' in source
     assert "control.mcp_server" in source
 
 
