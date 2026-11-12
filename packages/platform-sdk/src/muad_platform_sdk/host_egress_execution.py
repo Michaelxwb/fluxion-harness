@@ -5,9 +5,11 @@ This object does not create a service, provision epochs, publish public rules,
 or infer execution ownership from script input. A child closure receipt must
 come from the actual sandbox executor before an execution may be handed over.
 """
+
 from __future__ import annotations
 
 import asyncio
+import inspect
 import math
 import ssl
 from collections.abc import Awaitable, Callable
@@ -32,7 +34,10 @@ from .shared_host_transport import HostRoute, SharedHostTransport
 from .shared_http_transport import RequestLifetime
 from .shared_redis import RedisCommands, SharedLimitExceeded, SharedRedisMeter
 
-TargetResolver = Callable[[AttemptMetadata], EgressTarget | UncontrolledTarget | None]
+TargetResolver = Callable[
+    [AttemptMetadata],
+    EgressTarget | UncontrolledTarget | None | Awaitable[EgressTarget | UncontrolledTarget | None],
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,16 +54,29 @@ class HostEgressSettings:
             raise ValueError("provisioned protection domain and epoch required")
         if not isinstance(self.public_rules_enabled, bool):
             raise ValueError("explicit public control mode required")
-        if any(isinstance(v, bool) or not math.isfinite(v) or v <= 0 for v in (
-            self.source_refresh_seconds, self.stop_margin_seconds,
-        )):
+        if any(
+            isinstance(v, bool) or not math.isfinite(v) or v <= 0
+            for v in (
+                self.source_refresh_seconds,
+                self.stop_margin_seconds,
+            )
+        ):
             raise ValueError("positive finite supervision intervals required")
 
 
 class HostEgressExecution:
-    def __init__(self, *, settings: HostEgressSettings, scope: ScopeIdentity,
-                 authority: PGSegmentAuthority, claim: SourceClaim, reader: SourceReader,
-                 meter: FencedRedisMeter, registry: IdentityRegistry, resolve: TargetResolver) -> None:
+    def __init__(
+        self,
+        *,
+        settings: HostEgressSettings,
+        scope: ScopeIdentity,
+        authority: PGSegmentAuthority,
+        claim: SourceClaim,
+        reader: SourceReader,
+        meter: FencedRedisMeter,
+        registry: IdentityRegistry,
+        resolve: TargetResolver,
+    ) -> None:
         self._settings, self._scope, self._authority = settings, scope, authority
         self._claim, self._reader, self._meter = claim, reader, meter
         self._scopes, self._resolve = PersistentEgressScopes(registry, meter), resolve
@@ -68,25 +86,46 @@ class HostEgressExecution:
         self._closing, self._started = False, False
 
     @classmethod
-    async def create(cls, *, settings: HostEgressSettings, budget: FrozenIdentityBudgets,
-                     sessions: async_sessionmaker[AsyncSession], redis: RedisCommands,
-                     claim: SourceClaim, reader: SourceReader, resolve: TargetResolver
-                     ) -> HostEgressExecution | None:
+    async def create(
+        cls,
+        *,
+        settings: HostEgressSettings,
+        budget: FrozenIdentityBudgets,
+        sessions: async_sessionmaker[AsyncSession],
+        redis: RedisCommands,
+        claim: SourceClaim,
+        reader: SourceReader,
+        resolve: TargetResolver,
+    ) -> HostEgressExecution | None:
         if not settings.public_rules_enabled and not budget.enabled:
             return None  # No PG/Redis calls or registration on the unlimited path.
         registry = IdentityRegistry(sessions)
         base = SharedRedisMeter(redis, domain=settings.domain, epoch=settings.epoch)
         await base.current_policy()  # Check provisioning before claiming PG initialization.
-        scope = await PersistentEgressScopes(registry, base).execution(ExecutionRegistration(
-            tenant_id=claim.tenant_id, source_kind=claim.source_kind, source_id=claim.source_id,
-            meter_epoch=settings.epoch, budget=budget,
-        ))
+        scope = await PersistentEgressScopes(registry, base).execution(
+            ExecutionRegistration(
+                tenant_id=claim.tenant_id,
+                source_kind=claim.source_kind,
+                source_id=claim.source_id,
+                meter_epoch=settings.epoch,
+                budget=budget,
+            )
+        )
         authority = PGSegmentAuthority(sessions, meter_epoch=settings.epoch)
         authorization = await authority.authorize(scope.id, claim, reader)
-        meter = FencedRedisMeter(redis, domain=settings.domain, epoch=settings.epoch,
-                                 grant=authorization.grant)
-        return cls(settings=settings, scope=scope, authority=authority, claim=claim, reader=reader,
-                   meter=meter, registry=registry, resolve=resolve)
+        meter = FencedRedisMeter(
+            redis, domain=settings.domain, epoch=settings.epoch, grant=authorization.grant
+        )
+        return cls(
+            settings=settings,
+            scope=scope,
+            authority=authority,
+            claim=claim,
+            reader=reader,
+            meter=meter,
+            registry=registry,
+            resolve=resolve,
+        )
 
     def _require_open(self) -> None:
         if self._closing:
@@ -97,9 +136,12 @@ class HostEgressExecution:
         authorized = await self._authority.authorize(self._scope.id, self._claim, self._reader)
         if authorized.grant != self._meter.grant:
             raise IdentityUnavailable("source segment changed")
-        scope = await self._scopes.invocation(tenant_id=self._claim.tenant_id,
-                                              execution_id=self._scope.id,
-                                              operation_key=operation_key, skill_key=skill_key)
+        scope = await self._scopes.invocation(
+            tenant_id=self._claim.tenant_id,
+            execution_id=self._scope.id,
+            operation_key=operation_key,
+            skill_key=skill_key,
+        )
         self._require_open()
         return TrustedInvocation(str(self._scope.id), str(scope.id), self._meter.grant.segment_id)
 
@@ -107,38 +149,57 @@ class HostEgressExecution:
         self._require_open()
         self._validate_invocation(invocation)
         broker = InvocationEgressBroker(
-            meter=self._meter, invocation=invocation, resolve=self._resolve,
-            deadline_seconds=deadline_seconds, cleanup_seconds=self._settings.lifetime.cleanup_seconds,
+            meter=self._meter,
+            invocation=invocation,
+            resolve=self._resolve,
+            deadline_seconds=deadline_seconds,
+            cleanup_seconds=self._settings.lifetime.cleanup_seconds,
             renewal_interval_seconds=self._settings.lifetime.renewal_interval_seconds,
         )
         self._brokers.append(broker)
         return broker
 
     def _validate_invocation(self, invocation: TrustedInvocation) -> None:
-        if (invocation.execution_id != str(self._scope.id) or
-                invocation.segment_id != self._meter.grant.segment_id):
+        if (
+            invocation.execution_id != str(self._scope.id)
+            or invocation.segment_id != self._meter.grant.segment_id
+        ):
             raise IdentityUnavailable("invocation belongs to another execution segment")
 
-    def _host_route(self, request: httpx.Request) -> HostRoute | None:
+    async def _host_route(self, request: httpx.Request) -> HostRoute | None:
         origin = str(request.url.copy_with(path="/", query=None)).rstrip("/")
-        target = self._resolve(AttemptMetadata(
-            method=request.method, origin=origin,
-            path=request.url.raw_path.split(b"?", 1)[0].decode("ascii"),
-            authority=request.headers.get("host"),
-        ))
+        resolved = self._resolve(
+            AttemptMetadata(
+                method=request.method,
+                origin=origin,
+                path=request.url.raw_path.split(b"?", 1)[0].decode("ascii"),
+                authority=request.headers.get("host"),
+            )
+        )
+        target = await resolved if inspect.isawaitable(resolved) else resolved
         if not isinstance(target, EgressTarget):
             return None
-        return HostRoute(target.target_instance_id, target.route_id)
+        return HostRoute(target.target_instance_id, target.route_id, target.policy)
 
-    def transport(self, invocation: TrustedInvocation, *, verify: ssl.SSLContext | bool = True,
-                  on_limit: Callable[[SharedLimitExceeded], None] | None = None,
-                  client: httpx.AsyncClient | None = None) -> SharedHostTransport:
+    def transport(
+        self,
+        invocation: TrustedInvocation,
+        *,
+        verify: ssl.SSLContext | bool = True,
+        on_limit: Callable[[SharedLimitExceeded], None] | None = None,
+        client: httpx.AsyncClient | None = None,
+    ) -> SharedHostTransport:
         self._require_open()
         self._validate_invocation(invocation)
         transport = SharedHostTransport(
-            self._meter, public_rules_enabled=self._settings.public_rules_enabled,
-            resolve=self._host_route, lifetime=self._settings.lifetime,
-            invocation=invocation, verify=verify, on_limit=on_limit, client=client,
+            self._meter,
+            public_rules_enabled=self._settings.public_rules_enabled,
+            resolve=self._host_route,
+            lifetime=self._settings.lifetime,
+            invocation=invocation,
+            verify=verify,
+            on_limit=on_limit,
+            client=client,
         )
         self._transports.append(transport)
         return transport
@@ -149,9 +210,14 @@ class HostEgressExecution:
             raise IdentityUnavailable("host execution is single-use")
         self._started = True
         supervisor = SourceSegmentSupervisor(
-            authority=self._authority, execution_id=self._scope.id, claim=self._claim,
-            reader=self._reader, meter=self._meter, refresh_seconds=self._settings.source_refresh_seconds,
-            stop_margin_seconds=self._settings.stop_margin_seconds, close_clients=self.aclose,
+            authority=self._authority,
+            execution_id=self._scope.id,
+            claim=self._claim,
+            reader=self._reader,
+            meter=self._meter,
+            refresh_seconds=self._settings.source_refresh_seconds,
+            stop_margin_seconds=self._settings.stop_margin_seconds,
+            close_clients=self.aclose,
         )
         return await supervisor.run(operation)
 
@@ -162,7 +228,8 @@ class HostEgressExecution:
             self._closing = True
             outcomes = await asyncio.gather(
                 *(b.stop_admissions() for b in self._brokers),
-                *(t.aclose() for t in self._transports), return_exceptions=True,
+                *(t.aclose() for t in self._transports),
+                return_exceptions=True,
             )
             if any(isinstance(value, BaseException) for value in outcomes):
                 raise IdentityUnavailable("host client termination not confirmed")

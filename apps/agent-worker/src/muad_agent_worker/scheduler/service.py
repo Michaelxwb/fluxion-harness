@@ -27,7 +27,7 @@ from muad_contracts import (
     build_task_snapshot,
     snapshot_hash,
 )
-from muad_contracts.platform_settings import TaskSettings
+from muad_contracts.platform_settings import PlatformSettings, TaskSettings
 from sqlalchemy import false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -475,12 +475,10 @@ class SchedulerLoop:
         self._last_sweep_at = moment
         return await self._deadline_sweeper.sweep(now=moment)
 
-    async def _task_settings(self, tenant_id: str) -> TaskSettings:
+    async def _task_settings(self, tenant_id: str) -> PlatformSettings:
         """任务默认的唯一来源：该租户当前平台设置（源不可读即明确失败，RULE-06）。"""
         snapshot = await self._settings_client.fetch_snapshot(tenant_id=tenant_id)
-        return resolve_platform_settings(
-            snapshot, batch_platform_limit=self._settings.batch_platform_limit
-        ).task
+        return resolve_platform_settings(snapshot, batch_platform_limit=self._settings.batch_platform_limit)
 
     async def run_due(self, *, now: datetime | None = None) -> int:
         """一轮内连续处理全部到期 Schedule（上限 `scheduler_batch_size`），返回处理数。
@@ -514,7 +512,8 @@ class SchedulerLoop:
         if fire_at is None:
             return None
         # 任务开始执行的边界：为该租户取一次快照，misfire 宽限与新 Task 默认同源。
-        task_settings = await self._task_settings(schedule.tenant_id)
+        operation_settings = await self._task_settings(schedule.tenant_id)
+        task_settings = operation_settings.task
         if fire_at < moment - timedelta(seconds=task_settings.misfire_grace_sec):
             logger.warning(
                 "schedule_misfire_skipped",
@@ -538,7 +537,14 @@ class SchedulerLoop:
             await self._skip(schedule, fire_at, moment, exc.code, f"resolve-definition failed: {exc.code}")
             return None
         try:
-            return await self.fire(schedule, fire_at, resolved, task_settings, now=moment)
+            return await self.fire(
+                schedule,
+                fire_at,
+                resolved,
+                task_settings,
+                now=moment,
+                egress_enabled=operation_settings.egress.enabled,
+            )
         except AppError as exc:
             # 冻结快照/模板渲染等确定性失败：同样 fail closed 并推进，不留热循环。
             await self._skip(schedule, fire_at, moment, str(exc.code), "task snapshot rejected")
@@ -552,6 +558,7 @@ class SchedulerLoop:
         task_settings: TaskSettings,
         *,
         now: datetime | None = None,
+        egress_enabled: bool = False,
     ) -> uuid.UUID | None:
         moment = now if now is not None else await self._pg_clock()
         skill = next((item for item in resolved.skills if item.skill_id == schedule.skill_id), None)
@@ -575,7 +582,14 @@ class SchedulerLoop:
                     )
                     return None
                 inserted_id = await self._insert_task(
-                    session, schedule, resolved, skill, scheduled_fire_at, moment, task_settings
+                    session,
+                    schedule,
+                    resolved,
+                    skill,
+                    scheduled_fire_at,
+                    moment,
+                    task_settings,
+                    egress_enabled=egress_enabled,
                 )
                 await self._advance(session, schedule, scheduled_fire_at, moment, fired=True)
         if inserted_id is not None:
@@ -591,6 +605,8 @@ class SchedulerLoop:
         scheduled_fire_at: datetime,
         moment: datetime,
         task_settings: TaskSettings,
+        *,
+        egress_enabled: bool = False,
     ) -> uuid.UUID | None:
         snapshot, frozen_hash = build_scheduled_snapshot(
             resolved,
@@ -599,6 +615,9 @@ class SchedulerLoop:
             user_id=schedule.actor_user_id,
             execution_timeout_sec=task_settings.execution_timeout_sec,
         )
+        if egress_enabled:
+            snapshot = {**snapshot, "egress_enabled": True}
+            frozen_hash = snapshot_hash(snapshot)
         task_id = uuid.uuid4()
         values: dict[str, Any] = {
             "id": task_id,

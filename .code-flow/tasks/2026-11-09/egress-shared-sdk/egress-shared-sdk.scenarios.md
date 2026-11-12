@@ -64,7 +64,7 @@ scenarios:
   title: 恢复与Task重领延续累计
   priority: P0
   level: integration
-  exec: auto
+  exec: deferred
   env: ci
   components:
   - sdk
@@ -88,6 +88,8 @@ scenarios:
   rules: []
   checks: []
   owner: TASK-006
+  defer_reason: 用户已明确要求重型Linux进程/恢复验收统一放项目CI，本地只做定向验证；未运行不计pass
+  target_phase: review
 - id: S-04
   title: 旧requests脚本透明接入
   priority: P0
@@ -176,7 +178,7 @@ scenarios:
   title: 累计耗尽真正停止脚本
   priority: P0
   level: integration
-  exec: auto
+  exec: deferred
   env: ci
   components:
   - sdk
@@ -200,6 +202,8 @@ scenarios:
   rules: []
   checks: []
   owner: TASK-006
+  defer_reason: 用户已明确要求重型Linux进程/恢复验收统一放项目CI，本地只做定向验证；未运行不计pass
+  target_phase: review
 - id: E-03
   title: Proxy错误透传
   priority: P0

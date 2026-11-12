@@ -1,20 +1,165 @@
 version: 1
 task: 共享出口管控 SDK
 enforcement: required
-updated_at: '2026-11-11T10:00:46.361549+00:00'
+updated_at: '2026-11-12T01:36:41.282206+00:00'
 sources:
 - type: cli
   ref: bind
 bindings:
+- spec_id: harness-api
+  path: api/harness-api.md
+  status: active
+  hashes:
+    file_sha256: 96011a2c158e476b7d6f27d645a221205fa6c1a24a4f08eeead70848d7405fa1
+    metadata_sha256: 8088eab95efc280aa8387d3ee7e4fee89ce481e1d041cadce8abfb6d2636ae96
+    rules_sha256: ef9934dfeef724180bb98891e188e0f090a02e13dec4fe0163970ded69ff33aa
+  selected_by: agent
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-api-002
+    summary: 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique
+      `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys`
+      + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime
+      另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key
+      不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取
+      `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial
+      unique 只作兜底（各服务的 `_lock_idempotency`）。console 侧 `agent_service`/`mcp_service`/`skill_service`
+      三处 `_fingerprint` 已收敛到同一口径：规范化 JSON 且含 `endpoint`/`tenant_id`/actor 与关键参数（合规参考
+      `channel_service.bind_fingerprint`、`auth_service.account_fingerprint`、`audit_export_service`
+      的指纹函数、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py`）。
+    text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-002
+    verifier_stage: code
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-002
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-002
+          executed_at: '2026-11-12T01:36:46.985341+00:00'
+          status: verified
+          rule_text_sha256: 2d44ab88e0d0b76fd15076998a12806d24013270e8dec56105bde2590f044f4d
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: 7f28079fcbb0b33022f9348fd3ada6ef649418b2cb0cbde505ec562f3dbab0a7
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_skill/test_import_idempotency.py
+            exit_code: 0
+            stdout_sha256: dba11d4f6a3efaadd7dca81cfe7e523d936004547d490a6e62236cc335c24d60
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.30s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+  - ref: RULE-api-001
+    summary: Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一
+      `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status`
+      只来自 `config/api-messages.yaml`。
+    text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+    enforcement: required
+    verifier_ref: harness-api#RULE-api-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-api-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-api#RULE-api-001
+          executed_at: '2026-11-12T01:36:51.486260+00:00'
+          status: verified
+          rule_text_sha256: 615724c773399b4ce032ae7934787e55501ac643ed0a9d2648e135e5003c8ab6
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: 15014330935313de3d8c7a6cfc4df51a8e37b4372e529aedbc8978f5ab6ef1bb
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_api_i18n.py
+            - tests/test_error_catalog.py
+            - tests/acceptance/test_foundation_api_envelope.py
+            exit_code: 0
+            stdout_sha256: aebea3dac1ea090c38693837bb2efb7068f47c617d8620692248d4e10c6d917f
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "...................                                         \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              19 passed, 2 warnings in 3.85s\n"
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
 - spec_id: harness-arch
   path: arch/harness-arch.md
   status: active
   hashes:
-    file_sha256: e9108bd9f886b112abd5f75ba3d08a977bc16d5ef88942ebbaabe16f22f70c82
-    metadata_sha256: d75360ccdc5ee3a53f2c49d7066be7a023eaf4d84bbab3e832fd9e751d953be8
+    file_sha256: fda69e9f74c788d0c6f014625c257bca1cc1ee3c649d607a310877b8d5547335
+    metadata_sha256: 37defedb3cb2b18b0111e4cb95306962be99afe7b1c9fa85c83162e81eca17b3
     rules_sha256: b15c6e014fbf77e741621ab306e2213360984615e4a54d608e0533477a8a5a2a
   selected_by: agent
-  reason: 继承旧出口 SDK 需求的规范范围；新版重新建立证据，新增共享状态与稳定身份需要 data/time 约束
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -29,7 +174,7 @@ bindings:
     text_sha256: 6da998296b537bdedc8d7e28e94ac767ff73896d654e09d6c0c9ad7672f2b07d
     enforcement: required
     verifier_ref: harness-arch#RULE-arch-001
-    verifier_stage: code
+    verifier_stage: review
     stage_status:
       design:
         status: applied
@@ -46,7 +191,11 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 76566ad279889c984aa87891387d8c97453c798a3ad8c5206d6ff6dd1a99103a
+          artifact_sha256: cf7863bf2971d84c7e981938f9b5ef9606909f33a06b8beabc059f03e81a3da3
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-arch-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:
@@ -573,11 +722,11 @@ bindings:
   path: persistence/harness-data.md
   status: active
   hashes:
-    file_sha256: 2addf56af33d7d98a09f5ecaf3bde58489de93fd87ebd82d78e1d7eee77bcbca
-    metadata_sha256: 4c0b58f383383267a768a0d1c93774dc8702f7e68e68de0bb654746611af262e
+    file_sha256: 847906be8cccc10e8680524c61d49125f4b46f8583f439207d9df7ce657db8fe
+    metadata_sha256: 423a578e8674853916d8a594bd06412bf125c66c6c282f293969b4d293a53084
     rules_sha256: bff4e046d47cecba0e97c8a83921f635292d2a2e009c836fece1462a9024a68d
   selected_by: agent
-  reason: TASK-010 持久身份前置任务，继承原 TASK-006 数据约束，不扩大功能需求
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -594,7 +743,7 @@ bindings:
     text_sha256: 5f9039860d861ed59998ca32a6cdef14d6271729933fe1f1e3ce2b1f1dc9d30c
     enforcement: required
     verifier_ref: harness-data#RULE-data-001
-    verifier_stage: code
+    verifier_stage: review
     stage_status:
       design:
         status: applied
@@ -611,7 +760,11 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-010
           item_id: TASK-010
-          artifact_sha256: 76566ad279889c984aa87891387d8c97453c798a3ad8c5206d6ff6dd1a99103a
+          artifact_sha256: cf7863bf2971d84c7e981938f9b5ef9606909f33a06b8beabc059f03e81a3da3
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-data-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:
@@ -693,6 +846,233 @@ bindings:
         refs: []
         decision: null
         evidence: []
+- spec_id: harness-e2e
+  path: e2e/harness-e2e.md
+  status: active
+  hashes:
+    file_sha256: e63ace2075c5910b9558378c2d70f0537cb5ab19368e2c76b01d6fdf040fce9a
+    metadata_sha256: 7af5a04f52f1c8e9396e82c4b18fb99228d966f11dedc29bfe3c7992780ddcce
+    rules_sha256: e5ef4913e259049d4ca3133c99df723dd47e49e04d5a9577387cd258de87849d
+  selected_by: agent
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-e2e-001
+    summary: '浏览器 E2E 必须使用真实构建产物与真实浏览器：成功路径（`S-*`）不得改写路由或 mock 业务 API；失败/边界路径（`E-*`）允许制造超时/错误，但不得
+      fulfill 业务响应体。域配置必须 `channel: ''chrome''`、`preview --strictPort`、钉死浏览器时区，并只启动该域实际依赖的服务。'
+    text_sha256: de6cc1c02049cdb4c6b5213da64b69a9aa793c0ef6c5115fb48609c9b87eb55a
+    enforcement: required
+    verifier_ref: harness-e2e#RULE-e2e-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-e2e-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-e2e#RULE-e2e-001
+          executed_at: '2026-11-12T01:36:53.310139+00:00'
+          status: verified
+          rule_text_sha256: de6cc1c02049cdb4c6b5213da64b69a9aa793c0ef6c5115fb48609c9b87eb55a
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: 8ff72c51a31f2e1e7fc8cc8fcf85973c48a854f4bf778e27f6e33b695fdfc7e8
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/frontend/test_e2e_suite_contract.py
+            exit_code: 0
+            stdout_sha256: c76461a88c53d89d389f37dae2fcdfab877d4ac9e827890dc49cfce5ecea82f0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 1.01s
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-frontend
+  path: frontend/harness-frontend.md
+  status: active
+  hashes:
+    file_sha256: 4716cc669cf013b7d145c7eac5a137c89b1015ba1a8221d36f042d3b3bb41b4c
+    metadata_sha256: 71fab0d58493599ad10b59554dcf8bfe6a74f8c42a64ec1fe8307573ad32409f
+    rules_sha256: 88e07734bcfcf99595bfe206a8a41e394709f8a1462dab8bf61cdd4c12ab4313
+  selected_by: agent
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-front-001
+    summary: 前端 HTTP 调用只经服务层：共享 axios 实例与拦截器在 `src/api/client.ts`（`src/api/` 只承载共享客户端与鉴权），各模块的
+      service 位于 `modules/<module>/services/*.ts` 并 import 该实例；组件与 hooks 禁止裸用 axios/fetch，也禁止拿
+      `api` 实例自建请求。**HTTP 调用面**之外的 `api/client` 导出不在此禁令内——`apiErrorBody`/`newRequestId`
+      是无副作用的纯工具，组件可直接 import（现网多处，均为纯函数引用）。文案与词条规则见 RULE-i18n-001；列表/详情见 RULE-ui-001
+      与 RULE-ui-detail-001。
+    text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
+    enforcement: required
+    verifier_ref: harness-frontend#RULE-front-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-front-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-frontend#RULE-front-001
+          executed_at: '2026-11-12T01:36:59.198801+00:00'
+          status: verified
+          rule_text_sha256: 1e2e611dbb031cf3febe7504f67f8c3be346fc8cb70ddc658212c06ee5eabadc
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: 8c56ce3398a5275bf8db876761d8e8603e9d09a25de7e471ba68c8a5fbe342ba
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_api_client_contract.py && uv run
+              python scripts/check_frontend_api_usage.py && uv run python scripts/check_frontend_i18n.py
+              && npm --prefix apps/console-platform/frontend run typecheck
+            exit_code: 0
+            stdout_sha256: 33e09bae276f0c71d3c74cbe32f6d6338e6dc18825ec28511b0fef10bf0a6b35
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '.....                                                                    [100%]
+
+              5 passed in 1.02s
+
+              frontend api usage check OK
+
+              i18n keys OK: 1900
+
+
+              > muad-console-web@0.1.0 typecheck
+
+              > tsc --noEmit
+
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+- spec_id: harness-i18n
+  path: i18n/harness-i18n.md
+  status: active
+  hashes:
+    file_sha256: 4dcf6a2dbd3226b048bb7d3d3c21f149a3588831273cef713c62494fed898521
+    metadata_sha256: 5d5941a5c31c0b7fa6401848d6e780d04874476c8f77a8b5ff5c708885997155
+    rules_sha256: 2f76d4b7d9b26cf3be95f2d812aaca26dd9e576c7e57bf665b65b986a7a1829f
+  selected_by: agent
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-i18n-001
+    summary: 后端错误消息与前端页面必须支持 zh-CN/en-US；新增业务仅新增配置/词条，不改框架代码；语言经 `X-Locale`/`Accept-Language`
+      协商。
+    text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+    enforcement: required
+    verifier_ref: harness-i18n#RULE-i18n-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-i18n-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-i18n#RULE-i18n-001
+          executed_at: '2026-11-12T01:37:02.437880+00:00'
+          status: verified
+          rule_text_sha256: 9c55063508523538b2ea446555d14c72d2deefcf6209c6624a019477974ff09c
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: 6239de333a9766ff16f1ec9f156d110c9d7e4ac48dfde20e2524df7a629cd744
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/acceptance/test_foundation_i18n.py && uv run
+              python scripts/check_frontend_i18n.py
+            exit_code: 0
+            stdout_sha256: b1489065bcc5cc0f6b1ff40764f474b24224353915ae893a2354b954830e04d0
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '......                                                                   [100%]
+
+              6 passed in 2.34s
+
+              i18n keys OK: 1900
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
 - spec_id: harness-log
   path: logging/harness-log.md
   status: active
@@ -701,7 +1081,7 @@ bindings:
     metadata_sha256: b745153ac61a208ee536889d8e50d85dd08840ea237f2c619f417c3cd4780e4d
     rules_sha256: 989697c773983b8c71c7bcfc8bfd3003c18e341e10bdd9287e2199c3eda28d18
   selected_by: agent
-  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -735,7 +1115,11 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 76566ad279889c984aa87891387d8c97453c798a3ad8c5206d6ff6dd1a99103a
+          artifact_sha256: cf7863bf2971d84c7e981938f9b5ef9606909f33a06b8beabc059f03e81a3da3
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-log-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:
@@ -791,6 +1175,18 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-log#RULE-log-001
+          executed_at: '2026-11-12T01:37:02.534147+00:00'
+          status: unverified
+          rule_text_sha256: 669a9a0a236f9f1ef26ff0d0bd5fe9515a74eba1a9fd3801f58f47cccd5ded1f
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -804,7 +1200,7 @@ bindings:
     metadata_sha256: b0db57e5ec6f7febfef7b3a03e8c2989ff11da7454c75bc8eb2db0f04bdebdf4
     rules_sha256: e17b2c3a76c397162bd3651ce8b9de3d4404d55ae0034cfaa209a2f2b41576c4
   selected_by: agent
-  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -835,11 +1231,15 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 76566ad279889c984aa87891387d8c97453c798a3ad8c5206d6ff6dd1a99103a
+          artifact_sha256: cf7863bf2971d84c7e981938f9b5ef9606909f33a06b8beabc059f03e81a3da3
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-mcp-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:
-        status: verified
+        status: unverified
         refs: []
         decision: null
         evidence:
@@ -902,6 +1302,18 @@ bindings:
               3 passed in 0.07s
 
               '
+        - verifier_ref: harness-mcp#RULE-mcp-001
+          executed_at: '2026-11-12T01:37:02.630064+00:00'
+          status: unverified
+          rule_text_sha256: ebb42f99f4b33adb713ed05c2ea7e4c5baf48bbd9a387445116a68540f201fae
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: d64204fb7714b293f7c2c717d11b0177e91f6d85475ba7fcf81ce5cced5edeab
+          error_code: deferred_to_review
+          details:
+            reason: review_stage
+            deferral_kind: review_stage
+            deferred_to_review: true
       review:
         status: pending
         refs: []
@@ -915,7 +1327,7 @@ bindings:
     metadata_sha256: f96049e71930bae78aa61e211444baeb508c2abf1b61edd77db2699dc7b15a58
     rules_sha256: 34aebfc7fe09131b718d3fc60668f9a9540e8b5dc838a275252a93079bba7e4f
   selected_by: agent
-  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -950,7 +1362,11 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-005
           item_id: TASK-005
-          artifact_sha256: 76566ad279889c984aa87891387d8c97453c798a3ad8c5206d6ff6dd1a99103a
+          artifact_sha256: cf7863bf2971d84c7e981938f9b5ef9606909f33a06b8beabc059f03e81a3da3
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-platform-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:
@@ -1103,6 +1519,35 @@ bindings:
               \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
               \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
               56 passed, 7067 deselected, 2 warnings in 26.22s\n"
+        - verifier_ref: harness-project-platform#RULE-platform-001
+          executed_at: '2026-11-12T01:37:32.684868+00:00'
+          status: verified
+          rule_text_sha256: 5d84305e080ffb1a69e16206cc600ea1d8358d6756e206bf50a3fd22c41c72f2
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: e48f34d2b1e5ed4f9eadb04c9a9fb3409e1dd1b1c5e3756f51abcd368a0f7b4f
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests -k schema_parity
+            exit_code: 0
+            stdout_sha256: ec5fc4f151f8b47106768b45bd122073c33e5dc511897b7323c99a81b28ad358
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: "........................................................    \
+              \             [100%]\n=============================== warnings summary\
+              \ ===============================\n.venv/lib/python3.12/site-packages/fastapi/testclient.py:1\n\
+              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1:\
+              \ StarletteDeprecationWarning: Using `httpx` with `starlette.testclient`\
+              \ is deprecated; install `httpx2` instead.\n    from starlette.testclient\
+              \ import TestClient as TestClient  # noqa\n\n.venv/lib/python3.12/site-packages/starlette/testclient.py:53\n\
+              \  /Users/guxianggao/Documents/Work/fluxion-harness/.venv/lib/python3.12/site-packages/starlette/testclient.py:53:\
+              \ DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated,\
+              \ use anyio.from_thread.BlockingPortal instead.\n    _PortalFactoryType\
+              \ = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\n\
+              \n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n\
+              56 passed, 7204 deselected, 2 warnings in 28.19s\n"
       review:
         status: pending
         refs: []
@@ -1115,8 +1560,8 @@ bindings:
     file_sha256: fb2c54d66e7910884d61cd7b6b9ec903a4e43d58421cade79134c18959351b16
     metadata_sha256: 001d50a3ca1324eccfcabe353bc850172dc23521bd2a34815aac4a9eb285c4a9
     rules_sha256: 7be20b1f02503c2865570605bc0dc751cff99da8487a1cec7be80bf7633416a5
-  selected_by: scope:path
-  reason: Git diff matched tests/agent_core/test_skill_egress_binding.py
+  selected_by: agent
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -1137,15 +1582,42 @@ bindings:
         decision: null
         evidence: []
       plan:
-        status: pending
-        refs: []
+        status: applied
+        refs:
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-rel-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:
-        status: pending
+        status: verified
         refs: []
         decision: null
-        evidence: []
+        evidence:
+        - verifier_ref: harness-rel#RULE-rel-001
+          executed_at: '2026-11-12T01:37:36.069704+00:00'
+          status: verified
+          rule_text_sha256: 7e4f40d23f1fc02fcf150db250adfe42c1fea7f36ba01ac150d9c4991f4ac86d
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: 9a59ed499ecad6dcd1b5601b8a60ec3f994957734760f3b6f753efaf3ecee0f5
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/console_platform/test_user_side_relations.py
+            exit_code: 0
+            stdout_sha256: 07b67083cdc3a71ea80ec649b6da2636b9f3d14b544a1b2c57324a87ad59a9c1
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '...                                                                      [100%]
+
+              3 passed in 1.29s
+
+              '
       review:
         status: pending
         refs: []
@@ -1159,7 +1631,7 @@ bindings:
     metadata_sha256: f60d9416b440212e32513bd86e339d9671413a12e5a326f4adf1c6cce76cb935
     rules_sha256: 9ba8e1ce5ed34d0a5d740660530acab3d7f825818d4d2c3239f6a0ff0c631496
   selected_by: agent
-  reason: 继承旧出口 SDK 需求的规范范围；新版重新建立证据，新增共享状态与稳定身份需要 data/time 约束
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -1192,7 +1664,11 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-004
           item_id: TASK-004
-          artifact_sha256: 76566ad279889c984aa87891387d8c97453c798a3ad8c5206d6ff6dd1a99103a
+          artifact_sha256: cf7863bf2971d84c7e981938f9b5ef9606909f33a06b8beabc059f03e81a3da3
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-secret-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:
@@ -1648,6 +2124,30 @@ bindings:
               14 passed in 2.36s
 
               '
+        - verifier_ref: harness-secret#RULE-secret-001
+          executed_at: '2026-11-12T01:37:41.205174+00:00'
+          status: verified
+          rule_text_sha256: 43514644b4901c3cc9057086a5c30008be7ff98b46bb9af860cba450c6b8925d
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: f62cc7c3ac4b2243db94a24d63e556c554ceca8cc0d8d043e2e060dbbb7ac4a8
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_logging_redaction.py
+            - tests/acceptance/test_foundation_ops_audit.py
+            exit_code: 0
+            stdout_sha256: 417ce6a6e74259e31d22f55718c4ed3b91b0c699c0820eb7fc2ff063dad2cd75
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '..............                                                           [100%]
+
+              14 passed in 4.28s
+
+              '
       review:
         status: pending
         refs: []
@@ -1661,7 +2161,7 @@ bindings:
     metadata_sha256: c8f013af8b788916b59c964c6206537f1e87dd0e142e42743ac7403ece849104
     rules_sha256: d7443dbc372078dabbbd48be6a6b30a5d49fa6990183af2e6dd1e674754962fd
   selected_by: agent
-  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -1697,11 +2197,15 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 76566ad279889c984aa87891387d8c97453c798a3ad8c5206d6ff6dd1a99103a
+          artifact_sha256: cf7863bf2971d84c7e981938f9b5ef9606909f33a06b8beabc059f03e81a3da3
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-skill-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:
-        status: unverified
+        status: verified
         refs: []
         decision: null
         evidence:
@@ -1776,6 +2280,29 @@ bindings:
             reason: review_stage
             deferral_kind: review_stage
             deferred_to_review: true
+        - verifier_ref: harness-skill#RULE-skill-001
+          executed_at: '2026-11-12T01:37:42.909558+00:00'
+          status: verified
+          rule_text_sha256: d0cf36634c12131e239168419d916d9f05d3ab1928d654fe372fa0db65e843cb
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: 803b589aeab460931072531fe37596b932d37e3d7e4447ffc3b0ddb14c7de904
+          error_code: null
+          details:
+            argv:
+            - uv
+            - run
+            - pytest
+            - -q
+            - tests/test_skill_artifact_cache.py
+            exit_code: 0
+            stdout_sha256: 00313f812180a456ffe7937fb2b03b4b821aaf1ef4e4604dbf9ca8f66d21b731
+            stderr_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            output: '....                                                                     [100%]
+
+              4 passed in 1.01s
+
+              '
       review:
         status: pending
         refs: []
@@ -1785,11 +2312,11 @@ bindings:
   path: snapshot/harness-snapshot.md
   status: active
   hashes:
-    file_sha256: 11c3b06ef6dc8011ab6a7635bc62350fdf9a426699cce20584fb4b2e862942ef
-    metadata_sha256: 34a1bcb1153a685aab40f9576748579d32b73598ab6210f99c7fb762dc6361f1
+    file_sha256: b003c6f805fff2bb06e6cf2746572ad1adce47073bff37578e0ea16d5819ab28
+    metadata_sha256: 4f6b4ac7e808ffa9fa74873d18fa61a6aa096ee68452cc187c30981849e40022
     rules_sha256: 7d26857929e4ad3fa7ac0372262f255fa1e23751170e75c0ddbaaf6e52e6fb64
   selected_by: agent
-  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -1805,7 +2332,7 @@ bindings:
     text_sha256: b00e34817aa6a8454f106ed6b954c9ea895773f2f9529a88c4ec3b5067f006bb
     enforcement: required
     verifier_ref: harness-snapshot#RULE-snapshot-001
-    verifier_stage: code
+    verifier_stage: review
     stage_status:
       design:
         status: applied
@@ -1822,7 +2349,11 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 76566ad279889c984aa87891387d8c97453c798a3ad8c5206d6ff6dd1a99103a
+          artifact_sha256: cf7863bf2971d84c7e981938f9b5ef9606909f33a06b8beabc059f03e81a3da3
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-snapshot-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:
@@ -1931,7 +2462,7 @@ bindings:
     metadata_sha256: 627002a69e1a9cee732368249c2d3cf50f8423bb58cbc426b5a6993b071c370e
     rules_sha256: 198741a49bb7039d02bdb207e6d1fc53a8c5108061591bb9444814eba0c84096
   selected_by: agent
-  reason: 继承旧出口 SDK 需求的规范范围；新版重新建立证据，新增共享状态与稳定身份需要 data/time 约束
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -1962,7 +2493,11 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-008
           item_id: TASK-008
-          artifact_sha256: 76566ad279889c984aa87891387d8c97453c798a3ad8c5206d6ff6dd1a99103a
+          artifact_sha256: cf7863bf2971d84c7e981938f9b5ef9606909f33a06b8beabc059f03e81a3da3
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-test-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:
@@ -1979,11 +2514,11 @@ bindings:
   path: time/harness-time.md
   status: active
   hashes:
-    file_sha256: 79c415b2d14313031688d5d26d76096f5eb20096850b239c75c0c334f7464fc5
-    metadata_sha256: cdae795612a48e448e96bc35b536f56fe9278de82f1c6b2be6d47e9d3a473c41
+    file_sha256: 8821f8f201c1671102901a4af4cc8de75123e35e71195b334d3d86add2aab3d5
+    metadata_sha256: 9210eaede5bb9e7bb9c641b2dabdac81e012a652d796a6ea41ee526bbcb542bb
     rules_sha256: 3f415b413ed6db83724cefc2f20674f24c10b3cdc9e2d3c6ae8487e991168d80
   selected_by: agent
-  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -1997,7 +2532,7 @@ bindings:
     text_sha256: c7cffb25c899fb3a8765b61a053d7bf311f8b91b031222c0d3b9a3ae8717b7b3
     enforcement: required
     verifier_ref: harness-time#RULE-time-001
-    verifier_stage: code
+    verifier_stage: review
     stage_status:
       design:
         status: applied
@@ -2014,7 +2549,11 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-007
           item_id: TASK-007
-          artifact_sha256: 76566ad279889c984aa87891387d8c97453c798a3ad8c5206d6ff6dd1a99103a
+          artifact_sha256: cf7863bf2971d84c7e981938f9b5ef9606909f33a06b8beabc059f03e81a3da3
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-time-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:
@@ -2075,15 +2614,229 @@ bindings:
         refs: []
         decision: null
         evidence: []
+- spec_id: harness-ui
+  path: ui/harness-ui.md
+  status: active
+  hashes:
+    file_sha256: 566c279e0e93690e3a83ac1848a1d60e2a32f12f633f15e424ebe2086dd57bb6
+    metadata_sha256: e3676fc5a7369c049341d0151c4b62f692ad5760dc88453bd6248651446349a4
+    rules_sha256: 362fb10c5a0e3b4fc3f6d77fd4587a8797c9c45e39e3c6ea8206d9c92749df6c
+  selected_by: agent
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
+  enforcement: required
+  stages:
+  - design
+  - plan
+  - code
+  - review
+  rules:
+  - ref: RULE-ui-001
+    summary: Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表
+      + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十二项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/学习与经验/系统设置。
+    text_sha256: 0410bf4fd26225f76a733564e42ebb4853e13562d1690d5c61d2e4db4d813fc2
+    enforcement: required
+    verifier_ref: harness-ui#RULE-ui-001
+    verifier_stage: code
+    stage_status:
+      design:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
+      plan:
+        status: applied
+        refs:
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-ui-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
+        decision: null
+        evidence: []
+      code:
+        status: verified
+        refs: []
+        decision: null
+        evidence:
+        - verifier_ref: harness-ui#RULE-ui-001
+          executed_at: '2026-11-12T01:37:57.926102+00:00'
+          status: verified
+          rule_text_sha256: 0410bf4fd26225f76a733564e42ebb4853e13562d1690d5c61d2e4db4d813fc2
+          artifact_sha256: null
+          diff_sha256: ae38ad510a6657499be719b34cc8ebbed4647a90c080491e00abb0aebb50397b
+          result_sha256: 7f5c3823b0d3613557f76af8fc5d79b727c27eff71178aae15bd66d4fd07e1d9
+          error_code: null
+          details:
+            argv:
+            - bash
+            - -lc
+            - uv run pytest -q tests/frontend/test_console_shell_contract.py tests/frontend/test_ui_style_contract.py
+              && npm --prefix apps/console-platform/frontend run build
+            exit_code: 0
+            stdout_sha256: 56a47501287cbc1c37995dcf7178c24afa46587cdbfc69d7f1336e2050da6eef
+            stderr_sha256: ccb6bf354a0674eeb1e49df9a880a000b75240079fdb849282bb899d81eeb58c
+            output: 's                       24.70 kB │ gzip:   3.30 kB
+
+              dist/assets/DetailSideSheet-6T4S8pYy.css             30.29 kB │ gzip:   3.44
+              kB
+
+              dist/assets/index-BuJHrCEK.css                      750.12 kB │ gzip:  89.30
+              kB
+
+              dist/assets/TableText-CfZVLi0U.js                     0.16 kB │ gzip:   0.15
+              kB
+
+              dist/assets/StatusTag-XrUA_QaP.js                     0.21 kB │ gzip:   0.19
+              kB
+
+              dist/assets/CopyableText-DujfckJA.js                  0.27 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconMinus-DDfmvulE.js                     0.39 kB │ gzip:   0.30
+              kB
+
+              dist/assets/MetricCards-BwYMmsNR.js                   0.40 kB │ gzip:   0.21
+              kB
+
+              dist/assets/IconPlus-CaQZstMg.js                      0.42 kB │ gzip:   0.31
+              kB
+
+              dist/assets/IconMinusCircle-7j_zhLPR.js               0.46 kB │ gzip:   0.33
+              kB
+
+              dist/assets/CredentialSchemaFields-C__Io4u8.js        0.49 kB │ gzip:   0.33
+              kB
+
+              dist/assets/IconDownload-D5kv7c7V.js                  0.58 kB │ gzip:   0.41
+              kB
+
+              dist/assets/FormModal-COthTLBN.js                     0.61 kB │ gzip:   0.38
+              kB
+
+              dist/assets/ConsolePage-CS-Wbpq4.js                   0.75 kB │ gzip:   0.32
+              kB
+
+              dist/assets/EmptyState-DrmbXr0x.js                    0.83 kB │ gzip:   0.41
+              kB
+
+              dist/assets/CopyButton-DhcSJ_d9.js                    0.87 kB │ gzip:   0.55
+              kB
+
+              dist/assets/platforms-CdvjdBKD.js                     1.45 kB │ gzip:   0.45
+              kB
+
+              dist/assets/models-DQIbkznR.js                        1.50 kB │ gzip:   0.70
+              kB
+
+              dist/assets/mcpServers-BTc4nQho.js                    1.51 kB │ gzip:   0.50
+              kB
+
+              dist/assets/index-BkMp6XST.js                         2.16 kB │ gzip:   1.04
+              kB
+
+              dist/assets/users-B0elgA__.js                         2.79 kB │ gzip:   0.92
+              kB
+
+              dist/assets/skills-BCJtovUY.js                        2.94 kB │ gzip:   1.13
+              kB
+
+              dist/assets/learning-BbyGSjTp.js                      3.06 kB │ gzip:   1.03
+              kB
+
+              dist/assets/DateTimeText-st6WQR3R.js                  3.14 kB │ gzip:   1.38
+              kB
+
+              dist/assets/DetailGrid-BA8v6kKG.js                    4.08 kB │ gzip:   1.75
+              kB
+
+              dist/assets/EntityNameText-DwF3pKaf.js                5.48 kB │ gzip:   2.12
+              kB
+
+              dist/assets/SchedulePage-DCuzCOBq.js                  5.86 kB │ gzip:   2.24
+              kB
+
+              dist/assets/LearningPage-DI_D0kvT.js                  5.91 kB │ gzip:   2.25
+              kB
+
+              dist/assets/ConfirmAction-CxJe583o.js                 6.77 kB │ gzip:   2.34
+              kB
+
+              dist/assets/ExperienceList-DCmAI379.js                7.28 kB │ gzip:   2.18
+              kB
+
+              dist/assets/TaskDetailSideSheet-B1BBMVbm.js           7.87 kB │ gzip:   3.20
+              kB
+
+              dist/assets/TaskPage-BD0bEwx2.js                     12.32 kB │ gzip:   4.10
+              kB
+
+              dist/assets/AuditPage-DJDBymyr.js                    20.21 kB │ gzip:   7.02
+              kB
+
+              dist/assets/McpPage-DCahVlBk.js                      20.39 kB │ gzip:   5.96
+              kB
+
+              dist/assets/SettingsPage-BNhzjxUo.js                 20.60 kB │ gzip:   6.64
+              kB
+
+              dist/assets/AgentPage-CSgIVQ2r.js                    22.37 kB │ gzip:   6.13
+              kB
+
+              dist/assets/PlatformPage-DhvLZPY-.js                 24.13 kB │ gzip:   7.38
+              kB
+
+              dist/assets/RelatedDetailController-C2klLcWj.js      28.24 kB │ gzip:   8.58
+              kB
+
+              dist/assets/DetailSideSheet-DKN1RPgb.js              31.57 kB │ gzip:   9.23
+              kB
+
+              dist/assets/UserPage-8IlK2Xba.js                     33.01 kB │ gzip:   9.07
+              kB
+
+              dist/assets/ModelPage-DM8K0K6L.js                    59.13 kB │ gzip:  14.69
+              kB
+
+              dist/assets/ChatPage-CFdmct-f.js                    135.37 kB │ gzip:  37.08
+              kB
+
+              dist/assets/index-D9rRwn2M.js                       152.89 kB │ gzip:  42.77
+              kB
+
+              dist/assets/SkillPage-12mPBI6-.js                   465.53 kB │ gzip:
+              138.10 kB
+
+              dist/assets/OverviewPage-DvDdqrf_.js              1,165.48 kB │ gzip:
+              390.38 kB
+
+              dist/assets/index-BpH8pCN4.js                     1,452.46 kB │ gzip:
+              427.09 kB
+
+              ✓ built in 8.17s
+
+
+              (!) Some chunks are larger than 500 kB after minification. Consider:
+
+              - Using dynamic import() to code-split the application
+
+              - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+
+              - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+              '
+      review:
+        status: pending
+        refs: []
+        decision: null
+        evidence: []
 - spec_id: harness-worker
   path: worker/harness-worker.md
   status: active
   hashes:
-    file_sha256: ebdfa3b48c461646fc21ae25c6609298201269ea3536a1e2625b5fcc8d89997d
-    metadata_sha256: 3b1a0f32ac4f99b1ca467c7789fd1dbb8835461fc66d53c28bacae159fe8ac79
+    file_sha256: 7fc894fb68ba77679f6efb2d7089c400518756a304a5b99a1053fbc011a9fa85
+    metadata_sha256: e3811cb7d19fa5577b5b2e0183ff5f6fe1c92642b92302e46328a2daa046b3eb
     rules_sha256: ccc9ee98013107e1ecf0963ec8c4cd330287193995641298c437ce45ffdd99bb
   selected_by: agent
-  reason: 恢复既有设计和后续任务明确引用的规范；保持验收 owner，不删除 required 约束
+  reason: 继承当前Context；承接用户已授权的平台路由装配修复和路径路由器发现的required范围
   enforcement: required
   stages:
   - design
@@ -2101,7 +2854,7 @@ bindings:
     text_sha256: 7cce4d209d8e449015fafeb237543e0bb8d357601420c7f7c729a79c9070698c
     enforcement: required
     verifier_ref: harness-worker#RULE-worker-001
-    verifier_stage: code
+    verifier_stage: review
     stage_status:
       design:
         status: applied
@@ -2118,7 +2871,11 @@ bindings:
         - artifact: egress-shared-sdk.md
           section_id: TASK-006
           item_id: TASK-006
-          artifact_sha256: 76566ad279889c984aa87891387d8c97453c798a3ad8c5206d6ff6dd1a99103a
+          artifact_sha256: cf7863bf2971d84c7e981938f9b5ef9606909f33a06b8beabc059f03e81a3da3
+        - artifact: platform-route-remediation.md
+          section_id: Spec Compliance Matrix
+          item_id: RULE-worker-001
+          artifact_sha256: 9033a4053877e7789154a501ae7086edd8e88550f000a4db4d86e3aa841335aa
         decision: null
         evidence: []
       code:

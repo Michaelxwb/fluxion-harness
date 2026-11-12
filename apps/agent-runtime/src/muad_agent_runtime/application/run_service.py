@@ -282,7 +282,6 @@ def snapshot_policy(
         "task": {"execution_timeout_sec": defaults.task_execution_timeout_sec},
         "egress": {
             "enabled": defaults.egress_enabled,
-            "rules_json": defaults.egress_rules_json,
         },
     }
     frozen_pool = pool if pool is not None else resolve_pool_execution_policy(None)
@@ -428,7 +427,6 @@ def execution_defaults_of(policy: Mapping[str, Any] | None) -> ExecutionDefaults
             LocaleSettings().default_timezone,
         ),
         egress_enabled=bool(_section(policy, "egress").get("enabled", False)),
-        egress_rules_json=str(_section(policy, "egress").get("rules_json", "[]")),
     )
 
 
@@ -454,7 +452,6 @@ def execution_defaults_from_platform(document: Mapping[str, Any] | None) -> Exec
         max_archive_files=parsed.artifact.max_archive_files,
         timezone=parsed.locale.default_timezone,
         egress_enabled=parsed.egress.enabled,
-        egress_rules_json=parsed.egress.rules_json,
     )
 
 

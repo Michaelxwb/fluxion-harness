@@ -10,6 +10,8 @@ enforcement: required
 verifiers:
 - rule: RULE-data-001
   type: command
+  # 项目级套件按用户确认延后到review/CI；任务内运行定向验证，不伪造pass。
+  stage: review
   config:
     argv:
     - uv

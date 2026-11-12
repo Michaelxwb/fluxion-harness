@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "task_file": "egress-shared-sdk.md",
-  "task_sha256": "dbbf9df029c3e8dea6ac45c39006954a09f4dcf33ca3f068fa05c1db82288b08",
+  "task_sha256": "4846524c000444707dd1edfd1cdb10054d1b0629598995ea910a63502acf3641",
   "checks": [
     {
       "id": "CHK-bceb7faf58ed",
@@ -1291,7 +1291,7 @@
       "kind": "functional",
       "boundary": "真实PG、Redis、Runtime和Worker执行器进程",
       "owner": "TASK-006",
-      "status": "verified",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -1303,7 +1303,7 @@
       "timeout": 300.0,
       "depends_on": [],
       "priority": "P0",
-      "exec": "auto",
+      "exec": "deferred",
       "env": "ci",
       "inputs": [
         "packages/**",
@@ -1334,21 +1334,18 @@
       "preconditions": [
         "Plan阶段仅收集骨架；实施前替换真实断言，骨架失败不得作为功能RED"
       ],
+      "defer_reason": "用户已明确要求重型Linux进程/恢复验收统一放项目CI，本地只做定向验证；未运行不计pass",
+      "target_phase": "review",
       "features": [
         "FEAT-03"
       ],
       "defer_owner": "TASK-006",
       "check": "CHK-a52e49c30468",
-      "revision": 3,
+      "revision": 7,
       "evidence": {
         "id": "S-03",
         "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "execution_ms": 7371.558459,
-        "check_id": "CHK-a52e49c30468",
-        "input_hash": "8e657ea1fc883b398ee8896a35bfea5b6a33f23b644a25b9c6f9e4df4fc96a47",
-        "environment_hash": "3980702f5dd8a65a902f4ff8e5c42bd3688854756910a6ddb25288b716ece619",
+        "status": "e2e_deferred",
         "check_config": {
           "id": "CHK-a52e49c30468",
           "command": [
@@ -1390,9 +1387,9 @@
             "timeout": 30
           }
         },
-        "revision": 3,
-        "run_id": "07054c3e5803418b902c8c33cd71b50c",
-        "executed_at": "2026-11-11T10:09:08.527983+00:00",
+        "revision": 7,
+        "run_id": "14333f3d6d2349dc9cd07624e373fcd3",
+        "executed_at": "2026-11-12T01:36:43.671331+00:00",
         "command": [
           "uv",
           "run",
@@ -1401,8 +1398,7 @@
           ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
         ],
         "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "8e657ea1fc883b398ee8896a35bfea5b6a33f23b644a25b9c6f9e4df4fc96a47"
+        "timeout": 300.0
       },
       "runs": [
         {
@@ -1595,6 +1591,250 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "8e657ea1fc883b398ee8896a35bfea5b6a33f23b644a25b9c6f9e4df4fc96a47"
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________________________ test_s_03 ___________________________________\n\n    def test_s_03() -> None:\n        \"\"\"Real Runtime recovery and Worker reclaim preserve shared counters.\"\"\"\n        import subprocess\n        import sys\n    \n        result = subprocess.run(\n            [\n                sys.executable,\n                \"-m\",\n                \"pytest\",\n                \"-q\",\n                \"tests/sdk/test_runtime_egress_recovery_linux.py\",\n                \"tests/sdk/test_worker_egress_recovery_linux.py\",\n            ],\n            capture_output=True,\n            text=True,\n            timeout=240,\n        )\n        assert result.returncode == 0, result.stdout + result.stderr\n>       assert \"2 passed\" in result.stdout, result.stdout\nE       AssertionError: ss                                                                       [100%]\nE         2 skipped in 0.67s\nE         \nE       assert '2 passed' in 'ss                                                                       [100%]\\n2 skipped in 0.67s\\n'\nE        +  where 'ss                                                                       [100%]\\n2 skipped in 0.67s\\n' = CompletedProcess(args=['/Users/guxianggao/Documents/Work/fluxion-harness/.venv/bin/python', '-m', 'pytest', '-q', 'tes...out='ss                                                                       [100%]\\n2 skipped in 0.67s\\n', stderr='').stdout\n\n.code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py:128: AssertionError\n=========================== short test summary info ============================\nFAILED .code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03\n1 failed in 2.10s",
+          "execution_ms": 2578.70525,
+          "check_id": "CHK-a52e49c30468",
+          "input_hash": "eb61ab3caa597869517e0df95b60ebf229ff09ad7a649733c427ff9f60eae159",
+          "environment_hash": "bee92d6c412289c76638fda9b6e079f8ae40554bebc29d803256a8c2172dc475",
+          "check_config": {
+            "id": "CHK-a52e49c30468",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "ci",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "migrations/**"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+              ],
+              "format": "pytest",
+              "timeout": 30
+            }
+          },
+          "revision": 4,
+          "run_id": "a10e8af9941f4ec1b1258d85e49e4c91",
+          "executed_at": "2026-11-11T13:56:03.037755+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________________________ test_s_03 ___________________________________\n\n    def test_s_03() -> None:\n        \"\"\"Real Runtime recovery and Worker reclaim preserve shared counters.\"\"\"\n        import subprocess\n        import sys\n    \n        result = subprocess.run(\n            [\n                sys.executable,\n                \"-m\",\n                \"pytest\",\n                \"-q\",\n                \"tests/sdk/test_runtime_egress_recovery_linux.py\",\n                \"tests/sdk/test_worker_egress_recovery_linux.py\",\n            ],\n            capture_output=True,\n            text=True,\n            timeout=240,\n        )\n        assert result.returncode == 0, result.stdout + result.stderr\n>       assert \"2 passed\" in result.stdout, result.stdout\nE       AssertionError: ss                                                                       [100%]\nE         2 skipped in 0.67s\nE         \nE       assert '2 passed' in 'ss                                                                       [100%]\\n2 skipped in 0.67s\\n'\nE        +  where 'ss                                                                       [100%]\\n2 skipped in 0.67s\\n' = CompletedProcess(args=['/Users/guxianggao/Documents/Work/fluxion-harness/.venv/bin/python', '-m', 'pytest', '-q', 'tes...out='ss                                                                       [100%]\\n2 skipped in 0.67s\\n', stderr='').stdout\n\n.code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py:128: AssertionError\n=========================== short test summary info ============================\nFAILED .code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03\n1 failed in 1.90s",
+          "execution_ms": 2261.499792,
+          "check_id": "CHK-a52e49c30468",
+          "input_hash": "de51a328453989024d677afb9a481ad19a4bafa528ebd949ab2c6032b427e52b",
+          "environment_hash": "e91ea8a160f6d498b2f9439fc1ef1e423beb736d2efe4f7692b2a88604def8e9",
+          "check_config": {
+            "id": "CHK-a52e49c30468",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "ci",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "migrations/**"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+              ],
+              "format": "pytest",
+              "timeout": 30
+            }
+          },
+          "revision": 5,
+          "run_id": "a7b208e09ccb4b2f970e799d91013a77",
+          "executed_at": "2026-11-12T01:32:52.840265+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-a52e49c30468",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "ci",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "migrations/**"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+              ],
+              "format": "pytest",
+              "timeout": 30
+            }
+          },
+          "revision": 6,
+          "run_id": "5f265ca4378d4de7ba905c6d7c45c7c8",
+          "executed_at": "2026-11-12T01:35:16.078530+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "S-03",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-a52e49c30468",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "ci",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "migrations/**"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+              ],
+              "format": "pytest",
+              "timeout": 30
+            }
+          },
+          "revision": 7,
+          "run_id": "14333f3d6d2349dc9cd07624e373fcd3",
+          "executed_at": "2026-11-12T01:36:43.671331+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_s_03"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
         }
       ]
     },
@@ -2175,7 +2415,7 @@
       "kind": "functional",
       "boundary": "Linux bwrap、真实父子孙进程、Worker/Runtime、Redis及慢HTTP",
       "owner": "TASK-006",
-      "status": "verified",
+      "status": "e2e_deferred",
       "command": [
         "uv",
         "run",
@@ -2187,7 +2427,7 @@
       "timeout": 300.0,
       "depends_on": [],
       "priority": "P0",
-      "exec": "auto",
+      "exec": "deferred",
       "env": "ci",
       "inputs": [
         "packages/**",
@@ -2218,21 +2458,18 @@
       "preconditions": [
         "Plan阶段仅收集骨架；实施前替换真实断言，骨架失败不得作为功能RED"
       ],
+      "defer_reason": "用户已明确要求重型Linux进程/恢复验收统一放项目CI，本地只做定向验证；未运行不计pass",
+      "target_phase": "review",
       "features": [
         "FEAT-06"
       ],
       "defer_owner": "TASK-006",
       "check": "CHK-d1c20b8574a7",
-      "revision": 3,
+      "revision": 7,
       "evidence": {
         "id": "E-02",
         "kind": "functional",
-        "status": "passed",
-        "exit_code": 0,
-        "execution_ms": 6871.651500000003,
-        "check_id": "CHK-d1c20b8574a7",
-        "input_hash": "8c85a6320b9995b27206347b7ef412447c12ba0287031c2ea43d14e6d6f13746",
-        "environment_hash": "3980702f5dd8a65a902f4ff8e5c42bd3688854756910a6ddb25288b716ece619",
+        "status": "e2e_deferred",
         "check_config": {
           "id": "CHK-d1c20b8574a7",
           "command": [
@@ -2274,9 +2511,9 @@
             "timeout": 30
           }
         },
-        "revision": 3,
-        "run_id": "07054c3e5803418b902c8c33cd71b50c",
-        "executed_at": "2026-11-11T10:09:08.527983+00:00",
+        "revision": 7,
+        "run_id": "14333f3d6d2349dc9cd07624e373fcd3",
+        "executed_at": "2026-11-12T01:36:43.671331+00:00",
         "command": [
           "uv",
           "run",
@@ -2285,8 +2522,7 @@
           ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
         ],
         "cwd": ".",
-        "timeout": 300.0,
-        "fingerprint": "8c85a6320b9995b27206347b7ef412447c12ba0287031c2ea43d14e6d6f13746"
+        "timeout": 300.0
       },
       "runs": [
         {
@@ -2479,6 +2715,250 @@
           "cwd": ".",
           "timeout": 300.0,
           "fingerprint": "8c85a6320b9995b27206347b7ef412447c12ba0287031c2ea43d14e6d6f13746"
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________________________ test_e_02 ___________________________________\n\n    def test_e_02() -> None:\n        \"\"\"Real Runtime and Worker Linux process trees, PG, Redis and slow HTTP.\"\"\"\n        import subprocess\n        import sys\n    \n        result = subprocess.run(\n            [\n                sys.executable,\n                \"-m\",\n                \"pytest\",\n                \"-q\",\n                \"tests/sdk/test_runtime_egress_linux.py\",\n                \"tests/sdk/test_worker_egress_linux.py\",\n            ],\n            capture_output=True,\n            text=True,\n            timeout=240,\n        )\n        assert result.returncode == 0, result.stdout + result.stderr\n>       assert \"2 passed\" in result.stdout, result.stdout\nE       AssertionError: ss                                                                       [100%]\nE         2 skipped in 0.62s\nE         \nE       assert '2 passed' in 'ss                                                                       [100%]\\n2 skipped in 0.62s\\n'\nE        +  where 'ss                                                                       [100%]\\n2 skipped in 0.62s\\n' = CompletedProcess(args=['/Users/guxianggao/Documents/Work/fluxion-harness/.venv/bin/python', '-m', 'pytest', '-q', 'tes...out='ss                                                                       [100%]\\n2 skipped in 0.62s\\n', stderr='').stdout\n\n.code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py:238: AssertionError\n=========================== short test summary info ============================\nFAILED .code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02\n1 failed in 1.93s",
+          "execution_ms": 2287.997958,
+          "check_id": "CHK-d1c20b8574a7",
+          "input_hash": "b1818522ee17a8d344ecedd3615f188820e688751fcc375b543bcc0f255942d1",
+          "environment_hash": "bee92d6c412289c76638fda9b6e079f8ae40554bebc29d803256a8c2172dc475",
+          "check_config": {
+            "id": "CHK-d1c20b8574a7",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "ci",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "migrations/**"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 30
+            }
+          },
+          "revision": 4,
+          "run_id": "a10e8af9941f4ec1b1258d85e49e4c91",
+          "executed_at": "2026-11-11T13:56:03.037755+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "failed",
+          "exit_code": 1,
+          "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________________________ test_e_02 ___________________________________\n\n    def test_e_02() -> None:\n        \"\"\"Real Runtime and Worker Linux process trees, PG, Redis and slow HTTP.\"\"\"\n        import subprocess\n        import sys\n    \n        result = subprocess.run(\n            [\n                sys.executable,\n                \"-m\",\n                \"pytest\",\n                \"-q\",\n                \"tests/sdk/test_runtime_egress_linux.py\",\n                \"tests/sdk/test_worker_egress_linux.py\",\n            ],\n            capture_output=True,\n            text=True,\n            timeout=240,\n        )\n        assert result.returncode == 0, result.stdout + result.stderr\n>       assert \"2 passed\" in result.stdout, result.stdout\nE       AssertionError: ss                                                                       [100%]\nE         2 skipped in 0.56s\nE         \nE       assert '2 passed' in 'ss                                                                       [100%]\\n2 skipped in 0.56s\\n'\nE        +  where 'ss                                                                       [100%]\\n2 skipped in 0.56s\\n' = CompletedProcess(args=['/Users/guxianggao/Documents/Work/fluxion-harness/.venv/bin/python', '-m', 'pytest', '-q', 'tes...out='ss                                                                       [100%]\\n2 skipped in 0.56s\\n', stderr='').stdout\n\n.code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py:238: AssertionError\n=========================== short test summary info ============================\nFAILED .code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02\n1 failed in 1.64s",
+          "execution_ms": 1938.6951249999997,
+          "check_id": "CHK-d1c20b8574a7",
+          "input_hash": "2dd189343b51d06d189f7bcad304422a66d58982be2c7e9117f9639e0f4025d9",
+          "environment_hash": "e91ea8a160f6d498b2f9439fc1ef1e423beb736d2efe4f7692b2a88604def8e9",
+          "check_config": {
+            "id": "CHK-d1c20b8574a7",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "ci",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "migrations/**"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 30
+            }
+          },
+          "revision": 5,
+          "run_id": "a7b208e09ccb4b2f970e799d91013a77",
+          "executed_at": "2026-11-12T01:32:52.840265+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-d1c20b8574a7",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "ci",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "migrations/**"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 30
+            }
+          },
+          "revision": 6,
+          "run_id": "5f265ca4378d4de7ba905c6d7c45c7c8",
+          "executed_at": "2026-11-12T01:35:16.078530+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
+        },
+        {
+          "id": "E-02",
+          "kind": "functional",
+          "status": "e2e_deferred",
+          "check_config": {
+            "id": "CHK-d1c20b8574a7",
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q",
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+            ],
+            "cwd": ".",
+            "timeout": 300.0,
+            "env": "ci",
+            "env_scope": "shared",
+            "parallel_safe": false,
+            "profile": "changed",
+            "inputs": [
+              "packages/**",
+              "apps/agent-runtime/**",
+              "apps/agent-worker/**",
+              "migrations/**"
+            ],
+            "preflight": [],
+            "paths": [],
+            "suite": "integration",
+            "test_ids": [
+              ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+            ],
+            "markers": [],
+            "collect": {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "--collect-only",
+                "-q",
+                ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+              ],
+              "format": "pytest",
+              "timeout": 30
+            }
+          },
+          "revision": 7,
+          "run_id": "14333f3d6d2349dc9cd07624e373fcd3",
+          "executed_at": "2026-11-12T01:36:43.671331+00:00",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            ".code-flow/tasks/2026-11-09/egress-shared-sdk/planned_tests/test_egress_shared_acceptance.py::test_e_02"
+          ],
+          "cwd": ".",
+          "timeout": 300.0
         }
       ]
     },
@@ -4055,11 +4535,9 @@
     "preserved": [
       "S-01",
       "S-02",
-      "S-03",
       "S-04",
       "S-05",
       "E-01",
-      "E-02",
       "E-03",
       "E-04",
       "B-01",
@@ -4069,7 +4547,10 @@
       "B-05",
       "B-06"
     ],
-    "stale": [],
+    "stale": [
+      "S-03",
+      "E-02"
+    ],
     "removed": []
   }
 }

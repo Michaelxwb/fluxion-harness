@@ -45,7 +45,7 @@ _GROUP_APPLIES_TO: dict[str, str] = {
     "capacity": NEXT_OPERATION,
     "model_pool": NEW_RUN,
     "webchat": NEXT_OPERATION,
-    "egress": NEXT_OPERATION,
+    "egress": NEW_RUN,
 }
 
 #: 逐字段范围/枚举/单位/生效方式覆盖（键为前端使用的字段路径）。
@@ -117,8 +117,8 @@ _FIELD_META: dict[str, dict[str, Any]] = {
     "webchat.notification_retention_days": {"effect_key": "settings.effect.next_cleanup"},
     "webchat.history_retention_days": {"effect_key": "settings.effect.next_cleanup"},
     "webchat.max_conversations_per_entry": {"effect_key": "settings.effect.new_conversation"},
-    "egress.enabled": {"effect_key": "settings.effect.new_run"},
-    "egress.rules_json": {"effect_key": "settings.effect.new_run"},
+    "egress.enabled": {"effect_key": "settings.effect.egress_policy"},
+    "egress.rules_json": {"effect_key": "settings.effect.egress_policy"},
     "webchat.conversation_retention_days": {"effect_key": "settings.effect.new_conversation"},
 }
 

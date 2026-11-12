@@ -9,7 +9,6 @@ type Rule = {
   method: string;
   path_template: string;
   target_instance_id: string;
-  route_id: string;
   max_requests?: number;
   window_requests?: number;
   window_seconds?: number;
@@ -27,6 +26,14 @@ function readRules(value: unknown): Rule[] {
   }
 }
 
+function Field({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
+  return <label className="egress-rule-field">
+    <span className="egress-rule-label">{label}</span>
+    <span className="egress-rule-hint">{hint}</span>
+    {children}
+  </label>;
+}
+
 export function EgressRulesEditor({
   value,
   disabled,
@@ -38,17 +45,31 @@ export function EgressRulesEditor({
 }) {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<PlatformItem[]>([]);
+  const [platformsError, setPlatformsError] = useState(false);
+  const [reload, setReload] = useState(0);
   const [platformsLoading, setPlatformsLoading] = useState(true);
   const rules = readRules(value);
   useEffect(() => {
     let active = true;
     setPlatformsLoading(true);
-    void listPlatforms({ page_size: 100, enabled: true })
+    setPlatformsError(false);
+    const loadPlatforms = async () => {
+      const first = await listPlatforms({ page: 1, page_size: 100, enabled: true });
+      const items = [...first.items];
+      const pages = Math.ceil(first.total / first.page_size);
+      for (let page = 2; page <= pages; page += 1) {
+        if (!active) return first;
+        const next = await listPlatforms({ page, page_size: first.page_size, enabled: true });
+        items.push(...next.items);
+      }
+      return { ...first, items };
+    };
+    void loadPlatforms()
       .then((page) => {
         if (active) setPlatforms(page.items);
       })
       .catch(() => {
-        if (active) setPlatforms([]);
+        if (active) { setPlatforms([]); setPlatformsError(true); }
       })
       .finally(() => {
         if (active) setPlatformsLoading(false);
@@ -56,21 +77,22 @@ export function EgressRulesEditor({
     return () => {
       active = false;
     };
-  }, []);
+  }, [reload]);
   const platformOptions = useMemo(() => {
     const known = platforms.map((platform) => ({
       value: platform.key,
-      label: `${platform.name}（${platform.key}）`
+      label: `${platform.name} (${platform.key})`,
+      disabled: typeof platform.resolver_config.base_url !== 'string' || !platform.resolver_config.base_url
     }));
     const missing = rules
       .map((rule) => rule.target_instance_id)
       .filter((key) => key && !platforms.some((platform) => platform.key === key));
     return [
       ...known,
-      ...Array.from(new Set(missing)).map((key) => ({ value: key, label: `${key}（未找到已配置平台）` }))
+      ...Array.from(new Set(missing)).map((key) => ({ value: key, label: t('settings.egress.platformMissing', { key }), disabled: true }))
     ];
-  }, [platforms, rules]);
-  const update = (next: Rule[]) => onChange(JSON.stringify(next));
+  }, [platforms, rules, t]);
+  const update = (next: Rule[]) => onChange(JSON.stringify(next.map((rule) => ({ ...rule, route_id: `${rule.method} ${rule.path_template}` }))));
   const setRule = (index: number, patch: Partial<Rule>) =>
     update(rules.map((rule, current) => (current === index ? { ...rule, ...patch } : rule)));
   const add = () =>
@@ -80,22 +102,15 @@ export function EgressRulesEditor({
         method: 'GET',
         path_template: '/',
         target_instance_id: '',
-        route_id: '',
         enabled: true
       }
     ]);
-  const Field = ({ label, hint, children }: { label: string; hint: string; children: ReactNode }) => (
-    <label className="egress-rule-field">
-      <span className="egress-rule-label">{label}</span>
-      <span className="egress-rule-hint">{hint}</span>
-      {children}
-    </label>
-  );
   return (
     <div className="egress-rules-editor" data-testid="egress-rules-editor">
       <div className="egress-rules-help">{t('settings.egress.help')}</div>
+      {platformsError && <div role="alert">{t('settings.egress.platformLoadFailed')} <Button onClick={() => setReload((v) => v + 1)}>{t('settings.egress.retry')}</Button></div>}
       {rules.map((rule, index) => (
-        <Card key={`${index}-${rule.route_id}`} className="egress-rule-card" bordered>
+        <Card key={index} className="egress-rule-card" bordered>
           <div className="egress-rule-card-header">
             <div>
               <div className="egress-rule-card-title">{t('settings.egress.ruleTitle', { index: index + 1 })}</div>
@@ -107,12 +122,6 @@ export function EgressRulesEditor({
             </div>
           </div>
           <div className="egress-rule-grid">
-            <Field label={t('settings.egress.method')} hint={t('settings.egress.methodHint')}>
-              <Select value={rule.method} disabled={disabled} optionList={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((method) => ({ value: method, label: method }))} onChange={(v) => setRule(index, { method: String(v) })} />
-            </Field>
-            <Field label={t('settings.egress.path')} hint={t('settings.egress.pathHint')}>
-              <Input value={rule.path_template} disabled={disabled} placeholder="/assets/{id}" onChange={(v) => setRule(index, { path_template: v })} />
-            </Field>
             <Field label={t('settings.egress.target')} hint={t('settings.egress.targetHint')}>
               <Select
                 value={rule.target_instance_id || undefined}
@@ -123,8 +132,12 @@ export function EgressRulesEditor({
                 onChange={(v) => setRule(index, { target_instance_id: String(v) })}
               />
             </Field>
-            <Field label={t('settings.egress.route')} hint={t('settings.egress.routeHint')}>
-              <Input value={rule.route_id} disabled={disabled} placeholder="GET /assets" onChange={(v) => setRule(index, { route_id: v })} />
+
+            <Field label={t('settings.egress.method')} hint={t('settings.egress.methodHint')}>
+              <Select value={rule.method} disabled={disabled} optionList={['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((method) => ({ value: method, label: method }))} onChange={(v) => setRule(index, { method: String(v) })} />
+            </Field>
+            <Field label={t('settings.egress.path')} hint={t('settings.egress.pathHint')}>
+              <Input value={rule.path_template} disabled={disabled} placeholder="/assets/{id}" onChange={(v) => setRule(index, { path_template: v })} />
             </Field>
             <Field label={t('settings.egress.perMinute')} hint={t('settings.egress.perMinuteHint')}>
               <InputNumber value={rule.window_requests} min={1} disabled={disabled} placeholder={t('settings.egress.unlimited')} onChange={(v) => setRule(index, { window_requests: typeof v === 'number' ? v : undefined, window_seconds: 60 })} />
@@ -132,6 +145,12 @@ export function EgressRulesEditor({
             <Field label={t('settings.egress.concurrency')} hint={t('settings.egress.concurrencyHint')}>
               <InputNumber value={rule.max_inflight} min={1} disabled={disabled} placeholder={t('settings.egress.unlimited')} onChange={(v) => setRule(index, { max_inflight: typeof v === 'number' ? v : undefined })} />
             </Field>
+          </div>
+          <div className="egress-rules-help" data-testid="egress-url-preview">
+            {t('settings.egress.preview')}: {(() => {
+              const base = platforms.find((item) => item.key === rule.target_instance_id)?.resolver_config.base_url;
+              return typeof base === 'string' ? base.replace(/\/+$/, '') + rule.path_template : t('settings.egress.selectPlatformFirst');
+            })()}
           </div>
         </Card>
       ))}

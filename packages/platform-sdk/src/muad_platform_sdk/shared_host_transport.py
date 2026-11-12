@@ -4,11 +4,13 @@ The pump owns the existing streaming lifecycle in one task. A bounded relay
 preserves HTTPX streaming and cancellation without transferring timeout contexts
 between consumer tasks. No service, Redis credential, or identity enters Skill.
 """
+
 from __future__ import annotations
 
 import asyncio
+import inspect
 import ssl
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 
 import httpx
@@ -22,6 +24,7 @@ from .shared_redis import MeteringUnavailable, SharedLimitExceeded, SharedRedisM
 class HostRoute:
     target_instance_id: str
     route_id: str
+    policy: SharedEgressPolicy | None = None
 
     def __post_init__(self) -> None:
         if not self.target_instance_id or not self.route_id:
@@ -62,8 +65,12 @@ class _Relay(httpx.AsyncByteStream):
 
 class SharedHostTransport(httpx.AsyncBaseTransport):
     def __init__(
-        self, meter: SharedRedisMeter, *, public_rules_enabled: bool,
-        resolve: Callable[[httpx.Request], HostRoute | None], lifetime: RequestLifetime,
+        self,
+        meter: SharedRedisMeter,
+        *,
+        public_rules_enabled: bool,
+        resolve: Callable[[httpx.Request], HostRoute | None | Awaitable[HostRoute | None]],
+        lifetime: RequestLifetime,
         invocation: TrustedInvocation | None = None,
         verify: ssl.SSLContext | bool = True,
         max_response_bytes: int | None = None,
@@ -84,7 +91,8 @@ class SharedHostTransport(httpx.AsyncBaseTransport):
         self._max_response_bytes = max_response_bytes
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(
-            transport=httpx.AsyncHTTPTransport(verify=verify, retries=0), trust_env=False,
+            transport=httpx.AsyncHTTPTransport(verify=verify, retries=0),
+            trust_env=False,
         )
         self._relays: set[_Relay] = set()
         self._closed = False
@@ -92,10 +100,10 @@ class SharedHostTransport(httpx.AsyncBaseTransport):
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         if self._closed:
             raise RuntimeError("shared HTTP transport is closed")
-        if (request.url.scheme not in {"http", "https"} or request.url.userinfo
-                or request.url.fragment):
+        if request.url.scheme not in {"http", "https"} or request.url.userinfo or request.url.fragment:
             raise HostTargetDenied("invalid controlled HTTP target")
-        route = self._resolve(request)
+        resolved = self._resolve(request)
+        route = await resolved if inspect.isawaitable(resolved) else resolved
         if route is None:
             raise HostTargetDenied("controlled HTTP target denied")
         relay = _Relay()
@@ -128,15 +136,27 @@ class SharedHostTransport(httpx.AsyncBaseTransport):
             self._relays.discard(relay)
 
     async def _forward(self, relay: _Relay, request: httpx.Request, route: HostRoute) -> None:
-        policy = await self._meter.current_policy() if self._controlled else SharedEgressPolicy()
+        policy = route.policy or (
+            await self._meter.current_policy() if self._controlled else SharedEgressPolicy()
+        )
         async with self._sender.stream(
-            self._client, request, policy=policy,
-            target_instance_id=route.target_instance_id, route_id=route.route_id,
+            self._client,
+            request,
+            policy=policy,
+            target_instance_id=route.target_instance_id,
+            route_id=route.route_id,
             invocation=self._invocation,
         ) as response:
             extensions = {**response.extensions, "egress_source": "UPSTREAM"}
-            relay.head.set_result(httpx.Response(response.status_code, headers=response.headers,
-                                               extensions=extensions, stream=relay, request=request))
+            relay.head.set_result(
+                httpx.Response(
+                    response.status_code,
+                    headers=response.headers,
+                    extensions=extensions,
+                    stream=relay,
+                    request=request,
+                )
+            )
             await self._relay_body(relay, response)
         await relay.queue.put(None)
 
@@ -152,7 +172,8 @@ class SharedHostTransport(httpx.AsyncBaseTransport):
         self._closed = True
         try:
             outcomes = await asyncio.gather(
-                *(relay.aclose() for relay in tuple(self._relays)), return_exceptions=True,
+                *(relay.aclose() for relay in tuple(self._relays)),
+                return_exceptions=True,
             )
             for outcome in outcomes:
                 if isinstance(outcome, BaseException):

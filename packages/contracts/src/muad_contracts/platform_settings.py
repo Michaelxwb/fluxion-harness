@@ -549,20 +549,18 @@ def egress_rules_from_settings(settings: EgressSettings) -> tuple[dict[str, Any]
         raise PlatformSettingsError("egress.rules_json 必须是 JSON 数组") from exc
     if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
         raise PlatformSettingsError("egress.rules_json 必须是对象数组")
-    required = {"method", "path_template", "target_instance_id", "route_id"}
-    for index, item in enumerate(value):
-        if not required.issubset(item):
-            raise PlatformSettingsError(f"egress.rules_json[{index}] 缺少必要字段")
-        if not isinstance(item["method"], str) or not item["method"].isupper():
-            raise PlatformSettingsError(f"egress.rules_json[{index}].method 无效")
-        for key in ("max_requests", "window_requests", "max_inflight"):
-            if item.get(key) is not None and (
-                isinstance(item[key], bool) or not isinstance(item[key], int) or item[key] <= 0
-            ):
-                raise PlatformSettingsError(f"egress.rules_json[{index}].{key} 必须是正整数")
-        if item.get("window_requests") is not None and item.get("window_seconds") is None:
-            raise PlatformSettingsError(f"egress.rules_json[{index}] window_seconds 必填")
-    return tuple(value)
+    from pydantic import ValidationError
+
+    from .egress_routes import PlatformEgressRule
+
+    try:
+        rules = [PlatformEgressRule.model_validate(item) for item in value]
+    except ValidationError as exc:
+        raise PlatformSettingsError("egress.rules_json 包含无效的平台、路径或限制") from exc
+    identities = [(rule.target_instance_id, rule.route_id) for rule in rules]
+    if len(set(identities)) != len(identities):
+        raise PlatformSettingsError("egress.rules_json 不允许重复的平台和接口")
+    return tuple(rule.model_dump(mode="json", exclude_none=True) for rule in rules)
 
 
 def _at_least(path: str, value: float, minimum: float) -> None:

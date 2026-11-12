@@ -19,7 +19,7 @@ from muad_contracts import (
     TerminalStatus,
     TriggerType,
 )
-from muad_contracts.platform_settings import TaskSettings, validate_task_execution_timeout
+from muad_contracts.platform_settings import PlatformSettings, TaskSettings, validate_task_execution_timeout
 from muad_contracts.snapshot import freeze_task_execution_timeout, snapshot_hash, task_execution_timeout
 from pydantic import JsonValue
 from sqlalchemy import false, func, select, update
@@ -93,9 +93,12 @@ class TaskService:
         if existing is not None:
             return existing
         # 任务创建边界取一次平台设置快照：新 Task 用它冻结默认，存量行一律不动。
-        task_settings = await self._task_settings(payload.tenant_id)
+        operation_settings = await self._task_settings(payload.tenant_id)
+        task_settings = operation_settings.task
         route_id = await self._resolve_route(payload)
-        values = self._creation_values(payload, task_settings, route_id)
+        values = self._creation_values(
+            payload, task_settings, route_id, egress_enabled=operation_settings.egress.enabled
+        )
         statement = (
             pg_insert(TaskExecution)
             .values(**values)
@@ -128,11 +131,19 @@ class TaskService:
         return task
 
     def _creation_values(
-        self, payload: CreateTaskRequest, task_settings: TaskSettings, route_id: uuid.UUID | None
+        self,
+        payload: CreateTaskRequest,
+        task_settings: TaskSettings,
+        route_id: uuid.UUID | None,
+        *,
+        egress_enabled: bool = False,
     ) -> dict[str, object]:
         task_id = uuid.uuid4()
         now = datetime.now(UTC)
         snapshot, frozen_hash = _creation_snapshot(payload, task_settings)
+        if egress_enabled or "egress_enabled" in snapshot:
+            snapshot = {**snapshot, "egress_enabled": egress_enabled}
+            frozen_hash = snapshot_hash(snapshot)
         return {
             "id": task_id,
             "tenant_id": payload.tenant_id,
@@ -384,12 +395,10 @@ class TaskService:
             )
         ).scalar_one_or_none()
 
-    async def _task_settings(self, tenant_id: str) -> TaskSettings:
+    async def _task_settings(self, tenant_id: str) -> PlatformSettings:
         """任务默认的唯一来源：该租户当前平台设置（源不可读即明确失败，RULE-06）。"""
         snapshot = await self._settings_client.fetch_snapshot(tenant_id=tenant_id)
-        return resolve_platform_settings(
-            snapshot, batch_platform_limit=self._settings.batch_platform_limit
-        ).task
+        return resolve_platform_settings(snapshot, batch_platform_limit=self._settings.batch_platform_limit)
 
     async def _resolve_route(self, payload: CreateTaskRequest) -> uuid.UUID | None:
         if payload.delivery_route is None:

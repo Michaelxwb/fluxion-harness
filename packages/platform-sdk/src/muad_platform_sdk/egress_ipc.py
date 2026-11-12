@@ -3,22 +3,24 @@
 The supervisor must enforce the bound deadline and fencing on the script. IPC
 EOF alone does not prove HTTP closure, so unconfirmed leases are kept to expiry.
 """
+
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 import math
 import os
 import tempfile
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
 from typing import Self
 
-from muad_contracts.shared_egress import TrustedInvocation
+from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
 from pydantic import ValidationError
 
 from .egress_ipc_client import IPCAdmissionClient as IPCAdmissionClient
@@ -40,6 +42,7 @@ logger = logging.getLogger(__name__)
 class EgressTarget:
     target_instance_id: str
     route_id: str
+    policy: SharedEgressPolicy | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,14 +52,25 @@ class UncontrolledTarget:
 
 class InvocationEgressBroker:
     def __init__(
-        self, *, meter: SharedRedisMeter, invocation: TrustedInvocation,
-        resolve: Callable[[AttemptMetadata], EgressTarget | UncontrolledTarget | None],
+        self,
+        *,
+        meter: SharedRedisMeter,
+        invocation: TrustedInvocation,
+        resolve: Callable[
+            [AttemptMetadata],
+            EgressTarget | UncontrolledTarget | None | Awaitable[EgressTarget | UncontrolledTarget | None],
+        ],
         deadline_seconds: float,
-        cleanup_seconds: float, max_connections: int = 32, renewal_interval_seconds: float = 1.0,
+        cleanup_seconds: float,
+        max_connections: int = 32,
+        renewal_interval_seconds: float = 1.0,
     ) -> None:
         lifetimes = (deadline_seconds, cleanup_seconds, renewal_interval_seconds)
-        if (any(not math.isfinite(v) or v <= 0 for v in lifetimes)
-                or not math.isfinite(deadline_seconds + cleanup_seconds) or max_connections <= 0):
+        if (
+            any(not math.isfinite(v) or v <= 0 for v in lifetimes)
+            or not math.isfinite(deadline_seconds + cleanup_seconds)
+            or max_connections <= 0
+        ):
             raise ValueError("valid IPC lifetime and resource bounds required")
         self._meter, self._invocation = meter, invocation
         self._resolve, self._deadline, self._cleanup = resolve, deadline_seconds, cleanup_seconds
@@ -83,7 +97,9 @@ class InvocationEgressBroker:
         self.socket_path = directory / "broker.sock"
         try:
             self._server = await asyncio.start_unix_server(
-                self._handle, path=str(self.socket_path), limit=MAX_FRAME_BYTES,
+                self._handle,
+                path=str(self.socket_path),
+                limit=MAX_FRAME_BYTES,
             )
             os.chmod(self.socket_path, 0o600)
             if self._closing:
@@ -97,8 +113,9 @@ class InvocationEgressBroker:
             raise
         return self
 
-    async def __aexit__(self, exc_type: type[BaseException] | None,
-                        exc: BaseException | None, traceback: TracebackType | None) -> None:
+    async def __aexit__(
+        self, exc_type: type[BaseException] | None, exc: BaseException | None, traceback: TracebackType | None
+    ) -> None:
         await self.stop_admissions()
         self.socket_path.unlink(missing_ok=True)
         self.socket_path.parent.rmdir()
@@ -152,9 +169,11 @@ class InvocationEgressBroker:
         writer.write(frame(value))
         await writer.drain()
 
-    async def _begin(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
-                     request: BeginRequest) -> None:
-        target = self._resolve(request)
+    async def _begin(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, request: BeginRequest
+    ) -> None:
+        resolved = self._resolve(request)
+        target = await resolved if inspect.isawaitable(resolved) else resolved
         if target is None:
             await self._reply(writer, {"ok": False, "code": "IPC_TARGET_DENIED"})
             return
@@ -165,10 +184,13 @@ class InvocationEgressBroker:
             await self._reply(writer, {"ok": True, "controlled": False})
             return
         attempt_id = uuid.uuid4().hex
-        policy = await self._meter.current_policy()
+        policy = target.policy or await self._meter.current_policy()
         permit = await self._meter.admit(
-            policy, target_instance_id=target.target_instance_id, route_id=target.route_id,
-            attempt_id=attempt_id, invocation=self._invocation,
+            policy,
+            target_instance_id=target.target_instance_id,
+            route_id=target.route_id,
+            attempt_id=attempt_id,
+            invocation=self._invocation,
             lease_seconds=self._expires_at - asyncio.get_running_loop().time() + self._cleanup,
         )
         if permit is not None:
@@ -176,8 +198,15 @@ class InvocationEgressBroker:
                 self._pending[permit.attempt_id] = permit
             await self._meter.consume(permit)
             self._ever_admitted = True
-        await self._reply(writer, {"ok": True, "controlled": True, "attempt_id": attempt_id,
-                                   "remaining_seconds": self._expires_at - asyncio.get_running_loop().time()})
+        await self._reply(
+            writer,
+            {
+                "ok": True,
+                "controlled": True,
+                "attempt_id": attempt_id,
+                "remaining_seconds": self._expires_at - asyncio.get_running_loop().time(),
+            },
+        )
         completion = await self._completion(reader, permit)
         if completion.op != "done":
             raise ValueError("completion required")
@@ -245,8 +274,9 @@ class InvocationEgressBroker:
             except OSError:
                 logger.warning("egress_ipc_connection_close_unconfirmed")
 
-    async def _error_reply(self, writer: asyncio.StreamWriter, code: str, *,
-                           scope: LimitScope | None = None) -> None:
+    async def _error_reply(
+        self, writer: asyncio.StreamWriter, code: str, *, scope: LimitScope | None = None
+    ) -> None:
         payload: dict[str, object] = {"ok": False, "code": code}
         if scope is not None:
             payload["scope"] = scope

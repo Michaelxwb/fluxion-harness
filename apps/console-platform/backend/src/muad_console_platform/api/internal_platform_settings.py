@@ -61,3 +61,15 @@ async def internal_platform_settings(
     _record(caller, "ok")
     data = {"revision": snapshot.revision, "settings": asdict(snapshot.settings)}
     return ok(request.app.state.message_catalog, data)
+
+
+@router.get("/egress-policy")
+async def internal_egress_policy(
+    request: Request, tenant_id: TenantId, session: Session,
+    x_internal_service: Annotated[str | None, Header()] = None,
+) -> ApiResponse[Any]:
+    from ..application.egress_policy import current_egress_policy
+
+    require_service_identity(x_internal_service, service_token(request))
+    policy = await current_egress_policy(session, tenant_id)
+    return ok(request.app.state.message_catalog, policy.model_dump(mode="json"))
