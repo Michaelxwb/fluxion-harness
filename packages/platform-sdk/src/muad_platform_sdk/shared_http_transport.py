@@ -11,7 +11,6 @@ import asyncio
 import logging
 import math
 import sys
-import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -19,6 +18,7 @@ from dataclasses import dataclass
 import httpx
 from muad_contracts.shared_egress import SharedEgressPolicy, TrustedInvocation
 
+from .egress_attempt_audit import AttemptAudit, AttemptObserver
 from .shared_redis import MeteringUnavailable, SharedPermit, SharedRedisMeter
 
 logger = logging.getLogger(__name__)
@@ -76,8 +76,9 @@ class _LeaseWatch:
 class SharedHTTPTransport:
     """Own one stream until scope exit, including cancellation and dependency loss."""
 
-    def __init__(self, meter: SharedRedisMeter, *, lifetime: RequestLifetime) -> None:
-        self._meter, self._lifetime = meter, lifetime
+    def __init__(self, meter: SharedRedisMeter, *, lifetime: RequestLifetime,
+                 observe: AttemptObserver | None = None) -> None:
+        self._meter, self._lifetime, self._observe = meter, lifetime, observe
 
     @asynccontextmanager
     async def stream(
@@ -85,38 +86,55 @@ class SharedHTTPTransport:
         policy: SharedEgressPolicy, target_instance_id: str, route_id: str,
         invocation: TrustedInvocation | None = None,
     ) -> AsyncIterator[httpx.Response]:
+        origin = str(request.url.copy_with(path="/", query=None)).rstrip("/")
+        audit = AttemptAudit(
+            self._observe, origin=origin, method=request.method,
+            path=request.url.raw_path.split(b"?", 1)[0].decode("ascii"),
+        )
+        error: BaseException | None = None
         permit: SharedPermit | None = None
         response: httpx.Response | None = None
         watch: _LeaseWatch | None = None
-        sending_started = False
         deadline = asyncio.get_running_loop().time() + self._lifetime.timeout_seconds
         try:
             async with asyncio.timeout_at(deadline) as timer:
                 permit = await self._meter.admit(
                     policy, target_instance_id=target_instance_id, route_id=route_id,
-                    attempt_id=uuid.uuid4().hex, invocation=invocation,
+                    attempt_id=audit.attempt_id, invocation=invocation,
                     lease_seconds=self._lifetime.timeout_seconds + self._lifetime.cleanup_seconds,
                 )
                 if permit is not None:
                     await self._meter.consume(permit)
                     watch = _LeaseWatch(self._meter, permit, self._lifetime, deadline, timer)
-                sending_started = True
+                audit.sent = True
                 response = await client.send(request, stream=True, follow_redirects=False, auth=None)
+                audit.status_code = response.status_code
                 yield response
                 if watch is not None and watch.failure is not None:
                     raise watch.failure
         except TimeoutError as exc:
+            error = exc
             if watch is not None and watch.failure is not None:
                 raise watch.failure from exc
-            if not sending_started:
+            if not audit.sent:
                 raise MeteringUnavailable("shared admission deadline exceeded") from exc
             raise
+        except BaseException as exc:
+            error = exc
+            raise
         finally:
+            await self._finish(watch, response, permit, audit, error or sys.exception())
+
+    async def _finish(self, watch: _LeaseWatch | None, response: httpx.Response | None,
+                      permit: SharedPermit | None, audit: AttemptAudit, error: BaseException | None) -> None:
+        try:
             try:
                 if watch is not None:
                     await watch.stop()
             finally:
-                await self._cleanup(response, permit, failed=sys.exception() is not None)
+                await self._cleanup(response, permit, failed=error is not None)
+        finally:
+            await audit.finish(error or sys.exception())
 
     async def _cleanup(
         self, response: httpx.Response | None, permit: SharedPermit | None, *, failed: bool,

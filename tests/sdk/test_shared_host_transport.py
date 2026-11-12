@@ -384,3 +384,31 @@ async def test_cancel_before_headers_closes_physical_connection(meter):
     finally:
         server.close()
         await server.wait_closed()
+
+
+async def test_one_stream_deadline_allows_slow_socket_cleanup(meter, http_probe):
+    counter, policy, _ = meter
+    probe, origin = http_probe
+    async with httpx.AsyncClient(trust_env=False) as pool:
+        real_send = pool.send
+
+        async def send(*args, **kwargs):
+            response = await real_send(*args, **kwargs)
+            real_close = response.aclose
+
+            async def close():
+                await asyncio.sleep(.04)
+                await real_close()
+
+            response.aclose = close
+            return response
+
+        pool.send = send
+        transport = shared_transport(counter, policy, origin, timeout=.2, client=pool)
+        async with httpx.AsyncClient(transport=transport) as client:
+            with pytest.raises(TimeoutError):
+                async with client.stream("GET", origin + "/stream") as response:
+                    iterator = response.aiter_bytes()
+                    assert await anext(iterator) == b"first\n"
+                    await anext(iterator)
+            await asyncio.wait_for(probe.closed.wait(), 1)

@@ -335,7 +335,7 @@ async def test_b_03(case, meter, http_probe, fault_proxy, shared_meter) -> None:
 
 
 def test_b_04() -> None:
-    """公共规则版本一致；旧缓存先拒后刷新，窗口阻断，冻结累计不变。"""
+    """公共规则版本一致；旧缓存先拒后刷新，新窗口立即计数，冻结累计不变。"""
     pytest.fail("PLAN_SKELETON: implement real B-04 boundary assertions before execution")
 
 

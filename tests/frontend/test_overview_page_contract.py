@@ -16,6 +16,15 @@ def test_page_has_one_header_and_shared_sections() -> None:
     for name in ("OverviewToolbar", "ResourceSummary", "KpiCards", "AttentionSummary", "OverviewCharts"):
         assert "<" + name in page
     assert "PageSection" in page and "<MetricCards" in source("components/KpiCards.tsx")
+    assert "EgressSummary" not in page
+
+
+def test_egress_monitoring_has_a_dedicated_overview_view() -> None:
+    page = source("pages/EgressPage.tsx")
+    tabs = source("components/OverviewViewTabs.tsx")
+    assert 'data-testid="egress-monitoring-page"' in page
+    assert "<EgressSummary" in page and 'activeKey="egress"' in page
+    assert "'/overview/egress'" in tabs and "overview.views.egress" in tabs
 
 
 def test_six_kpis_are_present_and_unknown_values_are_explicit() -> None:

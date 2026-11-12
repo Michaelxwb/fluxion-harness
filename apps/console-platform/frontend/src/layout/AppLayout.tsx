@@ -121,6 +121,7 @@ function Sidebar() {
   const [width, setWidth] = useState<number | null>(null);
   const sidebarWidth = width ?? (i18n.language.startsWith('en') ? 224 : 184);
   const visibleItems = menuItems.filter((item) => !item.adminOnly || account?.role === 'ADMIN');
+  const selectedPath = location.pathname.startsWith('/overview/') ? '/' : location.pathname;
   return (
     <Sider className={`app-sider${collapsed ? ' app-sider-collapsed' : ''}`}
       style={{ width: collapsed ? 64 : sidebarWidth }}>
@@ -131,7 +132,7 @@ function Sidebar() {
         {!collapsed && <span className="app-brand-title">{t('app.brandSuffix')}</span>}
       </div>
       <Nav id="app-navigation" className="app-nav" isCollapsed={collapsed}
-        selectedKeys={[location.pathname]} items={visibleItems.map((item) => ({
+        selectedKeys={[selectedPath]} items={visibleItems.map((item) => ({
           itemKey: item.path, text: t(item.key), icon: MENU_ICONS[item.path]
         }))} onSelect={({ itemKey }) => navigate(String(itemKey))}
         style={{ maxWidth: '100%' }} />

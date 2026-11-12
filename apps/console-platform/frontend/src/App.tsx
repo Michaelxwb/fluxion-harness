@@ -24,6 +24,11 @@ const OverviewPage = lazy(() =>
     default: module.OverviewPage
   }))
 );
+const EgressPage = lazy(() =>
+  import('./modules/overview-dashboard/pages/EgressPage').then((module) => ({
+    default: module.EgressPage
+  }))
+);
 const AgentPage = lazy(() =>
   import('./modules/agent-management/AgentPage').then((module) => ({
     default: module.AgentPage
@@ -108,6 +113,7 @@ export default function App() {
         }
       >
         <Route index element={<OverviewPage />} />
+        <Route path="overview/egress" element={<EgressPage />} />
         <Route path="agents" element={<AgentPage />} />
         <Route path="skills" element={<SkillPage />} />
         <Route path="mcp" element={<McpPage />} />

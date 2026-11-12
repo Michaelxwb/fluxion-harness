@@ -952,7 +952,7 @@ class EgressAudit(StandardColumnsMixin, Base):
     )
 
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
-    run_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     task_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     skill_artifact_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
@@ -960,7 +960,7 @@ class EgressAudit(StandardColumnsMixin, Base):
     adapter_key: Mapped[str | None] = mapped_column(sa.String(128))
     target_type: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     target: Mapped[str] = mapped_column(sa.Text(), nullable=False)
-    operation: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    operation: Mapped[str] = mapped_column(sa.Text(), nullable=False)
     method: Mapped[str | None] = mapped_column(sa.String(16))
     policy_decision: Mapped[str] = mapped_column(sa.String(32), nullable=False)
     credential_ref_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())

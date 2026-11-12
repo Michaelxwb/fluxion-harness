@@ -150,19 +150,12 @@ for i, rule in ipairs(new_rules) do
     end
   end
 end
--- Block newly introduced or lengthened windows until a complete history exists.
 for i, rule in ipairs(new_rules) do
-  local old = previous[rule.id]
   if not redis.call('HGET', policy, 'identity:' .. rule.id) then
     redis.call('HSET', policy, 'identity:' .. rule.id, cjson.encode({rule.target_instance_id, rule.route_id}))
     redis.call('SET', KEYS[3 * i + 1], '0')
     redis.call('ZADD', KEYS[3 * i + 2], -1, '__guard__')
     redis.call('ZADD', KEYS[3 * i + 3], -1, '__guard__')
-  end
-  if rule.window_seconds ~= cjson.null and rule.window_seconds and
-     (not old or old.window_seconds == cjson.null or not old.window_seconds or
-      rule.window_seconds > old.window_seconds) then
-    redis.call('HSET', policy, 'blocked:' .. rule.id, ms + math.ceil(rule.window_seconds * 1000))
   end
 end
 redis.call('HSET', guard, 'last_ms', ms)
@@ -277,8 +270,6 @@ for i, rule in ipairs(rules) do
     return {'TOTAL', rule.id, tostring(used), 'public'}
   end
   if rule.window_seconds ~= cjson.null and rule.window_seconds then
-    local blocked = tonumber(redis.call('HGET', policy, 'blocked:' .. rule.id) or '0')
-    if ms < blocked then return {'WINDOW', rule.id, tostring(blocked - ms), 'public'} end
     local cutoff = ms - math.ceil(rule.window_seconds * 1000)
     local count = redis.call('ZCOUNT', window, '(' .. cutoff, '+inf')
     if count >= rule.window_requests then return {'WINDOW', rule.id, '0', 'public'} end

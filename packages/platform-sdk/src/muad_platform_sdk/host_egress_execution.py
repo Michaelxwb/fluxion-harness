@@ -19,6 +19,7 @@ import httpx
 from muad_contracts.shared_egress import FrozenIdentityBudgets, TrustedInvocation
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from .egress_attempt_audit import AttemptObserver
 from .egress_identity_registry import (
     ExecutionRegistration,
     IdentityRegistry,
@@ -76,10 +77,12 @@ class HostEgressExecution:
         meter: FencedRedisMeter,
         registry: IdentityRegistry,
         resolve: TargetResolver,
+        observe: AttemptObserver | None = None,
     ) -> None:
         self._settings, self._scope, self._authority = settings, scope, authority
         self._claim, self._reader, self._meter = claim, reader, meter
         self._scopes, self._resolve = PersistentEgressScopes(registry, meter), resolve
+        self._observe = observe
         self._brokers: list[InvocationEgressBroker] = []
         self._transports: list[SharedHostTransport] = []
         self._close_lock, self._closed = asyncio.Lock(), asyncio.Event()
@@ -96,6 +99,7 @@ class HostEgressExecution:
         claim: SourceClaim,
         reader: SourceReader,
         resolve: TargetResolver,
+        observe: AttemptObserver | None = None,
     ) -> HostEgressExecution | None:
         if not settings.public_rules_enabled and not budget.enabled:
             return None  # No PG/Redis calls or registration on the unlimited path.
@@ -125,6 +129,7 @@ class HostEgressExecution:
             meter=meter,
             registry=registry,
             resolve=resolve,
+            observe=observe,
         )
 
     def _require_open(self) -> None:
@@ -155,6 +160,7 @@ class HostEgressExecution:
             deadline_seconds=deadline_seconds,
             cleanup_seconds=self._settings.lifetime.cleanup_seconds,
             renewal_interval_seconds=self._settings.lifetime.renewal_interval_seconds,
+            observe=self._observe,
         )
         self._brokers.append(broker)
         return broker
@@ -200,6 +206,7 @@ class HostEgressExecution:
             verify=verify,
             on_limit=on_limit,
             client=client,
+            observe=self._observe,
         )
         self._transports.append(transport)
         return transport
