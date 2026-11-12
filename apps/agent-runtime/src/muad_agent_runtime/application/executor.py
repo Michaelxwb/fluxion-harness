@@ -493,6 +493,7 @@ class AgentRunnerExecutor:
         delta_window: DeltaWindow | None = None,
         memory: RunMemory | None = None,
         egress: HostEgressExecution | None = None,
+        cancel_event: asyncio.Event | None = None,
     ) -> None:
         self._runner = runner
         self._request = request
@@ -500,6 +501,7 @@ class AgentRunnerExecutor:
         self._model_trace = model_trace
         self._memory = memory
         self._egress = egress
+        self._cancel_event = cancel_event or asyncio.Event()
         # 有界合并窗口：装配根显式注入（`default_executor_factory`）；直构调用点按启动设置
         # 取值——窗口参数是每进程容量配置（design §3.7），不在调用点另立第二份默认。
         self._delta_window = (
@@ -508,7 +510,7 @@ class AgentRunnerExecutor:
 
     async def run(self) -> AsyncIterator[ExecutorEvent]:
         queue: asyncio.Queue[ExecutorEvent] = asyncio.Queue()
-        cancelled = asyncio.Event()
+        cancelled = self._cancel_event
         poller = asyncio.create_task(self._poll_cancel(cancelled))
         emitter = _ExecutorEventEmitter(
             queue=queue,
@@ -1066,10 +1068,12 @@ class PooledModelProvider:
         heartbeat_sec: float | None = None,
         reselection_limit: int = POOL_RESELECTION_LIMIT,
         wait_since: datetime | None = None,
+        cancel_event: asyncio.Event | None = None,
         ledger: ModelAttemptLedger | None = None,
         session_factory_provider: SessionFactoryProvider = get_session_factory,
     ) -> None:
         self._scope = scope
+        self._cancel_event = cancel_event
         self._allocator = allocator
         self._capacity = capacity
         self._credentials = credentials
@@ -1204,11 +1208,15 @@ class PooledModelProvider:
         受限时显示 `WAITING_MODEL`（原因取自 `MODEL_CAPACITY_UNAVAILABLE.data.reason`），
         拿到额度即回到 `RUNNING`。投影写入失败只留警告，不打断模型执行。
         """
+        if self._cancel_event is not None and self._cancel_event.is_set():
+            raise RunnerCancelled("cancelled while waiting for model capacity")
         wait_until = min(
             self._wait_since + timedelta(seconds=self._scope.policy.model_wait_timeout_sec),
             self._scope.deadline_at,
         )
         while True:
+            if self._cancel_event is not None and self._cancel_event.is_set():
+                raise RunnerCancelled("cancelled while waiting for model capacity")
             allocate_started = time.monotonic()
             try:
                 allocation = cast(
@@ -2183,6 +2191,7 @@ async def _main_provider_for(
     audit: RuntimeAuditWriter | None,
     trace: ModelCallTrace,
     ledger: ModelAttemptLedger,
+    cancel_event: asyncio.Event | None = None,
 ) -> ModelProvider:
     scope = _pool_scope_for(request)
     if scope is not None:
@@ -2195,6 +2204,7 @@ async def _main_provider_for(
             transport=inputs.model_transport,
             client=inputs.model_client,
             ledger=ledger,
+            cancel_event=cancel_event,
         )
     provider = await _model_provider(
         request.model, timeout_sec=timeout, transport=inputs.model_transport, client=inputs.model_client
@@ -2207,14 +2217,16 @@ async def _main_provider_for(
 
 
 async def _model_resources(
-    request: ExecutorRequest, inputs: _ExecutorInputs, stack: contextlib.AsyncExitStack
+    request: ExecutorRequest, inputs: _ExecutorInputs, stack: contextlib.AsyncExitStack,
+    *, cancel_event: asyncio.Event | None = None,
 ) -> _ModelResources:
     frozen = request.execution.agent_policy if request.execution is not None else AgentPolicy()
     budget = ModelBudget(deadline_ms=frozen.deadline_ms, max_model_retries=frozen.max_model_retries)
     audit, ledger = _audit_writer_for(request), ModelAttemptLedger()
     trace = ModelCallTrace(audit_enabled=audit is not None)
     provider = await _main_provider_for(
-        request, inputs, timeout=budget.request_timeout_sec(), audit=audit, trace=trace, ledger=ledger
+        request, inputs, timeout=budget.request_timeout_sec(), audit=audit, trace=trace, ledger=ledger,
+        cancel_event=cancel_event,
     )
     stack.push_async_callback(_close_model, provider)
     summary, owned = await _summary_provider_for(
@@ -2224,6 +2236,7 @@ async def _model_resources(
         transport=inputs.model_transport,
         client=inputs.model_client,
         ledger=ledger,
+        cancel_event=cancel_event,
     )
     if owned is not None:
         stack.push_async_callback(_close_model, owned)
@@ -2329,9 +2342,10 @@ async def default_executor_factory(
         skill_cache, artifact_writer, task_client, delivery_client, model_transport, model_client, mcp_client
     )
     stack = contextlib.AsyncExitStack()
+    cancel_event = asyncio.Event()
     try:
         egress = await stack.enter_async_context(run_egress(request))
-        models = await _model_resources(request, inputs, stack)
+        models = await _model_resources(request, inputs, stack, cancel_event=cancel_event)
         mcp = await _scoped_mcp_adapter(request, inputs, egress=egress, audit=models.audit, stack=stack)
         task, delivery = _control_clients(request, inputs, stack)
         recorder = _recorder_for(request, models.audit, artifact_writer)
@@ -2357,6 +2371,7 @@ async def default_executor_factory(
             memory=memory,
             delta_window=delta_window_from_settings(process_settings()),
             egress=egress,
+            cancel_event=cancel_event,
         )
     except BaseException:
         await stack.aclose()
@@ -2462,6 +2477,7 @@ async def _summary_provider_for(
     transport: httpx.AsyncBaseTransport | None,
     ledger: ModelAttemptLedger,
     client: httpx.AsyncClient | None = None,
+    cancel_event: asyncio.Event | None = None,
 ) -> tuple[ModelProvider | None, ModelProvider | None]:
     """摘要 provider 与它的 owned 句柄（池化时没有 owned：每次尝试的上游连接自己收）。
 
@@ -2490,6 +2506,7 @@ async def _summary_provider_for(
                 model=request.summary_model.model_id,
                 audit_writer=audit_writer,
                 ledger=ledger,
+                cancel_event=cancel_event,
             ),
             None,
         )
@@ -2531,6 +2548,7 @@ def build_pooled_provider(
     audit_writer: RuntimeAuditWriter | None = None,
     model_trace: ModelCallTrace | None = None,
     ledger: ModelAttemptLedger | None = None,
+    cancel_event: asyncio.Event | None = None,
     session_factory_provider: SessionFactoryProvider = get_session_factory,
 ) -> PooledModelProvider:
     """按生产装配口径构造池化 provider：真实分配器/容量服务/受信解析客户端/模型 HTTP。
@@ -2554,6 +2572,7 @@ def build_pooled_provider(
         audit_writer=audit_writer,
         model_trace=model_trace,
         ledger=ledger,
+        cancel_event=cancel_event,
         session_factory_provider=session_factory_provider,
     )
 
@@ -2568,6 +2587,7 @@ def _pooled_provider_for(
     transport: httpx.AsyncBaseTransport | None = None,
     client: httpx.AsyncClient | None = None,
     ledger: ModelAttemptLedger | None = None,
+    cancel_event: asyncio.Event | None = None,
 ) -> PooledModelProvider:
     """Run 主调用的池化 provider（真实装配口径见 `build_pooled_provider`）。"""
     credentials = request.credentials_client
@@ -2587,6 +2607,7 @@ def _pooled_provider_for(
         audit_writer=audit_writer,
         model_trace=model_trace,
         ledger=ledger,
+        cancel_event=cancel_event,
     )
 
 
