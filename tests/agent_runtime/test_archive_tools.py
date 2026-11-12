@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import unicodedata
 import uuid
 import zipfile
 from pathlib import Path
@@ -364,3 +365,43 @@ async def test_receipt_is_not_externalized_by_the_tool_result_wrapper(
     assert "artifact" not in receipt, "回执被外置成了预览，模型看不到 artifact_id"
     assert receipt["file_count"] == 20
     assert not tool_results_root.exists(), "没有外置就不该落任何 tool result 文件"
+
+
+# ---------------------------------------------------------------------------
+# 成员路径规则与读取共用同一实现（打包/读取不能各判一套）
+# ---------------------------------------------------------------------------
+
+
+def test_member_path_rules_are_shared_by_packing_and_reading() -> None:
+    from muad_agent_runtime.application.attachments.member_paths import (
+        MemberPathError,
+        normalize_member_path,
+    )
+
+    nfd = unicodedata.normalize("NFD", "café.txt")
+    assert normalize_member_path(nfd) == validate_member_path(nfd) == unicodedata.normalize("NFC", nfd)
+
+    for bad in ["", "../x.txt", "/absolute.txt", "a\\b.txt", "dir/ /b.txt", "a\x00b.txt"]:
+        with pytest.raises(MemberPathError):
+            normalize_member_path(bad)
+        with pytest.raises(ArchiveToolError) as error:
+            validate_member_path(bad)
+        assert error.value.code == "ARCHIVE_PATH_INVALID"
+
+
+def test_packed_archive_reads_back_with_the_same_member_names() -> None:
+    """打包 → 读取闭环：写进包里的名字就是清单里出现的名字（同一套规范化）。"""
+    from muad_agent_runtime.application.attachments.archive_reader import render_archive_text
+
+    files = archive_files(
+        [
+            {"path": "docs/说明.md", "content": "内容一"},
+            {"path": "scripts/notes.txt", "content": "plain text"},
+        ]
+    )
+    rendered = render_archive_text(build_archive(files))
+
+    assert "共 2 个成员（可读文本 2 个" in rendered, rendered
+    assert "- docs/说明.md · " in rendered
+    assert "--- docs/说明.md ---" in rendered and "内容一" in rendered
+    assert "scripts/notes.txt" in rendered
