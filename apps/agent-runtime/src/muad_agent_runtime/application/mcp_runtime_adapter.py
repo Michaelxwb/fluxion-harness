@@ -72,6 +72,10 @@ class McpServerDefinition:
     catalog_hash: str | None = None
     tools: list[McpToolDefinition] = field(default_factory=list)
     auth_secret: str | None = field(default=None, repr=False)
+    #: 非密静态请求头；写入前已由 Console 校验。
+    headers: dict[str, str] = field(default_factory=dict)
+    #: 承载 `auth_secret` 的请求头名；空表示 `Authorization: Bearer`。
+    secret_header: str | None = None
 
 
 def tool_registry_name(server_key: str, tool_name: str) -> str:
@@ -96,9 +100,15 @@ class _McpSession:
         budget: McpBudgetScope | None = None,
     ) -> None:
         self._budget = budget
-        headers = {"Accept": MCP_ACCEPT}
+        # 与 Console `McpClient` 同一组装语义：静态头 → Accept → 密钥头/Bearer。
+        # 头值（含密钥）只进内存请求，不写日志/审计。
+        headers = dict(server.headers)
+        headers["Accept"] = MCP_ACCEPT
         if server.auth_secret:
-            headers["Authorization"] = f"Bearer {server.auth_secret}"
+            if server.secret_header:
+                headers[server.secret_header] = server.auth_secret
+            else:
+                headers["Authorization"] = f"Bearer {server.auth_secret}"
         # 装配根注入的 MCP 池由**装配根拥有并关闭**（本会话只借用）；未注入时自建自关。
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(

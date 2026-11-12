@@ -1885,6 +1885,8 @@ def _mcp_server_definition(
             if tool.get("name")
         ],
         auth_secret=secrets.get(str(server.mcp_server_id)),
+        headers=dict(server.headers),
+        secret_header=server.secret_header,
     )
 
 

@@ -75,7 +75,7 @@
 
 ## TASK-002: Runtime 解析与执行透传自定义头
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: mcp-http-auth.backend.design.md#32-架构设计, #34-接口设计
 - **Scenarios**: S-02, S-04
@@ -110,10 +110,10 @@
 
 ### Checklist
 
-- [ ] 契约与解析链路透传 headers/secret_header。
-- [ ] Runtime 会话三态头组装正确，会话重建后仍正确。
-- [ ] Snapshot 与三类审计表不含密钥值。
-- [ ] `isError: true` 仍按工具错误传播。
+- [x] 契约与解析链路透传 headers/secret_header。
+- [x] Runtime 会话三态头组装正确，会话重建后仍正确。
+- [x] Snapshot 与三类审计表不含密钥值。
+- [x] `isError: true` 仍按工具错误传播。
 
 ### Spec Delta
 
@@ -124,11 +124,14 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T08:31:15.568Z] started tests=550cdd5ec345
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-12T08:40:33.532Z PASS commands=2/2 executed=2 deduped=0 elapsed=19187ms tests=550cdd5ec345 head=ab49f6ea4805 dirty=1
+  - runtime-mcp-headers PASS exit=0
+  - console-mcp-bindings PASS exit=0
 ## TASK-003: 前端注册表单简化与认证编辑
 
 - **Status**: draft
