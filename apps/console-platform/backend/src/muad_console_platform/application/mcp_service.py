@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 import uuid
 from datetime import UTC, datetime
@@ -12,6 +13,7 @@ from urllib.parse import urlparse
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +28,9 @@ from ..infrastructure.models.control import AgentDefinition, PlatformUser, Skill
 from ..infrastructure.models.mcp import AgentMcpBinding, McpServer, McpUserGrant
 from .audit_service import AuditActor, AuditService
 from .dto import (
+    MAX_MCP_AUTH_SECRET_LENGTH,
     McpAgentItem,
+    McpAuthConfig,
     McpCreateRequest,
     McpServerDetail,
     McpServerListItem,
@@ -39,6 +43,46 @@ from .platform_settings_service import PlatformSettingsService
 AUDIT_MCP = "MCP_SERVER"
 USER_SCOPE_SELECTED = "SELECTED"
 VALID_TRANSPORT = "streamable-http"
+_FORBIDDEN_AUTH_SECRET_CHARS = ("\r", "\n", "\x00")
+
+_logger = logging.getLogger(__name__)
+
+
+def _invalid_config() -> AppError:
+    return AppError(ErrorCode.MCP_CONFIG_INVALID)
+
+
+def parse_auth_config(raw: dict[str, Any] | None) -> McpAuthConfig:
+    """校验并归一化 auth_config；失败统一映射为 MCP_CONFIG_INVALID。"""
+    if raw is None:
+        return McpAuthConfig()
+    if not isinstance(raw, dict):
+        raise _invalid_config()
+    try:
+        return McpAuthConfig.model_validate(raw)
+    except ValidationError as exc:
+        raise _invalid_config() from exc
+
+
+def _validate_auth_secret(secret: str | None) -> None:
+    if secret is None:
+        return
+    if len(secret.encode("utf-8")) > MAX_MCP_AUTH_SECRET_LENGTH:
+        raise _invalid_config()
+    if any(char in secret for char in _FORBIDDEN_AUTH_SECRET_CHARS):
+        raise _invalid_config()
+
+
+def _auth_config_snapshot(server: McpServer) -> dict[str, Any]:
+    """Snapshot 只记录已校验的非密配置；脏行降级为空配置，避免把未知旧结构写进审计。"""
+    try:
+        return parse_auth_config(server.auth_config_json).model_dump(mode="json")
+    except AppError:
+        _logger.warning(
+            "mcp_auth_config_invalid_snapshot",
+            extra={"fields": {"mcp_id": str(server.id)}},
+        )
+        return {}
 
 
 def mcp_snapshot(server: McpServer) -> dict[str, Any]:
@@ -50,6 +94,7 @@ def mcp_snapshot(server: McpServer) -> dict[str, Any]:
         "enabled": server.enabled,
         "connect_timeout_ms": server.connect_timeout_ms,
         "tool_cache_ttl_sec": server.tool_cache_ttl_sec,
+        "auth_config": _auth_config_snapshot(server),
     }
 
 
@@ -83,13 +128,9 @@ def mcp_detail(server: McpServer, agent_count: int, user_count: int) -> McpServe
         last_discovery_error=server.last_discovery_error,
         connect_timeout_ms=server.connect_timeout_ms,
         tool_cache_ttl_sec=server.tool_cache_ttl_sec,
-        auth_config=dict(server.auth_config_json or {}),
+        auth_config=parse_auth_config(server.auth_config_json),
         auth_secret_configured=_secret_configured(server),
     )
-
-
-def _invalid_config() -> AppError:
-    return AppError(ErrorCode.MCP_CONFIG_INVALID)
 
 
 async def _write_failure_state(server_id: uuid.UUID, at: datetime, summary: str) -> None:
@@ -266,6 +307,8 @@ class McpService:
         actor: AuditActor,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
+        auth_config = parse_auth_config(payload.auth_config)
+        _validate_auth_secret(payload.auth_secret)
         fingerprint = self._fingerprint(tenant_id, payload)
         if idempotency_key:
             await self._lock_idempotency(tenant_id, idempotency_key)
@@ -284,7 +327,7 @@ class McpService:
             transport=VALID_TRANSPORT,
             endpoint=payload.endpoint,
             auth_secret=payload.auth_secret or None,
-            auth_config_json=payload.auth_config or {},
+            auth_config_json=auth_config.model_dump(mode="json"),
             user_scope=payload.user_scope or USER_SCOPE_SELECTED,
             enabled=payload.enabled if payload.enabled is not None else True,
             connect_timeout_ms=payload.connect_timeout_ms or 5000,
@@ -335,6 +378,12 @@ class McpService:
             raise _invalid_config()
         if payload.endpoint is not None:
             _validate_endpoint(payload.endpoint)
+        auth_config = (
+            parse_auth_config(payload.auth_config)
+            if payload.auth_config is not None
+            else None
+        )
+        _validate_auth_secret(payload.auth_secret)
         before = mcp_snapshot(server)
         for field in ("name", "endpoint", "enabled",
                       "connect_timeout_ms", "tool_cache_ttl_sec"):
@@ -343,8 +392,8 @@ class McpService:
                 setattr(server, field, value)
         if payload.auth_secret is not None:
             server.auth_secret = payload.auth_secret or None
-        if payload.auth_config is not None:
-            server.auth_config_json = payload.auth_config
+        if auth_config is not None:
+            server.auth_config_json = auth_config.model_dump(mode="json")
         server.update_time = datetime.now(UTC)
         await self._session.flush()
         await self._audit.record_config_change(
@@ -387,6 +436,17 @@ class McpService:
         except Exception:  # noqa: BLE001 - 缓存失效失败不得影响目录事实源
             return
 
+    def _build_client(self, server: McpServer, timeout_ms: int) -> McpClient:
+        """连接测试与目录发现共用的客户端构造：静态头与密钥头只从已校验配置读取。"""
+        auth_config = parse_auth_config(server.auth_config_json)
+        return McpClient(
+            server.endpoint,
+            auth_secret=server.auth_secret,
+            headers=auth_config.headers,
+            secret_header=auth_config.secret_header,
+            timeout_ms=timeout_ms,
+        )
+
     async def test_connection(
         self, tenant_id: str, mcp_id: uuid.UUID, timeout_ms: int | None
     ) -> dict[str, Any]:
@@ -395,9 +455,7 @@ class McpService:
         tested_at = datetime.now(UTC)
         started = time.monotonic()
         try:
-            async with McpClient(
-                server.endpoint, auth_secret=server.auth_secret, timeout_ms=effective_timeout,
-            ) as client:
+            async with self._build_client(server, effective_timeout) as client:
                 server_info = await client.initialize()
         except McpClientError as exc:
             latency_ms = int((time.monotonic() - started) * 1000)
@@ -431,9 +489,7 @@ class McpService:
         discovered_at = datetime.now(UTC)
 
         try:
-            async with McpClient(
-                server.endpoint, auth_secret=server.auth_secret, timeout_ms=server.connect_timeout_ms,
-            ) as client:
+            async with self._build_client(server, server.connect_timeout_ms) as client:
                 await client.initialize()
                 tools = await client.list_tools(max_tools=limit)
         except McpClientError as exc:

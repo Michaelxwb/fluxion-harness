@@ -65,12 +65,18 @@ class McpClient:
         endpoint: str,
         *,
         auth_secret: str | None = None,
+        headers: dict[str, str] | None = None,
+        secret_header: str | None = None,
         timeout_ms: int = 5000,
     ) -> None:
         self._endpoint = endpoint
-        self._headers = {"Accept": "application/json, text/event-stream"}
+        self._headers = dict(headers or {})
+        self._headers["Accept"] = "application/json, text/event-stream"
         if auth_secret:
-            self._headers["Authorization"] = f"Bearer {auth_secret}"
+            if secret_header:
+                self._headers[secret_header] = auth_secret
+            else:
+                self._headers["Authorization"] = f"Bearer {auth_secret}"
         self._client = httpx.AsyncClient(headers=self._headers, timeout=httpx.Timeout(timeout_ms / 1000))
         self._session_id: str | None = None
 

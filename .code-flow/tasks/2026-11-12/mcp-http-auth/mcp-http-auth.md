@@ -6,7 +6,7 @@
 
 ## TASK-001: 后端认证配置契约与 Console HTTP 客户端
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: mcp-http-auth.backend.design.md#33-数据设计, #34-接口设计
 - **Scenarios**: S-01, S-02, E-01, E-02, E-03, E-05, B-01
@@ -64,10 +64,14 @@
 ### Log
 
 - [2026-11-12] created
+- [2026-11-12T07:43:23.698Z] started tests=8f5fcaa6861d
 
 ### Verification
 
 - 尚未执行
+- 2026-11-12T07:54:51.496Z PASS commands=2/2 executed=2 deduped=0 elapsed=6775ms tests=8f5fcaa6861d head=764ff023bae7 dirty=1
+  - console-mcp-auth PASS exit=0
+  - console-mcp-discover PASS exit=0
 
 ## TASK-002: Runtime 解析与执行透传自定义头
 
