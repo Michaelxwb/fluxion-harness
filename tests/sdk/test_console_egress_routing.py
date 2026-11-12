@@ -163,7 +163,6 @@ async def test_platform_route_really_blocks_second_physical_request(http_meter):
 
     meter, origin, received = http_meter
     await meter.publish(routed_policy(origin))
-    await asyncio.sleep(0.25)  # Let the newly introduced sliding window collect a full history.
 
     async def resolve(request):
         target = resolve_policy_target(

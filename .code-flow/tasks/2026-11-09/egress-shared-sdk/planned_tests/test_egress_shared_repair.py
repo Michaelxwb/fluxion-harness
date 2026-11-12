@@ -220,8 +220,7 @@ async def test_s_01() -> None:
         await client.hset(prefix + "guard", mapping={"epoch": "test-epoch"})
         meter = SharedRedisMeter(client, domain=domain, epoch="test-epoch")
         await meter.publish(_policy())
-        # A newly introduced strict window must observe its entire history.
-        await asyncio.sleep(60.1)
+        # A newly introduced window starts counting at its publication boundary.
         for index in range(2):
             workers.append(await asyncio.create_subprocess_exec(
                 sys.executable, str(Path(__file__).resolve()), "--worker", str(server.server_port),

@@ -114,7 +114,7 @@ B-06 RED: FAIL: `muad_contracts.shared_egress` 不存在。 GREEN: PASS: `uv run
 - [x] [S-01][integration] 两个真实宿主进程、真实 Redis Cluster 与 HTTP 探针；断言：两进程合计最多50次获准并到达HTTP探针；所有KEY同slot，无CROSSSLOT
 - [x] [S-02][integration] 真实Redis及两个SDK客户端；断言：任一桶不足时其他桶不扣；成功申请同时占用全部适用桶
 - [x] [B-01][integration] 真实Redis Lua及可控隔离测试时钟；断言：有效区间为(now-window,now]，不存在跨整分放行100次；回拨不提前释放窗口
-- [x] [B-04][integration] 两个真实SDK进程与Redis权威规则；断言：按当前50统一判定且不清桶；旧缓存先拒后刷新；历史不足进入新窗口阻断期；冻结累计不变
+- [x] [B-04][integration] 两个真实SDK进程与Redis权威规则；断言：按当前50统一判定且不清桶；旧缓存先拒后刷新；新窗口从发布边界立即计数；冻结累计不变
 
 ### Acceptance Contract
 
@@ -123,7 +123,7 @@ B-06 RED: FAIL: `muad_contracts.shared_egress` 不存在。 GREEN: PASS: `uv run
 | S-01 | integration | 两个真实宿主进程、真实 Redis Cluster 与 HTTP 探针 | 两进程合计最多50次获准并到达HTTP探针；所有KEY同slot，无CROSSSLOT | tests/sdk/test_shared_redis_meter.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_shared_redis_meter.py::test_s_01"] | verified |
 | S-02 | integration | 真实Redis及两个SDK客户端 | 任一桶不足时其他桶不扣；成功申请同时占用全部适用桶 | tests/sdk/test_shared_redis_meter.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_shared_redis_meter.py::test_s_02"] | verified |
 | B-01 | integration | 真实Redis Lua及可控隔离测试时钟 | 有效区间为(now-window,now]，不存在跨整分放行100次；回拨不提前释放窗口 | tests/sdk/test_shared_redis_meter.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_shared_redis_meter.py::test_b_01"] | verified |
-| B-04 | integration | 两个真实SDK进程与Redis权威规则 | 按当前50统一判定且不清桶；旧缓存先拒后刷新；历史不足进入新窗口阻断期；冻结累计不变 | tests/sdk/test_shared_redis_meter.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_shared_redis_meter.py::test_b_04"] | verified |
+| B-04 | integration | 两个真实SDK进程与Redis权威规则 | 按当前50统一判定且不清桶；旧缓存先拒后刷新；新窗口从发布边界立即计数；冻结累计不变 | tests/sdk/test_shared_redis_meter.py | ["uv", "run", "pytest", "-q", "tests/sdk/test_shared_redis_meter.py::test_b_04"] | verified |
 
 ### Acceptance Evidence
 
