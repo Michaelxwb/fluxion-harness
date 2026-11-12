@@ -109,6 +109,13 @@ def test_settings_page_does_not_hardcode_field_or_group_lists() -> None:
     assert "snip." not in page, "页面不得内联字段路径"
 
 
+def test_egress_rules_use_list_and_modal_editor() -> None:
+    editor = (MODULE / "components/EgressRulesEditor.tsx").read_text(encoding="utf-8")
+    assert "<Table" in editor and "<Modal" in editor
+    assert "editingIndex" in editor and "data-testid=\"egress-rule-add\"" in editor
+    assert "egress-rule-card" not in editor, "规则表单不得随数量纵向展开"
+
+
 def test_settings_page_has_four_ui_states() -> None:
     """loading / empty / error / success 四态齐（§3.6）。"""
     page = (MODULE / "pages/SettingsPage.tsx").read_text(encoding="utf-8")
