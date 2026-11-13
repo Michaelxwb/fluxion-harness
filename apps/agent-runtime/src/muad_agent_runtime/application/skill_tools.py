@@ -308,6 +308,8 @@ class SkillToolSet:
             self._draft_shell is not None and self._draft_shell_context is not None
         ) or self._skills:
             registry.register(self._execute_definition())
+        for definition in self._compatibility_definitions():
+            registry.register_compatibility(definition)
         # 草稿 Shell 同样与已生效技能无关：用户可以在还没有任何已批准 Skill 时调试草稿。
         # 草稿工具与已生效技能无关：用户可能在还没有任何已批准 Skill 时创建第一份草稿。
         if self._draft_tools is not None:
@@ -320,6 +322,88 @@ class SkillToolSet:
         for definition in self._definitions():
             registry.register(definition)
         return registry
+
+    def _compatibility_definitions(self) -> tuple[ToolDefinition, ...]:
+        """Keep persisted hooks and older acceptance fixtures callable.
+
+        These names are intentionally absent from ``model_tools()``; new model
+        calls use the unified ``execute`` definition.
+        """
+        definitions: list[ToolDefinition] = []
+        if self._skills:
+            definitions.extend(
+                (
+                    ToolDefinition(
+                        name=EXECUTE_SKILL_TOOL,
+                        description="Legacy alias for execute target=skill.",
+                        input_schema=_input_schema(
+                            {
+                                "skill_key": _STRING_SCHEMA,
+                                "input": _OBJECT_SCHEMA,
+                                "completion_mode": {"type": "string", "enum": ["JOIN", "DETACH"]},
+                                "argv": _ARGV_SCHEMA,
+                            },
+                            ("skill_key",),
+                        ),
+                        effect=ToolEffect.EXTERNAL,
+                        handler=self.execute_skill,
+                        retry_safety=self._async_retry_safety,
+                    ),
+                    ToolDefinition(
+                        name=RUN_SKILL_SCRIPT_TOOL,
+                        description="Legacy alias for execute target=skill with script.",
+                        input_schema=_input_schema(
+                            {
+                                "skill_key": _STRING_SCHEMA,
+                                "script": _STRING_SCHEMA,
+                                "input": _OBJECT_SCHEMA,
+                                "argv": _ARGV_SCHEMA,
+                            },
+                            ("skill_key", "script"),
+                        ),
+                        effect=ToolEffect.EXTERNAL,
+                        handler=self.run_skill_script,
+                    ),
+                )
+            )
+        if self._workspace_shell is not None and self._workspace_shell_context is not None:
+            definitions.append(
+                ToolDefinition(
+                    name="workspace_shell",
+                    description="Legacy alias for execute target=workspace.",
+                    input_schema=_input_schema(
+                        {
+                            "command": _STRING_SCHEMA,
+                            "cwd": _STRING_SCHEMA,
+                            "timeout_sec": _NUMBER_SCHEMA,
+                            "platforms": {"type": "array", "items": _STRING_SCHEMA, "minItems": 1},
+                        },
+                        ("command",),
+                    ),
+                    effect=ToolEffect.EXTERNAL,
+                    handler=self.workspace_shell,
+                )
+            )
+        if self._draft_shell is not None and self._draft_shell_context is not None:
+            definitions.append(
+                ToolDefinition(
+                    name="skill_draft_shell",
+                    description="Legacy alias for execute target=draft.",
+                    input_schema=_input_schema(
+                        {
+                            "draft_id": _STRING_SCHEMA,
+                            "command": _STRING_SCHEMA,
+                            "cwd": _STRING_SCHEMA,
+                            "timeout_sec": _NUMBER_SCHEMA,
+                            "reset_data": {"type": "boolean"},
+                        },
+                        ("draft_id", "command"),
+                    ),
+                    effect=ToolEffect.EXTERNAL,
+                    handler=self.skill_draft_shell,
+                )
+            )
+        return tuple(definitions)
 
     async def execute(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         target = arguments.get("target")
