@@ -255,6 +255,31 @@ jobs:
               echo "::error::im_gateway 失败文件:${failed}"
               exit 1
             fi
+          elif [ "${{ matrix.shard.name }}" = "rest" ]; then
+            # rest 汇总多个会各自重置 Console/附件/Skill 数据的验收域；放在同一
+            # pytest 进程会让前一域的清理、后台线程和种子污染后一域。每个域独立
+            # 起 pytest，让 session fixture 重新建空库和 Redis 号位。
+            failed=""
+            for path in \
+              tests/acceptance/attachment_round_trip \
+              tests/acceptance/audit_observability \
+              tests/acceptance/console_auth_flow \
+              tests/acceptance/overview \
+              tests/acceptance/security \
+              tests/acceptance/wecom_attachments; do
+              echo "::group::$path"
+              uv run pytest -q -m "not capacity_load" --durations=30 "$path" || failed="$failed $path"
+              echo "::endgroup::"
+            done
+            for file in tests/acceptance/test_*.py; do
+              echo "::group::$file"
+              uv run pytest -q -m "not capacity_load" --durations=30 "$file" || failed="$failed $file"
+              echo "::endgroup::"
+            done
+            if [ -n "$failed" ]; then
+              echo "::error::rest 失败分片:$failed"
+              exit 1
+            fi
           else
             uv run pytest -q -m "not capacity_load" --durations=30 ${{ matrix.shard.paths }}
           fi
