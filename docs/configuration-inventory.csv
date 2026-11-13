@@ -126,7 +126,7 @@ apps/agent-runtime/src/muad_agent_runtime/application/executor.py,181,MCP_TOOL_P
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,183,POOL_RESELECTION_LIMIT,3,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,185,POOL_CAPACITY_RETRY_INTERVAL_SEC,0.25,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/executor.py,187,MESSAGE_PROTOCOL_OVERHEAD_BYTES,32,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/executor.py,2111,SKILL_FAMILY_TOOLS,"frozenset({'execute', 'execute_skill', 'run_skill_script'})",python-constant,code,实现常量；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/application/executor.py,2114,SKILL_FAMILY_TOOLS,"frozenset({'execute', 'execute_skill', 'run_skill_script'})",python-constant,code,实现常量；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/experience_candidates.py,39,EXPERIENCE_TTL,timedelta(days=365),python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/experience_candidates.py,40,PROCEDURE,MemoryCategory.PROCEDURE,python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/golden_set.py,26,NEGATIVE_SIGNAL_EVENT,'LEARNING_SIGNAL',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改

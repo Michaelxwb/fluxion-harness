@@ -997,12 +997,13 @@ export function settleUnknownModelLeases(): number {
 import asyncio, json, os, asyncpg
 async def main():
     conn = await asyncpg.connect(os.environ['DATABASE_URL'].replace('postgresql+asyncpg', 'postgresql'))
-    status = await conn.execute("""
-        update runtime.model_call_lease l
-           set state = 'SETTLED'
-         where l.is_deleted = false
-           and l.state in ('ACTIVE', 'UNKNOWN')
-           and (
+    settled = await conn.fetchval("""
+        with settled as (
+          update runtime.model_call_lease l
+             set state = 'SETTLED'
+           where l.is_deleted = false
+             and l.state in ('ACTIVE', 'UNKNOWN')
+             and (
                  exists (
                    select 1 from runtime.run_record r
                     where r.id = l.run_id
@@ -1010,10 +1011,26 @@ async def main():
                  -- 后台记忆任务没有 Run 行，UNKNOWN 后没有产品排空入口；隔离库清理时
                  -- 一并结算，避免它永久占用交互容量（S-09 的容量排空前提）。
                  or (l.run_id is null and l.workload = 'BACKGROUND')
-               )
+                 )
+          returning l.tenant_id, l.key_resource_id, l.quota_group_id
+        ), adjustments as (
+          select tenant_id, 'KEY' as resource_type, key_resource_id as resource_id, count(*) as released
+            from settled group by tenant_id, key_resource_id
+          union all
+          select tenant_id, 'QUOTA_GROUP', quota_group_id, count(*)
+            from settled where quota_group_id is not null group by tenant_id, quota_group_id
+        ), updated as (
+          update runtime.model_capacity c
+             set inflight = greatest(c.inflight - a.released, 0)
+            from adjustments a
+           where c.tenant_id = a.tenant_id and c.resource_type = a.resource_type
+             and c.resource_id = a.resource_id
+          returning c.id
+        )
+        select count(*) from settled
     """)
     await conn.close()
-    print(json.dumps({'settled': int(status.split()[-1]) if status else 0}))
+    print(json.dumps({'settled': settled}))
 asyncio.run(main())
 `);
   return result.settled;

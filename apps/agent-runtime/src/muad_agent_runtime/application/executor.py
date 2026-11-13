@@ -1463,23 +1463,26 @@ class PooledModelProvider:
         """发上游并监听失约：续租失败立即停手，本地调用取消（远端未知仍保留 UNKNOWN 占额）。"""
         call = asyncio.create_task(self._call(provider, request, on_delta, emitted))
         lost_wait = asyncio.create_task(lost.wait())
-        done, _ = await asyncio.wait({call, lost_wait}, return_when=asyncio.FIRST_COMPLETED)
-        if call in done:
-            lost_wait.cancel()
+        try:
+            done, _ = await asyncio.wait({call, lost_wait}, return_when=asyncio.FIRST_COMPLETED)
+            if call in done:
+                return await call
+            call.cancel()
+            emitted.closed = True  # 停手即围栏：被放弃尝试的迟到输出不得并入正文
             with contextlib.suppress(asyncio.CancelledError):
-                await lost_wait
-            return await call
-        call.cancel()
-        emitted.closed = True  # 停手即围栏：被放弃尝试的迟到输出不得并入正文
-        with contextlib.suppress(asyncio.CancelledError):
-            await call
-        # 被取消的调用不会走审计包装的错误分支：停手本身必须留一条 attempt 审计
-        await self._record_attempt(
-            status="ERROR" if emitted.value else "RETRY",
-            retry_reason="LEASE_LOST",
-            error_code=str(ErrorCode.MODEL_CALL_LEASE_LOST),
-        )
-        raise ModelUnavailableError("model call lease lost")
+                await call
+            # 被取消的调用不会走审计包装的错误分支：停手本身必须留一条 attempt 审计
+            await self._record_attempt(
+                status="ERROR" if emitted.value else "RETRY",
+                retry_reason="LEASE_LOST",
+                error_code=str(ErrorCode.MODEL_CALL_LEASE_LOST),
+            )
+            raise ModelUnavailableError("model call lease lost")
+        finally:
+            # 外层取消时 asyncio.wait 不会取消子任务；必须先停掉物理请求再关闭 provider。
+            call.cancel()
+            lost_wait.cancel()
+            await asyncio.gather(call, lost_wait, return_exceptions=True)
 
     async def _call(
         self,
