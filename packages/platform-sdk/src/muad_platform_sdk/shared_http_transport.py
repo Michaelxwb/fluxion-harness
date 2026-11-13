@@ -85,6 +85,7 @@ class SharedHTTPTransport:
         self, client: httpx.AsyncClient, request: httpx.Request, *,
         policy: SharedEgressPolicy, target_instance_id: str, route_id: str,
         invocation: TrustedInvocation | None = None,
+        deadline: float | None = None,
     ) -> AsyncIterator[httpx.Response]:
         origin = str(request.url.copy_with(path="/", query=None)).rstrip("/")
         audit = AttemptAudit(
@@ -95,7 +96,8 @@ class SharedHTTPTransport:
         permit: SharedPermit | None = None
         response: httpx.Response | None = None
         watch: _LeaseWatch | None = None
-        deadline = asyncio.get_running_loop().time() + self._lifetime.timeout_seconds
+        own_deadline = asyncio.get_running_loop().time() + self._lifetime.timeout_seconds
+        deadline = min(deadline, own_deadline) if deadline is not None else own_deadline
         try:
             async with asyncio.timeout_at(deadline) as timer:
                 permit = await self._meter.admit(

@@ -473,6 +473,11 @@ async def test_b125_new_run_uses_new_configuration_snapshot(gateway_stack: Gatew
     assert await _run_conversation_id(second_run_id) == conversation_id, "新 Run 未沿用本用例会话"
     second_hash = await _snapshot_hash_of(second_run_id)
     assert first_hash != second_hash, (first_hash, second_hash)
+    await _wait_for(
+        lambda: _is_terminal(second_run_id),
+        what="配置变更后的 Run 未到达终态",
+        timeout=REPLY_TIMEOUT_SEC,
+    )
 
 
 async def _snapshot_count_at_least(stack: GatewayStack, expected: int) -> bool:

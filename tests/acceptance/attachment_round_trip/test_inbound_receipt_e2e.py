@@ -5,7 +5,7 @@
 断言落在**用户实际收到的帧文本**上（`frame_text` 统一取三种合法体的文本）。
 
 **与设计稿的一处偏离（如实登记）**：设计 S-04 的前置条件写「3 个附件，其中 1 个**超限**」，
-本用例改用**类型不在白名单**（`application/zip`）来制造"部分接收"。理由：超限要造 50 MiB
+本用例改用**类型不在白名单**（`application/x-msdownload`）来制造"部分接收"。理由：超限要造 50 MiB
 夹具并真的下载到中止，而"超限"这条路径已由兄弟用例
 `tests/acceptance/im_gateway/test_wecom_attachments.py::test_e02_oversized_file_reply_carries_the_limit_and_an_audit`
 覆盖并断言了上限数值；本用例要验的是**回执的合并语义**，与"因为什么被拒"无关。
@@ -44,7 +44,7 @@ SETTLE_SEC = 3.0
 PNG = b"\x89PNG\r\n\x1a\n" + b"s04-receipt-panel" * 4
 TXT = b"notes for the receipt case"
 #: 不在白名单 → 实检拒绝（原因码 ATTACHMENT_TYPE_NOT_ALLOWED）
-ZIP = b"PK\x03\x04" + b"not-whitelisted" * 4
+EXE = b"MZ" + b"not-whitelisted" * 4
 
 RECEIPT_ALL = "ATTACHMENT_RECEIPT_ALL"
 RECEIPT_PARTIAL = "ATTACHMENT_RECEIPT_PARTIAL"
@@ -149,7 +149,7 @@ async def test_s04_partial_acceptance_sends_exactly_one_merged_receipt(
     routes = [
         ("image/png", PNG, "shot.png"),
         ("text/plain", TXT, "notes.txt"),
-        ("application/zip", ZIP, "bundle.zip"),
+        ("application/x-msdownload", EXE, "payload.exe"),
     ]
     items = [
         _item(mime, media_server.serve(f"/s04/{message_id}/{index}", wecom_ciphertext(data),
@@ -192,9 +192,9 @@ async def test_e02_all_rejected_sends_only_the_rejection_not_a_receipt(
     message_id, reply_id = _new_message()
     items = [
         _item(
-            "application/zip",
-            media_server.serve(f"/e02/{message_id}/{index}", wecom_ciphertext(ZIP),
-                               filename=f"bundle-{index}.zip"),
+            "application/x-msdownload",
+            media_server.serve(f"/e02/{message_id}/{index}", wecom_ciphertext(EXE),
+                               filename=f"payload-{index}.exe"),
         )
         for index in range(2)
     ]

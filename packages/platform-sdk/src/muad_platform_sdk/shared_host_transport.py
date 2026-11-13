@@ -119,8 +119,10 @@ class SharedHostTransport(httpx.AsyncBaseTransport):
 
     async def _pump(self, relay: _Relay, request: httpx.Request, route: HostRoute) -> None:
         try:
-            async with asyncio.timeout(self._timeout_seconds):
-                await self._forward(relay, request, route)
+            # One deadline covers policy lookup and the physical stream. Nesting two
+            # timers around the stream can cancel it again while its socket is closing.
+            deadline = asyncio.get_running_loop().time() + self._timeout_seconds
+            await self._forward(relay, request, route, deadline)
         except asyncio.CancelledError:
             if not relay.head.done():
                 relay.head.cancel()
@@ -137,10 +139,13 @@ class SharedHostTransport(httpx.AsyncBaseTransport):
         finally:
             self._relays.discard(relay)
 
-    async def _forward(self, relay: _Relay, request: httpx.Request, route: HostRoute) -> None:
-        policy = route.policy or (
-            await self._meter.current_policy() if self._controlled else SharedEgressPolicy()
-        )
+    async def _forward(
+        self, relay: _Relay, request: httpx.Request, route: HostRoute, deadline: float,
+    ) -> None:
+        async with asyncio.timeout_at(deadline):
+            policy = route.policy or (
+                await self._meter.current_policy() if self._controlled else SharedEgressPolicy()
+            )
         async with self._sender.stream(
             self._client,
             request,
@@ -148,6 +153,7 @@ class SharedHostTransport(httpx.AsyncBaseTransport):
             target_instance_id=route.target_instance_id,
             route_id=route.route_id,
             invocation=self._invocation,
+            deadline=deadline,
         ) as response:
             extensions = {**response.extensions, "egress_source": "UPSTREAM"}
             relay.head.set_result(

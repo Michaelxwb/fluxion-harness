@@ -364,7 +364,7 @@ test.describe('TASK-114 公开事件与游标安全', () => {
     expect(messagePosts).toHaveLength(0);
     expect(((await webchatFaults.state()) as { call_count: number }).call_count).toBe(callsBefore);
 
-    // ---- 可执行内容（SVG）：真实上传门控在写字节前拒绝，浏览器给出本地化反馈 ---------------
+    // ---- 可执行内容（SVG）：浏览器预检拒绝，服务端也在写字节前拒绝 -------------------------
     const conversation = await session.post<{ conversation_id: string }>(
       `/api/v1/webchat/entries/${user.entry.entryId}/conversations`,
       undefined,
@@ -379,14 +379,12 @@ test.describe('TASK-114 公开事件与游标安全', () => {
       mimeType: 'image/svg+xml',
       buffer: svg
     });
-    // 上传在提交时发生（STAGING）：服务端门控拒绝后前端给出本地化反馈，不产生受理 Run。
-    await page.getByTestId('chat-composer-send').click();
-    await expect(page.getByTestId('chat-composer-error')).toHaveAttribute(
+    await expect(page.getByTestId('chat-composer-input-error')).toHaveAttribute(
       'data-error-code',
       TYPE_NOT_ALLOWED,
       { timeout: 30_000 }
     );
-    expect(uploadPosts).toHaveLength(1);
+    expect(uploadPosts).toHaveLength(0);
     // 服务端同样拒绝（真实 multipart 边界），且不产生任何受理 Run。
     const rejectedUpload = await session.fetchRaw(
       `/api/v1/webchat/entries/${user.entry.entryId}/attachments`,

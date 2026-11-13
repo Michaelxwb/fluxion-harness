@@ -302,9 +302,9 @@ async function setCredentialInflight(
   timeoutMs = 90_000
 ): Promise<void> {
   // 先结算遗留 UNKNOWN 租约：它们按产品语义永久占用容量，不清掉则排空永远不会完成。
-  settleUnknownModelLeases();
   const deadline = Date.now() + timeoutMs;
   for (;;) {
+    settleUnknownModelLeases();
     try {
       await webchatAdmin.updateCredential(credentialId, { max_inflight: maxInflight });
       return;
