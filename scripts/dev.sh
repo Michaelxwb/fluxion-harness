@@ -243,8 +243,23 @@ ensure_local_dirs() {
   done
 }
 
+# 本地 Skill 子进程通过受信启动钩子接入出站 Broker。
+# Docker 镜像在构建阶段安装同一个 `.pth`；本地 venv 也必须在服务启动前安装，
+# 否则第一个真实 Skill 会在脚本启动前直接以 EGRESS_HOOK_NOT_READY 退出。
+ensure_local_egress_hook() {
+  echo
+  echo "== 安装本地出站启动钩子 =="
+  if uv run python -m muad_egress_site --install; then
+    echo "  ✓ muad_egress.pth 已安装"
+  else
+    echo "  ✗ 无法安装 muad_egress.pth —— 已停止启动，避免部署后才暴露 EGRESS_HOOK_NOT_READY" >&2
+    return 1
+  fi
+}
+
 # ------------------------------------------------------------------ 4. 启动后端服务
 ensure_local_dirs
+ensure_local_egress_hook || exit 1
 echo
 echo "== 启动服务 =="
 for entry in "${SERVICES[@]}"; do
