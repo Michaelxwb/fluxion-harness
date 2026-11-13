@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import sqlalchemy as sa
 from muad_api import AppError
@@ -86,7 +86,7 @@ class ConversationDeletionService:
         self, tenant_id: str, conversation_id: uuid.UUID
     ) -> uuid.UUID | None:
         """该会话的活跃 Run（`uq_run_record_active_conversation` 保证至多一行）。"""
-        return await self._session.scalar(
+        return cast(uuid.UUID | None, await self._session.scalar(
             sa.select(RunRecord.id)
             .where(
                 RunRecord.conversation_id == conversation_id,
@@ -95,7 +95,7 @@ class ConversationDeletionService:
                 RunRecord.status.in_(ACTIVE_RUN_STATUSES),
             )
             .limit(1)
-        )
+        ))
 
     async def _cancel(self, tenant_id: str, run_id: uuid.UUID) -> None:
         """复用既有取消语义；CAS 落败（Run 恰好终态）视为已无活跃 Run，继续删除。"""
