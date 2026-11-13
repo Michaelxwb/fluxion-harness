@@ -1,9 +1,9 @@
 """``workspace_shell`` 执行器：租约 → 目录注入 → 真实沙箱 → 输出扫描。
 
 设计定位（§3.2 执行层）：所有一次性 Shell 命令都走同一个 ``WorkspaceShellRunner``，
-只把当前 user + Agent 的 workspace 绑定到 ``/workspace``；不注入 session-manager，
-不绑定 Skill 包。``SKILL_DATA_DIR``/``SKILL_OUTPUT_DIR`` 由本模块统一计算，调用方
-（Runtime 工具）不能从模型参数里覆盖。
+只把当前 user + Agent 的 workspace 绑定到 ``/workspace``；默认不注入 session-manager，
+平台专用工具可以注入执行期 Session，不绑定 Skill 包。
+``SKILL_DATA_DIR``/``SKILL_OUTPUT_DIR`` 由本模块统一计算，调用方不能从模型参数里覆盖。
 
 真实边界：WorkspaceStore（元数据/租约）→ 当前目录 → SandboxRunner（bwrap/宿主）
 → stdout/stderr/exit code。任何 release 失败只记录 warning，不吞掉执行结果。
@@ -11,14 +11,21 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from muad_platform_sdk.egress_ipc import InvocationEgressBroker
+    from muad_platform_sdk.skill_access import SkillPlatformContext
+    from muad_platform_sdk.skill_bridge import SessionMount
 
 from .runner import SandboxRunner
-from .spec import SANDBOX_OUTPUT_LIMIT_BYTES, SandboxPolicy, SandboxSpec
+from .spec import SANDBOX_OUTPUT_LIMIT_BYTES, SandboxMount, SandboxPolicy, SandboxResult, SandboxSpec
 from .workspace import WORKSPACE_MOUNT, WorkspaceLease, WorkspaceStore
 
 logger = logging.getLogger("muad_agent_core.sandbox.workspace")
@@ -39,6 +46,8 @@ class WorkspaceShellRequest:
     env: Mapping[str, str] = field(default_factory=dict)
     run_id: str = ""
     task_id: str = ""
+    platform_context: SkillPlatformContext | None = field(default=None, repr=False)
+    egress_broker: InvocationEgressBroker | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +62,7 @@ class WorkspaceShellResult:
 
 
 class WorkspaceShellRunner:
-    """在 user + Agent workspace 内执行一次性命令（无 Skill 包、无 session）。"""
+    """在 user + Agent workspace 内执行一次性命令；平台登录态仅由可信调用方提供。"""
 
     def __init__(
         self,
@@ -109,7 +118,7 @@ class WorkspaceShellRunner:
                 cwd=cwd,
                 name="workspace_shell",
             )
-            result = await self._runner_factory().run(spec)
+            result = await self._run_command(spec, request)
             changed = _scan_changed_files(lease.output_dir, self._changed_file_limit)
             return WorkspaceShellResult(
                 stdout=result.stdout,
@@ -138,6 +147,37 @@ class WorkspaceShellRunner:
                     type(exc).__name__,
                 )
 
+    async def _run_command(self, spec: SandboxSpec, request: WorkspaceShellRequest) -> SandboxResult:
+        if request.platform_context is None:
+            return await self._runner_factory().run(spec)
+        from muad_platform_sdk.skill_bridge import skill_platform_environment
+        from muad_platform_sdk.skill_egress import skill_egress_environment
+
+        from ..skill.contracts import SkillExecutionRequest
+        from ..skill.sandboxed import SESSION_SANDBOX_ROOT, _run_controlled
+
+        runner = self._runner_factory()
+        dev_unsafe = self._policy.dev_unsafe
+        async with skill_egress_environment(request.egress_broker, dev_unsafe=dev_unsafe) as egress:
+            async with skill_platform_environment(
+                request.platform_context, "workspace",
+                sandbox_root=None if dev_unsafe else SESSION_SANDBOX_ROOT,
+            ) as session:
+                env = {**spec.env, **session.env, **egress.env}
+                mounts = (
+                    *(SandboxMount(m.source, m.target, readonly=m.readonly) for m in session.mounts),
+                    *(SandboxMount(m.source, m.target, readonly=m.readonly) for m in egress.mounts),
+                )
+                policy = replace(spec.policy, env_inject=tuple((*session.env, *egress.env)))
+                controlled = replace(spec, env=env, mounts=mounts, policy=policy)
+                execution = SkillExecutionRequest(
+                    ready_dir=spec.workspace_dir, input={}, timeout_sec=spec.timeout_sec,
+                    egress_broker=request.egress_broker,
+                )
+                result = await _run_controlled(runner, controlled, execution, egress)
+                return _redact_session_output(result, session.env, session.mounts)
+
+
     def _validate_cwd(self, cwd: str) -> None:
         if not isinstance(cwd, str) or not cwd.startswith("/"):
             raise ValueError(f"cwd must be an absolute sandbox path: {cwd!r}")
@@ -159,6 +199,30 @@ class WorkspaceShellRunner:
                 return str(lease.workspace_dir)
             return str(lease.workspace_dir / cwd[len(WORKSPACE_MOUNT) + 1 :])
         return cwd
+
+
+def _redact_session_output(
+    result: SandboxResult, env: Mapping[str, str], mounts: tuple[SessionMount, ...],
+) -> SandboxResult:
+    """Remove literal cookie values from command output before returning to the model."""
+    state_dir = next((m.source for m in mounts if m.target.endswith("/state")), None)
+    if state_dir is None:
+        socket = env.get("MUAD_SESSION_SOCKET")
+        if not socket:
+            return result
+        state_dir = Path(socket).parent.parent / "state"
+    secrets: set[str] = set()
+    for path in state_dir.glob("state-*.json"):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for platform in data.get("platforms", {}).values():
+            for cookie in platform.get("cookies", []):
+                value = cookie.get("value")
+                if isinstance(value, str) and value:
+                    secrets.add(value)
+    stdout, stderr = result.stdout, result.stderr
+    for value in sorted(secrets, key=len, reverse=True):
+        stdout, stderr = stdout.replace(value, "***"), stderr.replace(value, "***")
+    return replace(result, stdout=stdout, stderr=stderr)
 
 
 def _command_tuple(command: str | tuple[str, ...]) -> tuple[str, ...]:

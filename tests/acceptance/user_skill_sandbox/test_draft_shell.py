@@ -23,7 +23,7 @@ from muad_agent_core.skill.draft_shell import (
 )
 from muad_agent_runtime.application.skill_draft_client import ConsoleDraftShellClient
 from muad_agent_runtime.application.skill_tools import (
-    SKILL_DRAFT_SHELL_TOOL,
+    EXECUTE_TOOL,
     DraftShellContext,
     SkillToolSet,
 )
@@ -129,16 +129,14 @@ def test_archive_entry_limit_is_enforced(tmp_path: Path) -> None:
 async def test_tool_name_is_unique_and_skill_key_is_rejected(tmp_path: Path) -> None:
     toolset, _store = _toolset(tmp_path)
     names = {definition.name for definition in toolset.registry().list()}
-    assert SKILL_DRAFT_SHELL_TOOL == "skill_draft_shell"
-    assert names == {SKILL_DRAFT_SHELL_TOOL}
+    assert names == {EXECUTE_TOOL}
 
     result = json.loads(
-        await toolset.skill_draft_shell(
-            {"skill_key": "legacy", "command": "echo nope"}, call_id="call-legacy"
+        await toolset.execute(
+            {"target": "draft", "skill_key": "legacy", "command": "echo nope"}, call_id="call-legacy"
         )
     )
     assert result["error"]["code"] == "COMMON_VALIDATION_ERROR"
-    assert "skill_key" not in toolset.registry().get(SKILL_DRAFT_SHELL_TOOL).input_schema["properties"]
 
 
 def test_draft_shell_request_defaults_are_one_shot() -> None:
@@ -210,11 +208,12 @@ async def test_archive_requires_trusted_agent_metadata(agent_header: str | None)
 @pytest.mark.parametrize("reset_data", ["true", 1, None])
 async def test_reset_data_requires_boolean(tmp_path: Path, reset_data: object) -> None:
     toolset, _ = _toolset(tmp_path)
-    definition = toolset.registry().get(SKILL_DRAFT_SHELL_TOOL)
+    definition = toolset.registry().get(EXECUTE_TOOL)
     assert definition.input_schema["properties"]["reset_data"]["type"] == "boolean"
     result = json.loads(
-        await toolset.skill_draft_shell(
-            {"draft_id": str(uuid.uuid4()), "command": "echo unused", "reset_data": reset_data},
+        await toolset.execute(
+            {"target": "draft", "draft_id": str(uuid.uuid4()), "command": "echo unused",
+             "reset_data": reset_data},
             call_id="invalid-reset",
         )
     )

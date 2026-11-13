@@ -132,8 +132,8 @@ def _draft_toolset(
 
 async def _call_draft_shell(toolset: SkillToolSet, *, command: str) -> dict[str, Any]:
     return json.loads(
-        await toolset.skill_draft_shell(
-            {"draft_id": str(uuid.uuid4()), "command": command},
+        await toolset.execute(
+            {"target": "draft", "draft_id": str(uuid.uuid4()), "command": command},
             call_id="call-s03",
         )
     )

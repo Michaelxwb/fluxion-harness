@@ -129,8 +129,9 @@ class EventAppend:
 class EventWriter:
     """事务内使用；随事务提交/回滚，回滚不留事件、不推 seq。"""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, *, allow_deleted_conversation: bool = False) -> None:
         self._session = session
+        self._allow_deleted_conversation = allow_deleted_conversation
 
     async def append_many(self, entries: Sequence[EventAppend]) -> tuple[int, ...]:
         """批量追加同一会话的事件：一次 `last_seq` 分配 + 每事件一行 INSERT。
@@ -186,13 +187,14 @@ class EventWriter:
     async def _next_seq_range(
         self, tenant_id: str, conversation_id: uuid.UUID, count: int
     ) -> tuple[int, ...]:
+        statement = sa.update(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.tenant_id == tenant_id,
+        )
+        if not self._allow_deleted_conversation:
+            statement = statement.where(Conversation.is_deleted.is_(False))
         last = await self._session.scalar(
-            sa.update(Conversation)
-            .where(
-                Conversation.id == conversation_id,
-                Conversation.tenant_id == tenant_id,
-                Conversation.is_deleted.is_(False),
-            )
+            statement
             .values(last_seq=Conversation.last_seq + count, update_time=sa.func.now())
             .returning(Conversation.last_seq)
         )

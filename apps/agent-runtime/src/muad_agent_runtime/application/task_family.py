@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.runtime import CanonicalEvent, RunRecord
 
-SKILL_TOOLS = frozenset({"execute_skill", "run_skill_script"})
+SKILL_TOOLS = frozenset({"execute", "execute_skill", "run_skill_script"})
 ASSISTANT_TURN = "ASSISTANT_TURN"
 TOOL_CALL = "TOOL_CALL"
 SUCCESS_STATUS = "OK"
@@ -19,6 +19,8 @@ SUCCESS_STATUS = "OK"
 def skill_key_for_call(name: object, arguments: object) -> str | None:
     """成功 skill 调用的族键；执行层切换与 Run 族判定共用这一条规则。"""
     if name not in SKILL_TOOLS or not isinstance(arguments, Mapping):
+        return None
+    if name == "execute" and arguments.get("target") != "skill":
         return None
     key = arguments.get("skill_key")
     return key.strip() if isinstance(key, str) and key.strip() else None

@@ -100,6 +100,9 @@ class ToolAlreadyRegisteredError(ValueError):
 class ToolRegistry:
     def __init__(self) -> None:
         self._items: dict[str, ToolDefinition] = {}
+        # Internal compatibility aliases remain callable by older runtime hooks and
+        # persisted test fixtures, but are excluded from the model-facing catalog.
+        self._compatibility: dict[str, ToolDefinition] = {}
         self._model_names: dict[str, str] = {}
         self._model_name_for: dict[str, str] = {}
 
@@ -115,7 +118,16 @@ class ToolRegistry:
         try:
             return self._items[name]
         except KeyError as exc:
-            raise ToolNotFoundError(name) from exc
+            try:
+                return self._compatibility[name]
+            except KeyError:
+                raise ToolNotFoundError(name) from exc
+
+    def register_compatibility(self, definition: ToolDefinition) -> None:
+        """Register a callable legacy name without exposing it to the model."""
+        if definition.name in self._items or definition.name in self._compatibility:
+            raise ToolAlreadyRegisteredError(definition.name)
+        self._compatibility[definition.name] = definition
 
     def get_by_model_name(self, model_name: str) -> ToolDefinition:
         """Resolve the provider-safe name back to the registry definition."""

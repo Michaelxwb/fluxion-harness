@@ -194,12 +194,29 @@ async function waitForRunSettled(
     const detail = await session.get<{ active_run: unknown | null }>(
       `/api/v1/webchat/conversations/${conversationId}`
     );
-    if (detail.status === 200 && detail.body?.data?.active_run == null) return;
+    if (detail.status !== 200) {
+      throw new Error(`查询会话 Run 失败：HTTP ${detail.status} code=${detail.body?.code ?? 'UNKNOWN'}`);
+    }
+    if (detail.body?.data?.active_run == null) return;
     if (Date.now() > deadline) {
       throw new Error(`Run 未在 ${timeoutMs}ms 内进入终态：conversation=${conversationId}`);
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
+}
+
+/** 等待指定 Run 真正占用模型容量，避免把受理顺序误当作模型调度顺序。 */
+async function waitForActiveModelLease(runId: string): Promise<void> {
+  await expect.poll(() => runPythonJson<{ active: boolean }>(`
+import asyncio, json, os, asyncpg
+async def main():
+    conn = await asyncpg.connect(os.environ['DATABASE_URL'].replace('postgresql+asyncpg', 'postgresql'))
+    active = await conn.fetchval(
+        "select exists(select 1 from runtime.model_call_lease where run_id = $1::uuid and state = 'ACTIVE')", '${runId}')
+    await conn.close()
+    print(json.dumps({'active': active}))
+asyncio.run(main())
+`).active, { timeout: 30_000, intervals: [500] }).toBe(true);
 }
 
 /** 真实 Run 终态（Runtime 内部审计面）：状态/错误码是证据，不是猜的。 */
@@ -302,9 +319,9 @@ async function setCredentialInflight(
   timeoutMs = 90_000
 ): Promise<void> {
   // 先结算遗留 UNKNOWN 租约：它们按产品语义永久占用容量，不清掉则排空永远不会完成。
-  settleUnknownModelLeases();
   const deadline = Date.now() + timeoutMs;
   for (;;) {
+    settleUnknownModelLeases();
     try {
       await webchatAdmin.updateCredential(credentialId, { max_inflight: maxInflight });
       return;
@@ -360,6 +377,8 @@ test.describe('TASK-113 容量排队与流恢复', () => {
       });
       expect(submitA.status, JSON.stringify(submitA.body)).toBe(202);
       const runA = submitA.body?.data?.run_id as string;
+      // 受理顺序不保证模型调度顺序：必须确认 A 已占用容量，再创建排队中的 B/C。
+      await waitForActiveModelLease(runA);
 
       const conversationB = await createConversation(session, user.entry.entryId);
       const submitB = await submitMessage(session, user.entry.entryId, {
@@ -940,6 +959,8 @@ asyncio.run(main())
         text: 'E-102 超时占用'
       });
       expect(holder.status, JSON.stringify(holder.body)).toBe(202);
+      const holderRunId = holder.body?.data?.run_id as string;
+      await waitForActiveModelLease(holderRunId);
       const conversation4 = await createConversation(session, user.entry.entryId);
       const timedOut = await submitMessage(session, user.entry.entryId, {
         conversationId: conversation4,

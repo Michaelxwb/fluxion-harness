@@ -289,6 +289,27 @@ async def test_streaming_deadline_closes_physical_connection(meter, http_probe):
     assert await redis.zcard(counter._bucket("stream", "leases")) == 1
 
 
+async def test_policy_lookup_shares_request_deadline(meter, http_probe, monkeypatch):
+    counter, policy, _ = meter
+    probe, origin = http_probe
+    original = counter.current_policy
+
+    async def delayed_policy():
+        await asyncio.sleep(0.3)
+        return await original()
+
+    monkeypatch.setattr(counter, "current_policy", delayed_policy)
+    transport = shared_transport(counter, policy, origin, timeout=0.4)
+    started = asyncio.get_running_loop().time()
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(TimeoutError):
+            async with client.stream("GET", origin + "/stream") as response:
+                async for _ in response.aiter_bytes():
+                    pass
+        await asyncio.wait_for(probe.closed.wait(), 1)
+    assert asyncio.get_running_loop().time() - started < 0.65
+
+
 async def test_response_byte_bound_is_explicit_and_closes_lease(meter, http_probe):
     counter, policy, redis = meter
     _, origin = http_probe

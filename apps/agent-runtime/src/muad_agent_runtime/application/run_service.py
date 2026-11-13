@@ -3114,6 +3114,17 @@ class RunService:
                 await self._consume_executor(run, submission_id, await build()),
             )
         except ExecutionLeaseLost:
+            # 删除会话会让批量事件写入拒绝剩余增量；若仍是本执行者且已请求取消，
+            # 继续走取消终态，不能把它当成真正的租约丢失而遗留 RUNNING。
+            async with get_session_factory()() as session:
+                current = await session.scalar(sa.select(RunRecord).where(RunRecord.id == run.id))
+                if current is not None and current.cancel_requested:
+                    try:
+                        ensure_execution(current, ExecutionIdentity.of(run), await database_now(session))
+                    except ExecutionLeaseLost:
+                        logger.debug("cancelled_run_execution_lease_lost", extra={"run_id": str(run.id)})
+                    else:
+                        return SegmentResult(terminal_seen=False)
             return None
         except asyncio.CancelledError:
             await self._finalize_failed(
@@ -3342,7 +3353,7 @@ class RunService:
             # 终态释放与终态更新同事务：CAS 落败（并发收尾/回收已释放）即不递减。
             await release_admission_in(session, run=row)
             marker = mark("release", marker)
-            writer = EventWriter(session)
+            writer = EventWriter(session, allow_deleted_conversation=cancelled)
             # 业务事实行（ContextBuilder 读取）与对外 SSE 行分开，保证重放与历史互不混淆；
             # 两条事件同一会话、同一事务，用一次 seq 区间分配（assistant 在前、终态在后）。
             assistant_payload: dict[str, Any] = {"reason": "cancelled"} if cancelled else {"text": final_text}

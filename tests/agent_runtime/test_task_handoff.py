@@ -19,7 +19,7 @@ import httpx
 import pytest
 from muad_agent_core.tools import ToolRegistry
 from muad_agent_runtime.application.run_service import delivery_route_of
-from muad_agent_runtime.application.skill_tools import EXECUTE_SKILL_TOOL, SkillToolSet
+from muad_agent_runtime.application.skill_tools import EXECUTE_SKILL_TOOL, EXECUTE_TOOL, SkillToolSet
 from muad_agent_runtime.application.task_client import TaskSubmissionContext, WorkerTaskClient
 from muad_agent_runtime.application.task_tools import (
     CANCEL_TASK_TOOL,
@@ -186,6 +186,9 @@ async def _call_tool(
             run_id=context.source_run_id,
             pending_limit=4,
         )
+    if name == EXECUTE_SKILL_TOOL:
+        name = EXECUTE_TOOL
+        arguments = {"target": "skill", **arguments}
     definition = tool_set.registry().get(name)
     assert definition.handler is not None
     return cast(
@@ -383,9 +386,9 @@ async def test_b123_actor_cannot_be_forged_through_tool_arguments() -> None:
     context = _submission_context(actor_user_id=actor, skill=skill, delivery_route=None)
     tool_set = _tool_set(skill=skill, client=client, context=context)
     try:
-        definition = tool_set.registry().get(EXECUTE_SKILL_TOOL)
+        definition = tool_set.registry().get(EXECUTE_TOOL)
         schema = definition.input_schema
-        assert set(schema["properties"]) == {"skill_key", "input", "completion_mode", "argv"}
+        assert {"target", "skill_key", "input", "completion_mode", "argv"} <= set(schema["properties"])
         for forged_field in ("actor_user_id", "tenant_id", "agent_id", "user_id"):
             assert forged_field not in json.dumps(schema)
 
