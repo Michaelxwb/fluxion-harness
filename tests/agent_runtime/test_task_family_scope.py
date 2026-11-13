@@ -35,6 +35,8 @@ def test_b01_first_successful_skill_wins_and_failed_calls_do_not_switch() -> Non
     assert skill_key_for_call("execute_skill", {"skill_key": " x "}) == "x"
     assert skill_key_for_call("run_skill_script", {"skill_key": "y"}) == "y"
     assert skill_key_for_call("other", {"skill_key": "z"}) is None
+    assert skill_key_for_call("execute", {"target": "skill", "skill_key": "demo"}) == "demo"
+    assert skill_key_for_call("execute", {"target": "workspace", "skill_key": "demo"}) is None
 
 
 def test_b01_no_successful_skill_falls_back_to_agent() -> None:

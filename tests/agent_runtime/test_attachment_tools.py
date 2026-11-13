@@ -1457,7 +1457,7 @@ async def test_zip_reads_code_and_config_members_as_text(
         tenant,
         artifact_root,
         {
-            "SKILL.md": "# demo\n".encode(),
+            "SKILL.md": b"# demo\n",
             "scripts/run.py": b'print("hi")\n',
             "muad_skill.json": b'{"name": "demo"}\n',
             "Dockerfile": b"FROM python:3.12\n",

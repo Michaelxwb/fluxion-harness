@@ -16,8 +16,6 @@ from .draft_tools import SkillDraftTools
 from .skill_draft_client import ConsoleDraftShellClient, ConsoleSkillDraftClient
 from .workspace_shell import build_workspace_store
 
-DRAFT_SHELL_EXECUTION_TYPE = "DRAFT_SHELL"
-
 
 def build_draft_shell_runner(
     settings: SharedSettings | None = None,
@@ -39,11 +37,13 @@ def build_draft_shell_runner(
     ) -> SkillPlatformContext | None:
         if not platform_keys:
             return None
+        if not request.run_id:
+            raise ValueError("draft shell platform access requires a run identity")
         return SkillPlatformContext(
             tenant_id=request.tenant_id,
             actor_user_id=request.owner_user_id,
-            execution_id=request.execution_id,
-            execution_type=DRAFT_SHELL_EXECUTION_TYPE,
+            execution_id=request.run_id,
+            execution_type="RUN",
             platform_keys=tuple(platform_keys),
             console_url=resolved.console_platform_url,
             redis_url=resolved.redis_url,

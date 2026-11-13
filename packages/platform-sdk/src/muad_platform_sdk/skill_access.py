@@ -37,6 +37,7 @@ class SkillPlatformContext:
     service_token: str | None = field(repr=False)
     redis_mode: str = "standalone"
     redis_cluster_seeds: str = ""
+    require_all_platforms: bool = False
     budget_scope: PlatformBudgetScope | None = field(default=None, repr=False)
     transport_factory: Callable[[ssl.SSLContext], httpx.AsyncBaseTransport] | None = field(
         default=None, repr=False,
@@ -105,6 +106,8 @@ class SkillPlatformAccess:
                 await self.resolve_platform(key)
             except PlatformAuthError as exc:
                 if exc.code in _AUTHORIZATION_DENIALS:
+                    if self.context.require_all_platforms:
+                        raise PlatformAuthError("PLATFORM_SESSION_REQUIRED") from None
                     continue
                 raise
             allowed.append(key)

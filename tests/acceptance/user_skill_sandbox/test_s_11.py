@@ -23,7 +23,7 @@ from muad_agent_core.sandbox import (
 )
 from muad_agent_core.tools import ToolEffect
 from muad_agent_runtime.application.skill_tools import (
-    WORKSPACE_SHELL_TOOL,
+    EXECUTE_TOOL,
     SkillToolSet,
     WorkspaceShellContext,
 )
@@ -138,13 +138,13 @@ async def test_s11_workspace_shell_is_registered_for_every_agent_without_skill_k
         workspace_shell_context=context,
     )
     registry = tool_set.registry()
-    definition = registry.get(WORKSPACE_SHELL_TOOL)
+    definition = registry.get(EXECUTE_TOOL)
     assert definition.effect is ToolEffect.EXTERNAL
     assert definition.input_schema["additionalProperties"] is False
-    assert "skill_key" not in definition.input_schema["properties"]
+    assert "target" in definition.input_schema["properties"]
 
     payload = json.loads(
-        await definition.handler({"command": "printf 'tool-ok'"}, call_id="s11-call")  # type: ignore[misc]
+        await definition.handler({"target": "workspace", "command": "printf 'tool-ok'"}, call_id="s11-call")
     )
     assert payload["exit_code"] == 0
     assert payload["stdout"] == "tool-ok"

@@ -13,6 +13,7 @@ import { request as playwrightRequest } from '@playwright/test';
 import {
   exchangeChatToken,
   expect,
+  runPythonJson,
   test,
   type WebchatStack,
   type WebchatUserSession
@@ -105,6 +106,18 @@ async function deleteConversationViaUi(page: Page, conversationId: string): Prom
   expect((await deleted).status()).toBe(200);
 }
 
+function runStatus(runId: string): string | null {
+  return runPythonJson<{ status: string | null }>(`
+import asyncio, json, os, asyncpg
+async def main():
+    conn = await asyncpg.connect(os.environ['DATABASE_URL'].replace('postgresql+asyncpg', 'postgresql'))
+    status = await conn.fetchval('select status from runtime.run_record where id = $1::uuid', '${runId}')
+    await conn.close()
+    print(json.dumps({'status': status}))
+asyncio.run(main())
+`).status;
+}
+
 test.describe('TASK-008 会话删除与附件格式', () => {
   test('S-115 删除历史会话：条目消失、空态回退、刷新与接口一致不可见', async ({
     page,
@@ -187,7 +200,10 @@ test.describe('TASK-008 会话删除与附件格式', () => {
       { timeout: 30_000 }
     );
     await page.getByTestId('chat-composer-send').click();
-    expect((await accepted).status()).toBe(202);
+    const acceptedResponse = await accepted;
+    expect(acceptedResponse.status()).toBe(202);
+    const runId = ((await acceptedResponse.json()) as Envelope<{ run_id: string }>).data?.run_id;
+    expect(runId).toBeTruthy();
 
     // 首个增量之前：消息流里有思考占位与计时（不能让用户面对空白猜"是不是没反应"）。
     await expect(page.getByTestId('chat-thinking')).toBeVisible({ timeout: 15_000 });
@@ -205,6 +221,9 @@ test.describe('TASK-008 会话删除与附件格式', () => {
     ).toHaveCount(0, { timeout: 30_000 });
 
     // Run 按既有取消语义收尾（后台完成，不阻塞删除）。
+    await expect
+      .poll(() => runStatus(runId as string), { timeout: 60_000, intervals: [500] })
+      .toBe('CANCELLED');
     await expect
       .poll(
         async () => {

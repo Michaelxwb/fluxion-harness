@@ -1463,23 +1463,26 @@ class PooledModelProvider:
         """发上游并监听失约：续租失败立即停手，本地调用取消（远端未知仍保留 UNKNOWN 占额）。"""
         call = asyncio.create_task(self._call(provider, request, on_delta, emitted))
         lost_wait = asyncio.create_task(lost.wait())
-        done, _ = await asyncio.wait({call, lost_wait}, return_when=asyncio.FIRST_COMPLETED)
-        if call in done:
-            lost_wait.cancel()
+        try:
+            done, _ = await asyncio.wait({call, lost_wait}, return_when=asyncio.FIRST_COMPLETED)
+            if call in done:
+                return await call
+            call.cancel()
+            emitted.closed = True  # 停手即围栏：被放弃尝试的迟到输出不得并入正文
             with contextlib.suppress(asyncio.CancelledError):
-                await lost_wait
-            return await call
-        call.cancel()
-        emitted.closed = True  # 停手即围栏：被放弃尝试的迟到输出不得并入正文
-        with contextlib.suppress(asyncio.CancelledError):
-            await call
-        # 被取消的调用不会走审计包装的错误分支：停手本身必须留一条 attempt 审计
-        await self._record_attempt(
-            status="ERROR" if emitted.value else "RETRY",
-            retry_reason="LEASE_LOST",
-            error_code=str(ErrorCode.MODEL_CALL_LEASE_LOST),
-        )
-        raise ModelUnavailableError("model call lease lost")
+                await call
+            # 被取消的调用不会走审计包装的错误分支：停手本身必须留一条 attempt 审计
+            await self._record_attempt(
+                status="ERROR" if emitted.value else "RETRY",
+                retry_reason="LEASE_LOST",
+                error_code=str(ErrorCode.MODEL_CALL_LEASE_LOST),
+            )
+            raise ModelUnavailableError("model call lease lost")
+        finally:
+            # 外层取消时 asyncio.wait 不会取消子任务；必须先停掉物理请求再关闭 provider。
+            call.cancel()
+            lost_wait.cancel()
+            await asyncio.gather(call, lost_wait, return_exceptions=True)
 
     async def _call(
         self,
@@ -2108,13 +2111,15 @@ def build_registry(
     return registry
 
 
-SKILL_FAMILY_TOOLS = frozenset({"execute_skill", "run_skill_script"})
+SKILL_FAMILY_TOOLS = frozenset({"execute", "execute_skill", "run_skill_script"})
 
 
 def skill_family_from_tool_calls(tool_calls: Sequence[ModelToolCall]) -> str | None:
     """assistant 回合里首个带 skill_key 的 skill 工具调用 → 任务族键。"""
     for call in tool_calls or ():
         if call.name not in SKILL_FAMILY_TOOLS:
+            continue
+        if call.name == "execute" and call.arguments.get("target") != "skill":
             continue
         key = call.arguments.get("skill_key") if isinstance(call.arguments, dict) else None
         if isinstance(key, str) and key.strip():
@@ -2382,13 +2387,16 @@ def _frozen_tool_policy(request: ExecutorRequest) -> Callable[[PreparedToolCall]
     skills = {skill.key: skill for skill in request.skills}
 
     def authorize(call: PreparedToolCall) -> ToolPolicyDecision:
-        if call.tool_name in ("load_skill", "read_skill_resource", "execute_skill", "run_skill_script"):
+        is_unified_skill = call.tool_name == "execute" and call.arguments.get("target") == "skill"
+        if call.tool_name in ("load_skill", "read_skill_resource", "execute_skill", "run_skill_script") or (
+            is_unified_skill
+        ):
             key = call.arguments.get("skill_key")
             skill = skills.get(key) if isinstance(key, str) else None
             if skill is None:
                 return ToolPolicyDecision(False, "Skill is not effective for this Run", "FORBIDDEN")
             if (
-                call.tool_name == "execute_skill"
+                (call.tool_name == "execute_skill" or is_unified_skill)
                 and skill.execution_mode.value == "SYNC"
                 and "completion_mode" in call.arguments
             ):

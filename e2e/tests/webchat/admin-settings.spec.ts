@@ -978,6 +978,7 @@ test('S-115 设置页展示单位/范围/生效说明，非法值按后端 detai
       'history_page_size',
       'notification_poll_sec',
       'text_max_bytes',
+      'upload_formats',
       'upload_max_bytes',
       'upload_max_per_message'
     ].sort()
