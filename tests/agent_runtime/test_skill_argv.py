@@ -56,7 +56,9 @@ async def test_background_tool_freezes_argv_separately_from_stdin(tmp_path: Path
     submitter.submit_task.return_value = {"status": "SUBMISSION_PENDING"}
     tools = SkillToolSet(cache=env.cache, skills=[skill], timeout_sec=10,
                          task_client=submitter, task_context=context)
-    await tools.execute_skill({"skill_key": skill.key, "argv": ARGV, "input": {"x": 1}}, call_id="cli")
+    await tools.execute(
+        {"target": "skill", "skill_key": skill.key, "argv": ARGV, "input": {"x": 1}}, call_id="cli"
+    )
     submitted = submitter.submit_task.call_args.kwargs
     assert submitted["argv"] == tuple(ARGV)
     assert submitted["input_data"] == {"x": 1}

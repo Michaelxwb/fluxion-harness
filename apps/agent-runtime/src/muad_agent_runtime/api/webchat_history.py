@@ -40,8 +40,8 @@ from ..application.channel_uploads import (
     register_staged_upload,
     upload_limits_from_settings,
 )
-from ..application.conversation_policy import ConversationPolicy
 from ..application.conversation_deletion import ConversationDeletionService
+from ..application.conversation_policy import ConversationPolicy
 from ..application.ports import PlatformSettingsClient
 from ..application.run_service import stream_scope_gate
 from ..application.webchat_artifacts import resolve_webchat_artifact
