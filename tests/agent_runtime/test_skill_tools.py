@@ -148,6 +148,10 @@ async def _call(
     name: str,
     arguments: Mapping[str, Any],
 ) -> dict[str, Any]:
+    if name in (EXECUTE_SKILL_TOOL, RUN_SKILL_SCRIPT_TOOL):
+        arguments = {k: v for k, v in arguments.items() if k != "path"}
+        arguments = {"target": "skill", **arguments}
+        name = "execute"
     definition = registry.get(name)
     assert definition.handler is not None
     return json.loads(await definition.handler(arguments, call_id=f"call-{uuid.uuid4()}"))
@@ -188,8 +192,7 @@ async def test_load_skill_full_body_survives_tool_result_wrapper(tmp_path: Path)
     definition = env.registry.get(LOAD_SKILL_TOOL)
     assert definition.externalizable_result is False
     # 脚本输出是顺带数据，仍应保持可外置（默认 True）——标记只给内容投递类工具
-    assert env.registry.get(EXECUTE_SKILL_TOOL).externalizable_result is True
-    assert env.registry.get(RUN_SKILL_SCRIPT_TOOL).externalizable_result is True
+    assert env.registry.get("execute").externalizable_result is True
     handler = definition.handler
     assert handler is not None
 
@@ -487,7 +490,7 @@ async def test_run_skill_script_allows_async_auxiliary_script(tmp_path: Path) ->
 
 
 def test_skill_tool_schemas_expose_bounded_argv(skill_env: SkillEnv) -> None:
-    for tool in (EXECUTE_SKILL_TOOL, RUN_SKILL_SCRIPT_TOOL):
+    for tool in ("execute",):
         properties = skill_env.registry.get(tool).input_schema["properties"]
         assert properties["argv"]["type"] == "array"
         assert properties["argv"]["items"] == {"type": "string"}
@@ -535,8 +538,8 @@ class ScriptedProvider:
                 tool_calls=(
                     ModelToolCall(
                         id="call-1",
-                        name=EXECUTE_SKILL_TOOL,
-                        arguments={"skill_key": SKILL_KEY, "input": {"question": "hi"}},
+                        name="execute",
+                        arguments={"target": "skill", "skill_key": SKILL_KEY, "input": {"question": "hi"}},
                     ),
                 ),
             )
@@ -582,11 +585,10 @@ async def test_full_run_executes_skill_tool_and_feeds_result_to_model(skill_env:
     assert final_text == "final answer"
     assert len(provider.requests) == 2
     assert [tool.name for tool in provider.requests[0].tools] == [
+        "execute",
         SEARCH_SKILLS_TOOL,
         LOAD_SKILL_TOOL,
         READ_SKILL_RESOURCE_TOOL,
-        EXECUTE_SKILL_TOOL,
-        RUN_SKILL_SCRIPT_TOOL,
     ]
     tool_message = provider.requests[1].messages[-1]
     assert tool_message.role is ModelRole.TOOL
@@ -594,6 +596,32 @@ async def test_full_run_executes_skill_tool_and_feeds_result_to_model(skill_env:
     payload = json.loads(tool_message.content)
     assert payload["status"] == "SUCCEEDED"
     assert payload["result"] == {"echo": {"question": "hi"}, "script": "main"}
+
+
+async def test_unified_execute_rejects_mixed_target_parameters(skill_env: SkillEnv) -> None:
+    handler = skill_env.registry.get("execute").handler
+    assert handler is not None
+    for args in (
+        {"target": "workspace", "command": "true", "skill_key": SKILL_KEY},
+        {"target": "skill", "skill_key": SKILL_KEY, "command": "true"},
+        {"target": "draft", "draft_id": "draft", "command": "true", "platforms": ["mssp"]},
+    ):
+        result = json.loads(await handler(args, call_id="mixed"))
+        assert result["error"]["code"] == "COMMON_VALIDATION_ERROR"
+
+
+def test_unified_skill_uses_frozen_authorization(skill_env: SkillEnv) -> None:
+    from muad_agent_core.tools.pipeline import PreparedToolCall
+    from muad_agent_runtime.application.executor import _frozen_tool_policy
+
+    policy = _frozen_tool_policy(_executor_request(skill_env.skill))
+    def decision(arguments: dict):
+        return policy(PreparedToolCall("id", "execute", arguments, "hash"))
+
+    assert decision({"target": "skill", "skill_key": SKILL_KEY}).allowed
+    assert not decision({"target": "skill", "skill_key": "not-effective"}).allowed
+    assert not decision({"target": "skill", "skill_key": SKILL_KEY, "completion_mode": "JOIN"}).allowed
+    assert decision({"target": "workspace", "command": "true"}).allowed
 
 
 def _registry_with_keys(tmp_path: Path, *keys: str) -> ToolRegistry:

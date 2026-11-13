@@ -2108,13 +2108,15 @@ def build_registry(
     return registry
 
 
-SKILL_FAMILY_TOOLS = frozenset({"execute_skill", "run_skill_script"})
+SKILL_FAMILY_TOOLS = frozenset({"execute", "execute_skill", "run_skill_script"})
 
 
 def skill_family_from_tool_calls(tool_calls: Sequence[ModelToolCall]) -> str | None:
     """assistant 回合里首个带 skill_key 的 skill 工具调用 → 任务族键。"""
     for call in tool_calls or ():
         if call.name not in SKILL_FAMILY_TOOLS:
+            continue
+        if call.name == "execute" and call.arguments.get("target") != "skill":
             continue
         key = call.arguments.get("skill_key") if isinstance(call.arguments, dict) else None
         if isinstance(key, str) and key.strip():
@@ -2382,13 +2384,16 @@ def _frozen_tool_policy(request: ExecutorRequest) -> Callable[[PreparedToolCall]
     skills = {skill.key: skill for skill in request.skills}
 
     def authorize(call: PreparedToolCall) -> ToolPolicyDecision:
-        if call.tool_name in ("load_skill", "read_skill_resource", "execute_skill", "run_skill_script"):
+        is_unified_skill = call.tool_name == "execute" and call.arguments.get("target") == "skill"
+        if call.tool_name in ("load_skill", "read_skill_resource", "execute_skill", "run_skill_script") or (
+            is_unified_skill
+        ):
             key = call.arguments.get("skill_key")
             skill = skills.get(key) if isinstance(key, str) else None
             if skill is None:
                 return ToolPolicyDecision(False, "Skill is not effective for this Run", "FORBIDDEN")
             if (
-                call.tool_name == "execute_skill"
+                (call.tool_name == "execute_skill" or is_unified_skill)
                 and skill.execution_mode.value == "SYNC"
                 and "completion_mode" in call.arguments
             ):

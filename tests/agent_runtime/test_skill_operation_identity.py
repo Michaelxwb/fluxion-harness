@@ -21,9 +21,9 @@ SCRIPT = (
 @pytest.mark.parametrize("first,second", [("call/a", "call?a"), ("x" * 100 + "a", "x" * 100 + "b")])
 async def test_distinct_tool_calls_never_share_previous_script_outputs(tmp_path, first, second):
     env = _env_for(tmp_path, {"SKILL.md": SKILL_MD, "scripts/main.py": SCRIPT})
-    handler = env.registry.get("execute_skill").handler
+    handler = env.registry.get("execute").handler
     for call_id in (first, second):
-        payload = json.loads(await handler({"skill_key": env.skill.key}, call_id=call_id))
+        payload = json.loads(await handler({"target": "skill", "skill_key": env.skill.key}, call_id=call_id))
         assert payload.get("status") == "SUCCEEDED", payload
         assert payload["result"]["before"] == [], "different calls inherited prior outputs"
 
@@ -42,8 +42,8 @@ async def test_runtime_forwards_logical_call_key_separately_from_workspace(tmp_p
         observed.append((kwargs.get("invocation_id"), kwargs["execution_id"]))
         return await original(self, *args, **kwargs)
     monkeypatch.setattr(SkillToolSet, "_run_executor", capture)
-    payload = json.loads(await env.registry.get("execute_skill").handler(
-        {"skill_key": env.skill.key}, call_id=call_id,
+    payload = json.loads(await env.registry.get("execute").handler(
+        {"target": "skill", "skill_key": env.skill.key}, call_id=call_id,
     ))
     assert payload.get("status") == "SUCCEEDED", payload
     key, directory = observed[0]
@@ -60,8 +60,8 @@ def test_workspace_key_is_stable_for_same_persisted_call():
 @pytest.mark.parametrize("call_id", ["", "  "])
 async def test_missing_call_identity_is_rejected_before_business(tmp_path, call_id):
     env = _env_for(tmp_path, {"SKILL.md": SKILL_MD, "scripts/main.py": SCRIPT})
-    payload = json.loads(await env.registry.get("execute_skill").handler(
-        {"skill_key": env.skill.key}, call_id=call_id,
+    payload = json.loads(await env.registry.get("execute").handler(
+        {"target": "skill", "skill_key": env.skill.key}, call_id=call_id,
     ))
     assert payload["error"]["code"] == "SKILL_CALL_ID_INVALID"
     assert not (tmp_path / "workspace" / "outputs").exists()

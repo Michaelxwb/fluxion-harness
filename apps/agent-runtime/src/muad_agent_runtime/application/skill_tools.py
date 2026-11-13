@@ -52,6 +52,7 @@ from muad_contracts.skill_invocation import (
     MAX_SKILL_ARGV_ITEMS,
     validate_skill_argv,
 )
+from muad_platform_sdk.adapter.mss_config import PlatformAuthError
 from muad_platform_sdk.egress_ipc import InvocationEgressBroker
 from muad_platform_sdk.host_egress_execution import HostEgressExecution
 from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
@@ -63,6 +64,7 @@ from muad_skill_sdk.skill_package import (
     locate_package_root,
 )
 from pydantic import JsonValue
+from redis.exceptions import RedisClusterException, RedisError
 
 from ..metrics import (
     SANDBOX_OUTPUT_LIMIT_METRIC,
@@ -81,57 +83,17 @@ READ_SKILL_RESOURCE_TOOL = "read_skill_resource"
 EXECUTE_SKILL_TOOL = "execute_skill"
 RUN_SKILL_SCRIPT_TOOL = "run_skill_script"
 SEARCH_SKILLS_TOOL = "search_skills"
-WORKSPACE_SHELL_TOOL = "workspace_shell"
-SKILL_DRAFT_SHELL_TOOL = "skill_draft_shell"
+EXECUTE_TOOL = "execute"
 LOAD_SKILL_DESCRIPTION = "Load a skill's manifest and full SKILL.md instructions by skill key."
 READ_SKILL_RESOURCE_TOOL_DESCRIPTION = (
     "Read a file shipped inside a skill package (references/assets) by skill key and path."
-)
-EXECUTE_SKILL_DESCRIPTION = (
-    "Preferred way to run a skill's main business action. Executes the declared entry script and "
-    "honors the skill's execution mode (SYNC runs inline; ASYNC submits a background Task). "
-    "Pass legacy CLI flags from SKILL.md as argv (strings after the script path, without "
-    "python/node or shell quoting); input is optional JSON stdin and is not converted to CLI "
-    "flags. Do not use run_skill_script as a substitute for this tool."
-)
-RUN_SKILL_SCRIPT_DESCRIPTION = (
-    "Debug-only primitive for one specific script inside a skill package, addressed by "
-    "package-relative path. It is not exposed by default: skills must route their own actions "
-    "through execute_skill. When enabled (debug), it always runs inline and bypasses "
-    "SYNC/ASYNC execution routing. argv is passed as CLI arguments (no shell)."
-)
-WORKSPACE_SHELL_DESCRIPTION = (
-    "Run a one-off shell command inside this user's persistent workspace for the current Agent. "
-    "The command runs with the workspace as its working directory: locate files with `ls`/`grep` "
-    "inside the workspace instead of scanning the whole filesystem (`find /` can take minutes and "
-    "will not find anything the workspace does not already contain). Do not run or write files "
-    "under skill-drafts/ — that is the live skill draft managed by the platform; test draft code "
-    "with skill_draft_shell instead, including tests that need persistent draft state. "
-    "The workspace is shared across runs of the same user + Agent: keep durable files under "
-    "$SKILL_DATA_DIR and write per-call results under $SKILL_OUTPUT_DIR. Network is available. "
-    "System Python/Node dependencies are preinstalled; temporary pip/npm installs are allowed but "
-    "live only inside this workspace and may be lost when the workspace is rebuilt. There is no "
-    "session-manager or platform login state in this shell."
-)
-SKILL_DRAFT_SHELL_DESCRIPTION = (
-    "Run one command against the current user's skill draft copy. Use it to validate "
-    "SKILL.md/scripts before submitting: python -m py_compile, python scripts/<entry>.py, "
-    "node --check, and session-manager get-state are supported. Only files inside the draft are "
-    "written back, and only after path/extension/size/symlink validation and a revision CAS; "
-    "a revision conflict returns DRAFT_REVISION_CONFLICT. It is not an interactive session and "
-    "does not accept skill_key. $SKILL_DATA_DIR persists across calls and runs for this draft, "
-    "isolated from other drafts and approved skills. Use the provided directory without "
-    "overriding it; $SKILL_OUTPUT_DIR and /tmp are temporary. Pass reset_data=true to clear "
-    "this draft's test state before the command. Test data is never submitted or migrated "
-    "on approval. Always test the actual draft; a workspace probe or rewritten playtest "
-    "script does not verify it."
 )
 # 工具描述里写清**何时用**：系统提示里的目录只列了靠前的一部分，其余技能只能从这里找到。
 SEARCH_SKILLS_DESCRIPTION = (
     "Search the available skills by keyword (matches key, name and description). "
     "The system prompt lists only the leading part of the skill catalog; use this to find any "
     "skill that is not listed there. Returns catalog entries, so a match can be passed straight "
-    "to load_skill or execute_skill."
+    "to load_skill or execute target=skill."
 )
 
 MAX_RESOURCE_BYTES = 256 * 1024
@@ -342,11 +304,11 @@ class SkillToolSet:
     def registry(self) -> ToolRegistry:
         registry = ToolRegistry()
         # workspace_shell 与技能目录无关：没有任何 Skill 的 Agent 也必须能执行一次性命令。
-        if self._workspace_shell is not None and self._workspace_shell_context is not None:
-            registry.register(self._workspace_shell_definition())
+        if (self._workspace_shell is not None and self._workspace_shell_context is not None) or (
+            self._draft_shell is not None and self._draft_shell_context is not None
+        ) or self._skills:
+            registry.register(self._execute_definition())
         # 草稿 Shell 同样与已生效技能无关：用户可以在还没有任何已批准 Skill 时调试草稿。
-        if self._draft_shell is not None and self._draft_shell_context is not None:
-            registry.register(self._draft_shell_definition())
         # 草稿工具与已生效技能无关：用户可能在还没有任何已批准 Skill 时创建第一份草稿。
         if self._draft_tools is not None:
             for definition in self._draft_tools.definitions():
@@ -357,9 +319,60 @@ class SkillToolSet:
             return registry
         for definition in self._definitions():
             registry.register(definition)
-        if self._enable_run_skill_script:
-            registry.register(self._run_skill_script_definition())
         return registry
+
+    async def execute(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        target = arguments.get("target")
+        allowed = {
+            "skill": {"target", "skill_key", "input", "argv", "completion_mode", "script"},
+            "draft": {"target", "draft_id", "command", "cwd", "timeout_sec", "reset_data"},
+            "workspace": {"target", "command", "cwd", "timeout_sec", "platforms"},
+        }
+        if not isinstance(target, str) or target not in allowed:
+            return _error_result("COMMON_VALIDATION_ERROR", "target must be skill, draft or workspace")
+        if set(arguments) - allowed[target]:
+            return _error_result("COMMON_VALIDATION_ERROR", "parameters do not match execution target")
+        payload = {key: value for key, value in arguments.items() if key != "target"}
+        if target == "skill":
+            if "script" in payload:
+                if not self._enable_run_skill_script or "completion_mode" in payload:
+                    return _error_result("FORBIDDEN", "skill script debug execution is unavailable")
+                return await self.run_skill_script(payload, call_id=call_id)
+            return await self.execute_skill(payload, call_id=call_id)
+        if target == "draft":
+            return await self.skill_draft_shell(payload, call_id=call_id)
+        return await self.workspace_shell(payload, call_id=call_id)
+
+    def _execute_definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name=EXECUTE_TOOL,
+            description=(
+                "Execute a skill, a draft command, or a command in the current user's workspace. "
+                "Set target=skill with skill_key, input and optional argv; async skills use completion_mode. "
+                "Set target=draft with draft_id and command to test the draft copy. "
+                "Set target=workspace with command and optional platforms to access platform sessions. "
+                "Workspace files are shared across the user's runs for this Agent. Test draft code with "
+                "target=draft, never by writing under skill-drafts/ in the workspace. "
+                "Draft commands run against a copy, with revision-checked writes; SKILL_DATA_DIR persists "
+                "for the draft, SKILL_OUTPUT_DIR is temporary, reset_data clears draft test data. "
+                "Skill argv are literal CLI arguments and input is JSON stdin; do not shell-quote argv. "
+                "For instructions-only or MCP-only skills, load the skill and use its MCP tools directly. "
+                "Use session-manager get-state --skill-name workspace from workspace commands. "
+                "Do not output or persist credentials."
+            ),
+            input_schema=_input_schema({
+                "target": {"type": "string", "enum": ["skill", "draft", "workspace"]},
+                "skill_key": _STRING_SCHEMA, "input": _OBJECT_SCHEMA, "argv": _ARGV_SCHEMA,
+                "script": _STRING_SCHEMA,
+                "completion_mode": {"type": "string", "enum": ["JOIN", "DETACH"]},
+                "draft_id": _STRING_SCHEMA, "command": _STRING_SCHEMA, "cwd": _STRING_SCHEMA,
+                "timeout_sec": _NUMBER_SCHEMA, "reset_data": {"type": "boolean"},
+                "platforms": {"type": "array", "items": _STRING_SCHEMA, "minItems": 1},
+            }, ("target",)),
+            effect=ToolEffect.EXTERNAL,
+            handler=self.execute,
+            retry_safety=self._async_retry_safety,
+        )
 
     async def load_skill(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         try:
@@ -448,6 +461,8 @@ class SkillToolSet:
 
     async def workspace_shell(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         """执行一次性 Shell；身份取自 Run 上下文，模型不能选择 tenant/user/agent。"""
+        if "platforms" in arguments:
+            return await self._workspace_shell_with_platforms(arguments, call_id=call_id)
         runner = self._workspace_shell
         context = self._workspace_shell_context
         if runner is None or context is None:
@@ -488,6 +503,67 @@ class SkillToolSet:
             },
             ensure_ascii=False,
         )
+
+    async def _workspace_shell_with_platforms(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
+        """Run a command in the same workspace with explicitly selected platform sessions."""
+        runner = self._workspace_shell
+        context = self._workspace_shell_context
+        platform = self._platform_context
+        if runner is None or context is None or platform is None:
+            return _error_result("WORKSPACE_UNAVAILABLE", "platform workspace is not configured")
+        try:
+            keys = arguments.get("platforms")
+            if not isinstance(keys, list) or not keys or any(
+                not isinstance(key, str) or not key.strip() for key in keys
+            ):
+                raise SkillToolError(
+                    ErrorCode.COMMON_VALIDATION_ERROR.value, "platforms must be a non-empty list"
+                )
+            selected = tuple(dict.fromkeys(key.strip() for key in keys))
+            platform = replace(platform, platform_keys=selected, require_all_platforms=True)
+            platform, broker = await self._workspace_platform_scope(platform, call_id)
+            cwd = arguments.get("cwd", WORKSPACE_MOUNT)
+            if not isinstance(cwd, str) or not cwd.strip():
+                raise SkillToolError(
+                    ErrorCode.COMMON_VALIDATION_ERROR.value, "cwd must be a non-empty string"
+                )
+            result = await runner.run(WorkspaceShellRequest(
+                tenant_id=context.tenant_id, user_id=context.user_id, agent_id=context.agent_id,
+                execution_id=_workspace_execution_id(context.run_id, call_id), run_id=context.run_id,
+                command=_require_string(arguments, "command"), cwd=cwd.strip(),
+                timeout_sec=_optional_timeout(arguments, limit=self._timeout_sec),
+                platform_context=platform, egress_broker=broker,
+            ))
+        except (WorkspaceError, SandboxError, SkillToolError, SkillExecutionError) as exc:
+            return _error_result(exc.code, exc.message)
+        except PlatformAuthError as exc:
+            return _error_result(exc.code, "platform session unavailable")
+        except (RedisError, RedisClusterException):
+            return _error_result("PLATFORM_SESSION_STORE_UNAVAILABLE", "platform session store unavailable")
+        except MeteringUnavailable:
+            return _error_result("EGRESS_METERING_UNAVAILABLE", "shared metering unavailable")
+        except SharedLimitExceeded as exc:
+            code = "LOCAL_BUDGET_EXHAUSTED" if exc.kind == "TOTAL" else "LOCAL_RATE_LIMITED"
+            return _error_result(code, str(exc))
+        except ValueError as exc:
+            return _error_result(ErrorCode.COMMON_VALIDATION_ERROR.value, str(exc))
+        return json.dumps({"stdout": result.stdout, "stderr": result.stderr, "exit_code": result.exit_code,
+                           "duration_ms": result.duration_ms, "changed_files": list(result.changed_files)},
+                          ensure_ascii=False)
+
+    async def _workspace_platform_scope(
+        self, platform: SkillPlatformContext, call_id: str,
+    ) -> tuple[SkillPlatformContext, InvocationEgressBroker | None]:
+        host = self._egress
+        if host is None:
+            return platform, None
+        invocation = await host.host_invocation(
+            operation_key=egress_operation_key("TOOL_CALL", call_id), skill_key="workspace_shell",
+        )
+        broker = host.broker(invocation, deadline_seconds=self._timeout_sec)
+        return replace(platform, transport_factory=lambda verify: host.transport(
+            invocation, verify=verify, on_limit=broker.note_limit,
+        )), broker
 
     async def skill_draft_shell(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         """在当前用户当前草稿的副本中执行一条命令；身份取自 Run 上下文。"""
@@ -531,43 +607,6 @@ class SkillToolSet:
         """全部生效技能 → 目录条目，顺序与提示词目录一致（`sort_order, key`）。"""
         return tuple(prompt_skill(skill) for skill in self._skills.values())
 
-    def _workspace_shell_definition(self) -> ToolDefinition:
-        return ToolDefinition(
-            name=WORKSPACE_SHELL_TOOL,
-            description=WORKSPACE_SHELL_DESCRIPTION,
-            input_schema=_input_schema(
-                {
-                    "command": _STRING_SCHEMA,
-                    "cwd": _STRING_SCHEMA,
-                    "timeout_sec": _NUMBER_SCHEMA,
-                },
-                ("command",),
-            ),
-            effect=ToolEffect.EXTERNAL,
-            handler=self.workspace_shell,
-        )
-
-    def _draft_shell_definition(self) -> ToolDefinition:
-        return ToolDefinition(
-            name=SKILL_DRAFT_SHELL_TOOL,
-            description=SKILL_DRAFT_SHELL_DESCRIPTION,
-            input_schema=_input_schema(
-                {
-                    "draft_id": _STRING_SCHEMA,
-                    "command": _STRING_SCHEMA,
-                    "cwd": _STRING_SCHEMA,
-                    "timeout_sec": _NUMBER_SCHEMA,
-                    "reset_data": {
-                        "type": "boolean",
-                        "description": "Clear only this draft's test data before running the command.",
-                    },
-                },
-                ("draft_id", "command"),
-            ),
-            effect=ToolEffect.EXTERNAL,
-            handler=self.skill_draft_shell,
-        )
-
     def _definitions(self) -> tuple[ToolDefinition, ...]:
         return (
             ToolDefinition(
@@ -606,40 +645,6 @@ class SkillToolSet:
                 concurrency=ToolConcurrency.PARALLEL_READ,
                 resource_key=_skill_resource_key,
             ),
-            ToolDefinition(
-                name=EXECUTE_SKILL_TOOL,
-                description=EXECUTE_SKILL_DESCRIPTION,
-                input_schema=_input_schema(
-                    {
-                        "skill_key": _STRING_SCHEMA,
-                        "input": _OBJECT_SCHEMA,
-                        "completion_mode": {"type": "string", "enum": ["JOIN", "DETACH"]},
-                        "argv": _ARGV_SCHEMA,
-                    },
-                    ("skill_key",),
-                ),
-                effect=ToolEffect.EXTERNAL,
-                handler=self.execute_skill,
-                retry_safety=self._async_retry_safety,
-            ),
-        )
-
-    def _run_skill_script_definition(self) -> ToolDefinition:
-        """调试/高级工具：默认不注册（模型只能通过 execute_skill 执行 Skill）。"""
-        return ToolDefinition(
-            name=RUN_SKILL_SCRIPT_TOOL,
-            description=RUN_SKILL_SCRIPT_DESCRIPTION,
-            input_schema=_input_schema(
-                {
-                    "skill_key": _STRING_SCHEMA,
-                    "script": _STRING_SCHEMA,
-                    "input": _OBJECT_SCHEMA,
-                    "argv": _ARGV_SCHEMA,
-                },
-                ("skill_key", "script"),
-            ),
-            effect=ToolEffect.EXTERNAL,
-            handler=self.run_skill_script,
         )
 
     def _require_skill(self, arguments: Mapping[str, Any]) -> ResolvedSkill:
