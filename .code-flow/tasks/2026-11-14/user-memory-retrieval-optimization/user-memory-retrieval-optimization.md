@@ -182,7 +182,7 @@ v2 契约与 taxonomy 基线，已落地并保留：
   - migration PASS exit=0
 ## TASK-003: 快照查询：两 lane 显式投影
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: user-memory-retrieval-optimization.backend.design.md#3.2.3, #3.5.4
 - **Scenarios**: S-08, S-11, E-02, E-06
@@ -222,12 +222,12 @@ v2 契约与 taxonomy 基线，已落地并保留：
 
 ### Checklist
 
-- [ ] `MemorySnapshotV2` 同时携带 `rows`（v2 lane）与 `legacy_rows`（legacy lane），三者与 head 同快照。
-- [ ] v2 投影只取 `memory_kind IS NOT NULL`；legacy 投影只取 `memory_kind IS NULL` 且 `category` 属于经验/TASK_STATE。
-- [ ] 删除 `memory_kind or row.category` 回退。
-- [ ] legacy 投影保留 `activation_state`、`task_signature`、`trigger_text`、`source_quote`。
-- [ ] `MemoryCandidateCache` 的暖读取仍按 head revision 与当前语句时间过滤 TTL。
-- [ ] 测试覆盖：v2 行不出现在 legacy 投影、经验/TASK_STATE 行不出现在 v2 投影、两 lane revision 一致、读取失败返回 None 且清缓存。
+- [x] `MemorySnapshotV2` 同时携带 `rows`（v2 lane）与 `legacy_rows`（legacy lane），三者与 head 同快照。
+- [x] v2 投影只取 `memory_kind IS NOT NULL`；legacy 投影只取 `memory_kind IS NULL` 且 `category` 属于经验/TASK_STATE。
+- [x] 删除 `memory_kind or row.category` 回退。
+- [x] legacy 投影保留 `activation_state`、`task_signature`、`trigger_text`、`source_quote`。
+- [x] `MemoryCandidateCache` 的暖读取仍按 head revision 与当前语句时间过滤 TTL。
+- [x] 测试覆盖：v2 行不出现在 legacy 投影、经验/TASK_STATE 行不出现在 v2 投影、两 lane revision 一致、读取失败返回 None 且清缓存。
 
 ### Spec Delta
 
@@ -238,11 +238,20 @@ v2 契约与 taxonomy 基线，已落地并保留：
 ### Log
 
 - [2026-11-14] created
+- [2026-11-14T15:55:16.482Z] started tests=bf1d3af0af9e
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-14T15:55:54.948Z FAIL commands=0/2 executed=1 deduped=0 elapsed=6023ms tests=bf1d3af0af9e head=b686eea586ae dirty=1
+  - queries FAIL exit=1
+  - no-category-fallback NOT-RUN
+- 2026-11-14T15:56:03.789Z FAIL commands=0/2 executed=1 deduped=0 elapsed=6126ms tests=bf1d3af0af9e head=b686eea586ae dirty=1
+  - queries FAIL exit=1
+  - no-category-fallback NOT-RUN
+- 2026-11-14T15:56:13.003Z PASS commands=2/2 executed=2 deduped=0 elapsed=5867ms tests=bf1d3af0af9e head=b686eea586ae dirty=1
+  - queries PASS exit=0
+  - no-category-fallback PASS exit=0
 ## TASK-004: 唯一写入口：MemoryService 收编 v2 写入
 
 - **Status**: draft
