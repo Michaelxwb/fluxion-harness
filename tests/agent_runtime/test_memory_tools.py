@@ -13,10 +13,10 @@ from muad_contracts.platform_settings import MemoryPolicySettings
 
 from tests.agent_runtime.memory_confirmation_support import source, state
 from tests.agent_runtime.memory_executor_support import execute, tool_call
+from tests.agent_runtime.memory_metric_support import metric
 from tests.agent_runtime.memory_redesign_write_support import (
     command,
     context,
-    seed_facts,
     seed_v2_notes,
     upsert,
     writer,
@@ -109,14 +109,13 @@ async def test_recall_queries_fresh_rows_instead_of_injection_cache(async_tool_d
     from tests.agent_runtime.memory_context_support import loader
 
     ctx = context()
-    from sqlalchemy.ext.asyncio import async_sessionmaker
-
     from muad_agent_runtime.application.memory_service import MemoryService
-    from muad_contracts.memory import RememberMemoryInputV2
+    from muad_contracts.memory import RememberMemoryInput
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
     service = MemoryService(async_sessionmaker(async_tool_database, expire_on_commit=False))
     for command_id, value in (("v1", "blue"), ("v2", "green")):
-        candidate = RememberMemoryInputV2.model_validate(
+        candidate = RememberMemoryInput.model_validate(
             {
                 "memory_kind": "PREFERENCE",
                 "predicate": "output_style",
@@ -167,3 +166,74 @@ async def test_recall_byte_budget_can_return_fewer_items_than_requested(async_to
     assert 0 < len(payload["items"]) < 20
     assert payload["truncated"] is True
     assert len(result.encode("utf-8")) <= budget
+
+
+async def test_tool_schema_effects_and_write_switch(async_tool_database):
+    from muad_agent_core.tools import ToolEffect
+
+    ctx = context()
+    registry = ToolRegistry()
+    tools(async_tool_database, ctx).register(registry)
+    assert registry.get("recall").effect is ToolEffect.READ
+    assert registry.get("forget").effect is ToolEffect.WRITE
+    assert registry.get("remember").effect is ToolEffect.WRITE
+
+    disabled = replace(ctx, settings=MemoryPolicySettings(write_enabled=False))
+    registry = ToolRegistry()
+    tools(async_tool_database, disabled).register(registry)
+    assert registry.get("recall") is not None and registry.get("forget") is not None
+    from muad_agent_core.tools.registry import ToolNotFoundError
+
+    with pytest.raises(ToolNotFoundError):
+        registry.get("remember")
+
+
+async def test_recall_rejects_invalid_arguments(async_tool_database):
+    ctx = context()
+    tool_set = tools(async_tool_database, ctx)
+    with pytest.raises(AppError) as exc:
+        await tool_set.recall({"limit": 99}, call_id="limit")
+    assert exc.value.code == "MEMORY_LIMIT_INVALID"
+    with pytest.raises(AppError) as exc:
+        await tool_set.recall({"memory_key": "color"}, call_id="legacy-key")
+    assert exc.value.code == "MEMORY_KEY_INVALID"
+
+
+async def test_recall_read_failure_is_error_not_miss(async_tool_database, monkeypatch):
+    from muad_agent_runtime.application.memory_queries import MemoryQueries
+
+    async def boom(self, scope):
+        raise __import__("sqlalchemy.exc", fromlist=["SQLAlchemyError"]).SQLAlchemyError("down")
+
+    monkeypatch.setattr(MemoryQueries, "read_snapshot", boom)
+    tool_set = tools(async_tool_database, context())
+    before = metric("memory_recall_total", mode="SEARCH", outcome="ERROR")
+    with pytest.raises(AppError) as exc:
+        await tool_set.recall({"query": "anything"}, call_id="read-failure")
+    assert exc.value.code == "MEMORY_READ_FAILED"
+    assert metric("memory_recall_total", mode="SEARCH", outcome="ERROR") == before + 1
+
+
+async def test_recall_impossible_budget_fails_explicitly(async_tool_database):
+    ctx = context(settings=MemoryPolicySettings(max_recall_bytes=1))
+    await seed_v2_notes(async_tool_database, ctx, 1, value="x")
+    with pytest.raises(AppError) as exc:
+        await tools(async_tool_database, ctx).recall({"limit": 5}, call_id="tiny-budget")
+    assert exc.value.code == "MEMORY_READ_FAILED"
+
+
+async def test_forget_works_when_writes_disabled(async_tool_database):
+    ctx = context(settings=MemoryPolicySettings(write_enabled=False))
+    await seed_v2_notes(async_tool_database, ctx, 1, value="x", prefix="wdis")
+    async with async_tool_database.connect() as connection:
+        memory_id = (
+            await connection.execute(
+                sa.text("SELECT id FROM runtime.user_memory WHERE tenant_id=:t LIMIT 1"),
+                {"t": ctx.tenant_id},
+            )
+        ).scalar_one()
+    tool_set = tools(async_tool_database, ctx)
+    payload = json.loads(
+        await tool_set.forget({"memory_id": str(memory_id), "expected_version": 1}, call_id="wdis")
+    )
+    assert payload["deleted"] is True and payload["version"] == 2

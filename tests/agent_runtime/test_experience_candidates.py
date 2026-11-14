@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import sqlalchemy as sa
-from muad_agent_core.memory.rank import MemoryRecord, select_for_injection
+from muad_agent_core.memory.rank import ExperienceRecord, select_for_injection
 from muad_agent_runtime.application.experience_candidates import (
     CandidateLimits,
     ExperienceCandidates,
@@ -157,7 +157,7 @@ async def test_s05_successful_traces_produce_proposed_experiences(database_guard
         assert evidence["item_total"] == 6
         assert set(evidence["source_run_ids"]) == {str(run_id) for run_id in run_ids[:3]}
 
-        record = MemoryRecord(
+        record = ExperienceRecord(
             memory_key=row.memory_key,
             content=FactContent(value=row.content_json["value"]),
             author=MemoryAuthor.AGENT,

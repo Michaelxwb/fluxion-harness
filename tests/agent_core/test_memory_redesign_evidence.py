@@ -32,7 +32,12 @@ def test_b01_memory_redesign_quote_is_complete_provenance(message, quote, valid)
 ])
 def test_b01_model_cannot_grant_confirmation_or_trusted_identity(field):
     contracts = import_module("muad_contracts.memory")
-    payload = {"memory_key": "preference.color", "value": "记住", "category": "PREFERENCE"}
+    payload = {
+        "memory_kind": "PREFERENCE",
+        "predicate": "output_style",
+        "content": {"value": "记住"},
+        "title": "输出风格",
+    }
     payload[field] = "USER"
     with pytest.raises(ValidationError):
         contracts.RememberMemoryInput.model_validate(payload)
@@ -41,19 +46,25 @@ def test_b01_model_cannot_grant_confirmation_or_trusted_identity(field):
 def test_b01_exact_quote_does_not_add_author_or_explicit_request():
     contracts = import_module("muad_contracts.memory")
     candidate = contracts.RememberMemoryInput(
-        memory_key="color", value="记住", category="PREFERENCE", source_quote="记住"
+        memory_kind="PREFERENCE",
+        predicate="output_style",
+        content={"value": "记住"},
+        title="输出风格",
+        source_quote="记住",
     )
-    assert candidate.model_dump() == {
-        "memory_key": "color", "value": "记住", "category": "PREFERENCE", "source_quote": "记住"
-    }
+    dumped = candidate.model_dump()
+    assert dumped["content"] == {"value": "记住"} and dumped["source_quote"] == "记住"
+    assert "author" not in dumped and "explicit_request" not in dumped
 
 
 @pytest.mark.parametrize("payload", [
-    {"memory_key": "task.fake", "value": "value", "category": "PREFERENCE"},
-    {"memory_key": "color", "value": 123, "category": "PREFERENCE"},
-    {"memory_key": "color", "value": "x" * 513, "category": "PREFERENCE"},
-    {"memory_key": "color", "value": "x", "category": "TASK_STATE"},
-    {"memory_key": "color", "value": "x", "category": "UNKNOWN"},
+    {"memory_kind": "PROCEDURE", "predicate": "general", "content": {"value": "x"}, "title": "t"},
+    {"memory_kind": "FACT", "predicate": "general", "content": {"value": "x"}, "title": "t"},
+    {"memory_kind": "NOTE", "predicate": "general", "content": {"text": "   "}, "title": "t"},
+    {"memory_kind": "PREFERENCE", "predicate": "output_style", "content": {"value": "x"},
+     "title": "t", "memory_key": "color"},
+    {"memory_kind": "PREFERENCE", "predicate": "output_style", "content": {"value": "x"},
+     "title": "t", "scope_state": "UNKNOWN"},
 ])
 def test_remember_contract_rejects_invalid_shape(payload):
     contracts = import_module("muad_contracts.memory")
@@ -103,9 +114,13 @@ def test_confirmation_hash_reuses_canonical_json_and_rejects_non_json():
 
 @pytest.mark.parametrize("key", ["Upper", "a_b", "a:b", "a\n", "x" * 65])
 def test_memory_key_preserves_existing_strict_namespace(key):
+    """The experience/TASK_STATE lane still owns free keys; the contract stays strict."""
+
     contracts = import_module("muad_contracts.memory")
     with pytest.raises(ValidationError):
-        contracts.RememberMemoryInput(memory_key=key, value="x", category="EXPLICIT")
+        contracts.ExperienceCandidate(
+            memory_key=key, category="EXPLICIT", content=contracts.FactContent(value="x")
+        )
 
 
 @pytest.mark.parametrize(("field", "value"), [
@@ -115,15 +130,28 @@ def test_memory_key_preserves_existing_strict_namespace(key):
 ])
 def test_confirmation_proposal_binds_content_and_strict_versions(field, value):
     contracts = import_module("muad_contracts.memory")
-    candidate = {"memory_key": "color", "value": "蓝色", "category": "PREFERENCE", "source_quote": None}
+    candidate = {
+        "memory_kind": "PREFERENCE",
+        "predicate": "output_style",
+        "content": {"value": "蓝色"},
+        "title": "输出风格",
+        "source_quote": None,
+    }
     payload = {
         "tenant_id": "t", "user_id": uuid4(), "run_id": uuid4(), "submission_id": uuid4(),
-        "candidate": candidate, "candidate_hash": contracts.memory_hash(candidate), "expected_version": None,
+        "candidate": candidate,
+        "candidate_hash": contracts.memory_hash(
+            contracts.RememberMemoryInput.model_validate(candidate).model_dump(mode="json")
+        ),
+        "expected_version": None,
         "forget_epoch": 0, "evidence": {
             "source_event_id": uuid4(), "source_seq": 1, "source_scope_revision": 0,
         }, "expires_at": "2026-10-12T10:00:00Z",
     }
-    assert contracts.MemoryConfirmationProposal.model_validate(payload).candidate.value == "蓝色"
+    assert (
+        contracts.MemoryConfirmationProposal.model_validate(payload).candidate.content["value"]
+        == "蓝色"
+    )
     payload[field] = value
     with pytest.raises(ValidationError):
         contracts.MemoryConfirmationProposal.model_validate(payload)
@@ -133,10 +161,13 @@ def test_task_candidate_requires_root_key_and_matching_category():
     contracts = import_module("muad_contracts.memory")
     state = contracts.TaskStateContent.model_validate(_task_payload())
     key = contracts.task_memory_key(state.root_conversation_id)
-    assert contracts.MemoryCandidate(memory_key=key, category="TASK_STATE", content=state).content == state
+    stored = contracts.ExperienceCandidate(memory_key=key, category="TASK_STATE", content=state)
+    assert stored.content == state
     with pytest.raises(ValidationError):
-        contracts.MemoryCandidate(memory_key="task." + uuid4().hex, category="TASK_STATE", content=state)
+        contracts.ExperienceCandidate(
+            memory_key="task." + uuid4().hex, category="TASK_STATE", content=state
+        )
     with pytest.raises(ValidationError):
-        contracts.MemoryCandidate(memory_key="ordinary", category="EXPLICIT", content=state)
+        contracts.ExperienceCandidate(memory_key="ordinary", category="EXPLICIT", content=state)
     with pytest.raises(ValidationError):
-        contracts.MemoryCandidate(memory_key=key, category="TASK_STATE", content={"value": "x"})
+        contracts.ExperienceCandidate(memory_key=key, category="TASK_STATE", content={"value": "x"})

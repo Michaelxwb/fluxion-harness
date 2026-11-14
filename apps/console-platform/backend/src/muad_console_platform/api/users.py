@@ -4,7 +4,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from muad_api import ApiResponse, ok, paginate
 from muad_api.context import current_trace_id
-from muad_contracts.memory_admin import MemoryStatus, MemoryV2CommandRequest
+from muad_contracts.memory_admin import MemoryCommandRequest, MemoryStatus
 from muad_contracts.webchat import WebchatTokenMutation
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -172,7 +172,7 @@ async def list_user_memory(
     include_deleted: bool = False,
 ) -> ApiResponse[Any]:
     """v2 projection; deleted rows only appear when `include_deleted=true` (回收站)."""
-    items, total = await MemoryService(session).list_v2(
+    items, total = await MemoryService(session).list_memory(
         tenant_id,
         user_id,
         page,
@@ -230,7 +230,7 @@ async def list_memory_conflicts(
 @router.post("/{user_id}/memory/commands")
 async def command_user_memory(
     user_id: uuid.UUID,
-    payload: MemoryV2CommandRequest,
+    payload: MemoryCommandRequest,
     request: Request,
     account: CurrentAccount,
     tenant_id: TenantId,
@@ -240,7 +240,7 @@ async def command_user_memory(
 ) -> ApiResponse[Any]:
     """所有治理写入的唯一入口；`Idempotency-Key` 即 Runtime 命令号。"""
     body = payload.model_copy(update={"actor_id": account.id})
-    data = await MemoryAdminService(session, runtime).command_v2(
+    data = await MemoryAdminService(session, runtime).command(
         tenant_id,
         user_id,
         _actor(account, request),

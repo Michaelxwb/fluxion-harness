@@ -5,11 +5,10 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from enum import StrEnum
 
 from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import MemoryCardinality, MemoryPriority, ScopeState
-from enum import StrEnum
 from muad_contracts.memory_taxonomy import PREDICATES_BY_KEY, entity_aliases
 
 from .tokens import tokenize
@@ -24,7 +23,7 @@ _FIELD_WEIGHTS = {
 
 
 @dataclass(frozen=True, slots=True)
-class MemoryRecordV2:
+class MemoryRecord:
     memory_key: str
     memory_kind: str
     predicate: str
@@ -51,7 +50,7 @@ class QueryScopeState(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
-class QueryContextV2:
+class QueryContext:
     query: str | None
     now: datetime
     scope_state: QueryScopeState = QueryScopeState.ABSENT
@@ -61,8 +60,8 @@ class QueryContextV2:
 
 
 @dataclass(frozen=True, slots=True)
-class SelectedV2:
-    record: MemoryRecordV2
+class SelectedMemory:
+    record: MemoryRecord
     score: float
 
 
@@ -70,9 +69,10 @@ def _tokens(text: str) -> frozenset[str]:
     return tokenize(text)
 
 
-def _field_tokens(record: MemoryRecordV2) -> dict[str, frozenset[str]]:
+def _field_tokens(record: MemoryRecord) -> dict[str, frozenset[str]]:
     tags = " ".join(tag.removeprefix("topic:") for tag in record.tags if tag.startswith("topic:"))
-    aliases = " ".join(PREDICATES_BY_KEY.get(record.predicate).aliases) if record.predicate in PREDICATES_BY_KEY else ""
+    spec = PREDICATES_BY_KEY.get(record.predicate)
+    aliases = " ".join(spec.aliases) if spec is not None else ""
     return {
         "title": _tokens(record.title),
         "summary": _tokens(record.summary),
@@ -82,9 +82,8 @@ def _field_tokens(record: MemoryRecordV2) -> dict[str, frozenset[str]]:
     }
 
 
-def binary_bm25(record: MemoryRecordV2, query_tokens: frozenset[str], *, average_length: float) -> float:
+def binary_bm25(record: MemoryRecord, query_tokens: frozenset[str], *, average_length: float) -> float:
     fields = _field_tokens(record)
-    lengths = {name: len(tokens) for name, tokens in fields.items()}
     weighted_length = len(frozenset().union(*fields.values()))
     if not query_tokens:
         return 0.0
@@ -102,7 +101,7 @@ def binary_bm25(record: MemoryRecordV2, query_tokens: frozenset[str], *, average
     return score / (len(query_tokens) or 1)
 
 
-def _score_records(records: list[MemoryRecordV2], query: str) -> dict[str, float]:
+def _score_records(records: list[MemoryRecord], query: str) -> dict[str, float]:
     query_tokens = _tokens(query)
     if not query_tokens:
         return {}
@@ -112,7 +111,8 @@ def _score_records(records: list[MemoryRecordV2], query: str) -> dict[str, float
     total = len(records)
     scores: dict[str, float] = {}
     for record, fields, length in zip(records, field_tokens, lengths, strict=True):
-        df = {token: sum(1 for field in field_tokens if token in frozenset().union(*field.values())) for token in query_tokens}
+        unions = [frozenset().union(*field.values()) for field in field_tokens]
+        df = {token: sum(1 for tokens in unions if token in tokens) for token in query_tokens}
         score = 0.0
         for token in query_tokens:
             weight = max(
@@ -128,7 +128,7 @@ def _score_records(records: list[MemoryRecordV2], query: str) -> dict[str, float
     return scores
 
 
-def query_entity_tags(query: str | None, records: list[MemoryRecordV2]) -> frozenset[str]:
+def query_entity_tags(query: str | None, records: list[MemoryRecord]) -> frozenset[str]:
     if not query:
         return frozenset()
     normalized = query.casefold()
@@ -146,7 +146,7 @@ def query_entity_tags(query: str | None, records: list[MemoryRecordV2]) -> froze
     return frozenset(matched)
 
 
-def _entity_gate(record: MemoryRecordV2, entity_tags: frozenset[str]) -> bool:
+def _entity_gate(record: MemoryRecord, entity_tags: frozenset[str]) -> bool:
     """Tagged records need a positive match on every tag; untagged notes go by topic."""
 
     tags = frozenset(tag for tag in record.tags if tag.startswith("entity:"))
@@ -155,7 +155,7 @@ def _entity_gate(record: MemoryRecordV2, entity_tags: frozenset[str]) -> bool:
     return True
 
 
-def _scope_gate(record: MemoryRecordV2, query: QueryContextV2) -> bool:
+def _scope_gate(record: MemoryRecord, query: QueryContext) -> bool:
     spec = PREDICATES_BY_KEY.get(record.predicate)
     scoped = bool(spec and spec.scope_dimensions)
     if query.scope_state is QueryScopeState.UNKNOWN:
@@ -167,15 +167,15 @@ def _scope_gate(record: MemoryRecordV2, query: QueryContextV2) -> bool:
     return record.scope == (query.scope or {})
 
 
-def _valid(record: MemoryRecordV2, now: datetime) -> bool:
+def _valid(record: MemoryRecord, now: datetime) -> bool:
     return record.enabled and not record.is_deleted and (record.expires_at is None or record.expires_at > now)
 
 
-def _ranking(record: MemoryRecordV2, score: float) -> tuple[float, int, int, str]:
+def _ranking(record: MemoryRecord, score: float) -> tuple[float, int, int, str]:
     return (-score, -int(record.priority == "REQUIRED"), -record.version, record.memory_key)
 
 
-def _preference_lane(gated: list[MemoryRecordV2], limit: int) -> list[MemoryRecordV2]:
+def _preference_lane(gated: list[MemoryRecord], limit: int) -> list[MemoryRecord]:
     """Preferences are selected without a query and without the score threshold."""
 
     preferences = [record for record in gated if record.memory_kind == "PREFERENCE"]
@@ -183,15 +183,15 @@ def _preference_lane(gated: list[MemoryRecordV2], limit: int) -> list[MemoryReco
     return preferences[: max(0, limit)]
 
 
-def select_v2(
-    records: list[MemoryRecordV2],
-    context: QueryContextV2,
+def select_memory(
+    records: list[MemoryRecord],
+    context: QueryContext,
     *,
     top_k: int = 5,
     min_score: float = 0.35,
     inject_inferred: bool = True,
     preference_items: int = 3,
-) -> tuple[SelectedV2, ...]:
+) -> tuple[SelectedMemory, ...]:
     """Preference lane plus scored facts/notes; the two are gated differently by design."""
 
     if top_k < 0:
@@ -203,13 +203,13 @@ def select_v2(
     gated = [record for record in valid if _entity_gate(record, entity_tags) and _scope_gate(record, context)]
     preferences = _preference_lane(gated, min(preference_items, top_k))
     remaining = max(0, top_k - len(preferences))
-    selected = [SelectedV2(record, 1.0) for record in preferences]
+    selected = [SelectedMemory(record, 1.0) for record in preferences]
     query = (context.query or "").strip()
     if query and remaining:
         scorable = [record for record in gated if record.memory_kind != "PREFERENCE"]
         scores = _score_records(scorable, query)
         matched = [
-            SelectedV2(record, scores[record.memory_key])
+            SelectedMemory(record, scores[record.memory_key])
             for record in scorable
             if record.memory_key in scores and scores[record.memory_key] >= min_score
         ]

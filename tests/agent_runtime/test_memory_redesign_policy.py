@@ -9,9 +9,9 @@ import pytest
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import (
+    ExperienceCandidate,
     FactContent,
     MemoryAuthor,
-    MemoryCandidate,
     MemoryCategory,
     MemoryRetirementReason,
     MemorySourceEvidence,
@@ -56,11 +56,11 @@ def test_aux_content_gate_checks_all_candidate_strings_without_echoing(field, se
             root_conversation_id=root,
             source_conversation_id=root,
         )
-        candidate = MemoryCandidate(
+        candidate = ExperienceCandidate(
             memory_key=task_memory_key(root), category=MemoryCategory.TASK_STATE, content=content
         )
     else:
-        candidate = MemoryCandidate(
+        candidate = ExperienceCandidate(
             memory_key="api-key" if field == "key" else "color",
             category=MemoryCategory.PREFERENCE,
             content=FactContent(value=secret if field == "value" else "blue"),
@@ -76,13 +76,13 @@ def test_aux_content_gate_checks_all_candidate_strings_without_echoing(field, se
 
 
 def test_aux_content_gate_keeps_normal_task_content_and_rejects_invalid_raw_shape():
-    candidate = MemoryCandidate(
+    candidate = ExperienceCandidate(
         memory_key="work.style",
         category=MemoryCategory.WORK_STYLE,
         content=FactContent(value="请用中文，并注明来源"),
     )
     policy().validate_memory_content(candidate, source_quote="请用中文", credential_canaries=())
-    invalid = MemoryCandidate.model_construct(
+    invalid = ExperienceCandidate.model_construct(
         memory_key="task.not-a-root", category=MemoryCategory.PREFERENCE, content=FactContent(value="blue")
     )
     with pytest.raises(AppError) as exc:
@@ -92,7 +92,7 @@ def test_aux_content_gate_keeps_normal_task_content_and_rejects_invalid_raw_shap
 
 @pytest.mark.parametrize("secret", ["token=fixture", "ＡＰＩ＿ＫＥＹ＝fixture", "Bearer known-canary"])
 def test_aux_secret_detection_normalizes_labels_and_also_checks_quote(secret):
-    candidate = MemoryCandidate(
+    candidate = ExperienceCandidate(
         memory_key="color", category=MemoryCategory.PREFERENCE, content=FactContent(value="blue")
     )
     with pytest.raises(AppError) as exc:
@@ -104,7 +104,7 @@ def test_aux_secret_detection_normalizes_labels_and_also_checks_quote(secret):
 
 
 def test_aux_secret_gate_does_not_treat_general_security_advice_as_a_credential():
-    candidate = MemoryCandidate(
+    candidate = ExperienceCandidate(
         memory_key="security.advice",
         category=MemoryCategory.EXPLICIT,
         content=FactContent(value="Do not share your password with anybody."),
@@ -129,7 +129,7 @@ def test_aux_quoted_sensitive_keys_inside_text_cannot_bypass_content_gate(field,
         if field == "task"
         else (FactContent(value=secret if field == "value" else "blue"))
     )
-    candidate = MemoryCandidate(
+    candidate = ExperienceCandidate(
         memory_key=task_memory_key(root) if field == "task" else "color",
         category=MemoryCategory.TASK_STATE if field == "task" else MemoryCategory.PREFERENCE,
         content=content,

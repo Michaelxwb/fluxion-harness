@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import sqlalchemy as sa
 from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, RunSubmission
-from muad_contracts.memory import MemoryCandidate, MemoryCategory, TaskStateContent, task_memory_key
+from muad_contracts.memory import ExperienceCandidate, MemoryCategory, TaskStateContent, task_memory_key
 from muad_contracts.platform_settings import MemoryPolicySettings
 
 from tests.agent_runtime.memory_redesign_write_support import (
@@ -100,7 +100,7 @@ async def seed_origin_task(engine, factory, run):
         root_conversation_id=run.conversation_id,
         source_conversation_id=run.conversation_id,
     )
-    candidate = MemoryCandidate(
+    candidate = ExperienceCandidate(
         memory_key=task_memory_key(run.conversation_id), category=MemoryCategory.TASK_STATE, content=content
     )
     await writer(engine).execute(
@@ -127,7 +127,7 @@ async def seed_tasks(engine, run, titles=("季度报告", "发布计划")):
             root_conversation_id=root,
             source_conversation_id=root,
         )
-        candidate = MemoryCandidate(
+        candidate = ExperienceCandidate(
             memory_key=task_memory_key(root), category=MemoryCategory.TASK_STATE, content=content
         )
         await writer(engine).execute(

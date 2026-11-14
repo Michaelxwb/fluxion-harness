@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import ClassVar, Literal, Protocol
 
 from ..model.provider import ModelMessage, ModelRole
-from .render import RenderedMemoryBlock
+from .render import RenderedExperienceBlock
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,7 +22,7 @@ class MemoryComponent:
     snapshot_revision: int
     text: str | None
     references: tuple[MemoryReference, ...] = ()
-    block: RenderedMemoryBlock | None = None
+    block: RenderedExperienceBlock | None = None
 
     @property
     def message(self) -> ModelMessage | None:

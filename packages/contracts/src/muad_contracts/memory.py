@@ -81,33 +81,6 @@ def task_memory_key(root_conversation_id: UUID) -> str:
     return f"task.{root_conversation_id.hex}"
 
 
-class RememberMemoryInput(ContractModel):
-    """Model input contains neither identity nor authorization."""
-
-    memory_key: MemoryKey
-    value: MemoryValue
-    category: Literal["PREFERENCE", "WORK_STYLE", "EXPLICIT"]
-    source_quote: MemoryValue | None = None
-
-    @model_validator(mode="after")
-    def _ordinary_namespace(self) -> Self:
-        if self.memory_key.startswith("task."):
-            raise ValueError("task.* is reserved for TASK_STATE")
-        return self
-
-
-class RecallMemoryInput(ContractModel):
-    query: StrictStr | None = Field(default=None, max_length=512)
-    category: MemoryCategory | None = None
-    memory_key: MemoryKey | None = None
-    limit: Annotated[int, Field(strict=True, ge=0, le=20)] | None = None
-
-
-class ForgetMemoryInput(ContractModel):
-    memory_key: MemoryKey
-    expected_version: PositiveVersion
-
-
 class MemoryResumeOption(ContractModel):
     number: Annotated[int, Field(strict=True, ge=1, le=20)]
     memory_key: MemoryKey
@@ -161,7 +134,7 @@ class MemoryResumeRef(ContractModel):
         return self
 
 
-class MemoryCandidate(ContractModel):
+class ExperienceCandidate(ContractModel):
     memory_key: MemoryKey
     category: MemoryCategory
     content: FactContent | TaskStateContent
@@ -192,7 +165,7 @@ class MemoryConfirmationProposal(ContractModel):
     user_id: UUID
     run_id: UUID
     submission_id: UUID
-    candidate: RememberMemoryInputV2
+    candidate: RememberMemoryInput
     candidate_hash: StrictStr = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     expected_version: PositiveVersion | None
     forget_epoch: NonNegativeVersion
@@ -270,7 +243,7 @@ def _validated_tags(tags: list[str]) -> list[str]:
     return tags
 
 
-class MemoryCandidateV2(ContractModel):
+class MemoryCandidate(ContractModel):
     """Normalized candidate after taxonomy validation; identity is server-owned."""
 
     memory_kind: WritableMemoryKind
@@ -299,7 +272,7 @@ class MemoryCandidateV2(ContractModel):
         return self
 
 
-class RememberMemoryInputV2(ContractModel):
+class RememberMemoryInput(ContractModel):
     """Model/admin input for a new or replaced v2 memory candidate."""
 
     memory_kind: WritableMemoryKind
@@ -326,9 +299,9 @@ class RememberMemoryInputV2(ContractModel):
                 raise ValueError(f"content.{field} cannot be blank")
         return self
 
-    def normalized(self, *, taxonomy_version: int) -> MemoryCandidateV2:
+    def normalized(self, *, taxonomy_version: int) -> MemoryCandidate:
         spec = _validated_predicate(self.memory_kind, self.predicate)
-        return MemoryCandidateV2(
+        return MemoryCandidate(
             memory_kind=self.memory_kind,
             predicate=self.predicate,
             scope_state=self.scope_state,
@@ -345,7 +318,7 @@ class RememberMemoryInputV2(ContractModel):
         )
 
 
-class RecallMemoryInputV2(ContractModel):
+class RecallMemoryInput(ContractModel):
     query: StrictStr | None = Field(default=None, max_length=512)
     memory_kind: WritableMemoryKind | None = None
     predicate: StrictStr | None = Field(default=None, max_length=64)
@@ -353,12 +326,12 @@ class RecallMemoryInputV2(ContractModel):
     limit: Annotated[int, Field(strict=True, ge=0, le=20)] | None = None
 
 
-class ForgetMemoryInputV2(ContractModel):
+class ForgetMemoryInput(ContractModel):
     memory_id: UUID
     expected_version: PositiveVersion
 
 
-class MemoryItemV2(ContractModel):
+class MemoryItem(ContractModel):
     id: UUID
     memory_key: StrictStr = Field(min_length=1, max_length=128)
     memory_kind: WritableMemoryKind
@@ -382,7 +355,7 @@ class MemoryItemV2(ContractModel):
 @dataclass(frozen=True, slots=True)
 class MemoryResolution:
     status: Literal["resolved", "empty", "degraded", "unavailable"]
-    entries: tuple[MemoryItemV2, ...]
+    entries: tuple[MemoryItem, ...]
     cache_status: Literal["hit", "miss", "bypass", "unavailable"]
     cache_revision: int | None
     source_revision: int
@@ -395,15 +368,15 @@ class MemoryResolution:
 __all__ = [
     *globals().get("__all__", []),
     "ENTITY_TYPE_DISPLAY_NAMES",
-    "MemoryCandidateV2",
+    "MemoryCandidate",
     "MemoryCardinality",
-    "MemoryItemV2",
+    "MemoryItem",
     "MemoryPriority",
     "MemoryResolution",
-    "RecallMemoryInputV2",
-    "RememberMemoryInputV2",
+    "RecallMemoryInput",
+    "RememberMemoryInput",
     "ScopeState",
-    "ForgetMemoryInputV2",
+    "ForgetMemoryInput",
     "WritableMemoryKind",
     "entity_aliases",
 ]

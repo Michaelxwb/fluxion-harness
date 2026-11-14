@@ -53,18 +53,28 @@ async def test_b22_memory_redesign_old_run_reads_250_and_forgets_after_quota_inc
     await seed_facts(get_engine(), ctx, 250)
     queries = MemoryQueries(get_session_factory())
     scope = MemoryReadScope(tenant_id=ctx.tenant_id, user_id=ctx.user_id)
-    assert len((await queries.read_snapshot(scope)).records) == 250
+    assert len((await queries.read_snapshot(scope)).legacy_rows) == 250
     registry = build_registry(
         request=capture.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
     )
+    async with get_engine().connect() as connection:
+        memory_id = (
+            await connection.execute(
+                sa.text(
+                    "SELECT id FROM runtime.user_memory"
+                    " WHERE tenant_id=:t AND user_id=:u AND memory_key='seed.1'"
+                ),
+                {"t": ctx.tenant_id, "u": ctx.user_id},
+            )
+        ).scalar_one()
     result = json.loads(
         await registry.get(FORGET_TOOL).handler(
-            {"memory_key": "seed.1", "expected_version": 1},
+            {"memory_id": str(memory_id), "expected_version": 1},
             call_id="old-run-forget",
         )
     )
     assert result["deleted"] and result["version"] == 2
-    assert len((await queries.read_snapshot(scope)).records) == 249
+    assert len((await queries.read_snapshot(scope)).legacy_rows) == 249
     with pytest.raises(MemoryQuotaReductionRequiresMaintenance):
         await _save_settings(tenant.tenant_id, memory=MemoryPolicySettings(max_entries_per_user=200))
     assert await _policy_json(old) == before

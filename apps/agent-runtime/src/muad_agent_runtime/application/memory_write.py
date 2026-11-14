@@ -16,13 +16,13 @@ from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import (
     MEMORY_MAX_BYTES,
     MEMORY_MAX_RECORDS,
+    ExperienceCandidate,
     FactContent,
     MemoryAuthor,
-    MemoryCandidate,
     MemoryCategory,
     MemoryRetirementReason,
     MemorySourceEvidence,
-    RememberMemoryInputV2,
+    RememberMemoryInput,
     TaskStateContent,
     memory_content_bytes,
 )
@@ -101,7 +101,7 @@ class MemoryAutomaticDecision:
     reason: AutomaticReason
 
 
-def _candidate_strings(candidate: MemoryCandidate) -> tuple[str, ...]:
+def _candidate_strings(candidate: ExperienceCandidate) -> tuple[str, ...]:
     content = candidate.content
     if isinstance(content, FactContent):
         return candidate.memory_key, content.value
@@ -116,13 +116,13 @@ def _candidate_strings(candidate: MemoryCandidate) -> tuple[str, ...]:
 
 
 def validate_memory_content(
-    candidate: MemoryCandidate,
+    candidate: ExperienceCandidate,
     *,
     source_quote: str | None,
     credential_canaries: tuple[str, ...],
 ) -> None:
     try:
-        candidate = MemoryCandidate.model_validate(candidate.model_dump(mode="json"))
+        candidate = ExperienceCandidate.model_validate(candidate.model_dump(mode="json"))
     except ValidationError:
         raise AppError(ErrorCode.MEMORY_VALUE_INVALID) from None
     if source_quote is not None and (not source_quote.strip() or len(source_quote) > 512):
@@ -136,7 +136,7 @@ def validate_memory_content(
         raise AppError(ErrorCode.MEMORY_FORBIDDEN_CONTENT)
 
 
-def _v2_input_strings(candidate: RememberMemoryInputV2) -> tuple[str, ...]:
+def _v2_input_strings(candidate: RememberMemoryInput) -> tuple[str, ...]:
     quote = (candidate.source_quote,) if candidate.source_quote is not None else ()
     return (
         candidate.title,
@@ -148,7 +148,7 @@ def _v2_input_strings(candidate: RememberMemoryInputV2) -> tuple[str, ...]:
 
 
 def validate_memory_input_v2(
-    candidate: RememberMemoryInputV2, *, credential_canaries: tuple[str, ...]
+    candidate: RememberMemoryInput, *, credential_canaries: tuple[str, ...]
 ) -> None:
     """Reject secrets and malformed quotes before the candidate is shown for confirmation."""
 

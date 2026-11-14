@@ -1,12 +1,11 @@
 """B-09 support: final envelopes, including metadata, obey UTF-8 limits."""
 
-import json
 from datetime import UTC, datetime
 from importlib import import_module
 from uuid import uuid4
 
 import pytest
-from muad_agent_core.memory.rank import MemoryRecord
+from muad_agent_core.memory.rank import ExperienceRecord
 from muad_contracts.memory import FactContent, MemoryAuthor, MemoryCategory, TaskStateContent, task_memory_key
 
 pytestmark = pytest.mark.unit
@@ -14,14 +13,14 @@ NOW = datetime(2026, 10, 13, tzinfo=UTC)
 
 
 def _record(key="language", value="请使用中文", author=MemoryAuthor.USER):
-    return MemoryRecord(
+    return ExperienceRecord(
         memory_key=key, content=FactContent(value=value), author=author,
         category=MemoryCategory.PREFERENCE, version=3, updated_at=NOW,
     )
 
 
 def _render(rows, max_records=10, max_bytes=16384):
-    return import_module("muad_agent_core.memory.render").render_memory_block(
+    return import_module("muad_agent_core.memory.render").render_experience_block(
         rows, max_records=max_records, max_bytes=max_bytes
     )
 
@@ -71,7 +70,7 @@ def test_task_state_falls_back_to_reference_then_drops_when_reference_cannot_fit
         title="季度报告", goal="甲" * 200, constraints=[], open_items=["补数据"],
         next_action="乙" * 200, root_conversation_id=root, source_conversation_id=root,
     )
-    row = MemoryRecord(
+    row = ExperienceRecord(
         memory_key=task_memory_key(root), content=state, author=MemoryAuthor.AGENT,
         category=MemoryCategory.TASK_STATE, version=4, updated_at=NOW,
     )
@@ -85,33 +84,18 @@ def test_task_state_falls_back_to_reference_then_drops_when_reference_cannot_fit
     assert tiny.text is None and tiny.dropped_bytes == 1
 
 
-def test_recall_bounds_complete_json_without_truncating_values():
-    renderer = import_module("muad_agent_core.memory.render")
-    rows = [_record("long", "甲" * 512), _record("short", "好")]
-    full = renderer.render_recall([rows[1]], limit=10, max_bytes=16384)
-    size = len(full.text.encode("utf-8"))
-    assert renderer.render_recall([rows[1]], limit=10, max_bytes=size).text == full.text
-    result = renderer.render_recall(rows, limit=10, max_bytes=size)
-    data = json.loads(result.text)
-    assert len(result.text.encode("utf-8")) <= size
-    assert data["truncated"] is True
-    assert [item["memory_key"] for item in data["items"]] == ["short"]
-    assert data["items"][0]["content"] == {"value": "好"}
-    assert "author" in data["items"][0] and "expires_at" in data["items"][0]
-
-
-def test_recall_zero_limit_and_impossible_fixed_envelope():
-    renderer = import_module("muad_agent_core.memory.render")
-    assert json.loads(renderer.render_recall([_record()], limit=0, max_bytes=4096).text)["items"] == []
-    with pytest.raises(renderer.MemoryResultBudgetExceeded):
-        renderer.render_recall([], limit=10, max_bytes=1)
-
-
 def test_memory_component_preserves_typed_identity_and_empty_message():
     components = import_module("muad_agent_core.memory.components")
-    component = components.MemoryComponent(snapshot_revision=5, block=_render([_record()]))
+    block = _render([_record()])
+    references = tuple(
+        components.MemoryReference(item.record.memory_key, item.record.version)
+        for item in block.items
+    )
+    component = components.MemoryComponent(
+        snapshot_revision=5, text=block.text, references=references, block=block
+    )
     assert component.name == "memory" and component.snapshot_revision == 5
     assert component.references[0].memory_key == "language"
     assert component.references[0].version == 3
-    assert component.message.role == "system" and component.message.content == component.block.text
-    assert components.MemoryComponent(snapshot_revision=6, block=_render([])).message is None
+    assert component.message.role == "system" and component.message.content == block.text
+    assert components.MemoryComponent(snapshot_revision=6, text=None).message is None

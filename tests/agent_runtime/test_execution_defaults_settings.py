@@ -63,7 +63,7 @@ from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_console_platform.application.audit_service import AuditActor
 from muad_console_platform.application.platform_settings_service import PlatformSettingsService
 from muad_contracts import ChannelContext, MessageInput, RunRequest
-from muad_contracts.memory import FactContent, MemoryCandidate, MemoryCategory
+from muad_contracts.memory import ExperienceCandidate, FactContent, MemoryCategory
 from muad_contracts.platform_settings import (
     AgentSettings,
     ArtifactSettings,
@@ -486,7 +486,7 @@ async def _seed_memories(tenant_id: str, user_id: uuid.UUID, *, count: int, valu
     mutations = [
         MemoryMutation(
             action="UPSERT",
-            candidate=MemoryCandidate(
+            candidate=ExperienceCandidate(
                 memory_key=f"seed.{index:02d}",
                 category=MemoryCategory.PREFERENCE,
                 content=FactContent(value="v" * value_chars),

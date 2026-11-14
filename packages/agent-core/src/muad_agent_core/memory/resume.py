@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from muad_contracts.memory import MemoryResumeOption, memory_hash
 
-from .rank import MemoryRecord
+from .rank import ExperienceRecord
 
 _AMBIGUOUS = re.compile(
     r"不|没|别|什么意思|是什么|还是|如果|除非|吗|[?？]|\b(?:not|no|don't|if|means|is)\b", re.I
@@ -71,7 +71,7 @@ def choose_resume_option(text: str, items: Sequence[MemoryResumeOption]) -> Memo
     return matches[0] if len(matches) == 1 else None
 
 
-def resume_candidate_hash(record: MemoryRecord) -> str:
+def resume_candidate_hash(record: ExperienceRecord) -> str:
     return memory_hash(
         {
             "memory_key": record.memory_key,

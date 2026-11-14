@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from muad_api import AppError
-from muad_contracts.memory import RememberMemoryInputV2, TaskStateContent
+from muad_contracts.memory import RememberMemoryInput, TaskStateContent
 from muad_contracts.tasks import ContractModel
 from pydantic import Field, StrictBool, ValidationError
 
@@ -18,7 +18,7 @@ class ConsolidationRejected(ValueError):
 
 
 class ConsolidationBatch(ContractModel):
-    candidates: list[RememberMemoryInputV2] = Field(default_factory=list, max_length=20)
+    candidates: list[RememberMemoryInput] = Field(default_factory=list, max_length=20)
     task_state: TaskStateContent | None = None
     task_completed: StrictBool
 
@@ -40,9 +40,9 @@ def parse_output(
         batch = ConsolidationBatch.model_validate_json(text)
         if len(batch.candidates) > max_candidates:
             raise ConsolidationRejected()
-        accepted: list[RememberMemoryInputV2] = []
+        accepted: list[RememberMemoryInput] = []
         for item in batch.candidates:
-            candidate = RememberMemoryInputV2.model_validate(item.model_dump(mode="json"))
+            candidate = RememberMemoryInput.model_validate(item.model_dump(mode="json"))
             validate_memory_input_v2(candidate, credential_canaries=credential_canaries)
             accepted.append(candidate)
         task_state = _task_state(batch.task_state, conversation_id, root_conversation_id)

@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from muad_contracts.memory_admin import MemoryV2AdminItem, MemoryV2CommandRequest
+from muad_contracts.memory_admin import MemoryAdminItem, MemoryCommandRequest
 
 
 def test_v2_admin_item_carries_structured_fields_and_derived_status():
     now = datetime(2026, 11, 14, tzinfo=UTC)
-    item = MemoryV2AdminItem(
+    item = MemoryAdminItem(
         id=uuid4(),
         memory_key="v1.slot.preference.report_format.x",
         memory_kind="PREFERENCE",
@@ -37,7 +37,7 @@ def test_v2_admin_item_carries_structured_fields_and_derived_status():
 
 
 def test_v2_command_request_rejects_unknown_fields():
-    request = MemoryV2CommandRequest(
+    request = MemoryCommandRequest(
         actor_id=uuid4(),
         action="DELETE",
         memory_id=uuid4(),
@@ -45,7 +45,7 @@ def test_v2_command_request_rejects_unknown_fields():
     )
     assert request.action == "DELETE"
     try:
-        MemoryV2CommandRequest.model_validate({"actor_id": uuid4(), "action": "DELETE", "legacy_key": "x"})
+        MemoryCommandRequest.model_validate({"actor_id": uuid4(), "action": "DELETE", "legacy_key": "x"})
     except ValueError:
         pass
     else:

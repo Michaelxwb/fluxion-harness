@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from muad_api import AppError
-from muad_contracts.memory import FactContent, MemoryCandidate, MemoryCategory
+from muad_contracts.memory import ExperienceCandidate, FactContent, MemoryCategory
 from pydantic import JsonValue, ValidationError
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -124,7 +124,7 @@ def memory_audit_preview(
     key, category = arguments.get("memory_key"), arguments.get("category")
     if isinstance(key, str):
         try:
-            candidate = MemoryCandidate(
+            candidate = ExperienceCandidate(
                 memory_key=key,
                 category=MemoryCategory.PREFERENCE,
                 content=FactContent(value="audit metadata"),

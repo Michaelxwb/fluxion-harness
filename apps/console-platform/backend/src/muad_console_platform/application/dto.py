@@ -5,14 +5,11 @@ from typing import Annotated, Any, Literal, Self
 
 from muad_contracts import ChannelName, CredentialMode
 from muad_contracts.canonical import ensure_strict_json
-from muad_contracts.memory import MemoryKey, MemoryValue, PositiveVersion, RememberMemoryInput
 from muad_contracts.platform_settings import MIN_PASSWORD_LENGTH_FLOOR
 from pydantic import (
-    AwareDatetime,
     BaseModel,
     ConfigDict,
     Field,
-    StrictBool,
     field_validator,
     model_validator,
 )
@@ -354,108 +351,6 @@ class AgentGrantItem(BaseModel):
 CONSOLE_TIME_PATTERN = r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$"
 #: Console 面向接口的时间出参（与 `format_console_time` 同一口径；必须带 offset）。
 ConsoleTime = Annotated[str, Field(pattern=CONSOLE_TIME_PATTERN)]
-
-
-class MemoryItem(BaseModel):
-    """记忆读投影：`author` 是记忆作者，`actor` 只出现在版本历史（design §3.7）。
-
-    未知/历史遗留的 author 值原样透出（前端按"未知值原样显示"回退），不得被改写成已知来源。
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    id: uuid.UUID
-    memory_key: str
-    category: str
-    content: dict[str, Any]
-    author: str
-    version: int
-    enabled: bool
-    explicit_request: bool
-    confirmed_count: int
-    status: str = Field(pattern="^(ACTIVE|DISABLED|EXPIRED)$")
-    source_ref: str | None
-    source_quote: str | None
-    expires_at: ConsoleTime | None
-    last_confirmed_at: ConsoleTime | None
-    create_time: ConsoleTime
-    update_time: ConsoleTime
-
-
-class MemoryHistoryItem(BaseModel):
-    """版本历史投影：只读、按 version 倒序；actor 与 author 分列，未知 actor/原因原样透出。"""
-
-    model_config = ConfigDict(extra="forbid")
-
-    id: uuid.UUID
-    origin_id: uuid.UUID
-    memory_key: str
-    version: int
-    change_reason: str
-    actor_type: str
-    actor_id: str | None
-    command_id: str
-    source_run_id: uuid.UUID | None
-    after: dict[str, Any]
-    create_time: ConsoleTime
-
-
-class MemoryCreateRequest(BaseModel):
-    """管理员人工内容（design §3.7）：author 不可选，只送 Runtime 可执行的 UPSERT 形态。
-
-    `expected_version` 是**覆盖**既有 key 的前提（读到的版本），新 key 不传；`expires_at` 省略时
-    由 Runtime 按冻结策略算默认有效期（与 `ttl_days_*` 同口径）。
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    memory_key: MemoryKey
-    #: 管理员不得写 TASK_STATE（那是 Agent 任务线索，Runtime 也会拒绝）。
-    category: Literal["PREFERENCE", "WORK_STYLE", "EXPLICIT"]
-    value: MemoryValue
-    expected_version: PositiveVersion | None = None
-    expires_at: AwareDatetime | None = None
-
-    @model_validator(mode="after")
-    def _ordinary_namespace(self) -> Self:
-        # 复用 contracts 的 `task.*` 保留命名空间与 key/value 校验，不在 Console 复制一份规则。
-        RememberMemoryInput.model_validate(
-            {"memory_key": self.memory_key, "category": self.category, "value": self.value}
-        )
-        return self
-
-
-class MemoryEnabledUpdateRequest(BaseModel):
-    """启禁用（design §3.7）：显式给出读到的版本，版本冲突不覆盖。
-
-    过期条目重新启用必须同时给新有效期（Runtime 侧明确拒绝用过去的时间当有效期）；
-    禁用不接受 `expires_at`——它既无意义，也会让"禁用"顺带改有效期。
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    enabled: StrictBool
-    expected_version: PositiveVersion
-    expires_at: AwareDatetime | None = None
-
-    @model_validator(mode="after")
-    def _expiry_only_when_enabling(self) -> Self:
-        if self.expires_at is not None and not self.enabled:
-            raise ValueError("expires_at is only allowed when enabling")
-        return self
-
-
-class MemoryRestoreRequest(BaseModel):
-    """恢复删除墓碑（评审条目 5）：显式给出**从 tombstone 版本历史读到的保留版本**。
-
-    删除保留 identity 与 version（不重置）；创建路由不传 `expected_version`（新 key 形态），
-    对已删除的 key 直接 UPSERT 必然 409。恢复动作按调用方读到的保留版本做版本检查：并发修改
-    由 Runtime 明确 409（不静默覆盖），刷新后按新版本重试；同命令号重放返回首次回执。
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    expected_version: PositiveVersion
 
 
 class BindCodeCreateResponse(BaseModel):

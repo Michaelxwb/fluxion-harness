@@ -19,15 +19,14 @@ from tests.agent_runtime.memory_consolidation_effect_support import (
     counts,
     current_revision,
     execution,
-    output,
-    pending,
     fact_key,
     fact_key_at,
+    output,
+    pending,
     seed_admin,
     seed_author,
 )
 from tests.agent_runtime.memory_consolidation_support import model_stack
-from tests.agent_runtime.memory_redesign_write_support import command, commands
 
 pytestmark = pytest.mark.integration
 
@@ -263,7 +262,7 @@ async def _memory_id(factory, run) -> object:
 
 async def install_rejection(factory, fault):
     table, condition = {
-        f"later_item": ("user_memory", f"NEW.memory_key = '{fact_key_at(1)}'"),
+        "later_item": ("user_memory", f"NEW.memory_key = '{fact_key_at(1)}'"),
         "history": ("user_memory_history", "true"),
         "receipt": ("memory_command_receipt", "NEW.endpoint = 'memory.consolidation'"),
         "event": ("canonical_event", "NEW.event_type = 'MEMORY_CONSOLIDATED'"),
@@ -445,7 +444,6 @@ async def test_b16_memory_redesign_retirement_requires_new_real_user_basis(
 ):
     from dataclasses import replace
 
-    from muad_contracts.memory import MemoryRetirementReason
 
     jobs = import_module("muad_agent_runtime.application.memory_jobs")
     async with model_stack(async_tool_database, output=output("color")) as stack:

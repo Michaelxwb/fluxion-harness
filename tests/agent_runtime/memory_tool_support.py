@@ -5,9 +5,9 @@ from uuid import uuid4
 
 from muad_agent_runtime.application.memory_tools import MemoryToolSet
 
+from tests.agent_runtime.memory_cache_support import queries
 from tests.agent_runtime.memory_context_support import loader
 from tests.agent_runtime.memory_redesign_write_support import writer
-from tests.agent_runtime.test_memory_redesign_cache import queries
 
 
 def tools(engine, ctx, *, memory=None, confirmation=None):

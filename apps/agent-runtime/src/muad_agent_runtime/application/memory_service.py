@@ -11,7 +11,7 @@ from uuid import UUID
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.canonical import canonical_json
-from muad_contracts.memory import MemoryCandidateV2, memory_hash
+from muad_contracts.memory import MemoryCandidate, memory_hash
 from muad_contracts.memory_admin import MemoryCommandResponse
 from pydantic import JsonValue
 from sqlalchemy import func, select
@@ -34,7 +34,7 @@ from .memory_mutations import MemoryBatchPlan, memory_snapshot, persist_plan, pl
 from .memory_observability import after_commit, observe
 
 if TYPE_CHECKING:
-    from .memory_writer import MemoryV2Outcome
+    from .memory_writer import MemoryWriteOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -231,24 +231,24 @@ class MemoryService:
     def _writer(self):
         """The only place that constructs the v2 writer; callers stay on MemoryService."""
 
-        from .memory_writer import MemoryV2Writer
+        from .memory_writer import MemoryWriter
 
-        return MemoryV2Writer(self._session_factory)
+        return MemoryWriter(self._session_factory)
 
     async def apply_candidate(
         self,
         ctx: MemoryWriteContext,
-        candidate: MemoryCandidateV2,
+        candidate: MemoryCandidate,
         *,
         command_id: str,
         endpoint: str,
         note_id: UUID | None = None,
-    ) -> MemoryV2Outcome:
-        from .memory_writer import MemoryV2Command
+    ) -> MemoryWriteOutcome:
+        from .memory_writer import MemoryWriteCommand
 
         return await self._writer().execute(
             ctx,
-            MemoryV2Command(
+            MemoryWriteCommand(
                 command_id, endpoint, "UPSERT", candidate=candidate, note_id=note_id
             ),
         )
@@ -256,30 +256,30 @@ class MemoryService:
     async def create_memory(
         self,
         ctx: MemoryWriteContext,
-        candidate: MemoryCandidateV2,
+        candidate: MemoryCandidate,
         *,
         command_id: str,
         endpoint: str,
-    ) -> MemoryV2Outcome:
-        from .memory_writer import MemoryV2Command
+    ) -> MemoryWriteOutcome:
+        from .memory_writer import MemoryWriteCommand
 
         return await self._writer().execute(
-            ctx, MemoryV2Command(command_id, endpoint, "CREATE", candidate=candidate)
+            ctx, MemoryWriteCommand(command_id, endpoint, "CREATE", candidate=candidate)
         )
 
     async def apply_candidate_in_session(
         self,
         session: AsyncSession,
         ctx: MemoryWriteContext,
-        candidate: MemoryCandidateV2,
+        candidate: MemoryCandidate,
         *,
         command_id: str,
         endpoint: str,
-    ) -> MemoryV2Outcome:
-        from .memory_writer import MemoryV2Command
+    ) -> MemoryWriteOutcome:
+        from .memory_writer import MemoryWriteCommand
 
         return await self._writer().execute_in_session(
-            session, ctx, MemoryV2Command(command_id, endpoint, "UPSERT", candidate=candidate)
+            session, ctx, MemoryWriteCommand(command_id, endpoint, "UPSERT", candidate=candidate)
         )
 
     async def delete_memory(
@@ -290,26 +290,26 @@ class MemoryService:
         expected_version: int,
         command_id: str,
         endpoint: str,
-    ) -> MemoryV2Outcome:
-        from .memory_writer import MemoryV2Command
+    ) -> MemoryWriteOutcome:
+        from .memory_writer import MemoryWriteCommand
 
         return await self._writer().execute(
             ctx,
-            MemoryV2Command(
+            MemoryWriteCommand(
                 command_id, endpoint, "DELETE", memory_id=memory_id, expected_version=expected_version
             ),
         )
 
     async def clear_memories(
         self, ctx: MemoryWriteContext, *, command_id: str, endpoint: str
-    ) -> MemoryV2Outcome:
-        from .memory_writer import MemoryV2Command
+    ) -> MemoryWriteOutcome:
+        from .memory_writer import MemoryWriteCommand
 
-        return await self._writer().execute(ctx, MemoryV2Command(command_id, endpoint, "CLEAR"))
+        return await self._writer().execute(ctx, MemoryWriteCommand(command_id, endpoint, "CLEAR"))
 
     async def restore_memory(
         self, ctx: MemoryWriteContext, memory_id: UUID, *, expected_version: int
-    ) -> MemoryV2Outcome:
+    ) -> MemoryWriteOutcome:
         return await self._writer().restore(ctx, memory_id, expected_version=expected_version)
 
     async def set_memory_enabled(
@@ -319,7 +319,7 @@ class MemoryService:
         *,
         expected_version: int,
         enabled: bool,
-    ) -> MemoryV2Outcome:
+    ) -> MemoryWriteOutcome:
         return await self._writer().set_enabled(
             ctx, memory_id, expected_version=expected_version, enabled=enabled
         )
@@ -331,21 +331,21 @@ class MemoryService:
         *,
         expected_version: int,
         updates: dict[str, object],
-    ) -> MemoryV2Outcome:
+    ) -> MemoryWriteOutcome:
         return await self._writer().patch(
             ctx, memory_id, expected_version=expected_version, updates=updates
         )
 
     async def resolve_candidate(
         self, ctx: MemoryWriteContext, candidate_id: UUID, *, expected_version: int
-    ) -> MemoryV2Outcome:
+    ) -> MemoryWriteOutcome:
         return await self._writer().accept_candidate(
             ctx, candidate_id, expected_version=expected_version
         )
 
     async def reject_candidate(
         self, ctx: MemoryWriteContext, candidate_id: UUID, *, expected_version: int
-    ) -> MemoryV2Outcome:
+    ) -> MemoryWriteOutcome:
         return await self._writer().reject_candidate(
             ctx, candidate_id, expected_version=expected_version
         )

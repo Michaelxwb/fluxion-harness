@@ -11,6 +11,7 @@ from muad_api import AppError
 from tests.agent_runtime.memory_confirmation_support import service, source
 from tests.agent_runtime.memory_context_support import loader
 from tests.agent_runtime.memory_executor_support import execute, tool_call
+from tests.agent_runtime.memory_metric_support import metric
 from tests.agent_runtime.memory_redesign_write_support import (
     command,
     context,
@@ -20,7 +21,6 @@ from tests.agent_runtime.memory_redesign_write_support import (
     writer,
 )
 from tests.agent_runtime.memory_tool_support import tools
-from tests.agent_runtime.test_memory_redesign_recall import metric
 
 pytestmark = pytest.mark.integration
 

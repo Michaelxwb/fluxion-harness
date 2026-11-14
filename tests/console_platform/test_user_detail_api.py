@@ -87,29 +87,52 @@ async def test_user_agent_grants_endpoint(client: AsyncClient, tenant: TenantCon
     assert missing.json()["code"] == "COMMON_NOT_FOUND"
 
 
-async def test_user_memory_endpoint_with_category_filter(client: AsyncClient, tenant: TenantContext) -> None:
+async def test_user_memory_endpoint_filters_by_kind(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
     user_id = await _create_user(client, tenant)
-    await _seed_detail(client, tenant, user_id)
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        for predicate, kind, content in (
+            ("output_style", "PREFERENCE", '{"value": "简洁"}'),
+            ("role", "FACT", '{"value": "pm"}'),
+        ):
+            await session.execute(
+                text(
+                    "INSERT INTO runtime.user_memory"
+                    " (tenant_id,user_id,memory_key,memory_kind,predicate,content_json,title,"
+                    "author,expires_at)"
+                    " VALUES (:tenant,:user,:key,:kind,:predicate,CAST(:content AS jsonb),"
+                    " :title,'ADMIN',statement_timestamp()+interval '30 days')"
+                ),
+                {
+                    "tenant": tenant.tenant_id,
+                    "user": uuid.UUID(user_id),
+                    "key": f"v1.slot.{kind.lower()}.{predicate}.x",
+                    "kind": kind,
+                    "predicate": predicate,
+                    "content": content,
+                    "title": predicate,
+                },
+            )
+        await session.commit()
     try:
         response = await client.get(f"/api/v1/users/{user_id}/memory", headers=_headers(tenant))
         assert response.status_code == 200
         page = response.json()["data"]
         assert page["total"] == 2
         item = page["items"][0]
-        assert item["category"] in ("PREFERENCE", "WORK_STYLE")
-        assert item["content"] == {"note": "likes concise answers"}
-        assert item["enabled"] is True
-        assert item["version"] == 1
-        assert item["author"] == "ADMIN"
+        assert item["memory_kind"] in ("PREFERENCE", "FACT")
         assert item["status"] == "ACTIVE"
-        assert "source_type" not in item
+        assert item["author"] == "ADMIN"
+        assert "category" not in item
 
         filtered = await client.get(
             f"/api/v1/users/{user_id}/memory",
-            params={"category": "WORK_STYLE"},
+            params={"memory_kind": "FACT"},
             headers=_headers(tenant),
         )
         assert filtered.json()["data"]["total"] == 1
-        assert filtered.json()["data"]["items"][0]["category"] == "WORK_STYLE"
+        assert filtered.json()["data"]["items"][0]["predicate"] == "role"
     finally:
         await _cleanup_seeded(tenant.tenant_id)

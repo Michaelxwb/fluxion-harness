@@ -16,11 +16,8 @@ import httpx
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory_admin import (
-    MemoryAdminMutation,
-    MemoryAdminRequest,
-    MemoryCommandResponse,
-    MemoryV2AdminItem,
-    MemoryV2CommandRequest,
+    MemoryAdminItem,
+    MemoryCommandRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,49 +69,7 @@ class RuntimeMemoryClient:
             headers=headers,
         )
 
-    async def command(
-        self,
-        *,
-        tenant_id: str,
-        user_id: uuid.UUID,
-        actor_id: uuid.UUID,
-        command_id: str,
-        mutation: MemoryAdminMutation,
-        trace_id: str = "",
-    ) -> MemoryCommandResponse:
-        """受保护管理命令：actor 与 tenant 是 Console 已认证主体的属性，不由下游自选。"""
-        body = MemoryAdminRequest(actor_id=actor_id, mutation=mutation)
-        data = await self._request(
-            "POST",
-            f"{USERS_PATH}/{user_id}/{MEMORY_PATH}/commands",
-            tenant_id=tenant_id,
-            trace_id=trace_id,
-            command_id=command_id,
-            json=body.model_dump(mode="json", exclude_unset=True),
-        )
-        return MemoryCommandResponse.model_validate(data)
-
-    async def clear(
-        self,
-        *,
-        tenant_id: str,
-        user_id: uuid.UUID,
-        actor_id: uuid.UUID,
-        command_id: str,
-        trace_id: str = "",
-    ) -> MemoryCommandResponse:
-        """一命令原子清空：mutation 由 Runtime 按 `CLEAR` 构造，此处只送主体与命令号。"""
-        data = await self._request(
-            "DELETE",
-            f"{USERS_PATH}/{user_id}/{MEMORY_PATH}",
-            tenant_id=tenant_id,
-            trace_id=trace_id,
-            command_id=command_id,
-            actor_id=actor_id,
-        )
-        return MemoryCommandResponse.model_validate(data)
-
-    async def list_v2(
+    async def list_memory(
         self,
         *,
         tenant_id: str,
@@ -122,7 +77,7 @@ class RuntimeMemoryClient:
         page: int = 1,
         page_size: int = 20,
         trace_id: str = "",
-    ) -> tuple[list[MemoryV2AdminItem], int]:
+    ) -> tuple[list[MemoryAdminItem], int]:
         data = await self._request(
             "GET",
             f"{USERS_PATH}/{user_id}/{MEMORY_PATH}",
@@ -130,7 +85,7 @@ class RuntimeMemoryClient:
             trace_id=trace_id,
             params={"page": page, "page_size": page_size},
         )
-        items = [MemoryV2AdminItem.model_validate(item) for item in data.get("items", [])]
+        items = [MemoryAdminItem.model_validate(item) for item in data.get("items", [])]
         return items, int(data.get("total", 0))
 
     async def list_conflicts(
@@ -151,37 +106,18 @@ class RuntimeMemoryClient:
         )
         return list(data.get("items", [])), int(data.get("total", 0))
 
-    async def command_v2(
+    async def command(
         self,
         *,
         tenant_id: str,
         user_id: uuid.UUID,
         command_id: str,
-        request: MemoryV2CommandRequest,
+        request: MemoryCommandRequest,
         trace_id: str = "",
     ) -> dict[str, Any]:
         return await self._request(
             "POST",
             f"{USERS_PATH}/{user_id}/{MEMORY_PATH}/commands",
-            tenant_id=tenant_id,
-            trace_id=trace_id,
-            command_id=command_id,
-            json=request.model_dump(mode="json", exclude_none=True),
-        )
-
-    async def resolve_candidate_v2(
-        self,
-        *,
-        tenant_id: str,
-        user_id: uuid.UUID,
-        candidate_id: uuid.UUID,
-        command_id: str,
-        request: MemoryV2CommandRequest,
-        trace_id: str = "",
-    ) -> dict[str, Any]:
-        return await self._request(
-            "POST",
-            f"{USERS_PATH}/{user_id}/{MEMORY_PATH}/v2/conflicts/{candidate_id}/resolve",
             tenant_id=tenant_id,
             trace_id=trace_id,
             command_id=command_id,

@@ -6,11 +6,11 @@ from datetime import UTC, datetime, timedelta
 
 from muad_agent_core.memory import rank
 from muad_agent_core.memory.rank import (
-    MemoryRecord,
+    ExperienceRecord,
     record_tokens,
     select_for_injection,
 )
-from muad_agent_core.memory.render import render_memory_block
+from muad_agent_core.memory.render import render_experience_block
 from muad_contracts.memory import FactContent, MemoryAuthor, MemoryCategory
 
 NOW = datetime.now(UTC)
@@ -28,8 +28,8 @@ def _record(
     trigger_text: str | None = None,
     confirmed_minutes_ago: int = 0,
     precompute: bool = True,
-) -> MemoryRecord:
-    record = MemoryRecord(
+) -> ExperienceRecord:
+    record = ExperienceRecord(
         memory_key=key,
         content=FactContent(value=value),
         author=author,
@@ -44,7 +44,7 @@ def _record(
     return _with_tokens(record) if precompute else record
 
 
-def _with_tokens(record: MemoryRecord) -> MemoryRecord:
+def _with_tokens(record: ExperienceRecord) -> ExperienceRecord:
     from dataclasses import replace
 
     return replace(record, tokens=record_tokens(record))
@@ -102,7 +102,7 @@ def test_b01_budget_and_drop_counters() -> None:
     assert len(prefs) <= 3
     assert sum(len(record.content.value.encode()) for record in prefs) <= 650
 
-    block = render_memory_block(selected, max_records=2, max_bytes=16384)
+    block = render_experience_block(selected, max_records=2, max_bytes=16384)
     assert len(block.items) <= 2
     assert block.dropped_count >= len(selected) - len(block.items)
 

@@ -20,7 +20,7 @@ from tests.agent_runtime.memory_confirmation_support import (
     source,
     state,
 )
-from tests.agent_runtime.memory_redesign_write_support import command, context, upsert, writer
+from tests.agent_runtime.memory_redesign_write_support import context, writer
 
 pytestmark = pytest.mark.integration
 
@@ -44,7 +44,12 @@ async def test_local_b15_proposal_reads_all_states_and_binds_version_epoch_and_d
 ):
     factory, run, identity, submission = await source(async_tool_database, deadline_seconds=120)
     ctx = context(tenant=run.tenant_id, user=run.user_id)
-    await writer(async_tool_database).execute(ctx, command(upsert()))
+    await writer(async_tool_database).apply_candidate(
+        ctx,
+        candidate().normalized(taxonomy_version=1),
+        command_id="seed-proposal",
+        endpoint="test.seed",
+    )
     async with factory.begin() as session:
         await session.execute(
             sa.text(
@@ -75,7 +80,8 @@ async def test_local_b15_proposal_reads_all_states_and_binds_version_epoch_and_d
     assert {"deleted": "已删除", "disabled": "已禁用", "expired": "已过期"}[
         stored
     ] in memory.suspend_request.prompt
-    assert "blue" in memory.suspend_request.prompt and "color" in memory.suspend_request.prompt
+    assert "blue" in memory.suspend_request.prompt
+    assert "输出风格" in memory.suspend_request.prompt
 
 
 async def test_local_b15_second_remember_is_rejected_without_overwriting_first(async_tool_database):

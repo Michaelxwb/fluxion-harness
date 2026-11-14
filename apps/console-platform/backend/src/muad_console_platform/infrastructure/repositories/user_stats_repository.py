@@ -35,7 +35,10 @@ COUNTS_SQL = text(
       FROM runtime.user_memory m
      WHERE m.tenant_id = :tenant_id
        AND m.is_deleted = false
-       AND m.category NOT IN ('PROCEDURE','FAILURE_PATTERN','VERIFICATION')
+       AND (
+             m.memory_kind IS NOT NULL
+             OR m.category NOT IN ('PROCEDURE','FAILURE_PATTERN','VERIFICATION')
+           )
        AND m.user_id IN :user_ids
      GROUP BY m.user_id
     UNION ALL

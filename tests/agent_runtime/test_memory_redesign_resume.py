@@ -219,7 +219,7 @@ async def test_local_e05_zero_budget_disables_automatic_task_channel(async_tool_
 async def test_local_e05_failed_transaction_does_not_consume_options_or_count_selected(async_tool_database):
     from muad_agent_runtime.infrastructure.models.runtime import RunSubmission
 
-    from tests.agent_runtime.test_memory_redesign_recall import metric
+    from tests.agent_runtime.memory_metric_support import metric
 
     factory, run, _, _ = await source(async_tool_database)
     await seed_tasks(async_tool_database, run)
@@ -263,7 +263,7 @@ async def test_local_e05_failed_transaction_does_not_consume_options_or_count_se
 
 
 async def test_local_e05_read_failure_is_visible_and_inbound_still_commits(async_tool_database, caplog):
-    from tests.agent_runtime.test_memory_redesign_recall import metric
+    from tests.agent_runtime.memory_metric_support import metric
 
     factory, run, _, _ = await source(async_tool_database)
     await seed_tasks(async_tool_database, run)
@@ -324,7 +324,7 @@ async def test_local_e05_invalid_ref_degrades_without_stalling_runtime(
 async def test_local_e05_nested_rollback_does_not_publish_a_selected_metric(async_tool_database):
     from muad_agent_runtime.infrastructure.models.runtime import RunSubmission
 
-    from tests.agent_runtime.test_memory_redesign_recall import metric
+    from tests.agent_runtime.memory_metric_support import metric
 
     factory, run, _, _ = await source(async_tool_database)
     await seed_tasks(async_tool_database, run)

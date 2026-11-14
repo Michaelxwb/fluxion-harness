@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.audit import write_config_audit
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import FactContent, MemoryCandidate, MemoryCategory
+from muad_contracts.memory import ExperienceCandidate, FactContent, MemoryCategory
 from muad_contracts.platform_settings import LearningSettings, parse_platform_settings
 
 from ..infrastructure.db import SessionFactory
@@ -350,7 +350,7 @@ class LearningAdminService:
                 mutations=[
                     MemoryMutation(
                         action="UPSERT",
-                        candidate=MemoryCandidate(
+                        candidate=ExperienceCandidate(
                             memory_key=key,
                             category=MemoryCategory(row.category),
                             content=FactContent(value=value),

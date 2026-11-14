@@ -13,7 +13,7 @@ from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import (
     MemoryConfirmationProposal,
     MemorySourceEvidence,
-    RememberMemoryInputV2,
+    RememberMemoryInput,
     memory_hash,
 )
 from sqlalchemy import select
@@ -92,7 +92,7 @@ async def confirmation_source(session: AsyncSession, run: RunRecord, submission_
 
 
 def _proposal(
-    candidate: RememberMemoryInputV2,
+    candidate: RememberMemoryInput,
     run: RunRecord,
     event: CanonicalEvent,
     epoch: int,
@@ -130,13 +130,13 @@ def _proposal(
     )
 
 
-async def _existing_version(
-    session: AsyncSession, run: RunRecord, candidate: RememberMemoryInputV2
-) -> int | None:
-    """Version a confirmation would overwrite; a new NOTE has no existing target."""
+async def _existing_target(
+    session: AsyncSession, run: RunRecord, candidate: RememberMemoryInput
+) -> tuple[int | None, UserMemory | None]:
+    """Version and row a confirmation would overwrite; a new NOTE has no existing target."""
 
     if candidate.memory_kind == "NOTE":
-        return None
+        return None, None
     key = build_memory_key(candidate.normalized(taxonomy_version=1))
     row = await session.scalar(
         select(UserMemory)
@@ -147,7 +147,7 @@ async def _existing_version(
         )
         .with_for_update()
     )
-    return row.version if row is not None else None
+    return (row.version if row is not None else None), row
 
 
 async def _scope_epoch(session: AsyncSession, run: RunRecord) -> int:
@@ -164,6 +164,7 @@ def _prompt(
     proposal: MemoryConfirmationProposal,
     now: datetime,
     *,
+    target: UserMemory | None = None,
     timezone: str = "UTC",
     for_text_channel: bool = False,
 ) -> str:
@@ -181,6 +182,14 @@ def _prompt(
         fields.append("标签：" + "、".join(candidate.tags))
     if candidate.scope_state.value == "EXPLICIT" and candidate.scope:
         fields.append("范围：" + canonical_json(candidate.scope))
+    if target is not None:
+        # 覆盖既有槽位前先把当前状态告诉用户，确认才生效。
+        if target.is_deleted:
+            fields.append("当前状态：已删除；确认会重新记住")
+        elif not target.enabled:
+            fields.append("当前状态：已禁用；确认会重新启用")
+        if target.expires_at is not None and target.expires_at <= now:
+            fields.append("当前状态：已过期；确认将重新设置有效期")
     if candidate.source_quote is not None:
         fields.append(f"来源原话：{candidate.source_quote}")
     if for_text_channel:

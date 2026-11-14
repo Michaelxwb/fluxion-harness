@@ -10,9 +10,9 @@ from uuid import UUID, uuid4
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import (
+    ExperienceCandidate,
     FactContent,
     MemoryAuthor,
-    MemoryCandidate,
     MemoryCategory,
     MemoryRetirementReason,
 )
@@ -64,7 +64,7 @@ def memory_state(
     仍保持严格校验，避免把损坏内容伪装成合法记忆。
     """
     try:
-        candidate = MemoryCandidate.model_validate(
+        candidate = ExperienceCandidate.model_validate(
             {
                 "memory_key": row.memory_key,
                 "category": row.category,
@@ -297,7 +297,7 @@ def _automatic_rejection(
 
 
 def _confirmation_consumed(
-    row: UserMemory | None, candidate: MemoryCandidate, ctx: MemoryWriteContext
+    row: UserMemory | None, candidate: ExperienceCandidate, ctx: MemoryWriteContext
 ) -> bool:
     if row is None or ctx.actor_type != "USER" or ctx.confirmation_event_id is None:
         return False
@@ -418,7 +418,7 @@ def _prepared_retirement(
 
 def _project(state: MemoryWriteState | None, change: MemoryChange, now: datetime) -> MemoryWriteState:
     if state is None:
-        candidate = MemoryCandidate.model_validate(
+        candidate = ExperienceCandidate.model_validate(
             {
                 "memory_key": change.key,
                 "category": change.values["category"],
@@ -435,7 +435,7 @@ def _project(state: MemoryWriteState | None, change: MemoryChange, now: datetime
         )
     projected = dict(change.values)
     if "content_json" in projected:
-        candidate = MemoryCandidate.model_validate(
+        candidate = ExperienceCandidate.model_validate(
             {
                 "memory_key": change.key,
                 "category": projected["category"],

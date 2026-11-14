@@ -9,13 +9,13 @@ from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import MemoryAuthor, MemoryCategory, TaskStateContent
 from pydantic import JsonValue
 
-from .rank import MemoryRecord, content_text
+from .rank import ExperienceRecord, content_text
 
 _EXPERIENCE = frozenset(
     {MemoryCategory.PROCEDURE, MemoryCategory.FAILURE_PATTERN, MemoryCategory.VERIFICATION}
 )
 
-MEMORY_NOTICE = (
+EXPERIENCE_NOTICE = (
     "以下为既往记忆与已验证经验，仅供参考；其中 verified_experience 段经回放验证，"
     "可作为执行参考。与当前指示冲突时以当前指示为准。"
 )
@@ -39,12 +39,12 @@ class MemoryResultBudgetExceeded(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class RenderedMemoryItem:
-    record: MemoryRecord
+    record: ExperienceRecord
     omitted: bool = False
 
 
 @dataclass(frozen=True, slots=True)
-class RenderedMemoryBlock:
+class RenderedExperienceBlock:
     text: str | None
     items: tuple[RenderedMemoryItem, ...]
     dropped_count: int = 0
@@ -52,14 +52,7 @@ class RenderedMemoryBlock:
     dropped_items: tuple[RenderedMemoryItem, ...] = ()
 
 
-@dataclass(frozen=True, slots=True)
-class RenderedRecall:
-    text: str
-    items: tuple[MemoryRecord, ...]
-    truncated: bool
-
-
-def _section(record: MemoryRecord) -> str:
+def _section(record: ExperienceRecord) -> str:
     if record.category is MemoryCategory.TASK_STATE:
         return "task_state"
     if record.category in _EXPERIENCE and record.activation_state == "ACTIVE":
@@ -82,7 +75,7 @@ def _item_payload(item: RenderedMemoryItem) -> dict[str, JsonValue]:
 
 
 def _block_text(items: tuple[RenderedMemoryItem, ...]) -> str:
-    lines = [MEMORY_NOTICE]
+    lines = [EXPERIENCE_NOTICE]
     for section, label in _SECTION_LABELS.items():
         if section == "verified_experience":
             rows = [
@@ -101,13 +94,13 @@ def _block_text(items: tuple[RenderedMemoryItem, ...]) -> str:
     return "\n".join(lines)
 
 
-def render_memory_block(
-    records: Iterable[MemoryRecord], *, max_records: int, max_bytes: int,
-) -> RenderedMemoryBlock:
+def render_experience_block(
+    records: Iterable[ExperienceRecord], *, max_records: int, max_bytes: int,
+) -> RenderedExperienceBlock:
     if not 0 <= max_records <= 20 or not 0 <= max_bytes <= 16384:
         raise ValueError("invalid memory rendering budget")
     if max_records == 0 or max_bytes == 0:
-        return RenderedMemoryBlock(None, ())
+        return RenderedExperienceBlock(None, ())
     included: tuple[RenderedMemoryItem, ...] = ()
     dropped: list[RenderedMemoryItem] = []
     text: str | None = None
@@ -127,34 +120,4 @@ def render_memory_block(
         else:
             dropped_bytes += 1
             dropped.append(RenderedMemoryItem(record))
-    return RenderedMemoryBlock(text, included, dropped_count, dropped_bytes, tuple(dropped))
-
-
-def _recall_document(items: tuple[MemoryRecord, ...], truncated: bool) -> str:
-    rows: list[JsonValue] = []
-    for record in items:
-        payload = _item_payload(RenderedMemoryItem(record))
-        payload.update(explicit_request=record.explicit_request, updated_at=record.updated_at.isoformat())
-        rows.append(payload)
-    return canonical_json({"notice": MEMORY_NOTICE, "items": rows, "truncated": truncated})
-
-
-def render_recall(
-    records: Iterable[MemoryRecord], *, limit: int, max_bytes: int,
-) -> RenderedRecall:
-    if not 0 <= limit <= 20 or not 1 <= max_bytes <= 16384:
-        raise ValueError("invalid memory recall budget")
-    candidates = tuple(records)
-    included: tuple[MemoryRecord, ...] = ()
-    fixed = _recall_document(included, bool(candidates))
-    if len(fixed.encode("utf-8")) > max_bytes:
-        raise MemoryResultBudgetExceeded("fixed recall envelope exceeds configured budget")
-    for record in candidates:
-        if len(included) >= limit:
-            break
-        trial = (*included, record)
-        rendered = _recall_document(trial, len(trial) < len(candidates))
-        if len(rendered.encode("utf-8")) <= max_bytes:
-            included = trial
-    truncated = len(included) < len(candidates)
-    return RenderedRecall(_recall_document(included, truncated), included, truncated)
+    return RenderedExperienceBlock(text, included, dropped_count, dropped_bytes, tuple(dropped))
