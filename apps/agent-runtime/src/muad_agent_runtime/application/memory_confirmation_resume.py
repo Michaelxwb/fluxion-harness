@@ -29,6 +29,7 @@ from ..infrastructure.models.runtime import CanonicalEvent, MemoryScope, RunInte
 from .memory_commands import MemoryWriteContext
 from .memory_observability import after_commit, observe
 from .memory_service import MemoryService
+from .memory_identity import memory_key as build_memory_key
 from .memory_proposals import (
     CONFIRM_VERB,
     REJECT_VERB,
@@ -348,6 +349,8 @@ async def _confirm(
     )
     if proposal.expires_at <= now or (scope.forget_epoch if scope is not None else 0) != proposal.forget_epoch:
         return ConfirmationResult(outcome="STALE")
+    if not await _target_version_matches(session, run, proposal):
+        return ConfirmationResult(outcome="STALE")
     outcome = await MemoryService().apply_candidate_in_session(
         session,
         ctx,
@@ -358,6 +361,27 @@ async def _confirm(
     if outcome.memory_key is None or outcome.status == "CANDIDATE":
         return ConfirmationResult(outcome="STALE")
     return await _saved_result(session, run, outcome.memory_key)
+
+
+async def _target_version_matches(
+    session: AsyncSession, run: RunRecord, proposal: MemoryConfirmationProposal
+) -> bool:
+    """A confirmation only lands on the slot version it was shown against."""
+
+    if proposal.candidate.memory_kind == "NOTE":
+        return proposal.expected_version is None
+    key = build_memory_key(proposal.candidate.normalized(taxonomy_version=1))
+    row = await session.scalar(
+        select(UserMemory)
+        .where(
+            UserMemory.tenant_id == run.tenant_id,
+            UserMemory.user_id == run.user_id,
+            UserMemory.memory_key == key,
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return (row.version if row is not None else None) == proposal.expected_version
 
 
 async def _saved_result(session: AsyncSession, run: RunRecord, key: str) -> ConfirmationResult:

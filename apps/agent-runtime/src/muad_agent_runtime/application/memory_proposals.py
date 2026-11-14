@@ -9,10 +9,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from muad_agent_core.memory.evidence import verify_quote
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import (
     MemoryConfirmationProposal,
     MemorySourceEvidence,
-    RememberMemoryInput,
+    RememberMemoryInputV2,
     memory_hash,
 )
 from sqlalchemy import select
@@ -29,6 +30,7 @@ from ..infrastructure.models.runtime import (
     UserMemory,
 )
 from .async_tools.continuation_service import ExecutionIdentity, ensure_execution, lock_execution
+from .memory_identity import memory_key as build_memory_key
 
 #: 用户确认/拒绝的动词：文本解析、WebChat 选项值与文本渠道提示共用这一份。
 CONFIRM_VERB = "确认"
@@ -89,34 +91,13 @@ async def confirmation_source(session: AsyncSession, run: RunRecord, submission_
     return event
 
 
-async def _memory_state(session: AsyncSession, run: RunRecord, key: str) -> tuple[UserMemory | None, int]:
-    scope = await session.scalar(
-        select(MemoryScope)
-        .where(
-            MemoryScope.tenant_id == run.tenant_id,
-            MemoryScope.user_id == run.user_id,
-        )
-        .with_for_update()
-    )
-    row = await session.scalar(
-        select(UserMemory)
-        .where(
-            UserMemory.tenant_id == run.tenant_id,
-            UserMemory.user_id == run.user_id,
-            UserMemory.memory_key == key,
-        )
-        .with_for_update()
-    )
-    return row, scope.forget_epoch if scope is not None else 0
-
-
 def _proposal(
-    candidate: RememberMemoryInput,
+    candidate: RememberMemoryInputV2,
     run: RunRecord,
     event: CanonicalEvent,
-    row: UserMemory | None,
     epoch: int,
     now: datetime,
+    expected_version: int | None,
 ) -> MemoryConfirmationProposal:
     text = event.payload_json["text"]
     quote = candidate.source_quote
@@ -137,7 +118,7 @@ def _proposal(
         submission_id=event.submission_id,
         candidate=candidate,
         candidate_hash=memory_hash(candidate.model_dump(mode="json")),
-        expected_version=row.version if row is not None else None,
+        expected_version=expected_version,
         forget_epoch=epoch,
         evidence=MemorySourceEvidence(
             source_event_id=event.id,
@@ -149,50 +130,62 @@ def _proposal(
     )
 
 
+async def _existing_version(
+    session: AsyncSession, run: RunRecord, candidate: RememberMemoryInputV2
+) -> int | None:
+    """Version a confirmation would overwrite; a new NOTE has no existing target."""
+
+    if candidate.memory_kind == "NOTE":
+        return None
+    key = build_memory_key(candidate.normalized(taxonomy_version=1))
+    row = await session.scalar(
+        select(UserMemory)
+        .where(
+            UserMemory.tenant_id == run.tenant_id,
+            UserMemory.user_id == run.user_id,
+            UserMemory.memory_key == key,
+        )
+        .with_for_update()
+    )
+    return row.version if row is not None else None
+
+
+async def _scope_epoch(session: AsyncSession, run: RunRecord) -> int:
+    scope = await session.scalar(
+        select(MemoryScope)
+        .where(MemoryScope.tenant_id == run.tenant_id, MemoryScope.user_id == run.user_id)
+        .with_for_update()
+    )
+    return scope.forget_epoch if scope is not None else 0
+
+
 def _prompt(
     proposal_id: UUID,
     proposal: MemoryConfirmationProposal,
-    row: UserMemory | None,
     now: datetime,
     *,
     timezone: str = "UTC",
     for_text_channel: bool = False,
 ) -> str:
-    states: list[str] = []
-    if row is not None:
-        if row.is_deleted:
-            states.append("已删除；确认会重新记住")
-        if not row.enabled:
-            states.append("已禁用；确认会重新启用")
-        if row.expires_at is not None and row.expires_at <= now:
-            states.append("已过期；确认会重新设置有效期")
     candidate = proposal.candidate
-    category = {
-        "PREFERENCE": "偏好",
-        "WORK_STYLE": "工作方式",
-        "EXPLICIT": "明确事实",
-        "PROCEDURE": "过程经验",
-        "FAILURE_PATTERN": "失败模式",
-        "VERIFICATION": "验证方法",
-    }[candidate.category]
     fields = [
         f"待保存记忆，候选编号：{proposal_id}",
-        f"键：{candidate.memory_key}",
-        f"类别：{category}",
-        f"内容：{candidate.value}",
+        f"类型：{candidate.memory_kind}",
+        f"谓词：{candidate.predicate}",
+        f"标题：{candidate.title}",
+        f"内容：{canonical_json(candidate.content)}",
     ]
+    if candidate.summary:
+        fields.append(f"摘要：{candidate.summary}")
+    if candidate.tags:
+        fields.append("标签：" + "、".join(candidate.tags))
+    if candidate.scope_state.value == "EXPLICIT" and candidate.scope:
+        fields.append("范围：" + canonical_json(candidate.scope))
     if candidate.source_quote is not None:
         fields.append(f"来源原话：{candidate.source_quote}")
-    if states:
-        fields.append("原条目状态：" + "；".join(states))
     if for_text_channel:
-        # 企微等文本渠道：Markdown 列表给每个字段单独一行（单换行会折叠），且不展示有效期
-        # 字段——有效期由服务端强制，WebChat 卡片单独展示期限，文本里重复只会制造噪音。
         body = "\n".join(f"- {field}" for field in fields[1:])
-        return (
-            f"{fields[0]}\n\n{body}\n\n"
-            f"请回复“{CONFIRM_VERB}”或“{REJECT_VERB}”。"
-        )
+        return f"{fields[0]}\n\n{body}\n\n请回复“{CONFIRM_VERB}”或“{REJECT_VERB}”。"
     body = fields[0] + "\n\n" + "\n".join(fields[1:])
     return (
         f"{body}\n\n有效至：{_format_expiry(proposal.expires_at, timezone)}\n"

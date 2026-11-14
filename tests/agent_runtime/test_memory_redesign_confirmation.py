@@ -50,7 +50,7 @@ async def test_pending_memory_emits_live_public_confirmation(async_tool_database
         assert "有效至：" in event.payload_json["prompt"], "canonical prompt 保留期限供审计/API"
         text_prompt = event.payload_json["text_prompt"]
         assert "有效至：" not in text_prompt, "文本渠道不重复展示期限字段"
-        assert "- 键：" in text_prompt, "文本渠道按列表逐行展示候选"
+        assert "- 谓词：" in text_prompt, "文本渠道按列表逐行展示候选"
         assert "\n\n请回复“确认”或“拒绝”。" in text_prompt, "回复指令单独成行"
         projector = WebchatPublicProjector(run_id=stack.run.id, conversation_id=stack.run.conversation_id)
         projected = projector.project(
@@ -104,7 +104,7 @@ async def test_b15_gateway_replay_delivers_exact_persisted_prompt_and_confirmati
         )
         assert reply.texts == [shown.payload_json["text_prompt"]]
         assert shown.payload_json["text_prompt"] != shown.payload_json["prompt"]
-        assert "- 键：" in shown.payload_json["text_prompt"], "企微按列表逐行展示字段"
+        assert "- 谓词：" in shown.payload_json["text_prompt"], "企微按列表逐行展示字段"
         assert "有效至：" not in shown.payload_json["text_prompt"], "文本渠道不重复展示期限字段"
         assert "\n\n请回复“确认”或“拒绝”。" in shown.payload_json["text_prompt"], (
             "回复指令必须单独成行"
@@ -197,7 +197,7 @@ async def test_memory_command_bypasses_gateway_stream_lock_but_runtime_busy_cann
         from contextlib import suppress
 
         gateway, adapter = pipeline(stack), Adapter()
-        incoming = envelope("/memory remember color PREFERENCE blue")
+        incoming = envelope("/memory remember output_style blue")
         async with stack.factory.begin() as session:
             run = await session.get(RunRecord, stack.run.id)
             run.status = status
@@ -234,7 +234,7 @@ async def test_b15_runtime_only_exact_real_memory_command_can_authorize_candidat
         event = await session.scalar(
             sa.select(CanonicalEvent).where(CanonicalEvent.submission_id == submission)
         )
-        event.payload_json = {**event.payload_json, "text": "/memory remember color PREFERENCE blue"}
+        event.payload_json = {**event.payload_json, "text": "/memory remember output_style blue"}
     memory = service(factory, identity, submission)
     receipt = await memory.propose(candidate(), call_id="explicit-command")
     assert receipt.saved is True and memory.suspend_request is None
@@ -254,7 +254,7 @@ async def test_b15_runtime_only_exact_real_memory_command_can_authorize_candidat
         )
 
 
-@pytest.mark.parametrize("change", [{"value": "red"}, {"memory_key": "other"}, {"category": "WORK_STYLE"}])
+@pytest.mark.parametrize("change", [{"value": "red"}, {"predicate": "language"}, {"content": {"value": "blue", "unit": "pt"}}])
 async def test_b15_memory_command_cannot_authorize_different_model_parameters(async_tool_database, change):
     from tests.agent_runtime.memory_confirmation_support import candidate, service, source
 
@@ -263,7 +263,7 @@ async def test_b15_memory_command_cannot_authorize_different_model_parameters(as
         event = await session.scalar(
             sa.select(CanonicalEvent).where(CanonicalEvent.submission_id == submission)
         )
-        event.payload_json = {**event.payload_json, "text": "/memory remember color PREFERENCE blue"}
+        event.payload_json = {**event.payload_json, "text": "/memory remember output_style blue"}
     memory = service(factory, identity, submission)
     receipt = await memory.propose(candidate(**change), call_id="different-candidate")
     assert receipt.saved is False and memory.suspend_request is not None
@@ -365,8 +365,20 @@ async def test_local_b15_stale_valid_choice_resumes_without_granting_memory(
     async with confirmation_stack(async_tool_database, monkeypatch) as stack:
         if stale in ("version", "epoch"):
             ctx = context(tenant=stack.run.tenant_id, user=stack.run.user_id)
-            key = "color" if stale == "version" else "unrelated"
-            await writer(async_tool_database).execute(ctx, command(upsert(key, "red")))
+            from muad_agent_runtime.application.memory_service import MemoryService
+
+            from tests.agent_runtime.memory_confirmation_support import candidate as proposal_candidate
+
+            if stale == "version":
+                await MemoryService(stack.factory).apply_candidate(
+                    ctx,
+                    proposal_candidate(value="red").normalized(taxonomy_version=1),
+                    command_id="stale-version-setup",
+                    endpoint="test.setup",
+                )
+            else:
+                key = "unrelated"
+                await writer(async_tool_database).execute(ctx, command(upsert(key, "red")))
             if stale == "epoch":
                 await writer(async_tool_database).execute(
                     ctx,
