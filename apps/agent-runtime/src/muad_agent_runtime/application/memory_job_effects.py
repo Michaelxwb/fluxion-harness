@@ -27,6 +27,7 @@ from ..infrastructure.models.runtime import (
     UserMemory,
 )
 from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
+from .memory_identity import memory_key as build_memory_key
 from .memory_consolidation_input import ConsolidationInput
 from .memory_consolidation_output import ConsolidationBatch, ConsolidationRejected, parse_output
 from .memory_job_enqueue import _reference
@@ -130,7 +131,7 @@ async def apply_batch(
             session, job, status="SKIPPED", reason="STALE", candidates=len(batch.candidates)
         )
     root = payload.resume_ref.root_conversation_id if payload.resume_ref else job.conversation_id
-    checked = parse_output(
+    checked, rejected = parse_output(
         batch.model_dump_json(),
         finish_reason="stop",
         conversation_id=job.conversation_id,
@@ -138,8 +139,8 @@ async def apply_batch(
         max_candidates=ctx.settings.consolidation_max_candidates,
         credential_canaries=credential_canaries,
     )
-    mutations, duplicates = await _mutations(session, job, payload, checked, ctx)
-    return await _write(session, job, claim, ctx, checked, mutations, duplicates)
+    mutations = await _task_mutations(session, job, payload, checked, ctx)
+    return await _write(session, job, claim, ctx, checked, mutations, rejected)
 
 
 async def _context(
@@ -189,82 +190,101 @@ async def _context(
     )
 
 
-async def _mutations(
+async def _task_mutations(
     session: AsyncSession,
     job: MemoryConsolidationJob,
     payload: ConsolidationInput,
     batch: ConsolidationBatch,
     ctx: MemoryWriteContext,
-) -> tuple[list[MemoryMutation], int]:
-    versions = {row["memory_key"]: row["version"] for row in payload.memory_constraints}
+) -> list[MemoryMutation]:
+    """TASK_STATE keeps its own lane; facts and notes are v2 candidates applied by the writer."""
+
     root_key = payload.resume_ref.memory_key if payload.resume_ref else task_memory_key(job.conversation_id)
-    rows = await _candidate_rows(session, job, batch, root_key)
+    row = await session.scalar(
+        select(UserMemory).where(
+            UserMemory.tenant_id == job.tenant_id,
+            UserMemory.user_id == job.user_id,
+            UserMemory.memory_key == root_key,
+        )
+    )
+    frozen = payload.resume_ref.expected_version if payload.resume_ref else None
     mutations: list[MemoryMutation] = []
-    duplicates = 0
-    for candidate in batch.candidates:
-        if _duplicates_base_fact(candidate, rows):
-            duplicates += 1
-            continue
-        version = versions.get(candidate.memory_key)
-        row = rows.get(candidate.memory_key)
-        # Stable scope revision proves a retired row has not changed since input was frozen.
-        if version is None and row is not None and row.is_deleted:
-            version = row.version
-        if payload.resume_ref and candidate.category is MemoryCategory.TASK_STATE:
-            version = payload.resume_ref.expected_version
-        if version is not None and (isinstance(version, bool) or not isinstance(version, int)):
-            raise ConsolidationRejected()
-        mutations.append(MemoryMutation(action="UPSERT", candidate=candidate, expected_version=version))
+    if batch.task_state is not None:
+        mutations.append(
+            MemoryMutation(
+                action="UPSERT",
+                candidate=MemoryCandidate(
+                    memory_key=root_key,
+                    category=MemoryCategory.TASK_STATE,
+                    content=batch.task_state,
+                ),
+                expected_version=frozen if frozen is not None else (row.version if row is not None else None),
+            )
+        )
     if batch.task_completed:
-        row = rows.get(root_key)
-        expected = payload.resume_ref.expected_version if payload.resume_ref else versions.get(root_key)
+        expected = frozen if frozen is not None else (row.version if row is not None else None)
         retirement = _completion(row, expected, ctx)
         if retirement is not None:
             mutations.append(retirement)
-    return mutations, duplicates
+    return mutations
 
 
-async def _candidate_rows(
-    session: AsyncSession, job: MemoryConsolidationJob, batch: ConsolidationBatch, root_key: str
-) -> dict[str, UserMemory]:
-    keys = {candidate.memory_key for candidate in batch.candidates}
-    base_keys = {
-        candidate.memory_key.removeprefix("infer.")
-        for candidate in batch.candidates
-        if candidate.memory_key.startswith("infer.") and candidate.memory_key != "infer."
-    }
-    if batch.task_completed:
-        keys.add(root_key)
-    return {
-        row.memory_key: row
-        for row in await session.scalars(
-            select(UserMemory).where(
+async def _apply_facts(
+    session: AsyncSession,
+    job: MemoryConsolidationJob,
+    ctx: MemoryWriteContext,
+    batch: ConsolidationBatch,
+) -> tuple[int, int]:
+    """Apply v2 candidates through the single writer; conflicts become PENDING candidates."""
+
+    written = skipped = 0
+    service = MemoryService()
+    for index, item in enumerate(batch.candidates):
+        candidate = item.normalized(taxonomy_version=1)
+        if await _duplicate_fact(session, job, candidate):
+            skipped += 1
+            continue
+        outcome = await service.apply_candidate_in_session(
+            session,
+            ctx,
+            candidate,
+            command_id=f"consolidation:{job.id}:{index}",
+            endpoint="memory.consolidation",
+        )
+        if outcome.status in {"CREATED", "UPDATED"}:
+            written += 1
+        else:
+            skipped += 1
+    return written, skipped
+
+
+async def _duplicate_fact(
+    session: AsyncSession, job: MemoryConsolidationJob, candidate
+) -> bool:
+    """Same content on the same identity is not a new change; NOTE has no stable key."""
+
+    content = dict(candidate.content)
+    if candidate.memory_kind == "NOTE":
+        found = await session.scalar(
+            select(UserMemory.id).where(
                 UserMemory.tenant_id == job.tenant_id,
                 UserMemory.user_id == job.user_id,
-                UserMemory.memory_key.in_(keys | base_keys),
+                UserMemory.memory_kind == "NOTE",
+                UserMemory.predicate == candidate.predicate,
+                UserMemory.content_json == content,
+                UserMemory.is_deleted.is_(False),
             )
         )
-    }
-
-
-def _duplicates_base_fact(
-    candidate: MemoryCandidate, rows: dict[str, UserMemory]
-) -> bool:
-    """省略重复新增和无变化副本；已有不同值仍交给统一 writer 校验并更新。"""
-    prefix = "infer."
-    key = candidate.memory_key
-    if not key.startswith(prefix) or len(key) == len(prefix):
-        return False
-    base = rows.get(key[len(prefix) :])
-    if base is None:
-        return False
-    existing = rows.get(key)
-    content = candidate.content.model_dump(mode="json")
-    if existing is not None and (
-        existing.category != candidate.category.value or existing.content_json != content
-    ):
-        return False
-    return base.category == candidate.category.value and base.content_json == content
+        return found is not None
+    key = build_memory_key(candidate)
+    row = await session.scalar(
+        select(UserMemory).where(
+            UserMemory.tenant_id == job.tenant_id,
+            UserMemory.user_id == job.user_id,
+            UserMemory.memory_key == key,
+        )
+    )
+    return row is not None and not row.is_deleted and row.content_json == content
 
 
 def _completion(
@@ -299,31 +319,36 @@ async def _write(
     ctx: MemoryWriteContext,
     batch: ConsolidationBatch,
     mutations: list[MemoryMutation],
-    duplicates: int,
+    rejected: int,
 ) -> dict[str, JsonValue]:
-    if not mutations:
+    total = len(batch.candidates) + (1 if batch.task_state is not None else 0)
+    if not mutations and not batch.candidates:
         return await finish_job(
             session,
             job,
             status="SKIPPED",
-            reason="POLICY" if (batch.task_completed or duplicates) else "NO_CANDIDATES",
-            skipped=duplicates,
-            candidates=len(batch.candidates),
+            reason="POLICY" if batch.task_completed else "NO_CANDIDATES",
+            skipped=rejected,
+            candidates=total,
         )
-    outcome = await MemoryService().execute_in_session(
-        session,
-        ctx,
-        MemoryCommand(
-            command_id=f"consolidation:{job.id}",
-            endpoint="memory.consolidation",
-            expected_scope_revision=job.input_scope_revision,
-            mutations=mutations,
-        ),
-    )
-    written = sum(
-        item.status in {"CREATED", "UPDATED", "RESTORED", "RETIRED"} for item in outcome.response.items
-    )
-    skipped = sum(item.status == "SKIPPED" for item in outcome.response.items) + duplicates
+    written, skipped = await _apply_facts(session, job, ctx, batch)
+    skipped += rejected
+    if mutations:
+        outcome = await MemoryService().execute_in_session(
+            session,
+            ctx,
+            MemoryCommand(
+                command_id=f"consolidation:{job.id}",
+                endpoint="memory.consolidation",
+                expected_scope_revision=job.input_scope_revision,
+                mutations=mutations,
+            ),
+        )
+        written += sum(
+            item.status in {"CREATED", "UPDATED", "RESTORED", "RETIRED"}
+            for item in outcome.response.items
+        )
+        skipped += sum(item.status == "SKIPPED" for item in outcome.response.items)
     if not owns(job, claim, await database_now(session)):
         raise ConsolidationFenced()
     return await finish_job(
@@ -333,7 +358,7 @@ async def _write(
         reason="NONE" if written else "POLICY",
         written=written,
         skipped=skipped,
-        candidates=len(batch.candidates),
+        candidates=total,
     )
 
 

@@ -36,7 +36,7 @@ from .memory_identity import memory_key as build_memory_key
 from .memory_identity import scope_hash
 from .memory_mutations import memory_state_any
 from .memory_service import MemoryService
-from .memory_write import MemoryWriteState, plan_memory_capacity
+from .memory_write import MemoryWriteState, decide_automatic_update, plan_memory_capacity
 
 MemoryV2Action = Literal["UPSERT", "CREATE", "DELETE", "CLEAR"]
 
@@ -120,6 +120,49 @@ def _after(row: UserMemory) -> dict[str, object]:
         "authority": row.authority,
         "is_deleted": row.is_deleted,
     }
+
+
+def _write_decision(
+    row: UserMemory | None, candidate: MemoryCandidateV2, ctx: MemoryWriteContext
+) -> Literal["APPLY", "PENDING", "SKIPPED"]:
+    """Automatic writes never resurrect tombstones, re-enable rows or overwrite a live value.
+
+    Same content from an independent evidence event still bumps the version; a different
+    inferred value on a live slot only creates a PENDING candidate (design §3.5.1 step 6).
+    """
+
+    if _author(ctx) != "AGENT":
+        return "APPLY"
+    if row is None:
+        return "APPLY" if ctx.evidence is not None else "SKIPPED"
+    same = row.content_json == dict(candidate.content)
+    if _stale_source(row, ctx):
+        return "SKIPPED"
+    decision = decide_automatic_update(
+        memory_state_any(row),
+        expected_version=row.version,
+        evidence=ctx.evidence,
+        source_run_id=ctx.source_run_id or UUID(int=0),
+        same_conversation=row.source_ref == f"conversation:{ctx.conversation_id}",
+    )
+    if decision.reason == "OLD_SOURCE":
+        return "SKIPPED"
+    if row.is_deleted:
+        return "APPLY" if decision.allowed else "SKIPPED"
+    if not row.enabled:
+        return "SKIPPED"
+    return "APPLY" if same else "PENDING"
+
+
+def _stale_source(row: UserMemory, ctx: MemoryWriteContext) -> bool:
+    """A source no newer than what the slot already recorded cannot change or propose anything."""
+
+    evidence = ctx.evidence
+    if evidence is None or row.last_source_seq is None:
+        return False
+    same_conversation = row.source_ref == f"conversation:{ctx.conversation_id}"
+    same_run = row.last_source_run_id == ctx.source_run_id
+    return (same_conversation or same_run) and evidence.source_seq <= row.last_source_seq
 
 
 def _expires_at(candidate: MemoryCandidateV2, ctx: MemoryWriteContext, now: datetime) -> datetime | None:
@@ -382,7 +425,10 @@ class MemoryV2Writer:
             # Creating an existing identity (including a tombstone) is a conflict;
             # the caller must PATCH the memory or RESTORE the tombstone.
             raise AppError(ErrorCode.MEMORY_ALREADY_EXISTS)
-        if row is not None and row.content_json != dict(candidate.content) and ctx.actor_type == "AGENT":
+        decision = _write_decision(row, candidate, ctx)
+        if decision == "SKIPPED":
+            outcome = MemoryV2Outcome("SKIPPED", key, row.version if row is not None else None)
+        elif decision == "PENDING":
             outcome = await self._candidate(session, ctx, row, candidate, scope, command)
         else:
             await self._enforce_capacity(session, ctx, candidate, command, key, now, scope)

@@ -899,7 +899,7 @@ loader 的职责：
   - single-route-gate PASS exit=0
 ## TASK-012: 后台提炼 v2
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-004, TASK-005
 - **Source**: user-memory-retrieval-optimization.backend.design.md#3.2.2, #3.5.1, #3.5.7
 - **Scenarios**: S-05, E-01, E-07, E-09, E-12
@@ -943,14 +943,14 @@ loader 的职责：
 
 ### Checklist
 
-- [ ] consolidation 输出与解析改用 `MemoryCandidateV2` 形状。
-- [ ] 后台候选走 `MemoryService` 的 v2 入口，不直接写表。
-- [ ] 推断冲突写 PENDING 候选；同内容权威变化升版本。
-- [ ] 未知 scope/predicate 拒绝并记录；不生成 PENDING。
-- [ ] 结构化失败降级 `general` NOTE。
-- [ ] 经验 job 输出与处理保持原样。
-- [ ] 幂等：同 job 重跑不产生重复版本或重复候选。
-- [ ] 定向测试绿。
+- [x] consolidation 输出与解析改用 `MemoryCandidateV2` 形状。
+- [x] 后台候选走 `MemoryService` 的 v2 入口，不直接写表。
+- [x] 推断冲突写 PENDING 候选；同内容权威变化升版本。
+- [x] 未知 scope/predicate 拒绝并记录；不生成 PENDING。
+- [x] 结构化失败降级 `general` NOTE。
+- [x] 经验 job 输出与处理保持原样。
+- [x] 幂等：同 job 重跑不产生重复版本或重复候选。
+- [x] 定向测试绿。
 
 ### Spec Delta
 
@@ -961,11 +961,16 @@ loader 的职责：
 ### Log
 
 - [2026-11-14] created
+- [2026-11-15] 落地：批次改为 v2 候选 + 独立 task_state；未知 taxonomy 整批拒绝（RULE-005）；
+  推断冲突一律 PENDING、陈旧来源不产生效果；writer 增加自动写守卫（tombstone/disabled/权威/来源）。
+- [2026-11-14T16:42:01.697Z] started tests=c345e68a6828
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-14T17:07:01.924Z PASS commands=2/2 executed=2 deduped=0 elapsed=72929ms tests=c345e68a6828 head=6409f31c67f7 dirty=1
+  - job-effects PASS exit=0
+  - candidates PASS exit=0
 ## TASK-013: 评测基线真跑
 
 - **Status**: draft
