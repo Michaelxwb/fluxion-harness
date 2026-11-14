@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-from muad_common import SharedSettings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
+
+from tests.acceptance.datastores import create_datastore, drop_datastore
 
 ROOT = Path(__file__).resolve().parents[2]
 VERSIONS = ROOT / "migrations/versions"
@@ -35,19 +36,23 @@ def _migration_graph() -> dict[str, str | None]:
     return graph
 
 
-def _run_parity_probe() -> subprocess.CompletedProcess[str]:
+def _run_parity_probe(database_url: str) -> subprocess.CompletedProcess[str]:
+    env = {
+        **os.environ,
+        "DATABASE_URL": database_url,
+        # 探针必须看到被注入漂移的那一份库：关掉每测试克隆，否则它读到的是干净模板。
+        "MUAD_ACCEPTANCE_SHARED_DB": "1",
+    }
     return subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-x", PARITY_FILE, "-k", "agent_definition"],
         cwd=ROOT,
         capture_output=True,
         text=True,
+        env=env,
     )
 
 
-async def _execute(statement: str) -> None:
-    database_url = SharedSettings().database_url
-    if not database_url:
-        pytest.skip("DATABASE_URL not configured")
+async def _execute(database_url: str, statement: str) -> None:
     engine = create_async_engine(database_url)
     try:
         async with engine.begin() as connection:
@@ -75,15 +80,23 @@ async def test_e05_every_orm_suite_has_parity_tests() -> None:
 
 
 async def test_e05_parity_suite_detects_injected_column_drift() -> None:
-    await _execute(f"ALTER TABLE control.agent_definition ADD COLUMN IF NOT EXISTS {DRIFT_COLUMN} text")
+    info = create_datastore()
+    database_url = info["database_url"]
     try:
-        drifted = _run_parity_probe()
+        await _execute(
+            database_url,
+            f"ALTER TABLE control.agent_definition ADD COLUMN IF NOT EXISTS {DRIFT_COLUMN} text",
+        )
+        drifted = _run_parity_probe(database_url)
         assert drifted.returncode != 0, (
             "parity suite did not detect the injected column drift\n"
             f"stdout={drifted.stdout[-800:]}\nstderr={drifted.stderr[-400:]}"
         )
+        await _execute(
+            database_url,
+            f"ALTER TABLE control.agent_definition DROP COLUMN IF EXISTS {DRIFT_COLUMN}",
+        )
+        restored = _run_parity_probe(database_url)
+        assert restored.returncode == 0, f"parity suite still failing after repair: {restored.stdout[-800:]}"
     finally:
-        await _execute(f"ALTER TABLE control.agent_definition DROP COLUMN IF EXISTS {DRIFT_COLUMN}")
-
-    restored = _run_parity_probe()
-    assert restored.returncode == 0, f"parity suite still failing after repair: {restored.stdout[-800:]}"
+        drop_datastore(info["name"], info["admin_database_url"], info["redis_url"])

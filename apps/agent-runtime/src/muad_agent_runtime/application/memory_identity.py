@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from uuid import UUID
 
 from muad_contracts.canonical import canonical_json
@@ -17,7 +18,7 @@ def scope_hash(scope: dict[str, str]) -> str:
     return _sha16(canonical_json(scope))
 
 
-def member_hash(content: dict[str, object]) -> str:
+def member_hash(content: Mapping[str, object]) -> str:
     return _sha16(canonical_json(content))
 
 

@@ -7,7 +7,6 @@ from uuid import uuid4
 
 import pytest
 from muad_contracts.memory import (
-
     ForgetMemoryInput,
     MemoryCandidate,
     MemoryItem,

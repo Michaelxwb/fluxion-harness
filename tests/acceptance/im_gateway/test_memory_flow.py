@@ -41,16 +41,19 @@ from tests.e2e.wecom_probe_app import frame_text
 WAIT_TIMEOUT_SEC = 150.0
 REPLY_TIMEOUT_SEC = 120.0
 USER_TEXT = "记住：以后都用中文回答我"
-MEMORY_KEY = "reply.language"
+MEMORY_TITLE = "回复语言"
 MEMORY_VALUE = "中文"
 FINAL_TEXT = "好的，已记下：以后都用中文回答你。"
 #: 原话证据要求整条消息（`evidence.verify_quote`：整句相等才算来源，不做词法猜测）。
 QUOTE = USER_TEXT
 REMEMBER_ARGUMENTS = json.dumps(
     {
-        "memory_key": MEMORY_KEY,
-        "value": MEMORY_VALUE,
-        "category": "PREFERENCE",
+        "memory_kind": "PREFERENCE",
+        "predicate": "language",
+        "scope_state": "ABSENT",
+        "scope": {},
+        "content": {"value": MEMORY_VALUE},
+        "title": MEMORY_TITLE,
         "source_quote": QUOTE,
     },
     ensure_ascii=False,
@@ -109,8 +112,9 @@ async def _push(stack: GatewayStack, *, text: str) -> str:
 
 async def _memory_rows(stack: GatewayStack) -> list[dict[str, Any]]:
     return await _fetch(
-        "SELECT memory_key, author, user_id, category, content_json, source_quote, version, enabled "
-        "FROM runtime.user_memory WHERE tenant_id = :t ORDER BY update_time",
+        "SELECT memory_key, title, memory_kind, author, user_id, category, content_json,"
+        " source_quote, version, enabled FROM runtime.user_memory"
+        " WHERE tenant_id = :t ORDER BY update_time",
         {"t": stack.tenant_id},
     )
 
@@ -285,7 +289,8 @@ async def test_s01_gateway_message_writes_user_memory(memory_probe: GatewayStack
     )
     proposal = await _require_pending_proposal(stack)
     candidate = proposal["proposal_json"]["candidate"]
-    assert candidate["memory_key"] == MEMORY_KEY
+    assert candidate["predicate"] == "language"
+    assert candidate["title"] == MEMORY_TITLE
     assert candidate["source_quote"] == QUOTE
     assert await _memory_rows(stack) == [], "未经真实确认不得产生事实"
 
@@ -296,9 +301,9 @@ async def test_s01_gateway_message_writes_user_memory(memory_probe: GatewayStack
     rows = await _memory_rows(stack)
     assert len(rows) == 1
     row = rows[0]
-    assert row["memory_key"] == MEMORY_KEY
+    assert row["title"] == MEMORY_TITLE
     assert row["author"] == "USER"
-    assert row["category"] == "PREFERENCE"
+    assert row["memory_kind"] == "PREFERENCE"
     assert row["enabled"] is True
     assert row["content_json"] == {"value": MEMORY_VALUE}
     assert row["source_quote"] == QUOTE
@@ -315,8 +320,8 @@ async def test_s01_gateway_message_writes_user_memory(memory_probe: GatewayStack
     assert audits[0]["status"] == "OK"
     assert audits[0]["tool_call_id"]  # 模型给的调用 id，不是工具名
     assert audits[0]["run_id"] is not None
-    assert audits[0]["args_preview_json"]["memory_key"] == MEMORY_KEY
-    assert audits[0]["args_preview_json"]["category"] == "PREFERENCE"
+    assert audits[0]["args_preview_json"]["predicate"] == "language"
+    assert audits[0]["args_preview_json"]["title"] == MEMORY_TITLE
 
     # 确认恢复轮跑完：Run 到终态后本会话不再追加事件 —— 下一个用例 `/new` 才不会被旧会话
     # 的异步执行抢走"最新会话"（EventWriter 每次 append 都会 bump conversation.update_time）。
@@ -332,7 +337,7 @@ async def test_s05_receipt_reaches_model_and_write_is_audited(memory_probe: Gate
 
     回执的**素材**落在模型侧：工具结果必须是 `saved=false` + `confirmation_required=true` +
     `proposal_id`（不承诺"此后必然生效"）。模型如何措辞属模型行为，不在探针模型的断言范围内。
-    审计行必须能读出 `memory_key`/`category`，且不包含已删除的 `source_type`。
+    审计行必须能读出 `predicate`/`title`，且不包含已删除的 `source_type`。
     """
     stack = memory_probe
     await _wait_for_gateway_ws(stack)
@@ -383,8 +388,8 @@ async def test_s05_receipt_reaches_model_and_write_is_audited(memory_probe: Gate
     latest = audits[-1]
     assert latest["run_id"] is not None
     assert latest["artifact_id"] is None  # 小结果不外置
-    assert latest["args_preview_json"]["memory_key"] == MEMORY_KEY
-    assert latest["args_preview_json"]["category"] == "PREFERENCE"
+    assert latest["args_preview_json"]["predicate"] == "language"
+    assert latest["args_preview_json"]["title"] == MEMORY_TITLE
     assert "source_type" not in latest["args_preview_json"]
 
     # 收尾：确认恢复轮到终态，本模块结束后不再有异步事件追加

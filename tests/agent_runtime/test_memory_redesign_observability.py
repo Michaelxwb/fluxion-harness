@@ -181,3 +181,29 @@ async def test_nested_commit_does_not_publish_success_before_outer_decision(asyn
     async with factory() as session:
         rows = list(await session.scalars(sa.select(UserMemory).where(UserMemory.tenant_id == ctx.tenant_id)))
     assert len(rows) == int(commit)
+
+
+def test_memory_audit_preview_keeps_only_safe_v2_metadata() -> None:
+    from muad_agent_runtime.application.memory_observability import memory_audit_preview
+
+    preview = memory_audit_preview(
+        {
+            "memory_kind": "PREFERENCE",
+            "predicate": "output_style",
+            "content": {"value": "内部内容不进审计"},
+            "title": "输出风格",
+        },
+        args_hash="h",
+        status="OK",
+    )
+    assert preview == {"args_hash": "h", "status": "OK", "predicate": "output_style", "title": "输出风格"}
+
+    redacted = memory_audit_preview(
+        {"predicate": "invented", "title": "api_key=secret", "content": {"value": "x"}},
+        args_hash="h",
+        status="OK",
+        canaries=("secret",),
+    )
+    assert redacted["predicate"] == "<redacted>"
+    assert redacted["title"] == "<redacted>"
+    assert "content" not in redacted

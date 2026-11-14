@@ -204,6 +204,7 @@ from dataclasses import dataclass  # noqa: E402
 from .memory_taxonomy import (  # noqa: E402
     ENTITY_TYPE_DISPLAY_NAMES,
     PREDICATES_BY_KEY,
+    PredicateSpec,
     entity_aliases,
     validate_scope,
     validate_tag,
@@ -228,7 +229,7 @@ class MemoryPriority(StrEnum):
 WritableMemoryKind = Literal["PREFERENCE", "FACT", "NOTE"]
 
 
-def _validated_predicate(kind: str, predicate: str):
+def _validated_predicate(kind: str, predicate: str) -> PredicateSpec:
     spec = PREDICATES_BY_KEY.get(predicate)
     if spec is None or spec.kind != kind:
         raise ValueError("predicate is unknown or does not match memory_kind")
@@ -310,8 +311,8 @@ class RememberMemoryInput(ContractModel):
             title=self.title,
             summary=self.summary,
             tags=self.tags,
-            cardinality=spec.cardinality,
-            priority=spec.priority,
+            cardinality=MemoryCardinality(spec.cardinality),
+            priority=MemoryPriority(spec.priority),
             taxonomy_version=taxonomy_version,
             source_quote=self.source_quote,
             expires_at=self.expires_at,

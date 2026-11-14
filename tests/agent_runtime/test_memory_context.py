@@ -45,6 +45,7 @@ def _row(key, *, version=1, expires_at=None):
         enabled=True,
         expires_at=expires_at,
         last_confirmed_at=None,
+        updated_at=NOW,
     )
 
 
@@ -88,6 +89,7 @@ def _scoped(key, audience, *, value):
         enabled=True,
         expires_at=None,
         last_confirmed_at=NOW,
+        updated_at=NOW,
     )
 
 

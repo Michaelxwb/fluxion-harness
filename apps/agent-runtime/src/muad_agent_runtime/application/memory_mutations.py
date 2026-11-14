@@ -73,7 +73,7 @@ def memory_state(
         )
         content, category = candidate.content, candidate.category
     except ValidationError:
-        if not tolerant:
+        if not tolerant or row.category is None:
             raise
         content, category = FactContent(value="-"), MemoryCategory(row.category)
     return MemoryWriteState(

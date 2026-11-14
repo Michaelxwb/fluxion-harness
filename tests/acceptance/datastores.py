@@ -321,7 +321,7 @@ def create_template(revision: str = "head") -> dict[str, str]:
     }
 
 
-def clone_datastore(template: dict[str, str], prefix: str = DEFAULT_PREFIX) -> dict[str, str]:
+def clone_datastore(template: dict[str, str], prefix: str = "muad_tst_") -> dict[str, str]:
     """Clone the migrated template into a fresh per-test database + Redis number."""
 
     settings = SharedSettings()

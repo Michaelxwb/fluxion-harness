@@ -31,12 +31,17 @@ const identities: Identity[] = [true, false].map((active, index) => ({
 }));
 const memories: MemoryItem[] = [true, false].map((enabled, index) => ({
   id: `memory-${index}`, memory_key: `memory-${index}`,
-  category: index ? 'WORK_STYLE' : 'PREFERENCE',
+  memory_kind: index ? 'NOTE' : 'PREFERENCE',
+  predicate: index ? 'general' : 'report_format',
+  scope_state: 'ABSENT', scope: {},
   content: { value: index ? longValue : '使用中文回复' },
-  author: index ? 'AGENT' : 'USER', version: 1, enabled,
-  explicit_request: !index, confirmed_count: index ? 0 : 1,
+  title: index ? `笔记 ${index}` : '默认中文回复',
+  summary: index ? longValue : '始终用中文回答',
+  tags: [], cardinality: 'SINGLE', priority: 'OPTIONAL',
+  author: index ? 'AGENT' : 'USER', authority: index ? 'AGENT_INFERRED' : 'USER_EXPLICIT',
+  version: 1, enabled,
   status: enabled ? 'ACTIVE' : 'DISABLED',
-  source_ref: null, source_quote: null, expires_at: null, last_confirmed_at: null,
+  expires_at: null, last_confirmed_at: null,
   create_time: time, update_time: time
 }));
 const cases = [

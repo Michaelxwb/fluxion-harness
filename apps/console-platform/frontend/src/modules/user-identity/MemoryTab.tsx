@@ -25,7 +25,7 @@ import {
   listMemoryConflicts,
   listMemoryHistory
 } from './services/users';
-import type { MemoryItem } from './memoryTypes';
+import type { MemoryCommandInput, MemoryItem } from './memoryTypes';
 
 const DEFAULT_PAGE_SIZE = 15;
 
@@ -57,6 +57,12 @@ export function formatMemoryContent(content: Record<string, unknown>): string {
     .join('；');
 }
 
+const KNOWN_AUTHORS = new Set(['USER', 'ADMIN', 'AGENT']);
+
+function authorLabel(t: (key: string) => string, value: string): string {
+  return KNOWN_AUTHORS.has(value) ? t(`user.memory.author.${value}`) : value;
+}
+
 export function MemoryTab(props: MemoryTabProps) {
   const { t } = useTranslation();
   const [items, setItems] = useState<MemoryItem[]>([]);
@@ -80,8 +86,24 @@ export function MemoryTab(props: MemoryTabProps) {
   const [conflicts, setConflicts] = useState<MemoryConflictItem[]>([]);
   const [conflictTotal, setConflictTotal] = useState(0);
   const [conflictLoading, setConflictLoading] = useState(false);
+  const pendingCommandKeys = useRef<Record<string, string>>({});
   const formApi = useRef<FormApi<CreateValues> | null>(null);
   const editFormApi = useRef<FormApi<EditValues> | null>(null);
+
+  /** 同一动作失败后的重试沿用同一命令号：Runtime 按回执重放，不会产生第二次效果。 */
+  const runCommand = async (input: MemoryCommandInput) => {
+    setActionError(null);
+    const key = pendingCommandKeys.current[input.action] ?? newRequestId();
+    pendingCommandKeys.current[input.action] = key;
+    try {
+      await commandMemory(props.userId, input, key);
+      delete pendingCommandKeys.current[input.action];
+      await load();
+      props.onMutated?.();
+    } catch {
+      setActionError(t('user.memory.errorFallback'));
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,16 +127,7 @@ export function MemoryTab(props: MemoryTabProps) {
     void load();
   }, [load]);
 
-  const runCommand = async (payload: Parameters<typeof commandMemory>[1]) => {
-    setActionError(null);
-    try {
-      await commandMemory(props.userId, payload, newRequestId());
-      await load();
-      props.onMutated?.();
-    } catch {
-      setActionError(t('user.memory.errorFallback'));
-    }
-  };
+
 
   const submitCreate = async (values: CreateValues) => {
     setCreating(true);
@@ -129,10 +142,9 @@ export function MemoryTab(props: MemoryTabProps) {
         {
           action: 'CREATE',
           candidate: {
-            memory_kind: 'NOTE',
             predicate: values.predicate || 'general',
             scope_state: 'ABSENT',
-            content: { text: values.content },
+            content: { value: values.content },
             title: values.title,
             summary: '',
             tags
@@ -186,7 +198,7 @@ export function MemoryTab(props: MemoryTabProps) {
       try {
         const data = await listMemoryHistory(props.userId, item.id, {
           page: nextPage,
-          page_size: 10
+          page_size: 15
         });
         setHistory(data.items);
         setHistoryTotal(data.total);
@@ -239,11 +251,15 @@ export function MemoryTab(props: MemoryTabProps) {
   return (
     <div className="user-memory-tab">
       <div className="detail-hint user-memory-hint">{t('user.memory.hint')}</div>
-      {actionError ? <div className="detail-hint">{actionError}</div> : null}
+      {actionError ? (
+        <div className="detail-hint" data-testid="memory-action-error">
+          {actionError}
+        </div>
+      ) : null}
       {props.canManage ? (
         <div className="user-memory-toolbar">
           <div className="user-memory-toolbar-start">
-            <Button icon={<IconPlus />} onClick={() => setCreateVisible(true)}>
+            <Button data-testid="memory-create" icon={<IconPlus />} onClick={() => setCreateVisible(true)}>
               {t('user.memory.add')}
             </Button>
           </div>
@@ -265,7 +281,7 @@ export function MemoryTab(props: MemoryTabProps) {
               title={t('user.memory.clear')}
               onConfirm={() => void runCommand({ action: 'CLEAR' })}
             >
-              <Button type="danger" theme="borderless">
+              <Button data-testid="memory-clear" type="danger" theme="borderless">
                 {t('user.memory.clear')}
               </Button>
             </ConfirmAction>
@@ -273,8 +289,9 @@ export function MemoryTab(props: MemoryTabProps) {
         </div>
       ) : null}
       <DataTable<MemoryItem>
+        className="app-table-fit user-memory-table"
+        collapseActions={false}
         size="small"
-        columnGrowth={{ title: 1 }}
         dataSource={items}
         rowKey="id"
         pagination={false}
@@ -283,16 +300,30 @@ export function MemoryTab(props: MemoryTabProps) {
           {
             title: t('user.memory.content'),
             dataIndex: 'title',
+            width: 120,
             render: (_value: string, item: MemoryItem) => (
-              <TableText>
-                {`${item.title}：${item.summary || formatMemoryContent(item.content)}`}
-              </TableText>
+              <Button
+                theme="borderless"
+                disabled={!props.canManage || item.status === 'DELETED'}
+                onClick={() => {
+                  setEditing(item);
+                  editFormApi.current?.setValues({
+                    title: item.title,
+                    summary: item.summary,
+                    content: formatMemoryContent(item.content)
+                  });
+                }}
+              >
+                <TableText title={formatMemoryContent(item.content)}>
+                  {`${item.title}：${item.summary || formatMemoryContent(item.content)}`}
+                </TableText>
+              </Button>
             )
           },
           {
             title: t('user.memory.categoryLabel'),
             dataIndex: 'memory_kind',
-            width: 156,
+            width: 104,
             render: (value: string, item: MemoryItem) => (
               <TableText>{`${t(`user.memory.kind.${value}`)}/${item.predicate}`}</TableText>
             )
@@ -300,115 +331,90 @@ export function MemoryTab(props: MemoryTabProps) {
           {
             title: t('user.memory.source'),
             dataIndex: 'author',
-            width: 112,
-            render: (value: string) => <TableText>{t(`user.memory.author.${value}`)}</TableText>
+            width: 144,
+            render: (value: string) => (
+              <TableText title={value}>{authorLabel(t, value)}</TableText>
+            )
           },
           {
             title: t('user.memory.statusLabel'),
             dataIndex: 'status',
-            width: 84,
+            width: 140,
             render: (value: string) => <TableText>{t(`user.memory.status.${value}`)}</TableText>
           },
-          { title: t('user.memory.version'), dataIndex: 'version', width: 48 },
           {
             title: t('user.memory.updated'),
             dataIndex: 'update_time',
-            width: 164,
+            width: 176,
             render: (value: string) => <DateTimeText value={value} />
           },
           {
-            title: t('user.memory.history'),
-            width: 64,
+            key: 'actions',
+            title: t('user.columns.action'),
+            fixed: 'right' as const,
+            width: 196,
+            className: 'table-actions-cell',
             render: (_value: unknown, item: MemoryItem) => (
-              <Button
-                theme="borderless"
-                size="small"
-                onClick={() => {
-                  setHistoryOf(item);
-                  void loadHistory(item, 1);
-                }}
-              >
-                {t('user.memory.history')}
-              </Button>
+              <div className="memory-row-actions">
+                <Button
+                  theme="borderless"
+                  size="small"
+                  onClick={() => {
+                    setHistoryOf(item);
+                    void loadHistory(item, 1);
+                  }}
+                >
+                  {t('user.memory.history')}
+                </Button>
+                {props.canManage && item.status !== 'DELETED' ? (
+                  <>
+                    <Button
+                      theme="borderless"
+                      size="small"
+                      onClick={() =>
+                        void runCommand({
+                          action: item.status === 'ACTIVE' ? 'DISABLE' : 'ENABLE',
+                          memory_id: item.id,
+                          expected_version: item.version
+                        })
+                      }
+                    >
+                      {item.status === 'ACTIVE' ? t('user.memory.disable') : t('user.memory.enable')}
+                    </Button>
+                    <ConfirmAction
+                      type="danger"
+                      size="small"
+                      title={t('user.memory.confirmDelete')}
+                      onConfirm={() =>
+                        void runCommand({
+                          action: 'DELETE',
+                          memory_id: item.id,
+                          expected_version: item.version
+                        })
+                      }
+                    >
+                      {t('user.memory.delete')}
+                    </ConfirmAction>
+                  </>
+                ) : null}
+                {props.canManage && item.status === 'DELETED' ? (
+                  <ConfirmAction
+                    size="small"
+                    title={t('user.memory.confirmRestore')}
+                    onConfirm={() =>
+                      void runCommand({
+                        action: 'RESTORE',
+                        memory_id: item.id,
+                        expected_version: item.version
+                      })
+                    }
+                  >
+                    {t('user.memory.restore')}
+                  </ConfirmAction>
+                ) : null}
+              </div>
             )
-          },
-          ...(props.canManage
-            ? [
-                {
-                  key: 'actions',
-                  title: t('user.columns.action'),
-                  fixed: 'right' as const,
-                  width: 196,
-                  className: 'table-actions-cell',
-                  render: (_value: unknown, item: MemoryItem) => (
-                    <div className="memory-row-actions">
-                      {item.status === 'DELETED' ? (
-                        <ConfirmAction
-                          title={t('user.memory.confirmRestore')}
-                          onConfirm={() =>
-                            void runCommand({
-                              action: 'RESTORE',
-                              memory_id: item.id,
-                              expected_version: item.version
-                            })
-                          }
-                        >
-                          <Button theme="borderless" size="small">
-                            {t('user.memory.restore')}
-                          </Button>
-                        </ConfirmAction>
-                      ) : (
-                        <>
-                          <Button
-                            theme="borderless"
-                            size="small"
-                            onClick={() => {
-                              setEditing(item);
-                              editFormApi.current?.setValues({
-                                title: item.title,
-                                summary: item.summary,
-                                content: formatMemoryContent(item.content)
-                              });
-                            }}
-                          >
-                            {t('user.memory.edit')}
-                          </Button>
-                          <Button
-                            theme="borderless"
-                            size="small"
-                            onClick={() =>
-                              void runCommand({
-                                action: item.status === 'ACTIVE' ? 'DISABLE' : 'ENABLE',
-                                memory_id: item.id,
-                                expected_version: item.version
-                              })
-                            }
-                          >
-                            {item.status === 'ACTIVE'
-                              ? t('user.memory.disable')
-                              : t('user.memory.enable')}
-                          </Button>
-                          <ConfirmAction
-                            title={t('user.memory.confirmDelete')}
-                            onConfirm={() =>
-                              void runCommand({
-                                action: 'DELETE',
-                                memory_id: item.id,
-                                expected_version: item.version
-                              })
-                            }
-                          >
-                            <Button theme="borderless" type="danger" size="small">
-                              {t('user.memory.delete')}
-                            </Button>
-                          </ConfirmAction>
-                        </>
-                      )}
-                    </div>
-                  )
-                }
-              ]
-            : [])
+          }
         ]}
       />
       <PaginationFooter
@@ -513,12 +519,15 @@ export function MemoryTab(props: MemoryTabProps) {
         visible={historyOf !== null}
         onCancel={() => setHistoryOf(null)}
         width={480}
+        closeOnEsc
       >
         <Spin spinning={historyLoading}>
           {history.length === 0 ? (
             <EmptyState title={t('user.memory.historyEmpty')} />
           ) : (
             <DataTable<MemoryHistoryItem>
+              className="app-table-fit memory-history-table"
+              collapseActions={false}
               dataSource={history}
               rowKey="id"
               pagination={false}
@@ -546,7 +555,7 @@ export function MemoryTab(props: MemoryTabProps) {
           )}
           <PaginationFooter
             page={historyPage}
-            pageSize={10}
+            pageSize={15}
             total={historyTotal}
             onPageChange={(next) => {
               if (historyOf !== null) void loadHistory(historyOf, next);

@@ -155,8 +155,14 @@ export const ADMIN_EXTRA_ROUTES = {
     method: 'PUT',
     path: (credentialId) => `/api/v1/model-credentials/${credentialId}`
   },
-  createUserMemory: { method: 'POST', path: (userId) => `/api/v1/users/${userId}/memory` },
-  clearUserMemory: { method: 'DELETE', path: (userId) => `/api/v1/users/${userId}/memory` }
+  createUserMemory: {
+    method: 'POST',
+    path: (userId) => `/api/v1/users/${userId}/memory/commands`
+  },
+  clearUserMemory: {
+    method: 'POST',
+    path: (userId) => `/api/v1/users/${userId}/memory/commands`
+  }
 } satisfies Record<string, WebchatRoute>;
 
 /** 真实模型协议探针（`tests/acceptance/capacity/probes.py`）的控制面路径。 */
@@ -459,15 +465,25 @@ export class ConsoleAdminClient {
     return data as Record<string, unknown>;
   }
 
-  /** 管理员人工新增用户记忆（真实 Console → Runtime 显式 UPSERT；幂等键逐次唯一）。 */
+  /** 管理员人工新增用户记忆（真实 Console → Runtime 单入口命令；幂等键逐次唯一）。 */
   async createUserMemory(
     userId: string,
-    input: { memoryKey: string; category: 'PREFERENCE' | 'WORK_STYLE' | 'EXPLICIT'; value: string }
+    input: { title: string; value: string; predicate?: string }
   ): Promise<Record<string, unknown>> {
     const data = await this.send(ADMIN_EXTRA_ROUTES.createUserMemory, {
       args: [userId],
       headers: { 'Idempotency-Key': randomUUID() },
-      data: { memory_key: input.memoryKey, category: input.category, value: input.value }
+      data: {
+        action: 'CREATE',
+        candidate: {
+          memory_kind: 'PREFERENCE',
+          predicate: input.predicate ?? 'response_length',
+          scope_state: 'ABSENT',
+          scope: {},
+          content: { value: input.value },
+          title: input.title
+        }
+      }
     });
     return data as Record<string, unknown>;
   }
@@ -476,7 +492,8 @@ export class ConsoleAdminClient {
   async clearUserMemory(userId: string): Promise<Record<string, unknown>> {
     const data = await this.send(ADMIN_EXTRA_ROUTES.clearUserMemory, {
       args: [userId],
-      headers: { 'Idempotency-Key': randomUUID() }
+      headers: { 'Idempotency-Key': randomUUID() },
+      data: { action: 'CLEAR' }
     });
     return data as Record<string, unknown>;
   }

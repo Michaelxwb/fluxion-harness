@@ -181,6 +181,11 @@ async def isolated_datastore(request: pytest.FixtureRequest, datastore_template,
     ):
         yield None
         return
+    # 逃生阀（与 tests/acceptance/conftest.py 同一枚举）：内层探针必须看到调用方指定的那一份
+    # 库（例如被注入漂移的临时库），否则每测试克隆会读到干净模板、观察不到注入。
+    if os.environ.get("MUAD_ACCEPTANCE_SHARED_DB") == "1":
+        yield None
+        return
     import asyncio
 
     from tests.acceptance.datastores import clone_datastore, drop_datastore
@@ -207,12 +212,15 @@ async def _ensure_isolated_datastore(isolated_datastore: object) -> object:
     """Every test runs against a cloned database unless it owns its datastore.
 
     The guard fails loudly if a non-opted suite resolves to anything but a
-    ``muad_acc_*`` database — the dev database must never be touched by tests.
+    ``muad_tst_*`` database (suite clones; acceptance suites keep their own
+    ``muad_acc_*``) — the dev database must never be touched by tests.
     """
 
     if isolated_datastore is not None:
         from muad_common import process_settings
 
         url = process_settings().require_database_url()
-        assert "/muad_acc_" in url, f"test resolved to a non-isolated database: {url}"
+        assert "/muad_tst_" in url or "/muad_acc_" in url, (
+            f"test resolved to a non-isolated database: {url}"
+        )
     yield

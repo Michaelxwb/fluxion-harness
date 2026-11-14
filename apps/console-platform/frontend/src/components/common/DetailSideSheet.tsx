@@ -51,7 +51,7 @@ export function DetailSideSheet(props: DetailSideSheetProps) {
     );
   return (
     <SideSheet className="app-detail-sheet" style={{ maxWidth: '100vw' }}
-      visible={props.visible} title={header} onCancel={props.onCancel} footer={null} width={1080}
+      visible={props.visible} title={header} onCancel={props.onCancel} footer={null} width={920}
       closeOnEsc={props.closeOnEsc ?? false}>
       {props.notice ? <div className="detail-notice">{props.notice}</div> : null}
       {tabs}
