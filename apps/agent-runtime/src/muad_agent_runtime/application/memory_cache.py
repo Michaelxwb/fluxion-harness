@@ -12,7 +12,13 @@ from muad_api.error_codes import ErrorCode
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..metrics import MEMORY_INJECT_METRIC, record_counter
-from .memory_queries import MemoryCandidateRow, MemoryQueries, MemoryReadScope, MemorySnapshot
+from .memory_queries import (
+    MemoryCandidateRow,
+    MemoryCandidateRowV2,
+    MemoryQueries,
+    MemoryReadScope,
+    MemorySnapshotV2,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +26,8 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True, slots=True)
 class _CachedCandidates:
     revision: int
-    rows: tuple[MemoryCandidateRow, ...]
+    rows: tuple[MemoryCandidateRowV2, ...]
+    legacy_rows: tuple[MemoryCandidateRow, ...] = ()
 
 
 class MemoryCandidateCache:
@@ -46,7 +53,7 @@ class MemoryCandidateCache:
     def invalidate(self) -> None:
         self._cached = None
 
-    async def read_for_injection(self, *, max_items: int, max_bytes: int) -> MemorySnapshot | None:
+    async def read_for_injection(self, *, max_items: int, max_bytes: int) -> MemorySnapshotV2 | None:
         if max_items < 0 or max_bytes < 0:
             raise ValueError("memory injection budgets must be non-negative")
         async with self._lock:
@@ -71,7 +78,7 @@ class MemoryCandidateCache:
                 )
                 return None
 
-    async def _read_current(self) -> MemorySnapshot:
+    async def _read_current(self) -> MemorySnapshotV2:
         cached = self._cached
         if cached is not None:
             head = await self._queries.read_scope_version(self._scope)
@@ -79,11 +86,18 @@ class MemoryCandidateCache:
                 rows = tuple(
                     row
                     for row in cached.rows
+                    if row.enabled
+                    and (row.expires_at is None or row.expires_at > head.as_of)
+                )
+                legacy = tuple(
+                    row
+                    for row in cached.legacy_rows
                     if row.record.enabled
-                    and not row.record.is_deleted
                     and (row.record.expires_at is None or row.record.expires_at > head.as_of)
                 )
-                return MemorySnapshot(self._scope, head.revision, head.forget_epoch, head.as_of, rows)
-        snapshot = await self._queries.read_snapshot(self._scope)
-        self._cached = _CachedCandidates(snapshot.revision, snapshot.rows)
+                return MemorySnapshotV2(
+                    self._scope, head.revision, head.forget_epoch, head.as_of, rows, legacy
+                )
+        snapshot = await self._queries.read_snapshot_v2(self._scope)
+        self._cached = _CachedCandidates(snapshot.revision, snapshot.rows, snapshot.legacy_rows)
         return snapshot

@@ -86,11 +86,14 @@ class MemoryCandidateRowV2:
 
 @dataclass(frozen=True, slots=True)
 class MemorySnapshotV2:
+    """One SQL snapshot: v2 rows and legacy-lane rows share revision/epoch/as_of."""
+
     scope: MemoryReadScope
     revision: int
     forget_epoch: int
     as_of: datetime
     rows: tuple[MemoryCandidateRowV2, ...]
+    legacy_rows: tuple[MemoryCandidateRow, ...] = ()
 
 
 def _scope_source(scope: MemoryReadScope) -> FromClause:
@@ -171,6 +174,41 @@ def _candidate(row: UserMemory) -> MemoryCandidateRow:
     return MemoryCandidateRow(row.id, record, row.source_quote)
 
 
+def _is_v2_row(row: UserMemory | None) -> bool:
+    """v2 lane is identified by memory_kind; the legacy lane never fills it."""
+
+    return row is not None and row.memory_kind is not None
+
+
+def _is_legacy_row(row: UserMemory | None) -> bool:
+    """Legacy lane keeps category (experience / TASK_STATE) and carries no memory_kind."""
+
+    return row is not None and row.memory_kind is None and row.category is not None
+
+
+def _candidate_v2(row: UserMemory) -> MemoryCandidateRowV2:
+    return MemoryCandidateRowV2(
+        id=row.id,
+        memory_key=row.memory_key,
+        memory_kind=row.memory_kind,
+        predicate=row.predicate or "general",
+        scope_state=row.scope_state or "ABSENT",
+        scope=dict(row.scope_json or {}),
+        content=dict(row.content_json or {}),
+        title=row.title or "",
+        summary=row.summary or "",
+        tags=tuple(row.tags_json or ()),
+        cardinality=row.cardinality or "SINGLE",
+        priority=row.priority or "OPTIONAL",
+        author=row.author,
+        authority=row.authority,
+        version=row.version,
+        enabled=row.enabled,
+        expires_at=row.expires_at,
+        last_confirmed_at=row.last_confirmed_at,
+    )
+
+
 def _validate_bounds(rows: tuple[MemoryCandidateRow, ...]) -> None:
     if (
         len(rows) > MEMORY_MAX_RECORDS
@@ -207,44 +245,19 @@ class MemoryQueries:
             return await self._read_snapshot(session, scope)
 
     async def read_snapshot_v2(self, scope: MemoryReadScope) -> MemorySnapshotV2:
-        """Read the v2 structured projection with the same SQL snapshot boundary."""
+        """Read both lanes from one SQL snapshot; neither lane is derived from the other."""
 
         async with self._sessions()() as session:
             records = (await session.execute(_snapshot_statement(scope))).tuples().all()
             revision, epoch, as_of, _ = records[0]
-            rows = tuple(
-                MemoryCandidateRowV2(
-                    id=row.id,
-                    memory_key=row.memory_key,
-                    memory_kind=row.memory_kind or row.category,
-                    predicate=row.predicate or "general",
-                    scope_state=row.scope_state or "ABSENT",
-                    scope=dict(row.scope_json or {}),
-                    content=dict(row.content_json or {}),
-                    title=row.title or "",
-                    summary=row.summary or "",
-                    tags=tuple(row.tags_json or ()),
-                    cardinality=row.cardinality or "SINGLE",
-                    priority=row.priority or "OPTIONAL",
-                    author=row.author,
-                    authority=row.authority,
-                    version=row.version,
-                    enabled=row.enabled,
-                    expires_at=row.expires_at,
-                    last_confirmed_at=row.last_confirmed_at,
-                )
-                for _, _, _, row in records
-                if row is not None
-            )
-            return MemorySnapshotV2(scope, revision, epoch, as_of, rows)
+            rows = tuple(_candidate_v2(row) for _, _, _, row in records if _is_v2_row(row))
+            legacy = tuple(_candidate(row) for _, _, _, row in records if _is_legacy_row(row))
+            return MemorySnapshotV2(scope, revision, epoch, as_of, rows, legacy)
 
     @staticmethod
     async def _read_snapshot(session: AsyncSession, scope: MemoryReadScope) -> MemorySnapshot:
         records = (await session.execute(_snapshot_statement(scope))).tuples().all()
         revision, epoch, as_of, _ = records[0]
-        # v2 rows have no legacy category; they belong to the v2 projection only.
-        rows = tuple(
-            _candidate(row) for _, _, _, row in records if row is not None and row.category is not None
-        )
+        rows = tuple(_candidate(row) for _, _, _, row in records if _is_legacy_row(row))
         _validate_bounds(rows)
         return MemorySnapshot(scope, revision, epoch, as_of, rows)
