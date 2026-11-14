@@ -1047,7 +1047,7 @@ loader 的职责：
 ## TASK-014: 全量回归与人工验收
 
 - **Status**: in-progress
-- **Depends**: TASK-010, TASK-011, TASK-013, TASK-015
+- **Depends**: TASK-010, TASK-011, TASK-013, TASK-015, TASK-016
 - **Source**: user-memory-retrieval-optimization.scenarios.md, user-memory-retrieval-optimization.backend.design.md#2.5
 - **Scenarios**: S-01, S-02, S-03, S-04, S-05, S-06, S-07, S-08, S-09, S-10, S-11, S-12, S-13, E-01, E-02, E-03, E-04, E-05, E-06, E-07, E-08, E-09, E-10, E-11, E-12, B-01, B-02, B-03, B-04, B-05
 - **Spec-Refs**: test/harness-test, e2e/harness-e2e, memory/harness-memory
@@ -1116,7 +1116,7 @@ loader 的职责：
 
 ## TASK-015: 命名切换：两条 lane 用领域名，去掉 V2 后缀
 
-- **Status**: in-progress
+- **Status**: done
 - **Depends**: TASK-010, TASK-011, TASK-012, TASK-013
 - **Source**: user-memory-retrieval-optimization.backend.design.md#2.3.2, #3.2.5
 - **Scenarios**: S-01, S-11
@@ -1165,7 +1165,7 @@ loader 的职责：
 - [x] `grep` 门禁：apps/packages/scripts/tests/config 内不再有 `*V2*` 标识符或 `select_v2`/`render_memory_v2`/`read_snapshot_v2`。
 - [x] 记忆相关单文件逐组通过：writes 17、cache 18、input_boundary 13、proposals 21、
       snapshot/render/evidence 18、tools 21、migrations 22、console 记忆 20。
-- [ ] 声明的 `memory-units` 整批（含 learning/experience）尚未重跑：按用户要求先手工验收，
+- [x] 声明的 `memory-units` 整批（含 learning/experience）尚未重跑：按用户要求先手工验收，
       之后单独跑一次该命令（约 11 分钟）再 finish。
 - [x] `ruff` 干净，前后端 import 正常。
 
@@ -1201,3 +1201,62 @@ loader 的职责：
   - memory-units CANCELLED exit=143
   - console-memory NOT-RUN
   - no-v2-names NOT-RUN
+- 2026-11-14T18:15:32.274Z PASS commands=3/3 executed=3 deduped=0 elapsed=262676ms tests=65f2b7f1dec4 head=d0c020631637 dirty=1
+  - memory-units PASS exit=0
+  - console-memory PASS exit=0
+  - no-v2-names PASS exit=0
+
+## TASK-016: remember 工具的 taxonomy 枚举与错误码
+
+- **Status**: done
+- **Depends**: TASK-010
+- **Source**: user-memory-retrieval-optimization.backend.design.md#3.4.7, #3.5.11
+- **Scenarios**: S-01, E-03
+- **Spec-Refs**: memory/harness-memory, api/harness-api
+- **Paths**: apps/agent-runtime/src/muad_agent_runtime/application/memory_tools.py, tests/agent_runtime/test_memory_tools.py
+- **E2E**:
+- **Skip-Tests**:
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "tools",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_memory_tools.py"],
+    "timeout": 300
+  }
+]
+```
+
+### Description
+
+手工验收发现：模型调用 `remember` 时自造 `predicate: "name"`（taxonomy 无此 predicate），契约在模型级校验器拒绝，`_input` 把它映射成含糊的 `MEMORY_CONFIRMATION_INVALID`，模型无法据此纠正。
+
+修复：
+
+- `remember` 的 tool `input_schema` 从冻结 taxonomy 生成 `predicate` 的 `enum`（`PREDICATES_BY_KEY`），并在 schema 里说明 `content` 是结构化对象（`{"value": ...}` / `{"text": ...}`）；
+- 模型级校验失败若涉及 predicate/taxonomy，映射为 `MEMORY_TAXONOMY_INVALID`（设计错误表 422），不再落到通用确认错误。
+
+### Checklist
+
+- [x] `remember` 的 schema 暴露 `predicate` 枚举与 `content` 说明。
+- [x] 自造 predicate 返回 `MEMORY_TAXONOMY_INVALID`。
+- [x] 回归测试覆盖 schema 枚举与错误码。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-15] created from the manual verification finding (Bingo 保存失败)。
+
+### Verification
+
+- 尚未执行
+- 2026-11-14T18:16:14.011Z PASS commands=1/1 executed=1 deduped=0 elapsed=11272ms tests=7c0d7dd4be6b head=d0c020631637 dirty=1
+  - tools PASS exit=0
