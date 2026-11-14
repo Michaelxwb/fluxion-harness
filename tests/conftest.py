@@ -104,3 +104,115 @@ def _reset_console_process_settings() -> object:
         reset_shared_settings()
         if _console_reset_settings is not None:
             _console_reset_settings()
+
+
+# ---------------------------------------------------------------------------
+# Per-test isolated datastore: tests never touch the dev database or dev Redis.
+# ---------------------------------------------------------------------------
+
+_ENGINE_MODULES = (
+    "muad_agent_runtime.infrastructure.db",
+    "muad_console_platform.infrastructure.db",
+    "muad_agent_worker.infrastructure.db",
+)
+
+
+def _reset_all_settings() -> None:
+    from importlib import import_module
+
+    try:
+        from muad_common import reset_settings_cache as reset_shared
+
+        reset_shared()
+    except Exception:  # pragma: no cover - 非共享设置环境
+        pass
+    for module, name in (
+        ("muad_console_platform.infrastructure.settings", "reset_settings_cache"),
+        ("muad_im_connector.settings", "reset_connector_settings_cache"),
+    ):
+        try:
+            getattr(import_module(module), name)()
+        except Exception:  # pragma: no cover - 服务未安装
+            pass
+
+
+async def _dispose_all_engines() -> None:
+    from importlib import import_module
+
+    for module in _ENGINE_MODULES:
+        try:
+            service = import_module(module)
+        except Exception:  # pragma: no cover - 服务未安装
+            continue
+        try:
+            await service.dispose_engine()
+        except Exception:  # pragma: no cover - 旧 engine 已绑定别的 loop
+            try:
+                service.get_session_factory.cache_clear()
+                service.get_engine.cache_clear()
+            except Exception:
+                pass
+
+
+@pytest.fixture(scope="session")
+def datastore_template() -> object:
+    """One database migrated to head once per session; per-test clones copy it."""
+
+    from tests.acceptance.datastores import create_template, drop_template
+
+    template = create_template()
+    try:
+        yield template
+    finally:
+        drop_template(template)
+
+
+@pytest.fixture
+async def isolated_datastore(request: pytest.FixtureRequest, datastore_template, monkeypatch):
+    """Clone the template per test and point the process at it.
+
+    `own_datastore`-marked suites create their own databases (acceptance stacks,
+    revision-specific migration tests); `no_datastore`/`unit` suites are pure logic.
+    """
+
+    if any(
+        request.node.get_closest_marker(marker) is not None
+        for marker in ("own_datastore", "no_datastore", "unit")
+    ):
+        yield None
+        return
+    import asyncio
+
+    from tests.acceptance.datastores import clone_datastore, drop_datastore
+
+    # clone/drop own their event loop; a thread keeps the async fixture legal.
+    info = await asyncio.to_thread(clone_datastore, datastore_template)
+    await _dispose_all_engines()
+    _reset_all_settings()
+    monkeypatch.setenv("DATABASE_URL", info["database_url"])
+    monkeypatch.setenv("REDIS_URL", info["redis_url"])
+    _reset_all_settings()
+    try:
+        yield info
+    finally:
+        await _dispose_all_engines()
+        _reset_all_settings()
+        await asyncio.to_thread(
+            drop_datastore, info["name"], info["admin_database_url"], info["redis_url"]
+        )
+
+
+@pytest.fixture(autouse=True)
+async def _ensure_isolated_datastore(isolated_datastore: object) -> object:
+    """Every test runs against a cloned database unless it owns its datastore.
+
+    The guard fails loudly if a non-opted suite resolves to anything but a
+    ``muad_acc_*`` database — the dev database must never be touched by tests.
+    """
+
+    if isolated_datastore is not None:
+        from muad_common import process_settings
+
+        url = process_settings().require_database_url()
+        assert "/muad_acc_" in url, f"test resolved to a non-isolated database: {url}"
+    yield

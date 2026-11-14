@@ -94,6 +94,8 @@ markers = [
     "e2e: 真实浏览器或跨服务真实链路（Gateway↔Runtime↔Worker↔Browser）",
     "capacity: 容量档场景（含管理面混合负载），与 capacity_load 配合选择",
     "capacity_load: 显式容量压测（200/1000 用户），环境依赖强、耗时长，默认 acceptance 不跑",
+    "own_datastore: 该用例/目录自建数据库（acceptance 栈、指定 revision 的迁移测试），跳过自动克隆",
+    "no_datastore: 纯逻辑目录（无 PG/Redis），跳过自动克隆",
 ]
 
 [tool.ruff]

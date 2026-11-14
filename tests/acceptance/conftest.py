@@ -31,6 +31,13 @@ from tests.acceptance.datastores import (
 os.environ.setdefault("SANDBOX_MODE", "dev-unsafe")
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """This suite owns its databases (see tests/acceptance/datastores.py); skip the clone."""
+
+    for item in items:
+        item.add_marker(pytest.mark.own_datastore)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def isolated_datastores() -> Iterator[None]:
     """本会话独占一个空库 + 独立 Redis DB；结束时丢弃。"""

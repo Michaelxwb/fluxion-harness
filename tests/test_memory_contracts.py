@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 from muad_contracts.memory import (
+
     ForgetMemoryInput,
     MemoryCandidate,
     MemoryItem,
@@ -15,6 +16,8 @@ from muad_contracts.memory import (
     RememberMemoryInput,
     ScopeState,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def _preference(**overrides):
