@@ -666,16 +666,26 @@ async def test_s03_confirmed_memory_is_injected_with_provenance_and_non_instruct
 async def test_s04_unconfirmed_memory_is_not_injected_but_recallable(async_tool_database) -> None:
     """[S-04] 未确认（AGENT）记忆不进默认上下文，只经真实 recall 工具可取回。"""
     ctx = context(tenant=f"s04-{uuid.uuid4()}", user=USER_ID)
-    await seed_facts(async_tool_database, ctx, 1, author="AGENT")
+    async with async_tool_database.begin() as connection:
+        await connection.execute(
+            sa.text(
+                "INSERT INTO runtime.user_memory"
+                " (tenant_id,user_id,memory_key,memory_kind,predicate,content_json,title,author,expires_at)"
+                " VALUES (:tenant,:user,'v1.note.blue','NOTE','general',CAST(:content AS jsonb),"
+                " 'seed note','AGENT',statement_timestamp()+interval '30 days')"
+            ),
+            {"tenant": ctx.tenant_id, "user": ctx.user_id, "content": '{"text": "blue"}'},
+        )
     memory = loader(async_tool_database, ctx, query="你好")
     _, captured = await request_round(async_tool_database, ctx, memory)
 
     assert memory_text(captured[0]) is None
     assert "blue" not in " ".join(str(item.get("content")) for item in captured[0]["messages"])
 
-    receipt = await recall(tools(async_tool_database, ctx), {"memory_key": "seed.1"})
-    assert [item["memory_key"] for item in receipt["items"]] == ["seed.1"]
-    assert receipt["items"][0]["content"] == {"value": "blue"}
+    receipt = await recall(tools(async_tool_database, ctx), {"query": "blue"})
+    assert [item["memory_key"] for item in receipt] == ["v1.note.blue"]
+    assert receipt[0]["content"] == {"text": "blue"}
+    assert receipt[0]["memory_id"]
 
 
 async def test_s04_only_confirmed_rows_are_injected_not_legacy_unconfirmed(async_tool_database) -> None:
@@ -769,7 +779,7 @@ async def test_e06_injection_read_failure_degrades_without_breaking_run(
         # 用 SQLAlchemy 的异常族：实现只吞这一类（DB 层故障），编程错误必须继续上抛
         raise SQLAlchemyError("injection query failed")
 
-    monkeypatch.setattr(type(queries(async_tool_database)), "read_snapshot", _boom)
+    monkeypatch.setattr(type(queries(async_tool_database)), "read_snapshot_v2", _boom)
     memory = loader(async_tool_database, ctx)
     with caplog.at_level(logging.WARNING, logger="muad_agent_runtime.application.memory_cache"):
         _, captured = await request_round(async_tool_database, ctx, memory)

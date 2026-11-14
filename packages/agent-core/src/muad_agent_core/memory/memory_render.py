@@ -32,17 +32,21 @@ def _content_text(record: MemoryRecordV2) -> str:
 
 
 def render_memory_v2(
-    records: Iterable[MemoryRecordV2], *, max_records: int = 10, max_bytes: int = 2048
+    records: Iterable[MemoryRecordV2],
+    *,
+    max_records: int = 10,
+    max_bytes: int = 2048,
+    notice: bool = True,
 ) -> RenderedMemoryV2:
     if max_records < 0 or max_bytes < 0:
         raise ValueError("render budgets must be non-negative")
     if max_records == 0 or max_bytes == 0:
         return RenderedMemoryV2("", (), len(tuple(records)), 0)
-    lines = [MEMORY_NOTICE_V2]
+    lines = [MEMORY_NOTICE_V2] if notice else []
     included: list[str] = []
     dropped = 0
     dropped_bytes = 0
-    used = len(MEMORY_NOTICE_V2.encode("utf-8"))
+    used = len(MEMORY_NOTICE_V2.encode("utf-8")) if notice else 0
     for record in records:
         detail = "；".join(part for part in (record.summary, _content_text(record)) if part)
         line = (

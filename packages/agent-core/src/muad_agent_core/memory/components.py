@@ -1,4 +1,6 @@
-"""Named memory component; replacement never relies on text-prefix detection."""
+"""Canonical named memory component; replacement never relies on text prefixes."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import ClassVar, Literal, Protocol
@@ -11,27 +13,22 @@ from .render import RenderedMemoryBlock
 class MemoryReference:
     memory_key: str
     version: int
-    omitted: bool
+    omitted: bool = False
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class MemoryComponent:
     name: ClassVar[Literal["memory"]] = "memory"
     snapshot_revision: int
-    block: RenderedMemoryBlock
-
-    @property
-    def references(self) -> tuple[MemoryReference, ...]:
-        return tuple(
-            MemoryReference(item.record.memory_key, item.record.version, item.omitted)
-            for item in self.block.items
-        )
+    text: str | None
+    references: tuple[MemoryReference, ...] = ()
+    block: RenderedMemoryBlock | None = None
 
     @property
     def message(self) -> ModelMessage | None:
-        if self.block.text is None:
+        if self.text is None:
             return None
-        return ModelMessage(role=ModelRole.SYSTEM, content=self.block.text)
+        return ModelMessage(role=ModelRole.SYSTEM, content=self.text)
 
 
 class ModelContextLoader(Protocol):
