@@ -972,6 +972,10 @@ const obs = {};
     })
   );
   await until('确认落地', () => controller.snapshot().run.confirmation !== null);
+  // 同一 Run 被重复观察时，详情可能还是选取会话那一刻的旧投影（confirmation 为 null）：
+  // 它不得擦掉流里已经落地的确认，否则确认卡刚出现就消失。
+  controller.watch(targetOf(CONVERSATION_1, RUN_A, 'RUNNING', null, null));
+  obs.confirmationAfterStaleDetail = controller.snapshot().run.confirmation !== null;
   obs.confirmation = {
     submissionId: controller.snapshot().run.confirmation.submission_id,
     sourceEventId: controller.snapshot().run.confirmation.source_event_id,
@@ -1439,6 +1443,9 @@ def test_b282_streaming_projection_carries_persistent_phases_and_confirmation(
         "options": 1,
         "phase": "waiting-input",
     }, "确认事件必须完整落地（原 submission/source，不重新编号）"
+    assert events["confirmationAfterStaleDetail"] is True, (
+        "同一 Run 重复观察不得用选取瞬间的旧详情擦掉流里已落地的确认"
+    )
     waiting_input = events["phaseWaitingInput"]
     assert waiting_input["phase"] == "waiting-input"
     assert events["resumedAfterConfirmation"] == {"phase": "running", "confirmation": None}
