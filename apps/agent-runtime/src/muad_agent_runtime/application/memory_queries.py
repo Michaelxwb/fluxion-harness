@@ -62,6 +62,37 @@ class MemorySnapshot:
         return tuple(row.record for row in self.rows)
 
 
+@dataclass(frozen=True, slots=True)
+class MemoryCandidateRowV2:
+    id: UUID
+    memory_key: str
+    memory_kind: str
+    predicate: str
+    scope_state: str
+    scope: dict[str, str]
+    content: dict[str, object]
+    title: str
+    summary: str
+    tags: tuple[str, ...]
+    cardinality: str
+    priority: str
+    author: str
+    authority: str
+    version: int
+    enabled: bool
+    expires_at: datetime | None
+    last_confirmed_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class MemorySnapshotV2:
+    scope: MemoryReadScope
+    revision: int
+    forget_epoch: int
+    as_of: datetime
+    rows: tuple[MemoryCandidateRowV2, ...]
+
+
 def _scope_source(scope: MemoryReadScope) -> FromClause:
     # A one-row anchor preserves empty users without inserting a scope row.
     anchor = select(literal(1).label("anchor")).subquery("memory_read_anchor")
@@ -175,10 +206,45 @@ class MemoryQueries:
         async with self._sessions()() as session:
             return await self._read_snapshot(session, scope)
 
+    async def read_snapshot_v2(self, scope: MemoryReadScope) -> MemorySnapshotV2:
+        """Read the v2 structured projection with the same SQL snapshot boundary."""
+
+        async with self._sessions()() as session:
+            records = (await session.execute(_snapshot_statement(scope))).tuples().all()
+            revision, epoch, as_of, _ = records[0]
+            rows = tuple(
+                MemoryCandidateRowV2(
+                    id=row.id,
+                    memory_key=row.memory_key,
+                    memory_kind=row.memory_kind or row.category,
+                    predicate=row.predicate or "general",
+                    scope_state=row.scope_state or "ABSENT",
+                    scope=dict(row.scope_json or {}),
+                    content=dict(row.content_json or {}),
+                    title=row.title or "",
+                    summary=row.summary or "",
+                    tags=tuple(row.tags_json or ()),
+                    cardinality=row.cardinality or "SINGLE",
+                    priority=row.priority or "OPTIONAL",
+                    author=row.author,
+                    authority=row.authority,
+                    version=row.version,
+                    enabled=row.enabled,
+                    expires_at=row.expires_at,
+                    last_confirmed_at=row.last_confirmed_at,
+                )
+                for _, _, _, row in records
+                if row is not None
+            )
+            return MemorySnapshotV2(scope, revision, epoch, as_of, rows)
+
     @staticmethod
     async def _read_snapshot(session: AsyncSession, scope: MemoryReadScope) -> MemorySnapshot:
         records = (await session.execute(_snapshot_statement(scope))).tuples().all()
         revision, epoch, as_of, _ = records[0]
-        rows = tuple(_candidate(row) for _, _, _, row in records if row is not None)
+        # v2 rows have no legacy category; they belong to the v2 projection only.
+        rows = tuple(
+            _candidate(row) for _, _, _, row in records if row is not None and row.category is not None
+        )
         _validate_bounds(rows)
         return MemorySnapshot(scope, revision, epoch, as_of, rows)

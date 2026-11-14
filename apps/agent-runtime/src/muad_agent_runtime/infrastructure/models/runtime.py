@@ -523,6 +523,21 @@ class UserMemory(StandardColumnsMixin, Base):
             ),
         ),
         sa.Index(
+            "ix_user_memory_v2_candidates",
+            "tenant_id",
+            "user_id",
+            "memory_kind",
+            "predicate",
+            sa.text("update_time DESC"),
+        ),
+        sa.Index(
+            "ix_user_memory_v2_scope",
+            "tenant_id",
+            "user_id",
+            "predicate",
+            "scope_hash",
+        ),
+        sa.Index(
             "ix_user_memory_user_time",
             "tenant_id",
             "user_id",
@@ -556,7 +571,32 @@ class UserMemory(StandardColumnsMixin, Base):
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     memory_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
-    category: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    category: Mapped[str | None] = mapped_column(sa.String(64))
+    memory_kind: Mapped[str | None] = mapped_column(sa.String(24))
+    predicate: Mapped[str | None] = mapped_column(sa.String(64))
+    scope_state: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'ABSENT'")
+    )
+    scope_raw: Mapped[str | None] = mapped_column(sa.String(512))
+    scope_json: Mapped[dict[str, JsonValue]] = mapped_column(
+        JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+    )
+    scope_hash: Mapped[str] = mapped_column(sa.String(64), nullable=False, server_default=sa.text("''"))
+    content_text: Mapped[str] = mapped_column(sa.Text(), nullable=False, server_default=sa.text("''"))
+    title: Mapped[str] = mapped_column(sa.String(128), nullable=False, server_default=sa.text("''"))
+    summary: Mapped[str] = mapped_column(sa.String(512), nullable=False, server_default=sa.text("''"))
+    tags_json: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=sa.text("'[]'::jsonb")
+    )
+    cardinality: Mapped[str] = mapped_column(
+        sa.String(8), nullable=False, server_default=sa.text("'SINGLE'")
+    )
+    priority: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'OPTIONAL'")
+    )
+    taxonomy_version: Mapped[int] = mapped_column(
+        sa.Integer(), nullable=False, server_default=sa.text("0")
+    )
     activation_state: Mapped[str] = mapped_column(
         sa.String(16), nullable=False, server_default=sa.text("'ACTIVE'")
     )
@@ -606,6 +646,66 @@ class MemoryScope(StandardColumnsMixin, Base):
     forget_epoch: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False, server_default=sa.text("0"))
 
 
+class MemoryConflictCandidate(StandardColumnsMixin, Base):
+    __tablename__ = "memory_conflict_candidate"
+    __table_args__ = (
+        sa.Index(
+            "uq_memory_conflict_pending",
+            "tenant_id",
+            "user_id",
+            "memory_key",
+            "candidate_hash",
+            unique=True,
+            postgresql_where=sa.text("status = 'PENDING' AND is_deleted = false"),
+        ),
+        sa.Index(
+            "ix_memory_conflict_pending",
+            "tenant_id",
+            "user_id",
+            "status",
+            sa.text("create_time DESC"),
+        ),
+        sa.CheckConstraint("is_deleted = false", name="not_deleted"),
+        sa.CheckConstraint(
+            "status IN ('PENDING','ACCEPTED','REJECTED','STALE')",
+            name="status",
+        ),
+        {"schema": "runtime"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    memory_key: Mapped[str] = mapped_column(sa.String(128), nullable=False)
+    predicate: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    scope_state: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    scope_raw: Mapped[str | None] = mapped_column(sa.String(512))
+    scope_json: Mapped[dict[str, JsonValue]] = mapped_column(
+        JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+    )
+    scope_hash: Mapped[str] = mapped_column(sa.String(64), nullable=False, server_default=sa.text("''"))
+    content_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
+    content_hash: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    content_text: Mapped[str] = mapped_column(sa.Text(), nullable=False, server_default=sa.text("''"))
+    title: Mapped[str] = mapped_column(sa.String(128), nullable=False, server_default=sa.text("''"))
+    summary: Mapped[str] = mapped_column(sa.String(512), nullable=False, server_default=sa.text("''"))
+    source_quote: Mapped[str | None] = mapped_column(sa.String(512))
+    author: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default=sa.text("'AGENT'"))
+    authority: Mapped[str] = mapped_column(
+        sa.String(24), nullable=False, server_default=sa.text("'AGENT_INFERRED'")
+    )
+    confidence: Mapped[int | None] = mapped_column(sa.SmallInteger())
+    base_version: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    base_scope_revision: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    forget_epoch: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    evidence_count: Mapped[int] = mapped_column(sa.Integer(), nullable=False, server_default=sa.text("1"))
+    last_source_ref: Mapped[str | None] = mapped_column(sa.String(256))
+    candidate_hash: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    status: Mapped[str] = mapped_column(sa.String(24), nullable=False, server_default=sa.text("'PENDING'"))
+    reason: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    resolved_by: Mapped[str | None] = mapped_column(sa.String(128))
+    resolved_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
+
 class UserMemoryHistory(StandardColumnsMixin, Base):
     __tablename__ = "user_memory_history"
     __table_args__ = (
@@ -634,7 +734,6 @@ class UserMemoryHistory(StandardColumnsMixin, Base):
     command_id: Mapped[str] = mapped_column(sa.String(256), nullable=False)
     source_run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     after_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
-    legacy_snapshots_json: Mapped[list[dict[str, JsonValue]] | None] = mapped_column(JSONB)
 
 
 class EvalCase(StandardColumnsMixin, Base):
