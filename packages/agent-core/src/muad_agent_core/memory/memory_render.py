@@ -20,15 +20,23 @@ class RenderedMemoryV2:
     dropped_bytes: int
 
 
-def _content_text(record: MemoryRecordV2) -> str:
-    """Structured content must reach the prompt as its value, not as a JSON blob."""
-
-    value = record.content.get("value") if isinstance(record.content, dict) else None
+def _scalar(value: object) -> str:
     if isinstance(value, str):
         return value
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return str(value)
-    return canonical_json(record.content)
+    return canonical_json(value)
+
+
+def _content_text(record: MemoryRecordV2) -> str:
+    """Structured content must reach the prompt as readable fields, not as a JSON blob."""
+
+    content = record.content
+    if not isinstance(content, dict):
+        return _scalar(content)
+    if set(content) == {"value"}:
+        return _scalar(content["value"])
+    return "；".join(f"{key}={_scalar(value)}" for key, value in content.items())
 
 
 def render_memory_v2(
