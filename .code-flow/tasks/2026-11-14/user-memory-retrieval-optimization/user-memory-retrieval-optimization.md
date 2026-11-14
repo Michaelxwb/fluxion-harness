@@ -612,7 +612,7 @@ loader 的职责：
   - single-loader-gate PASS exit=0
 ## TASK-008: 渲染分流：结构化 v2 内容 + 旧经验渲染
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-006
 - **Source**: user-memory-retrieval-optimization.backend.design.md#3.5.11
 - **Scenarios**: S-02, S-11, B-01, B-02
@@ -650,12 +650,12 @@ loader 的职责：
 
 ### Checklist
 
-- [ ] v2 渲染输出结构化值（`content` 必须可见，单位/条件/否定不丢）。
-- [ ] 空选择返回 `text=None`，不注入仅含 notice 的块。
-- [ ] 经验/TASK_STATE 仍走 `render_memory_block`，分段语义与 notice 不变。
-- [ ] 两段合并进同一个 `MemoryComponent`，`references` 覆盖全部注入项。
-- [ ] 字节预算整条丢弃、不截断；`dropped_bytes` 真实统计。
-- [ ] 渲染与预算测试绿。
+- [x] v2 渲染输出结构化值（`content` 必须可见，单位/条件/否定不丢）。
+- [x] 空选择返回 `text=None`，不注入仅含 notice 的块。
+- [x] 经验/TASK_STATE 仍走 `render_memory_block`，分段语义与 notice 不变。
+- [x] 两段合并进同一个 `MemoryComponent`，`references` 覆盖全部注入项。
+- [x] 字节预算整条丢弃、不截断；`dropped_bytes` 真实统计。
+- [x] 渲染与预算测试绿。
 
 ### Spec Delta
 
@@ -666,11 +666,14 @@ loader 的职责：
 ### Log
 
 - [2026-11-14] created
+- [2026-11-14T16:28:20.504Z] started tests=af2c165c5ebd
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-14T16:28:37.019Z PASS commands=2/2 executed=2 deduped=0 elapsed=6173ms tests=af2c165c5ebd head=1b855d10591b dirty=1
+  - render PASS exit=0
+  - budget PASS exit=0
 ## TASK-009: QueryContext 与澄清
 
 - **Status**: draft
