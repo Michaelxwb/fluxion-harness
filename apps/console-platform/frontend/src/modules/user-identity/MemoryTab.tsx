@@ -48,10 +48,13 @@ interface EditValues {
   content: string;
 }
 
-function contentText(content: Record<string, unknown>): string {
+/** 可读化记忆内容：优先取主值，其余字段按 `key=value` 展平成一行。 */
+export function formatMemoryContent(content: Record<string, unknown>): string {
   const value = content.value ?? content.text;
   if (typeof value === 'string') return value;
-  return JSON.stringify(content);
+  return Object.entries(content)
+    .map(([key, item]) => `${key}=${typeof item === 'string' ? item : JSON.stringify(item)}`)
+    .join('；');
 }
 
 export function MemoryTab(props: MemoryTabProps) {
@@ -235,33 +238,43 @@ export function MemoryTab(props: MemoryTabProps) {
 
   return (
     <div className="user-memory-tab">
+      <div className="detail-hint user-memory-hint">{t('user.memory.hint')}</div>
       {actionError ? <div className="detail-hint">{actionError}</div> : null}
       {props.canManage ? (
-        <div className="detail-actions">
-          <Button icon={<IconPlus />} onClick={() => setCreateVisible(true)}>
-            {t('user.memory.add')}
-          </Button>
-          <ConfirmAction title={t('user.memory.clear')} onConfirm={() => void runCommand({ action: 'CLEAR' })}>
-            <Button type="danger" theme="borderless">
-              {t('user.memory.clear')}
+        <div className="user-memory-toolbar">
+          <div className="user-memory-toolbar-start">
+            <Button icon={<IconPlus />} onClick={() => setCreateVisible(true)}>
+              {t('user.memory.add')}
             </Button>
-          </ConfirmAction>
-          <span className="detail-hint">
-            {t('user.memory.recycleBin')}
-            <Switch checked={recycle} onChange={setRecycle} size="small" />
-          </span>
-          <Button
-            theme="borderless"
-            onClick={() => {
-              setConflictsVisible(true);
-              void loadConflicts();
-            }}
-          >
-            {t('user.memory.conflicts')}
-          </Button>
+          </div>
+          <div className="user-memory-toolbar-end">
+            <span className="user-memory-recycle">
+              {t('user.memory.recycleBin')}
+              <Switch checked={recycle} onChange={setRecycle} size="small" />
+            </span>
+            <Button
+              theme="borderless"
+              onClick={() => {
+                setConflictsVisible(true);
+                void loadConflicts();
+              }}
+            >
+              {t('user.memory.conflicts')}
+            </Button>
+            <ConfirmAction
+              title={t('user.memory.clear')}
+              onConfirm={() => void runCommand({ action: 'CLEAR' })}
+            >
+              <Button type="danger" theme="borderless">
+                {t('user.memory.clear')}
+              </Button>
+            </ConfirmAction>
+          </div>
         </div>
       ) : null}
       <DataTable<MemoryItem>
+        size="small"
+        columnGrowth={{ title: 1 }}
         dataSource={items}
         rowKey="id"
         pagination={false}
@@ -272,31 +285,40 @@ export function MemoryTab(props: MemoryTabProps) {
             dataIndex: 'title',
             render: (_value: string, item: MemoryItem) => (
               <TableText>
-                {`${item.title}：${item.summary || contentText(item.content)}`}
+                {`${item.title}：${item.summary || formatMemoryContent(item.content)}`}
               </TableText>
             )
           },
           {
             title: t('user.memory.categoryLabel'),
             dataIndex: 'memory_kind',
+            width: 156,
             render: (value: string, item: MemoryItem) => (
               <TableText>{`${t(`user.memory.kind.${value}`)}/${item.predicate}`}</TableText>
             )
           },
           {
+            title: t('user.memory.source'),
+            dataIndex: 'author',
+            width: 112,
+            render: (value: string) => <TableText>{t(`user.memory.author.${value}`)}</TableText>
+          },
+          {
             title: t('user.memory.statusLabel'),
             dataIndex: 'status',
+            width: 84,
             render: (value: string) => <TableText>{t(`user.memory.status.${value}`)}</TableText>
           },
-          { title: t('user.memory.version'), dataIndex: 'version', width: 80 },
+          { title: t('user.memory.version'), dataIndex: 'version', width: 48 },
           {
             title: t('user.memory.updated'),
             dataIndex: 'update_time',
+            width: 164,
             render: (value: string) => <DateTimeText value={value} />
           },
           {
             title: t('user.memory.history'),
-            width: 88,
+            width: 64,
             render: (_value: unknown, item: MemoryItem) => (
               <Button
                 theme="borderless"
@@ -314,11 +336,12 @@ export function MemoryTab(props: MemoryTabProps) {
             ? [
                 {
                   key: 'actions',
+                  title: t('user.columns.action'),
                   fixed: 'right' as const,
-                  width: 220,
+                  width: 196,
                   className: 'table-actions-cell',
                   render: (_value: unknown, item: MemoryItem) => (
-                    <div className="table-actions-menu">
+                    <div className="memory-row-actions">
                       {item.status === 'DELETED' ? (
                         <ConfirmAction
                           title={t('user.memory.confirmRestore')}
@@ -344,7 +367,7 @@ export function MemoryTab(props: MemoryTabProps) {
                               editFormApi.current?.setValues({
                                 title: item.title,
                                 summary: item.summary,
-                                content: contentText(item.content)
+                                content: formatMemoryContent(item.content)
                               });
                             }}
                           >
@@ -450,7 +473,7 @@ export function MemoryTab(props: MemoryTabProps) {
                   title: t('user.memory.content'),
                   dataIndex: 'title',
                   render: (value: string, item: MemoryConflictItem) => (
-                    <TableText>{`${value}：${item.summary || contentText(item.content)}`}</TableText>
+                    <TableText>{`${value}：${item.summary || formatMemoryContent(item.content)}`}</TableText>
                   )
                 },
                 {
@@ -459,9 +482,9 @@ export function MemoryTab(props: MemoryTabProps) {
                 },
                 {
                   title: t('user.memory.statusLabel'),
-                  width: 160,
+                  width: 112,
                   render: (_value: unknown, item: MemoryConflictItem) => (
-                    <div className="table-actions-menu">
+                    <div className="memory-row-actions">
                       <Button
                         theme="borderless"
                         size="small"
