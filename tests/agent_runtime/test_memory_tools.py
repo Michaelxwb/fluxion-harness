@@ -13,7 +13,14 @@ from muad_contracts.platform_settings import MemoryPolicySettings
 
 from tests.agent_runtime.memory_confirmation_support import source, state
 from tests.agent_runtime.memory_executor_support import execute, tool_call
-from tests.agent_runtime.memory_redesign_write_support import command, context, seed_facts, upsert, writer
+from tests.agent_runtime.memory_redesign_write_support import (
+    command,
+    context,
+    seed_facts,
+    seed_v2_notes,
+    upsert,
+    writer,
+)
 from tests.agent_runtime.memory_tool_support import recall, tools
 
 pytestmark = pytest.mark.integration
@@ -23,7 +30,12 @@ async def test_production_remember_factory_pauses_after_complete_round_without_s
     async_tool_database, monkeypatch
 ):
     factory, run, identity, submission_id = await source(async_tool_database)
-    arguments = {"memory_key": "color", "value": "blue", "category": "PREFERENCE"}
+    arguments = {
+        "memory_kind": "PREFERENCE",
+        "predicate": "output_style",
+        "content": {"value": "blue"},
+        "title": "输出风格",
+    }
     events, captured = await execute(
         factory,
         run,
@@ -59,8 +71,7 @@ async def test_b04_recall_result_is_not_truncated_by_artifact_externalization(
 ):
     factory, run, identity, submission_id = await source(async_tool_database)
     ctx = context(tenant=run.tenant_id, user=run.user_id)
-    for index in range(8):
-        await writer(async_tool_database).execute(ctx, command(upsert(f"fact.{index}", "汉" * 500)))
+    await seed_v2_notes(async_tool_database, ctx, 8)
     policy = MemoryPolicySettings(max_recall_bytes=16384, recall_default_limit=20)
     _, captured = await execute(
         factory, run, identity, submission_id, [tool_call("recall", {})], monkeypatch, policy=policy
@@ -82,7 +93,13 @@ async def test_e01_cross_user_arguments_are_rejected_and_reads_are_scoped(async_
     assert (await recall(tools(async_tool_database, mine), {}))["items"] == []
     with pytest.raises(AppError) as caught:
         await tools(async_tool_database, mine).remember(
-            {"memory_key": "color", "value": "blue", "category": "PREFERENCE", "user_id": str(other.user_id)},
+            {
+                "memory_kind": "PREFERENCE",
+                "predicate": "output_style",
+                "content": {"value": "blue"},
+                "title": "输出风格",
+                "user_id": str(other.user_id),
+            },
             call_id="forged",
         )
     assert caught.value.code == "MEMORY_CONFIRMATION_INVALID"
@@ -92,18 +109,34 @@ async def test_recall_queries_fresh_rows_instead_of_injection_cache(async_tool_d
     from tests.agent_runtime.memory_context_support import loader
 
     ctx = context()
-    await writer(async_tool_database).execute(ctx, command(upsert(value="blue")))
-    memory = loader(async_tool_database, ctx)
-    await memory.refresh()
-    await writer(async_tool_database).execute(ctx, command(upsert(value="green", expected=1)))
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from muad_agent_runtime.application.memory_service import MemoryService
+    from muad_contracts.memory import RememberMemoryInputV2
+
+    service = MemoryService(async_sessionmaker(async_tool_database, expire_on_commit=False))
+    for command_id, value in (("v1", "blue"), ("v2", "green")):
+        candidate = RememberMemoryInputV2.model_validate(
+            {
+                "memory_kind": "PREFERENCE",
+                "predicate": "output_style",
+                "content": {"value": value},
+                "title": "输出风格",
+            }
+        ).normalized(taxonomy_version=1)
+        await service.apply_candidate(
+            ctx, candidate, command_id=command_id, endpoint="test.seed"
+        )
+        memory = loader(async_tool_database, ctx)
+        await memory.refresh()
     tool_set = tools(async_tool_database, ctx, memory=memory)
-    receipt = await recall(tool_set, {"memory_key": "color"})
+    receipt = await recall(tool_set, {"query": "green"})
     assert receipt["items"][0]["version"] == 2 and receipt["items"][0]["content"]["value"] == "green"
 
 
 async def test_recall_limit_covers_complete_candidates_and_zero(async_tool_database):
     ctx = context(settings=MemoryPolicySettings(max_recall_bytes=16384))
-    await seed_facts(async_tool_database, ctx, 21)
+    await seed_v2_notes(async_tool_database, ctx, 21, value="fact")
     policy = MemoryPolicySettings(max_recall_bytes=16384, recall_default_limit=20)
     tool_set = tools(async_tool_database, replace(ctx, settings=policy))
     for limit in (0, 1, 20):
@@ -128,7 +161,7 @@ def test_memory_write_switch_rejects_loose_types(value):
 async def test_recall_byte_budget_can_return_fewer_items_than_requested(async_tool_database):
     budget = 1024
     ctx = context(settings=MemoryPolicySettings(max_recall_bytes=budget))
-    await seed_facts(async_tool_database, ctx, 21)
+    await seed_v2_notes(async_tool_database, ctx, 21, value="small")
     result = await tools(async_tool_database, ctx).recall({"limit": 20}, call_id="byte-cap")
     payload = json.loads(result)
     assert 0 < len(payload["items"]) < 20

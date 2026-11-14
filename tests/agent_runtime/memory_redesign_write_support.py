@@ -82,6 +82,29 @@ async def seed_facts(engine, ctx, count, *, author="ADMIN", prefix="seed", expir
         )
 
 
+async def seed_v2_notes(engine, ctx, count, *, value="汉" * 500, prefix="fact"):
+    """Seed real v2 NOTE rows through the single writer (no legacy category)."""
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from muad_agent_runtime.application.memory_service import MemoryService
+    from muad_contracts.memory import RememberMemoryInputV2
+
+    service = MemoryService(async_sessionmaker(engine, expire_on_commit=False))
+    for index in range(count):
+        candidate = RememberMemoryInputV2.model_validate(
+            {
+                "memory_kind": "NOTE",
+                "predicate": "general",
+                "content": {"text": value},
+                "title": f"{prefix}.{index}",
+            }
+        ).normalized(taxonomy_version=1)
+        await service.apply_candidate(
+            ctx, candidate, command_id=f"{prefix}-{index}", endpoint="test.seed"
+        )
+
+
 async def install_history_failure(engine, *, key=None, reason=None):
     # Trusted fixture literals only; the failing path is an actual PG trigger.
     if key is not None and key != "new.b":

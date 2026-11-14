@@ -15,6 +15,7 @@ from tests.agent_runtime.memory_redesign_write_support import (
     command,
     context,
     install_history_failure,
+    seed_v2_notes,
     upsert,
     writer,
 )
@@ -35,7 +36,13 @@ async def test_rule_log_001_memory_value_is_never_written_to_logs(async_tool_dat
     )
     with caplog.at_level(logging.INFO):
         receipt = await tool_set.remember(
-            {"memory_key": "other", "value": sentinel, "category": "PREFERENCE"}, call_id="proposal"
+            {
+                "memory_kind": "PREFERENCE",
+                "predicate": "output_style",
+                "content": {"value": sentinel},
+                "title": "输出风格",
+            },
+            call_id="proposal",
         )
         await tool_set.recall({"query": sentinel}, call_id="read")
         await memory.refresh()
@@ -47,7 +54,7 @@ async def test_rule_log_001_memory_value_is_never_written_to_logs(async_tool_dat
 
 async def test_memory_metrics_cover_inject_and_recall_without_faking_a_write(async_tool_database):
     ctx = context()
-    await writer(async_tool_database).execute(ctx, command(upsert()))
+    await seed_v2_notes(async_tool_database, ctx, 1, value="note", prefix="metric")
     memory = loader(async_tool_database, ctx)
     tool_set = tools(async_tool_database, ctx, memory=memory)
     before_inject = metric("memory_inject_total", outcome="OK")
@@ -67,12 +74,19 @@ async def test_rule_07_delete_failure_is_visible_in_audit_metric_and_safe_receip
     await writer(async_tool_database).execute(ctx, command(upsert(value="private_value_canary")))
     await install_history_failure(async_tool_database)
     before = metric("tool_calls_total", tool="forget", status="ERROR")
+    async with async_tool_database.connect() as connection:
+        memory_id = (
+            await connection.execute(
+                sa.text("SELECT id FROM runtime.user_memory WHERE tenant_id=:t AND memory_key='color'"),
+                {"t": ctx.tenant_id},
+            )
+        ).scalar_one()
     _, captured = await execute(
         factory,
         run,
         identity,
         submission_id,
-        [tool_call("forget", {"memory_key": "color", "expected_version": 1})],
+        [tool_call("forget", {"memory_id": str(memory_id), "expected_version": 1})],
         monkeypatch,
     )
     receipt = json.loads(next(item["content"] for item in captured[1]["messages"] if item["role"] == "tool"))
@@ -89,9 +103,10 @@ async def test_invalid_source_is_a_rejection_not_a_saved_receipt(async_tool_data
     with pytest.raises(AppError) as caught:
         await tools(async_tool_database, context()).remember(
             {
-                "memory_key": "color",
-                "value": "blue",
-                "category": "PREFERENCE",
+                "memory_kind": "PREFERENCE",
+                "predicate": "output_style",
+                "content": {"value": "blue"},
+                "title": "输出风格",
                 "source_type": "USER_EXPLICIT",
             },
             call_id="forged",

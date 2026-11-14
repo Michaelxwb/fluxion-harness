@@ -683,9 +683,9 @@ async def test_s04_unconfirmed_memory_is_not_injected_but_recallable(async_tool_
     assert "blue" not in " ".join(str(item.get("content")) for item in captured[0]["messages"])
 
     receipt = await recall(tools(async_tool_database, ctx), {"query": "blue"})
-    assert [item["memory_key"] for item in receipt] == ["v1.note.blue"]
-    assert receipt[0]["content"] == {"text": "blue"}
-    assert receipt[0]["memory_id"]
+    assert [item["memory_key"] for item in receipt["items"]] == ["v1.note.blue"]
+    assert receipt["items"][0]["content"] == {"text": "blue"}
+    assert receipt["items"][0]["memory_id"]
 
 
 async def test_s04_only_confirmed_rows_are_injected_not_legacy_unconfirmed(async_tool_database) -> None:
