@@ -20,15 +20,53 @@ from tests.agent_runtime.memory_consolidation_support import provider_factory
 from tests.agent_runtime.memory_redesign_write_support import command, upsert
 
 
-def output(*keys):
+#: 每个 key 用一个稳定 predicate，保证不同候选有不同身份（SINGLE）。
+_PREDICATES = ("output_style", "language", "role", "team")
+
+
+def _candidate(index: int, *, value: str = "blue", title: str = "color") -> dict[str, object]:
+    predicate = _PREDICATES[index % len(_PREDICATES)]
+    return {
+        "memory_kind": "PREFERENCE" if predicate in ("output_style", "language") else "FACT",
+        "predicate": predicate,
+        "scope_state": "ABSENT",
+        "content": {"value": value},
+        "title": title,
+        "summary": "",
+        "tags": [],
+    }
+
+
+def output(*keys, value="blue"):
     return json.dumps(
         {
-            "candidates": [
-                {"memory_key": key, "category": "PREFERENCE", "content": {"value": "blue"}} for key in keys
-            ],
+            "candidates": [_candidate(index, value=value, title=key) for index, key in enumerate(keys)],
             "task_completed": False,
         }
     )
+
+
+def fact_candidate(value: str = "blue"):
+    from muad_contracts.memory import RememberMemoryInputV2
+
+    return RememberMemoryInputV2.model_validate(_candidate(0, value=value)).normalized(
+        taxonomy_version=1
+    )
+
+
+def fact_key(value: str = "blue") -> str:
+    return fact_key_at(0, value)
+
+
+def fact_key_at(index: int, value: str = "blue") -> str:
+    from muad_agent_runtime.application.memory_identity import memory_key as build_memory_key
+
+    from muad_contracts.memory import RememberMemoryInputV2
+
+    candidate = RememberMemoryInputV2.model_validate(_candidate(index, value=value)).normalized(
+        taxonomy_version=1
+    )
+    return build_memory_key(candidate)
 
 
 async def pending(factory, job, *, revision=None):
@@ -67,11 +105,18 @@ def admin_context(run):
     )
 
 
-async def seed_admin(factory, run, *, key="infer.color"):
-    return await MemoryService(factory).execute(admin_context(run), command(upsert(key=key)))
+async def seed_admin(factory, run, *, value="blue"):
+    from uuid import uuid4
+
+    return await MemoryService(factory).apply_candidate(
+        admin_context(run),
+        fact_candidate(value),
+        command_id=f"seed-{uuid4().hex}",
+        endpoint="test.seed",
+    )
 
 
-async def seed_author(factory, run, author, *, key="infer.color", value="blue"):
+async def seed_author(factory, run, author, *, value="blue"):
     from muad_contracts.memory import MemorySourceEvidence
 
     async with factory() as session:
@@ -93,7 +138,11 @@ async def seed_author(factory, run, author, *, key="infer.color", value="blue"):
             source_scope_revision=event.payload_json["source_scope_revision"],
         ),
     )
-    return await MemoryService(factory).execute(ctx, command(upsert(key=key, value=value)))
+    from uuid import uuid4
+
+    return await MemoryService(factory).apply_candidate(
+        ctx, fact_candidate(value), command_id=f"seed-{uuid4().hex}", endpoint="test.seed"
+    )
 
 
 async def current_revision(factory, run):

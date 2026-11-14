@@ -16,13 +16,31 @@ from tests.async_tool_datastores import async_tool_database as async_tool_databa
 pytestmark = pytest.mark.integration
 
 
-def _ctx(actor="AGENT"):
+def _ctx(actor="AGENT", *, seq=1, run_id=None):
+    from muad_contracts.memory import MemorySourceEvidence
+
     return MemoryWriteContext(
         tenant_id="v2-candidates",
         user_id=uuid4(),
         actor_type=actor,
         actor_id="tester",
-        source_run_id=uuid4(),
+        source_run_id=run_id or uuid4(),
+        evidence=MemorySourceEvidence(
+            source_event_id=uuid4(), source_seq=seq, source_scope_revision=0
+        ),
+    )
+
+
+def _same_ctx(ctx, *, seq):
+    from dataclasses import replace
+
+    from muad_contracts.memory import MemorySourceEvidence
+
+    return replace(
+        ctx,
+        evidence=MemorySourceEvidence(
+            source_event_id=uuid4(), source_seq=seq, source_scope_revision=0
+        ),
     )
 
 
@@ -44,7 +62,10 @@ def _writer(db):
 async def test_agent_different_value_creates_target_bound_pending(async_tool_database):
     ctx, writer = _ctx(), _writer(async_tool_database)
     created = await writer.execute(ctx, MemoryV2Command("seed", "memory.create", "UPSERT", _candidate()))
-    pending = await writer.execute(ctx, MemoryV2Command("propose", "memory.infer", "UPSERT", _candidate("WORD")))
+    pending = await writer.execute(
+        _same_ctx(ctx, seq=2),
+        MemoryV2Command("propose", "memory.infer", "UPSERT", _candidate("WORD")),
+    )
     assert pending.status == "CANDIDATE"
     assert pending.memory_key == created.memory_key
     async with async_tool_database.begin() as connection:
@@ -64,7 +85,10 @@ async def test_agent_different_value_creates_target_bound_pending(async_tool_dat
 async def test_accept_candidate_writes_current_value_and_authority(async_tool_database):
     infer, writer = _ctx(), _writer(async_tool_database)
     await writer.execute(infer, MemoryV2Command("seed2", "memory.create", "UPSERT", _candidate()))
-    pending = await writer.execute(infer, MemoryV2Command("propose2", "memory.infer", "UPSERT", _candidate("WORD")))
+    pending = await writer.execute(
+        _same_ctx(infer, seq=2),
+        MemoryV2Command("propose2", "memory.infer", "UPSERT", _candidate("WORD")),
+    )
     admin = MemoryWriteContext(
         tenant_id=infer.tenant_id, user_id=infer.user_id, actor_type="ADMIN", actor_id="admin"
     )
