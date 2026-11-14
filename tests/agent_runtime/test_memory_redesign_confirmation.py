@@ -24,8 +24,8 @@ from muad_contracts.platform_settings import MemoryPolicySettings
 from tests.agent_runtime.memory_confirmation_resume_support import confirmation_stack, rows
 from tests.agent_runtime.memory_context_support import memory_text
 from tests.agent_runtime.memory_gateway_support import Adapter, envelope, original_submission, pipeline
+from tests.agent_runtime.memory_metric_support import metric
 from tests.agent_runtime.memory_redesign_write_support import command, commands, context, upsert, writer
-from tests.agent_runtime.test_memory_redesign_recall import metric
 
 pytestmark = pytest.mark.integration
 
@@ -254,7 +254,10 @@ async def test_b15_runtime_only_exact_real_memory_command_can_authorize_candidat
         )
 
 
-@pytest.mark.parametrize("change", [{"value": "red"}, {"predicate": "language"}, {"content": {"value": "blue", "unit": "pt"}}])
+@pytest.mark.parametrize(
+    "change",
+    [{"value": "red"}, {"predicate": "language"}, {"content": {"value": "blue", "unit": "pt"}}],
+)
 async def test_b15_memory_command_cannot_authorize_different_model_parameters(async_tool_database, change):
     from tests.agent_runtime.memory_confirmation_support import candidate, service, source
 

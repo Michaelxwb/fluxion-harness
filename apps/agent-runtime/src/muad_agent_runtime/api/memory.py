@@ -7,8 +7,8 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Query, Request
 from muad_api import ApiResponse, AppError, InternalServiceDep, ok, paginate
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import RememberMemoryInputV2
-from muad_contracts.memory_admin import MemoryStatus, MemoryV2CommandRequest
+from muad_contracts.memory import RememberMemoryInput
+from muad_contracts.memory_admin import MemoryCommandRequest, MemoryStatus
 from pydantic import JsonValue, ValidationError
 
 from ..application.memory_admin_queries import MemoryAdminQueries
@@ -36,7 +36,7 @@ def _candidate(payload: dict[str, JsonValue] | None):
     if payload is None:
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
     try:
-        return RememberMemoryInputV2.model_validate(payload).normalized(taxonomy_version=1)
+        return RememberMemoryInput.model_validate(payload).normalized(taxonomy_version=1)
     except ValidationError:
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from None
 
@@ -128,7 +128,7 @@ async def history(
 @router.post("/commands")
 async def command(
     user_id: UUID,
-    body: MemoryV2CommandRequest,
+    body: MemoryCommandRequest,
     request: Request,
     tenant: TenantDep,
     _session: SessionDep,

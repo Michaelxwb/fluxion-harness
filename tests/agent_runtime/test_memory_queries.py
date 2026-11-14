@@ -6,11 +6,11 @@ from uuid import uuid4
 
 import pytest
 import sqlalchemy as sa
-
 from muad_agent_runtime.application.memory_cache import MemoryCandidateCache
 from muad_agent_runtime.application.memory_queries import MemoryQueries, MemoryReadScope
 from muad_contracts.memory import MemoryCategory
 from sqlalchemy.ext.asyncio import async_sessionmaker
+
 from tests.async_tool_datastores import async_tool_database as async_tool_database
 
 pytestmark = pytest.mark.integration
@@ -34,7 +34,7 @@ async def test_v2_snapshot_reads_structured_fields_and_snapshot_time(async_tool_
             {"id": memory_id, "tenant": tenant, "user": user, "event": uuid4()},
         )
     queries = MemoryQueries(async_sessionmaker(async_tool_database, expire_on_commit=False))
-    snapshot = await queries.read_snapshot_v2(MemoryReadScope(tenant_id=tenant, user_id=user))
+    snapshot = await queries.read_snapshot(MemoryReadScope(tenant_id=tenant, user_id=user))
     assert snapshot.revision == 0
     assert snapshot.as_of is not None
     assert len(snapshot.rows) == 1
@@ -72,14 +72,14 @@ async def test_snapshot_keeps_v2_and_legacy_lanes_separate(async_tool_database):
     queries = MemoryQueries(async_sessionmaker(async_tool_database, expire_on_commit=False))
     scope = MemoryReadScope(tenant_id=tenant, user_id=user)
 
-    snapshot = await queries.read_snapshot_v2(scope)
+    snapshot = await queries.read_snapshot(scope)
     assert [row.id for row in snapshot.rows] == [v2_id]
     assert [row.id for row in snapshot.legacy_rows] == [legacy_id]
     assert snapshot.rows[0].memory_kind == "FACT"
     assert snapshot.legacy_rows[0].record.category == MemoryCategory.PROCEDURE
     assert snapshot.legacy_rows[0].record.activation_state == "ACTIVE"
 
-    legacy_snapshot = await queries.read_snapshot(scope)
+    legacy_snapshot = await queries.read_experience_snapshot(scope)
     assert [row.id for row in legacy_snapshot.rows] == [legacy_id]
     assert legacy_snapshot.revision == snapshot.revision
     assert legacy_snapshot.forget_epoch == snapshot.forget_epoch

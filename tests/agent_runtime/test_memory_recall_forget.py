@@ -6,23 +6,24 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from muad_api import AppError
-from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import ForgetMemoryInputV2, RememberMemoryInputV2
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
 from muad_agent_runtime.application.memory_commands import MemoryWriteContext
 from muad_agent_runtime.application.memory_context import MemoryContextLoader
-from muad_agent_runtime.application.memory_queries import MemoryCandidateRowV2, MemorySnapshotV2
+from muad_agent_runtime.application.memory_queries import MemoryCandidateRow, MemorySnapshot
 from muad_agent_runtime.application.memory_service import MemoryService
+from muad_api import AppError
+from muad_api.error_codes import ErrorCode
+from muad_contracts.memory import ForgetMemoryInput, RememberMemoryInput
 from muad_contracts.platform_settings import MemoryPolicySettings
+from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
 from tests.async_tool_datastores import async_tool_database as async_tool_database
 
 NOW = datetime(2026, 11, 14, tzinfo=UTC)
 
 
 def _snapshot():
-    row = MemoryCandidateRowV2(
+    row = MemoryCandidateRow(
         id=uuid4(),
         memory_key="v1.slot.preference.report_format.x",
         memory_kind="PREFERENCE",
@@ -42,7 +43,7 @@ def _snapshot():
         expires_at=None,
         last_confirmed_at=NOW,
     )
-    return MemorySnapshotV2(None, 1, 0, NOW, (row,))
+    return MemorySnapshot(None, 1, 0, NOW, (row,))
 
 
 class _Cache:
@@ -72,8 +73,8 @@ async def test_resolution_returns_memory_id_and_structured_fields():
 
 
 def test_forget_input_rejects_legacy_key_handle():
-    with pytest.raises(Exception):
-        ForgetMemoryInputV2.model_validate(
+    with pytest.raises(ValidationError):
+        ForgetMemoryInput.model_validate(
             {"memory_key": "color", "expected_version": 1}
         )
 
@@ -83,7 +84,7 @@ async def test_forget_uses_memory_id_and_version(async_tool_database):
         tenant_id="v2-forget", user_id=uuid4(), actor_type="ADMIN", actor_id="admin"
     )
     service = MemoryService(async_sessionmaker(async_tool_database, expire_on_commit=False))
-    candidate = RememberMemoryInputV2.model_validate(
+    candidate = RememberMemoryInput.model_validate(
         {
             "memory_kind": "PREFERENCE",
             "predicate": "report_format",
@@ -119,7 +120,7 @@ async def test_forget_uses_memory_id_and_version(async_tool_database):
             ctx,
             memory_id,
             expected_version=1,
-            command_id="f-delete-stale",
+            command_id="f-delete-again",
             endpoint="memory.delete",
         )
-    assert exc.value.code == ErrorCode.MEMORY_VERSION_CONFLICT
+    assert exc.value.code == ErrorCode.MEMORY_NOT_FOUND

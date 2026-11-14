@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.canonical import canonical_json
-from muad_contracts.memory import MemoryAuthor, MemoryCandidateV2, MemoryRetirementReason
+from muad_contracts.memory import MemoryAuthor, MemoryCandidate, MemoryRetirementReason
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,24 +38,24 @@ from .memory_mutations import memory_state_any
 from .memory_service import MemoryService
 from .memory_write import MemoryWriteState, decide_automatic_update, plan_memory_capacity
 
-MemoryV2Action = Literal["UPSERT", "CREATE", "DELETE", "CLEAR"]
+MemoryWriteAction = Literal["UPSERT", "CREATE", "DELETE", "CLEAR"]
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
-class MemoryV2Command:
+class MemoryWriteCommand:
     command_id: str
     endpoint: str
-    action: MemoryV2Action
-    candidate: MemoryCandidateV2 | None = None
+    action: MemoryWriteAction
+    candidate: MemoryCandidate | None = None
     memory_id: UUID | None = None
     expected_version: int | None = None
     note_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
-class MemoryV2Outcome:
+class MemoryWriteOutcome:
     status: Literal[
         "CREATED",
         "UPDATED",
@@ -74,7 +74,7 @@ class MemoryV2Outcome:
     replayed: bool = False
 
 
-def _fingerprint(ctx: MemoryWriteContext, command: MemoryV2Command) -> str:
+def _fingerprint(ctx: MemoryWriteContext, command: MemoryWriteCommand) -> str:
     payload = {
         "tenant": ctx.tenant_id,
         "user": str(ctx.user_id),
@@ -100,7 +100,7 @@ def _author(ctx: MemoryWriteContext) -> str:
     return "AGENT" if ctx.actor_type in ("AGENT", "SYSTEM") else ctx.actor_type
 
 
-def _candidate_hash(candidate: MemoryCandidateV2) -> str:
+def _candidate_hash(candidate: MemoryCandidate) -> str:
     return hashlib.sha256(canonical_json(candidate.content).encode("utf-8")).hexdigest()
 
 
@@ -123,7 +123,7 @@ def _after(row: UserMemory) -> dict[str, object]:
 
 
 def _write_decision(
-    row: UserMemory | None, candidate: MemoryCandidateV2, ctx: MemoryWriteContext
+    row: UserMemory | None, candidate: MemoryCandidate, ctx: MemoryWriteContext
 ) -> Literal["APPLY", "PENDING", "SKIPPED"]:
     """Automatic writes never resurrect tombstones, re-enable rows or overwrite a live value.
 
@@ -165,7 +165,7 @@ def _stale_source(row: UserMemory, ctx: MemoryWriteContext) -> bool:
     return (same_conversation or same_run) and evidence.source_seq <= row.last_source_seq
 
 
-def _expires_at(candidate: MemoryCandidateV2, ctx: MemoryWriteContext, now: datetime) -> datetime | None:
+def _expires_at(candidate: MemoryCandidate, ctx: MemoryWriteContext, now: datetime) -> datetime | None:
     """Explicit expiry wins; otherwise the frozen policy TTL for the writing author applies."""
 
     if candidate.expires_at is not None:
@@ -182,7 +182,7 @@ def _expires_at(candidate: MemoryCandidateV2, ctx: MemoryWriteContext, now: date
 
 
 def _apply_candidate(
-    row: UserMemory, candidate: MemoryCandidateV2, ctx: MemoryWriteContext, now: datetime
+    row: UserMemory, candidate: MemoryCandidate, ctx: MemoryWriteContext, now: datetime
 ) -> None:
     row.memory_kind = candidate.memory_kind
     row.predicate = candidate.predicate
@@ -225,7 +225,7 @@ async def _history(
     session: AsyncSession,
     row: UserMemory,
     ctx: MemoryWriteContext,
-    command: MemoryV2Command,
+    command: MemoryWriteCommand,
     reason: str,
     *,
     now: datetime,
@@ -251,9 +251,9 @@ async def _history(
 async def _receipt(
     session: AsyncSession,
     ctx: MemoryWriteContext,
-    command: MemoryV2Command,
+    command: MemoryWriteCommand,
     fingerprint: str,
-) -> MemoryV2Outcome | None:
+) -> MemoryWriteOutcome | None:
     receipt = await session.scalar(
         select(MemoryCommandReceipt).where(
             MemoryCommandReceipt.tenant_id == ctx.tenant_id,
@@ -265,7 +265,7 @@ async def _receipt(
     if receipt.request_fingerprint != fingerprint:
         raise AppError(ErrorCode.MEMORY_IDEMPOTENCY_CONFLICT)
     payload = receipt.response_json
-    return MemoryV2Outcome(
+    return MemoryWriteOutcome(
         status=payload["status"],
         memory_key=payload.get("memory_key"),
         version=payload.get("version"),
@@ -277,9 +277,9 @@ async def _receipt(
 async def _save_receipt(
     session: AsyncSession,
     ctx: MemoryWriteContext,
-    command: MemoryV2Command,
+    command: MemoryWriteCommand,
     fingerprint: str,
-    outcome: MemoryV2Outcome,
+    outcome: MemoryWriteOutcome,
 ) -> None:
     session.add(
         MemoryCommandReceipt(
@@ -304,10 +304,10 @@ async def _pending_candidate(
     session: AsyncSession,
     ctx: MemoryWriteContext,
     row: UserMemory,
-    candidate: MemoryCandidateV2,
+    candidate: MemoryCandidate,
     scope: MemoryScope,
-    command: MemoryV2Command,
-) -> MemoryV2Outcome:
+    command: MemoryWriteCommand,
+) -> MemoryWriteOutcome:
     content_hash = _candidate_hash(candidate)[:64]
     existing = await session.scalar(
         select(MemoryConflictCandidate).where(
@@ -322,7 +322,7 @@ async def _pending_candidate(
     if existing is not None:
         existing.evidence_count += 1
         existing.last_source_ref = ctx.source_run_id and f"run:{ctx.source_run_id}"
-        return MemoryV2Outcome("CANDIDATE", row.memory_key, row.version, existing.id, True)
+        return MemoryWriteOutcome("CANDIDATE", row.memory_key, row.version, existing.id, True)
     proposed = MemoryConflictCandidate(
         tenant_id=ctx.tenant_id,
         user_id=ctx.user_id,
@@ -349,10 +349,10 @@ async def _pending_candidate(
     )
     session.add(proposed)
     await session.flush()
-    return MemoryV2Outcome("CANDIDATE", row.memory_key, row.version, proposed.id)
+    return MemoryWriteOutcome("CANDIDATE", row.memory_key, row.version, proposed.id)
 
 
-class MemoryV2Writer:
+class MemoryWriter:
     def __init__(self, session_factory=None) -> None:
         self._session_factory = session_factory
 
@@ -363,7 +363,7 @@ class MemoryV2Writer:
 
         return get_session_factory()
 
-    async def execute(self, ctx: MemoryWriteContext, command: MemoryV2Command) -> MemoryV2Outcome:
+    async def execute(self, ctx: MemoryWriteContext, command: MemoryWriteCommand) -> MemoryWriteOutcome:
         try:
             async with self._sessions().begin() as session:
                 return await self.execute_in_session(session, ctx, command)
@@ -379,8 +379,8 @@ class MemoryV2Writer:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
 
     async def execute_in_session(
-        self, session: AsyncSession, ctx: MemoryWriteContext, command: MemoryV2Command
-    ) -> MemoryV2Outcome:
+        self, session: AsyncSession, ctx: MemoryWriteContext, command: MemoryWriteCommand
+    ) -> MemoryWriteOutcome:
         try:
             return await self._execute_in_session(session, ctx, command)
         except SQLAlchemyError as exc:
@@ -395,8 +395,8 @@ class MemoryV2Writer:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
 
     async def _execute_in_session(
-        self, session: AsyncSession, ctx: MemoryWriteContext, command: MemoryV2Command
-    ) -> MemoryV2Outcome:
+        self, session: AsyncSession, ctx: MemoryWriteContext, command: MemoryWriteCommand
+    ) -> MemoryWriteOutcome:
         fingerprint = _fingerprint(ctx, command)
         replay = await _receipt(session, ctx, command, fingerprint)
         if replay is not None:
@@ -427,7 +427,7 @@ class MemoryV2Writer:
             raise AppError(ErrorCode.MEMORY_ALREADY_EXISTS)
         decision = _write_decision(row, candidate, ctx)
         if decision == "SKIPPED":
-            outcome = MemoryV2Outcome("SKIPPED", key, row.version if row is not None else None)
+            outcome = MemoryWriteOutcome("SKIPPED", key, row.version if row is not None else None)
         elif decision == "PENDING":
             outcome = await self._candidate(session, ctx, row, candidate, scope, command)
         else:
@@ -447,13 +447,13 @@ class MemoryV2Writer:
                 row.version = 1
                 session.add(row)
                 await session.flush()
-                outcome = MemoryV2Outcome("CREATED", key, 1)
+                outcome = MemoryWriteOutcome("CREATED", key, 1)
                 scope.revision += 1
                 await _history(session, row, ctx, command, "CREATE", now=now)
             else:
                 row.version += 1
                 _apply_candidate(row, candidate, ctx, now)
-                outcome = MemoryV2Outcome("UPDATED", key, row.version)
+                outcome = MemoryWriteOutcome("UPDATED", key, row.version)
                 scope.revision += 1
                 await _history(session, row, ctx, command, "OVERWRITE", now=now)
         await _save_receipt(session, ctx, command, fingerprint, outcome)
@@ -463,8 +463,8 @@ class MemoryV2Writer:
         self,
         session: AsyncSession,
         ctx: MemoryWriteContext,
-        candidate: MemoryCandidateV2,
-        command: MemoryV2Command,
+        candidate: MemoryCandidate,
+        command: MemoryWriteCommand,
         target_key: str,
         now: datetime,
         scope: MemoryScope,
@@ -535,7 +535,7 @@ class MemoryV2Writer:
         scope.revision += 1
         await self._revoke_pending(session, ctx, row.memory_key)
         await _history(session, row, ctx, command, row.retirement_reason, now=now)
-        outcome = MemoryV2Outcome("DELETED", row.memory_key, row.version)
+        outcome = MemoryWriteOutcome("DELETED", row.memory_key, row.version)
         await _save_receipt(session, ctx, command, fingerprint, outcome)
         return outcome
 
@@ -560,7 +560,7 @@ class MemoryV2Writer:
         await self._revoke_pending(session, ctx, None)
         scope.revision += 1
         scope.forget_epoch += 1
-        outcome = MemoryV2Outcome("CLEARED", None, None)
+        outcome = MemoryWriteOutcome("CLEARED", None, None)
         await _save_receipt(session, ctx, command, fingerprint, outcome)
         return outcome
 
@@ -578,7 +578,7 @@ class MemoryV2Writer:
 
     async def set_enabled(
         self, ctx: MemoryWriteContext, memory_id: UUID, *, expected_version: int, enabled: bool
-    ) -> MemoryV2Outcome:
+    ) -> MemoryWriteOutcome:
         async with self._sessions().begin() as session:
             scope = await MemoryService.lock_scope(session, ctx)
             now = await database_now(session)
@@ -599,13 +599,13 @@ class MemoryV2Writer:
             row.version += 1
             row.update_time = now
             scope.revision += 1
-            command = MemoryV2Command("enable", "memory.enable", "UPSERT")
+            command = MemoryWriteCommand("enable", "memory.enable", "UPSERT")
             await _history(session, row, ctx, command, "ENABLE" if enabled else "DISABLE", now=now)
-            return MemoryV2Outcome("PATCHED", row.memory_key, row.version)
+            return MemoryWriteOutcome("PATCHED", row.memory_key, row.version)
 
     async def patch(
         self, ctx: MemoryWriteContext, memory_id: UUID, *, expected_version: int, updates: dict[str, object]
-    ) -> MemoryV2Outcome:
+    ) -> MemoryWriteOutcome:
         identity_fields = {"memory_kind", "predicate", "scope", "scope_state", "cardinality"}
         if identity_fields & set(updates):
             raise AppError(ErrorCode.MEMORY_IDENTITY_IMMUTABLE)
@@ -644,13 +644,13 @@ class MemoryV2Writer:
             row.version += 1
             row.update_time = now
             scope.revision += 1
-            command = MemoryV2Command("patch", "memory.patch", "UPSERT")
+            command = MemoryWriteCommand("patch", "memory.patch", "UPSERT")
             await _history(session, row, ctx, command, "OVERWRITE", now=now)
-            return MemoryV2Outcome("PATCHED", row.memory_key, row.version)
+            return MemoryWriteOutcome("PATCHED", row.memory_key, row.version)
 
     async def restore(
         self, ctx: MemoryWriteContext, memory_id: UUID, *, expected_version: int
-    ) -> MemoryV2Outcome:
+    ) -> MemoryWriteOutcome:
         async with self._sessions().begin() as session:
             scope = await MemoryService.lock_scope(session, ctx)
             now = await database_now(session)
@@ -673,13 +673,13 @@ class MemoryV2Writer:
             row.version += 1
             row.update_time = now
             scope.revision += 1
-            command = MemoryV2Command("restore", "memory.restore", "UPSERT")
+            command = MemoryWriteCommand("restore", "memory.restore", "UPSERT")
             await _history(session, row, ctx, command, "RESTORE", now=now)
-            return MemoryV2Outcome("RESTORED", row.memory_key, row.version)
+            return MemoryWriteOutcome("RESTORED", row.memory_key, row.version)
 
     async def reject_candidate(
         self, ctx: MemoryWriteContext, candidate_id: UUID, *, expected_version: int
-    ) -> MemoryV2Outcome:
+    ) -> MemoryWriteOutcome:
         async with self._sessions().begin() as session:
             scope = await MemoryService.lock_scope(session, ctx)
             now = await database_now(session)
@@ -703,11 +703,11 @@ class MemoryV2Writer:
             candidate.resolved_at = now
             candidate.update_time = now
             scope.revision += 1
-            return MemoryV2Outcome("REJECTED", candidate.memory_key, None, candidate.id)
+            return MemoryWriteOutcome("REJECTED", candidate.memory_key, None, candidate.id)
 
     async def accept_candidate(
         self, ctx: MemoryWriteContext, candidate_id: UUID, *, expected_version: int
-    ) -> MemoryV2Outcome:
+    ) -> MemoryWriteOutcome:
         async with self._sessions().begin() as session:
             scope = await MemoryService.lock_scope(session, ctx)
             now = await database_now(session)
@@ -755,10 +755,10 @@ class MemoryV2Writer:
             candidate.resolved_by = ctx.actor_id
             candidate.resolved_at = now
             scope.revision += 1
-            command = MemoryV2Command(
+            command = MemoryWriteCommand(
                 command_id=f"accept:{candidate_id}",
                 endpoint="candidate.resolve",
                 action="UPSERT",
             )
             await _history(session, row, ctx, command, "CONFIRM", now=now)
-            return MemoryV2Outcome("ACCEPTED", row.memory_key, row.version)
+            return MemoryWriteOutcome("ACCEPTED", row.memory_key, row.version)

@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from muad_agent_core.memory.memory_render import render_memory_v2
-from muad_agent_core.memory.selection import MemoryRecordV2
+from muad_agent_core.memory.memory_render import render_memory
+from muad_agent_core.memory.selection import MemoryRecord
 from muad_contracts.memory import MemoryCardinality, MemoryPriority, ScopeState
 
 NOW = datetime(2026, 11, 14, tzinfo=UTC)
 
 
 def _record(key, title, *, content=None, memory_kind="NOTE", predicate="general", summary="summary"):
-    return MemoryRecordV2(
+    return MemoryRecord(
         memory_key=key,
         memory_kind=memory_kind,
         predicate=predicate,
@@ -31,7 +31,7 @@ def _record(key, title, *, content=None, memory_kind="NOTE", predicate="general"
 
 
 def test_renderer_includes_notice_and_drops_without_truncating_items():
-    rendered = render_memory_v2([_record("a", "A" * 100), _record("b", "B" * 100)], max_records=1)
+    rendered = render_memory([_record("a", "A" * 100), _record("b", "B" * 100)], max_records=1)
     assert "仅供参考" in rendered.text
     assert rendered.included_keys == ("a",)
     assert "B" * 100 not in rendered.text
@@ -39,7 +39,7 @@ def test_renderer_includes_notice_and_drops_without_truncating_items():
 
 
 def test_zero_budget_is_empty():
-    rendered = render_memory_v2([_record("a", "A")], max_records=0)
+    rendered = render_memory([_record("a", "A")], max_records=0)
     assert rendered.text == "" and rendered.included_keys == ()
 
 
@@ -52,6 +52,6 @@ def test_structured_content_renders_readable_fields():
         predicate="owned_system",
         summary="",
     )
-    rendered = render_memory_v2([record])
+    rendered = render_memory([record])
     assert "防火墙" in rendered.text and "unit=套" in rendered.text
     assert '{"value"' not in rendered.text

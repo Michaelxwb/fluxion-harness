@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import MemoryCandidate
+from muad_contracts.memory import ExperienceCandidate
 from pydantic import ValidationError
 
 from tests.agent_runtime.memory_redesign_write_support import (
@@ -61,7 +61,7 @@ async def test_b110_disabled_and_deleted_filtered(async_tool_database) -> None:
 
 def test_b110_categories_constrained() -> None:
     with pytest.raises(ValidationError):
-        MemoryCandidate.model_validate(
+        ExperienceCandidate.model_validate(
             {"memory_key": "k", "category": "RUNTIME_FACT", "content": {"value": "test"}}
         )
 

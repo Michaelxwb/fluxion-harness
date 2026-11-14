@@ -13,11 +13,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ..metrics import MEMORY_INJECT_METRIC, record_counter
 from .memory_queries import (
+    ExperienceRow,
     MemoryCandidateRow,
-    MemoryCandidateRowV2,
     MemoryQueries,
     MemoryReadScope,
-    MemorySnapshotV2,
+    MemorySnapshot,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True, slots=True)
 class _CachedCandidates:
     revision: int
-    rows: tuple[MemoryCandidateRowV2, ...]
-    legacy_rows: tuple[MemoryCandidateRow, ...] = ()
+    rows: tuple[MemoryCandidateRow, ...]
+    legacy_rows: tuple[ExperienceRow, ...] = ()
 
 
 class MemoryCandidateCache:
@@ -53,7 +53,7 @@ class MemoryCandidateCache:
     def invalidate(self) -> None:
         self._cached = None
 
-    async def read_for_injection(self, *, max_items: int, max_bytes: int) -> MemorySnapshotV2 | None:
+    async def read_for_injection(self, *, max_items: int, max_bytes: int) -> MemorySnapshot | None:
         if max_items < 0 or max_bytes < 0:
             raise ValueError("memory injection budgets must be non-negative")
         async with self._lock:
@@ -78,7 +78,7 @@ class MemoryCandidateCache:
                 )
                 return None
 
-    async def _read_current(self) -> MemorySnapshotV2:
+    async def _read_current(self) -> MemorySnapshot:
         cached = self._cached
         if cached is not None:
             head = await self._queries.read_scope_version(self._scope)
@@ -95,9 +95,9 @@ class MemoryCandidateCache:
                     if row.record.enabled
                     and (row.record.expires_at is None or row.record.expires_at > head.as_of)
                 )
-                return MemorySnapshotV2(
+                return MemorySnapshot(
                     self._scope, head.revision, head.forget_epoch, head.as_of, rows, legacy
                 )
-        snapshot = await self._queries.read_snapshot_v2(self._scope)
+        snapshot = await self._queries.read_snapshot(self._scope)
         self._cached = _CachedCandidates(snapshot.revision, snapshot.rows, snapshot.legacy_rows)
         return snapshot

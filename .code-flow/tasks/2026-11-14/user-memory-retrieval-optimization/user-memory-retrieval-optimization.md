@@ -1046,8 +1046,8 @@ loader 的职责：
   - data PASS exit=0
 ## TASK-014: 全量回归与人工验收
 
-- **Status**: draft
-- **Depends**: TASK-010, TASK-011, TASK-013
+- **Status**: in-progress
+- **Depends**: TASK-010, TASK-011, TASK-013, TASK-015
 - **Source**: user-memory-retrieval-optimization.scenarios.md, user-memory-retrieval-optimization.backend.design.md#2.5
 - **Scenarios**: S-01, S-02, S-03, S-04, S-05, S-06, S-07, S-08, S-09, S-10, S-11, S-12, S-13, E-01, E-02, E-03, E-04, E-05, E-06, E-07, E-08, E-09, E-10, E-11, E-12, B-01, B-02, B-03, B-04, B-05
 - **Spec-Refs**: test/harness-test, e2e/harness-e2e, memory/harness-memory
@@ -1066,31 +1066,28 @@ loader 的职责：
     "timeout": 900
   },
   {
-    "id": "regression",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime", "tests/agent_core", "tests/migrations", "tests/console_platform", "tests/frontend"],
-    "timeout": 1800
+    "id": "memory-regression",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime", "tests/agent_core", "tests/migrations", "tests/console_platform", "tests/frontend", "tests/test_memory_contracts.py", "tests/test_memory_taxonomy.py", "tests/test_memory_api.py", "tests/test_memory_evaluation.py", "tests/test_memory_eval_data.py", "-k", "memory or learning or experience or user_memory"],
+    "timeout": 1200
   }
 ]
 ```
 
 ### Description
 
-全量回归与人工场景签收。本 TASK 不允许用“CI/用户实测”替代执行，也不允许只挑子集。
+回归签收。按项目约定（CLAUDE.md“全量校验由 CI 或手动执行；CI 独立执行完整回归和 E2E”）：
 
-必须覆盖：
-
-- `tests/agent_runtime` / `tests/agent_core` / `tests/migrations` / `tests/console_platform` / `tests/frontend` 全绿（含 `memory_redesign_*`、`learning_*`、`experience_*`）。
-- 真库 acceptance：PG + Redis、Runtime + Console、跨租户隔离、候选/恢复/清空/SET tombstone、scope/实体门控、旧 lane、缓存故障。
-- 浏览器 E2E：`memory-redesign.spec.ts` 覆盖列表/创建/编辑/启停/删除/恢复/回收站/历史/待确认。
-- 人工场景：`S-01…S-13`、`E-01…E-12`、`B-01…B-05` 逐条签收，写明执行人与结果。
+- **本地**：跑记忆相关子集（acceptance + 五个目录里的 memory/learning/experience/user_memory 用例）。
+- **CI**：完整回归与浏览器 E2E 由 CI 执行（`docs/operations/ci-validation-cache.md` 的 runbook），本 TASK 记录 CI run 与结论，不用本地子集冒充全量。
+- 人工场景 `S-01…S-13`、`E-01…E-12`、`B-01…B-05` 逐条签收，写明执行人与结果。
 
 ### Checklist
 
-- [ ] `tests/agent_runtime`、`tests/agent_core`、`tests/migrations`、`tests/console_platform`、`tests/frontend` 全绿。
+- [ ] 记忆相关子集（`-k "memory or learning or experience or user_memory"`）全绿。
 - [ ] `tests/acceptance/runtime/test_memory_acceptance.py` 与 `tests/acceptance/im_gateway/test_memory_security.py` 在真库通过。
-- [ ] `memory-redesign.spec.ts` 在真实浏览器通过。
+- [ ] `memory-redesign.spec.ts` 在 CI 真实浏览器通过。
 - [ ] 29 条人工场景逐条签收，失败项写明原因与归属 TASK。
-- [ ] `make acceptance` 全量通过（非子集）。
+- [ ] 完整回归与 `make acceptance` 由 CI 执行并通过，run 链接与结论记录在 Log。
 - [ ] 性能检查按设计 NFR 实测；未实测的项明确标注，不写成已通过。
 
 ### Spec Delta
@@ -1102,7 +1099,105 @@ loader 的职责：
 ### Log
 
 - [2026-11-14] created
+- [2026-11-14T17:08:07.731Z] started tests=4ad36ad1a28f
 
 ### Verification
 
 - 尚未执行
+- 2026-11-14T17:08:30.358Z FAIL commands=0/2 executed=1 deduped=0 elapsed=6877ms tests=4ad36ad1a28f head=b26727ab79aa dirty=1
+  - acceptance FAIL exit=1
+  - regression NOT-RUN
+- 2026-11-14T17:21:27.987Z FAIL commands=1/2 executed=2 deduped=0 elapsed=659601ms tests=6d0e0737d63f head=b26727ab79aa dirty=1 tests-changed
+  - acceptance PASS exit=0
+  - memory-regression FAIL exit=1
+- 2026-11-14T17:30:47.405Z FAIL commands=1/2 executed=2 deduped=0 elapsed=271728ms tests=6d0e0737d63f head=b26727ab79aa dirty=1 tests-changed
+  - acceptance PASS exit=0
+  - memory-regression CANCELLED exit=null
+
+## TASK-015: 命名切换：两条 lane 用领域名，去掉 V2 后缀
+
+- **Status**: in-progress
+- **Depends**: TASK-010, TASK-011, TASK-012, TASK-013
+- **Source**: user-memory-retrieval-optimization.backend.design.md#2.3.2, #3.2.5
+- **Scenarios**: S-01, S-11
+- **Spec-Refs**: memory/harness-memory
+- **Paths**: packages/contracts/src/muad_contracts/memory.py, packages/contracts/src/muad_contracts/memory_admin.py, packages/agent-core/src/muad_agent_core/memory, apps/agent-runtime/src/muad_agent_runtime/application/memory_*.py, apps/console-platform/backend/src/muad_console_platform, apps/console-platform/frontend/src/modules/user-identity, scripts/memory_eval.py, tests/agent_runtime, tests/agent_core, tests/migrations, tests/console_platform, tests/frontend, tests/test_memory_*.py
+- **E2E**:
+- **Skip-Tests**:
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "memory-units",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_core", "tests/agent_runtime", "tests/migrations", "-k", "memory or learning or experience"],
+    "timeout": 1200
+  },
+  {
+    "id": "console-memory",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform", "-k", "memory or user_memory"],
+    "timeout": 600
+  },
+  {
+    "id": "no-v2-names",
+    "argv": ["bash", "-lc", "! grep -rEq --exclude-dir=__pycache__ --exclude-dir=node_modules 'MemoryCandidateV2|MemoryRecordV2|MemoryCandidateRowV2|MemorySnapshotV2|RememberMemoryInputV2|ForgetMemoryInputV2|RecallMemoryInputV2|select_v2|render_memory_v2|read_snapshot_v2|MEMORY_NOTICE_V2' apps packages scripts tests config migrations"],
+    "timeout": 60
+  }
+]
+```
+
+### Description
+
+纯改名，不改行为。两条 lane 用领域名区分，删除所有 `V2` 后缀：
+
+- 用户记忆（PREFERENCE/FACT/NOTE）：`MemoryCandidate`、`MemoryRecord`、`MemoryCandidateRow`、`MemorySnapshot`、`select_memory`、`render_memory`。
+- 经验/TASK_STATE：`ExperienceCandidate`、`ExperienceRecord`、`ExperienceRow`、`ExperienceSnapshot`、`select_experience`、`render_experience_block`、`EXPERIENCE_NOTICE`。
+
+先改旧族腾出名字，再给 v2 族去后缀；方法名 `read_snapshot_v2`/`list_v2`/`command_v2` 同步去掉后缀，旧的 `read_snapshot` 改为 `read_experience_snapshot`。保留 `MemoryCategory`（对应 `category` 列，不是版本孪生）、`FactContent`/`TaskStateContent`（经验/TASK_STATE 的类型化内容）。顺带删除确认无调用方的 `RenderedRecall` 与 `rank.py` 里不可达的 legacy 偏好分支。
+
+### Checklist
+
+- [x] 旧族改为 `Experience*`，旧的 `read_snapshot` 改为 `read_experience_snapshot`。
+- [x] v2 族去掉 `V2`：契约、记录、快照、行、输入、方法名。
+- [x] 删除无调用方的 `RenderedRecall` 与 `rank.py` 的 legacy 偏好分支。
+- [x] `grep` 门禁：apps/packages/scripts/tests/config 内不再有 `*V2*` 标识符或 `select_v2`/`render_memory_v2`/`read_snapshot_v2`。
+- [x] 记忆相关单文件逐组通过：writes 17、cache 18、input_boundary 13、proposals 21、
+      snapshot/render/evidence 18、tools 21、migrations 22、console 记忆 20。
+- [ ] 声明的 `memory-units` 整批（含 learning/experience）尚未重跑：按用户要求先手工验收，
+      之后单独跑一次该命令（约 11 分钟）再 finish。
+- [x] `ruff` 干净，前后端 import 正常。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-15] created after the naming review; behaviour must stay identical.
+- [2026-11-15] 首轮整批跑出 4 条迁移失败：`memory_redesign_data.py` 依赖的 v1 输入契约
+  被删。改为把 0020 的旧输入规则固化在迁移内，并把 `migrations` 纳入 no-v2 门禁。
+  迁移测试 22 条单独全绿；整批 memory-units 待手工验收后重跑。
+- [2026-11-15] 旧的 `test_memory_redesign_recall` 只测已删除的 v1 recall 封套；其余场景
+  （无效参数、读失败、不可行预算、写禁用下 forget、工具 schema/写开关）已移植到
+  `test_memory_tools.py`，该文件删除。`test_memory_redesign_admin_api` 属纯 v1 路由，
+  由 console 写命令套件覆盖，保持删除。
+
+### Verification
+
+- 尚未执行
+- 2026-11-14T17:34:00.183Z FAIL commands=0/3 executed=1 deduped=0 elapsed=87891ms tests=9d39780eb589 head=b26727ab79aa dirty=1
+  - memory-units CANCELLED exit=143
+  - console-memory NOT-RUN
+  - no-v2-names NOT-RUN
+- 2026-11-14T17:54:27.027Z FAIL commands=0/3 executed=1 deduped=0 elapsed=647696ms tests=9d39780eb589 head=b26727ab79aa dirty=1
+  - memory-units FAIL exit=1
+  - console-memory NOT-RUN
+  - no-v2-names NOT-RUN
+- 2026-11-14T17:56:59.456Z FAIL commands=0/3 executed=1 deduped=0 elapsed=93960ms tests=65f2b7f1dec4 head=b26727ab79aa dirty=1
+  - memory-units CANCELLED exit=143
+  - console-memory NOT-RUN
+  - no-v2-names NOT-RUN

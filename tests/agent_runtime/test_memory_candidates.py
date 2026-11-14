@@ -6,11 +6,11 @@ from uuid import uuid4
 
 import pytest
 import sqlalchemy as sa
+from muad_agent_runtime.application.memory_commands import MemoryWriteContext
+from muad_agent_runtime.application.memory_writer import MemoryWriteCommand, MemoryWriter
+from muad_contracts.memory import RememberMemoryInput
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from muad_agent_runtime.application.memory_commands import MemoryWriteContext
-from muad_agent_runtime.application.memory_writer import MemoryV2Command, MemoryV2Writer
-from muad_contracts.memory import RememberMemoryInputV2
 from tests.async_tool_datastores import async_tool_database as async_tool_database
 
 pytestmark = pytest.mark.integration
@@ -45,7 +45,7 @@ def _same_ctx(ctx, *, seq):
 
 
 def _candidate(value="PDF"):
-    return RememberMemoryInputV2.model_validate(
+    return RememberMemoryInput.model_validate(
         {
             "memory_kind": "PREFERENCE",
             "predicate": "report_format",
@@ -56,15 +56,15 @@ def _candidate(value="PDF"):
 
 
 def _writer(db):
-    return MemoryV2Writer(async_sessionmaker(db, expire_on_commit=False))
+    return MemoryWriter(async_sessionmaker(db, expire_on_commit=False))
 
 
 async def test_agent_different_value_creates_target_bound_pending(async_tool_database):
     ctx, writer = _ctx(), _writer(async_tool_database)
-    created = await writer.execute(ctx, MemoryV2Command("seed", "memory.create", "UPSERT", _candidate()))
+    created = await writer.execute(ctx, MemoryWriteCommand("seed", "memory.create", "UPSERT", _candidate()))
     pending = await writer.execute(
         _same_ctx(ctx, seq=2),
-        MemoryV2Command("propose", "memory.infer", "UPSERT", _candidate("WORD")),
+        MemoryWriteCommand("propose", "memory.infer", "UPSERT", _candidate("WORD")),
     )
     assert pending.status == "CANDIDATE"
     assert pending.memory_key == created.memory_key
@@ -72,7 +72,8 @@ async def test_agent_different_value_creates_target_bound_pending(async_tool_dat
         row = (
             await connection.execute(
                 sa.text(
-                    "SELECT memory_key, base_version, status, forget_epoch FROM runtime.memory_conflict_candidate"
+                    "SELECT memory_key, base_version, status, forget_epoch"
+                    " FROM runtime.memory_conflict_candidate"
                     " WHERE tenant_id=:t AND user_id=:u AND id=:id"
                 ),
                 {"t": ctx.tenant_id, "u": ctx.user_id, "id": pending.candidate_id},
@@ -84,10 +85,10 @@ async def test_agent_different_value_creates_target_bound_pending(async_tool_dat
 
 async def test_accept_candidate_writes_current_value_and_authority(async_tool_database):
     infer, writer = _ctx(), _writer(async_tool_database)
-    await writer.execute(infer, MemoryV2Command("seed2", "memory.create", "UPSERT", _candidate()))
+    await writer.execute(infer, MemoryWriteCommand("seed2", "memory.create", "UPSERT", _candidate()))
     pending = await writer.execute(
         _same_ctx(infer, seq=2),
-        MemoryV2Command("propose2", "memory.infer", "UPSERT", _candidate("WORD")),
+        MemoryWriteCommand("propose2", "memory.infer", "UPSERT", _candidate("WORD")),
     )
     admin = MemoryWriteContext(
         tenant_id=infer.tenant_id, user_id=infer.user_id, actor_type="ADMIN", actor_id="admin"
@@ -101,7 +102,11 @@ async def test_accept_candidate_writes_current_value_and_authority(async_tool_da
                     "SELECT content_json, author, authority, version FROM runtime.user_memory"
                     " WHERE tenant_id=:t AND user_id=:u AND memory_key=:k"
                 ),
-                {"t": admin.tenant_id, "u": admin.user_id, "k": admin_context_key(await _key(connection, admin))},
+                {
+                    "t": admin.tenant_id,
+                    "u": admin.user_id,
+                    "k": admin_context_key(await _key(connection, admin)),
+                },
             )
         ).one()
     assert row.content_json == {"format": "WORD"}

@@ -14,7 +14,6 @@ from muad_contracts.memory import (
     MEMORY_MAX_BYTES,
     MEMORY_MAX_RECORDS,
     FactContent,
-    RememberMemoryInput,
     memory_content_bytes,
 )
 from muad_contracts.platform_settings import MemoryPolicySettings, parse_platform_settings
@@ -148,6 +147,21 @@ def _forbidden_text(value: object) -> bool:
     return False
 
 
+_LEGACY_KEY = re.compile(r"^[a-z0-9][a-z0-9.-]{0,63}$")
+_LEGACY_CATEGORIES = frozenset({"PREFERENCE", "WORK_STYLE", "EXPLICIT"})
+
+
+def _legacy_input_ok(row: Mapping[str, object], value: object) -> bool:
+    """0020's legacy input rules are pinned here so later contract changes cannot move them."""
+
+    key = row["memory_key"]
+    if not isinstance(key, str) or not _LEGACY_KEY.fullmatch(key) or key.startswith("task."):
+        return False
+    if row["category"] not in _LEGACY_CATEGORIES:
+        return False
+    return isinstance(value, str) and 1 <= len(value) <= 512 and bool(value.strip())
+
+
 def preflight_memory(bind: Connection) -> None:
     _preflight_drain(bind)
     table = _table(bind, "user_memory")
@@ -158,9 +172,8 @@ def preflight_memory(bind: Connection) -> None:
             raise ValueError("MEMORY_MIGRATION_FORBIDDEN_CONTENT")
         try:
             content = FactContent.model_validate(row["content_json"])
-            RememberMemoryInput.model_validate(
-                {"memory_key": row["memory_key"], "category": row["category"], "value": content.value}
-            )
+            if not _legacy_input_ok(row, content.value):
+                raise ValueError("MEMORY_MIGRATION_INVALID_LEGACY_MEMORY")
         except (ValidationError, KeyError, TypeError):
             raise ValueError("MEMORY_MIGRATION_INVALID_LEGACY_MEMORY") from None
         if _number(row, "version") < 1:

@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections import Counter
 
 import pytest
-
 from muad_contracts.memory_taxonomy import (
     CORE_PREDICATES,
     ENTITY_TYPE_DISPLAY_NAMES,

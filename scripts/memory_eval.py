@@ -166,7 +166,7 @@ def load_fixture(path: Path) -> tuple[list[QueryLabel], dict[str, QueryOutcome]]
 
 
 # ---------------------------------------------------------------------------
-# Retrieval runs: the frozen baseline (untouched select_injection) and v2.
+# Retrieval runs: the frozen baseline (untouched select_experience) and v2.
 # ---------------------------------------------------------------------------
 
 EXPERIENCE_KINDS = frozenset({"PROCEDURE", "FAILURE_PATTERN", "VERIFICATION"})
@@ -175,10 +175,10 @@ EVAL_NOW = datetime(2026, 11, 14, tzinfo=UTC)
 
 
 def _record_v2(item: dict) -> object:
-    from muad_agent_core.memory.selection import MemoryRecordV2
+    from muad_agent_core.memory.selection import MemoryRecord
     from muad_contracts.memory import MemoryCardinality, MemoryPriority, ScopeState
 
-    return MemoryRecordV2(
+    return MemoryRecord(
         memory_key=item["memory_key"],
         memory_kind=item["memory_kind"],
         predicate=item["predicate"],
@@ -201,14 +201,14 @@ def _record_v2(item: dict) -> object:
 def _record_v1(item: dict) -> object:
     """Baseline projection: the baseline only understands legacy categories."""
 
-    from muad_agent_core.memory.rank import MemoryRecord
+    from muad_agent_core.memory.rank import ExperienceRecord
     from muad_contracts.memory import FactContent, MemoryAuthor, MemoryCategory
 
     content = dict(item.get("content", {}))
     value = content.get("value", content.get("text", ""))
     if not isinstance(value, str) or not value:
         value = item.get("title") or "-"
-    return MemoryRecord(
+    return ExperienceRecord(
         memory_key=item["memory_key"],
         content=FactContent(value=value),
         author=MemoryAuthor(item.get("author", "USER")),
@@ -230,18 +230,18 @@ def run_selection(memories: list[dict], query: str, *, algorithm: str, top_k: in
     """Select the injected keys under one algorithm; identical inputs and budget."""
 
     if algorithm == "v2":
-        from muad_agent_core.memory.selection import QueryContextV2, select_v2
+        from muad_agent_core.memory.selection import QueryContext, select_memory
 
-        selected = select_v2(
+        selected = select_memory(
             [_record_v2(item) for item in memories],
-            QueryContextV2(query=query, now=EVAL_NOW),
+            QueryContext(query=query, now=EVAL_NOW),
             top_k=top_k,
         )
         return tuple(item.record.memory_key for item in selected)
     if algorithm == "baseline":
-        from muad_agent_core.memory.rank import select_injection
+        from muad_agent_core.memory.rank import select_experience
 
-        selection = select_injection(
+        selection = select_experience(
             [_record_v1(item) for item in memories],
             query=query,
             now=EVAL_NOW,

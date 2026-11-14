@@ -11,23 +11,23 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from muad_agent_core.memory.components import MemoryComponent, MemoryReference
-from muad_agent_core.memory.memory_render import render_memory_v2
+from muad_agent_core.memory.memory_render import render_memory
 from muad_agent_core.memory.query_scope import QueryScope, scope_from_messages
-from muad_agent_core.memory.rank import InjectionSelection, MemoryRecord, select_injection
-from muad_agent_core.memory.render import RenderedMemoryBlock, render_memory_block
+from muad_agent_core.memory.rank import ExperienceRecord, InjectionSelection, select_experience
+from muad_agent_core.memory.render import RenderedExperienceBlock, render_experience_block
 from muad_agent_core.memory.resume import resume_candidate_hash
 from muad_agent_core.memory.selection import (
-    MemoryRecordV2,
-    QueryContextV2,
+    MemoryRecord,
+    QueryContext,
     QueryScopeState,
-    SelectedV2,
-    select_v2,
+    SelectedMemory,
+    select_memory,
 )
 from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import (
     MemoryCardinality,
     MemoryCategory,
-    MemoryItemV2,
+    MemoryItem,
     MemoryPriority,
     MemoryResolution,
     MemoryResumeRef,
@@ -37,7 +37,7 @@ from muad_contracts.platform_settings import MemoryPolicySettings
 
 from ..metrics import MEMORY_INJECT_DROPPED_METRIC, MEMORY_INJECT_METRIC, record_counter
 from .memory_cache import MemoryCandidateCache
-from .memory_queries import MemoryCandidateRowV2, MemorySnapshotV2
+from .memory_queries import MemoryCandidateRow, MemorySnapshot
 
 _EXPERIENCE = frozenset(
     {MemoryCategory.PROCEDURE, MemoryCategory.FAILURE_PATTERN, MemoryCategory.VERIFICATION}
@@ -65,8 +65,8 @@ class InjectionAttribution:
 AttributionSink = Callable[[InjectionAttribution], Awaitable[None]]
 
 
-def _record(row: MemoryCandidateRowV2) -> MemoryRecordV2:
-    return MemoryRecordV2(
+def _record(row: MemoryCandidateRow) -> MemoryRecord:
+    return MemoryRecord(
         memory_key=row.memory_key,
         memory_kind=row.memory_kind,
         predicate=row.predicate,
@@ -86,8 +86,8 @@ def _record(row: MemoryCandidateRowV2) -> MemoryRecordV2:
     )
 
 
-def _item(row: MemoryCandidateRowV2) -> MemoryItemV2:
-    return MemoryItemV2(
+def _item(row: MemoryCandidateRow) -> MemoryItem:
+    return MemoryItem(
         id=row.id,
         memory_key=row.memory_key,
         memory_kind=row.memory_kind,
@@ -212,7 +212,7 @@ class MemoryContextLoader:
         if generation != self._generation or self._suppressed:
             return None
         self._freeze_experience(snapshot)
-        selection = select_injection(
+        selection = select_experience(
             (row.record for row in snapshot.legacy_rows),
             query=self._query,
             now=snapshot.as_of,
@@ -225,9 +225,9 @@ class MemoryContextLoader:
         )
         tasks = self._task_state(snapshot)
         self._query_scope = scope_from_messages((*self._recent_user_texts, self._query or ""))
-        selected = select_v2(
+        selected = select_memory(
             [_record(row) for row in snapshot.rows],
-            QueryContextV2(
+            QueryContext(
                 query=self._query,
                 now=snapshot.as_of,
                 scope_state=QueryScopeState(self._query_scope.state),
@@ -243,7 +243,7 @@ class MemoryContextLoader:
         await self._emit_attribution()
         return self._component
 
-    def _freeze_experience(self, snapshot: MemorySnapshotV2) -> None:
+    def _freeze_experience(self, snapshot: MemorySnapshot) -> None:
         if self._allowed_experience_keys is not None:
             return
         # 首次刷新冻结 ACTIVE 经验集合：之后（同 Run 内）的激活不改变本 Run 的注入集合。
@@ -257,7 +257,7 @@ class MemoryContextLoader:
             else frozenset()
         )
 
-    def _task_state(self, snapshot: MemorySnapshotV2) -> tuple[MemoryRecord, ...]:
+    def _task_state(self, snapshot: MemorySnapshot) -> tuple[ExperienceRecord, ...]:
         ref = self._task_state_ref
         if ref is None or not self._settings.task_state_injection_enabled:
             return ()
@@ -272,21 +272,21 @@ class MemoryContextLoader:
 
     def _render(
         self,
-        snapshot: MemorySnapshotV2,
+        snapshot: MemorySnapshot,
         selection: InjectionSelection,
-        tasks: tuple[MemoryRecord, ...],
-        selected: tuple[SelectedV2, ...],
+        tasks: tuple[ExperienceRecord, ...],
+        selected: tuple[SelectedMemory, ...],
     ) -> MemoryComponent:
         max_records, max_bytes = (
             self._settings.max_injected_memories,
             self._settings.max_injected_bytes,
         )
         legacy = (*tasks, *selection.records)
-        block: RenderedMemoryBlock = render_memory_block(
+        block: RenderedExperienceBlock = render_experience_block(
             legacy, max_records=max_records, max_bytes=max_bytes
         )
         block_text = block.text
-        rendered = render_memory_v2(
+        rendered = render_memory(
             [item.record for item in selected],
             max_records=max(0, max_records - len(block.items)),
             max_bytes=max(0, max_bytes - len(block_text.encode("utf-8") if block_text else b"")),
@@ -367,7 +367,7 @@ class MemoryContextLoader:
         )
 
     def _resolve(
-        self, snapshot: MemorySnapshotV2, selected: tuple[SelectedV2, ...]
+        self, snapshot: MemorySnapshot, selected: tuple[SelectedMemory, ...]
     ) -> MemoryResolution:
         rows = {row.memory_key: row for row in snapshot.rows}
         entries = tuple(_item(rows[item.record.memory_key]) for item in selected)

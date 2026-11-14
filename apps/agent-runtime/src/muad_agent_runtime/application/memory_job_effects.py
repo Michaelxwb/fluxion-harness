@@ -7,7 +7,7 @@ from datetime import timedelta
 
 from muad_contracts import ResolvedAgent
 from muad_contracts.memory import (
-    MemoryCandidate,
+    ExperienceCandidate,
     MemoryCategory,
     MemoryRetirementReason,
     MemorySourceEvidence,
@@ -27,9 +27,9 @@ from ..infrastructure.models.runtime import (
     UserMemory,
 )
 from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
-from .memory_identity import memory_key as build_memory_key
 from .memory_consolidation_input import ConsolidationInput
 from .memory_consolidation_output import ConsolidationBatch, ConsolidationRejected, parse_output
+from .memory_identity import memory_key as build_memory_key
 from .memory_job_enqueue import _reference
 from .memory_jobs import JobClaim, lock_claim, owns
 from .memory_mutations import memory_state
@@ -213,7 +213,7 @@ async def _task_mutations(
         mutations.append(
             MemoryMutation(
                 action="UPSERT",
-                candidate=MemoryCandidate(
+                candidate=ExperienceCandidate(
                     memory_key=root_key,
                     category=MemoryCategory.TASK_STATE,
                     content=batch.task_state,

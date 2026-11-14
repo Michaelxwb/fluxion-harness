@@ -7,7 +7,7 @@ from typing import Literal, Self
 from uuid import UUID
 
 from muad_contracts.memory import (
-    MemoryCandidate,
+    ExperienceCandidate,
     MemoryKey,
     MemoryRetirementReason,
     MemorySourceEvidence,
@@ -50,7 +50,7 @@ class MemoryWriteContext:
 class MemoryMutation(ContractModel):
     action: MemoryAction
     memory_key: MemoryKey | None = None
-    candidate: MemoryCandidate | None = None
+    candidate: ExperienceCandidate | None = None
     expected_version: PositiveVersion | None = None
     restore: StrictBool = False
     enable: StrictBool = False

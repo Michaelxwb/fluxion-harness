@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 import sqlalchemy as sa
 from muad_agent_core.context.compactor import trim_history
-from muad_agent_core.memory.render import MEMORY_NOTICE
+from muad_agent_core.memory.render import EXPERIENCE_NOTICE
 from muad_agent_core.model.provider import ModelMessage, ModelRole
 from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
 from muad_agent_runtime.infrastructure.models.runtime import (
@@ -30,10 +30,10 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from tests.agent_runtime.memory_cache_support import queries
 from tests.agent_runtime.memory_context_support import loader, memory_text, request_round
 from tests.agent_runtime.memory_redesign_write_support import context, seed_facts
 from tests.agent_runtime.memory_tool_support import recall, tools
-from tests.agent_runtime.test_memory_redesign_cache import queries
 
 pytestmark = pytest.mark.integration
 
@@ -656,7 +656,7 @@ async def test_s03_confirmed_memory_is_injected_with_provenance_and_non_instruct
 
     text = memory_text(captured[0])
     assert text is not None
-    assert text.startswith(MEMORY_NOTICE)  # 非指令措辞在块首
+    assert text.startswith(EXPERIENCE_NOTICE)  # 非指令措辞在块首
     assert "confirmed（已确认用户或管理员内容）:" in text  # 来源标注
     assert '"memory_key":"seed.1"' in text and '"author":"USER"' in text
     assert '"content":{"value":"blue"}' in text
@@ -779,7 +779,7 @@ async def test_e06_injection_read_failure_degrades_without_breaking_run(
         # 用 SQLAlchemy 的异常族：实现只吞这一类（DB 层故障），编程错误必须继续上抛
         raise SQLAlchemyError("injection query failed")
 
-    monkeypatch.setattr(type(queries(async_tool_database)), "read_snapshot_v2", _boom)
+    monkeypatch.setattr(type(queries(async_tool_database)), "read_snapshot", _boom)
     memory = loader(async_tool_database, ctx)
     with caplog.at_level(logging.WARNING, logger="muad_agent_runtime.application.memory_cache"):
         _, captured = await request_round(async_tool_database, ctx, memory)

@@ -9,7 +9,7 @@ from uuid import uuid4
 import httpx
 import pytest
 from muad_console_platform.infrastructure.runtime_memory_client import RuntimeMemoryClient
-from muad_contracts.memory_admin import MemoryV2CommandRequest
+from muad_contracts.memory_admin import MemoryCommandRequest
 
 
 def _item():
@@ -51,10 +51,10 @@ async def test_list_v2_and_command_paths_are_bounded():
 
     client = RuntimeMemoryClient("http://runtime", transport=httpx.MockTransport(handler))
     tenant, user = "tenant-v2", uuid4()
-    items, total = await client.list_v2(tenant_id=tenant, user_id=user, page=2, page_size=10)
+    items, total = await client.list_memory(tenant_id=tenant, user_id=user, page=2, page_size=10)
     assert total == 1 and items[0].memory_key.startswith("v1.slot.preference.")
-    request = MemoryV2CommandRequest(actor_id=uuid4(), action="DELETE", memory_id=uuid4(), expected_version=1)
-    await client.command_v2(tenant_id=tenant, user_id=user, command_id="cmd-v2", request=request)
+    request = MemoryCommandRequest(actor_id=uuid4(), action="DELETE", memory_id=uuid4(), expected_version=1)
+    await client.command(tenant_id=tenant, user_id=user, command_id="cmd-v2", request=request)
     await client.aclose()
     assert seen[0].url.path.endswith(f"/internal/admin/users/{user}/memory")
     assert seen[0].url.params["page"] == "2"

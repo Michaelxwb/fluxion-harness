@@ -17,8 +17,6 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 )
 
 from tests.agent_runtime.memory_consolidation_support import provider_factory
-from tests.agent_runtime.memory_redesign_write_support import command, upsert
-
 
 #: 每个 key 用一个稳定 predicate，保证不同候选有不同身份（SINGLE）。
 _PREDICATES = ("output_style", "language", "role", "team")
@@ -47,9 +45,9 @@ def output(*keys, value="blue"):
 
 
 def fact_candidate(value: str = "blue"):
-    from muad_contracts.memory import RememberMemoryInputV2
+    from muad_contracts.memory import RememberMemoryInput
 
-    return RememberMemoryInputV2.model_validate(_candidate(0, value=value)).normalized(
+    return RememberMemoryInput.model_validate(_candidate(0, value=value)).normalized(
         taxonomy_version=1
     )
 
@@ -60,10 +58,9 @@ def fact_key(value: str = "blue") -> str:
 
 def fact_key_at(index: int, value: str = "blue") -> str:
     from muad_agent_runtime.application.memory_identity import memory_key as build_memory_key
+    from muad_contracts.memory import RememberMemoryInput
 
-    from muad_contracts.memory import RememberMemoryInputV2
-
-    candidate = RememberMemoryInputV2.model_validate(_candidate(index, value=value)).normalized(
+    candidate = RememberMemoryInput.model_validate(_candidate(index, value=value)).normalized(
         taxonomy_version=1
     )
     return build_memory_key(candidate)

@@ -14,6 +14,7 @@ from muad_agent_runtime.metrics import install_runtime_metrics
 from muad_api import render_metrics
 
 from tests.agent_runtime.memory_confirmation_support import round_recorder, source
+from tests.agent_runtime.memory_metric_support import metric
 from tests.agent_runtime.memory_redesign_write_support import (
     command,
     context,
@@ -21,7 +22,6 @@ from tests.agent_runtime.memory_redesign_write_support import (
     upsert,
     writer,
 )
-from tests.agent_runtime.test_memory_redesign_recall import metric
 
 pytestmark = pytest.mark.integration
 CANARY = "private_candidate_别写审计"

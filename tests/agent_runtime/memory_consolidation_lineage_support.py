@@ -11,7 +11,6 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     RunRecord,
     UserMemory,
 )
-from muad_contracts.memory import task_memory_key
 
 from tests.agent_runtime.memory_consolidation_effect_support import execution, pending
 from tests.agent_runtime.memory_consolidation_support import model_stack
@@ -31,23 +30,18 @@ async def step(engine, *, origin=None, completed=False):
         root = root or run.conversation_id
         response[0] = json.dumps(
             {
-                "candidates": []
+                "candidates": [],
+                "task_state": None
                 if completed
-                else [
-                    {
-                        "memory_key": task_memory_key(root),
-                        "category": "TASK_STATE",
-                        "content": {
-                            "title": "季度报告",
-                            "goal": "progress from " + str(run.conversation_id),
-                            "constraints": [],
-                            "open_items": ["pending"],
-                            "next_action": "核验当前授权",
-                            "root_conversation_id": str(root),
-                            "source_conversation_id": str(run.conversation_id),
-                        },
-                    }
-                ],
+                else {
+                    "title": "季度报告",
+                    "goal": "progress from " + str(run.conversation_id),
+                    "constraints": [],
+                    "open_items": ["pending"],
+                    "next_action": "核验当前授权",
+                    "root_conversation_id": str(root),
+                    "source_conversation_id": str(run.conversation_id),
+                },
                 "task_completed": completed,
             }
         )

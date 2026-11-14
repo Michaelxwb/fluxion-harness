@@ -7,14 +7,14 @@ from datetime import datetime
 from uuid import UUID
 
 import sqlalchemy as sa
-from muad_agent_core.memory.rank import MemoryRecord, record_tokens
+from muad_agent_core.memory.rank import ExperienceRecord, record_tokens
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import (
     MEMORY_MAX_BYTES,
     MEMORY_MAX_RECORDS,
+    ExperienceCandidate,
     MemoryAuthor,
-    MemoryCandidate,
     memory_content_bytes,
 )
 from sqlalchemy import Select, func, literal, select, true
@@ -43,27 +43,27 @@ class MemoryScopeVersion:
 
 
 @dataclass(frozen=True, slots=True)
-class MemoryCandidateRow:
+class ExperienceRow:
     id: UUID
-    record: MemoryRecord
+    record: ExperienceRecord
     source_quote: str | None
 
 
 @dataclass(frozen=True, slots=True)
-class MemorySnapshot:
+class ExperienceSnapshot:
     scope: MemoryReadScope
     revision: int
     forget_epoch: int
     as_of: datetime
-    rows: tuple[MemoryCandidateRow, ...]
+    rows: tuple[ExperienceRow, ...]
 
     @property
-    def records(self) -> tuple[MemoryRecord, ...]:
+    def records(self) -> tuple[ExperienceRecord, ...]:
         return tuple(row.record for row in self.rows)
 
 
 @dataclass(frozen=True, slots=True)
-class MemoryCandidateRowV2:
+class MemoryCandidateRow:
     id: UUID
     memory_key: str
     memory_kind: str
@@ -85,15 +85,15 @@ class MemoryCandidateRowV2:
 
 
 @dataclass(frozen=True, slots=True)
-class MemorySnapshotV2:
+class MemorySnapshot:
     """One SQL snapshot: v2 rows and legacy-lane rows share revision/epoch/as_of."""
 
     scope: MemoryReadScope
     revision: int
     forget_epoch: int
     as_of: datetime
-    rows: tuple[MemoryCandidateRowV2, ...]
-    legacy_rows: tuple[MemoryCandidateRow, ...] = ()
+    rows: tuple[MemoryCandidateRow, ...]
+    legacy_rows: tuple[ExperienceRow, ...] = ()
 
 
 def _scope_source(scope: MemoryReadScope) -> FromClause:
@@ -145,15 +145,15 @@ def _snapshot_statement(scope: MemoryReadScope) -> Select[tuple[int, int, dateti
     )
 
 
-def _candidate(row: UserMemory) -> MemoryCandidateRow:
-    candidate = MemoryCandidate.model_validate(
+def _candidate(row: UserMemory) -> ExperienceRow:
+    candidate = ExperienceCandidate.model_validate(
         {
             "memory_key": row.memory_key,
             "category": row.category,
             "content": row.content_json,
         }
     )
-    record = MemoryRecord(
+    record = ExperienceRecord(
         memory_key=candidate.memory_key,
         content=candidate.content,
         author=MemoryAuthor(row.author),
@@ -171,7 +171,7 @@ def _candidate(row: UserMemory) -> MemoryCandidateRow:
     )
     # token 集在缓存装载时预计算，请求期只做集合运算（NFR-PERF-01）。
     record = replace(record, tokens=record_tokens(record))
-    return MemoryCandidateRow(row.id, record, row.source_quote)
+    return ExperienceRow(row.id, record, row.source_quote)
 
 
 def _is_v2_row(row: UserMemory | None) -> bool:
@@ -186,8 +186,8 @@ def _is_legacy_row(row: UserMemory | None) -> bool:
     return row is not None and row.memory_kind is None and row.category is not None
 
 
-def _candidate_v2(row: UserMemory) -> MemoryCandidateRowV2:
-    return MemoryCandidateRowV2(
+def _candidate_v2(row: UserMemory) -> MemoryCandidateRow:
+    return MemoryCandidateRow(
         id=row.id,
         memory_key=row.memory_key,
         memory_kind=row.memory_kind,
@@ -209,7 +209,16 @@ def _candidate_v2(row: UserMemory) -> MemoryCandidateRowV2:
     )
 
 
-def _validate_bounds(rows: tuple[MemoryCandidateRow, ...]) -> None:
+def _validate_snapshot_bounds(rows: tuple[UserMemory, ...]) -> None:
+    """The complete bounded set fails closed instead of returning a silently truncated view."""
+
+    if len(rows) > MEMORY_MAX_RECORDS or sum(
+        memory_content_bytes(row.content_json, row.source_quote) for row in rows
+    ) > MEMORY_MAX_BYTES:
+        raise AppError(ErrorCode.MEMORY_READ_FAILED)
+
+
+def _validate_bounds(rows: tuple[ExperienceRow, ...]) -> None:
     if (
         len(rows) > MEMORY_MAX_RECORDS
         or sum(
@@ -240,24 +249,25 @@ class MemoryQueries:
         revision, epoch, as_of = (await session.execute(_head_statement(scope))).tuples().one()
         return MemoryScopeVersion(revision, epoch, as_of)
 
-    async def read_snapshot(self, scope: MemoryReadScope) -> MemorySnapshot:
+    async def read_experience_snapshot(self, scope: MemoryReadScope) -> ExperienceSnapshot:
         async with self._sessions()() as session:
-            return await self._read_snapshot(session, scope)
+            return await self._read_experience_snapshot(session, scope)
 
-    async def read_snapshot_v2(self, scope: MemoryReadScope) -> MemorySnapshotV2:
+    async def read_snapshot(self, scope: MemoryReadScope) -> MemorySnapshot:
         """Read both lanes from one SQL snapshot; neither lane is derived from the other."""
 
         async with self._sessions()() as session:
             records = (await session.execute(_snapshot_statement(scope))).tuples().all()
+            _validate_snapshot_bounds(tuple(row for _, _, _, row in records if row is not None))
             revision, epoch, as_of, _ = records[0]
             rows = tuple(_candidate_v2(row) for _, _, _, row in records if _is_v2_row(row))
             legacy = tuple(_candidate(row) for _, _, _, row in records if _is_legacy_row(row))
-            return MemorySnapshotV2(scope, revision, epoch, as_of, rows, legacy)
+            return MemorySnapshot(scope, revision, epoch, as_of, rows, legacy)
 
     @staticmethod
-    async def _read_snapshot(session: AsyncSession, scope: MemoryReadScope) -> MemorySnapshot:
+    async def _read_experience_snapshot(session: AsyncSession, scope: MemoryReadScope) -> ExperienceSnapshot:
         records = (await session.execute(_snapshot_statement(scope))).tuples().all()
         revision, epoch, as_of, _ = records[0]
         rows = tuple(_candidate(row) for _, _, _, row in records if _is_legacy_row(row))
         _validate_bounds(rows)
-        return MemorySnapshot(scope, revision, epoch, as_of, rows)
+        return ExperienceSnapshot(scope, revision, epoch, as_of, rows)

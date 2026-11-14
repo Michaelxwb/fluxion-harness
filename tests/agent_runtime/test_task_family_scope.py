@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from muad_agent_core.memory.rank import (
-    MemoryRecord,
-    select_injection,
+    ExperienceRecord,
+    select_experience,
 )
 from muad_agent_runtime.application.task_family import derive_task_family, skill_key_for_call
 from muad_contracts.memory import FactContent, MemoryAuthor, MemoryCategory
@@ -57,8 +57,8 @@ def test_b01_no_successful_skill_falls_back_to_agent() -> None:
 def test_b01_injection_diagnostics_match_selection_reasons() -> None:
     now = datetime.now(UTC)
 
-    def record(key: str, state: str, *, author=MemoryAuthor.AGENT) -> MemoryRecord:
-        return MemoryRecord(
+    def record(key: str, state: str, *, author=MemoryAuthor.AGENT) -> ExperienceRecord:
+        return ExperienceRecord(
             memory_key=key,
             content=FactContent(value="批量客户逐项处理"),
             author=author,
@@ -70,7 +70,7 @@ def test_b01_injection_diagnostics_match_selection_reasons() -> None:
             trigger_text="批量客户",
         )
 
-    selection = select_injection(
+    selection = select_experience(
         [record("exp.active", "ACTIVE"), record("exp.trial", "TRIAL")],
         query="批量客户",
         now=now,
@@ -85,7 +85,7 @@ def test_b01_injection_diagnostics_match_selection_reasons() -> None:
         item.record.memory_key == "exp.active" for item in selection.items
     )
 
-    frozen = select_injection(
+    frozen = select_experience(
         [record("exp.active", "ACTIVE")],
         query="批量客户",
         now=now,

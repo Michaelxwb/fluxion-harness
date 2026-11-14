@@ -11,7 +11,7 @@ from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.agent.suspension import MemorySuspendRequest
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import RememberMemoryInputV2
+from muad_contracts.memory import RememberMemoryInput
 from muad_contracts.platform_settings import MemoryPolicySettings
 from muad_contracts.tasks import ContractModel
 from sqlalchemy.exc import SQLAlchemyError
@@ -26,7 +26,7 @@ from .memory_explicit_command import (
 )
 from .memory_observability import after_commit, observe
 from .memory_proposals import (
-    _existing_version,
+    _existing_target,
     _prompt,
     _proposal,
     _scope_epoch,
@@ -67,7 +67,7 @@ class MemoryConfirmationService:
         return self._pending
 
     async def propose(
-        self, candidate: RememberMemoryInputV2, *, call_id: str
+        self, candidate: RememberMemoryInput, *, call_id: str
     ) -> MemoryProposalReceipt | MemorySavedReceipt:
         async with self._lock:
             if self._pending is not None:
@@ -76,7 +76,7 @@ class MemoryConfirmationService:
                 raise AppError(ErrorCode.FORBIDDEN)
             if not call_id.strip():
                 raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
-            candidate = RememberMemoryInputV2.model_validate(candidate.model_dump(mode="json"))
+            candidate = RememberMemoryInput.model_validate(candidate.model_dump(mode="json"))
             validate_memory_input_v2(candidate, credential_canaries=self._canaries)
             try:
                 async with self._factory.begin() as session:
@@ -98,17 +98,18 @@ class MemoryConfirmationService:
                             self._canaries,
                         )
                     epoch = await _scope_epoch(session, run)
-                    expected_version = await _existing_version(session, run, candidate)
+                    expected_version, target = await _existing_target(session, run, candidate)
                     proposal = _proposal(candidate, run, event, epoch, now, expected_version)
                     proposal_id = uuid4()
                     request = MemorySuspendRequest(
                         proposal_id,
                         proposal,
-                        _prompt(proposal_id, proposal, now, timezone=self._timezone),
+                        _prompt(proposal_id, proposal, now, target=target, timezone=self._timezone),
                         text_prompt=_prompt(
                             proposal_id,
                             proposal,
                             now,
+                            target=target,
                             timezone=self._timezone,
                             for_text_channel=True,
                         ),

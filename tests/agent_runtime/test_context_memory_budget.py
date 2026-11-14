@@ -29,7 +29,7 @@ import uvicorn
 from fastapi import FastAPI
 from muad_agent_core.agent import AgentRunner
 from muad_agent_core.hooks import HookPipeline
-from muad_agent_core.memory.render import MEMORY_NOTICE
+from muad_agent_core.memory.render import EXPERIENCE_NOTICE
 from muad_agent_core.model import ModelProvider, OpenAICompatibleProvider
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_agent_runtime.api.deps import (
@@ -102,7 +102,7 @@ def _injected_block(body: Mapping[str, Any]) -> str:
         for message in body.get("messages") or []
         if isinstance(message, dict)
         and message.get("role") == "system"
-        and MEMORY_NOTICE in str(message.get("content"))
+        and EXPERIENCE_NOTICE in str(message.get("content"))
     ]
     assert len(blocks) <= 1, f"记忆组件必须唯一，实得 {len(blocks)}"
     return blocks[0] if blocks else ""

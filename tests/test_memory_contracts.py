@@ -6,14 +6,13 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-
 from muad_contracts.memory import (
-    ForgetMemoryInputV2,
-    MemoryCandidateV2,
-    MemoryItemV2,
+    ForgetMemoryInput,
+    MemoryCandidate,
+    MemoryItem,
     MemoryResolution,
-    RecallMemoryInputV2,
-    RememberMemoryInputV2,
+    RecallMemoryInput,
+    RememberMemoryInput,
     ScopeState,
 )
 
@@ -34,8 +33,8 @@ def _preference(**overrides):
 
 
 def test_v2_input_normalizes_taxonomy_owned_identity_fields():
-    candidate = RememberMemoryInputV2.model_validate(_preference()).normalized(taxonomy_version=3)
-    assert isinstance(candidate, MemoryCandidateV2)
+    candidate = RememberMemoryInput.model_validate(_preference()).normalized(taxonomy_version=3)
+    assert isinstance(candidate, MemoryCandidate)
     assert candidate.cardinality == "SINGLE"
     assert candidate.priority == "REQUIRED"
     assert candidate.taxonomy_version == 3
@@ -56,28 +55,28 @@ def test_v2_input_normalizes_taxonomy_owned_identity_fields():
 )
 def test_v2_input_rejects_invalid_taxonomy_or_scope(overrides):
     with pytest.raises(ValueError):
-        RememberMemoryInputV2.model_validate(_preference(**overrides))
+        RememberMemoryInput.model_validate(_preference(**overrides))
 
 
 def test_v2_input_rejects_unknown_fields_and_empty_content():
     with pytest.raises(ValueError):
-        RememberMemoryInputV2.model_validate({**_preference(), "memory_key": "client.key"})
+        RememberMemoryInput.model_validate({**_preference(), "memory_key": "client.key"})
     with pytest.raises(ValueError):
-        RememberMemoryInputV2.model_validate(_preference(content={}))
+        RememberMemoryInput.model_validate(_preference(content={}))
 
 
 def test_recall_and_forget_use_memory_id_without_compat_key():
     memory_id = uuid4()
-    recall = RecallMemoryInputV2.model_validate({"memory_id": memory_id, "limit": 5})
+    recall = RecallMemoryInput.model_validate({"memory_id": memory_id, "limit": 5})
     assert recall.memory_id == memory_id
-    forget = ForgetMemoryInputV2.model_validate({"memory_id": memory_id, "expected_version": 2})
+    forget = ForgetMemoryInput.model_validate({"memory_id": memory_id, "expected_version": 2})
     assert forget.memory_id == memory_id
     with pytest.raises(ValueError):
-        ForgetMemoryInputV2.model_validate({"memory_key": "v1.slot.fact.role.x", "expected_version": 2})
+        ForgetMemoryInput.model_validate({"memory_key": "v1.slot.fact.role.x", "expected_version": 2})
 
 
 def test_resolution_carries_clarification_reason_not_a_boolean():
-    item = MemoryItemV2(
+    item = MemoryItem(
         id=uuid4(),
         memory_key="v1.slot.preference.report_format.a1b2c3d4e5f60718",
         memory_kind="PREFERENCE",

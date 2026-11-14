@@ -297,6 +297,7 @@ async def test_s03_detail_explains_evidence_reports_injections_and_audits(
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("runtime_memory_override")
 async def test_s05_memory_list_and_counts_exclude_experiences(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
@@ -306,9 +307,11 @@ async def test_s05_memory_list_and_counts_exclude_experiences(
             UserMemory(
                 tenant_id=tenant.tenant_id,
                 user_id=uuid.UUID(user_id),
-                memory_key="pref.one",
-                category="PREFERENCE",
+                memory_key="v1.slot.preference.output_style.x",
+                memory_kind="PREFERENCE",
+                predicate="output_style",
                 content_json={"value": "简洁"},
+                title="输出风格",
                 author="AGENT",
                 confidence=2,
                 explicit_request=False,
@@ -320,17 +323,25 @@ async def test_s05_memory_list_and_counts_exclude_experiences(
 
     memory = await client.get(f"/api/v1/users/{user_id}/memory", headers=_headers(tenant))
     keys = {item["memory_key"] for item in memory.json()["data"]["items"]}
-    assert keys == {"pref.one"}
+    assert keys == {"v1.slot.preference.output_style.x"}
     detail = await client.get(f"/api/v1/users/{user_id}", headers=_headers(tenant))
     assert detail.json()["data"]["memory_count"] == 1
     assert detail.json()["data"]["experience_count"] == 1
 
     rejected = await client.post(
-        f"/api/v1/users/{user_id}/memory",
-        json={"memory_key": "exp.via.admin", "category": "PROCEDURE", "value": "x"},
+        f"/api/v1/users/{user_id}/memory/commands",
+        json={
+            "action": "CREATE",
+            "candidate": {
+                "memory_kind": "PROCEDURE",
+                "predicate": "general",
+                "content": {"value": "x"},
+                "title": "经验",
+            },
+        },
         headers={**_headers(tenant), "Idempotency-Key": str(uuid.uuid4())},
     )
-    assert rejected.status_code == 422
+    assert rejected.status_code == 422, rejected.text
 
 
 @pytest.mark.asyncio

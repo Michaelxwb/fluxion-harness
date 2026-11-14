@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.runtime import CanonicalEvent, RunRecord
 from ..metrics import MEMORY_RESUME_METRIC, record_counter
-from .memory_queries import MemoryQueries, MemoryReadScope, MemorySnapshot
+from .memory_queries import ExperienceSnapshot, MemoryQueries, MemoryReadScope
 from .memory_resume_metrics import committed_resume_metric
 from .memory_resume_options import build_options, options_prompt, task_candidates, valid_option
 from .memory_resume_queries import owned_conversation, pending_options, resume_decision
@@ -75,12 +75,12 @@ class MemoryResumeService:
         run: RunRecord,
         *,
         tasks: bool,
-    ) -> tuple[int | None, MemorySnapshot | None]:
+    ) -> tuple[int | None, ExperienceSnapshot | None]:
         scope = MemoryReadScope(tenant_id=run.tenant_id, user_id=run.user_id)
         try:
             async with session.begin_nested():
                 if tasks:
-                    snapshot = await MemoryQueries._read_snapshot(session, scope)
+                    snapshot = await MemoryQueries._read_experience_snapshot(session, scope)
                     return snapshot.revision, snapshot
                 head = await MemoryQueries.read_scope_version_in_session(session, scope)
                 return head.revision, None
@@ -99,7 +99,7 @@ class MemoryResumeService:
         submission_id: UUID,
         user_id: UUID,
         intent: ResumeIntent,
-        snapshot: MemorySnapshot,
+        snapshot: ExperienceSnapshot,
         *,
         relist: bool = False,
     ) -> None:
@@ -136,7 +136,7 @@ class MemoryResumeService:
         user_id: UUID,
         pending: CanonicalEvent,
         text: str,
-        snapshot: MemorySnapshot | None,
+        snapshot: ExperienceSnapshot | None,
     ) -> None:
         options = self._options(pending, run)
         if options is None:

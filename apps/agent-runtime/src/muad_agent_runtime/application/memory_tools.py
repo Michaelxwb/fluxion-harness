@@ -10,21 +10,21 @@ from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 from muad_agent_core.memory.selection import (
-    MemoryRecordV2,
-    QueryContextV2,
+    MemoryRecord,
+    QueryContext,
     QueryScopeState,
-    SelectedV2,
-    select_v2,
+    SelectedMemory,
+    select_memory,
 )
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import (
-    ForgetMemoryInputV2,
+    ForgetMemoryInput,
     MemoryCardinality,
     MemoryPriority,
-    RecallMemoryInputV2,
-    RememberMemoryInputV2,
+    RecallMemoryInput,
+    RememberMemoryInput,
     ScopeState,
 )
 from muad_contracts.tasks import ContractModel
@@ -40,7 +40,7 @@ from ..metrics import (
 from .memory_commands import MemoryWriteContext
 from .memory_confirmation import MemoryConfirmationService
 from .memory_context import MemoryContextLoader
-from .memory_queries import MemoryCandidateRowV2, MemoryQueries
+from .memory_queries import MemoryCandidateRow, MemoryQueries
 from .memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
@@ -99,8 +99,8 @@ def _input[Input: ContractModel](
         raise AppError(codes.get(str(field), default)) from None
 
 
-def _record(row: MemoryCandidateRowV2) -> MemoryRecordV2:
-    return MemoryRecordV2(
+def _record(row: MemoryCandidateRow) -> MemoryRecord:
+    return MemoryRecord(
         memory_key=row.memory_key,
         memory_kind=row.memory_kind,
         predicate=row.predicate,
@@ -121,26 +121,26 @@ def _record(row: MemoryCandidateRowV2) -> MemoryRecordV2:
 
 
 def _recall_selection(
-    records: list[MemoryRecordV2], query: str | None, mode: str, limit: int, now: datetime
-) -> tuple[SelectedV2, ...]:
+    records: list[MemoryRecord], query: str | None, mode: str, limit: int, now: datetime
+) -> tuple[SelectedMemory, ...]:
     if mode == "LIST":
         ordered = sorted(
             records,
             key=lambda record: (-int(record.priority == "REQUIRED"), -record.version, record.memory_key),
         )
-        return tuple(SelectedV2(record, 1.0) for record in ordered[:limit])
+        return tuple(SelectedMemory(record, 1.0) for record in ordered[:limit])
     # The score threshold gates automatic injection only; an explicit recall returns
     # every positive lexical match (zero coverage still yields an empty result).
-    return select_v2(
+    return select_memory(
         records,
-        QueryContextV2(query=query, now=now, scope_state=QueryScopeState.ABSENT),
+        QueryContext(query=query, now=now, scope_state=QueryScopeState.ABSENT),
         top_k=limit,
         min_score=0.0,
     )
 
 
 def _recall_payload(
-    selected: tuple[SelectedV2, ...], rows: Mapping[str, MemoryCandidateRowV2], *, max_bytes: int
+    selected: tuple[SelectedMemory, ...], rows: Mapping[str, MemoryCandidateRow], *, max_bytes: int
 ) -> str:
     items: list[dict[str, Any]] = []
     truncated = False
@@ -169,7 +169,12 @@ def _recall_payload(
             truncated = True
             break
         items = candidate
-    return json.dumps({"items": items, "truncated": truncated}, ensure_ascii=False)
+    document = {"items": items, "truncated": truncated}
+    if len(json.dumps(document, ensure_ascii=False).encode("utf-8")) > max_bytes:
+        # The empty envelope alone exceeds the budget: fail honestly instead of
+        # returning a document that violates the recall byte contract.
+        raise ValueError("recall envelope exceeds the configured budget")
+    return json.dumps(document, ensure_ascii=False)
 
 
 class MemoryToolSet:
@@ -196,7 +201,7 @@ class MemoryToolSet:
             ToolDefinition(
                 name=RECALL_TOOL,
                 description=RECALL_DESCRIPTION,
-                input_schema=RecallMemoryInputV2.model_json_schema(),
+                input_schema=RecallMemoryInput.model_json_schema(),
                 effect=ToolEffect.READ,
                 handler=self.recall,
                 externalizable_result=False,
@@ -204,7 +209,7 @@ class MemoryToolSet:
             ToolDefinition(
                 name=FORGET_TOOL,
                 description=FORGET_DESCRIPTION,
-                input_schema=ForgetMemoryInputV2.model_json_schema(),
+                input_schema=ForgetMemoryInput.model_json_schema(),
                 effect=ToolEffect.WRITE,
                 handler=self.forget,
                 externalizable_result=False,
@@ -215,7 +220,7 @@ class MemoryToolSet:
                 ToolDefinition(
                     name=REMEMBER_TOOL,
                     description=REMEMBER_DESCRIPTION,
-                    input_schema=RememberMemoryInputV2.model_json_schema(),
+                    input_schema=RememberMemoryInput.model_json_schema(),
                     effect=ToolEffect.WRITE,
                     handler=self.remember,
                     externalizable_result=False,
@@ -224,7 +229,7 @@ class MemoryToolSet:
         return tuple(definitions)
 
     async def remember(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
-        candidate = _input(RememberMemoryInputV2, arguments, ErrorCode.MEMORY_CONFIRMATION_INVALID)
+        candidate = _input(RememberMemoryInput, arguments, ErrorCode.MEMORY_CONFIRMATION_INVALID)
         if not self._context.settings.write_enabled:
             raise AppError(ErrorCode.FORBIDDEN)
         if self._confirmation is None:
@@ -234,15 +239,15 @@ class MemoryToolSet:
         return receipt.model_dump_json()
 
     async def recall(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
-        request = _input(RecallMemoryInputV2, arguments, ErrorCode.MEMORY_QUERY_INVALID)
+        request = _input(RecallMemoryInput, arguments, ErrorCode.MEMORY_QUERY_INVALID)
         mode = "SEARCH" if request.query and request.query.strip() else "LIST"
         limit = self._context.settings.recall_default_limit if request.limit is None else request.limit
         try:
-            selected: tuple[SelectedV2, ...] = ()
-            rows: dict[str, MemoryCandidateRowV2] = {}
+            selected: tuple[SelectedMemory, ...] = ()
+            rows: dict[str, MemoryCandidateRow] = {}
             has_candidates = False
             if limit:
-                snapshot = await self._queries.read_snapshot_v2(self._loader.cache.scope)
+                snapshot = await self._queries.read_snapshot(self._loader.cache.scope)
                 rows = {row.memory_key: row for row in snapshot.rows}
                 records = [
                     _record(row)
@@ -287,7 +292,7 @@ class MemoryToolSet:
         )
 
     async def forget(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
-        request = _input(ForgetMemoryInputV2, arguments, ErrorCode.MEMORY_VERSION_CONFLICT)
+        request = _input(ForgetMemoryInput, arguments, ErrorCode.MEMORY_VERSION_CONFLICT)
         command_id = str(uuid5(NAMESPACE_URL, f"memory.forget:{self._loader.cache.run_id}:{call_id}"))
         previous = self._loader.begin_forget()
         outcome = await self._service.delete_memory(

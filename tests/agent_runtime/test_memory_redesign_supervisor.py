@@ -65,8 +65,8 @@ async def test_local_runtime_lifespan_pump_executes_real_job_and_closes_clients(
 async def test_local_ttl_history_failure_rolls_back_and_is_visible(async_tool_database, caplog):
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
+    from tests.agent_runtime.memory_metric_support import metric
     from tests.agent_runtime.memory_redesign_write_support import install_history_failure
-    from tests.agent_runtime.test_memory_redesign_recall import metric
 
     module = import_module("muad_agent_runtime.application.memory_expiry")
     factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
@@ -176,7 +176,7 @@ async def test_local_ttl_read_is_immediate_and_two_sweepers_write_one_expire_his
     await seed_facts(async_tool_database, ctx, 1, author="AGENT", expired=True)
     queries = MemoryQueries(factory)
     assert (
-        await queries.read_snapshot(MemoryReadScope(tenant_id=ctx.tenant_id, user_id=ctx.user_id))
+        await queries.read_experience_snapshot(MemoryReadScope(tenant_id=ctx.tenant_id, user_id=ctx.user_id))
     ).records == ()
     results = await asyncio.gather(module.expire_memories(factory), module.expire_memories(factory))
     assert sum(results) == 1 and await module.expire_memories(factory) == 0

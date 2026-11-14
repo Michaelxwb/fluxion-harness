@@ -60,9 +60,9 @@ def service(factory, identity, submission_id):
 
 
 def candidate(*, value="blue", **overrides):
-    from muad_contracts.memory import RememberMemoryInputV2
+    from muad_contracts.memory import RememberMemoryInput
 
-    return RememberMemoryInputV2.model_validate(
+    return RememberMemoryInput.model_validate(
         {
             "memory_kind": "PREFERENCE",
             "predicate": "output_style",
@@ -165,10 +165,10 @@ def runner_round(factory, run, memory, provider):
     from muad_agent_core.agent import AgentRunner
     from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
     from muad_agent_core.tools.pipeline import ToolExecutionPipeline
-    from muad_contracts.memory import RememberMemoryInputV2
+    from muad_contracts.memory import RememberMemoryInput
 
     async def remember(arguments, *, call_id):
-        receipt = await memory.propose(RememberMemoryInputV2.model_validate(arguments), call_id=call_id)
+        receipt = await memory.propose(RememberMemoryInput.model_validate(arguments), call_id=call_id)
         return receipt.model_dump_json()
 
     async def echo(arguments, *, call_id):
@@ -182,7 +182,7 @@ def runner_round(factory, run, memory, provider):
             name="remember",
             description="candidate",
             effect=ToolEffect.WRITE,
-            input_schema=RememberMemoryInputV2.model_json_schema(),
+            input_schema=RememberMemoryInput.model_json_schema(),
             handler=remember,
             externalizable_result=False,
         )

@@ -6,7 +6,7 @@ import hashlib
 from uuid import UUID
 
 from muad_contracts.canonical import canonical_json
-from muad_contracts.memory import MemoryCandidateV2
+from muad_contracts.memory import MemoryCandidate
 
 
 def _sha16(value: str) -> str:
@@ -21,13 +21,13 @@ def member_hash(content: dict[str, object]) -> str:
     return _sha16(canonical_json(content))
 
 
-def single_key(candidate: MemoryCandidateV2) -> str:
+def single_key(candidate: MemoryCandidate) -> str:
     if candidate.cardinality != "SINGLE":
         raise ValueError("single_key requires SINGLE cardinality")
     return f"v1.slot.{candidate.memory_kind.lower()}.{candidate.predicate}.{scope_hash(candidate.scope)}"
 
 
-def set_key(candidate: MemoryCandidateV2) -> str:
+def set_key(candidate: MemoryCandidate) -> str:
     if candidate.cardinality != "SET":
         raise ValueError("set_key requires SET cardinality")
     return (
@@ -40,7 +40,7 @@ def note_key(note_id: UUID) -> str:
     return f"v1.note.{note_id}"
 
 
-def memory_key(candidate: MemoryCandidateV2, *, note_id: UUID | None = None) -> str:
+def memory_key(candidate: MemoryCandidate, *, note_id: UUID | None = None) -> str:
     if candidate.memory_kind == "NOTE":
         if note_id is None:
             raise ValueError("NOTE requires a stable UUID")

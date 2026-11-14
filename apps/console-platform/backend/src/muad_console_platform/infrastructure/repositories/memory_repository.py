@@ -124,7 +124,7 @@ class MemoryRepository:
             page_size,
         )
 
-    async def list_v2(
+    async def list_memory(
         self,
         tenant_id: str,
         user_id: uuid.UUID,

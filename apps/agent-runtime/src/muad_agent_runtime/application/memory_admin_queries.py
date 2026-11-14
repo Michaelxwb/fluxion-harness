@@ -6,10 +6,10 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import MemoryAuthor
 from muad_contracts.memory_admin import (
+    MemoryAdminItem,
     MemoryConflictItem,
     MemoryHistoryItem,
     MemoryStatus,
-    MemoryV2AdminItem,
 )
 from sqlalchemy import and_, case, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,7 +47,7 @@ class MemoryAdminQueries:
         predicate: str | None = None,
         status: MemoryStatus | None = None,
         include_deleted: bool = False,
-    ) -> tuple[list[MemoryV2AdminItem], int]:
+    ) -> tuple[list[MemoryAdminItem], int]:
         where = and_(UserMemory.tenant_id == tenant, UserMemory.user_id == user)
         if not include_deleted:
             where &= UserMemory.is_deleted.is_(False)
@@ -149,8 +149,8 @@ class MemoryAdminQueries:
         return items, int(rows[0][0])
 
 
-def _item(row: UserMemory, status: str) -> MemoryV2AdminItem:
-    return MemoryV2AdminItem.model_validate(
+def _item(row: UserMemory, status: str) -> MemoryAdminItem:
+    return MemoryAdminItem.model_validate(
         {
             "id": row.id,
             "memory_key": row.memory_key,

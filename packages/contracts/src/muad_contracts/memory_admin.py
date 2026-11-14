@@ -1,18 +1,13 @@
 """Administrative transport carries an audit actor, never caller-selected authorship."""
 
 from datetime import datetime
-from typing import Literal, Self
+from typing import Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, JsonValue, StrictBool, StrictStr, model_validator
+from pydantic import JsonValue
 
 from .memory import (
-    MemoryAuthor,
-    MemoryCandidate,
-    MemoryKey,
-    MemoryValue,
     PositiveVersion,
-    RememberMemoryInput,
 )
 from .tasks import ContractModel
 
@@ -40,74 +35,6 @@ class MemoryCommandResponse(ContractModel):
     items: list[MemoryMutationResult]
 
 
-class MemoryAdminMutation(ContractModel):
-    action: AdminAction
-    memory_key: MemoryKey | None = None
-    memory_id: UUID | None = None
-    category: Literal["PREFERENCE", "WORK_STYLE", "EXPLICIT"] | None = None
-    value: MemoryValue | None = None
-    expected_version: PositiveVersion | None = None
-    restore: StrictBool = False
-    enable: StrictBool = False
-    expires_at: AwareDatetime | None = None
-
-    @model_validator(mode="after")
-    def _shape(self) -> Self:
-        allowed = {
-            "UPSERT": {
-                "action",
-                "memory_key",
-                "category",
-                "value",
-                "expected_version",
-                "restore",
-                "enable",
-                "expires_at",
-            },
-            "DELETE": {"action", "memory_key", "memory_id", "expected_version"},
-            "CLEAR": {"action"},
-            "ENABLE": {"action", "memory_key", "expected_version", "expires_at"},
-            "DISABLE": {"action", "memory_key", "expected_version"},
-            "RESTORE": {"action", "memory_key", "expected_version", "enable", "expires_at"},
-        }[self.action]
-        if self.model_fields_set - allowed:
-            raise ValueError("fields do not belong to this action")
-        if self.action == "UPSERT":
-            RememberMemoryInput.model_validate(
-                {"memory_key": self.memory_key, "category": self.category, "value": self.value}
-            )
-        elif self.action != "CLEAR":
-            if self.expected_version is None:
-                raise ValueError("expected_version required")
-            if self.action == "DELETE":
-                if (self.memory_key is None) == (self.memory_id is None):
-                    raise ValueError("DELETE requires exactly one key or id")
-            elif self.memory_key is None:
-                raise ValueError("memory_key required")
-        return self
-
-
-class MemoryAdminRequest(ContractModel):
-    actor_id: UUID
-    mutation: MemoryAdminMutation
-
-
-class MemoryAdminItem(MemoryCandidate):
-    id: UUID
-    author: MemoryAuthor
-    version: PositiveVersion
-    enabled: StrictBool
-    explicit_request: StrictBool
-    confirmed_count: int
-    status: MemoryStatus
-    source_ref: StrictStr | None
-    source_quote: StrictStr | None
-    expires_at: datetime | None
-    last_confirmed_at: datetime | None
-    create_time: datetime
-    update_time: datetime
-
-
 class MemoryHistoryItem(ContractModel):
     id: UUID
     origin_id: UUID
@@ -128,12 +55,12 @@ class MemoryHistoryItem(ContractModel):
 # ---------------------------------------------------------------------------
 
 from .memory import (  # noqa: E402
-    MemoryItemV2,
+    MemoryItem,
     ScopeState,
 )
 
 
-class MemoryV2AdminItem(MemoryItemV2):
+class MemoryAdminItem(MemoryItem):
     status: MemoryStatus
     create_time: datetime
     update_time: datetime
@@ -153,7 +80,7 @@ class MemoryConflictItem(ContractModel):
     create_time: datetime
 
 
-class MemoryV2CommandRequest(ContractModel):
+class MemoryCommandRequest(ContractModel):
     #: Console 用会话账号覆盖；Runtime 侧必须非空。
     actor_id: UUID | None = None
     action: Literal[

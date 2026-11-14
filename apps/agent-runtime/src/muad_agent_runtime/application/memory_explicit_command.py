@@ -12,7 +12,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import MemorySourceEvidence, RememberMemoryInputV2
+from muad_contracts.memory import MemorySourceEvidence, RememberMemoryInput
 from muad_contracts.platform_settings import MemoryPolicySettings
 from muad_contracts.tasks import ContractModel
 from sqlalchemy import select
@@ -48,7 +48,7 @@ def command_value(event: CanonicalEvent) -> tuple[str, str] | None:
     return parts[2], parts[3]
 
 
-def matches_user_command(event: CanonicalEvent, candidate: RememberMemoryInputV2) -> bool:
+def matches_user_command(event: CanonicalEvent, candidate: RememberMemoryInput) -> bool:
     parsed = command_value(event)
     if parsed is None:
         return False
@@ -66,7 +66,7 @@ async def save_user_command(
     run: RunRecord,
     event: CanonicalEvent,
     identity: ExecutionIdentity,
-    candidate: RememberMemoryInputV2,
+    candidate: RememberMemoryInput,
     settings: MemoryPolicySettings,
     canaries: tuple[str, ...],
 ) -> MemorySavedReceipt:

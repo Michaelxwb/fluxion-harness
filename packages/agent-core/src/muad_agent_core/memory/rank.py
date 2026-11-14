@@ -20,7 +20,7 @@ _EXPERIENCE = frozenset(
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class MemoryRecord:
+class ExperienceRecord:
     memory_key: str
     content: FactContent | TaskStateContent
     author: MemoryAuthor
@@ -50,7 +50,7 @@ class MemoryRecord:
 
 @dataclass(frozen=True, slots=True)
 class SelectedMemory:
-    record: MemoryRecord
+    record: ExperienceRecord
     score: float
     channel: str
 
@@ -69,14 +69,14 @@ class InjectionSelection:
     skipped: tuple[SkippedMemory, ...]
 
     @property
-    def records(self) -> tuple[MemoryRecord, ...]:
+    def records(self) -> tuple[ExperienceRecord, ...]:
         return tuple(item.record for item in self.items)
 
 
 @dataclass(frozen=True, slots=True)
 class MemorySelection:
     mode: Literal["SEARCH", "LIST"]
-    items: tuple[MemoryRecord, ...]
+    items: tuple[ExperienceRecord, ...]
 
 
 def _timestamp(value: datetime) -> float:
@@ -85,22 +85,22 @@ def _timestamp(value: datetime) -> float:
     return value.timestamp()
 
 
-def _valid(record: MemoryRecord, now: datetime) -> bool:
+def _valid(record: ExperienceRecord, now: datetime) -> bool:
     return record.enabled and not record.is_deleted and (record.expires_at is None or record.expires_at > now)
 
 
-def content_text(record: MemoryRecord) -> str:
+def content_text(record: ExperienceRecord) -> str:
     if isinstance(record.content, FactContent):
         return record.content.value
     state = record.content
     return "\n".join((state.title, state.goal, state.next_action, *state.constraints, *state.open_items))
 
 
-def _coverage(record: MemoryRecord, query: str) -> float:
+def _coverage(record: ExperienceRecord, query: str) -> float:
     return lexical_coverage(query, record.memory_key + "\n" + content_text(record))
 
 
-def record_tokens(record: MemoryRecord) -> frozenset[str]:
+def record_tokens(record: ExperienceRecord) -> frozenset[str]:
     if record.tokens is not None:
         return record.tokens
     text = record.memory_key + "\n" + content_text(record)
@@ -109,11 +109,11 @@ def record_tokens(record: MemoryRecord) -> frozenset[str]:
     return tokenize(text)
 
 
-def _confirmed_time(record: MemoryRecord) -> float:
+def _confirmed_time(record: ExperienceRecord) -> float:
     return _timestamp(record.last_confirmed_at or record.updated_at)
 
 
-def score_record(record: MemoryRecord, query: str | None) -> float:
+def score_record(record: ExperienceRecord, query: str | None) -> float:
     """注入归因用的单条分数：偏好类在空查询下记 1.0，其余按词法覆盖率。"""
     if query is None or not query.strip():
         return 1.0 if record.category in _PREFERENCES else 0.0
@@ -137,7 +137,7 @@ def _idf(
 
 
 def _weighted_coverage(
-    record: MemoryRecord,
+    record: ExperienceRecord,
     query_tokens: frozenset[str],
     weights: dict[str, float],
     total: float,
@@ -148,13 +148,13 @@ def _weighted_coverage(
     return sum(weights[token] for token in overlap) / total
 
 
-def _search_order(record: MemoryRecord, coverage: float) -> tuple[float, int, float, float, str]:
+def _search_order(record: ExperienceRecord, coverage: float) -> tuple[float, int, float, float, str]:
     return (-coverage, -_TRUST[record.author], -_confirmed_time(record), -_timestamp(record.updated_at),
             record.memory_key)
 
 
 def select_memories(
-    records: Iterable[MemoryRecord], *, query: str | None, now: datetime,
+    records: Iterable[ExperienceRecord], *, query: str | None, now: datetime,
     category: MemoryCategory | None = None, memory_key: str | None = None,
 ) -> MemorySelection:
     _timestamp(now)
@@ -170,8 +170,8 @@ def select_memories(
     return MemorySelection("SEARCH", tuple(record for record, _ in matches))
 
 
-def select_injection(
-    records: Iterable[MemoryRecord],
+def select_experience(
+    records: Iterable[ExperienceRecord],
     *,
     query: str | None,
     now: datetime,
@@ -188,7 +188,7 @@ def select_injection(
         raise ValueError("invalid injection policy")
 
     skipped: list[SkippedMemory] = []
-    latest: dict[str, MemoryRecord] = {}
+    latest: dict[str, ExperienceRecord] = {}
     for record in records:
         if record.category is MemoryCategory.TASK_STATE:
             continue
@@ -202,7 +202,7 @@ def select_injection(
             latest[record.memory_key] = record
     candidates = tuple(latest.values())
 
-    preferences: list[MemoryRecord] = []
+    preferences: list[ExperienceRecord] = []
     used_bytes = 0
     for record in sorted(
         (
@@ -233,7 +233,7 @@ def select_injection(
     query_tokens = tokenize(query)
     weights, total = _idf([record_tokens(record) for record in candidates], query_tokens)
     preference_keys = {record.memory_key for record in preferences}
-    selected: list[tuple[MemoryRecord, float, str]] = []
+    selected: list[tuple[ExperienceRecord, float, str]] = []
     for record in candidates:
         if record.memory_key in preference_keys:
             continue
@@ -279,7 +279,7 @@ def select_injection(
 
 
 def select_for_injection(
-    records: Iterable[MemoryRecord],
+    records: Iterable[ExperienceRecord],
     *,
     query: str | None,
     now: datetime,
@@ -289,9 +289,9 @@ def select_for_injection(
     preference_items: int = 3,
     preference_bytes: int = 512,
     allowed_experience_keys: frozenset[str] | None = None,
-) -> tuple[MemoryRecord, ...]:
-    """兼容旧调用方：只返回选中记录；诊断请用 `select_injection`。"""
-    return select_injection(
+) -> tuple[ExperienceRecord, ...]:
+    """兼容旧调用方：只返回选中记录；诊断请用 `select_experience`。"""
+    return select_experience(
         records,
         query=query,
         now=now,

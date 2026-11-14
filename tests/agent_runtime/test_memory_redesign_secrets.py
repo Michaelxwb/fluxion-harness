@@ -15,11 +15,11 @@ import sqlalchemy as sa
 from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent, ToolCallAudit
 from muad_api import AppError
 from muad_contracts.memory import (
+    ExperienceCandidate,
     FactContent,
-    MemoryCandidate,
     MemoryCategory,
     MemorySourceEvidence,
-    RememberMemoryInputV2,
+    RememberMemoryInput,
     TaskStateContent,
     task_memory_key,
 )
@@ -60,7 +60,7 @@ def commands():
 def _candidate(field, text):
     if field == "task":
         root = uuid4()
-        return MemoryCandidate(
+        return ExperienceCandidate(
             memory_key=task_memory_key(root),
             category=MemoryCategory.TASK_STATE,
             content=TaskStateContent(
@@ -74,10 +74,10 @@ def _candidate(field, text):
             ),
         )
     if field == "key":
-        return MemoryCandidate(
+        return ExperienceCandidate(
             memory_key=text, category=MemoryCategory.PREFERENCE, content=FactContent(value="blue")
         )
-    return MemoryCandidate(
+    return ExperienceCandidate(
         memory_key="color",
         category=MemoryCategory.PREFERENCE,
         content=FactContent(value=text if field == "value" else "blue"),
@@ -144,7 +144,7 @@ def _mutation(field):
     )
     return commands().MemoryMutation(
         action="UPSERT",
-        candidate=MemoryCandidate(
+        candidate=ExperienceCandidate(
             memory_key=task_memory_key(root), category=MemoryCategory.TASK_STATE, content=content
         ),
     )
@@ -179,7 +179,7 @@ async def test_b05_memory_redesign_proposal_rejects_canary_before_any_store(asyn
     ).MemoryConfirmationService(
         factory, identity, submission_id=submission_id, credential_canaries=(CANARY,)
     )
-    candidate = RememberMemoryInputV2(
+    candidate = RememberMemoryInput(
         memory_kind="PREFERENCE", predicate="output_style", content={"value": CANARY}, title="输出风格"
     )
     with pytest.raises(AppError) as exc:

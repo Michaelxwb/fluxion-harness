@@ -187,7 +187,7 @@ def _set_probe_delay(stack: LiveStack, delay_ms: int | None) -> None:
     restart_process(process)
 
 
-def _read_snapshot(run_id: uuid.UUID) -> dict[str, Any]:
+def _read_experience_snapshot(run_id: uuid.UUID) -> dict[str, Any]:
     """Run 的冻结 Snapshot 盘面（快照冻结的唯一持久判据）。"""
 
     async def query(factory: Any) -> dict[str, Any]:
@@ -457,7 +457,7 @@ def test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash(
         # 命中 RUNNING 窗口（2026-10-09 全量 Pytest 实测一次）；只放大窗口，断言不变。
         _set_probe_delay(stack, 15000)
         run1 = _start_run_streaming(pod_a, stack, conversation, "s12 turn one")
-        snapshot1 = _read_snapshot(run1)
+        snapshot1 = _read_experience_snapshot(run1)
         run1_before = _read_run(run1)
         assert snapshot1["run_id"] == run1
         assert snapshot1["content_hash"].startswith("sha256:")
@@ -475,7 +475,7 @@ def test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash(
         _set_probe_delay(stack, 0)
         baseline_conversation = _create_conversation(pod_b, stack)
         run0, _ = _start_run(pod_b, stack, baseline_conversation, "s12 baseline")
-        snapshot0 = _read_snapshot(run0)
+        snapshot0 = _read_experience_snapshot(run0)
         assert snapshot0["content_hash"] == snapshot1["content_hash"], (
             snapshot0["content_hash"],
             snapshot1["content_hash"],
@@ -487,7 +487,7 @@ def test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash(
         _rotate_api_key(stack)
         rotated_conversation = _create_conversation(pod_b, stack)
         run0b, _ = _start_run(pod_b, stack, rotated_conversation, "s12 rotated key")
-        baseline = _read_snapshot(run0b)
+        baseline = _read_experience_snapshot(run0b)
         assert baseline["content_hash"] == snapshot0["content_hash"]
         assert "api_key" not in baseline["model_json"]
         assert ROTATED_API_KEY not in json.dumps(baseline["model_json"])
@@ -496,7 +496,7 @@ def test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash(
         _set_agent_instructions(stack)
         agent_conversation = _create_conversation(pod_b, stack)
         run_a, _ = _start_run(pod_b, stack, agent_conversation, "s12 agent leg")
-        snapshot_a = _read_snapshot(run_a)
+        snapshot_a = _read_experience_snapshot(run_a)
         assert snapshot_a["agent_json"]["instructions"] == NEW_INSTRUCTIONS
         assert snapshot_a["agent_json"] != baseline["agent_json"]
         # revision 列未被原地更新触碰：hash 变化来自内容本身，不是版本号
@@ -510,7 +510,7 @@ def test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash(
         _set_model_params(stack)
         model_conversation = _create_conversation(pod_b, stack)
         run_b, _ = _start_run(pod_b, stack, model_conversation, "s12 model leg")
-        snapshot_b = _read_snapshot(run_b)
+        snapshot_b = _read_experience_snapshot(run_b)
         assert snapshot_b["model_json"]["params"] == MODEL_PARAMS
         assert snapshot_b["model_json"] != snapshot_a["model_json"]
         assert snapshot_b["agent_json"] == snapshot_a["agent_json"], "Model 腿不得改动 agent 列"
@@ -528,7 +528,7 @@ def test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash(
         assert conversation2 == conversation
         assert run2 != run1
 
-        snapshot2 = _read_snapshot(run2)
+        snapshot2 = _read_experience_snapshot(run2)
         assert snapshot2["agent_json"]["instructions"] == NEW_INSTRUCTIONS
         assert snapshot2["model_json"]["params"] == MODEL_PARAMS
         assert snapshot2["content_hash"] != snapshot1["content_hash"]
@@ -539,7 +539,7 @@ def test_s12_stateless_pod_replacement_freezes_snapshot_and_deterministic_hash(
         assert MODEL_API_KEY not in json.dumps(snapshot2["model_json"])
 
         # 8) R1 的快照行完全不漂移：content_hash + 四个 JSON 列逐列相等，run_id/snapshot_id 未变
-        snapshot1_after = _read_snapshot(run1)
+        snapshot1_after = _read_experience_snapshot(run1)
         run1_after = _read_run(run1)
         assert snapshot1_after == snapshot1
         assert snapshot1_after["agent_json"] == snapshot1["agent_json"]
