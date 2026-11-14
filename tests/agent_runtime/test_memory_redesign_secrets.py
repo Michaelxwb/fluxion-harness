@@ -19,7 +19,7 @@ from muad_contracts.memory import (
     MemoryCandidate,
     MemoryCategory,
     MemorySourceEvidence,
-    RememberMemoryInput,
+    RememberMemoryInputV2,
     TaskStateContent,
     task_memory_key,
 )
@@ -179,7 +179,9 @@ async def test_b05_memory_redesign_proposal_rejects_canary_before_any_store(asyn
     ).MemoryConfirmationService(
         factory, identity, submission_id=submission_id, credential_canaries=(CANARY,)
     )
-    candidate = RememberMemoryInput(memory_key="color", category="PREFERENCE", value=CANARY)
+    candidate = RememberMemoryInputV2(
+        memory_kind="PREFERENCE", predicate="output_style", content={"value": CANARY}, title="输出风格"
+    )
     with pytest.raises(AppError) as exc:
         await confirmation.propose(candidate, call_id="b05-proposal")
     assert exc.value.code == "MEMORY_FORBIDDEN_CONTENT"

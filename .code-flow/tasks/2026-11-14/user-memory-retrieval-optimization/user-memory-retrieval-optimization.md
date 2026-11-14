@@ -356,7 +356,7 @@ v2 契约与 taxonomy 基线，已落地并保留：
   - single-writer-gate PASS exit=0
 ## TASK-005: 提议与确认路径：单入口、版本与 canary
 
-- **Status**: in-progress
+- **Status**: done
 - **Depends**: TASK-004
 - **Source**: user-memory-retrieval-optimization.backend.design.md#3.4.4, #3.5.1, #3.5.8
 - **Scenarios**: S-05, S-10, E-07, E-08, E-09
@@ -413,11 +413,11 @@ v2 契约与 taxonomy 基线，已落地并保留：
 - [x] 确认写入带来源绑定、`confirmed_count`、`last_confirmed_at`。
 - [x] 默认 TTL 按冻结策略生效（`ttl_days_user` / `ttl_days_agent`）。
 - [x] 写入前按冻结条数/字节限额校验，超额返回 `MEMORY_QUOTA_EXCEEDED`；AGENT 行可被淘汰。
-- [ ] 显式入站命令的直接保存路径：等协议决策后实现并恢复 B-15 用例。
-- [ ] `test_local_b15_real_gateway_confirmation_saves_displayed_content_and_new_receipt`
+- [x] 显式入站命令的直接保存路径：等协议决策后实现并恢复 B-15 用例。
+- [x] `test_local_b15_real_gateway_confirmation_saves_displayed_content_and_new_receipt`
       依赖偏好 lane 不依赖 query（TASK-006）；该 TASK 完成后复跑。
-- [ ] 一个 Run 至多一个待确认提议；超时/截止仍按原语义返回。
-- [ ] `test_memory_redesign_confirmation` 与 `test_memory_redesign_secrets` 绿。
+- [x] 一个 Run 至多一个待确认提议；超时/截止仍按原语义返回。
+- [x] `test_memory_redesign_confirmation` 与 `test_memory_redesign_secrets` 绿。
 
 ### Spec Delta
 
@@ -456,6 +456,9 @@ v2 契约与 taxonomy 基线，已落地并保留：
 - 2026-11-14T16:13:21.324Z FAIL commands=0/2 executed=1 deduped=0 elapsed=120797ms tests=9cdc1ff971ee head=d2c0cb4e87d3 dirty=1
   - confirmation FAIL exit=1
   - secrets NOT-RUN
+- 2026-11-14T16:18:09.669Z PASS commands=2/2 executed=2 deduped=0 elapsed=123431ms tests=9cdc1ff971ee head=38e9a77f93e0 dirty=1
+  - confirmation PASS exit=0
+  - secrets PASS exit=0
 ## TASK-006: v2 纯检索：偏好 lane、BM25、scope、实体门控
 
 - **Status**: done

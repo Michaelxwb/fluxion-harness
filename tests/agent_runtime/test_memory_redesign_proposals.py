@@ -88,7 +88,7 @@ async def test_local_b15_second_remember_is_rejected_without_overwriting_first(a
     )
     failures = [item for item in outcomes if isinstance(item, AppError)]
     assert len(failures) == 1 and failures[0].code == ErrorCode.MEMORY_CONFIRMATION_PENDING
-    assert memory.suspend_request.proposal.candidate.value in ("blue", "red")
+    assert memory.suspend_request.proposal.candidate.content["value"] in ("blue", "red")
 
 
 async def test_local_b15_complete_checkpoint_persists_pending_once_and_leaves_tool_result_immutable(

@@ -70,12 +70,14 @@ async def request_round(engine, ctx, memory, *, handler=None, extra_history=(), 
 
 
 def memory_text(body):
+    from muad_agent_core.memory.memory_render import MEMORY_NOTICE_V2
     from muad_agent_core.memory.render import MEMORY_NOTICE
 
     blocks = [
         item["content"]
         for item in body["messages"]
-        if item["role"] == "system" and MEMORY_NOTICE in item["content"]
+        if item["role"] == "system"
+        and (MEMORY_NOTICE in item["content"] or MEMORY_NOTICE_V2 in item["content"])
     ]
     assert len(blocks) <= 1
     return blocks[0] if blocks else None

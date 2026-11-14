@@ -17,7 +17,7 @@ from uuid import UUID, uuid4
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.canonical import canonical_json
-from muad_contracts.memory import MemoryCandidateV2
+from muad_contracts.memory import MemoryAuthor, MemoryCandidateV2, MemoryRetirementReason
 from muad_contracts.memory_admin import MemoryCommandResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +31,9 @@ from ..infrastructure.models.runtime import (
     UserMemoryHistory,
 )
 from .memory_commands import MemoryWriteContext
+from .memory_mutations import memory_state_any
 from .memory_service import MemoryService
+from .memory_write import MemoryWriteState, plan_memory_capacity
 from .memory_identity import memory_key as build_memory_key
 from .memory_identity import scope_hash
 
@@ -106,6 +108,22 @@ def _after(row: UserMemory) -> dict[str, object]:
     }
 
 
+def _expires_at(candidate: MemoryCandidateV2, ctx: MemoryWriteContext, now: datetime) -> datetime | None:
+    """Explicit expiry wins; otherwise the frozen policy TTL for the writing author applies."""
+
+    if candidate.expires_at is not None:
+        if candidate.expires_at <= now:
+            raise AppError(ErrorCode.MEMORY_VALUE_INVALID)
+        return candidate.expires_at
+    author = _author(ctx)
+    days = ctx.settings.ttl_days_user if author in ("USER", "ADMIN") else ctx.settings.ttl_days_agent
+    if days is None or days <= 0:
+        if author == "AGENT":
+            raise AppError(ErrorCode.MEMORY_VALUE_INVALID)
+        return None
+    return now + timedelta(days=days)
+
+
 def _apply_candidate(row: UserMemory, candidate: MemoryCandidateV2, ctx: MemoryWriteContext, now: datetime) -> None:
     row.memory_kind = candidate.memory_kind
     row.predicate = candidate.predicate
@@ -124,9 +142,19 @@ def _apply_candidate(row: UserMemory, candidate: MemoryCandidateV2, ctx: MemoryW
     row.authority = _authority(ctx)
     row.explicit_request = ctx.actor_type == "USER"
     row.confirmation_event_id = ctx.confirmation_event_id
-    row.expires_at = candidate.expires_at
-    if _author(ctx) == "AGENT" and row.expires_at is None:
-        row.expires_at = now + timedelta(days=30)
+    # Provenance and confirmation counters stay as the v1 writer defined them:
+    # B-15 / RULE-memory-001 assert the saved row is bound to its real source.
+    row.confirmed_count = (row.confirmed_count or 0) + (1 if ctx.actor_type == "USER" else 0)
+    if ctx.actor_type == "USER":
+        row.last_confirmed_at = now
+    evidence = ctx.evidence
+    row.source_event_id = evidence.source_event_id if evidence is not None else None
+    row.source_seq = evidence.source_seq if evidence is not None else None
+    row.source_quote = evidence.source_quote if evidence is not None else None
+    row.source_ref = f"conversation:{ctx.conversation_id}" if ctx.conversation_id else None
+    row.last_source_run_id = ctx.source_run_id
+    row.last_source_seq = evidence.source_seq if evidence is not None else None
+    row.expires_at = _expires_at(candidate, ctx, now)
     row.enabled = True
     row.is_deleted = False
     row.retirement_reason = None
@@ -309,32 +337,86 @@ class MemoryV2Writer:
         )
         if row is not None and row.content_json != dict(candidate.content) and ctx.actor_type == "AGENT":
             outcome = await self._candidate(session, ctx, row, candidate, scope, command)
-        elif row is None:
-            row = UserMemory(
-                tenant_id=ctx.tenant_id,
-                user_id=ctx.user_id,
-                memory_key=key,
-                content_json=dict(candidate.content),
-                author="AGENT",
-                authority="AGENT_INFERRED",
-                version=1,
-                enabled=True,
-            )
-            _apply_candidate(row, candidate, ctx, now)
-            row.version = 1
-            session.add(row)
-            await session.flush()
-            outcome = MemoryV2Outcome("CREATED", key, 1)
-            scope.revision += 1
-            await _history(session, row, ctx, command, "CREATE", now=now)
         else:
-            row.version += 1
-            _apply_candidate(row, candidate, ctx, now)
-            outcome = MemoryV2Outcome("UPDATED", key, row.version)
-            scope.revision += 1
-            await _history(session, row, ctx, command, "OVERWRITE", now=now)
+            await self._enforce_capacity(session, ctx, candidate, command, key, now, scope)
+            if row is None:
+                row = UserMemory(
+                    tenant_id=ctx.tenant_id,
+                    user_id=ctx.user_id,
+                    memory_key=key,
+                    content_json=dict(candidate.content),
+                    author="AGENT",
+                    authority="AGENT_INFERRED",
+                    version=1,
+                    enabled=True,
+                )
+                _apply_candidate(row, candidate, ctx, now)
+                row.version = 1
+                session.add(row)
+                await session.flush()
+                outcome = MemoryV2Outcome("CREATED", key, 1)
+                scope.revision += 1
+                await _history(session, row, ctx, command, "CREATE", now=now)
+            else:
+                row.version += 1
+                _apply_candidate(row, candidate, ctx, now)
+                outcome = MemoryV2Outcome("UPDATED", key, row.version)
+                scope.revision += 1
+                await _history(session, row, ctx, command, "OVERWRITE", now=now)
         await _save_receipt(session, ctx, command, fingerprint, outcome)
         return outcome
+
+    async def _enforce_capacity(
+        self,
+        session: AsyncSession,
+        ctx: MemoryWriteContext,
+        candidate: MemoryCandidateV2,
+        command: MemoryV2Command,
+        target_key: str,
+        now: datetime,
+        scope: MemoryScope,
+    ) -> None:
+        """Frozen per-user entry/byte limits plus AGENT-only eviction, applied before the write."""
+
+        rows = (
+            await session.scalars(
+                select(UserMemory).where(
+                    UserMemory.tenant_id == ctx.tenant_id,
+                    UserMemory.user_id == ctx.user_id,
+                )
+            )
+        ).all()
+        indexed = {row.memory_key: row for row in rows}
+        target = indexed.get(target_key)
+        proposed = MemoryWriteState(
+            memory_key=target_key,
+            category=None,
+            content=dict(candidate.content),
+            author=MemoryAuthor(_author(ctx)),
+            version=(target.version + 1) if target is not None else 1,
+            updated_at=now,
+            source_quote=candidate.source_quote,
+            expires_at=_expires_at(candidate, ctx, now),
+            confirmed_count=(target.confirmed_count if target is not None else 0)
+            + (1 if ctx.actor_type == "USER" else 0),
+        )
+        capacity = plan_memory_capacity(
+            [memory_state_any(row) for row in rows], [proposed], now=now, settings=ctx.settings
+        )
+        for reason, keys in (
+            (MemoryRetirementReason.EXPIRE, capacity.expired_keys),
+            (MemoryRetirementReason.QUOTA_EVICT, capacity.evicted_keys),
+        ):
+            for key in keys:
+                row = indexed.get(key)
+                if row is None or key == target_key:
+                    continue
+                row.is_deleted = True
+                row.retirement_reason = reason.value
+                row.retirement_revision = scope.revision
+                row.version += 1
+                scope.revision += 1
+                await _history(session, row, ctx, command, reason.value, now=now)
 
     async def _candidate(self, session, ctx, row, candidate, scope, command):
         return await _pending_candidate(session, ctx, row, candidate, scope, command)
