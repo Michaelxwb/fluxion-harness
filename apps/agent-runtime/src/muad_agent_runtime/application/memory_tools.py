@@ -143,6 +143,7 @@ def _recall_payload(
     selected: tuple[SelectedV2, ...], rows: Mapping[str, MemoryCandidateRowV2], *, max_bytes: int
 ) -> str:
     items: list[dict[str, Any]] = []
+    truncated = False
     for item in selected:
         row = rows.get(item.record.memory_key)
         if row is None:
@@ -164,10 +165,11 @@ def _recall_payload(
                 "score": item.score,
             },
         ]
-        if len(json.dumps(candidate, ensure_ascii=False).encode("utf-8")) > max_bytes:
+        if len(json.dumps({"items": candidate}, ensure_ascii=False).encode("utf-8")) > max_bytes:
+            truncated = True
             break
         items = candidate
-    return json.dumps(items, ensure_ascii=False)
+    return json.dumps({"items": items, "truncated": truncated}, ensure_ascii=False)
 
 
 class MemoryToolSet:

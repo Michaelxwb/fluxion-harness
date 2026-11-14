@@ -322,6 +322,7 @@ class MemoryContextLoader:
             diagnostics={
                 "learning_enabled": self._learning_enabled,
                 "min_score": self._min_score,
+                "inject_inferred": self._settings.inject_inferred,
                 "allowed_experience_keys": len(self._allowed_experience_keys or ()),
                 "task_state": len(tasks),
                 "clarification_reason": (

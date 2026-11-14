@@ -742,7 +742,7 @@ loader 的职责：
   - context PASS exit=0
 ## TASK-010: Runtime 接线：executor / tools / attribution
 
-- **Status**: in-progress
+- **Status**: done
 - **Depends**: TASK-004, TASK-005, TASK-007, TASK-008, TASK-009
 - **Source**: user-memory-retrieval-optimization.backend.design.md#3.2.3, #3.5.9, #3.5.11
 - **Scenarios**: S-01, S-04, S-11, E-02
@@ -781,12 +781,12 @@ loader 的职责：
 
 ### Checklist
 
-- [ ] `create_run_memory` 不构造第二个 writer。
-- [ ] remember/recall/forget 走 v2 契约；forget 只接受 `memory_id`。
-- [ ] 每次模型请求前刷新组件；`set_task_family` 生效。
-- [ ] attribution 含 `min_score`、`inject_inferred`、冻结经验 key 数、`skipped` 原因、预算丢弃明细，且按 selection hash 去重。
-- [ ] 记忆正文与密钥不出现在日志/指标标签中。
-- [ ] 工具、attribution、可观测性测试绿。
+- [x] `create_run_memory` 不构造第二个 writer。
+- [x] remember/recall/forget 走 v2 契约；forget 只接受 `memory_id`。
+- [x] 每次模型请求前刷新组件；`set_task_family` 生效。
+- [x] attribution 含 `min_score`、`inject_inferred`、冻结经验 key 数、`skipped` 原因、预算丢弃明细，且按 selection hash 去重。
+- [x] 记忆正文与密钥不出现在日志/指标标签中。
+- [x] 工具、attribution、可观测性测试绿。
 
 ### Spec Delta
 
@@ -805,6 +805,12 @@ loader 的职责：
 - 2026-11-14T16:31:05.413Z FAIL commands=0/2 executed=1 deduped=0 elapsed=22192ms tests=2982779c687a head=72476843e7ce dirty=1
   - tools FAIL exit=1
   - attribution NOT-RUN
+- 2026-11-14T16:32:52.714Z FAIL commands=1/2 executed=2 deduped=0 elapsed=32168ms tests=2982779c687a head=f07e8c00a361 dirty=1
+  - tools PASS exit=0
+  - attribution FAIL exit=1
+- 2026-11-14T16:33:58.364Z PASS commands=2/2 executed=2 deduped=0 elapsed=30835ms tests=2982779c687a head=f07e8c00a361 dirty=1
+  - tools PASS exit=0
+  - attribution PASS exit=0
 ## TASK-011: 管理 API 单一路由与 Console 治理面
 
 - **Status**: draft
