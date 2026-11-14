@@ -1313,3 +1313,56 @@ RULE-memory-006 要求“迁移需排空所有旧在途 Run/Task/job”。0049 �
 
 - 2026-11-14T18:21:11.553Z PASS commands=1/1 executed=1 deduped=0 elapsed=5315ms tests=ee7307f20b27 head=1f20bc2229f6 dirty=1
   - schema PASS exit=0
+
+## TASK-018: WebChat 确认卡：重复观察不得用旧详情擦掉流内确认
+
+- **Status**: done
+- **Depends**: TASK-005
+- **Source**: user-memory-retrieval-optimization.frontend.design.md#3.3
+- **Scenarios**: S-01
+- **Spec-Refs**: memory/harness-memory, frontend/harness-frontend
+- **Paths**: apps/console-platform/frontend/src/modules/webchat/runState.ts, tests/frontend/test_capacity_webchat_reply_stream_state.py
+- **E2E**:
+- **Skip-Tests**:
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "stream-state",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/frontend/test_capacity_webchat_reply_stream_state.py"],
+    "timeout": 600
+  }
+]
+```
+
+### Description
+
+手工验收发现：自然语言保存记忆时，运行面进入「等待你的确认」，但确认卡不出现；重新进入会话后卡片才出现。
+
+证据：浏览器侧抓到的实时 SSE 帧里 `run.stage(WAITING_INPUT)` 与 `confirmation.required` 都已送达（载荷校验通过），页面却只剩运行面。根因在 `runState.ts` 的 `refreshRunFacts`：同一 Run 被重复观察时执行 `run.confirmation = target.confirmation`，而重复观察携带的是**选取会话那一刻的旧详情**（`active_run.confirmation` 仍为 null），把流里刚落地的确认擦掉；之后没有新帧，卡片永久消失。
+
+修复：流事实优先。只有尚未应用任何流事实（`lastAppliedSeq === 0`，即重开会话的首次观察）才用详情覆盖确认；已应用流事实的同一 Run 不再被旧详情清空。
+
+### Checklist
+
+- [x] `refreshRunFacts` 只在 `lastAppliedSeq === 0` 时采用详情的 confirmation。
+- [x] 回归：确认帧落地后，用旧详情（confirmation null）重复 watch，状态仍保留确认。
+- [x] 既有的「确认后恢复执行清除确认」「重开会话取详情」断言不回归。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-14T18:32:47.582Z] started tests=87440371597a
+
+### Verification
+
+- 2026-11-14T18:33:23.581Z PASS commands=1/1 executed=1 deduped=0 elapsed=9613ms tests=87440371597a head=781dde145eef dirty=1
+  - stream-state PASS exit=0

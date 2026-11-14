@@ -319,9 +319,11 @@ function refreshRunFacts(run: ActiveRunState, target: RunSubscriptionTarget): vo
   if (run.lastAppliedSeq === 0 && target.executionStatus !== null) {
     run.executionStatus = target.executionStatus;
   }
-  // API-15 详情是确认的权威投影：重新观察同一 Run 时，服务端返回 null 必须清掉旧确认，
-  // 否则记忆被删除/提议被撤销后，旧确认卡会在重开会话时复活。
-  run.confirmation = target.confirmation;
+  // API-15 详情是首次观察（重开会话，还没有流事实）时的确认权威投影：服务端返回 null 必须清掉
+  // 旧确认，否则记忆被删除/提议被撤销后，旧确认卡会在重开会话时复活。已经应用过流事实的同一 Run
+  // 不能再用详情覆盖——重复观察常带着选取会话那一刻的旧详情（confirmation 仍为 null），用它覆盖
+  // 会把流里刚落地的确认擦掉（记忆确认卡刚出现就消失）。
+  if (run.lastAppliedSeq === 0) run.confirmation = target.confirmation;
 }
 
 /** 附件按 `artifact_id` 身份合并（重复事件不重复累计，新版本覆盖旧版本）。 */
