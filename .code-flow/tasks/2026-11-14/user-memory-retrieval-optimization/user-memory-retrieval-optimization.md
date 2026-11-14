@@ -1366,3 +1366,67 @@ RULE-memory-006 要求“迁移需排空所有旧在途 Run/Task/job”。0049 �
 
 - 2026-11-14T18:33:23.581Z PASS commands=1/1 executed=1 deduped=0 elapsed=9613ms tests=87440371597a head=781dde145eef dirty=1
   - stream-state PASS exit=0
+
+## TASK-019: 用户详情·记忆 Tab 排版优化
+
+- **Status**: done
+- **Depends**: TASK-011
+- **Source**: user-memory-retrieval-optimization.frontend.design.md#3.3
+- **Scenarios**: S-06
+- **Spec-Refs**: ui/harness-ui, frontend/harness-frontend
+- **Paths**: apps/console-platform/frontend/src/modules/user-identity/MemoryTab.tsx, apps/console-platform/frontend/src/components/common/DetailSideSheet.tsx, apps/console-platform/frontend/src/styles/app.css, tests/frontend/test_detail_sidesheet_contract.py
+- **E2E**:
+- **Skip-Tests**:
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "typecheck",
+    "argv": ["npm", "--prefix", "apps/console-platform/frontend", "run", "typecheck"],
+    "timeout": 600
+  },
+  {
+    "id": "sidesheet-contract",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/frontend/test_detail_sidesheet_contract.py"],
+    "timeout": 300
+  }
+]
+```
+
+### Description
+
+手工验收反馈：记忆 Tab 列表行高过高（行内三个动作竖排堆叠），顶部操作按钮全部挤在右上，主操作与辅助操作没有分区。
+
+按 RULE-ui-001 的列表页语言重排：
+
+1. 工具条拆左右：左「新增记忆」（主操作、带图标），右侧依次「回收站」开关、「待确认」、「清理全部」（危险操作最右）。
+2. 行内动作改横排（`.memory-row-actions`），列表用 `size="small"`，行高回到单行紧凑密度；操作列补表头（`user.columns.action`）。
+3. 列宽重排：内容列随容器撑开（`columnGrowth`），类别/状态/版本/更新时间/历史定宽，时间列完整显示不再截断。
+4. 详情侧板默认宽度 920 → 1080，给主字段（内容）留出可读宽度；契约测试同步断言新宽度。
+
+### Checklist
+
+- [x] 工具条左主右辅，四个操作位置符合列表页约定。
+- [x] 行内动作横排、表格 `size="small"`，行高恢复单行；操作列有表头。
+- [x] 内容列吃满剩余宽度，时间列完整显示。
+- [x] 详情侧板宽度 1080（契约测试同步）。
+- [x] `tsc --noEmit` 与详情侧板契约测试通过。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-14T18:55:52.284Z] started tests=cce177d86d91
+
+### Verification
+
+- 2026-11-14T18:57:48.977Z PASS commands=2/2 executed=2 deduped=0 elapsed=8610ms tests=cce177d86d91 head=7441059e7627 dirty=1
+  - typecheck PASS exit=0
+  - sidesheet-contract PASS exit=0

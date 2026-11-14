@@ -138,7 +138,7 @@ def test_sidesheet_table_style_scoped() -> None:
     assert ".semi-sidesheet .semi-table-tbody" not in css, "详情不能覆盖共享行底色"
     assert "white-space: nowrap" in css, "详情表格单元格不得折行"
     sheet = COMPONENT.read_text(encoding="utf-8")
-    assert "width={920}" in sheet
+    assert "width={1080}" in sheet
 
 
 def test_user_detail_tables_match_interaction_columns() -> None:
