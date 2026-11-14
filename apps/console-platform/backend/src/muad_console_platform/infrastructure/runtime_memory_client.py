@@ -15,7 +15,13 @@ from typing import Any
 import httpx
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory_admin import MemoryAdminMutation, MemoryAdminRequest, MemoryCommandResponse
+from muad_contracts.memory_admin import (
+    MemoryAdminMutation,
+    MemoryAdminRequest,
+    MemoryCommandResponse,
+    MemoryV2AdminItem,
+    MemoryV2CommandRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +114,80 @@ class RuntimeMemoryClient:
         )
         return MemoryCommandResponse.model_validate(data)
 
+    async def list_v2(
+        self,
+        *,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        page: int = 1,
+        page_size: int = 20,
+        trace_id: str = "",
+    ) -> tuple[list[MemoryV2AdminItem], int]:
+        data = await self._request(
+            "GET",
+            f"{USERS_PATH}/{user_id}/{MEMORY_PATH}",
+            tenant_id=tenant_id,
+            trace_id=trace_id,
+            params={"page": page, "page_size": page_size},
+        )
+        items = [MemoryV2AdminItem.model_validate(item) for item in data.get("items", [])]
+        return items, int(data.get("total", 0))
+
+    async def list_conflicts(
+        self,
+        *,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        page: int = 1,
+        page_size: int = 20,
+        trace_id: str = "",
+    ) -> tuple[list[dict[str, Any]], int]:
+        data = await self._request(
+            "GET",
+            f"{USERS_PATH}/{user_id}/{MEMORY_PATH}/conflicts",
+            tenant_id=tenant_id,
+            trace_id=trace_id,
+            params={"page": page, "page_size": page_size},
+        )
+        return list(data.get("items", [])), int(data.get("total", 0))
+
+    async def command_v2(
+        self,
+        *,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        command_id: str,
+        request: MemoryV2CommandRequest,
+        trace_id: str = "",
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"{USERS_PATH}/{user_id}/{MEMORY_PATH}/commands",
+            tenant_id=tenant_id,
+            trace_id=trace_id,
+            command_id=command_id,
+            json=request.model_dump(mode="json", exclude_none=True),
+        )
+
+    async def resolve_candidate_v2(
+        self,
+        *,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        candidate_id: uuid.UUID,
+        command_id: str,
+        request: MemoryV2CommandRequest,
+        trace_id: str = "",
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"{USERS_PATH}/{user_id}/{MEMORY_PATH}/v2/conflicts/{candidate_id}/resolve",
+            tenant_id=tenant_id,
+            trace_id=trace_id,
+            command_id=command_id,
+            json=request.model_dump(mode="json", exclude_none=True),
+        )
+
     async def aclose(self) -> None:
         await self._client.aclose()
 
@@ -121,6 +201,7 @@ class RuntimeMemoryClient:
         command_id: str | None = None,
         actor_id: uuid.UUID | None = None,
         json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         headers = {TENANT_HEADER: tenant_id}
         if trace_id:
@@ -130,7 +211,7 @@ class RuntimeMemoryClient:
         if actor_id is not None:
             headers[ACTOR_HEADER] = str(actor_id)
         try:
-            response = await self._client.request(method, path, json=json, headers=headers)
+            response = await self._client.request(method, path, json=json, params=params, headers=headers)
         except httpx.HTTPError:
             # 只记录方法与路径（含 user_id），不带上游正文/查询串。
             logger.warning("runtime_memory_request_failed method=%s path=%s", method, path)

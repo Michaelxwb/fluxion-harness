@@ -113,7 +113,7 @@ async def source_times(
     return {identity: stamp for identity, stamp in records}
 
 
-def memory_state_any(row: UserMemory) -> "MemoryWriteState":
+def memory_state_any(row: UserMemory) -> MemoryWriteState:
     """Capacity view of either lane; v2 rows carry no legacy category or typed content."""
 
     if row.memory_kind is not None:

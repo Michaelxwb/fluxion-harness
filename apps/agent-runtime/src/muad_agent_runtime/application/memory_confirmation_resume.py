@@ -27,14 +27,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import CanonicalEvent, MemoryScope, RunInterrupt, RunRecord, UserMemory
 from .memory_commands import MemoryWriteContext
-from .memory_observability import after_commit, observe
-from .memory_service import MemoryService
 from .memory_identity import memory_key as build_memory_key
+from .memory_observability import after_commit, observe
 from .memory_proposals import (
     CONFIRM_VERB,
     REJECT_VERB,
     confirmation_source,
 )
+from .memory_service import MemoryService
 from .run_events import EventWriter
 
 logger = logging.getLogger(__name__)
@@ -347,7 +347,8 @@ async def _confirm(
         .where(MemoryScope.tenant_id == run.tenant_id, MemoryScope.user_id == run.user_id)
         .with_for_update()
     )
-    if proposal.expires_at <= now or (scope.forget_epoch if scope is not None else 0) != proposal.forget_epoch:
+    epoch = scope.forget_epoch if scope is not None else 0
+    if proposal.expires_at <= now or epoch != proposal.forget_epoch:
         return ConfirmationResult(outcome="STALE")
     if not await _target_version_matches(session, run, proposal):
         return ConfirmationResult(outcome="STALE")

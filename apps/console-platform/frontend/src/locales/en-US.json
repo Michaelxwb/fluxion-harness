@@ -1955,5 +1955,19 @@
   "settings.egress.retry": "Retry",
   "settings.egress.preview": "Full path preview",
   "settings.egress.selectPlatformFirst": "Select a platform first",
-  "settings.effect.egress_policy": "Used by new runs and tasks; retries and recovery retain execution totals"
+  "settings.effect.egress_policy": "Used by new runs and tasks; retries and recovery retain execution totals",
+  "user.memory.edit": "Edit",
+  "user.memory.editTitle": "Edit Memory",
+  "user.memory.title": "Title",
+  "user.memory.summary": "Summary",
+  "user.memory.recycleBin": "Recycle bin",
+  "user.memory.status.DELETED": "Deleted",
+  "user.memory.kind.PREFERENCE": "Preference",
+  "user.memory.kind.FACT": "Fact",
+  "user.memory.kind.NOTE": "Note",
+  "user.memory.conflicts": "Pending",
+  "user.memory.conflictsTitle": "Pending candidates",
+  "user.memory.conflictsEmpty": "No pending candidates",
+  "user.memory.accept": "Accept",
+  "user.memory.reject": "Reject"
 }

@@ -303,7 +303,9 @@ class RememberMemoryInputV2(ContractModel):
     """Model/admin input for a new or replaced v2 memory candidate."""
 
     memory_kind: WritableMemoryKind
-    predicate: StrictStr = Field(default="general", min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    predicate: StrictStr = Field(
+        default="general", min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]{0,63}$"
+    )
     scope_state: ScopeState = ScopeState.ABSENT
     scope: dict[str, str] = Field(default_factory=dict)
     content: dict[str, JsonValue] = Field(min_length=1)
@@ -318,6 +320,10 @@ class RememberMemoryInputV2(ContractModel):
         _validated_predicate(self.memory_kind, self.predicate)
         validate_scope(self.scope_state, self.scope)
         _validated_tags(self.tags)
+        for field in ("value", "text"):
+            value = self.content.get(field)
+            if isinstance(value, str) and not value.strip():
+                raise ValueError(f"content.{field} cannot be blank")
         return self
 
     def normalized(self, *, taxonomy_version: int) -> MemoryCandidateV2:

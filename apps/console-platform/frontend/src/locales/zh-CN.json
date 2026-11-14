@@ -1955,5 +1955,19 @@
   "settings.egress.retry": "重试",
   "settings.egress.preview": "完整路径预览",
   "settings.egress.selectPlatformFirst": "请先选择平台",
-  "settings.effect.egress_policy": "新运行和新任务使用此设置；重试和恢复不会重置执行累计次数"
+  "settings.effect.egress_policy": "新运行和新任务使用此设置；重试和恢复不会重置执行累计次数",
+  "user.memory.edit": "编辑",
+  "user.memory.editTitle": "编辑记忆",
+  "user.memory.title": "标题",
+  "user.memory.summary": "摘要",
+  "user.memory.recycleBin": "回收站",
+  "user.memory.status.DELETED": "已删除",
+  "user.memory.kind.PREFERENCE": "偏好",
+  "user.memory.kind.FACT": "事实",
+  "user.memory.kind.NOTE": "备注",
+  "user.memory.conflicts": "待确认",
+  "user.memory.conflictsTitle": "待确认候选",
+  "user.memory.conflictsEmpty": "没有待确认候选",
+  "user.memory.accept": "接受",
+  "user.memory.reject": "拒绝"
 }

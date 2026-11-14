@@ -19,7 +19,7 @@ from .tasks import ContractModel
 MemoryResultStatus = Literal[
     "CREATED", "UPDATED", "DELETED", "ENABLED", "DISABLED", "RESTORED", "RETIRED", "UNCHANGED", "SKIPPED"
 ]
-MemoryStatus = Literal["ACTIVE", "DISABLED", "EXPIRED"]
+MemoryStatus = Literal["ACTIVE", "DISABLED", "EXPIRED", "DELETED"]
 AdminAction = Literal["UPSERT", "DELETE", "CLEAR", "ENABLE", "DISABLE", "RESTORE"]
 
 
@@ -119,7 +119,6 @@ class MemoryHistoryItem(ContractModel):
     command_id: str
     source_run_id: UUID | None
     after: dict[str, JsonValue]
-    legacy_snapshots: list[dict[str, JsonValue]] | None
     create_time: datetime
 
 
@@ -129,10 +128,7 @@ class MemoryHistoryItem(ContractModel):
 # ---------------------------------------------------------------------------
 
 from .memory import (  # noqa: E402
-    ForgetMemoryInputV2,
-    MemoryCardinality,
     MemoryItemV2,
-    MemoryPriority,
     ScopeState,
 )
 
@@ -143,9 +139,26 @@ class MemoryV2AdminItem(MemoryItemV2):
     update_time: datetime
 
 
+class MemoryConflictItem(ContractModel):
+    id: UUID
+    memory_key: str
+    predicate: str
+    scope_state: ScopeState
+    title: str
+    summary: str
+    content: dict[str, JsonValue]
+    base_version: int
+    forget_epoch: int
+    reason: str
+    create_time: datetime
+
+
 class MemoryV2CommandRequest(ContractModel):
-    actor_id: UUID
-    action: Literal["CREATE", "UPDATE", "DELETE", "RESTORE", "ENABLE", "DISABLE", "CLEAR", "RESOLVE"]
+    #: Console 用会话账号覆盖；Runtime 侧必须非空。
+    actor_id: UUID | None = None
+    action: Literal[
+        "CREATE", "UPDATE", "DELETE", "RESTORE", "ENABLE", "DISABLE", "CLEAR", "RESOLVE", "REJECT"
+    ]
     candidate: dict[str, JsonValue] | None = None
     memory_id: UUID | None = None
     candidate_id: UUID | None = None
