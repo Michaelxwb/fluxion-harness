@@ -237,3 +237,30 @@ async def test_forget_works_when_writes_disabled(async_tool_database):
         await tool_set.forget({"memory_id": str(memory_id), "expected_version": 1}, call_id="wdis")
     )
     assert payload["deleted"] is True and payload["version"] == 2
+
+
+async def test_remember_schema_enumerates_taxonomy_predicates(async_tool_database):
+    from muad_contracts.memory_taxonomy import PREDICATES_BY_KEY
+
+    registry = ToolRegistry()
+    tools(async_tool_database, context()).register(registry)
+    schema = registry.get("remember").input_schema
+    assert schema["properties"]["predicate"]["enum"] == sorted(PREDICATES_BY_KEY)
+    assert "content" in schema["properties"]
+
+
+async def test_remember_rejects_invented_predicate_with_taxonomy_code(async_tool_database):
+    """An invented predicate must fail as a taxonomy error the model can retry."""
+
+    tool_set = tools(async_tool_database, context(), confirmation=object())
+    with pytest.raises(AppError) as exc:
+        await tool_set.remember(
+            {
+                "memory_kind": "FACT",
+                "predicate": "name",
+                "content": {"name": "Bingo"},
+                "title": "用户的名字是 Bingo",
+            },
+            call_id="invented-predicate",
+        )
+    assert exc.value.code == "MEMORY_TAXONOMY_INVALID"

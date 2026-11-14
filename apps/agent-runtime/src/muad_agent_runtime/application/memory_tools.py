@@ -19,6 +19,7 @@ from muad_agent_core.memory.selection import (
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts.memory_taxonomy import PREDICATES_BY_KEY
 from muad_contracts.memory import (
     ForgetMemoryInput,
     MemoryCardinality,
@@ -92,10 +93,12 @@ def _input[Input: ContractModel](
             "query": ErrorCode.MEMORY_QUERY_INVALID,
             "limit": ErrorCode.MEMORY_LIMIT_INVALID,
         }
-        # Scope is validated by a model validator, so its error has no field location.
+        # Model-level validators report no field location; classify by their message.
         messages = " ".join(str(error.get("msg", "")) for error in exc.errors()).lower()
         if not field and "scope" in messages:
             raise AppError(ErrorCode.MEMORY_SCOPE_UNKNOWN) from None
+        if not field and ("predicate" in messages or "taxonomy" in messages):
+            raise AppError(ErrorCode.MEMORY_TAXONOMY_INVALID) from None
         raise AppError(codes.get(str(field), default)) from None
 
 
@@ -177,6 +180,22 @@ def _recall_payload(
     return json.dumps(document, ensure_ascii=False)
 
 
+def _remember_schema() -> dict[str, Any]:
+    """The model must pick a taxonomy predicate; an invented one is a schema violation."""
+
+    schema = RememberMemoryInput.model_json_schema()
+    properties = schema.setdefault("properties", {})
+    properties.setdefault("predicate", {})["enum"] = sorted(PREDICATES_BY_KEY)
+    properties["predicate"]["description"] = (
+        "Taxonomy predicate code; it must match memory_kind."
+    )
+    properties.setdefault("content", {})["description"] = (
+        'Structured value object, e.g. {"value": "Bingo"} for FACT/PREFERENCE or '
+        '{"text": "..."} for NOTE.'
+    )
+    return schema
+
+
 class MemoryToolSet:
     def __init__(
         self,
@@ -220,7 +239,7 @@ class MemoryToolSet:
                 ToolDefinition(
                     name=REMEMBER_TOOL,
                     description=REMEMBER_DESCRIPTION,
-                    input_schema=RememberMemoryInput.model_json_schema(),
+                    input_schema=_remember_schema(),
                     effect=ToolEffect.WRITE,
                     handler=self.remember,
                     externalizable_result=False,
