@@ -121,3 +121,33 @@ class MemoryHistoryItem(ContractModel):
     after: dict[str, JsonValue]
     legacy_snapshots: list[dict[str, JsonValue]] | None
     create_time: datetime
+
+
+# ---------------------------------------------------------------------------
+# V2 admin transport models. Runtime route wiring is completed with the
+# Console integration TASK; these models freeze the wire shape now.
+# ---------------------------------------------------------------------------
+
+from .memory import (  # noqa: E402
+    ForgetMemoryInputV2,
+    MemoryCardinality,
+    MemoryItemV2,
+    MemoryPriority,
+    ScopeState,
+)
+
+
+class MemoryV2AdminItem(MemoryItemV2):
+    status: MemoryStatus
+    create_time: datetime
+    update_time: datetime
+
+
+class MemoryV2CommandRequest(ContractModel):
+    actor_id: UUID
+    action: Literal["CREATE", "UPDATE", "DELETE", "RESTORE", "ENABLE", "DISABLE", "CLEAR", "RESOLVE"]
+    candidate: dict[str, JsonValue] | None = None
+    memory_id: UUID | None = None
+    candidate_id: UUID | None = None
+    expected_version: PositiveVersion | None = None
+    updates: dict[str, JsonValue] | None = None

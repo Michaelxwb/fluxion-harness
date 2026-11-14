@@ -7,7 +7,7 @@ from enum import StrEnum
 from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import AfterValidator, AwareDatetime, Field, JsonValue, StrictStr, model_validator
+from pydantic import AfterValidator, AwareDatetime, Field, JsonValue, StrictBool, StrictStr, model_validator
 
 from .canonical import canonical_json
 from .tasks import ContractModel
@@ -192,7 +192,7 @@ class MemoryConfirmationProposal(ContractModel):
     user_id: UUID
     run_id: UUID
     submission_id: UUID
-    candidate: RememberMemoryInput
+    candidate: RememberMemoryInputV2
     candidate_hash: StrictStr = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     expected_version: PositiveVersion | None
     forget_epoch: NonNegativeVersion
@@ -219,3 +219,185 @@ def memory_hash(value: JsonValue) -> str:
 def memory_content_bytes(content: JsonValue, source_quote: str | None) -> int:
     """Fact quota counts canonical content and quote, including JSON null."""
     return len(canonical_json(content).encode("utf-8")) + len(canonical_json(source_quote).encode("utf-8"))
+
+
+# ---------------------------------------------------------------------------
+# User memory v2 contracts. Legacy category-based contracts above are kept
+# until the runtime/Console consumers are migrated in later TASKs.
+# ---------------------------------------------------------------------------
+
+from dataclasses import dataclass  # noqa: E402
+
+from .memory_taxonomy import (  # noqa: E402
+    ENTITY_TYPE_DISPLAY_NAMES,
+    PREDICATES_BY_KEY,
+    entity_aliases,
+    validate_scope,
+    validate_tag,
+)
+
+
+class ScopeState(StrEnum):
+    ABSENT = "ABSENT"
+    EXPLICIT = "EXPLICIT"
+
+
+class MemoryCardinality(StrEnum):
+    SINGLE = "SINGLE"
+    SET = "SET"
+
+
+class MemoryPriority(StrEnum):
+    REQUIRED = "REQUIRED"
+    OPTIONAL = "OPTIONAL"
+
+
+WritableMemoryKind = Literal["PREFERENCE", "FACT", "NOTE"]
+
+
+def _validated_predicate(kind: str, predicate: str):
+    spec = PREDICATES_BY_KEY.get(predicate)
+    if spec is None or spec.kind != kind:
+        raise ValueError("predicate is unknown or does not match memory_kind")
+    return spec
+
+
+def _validated_tags(tags: list[str]) -> list[str]:
+    if len(tags) > 20:
+        raise ValueError("too many memory tags")
+    for tag in tags:
+        validate_tag(tag)
+    return tags
+
+
+class MemoryCandidateV2(ContractModel):
+    """Normalized candidate after taxonomy validation; identity is server-owned."""
+
+    memory_kind: WritableMemoryKind
+    predicate: StrictStr = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    scope_state: ScopeState = ScopeState.ABSENT
+    scope: dict[str, str] = Field(default_factory=dict)
+    content: dict[str, JsonValue] = Field(min_length=1)
+    title: StrictStr = Field(min_length=1, max_length=128)
+    summary: StrictStr = Field(default="", max_length=512)
+    tags: list[StrictStr] = Field(default_factory=list, max_length=20)
+    cardinality: MemoryCardinality
+    priority: MemoryPriority
+    taxonomy_version: int = Field(strict=True, ge=0)
+    source_quote: StrictStr | None = Field(default=None, max_length=512)
+    expires_at: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def _taxonomy_matches(self) -> Self:
+        spec = _validated_predicate(self.memory_kind, self.predicate)
+        if self.cardinality != spec.cardinality or self.priority != spec.priority:
+            raise ValueError("candidate cardinality/priority does not match taxonomy")
+        validate_scope(self.scope_state, self.scope)
+        _validated_tags(self.tags)
+        if len(canonical_json(self.content).encode("utf-8")) > MEMORY_MAX_BYTES:
+            raise ValueError("candidate content is too large")
+        return self
+
+
+class RememberMemoryInputV2(ContractModel):
+    """Model/admin input for a new or replaced v2 memory candidate."""
+
+    memory_kind: WritableMemoryKind
+    predicate: StrictStr = Field(default="general", min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    scope_state: ScopeState = ScopeState.ABSENT
+    scope: dict[str, str] = Field(default_factory=dict)
+    content: dict[str, JsonValue] = Field(min_length=1)
+    title: StrictStr = Field(min_length=1, max_length=128)
+    summary: StrictStr = Field(default="", max_length=512)
+    tags: list[StrictStr] = Field(default_factory=list, max_length=20)
+    source_quote: StrictStr | None = Field(default=None, max_length=512)
+    expires_at: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def _taxonomy_matches(self) -> Self:
+        _validated_predicate(self.memory_kind, self.predicate)
+        validate_scope(self.scope_state, self.scope)
+        _validated_tags(self.tags)
+        return self
+
+    def normalized(self, *, taxonomy_version: int) -> MemoryCandidateV2:
+        spec = _validated_predicate(self.memory_kind, self.predicate)
+        return MemoryCandidateV2(
+            memory_kind=self.memory_kind,
+            predicate=self.predicate,
+            scope_state=self.scope_state,
+            scope=self.scope,
+            content=self.content,
+            title=self.title,
+            summary=self.summary,
+            tags=self.tags,
+            cardinality=spec.cardinality,
+            priority=spec.priority,
+            taxonomy_version=taxonomy_version,
+            source_quote=self.source_quote,
+            expires_at=self.expires_at,
+        )
+
+
+class RecallMemoryInputV2(ContractModel):
+    query: StrictStr | None = Field(default=None, max_length=512)
+    memory_kind: WritableMemoryKind | None = None
+    predicate: StrictStr | None = Field(default=None, max_length=64)
+    memory_id: UUID | None = None
+    limit: Annotated[int, Field(strict=True, ge=0, le=20)] | None = None
+
+
+class ForgetMemoryInputV2(ContractModel):
+    memory_id: UUID
+    expected_version: PositiveVersion
+
+
+class MemoryItemV2(ContractModel):
+    id: UUID
+    memory_key: StrictStr = Field(min_length=1, max_length=128)
+    memory_kind: WritableMemoryKind
+    predicate: StrictStr
+    scope_state: ScopeState
+    scope: dict[str, str]
+    content: dict[str, JsonValue]
+    title: StrictStr
+    summary: StrictStr
+    tags: list[StrictStr]
+    cardinality: MemoryCardinality
+    priority: MemoryPriority
+    author: MemoryAuthor
+    authority: StrictStr
+    version: PositiveVersion
+    enabled: StrictBool
+    expires_at: AwareDatetime | None
+    last_confirmed_at: AwareDatetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryResolution:
+    status: Literal["resolved", "empty", "degraded", "unavailable"]
+    entries: tuple[MemoryItemV2, ...]
+    cache_status: Literal["hit", "miss", "bypass", "unavailable"]
+    cache_revision: int | None
+    source_revision: int
+    truncated: bool
+    error_code: str | None
+    clarification_reason: str | None
+    retrieval_trace_id: str
+
+
+__all__ = [
+    *globals().get("__all__", []),
+    "ENTITY_TYPE_DISPLAY_NAMES",
+    "MemoryCandidateV2",
+    "MemoryCardinality",
+    "MemoryItemV2",
+    "MemoryPriority",
+    "MemoryResolution",
+    "RecallMemoryInputV2",
+    "RememberMemoryInputV2",
+    "ScopeState",
+    "ForgetMemoryInputV2",
+    "WritableMemoryKind",
+    "entity_aliases",
+]

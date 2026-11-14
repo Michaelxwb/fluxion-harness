@@ -94,6 +94,61 @@ codes:
     messages:
       zh-CN: "记忆结果超过输出预算"
       en-US: "Memory result exceeds the output budget"
+  MEMORY_SCOPE_INVALID:
+    http_status: 422
+    messages:
+      zh-CN: "记忆适用条件无效"
+      en-US: "Invalid memory scope"
+  MEMORY_SCOPE_UNKNOWN:
+    http_status: 422
+    messages:
+      zh-CN: "记忆适用条件无法识别"
+      en-US: "Memory scope cannot be resolved"
+  MEMORY_IDENTITY_IMMUTABLE:
+    http_status: 422
+    messages:
+      zh-CN: "记忆身份字段不可修改"
+      en-US: "Memory identity fields are immutable"
+  MEMORY_ALREADY_EXISTS:
+    http_status: 409
+    messages:
+      zh-CN: "该记忆身份已存在，请恢复或更新原记录"
+      en-US: "This memory identity already exists; restore or update it"
+  MEMORY_IDEMPOTENCY_CONFLICT:
+    http_status: 409
+    messages:
+      zh-CN: "同一幂等键的请求内容不一致"
+      en-US: "The same idempotency key was used with different content"
+  MEMORY_CANDIDATE_STALE:
+    http_status: 409
+    messages:
+      zh-CN: "记忆候选已过期，请刷新后重试"
+      en-US: "The memory candidate is stale; refresh and try again"
+  MEMORY_CANDIDATE_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: "记忆候选不存在"
+      en-US: "Memory candidate not found"
+  MEMORY_PENDING_QUOTA:
+    http_status: 429
+    messages:
+      zh-CN: "待确认记忆候选已达上限"
+      en-US: "Too many pending memory candidates"
+  MEMORY_TAXONOMY_INVALID:
+    http_status: 422
+    messages:
+      zh-CN: "记忆 taxonomy 无效"
+      en-US: "Invalid memory taxonomy"
+  MEMORY_TAXONOMY_IMMUTABLE_FIELD:
+    http_status: 422
+    messages:
+      zh-CN: "记忆 taxonomy 身份字段不可修改"
+      en-US: "Memory taxonomy identity fields are immutable"
+  MEMORY_STORE_UNAVAILABLE:
+    http_status: 503
+    messages:
+      zh-CN: "记忆存储暂时不可用，请稍后重试"
+      en-US: "Memory storage is temporarily unavailable; try again later"
   "0":
     http_status: 200
     messages:
