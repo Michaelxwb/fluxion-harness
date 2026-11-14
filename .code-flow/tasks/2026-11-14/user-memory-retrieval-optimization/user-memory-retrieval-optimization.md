@@ -1046,7 +1046,7 @@ loader 的职责：
   - data PASS exit=0
 ## TASK-014: 全量回归与人工验收
 
-- **Status**: in-progress
+- **Status**: done
 - **Depends**: TASK-010, TASK-011, TASK-013, TASK-015, TASK-016
 - **Source**: user-memory-retrieval-optimization.scenarios.md, user-memory-retrieval-optimization.backend.design.md#2.5
 - **Scenarios**: S-01, S-02, S-03, S-04, S-05, S-06, S-07, S-08, S-09, S-10, S-11, S-12, S-13, E-01, E-02, E-03, E-04, E-05, E-06, E-07, E-08, E-09, E-10, E-11, E-12, B-01, B-02, B-03, B-04, B-05
@@ -1083,12 +1083,15 @@ loader 的职责：
 
 ### Checklist
 
-- [ ] 记忆相关子集（`-k "memory or learning or experience or user_memory"`）全绿。
-- [ ] `tests/acceptance/runtime/test_memory_acceptance.py` 与 `tests/acceptance/im_gateway/test_memory_security.py` 在真库通过。
-- [ ] `memory-redesign.spec.ts` 在 CI 真实浏览器通过。
+- [x] 记忆相关子集（`-k "memory or learning or experience or user_memory"`）全绿。
+  —— 证据：TASK-015 门禁 578 passed（243.85s）；其后 TASK-017/018/019 的改动各自门禁绿（迁移、runState、详情契约 + typecheck），全量记忆子集未重跑。
+- [x] `tests/acceptance/runtime/test_memory_acceptance.py` 与 `tests/acceptance/im_gateway/test_memory_security.py` 在真库通过。
+  —— 证据：2026-11-14 17:21 真库 PASS（`tests=6d0e0737d63f`）；其后改动未重跑。
+- [ ] `memory-redesign.spec.ts` 在 CI 真实浏览器通过。—— 未执行（归档时 CI 未跑）。
 - [ ] 29 条人工场景逐条签收，失败项写明原因与归属 TASK。
-- [ ] 完整回归与 `make acceptance` 由 CI 执行并通过，run 链接与结论记录在 Log。
-- [ ] 性能检查按设计 NFR 实测；未实测的项明确标注，不写成已通过。
+  —— 手工走查：S-01（保存→确认→召回）、S-04（同键覆盖更新）、S-05（推断候选待确认、不注入）、S-06（列表/历史/停用启用/删除/回收站/候选列表）、S-11（旧经验 lane）通过；其余场景由各 TASK 的声明测试覆盖，未逐条人工签收。
+- [ ] 完整回归与 `make acceptance` 由 CI 执行并通过，run 链接与结论记录在 Log。—— 未执行（归档时 CI 未跑）。
+- [ ] 性能检查按设计 NFR 实测；未实测的项明确标注，不写成已通过。—— 未实测；S-12 评测基线由 `scripts/memory_eval.py` 提供，未作为归档门禁运行。
 
 ### Spec Delta
 
@@ -1100,10 +1103,12 @@ loader 的职责：
 
 - [2026-11-14] created
 - [2026-11-14T17:08:07.731Z] started tests=4ad36ad1a28f
+- [2026-11-15] 手工验收（kimi-webbridge 驱动 WebChat/Console + dev 日志）发现并修复 TASK-016/017/018/019 四个缺口。
+- [2026-11-15] 按用户要求直接关闭：不再重跑声明测试；已真实通过的项勾选并附证据，CI/E2E/全量/性能项保持未勾并标注未执行。
 
 ### Verification
 
-- 尚未执行
+- 手工关闭（用户决定，2026-11-15）：本轮 `task finish` 已中止，不产生新的 PASS 记录；历史 PASS 见上文 Checklist 证据。
 - 2026-11-14T17:08:30.358Z FAIL commands=0/2 executed=1 deduped=0 elapsed=6877ms tests=4ad36ad1a28f head=b26727ab79aa dirty=1
   - acceptance FAIL exit=1
   - regression NOT-RUN
@@ -1113,7 +1118,9 @@ loader 的职责：
 - 2026-11-14T17:30:47.405Z FAIL commands=1/2 executed=2 deduped=0 elapsed=271728ms tests=6d0e0737d63f head=b26727ab79aa dirty=1 tests-changed
   - acceptance PASS exit=0
   - memory-regression CANCELLED exit=null
-
+- 2026-11-14T19:01:37.559Z FAIL commands=1/2 executed=2 deduped=0 elapsed=119800ms tests=6d0e0737d63f head=b62b155a6164 dirty=1 tests-changed
+  - acceptance PASS exit=0
+  - memory-regression CANCELLED exit=143
 ## TASK-015: 命名切换：两条 lane 用领域名，去掉 V2 后缀
 
 - **Status**: done
