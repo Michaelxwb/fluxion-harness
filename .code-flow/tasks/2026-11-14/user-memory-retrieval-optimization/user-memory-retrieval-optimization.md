@@ -254,7 +254,7 @@ v2 契约与 taxonomy 基线，已落地并保留：
   - no-category-fallback PASS exit=0
 ## TASK-004: 唯一写入口：MemoryService 收编 v2 写入
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: user-memory-retrieval-optimization.backend.design.md#3.2.2, #3.2.4, #3.2.5, #3.5.1
 - **Scenarios**: S-04, S-05, S-10, S-13, E-04, E-07, E-09, E-10, E-11
@@ -301,13 +301,13 @@ v2 契约与 taxonomy 基线，已落地并保留：
 
 ### Checklist
 
-- [ ] `MemoryService` 暴露 v2 具名方法，内部委托 `MemoryV2Writer`；`apply_v2` 移除或降为私有。
-- [ ] `memory_runtime.py` / `memory_tools.py` 不再构造 writer，只用 `MemoryService`。
-- [ ] `api/memory_v2.py` 不再构造 writer（该文件在 TASK-011 删除；本 TASK 先改调用）。
-- [ ] `_CATEGORY_COMPAT` 删除，v2 行 `category` 为 NULL。
-- [ ] 幂等指纹包含动作、目标 `memory_id`、`expected_version`、actor，不含本次新分配的 key/UUID。
-- [ ] 单条删除保留 tombstone/version、递增 revision、只撤销本 key 候选；清空递增 `forget_epoch` 并撤销全部候选。
-- [ ] 门禁：`apps` 下除 `memory_service.py` 外没有模块 import `memory_writer`。
+- [x] `MemoryService` 暴露 v2 具名方法，内部委托 `MemoryV2Writer`；`apply_v2` 移除或降为私有。
+- [x] `memory_runtime.py` / `memory_tools.py` 不再构造 writer，只用 `MemoryService`。
+- [x] `api/memory_v2.py` 不再构造 writer（该文件在 TASK-011 删除；本 TASK 先改调用）。
+- [x] `_CATEGORY_COMPAT` 删除，v2 行 `category` 为 NULL。
+- [x] 幂等指纹包含动作、目标 `memory_id`、`expected_version`、actor，不含本次新分配的 key/UUID。
+- [x] 单条删除保留 tombstone/version、递增 revision、只撤销本 key 候选；清空递增 `forget_epoch` 并撤销全部候选。
+- [x] 门禁：`apps` 下除 `memory_service.py` 外没有模块 import `memory_writer`。
 
 ### Spec Delta
 
@@ -337,11 +337,23 @@ v2 契约与 taxonomy 基线，已落地并保留：
 ### Log
 
 - [2026-11-14] created
+- [2026-11-14T15:57:01.262Z] started tests=28c79449e25a
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-14T15:57:13.855Z FAIL commands=0/3 executed=1 deduped=0 elapsed=12479ms tests=28c79449e25a head=0c59d3e1a8a6 dirty=1
+  - writer FAIL exit=1
+  - candidates NOT-RUN
+  - single-writer-gate NOT-RUN
+- 2026-11-14T15:57:28.309Z FAIL commands=0/3 executed=1 deduped=0 elapsed=12584ms tests=28c79449e25a head=0c59d3e1a8a6 dirty=1
+  - writer FAIL exit=1
+  - candidates NOT-RUN
+  - single-writer-gate NOT-RUN
+- 2026-11-14T15:57:54.710Z PASS commands=3/3 executed=3 deduped=0 elapsed=21722ms tests=28c79449e25a head=0c59d3e1a8a6 dirty=1
+  - writer PASS exit=0
+  - candidates PASS exit=0
+  - single-writer-gate PASS exit=0
 ## TASK-005: 提议与确认路径：单入口、版本与 canary
 
 - **Status**: draft

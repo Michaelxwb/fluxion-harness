@@ -8,12 +8,24 @@ from collections.abc import Mapping
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
-from muad_agent_core.memory.rank import MemoryRecord, select_memories
-from muad_agent_core.memory.render import MemoryResultBudgetExceeded, render_recall
+from muad_agent_core.memory.memory_render import render_memory_v2
+from muad_agent_core.memory.selection import (
+    MemoryRecordV2,
+    QueryContextV2,
+    QueryScopeState,
+    select_v2,
+)
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import ForgetMemoryInput, RecallMemoryInput, RememberMemoryInput
+from muad_contracts.memory import (
+    ForgetMemoryInputV2,
+    MemoryCardinality,
+    MemoryPriority,
+    RecallMemoryInputV2,
+    RememberMemoryInputV2,
+    ScopeState,
+)
 from muad_contracts.tasks import ContractModel
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
@@ -102,7 +114,7 @@ class MemoryToolSet:
             ToolDefinition(
                 name=RECALL_TOOL,
                 description=RECALL_DESCRIPTION,
-                input_schema=RecallMemoryInput.model_json_schema(),
+                input_schema=RecallMemoryInputV2.model_json_schema(),
                 effect=ToolEffect.READ,
                 handler=self.recall,
                 externalizable_result=False,
@@ -110,7 +122,7 @@ class MemoryToolSet:
             ToolDefinition(
                 name=FORGET_TOOL,
                 description=FORGET_DESCRIPTION,
-                input_schema=ForgetMemoryInput.model_json_schema(),
+                input_schema=ForgetMemoryInputV2.model_json_schema(),
                 effect=ToolEffect.WRITE,
                 handler=self.forget,
                 externalizable_result=False,
@@ -121,7 +133,7 @@ class MemoryToolSet:
                 ToolDefinition(
                     name=REMEMBER_TOOL,
                     description=REMEMBER_DESCRIPTION,
-                    input_schema=RememberMemoryInput.model_json_schema(),
+                    input_schema=RememberMemoryInputV2.model_json_schema(),
                     effect=ToolEffect.WRITE,
                     handler=self.remember,
                     externalizable_result=False,
@@ -130,7 +142,7 @@ class MemoryToolSet:
         return tuple(definitions)
 
     async def remember(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
-        candidate = _input(RememberMemoryInput, arguments, ErrorCode.MEMORY_CONFIRMATION_INVALID)
+        candidate = _input(RememberMemoryInputV2, arguments, ErrorCode.MEMORY_CONFIRMATION_INVALID)
         if not self._context.settings.write_enabled:
             raise AppError(ErrorCode.FORBIDDEN)
         if self._confirmation is None:
@@ -140,47 +152,61 @@ class MemoryToolSet:
         return receipt.model_dump_json()
 
     async def recall(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
-        request = _input(RecallMemoryInput, arguments, ErrorCode.MEMORY_QUERY_INVALID)
+        request = _input(RecallMemoryInputV2, arguments, ErrorCode.MEMORY_QUERY_INVALID)
         mode = "SEARCH" if request.query and request.query.strip() else "LIST"
         limit = self._context.settings.recall_default_limit if request.limit is None else request.limit
         try:
-            selected: tuple[MemoryRecord, ...] = ()
+            selected: tuple = ()
             has_candidates = False
             if limit:
-                snapshot = await self._queries.read_snapshot(self._loader.cache.scope)
-                has_candidates = any(
-                    (request.category is None or row.category is request.category)
-                    and (request.memory_key is None or row.memory_key == request.memory_key)
-                    for row in snapshot.records
+                snapshot = await self._queries.read_snapshot_v2(self._loader.cache.scope)
+                records = [
+                    MemoryRecordV2(
+                        memory_key=row.memory_key,
+                        memory_kind=row.memory_kind,
+                        predicate=row.predicate,
+                        scope_state=ScopeState(row.scope_state),
+                        scope=row.scope,
+                        content=row.content,
+                        title=row.title,
+                        summary=row.summary,
+                        tags=row.tags,
+                        cardinality=MemoryCardinality(row.cardinality),
+                        priority=MemoryPriority(row.priority),
+                        author=row.author,
+                        version=row.version,
+                        updated_at=row.last_confirmed_at or snapshot.as_of,
+                        expires_at=row.expires_at,
+                        enabled=row.enabled,
+                    )
+                    for row in snapshot.rows
+                    if (request.memory_kind is None or row.memory_kind == request.memory_kind)
+                    and (request.predicate is None or row.predicate == request.predicate)
+                ]
+                has_candidates = bool(records)
+                selected = select_v2(
+                    records,
+                    QueryContextV2(query=request.query, now=snapshot.as_of, scope_state=QueryScopeState.ABSENT),
+                    top_k=limit,
                 )
-                selected = select_memories(
-                    snapshot.records,
-                    query=request.query,
-                    now=snapshot.as_of,
-                    category=request.category,
-                    memory_key=request.memory_key,
-                ).items
-            result = render_recall(selected, limit=limit, max_bytes=self._context.settings.max_recall_bytes)
-        except MemoryResultBudgetExceeded:
-            self._recall_failed(mode, "budget")
-            raise AppError(ErrorCode.MEMORY_RESULT_BUDGET_EXCEEDED) from None
+            rendered = render_memory_v2([item.record for item in selected], max_records=limit, max_bytes=self._context.settings.max_recall_bytes)
         except (SQLAlchemyError, AppError, ValueError) as exc:
             self._recall_failed(mode, type(exc).__name__)
             raise AppError(ErrorCode.MEMORY_READ_FAILED) from None
         if mode == "SEARCH" and limit and has_candidates:
             record_counter(MEMORY_RECALL_HIT_METRIC, labels={"hit": str(bool(selected)).lower()})
         record_counter(MEMORY_RECALL_METRIC, labels={"mode": mode, "outcome": "OK"})
-        record_counter(MEMORY_RECALL_BYTES_METRIC, len(result.text.encode("utf-8")))
+        record_counter(MEMORY_RECALL_BYTES_METRIC, len(rendered.text.encode("utf-8")))
         logger.info(
             "memory_recall_ok",
             extra={
                 "mode": mode,
-                "result_count": len(result.items),
-                "result_bytes": len(result.text.encode("utf-8")),
+                "result_count": len(selected),
+                "result_bytes": len(rendered.text.encode("utf-8")),
                 "run_id": str(self._loader.cache.run_id),
             },
         )
-        return result.text
+        return rendered.text
 
     def _recall_failed(self, mode: str, reason: str) -> None:
         record_counter(MEMORY_RECALL_METRIC, labels={"mode": mode, "outcome": "ERROR"})
@@ -195,18 +221,20 @@ class MemoryToolSet:
         )
 
     async def forget(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
-        request = _input(ForgetMemoryInput, arguments, ErrorCode.MEMORY_VERSION_CONFLICT)
+        request = _input(ForgetMemoryInputV2, arguments, ErrorCode.MEMORY_VERSION_CONFLICT)
         command_id = str(uuid5(NAMESPACE_URL, f"memory.forget:{self._loader.cache.run_id}:{call_id}"))
-        outcome = await self._loader.forget(self._service, self._context, request, command_id=command_id)
-        if outcome.response.status == "STALE":
-            raise AppError(ErrorCode.MEMORY_VERSION_CONFLICT)
-        result = outcome.response.items[0]
+        outcome = await self._service.delete_memory(
+            self._context,
+            request.memory_id,
+            expected_version=request.expected_version,
+            command_id=command_id,
+            endpoint="memory.forget",
+        )
         return json.dumps(
             {
-                "deleted": result.status in ("DELETED", "UNCHANGED"),
-                "memory_key": result.memory_key,
-                "version": result.version,
-                "forget_epoch": outcome.response.forget_epoch,
+                "deleted": outcome.status == "DELETED",
+                "memory_id": str(request.memory_id),
+                "version": outcome.version,
             },
             ensure_ascii=False,
         )
