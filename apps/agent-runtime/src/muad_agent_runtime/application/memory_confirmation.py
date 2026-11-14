@@ -25,7 +25,6 @@ from .memory_explicit_command import (
     save_user_command,
 )
 from .memory_observability import after_commit, observe
-from .memory_write import validate_memory_input_v2
 from .memory_proposals import (
     _existing_version,
     _prompt,
@@ -35,6 +34,7 @@ from .memory_proposals import (
     ensure_no_memory_confirmation,
     locked_confirmation_execution,
 )
+from .memory_write import validate_memory_input_v2
 
 logger = logging.getLogger(__name__)
 

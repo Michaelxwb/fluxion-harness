@@ -15,7 +15,11 @@ from typing import Any
 from muad_api import AppError
 from muad_api.context import current_trace_id
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory_admin import MemoryAdminMutation, MemoryCommandResponse
+from muad_contracts.memory_admin import (
+    MemoryAdminMutation,
+    MemoryCommandResponse,
+    MemoryV2CommandRequest,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.repositories.memory_repository import MemoryRepository
@@ -26,6 +30,16 @@ from .audit_service import AuditActor, AuditService
 from .dto import MemoryCreateRequest, MemoryEnabledUpdateRequest, MemoryRestoreRequest
 
 AUDIT_RESOURCE_TYPE = "USER_MEMORY"
+_AUDIT_ACTIONS = {
+    "CREATE": "CREATE",
+    "UPDATE": "UPDATE",
+    "ENABLE": "UPDATE",
+    "DISABLE": "UPDATE",
+    "RESTORE": "UPDATE",
+    "RESOLVE": "UPDATE",
+    "DELETE": "DELETE",
+    "CLEAR": "DELETE",
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -70,6 +84,45 @@ class MemoryService:
             tenant_id, user_id, page, page_size, category=category, author=author, status=status
         )
         return [_memory_view(item) for item in items], total
+
+    async def list_v2(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        page: int,
+        page_size: int,
+        *,
+        memory_kind: str | None = None,
+        predicate: str | None = None,
+        status: str | None = None,
+        include_deleted: bool = False,
+    ) -> tuple[list[dict[str, Any]], int]:
+        await self._require_user(tenant_id, user_id)
+        items, total = await self._memories.list_v2(
+            tenant_id,
+            user_id,
+            page,
+            page_size,
+            memory_kind=memory_kind,
+            predicate=predicate,
+            status=status,
+            include_deleted=include_deleted,
+        )
+        return [_memory_view(item) for item in items], total
+
+    async def history_by_id(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        memory_id: uuid.UUID,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[dict[str, Any]], int]:
+        await self._require_user(tenant_id, user_id)
+        if not await self._memories.origin_exists(tenant_id, user_id, memory_id):
+            raise AppError(ErrorCode.MEMORY_NOT_FOUND)
+        items, total = await self._memories.history(tenant_id, user_id, memory_id, page, page_size)
+        return [_history_view(item) for item in items], total
 
     async def history(
         self,
@@ -227,6 +280,50 @@ class MemoryAdminService:
             mutation,
             audit_action="UPDATE",
         )
+
+    async def command_v2(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        actor: AuditActor,
+        command_id: str,
+        payload: MemoryV2CommandRequest,
+    ) -> dict[str, Any]:
+        """v2 命令透传 + Console 本地操作日志；事实与版本仍由 Runtime 产生。"""
+
+        await self._require_user(tenant_id, user_id)
+        data = await self._runtime.command_v2(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            command_id=command_id,
+            request=payload,
+            trace_id=current_trace_id(),
+        )
+        await self._audit.record_config_change(
+            tenant_id=tenant_id,
+            actor=actor,
+            resource_type=AUDIT_RESOURCE_TYPE,
+            resource_id=user_id,
+            action=_AUDIT_ACTIONS[payload.action],
+            before=None,
+            after={
+                "command_id": command_id,
+                "status": data.get("status"),
+                "memory_key": data.get("memory_key"),
+                "version": data.get("version"),
+            },
+        )
+        _logger.info(
+            "console_memory_command_applied",
+            extra={
+                "tenant_id": tenant_id,
+                "user_id": str(user_id),
+                "command_id": command_id,
+                "audit_action": _AUDIT_ACTIONS[payload.action],
+                "memory_status": data.get("status"),
+            },
+        )
+        return data
 
     async def _forward(
         self,

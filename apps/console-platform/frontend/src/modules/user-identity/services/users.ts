@@ -1,14 +1,6 @@
 import { api, apiErrorBody, type ApiResponse, type RequestOptions } from '../../../api/client';
-import {
-  isMemoryErrorCode,
-  type MemoryCommandReceipt,
-  type MemoryCreateInput,
-  type MemoryEnabledUpdateInput,
-  type MemoryErrorCode,
-  type MemoryHistoryItem,
-  type MemoryItem,
-  type MemoryListQuery
-} from '../memoryTypes';
+import type { MemoryCommandInput, MemoryItem } from '../memoryTypes';
+
 
 export interface Page<T> {
   items: T[];
@@ -150,102 +142,79 @@ export async function unbindIdentity(id: string, identityId: string): Promise<vo
   await api.delete(`/users/${id}/identities/${identityId}`);
 }
 
-/** 列表与版本历史：只读投影，过滤/分页直接走与后端同名的 query 参数。 */
+export interface MemoryListParams extends PageParams {
+  memory_kind?: string;
+  predicate?: string;
+  status?: string;
+  include_deleted?: boolean;
+}
+
+/** v2 list projection. */
 export async function listMemory(
   id: string,
-  params: PageParams & MemoryListQuery
+  params: MemoryListParams
 ): Promise<Page<MemoryItem>> {
   return unwrap(await api.get<ApiResponse<Page<MemoryItem>>>(`/users/${id}/memory`, { params }));
 }
 
-export async function listMemoryHistory(
+export interface MemoryHistoryItem {
+  id: string;
+  version: number;
+  change_reason: string;
+  actor_type: string;
+  actor_id: string | null;
+  command_id: string;
+  source_run_id: string | null;
+  after: Record<string, unknown>;
+  create_time: string;
+}
+
+export interface MemoryConflictItem {
+  id: string;
+  memory_key: string;
+  predicate: string;
+  scope_state: string;
+  title: string;
+  summary: string;
+  content: Record<string, unknown>;
+  base_version: number;
+  forget_epoch: number;
+  reason: string;
+  create_time: string;
+}
+
+export async function listMemoryConflicts(
   id: string,
-  memoryKey: string,
   params: PageParams
-): Promise<Page<MemoryHistoryItem>> {
+): Promise<Page<MemoryConflictItem>> {
   return unwrap(
-    await api.get<ApiResponse<Page<MemoryHistoryItem>>>(`/users/${id}/memory/${memoryKey}/history`, {
+    await api.get<ApiResponse<Page<MemoryConflictItem>>>(`/users/${id}/memory/conflicts`, {
       params
     })
   );
 }
 
-/**
- * 写操作（design §3.7）HTTP 只经共享 `api` 实例；`Idempotency-Key` 由调用方持有并透传为
- * Runtime 命令号——同一次用户提交的重试/双击必须复用同一 key，service 不自行生成。
- */
-export async function createMemory(
-  id: string,
-  input: MemoryCreateInput,
-  idempotencyKey: string,
-  options: RequestOptions = {}
-): Promise<MemoryCommandReceipt> {
-  return unwrap(
-    await api.post<ApiResponse<MemoryCommandReceipt>>(`/users/${id}/memory`, input, {
-      headers: { 'Idempotency-Key': idempotencyKey },
-      ...options
-    })
-  );
-}
-
-export async function updateMemoryEnabled(
-  id: string,
-  memoryKey: string,
-  input: MemoryEnabledUpdateInput,
-  idempotencyKey: string,
-  options: RequestOptions = {}
-): Promise<MemoryCommandReceipt> {
-  return unwrap(
-    await api.patch<ApiResponse<MemoryCommandReceipt>>(`/users/${id}/memory/${memoryKey}`, input, {
-      headers: { 'Idempotency-Key': idempotencyKey },
-      ...options
-    })
-  );
-}
-
-export async function deleteMemory(
+export async function listMemoryHistory(
   id: string,
   memoryId: string,
-  expectedVersion: number,
-  idempotencyKey: string,
-  options: RequestOptions = {}
-): Promise<MemoryCommandReceipt> {
+  params: PageParams
+): Promise<Page<MemoryHistoryItem>> {
   return unwrap(
-    await api.delete<ApiResponse<MemoryCommandReceipt>>(`/users/${id}/memory/${memoryId}`, {
-      params: { expected_version: expectedVersion },
-      headers: { 'Idempotency-Key': idempotencyKey },
-      ...options
+    await api.get<ApiResponse<Page<MemoryHistoryItem>>>(`/users/${id}/memory/${memoryId}/history`, {
+      params
     })
   );
 }
 
-/**
- * 恢复删除墓碑（评审条目 5）：`expected_version` 是界面从 tombstone 版本历史读到的**保留版本**
- * （删除不重置 version）；版本冲突由 Runtime 明确 409，刷新后按新版本重试。命令号仍由调用方持有。
- */
-export async function restoreMemory(
+/** v2 command transport; the caller owns the idempotency key. */
+export async function commandMemory(
   id: string,
-  memoryKey: string,
-  expectedVersion: number,
+  input: MemoryCommandInput,
   idempotencyKey: string,
   options: RequestOptions = {}
-): Promise<MemoryCommandReceipt> {
+): Promise<Record<string, unknown>> {
   return unwrap(
-    await api.post<ApiResponse<MemoryCommandReceipt>>(
-      `/users/${id}/memory/${memoryKey}/restore`,
-      { expected_version: expectedVersion },
-      { headers: { 'Idempotency-Key': idempotencyKey }, ...options }
-    )
-  );
-}
-
-export async function clearMemory(
-  id: string,
-  idempotencyKey: string,
-  options: RequestOptions = {}
-): Promise<MemoryCommandReceipt> {
-  return unwrap(
-    await api.delete<ApiResponse<MemoryCommandReceipt>>(`/users/${id}/memory`, {
+    await api.post<ApiResponse<Record<string, unknown>>>(`/users/${id}/memory/commands`, input, {
       headers: { 'Idempotency-Key': idempotencyKey },
       ...options
     })
@@ -256,12 +225,6 @@ export async function clearMemory(
  * 记忆命令错误码只经 `apiErrorBody` 映射：404/409/403 的语义由 `MemoryErrorCode` 枚举钉死，
  * 未知码返回 null，调用方按通用失败处理。
  */
-export function memoryErrorCode(error: unknown): MemoryErrorCode | null {
-  const code = apiErrorBody(error)?.code;
-  return code !== undefined && isMemoryErrorCode(code) ? code : null;
-}
-
-// 授权对象下拉的可选项：后端 page_size 上限 100，超出部分无法在此选择。
 export const AGENT_PICKER_PAGE_SIZE = 100;
 
 export async function listAgentsForPicker(options: RequestOptions = {}): Promise<Page<AgentSummary>> {

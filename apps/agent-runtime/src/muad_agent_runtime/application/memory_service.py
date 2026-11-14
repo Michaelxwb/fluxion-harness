@@ -253,6 +253,20 @@ class MemoryService:
             ),
         )
 
+    async def create_memory(
+        self,
+        ctx: MemoryWriteContext,
+        candidate: MemoryCandidateV2,
+        *,
+        command_id: str,
+        endpoint: str,
+    ) -> MemoryV2Outcome:
+        from .memory_writer import MemoryV2Command
+
+        return await self._writer().execute(
+            ctx, MemoryV2Command(command_id, endpoint, "CREATE", candidate=candidate)
+        )
+
     async def apply_candidate_in_session(
         self,
         session: AsyncSession,
@@ -326,6 +340,13 @@ class MemoryService:
         self, ctx: MemoryWriteContext, candidate_id: UUID, *, expected_version: int
     ) -> MemoryV2Outcome:
         return await self._writer().accept_candidate(
+            ctx, candidate_id, expected_version=expected_version
+        )
+
+    async def reject_candidate(
+        self, ctx: MemoryWriteContext, candidate_id: UUID, *, expected_version: int
+    ) -> MemoryV2Outcome:
+        return await self._writer().reject_candidate(
             ctx, candidate_id, expected_version=expected_version
         )
 

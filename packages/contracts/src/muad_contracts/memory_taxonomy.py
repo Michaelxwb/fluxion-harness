@@ -27,7 +27,9 @@ class PredicateSpec:
 
 
 CORE_PREDICATES: tuple[PredicateSpec, ...] = (
-    PredicateSpec("report_format", "PREFERENCE", "SINGLE", ("audience",), ("报告格式", "输出格式"), "REQUIRED"),
+    PredicateSpec(
+        "report_format", "PREFERENCE", "SINGLE", ("audience",), ("报告格式", "输出格式"), "REQUIRED"
+    ),
     PredicateSpec("language", "PREFERENCE", "SINGLE", (), ("语言", "用什么语言"), "REQUIRED"),
     PredicateSpec("timezone", "PREFERENCE", "SINGLE", (), ("时区", "时间"), "REQUIRED"),
     PredicateSpec("output_style", "PREFERENCE", "SINGLE", ("audience",), ("风格", "语气"), "OPTIONAL"),

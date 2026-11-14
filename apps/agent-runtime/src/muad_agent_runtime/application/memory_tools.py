@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
@@ -40,7 +40,7 @@ from ..metrics import (
 from .memory_commands import MemoryWriteContext
 from .memory_confirmation import MemoryConfirmationService
 from .memory_context import MemoryContextLoader
-from .memory_queries import MemoryQueries
+from .memory_queries import MemoryCandidateRowV2, MemoryQueries
 from .memory_service import MemoryService
 
 logger = logging.getLogger(__name__)

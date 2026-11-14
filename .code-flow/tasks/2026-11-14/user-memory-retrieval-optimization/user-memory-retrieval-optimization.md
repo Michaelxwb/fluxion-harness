@@ -813,7 +813,7 @@ loader 的职责：
   - attribution PASS exit=0
 ## TASK-011: 管理 API 单一路由与 Console 治理面
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-004, TASK-005
 - **Source**: user-memory-retrieval-optimization.frontend.design.md#3, user-memory-retrieval-optimization.backend.design.md#3.4
 - **Scenarios**: S-06, S-09, S-13, E-03, E-04, E-10
@@ -844,7 +844,7 @@ loader 的职责：
   },
   {
     "id": "single-route-gate",
-    "argv": ["bash", "-lc", "test ! -e apps/agent-runtime/src/muad_agent_runtime/api/memory_v2.py && ! grep -rq 'memory/v2' apps/agent-runtime/src apps/console-platform/backend/src apps/console-platform/frontend/src"],
+    "argv": ["bash", "-lc", "test ! -e apps/agent-runtime/src/muad_agent_runtime/api/memory_v2.py && ! grep -rq --exclude-dir=__pycache__ 'memory/v2' apps/agent-runtime/src apps/console-platform/backend/src apps/console-platform/frontend/src"],
     "timeout": 60
   }
 ]
@@ -864,14 +864,14 @@ loader 的职责：
 
 ### Checklist
 
-- [ ] 删除 `api/memory_v2.py` 与 Console `/memory/v2` 路由；Runtime 只挂一个 memory router。
-- [ ] 原 memory 路由的 DTO 扩展为 v2 字段（kind/predicate/scope/title/summary/tags/cardinality/priority/status/memory_id）。
-- [ ] 列表支持分页与 kind/predicate/status 过滤；回收站单列入口。
-- [ ] 创建命中已有身份返回 `MEMORY_ALREADY_EXISTS`；编辑身份字段返回 `MEMORY_IDENTITY_IMMUTABLE`；旧版本编辑返回 409。
-- [ ] 启用/禁用、删除、恢复、清空、候选 ACCEPT/REJECT 全部可用且写经过 Runtime。
-- [ ] `_history` 不再引用 `legacy_snapshots_json`，历史可正常返回。
-- [ ] 前端补齐恢复/启停/编辑/回收站/历史/待确认与 409/422/429 本地化；复用 DataTable/PaginationFooter/ConfirmAction/FormModal/EmptyState/ErrorState。
-- [ ] 门禁：`memory_v2.py` 不存在、源码无 `memory/v2` 字样。
+- [x] 删除 `api/memory_v2.py` 与 Console `/memory/v2` 路由；Runtime 只挂一个 memory router。
+- [x] 原 memory 路由的 DTO 扩展为 v2 字段（kind/predicate/scope/title/summary/tags/cardinality/priority/status/memory_id）。
+- [x] 列表支持分页与 kind/predicate/status 过滤；回收站单列入口。
+- [x] 创建命中已有身份返回 `MEMORY_ALREADY_EXISTS`；编辑身份字段返回 `MEMORY_IDENTITY_IMMUTABLE`；旧版本编辑返回 409。
+- [x] 启用/禁用、删除、恢复、清空、候选 ACCEPT/REJECT 全部可用且写经过 Runtime。
+- [x] `_history` 不再引用 `legacy_snapshots_json`，历史可正常返回。
+- [x] 前端补齐恢复/启停/编辑/回收站/历史/待确认与 409/422/429 本地化；复用 DataTable/PaginationFooter/ConfirmAction/FormModal/EmptyState/ErrorState。
+- [x] 门禁：`memory_v2.py` 不存在、源码无 `memory/v2` 字样。
 
 ### Spec Delta
 
@@ -882,11 +882,21 @@ loader 的职责：
 ### Log
 
 - [2026-11-14] created
+- [2026-11-14T16:34:53.294Z] started tests=d7bd46b87418
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-14T16:39:26.265Z FAIL commands=3/4 executed=4 deduped=0 elapsed=9008ms tests=d7bd46b87418 head=130a7f7c086d dirty=1
+  - api PASS exit=0
+  - frontend-contract PASS exit=0
+  - frontend-build PASS exit=0
+  - single-route-gate FAIL exit=1
+- 2026-11-14T16:39:51.569Z PASS commands=4/4 executed=4 deduped=0 elapsed=8679ms tests=5d4e03259043 head=130a7f7c086d dirty=1 tests-changed
+  - api PASS exit=0
+  - frontend-contract PASS exit=0
+  - frontend-build PASS exit=0
+  - single-route-gate PASS exit=0
 ## TASK-012: 后台提炼 v2
 
 - **Status**: draft

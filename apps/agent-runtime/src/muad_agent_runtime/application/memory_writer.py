@@ -19,7 +19,6 @@ from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import MemoryAuthor, MemoryCandidateV2, MemoryRetirementReason
-from muad_contracts.memory_admin import MemoryCommandResponse
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,13 +32,13 @@ from ..infrastructure.models.runtime import (
     UserMemoryHistory,
 )
 from .memory_commands import MemoryWriteContext
+from .memory_identity import memory_key as build_memory_key
+from .memory_identity import scope_hash
 from .memory_mutations import memory_state_any
 from .memory_service import MemoryService
 from .memory_write import MemoryWriteState, plan_memory_capacity
-from .memory_identity import memory_key as build_memory_key
-from .memory_identity import scope_hash
 
-MemoryV2Action = Literal["UPSERT", "DELETE", "CLEAR"]
+MemoryV2Action = Literal["UPSERT", "CREATE", "DELETE", "CLEAR"]
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +56,18 @@ class MemoryV2Command:
 
 @dataclass(frozen=True, slots=True)
 class MemoryV2Outcome:
-    status: Literal["CREATED", "UPDATED", "CANDIDATE", "DELETED", "CLEARED", "ACCEPTED", "PATCHED", "RESTORED", "UNCHANGED"]
+    status: Literal[
+        "CREATED",
+        "UPDATED",
+        "CANDIDATE",
+        "DELETED",
+        "CLEARED",
+        "ACCEPTED",
+        "REJECTED",
+        "PATCHED",
+        "RESTORED",
+        "UNCHANGED",
+    ]
     memory_key: str | None
     version: int | None
     candidate_id: UUID | None = None
@@ -128,7 +138,9 @@ def _expires_at(candidate: MemoryCandidateV2, ctx: MemoryWriteContext, now: date
     return now + timedelta(days=days)
 
 
-def _apply_candidate(row: UserMemory, candidate: MemoryCandidateV2, ctx: MemoryWriteContext, now: datetime) -> None:
+def _apply_candidate(
+    row: UserMemory, candidate: MemoryCandidateV2, ctx: MemoryWriteContext, now: datetime
+) -> None:
     row.memory_kind = candidate.memory_kind
     row.predicate = candidate.predicate
     row.scope_state = candidate.scope_state.value
@@ -366,6 +378,10 @@ class MemoryV2Writer:
             )
             .with_for_update()
         )
+        if row is not None and command.action == "CREATE":
+            # Creating an existing identity (including a tombstone) is a conflict;
+            # the caller must PATCH the memory or RESTORE the tombstone.
+            raise AppError(ErrorCode.MEMORY_ALREADY_EXISTS)
         if row is not None and row.content_json != dict(candidate.content) and ctx.actor_type == "AGENT":
             outcome = await self._candidate(session, ctx, row, candidate, scope, command)
         else:
@@ -586,7 +602,9 @@ class MemoryV2Writer:
             await _history(session, row, ctx, command, "OVERWRITE", now=now)
             return MemoryV2Outcome("PATCHED", row.memory_key, row.version)
 
-    async def restore(self, ctx: MemoryWriteContext, memory_id: UUID, *, expected_version: int) -> MemoryV2Outcome:
+    async def restore(
+        self, ctx: MemoryWriteContext, memory_id: UUID, *, expected_version: int
+    ) -> MemoryV2Outcome:
         async with self._sessions().begin() as session:
             scope = await MemoryService.lock_scope(session, ctx)
             now = await database_now(session)
@@ -612,6 +630,34 @@ class MemoryV2Writer:
             command = MemoryV2Command("restore", "memory.restore", "UPSERT")
             await _history(session, row, ctx, command, "RESTORE", now=now)
             return MemoryV2Outcome("RESTORED", row.memory_key, row.version)
+
+    async def reject_candidate(
+        self, ctx: MemoryWriteContext, candidate_id: UUID, *, expected_version: int
+    ) -> MemoryV2Outcome:
+        async with self._sessions().begin() as session:
+            scope = await MemoryService.lock_scope(session, ctx)
+            now = await database_now(session)
+            candidate = await session.scalar(
+                select(MemoryConflictCandidate)
+                .where(
+                    MemoryConflictCandidate.tenant_id == ctx.tenant_id,
+                    MemoryConflictCandidate.user_id == ctx.user_id,
+                    MemoryConflictCandidate.id == candidate_id,
+                    MemoryConflictCandidate.status == "PENDING",
+                    MemoryConflictCandidate.is_deleted.is_(False),
+                )
+                .with_for_update()
+            )
+            if candidate is None:
+                raise AppError(ErrorCode.MEMORY_CANDIDATE_NOT_FOUND)
+            if candidate.base_version != expected_version:
+                raise AppError(ErrorCode.MEMORY_CANDIDATE_STALE)
+            candidate.status = "REJECTED"
+            candidate.resolved_by = ctx.actor_id
+            candidate.resolved_at = now
+            candidate.update_time = now
+            scope.revision += 1
+            return MemoryV2Outcome("REJECTED", candidate.memory_key, None, candidate.id)
 
     async def accept_candidate(
         self, ctx: MemoryWriteContext, candidate_id: UUID, *, expected_version: int
