@@ -85,9 +85,17 @@ def _input[Input: ContractModel](
             "memory_key": ErrorCode.MEMORY_KEY_INVALID,
             "value": ErrorCode.MEMORY_VALUE_INVALID,
             "category": ErrorCode.MEMORY_CATEGORY_NOT_ALLOWED,
+            "memory_kind": ErrorCode.MEMORY_CATEGORY_NOT_ALLOWED,
+            "predicate": ErrorCode.MEMORY_TAXONOMY_INVALID,
+            "scope_state": ErrorCode.MEMORY_SCOPE_UNKNOWN,
+            "scope": ErrorCode.MEMORY_SCOPE_UNKNOWN,
             "query": ErrorCode.MEMORY_QUERY_INVALID,
             "limit": ErrorCode.MEMORY_LIMIT_INVALID,
         }
+        # Scope is validated by a model validator, so its error has no field location.
+        messages = " ".join(str(error.get("msg", "")) for error in exc.errors()).lower()
+        if not field and "scope" in messages:
+            raise AppError(ErrorCode.MEMORY_SCOPE_UNKNOWN) from None
         raise AppError(codes.get(str(field), default)) from None
 
 

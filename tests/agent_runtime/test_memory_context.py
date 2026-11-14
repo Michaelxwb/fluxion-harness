@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+
+import pytest
 from uuid import uuid4
 
 from muad_agent_runtime.application.memory_context import MemoryContextLoader
@@ -65,3 +67,101 @@ async def test_loader_does_not_freeze_row_ttl():
     assert component is not None
     assert component.text is None
     assert loader.resolution is not None and loader.resolution.entries == ()
+
+
+def _scoped(key, audience, *, value):
+    return MemoryCandidateRowV2(
+        id=uuid4(),
+        memory_key=key,
+        memory_kind="PREFERENCE",
+        predicate="report_format",
+        scope_state="EXPLICIT" if audience else "ABSENT",
+        scope={"audience": audience} if audience else {},
+        content={"value": value},
+        title="报告格式",
+        summary="",
+        tags=(),
+        cardinality="SINGLE",
+        priority="REQUIRED",
+        author="USER",
+        authority="USER_EXPLICIT",
+        version=1,
+        enabled=True,
+        expires_at=None,
+        last_confirmed_at=NOW,
+    )
+
+
+async def test_scope_inherits_from_recent_user_messages():
+    rows = (_scoped("ext", "external", value="Word"), _scoped("int", "internal", value="PDF"))
+    loader = MemoryContextLoader(
+        _Cache(MemorySnapshotV2(None, 1, 0, NOW, rows)),
+        settings=MemoryPolicySettings(),
+        query="继续导出报告",
+        recent_user_texts=("以后给客户的报告都用 Word",),
+    )
+    component = await loader.refresh()
+    assert component is not None
+    assert "Word" in (component.text or "") and "PDF" not in (component.text or "")
+
+
+async def test_task_switch_clears_inherited_scope():
+    rows = (_scoped("ext", "external", value="Word"), _scoped("int", "internal", value="PDF"))
+    loader = MemoryContextLoader(
+        _Cache(MemorySnapshotV2(None, 1, 0, NOW, rows)),
+        settings=MemoryPolicySettings(),
+        query="换个任务，随便聊聊",
+        recent_user_texts=("以后给客户的报告都用 Word",),
+    )
+    component = await loader.refresh()
+    assert component is not None and component.text is None
+
+
+async def test_conflicting_scope_words_are_reported_as_ambiguous():
+    rows = (_scoped("ext", "external", value="Word"), _scoped("int", "internal", value="PDF"))
+    loader = MemoryContextLoader(
+        _Cache(MemorySnapshotV2(None, 1, 0, NOW, rows)),
+        settings=MemoryPolicySettings(),
+        query="内部还是外部？",
+    )
+    component = await loader.refresh()
+    assert component is not None and component.text is None
+    assert loader.resolution is not None
+    assert loader.resolution.clarification_reason == "SCOPE_AMBIGUOUS"
+
+
+async def test_explicit_save_with_unknown_scope_is_rejected(async_tool_database):
+    from muad_api import AppError
+    from muad_api.error_codes import ErrorCode
+    from muad_agent_runtime.application.memory_commands import MemoryWriteContext
+    from muad_agent_runtime.application.memory_queries import MemoryQueries, MemoryReadScope
+    from muad_agent_runtime.application.memory_service import MemoryService
+    from muad_agent_runtime.application.memory_tools import MemoryToolSet
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    tenant, user = "unknown-scope", uuid4()
+    scope = MemoryReadScope(tenant_id=tenant, user_id=user)
+    cache = _Cache(MemorySnapshotV2(None, 0, 0, NOW, ()))
+    cache.scope = scope
+    loader = MemoryContextLoader(cache, settings=MemoryPolicySettings(), query="记住我的角色")
+    tool_set = MemoryToolSet(
+        service=MemoryService(async_sessionmaker(async_tool_database, expire_on_commit=False)),
+        queries=MemoryQueries(async_sessionmaker(async_tool_database, expire_on_commit=False)),
+        context=MemoryWriteContext(
+            tenant_id=tenant, user_id=user, actor_type="USER", actor_id=str(user)
+        ),
+        loader=loader,
+        confirmation=None,
+    )
+    with pytest.raises(AppError) as exc:
+        await tool_set.remember(
+            {
+                "memory_kind": "FACT",
+                "predicate": "role",
+                "scope_state": "UNKNOWN",
+                "content": {"value": "pm"},
+                "title": "角色",
+            },
+            call_id="unknown-scope",
+        )
+    assert exc.value.code == ErrorCode.MEMORY_SCOPE_UNKNOWN
