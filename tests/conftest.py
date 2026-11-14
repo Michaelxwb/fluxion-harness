@@ -156,7 +156,17 @@ async def _dispose_all_engines() -> None:
 
 @pytest.fixture(scope="session")
 def datastore_template() -> object:
-    """One database migrated to head once per session; per-test clones copy it."""
+    """One database migrated to head once per session; per-test clones copy it.
+
+    没有 `DATABASE_URL` 的进程（dfx 的「无 IO 单元层」内层探针会净化环境）不建模板：
+    该层按约定不允许连库，fixture 必须能在无环境变量时存在。
+    """
+
+    from muad_common import SharedSettings
+
+    if not SharedSettings().database_url:
+        yield None
+        return
 
     from tests.acceptance.datastores import create_template, drop_template
 
@@ -184,6 +194,9 @@ async def isolated_datastore(request: pytest.FixtureRequest, datastore_template,
     # 逃生阀（与 tests/acceptance/conftest.py 同一枚举）：内层探针必须看到调用方指定的那一份
     # 库（例如被注入漂移的临时库），否则每测试克隆会读到干净模板、观察不到注入。
     if os.environ.get("MUAD_ACCEPTANCE_SHARED_DB") == "1":
+        yield None
+        return
+    if datastore_template is None:
         yield None
         return
     import asyncio
