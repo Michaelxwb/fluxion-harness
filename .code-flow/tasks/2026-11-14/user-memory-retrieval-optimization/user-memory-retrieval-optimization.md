@@ -531,7 +531,7 @@ BM25 保持二值字段权重（`match_weight=max(w_f)`、无权重长度并集�
   - rank PASS exit=0
 ## TASK-007: 唯一读路径：loader 合并两条 lane（含 TASK_STATE 与经验）
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-006
 - **Source**: user-memory-retrieval-optimization.backend.design.md#3.2.3, #3.2.4, #3.2.5, #3.5.4
 - **Scenarios**: S-01, S-03, S-05, S-11, B-01, B-05
@@ -576,13 +576,13 @@ loader 的职责：
 
 ### Checklist
 
-- [ ] 删除 `memory_retrieval_context.py` 与 `memory_resolution.py`；生产代码不再引用 `MemoryContextLoaderV2` / `MemoryV2Runtime`。
-- [ ] loader 使用单一快照的 v2 lane + legacy lane。
-- [ ] 经验 lane：ACTIVE 门控、task_family / trigger_text 命中、首次刷新冻结准入 key。
-- [ ] TASK_STATE：key/version/candidate_hash 三者一致才注入；不满足不注入。
-- [ ] `learning_enabled=False` 时经验不注入，事实不受影响；`task_state_injection_enabled=False` 时 TASK_STATE 不注入。
-- [ ] 读取失败：缓存与组件清空、指标记 ERROR、返回 degraded。
-- [ ] 四条定向测试与两条门禁全绿。
+- [x] 删除 `memory_retrieval_context.py` 与 `memory_resolution.py`；生产代码不再引用 `MemoryContextLoaderV2` / `MemoryV2Runtime`。
+- [x] loader 使用单一快照的 v2 lane + legacy lane。
+- [x] 经验 lane：ACTIVE 门控、task_family / trigger_text 命中、首次刷新冻结准入 key。
+- [x] TASK_STATE：key/version/candidate_hash 三者一致才注入；不满足不注入。
+- [x] `learning_enabled=False` 时经验不注入，事实不受影响；`task_state_injection_enabled=False` 时 TASK_STATE 不注入。
+- [x] 读取失败：缓存与组件清空、指标记 ERROR、返回 degraded。
+- [x] 四条定向测试与两条门禁全绿。
 
 ### Spec Delta
 
@@ -593,11 +593,23 @@ loader 的职责：
 ### Log
 
 - [2026-11-14] created
+- [2026-11-14T16:18:26.776Z] started tests=46d430feb258
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-14T16:19:44.874Z FAIL commands=0/3 executed=1 deduped=0 elapsed=34931ms tests=46d430feb258 head=ed15d37557ec dirty=1
+  - loader FAIL exit=1
+  - legacy-lane NOT-RUN
+  - single-loader-gate NOT-RUN
+- 2026-11-14T16:23:59.919Z FAIL commands=1/3 executed=2 deduped=0 elapsed=80383ms tests=46d430feb258 head=ed15d37557ec dirty=1
+  - loader PASS exit=0
+  - legacy-lane FAIL exit=1
+  - single-loader-gate NOT-RUN
+- 2026-11-14T16:28:07.129Z PASS commands=3/3 executed=3 deduped=0 elapsed=80375ms tests=46d430feb258 head=ed15d37557ec dirty=1
+  - loader PASS exit=0
+  - legacy-lane PASS exit=0
+  - single-loader-gate PASS exit=0
 ## TASK-008: 渲染分流：结构化 v2 内容 + 旧经验渲染
 
 - **Status**: draft

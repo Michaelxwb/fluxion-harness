@@ -9,6 +9,7 @@ target-bound candidates, clear-only forget_epoch, idempotent receipts.
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal
@@ -20,6 +21,7 @@ from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import MemoryAuthor, MemoryCandidateV2, MemoryRetirementReason
 from muad_contracts.memory_admin import MemoryCommandResponse
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db_clock import database_now
@@ -38,6 +40,8 @@ from .memory_identity import memory_key as build_memory_key
 from .memory_identity import scope_hash
 
 MemoryV2Action = Literal["UPSERT", "DELETE", "CLEAR"]
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -305,10 +309,37 @@ class MemoryV2Writer:
         return get_session_factory()
 
     async def execute(self, ctx: MemoryWriteContext, command: MemoryV2Command) -> MemoryV2Outcome:
-        async with self._sessions().begin() as session:
-            return await self.execute_in_session(session, ctx, command)
+        try:
+            async with self._sessions().begin() as session:
+                return await self.execute_in_session(session, ctx, command)
+        except SQLAlchemyError as exc:
+            logger.warning(
+                "memory_v2_write_failed",
+                extra={
+                    "tenant_id": ctx.tenant_id,
+                    "endpoint": command.endpoint,
+                    "error_type": type(exc).__name__,
+                },
+            )
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
 
     async def execute_in_session(
+        self, session: AsyncSession, ctx: MemoryWriteContext, command: MemoryV2Command
+    ) -> MemoryV2Outcome:
+        try:
+            return await self._execute_in_session(session, ctx, command)
+        except SQLAlchemyError as exc:
+            logger.warning(
+                "memory_v2_write_failed",
+                extra={
+                    "tenant_id": ctx.tenant_id,
+                    "endpoint": command.endpoint,
+                    "error_type": type(exc).__name__,
+                },
+            )
+            raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from None
+
+    async def _execute_in_session(
         self, session: AsyncSession, ctx: MemoryWriteContext, command: MemoryV2Command
     ) -> MemoryV2Outcome:
         fingerprint = _fingerprint(ctx, command)
@@ -441,7 +472,7 @@ class MemoryV2Writer:
         row.update_time = now
         scope.revision += 1
         await self._revoke_pending(session, ctx, row.memory_key)
-        await _history(session, row, ctx, command, "DELETE", now=now)
+        await _history(session, row, ctx, command, row.retirement_reason, now=now)
         outcome = MemoryV2Outcome("DELETED", row.memory_key, row.version)
         await _save_receipt(session, ctx, command, fingerprint, outcome)
         return outcome
@@ -463,7 +494,7 @@ class MemoryV2Writer:
             row.retirement_reason = "USER_DELETE" if ctx.actor_type == "USER" else "ADMIN_DELETE"
             row.version += 1
             row.update_time = now
-            await _history(session, row, ctx, command, "DELETE", now=now)
+            await _history(session, row, ctx, command, row.retirement_reason, now=now)
         await self._revoke_pending(session, ctx, None)
         scope.revision += 1
         scope.forget_epoch += 1

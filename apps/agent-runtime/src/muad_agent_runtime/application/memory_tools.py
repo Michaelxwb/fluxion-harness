@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime
 from collections.abc import Mapping
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
-from muad_agent_core.memory.memory_render import render_memory_v2
 from muad_agent_core.memory.selection import (
     MemoryRecordV2,
     QueryContextV2,
@@ -91,6 +91,77 @@ def _input[Input: ContractModel](
         raise AppError(codes.get(str(field), default)) from None
 
 
+def _record(row: MemoryCandidateRowV2) -> MemoryRecordV2:
+    return MemoryRecordV2(
+        memory_key=row.memory_key,
+        memory_kind=row.memory_kind,
+        predicate=row.predicate,
+        scope_state=ScopeState(row.scope_state),
+        scope=row.scope,
+        content=row.content,
+        title=row.title,
+        summary=row.summary,
+        tags=row.tags,
+        cardinality=MemoryCardinality(row.cardinality),
+        priority=MemoryPriority(row.priority),
+        author=row.author,
+        version=row.version,
+        updated_at=row.last_confirmed_at,
+        expires_at=row.expires_at,
+        enabled=row.enabled,
+    )
+
+
+def _recall_selection(
+    records: list[MemoryRecordV2], query: str | None, mode: str, limit: int, now: datetime
+) -> tuple[SelectedV2, ...]:
+    if mode == "LIST":
+        ordered = sorted(
+            records,
+            key=lambda record: (-int(record.priority == "REQUIRED"), -record.version, record.memory_key),
+        )
+        return tuple(SelectedV2(record, 1.0) for record in ordered[:limit])
+    # The score threshold gates automatic injection only; an explicit recall returns
+    # every positive lexical match (zero coverage still yields an empty result).
+    return select_v2(
+        records,
+        QueryContextV2(query=query, now=now, scope_state=QueryScopeState.ABSENT),
+        top_k=limit,
+        min_score=0.0,
+    )
+
+
+def _recall_payload(
+    selected: tuple[SelectedV2, ...], rows: Mapping[str, MemoryCandidateRowV2], *, max_bytes: int
+) -> str:
+    items: list[dict[str, Any]] = []
+    for item in selected:
+        row = rows.get(item.record.memory_key)
+        if row is None:
+            continue
+        candidate = [
+            *items,
+            {
+                "memory_id": str(row.id),
+                "memory_key": row.memory_key,
+                "memory_kind": row.memory_kind,
+                "predicate": row.predicate,
+                "scope_state": row.scope_state,
+                "scope": row.scope,
+                "content": row.content,
+                "title": row.title,
+                "summary": row.summary,
+                "tags": list(row.tags),
+                "version": row.version,
+                "score": item.score,
+            },
+        ]
+        if len(json.dumps(candidate, ensure_ascii=False).encode("utf-8")) > max_bytes:
+            break
+        items = candidate
+    return json.dumps(items, ensure_ascii=False)
+
+
 class MemoryToolSet:
     def __init__(
         self,
@@ -157,72 +228,41 @@ class MemoryToolSet:
         mode = "SEARCH" if request.query and request.query.strip() else "LIST"
         limit = self._context.settings.recall_default_limit if request.limit is None else request.limit
         try:
-            selected: tuple = ()
+            selected: tuple[SelectedV2, ...] = ()
+            rows: dict[str, MemoryCandidateRowV2] = {}
             has_candidates = False
             if limit:
                 snapshot = await self._queries.read_snapshot_v2(self._loader.cache.scope)
+                rows = {row.memory_key: row for row in snapshot.rows}
                 records = [
-                    MemoryRecordV2(
-                        memory_key=row.memory_key,
-                        memory_kind=row.memory_kind,
-                        predicate=row.predicate,
-                        scope_state=ScopeState(row.scope_state),
-                        scope=row.scope,
-                        content=row.content,
-                        title=row.title,
-                        summary=row.summary,
-                        tags=row.tags,
-                        cardinality=MemoryCardinality(row.cardinality),
-                        priority=MemoryPriority(row.priority),
-                        author=row.author,
-                        version=row.version,
-                        updated_at=row.last_confirmed_at or snapshot.as_of,
-                        expires_at=row.expires_at,
-                        enabled=row.enabled,
-                    )
+                    _record(row)
                     for row in snapshot.rows
                     if (request.memory_kind is None or row.memory_kind == request.memory_kind)
                     and (request.predicate is None or row.predicate == request.predicate)
                 ]
                 has_candidates = bool(records)
-                if mode == "LIST":
-                    ordered = sorted(
-                        records,
-                        key=lambda record: (
-                            -int(record.priority == "REQUIRED"),
-                            -record.version,
-                            record.memory_key,
-                        ),
-                    )
-                    selected = tuple(SelectedV2(record, 1.0) for record in ordered[:limit])
-                else:
-                    selected = select_v2(
-                        records,
-                        QueryContextV2(
-                            query=request.query,
-                            now=snapshot.as_of,
-                            scope_state=QueryScopeState.ABSENT,
-                        ),
-                        top_k=limit,
-                    )
-            rendered = render_memory_v2([item.record for item in selected], max_records=limit, max_bytes=self._context.settings.max_recall_bytes)
+                selected = _recall_selection(records, request.query, mode, limit, snapshot.as_of)
+            text = _recall_payload(
+                selected, rows, max_bytes=self._context.settings.max_recall_bytes
+            )
         except (SQLAlchemyError, AppError, ValueError) as exc:
             self._recall_failed(mode, type(exc).__name__)
             raise AppError(ErrorCode.MEMORY_READ_FAILED) from None
         if mode == "SEARCH" and limit and has_candidates:
             record_counter(MEMORY_RECALL_HIT_METRIC, labels={"hit": str(bool(selected)).lower()})
         record_counter(MEMORY_RECALL_METRIC, labels={"mode": mode, "outcome": "OK"})
-        record_counter(MEMORY_RECALL_BYTES_METRIC, len(rendered.text.encode("utf-8")))
+        result_bytes = len(text.encode("utf-8"))
+        record_counter(MEMORY_RECALL_BYTES_METRIC, result_bytes)
         logger.info(
             "memory_recall_ok",
             extra={
                 "mode": mode,
                 "result_count": len(selected),
-                "result_bytes": len(rendered.text.encode("utf-8")),
+                "result_bytes": result_bytes,
                 "run_id": str(self._loader.cache.run_id),
             },
         )
-        return rendered.text
+        return text
 
     def _recall_failed(self, mode: str, reason: str) -> None:
         record_counter(MEMORY_RECALL_METRIC, labels={"mode": mode, "outcome": "ERROR"})
@@ -239,6 +279,7 @@ class MemoryToolSet:
     async def forget(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         request = _input(ForgetMemoryInputV2, arguments, ErrorCode.MEMORY_VERSION_CONFLICT)
         command_id = str(uuid5(NAMESPACE_URL, f"memory.forget:{self._loader.cache.run_id}:{call_id}"))
+        previous = self._loader.begin_forget()
         outcome = await self._service.delete_memory(
             self._context,
             request.memory_id,
@@ -246,6 +287,7 @@ class MemoryToolSet:
             command_id=command_id,
             endpoint="memory.forget",
         )
+        self._loader.end_forget(previous, succeeded=outcome.status != "STALE")
         return json.dumps(
             {
                 "deleted": outcome.status == "DELETED",
