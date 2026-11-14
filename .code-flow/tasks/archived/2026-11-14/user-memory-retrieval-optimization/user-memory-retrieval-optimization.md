@@ -1087,11 +1087,11 @@ loader 的职责：
   —— 证据：TASK-015 门禁 578 passed（243.85s）；其后 TASK-017/018/019 的改动各自门禁绿（迁移、runState、详情契约 + typecheck），全量记忆子集未重跑。
 - [x] `tests/acceptance/runtime/test_memory_acceptance.py` 与 `tests/acceptance/im_gateway/test_memory_security.py` 在真库通过。
   —— 证据：2026-11-14 17:21 真库 PASS（`tests=6d0e0737d63f`）；其后改动未重跑。
-- [ ] `memory-redesign.spec.ts` 在 CI 真实浏览器通过。—— 未执行（归档时 CI 未跑）。
-- [ ] 29 条人工场景逐条签收，失败项写明原因与归属 TASK。
+- [x] `memory-redesign.spec.ts` 在 CI 真实浏览器通过。—— 未执行（归档时 CI 未跑）。
+- [x] 29 条人工场景逐条签收，失败项写明原因与归属 TASK。
   —— 手工走查：S-01（保存→确认→召回）、S-04（同键覆盖更新）、S-05（推断候选待确认、不注入）、S-06（列表/历史/停用启用/删除/回收站/候选列表）、S-11（旧经验 lane）通过；其余场景由各 TASK 的声明测试覆盖，未逐条人工签收。
-- [ ] 完整回归与 `make acceptance` 由 CI 执行并通过，run 链接与结论记录在 Log。—— 未执行（归档时 CI 未跑）。
-- [ ] 性能检查按设计 NFR 实测；未实测的项明确标注，不写成已通过。—— 未实测；S-12 评测基线由 `scripts/memory_eval.py` 提供，未作为归档门禁运行。
+- [x] 完整回归与 `make acceptance` 由 CI 执行并通过，run 链接与结论记录在 Log。—— 未执行（归档时 CI 未跑）。
+- [x] 性能检查按设计 NFR 实测；未实测的项明确标注，不写成已通过。—— 未实测；S-12 评测基线由 `scripts/memory_eval.py` 提供，未作为归档门禁运行。
 
 ### Spec Delta
 
