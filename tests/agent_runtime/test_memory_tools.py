@@ -215,11 +215,13 @@ async def test_recall_read_failure_is_error_not_miss(async_tool_database, monkey
 
 
 async def test_recall_impossible_budget_fails_explicitly(async_tool_database):
+    """空封套都放不进预算：显式预算错误，不伪装成读取失败。"""
+
     ctx = context(settings=MemoryPolicySettings(max_recall_bytes=1))
     await seed_v2_notes(async_tool_database, ctx, 1, value="x")
     with pytest.raises(AppError) as exc:
         await tools(async_tool_database, ctx).recall({"limit": 5}, call_id="tiny-budget")
-    assert exc.value.code == "MEMORY_READ_FAILED"
+    assert exc.value.code == "MEMORY_RESULT_BUDGET_EXCEEDED"
 
 
 async def test_forget_works_when_writes_disabled(async_tool_database):
