@@ -5,12 +5,13 @@ from __future__ import annotations
 import hashlib
 import logging
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.canonical import canonical_json
-from muad_contracts.memory import memory_hash
+from muad_contracts.memory import MemoryCandidateV2, memory_hash
 from muad_contracts.memory_admin import MemoryCommandResponse
 from pydantic import JsonValue
 from sqlalchemy import func, select
@@ -31,6 +32,9 @@ from ..infrastructure.models.runtime import (
 from .memory_commands import MemoryCommand, MemoryCommandOutcome, MemoryWriteContext
 from .memory_mutations import MemoryBatchPlan, memory_snapshot, persist_plan, plan_mutations, source_times
 from .memory_observability import after_commit, observe
+
+if TYPE_CHECKING:
+    from .memory_writer import MemoryV2Outcome
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +227,107 @@ class MemoryService:
 
     def _sessions(self) -> SessionFactory:
         return self._session_factory if self._session_factory is not None else get_session_factory()
+
+    def _writer(self):
+        """The only place that constructs the v2 writer; callers stay on MemoryService."""
+
+        from .memory_writer import MemoryV2Writer
+
+        return MemoryV2Writer(self._session_factory)
+
+    async def apply_candidate(
+        self,
+        ctx: MemoryWriteContext,
+        candidate: MemoryCandidateV2,
+        *,
+        command_id: str,
+        endpoint: str,
+        note_id: UUID | None = None,
+    ) -> MemoryV2Outcome:
+        from .memory_writer import MemoryV2Command
+
+        return await self._writer().execute(
+            ctx,
+            MemoryV2Command(
+                command_id, endpoint, "UPSERT", candidate=candidate, note_id=note_id
+            ),
+        )
+
+    async def apply_candidate_in_session(
+        self,
+        session: AsyncSession,
+        ctx: MemoryWriteContext,
+        candidate: MemoryCandidateV2,
+        *,
+        command_id: str,
+        endpoint: str,
+    ) -> MemoryV2Outcome:
+        from .memory_writer import MemoryV2Command
+
+        return await self._writer().execute_in_session(
+            session, ctx, MemoryV2Command(command_id, endpoint, "UPSERT", candidate=candidate)
+        )
+
+    async def delete_memory(
+        self,
+        ctx: MemoryWriteContext,
+        memory_id: UUID,
+        *,
+        expected_version: int,
+        command_id: str,
+        endpoint: str,
+    ) -> MemoryV2Outcome:
+        from .memory_writer import MemoryV2Command
+
+        return await self._writer().execute(
+            ctx,
+            MemoryV2Command(
+                command_id, endpoint, "DELETE", memory_id=memory_id, expected_version=expected_version
+            ),
+        )
+
+    async def clear_memories(
+        self, ctx: MemoryWriteContext, *, command_id: str, endpoint: str
+    ) -> MemoryV2Outcome:
+        from .memory_writer import MemoryV2Command
+
+        return await self._writer().execute(ctx, MemoryV2Command(command_id, endpoint, "CLEAR"))
+
+    async def restore_memory(
+        self, ctx: MemoryWriteContext, memory_id: UUID, *, expected_version: int
+    ) -> MemoryV2Outcome:
+        return await self._writer().restore(ctx, memory_id, expected_version=expected_version)
+
+    async def set_memory_enabled(
+        self,
+        ctx: MemoryWriteContext,
+        memory_id: UUID,
+        *,
+        expected_version: int,
+        enabled: bool,
+    ) -> MemoryV2Outcome:
+        return await self._writer().set_enabled(
+            ctx, memory_id, expected_version=expected_version, enabled=enabled
+        )
+
+    async def patch_memory(
+        self,
+        ctx: MemoryWriteContext,
+        memory_id: UUID,
+        *,
+        expected_version: int,
+        updates: dict[str, object],
+    ) -> MemoryV2Outcome:
+        return await self._writer().patch(
+            ctx, memory_id, expected_version=expected_version, updates=updates
+        )
+
+    async def resolve_candidate(
+        self, ctx: MemoryWriteContext, candidate_id: UUID, *, expected_version: int
+    ) -> MemoryV2Outcome:
+        return await self._writer().accept_candidate(
+            ctx, candidate_id, expected_version=expected_version
+        )
 
     async def execute(self, ctx: MemoryWriteContext, command: MemoryCommand) -> MemoryCommandOutcome:
         """Return success only after the complete command commits."""
