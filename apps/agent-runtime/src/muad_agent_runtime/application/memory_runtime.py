@@ -43,6 +43,7 @@ def create_run_memory(
     learning_enabled: bool = True,
     initial_task_family: str | None = None,
     timezone: str = "UTC",
+    recent_user_texts: tuple[str, ...] = (),
 ) -> RunMemory:
     if identity is not None and (identity.tenant_id, identity.run_id) != (scope.tenant_id, run_id):
         raise ValueError("memory execution identity must match the Run")
@@ -68,6 +69,7 @@ def create_run_memory(
         preference_items=preference_items,
         preference_bytes=preference_bytes,
         learning_enabled=learning_enabled,
+        recent_user_texts=recent_user_texts,
     )
     if initial_task_family is not None:
         loader.set_task_family(initial_task_family)

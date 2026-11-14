@@ -2156,6 +2156,17 @@ def _memory_runtime_for(request: ExecutorRequest) -> RunMemory | None:
         learning_enabled=learning.enabled,
         initial_task_family=f"agent:{request.agent.id}",
         timezone=defaults.timezone,
+        recent_user_texts=_recent_user_texts(request.history),
+    )
+
+
+def _recent_user_texts(history: tuple[ModelMessage, ...]) -> tuple[str, ...]:
+    """只取真实用户消息；工具结果、助手回合与记忆正文都不参与 scope 继承。"""
+
+    return tuple(
+        message.content
+        for message in history
+        if message.role is ModelRole.USER and isinstance(message.content, str)
     )
 
 

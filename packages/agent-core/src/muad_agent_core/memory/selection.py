@@ -56,6 +56,8 @@ class QueryContextV2:
     now: datetime
     scope_state: QueryScopeState = QueryScopeState.ABSENT
     scope: dict[str, str] | None = None
+    #: 由 taxonomy 别名在候选集合上命中的实体标签；调用方给定时不再自行推断。
+    entity_tags: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,7 +199,7 @@ def select_v2(
     valid = [record for record in records if _valid(record, context.now)]
     if not inject_inferred:
         valid = [record for record in valid if record.author != "AGENT"]
-    entity_tags = query_entity_tags(context.query, valid)
+    entity_tags = context.entity_tags or query_entity_tags(context.query, valid)
     gated = [record for record in valid if _entity_gate(record, entity_tags) and _scope_gate(record, context)]
     preferences = _preference_lane(gated, min(preference_items, top_k))
     remaining = max(0, top_k - len(preferences))

@@ -676,7 +676,7 @@ loader 的职责：
   - budget PASS exit=0
 ## TASK-009: QueryContext 与澄清
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-007
 - **Source**: user-memory-retrieval-optimization.backend.design.md#3.4.6, #3.5.2, #3.5.11
 - **Scenarios**: S-03, S-06, S-11, E-12, B-05
@@ -717,12 +717,12 @@ loader 的职责：
 
 ### Checklist
 
-- [ ] 执行层组装 `QueryContextV2`：query、scope 三态与 scope、entity_tags、task_family、now。
-- [ ] 最近 N 条用户消息参与 scope 继承；工具结果与记忆正文不参与。
-- [ ] entity tags 由 taxonomy 别名命中，不引入实体类型配置或 NER。
-- [ ] `clarification_reason` 接入 `MemoryResolution` 与 Trace，`SCOPE_UNKNOWN` / `SCOPE_AMBIGUOUS` 可区分。
-- [ ] 显式保存未知 scope 返回 `MEMORY_SCOPE_UNKNOWN`，不写库、不生成候选。
-- [ ] 定向测试覆盖条件继承、换任务清空、UNKNOWN 抑制、AMBIGUOUS 不注入。
+- [x] 执行层组装 `QueryContextV2`：query、scope 三态与 scope、entity_tags、task_family、now。
+- [x] 最近 N 条用户消息参与 scope 继承；工具结果与记忆正文不参与。
+- [x] entity tags 由 taxonomy 别名命中，不引入实体类型配置或 NER。
+- [x] `clarification_reason` 接入 `MemoryResolution` 与 Trace，`SCOPE_UNKNOWN` / `SCOPE_AMBIGUOUS` 可区分。
+- [x] 显式保存未知 scope 返回 `MEMORY_SCOPE_UNKNOWN`，不写库、不生成候选。
+- [x] 定向测试覆盖条件继承、换任务清空、UNKNOWN 抑制、AMBIGUOUS 不注入。
 
 ### Spec Delta
 
@@ -733,14 +733,16 @@ loader 的职责：
 ### Log
 
 - [2026-11-14] created
+- [2026-11-14T16:30:33.384Z] started tests=225f77deae19
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-14T16:30:36.363Z PASS commands=1/1 executed=1 deduped=0 elapsed=2870ms tests=225f77deae19 head=72476843e7ce dirty=1
+  - context PASS exit=0
 ## TASK-010: Runtime 接线：executor / tools / attribution
 
-- **Status**: draft
+- **Status**: in-progress
 - **Depends**: TASK-004, TASK-005, TASK-007, TASK-008, TASK-009
 - **Source**: user-memory-retrieval-optimization.backend.design.md#3.2.3, #3.5.9, #3.5.11
 - **Scenarios**: S-01, S-04, S-11, E-02
@@ -795,11 +797,14 @@ loader 的职责：
 ### Log
 
 - [2026-11-14] created
+- [2026-11-14T16:30:43.109Z] started tests=2982779c687a
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-14T16:31:05.413Z FAIL commands=0/2 executed=1 deduped=0 elapsed=22192ms tests=2982779c687a head=72476843e7ce dirty=1
+  - tools FAIL exit=1
+  - attribution NOT-RUN
 ## TASK-011: 管理 API 单一路由与 Console 治理面
 
 - **Status**: draft

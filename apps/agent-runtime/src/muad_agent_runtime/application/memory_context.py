@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from muad_agent_core.memory.components import MemoryComponent, MemoryReference
 from muad_agent_core.memory.memory_render import render_memory_v2
+from muad_agent_core.memory.query_scope import QueryScope, scope_from_messages
 from muad_agent_core.memory.rank import InjectionSelection, MemoryRecord, select_injection
 from muad_agent_core.memory.render import RenderedMemoryBlock, render_memory_block
 from muad_agent_core.memory.resume import resume_candidate_hash
@@ -121,9 +122,12 @@ class MemoryContextLoader:
         preference_items: int = 3,
         preference_bytes: int = 512,
         learning_enabled: bool = True,
+        recent_user_texts: tuple[str, ...] = (),
     ) -> None:
         self._cache, self._settings = cache, settings
         self._query, self._task_state_ref = query, task_state_ref
+        self._recent_user_texts = recent_user_texts
+        self._query_scope: QueryScope | None = None
         self._on_attribution = on_attribution
         self._allowed_experience_keys: frozenset[str] | None = None
         self._last_attribution_hash: str | None = None
@@ -220,9 +224,15 @@ class MemoryContextLoader:
             allowed_experience_keys=self._allowed_experience_keys,
         )
         tasks = self._task_state(snapshot)
+        self._query_scope = scope_from_messages((*self._recent_user_texts, self._query or ""))
         selected = select_v2(
             [_record(row) for row in snapshot.rows],
-            QueryContextV2(query=self._query, now=snapshot.as_of, scope_state=QueryScopeState.ABSENT),
+            QueryContextV2(
+                query=self._query,
+                now=snapshot.as_of,
+                scope_state=QueryScopeState(self._query_scope.state),
+                scope=self._query_scope.scope or None,
+            ),
             top_k=self._settings.max_injected_memories,
             min_score=self._min_score,
             inject_inferred=self._settings.inject_inferred,
@@ -314,6 +324,15 @@ class MemoryContextLoader:
                 "min_score": self._min_score,
                 "allowed_experience_keys": len(self._allowed_experience_keys or ()),
                 "task_state": len(tasks),
+                "clarification_reason": (
+                    "SCOPE_AMBIGUOUS"
+                    if self._query_scope is not None and self._query_scope.ambiguous
+                    else (
+                        "SCOPE_UNKNOWN"
+                        if self._query_scope is not None and self._query_scope.state == "UNKNOWN"
+                        else None
+                    )
+                ),
                 "skipped": [
                     {
                         "memory_key": item.memory_key,
@@ -352,6 +371,8 @@ class MemoryContextLoader:
         rows = {row.memory_key: row for row in snapshot.rows}
         entries = tuple(_item(rows[item.record.memory_key]) for item in selected)
         reason = None
+        if self._query_scope is not None and self._query_scope.state == "UNKNOWN":
+            reason = "SCOPE_AMBIGUOUS" if self._query_scope.ambiguous else "SCOPE_UNKNOWN"
         return MemoryResolution(
             status="resolved" if entries else "empty",
             entries=entries,
