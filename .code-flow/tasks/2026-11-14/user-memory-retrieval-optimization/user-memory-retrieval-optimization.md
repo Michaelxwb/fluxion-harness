@@ -1260,3 +1260,56 @@ loader 的职责：
 - 尚未执行
 - 2026-11-14T18:16:14.011Z PASS commands=1/1 executed=1 deduped=0 elapsed=11272ms tests=7c0d7dd4be6b head=d0c020631637 dirty=1
   - tools PASS exit=0
+
+## TASK-017: 0049 迁移排空旧在途提炼任务
+
+- **Status**: done
+- **Depends**: TASK-002
+- **Source**: user-memory-retrieval-optimization.backend.design.md#3.3
+- **Scenarios**:
+- **Spec-Refs**: memory/harness-memory, persistence/harness-data
+- **Paths**: migrations/versions/0049_memory_retrieval_optimization.py, tests/migrations/test_memory_schema.py
+- **E2E**:
+- **Skip-Tests**:
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {
+    "id": "schema",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/migrations/test_memory_schema.py"],
+    "timeout": 300
+  }
+]
+```
+
+### Description
+
+手工验收发现 dev Runtime 每秒 `memory_background_pump_failed | error_type=PlatformSettingsError`，记忆过期与确认过期清扫同时被饿死。
+
+根因：`MemoryJobs.claim` 用 `execution_defaults_of(snapshot.policy_json)` 还原冻结策略，2026-10-18 留存的 RUNNING 提炼任务其 snapshot 缺 `task.execution_timeout_sec`，解析在 claim 事务里抛错；该任务恒为最老的 eligible 行，于是每个 tick 重选同一行，整条 memory 维护循环空转。
+
+RULE-memory-006 要求“迁移需排空所有旧在途 Run/Task/job”。0049 当时只加列加表，没有排空 `memory_consolidation_job`。本任务补上：升级时把全部非终态（PENDING/RUNNING/RETRY）任务置为 `FAILED`、清 lease、`error_code='LEGACY_DRAINED'`；终态行与冻结快照原样保留仅作审计，downgrade 不复活。
+
+### Checklist
+
+- [x] 0049 upgrade 排空非终态 `memory_consolidation_job`。
+- [x] 测试在 0048 造 PENDING/RUNNING/DONE 三行，升级到 0049 后断言前两者 FAILED、lease 清空、`error_code`，DONE 原样。
+- [x] 迁移与 ORM 约束同构不受影响（只改数据，不改结构）。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-14T18:20:56.434Z] started tests=ee7307f20b27
+
+### Verification
+
+- 2026-11-14T18:21:11.553Z PASS commands=1/1 executed=1 deduped=0 elapsed=5315ms tests=ee7307f20b27 head=1f20bc2229f6 dirty=1
+  - schema PASS exit=0
