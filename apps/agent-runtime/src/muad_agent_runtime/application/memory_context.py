@@ -6,21 +6,21 @@ import hashlib
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from muad_agent_core.memory.components import MemoryComponent
-from muad_agent_core.memory.rank import select_injection
-from muad_agent_core.memory.render import render_memory_block
-from muad_agent_core.memory.resume import resume_candidate_hash
-from muad_api import AppError
-from muad_api.error_codes import ErrorCode
+from muad_agent_core.memory.components import MemoryComponent, MemoryReference
+from muad_agent_core.memory.memory_render import render_memory_v2
+from muad_agent_core.memory.selection import (
+    MemoryRecordV2,
+    QueryContextV2,
+    QueryScopeState,
+    select_v2,
+)
 from muad_contracts.canonical import canonical_json
-from muad_contracts.memory import ForgetMemoryInput, MemoryCategory, MemoryResumeRef
+from muad_contracts.memory import MemoryCardinality, MemoryPriority, MemoryResumeRef, ScopeState
 from muad_contracts.platform_settings import MemoryPolicySettings
 
 from ..metrics import MEMORY_INJECT_DROPPED_METRIC, MEMORY_INJECT_METRIC, record_counter
 from .memory_cache import MemoryCandidateCache
-from .memory_commands import MemoryCommand, MemoryCommandOutcome, MemoryMutation, MemoryWriteContext
-from .memory_queries import MemorySnapshot
-from .memory_service import MemoryService
+from .memory_queries import MemorySnapshotV2
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +42,7 @@ class InjectionAttribution:
 
 
 AttributionSink = Callable[[InjectionAttribution], Awaitable[None]]
+_EXPERIENCE_KINDS = frozenset({"PROCEDURE", "FAILURE_PATTERN", "VERIFICATION"})
 
 
 class MemoryContextLoader:
@@ -109,15 +110,7 @@ class MemoryContextLoader:
             # learning 关闭时冻结为空集：不注入经验，事实记忆不受影响。
             self._allowed_experience_keys = (
                 frozenset(
-                    record.memory_key
-                    for record in snapshot.records
-                    if record.category
-                    in (
-                        MemoryCategory.PROCEDURE,
-                        MemoryCategory.FAILURE_PATTERN,
-                        MemoryCategory.VERIFICATION,
-                    )
-                    and record.activation_state == "ACTIVE"
+                    row.memory_key for row in snapshot.rows if row.memory_kind in _EXPERIENCE_KINDS
                 )
                 if self._learning_enabled
                 else frozenset()
@@ -138,108 +131,61 @@ class MemoryContextLoader:
         self._last_attribution_hash = attribution.selection_hash
         await self._on_attribution(attribution)
 
-    def _render(self, snapshot: MemorySnapshot) -> MemoryComponent:
-        selection = select_injection(
-            snapshot.records,
-            query=self._query,
-            now=snapshot.as_of,
-            inject_inferred=self._settings.inject_inferred,
-            task_family=self._task_family,
+    def _render(self, snapshot: MemorySnapshotV2) -> MemoryComponent:
+        records: list[MemoryRecordV2] = []
+        for row in snapshot.rows:
+            if row.memory_kind in _EXPERIENCE_KINDS and row.memory_key not in (self._allowed_experience_keys or ()):
+                continue
+            records.append(
+                MemoryRecordV2(
+                    memory_key=row.memory_key,
+                    memory_kind=row.memory_kind,
+                    predicate=row.predicate,
+                    scope_state=ScopeState(row.scope_state),
+                    scope=row.scope,
+                    content=row.content,
+                    title=row.title,
+                    summary=row.summary,
+                    tags=row.tags,
+                    cardinality=MemoryCardinality(row.cardinality),
+                    priority=MemoryPriority(row.priority),
+                    author=row.author,
+                    version=row.version,
+                    updated_at=row.last_confirmed_at or snapshot.as_of,
+                    expires_at=row.expires_at,
+                    enabled=row.enabled,
+                )
+            )
+        selected = select_v2(
+            records,
+            QueryContextV2(query=self._query, now=snapshot.as_of, scope_state=QueryScopeState.ABSENT),
+            top_k=self._settings.max_injected_memories,
             min_score=self._min_score,
+            inject_inferred=self._settings.inject_inferred,
             preference_items=self._preference_items,
-            preference_bytes=self._preference_bytes,
-            allowed_experience_keys=self._allowed_experience_keys,
         )
-        selected_tasks = tuple(
-            row
-            for row in snapshot.records
-            if self._settings.task_state_injection_enabled
-            and self._task_state_ref is not None
-            and row.memory_key == self._task_state_ref.memory_key
-            and row.version == self._task_state_ref.expected_version
-            and resume_candidate_hash(row) == self._task_state_ref.candidate_hash
-            and row.category is MemoryCategory.TASK_STATE
-        )
-        selected_meta = {
-            item.record.memory_key: (item.score, item.channel) for item in selection.items
-        }
-        injected = (*selected_tasks, *selection.records)
-        block = render_memory_block(
-            injected,
+        rendered = render_memory_v2(
+            [item.record for item in selected],
             max_records=self._settings.max_injected_memories,
             max_bytes=self._settings.max_injected_bytes,
         )
         self._pending_attribution = InjectionAttribution(
             selection_hash=hashlib.sha256(
-                canonical_json(
-                    [[item.record.memory_key, item.record.version] for item in block.items]
-                ).encode("utf-8")
+                canonical_json([[item.record.memory_key, item.record.version] for item in selected]).encode("utf-8")
             ).hexdigest(),
             items=tuple(
-                InjectionItem(
-                    item.record.memory_key,
-                    item.record.version,
-                    *selected_meta.get(item.record.memory_key, (1.0, "TASK_STATE")),
-                    "INJECTED",
-                )
-                for item in block.items
+                InjectionItem(item.record.memory_key, item.record.version, item.score, "SELECT", "INJECTED")
+                for item in selected
             ),
-            dropped_count=block.dropped_count,
-            dropped_bytes=block.dropped_bytes,
-            diagnostics={
-                "learning_enabled": self._learning_enabled,
-                "min_score": self._min_score,
-                "allowed_experience_keys": len(self._allowed_experience_keys or ()),
-                "skipped": [
-                    {
-                        "memory_key": item.memory_key,
-                        "activation_state": item.activation_state,
-                        "reason": item.reason,
-                        "score": item.score,
-                    }
-                    for item in selection.skipped[:20]
-                ],
-                "dropped_by_budget": [
-                    {"memory_key": item.record.memory_key, "version": item.record.version}
-                    for item in block.dropped_items[:20]
-                ],
-            },
+            dropped_count=rendered.dropped_count,
+            dropped_bytes=rendered.dropped_bytes,
+            diagnostics={"allowed_experience_keys": len(self._allowed_experience_keys or ())},
         )
-        for reason, amount in (("count", block.dropped_count), ("bytes", block.dropped_bytes)):
-            if amount:
-                record_counter(MEMORY_INJECT_DROPPED_METRIC, amount, {"reason": reason})
+        if rendered.dropped_count:
+            record_counter(MEMORY_INJECT_DROPPED_METRIC, rendered.dropped_count, {"reason": "count"})
         record_counter(MEMORY_INJECT_METRIC, labels={"outcome": "OK"})
-        return MemoryComponent(snapshot_revision=snapshot.revision, block=block)
-
-    async def forget(
-        self,
-        service: MemoryService,
-        context: MemoryWriteContext,
-        request: ForgetMemoryInput,
-        *,
-        command_id: str,
-    ) -> MemoryCommandOutcome:
-        if (context.tenant_id, context.user_id) != (self._cache.scope.tenant_id, self._cache.scope.user_id):
-            raise AppError(ErrorCode.FORBIDDEN)
-        if context.source_run_id is not None and context.source_run_id != self._cache.run_id:
-            raise AppError(ErrorCode.FORBIDDEN)
-        previously_suppressed = self._suppressed
-        self.invalidate()
-        self._suppressed = True
-        outcome = await service.execute(
-            context,
-            MemoryCommand(
-                command_id=command_id,
-                endpoint="memory.forget",
-                mutations=[
-                    MemoryMutation(
-                        action="DELETE",
-                        memory_key=request.memory_key,
-                        expected_version=request.expected_version,
-                    )
-                ],
-            ),
+        return MemoryComponent(
+            snapshot_revision=snapshot.revision,
+            text=rendered.text or None,
+            references=tuple(MemoryReference(item.record.memory_key, item.record.version) for item in selected),
         )
-        if outcome.response.status != "STALE" and not previously_suppressed:
-            self._suppressed = False
-        return outcome

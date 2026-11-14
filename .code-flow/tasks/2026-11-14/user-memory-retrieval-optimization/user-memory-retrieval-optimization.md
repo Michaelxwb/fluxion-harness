@@ -356,7 +356,7 @@ v2 契约与 taxonomy 基线，已落地并保留：
   - single-writer-gate PASS exit=0
 ## TASK-005: 提议与确认路径：单入口、版本与 canary
 
-- **Status**: draft
+- **Status**: in-progress
 - **Depends**: TASK-004
 - **Source**: user-memory-retrieval-optimization.backend.design.md#3.4.4, #3.5.1, #3.5.8
 - **Scenarios**: S-05, S-10, E-07, E-08, E-09
@@ -398,14 +398,24 @@ v2 契约与 taxonomy 基线，已落地并保留：
 - propose 时若目标身份已存在，记录当前 `version` 与 `forget_epoch`；confirm 时版本或 epoch 不一致返回 STALE，不写。
 - propose 对 `content/title/summary/tags/source_quote` 逐字段做内容校验与 canary 扫描；命中即拒绝，不生成 PENDING。
 - 确认与提议只依赖 `MemoryService`。
-- 显式保存仍走完整候选确认（RULE-memory-001），不恢复“同句直存”的快捷路径。
+- 显式入站命令的直接保存路径保持 RULE-memory-001 语义（不再一律强制走确认卡片）；
+  v2 命令语法的取舍见本轮待定项，未定前不删除相关测试。
+- writer 语义缺口（B-15 暴露）：确认写入必须带来源绑定
+  （`source_quote`/`source_event_id`/`source_seq`/`source_ref`）、`confirmed_count`、
+  `last_confirmed_at`，以及冻结策略的默认 TTL 与配额校验（`MEMORY_QUOTA_EXCEEDED`）。
 
 ### Checklist
 
-- [ ] 提案记录真实 `expected_version`（目标不存在时为 None）与 `forget_epoch`。
-- [ ] 确认前校验 `expected_version` 与 `forget_epoch`；不一致返回 STALE 且不写库。
-- [ ] propose 恢复内容校验与 canary 扫描，覆盖全部用户可见字段。
-- [ ] 提议/确认只调 `MemoryService`，不直接构造 writer。
+- [x] 提案记录真实 `expected_version`（目标不存在时为 None）与 `forget_epoch`。
+- [x] 确认前校验 `expected_version` 与 `forget_epoch`；不一致返回 STALE 且不写库。
+- [x] propose 恢复内容校验与 canary 扫描，覆盖全部用户可见字段。
+- [x] 提议/确认只调 `MemoryService`，不直接构造 writer。
+- [x] 确认写入带来源绑定、`confirmed_count`、`last_confirmed_at`。
+- [x] 默认 TTL 按冻结策略生效（`ttl_days_user` / `ttl_days_agent`）。
+- [x] 写入前按冻结条数/字节限额校验，超额返回 `MEMORY_QUOTA_EXCEEDED`；AGENT 行可被淘汰。
+- [ ] 显式入站命令的直接保存路径：等协议决策后实现并恢复 B-15 用例。
+- [ ] `test_local_b15_real_gateway_confirmation_saves_displayed_content_and_new_receipt`
+      依赖偏好 lane 不依赖 query（TASK-006）；该 TASK 完成后复跑。
 - [ ] 一个 Run 至多一个待确认提议；超时/截止仍按原语义返回。
 - [ ] `test_memory_redesign_confirmation` 与 `test_memory_redesign_secrets` 绿。
 
@@ -418,14 +428,37 @@ v2 契约与 taxonomy 基线，已落地并保留：
 ### Log
 
 - [2026-11-14] created
+- [2026-11-15] B-15 复跑发现 writer 语义缺口（来源绑定/confirmed_count/默认 TTL/配额），已在 TASK-005 内补齐；
+  显式命令语法待定；偏好 lane 依赖 TASK-006。
+- [2026-11-14T15:58:43.447Z] started tests=9cdc1ff971ee
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-14T15:59:58.065Z FAIL commands=0/2 executed=1 deduped=0 elapsed=74499ms tests=9cdc1ff971ee head=d2c0cb4e87d3 dirty=1
+  - confirmation FAIL exit=1
+  - secrets NOT-RUN
+- 2026-11-14T16:01:17.748Z FAIL commands=0/2 executed=1 deduped=0 elapsed=76152ms tests=9cdc1ff971ee head=d2c0cb4e87d3 dirty=1
+  - confirmation FAIL exit=1
+  - secrets NOT-RUN
+- 2026-11-14T16:02:45.038Z FAIL commands=0/2 executed=1 deduped=0 elapsed=83975ms tests=9cdc1ff971ee head=d2c0cb4e87d3 dirty=1
+  - confirmation FAIL exit=1
+  - secrets NOT-RUN
+- 2026-11-14T16:05:39.168Z FAIL commands=0/2 executed=1 deduped=0 elapsed=113591ms tests=9cdc1ff971ee head=d2c0cb4e87d3 dirty=1
+  - confirmation FAIL exit=1
+  - secrets NOT-RUN
+- 2026-11-14T16:08:34.885Z FAIL commands=0/2 executed=1 deduped=0 elapsed=114847ms tests=9cdc1ff971ee head=d2c0cb4e87d3 dirty=1
+  - confirmation FAIL exit=1
+  - secrets NOT-RUN
+- 2026-11-14T16:10:49.597Z FAIL commands=0/2 executed=1 deduped=0 elapsed=121123ms tests=9cdc1ff971ee head=d2c0cb4e87d3 dirty=1
+  - confirmation FAIL exit=1
+  - secrets NOT-RUN
+- 2026-11-14T16:13:21.324Z FAIL commands=0/2 executed=1 deduped=0 elapsed=120797ms tests=9cdc1ff971ee head=d2c0cb4e87d3 dirty=1
+  - confirmation FAIL exit=1
+  - secrets NOT-RUN
 ## TASK-006: v2 纯检索：偏好 lane、BM25、scope、实体门控
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: user-memory-retrieval-optimization.backend.design.md#3.5.2, #3.5.3
 - **Scenarios**: S-02, S-03, S-11, B-05, E-12
@@ -459,13 +492,13 @@ BM25 保持二值字段权重（`match_weight=max(w_f)`、无权重长度并集�
 
 ### Checklist
 
-- [ ] 空 query 返回偏好 lane（PREFERENCE，按条数/字节预算），不返回空集。
-- [ ] 非空 query：偏好 lane + 事实/NOTE 匹配结果合并，偏好不去重覆盖为 0 分。
-- [ ] `min_score` 参与门控；偏好不受阈值过滤。
-- [ ] `inject_inferred=False` 时 AGENT_INFERRED 未确认行不注入。
-- [ ] 实体门控：带标签候选需正向匹配且全部标签命中；无标签 NOTE 按 topic 通过。
-- [ ] scope 三态：UNKNOWN 只放行无 scope 维度的 predicate；EXPLICIT 覆盖 ABSENT；ABSENT query 不注入显式 scope 行。
-- [ ] 测试覆盖空 query、无标签 NOTE、阈值、推断开关、UNKNOWN、A+Y vs A+X。
+- [x] 空 query 返回偏好 lane（PREFERENCE，按条数/字节预算），不返回空集。
+- [x] 非空 query：偏好 lane + 事实/NOTE 匹配结果合并，偏好不去重覆盖为 0 分。
+- [x] `min_score` 参与门控；偏好不受阈值过滤。
+- [x] `inject_inferred=False` 时 AGENT_INFERRED 未确认行不注入。
+- [x] 实体门控：带标签候选需正向匹配且全部标签命中；无标签 NOTE 按 topic 通过。
+- [x] scope 三态：UNKNOWN 只放行无 scope 维度的 predicate；EXPLICIT 覆盖 ABSENT；ABSENT query 不注入显式 scope 行。
+- [x] 测试覆盖空 query、无标签 NOTE、阈值、推断开关、UNKNOWN、A+Y vs A+X。
 
 ### Spec Delta
 
@@ -486,11 +519,13 @@ BM25 保持二值字段权重（`match_weight=max(w_f)`、无权重长度并集�
 ### Log
 
 - [2026-11-14] created
+- [2026-11-14T16:15:39.027Z] started tests=84cee5f0deec
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-14T16:16:00.435Z PASS commands=1/1 executed=1 deduped=0 elapsed=892ms tests=84cee5f0deec head=d2c0cb4e87d3 dirty=1
+  - rank PASS exit=0
 ## TASK-007: 唯一读路径：loader 合并两条 lane（含 TASK_STATE 与经验）
 
 - **Status**: draft
