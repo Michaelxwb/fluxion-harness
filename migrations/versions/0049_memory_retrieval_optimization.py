@@ -37,6 +37,19 @@ def upgrade() -> None:
     # being filled with a fake legacy value.
     op.alter_column("user_memory", "category", nullable=True, schema="runtime")
 
+    # RULE-memory-006: the worker can only execute a job whose frozen snapshot carries a
+    # complete memory policy (task.execution_timeout_sec included). Legacy in-flight jobs
+    # froze an older snapshot and would fail on every claim, wedging the whole memory
+    # maintenance pump; the migration drains them instead of retrying forever.
+    op.execute(
+        sa.text(
+            "UPDATE runtime.memory_consolidation_job "
+            "SET status = 'FAILED', lease_owner = NULL, lease_until = NULL, "
+            "error_code = 'LEGACY_DRAINED', update_time = now() "
+            "WHERE status IN ('PENDING', 'RUNNING', 'RETRY')"
+        )
+    )
+
     op.create_index(
         "ix_user_memory_v2_candidates",
         "user_memory",
