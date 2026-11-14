@@ -34,6 +34,14 @@ from .memory_service import MemoryService
 from .ports import PlatformSettingsClient
 
 
+def _required_category(row: UserMemory) -> str:
+    """Experience/TASK_STATE 行必须带 category；v2 行走到这里说明身份错配。"""
+
+    if row.category is None:
+        raise AppError(ErrorCode.LEARNING_EXPERIENCE_NOT_FOUND)
+    return row.category
+
+
 class LearningAdminService:
     def __init__(
         self,
@@ -352,7 +360,7 @@ class LearningAdminService:
                         action="UPSERT",
                         candidate=ExperienceCandidate(
                             memory_key=key,
-                            category=MemoryCategory(row.category),
+                            category=MemoryCategory(_required_category(row)),
                             content=FactContent(value=value),
                         ),
                         expected_version=expected_version,

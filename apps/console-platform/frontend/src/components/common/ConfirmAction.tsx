@@ -12,6 +12,7 @@ export interface ConfirmActionProps {
   /** Button theme; defaults to borderless for list and associated row actions. */
   type?: 'primary' | 'danger';
   theme?: 'borderless' | 'light' | 'outline' | 'solid';
+  size?: 'small' | 'default';
 }
 
 export function ConfirmAction({
@@ -22,7 +23,8 @@ export function ConfirmAction({
   style,
   onOpenChange,
   type = 'primary',
-  theme = 'borderless'
+  theme = 'borderless',
+  size = 'default'
 }: ConfirmActionProps) {
   const { t } = useTranslation();
   return (
@@ -35,7 +37,7 @@ export function ConfirmAction({
       onConfirm={onConfirm}
       onVisibleChange={(visible: boolean) => onOpenChange?.(visible)}
     >
-      <Button theme={theme} type={type} data-testid={testId} style={style}>
+      <Button theme={theme} type={type} size={size} data-testid={testId} style={style}>
         {children}
       </Button>
     </Popconfirm>

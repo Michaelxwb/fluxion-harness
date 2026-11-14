@@ -17,6 +17,7 @@ from muad_contracts.memory import (
     MemoryAuthor,
     memory_content_bytes,
 )
+from pydantic import JsonValue
 from sqlalchemy import Select, func, literal, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import FromClause
@@ -70,7 +71,7 @@ class MemoryCandidateRow:
     predicate: str
     scope_state: str
     scope: dict[str, str]
-    content: dict[str, object]
+    content: dict[str, JsonValue]
     title: str
     summary: str
     tags: tuple[str, ...]
@@ -82,6 +83,7 @@ class MemoryCandidateRow:
     enabled: bool
     expires_at: datetime | None
     last_confirmed_at: datetime | None
+    updated_at: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,14 +188,23 @@ def _is_legacy_row(row: UserMemory | None) -> bool:
     return row is not None and row.memory_kind is None and row.category is not None
 
 
+def _str_map(value: object) -> dict[str, str]:
+    """scope_json 是 JSONB：只接受字符串键值，坏形状按空 scope 处理（键值本身来自写入校验）。"""
+
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): str(item) for key, item in value.items() if isinstance(item, str)}
+
+
 def _candidate_v2(row: UserMemory) -> MemoryCandidateRow:
+    assert row.memory_kind is not None  # v2 lane 由 memory_kind 判定
     return MemoryCandidateRow(
         id=row.id,
         memory_key=row.memory_key,
         memory_kind=row.memory_kind,
         predicate=row.predicate or "general",
         scope_state=row.scope_state or "ABSENT",
-        scope=dict(row.scope_json or {}),
+        scope=_str_map(row.scope_json),
         content=dict(row.content_json or {}),
         title=row.title or "",
         summary=row.summary or "",
@@ -206,6 +217,7 @@ def _candidate_v2(row: UserMemory) -> MemoryCandidateRow:
         enabled=row.enabled,
         expires_at=row.expires_at,
         last_confirmed_at=row.last_confirmed_at,
+        updated_at=row.update_time,
     )
 
 

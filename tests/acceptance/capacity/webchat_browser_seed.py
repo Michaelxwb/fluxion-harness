@@ -470,9 +470,13 @@ async def seed_pending_confirmation(args: argparse.Namespace) -> dict[str, Any]:
         identity = ExecutionIdentity(args.tenant, run_id, "webchat-browser-seed", 1)
         service = MemoryConfirmationService(factory, identity, submission_id=submission_id)
         candidate = RememberMemoryInput(
-            memory_key=args.memory_key,
-            category="PREFERENCE",
-            value=args.value,
+            memory_kind="PREFERENCE",
+            predicate="output_style",
+            scope_state="ABSENT",
+            scope={},
+            content={"value": args.value},
+            # 记忆键由服务端生成：用例把 --memory-key 当唯一标题，便于按标题反查事实行。
+            title=args.memory_key,
             source_quote=args.quote,
         )
         await service.propose(candidate, call_id="webchat-browser-seed-remember")

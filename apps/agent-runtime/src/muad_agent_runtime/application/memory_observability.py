@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from muad_api import AppError
 from muad_contracts.memory import ExperienceCandidate, FactContent, MemoryCategory
+from muad_contracts.memory_taxonomy import PREDICATES_BY_KEY
 from pydantic import JsonValue, ValidationError
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -143,4 +144,13 @@ def memory_audit_preview(
         "VERIFICATION",
     ):
         preview["category"] = str(category)
+    # v2 remember 的入参没有 key/category：只记录受控 predicate 与标题的可读元信息，
+    # 内容与来源原话一律不落预览（canary 出现在标题时同样脱敏）。
+    predicate = arguments.get("predicate")
+    if isinstance(predicate, str):
+        preview["predicate"] = predicate if predicate in PREDICATES_BY_KEY else "<redacted>"
+    title = arguments.get("title")
+    if isinstance(title, str) and title:
+        leaked = any(canary and canary in title for canary in canaries)
+        preview["title"] = "<redacted>" if leaked else title[:128]
     return preview

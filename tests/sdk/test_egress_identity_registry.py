@@ -168,6 +168,7 @@ async def reply_loss_proxy(identity_environment):
     proxy = RedisFaultProxy(connection["host"], connection["port"])
     server = await asyncio.start_server(proxy.accept, "127.0.0.1", 0)
     client = Redis(host="127.0.0.1", port=server.sockets[0].getsockname()[1],
+                   db=connection.get("db", 0),
                    decode_responses=True, socket_timeout=0.1, retry=Retry(NoBackoff(), 0))
     await client.ping()
     try:

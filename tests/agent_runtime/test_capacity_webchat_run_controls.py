@@ -368,7 +368,8 @@ async def _assert_single_confirmation_write(
     assert len(resolved) == 1
     receipt = resolved[0].payload_json
     assert receipt["outcome"] == "CONFIRMED" and receipt["saved"] is True
-    assert receipt["memory_key"] == "color" and receipt["version"] == 1
+    assert receipt["memory_key"].startswith("v1.slot.preference.output_style.")
+    assert receipt["version"] == 1
     async with factory() as session:
         stored = (await session.scalars(sa.select(UserMemory))).one()
         scope = (await session.scalars(sa.select(MemoryScope))).one()
@@ -378,7 +379,7 @@ async def _assert_single_confirmation_write(
     assert stored.version == stored.confirmed_count == 1
     assert scope.revision == 1  # 一次变更恰好推进一次 scope revision
     assert len(history) == len(receipts) == 1
-    assert history[0].after_json["content_json"] == {"value": "blue"}
+    assert history[0].after_json["content"] == {"value": "blue"}
     assert history[0].after_json["version"] == 1
     assert receipts[0].command_id.startswith(f"confirmation:{proposal_id}:")
     assert (await _interrupt_rows(factory, run_id))[0].status == "RESOLVED"
@@ -609,7 +610,7 @@ async def test_b256_pending_confirmation_projects_the_complete_candidate(
         assert confirmation.source_event_id == source_event_id
         # WebChat 已有确认/拒绝按钮：卡片不展示文本渠道的回复指令与期限行（期限单独展示），
         # 但候选内容必须与中断里持久化的那份一致。
-        assert "color" in confirmation.prompt and "blue" in confirmation.prompt
+        assert "output_style" in confirmation.prompt and "blue" in confirmation.prompt
         assert "来源原话：记住蓝色" in confirmation.prompt
         assert "请回复“确认" not in confirmation.prompt
         assert "有效至：" not in confirmation.prompt
@@ -952,10 +953,11 @@ async def test_b256_confirmation_receipt_matches_the_persisted_proposal(
     assert resolved.status == "RESOLVED"
     assert resolved.resolution_json is not None
     assert resolved.resolution_json["outcome"] == "CONFIRMED"
-    assert resolved.resolution_json["memory_key"] == "color"
+    assert resolved.resolution_json["memory_key"].startswith("v1.slot.preference.output_style.")
     assert resolved.resolution_json["version"] == 1
     event = (await _events(factory, run.id, CONFIRM_OUTCOME))[0]
     assert event.source_event_id == proposal_id  # 回执挂在被消费的提议上
     async with factory() as session:
         stored = (await session.scalars(sa.select(UserMemory))).one()
-    assert stored.memory_key == "color" and stored.version == 1
+    assert stored.memory_key.startswith("v1.slot.preference.output_style.")
+    assert stored.version == 1

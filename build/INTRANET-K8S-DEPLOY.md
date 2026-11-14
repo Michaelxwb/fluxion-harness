@@ -763,6 +763,16 @@ docker run --rm -e DATABASE_URL="$DATABASE_URL" "$CONSOLE_IMAGE" \
 只有 `migrations/versions/` 新增文件的版本才需要动库；每次发布前跑一遍 `upgrade head`
 只是确认已经到最新。
 
+### 用户记忆 v2（0049）说明
+
+- **新增步骤：无。** 本次没有新的 ConfigMap/Secret 键、端口或服务；四个镜像重建后照常部署。
+- **升级已有库**：`upgrade head` 会把所有**非终态**的 `runtime.memory_consolidation_job`
+  置为 `FAILED`（`error_code=LEGACY_DRAINED`）。旧快照缺 `task.execution_timeout_sec` 时
+  后台提炼会反复失败并拖住整条记忆维护循环，所以迁移主动排空；这是预期行为，不需要额外清理。
+- **全新环境**：库内没有在途 job，迁移只有结构变更。
+- 记忆策略（注入阈值、TTL、配额、提炼预算等）在「系统设置 → 记忆」有默认值；调整只影响新 Run。
+- 发布窗口按常规停止旧版本写入；已冻结的在途 Run 由其原快照继续执行。
+
 ## 5. 验证
 
 ```bash

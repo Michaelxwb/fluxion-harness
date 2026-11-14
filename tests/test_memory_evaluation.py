@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-
-pytestmark = pytest.mark.unit
-
 from pathlib import Path
+
+import pytest
 
 from scripts.memory_eval import (
     QueryLabel,
@@ -16,6 +14,8 @@ from scripts.memory_eval import (
     paired_user_bootstrap_delta,
     score_query,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def _scores():

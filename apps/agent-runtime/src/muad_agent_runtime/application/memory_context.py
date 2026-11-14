@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import cast
 
 from muad_agent_core.memory.components import MemoryComponent, MemoryReference
 from muad_agent_core.memory.memory_render import render_memory
@@ -25,6 +26,7 @@ from muad_agent_core.memory.selection import (
 )
 from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import (
+    MemoryAuthor,
     MemoryCardinality,
     MemoryCategory,
     MemoryItem,
@@ -32,6 +34,7 @@ from muad_contracts.memory import (
     MemoryResolution,
     MemoryResumeRef,
     ScopeState,
+    WritableMemoryKind,
 )
 from muad_contracts.platform_settings import MemoryPolicySettings
 
@@ -72,7 +75,7 @@ def _record(row: MemoryCandidateRow) -> MemoryRecord:
         predicate=row.predicate,
         scope_state=ScopeState(row.scope_state),
         scope=row.scope,
-        content=row.content,
+        content=cast(dict[str, object], row.content),
         title=row.title,
         summary=row.summary,
         tags=row.tags,
@@ -80,17 +83,26 @@ def _record(row: MemoryCandidateRow) -> MemoryRecord:
         priority=MemoryPriority(row.priority),
         author=row.author,
         version=row.version,
-        updated_at=row.last_confirmed_at,
+        updated_at=row.updated_at,
         expires_at=row.expires_at,
         enabled=row.enabled,
     )
+
+
+_WRITABLE_KINDS: frozenset[str] = frozenset(("PREFERENCE", "FACT", "NOTE"))
+
+
+def _writable_kind(value: str) -> WritableMemoryKind:
+    if value not in _WRITABLE_KINDS:
+        raise ValueError(f"unsupported memory kind: {value}")
+    return cast(WritableMemoryKind, value)
 
 
 def _item(row: MemoryCandidateRow) -> MemoryItem:
     return MemoryItem(
         id=row.id,
         memory_key=row.memory_key,
-        memory_kind=row.memory_kind,
+        memory_kind=_writable_kind(row.memory_kind),
         predicate=row.predicate,
         scope_state=ScopeState(row.scope_state),
         scope=row.scope,
@@ -100,7 +112,7 @@ def _item(row: MemoryCandidateRow) -> MemoryItem:
         tags=list(row.tags),
         cardinality=MemoryCardinality(row.cardinality),
         priority=MemoryPriority(row.priority),
-        author=row.author,
+        author=MemoryAuthor(row.author),
         authority=row.authority,
         version=row.version,
         enabled=row.enabled,
@@ -281,7 +293,7 @@ class MemoryContextLoader:
             self._settings.max_injected_memories,
             self._settings.max_injected_bytes,
         )
-        legacy = (*tasks, *selection.records)
+        legacy: tuple[ExperienceRecord, ...] = (*tasks, *selection.records)
         block: RenderedExperienceBlock = render_experience_block(
             legacy, max_records=max_records, max_bytes=max_bytes
         )
@@ -295,23 +307,26 @@ class MemoryContextLoader:
         v2_text = rendered.text if rendered.included_keys else None
         text = "\n".join(part for part in (block_text, v2_text) if part)
         meta = {item.record.memory_key: (item.score, item.channel) for item in selection.items}
+        injected_records: tuple[ExperienceRecord | MemoryRecord, ...] = (
+            *legacy,
+            *(item.record for item in selected),
+        )
         self._pending_attribution = InjectionAttribution(
             selection_hash=hashlib.sha256(
                 canonical_json(
                     [
-                        [record.memory_key, record.version]
-                        for record in (*legacy, *(item.record for item in selected))
+                        [entry.memory_key, entry.version] for entry in injected_records
                     ]
                 ).encode("utf-8")
             ).hexdigest(),
             items=tuple(
                 InjectionItem(
-                    record.memory_key,
-                    record.version,
-                    *meta.get(record.memory_key, (1.0, "TASK_STATE")),
+                    legacy_item.memory_key,
+                    legacy_item.version,
+                    *meta.get(legacy_item.memory_key, (1.0, "TASK_STATE")),
                     "INJECTED",
                 )
-                for record in legacy
+                for legacy_item in legacy
             )
             + tuple(
                 InjectionItem(item.record.memory_key, item.record.version, item.score, "V2", "INJECTED")

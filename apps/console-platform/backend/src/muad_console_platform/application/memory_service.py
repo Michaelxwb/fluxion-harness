@@ -18,6 +18,8 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts.memory_admin import (
     MemoryCommandRequest,
 )
+from muad_contracts.memory_taxonomy import PREDICATES_BY_KEY
+from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.repositories.memory_repository import MemoryRepository
@@ -27,6 +29,37 @@ from .audit_query_service import format_console_time
 from .audit_service import AuditActor, AuditService
 
 AUDIT_RESOURCE_TYPE = "USER_MEMORY"
+
+
+def _create_candidate(raw: dict[str, JsonValue] | None) -> dict[str, JsonValue]:
+    """管理面只让填 predicate 与内容：memory_kind 由受控 taxonomy 决定，内容按 kind 归一化。
+
+    表单没有 kind 选择器：填错 kind（如 NOTE + report_format）会在 Runtime 侧整条被拒，
+    管理员只能看到泛化失败。这里用同一份契约 taxonomy 推导 kind，并把 `value`/`text`
+    两种单值写法互转，Runtime 仍按严格契约校验。
+    """
+
+    candidate = dict(raw or {})
+    predicate = candidate.get("predicate")
+    spec = PREDICATES_BY_KEY.get(predicate) if isinstance(predicate, str) else None
+    if spec is None:
+        raise AppError(ErrorCode.MEMORY_TAXONOMY_INVALID)
+    kind = candidate.get("memory_kind") or spec.kind
+    if kind != spec.kind:
+        raise AppError(ErrorCode.MEMORY_TAXONOMY_INVALID)
+    content = candidate.get("content")
+    content = dict(content) if isinstance(content, dict) else {}
+    if spec.kind == "NOTE":
+        text = content.get("text", content.get("value"))
+        if text is not None:
+            content = {"text": str(text)}
+    else:
+        value = content.get("value", content.get("text"))
+        if value is not None:
+            content = {"value": str(value)}
+    candidate["content"], candidate["memory_kind"] = content, spec.kind
+    return candidate
+
 _AUDIT_ACTIONS = {
     "CREATE": "CREATE",
     "UPDATE": "UPDATE",
@@ -132,6 +165,8 @@ class MemoryAdminService:
         """v2 命令透传 + Console 本地操作日志；事实与版本仍由 Runtime 产生。"""
 
         await self._require_user(tenant_id, user_id)
+        if payload.action == "CREATE":
+            payload = payload.model_copy(update={"candidate": _create_candidate(payload.candidate)})
         data = await self._runtime.command(
             tenant_id=tenant_id,
             user_id=user_id,

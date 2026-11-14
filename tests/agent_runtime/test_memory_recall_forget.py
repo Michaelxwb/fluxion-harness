@@ -42,6 +42,7 @@ def _snapshot():
         enabled=True,
         expires_at=None,
         last_confirmed_at=NOW,
+        updated_at=NOW,
     )
     return MemorySnapshot(None, 1, 0, NOW, (row,))
 

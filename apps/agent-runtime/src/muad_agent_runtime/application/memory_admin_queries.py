@@ -4,7 +4,7 @@ from uuid import UUID
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import MemoryAuthor
+from muad_contracts.memory import MemoryAuthor, ScopeState
 from muad_contracts.memory_admin import (
     MemoryAdminItem,
     MemoryConflictItem,
@@ -198,7 +198,7 @@ def _conflict(row: MemoryConflictCandidate) -> MemoryConflictItem:
         id=row.id,
         memory_key=row.memory_key,
         predicate=row.predicate,
-        scope_state=row.scope_state,
+        scope_state=ScopeState(row.scope_state),
         title=row.title,
         summary=row.summary,
         content=row.content_json,

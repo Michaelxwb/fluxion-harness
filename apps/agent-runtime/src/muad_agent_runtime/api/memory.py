@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Query, Request
 from muad_api import ApiResponse, AppError, InternalServiceDep, ok, paginate
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import RememberMemoryInput
+from muad_contracts.memory import MemoryCandidate, RememberMemoryInput
 from muad_contracts.memory_admin import MemoryCommandRequest, MemoryStatus
 from pydantic import JsonValue, ValidationError
 
@@ -32,7 +32,7 @@ def _context(tenant: str, user_id: UUID, actor: UUID, canaries: tuple[str, ...])
     )
 
 
-def _candidate(payload: dict[str, JsonValue] | None):
+def _candidate(payload: dict[str, JsonValue] | None) -> MemoryCandidate:
     if payload is None:
         raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
     try:
@@ -143,6 +143,8 @@ async def command(
     if body.action == "CLEAR":
         outcome = await service.clear_memories(ctx, command_id=key, endpoint=Endpoint)
     elif body.action == "DELETE":
+        if body.memory_id is None or body.expected_version is None:
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         outcome = await service.delete_memory(
             ctx,
             body.memory_id,
@@ -151,10 +153,14 @@ async def command(
             endpoint=Endpoint,
         )
     elif body.action == "RESTORE":
+        if body.memory_id is None or body.expected_version is None:
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         outcome = await service.restore_memory(
             ctx, body.memory_id, expected_version=body.expected_version
         )
     elif body.action in ("ENABLE", "DISABLE"):
+        if body.memory_id is None or body.expected_version is None:
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         outcome = await service.set_memory_enabled(
             ctx,
             body.memory_id,
@@ -162,14 +168,20 @@ async def command(
             enabled=body.action == "ENABLE",
         )
     elif body.action == "RESOLVE":
+        if body.candidate_id is None or body.expected_version is None:
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         outcome = await service.resolve_candidate(
             ctx, body.candidate_id, expected_version=body.expected_version
         )
     elif body.action == "REJECT":
+        if body.candidate_id is None or body.expected_version is None:
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         outcome = await service.reject_candidate(
             ctx, body.candidate_id, expected_version=body.expected_version
         )
     elif body.action == "UPDATE":
+        if body.memory_id is None or body.expected_version is None:
+            raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
         outcome = await service.patch_memory(
             ctx,
             body.memory_id,

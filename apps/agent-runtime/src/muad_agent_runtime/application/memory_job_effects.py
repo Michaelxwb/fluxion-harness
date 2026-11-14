@@ -8,6 +8,7 @@ from datetime import timedelta
 from muad_contracts import ResolvedAgent
 from muad_contracts.memory import (
     ExperienceCandidate,
+    MemoryCandidate,
     MemoryCategory,
     MemoryRetirementReason,
     MemorySourceEvidence,
@@ -259,7 +260,7 @@ async def _apply_facts(
 
 
 async def _duplicate_fact(
-    session: AsyncSession, job: MemoryConsolidationJob, candidate
+    session: AsyncSession, job: MemoryConsolidationJob, candidate: MemoryCandidate
 ) -> bool:
     """Same content on the same identity is not a new change; NOTE has no stable key."""
 

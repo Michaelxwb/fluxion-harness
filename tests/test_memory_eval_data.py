@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
-
-pytestmark = pytest.mark.unit
-
 import hashlib
 import json
 from pathlib import Path
+
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 def test_fixture_has_stable_manifest_and_label_shape():

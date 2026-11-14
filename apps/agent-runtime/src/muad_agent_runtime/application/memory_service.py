@@ -20,6 +20,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db import SessionFactory, get_session_factory
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import (
     CanonicalEvent,
     Conversation,
@@ -29,12 +30,17 @@ from ..infrastructure.models.runtime import (
     RunRecord,
     UserMemory,
 )
-from .memory_commands import MemoryCommand, MemoryCommandOutcome, MemoryWriteContext
+from .memory_commands import (
+    MemoryCommand,
+    MemoryCommandOutcome,
+    MemoryMutation,
+    MemoryWriteContext,
+)
 from .memory_mutations import MemoryBatchPlan, memory_snapshot, persist_plan, plan_mutations, source_times
 from .memory_observability import after_commit, observe
 
 if TYPE_CHECKING:
-    from .memory_writer import MemoryWriteOutcome
+    from .memory_writer import MemoryWriteOutcome, MemoryWriter
 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +234,7 @@ class MemoryService:
     def _sessions(self) -> SessionFactory:
         return self._session_factory if self._session_factory is not None else get_session_factory()
 
-    def _writer(self):
+    def _writer(self) -> MemoryWriter:
         """The only place that constructs the v2 writer; callers stay on MemoryService."""
 
         from .memory_writer import MemoryWriter
@@ -303,9 +309,28 @@ class MemoryService:
     async def clear_memories(
         self, ctx: MemoryWriteContext, *, command_id: str, endpoint: str
     ) -> MemoryWriteOutcome:
+        """清空：先锁销该用户的 pending 记忆提议（同事务），再走唯一写入口推进 forget_epoch。
+
+        只递增 epoch 而不撤销中断，会让协议外的人把「已撤销的确认」当成普通续跑继续执行；
+        撤销后 resume 走 `MEMORY_CONFIRMATION_EXPIRED` 的显式拒绝路径。
+        """
+
         from .memory_writer import MemoryWriteCommand
 
-        return await self._writer().execute(ctx, MemoryWriteCommand(command_id, endpoint, "CLEAR"))
+        writer = self._writer()
+        async with self._sessions().begin() as session:
+            now = await database_now(session)
+            revoked = await _lock_clear_revocations(
+                session,
+                ctx,
+                MemoryCommand(
+                    command_id=command_id, endpoint=endpoint, mutations=[MemoryMutation(action="CLEAR")]
+                ),
+            )
+            _revoke_pending_proposals(revoked, now)
+            return await writer.execute_in_session(
+                session, ctx, MemoryWriteCommand(command_id, endpoint, "CLEAR")
+            )
 
     async def restore_memory(
         self, ctx: MemoryWriteContext, memory_id: UUID, *, expected_version: int

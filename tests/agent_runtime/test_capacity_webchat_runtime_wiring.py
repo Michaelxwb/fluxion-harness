@@ -166,7 +166,7 @@ CHANNEL_SURFACE: dict[str, set[str]] = {
     "/internal/model-capacity/reservations/{reservation_id}/settle": {"POST"},
     "/internal/admin/users/{user_id}/memory": {"GET", "DELETE"},
     "/internal/admin/users/{user_id}/memory/commands": {"POST"},
-    "/internal/admin/users/{user_id}/memory/{memory_key}/history": {"GET"},
+    "/internal/admin/users/{user_id}/memory/{memory_id}/history": {"GET"},
 }
 
 

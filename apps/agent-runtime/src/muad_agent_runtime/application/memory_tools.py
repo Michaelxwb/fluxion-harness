@@ -6,7 +6,7 @@ import json
 import logging
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 from uuid import NAMESPACE_URL, uuid5
 
 from muad_agent_core.memory.selection import (
@@ -19,7 +19,6 @@ from muad_agent_core.memory.selection import (
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory_taxonomy import PREDICATES_BY_KEY
 from muad_contracts.memory import (
     ForgetMemoryInput,
     MemoryCardinality,
@@ -28,6 +27,7 @@ from muad_contracts.memory import (
     RememberMemoryInput,
     ScopeState,
 )
+from muad_contracts.memory_taxonomy import PREDICATES_BY_KEY
 from muad_contracts.tasks import ContractModel
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
@@ -109,7 +109,7 @@ def _record(row: MemoryCandidateRow) -> MemoryRecord:
         predicate=row.predicate,
         scope_state=ScopeState(row.scope_state),
         scope=row.scope,
-        content=row.content,
+        content=cast(dict[str, object], row.content),
         title=row.title,
         summary=row.summary,
         tags=row.tags,
@@ -117,7 +117,7 @@ def _record(row: MemoryCandidateRow) -> MemoryRecord:
         priority=MemoryPriority(row.priority),
         author=row.author,
         version=row.version,
-        updated_at=row.last_confirmed_at,
+        updated_at=row.updated_at,
         expires_at=row.expires_at,
         enabled=row.enabled,
     )
@@ -279,7 +279,11 @@ class MemoryToolSet:
             text = _recall_payload(
                 selected, rows, max_bytes=self._context.settings.max_recall_bytes
             )
-        except (SQLAlchemyError, AppError, ValueError) as exc:
+        except ValueError as exc:
+            # 空封套都放不进预算：这是预算违约，不是读取故障。
+            self._recall_failed(mode, type(exc).__name__)
+            raise AppError(ErrorCode.MEMORY_RESULT_BUDGET_EXCEEDED) from None
+        except (SQLAlchemyError, AppError) as exc:
             self._recall_failed(mode, type(exc).__name__)
             raise AppError(ErrorCode.MEMORY_READ_FAILED) from None
         if mode == "SEARCH" and limit and has_candidates:
@@ -321,7 +325,7 @@ class MemoryToolSet:
             command_id=command_id,
             endpoint="memory.forget",
         )
-        self._loader.end_forget(previous, succeeded=outcome.status != "STALE")
+        self._loader.end_forget(previous, succeeded=outcome.status == "DELETED")
         return json.dumps(
             {
                 "deleted": outcome.status == "DELETED",

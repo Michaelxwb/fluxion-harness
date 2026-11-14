@@ -12,7 +12,7 @@ import hashlib
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Literal, cast, get_args
 from uuid import UUID, uuid4
 
 from muad_api import AppError
@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..infrastructure.db import SessionFactory
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.runtime import (
     MemoryCommandReceipt,
@@ -54,20 +55,24 @@ class MemoryWriteCommand:
     note_id: UUID | None = None
 
 
+MemoryOutcomeStatus = Literal[
+    "CREATED",
+    "UPDATED",
+    "CANDIDATE",
+    "DELETED",
+    "CLEARED",
+    "ACCEPTED",
+    "REJECTED",
+    "PATCHED",
+    "RESTORED",
+    "SKIPPED",
+    "UNCHANGED",
+]
+
+
 @dataclass(frozen=True, slots=True)
 class MemoryWriteOutcome:
-    status: Literal[
-        "CREATED",
-        "UPDATED",
-        "CANDIDATE",
-        "DELETED",
-        "CLEARED",
-        "ACCEPTED",
-        "REJECTED",
-        "PATCHED",
-        "RESTORED",
-        "UNCHANGED",
-    ]
+    status: MemoryOutcomeStatus
     memory_key: str | None
     version: int | None
     candidate_id: UUID | None = None
@@ -265,11 +270,19 @@ async def _receipt(
     if receipt.request_fingerprint != fingerprint:
         raise AppError(ErrorCode.MEMORY_IDEMPOTENCY_CONFLICT)
     payload = receipt.response_json
+    if not isinstance(payload, dict):
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+    status = payload.get("status")
+    memory_key = payload.get("memory_key")
+    version = payload.get("version")
+    candidate_id = payload.get("candidate_id")
+    if not isinstance(status, str) or status not in get_args(MemoryOutcomeStatus):
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
     return MemoryWriteOutcome(
-        status=payload["status"],
-        memory_key=payload.get("memory_key"),
-        version=payload.get("version"),
-        candidate_id=UUID(payload["candidate_id"]) if payload.get("candidate_id") else None,
+        status=cast(MemoryOutcomeStatus, status),
+        memory_key=memory_key if isinstance(memory_key, str) else None,
+        version=version if isinstance(version, int) and not isinstance(version, bool) else None,
+        candidate_id=UUID(candidate_id) if isinstance(candidate_id, str) else None,
         replayed=True,
     )
 
@@ -321,7 +334,7 @@ async def _pending_candidate(
     )
     if existing is not None:
         existing.evidence_count += 1
-        existing.last_source_ref = ctx.source_run_id and f"run:{ctx.source_run_id}"
+        existing.last_source_ref = f"run:{ctx.source_run_id}" if ctx.source_run_id else None
         return MemoryWriteOutcome("CANDIDATE", row.memory_key, row.version, existing.id, True)
     proposed = MemoryConflictCandidate(
         tenant_id=ctx.tenant_id,
@@ -342,7 +355,7 @@ async def _pending_candidate(
         base_scope_revision=scope.revision,
         forget_epoch=scope.forget_epoch,
         evidence_count=1,
-        last_source_ref=ctx.source_run_id and f"run:{ctx.source_run_id}",
+        last_source_ref=f"run:{ctx.source_run_id}" if ctx.source_run_id else None,
         candidate_hash=content_hash,
         status="PENDING",
         reason="VALUE_CONFLICT",
@@ -353,10 +366,10 @@ async def _pending_candidate(
 
 
 class MemoryWriter:
-    def __init__(self, session_factory=None) -> None:
+    def __init__(self, session_factory: SessionFactory | None = None) -> None:
         self._session_factory = session_factory
 
-    def _sessions(self):
+    def _sessions(self) -> SessionFactory:
         if self._session_factory is not None:
             return self._session_factory
         from ..infrastructure.db import get_session_factory
@@ -429,6 +442,8 @@ class MemoryWriter:
         if decision == "SKIPPED":
             outcome = MemoryWriteOutcome("SKIPPED", key, row.version if row is not None else None)
         elif decision == "PENDING":
+            # PENDING 只针对已存在的目标槽位：decision 由 row 推出，这里收窄类型。
+            assert row is not None
             outcome = await self._candidate(session, ctx, row, candidate, scope, command)
         else:
             await self._enforce_capacity(session, ctx, candidate, command, key, now, scope)
@@ -455,7 +470,15 @@ class MemoryWriter:
                 _apply_candidate(row, candidate, ctx, now)
                 outcome = MemoryWriteOutcome("UPDATED", key, row.version)
                 scope.revision += 1
-                await _history(session, row, ctx, command, "OVERWRITE", now=now)
+                # 用户确认的更新记 CONFIRM（管理面 patch 与 Agent 自动更新仍是 OVERWRITE）。
+                await _history(
+                    session,
+                    row,
+                    ctx,
+                    command,
+                    "CONFIRM" if ctx.actor_type == "USER" else "OVERWRITE",
+                    now=now,
+                )
         await _save_receipt(session, ctx, command, fingerprint, outcome)
         return outcome
 
@@ -511,10 +534,26 @@ class MemoryWriter:
                 scope.revision += 1
                 await _history(session, row, ctx, command, reason.value, now=now)
 
-    async def _candidate(self, session, ctx, row, candidate, scope, command):
+    async def _candidate(
+        self,
+        session: AsyncSession,
+        ctx: MemoryWriteContext,
+        row: UserMemory,
+        candidate: MemoryCandidate,
+        scope: MemoryScope,
+        command: MemoryWriteCommand,
+    ) -> MemoryWriteOutcome:
         return await _pending_candidate(session, ctx, row, candidate, scope, command)
 
-    async def _delete(self, session, ctx, command, scope, now, fingerprint):
+    async def _delete(
+        self,
+        session: AsyncSession,
+        ctx: MemoryWriteContext,
+        command: MemoryWriteCommand,
+        scope: MemoryScope,
+        now: datetime,
+        fingerprint: str,
+    ) -> MemoryWriteOutcome:
         row = await session.scalar(
             select(UserMemory)
             .where(
@@ -539,7 +578,15 @@ class MemoryWriter:
         await _save_receipt(session, ctx, command, fingerprint, outcome)
         return outcome
 
-    async def _clear(self, session, ctx, command, scope, now, fingerprint):
+    async def _clear(
+        self,
+        session: AsyncSession,
+        ctx: MemoryWriteContext,
+        command: MemoryWriteCommand,
+        scope: MemoryScope,
+        now: datetime,
+        fingerprint: str,
+    ) -> MemoryWriteOutcome:
         rows = list(
             await session.scalars(
                 select(UserMemory)
@@ -564,7 +611,9 @@ class MemoryWriter:
         await _save_receipt(session, ctx, command, fingerprint, outcome)
         return outcome
 
-    async def _revoke_pending(self, session, ctx, memory_key: str | None) -> None:
+    async def _revoke_pending(
+        self, session: AsyncSession, ctx: MemoryWriteContext, memory_key: str | None
+    ) -> None:
         query = select(MemoryConflictCandidate).where(
             MemoryConflictCandidate.tenant_id == ctx.tenant_id,
             MemoryConflictCandidate.user_id == ctx.user_id,
@@ -629,18 +678,27 @@ class MemoryWriter:
                 raise AppError(ErrorCode.MEMORY_IDENTITY_IMMUTABLE)
             allowed = {"content", "title", "summary", "tags", "expires_at"}
             if set(updates) - allowed:
-                raise AppError(ErrorCode.MEMORY_INVALID)
+                raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
             if "content" in updates:
-                row.content_json = dict(updates["content"])
+                content = updates["content"]
+                if not isinstance(content, dict):
+                    raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+                row.content_json = dict(content)
                 row.content_text = canonical_json(row.content_json)
             if "title" in updates:
                 row.title = str(updates["title"])
             if "summary" in updates:
                 row.summary = str(updates["summary"])
             if "tags" in updates:
-                row.tags_json = list(updates["tags"])
+                tags = updates["tags"]
+                if not isinstance(tags, list):
+                    raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+                row.tags_json = [str(tag) for tag in tags]
             if "expires_at" in updates:
-                row.expires_at = updates["expires_at"]
+                expires_at = updates["expires_at"]
+                if expires_at is not None and not isinstance(expires_at, datetime):
+                    raise AppError(ErrorCode.COMMON_VALIDATION_ERROR)
+                row.expires_at = expires_at
             row.version += 1
             row.update_time = now
             scope.revision += 1
