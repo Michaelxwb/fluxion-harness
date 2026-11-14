@@ -13,6 +13,7 @@ from muad_agent_core.memory.selection import (
     MemoryRecordV2,
     QueryContextV2,
     QueryScopeState,
+    SelectedV2,
     select_v2,
 )
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
@@ -184,11 +185,26 @@ class MemoryToolSet:
                     and (request.predicate is None or row.predicate == request.predicate)
                 ]
                 has_candidates = bool(records)
-                selected = select_v2(
-                    records,
-                    QueryContextV2(query=request.query, now=snapshot.as_of, scope_state=QueryScopeState.ABSENT),
-                    top_k=limit,
-                )
+                if mode == "LIST":
+                    ordered = sorted(
+                        records,
+                        key=lambda record: (
+                            -int(record.priority == "REQUIRED"),
+                            -record.version,
+                            record.memory_key,
+                        ),
+                    )
+                    selected = tuple(SelectedV2(record, 1.0) for record in ordered[:limit])
+                else:
+                    selected = select_v2(
+                        records,
+                        QueryContextV2(
+                            query=request.query,
+                            now=snapshot.as_of,
+                            scope_state=QueryScopeState.ABSENT,
+                        ),
+                        top_k=limit,
+                    )
             rendered = render_memory_v2([item.record for item in selected], max_records=limit, max_bytes=self._context.settings.max_recall_bytes)
         except (SQLAlchemyError, AppError, ValueError) as exc:
             self._recall_failed(mode, type(exc).__name__)
