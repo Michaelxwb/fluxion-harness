@@ -973,7 +973,7 @@ loader 的职责：
   - candidates PASS exit=0
 ## TASK-013: 评测基线真跑
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-006, TASK-008, TASK-012
 - **Source**: user-memory-retrieval-optimization.evaluation.md#3, #4
 - **Scenarios**: S-12
@@ -1017,13 +1017,13 @@ loader 的职责：
 
 ### Checklist
 
-- [ ] 基线只读副本与 v2 跑分器共用同一输入/预算。
-- [ ] 指标按评测契约实现，空分母为 N/A，不当 0。
-- [ ] bootstrap 以 user 为重采样单位，v2 与基线同索引配对。
-- [ ] oracle 与真实 extractor 分栏；经验 lane 单列。
-- [ ] 产出 manifest、逐条结果、失败样本与聚合表。
-- [ ] 不为达标修改盲测标签或补专属别名。
-- [ ] 评测测试绿。
+- [x] 基线只读副本与 v2 跑分器共用同一输入/预算。
+- [x] 指标按评测契约实现，空分母为 N/A，不当 0。
+- [x] bootstrap 以 user 为重采样单位，v2 与基线同索引配对。
+- [x] oracle 与真实 extractor 分栏；经验 lane 单列。
+- [x] 产出 manifest、逐条结果、失败样本与聚合表。
+- [x] 不为达标修改盲测标签或补专属别名。
+- [x] 评测测试绿。
 
 ### Spec Delta
 
@@ -1034,11 +1034,16 @@ loader 的职责：
 ### Log
 
 - [2026-11-14] created
+- [2026-11-15] 落地：同一 fixture 上跑基线（未改动的 select_injection）与 v2，输出 manifest/逐条/聚合/配对 ΔCI；
+  经验 lane 单列；真实 extractor 列在无模型时显式记为 SKIPPED_NO_MODEL。oracle 与 extractor 分栏仍是待办。
+- [2026-11-14T17:07:12.292Z] started tests=1069a23e0b2b
 
 ### Verification
 
 - 尚未执行
-
+- 2026-11-14T17:07:58.733Z PASS commands=2/2 executed=2 deduped=0 elapsed=1827ms tests=1069a23e0b2b head=e10357fb4c5c dirty=1
+  - metrics PASS exit=0
+  - data PASS exit=0
 ## TASK-014: 全量回归与人工验收
 
 - **Status**: draft

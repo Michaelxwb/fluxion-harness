@@ -1,0 +1,10 @@
+{
+  "queries": [
+    {"query_id": "q1", "user_id": "u1", "required": ["m1"], "forbidden": ["m9"], "acceptable": []},
+    {"query_id": "q2", "user_id": "u1", "required": ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9"], "forbidden": [], "acceptable": []}
+  ],
+  "outcomes": {
+    "q1": {"query_id": "q1", "injected": ["m1"]},
+    "q2": {"query_id": "q2", "injected": []}
+  }
+}
