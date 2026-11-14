@@ -6,6 +6,7 @@ from collections import Counter
 
 import pytest
 from muad_contracts.memory_taxonomy import (
+
     CORE_PREDICATES,
     ENTITY_TYPE_DISPLAY_NAMES,
     PREDICATES_BY_KEY,
@@ -14,6 +15,8 @@ from muad_contracts.memory_taxonomy import (
     validate_scope,
     validate_tag,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_core_taxonomy_has_13_unique_predicates_with_expected_kinds():

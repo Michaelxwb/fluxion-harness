@@ -284,6 +284,81 @@ def create_datastore(prefix: str = DEFAULT_PREFIX, *, revision: str = "head") ->
     }
 
 
+def create_template(revision: str = "head") -> dict[str, str]:
+    """Create and migrate one ``muad_tpl_*`` database reused as a TEMPLATE.
+
+    Cloning it costs ~150ms instead of the ~1.5s full migration, so per-test
+    databases stay affordable while keeping physical isolation.
+    """
+
+    settings = SharedSettings()
+    base_database_url = settings.require_database_url()
+    admin_dsn = _asyncpg_dsn(base_database_url)
+    name = new_database_name(prefix="muad_tpl_")
+    try:
+        _create_database(admin_dsn, name)
+    except asyncpg.InsufficientPrivilegeError as exc:
+        raise DatastorePrivilegeError(
+            "测试需要独立数据库，但当前角色没有 CREATEDB：\n"
+            f"  {exc}\n"
+            "一次性授权：以超级用户执行 `ALTER ROLE muad CREATEDB;`（本地 dev 库用 mmuser）。"
+        ) from exc
+    database_url = _swap_database(base_database_url, name)
+    tmpdir = Path(tempfile.mkdtemp(prefix="muad-template-"))
+    try:
+        _migrate_to_head(database_url, tmpdir, revision)
+    except BaseException:
+        _drop_database(admin_dsn, name)
+        raise
+    finally:
+        import shutil
+
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    return {
+        "database_url": database_url,
+        "name": name,
+        "admin_database_url": base_database_url,
+    }
+
+
+def clone_datastore(template: dict[str, str], prefix: str = DEFAULT_PREFIX) -> dict[str, str]:
+    """Clone the migrated template into a fresh per-test database + Redis number."""
+
+    settings = SharedSettings()
+    base_database_url = settings.require_database_url()
+    base_redis_url = settings.require_redis_url()
+    admin_dsn = _asyncpg_dsn(base_database_url)
+    name = new_database_name(prefix)
+    redis_url = isolated_redis_url(base_redis_url, name)
+    try:
+        _create_database_from_template(admin_dsn, name, template["name"])
+    except BaseException:
+        _release_redis_db(base_redis_url, name)
+        raise
+    return {
+        "database_url": _swap_database(base_database_url, name),
+        "redis_url": redis_url,
+        "name": name,
+        "admin_database_url": base_database_url,
+    }
+
+
+def drop_template(template: dict[str, str]) -> None:
+    _drop_database(_asyncpg_dsn(template["admin_database_url"]), template["name"])
+
+
+def _create_database_from_template(admin_dsn: str, name: str, template: str) -> None:
+    async def clone() -> None:
+        connection = await asyncpg.connect(admin_dsn, timeout=10)
+        try:
+            await connection.execute(f'CREATE DATABASE "{name}" TEMPLATE "{template}"')
+        finally:
+            await connection.close()
+
+    # 同 `_create_database`：不能用 asyncio.run，否则主线程事件循环被置空。
+    _run_in_thread(clone)
+
+
 def drop_datastore(name: str, admin_database_url: str | None = None, redis_url: str | None = None) -> None:
     """丢弃临时库（FORCE 断连）并**归还 Redis 号位**。
 

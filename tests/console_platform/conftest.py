@@ -27,8 +27,8 @@ from muad_console_platform.infrastructure.models.control import (
 from muad_console_platform.infrastructure.runtime_memory_client import RuntimeMemoryClient
 from muad_console_platform.main import app
 from redis.asyncio import Redis
-from sqlalchemy import inspect, text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.internal_service import TOKEN as INTERNAL_SERVICE_TOKEN
 from tests.internal_service import internal_service_token  # noqa: F401  (夹具注册，按需依赖)
@@ -68,25 +68,11 @@ class TenantContext:
     disabled_model_id: uuid.UUID
 
 
-@pytest.fixture(scope="session")
-async def database_guard() -> AsyncIterator[None]:
-    settings = SharedSettings()
-    if settings.database_url is None:
-        pytest.skip("DATABASE_URL not configured")
-    engine = create_async_engine(settings.database_url)
-    try:
-        async with engine.connect() as connection:
-            ready = await connection.run_sync(
-                lambda sync_connection: all(
-                    inspect(sync_connection).has_table(table, schema=SCHEMA)
-                    for table in (AGENT_TABLE, MODEL_TABLE, *AUTH_TABLES)
-                )
-            )
-        if not ready:
-            pytest.skip("run: uv run alembic -c migrations/alembic.ini upgrade head")
-        yield
-    finally:
-        await engine.dispose()
+@pytest.fixture
+async def database_guard(isolated_datastore) -> AsyncIterator[None]:
+    """Every test already runs on its own cloned database (root conftest)."""
+
+    yield
 
 
 @pytest.fixture
