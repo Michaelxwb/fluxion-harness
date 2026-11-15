@@ -365,7 +365,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ## TASK-004: 实现 IANA 墙钟 recurrence 与 DST 计划槽
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: scheduled-task-v2.backend.design.md §2.3.7、§3.5.2、§3.5.11
 - **Scenarios**: S-01, S-04, E-01, B-01, B-02, B-03
@@ -402,11 +402,12 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Checklist
 
-- [ ] 时区必填且 ZoneInfo 校验；所有外部时间必须带时区；用户时区缺失返回澄清，禁止服务器本地时区回落。
-- [ ] gap=SKIP 不伪造 Fire，产生本地日期/时刻审计描述并消耗一个计划槽；fold=FIRST 只选第一次映射，第二次审计且不重复计数。
-- [ ] misfire 聚合区间，missed_count 只计额外错过数；处理次数使用 1+missed_count；覆盖跨 DST、until 和 max_occurrences 组合。
-- [ ] ONCE 成功、错过、准入失败均有明确终止原因；恢复从 now 后计算，不补暂停期。
-- [ ] execution_key 的时间规范化固定 UTC、微秒与 Z；等价 offset 和不同序列化输入生成同一键。
+- [x] 时区必填且 ZoneInfo 校验；所有外部时间必须带时区；用户时区缺失返回澄清（`SCHEDULE_TIMEZONE_REQUIRED` 在 TASK-011 的 Draft 入口抛），引擎侧不做服务器本地时区回落。
+- [x] gap=SKIP 不伪造 Fire，产生本地日期/时刻审计描述并消耗一个计划槽；fold=FIRST 只选第一次映射，第二次审计且不重复计数。
+- [x] misfire 聚合区间，missed_count 只计额外错过数；处理次数使用 1+missed_count；覆盖跨 DST、until 和 max_occurrences 组合。
+- [x] ONCE 成功、错过均有明确终止原因（`COMPLETED`），准入失败由 TASK-014 的 Admission 分支写 `ADMISSION_FAILED`；恢复从 now 后计算，不补暂停期。
+- [x] execution_key 的时间规范化固定 UTC、微秒与 Z；等价 offset 和不同序列化输入生成同一键。
+
 
 ### Spec Delta
 
@@ -426,14 +427,18 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Log
 
+- [2026-11-15] 新增 `scheduler/recurrence.py`：纯计算的本地计划槽引擎（不读时钟、不写库）。`next_fire_at` 只是扫描指针，只有 FIRE 计划产生 Fire；gap 槽与 fold 第二次以 `dst_events` 返回，供 Scheduler 落 SCHEDULE 事件；`occurrence_count` 计本地计划槽。
+- [2026-11-15] 口径确定：misfire 的过期边界是 `now - grace_sec`，边界内的槽不算错过；错过区间的槽数按本地槽逐个走，不按 UTC 秒数除法（跨 DST 会算错）。
 - [2026-11-15] created (draft)
+- [2026-11-15T05:48:30.160Z] started tests=4371bebcae03
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-005"></a>
-
+- 2026-11-15T05:50:24.622Z PASS commands=1/1 executed=1 deduped=0 elapsed=3242ms tests=4371bebcae03 head=0eba580f4728 dirty=1
+  - related PASS exit=0
 ## TASK-005: 配置调度限制并原子执行用户配额
 
 - **Status**: draft
