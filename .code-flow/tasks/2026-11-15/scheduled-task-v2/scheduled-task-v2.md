@@ -2460,7 +2460,7 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
   - related PASS exit=0
 ## TASK-030: 更新 Console Schedule/Task 现有页面
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-029
 - **Source**: scheduled-task-v2.frontend.design.md §3.10、§3.12
 - **Scenarios**: S-07, S-13, E-02, E-09, E-10, E-12, E-13, B-01, B-02, B-03, B-10
@@ -2513,11 +2513,11 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 
 ### Checklist
 
-- [ ] Schedule 新状态与 end_reason、task_type、Agentic budget/READ_ONLY、Fire/DST 分页、Execution 链接全部映射 catalog。
-- [ ] Task 详情展示 WAITING_EXTERNAL/WAITING_HUMAN 及各 wait_kind、Snapshot/Human 摘要；移除 FAILED_CONFIG 等旧列和旧状态断言。
-- [ ] 操作使用 POST actions 与取消两档，实际成功后刷新；无创建按钮/表单，不增加 ADMIN-only 或全量结构化编辑器。
-- [ ] 保留 ?scheduleId= 深链、取消/暂停/恢复现有 testid、404 与用户可读错误；DateTimeText 处理 offset，i18n 不硬编码业务文案。
-- [ ] 组件行为与 typed service 回归覆盖 Fire 状态分离、空错态、分页、权限现状和未知码；运行 typecheck。
+- [x] Schedule 新状态与 end_reason、task_type、Agentic budget/READ_ONLY、Fire/DST 分页、Execution 链接全部映射 catalog。
+- [x] Task 详情展示 WAITING_EXTERNAL/WAITING_HUMAN 及各 wait_kind、Snapshot/Human 摘要；移除 FAILED_CONFIG 等旧列和旧状态断言。
+- [x] 操作使用 POST actions 与取消两档，实际成功后刷新；无创建按钮/表单，不增加 ADMIN-only 或全量结构化编辑器。
+- [x] 保留 ?scheduleId= 深链、取消/暂停/恢复现有 testid、404 与用户可读错误；DateTimeText 处理 offset，i18n 不硬编码业务文案。
+- [x] 组件行为与 typed service 回归覆盖 Fire 状态分离、空错态、分页、权限现状和未知码；运行 typecheck。
 
 ### Spec Delta
 
@@ -2526,15 +2526,27 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 ```
 
 ### Log
-
 - [2026-11-15] created (draft)
+- [2026-11-15T12:51:05.153Z] started tests=3926376ab4dc
+- [2026-11-15] 服务层迁到 v2：`services/schedules.ts` 去掉 `pauseSchedule`/`resumeSchedule`/`listScheduleTasks`，改为 `listScheduleFires` + `runScheduleAction`（`POST /schedules/{id}/actions`，带 `X-Request-Id` 与 `Idempotency-Key`）；`services/tasks.ts` 去掉 `intent_key`/`delivery_*`，等待拆成 `WAITING_EXTERNAL`（含 `wait_kind`）/`WAITING_HUMAN`，详情改用后端白名单 `snapshot` 与 `human` 摘要。
+- [2026-11-15] 新增 `scheduleCatalog.ts`（纯映射，无 React/HTTP 依赖）：五态与三模式的词条映射、结束原因/投递意图/并发策略/等待类型/Fire 结果/跳过原因/DST 事件，未知码统一 `未知 (原值)`；`fireHistoryRows` 把真实 Fire 与 DST 事件按时刻合并排序但保留 `kind` 区分。
+- [2026-11-15] SchedulePage：列收敛为后端真实的 v2 投影（name/agent/mode/timezone/status/待处理/next_fire/last_fire）；移除无数据的执行用户/Skill 列以及已不返回的 cron/类型/更新时间列；状态筛选与徽标走 catalog。
+- [2026-11-15] Schedule 详情：status 主标签 + `end_reason` 次级标签，展示 mode/timezone/revision_no/config_version/依赖/投递意图/并发/预算/记忆只读/需关注原因/指令；历史 Tab 改为 Fire 历史（分页、执行链接），保留“在任务列表中查看”的 `?scheduleId=` 深链。
+- [2026-11-15] 动作：pause（ACTIVE）、resume（PAUSED/NEEDS_ATTENTION）、cancel（FUTURE_ONLY/ALL_ACTIVE 两档 Modal，默认 FUTURE_ONLY）、delete 全部经服务层；恢复时 200 回执里的 `admission_error` 用 Toast 显式给出 repair + code，不当作传输错误。
+- [2026-11-15] TaskPage/TaskDetail：状态集合与可取消集合来自 catalog；新增 task_type 列；详情按 `wait_kind` 显示外部等待、按 `human` 显示问题/截止/是否仍等待、快照摘要只渲染白名单字段；移除业务意图与投递状态。
+- [2026-11-15] 词条：zh-CN/en-US 同步新增 v2 状态/模式/结束原因/取消范围/Fire 与 DST 词条，删除 v1 的投递与定时任务类型/执行用户/Skill 词条；`task.status.WAITING` 保留（run-observability 的关联 Task 状态枚举尚未跟进 v2，删掉会让该页退化成裸 key）。
+- [2026-11-15] 测试：`test_task_schedule_services.py`/`test_task_schedule_i18n.py`/`test_task_schedule_deep_link_contract.py`/`test_task_status_icons.py` 迁到 v2 事实；新增 `test_scheduled_v2_console_ui.py`（esbuild 编译 `scheduleCatalog.ts` 后由 node 执行，覆盖未知码、Fire/DST 分离与排序、快照/Human 摘要，并断言页面无创建入口、取消两档、分页与空错态、DateTimeText）。
+- [2026-11-15] 延期：Console 不再展示 cron 表达式与运行时刻——v2 的 Console 读面（TASK-029 的 `ScheduleDetail`）只投影 policy/dependencies/delivery_intent/budget，没有 recurrence；要恢复显示需先在 Console API 增加该字段。
+- [2026-11-15] 未覆盖（不在本 TASK 路径内，留给后续）：`modules/run-observability` 的关联 Task 状态枚举仍是 v1（`WAITING`），v2 的 `WAITING_EXTERNAL`/`WAITING_HUMAN` 会落到该页的“未知任务状态”安全回退；`e2e/tests/task-schedule/**` 的状态文案与种子由 TASK-033 更新。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-031"></a>
-
+- 2026-11-15T13:05:43.486Z PASS commands=2/2 executed=2 deduped=0 elapsed=20395ms tests=3926376ab4dc head=bbb4e11b8fda dirty=1
+  - related PASS exit=0
+  - typecheck PASS exit=0
 ## TASK-031: 实现有界保留清理并保护等待中的执行
 
 - **Status**: done

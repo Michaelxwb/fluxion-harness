@@ -1,7 +1,8 @@
-"""后台任务列表的状态列：触发方式/任务状态/投递状态三枚图标合并在一列。
+"""后台任务列表的状态列：触发方式与任务状态两枚图标合并在一列。
 
-旧实现把三者拆成三列（96 + 108 + 128 = 332px），在 1280 宽屏幕上挤压了 Skill/时间/失败原因。
-现在只保留一列（104px），每枚图标带 Tooltip 与 `aria-label`，既省宽又可读、可测试。
+v1 的投递状态列随 `delivery_*` 列一起退役（scheduled-task-v2：投递是独立的 Delivery 事实，
+Console Task 读面不再投影它），「等待」也拆成 `WAITING_EXTERNAL` 与 `WAITING_HUMAN` 两类。
+一列（104px）里每枚图标带 Tooltip 与 `aria-label`，既省宽又可读、可测试。
 """
 
 from __future__ import annotations
@@ -66,12 +67,12 @@ def _compile_tsx(source: Path, outfile: Path) -> str:
 
 
 def test_task_page_uses_one_combined_status_column() -> None:
-    """三列合并为一列：列表只引用 TaskStatusIcons，不再渲染三套文本/Tag。"""
+    """两列合并为一列：列表只引用 TaskStatusIcons，不再渲染独立文本/Tag。"""
     page = _read(PAGE_TSX)
     assert "TaskStatusIcons" in page and "<TaskStatusIcons" in page
     assert page.count("task.columns.statusIcons") == 1
     assert "task.columns.triggerType" not in page, "触发方式不再是独立列"
-    assert "task.columns.deliveryStatus" not in page, "投递状态不再是独立列"
+    assert "task.columns.deliveryStatus" not in page, "投递状态已退役，不得再有列"
     assert "StatusTag" not in page, "列表状态已改为图标，不再用 Tag"
     status_column = page.index("task.columns.statusIcons")
     assert "width: 104" in page[status_column : status_column + 260]
@@ -84,32 +85,30 @@ def test_task_page_uses_one_combined_status_column() -> None:
         assert removed not in _compact(page), f"旧的三列实现残留：{removed}"
 
 
-def test_status_icons_express_three_facts_with_accessible_labels() -> None:
-    """三枚图标分别表达触发/状态/投递，且都有 Tooltip + aria-label + testid。"""
+def test_status_icons_express_trigger_and_status_with_accessible_labels() -> None:
+    """两枚图标分别表达触发/状态，且都有 Tooltip + aria-label + testid。"""
     source = _read(ICONS_TSX)
     compact = _compact(source)
-    assert compact.count("<StatusIcon") == 3
+    assert compact.count("<StatusIcon") == 2
     assert "task.columns.triggerType" in source
     assert "task.columns.status" in source
-    assert "task.columns.deliveryStatus" in source
+    assert "task.columns.deliveryStatus" not in source, "投递状态已退役"
     assert 'role="img"' in source and "aria-label" in source
     assert "<Tooltip" in source
     assert "data-testid={props.testId}" in source
     assert "testId={`task-trigger-" in source
     assert "testId={`task-status-" in source
-    assert "testId={`task-delivery-" in source
+    assert "taskStatusLabel" in source, "状态文案经 catalog 映射，未知码也有可读文案"
     for token in (
         "IMMEDIATE",
         "SCHEDULED",
         "QUEUED",
         "RUNNING",
-        "WAITING",
+        "WAITING_EXTERNAL",
+        "WAITING_HUMAN",
         "COMPLETED",
         "FAILED",
         "CANCELLED",
-        "PENDING",
-        "SENT",
-        "NONE",
     ):
         assert token in source, f"图标映射缺状态：{token}"
     for icon in (
@@ -118,13 +117,10 @@ def test_status_icons_express_three_facts_with_accessible_labels() -> None:
         "IconHourglass",
         "IconSpin",
         "IconPause",
+        "IconUser",
         "IconTickCircle",
         "IconAlertCircle",
         "IconMinusCircle",
-        "IconSend",
-        "IconMail",
-        "IconAlertTriangle",
-        "IconMinus",
     ):
         assert icon in source, f"缺少图标：{icon}"
 
@@ -138,14 +134,13 @@ def test_status_icons_compile_to_real_typescript_artifacts(tmp_path: Path) -> No
     icons = _compile_tsx(ICONS_TSX, tmp_path / "task-status-icons.mjs")
     assert "task-status-icons" in icons
     assert 'role: "img"' in icons and "aria-label" in icons
-    for testid_prefix in ("task-trigger-", "task-status-", "task-delivery-"):
+    for testid_prefix in ("task-trigger-", "task-status-"):
         assert testid_prefix in icons
     for icon in (
         "IconBolt",
         "IconCalendarClock",
-        "IconSend",
-        "IconMail",
-        "IconAlertTriangle",
+        "IconUser",
+        "IconHourglass",
         "IconTickCircle",
     ):
         assert icon in icons

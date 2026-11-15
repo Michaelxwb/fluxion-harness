@@ -7,8 +7,17 @@ import { DetailGrid } from '../../components/common/DetailGrid';
 import { DetailSideSheet } from '../../components/common/DetailSideSheet';
 import { EntityLink } from '../../components/common/EntityLink';
 import { ErrorState } from '../../components/common/ErrorState';
-import { StatusTag, type StatusTagOption } from '../../components/common/StatusTag';
+import { StatusTag } from '../../components/common/StatusTag';
 import { ExportExecutionButton } from '../execution-export/components/ExportExecutionButton';
+import {
+  humanSummary,
+  snapshotSummary,
+  taskStatusFallback,
+  taskStatusOptions,
+  taskTypeLabel,
+  waitKindLabel,
+  type Translate
+} from './scheduleCatalog';
 import { TaskTimeline } from './TaskTimeline';
 import { getTask, type TaskChild, type TaskDetail } from './services/tasks';
 
@@ -17,15 +26,6 @@ const REFRESH_INTERVAL_MS = 1500;
 const MAX_REFRESHES = 12;
 // 取消后等待 Worker 协作停止：须覆盖一个完整心跳周期（后端 task_heartbeat_sec=20s）。
 const CANCEL_MAX_REFRESHES = 30;
-
-const STATUS_COLORS: Record<string, StatusTagOption['color']> = {
-  QUEUED: 'grey',
-  RUNNING: 'blue',
-  WAITING: 'amber',
-  COMPLETED: 'green',
-  FAILED: 'red',
-  CANCELLED: 'grey'
-};
 
 /** 来源 Run 与列表/审计详情同口径只展示前 8 位；完整值在运行详情标题的复制面。 */
 function shortId(value: string): string {
@@ -45,21 +45,13 @@ export interface TaskDetailSideSheetProps {
   closeOnEsc?: boolean;
 }
 
-function snapshotSummary(snapshot: Record<string, unknown>): string {
-  const agent = (snapshot.agent ?? {}) as Record<string, unknown>;
-  const model = (snapshot.model ?? {}) as Record<string, unknown>;
-  const skills = (snapshot.skills ?? []) as Array<Record<string, unknown>>;
-  return [
-    `schema=${String(snapshot.schema_version ?? '-')}`,
-    `agent=${String(agent.key ?? '-')}@${String(agent.revision ?? '-')}`,
-    `model=${String(model.model ?? model.id ?? '-')}@${String(model.revision ?? '-')}`,
-    `skills=${skills.map((skill) => String(skill.key ?? '-')).join(',') || '-'}`,
-    `prompt=${String(snapshot.prompt_template_version ?? '-')}`
-  ].join(' · ');
-}
-
+/**
+ * Task 详情（design §3.10）：`WAITING_EXTERNAL` 显示 `wait_kind`，`WAITING_HUMAN` 显示
+ * Human 摘要；快照只渲染后端白名单摘要（schema/mode/allowlist/memory_mode/budget）。
+ */
 export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
   const { t } = useTranslation();
+  const translate: Translate = (key) => t(key);
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -120,16 +112,7 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
     return () => clearTimeout(timer);
   }, [props.taskId, detail, refreshCount, load]);
 
-  const statusOptions = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(STATUS_COLORS).map(([status, color]) => [
-          status,
-          { color, label: t(`task.status.${status}`) }
-        ])
-      ),
-    [t]
-  );
+  const statusOptions = useMemo(() => taskStatusOptions(translate), [t]);
 
   const children: TaskChild[] = detail?.children ?? [];
 
@@ -139,7 +122,10 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
       title={props.taskId ?? ''}
       subtitle={
         detail
-          ? `${t(`task.status.${detail.status}`)} · ${detail.intent_key}`
+          ? `${taskStatusFallback(translate, detail.status).label} · ${taskTypeLabel(
+              translate,
+              detail.task_type
+            )}`
           : t('task.detail.basic')
       }
       activeTab={activeTab}
@@ -163,14 +149,18 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
                   label: t('task.columns.status'),
                   value: (
                     <>
-                      <StatusTag status={detail.status} options={statusOptions} />
+                      <StatusTag
+                        status={detail.status}
+                        options={statusOptions}
+                        fallback={taskStatusFallback(translate, detail.status)}
+                      />
                       {detail.cancel_requested && !TERMINAL_STATUSES.includes(detail.status) ? (
                         <span data-testid="task-cancel-requested">{t('task.cancel.requested')}</span>
                       ) : null}
                     </>
                   )
                 },
-                { label: t('task.columns.intent'), value: detail.intent_key },
+                { label: t('task.columns.taskType'), value: taskTypeLabel(translate, detail.task_type) },
                 { label: t('task.columns.triggerType'), value: t(`task.trigger.${detail.trigger_type}`) },
                 // 反向链接：只在定时触发的任务上出现，紧邻「触发方式」——两者是同一件事的
                 // 类型与来源。`schedule_id` 已删时链接仍可点，由 schedule 详情侧渲染 404 态。
@@ -188,6 +178,14 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
                         ) : (
                           detail.schedule_id
                         )
+                      }
+                    ]
+                  : []),
+                ...(detail.scheduled_at
+                  ? [
+                      {
+                        label: t('task.detail.scheduledAt'),
+                        value: <DateTimeText value={detail.scheduled_at} />
                       }
                     ]
                   : []),
@@ -210,7 +208,32 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
                       }
                     ]
                   : []),
-                { label: t('task.columns.deliveryStatus'), value: t(`task.delivery.${detail.delivery_status}`) },
+                // 外部等待的细类只在真正等待外部结果时才有意义；其余状态下它是内部事实。
+                ...(detail.status === 'WAITING_EXTERNAL'
+                  ? [
+                      {
+                        label: t('task.detail.waitKind'),
+                        value: (
+                          <span data-testid="task-detail-wait-kind">
+                            {waitKindLabel(translate, detail.wait_kind)}
+                          </span>
+                        )
+                      }
+                    ]
+                  : []),
+                ...(detail.human
+                  ? [
+                      {
+                        fullWidth: true,
+                        label: t('task.detail.human'),
+                        value: (
+                          <span data-testid="task-detail-human">
+                            {humanSummary(translate, detail.human)}
+                          </span>
+                        )
+                      }
+                    ]
+                  : []),
                 {
                   label: t('task.columns.deadlineAt'),
                   value: <span data-testid="task-detail-deadline"><DateTimeText value={detail.deadline_at} /></span>
@@ -230,7 +253,7 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
                   label: t('task.detail.snapshot'),
                   value: (
                     <span data-testid="task-detail-snapshot">
-                      {snapshotSummary(detail.execution_snapshot)}
+                      {snapshotSummary(translate, detail.snapshot)}
                     </span>
                   )
                 },
@@ -262,7 +285,11 @@ export function TaskDetailSideSheet(props: TaskDetailSideSheetProps) {
                   {child.task_id}
                 </EntityLink>
                 {' · '}
-                <StatusTag status={child.status} options={statusOptions} />
+                <StatusTag
+                  status={child.status}
+                  options={statusOptions}
+                  fallback={taskStatusFallback(translate, child.status)}
+                />
                 {child.item_key ? ` · ${child.item_key}` : ''}
               </li>
             ))}

@@ -1,11 +1,28 @@
 import { api, newRequestId, type ApiResponse } from '../../../api/client';
 import type { Page } from '../../user-identity/services/users';
 
-export type TaskStatus = 'QUEUED' | 'RUNNING' | 'WAITING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+/**
+ * Console 后台任务服务的 typed 契约（scheduled-task-v2 §3.10；TASK-030）。
+ *
+ * 出参来自 Console 后端对 Worker Execution 真值的投影（`application/task_view.py`）：
+ * v2 没有单一的 `WAITING`——外部等待（`WAITING_EXTERNAL` + `wait_kind`）与等待用户回答
+ * （`WAITING_HUMAN`）语义不同，取消规则也不同；`FAILED_CONFIG` 不再存在（准入失败记在 Fire）。
+ * v1 的 `intent_key`/`delivery_*` 列已退役，服务层不再声明它们。
+ */
+
+export type TaskStatus =
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'WAITING_EXTERNAL'
+  | 'WAITING_HUMAN'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED';
 export type TriggerType = 'IMMEDIATE' | 'SCHEDULED';
-export type TaskType = 'SKILL' | 'BATCH';
-export type DeliveryStatus = 'PENDING' | 'SENT' | 'FAILED' | 'NONE';
-export type DeliveryMode = 'FINAL_ONLY' | 'NONE';
+export type TaskType = 'SKILL' | 'REMINDER' | 'AGENTIC' | 'BATCH';
+/** `WAITING_EXTERNAL` 的细类；`WAITING_HUMAN` 不用本枚举。 */
+export type WaitKind = 'ASYNC_OPERATION' | 'EXTERNAL_POLL' | 'BATCH_FANIN';
+export type FailureClass = 'BUSINESS' | 'CONFIG' | 'TIMEOUT' | 'HUMAN_TIMEOUT';
 
 export const TASK_PAGE_SIZE_MAX = 100;
 
@@ -31,27 +48,28 @@ export interface TaskListItem {
   actor_user_id: string;
   schedule_id: string | null;
   source_run_id: string | null;
-  intent_key: string;
-  skill_id: string;
   /** 名称补齐（Console control.* 权威源，列表接口注入；缺失为 null，前端回落短 id）。 */
   agent_name?: string | null;
   actor_name?: string | null;
   skill_name?: string | null;
   skill_key?: string | null;
+  skill_id: string | null;
+  task_type: TaskType;
   status: TaskStatus;
   trigger_type: TriggerType;
-  task_type: TaskType;
+  /** 计划触发时刻：只有定时触发的任务才有。 */
+  scheduled_at: string | null;
+  /** 只在 `WAITING_EXTERNAL` 时对外可见；其余状态下它是内部事实。 */
+  wait_kind: WaitKind | null;
+  wait_payload: Record<string, unknown> | null;
   input: Record<string, unknown>;
   result: Record<string, unknown> | null;
   error_code: string | null;
   error_message: string | null;
+  failure_class: FailureClass | null;
   attempt: number;
   max_attempts: number;
   cancel_requested: boolean;
-  delivery_mode: DeliveryMode;
-  delivery_status: DeliveryStatus;
-  delivery_attempts: number;
-  delivered_at: string | null;
   deadline_at: string;
   not_before: string;
   create_time: string;
@@ -63,17 +81,31 @@ export interface TaskListItem {
   child_finished: number;
 }
 
+/** 白名单快照摘要：原始 `execution_snapshot` 不出后端（内部存储键不外泄）。 */
+export interface TaskSnapshotSummary {
+  schema_version: number | null;
+  hash: string | null;
+  mode: string | null;
+  allowlist: string[];
+  memory_mode: string | null;
+  budget: Record<string, unknown> | null;
+}
+
+/** 最近一次 Human 提问；`open` 以 Execution 状态为准。 */
+export interface TaskHumanSummary {
+  interaction_id: string | null;
+  question: string | null;
+  deadline_at: string | null;
+  open: boolean;
+}
+
 export interface TaskDetail extends TaskListItem {
   parent_id: string | null;
   root_id: string | null;
   item_key: string | null;
   result_artifact_id: string | null;
-  lease_owner: string | null;
-  lease_until: string | null;
-  heartbeat_at: string | null;
-  execution_snapshot: Record<string, unknown>;
-  execution_snapshot_schema_version: number;
-  snapshot_hash: string;
+  snapshot: TaskSnapshotSummary;
+  human: TaskHumanSummary | null;
   timeline: TaskTimelineEvent[];
   children: TaskChild[];
 }
@@ -129,11 +161,4 @@ export async function cancelTask(id: string): Promise<CancelTaskResult> {
       headers: { 'X-Request-Id': newRequestId() }
     })
   );
-}
-
-export async function listScheduleTasks(
-  scheduleId: string,
-  params: TaskListParams = {}
-): Promise<Page<TaskListItem>> {
-  return listTasks({ ...params, schedule_id: scheduleId });
 }
