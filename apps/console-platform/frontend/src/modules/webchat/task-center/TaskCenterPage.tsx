@@ -10,8 +10,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
+import { createActionsController, type ActionsPort } from './actionsState';
+import { createPendingController, type PendingPort } from './pendingState';
+import { PendingPanel } from './PendingPanel';
 import { createTaskCenterClient } from '../services/taskCenterApi';
 import type { TaskArtifact, TaskCenterClient } from '../types';
 import {
@@ -30,10 +33,15 @@ export interface WebchatTaskCenterPageProps {
   scheduleId?: string | null;
   /** 授权 Agent 集合（来自 WebChat 入口）；缺省不渲染过滤控件，读取仍是全部授权 Agent。 */
   agents?: readonly AgentOption[];
+  /** `pending` = 待处理过滤视图（`/chat/tasks?view=pending`）；列表态为 null。 */
+  view?: 'pending' | null;
 }
 
 export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactNode {
   const navigate = useNavigate();
+  const location = useLocation();
+  // `?view=pending` 是待处理过滤视图；列表/详情仍是同一条路由的两个投影。
+  const pendingView = new URLSearchParams(location.search).get('view') === 'pending';
   const scheduleId = props.scheduleId ?? null;
   const clientRef = useRef<TaskCenterClient | null>(null);
   if (clientRef.current === null) clientRef.current = createTaskCenterClient();
@@ -47,6 +55,16 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
     () => createScheduleDetailController({ port: client }),
     [client]
   );
+  const pending = useMemo(
+    () => createPendingController({ port: client as PendingPort }),
+    [client]
+  );
+  const actions = useMemo(
+    () => createActionsController({ port: client as ActionsPort }),
+    [client]
+  );
+  const pendingState = useSyncExternalStore(pending.subscribe, pending.snapshot);
+  const actionsState = useSyncExternalStore(actions.subscribe, actions.snapshot);
   const downloads = useMemo(
     () =>
       createArtifactDownloadController({
@@ -65,9 +83,17 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
       list.dispose();
       detail.dispose();
       downloads.dispose();
+      pending.dispose();
+      actions.dispose();
     },
-    [list, detail, downloads]
+    [list, detail, downloads, pending, actions]
   );
+
+  // 待处理视图：与列表同一 Agent 范围，独立分页；切走时不轮询。
+  useEffect(() => {
+    if (!pendingView) return;
+    void pending.load();
+  }, [pendingView, pending]);
 
   // 列表态：进入/返回列表时读取当前筛选；详情态不读列表（避免两套事实互相覆盖）。
   useEffect(() => {
@@ -143,9 +169,42 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
     [downloads]
   );
 
+  const navigateToPending = useCallback(() => {
+    navigate('/chat/tasks?view=pending');
+  }, [navigate]);
+
+  const handleRespond = useCallback(
+    (interactionId: string, response: Record<string, unknown>, idempotencyKey: string) => {
+      void pending.respond(interactionId, response, idempotencyKey);
+    },
+    [pending]
+  );
+
+  const handleResumeFromPending = useCallback(
+    (target: string) => {
+      void actions.run(target, 'resume', { idempotencyKey: `resume-${target}` });
+    },
+    [actions]
+  );
+
+  if (pendingView) {
+    return (
+      <PendingPanel
+        state={pendingState}
+        onRespond={handleRespond}
+        onRefresh={() => void pending.refresh()}
+        onPage={(page) => void pending.setPage(page)}
+        onResume={handleResumeFromPending}
+        onOpenSchedule={handleOpen}
+      />
+    );
+  }
+
   if (scheduleId === null) {
     return (
       <ScheduleListPanel
+        onOpenPending={() => navigate('/chat/tasks?view=pending')}
+        pendingCount={listState.badges?.pending_human ?? 0}
         state={listState}
         agents={props.agents}
         onRefresh={handleRefresh}
@@ -166,6 +225,23 @@ export function WebchatTaskCenterPage(props: WebchatTaskCenterPageProps): ReactN
       onOpenExecution={handleOpenExecution}
       onCloseExecution={handleCloseExecution}
       onDownloadArtifact={handleDownloadArtifact}
+      actions={{
+        state: actionsState,
+        onAction: (
+          action: 'pause' | 'resume' | 'cancel',
+          scope?: 'FUTURE_ONLY' | 'ALL_ACTIVE'
+        ) =>
+          void actions.run(scheduleId as string, action, {
+            scope,
+            idempotencyKey: `${action}-${scheduleId}`
+          }),
+        onRecreate: () => navigate('/chat'),
+        onEdit: () => {
+          const name = detailState.detail?.name ?? '';
+          navigate(`/chat?draft=修改任务 ${name}：`);
+        }
+      }}
+      onOpenPending={navigateToPending}
     />
   );
 }

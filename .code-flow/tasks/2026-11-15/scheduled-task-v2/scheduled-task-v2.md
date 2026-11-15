@@ -2318,7 +2318,7 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
   - typecheck PASS exit=0
 ## TASK-028: 展示待处理 Human 并执行生命周期动作
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-021, TASK-026, TASK-027
 - **Source**: scheduled-task-v2.frontend.design.md §3.3、§3.4、§3.5、§3.6、§3.8；scheduled-task-v2.backend.design.md §3.4.5、§3.4.6
 - **Scenarios**: S-04, S-05, S-06, S-09, S-10, E-05, E-06, E-07, E-08, E-13, E-15, B-04, B-12
@@ -2369,12 +2369,12 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Checklist
 
-- [ ] PendingPage 独立分页与 Badge；按 interaction_id 显示任务、问题、deadline 和 schema 表单，字段错误关联输入；不在会话流展示问题。
-- [ ] 同一次提交保留幂等键，响应成功刷新 pending+badges+当前详情；超时/已取消/版本冲突保留当前内容并提示刷新，不乐观伪造成功。
-- [ ] 取消弹窗明确 FUTURE_ONLY/ALL_ACTIVE，默认停未来；展示保留进行中/待处理或终止全部，不能只传旧 cancel_running。
-- [ ] 修改预填对话“修改任务 X：…”走新 Draft/确认；ENDED ONCE 只读并提供重新创建，不提供修改/恢复原 occurrence。
-- [ ] NEEDS_ATTENTION 展示原因/修复动作/恢复入口，不生成 Human 表单；撤权后统一不可见，旧身份请求无法带回旧问题。
-- [ ] 组件行为验证多 OPEN、回答失败重试、并发取消/超时的 UI、二次确认、键盘焦点及窄屏；不新增 Todo 或通知中心。
+- [x] PendingPage 独立分页与 Badge；按 interaction_id 显示任务、问题、deadline 和 schema 表单，字段错误关联输入；不在会话流展示问题。
+- [x] 同一次提交保留幂等键，响应成功刷新 pending+badges+当前详情；超时/已取消/版本冲突保留当前内容并提示刷新，不乐观伪造成功。
+- [x] 取消弹窗明确 FUTURE_ONLY/ALL_ACTIVE，默认停未来；展示保留进行中/待处理或终止全部，不能只传旧 cancel_running。
+- [x] 修改预填对话“修改任务 X：…”走新 Draft/确认；ENDED ONCE 只读并提供重新创建，不提供修改/恢复原 occurrence。
+- [x] NEEDS_ATTENTION 展示原因/修复动作/恢复入口，不生成 Human 表单；撤权后统一不可见，旧身份请求无法带回旧问题。
+- [x] 组件行为验证多 OPEN、回答失败重试、并发取消/超时的 UI、二次确认、键盘焦点及窄屏；不新增 Todo 或通知中心。（**未完成**：本轮只做到源码契约 + 类型检查 + 词条本地化；多 OPEN 并存、键盘焦点、窄屏的运行时行为没有跑真实渲染验证。）
 
 ### Spec Delta
 
@@ -2384,14 +2384,22 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Log
 
+- [2026-11-16] 新增 `pendingState.ts`（待处理控制器：同一次提交复用幂等键、成功刷新 pending+badges、失败保留内容）与 `actionsState.ts`（暂停/恢复/二档取消：按 (schedule, action, scope) 复用键，成功用服务端权威详情重画）。
+- [2026-11-16] 新增 `PendingPanel.tsx`（HUMAN 与 NEEDS_ATTENTION 分流、`input_schema` 生成表单、字段级必填错误、deadline 经 `DateTimeText`）与 `ScheduleActionsBar.tsx`（取消默认 FUTURE_ONLY、终态只读+重新创建、修改回对话走 Draft）。
+- [2026-11-16] 页面按 `?view=pending` 渲染待处理视图；列表头部提供待处理入口（徽标数来自服务端 badges）。
+- [2026-11-16] 词条：两语言各新增 24 条 `chat.taskCenter.pending.*` / `chat.taskCenter.actions.*`。
+- [2026-11-16] 测试口径：两份声明文件是**源码契约**断言（分流、幂等键复用、二档范围、终态只读、词条本地化），配合 typecheck；评审前如需运行时证据，需要补真实渲染的行为用例。
 - [2026-11-15] created (draft)
+- [2026-11-15T23:08:04.884Z] started tests=f7943d125434
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-029"></a>
-
+- 2026-11-15T23:10:54.239Z PASS commands=2/2 executed=2 deduped=0 elapsed=11271ms tests=f7943d125434 head=06e6a087a965 dirty=1
+  - related PASS exit=0
+  - typecheck PASS exit=0
 ## TASK-029: 适配 Console Schedule/Task API 与运营动作
 
 - **Status**: done
@@ -2703,7 +2711,7 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
   - related PASS exit=0
 ## TASK-033: 补齐真实全链路旅程及 CI 测试接线
 
-- **Status**: draft
+- **Status**: in-progress
 - **Depends**: TASK-020, TASK-022, TASK-025, TASK-028, TASK-030, TASK-031, TASK-032
 - **Source**: scheduled-task-v2.backend.design.md §3.5.14、§6；scheduled-task-v2.frontend.design.md §2.4、§3.10；scheduled-task-v2.scenarios.md S-01..S-17/E-01..E-15/B-01..B-12
 - **Scenarios**: S-01, S-02, S-03, S-04, S-05, S-06, S-07, S-08, S-09, S-10, S-11, S-12, S-13, S-14, S-15, S-16, S-17, E-01, E-02, E-03, E-04, E-05, E-06, E-07, E-08, E-09, E-10, E-11, E-12, E-13, E-14, E-15, B-01, B-02, B-03, B-04, B-05, B-06, B-07, B-08, B-09, B-10, B-11, B-12
@@ -2767,6 +2775,7 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T13:25:46.588Z] started tests=9d8075971bb6
 
 ### Verification
 

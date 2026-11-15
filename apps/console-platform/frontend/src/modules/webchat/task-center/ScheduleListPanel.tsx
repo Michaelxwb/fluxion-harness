@@ -27,6 +27,9 @@ export interface AgentOption {
 const AGENT_ALL = '__ALL__';
 
 export interface ScheduleListPanelProps {
+  /** 打开待处理视图（同一 Agent 范围）；徽标数字来自服务端。 */
+  onOpenPending?(): void;
+  pendingCount?: number;
   state: ScheduleListState;
   /** 授权 Agent 集合；为空时不渲染过滤控件（页面仍按「全部授权 Agent」读取）。 */
   agents?: readonly AgentOption[];
@@ -214,6 +217,12 @@ export function ScheduleListPanel(props: ScheduleListPanelProps) {
       {showError ? (
         <div className="chat-task-center-error" data-testid="chat-task-center-error">
           <Banner type="danger" closeIcon={null} description={t('chat.taskCenter.error.list')} />
+          {props.onOpenPending ? (
+            <Button onClick={props.onOpenPending} data-testid="task-center-pending-entry">
+              {t('chat.taskCenter.pending.entry')}
+              {props.pendingCount ? ` (${props.pendingCount})` : ''}
+            </Button>
+          ) : null}
           <Button size="small" data-testid="chat-task-center-retry" onClick={props.onRefresh}>
             {t('chat.taskCenter.list.retry')}
           </Button>

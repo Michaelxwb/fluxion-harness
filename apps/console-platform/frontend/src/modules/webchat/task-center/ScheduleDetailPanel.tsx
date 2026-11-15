@@ -42,6 +42,7 @@ import {
   type FireHistoryState,
   type ScheduleDetailState
 } from './taskCenterState';
+import { ScheduleActionsBar } from './ScheduleActionsBar';
 import { formatBytes, TaskArtifactList } from './TaskArtifactList';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -448,6 +449,15 @@ export interface ScheduleDetailPanelProps {
   onOpenExecution(executionId: string): void;
   onCloseExecution(): void;
   onDownloadArtifact(artifact: TaskArtifact): void;
+  /** 生命周期动作条（TASK-028）：状态与回调都由页面注入。 */
+  actions?: {
+    state: { submitting: 'pause' | 'resume' | 'cancel' | null; errorCode: string | null };
+    onAction(action: 'pause' | 'resume' | 'cancel', scope?: 'FUTURE_ONLY' | 'ALL_ACTIVE'): void;
+    onRecreate(): void;
+    onEdit(): void;
+  };
+  /** 从详情跳到待处理视图（同一 Agent 范围）。 */
+  onOpenPending?(): void;
 }
 
 export function ScheduleDetailPanel(props: ScheduleDetailPanelProps) {
@@ -463,6 +473,17 @@ export function ScheduleDetailPanel(props: ScheduleDetailPanelProps) {
       data-schedule-id={state.scheduleId ?? ''}
       aria-label={t('chat.taskCenter.detail.label')}
     >
+      {props.actions && state.detail ? (
+        <ScheduleActionsBar
+          status={state.detail.status}
+          mode={state.detail.mode}
+          submitting={props.actions.state.submitting}
+          errorCode={props.actions.state.errorCode}
+          onAction={props.actions.onAction}
+          onRecreate={props.actions.onRecreate}
+          onEdit={props.actions.onEdit}
+        />
+      ) : null}
       <header className="chat-task-center-header">
         <Button
           size="small"
