@@ -39,7 +39,8 @@ import type {
   WebchatClientConfig,
   WebchatConfirmation,
   WebchatConversationDetail,
-  WebchatExecutionStatus
+  WebchatExecutionStatus,
+  WebchatScheduleDraftReady
 } from './types';
 
 /** 本地稳定码：目标非法/暂存上界非法时显式失败（不构造无归属的订阅）。 */
@@ -98,6 +99,8 @@ export interface ActiveRunState {
   executionStatus: WebchatExecutionStatus | null;
   confirmation: WebchatConfirmation | null;
   attachments: WebchatAttachment[];
+  /** 本 Run 已发布的 Draft 确认卡片（`schedule.draft.ready`，按 draft_id 去重）。 */
+  drafts: WebchatScheduleDraftReady[];
   /** 已应用水位：只在事件应用成功后单调推进（checkpoint 不推进）。 */
   lastAppliedSeq: number;
   replyGeneration: number | null;
@@ -127,6 +130,8 @@ export interface StreamingReplyProps {
   text: string;
   /** 本 Run 已发布的附件（实时卡片）：与历史读取同一份发布事实。 */
   attachments: WebchatAttachment[];
+  /** 本 Run 已发布的定时任务 Draft 卡片（持久事件；刷新后历史里同一份事实还在）。 */
+  drafts: WebchatScheduleDraftReady[];
   phase: RunReplyPhase;
   queuedAt: string | null;
   queueReason: string | null;
@@ -208,7 +213,16 @@ const TERMINAL_STAGES = new Set<WebchatExecutionStatus['stage']>([
 type AppliedUpdate = Extract<
   ReplyStreamUpdate,
   {
-    kind: 'delta' | 'snapshot' | 'stage' | 'tool' | 'terminal' | 'error' | 'confirmation' | 'artifact';
+    kind:
+      | 'delta'
+      | 'snapshot'
+      | 'stage'
+      | 'tool'
+      | 'terminal'
+      | 'error'
+      | 'confirmation'
+      | 'artifact'
+      | 'schedule-draft';
   }
 >;
 
@@ -243,6 +257,7 @@ export function streamingReply(
     runId: run.runId,
     text: run.text,
     attachments: run.attachments,
+    drafts: run.drafts,
     phase: replyPhase(run.status, status),
     queuedAt: status === null ? null : status.queued_at,
     queueReason: status === null ? null : status.reason,
@@ -298,6 +313,7 @@ function initialRunState(target: RunSubscriptionTarget): ActiveRunState {
     executionStatus: target.executionStatus,
     confirmation: target.confirmation,
     attachments: [],
+    drafts: [],
     lastAppliedSeq: 0,
     replyGeneration: null,
     text: '',
@@ -341,6 +357,17 @@ function mergeAttachments(
 /** 附件版本键：产物 + 发布时的校验和（服务端按它选定版本）。 */
 export function attachmentVersionKey(attachment: WebchatAttachment): string {
   return `${attachment.artifact_id}:${attachment.checksum}`;
+}
+
+/** Draft 卡片按 `draft_id` 身份合并（同一 Draft 的重试重放不重复长出第二张卡）。 */
+function mergeDrafts(
+  existing: readonly WebchatScheduleDraftReady[],
+  incoming: WebchatScheduleDraftReady
+): WebchatScheduleDraftReady[] {
+  const byId = new Map<string, WebchatScheduleDraftReady>();
+  for (const draft of existing) byId.set(draft.draft_id, draft);
+  byId.set(incoming.draft_id, incoming);
+  return [...byId.values()];
 }
 
 /** 阶段事件：持久阶段同时驱动业务状态（等待输入与终态才改变状态，排队不假装执行）。 */
@@ -525,8 +552,10 @@ function applyApplied(
     run.hasReply = update.hasReply;
   } else if (update.kind === 'confirmation') {
     run.confirmation = update.data;
-  } else {
+  } else if (update.kind === 'artifact') {
     run.attachments = mergeAttachments(run.attachments, update.data);
+  } else {
+    run.drafts = mergeDrafts(run.drafts, update.data);
   }
   noteApplied(runtime, sub, run, update.seq);
 }

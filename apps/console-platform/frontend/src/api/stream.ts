@@ -25,11 +25,13 @@
 import { currentLocale } from '../i18n';
 import type {
   RunStatus,
+  SchedulePreview,
   WebchatAttachment,
   WebchatClientConfig,
   WebchatClientTransport,
   WebchatConfirmation,
   WebchatExecutionStatus,
+  WebchatScheduleDraftReady,
   WebchatToolProgress
 } from '../modules/webchat/types';
 
@@ -309,6 +311,7 @@ export type ReplyStreamUpdate =
   | { kind: 'error'; seq: number; code: string; retryable: boolean; hasReply: boolean }
   | { kind: 'confirmation'; seq: number; data: WebchatConfirmation }
   | { kind: 'artifact'; seq: number; data: WebchatAttachment }
+  | { kind: 'schedule-draft'; seq: number; data: WebchatScheduleDraftReady }
   | { kind: 'checkpoint'; cursor: number }
   | { kind: 'ignored'; seq: number; reason: ReplyIgnoreReason };
 
@@ -638,6 +641,11 @@ function applyDataFrameEvent(
     state.applied = parsed.seq;
     return { kind: 'artifact', seq: parsed.seq, data };
   }
+  if (frame.event === 'schedule.draft.ready') {
+    const data = readScheduleDraft(parsed.data);
+    state.applied = parsed.seq;
+    return { kind: 'schedule-draft', seq: parsed.seq, data };
+  }
   throw new WebchatStreamError('MALFORMED_FRAME', `unknown public event type: ${frame.event}`);
 }
 
@@ -697,6 +705,82 @@ export function createReplyStreamCollector(
 }
 
 /** 工具进度：只认公开契约的三种取值，坏载荷显式失败（不静默当成正常事件）。 */
+
+const SCHEDULE_MODES = new Set<string>(['REMINDER', 'SKILL', 'AGENTIC']);
+const DELIVERY_INTENTS = new Set<string>(['PUSH', 'NONE']);
+
+function readStringList(source: Record<string, unknown>, key: string): string[] {
+  const value = source[key];
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    throw new WebchatStreamError('MALFORMED_FRAME', `payload.${key} must be an array`);
+  }
+  return value.map((item) => {
+    if (typeof item !== 'string' || item === '') {
+      throw new WebchatStreamError('MALFORMED_FRAME', `payload.${key} entries must be non-empty strings`);
+    }
+    return item;
+  });
+}
+
+function readScheduleDiff(source: Record<string, unknown>): SchedulePreview['diff'] {
+  const value = source['diff'];
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    throw new WebchatStreamError('MALFORMED_FRAME', 'schedule draft preview.diff must be an array');
+  }
+  return value.map((entry) => {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+      throw new WebchatStreamError('MALFORMED_FRAME', 'schedule draft diff entry must be an object');
+    }
+    const record = entry as Record<string, unknown>;
+    return { field: readString(record, 'field'), before: record['before'], after: record['after'] };
+  });
+}
+
+/** `schedule.draft.ready` 的卡片载荷：与 `muad_contracts.webchat.WebchatScheduleDraftReady` 同形。 */
+function readScheduleDraft(source: Record<string, unknown>): WebchatScheduleDraftReady {
+  const kind = readString(source, 'kind');
+  if (kind !== 'CREATE' && kind !== 'UPDATE') {
+    throw new WebchatStreamError('MALFORMED_FRAME', `unknown schedule draft kind: ${kind}`);
+  }
+  const mode = readString(source, 'mode');
+  if (!SCHEDULE_MODES.has(mode)) {
+    throw new WebchatStreamError('MALFORMED_FRAME', `unknown schedule mode: ${mode}`);
+  }
+  const previewSource = readObject(source, 'preview');
+  const previewMode = readString(previewSource, 'mode');
+  if (!SCHEDULE_MODES.has(previewMode)) {
+    throw new WebchatStreamError('MALFORMED_FRAME', `unknown preview mode: ${previewMode}`);
+  }
+  const delivery = readString(previewSource, 'delivery');
+  if (!DELIVERY_INTENTS.has(delivery)) {
+    throw new WebchatStreamError('MALFORMED_FRAME', `unknown delivery intent: ${delivery}`);
+  }
+  const dependencies = readStringList(previewSource, 'dependencies');
+  const budgetSource = previewSource['budget'];
+  if (typeof budgetSource !== 'object' || budgetSource === null || Array.isArray(budgetSource)) {
+    throw new WebchatStreamError('MALFORMED_FRAME', 'schedule draft preview.budget must be an object');
+  }
+  return {
+    draft_id: readString(source, 'draft_id'),
+    draft_hash: readString(source, 'draft_hash'),
+    kind,
+    mode: mode as WebchatScheduleDraftReady['mode'],
+    preview: {
+      mode: previewMode as WebchatScheduleDraftReady['mode'],
+      what: readString(previewSource, 'what'),
+      when: readString(previewSource, 'when'),
+      first_fire_at: readString(previewSource, 'first_fire_at'),
+      delivery: delivery as WebchatScheduleDraftReady['preview']['delivery'],
+      dependencies,
+      budget: budgetSource as Record<string, unknown>,
+      diff: readScheduleDiff(previewSource)
+    },
+    expires_at: readString(source, 'expires_at')
+  };
+}
+
 function readToolProgress(source: Record<string, unknown>): WebchatToolProgress {
   const name = readString(source, 'name');
   const phase = readString(source, 'phase');

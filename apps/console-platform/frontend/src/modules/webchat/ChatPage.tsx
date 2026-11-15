@@ -67,7 +67,18 @@ import {
   type RunStopState
 } from './components/RunActions';
 import { TokenAccess } from './components/TokenAccess';
+import {
+  DraftCard,
+  IDLE_DRAFT_CONFIRM,
+  createDraftConfirmController,
+  type DraftConfirmationBinding,
+  type DraftConfirmState
+} from './components/DraftCard';
+import { WebchatWorkspaceTabs } from './components/WebchatWorkspaceTabs';
+import { useWorkspaceTabs } from './hooks/useWorkspaceTabs';
+import { chatTabsVisible } from './workspaceTabs';
 import { ChatThinking, thinkingAnchorOf } from './components/ChatThinking';
+import { WebchatTaskCenterPage } from './task-center/TaskCenterPage';
 import { WebchatShell } from './components/WebchatShell';
 import { useChatAuth, type ChatAuthController } from './hooks/useChatAuth';
 import { useClientConfig, type ClientConfigController } from './hooks/useClientConfig';
@@ -93,6 +104,7 @@ import { useRunEvents, type RunEventsController } from './hooks/useRunEvents';
 import { useSmoothStreamingText } from './hooks/useSmoothStreamingText';
 import { createNotificationStreamPort } from './services/notificationStream';
 import { createWebchatClient, webchatErrorCode } from './services/webchatApi';
+import { createTaskCenterClient } from './services/taskCenterApi';
 import type { ChatAuthenticationSnapshot, ChatIdentityCleanup } from './authenticationState';
 import type { ClientConfigSnapshot } from './clientConfig';
 import type { ConversationLimitsPort, ConversationSelectionSnapshot } from './conversationState';
@@ -107,7 +119,8 @@ import type {
   WebchatEntryPage,
   WebchatMessageAccepted,
   WebchatRequestOptions,
-  WebchatResumeReceipt
+  WebchatResumeReceipt,
+  WebchatScheduleDraftReady
 } from './types';
 
 /** 本地稳定码：URL 里的会话标识非法（不是服务端目录码；不静默换成新会话）。 */
@@ -164,6 +177,7 @@ export function parseChatRoute(
     conversationId: uuidOrNull(conversationParam)
   };
 }
+
 
 /** 入口解析结论：`resolved` 之外都不是可进入状态，页面按结论给出显式提示。 */
 export type ChatEntryOutcome = 'resolved' | 'unauthorized' | 'required' | 'empty';
@@ -767,6 +781,75 @@ function useConfirmationMessageId(runId: string | null): string | null {
   return useMemo(() => (runId === null ? null : newRequestId()), [runId]);
 }
 
+/**
+ * Draft 确认绑定：typed 任务中心 client（`services/taskCenterApi`）只提供 `confirmDraft`，
+ * 结构上没有 Run resume 能力；控制器在身份边界清空、卸载释放。
+ *
+ * 卡片状态按 `draft_id` 持有在页面工作区里：历史与当前流共用同一份状态，切 Tab 不丢。
+ */
+function useDraftConfirmationBinding(auth: ChatAuthController): {
+  snapshot: DraftConfirmState;
+  binding: DraftConfirmationBinding;
+} {
+  const taskCenter = useMemo(() => createTaskCenterClient(), []);
+  const draftService = useMemo(
+    () => createDraftConfirmController({ port: taskCenter }),
+    [taskCenter]
+  );
+  const snapshot = useSyncExternalStore(draftService.subscribe, draftService.snapshot, draftService.snapshot);
+  const registerIdentityCleanup = auth.registerIdentityCleanup;
+
+  useEffect(() => {
+    const unregister = registerIdentityCleanup(() => {
+      draftService.reset();
+    });
+    return () => {
+      unregister();
+    };
+  }, [registerIdentityCleanup, draftService]);
+
+  useEffect(
+    () => () => {
+      draftService.dispose();
+    },
+    [draftService]
+  );
+
+  const binding = useMemo<DraftConfirmationBinding>(
+    () => ({
+      entry: draftService.entry,
+      confirm: draftService.confirm,
+      retry: draftService.retry
+    }),
+    [draftService]
+  );
+  return { snapshot, binding };
+}
+
+/**
+ * 确认成功后刷新服务端真相：重读当前会话（历史里同一 Draft 卡片的持久事实 + Run 收敛）。
+ * 不乐观伪造 Schedule 状态——页面只展示回执里的真实字段。
+ */
+function useDraftConfirmedRefresh(input: {
+  conversationId: string | null;
+  state: DraftConfirmState;
+  conversations: ConversationsController;
+}): void {
+  const handled = useRef<Set<string>>(new Set());
+  const { conversationId, state, conversations } = input;
+  const select = conversations.select;
+  useEffect(() => {
+    if (conversationId === null) return;
+    for (const [draftId, entry] of Object.entries(state.entries)) {
+      if (entry.phase !== 'SUBMITTED' || entry.receipt === null) continue;
+      const key = `${draftId}:${entry.receipt.schedule_id}`;
+      if (handled.current.has(key)) continue;
+      handled.current.add(key);
+      fireAndForget(select(conversationId));
+    }
+  }, [conversationId, state, select]);
+}
+
 interface AcceptedRunInput {
   accepted: WebchatMessageAccepted | null;
   conversations: ConversationsController;
@@ -864,9 +947,16 @@ function useConfirmationRefresh(input: ConfirmationRefreshInput): void {
   }, [receipt, conversationId, select]);
 }
 
-/** 流式正文：把上游较大的 delta 块按固定节拍平滑吐字，并复用最终消息的 Markdown 渲染。 */
+/**
+ * 流式正文：把上游较大的 delta 块按固定节拍平滑吐字，并复用最终消息的 Markdown 渲染。
+ *
+ * Draft 卡片与正文/附件一样是本 Run 的发布事实：正文还没到也要立即展示（用户要确认的是
+ * 配置，不是文字）。历史里已回放的同一 Draft 由调用方过滤，避免刷新后出现两张卡。
+ */
 function ChatStreamingReply(props: {
   streaming: StreamingReplyProps | null;
+  drafts: readonly WebchatScheduleDraftReady[];
+  draftConfirmation?: DraftConfirmationBinding;
   onDownloadAttachment(attachment: WebchatAttachment): void;
 }) {
   const { t } = useTranslation();
@@ -874,8 +964,13 @@ function ChatStreamingReply(props: {
   const target = streaming?.text ?? '';
   const runId = streaming?.runId ?? '';
   const visible = useSmoothStreamingText(target, runId);
-  // 附件可能在正文之前就发布：没有正文也要把卡片显示出来（用户点的是文件，不是文字）。
-  if (streaming === null || (target === '' && streaming.attachments.length === 0)) return null;
+  // 附件/草稿可能在正文之前就发布：没有正文也要把卡片显示出来。
+  if (
+    streaming === null ||
+    (target === '' && streaming.attachments.length === 0 && props.drafts.length === 0)
+  ) {
+    return null;
+  }
   const clockSource = streaming.startedAt ?? streaming.queuedAt;
   const clock = messageClock(clockSource ?? undefined);
   const typing = visible.length < target.length;
@@ -912,6 +1007,16 @@ function ChatStreamingReply(props: {
             ))}
           </div>
         )}
+        {props.drafts.map((draft) => (
+          <DraftCard
+            key={draft.draft_id}
+            draft={draft}
+            entry={props.draftConfirmation?.entry(draft.draft_id) ?? IDLE_DRAFT_CONFIRM}
+            nowMs={Date.now()}
+            onConfirm={(target) => props.draftConfirmation?.confirm(target)}
+            onRetry={(draftId) => props.draftConfirmation?.retry(draftId)}
+          />
+        ))}
       </div>
     </div>
   );
@@ -992,6 +1097,7 @@ interface ChatMessageAreaProps {
   stop: RunStopBinding;
   confirmation: ConfirmationBinding;
   confirmationMessageId: string | null;
+  draftConfirmation: DraftConfirmationBinding;
   runEvents: RunEventsController;
   onRetryHistory(): void;
   onDownloadAttachment(attachment: WebchatAttachment): void;
@@ -1001,6 +1107,16 @@ interface ChatMessageAreaProps {
 function ChatMessageArea(props: ChatMessageAreaProps) {
   const history = props.messages.history;
   const run = props.run;
+  // 历史已回放的 Draft 只渲染一次：流式卡片按 draft_id 去重（刷新后历史与流表示同一事实）。
+  const historyDraftIds = new Set<string>();
+  for (const message of history.items) {
+    if (message.draft !== null && message.draft !== undefined) {
+      historyDraftIds.add(message.draft.draft_id);
+    }
+  }
+  const liveDrafts = (props.streaming?.drafts ?? []).filter(
+    (draft) => !historyDraftIds.has(draft.draft_id)
+  );
   const thinkingAnchor =
     run === null
       ? undefined
@@ -1024,10 +1140,13 @@ function ChatMessageArea(props: ChatMessageAreaProps) {
         onLoadOlder={props.messages.loadOlder}
         onRetry={props.onRetryHistory}
         onDownloadAttachment={props.onDownloadAttachment}
+        draftConfirmation={props.draftConfirmation}
       />
       {thinkingAnchor === undefined ? null : <ChatThinking anchor={thinkingAnchor} />}
       <ChatStreamingReply
         streaming={props.streaming}
+        drafts={liveDrafts}
+        draftConfirmation={props.draftConfirmation}
         onDownloadAttachment={props.onDownloadAttachment}
       />
       <ChatRunActions
@@ -1160,6 +1279,7 @@ interface ChatWorkspaceState {
   stop: RunStopBinding;
   confirmation: ConfirmationBinding;
   confirmationMessageId: string | null;
+  draftConfirmation: DraftConfirmationBinding;
   changeDraft(value: string): void;
   actions: ChatWorkspaceActions;
 }
@@ -1179,6 +1299,7 @@ function useChatWorkspaceState(props: ChatWorkspaceProps): ChatWorkspaceState {
   const stop = useRunStopBinding(client, auth, run === null ? null : run.runId);
   const confirmation = useConfirmationBinding(client, auth);
   const confirmationMessageId = useConfirmationMessageId(run === null ? null : run.runId);
+  const draft = useDraftConfirmationBinding(auth);
   const changeDraft = useScopedDraft({ conversationId, conversations, pendingSend });
   const actions = useChatWorkspaceActions({
     conversationId,
@@ -1190,6 +1311,11 @@ function useChatWorkspaceState(props: ChatWorkspaceProps): ChatWorkspaceState {
 
   useAcceptedRun({ accepted: pendingSend.snapshot.accepted, conversations, runEvents });
   useConfirmationRefresh({ conversationId, state: confirmation.snapshot, conversations });
+  useDraftConfirmedRefresh({
+    conversationId,
+    state: draft.snapshot,
+    conversations
+  });
 
   return {
     selection,
@@ -1201,6 +1327,7 @@ function useChatWorkspaceState(props: ChatWorkspaceProps): ChatWorkspaceState {
     stop,
     confirmation,
     confirmationMessageId,
+    draftConfirmation: draft.binding,
     changeDraft,
     actions
   };
@@ -1353,6 +1480,7 @@ export function ChatWorkspace(props: ChatWorkspaceProps) {
             stop={state.stop}
             confirmation={state.confirmation}
             confirmationMessageId={state.confirmationMessageId}
+            draftConfirmation={state.draftConfirmation}
             runEvents={props.runEvents}
             onRetryHistory={state.actions.retryHistory}
             onDownloadAttachment={state.actions.downloadAttachment}
@@ -1590,6 +1718,8 @@ export default function ChatPage() {
     () => parseChatRoute(params.entryId, searchParams),
     [params.entryId, searchParams]
   );
+  const workspaceTabs = useWorkspaceTabs();
+  const onTasks = workspaceTabs.onTasks;
   const restore = auth.restore;
 
   useEffect(() => {
@@ -1663,12 +1793,16 @@ export default function ChatPage() {
   );
   const notifications = useNotifications(client, config, auth, notificationOptions);
 
-  const resolutionNeeded = chatPageResolutionNeeded({
-    auth: auth.snapshot,
-    config: config.snapshot,
-    bootstrap: snapshot,
-    selection
-  });
+  // 任务 Tab 不解析对话入口：URL 里没有 entryId，重新解析会把正在运行/已就绪的会话选择清空，
+  // 切 Tab 就会断流。对话选择只在回到对话路由时按 URL 重新核对。
+  const resolutionNeeded =
+    !onTasks &&
+    chatPageResolutionNeeded({
+      auth: auth.snapshot,
+      config: config.snapshot,
+      bootstrap: snapshot,
+      selection
+    });
 
   useEffect(() => {
     if (!resolutionNeeded) return;
@@ -1707,8 +1841,40 @@ export default function ChatPage() {
     fireAndForget(conversationsRef.current.select(target));
   }, []);
 
+  const tabsVisible = chatTabsVisible({
+    auth: auth.snapshot,
+    config: config.snapshot
+  });
+  // 对话面始终构造：切到任务 Tab 时只隐藏，不卸载控制器（正在输出的回答必须继续）。
+  const conversationSurface = (
+    <ChatPageSurface
+      view={view}
+      submitting={auth.snapshot.state === 'exchanging'}
+      selectionErrorCode={conversations.snapshot.selection.errorCode}
+      workspace={{
+        client,
+        auth,
+        config,
+        conversations,
+        notifications,
+        runEvents,
+        pendingSend
+      }}
+      onConversationDeleted={handleConversationDeleted}
+      onActionFailure={onActionFailure}
+      onTokenSubmit={submitToken}
+      onRetryConfig={() => {
+        void config.retry();
+      }}
+      onRetryResolution={() => {
+        void bootstrap.retry();
+      }}
+      onRetrySelection={retrySelection}
+    />
+  );
+
   return (
-    <div className="chat-page" data-testid="chat-page">
+    <div className="chat-page" data-testid="chat-page" data-workspace-tab={onTasks ? 'tasks' : 'conversation'}>
       {actionFailure === null ? null : (
         <div className="chat-page-notice" data-testid="chat-action-failure">
           <Banner
@@ -1718,30 +1884,20 @@ export default function ChatPage() {
           />
         </div>
       )}
-      <ChatPageSurface
-        view={view}
-        submitting={auth.snapshot.state === 'exchanging'}
-        selectionErrorCode={conversations.snapshot.selection.errorCode}
-        workspace={{
-          client,
-          auth,
-          config,
-          conversations,
-          notifications,
-          runEvents,
-          pendingSend
-        }}
-        onConversationDeleted={handleConversationDeleted}
-        onActionFailure={onActionFailure}
-        onTokenSubmit={submitToken}
-        onRetryConfig={() => {
-          void config.retry();
-        }}
-        onRetryResolution={() => {
-          void bootstrap.retry();
-        }}
-        onRetrySelection={retrySelection}
-      />
+      {tabsVisible ? (
+        <WebchatWorkspaceTabs
+          active={onTasks ? 'tasks' : 'conversation'}
+          onSelect={workspaceTabs.selectTab}
+          conversation={conversationSurface}
+          tasks={
+            onTasks ? (
+              <WebchatTaskCenterPage scheduleId={workspaceTabs.scheduleId} />
+            ) : null
+          }
+        />
+      ) : (
+        conversationSurface
+      )}
     </div>
   );
 }
