@@ -2138,7 +2138,7 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
   - related PASS exit=0
 ## TASK-026: 接通 WebChat typed client、保留对话状态的 Tab 壳与 Draft 卡片
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-024, TASK-017
 - **Source**: scheduled-task-v2.frontend.design.md §3.2、§3.3、§3.5、§3.9、§3.12；scheduled-task-v2.backend.design.md §3.2.8、API-31
 - **Scenarios**: S-01, S-02, S-03, S-04, S-09, S-11, S-14, E-01, E-04, E-05, E-14
@@ -2191,12 +2191,12 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Checklist
 
-- [ ] service 唯一 HTTP 出口，复用 src/api/client 拦截器注入请求头/CSRF/CHAT 上下文，写操作加 Idempotency-Key；组件/hook 不裸 axios/fetch。
-- [ ] 静态 /chat/tasks 和 /chat/tasks/:scheduleId 正确优先于 entryId；切 Tab 保留流式 Run、草稿、entry/conversation 返回参数，不卸载 useRunEvents。
-- [ ] schedule.draft.ready 的当前流/历史都渲染预览卡，确认按钮只调 surface API-31；禁用重复点击，同一动作重试保留幂等键。
-- [ ] 清楚显示做什么、何时、IANA 时区、结果去哪看、allowlist/budget/READ_ONLY 及 UPDATE 差异；过期/冲突/配额有明确反馈。
-- [ ] 身份切换/退出/Agent 切换中止旧请求、撤 Blob URL、丢弃旧 generation 响应，401 不自动重发写请求。
-- [ ] 测试真实 TS 构建后的 client 与状态逻辑，组件用仓库现有 component 设施；运行 typecheck，验证 active stream 跨 Tab 不丢。
+- [x] service 唯一 HTTP 出口，复用 src/api/client 拦截器注入请求头/CSRF/CHAT 上下文，写操作加 Idempotency-Key；组件/hook 不裸 axios/fetch。
+- [x] 静态 /chat/tasks 和 /chat/tasks/:scheduleId 正确优先于 entryId；切 Tab 保留流式 Run、草稿、entry/conversation 返回参数，不卸载 useRunEvents。
+- [x] schedule.draft.ready 的当前流/历史都渲染预览卡，确认按钮只调 surface API-31；禁用重复点击，同一动作重试保留幂等键。
+- [x] 清楚显示做什么、何时、IANA 时区、结果去哪看、allowlist/budget/READ_ONLY 及 UPDATE 差异；过期/冲突/配额有明确反馈。
+- [x] 身份切换/退出/Agent 切换中止旧请求、撤 Blob URL、丢弃旧 generation 响应，401 不自动重发写请求。
+- [x] 测试真实 TS 构建后的 client 与状态逻辑，组件用仓库现有 component 设施；运行 typecheck，验证 active stream 跨 Tab 不丢。
 
 ### Spec Delta
 
@@ -2215,13 +2215,21 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T12:30:38.721Z] started tests=f207ca988663
+- [2026-11-15] typed client：新增 `modules/webchat/services/taskCenterApi.ts`（列表/详情/Fire/Execution/待处理/徽标/回答/动作/产物下载 + Draft 确认），全部经 `src/api/client` 拦截器；写操作由调用方持有 `Idempotency-Key`，缺参本地显式失败。
+- [2026-11-15] 路由与 Tab 壳：`App.tsx` 静态 `chat/tasks` + `chat/tasks/:scheduleId` 排在 `chat/:entryId?` 前；`WebchatWorkspaceTabs` 始终渲染对话面板（任务 Tab 仅 `hidden`），任务面板只在任务 Tab 挂载；`useWorkspaceTabs` 在任务 Tab 跳过对话入口重解析并记住返回位置。
+- [2026-11-15] Draft 卡片：`schedule.draft.ready` 由 `src/api/stream.ts` 解析为独立 `schedule-draft` 更新，`runState` 按 `draft_id` 去重保存；当前流与历史（`WebchatHistoryMessage.draft`）共用 `DraftCard`，确认只调 `POST /webchat/schedule-drafts/{id}/confirm`（API-31），在途单飞、重试沿用同一幂等键，过期/冲突/配额/401 各有显式反馈。
+- [2026-11-15] allowlist 取自 `SchedulePreview.dependencies`（AGENTIC 即工具 allowlist）；`READ_ONLY` 是 AGENTIC 的契约常量，卡片以只读记忆说明展示；预览 DTO 不含逐条工具清单字段，故未另造字段。任务中心列表/详情/待处理挂载点留给 TASK-027/TASK-028；MSSWWEB 未落地页面。
+- [2026-11-15] 测试：新增 `test_scheduled_v2_webchat_client.py`（真实 service + 共享传输）、`test_scheduled_v2_workspace.py`（真实 Tab 组件 + 路由/接线契约，含流式控制器不被卸载的结构证明）、`test_scheduled_v2_draft_card.py`（真实状态机/流解析/Run 订阅 + 真实组件静态渲染）；另跑受影响既有 WebChat 套件与 typecheck、i18n/api-usage 检查。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-027"></a>
-
+- 2026-11-15T12:49:32.146Z PASS commands=2/2 executed=2 deduped=0 elapsed=22062ms tests=f207ca988663 head=9a5762df82c3 dirty=1
+  - related PASS exit=0
+  - typecheck PASS exit=0
 ## TASK-027: 展示任务列表、详情、Fire 历史与版本产物
 
 - **Status**: draft

@@ -22,6 +22,9 @@
  */
 
 import { Avatar, Banner, Button, Empty, Spin, Typography } from '@douyinfe/semi-ui';
+
+import { DraftCard, IDLE_DRAFT_CONFIRM } from './DraftCard';
+import type { DraftConfirmationBinding } from './DraftCard';
 import {
   IconCustomerSupport,
   IconDownload,
@@ -357,6 +360,10 @@ export interface MessageThreadProps {
   onRetry(): void;
   /** 附件取件端口（`createAttachmentDownloader` 绑到授权下载面）。 */
   onDownloadAttachment(attachment: WebchatAttachment): void;
+  /** Draft 确认端口（历史卡片与流式卡片共用同一状态机）；未提供时卡片只展示不可提交。 */
+  draftConfirmation?: DraftConfirmationBinding;
+  /** 本地过期判定参考时刻（服务端仍是权威）；缺省取渲染时刻，不带定时器。 */
+  draftNowMs?: number;
 }
 
 /** 白名单标记 → React 元素；文本节点原样交给 React 转义（HTML/MDX 不会被解析成元素）。 */
@@ -555,6 +562,8 @@ export function MessageAttachmentCard(props: MessageAttachmentCardProps) {
 interface MessageItemProps {
   message: WebchatHistoryMessage;
   onDownload(attachment: WebchatAttachment): void;
+  draftConfirmation?: DraftConfirmationBinding;
+  draftNowMs?: number;
 }
 
 /** 消息时钟：完整展示服务端落库时间（年月日 + 时分），不可解析不显示（不猜时间）。 */
@@ -607,6 +616,17 @@ function MessageItem(props: MessageItemProps) {
               />
             ))}
           </div>
+        )}
+        {message.draft === null || message.draft === undefined ? null : (
+          <DraftCard
+            draft={message.draft}
+            entry={
+              props.draftConfirmation?.entry(message.draft.draft_id) ?? IDLE_DRAFT_CONFIRM
+            }
+            nowMs={props.draftNowMs ?? Date.now()}
+            onConfirm={(draft) => props.draftConfirmation?.confirm(draft)}
+            onRetry={(draftId) => props.draftConfirmation?.retry(draftId)}
+          />
         )}
       </div>
     </li>
@@ -700,7 +720,13 @@ export function MessageThread(props: MessageThreadProps) {
       ) : null}
       <ol className="chat-message-list">
         {props.messages.map((message) => (
-          <MessageItem key={message.event_id} message={message} onDownload={props.onDownloadAttachment} />
+          <MessageItem
+            key={message.event_id}
+            message={message}
+            onDownload={props.onDownloadAttachment}
+            draftConfirmation={props.draftConfirmation}
+            draftNowMs={props.draftNowMs}
+          />
         ))}
       </ol>
     </div>
