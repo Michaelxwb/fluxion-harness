@@ -139,7 +139,7 @@ function ScheduleSummary(props: { state: ScheduleDetailState }) {
           {detail.dependencies.length === 0 ? (
             t('chat.taskCenter.detail.noDependencies')
           ) : (
-            detail.dependencies.join('、')
+            detail.dependencies.join(', ')
           )}
         </Fact>
         <Fact label={t('chat.taskCenter.detail.delivery')} testId="chat-task-center-delivery">

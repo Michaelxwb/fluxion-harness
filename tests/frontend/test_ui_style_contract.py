@@ -98,6 +98,8 @@ NON_LIST_MODULE_PAGES = (
     "apps/console-platform/frontend/src/modules/overview-dashboard/pages/EgressPage.tsx",
     "apps/console-platform/frontend/src/modules/settings/pages/SettingsPage.tsx",
     "apps/console-platform/frontend/src/modules/webchat/ChatPage.tsx",
+    # 任务中心是深链容器：列表是卡片（ScheduleListPanel 自带分页），本文件不渲染表格/分页构件。
+    "apps/console-platform/frontend/src/modules/webchat/task-center/TaskCenterPage.tsx",
 )
 
 

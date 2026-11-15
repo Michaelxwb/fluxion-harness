@@ -1090,7 +1090,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .webchat-shell,
+  /* shell 的栅格动画是用户触发的面板开合，不在 reduced-motion 的覆盖范围内：
+     它保持单一规则定义，布局契约读到的就是那条完整声明。 */
   .webchat-shell-sidebar,
   .chat-sidebar-item-button,
   .chat-message-item,
@@ -1106,6 +1107,8 @@
 @media (max-width: 1024px) {
   .webchat-shell,
   .webchat-shell[data-drawer-open='false'] {
+    display: grid;
+    min-height: 0;
     grid-template-columns: minmax(0, 1fr);
   }
 
