@@ -2365,7 +2365,7 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ## TASK-029: 适配 Console Schedule/Task API 与运营动作
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-013, TASK-023
 - **Source**: scheduled-task-v2.backend.design.md §3.4.1、API-20..24、§3.4.6、§3.4.8；scheduled-task-v2.frontend.design.md §3.10
 - **Scenarios**: S-07, S-13, E-12, E-13, B-01, B-10
@@ -2403,11 +2403,11 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 
 ### Checklist
 
-- [ ] 列表/详情补 mode/status/end_reason/config_version/Revision/依赖/投递/预算、wait_kind/Snapshot/Human 摘要，统一来自 Worker 真相。
-- [ ] API-22 分页返回 Fire+独立 DST 事件；API-23 单一路由 POST actions 调共用生命周期服务，移除旧 PUT pause/resume。
-- [ ] 不新增 require_admin 或改变 Builder 权限；不提供 POST schedules/用户意图编辑；原 tenant 核属与不可见 404 保持。
-- [ ] Console 时间继续 format_console_time 带 offset，内部保持 ISO；批量名称/聚合避免 N+1，不暴露 Secret 或内部存储路径。
-- [ ] 回归任务列表/详情/取消与既有深链、统一封套/错误 catalog、跨租户、无创建能力及旧动作路由已移除。
+- [x] 列表/详情补 mode/status/end_reason/config_version/Revision/依赖/投递/预算、wait_kind/Snapshot/Human 摘要，统一来自 Worker 真相。
+- [x] API-22 分页返回 Fire+独立 DST 事件；API-23 单一路由 POST actions 调共用生命周期服务，移除旧 PUT pause/resume。
+- [x] 不新增 require_admin 或改变 Builder 权限；不提供 POST schedules/用户意图编辑；原 tenant 核属与不可见 404 保持。
+- [x] Console 时间继续 format_console_time 带 offset，内部保持 ISO；批量名称/聚合避免 N+1，不暴露 Secret 或内部存储路径。
+- [x] 回归任务列表/详情/取消与既有深链、统一封套/错误 catalog、跨租户、无创建能力及旧动作路由已移除。
 
 ### Spec Delta
 
@@ -2418,13 +2418,26 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T11:35:14.330Z] started tests=7b7167675d76
+- [2026-11-15] 读面改读 Worker v2 真值：列表/详情走 `/internal/schedules`（不发 actor 头 ⇒ 同租户范围，保留 `actor_user_id` 过滤），Fire 历史走 API-08，新增 `application/schedule_view.py` 把 ISO 时刻换成 `format_console_time`（带 offset）。`/internal/admin/schedules` 只保留两处用途：Console 读 `owner_user_id`（动作归属）与管理员软删。
+- [2026-11-15] API-22：`GET /api/v1/schedules/{id}/fires` 返回 `{items,dst_events,page,page_size,total}`；DST 事件与真实 Fire 分开，不伪造触发记录。
+- [2026-11-15] API-23：唯一的 `POST /api/v1/schedules/{id}/actions`（`pause|resume|cancel`，`scope` 只属于 cancel），旧 `PUT /{id}/pause|resume` 路由已删除、无双路由。Worker 的 API-04/05/06 按 owner 复核可见性而 Console 授权范围是同租户：Console 先经 Admin 详情读 owner（Worker 真值）再代表它调用共用生命周期服务，跨租户仍是 404。动作一律带 `Idempotency-Key`（透传调用方的键，缺省每次生成新键）。
+- [2026-11-15] 权限不变：没有新增 `require_admin`，Builder/Admin 行为一致；没有 `POST /api/v1/schedules`、没有用户意图编辑；DELETE 仍是管理员软删（Fire/Execution/事件全部保留）。
+- [2026-11-15] Task 面：列表保留 `wait_kind`/`task_type` 并统一时刻格式；详情由 `application/task_view.py` 把原始 `execution_snapshot` 换成白名单摘要（schema/hash/mode/allowlist/memory_mode/budget），`skills[].storage_key` 这类内部存储键不再外泄；Human 摘要取自执行时间线的 `WAITING_HUMAN` 事件（问题/截止时间/`open` 以 Execution 状态为准）。
+- [2026-11-15] 新增 `tests/console_tasks/test_scheduled_v2_console_api.py`（8 例）：v2 字段与 offset、Fire/DST 分离、单一 action 路由与旧路由移除、scope 透传（FUTURE_ONLY 保留已开始执行、ALL_ACTIVE 关闭 Human）、跨租户 404、Task 详情 wait_kind/Snapshot/Human 且不泄漏 storage_key。
+- [2026-11-15] `tests/console_tasks/test_schedules_api.py` 迁到 v2：认证、统一封套、状态过滤、软删保留历史、跨租户不可见；种子改由 `tests/console_tasks/helpers.py` 直接落 v2 行（Draft→确认链由 Worker 套件覆盖）。
+- [2026-11-15] 连带修复同目录两个被 v1 列打红的既有回归：`tests/console_tasks/test_tasks_api.py`、`tests/console_tasks/test_worker_client.py` 的种子改用 v2 列（`intent_key`/`execution_mode`/`delivery_*` 已退役）；`tests/console_tasks/conftest.py` 清理顺序补齐 revision/fire/human/delivery，并先解 Fire↔Execution、Schedule↔Revision 的循环引用。
+- [2026-11-15] `tests/agent_worker/test_admin_schedules.py` 迁到 v2 管理面：列表/详情/tenant 隔离、pause/resume（终态是 `ENDED`，错误码 `SCHEDULE_STATE_INVALID`/`SCHEDULE_NOT_FOUND`）、软删幂等且保留 Fire/Execution。Console 已不再调用 Admin 的 pause/resume（改走 API-04/05/06），该两例保留是因为路由仍 live。
+- [2026-11-15] `tests/agent_worker/test_schedule_writes.py` 删除：整份文件断言的是已退役的 API-02/03（`POST/PUT /internal/schedules`、`scheduler.service.compute_next_fire_at`）。仍成立的事实各有新家——幂等重放：`test_scheduled_v2_lifecycle::test_cancel_replays_first_response_for_the_same_key`、`test_scheduled_v2_confirm::test_same_key_same_body_replays_after_the_draft_was_consumed`；next_fire/DST 计算：`test_scheduled_v2_recurrence`；更新递增 revision/终态拒绝/已开始执行保留旧快照：`test_scheduled_v2_revisions`、`test_scheduled_v2_confirm`；退役路由 405：`test_scheduled_v2_lifecycle::test_retired_create_and_update_routes_are_gone`。
+- [2026-11-15] 延期（受本 worktree 的并行边界约束，worker 源码不可改）：(1) Worker 没有「同租户 actor=None」的动作端点，Console 只能用 owner 作为 actor；理想形态是管理面提供动作端点后去掉 owner 解析。(2) 执行级 `delivery_status` 只有 `ScheduleReadService.delivery_status`，没有对 Console 暴露的读端点（TASK-023 注记归本 TASK），本次未暴露、未伪造。(3) `tests/architecture` 的 2 例红（`context_compaction_total` 的 `layer` label、gateway 多 worker 指标聚合）在基线 HEAD 即红，与本改动无关。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-030"></a>
-
+- 2026-11-15T11:49:50.971Z PASS commands=1/1 executed=1 deduped=0 elapsed=11547ms tests=7b7167675d76 head=bea3a1bd4687 dirty=1
+  - related PASS exit=0
 ## TASK-030: 更新 Console Schedule/Task 现有页面
 
 - **Status**: draft
