@@ -1246,7 +1246,7 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
   - related PASS exit=0
 ## TASK-015: 改造 claim、lease 与三类外部等待
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-005, TASK-014
 - **Source**: scheduled-task-v2.backend.design.md §3.3.6、§3.3.12、§3.5.3、§3.5.6
 - **Scenarios**: S-06, S-08, S-17, E-03, E-06, E-15, B-05, B-06, B-08, B-12
@@ -1287,12 +1287,12 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 
 ### Checklist
 
-- [ ] QUEUE 按 scheduled_at/create_time FIFO；立即任务继续 priority/create_time；PARALLEL 按配置计算槽位，不用错误的 NOT EXISTS 禁止全部并行。
-- [ ] 区分 Fire 阻断集与 claim 占槽集；排除候选自身、Child 及同执行续接，不让 QUEUED 自己阻塞自己；被挡住不伪造 not_before 退避。
-- [ ] 首次领取写 started_at，reclaim/续接不清空；真实重试 attempt 与 HUMAN/EXTERNAL resume_count 分开，lease_epoch fence 所有旧结果。
-- [ ] WAITING_EXTERNAL 按 ASYNC_OPERATION/EXTERNAL_POLL/BATCH_FANIN 分发；后两者迁移既有轮询和 fan-in，不丢 BATCH 崩溃恢复/幂等扇出。
-- [ ] claim、心跳、终态均检查 deadline 与有效 owner/epoch/lease；心跳退出监督本地执行取消；deadline sweep 独立于慢的 due scan。
-- [ ] 真实双 Worker 验证 FIFO、max_concurrency、不同 Schedule 不饥饿、等待不占本地执行槽、reclaim 后不重放副作用，锁序无反转。
+- [x] QUEUE 按 scheduled_at/create_time FIFO；立即任务继续 priority/create_time；PARALLEL 按配置计算槽位，不用错误的 NOT EXISTS 禁止全部并行。
+- [x] 区分 Fire 阻断集与 claim 占槽集；排除候选自身、Child 及同执行续接，不让 QUEUED 自己阻塞自己；被挡住不伪造 not_before 退避。
+- [x] 首次领取写 started_at，reclaim/续接不清空；真实重试 attempt 与 HUMAN/EXTERNAL resume_count 分开，lease_epoch fence 所有旧结果。
+- [x] WAITING_EXTERNAL 按 ASYNC_OPERATION/EXTERNAL_POLL/BATCH_FANIN 分发；后两者迁移既有轮询和 fan-in，不丢 BATCH 崩溃恢复/幂等扇出。
+- [x] claim、心跳、终态均检查 deadline 与有效 owner/epoch/lease；心跳退出监督本地执行取消；deadline sweep 独立于慢的 due scan。
+- [x] 真实双 Worker 验证 FIFO、max_concurrency、不同 Schedule 不饥饿、等待不占本地执行槽、reclaim 后不重放副作用，锁序无反转。
 
 ### Spec Delta
 
@@ -1303,13 +1303,26 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T08:08:42.577Z] started tests=ef0ee8dfdda5
+- [2026-11-15] 实现：重写 `worker/claimer.py` 为**两段式领取**——①无锁预筛（占槽计数 + `wait_kind` 分发写进 SQL，避免被挡住的队头空转）；②固定锁序 Schedule → Execution，在 Schedule 行锁内复检占槽数并 `FOR UPDATE SKIP LOCKED` 改状态。排序：调度任务 `(scheduled_at, create_time)`（`priority` 不参与），立即任务 `(priority, create_time)` 且先于调度队列。
+- [2026-11-15] 口径决定（两套集合）：占槽集 = `RUNNING/WAITING_EXTERNAL/WAITING_HUMAN`，**不含 QUEUED**（`worker/claimer.SLOT_STATUSES`）；阻断集仍是 `scheduler/fire.BLOCKING_ROOT_STATUSES`（含 QUEUED）。占槽子查询排除候选自身与全部 Child（`parent_id IS NULL`），"自己的 WAITING_EXTERNAL 续接"正是候选行本身，因此不占新槽；被挡住的候选不写 `not_before`。
+- [2026-11-15] 口径决定（并发上限来源）：按 Schedule 的**当前 Revision** `schedule_policy` 计算槽位（`ALLOW_PARALLEL` → `max_concurrency`，其余 1）；上限不写进 Execution，避免一份可变的第二真相。
+- [2026-11-15] 口径决定（三类等待的唤醒源）：`EXTERNAL_POLL` 到 `not_before` 由定时 claim 续接；`ASYNC_OPERATION` **不看定时器**，只有 `wait_payload_json.operations[]` 全部终态（`COMPLETED/FAILED/CANCELLED`，用 `jsonb_path_exists` 判定）才续接，结果水位是唯一真相；`BATCH_FANIN` 永不 claim——Parent 由 Child 终态在 fan-in 事务里直接置终态。缺 `wait_kind` 的 `WAITING_EXTERNAL` 不盲领。
+- [2026-11-15] 计数口径：首次/真实重试（QUEUED→RUNNING）计 `attempt` 并只在 `started_at IS NULL` 时写 `started_at`；HUMAN/EXTERNAL 续接只计 `resume_count` + `last_resume_reason`，不清 `started_at`；每次领取都推进 `lease_epoch`（fence 掉旧结果），`wait_kind` 在续接时清空、`wait_payload_json` 保留给执行器读 `external_ref`。
+- [2026-11-15] deadline 三侧收口：claim 排除过期行；心跳 `LeaseRenewal.expired` 叫停本地执行并落 `FAILED(TASK_DEADLINE_EXCEEDED)`（新增 `LeaseRenewal`，一次行读取同时给 owner/取消/期限）；COMPLETED 的终态 CAS 增加 `deadline_at > moment`；回收遇到已过期执行不再重排，直接 `FAILED(TASK_DEADLINE_EXCEEDED)`。显式取消优先于期限（CANCELLED 优先，二者都不许写成 COMPLETED）。deadline sweep 仍由 Scheduler 独立节拍驱动。
+- [2026-11-15] 等待载荷迁移到 v2 列：`_wait` 写 `wait_kind` + `wait_payload_json`（`external_ref` / `operations[]` / `batch`），Skill 的 `wait` 信封新增可选 `wait_kind`（缺省 `EXTERNAL_POLL`），批量信封显式声明 `BATCH_FANIN`；`batch_fanout` 改写 `wait_payload_json` 并去掉 v1 的 `external_ref_json`/`delivery_*`/`intent_key`/`execution_mode` 列；终态写清 `wait_kind` 但保留载荷（取消路径在终态后仍按 `operations[]` 发远端取消意图）。
+- [2026-11-15] 事件口径：v1 的 `FAN_OUT`/`FAN_IN` 不在 §3.5.10 的事件全集（`TaskEventType` 里已不存在），批量扇出不再写专用事件；聚合明细随 Parent 终态事件的 payload 落库。
+- [2026-11-15] 测试：新增 `tests/agent_worker/test_scheduled_v2_claim.py`（16 例：FIFO、ALLOW_PARALLEL 真槽位、等待占槽、被挡队头不饿死别的 Schedule、锁内复检拒绝陈旧候选、双 Worker 同时通过预筛只领一条、多 Worker 并发不重复领取、Schedule 先锁/执行行 `SKIP LOCKED`、三类等待的领取口径、等待不占本地执行槽）；`test_worker_leases.py` 补 started_at/epoch/resume_count/回收不重放不可重试副作用；`test_task_deadline.py` 补心跳叫停跨期限执行、回收不重排过期执行、取消优先于期限，并按 v2 列与 `task_delivery` 投递意图重写 E-03；`test_batch_fanin.py`/`test_batch_fanout.py` 对齐 `WAITING_EXTERNAL`/`BATCH_FANIN`。
+- [2026-11-15] 遗留（交回各自 owner）：`tests/agent_worker/test_task_lease_epoch.py` 仍按 `_renew_lease` 的两元组解包（现返回 `LeaseRenewal`，该文件本就因 v1 列而红，归 TASK-020）；`tests/agent_worker/test_worker_outcomes.py`（TASK-016）与 `tests/agent_worker/test_worker_metrics.py`（导入失败的 `ScheduleService`）仍是 v1 词汇。
 
 ### Verification
 
-- 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
+- 声明测试：`code-flow task finish` 通过。
+- 业务场景（S-06/S-08/S-17、E-03/E-06/E-15、B-05/B-06/B-08/B-12）：未宣称通过，由需求级终验与 E2E 执行。
 
 <a id="task-016"></a>
-
+- 2026-11-15T08:28:14.937Z PASS commands=1/1 executed=1 deduped=0 elapsed=35044ms tests=ef0ee8dfdda5 head=bf9d45a9d53c dirty=1
+  - related PASS exit=0
 ## TASK-016: 接通 Reminder、Skill 与现有立即任务执行链
 
 - **Status**: draft

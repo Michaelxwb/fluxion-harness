@@ -19,7 +19,7 @@ from muad_agent_worker.worker.service import TASK_ATTEMPTS_EXHAUSTED, WorkerLoop
 from muad_common import SharedSettings
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import fetch_events, persist_task, retry_safe_snapshot
+from agent_worker.helpers import fetch_events, fetch_task, persist_task, retry_safe_snapshot
 
 
 def _now() -> datetime:
@@ -78,10 +78,11 @@ async def test_not_before_and_cancelled_are_not_claimable(tenant: TenantContext)
 
 
 async def test_waiting_tasks_are_not_reclaimed(tenant: TenantContext) -> None:
-    """WAITING 是主动让出 lease，不该被 reclaim 抢回。"""
+    """WAITING_EXTERNAL 是主动让出 lease，不该被 reclaim 抢回。"""
     waiting = await persist_task(
         tenant,
-        status="WAITING",
+        status="WAITING_EXTERNAL",
+        wait_kind="EXTERNAL_POLL",
         lease_owner=None,
         lease_until=None,
         not_before=_now() + timedelta(hours=1),
@@ -91,7 +92,7 @@ async def test_waiting_tasks_are_not_reclaimed(tenant: TenantContext) -> None:
     reclaimed = await worker.reclaim_expired()
 
     assert reclaimed == 0
-    assert (await _status(tenant, waiting.id))["status"] == "WAITING"
+    assert (await _status(tenant, waiting.id))["status"] == "WAITING_EXTERNAL"
 
 
 async def test_reclaim_preserves_attempt_and_clears_lease(tenant: TenantContext) -> None:
@@ -246,9 +247,9 @@ async def test_expired_lease_cannot_be_renewed(tenant: TenantContext) -> None:
     )
     worker = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="worker-a")
 
-    owned, _requested = await worker._renew_lease(task.id, lease_epoch=task.lease_epoch)
+    renewal = await worker._renew_lease(task.id, lease_epoch=task.lease_epoch)
 
-    assert owned is False, "过期租约不得被续租"
+    assert renewal.owned is False, "过期租约不得被续租"
     assert (await _status(tenant, task.id))["lease_until"] < _now(), "续租把失效的执行权写回了未来"
 
 
@@ -350,3 +351,144 @@ async def test_heartbeat_failure_stops_the_local_execution(
     assert executor.stopped is True, "租约失联后本地执行仍在跑"
     state = await _status(tenant, task.id)
     assert state["status"] == "QUEUED", "失联应按可重试失败退回队列，而不是留在 RUNNING"
+
+
+async def test_first_claim_writes_started_at_and_reclaim_keeps_it(tenant: TenantContext) -> None:
+    """`started_at` 只在首次领取时写一次：reclaim 回队列与再次领取都不得清空它。
+
+    "未开始"的判据是 `started_at IS NULL`（B-12 / S-06：更新时只取消未开始的旧执行），
+    所以 reclaim 把 RUNNING 退回 QUEUED 之后，这条执行仍然算"已开始"。
+    """
+    task = await persist_task(tenant, execution_snapshot_json=retry_safe_snapshot())
+    claimer = TaskClaimer(tenant.session_factory, tenant.settings)
+
+    first = await claimer.claim_one("worker-a")
+    assert first is not None and first.id == task.id
+    started_at = (await fetch_task(tenant, task.id)).started_at
+    assert started_at is not None, "首次领取必须写 started_at"
+    assert (await fetch_task(tenant, task.id)).lease_epoch == 1
+
+    async with tenant.session_factory() as session:
+        await session.execute(
+            sa.update(TaskExecution)
+            .where(TaskExecution.id == task.id)
+            .values(lease_until=_now() - timedelta(minutes=1))
+        )
+        await session.commit()
+    worker = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="worker-b")
+    assert await worker.reclaim_expired() == 1
+    assert (await fetch_task(tenant, task.id)).status == "QUEUED"
+    assert (await fetch_task(tenant, task.id)).started_at == started_at, "reclaim 不得清空 started_at"
+
+    again = await claimer.claim_one("worker-b", now=_now() + timedelta(seconds=11))
+    assert again is not None
+    refreshed = await fetch_task(tenant, task.id)
+    assert refreshed.started_at == started_at, "再次领取不得改写 started_at"
+    assert refreshed.attempt == 2, "reclaim 后的再次领取是真实重试"
+    assert refreshed.resume_count == 0
+    assert refreshed.lease_epoch == 2, "每次领取都推进 epoch（旧结果被 fence 掉）"
+
+
+async def test_wait_resume_counts_resume_not_attempt(tenant: TenantContext) -> None:
+    """HUMAN/EXTERNAL 续接只计 `resume_count` 与 `last_resume_reason`，不消耗重试预算。"""
+    started = _now() - timedelta(minutes=30)
+    external = await persist_task(
+        tenant,
+        status="WAITING_EXTERNAL",
+        wait_kind="EXTERNAL_POLL",
+        wait_payload_json={"external_ref": {"external_task_id": "ext-7"}},
+        not_before=_now() - timedelta(minutes=1),
+        started_at=started,
+        attempt=1,
+    )
+    human = await persist_task(
+        tenant,
+        status="WAITING_HUMAN",
+        not_before=_now() - timedelta(minutes=1),
+        started_at=started,
+        attempt=2,
+    )
+    claimer = TaskClaimer(tenant.session_factory, tenant.settings)
+
+    resumed_external = await claimer.claim_one("worker-a")
+    assert resumed_external is not None and resumed_external.id == external.id
+    state = await fetch_task(tenant, external.id)
+    assert state.status == "RUNNING"
+    assert state.attempt == 1, "外部等待续接不是重试"
+    assert state.resume_count == 1
+    assert state.last_resume_reason == "EXTERNAL"
+    assert state.started_at == started, "续接不得清空 started_at"
+    assert state.wait_kind is None, "RUNNING 不再是等待态"
+    assert state.wait_payload_json == {"external_ref": {"external_task_id": "ext-7"}}, (
+        "external_ref 要留给执行器做轮询续接"
+    )
+
+    resumed_human = await claimer.claim_one("worker-b")
+    assert resumed_human is not None and resumed_human.id == human.id
+    state = await fetch_task(tenant, human.id)
+    assert state.attempt == 2
+    assert state.resume_count == 1
+    assert state.last_resume_reason == "HUMAN"
+
+
+async def test_stale_epoch_cannot_complete_after_the_wait_resumes(tenant: TenantContext) -> None:
+    """等待续接也推进 epoch：上一轮的过期结果不得写进续接后的执行。"""
+    now = _now()
+    task = await persist_task(
+        tenant,
+        status="WAITING_EXTERNAL",
+        wait_kind="EXTERNAL_POLL",
+        wait_payload_json={"external_ref": {"external_task_id": "ext-1"}},
+        not_before=now - timedelta(minutes=1),
+        attempt=1,
+    )
+    claimer = TaskClaimer(tenant.session_factory, tenant.settings)
+    stale = await claimer.claim_one("worker-a")
+    assert stale is not None
+
+    # 执行器再次进入外部等待（同一 epoch），随后由另一个 Worker 续接。
+    async with tenant.session_factory() as session:
+        await session.execute(
+            sa.update(TaskExecution)
+            .where(TaskExecution.id == task.id)
+            .values(
+                status="WAITING_EXTERNAL",
+                wait_kind="EXTERNAL_POLL",
+                wait_payload_json={"external_ref": {"external_task_id": "ext-1"}},
+                not_before=_now() - timedelta(minutes=1),
+                lease_owner=None,
+                lease_until=None,
+            )
+        )
+        await session.commit()
+    resumed = await claimer.claim_one("worker-b")
+    assert resumed is not None and resumed.id == task.id
+    assert resumed.lease_epoch == stale.lease_epoch + 1
+
+    worker_b = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="worker-b")
+    await worker_b._handle_success(stale, {"stale": True}, now=_now())
+
+    refreshed = await fetch_task(tenant, task.id)
+    assert refreshed.status == "RUNNING", "旧 epoch 的结果写了进去"
+    assert refreshed.result_json is None
+
+
+async def test_reclaim_does_not_replay_a_non_retryable_side_effect(tenant: TenantContext) -> None:
+    """崩溃回收不得重放不可重试的副作用：非重试安全的快照落 `TASK_RESULT_UNVERIFIED`。"""
+    from muad_agent_worker.worker.execution_outcomes import TASK_RESULT_UNVERIFIED
+
+    task = await persist_task(
+        tenant,
+        status="RUNNING",
+        attempt=1,
+        lease_owner="dead-worker",
+        lease_until=_now() - timedelta(minutes=1),
+        execution_snapshot_json={"schema_version": 4, "budget": {"retry_safety": "NON_RETRYABLE"}},
+    )
+    worker = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="worker-b")
+
+    assert await worker.reclaim_expired() == 0, "不可重试的崩溃尝试不得回到队列"
+
+    state = await _status(tenant, task.id)
+    assert state["status"] == "FAILED"
+    assert state["error_code"] == TASK_RESULT_UNVERIFIED
