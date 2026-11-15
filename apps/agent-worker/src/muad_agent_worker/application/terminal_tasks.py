@@ -57,6 +57,8 @@ class TerminalChange:
     error_message: str | None = None
     result_artifact_id: UUID | None = None
     cancel_requested: bool = False
+    #: 失败分类（`FailureClass`，如 `HUMAN_TIMEOUT`）：终态写入的唯一出口，调用方只给事实。
+    failure_class: str | None = None
 
 
 async def _lock_row(
@@ -178,6 +180,7 @@ async def write_terminal(
             error_code=change.error_code,
             error_message=change.error_message,
             result_artifact_id=change.result_artifact_id,
+            failure_class=change.failure_class,
             finished_at=moment,
             cancel_requested=change.cancel_requested or TaskExecution.cancel_requested,
             lease_owner=None,

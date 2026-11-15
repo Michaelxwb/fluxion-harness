@@ -1734,7 +1734,7 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
   - related PASS exit=0
 ## TASK-021: 实现 Human 提问、回答、超时与双侧 CAS
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-013, TASK-019
 - **Source**: scheduled-task-v2.backend.design.md §3.2.6、§3.3.7、§3.3.8、API-10、§3.5.8
 - **Scenarios**: S-06, S-09, S-10, E-07, E-08, E-15, B-05, B-08
@@ -1759,7 +1759,8 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
       "-q",
       "tests/agent_worker/test_scheduled_v2_human.py",
       "tests/agent_worker/test_scheduled_v2_human_races.py",
-      "tests/agent_worker/test_task_deadline.py"
+      "tests/agent_worker/test_task_deadline.py",
+      "tests/agent_worker/test_worker_leases.py"
     ],
     "timeout": 600,
     "parallel": false
@@ -1773,12 +1774,12 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Checklist
 
-- [ ] 同事务写 checkpoint、OPEN interaction、WAITING_HUMAN 与释放 lease；每个 Execution 同时至多一个 OPEN，问题 deadline 不晚于 Execution。
-- [ ] 回答按 interaction_id 核对 tenant/user/agent、schema 与 response hash；双侧 CAS OPEN+WAITING_HUMAN+未取消+deadline 有效且旧 lease 已释放。
-- [ ] RESOLVED、回答、Execution QUEUED、lease_epoch/resume_count 与事件同事务；相同回答重放，变更回答冲突；resume 不增加 attempt。
-- [ ] 独立 timeout sweep 原子 TIMED_OUT 与 CANCELLED(HUMAN_TIMEOUT)；FUTURE_ONLY 保留 OPEN，ALL_ACTIVE 才关闭；已终态不得复活。
-- [ ] 真实 PG 并发验证回答/取消/超时各赢的路径、非法 schema 回滚、重复回答、失约 checkpoint、多个执行独立问题及 Prompt/Secret 输入。
-- [ ] 从 DB checkpoint 与原 Snapshot 恢复同一个 Execution；Human 提问投递失败不回滚等待，仍可在任务中心回答。
+- [x] 同事务写 checkpoint、OPEN interaction、WAITING_HUMAN 与释放 lease；每个 Execution 同时至多一个 OPEN，问题 deadline 不晚于 Execution。
+- [x] 回答按 interaction_id 核对 tenant/user/agent、schema 与 response hash；双侧 CAS OPEN+WAITING_HUMAN+未取消+deadline 有效且旧 lease 已释放。
+- [x] RESOLVED、回答、Execution QUEUED、lease_epoch/resume_count 与事件同事务；相同回答重放，变更回答冲突；resume 不增加 attempt。
+- [x] 独立 timeout sweep 原子 TIMED_OUT 与 CANCELLED(HUMAN_TIMEOUT)；FUTURE_ONLY 保留 OPEN，ALL_ACTIVE 才关闭；已终态不得复活。
+- [x] 真实 PG 并发验证回答/取消/超时各赢的路径、非法 schema 回滚、重复回答、失约 checkpoint、多个执行独立问题及 Prompt/Secret 输入。
+- [x] 从 DB checkpoint 与原 Snapshot 恢复同一个 Execution；Human 提问投递失败不回滚等待，仍可在任务中心回答。
 
 ### Spec Delta
 
@@ -1797,13 +1798,30 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T10:18:03.109Z] started tests=93e502a57f94
+- [2026-11-15] API-10：新增 `api/human_interactions.py`（`POST /internal/human-interactions/{id}/respond`，服务身份 + `X-Tenant-Id`/`X-Actor-User-Id`/可选 `X-Agent-Id` + `Idempotency-Key` 台账 `human-respond`）并在 `main.py` 注册路由。
+- [2026-11-15] 回答实现 `application/human_interactions.py`：按 `interaction_id` 核对 tenant/owner/声明 Agent → `input_schema`（`jsonschema`）→ **双侧 CAS**（`interaction OPEN→RESOLVED` + `execution WAITING_HUMAN→QUEUED`，条件含 `cancel_requested=false`、`deadline_at > PG now`、`lease_owner/lease_until` 为空；同事务 `lease_epoch+1`、`resume_count+1`、`last_resume_reason=HUMAN` 与 `EXECUTION/RESUMED`+`HUMAN/RESOLVED` 事件）。终态执行/已取消/已超时一律拒绝，不复活。
+- [2026-11-15] 幂等两层：`Idempotency-Key` 台账管同一次提交重放；interaction 级按规范化回答指纹——同内容重放首次结果（RESOLVED+QUEUED），不同内容 `IDEMPOTENCY_MISMATCH`。事件只落 `response_hash`，不落回答正文。
+- [2026-11-15] 一次性续接标记：回答事务在 `wait_payload_json` 写 `{"human_interaction_id": …}`，claim 读到即按 Human 续接处理并清空（不再从 `WAITING_HUMAN` 直接 claim）；`resume_count` 只在回答事务计一次，`attempt` 不变。执行器按"`resolved_at` 晚于最近 checkpoint `create_time`"取回回答，以 USER 消息接在 checkpoint 历史之后（`agentic_executor._with_human_answer`），无可用回答时告警并保持原恢复状态。
+- [2026-11-15] 修复 TASK-019 留下的真问题：`TIMER_STATUSES` 曾含 `WAITING_HUMAN` 且 `_wait_human` 把 `not_before` 写成问题 deadline —— 到期那一刻 claim 会把等待人工的执行直接起跑（等于凭空回答）。现等待人工没有任何定时唤醒源，只有回答改回 QUEUED 才续接；`not_before` 对 WAITING_HUMAN 不再参与领取。
+- [2026-11-15] 超时：新增 `worker/human_timeouts.py`（`HumanTimeoutSweeper` 有界扫描 + 逐条事务；`HumanTimeoutLoop` 独立节拍，复用 `task_deadline_sweep_interval_sec` 作为唯一设置来源）。到期写成 **`CANCELLED` + `error_code=HUMAN_INTERACTION_EXPIRED` + `failure_class=HUMAN_TIMEOUT`** 并关 interaction `TIMED_OUT`；执行已终态时**只关 interaction**，不改写执行、不补执行事件。执行 CAS 只认 `status=WAITING_HUMAN AND cancel_requested=false`，与 deadline sweep 的 `NON_TERMINAL` 终态 CAS 互斥——先到者生效、后者整体回滚。
+- [2026-11-15] 按设计修正（曾误写 FAILED）：`backend.design.md` §3.2.6/§3.5.8 与 scenarios S-06 三处写死超时为 `Execution CANCELLED(HUMAN_TIMEOUT)`，初版实现误取 `FAILED(HUMAN_TIMEOUT)`；现终态为 `CANCELLED`，`failure_class` 保留 `HUMAN_TIMEOUT` 记录原因，事件对为 `EXECUTION/CANCELLED` + `HUMAN/TIMED_OUT`，相关用例断言同步收紧（不再兼容两种状态）。
+- [2026-11-15] `TerminalChange` 增加 `failure_class` 并在 `write_terminal` 唯一出口写入（超时是唯一使用方，其余终态保持 NULL）。
+- [2026-11-15] `FUTURE_ONLY` 保留 OPEN 与 `WAITING_HUMAN`、`ALL_ACTIVE`/Execution 取消原子关闭 interaction：由 TASK-013 的矩阵实现，本 TASK 用真实接口回归并加断言。
+- [2026-11-15] Checklist 第 1 条的实现来自 TASK-019 的 `WorkerLoop._wait_human`（同事务写 checkpoint + OPEN interaction + WAITING_HUMAN + 释放 lease，`deadline=min(问题, 执行)`，部分唯一索引保证每 Execution 至多一个 OPEN）；本 TASK 未改该函数，只补了与之配套的"等待人工不可被定时 claim"不变量并在测试中保留其回归。
+- [2026-11-15] Checklist 第 6 条中"投递失败不回滚等待"是结构性事实：`_wait_human` 事务内没有任何投递写入（Human 推送是 TASK-022 的独立 `task_delivery`），因此投递失败无从回滚等待；本 TASK 验证的是从 DB checkpoint + 原 Snapshot 恢复同一个 Execution（回答以用户消息接续）。
+- [2026-11-15] 测试：`tests/agent_worker/test_scheduled_v2_human.py`（18 条，真实路由 + 真实 PG）与 `tests/agent_worker/test_scheduled_v2_human_races.py`（6 条，并发方各用独立 Session/事务）。`test_worker_leases.py` 的 Human 分支按新契约改为"等待人工不可被 claim"。
+- [2026-11-15] `docs/configuration-inventory.csv` 按 AST 重新盘点本 TASK 触及模块的常量。既有陈旧项（`execution_outcomes.py`/`task_operation_client.py`/`application/agentic/checkpoints.py` 行号漂移）在 main 上已红，非本 TASK 引入，未越界修改。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-022"></a>
-
+- 2026-11-15T10:30:59.002Z PASS commands=1/1 executed=1 deduped=0 elapsed=33160ms tests=89e024a199fb head=66c280480ae2 dirty=1 tests-changed
+  - related PASS exit=0
+- 2026-11-15T10:33:04.060Z PASS commands=1/1 executed=1 deduped=0 elapsed=34989ms tests=89e024a199fb head=f1d455a027a2 dirty=1 tests-changed
+  - related PASS exit=0
 ## TASK-022: 拆分独立 Delivery 并可靠推送 WeCom
 
 - **Status**: draft

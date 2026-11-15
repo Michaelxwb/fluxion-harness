@@ -27,9 +27,11 @@ from muad_agent_core.agent import (
     RunnerVerificationExhausted,
     SuspensionKind,
 )
+from muad_agent_core.model import ModelMessage, ModelRole
 from muad_agent_core.skill import SkillExecutionStatus
 from muad_api.error_codes import ErrorCode
 from muad_contracts import WaitKind
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.agentic.checkpoints import AgenticLeaseLost, ExecutionIdentity, checkpoint_state
 from ..application.agentic.errors import AgenticError
@@ -45,6 +47,7 @@ from ..application.agentic.run import (
 )
 from ..application.agentic.snapshot import load_frozen_execution
 from ..application.agentic.suspension import AgenticSuspension, pending_payload
+from ..application.human_interactions import human_answer_content, load_human_answer
 from ..infrastructure.console_credentials import CredentialResolutionError
 from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.task_operation_client import TaskOperationClient, TaskOperationError
@@ -61,6 +64,10 @@ from .executor import TaskExecutionError
 logger = logging.getLogger("muad_agent_worker.worker.agentic_executor")
 
 AGENTIC_EXECUTION_FAILED = "AGENTIC_EXECUTION_FAILED"
+#: `last_resume_reason` 的 Human 取值（claim 写入；与 answer 事务同一口径）。
+HUMAN_RESUME_REASON = "HUMAN"
+#: `last_resume_reason` 的外部等待取值（claim 写入）。
+EXTERNAL_RESUME_REASON = "EXTERNAL"
 TASK_DEADLINE_EXCEEDED = "TASK_DEADLINE_EXCEEDED"
 ASYNC_WAIT_SEC = 60
 HUMAN_INPUT_KIND = "HUMAN_INPUT"
@@ -94,6 +101,9 @@ class AgenticTaskExecutor:
             resume = await load_resume_state(
                 self._deps.sessions, task, operations=self._deps.operations
             )
+            # Human 续接的答案不是持久事件：恢复后按 resolved_at 注入成本轮的一条 USER 消息。
+            if resume is not None and task.last_resume_reason == HUMAN_RESUME_REASON:
+                resume = await _with_human_answer(self._deps.sessions, task, resume)
             if resume is not None and resume.pending:
                 # 崩后重建：还有调用没终态，历史里那些 tool 消息只是提交回执。补写等待，
                 # 不跑模型（否则会得到"声明了 tool_call 却没有结果"的非法回合）。
@@ -123,6 +133,27 @@ class AgenticTaskExecutor:
         except (RunnerModelError, RunnerVerificationExhausted, RunnerEmptyReply, RunnerError) as exc:
             raise TaskExecutionError(AGENTIC_EXECUTION_FAILED, str(exc)) from exc
         return _envelope(outcome, task)
+
+
+async def _with_human_answer(
+    sessions: async_sessionmaker[AsyncSession], task: TaskExecution, resume: ResumeState
+) -> ResumeState:
+    """Human 续接：把这一次的回答按用户消息接在 checkpoint 历史之后。
+
+    没有可注入的回答（回答之后没有新 checkpoint、或已被消费）就保持原恢复状态并显式告警：
+    恢复仍从 checkpoint 继续，不臆造回答内容。
+    """
+    answer = await load_human_answer(sessions, task)
+    if answer is None:
+        logger.warning("human_resume_without_answer", extra={"execution_id": str(task.id)})
+        return resume
+    return replace(
+        resume,
+        messages=(
+            *resume.messages,
+            ModelMessage(role=ModelRole.USER, content=human_answer_content(answer)),
+        ),
+    )
 
 
 def _identity(task: TaskExecution) -> ExecutionIdentity:

@@ -390,7 +390,12 @@ async def test_first_claim_writes_started_at_and_reclaim_keeps_it(tenant: Tenant
 
 
 async def test_wait_resume_counts_resume_not_attempt(tenant: TenantContext) -> None:
-    """HUMAN/EXTERNAL 续接只计 `resume_count` 与 `last_resume_reason`，不消耗重试预算。"""
+    """EXTERNAL 续接只计 `resume_count` 与 `last_resume_reason`，不消耗重试预算。
+
+    Human 续接不再由 claim 从 `WAITING_HUMAN` 直接起跑（等待人工没有定时唤醒源）：
+    回答事务把执行改回 QUEUED 并留下一次性标记，claim 消费标记时同样不消耗 attempt。
+    这条路径由 `tests/agent_worker/test_scheduled_v2_human.py` 覆盖。
+    """
     started = _now() - timedelta(minutes=30)
     external = await persist_task(
         tenant,
@@ -400,13 +405,6 @@ async def test_wait_resume_counts_resume_not_attempt(tenant: TenantContext) -> N
         not_before=_now() - timedelta(minutes=1),
         started_at=started,
         attempt=1,
-    )
-    human = await persist_task(
-        tenant,
-        status="WAITING_HUMAN",
-        not_before=_now() - timedelta(minutes=1),
-        started_at=started,
-        attempt=2,
     )
     claimer = TaskClaimer(tenant.session_factory, tenant.settings)
 
@@ -423,12 +421,19 @@ async def test_wait_resume_counts_resume_not_attempt(tenant: TenantContext) -> N
         "external_ref 要留给执行器做轮询续接"
     )
 
-    resumed_human = await claimer.claim_one("worker-b")
-    assert resumed_human is not None and resumed_human.id == human.id
+    human = await persist_task(
+        tenant,
+        status="WAITING_HUMAN",
+        not_before=_now() - timedelta(minutes=1),
+        started_at=started,
+        attempt=2,
+    )
+    assert await claimer.claim_one("worker-b") is None, (
+        "等待人工不是定时唤醒：到期也不得被 claim 起跑（否则等于凭空回答）"
+    )
     state = await fetch_task(tenant, human.id)
-    assert state.attempt == 2
-    assert state.resume_count == 1
-    assert state.last_resume_reason == "HUMAN"
+    assert state.status == "WAITING_HUMAN"
+    assert state.attempt == 2 and state.resume_count == 0
 
 
 async def test_stale_epoch_cannot_complete_after_the_wait_resumes(tenant: TenantContext) -> None:

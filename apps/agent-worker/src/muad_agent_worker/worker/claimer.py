@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import aliased
 
 from ..application.agentic.suspension import TERMINAL_OPERATION_VALUES
+from ..application.human_interactions import pending_interaction_id
 from ..application.task_events import EntityType, TaskEventType, append_event
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution, TaskSchedule, TaskScheduleRevision
@@ -42,8 +43,10 @@ SLOT_STATUSES = (
     str(TaskStatus.WAITING_EXTERNAL),
     str(TaskStatus.WAITING_HUMAN),
 )
-#: 定时唤醒即可领取的状态：QUEUED（首次/重试）与 WAITING_HUMAN（回答落库后置 `not_before`）。
-TIMER_STATUSES = (str(TaskStatus.QUEUED), str(TaskStatus.WAITING_HUMAN))
+#: 定时唤醒即可领取的状态只有 QUEUED（首次/重试/Human 回答后的续接）。
+#: `WAITING_HUMAN` **不在其中**：等待人工时没有任何定时唤醒源，回答事务把执行改回 QUEUED
+#: 才是唯一续接入点；否则问题到期那一刻会被 claim 起跑（等于凭空回答）。
+TIMER_STATUSES = (str(TaskStatus.QUEUED),)
 #: `wait_payload_json.operations[]` 里每个 operation 的终态；**全部**终态才续接（design §3.5.6）。
 #: `LATE` 同样是终态：执行已收口、结果只登记，若把它当"未就绪"会让等待永远悬着。
 WAIT_OPERATION_TERMINAL = tuple(sorted(TERMINAL_OPERATION_VALUES))
@@ -313,11 +316,19 @@ class TaskClaimer:
         return bool(available)
 
     def _transition(self, task: TaskExecution, moment: datetime, instance_id: str) -> str | None:
-        """QUEUED/WAITING → RUNNING：真实重试计 attempt，Human/External 续接只计 resume_count。"""
-        resume_reason = {
-            str(TaskStatus.WAITING_HUMAN): RESUME_REASON_HUMAN,
-            WAITING: RESUME_REASON_EXTERNAL,
-        }.get(task.status)
+        """QUEUED/WAITING → RUNNING：真实重试计 attempt，Human/External 续接只计 resume_count。
+
+        Human 续接的识别靠回答事务留下的一次性标记（`wait_payload_json.human_interaction_id`）：
+        `resume_count` 已经在回答事务里加过，这里只消费标记、不重复计数，也**不消耗 attempt**。
+        标记消费后 row 回到普通 QUEUED，后续失败重试按真实重试计预算。
+        """
+        resume_reason = {WAITING: RESUME_REASON_EXTERNAL}.get(task.status)
+        human_resume = task.status == str(TaskStatus.QUEUED) and pending_interaction_id(
+            task.wait_payload_json
+        ) is not None
+        if human_resume:
+            resume_reason = RESUME_REASON_HUMAN
+            task.wait_payload_json = None
         task.status = str(TaskStatus.RUNNING)
         task.lease_epoch += 1
         task.lease_owner = instance_id
@@ -329,7 +340,8 @@ class TaskClaimer:
         if resume_reason is None:
             task.attempt += 1
         else:
-            task.resume_count += 1
+            if not human_resume:
+                task.resume_count += 1
             task.last_resume_reason = resume_reason
         # 只在首次开始执行时写一次；reclaim/续接都不得清空（"未开始"用 `started_at IS NULL`）。
         if task.started_at is None:
