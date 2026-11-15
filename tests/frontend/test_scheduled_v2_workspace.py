@@ -253,7 +253,8 @@ def test_tab_labels_follow_the_locale_catalogs(workspace: dict[str, Any]) -> Non
     zh = workspace["markup"]["tasks-zh"]
     en = workspace["markup"]["tasks-en"]
     assert "对话" in zh and "定时任务" in zh
-    assert "Conversation" in en and "Scheduled tasks" in en
+    # 英文 tab 文案按展示契约用 Title Case。
+    assert "Conversation" in en and "Scheduled Tasks" in en
     assert 'role="tablist"' in zh
 
 
