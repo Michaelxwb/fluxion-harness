@@ -90,6 +90,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 | `tests/agent_runtime/test_capacity_webchat_clock_lease.py` | TASK-016 | 迁到 v2 Schedule 触发与容量路径 |
 | `tests/agent_worker/test_task_lease_epoch.py` | TASK-020 | 迁到 `LeaseRenewal` 与 epoch 栅栏 |
 | `tests/agent_worker/test_task_queries.py` | TASK-023 | 迁到 v2 读面（分页/过滤）；旧列断言删除并说明 |
+| `tests/agent_worker/test_api.py`（`test_schedule_api_lifecycle` 等 v1 用例） | TASK-023 | 迁到 v2 读面与动作路由；`CANCEL_REQUESTED` 事件事实已不存在 |
 | `tests/agent_worker/test_schedule_writes.py` | TASK-029 | 创建/修改已由 Draft+确认取代：保留仍成立的事实（幂等、next_fire 计算）迁入 v2 套件，其余显式删除 |
 | `tests/agent_worker/test_admin_schedules.py` | TASK-029 | 迁到 Console/管理面的 v2 状态与动作 |
 | `tests/agent_worker/test_worker_metrics.py` | TASK-032 | 迁到 Fire/指标标签的 v2 口径 |
@@ -371,6 +372,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Log
 
+- [2026-11-15] 收尾补正（协调侧）：`api/runtime_operations.py` 的取消端点仍在用旧签名 `submission_fingerprint(endpoint, body)` 且传字符串端点——TASK-003 改口径后这里每次调用都会 TypeError。已改用 `SubmissionEndpoint.EXECUTION_CANCEL` + 关键字指纹（endpoint/tenant/actor/目标/载荷）。
 - [2026-11-15] 收尾补正：`tests/contracts/test_runtime_strict_json.py` 的 `test_b02_pg_replay_conflicts_and_unique_scope`仍按旧签名 `submission_fingerprint(endpoint, request)` 调用，并把 partial unique 落败当成裸 `IntegrityError`。本任务的 API 变更后它成了无人认领的红灯，已由协调侧迁到新口径（关键字指纹 + 落败者按指纹判定重放/冲突），18 passed。
 - [2026-11-15] created (draft)
 - [2026-11-15T05:52:33.430Z] started tests=9f4e218971ce
