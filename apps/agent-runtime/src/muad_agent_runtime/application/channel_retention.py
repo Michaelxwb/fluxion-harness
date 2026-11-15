@@ -99,9 +99,15 @@ class RetentionPolicy:
     stream_replay_retention_hours: int
     notification_retention_days: int
     history_retention_days: int
+    #: Task 产物跟随**执行**保留期（scheduled-task-v2 §3.5.11）：清理边界与设置分组同源。
+    task_execution_history_days: int
 
     def __post_init__(self) -> None:
-        for name in ("stream_replay_retention_hours", "notification_retention_days"):
+        for name in (
+            "stream_replay_retention_hours",
+            "notification_retention_days",
+            "task_execution_history_days",
+        ):
             value = getattr(self, name)
             if isinstance(value, bool) or value < 1:
                 raise ValueError(f"{name} must be a positive integer")
@@ -114,11 +120,13 @@ def retention_policy_from_settings(settings: Mapping[str, Any] | None) -> Retent
 
     坏值/未知键由 `parse_platform_settings` 显式失败——**不静默回落默认值**（RULE-06）。
     """
-    webchat = parse_platform_settings(settings).webchat
+    parsed = parse_platform_settings(settings)
+    webchat = parsed.webchat
     return RetentionPolicy(
         stream_replay_retention_hours=webchat.stream_replay_retention_hours,
         notification_retention_days=webchat.notification_retention_days,
         history_retention_days=webchat.history_retention_days,
+        task_execution_history_days=parsed.schedule.max_execution_history_days,
     )
 
 

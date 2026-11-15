@@ -32,7 +32,7 @@ from ..application.schedule_lifecycle import (
     LifecycleOutcome,
     ScheduleService,
 )
-from ..application.schedule_read import ScheduleReadService
+from ..application.schedule_read import HistoryWindow, ScheduleReadService
 from ..application.submissions import (
     IDEMPOTENCY_HEADER,
     SubmissionEndpoint,
@@ -405,14 +405,25 @@ async def list_fires(
     tenant_id: TenantId,
     session: Session,
     caller_actor: ActorUserId,
+    settings_client: PlatformSettingsClientDep,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ApiResponse[Any]:
     schedule = await load_schedule(
         session, tenant_id=tenant_id, schedule_id=schedule_id, owner_user_id=caller_actor
     )
+    # 保留口径是**读面**的事实（B-10）：设置只在授权判定之后取一次，不为不可见的 Schedule 花钱；
+    # 取不到设置就显式失败，不拿 schema 默认值冒充租户配置。
+    snapshot = await settings_client.fetch_snapshot(tenant_id=tenant_id)
+    schedule_settings = resolve_platform_settings(snapshot).schedule
     history = await ScheduleReadService(session).fire_history(
-        schedule=schedule, page=page, page_size=page_size
+        schedule=schedule,
+        page=page,
+        page_size=page_size,
+        window=HistoryWindow(
+            fire_history_days=schedule_settings.max_fire_history_days,
+            execution_history_days=schedule_settings.max_execution_history_days,
+        ),
     )
     return ok(request.app.state.message_catalog, history.model_dump(mode="json"))
 

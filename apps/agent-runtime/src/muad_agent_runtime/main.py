@@ -62,6 +62,7 @@ from .application.memory_consolidation_effects import ConsolidationWorker
 from .application.memory_supervisor import MemorySupervisor
 from .application.run_deadline import expire_runs
 from .application.run_service import expire_queued_runs, reap_abandoned_runs
+from .application.task_artifact_retention import run_task_artifact_retention
 from .application.task_client import WorkerTaskClient
 from .infrastructure.cancel_hint import CancelHintStore, create_cancel_hint_store
 from .infrastructure.console_client import ConsoleCredentialsClient, ConsoleResolveClient
@@ -193,6 +194,22 @@ async def _retention_loop(
             continue
         record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "retention"})
         logger.info("webchat_retention_loop_tick", extra={"summary": report.summary()})
+        # Task 产物的回收由 Runtime owner 做（Worker 不跨 schema 直写）；字节删除在两次短事务
+        # 之间，不持行锁，因此与上面的清理分开、各自成败（§3.5.11，TASK-031）。
+        try:
+            artifacts = await run_task_artifact_retention(
+                get_session_factory(),
+                artifact_root=artifact_root,
+                tenant_id=tenant_id,
+                execution_history_days=policy.task_execution_history_days,
+            )
+        except Exception:
+            record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "task_artifacts"})
+            logger.exception("task_artifact_retention_failed")
+            continue
+        record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "task_artifacts"})
+        if artifacts.removed or artifacts.failed:
+            logger.info("task_artifact_retention_tick", extra={"summary": artifacts.summary()})
 
 
 def _mount_delivery_pump(

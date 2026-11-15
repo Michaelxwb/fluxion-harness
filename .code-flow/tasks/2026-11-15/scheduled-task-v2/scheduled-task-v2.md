@@ -2529,7 +2529,7 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 
 ## TASK-031: 实现有界保留清理并保护等待中的执行
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-008, TASK-014, TASK-020, TASK-021, TASK-022, TASK-023
 - **Source**: scheduled-task-v2.backend.design.md §3.3.7、§3.5.7、§3.5.11；scheduled-task-v2.frontend.design.md §3.6
 - **Scenarios**: S-07, S-09, S-17, B-09, B-10, B-11
@@ -2567,11 +2567,11 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 
 ### Checklist
 
-- [ ] 清理边界取当前保留设置，有界批次/前进游标/租户隔离，锁外处理网络或文件；不在用户 GET 中扫描清理。
-- [ ] 按真实 FK/owner 顺序清除可清理子项与结果发件，保留仍需重投/审计的引用；不破坏 workspace 或仍有效的 Run artifact。
-- [ ] Snapshot/Checkpoint 随 Execution 保留期，不在执行完成时立即删；WAITING_HUMAN/EXTERNAL 永不提前失去恢复材料。
-- [ ] Task artifact 清理由 Runtime owner 实施，文件与元数据失败显式记录并可重试，Worker 不跨 schema 直写。
-- [ ] 查询对清理后的历史给出明确保留提示，保留期内分页不丢失；测试截止边界、并发回答/清理、终态等待投递及跨用户下载不可见。
+- [x] 清理边界取当前保留设置，有界批次/前进游标/租户隔离，锁外处理网络或文件；不在用户 GET 中扫描清理。
+- [x] 按真实 FK/owner 顺序清除可清理子项与结果发件，保留仍需重投/审计的引用；不破坏 workspace 或仍有效的 Run artifact。
+- [x] Snapshot/Checkpoint 随 Execution 保留期，不在执行完成时立即删；WAITING_HUMAN/EXTERNAL 永不提前失去恢复材料。
+- [x] Task artifact 清理由 Runtime owner 实施，文件与元数据失败显式记录并可重试，Worker 不跨 schema 直写。
+- [x] 查询对清理后的历史给出明确保留提示，保留期内分页不丢失；测试截止边界、并发回答/清理、终态等待投递及跨用户下载不可见。
 
 ### Spec Delta
 
@@ -2582,14 +2582,20 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 ### Log
 
 - [2026-11-15] 追加硬性验收点（TASK-018 门禁期间发现）：`artifact_retention_repository.py` 仍只把 `'WAITING'` 当作活动执行，v2 的 `WAITING_EXTERNAL/WAITING_HUMAN` 会被当成可清理——即**等待中执行的产物会被误删**。保留清理必须把三种等待态都视为受保护，并有用例覆盖（否则该事实无人防守）。
+- [2026-11-15] 落地硬性验收点：`artifact_retention_repository._PROTECTED_CLAUSE` 的 Task 活动状态改为 `QUEUED/RUNNING/WAITING_EXTERNAL/WAITING_HUMAN`（v2 没有单一 `WAITING`），由 `tests/agent_runtime/test_scheduled_v2_artifact_retention.py::test_console_retention_protects_every_waiting_status` 防守；撤掉修复该用例即红（已实测）。
+- [2026-11-15] Worker 侧有界保留清理：新增 `application/schedule_retention.py`（Execution 流 + Fire 流，各自 `(create_time,id)` 前进游标、必填租户谓词、`RETENTION_BATCH_SIZE` 单批上界、每轮最多 `RETENTION_MAX_BATCHES_PER_TICK` 批），窗口取平台设置 `schedule.max_fire_history_days` / `schedule.max_execution_history_days`；`main.py` 挂独立循环 `worker.schedule_retention`（节拍沿用 `run_reaper_interval_sec`，不新增同义键）。删除按 FK 顺序：outbox → 尝试删交付 → 事件 → 交付 → Human → checkpoint → 摘 Fire 引用 → 执行行；`task_submission`/`runtime_operation` 只摘 FK；终态但仍有 PENDING 交付/outbox、且有子执行的执行一律保留。
+- [2026-11-15] Runtime 侧 Task 产物回收：新增 `application/task_artifact_retention.py`（`task_id` 非空、按执行保留期、仍非终态执行的产物整行保护、先删全部不可变版本文件再删行、删除失败留行可重试），由既有 `runtime.retention` 清理循环在 webchat 清理之后调用；字节删除发生在两次短事务之间，不持行锁。`channel_retention.RetentionPolicy` 增加 `task_execution_history_days`（与设置同源）。
+- [2026-11-15] 读面保留提示：`FireHistoryPage.retention`（`HistoryRetention`：两个窗口天数 + `cleaned_before` + `oldest_retained_at`），Worker 的 `/internal/schedules/{id}/fires` 在授权判定后按设置取一次边界；空页不再等同于“没发生过”。
 - [2026-11-15] created (draft)
+- [2026-11-15T11:57:37.578Z] started tests=47d7ddf63441
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-032"></a>
-
+- 2026-11-15T12:17:07.097Z PASS commands=1/1 executed=1 deduped=0 elapsed=13980ms tests=47d7ddf63441 head=580249e7ef4b dirty=1
+  - related PASS exit=0
 ## TASK-032: 登记指标、监督循环并补齐部署回滚操作
 
 - **Status**: draft

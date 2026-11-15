@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import sqlalchemy as sa
@@ -22,6 +22,7 @@ from muad_contracts import (
     ExecutionDetail,
     FireHistoryPage,
     FireItem,
+    HistoryRetention,
     LastFireSummary,
     PendingAttentionItem,
     PendingHumanItem,
@@ -39,6 +40,7 @@ from muad_contracts.enums import ScheduleStatus
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import (
     DeliveryRoute,
     ScheduleFire,
@@ -90,6 +92,14 @@ def _context(context_json: dict[str, Any]) -> DraftContext:
         parameters=dict(context_json.get("parameters") or {}),
         output=dict(context_json.get("output") or {}),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class HistoryWindow:
+    """读面用于保留提示的清理边界（来源是平台设置的 schedule 分组，不在此重述默认值）。"""
+
+    fire_history_days: int
+    execution_history_days: int
 
 
 class ScheduleReadService:
@@ -257,7 +267,12 @@ class ScheduleReadService:
         )
 
     async def fire_history(
-        self, *, schedule: TaskSchedule, page: int = 1, page_size: int = 20
+        self,
+        *,
+        schedule: TaskSchedule,
+        page: int = 1,
+        page_size: int = 20,
+        window: HistoryWindow | None = None,
     ) -> FireHistoryPage:
         conditions = [
             ScheduleFire.tenant_id == schedule.tenant_id,
@@ -300,7 +315,36 @@ class ScheduleReadService:
             schedule=schedule, page_items=items, timezone=timezone
         )
         return FireHistoryPage(
-            items=items, dst_events=dst_events, page=page, page_size=page_size, total=total
+            items=items,
+            dst_events=dst_events,
+            page=page,
+            page_size=page_size,
+            total=total,
+            retention=await self._retention(schedule=schedule, window=window),
+        )
+
+    async def _retention(
+        self, *, schedule: TaskSchedule, window: HistoryWindow | None
+    ) -> HistoryRetention | None:
+        """保留提示：`oldest_retained_at` 说明"还能查到多早"，`cleaned_before` 说明清理边界。
+
+        没有窗口（调用方不取设置）就不编造提示；有窗口时两次读都是按索引的单行/有界查询。
+        """
+        if window is None:
+            return None
+        now = await database_now(self._session)
+        oldest = await self._session.scalar(
+            select(func.min(ScheduleFire.scheduled_at)).where(
+                ScheduleFire.tenant_id == schedule.tenant_id,
+                ScheduleFire.schedule_id == schedule.id,
+                ScheduleFire.is_deleted.is_(False),
+            )
+        )
+        return HistoryRetention(
+            fire_history_days=window.fire_history_days,
+            execution_history_days=window.execution_history_days,
+            cleaned_before=now - timedelta(days=window.fire_history_days),
+            oldest_retained_at=oldest,
         )
 
     async def _schedule_timezone(self, schedule: TaskSchedule) -> str:
