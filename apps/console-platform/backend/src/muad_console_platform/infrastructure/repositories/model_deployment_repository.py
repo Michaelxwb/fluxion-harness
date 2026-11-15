@@ -68,6 +68,19 @@ class ModelDeploymentRepository:
         )
         return list(rows), int(total or 0)
 
+    async def list_members(self, tenant_id: str, model_id: uuid.UUID) -> list[ModelDeployment]:
+        """一次取齐一个逻辑模型的全部存活成员：快照要冻结**完整**池，不能分页截断。"""
+        rows = await self._session.scalars(
+            select(ModelDeployment)
+            .where(
+                ModelDeployment.tenant_id == tenant_id,
+                ModelDeployment.model_id == model_id,
+                ModelDeployment.is_deleted.is_(False),
+            )
+            .order_by(ModelDeployment.create_time, ModelDeployment.id)
+        )
+        return list(rows.all())
+
     async def get(
         self, tenant_id: str, model_id: uuid.UUID, deployment_id: uuid.UUID
     ) -> ModelDeployment | None:
