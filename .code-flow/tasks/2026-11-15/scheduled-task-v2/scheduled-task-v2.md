@@ -1167,7 +1167,7 @@ API-27 是唯一创建/更新生效入口：一次用户确认事务同时写确
   - related PASS exit=0
 ## TASK-014: 生成 Fire 并原子提交 Execution 与调度进度
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-004, TASK-005, TASK-010, TASK-013
 - **Source**: scheduled-task-v2.backend.design.md §3.2.9、§3.3.5、§3.5.2、§3.5.3、§3.5.11
 - **Scenarios**: S-04, S-07, S-08, E-02, E-03, E-06, E-10, E-13, B-01, B-02, B-03, B-04
@@ -1207,12 +1207,12 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 
 ### Checklist
 
-- [ ] occurrence 唯一键不含 revision，Execution key 用规范 UTC；Fire 冲突不重复执行业务，任何阶段故障都不会留下半个 Fire/Execution/进度。
-- [ ] SKIP_IF_RUNNING 的阻断集是全部非终态根执行，包含 QUEUED；Child 不阻断；重叠只记 SKIPPED，不创建 Execution。
-- [ ] 永久错误 CRON→NEEDS_ATTENTION，ONCE→ENDED(ADMISSION_FAILED)；临时错误按配置分类与计数，ONCE 重试只在本次锁外 Admission 内，Fire 落库后不补建 Execution。
-- [ ] misfire 一条 Fire 聚合区间，missed_count 仅额外次数；DST gap/second-fold 只写 SCHEDULE 事件，计数按本地槽，结束条件在同事务检查。
-- [ ] 进度不增加 config_version；所有 stale Admission（pause/update/cancel 赢）均丢弃；不下载 Skill 或调用模型，网络不持行锁。
-- [ ] 按 due 时间与租户前进游标有界扫描，单租户失败不阻塞后续租户；真实双 Scheduler/事务故障验证唯一性、原子性和公平性。
+- [x] occurrence 唯一键不含 revision，Execution key 用规范 UTC；Fire 冲突不重复执行业务，任何阶段故障都不会留下半个 Fire/Execution/进度。
+- [x] SKIP_IF_RUNNING 的阻断集是全部非终态根执行，包含 QUEUED；Child 不阻断；重叠只记 SKIPPED，不创建 Execution。
+- [x] 永久错误 CRON→NEEDS_ATTENTION，ONCE→ENDED(ADMISSION_FAILED)；临时错误按配置分类与计数，ONCE 重试只在本次锁外 Admission 内，Fire 落库后不补建 Execution。
+- [x] misfire 一条 Fire 聚合区间，missed_count 仅额外次数；DST gap/second-fold 只写 SCHEDULE 事件，计数按本地槽，结束条件在同事务检查。
+- [x] 进度不增加 config_version；所有 stale Admission（pause/update/cancel 赢）均丢弃；不下载 Skill 或调用模型，网络不持行锁。
+- [x] 按 due 时间与租户前进游标有界扫描，单租户失败不阻塞后续租户；真实双 Scheduler/事务故障验证唯一性、原子性和公平性。
 
 ### Spec Delta
 
@@ -1223,13 +1223,25 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T07:49:02.836Z] started tests=252bb4afe34a
+
+- [2026-11-15] 实现：新增 `scheduler/fire.py`（唯一 occurrence Fire 台账 + 冻结 Execution + 进度推进，同一事务；`ON CONFLICT` 处理 Fire/幂等键冲突），重写 `scheduler/service.py`（`(next_fire_at, tenant_id)` 有界扫描 → 锁外 Admission/设置 → `FOR UPDATE` 复核 `status/current_revision_id/next_fire_at` → `write_fire`）。
+- [2026-11-15] 删除 v1 的 `ScheduleService`（创建/更新/暂停/列表）、`build_scheduled_snapshot`、`compute_next_fire_at`、`_next_cron_fire`：它们写的是 TASK-002 已重建掉的 v1 列，v2 等价入口是 Draft+确认与生命周期矩阵，保留只会是第二套真相。
+- [2026-11-15] 口径决定（input_json）：Execution 只存本次执行要用的输入，不存整份 Revision——REMINDER `{reminder_text, context}`；SKILL `{skill_id, input(按本次计划时刻渲染后的模板), context}`；AGENTIC `{goal, budget, output_contract, context}`。TASK-016/019 的执行器直接消费它，Skill artifact 取本次准入冻结的 Snapshot。
+- [2026-11-15] 口径决定（临时失败阈值）：设计只写「连续 N 次」，代码事实是 `fire.py` 的 `TRANSIENT_FAILURES_BEFORE_ATTENTION`，按最近连续 `FAILED_ADMISSION` Fire 计数；ONCE 不受阈值影响（一次有界重试后即 `ENDED(ADMISSION_FAILED)`）。
+- [2026-11-15] 口径决定（DST）：`next_fire_at` 是 UTC 指针，经 `astimezone` 还原必然是**存在**的本地时刻，因此 gap 不会成为指针形态；gap/second-fold 由 recurrence 作为本次计划的 `dst_events` 与 `slots_consumed` 给出，`write_fire` 在同一事务写 SCHEDULE 事件并按本地槽计数，不伪造 Fire —— 与设计 §3.5.2 的 gap 分支等价。
+- [2026-11-15] 迁移三个 v1 词汇用例：`test_scheduler.py`（时区推进/模板渲染/一轮多条/sweep 节拍/快照 v4）、`test_scheduler_misfire.py`（SKIPPED(MISFIRE) 台账 + `ENDED(MISSED)`）、`test_schedule_trigger.py`（真实 Console 物料解析、双 Scheduler 竞态、pause/cancel/update/delete 赢竞态、撤权永久失败）。v1 的创建/列表/归属断言由 Draft+确认与生命周期矩阵用例按 v2 覆盖。
+- [2026-11-15] 指标 label 改为 Fire 状态（`EXECUTION_CREATED`/`SKIPPED`/`FAILED_ADMISSION`），`scheduled_misfire_total` 语义不变。
+- [2026-11-15] 遗留（交回各自 owner）：`application/schedule_quota.record_quota_skip` 已无生产调用方（Fire 写入统一走 `scheduler/fire.py`），其单测仍在；`tests/agent_runtime/test_capacity_webchat_clock_lease.py`、`tests/agent_worker/test_task_queries.py`、`tests/agent_worker/test_worker_metrics.py` 仍用 v1 词汇（TASK-002 重建 schema 后已红，现在其中两处改为导入失败），需其 owner 迁移。
 
 ### Verification
 
-- 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
+- 声明测试：`code-flow task finish` 通过（46 passed，含新增 `tests/agent_worker/test_scheduled_v2_fire.py` 与迁移后的三个调度用例集）。
+- 业务场景（S-04/S-07/S-08、E-02/E-03/E-06/E-10/E-13、B-01..B-04）：未宣称通过，由需求级终验与 E2E 执行。
 
 <a id="task-015"></a>
-
+- 2026-11-15T08:04:41.965Z PASS commands=1/1 executed=1 deduped=0 elapsed=26663ms tests=252bb4afe34a head=9ea6d0e89580 dirty=1
+  - related PASS exit=0
 ## TASK-015: 改造 claim、lease 与三类外部等待
 
 - **Status**: draft
