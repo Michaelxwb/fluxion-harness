@@ -1078,6 +1078,7 @@ apps/console-platform/backend/src/muad_console_platform/application/run_event_vi
 apps/console-platform/backend/src/muad_console_platform/application/run_event_view.py,38,ITEM_LIMIT,20,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/console-platform/backend/src/muad_console_platform/application/run_event_view.py,39,_QUOTED_PAIR,"re.compile('""(?P<key>[^""\\\\\\r\\n]{1,128})""\\s*:\\s*""(?P<value>(?:\\\\.|[^""\\\\])*)""')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/runtime_credentials.py,44,_TASK_EXECUTION_OWNER_SQL,"text(""SELECT actor_user_id, execution_snapshot_json -> 'model' ->> 'model_id' AS frozen_model_id FROM task.task_execution WHERE id = :task_execution_id AND tenant_id = :tenant_id AND is_deleted = false"")",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/console-platform/backend/src/muad_console_platform/application/schedule_view.py,80,_ACTION_TIME_FIELDS,"('next_fire_at', 'last_fire_at', 'attention_since', 'ended_at', 'create_time', 'update_time')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/skill_audit.py,18,SKILL_RESOURCE_TYPE,'SKILL',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/skill_audit.py,19,WORKSPACE_RESOURCE_TYPE,'WORKSPACE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/skill_audit.py,23,CREATE,'SKILL_CREATE',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1102,6 +1103,8 @@ apps/console-platform/backend/src/muad_console_platform/application/skill_servic
 apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,59,AUDIT_BINDING,'AGENT_SKILL_BINDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,60,USER_SCOPE_SELECTED,'SELECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/skill_service.py,61,VALIDATION_READY,'READY',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/task_view.py,18,_TASK_TIME_FIELDS,"('scheduled_at', 'deadline_at', 'not_before', 'create_time', 'update_time', 'started_at', 'finished_at')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/application/task_view.py,29,_DETAIL_TIME_FIELDS,"_TASK_TIME_FIELDS + ('lease_until', 'heartbeat_at')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/application/user_service.py,17,AUDIT_RESOURCE_TYPE,'PLATFORM_USER',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/cli.py,20,DEFAULT_TENANT,SharedSettings().default_tenant_id,python-constant,environment,必须复用 DEFAULT_TENANT_ID，不能独立默认
 apps/console-platform/backend/src/muad_console_platform/cli.py,22,SECRET_TABLES,"(('bot_account', 'secret_ref', 'secret', False), ('mcp_server', 'auth_secret_ref', 'auth_secret', False), ('user_credential_ref', 'secret_ref', 'credential_json', True), ('shared_credential_ref', 'secret_ref', 'credential_json', True))",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1207,11 +1210,14 @@ apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_val
 apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_validator.py,60,SYMLINK_MODE,40960,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/skill_validator.py,61,ARCHIVE_MAGICS,"(b'PK\x03\x04', b'PK\x05\x06', b'PK\x07\x08', b'\x1f\x8b', b'BZh', b""7z\xbc\xaf'\x1c"", b'Rar!\x1a\x07', b'\xfd7zXZ\x00')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,20,TASKS_PATH,'/internal/admin/tasks',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,21,SCHEDULES_PATH,'/internal/admin/schedules',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,22,DEFAULT_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,23,INTERNAL_SERVICE_HEADER,'X-Internal-Service',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,24,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,25,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,21,ADMIN_SCHEDULES_PATH,'/internal/admin/schedules',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,22,SCHEDULES_PATH,'/internal/schedules',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,23,DEFAULT_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,24,INTERNAL_SERVICE_HEADER,'X-Internal-Service',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,25,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,26,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,27,ACTOR_HEADER,'X-Actor-User-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/console-platform/backend/src/muad_console_platform/infrastructure/worker_client.py,28,IDEMPOTENCY_HEADER,'Idempotency-Key',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/main.py,47,SERVICE_NAME,'muad-console-platform',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/metrics.py,25,API_REQUESTS_METRIC,'console_api_requests_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/console-platform/backend/src/muad_console_platform/metrics.py,26,SKILL_IMPORT_METRIC,'skill_import_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
