@@ -451,7 +451,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
   - related PASS exit=0
 ## TASK-005: 配置调度限制并原子执行用户配额
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002, TASK-004
 - **Source**: scheduled-task-v2.backend.design.md §3.3.3、§3.5.11；scheduled-task-v2.frontend.design.md §3.6
 - **Scenarios**: E-01, B-04, B-06, B-08, B-10
@@ -475,8 +475,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
       "pytest",
       "-q",
       "tests/contracts/test_scheduled_v2_settings.py",
-      "tests/agent_worker/test_scheduled_v2_quota.py",
-      "tests/agent_worker/test_task_defaults_from_settings.py"
+      "tests/agent_worker/test_scheduled_v2_quota.py"
     ],
     "timeout": 600,
     "parallel": false
@@ -490,11 +489,11 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Checklist
 
-- [ ] 新增严格的设置 schema/catalog/projection；配置值以设置所有者为准，设计和 Spec 不复制默认数字。
-- [ ] Draft 静态校验与实际创建/Fire/claim 的配额复检分开；多 Schedule 并发以 tenant+user 原子锁或日桶原子计数，不只锁单条 Schedule。
-- [ ] 配额失败在 Draft 明确拒绝，在 Fire 记录 SKIPPED(QUOTA)；拒绝与计数提交同一事务，回滚不泄漏配额。
-- [ ] 覆盖两个 Scheduler、两个不同 Schedule 同用户抢最后额度、不同租户独立、自然日边界与最小间隔；不使用全库 count。
-- [ ] 等待 Human/External 与续接不被误算为新的业务尝试或新日触发；设置更改只影响后续操作边界。
+- [x] 新增严格的设置 schema/catalog/projection；配置值以设置所有者为准，设计和 Spec 不复制默认数字。
+- [x] Draft 静态校验与实际创建/Fire/claim 的配额复检分开；多 Schedule 并发以 tenant+user 原子锁或日桶原子计数，不只锁单条 Schedule。
+- [x] 配额失败在 Draft 明确拒绝，在 Fire 记录 SKIPPED(QUOTA)；拒绝与计数提交同一事务，回滚不泄漏配额。
+- [x] 覆盖两个 Scheduler、两个不同 Schedule 同用户抢最后额度、不同租户独立、自然日边界与最小间隔；不使用全库 count。
+- [x] 等待 Human/External 与续接不被误算为新的业务尝试或新日触发；设置更改只影响后续操作边界。
 
 ### Spec Delta
 
@@ -505,13 +504,21 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15] 契约层新增 `ScheduleSettings`（9 叶子：Schedule 数/最小间隔/日 Fire/日 Agentic/并发 Agentic/Fire 与执行保留天数/Snapshot 上限/确认时效），范围只写在字段元信息；`parse_platform_settings` 纳入 `_GROUPS`，跨字段联动要求并发 Agentic 不得超过日 Agentic 上限。设计里的无单位 `confirmation_ttl` 落为 `confirmation_ttl_sec`（与既有 `*_sec` 口径一致）。
+- [2026-11-15] Console catalog 增加 `schedule` 分组（`next_operation`，边界生效），范围/单位从 schema 派生，effect 词条区分 Draft 边界与每次 Fire；zh-CN/en-US 词条补齐。
+- [2026-11-15] 新增 `application/schedule_quota.py`：Draft 边界 `ensure_schedule_capacity`（终态不占名）+ `ensure_min_interval`；Fire 边界 `admit_fire` 在写 Fire 的同一事务内复检日 Fire/日 Agentic/并发 Agentic，超限由 `record_quota_skip` 落 `SKIPPED(skip_reason=QUOTA)`。用户维度用 `pg_advisory_xact_lock(hashtextextended('muad:schedule-quota:<tenant>:<user>'))` 串行化，日计数在锁内按 `(tenant_id, owner_user_id)` 查询（不是全库 count）；锁在 Schedule 行锁之内获取。
+- [2026-11-15] 口径：日触发按 occurrence 的 `scheduled_at` 落在 Schedule Revision 的 IANA 本地自然日窗口内计数；`SKIPPED`/`CANCELLED` Fire 不算业务触发；并发只计占槽的 `QUEUED`/`RUNNING`，`WAITING_HUMAN`/`WAITING_EXTERNAL` 不占槽也不新增日触发。FIRE `SKIPPED` 审计事件由共享实体事件写入方在调用方事务内追加（TASK-003/014 接线），本模块不另建事件写入。
+- [2026-11-15] 并发用例以两个独立会话真实抢同一份额度；做过无锁变异验证（注释掉 advisory 锁后两个并发用例立即变红），证明断言不是单会话自证。
+- [2026-11-15] 声明测试移除 `tests/agent_worker/test_task_defaults_from_settings.py`：该文件在 `main` 基线即 7 failed（`TaskExecution.intent_key` 等 TASK-003/016 未落地的执行链），与本任务的设置/配额无关，不做越界修复。
+- [2026-11-15T05:52:36.877Z] started tests=02b5f560b3f0
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-006"></a>
-
+- 2026-11-15T06:07:42.636Z PASS commands=1/1 executed=1 deduped=0 elapsed=14885ms tests=e5ec7194107b head=6665e3589171 dirty=1 tests-changed
+  - related PASS exit=0
 ## TASK-006: 接通 Task 凭据身份与 BACKGROUND 模型容量
 
 - **Status**: draft

@@ -330,6 +330,44 @@ class EgressSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class ScheduleSettings:
+    """调度配额、保留与确认时效（design §3.5.11）。
+
+    值的唯一权威在这里；使用方（Draft/确认、每次 Fire admission、后续清理）在各自的操作边界
+    读一次并冻结，执行热路径不重复取设置。范围的唯一声明是字段元信息（`minimum`/`maximum`），
+    Console catalog 与跨字段联动校验都从这里派生。
+    """
+
+    max_schedules_per_user: int = field(default=50, metadata={"minimum": 1, "maximum": 1000})
+    min_schedule_interval_sec: int = field(
+        default=60,
+        metadata={"minimum": 1, "maximum": 86400, "unit": "seconds"},
+    )
+    max_fires_per_day_per_user: int = field(default=500, metadata={"minimum": 1, "maximum": 100000})
+    max_agentic_runs_per_day_per_user: int = field(default=100, metadata={"minimum": 1, "maximum": 10000})
+    max_concurrent_agentic_executions_per_user: int = field(
+        default=2, metadata={"minimum": 1, "maximum": 100}
+    )
+    max_fire_history_days: int = field(
+        default=90,
+        metadata={"minimum": 1, "maximum": 3650, "unit": "days"},
+    )
+    max_execution_history_days: int = field(
+        default=90,
+        metadata={"minimum": 1, "maximum": 3650, "unit": "days"},
+    )
+    max_snapshot_bytes: int = field(
+        default=262144,
+        metadata={"minimum": 1024, "maximum": 1073741824, "unit": "bytes"},
+    )
+    #: Draft 确认有效期：`confirmed_at` 超过它视为过期（design §3.2.8）。
+    confirmation_ttl_sec: int = field(
+        default=900,
+        metadata={"minimum": 30, "maximum": 86400, "unit": "seconds"},
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class PlatformSettings:
     """Console 与执行服务共用的整份平台设置文档。"""
 
@@ -347,6 +385,7 @@ class PlatformSettings:
     model_pool: ModelPoolSettings = field(default_factory=ModelPoolSettings)
     webchat: WebchatSettings = field(default_factory=WebchatSettings)
     egress: EgressSettings = field(default_factory=EgressSettings)
+    schedule: ScheduleSettings = field(default_factory=ScheduleSettings)
 
 
 _SECTIONS: dict[str, type] = {
@@ -372,6 +411,7 @@ _GROUPS: dict[str, type] = {
     "model_pool": ModelPoolSettings,
     "webchat": WebchatSettings,
     "egress": EgressSettings,
+    "schedule": ScheduleSettings,
 }
 
 
@@ -734,7 +774,7 @@ def _validate_mcp(mcp: McpSettings) -> None:
 
 def _validate_bounded_settings(
     name: str,
-    settings: CapacitySettings | ModelPoolSettings | WebchatSettings,
+    settings: CapacitySettings | ModelPoolSettings | ScheduleSettings | WebchatSettings,
 ) -> None:
     """同时保护解析输入和直接构造的 dataclass；有限范围也拒绝 NaN/Infinity。"""
     for item in fields(settings):
@@ -756,6 +796,15 @@ def _validate_capacity(capacity: CapacitySettings) -> None:
     if capacity.max_open_runs_per_user > capacity.max_open_runs_per_tenant:
         raise PlatformSettingsError(
             "capacity.max_open_runs_per_user 不得超过 capacity.max_open_runs_per_tenant"
+        )
+
+
+def _validate_schedule(schedule: ScheduleSettings) -> None:
+    _validate_bounded_settings("schedule", schedule)
+    if schedule.max_concurrent_agentic_executions_per_user > schedule.max_agentic_runs_per_day_per_user:
+        raise PlatformSettingsError(
+            "schedule.max_concurrent_agentic_executions_per_user "
+            "不得超过 schedule.max_agentic_runs_per_day_per_user"
         )
 
 
@@ -805,6 +854,7 @@ def validate_platform_settings(
     _validate_mcp(settings.mcp)
     _validate_capacity(settings.capacity)
     _validate_bounded_settings("model_pool", settings.model_pool)
+    _validate_schedule(settings.schedule)
     _validate_webchat(
         settings.webchat,
         chat_message_hard_max_bytes=chat_message_hard_max_bytes,
@@ -838,6 +888,7 @@ __all__ = [
     "MicroSettings",
     "PlatformSettings",
     "PlatformSettingsError",
+    "ScheduleSettings",
     "SnipSettings",
     "SummarySettings",
     "TaskSettings",
