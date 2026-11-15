@@ -1015,7 +1015,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
   - related PASS exit=0
 ## TASK-012: 原子确认 Draft 并创建或更新 Revision
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-004, TASK-005, TASK-011
 - **Source**: scheduled-task-v2.backend.design.md §3.2.8、§3.3.4、API-27、§3.5.1、§3.5.4
 - **Scenarios**: S-02, S-04, S-14, E-04, E-05, E-14, B-12
@@ -1053,12 +1053,12 @@ API-27 是唯一创建/更新生效入口：一次用户确认事务同时写确
 
 ### Checklist
 
-- [ ] 仅 Gateway 的可信用户确认调用可达；复核 owner、hash、PENDING、时效与 surface/ref 唯一，确认来源绑定实际用户动作。
-- [ ] 重放检查优先于 Draft 过期/状态检查；同 key 同指纹原样重放，即使 Draft 已使用；另 key 重复使用或跨 Draft confirmation ref 重放明确拒绝。
-- [ ] CREATE 原子建立 Schedule+Revision；UPDATE 只读取 Draft 的 base_config_version 做 CAS，不接受 body 覆盖；冲突回滚确认，Draft 保持 PENDING。
-- [ ] 只有用户配置变化增加 config_version；正常 Scheduler 进度不使 Draft 失效；Revision 只追加不覆盖。
-- [ ] 关键配置变更取消旧 Revision 且 started_at IS NULL 的 Execution 及已存在 Fire；已开始后 reclaim 回 QUEUED 的任务保留，不伪造尚未生成的 Fire。
-- [ ] 仅名称/标签等展示字段变动不取消执行；覆盖并发确认、并发更新、确认后落库失败、ONCE 终态不得修改；模型自确认无任何业务副作用。
+- [x] 仅 Gateway 的可信用户确认调用可达；复核 owner、hash、PENDING、时效与 surface/ref 唯一，确认来源绑定实际用户动作。
+- [x] 重放检查优先于 Draft 过期/状态检查；同 key 同指纹原样重放，即使 Draft 已使用；另 key 重复使用或跨 Draft confirmation ref 重放明确拒绝。
+- [x] CREATE 原子建立 Schedule+Revision；UPDATE 只读取 Draft 的 base_config_version 做 CAS，不接受 body 覆盖；冲突回滚确认，Draft 保持 PENDING。
+- [x] 只有用户配置变化增加 config_version；正常 Scheduler 进度不使 Draft 失效；Revision 只追加不覆盖。
+- [x] 关键配置变更取消旧 Revision 且 started_at IS NULL 的 Execution 及已存在 Fire；已开始后 reclaim 回 QUEUED 的任务保留，不伪造尚未生成的 Fire。
+- [x] 仅名称/标签等展示字段变动不取消执行；覆盖并发确认、并发更新、确认后落库失败、ONCE 终态不得修改；模型自确认无任何业务副作用。
 
 ### Spec Delta
 
@@ -1077,13 +1077,19 @@ API-27 是唯一创建/更新生效入口：一次用户确认事务同时写确
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T07:16:07.663Z] started tests=560caf8738d3
+- [2026-11-15] API-27 确认事务落地：`application/schedule_confirm.py`（Draft 行锁 → owner/hash/PENDING/时效/确认引用 → 确认事实 → Schedule+不可变 Revision+next_fire_at → 首次响应快照）、`api/schedule_drafts.py` 的 `POST /internal/schedule-drafts/{id}/confirm`（`task_submission` 重放先于状态检查）、`api/deps.py` 的确认来源头（`X-Confirmation-Surface`/`X-Confirmation-Ref`，缺失即 `SCHEDULE_CONFIRMATION_REQUIRED`）。
+- [2026-11-15] 测试：`tests/agent_worker/test_scheduled_v2_confirm.py`（16）+ `tests/agent_worker/test_scheduled_v2_revisions.py`（10），真实 PG；原子性以注入失败后按真实行数断言；并发确认/并发更新用真实并发请求。
+- [2026-11-15] `ruff check` 与 strict `mypy` 干净；`tests/architecture/test_channel_neutrality.py` 绿。
+- [2026-11-15] 边界：Draft 不携带外部投递路由，PUSH 确认显式拒绝（`SCHEDULE_DELIVERY_UNSUPPORTED` / `DELIVERY_ROUTE_UNAVAILABLE`），路由接线归 TASK-022；名额配额仍在 Draft 创建边界校验，确认事务未重复校验。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-013"></a>
-
+- 2026-11-15T07:23:16.276Z PASS commands=1/1 executed=1 deduped=0 elapsed=14085ms tests=560caf8738d3 head=621ad13bf198 dirty=1
+  - related PASS exit=0
 ## TASK-013: 实现暂停、恢复及两档取消的完整状态矩阵
 
 - **Status**: draft
