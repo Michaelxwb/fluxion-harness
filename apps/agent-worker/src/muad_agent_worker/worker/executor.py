@@ -27,6 +27,7 @@ from muad_agent_core.skill import (
 )
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import SharedSettings, process_settings
+from muad_contracts import WaitKind
 from muad_contracts.skill_invocation import validate_skill_argv
 from muad_contracts.snapshot import task_execution_timeout
 from muad_platform_sdk.platform_transport import PlatformBudgetScope
@@ -418,17 +419,18 @@ class SkillTaskExecutor:
         )
 
     def _batch_envelope(self, task: TaskExecution, summary: FanoutSummary | None = None) -> dict[str, Any]:
-        """Parent 以 WAITING 收尾：`not_before` 远期停放，等 fan-in 聚合后置终态。"""
+        """Parent 以 `WAITING_EXTERNAL(BATCH_FANIN)` 收尾：等 Child 终态在 fan-in 里聚合。"""
         batch = (
             summary.as_ref()
             if summary is not None
-            else dict((task.external_ref_json or {}).get(BATCH_REF_KEY) or {})
+            else dict((task.wait_payload_json or {}).get(BATCH_REF_KEY) or {})
         )
         return {
             "status": str(SkillExecutionStatus.SUCCEEDED),
             "result": {
                 "wait": {
-                    "external_ref": {BATCH_REF_KEY: batch},
+                    "wait_kind": WaitKind.BATCH_FANIN.value,
+                    BATCH_REF_KEY: batch,
                     "not_before": PARKED_NOT_BEFORE.isoformat(),
                 }
             },

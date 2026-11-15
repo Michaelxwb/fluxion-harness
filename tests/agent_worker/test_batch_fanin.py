@@ -190,16 +190,23 @@ async def _claimable_count(tenant: TenantContext, parent_id: uuid.UUID, moment: 
 
 
 async def _fan_in_events(tenant: TenantContext, parent_id: uuid.UUID) -> int:
+    """聚合不是独立事件类型（§3.5.10）：落在 Parent 终态事件里，按 payload 的聚合明细计数。"""
     async with tenant.session_factory() as session:
-        return int(
+        events = list(
             (
-                await session.execute(
-                    select(func.count())
-                    .select_from(TaskEvent)
-                    .where(TaskEvent.task_id == parent_id, TaskEvent.event_type == "FAN_IN")
+                await session.scalars(
+                    select(TaskEvent).where(
+                        TaskEvent.entity_id == parent_id,
+                        TaskEvent.event_type.in_(("COMPLETED", "FAILED", "CANCELLED")),
+                    )
                 )
-            ).scalar_one()
+            ).all()
         )
+    return sum(
+        1
+        for event in events
+        if isinstance(event.payload_json, dict) and "succeeded" in event.payload_json
+    )
 
 
 async def _drain(worker: WorkerLoop, *, now: datetime, limit: int = 12) -> list[uuid.UUID]:
@@ -225,7 +232,9 @@ async def test_b119_partial_terminal_keeps_parent_waiting_and_releases_next_chil
     now = datetime.now(UTC)
 
     assert await worker.run_once(now=now) == parent.id
-    assert (await fetch_task(tenant, parent.id)).status == "WAITING"
+    refreshed_parent = await fetch_task(tenant, parent.id)
+    assert refreshed_parent.status == "WAITING_EXTERNAL"
+    assert refreshed_parent.wait_kind == "BATCH_FANIN"
     assert len(await _children(tenant, parent.id)) == 4
     assert await _claimable_count(tenant, parent.id, now + timedelta(seconds=2)) == 2
     assert await _fan_in_events(tenant, parent.id) == 0
@@ -234,7 +243,7 @@ async def test_b119_partial_terminal_keeps_parent_waiting_and_releases_next_chil
     assert completed is not None and completed != parent.id
 
     refreshed = await fetch_task(tenant, parent.id)
-    assert refreshed.status == "WAITING", "未全部终态不得提前完成"
+    assert refreshed.status == "WAITING_EXTERNAL", "未全部终态不得提前完成"
     assert refreshed.result_json is None
     assert await _fan_in_events(tenant, parent.id) == 0
     assert await _claimable_count(tenant, parent.id, now + timedelta(seconds=2)) == 2, (
@@ -366,10 +375,11 @@ async def test_b119_release_counts_backoff_and_waiting_children_as_active(
     now = datetime.now(UTC)
     parent = await persist_task(
         tenant,
-        status="WAITING",
+        status="WAITING_EXTERNAL",
+        wait_kind="BATCH_FANIN",
         task_type="BATCH",
         not_before=PARKED_NOT_BEFORE,
-        external_ref_json={"batch": {"aggregate_mode": AGGREGATE_ALL, "concurrency": 2}},
+        wait_payload_json={"batch": {"aggregate_mode": AGGREGATE_ALL, "concurrency": 2}},
     )
 
     async def child(item_key: str, **values: object) -> TaskExecution:
@@ -378,7 +388,13 @@ async def test_b119_release_counts_backoff_and_waiting_children_as_active(
         )
 
     backoff = await child("a", not_before=now + timedelta(minutes=5), attempt=1)
-    waiting = await child("b", status="WAITING", not_before=now + timedelta(minutes=5), attempt=1)
+    waiting = await child(
+        "b",
+        status="WAITING_EXTERNAL",
+        wait_kind="EXTERNAL_POLL",
+        not_before=now + timedelta(minutes=5),
+        attempt=1,
+    )
     parked = await child("c", not_before=PARKED_NOT_BEFORE)
     finished = await child("d", status="COMPLETED")
 
@@ -389,7 +405,7 @@ async def test_b119_release_counts_backoff_and_waiting_children_as_active(
     assert (await fetch_task(tenant, backoff.id)).not_before == now + timedelta(minutes=5), (
         "退避中的 Child 不得被当成停放提前放行"
     )
-    assert (await fetch_task(tenant, waiting.id)).status == "WAITING"
+    assert (await fetch_task(tenant, waiting.id)).status == "WAITING_EXTERNAL"
     assert (await fetch_task(tenant, parked.id)).not_before == PARKED_NOT_BEFORE
 
 
@@ -407,7 +423,7 @@ async def test_last_child_finalizes_a_parent_that_was_reclaimed(tenant: TenantCo
         tenant,
         status="QUEUED",
         task_type="BATCH",
-        external_ref_json={
+        wait_payload_json={
             "batch": {"concurrency": 2, "aggregate_mode": AGGREGATE_ALL, "item_count": 1}
         },
     )
@@ -415,7 +431,6 @@ async def test_last_child_finalizes_a_parent_that_was_reclaimed(tenant: TenantCo
         tenant,
         parent_id=parent.id,
         status="RUNNING",
-        delivery_mode="NONE",
         lease_owner="worker-a",
         lease_until=datetime.now(UTC) + timedelta(minutes=5),
     )
@@ -450,7 +465,7 @@ async def test_child_completion_takes_the_parent_lock_before_the_child_row(
         task_type="BATCH",
         lease_owner="worker-a",
         lease_until=datetime.now(UTC) + timedelta(minutes=5),
-        external_ref_json={
+        wait_payload_json={
             "batch": {"concurrency": 2, "aggregate_mode": AGGREGATE_ALL, "item_count": 1}
         },
     )
@@ -458,7 +473,6 @@ async def test_child_completion_takes_the_parent_lock_before_the_child_row(
         tenant,
         parent_id=parent.id,
         status="RUNNING",
-        delivery_mode="NONE",
         lease_owner="worker-a",
         lease_until=datetime.now(UTC) + timedelta(minutes=5),
     )

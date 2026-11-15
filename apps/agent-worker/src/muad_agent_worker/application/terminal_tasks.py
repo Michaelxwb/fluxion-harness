@@ -182,6 +182,9 @@ async def write_terminal(
             cancel_requested=change.cancel_requested or TaskExecution.cancel_requested,
             lease_owner=None,
             lease_until=None,
+            # 终态不再"等待中"：`wait_kind` 与契约（仅 WAITING_EXTERNAL 有效）保持一致。
+            # 载荷保留：取消路径在终态之后仍按 `wait_payload_json.operations[]` 发远端取消意图。
+            wait_kind=None,
             update_time=moment,
         )
         .returning(TaskExecution.id)

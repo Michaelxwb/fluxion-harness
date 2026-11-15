@@ -13,12 +13,13 @@ import os
 import socket
 import uuid
 from collections.abc import Awaitable, Callable, Coroutine
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, cast
 
 import sqlalchemy as sa
 from muad_common import SharedSettings
-from muad_contracts import TaskStatus, TerminalStatus, ToolRetrySafety, task_retry_safety
+from muad_contracts import TaskStatus, TerminalStatus, ToolRetrySafety, WaitKind, task_retry_safety
 from pydantic import JsonValue
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -92,17 +93,24 @@ def _reclaim_backoff() -> Any:
     )
 
 
-def _reclaim_terminal_change(task: TaskExecution) -> TerminalChange | None:
+def _reclaim_terminal_change(task: TaskExecution, moment: datetime) -> TerminalChange | None:
     """崩溃回收的终态裁决；`None` 表示可按退避重排（TASK-033 的回收语义）。
 
-    取消请求与重试预算耗尽维持原语义；批量父任务的执行是 `_batch_envelope` 的幂等停放
-    （扇出按 `(parent_id, item_key)` 唯一键去重，重排不重跑 Skill、不承载外部副作用）；
+    取消请求、绝对期限与重试预算耗尽维持原语义：回收是"重新取得执行权"，已过 deadline 的
+    执行绝不能被重排成可执行（RULE-worker-001）。批量父任务的执行是 `_batch_envelope` 的
+    幂等停放（扇出按 `(parent_id, item_key)` 唯一键去重，重排不重跑 Skill、不承载外部副作用）；
     其余按**冻结** retry_safety 分流：非重试安全（含未声明/未知，见 `task_retry_safety`）
     的崩溃尝试无法确认外部副作用是否发生，落 `TASK_RESULT_UNVERIFIED` 待核实——回收不得把
     「待核实」重排成自动重做。
     """
     if task.cancel_requested:
         return TerminalChange(status=TerminalStatus.CANCELLED, cancel_requested=True)
+    if task.deadline_at <= moment:
+        return TerminalChange(
+            status=TerminalStatus.FAILED,
+            error_code=TASK_DEADLINE_EXCEEDED,
+            error_message="task deadline exceeded before crash reclaim",
+        )
     if task.attempt >= task.max_attempts:
         return TerminalChange(
             status=TerminalStatus.FAILED,
@@ -201,6 +209,15 @@ class TaskSlotSupervisor:
             logger.error("task_slot_close_timeout", extra={"pending_count": len(pending)})
             raise TimeoutError("worker task slots did not stop within close budget")
         self._tasks.clear()
+
+
+@dataclass(frozen=True, slots=True)
+class LeaseRenewal:
+    """一次续租的结论：是否仍持有租约、是否已请求取消、是否已过绝对期限（同一次行读取）。"""
+
+    owned: bool
+    cancel_requested: bool
+    expired: bool
 
 
 class WorkerLoop:
@@ -355,25 +372,26 @@ class WorkerLoop:
         """单个槽的完整生命周期：执行与心跳共同监督，收尾只写本任务的结论。"""
         moment = now if now is not None else await self._pg_clock()
         cancelled = asyncio.Event()
+        expired = asyncio.Event()
         execution = asyncio.create_task(self._resolve_executor().execute(task))
         heartbeat = asyncio.create_task(
-            self._heartbeat(task.id, execution, cancelled, lease_epoch=task.lease_epoch)
+            self._heartbeat(
+                task.id, execution, cancelled, expired, lease_epoch=task.lease_epoch
+            )
         )
         try:
             await self._supervise(execution, heartbeat)
             if not execution.done():
                 # 心跳先退出：本地执行已脱离租约监控，先叫停它再谈结局（评审 #3）。
                 await self._abort_execution(execution)
-                if cancelled.is_set():
-                    await self._mark_cancelled_outcome(task, now=now)
+                if await self._stop_outcome(task, cancelled=cancelled, expired=expired, now=now):
                     return
                 raise TaskExecutionError(
                     HEARTBEAT_LOST_CODE, "lease heartbeat stopped before the skill finished"
                 )
             if execution.cancelled():
-                # 心跳检查点已经叫停本地执行（取消/失约）：按取消收尾，不再解析结果。
-                if cancelled.is_set():
-                    await self._mark_cancelled_outcome(task, now=now)
+                # 心跳检查点已经叫停本地执行（取消/过期/失约）：按停止原因收尾，不再解析结果。
+                if await self._stop_outcome(task, cancelled=cancelled, expired=expired, now=now):
                     return
                 raise TaskExecutionError(
                     HEARTBEAT_LOST_CODE, "local execution was cancelled without a lease decision"
@@ -386,8 +404,8 @@ class WorkerLoop:
             # 池关闭/进程退出：停止心跳并叫停整组本地执行，再让取消继续传播。
             await self._stop_heartbeat(heartbeat)
             await self._abort_execution(execution)
-            if cancelled.is_set():
-                await self._mark_cancelled_outcome(task, now=now)
+            # 取消继续传播（池关闭/进程退出），但已发生的停止原因仍要落库。
+            await self._stop_outcome(task, cancelled=cancelled, expired=expired, now=now)
             raise
         except Exception as exc:
             await self._stop_heartbeat(heartbeat)
@@ -431,6 +449,23 @@ class WorkerLoop:
         except Exception:
             logger.warning("worker_execution_aborted_with_error", exc_info=True)
 
+    async def _stop_outcome(
+        self,
+        task: TaskExecution,
+        *,
+        cancelled: asyncio.Event,
+        expired: asyncio.Event,
+        now: datetime | None,
+    ) -> bool:
+        """心跳叫停本地执行后的结论：显式取消优先于期限（两者都不许写成 COMPLETED）。"""
+        if cancelled.is_set():
+            await self._mark_cancelled_outcome(task, now=now)
+            return True
+        if expired.is_set():
+            await self._mark_deadline_exceeded(task, now=now)
+            return True
+        return False
+
     async def _handle_outcome(
         self,
         task: TaskExecution,
@@ -468,18 +503,25 @@ class WorkerLoop:
         *,
         now: datetime | None,
     ) -> None:
-        """外部等待：记录 external_ref/not_before 并释放 lease，由 Scheduler 到期再 claim。"""
+        """外部等待：落 `wait_kind` 与载荷并释放 lease；续接由各自的唤醒源决定（claim 侧分发）。
+
+        三类等待的载荷不同（`external_ref` / `operations[]` / `batch`），`wait_kind` 是唯一判别器：
+        没有它，claim 只能把三种等待混成"等到 not_before 就叫醒"，ASYNC 结果没齐也会被拉起来。
+        """
         async with self._session_factory() as session:
             async with session.begin():
                 moment = now if now is not None else await database_now(session)
                 not_before = outcome.not_before or moment + timedelta(seconds=DEFAULT_WAIT_SEC)
+                wait_kind = outcome.wait_kind or WaitKind.EXTERNAL_POLL
+                wait_payload = dict(outcome.wait_payload or {})
                 await self._lock_parent(session, task)
                 rowcount = await self._cas(
                     session,
                     task.id,
                     {
                         "status": str(TaskStatus.WAITING_EXTERNAL),
-                        "external_ref_json": outcome.external_ref or {},
+                        "wait_kind": wait_kind.value,
+                        "wait_payload_json": wait_payload,
                         "not_before": not_before,
                         "lease_owner": None,
                         "lease_until": None,
@@ -503,7 +545,8 @@ class WorkerLoop:
                             event_type=TaskEventType.WAITING_EXTERNAL,
                             occurred_at=moment,
                             payload={
-                                "external_ref": outcome.external_ref or {},
+                                "wait_kind": wait_kind.value,
+                                "wait_payload": wait_payload,
                                 "not_before": not_before.isoformat(),
                                 "attempt": task.attempt,
                             },
@@ -560,9 +603,16 @@ class WorkerLoop:
         if locked is None:
             return 0, 0
         conditions = (TaskExecution.status == str(TaskStatus.RUNNING), TaskExecution.lease_until < moment)
-        change = _reclaim_terminal_change(locked)
+        change = _reclaim_terminal_change(locked, moment)
         if change is not None:
-            if await write_terminal(session, locked, change, moment, conditions=conditions):
+            event_type = (
+                TaskEventType.DEADLINE_EXCEEDED
+                if change.error_code == TASK_DEADLINE_EXCEEDED
+                else None
+            )
+            if await write_terminal(
+                session, locked, change, moment, conditions=conditions, event_type=event_type
+            ):
                 if locked.cancel_requested:
                     await cancel_children(session, locked, moment)
                 await settle_child(session, locked, moment)
@@ -604,8 +654,20 @@ class WorkerLoop:
         )
         async with self._session_factory() as session, session.begin():
             moment = now if now is not None else await database_now(session)
-            if not await self._terminal(session, task, change, moment, require_not_cancelled=True):
-                await self._mark_cancelled(session, task, moment)
+            if await self._terminal(session, task, change, moment, require_not_cancelled=True):
+                return
+            # CAS 落败有三种原因，结论各不相同：显式取消 → CANCELLED（即使已过期限）；
+            # 过期 → `FAILED(TASK_DEADLINE_EXCEEDED)`；失约 → 无权写任何结论。
+            if await self._terminal(
+                session,
+                task,
+                TerminalChange(status=TerminalStatus.CANCELLED, cancel_requested=True),
+                moment,
+                require_cancel_requested=True,
+            ):
+                return
+            if moment >= task.deadline_at:
+                await self._deadline_terminal(session, task, moment)
 
     async def _handle_failure(
         self,
@@ -643,21 +705,26 @@ class WorkerLoop:
                 await self._mark_cancelled(session, task, moment)
 
     async def _mark_deadline_exceeded(self, task: TaskExecution, *, now: datetime | None) -> None:
-        change = TerminalChange(
-            status=TerminalStatus.FAILED,
-            error_code=TASK_DEADLINE_EXCEEDED,
-            error_message="task deadline exceeded",
-        )
         async with self._session_factory() as session, session.begin():
             moment = now if now is not None else await database_now(session)
-            await self._terminal(
-                session,
-                task,
-                change,
-                moment,
-                require_not_cancelled=True,
-                event_type=TaskEventType.DEADLINE_EXCEEDED,
-            )
+            await self._deadline_terminal(session, task, moment)
+
+    async def _deadline_terminal(
+        self, session: AsyncSession, task: TaskExecution, moment: datetime
+    ) -> bool:
+        """绝对期限的终态口径，领取侧/心跳侧/收尾侧共用：`FAILED(TASK_DEADLINE_EXCEEDED)`。"""
+        return await self._terminal(
+            session,
+            task,
+            TerminalChange(
+                status=TerminalStatus.FAILED,
+                error_code=TASK_DEADLINE_EXCEEDED,
+                error_message="task deadline exceeded",
+            ),
+            moment,
+            require_not_cancelled=True,
+            event_type=TaskEventType.DEADLINE_EXCEEDED,
+        )
 
     async def _lock_parent(self, session: AsyncSession, task: TaskExecution) -> None:
         await lock_task_tree(session, task)
@@ -737,6 +804,7 @@ class WorkerLoop:
         moment: datetime,
         *,
         require_not_cancelled: bool = False,
+        require_cancel_requested: bool = False,
         event_type: TaskEventType | None = None,
     ) -> bool:
         conditions = [
@@ -747,6 +815,11 @@ class WorkerLoop:
         ]
         if require_not_cancelled:
             conditions.append(TaskExecution.cancel_requested.is_(False))
+        if require_cancel_requested:
+            conditions.append(TaskExecution.cancel_requested.is_(True))
+        if change.status is TerminalStatus.COMPLETED:
+            # 收尾侧的硬 deadline（RULE-worker-001）：跑过期限的执行不得提交成功结论。
+            conditions.append(TaskExecution.deadline_at > moment)
         written = await write_terminal(
             session,
             task,
@@ -798,14 +871,15 @@ class WorkerLoop:
         task_id: uuid.UUID,
         execution: asyncio.Task[dict[str, Any]] | None = None,
         cancelled: asyncio.Event | None = None,
+        expired: asyncio.Event | None = None,
         *, lease_epoch: int,
     ) -> None:
-        """续租并检查取消标记。
+        """续租并检查取消标记与绝对期限。
 
-        每 `task_heartbeat_sec` 续租一次并读 PG 取消标记（权威源，Redis 不可用时照常
+        每 `task_heartbeat_sec` 续租一次并读 PG 取消标记/期限（权威源，Redis 不可用时照常
         生效）；两次续租之间每 `task_cancel_check_sec` 看一眼 `muad:task:cancel:{id}` hint，
-        命中就立即读 PG 确认。一旦用户已请求取消、或租约已不属于本实例（被回收/已终态），
-        立即叫停本地执行——这就是「检查点停止」。
+        命中就立即读 PG 确认。一旦用户已请求取消、租约已不属于本实例（被回收/已终态），或
+        执行跨过了绝对期限，立即叫停本地执行——这就是「检查点停止」。
         """
         step = max(1, min(self._settings.task_cancel_check_sec, self._settings.task_heartbeat_sec))
         elapsed = 0
@@ -823,19 +897,23 @@ class WorkerLoop:
                 raise TaskExecutionError(
                     HEARTBEAT_LOST_CODE, "lease renewal failed and could not be confirmed"
                 )
-            owned, requested = renewal
             if execution is None:
                 continue
-            if requested or not owned:
+            if renewal.cancel_requested or not renewal.owned:
                 if cancelled is not None:
                     cancelled.set()
                 execution.cancel()
                 return
+            if renewal.expired:
+                if expired is not None:
+                    expired.set()
+                execution.cancel()
+                return
 
-    async def _renew_with_retry(self, task_id: uuid.UUID, *, lease_epoch: int) -> tuple[bool, bool] | None:
+    async def _renew_with_retry(self, task_id: uuid.UUID, *, lease_epoch: int) -> LeaseRenewal | None:
         """续租的有界重试：瞬时 DB 抖动不该杀掉一个跑了五分钟的 Skill。
 
-        重试耗尽仍无结论时返回 None（调用方退出心跳）；`(False, _)` 是**确定的**失约，
+        重试耗尽仍无结论时返回 None（调用方退出心跳）；`owned=False` 是**确定的**失约，
         不重试——那时租约已经不在我们手上，重试只会掩盖事实。
         """
         for attempt in range(HEARTBEAT_RENEW_ATTEMPTS):
@@ -851,8 +929,8 @@ class WorkerLoop:
                     await asyncio.sleep(HEARTBEAT_RENEW_RETRY_SEC)
         return None
 
-    async def _renew_lease(self, task_id: uuid.UUID, *, lease_epoch: int) -> tuple[bool, bool]:
-        """续租并回读取消标记，返回 `(仍持有 lease, 已请求取消)`。
+    async def _renew_lease(self, task_id: uuid.UUID, *, lease_epoch: int) -> LeaseRenewal:
+        """续租并回读取消标记与绝对期限：一次行读取给出 `LeaseRenewal`。
 
         续租条件与终态 CAS 同口径：**当前租约必须仍然有效**（`lease_until > now`）。少了
         这一格，进程/DB 卡顿超过租期之后，一次心跳就能把已经失效的执行权续到未来（评审
@@ -879,10 +957,20 @@ class WorkerLoop:
                     )
                 )
                 rowcount = int(cast(CursorResult[Any], heartbeat_result).rowcount)
-                requested = await session.scalar(
-                    select(TaskExecution.cancel_requested).where(TaskExecution.id == task_id)
-                )
-        return rowcount == 1, bool(requested)
+                observed = (
+                    await session.execute(
+                        select(TaskExecution.cancel_requested, TaskExecution.deadline_at).where(
+                            TaskExecution.id == task_id
+                        )
+                    )
+                ).one_or_none()
+        if observed is None:
+            return LeaseRenewal(owned=rowcount == 1, cancel_requested=False, expired=False)
+        return LeaseRenewal(
+            owned=rowcount == 1,
+            cancel_requested=bool(observed[0]),
+            expired=observed[1] is not None and observed[1] <= moment,
+        )
 
     async def _stop_heartbeat(self, heartbeat: asyncio.Task[None]) -> None:
         heartbeat.cancel()
