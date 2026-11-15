@@ -334,12 +334,29 @@ class DstEvent(ContractModel):
     occurred_at: AwareDatetime
 
 
+class HistoryRetention(ContractModel):
+    """历史保留提示：哪些记录还在、从哪个边界起可能已按策略回收（B-10）。
+
+    **"空页"不等于"没发生过"**：保留清理删掉的 Fire/Execution 不会以任何假数据补位，
+    因此读面必须同时给出保留口径——页面为空且 `cleaned_before` 早于用户要看的时间窗时，
+    界面说的是"已按保留策略清理"，不是"这条任务从没跑过"。
+    """
+
+    fire_history_days: int = Field(ge=1)
+    execution_history_days: int = Field(ge=1)
+    #: 服务端算出的清理边界：早于此时刻的 Fire 可能已被回收。
+    cleaned_before: AwareDatetime
+    #: 该 Schedule 当前还能查到的最早一条 Fire 的计划时刻；`None` = 一条都没有。
+    oldest_retained_at: AwareDatetime | None = None
+
+
 class FireHistoryPage(ContractModel):
     items: list[FireItem]
     dst_events: list[DstEvent] = Field(default_factory=list)
     page: int = Field(ge=1)
     page_size: int = Field(ge=1, le=100)
     total: int = Field(ge=0)
+    retention: HistoryRetention | None = None
 
 
 class TaskArtifactRef(ContractModel):

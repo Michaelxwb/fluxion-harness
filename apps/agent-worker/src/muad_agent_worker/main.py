@@ -31,6 +31,7 @@ from .api.schedules import router as schedules_router
 from .api.task_center import router as task_center_router
 from .api.tasks import router as tasks_router
 from .application.ports import NullPlatformSettingsClient, PlatformSettingsClient
+from .application.schedule_retention import ScheduleRetentionLoop
 from .delivery.artifact_client import ArtifactResolveClient
 from .delivery.client import HttpDeliveryClient, HttpWebchatInboxClient
 from .delivery.service import DeliveryLoop
@@ -225,6 +226,15 @@ def _start_background(
         interval_sec=settings.task_deadline_sweep_interval_sec,
     )
     app.state.human_timeout_loop = human_timeouts
+    # 调度历史保留清理：独立节拍（与 Runtime 的保留循环同一维护节拍来源），
+    # 每轮事务外取一次平台设置，再按租户有界删除（TASK-031）。
+    retention = ScheduleRetentionLoop(
+        session_factory,
+        settings_client,
+        tenant_id=settings.default_tenant_id,
+        interval_sec=settings.run_reaper_interval_sec,
+    )
+    app.state.schedule_retention_loop = retention
     loops = [
         (worker.run_forever(), "worker.claim"),
         # 维护循环：回收的独立节拍，不排在领取/执行/投递后面（§3.2）。
@@ -235,6 +245,7 @@ def _start_background(
         (delivery.run_forever(), "worker.delivery"),
         (results.run_forever(), "worker.results"),
         (human_timeouts.run_forever(), "worker.human_timeouts"),
+        (retention.run_forever(), "worker.schedule_retention"),
     ]
     workspace_loop = _workspace_maintenance(settings, session_factory)
     app.state.workspace_maintenance = workspace_loop
