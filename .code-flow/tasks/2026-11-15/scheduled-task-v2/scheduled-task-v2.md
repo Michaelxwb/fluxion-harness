@@ -1495,7 +1495,7 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
   - related PASS exit=0
 ## TASK-018: 切换 Runtime 生产路径并通过完整相关回归
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-009, TASK-016, TASK-017
 - **Source**: scheduled-task-v2.backend.design.md §3.1.2、§3.5.6、§4.2 阶段 2
 - **Scenarios**: S-03, S-09, S-15, S-16, S-17, B-08, B-09
@@ -1535,12 +1535,12 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 
 ### Checklist
 
-- [ ] RunRecord、Conversation、canonical_event、SSE、Memory 写入/确认与 Run lease 继续由 Runtime adapter 持有；核心循环不感知宿主。
-- [ ] 保留 Model Pool/实时凭据/容量租约、冻结策略、MCP/SYNC/ASYNC Skill、压缩/结果外置、预算/取消与 answer verifier。
-- [ ] 新建 tests/agent_runtime/test_scheduled_v2_runtime_adapter.py，执行共享端口契约，并验证真实工厂与 bootstrap 确实装配新适配器。
-- [ ] 验证 Run resume 使用原 Snapshot、Memory 确认/ASYNC continuation 不丢效果、SSE 序号与事件封套不漂移；移除旧装配旁路与 stub。
-- [ ] 本任务仅此处扩大到整个 tests/agent_runtime 相关 unit/integration 目录；命令必须无失败且关键测试不因环境缺失跳过，记录实际结果后才 finish。
-- [ ] 故障注入覆盖摘要失败、批量 artifact 部分写失败、失约及 deadline；确认原历史/inline 保留，降级日志与指标可见，主 Run 结果不被压缩错误改变。
+- [x] RunRecord、Conversation、canonical_event、SSE、Memory 写入/确认与 Run lease 继续由 Runtime adapter 持有；核心循环不感知宿主。
+- [x] 保留 Model Pool/实时凭据/容量租约、冻结策略、MCP/SYNC/ASYNC Skill、压缩/结果外置、预算/取消与 answer verifier。
+- [x] 新建 tests/agent_runtime/test_scheduled_v2_runtime_adapter.py，执行共享端口契约，并验证真实工厂与 bootstrap 确实装配新适配器。
+- [x] 验证 Run resume 使用原 Snapshot、Memory 确认/ASYNC continuation 不丢效果、SSE 序号与事件封套不漂移；移除旧装配旁路与 stub。
+- [x] 本任务仅此处扩大到整个 tests/agent_runtime 相关 unit/integration 目录；命令必须无失败且关键测试不因环境缺失跳过，记录实际结果后才 finish。
+- [x] 故障注入覆盖摘要失败、批量 artifact 部分写失败、失约及 deadline；确认原历史/inline 保留，降级日志与指标可见，主 Run 结果不被压缩错误改变。
 
 ### Spec Delta
 
@@ -1551,13 +1551,25 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T08:50:09.799Z] started tests=f6c1ce1c8e62
+- [2026-11-15] 完整相关回归（本任务的声明测试）实际结果：`uv run python -m pytest -q -m "not capacity_load" --durations=30 tests/agent_runtime` → **1425 passed, 0 failed in 745.89s**（exit 0；`tests/agent_runtime/test_scheduled_v2_runtime_adapter.py` 与前一轮已修的 9 例均已包含在该计数内）。无 skip 因环境缺失而吞掉关键断言。
+- [2026-11-15] 修 Runtime 全目录回归打出的 v2 漂移：Console `overview_sql.py` 仍在 `task.task_execution` 上投影 `delivery_mode`/`delivery_status`（v2 已移除，整条概览 SQL 直接 UndefinedColumn），`failed_deliveries` 改按 `task.task_delivery` + 本周期根执行聚合（投递意图已是独立权威），`waiting_tasks`/`overdue_tasks` 改用 `WAITING_EXTERNAL`/`WAITING_HUMAN`。这让 `tests/agent_runtime/test_shared_egress_audit_store.py` 的 8 例恢复（概览端点原本完全不可用）。
+- [2026-11-15] 复跑结果：`tests/agent_runtime` 全目录从 9 failed / 1405 passed 修到 0 failed（保留清理夹具 + 概览 SQL 两处根因）；`tests/architecture` 239 passed，`ruff check` 全绿。剩余 Console 概览面 6 例（`tests/console_platform/test_overview_api.py`）仍红：其夹具仍用 `intent_key`/`delivery_*`/`TaskSchedule.actor_user_id` 这些 v2 已移除的形状，需随该面（计划外、无人认领）的夹具迁移收口；本任务未改该测试面。
+- [2026-11-15] 生产路径复核：Runtime 生产代码只有一处 `AgentRunner(...)` 装配（`application/executor.py::_agent_runner`），接的是中立端口（`tool_suspension`/`runtime_events`/`context_compactor`/`round_results`/`tool_pipeline`）；`main._build_executor_factory` 只是把分池/客户端注入 `default_executor_factory`，装配根没有第二份执行器工厂，也没有 stub 旁路。
+- [2026-11-15] 新增 `tests/kernel_adapter_contract.py`：宿主无关的 Kernel 契约（完整回合边界挂起、中断 reason 透传、越权工具、工具预算、取消优先、按宿主落库的 checkpoint 恢复不重跑）；Runtime 与 Worker 适配器共用同一组用例，宿主差异只在 `HostAdapter`。
+- [2026-11-15] 新增 `tests/agent_runtime/test_scheduled_v2_runtime_adapter.py`（11 例）：6 个共享契约用例绑定**真实** `MemoryConfirmationService` + 分离克隆库 + 真实 `DurableRuntimeEventPort`（真落 `RunInterrupt`/canonical 事件/`RunContinuation`）；另验证挂起落库（Run `WAITING_INPUT`、租约释放、checkpoint 钉在冻结 `snapshot_id`、`run.stage` 先于确认事件且封套字段齐全）、生产工厂装配（中立端口 + 压缩/结果外置/工具策略）、生产工厂 + 真实 HTTP 模型端到端的等待事实、Runtime 生产代码只有一处 Agent 循环。
+- [2026-11-15] `tests/architecture/test_scheduled_v2_kernel_boundaries.py` 增加两条边界：Kernel 不引用任何宿主实体（`RunRecord`/`CanonicalEvent`/`RunInterrupt`/`TaskExecution`…）；`MemorySuspendRequest` 只允许出现在 Runtime 适配器的 `memory_suspension`/`memory_confirmation`/`checkpoint` 三个模块里。
+- [2026-11-15] 迁移 `tests/agent_runtime/test_capacity_webchat_retention.py` 的任务执行夹具到 v2 列（去 `intent_key`/`delivery_key`/`execution_mode`，改 `task_type`/`skill_execution_mode`/`trigger_type=IMMEDIATE`）；断言未放宽（活跃引用仍不进候选、宽限期内跳过、过期无引用才删）。
+- [2026-11-15] 故障注入由本目录既有用例覆盖并随整目录回归通过：摘要失败降级（`test_capacity_webchat_background_pool::test_e06_summary_failure_keeps_original_history_and_visible_degradation`、`test_summary_model_resolution::test_unresolvable_summary_model_keeps_the_run_alive_and_skips_the_layer`）、整轮 artifact 回滚（`test_artifact_round_budget::test_round_batch_rolls_back_every_file_it_wrote`）、失约/期限（`test_cancellation`、`test_resume_transactions` 的 deadline 不延期、`test_capacity_webchat_clock_lease`）。
+- [2026-11-15] 发现的遗留缺口（不属本任务，未改）：`apps/console-platform/.../artifact_retention_repository.py` 的活跃执行引用谓词仍用 v1 状态 `'WAITING'`，而 v2 只有 `WAITING_EXTERNAL`/`WAITING_HUMAN` ⇒ 等待外部/人类的执行所引用的产物会失去保护；`apps/console-platform/.../overview_sql.py` 的 `waiting_tasks` 与超期统计同样用 `'WAITING'`。前者应由 TASK-031（保护等待中的执行）收口，后者随 TASK-030/TASK-032 的口径同步，本任务只在 Runtime 回归范围内迁移了测试夹具。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-019"></a>
-
+- 2026-11-15T09:32:51.235Z PASS commands=1/1 executed=1 deduped=0 elapsed=753099ms tests=f6c1ce1c8e62 head=9738ed87bc16 dirty=1
+  - runtime-regression PASS exit=0
 ## TASK-019: 实现完整 Worker Agentic ExecutionAdapter
 
 - **Status**: draft

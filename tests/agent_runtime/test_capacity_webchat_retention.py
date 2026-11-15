@@ -1213,17 +1213,16 @@ async def test_b07_artifact_cleanup_protects_active_run_and_job_references(
                 tenant_id=tenant.tenant_id,
                 agent_id=tenant.agent_id,
                 actor_user_id=tenant.platform_user_id,
-                intent_key="retention-cleanup",
+                task_type="SKILL",
                 skill_id=uuid.uuid4(),
                 skill_artifact_id=uuid.uuid4(),
-                trigger_type="MANUAL",
-                execution_mode="ASYNC",
+                skill_execution_mode="SYNC",
+                trigger_type="IMMEDIATE",
                 status="QUEUED",
                 input_json={},
                 execution_snapshot_json={},
                 snapshot_hash="sha256:" + "0" * 64,
                 idempotency_key=f"retention-{uuid.uuid4().hex}",
-                delivery_key=f"task:{task_id}:final",
             )
         )
         task_key = f"artifacts/{uuid.uuid4().hex}.txt"
