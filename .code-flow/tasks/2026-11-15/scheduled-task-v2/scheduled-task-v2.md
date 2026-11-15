@@ -937,7 +937,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
   - related PASS exit=0
 ## TASK-011: 创建可预览且无副作用的 Schedule Draft
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-004, TASK-005, TASK-010
 - **Source**: scheduled-task-v2.backend.design.md §2.3.3、§3.3.4、API-01、§3.5.4
 - **Scenarios**: S-01, S-02, S-03, E-01, E-04, E-14, B-04, B-07
@@ -974,11 +974,11 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Checklist
 
-- [ ] 身份来自可信上下文；UPDATE Draft 校验目标 owner/agent，绑定 base_schedule_id/base_config_version；body 不接受 owner。
-- [ ] 模式、Context、时间、delivery intent、allowlist、budget 一并进入 canonical draft_hash；Secret 扫描命中明确拒绝或按契约脱敏。
-- [ ] 创建 Draft 使用独立 endpoint 与幂等键；同键同指纹重放，变参冲突；缺时区/变量/依赖可解释，原 Draft 不静默变更。
-- [ ] 复用 Admission 静态校验，Skill P0 只校验模板/变量，不虚构 input_schema 或提前执行业务。
-- [ ] 预览只暴露必要依赖摘要、修复动作与 UPDATE 差异；覆盖取消、到期、同名多匹配和跨用户/租户拒绝。
+- [x] 身份来自可信上下文；UPDATE Draft 校验目标 owner/agent，绑定 base_schedule_id/base_config_version；body 不接受 owner。
+- [x] 模式、Context、时间、delivery intent、allowlist、budget 一并进入 canonical draft_hash；Secret 扫描命中明确拒绝或按契约脱敏。
+- [x] 创建 Draft 使用独立 endpoint 与幂等键；同键同指纹重放，变参冲突；缺时区/变量/依赖可解释，原 Draft 不静默变更。
+- [x] 复用 Admission 静态校验，Skill P0 只校验模板/变量，不虚构 input_schema 或提前执行业务。
+- [x] 预览只暴露必要依赖摘要、修复动作与 UPDATE 差异；覆盖取消、到期、同名多匹配和跨用户/租户拒绝。
 
 ### Spec Delta
 
@@ -989,13 +989,29 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T07:01:51.876Z] started tests=89e5df6964ee
+- [2026-11-15] 新增 `application/schedule_drafts.py`：`parse_draft_request`（缺时区→`SCHEDULE_TIMEZONE_REQUIRED`、缺必填→`SCHEDULE_PARAMETER_INCOMPLETE` 并列出字段、形状非法→`SCHEDULE_DRAFT_INVALID`）+ `ScheduleDraftPreflight`（纯函数校验 + 一次只读材料解析）+ `ScheduleDraftService`（落一条 PENDING Draft 后返回预览，不 commit）。
+- [2026-11-15] 新增 `api/schedule_drafts.py`：`POST /internal/schedule-drafts`（API-01），挂 `require_internal_service`；身份全部来自可信上下文头（`X-Tenant-Id`/`X-Actor-User-Id`/`X-Agent-Id`/`X-Entry-Channel`），body 不接受 owner/agent；`api/deps.py` 增对应依赖与材料客户端缝（`app.state.schedule_materials_client` 可注入，否则用 lifespan 的连接池构造 `ConsoleResolveClient`；两者都缺 → `SCHEDULE_ADMISSION_FAILED`，不假装无依赖）。`main.py` 增两行挂载（`include_router`）。
+- [2026-11-15] 幂等：独立 endpoint `schedule-drafts` + `Idempotency-Key`，走 TASK-003 台账 `admit()`（`pg_advisory_xact_lock` 串行化同键）→ 同键同指纹直接重放首次响应（**先于任何状态/过期检查**，Draft 已 CANCELLED/EXPIRED 也不复活不改写）→ 异指纹 `IDEMPOTENCY_MISMATCH`。指纹 = 规范化 JSON（endpoint/tenant/actor/target/整体请求体 + 入口 surface），入口通道影响投递能力，故计入指纹。
+- [2026-11-15] `draft_hash` = `payload_json` 的 canonical JSON sha256（`sha256:`+64hex，与列 CHECK 同格式），覆盖 mode/recurrence/context/execution_spec（含 allowlist/budget）/delivery_intent；落库载荷与 hash 是同一份事实，测试用 `payload_json` 重算比对。`expires_at` 取 `schedule.confirmation_ttl_sec`（平台设置边界快照），不写死时长。
+- [2026-11-15] Preflight 口径：复用 Admission 的 `classify_failure`/`allowlist_key`/`REPAIR_ACTIONS` 与 `validate_input_template`；材料只经 Console 只读端点取一次。错误码落到 §3.4.7：授权类（`GRANT_REVOKED`/`TOOL_REVOKED`）→`SCHEDULE_GRANT_DENIED`，其余永久失败→`SCHEDULE_DEPENDENCY_MISSING`，瞬时失败→`SCHEDULE_ADMISSION_FAILED`；精确原因与修复动作留在 `data.admission_code`/`data.repair`。配额：CREATE 才占名额（`ensure_schedule_capacity`），两档都校验最小间隔。Skill 只校验模板语法/变量（未知变量 → `SCHEDULE_PARAMETER_INCOMPLETE` + `unknown_variables`），不虚构 input_schema、不执行业务。
+- [2026-11-15] 投递意图由入口 surface 的静态能力决定（`OUTBOUND_CHANNELS`/`LOCAL_STREAM_CHANNELS`，词表归契约定义处，worker 不点名任何渠道）：body 与能力不一致即 `SCHEDULE_DELIVERY_UNSUPPORTED`（`DELIVERY_INTENT_MISMATCH`），未登记通道 `ENTRY_CHANNEL_UNSUPPORTED`，缺入口通道时 PUSH 无法验证（`ENTRY_CHANNEL_UNKNOWN`）。
+- [2026-11-15] Secret 扫描：instruction/name/context/execution_spec 命中私钥/厂商 key/`key=value` 形状即 `SCHEDULE_DRAFT_INVALID`（`reason=SECRET_DETECTED` + 字段名与类别），只报类别不回显原文；不建 Draft。
+- [2026-11-15] 无副作用以**行数**证明（`tests/agent_worker/test_scheduled_v2_drafts.py`）：CREATE/UPDATE Draft 之后 `task_schedule`/`task_schedule_revision`/`schedule_fire`/`task_execution`/`task_delivery`/`task_human_interaction`/`task_event` 一条不增，只有 `task_schedule_draft` 与 `task_submission` 各一行；UPDATE 不新增 Schedule/Revision。
+- [2026-11-15] UPDATE 预览差异：与目标 Schedule 的当前 Revision 逐字段比 `name/mode/delivery_intent/recurrence/context/execution_spec`，`run_at` 按 UTC 归一后再比；`name` 缺省沿用原名。差异放在 `preview.diff`（契约 `SchedulePreview` 未含该键，确认卡片资产需要，TASK-017 消费时按代码事实扩展契约）。
+- [2026-11-15] 承接边界：确认/生效（API-27、surface/ref 唯一、CAS、过期裁决）归 TASK-012，本任务不提供任何 create/update 生效入口；`SCHEDULE_AMBIGUOUS` 在结构化载荷下没有触发点（目标由 `base_schedule_id` 指定），自然语言多匹配澄清归 TASK-017 的入口解析层；旧 `/internal/schedules` 的 POST/PUT 未改动（其 `_payload` 仍引用 v2 已删除的列，属 TASK-013/TASK-023 的重写范围）。
+- [2026-11-15] 已知环境红：`tests/architecture/test_channel_neutrality.py` 两条在 HEAD 即失败，唯一命中的是 TASK-010 的 `schedule_admission.PUSH_CAPABLE_CHANNELS`（渠道字样），本任务新增代码已按通道中立口径改写、不再命中；未在本次改动中修它。
+- [2026-11-15T07:14:14.261Z] reopen: refactor: split create into persist helper (function length rule)
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-012"></a>
-
+- 2026-11-15T07:13:42.617Z PASS commands=1/1 executed=1 deduped=0 elapsed=14421ms tests=89e5df6964ee head=259b67644891 dirty=1
+  - related PASS exit=0
+- 2026-11-15T07:14:29.316Z PASS commands=1/1 executed=1 deduped=0 elapsed=14927ms tests=89e5df6964ee head=a8195135e680 dirty=1
+  - related PASS exit=0
 ## TASK-012: 原子确认 Draft 并创建或更新 Revision
 
 - **Status**: draft

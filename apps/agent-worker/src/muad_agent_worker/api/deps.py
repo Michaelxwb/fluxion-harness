@@ -8,9 +8,13 @@ from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
 
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
+from ..scheduler.client import ConsoleResolveClient, ScheduleMaterialsProtocol
 
 TENANT_HEADER = "X-Tenant-Id"
 ACTOR_HEADER = "X-Actor-User-Id"
+#: Draft 的 Agent 归属与入口 surface 同样是可信上下文的一部分（不在 body 里）。
+AGENT_HEADER = "X-Agent-Id"
+ENTRY_CHANNEL_HEADER = "X-Entry-Channel"
 
 # 内部服务身份门控一律用 api-kit 原语（RULE-api-001「服务底座统一复用 api-kit 原语」）：
 # 本模块此前自带一份同形实现，而 `/internal/admin/*` 用了它、`/internal/tasks` 与
@@ -69,3 +73,61 @@ def require_actor_user_id(
 
 ActorUserId = Annotated[uuid.UUID | None, Depends(get_actor_user_id)]
 RequiredActorUserId = Annotated[uuid.UUID, Depends(require_actor_user_id)]
+
+
+def get_agent_id(x_agent_id: Annotated[str | None, Header()] = None) -> uuid.UUID | None:
+    """调用方声明的 Agent 归属（Draft/确认的归属复核用）。"""
+    if x_agent_id is None:
+        return None
+    try:
+        return uuid.UUID(x_agent_id)
+    except ValueError as exc:
+        raise AppError(ErrorCode.COMMON_VALIDATION_ERROR) from exc
+
+
+def require_agent_id(agent_id: Annotated[uuid.UUID | None, Depends(get_agent_id)]) -> uuid.UUID:
+    """Draft 的 Agent 归属必须来自可信上下文；缺省即拒绝。"""
+    if agent_id is None:
+        raise AppError(ErrorCode.FORBIDDEN)
+    return agent_id
+
+
+def get_entry_channel(
+    x_entry_channel: Annotated[str | None, Header()] = None,
+) -> str | None:
+    """入口 surface（投递能力的唯一来源）；规范化大写，空串等同缺省。"""
+    if x_entry_channel is None:
+        return None
+    channel = x_entry_channel.strip().upper()
+    return channel or None
+
+
+def get_schedule_materials_client(request: Request) -> ScheduleMaterialsProtocol | None:
+    """依赖解析源（Console `POST /internal/runtime/schedule-admission-materials`）。
+
+    lifespan 注入的 `app.state.http_pools` 复用连接池；未进 lifespan 的直构/测试可显式
+    注入 `app.state.schedule_materials_client`。两者都缺省返回 None —— **不在依赖层失败**：
+    幂等重放不需要重新解析依赖，只有真正要做 Preflight 的调用方才显式拒绝。
+    """
+    injected: ScheduleMaterialsProtocol | None = getattr(
+        request.app.state, "schedule_materials_client", None
+    )
+    if injected is not None:
+        return injected
+    pools = getattr(request.app.state, "http_pools", None)
+    settings = SharedSettings()
+    if pools is None or not settings.console_platform_url:
+        return None
+    return ConsoleResolveClient(
+        settings.console_platform_url,
+        client=pools.control,
+        service_token=settings.internal_service_token,
+    )
+
+
+AgentId = Annotated[uuid.UUID | None, Depends(get_agent_id)]
+RequiredAgentId = Annotated[uuid.UUID, Depends(require_agent_id)]
+EntryChannel = Annotated[str | None, Depends(get_entry_channel)]
+ScheduleMaterialsClientDep = Annotated[
+    ScheduleMaterialsProtocol | None, Depends(get_schedule_materials_client)
+]
