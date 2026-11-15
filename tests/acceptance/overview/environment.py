@@ -21,8 +21,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
-from muad_agent_worker.application.delivery_routes import upsert_delivery_route
-from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskSchedule
+from muad_agent_worker.infrastructure.models.task import (
+    TaskExecution,
+    TaskSchedule,
+    TaskScheduleRevision,
+)
 from muad_common import SharedSettings
 from muad_console_platform.application.auth_service import hash_password
 from muad_console_platform.infrastructure.models.auth import ROLE_ADMIN, ConsoleAccount
@@ -32,7 +35,6 @@ from muad_console_platform.infrastructure.models.control import (
     PlatformUser,
     Skill,
 )
-from muad_contracts import DeliveryRouteInput
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -65,8 +67,8 @@ SEED_AGENTS_DISABLED = 2
 SEED_AGENTS_DELETED = 1
 SEED_SKILLS_ENABLED = 4
 SEED_SKILLS_DISABLED = 2
-SEED_TASKS_ACTIVE = 2  # RUNNING / WAITING
-SEED_TASKS_TERMINAL = 3  # SUCCEEDED / FAILED / CANCELLED
+SEED_TASKS_ACTIVE = 2  # RUNNING / WAITING_HUMAN
+SEED_TASKS_TERMINAL = 3  # COMPLETED / FAILED / CANCELLED
 SEED_SCHEDULES_ACTIVE_WITH_NEXT = 2
 SEED_SCHEDULES_ACTIVE_NO_NEXT = 1
 SEED_SCHEDULES_PAUSED = 1
@@ -84,8 +86,22 @@ CLEANUP_TABLES = (
     "control.platform_user",
     "control.model_definition",
     "task.task_execution",
+    "task.schedule_fire",
+    "task.task_schedule_revision",
     "task.task_schedule",
     "task.delivery_route",
+)
+
+# v2 调度表是 Cycle FK：先摘 Schedule→Revision 与 Fire→Execution 的引用，再按子行顺序删。
+OVERVIEW_TASK_V2_CLEANUP = (
+    "UPDATE task.task_schedule SET current_revision_id = NULL WHERE tenant_id = :t",
+    "UPDATE task.schedule_fire SET execution_id = NULL WHERE tenant_id = :t",
+    "DELETE FROM task.task_delivery_attempt WHERE tenant_id = :t",
+    "DELETE FROM task.task_delivery WHERE tenant_id = :t",
+    "DELETE FROM task.task_human_interaction WHERE tenant_id = :t",
+    "DELETE FROM task.task_execution_checkpoint WHERE tenant_id = :t",
+    "DELETE FROM task.schedule_fire WHERE tenant_id = :t",
+    "DELETE FROM task.task_schedule_revision WHERE tenant_id = :t",
 )
 
 __all__ = [
@@ -256,8 +272,8 @@ async def _insert_control_rows(
 async def _insert_task_rows(
     factory: async_sessionmaker[AsyncSession], agent_id: uuid.UUID, actor_id: uuid.UUID, now: datetime
 ) -> None:
-    active = ("RUNNING", "WAITING")
-    terminal = ("SUCCEEDED", "FAILED", "CANCELLED")
+    active = ("RUNNING", "WAITING_HUMAN")
+    terminal = ("COMPLETED", "FAILED", "CANCELLED")
     async with factory() as session:
         async with session.begin():
             for offset, status in enumerate((*terminal, *active)):
@@ -268,16 +284,14 @@ async def _insert_task_rows(
                         tenant_id=TENANT,
                         agent_id=agent_id,
                         actor_user_id=actor_id,
-                        intent_key="policy_check",
                         skill_id=uuid.uuid4(),
                         skill_artifact_id=uuid.uuid4(),
                         trigger_type="SCHEDULED",
-                        execution_mode="ASYNC",
                         task_type="SKILL",
                         status=status,
                         input_json={},
-                        execution_snapshot_schema_version=1,
-                        execution_snapshot_json={"schema_version": 1},
+                        execution_snapshot_schema_version=4,
+                        execution_snapshot_json={"schema_version": 4},
                         snapshot_hash="sha256:" + "d" * 64,
                         idempotency_key=f"overview-acceptance-{task_id}",
                         priority=100,
@@ -286,48 +300,55 @@ async def _insert_task_rows(
                         not_before=now,
                         deadline_at=now + timedelta(hours=24),
                         started_at=now,
-                        delivery_mode="NONE",
-                        delivery_status="NONE",
-                        delivery_key=f"task:{task_id}:final",
-                        delivery_attempts=0,
                         # 递增 create_time：recent_tasks 的 DESC 排序可确定断言
                         create_time=now - timedelta(minutes=10 - offset),
                     )
                 )
-            route_id = await upsert_delivery_route(
-                session,
-                tenant_id=TENANT,
-                platform_user_id=actor_id,
-                route=DeliveryRouteInput(
-                    channel="WECOM", bot_id=f"overview-bot-{uuid.uuid4().hex[:8]}",
-                    external_user_id="overview-acceptance",
-                ),
-            )
             names = [f"启用定时 {index + 1}" for index in range(SEED_SCHEDULES_ACTIVE_WITH_NEXT)]
             names += [f"无下次触发 {index + 1}" for index in range(SEED_SCHEDULES_ACTIVE_NO_NEXT)]
             names += [f"暂停定时 {index + 1}" for index in range(SEED_SCHEDULES_PAUSED)]
             for index, name in enumerate(names):
                 is_next_batch = index < SEED_SCHEDULES_ACTIVE_WITH_NEXT
+                schedule_id, revision_id = uuid.uuid4(), uuid.uuid4()
                 session.add(
                     TaskSchedule(
+                        id=schedule_id,
                         tenant_id=TENANT,
+                        owner_user_id=actor_id,
                         name=name,
                         agent_id=agent_id,
-                        actor_user_id=actor_id,
-                        intent_key="policy_check",
-                        skill_id=uuid.uuid4(),
-                        input_template_json={},
-                        schedule_type="CRON",
-                        cron_expr="0 9 * * *",
-                        timezone="Asia/Shanghai",
-                        delivery_route_id=route_id,
                         status="PAUSED" if index >= len(names) - SEED_SCHEDULES_PAUSED else "ACTIVE",
                         next_fire_at=(
                             now + timedelta(hours=index + 1) if is_next_batch else None
                         ),
-                        revision=1,
+                        created_by=actor_id,
                     )
                 )
+                await session.flush()
+                session.add(
+                    TaskScheduleRevision(
+                        id=revision_id,
+                        tenant_id=TENANT,
+                        schedule_id=schedule_id,
+                        revision_no=1,
+                        mode="SKILL",
+                        instruction_raw="每天检查一次",
+                        normalized_goal="检查一次",
+                        recurrence_kind="CRON",
+                        cron_expr="0 9 * * *",
+                        timezone="Asia/Shanghai",
+                        delivery_intent="NONE",
+                        schedule_policy={},
+                        context_json={},
+                        execution_spec={"mode": "SKILL", "skill_id": str(uuid.uuid4())},
+                        preflight_json={},
+                        created_by=actor_id,
+                    )
+                )
+                await session.flush()
+                schedule = await session.get(TaskSchedule, schedule_id)
+                assert schedule is not None
+                schedule.current_revision_id = revision_id
 
 
 def seed_overview_tenant() -> OverviewSeed:
@@ -337,7 +358,7 @@ def seed_overview_tenant() -> OverviewSeed:
     async def seed(factory: async_sessionmaker[AsyncSession]) -> OverviewSeed:
         agent_ids, actor_id, _model_id = await _insert_control_rows(factory, now)
         await _insert_task_rows(factory, agent_ids[0], actor_id, now)
-        task_statuses = ("RUNNING", "WAITING", "CANCELLED", "FAILED", "SUCCEEDED")
+        task_statuses = ("RUNNING", "WAITING_HUMAN", "CANCELLED", "FAILED", "COMPLETED")
         return OverviewSeed(
             enabled_agents=SEED_AGENTS_ENABLED,
             enabled_skills=SEED_SKILLS_ENABLED,
@@ -369,7 +390,9 @@ def purge_tenant() -> None:
     `CONTROL_CLEANUP` 不含 `console_account`/`console_session`；本环境种了可登录的
     admin 账号（S-01 需要真实会话），必须自行清理。会话先于账号（FK 依赖）。
     """
-    _run_statements((*CONSOLE_CLEANUP, *TASK_CLEANUP, *CONTROL_CLEANUP))
+    _run_statements(
+        (*CONSOLE_CLEANUP, *OVERVIEW_TASK_V2_CLEANUP, *TASK_CLEANUP, *CONTROL_CLEANUP)
+    )
 
 
 def count_tenant_rows(table: str) -> int:

@@ -2598,7 +2598,7 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
   - related PASS exit=0
 ## TASK-032: 登记指标、监督循环并补齐部署回滚操作
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-005, TASK-014, TASK-020, TASK-021, TASK-022, TASK-024, TASK-031
 - **Source**: scheduled-task-v2.backend.design.md §3.5.12、§3.5.13、§4.1、§4.2、§4.3、§4.4
 - **Scenarios**: S-07, S-08, S-17, E-02, E-07, E-09, E-10, E-13, E-15, B-04, B-08, B-10
@@ -2638,13 +2638,13 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 
 ### Checklist
 
-- [ ] 指标按 counter/gauge/histogram 登记 CATALOG，覆盖 due、duplicate、skip、admission、等待/超时、Snapshot、ASYNC、artifact、delivery 及压缩降级。
-- [ ] Trace/事件可从 Schedule→Revision→Fire→Execution→Human/Operation/Artifact/Delivery 追溯；labels 不含原始指令、敏感参数或高基数 Secret。
-- [ ] due scan、deadline、Human timeout、External ready、Delivery、retention 独立受监督；慢/失败单循环不推迟其它 loop，shutdown 取消并等待后台任务。
-- [ ] 部署配置按当前 Settings/ConfigMap 所有者注入，核对内部服务身份、Runtime API、Worker 槽位与产物可达；不硬编码端口/IP。
-- [ ] 发布先停 dev/旧服务并查残留，备份、排空旧 Run/Task/job、迁移、统一切换消费者；破坏性 schema 回滚明确备份+对应镜像，不将旧镜像直接接新 schema。
-- [ ] 按最终代码修正设计内旧 Kernel 抽取措辞、旧 WAITING 历史映射、missed_count 术语及接口事实；不修改 MSSWWEB BFF 接入文档、不引入兼容实现。
-- [ ] 测试实际装配/loop 故障监督/指标样本/Secret 脱敏与关闭回收；确认特定问题“单跑绿整跑红”先查残留和隔离再复跑。
+- [x] 指标按 counter/gauge/histogram 登记 CATALOG，覆盖 due、duplicate、skip、admission、等待/超时、Snapshot、ASYNC、artifact、delivery 及压缩降级。
+- [x] Trace/事件可从 Schedule→Revision→Fire→Execution→Human/Operation/Artifact/Delivery 追溯；labels 不含原始指令、敏感参数或高基数 Secret。
+- [x] due scan、deadline、Human timeout、External ready、Delivery、retention 独立受监督；慢/失败单循环不推迟其它 loop，shutdown 取消并等待后台任务。
+- [x] 部署配置按当前 Settings/ConfigMap 所有者注入，核对内部服务身份、Runtime API、Worker 槽位与产物可达；不硬编码端口/IP。
+- [x] 发布先停 dev/旧服务并查残留，备份、排空旧 Run/Task/job、迁移、统一切换消费者；破坏性 schema 回滚明确备份+对应镜像，不将旧镜像直接接新 schema。
+- [x] 按最终代码修正设计内旧 Kernel 抽取措辞、旧 WAITING 历史映射、missed_count 术语及接口事实；不修改 MSSWWEB BFF 接入文档、不引入兼容实现。
+- [x] 测试实际装配/loop 故障监督/指标样本/Secret 脱敏与关闭回收；确认特定问题“单跑绿整跑红”先查残留和隔离再复跑。
 
 ### Spec Delta
 
@@ -2655,13 +2655,23 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T12:30:42.568Z] started tests=c898caca2d47
+- [2026-11-15] metrics：Worker CATALOG 补 due/duplicate/skip(reason)/admission/等待/超时/Snapshot/ASYNC/查询/监督家族；`context_compaction_total` 补 `status` label（实际写入一直是 layer+status，目录此前漏声明）。api-kit 只有 counter/gauge，不引入 histogram：耗时/字节用 gauge 记最近样本，设计已按事实改写。
+- [2026-11-15] wiring：FireOutcome 带 skip_reason/admission_error_code；MISFIRE/QUOTA/OVERLAP、准入失败、重复 Fire、due lag、时区错误、快照字节、终态耗时、Human 超时、ASYNC 提交、任务中心查询都在真实调用点打点。`task_claim_total`/`task_deadline_exceeded_total` 归口到 metrics.CATALOG。
+- [2026-11-15] supervision：新增 `worker/supervision.py`（LoopSupervisor）。10+1 个独立循环各自心跳（`worker_loop_tick_total{loop,status}`），监督器用独立节拍发现退出/停顿并计数重启（`worker_loop_restart_total`/`worker_loop_stale_total`），shutdown 有界等待；新增 4 个 Settings 键（监督节拍/停顿倍数/重启退避/关闭等待）。
+- [2026-11-15] deploy/ops：新增 `docs/operations/scheduled-task-v2-release.md`（停旧服务+查残留、pg_dump/校验、排空在途 SQL、迁移出口、统一切换、迁移前镜像回滚/迁移后备份恢复两种路径、监控告警表）；核对 Worker 部署已注入 INTERNAL_SERVICE_TOKEN/AGENT_RUNTIME_URL/WORKER_EXECUTION_CONCURRENCY/共享 PVC。
+- [2026-11-15] design：按代码事实修正 Kernel 措辞（agent-core 端口泛化，不是从 Runtime 抽取）、删除旧 WAITING 历史映射（0050 不导入历史）、missed_count 术语（额外错过）、API-29 实际路径（/internal/model-capacity/task-reservations）、Worker task-center 内部挂载、指标表与告警表。
+- [2026-11-15] legacy tests：`tests/agent_worker/test_worker_metrics.py` 从 ScheduleService/intent_key/delivery 列迁到 v2 Schedule+Revision+Fire 路径；`tests/console_platform/test_overview_api.py`（含 overview_fixtures）迁到 v2 模型与 revision/current_revision_id；`tests/acceptance/overview/` 的种子改 COMPLETED/WAITING_HUMAN，`waiting_tasks` 回读改用 WAITING_EXTERNAL/WAITING_HUMAN，清理补 v2 子表与循环 FK 摘引用。
+- [2026-11-15] tests：新增 `tests/agent_worker/test_scheduled_v2_observability.py`（目录 label 封闭、租户 gauge、真实终态耗时、崩溃/停顿重启、慢循环不阻塞、关闭回收）与 `tests/architecture/test_scheduled_v2_lifecycle_wiring.py`（循环登记/心跳/监督器/目录/保留设置/部署键/发布文档/迁移 downgrade/设计事实）。
+- [2026-11-15] gate：`code-flow task finish --task TASK-032 --json` = pass（22 passed，exit 0）。gate 之后仅补了「未装配 operations 时 async sweep 空转心跳」这一处循环健壮性改动（不改变声明测试断言），复跑 ruff 与 import 冒烟通过；三个归属遗留测试分别单独跑过：worker metrics 10 passed、console overview 37 passed、acceptance overview 9 passed。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-033"></a>
-
+- 2026-11-15T12:47:34.836Z PASS commands=1/1 executed=1 deduped=0 elapsed=13024ms tests=c898caca2d47 head=9a5762df82c3 dirty=1
+  - related PASS exit=0
 ## TASK-033: 补齐真实全链路旅程及 CI 测试接线
 
 - **Status**: draft

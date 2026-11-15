@@ -105,6 +105,9 @@ ALLOWED_LABEL_NAMES = frozenset(
         # 执行链路导出：kind 是 RUN/TASK 封闭枚举，format 是 ZIP/JSON 封闭枚举。
         "kind",
         "format",
+        # 压缩层（fired/failed/skipped 与 summary/*）与独立后台循环名都是封闭枚举。
+        "layer",
+        "loop",
     }
 )
 SENSITIVE_LABEL_MARKERS = (

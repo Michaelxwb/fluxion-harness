@@ -37,7 +37,12 @@ from ..infrastructure.models.task import (
     TaskSchedule,
     TaskScheduleRevision,
 )
-from ..metrics import TASKS_METRIC, record_outcome
+from ..metrics import (
+    TASK_EXECUTION_DURATION_SECONDS_METRIC,
+    TASKS_METRIC,
+    record_gauge,
+    record_outcome,
+)
 from .task_events import EntityType, TaskEventType, append_event
 
 NON_TERMINAL = (
@@ -210,6 +215,12 @@ async def write_terminal(
     await _enqueue_push_delivery(session, task)
     await session.flush()
     record_outcome(TASKS_METRIC, change.status.value, {"type": task.task_type})
+    if task.started_at is not None:
+        record_gauge(
+            TASK_EXECUTION_DURATION_SECONDS_METRIC,
+            max(0.0, (moment - task.started_at).total_seconds()),
+            {"type": task.task_type},
+        )
     return True
 
 

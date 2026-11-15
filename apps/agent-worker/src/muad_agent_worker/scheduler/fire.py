@@ -68,6 +68,7 @@ from ..infrastructure.models.task import (
     TaskSchedule,
     TaskScheduleRevision,
 )
+from ..metrics import SCHEDULE_FIRE_DUPLICATE_METRIC, increment
 from .recurrence import OccurrencePlan, PlanAction, execution_key, to_utc
 from .templates import render_input_template
 
@@ -98,6 +99,10 @@ class FireOutcome:
     fire_id: uuid.UUID | None = None
     execution_id: uuid.UUID | None = None
     misfire: bool = False
+    #: 跳过原因（封闭 `SkipReason`）：指标按它分档，原始指令/参数不进 label。
+    skip_reason: SkipReason | None = None
+    #: 准入失败的目录错误码（`config/api-messages.yaml` 的稳定码）：同样是有界 label。
+    admission_error_code: str | None = None
 
 
 async def write_fire(
@@ -189,7 +194,13 @@ async def _write_misfire(
             "missed_count": plan.missed_count,
         },
     )
-    return FireOutcome(action=plan.action, status=FireStatus.SKIPPED, fire_id=fire.id, misfire=True)
+    return FireOutcome(
+        action=plan.action,
+        status=FireStatus.SKIPPED,
+        fire_id=fire.id,
+        misfire=True,
+        skip_reason=SkipReason.MISFIRE,
+    )
 
 
 async def _write_due(
@@ -298,7 +309,9 @@ async def _write_skip(
             "skip_reason": str(reason),
         },
     )
-    return FireOutcome(action=plan.action, status=FireStatus.SKIPPED, fire_id=fire.id)
+    return FireOutcome(
+        action=plan.action, status=FireStatus.SKIPPED, fire_id=fire.id, skip_reason=reason
+    )
 
 
 async def _write_execution(
@@ -487,7 +500,10 @@ async def _write_admission_failure(
         },
     )
     return FireOutcome(
-        action=plan.action, status=FireStatus.FAILED_ADMISSION, fire_id=fire.id
+        action=plan.action,
+        status=FireStatus.FAILED_ADMISSION,
+        fire_id=fire.id,
+        admission_error_code=error.code,
     )
 
 
@@ -565,6 +581,7 @@ async def _insert_fire(
         )
     ).scalar_one_or_none()
     if fire is None:
+        increment(SCHEDULE_FIRE_DUPLICATE_METRIC)
         logger.info(
             "schedule_fire_duplicate",
             extra={

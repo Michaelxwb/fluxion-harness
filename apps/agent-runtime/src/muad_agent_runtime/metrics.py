@@ -129,6 +129,9 @@ TOOL_AUDIT_METRIC: Final = "tool_call_audit_total"
 CHANNEL_DELIVERY_METRIC: Final = "channel_delivery_total"
 #: 泵失败/尝试失败/单条崩溃是三种不同的失败面。
 CHANNEL_DELIVERY_FAILURE_METRIC: Final = "channel_delivery_failure_total"
+#: 任务产物下载（design §3.5.12）：下载面由 Runtime 解析指定版本（Gateway 只转发），
+#: 因此计数归在本单元；label `outcome` 只取 RESOLVED/REJECTED。
+TASK_ARTIFACT_DOWNLOAD_METRIC: Final = "task_artifact_download_total"
 #: 保留清理节拍结局：清理失败不静默，也不杀死独立维护循环。
 WEBCHAT_RETENTION_METRIC: Final = "webchat_retention_total"
 #: 四类清理各自的回收量记在 **amount**（条数进 label 会裂出无界时间序列）。
@@ -539,6 +542,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         COUNTER,
         ("reason",),
         "Channel delivery pump failures by bounded reason",
+    ),
+    (
+        TASK_ARTIFACT_DOWNLOAD_METRIC,
+        COUNTER,
+        ("outcome",),
+        "Task artifact version resolutions by outcome (RESOLVED/REJECTED)",
     ),
     (
         WEBCHAT_RETENTION_METRIC,

@@ -30,7 +30,7 @@ from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.models.workspace import Workspace, WorkspaceLease
-from ..metrics import record_workspace_cleanup
+from ..metrics import record_loop_tick, record_workspace_cleanup
 
 logger = logging.getLogger("muad_agent_worker.worker.workspace_maintenance")
 
@@ -193,6 +193,9 @@ class WorkspaceMaintenanceLoop:
             except Exception:  # noqa: BLE001 - 维护循环必须继续，失败要可见
                 logger.exception("workspace_maintenance_failed")
                 record_workspace_cleanup("FAILED")
+                record_loop_tick("worker.workspace.maintenance", "failed")
+            else:
+                record_loop_tick("worker.workspace.maintenance", "ok")
             await asyncio.sleep(self._interval_sec)
 
     async def _reference_time(

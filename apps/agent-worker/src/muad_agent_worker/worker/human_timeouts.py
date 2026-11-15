@@ -32,6 +32,7 @@ from ..application.task_events import EntityType, TaskEventSeed, TaskEventType, 
 from ..application.terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution, TaskHumanInteraction
+from ..metrics import TASK_HUMAN_TIMEOUT_METRIC, increment, record_loop_tick
 
 logger = logging.getLogger("muad_agent_worker.worker.human_timeouts")
 
@@ -82,6 +83,7 @@ class HumanTimeoutSweeper:
                 if await self._close_one(session, interaction_id, tenant_id, execution_id, moment):
                     closed += 1
         if closed:
+            increment(TASK_HUMAN_TIMEOUT_METRIC, closed)
             logger.info("human_timeout_swept", extra={"closed": closed})
         return closed
 
@@ -214,6 +216,9 @@ class HumanTimeoutLoop:
                 await self._sweeper.sweep()
             except Exception:
                 logger.exception("human_timeout_sweep_failed")
+                record_loop_tick("worker.human_timeouts", "failed")
+            else:
+                record_loop_tick("worker.human_timeouts", "ok")
             await asyncio.sleep(self._interval_sec)
 
 
