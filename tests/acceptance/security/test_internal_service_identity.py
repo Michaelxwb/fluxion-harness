@@ -49,7 +49,7 @@ def _result_body(seeded: SeededOperation, **overrides: object) -> dict[str, obje
         "operation_id": str(seeded.operation_id),
         "task_id": str(seeded.task_id),
         "task_event_seq": 1,
-        "source_run_id": str(seeded.run_id),
+        "owner": {"kind": "RUN", "run_id": str(seeded.run_id)},
         "actor_user_id": str(seeded.actor_user_id),
         "task_snapshot_hash": seeded.task_snapshot_hash,
         "terminal_status": "COMPLETED",
@@ -71,7 +71,7 @@ def test_e11_internal_endpoints_require_service_identity(
         "operation_id": probe_id,
         "task_id": probe_id,
         "task_event_seq": 1,
-        "source_run_id": probe_id,
+        "owner": {"kind": "RUN", "run_id": probe_id},
         "actor_user_id": probe_id,
         "task_snapshot_hash": "sha256:" + "a" * 64,
         "terminal_status": "COMPLETED",
@@ -112,7 +112,7 @@ def test_e11_result_binding_mismatches_are_rejected_without_inbox(
 
     attacks = {
         "actor": _result_body(seeded, actor_user_id=str(uuid.uuid4())),
-        "run": _result_body(seeded, source_run_id=str(uuid.uuid4())),
+        "run": _result_body(seeded, owner={"kind": "RUN", "run_id": str(uuid.uuid4())}),
         "task": _result_body(seeded, task_id=str(uuid.uuid4())),
         "hash": _result_body(seeded, task_snapshot_hash="sha256:" + "c" * 64),
     }

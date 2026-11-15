@@ -11,7 +11,14 @@ from datetime import datetime
 from hashlib import sha256
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from muad_contracts import CompletionMode, TaskStatus, TerminalStatus, ToolResultRequest, canonical_json
+from muad_contracts import (
+    CompletionMode,
+    RunToolOperationOwner,
+    TaskStatus,
+    TerminalStatus,
+    ToolResultRequest,
+    canonical_json,
+)
 from muad_logging.redaction import redact_value
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import select, update
@@ -117,7 +124,7 @@ def _payload(task: TaskExecution, change: TerminalChange, moment: datetime, seq:
         operation_id=task.source_operation_id,
         task_id=task.id,
         task_event_seq=seq,
-        source_run_id=task.source_run_id,
+        owner=RunToolOperationOwner(run_id=task.source_run_id),
         actor_user_id=task.actor_user_id,
         task_snapshot_hash=task.snapshot_hash,
         terminal_status=change.status,

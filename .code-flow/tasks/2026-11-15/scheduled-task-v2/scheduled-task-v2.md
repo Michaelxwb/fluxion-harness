@@ -603,7 +603,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
   - related PASS exit=0
 ## TASK-007: 实现 Task-owned ASYNC operation 与持久结果协议
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-002, TASK-003, TASK-006
 - **Source**: scheduled-task-v2.backend.design.md §3.1.5、§3.2.4、API-30、§3.5.1、§4.4
 - **Scenarios**: S-17, E-03, E-15, B-08
@@ -643,12 +643,12 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Checklist
 
-- [ ] 调用身份唯一为 tenant+owner_type+owner_id+source_tool_call_id；input_hash 只作冲突判定，同 call 换参数返回 TOOL_OPERATION_INPUT_MISMATCH。
-- [ ] Task-owned 操作不查找或伪造 Run/Conversation；ToolOperation.task_id 仍是实际提交产生的任务，owner_task_execution_id 单独存放。
-- [ ] 结果按 event_id 幂等落 inbox，保留每个 call 的 receipt 身份/序号；Task 与 Run 的 receipt kind 分流，禁止写 canonical Run 事件冒充 Task receipt。
-- [ ] 定义可重放的 Task 结果读取与消费确认边界，由 Worker 的消费事务写 task_event/checkpoint/水位；确认丢失可重投，不提前丢结果。
-- [ ] 取消意图先持久化，覆盖 cancel-before-submit、提交回执丢失、重复提交/结果、迟到结果；没有 Runtime→Worker 入站回调，wake-up hint 与 cancel hint 分开。
-- [ ] 回归原 RUN JOIN/DETACH/outbox/continuation，不让 Task 结果进入会话通知。
+- [x] 调用身份唯一为 tenant+owner_type+owner_id+source_tool_call_id；input_hash 只作冲突判定，同 call 换参数返回 TOOL_OPERATION_INPUT_MISMATCH。
+- [x] Task-owned 操作不查找或伪造 Run/Conversation；ToolOperation.task_id 仍是实际提交产生的任务，owner_task_execution_id 单独存放。
+- [x] 结果按 event_id 幂等落 inbox，保留每个 call 的 receipt 身份/序号；Task 与 Run 的 receipt kind 分流，禁止写 canonical Run 事件冒充 Task receipt。
+- [x] 定义可重放的 Task 结果读取与消费确认边界，由 Worker 的消费事务写 task_event/checkpoint/水位；确认丢失可重投，不提前丢结果。
+- [x] 取消意图先持久化，覆盖 cancel-before-submit、提交回执丢失、重复提交/结果、迟到结果；没有 Runtime→Worker 入站回调，wake-up hint 与 cancel hint 分开。
+- [x] 回归原 RUN JOIN/DETACH/outbox/continuation，不让 Task 结果进入会话通知。
 
 ### Spec Delta
 
@@ -667,13 +667,26 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T06:31:21.559Z] started tests=bbb33e6b2e6c
+- [2026-11-15] 契约先定 owner 联合：`RunToolOperationOwner`/`TaskToolOperationOwner` + 判别联合 `ToolOperationOwner` 移入 `tool_runtime`（`tasks → tool_runtime` 的既有方向决定了它不能放 scheduling）；`TaskToolOperationOwner` 仍在 scheduling 再导出，`ToolResultRequest` 的 `source_run_id` 换为 `owner`，`CancelOperationRequest` 同口径。新增 API-30 读模型 `TaskToolOperationView/Result/List/CancelRequest/CancelResponse`（列表按 RULE-api-001 带 page/page_size/total）。
+- [2026-11-15] API-30 落 `api/tool_operations.py` + `application/async_tools/task_operations.py|task_facts.py`：`POST /internal/tool-operations`（submit-or-find）、`GET`（按 owner 列、`ready` 过滤、分页）、`GET /{id}`、`POST /cancel`（按调用身份）。归属按 `task.task_execution` 只读复核（跨租户 404、`X-Actor-User-Id` 不符或缺失 403、执行已取消/终态 409 TASK_OPERATION_CANCELLED）；同身份并发用 `pg_advisory_xact_lock` 串行化，partial unique 兜底。
+- [2026-11-15] 提交语义定案：Runtime 只持 operation 身份与 inbox，**不替 Task 提交子任务**——请求体本来就不带快照/skill 材料，Worker 自己创建并执行内层 Task（`tool_operation.task_id` 因此仍由真实提交决定，结果到达时回填）。`submission_json` 由 owner 决定形状：RUN 存 CreateTaskRequest，TASK 存调用（tool_name/arguments/input_hash）。
+- [2026-11-15] cancel-before-submit 用 tombstone：operation 行先落（CANCELLED + `cancel_requested`，`input_hash`/`task_snapshot_hash` 用显式占位符，**不参与冲突比较**），提交晚到时补齐真实身份但状态保持 CANCELLED；同一身份再取消不重复投递控制命令。已终态（结果已到）的迟到取消不写标记、不改写终态事实。
+- [2026-11-15] 控制面复用同一 outbox：`CANCEL_OPERATION` 由 Runtime 的 `ControlDispatcher` 投给 Worker `/internal/runtime-operations/{id}/cancel`，投递体带 `owner` 联合；dispatcher 对 `run_id IS NULL` 的行不再加载/lock Run，`SUBMIT` 命令对 TASK 行直接视为不变量违规。Worker `application/runtime_operations.py` 的 `lock_operation` 按 owner 写 `source_run_id`/`task_execution_id`（XOR），TASK 行只落墓碑、不查 task。
+- [2026-11-15] 结果协议：`/internal/tool-results` 仍是一个入口，按 operation 行的 owner 分流。TASK 回执**由 Runtime 解析回执 id**：以 `(tenant, EXECUTION, task_id, task_event_seq)` 定位唯一的 `task.task_event`（唯一键同源），并校验子 Task 的 `snapshot_hash` 与回执声明一致；inbox 写 `receipt_event_type=TASK_EVENT` + 该事件 id + `task_execution_id`，`canonical_event_id` 为空——绝不写 canonical Run 事件冒充 Task receipt，也不建 continuation/会话通知。
+- [2026-11-15] 读取/消费边界：Runtime 侧**没有**消费确认端点，`GET`/列表都是可重放只读（不删行、不标记 `materialized`）；消费水位（checkpoint/wait_payload/`task_event`）由 Worker 自己的事务写，确认丢失只会重投。迟到 = 取消/已终态（TASK 无 Run 可查），只记 `late`。
+- [2026-11-15] hint 口径：本 TASK 不引入 Runtime→Worker 的入站回调，也不新增 hint 生产者（持久 inbox + PG 补扫才是正确性来源，hint 只降延迟）；Worker 既有的 `muad:task:wakeup`（pubsub）与 `muad:task:cancel:{id}`（key）保持两条独立通道，取消权威仍是被持久化的 operation 行。
+- [2026-11-15] 顺带对齐（被声明测试逼出、非本 TASK 主体）：`worker/executor.py::task_env` 读 `wait_payload_json.external_ref`（TASK-002 已删 `external_ref_json`）；`application/terminal_tasks.py::_payload` 改传 `RunToolOperationOwner`；`tests/async_tool_continuations.py`/`tests/contracts/test_runtime_strict_json.py`/`tests/acceptance/security/test_internal_service_identity.py` 同步 owner 形状。
+- [2026-11-15] 测试：`test_scheduled_v2_task_operations.py`（13，真实 uvicorn + 真实 PG：身份唯一/并发/归属/取消墓碑/分页/控制命令投递）、`test_scheduled_v2_task_inbox.py`（13，真实 PG：kind 分流/绑定校验/幂等/迟到/可重放/RUN 回归）；同批回归 `test_task_operation_identity.py`、`test_runtime_operation_races.py`（13）及 `test_tool_result_materialization.py`、`test_resume_transactions.py`、`test_tool_wait_state_machine.py`、`test_scheduled_v2_transactions.py`、`tests/contracts/test_scheduled_v2_contracts.py`。
+- [2026-11-15] 明确留给后续 TASK 的接缝：Task-owned 终态结果的 outbox 投递（`write_terminal` 只在 root JOIN 且 `source_run_id` 存在时入队，TASK 行需要把 `task_event_seq` 交给 Runtime 解析）由 TASK-015/TASK-020 接；本 TASK 只交付协议与接收侧，不伪造 producer。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-008"></a>
-
+- 2026-11-15T06:46:41.930Z PASS commands=1/1 executed=1 deduped=0 elapsed=25153ms tests=bbb33e6b2e6c head=ccf6da6c7092 dirty=1
+  - related PASS exit=0
 ## TASK-008: 新增 Task 产物写入与不可变版本 API
 
 - **Status**: done

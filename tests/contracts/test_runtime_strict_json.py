@@ -71,7 +71,7 @@ def _result() -> dict:
         "operation_id": uuid4(),
         "task_id": uuid4(),
         "task_event_seq": 1,
-        "source_run_id": uuid4(),
+        "owner": {"kind": "RUN", "run_id": str(uuid4())},
         "actor_user_id": uuid4(),
         "task_snapshot_hash": "sha256:" + "1" * 64,
         "terminal_status": "COMPLETED",
