@@ -510,6 +510,7 @@ export interface ScheduleListItem {
   mode: ScheduleMode;
   status: ScheduleStatus;
   timezone: string;
+  config_version: number;
   next_fire_at: string | null;
   last_fire: ScheduleLastFire | null;
   needs_attention: boolean;
@@ -518,18 +519,30 @@ export interface ScheduleListItem {
 
 export interface ScheduleListPage extends WebchatPage<ScheduleListItem> {}
 
+/** `ENDED` 的结束原因：次级事实，展示为标签，不当作失败。 */
+export type ScheduleEndReason =
+  | 'COMPLETED'
+  | 'MISSED'
+  | 'EXHAUSTED'
+  | 'ADMISSION_FAILED'
+  | 'USER_CANCELLED';
+
+/**
+ * 详情 = 列表行 + Revision 事实。`instruction`/`normalized_goal`/`context` 是服务端返回的
+ * 内部配置（Prompt 与参数），页面不得展示；页面只用公开摘要、依赖与策略字段。
+ */
 export interface ScheduleDetail extends ScheduleListItem {
-  config_version: number;
   revision_no: number;
   instruction: string;
   normalized_goal: string;
-  context_summary: Record<string, unknown>;
+  context: Record<string, unknown>;
   dependencies: string[];
-  delivery: DeliveryIntent;
+  delivery_intent: DeliveryIntent;
+  policy: Record<string, unknown>;
   budget: Record<string, unknown> | null;
   memory_mode: 'READ_ONLY' | null;
-  dst_gap_policy: 'SKIP';
-  dst_fold_policy: 'FIRST';
+  end_reason: ScheduleEndReason | null;
+  attention_reason: string | null;
 }
 
 export interface HumanPendingItem {
@@ -581,8 +594,17 @@ export interface DstEvent {
   occurred_at: string;
 }
 
+/** 历史保留口径：空页不等于没发生过——早于 `cleaned_before` 的 Fire 可能已按策略回收。 */
+export interface HistoryRetention {
+  fire_history_days: number;
+  execution_history_days: number;
+  cleaned_before: string;
+  oldest_retained_at: string | null;
+}
+
 export interface FireHistoryPage extends WebchatPage<FireItem> {
   dst_events: DstEvent[];
+  retention: HistoryRetention | null;
 }
 
 export interface TaskArtifact {
@@ -606,14 +628,9 @@ export interface ScheduleExecutionDetail {
   failure_class: string | null;
   started_at: string | null;
   finished_at: string | null;
-  snapshot: {
-    schema_version: number;
-    agent: string;
-    model: string;
-    tools: string[];
-    memory_mode: string | null;
-    snapshot_bytes: number;
-  };
+  /** 冻结 Snapshot 的摘要事实（schema 版本与字节数）；明细不对外。 */
+  snapshot_schema_version: number;
+  snapshot_bytes: number;
 }
 
 /** API-18 回答回执：服务端按 `input_schema` 二次校验后的真实状态。 */
