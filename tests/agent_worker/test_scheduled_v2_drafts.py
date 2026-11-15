@@ -155,6 +155,22 @@ def reminder_materials() -> ScheduleAdmissionMaterials:
     )
 
 
+#: PUSH Draft 的冻结投递目标（创建时的那一个会话）。
+PUSH_ROUTE = {
+    "channel": "WECOM",
+    "bot_id": "bot-demo",
+    "external_user_id": "wotv-001",
+    "external_conversation_id": "chat-001",
+}
+
+
+def _with_push_route(body: dict[str, Any]) -> dict[str, Any]:
+    """PUSH 必带目标：与契约的 `delivery_route must be present exactly when PUSH` 同一口径。"""
+    if body.get("delivery_intent") == "PUSH" and "delivery_route" not in body:
+        body["delivery_route"] = dict(PUSH_ROUTE)
+    return body
+
+
 def draft_body(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
         "mode": "REMINDER",
@@ -163,7 +179,7 @@ def draft_body(**overrides: Any) -> dict[str, Any]:
         "execution_spec": {"mode": "REMINDER", "reminder_text": "开会"},
     }
     body.update(overrides)
-    return body
+    return _with_push_route(body)
 
 
 def skill_body(**overrides: Any) -> dict[str, Any]:
@@ -178,7 +194,7 @@ def skill_body(**overrides: Any) -> dict[str, Any]:
         },
     }
     body.update(overrides)
-    return body
+    return _with_push_route(body)
 
 
 def agentic_body(*, allowlist: list[dict[str, Any]] | None = None, **overrides: Any) -> dict[str, Any]:
@@ -194,7 +210,7 @@ def agentic_body(*, allowlist: list[dict[str, Any]] | None = None, **overrides: 
         },
     }
     body.update(overrides)
-    return body
+    return _with_push_route(body)
 
 
 def headers(

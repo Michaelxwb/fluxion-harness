@@ -44,6 +44,7 @@ from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory
 from muad_agent_worker.main import app as worker_app
 from muad_contracts import (
+    DeliveryRouteInput,
     ResolvedAgent,
     ResolvedModel,
     ResolvedSkill,
@@ -228,6 +229,18 @@ def _context(
         source_run_id=run_id or uuid.uuid4(),
         conversation_id=conversation_id,
         entry_channel=entry_channel,
+        # 聊天入口的 Run 带着这条消息自己的投递目标（创建会话）：PUSH 的 Draft 必须有它。
+        delivery_route=(
+            DeliveryRouteInput(
+                channel=entry_channel,
+                bot_id="bot-1",
+                external_user_id="ext-1",
+                external_conversation_id="conv-1",
+            )
+            if entry_channel == "WECOM"
+            else None
+        ),
+        entry_id=uuid.uuid4(),
     )
 
 
@@ -472,6 +485,29 @@ async def test_wecom_entry_requests_push_delivery(
     finally:
         await client.aclose()
     assert result["preview"]["delivery"] == "PUSH"
+    draft = (await _draft_payloads(tenant.tenant_id))[0]
+    # 冻结创建时的目标（会话级），并记下入口只作审计的 source。
+    assert draft["delivery_route"] == {
+        "channel": "WECOM",
+        "bot_id": "bot-1",
+        "external_user_id": "ext-1",
+        "external_conversation_id": "conv-1",
+    }
+    assert draft["context"]["source"]["origin_channel"] == "WECOM"
+
+
+async def test_chat_entry_tells_the_model_the_confirm_command(
+    tenant: TenantContext, conversation: uuid.UUID
+) -> None:
+    client = _client()
+    try:
+        registry = _registry(_context(tenant, conversation, entry_channel="WECOM"), client)
+        result = await _invoke(registry, DRAFT_SCHEDULE_TOOL, _draft_args())
+    finally:
+        await client.aclose()
+
+    assert result["confirm_command"] == f"/confirm {result['draft_id']}"
+    assert f"/confirm {result['draft_id']}" in result["next_step"]
 
 
 # --------------------------------------------------------------------------------------

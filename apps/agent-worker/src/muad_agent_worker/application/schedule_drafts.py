@@ -121,8 +121,10 @@ def parse_draft_request(raw: Mapping[str, Any]) -> ScheduleDraftRequest:
         return ScheduleDraftRequest.model_validate(dict(raw))
     except ValidationError as exc:
         errors = exc.errors()
-        missing = sorted({str(item["loc"][0]) for item in errors if item.get("type") == "missing"})
-        fields = missing or sorted({str(item["loc"][0]) for item in errors})
+        # 模型级校验（跨字段）没有字段路径：`loc` 可能是空元组，不能下标取。
+        locations = [(item.get("loc") or (), item.get("type")) for item in errors]
+        missing = sorted({str(loc[0]) for loc, kind in locations if kind == "missing" and loc})
+        fields = missing or sorted({str(loc[0]) for loc, _kind in locations if loc})
         code = (
             ErrorCode.SCHEDULE_PARAMETER_INCOMPLETE
             if missing
@@ -197,6 +199,17 @@ def resolve_delivery_intent(
     if requested is not capability:
         raise _delivery_error("DELIVERY_INTENT_MISMATCH")
     return capability
+
+
+def ensure_delivery_target(body: ScheduleDraftRequest, entry_channel: str | None) -> None:
+    """PUSH 的投递目标必须与创建入口一致：跨入口的 route 不是这条 Draft 的事实。"""
+    route = body.delivery_route
+    if route is None:
+        return
+    if entry_channel is None:
+        raise _delivery_error("ENTRY_CHANNEL_UNKNOWN")
+    if route.channel != entry_channel:
+        raise _delivery_error("DELIVERY_ROUTE_MISMATCH")
 
 
 def _delivery_error(reason: str) -> AppError:
@@ -349,6 +362,7 @@ class ScheduleDraftPreflight:
         first_fire_at = _first_fire(rule, self._now)
         check_min_interval(rule, first_fire_at, self._quota)
         delivery = resolve_delivery_intent(body.delivery_intent, identity.entry_channel)
+        ensure_delivery_target(body, identity.entry_channel)
         check_agentic_shape(body)
         materials = await self._materials(body, identity)
         dependencies = check_mode_materials(body, materials)
@@ -416,6 +430,13 @@ def _as_utc_iso(value: Any) -> Any:
         return value
 
 
+def _config_context(value: Any) -> Any:
+    """`context.source` 是来源审计，不是用户配置：不进差异、也不触发执行取消。"""
+    if not isinstance(value, Mapping):
+        return value
+    return {key: item for key, item in value.items() if key != "source"}
+
+
 def update_diff(
     payload: Mapping[str, Any], *, schedule: TaskSchedule, revision: TaskScheduleRevision | None
 ) -> list[dict[str, Any]]:
@@ -433,7 +454,7 @@ def update_diff(
             "run_at": _as_utc_iso(revision.run_at.isoformat() if revision.run_at else None),
             "timezone": revision.timezone,
         },
-        "context": revision.context_json,
+        "context": _config_context(revision.context_json),
         "execution_spec": revision.execution_spec,
     }
     current: dict[str, Any] = {
@@ -446,7 +467,7 @@ def update_diff(
             "run_at": _as_utc_iso(after.get("run_at")),
             "timezone": after.get("timezone"),
         },
-        "context": payload.get("context"),
+        "context": _config_context(payload.get("context")),
         "execution_spec": payload.get("execution_spec"),
     }
     return [
@@ -486,6 +507,30 @@ def draft_response(draft: TaskScheduleDraft) -> dict[str, Any]:
         "preview": draft.preview_json,
         "expires_at": draft.expires_at.isoformat(),
     }
+
+
+async def load_draft(
+    session: AsyncSession, draft_id: uuid.UUID, *, identity: DraftIdentity
+) -> dict[str, Any]:
+    """API-01 读面：按 id 取回**本人 + 本 agent** 的 Draft（跨用户/跨租户一律 404）。
+
+    确认端点需要 Draft 的 hash 与预览：聊天入口只拿到用户给的 id，必须由服务端按
+    同一条事实读出 hash，绝不接受客户端自报 hash。
+    """
+    draft = await session.scalar(
+        select(TaskScheduleDraft).where(
+            TaskScheduleDraft.id == draft_id,
+            TaskScheduleDraft.tenant_id == identity.tenant_id,
+            TaskScheduleDraft.is_deleted.is_(False),
+        )
+    )
+    if (
+        draft is None
+        or draft.owner_user_id != identity.owner_user_id
+        or draft.agent_id != identity.agent_id
+    ):
+        raise AppError(ErrorCode.SCHEDULE_NOT_FOUND)
+    return draft_response(draft)
 
 
 class ScheduleDraftService:
@@ -615,7 +660,9 @@ __all__ = [
     "draft_response",
     "draft_what",
     "draft_when",
+    "ensure_delivery_target",
     "entry_delivery_capability",
+    "load_draft",
     "materials_error",
     "parse_draft_request",
     "recurrence_rule",

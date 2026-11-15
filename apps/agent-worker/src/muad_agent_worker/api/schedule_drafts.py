@@ -29,6 +29,7 @@ from ..application.schedule_confirm import ConfirmIdentity, ScheduleConfirmServi
 from ..application.schedule_drafts import (
     DraftIdentity,
     ScheduleDraftService,
+    load_draft,
     parse_draft_request,
 )
 from ..application.submissions import (
@@ -127,6 +128,26 @@ async def create_schedule_draft(
     # 先提交再响应：确认端点在另一个请求里按 id 读取 Draft。
     await session.commit()
     return ok(request.app.state.message_catalog, response)
+
+
+@router.get("/{draft_id}")
+async def read_schedule_draft(
+    draft_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    actor_user_id: RequiredActorUserId,
+    agent_id: RequiredAgentId,
+) -> ApiResponse[Any]:
+    """API-01 读面：聊天入口按 id 取回自己的 Draft（hash/预览/过期），不接受自报 hash。"""
+    data = await load_draft(
+        session,
+        draft_id,
+        identity=DraftIdentity(
+            tenant_id=tenant_id, owner_user_id=actor_user_id, agent_id=agent_id
+        ),
+    )
+    return ok(request.app.state.message_catalog, data)
 
 
 def _parse_confirm(body: dict[str, Any]) -> ScheduleDraftConfirmRequest:

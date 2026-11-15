@@ -31,6 +31,7 @@ from muad_agent_core.tools import ToolConcurrency, ToolDefinition, ToolEffect, T
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import (
+    SCHEDULE_CONFIRM_COMMAND,
     DeliveryIntent,
     DraftKind,
     ResolvedSkill,
@@ -652,11 +653,29 @@ class BackgroundTaskToolSet:
             "expires_at": response.get("expires_at"),
             "card_event_seq": seq,
             "card": "PUBLISHED" if seq is not None else "UNPUBLISHED",
-            "next_step": (
-                "Present this preview to the user; it only becomes a schedule when the user "
-                "confirms it in the chat card. You cannot confirm or create it yourself."
+            "next_step": self._next_step(card),
+            "confirm_command": (
+                f"{SCHEDULE_CONFIRM_COMMAND} {card.draft_id}"
+                if self._is_push_surface()
+                else None
             ),
         }
+
+    def _is_push_surface(self) -> bool:
+        """聊天入口（能在创建会话里回复用户）才用文本确认；站内入口用卡片。"""
+        return (self._context.entry_channel or "") in OUTBOUND_CHANNELS
+
+    def _next_step(self, card: WebchatScheduleDraftReady) -> str:
+        if self._is_push_surface():
+            return (
+                "Present this preview to the user. It only becomes a schedule when the user "
+                f"replies `{SCHEDULE_CONFIRM_COMMAND} {card.draft_id}` in this chat; show them "
+                "that exact command. You cannot confirm or create it yourself."
+            )
+        return (
+            "Present this preview to the user; it only becomes a schedule when the user "
+            "confirms it in the chat card. You cannot confirm or create it yourself."
+        )
 
     def _draft_body(
         self,
@@ -672,15 +691,34 @@ class BackgroundTaskToolSet:
                 "mode must be one of REMINDER, SKILL, AGENTIC",
             )
         timezone = _timezone_arg(arguments)
+        intent = _delivery_intent(self._context.entry_channel)
+        context = _context_arg(arguments)
+        # 入口只作审计（design §2.3.6）：入口不是数据隔离边界，可见性仍按 user+agent。
+        context["source"] = {
+            "origin_bot_account_id": (
+                str(self._context.entry_id) if self._context.entry_id is not None else None
+            ),
+            "origin_channel": self._context.entry_channel,
+        }
         body: dict[str, Any] = {
             "kind": kind.value,
             "mode": mode,
             "instruction": _instruction_arg(arguments),
             "recurrence": _recurrence_arg(arguments, timezone),
-            "context": _context_arg(arguments),
+            "context": context,
             "execution_spec": _execution_spec(arguments, mode, self._skills),
-            "delivery_intent": _delivery_intent(self._context.entry_channel),
+            "delivery_intent": intent,
         }
+        if intent == DeliveryIntent.PUSH.value:
+            route = self._context.delivery_route
+            if route is None:
+                # 没有"创建时的那一个会话"就无法兑现 PUSH：显式失败，不落一条投不出去的任务。
+                raise TaskToolError(
+                    ErrorCode.SCHEDULE_DELIVERY_UNSUPPORTED.value,
+                    "this chat surface cannot provide a delivery route for the schedule",
+                    {"reason": "DELIVERY_ROUTE_UNAVAILABLE"},
+                )
+            body["delivery_route"] = route.model_dump(mode="json")
         name = arguments.get("name")
         if isinstance(name, str) and name.strip():
             body["name"] = name.strip()

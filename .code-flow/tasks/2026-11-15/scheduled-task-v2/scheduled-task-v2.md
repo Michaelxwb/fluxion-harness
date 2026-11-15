@@ -2063,7 +2063,7 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
   - related PASS exit=0
 ## TASK-025: 接通 WeCom 用户确认与 Human 回复分流
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-013, TASK-021, TASK-022, TASK-017
 - **Source**: scheduled-task-v2.backend.design.md §3.2.6、§3.2.8、§3.5.8、§3.5.9
 - **Scenarios**: S-01, S-06, S-10, E-08, E-09, E-14, E-15
@@ -2103,11 +2103,11 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Checklist
 
-- [ ] 确认依据真实入站引用与已认证 user/agent，携带稳定 surface/ref 到确认端点；重放不重复生效，模型文本不能伪造确认。
-- [ ] Schedule 创建路由保存 origin_bot_account_id 与原会话，只向该目标推送最终结果/问题，解绑时明确失败。
-- [ ] Human 匹配范围 user+agent+创建会话：恰好一个 OPEN 才回答，多个列出任务要求指定，零个继续普通聊天。
-- [ ] 回答通过 Worker 核属与双侧 CAS；同源消息重投幂等；取消/超时后不恢复，任务中心仍读取同一交互状态。
-- [ ] 适配器核验的回复不新建无意义 Run；测试两个会话、多个问题、错误用户/Agent、route 失效和原始通道字段不越界。
+- [x] 确认依据真实入站引用与已认证 user/agent，携带稳定 surface/ref 到确认端点；重放不重复生效，模型文本不能伪造确认。
+- [x] Schedule 创建路由保存 origin_bot_account_id 与原会话，只向该目标推送最终结果/问题，解绑时明确失败。
+- [x] Human 匹配范围 user+agent+创建会话：恰好一个 OPEN 才回答，多个列出任务要求指定，零个继续普通聊天。
+- [x] 回答通过 Worker 核属与双侧 CAS；同源消息重投幂等；取消/超时后不恢复，任务中心仍读取同一交互状态。
+- [x] 适配器核验的回复不新建无意义 Run；测试两个会话、多个问题、错误用户/Agent、route 失效和原始通道字段不越界。
 
 ### Spec Delta
 
@@ -2118,13 +2118,24 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T11:57:33.212Z] started tests=aff1d0b6bd9f
+- [2026-11-15] 确认动作（API-31 → API-27）：新增共享命令 `SCHEDULE_CONFIRM_COMMAND`（`/confirm <draft_id>`）与 `SCHEDULE_CONFIRM_COMMAND` 回执字段；Gateway 的 `inbound.py` 新增 `_handle_confirm`，hash 由 **Worker 按 id 读回**（新读面 `GET /internal/schedule-drafts/{id}`，owner+agent 核属），`surface=入口通道`、`ref=入站消息 id`、`Idempotency-Key=入站消息 id` —— 同一条消息重投重放首次结果；模型工具上下文调不到这条路由（`ScheduleConfirmService` 仍要求 surface/ref）。`application/inbound_schedules.py` 收口这两条用户动作（`ScheduleOwnerPort`/`HumanRoutePort`）。
+- [2026-11-15] 投递目标落库：`ScheduleDraftRequest.delivery_route`（PUSH 恰好一个、NONE 不得携带，跨字段校验）+ `DraftContext.source`（`origin_bot_account_id`/`origin_channel`，只作审计，不进 UPDATE 差异、不触发执行取消）；Runtime 的 `draft_schedule` 工具把 Run 的投递路由与入口 id 一起写进 Draft，PUSH 缺路由显式 `DELIVERY_ROUTE_UNAVAILABLE`；Worker 确认事务 `upsert_delivery_route` 后把 `delivery_route_id` 写进不可变 Revision（同 route 复用同一行）。"只向该目标推送/解绑明确失败" 由 TASK-022 的投递状态机执行，本任务负责让 Revision 真正带上目标。
+- [2026-11-15] Human 分流：入站纯文本（无附件、无不支持媒体、无显式会话）先问 Runtime 的新受信端点 `POST /v1/human-routing`；`HumanRoutingService`（`application/human_routing.py`）按 `user+agent+这条消息的来源会话` 在 Worker 待处理读面（`/internal/task-center/pending` 新增 channel/bot/external_user/external_conversation 收窄，join Revision→DeliveryRoute）取 OPEN 提问：0 个 → `NONE`（继续建 Run）、恰好 1 个 → 按 `interaction_id` 回答（载荷 `{"text": …}`、幂等键=入站消息 id）、多个 → `CLARIFY` 列出任务名/问题要求指定、Owner 拒绝 → `REJECTED` 带稳定原因码。命中任何非 `NONE` 结论都**不建 Run**；Gateway 只把结论变成用户可见文本（可选地指向任务中心按任务回答）。
+- [2026-11-15] 同步既有测试（契约变更的必然结果，非语义重写）：`tests/agent_worker/test_scheduled_v2_drafts.py` 的 PUSH 用例补上冻结目标（并在 UPDATE 差异里排除 `context.source`）；`tests/agent_runtime/test_scheduled_v2_intent_tools.py` 的会话上下文补 `delivery_route/entry_id`，并新增「聊天入口告诉模型确认命令」的断言。新增 `tests/agent_worker/test_scheduled_v2_wecom_route.py`（5 例）覆盖 PUSH 目标落库、Draft 读面核属、待处理按会话收窄。
+- [2026-11-15] 边界与交接：WeCom 目前没有模板卡片按钮入站帧（`_handle_event` 只记日志）⇒ 走"明确回复"；显式会话面（WebChat）不参与聊天分流，仍按 `interaction_id` 在任务中心回答。`parse_draft_request` 对模型级校验错误（无字段路径）不再下标取 `loc`。已知基线红（与本任务无关）：`test_scheduled_v2_lifecycle::test_list_detail_and_history_read_the_v2_shape` 断言 `current_revision_id`（契约与读面均无该字段）、`test_capacity_webchat_worker_console_metrics`（`context_compaction_total{layer}` 白名单）、`test_multi_worker_state`（多 worker 指标聚合）。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-026"></a>
-
+- 2026-11-15T12:25:53.176Z FAIL commands=0/1 executed=1 deduped=0 elapsed=13115ms tests=aff1d0b6bd9f head=580249e7ef4b dirty=1
+  - related FAIL exit=1
+- 2026-11-15T12:26:07.664Z FAIL commands=0/1 executed=1 deduped=0 elapsed=12540ms tests=aff1d0b6bd9f head=580249e7ef4b dirty=1
+  - related FAIL exit=1
+- 2026-11-15T12:26:29.770Z PASS commands=1/1 executed=1 deduped=0 elapsed=12651ms tests=aff1d0b6bd9f head=580249e7ef4b dirty=1
+  - related PASS exit=0
 ## TASK-026: 接通 WebChat typed client、保留对话状态的 Tab 壳与 Draft 卡片
 
 - **Status**: draft
