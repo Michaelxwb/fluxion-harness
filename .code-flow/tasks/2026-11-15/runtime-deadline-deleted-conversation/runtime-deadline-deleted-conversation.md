@@ -23,7 +23,8 @@
   {"id": "lint", "argv": ["uv", "run", "ruff", "check", "."], "timeout": 300},
   {"id": "typecheck", "argv": ["uv", "run", "mypy", "apps", "packages"], "timeout": 900},
   {"id": "deadline-regression", "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_run_deadline_deleted_conversation.py", "tests/agent_runtime/test_capacity_webchat_conversation_delete.py", "tests/agent_runtime/test_capacity_webchat_clock_lease.py", "tests/agent_runtime/test_run_events.py"], "timeout": 1800},
-  {"id": "run-service", "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_run_service.py"], "timeout": 1800}
+  {"id": "run-service", "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_runtime/test_run_service.py"], "timeout": 1800},
+  {"id": "inventory", "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/test_configuration_inventory.py"], "timeout": 600}
 ]
 ```
 
@@ -49,6 +50,7 @@
 - [x] 单行失败不再打断整批。
 - [x] 排队超时收尾同一口径。
 - [x] 回归测试三条 + 邻近套件（conversation delete / clock lease / run events / run service）全绿。
+- [x] 源码行号平移后配置盘点 CSV 同步（`tests/test_configuration_inventory.py`）。
 
 ### Spec Delta
 
@@ -59,6 +61,7 @@
 ### Log
 
 - [2026-11-15] 由 dev runtime 的 `run_deadline_sweep_failed` 定位：会话软删后 Run 收尾无路可走；新增单行隔离。
+- [2026-11-15] CI `backend-tests (fast)` 红：改动让 `ACTIVE_STATUSES`/`ADMISSION_CONCURRENCY_LIMIT`/`CANCEL_DB_FALLBACK_SEC` 的源码行号平移，配置盘点 CSV 失配。按 AST 重算行号（只改 line 列，类别与理由沿用），并把配置盘点测试加进本任务声明测试。
 - [2026-11-15T01:52:50.680Z] started tests=d7ccdd101cb2
 
 ### Verification
@@ -67,3 +70,9 @@
   - typecheck PASS exit=0
   - deadline-regression PASS exit=0
   - run-service PASS exit=0
+- 2026-11-15T02:22:51.581Z PASS commands=5/5 executed=5 deduped=0 elapsed=29891ms tests=ab3ccfb49151 head=d0d911ddc810 dirty=1 tests-changed
+  - lint PASS exit=0
+  - typecheck PASS exit=0
+  - deadline-regression PASS exit=0
+  - run-service PASS exit=0
+  - inventory PASS exit=0
