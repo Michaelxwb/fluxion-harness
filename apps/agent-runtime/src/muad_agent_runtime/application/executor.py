@@ -21,7 +21,7 @@ from muad_agent_core.agent import (
     AgentRunRequest,
     RunnerCancelled,
 )
-from muad_agent_core.agent.continuation import RunnerCheckpoint, RuntimeEventPort
+from muad_agent_core.agent.continuation import ExecutionEventPort, RunnerCheckpoint
 from muad_agent_core.agent.runner import AgentRunResult, AgentRunStatus
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
@@ -292,7 +292,7 @@ class ExecutorRequest:
     #: 本次 Run **冻结**的执行期平台默认（来自 `policy_json`）；None = schema 默认。
     execution: ExecutionDefaults | None = None
     checkpoint: RunnerCheckpoint | None = None
-    runtime_events: RuntimeEventPort | None = None
+    runtime_events: ExecutionEventPort | None = None
     deadline_at: datetime | None = None
     event_batch_size: int = 16
     #: 冻结的 Run 内并行上限（`policy_json.async_tools.parallel_limit`，QUALITY-03 默认 4）。

@@ -11,6 +11,13 @@ from .runner import (
     RunnerModelError,
     RunnerVerificationExhausted,
 )
+from .suspension import (
+    SuspensionKind,
+    SuspensionRequest,
+    SuspensionResume,
+    ToolSuspensionPort,
+    resume_checkpoint,
+)
 from .verification import VerificationOutcome, VerificationStatus, Verifier, run_verification
 
 __all__ = [
@@ -25,7 +32,12 @@ __all__ = [
     "RunnerError",
     "RunnerModelError",
     "RunnerVerificationExhausted",
+    "SuspensionKind",
+    "SuspensionRequest",
+    "SuspensionResume",
+    "ToolSuspensionPort",
     "Verifier",
+    "resume_checkpoint",
     "VerificationOutcome",
     "VerificationStatus",
     "run_verification",

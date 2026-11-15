@@ -729,7 +729,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ## TASK-009: 泛化 Kernel 的挂起、事件与恢复端口
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: scheduled-task-v2.backend.design.md §3.1.2、§3.2.4、§3.5.6
 - **Scenarios**: S-03, S-09, S-15, S-17, B-08, B-09
@@ -768,12 +768,12 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Checklist
 
-- [ ] 明确 ExecutionSpec、事件、CheckpointStore、模型/容量/凭据/工具/产物/取消端口；Kernel 不 import 任一 app、ORM 或渠道适配器。
-- [ ] Human 仅在完整模型回合边界挂起；ASYNC 工具级挂起保存 pending_tool_calls[]、call_id 与独立结果状态，支持同回合多个 operation。
-- [ ] Memory 确认适配中立协议，交互式 Run 原有记忆确认效果不丢；不能把所有挂起都解释为 Memory。
-- [ ] 为两份适配器定义同一组可参数化的行为契约：挂起/恢复、工具授权、预算、取消、迟到结果与事件顺序。
-- [ ] 工具重试保留 READ_ONLY/IDEMPOTENT/NON_RETRYABLE；有副作用且结果未核实不能盲目重跑；保留 verifier、并行/串行工具与输出契约。
-- [ ] 压缩每层失败均退回原历史/inline 结果，整轮 artifact 写入失败整体回滚，并留下 warning 与失败指标；测试不能以吞掉异常代替可见降级。
+- [x] 明确 ExecutionSpec、事件、CheckpointStore、模型/容量/凭据/工具/产物/取消端口；Kernel 不 import 任一 app、ORM 或渠道适配器。
+- [x] Human 仅在完整模型回合边界挂起；ASYNC 工具级挂起保存 pending_tool_calls[]、call_id 与独立结果状态，支持同回合多个 operation。
+- [x] Memory 确认适配中立协议，交互式 Run 原有记忆确认效果不丢；不能把所有挂起都解释为 Memory。
+- [x] 为两份适配器定义同一组可参数化的行为契约：挂起/恢复、工具授权、预算、取消、迟到结果与事件顺序。
+- [x] 工具重试保留 READ_ONLY/IDEMPOTENT/NON_RETRYABLE；有副作用且结果未核实不能盲目重跑；保留 verifier、并行/串行工具与输出契约。
+- [x] 压缩每层失败均退回原历史/inline 结果，整轮 artifact 写入失败整体回滚，并留下 warning 与失败指标；测试不能以吞掉异常代替可见降级。
 
 ### Spec Delta
 
@@ -792,13 +792,24 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T05:52:38.640Z] started tests=ab2e2402d7e8
+- [2026-11-15] 泛化挂起/恢复协议：`agent/suspension.py` 只保留中立 `SuspensionRequest`/`SuspensionResume`/`resume_checkpoint`/`ToolSuspensionPort`（问题、输入 schema、原因、恢复载荷）；Memory 形状移出 Kernel——`MemorySuspendRequest` 成为 Runtime 适配器里的子类（`application/memory_suspension.py`），Kernel 只原样透传 `reason`。
+- [2026-11-15] checkpoint 覆盖两类挂起：`RunnerCheckpoint.pending_tool_calls`（`OperationWatermark` 按 call_id 聚合、各带独立水位）由 Kernel 写进 `port.suspend(progress)`；新增 `RunnerCheckpoint.as_state()` 给出 JSON-native 可持久形态，Runtime 的 `_write_checkpoint` 改用它（`asdict` 不递归序列化 contracts 模型，写 JSON 列会直接失败）。
+- [2026-11-15] 事件/检查点端口去宿主名：`RuntimeEventPort`/`RuntimeEventBatch` → `ExecutionEventPort`/`ExecutionEventBatch`（只有类型名，实现名与调用点不变）。
+- [2026-11-15] 路由修正：`_route_after_tools` 与 `_finalize` 现在把 `WAITING_TOOL` 也当挂起收口——此前只认 `WAITING_INPUT`，工具级挂起会被当成"这一轮没事发生"继续跑下一个模型回合。
+- [2026-11-15] 降级兜底落在 Kernel：压缩失败退回原历史、整轮外置失败保持内联结果，两者都写 warning（`context_compaction_failed` / `tool_round_results_failed`），不再只靠每个适配器自己记得吞异常；Runtime 侧的分层指标与整批回滚保持不变。
+- [2026-11-15] 工具重试安全性仍是 Owner 侧 `ToolDefinition.retry_safety`（READ_ONLY/IDEMPOTENT/NON_RETRYABLE，默认 NON_RETRYABLE），本次不改口径；Kernel 侧新增断言：带 pending operation 的恢复不重跑工具（有副作用且结果未核实不得盲目重放）。
+- [2026-11-15] 测试：`tests/agent_core/test_scheduled_v2_kernel_ports.py` 用同一组端口的两份内存适配器（Runtime 形状 HUMAN_INPUT / Worker 形状 TOOL_OPERATION）跑参数化契约（挂起、工具授权、预算、取消、迟到结果、事件顺序、恢复）；`tests/architecture/test_scheduled_v2_kernel_boundaries.py` 静态钉住 Kernel 不 import 宿主/ORM、挂起端口不含 Memory 形状、无宿主分支与 stub。
+- [2026-11-15] 回归：`tests/agent_core` + `tests/architecture` 578 passed；相邻 `tests/agent_runtime` 的记忆确认/等待状态机/产物预算 106 passed。
+- [2026-11-15] 未做（下游 TASK 承接）：容量租约与凭据解析仍由适配器在构造 provider 时完成，Kernel 不新增 `CapacityLeasePort`/`CredentialResolver` 抽象；Worker 侧的实际装配与 Runtime 生产路径切换由 TASK-018/TASK-019 落地。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-010"></a>
-
+- 2026-11-15T06:13:45.778Z PASS commands=1/1 executed=1 deduped=0 elapsed=3666ms tests=ab2e2402d7e8 head=6665e3589171 dirty=1
+  - related PASS exit=0
 ## TASK-010: 实现每次 Admission 与可重建 Snapshot v4
 
 - **Status**: draft
