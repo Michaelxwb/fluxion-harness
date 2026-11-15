@@ -14,7 +14,9 @@ async function hasActionColor(button: Locator, intent: 'primary' | 'danger') {
 export async function expectActionColors(buttons: Locator) {
   expect(await buttons.count()).toBeGreaterThan(0);
   for (const button of await buttons.all()) {
-    const intent = /删除|delete/i.test(await button.innerText()) ? 'danger' : 'primary';
+    // 图标动作没有可见文本：可访问名（aria-label）同样表达意图。
+    const label = (await button.innerText()) || (await button.getAttribute('aria-label')) || '';
+    const intent = /删除|delete/i.test(label) ? 'danger' : 'primary';
     await expect(button).toHaveClass(new RegExp('semi-button-' + intent));
     if (await button.isDisabled()) continue;
     await button.page().mouse.move(0, 0);

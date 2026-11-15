@@ -19,8 +19,19 @@ const COPY = {
   'zh-CN': {
     memoryTab: /用户记忆/,
     title: '标题',
+    summary: '摘要',
     category: '类别',
     content: '内容',
+    predicate: '记忆类型',
+    scope: '适用范围',
+    scopeExplicit: '指定范围',
+    scopeAbsent: '不限定',
+    audience: '受众',
+    predicateHint: '受控词表',
+    contentHintValue: '填写简短取值',
+    contentHintText: '填写一段备注正文',
+    editTitle: '编辑记忆',
+    save: '保存',
     add: '新增记忆',
     createTitle: '新增用户记忆',
     author: '管理员录入',
@@ -43,8 +54,19 @@ const COPY = {
   'en-US': {
     memoryTab: /Memories/,
     title: 'Title',
+    summary: 'Summary',
     category: 'Category',
     content: 'Content',
+    predicate: 'Memory type',
+    scope: 'Scope',
+    scopeExplicit: 'Explicit scope',
+    scopeAbsent: 'Not limited',
+    audience: 'Audience',
+    predicateHint: 'Controlled vocabulary',
+    contentHintValue: 'A short value',
+    contentHintText: 'A free-form note body',
+    editTitle: 'Edit Memory',
+    save: 'Save',
     add: 'Add memory',
     createTitle: 'Add User Memory',
     author: 'Entered by admin',
@@ -197,17 +219,59 @@ async function confirmPopconfirm(page: Page): Promise<void> {
   await page.locator('.semi-popconfirm').getByRole('button', { name: '确定', exact: true }).click();
 }
 
-async function createMemoryViaUi(page: Page, locale: Locale, title: string, value: string): Promise<void> {
+/** 创建表单：类型是受控词表的枚举选择，范围维度随类型与「指定范围」联动。 */
+async function createMemoryViaUi(
+  page: Page,
+  locale: Locale,
+  title: string,
+  value: string,
+  summary: string
+): Promise<void> {
   const copy = COPY[locale];
   await page.getByTestId('memory-create').click();
   const modal = page.locator('.semi-modal');
   await expect(modal.locator('.semi-modal-title')).toHaveText(copy.createTitle);
+  await expect(modal.getByText(copy.predicateHint)).toBeVisible();
+  // 默认类型是 NOTE：内容提示是「一段备注正文」，换成 PREFERENCE 后变为短取值。
+  const content = modal.getByRole('textbox', { name: copy.content });
+  await expect(content).toHaveAttribute('placeholder', new RegExp(copy.contentHintText));
+
+  await modal.locator('.semi-select').first().click();
+  const options = page.locator('.semi-select-option');
+  await expect(options.first()).toBeVisible();
+  await options.filter({ hasText: 'report_format' }).click();
+  await expect(content).toHaveAttribute('placeholder', new RegExp(copy.contentHintValue));
+
+  // report_format 支持 audience 维度：选「指定范围」才出现受众字段。
+  const audience = () => modal.locator('.semi-form-field').filter({ hasText: copy.audience });
+  await expect(audience()).toHaveCount(0);
+  await modal.getByRole('radio', { name: copy.scopeExplicit }).click();
+  await expect(audience()).toHaveCount(1);
+  await modal.getByRole('radio', { name: new RegExp(`^${copy.scopeAbsent}`) }).click();
+  await expect(audience()).toHaveCount(0);
+
   await modal.getByRole('textbox', { name: copy.title }).fill(title);
-  await modal.getByRole('textbox', { name: copy.category }).fill('report_format');
-  await modal.getByRole('textbox', { name: copy.content }).fill(value);
+  await modal.getByRole('textbox', { name: copy.summary }).fill(summary);
+  await content.fill(value);
   const submit = modal.getByRole('button', { name: 'confirm', exact: true });
   await expect(submit).toHaveText(copy.add);
   await submit.click();
+  await expect(modal).toHaveCount(0);
+}
+
+/** 编辑表单必须回显已有值（标题/摘要/内容），且不改身份字段。 */
+async function expectEditPrefills(page: Page, locale: Locale, row: Locator, values: string[]): Promise<void> {
+  const copy = COPY[locale];
+  await row.getByRole('gridcell').first().getByRole('button').click();
+  const modal = page.locator('.semi-modal');
+  await expect(modal.locator('.semi-modal-title')).toHaveText(copy.editTitle);
+  const fields = [copy.title, copy.summary, copy.content];
+  for (const [index, name] of fields.entries()) {
+    await expect(modal.getByRole('textbox', { name })).toHaveValue(values[index]);
+  }
+  const cancel = modal.getByRole('button', { name: 'cancel', exact: true });
+  await expect(cancel).toHaveText(locale === 'zh-CN' ? '取消' : 'Cancel');
+  await cancel.click();
   await expect(modal).toHaveCount(0);
 }
 
@@ -223,12 +287,15 @@ test('E-04 记忆管理：创建、停用/启用、历史、删除与回收站�
   await createUserViaApi(page, userCode, 'E2E Memory');
   await openMemoryTab(page, userCode, locale);
 
-  await createMemoryViaUi(page, locale, title, content);
+  const summary = `摘要 ${stamp}`;
+  await createMemoryViaUi(page, locale, title, content, summary);
   const row = rowOf(page, title);
   await expect(row).toHaveCount(1);
   await expect(row).toContainText(copy.author);
   await expect(row).toContainText(copy.active);
   await expect(row).toContainText('偏好/report_format');
+  await expect(row).toContainText(summary);
+  await expectEditPrefills(page, locale, row, [title, summary, content]);
 
   // 停用/启用：同一槽位只升版本，历史按版本倒序。
   await row.getByRole('button', { name: copy.disable, exact: true }).click();

@@ -5,7 +5,10 @@ import { useTranslation } from 'react-i18next';
 export interface ConfirmActionProps {
   title: ReactNode;
   onConfirm(): void;
-  children: ReactNode;
+  children?: ReactNode;
+  /** 图标按钮：只给图标时用 `ariaLabel` 提供可访问名。 */
+  icon?: ReactNode;
+  ariaLabel?: string;
   testId?: string;
   style?: CSSProperties;
   onOpenChange?(visible: boolean): void;
@@ -19,6 +22,8 @@ export function ConfirmAction({
   title,
   onConfirm,
   children,
+  icon,
+  ariaLabel,
   testId,
   style,
   onOpenChange,
@@ -37,7 +42,15 @@ export function ConfirmAction({
       onConfirm={onConfirm}
       onVisibleChange={(visible: boolean) => onOpenChange?.(visible)}
     >
-      <Button theme={theme} type={type} size={size} data-testid={testId} style={style}>
+      <Button
+        theme={theme}
+        type={type}
+        size={size}
+        icon={icon}
+        aria-label={ariaLabel}
+        data-testid={testId}
+        style={style}
+      >
         {children}
       </Button>
     </Popconfirm>
