@@ -1132,12 +1132,16 @@ async def test_list_detail_and_history_read_the_v2_shape(
     item = page["items"][0]
     assert item["schedule_id"] == str(seeded.schedule_id)
     assert item["status"] == "ACTIVE"
-    assert item["current_revision_id"] == str(seeded.revision_id)
+    # 列表项按契约只带模式/时区/版本等投影；Revision 身份在详情里（`revision_no`）。
+    assert item["mode"] == "REMINDER"
+    assert item["timezone"] == TZ
+    assert item["config_version"] == 1
     assert "intent_key" not in item and "schedule_type" not in item, "v2 已移除旧列"
 
     detail = await client.get(f"/internal/schedules/{seeded.schedule_id}", headers=headers(tenant))
     assert detail.status_code == 200, detail.text
     assert detail.json()["data"]["config_version"] == 1
+    assert detail.json()["data"]["revision_no"] == 1
 
     history = await client.get(
         f"/internal/schedules/{seeded.schedule_id}/fires", headers=headers(tenant)
