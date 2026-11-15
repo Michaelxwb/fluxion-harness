@@ -112,12 +112,18 @@ def test_picker_options_are_loaded_lazily_not_on_page_load() -> None:
 
 
 def test_entity_columns_prefer_names_with_short_id_fallback() -> None:
-    """Agent/执行用户/Skill 三列名称优先、短 id 兜底；完整值进 title 与复制。"""
-    for page in (TASK_PAGE, SCHEDULE_PAGE):
-        source = _read(page)
-        assert "EntityNameText" in source, f"{page.name} 三列须走名称化单元格"
-        for field in ("agent_name", "actor_name", "skill_name", "skill_key"):
-            assert field in source, f"{page.name} 缺少名称字段 {field}"
+    """任务页 Agent/执行用户/Skill 三列名称优先、短 id 兜底；定时任务页只剩 Agent 一列。"""
+    task_page = _read(TASK_PAGE)
+    assert "EntityNameText" in task_page, "任务列表须走名称化单元格"
+    for field in ("agent_name", "actor_name", "skill_name", "skill_key"):
+        assert field in task_page, f"TaskPage 缺少名称字段 {field}"
+
+    schedule_page = _read(SCHEDULE_PAGE)
+    assert "EntityNameText" in schedule_page, "定时任务列表须走名称化单元格"
+    assert "agent_name" in schedule_page
+    # v2 列表投影只有 agent_id：执行用户/Skill 不在 Schedule 项里，不得假装有列。
+    for retired in ("actor_name", "skill_name", "skill_key"):
+        assert retired not in schedule_page, f"SchedulePage 残留无数据的列 {retired}"
 
     cell = _read(ENTITY_NAME)
     assert "id.slice(0, 8)" in cell, "短 id 口径 = 前 8 位"
@@ -126,11 +132,14 @@ def test_entity_columns_prefer_names_with_short_id_fallback() -> None:
     assert "CopyButton value={full}" in copyable and "title={full}" in copyable, "title 与复制都取完整值"
 
 
-def test_task_list_hides_redundant_intent_column() -> None:
-    """业务意图与 Skill 列重复：两个列表都隐藏该列（词条仍被任务详情消费，不删除）。"""
-    assert "task.columns.intent" not in _read(TASK_PAGE)
-    assert "task.columns.intent" in _read(TASK_DETAIL)
+def test_intent_column_is_retired_everywhere() -> None:
+    """v2 退役 `intent_key`：列表与详情都不再渲染「业务意图」，副标题改用状态 + 类型。"""
+    for page in (TASK_PAGE, TASK_DETAIL):
+        assert "task.columns.intent" not in _read(page), f"{page.name} 仍引用业务意图列"
+        assert "intent_key" not in _read(page), f"{page.name} 仍读 intent_key"
     assert "schedule.columns.intent" not in _read(SCHEDULE_PAGE)
+    detail = _read(TASK_DETAIL)
+    assert "taskTypeLabel" in detail
 
 
 def test_child_progress_only_for_batch_rows_with_children() -> None:

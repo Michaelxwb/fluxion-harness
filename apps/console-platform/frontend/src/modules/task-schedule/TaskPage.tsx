@@ -25,13 +25,18 @@ import { EntityNameText } from './EntityNameText';
 import { TaskDetailSideSheet } from './TaskDetailSideSheet';
 import { TaskStatusIcons } from './TaskStatusIcons';
 import { useTaskActions } from './useTaskActions';
+import {
+  CANCELLABLE_TASK_STATUSES,
+  TASK_STATUSES,
+  taskStatusLabel,
+  taskTypeLabel,
+  type Translate
+} from './scheduleCatalog';
 import { listTasks, type TaskListItem, type TaskListParams } from './services/tasks';
 
 const DEFAULT_PARAMS: TaskListParams = { page: 1, page_size: 15 };
 
 const TRIGGER_TYPES = ['IMMEDIATE', 'SCHEDULED'] as const;
-const TASK_STATUSES = ['QUEUED', 'RUNNING', 'WAITING', 'COMPLETED', 'FAILED', 'CANCELLED'] as const;
-const CANCELLABLE_STATUSES = ['QUEUED', 'RUNNING', 'WAITING'];
 /** 下拉可选项一次取够（后端 page_size 上限 100），超出部分无法在此选择。 */
 const PICKER_PAGE_SIZE = 100;
 
@@ -85,8 +90,11 @@ function usePickerOptions(load: () => Promise<PickerOption[]>): {
 
 export function TaskPage() {
   const { t } = useTranslation();
+  const translate: Translate = (key) => t(key);
   const [searchParams] = useSearchParams();
-  const linkedStatus = TASK_STATUSES.find((status) => status === searchParams.get('status'));
+  const linkedStatus = TASK_STATUSES.find(
+    (status) => status === searchParams.get('status')
+  );
   const [params, setParams] = useState<TaskListParams>(() => ({
     ...DEFAULT_PARAMS,
     status: linkedStatus
@@ -220,7 +228,7 @@ export function TaskPage() {
                 placeholder={t('task.filter.status')}
                 optionList={TASK_STATUSES.map((status) => ({
                   value: status,
-                  label: t(`task.status.${status}`)
+                  label: taskStatusLabel(translate, status)
                 }))}
                 onChange={(value) =>
                   setFilter({ status: (value as TaskListParams['status']) ?? undefined })
@@ -368,6 +376,14 @@ export function TaskPage() {
               )
             },
             {
+              title: t('task.columns.taskType'),
+              dataIndex: 'task_type',
+              width: 96,
+              render: (value: string, record: TaskListItem) => (
+                <span data-testid={`task-type-${record.task_id}`}>{taskTypeLabel(translate, value)}</span>
+              )
+            },
+            {
               title: t('task.columns.statusIcons'),
               dataIndex: 'status',
               width: 104,
@@ -412,13 +428,15 @@ export function TaskPage() {
               dataIndex: 'error_message',
               width: 'auto',
               ellipsis: true,
-              render: (_: unknown, record: TaskListItem) => record.error_message ?? record.error_code ?? '-'
+              // 失败原因优先用后端目录文案；只有裸码时保留原值，不编造文案。
+              render: (_: unknown, record: TaskListItem) =>
+                record.error_message ?? record.error_code ?? '-'
             },
             {
               ...actionColumn(80),
               title: t('task.columns.actions'),
               render: (_: unknown, record: TaskListItem) =>
-                CANCELLABLE_STATUSES.includes(record.status) && !record.cancel_requested ? (
+                CANCELLABLE_TASK_STATUSES.includes(record.status) && !record.cancel_requested ? (
                   <ConfirmAction
                     title={t('task.cancel.confirm')}
                     testId={`task-row-cancel-${record.task_id}`}

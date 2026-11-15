@@ -1,6 +1,6 @@
 import { actionColumn } from '../../components/common/tableLayout';
 import { ScheduleRowActions } from './ScheduleRowActions';
-import { Button, Modal, Select } from '@douyinfe/semi-ui';
+import { Button, Modal, Select, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -14,24 +14,48 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { EntityLink } from '../../components/common/EntityLink';
-import { StatusTag, type StatusTagOption } from '../../components/common/StatusTag';
+import { StatusTag } from '../../components/common/StatusTag';
 import { ScheduleDetailSideSheet } from './ScheduleDetailSideSheet';
 import { EntityNameText } from './EntityNameText';
 import { TaskDetailSideSheet } from './TaskDetailSideSheet';
+import {
+  fireStatusLabel,
+  scheduleModeLabel,
+  scheduleStatusFallback,
+  scheduleStatusOptions,
+  SCHEDULE_STATUSES,
+  type Translate
+} from './scheduleCatalog';
 import { listSchedules, type ScheduleListItem, type ScheduleListParams } from './services/schedules';
 
 const DEFAULT_PARAMS: ScheduleListParams = { page: 1, page_size: 15 };
-const SCHEDULE_STATUSES = ['ACTIVE', 'PAUSED', 'COMPLETED', 'MISSED'] as const;
 
-const STATUS_COLORS: Record<string, StatusTagOption['color']> = {
-  ACTIVE: 'green',
-  PAUSED: 'amber',
-  COMPLETED: 'grey',
-  MISSED: 'red'
-};
+/** 待处理徽标：等待回答（pending_human）与需关注（needs_attention）是两类不同事实。 */
+function AttentionBadge(props: { record: ScheduleListItem; t: Translate }) {
+  if (props.record.pending_human) {
+    return (
+      <Tag data-testid={`schedule-pending-human-${props.record.schedule_id}`} color="amber">
+        {props.t('schedule.badge.pendingHuman')}
+      </Tag>
+    );
+  }
+  if (props.record.needs_attention) {
+    return (
+      <Tag data-testid={`schedule-needs-attention-${props.record.schedule_id}`} color="red">
+        {props.t('schedule.badge.needsAttention')}
+      </Tag>
+    );
+  }
+  return <span>-</span>;
+}
 
+/**
+ * 定时任务列表（design §3.10）：无创建入口；状态、模式、下次/最近触发与待处理标记
+ * 全部来自后端投影。深链 `?scheduleId=` 仍落到本页并直接打开详情。
+ */
 export function SchedulePage() {
   const { t } = useTranslation();
+  const translate: Translate = (key) => t(key);
   const [params, setParams] = useState<ScheduleListParams>(DEFAULT_PARAMS);
   const [items, setItems] = useState<ScheduleListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -89,12 +113,7 @@ export function SchedulePage() {
     }
   };
 
-  const statusOptions = Object.fromEntries(
-    SCHEDULE_STATUSES.map((status) => [
-      status,
-      { color: STATUS_COLORS[status] ?? 'grey', label: t(`schedule.status.${status}`) }
-    ])
-  );
+  const statusOptions = scheduleStatusOptions(translate);
 
   return (
     <>
@@ -116,7 +135,7 @@ export function SchedulePage() {
                 placeholder={t('schedule.filter.status')}
                 optionList={SCHEDULE_STATUSES.map((status) => ({
                   value: status,
-                  label: t(`schedule.status.${status}`)
+                  label: scheduleStatusFallback(translate, status).label
                 }))}
                 onChange={(value) =>
                   setParams((prev) => ({
@@ -165,47 +184,31 @@ export function SchedulePage() {
               )
             },
             {
-              title: t('schedule.columns.actorUser'),
-              dataIndex: 'actor_user_id',
-              width: 'auto',
-              ellipsis: true,
-              render: (_: unknown, record: ScheduleListItem) => (
-                <EntityNameText name={record.actor_name} id={record.actor_user_id} />
-              )
-            },
-            {
-              title: t('schedule.columns.skill'),
-              dataIndex: 'skill_id',
-              width: 'auto',
-              ellipsis: true,
-              render: (_: unknown, record: ScheduleListItem) => (
-                <EntityNameText
-                  name={record.skill_name}
-                  id={record.skill_id}
-                  keySuffix={record.skill_key}
-                />
-              )
-            },
-            {
-              title: t('schedule.columns.scheduleType'),
-              dataIndex: 'schedule_type',
-              width: 80
-            },
-            {
-              title: t('schedule.columns.cron'),
-              dataIndex: 'cron_expr',
-              width: 176,
-              ellipsis: true,
-              render: (_: unknown, record: ScheduleListItem) => record.cron_expr ? (
-                <TableText>{record.cron_expr}</TableText>
-              ) : record.run_at ? <DateTimeText value={record.run_at} /> : '-'
+              title: t('schedule.columns.mode'),
+              dataIndex: 'mode',
+              width: 110,
+              render: (value: string) => scheduleModeLabel(translate, value)
             },
             { title: t('schedule.columns.timezone'), dataIndex: 'timezone', width: 'auto', ellipsis: true },
             {
               title: t('schedule.columns.status'),
               dataIndex: 'status',
-              width: 100,
-              render: (value: string) => <StatusTag status={value} options={statusOptions} />
+              width: 110,
+              render: (value: string) => (
+                <StatusTag
+                  status={value}
+                  options={statusOptions}
+                  fallback={scheduleStatusFallback(translate, value)}
+                />
+              )
+            },
+            {
+              title: t('schedule.columns.attention'),
+              dataIndex: 'pending_human',
+              width: 120,
+              render: (_: unknown, record: ScheduleListItem) => (
+                <AttentionBadge record={record} t={translate} />
+              )
             },
             {
               title: t('schedule.columns.nextFireAt'),
@@ -219,29 +222,42 @@ export function SchedulePage() {
             },
             {
               title: t('schedule.columns.lastFireAt'),
-              dataIndex: 'last_fire_at',
+              dataIndex: 'last_fire',
               width: 176,
-              render: (value: string | null) => (value ? <DateTimeText value={value} /> : '-')
+              render: (value: ScheduleListItem['last_fire']) =>
+                value ? (
+                  <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                    <DateTimeText value={value.scheduled_at} />
+                    <StatusTag
+                      status={value.status}
+                      options={{
+                        [value.status]: {
+                          color: 'grey',
+                          label: fireStatusLabel(translate, value.status)
+                        }
+                      }}
+                    />
+                  </span>
+                ) : (
+                  '-'
+                )
             },
             {
-              title: t('schedule.columns.updateTime'),
-              dataIndex: 'update_time',
-              width: 176,
-              render: (value: string) => <DateTimeText value={value} />
-            },
-            {
-              ...actionColumn(144),
+              ...actionColumn(220),
               title: t('schedule.columns.actions'),
-              render: (_: unknown, record: ScheduleListItem) => ['ACTIVE', 'PAUSED'].includes(record.status) ? (
-                <ScheduleRowActions
-                  schedule={record}
-                  onMutated={() => {
-                    setDetailReloadKey((value) => value + 1);
-                    void reload();
-                  }}
-                  onDeleted={() => onScheduleDeleted(record.schedule_id)}
-                />
-              ) : '-'
+              render: (_: unknown, record: ScheduleListItem) =>
+                ['ACTIVE', 'PAUSED', 'NEEDS_ATTENTION'].includes(record.status) ? (
+                  <ScheduleRowActions
+                    schedule={record}
+                    onMutated={() => {
+                      setDetailReloadKey((value) => value + 1);
+                      void reload();
+                    }}
+                    onDeleted={() => onScheduleDeleted(record.schedule_id)}
+                  />
+                ) : (
+                  '-'
+                )
             }
           ]}
           dataSource={items}
@@ -254,7 +270,7 @@ export function SchedulePage() {
             failed ? (
               <ErrorState onRetry={() => void reload()} />
             ) : (
-              <EmptyState title={t('common.empty')} description={t('common.emptyHint')} />
+              <EmptyState title={t('common.empty')} description={t('schedule.empty')} />
             )
           }
         />
