@@ -317,13 +317,23 @@ interface ScheduleDetail extends ScheduleListItem {
   revision_no: number;
   instruction: string;
   normalized_goal: string;
-  context_summary: Record<string, unknown>;
+  // 契约 `DraftContext`：参数与输出偏好（原 `context_summary` 已按代码事实更名）。
+  context: {parameters: Record<string, unknown>; output: Record<string, unknown>};
   dependencies: string[];
-  delivery: 'PUSH' | 'NONE';
-  budget: Record<string, unknown> | null;
+  delivery_intent: 'PUSH' | 'NONE';
+  // 三模式共用的调度策略（并发/until/max_occurrences/DST 两种策略都在这一个对象里）。
+  policy: {
+    concurrency_policy: 'SKIP_IF_RUNNING' | 'QUEUE' | 'ALLOW_PARALLEL';
+    max_concurrency: number;
+    until: string | null;
+    max_occurrences: number | null;
+    dst_gap_policy: 'SKIP';
+    dst_fold_policy: 'FIRST';
+  };
+  budget: {max_steps: number; max_tool_calls: number; max_tokens: number} | null;
   memory_mode: 'READ_ONLY' | null;
-  dst_gap_policy: 'SKIP';
-  dst_fold_policy: 'FIRST';
+  end_reason: 'COMPLETED' | 'MISSED' | 'EXHAUSTED' | 'ADMISSION_FAILED' | 'USER_CANCELLED' | null;
+  attention_reason: string | null;
 }
 
 interface FireItem {
