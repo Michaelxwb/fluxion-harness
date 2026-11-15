@@ -355,6 +355,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Log
 
+- [2026-11-15] 收尾补正：`tests/contracts/test_runtime_strict_json.py` 的 `test_b02_pg_replay_conflicts_and_unique_scope`仍按旧签名 `submission_fingerprint(endpoint, request)` 调用，并把 partial unique 落败当成裸 `IntegrityError`。本任务的 API 变更后它成了无人认领的红灯，已由协调侧迁到新口径（关键字指纹 + 落败者按指纹判定重放/冲突），18 passed。
 - [2026-11-15] created (draft)
 - [2026-11-15T05:52:33.430Z] started tests=9f4e218971ce
 - [2026-11-15] `task_submission` 收敛为六类 endpoint 短标识（`tasks`/`schedule-drafts`/`schedule-confirm`/`schedule-actions`/`execution-cancel`/`human-respond`）；`admit()` = `pg_advisory_xact_lock` → 重放校验，`record_in()` 用 SAVEPOINT 把 partial unique 兜底翻成「重放 / `IDEMPOTENCY_MISMATCH`」而不是把 IntegrityError 抛给调用方；指纹显式含 endpoint/tenant/actor/目标 id/动作载荷。

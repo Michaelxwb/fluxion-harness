@@ -7,14 +7,17 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from muad_agent_worker.application.submissions import TaskSubmissionService, submission_fingerprint
+from muad_agent_worker.application.submissions import (
+    SubmissionEndpoint,
+    TaskSubmissionService,
+    submission_fingerprint,
+)
 from muad_api import AppError, install_api_foundation
 from muad_contracts import CreateTaskRequest, enums
 from muad_contracts.canonical import NonCanonicalJsonError, canonical_json
 from muad_contracts.enums import CompletionMode, RunStatus
 from muad_contracts.tool_runtime import ToolResultRequest
 from pydantic import ValidationError
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 pytestmark = pytest.mark.integration
@@ -144,16 +147,26 @@ def test_b02_result_identity_shape_and_size_are_strict() -> None:
         CreateTaskRequest.model_validate(payload)
 
 
+def _fingerprint(request: CreateTaskRequest) -> str:
+    """命令指纹的唯一口径：endpoint + tenant + actor + 动作载荷（scheduled-task-v2 TASK-003）。"""
+    return submission_fingerprint(
+        endpoint=SubmissionEndpoint.TASKS,
+        tenant_id=request.tenant_id,
+        actor_user_id=request.actor_user_id,
+        action=request,
+    )
+
+
 async def test_b02_pg_replay_conflicts_and_unique_scope(async_tool_database) -> None:
     request = CreateTaskRequest.model_validate(_submission())
-    fingerprint = submission_fingerprint("create-task", request)
+    fingerprint = _fingerprint(request)
     factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
     async with factory() as session:
         service = TaskSubmissionService(session)
         first = await service.record_in(
             tenant_id=request.tenant_id,
             idempotency_key=request.idempotency_key,
-            endpoint="create-task",
+            endpoint=SubmissionEndpoint.TASKS,
             actor_user_id=request.actor_user_id,
             request_fingerprint=fingerprint,
             response={"task_id": str(uuid4()), "status": "QUEUED"},
@@ -162,7 +175,7 @@ async def test_b02_pg_replay_conflicts_and_unique_scope(async_tool_database) -> 
         replay = await service.find_replay(
             tenant_id=request.tenant_id,
             idempotency_key=request.idempotency_key,
-            endpoint="create-task",
+            endpoint=SubmissionEndpoint.TASKS,
             fingerprint=fingerprint,
         )
         assert replay.response_json == first.response_json
@@ -176,8 +189,8 @@ async def test_b02_pg_replay_conflicts_and_unique_scope(async_tool_database) -> 
                 await service.find_replay(
                     tenant_id=request.tenant_id,
                     idempotency_key=request.idempotency_key,
-                    endpoint="create-task",
-                    fingerprint=submission_fingerprint("create-task", changed),
+                    endpoint=SubmissionEndpoint.TASKS,
+                    fingerprint=_fingerprint(changed),
                 )
         changed = request.model_copy(deep=True)
         changed.runtime_operation.completion_mode = CompletionMode.DETACH
@@ -185,10 +198,13 @@ async def test_b02_pg_replay_conflicts_and_unique_scope(async_tool_database) -> 
             await service.find_replay(
                 tenant_id=request.tenant_id,
                 idempotency_key=request.idempotency_key,
-                endpoint="create-task",
-                fingerprint=submission_fingerprint("create-task", changed),
+                endpoint=SubmissionEndpoint.TASKS,
+                fingerprint=_fingerprint(changed),
             )
-        for tenant, endpoint in (("other", "create-task"), (request.tenant_id, "cancel-operation")):
+        for tenant, endpoint in (
+            ("other", SubmissionEndpoint.TASKS),
+            (request.tenant_id, SubmissionEndpoint.EXECUTION_CANCEL),
+        ):
             assert (
                 await service.find_replay(
                     tenant_id=tenant,
@@ -199,16 +215,23 @@ async def test_b02_pg_replay_conflicts_and_unique_scope(async_tool_database) -> 
                 is None
             )
             assert (
-                submission_fingerprint(endpoint, request.model_copy(update={"tenant_id": tenant}))
+                submission_fingerprint(
+                    endpoint=endpoint,
+                    tenant_id=tenant,
+                    actor_user_id=request.actor_user_id,
+                    action=request,
+                )
                 != fingerprint
             )
-        with pytest.raises(IntegrityError):
+        # TASK-003 起，partial unique 的落败者不再把 IntegrityError 漏给调用方：
+        # 它读回赢家那一行，按指纹判定“重放”还是“冲突”。
+        with pytest.raises(AppError, match="IDEMPOTENCY_MISMATCH"):
             await service.record_in(
                 tenant_id=request.tenant_id,
                 idempotency_key=request.idempotency_key,
-                endpoint="create-task",
+                endpoint=SubmissionEndpoint.TASKS,
                 actor_user_id=request.actor_user_id,
-                request_fingerprint=fingerprint,
+                request_fingerprint=_fingerprint(request.model_copy(update={"input": {"x": 1}})),
                 response={"wrong": True},
             )
         await session.rollback()
