@@ -47,7 +47,7 @@ from ..infrastructure.models.task import (
     TaskScheduleDraft,
     TaskScheduleRevision,
 )
-from ..scheduler.recurrence import RecurrenceRule, build_rule, initial_fire_at
+from ..scheduler.recurrence import Advance, RecurrenceRule, build_rule, initial_fire_at
 from .schedule_drafts import draft_what, update_diff
 from .submissions import SubmissionEndpoint, TaskSubmissionService
 from .task_events import EntityType, TaskEventSeed, TaskEventType, append_events
@@ -94,14 +94,18 @@ def recurrence_rule(body: ScheduleDraftRequest) -> RecurrenceRule:
         ) from exc
 
 
-def future_fire_at(rule: RecurrenceRule, now: datetime) -> datetime:
-    """首个可触发指针；没有未来槽的规则不允许生效（绝不建永不触发的 Schedule）。"""
+def future_fire_at(rule: RecurrenceRule, now: datetime) -> Advance:
+    """首个可触发指针**及其途中被跳过的 gap 槽**（绝不建永不触发的 Schedule）。
+
+    指针本身不是全部事实：从 now 到首个可触发槽之间若跨过 DST gap，那些槽同样消耗
+    计划槽并要留 SCHEDULE 事件（§3.5.11），所以这里返回整份 Advance，而不是只给时间。
+    """
     advance = initial_fire_at(rule, now)
     if advance.next_fire_at is None:
         raise AppError(
             ErrorCode.SCHEDULE_DRAFT_INVALID, data={"reason": "NO_FUTURE_OCCURRENCE"}
         )
-    return advance.next_fire_at
+    return advance
 
 
 def ensure_delivery_supported(body: ScheduleDraftRequest) -> None:
@@ -329,7 +333,7 @@ class ScheduleConfirmService:
         identity: ConfirmIdentity,
     ) -> tuple[TaskSchedule, TaskScheduleRevision]:
         """CREATE：Schedule + Revision 1 + 首个 next_fire_at，全部在本事务内。"""
-        next_fire_at = future_fire_at(recurrence_rule(body), self._now)
+        advance = future_fire_at(recurrence_rule(body), self._now)
         schedule = TaskSchedule(
             id=uuid.uuid4(),
             tenant_id=draft.tenant_id,
@@ -337,7 +341,9 @@ class ScheduleConfirmService:
             agent_id=draft.agent_id,
             name=create_name(draft, request, body),
             status=SCHEDULE_STATUS_ACTIVE,
-            next_fire_at=next_fire_at,
+            next_fire_at=advance.next_fire_at,
+            # gap 槽也是计划 occurrence：建成时就按本地槽计数，不留“凭空少一次”的账。
+            occurrence_count=advance.slots_consumed,
             config_version=1,
             created_by=identity.actor_user_id,
         )
@@ -361,6 +367,7 @@ class ScheduleConfirmService:
             TaskEventType.CREATED,
             {"revision_no": 1, "config_version": 1},
         )
+        await self._append_skipped_gaps(schedule, advance)
         return schedule, revision
 
     async def _update(
@@ -398,7 +405,10 @@ class ScheduleConfirmService:
         if name is not None:
             schedule.name = name
         if affecting and schedule.status == SCHEDULE_STATUS_ACTIVE:
-            schedule.next_fire_at = future_fire_at(recurrence_rule(body), self._now)
+            advance = future_fire_at(recurrence_rule(body), self._now)
+            schedule.next_fire_at = advance.next_fire_at
+            schedule.occurrence_count += advance.slots_consumed
+            await self._append_skipped_gaps(schedule, advance)
         schedule.update_time = self._now
         await self._append_update_events(schedule, revision, *cancelled)
         return schedule, revision
@@ -499,6 +509,25 @@ class ScheduleConfirmService:
             .execution_options(synchronize_session=False)
         )
         return execution_ids, [row[0] for row in fire_rows.all()]
+
+    async def _append_skipped_gaps(self, schedule: TaskSchedule, advance: Advance) -> None:
+        """把推进途中被跳过的 DST 槽写成 SCHEDULE 事件（与 Scheduler 同一口径）。"""
+        if not advance.gap_events:
+            return
+        await append_events(
+            self._session,
+            [
+                TaskEventSeed(
+                    tenant_id=schedule.tenant_id,
+                    entity_type=EntityType.SCHEDULE,
+                    entity_id=schedule.id,
+                    event_type=TaskEventType(event.type.value),
+                    payload={"local_date": event.local_date, "local_time": event.local_time},
+                    occurred_at=self._now,
+                )
+                for event in advance.gap_events
+            ],
+        )
 
     async def _append_schedule_event(
         self, schedule: TaskSchedule, event_type: TaskEventType, payload: dict[str, Any]

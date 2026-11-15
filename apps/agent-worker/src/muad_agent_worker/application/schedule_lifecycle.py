@@ -676,7 +676,7 @@ class ScheduleService:
         revision: TaskScheduleRevision,
         reason: str | None,
     ) -> None:
-        end_reason = self._resume_end_reason(schedule, revision)
+        end_reason = await self._resume_end_reason(schedule, revision)
         if end_reason is not None:
             schedule.status = ENDED
             schedule.end_reason = end_reason.value
@@ -699,7 +699,7 @@ class ScheduleService:
             {"reason": reason or DEFAULT_REASON, "next_fire_at": _iso(schedule.next_fire_at)},
         )
 
-    def _resume_end_reason(
+    async def _resume_end_reason(
         self, schedule: TaskSchedule, revision: TaskScheduleRevision
     ) -> ScheduleEndReason | None:
         """从 now 重算指针；没有未来槽或策略已到终点即终态，不补发暂停期。"""
@@ -732,6 +732,14 @@ class ScheduleService:
         if policy.until is not None and advance.next_fire_at > policy.until:
             return ScheduleEndReason.COMPLETED
         schedule.next_fire_at = advance.next_fire_at
+        # gap 槽是计划 occurrence：恢复后的首个可触发槽之前被跳过的槽同样计数并留事件。
+        schedule.occurrence_count += advance.slots_consumed
+        for event in advance.gap_events:
+            await self._schedule_event(
+                schedule,
+                TaskEventType(event.type.value),
+                {"local_date": event.local_date, "local_time": event.local_time},
+            )
         return None
 
     async def _schedule_event(

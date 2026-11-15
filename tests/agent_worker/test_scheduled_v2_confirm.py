@@ -229,6 +229,26 @@ async def assert_no_business_rows(tenant: TenantContext) -> None:
         assert await count_rows(tenant, model) == 0, f"{model.__tablename__} must stay empty"
 
 
+def test_first_fire_surfaces_skipped_dst_gap_slots() -> None:
+    """确认/恢复算出的“首个可触发指针”必须连同途中跳过的 gap 槽一起返回。
+
+    只返回时间会让 gap 槽既不计入 `occurrence_count` 也没有审计事件（§3.5.11 的计数口径）。
+    """
+    from muad_agent_worker.application.schedule_confirm import future_fire_at
+    from muad_agent_worker.scheduler.recurrence import build_rule
+
+    rule = build_rule(kind="CRON", timezone="America/New_York", cron="30 2 * * *")
+    advance = future_fire_at(rule, datetime(2026, 3, 8, 0, 0, tzinfo=UTC))
+    assert advance.next_fire_at == datetime(2026, 3, 9, 6, 30, tzinfo=UTC)
+    assert advance.slots_consumed == 1
+    assert [event.type.value for event in advance.gap_events] == ["DST_GAP_SKIPPED"]
+
+    plain = build_rule(kind="CRON", timezone="UTC", cron="30 2 * * *")
+    no_gap = future_fire_at(plain, datetime(2026, 3, 8, 0, 0, tzinfo=UTC))
+    assert no_gap.slots_consumed == 0 and no_gap.gap_events == ()
+
+
+
 async def test_confirm_create_writes_confirmation_schedule_revision_and_receipt_together(
     client: AsyncClient, tenant: TenantContext
 ) -> None:

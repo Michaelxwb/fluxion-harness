@@ -1076,6 +1076,7 @@ API-27 是唯一创建/更新生效入口：一次用户确认事务同时写确
 
 ### Log
 
+- [2026-11-15] 收尾补正（协调侧）：`future_fire_at` 只回指针、丢弃了 `Advance.gap_events/slots_consumed`，导致创建时若首个槽落在 DST gap 里，既不计数也无审计事件。现返回整份 `Advance`，CREATE/UPDATE 同事务写 `occurrence_count` 与 `DST_GAP_SKIPPED` 事件；补了引擎层的口径单测。
 - [2026-11-15] created (draft)
 - [2026-11-15T07:16:07.663Z] started tests=560caf8738d3
 - [2026-11-15] API-27 确认事务落地：`application/schedule_confirm.py`（Draft 行锁 → owner/hash/PENDING/时效/确认引用 → 确认事实 → Schedule+不可变 Revision+next_fire_at → 首次响应快照）、`api/schedule_drafts.py` 的 `POST /internal/schedule-drafts/{id}/confirm`（`task_submission` 重放先于状态检查）、`api/deps.py` 的确认来源头（`X-Confirmation-Surface`/`X-Confirmation-Ref`，缺失即 `SCHEDULE_CONFIRMATION_REQUIRED`）。
@@ -1146,6 +1147,7 @@ API-27 是唯一创建/更新生效入口：一次用户确认事务同时写确
 
 ### Log
 
+- [2026-11-15] 收尾补正（协调侧）：`_resume_end_reason` 同样只取指针，恢复时被跳过的 gap 槽既不计 `occurrence_count` 也不写事件。现改为 async 并消费 `Advance.gap_events`，与 Scheduler 同一口径（仍不补暂停期：指针从 now 起算）。
 - [2026-11-15] created (draft)
 - [2026-11-15T07:24:03.942Z] started tests=313c2e016d33
 - [2026-11-15] `application/schedule_lifecycle.py`：`ScheduleService.pause/resume/cancel/soft_delete` 与 `ExecutionService.cancel` 共用同一状态矩阵与锁序（Schedule 行锁 → Fire → root/parent/child → 事件）。`started_at IS NULL` 是「从未开始」的唯一判据（CAS，claim 赢了按新状态处理）；Pause/FUTURE_ONLY 只取消这类执行，RUNNING/WAITING_*/OPEN interaction 保留；ALL_ACTIVE 才终止 WAITING_*、协作标记 RUNNING、原子关闭 interaction。
