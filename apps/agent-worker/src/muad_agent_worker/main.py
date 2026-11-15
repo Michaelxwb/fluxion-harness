@@ -24,6 +24,7 @@ from .api.admin_results import router as admin_results_router
 from .api.admin_schedules import router as admin_schedules_router
 from .api.admin_tasks import router as admin_tasks_router
 from .api.executions import router as executions_router
+from .api.human_interactions import router as human_interactions_router
 from .api.runtime_operations import router as runtime_operations_router
 from .api.schedule_drafts import router as schedule_drafts_router
 from .api.schedules import router as schedules_router
@@ -46,6 +47,7 @@ from .metrics import install_worker_metrics, record_gauge
 from .results.dispatcher import ResultDispatcher, ResultDispatchPolicy
 from .scheduler.client import ConsoleResolveClient
 from .scheduler.service import SchedulerLoop
+from .worker.human_timeouts import HumanTimeoutLoop, HumanTimeoutSweeper
 from .worker.service import WorkerLoop
 from .worker.workspace_maintenance import WorkspaceMaintenanceLoop
 
@@ -213,6 +215,12 @@ def _start_background(
     app.state.delivery_loop = delivery
     results = _result_dispatcher(session_factory, pools.egress, settings)
     app.state.result_dispatcher = results
+    # Human 提问超时：与 deadline sweep 并列的独立节拍，节拍沿用同一设置项（不另设同义键）。
+    human_timeouts = HumanTimeoutLoop(
+        HumanTimeoutSweeper(session_factory),
+        interval_sec=settings.task_deadline_sweep_interval_sec,
+    )
+    app.state.human_timeout_loop = human_timeouts
     loops = [
         (worker.run_forever(), "worker.claim"),
         # 维护循环：回收的独立节拍，不排在领取/执行/投递后面（§3.2）。
@@ -220,6 +228,7 @@ def _start_background(
         (scheduler.run_forever(), "worker.scheduler"),
         (delivery.run_forever(), "worker.delivery"),
         (results.run_forever(), "worker.results"),
+        (human_timeouts.run_forever(), "worker.human_timeouts"),
     ]
     workspace_loop = _workspace_maintenance(settings, session_factory)
     app.state.workspace_maintenance = workspace_loop
@@ -290,3 +299,4 @@ app.include_router(schedule_drafts_router)
 app.include_router(admin_tasks_router)
 app.include_router(admin_results_router)
 app.include_router(admin_schedules_router)
+app.include_router(human_interactions_router)

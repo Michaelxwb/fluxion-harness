@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -26,8 +27,10 @@ from muad_agent_core.agent import (
     RunnerVerificationExhausted,
     SuspensionKind,
 )
+from muad_agent_core.model import ModelMessage, ModelRole
 from muad_agent_core.skill import SkillExecutionStatus
 from muad_contracts import WaitKind
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.agentic.checkpoints import AgenticLeaseLost, ExecutionIdentity, checkpoint_state
 from ..application.agentic.errors import AgenticError
@@ -37,11 +40,13 @@ from ..application.agentic.run import (
     TASK_NO_PROGRESS,
     AgenticDependencies,
     AgenticOutcome,
+    ResumeState,
     execute_agentic,
     load_resume_state,
 )
 from ..application.agentic.snapshot import load_frozen_execution
 from ..application.agentic.suspension import AgenticSuspension, pending_payload
+from ..application.human_interactions import human_answer_content, load_human_answer
 from ..infrastructure.console_credentials import CredentialResolutionError
 from ..infrastructure.models.task import TaskExecution
 from .execution_outcomes import (
@@ -57,6 +62,10 @@ from .executor import TaskExecutionError
 logger = logging.getLogger("muad_agent_worker.worker.agentic_executor")
 
 AGENTIC_EXECUTION_FAILED = "AGENTIC_EXECUTION_FAILED"
+#: `last_resume_reason` 的 Human 取值（claim 写入；与 answer 事务同一口径）。
+HUMAN_RESUME_REASON = "HUMAN"
+#: `last_resume_reason` 的外部等待取值（claim 写入）。
+EXTERNAL_RESUME_REASON = "EXTERNAL"
 TASK_DEADLINE_EXCEEDED = "TASK_DEADLINE_EXCEEDED"
 ASYNC_WAIT_SEC = 60
 HUMAN_INPUT_KIND = "HUMAN_INPUT"
@@ -80,8 +89,10 @@ class AgenticTaskExecutor:
         frozen = load_frozen_execution(task)
         identity = _identity(task)
         resume = None
-        if task.last_resume_reason in ("EXTERNAL", "HUMAN"):
+        if task.last_resume_reason in (EXTERNAL_RESUME_REASON, HUMAN_RESUME_REASON):
             resume = await load_resume_state(self._deps.sessions, task, operations=self._deps.operations)
+        if resume is not None and task.last_resume_reason == HUMAN_RESUME_REASON:
+            resume = await _with_human_answer(self._deps.sessions, task, resume)
         try:
             outcome = await execute_agentic(
                 self._deps,
@@ -103,6 +114,27 @@ class AgenticTaskExecutor:
         except (RunnerModelError, RunnerVerificationExhausted, RunnerEmptyReply, RunnerError) as exc:
             raise TaskExecutionError(AGENTIC_EXECUTION_FAILED, str(exc)) from exc
         return _envelope(outcome, task)
+
+
+async def _with_human_answer(
+    sessions: async_sessionmaker[AsyncSession], task: TaskExecution, resume: ResumeState
+) -> ResumeState:
+    """Human 续接：把这一次的回答按用户消息接在 checkpoint 历史之后。
+
+    没有可注入的回答（回答之后没有新 checkpoint、或已被消费）就保持原恢复状态并显式告警：
+    恢复仍从 checkpoint 继续，不臆造回答内容。
+    """
+    answer = await load_human_answer(sessions, task)
+    if answer is None:
+        logger.warning("human_resume_without_answer", extra={"execution_id": str(task.id)})
+        return resume
+    return replace(
+        resume,
+        messages=(
+            *resume.messages,
+            ModelMessage(role=ModelRole.USER, content=human_answer_content(answer)),
+        ),
+    )
 
 
 def _identity(task: TaskExecution) -> ExecutionIdentity:
