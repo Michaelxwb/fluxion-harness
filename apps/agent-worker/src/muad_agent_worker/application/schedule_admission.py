@@ -55,6 +55,7 @@ from muad_contracts import (
     frozen_retry_safety,
     schedule_snapshot_hash,
 )
+from muad_contracts.enums import OUTBOUND_CHANNELS
 from muad_contracts.memory import ScopeState
 from muad_contracts.platform_settings import PlatformSettings
 from pydantic import TypeAdapter, ValidationError
@@ -109,8 +110,8 @@ REPAIR_ACTIONS: dict[str, str] = {
     "RESOLVE_UNAVAILABLE": "RETRY_LATER",
 }
 
-#: 主动投递（PUSH）能力：只有 IM 渠道能 push；WebChat/MSSWWEB 只在任务中心 pull。
-PUSH_CAPABLE_CHANNELS = frozenset({"WECOM"})
+#: 主动投递（PUSH）能力来自**共享契约**的通道词表，核心域不得写死渠道名
+#: （`tests/architecture/test_channel_neutrality.py`）：OUTBOUND_CHANNELS 之外的入口只在任务中心 pull。
 
 #: 记忆 taxonomy 的版本身份（本仓所有写入点都用 1）。
 MEMORY_TAXONOMY_VERSION = 1
@@ -181,7 +182,7 @@ def delivery_capability_error(
     """投递意图与渠道能力匹配（design §3.5.5）；渠道未解析时不做假设。"""
     if delivery_intent != "PUSH" or channel is None:
         return None
-    if channel in PUSH_CAPABLE_CHANNELS:
+    if channel in OUTBOUND_CHANNELS:
         return None
     return AdmissionError(
         "SCHEDULE_DELIVERY_UNSUPPORTED", True, REPAIR_ACTIONS["SCHEDULE_DELIVERY_UNSUPPORTED"]

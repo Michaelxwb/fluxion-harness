@@ -917,6 +917,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Log
 
+- [2026-11-15] 收尾补正：本任务把 `PUSH_CAPABLE_CHANNELS = frozenset({"WECOM"})` 写进了核心域，踩中 `tests/architecture/test_channel_neutrality.py` 的通道中立守卫（渠道名只允许留在 im-gateway 适配器层）。已改为消费共享契约 `muad_contracts.enums.OUTBOUND_CHANNELS`，守卫 3 passed，准入/快照/Draft 相关 55 passed。
 - [2026-11-15] created (draft)
 - [2026-11-15] 新增 `apps/agent-worker/.../application/schedule_admission.py`：每次 Fire 的 Admission 入口（按模式校验 → 组装 Snapshot v4 → 失败台账），纯组装函数无 IO，网络取数只在 `admit()` 且不持任何锁。
 - [2026-11-15] Console 新增 `POST /internal/runtime/schedule-admission-materials` + `ScheduleResolveService`（与交互式 `ResolveService` 分离）：只读 SELECT（用例断言零 INSERT/UPDATE/DELETE），按模式解析 Skill/MCP/Model/Grant/记忆候选/设置快照。
