@@ -2232,7 +2232,7 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
   - typecheck PASS exit=0
 ## TASK-027: 展示任务列表、详情、Fire 历史与版本产物
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-026
 - **Source**: scheduled-task-v2.frontend.design.md §3.3、§3.4、§3.5、§3.6、§3.7、§3.8
 - **Scenarios**: S-02, S-03, S-04, S-07, S-11, S-15, S-16, E-02, E-10, E-11, B-01, B-02, B-03, B-09, B-10, B-11
@@ -2284,12 +2284,12 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Checklist
 
-- [ ] 列表/详情 controller 单一状态源，过滤默认全部授权 Agent；列表、徽标与待处理范围一致；加载、空态、404、失败重试均真实。
-- [ ] Fire、Execution、Delivery 状态分别展示；missed_count 额外次数、结束原因与三类 wait_kind 不混为失败；DST 用独立事件展示。
-- [ ] 长结果折叠/滚动，列表不塞全文；产物用 TaskArtifactList，version+checksum 下载指定版本，失败明确、Blob URL 随身份/组件释放。
-- [ ] 详情显示冻结 Snapshot 摘要、allowlist、budget、READ_ONLY，不展示 Prompt、Secret 或内部 endpoint/路径；未知状态码有可读兜底。
-- [ ] 仅 Tab 可见且用户触发时读取；过期响应按 epoch 丢弃，刷新失败保留有效旧内容；切走不后台轮询，不接定时结果 SSE。
-- [ ] DateTimeText、catalog i18n、窄屏单列/返回、键盘 Tab/行聚焦、aria 标签完整；组件测试验证多页与产物错误，不只做源码文本匹配。
+- [x] 列表/详情 controller 单一状态源，过滤默认全部授权 Agent；列表、徽标与待处理范围一致；加载、空态、404、失败重试均真实。
+- [x] Fire、Execution、Delivery 状态分别展示；missed_count 额外次数、结束原因与三类 wait_kind 不混为失败；DST 用独立事件展示。
+- [x] 长结果折叠/滚动，列表不塞全文；产物用 TaskArtifactList，version+checksum 下载指定版本，失败明确、Blob URL 随身份/组件释放。
+- [x] 详情显示冻结 Snapshot 摘要、allowlist、budget、READ_ONLY，不展示 Prompt、Secret 或内部 endpoint/路径；未知状态码有可读兜底。
+- [x] 仅 Tab 可见且用户触发时读取；过期响应按 epoch 丢弃，刷新失败保留有效旧内容；切走不后台轮询，不接定时结果 SSE。
+- [x] DateTimeText、catalog i18n、窄屏单列/返回、键盘 Tab/行聚焦、aria 标签完整；组件测试验证多页与产物错误，不只做源码文本匹配。
 
 ### Spec Delta
 
@@ -2300,13 +2300,22 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15] 组件落地：`task-center/taskCenterState.ts` 提供列表/详情两个控制器（列表+徽标共享 `filters.agentId`，详情/Fire 分页/Execution 各自 epoch），`ScheduleListPanel`/`ScheduleDetailPanel`/`TaskArtifactList` 只收 typed props，`TaskCenterPage` 负责深链路由与用户动作；新增 `task-center.css`（窄屏单列、结果滚动）并在 `webchat.css` 顶部 `@import`。
+- [2026-11-15] 事实口径：`types.ts` 按已落地契约修正为 `context`/`delivery_intent`/`policy`/`end_reason`/`attention_reason` 与 Execution 的 `snapshot_schema_version`/`snapshot_bytes`（原设计稿的 `context_summary`/`delivery`/嵌套 `snapshot` 与后端 DTO 不一致）。详情不渲染 `instruction`/`normalized_goal`/`context`；Fire `SKIPPED` 显示跳过原因与 misses，`FAILED_ADMISSION` 显示修复动作；三类 `wait_kind` 与 `WAITING_HUMAN` 明确“不是失败”；DST 只出现在独立事件区。
+- [2026-11-15] 产物下载：`artifactDownload.ts` 只经 typed client 的 `downloadArtifact(artifact_id, version, checksum)`；Blob URL 创建后立即释放（点击抛错也释放），`reset/dispose` 兜底释放并做 generation 栅栏；版本冲突/不存在/网络/未知码各自显式失败，不产生“已保存”假象。
+- [2026-11-15] i18n：新增 `chat.taskCenter.*` 词条（zh-CN/en-US 同键同序，插在既有 `chat.taskCenter.empty` 之后，未改动其它块）。
+- [2026-11-15] 延迟项：Agent 过滤控件的授权集合来自 WebChat 入口列表，但 `ChatPage` 不在本 TASK 的 Paths 内，故 `agents` 作为可选 props 暴露、当前生产接线未传入；读取仍按“全部授权 Agent”（不发送 `agent_id`），待后续接线。
+- [2026-11-15] 测试：新增 `test_scheduled_v2_task_center_ui.py`（真实控制器 + 真实 typed service/传输：只读时机、多页、筛选竞态 epoch、徽标失败隔离、404、Fire 分页/DST 分离、Execution 按需；真实 React+Semi+i18n 渲染列表/详情事实、三态与未知码兜底）与 `test_scheduled_v2_history_artifacts_ui.py`（精确 version+checksum、URL 释放、版本冲突/网络/未知码失败、在途单飞、重置栅栏、保存失败；产物列表渲染成功态与错误态）。
+- [2026-11-15T12:51:02.125Z] started tests=0b3dd64989b2
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-028"></a>
-
+- 2026-11-15T13:01:35.179Z PASS commands=2/2 executed=2 deduped=0 elapsed=24255ms tests=0b3dd64989b2 head=bbb4e11b8fda dirty=1
+  - related PASS exit=0
+  - typecheck PASS exit=0
 ## TASK-028: 展示待处理 Human 并执行生命周期动作
 
 - **Status**: draft
