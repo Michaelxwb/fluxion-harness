@@ -19,7 +19,14 @@ from typing import Any, cast
 
 import sqlalchemy as sa
 from muad_common import SharedSettings
-from muad_contracts import TaskStatus, TerminalStatus, ToolRetrySafety, WaitKind, task_retry_safety
+from muad_contracts import (
+    HumanInteractionStatus,
+    TaskStatus,
+    TerminalStatus,
+    ToolRetrySafety,
+    WaitKind,
+    task_retry_safety,
+)
 from pydantic import JsonValue
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -38,7 +45,11 @@ from ..application.task_events import (
 from ..application.terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.db_clock import database_now
-from ..infrastructure.models.task import TaskExecution
+from ..infrastructure.models.task import (
+    TaskExecution,
+    TaskExecutionCheckpoint,
+    TaskHumanInteraction,
+)
 from ..infrastructure.wakeup_hint import NullWakeupListener, WakeupListener
 from ..metrics import (
     MAINTENANCE_METRIC,
@@ -72,6 +83,8 @@ HEARTBEAT_LOST_CODE = "WORKER_HEARTBEAT_LOST"
 #: 续租是瞬时故障（DB 抖动）还是真失约，要分得开：前者有界重试，后者立刻停。
 HEARTBEAT_RENEW_ATTEMPTS = 3
 HEARTBEAT_RENEW_RETRY_SEC = 1.0
+#: Human 提问的交互类型（design §3.3.8：`INPUT` / `CONFIRM`；Agentic 只产生 INPUT）。
+HUMAN_INTERACTION_TYPE = "INPUT"
 
 
 def default_instance_id() -> str:
@@ -233,10 +246,12 @@ class WorkerLoop:
         cancel_hints: CancelHintStore | None = None,
         wakeup: WakeupListener | None = None,
         settings_client: PlatformSettingsClient | None = None,
+        agentic: TaskExecutorProtocol | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings or SharedSettings()
         self._executor = executor
+        self._agentic = agentic
         self._claimer = claimer or TaskClaimer(session_factory, self._settings)
         self._instance_id = instance_id or default_instance_id()
         self._cancel_hints: CancelHintStore = cancel_hints or NullCancelHintStore()
@@ -249,26 +264,11 @@ class WorkerLoop:
         if self._executor is None:
             # 延迟到真正执行时才构造：bootstrap 在导入时创建 artifact/cache 目录，
             # 只做 claim/reclaim 的 WorkerLoop 不该有文件系统副作用。
-            from muad_agent_core.sandbox import (
-                WorkspaceQuotaPolicy,
-                WorkspaceStore,
-                workspace_layout_from_settings,
-            )
-
             from ..application.batch_fanout import BatchFanoutService
             from ..bootstrap.artifacts import skill_artifact_cache
-            from ..infrastructure.workspace_store import WorkerWorkspaceMetadataStore
-            from ..metrics import record_workspace_quota_rejected
+            from .assembly import build_workspace_store
 
-            layout = workspace_layout_from_settings(self._settings)
-            metadata = WorkerWorkspaceMetadataStore(lambda: self._session_factory)
-            workspace_store = WorkspaceStore(
-                layout=layout,
-                metadata=metadata,
-                quota=WorkspaceQuotaPolicy.from_layout(layout),
-                usage=metadata,
-                on_quota_rejected=record_workspace_quota_rejected,
-            )
+            workspace_store = build_workspace_store(self._settings, self._session_factory)
             self._executor = TaskTypeExecutor(
                 reminder=ReminderExecutor(),
                 skill=SkillTaskExecutor(
@@ -282,6 +282,7 @@ class WorkerLoop:
                     sessions=self._session_factory,
                     settings=self._settings,
                 ),
+                agentic=self._agentic,
             )
         return self._executor
 
@@ -489,6 +490,9 @@ class WorkerLoop:
         if outcome.kind is OutcomeKind.WAITING:
             await self._wait(task, outcome, now=now)
             return
+        if outcome.kind is OutcomeKind.WAITING_HUMAN:
+            await self._wait_human(task, outcome, now=now)
+            return
         if outcome.kind is OutcomeKind.CANCELLED:
             moment = now if now is not None else await self._pg_clock()
             async with self._session_factory() as session:
@@ -540,6 +544,7 @@ class WorkerLoop:
                     # 执行期间已被请求取消：按取消收尾，不能留成无 lease 的 RUNNING。
                     await self._mark_cancelled(session, task, moment)
                     return
+                await self._persist_wait_checkpoint(session, task, outcome)
                 await append_events(
                     session,
                     [
@@ -558,6 +563,122 @@ class WorkerLoop:
                         )
                     ],
                 )
+
+    async def _wait_human(
+        self,
+        task: TaskExecution,
+        outcome: TaskOutcome,
+        *,
+        now: datetime | None,
+    ) -> None:
+        """Human 挂起：**同一事务**写 checkpoint、OPEN 提问、WAITING_HUMAN、释放租约与事件。
+
+        design §3.5.8 的口径逐条落在这里：问题 deadline 不晚于 Execution deadline；同 Execution
+        最多一个 OPEN（部分唯一索引兜底）；等待状态与打开的问题要么一起生效、要么一起回滚。
+        """
+        human = outcome.human
+        if human is None:
+            raise TaskExecutionError(
+                "SKILL_RESULT_INVALID", "human wait outcome carries no question", retryable=False
+            )
+        deadline = min(human.deadline_at, task.deadline_at)
+        async with self._session_factory() as session:
+            async with session.begin():
+                moment = now if now is not None else await database_now(session)
+                await self._lock_parent(session, task)
+                rowcount = await self._cas(
+                    session,
+                    task.id,
+                    {
+                        "status": str(TaskStatus.WAITING_HUMAN),
+                        # 契约只在 WAITING_EXTERNAL 上允许 wait_kind/wait_payload。
+                        "wait_kind": None,
+                        "wait_payload_json": None,
+                        "not_before": deadline,
+                        "lease_owner": None,
+                        "lease_until": None,
+                        "update_time": moment,
+                    },
+                    moment=moment,
+                    lease_epoch=task.lease_epoch,
+                    require_not_cancelled=True,
+                )
+                if rowcount != 1:
+                    await self._mark_cancelled(session, task, moment)
+                    return
+                interaction = TaskHumanInteraction(
+                    tenant_id=task.tenant_id,
+                    execution_id=task.id,
+                    owner_user_id=task.actor_user_id,
+                    agent_id=task.agent_id,
+                    interaction_type=HUMAN_INTERACTION_TYPE,
+                    status=str(HumanInteractionStatus.OPEN),
+                    question=human.question,
+                    input_schema=dict(human.input_schema) or None,
+                    deadline_at=deadline,
+                )
+                session.add(interaction)
+                await session.flush()
+                await self._persist_wait_checkpoint(session, task, outcome)
+                await append_events(
+                    session,
+                    [
+                        TaskEventSeed(
+                            tenant_id=task.tenant_id,
+                            entity_type=EntityType.EXECUTION,
+                            entity_id=task.id,
+                            event_type=TaskEventType.WAITING_HUMAN,
+                            occurred_at=moment,
+                            payload={
+                                "interaction_id": str(interaction.id),
+                                "question": human.question,
+                                "deadline_at": deadline.isoformat(),
+                                "attempt": task.attempt,
+                            },
+                        ),
+                        TaskEventSeed(
+                            tenant_id=task.tenant_id,
+                            entity_type=EntityType.HUMAN,
+                            entity_id=interaction.id,
+                            event_type=TaskEventType.REQUESTED,
+                            occurred_at=moment,
+                            payload={
+                                "execution_id": str(task.id),
+                                "question": human.question,
+                                "deadline_at": deadline.isoformat(),
+                            },
+                        ),
+                    ],
+                )
+
+    async def _persist_wait_checkpoint(
+        self, session: AsyncSession, task: TaskExecution, outcome: TaskOutcome
+    ) -> None:
+        """挂起边界上的 Kernel checkpoint：与等待状态同一事务（恢复的唯一依据）。"""
+        if outcome.checkpoint_state is None:
+            return
+        latest = await session.scalar(
+            select(TaskExecutionCheckpoint.checkpoint_no)
+            .where(
+                TaskExecutionCheckpoint.tenant_id == task.tenant_id,
+                TaskExecutionCheckpoint.execution_id == task.id,
+            )
+            .order_by(TaskExecutionCheckpoint.checkpoint_no.desc())
+            .limit(1)
+        )
+        checkpoint = TaskExecutionCheckpoint(
+            tenant_id=task.tenant_id,
+            execution_id=task.id,
+            checkpoint_no=int(latest or 0) + 1,
+            state_json=dict(outcome.checkpoint_state),
+        )
+        session.add(checkpoint)
+        await session.flush()
+        await session.execute(
+            update(TaskExecution)
+            .where(TaskExecution.id == task.id, TaskExecution.tenant_id == task.tenant_id)
+            .values(last_checkpoint_id=checkpoint.id)
+        )
 
     async def reclaim_expired(self, *, now: datetime | None = None) -> int:
         """Bounded PG scan; each root tree is settled in its own ordered transaction."""

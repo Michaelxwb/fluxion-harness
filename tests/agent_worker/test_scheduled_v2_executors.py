@@ -191,10 +191,16 @@ async def test_dispatch_routes_by_task_type_and_rejects_unwired_modes() -> None:
     assert skill.seen == ["SKILL", "BATCH"]
     assert reminder.seen == []
 
+    # TASK-019：AGENTIC 有独立执行器；装配根没接时是**显式**失败，不降级成 Skill。
     with pytest.raises(TaskExecutionError) as raised:
         await dispatcher.execute(TaskExecution(task_type="AGENTIC"))
-    assert raised.value.code == "TASK_TYPE_UNSUPPORTED"
+    assert raised.value.code == "AGENTIC_EXECUTOR_UNAVAILABLE"
     assert raised.value.retryable is False
+
+    agentic = _Echo()
+    wired = TaskTypeExecutor(reminder=reminder, skill=skill, agentic=agentic)
+    await wired.execute(TaskExecution(task_type="AGENTIC"))
+    assert agentic.seen == ["AGENTIC"]
 
 
 # --------------------------------------------------------------- SKILL

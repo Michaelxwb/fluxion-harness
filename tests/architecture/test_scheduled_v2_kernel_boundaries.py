@@ -184,3 +184,55 @@ def test_memory_typed_request_stays_inside_the_runtime_adapter() -> None:
         if "MemorySuspendRequest" in path.read_text(encoding="utf-8"):
             offenders.append(str(path.relative_to(ROOT)))
     assert offenders == [], offenders
+
+
+WORKER_SRC = ROOT / "apps/agent-worker/src"
+#: Worker 侧唯一允许装配 Kernel 的模块：AGENTIC 执行入口（TASK-019）。
+WORKER_KERNEL_ENTRY = "application/agentic/run.py"
+
+
+def _runner_constructions(source_root: Path) -> list[tuple[Path, ast.Call]]:
+    calls: list[tuple[Path, ast.Call]] = []
+    for path in sorted(source_root.rglob("*.py")):
+        tree = _tree(path)
+        calls.extend(
+            (path, node)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and (
+                (isinstance(node.func, ast.Name) and node.func.id == "AgentRunner")
+                or (isinstance(node.func, ast.Attribute) and node.func.attr == "AgentRunner")
+            )
+        )
+    return calls
+
+
+def test_worker_has_exactly_one_kernel_assembly_bound_to_the_neutral_ports() -> None:
+    """Worker 只有一处 `AgentRunner(...)`：同一套参数化 Kernel，且四个中立端口都接上。"""
+    calls = _runner_constructions(WORKER_SRC)
+    assert len(calls) == 1, [f"{path.relative_to(ROOT)}:{call.lineno}" for path, call in calls]
+    path, call = calls[0]
+    assert path.relative_to(WORKER_SRC / "muad_agent_worker").as_posix() == WORKER_KERNEL_ENTRY
+    keywords = {keyword.arg for keyword in call.keywords}
+    assert {
+        "provider",
+        "registry",
+        "tool_suspension",
+        "runtime_events",
+        "context_compactor",
+        "tool_round_results",
+    } <= keywords, sorted(keywords)
+
+
+def test_worker_adapter_implements_the_neutral_ports_instead_of_bypassing_them() -> None:
+    """Worker 的端口实现真实存在：事件/checkpoint、挂起、整轮外置各一处，不是 stub。"""
+    expected = (
+        ("application/agentic/checkpoints.py", "class TaskCheckpointStore"),
+        ("application/agentic/suspension.py", "class AgenticSuspension"),
+        ("application/agentic/artifacts.py", "class TaskArtifactRoundWriter"),
+        ("application/agentic/compaction.py", "class TaskContextCompactor"),
+        ("application/agentic/model.py", "class CapacityBoundProvider"),
+    )
+    for relative, marker in expected:
+        path = WORKER_SRC / "muad_agent_worker" / relative
+        assert marker in path.read_text(encoding="utf-8"), f"{relative} 缺少 {marker}"

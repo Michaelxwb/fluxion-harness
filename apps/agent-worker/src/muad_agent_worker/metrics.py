@@ -47,6 +47,9 @@ PLATFORM_SETTINGS_FETCH_METRIC: Final = "platform_settings_fetch_total"
 WORKSPACE_CLEANUP_METRIC: Final = "workspace_cleanup_total"
 #: workspace 配额拒绝（无 label：拒绝本身就是唯一维度，资源 ID 不进 label）。
 WORKSPACE_QUOTA_REJECTED_METRIC: Final = "workspace_quota_rejected_total"
+#: Agentic 上下文压缩结局：`layer` 是触发/降级的层（`"*"` 表示整条链失败），`status` 是
+#: FIRED/FAILED/SKIPPED。压缩失败一律退化为"不压缩"，但**必须看得见**（RULE-04）。
+CONTEXT_COMPACTION_METRIC: Final = "context_compaction_total"
 
 #: 清理状态（封闭枚举）；SCANNED 记扫描批次，DELETED/SKIPPED/FAILED 记逐目录结局。
 WorkspaceCleanupStatus = Literal["SCANNED", "DELETED", "SKIPPED", "FAILED"]
@@ -109,6 +112,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         COUNTER,
         (),
         "Workspace acquisitions rejected by quota",
+    ),
+    (
+        CONTEXT_COMPACTION_METRIC,
+        COUNTER,
+        ("layer",),
+        "Agentic context compaction by layer and outcome (fired/failed/skipped)",
     ),
 )
 

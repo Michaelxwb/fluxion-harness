@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
@@ -19,6 +19,15 @@ WAIT_EXTERNAL_REF_KEY = "external_ref"
 WAIT_OPERATIONS_KEY = "operations"
 WAIT_BATCH_KEY = "batch"
 RESULT_ARTIFACT_KEY = "result_artifact_id"
+#: Agentic 执行信封（TASK-019）：`{"kind": "TOOL_OPERATION"|"HUMAN_INPUT", "checkpoint": {...}, ...}`。
+#: 它是**执行器 → WorkerLoop** 的唯一通道，承载 Kernel 的回合 checkpoint 与 Human 问题；
+#: 等待状态仍由 `WorkerLoop._wait` 在停下心跳之后一次性写入（checkpoint + WAITING_* + 事件同事务）。
+AGENTIC_KEY = "agentic"
+AGENTIC_KIND_KEY = "kind"
+AGENTIC_CHECKPOINT_KEY = "checkpoint"
+AGENTIC_QUESTION_KEY = "question"
+AGENTIC_INPUT_SCHEMA_KEY = "input_schema"
+AGENTIC_DEADLINE_KEY = "deadline_at"
 #: Skill 结果不符合协议：**确定性**失败（同样的结果重跑多少次都一样），不消耗重试预算。
 SKILL_RESULT_INVALID = "SKILL_RESULT_INVALID"
 #: 结果待核实：无法确认远端副作用是否发生（响应丢失），不自动重做，保留现场等待核实。
@@ -28,8 +37,19 @@ TASK_RESULT_UNVERIFIED = "TASK_RESULT_UNVERIFIED"
 class OutcomeKind(StrEnum):
     COMPLETED = "COMPLETED"
     WAITING = "WAITING"
+    #: 等人回答：与外部等待语义不同（取消/续接/超时规则都不同，design §3.5.8）。
+    WAITING_HUMAN = "WAITING_HUMAN"
     RETRYABLE_FAILURE = "RETRYABLE_FAILURE"
     CANCELLED = "CANCELLED"
+
+
+@dataclass(frozen=True, slots=True)
+class HumanQuestion:
+    """一次 Human 挂起要落库的事实（`task_human_interaction` + `WAITING_HUMAN`）。"""
+
+    question: str
+    input_schema: dict[str, Any]
+    deadline_at: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +63,10 @@ class TaskOutcome:
     not_before: datetime | None = None
     error_code: str | None = None
     error_message: str = ""
+    #: Agentic 挂起边界上 Kernel 交回的回合 checkpoint（`RunnerCheckpoint.as_state()` 原样）。
+    #: WorkerLoop 把它与 WAITING_* 状态写在同一事务里（design §3.5.8）。
+    checkpoint_state: dict[str, Any] | None = None
+    human: HumanQuestion | None = None
 
 
 class FailureDisposition(StrEnum):
@@ -129,14 +153,60 @@ def interpret_execution(execution: Mapping[str, Any], *, now: datetime) -> TaskO
             error_message=str(execution.get("stderr") or ""),
         )
     payload = _result_payload(execution)
+    agentic = _agentic_envelope(execution.get(AGENTIC_KEY))
     wait = payload.get(WAIT_KEY)
     if wait is not None:
-        return _wait_outcome(wait, now=now)
+        return replace(_wait_outcome(wait, now=now), **_agentic_fields(agentic))
+    if agentic is not None and agentic[AGENTIC_KIND_KEY] == "HUMAN_INPUT":
+        return _human_outcome(agentic, payload)
     reference = _parse_reference(payload.pop(RESULT_ARTIFACT_KEY, None))
     return TaskOutcome(
         kind=OutcomeKind.COMPLETED,
         result=payload,
         result_artifact_id=reference,
+        **_agentic_fields(agentic),
+    )
+
+
+def _agentic_envelope(raw: Any) -> dict[str, Any] | None:
+    """Agentic 执行信封：缺省表示这不是 Agentic 执行；形状不对是确定性协议违规。"""
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping) or not isinstance(raw.get(AGENTIC_KIND_KEY), str):
+        raise _invalid("agentic envelope must be an object with a kind string")
+    return dict(raw)
+
+
+def _agentic_fields(envelope: dict[str, Any] | None) -> dict[str, Any]:
+    if envelope is None:
+        return {}
+    checkpoint = envelope.get(AGENTIC_CHECKPOINT_KEY)
+    if checkpoint is not None and not isinstance(checkpoint, Mapping):
+        raise _invalid("agentic.checkpoint must be an object")
+    return {"checkpoint_state": dict(checkpoint) if checkpoint is not None else None}
+
+
+def _human_outcome(agentic: Mapping[str, Any], payload: dict[str, Any]) -> TaskOutcome:
+    """等人回答：问题、输入 schema 与问题期限一起交给 WorkerLoop 落库。"""
+    question = agentic.get(AGENTIC_QUESTION_KEY)
+    deadline = agentic.get(AGENTIC_DEADLINE_KEY)
+    schema = agentic.get(AGENTIC_INPUT_SCHEMA_KEY)
+    if not isinstance(question, str) or not question.strip():
+        raise _invalid("agentic human question must be a non-empty string")
+    if not isinstance(deadline, str) or not deadline:
+        raise _invalid("agentic human deadline must be an ISO-8601 string")
+    parsed = _wait_not_before({"not_before": deadline}, now=datetime.now(UTC))
+    if schema is not None and not isinstance(schema, Mapping):
+        raise _invalid("agentic human input_schema must be an object")
+    return TaskOutcome(
+        kind=OutcomeKind.WAITING_HUMAN,
+        result=payload,
+        human=HumanQuestion(
+            question=question.strip(),
+            input_schema=dict(schema) if schema is not None else {},
+            deadline_at=parsed,
+        ),
+        **_agentic_fields(dict(agentic)),
     )
 
 
