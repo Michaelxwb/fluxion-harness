@@ -2398,9 +2398,10 @@ apps/agent-worker/src/muad_agent_worker/application/human_interactions.py,48,TIM
 apps/agent-worker/src/muad_agent_worker/application/human_interactions.py,49,CANCELLED,str(HumanInteractionStatus.CANCELLED),python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
 apps/agent-worker/src/muad_agent_worker/application/human_interactions.py,50,RESUME_REASON_HUMAN,'HUMAN',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
 apps/agent-worker/src/muad_agent_worker/application/human_interactions.py,52,HUMAN_RESUME_KEY,'human_interaction_id',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,37,HUMAN_TIMEOUT,'HUMAN_TIMEOUT',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,38,HUMAN_TIMEOUT_MESSAGE,'human interaction deadline exceeded',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,40,SWEEP_BATCH,128,python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,41,OPEN,str(HumanInteractionStatus.OPEN),python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,42,TIMED_OUT,str(HumanInteractionStatus.TIMED_OUT),python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
-apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,43,WAITING_HUMAN,str(TaskStatus.WAITING_HUMAN),python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,39,HUMAN_TIMEOUT,'HUMAN_TIMEOUT',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,41,HUMAN_TIMEOUT_CODE,'HUMAN_INTERACTION_EXPIRED',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,42,HUMAN_TIMEOUT_MESSAGE,'human interaction deadline exceeded',python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,44,SWEEP_BATCH,128,python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,45,OPEN,str(HumanInteractionStatus.OPEN),python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,46,TIMED_OUT,str(HumanInteractionStatus.TIMED_OUT),python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/human_timeouts.py,47,WAITING_HUMAN,str(TaskStatus.WAITING_HUMAN),python-constant,code,TASK-021 Human 交互实现常量；协议/实现常量，不开放任意修改

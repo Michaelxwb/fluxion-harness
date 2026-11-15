@@ -1793,7 +1793,8 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 - [2026-11-15] 幂等两层：`Idempotency-Key` 台账管同一次提交重放；interaction 级按规范化回答指纹——同内容重放首次结果（RESOLVED+QUEUED），不同内容 `IDEMPOTENCY_MISMATCH`。事件只落 `response_hash`，不落回答正文。
 - [2026-11-15] 一次性续接标记：回答事务在 `wait_payload_json` 写 `{"human_interaction_id": …}`，claim 读到即按 Human 续接处理并清空（不再从 `WAITING_HUMAN` 直接 claim）；`resume_count` 只在回答事务计一次，`attempt` 不变。执行器按"`resolved_at` 晚于最近 checkpoint `create_time`"取回回答，以 USER 消息接在 checkpoint 历史之后（`agentic_executor._with_human_answer`），无可用回答时告警并保持原恢复状态。
 - [2026-11-15] 修复 TASK-019 留下的真问题：`TIMER_STATUSES` 曾含 `WAITING_HUMAN` 且 `_wait_human` 把 `not_before` 写成问题 deadline —— 到期那一刻 claim 会把等待人工的执行直接起跑（等于凭空回答）。现等待人工没有任何定时唤醒源，只有回答改回 QUEUED 才续接；`not_before` 对 WAITING_HUMAN 不再参与领取。
-- [2026-11-15] 超时：新增 `worker/human_timeouts.py`（`HumanTimeoutSweeper` 有界扫描 + 逐条事务；`HumanTimeoutLoop` 独立节拍，复用 `task_deadline_sweep_interval_sec` 作为唯一设置来源）。到期写成 **`FAILED(HUMAN_TIMEOUT)` + `failure_class=HUMAN_TIMEOUT`** 并关 interaction `TIMED_OUT`；执行已终态时**只关 interaction**，不改写执行、不补执行事件。执行 CAS 只认 `status=WAITING_HUMAN AND cancel_requested=false`，与 deadline sweep 的 `NON_TERMINAL` 终态 CAS 互斥——先到者生效、后者整体回滚。**口径偏差**：checklist 写 `CANCELLED(HUMAN_TIMEOUT)`，协调指令与 `FailureClass` 枚举、TASK-013 的终态用例都按"失败"表达，实现取 `FAILED`，事件为 `EXECUTION/FAILED` + `HUMAN/TIMED_OUT`。
+- [2026-11-15] 超时：新增 `worker/human_timeouts.py`（`HumanTimeoutSweeper` 有界扫描 + 逐条事务；`HumanTimeoutLoop` 独立节拍，复用 `task_deadline_sweep_interval_sec` 作为唯一设置来源）。到期写成 **`CANCELLED` + `error_code=HUMAN_INTERACTION_EXPIRED` + `failure_class=HUMAN_TIMEOUT`** 并关 interaction `TIMED_OUT`；执行已终态时**只关 interaction**，不改写执行、不补执行事件。执行 CAS 只认 `status=WAITING_HUMAN AND cancel_requested=false`，与 deadline sweep 的 `NON_TERMINAL` 终态 CAS 互斥——先到者生效、后者整体回滚。
+- [2026-11-15] 按设计修正（曾误写 FAILED）：`backend.design.md` §3.2.6/§3.5.8 与 scenarios S-06 三处写死超时为 `Execution CANCELLED(HUMAN_TIMEOUT)`，初版实现误取 `FAILED(HUMAN_TIMEOUT)`；现终态为 `CANCELLED`，`failure_class` 保留 `HUMAN_TIMEOUT` 记录原因，事件对为 `EXECUTION/CANCELLED` + `HUMAN/TIMED_OUT`，相关用例断言同步收紧（不再兼容两种状态）。
 - [2026-11-15] `TerminalChange` 增加 `failure_class` 并在 `write_terminal` 唯一出口写入（超时是唯一使用方，其余终态保持 NULL）。
 - [2026-11-15] `FUTURE_ONLY` 保留 OPEN 与 `WAITING_HUMAN`、`ALL_ACTIVE`/Execution 取消原子关闭 interaction：由 TASK-013 的矩阵实现，本 TASK 用真实接口回归并加断言。
 - [2026-11-15] Checklist 第 1 条的实现来自 TASK-019 的 `WorkerLoop._wait_human`（同事务写 checkpoint + OPEN interaction + WAITING_HUMAN + 释放 lease，`deadline=min(问题, 执行)`，部分唯一索引保证每 Execution 至多一个 OPEN）；本 TASK 未改该函数，只补了与之配套的"等待人工不可被定时 claim"不变量并在测试中保留其回归。
@@ -1807,6 +1808,8 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 <a id="task-022"></a>
 - 2026-11-15T10:30:59.002Z PASS commands=1/1 executed=1 deduped=0 elapsed=33160ms tests=89e024a199fb head=66c280480ae2 dirty=1 tests-changed
+  - related PASS exit=0
+- 2026-11-15T10:33:04.060Z PASS commands=1/1 executed=1 deduped=0 elapsed=34989ms tests=89e024a199fb head=f1d455a027a2 dirty=1 tests-changed
   - related PASS exit=0
 ## TASK-022: 拆分独立 Delivery 并可靠推送 WeCom
 

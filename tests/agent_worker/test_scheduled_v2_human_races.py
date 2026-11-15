@@ -6,7 +6,7 @@ CAS，不靠测试里人为排序。断言的是**排他结果**——谁先拿�
 - 同一回答并发 → 一次生效，另一次按幂等重放；
 - 不同回答并发 → 一个成功、一个 `IDEMPOTENCY_MISMATCH`；
 - 回答 vs `ALL_ACTIVE` 取消 → 要么"已回答再被取消"，要么"取消先赢、回答被拒"，绝不复活；
-- 回答 vs 超时 → 回答必然被拒，执行落 `HUMAN_TIMEOUT`；
+- 回答 vs 超时 → 回答必然被拒，执行按设计落 `CANCELLED(HUMAN_INTERACTION_EXPIRED)` + `HUMAN_TIMEOUT`；
 - 两个超时 sweep 并发 → 只有一份终态与一条事件。
 """
 
@@ -21,7 +21,11 @@ from muad_agent_worker.application.human_interactions import HumanInteractionSer
 from muad_agent_worker.application.schedule_lifecycle import ExecutionService
 from muad_agent_worker.application.task_events import EntityType
 from muad_agent_worker.infrastructure.db_clock import database_now
-from muad_agent_worker.worker.human_timeouts import HUMAN_TIMEOUT, HumanTimeoutSweeper
+from muad_agent_worker.worker.human_timeouts import (
+    HUMAN_TIMEOUT,
+    HUMAN_TIMEOUT_CODE,
+    HumanTimeoutSweeper,
+)
 from muad_api import AppError
 
 from agent_worker.conftest import TenantContext
@@ -143,7 +147,9 @@ async def test_answer_versus_timeout_sweep_never_revives(tenant: TenantContext) 
     assert result[0].code == "HUMAN_INTERACTION_EXPIRED"
     assert result[1] == 1
     execution = await read_execution(tenant, seed.execution_id)
-    assert execution.status == "FAILED" and execution.error_code == HUMAN_TIMEOUT
+    assert execution.status == "CANCELLED", "设计口径：超时按取消收尾（不是 FAILED）"
+    assert execution.error_code == HUMAN_TIMEOUT_CODE
+    assert execution.failure_class == HUMAN_TIMEOUT
     interaction = await read_interaction(tenant, seed.interaction_id)
     assert interaction.status == "TIMED_OUT" and interaction.response_json is None
 
@@ -155,7 +161,7 @@ async def test_concurrent_timeout_sweeps_write_one_terminal_state(tenant: Tenant
     closed = await asyncio.gather(_sweep(tenant), _sweep(tenant))
 
     assert sum(closed) == 1, "同一 interaction 只有一个事务能收尾"
-    assert await event_types(tenant, seed.execution_id, EntityType.EXECUTION) == ["FAILED"]
+    assert await event_types(tenant, seed.execution_id, EntityType.EXECUTION) == ["CANCELLED"]
     assert await event_types(tenant, seed.interaction_id, EntityType.HUMAN) == ["TIMED_OUT"]
 
 

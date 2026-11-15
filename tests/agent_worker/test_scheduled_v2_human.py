@@ -36,7 +36,11 @@ from muad_agent_worker.infrastructure.models.task import (
 )
 from muad_agent_worker.worker.agentic_executor import _with_human_answer
 from muad_agent_worker.worker.claimer import TaskClaimer
-from muad_agent_worker.worker.human_timeouts import HUMAN_TIMEOUT, HumanTimeoutSweeper
+from muad_agent_worker.worker.human_timeouts import (
+    HUMAN_TIMEOUT,
+    HUMAN_TIMEOUT_CODE,
+    HumanTimeoutSweeper,
+)
 from muad_contracts import CancelScope
 
 from agent_worker.conftest import TenantContext
@@ -337,7 +341,7 @@ async def test_invalid_response_schema_rolls_back(client: AsyncClient, tenant: T
 # -------------------------------------------------------------------- timeout
 
 
-async def test_timeout_fails_execution_and_closes_interaction(
+async def test_timeout_cancels_execution_and_closes_interaction(
     tenant: TenantContext,
 ) -> None:
     now = datetime.now(UTC)
@@ -352,14 +356,14 @@ async def test_timeout_fails_execution_and_closes_interaction(
 
     assert closed == 1
     execution = await read_execution(tenant, seed.execution_id)
-    assert execution.status == "FAILED"
-    assert execution.error_code == HUMAN_TIMEOUT
+    assert execution.status == "CANCELLED", "设计口径：超时按取消收尾（不是 FAILED）"
+    assert execution.error_code == HUMAN_TIMEOUT_CODE
     assert execution.failure_class == HUMAN_TIMEOUT
     assert execution.finished_at is not None
     assert execution.lease_owner is None and execution.lease_until is None
     interaction = await read_interaction(tenant, seed.interaction_id)
     assert interaction.status == TIMED_OUT and interaction.resolved_at is not None
-    assert await event_types(tenant, seed.execution_id, EntityType.EXECUTION) == ["FAILED"]
+    assert await event_types(tenant, seed.execution_id, EntityType.EXECUTION) == ["CANCELLED"]
     assert await event_types(tenant, seed.interaction_id, EntityType.HUMAN) == ["TIMED_OUT"]
     assert await sweeper.sweep() == 0, "已收尾的不再重复写"
 
@@ -424,7 +428,7 @@ async def test_answer_loses_against_timeout_without_revival(
 
     assert response.status_code == 410, response.text
     assert (await read_interaction(tenant, seed.interaction_id)).status == TIMED_OUT
-    assert (await read_execution(tenant, seed.execution_id)).status == "FAILED"
+    assert (await read_execution(tenant, seed.execution_id)).status == "CANCELLED"
 
 
 # --------------------------------------------------------------------- cancel

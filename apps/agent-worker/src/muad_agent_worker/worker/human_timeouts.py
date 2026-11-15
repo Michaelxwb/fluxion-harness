@@ -8,7 +8,8 @@
 
 - deadline 是**执行**的绝对上限，到点写 `FAILED(TASK_DEADLINE_EXCEEDED)`；
 - 本 sweep 看**问题**的 `deadline_at`（`_wait_human` 保证不晚于执行期限），写
-  `FAILED(HUMAN_TIMEOUT)` 并关闭 interaction；
+  `CANCELLED(HUMAN_INTERACTION_EXPIRED)` + `failure_class=HUMAN_TIMEOUT`（design §3.2.6 /
+  §3.5.8：超时按"取消"收尾）并关闭 interaction；
 - 本 sweep 的执行 CAS 只认 `status=WAITING_HUMAN`，且**执行已终态时只关闭 interaction**
   （不让 deadline sweep 赢下的行留下一个永远 OPEN 的问题）。两边都不写对方的状态。
 
@@ -34,7 +35,10 @@ from ..infrastructure.models.task import TaskExecution, TaskHumanInteraction
 
 logger = logging.getLogger("muad_agent_worker.worker.human_timeouts")
 
+#: 失败分类（`FailureClass.HUMAN_TIMEOUT`）：与"取消"并列记录原因，不是状态值。
 HUMAN_TIMEOUT = "HUMAN_TIMEOUT"
+#: 终态错误码来自 `config/api-messages.yaml`（`HUMAN_INTERACTION_EXPIRED` = 410「人工确认已超时」）。
+HUMAN_TIMEOUT_CODE = "HUMAN_INTERACTION_EXPIRED"
 HUMAN_TIMEOUT_MESSAGE = "human interaction deadline exceeded"
 #: 单轮扫描上界：超时收尾是短事务，批大小只为限制一次 tick 的工作量。
 SWEEP_BATCH = 128
@@ -145,8 +149,8 @@ class HumanTimeoutSweeper:
             session,
             execution,
             TerminalChange(
-                status=TerminalStatus.FAILED,
-                error_code=HUMAN_TIMEOUT,
+                status=TerminalStatus.CANCELLED,
+                error_code=HUMAN_TIMEOUT_CODE,
                 error_message=HUMAN_TIMEOUT_MESSAGE,
                 failure_class=HUMAN_TIMEOUT,
             ),
@@ -215,6 +219,7 @@ class HumanTimeoutLoop:
 
 __all__ = [
     "HUMAN_TIMEOUT",
+    "HUMAN_TIMEOUT_CODE",
     "HumanTimeoutLoop",
     "HumanTimeoutSweeper",
     "SWEEP_BATCH",
