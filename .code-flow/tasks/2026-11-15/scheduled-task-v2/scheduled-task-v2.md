@@ -1659,7 +1659,7 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
   - related PASS exit=0
 ## TASK-020: 恢复 ASYNC 多 operation 并消除等待竞态
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-007, TASK-015, TASK-019
 - **Source**: scheduled-task-v2.backend.design.md §3.1.5、§3.2.4、§3.5.3、§3.5.6
 - **Scenarios**: S-17, E-03, E-15, B-05, B-06, B-08
@@ -1698,12 +1698,12 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Checklist
 
-- [ ] 提交前后使用稳定 call_id；回执丢失或 checkpoint 前崩溃后按调用身份找回 operation 并比 input_hash，不能创建第二个业务调用。
-- [ ] 进入 WAITING_EXTERNAL 前 ready-check：ready 直接继续；pending 才持久 wait_kind/operations[] 与 checkpoint 并释放 lease；ready-check 与等待之间结果到达由持久补扫兜底。
-- [ ] 同模型回合多 operation 按 call_id 独立 receipt_seq/consumed_event_id 聚合；乱序不能用全局水位跳过，全部 terminal 才继续，部分失败按冻结 policy。
-- [ ] 消费确认、任务事件、checkpoint 与状态 CAS 采用可重放事务边界；重复 event 不重复注入模型工具结果；HTTP 在行锁外。
-- [ ] 补扫器独立受监督、有界且跨租户公平；丢 hint、Redis 不可用、Worker 重启都能前进；External resume 不额外占 Schedule 槽或增加 attempt。
-- [ ] 覆盖结果早到、回执丢失、每个 checkpoint 窗口崩溃、重复/乱序/变参结果及取消/deadline 后迟到；终态只记 late，不恢复。
+- [x] 提交前后使用稳定 call_id；回执丢失或 checkpoint 前崩溃后按调用身份找回 operation 并比 input_hash，不能创建第二个业务调用。
+- [x] 进入 WAITING_EXTERNAL 前 ready-check：ready 直接继续；pending 才持久 wait_kind/operations[] 与 checkpoint 并释放 lease；ready-check 与等待之间结果到达由持久补扫兜底。
+- [x] 同模型回合多 operation 按 call_id 独立 receipt_seq/consumed_event_id 聚合；乱序不能用全局水位跳过，全部 terminal 才继续，部分失败按冻结 policy。
+- [x] 消费确认、任务事件、checkpoint 与状态 CAS 采用可重放事务边界；重复 event 不重复注入模型工具结果；HTTP 在行锁外。
+- [x] 补扫器独立受监督、有界且跨租户公平；丢 hint、Redis 不可用、Worker 重启都能前进；External resume 不额外占 Schedule 槽或增加 attempt。
+- [x] 覆盖结果早到、回执丢失、每个 checkpoint 窗口崩溃、重复/乱序/变参结果及取消/deadline 后迟到；终态只记 late，不恢复。
 
 ### Spec Delta
 
@@ -1714,13 +1714,24 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T10:17:59.575Z] started tests=c2b2b6a9bc17
+- [2026-11-15] 多 operation 的水位收敛到一处纯逻辑：新增 `application/agentic/async_results.py`（`advance_watermarks`/`all_settled`/`watermark_of`/`payload_from_watermarks`/`reconcile_operations`），恢复与补扫共用。`wait_payload_json.operations[]` 每项按 `call_id` 独立带 `status/receipt_seq/consumed_event_id`，没有全局水位；`LATE` 归入终态（`claimer.WAIT_OPERATION_TERMINAL` 改为从 `suspension.TERMINAL_OPERATION_VALUES` 派生，不再自持一份终态集合）。
+- [2026-11-15] 进入等待前的就绪检查落在 `WorkerLoop._wait`：先在事务外读 Task-owned 收件箱（行锁内不做 HTTP），**全部终态**就不写等待、不释放租约，落一条 checkpoint 后由 `_supervise_task` 的段循环在同一租约里继续（attempt/resume/Fire/Run 都不动）；仍有未终态才用刚读到的水位落 `WAITING_EXTERNAL`。`WAITING_EXTERNAL` 的唯一写入方仍是 `_wait`（补扫只推进水位，不改状态）。检查之后才到的结果由持久补扫兜底。
+- [2026-11-15] 持久补扫 `worker/async_sweep.py`（`AsyncResultSweeper`，由 `WorkerLoop.run_async_sweep_forever` 独立起跑、可缺席）：每拍有界 32 行、按 `update_time` 升序取并轮转（**读失败也轮转**，否则 Runtime 抖动时队头占位会饿死后面租户的行）；行锁内重读载荷再推进，两个并发补扫只推进一次；全终态后由 claim 按 `wait_kind` 续接（`resume_count`+1、`attempt` 不变、不新建 Fire/Run、续接不占新槽）。候选行在锁内已终态时只记 `ASYNC/RESULT_RECEIVED{late}`，绝不回到 QUEUED。
+- [2026-11-15] 崩溃恢复：`load_resume_state` 以 `last_checkpoint_id` 为唯一依据（去掉 `last_resume_reason` 门控），按调用身份对账两窗口——回合收口前崩溃的调用用**同一 `call_id` 重提交**（Runtime 幂等 + `input_hash` 复检；换参数 → `TOOL_OPERATION_INPUT_MISMATCH`，确定性、不重试，也不开第二个业务调用），回合收口后 checkpoint 前崩溃的调用按 `call_id` 命中 operation 并把提交回执换成真实结果、不重提交；还有未终态调用时执行器直接回"补写等待"信封（`_pending_envelope`），**不跑模型**。事件→历史的折叠同时改成按回合分组（此前把所有 tool 消息堆在所有 assistant 之后，多轮恢复是非法历史）。
+- [2026-11-15] 幂等与事务边界：结果按 `event_id` 幂等（`receipt_seq` 只增不减，迟到旧结果不推回水位）；tool 结果按 `call_id` **替换单条**消息（重复恢复不重复注入）；等待状态 + checkpoint + 事件同事务；补扫的读在锁外、写水位在行锁内。
+- [2026-11-15] 共享文件改动（供并行合并核对）：`worker/service.py` 增 `operations` 构造参数、`_wait` 返回 bool、`_supervise_task` 拆成"段循环 + `_reload_task`"、新增 `run_async_sweep_forever`；`worker/agentic_executor.py` 增 `operations` 属性与 `TaskOperationError` 映射；`worker/assembly.py` 未改；`main.py` 只动 `_start_background`（把 `build_agentic_executor(...)` 提到变量、给 `WorkerLoop` 传 `operations=agentic.operations`、`loops` 增一项 `worker.async_sweep`），`include_router` 区块未碰。
+- [2026-11-15] 测试：新增 `tests/agent_worker/test_scheduled_v2_async_resume.py`（14 例，真实 PG + 真实并发会话：同回合两条调用的独立水位与乱序、全部终态才续接、部分失败不丢已完成结果、等待前就绪就地续接（不写 WAITING、attempt/resume 不变）、检查后到达由补扫兜底、Runtime 读不到时保持等待、两个崩溃窗口、变参冲突、迟到只记 late、并发补扫只推进一次、有界 + 跨租户轮转）；`tests/agent_worker/test_task_lease_epoch.py` 迁到 v2 列与 `LeaseRenewal`（TASK-015 遗留的两处 v1 口径）；`tests/agent_worker/test_scheduled_v2_agentic_adapter.py` 的 API-30 替身补 `list_operations` 并在 resume 场景把结果标成就绪（共享契约断言未改，仍是 COMPLETED / 无工具重放 / 一次模型调用）；`docs/configuration-inventory.csv` 只刷新本任务改动文件的常量行（claimer/service/agentic_executor/run）。
+- [2026-11-15] 已知遗留（不在本 TASK 范围，不伪称覆盖）：SYNC 工具在"回合收口前崩溃"窗口没有操作身份可对账，历史里仍是"声明了却没有结果"的 assistant 轮（与 TASK-019 之前一致，未编造结果）；补扫的指标未登记（`task_async_result_sweep_total` 归 TASK-032 的指标目录），当前只有结构化日志；`tests/architecture/test_capacity_webchat_worker_console_metrics.py`（`context_compaction_total` 的 `layer` label 不在低基数白名单）与 `tests/test_configuration_inventory.py`（`execution_outcomes.py`/`task_operation_client.py`/`checkpoints.py`/`main.py` 的陈旧行）在本任务开始前即为红。
 
 ### Verification
 
-- 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
+- 声明测试（3 个文件，30 条）已通过：`task finish` PASS（1/1 command）。
+- 业务场景（S-17、E-03、E-15、B-05、B-06、B-08）：未在本 TASK 内做场景级 E2E，由需求级终验执行。
 
 <a id="task-021"></a>
-
+- 2026-11-15T10:49:47.686Z PASS commands=1/1 executed=1 deduped=0 elapsed=17206ms tests=c2b2b6a9bc17 head=66c280480ae2 dirty=1
+  - related PASS exit=0
 ## TASK-021: 实现 Human 提问、回答、超时与双侧 CAS
 
 - **Status**: draft

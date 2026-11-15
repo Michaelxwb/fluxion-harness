@@ -161,19 +161,22 @@ def _start_background(
     # 延迟导入：Agentic 装配会拉入 Kernel 与 artifact cache（后者导入即建目录）。
     from .worker.assembly import build_agentic_executor
 
+    agentic = build_agentic_executor(
+        settings=settings,
+        sessions=session_factory,
+        pools=pools,
+        mcp_http=agentic_mcp,
+        settings_client=settings_client,
+    )
     worker = WorkerLoop(
         session_factory,
         settings,
         cancel_hints=cancel_hints,
         wakeup=wakeup_listener,
         settings_client=settings_client,
-        agentic=build_agentic_executor(
-            settings=settings,
-            sessions=session_factory,
-            pools=pools,
-            mcp_http=agentic_mcp,
-            settings_client=settings_client,
-        ),
+        agentic=agentic,
+        # 结果收件箱的只读面：等待前的就绪检查与独立补扫共用同一装配实例（TASK-020）。
+        operations=agentic.operations,
     )
     # 有界任务槽：上限来自每进程启动配置（§3.7 WORKER_EXECUTION_CONCURRENCY），装配根注入。
     app.state.worker_loop = worker
@@ -217,6 +220,8 @@ def _start_background(
         (worker.run_forever(), "worker.claim"),
         # 维护循环：回收的独立节拍，不排在领取/执行/投递后面（§3.2）。
         (worker.run_maintenance_forever(), "worker.maintenance"),
+        # 异步结果补扫：独立节拍，丢 hint/Redis 不可用/进程重启都靠它前进（design §3.1.5）。
+        (worker.run_async_sweep_forever(), "worker.async_sweep"),
         (scheduler.run_forever(), "worker.scheduler"),
         (delivery.run_forever(), "worker.delivery"),
         (results.run_forever(), "worker.results"),
