@@ -94,6 +94,8 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 | `tests/agent_worker/test_schedule_writes.py` | TASK-029 | 创建/修改已由 Draft+确认取代：保留仍成立的事实（幂等、next_fire 计算）迁入 v2 套件，其余显式删除 |
 | `tests/agent_worker/test_admin_schedules.py` | TASK-029 | 迁到 Console/管理面的 v2 状态与动作 |
 | `tests/agent_worker/test_worker_metrics.py` | TASK-032 | 迁到 Fire/指标标签的 v2 口径 |
+| `tests/console_platform/test_overview_api.py` | TASK-032 | 夹具仍 seed `intent_key`/`delivery_*`/`TaskSchedule.actor_user_id`；迁到 v2 列 |
+| `tests/acceptance/overview/test_overview_acceptance.py` | TASK-032 | `waiting_tasks` 聚合改用 `WAITING_EXTERNAL/WAITING_HUMAN` |
 
 ## Spec Delta 与 Conventions 对齐
 
@@ -2489,6 +2491,7 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 
 ### Log
 
+- [2026-11-15] 追加硬性验收点（TASK-018 门禁期间发现）：`artifact_retention_repository.py` 仍只把 `'WAITING'` 当作活动执行，v2 的 `WAITING_EXTERNAL/WAITING_HUMAN` 会被当成可清理——即**等待中执行的产物会被误删**。保留清理必须把三种等待态都视为受保护，并有用例覆盖（否则该事实无人防守）。
 - [2026-11-15] created (draft)
 
 ### Verification
