@@ -245,15 +245,18 @@ class EventWriter:
         return int(seq)
 
     async def _next_seq(self, tenant_id: str, conversation_id: uuid.UUID) -> int:
+        statement = sa.update(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.tenant_id == tenant_id,
+        )
+        # 与 `_next_seq_range` 同一口径：收尾类写入方要能把「会话在写入前被删」的 Run 正常结束；
+        # 会话可见性由读路径的 `is_deleted` 判定，不由 seq 分配拦。
+        if not self._allow_deleted_conversation:
+            statement = statement.where(Conversation.is_deleted.is_(False))
         seq = await self._session.scalar(
-            sa.update(Conversation)
-            .where(
-                Conversation.id == conversation_id,
-                Conversation.tenant_id == tenant_id,
-                Conversation.is_deleted.is_(False),
-            )
-            .values(last_seq=Conversation.last_seq + 1, update_time=sa.func.now())
-            .returning(Conversation.last_seq)
+            statement.values(
+                last_seq=Conversation.last_seq + 1, update_time=sa.func.now()
+            ).returning(Conversation.last_seq)
         )
         if seq is None:
             raise AppError(ErrorCode.COMMON_NOT_FOUND)
