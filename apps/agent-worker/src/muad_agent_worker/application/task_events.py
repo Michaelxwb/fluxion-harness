@@ -70,6 +70,13 @@ class TaskEventType(StrEnum):
     DOWNLOADED = "DOWNLOADED"
     SUBMITTED = "SUBMITTED"
     RESULT_RECEIVED = "RESULT_RECEIVED"
+    #: Agentic 执行回合的事实（TASK-019）：模型回合、assistant 正文、工具调用。
+    #: 它们是**审计**，不是状态权威——Execution 的当前状态仍只由实体行表达。
+    MODEL_CALL = "MODEL_CALL"
+    ASSISTANT_TURN = "ASSISTANT_TURN"
+    TOOL_CALL = "TOOL_CALL"
+    #: 一次上下文压缩的结论（哪些层触发、省了多少字节）；降级同样记这一条。
+    CONTEXT_COMPACTED = "CONTEXT_COMPACTED"
 
 
 ENTITY_EVENT_TYPES: dict[EntityType, frozenset[TaskEventType]] = {
@@ -107,6 +114,10 @@ ENTITY_EVENT_TYPES: dict[EntityType, frozenset[TaskEventType]] = {
             TaskEventType.CANCELLED,
             TaskEventType.RECLAIMED,
             TaskEventType.DEADLINE_EXCEEDED,
+            TaskEventType.MODEL_CALL,
+            TaskEventType.ASSISTANT_TURN,
+            TaskEventType.TOOL_CALL,
+            TaskEventType.CONTEXT_COMPACTED,
         }
     ),
     EntityType.HUMAN: frozenset(

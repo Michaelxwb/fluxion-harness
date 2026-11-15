@@ -1574,7 +1574,7 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
   - runtime-regression PASS exit=0
 ## TASK-019: 实现完整 Worker Agentic ExecutionAdapter
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-006, TASK-007, TASK-008, TASK-018, TASK-010, TASK-016
 - **Source**: scheduled-task-v2.backend.design.md §3.1.2、§3.2.4、§3.5.6
 - **Scenarios**: S-03, S-15, S-16, S-17, E-10, B-08, B-09
@@ -1614,13 +1614,13 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Checklist
 
-- [ ] 装配冻结 Model Pool/summary model、实时凭据与 BACKGROUND capacity、完整 Prompt/Context、MCP 与 SYNC/ASYNC Skill tools、output contract/verifier、压缩及 Task artifacts。
-- [ ] ToolRegistry 仅构造 allowlist 内工具，每次调用经过冻结 Tool Policy 和有效能力检查；未授权工具不产生外部请求；恶意 Context 不能覆盖系统策略。
-- [ ] 仅注入 TASK-010 冻结的 READ_ONLY 记忆块，不注册记忆写工具/提炼作业，不在每轮或恢复时刷新为当前内容。
-- [ ] task_event 持久化模型/工具/状态；每回合写 checkpoint、预算累计和稳定 tool_call_id，支持持久 Human/External 挂起结果交给后续 manager。
-- [ ] 模型/工具回合检查 cancel/epoch/lease/deadline，失约协作终止；非幂等副作用崩溃按 TASK_RESULT_UNVERIFIED 收尾，不自动重放。
-- [ ] 完整覆盖压缩降级与整轮 artifact 回滚、长结果外置、并行工具、最终产物/错误；更新“Worker 不含压缩”的旧测试，使断言按 SKILL/AGENTIC 实际边界区分。
-- [ ] 同一套参数化 Kernel 契约分别绑定真实 Runtime/Worker 适配器；禁止 stub、宿主判断分支、import Runtime ORM 或将 Agentic 简化为文本返回。
+- [x] 装配冻结 Model Pool/summary model、实时凭据与 BACKGROUND capacity、完整 Prompt/Context、MCP 与 SYNC/ASYNC Skill tools、output contract/verifier、压缩及 Task artifacts。
+- [x] ToolRegistry 仅构造 allowlist 内工具，每次调用经过冻结 Tool Policy 和有效能力检查；未授权工具不产生外部请求；恶意 Context 不能覆盖系统策略。
+- [x] 仅注入 TASK-010 冻结的 READ_ONLY 记忆块，不注册记忆写工具/提炼作业，不在每轮或恢复时刷新为当前内容。
+- [x] task_event 持久化模型/工具/状态；每回合写 checkpoint、预算累计和稳定 tool_call_id，支持持久 Human/External 挂起结果交给后续 manager。
+- [x] 模型/工具回合检查 cancel/epoch/lease/deadline，失约协作终止；非幂等副作用崩溃按 TASK_RESULT_UNVERIFIED 收尾，不自动重放。
+- [x] 完整覆盖压缩降级与整轮 artifact 回滚、长结果外置、并行工具、最终产物/错误；更新“Worker 不含压缩”的旧测试，使断言按 SKILL/AGENTIC 实际边界区分。
+- [x] 同一套参数化 Kernel 契约分别绑定真实 Runtime/Worker 适配器；禁止 stub、宿主判断分支、import Runtime ORM 或将 Agentic 简化为文本返回。
 
 ### Spec Delta
 
@@ -1641,13 +1641,22 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T09:48:13.540Z] started tests=a546994b38e9
+- [2026-11-15] 落地 Worker Agentic 适配器：`application/agentic/**`（快照读视图、模型池+容量+API-09 凭据、allowlist 工具目录、只读记忆、task_event、checkpoint、挂起暂存、压缩、整轮外置）+ `worker/agentic_executor.py`（信封与失败码）+ `worker/agentic_skills.py`（SYNC 沙箱 / ASYNC 提交）+ `infrastructure/{console_credentials,task_operation_client,task_artifact_client}.py`；装配根 `worker/assembly.py` 与 `main.py` 懒加载注入，`TaskTypeExecutor` 增 AGENTIC 分支。
+- [2026-11-15] 等待状态仍由 `WorkerLoop` 单点写入：`_wait` 同事务写 checkpoint + WAITING_EXTERNAL；新增 `_wait_human` 同事务写 OPEN 提问 + WAITING_HUMAN + HUMAN/REQUESTED 与 EXECUTION/WAITING_HUMAN 事件。执行期挂起端口只暂存（心跳仍在续租，任何提前改状态都会与续租抢行）。
+- [2026-11-15] 共享 Kernel 契约 `tests/kernel_adapter_contract.py` 的 6 条用例绑定到真实 Worker 适配器（真实 PG + 生产 `AgenticTaskExecutor`/`TaskCheckpointStore`；仅模型传输与 Runtime/Console 的容量/操作/产物/凭据在测试里替身）。
+- [2026-11-15] 边界守卫更新：`test_context_compaction_absent.py` 从“Worker 无压缩”改为“压缩只在 Agentic 面，SKILL 路径不建模型请求”；`test_scheduled_v2_kernel_boundaries.py` 增 Worker 单一 `AgentRunner` 装配与端口实现检查；`docs/configuration-inventory.csv` 重新按 AST 生成。
+- [2026-11-15] 实现期修掉三处真问题：执行器与 Kernel 各建一个挂起端口（导致一次 ASYNC 提交被跑成 N 轮模型回合）；模型 provider 每次调用重建（脚本化传输会重复消费脚本）；取消探针只在轮询节拍后才读（执行前已取消仍会发起首轮模型调用）。
+- [2026-11-15] 明确留给后续 TASK 的部分（本 TASK 未宣称）：多 operation 的恢复编排与乱序/迟到结果竞态（TASK-020，本 TASK 的恢复只注入当前已终态的结果并替换同名 tool 消息）；Human 回答、超时与双侧 CAS（TASK-021，本 TASK 只落 OPEN 提问 + WAITING_HUMAN + checkpoint）；Agentic 的 MCP 调用尚未接共享 egress 预算/计量与 `McpBudgetScope`，SYNC Skill 的 egress 预算因 v4 快照未冻结 `budget.egress_budget` 而按契约默认（unlimited）——两处都不伪称已覆盖。S-03/S-15/B-08 场景级 E2E 不在本 TASK 的测试声明里。
 
 ### Verification
 
-- 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
+- 声明测试（4 个文件，36 条）已通过：`task finish` PASS（1/1 command，17.6s）。
+- 场景级 E2E（S-03/S-15/S-16/S-17/E-10/B-08/B-09）未在本 TASK 内执行，不宣称通过。
 
 <a id="task-020"></a>
-
+- 2026-11-15T10:16:25.813Z PASS commands=1/1 executed=1 deduped=0 elapsed=18477ms tests=a546994b38e9 head=63d5274950b3 dirty=1
+  - related PASS exit=0
 ## TASK-020: 恢复 ASYNC 多 operation 并消除等待竞态
 
 - **Status**: draft

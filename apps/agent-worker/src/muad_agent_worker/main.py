@@ -34,7 +34,7 @@ from .delivery.client import HttpDeliveryClient, HttpWebchatInboxClient
 from .delivery.service import DeliveryLoop
 from .infrastructure.cancel_hint import CancelHintStore, create_cancel_hint_store
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
-from .infrastructure.http_clients import WorkerHttpPools, build_worker_http_pools
+from .infrastructure.http_clients import WorkerHttpPools, build_pool_client, build_worker_http_pools
 from .infrastructure.platform_settings_client import ConsolePlatformSettingsClient
 from .infrastructure.wakeup_hint import (
     RedisWakeupNotifier,
@@ -89,6 +89,10 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # 出站分池：预算唯一来源是启动设置（§3.7），装配根建、装配根关，调用方只借用（TASK-095）。
     pools = build_worker_http_pools(settings)
     app.state.http_pools = pools
+    # Agentic 的 MCP 出站：与业务同预算、独立客户端（MCP 的 Accept/鉴权头逐会话设置，
+    # 不能与其它调用共用默认头）；装配根拥有并关闭。
+    agentic_mcp = build_pool_client(settings, "egress")
+    app.state.agentic_mcp = agentic_mcp
     # 平台设置快照：任务创建/扇出与投递尝试两个边界各取一次（TASK-006），走控制池。
     settings_client = ConsolePlatformSettingsClient(
         settings.console_platform_url,
@@ -106,6 +110,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             pools,
             cancel_hints,
             wakeup_listener,
+            agentic_mcp,
         )
         background.append(
             asyncio.create_task(_db_counters_loop(), name="worker.db_counters")
@@ -124,6 +129,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         # 退出后不留真实 Setting 源：同进程再次进入（测试/多次 lifespan）回落到空对象，
         # 否则一个已切断的 Console 会被后续请求当成"当前设置源"。
         app.state.platform_settings_client = NullPlatformSettingsClient()
+        app.state.agentic_mcp = None
+        await agentic_mcp.aclose()
         await pools.aclose()
     await dispose_engine()
     # 测试/同进程重入不继承上一轮启动快照；生产退出后进程即结束。
@@ -144,18 +151,29 @@ def _start_background(
     pools: WorkerHttpPools,
     cancel_hints: CancelHintStore,
     wakeup_listener: WakeupListener,
+    agentic_mcp: httpx.AsyncClient,
 ) -> list[asyncio.Task[None]]:
     """装配并启动各**独立**循环：领取、维护（回收）、调度、投递、结果发件互不排队尾。
 
     所有出站客户端消费装配根注入的分池实例（控制=Console，业务=Gateway/Runtime），
     不各自建池；每个循环是独立的 `asyncio` 任务，带自己的节拍（§3.2、§3.7）。
     """
+    # 延迟导入：Agentic 装配会拉入 Kernel 与 artifact cache（后者导入即建目录）。
+    from .worker.assembly import build_agentic_executor
+
     worker = WorkerLoop(
         session_factory,
         settings,
         cancel_hints=cancel_hints,
         wakeup=wakeup_listener,
         settings_client=settings_client,
+        agentic=build_agentic_executor(
+            settings=settings,
+            sessions=session_factory,
+            pools=pools,
+            mcp_http=agentic_mcp,
+            settings_client=settings_client,
+        ),
     )
     # 有界任务槽：上限来自每进程启动配置（§3.7 WORKER_EXECUTION_CONCURRENCY），装配根注入。
     app.state.worker_loop = worker
