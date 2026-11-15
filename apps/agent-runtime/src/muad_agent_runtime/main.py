@@ -28,6 +28,7 @@ from sqlalchemy.pool import AsyncAdaptedQueuePool
 from .api.admin_runs import router as admin_runs_router
 from .api.artifacts import router as artifacts_router
 from .api.channel_delivery import router as channel_delivery_router
+from .api.human_routing import router as human_routing_router
 from .api.learning import router as learning_router
 from .api.memory import router as memory_router
 from .api.model_capacity import router as model_capacity_router
@@ -320,6 +321,12 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
     )
     app.state.executor_factory = _build_executor_factory(
         settings, outbound.pools, app.state.skill_cache
+    )
+    # 聊天入口的 Human 回答路由：与执行器共用业务池，装配根建、装配根借出（不各自造池）。
+    app.state.human_route_owner = WorkerTaskClient(
+        settings.agent_worker_url,
+        service_token=settings.internal_service_token,
+        client=outbound.pools.egress,
     )
     resume = continuation_executor(
         outbound.resolve,
@@ -620,3 +627,4 @@ app.include_router(tool_operations_router)
 app.include_router(model_capacity_router)
 app.include_router(webchat_history_router)
 app.include_router(channel_delivery_router)
+app.include_router(human_routing_router)

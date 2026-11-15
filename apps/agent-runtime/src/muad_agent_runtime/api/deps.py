@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..application.async_tools.supervisor import ExecutionSupervisor
 from ..application.attachments.tool_results import ArtifactResultWriter
 from ..application.executor import ExecutorFactory, default_executor_factory
+from ..application.human_routing import HumanRouteOwnerPort
 from ..application.ports import (
     AdmissionMaterialsClient,
     CredentialsClient,
@@ -18,6 +19,7 @@ from ..application.ports import (
 )
 from ..application.run_service import RunService
 from ..application.skill_tools import build_default_skill_cache
+from ..application.task_client import WorkerTaskClient
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.console_client import ConsoleResolveClient
 from ..infrastructure.db import get_session
@@ -48,6 +50,21 @@ def get_resolve_client(request: Request) -> ResolveClient:
         )
         request.app.state.resolve_client = client
     return client
+
+
+def get_human_route_owner(request: Request) -> HumanRouteOwnerPort:
+    """聊天消息路由的 Owner 面（Agent Worker）：装配根建一次，请求只借用业务池。"""
+    owner: HumanRouteOwnerPort | None = getattr(request.app.state, "human_route_owner", None)
+    if owner is None:
+        settings = process_settings()
+        pools = getattr(request.app.state, "http_pools", None)
+        owner = WorkerTaskClient(
+            settings.agent_worker_url,
+            service_token=settings.internal_service_token,
+            client=pools.egress if pools is not None else None,
+        )
+        request.app.state.human_route_owner = owner
+    return owner
 
 
 def get_platform_settings_client(request: Request) -> PlatformSettingsClient:

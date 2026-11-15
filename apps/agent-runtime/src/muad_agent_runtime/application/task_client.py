@@ -34,6 +34,8 @@ from muad_contracts.platform_settings import TaskSettings
 TASKS_PATH = "/internal/tasks"
 SCHEDULES_PATH = "/internal/schedules"
 SCHEDULE_DRAFTS_PATH = "/internal/schedule-drafts"
+PENDING_PATH = "/internal/task-center/pending"
+HUMAN_RESPOND_PATH = "/internal/human-interactions/{interaction_id}/respond"
 DEFAULT_TIMEOUT_SEC = 5.0
 IDEMPOTENCY_HEADER = "Idempotency-Key"
 INTERNAL_SERVICE_HEADER = "X-Internal-Service"
@@ -63,6 +65,8 @@ class TaskSubmissionContext:
     delivery_route: DeliveryRouteInput | None = None
     #: Run 的入口 surface（`ChannelContext.type` 原值）；Draft 的投递能力与确认来源由它决定。
     entry_channel: str | None = None
+    #: 入口账号逻辑 UUID（`ChannelContext.entry_id`）：Draft 的 `source` 审计字段。
+    entry_id: uuid.UUID | None = None
     trace_id: str = ""
     locale: str = "zh-CN"
     execution_timeout_sec: int = field(default_factory=lambda: TaskSettings().execution_timeout_sec)
@@ -290,6 +294,70 @@ class WorkerTaskClient:
             json_body=body,
             idempotency_key=idempotency_key,
             actor_user_id=actor_user_id,
+        )
+
+    async def list_open_human_interactions(
+        self,
+        *,
+        tenant_id: str,
+        actor_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        channel: str,
+        bot_id: str,
+        external_user_id: str | None,
+        external_conversation_id: str | None,
+        trace_id: str = "",
+    ) -> dict[str, Any]:
+        """API-16 的会话视角：只返回**推到这个来源**的 OPEN 提问（user+agent+会话）。
+
+        Owner 按 `route` 过滤（Revision 的投递目标），Runtime 不按文本猜是哪一个问题。
+        """
+        params: dict[str, Any] = {
+            "agent_id": str(agent_id),
+            "kind": "HUMAN",
+            "page": 1,
+            "page_size": 100,
+            "channel": channel,
+            "bot_id": bot_id,
+        }
+        if external_user_id is not None:
+            params["external_user_id"] = external_user_id
+        if external_conversation_id is not None:
+            params["external_conversation_id"] = external_conversation_id
+        return await self._request(
+            "GET",
+            PENDING_PATH,
+            tenant_id=tenant_id,
+            trace_id=trace_id,
+            params=params,
+            actor_user_id=actor_user_id,
+        )
+
+    async def respond_human(
+        self,
+        *,
+        tenant_id: str,
+        actor_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        interaction_id: uuid.UUID,
+        response: Mapping[str, Any],
+        idempotency_key: str,
+        trace_id: str = "",
+    ) -> dict[str, Any]:
+        """API-10：按 interaction_id 回答；幂等身份是同源入站消息 id（重投不重复生效）。
+
+        线形状是 `{"response": {...}}`（API-10 的请求契约）：回答正文只是其中一个字段，
+        包封由本方法负责，调用方不需要知道 Owner 的请求外形。
+        """
+        return await self._request(
+            "POST",
+            HUMAN_RESPOND_PATH.format(interaction_id=interaction_id),
+            tenant_id=tenant_id,
+            trace_id=trace_id,
+            json_body={"response": dict(response)},
+            idempotency_key=idempotency_key,
+            actor_user_id=actor_user_id,
+            agent_id=agent_id,
         )
 
     async def aclose(self) -> None:

@@ -42,6 +42,7 @@ from .application.connector_outbound import ConnectorOutboundCommands
 from .application.console_client import ConsoleClient
 from .application.inbound import InboundPipeline
 from .application.inbound_attachments import InboundAttachmentStore
+from .application.inbound_schedules import ChatScheduleService
 from .application.inbound_streams import InboundStreamConsumer
 from .application.notification_streams import NotificationStreamHub
 from .application.runtime_client import RuntimeClient
@@ -246,6 +247,7 @@ def _build_inbound(
     dedupe: DedupeStore,
     console: ConsoleClient,
     runtime: RuntimeClient,
+    worker: WorkerClient,
     settings_client: ConsolePlatformSettingsClient,
     artifact_store: NfsArtifactStore,
 ) -> InboundPipeline:
@@ -262,6 +264,11 @@ def _build_inbound(
         # `run:{run_id}:terminal`，经 Runtime 的受信 API-18 端口 reserve/ack（网关不持库）。
         channel_delivery=ActiveChannelDelivery(
             runtime, permission=ConsoleDeliveryPermission(console)
+        ),
+        # 聊天入口的用户动作（TASK-025）：Draft 确认走 Worker 的 API-27，Human 回答先由
+        # Runtime 按 user+agent+会话裁决——Gateway 不直接改 Execution，也不猜是哪一个问题。
+        schedules=ChatScheduleService(
+            owner=worker, routes=runtime, tenant_id=settings.default_tenant_id
         ),
         # 在飞受理上限：每进程启动预算（§3.7 GATEWAY_MAX_CONCURRENT_HANDLERS）。
         max_concurrent_handlers=settings.gateway_max_concurrent_handlers,
@@ -350,6 +357,7 @@ async def _build_resources(
             dedupe=dedupe,
             console=console,
             runtime=runtime,
+            worker=worker,
             settings_client=settings_client,
             artifact_store=artifact_store,
         )

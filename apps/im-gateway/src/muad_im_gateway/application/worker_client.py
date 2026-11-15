@@ -36,6 +36,7 @@ EXECUTION_PATH = "/internal/executions/{execution_id}"
 PENDING_PATH = "/internal/task-center/pending"
 BADGES_PATH = "/internal/task-center/badges"
 HUMAN_RESPOND_PATH = "/internal/human-interactions/{interaction_id}/respond"
+SCHEDULE_DRAFT_PATH = "/internal/schedule-drafts/{draft_id}"
 SCHEDULE_CONFIRM_PATH = "/internal/schedule-drafts/{draft_id}/confirm"
 
 TENANT_HEADER = "X-Tenant-Id"
@@ -180,6 +181,22 @@ class WorkerClient:
             idempotency_key=idempotency_key,
         )
 
+    async def get_schedule_draft(
+        self,
+        *,
+        tenant_id: str,
+        user_id: UUID,
+        agent_id: UUID,
+        draft_id: UUID,
+    ) -> dict[str, Any]:
+        """API-01 读面：确认前按 id 取回本人的 Draft（hash/预览/过期），不接受自报 hash。"""
+        return await self._get(
+            SCHEDULE_DRAFT_PATH.format(draft_id=draft_id),
+            tenant_id=tenant_id,
+            user_id=user_id,
+            agent_id=agent_id,
+        )
+
     async def confirm_draft(
         self,
         *,
@@ -243,11 +260,12 @@ class WorkerClient:
         tenant_id: str,
         user_id: UUID,
         params: dict[str, str] | None = None,
+        agent_id: UUID | None = None,
     ) -> dict[str, Any]:
         headers = self._headers(
             tenant_id=tenant_id,
             user_id=user_id,
-            agent_id=None,
+            agent_id=agent_id,
             idempotency_key=None,
             confirmation=None,
         )

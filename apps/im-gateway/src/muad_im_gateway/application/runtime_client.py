@@ -13,7 +13,13 @@ from muad_api.context import current_request_id
 from muad_api.error_codes import ErrorCode
 from muad_api.security import INTERNAL_SERVICE_HEADER
 from muad_common import SharedSettings
-from muad_contracts import CancelSource, ChannelContext, RunRequest, RunStatus
+from muad_contracts import (
+    CancelSource,
+    ChannelContext,
+    ChannelHumanRouteRequest,
+    RunRequest,
+    RunStatus,
+)
 from muad_contracts.channel_delivery import (
     DeliveryAck,
     DeliveryAckReceipt,
@@ -70,6 +76,8 @@ TASK_ARTIFACT_VERSION_PATH = "/internal/artifacts/{artifact_id}/versions/{versio
 INTERNAL_NOTIFICATIONS_PATH = "/internal/webchat/notifications"
 INTERNAL_NOTIFICATION_READ_PATH = "/internal/webchat/notifications/{notification_id}/read"
 CANCEL_ACTIVE_PATH = "/v1/runs/cancel-active"
+#: 受信聊天路由端口（TASK-025）：入站文本先判「是不是 Human 回答」，NONE 才继续建 Run。
+HUMAN_ROUTING_PATH = "/v1/human-routing"
 #: 受信 API-18 协调端口（TASK-067）：Run 终态交付按稳定 delivery_key 的 reserve/ack。
 CHANNEL_DELIVERY_RESERVE_PATH = "/internal/channel-notifications/reserve"
 CHANNEL_DELIVERY_ACK_PATH = "/internal/channel-notifications/{notification_id}/ack"
@@ -543,6 +551,18 @@ class RuntimeClient:
             registration.model_dump(mode="json"),
             tenant_id,
             client=self._upload_client,
+        )
+
+    async def resolve_human_route(
+        self, request: ChannelHumanRouteRequest, *, tenant_id: str, trace_id: str = ""
+    ) -> dict[str, Any]:
+        """API（TASK-025）：把一条入站消息交给 Runtime 判定去向（不建 Run 的前置裁决）。
+
+        身份与来源都在请求体里（来自 Console 已核验的主体 + 渠道原本的身份），Gateway 不替
+        Runtime 猜 Agent 或会话；服务身份与租户走受信内部面同一门控。
+        """
+        return await self._post_internal_json(
+            HUMAN_ROUTING_PATH, request.model_dump(mode="json"), tenant_id
         )
 
     async def resolve_webchat_artifact(

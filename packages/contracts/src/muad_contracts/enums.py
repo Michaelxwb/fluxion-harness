@@ -265,6 +265,21 @@ class HumanInteractionStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
+class HumanRouteOutcome(StrEnum):
+    """聊天入站消息被判定成的去向（design §3.2.6）：只有 NONE 才允许新建 Run。
+
+    - `NONE`：不是 Human 回答，按普通聊天继续；
+    - `ANSWERED`：恰好一个 OPEN 提问，回答已写回并续接该 Execution；
+    - `CLARIFY`：同一 user+agent+会话有多个 OPEN 提问，必须由用户指定，绝不按新旧挑选；
+    - `REJECTED`：命中了一个提问但回答未被接受（已超时/已取消/格式不符），状态不变。
+    """
+
+    NONE = "NONE"
+    ANSWERED = "ANSWERED"
+    CLARIFY = "CLARIFY"
+    REJECTED = "REJECTED"
+
+
 class DeliveryMode(StrEnum):
     FINAL_ONLY = "FINAL_ONLY"
     NONE = "NONE"

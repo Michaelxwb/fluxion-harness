@@ -34,6 +34,7 @@ from .enums import (
     FailureClass,
     FireStatus,
     HumanInteractionStatus,
+    HumanRouteOutcome,
     MemoryMode,
     OperationStatus,
     RecurrenceKind,
@@ -51,10 +52,13 @@ from .model_pool import (
     SettlementOutcome,
     _require_settlement_shape,
 )
-from .tasks import ContractModel
+from .tasks import ContractModel, DeliveryRouteInput
 from .tool_runtime import TaskToolOperationOwner
 
 SNAPSHOT_HASH_PATTERN = r"^sha256:[0-9a-f]{64}$"
+#: 聊天入口的用户确认动作：用户显式回复 `/confirm <draft_id>`，由 Gateway 核验后代理 API-31。
+#: 放在契约里是因为 Runtime 要把它写进工具回执（让模型原样告诉用户），Gateway 要解析它。
+SCHEDULE_CONFIRM_COMMAND = "/confirm"
 #: Revision 的 tool_allowlist 条目来源：MCP 或 Skill 工具。
 ToolSource = Literal["MCP", "SKILL"]
 
@@ -108,11 +112,23 @@ class SchedulePolicy(ContractModel):
         return self
 
 
+class DraftSource(ContractModel):
+    """Draft 的来源入口（design §2.3.6）：**只作审计**，不是数据隔离维度。
+
+    入口不是可见性边界（同一 user+agent 的 Schedule 跨入口共享）；这里记下"在哪创建"，
+    供追溯与问题推送目标核对。`origin_bot_account_id` 是入口账号的逻辑 UUID。
+    """
+
+    origin_bot_account_id: UUID | None = None
+    origin_channel: str | None = Field(default=None, min_length=1, max_length=32)
+
+
 class DraftContext(ContractModel):
     """Draft 的自由形态上下文：参数与输出偏好，不含 Secret。"""
 
     parameters: dict[str, Any] = Field(default_factory=dict)
     output: dict[str, Any] = Field(default_factory=dict)
+    source: DraftSource = Field(default_factory=DraftSource)
 
     @field_validator("parameters", "output", mode="before")
     @classmethod
@@ -191,10 +207,21 @@ class ScheduleDraftRequest(ContractModel):
     context: DraftContext = Field(default_factory=DraftContext)
     execution_spec: ModeExecutionSpec
     delivery_intent: DeliveryIntent = DeliveryIntent.NONE
+    #: PUSH 的冻结目标（创建时的那一个会话）：缺失即无法兑现投递承诺，Worker 显式拒绝。
+    #: 它是投递事实而不是用户配置，但仍随 Draft 一起确认——用户确认的就是"结果回到这个会话"。
+    delivery_route: DeliveryRouteInput | None = None
     #: 展示名；CREATE 可空（确认时必填或由 instruction 派生），UPDATE 缺省沿用原名。
     name: str | None = Field(default=None, min_length=1, max_length=160)
     base_schedule_id: UUID | None = None
     base_config_version: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def _delivery_target_shape(self) -> Self:
+        """PUSH 恰好带一个投递目标；NONE 不得携带（否则等于偷偷承诺一条不存在的投递）。"""
+        push = self.delivery_intent is DeliveryIntent.PUSH
+        if push != (self.delivery_route is not None):
+            raise ValueError("delivery_route must be present exactly when delivery_intent is PUSH")
+        return self
 
     @model_validator(mode="after")
     def _mode_and_kind_shape(self) -> Self:
@@ -451,6 +478,46 @@ class HumanRespondResponse(ContractModel):
     status: HumanInteractionStatus
     execution_id: UUID
     execution_status: TaskStatus
+
+
+class ChannelHumanRouteRequest(ContractModel):
+    """IM 入口的一条文本消息：**先生成路由裁决，再决定要不要建 Run**（design §3.2.6）。
+
+    身份与匹配范围只来自受信调用方：actor/agent 由 Gateway 的 Console 核验给出，
+    `channel/bot_id/external_user_id/external_conversation_id` 是这条消息所属的精确来源。
+    刻意不接收任何渠道私有字段（reply_id、媒体令牌…），未知键直接 422。
+    """
+
+    agent_id: UUID
+    platform_user_id: UUID
+    #: 同源消息的重投幂等身份（入站消息 id = Worker 回答台账的幂等键）。
+    message_id: str = Field(min_length=1, max_length=256)
+    text: str = Field(min_length=1, max_length=4000)
+    channel: str = Field(min_length=1, max_length=32)
+    bot_id: str = Field(min_length=1, max_length=256)
+    external_user_id: str | None = Field(default=None, max_length=256)
+    external_conversation_id: str | None = Field(default=None, max_length=256)
+
+
+class HumanRouteCandidate(ContractModel):
+    """`CLARIFY` 时候选问题的可读事实：用户据此指定要回答哪一个任务。"""
+
+    interaction_id: UUID
+    schedule_id: UUID
+    execution_id: UUID
+    schedule_name: str
+    question: str
+    deadline_at: AwareDatetime
+
+
+class ChannelHumanRouteResponse(ContractModel):
+    outcome: HumanRouteOutcome
+    #: `ANSWERED` / `REJECTED` 时命中的那一个提问。
+    interaction_id: UUID | None = None
+    #: `CLARIFY` 的完整候选集（为空表示不是澄清）。
+    candidates: list[HumanRouteCandidate] = Field(default_factory=list)
+    #: `REJECTED` 的稳定原因码（来自 Owner 的错误码/原因），不是自由文本。
+    reason: str | None = Field(default=None, max_length=64)
 
 
 class ConfirmScope(ContractModel):

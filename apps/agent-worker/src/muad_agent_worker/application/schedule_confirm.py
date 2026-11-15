@@ -35,7 +35,7 @@ from muad_contracts import (
     SchedulePolicy,
     ScheduleStatus,
 )
-from muad_contracts.enums import FireStatus, SkipReason, TaskStatus
+from muad_contracts.enums import OUTBOUND_CHANNELS, FireStatus, SkipReason, TaskStatus
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,6 +48,7 @@ from ..infrastructure.models.task import (
     TaskScheduleRevision,
 )
 from ..scheduler.recurrence import Advance, RecurrenceRule, build_rule, initial_fire_at
+from .delivery_routes import upsert_delivery_route
 from .schedule_drafts import draft_what, update_diff
 from .submissions import SubmissionEndpoint, TaskSubmissionService
 from .task_events import EntityType, TaskEventSeed, TaskEventType, append_events
@@ -109,11 +110,19 @@ def future_fire_at(rule: RecurrenceRule, now: datetime) -> Advance:
 
 
 def ensure_delivery_supported(body: ScheduleDraftRequest) -> None:
-    """P0 的 Draft 不携带外部投递路由；PUSH 交给后续 Delivery 需求接线，绝不落一条非法 Revision。"""
-    if body.delivery_intent is DeliveryIntent.PUSH:
+    """PUSH 必须带着创建时冻结的目标；没有目标的投递承诺绝不落成 Revision。"""
+    if body.delivery_intent is not DeliveryIntent.PUSH:
+        return
+    route = body.delivery_route
+    if route is None:
         raise AppError(
             ErrorCode.SCHEDULE_DELIVERY_UNSUPPORTED,
             data={"reason": "DELIVERY_ROUTE_UNAVAILABLE"},
+        )
+    if route.channel not in OUTBOUND_CHANNELS:
+        raise AppError(
+            ErrorCode.SCHEDULE_DELIVERY_UNSUPPORTED,
+            data={"reason": "ENTRY_CHANNEL_UNSUPPORTED"},
         )
 
 
@@ -140,6 +149,7 @@ def revision_values(
     schedule_id: uuid.UUID,
     revision_no: int,
     created_by: uuid.UUID,
+    delivery_route_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
     """不可变 Revision 的字段：配置全部来自 Draft 载荷，不复制到 Schedule。"""
     recurrence = body.recurrence
@@ -159,7 +169,7 @@ def revision_values(
         "context_json": body.context.model_dump(mode="json"),
         "execution_spec": body.execution_spec.model_dump(mode="json"),
         "delivery_intent": str(body.delivery_intent),
-        "delivery_route_id": None,
+        "delivery_route_id": delivery_route_id,
         "preflight_json": dict(draft.preview_json),
         "created_by": created_by,
     }
@@ -224,15 +234,34 @@ class ScheduleConfirmService:
         await self._check_reference(draft, identity.tenant_id, surface, ref)
         body = payload_request(draft)
         ensure_delivery_supported(body)
+        delivery_route_id = await self._delivery_route_id(draft, body)
         await self._mark_confirmed(draft, identity.actor_user_id, surface, ref)
         if draft.kind == str(DraftKind.CREATE):
-            schedule, revision = await self._create(draft, body, request, identity)
+            schedule, revision = await self._create(
+                draft, body, request, identity, delivery_route_id=delivery_route_id
+            )
         else:
-            schedule, revision = await self._update(draft, body, request, identity)
+            schedule, revision = await self._update(
+                draft, body, request, identity, delivery_route_id=delivery_route_id
+            )
         draft.schedule_id = schedule.id
         response = confirm_response(schedule, revision)
         await self._record(draft, schedule, response, identity, idempotency_key, fingerprint)
         return response
+
+    async def _delivery_route_id(
+        self, draft: TaskScheduleDraft, body: ScheduleDraftRequest
+    ) -> uuid.UUID | None:
+        """冻结创建时的投递目标（owner 就是 Draft owner）：同一 route 复用同一行。"""
+        route = body.delivery_route
+        if route is None:
+            return None
+        return await upsert_delivery_route(
+            self._session,
+            tenant_id=draft.tenant_id,
+            platform_user_id=draft.owner_user_id,
+            route=route,
+        )
 
     async def _locked_draft(
         self, draft_id: uuid.UUID, identity: ConfirmIdentity
@@ -331,6 +360,8 @@ class ScheduleConfirmService:
         body: ScheduleDraftRequest,
         request: ScheduleDraftConfirmRequest,
         identity: ConfirmIdentity,
+        *,
+        delivery_route_id: uuid.UUID | None,
     ) -> tuple[TaskSchedule, TaskScheduleRevision]:
         """CREATE：Schedule + Revision 1 + 首个 next_fire_at，全部在本事务内。"""
         advance = future_fire_at(recurrence_rule(body), self._now)
@@ -357,6 +388,7 @@ class ScheduleConfirmService:
                 schedule_id=schedule.id,
                 revision_no=1,
                 created_by=identity.actor_user_id,
+                delivery_route_id=delivery_route_id,
             ),
         )
         self._session.add(revision)
@@ -376,6 +408,8 @@ class ScheduleConfirmService:
         body: ScheduleDraftRequest,
         request: ScheduleDraftConfirmRequest,
         identity: ConfirmIdentity,
+        *,
+        delivery_route_id: uuid.UUID | None,
     ) -> tuple[TaskSchedule, TaskScheduleRevision]:
         """UPDATE：只认 Draft 冻结的 base_config_version 做 CAS，冲突整体回滚。"""
         schedule = await self._locked_schedule(draft)
@@ -395,6 +429,7 @@ class ScheduleConfirmService:
                 schedule_id=schedule.id,
                 revision_no=await self._next_revision_no(schedule),
                 created_by=identity.actor_user_id,
+                delivery_route_id=delivery_route_id,
             ),
         )
         self._session.add(revision)

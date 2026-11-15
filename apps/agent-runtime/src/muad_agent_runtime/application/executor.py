@@ -217,6 +217,8 @@ class ExecutorRunContext:
     #: 入口 surface 原值（`ChannelContext.type`）：Draft 的投递能力由 Worker 按共享词表判定，
     #: Runtime 只透传，不在这里点名任何渠道。
     entry_channel: str | None = None
+    #: 入口账号逻辑 UUID（`ChannelContext.entry_id`）：只写进 Draft 的 `source` 审计。
+    entry_id: uuid.UUID | None = None
     submission_id: uuid.UUID | None = None
     memory_resume_ref: MemoryResumeRef | None = None
 
@@ -1920,6 +1922,7 @@ def _task_submission_context(request: ExecutorRequest) -> TaskSubmissionContext 
         conversation_id=context.conversation_id,
         delivery_route=context.delivery_route,
         entry_channel=context.entry_channel,
+        entry_id=context.entry_id,
         trace_id=current_trace_id(),
         locale=current_locale(),
         execution_timeout_sec=execution_defaults_for(request).task_execution_timeout_sec,

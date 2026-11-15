@@ -11,11 +11,12 @@ import uuid
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
-from muad_api import ApiResponse, ok
+from muad_api import ApiResponse, AppError, ok
+from muad_api.error_codes import ErrorCode
 from muad_api.security import require_internal_service
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..application.schedule_read import ScheduleReadService
+from ..application.schedule_read import DeliveryRouteScope, ScheduleReadService
 from ..infrastructure.db import get_session
 from .deps import ActorUserId, get_tenant_id
 
@@ -29,6 +30,29 @@ TenantId = Annotated[str, Depends(get_tenant_id)]
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 
+def _route_scope(
+    request: Request,
+    channel: str | None,
+    bot_id: str | None,
+    external_user_id: str | None,
+    external_conversation_id: str | None,
+) -> DeliveryRouteScope | None:
+    """来源参数要么都缺省（任务中心视角），要么 channel+bot_id 齐备（会话视角）。"""
+    if channel is None and bot_id is None and external_user_id is None and external_conversation_id is None:
+        return None
+    if not channel or not bot_id:
+        raise AppError(
+            ErrorCode.COMMON_VALIDATION_ERROR,
+            data={"fields": ["channel", "bot_id"]},
+        )
+    return DeliveryRouteScope(
+        channel=channel,
+        bot_id=bot_id,
+        external_user_id=external_user_id,
+        external_conversation_id=external_conversation_id,
+    )
+
+
 @router.get("/pending")
 async def list_pending(
     request: Request,
@@ -37,15 +61,24 @@ async def list_pending(
     caller_actor: ActorUserId,
     agent_id: Annotated[uuid.UUID | None, Query()] = None,
     kind: Annotated[Literal["HUMAN", "NEEDS_ATTENTION"] | None, Query()] = None,
+    channel: Annotated[str | None, Query(max_length=32)] = None,
+    bot_id: Annotated[str | None, Query(max_length=256)] = None,
+    external_user_id: Annotated[str | None, Query(max_length=256)] = None,
+    external_conversation_id: Annotated[str | None, Query(max_length=256)] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ApiResponse[Any]:
-    """API-16 的数据源：HUMAN 与 NEEDS_ATTENTION 混排后统一分页。"""
+    """API-16 的数据源：HUMAN 与 NEEDS_ATTENTION 混排后统一分页。
+
+    四个来源参数成组出现（channel + bot_id 是必填的一半）：给了就只返回**推到这个会话**的
+    提问——聊天入口回答时按 `user+agent+会话` 匹配，绝不按文本或新旧猜。
+    """
     result = await ScheduleReadService(session).pending_page(
         tenant_id=tenant_id,
         owner_user_id=caller_actor,
         agent_ids=[agent_id] if agent_id is not None else None,
         kind=kind,
+        route=_route_scope(request, channel, bot_id, external_user_id, external_conversation_id),
         page=page,
         page_size=page_size,
     )

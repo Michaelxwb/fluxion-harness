@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -39,6 +40,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import (
+    DeliveryRoute,
     ScheduleFire,
     TaskDelivery,
     TaskEvent,
@@ -49,6 +51,16 @@ from ..infrastructure.models.task import (
 )
 
 DST_EVENT_TYPES = ("DST_GAP_SKIPPED", "DST_FOLD_SECOND_SKIPPED")
+
+
+@dataclass(frozen=True, slots=True)
+class DeliveryRouteScope:
+    """一条入站消息的精确来源：只匹配**推到这个会话**的问题（design §3.2.6）。"""
+
+    channel: str
+    bot_id: str
+    external_user_id: str | None = None
+    external_conversation_id: str | None = None
 
 
 def _dependencies(mode: str, execution_spec: dict[str, Any]) -> list[str]:
@@ -395,12 +407,19 @@ class ScheduleReadService:
         owner_user_id: uuid.UUID | None = None,
         agent_ids: Sequence[uuid.UUID] | None = None,
         kind: str | None = None,
+        route: DeliveryRouteScope | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> PendingPage:
-        """HUMAN 与 NEEDS_ATTENTION 混在同一次分页里，游标由 (kind 排序, id) 稳定给出。"""
+        """HUMAN 与 NEEDS_ATTENTION 混在同一次分页里，游标由 (kind 排序, id) 稳定给出。
+
+        `route` 只收窄 HUMAN 条目到"推到这个会话"的那些（聊天入口回答用）；不传 = 全部。
+        """
         humans = await self._pending_humans(
-            tenant_id=tenant_id, owner_user_id=owner_user_id, agent_ids=agent_ids
+            tenant_id=tenant_id,
+            owner_user_id=owner_user_id,
+            agent_ids=agent_ids,
+            route=route,
         )
         attention = await self._pending_attention(
             tenant_id=tenant_id, owner_user_id=owner_user_id, agent_ids=agent_ids
@@ -423,6 +442,7 @@ class ScheduleReadService:
         tenant_id: str,
         owner_user_id: uuid.UUID | None,
         agent_ids: Sequence[uuid.UUID] | None,
+        route: DeliveryRouteScope | None = None,
     ) -> list[PendingHumanItem]:
         conditions: list[Any] = [
             TaskHumanInteraction.tenant_id == tenant_id,
@@ -435,6 +455,10 @@ class ScheduleReadService:
             if not agent_ids:
                 return []
             conditions.append(TaskHumanInteraction.agent_id.in_(list(agent_ids)))
+        if route is not None:
+            conditions.append(
+                TaskHumanInteraction.execution_id.in_(_executions_on_route(tenant_id, route))
+            )
         rows = (
             await self._session.execute(
                 select(TaskHumanInteraction, TaskExecution.schedule_id, TaskSchedule.name)
@@ -522,3 +546,34 @@ class ScheduleReadService:
             .order_by(TaskDelivery.create_time.desc())
             .limit(1)
         )
+
+
+def _executions_on_route(tenant_id: str, route: DeliveryRouteScope) -> Any:
+    """执行所属 Revision 的投递目标 = 这条入站消息的来源（同租户、未删除）。"""
+    conditions: list[Any] = [
+        DeliveryRoute.tenant_id == tenant_id,
+        DeliveryRoute.is_deleted.is_(False),
+        DeliveryRoute.channel == route.channel,
+        DeliveryRoute.bot_id == route.bot_id,
+    ]
+    if route.external_user_id is not None:
+        conditions.append(DeliveryRoute.external_user_id == route.external_user_id)
+    if route.external_conversation_id is None:
+        conditions.append(DeliveryRoute.external_conversation_id.is_(None))
+    else:
+        conditions.append(
+            DeliveryRoute.external_conversation_id == route.external_conversation_id
+        )
+    return (
+        select(TaskExecution.id)
+        .join(
+            TaskScheduleRevision,
+            TaskScheduleRevision.id == TaskExecution.schedule_revision_id,
+        )
+        .join(DeliveryRoute, DeliveryRoute.id == TaskScheduleRevision.delivery_route_id)
+        .where(
+            TaskExecution.tenant_id == tenant_id,
+            TaskExecution.is_deleted.is_(False),
+            *conditions,
+        )
+    )
