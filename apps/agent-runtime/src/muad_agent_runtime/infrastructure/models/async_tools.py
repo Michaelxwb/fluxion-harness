@@ -27,7 +27,15 @@ class ToolOperation(StandardColumnsMixin, Base):
             "run_id",
             "source_tool_call_id",
             unique=True,
-            postgresql_where=sa.text("is_deleted = false"),
+            postgresql_where=sa.text("run_id IS NOT NULL AND is_deleted = false"),
+        ),
+        sa.Index(
+            "uq_tool_operation_task_owner_call",
+            "tenant_id",
+            "owner_task_execution_id",
+            "source_tool_call_id",
+            unique=True,
+            postgresql_where=sa.text("owner_task_execution_id IS NOT NULL AND is_deleted = false"),
         ),
         sa.Index(
             "uq_tool_operation_task",
@@ -47,11 +55,22 @@ class ToolOperation(StandardColumnsMixin, Base):
                 "'RUNNING','RESULT_RECEIVED','MATERIALIZED') AND is_deleted = false"
             ),
         ),
+        sa.CheckConstraint(
+            "(owner_type = 'RUN' AND run_id IS NOT NULL AND owner_task_execution_id IS NULL) "
+            "OR (owner_type = 'TASK' AND owner_task_execution_id IS NOT NULL AND run_id IS NULL)",
+            name="owner",
+        ),
         {"schema": "runtime"},
     )
 
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
-    run_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("runtime.run_record.id"), nullable=False)
+    #: 调用归属：RUN（交互式）或 TASK（定时执行）；两者 XOR，见 `owner` 约束。
+    owner_type: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'RUN'")
+    )
+    run_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("runtime.run_record.id"))
+    #: 跨 schema 的 Task owner（值 = `task.task_execution.id`），不建物理 FK。
+    owner_task_execution_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     actor_user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     source_tool_call_id: Mapped[str] = mapped_column(sa.String(256), nullable=False)
     completion_mode: Mapped[CompletionMode] = mapped_column(
@@ -130,6 +149,11 @@ class ToolResultInbox(StandardColumnsMixin, Base):
             "receipt_seq",
             postgresql_where=sa.text("materialized = false AND late = false AND is_deleted = false"),
         ),
+        sa.CheckConstraint(
+            "(receipt_event_type = 'RUN_EVENT' AND run_id IS NOT NULL AND task_execution_id IS NULL) "
+            "OR (receipt_event_type = 'TASK_EVENT' AND task_execution_id IS NOT NULL AND run_id IS NULL)",
+            name="receipt_owner",
+        ),
         sa.CheckConstraint("task_event_seq > 0 AND receipt_seq > 0", name="sequences"),
         sa.CheckConstraint("NOT materialized OR canonical_event_id IS NOT NULL", name="materialized"),
         {"schema": "runtime"},
@@ -137,7 +161,10 @@ class ToolResultInbox(StandardColumnsMixin, Base):
 
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     event_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
-    run_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("runtime.run_record.id"), nullable=False)
+    #: RUN owner（交互式 Run）；与 `task_execution_id` XOR。
+    run_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("runtime.run_record.id"))
+    #: TASK owner（值 = `task.task_execution.id`）；跨 schema 不建物理 FK。
+    task_execution_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     operation_id: Mapped[uuid.UUID] = mapped_column(
         sa.ForeignKey("runtime.tool_operation.id"), nullable=False
     )
@@ -146,9 +173,11 @@ class ToolResultInbox(StandardColumnsMixin, Base):
     payload_hash: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     payload_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)
     late: Mapped[bool] = mapped_column(server_default=sa.text("false"))
-    receipt_event_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("runtime.canonical_event.id"), nullable=False
+    #: 回执事件：RUN_EVENT 指 `runtime.canonical_event.id`，TASK_EVENT 指 `task.task_event.id`。
+    receipt_event_type: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'RUN_EVENT'")
     )
+    receipt_event_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     receipt_seq: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
     canonical_event_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("runtime.canonical_event.id"))
     materialized: Mapped[bool] = mapped_column(server_default=sa.text("false"))

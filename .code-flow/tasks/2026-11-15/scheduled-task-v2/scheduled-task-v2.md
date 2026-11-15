@@ -220,7 +220,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
   - related PASS exit=0
 ## TASK-002: 重建调度 schema 并校准 ORM 与隔离夹具
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: scheduled-task-v2.backend.design.md §3.3、§4.4
 - **Scenarios**: S-07, S-08, S-14, S-17, E-05, E-15, B-11, B-12
@@ -260,12 +260,12 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Checklist
 
-- [ ] 先断开循环 FK，再按真实依赖 drop/create；恢复 Schedule↔Revision、Fire↔Execution 引用；保留 workspace/workspace_lease 的行、约束和租约。
-- [ ] 补 Draft、Revision、Fire、Checkpoint、Human、Delivery/Attempt、新事件表；保留 source operation、submission、outbox 能力，outbox 改 task_event_id 单列同 Owner FK。
-- [ ] 所有产品表使用标准四列与 timestamptz；建立 occurrence/root execution、OPEN interaction、confirmation ref、子任务等唯一约束及 due/FIFO/等待查询索引。
-- [ ] Runtime operation/inbox/lease 的 Run 字段可空，加入 owner XOR/按 owner 唯一与 receipt kind 逻辑引用；artifact 保持 run_id/task_id XOR；不建跨 Owner FK。
-- [ ] 配置 CAS 与调度进度分离；draft_hash 能容纳契约完整格式；不保留 current_revision_no、pending_operation_id、旧 delivery 列或同名唯一。
-- [ ] 迁移只读显式 ini；用独立临时库验证前一 revision→head、head 重放、约束/索引/ORM parity、破坏性 downgrade 明确拒绝；更新夹具避免旧列清理把后续测试全部卡住。
+- [x] 先断开循环 FK，再按真实依赖 drop/create；恢复 Schedule↔Revision、Fire↔Execution 引用；保留 workspace/workspace_lease 的行、约束和租约。
+- [x] 补 Draft、Revision、Fire、Checkpoint、Human、Delivery/Attempt、新事件表；保留 source operation、submission、outbox 能力，outbox 改 task_event_id 单列同 Owner FK。
+- [x] 所有产品表使用标准四列与 timestamptz；建立 occurrence/root execution、OPEN interaction、confirmation ref、子任务等唯一约束及 due/FIFO/等待查询索引。
+- [x] Runtime operation/inbox/lease 的 Run 字段可空，加入 owner XOR/按 owner 唯一与 receipt kind 逻辑引用；artifact 保持 run_id/task_id XOR；不建跨 Owner FK。
+- [x] 配置 CAS 与调度进度分离；draft_hash 能容纳契约完整格式；不保留 current_revision_no、pending_operation_id、旧 delivery 列或同名唯一。
+- [x] 迁移只读显式 ini；用独立临时库验证前一 revision→head、head 重放、约束/索引/ORM parity、破坏性 downgrade 明确拒绝；更新夹具避免旧列清理把后续测试全部卡住。
 
 ### Spec Delta
 
@@ -286,13 +286,18 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T05:41:45.403Z] started tests=fa927165a526
+- [2026-11-15] Alembic 0050 一次性重建：drop 0049 的 7 张调度表（workspace/lease 保留）后按 §3.3 建 11 张新表，循环 FK（Schedule↔Revision、Fire↔Execution）先建列后补约束；outbox 改 `task_event_id` 单列同 Owner FK；runtime 侧补 `owner_type`/`task_execution_id` 与四选一 `num_nonnulls`，inbox 用 `receipt_event_type` + 逻辑 UUID。
+- [2026-11-15] 本地开发库已随之迁到 0050（迁移前 `pg_dump` 快照在 /tmp/muad_task_schema_pre_0050.sql）；旧调度历史按设计不导入。
+- [2026-11-15] 夹具：`tests/agent_worker/conftest.py` 的清库顺序改为子行→引用行→父行，多态 `task_event` 按租户整体清理；`test_task_schema_parity.py` 覆盖 11 张表。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-003"></a>
-
+- 2026-11-15T05:48:23.374Z PASS commands=1/1 executed=1 deduped=0 elapsed=24005ms tests=fa927165a526 head=8f6fb65dffdd dirty=1
+  - related PASS exit=0
 ## TASK-003: 统一命令幂等、实体事件与终态事务
 
 - **Status**: draft

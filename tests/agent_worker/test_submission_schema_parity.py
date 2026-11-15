@@ -38,11 +38,13 @@ EXPECTED_COLUMNS = {
     "actor_user_id",
     "task_id",
     "schedule_id",
+    "schedule_draft_id",
     "response_json",
 }
 EXPECTED_FOREIGN_KEYS = {
     ("task_id", "task.task_execution.id"),
     ("schedule_id", "task.task_schedule.id"),
+    ("schedule_draft_id", "task.task_schedule_draft.id"),
 }
 
 INSERT = sa.text(
