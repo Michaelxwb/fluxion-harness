@@ -319,7 +319,7 @@ async def test_b119_failure_metrics_and_trace_correlation(
 async def test_b119_background_delivery_status_metrics(
     adapter: WeComAdapter, probe: WeComProbe, metrics_http: httpx.AsyncClient
 ) -> None:
-    key = f"task:{uuid.uuid4()}:final"
+    key = f"execution:{uuid.uuid4()}:final"
     body = {
         "tenant_id": "tenant-1",
         "task_id": key.split(":")[1],
@@ -338,7 +338,7 @@ async def test_b119_background_delivery_status_metrics(
     assert replay.json()["data"]["deduplicated"] is True
 
     probe.fail_reply_bots.add(B119_BOT)
-    failed_body = {**body, "delivery_key": f"task:{uuid.uuid4()}:final"}
+    failed_body = {**body, "delivery_key": f"execution:{uuid.uuid4()}:final"}
     failed_body["task_id"] = failed_body["delivery_key"].split(":")[1]
     failed = await metrics_http.post(DELIVERIES_PATH, json=failed_body)
     assert failed.status_code >= 400, failed.text

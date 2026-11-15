@@ -53,13 +53,13 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     Conversation,
     RunRecord,
 )
-from muad_agent_worker.application.delivery_routes import upsert_delivery_route
+from muad_agent_worker.application.delivery_routes import WEBCHAT_CHANNEL, upsert_delivery_route
 from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.delivery.client import (
     HttpDeliveryClient,
     HttpWebchatInboxClient,
 )
-from muad_agent_worker.delivery.service import WEBCHAT_CHANNEL, DeliveryLoop
+from muad_agent_worker.delivery.service import DeliveryLoop
 from muad_agent_worker.infrastructure import db as worker_db
 from muad_agent_worker.infrastructure.db import get_session_factory
 from muad_agent_worker.infrastructure.models.runtime_operations import RuntimeResultOutbox

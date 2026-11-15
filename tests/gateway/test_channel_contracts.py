@@ -138,16 +138,16 @@ def test_b101_delivery_key_must_match_request_task_id() -> None:
     request = DeliveryRequest(
         tenant_id="tenant-1",
         task_id=task_id,
-        delivery_key=f"task:{task_id}:final",
+        delivery_key=f"execution:{task_id}:final",
         route=_route(),
         message={"text": "done"},
     )
-    assert json.loads(request.model_dump_json())["delivery_key"] == f"task:{task_id}:final"
+    assert json.loads(request.model_dump_json())["delivery_key"] == f"execution:{task_id}:final"
 
     other_task_id = uuid4()
     for bad_key in (
-        f"task:{other_task_id}:final",
-        "task:not-a-uuid:final",
+        f"execution:{other_task_id}:final",
+        "execution:not-a-uuid:final",
         f"run:{task_id}:final",
     ):
         with pytest.raises(ValidationError):

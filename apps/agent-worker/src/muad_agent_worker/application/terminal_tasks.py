@@ -9,10 +9,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from muad_contracts import (
     CompletionMode,
+    DeliveryIntent,
     RunToolOperationOwner,
     TaskStatus,
     TerminalStatus,
@@ -21,10 +22,12 @@ from muad_contracts import (
 )
 from muad_logging.redaction import redact_value
 from pydantic import JsonValue, TypeAdapter, ValidationError
-from sqlalchemy import select, update
+from sqlalchemy import false, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
+from ..delivery.records import DeliveryKind, DeliveryState, execution_delivery_key
 from ..infrastructure.models.runtime_operations import RuntimeOperation, RuntimeResultOutbox
 from ..infrastructure.models.task import (
     ScheduleFire,
@@ -43,9 +46,7 @@ NON_TERMINAL = (
     TaskStatus.WAITING_EXTERNAL.value,
     TaskStatus.WAITING_HUMAN.value,
 )
-DELIVERY_KIND_PUSH = "PUSH"
-DELIVERY_PENDING = "PENDING"
-DELIVERY_INTENT_PUSH = "PUSH"
+DELIVERY_INTENT_PUSH = str(DeliveryIntent.PUSH)
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 
 
@@ -236,7 +237,11 @@ async def _enqueue_result(
 
 
 async def _enqueue_push_delivery(session: AsyncSession, task: TaskExecution) -> None:
-    """按来源 Revision 的 `delivery_intent` 建投递意图（§3.2.11）：PUSH 才建行，NONE 靠任务中心 pull。"""
+    """按来源 Revision 的 `delivery_intent` 建投递意图（§3.2.11）：PUSH 才建行，NONE 靠任务中心 pull。
+
+    终态事件先落库，再在这里建独立投递记录（`DELIVERY/ENQUEUED`）——发送是投递循环的事，
+    业务终态不等待、也不依赖投递结果。稳定键与种类归 `delivery.records`，同键重放不新增。
+    """
     if task.schedule_revision_id is None:
         return
     revision = await session.scalar(
@@ -251,13 +256,34 @@ async def _enqueue_push_delivery(session: AsyncSession, task: TaskExecution) -> 
         or revision.delivery_route_id is None
     ):
         return
-    session.add(
-        TaskDelivery(
-            tenant_id=task.tenant_id,
-            execution_id=task.id,
-            delivery_route_id=revision.delivery_route_id,
-            delivery_kind=DELIVERY_KIND_PUSH,
-            delivery_key=f"execution:{task.id}:final",
-            status=DELIVERY_PENDING,
+    delivery_id = uuid4()
+    inserted = (
+        await session.execute(
+            pg_insert(TaskDelivery)
+            .values(
+                id=delivery_id,
+                tenant_id=task.tenant_id,
+                execution_id=task.id,
+                delivery_route_id=revision.delivery_route_id,
+                delivery_kind=str(DeliveryKind.PUSH),
+                delivery_key=execution_delivery_key(task.id),
+                status=str(DeliveryState.PENDING),
+                attempt_count=0,
+            )
+            .on_conflict_do_nothing(
+                index_elements=[TaskDelivery.tenant_id, TaskDelivery.delivery_key],
+                index_where=TaskDelivery.is_deleted == false(),
+            )
+            .returning(TaskDelivery.id)
         )
+    ).scalar_one_or_none()
+    if inserted is None:
+        return
+    await append_event(
+        session,
+        tenant_id=task.tenant_id,
+        entity_type=EntityType.DELIVERY,
+        entity_id=inserted,
+        event_type=TaskEventType.ENQUEUED,
+        payload={"kind": str(DeliveryKind.PUSH), "execution_id": str(task.id)},
     )

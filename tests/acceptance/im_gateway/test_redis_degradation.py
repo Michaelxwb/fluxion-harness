@@ -154,7 +154,7 @@ async def test_e06_dead_redis_gateway_fails_explicitly_and_keeps_inbound_durable
     assert (await _http_ready(degraded_gateway.url)), "存活探针不因依赖故障重启 Pod"
 
     delivered_before = len(_sent_texts(gateway_stack))
-    key = f"task:{uuid.uuid4()}:final"
+    key = f"execution:{uuid.uuid4()}:final"
     async with httpx.AsyncClient(
         base_url=degraded_gateway.url,
         timeout=30.0,
