@@ -17,7 +17,7 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import TaskExecution
-from .task_events import TaskEventSeed, TaskEventType, append_events
+from .task_events import EntityType, TaskEventSeed, TaskEventType, append_events
 
 IDLE_STATUSES = (
     str(TaskStatus.QUEUED),
@@ -76,21 +76,24 @@ async def cancel_children(session: AsyncSession, parent: TaskExecution, moment: 
     for _ in range(MAX_CASCADE_DEPTH):
         cancelled = await _cancel_idle_children(session, frontier, moment)
         flagged = await _flag_running_children(session, frontier, moment)
-        seeds = [
-            TaskEventSeed(
-                tenant_id=tenant_id,
-                task_id=task_id,
-                event_type=event_type,
-                payload={"cascade_from": str(parent.id)},
-            )
-            for rows, event_type in (
-                (cancelled, TaskEventType.CANCELLED),
-                (flagged, TaskEventType.CANCEL_REQUESTED),
-            )
-            for task_id, tenant_id in rows
-        ]
-        await append_events(session, seeds)
-        affected += len(seeds)
+        await append_events(
+            session,
+            [
+                TaskEventSeed(
+                    tenant_id=tenant_id,
+                    entity_type=EntityType.EXECUTION,
+                    entity_id=task_id,
+                    event_type=TaskEventType.CANCELLED,
+                    payload={"cascade_from": str(parent.id)},
+                    occurred_at=moment,
+                )
+                for task_id, tenant_id in cancelled
+            ],
+        )
+        # RUNNING 的后代只落 `cancel_requested=true`：§3.5.10 的执行事件目录没有
+        # “取消请求”一项，状态权威是实体行，真正的 CANCELLED 事件由持有 lease 的
+        # Worker 在协作停止时写。
+        affected += len(cancelled) + len(flagged)
         frontier = [task_id for task_id, _ in (*cancelled, *flagged)]
         if not frontier:
             break

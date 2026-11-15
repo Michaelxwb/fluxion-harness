@@ -1,4 +1,9 @@
-"""One transactional terminal CAS, event and JOIN result publication boundary."""
+"""One transactional terminal CAS, event, JOIN publication and PUSH delivery boundary.
+
+锁序（设计 §3.3.12/§3.5.3）：`runtime_operation → Schedule → Fire → root Execution →
+parent`。立即任务没有 operation 之外的调度行，就从 operation 开始；任何路径都不得先
+锁 Execution 再回头取 operation 锁。
+"""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -14,10 +19,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from ..infrastructure.models.runtime_operations import RuntimeOperation, RuntimeResultOutbox
-from ..infrastructure.models.task import DeliveryRoute, TaskEvent, TaskExecution
+from ..infrastructure.models.task import (
+    ScheduleFire,
+    TaskDelivery,
+    TaskEvent,
+    TaskExecution,
+    TaskSchedule,
+    TaskScheduleRevision,
+)
 from ..metrics import TASKS_METRIC, record_outcome
-from .delivery_routes import WEBCHAT_CHANNEL
-from .task_events import TaskEventType, append_event
+from .task_events import EntityType, TaskEventType, append_event
 
 NON_TERMINAL = (
     TaskStatus.QUEUED.value,
@@ -25,6 +36,9 @@ NON_TERMINAL = (
     TaskStatus.WAITING_EXTERNAL.value,
     TaskStatus.WAITING_HUMAN.value,
 )
+DELIVERY_KIND_PUSH = "PUSH"
+DELIVERY_PENDING = "PENDING"
+DELIVERY_INTENT_PUSH = "PUSH"
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 
 
@@ -38,7 +52,18 @@ class TerminalChange:
     cancel_requested: bool = False
 
 
+async def _lock_row(
+    session: AsyncSession, model: type[TaskSchedule] | type[ScheduleFire], row_id: UUID, tenant_id: str
+) -> None:
+    await session.execute(
+        select(model.id)
+        .where(model.id == row_id, model.tenant_id == tenant_id, model.is_deleted.is_(False))
+        .with_for_update()
+    )
+
+
 async def lock_task_tree(session: AsyncSession, task: TaskExecution) -> None:
+    """统一锁入口：operation → Schedule → Fire → root → parent。"""
     root_id = task.root_id or task.parent_id or task.id
     root = await session.scalar(
         select(TaskExecution).where(
@@ -59,7 +84,10 @@ async def lock_task_tree(session: AsyncSession, task: TaskExecution) -> None:
             )
             .with_for_update()
         )
-    # Ancestors are always locked before the child, including nested batches.
+    if root.schedule_id is not None:
+        await _lock_row(session, TaskSchedule, root.schedule_id, root.tenant_id)
+    if root.schedule_fire_id is not None:
+        await _lock_row(session, ScheduleFire, root.schedule_fire_id, root.tenant_id)
     await session.execute(
         select(TaskExecution.id)
         .where(
@@ -125,6 +153,7 @@ async def write_terminal(
     event_type: TaskEventType | None = None,
     event_payload: dict[str, JsonValue] | None = None,
 ) -> bool:
+    """状态 CAS + finished_at + TaskEvent + JOIN outbox + PUSH 意图，同一事务。"""
     await lock_task_tree(session, task)
     change = _validated_change(task, change, moment)
     updated = await session.scalar(
@@ -156,12 +185,15 @@ async def write_terminal(
     event = await append_event(
         session,
         tenant_id=task.tenant_id,
-        task_id=task.id,
+        entity_type=EntityType.EXECUTION,
+        entity_id=task.id,
         event_type=event_type or TaskEventType(change.status.value),
         payload=event_payload or {"attempt": task.attempt},
+        occurred_at=moment,
     )
-    await session.flush()  # The outbox's composite FK must see its terminal event.
+    await session.flush()  # outbox 与 delivery 都要看到已落库的事件/实体行。
     await _enqueue_result(session, task, change, moment, event)
+    await _enqueue_push_delivery(session, task)
     await session.flush()
     record_outcome(TASKS_METRIC, change.status.value, {"type": task.task_type})
     return True
@@ -170,7 +202,8 @@ async def write_terminal(
 async def _enqueue_result(
     session: AsyncSession, task: TaskExecution, change: TerminalChange, moment: datetime, event: TaskEvent
 ) -> None:
-    if task.parent_id is not None or not await _publishes_result(session, task):
+    """JOIN 根把结果交回 Runtime Owner；Child 从不发布根结果。"""
+    if task.parent_id is not None or task.completion_mode is not CompletionMode.JOIN:
         return
     payload = _payload(task, change, moment, event.seq)
     body = JSON_OBJECT.validate_python(redact_value(payload.model_dump(mode="json")))
@@ -179,7 +212,7 @@ async def _enqueue_result(
             tenant_id=task.tenant_id,
             event_id=payload.event_id,
             task_id=task.id,
-            task_event_seq=event.seq,
+            task_event_id=event.id,
             operation_id=payload.operation_id,
             task_snapshot_hash=task.snapshot_hash,
             payload_json=body,
@@ -189,25 +222,29 @@ async def _enqueue_result(
     )
 
 
-async def _publishes_result(session: AsyncSession, task: TaskExecution) -> bool:
-    """本次终态是否要把结果发布给 Runtime Owner（TASK-068）。
-
-    - **JOIN 根**：Runtime 用结果继续/收口 Run（既有语义，不变）；
-    - **WEBCHAT 投递意图**：网页"送达"是把结果提交进 Runtime 的持久用户收件箱，而 Runtime
-      只接受已被受理（`tool_result_inbox`）的结果——结果必须先在终态事务里发出，投递才有
-      可核验的来源（design §3.6「通过 Runtime 接口提交收件箱后才确认送达」）。企微路由的
-      结果仍只走 Gateway 出站，不额外写 Runtime 事件。
-    """
-    if task.completion_mode is CompletionMode.JOIN:
-        return True
-    if task.completion_mode is not CompletionMode.DETACH:
-        return False
-    if task.source_operation_id is None or task.source_run_id is None or task.delivery_route_id is None:
-        return False
-    channel = await session.scalar(
-        select(DeliveryRoute.channel).where(
-            DeliveryRoute.id == task.delivery_route_id,
-            DeliveryRoute.is_deleted.is_(False),
+async def _enqueue_push_delivery(session: AsyncSession, task: TaskExecution) -> None:
+    """按来源 Revision 的 `delivery_intent` 建投递意图（§3.2.11）：PUSH 才建行，NONE 靠任务中心 pull。"""
+    if task.schedule_revision_id is None:
+        return
+    revision = await session.scalar(
+        select(TaskScheduleRevision).where(
+            TaskScheduleRevision.id == task.schedule_revision_id,
+            TaskScheduleRevision.is_deleted.is_(False),
         )
     )
-    return channel == WEBCHAT_CHANNEL
+    if (
+        revision is None
+        or revision.delivery_intent != DELIVERY_INTENT_PUSH
+        or revision.delivery_route_id is None
+    ):
+        return
+    session.add(
+        TaskDelivery(
+            tenant_id=task.tenant_id,
+            execution_id=task.id,
+            delivery_route_id=revision.delivery_route_id,
+            delivery_kind=DELIVERY_KIND_PUSH,
+            delivery_key=f"execution:{task.id}:final",
+            status=DELIVERY_PENDING,
+        )
+    )

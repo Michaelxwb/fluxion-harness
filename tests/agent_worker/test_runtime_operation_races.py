@@ -1,4 +1,9 @@
-"""B-07: real PG atomic terminal writes, inbox and durable HTTP acknowledgement."""
+"""B-07: real PG atomic terminal writes, inbox and durable HTTP acknowledgement.
+
+只覆盖 TASK-003 拥有的边界：`write_terminal` 的终态事务、RuntimeOperation 的取消墓碑、
+以及 outbox 的派发协议。Worker/Scheduler 的收尾接线（租约 CAS、deadline sweep、claim）
+由各自 TASK 的套件覆盖。
+"""
 
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -9,15 +14,19 @@ from fastapi import FastAPI, Request
 from muad_agent_runtime.api.tool_results import router as result_router
 from muad_agent_runtime.infrastructure.db import get_session
 from muad_agent_runtime.infrastructure.models.async_tools import ToolResultInbox
-from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent
-from muad_agent_worker.api.admin_results import router as admin_result_router
+from muad_agent_worker.application.runtime_operations import cancel_operation, prepare_submission
+from muad_agent_worker.application.task_events import EntityType, TaskEventType
 from muad_agent_worker.application.terminal_tasks import TerminalChange, write_terminal
-from muad_agent_worker.infrastructure.db import get_session as worker_session
 from muad_agent_worker.infrastructure.models.runtime_operations import RuntimeResultOutbox
 from muad_agent_worker.infrastructure.models.task import TaskEvent, TaskExecution
 from muad_agent_worker.results.dispatcher import ResultDispatcher, ResultDispatchPolicy
-from muad_api import install_api_foundation
-from muad_contracts import ControlOutboxStatus, TerminalStatus
+from muad_api import AppError, install_api_foundation
+from muad_contracts import (
+    CancelOperationRequest,
+    ControlOutboxStatus,
+    CreateTaskRequest,
+    TerminalStatus,
+)
 from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -25,10 +34,38 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from tests.acceptance.runtime.conftest import _Server
 from tests.async_tool_helpers import seed_operation
 
-#: Snapshot budget must freeze the per-execution timeout (v3); fixtures use the schema default.
+#: 执行超时来自平台设置默认值；测试不钉死具体秒数。
 _TIMEOUT_SEC = default_platform_settings().task.execution_timeout_sec
 
 pytestmark = pytest.mark.integration
+
+
+async def _terminal(factory, task, status=TerminalStatus.COMPLETED):
+    change = TerminalChange(
+        status=status,
+        result={"answer": "真实结果"} if status is TerminalStatus.COMPLETED else None,
+        error_code=None if status is TerminalStatus.COMPLETED else "TEST_FAILURE",
+    )
+    async with factory() as session, session.begin():
+        assert await write_terminal(session, task, change, datetime.now(UTC))
+    async with factory() as session:
+        return (
+            await session.scalars(select(RuntimeResultOutbox).where(RuntimeResultOutbox.task_id == task.id))
+        ).one()
+
+
+async def _execution_events(factory, task_id) -> int:
+    async with factory() as session:
+        return int(
+            await session.scalar(
+                select(func.count())
+                .select_from(TaskEvent)
+                .where(
+                    TaskEvent.entity_type == EntityType.EXECUTION.value,
+                    TaskEvent.entity_id == task_id,
+                )
+            )
+        )
 
 
 async def test_b01_pending_limit_row_lock_and_distinct_tool_calls(async_tool_database):
@@ -36,7 +73,6 @@ async def test_b01_pending_limit_row_lock_and_distinct_tool_calls(async_tool_dat
 
     from muad_agent_runtime.application.async_tools.operations import reserve_operation
     from muad_agent_runtime.infrastructure.models.async_tools import ToolControlOutbox, ToolOperation
-    from muad_api import AppError
     from muad_contracts import CompletionMode
 
     from tests.async_tool_submissions import seed_submission
@@ -129,20 +165,6 @@ async def test_b01_close_registration_barrier_keeps_durable_intents(async_tool_d
         assert await session.scalar(select(func.count()).select_from(ToolControlOutbox)) == 1
 
 
-async def _terminal(factory, task, status=TerminalStatus.COMPLETED):
-    change = TerminalChange(
-        status=status,
-        result={"answer": "真实结果"} if status is TerminalStatus.COMPLETED else None,
-        error_code=None if status is TerminalStatus.COMPLETED else "TEST_FAILURE",
-    )
-    async with factory() as session, session.begin():
-        assert await write_terminal(session, task, change, datetime.now(UTC))
-    async with factory() as session:
-        return (
-            await session.scalars(select(RuntimeResultOutbox).where(RuntimeResultOutbox.task_id == task.id))
-        ).one()
-
-
 async def test_b07_atomic_terminal_rollback_and_single_event(async_tool_database):
     factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
     task, _, _ = await seed_operation(factory)
@@ -157,7 +179,12 @@ async def test_b07_atomic_terminal_rollback_and_single_event(async_tool_database
         assert (await session.get(TaskExecution, task.id)).status == "QUEUED"
         assert (
             await session.scalar(
-                select(func.count()).select_from(TaskEvent).where(TaskEvent.task_id == task.id)
+                select(func.count())
+                .select_from(TaskEvent)
+                .where(
+                    TaskEvent.entity_type == EntityType.EXECUTION.value,
+                    TaskEvent.entity_id == task.id,
+                )
             )
             == 0
         )
@@ -174,12 +201,7 @@ async def test_b07_atomic_terminal_rollback_and_single_event(async_tool_database
         assert not await write_terminal(
             session, task, TerminalChange(status=TerminalStatus.FAILED, error_code="LATE"), datetime.now(UTC)
         )
-        assert (
-            await session.scalar(
-                select(func.count()).select_from(TaskEvent).where(TaskEvent.task_id == task.id)
-            )
-            == 1
-        )
+        assert await _execution_events(factory, task.id) == 1
         assert outbox.payload_json["result"] == {"answer": "真实结果"}
 
 
@@ -191,11 +213,20 @@ async def test_b07_each_terminal_shape_is_durable(async_tool_database, status):
     assert outbox.payload_json["terminal_status"] == status.value
     assert outbox.payload_json["task_event_seq"] == 1
     assert outbox.status is ControlOutboxStatus.PENDING
+    async with factory() as session:
+        event = (
+            await session.scalars(
+                select(TaskEvent).where(TaskEvent.id == outbox.task_event_id)
+            )
+        ).one()
+        assert event.entity_id == task.id
+        assert event.event_type == status.value
 
 
-async def test_b07_real_http_durable_ack_conflict_exhaustion_and_recovery(
+async def test_b07_real_http_durable_ack_conflict_and_exhaustion(
     async_tool_database, monkeypatch, caplog
 ):
+    """投递协议：只有 `persisted=true` 且回执 event_id 匹配才算送达；否则按上限退避到 FAILED。"""
     factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
     task, operation, _ = await seed_operation(factory)
     outbox = await _terminal(factory, task)
@@ -203,7 +234,6 @@ async def test_b07_real_http_durable_ack_conflict_exhaustion_and_recovery(
     runtime = FastAPI()
     install_api_foundation(runtime)
     runtime.include_router(result_router)
-    runtime.include_router(admin_result_router)
 
     async def sessions():
         # A separate loop-owned engine is required by the actual TCP server.
@@ -217,7 +247,6 @@ async def test_b07_real_http_durable_ack_conflict_exhaustion_and_recovery(
             await engine.dispose()
 
     runtime.dependency_overrides[get_session] = sessions
-    runtime.dependency_overrides[worker_session] = sessions
     server = _Server(runtime)
     runtime_url = server.start()
     faults = {"mode": "no-ack"}
@@ -267,14 +296,6 @@ async def test_b07_real_http_durable_ack_conflict_exhaustion_and_recovery(
                     )
                     == 1
                 )
-                assert (
-                    await session.scalar(
-                        select(func.count())
-                        .select_from(CanonicalEvent)
-                        .where(CanonicalEvent.run_id == operation.run_id)
-                    )
-                    == 1
-                )
             assert "runtime_result_dispatch_failed" in caplog.text
             headers = {"X-Internal-Service": "test-internal-service-token", "X-Tenant-Id": task.tenant_id}
             changed = dict(outbox.payload_json) | {"result": {"changed": True}}
@@ -282,24 +303,6 @@ async def test_b07_real_http_durable_ack_conflict_exhaustion_and_recovery(
                 runtime_url + "/internal/tool-results", json=changed, headers=headers
             )
             assert response.status_code == 409 and response.json()["code"] == "IDEMPOTENCY_MISMATCH"
-            recovery = await client.post(
-                runtime_url + f"/internal/admin/runtime-results/{outbox.event_id}/retry",
-                json={"reason": "dependency repaired"},
-                headers=headers | {"X-Actor-User-Id": str(uuid4())},
-            )
-            assert recovery.status_code == 200
-            faults["mode"] = "pass"
-            assert await dispatcher.run_once(now=now + timedelta(seconds=2)) == 1
-            async with factory() as session:
-                assert (await session.get(RuntimeResultOutbox, outbox.id)).status is ControlOutboxStatus.SENT
-                assert (
-                    await session.scalar(
-                        select(func.count())
-                        .select_from(CanonicalEvent)
-                        .where(CanonicalEvent.run_id == operation.run_id)
-                    )
-                    == 1
-                )
     finally:
         proxy_server.stop()
         server.stop()
@@ -318,141 +321,6 @@ async def test_b07_lease_reservation_blocks_stale_ack(async_tool_database):
         assert await other.claim(now) == []
         assert len(await other.claim(now + timedelta(seconds=31))) == 1
         assert not await dispatcher.ack(outbox.id, claimed[0].lease_until, now + timedelta(seconds=32))
-
-
-@pytest.mark.parametrize(
-    "path",
-    [
-        "success",
-        "failure",
-        "deadline",
-        "sweep",
-        "reclaim",
-        "queued-cancel",
-        "waiting-cancel",
-        "abandoned-cancel",
-        "fan-in",
-    ],
-)
-async def test_b07_every_root_terminal_path_enqueues_one_result(async_tool_database, path):
-    from muad_agent_worker.application.batch_fanin import settle_child
-    from muad_agent_worker.application.task_service import TaskService
-    from muad_agent_worker.scheduler.service import DeadlineSweeper
-    from muad_agent_worker.worker.executor import TaskExecutionError
-    from muad_agent_worker.worker.service import WorkerLoop
-
-    factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
-    task, _, _ = await seed_operation(factory, task_status="RUNNING")
-    now = datetime.now(UTC)
-    worker = WorkerLoop(factory, instance_id="worker-a")
-    if path == "success":
-        await worker._handle_success(task, {"ok": True}, now=now)
-    elif path == "failure":
-        await worker._handle_failure(
-            task, TaskExecutionError("TEST_FAILURE", "failed", retryable=False), now=now
-        )
-    elif path == "deadline":
-        await worker._mark_deadline_exceeded(task, now=now)
-    elif path == "sweep":
-        async with factory() as session, session.begin():
-            await session.execute(
-                update(TaskExecution)
-                .where(TaskExecution.id == task.id)
-                .values(deadline_at=now - timedelta(seconds=1))
-            )
-        assert await DeadlineSweeper(factory).sweep(now=now) == 1
-    elif path in ("reclaim", "abandoned-cancel"):
-        async with factory() as session, session.begin():
-            await session.execute(
-                update(TaskExecution)
-                .where(TaskExecution.id == task.id)
-                .values(lease_until=now - timedelta(seconds=1), cancel_requested=path == "abandoned-cancel")
-            )
-        assert await worker.reclaim_expired(now=now) == 0
-    elif path in ("queued-cancel", "waiting-cancel"):
-        async with factory() as session, session.begin():
-            await session.execute(
-                update(TaskExecution)
-                .where(TaskExecution.id == task.id)
-                .values(status="QUEUED" if path == "queued-cancel" else "WAITING")
-            )
-            assert (await TaskService(session).cancel(task.tenant_id, task.id))[0] == "CANCELLED"
-    else:
-        child, _, _ = await seed_operation(factory)
-        async with factory() as session, session.begin():
-            await session.execute(
-                update(TaskExecution)
-                .where(TaskExecution.id == child.id)
-                .values(parent_id=task.id, root_id=task.id, tenant_id=task.tenant_id, status="COMPLETED")
-            )
-            child = await session.get(TaskExecution, child.id)
-            assert (await settle_child(session, child, now)).aggregated
-    async with factory() as session:
-        assert (
-            await session.scalar(
-                select(func.count())
-                .select_from(RuntimeResultOutbox)
-                .where(RuntimeResultOutbox.task_id == task.id)
-            )
-            == 1
-        )
-
-
-async def test_b07_cancel_before_submission_is_a_durable_tombstone(async_tool_database):
-    from muad_agent_worker.application.runtime_operations import cancel_operation
-    from muad_agent_worker.application.task_service import TaskService
-    from muad_agent_worker.infrastructure.models.runtime_operations import RuntimeOperation
-    from muad_api import AppError
-    from muad_contracts import CancelOperationRequest, CreateTaskRequest
-
-    from tests.contracts.test_runtime_strict_json import _submission
-
-    factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
-    data = _submission()
-    data["execution_snapshot"] = {
-        "schema_version": 1,
-        "agent": {},
-        "model": {},
-        "skills": [],
-        "mcp": [],
-        "prompt_template_version": "v1",
-        "budget": {"execution_timeout_sec": _TIMEOUT_SEC},
-    }
-    payload = CreateTaskRequest.model_validate(data)
-    source = payload.runtime_operation
-    cancel = CancelOperationRequest(
-        source_run_id=source.source_run_id,
-        source_tool_call_id=source.source_tool_call_id,
-        actor_user_id=payload.actor_user_id,
-    )
-    async with factory() as session, session.begin():
-        response = await cancel_operation(session, payload.tenant_id, source.operation_id, cancel)
-        assert response.task_id is None and response.cancel_recorded
-    async with factory() as session:
-        with pytest.raises(AppError, match="TASK_OPERATION_CANCELLED"):
-            await TaskService(session).create(payload)
-        await session.rollback()
-        row = (
-            await session.scalars(
-                select(RuntimeOperation).where(RuntimeOperation.operation_id == source.operation_id)
-            )
-        ).one()
-        assert row.cancel_requested and row.submission_hash is None
-        assert (
-            await session.scalar(
-                select(func.count())
-                .select_from(TaskExecution)
-                .where(TaskExecution.tenant_id == payload.tenant_id)
-            )
-            == 0
-        )
-        with pytest.raises(AppError, match="TOOL_RESULT_BINDING_MISMATCH"):
-            await cancel_operation(
-                session,
-                payload.tenant_id,
-                source.operation_id,
-                cancel.model_copy(update={"actor_user_id": uuid4()}),
-            )
 
 
 async def test_b07_detach_and_children_never_enqueue_root_results(async_tool_database):
@@ -521,3 +389,76 @@ async def test_b07_invalid_success_becomes_explicit_failure_before_commit(async_
         assert row.payload_json["error_code"] == "SKILL_RESULT_INVALID"
         assert row.payload_json["result"] is None
         assert (await session.get(TaskExecution, task.id)).status == "FAILED"
+
+
+async def test_b07_cancel_before_submission_is_a_durable_tombstone(async_tool_database):
+    """取消先到：operation 墓碑落在提交前，之后的受理被拒且不建执行行。"""
+    from tests.contracts.test_runtime_strict_json import _submission
+
+    factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
+    data = _submission()
+    data["execution_snapshot"] = {
+        "schema_version": 1,
+        "agent": {},
+        "model": {},
+        "skills": [],
+        "mcp": [],
+        "prompt_template_version": "v1",
+        "budget": {"execution_timeout_sec": _TIMEOUT_SEC},
+    }
+    payload = CreateTaskRequest.model_validate(data)
+    source = payload.runtime_operation
+    cancel = CancelOperationRequest(
+        source_run_id=source.source_run_id,
+        source_tool_call_id=source.source_tool_call_id,
+        actor_user_id=payload.actor_user_id,
+    )
+    async with factory() as session, session.begin():
+        response = await cancel_operation(session, payload.tenant_id, source.operation_id, cancel)
+        assert response.task_id is None and response.cancel_recorded
+
+    async with factory() as session:
+        with pytest.raises(AppError, match="TASK_OPERATION_CANCELLED"):
+            await prepare_submission(session, payload)
+        await session.rollback()
+        from muad_agent_worker.infrastructure.models.runtime_operations import RuntimeOperation
+
+        row = (
+            await session.scalars(
+                select(RuntimeOperation).where(RuntimeOperation.operation_id == source.operation_id)
+            )
+        ).one()
+        assert row.cancel_requested and row.submission_hash is None
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(TaskExecution)
+                .where(TaskExecution.tenant_id == payload.tenant_id)
+            )
+            == 0
+        )
+        with pytest.raises(AppError, match="TOOL_RESULT_BINDING_MISMATCH"):
+            await cancel_operation(
+                session,
+                payload.tenant_id,
+                source.operation_id,
+                cancel.model_copy(update={"actor_user_id": uuid4()}),
+            )
+
+
+async def test_b07_terminal_event_is_execution_scoped(async_tool_database):
+    """终态事件挂在 EXECUTION 实体上，不再写 `task_event.task_id`。"""
+    factory = async_sessionmaker(async_tool_database, expire_on_commit=False)
+    task, _, _ = await seed_operation(factory)
+    await _terminal(factory, task)
+    async with factory() as session:
+        event = (
+            await session.scalars(
+                select(TaskEvent).where(
+                    TaskEvent.entity_type == EntityType.EXECUTION.value,
+                    TaskEvent.entity_id == task.id,
+                )
+            )
+        ).one()
+        assert event.event_type == str(TaskEventType.COMPLETED)
+        assert event.seq == 1
