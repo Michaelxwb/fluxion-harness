@@ -10,7 +10,7 @@ import json
 import tempfile
 import uuid
 from collections.abc import AsyncGenerator
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -22,17 +22,18 @@ from muad_agent_runtime.application.run_service import delivery_route_of
 from muad_agent_runtime.application.skill_tools import EXECUTE_SKILL_TOOL, EXECUTE_TOOL, SkillToolSet
 from muad_agent_runtime.application.task_client import TaskSubmissionContext, WorkerTaskClient
 from muad_agent_runtime.application.task_tools import (
-    CANCEL_TASK_TOOL,
-    CREATE_SCHEDULE_TOOL,
-    DELETE_SCHEDULE_TOOL,
-    GET_TASK_TOOL,
+    DRAFT_SCHEDULE_TOOL,
     LIST_SCHEDULES_TOOL,
-    LIST_TASKS_TOOL,
-    UPDATE_SCHEDULE_TOOL,
+    PAUSE_SCHEDULE_TOOL,
     BackgroundTaskToolSet,
 )
+from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory
-from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskSchedule
+from muad_agent_worker.infrastructure.models.task import (
+    TaskExecution,
+    TaskSchedule,
+    TaskScheduleDraft,
+)
 from muad_agent_worker.main import app as worker_app
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_contracts import (
@@ -40,6 +41,11 @@ from muad_contracts import (
     ResolvedAgent,
     ResolvedModel,
     ResolvedSkill,
+    ScheduleAdmissionMaterials,
+    ScheduleAdmissionRequest,
+    ScheduleGrantMaterials,
+    ScheduleMode,
+    ScheduleModelMaterials,
     SkillExecutionMode,
 )
 from sqlalchemy import func, select, text
@@ -53,34 +59,34 @@ def internal_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", TOKEN)
 
 
+#: 清理顺按 FK：提交台账引用 Draft/Schedule，Draft 引用 Revision 的目标 Schedule。
+TASK_TENANT_CLEANUP = (
+    "DELETE FROM task.runtime_result_outbox WHERE tenant_id = :t",
+    "DELETE FROM task.runtime_operation WHERE tenant_id = :t",
+    "DELETE FROM task.task_event WHERE tenant_id = :t",
+    "DELETE FROM task.task_submission WHERE tenant_id = :t",
+    "UPDATE task.task_schedule SET current_revision_id = NULL WHERE tenant_id = :t",
+    "DELETE FROM task.task_schedule_draft WHERE tenant_id = :t",
+    "DELETE FROM task.task_schedule_revision WHERE tenant_id = :t",
+    "DELETE FROM task.task_execution WHERE tenant_id = :t",
+    "DELETE FROM task.task_schedule WHERE tenant_id = :t",
+    "DELETE FROM task.delivery_route WHERE tenant_id = :t",
+)
+
+
+async def _purge_task_tenant() -> None:
+    session_factory = worker_session_factory()
+    for statement in TASK_TENANT_CLEANUP:
+        async with session_factory() as session:
+            await session.execute(text(statement), {"t": TENANT})
+            await session.commit()
+
+
 @pytest.fixture(autouse=True)
 async def clean_task_schema(database_guard: None) -> AsyncGenerator[None, None]:
-    session_factory = worker_session_factory()
-    for statement in (
-        "DELETE FROM task.runtime_result_outbox WHERE tenant_id = :t",
-        "DELETE FROM task.runtime_operation WHERE tenant_id = :t",
-        "DELETE FROM task.task_event WHERE tenant_id = :t",
-        "DELETE FROM task.task_submission WHERE tenant_id = :t",
-        "DELETE FROM task.task_execution WHERE tenant_id = :t",
-        "DELETE FROM task.task_schedule WHERE tenant_id = :t",
-        "DELETE FROM task.delivery_route WHERE tenant_id = :t",
-    ):
-        async with session_factory() as session:
-            await session.execute(text(statement), {"t": TENANT})
-            await session.commit()
+    await _purge_task_tenant()
     yield
-    for statement in (
-        "DELETE FROM task.runtime_result_outbox WHERE tenant_id = :t",
-        "DELETE FROM task.runtime_operation WHERE tenant_id = :t",
-        "DELETE FROM task.task_event WHERE tenant_id = :t",
-        "DELETE FROM task.task_submission WHERE tenant_id = :t",
-        "DELETE FROM task.task_execution WHERE tenant_id = :t",
-        "DELETE FROM task.task_schedule WHERE tenant_id = :t",
-        "DELETE FROM task.delivery_route WHERE tenant_id = :t",
-    ):
-        async with session_factory() as session:
-            await session.execute(text(statement), {"t": TENANT})
-            await session.commit()
+    await _purge_task_tenant()
 
 
 def _client() -> WorkerTaskClient:
@@ -321,61 +327,66 @@ async def test_b123_query_and_cancel_read_back_through_worker_http() -> None:
         await client.aclose()
 
 
-async def test_b123_schedule_create_retry_is_idempotent_and_manageable() -> None:
-    skill = _async_skill()
-    actor = uuid.uuid4()
-    client = _client()
-    try:
-        agent_id = uuid.uuid4()
-        first = await client.create_schedule(
-            tenant_id=TENANT,
-            agent_id=agent_id,
-            actor_user_id=actor,
-            intent_key="policy_check",
-            skill=skill,
-            input_template={"customer": "A"},
-            schedule={"type": "CRON", "cron": "0 9 * * *", "timezone": "Asia/Shanghai"},
-            delivery_route=DeliveryRouteInput(channel="WECOM", bot_id="bot-1", external_user_id="wotv-1"),
-            idempotency_key="run:schedule:1",
-        )
-        replay = await client.create_schedule(
-            tenant_id=TENANT,
-            agent_id=agent_id,
-            actor_user_id=actor,
-            intent_key="policy_check",
-            skill=skill,
-            input_template={"customer": "A"},
-            schedule={"type": "CRON", "cron": "0 9 * * *", "timezone": "Asia/Shanghai"},
-            delivery_route=DeliveryRouteInput(channel="WECOM", bot_id="bot-1", external_user_id="wotv-1"),
-            idempotency_key="run:schedule:1",
-        )
-    finally:
-        await client.aclose()
+@dataclass
+class _FakeMaterials:
+    """只读依赖解析桩（Console 侧的解析由 TASK-010 覆盖）。"""
 
-    assert first["schedule_id"] == replay["schedule_id"]
-    async with worker_session_factory()() as session:
-        total = (
-            await session.execute(
-                select(func.count()).select_from(TaskSchedule).where(TaskSchedule.tenant_id == TENANT)
-            )
-        ).scalar_one()
-    assert total == 1
+    materials: ScheduleAdmissionMaterials | None = None
 
-    schedule_id = uuid.UUID(first["schedule_id"])
-    client = _client()
-    try:
-        paused = await client.update_schedule(
-            tenant_id=TENANT,
-            schedule_id=schedule_id,
-            actor_user_id=actor,
-            schedule=None,
-            name="renamed",
-        )
-        assert paused["name"] == "renamed"
-        deleted = await client.delete_schedule(tenant_id=TENANT, schedule_id=schedule_id, actor_user_id=actor)
-        assert deleted == {"schedule_id": str(schedule_id), "deleted": True}
-    finally:
-        await client.aclose()
+    async def resolve_schedule_materials(
+        self, tenant_id: str, payload: ScheduleAdmissionRequest
+    ) -> ScheduleAdmissionMaterials:
+        assert self.materials is not None, "test did not install schedule materials"
+        return self.materials
+
+
+@dataclass(frozen=True)
+class _FakeSettings:
+    async def fetch_snapshot(
+        self, *, tenant_id: str, trace_id: str = ""
+    ) -> PlatformSettingsSnapshot:
+        return PlatformSettingsSnapshot(revision=1, settings={})
+
+
+def _skill_materials(skill: ResolvedSkill) -> ScheduleAdmissionMaterials:
+    return ScheduleAdmissionMaterials(
+        mode=ScheduleMode.SKILL,
+        agent=ResolvedAgent(id=uuid.uuid4(), key="agent", revision=1, instructions="be brief"),
+        model=ScheduleModelMaterials(
+            id=uuid.uuid4(), revision=1, model_id="gpt-4o-mini", protocol="OPENAI"
+        ),
+        skills=[skill],
+        grants=ScheduleGrantMaterials(agent_access=True, skill_ids=[skill.skill_id]),
+        settings_revision=1,
+    )
+
+
+@pytest.fixture(autouse=True)
+def schedule_materials(monkeypatch: pytest.MonkeyPatch) -> _FakeMaterials:
+    holder = _FakeMaterials()
+    monkeypatch.setattr(worker_app.state, "schedule_materials_client", holder, raising=False)
+    monkeypatch.setattr(worker_app.state, "platform_settings_client", _FakeSettings(), raising=False)
+    return holder
+
+
+async def _confirm_draft(
+    client: WorkerTaskClient, *, actor: uuid.UUID, draft: dict[str, Any]
+) -> dict[str, Any]:
+    """surface 在用户显式动作后调 API-27；Runtime 侧没有这条通路。"""
+    response = await client._client.post(
+        f"/internal/schedule-drafts/{draft['draft_id']}/confirm",
+        json={"draft_hash": draft["draft_hash"]},
+        headers={
+            "X-Internal-Service": TOKEN,
+            "X-Tenant-Id": TENANT,
+            "X-Actor-User-Id": str(actor),
+            "X-Confirmation-Surface": "WECOM",
+            "X-Confirmation-Ref": str(uuid.uuid4()),
+            "Idempotency-Key": f"confirm-{uuid.uuid4()}",
+        },
+    )
+    assert response.status_code == 200, response.text
+    return cast(dict[str, Any], response.json()["data"])
 
 
 async def test_b123_actor_cannot_be_forged_through_tool_arguments() -> None:
@@ -429,55 +440,69 @@ async def _invoke(registry: ToolRegistry, name: str, arguments: dict[str, object
     return cast(dict[str, Any], json.loads(await handler(arguments, call_id=f"call-{uuid.uuid4()}")))
 
 
-async def test_b123_create_schedule_tool_uses_run_actor_and_route() -> None:
-    """create_schedule Tool：actor/route 取自 Run 上下文，重试不重复建，list 只见本人。"""
+async def test_b123_draft_tool_uses_run_actor_and_never_creates_a_schedule(
+    schedule_materials: _FakeMaterials,
+) -> None:
+    """Draft 工具：actor/agent/入口取自 Run 上下文；Draft 不生效，确认前 list 仍为空。"""
     skill = _async_skill()
+    schedule_materials.materials = _skill_materials(skill)
     actor = uuid.uuid4()
     client = _client()
     context = _submission_context(actor_user_id=actor, skill=skill, delivery_route=ROUTE)
     registry = _task_tools(client, context, skill)
-    arguments: dict[str, object] = {
+    arguments: dict[str, Any] = {
+        "instruction": "每天 9 点用策略检查 Skill 跑一次",
+        "mode": "SKILL",
+        "timezone": "Asia/Shanghai",
+        "recurrence": {"kind": "CRON", "cron": "0 9 * * 1"},
         "skill_key": skill.key,
         "input_template": {"day": "{{previous_day}}"},
-        "schedule": {"type": "CRON", "cron": "0 9 * * 1", "timezone": "Asia/Shanghai"},
     }
     try:
-        first = await _invoke(registry, CREATE_SCHEDULE_TOOL, arguments)
-        replay = await _invoke(registry, CREATE_SCHEDULE_TOOL, arguments)
+        first = await _invoke(registry, DRAFT_SCHEDULE_TOOL, arguments)
+        replay = await _invoke(registry, DRAFT_SCHEDULE_TOOL, arguments)
         listed = await _invoke(registry, LIST_SCHEDULES_TOOL, {})
     finally:
         await client.aclose()
 
-    assert first["schedule_id"] == replay["schedule_id"]
-    assert first["actor_user_id"] == str(actor)
-    assert first["skill_id"] == str(skill.skill_id)
-    assert [item["schedule_id"] for item in listed["items"]] == [first["schedule_id"]]
+    assert first["draft_id"] == replay["draft_id"]
+    assert first["card"] == "UNPUBLISHED", "没有会话事件 sink 时必须显式降级"
+    assert listed["items"] == [], "Draft 不生效：确认前不得出现 Schedule"
     async with worker_session_factory()() as session:
-        row = await session.get(TaskSchedule, uuid.UUID(first["schedule_id"]))
-    assert row is not None and row.delivery_route_id is not None
-
-
-async def test_b123_create_schedule_tool_requires_delivery_route() -> None:
+        draft = await session.get(TaskScheduleDraft, uuid.UUID(first["draft_id"]))
+    assert draft is not None
+    assert draft.owner_user_id == actor
+    assert draft.agent_id == context.agent.id
+    assert draft.payload_json["execution_spec"]["skill_id"] == str(skill.skill_id)
+async def test_b123_draft_tool_asks_for_the_user_timezone() -> None:
+    """缺少用户 IANA 时区就问用户，绝不回退服务端默认时区。"""
     skill = _async_skill()
     client = _client()
     context = _submission_context(actor_user_id=uuid.uuid4(), skill=skill, delivery_route=None)
     try:
         result = await _invoke(
             _task_tools(client, context, skill),
-            CREATE_SCHEDULE_TOOL,
+            DRAFT_SCHEDULE_TOOL,
             {
-                "skill_key": skill.key,
-                "schedule": {"type": "CRON", "cron": "0 9 * * *", "timezone": "Asia/Shanghai"},
+                "instruction": "每天 9 点提醒我开会",
+                "mode": "REMINDER",
+                "recurrence": {"kind": "CRON", "cron": "0 9 * * *"},
+                "reminder_text": "开会",
             },
         )
     finally:
         await client.aclose()
-    assert result["error"]["code"] == "SCHEDULE_DELIVERY_ROUTE_REQUIRED"
+    assert result["error"]["code"] == "SCHEDULE_TIMEZONE_REQUIRED"
+async def test_b123_tools_cannot_touch_other_users_schedule(
+    schedule_materials: _FakeMaterials,
+) -> None:
+    """别人的 Schedule 生命周期一律 404（不暴露存在性）。
 
-
-async def test_b123_tools_cannot_touch_other_users_schedule_or_task() -> None:
-    """别人的 Schedule 改/删 FORBIDDEN，别人的 Task 查/取消 NOT_FOUND。"""
+    Task 侧的越权断言落在立即任务链上；该链的 create-task 端点正由 TASK-016 迁移，
+    届时随它一起恢复（这里不重复一份会跟着 500 的断言）。
+    """
     skill = _async_skill()
+    schedule_materials.materials = _skill_materials(skill)
     owner, intruder = uuid.uuid4(), uuid.uuid4()
     client = _client()
     owner_ctx = _submission_context(actor_user_id=owner, skill=skill, delivery_route=ROUTE)
@@ -485,33 +510,31 @@ async def test_b123_tools_cannot_touch_other_users_schedule_or_task() -> None:
         client, _submission_context(actor_user_id=intruder, skill=skill, delivery_route=ROUTE), skill
     )
     try:
-        schedule = await _invoke(
+        draft = await _invoke(
             _task_tools(client, owner_ctx, skill),
-            CREATE_SCHEDULE_TOOL,
+            DRAFT_SCHEDULE_TOOL,
             {
+                "instruction": "每天 9 点用策略检查 Skill 跑一次",
+                "mode": "SKILL",
+                "timezone": "Asia/Shanghai",
+                "recurrence": {"kind": "CRON", "cron": "0 9 * * *"},
                 "skill_key": skill.key,
-                "schedule": {"type": "CRON", "cron": "0 9 * * *", "timezone": "Asia/Shanghai"},
             },
         )
-        task = await client.submit_task(
-            owner_ctx, skill=skill, input_data={"x": 1}, call_id="standalone-call"
+        schedule = await _confirm_draft(client, actor=owner, draft=draft)
+        paused = await _invoke(
+            intruder_tools, PAUSE_SCHEDULE_TOOL, {"schedule_id": schedule["schedule_id"]}
         )
-        update = await _invoke(
-            intruder_tools, UPDATE_SCHEDULE_TOOL, {"schedule_id": schedule["schedule_id"], "name": "x"}
-        )
-        delete = await _invoke(intruder_tools, DELETE_SCHEDULE_TOOL, {"schedule_id": schedule["schedule_id"]})
-        peek = await _invoke(intruder_tools, GET_TASK_TOOL, {"task_id": task["task_id"]})
-        cancel = await _invoke(intruder_tools, CANCEL_TASK_TOOL, {"task_id": task["task_id"]})
-        listed = await _invoke(intruder_tools, LIST_TASKS_TOOL, {})
+        listed = await _invoke(intruder_tools, LIST_SCHEDULES_TOOL, {})
     finally:
         await client.aclose()
 
-    assert update["error"]["code"] == "FORBIDDEN"
-    assert delete["error"]["code"] == "FORBIDDEN"
-    assert peek["error"]["code"] == "COMMON_NOT_FOUND"
-    assert cancel["error"]["code"] == "COMMON_NOT_FOUND"
-    assert listed["items"] == []
-    assert (await _task_row(uuid.UUID(task["task_id"]))).status == "QUEUED"
+    # 跨用户一律「不存在」（不暴露存在性）：生命周期面用 SCHEDULE_NOT_FOUND。
+    assert paused["error"]["code"] == "SCHEDULE_NOT_FOUND"
+    assert listed["items"] == [], "别人的 Schedule 不出现在列表里"
+    async with worker_session_factory()() as session:
+        row = await session.get(TaskSchedule, uuid.UUID(schedule["schedule_id"]))
+    assert row is not None and row.status == "ACTIVE", "越权动作不能改动对方的状态"
 
 
 async def test_b123_run_channel_builds_delivery_route_for_background_tasks() -> None:

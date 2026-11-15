@@ -208,8 +208,16 @@ class ScheduleDraftRequest(ContractModel):
         return self
 
 
+class ScheduleDiffEntry(ContractModel):
+    """UPDATE 预览的一项前后差异（`field` 是载荷里的顶层键，值原样取自 Revision 与 Draft）。"""
+
+    field: str = Field(min_length=1, max_length=64)
+    before: Any = None
+    after: Any = None
+
+
 class SchedulePreview(ContractModel):
-    """确认卡片上的事实：做什么、何时、在哪看、依赖、预算。"""
+    """确认卡片上的事实：做什么、何时、在哪看、依赖、预算（UPDATE 另带前后差异）。"""
 
     mode: ScheduleMode
     what: str = Field(min_length=1)
@@ -218,6 +226,8 @@ class SchedulePreview(ContractModel):
     delivery: DeliveryIntent
     dependencies: list[str] = Field(default_factory=list)
     budget: dict[str, Any] = Field(default_factory=dict)
+    #: 只有 UPDATE Draft 才有：CREATE 没有「之前」，空列表就是「没有旧配置可比」。
+    diff: list[ScheduleDiffEntry] = Field(default_factory=list)
 
 
 class ScheduleDraftResponse(ContractModel):
@@ -801,6 +811,7 @@ __all__ = [
     "ScheduleDraftConfirmResponse",
     "ScheduleDraftRequest",
     "ScheduleDraftResponse",
+    "ScheduleDiffEntry",
     "ScheduleListItem",
     "SchedulePolicy",
     "SchedulePreview",

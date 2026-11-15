@@ -1365,7 +1365,7 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 
 ## TASK-017: 以自然语言生成 Draft 并发送专用确认事件
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-011, TASK-012, TASK-013
 - **Source**: scheduled-task-v2.backend.design.md §2.3.2、§2.3.9、§3.2.8、§3.5.4
 - **Scenarios**: S-01, S-02, S-03, S-04, S-05, S-06, E-01, E-05, E-14, B-07
@@ -1405,12 +1405,12 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 
 ### Checklist
 
-- [ ] 固定文本选择 REMINDER、明确 Skill 参数选择 SKILL、组合工具选择 AGENTIC；三者都经 Draft；不暴露模型可调用的 confirm/create 生效工具。
-- [ ] 复用时间工具与用户 IANA 时区，缺字段澄清；同名多匹配返回候选要求指定；多个客户/独立目标拆成多个各自确认的 Schedule。
-- [ ] 同回合写 canonical schedule.draft.ready，包含 draft_id/hash/脱敏预览/expiry；重放已持久化事件，不复用 Run confirmation.required/interrupt/resume。
-- [ ] UPDATE 显示前后差异，生命周期命令携带稳定幂等身份；ENDED ONCE 引导新建，不改原时间或恢复。
-- [ ] 事件 payload 进入共享投影/历史重建链，不能只在当次 SSE 内临时生成；覆盖刷新、重连、重复工具调用、自确认攻击与 Secret。
-- [ ] 同步更新既有 task tools/client、Prompt 及事件投影测试的 Draft 语义；此任务是 Runtime 完整回归的前置，不依赖后续任务中心页面或读 API。
+- [x] 固定文本选择 REMINDER、明确 Skill 参数选择 SKILL、组合工具选择 AGENTIC；三者都经 Draft；不暴露模型可调用的 confirm/create 生效工具。
+- [x] 复用时间工具与用户 IANA 时区，缺字段澄清；同名多匹配返回候选要求指定；多个客户/独立目标拆成多个各自确认的 Schedule。
+- [x] 同回合写 canonical schedule.draft.ready，包含 draft_id/hash/脱敏预览/expiry；重放已持久化事件，不复用 Run confirmation.required/interrupt/resume。
+- [x] UPDATE 显示前后差异，生命周期命令携带稳定幂等身份；ENDED ONCE 引导新建，不改原时间或恢复。
+- [x] 事件 payload 进入共享投影/历史重建链，不能只在当次 SSE 内临时生成；覆盖刷新、重连、重复工具调用、自确认攻击与 Secret。
+- [x] 同步更新既有 task tools/client、Prompt 及事件投影测试的 Draft 语义；此任务是 Runtime 完整回归的前置，不依赖后续任务中心页面或读 API。
 
 ### Spec Delta
 
@@ -1421,13 +1421,22 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15] 模型面写路径收敛为「只产 Draft」：`create_schedule`/`update_schedule`/`delete_schedule` 三个工具被 `draft_schedule`（CREATE）/`draft_schedule_update`（UPDATE）与 `pause_schedule`/`resume_schedule`/`cancel_schedule` 取代；`WorkerTaskClient` 的 `create_schedule/update_schedule/delete_schedule` 换成 `create_schedule_draft`（API-01，带 `X-Agent-Id`/`X-Entry-Channel`）、`schedule_action`（API-04/05/06）、`get_schedule`。客户端里**没有**确认方法，确认只能由 surface 在用户显式动作后调 API-27；自确认用例断言 409 `SCHEDULE_CONFIRMATION_REQUIRED` 且 Draft 仍 PENDING。
+- [2026-11-15] 模式与澄清：REMINDER/SKILL/AGENTIC 由 `mode` 判别，各自的专属字段出现错位即显式拒绝（不静默丢）；SKILL 只认本 Run 的有效 `skill_key`（映射到 `skill_id`），AGENTIC 的 allowlist 必须非空并逐个映射（SKILL 项用 `skill_key`，MCP 项用 `server_key`）。时区必须是用户确认过的 IANA 名：缺失 → `SCHEDULE_TIMEZONE_REQUIRED`（提示去问用户），非法 → `SCHEDULE_DRAFT_INVALID{reason=INVALID_TIMEZONE}`；校验复用 `time_tools.resolve_zone`，不回退服务端时区。`context.parameters` 里出现多值列表 → `SCHEDULE_DRAFT_INVALID{reason=MULTIPLE_TARGETS}` 并提示拆成多条 Draft（§2.3.9）。
+- [2026-11-15] 投递意图：Runtime 按共享通道词表（`OUTBOUND_CHANNELS`/`LOCAL_STREAM_CHANNELS`）把入口 surface 映射成 `delivery_intent` 并透传 `X-Entry-Channel`，核心域不点名任何渠道（通道中立守卫 64 passed）；Draft 的 delivery 与入口能力由 Worker 再核一次。
+- [2026-11-15] 确认卡片：新增 `application/schedule_draft_events.py` 的 `publish_schedule_draft_ready`（`event_type=SCHEDULE_DRAFT_READY`、`stream_type=schedule.draft.ready`、`source_event_id=uuid5(run,draft,hash)`），事务只写一条 canonical 行，提交后唤醒追尾订阅者；没有会话事件 sink 时显式降级（warning + 工具回执 `card=UNPUBLISHED`），不把已落库的 Draft 报成失败。Runtime 的 `public_events` 白名单与投影新增该类型，历史查询按 `event_type+stream_type` 这一对准入并把卡片挂在空正文助手条目上（刷新后仍可确认）；契约新增 `WebchatScheduleDraftReady`（`webchat.py`）+ `schedule.draft.ready` 事件变体（`webchat_events.py`），`SchedulePreview` 补 `diff` 以承载 UPDATE 前后差异；历史条目上的 `draft` 用 `exclude_if(None)`，普通消息的线格式不因此多一个 `draft: null`（既有精确断言保持原样）。
+- [2026-11-15] 生命周期：目标用 `schedule_id` 或名字/目标子串匹配；零命中 `SCHEDULE_NOT_FOUND`、多命中 `SCHEDULE_AMBIGUOUS`（回候选，不静默挑一个）；终态（ENDED/CANCELLED）拒绝 UPDATE/RESUME 并给 `repair=CREATE_NEW`；动作幂等身份取 `run:{run}:call:{call_id}`（同一次工具调用重试重放，换一次调用即另一条命令，以 `task_submission` 身份条数断言）。
+- [2026-11-15] 同步既有测试：`tests/agent_runtime/test_task_handoff.py` 的 Schedule 用例改为 Draft 语义（Draft 幂等 → 用户确认 → 生命周期越权 404），并补 `task_schedule_draft`/`task_schedule_revision` 的租户清扫；`time_tools` 的文档串引用改为 `draft_schedule`（仓库里没有写死 schedule 工具名的 Prompt）。该文件仍有 4 个**与本任务无关**的失败：Worker `POST /internal/tasks` 还在用旧的 `submission_fingerprint(endpoint, body)` 签名（TASK-016 的执行链迁移范围内），非本次改动引入。
+- [2026-11-15] 未覆盖/交接：WebChat 侧的 SSE 公开投影在 `im-gateway`（`sse.KNOWN_EVENT_TYPES` + `webchat_streams.PUBLIC_STREAM_EVENT_TYPES` + projector 分支）与 Draft 卡片渲染在 TASK-024/TASK-026；本任务只保证 Runtime 侧持久行、共享投影、历史与契约就位。UPDATE 需要模型给出**完整**新配置（Worker 的读面还不返回当前 Revision，全量详情读属 TASK-023）。
+- [2026-11-15T07:49:07.919Z] started tests=bcbcebd3278b
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-018"></a>
-
+- 2026-11-15T08:04:45.690Z PASS commands=1/1 executed=1 deduped=0 elapsed=15185ms tests=bcbcebd3278b head=9ea6d0e89580 dirty=1
+  - related PASS exit=0
 ## TASK-018: 切换 Runtime 生产路径并通过完整相关回归
 
 - **Status**: draft

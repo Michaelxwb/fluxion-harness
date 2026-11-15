@@ -271,9 +271,9 @@ apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py,
 apps/agent-runtime/src/muad_agent_runtime/application/model_capacity_service.py,383,DEFAULT_POOL_LOCK_CONCURRENCY,64,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,25,SUCCEEDED_STATUS,'SUCCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/model_gateway.py,26,FAILED_STATUS,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/public_events.py,55,PUBLIC_MESSAGE_EVENT_TYPES,"('USER_MESSAGE', 'ASSISTANT_MESSAGE', 'MEMORY_CONFIRMATION_RESOLVED')",python-constant,code,历史与SSE共用安全公开投影词表（B-251）
-apps/agent-runtime/src/muad_agent_runtime/application/public_events.py,59,PUBLIC_ROLE_BY_EVENT_TYPE,"{'USER_MESSAGE': 'USER', 'ASSISTANT_MESSAGE': 'ASSISTANT', 'MEMORY_CONFIRMATION_RESOLVED': 'ASSISTANT'}",python-constant,code,历史与SSE共用安全公开投影词表（B-251）
-apps/agent-runtime/src/muad_agent_runtime/application/public_events.py,65,PUBLIC_STREAM_EVENT_TYPES,"{'message.delta': 'message.delta', 'message.snapshot': 'message.snapshot', 'run.stage': 'run.stage', 'run.completed': 'run.terminal', 'run.failed': 'run.error', 'artifact.created': 'artifact.created', 'interrupt.required': 'confirmation.required', 'memory.confirmation_required': 'confirmation.required'}",python-constant,code,公开流事件白名单（canonical stream_type → TASK-006 公开事件类型；B-251）
+apps/agent-runtime/src/muad_agent_runtime/application/public_events.py,57,PUBLIC_MESSAGE_EVENT_TYPES,"('USER_MESSAGE', 'ASSISTANT_MESSAGE', 'MEMORY_CONFIRMATION_RESOLVED')",python-constant,code,历史与SSE共用安全公开投影词表（B-251）
+apps/agent-runtime/src/muad_agent_runtime/application/public_events.py,61,PUBLIC_ROLE_BY_EVENT_TYPE,"{'USER_MESSAGE': 'USER', 'ASSISTANT_MESSAGE': 'ASSISTANT', 'MEMORY_CONFIRMATION_RESOLVED': 'ASSISTANT'}",python-constant,code,历史与SSE共用安全公开投影词表（B-251）
+apps/agent-runtime/src/muad_agent_runtime/application/public_events.py,67,PUBLIC_STREAM_EVENT_TYPES,"{'message.delta': 'message.delta', 'message.snapshot': 'message.snapshot', 'run.stage': 'run.stage', 'run.completed': 'run.terminal', 'run.failed': 'run.error', 'artifact.created': 'artifact.created', 'interrupt.required': 'confirmation.required', 'memory.confirmation_required': 'confirmation.required', 'schedule.draft.ready': 'schedule.draft.ready'}",python-constant,code,公开流事件白名单（canonical stream_type → TASK-006 公开事件类型；B-251）
 apps/agent-runtime/src/muad_agent_runtime/application/run_admission.py,46,CAPACITY_SECTION,'capacity',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_admission.py,48,QUEUE_STAGE_WAITING_RUNTIME,'WAITING_RUNTIME',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/run_deadline.py,29,ACTIVE_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)",python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -334,38 +334,46 @@ apps/agent-runtime/src/muad_agent_runtime/application/sse.py,14,HEARTBEAT_FRAME,
 apps/agent-runtime/src/muad_agent_runtime/application/sse.py,15,SSE_HEADERS,"{'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no', 'Connection': 'keep-alive'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,33,TASKS_PATH,'/internal/tasks',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,34,SCHEDULES_PATH,'/internal/schedules',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,35,DEFAULT_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,36,IDEMPOTENCY_HEADER,'Idempotency-Key',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,37,INTERNAL_SERVICE_HEADER,'X-Internal-Service',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,38,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,39,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,40,ACTOR_HEADER,'X-Actor-User-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,35,SCHEDULE_DRAFTS_PATH,'/internal/schedule-drafts',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,36,DEFAULT_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
+apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,37,IDEMPOTENCY_HEADER,'Idempotency-Key',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,38,INTERNAL_SERVICE_HEADER,'X-Internal-Service',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,39,TENANT_HEADER,'X-Tenant-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,40,TRACE_HEADER,'X-Trace-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,41,ACTOR_HEADER,'X-Actor-User-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,42,AGENT_HEADER,'X-Agent-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_client.py,44,ENTRY_CHANNEL_HEADER,'X-Entry-Channel',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/task_family.py,13,SKILL_TOOLS,"frozenset({'execute', 'execute_skill', 'run_skill_script'})",python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/task_family.py,14,ASSISTANT_TURN,'ASSISTANT_TURN',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/task_family.py,15,TOOL_CALL,'TOOL_CALL',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/task_family.py,16,SUCCESS_STATUS,'OK',python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,25,CREATE_SCHEDULE_TOOL,'create_schedule',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,26,LIST_SCHEDULES_TOOL,'list_schedules',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,27,UPDATE_SCHEDULE_TOOL,'update_schedule',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,28,DELETE_SCHEDULE_TOOL,'delete_schedule',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,29,GET_TASK_TOOL,'get_task',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,30,LIST_TASKS_TOOL,'list_tasks',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,31,CANCEL_TASK_TOOL,'cancel_task',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,32,SCHEDULE_ROUTE_REQUIRED,'SCHEDULE_DELIVERY_ROUTE_REQUIRED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,33,TASK_SUMMARY_KEYS,"('task_id', 'status', 'intent_key', 'trigger_type', 'schedule_id', 'cancel_requested', 'result', 'error_code', 'error_message', 'delivery_status', 'deadline_at', 'create_time', 'finished_at')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,49,_STRING,{'type': 'string'},python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,50,_OBJECT,{'type': 'object'},python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,51,_PAGE,"{'type': 'integer', 'minimum': 1}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,52,_SCHEDULE_SPEC,"{'type': 'object', 'properties': {'type': {'type': 'string', 'enum': ['CRON', 'ONCE']}, 'cron': _STRING, 'run_at': {'type': 'string', 'description': 'ISO8601 with offset'}, 'timezone': {'type': 'string', 'description': 'IANA timezone, e.g. Asia/Shanghai'}}, 'required': ['type', 'timezone']}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,62,TEMPLATE_HINT,"'input_template may use {{fire_date}}, {{previous_day}} and {{fire_time}}, rendered in the schedule timezone at each fire.'",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,54,DRAFT_SCHEDULE_TOOL,'draft_schedule',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,55,DRAFT_SCHEDULE_UPDATE_TOOL,'draft_schedule_update',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,56,LIST_SCHEDULES_TOOL,'list_schedules',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,57,GET_SCHEDULE_TOOL,'get_schedule',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,58,PAUSE_SCHEDULE_TOOL,'pause_schedule',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,59,RESUME_SCHEDULE_TOOL,'resume_schedule',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,60,CANCEL_SCHEDULE_TOOL,'cancel_schedule',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,61,GET_TASK_TOOL,'get_task',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,62,LIST_TASKS_TOOL,'list_tasks',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,63,CANCEL_TASK_TOOL,'cancel_task',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,66,TERMINAL_SCHEDULE_STATUSES,"frozenset({ScheduleStatus.ENDED.value, ScheduleStatus.CANCELLED.value})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,68,TASK_SUMMARY_KEYS,"('task_id', 'status', 'intent_key', 'trigger_type', 'schedule_id', 'cancel_requested', 'result', 'error_code', 'error_message', 'delivery_status', 'deadline_at', 'create_time', 'finished_at')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,84,_STRING,{'type': 'string'},python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,85,_OBJECT,{'type': 'object'},python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,86,_PAGE,"{'type': 'integer', 'minimum': 1}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,87,_RECURRENCE,"{'type': 'object', 'properties': {'kind': {'type': 'string', 'enum': ['CRON', 'ONCE']}, 'cron': {**_STRING, 'description': '5-field cron, interpreted in the schedule timezone'}, 'run_at': {**_STRING, 'description': 'ISO8601 with offset (ONCE only)'}}, 'required': ['kind'], 'additionalProperties': False}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,97,_ALLOWLIST_ENTRY,"{'type': 'object', 'properties': {'source': {'type': 'string', 'enum': ['MCP', 'SKILL']}, 'tool_name': _STRING, 'skill_key': _STRING, 'server_key': _STRING}, 'required': ['source', 'tool_name'], 'additionalProperties': False}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,109,_DRAFT_ARGS,"{'instruction': {**_STRING, 'description': ""The user's original request, verbatim (max 4000 chars).""}, 'mode': {'type': 'string', 'enum': ['REMINDER', 'SKILL', 'AGENTIC']}, 'timezone': {**_STRING, 'description': 'IANA time zone confirmed by the user, e.g. Asia/Shanghai. Never guess.'}, 'recurrence': _RECURRENCE, 'name': _STRING, 'reminder_text': {**_STRING, 'description': 'REMINDER only: the fixed text to deliver.'}, 'skill_key': {**_STRING, 'description': 'SKILL only: effective skill key of this run.'}, 'input_template': {'type': 'object', 'description': 'SKILL only. May use {{fire_date}}, {{previous_day}}, {{fire_time}}.'}, 'goal': {**_STRING, 'description': 'AGENTIC only: the business goal.'}, 'tool_allowlist': {'type': 'array', 'items': _ALLOWLIST_ENTRY, 'description': 'AGENTIC only: explicit tools (non-empty). No wildcard tools.'}, 'budget': {'type': 'object', 'properties': {'max_steps': {'type': 'integer', 'minimum': 1}, 'max_tool_calls': {'type': 'integer', 'minimum': 1}, 'max_tokens': {'type': 'integer', 'minimum': 0}}, 'required': ['max_steps', 'max_tool_calls'], 'additionalProperties': False}, 'context': {'type': 'object', 'properties': {'parameters': _OBJECT, 'output': _OBJECT}, 'additionalProperties': False}}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/task_tools.py,150,MODE_ONLY_FIELDS,"{'REMINDER': ('reminder_text',), 'SKILL': ('skill_key', 'input_template'), 'AGENTIC': ('goal', 'tool_allowlist', 'budget')}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/time_tools.py,20,CURRENT_TIME_TOOL,'current_time',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/time_tools.py,22,CURRENT_TIME_DESCRIPTION,"""Get the current date and time, including the IANA time zone name. Call this before any reasoning about 'now', relative dates ('tomorrow 9am') or scheduling, instead of guessing.""",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/tool_result_receipts.py,18,RUN_TERMINAL,"(RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/tool_result_receipts.py,19,OP_TERMINAL,"(OperationStatus.COMPLETED, OperationStatus.FAILED, OperationStatus.CANCELLED, OperationStatus.LATE)",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/tool_result_receipts.py,25,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/webchat_history.py,68,ACTIVE_RUN_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_TOOL, RunStatus.WAITING_INPUT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/webchat_history.py,75,ACTIVE_RUN_STATUS_BY_RUN,"{RunStatus.CREATED: 'CREATED', RunStatus.RUNNING: 'RUNNING', RunStatus.WAITING_TOOL: 'WAITING_TOOL', RunStatus.WAITING_INPUT: 'WAITING_INPUT'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-runtime/src/muad_agent_runtime/application/webchat_history.py,82,CONVERSATION_STATUSES,"('ACTIVE', 'ARCHIVED')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/webchat_history.py,73,ACTIVE_RUN_STATUSES,"(RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_TOOL, RunStatus.WAITING_INPUT)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/webchat_history.py,80,ACTIVE_RUN_STATUS_BY_RUN,"{RunStatus.CREATED: 'CREATED', RunStatus.RUNNING: 'RUNNING', RunStatus.WAITING_TOOL: 'WAITING_TOOL', RunStatus.WAITING_INPUT: 'WAITING_INPUT'}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/webchat_history.py,87,CONVERSATION_STATUSES,"('ACTIVE', 'ARCHIVED')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/admin_run_repository.py,21,_LIST_COLUMNS,"'\nSELECT r.id AS run_id,\n       r.conversation_id,\n       r.agent_id,\n       ad.name AS agent_name,\n       r.user_id,\n       pu.display_name AS user_name,\n       r.status,\n       r.trace_id,\n       r.start_time,\n       r.end_time,\n       r.error_code\n'",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/admin_run_repository.py,35,_RUN_COLUMNS,"'\nSELECT r.id AS run_id,\n       r.conversation_id,\n       r.agent_id,\n       ad.name AS agent_name,\n       r.user_id,\n       pu.display_name AS user_name,\n       r.status,\n       r.trace_id,\n       r.cancel_requested,\n       r.error_code,\n       r.start_time,\n       r.end_time\n'",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/infrastructure/admin_run_repository.py,50,_RUN_FROM,'\n  FROM runtime.run_record r\n  LEFT JOIN control.agent_definition ad ON ad.id = r.agent_id AND ad.is_deleted = false\n  LEFT JOIN control.platform_user pu ON pu.id = r.user_id AND pu.is_deleted = false\n',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -2122,9 +2130,9 @@ packages/contracts/src/muad_contracts/platform_settings.py,400,_GROUPS,"{'agent'
 packages/contracts/src/muad_contracts/platform_settings.py,693,LEARNING_SETTING_BOUNDS,"{'retrieval_min_score': (0.0, 1.0), 'retrieval_preference_items': (0, 20), 'retrieval_preference_bytes': (0, 16384), 'experience_min_success_runs': (1, 100), 'experience_trial_runs': (1, 1000), 'experience_trial_max_regression': (0.0, 1.0), 'verification_max_attempts': (1, 10), 'eval_min_improvement': (0.0, 1.0), 'eval_min_cases': (1, 1000), 'eval_max_cases': (1, 1000), 'eval_max_items_per_case': (1, 100)}",python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 packages/contracts/src/muad_contracts/platform_settings.py,707,_LEARNING_CATEGORIES,"frozenset({'PROCEDURE', 'FAILURE_PATTERN', 'VERIFICATION'})",python-constant,code,学习链路新常量；协议/实现常量，不开放任意修改
 packages/contracts/src/muad_contracts/platform_settings.py,869,MIN_PASSWORD_LENGTH_FLOOR,8,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/scheduling.py,49,SNAPSHOT_HASH_PATTERN,'^sha256:[0-9a-f]{64}$',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/scheduling.py,515,SCHEDULE_SNAPSHOT_SCHEMA_VERSION,4,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-packages/contracts/src/muad_contracts/scheduling.py,518,FORBIDDEN_SNAPSHOT_KEYS,"frozenset({'api_key', 'apikey', 'auth_secret', 'authorization', 'password', 'secret', 'token', 'credential_json'})",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/scheduling.py,57,SNAPSHOT_HASH_PATTERN,'^sha256:[0-9a-f]{64}$',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/scheduling.py,634,SCHEDULE_SNAPSHOT_SCHEMA_VERSION,4,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+packages/contracts/src/muad_contracts/scheduling.py,637,FORBIDDEN_SNAPSHOT_KEYS,"frozenset({'api_key', 'apikey', 'auth_secret', 'authorization', 'password', 'secret', 'token', 'credential_json'})",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 packages/contracts/src/muad_contracts/skill_invocation.py,5,MAX_SKILL_ARGV_ITEMS,256,python-constant,code,执行参数校验与工具契约的代码常量
 packages/contracts/src/muad_contracts/skill_invocation.py,6,MAX_SKILL_ARGV_BYTES,64 * 1024,python-constant,code,执行参数校验与工具契约的代码常量
 packages/contracts/src/muad_contracts/snapshot.py,26,TASK_SNAPSHOT_SCHEMA_VERSION,3,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
@@ -2139,11 +2147,11 @@ packages/contracts/src/muad_contracts/tool_runtime.py,29,READ_ONLY,'READ_ONLY',p
 packages/contracts/src/muad_contracts/tool_runtime.py,30,IDEMPOTENT,'IDEMPOTENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/tool_runtime.py,31,NON_RETRYABLE,'NON_RETRYABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/tool_runtime.py,35,DEFAULT_TOOL_RETRY_SAFETY,ToolRetrySafety.NON_RETRYABLE,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/webchat.py,330,ADMISSION_RUN_ID_HEADER,'X-Muad-Run-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/webchat.py,331,ADMISSION_CONVERSATION_ID_HEADER,'X-Muad-Conversation-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/webchat.py,332,ADMISSION_RESUMED_HEADER,'X-Muad-Resumed',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/webchat.py,333,ADMISSION_EXECUTION_STATUS_HEADER,'X-Muad-Execution-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/webchat.py,334,ADMISSION_RUN_STATUS_HEADER,'X-Muad-Run-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/webchat.py,351,ADMISSION_RUN_ID_HEADER,'X-Muad-Run-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/webchat.py,352,ADMISSION_CONVERSATION_ID_HEADER,'X-Muad-Conversation-Id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/webchat.py,353,ADMISSION_RESUMED_HEADER,'X-Muad-Resumed',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/webchat.py,354,ADMISSION_EXECUTION_STATUS_HEADER,'X-Muad-Execution-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/webchat.py,355,ADMISSION_RUN_STATUS_HEADER,'X-Muad-Run-Status',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/im-core/src/muad_im_core/ingress.py,28,STATE_RECEIVED,'RECEIVED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/im-core/src/muad_im_core/ingress.py,29,STATE_PUBLISHED,'PUBLISHED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/im-core/src/muad_im_core/ingress.py,30,STATE_LOST,'LOST',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -2235,3 +2243,6 @@ packages/skill-sdk/src/muad_skill_sdk/skill_package.py,20,SCRIPT_EXTENSIONS,"fro
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,27,MAX_NAME_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,28,MAX_PLATFORM_LABEL_BYTES,128,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/skill-sdk/src/muad_skill_sdk/skill_package.py,29,MAX_DESCRIPTION_BYTES,1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/schedule_draft_events.py,30,SCHEDULE_DRAFT_READY_EVENT,'SCHEDULE_DRAFT_READY',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/schedule_draft_events.py,31,SCHEDULE_DRAFT_READY_STREAM_TYPE,'schedule.draft.ready',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-runtime/src/muad_agent_runtime/application/schedule_draft_events.py,34,DRAFT_READY_NAMESPACE,uuid.UUID('0c8f5d2e-76b4-4a19-9e63-1f9a7c2d5b08'),python-constant,code,协议标识、枚举、schema、文本或实现常量

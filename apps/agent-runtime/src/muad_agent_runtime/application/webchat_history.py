@@ -42,6 +42,7 @@ from muad_contracts.webchat import (
     WebchatConversationScope,
     WebchatHistoryMessage,
     WebchatMessagePage,
+    WebchatScheduleDraftReady,
 )
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,6 +64,10 @@ from .memory_confirmation_resume import (
     validated_proposal,
 )
 from .public_events import PUBLIC_MESSAGE_EVENT_TYPES, project_public_fact, visible_attachment_ids
+from .schedule_draft_events import (
+    SCHEDULE_DRAFT_READY_EVENT,
+    SCHEDULE_DRAFT_READY_STREAM_TYPE,
+)
 
 #: 活跃 Run 状态（与 `uq_run_record_active_conversation` partial unique 谓词同源）。
 ACTIVE_RUN_STATUSES: tuple[RunStatus, ...] = (
@@ -157,8 +162,17 @@ def _message_conditions(
     return [
         CanonicalEvent.tenant_id == scope.tenant_id,
         CanonicalEvent.conversation_id == conversation_id,
-        # 发布事实是**可见条目**（承载已发布的文件）：它参加分页与总量，总水位因此自洽。
-        CanonicalEvent.event_type.in_((*PUBLIC_MESSAGE_EVENT_TYPES, PUBLISH_EVENT_TYPE)),
+        # 发布事实与 Draft 卡片都是**可见条目**（承载文件/待确认配置）：它们参加分页与
+        # 总量，总水位因此自洽；刷新后确认卡片仍然在这里，而不是只存在于当次的 SSE。
+        # 卡片按 `event_type + stream_type` 这一对判定：只有事件名相同、流类型不同的私有行
+        # 不能借历史查询冒充成一张可确认的卡片。
+        sa.or_(
+            CanonicalEvent.event_type.in_((*PUBLIC_MESSAGE_EVENT_TYPES, PUBLISH_EVENT_TYPE)),
+            sa.and_(
+                CanonicalEvent.event_type == SCHEDULE_DRAFT_READY_EVENT,
+                CanonicalEvent.stream_type == SCHEDULE_DRAFT_READY_STREAM_TYPE,
+            ),
+        ),
         ~_hidden_confirmation_receipt(watermark),
         # 无 Run 归属的历史事件无法证实来源，不冒认成网页历史（与「无法证实归属保留审计」同口径）。
         CanonicalEvent.run_id.is_not(None),
@@ -268,6 +282,26 @@ def _publication_message(
                 update={"available": stored is not None and not stored.is_deleted}
             )
         ],
+        created_at=row.create_time,
+    )
+
+
+def _draft_message(row: Any) -> WebchatHistoryMessage:
+    """Draft 卡片 → 一条空正文助手条目（载荷本身就是卡片公开 DTO）。
+
+    坏载荷是已知公开事件的内部错误：显式失败，不静默当过滤（否则用户会以为任务已建好）。
+    """
+    try:
+        draft = WebchatScheduleDraftReady.model_validate(row.payload_json)
+    except ValidationError as exc:
+        raise AppError(ErrorCode.COMMON_INTERNAL_ERROR) from exc
+    return WebchatHistoryMessage(
+        event_id=row.id,
+        seq=row.seq,
+        run_id=row.run_id,
+        role="ASSISTANT",
+        text="",
+        draft=draft,
         created_at=row.create_time,
     )
 
@@ -521,6 +555,10 @@ class WebchatHistoryService:
         entries: list[tuple[int, WebchatHistoryMessage]] = []
         answers: set[int] = set()
         for row in reversed(rows):
+            if row.event_type == SCHEDULE_DRAFT_READY_EVENT:
+                card = _draft_message(row)
+                entries.append((card.seq, card))
+                continue
             if row.event_type == PUBLISH_EVENT_TYPE:
                 published = _publication_message(row, artifacts)
                 publications.setdefault(published.run_id, []).append(published)
