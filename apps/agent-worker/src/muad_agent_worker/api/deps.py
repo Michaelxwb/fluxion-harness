@@ -6,6 +6,7 @@ from muad_api import AppError
 from muad_api.context import current_tenant_id
 from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
+from muad_contracts import ConfirmationSurface, ConfirmScope
 
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from ..scheduler.client import ConsoleResolveClient, ScheduleMaterialsProtocol
@@ -15,6 +16,9 @@ ACTOR_HEADER = "X-Actor-User-Id"
 #: Draft 的 Agent 归属与入口 surface 同样是可信上下文的一部分（不在 body 里）。
 AGENT_HEADER = "X-Agent-Id"
 ENTRY_CHANNEL_HEADER = "X-Entry-Channel"
+#: 用户确认动作的来源（surface 侧持久标识）；只在 surface 真实核验用户动作后出现。
+CONFIRMATION_SURFACE_HEADER = "X-Confirmation-Surface"
+CONFIRMATION_REF_HEADER = "X-Confirmation-Ref"
 
 # 内部服务身份门控一律用 api-kit 原语（RULE-api-001「服务底座统一复用 api-kit 原语」）：
 # 本模块此前自带一份同形实现，而 `/internal/admin/*` 用了它、`/internal/tasks` 与
@@ -128,6 +132,28 @@ def get_schedule_materials_client(request: Request) -> ScheduleMaterialsProtocol
 AgentId = Annotated[uuid.UUID | None, Depends(get_agent_id)]
 RequiredAgentId = Annotated[uuid.UUID, Depends(require_agent_id)]
 EntryChannel = Annotated[str | None, Depends(get_entry_channel)]
+
+
+def get_confirmation_scope(
+    surface: Annotated[str | None, Header(alias=CONFIRMATION_SURFACE_HEADER)] = None,
+    ref: Annotated[str | None, Header(alias=CONFIRMATION_REF_HEADER)] = None,
+) -> ConfirmScope | None:
+    """用户确认动作的可信来源。
+
+    缺任一项即「没有用户动作」：模型工具上下文没有这条通路，由应用层以
+    `SCHEDULE_CONFIRMATION_REQUIRED` 拒绝，绝不由服务端替模型补一个「确认」。
+    """
+    surface_value = (surface or "").strip().upper()
+    ref_value = (ref or "").strip()
+    if not surface_value or not ref_value:
+        return None
+    try:
+        return ConfirmScope(surface=ConfirmationSurface(surface_value), ref=ref_value)
+    except ValueError as exc:
+        raise AppError(ErrorCode.SCHEDULE_CONFIRMATION_REQUIRED) from exc
+
+
+ConfirmationScope = Annotated[ConfirmScope | None, Depends(get_confirmation_scope)]
 ScheduleMaterialsClientDep = Annotated[
     ScheduleMaterialsProtocol | None, Depends(get_schedule_materials_client)
 ]
