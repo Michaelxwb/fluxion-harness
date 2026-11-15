@@ -44,6 +44,12 @@ from .enums import (
     TaskStatus,
     WaitKind,
 )
+from .model_pool import (
+    ModelTokenUsage,
+    RemoteCompletionProof,
+    SettlementOutcome,
+    _require_settlement_shape,
+)
 from .tasks import ContractModel
 
 SNAPSHOT_HASH_PATTERN = r"^sha256:[0-9a-f]{64}$"
@@ -482,6 +488,46 @@ class TaskCapacityReservationRequest(ContractModel):
     reserved_tokens: int = Field(ge=1)
 
 
+class TaskLeaseRenewal(ContractModel):
+    """API-29 续租：只带 epoch 栅栏与调用方冻结的绝对期限（期限不在租约行）。
+
+    owner 由受信端口按租约的 `task_execution_id` 复核，线协议不接受调用方声明的归属。
+    """
+
+    epoch: int = Field(ge=1)
+    deadline_at: AwareDatetime
+
+
+class TaskCallSettlement(ContractModel):
+    """API-29 结算：形状不变量与主链/探针结算同一口径，只有归属身份不同。"""
+
+    epoch: int = Field(ge=1)
+    outcome: SettlementOutcome
+    usage: ModelTokenUsage | None = None
+    remote_completion: RemoteCompletionProof | None = None
+
+    @model_validator(mode="after")
+    def _completion_shape(self) -> Self:
+        _require_settlement_shape(self.outcome, self.usage, self.remote_completion)
+        return self
+
+
+class TaskCapacityGrant(ContractModel):
+    """API-29 预占/续租响应：只给栅栏事实，不含 Key、计量身份或密钥。"""
+
+    reservation_id: UUID
+    epoch: int = Field(ge=1)
+    lease_until: AwareDatetime
+
+
+class TaskCapacityRelease(ContractModel):
+    """API-29 结算响应：本次是否真的释放了占用（SETTLED 幂等回放为 False）。"""
+
+    reservation_id: UUID
+    state: Literal["ACTIVE", "UNKNOWN", "SETTLED"]
+    released: bool
+
+
 class TaskToolOperationOwner(ContractModel):
     kind: Literal["TASK"] = "TASK"
     task_execution_id: UUID
@@ -700,8 +746,12 @@ __all__ = [
     "TaskArtifactRef",
     "TaskArtifactWriteRequest",
     "TaskArtifactWriteResponse",
+    "TaskCapacityGrant",
     "TaskCapacityOwner",
+    "TaskCapacityRelease",
     "TaskCapacityReservationRequest",
+    "TaskCallSettlement",
+    "TaskLeaseRenewal",
     "TaskCenterBadges",
     "TaskToolOperationOwner",
     "TaskToolOperationSubmitRequest",

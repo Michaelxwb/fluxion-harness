@@ -78,13 +78,19 @@ _LIMITS_AND_CLOCK_SQL = sa.text(
     "   ON g.tenant_id = :tenant_id AND g.id = :quota_group_id AND g.is_deleted = false"
     " WHERE c.tenant_id = :tenant_id AND c.id = :credential_id AND c.is_deleted = false"
 )
-_PROBE_TARGET_SQL = sa.text(
+_CAPACITY_TARGET_SQL = sa.text(
     "SELECT d.id AS deployment_id, c.revision AS credential_revision, c.provider_key,"
     " c.api_key_digest, c.quota_group_id"
     " FROM control.model_deployment d"
     " JOIN control.model_credential c ON c.tenant_id = d.tenant_id AND c.id = d.credential_id"
     " WHERE d.tenant_id = :tenant_id AND d.model_id = :model_id"
     " AND d.credential_id = :credential_id AND d.is_deleted = false AND c.is_deleted = false"
+)
+
+
+_TASK_EXECUTION_ACTOR_SQL = sa.text(
+    "SELECT actor_user_id FROM task.task_execution"
+    " WHERE id = :task_execution_id AND tenant_id = :tenant_id AND is_deleted = false"
 )
 
 
@@ -127,6 +133,9 @@ class LeaseSnapshot:
     run_id: uuid.UUID | None
     memory_job_id: uuid.UUID | None
     probe_id: uuid.UUID | None
+    #: Task owner（值 = `task.task_execution.id`）；跨 schema 不建物理 FK。
+    task_execution_id: uuid.UUID | None
+    owner_type: str
     deployment_id: uuid.UUID
     credential_id: uuid.UUID
     key_resource_id: uuid.UUID
@@ -152,6 +161,7 @@ class LeaseWrite:
     quota_group_id: uuid.UUID | None
     credential_revision: int
     workload: str
+    owner_type: str
     lease_owner: str
     epoch: int
     lease_until: datetime
@@ -159,11 +169,12 @@ class LeaseWrite:
     run_id: uuid.UUID | None = None
     memory_job_id: uuid.UUID | None = None
     probe_id: uuid.UUID | None = None
+    task_execution_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
-class ProbeTarget:
-    """探针预占的冻结身份：成员 + 凭据当前版本 + 稳定计量身份 + 共享额度组（无密钥）。"""
+class CapacityTarget:
+    """预占目标的冻结身份：成员 + 凭据当前版本 + 稳定计量身份 + 共享额度组（无密钥）。"""
 
     deployment_id: uuid.UUID
     credential_id: uuid.UUID
@@ -198,6 +209,8 @@ def _lease_snapshot(row: ModelCallLease) -> LeaseSnapshot:
         run_id=row.run_id,
         memory_job_id=row.memory_job_id,
         probe_id=row.probe_id,
+        task_execution_id=row.task_execution_id,
+        owner_type=row.owner_type,
         deployment_id=row.deployment_id,
         credential_id=row.credential_id,
         key_resource_id=row.key_resource_id,
@@ -295,23 +308,23 @@ class ModelCapacityStore:
             now,
         )
 
-    async def read_probe_target(
+    async def read_capacity_target(
         self, *, tenant_id: str, model_id: uuid.UUID, credential_id: uuid.UUID
-    ) -> ProbeTarget | None:
-        """解析探针目标（成员 + 凭据当前版本 + 稳定计量身份）；未绑定的对不存在。
+    ) -> CapacityTarget | None:
+        """解析预占目标（成员 + 凭据当前版本 + 稳定计量身份）；未绑定的对不存在。
 
-        `key_resource_id` 由 provider_key/摘要经**唯一派生函数**得到：探针与主调用/摘要/提炼
-        因此在同一物理 Key 行上合并计量，而不是各记一份。
+        `key_resource_id` 由 provider_key/摘要经**唯一派生函数**得到：探针/主调用/摘要/提炼/
+        定时任务因此在同一物理 Key 行上合并计量，而不是各记一份。
         """
         row = (
             await self._session.execute(
-                _PROBE_TARGET_SQL,
+                _CAPACITY_TARGET_SQL,
                 {"tenant_id": tenant_id, "model_id": model_id, "credential_id": credential_id},
             )
         ).mappings().one_or_none()
         if row is None:
             return None
-        return ProbeTarget(
+        return CapacityTarget(
             deployment_id=uuid.UUID(str(row["deployment_id"])),
             credential_id=credential_id,
             credential_revision=int(row["credential_revision"]),
@@ -321,6 +334,19 @@ class ModelCapacityStore:
             quota_group_id=None
             if row["quota_group_id"] is None
             else uuid.UUID(str(row["quota_group_id"])),
+        )
+
+    async def read_task_execution_actor(
+        self, *, tenant_id: str, task_execution_id: uuid.UUID
+    ) -> uuid.UUID | None:
+        """按租户读 Task Execution 的操作者；不存在/软删/跨租户一律 `None`。
+
+        表所有权仍在 Worker 的 task schema，Runtime 只读这一列用于**复核**容量归属：
+        调用方不能靠请求体把别人的 Execution 声明成自己的 owner。跨 schema 不建物理 FK。
+        """
+        return await self._session.scalar(
+            _TASK_EXECUTION_ACTOR_SQL,
+            {"tenant_id": tenant_id, "task_execution_id": task_execution_id},
         )
 
     async def ensure_capacity_row(
@@ -495,6 +521,8 @@ class ModelCapacityStore:
             run_id=write.run_id,
             memory_job_id=write.memory_job_id,
             probe_id=write.probe_id,
+            task_execution_id=write.task_execution_id,
+            owner_type=write.owner_type,
             deployment_id=write.deployment_id,
             credential_id=write.credential_id,
             key_resource_id=write.key_resource_id,

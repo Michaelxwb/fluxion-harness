@@ -39,7 +39,9 @@ from muad_contracts.model_pool import (
     ModelCallOwner,
     ModelCallSettlement,
     ModelCapacityReservationRequest,
+    ProbeCallOwner,
     RunCallOwner,
+    TaskCallOwner,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -156,14 +158,27 @@ def _lease_until(now: datetime, deadline_at: datetime, lease_seconds: int) -> da
     return lease_until
 
 
-def _owner_reference(
-    owner: ModelCallOwner,
-) -> tuple[uuid.UUID | None, uuid.UUID | None, uuid.UUID | None]:
+@dataclass(frozen=True, slots=True)
+class _OwnerRef:
+    """`ModelCallOwner` 在四选一 owner 列上的投影（`owner_type` 由同一个 kind 得到）。"""
+
+    run_id: uuid.UUID | None = None
+    memory_job_id: uuid.UUID | None = None
+    probe_id: uuid.UUID | None = None
+    task_execution_id: uuid.UUID | None = None
+
+
+def _owner_reference(owner: ModelCallOwner) -> _OwnerRef:
+    """owner 联合 → 四选一的列：四类 owner 都在这里，不靠"最后一个分支兜底"。"""
     if isinstance(owner, RunCallOwner):
-        return owner.run_id, None, None
+        return _OwnerRef(run_id=owner.run_id)
     if isinstance(owner, MemoryJobCallOwner):
-        return None, owner.memory_job_id, None
-    return None, None, owner.probe_id
+        return _OwnerRef(memory_job_id=owner.memory_job_id)
+    if isinstance(owner, ProbeCallOwner):
+        return _OwnerRef(probe_id=owner.probe_id)
+    if isinstance(owner, TaskCallOwner):
+        return _OwnerRef(task_execution_id=owner.task_execution_id)
+    raise TypeError(f"unknown model call owner: {type(owner).__name__}")
 
 
 def _require_same_attempt(
@@ -178,7 +193,19 @@ def _require_same_attempt(
         or lease.quota_group_id != request.quota_group_id
         or lease.credential_revision != request.credential_revision
         or lease.workload != request.workload
-        or (lease.run_id, lease.memory_job_id, lease.probe_id) != reference
+        or lease.owner_type != request.owner.kind
+        or (
+            lease.run_id,
+            lease.memory_job_id,
+            lease.probe_id,
+            lease.task_execution_id,
+        )
+        != (
+            reference.run_id,
+            reference.memory_job_id,
+            reference.probe_id,
+            reference.task_execution_id,
+        )
     ):
         raise AppError(ErrorCode.MODEL_CALL_LEASE_LOST)
 
@@ -232,7 +259,7 @@ def _lease_write(
     epoch: int,
     lease_until: datetime,
 ) -> LeaseWrite:
-    run_id, memory_job_id, probe_id = _owner_reference(request.owner)
+    reference = _owner_reference(request.owner)
     return LeaseWrite(
         call_attempt_id=request.call_attempt_id,
         deployment_id=request.deployment_id,
@@ -245,9 +272,11 @@ def _lease_write(
         epoch=epoch,
         lease_until=lease_until,
         reserved_tokens=request.reserved_tokens,
-        run_id=run_id,
-        memory_job_id=memory_job_id,
-        probe_id=probe_id,
+        owner_type=request.owner.kind,
+        run_id=reference.run_id,
+        memory_job_id=reference.memory_job_id,
+        probe_id=reference.probe_id,
+        task_execution_id=reference.task_execution_id,
     )
 
 
