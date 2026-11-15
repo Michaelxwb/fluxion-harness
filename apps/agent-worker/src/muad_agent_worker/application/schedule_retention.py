@@ -64,6 +64,7 @@ from ..infrastructure.models.task import (
     TaskHumanInteraction,
 )
 from ..infrastructure.models.task_submission import TaskSubmission
+from ..metrics import record_loop_tick
 from .platform_settings import resolve_platform_settings
 from .ports import PlatformSettingsClient
 from .task_events import EntityType
@@ -503,6 +504,9 @@ class ScheduleRetentionLoop:
                 raise
             except Exception:  # noqa: BLE001 - 维护循环必须继续，失败要留痕
                 logger.exception("schedule_retention_failed")
+                record_loop_tick("worker.schedule_retention", "failed")
+            else:
+                record_loop_tick("worker.schedule_retention", "ok")
             await asyncio.sleep(self._interval_sec)
 
 

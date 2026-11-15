@@ -69,6 +69,7 @@ from ..metrics import (
     DELIVERY_FAILED_METRIC,
     DELIVERY_METRIC,
     increment,
+    record_loop_tick,
     record_outcome,
 )
 from .artifact_client import ArtifactGoneError, ArtifactResolveClient, ArtifactResolveError
@@ -202,6 +203,9 @@ class DeliveryLoop:
                         break
             except Exception:
                 logger.exception("delivery_loop_tick_failed")
+                record_loop_tick("worker.delivery", "failed")
+            else:
+                record_loop_tick("worker.delivery", "ok")
             await asyncio.sleep(self._settings.delivery_poll_interval_sec)
 
     async def run_once(self, *, now: datetime | None = None) -> DeliveryOutcome | None:

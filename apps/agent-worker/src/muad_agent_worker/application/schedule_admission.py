@@ -62,6 +62,7 @@ from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import ScheduleFire, TaskSchedule, TaskScheduleRevision
+from ..metrics import TASK_SNAPSHOT_BYTES_METRIC, record_gauge
 from ..scheduler.client import ScheduleMaterialsError, ScheduleMaterialsProtocol
 from ..scheduler.templates import validate_input_template
 
@@ -447,10 +448,12 @@ def build_snapshot(
                 "SCHEMA_INCOMPATIBLE", True, REPAIR_ACTIONS["SCHEMA_INCOMPATIBLE"]
             )
         )
+    snapshot_bytes = int(snapshot["snapshot_bytes"])
+    record_gauge(TASK_SNAPSHOT_BYTES_METRIC, snapshot_bytes)
     return AdmissionOutcome(
         snapshot=snapshot,
         snapshot_hash=schedule_snapshot_hash(snapshot),
-        snapshot_bytes=int(snapshot["snapshot_bytes"]),
+        snapshot_bytes=snapshot_bytes,
         memory_degraded=bool(memory.degraded) if memory is not None else False,
     )
 

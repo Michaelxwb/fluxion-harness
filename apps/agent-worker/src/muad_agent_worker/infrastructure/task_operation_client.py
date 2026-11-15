@@ -28,6 +28,8 @@ from muad_contracts import (
     TaskToolOperationView,
 )
 
+from ..metrics import TASK_ASYNC_OPERATION_METRIC, record_outcome
+
 TOOL_OPERATIONS_PATH = "/internal/tool-operations"
 DEFAULT_TIMEOUT_SEC = 5.0
 PAGE_SIZE = 100
@@ -74,13 +76,18 @@ class TaskOperationClient:
             arguments=dict(arguments),
             completion_mode=completion_mode,
         )
-        data = await self._request(
-            "POST",
-            tenant_id,
-            actor_user_id,
-            TOOL_OPERATIONS_PATH,
-            json=request.model_dump(mode="json"),
-        )
+        try:
+            data = await self._request(
+                "POST",
+                tenant_id,
+                actor_user_id,
+                TOOL_OPERATIONS_PATH,
+                json=request.model_dump(mode="json"),
+            )
+        except TaskOperationError:
+            record_outcome(TASK_ASYNC_OPERATION_METRIC, "SUBMIT_FAILED")
+            raise
+        record_outcome(TASK_ASYNC_OPERATION_METRIC, "SUBMITTED")
         return TaskToolOperationView.model_validate(data)
 
     async def get(

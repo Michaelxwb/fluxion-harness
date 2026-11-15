@@ -24,7 +24,12 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from muad_common import SharedSettings
-from muad_contracts import SchedulePolicy, ScheduleStatus, TerminalStatus
+from muad_contracts import (
+    FireStatus,
+    SchedulePolicy,
+    ScheduleStatus,
+    TerminalStatus,
+)
 from muad_contracts.platform_settings import PlatformSettings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -44,9 +49,18 @@ from ..application.terminal_tasks import TerminalChange, write_terminal
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution, TaskSchedule, TaskScheduleRevision
 from ..metrics import (
+    SCHEDULE_ADMISSION_FAILED_METRIC,
+    SCHEDULE_DUE_LAG_SECONDS_METRIC,
+    SCHEDULE_FIRE_CREATED_METRIC,
+    SCHEDULE_FIRE_SKIPPED_METRIC,
+    SCHEDULE_TIMEZONE_ERROR_METRIC,
     SCHEDULED_FIRE_METRIC,
     SCHEDULED_MISFIRE_METRIC,
+    TASK_DEADLINE_EXCEEDED_METRIC,
     increment,
+    record_gauge,
+    record_label,
+    record_loop_tick,
     record_outcome,
 )
 from .client import ScheduleMaterialsProtocol
@@ -56,7 +70,6 @@ from .recurrence import OccurrencePlan, PlanAction, build_rule, plan_occurrence
 logger = logging.getLogger(__name__)
 
 TASK_DEADLINE_EXCEEDED = "TASK_DEADLINE_EXCEEDED"
-TASK_DEADLINE_EXCEEDED_TOTAL = "task_deadline_exceeded_total"
 NON_TERMINAL_TASK_STATUSES = (
     "QUEUED",
     "RUNNING",
@@ -117,7 +130,7 @@ class DeadlineSweeper:
                     affected += 1
                     await settle_child(session, task, moment)
         if affected:
-            increment(TASK_DEADLINE_EXCEEDED_TOTAL, affected)
+            increment(TASK_DEADLINE_EXCEEDED_METRIC, affected)
         return affected
 
 
@@ -159,22 +172,30 @@ class SchedulerLoop:
         它迟到整轮（评审 #15 实测：阻塞 resolver 后 1.2s 仍未 sweep，`_last_sweep_at`
         还是 None）。deadline 是**用户承诺**，不能排在外部调用后面。
         """
-        await asyncio.gather(self._fire_forever(), self._sweep_forever())
+        await asyncio.gather(self.run_fire_forever(), self.run_sweep_forever())
 
-    async def _fire_forever(self) -> None:
+    async def run_fire_forever(self) -> None:
+        """到期 Schedule 扫描与执行：独立循环（监督器按自己的心跳看停顿）。"""
         while True:
             try:
                 await self.run_due()
             except Exception:
                 logger.exception("scheduler_loop_tick_failed")
+                record_loop_tick("worker.scheduler.fire", "failed")
+            else:
+                record_loop_tick("worker.scheduler.fire", "ok")
             await asyncio.sleep(self._settings.scheduler_poll_interval_sec)
 
-    async def _sweep_forever(self) -> None:
+    async def run_sweep_forever(self) -> None:
+        """deadline sweep：与到期扫描并列，慢的外部解析不推迟期限收尾。"""
         while True:
             try:
                 await self.sweep_deadlines_if_due()
             except Exception:
                 logger.exception("deadline_sweep_tick_failed")
+                record_loop_tick("worker.scheduler.deadline", "failed")
+            else:
+                record_loop_tick("worker.scheduler.deadline", "ok")
             await asyncio.sleep(self._settings.scheduler_poll_interval_sec)
 
     async def _pg_clock(self) -> datetime:
@@ -332,6 +353,7 @@ class SchedulerLoop:
                 "schedule_recurrence_invalid",
                 extra={"schedule_id": str(due.id), "reason": str(exc)},
             )
+            increment(SCHEDULE_TIMEZONE_ERROR_METRIC)
             return None
         plan = plan_occurrence(
             rule=rule,
@@ -389,6 +411,11 @@ class SchedulerLoop:
                 task_defaults=settings.task,
                 deadline_at=deadline_at,
             )
+        if plan.scheduled_at is not None:
+            record_gauge(
+                SCHEDULE_DUE_LAG_SECONDS_METRIC,
+                max(0.0, (moment - plan.scheduled_at).total_seconds()),
+            )
         self._record(outcome)
         return outcome.execution_id
 
@@ -419,3 +446,9 @@ class SchedulerLoop:
         record_outcome(SCHEDULED_FIRE_METRIC, str(outcome.status))
         if outcome.misfire:
             increment(SCHEDULED_MISFIRE_METRIC)
+        if outcome.skip_reason is not None:
+            record_label(SCHEDULE_FIRE_SKIPPED_METRIC, "reason", str(outcome.skip_reason))
+        if outcome.status is FireStatus.EXECUTION_CREATED:
+            increment(SCHEDULE_FIRE_CREATED_METRIC)
+        if outcome.admission_error_code is not None:
+            record_label(SCHEDULE_ADMISSION_FAILED_METRIC, "reason", outcome.admission_error_code)

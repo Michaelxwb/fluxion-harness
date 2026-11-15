@@ -71,6 +71,7 @@ from ..metrics import (
     TASK_LEASE_EXPIRED_METRIC,
     TASK_RECLAIM_METRIC,
     increment,
+    record_loop_tick,
     record_outcome,
 )
 from ..scheduler.service import TASK_DEADLINE_EXCEEDED
@@ -348,6 +349,9 @@ class WorkerLoop:
                     started = await self.run_pending()
                 except Exception:
                     logger.exception("worker_loop_tick_failed")
+                    record_loop_tick("worker.claim", "failed")
+                else:
+                    record_loop_tick("worker.claim", "ok")
                 if started == 0:
                     await self._wakeup.wait(self._settings.worker_poll_interval_sec)
         except asyncio.CancelledError:
@@ -369,8 +373,10 @@ class WorkerLoop:
             except Exception:
                 logger.exception("worker_maintenance_reclaim_failed")
                 record_outcome(MAINTENANCE_METRIC, "failed")
+                record_loop_tick("worker.maintenance", "failed")
             else:
                 record_outcome(MAINTENANCE_METRIC, "ok")
+                record_loop_tick("worker.maintenance", "ok")
             await asyncio.sleep(self._settings.run_reaper_interval_sec)
 
     async def run_async_sweep_forever(self) -> None:
@@ -382,6 +388,10 @@ class WorkerLoop:
         """
         if self._async_sweeper is None:
             logger.info("async_result_sweep_disabled")
+            # 空闲但**仍心跳**：装配缺少 operations 不是故障，也不能让监督器按"已退出"重启。
+            while True:
+                record_loop_tick("worker.async_sweep", "ok")
+                await asyncio.sleep(self._settings.worker_poll_interval_sec)
             return
         await self._async_sweeper.run_forever()
 

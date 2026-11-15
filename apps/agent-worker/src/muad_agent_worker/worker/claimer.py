@@ -33,9 +33,7 @@ from ..application.human_interactions import pending_interaction_id
 from ..application.task_events import EntityType, TaskEventType, append_event
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution, TaskSchedule, TaskScheduleRevision
-from ..metrics import TASK_QUEUE_DEPTH_METRIC, increment, record_gauge
-
-TASK_CLAIM_TOTAL = "task_claim_total"
+from ..metrics import TASK_CLAIM_METRIC, TASK_QUEUE_DEPTH_METRIC, increment, record_gauge
 
 #: 占槽集：`QUEUE`/`ALLOW_PARALLEL` 的 claim 只看这三种状态；QUEUED 不在其中。
 SLOT_STATUSES = (
@@ -244,7 +242,7 @@ class TaskClaimer:
                 task, resume_reason = claimed
                 await self._append_claimed(session, task, claimed_at, instance_id, resume_reason)
                 await session.flush()
-        increment(TASK_CLAIM_TOTAL)
+        increment(TASK_CLAIM_METRIC)
         return task
 
     async def _prefilter(self, session: AsyncSession, moment: datetime) -> ClaimCandidate | None:

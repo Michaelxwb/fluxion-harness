@@ -48,6 +48,7 @@ from ..application.task_service import TERMINAL_STATUSES
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.task_operation_client import TaskOperationError
+from ..metrics import record_loop_tick
 
 logger = logging.getLogger("muad_agent_worker.worker.async_sweep")
 
@@ -79,6 +80,9 @@ class AsyncResultSweeper:
                 await self.sweep()
             except Exception:
                 logger.exception("async_result_sweep_tick_failed")
+                record_loop_tick("worker.async_sweep", "failed")
+            else:
+                record_loop_tick("worker.async_sweep", "ok")
             await asyncio.sleep(self._interval_sec)
 
     async def sweep(self, *, now: datetime | None = None) -> int:

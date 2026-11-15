@@ -14,7 +14,7 @@ from sqlalchemy import or_, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..infrastructure.models.runtime_operations import RuntimeResultOutbox
-from ..metrics import record_outcome
+from ..metrics import record_loop_tick, record_outcome
 
 logger = logging.getLogger(__name__)
 RESULT_DISPATCH_METRIC = "runtime_result_dispatch_total"
@@ -68,6 +68,9 @@ class ResultDispatcher:
             except Exception:
                 logger.exception("runtime_result_dispatch_tick_failed")
                 record_outcome(RESULT_DISPATCH_METRIC, "SCAN_FAILED")
+                record_loop_tick("worker.results", "failed")
+            else:
+                record_loop_tick("worker.results", "ok")
             await asyncio.sleep(self._policy.poll_sec)
 
     async def claim(self, now: datetime) -> list[RuntimeResultOutbox]:

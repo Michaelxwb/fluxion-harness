@@ -38,6 +38,7 @@ from muad_contracts import AttachmentRef, TaskArtifactWriteRequest, TaskArtifact
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.models.runtime import Artifact
+from ...metrics import TASK_ARTIFACT_DOWNLOAD_METRIC, record_outcome
 from .output_service import MAX_OUTPUT_BYTES
 from .reference import attachment_ref
 
@@ -200,19 +201,24 @@ async def resolve_task_artifact_version(
         or row.task_id is None
         or row.artifact_type not in DOWNLOADABLE_TASK_ARTIFACT_TYPES
     ):
+        record_outcome(TASK_ARTIFACT_DOWNLOAD_METRIC, "REJECTED")
         raise AppError(ErrorCode.TASK_ARTIFACT_NOT_FOUND)
     owner = await _load_owner(session, tenant_id=tenant_id, execution_id=row.task_id)
     if owner.actor_user_id != user_id or owner.agent_id != agent_id:
+        record_outcome(TASK_ARTIFACT_DOWNLOAD_METRIC, "REJECTED")
         raise AppError(ErrorCode.TASK_ARTIFACT_NOT_FOUND)
 
     entry = _version_entry(row, version)
     if entry is None or entry["checksum"] != checksum:
+        record_outcome(TASK_ARTIFACT_DOWNLOAD_METRIC, "REJECTED")
         raise AppError(ErrorCode.ARTIFACT_VERSION_CONFLICT)
     path = store.resolve(str(entry["key"]))
     if not path.is_file() or path.stat().st_size != entry["size"]:
         # 行说这里有这一版、盘上没有（或长度不对）：显式"拿不到"，不拿别的版本顶上
         logger.warning("task_artifact_object_missing artifact_id=%s version=%s", artifact_id, version)
+        record_outcome(TASK_ARTIFACT_DOWNLOAD_METRIC, "REJECTED")
         raise AppError(ErrorCode.TASK_ARTIFACT_NOT_FOUND)
+    record_outcome(TASK_ARTIFACT_DOWNLOAD_METRIC, "RESOLVED")
     reference = attachment_ref(row)
     return reference.model_copy(
         update={

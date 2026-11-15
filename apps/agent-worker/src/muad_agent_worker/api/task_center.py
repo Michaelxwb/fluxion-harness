@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.schedule_read import DeliveryRouteScope, ScheduleReadService
 from ..infrastructure.db import get_session
+from ..metrics import TASK_QUERY_ONLY_METRIC, increment
 from .deps import ActorUserId, get_tenant_id
 
 router = APIRouter(
@@ -82,6 +83,7 @@ async def list_pending(
         page=page,
         page_size=page_size,
     )
+    increment(TASK_QUERY_ONLY_METRIC)
     return ok(request.app.state.message_catalog, result.model_dump(mode="json"))
 
 
@@ -99,4 +101,5 @@ async def get_badges(
         owner_user_id=caller_actor,
         agent_ids=[agent_id] if agent_id is not None else None,
     )
+    increment(TASK_QUERY_ONLY_METRIC)
     return ok(request.app.state.message_catalog, badges.model_dump(mode="json"))
