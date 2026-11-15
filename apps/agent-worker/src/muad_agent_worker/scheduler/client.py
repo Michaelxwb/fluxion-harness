@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
 import httpx
-from muad_contracts import ResolveDefinitionRequest, ResolveDefinitionResponse
+from muad_contracts import (
+    ResolveDefinitionRequest,
+    ResolveDefinitionResponse,
+    ScheduleAdmissionMaterials,
+    ScheduleAdmissionRequest,
+)
 
 RESOLVE_DEFINITION_PATH = "/internal/runtime/resolve-definition"
+SCHEDULE_MATERIALS_PATH = "/internal/runtime/schedule-admission-materials"
 RESOLVE_UNAVAILABLE = "RESOLVE_UNAVAILABLE"
 
 
@@ -34,6 +40,43 @@ class ResolveDefinitionProtocol(Protocol):
     async def resolve(
         self, agent_id: UUID, actor_user_id: UUID, tenant_id: str
     ) -> ResolveDefinitionResponse: ...
+
+
+class ScheduleMaterialsError(Exception):
+    """受理材料被拒绝或不可用。
+
+    `code` 是 Console 侧的稳定错误码；`data.admission_code` 给出**精确**原因
+    （如 `SKILL_DISABLED`），`data.repair` 是用户修复动作键。transport 失败统一
+    `RESOLVE_UNAVAILABLE`（临时）。
+    """
+
+    def __init__(
+        self, message: str, *, code: str = RESOLVE_UNAVAILABLE, data: dict[str, Any] | None = None
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.data = data or {}
+
+
+class ScheduleMaterialsProtocol(Protocol):
+    async def resolve_schedule_materials(
+        self, tenant_id: str, payload: ScheduleAdmissionRequest
+    ) -> ScheduleAdmissionMaterials: ...
+
+
+def _failure_body(response: httpx.Response) -> tuple[str, dict[str, Any]]:
+    try:
+        body = response.json()
+    except ValueError:
+        return RESOLVE_UNAVAILABLE, {}
+    if not isinstance(body, dict):
+        return RESOLVE_UNAVAILABLE, {}
+    code = body.get("code")
+    data = body.get("data")
+    return (
+        code if isinstance(code, str) and code else RESOLVE_UNAVAILABLE,
+        data if isinstance(data, dict) else {},
+    )
 
 
 class ConsoleResolveClient:
@@ -72,3 +115,26 @@ class ConsoleResolveClient:
             )
         body = response.json()
         return ResolveDefinitionResponse.model_validate(body["data"])
+
+    async def resolve_schedule_materials(
+        self, tenant_id: str, payload: ScheduleAdmissionRequest
+    ) -> ScheduleAdmissionMaterials:
+        headers = {"X-Tenant-Id": tenant_id}
+        if self._service_token:
+            headers["X-Internal-Service"] = self._service_token
+        try:
+            response = await self._client.post(
+                f"{self._base_url}{SCHEDULE_MATERIALS_PATH}",
+                json=payload.model_dump(mode="json"),
+                headers=headers,
+            )
+        except httpx.HTTPError as exc:
+            raise ScheduleMaterialsError(str(exc)) from exc
+        if response.status_code >= 400:
+            code, data = _failure_body(response)
+            raise ScheduleMaterialsError(
+                f"schedule-admission-materials returned status {response.status_code}",
+                code=code,
+                data=data,
+            )
+        return ScheduleAdmissionMaterials.model_validate(response.json()["data"])

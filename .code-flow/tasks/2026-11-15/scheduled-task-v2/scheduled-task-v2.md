@@ -844,7 +844,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
   - related PASS exit=0
 ## TASK-010: 实现每次 Admission 与可重建 Snapshot v4
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-005, TASK-006, TASK-007, TASK-008
 - **Source**: scheduled-task-v2.backend.design.md §2.3.3、§2.3.4、§3.5.5、§3.5.7
 - **Scenarios**: S-02, S-03, S-04, S-15, S-16, S-17, E-02, E-10, E-13, B-08
@@ -883,12 +883,12 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Checklist
 
-- [ ] 按模式验证 Agent/Skill/Model/Tool/MCP/Grant、route 能力、输入变量、budget 与 ASYNC 协议；REMINDER 不依赖 Skill/Model。
-- [ ] 冻结完整 Agent instructions/runtime_config、模型定义/池成员/summary model、Prompt 模板、Policy、allowlist 工具完整 schema 与涉及的所有 Skill artifact 元数据/checksum/frontmatter。
-- [ ] MCP 保留 endpoint/非密 headers/secret_header 与完整 definitions；凭据只留引用，Secret 从内容与 hash 同时剥离。
-- [ ] 任务记忆读取一次，冻结实际 READ_ONLY 注入块及 taxonomy/revision/hash；失败为空块+memory_degraded+warning/事件，不阻断；后续 Human/ASYNC resume 不刷新记忆。
-- [ ] 严格 canonical hash 与实际序列化字节数；超过设置上限明确 SNAPSHOT_TOO_LARGE，不截断；Snapshot 与 Execution 同生命周期保留。
-- [ ] 错误分类返回永久/临时与用户修复动作；静态 Preflight 不运行业务、不产生扫描或写副作用；网络 IO 在锁外，恢复只读原快照。
+- [x] 按模式验证 Agent/Skill/Model/Tool/MCP/Grant、route 能力、输入变量、budget 与 ASYNC 协议；REMINDER 不依赖 Skill/Model。
+- [x] 冻结完整 Agent instructions/runtime_config、模型定义/池成员/summary model、Prompt 模板、Policy、allowlist 工具完整 schema 与涉及的所有 Skill artifact 元数据/checksum/frontmatter。
+- [x] MCP 保留 endpoint/非密 headers/secret_header 与完整 definitions；凭据只留引用，Secret 从内容与 hash 同时剥离。
+- [x] 任务记忆读取一次，冻结实际 READ_ONLY 注入块及 taxonomy/revision/hash；失败为空块+memory_degraded+warning/事件，不阻断；后续 Human/ASYNC resume 不刷新记忆。
+- [x] 严格 canonical hash 与实际序列化字节数；超过设置上限明确 SNAPSHOT_TOO_LARGE，不截断；Snapshot 与 Execution 同生命周期保留。
+- [x] 错误分类返回永久/临时与用户修复动作；静态 Preflight 不运行业务、不产生扫描或写副作用；网络 IO 在锁外，恢复只读原快照。
 
 ### Spec Delta
 
@@ -918,13 +918,23 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15] 新增 `apps/agent-worker/.../application/schedule_admission.py`：每次 Fire 的 Admission 入口（按模式校验 → 组装 Snapshot v4 → 失败台账），纯组装函数无 IO，网络取数只在 `admit()` 且不持任何锁。
+- [2026-11-15] Console 新增 `POST /internal/runtime/schedule-admission-materials` + `ScheduleResolveService`（与交互式 `ResolveService` 分离）：只读 SELECT（用例断言零 INSERT/UPDATE/DELETE），按模式解析 Skill/MCP/Model/Grant/记忆候选/设置快照。
+- [2026-11-15] 快照口径：v4 由 `packages/contracts/.../snapshot.py::build_schedule_snapshot` 唯一产出，v3（`build_task_snapshot`）保持原样不扩展；`snapshot_bytes` 是「含自身」的规范字节数（不动点迭代），`snapshot_hash` 对落库文本取 sha256；`load_schedule_snapshot` 只认 `schema_version=4`，重建不读任何当前配置。
+- [2026-11-15] 记忆：AGENTIC 在准入读取一次（v2 事实行，TTL 逐次过滤，硬上界 `MEMORY_MAX_RECORDS`），复用 `muad_agent_core.memory.select_memory` 的 LIST 口径（无 query ⇒ 只走偏好车道）+ `render_memory` 渲染；冻结 entries/rendered_text/revision/payload_hash。读取失败 `degraded=True` + 空块 + warning 日志，不阻断任务。
+- [2026-11-15] 错误码口径：HTTP 沿用既有码（`SCHEDULE_DEPENDENCY_MISSING`/`SCHEDULE_GRANT_DENIED`/`AGENT_*`/`MODEL_*`/`CREDENTIAL_MISSING`/`ASYNC_OPERATION_UNAVAILABLE`/`SCHEDULE_DELIVERY_UNSUPPORTED`），精确原因与修复动作走 `data.admission_code`/`data.repair`，落在 `schedule_fire.admission_error_code`；未登记的新码按临时处理（一次未知错误不判死用户任务）。
+- [2026-11-15] Prompt 模板冻结为 `{"version": "v1", "source": "agent.instructions"}`：模板文本本体就是已冻结的 `agent.instructions`，不复制第二份；模型 `policy_hash` 对冻结 policy 取哈希。
+- [2026-11-15] 投递能力：`delivery_capability_error` 按渠道判 PUSH（IM 可 push，WebChat/MSSWWEB 只 pull）；渠道值由 Fire 步骤解析 `delivery_route` 后传入，未解析时不做假设、不拦任务中心 pull 路径。
+- [2026-11-15] 承接边界：Fire/Execution 的 CAS 与同事务插入归 TASK-014（本任务交付 `execution_snapshot_columns` 与 `record_admission_failure`）；恢复侧消费冻结块归 TASK-019；`tests/agent_worker/conftest.py` 补了 Fire↔Execution 循环 FK 的清扫（回填过 `execution_id` 的 Fire 先摘引用，否则租户清扫撞 FK）。
+- [2026-11-15T06:49:28.408Z] started tests=44c62f1c9918
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-011"></a>
-
+- 2026-11-15T07:01:06.355Z PASS commands=1/1 executed=1 deduped=0 elapsed=15341ms tests=44c62f1c9918 head=af5da4d1727e dirty=1
+  - related PASS exit=0
 ## TASK-011: 创建可预览且无副作用的 Schedule Draft
 
 - **Status**: draft

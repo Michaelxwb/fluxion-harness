@@ -222,6 +222,15 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
                 ),
                 {"tenant_id": tenant_id},
             )
+            # Fire ↔ Execution 也是循环 FK：回填过 execution_id 的 Fire 必须先摘引用，
+            # 否则删 Execution 会撞 fk_schedule_fire_execution。
+            await session.execute(
+                text(
+                    "UPDATE task.schedule_fire SET execution_id = NULL "
+                    "WHERE tenant_id = :tenant_id"
+                ),
+                {"tenant_id": tenant_id},
+            )
             for table in TENANT_CLEANUP_ORDER:
                 await session.execute(
                     text(f"DELETE FROM task.{table} WHERE tenant_id = :tenant_id"),

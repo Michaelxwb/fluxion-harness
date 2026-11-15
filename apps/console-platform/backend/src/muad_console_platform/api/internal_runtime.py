@@ -9,12 +9,13 @@ from muad_contracts import (
     ResolveDefinitionRequest,
     ResolveModelRequest,
     RuntimeExecutionRef,
+    ScheduleAdmissionRequest,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.platform_settings_service import PlatformSettingsService
 from ..application.resolve_egress_service import resolve_egress_access
-from ..application.resolve_service import ResolveService
+from ..application.resolve_service import ResolveService, ScheduleResolveService
 from ..application.runtime_credentials import (
     require_service_identity,
     resolve_runtime_credentials,
@@ -97,6 +98,24 @@ async def admission_materials(
         "credentials": credentials,
     }
     return ok(request.app.state.message_catalog, data)
+
+
+@router.post("/schedule-admission-materials")
+async def schedule_admission_materials(
+    payload: ScheduleAdmissionRequest,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    x_internal_service: Annotated[str | None, Header()] = None,
+) -> ApiResponse[Any]:
+    """每次 Fire 的受理材料：按模式取齐 Snapshot v4 依赖范围内的完整非密钥材料。
+
+    只读且无副作用（不执行 Skill、不调用模型、不联网）。响应不含任何密钥明文：
+    凭据只留 deployment/credential 引用，实际认证值在恢复时按 API-09 解析。
+    """
+    require_service_identity(x_internal_service, service_token(request))
+    materials = await ScheduleResolveService(session).resolve(tenant_id, payload)
+    return ok(request.app.state.message_catalog, materials.model_dump(mode="json"))
 
 
 @router.post("/resolve-model")
