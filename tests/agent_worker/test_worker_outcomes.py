@@ -20,6 +20,7 @@ from muad_agent_worker.worker.execution_outcomes import (
 )
 from muad_agent_worker.worker.executor import TaskExecutionError
 from muad_agent_worker.worker.service import WorkerLoop
+from muad_contracts import WaitKind
 
 from agent_worker.conftest import TenantContext
 from agent_worker.helpers import fetch_task, persist_task, retry_safe_snapshot
@@ -50,7 +51,8 @@ async def _row(tenant: TenantContext, task_id: uuid.UUID) -> dict[str, Any]:
                     TaskExecution.lease_owner,
                     TaskExecution.lease_until,
                     TaskExecution.not_before,
-                    TaskExecution.external_ref_json,
+                    TaskExecution.wait_kind,
+                    TaskExecution.wait_payload_json,
                     TaskExecution.result_json,
                     TaskExecution.result_artifact_id,
                     TaskExecution.attempt,
@@ -62,10 +64,11 @@ async def _row(tenant: TenantContext, task_id: uuid.UUID) -> dict[str, Any]:
         "lease_owner": row[1],
         "lease_until": row[2],
         "not_before": row[3],
-        "external_ref": row[4],
-        "result": row[5],
-        "result_artifact_id": row[6],
-        "attempt": row[7],
+        "wait_kind": row[4],
+        "wait_payload": row[5],
+        "result": row[6],
+        "result_artifact_id": row[7],
+        "attempt": row[8],
     }
 
 
@@ -87,7 +90,8 @@ def test_interpret_maps_execution_into_explicit_outcomes() -> None:
         now=now,
     )
     assert waiting.kind is OutcomeKind.WAITING
-    assert waiting.external_ref == {"external_task_id": "ext-1"}
+    assert waiting.wait_kind is WaitKind.EXTERNAL_POLL
+    assert waiting.wait_payload == {"external_ref": {"external_task_id": "ext-1"}}
     assert waiting.not_before == now + timedelta(minutes=5)
 
     failed = interpret_execution({"status": "TIMED_OUT", "result": None, "stderr": "too slow"}, now=now)
@@ -118,10 +122,11 @@ async def test_waiting_releases_lease_and_is_claimable_after_not_before(
     await worker.run_once()
 
     state = await _row(tenant, task.id)
-    assert state["status"] == "WAITING"
-    assert state["lease_owner"] is None, "WAITING 不应继续占着 lease"
+    assert state["status"] == "WAITING_EXTERNAL"
+    assert state["lease_owner"] is None, "等待不应继续占着 lease"
     assert state["lease_until"] is None
-    assert state["external_ref"] == {"external_task_id": "ext-9"}
+    assert state["wait_kind"] == "EXTERNAL_POLL"
+    assert state["wait_payload"] == {"external_ref": {"external_task_id": "ext-9"}}
     assert state["not_before"] == resume_at
 
     # 未到期：另一实例 claim 不到
@@ -142,8 +147,10 @@ async def test_waiting_does_not_consume_retry_budget(tenant: TenantContext) -> N
     await worker.run_once()
 
     state = await _row(tenant, task.id)
-    assert state["status"] == "WAITING"
-    assert state["attempt"] == 1
+    assert state["status"] == "WAITING_EXTERNAL"
+    assert state["wait_kind"] == "EXTERNAL_POLL"
+    assert state["wait_payload"] == {"external_ref": {}}
+    assert state["attempt"] == 1, "等待续接不消耗重试预算"
     assert state["not_before"] > _now(), "缺省 not_before 必须落在将来"
 
 
@@ -156,7 +163,8 @@ class _WaitThenFailExecutor:
         self.seen_refs: list[dict[str, Any]] = []
 
     async def execute(self, task: TaskExecution) -> dict[str, Any]:
-        self.seen_refs.append(dict(task.external_ref_json or {}))
+        payload = task.wait_payload_json if isinstance(task.wait_payload_json, dict) else {}
+        self.seen_refs.append(dict(payload.get("external_ref") or {}))
         if len(self.seen_refs) <= self.waits:
             ref = {"external_task_id": "ext-1", "poll": len(self.seen_refs)}
             return _success({"wait": {"external_ref": ref, "not_before": None}})

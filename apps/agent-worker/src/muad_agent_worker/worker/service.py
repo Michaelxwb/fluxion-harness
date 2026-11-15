@@ -49,6 +49,7 @@ from ..metrics import (
 )
 from ..scheduler.service import TASK_DEADLINE_EXCEEDED
 from .claimer import TaskClaimer
+from .dispatch import TaskTypeExecutor
 from .execution_outcomes import (
     DEFAULT_WAIT_SEC,
     TASK_RESULT_UNVERIFIED,
@@ -59,6 +60,7 @@ from .execution_outcomes import (
     interpret_execution,
 )
 from .executor import SkillTaskExecutor, TaskExecutionError, TaskExecutorProtocol
+from .reminder import ReminderExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -267,16 +269,19 @@ class WorkerLoop:
                 usage=metadata,
                 on_quota_rejected=record_workspace_quota_rejected,
             )
-            self._executor = SkillTaskExecutor(
-                skill_artifact_cache,
-                fanout=BatchFanoutService(
-                    self._session_factory,
-                    self._settings,
-                    settings_client=self._settings_client,
+            self._executor = TaskTypeExecutor(
+                reminder=ReminderExecutor(),
+                skill=SkillTaskExecutor(
+                    skill_artifact_cache,
+                    fanout=BatchFanoutService(
+                        self._session_factory,
+                        self._settings,
+                        settings_client=self._settings_client,
+                    ),
+                    workspace_store=workspace_store,
+                    sessions=self._session_factory,
+                    settings=self._settings,
                 ),
-                workspace_store=workspace_store,
-                sessions=self._session_factory,
-                settings=self._settings,
             )
         return self._executor
 

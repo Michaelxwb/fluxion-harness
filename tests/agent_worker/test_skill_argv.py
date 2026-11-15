@@ -25,7 +25,7 @@ async def test_worker_uses_frozen_argv_without_changing_input(
     task = TaskExecution(
         id=uuid4(), tenant_id="cli-test", actor_user_id=uuid4(), agent_id=uuid4(), task_type="SKILL",
         skill_artifact_id=env.skill.artifact_id, input_json={"x": 1}, idempotency_key="cli", attempt=1,
-        external_ref_json=None, deadline_at=datetime.now(UTC) + timedelta(minutes=1),
+        deadline_at=datetime.now(UTC) + timedelta(minutes=1),
         execution_snapshot_json={"argv": ["--company-id", "123", "--company-id", "456"],
                                  "budget": {"execution_timeout_sec": _TIMEOUT_SEC}, "skills": [{
             "artifact_id": str(env.skill.artifact_id), "checksum": env.skill.checksum,

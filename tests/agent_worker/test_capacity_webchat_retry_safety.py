@@ -254,11 +254,10 @@ async def _seed_task(
         "tenant_id": tenant_id,
         "agent_id": agent_id,
         "actor_user_id": actor_id,
-        "intent_key": "retry_safety_probe",
         "skill_id": uuid.uuid4(),
         "skill_artifact_id": artifact_id,
         "trigger_type": "IMMEDIATE",
-        "execution_mode": "ASYNC",
+        "skill_execution_mode": "ASYNC",
         "task_type": "SKILL",
         "status": "QUEUED",
         "input_json": {
@@ -293,10 +292,6 @@ async def _seed_task(
         "max_attempts": 3,
         "not_before": moment,
         "deadline_at": moment + timedelta(hours=1),
-        "delivery_mode": "FINAL_ONLY",
-        "delivery_status": "PENDING",
-        "delivery_key": f"task:{task_id}:final",
-        "delivery_attempts": 0,
     }
     values.update(overrides)
     async with factory() as session, session.begin():
@@ -334,7 +329,10 @@ async def _event_types(factory: async_sessionmaker[AsyncSession], task_id: uuid.
     async with factory() as session:
         rows = await session.scalars(
             select(TaskEvent.event_type)
-            .where(TaskEvent.task_id == task_id)
+            .where(
+                TaskEvent.entity_type == "EXECUTION",
+                TaskEvent.entity_id == task_id,
+            )
             .order_by(TaskEvent.seq.asc())
         )
     return list(rows)

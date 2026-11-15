@@ -317,7 +317,7 @@ async def test_skill_receives_task_context_env(tenant: TenantContext) -> None:
             execution_snapshot_json=_snapshot(checksum),
             idempotency_key="run:r1:skill:policy_check:abc",
             attempt=2,
-            external_ref_json={"external_task_id": "ext-7"},
+            wait_payload_json={"external_ref": {"external_task_id": "ext-7"}},
         )
 
         outcome = await SkillTaskExecutor(cache).execute(task)

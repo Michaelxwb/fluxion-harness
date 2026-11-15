@@ -20,7 +20,9 @@ import sqlalchemy as sa
 from muad_common import SharedSettings
 from muad_contracts import (
     NonCanonicalJsonError,
+    SkillExecutionMode,
     TaskStatus,
+    TaskType,
     canonical_json,
 )
 from sqlalchemy import false, select, update
@@ -30,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ..infrastructure.models.task import TaskExecution
 from .platform_settings import resolve_platform_settings
 from .ports import NullPlatformSettingsClient, PlatformSettingsClient
-from .task_service import EXECUTION_MODE_ASYNC, INITIAL_PRIORITY, TASK_TYPE_SKILL
+from .task_service import INITIAL_PRIORITY
 
 BATCH_PLAN_KEY = "batch"
 AGGREGATE_ALL = "ALL"
@@ -267,8 +269,8 @@ class BatchFanoutService:
             "skill_id": parent.skill_id,
             "skill_artifact_id": parent.skill_artifact_id,
             "trigger_type": parent.trigger_type,
-            "skill_execution_mode": EXECUTION_MODE_ASYNC,
-            "task_type": TASK_TYPE_SKILL,
+            "skill_execution_mode": str(SkillExecutionMode.ASYNC),
+            "task_type": str(TaskType.SKILL),
             "status": str(TaskStatus.QUEUED),
             "input_json": dict(item),
             "execution_snapshot_schema_version": parent.execution_snapshot_schema_version,

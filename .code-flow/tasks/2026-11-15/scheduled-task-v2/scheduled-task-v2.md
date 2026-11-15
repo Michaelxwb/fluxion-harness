@@ -1341,7 +1341,7 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
   - related PASS exit=0
 ## TASK-016: 接通 Reminder、Skill 与现有立即任务执行链
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-008, TASK-010, TASK-015
 - **Source**: scheduled-task-v2.backend.design.md §2.3.2、§3.2.2、§3.3.6、§3.5.6
 - **Scenarios**: S-01, S-02, S-04, S-07, E-02, B-03, B-08, B-09
@@ -1369,7 +1369,8 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
       "tests/agent_worker/test_skill_argv.py",
       "tests/agent_worker/test_capacity_webchat_retry_safety.py",
       "tests/agent_worker/test_worker_outcomes.py",
-      "tests/agent_worker/test_task_defaults_from_settings.py"
+      "tests/agent_worker/test_task_defaults_from_settings.py",
+      "tests/agent_runtime/test_capacity_webchat_clock_lease.py"
     ],
     "timeout": 600,
     "parallel": false
@@ -1383,11 +1384,11 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 
 ### Checklist
 
-- [ ] ReminderExecutor 直接持久化固定文本；断言零模型、零 Skill、零工具调用；结果先落库，投递由独立边界处理。
-- [ ] SkillExecutor 精确使用冻结 artifact/checksum、argv 与 input，Fire resolve latest、重试不漂移；缓存缺失按原产物协议读取，不重新理解自然语言。
-- [ ] Runtime TaskClient/ASYNC 提交、Worker create-task、Child fan-out 同步写新 task_type/skill_execution_mode/Snapshot；不继续发送 intent_key 或旧 delivery 字段。
-- [ ] Skill result/wait 强校验，EXTERNAL_POLL 显式设置等待载荷；非法返回确定性失败，不留无心跳 RUNNING。
-- [ ] 回归 JOIN/DETACH、单 call 身份、CLI 参数、副作用 retry safety、BATCH fan-in 与 lease/deadline；不新增兼容 serializer 或旧状态映射。
+- [x] ReminderExecutor 直接持久化固定文本；断言零模型、零 Skill、零工具调用；结果先落库，投递由独立边界处理。
+- [x] SkillExecutor 精确使用冻结 artifact/checksum、argv 与 input，Fire resolve latest、重试不漂移；缓存缺失按原产物协议读取，不重新理解自然语言。
+- [x] Runtime TaskClient/ASYNC 提交、Worker create-task、Child fan-out 同步写新 task_type/skill_execution_mode/Snapshot；不继续发送 intent_key 或旧 delivery 字段。
+- [x] Skill result/wait 强校验，EXTERNAL_POLL 显式设置等待载荷；非法返回确定性失败，不留无心跳 RUNNING。
+- [x] 回归 JOIN/DETACH、单 call 身份、CLI 参数、副作用 retry safety、BATCH fan-in 与 lease/deadline；不新增兼容 serializer 或旧状态映射。
 
 ### Spec Delta
 
@@ -1399,13 +1400,23 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 
 - [2026-11-15] 承接 `tests/agent_worker/test_task_defaults_from_settings.py`：TASK-002 的 schema 重建（`intent_key`/旧 delivery 列移除）让它在中间态 7 failed，TASK-005 把它从自己的声明测试里移出后无人认领；本任务改执行链时一并把它迁到新协议。
 - [2026-11-15] created (draft)
+- [2026-11-15] `worker/reminder.py` 新增 `ReminderExecutor`（零模型/零 Skill/零工具），`worker/dispatch.py` 新增 `TaskTypeExecutor` 按 `task_type` 分派；REMINDER 结果固定为 `{"text": <原文>}`，缺文本落 `REMINDER_TEXT_MISSING` 确定性失败，未接入的 AGENTIC 显式 `TASK_TYPE_UNSUPPORTED` 而不是降级成 Skill。结果由既有终态事务先写 `result_json`，投递是独立边界。
+- [2026-11-15] 立即任务协议迁移：`CreateTaskRequest` 去掉 `intent_key`/`delivery_mode`，新增 `task_type`/`skill_execution_mode`（SKILL 才要求 skill 列）；Runtime `WorkerTaskClient.submit_task` 与 ASYNC `_submission` 同形发送；Worker `TaskService` 写 `task_type`/`skill_execution_mode`，并把创建时的 `delivery_route` 落成独立 `task_delivery` 意图（`execution:{id}:final`），不再写六个已移除的执行行投递列；Child fan-out 改用 contracts 的 `TaskType`/`SkillExecutionMode`。
+- [2026-11-15] 修 `POST /internal/tasks` 的过期调用：`submission_fingerprint(ENDPOINT_CREATE_TASK, body)` 用的是已改签名（keyword-only），每条 create-task 都抛 TypeError；改回 `endpoint/tenant_id/actor_user_id/action` 关键字形态。
+- [2026-11-15] 迁移 `tests/agent_worker/test_task_defaults_from_settings.py`：调度默认改走 v2 `SchedulerLoop` + 真实 Fire，misfire 的判据是 FIRE 行 `status=SKIPPED, skip_reason=MISFIRE`（不是 Schedule 的 `last_error_code`）；新增立即任务 v2 列与 `task_delivery` 意图断言、Child fan-out 形状断言。**删除两例投递断言**（locale / 退避上限）：执行行的 `delivery_status/delivery_attempts` 事实已不存在，投递默认归 TASK-022 的 `delivery/**`，不以已删除列重写。
+- [2026-11-15] 迁移 `tests/agent_runtime/test_capacity_webchat_clock_lease.py`：Schedule 触发改成种 Schedule+Revision 后用 `resolve_schedule_materials` 替身跑真实 `SchedulerLoop`；`_renew_lease` 断言改读 `LeaseRenewal`（owned/cancel_requested）；`_seed_task` 去掉 intent_key 与旧 delivery 列。
+- [2026-11-15] 同步迁移既有断言到 v2 事实：`WAITING`→`WAITING_EXTERNAL`、`external_ref_json`→`wait_kind`+`wait_payload_json`（test_worker_outcomes）、TaskExecution 夹具去 intent_key（test_task_executor/test_skill_argv/test_capacity_webchat_retry_safety）、事件名 QUEUED 与投递意图表（test_task_service）、JOIN 不建投递行（test_task_handoff）、新 CreateTaskRequest 形状（tests/test_contracts、contracts/test_runtime_strict_json、test_task_contracts）；按新增/删除的模块级常量重算 `docs/configuration-inventory.csv`。
+- [2026-11-15] 新增 `tests/agent_worker/test_scheduled_v2_executors.py`（9 例）：REMINDER 零依赖与确定性失败、分派、冻结 argv/input、重试不漂移、artifact 字节被换即拒、缓存缺失按产物协议、BATCH 父任务只等 fan-in。
+- [2026-11-15] 未纳入本任务：`delivery/**` 仍读已移除的执行行投递列（`DeliveryLoop` 与 `messages.py` 的 `intent_key`），按计划由 TASK-022 以 `task_delivery` 为唯一状态源重做；`api/runtime_operations.py` 等处的 `submission_fingerprint` 旧调用不在本执行链上，未改动。
+- [2026-11-15T08:30:10.389Z] started tests=1641b08d9ea6
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-017"></a>
-
+- 2026-11-15T08:48:04.574Z PASS commands=1/1 executed=1 deduped=0 elapsed=41489ms tests=b9a2a3fac61e head=0f6978878eb3 dirty=1 tests-changed
+  - related PASS exit=0
 ## TASK-017: 以自然语言生成 Draft 并发送专用确认事件
 
 - **Status**: done
