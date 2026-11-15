@@ -522,7 +522,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
   - related PASS exit=0
 ## TASK-006: 接通 Task 凭据身份与 BACKGROUND 模型容量
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-002
 - **Source**: scheduled-task-v2.backend.design.md §3.1.5、API-29、§3.5.6、§4.4
 - **Scenarios**: S-03, S-15, S-17, E-10, B-08
@@ -562,11 +562,11 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Checklist
 
-- [ ] 只允许内部服务身份请求；从可信 Execution owner 校验 tenant/actor/agent，拒绝仅靠 body 伪造归属；不创建 Run。
-- [ ] Task owner 进入 model_call_lease 四选一约束，workload=BACKGROUND；冻结模型池和 summary model 复用同一容量协议。
-- [ ] 预留/续租/结算携带 owner 与 lease fence；过期、重复结算、token usage 与并发上限有明确结果，失约停止本地模型请求。
-- [ ] 凭据实时解析并仅在内存使用；不将 api_key、auth_secret 写入 Snapshot、hash、事件或错误响应。
-- [ ] 验证 RUN/MEMORY_JOB/PROBE 原有 owner 行为不变，Task 的跨租户/用户/Agent 与 lease 伪造均拒绝。
+- [x] 只允许内部服务身份请求；从可信 Execution owner 校验 tenant/actor/agent，拒绝仅靠 body 伪造归属；不创建 Run。
+- [x] Task owner 进入 model_call_lease 四选一约束，workload=BACKGROUND；冻结模型池和 summary model 复用同一容量协议。
+- [x] 预留/续租/结算携带 owner 与 lease fence；过期、重复结算、token usage 与并发上限有明确结果，失约停止本地模型请求。
+- [x] 凭据实时解析并仅在内存使用；不将 api_key、auth_secret 写入 Snapshot、hash、事件或错误响应。
+- [x] 验证 RUN/MEMORY_JOB/PROBE 原有 owner 行为不变，Task 的跨租户/用户/Agent 与 lease 伪造均拒绝。
 
 ### Spec Delta
 
@@ -585,13 +585,22 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T06:18:31.280Z] started tests=a0d73e9f73c3
+- [2026-11-15] API-29 落在 `api/model_capacity.py` 的 `TaskCapacityPort`：`/internal/model-capacity/task-reservations`（+`/{id}/renew|settle`），与 Probe 端口共用同一个 `ModelCapacityService`，owner 类型各自固定、不互相充当对方 API；响应只有 reservation_id/epoch/lease_until（重放与结算同口径）。
+- [2026-11-15] 契约只补了缺的四个 Task 线协议 DTO（`TaskCapacityGrant/TaskCapacityRelease/TaskLeaseRenewal/TaskCallSettlement`），owner/请求沿用 TASK-001 的 `TaskCapacityOwner`/`TaskCapacityReservationRequest`；结算形状复用 `_require_settlement_shape`，不复制不变量。
+- [2026-11-15] 容量归属校验分工：Runtime 按 `task.task_execution` 只读复核 **tenant**（跨租户 404）与 **actor**（`X-Actor-User-Id` 与 Execution 不符即 `TASK_ACCESS_DENIED`，缺头也拒绝）；**agent** 由 Console 凭据解析按 Execution 冻结的 `model.model_id` 复核（跨模型/跨 agent 即 `TASK_ACCESS_DENIED`）。Execution 的 agent 只由该行唯一确定，不是线协议字段，因此没有可伪造的 agent 声明。
+- [2026-11-15] `model_call_lease.owner_type` 现在与四选一 owner 列同源写库（`insert_lease` 写 `request.owner.kind`），`_require_same_attempt` 比较四项 owner 与 `owner_type`；`_owner_reference` 对四类 owner 显式分支，不再用"最后一个分支兜底"。
+- [2026-11-15] 冻结引用在预占前与当前控制面核对（成员/版本/`key_resource_id`/额度组），轮换或换成员即 `MODEL_CREDENTIAL_CHANGED`，不拿新 Key 消费旧槽位；租约执行方身份由 Execution 派生（`task:{execution_id}`），线协议无法声明。
+- [2026-11-15] Worker 侧新增 `infrastructure/task_capacity_client.py`：只发服务身份+租户头+操作者头，`MODEL_CALL_LEASE_LOST` → `CapacityLeaseLost`（调用方停手）、`MODEL_CAPACITY_UNAVAILABLE` → `CapacityUnavailable`（让路），其余/传输失败一律"无结论"。
+- [2026-11-15] 测试：`tests/agent_runtime/test_scheduled_v2_task_capacity.py`（14，真实 uvicorn + 真实 PG 四选一约束 + 真实 Worker 客户端）、`tests/console_internal/test_scheduled_v2_task_credentials.py`（7，真实 HTTP + 真实 `task.task_execution`），并在同批回归 Probe/后台池两套既有用例与 Contract/Console RUN 链。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-007"></a>
-
+- 2026-11-15T06:29:53.139Z PASS commands=1/1 executed=1 deduped=0 elapsed=31123ms tests=a0d73e9f73c3 head=a0a06fc600af dirty=1
+  - related PASS exit=0
 ## TASK-007: 实现 Task-owned ASYNC operation 与持久结果协议
 
 - **Status**: draft
