@@ -83,8 +83,12 @@ def _payload(task: TaskExecution, progress: tuple[int, int] | None = None) -> di
         "trigger_type": task.trigger_type,
         "schedule_fire_id": str(task.schedule_fire_id) if task.schedule_fire_id else None,
         "scheduled_at": _iso(task.scheduled_at),
+        # 等待载荷只在真正等待外部结果时对外可见；其余状态下它是内部事实
+        # （Human 续接会把 pending payload 留在行上，但那时它不是"正在等待"）。
         "wait_kind": task.wait_kind,
-        "wait_payload": task.wait_payload_json,
+        "wait_payload": (
+            task.wait_payload_json if task.status == "WAITING_EXTERNAL" else None
+        ),
         "input": task.input_json,
         "result": task.result_json,
         "result_artifact_id": (

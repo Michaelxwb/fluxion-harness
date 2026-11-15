@@ -28,6 +28,7 @@ from .api.human_interactions import router as human_interactions_router
 from .api.runtime_operations import router as runtime_operations_router
 from .api.schedule_drafts import router as schedule_drafts_router
 from .api.schedules import router as schedules_router
+from .api.task_center import router as task_center_router
 from .api.tasks import router as tasks_router
 from .application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .delivery.artifact_client import ArtifactResolveClient
@@ -305,3 +306,4 @@ app.include_router(admin_tasks_router)
 app.include_router(admin_results_router)
 app.include_router(admin_schedules_router)
 app.include_router(human_interactions_router)
+app.include_router(task_center_router)

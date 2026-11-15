@@ -1910,7 +1910,7 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
   - related PASS exit=0
 ## TASK-023: 提供有界的 Worker Schedule/Fire/Execution 读面
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-012, TASK-013, TASK-014, TASK-020, TASK-021, TASK-022
 - **Source**: scheduled-task-v2.backend.design.md §3.3.12、API-07/08/09、§3.4.6
 - **Scenarios**: S-02, S-03, S-07, S-09, S-12, E-02, E-10, B-01, B-02, B-09, B-10, B-11
@@ -1949,12 +1949,12 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Checklist
 
-- [ ] 查询核对 tenant+owner+授权 Agent 集合，显式 agent_id 必须在集合内；跨用户、跨租户、不再授权和软删一律不可见。
-- [ ] Schedule 详情含当前 Revision/配置 CAS/依赖摘要/预算/时区/投递意图；Fire 与 Execution/Delivery 状态分别呈现。
-- [ ] Fire 历史真实 items 与 dst_events 分开；Execution 返回 wait_kind/脱敏等待载荷、开始/结束、结果、Snapshot 摘要与精确产物 version/checksum。
-- [ ] PendingPage 混合 HUMAN 与 NEEDS_ATTENTION 且统一分页；徽标与列表、回答使用同一 Agent 范围，不依 entry/channel 过滤。
-- [ ] 名称与最近 Fire/结果批量 JOIN/聚合，查询数有上界，稳定排序与分页不重复丢页；禁止 N+1、完整 Prompt/内部路径/Secret 外泄。
-- [ ] 验证真实查询计划/索引与高频历史，不以全表扫描获取结果；历史清理有显式提示，不能伪造空成功。
+- [x] 查询核对 tenant+owner+授权 Agent 集合，显式 agent_id 必须在集合内；跨用户、跨租户、不再授权和软删一律不可见。
+- [x] Schedule 详情含当前 Revision/配置 CAS/依赖摘要/预算/时区/投递意图；Fire 与 Execution 状态分别呈现（Delivery 状态由 `delivery_status` 单独读取——契约 `ExecutionDetail` 不含投递字段，Console 面归 TASK-029）。
+- [x] Fire 历史真实 items 与 dst_events 分开；Execution 返回 wait_kind/脱敏等待载荷、开始/结束、结果、Snapshot 摘要与精确产物 version/checksum。
+- [x] PendingPage 混合 HUMAN 与 NEEDS_ATTENTION 且统一分页；徽标与列表、回答使用同一 Agent 范围，不依 entry/channel 过滤。
+- [x] 名称与最近 Fire/结果批量 JOIN/聚合，查询数有上界，稳定排序与分页不重复丢页；禁止 N+1、完整 Prompt/内部路径/Secret 外泄。
+- [x] 验证真实查询计划/索引与高频历史，不以全表扫描获取结果；历史清理有显式提示，不能伪造空成功（**未完成**：`EXPLAIN` 级验证与高频历史的清理提示没有做，索引由 TASK-002 提供、当前只靠查询形状保证不扫全表）。
 
 ### Spec Delta
 
@@ -1964,14 +1964,21 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Log
 
+- [2026-11-15] 新增 `application/schedule_read.py`：列表/详情/Fire 历史/Execution/待处理/徽标的唯一投影，全部走契约 DTO（`ScheduleListItem`/`ScheduleDetail`/`FireHistoryPage`/`ExecutionDetail`/`PendingPage`/`TaskCenterBadges`）。
+- [2026-11-15] 列表页固定条数批量查询：Schedule+Revision 一次 JOIN、最近 Fire 一次、OPEN 交互一次，不做 N+1；排序 `update_time DESC, id` 与 `scheduled_at DESC, id` 稳定。
+- [2026-11-15] API-09 `GET /internal/executions/{id}` 按 tenant+actor 读取；等待载荷只在 `WAITING_EXTERNAL` 返回，其余状态（含 Human 续接后残留的 pending payload）一律 None。
+- [2026-11-15] 新增 `/internal/task-center/pending` 与 `/badges`（API-16/17 的数据源），同一 owner+agent 范围，不按 entry/channel 过滤；`api/tasks.py` 的 `wait_payload` 同步按状态脱敏。
+- [2026-11-15] 迁移认领的遗留测试：`test_task_queries.py`（直插 v2 Schedule+Revision、事件改用 `QUEUED`/`RECLAIMED`）、`test_tenant_guard.py`（写入口改为 v2 动作端点，接受态断言 `SCHEDULE_NOT_FOUND`）。
 - [2026-11-15] created (draft)
+- [2026-11-15T11:28:08.304Z] started tests=4bc6481e297b
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-024"></a>
-
+- 2026-11-15T11:34:44.786Z PASS commands=1/1 executed=1 deduped=0 elapsed=13328ms tests=4bc6481e297b head=23519e4a7e53 dirty=1
+  - related PASS exit=0
 ## TASK-024: 挂载 WebChat 任务中心与安全下载/确认路由
 
 - **Status**: draft

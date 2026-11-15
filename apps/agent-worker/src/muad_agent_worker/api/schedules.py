@@ -32,6 +32,7 @@ from ..application.schedule_lifecycle import (
     LifecycleOutcome,
     ScheduleService,
 )
+from ..application.schedule_read import ScheduleReadService
 from ..application.submissions import (
     IDEMPOTENCY_HEADER,
     SubmissionEndpoint,
@@ -41,7 +42,12 @@ from ..application.submissions import (
 )
 from ..infrastructure.db import get_session
 from ..infrastructure.db_clock import database_now
-from ..infrastructure.models.task import ScheduleFire, TaskExecution, TaskSchedule
+from ..infrastructure.models.task import (
+    ScheduleFire,
+    TaskExecution,
+    TaskSchedule,
+    TaskScheduleRevision,
+)
 from ..scheduler.client import ScheduleMaterialsProtocol
 from .deps import (
     ActorUserId,
@@ -124,6 +130,23 @@ async def load_schedule(
     if schedule is None or (owner_user_id is not None and schedule.owner_user_id != owner_user_id):
         raise AppError(ErrorCode.SCHEDULE_NOT_FOUND)
     return schedule
+
+
+async def load_current_revision(
+    session: AsyncSession, *, schedule: TaskSchedule
+) -> TaskScheduleRevision:
+    """当前 Revision：详情/Draft 预览都读它；缺失说明确认事务尚未提交，按 404 处理。"""
+    if schedule.current_revision_id is None:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    revision = await session.scalar(
+        select(TaskScheduleRevision).where(
+            TaskScheduleRevision.id == schedule.current_revision_id,
+            TaskScheduleRevision.tenant_id == schedule.tenant_id,
+        )
+    )
+    if revision is None:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    return revision
 
 
 async def page_schedules(
@@ -339,8 +362,7 @@ async def list_schedules(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ApiResponse[Any]:
-    items, total = await page_schedules(
-        session,
+    items, total = await ScheduleReadService(session).list_page(
         tenant_id=tenant_id,
         # Runtime 代表用户查询时只能看到自己的 Schedule，忽略 query 里的 actor。
         owner_user_id=caller_actor or actor_user_id,
@@ -352,7 +374,7 @@ async def list_schedules(
     return ok(
         request.app.state.message_catalog,
         paginate(
-            items=[_payload(schedule) for schedule in items],
+            items=[item.model_dump(mode="json") for item in items],
             page=page,
             page_size=page_size,
             total=total,
@@ -371,7 +393,9 @@ async def get_schedule(
     schedule = await load_schedule(
         session, tenant_id=tenant_id, schedule_id=schedule_id, owner_user_id=caller_actor
     )
-    return ok(request.app.state.message_catalog, _payload(schedule))
+    revision = await load_current_revision(session, schedule=schedule)
+    detail = await ScheduleReadService(session).detail(schedule=schedule, revision=revision)
+    return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
 
 
 @router.get("/{schedule_id}/fires")
@@ -387,18 +411,10 @@ async def list_fires(
     schedule = await load_schedule(
         session, tenant_id=tenant_id, schedule_id=schedule_id, owner_user_id=caller_actor
     )
-    items, total = await page_fires(
-        session, schedule=schedule, page=page, page_size=page_size
+    history = await ScheduleReadService(session).fire_history(
+        schedule=schedule, page=page, page_size=page_size
     )
-    return ok(
-        request.app.state.message_catalog,
-        paginate(
-            items=[_fire_payload(fire, status) for fire, status in items],
-            page=page,
-            page_size=page_size,
-            total=total,
-        ),
-    )
+    return ok(request.app.state.message_catalog, history.model_dump(mode="json"))
 
 
 @router.post("/{schedule_id}/pause")

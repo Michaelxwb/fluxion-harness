@@ -663,6 +663,7 @@ apps/agent-worker/src/muad_agent_worker/application/schedule_quota.py,62,AGENTIC
 apps/agent-worker/src/muad_agent_worker/application/schedule_quota.py,68,DAILY_FIRES,'DAILY_FIRES',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/application/schedule_quota.py,69,AGENTIC_DAILY,'AGENTIC_DAILY',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/application/schedule_quota.py,70,AGENTIC_CONCURRENCY,'AGENTIC_CONCURRENCY',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/application/schedule_read.py,51,DST_EVENT_TYPES,"('DST_GAP_SKIPPED', 'DST_FOLD_SECOND_SKIPPED')",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/application/submissions.py,29,IDEMPOTENCY_HEADER,'Idempotency-Key',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/submissions.py,30,FINGERPRINT_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/submissions.py,36,TASKS,'tasks',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
@@ -794,7 +795,7 @@ apps/agent-worker/src/muad_agent_worker/infrastructure/task_operation_client.py,
 apps/agent-worker/src/muad_agent_worker/infrastructure/task_operation_client.py,179,_TERMINAL,"frozenset((OperationStatus.COMPLETED, OperationStatus.FAILED, OperationStatus.CANCELLED, OperationStatus.LATE))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/infrastructure/wakeup_hint.py,15,TASK_WAKEUP_KEY,'muad:task:wakeup',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/infrastructure/wakeup_hint.py,16,LISTEN_RETRY_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
-apps/agent-worker/src/muad_agent_worker/main.py,54,SERVICE_NAME,'muad-agent-worker',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/main.py,55,SERVICE_NAME,'muad-agent-worker',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/metrics.py,26,TASKS_METRIC,'tasks_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/metrics.py,27,TASK_QUEUE_DEPTH_METRIC,'task_queue_depth',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/metrics.py,28,TASK_RECLAIM_METRIC,'task_reclaim_total',python-constant,code,协议标识、枚举、schema、文本或实现常量

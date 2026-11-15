@@ -12,14 +12,17 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
-from muad_api import ApiResponse, ok
+from muad_api import ApiResponse, AppError, ok
+from muad_api.error_codes import ErrorCode
 from muad_api.security import require_internal_service
 from muad_contracts import ContractModel
 from pydantic import Field, JsonValue
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.remote_cancellation import dispatch_remote_cancels
 from ..application.schedule_lifecycle import ExecutionService
+from ..application.schedule_read import ScheduleReadService
 from ..application.submissions import (
     IDEMPOTENCY_HEADER,
     SubmissionEndpoint,
@@ -29,6 +32,7 @@ from ..application.submissions import (
 )
 from ..infrastructure.db import get_session
 from ..infrastructure.db_clock import database_now
+from ..infrastructure.models.task import TaskExecution
 from .deps import (
     RequiredActorUserId,
     ToolOperationCancellerDep,
@@ -111,3 +115,30 @@ async def cancel_execution(
         now=await database_now(session),
     )
     return ok(request.app.state.message_catalog, payload)
+
+
+@router.get("/{execution_id}")
+async def get_execution(
+    execution_id: uuid.UUID,
+    request: Request,
+    tenant_id: TenantId,
+    session: Session,
+    caller_actor: RequiredActorUserId,
+) -> ApiResponse[Any]:
+    """API-09：Execution 详情的唯一读点（TaskCenter 与 Console 共用同一投影）。
+
+    可见性按 `tenant + actor`：别人的执行一律 404，不泄露存在性。等待载荷只在
+    `WAITING_EXTERNAL` 时返回；其余状态里它只是内部事实（见 `ScheduleReadService`）。
+    """
+    execution = await session.scalar(
+        select(TaskExecution).where(
+            TaskExecution.id == execution_id,
+            TaskExecution.tenant_id == tenant_id,
+            TaskExecution.actor_user_id == caller_actor,
+            TaskExecution.is_deleted.is_(False),
+        )
+    )
+    if execution is None:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    detail = await ScheduleReadService(session).execution_detail(execution=execution)
+    return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
