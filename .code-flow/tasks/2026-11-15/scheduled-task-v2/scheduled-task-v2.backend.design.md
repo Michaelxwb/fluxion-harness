@@ -477,7 +477,7 @@ Preflight 是静态可执行性校验，不是提前执行一次业务任务：
 | Admission | Scheduler 事务外解析 + 短事务落库 | Worker 二次 claim Fire | 避免第二套 lease/reclaim；保留现有 CAS |
 | 执行权威 | Worker TaskExecution + lease | Scheduler 直接执行 | 调度与执行隔离 |
 | Agentic 宿主 | Worker 内嵌共享 Kernel | Worker 调 Runtime Run / 新服务 | 单一执行 owner；无双状态/双 lease |
-| Kernel | 泛化 `packages/agent-core` 的挂起/恢复端口 + 各单元一份 `ExecutionAdapter` | 新写简化 Agent 框架 | 不做半成品；复用完整能力（Kernel 早已在 `agent-core`，不是从 Runtime 抽取） |
+| Kernel | 从 Runtime executor 抽取 | 新写简化 Agent 框架 | 不做半成品；复用完整能力 |
 | 版本 | Schedule 逻辑引用；每 Fire resolve latest；Execution 固定 Snapshot | Schedule pin Artifact | 始终使用最新版 |
 | 历史 | Schedule / Revision / Fire / Execution 分离 | 只存 last_run | 每次触发可追溯 |
 | 投递 | `delivery_intent` + surface capability | 所有通道主动推送 | WebChat pull；WeCom push |
@@ -1563,11 +1563,11 @@ erDiagram
 | API-26 | MSSWWEB 任务产物下载（契约预留，另立需求交付） | GET | `/api/v1/msswwweb/task-center/artifacts/{artifact_id}` | MSSWWEB（不在本需求） |
 | API-27 | 确认 Draft 并执行（创建/更新） | POST | `/internal/schedule-drafts/{id}/confirm` | IM Gateway（已解析 ChatPrincipal；外部 BFF 不直连内部端点） |
 | API-28 | Task artifact 写入/版本 | POST | `/internal/artifacts` | Worker（服务身份 + TASK owner） |
-| API-29 | Task 容量预留/续租/结算 | POST | `/internal/model-capacity/task-reservations`、`.../{id}/renew`、`.../{id}/settle` | Worker（服务身份，TASK owner） |
+| API-29 | Task 容量预留/续租/结算 | POST | `/internal/model-capacity/reservations`（扩展 owner=TASK） | Worker（服务身份） |
 | API-30 | ASYNC 操作提交/取消 | POST | `/internal/tool-operations` | Worker（服务身份 + TASK owner） |
 | API-31 | surface 确认 Draft | POST | `/api/v1/{surface}/schedule-drafts/{id}/confirm` | IM Gateway（ChatPrincipal）→ API-27 |
 
-> API-12..19 是同一组 handler 按 ChatSurface 挂载：Worker 的内部来源是 `/internal/task-center/*`，Gateway 对 WebChat 暴露 `/api/v1/webchat/task-center/*`（MSSWWEB 同形，本需求不落地）。**MSSWWEB 那批（含接入文档 `docs/operations/bff-agent-integration.md`）另立需求**，本需求不交付、也不改 MSSW 入口需求的设计。
+> API-12..19 是同一组 handler 按 ChatSurface 挂载：`/api/v1/webchat/task-center/*` 与 `/api/v1/msswwweb/task-center/*` 路径与投影同形。**MSSWWEB 那批（含接入文档 `docs/operations/bff-agent-integration.md`）另立需求**，本需求不交付、也不改 MSSW 入口需求的设计。
 
 > API-02/03（创建/更新）不单独暴露：它们是 API-27 确认事务内的应用服务方法，避免“确认”和“生效”之间再夹一次模型回合。
 
@@ -2229,41 +2229,28 @@ Timeout sweep -> interaction TIMED_OUT; Execution CANCELLED(HUMAN_TIMEOUT); even
 
 #### 3.5.12 可观测性
 
-**实现口径**：仓库的 api-kit 注册表只有 `counter` / `gauge`（无 histogram）；耗时与字节类
-观察值以 gauge 记录"最近一次样本"，分布由部署层按抓取周期聚合。指标目录分别属于产出该事实的
-部署单元：调度/执行/等待/监督在 Worker `CATALOG`，Task 产物下载在 Runtime `CATALOG`。
-label 只取封闭枚举（状态、原因码、任务类型、循环名），不含资源 ID、原始指令或参数。
+| 指标 | 说明 |
+|---|---|
+| `schedule_active_count` | ACTIVE 数量（gauge） |
+| `schedule_due_lag_seconds` | 计划到 Fire 创建延迟 |
+| `schedule_fire_created_total` | Fire 生成数 |
+| `schedule_fire_duplicate_total` | 唯一约束阻止重复数 |
+| `schedule_fire_skipped_total` | 跳过数（label: reason） |
+| `schedule_admission_failed_total` | 准入失败数（label: reason/class） |
+| `schedule_needs_attention_total` | NEEDS_ATTENTION 数（gauge） |
+| `task_execution_duration_seconds` | Execution 耗时（label: task_type） |
+| `task_waiting_human_count` | WAITING_HUMAN 数（gauge） |
+| `task_waiting_external_count` | WAITING_EXTERNAL 数（gauge） |
+| `task_human_timeout_total` | Human 超时数 |
+| `task_snapshot_bytes` | Snapshot 字节数分布/上限告警 |
+| `task_async_operation_total` | ASYNC Skill operation（label: status） |
+| `task_artifact_download_total` | 任务产物下载（label: outcome） |
+| `task_delivery_sent_total` / `task_delivery_failed_total` | 投递结果 |
+| `task_query_only_total` | WebChat/MSSWWEB 任务中心查询数 |
+| `schedule_timezone_resolution_error_total` | 时区解析失败 |
+| `schedule_misfire_total` | 错过处理数 |
 
-| 指标（实现名） | 类型 | label | 说明 |
-|---|---|---|---|
-| `schedule_active_count` | gauge | — | ACTIVE Schedule 数 |
-| `schedule_needs_attention_count` | gauge | — | NEEDS_ATTENTION 数（长期非零即告警） |
-| `schedule_due_lag_seconds` | gauge | — | 计划槽到调度扫描的延迟（最近一次） |
-| `scheduled_fire_total` | counter | `status` | 每次 occurrence 的 Fire 结局 |
-| `schedule_fire_created_total` | counter | — | 真正建出 Execution 的 Fire |
-| `schedule_fire_duplicate_total` | counter | — | 唯一约束拦下的重复 Fire |
-| `schedule_fire_skipped_total` | counter | `reason` | 跳过数（QUOTA/OVERLAP/MISFIRE） |
-| `schedule_admission_failed_total` | counter | `reason` | 准入失败数（目录错误码） |
-| `schedule_timezone_resolution_error_total` | counter | — | 时区/规则解析失败 |
-| `scheduled_misfire_total` | counter | — | 错过处理数（与 `missed_count` 同口径） |
-| `task_execution_duration_seconds` | gauge | `type` | Execution 终态耗时（最近一次） |
-| `task_waiting_human_count` / `task_waiting_external_count` | gauge | — | 两类等待中的 Execution 数 |
-| `task_human_timeout_total` | counter | — | Human 超时收尾数 |
-| `task_snapshot_bytes` | gauge | — | 最近一次组装的 Snapshot 字节数 |
-| `task_async_operation_total` | counter | `status` | ASYNC operation 提交结局 |
-| `task_artifact_download_total` | counter | `outcome` | Task 产物指定版本解析（Runtime 目录） |
-| `delivery_total` / `delivery_failed_total` | counter | `status`；— | 投递结果（既有口径，不另起同义名） |
-| `task_query_only_total` | counter | — | WebChat/MSSWWEB 任务中心查询数 |
-| `context_compaction_total` | counter | `layer`/`status` | 压缩层结局；失败降级必须可见 |
-| `worker_loop_tick_total` | counter | `loop`/`status` | 每个独立后台循环的节拍结局 |
-| `worker_loop_stale_total` | counter | `loop` | 循环超过自身节拍仍不能前进 |
-| `worker_loop_restart_total` | counter | `loop` | 监督器重启循环 |
-
-**独立循环监督**：领取、维护（回收）、到期扫描、deadline、外部结果补扫、投递、结果发件、
-Human 超时、保留清理、状态 gauge 与 workspace 维护各是一个任务；`LoopSupervisor` 用自己的
-节拍检查"任务退出 / 心跳超时"，发现即计数、记录并退避重启；shutdown 先取消监督器，再有界
-等待全部循环。慢扫描因此既不会推迟其它循环，也不会静默死掉。
-
+- 指标登记进 Worker `CATALOG`；gauge/counter 区分。
 - Trace 字段：tenant_id、脱敏 owner_user_id、schedule_id、revision、fire_id、execution_id、agent_id、skill_key/version、task_type、timezone、scheduled_at、delivery_intent、trace_id。
 - 不把用户原始指令、敏感参数、Secret 放入 label。
 
@@ -2356,25 +2343,24 @@ flowchart TB
 | 6 | Human/配额/保留 + ASYNC Skill | 场景验收（S-17/E-07/E-15）+ Task-owned inbox 集成测试绿 | 旧镜像 |
 
 - 每个阶段是可独立交付的批次：阶段 2 完成后 Runtime 生产路径已走泛化 Kernel，阶段 3 才允许 Worker 接入；不允许“先合并 Worker 适配器再回头改 Kernel”。
-- 回滚以**阶段**为单位：迁移前是镜像回滚；迁移后是**备份恢复 + 对应镜像**，因为 `0050` 重建了调度表，旧镜像读不懂新列。
+- 回滚以**阶段**为单位（镜像回滚 + 该阶段新增表/端点的开关），不是只能整库恢复。
+
 - 不做双写/兼容视图；一个版本切换所有消费者。
 - 破坏性迁移前备份；回滚整体恢复备份 + 旧镜像。
 - 不在回滚时把 Schedule 改回 pin 旧 Artifact。
-- 可执行步骤（停旧服务/查残留、备份与校验、排空在途、迁移出口检查、统一切换、两种回滚路径、监控信号）以 `docs/operations/scheduled-task-v2-release.md` 为准；本文只保留阶段门槛。
 
 ### 4.3 监控告警
 
-| 信号 | 指标（实现名） | 条件 | 级别 | 处理 |
-|---|---|---|---|---|
-| due lag | `schedule_due_lag_seconds` | 超过压测预算 | P1 | 检查 Scheduler/DB 锁 |
-| Fire/Execution 对账差异 | `scheduled_fire_total` vs `schedule_fire_created_total` | >0 且不可解释 | P1 | 检查事务/幂等 |
-| Admission Failed | `schedule_admission_failed_total{reason}` | 突增 | P1 | 检查 Skill/Tool/Grant |
-| NEEDS_ATTENTION | `schedule_needs_attention_count` | 长期未处理 | P2 | 提醒用户修复 |
-| Human 超时 | `task_human_timeout_total` | 超阈值 | P2 | 检查交互/deadline |
-| Delivery Failed | `delivery_total{status="FAILED"}` | 持续 | P1 | 检查 IM Gateway |
-| Timezone Error | `schedule_timezone_resolution_error_total` | >0 | P1 | 检查 TZDB/输入 |
-| Duplicate Fire | `schedule_fire_duplicate_total` | 实际重复执行 | P0 | 停调度/查唯一约束 |
-| 循环卡死 | `worker_loop_stale_total{loop}` | 出现 | P1 | 查该 loop 的慢调用；监督器已重启 |
+| 指标 | 条件 | 级别 | 处理 |
+|---|---|---|---|
+| due lag | 超过压测预算 | P1 | 检查 Scheduler/DB 锁 |
+| Fire/Execution 对账差异 | >0 且不可解释 | P1 | 检查事务/幂等 |
+| Admission Failed | 突增 | P1 | 检查 Skill/Tool/Grant |
+| NEEDS_ATTENTION | 长期未处理 | P2 | 提醒用户修复 |
+| Human 超时 | 超阈值 | P2 | 检查交互/deadline |
+| Delivery Failed | 持续 | P1 | 检查 IM Gateway |
+| Timezone Error | >0 | P1 | 检查 TZDB/输入 |
+| Duplicate Fire | 实际重复执行 | P0 | 停调度/查唯一约束 |
 
 ### 4.4 一次性重建迁移
 
@@ -2415,7 +2401,7 @@ Create 顺序相反；保留 `task.workspace`/`workspace_lease`。
 10. `runtime.artifact` 复用 `task_id`（值 = `task_execution.id`）：Task-owned 行 `run_id` 为 NULL（XOR 不变），存储键不得依赖 `run_id`（改为 `tasks/{tenant}/{execution_id}/...`），并新增写入/版本端点（API-28）与 owner+agent 下载校验。
 11. `task.task_execution` 加 `started_at/finished_at/wait_kind/wait_payload_json`；等待索引只用 `wait_payload_json.operations[]`。
 12. `task.task_execution_checkpoint.state_json` 支持 `pending_tool_calls[]` 多 operation。
-13. **不导入、不映射旧 `WAITING` 行**：`0050` 按 §3.1.4 直接重建调度表，开发阶段无历史数据；旧 `WAITING` 到 `WAITING_EXTERNAL/WAITING_HUMAN` 的映射没有落点，也不写迁移代码。若将来需要保留历史，另写一次性 importer（不走双写），由它决定 `wait_kind` 与 `wait_payload_json`。
+13. 旧 `WAITING` 任务（如有）映射 `WAITING_EXTERNAL`：`external_ref_json` 含 `batch_ref` → `wait_kind=BATCH_FANIN`；否则 `EXTERNAL_POLL`；`wait_payload_json` 按迁移时事实重写。
 14. `task.schedule_fire` 不新增 gap 身份；gap/second-fold 写 SCHEDULE 事件。
 15. `draft_hash` 统一 `varchar(71)`（含 `sha256:`）。
 16. 迁移后跑 `alembic upgrade head` + schema contract tests。
@@ -2438,7 +2424,7 @@ Create 顺序相反；保留 `task.workspace`/`workspace_lease`。
 
 | 依赖 | 内容 | 状态 | 风险 |
 |---|---|---|---|
-| Agent Runtime | Kernel 端口泛化、Model/Tool/Memory 装配、交互式回归 | P0 | 高 |
+| Agent Runtime | Kernel 抽取、Model/Tool/Memory 装配、交互式回归 | P0 | 高 |
 | Agent Worker | Scheduler、Fire、Execution、Lease、三种 Executor | P0 | 高 |
 | Console Platform | Skill/MCP/Grant/Model 解析；Console 页面 | P0 | 高 |
 | IM Gateway | ChatSurface、WebChat/MSSWWEB、WeCom push | P0 | 高 |
@@ -2530,7 +2516,7 @@ Create 顺序相反；保留 `task.workspace`/`workspace_lease`。
 | Draft | 待用户确认的创建/更新配置；Preflight 结果 |
 | Fire | 某一个计划 occurrence 的持久化台账 |
 | Execution | Fire 对应的真实执行实例 |
-| missed_count | 一次跳过区间内**额外**错过的 occurrence 数（不含这条 SKIPPED Fire 自身代表的最近一次；与 `scheduled_misfire_total` 同口径） |
+| missed_count | 一次跳过区间内连续错过的 occurrence 数 |
 | Snapshot v4 | 冻结 Agent/Model/Tool/Skill/MCP/Memory/Budget/Allowlist 的执行快照 |
 | Kernel | Runtime/Worker 共用的 Agent 执行内核 |
 | delivery_intent | PUSH / NONE；由 surface 能力决定 |
