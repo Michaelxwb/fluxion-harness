@@ -37,7 +37,7 @@ acceptance-e2e:
 
 # 15 条跨域 smoke 白名单（e2e/scenarios/smoke-15.scenarios.md，测试以 @smoke 标记）。
 # 一次 build，逐域只跑 @smoke；本地 fail-fast，CI 的 smoke job 另行汇总失败。
-SMOKE_DOMAINS = console-auth overview-dashboard model-management agent skill mcp platform user-identity settings task-schedule-e2e audit-observability run-observability-e2e webchat-e2e
+SMOKE_DOMAINS = console-auth overview-dashboard model-management agent skill mcp platform user-identity settings task-schedule-e2e audit-observability run-observability-e2e webchat-e2e scheduled-task-v2
 
 smoke:
 	npm --prefix apps/console-platform/frontend run build

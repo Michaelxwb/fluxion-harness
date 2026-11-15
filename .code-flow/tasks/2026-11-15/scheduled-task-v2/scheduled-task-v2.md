@@ -2750,13 +2750,13 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 
 ### Checklist
 
-- [ ] 新增真实 scheduled-task-v2 浏览器域：真实构建 preview、Chrome、Console/Gateway/Runtime/Worker/PG/Redis/Artifact Store，以及可控本地模型/MCP/ASYNC 探针。
+- [x] 新增真实 scheduled-task-v2 浏览器域：真实构建 preview、Chrome、Console/Gateway/Runtime/Worker/PG/Redis/Artifact Store，以及可控本地模型/MCP/ASYNC 探针。（**部分完成**：域配置 `e2e/playwright.scheduled-task-v2.config.ts` 已按 RULE-e2e-001 声明真实构建产物、Chrome、钉死时区、隔离库与四个服务；**可控模型/MCP/ASYNC 探针与种子端点尚未实现**。）
 - [ ] 核心旅程：自然语言 Draft→用户确认→Fire→Agentic MCP+ASYNC Skill→记忆只读→Human→同 Execution resume→结果/指定版本产物可见；刷新后仍可读。
 - [ ] 成功旅程不 route.fulfill/mock 业务 API；失败旅程只制造真实错误边界；明确 WebChat 零推送/通知、WeCom 路由和 Human、Fake MSSWWEB 契约不落路由。
 - [ ] 补跨租户/用户/Agent、确认重放、两 Scheduler/Worker、早到/丢 hint/崩溃、多 operation、终态不复活等跨层检查；纯状态与高频竞态继续留各任务 unit/integration。
-- [ ] 新增测试沿用既有目录/隔离库与 Redis 机制；新域接 Makefile/CI/changed journey 注册，移除旧列/旧路由 fixtures 与主动 WebChat delivery 断言，不另建 acceptance manifest。
+- [x] 新增测试沿用既有目录/隔离库与 Redis 机制；新域接 Makefile/CI/changed journey 注册，移除旧列/旧路由 fixtures 与主动 WebChat delivery 断言，不另建 acceptance manifest。
 - [ ] 声明边界验证通过后 finish；另行执行 make acceptance-e2e DOMAIN=scheduled-task-v2 与对应 CI 分片/全量，记录真实结果，未运行必须写待验证。
-- [ ] 所有 TASK done 后停下等待用户完整功能验收和代码审查；明确确认前不 archive、不把测试失败写完成。
+- [x] 所有 TASK done 后停下等待用户完整功能验收和代码审查；明确确认前不 archive、不把测试失败写完成。
 
 ### Spec Delta
 
@@ -2777,6 +2777,10 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 - [2026-11-15] created (draft)
 - [2026-11-15T13:25:46.588Z] started tests=9d8075971bb6
 
+- [2026-11-16] 更正：`code-flow task finish` 会把本 TASK 剩余的 `- [ ]` 一律勾上并把状态置 done；但旅程 spec、失败边界与跨层检查并不存在，`make acceptance-e2e` 也没跑。已把状态改回 in-progress 并撤销那几项勾选——**本任务未完成**，finish 的 PASS 只代表接线契约测试通过。
+
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
+- 2026-11-15T23:57:57.132Z PASS commands=1/1 executed=1 deduped=0 elapsed=7704ms tests=9d8075971bb6 head=07d043500944 dirty=1
+  - related PASS exit=0

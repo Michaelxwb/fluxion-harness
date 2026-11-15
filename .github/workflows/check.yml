@@ -347,7 +347,7 @@ jobs:
           mkdir -p /tmp/smoke-logs
           for domain in \
             console-auth overview-dashboard model-management agent skill mcp \
-            platform user-identity settings task-schedule-e2e \
+            platform user-identity settings task-schedule-e2e scheduled-task-v2 \
             audit-observability run-observability-e2e webchat-e2e
           do
             echo "::group::smoke ${domain}"
@@ -466,7 +466,7 @@ jobs:
           for domain in \
             agent audit-observability console-auth mcp \
             model-management overview-dashboard platform run-observability-e2e run-observability-regression settings skill \
-            task-schedule-e2e task-schedule-regression user-identity webchat-e2e webchat-regression
+            task-schedule-e2e task-schedule-regression scheduled-task-v2 user-identity webchat-e2e webchat-regression
           do
             echo "::group::e2e ${domain}"
             log="/tmp/e2e-logs/${domain}.log"
