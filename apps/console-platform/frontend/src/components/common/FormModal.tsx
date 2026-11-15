@@ -15,6 +15,8 @@ export interface FormModalProps {
   onOk(): void;
   onCancel(): void;
   getFormApi?(api: FormApi): void;
+  /** 打开时的初始值；调用方用 `key` 让弹窗在换目标时重挂载，初始值才会重新生效。 */
+  initValues?: Record<string, unknown>;
   onSubmit?(values: Record<string, unknown>): void;
   children?: ReactNode;
 }
@@ -41,6 +43,7 @@ export function FormModal(props: FormModalProps) {
         className="app-modal-form"
         labelPosition="top"
         labelAlign="left"
+        initValues={props.initValues}
         getFormApi={props.getFormApi}
         onSubmit={props.onSubmit}
       >

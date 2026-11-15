@@ -3,13 +3,22 @@
  * restore from the recycle bin and read version history.
  */
 
-import { Button, Form, SideSheet, Spin, Switch } from '@douyinfe/semi-ui';
+import { Button, Form, Radio, SideSheet, Spin, Switch } from '@douyinfe/semi-ui';
 import type { FormApi } from '@douyinfe/semi-ui/lib/es/form';
-import { IconPlus } from '@douyinfe/semi-icons';
+import {
+  IconDelete,
+  IconHistory,
+  IconPause,
+  IconPlay,
+  IconPlus,
+  IconUndo
+} from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
-import { newRequestId } from '../../api/client';
+import { apiErrorBody, newRequestId } from '../../api/client';
+import i18n from '../../i18n';
 import { ConfirmAction } from '../../components/common/ConfirmAction';
 import { DataTable } from '../../components/common/DataTable';
 import { DateTimeText } from '../../components/common/DateTimeText';
@@ -26,6 +35,13 @@ import {
   listMemoryHistory
 } from './services/users';
 import type { MemoryCommandInput, MemoryItem } from './memoryTypes';
+import {
+  MEMORY_PREDICATE_MAP,
+  MEMORY_PREDICATES,
+  SCOPE_VALUES,
+  predicateLabel,
+  type ScopeDimension
+} from './memoryTaxonomy';
 
 const DEFAULT_PAGE_SIZE = 15;
 
@@ -38,8 +54,13 @@ export interface MemoryTabProps {
 interface CreateValues {
   title: string;
   predicate: string;
+  scopeState: 'ABSENT' | 'EXPLICIT';
+  audience?: string;
+  region?: string;
+  summary?: string;
   content: string;
   tags?: string;
+  expiresAt?: Date;
 }
 
 interface EditValues {
@@ -55,6 +76,47 @@ export function formatMemoryContent(content: Record<string, unknown>): string {
   return Object.entries(content)
     .map(([key, item]) => `${key}=${typeof item === 'string' ? item : JSON.stringify(item)}`)
     .join('；');
+}
+
+function contentValue(item: MemoryItem): string {
+  if (item.memory_kind === 'NOTE') {
+    const text = item.content.text;
+    return typeof text === 'string' ? text : formatMemoryContent(item.content);
+  }
+  return formatMemoryContent(item.content);
+}
+
+/** 仅展示该 predicate 真正支持的 scope 维度；维度内外值来自受控词表。 */
+function ScopeSelect(props: {
+  field: string;
+  label: string;
+  dimension: ScopeDimension;
+  predicate: string;
+  locale: string;
+}) {
+  const supported = MEMORY_PREDICATE_MAP.get(props.predicate)?.scopeDimensions.includes(props.dimension);
+  if (supported !== true) return null;
+  const { t } = useTranslation();
+  return (
+    <Form.Select
+      field={props.field}
+      label={props.label}
+      optionList={SCOPE_VALUES[props.dimension].map((value) => ({
+        value,
+        label: t(`user.memory.scope.${props.dimension}.${value}`)
+      }))}
+      helpText={t('user.memory.form.scopeDimensionHint')}
+    />
+  );
+}
+
+/** 记忆命令错误码 → 本地化文案键；未登记的错误码一律回落通用失败。 */
+function memoryErrorText(t: TFunction, error: unknown): string {
+  const code = apiErrorBody(error)?.code;
+  if (code !== undefined && i18n.exists(`user.memory.error.${code}`)) {
+    return t(`user.memory.error.${code}`);
+  }
+  return t('user.memory.errorFallback');
 }
 
 const KNOWN_AUTHORS = new Set(['USER', 'ADMIN', 'AGENT']);
@@ -74,6 +136,8 @@ export function MemoryTab(props: MemoryTabProps) {
   const [failed, setFailed] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [createVisible, setCreateVisible] = useState(false);
+  const [createPredicate, setCreatePredicate] = useState('general');
+  const [createScopeState, setCreateScopeState] = useState<'ABSENT' | 'EXPLICIT'>('ABSENT');
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<MemoryItem | null>(null);
   const [saving, setSaving] = useState(false);
@@ -100,8 +164,8 @@ export function MemoryTab(props: MemoryTabProps) {
       delete pendingCommandKeys.current[input.action];
       await load();
       props.onMutated?.();
-    } catch {
-      setActionError(t('user.memory.errorFallback'));
+    } catch (error) {
+      setActionError(memoryErrorText(t, error));
     }
   };
 
@@ -129,10 +193,28 @@ export function MemoryTab(props: MemoryTabProps) {
 
 
 
+  /** 表单只选 predicate 与单值内容：memory_kind 由 taxonomy 派生，内容写法随 kind 归一。 */
   const submitCreate = async (values: CreateValues) => {
     setCreating(true);
     setActionError(null);
     try {
+      const spec = MEMORY_PREDICATE_MAP.get(values.predicate);
+      if (spec === undefined) {
+        throw new Error('unknown predicate');
+      }
+      const scope: Record<string, string> = {};
+      if (values.scopeState === 'EXPLICIT') {
+        if (spec.scopeDimensions.includes('audience') && values.audience) {
+          scope.audience = values.audience;
+        }
+        if (spec.scopeDimensions.includes('region') && values.region) {
+          scope.region = values.region;
+        }
+        if (Object.keys(scope).length === 0) {
+          setActionError(t('user.memory.form.scopeRequired'));
+          return;
+        }
+      }
       const tags = (values.tags ?? '')
         .split(',')
         .map((tag) => tag.trim())
@@ -142,22 +224,26 @@ export function MemoryTab(props: MemoryTabProps) {
         {
           action: 'CREATE',
           candidate: {
-            predicate: values.predicate || 'general',
-            scope_state: 'ABSENT',
-            content: { value: values.content },
+            predicate: spec.key,
+            scope_state: values.scopeState,
+            scope,
+            content: spec.kind === 'NOTE' ? { text: values.content } : { value: values.content },
             title: values.title,
-            summary: '',
-            tags
+            summary: values.summary ?? '',
+            tags,
+            expires_at: values.expiresAt ? values.expiresAt.toISOString() : null
           }
         },
         newRequestId()
       );
       setCreateVisible(false);
+      setCreatePredicate('general');
+      setCreateScopeState('ABSENT');
       formApi.current?.reset();
       await load();
       props.onMutated?.();
-    } catch {
-      setActionError(t('user.memory.errorFallback'));
+    } catch (error) {
+      setActionError(memoryErrorText(t, error));
     } finally {
       setCreating(false);
     }
@@ -177,7 +263,11 @@ export function MemoryTab(props: MemoryTabProps) {
           updates: {
             title: values.title,
             summary: values.summary,
-            content: { ...editing.content, text: values.content }
+            // 身份字段不可改；单值内容按本行 kind 的写法回写（NOTE=text，其余=value）。
+            content:
+              editing.memory_kind === 'NOTE'
+                ? { ...editing.content, text: values.content }
+                : { ...editing.content, value: values.content }
           }
         },
         newRequestId()
@@ -203,8 +293,8 @@ export function MemoryTab(props: MemoryTabProps) {
         setHistory(data.items);
         setHistoryTotal(data.total);
         setHistoryPage(nextPage);
-      } catch {
-        setActionError(t('user.memory.errorFallback'));
+      } catch (error) {
+        setActionError(memoryErrorText(t, error));
       } finally {
         setHistoryLoading(false);
       }
@@ -218,8 +308,8 @@ export function MemoryTab(props: MemoryTabProps) {
       const data = await listMemoryConflicts(props.userId, { page: 1, page_size: 20 });
       setConflicts(data.items);
       setConflictTotal(data.total);
-    } catch {
-      setActionError(t('user.memory.errorFallback'));
+    } catch (error) {
+      setActionError(memoryErrorText(t, error));
     } finally {
       setConflictLoading(false);
     }
@@ -240,8 +330,8 @@ export function MemoryTab(props: MemoryTabProps) {
       await loadConflicts();
       await load();
       props.onMutated?.();
-    } catch {
-      setActionError(t('user.memory.errorFallback'));
+    } catch (error) {
+      setActionError(memoryErrorText(t, error));
     }
   };
 
@@ -300,19 +390,12 @@ export function MemoryTab(props: MemoryTabProps) {
           {
             title: t('user.memory.content'),
             dataIndex: 'title',
-            width: 120,
+            width: 196,
             render: (_value: string, item: MemoryItem) => (
               <Button
                 theme="borderless"
                 disabled={!props.canManage || item.status === 'DELETED'}
-                onClick={() => {
-                  setEditing(item);
-                  editFormApi.current?.setValues({
-                    title: item.title,
-                    summary: item.summary,
-                    content: formatMemoryContent(item.content)
-                  });
-                }}
+                onClick={() => setEditing(item)}
               >
                 <TableText title={formatMemoryContent(item.content)}>
                   {`${item.title}：${item.summary || formatMemoryContent(item.content)}`}
@@ -352,25 +435,33 @@ export function MemoryTab(props: MemoryTabProps) {
             key: 'actions',
             title: t('user.columns.action'),
             fixed: 'right' as const,
-            width: 196,
+            width: 120,
             className: 'table-actions-cell',
             render: (_value: unknown, item: MemoryItem) => (
               <div className="memory-row-actions">
                 <Button
                   theme="borderless"
                   size="small"
+                  icon={<IconHistory />}
+                  aria-label={t('user.memory.history')}
+                  title={t('user.memory.history')}
                   onClick={() => {
                     setHistoryOf(item);
                     void loadHistory(item, 1);
                   }}
-                >
-                  {t('user.memory.history')}
-                </Button>
+                />
                 {props.canManage && item.status !== 'DELETED' ? (
                   <>
                     <Button
                       theme="borderless"
                       size="small"
+                      icon={item.status === 'ACTIVE' ? <IconPause /> : <IconPlay />}
+                      aria-label={
+                        item.status === 'ACTIVE' ? t('user.memory.disable') : t('user.memory.enable')
+                      }
+                      title={
+                        item.status === 'ACTIVE' ? t('user.memory.disable') : t('user.memory.enable')
+                      }
                       onClick={() =>
                         void runCommand({
                           action: item.status === 'ACTIVE' ? 'DISABLE' : 'ENABLE',
@@ -378,12 +469,12 @@ export function MemoryTab(props: MemoryTabProps) {
                           expected_version: item.version
                         })
                       }
-                    >
-                      {item.status === 'ACTIVE' ? t('user.memory.disable') : t('user.memory.enable')}
-                    </Button>
+                    />
                     <ConfirmAction
                       type="danger"
                       size="small"
+                      icon={<IconDelete />}
+                      ariaLabel={t('user.memory.delete')}
                       title={t('user.memory.confirmDelete')}
                       onConfirm={() =>
                         void runCommand({
@@ -392,14 +483,14 @@ export function MemoryTab(props: MemoryTabProps) {
                           expected_version: item.version
                         })
                       }
-                    >
-                      {t('user.memory.delete')}
-                    </ConfirmAction>
+                    />
                   </>
                 ) : null}
                 {props.canManage && item.status === 'DELETED' ? (
                   <ConfirmAction
                     size="small"
+                    icon={<IconUndo />}
+                    ariaLabel={t('user.memory.restore')}
                     title={t('user.memory.confirmRestore')}
                     onConfirm={() =>
                       void runCommand({
@@ -408,9 +499,7 @@ export function MemoryTab(props: MemoryTabProps) {
                         expected_version: item.version
                       })
                     }
-                  >
-                    {t('user.memory.restore')}
-                  </ConfirmAction>
+                  />
                 ) : null}
               </div>
             )
@@ -428,27 +517,110 @@ export function MemoryTab(props: MemoryTabProps) {
         }}
       />
       <FormModal
+        key={createVisible ? 'memory-create-open' : 'memory-create-closed'}
         visible={createVisible}
         title={t('user.memory.createTitle')}
         okText={t('user.memory.add')}
         confirmLoading={creating}
+        initValues={{ predicate: 'general', scopeState: 'ABSENT' }}
         onOk={() => formApi.current?.submitForm()}
-        onCancel={() => setCreateVisible(false)}
+        onCancel={() => {
+          setCreateVisible(false);
+          setCreatePredicate('general');
+          setCreateScopeState('ABSENT');
+        }}
         getFormApi={(api) => {
           formApi.current = api as FormApi<CreateValues>;
         }}
         onSubmit={(values) => void submitCreate(values as unknown as CreateValues)}
       >
+        <Form.Select
+          field="predicate"
+          label={t('user.memory.form.predicate')}
+          rules={[{ required: true }]}
+          optionList={MEMORY_PREDICATES.map((item) => ({
+            value: item.key,
+            label: predicateLabel(item, i18n.language)
+          }))}
+          onChange={(value) => {
+            const key = String(value);
+            setCreatePredicate(key);
+            if ((MEMORY_PREDICATE_MAP.get(key)?.scopeDimensions.length ?? 0) === 0) {
+              setCreateScopeState('ABSENT');
+            }
+          }}
+          helpText={t('user.memory.form.predicateHint')}
+        />
+        <Form.RadioGroup
+          field="scopeState"
+          label={t('user.memory.form.scopeState')}
+          initValue="ABSENT"
+          onChange={(event) => {
+            const value = String(event.target.value);
+            setCreateScopeState(value === 'EXPLICIT' ? 'EXPLICIT' : 'ABSENT');
+          }}
+          helpText={t('user.memory.form.scopeHint')}
+        >
+          <Radio value="ABSENT">{t('user.memory.form.scopeAbsent')}</Radio>
+          <Radio
+            value="EXPLICIT"
+            disabled={(MEMORY_PREDICATE_MAP.get(createPredicate)?.scopeDimensions.length ?? 0) === 0}
+          >
+            {t('user.memory.form.scopeExplicit')}
+          </Radio>
+        </Form.RadioGroup>
+        {createScopeState === 'EXPLICIT' ? (
+          <>
+            <ScopeSelect
+              field="audience"
+              label={t('user.memory.form.audience')}
+              dimension="audience"
+              predicate={createPredicate}
+              locale={i18n.language}
+            />
+            <ScopeSelect
+              field="region"
+              label={t('user.memory.form.region')}
+              dimension="region"
+              predicate={createPredicate}
+              locale={i18n.language}
+            />
+          </>
+        ) : null}
         <Form.Input field="title" label={t('user.memory.title')} rules={[{ required: true }]} />
-        <Form.Input field="predicate" label={t('user.memory.categoryLabel')} initValue="general" />
-        <Form.TextArea field="content" label={t('user.memory.content')} rules={[{ required: true }]} />
-        <Form.Input field="tags" label="tags" />
+        <Form.Input field="summary" label={t('user.memory.summary')} />
+        <Form.TextArea
+          field="content"
+          label={t('user.memory.content')}
+          rules={[{ required: true }]}
+          placeholder={t(
+            MEMORY_PREDICATE_MAP.get(createPredicate)?.kind === 'NOTE'
+              ? 'user.memory.form.contentHint.text'
+              : 'user.memory.form.contentHint.value'
+          )}
+        />
+        <Form.Input field="tags" label={t('user.memory.tags')} helpText={t('user.memory.form.tagsHint')} />
+        <Form.DatePicker
+          field="expiresAt"
+          label={t('user.memory.form.expiresAt')}
+          helpText={t('user.memory.form.expiresAtHint')}
+        />
       </FormModal>
       <FormModal
+        key={editing?.id ?? 'memory-edit-closed'}
         visible={editing !== null}
         title={t('user.memory.editTitle')}
         okText={t('common.save')}
         confirmLoading={saving}
+        initValues={
+          editing === null
+            ? undefined
+            : {
+                title: editing.title,
+                summary: editing.summary,
+                content: contentValue(editing)
+              }
+        }
         onOk={() => editFormApi.current?.submitForm()}
         onCancel={() => setEditing(null)}
         getFormApi={(api) => {
@@ -456,6 +628,14 @@ export function MemoryTab(props: MemoryTabProps) {
         }}
         onSubmit={(values) => void submitEdit(values as unknown as EditValues)}
       >
+        {editing === null ? null : (
+          <div className="detail-hint">
+            {t('user.memory.form.identityReadonly', {
+              kind: t(`user.memory.kind.${editing.memory_kind}`),
+              predicate: editing.predicate
+            })}
+          </div>
+        )}
         <Form.Input field="title" label={t('user.memory.title')} rules={[{ required: true }]} />
         <Form.Input field="summary" label={t('user.memory.summary')} />
         <Form.TextArea field="content" label={t('user.memory.content')} rules={[{ required: true }]} />
