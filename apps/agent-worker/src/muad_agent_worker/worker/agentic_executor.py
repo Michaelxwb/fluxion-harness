@@ -13,7 +13,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -27,6 +28,7 @@ from muad_agent_core.agent import (
     SuspensionKind,
 )
 from muad_agent_core.skill import SkillExecutionStatus
+from muad_api.error_codes import ErrorCode
 from muad_contracts import WaitKind
 
 from ..application.agentic.checkpoints import AgenticLeaseLost, ExecutionIdentity, checkpoint_state
@@ -37,6 +39,7 @@ from ..application.agentic.run import (
     TASK_NO_PROGRESS,
     AgenticDependencies,
     AgenticOutcome,
+    ResumeState,
     execute_agentic,
     load_resume_state,
 )
@@ -44,6 +47,7 @@ from ..application.agentic.snapshot import load_frozen_execution
 from ..application.agentic.suspension import AgenticSuspension, pending_payload
 from ..infrastructure.console_credentials import CredentialResolutionError
 from ..infrastructure.models.task import TaskExecution
+from ..infrastructure.task_operation_client import TaskOperationClient, TaskOperationError
 from .execution_outcomes import (
     AGENTIC_CHECKPOINT_KEY,
     AGENTIC_DEADLINE_KEY,
@@ -76,13 +80,24 @@ class AgenticTaskExecutor:
         self._deps = deps
         self._skill_runner = skill_runner
 
+    @property
+    def operations(self) -> TaskOperationClient | None:
+        """Task-owned 结果收件箱客户端：等待前的就绪检查与周期补扫共用同一个装配实例。"""
+        return self._deps.operations
+
     async def execute(self, task: TaskExecution) -> dict[str, Any]:
         frozen = load_frozen_execution(task)
         identity = _identity(task)
-        resume = None
-        if task.last_resume_reason in ("EXTERNAL", "HUMAN"):
-            resume = await load_resume_state(self._deps.sessions, task, operations=self._deps.operations)
         try:
+            # 恢复的唯一依据是 checkpoint：`load_resume_state` 在没有 checkpoint 时返回 None。
+            # 首跑、外部续接、Human 续接、崩后重试都走同一条读历史的路，不靠 resume_reason 猜。
+            resume = await load_resume_state(
+                self._deps.sessions, task, operations=self._deps.operations
+            )
+            if resume is not None and resume.pending:
+                # 崩后重建：还有调用没终态，历史里那些 tool 消息只是提交回执。补写等待，
+                # 不跑模型（否则会得到"声明了 tool_call 却没有结果"的非法回合）。
+                return _pending_envelope(resume)
             outcome = await execute_agentic(
                 self._deps,
                 task,
@@ -100,6 +115,11 @@ class AgenticTaskExecutor:
             raise TaskExecutionError(code, str(exc), retryable=False) from exc
         except AgenticError as exc:
             raise TaskExecutionError(exc.code, exc.message, retryable=exc.retryable) from exc
+        except TaskOperationError as exc:
+            # 同一调用身份换了参数（`TOOL_OPERATION_INPUT_MISMATCH`）是确定性冲突：重试不会变好。
+            raise TaskExecutionError(
+                exc.code, str(exc), retryable=exc.code != ErrorCode.TOOL_OPERATION_INPUT_MISMATCH.value
+            ) from exc
         except (RunnerModelError, RunnerVerificationExhausted, RunnerEmptyReply, RunnerError) as exc:
             raise TaskExecutionError(AGENTIC_EXECUTION_FAILED, str(exc)) from exc
         return _envelope(outcome, task)
@@ -164,26 +184,11 @@ def _suspension_envelope(outcome: AgenticOutcome, task: TaskExecution) -> dict[s
     request = boundary.request
     checkpoint = checkpoint_state(boundary.progress)
     if request.kind is SuspensionKind.TOOL_OPERATION:
-        not_before = (datetime.now(UTC) + timedelta(seconds=ASYNC_WAIT_SEC)).isoformat()
-        return {
-            "status": str(SkillExecutionStatus.SUCCEEDED),
-            "result": {
-                "text": _intermediate_text(outcome),
-                "wait": {
-                    "wait_kind": WaitKind.ASYNC_OPERATION.value,
-                    "operations": pending_payload(request.pending_tool_calls)["operations"],
-                    "not_before": not_before,
-                },
-            },
-            "stdout": "",
-            "stderr": "",
-            "duration_ms": 0,
-            "exit_code": 0,
-            AGENTIC_KEY: {
-                AGENTIC_KIND_KEY: "TOOL_OPERATION",
-                AGENTIC_CHECKPOINT_KEY: checkpoint,
-            },
-        }
+        return _async_wait_envelope(
+            text=_intermediate_text(outcome),
+            operations=pending_payload(request.pending_tool_calls)["operations"],
+            checkpoint=checkpoint,
+        )
     deadline = request.deadline_at or task.deadline_at
     return {
         "status": str(SkillExecutionStatus.SUCCEEDED),
@@ -198,6 +203,42 @@ def _suspension_envelope(outcome: AgenticOutcome, task: TaskExecution) -> dict[s
             AGENTIC_QUESTION_KEY: request.text_prompt or request.prompt,
             AGENTIC_INPUT_SCHEMA_KEY: dict(request.input_schema),
             AGENTIC_DEADLINE_KEY: deadline.isoformat(),
+        },
+    }
+
+
+def _pending_envelope(resume: ResumeState) -> dict[str, Any]:
+    """崩后重建：还原出来的调用还没终态时补写等待（等待状态仍只由 WorkerLoop 写）。"""
+    checkpoint = replace(resume.checkpoint, pending_tool_calls=resume.pending)
+    return _async_wait_envelope(
+        text="",
+        operations=pending_payload(resume.pending)["operations"],
+        checkpoint=checkpoint_state(checkpoint),
+    )
+
+
+def _async_wait_envelope(
+    *, text: str, operations: list[dict[str, Any]], checkpoint: Mapping[str, Any]
+) -> dict[str, Any]:
+    """工具级挂起的执行信封：一份形状，Kernel 收口与崩后重建共用。"""
+    not_before = (datetime.now(UTC) + timedelta(seconds=ASYNC_WAIT_SEC)).isoformat()
+    return {
+        "status": str(SkillExecutionStatus.SUCCEEDED),
+        "result": {
+            "text": text,
+            "wait": {
+                "wait_kind": WaitKind.ASYNC_OPERATION.value,
+                "operations": operations,
+                "not_before": not_before,
+            },
+        },
+        "stdout": "",
+        "stderr": "",
+        "duration_ms": 0,
+        "exit_code": 0,
+        AGENTIC_KEY: {
+            AGENTIC_KIND_KEY: "TOOL_OPERATION",
+            AGENTIC_CHECKPOINT_KEY: dict(checkpoint),
         },
     }
 

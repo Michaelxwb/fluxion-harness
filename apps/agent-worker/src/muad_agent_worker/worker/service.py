@@ -31,6 +31,20 @@ from pydantic import JsonValue
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..application.agentic.async_results import (
+    OperationReader,
+    advance_watermarks,
+    all_settled,
+    payload_from_watermarks,
+    read_operations,
+    watermarks_from_payload,
+)
+from ..application.agentic.checkpoints import (
+    AgenticLeaseLost,
+    ExecutionIdentity,
+    TaskCheckpointStore,
+    checkpoint_from_state,
+)
 from ..application.batch_fanin import settle_child
 from ..application.batch_fanout import TASK_TYPE_BATCH
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
@@ -50,6 +64,7 @@ from ..infrastructure.models.task import (
     TaskExecutionCheckpoint,
     TaskHumanInteraction,
 )
+from ..infrastructure.task_operation_client import TaskOperationError
 from ..infrastructure.wakeup_hint import NullWakeupListener, WakeupListener
 from ..metrics import (
     MAINTENANCE_METRIC,
@@ -59,6 +74,7 @@ from ..metrics import (
     record_outcome,
 )
 from ..scheduler.service import TASK_DEADLINE_EXCEEDED
+from .async_sweep import AsyncResultSweeper
 from .claimer import TaskClaimer
 from .dispatch import TaskTypeExecutor
 from .execution_outcomes import (
@@ -247,6 +263,7 @@ class WorkerLoop:
         wakeup: WakeupListener | None = None,
         settings_client: PlatformSettingsClient | None = None,
         agentic: TaskExecutorProtocol | None = None,
+        operations: OperationReader | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings or SharedSettings()
@@ -257,6 +274,17 @@ class WorkerLoop:
         self._cancel_hints: CancelHintStore = cancel_hints or NullCancelHintStore()
         self._wakeup: WakeupListener = wakeup or NullWakeupListener()
         self._settings_client: PlatformSettingsClient = settings_client or NullPlatformSettingsClient()
+        #: Task-owned 结果收件箱的只读面：等待前的 ready-check 与周期补扫共用（可缺席）。
+        self._operations = operations
+        self._async_sweeper = (
+            AsyncResultSweeper(
+                session_factory,
+                operations,
+                interval_sec=self._settings.worker_poll_interval_sec,
+            )
+            if operations is not None
+            else None
+        )
         # 有界任务槽：上限是每进程启动配置（§3.7 WORKER_EXECUTION_CONCURRENCY），一处来源。
         self._slots = TaskSlotSupervisor(max_concurrency=self._settings.worker_execution_concurrency)
 
@@ -345,6 +373,18 @@ class WorkerLoop:
                 record_outcome(MAINTENANCE_METRIC, "ok")
             await asyncio.sleep(self._settings.run_reaper_interval_sec)
 
+    async def run_async_sweep_forever(self) -> None:
+        """异步结果的周期补扫：与领取/维护/调度各自独立的节拍（design §3.1.5 第 4 条）。
+
+        没有它，"结果到了"就只依赖一次性的就绪检查与可能丢失的 hint：检查之后才到的结果
+        永远唤不醒执行。补扫只推进等待行上的水位，状态迁移仍由 claim 完成
+        （`AsyncResultSweeper` 的模块文档列出四条口径）。
+        """
+        if self._async_sweeper is None:
+            logger.info("async_result_sweep_disabled")
+            return
+        await self._async_sweeper.run_forever()
+
     async def run_pending(self, *, now: datetime | None = None) -> int:
         """把空闲槽填满：本地有槽才 claim，**不等待任何执行收尾**。
 
@@ -375,7 +415,28 @@ class WorkerLoop:
         await self._slots.close()
 
     async def _supervise_task(self, task: TaskExecution, *, now: datetime | None) -> None:
-        """单个槽的完整生命周期：执行与心跳共同监督，收尾只写本任务的结论。"""
+        """单个槽的完整生命周期：执行与心跳共同监督，收尾只写本任务的结论。
+
+        就绪的异步结果**在同一租约里继续**：`_wait` 的进入前就绪检查发现结果已全到，就不写
+        `WAITING_EXTERNAL`、不释放租约，落一条 checkpoint 后直接跑下一段执行
+        （design §3.1.5 第 2 条「ready → CONTINUE」）。这里因此没有第二个等待写入方，也不经过
+        claim/续接——attempt、resume_count、Fire、Run 都不动。
+        """
+        while True:
+            if not await self._supervise_segment(task, now=now):
+                return
+            refreshed = await self._reload_task(task.id)
+            if refreshed is None:
+                return
+            task = refreshed
+
+    async def _reload_task(self, task_id: uuid.UUID) -> TaskExecution | None:
+        """继续同一租约前重读执行行：checkpoint/状态以库里的为准，不用本地旧副本。"""
+        async with self._session_factory() as session:
+            return await session.get(TaskExecution, task_id)
+
+    async def _supervise_segment(self, task: TaskExecution, *, now: datetime | None) -> bool:
+        """跑一段执行；返回 True 表示等待前结果已到、应在同一租约里继续。"""
         moment = now if now is not None else await self._pg_clock()
         cancelled = asyncio.Event()
         expired = asyncio.Event()
@@ -391,14 +452,14 @@ class WorkerLoop:
                 # 心跳先退出：本地执行已脱离租约监控，先叫停它再谈结局（评审 #3）。
                 await self._abort_execution(execution)
                 if await self._stop_outcome(task, cancelled=cancelled, expired=expired, now=now):
-                    return
+                    return False
                 raise TaskExecutionError(
                     HEARTBEAT_LOST_CODE, "lease heartbeat stopped before the skill finished"
                 )
             if execution.cancelled():
                 # 心跳检查点已经叫停本地执行（取消/过期/失约）：按停止原因收尾，不再解析结果。
                 if await self._stop_outcome(task, cancelled=cancelled, expired=expired, now=now):
-                    return
+                    return False
                 raise TaskExecutionError(
                     HEARTBEAT_LOST_CODE, "local execution was cancelled without a lease decision"
                 )
@@ -416,7 +477,7 @@ class WorkerLoop:
         except Exception as exc:
             await self._stop_heartbeat(heartbeat)
             await self._handle_failure(task, exc, now=now)
-            return
+            return False
         await self._stop_heartbeat(heartbeat)
         # 截止判定用**执行真正结束的时刻**，不是本轮 tick 的起点——Skill 可能跑了五分钟。
         # 该时刻取 PG 服务端时钟（B-235）：进程钟偏差不得让超期结果写成 COMPLETED。
@@ -425,8 +486,8 @@ class WorkerLoop:
             # 结果产出时已过 deadline：不写 COMPLETED（评审 #8）。已有的副作用收不回，
             # 但「成功」这个结论不能落库。
             await self._mark_deadline_exceeded(task, now=finished_at)
-            return
-        await self._handle_outcome(task, outcome, now=now)
+            return False
+        return await self._handle_outcome(task, outcome, now=now)
 
     async def _supervise(
         self,
@@ -478,7 +539,8 @@ class WorkerLoop:
         outcome: TaskOutcome,
         *,
         now: datetime | None,
-    ) -> None:
+    ) -> bool:
+        """把一个执行结局落库；返回 True 表示等待前结果已到、应在同一租约继续。"""
         if outcome.kind is OutcomeKind.COMPLETED:
             await self._handle_success(
                 task,
@@ -486,24 +548,24 @@ class WorkerLoop:
                 now=now,
                 result_artifact_id=outcome.result_artifact_id,
             )
-            return
+            return False
         if outcome.kind is OutcomeKind.WAITING:
-            await self._wait(task, outcome, now=now)
-            return
+            return await self._wait(task, outcome, now=now)
         if outcome.kind is OutcomeKind.WAITING_HUMAN:
             await self._wait_human(task, outcome, now=now)
-            return
+            return False
         if outcome.kind is OutcomeKind.CANCELLED:
             moment = now if now is not None else await self._pg_clock()
             async with self._session_factory() as session:
                 async with session.begin():
                     await self._mark_cancelled(session, task, moment)
-            return
+            return False
         await self._handle_failure(
             task,
             TaskExecutionError(outcome.error_code or "SKILL_EXECUTION_FAILED", outcome.error_message),
             now=now,
         )
+        return False
 
     async def _wait(
         self,
@@ -511,18 +573,34 @@ class WorkerLoop:
         outcome: TaskOutcome,
         *,
         now: datetime | None,
-    ) -> None:
-        """外部等待：落 `wait_kind` 与载荷并释放 lease；续接由各自的唤醒源决定（claim 侧分发）。
+    ) -> bool:
+        """外部等待：**进入等待前先做就绪检查**，再落 `wait_kind`/载荷并释放 lease。
 
-        三类等待的载荷不同（`external_ref` / `operations[]` / `batch`），`wait_kind` 是唯一判别器：
-        没有它，claim 只能把三种等待混成"等到 not_before 就叫醒"，ASYNC 结果没齐也会被拉起来。
+        为什么就绪检查必须在这一次收尾里：结果可能在"提交时那次检查"之后、本段收尾之前到达。
+        那一刻若直接写 `WAITING_EXTERNAL`，就没有唤醒源了（Runtime 没有到 Worker 的入站回调，
+        claim 只看已落库的水位）。所以进入等待前再读一次 Task-owned 收件箱：
+
+        - **全部终态** → 不写等待、不释放租约，落一条 checkpoint 后在同一租约继续执行；
+        - **仍有未终态** → 用刚读到的水位落等待。检查之后才到的结果由**持久补扫**兜底
+          （`AsyncResultSweeper` 推进水位 → claim 按 `wait_kind` 续接），丢 hint 不影响正确性。
+
+        三类等待的载荷不同（`external_ref` / `operations[]` / `batch`），`wait_kind` 是唯一
+        判别器：没有它，claim 只能把三种等待混成"等到 not_before 就叫醒"。HTTP 只在事务外读
+        ——行锁内不做网络调用。
+
+        Returns:
+            True 表示已在本租约内就地续接（调用方不得再收尾）。
         """
+        wait_kind = outcome.wait_kind or WaitKind.EXTERNAL_POLL
+        wait_payload = dict(outcome.wait_payload or {})
+        if wait_kind is WaitKind.ASYNC_OPERATION:
+            settled, wait_payload = await self._async_ready_payload(task, wait_payload)
+            if settled and await self._continue_in_lease(task, outcome):
+                return True
         async with self._session_factory() as session:
             async with session.begin():
                 moment = now if now is not None else await database_now(session)
                 not_before = outcome.not_before or moment + timedelta(seconds=DEFAULT_WAIT_SEC)
-                wait_kind = outcome.wait_kind or WaitKind.EXTERNAL_POLL
-                wait_payload = dict(outcome.wait_payload or {})
                 await self._lock_parent(session, task)
                 rowcount = await self._cas(
                     session,
@@ -543,7 +621,7 @@ class WorkerLoop:
                 if rowcount != 1:
                     # 执行期间已被请求取消：按取消收尾，不能留成无 lease 的 RUNNING。
                     await self._mark_cancelled(session, task, moment)
-                    return
+                    return False
                 await self._persist_wait_checkpoint(session, task, outcome)
                 await append_events(
                     session,
@@ -563,6 +641,57 @@ class WorkerLoop:
                         )
                     ],
                 )
+        return False
+
+    async def _async_ready_payload(
+        self, task: TaskExecution, payload: dict[str, Any]
+    ) -> tuple[bool, dict[str, Any]]:
+        """进入等待前的就绪检查：读 Task-owned 收件箱并按 `call_id` 推进各自水位。
+
+        读不到（Runtime 不可达/超时）按"仍有未终态"处理——等待仍会写入，补扫随后推进；
+        绝不因为一次读失败就把执行判成失败或提前恢复。
+        """
+        watermarks = watermarks_from_payload(payload)
+        if not watermarks or self._operations is None:
+            return False, payload
+        try:
+            views = await read_operations(
+                self._operations,
+                tenant_id=task.tenant_id,
+                actor_user_id=task.actor_user_id,
+                execution_id=task.id,
+            )
+        except TaskOperationError as exc:
+            logger.warning(
+                "agentic_ready_check_unavailable",
+                extra={"execution_id": str(task.id), "code": exc.code},
+            )
+            return False, payload
+        refreshed = advance_watermarks(watermarks, views)
+        return all_settled(refreshed), payload_from_watermarks(refreshed)
+
+    async def _continue_in_lease(self, task: TaskExecution, outcome: TaskOutcome) -> bool:
+        """结果已全到：落 checkpoint（受租约栅栏保护）后在同一租约里继续执行。
+
+        checkpoint 是恢复的唯一依据：下一段执行按它重建历史、把已就绪结果替换进对应
+        `call_id` 的 tool 消息。栅栏拒绝（失约/取消/过期）时不写任何结论，交回收/配置裁决。
+        """
+        if outcome.checkpoint_state is None or not task.lease_owner:
+            return False
+        identity = ExecutionIdentity(
+            task.tenant_id, task.id, task.lease_owner, task.lease_epoch
+        )
+        try:
+            await TaskCheckpointStore(self._session_factory, identity).persist(
+                checkpoint_from_state(outcome.checkpoint_state)
+            )
+        except AgenticLeaseLost as exc:
+            logger.warning(
+                "agentic_ready_continue_without_lease",
+                extra={"execution_id": str(task.id), "reason": str(exc)},
+            )
+            return False
+        return True
 
     async def _wait_human(
         self,

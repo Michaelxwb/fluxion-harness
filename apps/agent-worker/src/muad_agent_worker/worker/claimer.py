@@ -28,6 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import aliased
 
+from ..application.agentic.suspension import TERMINAL_OPERATION_VALUES
 from ..application.task_events import EntityType, TaskEventType, append_event
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution, TaskSchedule, TaskScheduleRevision
@@ -44,7 +45,8 @@ SLOT_STATUSES = (
 #: 定时唤醒即可领取的状态：QUEUED（首次/重试）与 WAITING_HUMAN（回答落库后置 `not_before`）。
 TIMER_STATUSES = (str(TaskStatus.QUEUED), str(TaskStatus.WAITING_HUMAN))
 #: `wait_payload_json.operations[]` 里每个 operation 的终态；**全部**终态才续接（design §3.5.6）。
-WAIT_OPERATION_TERMINAL = ("COMPLETED", "FAILED", "CANCELLED")
+#: `LATE` 同样是终态：执行已收口、结果只登记，若把它当"未就绪"会让等待永远悬着。
+WAIT_OPERATION_TERMINAL = tuple(sorted(TERMINAL_OPERATION_VALUES))
 #: 匹配"仍有 operation 没到终态"的 jsonpath，由 `WAIT_OPERATION_TERMINAL` 生成（单一来源）。
 _NON_TERMINAL_OPERATION_PATH = (
     "$.operations[*] ? ("
@@ -73,8 +75,9 @@ def _wait_dispatch(moment: datetime) -> Any:
     """`WAITING_EXTERNAL` 按 `wait_kind` 分发：三种等待的唤醒源不同，claim 口径也不同。
 
     - `EXTERNAL_POLL`：到 `not_before` 后带 `wait_payload_json.external_ref` 重入，由 Skill 自己轮询；
-    - `ASYNC_OPERATION`：等结果 inbox 把 `operations[]` 的水位推到全部终态（`not_before` 不是唤醒源，
-      定时器不得在结果没齐时把执行叫醒）；
+    - `ASYNC_OPERATION`：等结果 inbox 把 `operations[]` 的**每一条**水位推到终态（`not_before`
+      不是唤醒源，定时器不得在结果没齐时把执行叫醒）。推进水位的是持久补扫
+      （`AsyncResultSweeper`），claim 只按落库水位判定——因此丢 hint、Redis 不可用都不影响正确性；
     - `BATCH_FANIN`：没有定时唤醒源——Parent 由 Child 终态在 fan-in 事务里直接聚合终态，claim 永不领取。
     """
     operations = TaskExecution.wait_payload_json.op("->")("operations")

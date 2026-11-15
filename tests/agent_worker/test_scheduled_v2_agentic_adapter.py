@@ -70,8 +70,11 @@ from muad_contracts import (
     TaskCapacityGrant,
     TaskCapacityRelease,
     TaskStatus,
+    TaskToolOperationList,
     TaskToolOperationOwner,
+    TaskToolOperationResult,
     TaskToolOperationView,
+    TerminalStatus,
     build_schedule_snapshot,
     schedule_snapshot_hash,
 )
@@ -348,9 +351,13 @@ class RecordingCredentials:
 
 @dataclass
 class RecordingOperations:
+    """API-30 的内存替身：同一调用身份返回同一 operation（`submits` 只记本次执行的提交）。"""
+
     submits: list[tuple[str, str, dict[str, Any]]] = field(default_factory=list)
     ready: bool = False
     result_text: str = "报告已生成"
+    registered: dict[str, str] = field(default_factory=dict)
+    execution_id: uuid.UUID | None = None
 
     async def submit(
         self,
@@ -364,18 +371,54 @@ class RecordingOperations:
         completion_mode: CompletionMode = CompletionMode.JOIN,
     ) -> TaskToolOperationView:
         self.submits.append((call_id, tool_name, dict(arguments)))
-        return TaskToolOperationView(
-            operation_id=OPERATION_ID,
-            owner=TaskToolOperationOwner(task_execution_id=execution_id),
-            source_tool_call_id=call_id,
-            tool_name=tool_name,
-            completion_mode=completion_mode,
-            status=OperationStatus.SUBMITTED,
-            cancel_requested=False,
-        )
+        self.execution_id = execution_id
+        self.registered[call_id] = tool_name
+        return self._view(call_id, completion_mode)
+
+    async def list_operations(
+        self,
+        *,
+        tenant_id: str,
+        actor_user_id: uuid.UUID,
+        execution_id: uuid.UUID,
+        ready: bool | None = None,
+        page: int = 1,
+        page_size: int = 100,
+    ) -> TaskToolOperationList:
+        items = [
+            self._view(call_id, CompletionMode.JOIN) for call_id in sorted(self.registered)
+        ]
+        if ready is True:
+            items = [item for item in items if item.result is not None]
+        return TaskToolOperationList(items=items, page=page, page_size=page_size, total=len(items))
 
     async def get(self, *, tenant_id: str, actor_user_id: uuid.UUID, operation_id: uuid.UUID) -> Any:
-        raise AssertionError("contract runs do not resume async operations")
+        raise AssertionError("contract runs read operations through the owner listing only")
+
+    def _view(self, call_id: str, completion_mode: CompletionMode) -> TaskToolOperationView:
+        result = (
+            TaskToolOperationResult(
+                event_id=uuid.uuid4(),
+                task_event_id=uuid.uuid4(),
+                task_event_seq=7,
+                terminal_status=TerminalStatus.COMPLETED,
+                completed_at=datetime.now(UTC),
+                late=False,
+                result={"text": self.result_text},
+            )
+            if self.ready
+            else None
+        )
+        return TaskToolOperationView(
+            operation_id=OPERATION_ID,
+            owner=TaskToolOperationOwner(task_execution_id=self.execution_id),
+            source_tool_call_id=call_id,
+            tool_name=self.registered.get(call_id),
+            completion_mode=completion_mode,
+            status=OperationStatus.COMPLETED if self.ready else OperationStatus.SUBMITTED,
+            cancel_requested=False,
+            result=result,
+        )
 
 
 @dataclass
@@ -511,6 +554,8 @@ class WorkerAdapterHarness:
         await self._mark_resumed(task.id)
         refreshed = await self._refresh(task.id)
         refreshed.last_resume_reason = "EXTERNAL"
+        # 唤醒是因为结果已就绪：恢复路径必须按调用身份取回它，而不是重跑工具。
+        self._operations.ready = True
         self._factory.script = [text_reply("已确认")]
         return await self._execute(refreshed)
 

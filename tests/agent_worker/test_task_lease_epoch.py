@@ -11,9 +11,12 @@ from agent_worker.helpers import persist_task
 
 
 async def waiting_again(tenant: TenantContext, task: TaskExecution) -> None:
+    """把执行改成可续接的外部等待（v2：`WAITING_EXTERNAL` + `wait_kind`）。"""
     async with tenant.session_factory.begin() as session:
         await session.execute(sa.update(TaskExecution).where(TaskExecution.id == task.id).values(
-            status="WAITING", lease_owner=None, lease_until=None,
+            status="WAITING_EXTERNAL", wait_kind="EXTERNAL_POLL",
+            wait_payload_json={"external_ref": {"handle": "h-1"}},
+            lease_owner=None, lease_until=None,
             not_before=datetime.now(UTC) - timedelta(seconds=1),
         ))
 
@@ -55,13 +58,13 @@ async def test_stale_epoch_cannot_renew_or_transition_waiting(tenant):
     await waiting_again(tenant, first)
     current = await claimer.claim_one("same-worker")
     worker = WorkerLoop(tenant.session_factory, tenant.settings, instance_id="same-worker")
-    owned, _ = await worker._renew_lease(current.id, lease_epoch=first.lease_epoch)
-    assert owned is False
+    renewal = await worker._renew_lease(current.id, lease_epoch=first.lease_epoch)
+    assert renewal.owned is False
     async with tenant.session_factory.begin() as session:
-        changed = await worker._cas(session, current.id, {"status": "WAITING"},
+        changed = await worker._cas(session, current.id, {"status": "WAITING_EXTERNAL"},
                                     moment=await worker._pg_clock(), lease_epoch=first.lease_epoch)
         assert changed == 0
-    assert (await worker._renew_lease(current.id, lease_epoch=current.lease_epoch))[0] is True
+    assert (await worker._renew_lease(current.id, lease_epoch=current.lease_epoch)).owned is True
     async with tenant.session_factory() as session:
         stored = await session.get(TaskExecution, current.id)
         assert stored.status == "RUNNING"

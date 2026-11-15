@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -35,6 +35,7 @@ from muad_agent_core.sandbox import WorkspaceStore
 from muad_agent_core.skill import SkillArtifactResolver, SkillExecutor
 from muad_agent_core.tools import ToolExecutionPipeline
 from muad_common import SharedSettings
+from muad_contracts import OperationWatermark
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -42,9 +43,15 @@ from ...infrastructure.console_credentials import ConsoleCredentialClient
 from ...infrastructure.models.task import TaskEvent, TaskExecution, TaskExecutionCheckpoint
 from ...infrastructure.task_artifact_client import TaskArtifactClient
 from ...infrastructure.task_capacity_client import TaskCapacityClient
-from ...infrastructure.task_operation_client import TaskOperationClient, operation_result_content
+from ...infrastructure.task_operation_client import TaskOperationClient, TaskOperationError
 from ..task_events import EntityType, TaskEventType
 from .artifacts import TaskArtifactRoundWriter
+from .async_results import (
+    DeclaredCall,
+    OperationSubmitter,
+    read_operations,
+    reconcile_operations,
+)
 from .cancellation import CancellationProbe
 from .checkpoints import ExecutionIdentity, TaskCheckpointStore, checkpoint_from_state
 from .compaction import SummaryGenerator, TaskContextCompactor, compaction_settings
@@ -54,8 +61,8 @@ from .mcp import McpServerRuntime, McpToolBox
 from .memory import frozen_memory_message
 from .model import CapacityModelPool, ModelTarget
 from .snapshot import FrozenAgenticExecution, load_frozen_execution
-from .suspension import AgenticSuspension, SuspensionBoundary, settled_status
-from .tools import AgenticToolRegistry, SkillToolRunner, build_registry
+from .suspension import AgenticSuspension, SuspensionBoundary
+from .tools import AgenticToolRegistry, SkillToolRunner, build_registry, skill_tool_name
 
 logger = logging.getLogger("muad_agent_worker.application.agentic.run")
 
@@ -225,9 +232,6 @@ async def execute_agentic(
         provider_factory=deps.provider_factory,
     )
     suspension = AgenticSuspension(execution_id=frozen.execution_id)
-    if resume is not None:
-        for watermark in resume.pending:
-            suspension.stage_operation(watermark)
     events = TaskEventSink(
         deps.sessions,
         tenant_id=frozen.tenant_id,
@@ -426,20 +430,36 @@ def _int_param(params: Mapping[str, Any], key: str) -> int | None:
 
 @dataclass(frozen=True, slots=True)
 class ResumeState:
-    """恢复同一个执行：宿主自己落库的 checkpoint + 重建的历史 + 待定操作水位。"""
+    """恢复同一个执行：宿主自己落库的 checkpoint + 重建的历史 + 仍未终态的调用。"""
 
     checkpoint: RunnerCheckpoint
     messages: tuple[ModelMessage, ...]
-    pending: tuple[Any, ...] = ()
+    pending: tuple[OperationWatermark, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class FoldedHistory:
+    """事件重建出来的历史 + 最后一个 assistant 回合声明过的工具调用。"""
+
+    messages: tuple[ModelMessage, ...]
+    declared: tuple[DeclaredCall, ...]
 
 
 async def load_resume_state(
     sessions: async_sessionmaker[AsyncSession],
     task: TaskExecution,
     *,
-    operations: TaskOperationClient | None,
+    operations: OperationSubmitter | None,
 ) -> ResumeState | None:
-    """没有 checkpoint 就是首次执行；有则按事件重建历史并补齐已就绪的异步结果。"""
+    """没有 checkpoint 就是首次执行；有则重建历史并把已就绪的异步结果放回原位。
+
+    恢复的唯一依据是 `last_checkpoint_id`（本执行自己的 checkpoint）：历史来自 `task_event`
+    的 assistant/tool 成对事件，异步结果按**调用身份**从 Task-owned 收件箱取回并**替换**
+    对应 `call_id` 的 tool 消息——提交回执被真实结果覆盖，重复恢复得到同一份历史。
+
+    `pending` 非空表示这一挂起还没等齐：调用方据此补写等待，**不得**跑模型（历史里那些
+    tool 消息还只是提交回执，等于"声明了 tool_call 却没有结果"的非法回合）。
+    """
     if task.last_checkpoint_id is None:
         return None
     async with sessions() as session:
@@ -452,20 +472,63 @@ async def load_resume_state(
     if row is None:
         return None
     checkpoint = checkpoint_from_state(row.state_json)
-    history = await _history_from_events(sessions, task)
-    messages = [*base_messages(load_frozen_execution(task)), *history]
-    if checkpoint.pending_tool_calls:
-        await _inject_ready_results(operations, task, checkpoint, messages)
-    return ResumeState(
-        checkpoint=checkpoint,
-        messages=tuple(messages),
-        pending=checkpoint.pending_tool_calls,
-    )
+    frozen = load_frozen_execution(task)
+    folded = await _history_from_events(sessions, task)
+    messages = [*base_messages(frozen), *folded.messages]
+    pending = checkpoint.pending_tool_calls
+    if operations is not None and (pending or folded.declared):
+        try:
+            views = await read_operations(
+                operations,
+                tenant_id=task.tenant_id,
+                actor_user_id=task.actor_user_id,
+                execution_id=task.id,
+            )
+        except TaskOperationError as exc:
+            # 读失败与"调用冲突"必须分开：读失败可以等下一次，冲突不能。
+            if not pending:
+                # 没有待定水位可兜底：历史里可能有"声明了却没有结果"的调用，跑模型只会得到
+                # 非法回合。按可重试失败收尾，下一次尝试重新读。
+                raise AgenticError(
+                    "TOOL_OPERATION_UNAVAILABLE", f"operation read failed: {exc.code}", retryable=True
+                ) from exc
+            # 读不到就保持待定：补扫下一次接着推进（结果在 Runtime，丢不了）。
+            logger.warning(
+                "agentic_resume_operation_read_failed",
+                extra={"execution_id": str(task.id), "code": exc.code},
+            )
+            return ResumeState(checkpoint=checkpoint, messages=tuple(messages), pending=pending)
+        # 重提交撞上"同一调用换了参数"是确定性冲突：原样上抛，由执行器落精确错误码。
+        reconciled = await reconcile_operations(
+            operations,
+            views=views,
+            tenant_id=task.tenant_id,
+            actor_user_id=task.actor_user_id,
+            execution_id=task.id,
+            declared=folded.declared,
+            async_calls=_async_skill_tools(frozen),
+            pending=pending,
+        )
+        for call_id, content in reconciled.ready.items():
+            _replace_tool_message(messages, call_id, content)
+        pending = reconciled.pending
+    return ResumeState(checkpoint=checkpoint, messages=tuple(messages), pending=pending)
+
+
+def _async_skill_tools(frozen: FrozenAgenticExecution) -> frozenset[str]:
+    """冻结快照里所有 ASYNC Skill 的注册工具名：崩后重建只对它们按调用身份重提交。"""
+    skills = {entry.skill_id: entry for entry in frozen.snapshot.skills}
+    names: set[str] = set()
+    for tool in frozen.snapshot.tools:
+        skill = skills.get(tool.skill_id) if tool.skill_id is not None else None
+        if tool.source == "SKILL" and skill is not None and skill.execution_mode == "ASYNC":
+            names.add(skill_tool_name(tool.skill_id, tool.tool_name))
+    return frozenset(names)
 
 
 async def _history_from_events(
     sessions: async_sessionmaker[AsyncSession], task: TaskExecution
-) -> tuple[ModelMessage, ...]:
+) -> FoldedHistory:
     async with sessions() as session:
         rows = list(
             await session.scalars(
@@ -485,16 +548,35 @@ async def _history_from_events(
     return _fold_events(rows)
 
 
-def _fold_events(rows: Sequence[TaskEvent]) -> tuple[ModelMessage, ...]:
-    """事件 → 合法历史：assistant(声明) + 它的 tool 结果成对出现。"""
+def _fold_events(rows: Sequence[TaskEvent]) -> FoldedHistory:
+    """事件 → 合法历史：**每个 assistant 回合紧跟它自己的 tool 结果**，按回合顺序。
+
+    早期实现把所有 tool 消息堆在所有 assistant 之后——单回合时看不出问题，多轮恢复时
+    `assistant1, assistant2, tool1, tool2` 是非法历史（tool 必须紧随声明它的 assistant）。
+
+    `declared` 覆盖**所有**回合：更早回合的异步结果同样要在恢复时从收件箱取回并替换掉
+    事件里的提交回执，否则第二次挂起之后模型看到的是第一轮的"回执"而不是结果。
+    """
     messages: list[ModelMessage] = []
-    completed: dict[str, str] = {}
-    order: list[str] = []
+    merged: list[DeclaredCall] = []
+    current: tuple[DeclaredCall, ...] = ()
+    results: dict[str, str] = {}
+
+    def flush() -> None:
+        for call in current:
+            content = results.get(call.call_id)
+            if content is not None:
+                messages.append(
+                    ModelMessage(role=ModelRole.TOOL, content=content, tool_call_id=call.call_id)
+                )
+        merged.extend(replace(call, completed=call.call_id in results) for call in current)
+
     for row in rows:
         payload = row.payload_json or {}
         if row.event_type == TaskEventType.ASSISTANT_TURN.value:
-            calls = tuple(
-                ModelToolCall(
+            flush()
+            current = tuple(
+                DeclaredCall(
                     str(entry.get("id")),
                     str(entry.get("name")),
                     dict(entry.get("arguments") or {}),
@@ -506,23 +588,22 @@ def _fold_events(rows: Sequence[TaskEvent]) -> tuple[ModelMessage, ...]:
                 ModelMessage(
                     role=ModelRole.ASSISTANT,
                     content=str(payload.get("text") or ""),
-                    tool_calls=calls,
+                    tool_calls=tuple(
+                        ModelToolCall(call.call_id, call.tool_name, dict(call.arguments))
+                        for call in current
+                    ),
                     reasoning_content=payload.get("reasoning_content"),
                 )
             )
-            order.extend(call.id for call in calls)
+            results = {}
             continue
         if payload.get("state") != "COMPLETED":
             continue
         call_id = payload.get("tool_call_id")
         if isinstance(call_id, str):
-            completed[call_id] = _completed_content(payload)
-    for call_id in order:
-        if call_id in completed:
-            messages.append(
-                ModelMessage(role=ModelRole.TOOL, content=completed[call_id], tool_call_id=call_id)
-            )
-    return tuple(messages)
+            results[call_id] = _completed_content(payload)
+    flush()
+    return FoldedHistory(tuple(messages), tuple(merged))
 
 
 def _completed_content(payload: Mapping[str, Any]) -> str:
@@ -533,34 +614,8 @@ def _completed_content(payload: Mapping[str, Any]) -> str:
     return result if isinstance(result, str) else ""
 
 
-async def _inject_ready_results(
-    operations: TaskOperationClient | None,
-    task: TaskExecution,
-    checkpoint: RunnerCheckpoint,
-    messages: list[ModelMessage],
-) -> None:
-    """把已就绪的异步结果替换进对应 call 的 tool 消息（不新增第二条同 id 的消息）。"""
-    if operations is None:
-        return
-    for watermark in checkpoint.pending_tool_calls:
-        try:
-            view = await operations.get(
-                tenant_id=task.tenant_id,
-                actor_user_id=task.actor_user_id,
-                operation_id=watermark.operation_id,
-            )
-        except Exception as exc:  # noqa: BLE001 —— 读不到就保持待定，下一次补扫重试
-            logger.warning(
-                "agentic_operation_read_failed",
-                extra={"execution_id": str(task.id), "error_type": type(exc).__name__},
-            )
-            continue
-        if view.result is None or not settled_status(view.result.terminal_status):
-            continue
-        _replace_tool_message(messages, watermark.call_id, operation_result_content(view.result))
-
-
 def _replace_tool_message(messages: list[ModelMessage], call_id: str, content: str) -> None:
+    """把某个 `call_id` 的 tool 消息换成真实结果（缺则补一条）；重复恢复是幂等的。"""
     for index, message in enumerate(messages):
         if message.role is ModelRole.TOOL and message.tool_call_id == call_id:
             messages[index] = ModelMessage(role=ModelRole.TOOL, content=content, tool_call_id=call_id)
