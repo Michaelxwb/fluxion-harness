@@ -1092,7 +1092,7 @@ API-27 是唯一创建/更新生效入口：一次用户确认事务同时写确
   - related PASS exit=0
 ## TASK-013: 实现暂停、恢复及两档取消的完整状态矩阵
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-004, TASK-007, TASK-010, TASK-012
 - **Source**: scheduled-task-v2.backend.design.md §3.2.5、§3.2.10、API-04/05/06/11、§3.4.5
 - **Scenarios**: S-04, S-05, S-06, E-05, E-06, E-13, E-15, B-12
@@ -1131,12 +1131,12 @@ API-27 是唯一创建/更新生效入口：一次用户确认事务同时写确
 
 ### Checklist
 
-- [ ] Pause 停未来且取消 QUEUED/started_at 为空的执行；已开始和 WAITING_* 保留；Resume 重新 Admission 成功才 ACTIVE，从 now 重算且不补发。
-- [ ] FUTURE_ONLY 保留 RUNNING、等待外部/人工及 OPEN interaction，已开始后回 QUEUED 的续接也保留；ALL_ACTIVE 才关闭 Human、协作停 RUNNING 并取消外部 operation。
-- [ ] 外部取消请求/失败持久化，网络在锁外，取消远端失败不撤销停未来；保留待核实或失败证据，不能假称副作用已回滚。
-- [ ] ENDED/CANCELLED 不得恢复；ONCE 准入失败只允许重新创建；不保留 cancel_running 或旧 pause/resume 双路由。
-- [ ] 覆盖 pause/claim、cancel/claim、update/fire、answer/cancel/deadline 的双侧 CAS；Schedule/Fire/Execution/Human/事件修改一起回滚。
-- [ ] 明确 Fire 保留创建事实及发生取消时的状态，不把 Execution/Delivery 成败反向当作 Schedule 状态；所有命令幂等回放。
+- [x] Pause 停未来且取消 QUEUED/started_at 为空的执行；已开始和 WAITING_* 保留；Resume 重新 Admission 成功才 ACTIVE，从 now 重算且不补发。
+- [x] FUTURE_ONLY 保留 RUNNING、等待外部/人工及 OPEN interaction，已开始后回 QUEUED 的续接也保留；ALL_ACTIVE 才关闭 Human、协作停 RUNNING 并取消外部 operation。
+- [x] 外部取消请求/失败持久化，网络在锁外，取消远端失败不撤销停未来；保留待核实或失败证据，不能假称副作用已回滚。
+- [x] ENDED/CANCELLED 不得恢复；ONCE 准入失败只允许重新创建；不保留 cancel_running 或旧 pause/resume 双路由。
+- [x] 覆盖 pause/claim、cancel/claim、update/fire、answer/cancel/deadline 的双侧 CAS；Schedule/Fire/Execution/Human/事件修改一起回滚。
+- [x] 明确 Fire 保留创建事实及发生取消时的状态，不把 Execution/Delivery 成败反向当作 Schedule 状态；所有命令幂等回放。
 
 ### Spec Delta
 
@@ -1147,13 +1147,24 @@ API-27 是唯一创建/更新生效入口：一次用户确认事务同时写确
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T07:24:03.942Z] started tests=313c2e016d33
+- [2026-11-15] `application/schedule_lifecycle.py`：`ScheduleService.pause/resume/cancel/soft_delete` 与 `ExecutionService.cancel` 共用同一状态矩阵与锁序（Schedule 行锁 → Fire → root/parent/child → 事件）。`started_at IS NULL` 是「从未开始」的唯一判据（CAS，claim 赢了按新状态处理）；Pause/FUTURE_ONLY 只取消这类执行，RUNNING/WAITING_*/OPEN interaction 保留；ALL_ACTIVE 才终止 WAITING_*、协作标记 RUNNING、原子关闭 interaction。
+- [2026-11-15] Resume：锁外 Admission（材料源或注入端口）→ 锁内复核 config_version/current_revision/status → ACTIVE 并用 `initial_fire_at(now)` 重算，不补发、不伪造 occurrence_count；ONCE 永久准入失败 → `ENDED(ADMISSION_FAILED)`（200 + `admission_error`，此后不可 resume），CRON 失败保持 PAUSED 报 `SCHEDULE_ADMISSION_FAILED`；ONCE 错过槽 → `ENDED(MISSED)`；until/max_occurrences 到点 → ENDED(COMPLETED/EXHAUSTED)；NEEDS_ATTENTION 恢复成功即清 attention。
+- [2026-11-15] Fire 保留创建事实：取消只把 `status` 改为 CANCELLED 并写 FIRE 事件；Execution/事件/历史从不删除；soft delete 只打标记（对已删幂等）。Schedule 状态只由本域动作与准入结论决定，不被 Execution/Delivery 成败反向改写。
+- [2026-11-15] 远端取消：`application/remote_cancellation.py` 在**提交之后**调用 Runtime API-30，事务内先写 ASYNC `CANCELLED{state:REQUESTED}`；失败只追加 `FAILED{error_code}` 证据，不回滚已停的未来调度；未装配端口时保持 REQUESTED（待核实）。`api/deps.get_tool_operation_canceller` 复用 `app.state.http_pools.egress`，测试可注入。
+- [2026-11-15] `api/schedules.py` 退役 `POST`/`PUT`（API-02/03 由 Draft+确认取代），保读面为 v2 形状（列表/详情/Fire 历史），新增 `POST /{id}/pause|resume|cancel`（`Idempotency-Key`、endpoint `schedule-actions`、同键同指纹重放优先）；`api/executions.py` 新增 API-11 `POST /internal/executions/{id}/cancel`（endpoint `execution-cancel`，不改 Schedule 状态），main 注册；`api/admin_schedules.py` 方法/路径不变但改为复用同一 service（软删不删历史）。
+- [2026-11-15] 跨任务修复（只对齐 TASK-003 的事件口径，不改语义）：`worker/claimer.py`、`worker/service.py` 的 `append_event(task_id=...)` → `(entity_type, entity_id)`，`TaskEventType.WAITING/RETRY` → `WAITING_EXTERNAL/QUEUED`。不修则声明的 `test_task_cancel.py` 在 claim/协作取消路径上全挂 TypeError。
+- [2026-11-15] `test_task_cancel.py` 按新词汇对齐：`WAITING`→`WAITING_EXTERNAL`、事件查询改用 `(entity_type,entity_id)`；RUNNING 协作取消不再期待 `CANCEL_REQUESTED` 事件（§3.5.10 无此项，实体行 `cancel_requested` 才是权威），「API 回 RUNNING + 标记为真」的断言保留。
+- [2026-11-15] 新增 `test_scheduled_v2_lifecycle.py`（35 用例）：pause/claim、cancel/claim、Scheduler 写 Fire/Execution 与 cancel 的 Schedule 行锁串行（取消不会漏掉并发提交的 occurrence）、update/pause 不复活 PAUSED、answer/cancel 与 deadline/cancel 双侧 CAS（已关闭/已超时的 interaction 回答与取消均为 0 行、不写事件）、ALL_ACTIVE 远端取消 REQUESTED→CONFIRMED/FAILED、事件写失败整体回滚（不留半个取消）、终态不可恢复、幂等重放优先于状态。
+- [2026-11-15] 边界：deadline sweep 与 Human answer/timeout 的写侧仍由 TASK-015/021 交付，本任务只保证取消侧的 CAS 条件与它们互斥；`test_admin_schedules.py` 仍红属 TASK-029 的 Console 适配范围（其用例仍在造已退役的 create 请求与旧枚举）。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-014"></a>
-
+- 2026-11-15T07:47:52.261Z PASS commands=1/1 executed=1 deduped=0 elapsed=32649ms tests=313c2e016d33 head=4a6801d6c474 dirty=1
+  - related PASS exit=0
 ## TASK-014: 生成 Fire 并原子提交 Execution 与调度进度
 
 - **Status**: draft

@@ -8,7 +8,7 @@ from muad_contracts import TaskStatus
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ..application.task_events import TaskEventType, append_event
+from ..application.task_events import EntityType, TaskEventType, append_event
 from ..infrastructure.db_clock import database_now
 from ..infrastructure.models.task import TaskExecution
 from ..metrics import TASK_QUEUE_DEPTH_METRIC, increment, record_gauge
@@ -91,8 +91,10 @@ class TaskClaimer:
                 await append_event(
                     session,
                     tenant_id=task.tenant_id,
-                    task_id=task.id,
+                    entity_type=EntityType.EXECUTION,
+                    entity_id=task.id,
                     event_type=TaskEventType.CLAIMED,
+                    occurred_at=claimed_at,
                     payload={
                         "lease_owner": instance_id,
                         "lease_epoch": task.lease_epoch,

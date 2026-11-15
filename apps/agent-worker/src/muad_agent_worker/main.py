@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from .api.admin_results import router as admin_results_router
 from .api.admin_schedules import router as admin_schedules_router
 from .api.admin_tasks import router as admin_tasks_router
+from .api.executions import router as executions_router
 from .api.runtime_operations import router as runtime_operations_router
 from .api.schedule_drafts import router as schedule_drafts_router
 from .api.schedules import router as schedules_router
@@ -266,6 +267,7 @@ install_health_probes(
 app.include_router(tasks_router)
 app.include_router(runtime_operations_router)
 app.include_router(schedules_router)
+app.include_router(executions_router)
 app.include_router(schedule_drafts_router)
 app.include_router(admin_tasks_router)
 app.include_router(admin_results_router)
