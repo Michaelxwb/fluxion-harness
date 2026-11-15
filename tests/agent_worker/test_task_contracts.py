@@ -31,7 +31,7 @@ def _task_payload(**overrides: object) -> dict[str, object]:
         "tenant_id": "t1",
         "agent_id": uuid.uuid4(),
         "actor_user_id": uuid.uuid4(),
-        "intent_key": "policy_check",
+        "task_type": "SKILL",
         "skill_id": uuid.uuid4(),
         "skill_artifact_id": uuid.uuid4(),
         "input": {},
@@ -108,9 +108,11 @@ class TestStatusEnums:
 
 
 class TestCreateTaskRequest:
-    def test_final_only_requires_delivery_route(self) -> None:
+    def test_removed_delivery_columns_are_not_accepted(self) -> None:
+        """投递状态属于 `task_delivery`：创建请求不再接受 delivery_mode。"""
         with pytest.raises(ValidationError):
-            CreateTaskRequest(**_task_payload(delivery_route=None, delivery_mode="FINAL_ONLY"))
+            CreateTaskRequest(**_task_payload(delivery_mode="FINAL_ONLY"))
+        assert CreateTaskRequest(**_task_payload(delivery_route=None)).delivery_route is None
 
     def test_unknown_extra_field_is_rejected(self) -> None:
         with pytest.raises(ValidationError):

@@ -30,6 +30,7 @@ from muad_agent_runtime.application.task_tools import (
 from muad_agent_worker.application.ports import PlatformSettingsSnapshot
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory
 from muad_agent_worker.infrastructure.models.task import (
+    TaskDelivery,
     TaskExecution,
     TaskSchedule,
     TaskScheduleDraft,
@@ -239,8 +240,14 @@ async def test_b123_async_skill_tool_submits_task_with_frozen_snapshot() -> None
     assert task.skill_artifact_id == skill.artifact_id
     assert task.snapshot_hash.startswith("sha256:")
     assert task.execution_snapshot_json["skills"][0]["artifact_id"] == str(skill.artifact_id)
-    assert task.delivery_mode == "NONE", "JOIN results go to the Run, without independent delivery"
-    assert task.delivery_route_id is None
+    assert task.skill_execution_mode == str(skill.execution_mode)
+    async with worker_session_factory()() as session:
+        deliveries = list(
+            await session.scalars(
+                select(TaskDelivery).where(TaskDelivery.execution_id == task.id)
+            )
+        )
+    assert deliveries == [], "JOIN results go to the Run, without independent delivery"
     assert task.max_attempts == 1 and task.deadline_at <= datetime.now(UTC) + timedelta(minutes=10)
 
 

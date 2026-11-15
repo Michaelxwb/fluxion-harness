@@ -31,7 +31,8 @@ async def test_task_api_create_get_list_cancel(client: AsyncClient, tenant: Tena
     body = detail.json()["data"]
     assert body["task_id"] == task_id
     assert body["status"] == "QUEUED"
-    assert body["delivery_status"] == "PENDING"
+    assert body["task_type"] == "SKILL"
+    assert body["skill_execution_mode"] == "ASYNC"
     assert body["trigger_type"] == "IMMEDIATE"
 
     listing = await client.get(

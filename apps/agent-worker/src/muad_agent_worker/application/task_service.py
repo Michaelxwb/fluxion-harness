@@ -13,8 +13,7 @@ from muad_contracts import (
     REQUIRED_SNAPSHOT_KEYS,
     TASK_SNAPSHOT_SCHEMA_VERSION,
     CreateTaskRequest,
-    DeliveryMode,
-    DeliveryStatus,
+    SkillExecutionMode,
     TaskStatus,
     TerminalStatus,
     TriggerType,
@@ -26,17 +25,21 @@ from sqlalchemy import false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.models.task import TaskEvent, TaskExecution
+from ..infrastructure.models.task import TaskDelivery, TaskEvent, TaskExecution
 from .delivery_routes import upsert_delivery_route
 from .platform_settings import resolve_platform_settings
 from .ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .runtime_operations import prepare_submission
 from .task_events import EntityType, TaskEventType, append_event
-from .terminal_tasks import TerminalChange, lock_task_tree, write_terminal
+from .terminal_tasks import (
+    DELIVERY_KIND_PUSH,
+    DELIVERY_PENDING,
+    TerminalChange,
+    lock_task_tree,
+    write_terminal,
+)
 
 INITIAL_PRIORITY = 100
-EXECUTION_MODE_ASYNC = "ASYNC"
-TASK_TYPE_SKILL = "SKILL"
 TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))
 CANCELABLE_STATUSES = (
     str(TaskStatus.QUEUED),
@@ -101,7 +104,7 @@ class TaskService:
         task_settings = operation_settings.task
         route_id = await self._resolve_route(payload)
         values = self._creation_values(
-            payload, task_settings, route_id, egress_enabled=operation_settings.egress.enabled
+            payload, task_settings, egress_enabled=operation_settings.egress.enabled
         )
         statement = (
             pg_insert(TaskExecution)
@@ -130,16 +133,40 @@ class TaskService:
         task = await self._session.get(TaskExecution, inserted_id)
         if task is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        if route_id is not None:
+            await self._enqueue_delivery(payload.tenant_id, task.id, route_id)
         if operation is not None:
             operation.task_id = task.id
             await self._session.flush()
         return task
 
+    async def _enqueue_delivery(
+        self, tenant_id: str, task_id: uuid.UUID, route_id: uuid.UUID
+    ) -> None:
+        """立即任务的投递意图：创建时的 route 落成独立投递记录（design §3.2.11）。
+
+        执行终态由投递边界读取，不写回 Execution；`PUSH` 只对创建时给了 route 的立即任务生效。
+        """
+        await self._session.execute(
+            pg_insert(TaskDelivery)
+            .values(
+                tenant_id=tenant_id,
+                execution_id=task_id,
+                delivery_route_id=route_id,
+                delivery_kind=DELIVERY_KIND_PUSH,
+                delivery_key=f"execution:{task_id}:final",
+                status=DELIVERY_PENDING,
+            )
+            .on_conflict_do_nothing(
+                index_elements=[TaskDelivery.tenant_id, TaskDelivery.delivery_key],
+                index_where=TaskDelivery.is_deleted == false(),
+            )
+        )
+
     def _creation_values(
         self,
         payload: CreateTaskRequest,
         task_settings: TaskSettings,
-        route_id: uuid.UUID | None,
         *,
         egress_enabled: bool = False,
     ) -> dict[str, object]:
@@ -156,12 +183,11 @@ class TaskService:
             **_source_identity(payload),
             "agent_id": payload.agent_id,
             "actor_user_id": payload.actor_user_id,
-            "intent_key": payload.intent_key,
+            "task_type": str(payload.task_type),
             "skill_id": payload.skill_id,
             "skill_artifact_id": payload.skill_artifact_id,
+            "skill_execution_mode": str(payload.skill_execution_mode or SkillExecutionMode.ASYNC),
             "trigger_type": str(TriggerType.IMMEDIATE),
-            "execution_mode": EXECUTION_MODE_ASYNC,
-            "task_type": TASK_TYPE_SKILL,
             "status": str(TaskStatus.QUEUED),
             "input_json": payload.input,
             "execution_snapshot_schema_version": (
@@ -177,11 +203,6 @@ class TaskService:
             "max_attempts": 1 if payload.runtime_operation else task_settings.max_attempts,
             "not_before": now,
             "deadline_at": _task_deadline(payload, task_settings, now),
-            "delivery_route_id": route_id,
-            "delivery_mode": str(payload.delivery_mode),
-            "delivery_status": str(self._initial_delivery_status(payload.delivery_mode)),
-            "delivery_key": f"task:{task_id}:final",
-            "delivery_attempts": 0,
         }
 
     async def get(
@@ -415,11 +436,6 @@ class TaskService:
             platform_user_id=payload.actor_user_id,
             route=payload.delivery_route,
         )
-
-    def _initial_delivery_status(self, mode: DeliveryMode) -> DeliveryStatus:
-        if mode is DeliveryMode.FINAL_ONLY:
-            return DeliveryStatus.PENDING
-        return DeliveryStatus.NONE
 
 
 def _creation_snapshot(

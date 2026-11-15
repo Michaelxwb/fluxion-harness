@@ -33,6 +33,7 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
+from agent_worker.test_scheduled_v2_snapshot import make_materials
 from muad_agent_runtime.application import model_capacity_service, run_deadline, run_service
 from muad_agent_runtime.application.async_tools import continuation_service
 from muad_agent_runtime.application.async_tools.continuation_service import (
@@ -47,13 +48,16 @@ from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.infrastructure.models.runtime import RunRecord, RunSubmission
 from muad_agent_worker.infrastructure import db as worker_db
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory
-from muad_agent_worker.infrastructure.models.task import TaskExecution
+from muad_agent_worker.infrastructure.models.task import (
+    TaskExecution,
+    TaskSchedule,
+    TaskScheduleRevision,
+)
 from muad_agent_worker.scheduler import service as scheduler_service
 from muad_agent_worker.scheduler.service import (
     TASK_DEADLINE_EXCEEDED,
     DeadlineSweeper,
     SchedulerLoop,
-    ScheduleService,
 )
 from muad_agent_worker.worker import claimer as claimer_module
 from muad_agent_worker.worker import service as worker_service
@@ -64,13 +68,13 @@ from muad_api.error_codes import ErrorCode
 from muad_common import SharedSettings
 from muad_contracts import (
     ChannelContext,
-    CreateScheduleRequest,
-    DeliveryRouteInput,
     MessageInput,
     ResolveDefinitionResponse,
     RunRequest,
     RunStatus,
-    ScheduleSpec,
+    ScheduleAdmissionMaterials,
+    ScheduleAdmissionRequest,
+    ScheduleMode,
 )
 from muad_contracts.model_pool import ModelCapacityReservationRequest, ProbeCallOwner
 from muad_contracts.platform_settings import default_platform_settings
@@ -648,11 +652,10 @@ async def _seed_task(
                 tenant_id=f"b235-{uuid.uuid4().hex[:12]}",
                 agent_id=uuid.uuid4(),
                 actor_user_id=uuid.uuid4(),
-                intent_key="clock_probe",
                 skill_id=uuid.uuid4(),
                 skill_artifact_id=uuid.uuid4(),
                 trigger_type="IMMEDIATE",
-                execution_mode="ASYNC",
+                skill_execution_mode="ASYNC",
                 task_type="SKILL",
                 status=status,
                 input_json={"probe": True},
@@ -667,10 +670,6 @@ async def _seed_task(
                 deadline_at=deadline_at,
                 lease_owner=lease_owner,
                 lease_until=lease_until,
-                delivery_mode="FINAL_ONLY",
-                delivery_status="PENDING",
-                delivery_key=f"task:{task_id}:final",
-                delivery_attempts=0,
             )
         )
     return task_id
@@ -742,8 +741,8 @@ async def test_b235_worker_lease_renewal_and_deadline_judgment_follow_pg_clock(
     task_a_epoch = (await _task_row(factory, task_a)).lease_epoch
     with monkeypatch.context() as patch:
         _freeze_process_clock(patch, worker_service, pg + SKEW_FAST)
-        owned, requested = await loop._renew_lease(task_a, lease_epoch=task_a_epoch)
-    assert owned is True and requested is False
+        renewal = await loop._renew_lease(task_a, lease_epoch=task_a_epoch)
+    assert renewal.owned is True and renewal.cancel_requested is False
     renewed = await _task_state(factory, task_a)
     assert renewed.lease_until is not None
     assert renewed.lease_until <= pg + timedelta(seconds=30) + CLOCK_TOLERANCE
@@ -754,8 +753,8 @@ async def test_b235_worker_lease_renewal_and_deadline_judgment_follow_pg_clock(
     )
     with monkeypatch.context() as patch:
         _freeze_process_clock(patch, worker_service, pg - SKEW_SLOW)
-        owned, _requested = await loop._renew_lease(task_a, lease_epoch=task_a_epoch)
-    assert owned is False
+        lost = await loop._renew_lease(task_a, lease_epoch=task_a_epoch)
+    assert lost.owned is False
     # C) PG 期限未过 + 进程钟拨快：结果照常写 COMPLETED（不误判超期）
     stub = _StubExecutor({"status": "SUCCEEDED", "result": {"text": "ok"}})
     task_c = await _seed_task(
@@ -869,48 +868,97 @@ async def _set_task_deadline(
 # --------------------------------------------------------------------------------------
 
 
-class _StaticResolver:
-    """协议替身：按固定有效定义解析（被测边界是期限冻结，不是定义解析）。"""
+class _MaterialsClient:
+    """`resolve_schedule_materials` 的协议替身：只替换 Console 的网络取数（B-235）。"""
 
-    def __init__(self, response: ResolveDefinitionResponse) -> None:
-        self._response = response
+    def __init__(self, skill_id: uuid.UUID) -> None:
+        self.materials = make_materials(mode=ScheduleMode.SKILL, skill_id=skill_id)
+        self.calls: list[str] = []
 
-    async def resolve(
-        self, agent_id: uuid.UUID, actor_user_id: uuid.UUID, tenant_id: str
-    ) -> ResolveDefinitionResponse:
-        return self._response
+    async def resolve_schedule_materials(
+        self, tenant_id: str, payload: ScheduleAdmissionRequest
+    ) -> ScheduleAdmissionMaterials:
+        self.calls.append(tenant_id)
+        return self.materials
+
+
+async def _seed_schedule(
+    factory: async_sessionmaker[AsyncSession],
+    *,
+    tenant_id: str,
+    skill_id: uuid.UUID,
+    run_at: datetime,
+) -> uuid.UUID:
+    """种一条 ONCE Schedule + Revision 1（v2 的触发配置只在 Revision 里）。"""
+    schedule_id, revision_id = uuid.uuid4(), uuid.uuid4()
+    owner_id, agent_id = uuid.uuid4(), uuid.uuid4()
+    async with factory() as session, session.begin():
+        session.add(
+            TaskSchedule(
+                id=schedule_id,
+                tenant_id=tenant_id,
+                owner_user_id=owner_id,
+                agent_id=agent_id,
+                name="b235 clock probe",
+                status="ACTIVE",
+                config_version=1,
+                occurrence_count=0,
+                next_fire_at=run_at,
+                created_by=owner_id,
+            )
+        )
+        await session.flush()
+        session.add(
+            TaskScheduleRevision(
+                id=revision_id,
+                tenant_id=tenant_id,
+                schedule_id=schedule_id,
+                revision_no=1,
+                mode="SKILL",
+                instruction_raw="run the probe once",
+                normalized_goal="run the probe once",
+                recurrence_kind="ONCE",
+                cron_expr=None,
+                run_at=run_at,
+                timezone="UTC",
+                schedule_policy={},
+                context_json={},
+                execution_spec={
+                    "mode": "SKILL",
+                    "skill_id": str(skill_id),
+                    "input_template": {},
+                },
+                delivery_intent="NONE",
+                preflight_json={},
+                created_by=owner_id,
+            )
+        )
+        await session.flush()
+        await session.execute(
+            sa.update(TaskSchedule)
+            .where(TaskSchedule.id == schedule_id)
+            .values(current_revision_id=revision_id)
+        )
+    return schedule_id
 
 
 async def test_b235_task_deadline_freeze_uses_pg_clock(
     worker_factory: async_sessionmaker[AsyncSession],
-    resolved: ResolveDefinitionResponse,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """[B-235] 进程钟拨快 6 小时：新 Task 的 `not_before`/`deadline_at` 仍按 PG 冻结。"""
+    """[B-235] 进程钟拨快 6 小时：Schedule 触发的新 Task `not_before`/`deadline_at` 仍按 PG 冻结。"""
     factory = worker_factory
     settings = _worker_settings()
     pg = await _pg_now(factory)
     tenant_id = f"b235-schedule-{uuid.uuid4().hex[:10]}"
-    skill = resolved.skills[0]
-    async with factory() as session, session.begin():
-        await ScheduleService(session, settings).create_schedule(
-            tenant_id,
-            CreateScheduleRequest(
-                name="b235 clock probe",
-                agent_id=resolved.agent.id,
-                actor_user_id=uuid.uuid4(),
-                intent_key="clock_probe",
-                skill_id=skill.skill_id,
-                input_template={},
-                schedule=ScheduleSpec(type="ONCE", run_at=pg - timedelta(seconds=5), timezone="UTC"),
-                delivery_route=DeliveryRouteInput(
-                    channel="WECOM", bot_id="bot-b235", external_user_id="user-b235"
-                ),
-            ),
-        )
+    skill_id = uuid.uuid4()
+    await _seed_schedule(
+        factory, tenant_id=tenant_id, skill_id=skill_id, run_at=pg - timedelta(seconds=5)
+    )
+    materials = _MaterialsClient(skill_id)
     loop = SchedulerLoop(
         factory,
-        _StaticResolver(resolved),
+        materials,
         settings,
         settings_client=NullPlatformSettingsClient(),
     )
@@ -923,3 +971,4 @@ async def test_b235_task_deadline_freeze_uses_pg_clock(
     assert task.deadline_at - task.not_before == timedelta(hours=deadline_hours)
     assert abs(task.not_before - pg) <= CLOCK_TOLERANCE
     assert task.not_before < pg + SKEW_FAST, "期限冻结不得跟随进程钟"
+    assert materials.calls == [tenant_id], "触发边界按租户取一次准入材料"

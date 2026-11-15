@@ -72,6 +72,8 @@ NON_RETRYABLE_CODES = frozenset(
         "SKILL_ARTIFACT_INTEGRITY_ERROR",
         "SKILL_RESULT_INVALID",
         "LOCAL_BUDGET_EXHAUSTED",
+        "REMINDER_TEXT_MISSING",
+        "TASK_TYPE_UNSUPPORTED",
     }
 )
 # 传给 Skill 子进程的 Task 上下文（环境变量，不改动 Skill 的 stdin 输入契约）。

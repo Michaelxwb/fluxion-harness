@@ -19,6 +19,7 @@ from muad_contracts import (
     ScheduleSpec,
     SkillExecutionMode,
     TaskStatus,
+    TaskType,
 )
 from muad_contracts.platform_settings import default_platform_settings
 from muad_contracts.snapshot import snapshot_hash
@@ -81,9 +82,10 @@ def create_task_payload(
         "tenant_id": tenant.tenant_id,
         "agent_id": agent_id or uuid.uuid4(),
         "actor_user_id": actor_user_id or uuid.uuid4(),
-        "intent_key": "policy_check",
+        "task_type": str(TaskType.SKILL),
         "skill_id": skill_id or uuid.uuid4(),
         "skill_artifact_id": uuid.uuid4(),
+        "skill_execution_mode": str(SkillExecutionMode.ASYNC),
         "input": {"customers": ["A"]},
         "execution_snapshot": {
             "schema_version": TASK_SNAPSHOT_SCHEMA_VERSION,
@@ -122,7 +124,6 @@ def create_schedule_payload(
         "name": name,
         "agent_id": agent_id or uuid.uuid4(),
         "actor_user_id": actor_user_id or uuid.uuid4(),
-        "intent_key": "policy_check",
         "skill_id": skill_id or uuid.uuid4(),
         "input_template": {"customer": "A"},
         "schedule": schedule or ScheduleSpec(type="CRON", cron="0 9 * * *", timezone="Asia/Shanghai"),

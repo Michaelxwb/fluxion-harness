@@ -24,6 +24,7 @@ from muad_contracts import (
     ResolvedMcpServer,
     ResolvedModel,
     ResolvedSkill,
+    TaskType,
     WorkspaceRef,
     snapshot_hash,
 )
@@ -120,7 +121,6 @@ class WorkerTaskClient:
         skill: ResolvedSkill,
         input_data: Mapping[str, Any],
         call_id: str,
-        intent_key: str | None = None,
         argv: tuple[str, ...] = (),
     ) -> dict[str, Any]:
         snapshot, frozen_hash = build_task_snapshot(context, skill, argv=argv)
@@ -130,15 +130,15 @@ class WorkerTaskClient:
             "agent_id": str(context.agent.id),
             "actor_user_id": str(context.actor_user_id),
             "source_run_id": str(context.source_run_id) if context.source_run_id else None,
-            "intent_key": intent_key or skill.key,
+            "task_type": str(TaskType.SKILL),
             "skill_id": str(skill.skill_id),
             "skill_artifact_id": str(skill.artifact_id),
+            "skill_execution_mode": str(skill.execution_mode),
             "input": dict(input_data),
             "execution_snapshot": snapshot,
             "execution_snapshot_schema_version": TASK_SNAPSHOT_SCHEMA_VERSION,
             "snapshot_hash": frozen_hash,
             "idempotency_key": submission_idempotency_key(context, call_id),
-            "delivery_mode": "FINAL_ONLY" if route is not None else "NONE",
         }
         if route is not None:
             body["delivery_route"] = route.model_dump(mode="json")

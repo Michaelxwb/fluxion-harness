@@ -8,7 +8,15 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .canonical import ensure_strict_json
-from .enums import ChannelName, DeliveryMode, ScheduleMode, ScheduleStatus, TaskStatus, TriggerType
+from .enums import (
+    ChannelName,
+    ScheduleMode,
+    ScheduleStatus,
+    SkillExecutionMode,
+    TaskStatus,
+    TaskType,
+    TriggerType,
+)
 from .tool_runtime import RuntimeOperationInput
 
 
@@ -29,16 +37,18 @@ class CreateTaskRequest(ContractModel):
     actor_user_id: UUID
     source_run_id: UUID | None = None
     runtime_operation: RuntimeOperationInput | None = None
-    intent_key: str = Field(min_length=1)
-    skill_id: UUID
-    skill_artifact_id: UUID
+    #: 立即任务在 v2 只提交 SKILL；REMINDER/AGENTIC 由 Schedule 触发（design §2.3.2）。
+    task_type: TaskType = TaskType.SKILL
+    skill_id: UUID | None = None
+    skill_artifact_id: UUID | None = None
+    skill_execution_mode: SkillExecutionMode | None = None
     input: dict[str, Any]
     execution_snapshot: dict[str, Any]
     execution_snapshot_schema_version: int = Field(default=1, ge=1)
     snapshot_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     idempotency_key: str = Field(min_length=1, max_length=256)
+    #: 创建时的投递目标元数据（design §3.5.9）；投递状态只落在 `task_delivery`。
     delivery_route: DeliveryRouteInput | None = None
-    delivery_mode: DeliveryMode = DeliveryMode.FINAL_ONLY
 
     @field_validator("input", "execution_snapshot", mode="before")
     @classmethod
@@ -48,11 +58,13 @@ class CreateTaskRequest(ContractModel):
         return ensure_strict_json(value)
 
     @model_validator(mode="after")
-    def _require_route_for_delivery(self) -> Self:
+    def _require_skill_columns(self) -> Self:
         if self.runtime_operation is not None and self.runtime_operation.source_run_id != self.source_run_id:
             raise ValueError("runtime operation must reference the task source Run")
-        if self.delivery_mode is DeliveryMode.FINAL_ONLY and self.delivery_route is None:
-            raise ValueError("delivery_route is required when delivery_mode=FINAL_ONLY")
+        if self.task_type is not TaskType.SKILL:
+            raise ValueError("immediate submissions must use task_type=SKILL")
+        if self.skill_id is None or self.skill_artifact_id is None:
+            raise ValueError("skill_id and skill_artifact_id are required for task_type=SKILL")
         return self
 
 
