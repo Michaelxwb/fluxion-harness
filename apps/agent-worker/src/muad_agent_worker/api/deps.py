@@ -9,6 +9,7 @@ from muad_common import SharedSettings
 from muad_contracts import ConfirmationSurface, ConfirmScope
 
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
+from ..application.remote_cancellation import RuntimeToolOperationCanceller, ToolOperationCanceller
 from ..scheduler.client import ConsoleResolveClient, ScheduleMaterialsProtocol
 
 TENANT_HEADER = "X-Tenant-Id"
@@ -156,4 +157,31 @@ def get_confirmation_scope(
 ConfirmationScope = Annotated[ConfirmScope | None, Depends(get_confirmation_scope)]
 ScheduleMaterialsClientDep = Annotated[
     ScheduleMaterialsProtocol | None, Depends(get_schedule_materials_client)
+]
+
+def get_tool_operation_canceller(request: Request) -> ToolOperationCanceller | None:
+    """远端 operation 取消端口（Runtime API-30）。
+
+    lifespan 注入的 `app.state.http_pools` 复用业务出站池；测试可显式注入
+    `app.state.tool_operation_canceller`。两者都缺省返回 None —— 取消意图已在事务内
+    持久化（`REQUESTED` 证据），没有端口时保持「待核实」，绝不假装远端已回滚。
+    """
+    injected: ToolOperationCanceller | None = getattr(
+        request.app.state, "tool_operation_canceller", None
+    )
+    if injected is not None:
+        return injected
+    pools = getattr(request.app.state, "http_pools", None)
+    settings = SharedSettings()
+    if pools is None or not settings.agent_runtime_url:
+        return None
+    return RuntimeToolOperationCanceller(
+        settings.agent_runtime_url,
+        pools.egress,
+        service_token=settings.internal_service_token,
+    )
+
+
+ToolOperationCancellerDep = Annotated[
+    ToolOperationCanceller | None, Depends(get_tool_operation_canceller)
 ]

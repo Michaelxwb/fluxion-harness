@@ -27,7 +27,13 @@ from ..application.batch_fanin import settle_child
 from ..application.batch_fanout import TASK_TYPE_BATCH
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from ..application.task_cancel import cancel_children
-from ..application.task_events import TaskEventSeed, TaskEventType, append_event, append_events
+from ..application.task_events import (
+    EntityType,
+    TaskEventSeed,
+    TaskEventType,
+    append_event,
+    append_events,
+)
 from ..application.terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.db_clock import database_now
@@ -492,8 +498,10 @@ class WorkerLoop:
                     [
                         TaskEventSeed(
                             tenant_id=task.tenant_id,
-                            task_id=task.id,
-                            event_type=TaskEventType.WAITING,
+                            entity_type=EntityType.EXECUTION,
+                            entity_id=task.id,
+                            event_type=TaskEventType.WAITING_EXTERNAL,
+                            occurred_at=moment,
                             payload={
                                 "external_ref": outcome.external_ref or {},
                                 "not_before": not_before.isoformat(),
@@ -572,7 +580,12 @@ class WorkerLoop:
             )
         )
         await append_event(
-            session, tenant_id=locked.tenant_id, task_id=locked.id, event_type=TaskEventType.RECLAIMED
+            session,
+            tenant_id=locked.tenant_id,
+            entity_type=EntityType.EXECUTION,
+            entity_id=locked.id,
+            event_type=TaskEventType.RECLAIMED,
+            occurred_at=moment,
         )
         return 1, 1
 
@@ -681,8 +694,10 @@ class WorkerLoop:
             [
                 TaskEventSeed(
                     tenant_id=task.tenant_id,
-                    task_id=task.id,
-                    event_type=TaskEventType.RETRY,
+                    entity_type=EntityType.EXECUTION,
+                    entity_id=task.id,
+                    event_type=TaskEventType.QUEUED,
+                    occurred_at=moment,
                     payload={
                         "attempt": task.attempt,
                         "not_before": not_before.isoformat(),

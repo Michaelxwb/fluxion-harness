@@ -46,11 +46,13 @@ async def _row(tenant: TenantContext, task_id: uuid.UUID) -> dict[str, Any]:
 
 
 async def _event_types(tenant: TenantContext, task_id: uuid.UUID) -> list[str]:
+    """执行实体的事件序（v2：`(entity_type, entity_id)` 定位，不再有 `task_id` 列）。"""
     async with tenant.session_factory() as session:
         rows = (
             await session.execute(
                 sa.text(
-                    "SELECT event_type FROM task.task_event WHERE task_id = :id ORDER BY seq ASC"
+                    "SELECT event_type FROM task.task_event "
+                    "WHERE entity_type = 'EXECUTION' AND entity_id = :id ORDER BY seq ASC"
                 ),
                 {"id": task_id},
             )
@@ -80,7 +82,7 @@ async def test_queued_cancel_is_direct_and_clears_lease(
 
 async def test_waiting_cancel_is_direct(client: AsyncClient, tenant: TenantContext) -> None:
     task = await persist_task(
-        tenant, status="WAITING", not_before=datetime.now(UTC) + timedelta(hours=1)
+        tenant, status="WAITING_EXTERNAL", not_before=datetime.now(UTC) + timedelta(hours=1)
     )
 
     response = await client.post(f"/internal/tasks/{task.id}/cancel", headers=_headers(tenant))
@@ -111,7 +113,9 @@ async def test_running_cancel_keeps_running_with_flag(
     state = await _row(tenant, task.id)
     assert state["status"] == "RUNNING"
     assert state["cancel_requested"] is True
-    assert await _event_types(tenant, task.id) == ["CANCEL_REQUESTED"]
+    # §3.5.10 的执行事件目录没有「取消请求」一项：取消意图的权威是实体行的
+    # `cancel_requested`，真正的 CANCELLED 事件由持有 lease 的 Worker 在检查点写。
+    assert await _event_types(tenant, task.id) == []
 
 
 async def test_repeated_cancel_is_idempotent(client: AsyncClient, tenant: TenantContext) -> None:
@@ -288,7 +292,7 @@ async def test_parent_cancel_cascades_to_children(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
     """取消 BATCH Parent：QUEUED/WAITING Child 直接 CANCELLED，RUNNING Child 打取消标记。"""
-    parent = await persist_task(tenant, status="WAITING", task_type="BATCH")
+    parent = await persist_task(tenant, status="WAITING_EXTERNAL", task_type="BATCH")
     queued = await persist_task(tenant, parent_id=parent.id, root_id=parent.id, item_key="a")
     running = await persist_task(
         tenant,
