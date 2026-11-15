@@ -667,7 +667,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ## TASK-008: 新增 Task 产物写入与不可变版本 API
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-002, TASK-003
 - **Source**: scheduled-task-v2.backend.design.md §3.1.5、API-28、§3.4.6、§3.5.9、§4.4
 - **Scenarios**: S-02, S-03, B-09, B-11
@@ -706,11 +706,11 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Checklist
 
-- [ ] 服务身份加 TASK owner 核属后写 runtime.artifact.task_id=Execution.id，run_id 为 NULL；存储键按 tenant/Execution 生成，不要求 Conversation。
-- [ ] 写入及追加版本按稳定调用标识幂等；每个版本有不可变 version/checksum/name/media_type/size，重放返回原版本，冲突显式失败。
-- [ ] 读指定版本必须校验 checksum；不得用最新版替代；缺失对象、写入失败或元数据落库失败有明确错误与清理策略。
-- [ ] 区分用户可下载结果与内部 transcript/审计留档；内部原文不能通过新增下载能力暴露。
-- [ ] 覆盖 XOR、无 Run 写入、重复版本请求、跨 tenant/actor/agent、hash 一致性与存储失败；保留 Run 产物回归。
+- [x] 服务身份加 TASK owner 核属后写 runtime.artifact.task_id=Execution.id，run_id 为 NULL；存储键按 tenant/Execution 生成，不要求 Conversation。
+- [x] 写入及追加版本按稳定调用标识幂等；每个版本有不可变 version/checksum/name/media_type/size，重放返回原版本，冲突显式失败。
+- [x] 读指定版本必须校验 checksum；不得用最新版替代；缺失对象、写入失败或元数据落库失败有明确错误与清理策略。
+- [x] 区分用户可下载结果与内部 transcript/审计留档；内部原文不能通过新增下载能力暴露。
+- [x] 覆盖 XOR、无 Run 写入、重复版本请求、跨 tenant/actor/agent、hash 一致性与存储失败；保留 Run 产物回归。
 
 ### Spec Delta
 
@@ -721,13 +721,21 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T06:18:35.034Z] started tests=d61cc21f9846
+- [2026-11-15] 新增 `application/attachments/task_artifacts.py`：API-28 写入/追加不可变版本（multipart：契约 `TaskArtifactWriteRequest` + 字节），产物行 `task_id=task_execution.id`、`run_id=NULL`、无 Conversation，存储键 `tasks/{tenant}/{execution}/{artifact_id}/v{n}`；TASK owner 只读 `task.task_execution`（同一 PG，只读投影，先例 `channel_uploads`/`model_dispatch_store`）复核 tenant/actor/agent，请求体不能自报归属。
+- [2026-11-15] 版本语义：同一 Execution 内 `filename` 是产物身份，`base_version` 是 CAS（0 新建、N 追加 N+1）；稳定调用标识 = (filename, base_version, checksum, media_type, size)，重放返回原版本、不重复落盘；内容不同/过期 base 一律 `ARTIFACT_VERSION_CONFLICT`。并发由 `pg_advisory_xact_lock(tenant, execution, filename)` 串行化（行还不存在时行锁兜不住）。
+- [2026-11-15] 读面：`GET /internal/artifacts/{artifact_id}/versions/{version}?checksum=&user_id=&agent_id=`（TASK-024 的 Owner 侧）只解析指定不可变版本，按 `artifact.task_id → task_execution` 核属 tenant/actor/agent；版本/checksum 不匹配 409、字节缺失或长度不符 404，绝不返回最新版。可下载类型白名单只含 `TASK_OUTPUT`：`TOOL_RESULT`/`TRANSCRIPT` 等内部留档即使挂 `task_id` 也 404。
+- [2026-11-15] 失败与清理：存储写失败 → 500 `COMMON_INTERNAL_ERROR`（不落行）；元数据提交失败 → 删除本次写的文件（历史版本字节不动）；同键已有同内容字节视为已发布（崩溃后重试复用），不同内容 → 409。
+- [2026-11-15] 测试 `tests/agent_runtime/test_scheduled_v2_task_artifacts.py`（15 例，真实 PG + 真实共享存储）：XOR/无 Run、重放幂等、改名冲突、追加不可变、精确版本读取、跨 tenant/actor/agent、缺失/损坏对象、内部留档与 Run 产物不可下载、服务身份门控、checksum/size 一致性、空结果、坏元信息、存储失败、提交失败清理；Run 产物回归沿用 `test_artifact_results.py`/`test_output_artifacts.py`。
+- [2026-11-15] 未做（归属后续 TASK）：WebChat/网关侧下载路由与流式字节由 TASK-024 实现；Worker 侧写入客户端与长结果入站接入由 TASK-019 实现；本次只交付 Runtime Owner 面（API-28 写 + 版本读取）。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-009"></a>
-
+- 2026-11-15T06:26:36.205Z PASS commands=1/1 executed=1 deduped=0 elapsed=12682ms tests=d61cc21f9846 head=a0a06fc600af dirty=1
+  - related PASS exit=0
 ## TASK-009: 泛化 Kernel 的挂起、事件与恢复端口
 
 - **Status**: done
