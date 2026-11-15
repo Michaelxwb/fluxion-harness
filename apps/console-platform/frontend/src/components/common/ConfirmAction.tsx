@@ -6,7 +6,7 @@ export interface ConfirmActionProps {
   title: ReactNode;
   onConfirm(): void;
   children?: ReactNode;
-  /** 图标按钮：只给图标时用 `ariaLabel` 提供可访问名。 */
+  /** Icon-only trigger: pair it with `ariaLabel` so the accessible name stays explicit. */
   icon?: ReactNode;
   ariaLabel?: string;
   testId?: string;
@@ -42,9 +42,7 @@ export function ConfirmAction({
       onConfirm={onConfirm}
       onVisibleChange={(visible: boolean) => onOpenChange?.(visible)}
     >
-      <Button
-        theme={theme}
-        type={type}
+      <Button theme={theme} type={type}
         size={size}
         icon={icon}
         aria-label={ariaLabel}

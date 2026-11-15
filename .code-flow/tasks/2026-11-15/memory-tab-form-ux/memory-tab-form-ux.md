@@ -73,3 +73,68 @@
   - taxonomy-parity PASS exit=0
   - component-layout PASS exit=0
   - e2e-agent PASS exit=0
+
+## TASK-002: 内容列加宽与工具条归位
+
+- **Status**: done
+- **Depends**: TASK-001
+- **Source**: 用户实机第二轮反馈：内容列还要更宽；回收站/待确认应归到列表左上角
+- **Scenarios**:
+- **Spec-Refs**: memory/harness-memory, frontend/harness-frontend, i18n/harness-i18n, test/harness-test
+- **Paths**: apps/console-platform/frontend/src/modules/user-identity/MemoryTab.tsx, apps/console-platform/frontend/src/locales, apps/console-platform/frontend/src/styles/app.css
+- **E2E**:
+- **Skip-Tests**:
+- **Skip-Reason**:
+
+### Tests
+
+```json
+[
+  {"id": "lint", "argv": ["uv", "run", "ruff", "check", "."], "timeout": 300},
+  {"id": "frontend-typecheck", "argv": ["npm", "--prefix", "apps/console-platform/frontend", "run", "typecheck"], "timeout": 600},
+  {"id": "taxonomy-parity", "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/frontend/test_memory_taxonomy_parity.py", "tests/frontend/test_memory_tab_contract.py"], "timeout": 600},
+  {"id": "shared-component-contracts", "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/frontend/test_common_components_contract.py", "tests/frontend/test_delete_button_contract.py"], "timeout": 600},
+  {"id": "component-layout", "argv": ["make", "acceptance-e2e", "DOMAIN=form-layout"], "timeout": 1200},
+  {"id": "e2e-agent", "argv": ["make", "acceptance-e2e", "DOMAIN=agent"], "timeout": 1800}
+]
+```
+
+### Description
+
+1. 内容列 196 → 232，宽度从 类别（104→120，`偏好/report_format` 一直截断）与 状态（140→88，最长 `生效中`/`Disabled`）让出来；来源保持 144（缩到 128 会让 `FUTURE_SOURCE` 这类域外码溢出，被作者列契约抓住）、更新时间 176、操作 120。列宽总和仍是 880（`table-layout: fixed` 下总和小于表宽会按比例摊分，宽度契约会失真）。
+2. 工具条按「看什么 + 加什么」归到左上：新增记忆、回收站开关、待确认；右侧只留危险操作「清理全部」。回收站开关与待确认各带 `title` 说明（已删除可恢复 / Agent 推断未确认的候选可接受或拒绝），避免只有名词没有语义。
+
+### Checklist
+
+- [x] 内容列 232，其余列宽重排后总和 880，1280/390 与中英文都不出格（含作者列域外码不溢出）。
+- [x] 回收站/待确认归位到左上，右侧只保留清理全部。
+- [x] 两个控件都有悬停说明词条（zh-CN/en-US）。
+- [x] 共享组件契约：`components/common` 无硬编码中文、ConfirmAction 仍向触发器与确认框透传 `danger`。
+
+### Spec Delta
+
+```json
+[]
+```
+
+### Log
+
+- [2026-11-15] 第二轮实机反馈：加宽内容列、工具条归位。
+- [2026-11-15] CI 在 b8d4bbe 抓到两条共享组件契约红（`components/common` 里的中文注释、`ConfirmAction` 触发器字面量），已修并把这两条加进本任务的声明测试；来源列缩到 128 会让作者列溢出，改为 144。
+- [2026-11-15T01:29:45.771Z] started tests=63354ae5349b
+
+### Verification
+- 2026-11-15T01:32:00.589Z FAIL commands=4/6 executed=5 deduped=0 elapsed=67846ms tests=c7abc7c1b79d head=b8d4bbe170c2 dirty=1 tests-changed
+  - lint PASS exit=0
+  - frontend-typecheck PASS exit=0
+  - taxonomy-parity PASS exit=0
+  - shared-component-contracts PASS exit=0
+  - component-layout FAIL exit=2
+  - e2e-agent NOT-RUN
+- 2026-11-15T01:34:13.347Z PASS commands=6/6 executed=6 deduped=0 elapsed=106424ms tests=c7abc7c1b79d head=b8d4bbe170c2 dirty=1 tests-changed
+  - lint PASS exit=0
+  - frontend-typecheck PASS exit=0
+  - taxonomy-parity PASS exit=0
+  - shared-component-contracts PASS exit=0
+  - component-layout PASS exit=0
+  - e2e-agent PASS exit=0
