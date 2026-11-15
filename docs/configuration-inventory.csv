@@ -869,8 +869,8 @@ apps/agent-worker/src/muad_agent_worker/scheduler/recurrence.py,51,FIRE,'FIRE',p
 apps/agent-worker/src/muad_agent_worker/scheduler/recurrence.py,53,DST_GAP,'DST_GAP',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/scheduler/recurrence.py,55,MISFIRE,'MISFIRE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/scheduler/recurrence.py,57,ENDED,'ENDED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/scheduler/service.py,71,TASK_DEADLINE_EXCEEDED,'TASK_DEADLINE_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/scheduler/service.py,72,NON_TERMINAL_TASK_STATUSES,"('QUEUED', 'RUNNING', 'WAITING_EXTERNAL', 'WAITING_HUMAN')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/scheduler/service.py,72,TASK_DEADLINE_EXCEEDED,'TASK_DEADLINE_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/scheduler/service.py,73,NON_TERMINAL_TASK_STATUSES,"('QUEUED', 'RUNNING', 'WAITING_EXTERNAL', 'WAITING_HUMAN')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/scheduler/templates.py,23,VARIABLE_PATTERN,re.compile('\\{\\{\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*\\}\\}'),python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/scheduler/templates.py,24,ALLOWED_VARIABLES,"frozenset({'fire_date', 'previous_day', 'fire_time'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,66,AGENTIC_EXECUTION_FAILED,'AGENTIC_EXECUTION_FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
