@@ -3,7 +3,7 @@ from typing import Annotated, cast
 
 from fastapi import Depends, Request
 from muad_api.context import current_tenant_id
-from muad_artifact_store import SkillArtifactCache
+from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import process_settings
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,6 +74,11 @@ def get_artifact_writer() -> ArtifactResultWriter:
     return ArtifactResultWriter(process_settings().artifact_root)
 
 
+def get_artifact_store() -> NfsArtifactStore:
+    """共享产物存储的 Owner 侧句柄（Task 产物写入/版本解析用；测试可覆盖根目录）。"""
+    return NfsArtifactStore(process_settings().artifact_root)
+
+
 def get_executor_factory(
     request: Request,
     skill_cache: Annotated[SkillArtifactCache, Depends(get_skill_cache)],
@@ -115,6 +120,7 @@ CredentialCanariesDep = Annotated[tuple[str, ...], Depends(get_credential_canari
 InstanceIdDep = Annotated[str, Depends(get_instance_id)]
 ResolveClientDep = Annotated[ResolveClient, Depends(get_resolve_client)]
 SkillCacheDep = Annotated[SkillArtifactCache, Depends(get_skill_cache)]
+ArtifactStoreDep = Annotated[NfsArtifactStore, Depends(get_artifact_store)]
 ExecutorFactoryDep = Annotated[ExecutorFactory, Depends(get_executor_factory)]
 CancelHintStoreDep = Annotated[CancelHintStore, Depends(get_cancel_hint_store)]
 CredentialsClientDep = Annotated[CredentialsClient | None, Depends(get_credentials_client)]
