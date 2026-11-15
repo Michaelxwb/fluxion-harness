@@ -136,29 +136,40 @@ class WebchatArtifactService:
         return _project(AttachmentRef, data.get("reference"))
 
     def _open(self, reference: AttachmentRef) -> ArtifactDownload:
-        """渠道中立引用 → 真实字节目标；键越界/字节缺失/长度不符一律"拿不到"（404）。"""
-        try:
-            path = self._store.resolve(reference.storage_key)
-        except ValueError as exc:
-            logger.warning("webchat_artifact_storage_key_invalid")
-            raise AppError(ErrorCode.COMMON_NOT_FOUND) from exc
-        try:
-            stat = path.stat()
-        except OSError as exc:
-            logger.warning("webchat_artifact_bytes_missing error_type=%s", type(exc).__name__)
-            raise AppError(ErrorCode.COMMON_NOT_FOUND) from exc
-        if not S_ISREG(stat.st_mode) or stat.st_size != reference.size:
-            # 行内长度与实际字节不符：不按错误长度声明 Content-Length，宁可说"拿不到"。
-            logger.warning("webchat_artifact_size_mismatch")
-            raise AppError(ErrorCode.COMMON_NOT_FOUND)
-        media_type = safe_media_type(reference.media_type)
-        return ArtifactDownload(
-            path=path,
-            stat=stat,
-            media_type=media_type,
-            filename=reference.filename,
-            disposition=disposition_for(media_type),
-        )
+        """渠道中立引用 → 真实字节目标（与任务产物下载共用同一取件判定）。"""
+        return open_download_reference(self._store, reference)
+
+
+def open_download_reference(
+    store: NfsArtifactStore, reference: AttachmentRef
+) -> ArtifactDownload:
+    """渠道中立引用 → 真实字节目标；键越界/字节缺失/长度不符一律"拿不到"（404）。
+
+    只接受 Owner 解析出来的引用（存储键从不由客户端提供）；WebChat 附件与任务产物下载
+    共用这一处判定，避免两条取件路径各自演化出不同的完整性口径。
+    """
+    try:
+        path = store.resolve(reference.storage_key)
+    except ValueError as exc:
+        logger.warning("artifact_download_storage_key_invalid")
+        raise AppError(ErrorCode.COMMON_NOT_FOUND) from exc
+    try:
+        stat = path.stat()
+    except OSError as exc:
+        logger.warning("artifact_download_bytes_missing error_type=%s", type(exc).__name__)
+        raise AppError(ErrorCode.COMMON_NOT_FOUND) from exc
+    if not S_ISREG(stat.st_mode) or stat.st_size != reference.size:
+        # 行内长度与实际字节不符：不按错误长度声明 Content-Length，宁可说"拿不到"。
+        logger.warning("artifact_download_size_mismatch")
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    media_type = safe_media_type(reference.media_type)
+    return ArtifactDownload(
+        path=path,
+        stat=stat,
+        media_type=media_type,
+        filename=reference.filename,
+        disposition=disposition_for(media_type),
+    )
 
 
 def safe_media_type(raw: str) -> str:

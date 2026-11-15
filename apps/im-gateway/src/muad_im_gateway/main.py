@@ -34,6 +34,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .api.delivery import router as delivery_router
 from .api.health import readiness_checks, readiness_detail
+from .api.task_center import build_task_center_router
 from .api.webchat import router as webchat_router
 from .api.webhook import router as webhook_router
 from .application.channel_delivery import ActiveChannelDelivery, ConsoleDeliveryPermission
@@ -44,7 +45,9 @@ from .application.inbound_attachments import InboundAttachmentStore
 from .application.inbound_streams import InboundStreamConsumer
 from .application.notification_streams import NotificationStreamHub
 from .application.runtime_client import RuntimeClient
+from .application.task_center import WEBCHAT_SURFACE
 from .application.webchat_streams import SseBufferLedger
+from .application.worker_client import WorkerClient
 from .channels.base import ChannelRegistry
 from .channels.registry import build_channel_registry, dispatch_snapshot
 from .channels.routed import parse_routed_channels
@@ -75,6 +78,7 @@ class _GatewayResources:
     registry: ChannelRegistry
     dedupe: DedupeStore
     console: ConsoleClient
+    worker: WorkerClient
     settings_client: ConsolePlatformSettingsClient
     runtime: RuntimeClient
     snapshot: BotSnapshotCache
@@ -107,6 +111,7 @@ class _GatewayResources:
         app.state.registry = self.registry
         app.state.dedupe_store = self.dedupe
         app.state.console_client = self.console
+        app.state.worker_client = self.worker
         app.state.runtime_client = self.runtime
         app.state.bot_snapshot = self.snapshot
         app.state.inbound_pipeline = self.inbound
@@ -139,6 +144,7 @@ class _GatewayResources:
         await self.inbound_consumer.stop()
         await self.registry.stop_all()
         await self.runtime.aclose()
+        await self.worker.aclose()
         await self.console.aclose()
         await self.settings_client.aclose()
         await self.artifacts.aclose()
@@ -149,7 +155,13 @@ class _GatewayResources:
 
 def _build_outbound_clients(
     settings: SharedSettings, pools: GatewayHttpPools
-) -> tuple[ConsoleClient, RuntimeClient, ConsolePlatformSettingsClient, HttpArtifactResolver]:
+) -> tuple[
+    ConsoleClient,
+    RuntimeClient,
+    ConsolePlatformSettingsClient,
+    HttpArtifactResolver,
+    WorkerClient,
+]:
     """出站客户端：全部消费装配根注入的分池（控制/stream/上传/业务各自独立预算）。"""
     console = ConsoleClient(
         settings.console_platform_url,
@@ -176,7 +188,13 @@ def _build_outbound_clients(
         service_token=settings.internal_service_token,
         client=pools.egress,
     )
-    return console, runtime, settings_client, artifacts
+    # 任务中心（TASK-024）：Worker 的任务读面与用户动作/确认走同一业务出站池。
+    worker = WorkerClient(
+        settings.agent_worker_url,
+        service_token=settings.internal_service_token,
+        client=pools.egress,
+    )
+    return console, runtime, settings_client, artifacts, worker
 
 
 def _cluster_seeds(settings: SharedSettings) -> list[str]:
@@ -278,7 +296,9 @@ async def _build_resources(
     settings: SharedSettings, catalog: MessageCatalog, pools: GatewayHttpPools
 ) -> _GatewayResources:
     """按启动设置组装运行时资源；中途失败时回收已创建的部分（分池由调用方收尾）。"""
-    console, runtime, settings_client, artifacts = _build_outbound_clients(settings, pools)
+    console, runtime, settings_client, artifacts, worker = _build_outbound_clients(
+        settings, pools
+    )
     redis = _build_redis(settings)
     try:
         pubsub_redis = await _build_pubsub_redis(settings)
@@ -359,6 +379,7 @@ async def _build_resources(
             registry=registry,
             dedupe=dedupe,
             console=console,
+            worker=worker,
             settings_client=settings_client,
             runtime=runtime,
             snapshot=snapshot,
@@ -489,6 +510,9 @@ app.include_router(delivery_router)
 app.include_router(webhook_router)
 # Webchat 公开面（TASK-052/054/055/057/061）：HTTP 聊天/上传/下载与公开 SSE 的实际注册点。
 app.include_router(webchat_router)
+# 任务中心表面（TASK-024）：WebChat 的任务读面/用户动作/产物下载见
+# `api/task_center.py`；MSSWWEB 的同形路由另立需求，本进程不挂。
+app.include_router(build_task_center_router(WEBCHAT_SURFACE))
 install_gateway_metrics(app)
 # 最后注册 = 最外层：必须包在 api-kit 的异常/封套中间件之外，才能看到最终的 5xx 状态。
 app.add_middleware(_ServerErrorLogMiddleware)
