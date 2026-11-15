@@ -43,12 +43,16 @@ from muad_im_gateway.infrastructure.dedupe import (
     parse_delivered,
 )
 from muad_im_gateway.main import app
+from sqlalchemy import select
 
 from tests.e2e.wecom_probe_app import WeComProbe, frame_text
 from tests.internal_service import TOKEN as INTERNAL_TOKEN
 from tests.internal_service import internal_service_token  # noqa: F401  (fixture 注册)
 
 GATEWAY_TENANT = "tenant-1"
+#: E-05 的固定接收者身份：路由、执行与交付前复核必须指向同一个人。
+E05_PLATFORM_USER = uuid.UUID("11111111-1111-1111-1111-111111111111")
+E05_AGENT = uuid.UUID("22222222-2222-2222-2222-222222222222")
 #: 每个投递请求都要带服务身份：`/internal/deliveries` 与 resolve-credentials 同门控（2026-10-06）。
 SERVICE_HEADERS = {"X-Internal-Service": INTERNAL_TOKEN}
 
@@ -193,11 +197,12 @@ async def api_client(
     tenant: str = GATEWAY_TENANT,
     headers: dict[str, str] | None = None,
     streams: FakeDeliveryStreams | None = None,
+    resolve_response: ChannelResolveResponse | None = None,
 ) -> AsyncIterator[AsyncClient]:
     app.dependency_overrides[get_registry] = lambda: registry
     app.dependency_overrides[get_dedupe_store] = lambda: dedupe
     console = FakeConsoleClient()
-    console.resolve_response = _authorized_resolve()
+    console.resolve_response = resolve_response or _authorized_resolve()
     app.dependency_overrides[get_console_client] = lambda: console
     app.dependency_overrides[get_gateway_tenant] = lambda: tenant
     app.dependency_overrides[get_artifact_resolver] = lambda: resolver or _FakeResolver()
@@ -707,7 +712,7 @@ async def test_e05_worker_http_to_gateway_redis_probe_end_to_end() -> None:
     from muad_agent_worker.application.delivery_routes import upsert_delivery_route
     from muad_agent_worker.delivery.service import DeliveryLoop
     from muad_agent_worker.infrastructure.db import get_session_factory
-    from muad_agent_worker.infrastructure.models.task import TaskExecution
+    from muad_agent_worker.infrastructure.models.task import TaskDelivery, TaskExecution
     from muad_common import SharedSettings
     from muad_contracts import DeliveryRouteInput
     from sqlalchemy import text
@@ -727,10 +732,11 @@ async def test_e05_worker_http_to_gateway_redis_probe_end_to_end() -> None:
     try:
         async with session_factory() as session:
             async with session.begin():
+                # 交付前的接收者复核要求"原入口同一个人"：路由、执行、Console 复核三处一致。
                 route_id = await upsert_delivery_route(
                     session,
                     tenant_id=tenant_id,
-                    platform_user_id=uuid.uuid4(),
+                    platform_user_id=E05_PLATFORM_USER,
                     route=DeliveryRouteInput(
                         channel="WECOM", bot_id="bot-e05", external_user_id="ext-e05"
                     ),
@@ -739,13 +745,12 @@ async def test_e05_worker_http_to_gateway_redis_probe_end_to_end() -> None:
                     TaskExecution(
                         id=task_id,
                         tenant_id=tenant_id,
-                        agent_id=uuid.uuid4(),
+                        agent_id=E05_AGENT,
                         actor_user_id=uuid.uuid4(),
-                        intent_key="policy_check",
                         skill_id=uuid.uuid4(),
                         skill_artifact_id=uuid.uuid4(),
                         trigger_type="IMMEDIATE",
-                        execution_mode="ASYNC",
+                        skill_execution_mode="ASYNC",
                         task_type="SKILL",
                         status="COMPLETED",
                         input_json={},
@@ -758,16 +763,34 @@ async def test_e05_worker_http_to_gateway_redis_probe_end_to_end() -> None:
                         max_attempts=3,
                         not_before=now,
                         deadline_at=now + timedelta(hours=1),
-                        delivery_route_id=route_id,
-                        delivery_mode="FINAL_ONLY",
-                        delivery_status="PENDING",
-                        delivery_key=f"execution:{task_id}:final",
-                        delivery_attempts=0,
                         finished_at=now,
                     )
                 )
+                # v2：投递是独立台账，执行行不再携带投递列。
+                await session.flush()
+                session.add(
+                    TaskDelivery(
+                        tenant_id=tenant_id,
+                        execution_id=task_id,
+                        delivery_route_id=route_id,
+                        delivery_kind="PUSH",
+                        delivery_key=f"execution:{task_id}:final",
+                        status="PENDING",
+                    )
+                )
         # 网关按**单租户**部署：投递声明的租户必须等于它配置的租户（这条链路里就是任务租户）
-        async with api_client(_registry_with(adapter), store, tenant=tenant_id) as gateway_http:
+        async with api_client(
+            _registry_with(adapter),
+            store,
+            tenant=tenant_id,
+            resolve_response=ChannelResolveResponse(
+                bound=True,
+                entry_id=uuid.uuid4(),
+                agent_id=E05_AGENT,
+                platform_user_id=E05_PLATFORM_USER,
+                authorized=True,
+            ),
+        ) as gateway_http:
             # 重放要**逐字节用 Worker 真正发过的那份请求体**：投递端点现在按请求指纹判
             # "同 key 是不是同一次请求"，自己另拼一份等于换了个请求（会正确地报 IDEMPOTENCY_MISMATCH）。
             worker_client = _RecordingDeliveryClient(
@@ -790,14 +813,23 @@ async def test_e05_worker_http_to_gateway_redis_probe_end_to_end() -> None:
             assert len(probe.requests) == 1, "Redis 正常时重放不得重复发送"
 
         async with session_factory() as session:
-            row = await session.get(TaskExecution, task_id)
-            assert row is not None and row.delivery_status == "SENT"
+            # v2：投递状态在独立台账上，执行行不再有 delivery_status。
+            delivery = await session.scalar(
+                select(TaskDelivery).where(TaskDelivery.execution_id == task_id)
+            )
+            assert delivery is not None and delivery.status == "SENT"
     finally:
         await client.delete(key)
         await client.aclose()
         async with session_factory() as session:
             await session.execute(
                 text("DELETE FROM task.task_event WHERE tenant_id = :t"), {"t": tenant_id}
+            )
+            await session.execute(
+                text("DELETE FROM task.task_delivery_attempt WHERE tenant_id = :t"), {"t": tenant_id}
+            )
+            await session.execute(
+                text("DELETE FROM task.task_delivery WHERE tenant_id = :t"), {"t": tenant_id}
             )
             await session.execute(
                 text("DELETE FROM task.task_execution WHERE tenant_id = :t"), {"t": tenant_id}

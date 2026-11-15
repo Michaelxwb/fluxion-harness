@@ -69,7 +69,7 @@ async def test_claim_sets_running_lease_and_completes(tenant: TenantContext) -> 
     assert refreshed.lease_owner is None
     assert refreshed.started_at is not None
     events = await fetch_events(tenant, task.id)
-    assert [event.event_type for event in events] == ["CREATED", "CLAIMED", "COMPLETED"]
+    assert [event.event_type for event in events] == ["QUEUED", "CLAIMED", "COMPLETED"]
 
 
 async def test_claim_respects_not_before_and_cancel_requested(tenant: TenantContext) -> None:
@@ -137,9 +137,9 @@ async def test_failure_retries_with_exponential_backoff_then_fails(tenant: Tenan
     events = await fetch_events(tenant, task.id)
     assert [event.event_type for event in events] == [
         "CLAIMED",
-        "RETRY",
+        "QUEUED",
         "CLAIMED",
-        "RETRY",
+        "QUEUED",
         "CLAIMED",
         "FAILED",
     ]
@@ -249,6 +249,14 @@ class _FakeLoop:
         except asyncio.CancelledError:
             self.stopped = True
             raise
+
+    async def run_fire_forever(self) -> None:
+        """SchedulerLoop 的 v2 入口名（Fire 写入循环），行为与 run_forever 一致。"""
+        await self.run_forever()
+
+    async def run_sweep_forever(self) -> None:
+        """补扫循环的 v2 入口名（异步结果/超时扫描），行为与 run_forever 一致。"""
+        await self.run_forever()
 
     async def run_maintenance_forever(self) -> None:
         """独立维护循环（TASK-095）：与领取循环分开的一条后台任务，退出同样要停。"""
