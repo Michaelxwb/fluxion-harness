@@ -472,7 +472,7 @@ class WorkerLoop:
                     session,
                     task.id,
                     {
-                        "status": str(TaskStatus.WAITING),
+                        "status": str(TaskStatus.WAITING_EXTERNAL),
                         "external_ref_json": outcome.external_ref or {},
                         "not_before": not_before,
                         "lease_owner": None,

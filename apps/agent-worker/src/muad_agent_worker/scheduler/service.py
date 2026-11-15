@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 
 CRON_TYPE = "CRON"
 ONCE_TYPE = "ONCE"
-TERMINAL_SCHEDULE_STATUSES = (str(ScheduleStatus.COMPLETED), str(ScheduleStatus.MISSED))
+TERMINAL_SCHEDULE_STATUSES = (str(ScheduleStatus.ENDED), str(ScheduleStatus.CANCELLED))
 SKIP_MISFIRE = "SCHEDULE_MISFIRE_SKIPPED"
 SKIP_SKILL_NOT_EFFECTIVE = "SKILL_NOT_EFFECTIVE"
 FIRED_STATUS = "FIRED"
@@ -68,7 +68,8 @@ TASK_DEADLINE_EXCEEDED_TOTAL = "task_deadline_exceeded_total"
 NON_TERMINAL_TASK_STATUSES = (
     str(TaskStatus.QUEUED),
     str(TaskStatus.RUNNING),
-    str(TaskStatus.WAITING),
+    str(TaskStatus.WAITING_EXTERNAL),
+    str(TaskStatus.WAITING_HUMAN),
 )
 
 
@@ -205,7 +206,7 @@ class ScheduleService:
             name=payload.name,
             agent_id=payload.agent_id,
             actor_user_id=payload.actor_user_id,
-            intent_key=payload.intent_key,
+            intent_key=payload.name,
             skill_id=payload.skill_id,
             input_template_json=payload.input_template,
             schedule_type=payload.schedule.type,
@@ -773,14 +774,14 @@ class SchedulerLoop:
             values["next_fire_at"] = _next_cron_fire(schedule.cron_expr, moment, ZoneInfo(schedule.timezone))
         elif fired:
             values.update(
-                status=str(ScheduleStatus.COMPLETED),
+                status=str(ScheduleStatus.ENDED),
                 completed_at=moment,
                 next_fire_at=None,
             )
         else:
             # ONCE 错过触发：终态 MISSED，不写 completed_at，不补发（设计 §3.2.3）。
             values.update(
-                status=str(ScheduleStatus.MISSED),
+                status=str(ScheduleStatus.ENDED),
                 completed_at=None,
                 next_fire_at=None,
             )

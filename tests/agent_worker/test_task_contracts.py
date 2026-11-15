@@ -49,7 +49,6 @@ def _schedule_payload(spec: dict[str, object]) -> dict[str, object]:
         "name": "daily",
         "agent_id": uuid.uuid4(),
         "actor_user_id": uuid.uuid4(),
-        "intent_key": "policy_check",
         "skill_id": uuid.uuid4(),
         "schedule": spec,
         "delivery_route": {"channel": "WECOM", "bot_id": "b1", "external_user_id": "u1"},
@@ -75,20 +74,37 @@ class TestScheduleSpec:
 
 
 class TestStatusEnums:
-    def test_schedule_status_includes_missed_terminal_state(self) -> None:
-        assert ScheduleStatus.MISSED == "MISSED"
+    def test_schedule_status_has_single_ended_terminal_state(self) -> None:
+        assert ScheduleStatus.ENDED == "ENDED"
         assert {status.value for status in ScheduleStatus} == {
             "ACTIVE",
             "PAUSED",
-            "COMPLETED",
-            "MISSED",
+            "NEEDS_ATTENTION",
+            "ENDED",
+            "CANCELLED",
         }
 
     def test_task_status_has_no_cancelling(self) -> None:
         assert "CANCELLING" not in {status.value for status in TaskStatus}
 
-    def test_task_type_only_skill_and_batch(self) -> None:
-        assert {task_type.value for task_type in TaskType} == {"SKILL", "BATCH"}
+    def test_task_status_separates_external_and_human_waiting(self) -> None:
+        assert {status.value for status in TaskStatus} == {
+            "QUEUED",
+            "RUNNING",
+            "WAITING_EXTERNAL",
+            "WAITING_HUMAN",
+            "COMPLETED",
+            "FAILED",
+            "CANCELLED",
+        }
+
+    def test_task_type_covers_schedule_modes_plus_batch(self) -> None:
+        assert {task_type.value for task_type in TaskType} == {
+            "SKILL",
+            "REMINDER",
+            "AGENTIC",
+            "BATCH",
+        }
 
 
 class TestCreateTaskRequest:
@@ -144,8 +160,14 @@ class TestTaskListQuery:
 
 
 class TestScheduleListQuery:
-    def test_status_filter_accepts_missed(self) -> None:
-        assert ScheduleListQuery(status=ScheduleStatus.MISSED).status is ScheduleStatus.MISSED
+    def test_status_filter_accepts_ended(self) -> None:
+        assert ScheduleListQuery(status=ScheduleStatus.ENDED).status is ScheduleStatus.ENDED
+
+    def test_mode_filter_is_optional(self) -> None:
+        assert ScheduleListQuery().mode is None
+        assert ScheduleListQuery(mode="AGENTIC").mode == "AGENTIC"
+        with pytest.raises(ValidationError):
+            ScheduleListQuery(mode="BATCH")
 
     def test_page_size_is_bounded_to_100(self) -> None:
         with pytest.raises(ValidationError):

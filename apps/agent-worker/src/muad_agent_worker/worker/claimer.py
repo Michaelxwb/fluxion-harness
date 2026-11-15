@@ -15,7 +15,11 @@ from ..metrics import TASK_QUEUE_DEPTH_METRIC, increment, record_gauge
 
 TASK_CLAIM_TOTAL = "task_claim_total"
 
-CLAIMABLE_STATUSES = (str(TaskStatus.QUEUED), str(TaskStatus.WAITING))
+CLAIMABLE_STATUSES = (
+    str(TaskStatus.QUEUED),
+    str(TaskStatus.WAITING_EXTERNAL),
+    str(TaskStatus.WAITING_HUMAN),
+)
 
 
 def _claimable_conditions(moment: datetime) -> tuple[Any, ...]:
@@ -70,7 +74,10 @@ class TaskClaimer:
                     return None
                 # 重试预算只记 QUEUED→RUNNING（首次/重试/reclaim）；WAITING 到期再 claim
                 # 是外部轮询续接，不消耗 attempt，否则等待几轮后任何失败都会直接 FAILED。
-                resumed_from_wait = task.status == str(TaskStatus.WAITING)
+                resumed_from_wait = task.status in (
+                    str(TaskStatus.WAITING_EXTERNAL),
+                    str(TaskStatus.WAITING_HUMAN),
+                )
                 task.status = str(TaskStatus.RUNNING)
                 task.lease_epoch += 1
                 task.lease_owner = instance_id

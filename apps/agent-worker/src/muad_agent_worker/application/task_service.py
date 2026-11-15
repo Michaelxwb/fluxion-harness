@@ -38,7 +38,11 @@ INITIAL_PRIORITY = 100
 EXECUTION_MODE_ASYNC = "ASYNC"
 TASK_TYPE_SKILL = "SKILL"
 TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))
-CANCELABLE_STATUSES = (str(TaskStatus.QUEUED), str(TaskStatus.WAITING))
+CANCELABLE_STATUSES = (
+    str(TaskStatus.QUEUED),
+    str(TaskStatus.WAITING_EXTERNAL),
+    str(TaskStatus.WAITING_HUMAN),
+)
 
 
 def _has_sensitive_key(value: Any) -> bool:

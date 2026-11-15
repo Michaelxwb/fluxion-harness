@@ -299,7 +299,6 @@ class BackgroundTaskToolSet:
             tenant_id=self._context.tenant_id,
             agent_id=self._context.agent.id,
             actor_user_id=self._context.actor_user_id,
-            intent_key=skill.key,
             skill=skill,
             input_template=_object_arg(arguments, "input_template") or {},
             schedule=spec,

@@ -1,4 +1,124 @@
 codes:
+  SCHEDULE_DRAFT_INVALID:
+    http_status: 400
+    messages:
+      zh-CN: "定时任务草稿不合法"
+      en-US: "Invalid schedule draft"
+  SCHEDULE_TIMEZONE_REQUIRED:
+    http_status: 422
+    messages:
+      zh-CN: "无法确定时区，请显式指定"
+      en-US: "An explicit timezone is required"
+  SCHEDULE_DEPENDENCY_MISSING:
+    http_status: 422
+    messages:
+      zh-CN: "依赖的 Skill 或工具不可用"
+      en-US: "A required skill or tool is unavailable"
+  SCHEDULE_GRANT_DENIED:
+    http_status: 403
+    messages:
+      zh-CN: "没有使用该 Agent 或工具的授权"
+      en-US: "You are not authorized for this agent or tool"
+  SCHEDULE_PARAMETER_INCOMPLETE:
+    http_status: 422
+    messages:
+      zh-CN: "缺少必填参数"
+      en-US: "Required parameters are missing"
+  SCHEDULE_DRAFT_EXPIRED:
+    http_status: 409
+    messages:
+      zh-CN: "定时任务草稿已过期或已使用"
+      en-US: "The schedule draft is expired or already used"
+  SCHEDULE_CONFIRMATION_REQUIRED:
+    http_status: 409
+    messages:
+      zh-CN: "需要用户本人确认草稿后才能生效"
+      en-US: "The draft must be confirmed by the user"
+  SCHEDULE_VERSION_CONFLICT:
+    http_status: 409
+    messages:
+      zh-CN: "任务配置已变更，请刷新后重试"
+      en-US: "The schedule changed; refresh and retry"
+  SCHEDULE_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: "定时任务不存在或不可见"
+      en-US: "Schedule not found"
+  SCHEDULE_STATE_INVALID:
+    http_status: 409
+    messages:
+      zh-CN: "当前状态不允许该操作"
+      en-US: "The current state does not allow this action"
+  SCHEDULE_AMBIGUOUS:
+    http_status: 422
+    messages:
+      zh-CN: "命中多个定时任务，请说明是哪一个"
+      en-US: "Multiple schedules matched; please clarify"
+  SCHEDULE_OCCURRENCE_DUPLICATE:
+    http_status: 409
+    messages:
+      zh-CN: "该触发时间已存在"
+      en-US: "This occurrence already exists"
+  SCHEDULE_ADMISSION_FAILED:
+    http_status: 422
+    messages:
+      zh-CN: "触发时校验未通过，任务未执行"
+      en-US: "Admission failed; the task did not run"
+  SCHEDULE_QUOTA_EXCEEDED:
+    http_status: 429
+    messages:
+      zh-CN: "已超过任务数量或触发频率限制"
+      en-US: "Schedule quota or minimum interval exceeded"
+  SCHEDULE_DELIVERY_UNSUPPORTED:
+    http_status: 422
+    messages:
+      zh-CN: "该入口不支持主动投递"
+      en-US: "This surface does not support push delivery"
+  SNAPSHOT_TOO_LARGE:
+    http_status: 422
+    messages:
+      zh-CN: "执行快照超过大小上限"
+      en-US: "Execution snapshot exceeds the size limit"
+  ASYNC_OPERATION_UNAVAILABLE:
+    http_status: 503
+    messages:
+      zh-CN: "异步任务协议暂时不可用"
+      en-US: "Async operation protocol is unavailable"
+  TASK_ARTIFACT_NOT_FOUND:
+    http_status: 404
+    messages:
+      zh-CN: "任务产物不存在或无权访问"
+      en-US: "Task artifact not found"
+  ARTIFACT_VERSION_CONFLICT:
+    http_status: 409
+    messages:
+      zh-CN: "产物版本与校验和不一致"
+      en-US: "Artifact version or checksum mismatch"
+  SCHEDULE_CONFIRMATION_REPLAY:
+    http_status: 409
+    messages:
+      zh-CN: "该确认动作已用于另一个草稿"
+      en-US: "This confirmation was already used for another draft"
+  TOOL_OPERATION_INPUT_MISMATCH:
+    http_status: 409
+    messages:
+      zh-CN: "同一工具调用以不同参数重试"
+      en-US: "The same tool call was retried with different input"
+  EXECUTION_NOT_RESUMABLE:
+    http_status: 409
+    messages:
+      zh-CN: "该执行不可恢复"
+      en-US: "This execution cannot be resumed"
+  HUMAN_INTERACTION_EXPIRED:
+    http_status: 410
+    messages:
+      zh-CN: "人工确认已超时"
+      en-US: "The human interaction has expired"
+  TASK_ACCESS_DENIED:
+    http_status: 403
+    messages:
+      zh-CN: "无权访问该任务"
+      en-US: "No access to this task"
   MEMORY_KEY_INVALID:
     http_status: 400
     messages:

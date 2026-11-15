@@ -111,13 +111,14 @@ class ResolveModelResponse(ContractModel):
 
 
 class RuntimeExecutionRef(ContractModel):
-    """调用归属引用：当前只有 RUN 一种受信执行（提炼/探针在各自任务接入时扩展 Literal）。
+    """调用归属引用：交互式 Run 或定时 Task Execution（提炼/探针在各自任务接入时扩展 Literal）。
 
     单独类型而不复用容量层的 `ModelCallOwner`：这里是**公网之外的内部解析入口**，
-    `id` 只作审计关联，不承担容量归属（容量由 API-17 的 owner 决定）。
+    `id` 只作审计关联，不承担容量归属（容量由容量端口的 owner 决定）。`type=TASK` 时
+    `id` 是 `task.task_execution.id`，凭据解析按该 Execution 的 tenant/actor/agent 复核。
     """
 
-    type: Literal["RUN"] = "RUN"
+    type: Literal["RUN", "TASK"] = "RUN"
     id: UUID
 
 

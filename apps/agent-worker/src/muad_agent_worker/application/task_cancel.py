@@ -19,7 +19,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..infrastructure.models.task import TaskExecution
 from .task_events import TaskEventSeed, TaskEventType, append_events
 
-IDLE_STATUSES = (str(TaskStatus.QUEUED), str(TaskStatus.WAITING))
+IDLE_STATUSES = (
+    str(TaskStatus.QUEUED),
+    str(TaskStatus.WAITING_EXTERNAL),
+    str(TaskStatus.WAITING_HUMAN),
+)
 MAX_CASCADE_DEPTH = 8
 
 

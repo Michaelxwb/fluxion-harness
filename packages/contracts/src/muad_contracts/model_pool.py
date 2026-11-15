@@ -181,7 +181,16 @@ class ProbeCallOwner(ModelPoolContract):
     probe_id: UUID
 
 
-ModelCallOwner = Annotated[RunCallOwner | MemoryJobCallOwner | ProbeCallOwner, Field(discriminator="kind")]
+class TaskCallOwner(ModelPoolContract):
+    """定时任务的模型调用归属：`task_execution_id`，不是提交产生的 `task_id`。"""
+
+    kind: Literal["TASK"] = "TASK"
+    task_execution_id: UUID
+
+
+ModelCallOwner = Annotated[
+    RunCallOwner | MemoryJobCallOwner | ProbeCallOwner | TaskCallOwner, Field(discriminator="kind")
+]
 
 
 class ModelCapacityReservationRequest(ModelPoolContract):

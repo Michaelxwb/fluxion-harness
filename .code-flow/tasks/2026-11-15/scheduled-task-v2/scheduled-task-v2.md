@@ -153,7 +153,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ## TASK-001: 定义调度、等待、owner 与任务中心严格契约
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: scheduled-task-v2.backend.design.md §3.1.5、§3.3、§3.4；scheduled-task-v2.frontend.design.md §3.4
 - **Scenarios**: S-01, S-02, S-03, S-07, S-12, S-17, E-13, E-14, B-11
@@ -191,11 +191,11 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Checklist
 
-- [ ] 定义 Schedule/Fire/Execution/Human 状态、CancelScope、wait_kind 与模式专属必填/互斥字段；去掉旧 WAITING、FAILED_CONFIG、cancel_running 和 intent_key 协议。
-- [ ] 定义 Draft CREATE/UPDATE、base_config_version、完整 sha256: hash、确认请求/回执、动作与 PendingPage/Badges/FireHistoryPage；非法额外字段和非严格 JSON 显式拒绝。
-- [ ] 定义 RUN/TASK owner 联合及 Task 容量、operation/result/receipt、凭据 execution_ref、artifact 写入/版本/下载类型；owner ID 不复用 ToolOperation.task_id。
-- [ ] 定义按模式判别的 Snapshot v4：REMINDER 无 Skill、SKILL 精确一个、AGENTIC 冻结依赖内全部 Skill；budgets、MCP 完整非密定义、模型池/摘要模型、记忆块均可验证。
-- [ ] 新增错误码同步 ErrorCode 与消息 catalog；覆盖非法状态组合、hash 格式、wait payload、多 operation、owner XOR、分页与版本冲突契约。
+- [x] 定义 Schedule/Fire/Execution/Human 状态、CancelScope、wait_kind 与模式专属必填/互斥字段；去掉旧 WAITING、FAILED_CONFIG、cancel_running 和 intent_key 协议（Schedule 侧 `intent_key` 已删；立即任务 `CreateTaskRequest.intent_key` 与其 ORM 列/投递文案一起在 TASK-002/TASK-016 移除）。
+- [x] 定义 Draft CREATE/UPDATE、base_config_version、完整 sha256: hash、确认请求/回执、动作与 PendingPage/Badges/FireHistoryPage；非法额外字段和非严格 JSON 显式拒绝。
+- [x] 定义 RUN/TASK owner 联合及 Task 容量、operation/result/receipt、凭据 execution_ref、artifact 写入/版本/下载类型；owner ID 不复用 ToolOperation.task_id。
+- [x] 定义按模式判别的 Snapshot v4：REMINDER 无 Skill、SKILL 精确一个、AGENTIC 冻结依赖内全部 Skill；budgets、MCP 完整非密定义、模型池/摘要模型、记忆块均可验证。
+- [x] 新增错误码同步 ErrorCode 与消息 catalog；覆盖非法状态组合、hash 格式、wait payload、多 operation、owner XOR、分页与版本冲突契约。
 
 ### Spec Delta
 
@@ -206,13 +206,18 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T05:33:31.492Z] started tests=2de5d14f7d5f
+- [2026-11-15] 新增 `muad_contracts/scheduling.py`：Draft/确认/动作、Fire 历史+DST 事件、Execution 详情与 `operations[]` 水位、Pending/Badges、Task owner（容量/工具操作/产物写入版本）、Snapshot v4 判别联合。枚举换成 v2 词表（`TaskStatus` 拆 `WAITING_EXTERNAL/WAITING_HUMAN`、`ScheduleStatus` 收为 `ENDED`+`end_reason`），`ModelCallOwner` 扩 `TASK`、`RuntimeExecutionRef` 扩 `type=TASK`。
+- [2026-11-15] 新增 24 个错误码，同步 `ErrorCode` 与 `config/api-messages.yaml`（`tests/test_error_catalog.py` 双向断言绿）。
+- [2026-11-15] 过渡事实：Worker 侧 `str(ScheduleStatus.ENDED)`/`WAITING_EXTERNAL` 只是让词表可导入的最小改名，调度语义与断言由 TASK-014 重写；`task.task_schedule.intent_key` 列暂以 `name` 填充，随 TASK-002 重建删除。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-002"></a>
-
+- 2026-11-15T05:41:29.178Z PASS commands=1/1 executed=1 deduped=0 elapsed=25507ms tests=2de5d14f7d5f head=e92e1460b070 dirty=1
+  - related PASS exit=0
 ## TASK-002: 重建调度 schema 并校准 ORM 与隔离夹具
 
 - **Status**: draft

@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .canonical import ensure_strict_json
-from .enums import ChannelName, DeliveryMode, ScheduleStatus, TaskStatus, TriggerType
+from .enums import ChannelName, DeliveryMode, ScheduleMode, ScheduleStatus, TaskStatus, TriggerType
 from .tool_runtime import RuntimeOperationInput
 
 
@@ -84,7 +84,6 @@ class CreateScheduleRequest(ContractModel):
     name: str = Field(min_length=1, max_length=256)
     agent_id: UUID
     actor_user_id: UUID
-    intent_key: str = Field(min_length=1)
     skill_id: UUID
     input_template: dict[str, Any] = Field(default_factory=dict)
     schedule: ScheduleSpec
@@ -145,6 +144,7 @@ class ScheduleListQuery(ContractModel):
     actor_user_id: UUID | None = None
     agent_id: UUID | None = None
     status: ScheduleStatus | None = None
+    mode: ScheduleMode | None = None
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
 

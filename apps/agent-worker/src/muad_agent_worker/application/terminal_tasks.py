@@ -19,7 +19,12 @@ from ..metrics import TASKS_METRIC, record_outcome
 from .delivery_routes import WEBCHAT_CHANNEL
 from .task_events import TaskEventType, append_event
 
-NON_TERMINAL = (TaskStatus.QUEUED.value, TaskStatus.RUNNING.value, TaskStatus.WAITING.value)
+NON_TERMINAL = (
+    TaskStatus.QUEUED.value,
+    TaskStatus.RUNNING.value,
+    TaskStatus.WAITING_EXTERNAL.value,
+    TaskStatus.WAITING_HUMAN.value,
+)
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 
 

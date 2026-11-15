@@ -28,7 +28,8 @@ BATCH_CHILD_FAILED = "BATCH_CHILD_FAILED"
 NON_TERMINAL_STATUSES = (
     str(TaskStatus.QUEUED),
     str(TaskStatus.RUNNING),
-    str(TaskStatus.WAITING),
+    str(TaskStatus.WAITING_EXTERNAL),
+    str(TaskStatus.WAITING_HUMAN),
 )
 TERMINAL_STATUSES = (
     str(TaskStatus.COMPLETED),
