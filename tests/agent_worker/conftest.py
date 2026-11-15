@@ -179,6 +179,13 @@ async def sweep_stale_test_rows(database_guard: None) -> None:
             )
         )
         await _delete_executions(session, f"schedule_id IN ({due_schedules})")
+        # Schedule.current_revision_id 是指向 Revision 的循环 FK：不先摘掉引用就删不掉 Revision。
+        await session.execute(
+            text(
+                "UPDATE task.task_schedule SET current_revision_id = NULL "
+                f"WHERE id IN ({due_schedules})"
+            )
+        )
         for statement in (
             f"DELETE FROM task.schedule_fire WHERE schedule_id IN ({due_schedules})",
             f"DELETE FROM task.task_schedule_draft WHERE base_schedule_id IN ({due_schedules})",
@@ -207,6 +214,14 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
         async with session_factory() as session:
             await session.execute(DELETE_LEASES, {"tenant_id": tenant_id})
             await session.execute(DELETE_WORKSPACES, {"tenant_id": tenant_id})
+            # 循环 FK：先摘掉 Schedule → Revision 的引用，再按顺序删。
+            await session.execute(
+                text(
+                    "UPDATE task.task_schedule SET current_revision_id = NULL "
+                    "WHERE tenant_id = :tenant_id"
+                ),
+                {"tenant_id": tenant_id},
+            )
             for table in TENANT_CLEANUP_ORDER:
                 await session.execute(
                     text(f"DELETE FROM task.{table} WHERE tenant_id = :tenant_id"),

@@ -103,6 +103,40 @@ async def _insert_execution(engine: AsyncEngine, **overrides: object) -> uuid.UU
     return execution_id
 
 
+async def test_schedule_points_at_its_current_revision_with_an_enforced_fk(engine: AsyncEngine) -> None:
+    """Schedule→Revision 是循环 FK：删 Revision 前必须先摘掉引用（清理夹具也依赖这条）。"""
+    schedule_id = uuid.uuid4()
+    async with engine.begin() as connection:
+        await connection.execute(
+            sa.text(
+                "INSERT INTO task.task_schedule "
+                "(id, tenant_id, owner_user_id, agent_id, name, created_by) "
+                "VALUES (:id, :tenant, :user, :user, 'circular', :user)"
+            ),
+            {"id": schedule_id, "tenant": TENANT, "user": uuid.uuid4()},
+        )
+    revision_id = uuid.uuid4()
+    async with engine.begin() as connection:
+        await connection.execute(
+            sa.text(
+                "INSERT INTO task.task_schedule_revision "
+                "(id, tenant_id, schedule_id, revision_no, mode, instruction_raw, normalized_goal, "
+                " recurrence_kind, cron_expr, timezone, created_by) "
+                "VALUES (:id, :tenant, :schedule, 1, 'REMINDER', 'x', 'x', 'CRON', '0 9 * * *', 'UTC', :user)"
+            ),
+            {"id": revision_id, "tenant": TENANT, "schedule": schedule_id, "user": uuid.uuid4()},
+        )
+        await connection.execute(
+            sa.text("UPDATE task.task_schedule SET current_revision_id = :revision WHERE id = :id"),
+            {"revision": revision_id, "id": schedule_id},
+        )
+    with pytest.raises(sa.exc.IntegrityError):
+        async with engine.begin() as connection:
+            await connection.execute(
+                sa.text("DELETE FROM task.task_schedule_revision WHERE id = :id"), {"id": revision_id}
+            )
+
+
 async def test_one_root_execution_per_fire(engine: AsyncEngine) -> None:
     schedule_id, revision_id, _ = await _seed_schedule(engine)
     fire_id = await _seed_fire(engine, schedule_id, revision_id)

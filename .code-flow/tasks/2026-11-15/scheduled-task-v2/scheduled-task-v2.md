@@ -503,6 +503,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Log
 
+- [2026-11-15] `tests/agent_worker/test_task_defaults_from_settings.py` 已从本任务的声明测试移出（它因 TASK-002 的执行链列变更而 7 failed，与配额/设置无关），改由 TASK-016 承接；主仓已核对该文件当时确实红。
 - [2026-11-15] created (draft)
 - [2026-11-15] 契约层新增 `ScheduleSettings`（9 叶子：Schedule 数/最小间隔/日 Fire/日 Agentic/并发 Agentic/Fire 与执行保留天数/Snapshot 上限/确认时效），范围只写在字段元信息；`parse_platform_settings` 纳入 `_GROUPS`，跨字段联动要求并发 Agentic 不得超过日 Agentic 上限。设计里的无单位 `confirmation_ttl` 落为 `confirmation_ttl_sec`（与既有 `*_sec` 口径一致）。
 - [2026-11-15] Console catalog 增加 `schedule` 分组（`next_operation`，边界生效），范围/单位从 schema 派生，effect 词条区分 Draft 边界与每次 Fire；zh-CN/en-US 词条补齐。
@@ -1227,7 +1228,7 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 - **Source**: scheduled-task-v2.backend.design.md §2.3.2、§3.2.2、§3.3.6、§3.5.6
 - **Scenarios**: S-01, S-02, S-04, S-07, E-02, B-03, B-08, B-09
 - **Spec-Refs**: worker/harness-worker, artifact/harness-skill, snapshot/harness-snapshot, secret/harness-secret, test/harness-test
-- **Paths**: apps/agent-worker/src/muad_agent_worker/worker/**, apps/agent-worker/src/muad_agent_worker/application/task_service.py, apps/agent-runtime/src/muad_agent_runtime/application/task_client.py, apps/agent-runtime/src/muad_agent_runtime/application/async_tools/**, packages/contracts/src/muad_contracts/snapshot.py, tests/agent_worker/test_scheduled_v2_executors.py, tests/agent_worker/test_task_executor.py, tests/agent_worker/test_skill_argv.py
+- **Paths**: apps/agent-worker/src/muad_agent_worker/worker/**, apps/agent-worker/src/muad_agent_worker/application/task_service.py, apps/agent-runtime/src/muad_agent_runtime/application/task_client.py, apps/agent-runtime/src/muad_agent_runtime/application/async_tools/**, packages/contracts/src/muad_contracts/snapshot.py, tests/agent_worker/test_scheduled_v2_executors.py, tests/agent_worker/test_task_executor.py, tests/agent_worker/test_skill_argv.py, tests/agent_worker/test_task_defaults_from_settings.py
 - **E2E**:
 - **Skip-Tests**: false
 - **Skip-Reason**:
@@ -1249,7 +1250,8 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
       "tests/agent_worker/test_task_executor.py",
       "tests/agent_worker/test_skill_argv.py",
       "tests/agent_worker/test_capacity_webchat_retry_safety.py",
-      "tests/agent_worker/test_worker_outcomes.py"
+      "tests/agent_worker/test_worker_outcomes.py",
+      "tests/agent_worker/test_task_defaults_from_settings.py"
     ],
     "timeout": 600,
     "parallel": false
@@ -1277,6 +1279,7 @@ Scheduler 短事务选 due，锁外 Admission，随后锁 Schedule 做 status/re
 
 ### Log
 
+- [2026-11-15] 承接 `tests/agent_worker/test_task_defaults_from_settings.py`：TASK-002 的 schema 重建（`intent_key`/旧 delivery 列移除）让它在中间态 7 failed，TASK-005 把它从自己的声明测试里移出后无人认领；本任务改执行链时一并把它迁到新协议。
 - [2026-11-15] created (draft)
 
 ### Verification
