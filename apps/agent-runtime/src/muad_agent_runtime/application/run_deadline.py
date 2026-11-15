@@ -4,6 +4,7 @@
 （`database_now`，行锁之后取值）；进程墙钟只用于计时与展示。`now` 是显式的测试注入点。
 """
 
+import logging
 import uuid
 from datetime import datetime
 
@@ -27,6 +28,8 @@ from .tool_result_receipts import lock_run_source
 
 ACTIVE_STATUSES = (RunStatus.CREATED, RunStatus.RUNNING, RunStatus.WAITING_INPUT, RunStatus.WAITING_TOOL)
 
+logger = logging.getLogger(__name__)
+
 
 async def expire_runs(factory: SessionFactory, *, now: datetime | None = None, limit: int = 128) -> int:
     """绝对期限到期的活跃 Run 收尾；候选与逐行判定都按 PG 时钟（`now` 仅测试注入）。"""
@@ -45,7 +48,14 @@ async def expire_runs(factory: SessionFactory, *, now: datetime | None = None, l
         )
     expired = 0
     for candidate in candidates:
-        expired += await _expire_one(factory, candidate, now)
+        try:
+            expired += await _expire_one(factory, candidate, now)
+        except Exception:
+            # 单行收尾失败不能拖住整批：坏行（例如会话行已被物理删除）只跳过自己，
+            # 否则按 deadline 排序它永远排在最前，后面的到期 Run 一个都收不掉。
+            logger.exception(
+                "run_deadline_expire_failed", extra={"run_id": str(candidate.id)}
+            )
     return expired
 
 
@@ -68,7 +78,9 @@ async def _expire_one(
         # 绝对期限收尾同样释放准入份额：与终态同事务，重复扫描不再递减（CAS 幂等）。
         await release_admission_in(session, run=run)
         terminal_event_id = uuid.uuid4()
-        seq = await EventWriter(session).append(
+        # 会话可能在 Run 执行期间被用户删除：终态事件仍要落库（读路径按 is_deleted 隐藏），
+        # 否则这条 Run 永远停在活跃状态。
+        seq = await EventWriter(session, allow_deleted_conversation=True).append(
             tenant_id=run.tenant_id,
             conversation_id=run.conversation_id,
             run_id=run.id,

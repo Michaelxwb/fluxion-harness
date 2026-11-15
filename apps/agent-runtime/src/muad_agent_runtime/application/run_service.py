@@ -844,7 +844,8 @@ async def _close_queued_run(session: AsyncSession, run: RunRecord) -> None:
     终态 Run 不得留下可被继续领取的 OPEN 提交，否则重放/领取路径会读到半开的旧提交。
     """
     terminal_event_id = uuid.uuid4()
-    seq = await EventWriter(session).append(
+    # 排队期间会话可能已被删除：终态仍要写（读路径按 is_deleted 隐藏），否则 Run 卡在活跃态。
+    seq = await EventWriter(session, allow_deleted_conversation=True).append(
         tenant_id=run.tenant_id,
         conversation_id=run.conversation_id,
         run_id=run.id,
