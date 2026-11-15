@@ -9,12 +9,16 @@ WITH all_runs AS MATERIALIZED (
 ), period_runs AS (
   SELECT * FROM all_runs WHERE create_time >= :start
 ), all_tasks AS MATERIALIZED (
-  SELECT status, delivery_mode, delivery_status, create_time, finished_at, deadline_at
+  SELECT id, status, create_time, finished_at, deadline_at
   FROM task.task_execution
   WHERE tenant_id = :tenant_id AND NOT is_deleted
     AND parent_id IS NULL AND create_time <= :now
 ), period_tasks AS (
   SELECT * FROM all_tasks WHERE create_time >= :start
+), period_failed_deliveries AS MATERIALIZED (
+  SELECT count(*) AS total FROM task.task_delivery d
+  JOIN period_tasks t ON t.id = d.execution_id
+  WHERE d.is_deleted = false AND d.status = 'FAILED'
 ), model_requests AS MATERIALIZED (
   SELECT a.create_time, a.input_tokens, a.output_tokens
   FROM runtime.model_invocation_audit a
@@ -130,15 +134,16 @@ SELECT jsonb_build_object(
     'waiting_tool_runs', (SELECT count(*) FROM all_runs WHERE status = 'WAITING_TOOL'),
     'queued_tasks', (SELECT count(*) FROM all_tasks WHERE status = 'QUEUED'),
     'running_tasks', (SELECT count(*) FROM all_tasks WHERE status = 'RUNNING'),
-    'waiting_tasks', (SELECT count(*) FROM all_tasks WHERE status = 'WAITING'),
+    'waiting_tasks', (SELECT count(*) FROM all_tasks
+      WHERE status IN ('WAITING_EXTERNAL','WAITING_HUMAN')),
     'overdue_tasks', (SELECT count(*) FROM all_tasks
-      WHERE status IN ('QUEUED','RUNNING','WAITING') AND deadline_at <= :now)
+      WHERE status IN ('QUEUED','RUNNING','WAITING_EXTERNAL','WAITING_HUMAN')
+        AND deadline_at <= :now)
   ),
   'attention', jsonb_build_object(
     'failed_runs', (SELECT failed FROM run_stats),
     'failed_tasks', (SELECT count(*) FROM period_tasks WHERE status = 'FAILED'),
-    'failed_deliveries', (SELECT count(*) FROM period_tasks
-      WHERE delivery_mode = 'FINAL_ONLY' AND delivery_status = 'FAILED')
+    'failed_deliveries', (SELECT total FROM period_failed_deliveries)
   ),
   'trend', jsonb_build_object(
     'runs', (SELECT jsonb_agg(jsonb_build_object('date', c.day::text,

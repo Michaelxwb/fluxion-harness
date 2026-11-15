@@ -133,3 +133,54 @@ def test_worker_adapter_does_not_reach_into_runtime_orm() -> None:
         modules = _imported_modules(path)
         leaked = {module for module in modules if module.startswith("muad_agent_runtime.infrastructure")}
         assert not leaked, f"{path.relative_to(ROOT)} imports {sorted(leaked)}"
+
+
+#: Runtime 侧允许出现 Memory 形状的模块：中立协议的**适配器实现**与它的落库/校验。
+MEMORY_REQUEST_MODULES = frozenset(
+    (
+        "memory_suspension",
+        "memory_confirmation",
+        "checkpoint",
+    )
+)
+
+
+def _referenced_identifiers(tree: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            names.add(node.id)
+        elif isinstance(node, ast.Attribute):
+            names.add(node.attr)
+        elif isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            names.add(node.name)
+    return names
+
+
+def test_kernel_references_no_host_entity() -> None:
+    """核心循环不认识宿主实体：Run/Task 的 ORM 名一旦出现，就是适配失败。"""
+    host_entities = {
+        "RunRecord",
+        "CanonicalEvent",
+        "RunInterrupt",
+        "RunContinuation",
+        "TaskExecution",
+        "TaskEvent",
+        "Conversation",
+        "tool_call_audit",
+    }
+    for path in kernel_modules():
+        overlap = _referenced_identifiers(_tree(path)) & host_entities
+        assert not overlap, f"{path.relative_to(ROOT)} references host entity {sorted(overlap)}"
+
+
+def test_memory_typed_request_stays_inside_the_runtime_adapter() -> None:
+    """Memory 的请求形状只属于适配器：主路径与 Kernel 都只拿到中立的 `SuspensionRequest`。"""
+    runtime_src = ROOT / "apps/agent-runtime/src"
+    offenders: list[str] = []
+    for path in sorted(runtime_src.rglob("*.py")):
+        if path.stem in MEMORY_REQUEST_MODULES:
+            continue
+        if "MemorySuspendRequest" in path.read_text(encoding="utf-8"):
+            offenders.append(str(path.relative_to(ROOT)))
+    assert offenders == [], offenders
