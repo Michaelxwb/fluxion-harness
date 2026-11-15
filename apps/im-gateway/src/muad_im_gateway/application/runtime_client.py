@@ -64,6 +64,8 @@ INTERNAL_SCOPE_PATH = "/internal/webchat/conversations/{conversation_id}/scope"
 INTERNAL_UPLOADS_PATH = "/internal/webchat/uploads"
 #: 受信附件解析端口（TASK-055）：`artifact_id` → 本主体名下会话的归属 + 渠道中立引用。
 INTERNAL_ARTIFACT_PATH = "/internal/webchat/artifacts/{artifact_id}"
+#: 受信任务产物版本解析（TASK-008）：按任务 owner+agent 读取指定的不可变版本。
+TASK_ARTIFACT_VERSION_PATH = "/internal/artifacts/{artifact_id}/versions/{version}"
 #: 受信活动收件箱端口（TASK-064/070）：按用户 feed seq 增量读取 + 显式已读。
 INTERNAL_NOTIFICATIONS_PATH = "/internal/webchat/notifications"
 INTERNAL_NOTIFICATION_READ_PATH = "/internal/webchat/notifications/{notification_id}/read"
@@ -565,6 +567,28 @@ class RuntimeClient:
                 "conversation_id": str(conversation_id),
                 "checksum": checksum,
             },
+        )
+
+    async def resolve_task_artifact_version(
+        self,
+        artifact_id: UUID,
+        *,
+        tenant_id: str,
+        user_id: UUID,
+        agent_id: UUID,
+        version: str,
+        checksum: str,
+    ) -> dict[str, Any]:
+        """API-25 的 Owner 侧（TASK-008）：解析任务产物的**指定**不可变版本，不要求会话。
+
+        归属由 Runtime 从 `artifact.task_id → task_execution` 复核（tenant/actor/agent）；
+        版本或校验值不匹配是 `ARTIFACT_VERSION_CONFLICT`，拿不到是 `TASK_ARTIFACT_NOT_FOUND`
+        ——网关原样上抛，绝不退化成"给最新版"。
+        """
+        return await self._get_internal_json(
+            TASK_ARTIFACT_VERSION_PATH.format(artifact_id=artifact_id, version=version),
+            tenant_id,
+            {"user_id": str(user_id), "agent_id": str(agent_id), "checksum": checksum},
         )
 
     async def list_notifications(

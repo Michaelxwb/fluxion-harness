@@ -1981,7 +1981,7 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
   - related PASS exit=0
 ## TASK-024: 挂载 WebChat 任务中心与安全下载/确认路由
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-008, TASK-012, TASK-013, TASK-021, TASK-023
 - **Source**: scheduled-task-v2.backend.design.md §3.2.7、§3.4.1、API-12..19/25/31；scheduled-task-v2.frontend.design.md §3.9、§3.11
 - **Scenarios**: S-02, S-07, S-09, S-11, S-12, E-11, E-14, B-09, B-11
@@ -2022,12 +2022,12 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Checklist
 
-- [ ] 沿用现有 ChatPrincipal/会话认证与 CSRF，服务端核属 user+authorized agents；entry/channel 只作元数据，跨入口允许同 user+agent 查询。
-- [ ] 列表/详情/徽标/pending/操作/回答共享同一范围与封套；写请求保留 Idempotency-Key 与可信 actor，外部 BFF 不得直连 internal。
-- [ ] 下载按 artifact.task_id→Execution 核对 tenant/actor/agent，要求精确 version+checksum，流式返回字节及 Content-Disposition，不要求 Conversation。
-- [ ] 跨用户/Agent、已删、内部 transcript、无权资源不可下载；版本冲突显式错误，不能返最新版；底层失败不能伪造成功。
-- [ ] WebChat/Fake surface 对同一输入输出做契约 parity，断言无 MSSWWEB task-center 路由、无渠道枚举流入核心域。
-- [ ] 针对定时任务验证读/答/执行全过程不产生 channel_notification、聊天结果或 Delivery；保留现有立即任务通知路径。
+- [x] 沿用现有 ChatPrincipal/会话认证与 CSRF，服务端核属 user+authorized agents；entry/channel 只作元数据，跨入口允许同 user+agent 查询。
+- [x] 列表/详情/徽标/pending/操作/回答共享同一范围与封套；写请求保留 Idempotency-Key 与可信 actor，外部 BFF 不得直连 internal。
+- [x] 下载按 artifact.task_id→Execution 核对 tenant/actor/agent，要求精确 version+checksum，流式返回字节及 Content-Disposition，不要求 Conversation。
+- [x] 跨用户/Agent、已删、内部 transcript、无权资源不可下载；版本冲突显式错误，不能返最新版；底层失败不能伪造成功。
+- [x] WebChat/Fake surface 对同一输入输出做契约 parity，断言无 MSSWWEB task-center 路由、无渠道枚举流入核心域。
+- [x] 针对定时任务验证读/答/执行全过程不产生 channel_notification、聊天结果或 Delivery；保留现有立即任务通知路径。
 
 ### Spec Delta
 
@@ -2046,13 +2046,20 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T11:35:08.031Z] started tests=4c2395eccc2a
+- [2026-11-15] 实现 surface 中立 `TaskCenterService`（`application/task_center.py`）与按 ChatSurface 挂载的路由工厂（`api/task_center.py`）：WebChat 挂 10 条路由（API-12..19/25/31），MSSWWEB 只存在于契约测试。读面/动作/确认经新的 `WorkerClient`（服务身份 + 部署租户 + 已验证 actor），产物版本经 `RuntimeClient.resolve_task_artifact_version` 解析后从共享存储取件。
+- [2026-11-15] 授权口径：`agent_id` 只与本次 Console 核验的授权集合取交集；列表按 Worker 稳定顺序读完整段后统一分页（`mode` 过滤后 `total` 仍准确、不泄露撤销 Agent 的条数）；回答在授权集合为空时 403；Execution 详情与 Draft 确认按 Worker 的 `tenant+actor` 核属（契约不携带 `agent_id`，已在模块头与报告中注明）。
+- [2026-11-15] 写面：动作/回答/确认都必须带 `Idempotency-Key`；确认路由把它作为 `confirmation_ref` 并写 `X-Confirmation-Surface=WEBCHAT`（模型工具路径到不了这条路由）。动作后重读详情返回生效事实，准入拒绝显式 422。
+- [2026-11-15] 复用取舍：WebChat 附件与任务产物共用一个取件判定（`webchat_artifacts.open_download_reference`），`api/webchat._download_response` 提升为 `download_response` 供两条下载路由共用（日志事件名改为 `artifact_download_*`）。
+- [2026-11-15] 测试：`tests/gateway/test_scheduled_v2_task_center.py`（16 例，真实 Console/Worker HTTP 桩）、`test_scheduled_v2_artifact_download.py`（9 例，真实 Runtime 版本解析 + 真实共享存储）、`test_scheduled_v2_surface_contract.py`（5 例：WebChat/Fake MSSWWEB 同形 data、同范围、确认来源、handler 集合一致、生产 app 无 MSSWWEB 路由）；`docs/configuration-inventory.csv` 按 AST 重新盘点（新增两模块常量与既有模块行号漂移）。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-025"></a>
-
+- 2026-11-15T11:54:08.220Z PASS commands=1/1 executed=1 deduped=0 elapsed=31273ms tests=4c2395eccc2a head=bea3a1bd4687 dirty=1
+  - related PASS exit=0
 ## TASK-025: 接通 WeCom 用户确认与 Human 回复分流
 
 - **Status**: draft
