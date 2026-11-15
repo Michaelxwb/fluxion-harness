@@ -16,6 +16,7 @@ from .webchat import (
     WebchatContract,
     WebchatExecutionStatus,
     WebchatPage,
+    WebchatScheduleDraftReady,
 )
 
 
@@ -113,6 +114,11 @@ class WebchatArtifactEvent(WebchatEventIdentity):
     data: WebchatAttachment
 
 
+class WebchatScheduleDraftReadyEvent(WebchatEventIdentity):
+    type: Literal["schedule.draft.ready"]
+    data: WebchatScheduleDraftReady
+
+
 class WebchatCheckpointData(WebchatContract):
     """A checkpoint changes no visible message content."""
 
@@ -129,6 +135,7 @@ class WebchatCheckpoint(WebchatContract):
 PublicWebchatEvent = Annotated[
     WebchatDeltaEvent | WebchatSnapshotEvent | WebchatStageEvent | WebchatToolEvent
     | WebchatTerminalEvent | WebchatErrorEvent | WebchatConfirmationEvent | WebchatArtifactEvent
+    | WebchatScheduleDraftReadyEvent
     | WebchatCheckpoint,
     Field(discriminator="type"),
 ]

@@ -32,12 +32,16 @@ from muad_contracts.platform_settings import TaskSettings
 
 TASKS_PATH = "/internal/tasks"
 SCHEDULES_PATH = "/internal/schedules"
+SCHEDULE_DRAFTS_PATH = "/internal/schedule-drafts"
 DEFAULT_TIMEOUT_SEC = 5.0
 IDEMPOTENCY_HEADER = "Idempotency-Key"
 INTERNAL_SERVICE_HEADER = "X-Internal-Service"
 TENANT_HEADER = "X-Tenant-Id"
 TRACE_HEADER = "X-Trace-Id"
 ACTOR_HEADER = "X-Actor-User-Id"
+AGENT_HEADER = "X-Agent-Id"
+#: 入口 surface：Draft 的投递意图由它决定（Worker 用共享通道词表判能力，Runtime 不点名渠道）。
+ENTRY_CHANNEL_HEADER = "X-Entry-Channel"
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +57,11 @@ class TaskSubmissionContext:
     skills: tuple[ResolvedSkill, ...]
     mcp_servers: tuple[ResolvedMcpServer, ...] = ()
     source_run_id: uuid.UUID | None = None
+    #: 产生这条提交的会话：Draft 确认卡片写进这里（与 Run 同一会话）。
+    conversation_id: uuid.UUID | None = None
     delivery_route: DeliveryRouteInput | None = None
+    #: Run 的入口 surface（`ChannelContext.type` 原值）；Draft 的投递能力与确认来源由它决定。
+    entry_channel: str | None = None
     trace_id: str = ""
     locale: str = "zh-CN"
     execution_timeout_sec: int = field(default_factory=lambda: TaskSettings().execution_timeout_sec)
@@ -210,84 +218,77 @@ class WorkerTaskClient:
             actor_user_id=actor_user_id,
         )
 
-    async def create_schedule(
+    async def create_schedule_draft(
         self,
         *,
         tenant_id: str,
         agent_id: uuid.UUID,
         actor_user_id: uuid.UUID,
-        skill: ResolvedSkill,
-        input_template: Mapping[str, Any],
-        schedule: Mapping[str, Any],
-        delivery_route: DeliveryRouteInput,
+        entry_channel: str | None,
+        draft: Mapping[str, Any],
         idempotency_key: str,
-        name: str | None = None,
         trace_id: str = "",
         locale: str = "zh-CN",
     ) -> dict[str, Any]:
-        body = {
-            "name": name or f"{skill.key} schedule",
-            "agent_id": str(agent_id),
-            "actor_user_id": str(actor_user_id),
-            "skill_id": str(skill.skill_id),
-            "input_template": dict(input_template),
-            "schedule": dict(schedule),
-            "delivery_route": delivery_route.model_dump(mode="json"),
-        }
+        """API-01：提交一条 Draft 请求，拿回 draft_id/hash/预览/过期时刻。
+
+        身份（owner/agent/入口）全部走可信头，body 不接受；Runtime 没有确认能力——
+        确认是 surface 在用户显式动作后调用的另一个端点（API-27）。
+        """
         return await self._request(
             "POST",
-            SCHEDULES_PATH,
+            SCHEDULE_DRAFTS_PATH,
             tenant_id=tenant_id,
             trace_id=trace_id,
             locale=locale,
-            json_body=body,
+            json_body=dict(draft),
             idempotency_key=idempotency_key,
             actor_user_id=actor_user_id,
+            agent_id=agent_id,
+            entry_channel=entry_channel,
         )
 
-    async def update_schedule(
+    async def get_schedule(
         self,
         *,
         tenant_id: str,
         schedule_id: uuid.UUID,
         actor_user_id: uuid.UUID,
-        name: str | None = None,
-        schedule: Mapping[str, Any] | None = None,
-        input_template: Mapping[str, Any] | None = None,
-        delivery_route: DeliveryRouteInput | None = None,
         trace_id: str = "",
     ) -> dict[str, Any]:
-        body: dict[str, Any] = {}
-        if name is not None:
-            body["name"] = name
-        if schedule is not None:
-            body["schedule"] = dict(schedule)
-        if input_template is not None:
-            body["input_template"] = dict(input_template)
-        if delivery_route is not None:
-            body["delivery_route"] = delivery_route.model_dump(mode="json")
         return await self._request(
-            "PUT",
+            "GET",
             f"{SCHEDULES_PATH}/{schedule_id}",
             tenant_id=tenant_id,
             trace_id=trace_id,
-            json_body=body,
             actor_user_id=actor_user_id,
         )
 
-    async def delete_schedule(
+    async def schedule_action(
         self,
         *,
         tenant_id: str,
         schedule_id: uuid.UUID,
         actor_user_id: uuid.UUID,
+        action: str,
+        idempotency_key: str,
+        scope: str | None = None,
+        reason: str | None = None,
         trace_id: str = "",
     ) -> dict[str, Any]:
+        """API-04/05/06：暂停/恢复/取消。动作幂等身份由调用方给出（同一次工具调用重试同键）。"""
+        body: dict[str, Any] = {"action": action}
+        if scope is not None:
+            body["scope"] = scope
+        if reason is not None:
+            body["reason"] = reason
         return await self._request(
-            "DELETE",
-            f"{SCHEDULES_PATH}/{schedule_id}",
+            "POST",
+            f"{SCHEDULES_PATH}/{schedule_id}/{action}",
             tenant_id=tenant_id,
             trace_id=trace_id,
+            json_body=body,
+            idempotency_key=idempotency_key,
             actor_user_id=actor_user_id,
         )
 
@@ -307,10 +308,16 @@ class WorkerTaskClient:
         json_body: Mapping[str, Any] | None = None,
         idempotency_key: str | None = None,
         actor_user_id: uuid.UUID | None = None,
+        agent_id: uuid.UUID | None = None,
+        entry_channel: str | None = None,
     ) -> dict[str, Any]:
         headers = {TENANT_HEADER: tenant_id, "Accept-Language": locale}
         if actor_user_id is not None:
             headers[ACTOR_HEADER] = str(actor_user_id)
+        if agent_id is not None:
+            headers[AGENT_HEADER] = str(agent_id)
+        if entry_channel:
+            headers[ENTRY_CHANNEL_HEADER] = entry_channel
         if self._service_token:
             headers[INTERNAL_SERVICE_HEADER] = self._service_token
         if trace_id:
