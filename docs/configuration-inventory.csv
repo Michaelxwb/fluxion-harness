@@ -574,14 +574,14 @@ apps/agent-worker/src/muad_agent_worker/api/deps.py,22,CONFIRMATION_REF_HEADER,'
 apps/agent-worker/src/muad_agent_worker/application/batch_fanin.py,26,BATCH_CHILD_FAILED,'BATCH_CHILD_FAILED',python-constant,code,状态或错误码，不是时间参数
 apps/agent-worker/src/muad_agent_worker/application/batch_fanin.py,27,NON_TERMINAL_STATUSES,"(str(TaskStatus.QUEUED), str(TaskStatus.RUNNING), str(TaskStatus.WAITING_EXTERNAL), str(TaskStatus.WAITING_HUMAN))",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/batch_fanin.py,33,TERMINAL_STATUSES,"(str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,38,BATCH_PLAN_KEY,'batch',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,39,AGGREGATE_ALL,'ALL',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,40,AGGREGATE_BEST_EFFORT,'BEST_EFFORT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,41,TASK_TYPE_BATCH,'BATCH',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,42,BATCH_FANOUT_STALE,'BATCH_FANOUT_STALE',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,43,ITEM_KEY_MAX_LENGTH,128,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,45,PARKED_NOT_BEFORE,"datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,46,BATCH_REF_KEY,'batch',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,35,BATCH_PLAN_KEY,'batch',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,36,AGGREGATE_ALL,'ALL',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,37,AGGREGATE_BEST_EFFORT,'BEST_EFFORT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,38,TASK_TYPE_BATCH,'BATCH',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,39,BATCH_FANOUT_STALE,'BATCH_FANOUT_STALE',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,40,ITEM_KEY_MAX_LENGTH,128,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,42,PARKED_NOT_BEFORE,"datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/batch_fanout.py,43,BATCH_REF_KEY,'batch',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/delivery_routes.py,14,ROUTE_HASH_PREFIX,'sha256:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/delivery_routes.py,17,WEBCHAT_CHANNEL,'WEBCHAT',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/remote_cancellation.py,27,CANCEL_PATH,'/internal/tool-operations/cancel',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
@@ -756,33 +756,44 @@ apps/agent-worker/src/muad_agent_worker/scheduler/service.py,59,TASK_DEADLINE_EX
 apps/agent-worker/src/muad_agent_worker/scheduler/service.py,60,NON_TERMINAL_TASK_STATUSES,"('QUEUED', 'RUNNING', 'WAITING_EXTERNAL', 'WAITING_HUMAN')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/scheduler/templates.py,23,VARIABLE_PATTERN,re.compile('\\{\\{\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*\\}\\}'),python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/scheduler/templates.py,24,ALLOWED_VARIABLES,"frozenset({'fire_date', 'previous_day', 'fire_time'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/claimer.py,16,TASK_CLAIM_TOTAL,'task_claim_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/claimer.py,18,CLAIMABLE_STATUSES,"(str(TaskStatus.QUEUED), str(TaskStatus.WAITING_EXTERNAL), str(TaskStatus.WAITING_HUMAN))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/claimer.py,36,TASK_CLAIM_TOTAL,'task_claim_total',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/claimer.py,39,SLOT_STATUSES,"(str(TaskStatus.RUNNING), str(TaskStatus.WAITING_EXTERNAL), str(TaskStatus.WAITING_HUMAN))",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/claimer.py,45,TIMER_STATUSES,"(str(TaskStatus.QUEUED), str(TaskStatus.WAITING_HUMAN))",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/claimer.py,47,WAIT_OPERATION_TERMINAL,"('COMPLETED', 'FAILED', 'CANCELLED')",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/claimer.py,49,_NON_TERMINAL_OPERATION_PATH,"'$.operations[*] ? (' + ' && '.join((f'@.status != ""{status}""' for status in WAIT_OPERATION_TERMINAL)) + ')'",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/claimer.py,54,RESUME_REASON_HUMAN,'HUMAN',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/claimer.py,55,RESUME_REASON_EXTERNAL,'EXTERNAL',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/claimer.py,56,WAITING,str(TaskStatus.WAITING_EXTERNAL),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/claimer.py,124,_OCCUPANT,aliased(TaskExecution),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,15,DEFAULT_WAIT_SEC,60,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
 apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,16,WAIT_KEY,'wait',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,17,RESULT_ARTIFACT_KEY,'result_artifact_id',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,19,SKILL_RESULT_INVALID,'SKILL_RESULT_INVALID',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,21,TASK_RESULT_UNVERIFIED,'TASK_RESULT_UNVERIFIED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,25,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,26,WAITING,'WAITING',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,27,RETRYABLE_FAILURE,'RETRYABLE_FAILURE',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,28,CANCELLED,'CANCELLED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,45,RETRY,'RETRY',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,46,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,47,UNVERIFIED,'UNVERIFIED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/executor.py,60,MIN_EXECUTION_TIMEOUT_SEC,1.0,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
-apps/agent-worker/src/muad_agent_worker/worker/executor.py,61,SKILL_ARTIFACT_KEYS,"('artifact_id', 'storage_key', 'checksum')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/executor.py,62,VALID_SKILL_SOURCES,"frozenset({'SYSTEM', 'ADMIN', 'USER'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/executor.py,64,NON_RETRYABLE_CODES,"frozenset({'SKILL_SNAPSHOT_MISSING', 'BATCH_PLAN_INVALID', 'BATCH_FANOUT_STALE', 'BATCH_FANOUT_UNAVAILABLE', 'SKILL_ARTIFACT_UNAVAILABLE', 'SKILL_ARTIFACT_INTEGRITY_ERROR', 'SKILL_RESULT_INVALID', 'LOCAL_BUDGET_EXHAUSTED'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/executor.py,77,ENV_TASK_ID,'MUAD_TASK_ID',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/executor.py,78,ENV_TASK_IDEMPOTENCY_KEY,'MUAD_TASK_IDEMPOTENCY_KEY',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/executor.py,79,ENV_TASK_ATTEMPT,'MUAD_TASK_ATTEMPT',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/executor.py,80,ENV_TASK_EXTERNAL_REF,'MUAD_TASK_EXTERNAL_REF',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/worker/service.py,64,RETRY_BACKOFF_BASE_SEC,5,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
-apps/agent-worker/src/muad_agent_worker/worker/service.py,66,TASK_ATTEMPTS_EXHAUSTED,'TASK_ATTEMPTS_EXHAUSTED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/service.py,68,HEARTBEAT_LOST_CODE,'WORKER_HEARTBEAT_LOST',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/worker/service.py,70,HEARTBEAT_RENEW_ATTEMPTS,3,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
-apps/agent-worker/src/muad_agent_worker/worker/service.py,71,HEARTBEAT_RENEW_RETRY_SEC,1.0,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,17,WAIT_KIND_KEY,'wait_kind',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,18,WAIT_EXTERNAL_REF_KEY,'external_ref',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,19,WAIT_OPERATIONS_KEY,'operations',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,20,WAIT_BATCH_KEY,'batch',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,21,RESULT_ARTIFACT_KEY,'result_artifact_id',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,23,SKILL_RESULT_INVALID,'SKILL_RESULT_INVALID',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,25,TASK_RESULT_UNVERIFIED,'TASK_RESULT_UNVERIFIED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,29,COMPLETED,'COMPLETED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,30,WAITING,'WAITING',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,31,RETRYABLE_FAILURE,'RETRYABLE_FAILURE',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,32,CANCELLED,'CANCELLED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,51,RETRY,'RETRY',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,52,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,53,UNVERIFIED,'UNVERIFIED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/executor.py,61,MIN_EXECUTION_TIMEOUT_SEC,1.0,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/worker/executor.py,62,SKILL_ARTIFACT_KEYS,"('artifact_id', 'storage_key', 'checksum')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/executor.py,63,VALID_SKILL_SOURCES,"frozenset({'SYSTEM', 'ADMIN', 'USER'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/executor.py,65,NON_RETRYABLE_CODES,"frozenset({'SKILL_SNAPSHOT_MISSING', 'BATCH_PLAN_INVALID', 'BATCH_FANOUT_STALE', 'BATCH_FANOUT_UNAVAILABLE', 'SKILL_ARTIFACT_UNAVAILABLE', 'SKILL_ARTIFACT_INTEGRITY_ERROR', 'SKILL_RESULT_INVALID', 'LOCAL_BUDGET_EXHAUSTED'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/executor.py,78,ENV_TASK_ID,'MUAD_TASK_ID',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/executor.py,79,ENV_TASK_IDEMPOTENCY_KEY,'MUAD_TASK_IDEMPOTENCY_KEY',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/executor.py,80,ENV_TASK_ATTEMPT,'MUAD_TASK_ATTEMPT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/executor.py,81,ENV_TASK_EXTERNAL_REF,'MUAD_TASK_EXTERNAL_REF',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/service.py,65,RETRY_BACKOFF_BASE_SEC,5,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/worker/service.py,67,TASK_ATTEMPTS_EXHAUSTED,'TASK_ATTEMPTS_EXHAUSTED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/service.py,69,HEARTBEAT_LOST_CODE,'WORKER_HEARTBEAT_LOST',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/worker/service.py,71,HEARTBEAT_RENEW_ATTEMPTS,3,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/worker/service.py,72,HEARTBEAT_RENEW_RETRY_SEC,1.0,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
 apps/agent-worker/src/muad_agent_worker/worker/workspace_maintenance.py,37,WORKSPACE_ACTIVE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/workspace_maintenance.py,38,WORKSPACE_DELETING,'DELETING',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/workspace_maintenance.py,39,WORKSPACE_DELETED,'DELETED',python-constant,code,协议标识、枚举、schema、文本或实现常量

@@ -78,6 +78,22 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 | [TASK-032](#task-032) | 登记指标、监督循环并补齐部署回滚操作 | TASK-005, TASK-014, TASK-020, TASK-021, TASK-022, TASK-024, TASK-031 |
 | [TASK-033](#task-033) | 补齐真实全链路旅程及 CI 测试接线 | TASK-020, TASK-022, TASK-025, TASK-028, TASK-030, TASK-031, TASK-032 |
 
+## 遗留测试归属（v1 面退役后必须有人认领）
+
+下列文件仍在断言 TASK-002 之前的 v1 调度面（`scheduler.service.ScheduleService`、`compute_next_fire_at`、
+`intent_key`、delivery 列、`WAITING`）。它们是**已知红**，不允许继续无人认领，也不允许靠改断言掩盖：
+主责任任务必须把它们迁移到 v2 面，或写明「该事实已不存在」并删除对应用例。
+
+| 文件 | 主责任 TASK | 处理口径 |
+|---|---|---|
+| `tests/agent_worker/test_task_defaults_from_settings.py` | TASK-016 | 迁到 v2 执行链的默认值/超时快照 |
+| `tests/agent_runtime/test_capacity_webchat_clock_lease.py` | TASK-016 | 迁到 v2 Schedule 触发与容量路径 |
+| `tests/agent_worker/test_task_lease_epoch.py` | TASK-020 | 迁到 `LeaseRenewal` 与 epoch 栅栏 |
+| `tests/agent_worker/test_task_queries.py` | TASK-023 | 迁到 v2 读面（分页/过滤）；旧列断言删除并说明 |
+| `tests/agent_worker/test_schedule_writes.py` | TASK-029 | 创建/修改已由 Draft+确认取代：保留仍成立的事实（幂等、next_fire 计算）迁入 v2 套件，其余显式删除 |
+| `tests/agent_worker/test_admin_schedules.py` | TASK-029 | 迁到 Console/管理面的 v2 状态与动作 |
+| `tests/agent_worker/test_worker_metrics.py` | TASK-032 | 迁到 Fire/指标标签的 v2 口径 |
+
 ## Spec Delta 与 Conventions 对齐
 
 各 TASK 的 Delta 只修改所列 Rule，一条已有 Rule 只声明一次 update，before 为当前完整正文。新增 Rule ID 由目标 Spec 的 next_rule 分配，不预留/手写编号；Applied Deltas 记录由 CLI 保留。
