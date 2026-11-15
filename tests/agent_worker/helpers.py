@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from muad_agent_worker.application.delivery_routes import upsert_delivery_route
+from muad_agent_worker.application.task_events import EntityType
 from muad_agent_worker.infrastructure.models.task import TaskEvent, TaskExecution, TaskSchedule
 from muad_contracts import (
     TASK_SNAPSHOT_SCHEMA_VERSION,
@@ -233,12 +233,8 @@ def _fill_execution_snapshot_contract(values: dict[str, Any]) -> None:
         )
 
 
-async def persist_task(
-    tenant: TenantContext,
-    *,
-    delivery_route: DeliveryRouteInput | None = None,
-    **overrides: Any,
-) -> TaskExecution:
+async def persist_task(tenant: TenantContext, **overrides: Any) -> TaskExecution:
+    """种一条 Execution；投递/调度归属都在别的表（Revision/Fire），不写回执行行。"""
     now = overrides.pop("now", datetime.now(UTC))
     task_id = uuid.uuid4()
     values: dict[str, Any] = {
@@ -246,11 +242,9 @@ async def persist_task(
         "tenant_id": tenant.tenant_id,
         "agent_id": uuid.uuid4(),
         "actor_user_id": uuid.uuid4(),
-        "intent_key": "policy_check",
         "skill_id": uuid.uuid4(),
         "skill_artifact_id": uuid.uuid4(),
         "trigger_type": "IMMEDIATE",
-        "execution_mode": "ASYNC",
         "task_type": "SKILL",
         "status": str(TaskStatus.QUEUED),
         "input_json": {"customers": ["A"]},
@@ -263,24 +257,11 @@ async def persist_task(
         "max_attempts": default_platform_settings().task.max_attempts,
         "not_before": now,
         "deadline_at": now + timedelta(hours=default_platform_settings().task.default_deadline_hours),
-        "delivery_mode": "FINAL_ONLY",
-        "delivery_status": "PENDING",
-        "delivery_key": f"task:{task_id}:final",
-        "delivery_attempts": 0,
     }
     values.update(overrides)
     _fill_execution_snapshot_contract(values)
-    if values["delivery_mode"] == "NONE":
-        values["delivery_status"] = "NONE"
     async with tenant.session_factory() as session:
         async with session.begin():
-            if delivery_route is not None:
-                values["delivery_route_id"] = await upsert_delivery_route(
-                    session,
-                    tenant_id=tenant.tenant_id,
-                    platform_user_id=values["actor_user_id"],
-                    route=delivery_route,
-                )
             task = TaskExecution(**values)
             session.add(task)
             await session.flush()
@@ -303,12 +284,20 @@ async def fetch_schedule(tenant: TenantContext, schedule_id: uuid.UUID) -> TaskS
     return schedule
 
 
-async def fetch_events(tenant: TenantContext, task_id: uuid.UUID) -> list[TaskEvent]:
+async def fetch_events(
+    tenant: TenantContext,
+    entity_id: uuid.UUID,
+    *,
+    entity_type: EntityType = EntityType.EXECUTION,
+) -> list[TaskEvent]:
     async with tenant.session_factory() as session, session.begin():
         events = (
             await session.execute(
                 select(TaskEvent)
-                .where(TaskEvent.task_id == task_id)
+                .where(
+                    TaskEvent.entity_type == entity_type.value,
+                    TaskEvent.entity_id == entity_id,
+                )
                 .order_by(TaskEvent.seq.asc())
             )
         ).scalars().all()

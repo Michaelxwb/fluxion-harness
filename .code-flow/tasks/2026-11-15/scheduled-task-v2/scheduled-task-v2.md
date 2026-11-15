@@ -300,7 +300,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
   - related PASS exit=0
 ## TASK-003: 统一命令幂等、实体事件与终态事务
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-002
 - **Source**: scheduled-task-v2.backend.design.md §3.3.9、§3.3.12、§3.5.1、§3.5.10
 - **Scenarios**: S-06, S-07, S-08, S-14, E-03, E-04, E-15
@@ -340,12 +340,12 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 
 ### Checklist
 
-- [ ] task_submission 接纳 tasks、schedule-drafts、schedule-confirm、schedule-actions、execution-cancel、human-respond；指纹含 endpoint/tenant/actor/目标与动作载荷。
-- [ ] 先 advisory lock 再重放校验与写入，partial unique 兜底；同键不同 actor/目标/参数冲突，重放读取首次持久化响应。
-- [ ] 事件 seq 在实体行锁或实体 advisory lock 内分配；并发写序号不重复，occurred_at 与入库时间分离。
-- [ ] 扩展统一锁入口：runtime_operation→Schedule→Fire→root→parent→child→event/outbox；立即任务沿用 operation→tree；不先更新 Child 再反向拿 operation。
-- [ ] 统一终态写状态、finished_at、TaskEvent、JOIN outbox 和 PUSH 投递意图；先 flush 实际事件再写 outbox FK，Child 不发布根结果。
-- [ ] 覆盖不同实体并发、同实体并发、事务注入失败、取消先到、迟到 lease、JOIN/DETACH/Child 行为，使用真实 PG 锁和约束。
+- [x] task_submission 接纳 tasks、schedule-drafts、schedule-confirm、schedule-actions、execution-cancel、human-respond；指纹含 endpoint/tenant/actor/目标与动作载荷。
+- [x] 先 advisory lock 再重放校验与写入，partial unique 兜底；同键不同 actor/目标/参数冲突，重放读取首次持久化响应。
+- [x] 事件 seq 在实体行锁或实体 advisory lock 内分配；并发写序号不重复，occurred_at 与入库时间分离。
+- [x] 扩展统一锁入口：runtime_operation→Schedule→Fire→root→parent→child→event/outbox；立即任务沿用 operation→tree；不先更新 Child 再反向拿 operation。
+- [x] 统一终态写状态、finished_at、TaskEvent、JOIN outbox 和 PUSH 投递意图；先 flush 实际事件再写 outbox FK，Child 不发布根结果。
+- [x] 覆盖不同实体并发、同实体并发、事务注入失败、取消先到、迟到 lease、JOIN/DETACH/Child 行为，使用真实 PG 锁和约束。
 
 ### Spec Delta
 
@@ -356,13 +356,23 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T05:52:33.430Z] started tests=9f4e218971ce
+- [2026-11-15] `task_submission` 收敛为六类 endpoint 短标识（`tasks`/`schedule-drafts`/`schedule-confirm`/`schedule-actions`/`execution-cancel`/`human-respond`）；`admit()` = `pg_advisory_xact_lock` → 重放校验，`record_in()` 用 SAVEPOINT 把 partial unique 兜底翻成「重放 / `IDEMPOTENCY_MISMATCH`」而不是把 IntegrityError 抛给调用方；指纹显式含 endpoint/tenant/actor/目标 id/动作载荷。
+- [2026-11-15] `task_event` 改多态：`EntityType` + 每实体事件目录（§3.5.10）；seq 在实体行锁（SCHEDULE/FIRE/EXECUTION/HUMAN/DELIVERY）或实体 advisory 锁（ARTIFACT/ASYNC）内分配，下界与唯一键一样按 tenant 收敛（首版漏了 tenant 谓词，被新增的跨租户用例抓出并修正）。
+- [2026-11-15] 终态事务：EXECUTION 事件先 flush，outbox 改 `task_event_id` 单列 FK；PUSH 投递意图按来源 Revision 的 `delivery_intent` 在同一事务建 `task_delivery`；删除旧的 WEBCHAT→Runtime 收件箱外置分支（v2 由任务中心 pull，§2.3.6/§3.5.9）。
+- [2026-11-15] 锁入口 `lock_task_tree` 扩到 operation→Schedule→Fire→root→parent；立即任务仍是 operation→tree，所有路径都先取 operation 锁再碰执行行。
+- [2026-11-15] 事件目录里没有 CANCEL_REQUESTED / FAN_OUT / FAN_IN：RUNNING 的协作取消只落 `cancel_requested` 列（终态 CANCELLED 事件由持 lease 的 Worker 写），fan-in 聚合明细进终态事件 payload。
+- [2026-11-15] 测试迁移：`test_submission_idempotency` 下沉到台账服务层——`/internal/tasks` 的 HTTP 接线仍依赖 `TaskService.create`（TASK-016）故属其他 TASK；`test_runtime_operation_races` 收敛到终态事务/operation 墓碑/outbox 派发，worker/scheduler 收尾接线（success/failure/deadline 的调用方）由 TASK-015 的套件覆盖。
+- [2026-11-15] 推迟项：`apps/agent-worker/src/muad_agent_worker/api/admin_results.py` 的 runtime-result 重试端点仍调用 v1 `append_event(task_id=...)` / `TaskEventType.DELIVERY_RETRY`，其 owner（TASK-013/023）需迁移；`application/batch_fanout.py` 的 `external_ref_json`/FAN_OUT 事件同样留给 TASK-015。
+- [2026-11-15] 共享夹具 `tests/agent_worker/helpers.py`、`tests/async_tool_helpers.py` 去掉了执行行已删除的列（intent_key/delivery_*/execution_mode）。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-004"></a>
-
+- 2026-11-15T06:02:31.003Z PASS commands=1/1 executed=1 deduped=0 elapsed=32435ms tests=9f4e218971ce head=6665e3589171 dirty=1
+  - related PASS exit=0
 ## TASK-004: 实现 IANA 墙钟 recurrence 与 DST 计划槽
 
 - **Status**: done
@@ -2450,4 +2460,3 @@ Console 继续提供同租户查看与暂停/恢复/取消，增加 Fire 历史�
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
-

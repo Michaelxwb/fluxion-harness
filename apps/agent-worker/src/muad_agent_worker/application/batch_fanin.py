@@ -21,7 +21,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import TaskExecution
 from .batch_fanout import AGGREGATE_ALL, AGGREGATE_BEST_EFFORT, BATCH_REF_KEY, PARKED_NOT_BEFORE
-from .task_events import TaskEventType
 from .terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 
 BATCH_CHILD_FAILED = "BATCH_CHILD_FAILED"
@@ -127,7 +126,7 @@ async def _release_parked(
 
 
 def _concurrency(parent: TaskExecution) -> int:
-    batch = (parent.external_ref_json or {}).get(BATCH_REF_KEY) or {}
+    batch = (parent.wait_payload_json or {}).get(BATCH_REF_KEY) or {}
     value = batch.get("concurrency")
     if isinstance(value, int) and not isinstance(value, bool) and value >= 1:
         return value
@@ -137,7 +136,7 @@ def _concurrency(parent: TaskExecution) -> int:
 def _aggregate(
     parent: TaskExecution, siblings: list[TaskExecution]
 ) -> tuple[str, dict[str, Any], str | None, str | None]:
-    mode = ((parent.external_ref_json or {}).get(BATCH_REF_KEY) or {}).get("aggregate_mode", AGGREGATE_ALL)
+    mode = ((parent.wait_payload_json or {}).get(BATCH_REF_KEY) or {}).get("aggregate_mode", AGGREGATE_ALL)
     succeeded = sum(1 for item in siblings if item.status == str(TaskStatus.COMPLETED))
     failed = sum(1 for item in siblings if item.status == str(TaskStatus.FAILED))
     cancelled = sum(1 for item in siblings if item.status == str(TaskStatus.CANCELLED))
@@ -174,7 +173,7 @@ async def _cas_parent(
         ),
         moment,
         conditions=(TaskExecution.cancel_requested.is_(False),),
-        event_type=TaskEventType.FAN_IN,
+        # 聚合不是独立事件类型（§3.5.10 的 EXECUTION 事件就是状态本身）；聚合明细进 payload。
         event_payload=cast(dict[str, JsonValue], result),
     )
     return int(written)

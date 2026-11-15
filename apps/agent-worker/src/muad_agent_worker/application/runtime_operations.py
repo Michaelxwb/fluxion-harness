@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.runtime_operations import RuntimeOperation
 from ..infrastructure.models.task import TaskExecution
-from .submissions import submission_fingerprint
+from .submissions import SubmissionEndpoint, submission_fingerprint
 
 
 async def lock_operation(
@@ -66,7 +66,13 @@ async def prepare_submission(session: AsyncSession, request: CreateTaskRequest) 
             actor_user_id=request.actor_user_id,
         ),
     )
-    fingerprint = submission_fingerprint("create-task", request)
+    fingerprint = submission_fingerprint(
+        endpoint=SubmissionEndpoint.TASKS,
+        tenant_id=request.tenant_id,
+        actor_user_id=request.actor_user_id,
+        target_id=source.operation_id,
+        action=request,
+    )
     if operation.submission_hash is not None and operation.submission_hash != fingerprint:
         raise AppError(ErrorCode.IDEMPOTENCY_MISMATCH)
     if operation.cancel_requested:

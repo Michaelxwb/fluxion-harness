@@ -31,7 +31,7 @@ from .delivery_routes import upsert_delivery_route
 from .platform_settings import resolve_platform_settings
 from .ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .runtime_operations import prepare_submission
-from .task_events import TaskEventType, append_event
+from .task_events import EntityType, TaskEventType, append_event
 from .terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 
 INITIAL_PRIORITY = 100
@@ -121,8 +121,9 @@ class TaskService:
         await append_event(
             self._session,
             tenant_id=payload.tenant_id,
-            task_id=inserted_id,
-            event_type=TaskEventType.CREATED,
+            entity_type=EntityType.EXECUTION,
+            entity_id=inserted_id,
+            event_type=TaskEventType.QUEUED,
             payload={"idempotency_key": payload.idempotency_key},
         )
         await self._session.flush()
@@ -211,7 +212,11 @@ class TaskService:
             (
                 await self._session.execute(
                     select(TaskEvent)
-                    .where(TaskEvent.task_id == task.id, TaskEvent.is_deleted.is_(False))
+                    .where(
+                        TaskEvent.entity_type == EntityType.EXECUTION.value,
+                        TaskEvent.entity_id == task.id,
+                        TaskEvent.is_deleted.is_(False),
+                    )
                     .order_by(TaskEvent.seq.asc())
                 )
             )
@@ -371,18 +376,15 @@ class TaskService:
         return False if changed is not None else None
 
     async def _record_cancel(self, task: TaskExecution, *, settled: bool, now: datetime) -> None:
-        """写事件并按需级联——状态本身已由 `_apply_cancel_intent` 落库，这里只记随附事实。"""
+        """按需级联——状态本身已由 `_apply_cancel_intent` 落库，这里只做随附动作。
+
+        RUNNING 的协作取消只落 `cancel_requested=true`（§3.5.10 没有“取消请求”事件），
+        真正的 CANCELLED 事件由持有 lease 的 Worker 在协作停止时写。
+        """
         # 局部导入：batch_fanout/batch_fanin 依赖本模块的常量，顶层导入会形成环。
         from .batch_fanin import settle_child
         from .task_cancel import cancel_children
 
-        if not settled:
-            await append_event(
-                self._session,
-                tenant_id=task.tenant_id,
-                task_id=task.id,
-                event_type=TaskEventType.CANCEL_REQUESTED,
-            )
         await cancel_children(self._session, task, now)
         if settled:
             # 取消掉的是一个 Parent：它自己终态了，扇入要看一眼 Child 是否都已终态。
