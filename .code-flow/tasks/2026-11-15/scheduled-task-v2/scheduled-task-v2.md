@@ -92,6 +92,7 @@ MSSWWEB 只交付 TaskCenterService/contracts 与 Fake surface 契约，任务�
 | `tests/agent_worker/test_task_queries.py` | TASK-023 | 迁到 v2 读面（分页/过滤）；旧列断言删除并说明 |
 | `tests/agent_worker/test_api.py`（`test_schedule_api_lifecycle` 等 v1 用例） | TASK-023 | 迁到 v2 读面与动作路由；`CANCEL_REQUESTED` 事件事实已不存在 |
 | `tests/agent_worker/test_worker_lifecycle.py`（2 例断言 `CREATED`） | TASK-033 | 建单事件在 v2 是 `QUEUED`；收口前必须全绿 |
+| `tests/agent_worker/test_schedule_queries_actions.py`（10 例 405） | TASK-033 | 已退役的 v1 动作路由；迁到 v2 动作端点或写明事实消失 |
 | `tests/agent_worker/test_schedule_writes.py` | TASK-029 | 创建/修改已由 Draft+确认取代：保留仍成立的事实（幂等、next_fire 计算）迁入 v2 套件，其余显式删除 |
 | `tests/agent_worker/test_admin_schedules.py` | TASK-029 | 迁到 Console/管理面的 v2 状态与动作 |
 | `tests/agent_worker/test_worker_metrics.py` | TASK-032 | 迁到 Fire/指标标签的 v2 口径 |
