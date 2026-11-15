@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import Any, Literal, Self
+from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
@@ -62,6 +62,33 @@ def task_retry_safety(snapshot: Mapping[str, Any]) -> ToolRetrySafety:
     return frozen_retry_safety(budget if isinstance(budget, Mapping) else {})
 
 
+class RunToolOperationOwner(BaseModel):
+    """RUN owner：交互式 Run 提交的异步操作。"""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["RUN"] = "RUN"
+    run_id: UUID
+
+
+class TaskToolOperationOwner(BaseModel):
+    """TASK owner：定时执行提交的异步操作；`task_execution_id` 不是提交产生的 `task_id`。
+
+    两种 owner 在 `tool_operation` / `tool_result_inbox` 上互斥（RUN 有 `run_id`、TASK 有
+    `task_execution_id`），线协议用同一个判别联合表达，不存在第二套协议。
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["TASK"] = "TASK"
+    task_execution_id: UUID
+
+
+ToolOperationOwner = Annotated[
+    RunToolOperationOwner | TaskToolOperationOwner, Field(discriminator="kind")
+]
+
+
 class RuntimeOperationInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -87,7 +114,7 @@ class ToolResultRequest(BaseModel):
     operation_id: UUID
     task_id: UUID
     task_event_seq: int = Field(gt=0, strict=True)
-    source_run_id: UUID
+    owner: ToolOperationOwner
     actor_user_id: UUID
     task_snapshot_hash: str = Field(pattern=SNAPSHOT_HASH_PATTERN)
     terminal_status: TerminalStatus
@@ -146,9 +173,11 @@ def tool_waiting_reason(
 
 
 class CancelOperationRequest(BaseModel):
+    """取消墓碑的身份：owner + 真实调用身份，不要求提交回执先到。"""
+
     model_config = ConfigDict(extra="forbid")
 
-    source_run_id: UUID
+    owner: ToolOperationOwner
     source_tool_call_id: str = Field(min_length=1, max_length=256)
     actor_user_id: UUID
 

@@ -47,6 +47,13 @@ class ControlDispatchPolicy(BaseModel):
         return cls(**{key: getattr(settings, f"async_tool_dispatch_{key}") for key in cls.model_fields})
 
 
+def _owner_body(operation: ToolOperation) -> dict[str, str]:
+    """取消命令的 owner 与 operation 行同源：线协议不接受调用方另声明一个归属。"""
+    if operation.run_id is not None:
+        return {"kind": "RUN", "run_id": str(operation.run_id)}
+    return {"kind": "TASK", "task_execution_id": str(operation.owner_task_execution_id)}
+
+
 class ControlDispatcher:
     def __init__(
         self,
@@ -149,8 +156,22 @@ class ControlDispatcher:
             )
             if operation is None:
                 raise RuntimeError("control command has no operation")
-            run = (await session.scalars(select(RunRecord).where(RunRecord.id == operation.run_id,
-                RunRecord.tenant_id == row.tenant_id, RunRecord.is_deleted.is_(False)))).one()
+            if operation.run_id is None and row.command == ControlCommand.SUBMIT:
+                # Task owner 的提交不是“Runtime 建 Task”：Worker 自己持有执行，Runtime 只发取消。
+                raise RuntimeError("task-owned operations have no submit command")
+            run = (
+                None
+                if operation.run_id is None
+                else (
+                    await session.scalars(
+                        select(RunRecord).where(
+                            RunRecord.id == operation.run_id,
+                            RunRecord.tenant_id == row.tenant_id,
+                            RunRecord.is_deleted.is_(False),
+                        )
+                    )
+                ).one()
+            )
             session.expunge(operation)
         if row.command == ControlCommand.SUBMIT and (
             operation.cancel_requested or operation.status in OP_TERMINAL
@@ -158,9 +179,12 @@ class ControlDispatcher:
             await self._complete(row, None, "SUBMISSION_ABANDONED", True, now or datetime.now(UTC))
             return
         fields = {name: "" for name in TRACE_CORRELATION_FIELDS}
-        fields.update(trace_id=run.trace_id, run_id=str(run.id), conversation_id=str(run.conversation_id),
-            platform_user_id=str(run.user_id), tool_call_id=operation.source_tool_call_id,
-            task_id=str(operation.task_id or ""), snapshot_id=str(run.snapshot_id or ""))
+        if run is not None:
+            fields.update(trace_id=run.trace_id, run_id=str(run.id), conversation_id=str(run.conversation_id),
+                platform_user_id=str(run.user_id), tool_call_id=operation.source_tool_call_id,
+                task_id=str(operation.task_id or ""), snapshot_id=str(run.snapshot_id or ""))
+        else:
+            fields.update(tool_call_id=operation.source_tool_call_id, task_id=str(operation.task_id or ""))
         with context_scope(tenant_id=row.tenant_id, caller_service="agent-runtime", **fields):
             data, error, deterministic = await self._send(row, operation)
             await self._complete(row, data, error, deterministic, now or datetime.now(UTC))
@@ -174,7 +198,7 @@ class ControlDispatcher:
             operation.submission_json
             if submit
             else {
-                "source_run_id": str(operation.run_id),
+                "owner": _owner_body(operation),
                 "source_tool_call_id": operation.source_tool_call_id,
                 "actor_user_id": str(operation.actor_user_id),
             }
@@ -226,7 +250,7 @@ class ControlDispatcher:
 
     async def _locked(
         self, session: AsyncSession, claim: ToolControlOutbox, now: datetime
-    ) -> tuple[RunRecord, ToolOperation, ToolControlOutbox] | None:
+    ) -> tuple[RunRecord | None, ToolOperation, ToolControlOutbox] | None:
         source = await session.scalar(
             select(ToolOperation).where(
                 ToolOperation.id == claim.operation_id,
@@ -243,9 +267,10 @@ class ControlDispatcher:
                 RunRecord.is_deleted.is_(False),
             )
         )
-        if run is None:
+        if run is not None:
+            run, _ = await lock_run_source(session, claim.tenant_id, run)
+        elif source.run_id is not None:
             raise RuntimeError("control Run disappeared")
-        run, _ = await lock_run_source(session, claim.tenant_id, run)
         operation = (
             await session.scalars(
                 select(ToolOperation)
@@ -286,15 +311,20 @@ class ControlDispatcher:
             if locked is None:
                 return
             run, operation, row = locked
+            submit = row.command == ControlCommand.SUBMIT
+            if submit and run is None:
+                raise RuntimeError("task-owned operations have no submit command")
             row.lease_owner, row.lease_until, row.update_time = None, None, now
             if error is None and data is not None:
                 row.status, row.last_error_code = ControlOutboxStatus.SENT, None
-                if row.command == ControlCommand.SUBMIT:
+                if submit:
+                    assert run is not None
                     await _admit(session, run, operation, data, now)
                 record_outcome(METRIC, "SENT")
             elif deterministic or row.attempts >= self._policy.max_attempts:
                 row.status, row.last_error_code = ControlOutboxStatus.FAILED, error
-                if row.command == ControlCommand.SUBMIT and operation.status not in OP_TERMINAL:
+                if submit and operation.status not in OP_TERMINAL:
+                    assert run is not None
                     await _fail_submission(session, run, operation, error or "SUBMISSION_UNCONFIRMED", now)
                 logger.error(
                     "tool_control_dispatch_failed", extra={"command": row.command.value, "error_code": error}

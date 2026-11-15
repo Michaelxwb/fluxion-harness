@@ -32,6 +32,7 @@ from .api.learning import router as learning_router
 from .api.memory import router as memory_router
 from .api.model_capacity import router as model_capacity_router
 from .api.runs import router as runs_router
+from .api.tool_operations import router as tool_operations_router
 from .api.tool_results import router as tool_results_router
 from .api.webchat_history import router as webchat_history_router
 from .application.async_tools.continuation_pump import ContinuationPump
@@ -615,6 +616,7 @@ app.include_router(artifacts_router)
 app.include_router(memory_router)
 app.include_router(learning_router)
 app.include_router(tool_results_router)
+app.include_router(tool_operations_router)
 app.include_router(model_capacity_router)
 app.include_router(webchat_history_router)
 app.include_router(channel_delivery_router)

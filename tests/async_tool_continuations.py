@@ -3,7 +3,12 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from muad_contracts import CompletionMode, TerminalStatus, ToolResultRequest
+from muad_contracts import (
+    CompletionMode,
+    RunToolOperationOwner,
+    TerminalStatus,
+    ToolResultRequest,
+)
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from tests.async_tool_submissions import seed_submission
@@ -39,7 +44,7 @@ async def receipt(factory, run, op, result):
         event_id=uuid4(),
         operation_id=op.id,
         task_id=uuid4(),
-        source_run_id=run.id,
+        owner=RunToolOperationOwner(run_id=run.id),
         actor_user_id=run.user_id,
         task_snapshot_hash=op.task_snapshot_hash,
         task_event_seq=1,

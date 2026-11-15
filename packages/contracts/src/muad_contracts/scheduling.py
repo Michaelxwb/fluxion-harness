@@ -42,6 +42,7 @@ from .enums import (
     ScheduleStatus,
     SkipReason,
     TaskStatus,
+    TerminalStatus,
     WaitKind,
 )
 from .model_pool import (
@@ -51,6 +52,7 @@ from .model_pool import (
     _require_settlement_shape,
 )
 from .tasks import ContractModel
+from .tool_runtime import TaskToolOperationOwner
 
 SNAPSHOT_HASH_PATTERN = r"^sha256:[0-9a-f]{64}$"
 #: Revision 的 tool_allowlist 条目来源：MCP 或 Skill 工具。
@@ -528,11 +530,6 @@ class TaskCapacityRelease(ContractModel):
     released: bool
 
 
-class TaskToolOperationOwner(ContractModel):
-    kind: Literal["TASK"] = "TASK"
-    task_execution_id: UUID
-
-
 class TaskToolOperationSubmitRequest(ContractModel):
     """API-30：Task 提交 ASYNC 工具操作。
 
@@ -551,6 +548,72 @@ class TaskToolOperationSubmitRequest(ContractModel):
     @classmethod
     def _strict_json(cls, value: object) -> object:
         return ensure_strict_json(value)
+
+
+class TaskToolOperationResult(ContractModel):
+    """一次调用已就绪的结果事实；读取可重放，消费水位由 Worker 自己的事务持有。"""
+
+    event_id: UUID
+    task_event_id: UUID
+    task_event_seq: int = Field(gt=0)
+    terminal_status: TerminalStatus
+    completed_at: AwareDatetime
+    late: bool
+    result: dict[str, Any] | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+
+    @field_validator("result", mode="before")
+    @classmethod
+    def _strict_result(cls, value: object) -> object:
+        return ensure_strict_json(value)
+
+
+class TaskToolOperationView(ContractModel):
+    """API-30 的读模型：submit / 按调用身份查找 / 单条查询共用同一形状。"""
+
+    operation_id: UUID
+    owner: TaskToolOperationOwner
+    source_tool_call_id: str
+    #: 取消先于提交时调用内容尚不存在，此时为 None。
+    tool_name: str | None = None
+    completion_mode: CompletionMode
+    status: OperationStatus
+    cancel_requested: bool
+    #: 实际提交产生的 Task（结果到达时才确定），不是 owner。
+    task_id: UUID | None = None
+    result: TaskToolOperationResult | None = None
+
+
+class TaskToolOperationList(ContractModel):
+    """统一列表封套（RULE-api-001）：`page>=1`、`1<=page_size<=MAX_PAGE_SIZE`。"""
+
+    items: list[TaskToolOperationView]
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1)
+    total: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _page_is_consistent(self) -> Self:
+        if len(self.items) > self.page_size or self.total < len(self.items):
+            raise ValueError("page shape is inconsistent with the returned items")
+        return self
+
+
+class TaskToolOperationCancelRequest(ContractModel):
+    """按调用身份取消：提交回执丢失或尚未提交时也能落墓碑。
+
+    操作者只来自受信头（`X-Actor-User-Id`），body 不声明归属。
+    """
+
+    owner: TaskToolOperationOwner
+    source_tool_call_id: str = Field(min_length=1, max_length=256)
+
+
+class TaskToolOperationCancelResponse(ContractModel):
+    operation_id: UUID
+    status: OperationStatus
+    cancel_requested: bool
 
 
 # ---------------------------------------------------------------------------

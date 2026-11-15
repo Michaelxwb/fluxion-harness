@@ -25,6 +25,7 @@ from muad_contracts import (
     CancelOperationRequest,
     ControlOutboxStatus,
     CreateTaskRequest,
+    RunToolOperationOwner,
     TerminalStatus,
 )
 from muad_contracts.platform_settings import default_platform_settings
@@ -409,7 +410,7 @@ async def test_b07_cancel_before_submission_is_a_durable_tombstone(async_tool_da
     payload = CreateTaskRequest.model_validate(data)
     source = payload.runtime_operation
     cancel = CancelOperationRequest(
-        source_run_id=source.source_run_id,
+        owner=RunToolOperationOwner(run_id=source.source_run_id),
         source_tool_call_id=source.source_tool_call_id,
         actor_user_id=payload.actor_user_id,
     )
