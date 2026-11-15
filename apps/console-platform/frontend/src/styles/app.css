@@ -589,7 +589,7 @@ body {
 .user-memory-table { --app-table-min-width: 880px; }
 
 .user-memory-hint { margin: 0 0 8px; }
-/* 记忆 Tab 工具条：左上主操作，右侧辅助（回收站开关 / 待确认 / 清理全部）。 */
+/* 记忆 Tab 工具条：左侧是「新增 + 看什么」的一组（回收站开关 / 待确认），右侧只留危险操作。 */
 .user-memory-toolbar {
   display: flex;
   align-items: center;

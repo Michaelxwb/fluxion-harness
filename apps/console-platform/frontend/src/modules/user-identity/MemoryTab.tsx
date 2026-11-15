@@ -352,14 +352,13 @@ export function MemoryTab(props: MemoryTabProps) {
             <Button data-testid="memory-create" icon={<IconPlus />} onClick={() => setCreateVisible(true)}>
               {t('user.memory.add')}
             </Button>
-          </div>
-          <div className="user-memory-toolbar-end">
-            <span className="user-memory-recycle">
+            <span className="user-memory-recycle" title={t('user.memory.recycleHint')}>
               {t('user.memory.recycleBin')}
               <Switch checked={recycle} onChange={setRecycle} size="small" />
             </span>
             <Button
               theme="borderless"
+              title={t('user.memory.conflictsHint')}
               onClick={() => {
                 setConflictsVisible(true);
                 void loadConflicts();
@@ -367,6 +366,8 @@ export function MemoryTab(props: MemoryTabProps) {
             >
               {t('user.memory.conflicts')}
             </Button>
+          </div>
+          <div className="user-memory-toolbar-end">
             <ConfirmAction
               title={t('user.memory.clear')}
               onConfirm={() => void runCommand({ action: 'CLEAR' })}
@@ -390,7 +391,7 @@ export function MemoryTab(props: MemoryTabProps) {
           {
             title: t('user.memory.content'),
             dataIndex: 'title',
-            width: 196,
+            width: 232,
             render: (_value: string, item: MemoryItem) => (
               <Button
                 theme="borderless"
@@ -406,7 +407,7 @@ export function MemoryTab(props: MemoryTabProps) {
           {
             title: t('user.memory.categoryLabel'),
             dataIndex: 'memory_kind',
-            width: 104,
+            width: 120,
             render: (value: string, item: MemoryItem) => (
               <TableText>{`${t(`user.memory.kind.${value}`)}/${item.predicate}`}</TableText>
             )
@@ -422,7 +423,7 @@ export function MemoryTab(props: MemoryTabProps) {
           {
             title: t('user.memory.statusLabel'),
             dataIndex: 'status',
-            width: 140,
+            width: 88,
             render: (value: string) => <TableText>{t(`user.memory.status.${value}`)}</TableText>
           },
           {

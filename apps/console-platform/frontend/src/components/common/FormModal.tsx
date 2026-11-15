@@ -15,7 +15,7 @@ export interface FormModalProps {
   onOk(): void;
   onCancel(): void;
   getFormApi?(api: FormApi): void;
-  /** 打开时的初始值；调用方用 `key` 让弹窗在换目标时重挂载，初始值才会重新生效。 */
+  /** Seed values for a fresh mount; callers pass a changing `key` so they re-apply. */
   initValues?: Record<string, unknown>;
   onSubmit?(values: Record<string, unknown>): void;
   children?: ReactNode;

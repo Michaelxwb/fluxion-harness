@@ -1988,6 +1988,8 @@
   "user.memory.summary": "Summary",
   "user.memory.tags": "Tags",
   "user.memory.recycleBin": "Recycle bin",
+  "user.memory.recycleHint": "Recycle bin: lists deleted memories; restore the original identity from the row",
+  "user.memory.conflictsHint": "Pending: memories the agent inferred but the user has not confirmed; accept or reject",
   "user.memory.status.DELETED": "Deleted",
   "user.memory.kind.PREFERENCE": "Preference",
   "user.memory.kind.FACT": "Fact",

@@ -1988,6 +1988,8 @@
   "user.memory.summary": "摘要",
   "user.memory.tags": "标签",
   "user.memory.recycleBin": "回收站",
+  "user.memory.recycleHint": "回收站：列出已删除的记忆，可从行内「恢复」还原原身份",
+  "user.memory.conflictsHint": "待确认：Agent 从对话里推断出、还没经用户确认的记忆候选，可接受或拒绝",
   "user.memory.status.DELETED": "已删除",
   "user.memory.kind.PREFERENCE": "偏好",
   "user.memory.kind.FACT": "事实",
