@@ -111,18 +111,30 @@ def test_delivery_request_key_pattern():
     request = DeliveryRequest(
         tenant_id='tenant-1',
         task_id=task_id,
-        delivery_key=f'task:{task_id}:final',
+        delivery_key=f'execution:{task_id}:final',
         route=ROUTE,
         message={'text': 'done'},
     )
     assert request.artifact_ids == []
     assert request.message.type == 'text'
+    # 人工问题按 interaction 记账：task_id 只是上下文，键不必等于 execution 键
+    question = DeliveryRequest(
+        tenant_id='tenant-1',
+        task_id=task_id,
+        delivery_key=f'human:{uuid4()}',
+        route=ROUTE,
+        message={'text': '请选择客户'},
+    )
+    assert question.run_id is None
 
     bad_keys = (
         f'run:{task_id}:final',
-        f'task:{task_id}:chunk',
-        'task:not-a-uuid:final',
-        f'TASK:{task_id}:final',
+        f'execution:{task_id}:chunk',
+        'execution:not-a-uuid:final',
+        f'EXECUTION:{task_id}:final',
+        f'task:{task_id}:final',
+        f'execution:{uuid4()}:final',
+        'human:not-a-uuid',
     )
     for bad_key in bad_keys:
         with pytest.raises(ValidationError):

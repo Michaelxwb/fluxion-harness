@@ -717,28 +717,58 @@ apps/agent-worker/src/muad_agent_worker/application/task_events.py,77,TOOL_CALL,
 apps/agent-worker/src/muad_agent_worker/application/task_events.py,79,CONTEXT_COMPACTED,'CONTEXT_COMPACTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/task_events.py,82,ENTITY_EVENT_TYPES,"{EntityType.SCHEDULE: frozenset({TaskEventType.CREATED, TaskEventType.UPDATED, TaskEventType.PAUSED, TaskEventType.RESUMED, TaskEventType.CANCELLED, TaskEventType.NEEDS_ATTENTION, TaskEventType.ENDED, TaskEventType.DST_GAP_SKIPPED, TaskEventType.DST_FOLD_SECOND_SKIPPED}), EntityType.FIRE: frozenset({TaskEventType.CREATED, TaskEventType.EXECUTION_CREATED, TaskEventType.SKIPPED, TaskEventType.FAILED_ADMISSION, TaskEventType.CANCELLED}), EntityType.EXECUTION: frozenset({TaskEventType.QUEUED, TaskEventType.CLAIMED, TaskEventType.WAITING_EXTERNAL, TaskEventType.WAITING_HUMAN, TaskEventType.RESUMED, TaskEventType.COMPLETED, TaskEventType.FAILED, TaskEventType.CANCELLED, TaskEventType.RECLAIMED, TaskEventType.DEADLINE_EXCEEDED, TaskEventType.MODEL_CALL, TaskEventType.ASSISTANT_TURN, TaskEventType.TOOL_CALL, TaskEventType.CONTEXT_COMPACTED}), EntityType.HUMAN: frozenset({TaskEventType.REQUESTED, TaskEventType.RESOLVED, TaskEventType.TIMED_OUT, TaskEventType.CANCELLED}), EntityType.DELIVERY: frozenset({TaskEventType.ENQUEUED, TaskEventType.SENT, TaskEventType.FAILED, TaskEventType.CANCELLED}), EntityType.ARTIFACT: frozenset({TaskEventType.REGISTERED, TaskEventType.DOWNLOADED}), EntityType.ASYNC: frozenset({TaskEventType.SUBMITTED, TaskEventType.RESULT_RECEIVED, TaskEventType.CANCELLED, TaskEventType.FAILED})}",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/application/task_events.py,152,_ENTITY_ROWS,"{EntityType.SCHEDULE: TaskSchedule, EntityType.FIRE: ScheduleFire, EntityType.EXECUTION: TaskExecution, EntityType.HUMAN: TaskHumanInteraction, EntityType.DELIVERY: TaskDelivery}",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/application/task_service.py,42,INITIAL_PRIORITY,100,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
-apps/agent-worker/src/muad_agent_worker/application/task_service.py,43,TERMINAL_STATUSES,"(str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/task_service.py,44,CANCELABLE_STATUSES,"(str(TaskStatus.QUEUED), str(TaskStatus.WAITING_EXTERNAL), str(TaskStatus.WAITING_HUMAN))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,40,NON_TERMINAL,"(TaskStatus.QUEUED.value, TaskStatus.RUNNING.value, TaskStatus.WAITING_EXTERNAL.value, TaskStatus.WAITING_HUMAN.value)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,46,DELIVERY_KIND_PUSH,'PUSH',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,47,DELIVERY_PENDING,'PENDING',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,48,DELIVERY_INTENT_PUSH,'PUSH',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,49,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/task_service.py,37,INITIAL_PRIORITY,100,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/application/task_service.py,38,TERMINAL_STATUSES,"(str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/task_service.py,39,CANCELABLE_STATUSES,"(str(TaskStatus.QUEUED), str(TaskStatus.WAITING_EXTERNAL), str(TaskStatus.WAITING_HUMAN))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,43,NON_TERMINAL,"(TaskStatus.QUEUED.value, TaskStatus.RUNNING.value, TaskStatus.WAITING_EXTERNAL.value, TaskStatus.WAITING_HUMAN.value)",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,49,DELIVERY_INTENT_PUSH,str(DeliveryIntent.PUSH),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-worker/src/muad_agent_worker/application/terminal_tasks.py,50,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/delivery/artifact_client.py,18,RESOLVE_PATH,'/internal/artifacts',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/delivery/artifact_client.py,19,RESOLVE_TIMEOUT_SEC,5.0,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-worker/src/muad_agent_worker/delivery/client.py,12,DELIVERY_PATH,'/internal/deliveries',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/client.py,14,WEBCHAT_TASK_RESULTS_PATH,'/internal/webchat/task-results',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/messages.py,22,MAX_RESULT_CHARS,1500,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
-apps/agent-worker/src/muad_agent_worker/delivery/messages.py,23,MAX_ERROR_CHARS,300,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
-apps/agent-worker/src/muad_agent_worker/delivery/messages.py,24,SUMMARY_KEYS,"('summary', 'text', 'message', 'answer')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/messages.py,25,BATCH_KEYS,"('total', 'succeeded', 'failed', 'cancelled')",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/messages.py,26,DEADLINE_CODE,'TASK_DEADLINE_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/messages.py,28,TEMPLATES,"{'zh-CN': {'completed': '后台任务已完成：{intent}', 'batch': '共 {total} 项：成功 {succeeded}，失败 {failed}，取消 {cancelled}', 'artifact': '完整结果见附件：{artifact_id}', 'failed': '后台任务失败：{intent}\n原因：{code} {message}', 'deadline': '后台任务超过截止时间未完成：{intent}', 'cancelled': '后台任务已取消：{intent}'}, 'en-US': {'completed': 'Background task completed: {intent}', 'batch': '{total} items: {succeeded} succeeded, {failed} failed, {cancelled} cancelled', 'artifact': 'Full result attached: {artifact_id}', 'failed': 'Background task failed: {intent}\nReason: {code} {message}', 'deadline': 'Background task missed its deadline: {intent}', 'cancelled': 'Background task cancelled: {intent}'}}",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/service.py,57,TERMINAL_STATUSES,"(str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/service.py,63,DELIVERABLE_STATUSES,"(str(DeliveryStatus.PENDING),)",python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/service.py,65,MAX_TENANTS_PER_TICK,8,python-constant,code,协议标识、枚举、schema、文本或实现常量
-apps/agent-worker/src/muad_agent_worker/delivery/service.py,68,DELIVERY_RESERVATION_LEASE_SEC,300,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/delivery/client.py,14,SUCCESS_CODE,'0',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/client.py,16,WEBCHAT_TASK_RESULTS_PATH,'/internal/webchat/task-results',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/messages.py,26,MAX_RESULT_CHARS,1500,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/delivery/messages.py,27,MAX_ERROR_CHARS,300,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/delivery/messages.py,28,MAX_TITLE_CHARS,120,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/messages.py,29,SUMMARY_KEYS,"('summary', 'text', 'message', 'answer')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/messages.py,30,BATCH_KEYS,"('total', 'succeeded', 'failed', 'cancelled')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/messages.py,31,DEADLINE_CODE,'TASK_DEADLINE_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/messages.py,32,REMINDER_TEXT_KEY,'reminder_text',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/messages.py,34,TEMPLATES,"{'zh-CN': {'fallback_title': '后台任务', 'completed': '后台任务已完成：{title}', 'batch': '共 {total} 项：成功 {succeeded}，失败 {failed}，取消 {cancelled}', 'artifact': '完整结果见附件：{artifact_id}', 'failed': '后台任务失败：{title}\n原因：{code} {message}', 'deadline': '后台任务超过截止时间未完成：{title}', 'cancelled': '后台任务已取消：{title}', 'question': '任务「{title}」需要你的回复：\n{question}\n请在 {deadline} 前直接回复本消息；同时有多个待处理任务时请注明任务名。'}, 'en-US': {'fallback_title': 'Background task', 'completed': 'Background task completed: {title}', 'batch': '{total} items: {succeeded} succeeded, {failed} failed, {cancelled} cancelled', 'artifact': 'Full result attached: {artifact_id}', 'failed': 'Background task failed: {title}\nReason: {code} {message}', 'deadline': 'Background task missed its deadline: {title}', 'cancelled': 'Background task cancelled: {title}', 'question': 'Task ""{title}"" needs your reply:\n{question}\nReply to this message before {deadline}; if several tasks are waiting, name the task.'}}",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/records.py,17,PUSH,'PUSH',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/records.py,18,HUMAN_QUESTION,'HUMAN_QUESTION',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/records.py,24,PENDING,'PENDING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/records.py,25,SENT,'SENT',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/records.py,26,FAILED,'FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/records.py,27,CANCELLED,'CANCELLED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/records.py,31,EXECUTION_DELIVERY_KEY,'execution:{execution_id}:final',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/records.py,33,HUMAN_DELIVERY_KEY,'human:{interaction_id}',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/records.py,34,HUMAN_KEY_PREFIX,'human:',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,93,TERMINAL_STATUSES,"(str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,94,OPEN,str(HumanInteractionStatus.OPEN),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,95,ACTIVE_ROUTE,'ACTIVE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,96,ACTIVE_SCHEDULE,str(ScheduleStatus.ACTIVE),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,97,NEEDS_ATTENTION,str(ScheduleStatus.NEEDS_ATTENTION),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,98,PUSH_INTENT,str(DeliveryIntent.PUSH),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,99,PENDING,str(DeliveryState.PENDING),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,100,SENT,str(DeliveryState.SENT),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,101,FAILED,str(DeliveryState.FAILED),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,102,CANCELLED,str(DeliveryState.CANCELLED),python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,104,MAX_TENANTS_PER_TICK,8,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,106,MAX_QUESTION_ENQUEUES_PER_TICK,50,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,108,MAX_DEAD_CANCELLATIONS_PER_TICK,100,python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,111,DELIVERY_RESERVATION_LEASE_SEC,300,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,114,ROUTE_UNAVAILABLE_CODES,"frozenset({'BOT_NOT_FOUND', 'FORBIDDEN', 'DELIVERY_ROUTE_UNAVAILABLE'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,115,CODE_ROUTE_UNAVAILABLE,'DELIVERY_ROUTE_UNAVAILABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,116,CODE_EXECUTION_MISSING,'DELIVERY_EXECUTION_MISSING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,117,CODE_INTERACTION_MISSING,'DELIVERY_INTERACTION_MISSING',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,118,CODE_INTERACTION_CLOSED,'HUMAN_INTERACTION_CLOSED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,119,CODE_ATTEMPT_ABANDONED,'DELIVERY_ATTEMPT_ABANDONED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,120,CODE_TRANSPORT,'DELIVERY_TRANSPORT_ERROR',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,121,CODE_UNCONFIRMED,'DELIVERY_UNCONFIRMED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,122,CODE_INBOX_UNAVAILABLE,'WEBCHAT_INBOX_UNAVAILABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/delivery/service.py,123,CODE_UNSUPPORTED_CHANNEL,'DELIVERY_CHANNEL_UNSUPPORTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/infrastructure/cancel_hint.py,19,TASK_CANCEL_KEY_PREFIX,'muad:task:cancel:',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/infrastructure/cancel_hint.py,20,TASK_CANCEL_TTL_SEC,1800,python-constant,environment,网络、缓存、资源上限或服务节拍；启动时注入
 apps/agent-worker/src/muad_agent_worker/infrastructure/cancel_hint.py,21,TASK_CANCEL_VALUE,'1',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -1992,9 +2022,10 @@ packages/contracts/src/muad_contracts/channel_delivery.py,35,DELIVERY_LEASE_MIN_
 packages/contracts/src/muad_contracts/channel_delivery.py,36,DELIVERY_LEASE_MAX_SEC,3600,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/channel_delivery.py,37,DELIVERY_LEASE_DEFAULT_SEC,60,python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/channel_delivery.py,39,DELIVERY_RESULT_MAX_BYTES,4096,python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/delivery.py,13,TASK_DELIVERY_KEY,re.compile('^task:[0-9a-fA-F-]{36}:final$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/delivery.py,15,RUN_DELIVERY_KEY,re.compile('^run:[0-9a-fA-F-]{36}:[0-9a-fA-F-]{36}$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
-packages/contracts/src/muad_contracts/delivery.py,19,TERMINAL_DELIVERY_KEY,re.compile('^run:[0-9a-fA-F-]{36}:terminal$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/delivery.py,14,EXECUTION_DELIVERY_KEY,re.compile('^execution:[0-9a-fA-F-]{36}:final$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/delivery.py,17,HUMAN_DELIVERY_KEY,re.compile('^human:[0-9a-fA-F-]{36}$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/delivery.py,19,RUN_DELIVERY_KEY,re.compile('^run:[0-9a-fA-F-]{36}:[0-9a-fA-F-]{36}$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/contracts/src/muad_contracts/delivery.py,23,TERMINAL_DELIVERY_KEY,re.compile('^run:[0-9a-fA-F-]{36}:terminal$'),python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/enums.py,7,BUILTIN_CHANNEL_NAMES,"('WECOM', 'WEBCHAT')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/contracts/src/muad_contracts/enums.py,13,CREATED,'CREATED',python-constant,code,状态或错误码，不是时间参数
 packages/contracts/src/muad_contracts/enums.py,14,RUNNING,'RUNNING',python-constant,code,协议标识、枚举、schema、文本或实现常量

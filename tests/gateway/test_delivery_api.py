@@ -173,7 +173,7 @@ def delivery_body(
     return {
         "tenant_id": "tenant-1",
         "task_id": str(resolved_task_id),
-        "delivery_key": delivery_key or f"task:{resolved_task_id}:final",
+        "delivery_key": delivery_key or f"execution:{resolved_task_id}:final",
         "route": {
             "channel": "WECOM",
             "bot_id": "bot-1",
@@ -723,7 +723,7 @@ async def test_e05_worker_http_to_gateway_redis_probe_end_to_end() -> None:
     tenant_id = f"test-{uuid.uuid4()}"
     task_id = uuid.uuid4()
     now = datetime.now(UTC)
-    key = f"muad:delivery:dedupe:task:{task_id}:final"
+    key = f"muad:delivery:dedupe:execution:{task_id}:final"
     try:
         async with session_factory() as session:
             async with session.begin():
@@ -761,7 +761,7 @@ async def test_e05_worker_http_to_gateway_redis_probe_end_to_end() -> None:
                         delivery_route_id=route_id,
                         delivery_mode="FINAL_ONLY",
                         delivery_status="PENDING",
-                        delivery_key=f"task:{task_id}:final",
+                        delivery_key=f"execution:{task_id}:final",
                         delivery_attempts=0,
                         finished_at=now,
                     )
@@ -829,7 +829,7 @@ def _b117_bot(bot_id: str) -> BotSnapshotItem:
 
 
 def _b117_body(*, bot_id: str = B117_BOT_A, delivery_key: str | None = None) -> dict[str, Any]:
-    key = delivery_key or f"task:{uuid.uuid4()}:final"
+    key = delivery_key or f"execution:{uuid.uuid4()}:final"
     return {
         "tenant_id": "tenant-1",
         "task_id": key.split(":")[1],

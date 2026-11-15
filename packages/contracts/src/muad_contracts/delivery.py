@@ -9,8 +9,12 @@ from pydantic import Field, model_validator
 from .channel import AttachmentRef
 from .tasks import ContractModel, DeliveryRouteInput
 
-#: 后台任务交付键：`task:{task_id}:final`（既有形态，**不变**）
-TASK_DELIVERY_KEY = re.compile(r"^task:[0-9a-fA-F-]{36}:final$")
+#: 后台任务最终结果键：`execution:{execution_id}:final`（design §3.3.10「一条 Execution
+#: 一份结果」；重投命中同一回执）。
+EXECUTION_DELIVERY_KEY = re.compile(r"^execution:[0-9a-fA-F-]{36}:final$")
+#: 人工问题键：`human:{interaction_id}`（design §3.3.10「一个问题一份投递」；问题不属于
+#: 任何 Conversation，按 interaction 身份而不是 execution 记账）。
+HUMAN_DELIVERY_KEY = re.compile(r"^human:[0-9a-fA-F-]{36}$")
 #: 会话内交付键：`run:{run_id}:{artifact_id}`（TASK-006 新增，设计 §3.4 API-01）
 RUN_DELIVERY_KEY = re.compile(r"^run:[0-9a-fA-F-]{36}:[0-9a-fA-F-]{36}$")
 #: Run 终态兜底交付键：与 `runtime.channel_notification.delivery_key` **同一个稳定键**
@@ -53,7 +57,8 @@ class DeliveryMessage(ContractModel):
 class DeliveryRequest(ContractModel):
     """一次交付请求。**两种形态共用一个契约**（设计 §3.4 API-01/02）：
 
-    - **后台任务**（既有）：`task_id` 必填，`delivery_key = task:{task_id}:final`；
+    - **后台任务**：`task_id` 必填，`delivery_key = execution:{task_id}:final`（最终结果）
+      或 `human:{interaction_id}`（人工问题）；
     - **会话内**（TASK-006 新增）：`task_id` 省略，`delivery_key = run:{run_id}:{artifact_id}`。
 
     `task_id` 由必填改为可省是**放宽**，既有 worker 调用零改动。
@@ -82,7 +87,7 @@ class DeliveryRequest(ContractModel):
 
     @property
     def run_id(self) -> str | None:
-        """会话内/终态兜底交付的 Run id；后台任务交付（`task:...`）为 `None`。
+        """会话内/终态兜底交付的 Run id；后台任务交付（`execution:`/`human:`）为 `None`。
 
         由交付键导出，不新增字段：键和 Run 是**同一条事实**，多一个字段就会有两种说法。
         适配器按它把产物回到起这个 Run 的那条消息（同路由可能有多条入站消息）。
@@ -94,17 +99,26 @@ class DeliveryRequest(ContractModel):
 
     @model_validator(mode="after")
     def _delivery_key_matches_scope(self) -> Self:
-        """键的形态必须与 `task_id` 的有无一致，且必须是三种**已知**形态之一。
+        """键的形态必须与 `task_id` 的有无一致，且必须是**已知**形态之一。
 
         不做成一个宽松的正则是因为"有 task_id 却给了 run: 键"是个**真错误**（调用方搞错了
         自己在哪条路径上），放过它会让幂等键指向另一个事实。无 `task_id` 的两种合法形态：
         会话内产物交付（`run:{run_id}:{artifact_id}`）与 Run 终态兜底文本交付
         （`run:{run_id}:terminal`，与持久通知的稳定键同形）。
+
+        有 `task_id` 时两种形态各记各的身份：最终结果键的 id 必须**就是**这个 Execution
+        （`execution:{task_id}:final`）；人工问题按 interaction 记账（`human:{interaction_id}`），
+        `task_id` 只是上下文——把问题键绑到 execution 上会让同一执行的两次提问互相覆盖。
         """
         if self.task_id is not None:
-            if self.delivery_key != f"task:{self.task_id}:final":
+            if EXECUTION_DELIVERY_KEY.match(self.delivery_key):
+                if self.delivery_key != f"execution:{self.task_id}:final":
+                    raise ValueError(
+                        "最终结果键必须为 execution:{task_id}:final 且与 task_id 一致"
+                    )
+            elif not HUMAN_DELIVERY_KEY.match(self.delivery_key):
                 raise ValueError(
-                    "有 task_id 时 delivery_key 必须为 task:{task_id}:final 且与它一致"
+                    "有 task_id 时 delivery_key 必须为 execution:{task_id}:final 或 human:{interaction_id}"
                 )
         elif not (
             RUN_DELIVERY_KEY.match(self.delivery_key)

@@ -25,19 +25,14 @@ from sqlalchemy import false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..delivery.records import DeliveryKind, DeliveryState, execution_delivery_key
 from ..infrastructure.models.task import TaskDelivery, TaskEvent, TaskExecution
 from .delivery_routes import upsert_delivery_route
 from .platform_settings import resolve_platform_settings
 from .ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .runtime_operations import prepare_submission
 from .task_events import EntityType, TaskEventType, append_event
-from .terminal_tasks import (
-    DELIVERY_KIND_PUSH,
-    DELIVERY_PENDING,
-    TerminalChange,
-    lock_task_tree,
-    write_terminal,
-)
+from .terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 
 INITIAL_PRIORITY = 100
 TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))
@@ -146,21 +141,37 @@ class TaskService:
         """立即任务的投递意图：创建时的 route 落成独立投递记录（design §3.2.11）。
 
         执行终态由投递边界读取，不写回 Execution；`PUSH` 只对创建时给了 route 的立即任务生效。
+        稳定键归 `delivery.records`——与终态入队同一份口径，同键重放不新增。
         """
-        await self._session.execute(
-            pg_insert(TaskDelivery)
-            .values(
-                tenant_id=tenant_id,
-                execution_id=task_id,
-                delivery_route_id=route_id,
-                delivery_kind=DELIVERY_KIND_PUSH,
-                delivery_key=f"execution:{task_id}:final",
-                status=DELIVERY_PENDING,
+        delivery_id = (
+            await self._session.execute(
+                pg_insert(TaskDelivery)
+                .values(
+                    id=uuid.uuid4(),
+                    tenant_id=tenant_id,
+                    execution_id=task_id,
+                    delivery_route_id=route_id,
+                    delivery_kind=str(DeliveryKind.PUSH),
+                    delivery_key=execution_delivery_key(task_id),
+                    status=str(DeliveryState.PENDING),
+                    attempt_count=0,
+                )
+                .on_conflict_do_nothing(
+                    index_elements=[TaskDelivery.tenant_id, TaskDelivery.delivery_key],
+                    index_where=TaskDelivery.is_deleted == false(),
+                )
+                .returning(TaskDelivery.id)
             )
-            .on_conflict_do_nothing(
-                index_elements=[TaskDelivery.tenant_id, TaskDelivery.delivery_key],
-                index_where=TaskDelivery.is_deleted == false(),
-            )
+        ).scalar_one_or_none()
+        if delivery_id is None:
+            return
+        await append_event(
+            self._session,
+            tenant_id=tenant_id,
+            entity_type=EntityType.DELIVERY,
+            entity_id=delivery_id,
+            event_type=TaskEventType.ENQUEUED,
+            payload={"kind": str(DeliveryKind.PUSH), "execution_id": str(task_id)},
         )
 
     def _creation_values(

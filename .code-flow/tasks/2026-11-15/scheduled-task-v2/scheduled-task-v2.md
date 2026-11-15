@@ -1825,7 +1825,7 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
   - related PASS exit=0
 ## TASK-022: 拆分独立 Delivery 并可靠推送 WeCom
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-008, TASK-013, TASK-016, TASK-021
 - **Source**: scheduled-task-v2.backend.design.md §3.2.11、§3.3.10、§3.5.9
 - **Scenarios**: S-01, S-02, S-06, S-07, S-10, S-11, E-09, E-11
@@ -1865,12 +1865,12 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 
 ### Checklist
 
-- [ ] 最终结果键 execution:{id}:final，Human 问题键 human:{interaction_id}；继承稳定键去重，调度域不再把旧 Task delivery 列当真相。
-- [ ] 预留 attempt/lease 先提交、HTTP 后发送；只有封套 data.delivered=true 才 SENT；2xx 缺确认、非法回执、超时按配置分类。
-- [ ] 保留 durable 退避、耗尽终态、旧 lease 不得确认；跨租户前进游标避免失败租户占满名额；进程崩溃后的预留可结算恢复。
-- [ ] PUSH 仅使用创建时 route/bot/conversation 元数据；route 失效明确 FAILED，不猜测替代会话；投递失败不改业务 Execution 终态。
-- [ ] WebChat 定时任务无 task_delivery、runtime.channel_notification 或聊天结果事件；立即任务原有 JOIN/DETACH 通知按其原契约运行。
-- [ ] 覆盖最终结果/Human 问题、发送前后崩溃、重复发送/ack、路由失效、NONE 以及两个租户公平性。
+- [x] 最终结果键 execution:{id}:final，Human 问题键 human:{interaction_id}；继承稳定键去重，调度域不再把旧 Task delivery 列当真相。
+- [x] 预留 attempt/lease 先提交、HTTP 后发送；只有封套 data.delivered=true 才 SENT；2xx 缺确认、非法回执、超时按配置分类。
+- [x] 保留 durable 退避、耗尽终态、旧 lease 不得确认；跨租户前进游标避免失败租户占满名额；进程崩溃后的预留可结算恢复。
+- [x] PUSH 仅使用创建时 route/bot/conversation 元数据；route 失效明确 FAILED，不猜测替代会话；投递失败不改业务 Execution 终态。
+- [x] WebChat 定时任务无 task_delivery、runtime.channel_notification 或聊天结果事件；立即任务原有 JOIN/DETACH 通知按其原契约运行。
+- [x] 覆盖最终结果/Human 问题、发送前后崩溃、重复发送/ack、路由失效、NONE 以及两个租户公平性。
 
 ### Spec Delta
 
@@ -1889,13 +1889,25 @@ Runtime 生产路径门槛通过后接入 Worker AgenticExecutor；与 Runtime �
 ### Log
 
 - [2026-11-15] created (draft)
+- [2026-11-15T10:55:02.772Z] started tests=cc3f305fa5ca
+- [2026-11-15] `delivery/**` 以 `task_delivery`/`task_delivery_attempt` 为唯一状态源重做：不再读执行行已移除的投递列与 `intent_key`，扫描/候选/退避/上限全部改在投递表上（`delivery/service.py`、`delivery/client.py`、`delivery/messages.py`）；稳定键与种类收敛到新模块 `delivery/records.py`（`execution:{id}:final` / `human:{interaction_id}`），终态入队、立即任务创建与 Human 问题发现共用同一份拼法。
+- [2026-11-15] 投递状态机：`PENDING` --预留(attempt_no+1 + `lease_owner/lease_until` + attempt 行 PENDING，先提交)--> HTTP --> 确认 `data.delivered=true` 且租约仍是本次 ⇒ `SENT` + attempt SENT + `DELIVERY/SENT` 事件；可重试失败（5xx/传输/超时/2xx 缺确认/非法回执）⇒ 留 `PENDING`（`update_time` 起算退避，attempt 行记 `FAILED` + 错误码）；4xx 或耗尽 `delivery_max_attempts` ⇒ `FAILED` + `DELIVERY/FAILED`；问题被回答/执行被清理 ⇒ `CANCELLED`。确认与失败都以 `(status=PENDING, lease_owner, lease_until)` 做 CAS，旧租约落败即 `delivery_lease_lost`，不写 SENT。
+- [2026-11-15] 网关回执解析补上业务码（成功码 `"0"` 不算失败原因）：`last_error_code` 记 `BOT_NOT_FOUND`/`FORBIDDEN`/`HTTP_5xx`/`DELIVERY_UNCONFIRMED` 等，供投递记录与 Schedule 注意原因使用。
+- [2026-11-15] 路由永久失效（bot 删除/入口解绑/路由停用）：投递终态 `FAILED`、不猜替代会话、不再重试；来源 Schedule 置 `NEEDS_ATTENTION` + `attention_reason`/`attention_since`、停未来 Fire 并写 `SCHEDULE/NEEDS_ATTENTION` 事件。**只改 Schedule 的调度状态**，Execution 业务终态不动；立即任务没有 Schedule 时只落投递记录。
+- [2026-11-15] Human 问题投递：问题先由等待事务持久化（`_wait_human` 未改，保持「投递失败回滚不了等待」），投递循环按 `delivery_intent=PUSH` + 通道在 `OUTBOUND_CHANNELS`（共享词表，核心域不点名渠道）**有界发现**并补记 `HUMAN_QUESTION` 行，同键唯一约束保证重跑不新增；正文含任务名（Schedule 名称/提醒正文）、问题、deadline 与回复方式。
+- [2026-11-15] 终态事务补 `DELIVERY/ENQUEUED` 事件（`application/terminal_tasks.py`）；立即任务创建同样经 `delivery.records` 写独立投递意图并记 ENQUEUED（`application/task_service.py`），不再双写执行行。
+- [2026-11-15] 崩溃恢复：预留后崩溃、租约过期且预算已耗尽 ⇒ 结算为 `FAILED(reservation_abandoned)`；预算未尽 ⇒ 租约到期后另一个副本可接手（尝试次数继续累加）。
+- [2026-11-15] 契约同步（`packages/contracts/src/muad_contracts/delivery.py`）：后台任务交付键改为 `execution:{task_id}:final`，新增 `human:{interaction_id}`（人工问题按 interaction 记账，`task_id` 只作上下文）；`task:` 旧形态随之移除，gateway/验收里构造请求的用点同步改名。
+- [2026-11-15] 测试：`tests/agent_worker/test_delivery.py`（23 例，全部改种 `task_delivery`；含并发只发一次、重启保留退避、预留先提交、旧租约不得确认、过期租约可接手、产物形态、跨租户游标/单租户设置故障隔离、滞留预留结算）、`tests/agent_worker/test_delivery_messages.py`（6 例，最终结果与 Human 问题正文）、新增 `tests/agent_worker/test_scheduled_v2_delivery.py`（11 例，终态入队与 NONE 零投递、Human 问题推送/去重/已答作废、路由失效与 inactive 路由、崩溃后同键重投、两租户都被投递）。
+- [2026-11-15] 遗留（非本 TASK 引入，均已确认为 v1 红）：`tests/agent_worker/test_capacity_webchat_worker_notifications.py` 仍按执行行投递列断言（本轮只把它的 `WEBCHAT_CHANNEL` 导入改到 owner 模块，避免收集期报错）；`tests/gateway/test_delivery_api.py::test_e05_worker_http_to_gateway_redis_probe_end_to_end` 仍用 `intent_key`；`test_admin_schedules.py`/`test_schedule_writes.py`/`test_task_queries.py`/`test_worker_metrics.py` 仍导入 v1 `ScheduleService`（收集期中断）。
 
 ### Verification
 
 - 尚未执行；此 TASK 的声明测试、业务场景均未宣称通过。
 
 <a id="task-023"></a>
-
+- 2026-11-15T11:25:13.174Z PASS commands=1/1 executed=1 deduped=0 elapsed=23079ms tests=cc3f305fa5ca head=576edb624f6b dirty=1
+  - related PASS exit=0
 ## TASK-023: 提供有界的 Worker Schedule/Fire/Execution 读面
 
 - **Status**: draft
