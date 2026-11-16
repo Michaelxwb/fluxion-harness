@@ -15,9 +15,9 @@ apps/agent-runtime/src/muad_agent_runtime/application/async_tools/task_facts.py,
 apps/agent-runtime/src/muad_agent_runtime/application/async_tools/task_facts.py,24,_TASK_EXECUTION_SQL,"text('SELECT actor_user_id, status, cancel_requested FROM task.task_execution WHERE tenant_id = :tenant_id AND id = :task_execution_id AND is_deleted = false')",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/async_tools/task_facts.py,28,_TASK_EVENT_SQL,text('SELECT id FROM task.task_event WHERE tenant_id = :tenant_id AND entity_type = :entity_type AND entity_id = :entity_id AND seq = :seq AND is_deleted = false'),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/async_tools/task_facts.py,33,_TASK_EXECUTION_SNAPSHOT_SQL,text('SELECT snapshot_hash FROM task.task_execution WHERE tenant_id = :tenant_id AND id = :task_execution_id AND is_deleted = false'),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-runtime/src/muad_agent_runtime/application/async_tools/task_operations.py,29,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-runtime/src/muad_agent_runtime/application/async_tools/task_operations.py,32,TASK_OPERATION_TOMBSTONE_HASH,'sha256:' + '0' * 64,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-runtime/src/muad_agent_runtime/application/async_tools/task_operations.py,33,TERMINAL_EXECUTION,"(TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED)",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/application/async_tools/task_operations.py,30,JSON_OBJECT,"TypeAdapter(dict[str, JsonValue])",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/application/async_tools/task_operations.py,33,TASK_OPERATION_TOMBSTONE_HASH,'sha256:' + '0' * 64,python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
+apps/agent-runtime/src/muad_agent_runtime/application/async_tools/task_operations.py,34,TERMINAL_EXECUTION,"(TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED)",python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,25,MAX_ARCHIVE_MEMBERS,200,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,27,MAX_ARCHIVE_MEMBER_BYTES,10 * 1024 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-runtime/src/muad_agent_runtime/application/attachments/archive_reader.py,29,MAX_ARCHIVE_TOTAL_BYTES,40 * 1024 * 1024,python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -872,8 +872,8 @@ apps/agent-worker/src/muad_agent_worker/scheduler/recurrence.py,51,FIRE,'FIRE',p
 apps/agent-worker/src/muad_agent_worker/scheduler/recurrence.py,53,DST_GAP,'DST_GAP',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/scheduler/recurrence.py,55,MISFIRE,'MISFIRE',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/scheduler/recurrence.py,57,ENDED,'ENDED',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/scheduler/service.py,72,TASK_DEADLINE_EXCEEDED,'TASK_DEADLINE_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
-apps/agent-worker/src/muad_agent_worker/scheduler/service.py,73,NON_TERMINAL_TASK_STATUSES,"('QUEUED', 'RUNNING', 'WAITING_EXTERNAL', 'WAITING_HUMAN')",python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/scheduler/service.py,73,TASK_DEADLINE_EXCEEDED,'TASK_DEADLINE_EXCEEDED',python-constant,code,状态或错误码，不是时间参数
+apps/agent-worker/src/muad_agent_worker/scheduler/service.py,74,NON_TERMINAL_TASK_STATUSES,"('QUEUED', 'RUNNING', 'WAITING_EXTERNAL', 'WAITING_HUMAN')",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/scheduler/templates.py,23,VARIABLE_PATTERN,re.compile('\\{\\{\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*\\}\\}'),python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/scheduler/templates.py,24,ALLOWED_VARIABLES,"frozenset({'fire_date', 'previous_day', 'fire_time'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/agentic_executor.py,66,AGENTIC_EXECUTION_FAILED,'AGENTIC_EXECUTION_FAILED',python-constant,code,协议标识、枚举、schema、文本或实现常量
@@ -893,7 +893,7 @@ apps/agent-worker/src/muad_agent_worker/worker/claimer.py,57,RESUME_REASON_HUMAN
 apps/agent-worker/src/muad_agent_worker/worker/claimer.py,58,RESUME_REASON_EXTERNAL,'EXTERNAL',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/worker/claimer.py,59,WAITING,str(TaskStatus.WAITING_EXTERNAL),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
 apps/agent-worker/src/muad_agent_worker/worker/claimer.py,128,_OCCUPANT,aliased(TaskExecution),python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
-apps/agent-worker/src/muad_agent_worker/worker/dispatch.py,17,AGENTIC_EXECUTOR_UNAVAILABLE,'AGENTIC_EXECUTOR_UNAVAILABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
+apps/agent-worker/src/muad_agent_worker/worker/dispatch.py,18,AGENTIC_EXECUTOR_UNAVAILABLE,'AGENTIC_EXECUTOR_UNAVAILABLE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,15,DEFAULT_WAIT_SEC,60,python-constant,code,执行 / 投递实现常量；design §2.3.2 未纳入平台设置，运行期不可改
 apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,16,WAIT_KEY,'wait',python-constant,code,协议标识、枚举、schema、文本或实现常量
 apps/agent-worker/src/muad_agent_worker/worker/execution_outcomes.py,17,WAIT_KIND_KEY,'wait_kind',python-constant,code,协议、数据契约、字段长度或 UI 原语；不开放任意修改
