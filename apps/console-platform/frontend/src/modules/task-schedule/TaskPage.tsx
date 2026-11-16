@@ -1,16 +1,16 @@
 import { actionColumn } from '../../components/common/tableLayout';
-import { Button, DatePicker, Modal, Select, Tag } from '@douyinfe/semi-ui';
+import { Input, Select, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
 import { ConfirmAction } from '../../components/common/ConfirmAction';
+import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { ListActionButton } from '../../components/common/ListActionButton';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
-import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { TableText } from '../../components/common/TableText';
 import { EntityLink } from '../../components/common/EntityLink';
@@ -25,13 +25,18 @@ import { EntityNameText } from './EntityNameText';
 import { TaskDetailSideSheet } from './TaskDetailSideSheet';
 import { TaskStatusIcons } from './TaskStatusIcons';
 import { useTaskActions } from './useTaskActions';
+import {
+  CANCELLABLE_TASK_STATUSES,
+  TASK_STATUSES,
+  taskStatusLabel,
+  taskTypeLabel,
+  type Translate
+} from './scheduleCatalog';
 import { listTasks, type TaskListItem, type TaskListParams } from './services/tasks';
 
 const DEFAULT_PARAMS: TaskListParams = { page: 1, page_size: 15 };
 
 const TRIGGER_TYPES = ['IMMEDIATE', 'SCHEDULED'] as const;
-const TASK_STATUSES = ['QUEUED', 'RUNNING', 'WAITING', 'COMPLETED', 'FAILED', 'CANCELLED'] as const;
-const CANCELLABLE_STATUSES = ['QUEUED', 'RUNNING', 'WAITING'];
 /** 下拉可选项一次取够（后端 page_size 上限 100），超出部分无法在此选择。 */
 const PICKER_PAGE_SIZE = 100;
 
@@ -85,8 +90,11 @@ function usePickerOptions(load: () => Promise<PickerOption[]>): {
 
 export function TaskPage() {
   const { t } = useTranslation();
+  const translate: Translate = (key) => t(key);
   const [searchParams] = useSearchParams();
-  const linkedStatus = TASK_STATUSES.find((status) => status === searchParams.get('status'));
+  const linkedStatus = TASK_STATUSES.find(
+    (status) => status === searchParams.get('status')
+  );
   const [params, setParams] = useState<TaskListParams>(() => ({
     ...DEFAULT_PARAMS,
     status: linkedStatus
@@ -95,12 +103,22 @@ export function TaskPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [helpVisible, setHelpVisible] = useState(false);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [detailScheduleId, setDetailScheduleId] = useState<string | null>(null);
   const related = useRelatedDetail();
   const [detailReloadKey, setDetailReloadKey] = useState(0);
   const requestSeq = useRef(0);
+  const [searchText, setSearchText] = useState(params.keyword ?? '');
+  const [createdRange, setCreatedRange] = useState<Date[]>([]);
+  const [deadlineRange, setDeadlineRange] = useState<Date[]>([]);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    },
+    []
+  );
 
   const deepLinkTaskId = searchParams.get('taskId');
   const deepLinkScheduleId = searchParams.get('scheduleId');
@@ -200,114 +218,125 @@ export function TaskPage() {
     setParams((prev) => ({ ...prev, ...patch, page: 1 }));
   }, []);
 
+  const onSearchChange = useCallback((value: string) => {
+    setSearchText(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setParams((prev) => ({ ...prev, keyword: value.trim() || undefined, page: 1 }));
+    }, 300);
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    setSearchText('');
+    setCreatedRange([]);
+    setDeadlineRange([]);
+    setParams(DEFAULT_PARAMS);
+  }, []);
+
   return (
     <>
       <PageHeader title={t('task.title')} />
       <PageSection>
-        <ModuleToolbar
-          actions={
-            <Button data-testid="task-help" onClick={() => setHelpVisible(true)}>
-              {t('task.help.action')}
-            </Button>
-          }
-          search={
-            <>
-              <Select
-                data-testid="task-filter-status"
-                value={params.status ?? undefined}
-                style={{ width: 120 }}
-                showClear
-                placeholder={t('task.filter.status')}
-                optionList={TASK_STATUSES.map((status) => ({
-                  value: status,
-                  label: t(`task.status.${status}`)
-                }))}
-                onChange={(value) =>
-                  setFilter({ status: (value as TaskListParams['status']) ?? undefined })
-                }
-              />
-              <Select
-                data-testid="task-filter-trigger"
-                value={params.trigger_type ?? undefined}
-                style={{ width: 120 }}
-                showClear
-                placeholder={t('task.filter.triggerType')}
-                optionList={TRIGGER_TYPES.map((trigger) => ({
-                  value: trigger,
-                  label: t(`task.trigger.${trigger}`)
-                }))}
-                onChange={(value) =>
-                  setFilter({ trigger_type: (value as TaskListParams['trigger_type']) ?? undefined })
-                }
-              />
-              <Select
-                data-testid="task-filter-agent"
-                value={params.agent_id ?? undefined}
-                style={{ width: 160 }}
-                showClear
-                filter
-                placeholder={t('task.filter.agent')}
-                optionList={agentPicker.options}
-                onDropdownVisibleChange={agentPicker.onDropdownVisibleChange}
-                onChange={(value) => setFilter({ agent_id: (value as string) ?? undefined })}
-              />
-              <Select
-                data-testid="task-filter-actor"
-                value={params.actor_user_id ?? undefined}
-                style={{ width: 160 }}
-                showClear
-                filter
-                placeholder={t('task.filter.actorUser')}
-                optionList={actorPicker.options}
-                onDropdownVisibleChange={actorPicker.onDropdownVisibleChange}
-                onChange={(value) => setFilter({ actor_user_id: (value as string) ?? undefined })}
-              />
-              <Select
-                data-testid="task-filter-skill"
-                value={params.skill_id ?? undefined}
-                style={{ width: 160 }}
-                showClear
-                filter
-                placeholder={t('task.filter.skill')}
-                optionList={skillPicker.options}
-                onDropdownVisibleChange={skillPicker.onDropdownVisibleChange}
-                onChange={(value) => setFilter({ skill_id: (value as string) ?? undefined })}
-              />
-              <DatePicker
-                data-testid="task-filter-create"
-                type="dateRange"
-                style={{ width: 220 }}
-                placeholder={[t('task.filter.createdFrom'), t('task.filter.createdTo')]}
-                onChange={(value) => {
-                  const range = Array.isArray(value) ? (value as Date[]) : [];
-                  setFilter({
-                    start_time: toIsoDate(range[0]),
-                    end_time: toIsoEndOfDay(range[1])
-                  });
-                }}
-              />
-              <DatePicker
-                data-testid="task-filter-deadline"
-                type="dateRange"
-                style={{ width: 220 }}
-                placeholder={[t('task.filter.deadlineFrom'), t('task.filter.deadlineTo')]}
-                onChange={(value) => {
-                  const range = Array.isArray(value) ? (value as Date[]) : [];
-                  setFilter({
-                    deadline_from: toIsoDate(range[0]),
-                    deadline_to: toIsoEndOfDay(range[1])
-                  });
-                }}
-              />
-              <ListActionButton
-                data-testid="task-reset"
-                onClick={() => setParams(DEFAULT_PARAMS)}
-                action="reset"
-              />
-              <ListActionButton onClick={() => void reload()} action="refresh" />
-            </>
-          }
-        />
+        <div className="task-filter-bar">
+          <div className="task-filter-bar__filters">
+            <Input
+              data-testid="task-filter-search"
+              value={searchText}
+              style={{ width: 220 }}
+              showClear
+              placeholder={t('task.filter.searchTaskId')}
+              onChange={onSearchChange}
+            />
+            <Select
+              data-testid="task-filter-status"
+              value={params.status ?? undefined}
+              style={{ width: 110 }}
+              showClear
+              placeholder={t('task.filter.status')}
+              optionList={TASK_STATUSES.map((status) => ({
+                value: status,
+                label: taskStatusLabel(translate, status)
+              }))}
+              onChange={(value) =>
+                setFilter({ status: (value as TaskListParams['status']) ?? undefined })
+              }
+            />
+            <Select
+              data-testid="task-filter-trigger"
+              value={params.trigger_type ?? undefined}
+              style={{ width: 110 }}
+              showClear
+              placeholder={t('task.filter.triggerType')}
+              optionList={TRIGGER_TYPES.map((trigger) => ({
+                value: trigger,
+                label: t(`task.trigger.${trigger}`)
+              }))}
+              onChange={(value) =>
+                setFilter({ trigger_type: (value as TaskListParams['trigger_type']) ?? undefined })
+              }
+            />
+            <Select
+              data-testid="task-filter-agent"
+              value={params.agent_id ?? undefined}
+              style={{ width: 145 }}
+              showClear
+              filter
+              placeholder={t('task.filter.agent')}
+              optionList={agentPicker.options}
+              onDropdownVisibleChange={agentPicker.onDropdownVisibleChange}
+              onChange={(value) => setFilter({ agent_id: (value as string) ?? undefined })}
+            />
+            <Select
+              data-testid="task-filter-actor"
+              value={params.actor_user_id ?? undefined}
+              style={{ width: 145 }}
+              showClear
+              filter
+              placeholder={t('task.filter.actorUser')}
+              optionList={actorPicker.options}
+              onDropdownVisibleChange={actorPicker.onDropdownVisibleChange}
+              onChange={(value) => setFilter({ actor_user_id: (value as string) ?? undefined })}
+            />
+            <Select
+              data-testid="task-filter-skill"
+              value={params.skill_id ?? undefined}
+              style={{ width: 145 }}
+              showClear
+              filter
+              placeholder={t('task.filter.skill')}
+              optionList={skillPicker.options}
+              onDropdownVisibleChange={skillPicker.onDropdownVisibleChange}
+              onChange={(value) => setFilter({ skill_id: (value as string) ?? undefined })}
+            />
+            <DateRangeFilter
+              testId="task-filter-create"
+              label={t('task.filter.created')}
+              value={createdRange}
+              onChange={(range) => {
+                setCreatedRange(range);
+                setFilter({
+                  start_time: toIsoDate(range[0]),
+                  end_time: toIsoEndOfDay(range[1])
+                });
+              }}
+            />
+            <DateRangeFilter
+              testId="task-filter-deadline"
+              label={t('task.filter.deadline')}
+              value={deadlineRange}
+              onChange={(range) => {
+                setDeadlineRange(range);
+                setFilter({
+                  deadline_from: toIsoDate(range[0]),
+                  deadline_to: toIsoEndOfDay(range[1])
+                });
+              }}
+            />
+            <ListActionButton data-testid="task-reset" onClick={resetFilters} action="reset" />
+            <ListActionButton onClick={() => void reload()} action="refresh" />
+          </div>
+        </div>
         {params.schedule_id ? (
           <div style={{ display: 'flex', marginBottom: 8 }}>
             <Tag
@@ -368,6 +397,14 @@ export function TaskPage() {
               )
             },
             {
+              title: t('task.columns.taskType'),
+              dataIndex: 'task_type',
+              width: 96,
+              render: (value: string, record: TaskListItem) => (
+                <span data-testid={`task-type-${record.task_id}`}>{taskTypeLabel(translate, value)}</span>
+              )
+            },
+            {
               title: t('task.columns.statusIcons'),
               dataIndex: 'status',
               width: 104,
@@ -412,13 +449,15 @@ export function TaskPage() {
               dataIndex: 'error_message',
               width: 'auto',
               ellipsis: true,
-              render: (_: unknown, record: TaskListItem) => record.error_message ?? record.error_code ?? '-'
+              // 失败原因优先用后端目录文案；只有裸码时保留原值，不编造文案。
+              render: (_: unknown, record: TaskListItem) =>
+                record.error_message ?? record.error_code ?? '-'
             },
             {
               ...actionColumn(80),
               title: t('task.columns.actions'),
               render: (_: unknown, record: TaskListItem) =>
-                CANCELLABLE_STATUSES.includes(record.status) && !record.cancel_requested ? (
+                CANCELLABLE_TASK_STATUSES.includes(record.status) && !record.cancel_requested ? (
                   <ConfirmAction
                     title={t('task.cancel.confirm')}
                     testId={`task-row-cancel-${record.task_id}`}
@@ -448,15 +487,6 @@ export function TaskPage() {
           }
         />
       </PageSection>
-      <Modal
-        centered
-        visible={helpVisible}
-        title={t('task.help.title')}
-        footer={null}
-        onCancel={() => setHelpVisible(false)}
-      >
-        <p data-testid="task-help-content">{t('task.help.content')}</p>
-      </Modal>
       <TaskDetailSideSheet
         taskId={detailTaskId}
         reloadKey={detailReloadKey}

@@ -6,7 +6,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from httpx import AsyncClient
 from muad_agent_worker.application.task_service import TaskService
-from muad_agent_worker.infrastructure.models.task import DeliveryRoute, TaskExecution
+from muad_agent_worker.infrastructure.models.task import (
+    DeliveryRoute,
+    TaskDelivery,
+    TaskExecution,
+)
 from muad_agent_worker.main import app
 from muad_api import AppError
 from muad_contracts.platform_settings import default_platform_settings
@@ -23,6 +27,23 @@ from agent_worker.helpers import (
 )
 
 
+async def _delivery_row(tenant: TenantContext, task_id: uuid.UUID) -> TaskDelivery | None:
+    async with tenant.session_factory() as session:
+        return await session.scalar(
+            select(TaskDelivery).where(TaskDelivery.execution_id == task_id)
+        )
+
+
+async def _delivery_status(tenant: TenantContext, task_id: uuid.UUID) -> str | None:
+    row = await _delivery_row(tenant, task_id)
+    return row.status if row is not None else None
+
+
+async def _delivery_route_id(tenant: TenantContext, task_id: uuid.UUID) -> uuid.UUID | None:
+    row = await _delivery_row(tenant, task_id)
+    return row.delivery_route_id if row is not None else None
+
+
 async def test_create_dedupes_by_idempotency_key(tenant: TenantContext) -> None:
     payload = create_task_payload(tenant, idempotency_key="dedupe-key")
     async with tenant.session_factory() as session:
@@ -33,7 +54,7 @@ async def test_create_dedupes_by_idempotency_key(tenant: TenantContext) -> None:
     assert first.id == second.id
     assert await _task_count(tenant, tenant.tenant_id) == 1
     events = await fetch_events(tenant, first.id)
-    assert [event.event_type for event in events] == ["CREATED"]
+    assert [event.event_type for event in events] == ["QUEUED"]
 
 
 async def test_create_reuses_delivery_route(tenant: TenantContext) -> None:
@@ -52,7 +73,7 @@ async def test_create_reuses_delivery_route(tenant: TenantContext) -> None:
             )
         )
         await session.commit()
-    assert first.delivery_route_id == second.delivery_route_id
+    assert (await _delivery_route_id(tenant, first.id)) == (await _delivery_route_id(tenant, second.id))
     async with tenant.session_factory() as session, session.begin():
         routes = (
             (await session.execute(select(DeliveryRoute).where(DeliveryRoute.tenant_id == tenant.tenant_id)))
@@ -72,11 +93,11 @@ async def test_create_initial_fields(tenant: TenantContext) -> None:
         await session.commit()
     assert task.status == "QUEUED"
     assert task.trigger_type == "IMMEDIATE"
-    assert task.execution_mode == "ASYNC"
+    assert task.skill_execution_mode == "ASYNC"
+    assert task.task_type == "SKILL"
     assert task.attempt == 0
     assert task.max_attempts == default_platform_settings().task.max_attempts
-    assert task.delivery_key == f"task:{task.id}:final"
-    assert task.delivery_status == "PENDING"
+    assert await _delivery_status(tenant, task.id) == "PENDING"
     assert task.cancel_requested is False
     assert task.not_before >= before - timedelta(seconds=5)
     deadline = task.deadline_at
@@ -88,19 +109,15 @@ async def test_create_initial_fields(tenant: TenantContext) -> None:
     assert task.snapshot_hash == payload.snapshot_hash
 
 
-async def test_create_without_route_marks_delivery_none(tenant: TenantContext) -> None:
-    payload = create_task_payload(
-        tenant,
-        idempotency_key="no-route",
-        with_route=False,
-        delivery_mode="NONE",
-    )
+async def test_create_without_route_creates_no_delivery_intent(
+    tenant: TenantContext,
+) -> None:
+    """没有 route 的立即任务不建投递意图（结果只在任务中心可见）。"""
+    payload = create_task_payload(tenant, idempotency_key="no-route", with_route=False)
     async with tenant.session_factory() as session:
         task = await TaskService(session, tenant.settings).create(payload)
         await session.commit()
-    assert task.delivery_mode == "NONE"
-    assert task.delivery_status == "NONE"
-    assert task.delivery_route_id is None
+    assert await _delivery_status(tenant, task.id) is None
 
 
 async def test_cancel_queued_task(tenant: TenantContext) -> None:
@@ -116,7 +133,7 @@ async def test_cancel_queued_task(tenant: TenantContext) -> None:
     assert refreshed.cancel_requested is True
     assert refreshed.finished_at is not None
     events = await fetch_events(tenant, task.id)
-    assert [event.event_type for event in events] == ["CREATED", "CANCELLED"]
+    assert [event.event_type for event in events] == ["QUEUED", "CANCELLED"]
 
     async with tenant.session_factory() as session:
         service = TaskService(session, tenant.settings)
@@ -124,7 +141,7 @@ async def test_cancel_queued_task(tenant: TenantContext) -> None:
         await session.commit()
     assert repeated == "CANCELLED"
     events = await fetch_events(tenant, task.id)
-    assert [event.event_type for event in events] == ["CREATED", "CANCELLED"]
+    assert [event.event_type for event in events] == ["QUEUED", "CANCELLED"]
 
 
 async def test_cancel_running_task_is_cooperative(tenant: TenantContext) -> None:
@@ -145,7 +162,7 @@ async def test_cancel_running_task_is_cooperative(tenant: TenantContext) -> None
     assert refreshed.status == "RUNNING"
     assert refreshed.cancel_requested is True
     events = await fetch_events(tenant, task.id)
-    assert [event.event_type for event in events] == ["CANCEL_REQUESTED"]
+    assert events == [], "v2 的 RUNNING 协作取消只落 cancel_requested，不写取消请求事件"
 
 
 async def test_cancel_terminal_task_conflicts(tenant: TenantContext) -> None:

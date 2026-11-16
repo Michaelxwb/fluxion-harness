@@ -1,3 +1,5 @@
+@import './task-center.css';
+
 
 
 .webchat-shell {
@@ -1088,7 +1090,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .webchat-shell,
+  /* shell 的栅格动画是用户触发的面板开合，不在 reduced-motion 的覆盖范围内：
+     它保持单一规则定义，布局契约读到的就是那条完整声明。 */
   .webchat-shell-sidebar,
   .chat-sidebar-item-button,
   .chat-message-item,
@@ -1104,6 +1107,8 @@
 @media (max-width: 1024px) {
   .webchat-shell,
   .webchat-shell[data-drawer-open='false'] {
+    display: grid;
+    min-height: 0;
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -1158,4 +1163,216 @@
   .chat-composer {
     max-width: 100%;
   }
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * 工作区 Tab 壳与定时任务 Draft 卡片（scheduled-task-v2 §3.7；TASK-026）
+ * 颜色/圆角只用 Semi 主题 token，不写色值字面量。
+ * ------------------------------------------------------------------------------------------- */
+
+.chat-workspace-tabs {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.chat-workspace-tabbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 6px 12px 0;
+  border-bottom: 1px solid var(--semi-color-border);
+  background: var(--semi-color-bg-0);
+}
+
+.chat-workspace-tab {
+  border-radius: var(--app-radius-sm) var(--app-radius-sm) 0 0;
+}
+
+.chat-workspace-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.chat-workspace-panel[hidden] {
+  display: none;
+}
+
+.chat-task-center {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 16px;
+  overflow: auto;
+}
+
+.chat-task-center-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chat-task-center-body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--semi-color-text-2);
+}
+
+.chat-draft-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: var(--app-radius);
+  background: var(--semi-color-bg-0);
+}
+
+.chat-draft-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-draft-heading h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--semi-color-text-0);
+}
+
+.chat-draft-mode,
+.chat-draft-kind {
+  padding: 1px 8px;
+  border-radius: var(--app-radius-sm);
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-1);
+  font-size: 12px;
+}
+
+.chat-draft-mode {
+  background: var(--semi-color-primary-light-default);
+  color: var(--semi-color-primary);
+}
+
+.chat-draft-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-draft-what {
+  margin: 0;
+  color: var(--semi-color-text-0);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.chat-draft-fact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.chat-draft-fact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chat-draft-fact dt {
+  flex: 0 0 auto;
+  color: var(--semi-color-text-2);
+}
+
+.chat-draft-fact dd {
+  flex: 1 1 240px;
+  min-width: 0;
+  margin: 0;
+  color: var(--semi-color-text-0);
+  overflow-wrap: anywhere;
+}
+
+.chat-draft-dependency-list,
+.chat-draft-budget-list,
+.chat-draft-diff-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-draft-dependency {
+  padding: 1px 6px;
+  border-radius: var(--app-radius-sm);
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-1);
+  font-family: var(--semi-font-family-code);
+  font-size: 12px;
+}
+
+.chat-draft-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-draft-section-label {
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+}
+
+.chat-draft-diff-list {
+  flex-direction: column;
+  color: var(--semi-color-text-1);
+  font-size: 13px;
+}
+
+.chat-draft-expires {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  color: var(--semi-color-text-2);
+  font-size: 12px;
+}
+
+.chat-draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-draft-notices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 16px;
+  font-size: 12px;
+}
+
+.chat-draft-expired,
+.chat-draft-error {
+  color: var(--semi-color-danger);
+}
+
+.chat-draft-submitting,
+.chat-draft-submitted {
+  color: var(--semi-color-text-2);
 }

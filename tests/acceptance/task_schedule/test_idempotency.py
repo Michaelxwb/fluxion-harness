@@ -17,21 +17,22 @@ def _headers(live_stack: LiveStack, idempotency_key: str) -> dict[str, str]:
     return {**live_stack.service_headers(), "Idempotency-Key": idempotency_key}
 
 
-def _create_task_body(live_stack: LiveStack, *, intent_key: str = "e2e_policy_check") -> dict[str, Any]:
+def _create_task_body(live_stack: LiveStack) -> dict[str, Any]:
     resolved = load_resolved(live_stack)
     snapshot, snapshot_hash = _snapshot(live_stack)
     return {
         "tenant_id": live_stack.tenant_id,
         "agent_id": str(live_stack.agent_id),
         "actor_user_id": str(live_stack.platform_user_id),
-        "intent_key": intent_key,
+        "task_type": "SKILL",
         "skill_id": str(resolved["skill"].skill_id),
         "skill_artifact_id": str(resolved["skill"].artifact_id),
+        "skill_execution_mode": "ASYNC",
         "input": {},
         "execution_snapshot": snapshot,
+        "execution_snapshot_schema_version": 4,
         "snapshot_hash": snapshot_hash,
         "idempotency_key": "placeholder",
-        "delivery_mode": "NONE",
     }
 
 
@@ -67,7 +68,7 @@ def test_b141_same_key_different_fingerprint_conflicts(live_stack: LiveStack, ht
     first = http.post(f"{live_stack.worker_url}/internal/tasks", json=body, headers=_headers(live_stack, key))
     assert first.status_code == 200, first.text
 
-    mutated = {**body, "intent_key": "e2e_other_intent"}
+    mutated = {**body, "input": {"case": "other-fingerprint"}}
     conflict = http.post(
         f"{live_stack.worker_url}/internal/tasks",
         json=mutated,
@@ -78,29 +79,64 @@ def test_b141_same_key_different_fingerprint_conflicts(live_stack: LiveStack, ht
 
 
 def test_b141_schedule_creation_replays_without_duplicate(live_stack: LiveStack, http: httpx.Client) -> None:
-    key = f"e2e-schedule-idem-{uuid.uuid4()}"
-    resolved = load_resolved(live_stack)
+    """v2 创建入口是 Draft + 确认：两个端点都按 Idempotency-Key 原样重放。"""
+    draft_key = f"e2e-draft-idem-{uuid.uuid4()}"
+    confirm_key = f"e2e-confirm-idem-{uuid.uuid4()}"
+    identity = {
+        **live_stack.service_headers(),
+        "X-Actor-User-Id": str(live_stack.platform_user_id),
+        "X-Agent-Id": str(live_stack.agent_id),
+        "X-Entry-Channel": "WECOM",
+    }
     body = {
-        "name": "e2e idempotent schedule",
-        "agent_id": str(live_stack.agent_id),
-        "actor_user_id": str(live_stack.platform_user_id),
-        "intent_key": "e2e_policy_check",
-        "skill_id": str(live_stack.skill_id),
-        "input_template": {"customer": "A"},
-        "schedule": {"type": "CRON", "cron": "0 9 * * *", "timezone": "Asia/Shanghai"},
+        "mode": "SKILL",
+        "instruction": "e2e idempotent schedule",
+        "recurrence": {"kind": "CRON", "cron": "0 9 * * *", "timezone": "Asia/Shanghai"},
+        "execution_spec": {
+            "mode": "SKILL",
+            "skill_id": str(live_stack.skill_id),
+            "input_template": {"customer": "A"},
+        },
+        "delivery_intent": "PUSH",
         "delivery_route": {
             "channel": "WECOM",
             "bot_id": live_stack.bot_id,
             "external_user_id": "e2e-external-user",
         },
     }
-    headers = _headers(live_stack, key)
-    first = http.post(f"{live_stack.worker_url}/internal/schedules", json=body, headers=headers)
+    draft_headers = {**identity, "Idempotency-Key": draft_key}
+    first = http.post(
+        f"{live_stack.worker_url}/internal/schedule-drafts", json=body, headers=draft_headers
+    )
     assert first.status_code == 200, first.text
-    replay = http.post(f"{live_stack.worker_url}/internal/schedules", json=body, headers=headers)
+    draft = first.json()["data"]
+    replay = http.post(
+        f"{live_stack.worker_url}/internal/schedule-drafts", json=body, headers=draft_headers
+    )
     assert replay.status_code == 200, replay.text
-    assert replay.json()["data"]["schedule_id"] == first.json()["data"]["schedule_id"]
-    assert resolved["skill"].key
+    assert replay.json()["data"]["draft_id"] == draft["draft_id"]
+
+    confirm_headers = {
+        **identity,
+        "Idempotency-Key": confirm_key,
+        "X-Confirmation-Surface": "WEBCHAT",
+        "X-Confirmation-Ref": f"e2e-confirm-{uuid.uuid4()}",
+    }
+    confirm_body = {"draft_hash": draft["draft_hash"], "name": "e2e idempotent schedule"}
+    confirmed = http.post(
+        f"{live_stack.worker_url}/internal/schedule-drafts/{draft['draft_id']}/confirm",
+        json=confirm_body,
+        headers=confirm_headers,
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    schedule_id = confirmed.json()["data"]["schedule_id"]
+    confirmed_replay = http.post(
+        f"{live_stack.worker_url}/internal/schedule-drafts/{draft['draft_id']}/confirm",
+        json=confirm_body,
+        headers=confirm_headers,
+    )
+    assert confirmed_replay.status_code == 200, confirmed_replay.text
+    assert confirmed_replay.json()["data"]["schedule_id"] == schedule_id
 
 
 def test_b141_runtime_client_submits_with_idempotency_key(live_stack: LiveStack, http: httpx.Client) -> None:

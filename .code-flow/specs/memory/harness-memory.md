@@ -9,7 +9,7 @@
 - [RULE-memory-001] 原话仅证明文本来源，不能授予保存授权；模型不得提供 author/explicit_request。自然语言 remember 必须展示完整候选，绑定租户/用户/Run/submission、候选 hash、预期版本、forget_epoch 和有效期，由真实用户确认原子保存；只有真实入站的显式命令或已授权管理员可以直接保存。候选每 Run 至多一个，工具整轮完成后才暂停；resume 先检查绝对 deadline。options 消费以租户和 source_event_id 唯一，结果 outcome 不进入唯一键。
 - [RULE-memory-002] Runtime 是唯一记忆写入所有者；按 Conversation→Run→memory_scope 锁序串行修改，锁内禁止网络 IO。SINGLE/SET/NOTE 使用稳定唯一身份（SINGLE/SET 由 kind/predicate/scope/member hash 生成，NOTE 用稳定 id），软删后 id/version 不重置；每次变更、完整 after 历史、幂等 receipt 和 scope revision 同事务提交。同 command 重放返回首次回执；PENDING 只挂已有目标槽位，新后台 NOTE 在 writer 受理时分配一次身份。锁内按写后有效集合验证冻结条数/UTF-8 字节限额及绝对上限；仅可淘汰 AGENT，USER/ADMIN 不免除硬限；既有超额时治理可减少但不可增加。
 
-- [RULE-memory-003] 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖 query。用户记忆 v2 在覆盖率/BM25 正分之上执行 scope 三态与 NOTE 实体门控：带 entity 标签的候选必须有正向匹配，且候选全部实体标签都出现在 query 中；无匹配时带 entity 标签的候选不注入，无标签 NOTE 仅按 topic。冷/热读取必须以 PG head revision 为准，逐次按当前语句时间过滤 TTL；经验/TASK_STATE 只冻结准入 key，行状态/版本/TTL 随快照刷新；读取失败清缓存并如实返回 degraded。每个模型请求前刷新独立 MemoryComponent，完整 SYSTEM 块及 recall JSON 严守最终 UTF-8 字节与条数预算；0 关闭注入，长条跳过，无首条越限保底，压缩不能吞掉记忆组件。
+- [RULE-memory-003] 候选查询读取用户完整有界集合，禁止 latest-N 截断；非空 SEARCH 先匹配，零覆盖返回空，空 query 为 LIST，偏好注入不依赖 query。用户记忆 v2 在覆盖率/BM25 正分之上执行 scope 三态与 NOTE 实体门控：带 entity 标签的候选必须有正向匹配，且候选全部实体标签都出现在 query 中；无匹配时带 entity 标签的候选不注入，无标签 NOTE 仅按 topic。交互式 Run 的冷/热读取必须以 PG head revision 为准，逐次按当前语句时间过滤 TTL；经验/TASK_STATE 只冻结准入 key，行状态/版本/TTL 随快照刷新；读取失败清缓存并如实返回 degraded。交互式 Run 在每个模型请求前刷新独立 MemoryComponent；完整 SYSTEM 块及 recall JSON 严守最终 UTF-8 字节与条数预算；0 关闭注入，长条跳过，无首条越限保底，压缩不能吞掉记忆组件。定时 Task 的准入读取沿用上述选择、TTL、预算与失败降级约束，冻结实际 READ_ONLY 注入块及其版本；等待和恢复始终使用原块，不重新读取当前记忆或刷新块内条目的状态、版本与 TTL，也不写长期记忆。
 
 - [RULE-memory-004] 用户/管理员单条删除保留 key tombstone 与 version，递增 revision 并撤销该 key 旧提议，不递增 forget_epoch；清空递增 forget_epoch 并撤销所有旧提议。自动写不能解除此删除、人工 disabled 或把 USER/ADMIN 降级为 AGENT。EXPIRE/QUOTA/TASK_COMPLETE 自动退休仅接受真实新入站记录的 source_scope_revision 证明，不以 job 开始时间冒充新依据。自动批量提交核对原 scope revision，过期输入为 STALE；同任务 lineage 续接原稳定 key，完成后清除未决状态。
 
@@ -46,3 +46,5 @@
 - {"source":"2026-11-14/user-memory-retrieval-optimization/user-memory-retrieval-optimization.md#TASK-004#DELTA-002","op":"update","rule":"RULE-memory-004","payload_sha256":"9ab15327e50fb83b965670199469cac190a20c56d162504341cdbf879fb6265b","at":"2026-11-14T19:02:02.474Z"}
 
 - {"source":"2026-11-14/user-memory-retrieval-optimization/user-memory-retrieval-optimization.md#TASK-006#DELTA-001","op":"update","rule":"RULE-memory-003","payload_sha256":"01c40a092c2bf7779cf60c5eab413e65fca569a683616d82e69cb4b53be88a6f","at":"2026-11-14T19:02:02.474Z"}
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-010#DELTA-002","op":"update","rule":"RULE-memory-003","payload_sha256":"9dc9a162f72f5c2907f0d513c27ef2184bfe9dcafa80166c1f35307c628abe39","at":"2026-11-16T05:09:15.751Z"}

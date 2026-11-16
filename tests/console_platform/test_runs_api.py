@@ -112,15 +112,13 @@ _INSERT_CONTINUATION = text(
 _INSERT_TASK = text(
     """
     INSERT INTO task.task_execution
-        (id, tenant_id, source_run_id, agent_id, actor_user_id, intent_key, skill_id,
-         skill_artifact_id, trigger_type, execution_mode, task_type, status, input_json,
+        (id, tenant_id, source_run_id, agent_id, actor_user_id, skill_id,
+         skill_artifact_id, trigger_type, skill_execution_mode, task_type, status, input_json,
          execution_snapshot_schema_version, execution_snapshot_json, snapshot_hash,
-         idempotency_key, priority, attempt, max_attempts, not_before, delivery_mode,
-         delivery_status, delivery_key, delivery_attempts)
-    VALUES (:task_id, :tenant_id, :run_id, :agent_id, :actor_user_id, 'run-operation',
+         idempotency_key, priority, attempt, max_attempts, not_before)
+    VALUES (:task_id, :tenant_id, :run_id, :agent_id, :actor_user_id,
             :skill_id, :artifact_id, 'IMMEDIATE', 'ASYNC', 'SKILL', :status, '{}'::jsonb,
-            1, '{}'::jsonb, :snapshot_hash, :idempotency_key, 100, 1, 1, now(), 'NONE',
-            'NONE', :delivery_key, 0)
+            1, '{}'::jsonb, :snapshot_hash, :idempotency_key, 100, 1, 1, now())
     """
 )
 
@@ -329,7 +327,6 @@ async def _seed_task(
             "status": status,
             "snapshot_hash": _SNAPSHOT_HASH,
             "idempotency_key": str(task_id),
-            "delivery_key": f"task:{task_id}:final",
         },
     )
     return task_id

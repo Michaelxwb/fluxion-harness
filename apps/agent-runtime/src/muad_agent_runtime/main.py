@@ -28,10 +28,12 @@ from sqlalchemy.pool import AsyncAdaptedQueuePool
 from .api.admin_runs import router as admin_runs_router
 from .api.artifacts import router as artifacts_router
 from .api.channel_delivery import router as channel_delivery_router
+from .api.human_routing import router as human_routing_router
 from .api.learning import router as learning_router
 from .api.memory import router as memory_router
 from .api.model_capacity import router as model_capacity_router
 from .api.runs import router as runs_router
+from .api.tool_operations import router as tool_operations_router
 from .api.tool_results import router as tool_results_router
 from .api.webchat_history import router as webchat_history_router
 from .application.async_tools.continuation_pump import ContinuationPump
@@ -60,6 +62,7 @@ from .application.memory_consolidation_effects import ConsolidationWorker
 from .application.memory_supervisor import MemorySupervisor
 from .application.run_deadline import expire_runs
 from .application.run_service import expire_queued_runs, reap_abandoned_runs
+from .application.task_artifact_retention import run_task_artifact_retention
 from .application.task_client import WorkerTaskClient
 from .infrastructure.cancel_hint import CancelHintStore, create_cancel_hint_store
 from .infrastructure.console_client import ConsoleCredentialsClient, ConsoleResolveClient
@@ -191,6 +194,22 @@ async def _retention_loop(
             continue
         record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "retention"})
         logger.info("webchat_retention_loop_tick", extra={"summary": report.summary()})
+        # Task 产物的回收由 Runtime owner 做（Worker 不跨 schema 直写）；字节删除在两次短事务
+        # 之间，不持行锁，因此与上面的清理分开、各自成败（§3.5.11，TASK-031）。
+        try:
+            artifacts = await run_task_artifact_retention(
+                get_session_factory(),
+                artifact_root=artifact_root,
+                tenant_id=tenant_id,
+                execution_history_days=policy.task_execution_history_days,
+            )
+        except Exception:
+            record_outcome(RUNTIME_MAINTENANCE_METRIC, "failed", {"loop": "task_artifacts"})
+            logger.exception("task_artifact_retention_failed")
+            continue
+        record_outcome(RUNTIME_MAINTENANCE_METRIC, "ok", {"loop": "task_artifacts"})
+        if artifacts.removed or artifacts.failed:
+            logger.info("task_artifact_retention_tick", extra={"summary": artifacts.summary()})
 
 
 def _mount_delivery_pump(
@@ -319,6 +338,12 @@ def _start_loops(app: FastAPI, settings: SharedSettings, outbound: _Outbound) ->
     )
     app.state.executor_factory = _build_executor_factory(
         settings, outbound.pools, app.state.skill_cache
+    )
+    # 聊天入口的 Human 回答路由：与执行器共用业务池，装配根建、装配根借出（不各自造池）。
+    app.state.human_route_owner = WorkerTaskClient(
+        settings.agent_worker_url,
+        service_token=settings.internal_service_token,
+        client=outbound.pools.egress,
     )
     resume = continuation_executor(
         outbound.resolve,
@@ -615,6 +640,8 @@ app.include_router(artifacts_router)
 app.include_router(memory_router)
 app.include_router(learning_router)
 app.include_router(tool_results_router)
+app.include_router(tool_operations_router)
 app.include_router(model_capacity_router)
 app.include_router(webchat_history_router)
 app.include_router(channel_delivery_router)
+app.include_router(human_routing_router)

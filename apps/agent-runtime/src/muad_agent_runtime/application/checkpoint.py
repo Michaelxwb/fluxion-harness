@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from muad_agent_core.agent.continuation import RunnerCheckpoint
-from muad_agent_core.agent.suspension import MemorySuspendRequest
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import RunStatus
@@ -30,6 +29,7 @@ from .memory_proposals import (
     ensure_no_memory_confirmation,
     locked_confirmation_execution,
 )
+from .memory_suspension import MemorySuspendRequest
 from .run_events import EventWriter
 
 STATUS_WAITING_INPUT = RunStatus.WAITING_INPUT

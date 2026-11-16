@@ -27,14 +27,12 @@ _INSERT_CHILD_TASK = text(
     """
     INSERT INTO task.task_execution
         (id, tenant_id, source_run_id, parent_id, root_id, agent_id, actor_user_id,
-         intent_key, skill_id, skill_artifact_id, trigger_type, execution_mode, task_type,
+         skill_id, skill_artifact_id, trigger_type, skill_execution_mode, task_type,
          status, input_json, execution_snapshot_schema_version, execution_snapshot_json,
-         snapshot_hash, idempotency_key, priority, attempt, max_attempts, not_before,
-         delivery_mode, delivery_status, delivery_key, delivery_attempts)
+         snapshot_hash, idempotency_key, priority, attempt, max_attempts, not_before)
     VALUES (:task_id, :tenant_id, :run_id, :parent_id, :root_id, :agent_id, :actor_user_id,
-            :intent_key, :skill_id, :artifact_id, 'IMMEDIATE', 'ASYNC', 'SKILL', :status,
-            '{}'::jsonb, 1, '{}'::jsonb, :snapshot_hash, :idempotency_key, 100, 1, 1,
-            now(), 'NONE', 'NONE', :delivery_key, 0)
+            :skill_id, :artifact_id, 'IMMEDIATE', 'ASYNC', 'SKILL', :status,
+            '{}'::jsonb, 1, '{}'::jsonb, :snapshot_hash, :idempotency_key, 100, 1, 1, now())
     """
 )
 
@@ -50,8 +48,9 @@ _INSERT_EVENT_PAYLOAD = text(
 _INSERT_TASK_EVENT = text(
     """
     INSERT INTO task.task_event
-        (id, tenant_id, task_id, seq, event_type, payload_json, trace_id)
-    VALUES (:event_id, :tenant_id, :task_id, :seq, :event_type, cast(:payload AS jsonb), :trace_id)
+        (id, tenant_id, entity_type, entity_id, seq, event_type, payload_json, trace_id)
+    VALUES (:event_id, :tenant_id, 'EXECUTION', :task_id, :seq, :event_type,
+            cast(:payload AS jsonb), :trace_id)
     """
 )
 
@@ -75,13 +74,11 @@ async def seed_child_task(
             "root_id": parent_id,
             "agent_id": seed.agent_id,
             "actor_user_id": seed.actor_user_id,
-            "intent_key": f"child-{task_id.hex[:8]}",
             "skill_id": uuid.uuid4(),
             "artifact_id": uuid.uuid4(),
             "status": status,
             "snapshot_hash": SNAPSHOT_HASH,
             "idempotency_key": str(task_id),
-            "delivery_key": f"task:{task_id}:final",
         },
     )
     return task_id
@@ -148,6 +145,10 @@ async def cleanup_execution_export_rows(tenant: TenantContext) -> Any:
 
     statements = (
         "task.task_event",
+        "task.task_delivery_attempt",
+        "task.task_delivery",
+        "task.task_human_interaction",
+        "task.task_execution_checkpoint",
         "task.task_execution",
         "runtime.tool_control_outbox",
         "runtime.tool_result_inbox",

@@ -2,7 +2,7 @@
 
 import time
 
-from muad_agent_core.agent.continuation import RunnerCheckpoint, RuntimeEventBatch, WaitDecision
+from muad_agent_core.agent.continuation import ExecutionEventBatch, RunnerCheckpoint, WaitDecision
 from muad_agent_core.model import ModelMessage, ModelRole
 from sqlalchemy import select
 
@@ -24,7 +24,7 @@ class DurableRuntimeEventPort:
     ) -> None:
         self._factory, self._identity, self._writer = factory, identity, writer
 
-    async def drain_ready(self, cursor: int, limit: int) -> RuntimeEventBatch:
+    async def drain_ready(self, cursor: int, limit: int) -> ExecutionEventBatch:
         materialized = await materialize_results(
             self._factory, self._identity, writer=self._writer, batch_limit=limit
         )
@@ -48,7 +48,7 @@ class DurableRuntimeEventPort:
             ModelMessage(ModelRole.USER, external_data(row.event_type, row.payload_json or {}))
             for row in selected
         )
-        return RuntimeEventBatch(
+        return ExecutionEventBatch(
             messages,
             selected[-1].seq if selected else cursor,
             len(rows) > limit or len(materialized) == limit,

@@ -3,13 +3,14 @@ from typing import Annotated, cast
 
 from fastapi import Depends, Request
 from muad_api.context import current_tenant_id
-from muad_artifact_store import SkillArtifactCache
+from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import process_settings
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.async_tools.supervisor import ExecutionSupervisor
 from ..application.attachments.tool_results import ArtifactResultWriter
 from ..application.executor import ExecutorFactory, default_executor_factory
+from ..application.human_routing import HumanRouteOwnerPort
 from ..application.ports import (
     AdmissionMaterialsClient,
     CredentialsClient,
@@ -18,6 +19,7 @@ from ..application.ports import (
 )
 from ..application.run_service import RunService
 from ..application.skill_tools import build_default_skill_cache
+from ..application.task_client import WorkerTaskClient
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.console_client import ConsoleResolveClient
 from ..infrastructure.db import get_session
@@ -50,6 +52,21 @@ def get_resolve_client(request: Request) -> ResolveClient:
     return client
 
 
+def get_human_route_owner(request: Request) -> HumanRouteOwnerPort:
+    """聊天消息路由的 Owner 面（Agent Worker）：装配根建一次，请求只借用业务池。"""
+    owner: HumanRouteOwnerPort | None = getattr(request.app.state, "human_route_owner", None)
+    if owner is None:
+        settings = process_settings()
+        pools = getattr(request.app.state, "http_pools", None)
+        owner = WorkerTaskClient(
+            settings.agent_worker_url,
+            service_token=settings.internal_service_token,
+            client=pools.egress if pools is not None else None,
+        )
+        request.app.state.human_route_owner = owner
+    return owner
+
+
 def get_platform_settings_client(request: Request) -> PlatformSettingsClient:
     client: PlatformSettingsClient | None = getattr(request.app.state, "platform_settings_client", None)
     if client is None:
@@ -72,6 +89,11 @@ def get_skill_cache(request: Request) -> SkillArtifactCache:
 
 def get_artifact_writer() -> ArtifactResultWriter:
     return ArtifactResultWriter(process_settings().artifact_root)
+
+
+def get_artifact_store() -> NfsArtifactStore:
+    """共享产物存储的 Owner 侧句柄（Task 产物写入/版本解析用；测试可覆盖根目录）。"""
+    return NfsArtifactStore(process_settings().artifact_root)
 
 
 def get_executor_factory(
@@ -115,6 +137,7 @@ CredentialCanariesDep = Annotated[tuple[str, ...], Depends(get_credential_canari
 InstanceIdDep = Annotated[str, Depends(get_instance_id)]
 ResolveClientDep = Annotated[ResolveClient, Depends(get_resolve_client)]
 SkillCacheDep = Annotated[SkillArtifactCache, Depends(get_skill_cache)]
+ArtifactStoreDep = Annotated[NfsArtifactStore, Depends(get_artifact_store)]
 ExecutorFactoryDep = Annotated[ExecutorFactory, Depends(get_executor_factory)]
 CancelHintStoreDep = Annotated[CancelHintStore, Depends(get_cancel_hint_store)]
 CredentialsClientDep = Annotated[CredentialsClient | None, Depends(get_credentials_client)]

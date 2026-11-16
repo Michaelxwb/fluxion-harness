@@ -19,10 +19,10 @@ from typing import Any, Protocol
 import sqlalchemy as sa
 from muad_common import SharedSettings
 from muad_contracts import (
-    DeliveryMode,
-    DeliveryStatus,
     NonCanonicalJsonError,
+    SkillExecutionMode,
     TaskStatus,
+    TaskType,
     canonical_json,
 )
 from sqlalchemy import false, select, update
@@ -32,8 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ..infrastructure.models.task import TaskExecution
 from .platform_settings import resolve_platform_settings
 from .ports import NullPlatformSettingsClient, PlatformSettingsClient
-from .task_events import TaskEventSeed, TaskEventType, append_events
-from .task_service import EXECUTION_MODE_ASYNC, INITIAL_PRIORITY, TASK_TYPE_SKILL
+from .task_service import INITIAL_PRIORITY
 
 BATCH_PLAN_KEY = "batch"
 AGGREGATE_ALL = "ALL"
@@ -213,27 +212,11 @@ class BatchFanoutService:
                     .where(TaskExecution.id == locked.id)
                     .values(
                         task_type=TASK_TYPE_BATCH,
-                        external_ref_json={BATCH_REF_KEY: ref.as_ref()},
+                        # 等待载荷按 `wait_kind` 归类（本轮尚未进入等待，fan-in 侧按 `batch` 读）。
+                        wait_payload_json={BATCH_REF_KEY: ref.as_ref()},
                         update_time=moment,
                     )
                 )
-                if created:
-                    await append_events(
-                        session,
-                        [
-                            TaskEventSeed(
-                                tenant_id=locked.tenant_id,
-                                task_id=locked.id,
-                                event_type=TaskEventType.FAN_OUT,
-                                payload={
-                                    "created": created,
-                                    "item_count": ref.item_count,
-                                    "concurrency": concurrency,
-                                    "aggregate_mode": plan.aggregate_mode,
-                                },
-                            )
-                        ],
-                    )
         return ref
 
     async def _insert_children(
@@ -283,12 +266,11 @@ class BatchFanoutService:
             "item_key": item_key,
             "agent_id": parent.agent_id,
             "actor_user_id": parent.actor_user_id,
-            "intent_key": parent.intent_key,
             "skill_id": parent.skill_id,
             "skill_artifact_id": parent.skill_artifact_id,
             "trigger_type": parent.trigger_type,
-            "execution_mode": EXECUTION_MODE_ASYNC,
-            "task_type": TASK_TYPE_SKILL,
+            "skill_execution_mode": str(SkillExecutionMode.ASYNC),
+            "task_type": str(TaskType.SKILL),
             "status": str(TaskStatus.QUEUED),
             "input_json": dict(item),
             "execution_snapshot_schema_version": parent.execution_snapshot_schema_version,
@@ -300,8 +282,4 @@ class BatchFanoutService:
             "max_attempts": parent.max_attempts,
             "not_before": moment if index < concurrency else PARKED_NOT_BEFORE,
             "deadline_at": parent.deadline_at,
-            "delivery_mode": str(DeliveryMode.NONE),
-            "delivery_status": str(DeliveryStatus.NONE),
-            "delivery_key": f"task:{child_id}:final",
-            "delivery_attempts": 0,
         }

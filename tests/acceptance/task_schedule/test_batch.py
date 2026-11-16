@@ -9,7 +9,7 @@ from typing import Any, cast
 
 import httpx
 from muad_agent_runtime.application.task_client import WorkerTaskClient
-from muad_contracts import DeliveryMode, SkillExecutionMode
+from muad_contracts import SkillExecutionMode
 from sqlalchemy import text
 
 from .environment import INTERNAL_TOKEN, LiveStack, run_async, run_db
@@ -47,7 +47,6 @@ def _submit_batch(live_stack: LiveStack) -> str:
                 call_id="standalone-call",
                 skill=batch_skill,
                 input_data={"customers": ["A", "B", "C", "D"]},
-                intent_key="e2e_batch",
             )
         finally:
             await client.aclose()
@@ -61,7 +60,7 @@ def _rows(live_stack: LiveStack, task_id: str) -> tuple[Any, ...]:
             parent = (
                 await session.execute(
                     text(
-                        "SELECT status, task_type, result_json, delivery_mode, error_code, "
+                        "SELECT status, task_type, result_json, error_code, "
                         "left(error_message, 300) FROM task.task_execution WHERE id = :id"
                     ),
                     {"id": uuid.UUID(task_id)},
@@ -71,7 +70,7 @@ def _rows(live_stack: LiveStack, task_id: str) -> tuple[Any, ...]:
                 (
                     await session.execute(
                         text(
-                            "SELECT id, status, item_key, delivery_mode, idempotency_key, root_id "
+                            "SELECT id, status, item_key, idempotency_key, root_id "
                             "FROM task.task_execution WHERE parent_id = :id ORDER BY item_key"
                         ),
                         {"id": uuid.UUID(task_id)},
@@ -96,22 +95,22 @@ def test_s04_batch_fanout_fanin_aggregates_parent(live_stack: LiveStack, http: h
     parent, children = _rows(live_stack, task_id)
     assert parent[0] == "COMPLETED", parent
     assert parent[1] == "BATCH"
-    assert parent[3] == str(DeliveryMode.NONE)
     assert parent[2]["total"] == 4 and parent[2]["succeeded"] == 4, parent[2]
 
     assert len(children) == 4
     for child in children:
         assert child[1] == "COMPLETED"
-        assert child[3] == str(DeliveryMode.NONE)
-        assert child[4] == f"parent:{task_id}:{child[2]}"
-        assert str(child[5]) == task_id
+        assert child[3] == f"parent:{task_id}:{child[2]}"
+        assert str(child[4]) == task_id
 
     async def count_events(factory: Any) -> Any:
         async with factory() as session:
             return (
                 await session.execute(
                     text(
-                        "SELECT count(*) FROM task.task_event WHERE task_id = :id AND event_type = 'FAN_IN'"
+                        "SELECT count(*) FROM task.task_event "
+                        "WHERE entity_type = 'EXECUTION' AND entity_id = :id "
+                        "AND event_type IN ('COMPLETED', 'CANCELLED')"
                     ),
                     {"id": uuid.UUID(task_id)},
                 )

@@ -1,6 +1,7 @@
-"""API-09/10/11：Console 任务列表、详情与取消。
+"""API-24：Console Task 列表/详情与取消。
 
-Console Platform 只做认证/租户过滤（租户取自登录账号）并转调 Worker Admin API，不直连 task schema。
+Console Platform 只做认证/租户过滤（租户取自登录账号）并转调 Worker Admin API，不直连 task schema；
+时刻统一换成带 offset 的展示格式，快照压成白名单摘要（`application/task_view.py`）。
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from muad_api.context import current_locale, current_trace_id
 from muad_contracts import TaskStatus, TriggerType
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..application import task_view
 from ..application.entity_name_service import EntityNameService
 from ..application.execution_export_service import ExecutionExportService
 from ..infrastructure.db import get_session
@@ -39,6 +41,7 @@ async def list_tasks(
     actor_user_id: Annotated[uuid.UUID | None, Query()] = None,
     skill_id: Annotated[uuid.UUID | None, Query()] = None,
     schedule_id: Annotated[uuid.UUID | None, Query()] = None,
+    keyword: Annotated[str | None, Query(max_length=64)] = None,
     start_time: Annotated[datetime | None, Query()] = None,
     end_time: Annotated[datetime | None, Query()] = None,
     deadline_from: Annotated[datetime | None, Query()] = None,
@@ -55,6 +58,7 @@ async def list_tasks(
         actor_user_id=actor_user_id,
         skill_id=skill_id,
         schedule_id=schedule_id,
+        keyword=keyword,
         start_time=start_time,
         end_time=end_time,
         deadline_from=deadline_from,
@@ -62,6 +66,10 @@ async def list_tasks(
         page=page,
         page_size=page_size,
     )
+    data = {
+        **data,
+        "items": [task_view.task_item(item) for item in data.get("items") or []],
+    }
     data = await EntityNameService(session).enrich(tenant_id, data)
     return ok(request.app.state.message_catalog, data)
 
@@ -88,7 +96,7 @@ async def get_task(
     worker: WorkerClient,
 ) -> ApiResponse[Any]:
     data = await worker.get_task(tenant_id=tenant_id, task_id=task_id, trace_id=current_trace_id())
-    return ok(request.app.state.message_catalog, data)
+    return ok(request.app.state.message_catalog, task_view.task_detail(data))
 
 
 @router.post("/{task_id}/cancel")

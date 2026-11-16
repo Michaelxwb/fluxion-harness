@@ -16,11 +16,39 @@ SCHEMA = "task"
 TABLES = (
     "delivery_route",
     "task_schedule",
+    "task_schedule_revision",
+    "task_schedule_draft",
+    "schedule_fire",
     "task_execution",
+    "task_execution_checkpoint",
+    "task_human_interaction",
+    "task_delivery",
+    "task_delivery_attempt",
     "task_event",
     "task_submission",
+    "runtime_operation",
+    "runtime_result_outbox",
     "workspace",
     "workspace_lease",
+)
+
+#: 删除顺序：子行 → 引用行 → 父行。`task_event` 是多态审计表（entity_type/entity_id），
+#: 没有物理 FK，仍按租户整体清理，避免审计行跨用例残留。
+TENANT_CLEANUP_ORDER = (
+    "task_delivery_attempt",
+    "task_delivery",
+    "task_human_interaction",
+    "task_execution_checkpoint",
+    "runtime_result_outbox",
+    "runtime_operation",
+    "task_event",
+    "task_submission",
+    "task_execution",
+    "schedule_fire",
+    "task_schedule_draft",
+    "task_schedule_revision",
+    "task_schedule",
+    "delivery_route",
 )
 
 DELETE_LEASES = text(
@@ -33,11 +61,6 @@ SWEEP_LEASES = text(
     "(SELECT id FROM task.workspace WHERE tenant_id LIKE 'test-%')"
 )
 SWEEP_WORKSPACES = text("DELETE FROM task.workspace WHERE tenant_id LIKE 'test-%'")
-DELETE_EVENTS = text("DELETE FROM task.task_event WHERE tenant_id = :tenant_id")
-DELETE_SUBMISSIONS = text("DELETE FROM task.task_submission WHERE tenant_id = :tenant_id")
-DELETE_TASKS = text("DELETE FROM task.task_execution WHERE tenant_id = :tenant_id")
-DELETE_SCHEDULES = text("DELETE FROM task.task_schedule WHERE tenant_id = :tenant_id")
-DELETE_ROUTES = text("DELETE FROM task.delivery_route WHERE tenant_id = :tenant_id")
 
 
 @dataclass(frozen=True)
@@ -96,11 +119,33 @@ def dev_sandbox_executor(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(module, "build_sandboxed_skill_executor", build)
 
 
+async def _delete_executions(session: AsyncSession, predicate: str) -> None:
+    """按谓词清执行行：先删所有引用行，再删子执行，最后删父执行。"""
+    targets = f"SELECT id FROM task.task_execution WHERE {predicate}"
+    victims = (
+        f"SELECT id FROM ({targets}) AS target UNION "
+        f"SELECT child.id FROM task.task_execution AS child WHERE child.parent_id IN ({targets})"
+    )
+    for statement in (
+        f"DELETE FROM task.task_delivery_attempt WHERE delivery_id IN "
+        f"(SELECT id FROM task.task_delivery WHERE execution_id IN ({victims}))",
+        f"DELETE FROM task.task_delivery WHERE execution_id IN ({victims})",
+        f"DELETE FROM task.task_human_interaction WHERE execution_id IN ({victims})",
+        f"DELETE FROM task.task_execution_checkpoint WHERE execution_id IN ({victims})",
+        f"DELETE FROM task.runtime_operation WHERE task_execution_id IN ({victims})",
+        f"UPDATE task.task_submission SET task_id = NULL WHERE task_id IN ({victims})",
+        f"DELETE FROM task.task_execution WHERE parent_id IN ({targets})",
+        f"DELETE FROM task.task_execution WHERE {predicate}",
+    ):
+        await session.execute(text(statement))
+
+
 @pytest.fixture(autouse=True)
 async def sweep_stale_test_rows(database_guard: None) -> None:
     """claim 是全局的：清掉崩溃测试残留的到期 Schedule 与可 claim Task，避免跨测试串扰。"""
     stale_tasks = (
-        "tenant_id LIKE 'test-%' AND status IN ('QUEUED','WAITING') AND not_before <= now()"
+        "tenant_id LIKE 'test-%' "
+        "AND status IN ('QUEUED','WAITING_EXTERNAL','WAITING_HUMAN') AND not_before <= now()"
     )
     #: **租约过期的 RUNNING 也要清**（2026-10-03 补）：`reclaim_expired` 与 claim 一样是
     #: **全局**的（`_requeue_expired` 只按 status/lease/cancel/is_deleted 过滤，**没有租户谓词**），
@@ -112,52 +157,45 @@ async def sweep_stale_test_rows(database_guard: None) -> None:
         "AND lease_until IS NOT NULL AND lease_until < now()"
     )
     stale_deliveries = (
-        "tenant_id LIKE 'test-%' AND delivery_mode = 'FINAL_ONLY' "
-        "AND delivery_status IN ('PENDING','FAILED') "
-        "AND status IN ('COMPLETED','FAILED','CANCELLED')"
+        "tenant_id LIKE 'test-%' AND status IN ('PENDING','FAILED') "
+        "AND execution_id IN (SELECT id FROM task.task_execution WHERE status IN "
+        "('COMPLETED','FAILED','CANCELLED'))"
     )
     session_factory = get_session_factory()
     async with session_factory() as session:
         # workspace 清理循环按租约/状态全局扫描；先清掉测试残留，避免跨用例串扰。
         for statement in (SWEEP_LEASES, SWEEP_WORKSPACES):
             await session.execute(statement)
-        # 到期 Schedule 的清理同样必须先删引用行，否则被 task_execution/task_submission
-        # 引用时整条清扫 FK 失败 → 残留越积越多（外键方向：task_event→task_execution→
-        # task_schedule，task_submission→两者）。
         due_schedules = (
             "SELECT id FROM task.task_schedule "
             "WHERE tenant_id LIKE 'test-%' AND next_fire_at <= now()"
         )
+        # 到期 Schedule 必须先清引用行，否则被 task_execution/task_submission 引用时整条
+        # 清扫 FK 失败 → 残留越积越多。
+        await session.execute(
+            text(
+                "UPDATE task.task_submission SET schedule_id = NULL, schedule_draft_id = NULL "
+                f"WHERE schedule_id IN ({due_schedules})"
+            )
+        )
+        await _delete_executions(session, f"schedule_id IN ({due_schedules})")
+        # Schedule.current_revision_id 是指向 Revision 的循环 FK：不先摘掉引用就删不掉 Revision。
+        await session.execute(
+            text(
+                "UPDATE task.task_schedule SET current_revision_id = NULL "
+                f"WHERE id IN ({due_schedules})"
+            )
+        )
         for statement in (
-            "DELETE FROM task.task_event WHERE task_id IN "
-            f"(SELECT id FROM task.task_execution WHERE schedule_id IN ({due_schedules}))",
-            f"DELETE FROM task.task_submission WHERE schedule_id IN ({due_schedules})",
-            "DELETE FROM task.task_submission WHERE task_id IN "
-            f"(SELECT id FROM task.task_execution WHERE schedule_id IN ({due_schedules}))",
-            f"DELETE FROM task.task_execution WHERE schedule_id IN ({due_schedules})",
-            "DELETE FROM task.task_schedule "
-            "WHERE tenant_id LIKE 'test-%' AND next_fire_at <= now()",
+            f"DELETE FROM task.schedule_fire WHERE schedule_id IN ({due_schedules})",
+            f"DELETE FROM task.task_schedule_draft WHERE base_schedule_id IN ({due_schedules})",
+            f"DELETE FROM task.task_schedule_revision WHERE schedule_id IN ({due_schedules})",
+            f"DELETE FROM task.task_schedule WHERE id IN ({due_schedules})",
         ):
             await session.execute(text(statement))
-        for predicate in (stale_tasks, stale_deliveries, stale_running):
-            # 先删引用行，避免 task_event/task_submission 的外键阻塞清理。
-            # ⚠️ 还必须连同**子行**一起删：`task_execution.parent_id` 是**自引用外键**，而子行
-            # 的 delivery_mode/status 未必匹配谓词（实测子行为 `delivery_mode='NONE'`）——只删
-            # 父行会被 FK 挡下，整个夹具 setup 失败，一次中断就让后续**全部**用例 ERROR
-            # （2026-10-01 实测：234 个用例在 setup 全挂）。按「子行 → 引用行 → 父行」顺序清。
-            targets = f"SELECT id FROM task.task_execution WHERE {predicate}"
-            victims = (
-                f"SELECT id FROM ({targets}) AS target UNION "
-                f"SELECT child.id FROM task.task_execution AS child "
-                f"WHERE child.parent_id IN ({targets})"
-            )
-            for statement in (
-                f"DELETE FROM task.task_event WHERE task_id IN ({victims})",
-                f"DELETE FROM task.task_submission WHERE task_id IN ({victims})",
-                f"DELETE FROM task.task_execution WHERE parent_id IN ({targets})",
-                f"DELETE FROM task.task_execution WHERE {predicate}",
-            ):
-                await session.execute(text(statement))
+        for predicate in (stale_tasks, stale_running):
+            await _delete_executions(session, predicate)
+        await session.execute(text(f"DELETE FROM task.task_delivery WHERE {stale_deliveries}"))
         await session.commit()
 
 
@@ -174,16 +212,30 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
         yield context
     finally:
         async with session_factory() as session:
-            for statement in (
-                DELETE_LEASES,
-                DELETE_WORKSPACES,
-                DELETE_EVENTS,
-                DELETE_SUBMISSIONS,
-                DELETE_TASKS,
-                DELETE_SCHEDULES,
-                DELETE_ROUTES,
-            ):
-                await session.execute(statement, {"tenant_id": tenant_id})
+            await session.execute(DELETE_LEASES, {"tenant_id": tenant_id})
+            await session.execute(DELETE_WORKSPACES, {"tenant_id": tenant_id})
+            # 循环 FK：先摘掉 Schedule → Revision 的引用，再按顺序删。
+            await session.execute(
+                text(
+                    "UPDATE task.task_schedule SET current_revision_id = NULL "
+                    "WHERE tenant_id = :tenant_id"
+                ),
+                {"tenant_id": tenant_id},
+            )
+            # Fire ↔ Execution 也是循环 FK：回填过 execution_id 的 Fire 必须先摘引用，
+            # 否则删 Execution 会撞 fk_schedule_fire_execution。
+            await session.execute(
+                text(
+                    "UPDATE task.schedule_fire SET execution_id = NULL "
+                    "WHERE tenant_id = :tenant_id"
+                ),
+                {"tenant_id": tenant_id},
+            )
+            for table in TENANT_CLEANUP_ORDER:
+                await session.execute(
+                    text(f"DELETE FROM task.{table} WHERE tenant_id = :tenant_id"),
+                    {"tenant_id": tenant_id},
+                )
             await session.commit()
 
 

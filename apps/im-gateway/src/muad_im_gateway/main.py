@@ -34,6 +34,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .api.delivery import router as delivery_router
 from .api.health import readiness_checks, readiness_detail
+from .api.task_center import build_task_center_router
 from .api.webchat import notification_router as webchat_notification_router
 from .api.webchat import router as webchat_router
 from .application.webchat_core import ChatSurface
@@ -44,10 +45,13 @@ from .application.connector_outbound import ConnectorOutboundCommands
 from .application.console_client import ConsoleClient
 from .application.inbound import InboundPipeline
 from .application.inbound_attachments import InboundAttachmentStore
+from .application.inbound_schedules import ChatScheduleService
 from .application.inbound_streams import InboundStreamConsumer
 from .application.notification_streams import NotificationStreamHub
 from .application.runtime_client import RuntimeClient
+from .application.task_center import WEBCHAT_SURFACE
 from .application.webchat_streams import SseBufferLedger
+from .application.worker_client import WorkerClient
 from .channels.base import ChannelRegistry
 from .channels.registry import build_channel_registry, dispatch_snapshot
 from .channels.routed import parse_routed_channels
@@ -78,6 +82,7 @@ class _GatewayResources:
     registry: ChannelRegistry
     dedupe: DedupeStore
     console: ConsoleClient
+    worker: WorkerClient
     settings_client: ConsolePlatformSettingsClient
     runtime: RuntimeClient
     snapshot: BotSnapshotCache
@@ -110,6 +115,7 @@ class _GatewayResources:
         app.state.registry = self.registry
         app.state.dedupe_store = self.dedupe
         app.state.console_client = self.console
+        app.state.worker_client = self.worker
         app.state.runtime_client = self.runtime
         app.state.bot_snapshot = self.snapshot
         app.state.inbound_pipeline = self.inbound
@@ -142,6 +148,7 @@ class _GatewayResources:
         await self.inbound_consumer.stop()
         await self.registry.stop_all()
         await self.runtime.aclose()
+        await self.worker.aclose()
         await self.console.aclose()
         await self.settings_client.aclose()
         await self.artifacts.aclose()
@@ -152,7 +159,13 @@ class _GatewayResources:
 
 def _build_outbound_clients(
     settings: SharedSettings, pools: GatewayHttpPools
-) -> tuple[ConsoleClient, RuntimeClient, ConsolePlatformSettingsClient, HttpArtifactResolver]:
+) -> tuple[
+    ConsoleClient,
+    RuntimeClient,
+    ConsolePlatformSettingsClient,
+    HttpArtifactResolver,
+    WorkerClient,
+]:
     """出站客户端：全部消费装配根注入的分池（控制/stream/上传/业务各自独立预算）。"""
     console = ConsoleClient(
         settings.console_platform_url,
@@ -179,7 +192,13 @@ def _build_outbound_clients(
         service_token=settings.internal_service_token,
         client=pools.egress,
     )
-    return console, runtime, settings_client, artifacts
+    # 任务中心（TASK-024）：Worker 的任务读面与用户动作/确认走同一业务出站池。
+    worker = WorkerClient(
+        settings.agent_worker_url,
+        service_token=settings.internal_service_token,
+        client=pools.egress,
+    )
+    return console, runtime, settings_client, artifacts, worker
 
 
 def _cluster_seeds(settings: SharedSettings) -> list[str]:
@@ -231,6 +250,7 @@ def _build_inbound(
     dedupe: DedupeStore,
     console: ConsoleClient,
     runtime: RuntimeClient,
+    worker: WorkerClient,
     settings_client: ConsolePlatformSettingsClient,
     artifact_store: NfsArtifactStore,
 ) -> InboundPipeline:
@@ -247,6 +267,11 @@ def _build_inbound(
         # `run:{run_id}:terminal`，经 Runtime 的受信 API-18 端口 reserve/ack（网关不持库）。
         channel_delivery=ActiveChannelDelivery(
             runtime, permission=ConsoleDeliveryPermission(console)
+        ),
+        # 聊天入口的用户动作（TASK-025）：Draft 确认走 Worker 的 API-27，Human 回答先由
+        # Runtime 按 user+agent+会话裁决——Gateway 不直接改 Execution，也不猜是哪一个问题。
+        schedules=ChatScheduleService(
+            owner=worker, routes=runtime, tenant_id=settings.default_tenant_id
         ),
         # 在飞受理上限：每进程启动预算（§3.7 GATEWAY_MAX_CONCURRENT_HANDLERS）。
         max_concurrent_handlers=settings.gateway_max_concurrent_handlers,
@@ -281,7 +306,9 @@ async def _build_resources(
     settings: SharedSettings, catalog: MessageCatalog, pools: GatewayHttpPools
 ) -> _GatewayResources:
     """按启动设置组装运行时资源；中途失败时回收已创建的部分（分池由调用方收尾）。"""
-    console, runtime, settings_client, artifacts = _build_outbound_clients(settings, pools)
+    console, runtime, settings_client, artifacts, worker = _build_outbound_clients(
+        settings, pools
+    )
     redis = _build_redis(settings)
     try:
         pubsub_redis = await _build_pubsub_redis(settings)
@@ -333,6 +360,7 @@ async def _build_resources(
             dedupe=dedupe,
             console=console,
             runtime=runtime,
+            worker=worker,
             settings_client=settings_client,
             artifact_store=artifact_store,
         )
@@ -362,6 +390,7 @@ async def _build_resources(
             registry=registry,
             dedupe=dedupe,
             console=console,
+            worker=worker,
             settings_client=settings_client,
             runtime=runtime,
             snapshot=snapshot,
@@ -516,6 +545,9 @@ def mount_webchat_surfaces(target_app: FastAPI, settings: SharedSettings) -> Non
 
 
 mount_webchat_surfaces(app, SharedSettings())
+# 任务中心表面（TASK-024）：WebChat 的任务读面/用户动作/产物下载见
+# `api/task_center.py`；MSSWWEB 的同形路由另立需求，本进程不挂。
+app.include_router(build_task_center_router(WEBCHAT_SURFACE))
 install_gateway_metrics(app)
 # 最后注册 = 最外层：必须包在 api-kit 的异常/封套中间件之外，才能看到最终的 5xx 状态。
 app.add_middleware(_ServerErrorLogMiddleware)

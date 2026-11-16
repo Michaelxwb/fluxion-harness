@@ -9,7 +9,6 @@ from muad_contracts import (
     CreateTaskRequest,
     CredentialMode,
     DeliveryMessage,
-    DeliveryMode,
     DeliveryRequest,
     DeliveryStatus,
     RunRequest,
@@ -32,7 +31,7 @@ def _task_payload(**overrides: Any) -> dict[str, Any]:
         'tenant_id': 'tenant-1',
         'agent_id': uuid4(),
         'actor_user_id': uuid4(),
-        'intent_key': 'intent-1',
+        'task_type': 'SKILL',
         'skill_id': uuid4(),
         'skill_artifact_id': uuid4(),
         'input': {'question': 'hello'},
@@ -70,16 +69,19 @@ def test_execution_snapshot_schema_version_defaults_to_one():
         CreateTaskRequest(**_task_payload(execution_snapshot_schema_version=0))
 
 
-def test_final_only_delivery_requires_route():
-    request = CreateTaskRequest(**_task_payload())
-    assert request.delivery_mode is DeliveryMode.FINAL_ONLY
-
+def test_delivery_route_is_optional_creation_metadata():
+    """v2 把投递状态移到独立表：创建请求只带 route 元数据，不再有 delivery_mode。"""
+    assert CreateTaskRequest(**_task_payload(delivery_route=None)).delivery_route is None
+    assert CreateTaskRequest(**_task_payload()).delivery_route is not None
     with pytest.raises(ValidationError):
-        CreateTaskRequest(**_task_payload(delivery_route=None))
+        CreateTaskRequest(**_task_payload(delivery_mode='NONE'))
 
-    without_route = CreateTaskRequest(**_task_payload(delivery_route=None, delivery_mode='NONE'))
-    assert without_route.delivery_route is None
-    assert without_route.delivery_mode is DeliveryMode.NONE
+
+def test_immediate_task_requires_skill_columns():
+    with pytest.raises(ValidationError):
+        CreateTaskRequest(**_task_payload(skill_id=None))
+    with pytest.raises(ValidationError):
+        CreateTaskRequest(**_task_payload(task_type='AGENTIC'))
 
 
 def test_schedule_spec_requires_trigger_field():
@@ -109,18 +111,30 @@ def test_delivery_request_key_pattern():
     request = DeliveryRequest(
         tenant_id='tenant-1',
         task_id=task_id,
-        delivery_key=f'task:{task_id}:final',
+        delivery_key=f'execution:{task_id}:final',
         route=ROUTE,
         message={'text': 'done'},
     )
     assert request.artifact_ids == []
     assert request.message.type == 'text'
+    # 人工问题按 interaction 记账：task_id 只是上下文，键不必等于 execution 键
+    question = DeliveryRequest(
+        tenant_id='tenant-1',
+        task_id=task_id,
+        delivery_key=f'human:{uuid4()}',
+        route=ROUTE,
+        message={'text': '请选择客户'},
+    )
+    assert question.run_id is None
 
     bad_keys = (
         f'run:{task_id}:final',
-        f'task:{task_id}:chunk',
-        'task:not-a-uuid:final',
-        f'TASK:{task_id}:final',
+        f'execution:{task_id}:chunk',
+        'execution:not-a-uuid:final',
+        f'EXECUTION:{task_id}:final',
+        f'task:{task_id}:final',
+        f'execution:{uuid4()}:final',
+        'human:not-a-uuid',
     )
     for bad_key in bad_keys:
         with pytest.raises(ValidationError):
@@ -248,8 +262,22 @@ def test_enum_members_spot_check():
         'FAILED',
         'CANCELLED',
     }
-    assert len(TaskStatus) == 6
-    assert {member.value for member in ScheduleStatus} == {'ACTIVE', 'PAUSED', 'COMPLETED', 'MISSED'}
+    assert {member.value for member in TaskStatus} == {
+        'QUEUED',
+        'RUNNING',
+        'WAITING_EXTERNAL',
+        'WAITING_HUMAN',
+        'COMPLETED',
+        'FAILED',
+        'CANCELLED',
+    }
+    assert {member.value for member in ScheduleStatus} == {
+        'ACTIVE',
+        'PAUSED',
+        'NEEDS_ATTENTION',
+        'ENDED',
+        'CANCELLED',
+    }
     assert {member.value for member in DeliveryStatus} == {'PENDING', 'SENT', 'FAILED', 'NONE'}
     assert {member.value for member in SkillExecutionMode} == {'SYNC', 'ASYNC', 'AUTO'}
     assert {member.value for member in UserScope} == {'ALL', 'SELECTED'}

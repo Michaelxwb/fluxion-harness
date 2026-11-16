@@ -1,0 +1,348 @@
+/* 定时任务中心布局（design frontend §3.7；TASK-027）。
+   只做布局与可读性：颜色/间距/字体复用 Semi tokens 与 WebChat 既有变量。 */
+
+.chat-task-center {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 16px 20px 24px;
+  overflow-y: auto;
+  background: var(--semi-color-bg-1);
+}
+
+.chat-task-center-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.chat-task-center-badges {
+  display: inline-flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+.chat-task-center-badge-error {
+  font-size: 12px;
+  color: var(--semi-color-warning);
+}
+
+.chat-task-center-agent-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+.chat-task-center-agent-select {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 4px;
+  background: var(--semi-color-bg-0);
+  color: var(--semi-color-text-0);
+}
+
+.chat-task-center-loading,
+.chat-task-center-empty,
+.chat-task-center-state {
+  padding: 24px 8px;
+  color: var(--semi-color-text-2);
+}
+
+.chat-task-center-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-task-center-error-code {
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+.chat-schedule-list,
+.chat-task-fire-list,
+.chat-task-dst ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-schedule-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 8px;
+  background: var(--semi-color-bg-0);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.chat-schedule-row:hover {
+  border-color: var(--semi-color-primary-light-active);
+}
+
+.chat-schedule-row:focus-visible {
+  outline: 2px solid var(--semi-color-primary);
+  outline-offset: 2px;
+}
+
+.chat-schedule-row-title,
+.chat-schedule-row-meta,
+.chat-schedule-row-last {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+}
+
+.chat-schedule-row-meta {
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+  overflow-wrap: anywhere;
+}
+
+.chat-schedule-row-last {
+  gap: 4px 8px;
+}
+
+.chat-schedule-row-missed,
+.chat-schedule-row-dst,
+.chat-schedule-row-pending,
+.chat-schedule-row-attention {
+  font-size: 12px;
+}
+
+.chat-schedule-row-attention {
+  color: var(--semi-color-danger);
+}
+
+.chat-task-summary,
+.chat-task-fires,
+.chat-task-execution {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 8px;
+  background: var(--semi-color-bg-0);
+  min-width: 0;
+}
+
+.chat-task-summary-header,
+.chat-task-section-header,
+.chat-task-execution-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chat-task-fact-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.chat-task-fact {
+  min-width: 0;
+}
+
+.chat-task-fact dt {
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+.chat-task-fact dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-task-attention {
+  margin: 0;
+  color: var(--semi-color-danger);
+}
+
+.chat-task-fire-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 6px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.chat-task-fire-skip,
+.chat-task-fire-missed,
+.chat-task-fire-dst,
+.chat-task-fire-no-execution {
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+.chat-task-fire-repair {
+  font-size: 12px;
+  color: var(--semi-color-danger);
+}
+
+.chat-task-fire-execution {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-task-dst {
+  padding-top: 8px;
+  border-top: 1px dashed var(--semi-color-border);
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+.chat-task-section-label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.chat-task-retention {
+  margin: 4px 0 0;
+  color: var(--semi-color-warning);
+}
+
+.chat-task-execution-wait {
+  margin: 0;
+  font-size: 13px;
+  color: var(--semi-color-warning);
+}
+
+.chat-task-execution-error {
+  color: var(--semi-color-danger);
+  overflow-wrap: anywhere;
+}
+
+.chat-task-execution-failure-class {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+.chat-task-execution-result-body {
+  max-height: 320px;
+  margin: 8px 0 0;
+  padding: 8px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--semi-color-fill-0);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-task-artifacts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-task-artifact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 10px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 6px;
+  min-width: 0;
+}
+
+.chat-task-artifact-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-task-artifact-meta,
+.chat-task-artifact-facts dt {
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+.chat-task-artifact-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  min-width: 0;
+}
+
+.chat-task-artifact-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-task-artifact-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.chat-task-artifact-saved {
+  font-size: 12px;
+  color: var(--semi-color-success);
+}
+
+.chat-task-artifact-error {
+  font-size: 12px;
+  color: var(--semi-color-danger);
+}
+
+.chat-task-artifacts-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--semi-color-text-2);
+}
+
+/* 窄屏：列表/详情单列，长内容不撑破布局（与 WebChat 抽屉同一断点）。 */
+@media (max-width: 1024px) {
+  .chat-task-center {
+    padding: 12px;
+  }
+
+  .chat-task-fact-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chat-task-artifact-actions {
+    margin-left: 0;
+  }
+}

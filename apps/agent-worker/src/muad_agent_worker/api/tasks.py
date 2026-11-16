@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok, paginate
 from muad_api.security import require_internal_service
 from muad_contracts import CreateTaskRequest, TaskStatus, TriggerType
+from pydantic import JsonValue
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -75,22 +76,31 @@ def _payload(task: TaskExecution, progress: tuple[int, int] | None = None) -> di
         "source_operation_id": str(task.source_operation_id) if task.source_operation_id else None,
         "source_tool_call_id": task.source_tool_call_id,
         "snapshot_hash": task.snapshot_hash,
-        "intent_key": task.intent_key,
-        "skill_id": str(task.skill_id),
+        "task_type": task.task_type,
+        "skill_id": str(task.skill_id) if task.skill_id else None,
+        "skill_artifact_id": str(task.skill_artifact_id) if task.skill_artifact_id else None,
+        "skill_execution_mode": task.skill_execution_mode,
         "status": task.status,
         "trigger_type": task.trigger_type,
-        "task_type": task.task_type,
+        "schedule_fire_id": str(task.schedule_fire_id) if task.schedule_fire_id else None,
+        "scheduled_at": _iso(task.scheduled_at),
+        # 等待载荷只在真正等待外部结果时对外可见；其余状态下它是内部事实
+        # （Human 续接会把 pending payload 留在行上，但那时它不是"正在等待"）。
+        "wait_kind": task.wait_kind,
+        "wait_payload": (
+            task.wait_payload_json if task.status == "WAITING_EXTERNAL" else None
+        ),
         "input": task.input_json,
         "result": task.result_json,
+        "result_artifact_id": (
+            str(task.result_artifact_id) if task.result_artifact_id else None
+        ),
         "error_code": task.error_code,
         "error_message": task.error_message,
+        "failure_class": task.failure_class,
         "attempt": task.attempt,
         "max_attempts": task.max_attempts,
         "cancel_requested": task.cancel_requested,
-        "delivery_mode": task.delivery_mode,
-        "delivery_status": task.delivery_status,
-        "delivery_attempts": task.delivery_attempts,
-        "delivered_at": _iso(task.delivered_at),
         "deadline_at": task.deadline_at.isoformat(),
         "not_before": task.not_before.isoformat(),
         "create_time": task.create_time.isoformat(),
@@ -179,7 +189,12 @@ async def create_task(
     ensure_tenant_consistent(request, body.tenant_id)
     submissions = TaskSubmissionService(session)
     idempotency_key = resolve_idempotency_key(request.headers.get(IDEMPOTENCY_HEADER), body.idempotency_key)
-    fingerprint = submission_fingerprint(ENDPOINT_CREATE_TASK, body)
+    fingerprint = submission_fingerprint(
+        endpoint=ENDPOINT_CREATE_TASK,
+        tenant_id=body.tenant_id,
+        actor_user_id=body.actor_user_id,
+        action=body,
+    )
 
     async def replay() -> ApiResponse[Any] | None:
         row = await submissions.find_replay(
@@ -220,7 +235,7 @@ async def create_task(
     return ok(request.app.state.message_catalog, response)
 
 
-def _admission_payload(task: TaskExecution) -> dict[str, object]:
+def _admission_payload(task: TaskExecution) -> dict[str, JsonValue]:
     return {
         "task_id": str(task.id),
         "status": task.status,
@@ -244,6 +259,7 @@ async def list_tasks(
     actor_user_id: Annotated[uuid.UUID | None, Query()] = None,
     skill_id: Annotated[uuid.UUID | None, Query()] = None,
     schedule_id: Annotated[uuid.UUID | None, Query()] = None,
+    keyword: Annotated[str | None, Query(max_length=64)] = None,
     start_time: Annotated[datetime | None, Query()] = None,
     end_time: Annotated[datetime | None, Query()] = None,
     deadline_from: Annotated[datetime | None, Query()] = None,
@@ -261,6 +277,7 @@ async def list_tasks(
         actor_user_id=caller_actor or actor_user_id,
         skill_id=skill_id,
         schedule_id=schedule_id,
+        keyword=keyword,
         start_time=start_time,
         end_time=end_time,
         deadline_from=deadline_from,

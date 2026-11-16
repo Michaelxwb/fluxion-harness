@@ -1,11 +1,12 @@
-"""[B-212] Worker 指标目录：真实 `/metrics` HTTP 端点 + 真实循环调用点递增 + label 卫生。
+"""[B-212] Worker 指标目录（scheduled-task-v2 口径）：真实 `/metrics` + 真实调度路径打点 + label 卫生。
 
-design 11-audit-observability §3.5 / docs/09 §6.3。
+迁移自 v1：`ScheduleService` / `create_schedule_payload` / `intent_key` / delivery 列已随
+TASK-002 退役；本文件改用 v2 的 Schedule + Revision + Fire + Execution 事实。
+
 不得 Mock 的真实边界：
 - 真实 uvicorn 单进程（127.0.0.1 真实 socket，非 ASGI 内存传输）+ 真实 Worker 路由栈；
-- 真实 PostgreSQL（task schema 落库、lease 回收、Schedule 触发与投递状态 CAS）；
-- 真实 WorkerLoop / SchedulerLoop / DeliveryLoop + api-kit 进程内注册表 → `GET /metrics`。
-夹具复用 `tests/agent_worker/conftest.py` 的真实租户与真实 PG 清理口径。
+- 真实 PostgreSQL（v2 调度表、Fire 唯一键、Execution 冻结）；
+- 真实 SchedulerLoop / 指标注册表 → `GET /metrics`。
 """
 
 from __future__ import annotations
@@ -14,57 +15,55 @@ import asyncio
 import re
 import socket
 import time
-import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import httpx
 import uvicorn
 from fastapi import FastAPI
-from muad_agent_worker.delivery.client import HttpDeliveryClient
-from muad_agent_worker.delivery.service import DeliveryLoop
-from muad_agent_worker.infrastructure.models.task import TaskSchedule
 from muad_agent_worker.main import app as worker_app
-from muad_agent_worker.scheduler.service import SchedulerLoop, ScheduleService
-from muad_agent_worker.worker.service import WorkerLoop
-from muad_contracts import ScheduleSpec
-from muad_contracts.platform_settings import default_platform_settings
-from sqlalchemy import update
+from muad_agent_worker.metrics import CATALOG
+from muad_agent_worker.scheduler.client import ScheduleMaterialsError
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import (
-    DELIVERED_ENVELOPE,
-    FakeResolver,
-    RecordingExecutor,
-    build_resolve_response,
-    create_schedule_payload,
-    fetch_task,
-    persist_task,
-    retry_safe_snapshot,
-    sample_route,
+from agent_worker.test_scheduled_v2_fire import (
+    SLOT,
+    MaterialsClient,
+    loop_for,
+    materials_for,
+    seed,
 )
 
 METRICS_PATH = "/metrics"
 PROMETHEUS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 LISTEN_TIMEOUT_SEC = 15.0
-DELIVERIES_URL = "http://im-gateway"
-SKILL_TYPE = "SKILL"
-FIRED_STATUS = "FIRED"
-MISFIRE_STATUS = "SCHEDULE_MISFIRE_SKIPPED"
 
-# docs/09 §6.3 Worker 指标目录（节选，本任务落地面）
+#: 本任务落地的 v2 目录（名称与 label 必须与 design §3.5.12 一致）。
 WORKER_METRIC_CATALOG: tuple[tuple[str, str, tuple[str, ...]], ...] = (
-    ("tasks_total", "counter", ("type", "status")),
-    ("task_queue_depth", "gauge", ()),
-    ("task_reclaim_total", "counter", ()),
-    ("task_lease_expired_total", "counter", ()),
     ("scheduled_fire_total", "counter", ("status",)),
-    ("scheduled_misfire_total", "counter", ()),
+    ("schedule_fire_created_total", "counter", ()),
+    ("schedule_fire_duplicate_total", "counter", ()),
+    ("schedule_fire_skipped_total", "counter", ("reason",)),
+    ("schedule_admission_failed_total", "counter", ("reason",)),
+    ("schedule_timezone_resolution_error_total", "counter", ()),
+    ("schedule_active_count", "gauge", ()),
+    ("schedule_needs_attention_count", "gauge", ()),
+    ("schedule_due_lag_seconds", "gauge", ()),
+    ("task_waiting_human_count", "gauge", ()),
+    ("task_waiting_external_count", "gauge", ()),
+    ("task_human_timeout_total", "counter", ()),
+    ("task_snapshot_bytes", "gauge", ()),
+    ("task_execution_duration_seconds", "gauge", ("type",)),
+    ("task_async_operation_total", "counter", ("status",)),
+    ("task_query_only_total", "counter", ()),
+    ("worker_loop_tick_total", "counter", ("loop", "status")),
+    ("worker_loop_stale_total", "counter", ("loop",)),
+    ("worker_loop_restart_total", "counter", ("loop",)),
+    ("context_compaction_total", "counter", ("layer", "status")),
     ("delivery_total", "counter", ("status",)),
 )
 
-# label 卫生：label 名不得含敏感标记，label 值不得含资源 ID / 凭据形态 / 消息正文
 SENSITIVE_LABEL_MARKERS = (
     "authorization",
     "api_key",
@@ -164,29 +163,8 @@ async def _scrape(http: httpx.AsyncClient) -> tuple[list[tuple[str, dict[str, st
     return _parse_samples(response.text), response.text
 
 
-async def _create_schedule(tenant: TenantContext, schedule: ScheduleSpec) -> TaskSchedule:
-    payload = create_schedule_payload(tenant, schedule=schedule)
-    async with tenant.session_factory() as session:
-        created = await ScheduleService(session, tenant.settings).create_schedule(
-            tenant.tenant_id, payload
-        )
-        await session.commit()
-    return created
-
-
-async def _set_next_fire_at(
-    tenant: TenantContext, schedule_id: uuid.UUID, next_fire_at: datetime
-) -> None:
-    async with tenant.session_factory() as session, session.begin():
-        await session.execute(
-            update(TaskSchedule)
-            .where(TaskSchedule.id == schedule_id)
-            .values(next_fire_at=next_fire_at)
-        )
-
-
-async def test_b212_metrics_endpoint_exposes_worker_catalog(tenant: TenantContext) -> None:
-    """B-212：真实 `/metrics` 暴露 Worker 目录，且样本 label 无敏感形状。"""
+async def test_b212_metrics_endpoint_exposes_v2_worker_catalog(tenant: TenantContext) -> None:
+    """B-212：真实 `/metrics` 暴露 v2 目录，且样本 label 无敏感形状。"""
     async with _serve_http(worker_app) as http:
         samples, text = await _scrape(http)
 
@@ -195,109 +173,68 @@ async def test_b212_metrics_endpoint_exposes_worker_catalog(tenant: TenantContex
     assert tenant.tenant_id not in text, "指标不得落入租户标识"
 
 
-async def test_b212_worker_loop_increments_task_counters(tenant: TenantContext) -> None:
-    """B-212：真实 claim → 执行 → 终态 → reclaim，`tasks_total` 等计数随真实调用递增。"""
-    planned = await persist_task(tenant)
+async def test_b212_scheduler_fire_and_snapshot_metrics_come_from_real_path(
+    tenant: TenantContext,
+) -> None:
+    """B-212：真实 Schedule→Fire→Execution 路径产出 created/due-lag/snapshot 样本。"""
+    seeded = await seed(tenant, next_fire_at=SLOT)
     async with _serve_http(worker_app) as http:
         before, _text = await _scrape(http)
-        completed_before = _sample_value(
-            before, "tasks_total", {"type": SKILL_TYPE, "status": "COMPLETED"}
+        created_before = _sample_value(before, "schedule_fire_created_total", {}) or 0
+
+        loop = loop_for(tenant, MaterialsClient(materials_for()))
+        assert await loop.run_once(now=SLOT + timedelta(seconds=5)) is not None
+
+        samples, text = await _scrape(http)
+
+    assert (_sample_value(samples, "schedule_fire_created_total", {}) or 0) >= created_before + 1, text
+    assert (_sample_value(samples, "scheduled_fire_total", {"status": "EXECUTION_CREATED"}) or 0) >= 1
+    assert _sample_value(samples, "schedule_due_lag_seconds", {}) is not None, text
+    assert (_sample_value(samples, "task_snapshot_bytes", {}) or 0) > 0, text
+
+    _assert_label_hygiene(samples, text)
+    assert str(seeded.schedule_id) not in text, "指标落入具体 Schedule ID"
+    assert str(seeded.owner_user_id) not in text, "指标落入用户标识"
+
+
+async def test_b212_misfire_and_admission_failures_are_labelled_by_closed_reasons(
+    tenant: TenantContext,
+) -> None:
+    """B-212：MISFIRE 与准入失败分别计数；label 只取 `SkipReason` / 目录错误码。"""
+    await seed(tenant, next_fire_at=SLOT - timedelta(hours=2))
+    failure = ScheduleMaterialsError(
+        "denied", code="SCHEDULE_DEPENDENCY_MISSING", data={"admission_code": "SKILL_DISABLED"}
+    )
+    await seed(tenant, next_fire_at=SLOT)
+    async with _serve_http(worker_app) as http:
+        before, _text = await _scrape(http)
+        skipped_before = _sample_value(
+            before, "schedule_fire_skipped_total", {"reason": "MISFIRE"}
+        ) or 0
+        admission_before = _sample_value(
+            before, "schedule_admission_failed_total", {"reason": "SKILL_DISABLED"}
         ) or 0
 
-        worker = WorkerLoop(
-            tenant.session_factory,
-            tenant.settings,
-            executor=RecordingExecutor(),
-            instance_id="b212-metrics",
+        await loop_for(tenant, MaterialsClient()).run_once(now=SLOT + timedelta(seconds=1))
+        await loop_for(tenant, MaterialsClient(failure=failure)).run_once(
+            now=SLOT + timedelta(seconds=1)
         )
-        assert await worker.run_once() is not None, "真实 claim 未取到已入队任务"
-
-        now = datetime.now(UTC)
-        expired = await persist_task(
-            tenant,
-            status="RUNNING",
-            lease_owner="b212-dead",
-            lease_until=now - timedelta(seconds=1),
-            execution_snapshot_json=retry_safe_snapshot(),
-        )
-        assert await worker.reclaim_expired(now=now) >= 1
-        requeued = await fetch_task(tenant, expired.id)
-        assert requeued.status == "QUEUED", "过期 lease 未被回收为可再 claim"
 
         samples, text = await _scrape(http)
 
-    completed_after = _sample_value(
-        samples, "tasks_total", {"type": SKILL_TYPE, "status": "COMPLETED"}
-    )
-    assert (completed_after or 0) >= completed_before + 1, f"终态任务未计数：\n{text}"
-    assert (_sample_value(samples, "task_reclaim_total", {}) or 0) >= 1, text
-    assert (_sample_value(samples, "task_lease_expired_total", {}) or 0) >= 1, text
-    assert _sample_value(samples, "task_queue_depth", {}) is not None, f"未采集队列深度：\n{text}"
-
-    _assert_label_hygiene(samples, text)
-    assert str(planned.id) not in text, "指标落入具体 Task ID"
-    assert str(planned.tenant_id) not in text, "指标落入租户标识"
-
-
-async def test_b212_schedule_and_delivery_increment_counters(tenant: TenantContext) -> None:
-    """B-212：真实 Schedule 触发/错过 + 真实投递结局分别计数。"""
-    now = datetime.now(UTC)
-    schedule = await _create_schedule(
-        tenant, ScheduleSpec(type="CRON", cron="0 9 * * *", timezone="UTC")
-    )
-    misfired = await _create_schedule(
-        tenant, ScheduleSpec(type="CRON", cron="0 9 * * *", timezone="UTC")
-    )
-    await _set_next_fire_at(tenant, schedule.id, now - timedelta(seconds=1))
-    await _set_next_fire_at(
-        tenant,
-        misfired.id,
-        now - timedelta(seconds=default_platform_settings().task.misfire_grace_sec + 30),
-    )
-    resolver = FakeResolver(build_resolve_response(schedule.skill_id, uuid.uuid4()))
-    loop = SchedulerLoop(tenant.session_factory, resolver, tenant.settings)
-
-    delivered = await persist_task(
-        tenant,
-        status="COMPLETED",
-        finished_at=now,
-        delivery_route=sample_route(),
-        result_json={"text": BODY_CANARY},
-    )
-
-    def handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=DELIVERED_ENVELOPE)
-
-    async with _serve_http(worker_app) as http:
-        await loop.run_due(now=now)
-        transport = httpx.MockTransport(handler)
-        async with httpx.AsyncClient(transport=transport) as client:
-            delivery = DeliveryLoop(
-                tenant.session_factory,
-                HttpDeliveryClient(DELIVERIES_URL, client),
-                tenant.settings,
-            )
-            assert await delivery.run_once(now=now) is not None, "无可投递任务"
-        samples, text = await _scrape(http)
-
     assert (
-        _sample_value(samples, "scheduled_fire_total", {"status": FIRED_STATUS}) or 0
-    ) >= 1, text
+        _sample_value(samples, "schedule_fire_skipped_total", {"reason": "MISFIRE"}) or 0
+    ) >= skipped_before + 1, text
     assert (
-        _sample_value(samples, "scheduled_fire_total", {"status": MISFIRE_STATUS}) or 0
-    ) >= 1, text
-    assert (_sample_value(samples, "scheduled_misfire_total", {}) or 0) >= 1, text
-    assert (_sample_value(samples, "delivery_total", {"status": "SENT"}) or 0) >= 1, text
-
-    _assert_label_hygiene(samples, text)
+        _sample_value(samples, "schedule_admission_failed_total", {"reason": "SKILL_DISABLED"})
+        or 0
+    ) >= admission_before + 1, text
     assert BODY_CANARY not in text, "指标落入消息正文"
-    assert str(delivered.id) not in text, "指标落入具体 Task ID"
+    _assert_label_hygiene(samples, text)
 
 
 def test_b212_declared_catalog_matches_design_and_label_names_are_hygienic() -> None:
-    """B-212：服务声明的目录与设计 §3.5 逐项一致，且 label 名不含敏感标记。"""
-    from muad_agent_worker.metrics import CATALOG
-
+    """B-212：服务声明的目录与设计 §3.5.12 逐项一致，且 label 名不含敏感标记。"""
     declared = {name: (kind, labels) for name, kind, labels, _help in CATALOG}
     for name, kind, labels in WORKER_METRIC_CATALOG:
         assert declared.get(name) == (kind, labels), f"{name} 的声明与设计不一致：{declared.get(name)}"

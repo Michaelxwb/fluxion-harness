@@ -26,10 +26,20 @@ from sqlalchemy import text
 
 TOKEN = "console-worker-token"
 
+#: v2 的 Schedule↔Revision 与 Fire↔Execution 都是循环引用，清理必须先解环再删行。
 WORKER_TENANT_CLEANUP = (
     "DELETE FROM task.task_event WHERE tenant_id = :t",
     "DELETE FROM task.task_submission WHERE tenant_id = :t",
+    "DELETE FROM task.task_delivery_attempt WHERE tenant_id = :t",
+    "DELETE FROM task.task_delivery WHERE tenant_id = :t",
+    "DELETE FROM task.task_human_interaction WHERE tenant_id = :t",
+    "DELETE FROM task.task_execution_checkpoint WHERE tenant_id = :t",
+    "UPDATE task.schedule_fire SET execution_id = NULL WHERE tenant_id = :t",
     "DELETE FROM task.task_execution WHERE tenant_id = :t",
+    "DELETE FROM task.schedule_fire WHERE tenant_id = :t",
+    "DELETE FROM task.task_schedule_draft WHERE tenant_id = :t",
+    "UPDATE task.task_schedule SET current_revision_id = NULL WHERE tenant_id = :t",
+    "DELETE FROM task.task_schedule_revision WHERE tenant_id = :t",
     "DELETE FROM task.task_schedule WHERE tenant_id = :t",
     "DELETE FROM task.delivery_route WHERE tenant_id = :t",
 )

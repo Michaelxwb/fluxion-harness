@@ -1,16 +1,38 @@
 from typing import Any
 
+import pytest
 import sqlalchemy as sa
 from muad_agent_worker.infrastructure.db import get_session_factory
 from muad_agent_worker.infrastructure.models.task import (
     DeliveryRoute,
+    ScheduleFire,
+    TaskDelivery,
+    TaskDeliveryAttempt,
     TaskEvent,
     TaskExecution,
+    TaskExecutionCheckpoint,
+    TaskHumanInteraction,
     TaskSchedule,
+    TaskScheduleDraft,
+    TaskScheduleRevision,
 )
 from sqlalchemy import inspect
 
 SCHEMA = "task"
+
+MODELS = (
+    DeliveryRoute,
+    TaskSchedule,
+    TaskScheduleRevision,
+    TaskScheduleDraft,
+    ScheduleFire,
+    TaskExecution,
+    TaskExecutionCheckpoint,
+    TaskHumanInteraction,
+    TaskDelivery,
+    TaskDeliveryAttempt,
+    TaskEvent,
+)
 
 EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
     "delivery_route": (
@@ -19,42 +41,107 @@ EXPECTED_INDEXES: dict[str, tuple[str, ...]] = {
         "ix_delivery_route_bot_id_external_user_id",
     ),
     "task_schedule": (
-        "ix_task_schedule_status_next_fire_at",
-        "ix_task_schedule_actor_user_status",
-        "ix_task_schedule_agent_status",
+        "ix_task_schedule_due",
+        "ix_task_schedule_owner",
+        "ix_task_schedule_agent",
+    ),
+    "task_schedule_revision": (
+        "uq_task_schedule_revision_no",
+        "ix_task_schedule_revision_schedule",
+    ),
+    "task_schedule_draft": (
+        "uq_task_schedule_draft_idempotency",
+        "uq_task_schedule_draft_confirmation",
+        "ix_task_schedule_draft_owner_status",
+    ),
+    "schedule_fire": (
+        "uq_schedule_fire_occurrence",
+        "uq_schedule_fire_execution",
+        "ix_schedule_fire_status_scheduled",
+        "ix_schedule_fire_tenant_create",
+        "ix_schedule_fire_schedule_scheduled",
     ),
     "task_execution": (
         "uq_task_execution_tenant_idempotency_key",
         "uq_task_execution_parent_item_key",
+        "uq_task_execution_root_fire",
         "ix_task_execution_status_not_before_priority_create_time",
+        "ix_task_execution_claim_scheduled",
         "ix_task_execution_running_lease_until",
         "ix_task_execution_root_parent_status",
         "ix_task_execution_source_run",
         "ix_task_execution_actor_user_create_time",
+        "ix_task_execution_schedule_status_scheduled",
         "ix_task_execution_schedule_create_time",
-        "ix_task_execution_final_delivery",
+        "ix_task_execution_waiting_external_sweep",
     ),
+    "task_execution_checkpoint": (
+        "uq_task_execution_checkpoint_no",
+        "ix_task_execution_checkpoint_exec",
+    ),
+    "task_human_interaction": (
+        "uq_task_human_interaction_open",
+        "ix_task_human_interaction_deadline",
+        "ix_task_human_interaction_owner_deadline",
+    ),
+    "task_delivery": (
+        "uq_task_delivery_key",
+        "ix_task_delivery_status_update_time",
+        "ix_task_delivery_execution",
+    ),
+    "task_delivery_attempt": ("uq_task_delivery_attempt_no",),
     "task_event": (
-        "uq_task_event_task_seq",
-        "ix_task_event_task_create_time",
+        "uq_task_event_entity_seq",
+        "ix_task_event_entity_create_time",
         "ix_task_event_event_type_create_time",
     ),
 }
 
 EXPECTED_CHECKS: dict[str, tuple[str, ...]] = {
     "task_execution": ("ck_task_execution_completion_mode", "ck_task_execution_lease_epoch"),
-    "task_schedule": ("ck_task_schedule_trigger",),
+    "task_schedule_revision": (
+        "ck_task_schedule_revision_recurrence",
+        "ck_task_schedule_revision_delivery_route",
+    ),
+    "task_schedule_draft": (
+        "ck_task_schedule_draft_draft_hash",
+        "ck_task_schedule_draft_kind_shape",
+    ),
 }
 
 EXPECTED_FOREIGN_KEYS: dict[str, set[tuple[str, str]]] = {
     "delivery_route": set(),
-    "task_schedule": {("delivery_route_id", "task.delivery_route.id")},
-    "task_execution": {
-        ("parent_id", "task.task_execution.id"),
+    "task_schedule": {("current_revision_id", "task.task_schedule_revision.id")},
+    "task_schedule_revision": {
         ("schedule_id", "task.task_schedule.id"),
         ("delivery_route_id", "task.delivery_route.id"),
     },
-    "task_event": {("task_id", "task.task_execution.id")},
+    "task_schedule_draft": {
+        ("base_schedule_id", "task.task_schedule.id"),
+        ("schedule_id", "task.task_schedule.id"),
+    },
+    "schedule_fire": {
+        ("schedule_id", "task.task_schedule.id"),
+        ("schedule_revision_id", "task.task_schedule_revision.id"),
+        ("execution_id", "task.task_execution.id"),
+    },
+    "task_execution": {
+        ("parent_id", "task.task_execution.id"),
+        ("schedule_id", "task.task_schedule.id"),
+        ("schedule_fire_id", "task.schedule_fire.id"),
+        ("schedule_revision_id", "task.task_schedule_revision.id"),
+    },
+    "task_execution_checkpoint": {("execution_id", "task.task_execution.id")},
+    "task_human_interaction": {
+        ("execution_id", "task.task_execution.id"),
+        ("delivery_route_id", "task.delivery_route.id"),
+    },
+    "task_delivery": {
+        ("execution_id", "task.task_execution.id"),
+        ("delivery_route_id", "task.delivery_route.id"),
+    },
+    "task_delivery_attempt": {("delivery_id", "task.task_delivery.id")},
+    "task_event": set(),
 }
 
 
@@ -204,24 +291,11 @@ def _compare(orm_table: sa.Table, reflected: dict[str, Any]) -> list[str]:
     return diffs
 
 
-async def test_delivery_route_schema_parity(database_guard: None) -> None:
-    diffs = _compare(DeliveryRoute.__table__, await _reflect("delivery_route"))
-    assert not diffs, "delivery_route schema mismatch:\n" + "\n".join(diffs)
-
-
-async def test_task_schedule_schema_parity(database_guard: None) -> None:
-    diffs = _compare(TaskSchedule.__table__, await _reflect("task_schedule"))
-    assert not diffs, "task_schedule schema mismatch:\n" + "\n".join(diffs)
-
-
-async def test_task_execution_schema_parity(database_guard: None) -> None:
-    diffs = _compare(TaskExecution.__table__, await _reflect("task_execution"))
-    assert not diffs, "task_execution schema mismatch:\n" + "\n".join(diffs)
-
-
-async def test_task_event_schema_parity(database_guard: None) -> None:
-    diffs = _compare(TaskEvent.__table__, await _reflect("task_event"))
-    assert not diffs, "task_event schema mismatch:\n" + "\n".join(diffs)
+@pytest.mark.parametrize("model", MODELS, ids=lambda model: model.__table__.name)
+async def test_table_schema_parity(model: type, database_guard: None) -> None:
+    table_name = model.__table__.name
+    diffs = _compare(model.__table__, await _reflect(table_name))
+    assert not diffs, f"{table_name} schema mismatch:\n" + "\n".join(diffs)
 
 
 def _orm_foreign_keys(orm_table: sa.Table) -> set[tuple[str, str]]:
@@ -240,7 +314,7 @@ def _db_foreign_keys(reflected: dict[str, Any]) -> set[tuple[str, str]]:
 
 async def test_same_schema_foreign_keys(database_guard: None) -> None:
     """同一 Owner Schema 的表必须用物理 FK 关联（RULE-data-001 / B-101）。"""
-    for model in (DeliveryRoute, TaskSchedule, TaskExecution, TaskEvent):
+    for model in MODELS:
         table_name = model.__table__.name
         expected = EXPECTED_FOREIGN_KEYS[table_name]
         orm_keys = _orm_foreign_keys(model.__table__)

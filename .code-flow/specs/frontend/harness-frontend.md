@@ -1,7 +1,7 @@
 ---
 {
   "description": "前端服务层与拦截器",
-  "next_rule": 4
+  "next_rule": 5
 }
 ---
 
@@ -14,6 +14,8 @@
 - [RULE-front-002] 前端展示与文件选择器使用的「允许上传格式」必须来自客户端配置投影，禁止在前端硬编码格式清单；投影字段缺失或非法时按配置非法显式失败，不回落猜测值。
 
 - [RULE-front-003] 长等待必须有可见占位：Run 受理后、首个正文增量到达前，消息流里给出「正在思考」与已等待时长；首字到达即撤占位、不再显示耗时。计时锚点取服务端时间戳，走秒只发生在专用时钟钩子（清理时清除定时器），展示组件保持无状态、不自带定时器，流式输出期间不得有周期性重渲染。
+
+- [RULE-004] 聊天工作区切换到任务中心时必须保留当前对话控制器及流式执行，任务中心请求以身份与查询 generation 隔离，旧响应不得覆盖新视图。调度 Draft 使用独立的持久确认事件与 surface 确认动作，不能复用 Run interrupt/resume。任务中心只主动读取列表、详情与待处理，隐藏时停止刷新；所有 HTTP 与认证仍走共享客户端和模块服务层，成功操作后刷新服务端真相，不伪造最终状态。
 
 ## Conventions
 
@@ -101,3 +103,5 @@ const tabs =
 - {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-004#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"5d9972be3ef82291b5657546829895f7f55a211f128c63e39c7492d9ff3b12d0","at":"2026-11-12T16:21:37.941Z"}
 
 - {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-010#DELTA-001","op":"add","rule":"RULE-002","payload_sha256":"20a858aebf5fdca6adf167f444f0d842e681b728243c90237805ba60d3c30271","at":"2026-11-12T16:21:37.942Z"}
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-026#DELTA-001","op":"add","rule":"RULE-004","payload_sha256":"a672b7a4c95e9decd1bbf79dac8bab2561db9544cf284cb31676bd7a48ef0493","at":"2026-11-16T05:09:15.752Z"}

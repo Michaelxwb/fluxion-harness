@@ -983,6 +983,7 @@ class Artifact(StandardColumnsMixin, Base):
             name="ck_artifact_run_task_xor",
         ),
         sa.Index("ix_artifact_run", "run_id"),
+        sa.Index("ix_artifact_task", "task_id", postgresql_where=sa.text("task_id IS NOT NULL")),
         sa.Index("ix_artifact_conversation", "conversation_id"),
         sa.Index(
             "ix_artifact_agent_user_time",
@@ -998,6 +999,7 @@ class Artifact(StandardColumnsMixin, Base):
     run_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid(), sa.ForeignKey("runtime.run_record.id"), nullable=True
     )
+    #: Task owner 的产物：值 = `task.task_execution.id`（跨 schema 不建物理 FK）。
     task_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid(), nullable=True)
     #: 产物归属（user + agent）：历史产出跨会话检索用；历史行可为 NULL。
@@ -1209,7 +1211,13 @@ class ModelCallLease(StandardColumnsMixin, Base):
             "key_resource_id",
             postgresql_where=sa.text("state IN ('ACTIVE','UNKNOWN') AND is_deleted = false"),
         ),
-        sa.CheckConstraint("num_nonnulls(run_id, memory_job_id, probe_id) = 1", name="owner"),
+        sa.CheckConstraint(
+            "num_nonnulls(run_id, memory_job_id, probe_id, task_execution_id) = 1", name="owner"
+        ),
+        sa.CheckConstraint("owner_type IN ('RUN','MEMORY_JOB','PROBE','TASK')", name="owner_type"),
+        sa.CheckConstraint(
+            "(owner_type = 'TASK') = (task_execution_id IS NOT NULL)", name="task_owner"
+        ),
         sa.CheckConstraint("state IN ('ACTIVE','UNKNOWN','SETTLED')", name="state"),
         sa.CheckConstraint("workload IN ('INTERACTIVE','BACKGROUND','PROBE')", name="workload"),
         sa.CheckConstraint("credential_revision >= 1", name="credential_revision"),
@@ -1226,6 +1234,12 @@ class ModelCallLease(StandardColumnsMixin, Base):
         sa.Uuid(), sa.ForeignKey("runtime.memory_consolidation_job.id")
     )
     probe_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    #: Task owner（值 = `task.task_execution.id`）；跨 schema 不建物理 FK。
+    task_execution_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    #: 与四选一的 owner 列保持同一事实（`task_owner` 约束钉住一致性）。
+    owner_type: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'RUN'")
+    )
     deployment_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     credential_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     key_resource_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)

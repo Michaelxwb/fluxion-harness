@@ -95,6 +95,31 @@ export default function App() {
           </>
         }
       />
+      {/*
+        静态 `chat/tasks` 与 `chat/tasks/:scheduleId` 排在动态 `chat/:entryId?` 之前：
+        `tasks` 不是入口 id。三个路由渲染同一套 Suspense/ChatPage 组件类型且树位置相同，
+        React 在 URL 切换时复用同一个 ChatPage 实例——对话控制器、草稿与流式 Run 不卸载。
+      */}
+      <Route
+        path="chat/tasks"
+        element={
+          <Suspense
+            fallback={<div className="app-route-loading" data-testid="chat-route-loading" />}
+          >
+            <ChatPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="chat/tasks/:scheduleId"
+        element={
+          <Suspense
+            fallback={<div className="app-route-loading" data-testid="chat-route-loading" />}
+          >
+            <ChatPage />
+          </Suspense>
+        }
+      />
       <Route
         path="chat/:entryId?"
         element={

@@ -1,128 +1,60 @@
-"""B-128：Console Schedule 列表/详情/启停/删除 API（API-12 ~ API-16）。
+"""B-128：Console Schedule 列表/详情/删除（API-20 ~ API-23 的既有行为回归）。
 
-真实边界：真实 Console HTTP/session → 真实 Worker Admin HTTP → 真实 PostgreSQL。
+真实边界：真实 Console HTTP/session → 真实 Worker ASGI → 真实 PostgreSQL。
+运营动作（pause/resume/cancel）与 Fire 历史在 `test_scheduled_v2_console_api.py`；
+本文件只锁"既有能力不回退"：认证、统一封套、分页过滤、软删保留历史、跨租户不可见。
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
-import httpx
+import sqlalchemy as sa
 from console_platform.conftest import TenantContext
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory
-from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskSchedule
-from muad_agent_worker.main import app as worker_app
-from sqlalchemy import text, update
+from muad_agent_worker.infrastructure.models.task import TaskExecution
+from muad_console_platform.main import app as console_app
 
-from console_tasks.conftest import TOKEN
-
-
-async def _create_schedule(
-    tenant_id: str,
-    *,
-    cron: str = "0 9 * * *",
-    agent_id: uuid.UUID | None = None,
-    actor_user_id: uuid.UUID | None = None,
-    skill_id: uuid.UUID | None = None,
-) -> uuid.UUID:
-    body = {
-        "name": "weekday policy check",
-        "agent_id": str(agent_id or uuid.uuid4()),
-        "actor_user_id": str(actor_user_id or uuid.uuid4()),
-        "intent_key": "policy_check",
-        "skill_id": str(skill_id or uuid.uuid4()),
-        "input_template": {"customer": "A"},
-        "schedule": {"type": "CRON", "cron": cron, "timezone": "Asia/Shanghai"},
-        "delivery_route": {
-            "channel": "WECOM",
-            "bot_id": "bot-console",
-            "external_user_id": "wotv-console",
-        },
-    }
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=worker_app), base_url="http://worker"
-    ) as worker:
-        response = await worker.post(
-            "/internal/schedules",
-            json=body,
-            # 内部业务路由与 Admin 面同一门控（2026-10-06 评审 #1）
-            headers={"X-Tenant-Id": tenant_id, "X-Internal-Service": TOKEN},
-        )
-    assert response.status_code == 200, response.text
-    return uuid.UUID(response.json()["data"]["schedule_id"])
+from console_tasks.conftest import WORKER_TENANT_CLEANUP
+from console_tasks.helpers import seed_execution, seed_fire, seed_schedule
 
 
-async def _set_status(schedule_id: uuid.UUID, status: str) -> None:
-    async with worker_session_factory()() as session:
-        async with session.begin():
-            await session.execute(
-                update(TaskSchedule)
-                .where(TaskSchedule.id == schedule_id)
-                .values(status=status)
-            )
+def _headers(tenant: TenantContext) -> dict[str, str]:
+    return {"X-Tenant-Id": tenant.tenant_id}
 
 
-async def _seed_history_task(tenant_id: str, schedule_id: uuid.UUID) -> uuid.UUID:
-    now = datetime.now(UTC)
-    task_id = uuid.uuid4()
-    async with worker_session_factory()() as session:
-        async with session.begin():
-            session.add(
-                TaskExecution(
-                    id=task_id,
-                    tenant_id=tenant_id,
-                    schedule_id=schedule_id,
-                    agent_id=uuid.uuid4(),
-                    actor_user_id=uuid.uuid4(),
-                    intent_key="policy_check",
-                    skill_id=uuid.uuid4(),
-                    skill_artifact_id=uuid.uuid4(),
-                    trigger_type="SCHEDULED",
-                    execution_mode="ASYNC",
-                    task_type="SKILL",
-                    status="COMPLETED",
-                    input_json={},
-                    execution_snapshot_schema_version=1,
-                    execution_snapshot_json={"schema_version": 1},
-                    snapshot_hash="sha256:" + "e" * 64,
-                    idempotency_key=f"console-schedule-{task_id}",
-                    priority=100,
-                    attempt=0,
-                    max_attempts=3,
-                    not_before=now,
-                    deadline_at=now + timedelta(hours=1),
-                    finished_at=now,
-                    delivery_mode="NONE",
-                    delivery_status="NONE",
-                    delivery_key=f"task:{task_id}:final",
-                    delivery_attempts=0,
-                )
-            )
-    return task_id
+async def test_b128_requires_authenticated_session(task_tenant: TenantContext) -> None:
+    transport = ASGITransport(app=console_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as anonymous:
+        for path in (
+            "/api/v1/schedules",
+            f"/api/v1/schedules/{uuid.uuid4()}",
+            f"/api/v1/schedules/{uuid.uuid4()}/fires",
+        ):
+            response = await anonymous.get(path)
+            assert response.status_code == 401, path
 
 
-async def test_b128_list_filters_completed_and_envelope(
+async def test_b128_list_detail_envelope_and_filters(
     client: AsyncClient, task_tenant: TenantContext
 ) -> None:
-    active_id = await _create_schedule(task_tenant.tenant_id)
-    completed_id = await _create_schedule(task_tenant.tenant_id, cron="30 10 * * *")
-    await _set_status(completed_id, "COMPLETED")
-    headers = {"X-Tenant-Id": task_tenant.tenant_id}
+    active_id, _ = await seed_schedule(task_tenant.tenant_id)
+    paused_id, _ = await seed_schedule(
+        task_tenant.tenant_id, name="已暂停", status="PAUSED", next_fire_at=None
+    )
+    headers = _headers(task_tenant)
 
     listed = await client.get("/api/v1/schedules", headers=headers)
     assert listed.status_code == 200, listed.text
     body = listed.json()
     assert {"code", "msg", "data", "trace_id", "request_id", "timestamp"} <= set(body)
     assert body["data"]["total"] == 2
+    assert body["data"]["page"] == 1
 
-    completed = await client.get(
-        "/api/v1/schedules", headers=headers, params={"status": "COMPLETED"}
-    )
-    assert [item["schedule_id"] for item in completed.json()["data"]["items"]] == [
-        str(completed_id)
-    ]
+    paused = await client.get("/api/v1/schedules", headers=headers, params={"status": "PAUSED"})
+    assert [item["schedule_id"] for item in paused.json()["data"]["items"]] == [str(paused_id)]
 
     detail = await client.get(f"/api/v1/schedules/{active_id}", headers=headers)
     assert detail.status_code == 200
@@ -131,40 +63,25 @@ async def test_b128_list_filters_completed_and_envelope(
 
     missing = await client.get(f"/api/v1/schedules/{uuid.uuid4()}", headers=headers)
     assert missing.status_code == 404
-    assert missing.json()["code"] == "COMMON_NOT_FOUND"
+    assert missing.json()["code"] == "SCHEDULE_NOT_FOUND"
 
 
-async def test_b128_pause_resume_and_terminal_conflict(
+async def test_b128_delete_is_idempotent_and_keeps_history(
     client: AsyncClient, task_tenant: TenantContext
 ) -> None:
-    schedule_id = await _create_schedule(task_tenant.tenant_id)
-    headers = {"X-Tenant-Id": task_tenant.tenant_id}
-
-    paused = await client.put(f"/api/v1/schedules/{schedule_id}/pause", headers=headers)
-    assert paused.status_code == 200, paused.text
-    assert paused.json()["data"]["status"] == "PAUSED"
-
-    resumed = await client.put(f"/api/v1/schedules/{schedule_id}/resume", headers=headers)
-    assert resumed.status_code == 200
-    assert resumed.json()["data"]["status"] == "ACTIVE"
-    assert resumed.json()["data"]["next_fire_at"] is not None
-
-    terminal_id = await _create_schedule(task_tenant.tenant_id, cron="0 11 * * *")
-    await _set_status(terminal_id, "COMPLETED")
-    conflict = await client.put(f"/api/v1/schedules/{terminal_id}/pause", headers=headers)
-    assert conflict.status_code == 409
-    assert conflict.json()["code"] == "REVISION_CONFLICT"
-
-    unchanged = await client.get(f"/api/v1/schedules/{terminal_id}", headers=headers)
-    assert unchanged.json()["data"]["status"] == "COMPLETED", "暂停失败不得改写原状态"
-
-
-async def test_b128_delete_keeps_history_tasks(
-    client: AsyncClient, task_tenant: TenantContext
-) -> None:
-    schedule_id = await _create_schedule(task_tenant.tenant_id)
-    history_task = await _seed_history_task(task_tenant.tenant_id, schedule_id)
-    headers = {"X-Tenant-Id": task_tenant.tenant_id}
+    schedule_id, revision_id = await seed_schedule(task_tenant.tenant_id)
+    now = datetime.now(UTC)
+    execution_id = await seed_execution(
+        task_tenant.tenant_id, schedule_id=schedule_id, status="COMPLETED", finished_at=now
+    )
+    await seed_fire(
+        task_tenant.tenant_id,
+        schedule_id,
+        revision_id,
+        scheduled_at=now,
+        execution_id=execution_id,
+    )
+    headers = _headers(task_tenant)
 
     deleted = await client.delete(f"/api/v1/schedules/{schedule_id}", headers=headers)
     assert deleted.status_code == 200
@@ -172,118 +89,49 @@ async def test_b128_delete_keeps_history_tasks(
 
     replay = await client.delete(f"/api/v1/schedules/{schedule_id}", headers=headers)
     assert replay.status_code == 200
+    assert replay.json()["data"] == {"schedule_id": str(schedule_id), "deleted": True}
 
     listed = await client.get("/api/v1/schedules", headers=headers)
     assert listed.json()["data"]["total"] == 0
+    hidden = await client.get(f"/api/v1/schedules/{schedule_id}", headers=headers)
+    assert hidden.status_code == 404
 
     async with worker_session_factory()() as session:
-        task = await session.get(TaskExecution, history_task)
+        task = await session.get(TaskExecution, execution_id)
     assert task is not None
-    assert task.status == "COMPLETED", "删除 Schedule 不得取消历史 Task"
+    assert task.status == "COMPLETED", "删除 Schedule 不得改写历史 Execution"
     assert task.schedule_id == schedule_id
 
     history = await client.get(
         "/api/v1/tasks", headers=headers, params={"schedule_id": str(schedule_id)}
     )
-    assert [item["task_id"] for item in history.json()["data"]["items"]] == [str(history_task)]
-
-
-async def test_b128_requires_authenticated_session(task_tenant: TenantContext) -> None:
-    from httpx import ASGITransport
-    from muad_console_platform.main import app as console_app
-
-    transport = ASGITransport(app=console_app)
-    async with AsyncClient(transport=transport, base_url="http://test") as anonymous:
-        response = await anonymous.get("/api/v1/schedules")
-    assert response.status_code == 401
+    assert [item["task_id"] for item in history.json()["data"]["items"]] == [str(execution_id)]
 
 
 async def test_b128_cross_tenant_schedule_hidden(
     client: AsyncClient, task_tenant: TenantContext
 ) -> None:
-    foreign = await _create_schedule("test-console-foreign-schedule")
-    headers = {"X-Tenant-Id": task_tenant.tenant_id}
+    foreign_tenant = f"test-foreign-{uuid.uuid4().hex[:8]}"
+    foreign_id, _ = await seed_schedule(foreign_tenant, name="别人的任务")
+    headers = _headers(task_tenant)
     try:
-        detail = await client.get(f"/api/v1/schedules/{foreign}", headers=headers)
+        detail = await client.get(f"/api/v1/schedules/{foreign_id}", headers=headers)
+        fires = await client.get(f"/api/v1/schedules/{foreign_id}/fires", headers=headers)
+        action = await client.post(
+            f"/api/v1/schedules/{foreign_id}/actions",
+            json={"action": "pause"},
+            headers=headers,
+        )
+        deleted = await client.delete(f"/api/v1/schedules/{foreign_id}", headers=headers)
         assert detail.status_code == 404
-        paused = await client.put(f"/api/v1/schedules/{foreign}/pause", headers=headers)
-        assert paused.status_code == 404
+        assert fires.status_code == 404
+        assert action.status_code == 404
+        assert deleted.status_code == 404
+
+        listed = await client.get("/api/v1/schedules", headers=headers)
+        assert listed.json()["data"]["total"] == 0
     finally:
-        session_factory = worker_session_factory()
-        async with session_factory() as session:
-            await session.execute(
-                text("DELETE FROM task.task_schedule WHERE tenant_id = :t"),
-                {"t": "test-console-foreign-schedule"},
-            )
-            await session.execute(
-                text("DELETE FROM task.delivery_route WHERE tenant_id = :t"),
-                {"t": "test-console-foreign-schedule"},
-            )
+        async with worker_session_factory()() as session:
+            for statement in WORKER_TENANT_CLEANUP:
+                await session.execute(sa.text(statement), {"t": foreign_tenant})
             await session.commit()
-
-
-async def test_b128_list_enriches_names_from_control_tables(
-    client: AsyncClient, task_tenant: TenantContext
-) -> None:
-    """名称权威源在 Console `control.*`：列表按本页 id 批查询补齐；未登记的 id 保持 null。"""
-    from muad_console_platform.infrastructure.db import get_session_factory
-    from muad_console_platform.infrastructure.models.control import (
-        AgentDefinition,
-        PlatformUser,
-        Skill,
-    )
-
-    agent_id, actor_id, skill_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    async with get_session_factory()() as session:
-        session.add(
-            AgentDefinition(
-                id=agent_id,
-                tenant_id=task_tenant.tenant_id,
-                key=f"schedule-agent-{agent_id.hex[:8]}",
-                name="Schedule Agent",
-                description=None,
-                instructions="",
-                model_id=task_tenant.model_id,
-            )
-        )
-        session.add(
-            PlatformUser(
-                id=actor_id,
-                tenant_id=task_tenant.tenant_id,
-                user_code=f"schedule-user-{actor_id.hex[:8]}",
-                display_name="Bob",
-            )
-        )
-        session.add(
-            Skill(
-                id=skill_id,
-                tenant_id=task_tenant.tenant_id,
-                key=f"schedule-skill-{skill_id.hex[:8]}",
-                name="Schedule Skill",
-                description="",
-            )
-        )
-        await session.commit()
-
-    named = await _create_schedule(
-        task_tenant.tenant_id, agent_id=agent_id, actor_user_id=actor_id, skill_id=skill_id
-    )
-    unnamed = await _create_schedule(task_tenant.tenant_id, cron="30 10 * * *")
-
-    listed = await client.get(
-        "/api/v1/schedules", headers={"X-Tenant-Id": task_tenant.tenant_id}
-    )
-    assert listed.status_code == 200, listed.text
-    items = {item["schedule_id"]: item for item in listed.json()["data"]["items"]}
-
-    enriched = items[str(named)]
-    assert enriched["agent_name"] == "Schedule Agent"
-    assert enriched["actor_name"] == "Bob"
-    assert enriched["skill_name"] == "Schedule Skill"
-    assert enriched["skill_key"].startswith("schedule-skill-")
-
-    missing = items[str(unnamed)]
-    assert missing["agent_name"] is None
-    assert missing["actor_name"] is None
-    assert missing["skill_name"] is None
-    assert missing["skill_key"] is None

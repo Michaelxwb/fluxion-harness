@@ -1,29 +1,22 @@
 import {
   IconAlertCircle,
-  IconAlertTriangle,
   IconBolt,
   IconCalendarClock,
   IconHourglass,
-  IconMail,
-  IconMinus,
   IconMinusCircle,
   IconPause,
-  IconSend,
   IconSpin,
-  IconTickCircle
+  IconTickCircle,
+  IconUser
 } from '@douyinfe/semi-icons';
 import { Tooltip } from '@douyinfe/semi-ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type {
-  DeliveryStatus,
-  TaskListItem,
-  TaskStatus,
-  TriggerType
-} from './services/tasks';
+import { taskStatusLabel, type Translate } from './scheduleCatalog';
+import type { TaskListItem, TaskStatus, TriggerType } from './services/tasks';
 
-/** 一个单元格里并排表达「触发方式 / 任务状态 / 投递状态」三种事实。 */
+/** 一个单元格里并排表达「触发方式 / 任务状态」两种事实。 */
 export type TaskStatusTone = 'success' | 'running' | 'warning' | 'error' | 'muted';
 
 interface StatusIconSpec {
@@ -36,20 +29,18 @@ const TRIGGER_ICONS: Record<TriggerType, ReactNode> = {
   SCHEDULED: <IconCalendarClock />
 };
 
+/**
+ * v2 把「等待」拆成两类不同事实：`WAITING_EXTERNAL`（异步/轮询/聚合）与 `WAITING_HUMAN`
+ * （等待用户回答）。二者取消规则不同，图标也不同，不再合并成一个 `WAITING`。
+ */
 const STATUS_ICONS: Record<TaskStatus, StatusIconSpec> = {
   QUEUED: { icon: <IconHourglass />, tone: 'muted' },
   RUNNING: { icon: <IconSpin />, tone: 'running' },
-  WAITING: { icon: <IconPause />, tone: 'warning' },
+  WAITING_EXTERNAL: { icon: <IconPause />, tone: 'warning' },
+  WAITING_HUMAN: { icon: <IconUser />, tone: 'warning' },
   COMPLETED: { icon: <IconTickCircle />, tone: 'success' },
   FAILED: { icon: <IconAlertCircle />, tone: 'error' },
   CANCELLED: { icon: <IconMinusCircle />, tone: 'muted' }
-};
-
-const DELIVERY_ICONS: Record<DeliveryStatus, StatusIconSpec> = {
-  PENDING: { icon: <IconSend />, tone: 'warning' },
-  SENT: { icon: <IconMail />, tone: 'success' },
-  FAILED: { icon: <IconAlertTriangle />, tone: 'error' },
-  NONE: { icon: <IconMinus />, tone: 'muted' }
 };
 
 interface StatusIconProps {
@@ -77,13 +68,13 @@ function StatusIcon(props: StatusIconProps) {
 
 export function TaskStatusIcons({ task }: { task: TaskListItem }) {
   const { t } = useTranslation();
+  const translate: Translate = (key) => t(key);
   const triggerLabel = `${t('task.columns.triggerType')}: ${t(`task.trigger.${task.trigger_type}`)}`;
-  const statusLabel = `${t('task.columns.status')}: ${t(`task.status.${task.status}`)}`;
-  const deliveryLabel = `${t('task.columns.deliveryStatus')}: ${t(
-    `task.delivery.${task.delivery_status}`
-  )}`;
-  const status = STATUS_ICONS[task.status];
-  const delivery = DELIVERY_ICONS[task.delivery_status];
+  const statusLabel = `${t('task.columns.status')}: ${taskStatusLabel(translate, task.status)}`;
+  const status = STATUS_ICONS[task.status] ?? {
+    icon: <IconAlertCircle />,
+    tone: 'muted' as const
+  };
   return (
     <div className="task-status-icons" data-testid={`task-status-icons-${task.task_id}`}>
       <StatusIcon
@@ -99,13 +90,6 @@ export function TaskStatusIcons({ task }: { task: TaskListItem }) {
         testId={`task-status-${task.task_id}`}
       >
         {status.icon}
-      </StatusIcon>
-      <StatusIcon
-        label={deliveryLabel}
-        tone={delivery.tone}
-        testId={`task-delivery-${task.task_id}`}
-      >
-        {delivery.icon}
       </StatusIcon>
     </div>
   );

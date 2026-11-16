@@ -222,7 +222,7 @@ def test_gateway_two_workers_aggregate_metrics_without_losing_counts(
                     json={
                         "tenant_id": TENANT,
                         "task_id": task_id,
-                        "delivery_key": f"task:{task_id}:final",
+                        "delivery_key": f"execution:{task_id}:final",
                         "route": {
                             "channel": "WECOM",
                             "bot_id": f"bot-{index % 2}",

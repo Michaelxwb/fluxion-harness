@@ -10,6 +10,17 @@
 
 密钥只进调用内存：响应给出当前明文与由 tenant/provider/指纹派生的 `key_resource_id`，
 但**去重指纹本身不出现**（RULE-secret-001）；MCP 可选鉴权语义保留（无鉴权 = `null`）。
+
+`execution_ref.type=TASK` 时归属按**受信的 Execution 行**复核（design §3.1.5「凭据解析按 owner
+校验 tenant/actor/agent」）：
+
+- tenant：Execution 必须属于请求租户，否则 404（跨租户解析不到密钥）；
+- actor：请求必须声明操作者且等于 `task_execution.actor_user_id`，否则 `TASK_ACCESS_DENIED`
+  （Run 链上 `actor_user_id` 只作审计关联，Task 链上它是门控）；
+- agent：只解析该 Execution **冻结**的那个模型（`execution_snapshot_json.model.id`，即
+  `SnapshotModel.id` 的逻辑模型 UUID）——成员/版本变化只影响新 Execution（RULE-snapshot-001），
+  拿别的模型的 Execution 身份来解析密钥即越权。`task.task_execution` 的所有权仍在 Worker，
+  这里只读这一组事实。
 """
 
 from __future__ import annotations
@@ -22,7 +33,7 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts import ResolveCredentialsRequest
 from muad_contracts.model_pool import SelectedModelCredential
 from pydantic import SecretStr
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.control import ModelCredential, ModelDefinition
@@ -30,6 +41,34 @@ from ..infrastructure.models.mcp import McpServer
 from ..infrastructure.repositories.model_credential_repository import ModelCredentialRepository
 from ..infrastructure.repositories.model_deployment_repository import ModelDeploymentRepository
 from .model_credential_service import derive_key_resource_id
+
+_TASK_EXECUTION_OWNER_SQL = text(
+    "SELECT actor_user_id,"
+    " execution_snapshot_json -> 'model' ->> 'id' AS frozen_model_id"
+    " FROM task.task_execution"
+    " WHERE id = :task_execution_id AND tenant_id = :tenant_id AND is_deleted = false"
+)
+
+
+async def _require_task_owner(
+    session: AsyncSession, tenant_id: str, payload: ResolveCredentialsRequest
+) -> None:
+    """Task 归属门控：租户 → 操作者 → 冻结模型，任一不符即拒绝（不降级成"未限定"）。"""
+    row = (
+        await session.execute(
+            _TASK_EXECUTION_OWNER_SQL,
+            {"tenant_id": tenant_id, "task_execution_id": payload.execution_ref.id},
+        )
+    ).mappings().one_or_none()
+    if row is None:
+        raise AppError(ErrorCode.COMMON_NOT_FOUND)
+    execution_actor = uuid.UUID(str(row["actor_user_id"]))
+    if payload.actor_user_id is None or payload.actor_user_id != execution_actor:
+        raise AppError(ErrorCode.TASK_ACCESS_DENIED)
+    # 快照缺 `model.id` 的旧行无法复核 ⇒ 拒绝（不是"放行未限定"）
+    frozen_model_id = row["frozen_model_id"]
+    if frozen_model_id is None or uuid.UUID(str(frozen_model_id)) != payload.model_id:
+        raise AppError(ErrorCode.TASK_ACCESS_DENIED)
 
 
 def require_service_identity(token: str | None, expected: str | None) -> None:
@@ -127,6 +166,8 @@ async def resolve_runtime_credentials(
     selected: SelectedModelCredential | None = None,
 ) -> dict[str, Any]:
     """解析当前认证值；`selected` 由调用方在同一请求内已经解析过时传入，避免重复查库。"""
+    if payload.execution_ref.type == "TASK":
+        await _require_task_owner(session, tenant_id, payload)
     if selected is None:
         model = await session.get(ModelDefinition, payload.model_id)
         if model is None or model.is_deleted or model.tenant_id != tenant_id:

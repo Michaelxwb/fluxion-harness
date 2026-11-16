@@ -252,7 +252,7 @@ def _resume_cursor(after_seq: int | None, last_event_id: str | None) -> int:
     return max(cursor, int(value))
 
 
-def _download_response(download: ArtifactDownload) -> FileResponse:
+def download_response(download: ArtifactDownload) -> FileResponse:
     """取件响应：`no-store`/`nosniff` + 服务端裁决的 `Content-Disposition`。
 
     存储路径与 `storage_key` 一步都不出现在响应里；HTML/SVG 等可执行内容按附件下载
@@ -622,4 +622,4 @@ async def download_artifact(
     download = await service.open_download(
         chat, artifact_id, conversation_id=conversation_id, checksum=checksum
     )
-    return _download_response(download)
+    return download_response(download)

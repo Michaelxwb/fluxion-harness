@@ -9,9 +9,14 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from muad_agent_runtime.infrastructure.models.runtime import Conversation, ModelInvocationAudit, RunRecord
-from muad_agent_worker.application.delivery_routes import upsert_delivery_route
 from muad_agent_worker.infrastructure.db import get_session_factory as worker_session_factory
-from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskSchedule
+from muad_agent_worker.infrastructure.models.task import (
+    DeliveryRoute,
+    TaskDelivery,
+    TaskExecution,
+    TaskSchedule,
+    TaskScheduleRevision,
+)
 from muad_console_platform.infrastructure.db import get_session_factory
 from muad_console_platform.infrastructure.models.control import (
     AgentDefinition,
@@ -19,7 +24,6 @@ from muad_console_platform.infrastructure.models.control import (
     PlatformUser,
     Skill,
 )
-from muad_contracts import DeliveryRouteInput
 from muad_contracts.enums import RunStatus
 from muad_contracts.platform_settings import default_platform_settings
 from sqlalchemy import text
@@ -31,9 +35,15 @@ WORKER_TENANT_CLEANUP = (
     "DELETE FROM runtime.model_invocation_audit WHERE tenant_id = :t",
     "DELETE FROM runtime.run_record WHERE tenant_id = :t",
     "DELETE FROM runtime.conversation WHERE tenant_id = :t",
+    "UPDATE task.task_schedule SET current_revision_id = NULL WHERE tenant_id = :t",
+    "UPDATE task.schedule_fire SET execution_id = NULL WHERE tenant_id = :t",
     "DELETE FROM task.task_event WHERE tenant_id = :t",
     "DELETE FROM task.task_submission WHERE tenant_id = :t",
+    "DELETE FROM task.task_delivery_attempt WHERE tenant_id = :t",
+    "DELETE FROM task.task_delivery WHERE tenant_id = :t",
     "DELETE FROM task.task_execution WHERE tenant_id = :t",
+    "DELETE FROM task.schedule_fire WHERE tenant_id = :t",
+    "DELETE FROM task.task_schedule_revision WHERE tenant_id = :t",
     "DELETE FROM task.task_schedule WHERE tenant_id = :t",
     "DELETE FROM task.delivery_route WHERE tenant_id = :t",
     "DELETE FROM control.platform_setting WHERE tenant_id = :t",
@@ -110,16 +120,14 @@ async def _seed_task(
                 tenant_id=tenant.tenant_id,
                 agent_id=agent_id,
                 actor_user_id=actor_user_id,
-                intent_key="policy_check",
                 skill_id=uuid.uuid4(),
                 skill_artifact_id=uuid.uuid4(),
                 trigger_type="SCHEDULED",
-                execution_mode="ASYNC",
                 task_type="SKILL",
                 status=status,
                 input_json={},
-                execution_snapshot_schema_version=1,
-                execution_snapshot_json={"schema_version": 1},
+                execution_snapshot_schema_version=4,
+                execution_snapshot_json={"schema_version": 4},
                 snapshot_hash="sha256:" + "d" * 64,
                 idempotency_key=f"overview-{task_id}",
                 priority=100,
@@ -128,10 +136,6 @@ async def _seed_task(
                 not_before=NOW,
                 deadline_at=NOW + timedelta(hours=24),
                 started_at=NOW,
-                delivery_mode="FINAL_ONLY",
-                delivery_status="PENDING",
-                delivery_key=f"task:{task_id}:final",
-                delivery_attempts=0,
                 create_time=create_time or NOW,
             )
         )
@@ -148,38 +152,47 @@ async def _seed_schedule(
     status: str = "ACTIVE",
     next_fire_at: datetime | None = None,
 ) -> uuid.UUID:
-    schedule_id = uuid.uuid4()
+    """v2：Schedule 只存身份/状态，配置在不可变 Revision，`current_revision_id` 回填。"""
+    schedule_id, revision_id = uuid.uuid4(), uuid.uuid4()
     async with worker_session_factory()() as session:
         async with session.begin():
-            route_id = await upsert_delivery_route(
-                session,
-                tenant_id=tenant.tenant_id,
-                platform_user_id=actor_user_id,
-                route=DeliveryRouteInput(
-                    channel="WECOM",
-                    bot_id=f"overview-bot-{schedule_id.hex[:8]}",
-                    external_user_id="overview-user",
-                ),
-            )
             session.add(
                 TaskSchedule(
                     id=schedule_id,
                     tenant_id=tenant.tenant_id,
+                    owner_user_id=actor_user_id,
                     name=name,
                     agent_id=agent_id,
-                    actor_user_id=actor_user_id,
-                    intent_key="policy_check",
-                    skill_id=uuid.uuid4(),
-                    input_template_json={},
-                    schedule_type="CRON",
-                    cron_expr="0 9 * * *",
-                    timezone="Asia/Shanghai",
-                    delivery_route_id=route_id,
                     status=status,
                     next_fire_at=next_fire_at,
-                    revision=1,
+                    created_by=actor_user_id,
                 )
             )
+            await session.flush()
+            session.add(
+                TaskScheduleRevision(
+                    id=revision_id,
+                    tenant_id=tenant.tenant_id,
+                    schedule_id=schedule_id,
+                    revision_no=1,
+                    mode="SKILL",
+                    instruction_raw="每天检查一次",
+                    normalized_goal="检查一次",
+                    recurrence_kind="CRON",
+                    cron_expr="0 9 * * *",
+                    timezone="Asia/Shanghai",
+                    delivery_intent="NONE",
+                    schedule_policy={},
+                    context_json={},
+                    execution_spec={"mode": "SKILL", "skill_id": str(uuid.uuid4())},
+                    preflight_json={},
+                    created_by=actor_user_id,
+                )
+            )
+            await session.flush()
+            schedule = await session.get(TaskSchedule, schedule_id)
+            assert schedule is not None
+            schedule.current_revision_id = revision_id
     return schedule_id
 
 
@@ -286,6 +299,7 @@ async def seed_task(
     mode: str = "FINAL_ONLY",
     deadline: datetime | None = None,
 ) -> uuid.UUID:
+    """v2 Execution 行；`delivery`/`mode` 只用于建独立 Delivery（v1 的行内列已退役）。"""
     task_id = uuid.uuid4()
     async with get_session_factory()() as session:
         session.add(
@@ -294,27 +308,49 @@ async def seed_task(
                 tenant_id=tenant.tenant_id,
                 agent_id=uuid.uuid4(),
                 actor_user_id=uuid.uuid4(),
-                intent_key="overview",
                 skill_id=uuid.uuid4(),
                 skill_artifact_id=uuid.uuid4(),
                 trigger_type="IMMEDIATE",
-                execution_mode="ASYNC",
                 task_type="SKILL",
                 status=status,
                 parent_id=parent,
                 input_json={},
-                execution_snapshot_json={},
-                snapshot_hash="overview-hash",
+                execution_snapshot_schema_version=4,
+                execution_snapshot_json={"schema_version": 4},
+                snapshot_hash="sha256:" + "e" * 64,
                 idempotency_key=task_id.hex,
-                delivery_key=task_id.hex,
-                delivery_status=delivery,
-                delivery_mode=mode,
                 create_time=created,
                 finished_at=finished,
                 is_deleted=deleted,
                 deadline_at=deadline or NOW + timedelta(days=1),
             )
         )
+        # `mode="NONE"` = 无投递意图：不能造出一条投递事实（v2 的 delivery 是独立行）。
+        if delivery == "FAILED" and mode != "NONE":
+            route = DeliveryRoute(
+                id=uuid.uuid4(),
+                tenant_id=tenant.tenant_id,
+                channel="WECOM",
+                bot_id=f"overview-bot-{task_id.hex[:8]}",
+                platform_user_id=uuid.uuid4(),
+                external_user_id="overview-user",
+                route_json={},
+                route_hash=f"overview-route-{task_id}",
+                status="ACTIVE",
+            )
+            session.add(route)
+            await session.flush()
+            session.add(
+                TaskDelivery(
+                    tenant_id=tenant.tenant_id,
+                    execution_id=task_id,
+                    delivery_route_id=route.id,
+                    delivery_kind="FINAL",
+                    delivery_key=f"task:{task_id}:final",
+                    status="FAILED",
+                    create_time=created,
+                )
+            )
         await session.commit()
     return task_id
 

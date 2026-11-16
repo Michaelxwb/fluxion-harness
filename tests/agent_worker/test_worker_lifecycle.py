@@ -69,7 +69,7 @@ async def test_claim_sets_running_lease_and_completes(tenant: TenantContext) -> 
     assert refreshed.lease_owner is None
     assert refreshed.started_at is not None
     events = await fetch_events(tenant, task.id)
-    assert [event.event_type for event in events] == ["CREATED", "CLAIMED", "COMPLETED"]
+    assert [event.event_type for event in events] == ["QUEUED", "CLAIMED", "COMPLETED"]
 
 
 async def test_claim_respects_not_before_and_cancel_requested(tenant: TenantContext) -> None:
@@ -137,9 +137,9 @@ async def test_failure_retries_with_exponential_backoff_then_fails(tenant: Tenan
     events = await fetch_events(tenant, task.id)
     assert [event.event_type for event in events] == [
         "CLAIMED",
-        "RETRY",
+        "QUEUED",
         "CLAIMED",
-        "RETRY",
+        "QUEUED",
         "CLAIMED",
         "FAILED",
     ]
@@ -230,12 +230,15 @@ async def test_sweep_deadlines_marks_failed(tenant: TenantContext) -> None:
 class _FakeLoop:
     instances: list[_FakeLoop] = []
     maintenance_instances: list[_FakeLoop] = []
+    sweep_instances: list[_FakeLoop] = []
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         self.started = asyncio.Event()
         self.stopped = False
         self.maintenance_started = asyncio.Event()
         self.maintenance_stopped = False
+        self.sweep_started = asyncio.Event()
+        self.sweep_stopped = False
         self._forever = asyncio.Event()
         _FakeLoop.instances.append(self)
 
@@ -247,6 +250,14 @@ class _FakeLoop:
             self.stopped = True
             raise
 
+    async def run_fire_forever(self) -> None:
+        """SchedulerLoop 的 v2 入口名（Fire 写入循环），行为与 run_forever 一致。"""
+        await self.run_forever()
+
+    async def run_sweep_forever(self) -> None:
+        """补扫循环的 v2 入口名（异步结果/超时扫描），行为与 run_forever 一致。"""
+        await self.run_forever()
+
     async def run_maintenance_forever(self) -> None:
         """独立维护循环（TASK-095）：与领取循环分开的一条后台任务，退出同样要停。"""
         _FakeLoop.maintenance_instances.append(self)
@@ -255,6 +266,16 @@ class _FakeLoop:
             await self._forever.wait()
         except asyncio.CancelledError:
             self.maintenance_stopped = True
+            raise
+
+    async def run_async_sweep_forever(self) -> None:
+        """异步结果补扫循环（TASK-020）：同样是独立后台任务，退出同样要停。"""
+        _FakeLoop.sweep_instances.append(self)
+        self.sweep_started.set()
+        try:
+            await self._forever.wait()
+        except asyncio.CancelledError:
+            self.sweep_stopped = True
             raise
 
 
@@ -302,6 +323,7 @@ async def test_b122_lifespan_runs_and_stops_all_background_loops(
 
     _FakeLoop.instances = []
     _FakeLoop.maintenance_instances = []
+    _FakeLoop.sweep_instances = []
     _FakeWorkspaceLoop.instances = []
     notifier = _FakeNotifier()
     monkeypatch.setattr(main_module, "WorkerLoop", _FakeLoop)
@@ -323,17 +345,23 @@ async def test_b122_lifespan_runs_and_stops_all_background_loops(
         assert _FakeLoop.maintenance_instances == [worker_fake], (
             "Worker 的回收维护循环是独立后台任务（TASK-095）"
         )
+        await asyncio.wait_for(worker_fake.sweep_started.wait(), timeout=5)
+        assert _FakeLoop.sweep_instances == [worker_fake], (
+            "Worker 的异步结果补扫是独立后台任务（TASK-020）"
+        )
         assert len(_FakeWorkspaceLoop.instances) == 1
         workspace_fake = _FakeWorkspaceLoop.instances[0]
         await asyncio.wait_for(workspace_fake.started.wait(), timeout=5)
         assert all(not loop.stopped for loop in _FakeLoop.instances)
         assert not worker_fake.maintenance_stopped
+        assert not worker_fake.sweep_stopped
         assert not workspace_fake.stopped
         assert main_module.app.state.wakeup_notifier is notifier
         assert main_module.app.state.workspace_maintenance is workspace_fake
 
     assert all(loop.stopped for loop in _FakeLoop.instances), "退出必须取消并等待后台任务"
     assert worker_fake.maintenance_stopped, "维护循环同样随退出停止"
+    assert worker_fake.sweep_stopped, "补扫循环同样随退出停止"
     assert workspace_fake.stopped, "workspace 清理循环同样随退出停止"
     assert notifier.closed is True
     leftover = [task for task in asyncio.all_tasks() - before if not task.done()]

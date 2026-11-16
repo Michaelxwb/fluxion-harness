@@ -44,4 +44,8 @@ class TaskSubmission(StandardColumnsMixin, Base):
     schedule_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid(), sa.ForeignKey("task.task_schedule.id")
     )
+    #: 确认 Draft 时写入，便于审计“哪次确认产生了这条提交”。
+    schedule_draft_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("task.task_schedule_draft.id")
+    )
     response_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)

@@ -53,17 +53,24 @@ from muad_agent_runtime.infrastructure.models.runtime import (
     Conversation,
     RunRecord,
 )
-from muad_agent_worker.application.delivery_routes import upsert_delivery_route
+from muad_agent_worker.application.delivery_routes import WEBCHAT_CHANNEL, upsert_delivery_route
 from muad_agent_worker.application.ports import PlatformSettingsSnapshot
+from muad_agent_worker.application.task_events import EntityType
 from muad_agent_worker.delivery.client import (
     HttpDeliveryClient,
     HttpWebchatInboxClient,
 )
-from muad_agent_worker.delivery.service import WEBCHAT_CHANNEL, DeliveryLoop
+from muad_agent_worker.delivery.records import DeliveryKind, DeliveryState, execution_delivery_key
+from muad_agent_worker.delivery.service import DeliveryLoop
 from muad_agent_worker.infrastructure import db as worker_db
 from muad_agent_worker.infrastructure.db import get_session_factory
 from muad_agent_worker.infrastructure.models.runtime_operations import RuntimeResultOutbox
-from muad_agent_worker.infrastructure.models.task import TaskEvent, TaskExecution
+from muad_agent_worker.infrastructure.models.task import (
+    TaskDelivery,
+    TaskDeliveryAttempt,
+    TaskEvent,
+    TaskExecution,
+)
 from muad_agent_worker.results.dispatcher import ResultDispatcher, ResultDispatchPolicy
 from muad_agent_worker.worker.executor import SkillTaskExecutor
 from muad_agent_worker.worker.service import WorkerLoop
@@ -75,7 +82,6 @@ from muad_contracts import (
     CompletionMode,
     ControlOutboxStatus,
     DeliveryRouteInput,
-    DeliveryStatus,
     OperationStatus,
     RunStatus,
     TaskStatus,
@@ -365,14 +371,19 @@ async def _seed_offline_task(
                 source_run_id=run_id if with_source_run else None,
                 source_operation_id=operation_id if with_source_run else None,
                 source_tool_call_id="call-1" if with_source_run else None,
-                completion_mode=CompletionMode.DETACH if with_source_run else None,
+                completion_mode=(
+                    CompletionMode.JOIN
+                    if with_source_run and channel == WEBCHAT_CHANNEL
+                    else CompletionMode.DETACH
+                    if with_source_run
+                    else None
+                ),
                 agent_id=agent_id,
                 actor_user_id=user_id,
-                intent_key="offline_probe",
                 skill_id=uuid.uuid4(),
                 skill_artifact_id=skill_artifact_id,
                 trigger_type="IMMEDIATE",
-                execution_mode="ASYNC",
+                skill_execution_mode="ASYNC",
                 task_type="SKILL",
                 status=str(TaskStatus.QUEUED),
                 input_json={"customers": ["A"]},
@@ -387,12 +398,20 @@ async def _seed_offline_task(
                 max_attempts=1,
                 not_before=now,
                 deadline_at=now + timedelta(hours=1),
-                delivery_route_id=route_id,
-                delivery_mode="FINAL_ONLY",
-                delivery_status=str(DeliveryStatus.PENDING),
-                delivery_key=f"task:{task_id}:final",
-                delivery_attempts=0,
                 result_artifact_id=artifact_id if with_source_run else None,
+            )
+        )
+        await session.flush()
+        session.add(
+            TaskDelivery(
+                id=uuid.uuid4(),
+                tenant_id=tenant_id,
+                execution_id=task_id,
+                delivery_route_id=route_id,
+                delivery_kind=str(DeliveryKind.PUSH),
+                delivery_key=execution_delivery_key(task_id),
+                status=str(DeliveryState.PENDING),
+                attempt_count=0,
             )
         )
     return OfflineTask(
@@ -509,6 +528,17 @@ async def _task_row(factory: async_sessionmaker[AsyncSession], task_id: uuid.UUI
     return row
 
 
+async def _delivery_row(
+    factory: async_sessionmaker[AsyncSession], task_id: uuid.UUID
+) -> TaskDelivery:
+    async with factory() as session:
+        row = await session.scalar(
+            sa.select(TaskDelivery).where(TaskDelivery.execution_id == task_id)
+        )
+    assert row is not None
+    return row
+
+
 async def _publication(
     factory: async_sessionmaker[AsyncSession], task_id: uuid.UUID
 ) -> RuntimeResultOutbox | None:
@@ -516,7 +546,7 @@ async def _publication(
         return await session.scalar(
             sa.select(RuntimeResultOutbox)
             .where(RuntimeResultOutbox.task_id == task_id)
-            .order_by(RuntimeResultOutbox.task_event_seq.desc())
+            .order_by(RuntimeResultOutbox.task_event_id.desc())
             .limit(1)
         )
 
@@ -553,10 +583,44 @@ async def _event_types(
     async with factory() as session:
         rows = await session.scalars(
             sa.select(TaskEvent.event_type)
-            .where(TaskEvent.task_id == task_id, TaskEvent.event_type.in_(event_types))
+            .where(
+                TaskEvent.entity_type == EntityType.EXECUTION.value,
+                TaskEvent.entity_id == task_id,
+                TaskEvent.event_type.in_(event_types),
+            )
             .order_by(TaskEvent.seq)
         )
     return list(rows)
+
+
+async def _delivery_event_types(
+    factory: async_sessionmaker[AsyncSession], delivery_id: uuid.UUID, event_types: tuple[str, ...]
+) -> list[str]:
+    async with factory() as session:
+        rows = await session.scalars(
+            sa.select(TaskEvent.event_type)
+            .where(
+                TaskEvent.entity_type == EntityType.DELIVERY.value,
+                TaskEvent.entity_id == delivery_id,
+                TaskEvent.event_type.in_(event_types),
+            )
+            .order_by(TaskEvent.seq)
+        )
+    return list(rows)
+
+
+async def _delivery_attempt_count(
+    factory: async_sessionmaker[AsyncSession], delivery_id: uuid.UUID
+) -> int:
+    async with factory() as session:
+        return int(
+            await session.scalar(
+                sa.select(sa.func.count())
+                .select_from(TaskDeliveryAttempt)
+                .where(TaskDeliveryAttempt.delivery_id == delivery_id)
+            )
+            or 0
+        )
 
 
 async def _committed_notification(database_url: str, seed: OfflineTask) -> Any:
@@ -630,9 +694,9 @@ async def test_b268_offline_result_enters_the_persistent_inbox_only_after_runtim
     # 结果还没被 Runtime 受理：不成为投递候选（不消耗投递尝试、不写通知）
     loop = _delivery_loop(isolated, http_client, inbox_url=runtime_probe)
     assert await loop.run_once() is None
-    pending = await _task_row(factory, seed.task_id)
-    assert pending.delivery_status == str(DeliveryStatus.PENDING)
-    assert pending.delivery_attempts == 0, "结果未受理前不得消耗投递尝试"
+    pending = await _delivery_row(factory, seed.task_id)
+    assert pending.status == str(DeliveryState.PENDING)
+    assert pending.attempt_count == 0, "结果未受理前不得消耗投递尝试"
     assert await _notification_rows(factory, seed) == []
 
     # 真实结果发件 → 真实 Runtime HTTP：结果受理（tool_result_inbox）
@@ -645,10 +709,10 @@ async def test_b268_offline_result_enters_the_persistent_inbox_only_after_runtim
     outcome = await loop.run_once()
     assert outcome is not None and outcome.sent is True and outcome.http_status == 200
 
-    delivered = await _task_row(factory, seed.task_id)
-    assert delivered.delivery_status == str(DeliveryStatus.SENT)
-    assert delivered.delivered_at is not None
-    assert delivered.delivery_attempts == 1
+    delivered = await _delivery_row(factory, seed.task_id)
+    assert delivered.status == str(DeliveryState.SENT)
+    assert delivered.sent_at is not None
+    assert delivered.attempt_count == 1
 
     row = await _committed_notification(isolated.database_url, seed)
     assert row.seq == 1 and row.kind == "TASK_RESULT"
@@ -684,7 +748,7 @@ async def test_b268_offline_result_enters_the_persistent_inbox_only_after_runtim
     after_read = await _committed_notification(isolated.database_url, seed)
     assert after_read.read_at is not None
     assert after_read.delivery_state == "NOT_REQUIRED"
-    assert (await _task_row(factory, seed.task_id)).delivery_status == str(DeliveryStatus.SENT)
+    assert (await _delivery_row(factory, seed.task_id)).status == str(DeliveryState.SENT)
 
 
 # --------------------------------------------------------------------------------------
@@ -708,10 +772,10 @@ async def test_b268_redelivery_after_a_lost_receipt_hits_the_original_notificati
     first = _delivery_loop(isolated, http_client, inbox_url=unacked_probe)
     outcome = await first.run_once(now=base)
     assert outcome is not None and outcome.sent is False, "2xx 没有持久确认不算送达"
-    unacked = await _task_row(factory, seed.task_id)
-    assert unacked.delivery_status == str(DeliveryStatus.PENDING)
-    assert unacked.delivery_attempts == 1
-    assert await _event_types(factory, seed.task_id, ("DELIVERY_RETRY",)) == ["DELIVERY_RETRY"]
+    unacked = await _delivery_row(factory, seed.task_id)
+    assert unacked.status == str(DeliveryState.PENDING)
+    assert unacked.attempt_count == 1
+    assert await _delivery_attempt_count(factory, unacked.id) == 1
 
     # 代理吞掉了回执：通知其实已经进箱 ⇒ 重投必须命中同一条（不新占 seq、不新增未读）
     written = await _notification_rows(factory, seed)
@@ -728,14 +792,16 @@ async def test_b268_redelivery_after_a_lost_receipt_hits_the_original_notificati
     assert rows[0].read_at is None
     assert await _feed_last_seq(factory, seed) == 1
 
-    task = await _task_row(factory, seed.task_id)
-    assert task.delivery_status == str(DeliveryStatus.SENT)
-    assert task.delivery_attempts == 2, "只有投递尝试推进，业务执行没有重跑"
-    assert task.attempt == 1
+    execution = await _task_row(factory, seed.task_id)
+    delivery = await _delivery_row(factory, seed.task_id)
+    assert delivery.status == str(DeliveryState.SENT)
+    assert delivery.attempt_count == 2, "只有投递尝试推进，业务执行没有重跑"
+    assert execution.attempt == 1
     assert seed.marker_file.read_text(encoding="utf-8").splitlines() == [str(seed.task_id)]
     assert await _event_types(factory, seed.task_id, TERMINAL_EVENT_TYPES) == ["COMPLETED"]
     assert await _event_types(factory, seed.task_id, ("CLAIMED",)) == ["CLAIMED"]
-    assert await _event_types(factory, seed.task_id, ("DELIVERY_SENT",)) == ["DELIVERY_SENT"]
+    delivery = await _delivery_row(factory, seed.task_id)
+    assert await _delivery_event_types(factory, delivery.id, ("SENT",)) == ["SENT"]
 
 
 # --------------------------------------------------------------------------------------
@@ -757,11 +823,11 @@ async def test_b268_webchat_delivery_without_source_run_or_entry_fails_explicitl
     loop = _delivery_loop(isolated, http_client, inbox_url=runtime_probe)
     outcome = await loop.run_once()
     assert outcome is not None and outcome.sent is False
-    failed = await _task_row(factory, orphan.task_id)
-    assert failed.delivery_status == str(DeliveryStatus.FAILED)
-    assert failed.delivery_attempts == default_platform_settings().task.delivery_max_attempts
-    events = await _event_types(factory, orphan.task_id, ("DELIVERY_FAILED",))
-    assert events == ["DELIVERY_FAILED"]
+    failed = await _delivery_row(factory, orphan.task_id)
+    assert failed.status == str(DeliveryState.FAILED)
+    assert failed.attempt_count == 1, "没有来源 Run 是确定性失败，不做无意义重试"
+    events = await _delivery_event_types(factory, failed.id, ("FAILED",))
+    assert events == ["FAILED"]
     assert await _notification_rows(factory, orphan) == [], "没有来源就不许编造会话通知"
 
     # 会话没有入口归属：Runtime 核属拒绝（404），投递确定性失败且不落通知行
@@ -771,8 +837,8 @@ async def test_b268_webchat_delivery_without_source_run_or_entry_fails_explicitl
     rejected = await loop.run_once()
     assert rejected is not None and rejected.sent is False
     assert rejected.http_status == 404
-    assert (await _task_row(factory, unattributed.task_id)).delivery_status == str(
-        DeliveryStatus.FAILED
+    assert (await _delivery_row(factory, unattributed.task_id)).status == str(
+        DeliveryState.FAILED
     )
     assert await _notification_rows(factory, unattributed) == []
 
@@ -808,7 +874,7 @@ async def test_b268_non_webchat_routes_keep_gateway_delivery_without_runtime_pub
     assert len(calls) == 1
     body = json.loads(calls[0].content)
     assert body["route"]["channel"] == "WECOM"
-    assert (await _task_row(factory, seed.task_id)).delivery_status == str(DeliveryStatus.SENT)
+    assert (await _delivery_row(factory, seed.task_id)).status == str(DeliveryState.SENT)
     assert await _notification_rows(factory, seed) == []
 
 

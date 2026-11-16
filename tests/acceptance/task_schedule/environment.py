@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import socket
 import subprocess
@@ -17,6 +18,7 @@ import time
 import uuid
 import zipfile
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -83,13 +85,24 @@ SKILL_SCRIPT = (
 )
 
 TASK_CLEANUP = (
-    # 0019 新增：runtime_result_outbox 引用 (task_id, task_event_seq)，runtime_operation 引用
-    # task_execution —— 必须先删引用方，否则 task_event/task_execution 的删除会撞 FK。
+    # v2 的投递、人工问题与检查点都物理引用 task_execution；先删子行再删执行行。
+    "DELETE FROM task.task_delivery_attempt WHERE tenant_id = :t",
+    "DELETE FROM task.task_delivery WHERE tenant_id = :t",
+    "DELETE FROM task.task_human_interaction WHERE tenant_id = :t",
+    "DELETE FROM task.task_execution_checkpoint WHERE tenant_id = :t",
+    # 0019/0050：runtime_result_outbox 引用 (task_id, task_event_id)，runtime_operation
+    # 引用 task_execution —— 必须先删引用方，否则 task_event/task_execution 的删除会撞 FK。
     "DELETE FROM task.runtime_result_outbox WHERE tenant_id = :t",
     "DELETE FROM task.runtime_operation WHERE tenant_id = :t",
     "DELETE FROM task.task_event WHERE tenant_id = :t",
     "DELETE FROM task.task_submission WHERE tenant_id = :t",
+    # Schedule ↔ Revision、Fire ↔ Execution 是循环引用：先解环再按子行 → 父行删除。
+    "UPDATE task.schedule_fire SET execution_id = NULL WHERE tenant_id = :t",
     "DELETE FROM task.task_execution WHERE tenant_id = :t",
+    "DELETE FROM task.schedule_fire WHERE tenant_id = :t",
+    "DELETE FROM task.task_schedule_draft WHERE tenant_id = :t",
+    "UPDATE task.task_schedule SET current_revision_id = NULL WHERE tenant_id = :t",
+    "DELETE FROM task.task_schedule_revision WHERE tenant_id = :t",
     "DELETE FROM task.task_schedule WHERE tenant_id = :t",
     "DELETE FROM task.delivery_route WHERE tenant_id = :t",
 )
@@ -270,6 +283,125 @@ class LiveStack:
 
     def service_headers(self) -> dict[str, str]:
         return {"X-Tenant-Id": self.tenant_id, "X-Internal-Service": INTERNAL_TOKEN}
+
+
+def seed_v2_schedule(
+    live_stack: LiveStack,
+    *,
+    cron: str | None = "0 9 * * *",
+    recurrence_kind: str = "CRON",
+    run_at: datetime | None = None,
+    name: str | None = None,
+    input_template: dict[str, Any] | None = None,
+    with_submission_event: bool = False,
+) -> str:
+    """直插 v2 Schedule + Revision + DeliveryRoute（创建入口已是 Draft + 确认）。
+
+    `test_schedules` / `test_environment` 只验证调度与清理事实，不重复覆盖 Draft 流程；
+    Revision 的交付意图用 PUSH，让 Worker 能按真实路由投递。
+    """
+    schedule_id, revision_id, route_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    route_json = {
+        "channel": "WECOM",
+        "bot_id": getattr(live_stack, "bot_id", "e2e-no-bot"),
+        "external_user_id": "e2e-external-user",
+        "external_conversation_id": "e2e-conversation",
+    }
+    execution_spec = {
+        "mode": "SKILL",
+        "skill_id": str(live_stack.skill_id),
+        "input_template": input_template or {"case": "schedule"},
+    }
+
+    async def seed(factory: Any) -> None:
+        async with factory() as session, session.begin():
+            await session.execute(
+                text(
+                    "INSERT INTO task.delivery_route "
+                    "(id, tenant_id, channel, bot_id, platform_user_id, external_user_id, "
+                    " external_conversation_id, route_json, route_hash, status, is_deleted) "
+                    "VALUES (:id, :tenant, 'WECOM', :bot_id, :user_id, 'e2e-external-user', "
+                    " 'e2e-conversation', CAST(:route_json AS jsonb), :route_hash, 'ACTIVE', false)"
+                ),
+                {
+                    "id": route_id,
+                    "tenant": live_stack.tenant_id,
+                    "bot_id": getattr(live_stack, "bot_id", "e2e-no-bot"),
+                    "user_id": live_stack.platform_user_id,
+                    "route_json": json.dumps(route_json),
+                    "route_hash": "sha256:" + route_id.hex,
+                },
+            )
+            await session.execute(
+                text(
+                    "INSERT INTO task.task_schedule "
+                    "(id, tenant_id, owner_user_id, agent_id, name, status, config_version, "
+                    " next_fire_at, created_by, is_deleted) "
+                    "VALUES (:id, :tenant, :owner, :agent, :name, 'ACTIVE', 1, :next_fire, :owner, false)"
+                ),
+                {
+                    "id": schedule_id,
+                    "tenant": live_stack.tenant_id,
+                    "owner": live_stack.platform_user_id,
+                    "agent": live_stack.agent_id,
+                    "name": name or f"e2e-schedule-{schedule_id.hex[:8]}",
+                    "next_fire": run_at or datetime.now(UTC),
+                },
+            )
+            await session.execute(
+                text(
+                    "INSERT INTO task.task_schedule_revision "
+                    "(id, tenant_id, schedule_id, revision_no, mode, instruction_raw, normalized_goal, "
+                    " recurrence_kind, cron_expr, run_at, timezone, schedule_policy, context_json, "
+                    " execution_spec, delivery_intent, delivery_route_id, preflight_json, created_by, "
+                    " is_deleted) "
+                    "VALUES (:id, :tenant, :schedule_id, 1, 'SKILL', 'e2e schedule', 'e2e schedule', "
+                    " :recurrence_kind, :cron, :run_at, 'Asia/Shanghai', '{}'::jsonb, '{}'::jsonb, "
+                    " CAST(:execution_spec AS jsonb), 'PUSH', :route_id, '{}'::jsonb, :owner, false)"
+                ),
+                {
+                    "id": revision_id,
+                    "tenant": live_stack.tenant_id,
+                    "schedule_id": schedule_id,
+                    "recurrence_kind": recurrence_kind,
+                    "cron": cron,
+                    "run_at": run_at,
+                    "execution_spec": json.dumps(execution_spec),
+                    "route_id": route_id,
+                    "owner": live_stack.platform_user_id,
+                },
+            )
+            await session.execute(
+                text("UPDATE task.task_schedule SET current_revision_id = :id WHERE id = :schedule_id"),
+                {"id": revision_id, "schedule_id": schedule_id},
+            )
+            if with_submission_event:
+                await session.execute(
+                    text(
+                        "INSERT INTO task.task_submission "
+                        "(tenant_id, idempotency_key, endpoint, request_fingerprint, actor_user_id, "
+                        " schedule_id, response_json) "
+                        "VALUES (:tenant, :key, 'SCHEDULE', :fingerprint, :actor, :schedule_id, '{}'::jsonb)"
+                    ),
+                    {
+                        "tenant": live_stack.tenant_id,
+                        "key": f"e2e-cleanup-{schedule_id}",
+                        "fingerprint": "sha256:" + schedule_id.hex,
+                        "actor": live_stack.platform_user_id,
+                        "schedule_id": schedule_id,
+                    },
+                )
+                await session.execute(
+                    text(
+                        "INSERT INTO task.task_event "
+                        "(tenant_id, entity_type, entity_id, seq, event_type, payload_json) "
+                        "VALUES (:tenant, 'SCHEDULE', :schedule_id, 1, 'CREATED', '{}'::jsonb)"
+                    ),
+                    {"tenant": live_stack.tenant_id, "schedule_id": schedule_id},
+                )
+
+    run_db(seed)
+    return str(schedule_id)
 
 
 def _service_env(base: dict[str, str], **overrides: str) -> dict[str, str]:

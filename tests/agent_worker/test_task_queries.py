@@ -9,11 +9,11 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from httpx import AsyncClient
-from muad_agent_worker.application.task_events import TaskEventType, append_event
-from muad_agent_worker.scheduler.service import ScheduleService
+from muad_agent_worker.application.task_events import EntityType, TaskEventType, append_event
+from muad_agent_worker.infrastructure.models.task import TaskSchedule, TaskScheduleRevision
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import create_schedule_payload, internal_service_headers, persist_task
+from agent_worker.helpers import internal_service_headers, persist_task
 
 
 def _headers(tenant: TenantContext) -> dict[str, str]:
@@ -21,13 +21,44 @@ def _headers(tenant: TenantContext) -> dict[str, str]:
 
 
 async def _create_schedule(tenant: TenantContext) -> uuid.UUID:
-    """schedule_id 有真实外键，必须建真实 Schedule 才能挂 Task。"""
-    async with tenant.session_factory() as session:
-        schedule = await ScheduleService(session, tenant.settings).create_schedule(
-            tenant.tenant_id, create_schedule_payload(tenant)
+    """schedule_id 有真实外键，必须建真实 Schedule + Revision 才能挂 Task（v2 口径）。"""
+    schedule_id, revision_id, owner, agent = uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    async with tenant.session_factory() as session, session.begin():
+        schedule = TaskSchedule(
+            id=schedule_id,
+            tenant_id=tenant.tenant_id,
+            owner_user_id=owner,
+            agent_id=agent,
+            name="查询用例任务",
+            status="ACTIVE",
+            config_version=1,
+            created_by=owner,
         )
-        await session.commit()
-    return schedule.id
+        session.add(schedule)
+        await session.flush()
+        session.add(
+            TaskScheduleRevision(
+                id=revision_id,
+                tenant_id=tenant.tenant_id,
+                schedule_id=schedule_id,
+                revision_no=1,
+                mode="REMINDER",
+                instruction_raw="提醒我开会",
+                normalized_goal="提醒开会",
+                recurrence_kind="CRON",
+                cron_expr="0 8 * * *",
+                timezone="UTC",
+                schedule_policy={},
+                context_json={},
+                execution_spec={"mode": "REMINDER", "reminder_text": "开会"},
+                delivery_intent="NONE",
+                preflight_json={},
+                created_by=owner,
+            )
+        )
+        await session.flush()
+        schedule.current_revision_id = revision_id
+    return schedule_id
 
 
 async def _append_events(
@@ -39,7 +70,8 @@ async def _append_events(
                 await append_event(
                     session,
                     tenant_id=tenant.tenant_id,
-                    task_id=task_id,
+                    entity_type=EntityType.EXECUTION,
+                    entity_id=task_id,
                     event_type=TaskEventType[name],
                 )
 
@@ -49,16 +81,17 @@ async def test_detail_includes_timeline_in_seq_order(
 ) -> None:
     """详情返回 Timeline，且按 seq 升序（不是按插入顺序碰运气）。"""
     task = await persist_task(tenant)
-    await _append_events(tenant, task.id, ["CREATED", "CLAIMED", "RETRY", "COMPLETED"])
+    # v2 的执行事件目录里没有 CREATED/RETRY：执行建立是 QUEUED，重新领取是 RECLAIMED。
+    await _append_events(tenant, task.id, ["QUEUED", "CLAIMED", "RECLAIMED", "COMPLETED"])
 
     detail = await client.get(f"/internal/tasks/{task.id}", headers=_headers(tenant))
 
     assert detail.status_code == 200, detail.text
     timeline = detail.json()["data"]["timeline"]
     assert [item["event_type"] for item in timeline] == [
-        "CREATED",
+        "QUEUED",
         "CLAIMED",
-        "RETRY",
+        "RECLAIMED",
         "COMPLETED",
     ]
     assert [item["seq"] for item in timeline] == [1, 2, 3, 4]
@@ -113,6 +146,24 @@ async def test_list_filters_by_schedule_id(client: AsyncClient, tenant: TenantCo
 
     listing = await client.get(
         "/internal/tasks", params={"schedule_id": str(schedule_id)}, headers=_headers(tenant)
+    )
+
+    assert listing.status_code == 200, listing.text
+    page = listing.json()["data"]
+    assert page["total"] == 1
+    assert page["items"][0]["task_id"] == str(wanted.id)
+
+
+async def test_list_filters_by_task_id_keyword(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """短任务 id 包含匹配；大小写/连字符不要求精确。"""
+    wanted = await persist_task(tenant)
+    await persist_task(tenant)
+    fragment = str(wanted.id)[:8]
+
+    listing = await client.get(
+        "/internal/tasks", params={"keyword": fragment}, headers=_headers(tenant)
     )
 
     assert listing.status_code == 200, listing.text

@@ -12,6 +12,7 @@ label 只含任务类型/状态、技能键、投递状态与维护节拍结局�
 from __future__ import annotations
 
 import logging
+import time
 from collections import Counter
 from collections.abc import Mapping
 from typing import Final, Literal
@@ -47,6 +48,9 @@ PLATFORM_SETTINGS_FETCH_METRIC: Final = "platform_settings_fetch_total"
 WORKSPACE_CLEANUP_METRIC: Final = "workspace_cleanup_total"
 #: workspace 配额拒绝（无 label：拒绝本身就是唯一维度，资源 ID 不进 label）。
 WORKSPACE_QUOTA_REJECTED_METRIC: Final = "workspace_quota_rejected_total"
+#: Agentic 上下文压缩结局：`layer` 是触发/降级的层（`"*"` 表示整条链失败），`status` 是
+#: FIRED/FAILED/SKIPPED。压缩失败一律退化为"不压缩"，但**必须看得见**（RULE-04）。
+CONTEXT_COMPACTION_METRIC: Final = "context_compaction_total"
 
 #: 清理状态（封闭枚举）；SCANNED 记扫描批次，DELETED/SKIPPED/FAILED 记逐目录结局。
 WorkspaceCleanupStatus = Literal["SCANNED", "DELETED", "SKIPPED", "FAILED"]
@@ -54,16 +58,122 @@ WorkspaceCleanupStatus = Literal["SCANNED", "DELETED", "SKIPPED", "FAILED"]
 COUNTER: Final = "counter"
 GAUGE: Final = "gauge"
 
+# --- scheduled-task-v2 调度执行面（design §3.5.12） ---------------------------------------
+#: ACTIVE Schedule 数（gauge）：调度面当前工作量。
+SCHEDULE_ACTIVE_COUNT_METRIC: Final = "schedule_active_count"
+#: NEEDS_ATTENTION Schedule 数（gauge）：永久依赖错误后等用户修复，长期非零要告警。
+SCHEDULE_NEEDS_ATTENTION_COUNT_METRIC: Final = "schedule_needs_attention_count"
+#: 计划槽到调度扫描的延迟（gauge，秒）：最近一次处理到的 due Schedule 的迟到量。
+SCHEDULE_DUE_LAG_SECONDS_METRIC: Final = "schedule_due_lag_seconds"
+#: 真正建出 Execution 的 Fire 数（counter）；被跳过/准入失败的 Fire 不冒充产出。
+SCHEDULE_FIRE_CREATED_METRIC: Final = "schedule_fire_created_total"
+#: `(tenant_id, schedule_id, scheduled_at)` 唯一约束拦下的重复 Fire（counter）。
+SCHEDULE_FIRE_DUPLICATE_METRIC: Final = "schedule_fire_duplicate_total"
+#: Fire 跳过数（counter，label `reason` 为封闭 `SkipReason`：QUOTA/OVERLAP/MISFIRE）。
+SCHEDULE_FIRE_SKIPPED_METRIC: Final = "schedule_fire_skipped_total"
+#: 准入失败数（counter，label `reason` 为目录错误码：SKILL_NOT_FOUND/…）。
+SCHEDULE_ADMISSION_FAILED_METRIC: Final = "schedule_admission_failed_total"
+#: 时区/规则解析失败（counter）：坏 TZDB 输入必须可见，不能只在日志里。
+SCHEDULE_TIMEZONE_ERROR_METRIC: Final = "schedule_timezone_resolution_error_total"
+#: Execution 耗时（gauge，秒；label `type` 为 SKILL/BATCH）：api-kit 只有 counter/gauge，
+#: 不引入 histogram；每个终态样本覆盖前值，分布由部署层抓取周期决定。
+TASK_EXECUTION_DURATION_SECONDS_METRIC: Final = "task_execution_duration_seconds"
+#: 等待用户回答 / 等待外部结果的 Execution 数（gauge）：任务中心积压的直接观测面。
+TASK_WAITING_HUMAN_COUNT_METRIC: Final = "task_waiting_human_count"
+TASK_WAITING_EXTERNAL_COUNT_METRIC: Final = "task_waiting_external_count"
+#: Human 问题超时收尾数（counter）：E-07 的失败面必须可对账。
+TASK_HUMAN_TIMEOUT_METRIC: Final = "task_human_timeout_total"
+#: 最近一次成功组装的 Snapshot 字节数（gauge）：大小上限告警的来源（RISK-15）。
+TASK_SNAPSHOT_BYTES_METRIC: Final = "task_snapshot_bytes"
+#: ASYNC Skill operation 提交结局（counter，label `status`：SUBMITTED/SUBMIT_FAILED）。
+TASK_ASYNC_OPERATION_METRIC: Final = "task_async_operation_total"
+#: WebChat/MSSWWEB 任务中心查询数（counter）：pull surface 的读取量，与投递无关。
+TASK_QUERY_ONLY_METRIC: Final = "task_query_only_total"
+#: 领取与 deadline 收尾的既有计数（此前只有裸名字、未进目录，`/metrics` 无流量时看不到）。
+TASK_CLAIM_METRIC: Final = "task_claim_total"
+TASK_DEADLINE_EXCEEDED_METRIC: Final = "task_deadline_exceeded_total"
+
+# --- 独立后台循环监督（design §4.1 / §4.2） ----------------------------------------------
+#: 每个独立循环每轮的结局（counter，label `loop` 为封闭循环名、`status` 为 ok/failed）。
+WORKER_LOOP_TICK_METRIC: Final = "worker_loop_tick_total"
+#: 超过自身节拍允许的停顿（counter，label `loop`）：循环还活着但不能前进。
+WORKER_LOOP_STALE_METRIC: Final = "worker_loop_stale_total"
+#: 监督器重启次数（counter，label `loop`）：崩溃或停顿后已重启。
+WORKER_LOOP_RESTART_METRIC: Final = "worker_loop_restart_total"
+
+#: 进程内循环心跳：`loop_tick_age()` 由监督器读取；不导出样本（避免把时间戳写进 label）。
+_loop_ticks: dict[str, float] = {}
+
 # 目录：(指标名, 类型, label 名, help)。安装时声明，使 `/metrics` 无流量时也暴露完整目录。
 CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
     ("runtime_result_dispatch_total", COUNTER, ("status",), "Durable result dispatch outcomes"),
     ("task_hint_degraded_total", COUNTER, ("status",), "Redis task hint degradations"),
     (TASKS_METRIC, COUNTER, ("type", "status"), "Task executions by task type and terminal status"),
+    (TASK_CLAIM_METRIC, COUNTER, (), "Tasks claimed for execution"),
+    (TASK_DEADLINE_EXCEEDED_METRIC, COUNTER, (), "Tasks failed because their deadline passed"),
     (TASK_QUEUE_DEPTH_METRIC, GAUGE, (), "Claimable tasks observed at the last claim poll"),
     (TASK_RECLAIM_METRIC, COUNTER, (), "Tasks requeued after their lease expired"),
     (TASK_LEASE_EXPIRED_METRIC, COUNTER, (), "Expired leases observed by the reclaimer"),
     (SCHEDULED_FIRE_METRIC, COUNTER, ("status",), "Schedule fires by outcome"),
     (SCHEDULED_MISFIRE_METRIC, COUNTER, (), "Schedules skipped for missing their fire time"),
+    (SCHEDULE_ACTIVE_COUNT_METRIC, GAUGE, (), "Schedules currently ACTIVE"),
+    (
+        SCHEDULE_NEEDS_ATTENTION_COUNT_METRIC,
+        GAUGE,
+        (),
+        "Schedules waiting for user repair after a permanent admission failure",
+    ),
+    (SCHEDULE_DUE_LAG_SECONDS_METRIC, GAUGE, (), "Plan slot to scheduler scan lag in seconds"),
+    (SCHEDULE_FIRE_CREATED_METRIC, COUNTER, (), "Fires that created an execution"),
+    (SCHEDULE_FIRE_DUPLICATE_METRIC, COUNTER, (), "Duplicate fires rejected by the occurrence key"),
+    (
+        SCHEDULE_FIRE_SKIPPED_METRIC,
+        COUNTER,
+        ("reason",),
+        "Skipped fires by closed skip reason",
+    ),
+    (
+        SCHEDULE_ADMISSION_FAILED_METRIC,
+        COUNTER,
+        ("reason",),
+        "Fires rejected by admission by catalog error code",
+    ),
+    (
+        SCHEDULE_TIMEZONE_ERROR_METRIC,
+        COUNTER,
+        (),
+        "Schedule recurrence rules rejected because their timezone/rule could not resolve",
+    ),
+    (
+        TASK_EXECUTION_DURATION_SECONDS_METRIC,
+        GAUGE,
+        ("type",),
+        "Latest terminal task execution duration in seconds by task type",
+    ),
+    (TASK_WAITING_HUMAN_COUNT_METRIC, GAUGE, (), "Executions currently WAITING_HUMAN"),
+    (TASK_WAITING_EXTERNAL_COUNT_METRIC, GAUGE, (), "Executions currently WAITING_EXTERNAL"),
+    (TASK_HUMAN_TIMEOUT_METRIC, COUNTER, (), "Human interactions closed by their deadline"),
+    (TASK_SNAPSHOT_BYTES_METRIC, GAUGE, (), "Bytes of the latest assembled execution snapshot"),
+    (
+        TASK_ASYNC_OPERATION_METRIC,
+        COUNTER,
+        ("status",),
+        "ASYNC tool operation submissions by outcome",
+    ),
+    (TASK_QUERY_ONLY_METRIC, COUNTER, (), "Task-center query requests served"),
+    (WORKER_LOOP_TICK_METRIC, COUNTER, ("loop", "status"), "Independent loop ticks by outcome"),
+    (
+        WORKER_LOOP_STALE_METRIC,
+        COUNTER,
+        ("loop",),
+        "Independent loops found stalled past their own cadence",
+    ),
+    (
+        WORKER_LOOP_RESTART_METRIC,
+        COUNTER,
+        ("loop",),
+        "Independent loops restarted after a crash or stall",
+    ),
     (DELIVERY_METRIC, COUNTER, ("status",), "Deliveries by resulting delivery status"),
     (DELIVERY_ATTEMPT_METRIC, COUNTER, (), "Delivery attempts started (reserve plus send)"),
     (DELIVERY_FAILED_METRIC, COUNTER, (), "Deliveries failed terminally or abandoned"),
@@ -110,6 +220,12 @@ CATALOG: Final[tuple[tuple[str, str, tuple[str, ...], str], ...]] = (
         (),
         "Workspace acquisitions rejected by quota",
     ),
+    (
+        CONTEXT_COMPACTION_METRIC,
+        COUNTER,
+        ("layer", "status"),
+        "Agentic context compaction by layer and outcome (fired/failed/skipped)",
+    ),
 )
 
 
@@ -137,6 +253,11 @@ def record_gauge(name: str, amount: float, labels: Mapping[str, str] | None = No
     set_gauge(name, amount, labels)
 
 
+def record_label(name: str, label: str, value: str) -> None:
+    """记一次只带**一个**自定义 label 的目录计数（如 `reason`）；label 名与值都必须封闭。"""
+    inc_counter(name, 1, {label: value})
+
+
 def record_workspace_cleanup(status: WorkspaceCleanupStatus, amount: int = 1) -> None:
     """记一次 workspace 维护结局；label 只取封闭状态，不含路径/租户/资源 ID。"""
     if amount < 0:
@@ -149,6 +270,23 @@ def record_workspace_cleanup(status: WorkspaceCleanupStatus, amount: int = 1) ->
 def record_workspace_quota_rejected() -> None:
     """记一次配额拒绝：拒绝必须可见，不能静默截断/跳过。"""
     inc_counter(WORKSPACE_QUOTA_REJECTED_METRIC, 1)
+
+
+def record_loop_tick(name: str, status: str) -> None:
+    """记一次独立循环的节拍：`status` 只取 ok/failed，`name` 是封闭循环名。"""
+    _loop_ticks[name] = time.monotonic()
+    inc_counter(WORKER_LOOP_TICK_METRIC, 1, {"loop": name, "status": status})
+
+
+def mark_loop_started(name: str) -> None:
+    """循环刚被装配/重启：心跳从现在起算，启动本身不算停顿。"""
+    _loop_ticks[name] = time.monotonic()
+
+
+def loop_tick_age(name: str) -> float | None:
+    """自上次心跳以来的秒数；从未启动返回 `None`（监督器据此只记录、不判断停顿）。"""
+    started = _loop_ticks.get(name)
+    return None if started is None else time.monotonic() - started
 
 
 def install_worker_metrics(app: FastAPI) -> None:

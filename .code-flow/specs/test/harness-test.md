@@ -6,7 +6,7 @@
 
 ## Rules
 
-- [RULE-test-001] 跨 API/DB/Runtime/Browser 的关键流程必须 E2E 且明确“不得 mock 的真实边界”（真实 PostgreSQL、真实 Redis 行为、真实 HTTP、真实浏览器渲染）；单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
+- [RULE-test-001] 跨 API/DB/Runtime 的关键流程必须由自动化集成/契约测试覆盖，并明确“不得 mock 的真实边界”（真实 PostgreSQL、真实 Redis 行为、真实 HTTP）；浏览器流程由人工场景（`S-*`/`E-*`/`B-*`）在真实构建产物、真实浏览器和真实服务上验证并记录，E2E 不再是 CI 门禁。单元测试覆盖纯逻辑与状态机，契约测试覆盖枚举/错误码/迁移一致性。
 
 ## Conventions
 
@@ -23,7 +23,7 @@
   - ❌ 共用 dev 库再靠「跑前清残留」维持隔离；❌ 让使用者手动 `export DATABASE_URL/REDIS_URL`。
   - 清理要有界重试两类瞬时竞态：`DROP DATABASE ... WITH (FORCE)` 撞 autovacuum 的 `InsufficientPrivilegeError` 做有界重试；真实栈存活期 purge 撞并发写入时整个清理事务重试（`tests/acceptance/datastores.py`、`tests/acceptance/im_gateway/environment.py`）。
 - **验收栈的「可注入节拍」一律注入小值，测试侧常量必须读注入值**：轮询/扫描/退避不改变被测语义，只改变墙钟。生产默认 → 注入值：`WORKER_POLL_INTERVAL_SEC` 5→1、`SCHEDULER_POLL_INTERVAL_SEC` 10→2、`TASK_DEADLINE_SWEEP_INTERVAL_SEC` 30→2、`DELIVERY_POLL_INTERVAL_SEC` 5→1、`DELIVERY_BACKOFF_BASE_SEC` 5→1（或 2）。✅ 测试常量从注入值派生（`DEADLINE_SWEEP_SEC = TASK_DEADLINE_SWEEP_INTERVAL_SEC`）；❌ 写死生产默认（注入生效后断言与实际节拍静默脱节）；❌ 无差别压 `TASK_LEASE_SEC`（须显著大于心跳间隔，`dfx/environment.py`）。
-- **「常量值」与「行为规律」分层验证**：等真实时间变慢的断言拆两层——E2E 注入小参数验规律（几何增长、耗尽后写审计），生产默认值由毫秒级单测钉住（`tests/test_platform_settings_schema.py::test_other_groups_keep_designed_defaults`）。前提是常量可配置（设置项而非模块常量）；✅ 两侧证明的事实集合不变；❌ 让「生产默认是 X」只有一条长 E2E 覆盖。
+- **「常量值」与「行为规律」分层验证**：等真实时间变慢的断言拆两层——集成/人工场景注入小参数验规律（几何增长、耗尽后写审计），生产默认值由毫秒级单测钉住（`tests/test_platform_settings_schema.py::test_other_groups_keep_designed_defaults`）。前提是常量可配置（设置项而非模块常量）；✅ 两侧证明的事实集合不变；❌ 让「生产默认是 X」只有一条长链路覆盖。
 - **验收耗时优化必须由 `--durations` 归因驱动**：`setup` 与 `call` 分开看，不要从「哪段看起来慢」推瓶颈；实测反例是「栈启动慢」与「轮询」都错，榜首是等退避窗口的用例。
 - **进程破坏型浏览器用例必须独立项目并最后跑**：SIGKILL/重启 Gateway 的用例把重启进程挂在自己的 Playwright worker 下；Playwright 在任一条用例失败后会停掉并重建 worker，看护进程随之退出，后续每条用例都会在入口快照阶段 502，把一条失败放大成整域雪崩。✅ `playwright.webchat-regression.config.ts` 用 `projects` 拆分，`capacity-recovery.spec.ts` 作为依赖项目最后执行；❌ 与只读回归混在同一 worker，靠「应该不会失败」保证顺序。
 - **同步点用服务端事实，不抓瞬时流式 DOM**：需要「Run 正在执行」时读 API-15 `active_run` 或 PG 状态；需要「确认结果已写入」时读 canonical 事件/记忆行。✅ `waitForActiveRun` + `MEMORY_CONFIRMATION_RESOLVED` 行断言；❌ `getByTestId('chat-streaming-reply')` 可见性当切换/撤销前提（快 Run 在首次轮询前就收敛，单跑绿、整跑红）。
@@ -38,7 +38,7 @@
 - **强杀/回收类用例的等待预算要给足整跑余量**：单跑能过的窗口在全量负载下会拉长；只放大等待预算，断言不变（实例：Reaper 回收与探针延迟）。
 - **多副本下在飞 SSE 与执行实例不保证同 Pod**：SIGKILL 执行实例后，订阅可能由另一实例继续追尾并先收到 Reaper 的 `run.error`。✅ 失败终态按 `run.error` 识别；重连游标已越过终态时允许空续跟；终态断言对两次订阅取并集；SSE 读取必须落实 `timeout_sec`。❌ 假设「在飞订阅断开时必无终态、重连必能读到终态」——多副本 + 入口代理下首个订阅会先消费 `run.error`，旧断言要么误判、要么因只等 `run.terminal` 且忽略 timeout 而永久挂起（2026-10-31 `test_e08_runtime_kill_*`）。
 - **任务声明的 tests 必须真实执行**：相同 argv/cwd/timeout 复用；测试未收集、未执行或失败均视为 FAIL。
-- **每个需求收尾必须有 `tests/<domain>_inventory.py` 闭合清单**：以**真实盘面**为输入交叉核对，而不是自查断言——任务文档的 TASK 覆盖表与声明的 tests、Spec-Refs、Scenarios、E2E 套件与场景名是否真的在盘。现网已有多份（console_auth/overview_dashboard/audit_observability/dfx/agent_memory/async_tool_runtime/context_compaction/memory_redesign/platform_settings/run_event_details 等）。
+- **每个需求收尾必须有 `tests/<domain>_inventory.py` 闭合清单**：以**真实盘面**为输入交叉核对，而不是自查断言——任务文档的 TASK 覆盖表与声明的 tests、Spec-Refs、Scenarios、人工场景（及保留的 E2E 套件）是否真的在盘。现网已有多份（console_auth/overview_dashboard/audit_observability/dfx/agent_memory/async_tool_runtime/context_compaction/memory_redesign/platform_settings/run_event_details 等）。
   - 覆盖表每行（含 RULE 规则行）唯一负责人且终态，**不豁免收口任务自身**；任务文档的 TASK 段与 inventory 同 ID/命令。
   - 终态场景与规则行必须真实在盘且状态一致；**非 manual 行必须有对应测试路径**。
   - 覆盖表要为该任务 `Spec-Refs`/`Scenarios` 的每个 ID 留一行（只断言「行是否终态」查不出整行被删）；不得残留占位行；`-k`/`-g` 令牌必须真实命中。
@@ -48,7 +48,8 @@
 
 **CI**：
 
-- **CI-first 验收**：全量 acceptance / 单测以 CI 为准，本地只跑靶向套件；已知失败登记在 `docs/operations/e2e-known-issues.md`。
+- **CI-first 验收**：全量 acceptance / 单测以 CI 为准，本地只跑靶向套件；已知失败登记在 `docs/operations/e2e-known-issues.md`。浏览器 E2E 不再进 CI，按人工场景执行并记录。
+- **CI 不运行浏览器 smoke/e2e**：原 `smoke`/`e2e` job 已移除；CI 门禁是 `backend-static` / `backend-tests` / `acceptance` / `frontend` / `component`。现有 `e2e/` 代码保留用于本地或按需执行，不能作为合并门禁。
 - **测试租户清理覆盖 runtime 记忆表**：租户 fixture 必须删 `user_memory_history`/`user_memory`/`memory_scope`/`memory_command_receipt`/`memory_consolidation_job`；共享 dev 库的残留会被 runtime 维护循环扫到（实例：`test-*` 旧 content 触发每秒 `memory_background_pump_failed`）。
 - **微基准不作为单测性能门禁**：5 chunk/1 repeat 的跨场景耗时排序会被预热/调度噪声翻转；单测只断言结构（场景存在、事件数、正数耗时），耗时只作诊断输出（`test_capacity_chunk_bench.py`）。
 - **本地跑测/Playwright 前停 dev 服务**：`scripts/dev.sh stop` 按精确仓库根 cwd + 端口持有者清理 multiprocessing/uvicorn reload 子进程；e2e 的 `pretest` 先停 dev，避免 `--reload` Worker 抢共享库任务。
@@ -60,7 +61,7 @@
 
 - ❌ 恒真断言：`assert reaped >= 0`、对可能为空集合 `all(...)`、`exclude={"api_key"}` 后再断言无 `api_key`——断言必须能真实失败。
 - ❌ 命令与场景不符：`-k` 未命中任何测试（退出码 5）却标记 verified；测试名/文件与任务声明的 tests 不一致。
-- ❌ 验收层级注水：把 service/DB 级测试写成 E2E，或边界文案（真实 Gateway/进程/SSE）与测试实际行为不符；用 jsdom/组件单测冒充 E2E。
+- ❌ 验收层级注水：把 service/DB 级测试写成 E2E，或边界文案（真实 Gateway/进程/SSE）与测试实际行为不符；用 jsdom/组件单测冒充 E2E；用“CI 不再跑 E2E”跳过真实浏览器人工验收。
 - ❌ 空转用例：测试名说「跨 host 跳转拒绝」却请求 `/healthz`、`follow_redirects=False` 从未触发跳转。
 - ❌ **多输入断言的腿被合并**：断言「改配置/授权只影响新 Run」必须一次只改一个输入，并断言其余腿对应列不变。✅ 逐腿改 `agent.instructions` 与 `model.params_json` 各断言一次；❌ 同时改两处后只断言 hash 变了。
 - ❌ 把验收输出接进会提前关闭的管道（典型 `| head`）：SIGPIPE 打断 pytest 收尾，留下 uvicorn/`muad_*.main` 孤儿进程继续连同一个本地测试库，后续随机失败。用 `> file` 或 `tail`，每次运行前确认无残留进程。**本条无机检，靠运行前自查与评审。**

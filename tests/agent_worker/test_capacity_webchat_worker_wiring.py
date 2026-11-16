@@ -52,6 +52,11 @@ import pytest
 import uvicorn
 from fastapi import FastAPI
 from muad_agent_worker.application.delivery_routes import upsert_delivery_route
+from muad_agent_worker.delivery.records import (
+    DeliveryKind,
+    DeliveryState,
+    execution_delivery_key,
+)
 from muad_agent_worker.infrastructure import db as worker_db
 from muad_agent_worker.infrastructure.db import get_session_factory
 from muad_agent_worker.infrastructure.http_clients import (
@@ -60,12 +65,13 @@ from muad_agent_worker.infrastructure.http_clients import (
     pool_limits,
     pool_timeout,
 )
-from muad_agent_worker.infrastructure.models.task import TaskExecution
+from muad_agent_worker.infrastructure.models.task import TaskDelivery, TaskExecution
 from muad_agent_worker.worker.execution_outcomes import TASK_RESULT_UNVERIFIED
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import SharedSettings
 from muad_contracts import DeliveryRouteInput
 from muad_contracts.platform_settings import default_platform_settings, parse_platform_settings
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 pytestmark = pytest.mark.integration
@@ -77,7 +83,8 @@ WAIT_TIMEOUT_SEC = 25.0
 LOOP_NAMES = (
     "worker.claim",
     "worker.maintenance",
-    "worker.scheduler",
+    "worker.scheduler.fire",
+    "worker.scheduler.deadline",
     "worker.delivery",
     "worker.results",
 )
@@ -298,11 +305,10 @@ async def _seed_task(
         "tenant_id": f"b295-{uuid.uuid4().hex[:12]}",
         "agent_id": uuid.uuid4(),
         "actor_user_id": uuid.uuid4(),
-        "intent_key": "b295_probe",
         "skill_id": uuid.uuid4(),
         "skill_artifact_id": uuid.uuid4(),
         "trigger_type": "IMMEDIATE",
-        "execution_mode": "ASYNC",
+        "skill_execution_mode": "ASYNC",
         "task_type": "SKILL",
         "status": "QUEUED",
         "input_json": {"probe": True},
@@ -315,10 +321,6 @@ async def _seed_task(
         "max_attempts": 3,
         "not_before": moment,
         "deadline_at": moment + timedelta(hours=1),
-        "delivery_mode": "FINAL_ONLY",
-        "delivery_status": "PENDING",
-        "delivery_key": f"task:{task_id}:final",
-        "delivery_attempts": 0,
     }
     values.update(overrides)
     _fill_snapshot_contract(values)
@@ -356,9 +358,18 @@ async def _attach_wecom_route(factory: async_sessionmaker[AsyncSession], task: T
             platform_user_id=task.actor_user_id,
             route=DeliveryRouteInput(channel="WECOM", bot_id="bot-b295", external_user_id="wotv-b295"),
         )
-        row = await session.get(TaskExecution, task.id)
-        assert row is not None
-        row.delivery_route_id = route_id
+        session.add(
+            TaskDelivery(
+                id=uuid.uuid4(),
+                tenant_id=task.tenant_id,
+                execution_id=task.id,
+                delivery_route_id=route_id,
+                delivery_kind=str(DeliveryKind.PUSH),
+                delivery_key=execution_delivery_key(task.id),
+                status=str(DeliveryState.PENDING),
+                attempt_count=0,
+            )
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -378,14 +389,17 @@ async def _state(factory: async_sessionmaker[AsyncSession], task_id: uuid.UUID) 
     async with factory() as session:
         row = await session.get(TaskExecution, task_id)
         assert row is not None, f"task {task_id} must exist"
+        delivery = await session.scalar(
+            select(TaskDelivery).where(TaskDelivery.execution_id == task_id)
+        )
         return _TaskState(
             status=str(row.status),
             attempt=int(row.attempt),
             lease_owner=row.lease_owner,
             heartbeat_at=row.heartbeat_at,
             error_code=row.error_code,
-            delivery_status=str(row.delivery_status),
-            delivery_attempts=int(row.delivery_attempts),
+            delivery_status=str(delivery.status) if delivery is not None else "",
+            delivery_attempts=int(delivery.attempt_count) if delivery is not None else 0,
             execution_snapshot_schema_version=int(row.execution_snapshot_schema_version),
             execution_snapshot_json=dict(row.execution_snapshot_json),
         )
@@ -496,7 +510,7 @@ async def test_b295_assembly_root_injects_per_pool_budgets_concurrency_and_loops
 
         # 调用方消费装配根注入的**同一实例**（不是各自再造一个池）
         assert main.app.state.platform_settings_client._client is pools.control
-        assert main.app.state.scheduler_loop._resolver._client is pools.control
+        assert main.app.state.scheduler_loop._materials._client is pools.control
         assert main.app.state.delivery_loop._client._client is pools.egress
         assert main.app.state.delivery_loop._webchat_inbox._client is pools.egress
         assert main.app.state.delivery_loop._resolver._client is pools.egress

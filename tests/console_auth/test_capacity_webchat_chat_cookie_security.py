@@ -460,6 +460,7 @@ async def test_b241_cookie_secure_flag_follows_the_shared_non_dev_policy(
 ) -> None:
     """[B-241] `Secure` 沿用共享 Cookie 策略：非 dev 打开，dev 关闭（同一来源 `SharedSettings.env`）。"""
     monkeypatch.setenv("ENV", "prod")
+    monkeypatch.setenv("SANDBOX_MODE", "bwrap")
     user_token = await _issue_user_token(chat_scope)
 
     response = await chat_client.post(EXCHANGE_PATH, json={"token": user_token})

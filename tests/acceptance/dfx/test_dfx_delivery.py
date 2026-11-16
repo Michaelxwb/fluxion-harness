@@ -170,7 +170,8 @@ def _claim_owners(task_id: uuid.UUID) -> list[str]:
                 await session.execute(
                     sa.text(
                         "SELECT payload_json->>'lease_owner' FROM task.task_event"
-                        " WHERE tenant_id = :t AND task_id = :id AND event_type = 'CLAIMED'"
+                        " WHERE tenant_id = :t AND entity_type = 'EXECUTION' AND entity_id = :id"
+                        " AND event_type = 'CLAIMED'"
                         " ORDER BY seq"
                     ),
                     {"t": TENANT, "id": task_id},
@@ -268,23 +269,75 @@ def _await_delivery_retries(task_id: uuid.UUID, count: int, *, timeout_sec: floa
 
 
 def _delivery_events(task_id: uuid.UUID) -> list[tuple[str, datetime, dict[str, Any]]]:
-    """本 Task 的投递事件（类型 / 真实库时间 / 载荷），按 seq 排序。"""
+    """本 Task 的投递事实：每次失败尝试 = 一次 DELIVERY_RETRY，终态 = SENT/FAILED。
+
+    v2 把投递状态放在 `task.task_delivery`/`task.task_delivery_attempt`，事件挂在
+    `entity_type='DELIVERY'`；这里把两张表还原成测试关心的「重试 → 终态」序列。
+    """
 
     async def query(factory: Any) -> list[tuple[str, datetime, dict[str, Any]]]:
         async with factory() as session:
-            rows = (
+            delivery = (
                 await session.execute(
                     sa.text(
-                        "SELECT event_type, create_time, payload_json FROM task.task_event"
-                        " WHERE tenant_id = :t AND task_id = :id AND event_type LIKE 'DELIVERY%'"
-                        " ORDER BY seq"
+                        "SELECT id, status, attempt_count FROM task.task_delivery"
+                        " WHERE tenant_id = :t AND execution_id = :id"
                     ),
                     {"t": TENANT, "id": task_id},
                 )
+            ).one_or_none()
+            if delivery is None:
+                return []
+            delivery_id, delivery_status, final_attempt = delivery
+            attempts = (
+                await session.execute(
+                    sa.text(
+                        "SELECT attempt_no, status, started_at, finished_at"
+                        " FROM task.task_delivery_attempt"
+                        " WHERE delivery_id = :id ORDER BY attempt_no"
+                    ),
+                    {"id": delivery_id},
+                )
             ).all()
-        return [(str(row[0]), cast(datetime, row[1]), dict(row[2])) for row in rows]
+            terminal = (
+                await session.execute(
+                    sa.text(
+                        "SELECT event_type, occurred_at, payload_json FROM task.task_event"
+                        " WHERE tenant_id = :t AND entity_type = 'DELIVERY' AND entity_id = :id"
+                        " ORDER BY seq"
+                    ),
+                    {"t": TENANT, "id": delivery_id},
+                )
+            ).all()
+        events: list[tuple[str, datetime, dict[str, Any]]] = []
+        for attempt_no, status, started_at, finished_at in attempts:
+            # 终态 FAILED 的最后一次尝试由 FAILED 事件代表，不再重复记成“重试”。
+            terminal_attempt = (
+                str(delivery_status) == "FAILED" and int(attempt_no) == int(final_attempt)
+            )
+            if str(status) == "FAILED" and not terminal_attempt:
+                events.append(
+                    (
+                        "DELIVERY_RETRY",
+                        cast(datetime, finished_at or started_at),
+                        {"attempt": int(attempt_no)},
+                    )
+                )
+        for event_type, occurred_at, payload in terminal:
+            mapped = {
+                "SENT": "DELIVERY_SENT",
+                "FAILED": "DELIVERY_FAILED",
+                "ENQUEUED": None,
+            }.get(str(event_type), f"DELIVERY_{event_type}")
+            if mapped is not None:
+                events.append((mapped, cast(datetime, occurred_at), dict(payload)))
+        return events
 
     return cast(list[tuple[str, datetime, dict[str, Any]]], run_db(query))
+
+
+def count_delivery_events(task_id: uuid.UUID, event_type: str) -> int:
+    return sum(1 for kind, _ts, _payload in _delivery_events(task_id) if kind == event_type)
 
 
 def _dedupe_ttl(delivery_key: str) -> int:
@@ -341,9 +394,9 @@ def _seed_delivery_attempts(task_id: uuid.UUID, attempts: int) -> None:
         async with factory() as session:
             result = await session.execute(
                 sa.text(
-                    "UPDATE task.task_execution"
-                    " SET delivery_attempts = :attempts, update_time = now() - interval '1 day'"
-                    " WHERE tenant_id = :t AND id = :id"
+                    "UPDATE task.task_delivery"
+                    " SET attempt_count = :attempts, update_time = now() - interval '1 day'"
+                    " WHERE tenant_id = :t AND execution_id = :id"
                 ),
                 {"t": TENANT, "id": task_id, "attempts": attempts},
             )
@@ -388,10 +441,10 @@ def test_s11_final_delivery_dedupes_replay_and_persists_before_send(
             what="终态按 delivery_mode=FINAL_ONLY 投递成功",
             timeout_sec=DELIVERY_TIMEOUT_SEC,
         )
-        assert sent["delivery_key"] == f"task:{task_id}:final"
+        assert sent["delivery_key"] == f"execution:{task_id}:final"
         assert sent["delivery_attempts"] == 1 and sent["delivered_at"] is not None
         assert cast(datetime, sent["finished_at"]) <= cast(datetime, sent["delivered_at"])
-        assert count_task_events(task_id, "DELIVERY_SENT") == 1
+        assert count_delivery_events(task_id, "DELIVERY_SENT") == 1
 
         # 重放同一 delivery_key：真实 Gateway + 真实 Redis 去重，不重复触达渠道
         replay = _replay(http, gateway_url, task_id, str(sent["delivery_key"]), bot_id)
@@ -475,7 +528,7 @@ def test_e06_backoff_sequence_then_success(live_stack: DfxStack, http: httpx.Cli
         # 失败期间渠道收不到（探针不记录），成功只发生一次 → 触达恰好 1 次
         records = probe_deliveries(probe_url, bot_id)
         assert len(records) == 1, f"同一 delivery_key 不得重复成功发送：{records}"
-        assert count_task_events(task_id, "DELIVERY_SENT") == 1
+        assert count_delivery_events(task_id, "DELIVERY_SENT") == 1
         windows = [base * 2**index for index in range(1, attempts)]
         print(f"[E-06] 退避实测间隔={gaps}s 窗口={windows}s attempts={attempts}")
     await_no_extra_services()
@@ -527,13 +580,13 @@ def test_e06_placeholder_200_is_never_sent_and_exhaustion_writes_audit(
         assert failed["status"] == "COMPLETED", "投递失败不得吞掉 Task 自身的终态事实"
         assert failed["delivered_at"] is None, "200 + delivered=false 不得写成已送达"
         assert failed["delivery_attempts"] == max_attempts
-        assert count_task_events(task_id, "DELIVERY_SENT") == 0
+        assert count_delivery_events(task_id, "DELIVERY_SENT") == 0
         events = _delivery_events(task_id)
         assert [item[0] for item in events] == ["DELIVERY_FAILED"], [item[0] for item in events]
         payload = events[0][2]
         assert payload.get("terminal") is True, payload
-        assert payload.get("delivery_attempts") == max_attempts, payload
-        assert "not delivered" in str(payload.get("error")), payload
+        assert payload.get("attempt") == max_attempts, payload
+        assert payload.get("error_code") == "DELIVERY_UNCONFIRMED", payload
         # 审计载荷不得夹带任何明文密钥
         serialized = str(payload)
         for secret in (

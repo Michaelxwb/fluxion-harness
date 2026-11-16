@@ -98,12 +98,28 @@ def _reset_console_process_settings() -> object:
                 delattr(console_app.state, "settings")
         except Exception:  # pragma: no cover - 非 Console 测试环境
             pass
+    # Worker 的 lifespan 同样把启动设置冻结到 `app.state.settings`；`app` 是进程级单例，
+    # 真实 lifespan 用例退出后若不清掉，后续用例会拿上一轮的 Token 校验服务身份（403）。
+    try:
+        from muad_agent_worker.main import app as worker_app
+
+        if hasattr(worker_app.state, "settings"):
+            delattr(worker_app.state, "settings")
+    except Exception:  # pragma: no cover - 非 Worker 测试环境
+        pass
     try:
         yield
     finally:
         reset_shared_settings()
         if _console_reset_settings is not None:
             _console_reset_settings()
+        try:
+            from muad_agent_worker.main import app as worker_app
+
+            if hasattr(worker_app.state, "settings"):
+                delattr(worker_app.state, "settings")
+        except Exception:  # pragma: no cover - 非 Worker 测试环境
+            pass
 
 
 # ---------------------------------------------------------------------------

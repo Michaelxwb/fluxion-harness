@@ -112,24 +112,19 @@ def _insert_extra_tasks(agent_id: uuid.UUID, actor_id: uuid.UUID, how_many: int)
                             tenant_id=TENANT,
                             agent_id=agent_id,
                             actor_user_id=actor_id,
-                            intent_key="policy_check",
                             skill_id=uuid.uuid4(),
                             skill_artifact_id=uuid.uuid4(),
                             trigger_type="IMMEDIATE",
-                            execution_mode="ASYNC",
                             task_type="SKILL",
                             status="RUNNING",
                             input_json={},
-                            execution_snapshot_schema_version=1,
-                            execution_snapshot_json={"schema_version": 1},
+                            execution_snapshot_schema_version=4,
+                            execution_snapshot_json={"schema_version": 4},
                             snapshot_hash="sha256:" + "e" * 64,
                             idempotency_key=f"overview-extra-{index}-{task_id}",
                             priority=100,
                             attempt=0,
                             max_attempts=3,
-                            delivery_mode="NONE",
-                            delivery_status="NONE",
-                            delivery_key=f"task:{task_id}:final",
                         )
                     )
 
@@ -176,7 +171,8 @@ async def test_s01_one_request_returns_all_blocks_matching_independent_reads(
     active_tasks = data.activity.queued_tasks + data.activity.running_tasks + data.activity.waiting_tasks
     assert active_tasks == _scalar(
         "SELECT count(*) FROM task.task_execution WHERE tenant_id = :t AND NOT is_deleted "
-        "AND parent_id IS NULL AND status IN ('QUEUED','RUNNING','WAITING')"
+        "AND parent_id IS NULL "
+        "AND status IN ('QUEUED','RUNNING','WAITING_EXTERNAL','WAITING_HUMAN')"
     )
     assert data.kpis.run_count == 0 and data.kpis.run_success_rate is None
     assert data.kpis.total_tokens == 0 and data.kpis.token_coverage is None

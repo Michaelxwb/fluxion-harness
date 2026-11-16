@@ -11,7 +11,7 @@ from muad_contracts import ControlOutboxStatus
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
-from ..application.task_events import TaskEventType, append_event
+from ..application.task_events import EntityType, TaskEventType, append_event
 from ..application.terminal_tasks import lock_task_tree
 from ..infrastructure.models.runtime_operations import RuntimeResultOutbox
 from ..infrastructure.models.task import TaskExecution
@@ -64,8 +64,9 @@ async def retry_failed_result(
     await append_event(
         session,
         tenant_id=tenant,
-        task_id=task.id,
-        event_type=TaskEventType.DELIVERY_RETRY,
+        entity_type=EntityType.EXECUTION,
+        entity_id=task.id,
+        event_type=TaskEventType.QUEUED,
         payload={
             "delivery_kind": "RUNTIME_RESULT",
             "event_id": str(event_id),

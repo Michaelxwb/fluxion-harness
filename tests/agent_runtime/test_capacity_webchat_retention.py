@@ -106,7 +106,7 @@ from muad_console_platform.application.artifact_cleanup_service import (
 )
 from muad_console_platform.infrastructure.db import get_session_factory as console_session_factory
 from muad_contracts.enums import RunStatus
-from muad_contracts.platform_settings import PlatformSettingsError
+from muad_contracts.platform_settings import PlatformSettingsError, ScheduleSettings
 
 from agent_runtime.conftest import CLEANUP_ORDER, TenantContext
 
@@ -120,6 +120,8 @@ OLD_DAYS = timedelta(days=40)
 #: 保留期与宽限期口径（本用例显式声明，不从实现里抄默认值）。
 STREAM_HOURS = 1
 NOTIFICATION_DAYS = 30
+#: Task 产物保留期与「执行」保留期同源（contracts schema 默认，不在测试里重述天数）。
+TASK_EXECUTION_HISTORY_DAYS = ScheduleSettings().max_execution_history_days
 STAGING_GRACE_SECONDS = 3600.0
 #: 清理顺序：制品/暂存登记先于 run_record/conversation（同 Owner 物理 FK）。
 PURGE_ORDER = ("artifact", "channel_upload", *CLEANUP_ORDER)
@@ -141,6 +143,7 @@ def _policy(*, hours: int = STREAM_HOURS, days: int = NOTIFICATION_DAYS, history
         stream_replay_retention_hours=hours,
         notification_retention_days=days,
         history_retention_days=history,
+        task_execution_history_days=TASK_EXECUTION_HISTORY_DAYS,
     )
 
 
@@ -1213,17 +1216,16 @@ async def test_b07_artifact_cleanup_protects_active_run_and_job_references(
                 tenant_id=tenant.tenant_id,
                 agent_id=tenant.agent_id,
                 actor_user_id=tenant.platform_user_id,
-                intent_key="retention-cleanup",
+                task_type="SKILL",
                 skill_id=uuid.uuid4(),
                 skill_artifact_id=uuid.uuid4(),
-                trigger_type="MANUAL",
-                execution_mode="ASYNC",
+                skill_execution_mode="SYNC",
+                trigger_type="IMMEDIATE",
                 status="QUEUED",
                 input_json={},
                 execution_snapshot_json={},
                 snapshot_hash="sha256:" + "0" * 64,
                 idempotency_key=f"retention-{uuid.uuid4().hex}",
-                delivery_key=f"task:{task_id}:final",
             )
         )
         task_key = f"artifacts/{uuid.uuid4().hex}.txt"
@@ -1331,6 +1333,7 @@ async def test_b269_stream_replay_cleanup_drains_20k_backlog(
         stream_replay_retention_hours=STREAM_HOURS,
         notification_retention_days=30,
         history_retention_days=0,
+        task_execution_history_days=TASK_EXECUTION_HISTORY_DAYS,
     )
     removed = 0
     started = time.monotonic()

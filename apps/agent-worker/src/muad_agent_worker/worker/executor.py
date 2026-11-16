@@ -27,6 +27,7 @@ from muad_agent_core.skill import (
 )
 from muad_artifact_store import SkillArtifactCacheError
 from muad_common import SharedSettings, process_settings
+from muad_contracts import WaitKind
 from muad_contracts.skill_invocation import validate_skill_argv
 from muad_contracts.snapshot import task_execution_timeout
 from muad_platform_sdk.platform_transport import PlatformBudgetScope
@@ -71,6 +72,8 @@ NON_RETRYABLE_CODES = frozenset(
         "SKILL_ARTIFACT_INTEGRITY_ERROR",
         "SKILL_RESULT_INVALID",
         "LOCAL_BUDGET_EXHAUSTED",
+        "REMINDER_TEXT_MISSING",
+        "TASK_TYPE_UNSUPPORTED",
     }
 )
 # 传给 Skill 子进程的 Task 上下文（环境变量，不改动 Skill 的 stdin 输入契约）。
@@ -90,13 +93,16 @@ class TaskExecutionError(Exception):
 def task_env(task: TaskExecution) -> dict[str, str]:
     """Skill 据此做副作用幂等（`idempotency_key` 在 reclaim/重试间恒定）与外部轮询续接。
 
-    `MUAD_TASK_EXTERNAL_REF` 是上次 WAITING 落库的 `external_ref_json`；首次执行为 `{}`。
+    `MUAD_TASK_EXTERNAL_REF` 是上次 `WAITING_EXTERNAL` 落库的 `wait_payload_json.external_ref`
+    （v2 的唯一等待载体）；首次执行为 `{}`。
     """
+    wait_payload = task.wait_payload_json if isinstance(task.wait_payload_json, Mapping) else {}
+    external_ref = wait_payload.get("external_ref")
     return {
         ENV_TASK_ID: str(task.id),
         ENV_TASK_IDEMPOTENCY_KEY: task.idempotency_key,
         ENV_TASK_ATTEMPT: str(task.attempt),
-        ENV_TASK_EXTERNAL_REF: json.dumps(task.external_ref_json or {}, ensure_ascii=False),
+        ENV_TASK_EXTERNAL_REF: json.dumps(external_ref or {}, ensure_ascii=False),
     }
 
 
@@ -415,17 +421,18 @@ class SkillTaskExecutor:
         )
 
     def _batch_envelope(self, task: TaskExecution, summary: FanoutSummary | None = None) -> dict[str, Any]:
-        """Parent 以 WAITING 收尾：`not_before` 远期停放，等 fan-in 聚合后置终态。"""
+        """Parent 以 `WAITING_EXTERNAL(BATCH_FANIN)` 收尾：等 Child 终态在 fan-in 里聚合。"""
         batch = (
             summary.as_ref()
             if summary is not None
-            else dict((task.external_ref_json or {}).get(BATCH_REF_KEY) or {})
+            else dict((task.wait_payload_json or {}).get(BATCH_REF_KEY) or {})
         )
         return {
             "status": str(SkillExecutionStatus.SUCCEEDED),
             "result": {
                 "wait": {
-                    "external_ref": {BATCH_REF_KEY: batch},
+                    "wait_kind": WaitKind.BATCH_FANIN.value,
+                    BATCH_REF_KEY: batch,
                     "not_before": PARKED_NOT_BEFORE.isoformat(),
                 }
             },

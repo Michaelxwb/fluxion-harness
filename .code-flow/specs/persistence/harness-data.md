@@ -1,12 +1,17 @@
 ---
-{"description": "表设计、迁移与索引", "next_rule": 2}
+{
+  "description": "表设计、迁移与索引",
+  "next_rule": 3
+}
 ---
 
 # harness-data
 
 ## Rules
 
-- [RULE-data-001] 产品表统一 `id/is_deleted/create_time/update_time`；普通软删除实体用 partial unique `WHERE is_deleted=false`，稳定身份注册表 `runtime.user_memory` / `memory_scope` 的完整唯一键包含 tombstone，append-only history/receipt/job 保持 `is_deleted=false` 且使用完整唯一约束；时间统一 `timestamptz`；同 Owner Schema 的业务归属用物理 FK，跨 Owner Schema 与需跨清理保留的审计来源引用用逻辑 UUID；JSON 配置用 `jsonb`，关键查询字段必须有物理列。
+- [RULE-data-001] 产品表统一 id/is_deleted/create_time/update_time，时间统一 timestamptz，JSON 配置使用 jsonb；普通软删除实体以未删除行建立部分唯一，稳定身份注册表及不可变历史、回执按身份完整唯一。业务归属在同 Owner Schema 内使用物理外键，跨 Owner Schema、操作者及需独立保留的审计来源使用逻辑 UUID；多态审计引用由写入方校验实体归属。同 Owner 的结果发件引用实际事件身份，不能依赖已经失效的任务与事件序号复合关系。关键查询字段、互斥 owner 和业务唯一性必须由共享契约对应的物理列、约束及索引承载。
+
+- [RULE-001] 共享执行基础设施必须使用显式 owner 联合与互斥归属约束；调用方携带服务身份，由资源所有者复核租户、操作者和 Agent，不能把提交结果的 Task 标识复用为 operation owner。Runtime 持有其容量、异步操作、结果收件箱及产物的写入权，Worker 经所有者内部 API 使用 Task 能力；跨 Owner 引用为逻辑身份，禁止直接写入其它 Owner 表。
 
 - [RULE-data-002] **外部身份与入口授权分两表**：`external_identity` 为用户级，回答「这个外部标识对应哪个平台用户」，唯一键 `(tenant_id, platform_key, identity_hash)` WHERE `is_deleted=false`，并索引 `(tenant_id, platform_user_id)`；`entry_access_grant` 为入口授权，回答「这个身份能在哪个入口下使用」，唯一键 `(tenant_id, external_identity_id, bot_account_id)` WHERE `is_deleted=false`，并索引 `(tenant_id, bot_account_id, external_identity_id)` 以支撑入口停用时反查受影响身份。
   - **身份与授权分离**：解绑入口只软删 grant，身份保留，重绑后历史会话归属不变；编辑身份只重算 `identity_hash`，不改变历史归属。
@@ -23,7 +28,7 @@
   - ✅ `class X(StandardColumnsMixin, Base):` —— 四列自动齐全且口径一致。
   - ❌ 直接 `class X(Base):` 自己写四列 ⇒ 极易漏 `is_deleted`（软删条件失效）或写成裸 `datetime` 而非 `DateTime(timezone=True)`。
   - 注：三份副本无单一来源，改四列口径时必须同时改三处。
-- **partial 索引不限于「软删唯一」**：状态谓词索引同样是 partial，用于把「活跃/运行中」这一小集合隔离出来。既有：`ix_task_execution_running_lease_until`（`WHERE status = 'RUNNING'`）与 `ix_task_execution_final_delivery`（`WHERE delivery_mode = 'FINAL_ONLY' AND is_deleted = false`，`apps/agent-worker/src/muad_agent_worker/infrastructure/models/task.py`）；`ix_run_record_running_lease_until` 与 `ix_run_record_open_tenant` / `ix_run_record_queue_deadline`（活跃态集合含 `CREATED/RUNNING/WAITING_TOOL/WAITING_INPUT`，`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py`）。
+- **partial 索引不限于「软删唯一」**：状态谓词索引同样是 partial，用于把「活跃/运行中」这一小集合隔离出来。既有：`ix_task_execution_running_lease_until`（`WHERE status = 'RUNNING'`）、`ix_task_execution_claim_scheduled`（`status + scheduled_at WHERE scheduled_at IS NOT NULL`）、`ix_task_execution_waiting_external_sweep`（`wait_kind + not_before WHERE status = 'WAITING_EXTERNAL'`）与 `ix_task_execution_schedule_status_scheduled`（`apps/agent-worker/src/muad_agent_worker/infrastructure/models/task.py`）；`ix_run_record_running_lease_until` 与 `ix_run_record_open_tenant` / `ix_run_record_queue_deadline`（活跃态集合含 `CREATED/RUNNING/WAITING_TOOL/WAITING_INPUT`，`apps/agent-runtime/src/muad_agent_runtime/infrastructure/models/runtime.py`）。v2 不再用 `delivery_mode` 列表达投递，投递是独立的 `task_delivery`。
   - ✅ 按「查询只关心某个状态子集」建 partial 索引；❌ 给状态列建全量索引（写放大且选择性差）。
 - **list 与 count 必须共用同一条件列表**：把过滤条件抽成一个私有 helper，`list()` 与 `count()` 同时引用，避免 `total` 与 `items` 漂移（既有范式：`ConsoleAccountRepository._active_conditions(tenant_id)` 被 `list()` 与 `count()` 复用，`apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/console_account_repository.py`）。
   - ✅ 两处 `where(*self._active_conditions(tenant_id))`。
@@ -52,3 +57,9 @@
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-002#DELTA-001","op":"update","rule":"RULE-data-001","payload_sha256":"4a0883fb27b107d8bd969e55e87cd49a8f5b53a8f4adacd475f638844d212f37","at":"2026-11-16T05:09:15.750Z"}
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-006#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"3324be6789e606aadefc5bd7856ea79d50a5ca83c61fe479213e35dd55a7f910","at":"2026-11-16T05:09:15.750Z"}

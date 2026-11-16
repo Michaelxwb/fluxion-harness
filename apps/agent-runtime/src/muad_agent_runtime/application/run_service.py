@@ -652,6 +652,28 @@ def build_snapshot(
     )
 
 
+def entry_channel_of(channel_json: dict[str, Any] | None) -> str | None:
+    """Run 的入口 surface 原值；它不是投递能力，能力由 Worker 用共享通道词表判定。"""
+    if not channel_json:
+        return None
+    channel = channel_json.get("type")
+    return channel if isinstance(channel, str) and channel else None
+
+
+def entry_id_of(channel_json: dict[str, Any] | None) -> uuid.UUID | None:
+    """Run 的入口账号逻辑 UUID（`ChannelContext.entry_id`）：Draft 的 `source` 只作审计。"""
+    if not channel_json:
+        return None
+    raw = channel_json.get("entry_id")
+    if raw is None:
+        return None
+    try:
+        return uuid.UUID(str(raw))
+    except ValueError:
+        logger.warning("run_channel_entry_id_invalid")
+        return None
+
+
 def delivery_route_of(channel_json: dict[str, Any] | None) -> DeliveryRouteInput | None:
     """从 Run 持久化的入站渠道构建后台任务投递路由；缺接收方时返回 None（不投递）。"""
     if not channel_json:
@@ -2970,6 +2992,8 @@ class RunService:
                     conversation_id=run.conversation_id,
                     user_id=run.user_id,
                     delivery_route=delivery_route_of(run.channel_json),
+                    entry_channel=entry_channel_of(run.channel_json),
+                    entry_id=entry_id_of(run.channel_json),
                     submission_id=submission_id,
                     memory_resume_ref=memory_resume_ref,
                 ),

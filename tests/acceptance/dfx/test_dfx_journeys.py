@@ -277,8 +277,7 @@ async def _latest_run_id(tenant_id: str) -> str:
         "SELECT id::text FROM runtime.run_record WHERE tenant_id = :t ORDER BY create_time DESC LIMIT 1",
         {"t": tenant_id},
     )
-    assert value, "本租户没有真实 Run"
-    return str(value)
+    return str(value or "")
 
 
 def _payload(stack: GatewayStack, text: str, *, conversation_id: Any = None) -> dict[str, Any]:
@@ -524,7 +523,9 @@ async def test_s06_stream_reply_envelope_and_monotonic_seq(gateway_stack: Gatewa
         timeout=REPLY_TIMEOUT_SEC,
     )
 
-    run_id = await _latest_run_id(stack.tenant_id)
+    run_id = await _await_value(
+        lambda: _latest_run_id(stack.tenant_id), what="本租户没有真实 Run"
+    )
     events = await _await_value(lambda: _completed_events(run_id), what="Run 未落终态 run.completed")
     # `canonical_event` 同时承载业务事件（`stream_type IS NULL`，如 USER_MESSAGE/CANCEL）
     # 与流式事件；封套断言只对后者，seq 单调性对整条事件流成立。

@@ -2,7 +2,7 @@
 
 真实边界：真实 Skill 执行（NFS → emptyDir READY cache → 子进程）返回 TaskPlan，
 由 BatchFanoutService 在真实 PostgreSQL 事务内创建 Parent/Child。不 mock 存储、
-不 mock partial unique，也不 mock Worker 的 WAITING 落库。
+不 mock partial unique，也不 mock Worker 的 `WAITING_EXTERNAL(BATCH_FANIN)` 落库。
 """
 
 from __future__ import annotations
@@ -26,13 +26,13 @@ from muad_agent_worker.application.batch_fanout import (
     BatchPlanError,
     item_key_of,
 )
-from muad_agent_worker.infrastructure.models.task import TaskExecution
+from muad_agent_worker.infrastructure.models.task import TaskDelivery, TaskExecution
 from muad_agent_worker.worker.executor import SkillTaskExecutor
 from muad_agent_worker.worker.service import WorkerLoop
 from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_common import SharedSettings
 from muad_contracts.platform_settings import default_platform_settings
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from agent_worker.conftest import TenantContext
 from agent_worker.helpers import fetch_task, persist_task
@@ -111,6 +111,20 @@ def _batch_executor(tenant: TenantContext, cache: SkillArtifactCache) -> SkillTa
     )
 
 
+async def _delivery_count(tenant: TenantContext, execution_ids: list[uuid.UUID]) -> int:
+    """投递意图是独立表（v2）：没有行 = 该执行不主动投递。"""
+    async with tenant.session_factory() as session:
+        return int(
+            (
+                await session.execute(
+                    select(func.count())
+                    .select_from(TaskDelivery)
+                    .where(TaskDelivery.execution_id.in_(execution_ids))
+                )
+            ).scalar_one()
+        )
+
+
 async def _children(tenant: TenantContext, parent_id: uuid.UUID) -> list[TaskExecution]:
     async with tenant.session_factory() as session:
         return list(
@@ -153,14 +167,15 @@ async def test_b118_executor_fans_out_idempotent_children_inheriting_root_and_in
     parent = await _claim_parent(tenant, parent)
 
     envelope = await executor.execute(parent)
-    assert envelope["result"]["wait"]["external_ref"]["batch"]["aggregate_mode"] == AGGREGATE_ALL
+    wait = envelope["result"]["wait"]
+    assert wait["wait_kind"] == "BATCH_FANIN"
+    assert wait["batch"]["aggregate_mode"] == AGGREGATE_ALL
 
     children = await _children(tenant, parent.id)
     assert len(children) == 4
     for child in children:
         assert child.parent_id == parent.id
         assert child.root_id == parent.id, "Child 必须继承 root_id"
-        assert child.intent_key == parent.intent_key
         assert child.agent_id == parent.agent_id
         assert child.actor_user_id == parent.actor_user_id
         assert child.skill_id == parent.skill_id
@@ -168,16 +183,18 @@ async def test_b118_executor_fans_out_idempotent_children_inheriting_root_and_in
         assert child.snapshot_hash == parent.snapshot_hash, "Child 复用 Parent 冻结快照"
         assert child.task_type == "SKILL"
         assert child.status == "QUEUED"
+        assert child.skill_execution_mode == "ASYNC"
         assert child.idempotency_key == f"parent:{parent.id}:{child.item_key}"
-        assert child.delivery_mode == "NONE"
-        assert child.delivery_status == "NONE"
 
     refreshed_parent = await fetch_task(tenant, parent.id)
     assert refreshed_parent.task_type == "BATCH"
-    assert refreshed_parent.external_ref_json["batch"]["item_count"] == 4
+    assert refreshed_parent.wait_payload_json["batch"]["item_count"] == 4
+    assert await _delivery_count(tenant, [child.id for child in children]) == 0, (
+        "Child 是内部执行，不建投递意图"
+    )
 
     replay = await executor.execute(parent)
-    assert replay["result"]["wait"]["external_ref"]["batch"]["aggregate_mode"] == AGGREGATE_ALL
+    assert replay["result"]["wait"]["batch"]["aggregate_mode"] == AGGREGATE_ALL
     assert len(await _children(tenant, parent.id)) == 4, "重放不得新增 Child"
 
     concurrent = await asyncio.gather(executor.execute(parent), executor.execute(parent))
@@ -214,7 +231,7 @@ async def test_b118_concurrency_clamps_to_min_of_plan_system_and_platform(
 
 
 async def test_b118_parent_waits_without_lease_after_fanout(tenant: TenantContext) -> None:
-    """Worker 走真实执行路径：Parent 转 WAITING 且释放 lease，Child 默认 NONE 不主动投递。"""
+    """Worker 走真实执行路径：Parent 转 `WAITING_EXTERNAL(BATCH_FANIN)` 并释放 lease，Child 不投递。"""
     _, tmpdir, cache, parent = await _parent_with_batch_plan(tenant)
     executor = _batch_executor(tenant, cache)
     worker = WorkerLoop(
@@ -224,15 +241,15 @@ async def test_b118_parent_waits_without_lease_after_fanout(tenant: TenantContex
     assert await worker.run_once() == parent.id
 
     refreshed = await fetch_task(tenant, parent.id)
-    assert refreshed.status == "WAITING"
+    assert refreshed.status == "WAITING_EXTERNAL"
+    assert refreshed.wait_kind == "BATCH_FANIN", "Parent 的等待类型决定它由 fan-in 收尾，而不是定时 claim"
     assert refreshed.lease_owner is None and refreshed.lease_until is None
     assert refreshed.task_type == "BATCH"
-    assert refreshed.external_ref_json["batch"]["concurrency"] == 2
+    assert refreshed.wait_payload_json["batch"]["concurrency"] == 2
 
     children = await _children(tenant, parent.id)
     assert len(children) == 4
-    assert all(child.delivery_mode == "NONE" for child in children)
-    assert all(child.delivery_status == "NONE" for child in children)
+    assert await _delivery_count(tenant, [child.id for child in children]) == 0
     tmpdir.cleanup()
 
 

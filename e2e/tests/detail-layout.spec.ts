@@ -54,19 +54,31 @@ const cases = [
   } },
   { path: 'schedules', api: 'schedules', link: 'schedule-link-layout', data: {
     ...base, schedule_id: 'layout', tenant_id: 'tenant', agent_id: 'agent', actor_user_id: 'user',
-    intent_key: 'intent', skill_id: 'skill', input_template: {}, schedule_type: 'CRON', cron_expr: '0 * * * *',
-    timezone: 'Asia/Shanghai', run_at: null, status: 'ACTIVE', next_fire_at: time, last_fire_at: time,
-    completed_at: null, last_error_code: 'ERROR', last_error_message: longText, last_skipped_at: null
+    agent_name: 'Agent', actor_name: 'User', skill_id: 'skill', name: longText,
+    mode: 'SKILL', status: 'ACTIVE', timezone: 'Asia/Shanghai', config_version: 1,
+    next_fire_at: time, needs_attention: true, pending_human: false,
+    last_fire: { scheduled_at: time, status: 'EXECUTION_CREATED', execution_status: 'COMPLETED',
+      missed_count: 0, dst_resolution: null },
+    revision_no: 1, instruction: longText, normalized_goal: longText,
+    context: { parameters: {}, output: {} }, dependencies: ['SKILL:skill'],
+    delivery_intent: 'PUSH',
+    policy: { concurrency_policy: 'QUEUE', max_concurrency: 1, until: null,
+      max_occurrences: null, dst_gap_policy: 'SKIP', dst_fold_policy: 'FIRST' },
+    budget: null, memory_mode: null, end_reason: null, attention_reason: 'ERROR'
   } },
   { path: 'tasks', api: 'tasks', link: 'task-link-layout', data: {
     ...base, task_id: 'layout', tenant_id: 'tenant', agent_id: 'agent', actor_user_id: 'user',
-    schedule_id: null, source_run_id: null, intent_key: 'intent', skill_id: 'skill', status: 'FAILED',
-    trigger_type: 'IMMEDIATE', task_type: 'SKILL', input: {}, result: null, error_code: 'ERROR',
-    error_message: longText, attempt: 1, max_attempts: 3, cancel_requested: false, delivery_mode: 'NONE',
-    delivery_status: 'NONE', delivery_attempts: 0, delivered_at: null, deadline_at: time, not_before: time,
-    started_at: time, finished_at: time, parent_id: null, root_id: null, item_key: null, result_artifact_id: null,
-    lease_owner: null, lease_until: null, heartbeat_at: null, execution_snapshot: {},
-    execution_snapshot_schema_version: 1, snapshot_hash: 'abc', timeline: [], children: []
+    agent_name: 'Agent', actor_name: 'User', skill_name: 'Skill', skill_key: 'skill', skill_id: 'skill',
+    schedule_id: null, source_run_id: null, status: 'FAILED', trigger_type: 'IMMEDIATE',
+    scheduled_at: null, wait_kind: null, wait_payload: null, task_type: 'SKILL',
+    input: {}, result: null, error_code: 'ERROR', error_message: longText,
+    failure_class: null, attempt: 1, max_attempts: 3, cancel_requested: false,
+    deadline_at: time, not_before: time, create_time: time, update_time: time,
+    started_at: time, finished_at: time, child_total: 0, child_finished: 0,
+    parent_id: null, root_id: null, item_key: null, result_artifact_id: null,
+    snapshot: { schema_version: 4, hash: 'sha256:' + 'a'.repeat(64), mode: 'SKILL',
+      allowlist: [], memory_mode: null, budget: null },
+    human: null, timeline: [], children: []
   } }
 ] as const;
 

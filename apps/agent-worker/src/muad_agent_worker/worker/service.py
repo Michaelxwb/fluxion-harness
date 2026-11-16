@@ -13,35 +13,71 @@ import os
 import socket
 import uuid
 from collections.abc import Awaitable, Callable, Coroutine
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, cast
 
 import sqlalchemy as sa
 from muad_common import SharedSettings
-from muad_contracts import TaskStatus, TerminalStatus, ToolRetrySafety, task_retry_safety
+from muad_contracts import (
+    HumanInteractionStatus,
+    TaskStatus,
+    TerminalStatus,
+    ToolRetrySafety,
+    WaitKind,
+    task_retry_safety,
+)
 from pydantic import JsonValue
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..application.agentic.async_results import (
+    OperationReader,
+    advance_watermarks,
+    all_settled,
+    payload_from_watermarks,
+    read_operations,
+    watermarks_from_payload,
+)
+from ..application.agentic.checkpoints import (
+    AgenticLeaseLost,
+    ExecutionIdentity,
+    TaskCheckpointStore,
+    checkpoint_from_state,
+)
 from ..application.batch_fanin import settle_child
 from ..application.batch_fanout import TASK_TYPE_BATCH
 from ..application.ports import NullPlatformSettingsClient, PlatformSettingsClient
 from ..application.task_cancel import cancel_children
-from ..application.task_events import TaskEventSeed, TaskEventType, append_event, append_events
+from ..application.task_events import (
+    EntityType,
+    TaskEventSeed,
+    TaskEventType,
+    append_event,
+    append_events,
+)
 from ..application.terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 from ..infrastructure.cancel_hint import CancelHintStore, NullCancelHintStore
 from ..infrastructure.db_clock import database_now
-from ..infrastructure.models.task import TaskExecution
+from ..infrastructure.models.task import (
+    TaskExecution,
+    TaskExecutionCheckpoint,
+    TaskHumanInteraction,
+)
+from ..infrastructure.task_operation_client import TaskOperationError
 from ..infrastructure.wakeup_hint import NullWakeupListener, WakeupListener
 from ..metrics import (
     MAINTENANCE_METRIC,
     TASK_LEASE_EXPIRED_METRIC,
     TASK_RECLAIM_METRIC,
     increment,
+    record_loop_tick,
     record_outcome,
 )
 from ..scheduler.service import TASK_DEADLINE_EXCEEDED
+from .async_sweep import AsyncResultSweeper
 from .claimer import TaskClaimer
+from .dispatch import TaskTypeExecutor
 from .execution_outcomes import (
     DEFAULT_WAIT_SEC,
     TASK_RESULT_UNVERIFIED,
@@ -52,6 +88,7 @@ from .execution_outcomes import (
     interpret_execution,
 )
 from .executor import SkillTaskExecutor, TaskExecutionError, TaskExecutorProtocol
+from .reminder import ReminderExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +100,8 @@ HEARTBEAT_LOST_CODE = "WORKER_HEARTBEAT_LOST"
 #: 续租是瞬时故障（DB 抖动）还是真失约，要分得开：前者有界重试，后者立刻停。
 HEARTBEAT_RENEW_ATTEMPTS = 3
 HEARTBEAT_RENEW_RETRY_SEC = 1.0
+#: Human 提问的交互类型（design §3.3.8：`INPUT` / `CONFIRM`；Agentic 只产生 INPUT）。
+HUMAN_INTERACTION_TYPE = "INPUT"
 
 
 def default_instance_id() -> str:
@@ -86,17 +125,24 @@ def _reclaim_backoff() -> Any:
     )
 
 
-def _reclaim_terminal_change(task: TaskExecution) -> TerminalChange | None:
+def _reclaim_terminal_change(task: TaskExecution, moment: datetime) -> TerminalChange | None:
     """崩溃回收的终态裁决；`None` 表示可按退避重排（TASK-033 的回收语义）。
 
-    取消请求与重试预算耗尽维持原语义；批量父任务的执行是 `_batch_envelope` 的幂等停放
-    （扇出按 `(parent_id, item_key)` 唯一键去重，重排不重跑 Skill、不承载外部副作用）；
+    取消请求、绝对期限与重试预算耗尽维持原语义：回收是"重新取得执行权"，已过 deadline 的
+    执行绝不能被重排成可执行（RULE-worker-001）。批量父任务的执行是 `_batch_envelope` 的
+    幂等停放（扇出按 `(parent_id, item_key)` 唯一键去重，重排不重跑 Skill、不承载外部副作用）；
     其余按**冻结** retry_safety 分流：非重试安全（含未声明/未知，见 `task_retry_safety`）
     的崩溃尝试无法确认外部副作用是否发生，落 `TASK_RESULT_UNVERIFIED` 待核实——回收不得把
     「待核实」重排成自动重做。
     """
     if task.cancel_requested:
         return TerminalChange(status=TerminalStatus.CANCELLED, cancel_requested=True)
+    if task.deadline_at <= moment:
+        return TerminalChange(
+            status=TerminalStatus.FAILED,
+            error_code=TASK_DEADLINE_EXCEEDED,
+            error_message="task deadline exceeded before crash reclaim",
+        )
     if task.attempt >= task.max_attempts:
         return TerminalChange(
             status=TerminalStatus.FAILED,
@@ -197,6 +243,15 @@ class TaskSlotSupervisor:
         self._tasks.clear()
 
 
+@dataclass(frozen=True, slots=True)
+class LeaseRenewal:
+    """一次续租的结论：是否仍持有租约、是否已请求取消、是否已过绝对期限（同一次行读取）。"""
+
+    owned: bool
+    cancel_requested: bool
+    expired: bool
+
+
 class WorkerLoop:
     def __init__(
         self,
@@ -208,15 +263,29 @@ class WorkerLoop:
         cancel_hints: CancelHintStore | None = None,
         wakeup: WakeupListener | None = None,
         settings_client: PlatformSettingsClient | None = None,
+        agentic: TaskExecutorProtocol | None = None,
+        operations: OperationReader | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._settings = settings or SharedSettings()
         self._executor = executor
+        self._agentic = agentic
         self._claimer = claimer or TaskClaimer(session_factory, self._settings)
         self._instance_id = instance_id or default_instance_id()
         self._cancel_hints: CancelHintStore = cancel_hints or NullCancelHintStore()
         self._wakeup: WakeupListener = wakeup or NullWakeupListener()
         self._settings_client: PlatformSettingsClient = settings_client or NullPlatformSettingsClient()
+        #: Task-owned 结果收件箱的只读面：等待前的 ready-check 与周期补扫共用（可缺席）。
+        self._operations = operations
+        self._async_sweeper = (
+            AsyncResultSweeper(
+                session_factory,
+                operations,
+                interval_sec=self._settings.worker_poll_interval_sec,
+            )
+            if operations is not None
+            else None
+        )
         # 有界任务槽：上限是每进程启动配置（§3.7 WORKER_EXECUTION_CONCURRENCY），一处来源。
         self._slots = TaskSlotSupervisor(max_concurrency=self._settings.worker_execution_concurrency)
 
@@ -224,36 +293,25 @@ class WorkerLoop:
         if self._executor is None:
             # 延迟到真正执行时才构造：bootstrap 在导入时创建 artifact/cache 目录，
             # 只做 claim/reclaim 的 WorkerLoop 不该有文件系统副作用。
-            from muad_agent_core.sandbox import (
-                WorkspaceQuotaPolicy,
-                WorkspaceStore,
-                workspace_layout_from_settings,
-            )
-
             from ..application.batch_fanout import BatchFanoutService
             from ..bootstrap.artifacts import skill_artifact_cache
-            from ..infrastructure.workspace_store import WorkerWorkspaceMetadataStore
-            from ..metrics import record_workspace_quota_rejected
+            from .assembly import build_workspace_store
 
-            layout = workspace_layout_from_settings(self._settings)
-            metadata = WorkerWorkspaceMetadataStore(lambda: self._session_factory)
-            workspace_store = WorkspaceStore(
-                layout=layout,
-                metadata=metadata,
-                quota=WorkspaceQuotaPolicy.from_layout(layout),
-                usage=metadata,
-                on_quota_rejected=record_workspace_quota_rejected,
-            )
-            self._executor = SkillTaskExecutor(
-                skill_artifact_cache,
-                fanout=BatchFanoutService(
-                    self._session_factory,
-                    self._settings,
-                    settings_client=self._settings_client,
+            workspace_store = build_workspace_store(self._settings, self._session_factory)
+            self._executor = TaskTypeExecutor(
+                reminder=ReminderExecutor(),
+                skill=SkillTaskExecutor(
+                    skill_artifact_cache,
+                    fanout=BatchFanoutService(
+                        self._session_factory,
+                        self._settings,
+                        settings_client=self._settings_client,
+                    ),
+                    workspace_store=workspace_store,
+                    sessions=self._session_factory,
+                    settings=self._settings,
                 ),
-                workspace_store=workspace_store,
-                sessions=self._session_factory,
-                settings=self._settings,
+                agentic=self._agentic,
             )
         return self._executor
 
@@ -291,6 +349,9 @@ class WorkerLoop:
                     started = await self.run_pending()
                 except Exception:
                     logger.exception("worker_loop_tick_failed")
+                    record_loop_tick("worker.claim", "failed")
+                else:
+                    record_loop_tick("worker.claim", "ok")
                 if started == 0:
                     await self._wakeup.wait(self._settings.worker_poll_interval_sec)
         except asyncio.CancelledError:
@@ -312,9 +373,27 @@ class WorkerLoop:
             except Exception:
                 logger.exception("worker_maintenance_reclaim_failed")
                 record_outcome(MAINTENANCE_METRIC, "failed")
+                record_loop_tick("worker.maintenance", "failed")
             else:
                 record_outcome(MAINTENANCE_METRIC, "ok")
+                record_loop_tick("worker.maintenance", "ok")
             await asyncio.sleep(self._settings.run_reaper_interval_sec)
+
+    async def run_async_sweep_forever(self) -> None:
+        """异步结果的周期补扫：与领取/维护/调度各自独立的节拍（design §3.1.5 第 4 条）。
+
+        没有它，"结果到了"就只依赖一次性的就绪检查与可能丢失的 hint：检查之后才到的结果
+        永远唤不醒执行。补扫只推进等待行上的水位，状态迁移仍由 claim 完成
+        （`AsyncResultSweeper` 的模块文档列出四条口径）。
+        """
+        if self._async_sweeper is None:
+            logger.info("async_result_sweep_disabled")
+            # 空闲但**仍心跳**：装配缺少 operations 不是故障，也不能让监督器按"已退出"重启。
+            while True:
+                record_loop_tick("worker.async_sweep", "ok")
+                await asyncio.sleep(self._settings.worker_poll_interval_sec)
+            return
+        await self._async_sweeper.run_forever()
 
     async def run_pending(self, *, now: datetime | None = None) -> int:
         """把空闲槽填满：本地有槽才 claim，**不等待任何执行收尾**。
@@ -346,29 +425,51 @@ class WorkerLoop:
         await self._slots.close()
 
     async def _supervise_task(self, task: TaskExecution, *, now: datetime | None) -> None:
-        """单个槽的完整生命周期：执行与心跳共同监督，收尾只写本任务的结论。"""
+        """单个槽的完整生命周期：执行与心跳共同监督，收尾只写本任务的结论。
+
+        就绪的异步结果**在同一租约里继续**：`_wait` 的进入前就绪检查发现结果已全到，就不写
+        `WAITING_EXTERNAL`、不释放租约，落一条 checkpoint 后直接跑下一段执行
+        （design §3.1.5 第 2 条「ready → CONTINUE」）。这里因此没有第二个等待写入方，也不经过
+        claim/续接——attempt、resume_count、Fire、Run 都不动。
+        """
+        while True:
+            if not await self._supervise_segment(task, now=now):
+                return
+            refreshed = await self._reload_task(task.id)
+            if refreshed is None:
+                return
+            task = refreshed
+
+    async def _reload_task(self, task_id: uuid.UUID) -> TaskExecution | None:
+        """继续同一租约前重读执行行：checkpoint/状态以库里的为准，不用本地旧副本。"""
+        async with self._session_factory() as session:
+            return await session.get(TaskExecution, task_id)
+
+    async def _supervise_segment(self, task: TaskExecution, *, now: datetime | None) -> bool:
+        """跑一段执行；返回 True 表示等待前结果已到、应在同一租约里继续。"""
         moment = now if now is not None else await self._pg_clock()
         cancelled = asyncio.Event()
+        expired = asyncio.Event()
         execution = asyncio.create_task(self._resolve_executor().execute(task))
         heartbeat = asyncio.create_task(
-            self._heartbeat(task.id, execution, cancelled, lease_epoch=task.lease_epoch)
+            self._heartbeat(
+                task.id, execution, cancelled, expired, lease_epoch=task.lease_epoch
+            )
         )
         try:
             await self._supervise(execution, heartbeat)
             if not execution.done():
                 # 心跳先退出：本地执行已脱离租约监控，先叫停它再谈结局（评审 #3）。
                 await self._abort_execution(execution)
-                if cancelled.is_set():
-                    await self._mark_cancelled_outcome(task, now=now)
-                    return
+                if await self._stop_outcome(task, cancelled=cancelled, expired=expired, now=now):
+                    return False
                 raise TaskExecutionError(
                     HEARTBEAT_LOST_CODE, "lease heartbeat stopped before the skill finished"
                 )
             if execution.cancelled():
-                # 心跳检查点已经叫停本地执行（取消/失约）：按取消收尾，不再解析结果。
-                if cancelled.is_set():
-                    await self._mark_cancelled_outcome(task, now=now)
-                    return
+                # 心跳检查点已经叫停本地执行（取消/过期/失约）：按停止原因收尾，不再解析结果。
+                if await self._stop_outcome(task, cancelled=cancelled, expired=expired, now=now):
+                    return False
                 raise TaskExecutionError(
                     HEARTBEAT_LOST_CODE, "local execution was cancelled without a lease decision"
                 )
@@ -380,13 +481,13 @@ class WorkerLoop:
             # 池关闭/进程退出：停止心跳并叫停整组本地执行，再让取消继续传播。
             await self._stop_heartbeat(heartbeat)
             await self._abort_execution(execution)
-            if cancelled.is_set():
-                await self._mark_cancelled_outcome(task, now=now)
+            # 取消继续传播（池关闭/进程退出），但已发生的停止原因仍要落库。
+            await self._stop_outcome(task, cancelled=cancelled, expired=expired, now=now)
             raise
         except Exception as exc:
             await self._stop_heartbeat(heartbeat)
             await self._handle_failure(task, exc, now=now)
-            return
+            return False
         await self._stop_heartbeat(heartbeat)
         # 截止判定用**执行真正结束的时刻**，不是本轮 tick 的起点——Skill 可能跑了五分钟。
         # 该时刻取 PG 服务端时钟（B-235）：进程钟偏差不得让超期结果写成 COMPLETED。
@@ -395,8 +496,8 @@ class WorkerLoop:
             # 结果产出时已过 deadline：不写 COMPLETED（评审 #8）。已有的副作用收不回，
             # 但「成功」这个结论不能落库。
             await self._mark_deadline_exceeded(task, now=finished_at)
-            return
-        await self._handle_outcome(task, outcome, now=now)
+            return False
+        return await self._handle_outcome(task, outcome, now=now)
 
     async def _supervise(
         self,
@@ -425,13 +526,31 @@ class WorkerLoop:
         except Exception:
             logger.warning("worker_execution_aborted_with_error", exc_info=True)
 
+    async def _stop_outcome(
+        self,
+        task: TaskExecution,
+        *,
+        cancelled: asyncio.Event,
+        expired: asyncio.Event,
+        now: datetime | None,
+    ) -> bool:
+        """心跳叫停本地执行后的结论：显式取消优先于期限（两者都不许写成 COMPLETED）。"""
+        if cancelled.is_set():
+            await self._mark_cancelled_outcome(task, now=now)
+            return True
+        if expired.is_set():
+            await self._mark_deadline_exceeded(task, now=now)
+            return True
+        return False
+
     async def _handle_outcome(
         self,
         task: TaskExecution,
         outcome: TaskOutcome,
         *,
         now: datetime | None,
-    ) -> None:
+    ) -> bool:
+        """把一个执行结局落库；返回 True 表示等待前结果已到、应在同一租约继续。"""
         if outcome.kind is OutcomeKind.COMPLETED:
             await self._handle_success(
                 task,
@@ -439,21 +558,24 @@ class WorkerLoop:
                 now=now,
                 result_artifact_id=outcome.result_artifact_id,
             )
-            return
+            return False
         if outcome.kind is OutcomeKind.WAITING:
-            await self._wait(task, outcome, now=now)
-            return
+            return await self._wait(task, outcome, now=now)
+        if outcome.kind is OutcomeKind.WAITING_HUMAN:
+            await self._wait_human(task, outcome, now=now)
+            return False
         if outcome.kind is OutcomeKind.CANCELLED:
             moment = now if now is not None else await self._pg_clock()
             async with self._session_factory() as session:
                 async with session.begin():
                     await self._mark_cancelled(session, task, moment)
-            return
+            return False
         await self._handle_failure(
             task,
             TaskExecutionError(outcome.error_code or "SKILL_EXECUTION_FAILED", outcome.error_message),
             now=now,
         )
+        return False
 
     async def _wait(
         self,
@@ -461,8 +583,30 @@ class WorkerLoop:
         outcome: TaskOutcome,
         *,
         now: datetime | None,
-    ) -> None:
-        """外部等待：记录 external_ref/not_before 并释放 lease，由 Scheduler 到期再 claim。"""
+    ) -> bool:
+        """外部等待：**进入等待前先做就绪检查**，再落 `wait_kind`/载荷并释放 lease。
+
+        为什么就绪检查必须在这一次收尾里：结果可能在"提交时那次检查"之后、本段收尾之前到达。
+        那一刻若直接写 `WAITING_EXTERNAL`，就没有唤醒源了（Runtime 没有到 Worker 的入站回调，
+        claim 只看已落库的水位）。所以进入等待前再读一次 Task-owned 收件箱：
+
+        - **全部终态** → 不写等待、不释放租约，落一条 checkpoint 后在同一租约继续执行；
+        - **仍有未终态** → 用刚读到的水位落等待。检查之后才到的结果由**持久补扫**兜底
+          （`AsyncResultSweeper` 推进水位 → claim 按 `wait_kind` 续接），丢 hint 不影响正确性。
+
+        三类等待的载荷不同（`external_ref` / `operations[]` / `batch`），`wait_kind` 是唯一
+        判别器：没有它，claim 只能把三种等待混成"等到 not_before 就叫醒"。HTTP 只在事务外读
+        ——行锁内不做网络调用。
+
+        Returns:
+            True 表示已在本租约内就地续接（调用方不得再收尾）。
+        """
+        wait_kind = outcome.wait_kind or WaitKind.EXTERNAL_POLL
+        wait_payload = dict(outcome.wait_payload or {})
+        if wait_kind is WaitKind.ASYNC_OPERATION:
+            settled, wait_payload = await self._async_ready_payload(task, wait_payload)
+            if settled and await self._continue_in_lease(task, outcome):
+                return True
         async with self._session_factory() as session:
             async with session.begin():
                 moment = now if now is not None else await database_now(session)
@@ -472,8 +616,9 @@ class WorkerLoop:
                     session,
                     task.id,
                     {
-                        "status": str(TaskStatus.WAITING),
-                        "external_ref_json": outcome.external_ref or {},
+                        "status": str(TaskStatus.WAITING_EXTERNAL),
+                        "wait_kind": wait_kind.value,
+                        "wait_payload_json": wait_payload,
                         "not_before": not_before,
                         "lease_owner": None,
                         "lease_until": None,
@@ -486,22 +631,193 @@ class WorkerLoop:
                 if rowcount != 1:
                     # 执行期间已被请求取消：按取消收尾，不能留成无 lease 的 RUNNING。
                     await self._mark_cancelled(session, task, moment)
-                    return
+                    return False
+                await self._persist_wait_checkpoint(session, task, outcome)
                 await append_events(
                     session,
                     [
                         TaskEventSeed(
                             tenant_id=task.tenant_id,
-                            task_id=task.id,
-                            event_type=TaskEventType.WAITING,
+                            entity_type=EntityType.EXECUTION,
+                            entity_id=task.id,
+                            event_type=TaskEventType.WAITING_EXTERNAL,
+                            occurred_at=moment,
                             payload={
-                                "external_ref": outcome.external_ref or {},
+                                "wait_kind": wait_kind.value,
+                                "wait_payload": wait_payload,
                                 "not_before": not_before.isoformat(),
                                 "attempt": task.attempt,
                             },
                         )
                     ],
                 )
+        return False
+
+    async def _async_ready_payload(
+        self, task: TaskExecution, payload: dict[str, Any]
+    ) -> tuple[bool, dict[str, Any]]:
+        """进入等待前的就绪检查：读 Task-owned 收件箱并按 `call_id` 推进各自水位。
+
+        读不到（Runtime 不可达/超时）按"仍有未终态"处理——等待仍会写入，补扫随后推进；
+        绝不因为一次读失败就把执行判成失败或提前恢复。
+        """
+        watermarks = watermarks_from_payload(payload)
+        if not watermarks or self._operations is None:
+            return False, payload
+        try:
+            views = await read_operations(
+                self._operations,
+                tenant_id=task.tenant_id,
+                actor_user_id=task.actor_user_id,
+                execution_id=task.id,
+            )
+        except TaskOperationError as exc:
+            logger.warning(
+                "agentic_ready_check_unavailable",
+                extra={"execution_id": str(task.id), "code": exc.code},
+            )
+            return False, payload
+        refreshed = advance_watermarks(watermarks, views)
+        return all_settled(refreshed), payload_from_watermarks(refreshed)
+
+    async def _continue_in_lease(self, task: TaskExecution, outcome: TaskOutcome) -> bool:
+        """结果已全到：落 checkpoint（受租约栅栏保护）后在同一租约里继续执行。
+
+        checkpoint 是恢复的唯一依据：下一段执行按它重建历史、把已就绪结果替换进对应
+        `call_id` 的 tool 消息。栅栏拒绝（失约/取消/过期）时不写任何结论，交回收/配置裁决。
+        """
+        if outcome.checkpoint_state is None or not task.lease_owner:
+            return False
+        identity = ExecutionIdentity(
+            task.tenant_id, task.id, task.lease_owner, task.lease_epoch
+        )
+        try:
+            await TaskCheckpointStore(self._session_factory, identity).persist(
+                checkpoint_from_state(outcome.checkpoint_state)
+            )
+        except AgenticLeaseLost as exc:
+            logger.warning(
+                "agentic_ready_continue_without_lease",
+                extra={"execution_id": str(task.id), "reason": str(exc)},
+            )
+            return False
+        return True
+
+    async def _wait_human(
+        self,
+        task: TaskExecution,
+        outcome: TaskOutcome,
+        *,
+        now: datetime | None,
+    ) -> None:
+        """Human 挂起：**同一事务**写 checkpoint、OPEN 提问、WAITING_HUMAN、释放租约与事件。
+
+        design §3.5.8 的口径逐条落在这里：问题 deadline 不晚于 Execution deadline；同 Execution
+        最多一个 OPEN（部分唯一索引兜底）；等待状态与打开的问题要么一起生效、要么一起回滚。
+        """
+        human = outcome.human
+        if human is None:
+            raise TaskExecutionError(
+                "SKILL_RESULT_INVALID", "human wait outcome carries no question", retryable=False
+            )
+        deadline = min(human.deadline_at, task.deadline_at)
+        async with self._session_factory() as session:
+            async with session.begin():
+                moment = now if now is not None else await database_now(session)
+                await self._lock_parent(session, task)
+                rowcount = await self._cas(
+                    session,
+                    task.id,
+                    {
+                        "status": str(TaskStatus.WAITING_HUMAN),
+                        # 契约只在 WAITING_EXTERNAL 上允许 wait_kind/wait_payload。
+                        "wait_kind": None,
+                        "wait_payload_json": None,
+                        "not_before": deadline,
+                        "lease_owner": None,
+                        "lease_until": None,
+                        "update_time": moment,
+                    },
+                    moment=moment,
+                    lease_epoch=task.lease_epoch,
+                    require_not_cancelled=True,
+                )
+                if rowcount != 1:
+                    await self._mark_cancelled(session, task, moment)
+                    return
+                interaction = TaskHumanInteraction(
+                    tenant_id=task.tenant_id,
+                    execution_id=task.id,
+                    owner_user_id=task.actor_user_id,
+                    agent_id=task.agent_id,
+                    interaction_type=HUMAN_INTERACTION_TYPE,
+                    status=str(HumanInteractionStatus.OPEN),
+                    question=human.question,
+                    input_schema=dict(human.input_schema) or None,
+                    deadline_at=deadline,
+                )
+                session.add(interaction)
+                await session.flush()
+                await self._persist_wait_checkpoint(session, task, outcome)
+                await append_events(
+                    session,
+                    [
+                        TaskEventSeed(
+                            tenant_id=task.tenant_id,
+                            entity_type=EntityType.EXECUTION,
+                            entity_id=task.id,
+                            event_type=TaskEventType.WAITING_HUMAN,
+                            occurred_at=moment,
+                            payload={
+                                "interaction_id": str(interaction.id),
+                                "question": human.question,
+                                "deadline_at": deadline.isoformat(),
+                                "attempt": task.attempt,
+                            },
+                        ),
+                        TaskEventSeed(
+                            tenant_id=task.tenant_id,
+                            entity_type=EntityType.HUMAN,
+                            entity_id=interaction.id,
+                            event_type=TaskEventType.REQUESTED,
+                            occurred_at=moment,
+                            payload={
+                                "execution_id": str(task.id),
+                                "question": human.question,
+                                "deadline_at": deadline.isoformat(),
+                            },
+                        ),
+                    ],
+                )
+
+    async def _persist_wait_checkpoint(
+        self, session: AsyncSession, task: TaskExecution, outcome: TaskOutcome
+    ) -> None:
+        """挂起边界上的 Kernel checkpoint：与等待状态同一事务（恢复的唯一依据）。"""
+        if outcome.checkpoint_state is None:
+            return
+        latest = await session.scalar(
+            select(TaskExecutionCheckpoint.checkpoint_no)
+            .where(
+                TaskExecutionCheckpoint.tenant_id == task.tenant_id,
+                TaskExecutionCheckpoint.execution_id == task.id,
+            )
+            .order_by(TaskExecutionCheckpoint.checkpoint_no.desc())
+            .limit(1)
+        )
+        checkpoint = TaskExecutionCheckpoint(
+            tenant_id=task.tenant_id,
+            execution_id=task.id,
+            checkpoint_no=int(latest or 0) + 1,
+            state_json=dict(outcome.checkpoint_state),
+        )
+        session.add(checkpoint)
+        await session.flush()
+        await session.execute(
+            update(TaskExecution)
+            .where(TaskExecution.id == task.id, TaskExecution.tenant_id == task.tenant_id)
+            .values(last_checkpoint_id=checkpoint.id)
+        )
 
     async def reclaim_expired(self, *, now: datetime | None = None) -> int:
         """Bounded PG scan; each root tree is settled in its own ordered transaction."""
@@ -552,9 +868,16 @@ class WorkerLoop:
         if locked is None:
             return 0, 0
         conditions = (TaskExecution.status == str(TaskStatus.RUNNING), TaskExecution.lease_until < moment)
-        change = _reclaim_terminal_change(locked)
+        change = _reclaim_terminal_change(locked, moment)
         if change is not None:
-            if await write_terminal(session, locked, change, moment, conditions=conditions):
+            event_type = (
+                TaskEventType.DEADLINE_EXCEEDED
+                if change.error_code == TASK_DEADLINE_EXCEEDED
+                else None
+            )
+            if await write_terminal(
+                session, locked, change, moment, conditions=conditions, event_type=event_type
+            ):
                 if locked.cancel_requested:
                     await cancel_children(session, locked, moment)
                 await settle_child(session, locked, moment)
@@ -572,7 +895,12 @@ class WorkerLoop:
             )
         )
         await append_event(
-            session, tenant_id=locked.tenant_id, task_id=locked.id, event_type=TaskEventType.RECLAIMED
+            session,
+            tenant_id=locked.tenant_id,
+            entity_type=EntityType.EXECUTION,
+            entity_id=locked.id,
+            event_type=TaskEventType.RECLAIMED,
+            occurred_at=moment,
         )
         return 1, 1
 
@@ -591,8 +919,20 @@ class WorkerLoop:
         )
         async with self._session_factory() as session, session.begin():
             moment = now if now is not None else await database_now(session)
-            if not await self._terminal(session, task, change, moment, require_not_cancelled=True):
-                await self._mark_cancelled(session, task, moment)
+            if await self._terminal(session, task, change, moment, require_not_cancelled=True):
+                return
+            # CAS 落败有三种原因，结论各不相同：显式取消 → CANCELLED（即使已过期限）；
+            # 过期 → `FAILED(TASK_DEADLINE_EXCEEDED)`；失约 → 无权写任何结论。
+            if await self._terminal(
+                session,
+                task,
+                TerminalChange(status=TerminalStatus.CANCELLED, cancel_requested=True),
+                moment,
+                require_cancel_requested=True,
+            ):
+                return
+            if moment >= task.deadline_at:
+                await self._deadline_terminal(session, task, moment)
 
     async def _handle_failure(
         self,
@@ -630,21 +970,26 @@ class WorkerLoop:
                 await self._mark_cancelled(session, task, moment)
 
     async def _mark_deadline_exceeded(self, task: TaskExecution, *, now: datetime | None) -> None:
-        change = TerminalChange(
-            status=TerminalStatus.FAILED,
-            error_code=TASK_DEADLINE_EXCEEDED,
-            error_message="task deadline exceeded",
-        )
         async with self._session_factory() as session, session.begin():
             moment = now if now is not None else await database_now(session)
-            await self._terminal(
-                session,
-                task,
-                change,
-                moment,
-                require_not_cancelled=True,
-                event_type=TaskEventType.DEADLINE_EXCEEDED,
-            )
+            await self._deadline_terminal(session, task, moment)
+
+    async def _deadline_terminal(
+        self, session: AsyncSession, task: TaskExecution, moment: datetime
+    ) -> bool:
+        """绝对期限的终态口径，领取侧/心跳侧/收尾侧共用：`FAILED(TASK_DEADLINE_EXCEEDED)`。"""
+        return await self._terminal(
+            session,
+            task,
+            TerminalChange(
+                status=TerminalStatus.FAILED,
+                error_code=TASK_DEADLINE_EXCEEDED,
+                error_message="task deadline exceeded",
+            ),
+            moment,
+            require_not_cancelled=True,
+            event_type=TaskEventType.DEADLINE_EXCEEDED,
+        )
 
     async def _lock_parent(self, session: AsyncSession, task: TaskExecution) -> None:
         await lock_task_tree(session, task)
@@ -681,8 +1026,10 @@ class WorkerLoop:
             [
                 TaskEventSeed(
                     tenant_id=task.tenant_id,
-                    task_id=task.id,
-                    event_type=TaskEventType.RETRY,
+                    entity_type=EntityType.EXECUTION,
+                    entity_id=task.id,
+                    event_type=TaskEventType.QUEUED,
+                    occurred_at=moment,
                     payload={
                         "attempt": task.attempt,
                         "not_before": not_before.isoformat(),
@@ -722,6 +1069,7 @@ class WorkerLoop:
         moment: datetime,
         *,
         require_not_cancelled: bool = False,
+        require_cancel_requested: bool = False,
         event_type: TaskEventType | None = None,
     ) -> bool:
         conditions = [
@@ -732,6 +1080,11 @@ class WorkerLoop:
         ]
         if require_not_cancelled:
             conditions.append(TaskExecution.cancel_requested.is_(False))
+        if require_cancel_requested:
+            conditions.append(TaskExecution.cancel_requested.is_(True))
+        if change.status is TerminalStatus.COMPLETED:
+            # 收尾侧的硬 deadline（RULE-worker-001）：跑过期限的执行不得提交成功结论。
+            conditions.append(TaskExecution.deadline_at > moment)
         written = await write_terminal(
             session,
             task,
@@ -783,14 +1136,15 @@ class WorkerLoop:
         task_id: uuid.UUID,
         execution: asyncio.Task[dict[str, Any]] | None = None,
         cancelled: asyncio.Event | None = None,
+        expired: asyncio.Event | None = None,
         *, lease_epoch: int,
     ) -> None:
-        """续租并检查取消标记。
+        """续租并检查取消标记与绝对期限。
 
-        每 `task_heartbeat_sec` 续租一次并读 PG 取消标记（权威源，Redis 不可用时照常
+        每 `task_heartbeat_sec` 续租一次并读 PG 取消标记/期限（权威源，Redis 不可用时照常
         生效）；两次续租之间每 `task_cancel_check_sec` 看一眼 `muad:task:cancel:{id}` hint，
-        命中就立即读 PG 确认。一旦用户已请求取消、或租约已不属于本实例（被回收/已终态），
-        立即叫停本地执行——这就是「检查点停止」。
+        命中就立即读 PG 确认。一旦用户已请求取消、租约已不属于本实例（被回收/已终态），或
+        执行跨过了绝对期限，立即叫停本地执行——这就是「检查点停止」。
         """
         step = max(1, min(self._settings.task_cancel_check_sec, self._settings.task_heartbeat_sec))
         elapsed = 0
@@ -808,19 +1162,23 @@ class WorkerLoop:
                 raise TaskExecutionError(
                     HEARTBEAT_LOST_CODE, "lease renewal failed and could not be confirmed"
                 )
-            owned, requested = renewal
             if execution is None:
                 continue
-            if requested or not owned:
+            if renewal.cancel_requested or not renewal.owned:
                 if cancelled is not None:
                     cancelled.set()
                 execution.cancel()
                 return
+            if renewal.expired:
+                if expired is not None:
+                    expired.set()
+                execution.cancel()
+                return
 
-    async def _renew_with_retry(self, task_id: uuid.UUID, *, lease_epoch: int) -> tuple[bool, bool] | None:
+    async def _renew_with_retry(self, task_id: uuid.UUID, *, lease_epoch: int) -> LeaseRenewal | None:
         """续租的有界重试：瞬时 DB 抖动不该杀掉一个跑了五分钟的 Skill。
 
-        重试耗尽仍无结论时返回 None（调用方退出心跳）；`(False, _)` 是**确定的**失约，
+        重试耗尽仍无结论时返回 None（调用方退出心跳）；`owned=False` 是**确定的**失约，
         不重试——那时租约已经不在我们手上，重试只会掩盖事实。
         """
         for attempt in range(HEARTBEAT_RENEW_ATTEMPTS):
@@ -836,8 +1194,8 @@ class WorkerLoop:
                     await asyncio.sleep(HEARTBEAT_RENEW_RETRY_SEC)
         return None
 
-    async def _renew_lease(self, task_id: uuid.UUID, *, lease_epoch: int) -> tuple[bool, bool]:
-        """续租并回读取消标记，返回 `(仍持有 lease, 已请求取消)`。
+    async def _renew_lease(self, task_id: uuid.UUID, *, lease_epoch: int) -> LeaseRenewal:
+        """续租并回读取消标记与绝对期限：一次行读取给出 `LeaseRenewal`。
 
         续租条件与终态 CAS 同口径：**当前租约必须仍然有效**（`lease_until > now`）。少了
         这一格，进程/DB 卡顿超过租期之后，一次心跳就能把已经失效的执行权续到未来（评审
@@ -864,10 +1222,20 @@ class WorkerLoop:
                     )
                 )
                 rowcount = int(cast(CursorResult[Any], heartbeat_result).rowcount)
-                requested = await session.scalar(
-                    select(TaskExecution.cancel_requested).where(TaskExecution.id == task_id)
-                )
-        return rowcount == 1, bool(requested)
+                observed = (
+                    await session.execute(
+                        select(TaskExecution.cancel_requested, TaskExecution.deadline_at).where(
+                            TaskExecution.id == task_id
+                        )
+                    )
+                ).one_or_none()
+        if observed is None:
+            return LeaseRenewal(owned=rowcount == 1, cancel_requested=False, expired=False)
+        return LeaseRenewal(
+            owned=rowcount == 1,
+            cancel_requested=bool(observed[0]),
+            expired=observed[1] is not None and observed[1] <= moment,
+        )
 
     async def _stop_heartbeat(self, heartbeat: asyncio.Task[None]) -> None:
         heartbeat.cancel()

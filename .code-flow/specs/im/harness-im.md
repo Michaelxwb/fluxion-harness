@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 7
+  "next_rule": 8
 }
 ---
 
@@ -21,6 +21,7 @@
 - [RULE-im-006] **外部 JWT 平台复用同一套会话面**：接入以 `ChatSurface(channel, auth_kind, entry_resolver)` 抽象表达，同一 router/service 按 channel 多挂载，新平台只注册 surface 与适配器，不复制 handler。通道名必须参数化——任何以字面量硬编码通道名来决定 Run 落库通道、能力分组（拉取式流式 / 出站推送）或路由挂载的位置，都必须改为取当前 surface 的 channel；漏改任一处即表现为 Run 落错通道或产物交付走错路径。
   - ✅ 适配器以 `name=` 参数化，装配根按 surface 列表逐项挂载；Run 组装从 surface 取 channel。
   - ❌ 在 `_run_request`、取消/恢复分支或产物交付判定里写死 `"WEBCHAT"`；为每个平台复制一份 router。
+- [RULE-006] 任务中心的服务与响应契约只依赖可信 Principal 和授权 Agent 范围，数据归属为租户、平台用户与 Agent，入口及渠道仅作来源元数据。不同 surface 复用同一读写及分页契约；定时结果和人工待处理由任务实体直接投影，不写会话通知。任务产物按执行 owner 核属并读取请求指定的不可变版本与校验值，不要求会话身份；未授权、软删或内部留档不得暴露。
 
 ## Conventions
 
@@ -94,3 +95,5 @@
 - {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-002#DELTA-001","op":"add","rule":"RULE-002","payload_sha256":"2dd6c8f15a64d46e21213c9dc11c14d0f6888e115eb8973a2001fcbb13a84ecf","at":"2026-11-12T16:21:37.941Z"}
 
 - {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-005#DELTA-001","op":"add","rule":"RULE-003","payload_sha256":"4f383632fabc8102f4db853af10a64812f26d3549e9e5c933a9090d913590a67","at":"2026-11-12T16:21:37.942Z"}
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-024#DELTA-001","op":"add","rule":"RULE-006","payload_sha256":"216a49e436a612ba01476fb692ac3613cc8ac14f6b79b203cd8c50e1ab139a9c","at":"2026-11-16T05:09:15.752Z"}
