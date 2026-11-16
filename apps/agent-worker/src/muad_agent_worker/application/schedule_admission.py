@@ -378,12 +378,17 @@ def _snapshot_mcp(materials: ScheduleAdmissionMaterials) -> list[SnapshotMcpServ
     ]
 
 
-def _snapshot_budget(materials: ScheduleAdmissionMaterials, request: AdmissionRequest) -> SnapshotBudget:
+def _snapshot_budget(
+    materials: ScheduleAdmissionMaterials,
+    request: AdmissionRequest,
+    settings: PlatformSettings,
+) -> SnapshotBudget:
     retry_safety = frozen_retry_safety(materials.agent.runtime_config.get("budget", {}))
     return SnapshotBudget(
         max_steps=request.budget.get("max_steps"),
         max_tool_calls=request.budget.get("max_tool_calls"),
         max_tokens=request.budget.get("max_tokens"),
+        execution_timeout_sec=settings.task.execution_timeout_sec,
         deadline_at=request.deadline_at,
         retry_safety=str(retry_safety),
     )
@@ -433,7 +438,7 @@ def build_snapshot(
             tools=_snapshot_tools(materials),
             mcp=_snapshot_mcp(materials),
             memory=memory,
-            budget=_snapshot_budget(materials, request),
+            budget=_snapshot_budget(materials, request, settings),
             allowlist=[allowlist_key(entry) for entry in request.tool_allowlist],
             prompt_template={
                 "version": TASK_PROMPT_TEMPLATE_VERSION,

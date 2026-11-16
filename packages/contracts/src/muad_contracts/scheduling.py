@@ -818,6 +818,8 @@ class SnapshotBudget(ContractModel):
     max_steps: int | None = Field(default=None, ge=1)
     max_tool_calls: int | None = Field(default=None, ge=1)
     max_tokens: int | None = Field(default=None, ge=0)
+    #: 执行超时：定时任务在 Fire Admission 时冻结，Worker 只读快照。
+    execution_timeout_sec: int | None = Field(default=None, ge=1)
     deadline_at: AwareDatetime | None = None
     retry_safety: str | None = Field(default=None, max_length=16)
 
