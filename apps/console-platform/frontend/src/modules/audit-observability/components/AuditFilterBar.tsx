@@ -10,9 +10,10 @@
  */
 
 import { useEffect, useState } from 'react';
-import { DatePicker, Input, Select } from '@douyinfe/semi-ui';
+import { Input, Select } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
+import { DateRangeFilter } from '../../../components/common/DateRangeFilter';
 import { ListActionButton } from '../../../components/common/ListActionButton';
 import type { AuditListQuery } from '../types';
 
@@ -104,10 +105,10 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
     props.onChange({ ...patch, page: 1 });
   }
 
-  const timeRange: [Date, Date] | undefined =
+  const timeRange: Date[] =
     value.startTime && value.endTime
       ? [new Date(value.startTime), new Date(value.endTime)]
-      : undefined;
+      : [];
 
   return (
     <>
@@ -122,14 +123,11 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
         onChange={setKeywordDraft}
         onEnterPress={() => emit({ keyword: keywordDraft || undefined })}
       />
-      <DatePicker
-        data-testid="audit-filter-time"
-        type="dateRange"
-        style={{ width: 260 }}
+      <DateRangeFilter
+        testId="audit-filter-time"
+        label={t('audit.filter.time')}
         value={timeRange}
-        placeholder={[t('audit.filter.timeFrom'), t('audit.filter.timeTo')]}
-        onChange={(range) => {
-          const days = Array.isArray(range) ? (range as Date[]) : [];
+        onChange={(days) => {
           emit({ startTime: toIsoStart(days[0]), endTime: toIsoEndOfDay(days[1]) });
         }}
       />

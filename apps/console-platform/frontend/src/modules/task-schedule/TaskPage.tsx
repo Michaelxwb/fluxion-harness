@@ -1,11 +1,11 @@
 import { actionColumn } from '../../components/common/tableLayout';
-import { Button, DatePicker, Input, Select, Tag } from '@douyinfe/semi-ui';
-import { IconCalendar } from '@douyinfe/semi-icons';
+import { Input, Select, Tag } from '@douyinfe/semi-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
 import { ConfirmAction } from '../../components/common/ConfirmAction';
+import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { ListActionButton } from '../../components/common/ListActionButton';
 import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
@@ -57,56 +57,6 @@ function toIsoEndOfDay(value: Date | null | undefined): string | undefined {
   const end = new Date(value);
   end.setHours(23, 59, 59, 999);
   return end.toISOString();
-}
-
-function shortDate(value: Date): string {
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${month}-${day}`;
-}
-
-/**
- * 紧凑日期范围：工具条只显示一个短按钮，点开后才出现日期面板。
- * 既保留任意范围能力，又不再让两个 220px 的日期输入框撑满筛选行。
- */
-function CompactDateRange(props: {
-  testId: string;
-  label: string;
-  value: Date[];
-  onChange(range: Date[]): void;
-}) {
-  const text =
-    props.value.length === 2
-      ? `${shortDate(props.value[0])} ~ ${shortDate(props.value[1])}`
-      : props.value.length === 1
-        ? `${shortDate(props.value[0])} ~ …`
-        : props.label;
-  return (
-    <DatePicker
-      data-testid={props.testId}
-      type="dateRange"
-      value={props.value}
-      onChange={(value) => props.onChange(Array.isArray(value) ? (value as Date[]) : [])}
-      triggerRender={({ placeholder }) => (
-        <Button
-          theme="borderless"
-          icon={<IconCalendar />}
-          style={{
-            minWidth: 122,
-            maxWidth: 160,
-            height: 32,
-            paddingInline: 10,
-            justifyContent: 'flex-start',
-            border: '1px solid var(--semi-color-border)',
-            borderRadius: 'var(--semi-border-radius-small)',
-            background: 'var(--semi-color-fill-0)'
-          }}
-        >
-          {text || placeholder}
-        </Button>
-      )}
-    />
-  );
 }
 
 /**
@@ -359,7 +309,7 @@ export function TaskPage() {
               onDropdownVisibleChange={skillPicker.onDropdownVisibleChange}
               onChange={(value) => setFilter({ skill_id: (value as string) ?? undefined })}
             />
-            <CompactDateRange
+            <DateRangeFilter
               testId="task-filter-create"
               label={t('task.filter.created')}
               value={createdRange}
@@ -371,7 +321,7 @@ export function TaskPage() {
                 });
               }}
             />
-            <CompactDateRange
+            <DateRangeFilter
               testId="task-filter-deadline"
               label={t('task.filter.deadline')}
               value={deadlineRange}

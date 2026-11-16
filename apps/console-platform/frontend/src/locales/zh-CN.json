@@ -1163,6 +1163,7 @@
   "run.event.RUN_RESUMED": "运行已接续",
   "audit.filter.timeFrom": "开始时间",
   "audit.filter.timeTo": "结束时间",
+  "audit.filter.time": "时间",
   "audit.filter.keyword": "操作用户 / Agent / 操作目标 / 动作 / Trace ID",
   "audit.filter.auditType": "审计类型",
   "audit.filter.resourceType": "资源类型",
