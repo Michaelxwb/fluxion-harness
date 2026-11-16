@@ -24,6 +24,13 @@ export interface PendingPanelProps {
   onOpenSchedule(scheduleId: string): void;
 }
 
+/** 错误码 → 词条键的静态映射：动态拼接键会让 i18n 死键检查与翻译提取都失效。 */
+const PENDING_ERROR_KEYS: Record<string, string> = {
+  HUMAN_INTERACTION_EXPIRED: 'chat.taskCenter.pending.error.HUMAN_INTERACTION_EXPIRED',
+  EXECUTION_NOT_RESUMABLE: 'chat.taskCenter.pending.error.EXECUTION_NOT_RESUMABLE',
+  UNKNOWN: 'chat.taskCenter.pending.error.unknown'
+};
+
 /** `input_schema` 只用来**生成表单**：真正的校验在服务端，这里只做必填提示。 */
 type SchemaField = { name: string; required: boolean; options: string[] | null };
 
@@ -133,9 +140,7 @@ function HumanCard(props: {
       {props.errorCode ? (
         <Banner
           type="danger"
-          description={t(`chat.taskCenter.pending.error.${props.errorCode}`, {
-            defaultValue: t('chat.taskCenter.pending.error.unknown')
-          })}
+          description={t(PENDING_ERROR_KEYS[props.errorCode] ?? PENDING_ERROR_KEYS.UNKNOWN)}
         />
       ) : null}
       {props.answered ? (

@@ -220,7 +220,6 @@ async def test_budget_exhaustion_fails_claimed_task_without_retry_and_releases_l
         skill_artifact_id=artifact_id,
         actor_user_id=uuid.UUID(budget_platform.actor_user_id),
         execution_snapshot_json=snapshot,
-        delivery_mode="NONE",
         max_attempts=3,
         input_json={"egress_budget": {"execution": {"max_requests": 999}}},
         status="RUNNING" if recovered else "QUEUED",

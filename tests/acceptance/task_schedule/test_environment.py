@@ -15,7 +15,7 @@ import pytest
 import redis.asyncio as redis
 from sqlalchemy import text
 
-from .environment import LiveStack, cleanup, require, run_db
+from .environment import LiveStack, cleanup, require, run_db, seed_v2_schedule
 
 SERVICE_HEALTH = ("console_url", "runtime_url", "worker_url", "worker2_url", "gateway_url", "channel_url")
 
@@ -137,26 +137,7 @@ def test_b139_cleanup_removes_task_schedule_route_submission_and_probe_data(
     live_stack: LiveStack, http: httpx.Client
 ) -> None:
     """清理按依赖顺序移除 Task/Event/Schedule/Route/Submission 与探针数据。"""
-    headers = live_stack.service_headers()
-    schedule_response = http.post(
-        f"{live_stack.worker_url}/internal/schedules",
-        headers=headers,
-        json={
-            "name": "e2e cleanup schedule",
-            "agent_id": str(live_stack.agent_id),
-            "actor_user_id": str(live_stack.platform_user_id),
-            "intent_key": "e2e_policy_check",
-            "skill_id": str(live_stack.skill_id),
-            "input_template": {"customer": "A"},
-            "schedule": {"type": "CRON", "cron": "0 9 * * *", "timezone": "Asia/Shanghai"},
-            "delivery_route": {
-                "channel": "WECOM",
-                "bot_id": live_stack.bot_id,
-                "external_user_id": "e2e-external-user",
-            },
-        },
-    )
-    assert schedule_response.status_code == 200, schedule_response.text
+    seed_v2_schedule(live_stack, with_submission_event=True)
 
     probe_response = http.post(
         f"{live_stack.channel_url}/probe/deliveries",
@@ -187,6 +168,8 @@ def test_b139_cleanup_removes_task_schedule_route_submission_and_probe_data(
     before = run_db(counts)
     assert before["task.task_schedule"] == 1
     assert before["task.delivery_route"] == 1
+    assert before["task.task_submission"] == 1
+    assert before["task.task_event"] == 1
 
     from muad_common import SharedSettings
 

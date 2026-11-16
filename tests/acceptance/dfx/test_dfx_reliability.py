@@ -322,11 +322,13 @@ def test_s04_cross_tenant_query_returns_nothing(live_stack: DfxStack, http: http
     for other in other_tenants:
         assert read_task_row(task_id, tenant_id=other) is None
         assert count_rows("task.task_execution", other, "id = :id", {"id": task_id}) == 0
-        assert count_rows("task.task_event", other, "task_id = :id", {"id": task_id}) == 0
+        assert count_rows(
+            "task.task_event", other, "entity_type = 'EXECUTION' AND entity_id = :id", {"id": task_id}
+        ) == 0
         assert count_rows("task.task_submission", other, "task_id = :id", {"id": task_id}) == 0
 
     # 正对照：同一 id 在本租户确实可见（排除「查什么都为空」的蒙对）。
-    assert count_task_events(task_id, "CREATED") == 1
+    assert count_task_events(task_id, "QUEUED") == 1
 
 
 def test_s04_claim_skips_row_locked_by_another_transaction(
@@ -379,10 +381,11 @@ def test_s04_pg_is_authority_and_redis_is_hint_only(
     assert count_rows("task.task_execution", live_stack.tenant_id) == before
     run_async(lambda: _drop_phantom_hint(phantom))
 
-    # task_type 仅 SKILL/BATCH：枚举封闭 + PG 实际取值。
-    assert task_type_values() == {"SKILL", "BATCH"}
-    assert set(list_task_types()) <= {"SKILL", "BATCH"}, f"PG 出现未登记 task_type：{list_task_types()}"
-    assert set(list_task_types(live_stack.tenant_id)) <= {"SKILL", "BATCH"}
+    # task_type 封闭为 v2 的四种：SKILL/BATCH（立即）与 REMINDER/AGENTIC（调度）。
+    expected_types = {"SKILL", "BATCH", "REMINDER", "AGENTIC"}
+    assert task_type_values() == expected_types
+    assert set(list_task_types()) <= expected_types, f"PG 出现未登记 task_type：{list_task_types()}"
+    assert set(list_task_types(live_stack.tenant_id)) <= expected_types
 
 
 async def _drop_phantom_hint(task_id: uuid.UUID) -> None:

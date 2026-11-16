@@ -13,7 +13,7 @@ import pytest
 from muad_agent_runtime.infrastructure.models.async_tools import ToolControlOutbox, ToolOperation
 from muad_agent_runtime.infrastructure.models.runtime import RunRecord
 from muad_agent_worker.infrastructure.models.runtime_operations import RuntimeOperation
-from muad_agent_worker.infrastructure.models.task import TaskExecution
+from muad_agent_worker.infrastructure.models.task import TaskDelivery, TaskExecution
 from muad_common import SharedSettings
 from muad_contracts import CompletionMode, ControlCommand, OperationStatus, ResolveDefinitionResponse
 from sqlalchemy import func, select
@@ -144,21 +144,32 @@ def test_s02_detach_completion_and_independent_delivery(live_stack, http, routed
             ).one()
 
     task = _wait(lambda: _db(row))
+
+    async def delivery_row(factory):
+        async with factory() as session:
+            return await session.scalar(
+                select(TaskDelivery).where(TaskDelivery.execution_id == task.id)
+            )
+
     http.post(
         f"{live_stack.runtime_url}/v1/runs/{run_id}/cancel", headers=live_stack.service_headers()
     ).raise_for_status()
     task = _wait(lambda: value if (value := _db(row)).status == "COMPLETED" else None)
     assert not task.cancel_requested and task.max_attempts == 1
     if routed:
-        final = _wait(lambda: value if (value := _db(row)).delivery_status == "SENT" else None)
-        assert final.delivery_mode == "FINAL_ONLY"
-        assert final.delivery_key == f"task:{final.id}:final"
+        final = _wait(
+            lambda: value if (value := _db(delivery_row)) is not None
+            and value.status == "SENT"
+            else None
+        )
+        assert final.delivery_kind == "PUSH"
+        assert final.delivery_key == f"execution:{task.id}:final"
         # 探针负载不带 delivery_key（适配器只发渠道字段），按既有口径用 DB 行断言幂等键、
         # 用本 bot 的探针投递条数断言「恰好触达一次」。
         deliveries = _probe_deliveries(live_stack, http, terminal)
         assert len(deliveries) == 1, deliveries
     else:
-        assert task.delivery_mode == "NONE"
+        assert _db(delivery_row) is None, "NONE 不建投递行，结果只回原消息的回复流"
         # 只按**本 Run 的会话**断言：探针是共享的，前一参数化用例迟到的投递会污染全局计数。
         assert _probe_deliveries(live_stack, http, terminal) == []
 
@@ -517,7 +528,7 @@ def test_e07_cancellation_tombstone_precedes_real_http_submission(live_stack, ht
             f"{live_stack.worker_url}/internal/runtime-operations/{operation.id}/cancel",
             headers={**live_stack.service_headers(), "Idempotency-Key": f"runtime-op:{operation.id}:cancel"},
             json={
-                "source_run_id": str(operation.run_id),
+                "owner": {"kind": "RUN", "run_id": str(operation.run_id)},
                 "source_tool_call_id": operation.source_tool_call_id,
                 "actor_user_id": str(operation.actor_user_id),
             },
@@ -554,7 +565,7 @@ def test_e07_batch_cancel_and_last_fanin_have_one_terminal(live_stack, http):
     from tests.async_tool_helpers import seed_operation
 
     async def seed(factory):
-        parent, _, _ = await seed_operation(factory, task_status="WAITING", tenant=live_stack.tenant_id)
+        parent, _, _ = await seed_operation(factory, task_status="WAITING_EXTERNAL", tenant=live_stack.tenant_id)
         child, _, _ = await seed_operation(factory, task_status="COMPLETED", tenant=live_stack.tenant_id)
         async with factory() as session, session.begin():
             row = await session.get(TaskExecution, child.id)
@@ -595,7 +606,8 @@ def test_e07_batch_cancel_and_last_fanin_have_one_terminal(live_stack, http):
                 select(func.count())
                 .select_from(TaskEvent)
                 .where(
-                    TaskEvent.task_id == parent.id,
+                    TaskEvent.entity_type == "EXECUTION",
+                    TaskEvent.entity_id == parent.id,
                     TaskEvent.event_type.in_(("COMPLETED", "CANCELLED", "FAN_IN")),
                 )
             )

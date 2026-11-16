@@ -10,32 +10,14 @@ from typing import Any, cast
 import httpx
 from sqlalchemy import text
 
-from .environment import LiveStack, run_db
+from .environment import LiveStack, run_db, seed_v2_schedule
 
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED"}
 
 
 def _create_schedule(live_stack: LiveStack, http: httpx.Client, *, cron: str = "* * * * *") -> str:
-    response = http.post(
-        f"{live_stack.worker_url}/internal/schedules",
-        headers=live_stack.service_headers(),
-        json={
-            "name": f"e2e-schedule-{uuid.uuid4().hex[:8]}",
-            "agent_id": str(live_stack.agent_id),
-            "actor_user_id": str(live_stack.platform_user_id),
-            "intent_key": "e2e_policy_check",
-            "skill_id": str(live_stack.skill_id),
-            "input_template": {"case": "schedule"},
-            "schedule": {"type": "CRON", "cron": cron, "timezone": "Asia/Shanghai"},
-            "delivery_route": {
-                "channel": "WECOM",
-                "bot_id": live_stack.bot_id,
-                "external_user_id": "e2e-external-user",
-            },
-        },
-    )
-    assert response.status_code == 200, response.text
-    return str(response.json()["data"]["schedule_id"])
+    del http  # v2 创建入口是 Draft + 确认；本文件只验证调度事实，直接种真实行。
+    return seed_v2_schedule(live_stack, cron=cron)
 
 
 def _make_due(live_stack: LiveStack, schedule_id: str) -> None:
@@ -58,7 +40,7 @@ def _schedule_row(live_stack: LiveStack, schedule_id: str) -> tuple[Any, ...]:
             return (
                 await session.execute(
                     text(
-                        "SELECT status, next_fire_at, last_error_code, last_skipped_at, revision "
+                        "SELECT status, next_fire_at, attention_reason, attention_since, config_version "
                         "FROM task.task_schedule WHERE id = :id"
                     ),
                     {"id": uuid.UUID(schedule_id)},
@@ -169,7 +151,7 @@ def test_s02_cron_fire_creates_single_task_with_current_artifact(
     trigger_type, linked_schedule, task_status, _ = run_db(task_row)
     assert trigger_type == "SCHEDULED"
     assert str(linked_schedule) == schedule_id
-    assert task_status in TERMINAL | {"QUEUED", "RUNNING", "WAITING"}
+    assert task_status in TERMINAL | {"QUEUED", "RUNNING", "WAITING_EXTERNAL", "WAITING_HUMAN"}
 
 
 def test_b142_current_artifact_change_only_affects_new_fire(
@@ -254,8 +236,9 @@ def test_b142_revoked_grant_skips_with_reason_and_advances(
     while row[2] is None and time.monotonic() < deadline:
         time.sleep(1.0)
         row = _schedule_row(live_stack, schedule_id)
-    status, next_fire_at, error_code, skipped_at, revision = row
-    assert error_code == "AGENT_ACCESS_DENIED", row
-    assert skipped_at is not None
-    assert next_fire_at is not None and next_fire_at > datetime.now(UTC)
+    status, next_fire_at, error_code, attention_since, config_version = row
+    assert error_code == "GRANT_REVOKED", row
+    assert attention_since is not None
+    assert status == "NEEDS_ATTENTION"
+    assert next_fire_at is None, "永久准入失败必须停下等待修复，不得继续空转"
     assert _schedule_tasks(live_stack, schedule_id) == [], "撤权后不得创建可执行 Task"

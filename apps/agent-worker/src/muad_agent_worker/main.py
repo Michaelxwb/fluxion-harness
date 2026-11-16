@@ -150,6 +150,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         app.state.agentic_mcp = None
         await agentic_mcp.aclose()
         await pools.aclose()
+        app.state.http_pools = None
     await dispose_engine()
     # 测试/同进程重入不继承上一轮启动快照；生产退出后进程即结束。
     app.state.settings = None

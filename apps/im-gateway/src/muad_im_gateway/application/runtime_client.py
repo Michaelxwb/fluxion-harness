@@ -770,7 +770,12 @@ class RuntimeClient:
             raise _transport_failure(exc, "egress") from exc
         body = decode_json(response)
         if response.status_code >= 400:
-            raise AppError(error_code_from_payload(body))
+            code = error_code_from_payload(body)
+            logger.warning(
+                "gateway_runtime_http_error",
+                extra={"path": path, "status": response.status_code, "code": code},
+            )
+            raise AppError(code)
         return require_data_dict(body)
 
     async def _post_internal_json(

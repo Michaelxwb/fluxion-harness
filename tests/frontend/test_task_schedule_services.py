@@ -151,10 +151,11 @@ def test_task_and_schedule_dtos_declare_resolved_names() -> None:
         "skill_key?: string | null",
     ):
         assert field in task_source, f"tasks.ts 缺少 {field}"
-    # v2 的 Schedule 列表项只有 agent_id：执行用户与 Skill 不在它的投影里，不声明假字段。
+    # v2 的 Schedule 列表项有 agent_id/actor_user_id；Skill 不在投影里，不声明假字段。
     schedule_source = _source(SCHEDULES)
     assert "agent_name?: string | null" in schedule_source
-    for absent in ("actor_name?: string | null", "skill_name?: string | null"):
+    assert "actor_name?: string | null" in schedule_source
+    for absent in ("skill_name?: string | null", "skill_key?: string | null"):
         assert absent not in schedule_source, f"schedules.ts 声明了后端不返回的字段 {absent}"
 
 

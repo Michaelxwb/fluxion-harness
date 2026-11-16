@@ -318,10 +318,10 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.lastFireAt'),
               dataIndex: 'last_fire',
-              width: 230,
+              width: 320,
               render: (value: ScheduleListItem['last_fire']) =>
                 value ? (
-                  <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
                     <DateTimeText value={value.scheduled_at} />
                     <StatusTag
                       status={value.status}
@@ -338,7 +338,7 @@ export function SchedulePage() {
                 )
             },
             {
-              ...actionColumn(130),
+              ...actionColumn(190),
               title: t('schedule.columns.actions'),
               render: (_: unknown, record: ScheduleListItem) =>
                 ['ACTIVE', 'PAUSED', 'NEEDS_ATTENTION'].includes(record.status) ? (

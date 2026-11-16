@@ -219,7 +219,10 @@ def test_filter_bar_declares_merged_filters_mapped_to_query() -> None:
         assert member in props, f"AuditFilterBarProps 缺少 {member}"
 
     for field, keys in FILTER_FIELDS:
-        assert f'data-testid="audit-filter-{field}"' in source, f"缺少筛选控件 {field}"
+        assert (
+            f'data-testid="audit-filter-{field}"' in source
+            or f'testId="audit-filter-{field}"' in source
+        ), f"缺少筛选控件 {field}"
         for key in keys:
             assert f"{key}:" in _compact(source), f"筛选控件 {field} 未映射到 {key}"
 

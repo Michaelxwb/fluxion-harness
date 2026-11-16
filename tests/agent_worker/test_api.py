@@ -8,7 +8,6 @@ from httpx import AsyncClient
 from agent_worker.conftest import TenantContext
 from agent_worker.helpers import (
     count_tasks,
-    create_schedule_payload,
     create_task_payload,
     internal_service_headers,
 )
@@ -63,51 +62,6 @@ async def test_task_api_rejects_unknown_and_invalid(client: AsyncClient, tenant:
     invalid = await client.post("/internal/tasks", json=payload, headers=_headers(tenant))
     assert invalid.status_code == 422
     assert invalid.json()["code"] == "COMMON_VALIDATION_ERROR"
-
-
-async def test_schedule_api_lifecycle(client: AsyncClient, tenant: TenantContext) -> None:
-    actor_id = uuid.uuid4()
-    payload = create_schedule_payload(tenant, actor_user_id=actor_id).model_dump(mode="json")
-    created = await client.post(
-        "/internal/schedules",
-        json=payload,
-        headers=_headers(tenant),
-    )
-    assert created.status_code == 200
-    body = created.json()["data"]
-    schedule_id = body["schedule_id"]
-    assert body["status"] == "ACTIVE"
-    assert body["next_fire_at"] is not None
-
-    listing = await client.get(
-        "/internal/schedules",
-        params={"actor_user_id": str(actor_id)},
-        headers=_headers(tenant),
-    )
-    assert listing.status_code == 200
-    assert [item["schedule_id"] for item in listing.json()["data"]["items"]] == [schedule_id]
-
-    paused = await client.put(
-        f"/internal/schedules/{schedule_id}/pause",
-        headers={**_headers(tenant), "X-Actor-User-Id": str(actor_id)},
-    )
-    assert paused.json()["data"]["status"] == "PAUSED"
-
-    resumed = await client.put(
-        f"/internal/schedules/{schedule_id}/resume",
-        headers={**_headers(tenant), "X-Actor-User-Id": str(actor_id)},
-    )
-    assert resumed.json()["data"]["status"] == "ACTIVE"
-
-    deleted = await client.delete(
-        f"/internal/schedules/{schedule_id}",
-        headers={**_headers(tenant), "X-Actor-User-Id": str(actor_id)},
-    )
-    assert deleted.json()["data"] == {"schedule_id": schedule_id, "deleted": True}
-
-    empty = await client.get("/internal/schedules", headers=_headers(tenant))
-    assert empty.json()["data"]["items"] == []
-    assert empty.json()["data"]["total"] == 0
 
 
 async def test_non_standard_json_payload_is_rejected_at_the_boundary(

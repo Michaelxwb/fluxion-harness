@@ -79,6 +79,8 @@ MAPPING_TABLES = (
     ("components/ConversationSidebar.tsx", "CONVERSATION_STATUS_KEYS"),
     ("components/TokenAccess.tsx", "TOKEN_ACCESS_ERROR_KEYS"),
     ("components/ConfirmationCard.tsx", "CONFIRMATION_ERROR_KEYS"),
+    ("task-center/ScheduleActionsBar.tsx", "ACTION_ERROR_KEYS"),
+    ("task-center/PendingPanel.tsx", "PENDING_ERROR_KEYS"),
     ("hooks/usePendingSend.ts", "PENDING_SEND_ERROR_KEYS"),
     ("ChatPage.tsx", "CONVERSATION_ERROR_KEYS"),
 )

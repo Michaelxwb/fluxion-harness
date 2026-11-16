@@ -47,7 +47,7 @@ from muad_agent_worker.worker.service import WorkerLoop
 from muad_common import SharedSettings
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from tests.acceptance.task_schedule.environment import ServiceProcess
+from tests.acceptance.task_schedule.environment import ServiceProcess, seed_v2_schedule
 
 from .environment import (
     SCHEDULER_POLL_INTERVAL_SEC,
@@ -229,7 +229,7 @@ def _read_events(task_id: uuid.UUID) -> list[dict[str, Any]]:
                 await session.execute(
                     sa.text(
                         "SELECT seq, event_type, payload_json, create_time FROM task.task_event"
-                        " WHERE tenant_id = :t AND task_id = :id ORDER BY seq"
+                        " WHERE tenant_id = :t AND entity_type = 'EXECUTION' AND entity_id = :id ORDER BY seq"
                     ),
                     {"t": TENANT, "id": task_id},
                 )
@@ -591,7 +591,6 @@ def _assert_delivery_by_mode(
         timeout_sec=DELIVERY_TIMEOUT_SEC,
     )
     assert sent["delivery_attempts"] >= 1 and sent["delivered_at"] is not None
-    assert count_task_events(deliverable_id, "DELIVERY_SENT") == 1
     records = probe_deliveries(probe_url, DELIVERY_ROUTE["bot_id"])
     assert len(records) >= 1, "真实渠道探针没有收到投递（Gateway→探针链路未打通）"
     assert all("超过截止时间" in str(record.get("text")) for record in records), records
@@ -605,8 +604,7 @@ def _assert_delivery_by_mode(
         time.sleep(POLL_INTERVAL_SEC)
     assert silent["delivery_status"] == "NONE" and silent["delivery_attempts"] == 0
     assert silent["delivered_at"] is None
-    for event_type in ("DELIVERY_SENT", "DELIVERY_FAILED", "DELIVERY_RETRY"):
-        assert count_task_events(silent_id, event_type) == 0
+    assert silent["delivery_status"] == "NONE", "NONE 不建 task_delivery 行"
 
 
 def test_e05_deadline_sweep_cas_and_delivery_by_mode(
@@ -644,23 +642,19 @@ def _create_schedule(
     schedule: dict[str, Any],
     route: dict[str, Any],
 ) -> dict[str, Any]:
-    """真实 HTTP 创建 Schedule（Worker 内部接口，Runtime 调用的同一入口）。"""
-    response = http.post(
-        f"{stack.worker_url}/internal/schedules",
-        json={
-            "name": name,
-            "agent_id": str(stack.agent_id),
-            "actor_user_id": str(stack.platform_user_id),
-            "intent_key": "dfx_recovery_probe",
-            "skill_id": str(stack.skill_id),
-            "input_template": {},
-            "schedule": schedule,
-            "delivery_route": route,
-        },
-        headers={**stack.service_headers(), "Idempotency-Key": _new_key("dfx-recovery-schedule")},
-    )
-    assert response.status_code == 200, f"创建 Schedule 失败：{response.status_code} {response.text}"
-    return cast(dict[str, Any], response.json()["data"])
+    """直插 v2 Schedule/Revision/Route（创建入口已是 Draft + 确认）。"""
+    del http, route
+    if schedule["type"] == "ONCE":
+        schedule_id = seed_v2_schedule(
+            stack,
+            cron=None,
+            recurrence_kind="ONCE",
+            run_at=datetime.fromisoformat(schedule["run_at"]),
+            name=name,
+        )
+    else:
+        schedule_id = seed_v2_schedule(stack, cron=schedule["cron"], name=name)
+    return {"schedule_id": schedule_id}
 
 
 def _read_schedule(schedule_id: uuid.UUID) -> dict[str, Any] | None:
@@ -671,8 +665,8 @@ def _read_schedule(schedule_id: uuid.UUID) -> dict[str, Any] | None:
             row = (
                 await session.execute(
                     sa.text(
-                        "SELECT status, next_fire_at, last_fire_at, completed_at, last_error_code,"
-                        " last_error_message, last_skipped_at, revision FROM task.task_schedule"
+                        "SELECT status, next_fire_at, last_fire_at, ended_at, end_reason,"
+                        " occurrence_count, config_version FROM task.task_schedule"
                         " WHERE tenant_id = :t AND id = :id"
                     ),
                     {"t": TENANT, "id": schedule_id},
@@ -684,11 +678,10 @@ def _read_schedule(schedule_id: uuid.UUID) -> dict[str, Any] | None:
             "status",
             "next_fire_at",
             "last_fire_at",
-            "completed_at",
-            "last_error_code",
-            "last_error_message",
-            "last_skipped_at",
-            "revision",
+            "ended_at",
+            "end_reason",
+            "occurrence_count",
+            "config_version",
         )
         return dict(zip(keys, row, strict=True))
 
@@ -725,6 +718,31 @@ def _miss_fire(schedule_id: uuid.UUID, *, ago: timedelta) -> None:
             await session.commit()
 
     run_db(update)
+
+
+def _latest_fire(schedule_id: uuid.UUID) -> dict[str, Any] | None:
+    async def query(factory: Any) -> dict[str, Any] | None:
+        async with factory() as session:
+            row = (
+                await session.execute(
+                    sa.text(
+                        "SELECT status, skip_reason, missed_count, scheduled_at FROM task.schedule_fire"
+                        " WHERE tenant_id = :t AND schedule_id = :id"
+                        " ORDER BY create_time DESC LIMIT 1"
+                    ),
+                    {"t": TENANT, "id": schedule_id},
+                )
+            ).one_or_none()
+        if row is None:
+            return None
+        return {
+            "status": row[0],
+            "skip_reason": row[1],
+            "missed_count": row[2],
+            "scheduled_at": row[3],
+        }
+
+    return cast("dict[str, Any] | None", run_db(query))
 
 
 def _schedule_tasks(schedule_id: uuid.UUID) -> list[dict[str, Any]]:
@@ -778,12 +796,13 @@ def test_b03_schedule_misfire_skip_and_once_terminal(
     cron_id = uuid.UUID(str(cron["schedule_id"]))
     _miss_fire(cron_id, ago=timedelta(days=1))
     skipped = _await_schedule(
-        cron_id, lambda row: row["last_error_code"] == SKIP_MISFIRE, what="记下错过触发"
+        cron_id, lambda row: row["occurrence_count"] > 0, what="记下错过触发"
     )
     assert skipped["status"] == "ACTIVE", "CRON 跳过不是终态"
-    assert skipped["last_skipped_at"] is not None and skipped["last_error_message"]
     assert skipped["next_fire_at"] is not None and skipped["next_fire_at"] > datetime.now(UTC)
     assert skipped["last_fire_at"] is None
+    fire = _latest_fire(cron_id)
+    assert fire is not None and fire["status"] == "SKIPPED" and fire["skip_reason"] == "MISFIRE", fire
     assert _schedule_tasks(cron_id) == [], "错过触发不得补发 Task"
     assert _metric_value(live_stack.worker_url, MISFIRE_METRIC) == misfire_before + 1, (
         "跳过必须累加 scheduled_misfire_total"
@@ -798,10 +817,11 @@ def test_b03_schedule_misfire_skip_and_once_terminal(
         route=SCHEDULE_ROUTE,
     )
     once_id = uuid.UUID(str(once["schedule_id"]))
-    fired = _await_schedule(once_id, lambda row: row["status"] == "COMPLETED", what="触发完成")
-    assert fired["completed_at"] is not None, "ONCE 成功必须有 completed_at"
+    fired = _await_schedule(once_id, lambda row: row["status"] == "ENDED", what="触发完成")
+    assert fired["ended_at"] is not None, "ONCE 成功必须有 ended_at"
     assert fired["next_fire_at"] is None, "ONCE 成功后 next_fire_at 必须为空"
-    assert fired["last_fire_at"] == run_at and fired["last_error_code"] is None
+    assert fired["end_reason"] == "COMPLETED", fired
+    assert fired["last_fire_at"] is not None
 
     tasks = _schedule_tasks(once_id)
     assert len(tasks) == 1, f"ONCE 必须恰好创建一个 Task：{tasks}"

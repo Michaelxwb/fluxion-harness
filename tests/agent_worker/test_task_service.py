@@ -162,7 +162,7 @@ async def test_cancel_running_task_is_cooperative(tenant: TenantContext) -> None
     assert refreshed.status == "RUNNING"
     assert refreshed.cancel_requested is True
     events = await fetch_events(tenant, task.id)
-    assert [event.event_type for event in events] == ["CANCEL_REQUESTED"]
+    assert events == [], "v2 的 RUNNING 协作取消只落 cancel_requested，不写取消请求事件"
 
 
 async def test_cancel_terminal_task_conflicts(tenant: TenantContext) -> None:

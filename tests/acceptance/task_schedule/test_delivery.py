@@ -50,15 +50,24 @@ def _submit_final_only(live_stack: LiveStack) -> str:
 def _task_row(live_stack: LiveStack, task_id: str) -> tuple[Any, ...]:
     async def query(factory: Any) -> Any:
         async with factory() as session:
-            return (
+            status = (
                 await session.execute(
-                    text(
-                        "SELECT status, delivery_mode, delivery_status, delivery_key, delivered_at, "
-                        "delivery_attempts FROM task.task_execution WHERE id = :id"
-                    ),
+                    text("SELECT status FROM task.task_execution WHERE id = :id"),
                     {"id": uuid.UUID(task_id)},
                 )
-            ).one()
+            ).scalar_one()
+            delivery = (
+                await session.execute(
+                    text(
+                        "SELECT status, delivery_key, sent_at, attempt_count "
+                        "FROM task.task_delivery WHERE tenant_id = :t AND execution_id = :id"
+                    ),
+                    {"t": live_stack.tenant_id, "id": uuid.UUID(task_id)},
+                )
+            ).one_or_none()
+            if delivery is None:
+                return (status, None, None, None, 0)
+            return (status, str(delivery[0]), str(delivery[1]), delivery[2], int(delivery[3]))
 
     return cast(tuple[Any, ...], run_db(query))
 
@@ -93,15 +102,13 @@ def test_s03_final_delivery_reaches_probe_once_and_is_deduped(
     task_id = _submit_final_only(live_stack)
 
     def delivered() -> bool:
-        return bool(_task_row(live_stack, task_id)[2] == "SENT")
+        return bool(_task_row(live_stack, task_id)[1] == "SENT")
 
     assert _wait(delivered), f"投递必须成功: {_task_row(live_stack, task_id)}"
-    status, delivery_mode, delivery_status, delivery_key, delivered_at, attempts = _task_row(
-        live_stack, task_id
-    )
+    status, delivery_status, delivery_key, delivered_at, attempts = _task_row(live_stack, task_id)
     assert status == "COMPLETED"
-    assert delivery_mode == "FINAL_ONLY"
-    assert delivery_key == f"task:{task_id}:final"
+    assert delivery_status == "SENT"
+    assert delivery_key == f"execution:{task_id}:final"
     assert delivered_at is not None and attempts >= 1
 
     deliveries = _my_deliveries(live_stack, http)
@@ -137,10 +144,10 @@ def test_e05_channel_failure_retries_without_fake_sent(live_stack: LiveStack, ht
     task_id = _submit_final_only(live_stack)
 
     def sent() -> bool:
-        return bool(_task_row(live_stack, task_id)[2] == "SENT")
+        return bool(_task_row(live_stack, task_id)[1] == "SENT")
 
     assert _wait(sent), "首次渠道失败后必须重试成功（不伪造 SENT）"
-    status, _, delivery_status, _, _, attempts = _task_row(live_stack, task_id)
+    status, delivery_status, _, _, attempts = _task_row(live_stack, task_id)
     assert delivery_status == "SENT"
     # TASK-009 起渠道重试在 Connector 内部完成（`command_max_attempts`），worker 的 attempt
     # 不再增长；用探针的真实失败计数证明失败确实发生过，再用"只成功投递一次"证明没伪造 SENT。

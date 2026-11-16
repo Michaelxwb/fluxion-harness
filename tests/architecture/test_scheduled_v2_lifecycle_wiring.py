@@ -27,7 +27,7 @@ RELEASE_DOC = ROOT / "docs/operations/scheduled-task-v2-release.md"
 MIGRATION = ROOT / "migrations/versions/0050_scheduled_task_v2.py"
 DESIGN = (
     ROOT
-    / ".code-flow/tasks/2026-11-15/scheduled-task-v2/scheduled-task-v2.backend.design.md"
+    / ".code-flow/tasks/archived/2026-11-15/scheduled-task-v2/scheduled-task-v2.backend.design.md"
 )
 
 EXPECTED_LOOPS = {

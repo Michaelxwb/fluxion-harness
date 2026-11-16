@@ -620,7 +620,9 @@ def _create_submission_and_operations() -> None:
         sa.Column("source_tool_call_id", sa.String(256), nullable=False),
         sa.Column("actor_user_id", sa.Uuid(), nullable=False),
         sa.Column("task_id", sa.Uuid(), sa.ForeignKey("task.task_execution.id")),
-        sa.Column("cancel_requested", sa.Boolean(), server_default=sa.text("false")),
+        sa.Column(
+            "cancel_requested", sa.Boolean(), nullable=False, server_default=sa.text("false")
+        ),
         sa.Column("submission_hash", sa.String(128)),
         sa.Column(
             "completion_mode",
@@ -650,8 +652,14 @@ def _create_submission_and_operations() -> None:
         sa.Column("task_snapshot_hash", sa.String(128), nullable=False),
         sa.Column("payload_json", JSONB(), nullable=False),
         sa.Column("payload_hash", sa.String(128), nullable=False),
-        sa.Column("status", sa.String(16), server_default=sa.text("'PENDING'")),
-        sa.Column("attempts", sa.Integer(), server_default=sa.text("0")),
+        sa.Column(
+            "status", sa.String(16), nullable=False, server_default=sa.text("'PENDING'")
+        ),
+        sa.Column("attempts", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.CheckConstraint(
+            "status IN ('PENDING', 'SENT', 'FAILED')",
+            name="ck_runtime_result_outbox_outbox_status",
+        ),
         sa.Column("not_before", sa.DateTime(timezone=True), nullable=False),
         sa.Column("lease_owner", sa.String(128)),
         sa.Column("lease_until", sa.DateTime(timezone=True)),

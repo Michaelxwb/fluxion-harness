@@ -98,7 +98,9 @@ def test_task_filters_are_forwarded_to_the_list_request() -> None:
         "task-filter-deadline",
         "task-reset",
     ):
-        assert f'data-testid="{testid}"' in task_page, testid
+        assert (
+            f'data-testid="{testid}"' in task_page or f'testId="{testid}"' in task_page
+        ), testid
 
 
 def test_picker_options_are_loaded_lazily_not_on_page_load() -> None:
@@ -121,8 +123,9 @@ def test_entity_columns_prefer_names_with_short_id_fallback() -> None:
     schedule_page = _read(SCHEDULE_PAGE)
     assert "EntityNameText" in schedule_page, "定时任务列表须走名称化单元格"
     assert "agent_name" in schedule_page
-    # v2 列表投影只有 agent_id：执行用户/Skill 不在 Schedule 项里，不得假装有列。
-    for retired in ("actor_name", "skill_name", "skill_key"):
+    # v2 列表投影有 actor_user_id，Console 统一补齐 actor_name；Schedule 项没有 Skill 字段。
+    assert "actor_name" in schedule_page
+    for retired in ("skill_name", "skill_key"):
         assert retired not in schedule_page, f"SchedulePage 残留无数据的列 {retired}"
 
     cell = _read(ENTITY_NAME)

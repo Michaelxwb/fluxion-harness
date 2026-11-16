@@ -25,6 +25,14 @@ export interface ScheduleActionsBarProps {
 
 const TERMINAL = new Set(['ENDED', 'CANCELLED']);
 
+/** 错误码 → 词条键的静态映射：动态拼接键会让 i18n 死键检查与翻译提取都失效。 */
+const ACTION_ERROR_KEYS: Record<string, string> = {
+  SCHEDULE_STATE_INVALID: 'chat.taskCenter.actions.error.SCHEDULE_STATE_INVALID',
+  SCHEDULE_ADMISSION_FAILED: 'chat.taskCenter.actions.error.SCHEDULE_ADMISSION_FAILED',
+  SCHEDULE_VERSION_CONFLICT: 'chat.taskCenter.actions.error.SCHEDULE_VERSION_CONFLICT',
+  UNKNOWN: 'chat.taskCenter.actions.error.unknown'
+};
+
 export function ScheduleActionsBar(props: ScheduleActionsBarProps) {
   const { t } = useTranslation();
   const [cancelling, setCancelling] = useState(false);
@@ -77,9 +85,7 @@ export function ScheduleActionsBar(props: ScheduleActionsBarProps) {
       )}
       {props.errorCode ? (
         <Typography.Text type="danger" data-testid="schedule-action-error">
-          {t(`chat.taskCenter.actions.error.${props.errorCode}`, {
-            defaultValue: t('chat.taskCenter.actions.error.unknown')
-          })}
+          {t(ACTION_ERROR_KEYS[props.errorCode] ?? ACTION_ERROR_KEYS.UNKNOWN)}
         </Typography.Text>
       ) : null}
       <Modal

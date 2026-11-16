@@ -129,11 +129,10 @@ async def _seed_task(
         "tenant_id": f"slots-{uuid.uuid4().hex[:12]}",
         "agent_id": uuid.uuid4(),
         "actor_user_id": uuid.uuid4(),
-        "intent_key": "slots_probe",
         "skill_id": uuid.uuid4(),
         "skill_artifact_id": uuid.uuid4(),
         "trigger_type": "IMMEDIATE",
-        "execution_mode": "ASYNC",
+        "skill_execution_mode": "ASYNC",
         "task_type": "SKILL",
         "status": "QUEUED",
         "input_json": {"probe": True},
@@ -146,10 +145,6 @@ async def _seed_task(
         "max_attempts": 3,
         "not_before": moment,
         "deadline_at": moment + timedelta(hours=1),
-        "delivery_mode": "FINAL_ONLY",
-        "delivery_status": "PENDING",
-        "delivery_key": f"task:{task_id}:final",
-        "delivery_attempts": 0,
     }
     values.update(overrides)
     _fill_snapshot_contract(values)
@@ -197,7 +192,11 @@ async def _claim_event_count(factory: async_sessionmaker[AsyncSession], task_id:
         depth = await session.scalar(
             select(func.count())
             .select_from(TaskEvent)
-            .where(TaskEvent.task_id == task_id, TaskEvent.event_type == "CLAIMED")
+            .where(
+                TaskEvent.entity_type == "EXECUTION",
+                TaskEvent.entity_id == task_id,
+                TaskEvent.event_type == "CLAIMED",
+            )
         )
     return int(depth or 0)
 
@@ -208,7 +207,11 @@ async def _terminal_event_types(
     async with factory() as session:
         rows = await session.scalars(
             select(TaskEvent.event_type)
-            .where(TaskEvent.task_id == task_id, TaskEvent.event_type.in_(TERMINAL_EVENT_TYPES))
+            .where(
+                TaskEvent.entity_type == "EXECUTION",
+                TaskEvent.entity_id == task_id,
+                TaskEvent.event_type.in_(TERMINAL_EVENT_TYPES),
+            )
             .order_by(TaskEvent.seq.asc())
         )
     return list(rows)
