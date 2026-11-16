@@ -110,6 +110,44 @@ class ExternalIdentityRepository:
         )
         return grant
 
+    async def get_entry(
+        self,
+        tenant_id: str,
+        bot_account_id: uuid.UUID,
+    ) -> BotAccount | None:
+        """按入口 id 取 bot_account；跨租户一律返回 None。"""
+        bot: BotAccount | None = await self._session.scalar(
+            select(BotAccount).where(
+                BotAccount.tenant_id == tenant_id,
+                BotAccount.id == bot_account_id,
+                BotAccount.is_deleted.is_(False),
+            )
+        )
+        return bot
+
+    async def list_entry_candidates(
+        self,
+        tenant_id: str,
+        channel: str,
+        query: str,
+        offset: int,
+        limit: int,
+    ) -> list[BotAccount]:
+        """可绑定入口候选：服务端过滤 + 分页，避免前端本地过滤冒充完整搜索。"""
+        stmt = select(BotAccount).where(
+            BotAccount.tenant_id == tenant_id,
+            BotAccount.channel == channel,
+            BotAccount.is_deleted.is_(False),
+        )
+        if query.strip():
+            pattern = f"%{query.strip()}%"
+            stmt = stmt.where(
+                or_(BotAccount.name.ilike(pattern), BotAccount.bot_id.ilike(pattern))
+            )
+        stmt = stmt.order_by(BotAccount.create_time.desc(), BotAccount.id.desc())
+        rows = await self._session.scalars(stmt.offset(offset).limit(limit))
+        return list(rows)
+
     async def list_identity_ids_for_bot(
         self,
         tenant_id: str,
@@ -129,3 +167,43 @@ class ExternalIdentityRepository:
         self._session.add(grant)
         await self._session.flush()
         return grant
+
+    async def get_grant_for_identity(
+        self,
+        tenant_id: str,
+        identity_id: uuid.UUID,
+        grant_id: uuid.UUID,
+    ) -> EntryAccessGrant | None:
+        """按 grant 主键取，同时核身份 —— 防止拿别的身份的 grant id 来解绑。"""
+        grant: EntryAccessGrant | None = await self._session.scalar(
+            select(EntryAccessGrant).where(
+                EntryAccessGrant.tenant_id == tenant_id,
+                EntryAccessGrant.external_identity_id == identity_id,
+                EntryAccessGrant.id == grant_id,
+                EntryAccessGrant.is_deleted.is_(False),
+            )
+        )
+        return grant
+
+    async def soft_delete_identity(self, tenant_id: str, identity_id: uuid.UUID) -> None:
+        """解绑身份：同时软删其入口授权，避免留下指向已删身份的 grant。"""
+        identity = await self._session.scalar(
+            select(ExternalIdentity).where(
+                ExternalIdentity.tenant_id == tenant_id,
+                ExternalIdentity.id == identity_id,
+                ExternalIdentity.is_deleted.is_(False),
+            )
+        )
+        if identity is None:
+            return
+        identity.is_deleted = True
+        grants = await self._session.scalars(
+            select(EntryAccessGrant).where(
+                EntryAccessGrant.tenant_id == tenant_id,
+                EntryAccessGrant.external_identity_id == identity_id,
+                EntryAccessGrant.is_deleted.is_(False),
+            )
+        )
+        for grant in grants:
+            grant.is_deleted = True
+        await self._session.flush()

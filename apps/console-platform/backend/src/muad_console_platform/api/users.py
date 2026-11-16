@@ -15,6 +15,10 @@ from ..application.chat_token_service import ChatTokenService
 from ..application.dto import (
     AgentGrantItem,
     BindCodeCreateResponse,
+    ExternalGrantCreateRequest,
+    ExternalIdentityItem,
+    ExternalIdentityUpdateRequest,
+    ExternalIdentityUpsertRequest,
     IdentityItem,
     UserBasic,
     UserCreateRequest,
@@ -22,6 +26,7 @@ from ..application.dto import (
     UserListItem,
     UserUpdateRequest,
 )
+from ..application.external_identity_service import ExternalIdentityService
 from ..application.grant_service import GrantService
 from ..application.memory_service import MemoryAdminService, MemoryService
 from ..application.user_service import UserService
@@ -444,3 +449,140 @@ async def revoke_webchat_token(
     await session.commit()
     _no_store(response)
     return ok(request.app.state.message_catalog, metadata.model_dump(mode="json"))
+
+
+# ---------------------------------------------------------------------------
+# 外部身份与入口授权（API-18、API-21 ~ API-24）
+# 身份是用户级的，入口授权独立成表；登记身份后必须再授权入口才能在该入口使用。
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/{user_id}/external-identities",
+    response_model=ApiResponse[list[ExternalIdentityItem]],
+)
+async def list_external_identities(
+    user_id: uuid.UUID,
+    _admin: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+    request: Request,
+) -> ApiResponse[list[ExternalIdentityItem]]:
+    """API-24：该用户的外部身份及其入口授权。"""
+    service = ExternalIdentityService(session)
+    return ok(request.app.state.message_catalog, await service.list_identities(tenant_id, user_id))
+
+
+@router.put(
+    "/{user_id}/external-identities",
+    response_model=ApiResponse[ExternalIdentityItem],
+)
+async def upsert_external_identity(
+    user_id: uuid.UUID,
+    payload: ExternalIdentityUpsertRequest,
+    _admin: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+    request: Request,
+) -> ApiResponse[ExternalIdentityItem]:
+    """API-18：登记身份。字段集合须与平台 `identity_keys` 完全一致。"""
+    service = ExternalIdentityService(session)
+    item = await service.upsert_identity(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        platform_key=payload.platform_key,
+        identity=payload.identity,
+    )
+    await session.commit()
+    return ok(request.app.state.message_catalog, item)
+
+
+@router.put(
+    "/{user_id}/external-identities/{identity_id}",
+    response_model=ApiResponse[ExternalIdentityItem],
+)
+async def update_external_identity(
+    user_id: uuid.UUID,
+    identity_id: uuid.UUID,
+    payload: ExternalIdentityUpdateRequest,
+    _admin: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+    request: Request,
+) -> ApiResponse[ExternalIdentityItem]:
+    """API-21：编辑身份。重算指纹，历史会话归属不变。"""
+    service = ExternalIdentityService(session)
+    item = await service.update_identity(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        identity_id=identity_id,
+        identity=payload.identity,
+    )
+    await session.commit()
+    return ok(request.app.state.message_catalog, item)
+
+
+@router.delete("/{user_id}/external-identities/{identity_id}", status_code=204)
+async def delete_external_identity(
+    user_id: uuid.UUID,
+    identity_id: uuid.UUID,
+    _admin: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+    request: Request,
+) -> None:
+    """解绑身份（同时软删其授入口权）。"""
+    service = ExternalIdentityService(session)
+    await service.delete_identity(
+        tenant_id=tenant_id, user_id=user_id, identity_id=identity_id
+    )
+    await session.commit()
+
+
+@router.post(
+    "/{user_id}/external-identities/{identity_id}/grants",
+    response_model=ApiResponse[ExternalIdentityItem],
+)
+async def grant_external_entry(
+    user_id: uuid.UUID,
+    identity_id: uuid.UUID,
+    payload: ExternalGrantCreateRequest,
+    _admin: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+    request: Request,
+) -> ApiResponse[ExternalIdentityItem]:
+    """API-22：把身份授权到某个入口。重复授权幂等。"""
+    service = ExternalIdentityService(session)
+    item = await service.grant_entry(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        identity_id=identity_id,
+        channel_account_id=payload.channel_account_id,
+    )
+    await session.commit()
+    return ok(request.app.state.message_catalog, item)
+
+
+@router.delete(
+    "/{user_id}/external-identities/{identity_id}/grants/{grant_id}",
+    status_code=204,
+)
+async def revoke_external_entry(
+    user_id: uuid.UUID,
+    identity_id: uuid.UUID,
+    grant_id: uuid.UUID,
+    _admin: AdminAccount,
+    tenant_id: TenantId,
+    session: Session,
+    request: Request,
+) -> None:
+    """API-23：解绑入口。只删授权，身份保留。"""
+    service = ExternalIdentityService(session)
+    await service.revoke_grant(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        identity_id=identity_id,
+        grant_id=grant_id,
+    )
+    await session.commit()

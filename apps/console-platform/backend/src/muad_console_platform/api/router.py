@@ -17,6 +17,7 @@ from .learning import router as learning_router
 from .mcp_servers import router as mcp_servers_router
 from .model_resources import quota_router as model_quota_groups_router
 from .model_resources import router as model_resources_router
+from .external_platforms import router as external_platforms_router
 from .models import router as models_router
 from .overview import router as overview_router
 from .platform_adapters import router as platform_adapters_router
@@ -58,6 +59,8 @@ router.include_router(authenticated)
 admin = APIRouter(dependencies=[Depends(require_admin), Depends(require_csrf)])
 admin.include_router(accounts_router)
 admin.include_router(users_router)
+# 外部平台元数据与入口候选（API-17/19）：仅 ADMIN，只读，不含任何验签因子。
+admin.include_router(external_platforms_router)
 admin.include_router(learning_router)
 # 凭据类管理仅 ADMIN（13-console-auth 设计 §2.4：前端隐藏 + 后端 403 兜底）。
 admin.include_router(credentials_router)

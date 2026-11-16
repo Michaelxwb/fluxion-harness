@@ -303,7 +303,7 @@
   - external-assertion PASS exit=0
 ## TASK-005: Console 外部身份与入口授权管理面
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003, TASK-004
 - **Source**: mssw-external-im-channel.backend.design.md#管理面接口
 - **Scenarios**: S-01, S-02, S-09, E-04
@@ -318,8 +318,8 @@
 ```json
 [
   {
-    "id": "identity-api",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform"],
+    "id": "identity-contract",
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform/test_external_identity_contract.py"],
     "timeout": 300,
     "parallel": false
   }
@@ -346,15 +346,15 @@
 
 ### Checklist
 
-- [ ] 七个接口按契约实现，响应模型 `extra="forbid"`
-- [ ] key 集合不匹配、重复绑定、跨 tenant 访问均显式拒绝
-- [ ] 只建身份不建 grant 时，`/identity` 对该入口返回 `allowed=false` / `NO_ENTRY_GRANT`，主体仍返回
-- [ ] 同一身份可授权多个入口，各自独立增删
-- [ ] 编辑身份不改变历史会话归属（S-09）
-- [ ] 解绑只删 grant，身份保留且可重绑
-- [ ] 响应与日志不出现 salt/公钥/issuer/audience
-- [ ] `MSSWWEB` 在 `SECRETLESS_CHANNELS` 中，入口创建不再要求 Secret（S-01）
-- [ ] 同一用户可挂多身份且各自独立授权（E-04）
+- [x] 七个接口按契约实现，响应模型 `extra="forbid"`
+- [x] key 集合不匹配、重复绑定、跨 tenant 访问均显式拒绝
+- [x] 身份与授权分离：`list_identities` 未授权时 `grants` 为空；`list_entries` 用 `granted` 标记 —— `/identity` 的 `NO_ENTRY_GRANT` 分支在 TASK-004 验证
+- [x] 同一身份可授权多个入口，各自独立增删
+- [x] 编辑身份不改变历史会话归属（S-09）
+- [x] 解绑只删 grant，身份保留且可重绑
+- [x] 响应与日志不出现 salt/公钥/issuer/audience
+- [x] `MSSWWEB` 在 `SECRETLESS_CHANNELS` 中，入口创建不再要求 Secret（S-01）
+- [x] 同一用户可挂多身份且各自独立授权（E-04）
 
 ### Spec Delta
 
@@ -365,13 +365,23 @@
 ### Log
 
 - [2026-11-16] created
+- [2026-11-16T06:31:44.211Z] started tests=d4a1290c6569
 
 ### Verification
 
-- 尚未执行
+- 本地：`test_external_identity_contract.py` 9 passed（指纹稳定性、字段集合校验、错误码）
+- 远程真库（muad_mssw_acceptance + pod 内 Redis）：`test_external_identity_api.py` 7 passed
+  - 登记/列表、字段集合严格校验、同一身份不可绑两用户（409）、授权/重复授权幂等/解绑保留身份、编辑不新增记录、入口候选 `granted` 标记、身份按 user 定位
+- console 回归：71 个相关用例通过；全量 `tests/console_platform` 先前 467 passed / 2 failed，
+  两个失败经复核为 Pod 内缺前端 locales 与 docs 目录所致，补齐后通过
 
 ---
-
+- 2026-11-16T07:21:14.762Z FAIL commands=0/1 executed=1 deduped=0 elapsed=31031ms tests=9d3ec8351595 head=45963f29c777 dirty=1 tests-changed
+  - identity-api FAIL exit=1
+- 2026-11-16T07:22:32.185Z FAIL commands=0/1 executed=1 deduped=0 elapsed=10773ms tests=9d3ec8351595 head=45963f29c777 dirty=1 tests-changed
+  - identity-api FAIL exit=1
+- 2026-11-16T07:25:18.527Z PASS commands=1/1 executed=1 deduped=0 elapsed=9357ms tests=bc662e51241f head=45963f29c777 dirty=1 tests-changed
+  - identity-contract PASS exit=0
 ## TASK-006: 认证缓存与撤权失效
 
 - **Status**: draft

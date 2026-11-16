@@ -122,6 +122,8 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
                 "(SELECT id FROM control.agent_definition WHERE tenant_id = :tenant_id)",
                 "DELETE FROM control.agent_access_grant WHERE agent_id IN "
                 "(SELECT id FROM control.agent_definition WHERE tenant_id = :tenant_id)",
+                # 入口授权引用 bot_account 与 external_identity，必须先于两者删除
+                "DELETE FROM control.entry_access_grant WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.bot_account WHERE agent_id IN "
                 "(SELECT id FROM control.agent_definition WHERE tenant_id = :tenant_id)",
                 "DELETE FROM control.agent_definition WHERE tenant_id = :tenant_id",
@@ -138,6 +140,7 @@ async def tenant(database_guard: None) -> AsyncIterator[TenantContext]:
                 "(SELECT id FROM control.platform_user WHERE tenant_id = :tenant_id)",
                 "DELETE FROM control.channel_identity WHERE platform_user_id IN "
                 "(SELECT id FROM control.platform_user WHERE tenant_id = :tenant_id)",
+                "DELETE FROM control.external_identity WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.platform_user WHERE tenant_id = :tenant_id",
                 "DELETE FROM control.config_audit_log WHERE tenant_id = :tenant_id",
                 # 记忆表：history 的 origin_id 指向 user_memory，必须先删 history。

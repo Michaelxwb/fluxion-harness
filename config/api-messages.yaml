@@ -440,6 +440,12 @@ codes:
       zh-CN: 外部平台通道暂不可用，请稍后重试
       en-US: The external platform channel is temporarily unavailable; try again later
 
+  EXTERNAL_PLATFORM_NOT_CONFIGURED:
+    http_status: 400
+    messages:
+      zh-CN: 该外部平台尚未配置，请联系管理员
+      en-US: This external platform is not configured; contact your administrator
+
   IDENTITY_KEYS_MISMATCH:
     http_status: 400
     messages:
