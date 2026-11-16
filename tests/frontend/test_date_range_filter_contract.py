@@ -32,3 +32,12 @@ def test_date_range_filter_is_shared() -> None:
         assert "DateRangeFilter" in text, f"{page} 未复用共享日期筛选"
         assert 'type="dateRange"' not in text, f"{page} 又写了一套日期范围控件"
         assert "DatePicker" not in text, f"{page} 直接引用了 DatePicker"
+
+    task = _read(pages[0])
+    assert task.index("task-filter-create") > task.index("task-filter-skill"), (
+        "后台任务的时间筛选必须排在其它筛选之后"
+    )
+    audit = _read(pages[1])
+    assert audit.index("audit-filter-time") > audit.index("audit-filter-resultStatus"), (
+        "运行审计的时间筛选必须排在其它筛选之后"
+    )

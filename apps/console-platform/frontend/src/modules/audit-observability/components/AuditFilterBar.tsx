@@ -123,14 +123,6 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
         onChange={setKeywordDraft}
         onEnterPress={() => emit({ keyword: keywordDraft || undefined })}
       />
-      <DateRangeFilter
-        testId="audit-filter-time"
-        label={t('audit.filter.time')}
-        value={timeRange}
-        onChange={(days) => {
-          emit({ startTime: toIsoStart(days[0]), endTime: toIsoEndOfDay(days[1]) });
-        }}
-      />
       <Select
         data-testid="audit-filter-auditType"
         style={{ width: 150 }}
@@ -168,6 +160,14 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
           label: t(`audit.resultStatus.${status}`)
         }))}
         onChange={(raw) => emit({ resultStatus: (raw as string) ?? undefined })}
+      />
+      <DateRangeFilter
+        testId="audit-filter-time"
+        label={t('audit.filter.time')}
+        value={timeRange}
+        onChange={(days) => {
+          emit({ startTime: toIsoStart(days[0]), endTime: toIsoEndOfDay(days[1]) });
+        }}
       />
       <ListActionButton data-testid="audit-reset" onClick={() => props.onReset()} action="reset" />
       <ListActionButton data-testid="audit-refresh" onClick={() => props.onRefresh()} action="refresh" />
