@@ -256,15 +256,38 @@ async def _waiting_proposal(run_id: str) -> dict[str, Any]:
 
 
 async def _memory_rows(stack: GatewayStack, key: str) -> list[dict[str, Any]]:
+    """`key` 是 remember 入参里的唯一标题；v2 记忆键由服务端生成。"""
+
     return await _fetch(
-        "SELECT memory_key,author,content_json,version,enabled,is_deleted,retirement_reason,"
+        "SELECT memory_key,title,author,content_json,version,enabled,is_deleted,retirement_reason,"
+        " explicit_request,confirmed_count,confirmation_event_id,last_confirmed_at"
+        " FROM runtime.user_memory WHERE tenant_id = :tenant AND title = :title",
+        {"tenant": stack.tenant_id, "title": key},
+    )
+
+
+async def _history_count(stack: GatewayStack, key: str) -> int:
+    return int(
+        await _scalar(
+            "SELECT count(*) FROM runtime.user_memory_history h"
+            " JOIN runtime.user_memory m ON m.tenant_id = h.tenant_id AND m.memory_key = h.memory_key"
+            " WHERE h.tenant_id = :tenant AND m.title = :title",
+            {"tenant": stack.tenant_id, "title": key},
+        )
+        or 0
+    )
+
+
+async def _memory_rows_by_key(stack: GatewayStack, key: str) -> list[dict[str, Any]]:
+    return await _fetch(
+        "SELECT memory_key,title,author,content_json,version,enabled,is_deleted,retirement_reason,"
         " explicit_request,confirmed_count,confirmation_event_id,last_confirmed_at"
         " FROM runtime.user_memory WHERE tenant_id = :tenant AND memory_key = :key",
         {"tenant": stack.tenant_id, "key": key},
     )
 
 
-async def _history_count(stack: GatewayStack, key: str) -> int:
+async def _history_count_by_key(stack: GatewayStack, key: str) -> int:
     return int(
         await _scalar(
             "SELECT count(*) FROM runtime.user_memory_history WHERE tenant_id = :tenant"
@@ -416,24 +439,20 @@ async def _new_conversation(stack: GatewayStack) -> None:
 
 
 def _task_batch(*, title: str, goal: str, task_completed: bool = False) -> str:
-    """提炼响应模板：`$root_memory_key`/`$root_conversation_id` 由探针按真实请求替换。"""
+    """提炼响应模板（v2）：`task_state` 用真实请求里的 source/root 会话占位替换。"""
+
     return json.dumps(
         {
-            "candidates": [
-                {
-                    "memory_key": "$root_memory_key",
-                    "category": "TASK_STATE",
-                    "content": {
-                        "title": title,
-                        "goal": goal,
-                        "constraints": [],
-                        "open_items": ["等待用户补充"],
-                        "next_action": "核验真实状态与授权",
-                        "root_conversation_id": "$root_conversation_id",
-                        "source_conversation_id": "$source_conversation_id",
-                    },
-                }
-            ],
+            "candidates": [],
+            "task_state": {
+                "title": title,
+                "goal": goal,
+                "constraints": [],
+                "open_items": ["等待用户补充"],
+                "next_action": "核验真实状态与授权",
+                "root_conversation_id": "$root_conversation_id",
+                "source_conversation_id": "$source_conversation_id",
+            },
             "task_completed": task_completed,
         },
         ensure_ascii=False,
@@ -441,8 +460,18 @@ def _task_batch(*, title: str, goal: str, task_completed: bool = False) -> str:
 
 
 def _remember_arguments(*, key: str, value: str, quote: str) -> str:
+    """v2 入参：只给 taxonomy predicate 与内容；`key` 复用为唯一标题，供按标题反查。"""
+
     return json.dumps(
-        {"memory_key": key, "category": "PREFERENCE", "value": value, "source_quote": quote},
+        {
+            "memory_kind": "PREFERENCE",
+            "predicate": "language",
+            "scope_state": "ABSENT",
+            "scope": {},
+            "content": {"value": value},
+            "title": key,
+            "source_quote": quote,
+        },
         ensure_ascii=False,
     )
 
@@ -633,6 +662,7 @@ async def _assert_preference_visible_after_new_conversation(
 async def test_e03_memory_redesign_confirmed_user_preference_visible_after_new_conversation(
     gateway_stack: GatewayStack,
 ) -> None:
+    await _reset_memories(gateway_stack)
     """E-03：**真实用户确认**得到的 USER 偏好在 /new 后「你好」首轮可见（query 不含「中文」）。
 
     链路必须真的经过：候选展示（真实 SSE→WS 帧）→ 用户真实确认（真实入站消息 + 确认事件）
@@ -708,6 +738,7 @@ async def test_e03_memory_redesign_confirmed_user_preference_visible_after_new_c
 async def test_e03_memory_redesign_admin_preference_visible_after_new_conversation(
     gateway_stack: GatewayStack,
 ) -> None:
+    await _reset_memories(gateway_stack)
     """E-03 对照：ADMIN 显式录入（管理 API）的偏好在 /new 后首轮同样可见，来源保持 ADMIN。
 
     与 USER 链路分开断言：ADMIN 通道不经过候选确认，不能用它代替真实用户确认的覆盖。
@@ -721,11 +752,14 @@ async def test_e03_memory_redesign_admin_preference_visible_after_new_conversati
             "/memory/commands",
             json={
                 "actor_id": str(gateway_stack.platform_user_id),
-                "mutation": {
-                    "action": "UPSERT",
-                    "memory_key": key,
-                    "category": "PREFERENCE",
-                    "value": "中文",
+                "action": "CREATE",
+                "candidate": {
+                    "memory_kind": "PREFERENCE",
+                    "predicate": "language",
+                    "scope_state": "ABSENT",
+                    "scope": {},
+                    "content": {"value": "中文"},
+                    "title": key,
                 },
             },
             headers={**gateway_stack.service_headers(), "Idempotency-Key": command_id},
@@ -920,7 +954,7 @@ async def test_e05_memory_redesign_completion_retires_original_and_large_checkpo
     job_d = await _wait_job_terminal(run_d)
     assert job_d["status"] == "DONE", (job_d, await _task_state_rows(gateway_stack))
     long_key = f"task.{(await _conversation_of(run_d)).replace('-', '')}"
-    long_rows = await _memory_rows(gateway_stack, long_key)
+    long_rows = await _memory_rows_by_key(gateway_stack, long_key)
     assert len(long_rows) == 1 and long_rows[0]["is_deleted"] is False, (long_key, long_rows)
     reference_revision = await _override_memory_settings(gateway_stack, max_injected_bytes=1024)
     try:
@@ -1005,9 +1039,9 @@ async def test_e06_memory_redesign_sigkill_claim_owner_and_successor_takeover(
             done = await _wait_job_terminal(run_id)
             assert done["status"] == "DONE", done
             expected_key = f"task.{(await _conversation_of(run_id)).replace('-', '')}"
-            rows = await _memory_rows(gateway_stack, expected_key)
+            rows = await _memory_rows_by_key(gateway_stack, expected_key)
             assert len(rows) == 1 and rows[0]["author"] == "AGENT", rows
-            history = await _history_count(gateway_stack, expected_key)
+            history = await _history_count_by_key(gateway_stack, expected_key)
             assert history == 1, f"接管后持久写入效果必须最多一次，实际 history={history}"
             assert int(
                 await _scalar(

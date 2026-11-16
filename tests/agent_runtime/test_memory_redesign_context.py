@@ -6,16 +6,16 @@ from uuid import uuid4
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_core.memory.render import render_memory_block
+from muad_agent_core.memory.render import render_experience_block
 from muad_agent_core.model import ModelMessage, ModelRole
 from muad_api import render_metrics
 from muad_contracts.memory import (
-    ForgetMemoryInput,
-    MemoryCandidate,
+    ExperienceCandidate,
     MemoryCategory,
 )
 from muad_contracts.platform_settings import MemoryPolicySettings
 
+from tests.agent_runtime.memory_cache_support import queries, query_counts
 from tests.agent_runtime.memory_context_support import executor_request, loader, memory_text, request_round
 from tests.agent_runtime.memory_redesign_write_support import (
     command,
@@ -27,9 +27,21 @@ from tests.agent_runtime.memory_redesign_write_support import (
     upsert,
     writer,
 )
-from tests.agent_runtime.test_memory_redesign_cache import queries, query_counts
+from tests.agent_runtime.memory_tool_support import tools
 
 pytestmark = pytest.mark.integration
+
+
+async def _memory_id(engine, ctx, key="color"):
+    async with engine.connect() as connection:
+        return (
+            await connection.execute(
+                sa.text(
+                    "SELECT id FROM runtime.user_memory WHERE tenant_id=:t AND user_id=:u AND memory_key=:k"
+                ),
+                {"t": ctx.tenant_id, "u": ctx.user_id, "k": key},
+            )
+        ).scalar_one()
 
 
 async def test_b08_memory_redesign_oldest_of_200_participates_and_drops_are_complete(async_tool_database):
@@ -87,8 +99,9 @@ def _count_drops():
 async def test_b09_memory_redesign_final_http_block_has_exact_utf8_boundary(async_tool_database, difference):
     ctx = context()
     await writer(async_tool_database).execute(ctx, command(upsert(value="请用中文")))
-    snapshot = await queries(async_tool_database).read_snapshot(loader(async_tool_database, ctx).cache.scope)
-    expected = render_memory_block(snapshot.records, max_records=10, max_bytes=16384).text
+    scope = loader(async_tool_database, ctx).cache.scope
+    snapshot = await queries(async_tool_database).read_experience_snapshot(scope)
+    expected = render_experience_block(snapshot.records, max_records=10, max_bytes=16384).text
     size = len(expected.encode("utf-8"))
     memory = loader(
         async_tool_database, ctx, policy=MemoryPolicySettings(max_injected_bytes=size + difference)
@@ -120,9 +133,9 @@ async def test_b09_memory_redesign_long_entry_skips_then_short_entry_fits(async_
         ctx, command(upsert("a.long", "甲" * 512), upsert("z.short", "好"))
     )
     reader = loader(async_tool_database, ctx)
-    snapshot = await queries(async_tool_database).read_snapshot(reader.cache.scope)
+    snapshot = await queries(async_tool_database).read_experience_snapshot(reader.cache.scope)
     short = next(item for item in snapshot.records if item.memory_key == "z.short")
-    budget = len(render_memory_block([short], max_records=10, max_bytes=16384).text.encode("utf-8"))
+    budget = len(render_experience_block([short], max_records=10, max_bytes=16384).text.encode("utf-8"))
     memory = loader(async_tool_database, ctx, policy=MemoryPolicySettings(max_injected_bytes=budget))
     _, captured = await request_round(async_tool_database, ctx, memory)
     text = memory_text(captured[0])
@@ -141,12 +154,11 @@ async def test_b07_aux_memory_redesign_forget_removes_next_request_even_when_wri
     if failed:
         await install_history_failure(async_tool_database)
     memory = loader(async_tool_database, ctx)
+    tool_set = tools(async_tool_database, ctx, memory=memory)
+    memory_id = await _memory_id(async_tool_database, ctx)
 
     async def forget(arguments, *, call_id):
-        outcome = await memory.forget(
-            service, ctx, ForgetMemoryInput(memory_key="color", expected_version=1), command_id=call_id
-        )
-        return json.dumps({"deleted": outcome.response.changed_count == 1})
+        return await tool_set.forget({"memory_id": str(memory_id), "expected_version": 1}, call_id=call_id)
 
     _, captured = await request_round(
         async_tool_database,
@@ -226,7 +238,7 @@ async def test_b09_memory_redesign_trusted_task_reference_is_bounded_in_actual_r
         root_conversation_id=root,
         source_conversation_id=root,
     )
-    candidate = MemoryCandidate(
+    candidate = ExperienceCandidate(
         memory_key=task_memory_key(root), category=MemoryCategory.TASK_STATE, content=content
     )
     await writer(async_tool_database).execute(
@@ -234,7 +246,7 @@ async def test_b09_memory_redesign_trusted_task_reference_is_bounded_in_actual_r
         command(commands().MemoryMutation(action="UPSERT", candidate=candidate)),
     )
     row = (
-        await queries(async_tool_database).read_snapshot(
+        await queries(async_tool_database).read_experience_snapshot(
             __import__(
                 "muad_agent_runtime.application.memory_queries", fromlist=["MemoryReadScope"]
             ).MemoryReadScope(tenant_id=ctx.tenant_id, user_id=ctx.user_id)
@@ -342,14 +354,16 @@ async def test_b07_aux_memory_redesign_failed_forget_suppresses_the_rest_of_this
     memory = loader(async_tool_database, ctx)
     await memory.refresh()
     await install_history_failure(async_tool_database)
-    request = ForgetMemoryInput(memory_key="color", expected_version=1)
+    memory_id = await _memory_id(async_tool_database, ctx)
+    tool_set = tools(async_tool_database, ctx, memory=memory)
+    arguments = {"memory_id": str(memory_id), "expected_version": 1}
     with pytest.raises(AppError):
-        await memory.forget(service, ctx, request, command_id="failed")
+        await tool_set.forget(arguments, call_id="failed")
     async with async_tool_database.begin() as connection:
         await connection.execute(sa.text("DROP TRIGGER memory_test_failure ON runtime.user_memory_history"))
-    assert (await memory.forget(service, ctx, request, command_id="successful")).response.changed_count == 1
+    assert json.loads(await tool_set.forget(arguments, call_id="successful"))["deleted"] is True
     assert await memory.refresh() is None
-    assert (await queries(async_tool_database).read_snapshot(memory.cache.scope)).records[
+    assert (await queries(async_tool_database).read_experience_snapshot(memory.cache.scope)).records[
         0
     ].memory_key == "keep"
 
@@ -360,7 +374,7 @@ async def test_b07_aux_memory_redesign_invalidation_rejects_an_inflight_older_sn
     from muad_agent_runtime.application.memory_context import MemoryContextLoader
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from tests.agent_runtime.test_memory_redesign_cache import cache
+    from tests.agent_runtime.memory_cache_support import cache
 
     ctx, service = context(), writer(async_tool_database)
     await service.execute(ctx, command(upsert()))
@@ -384,8 +398,13 @@ async def test_b07_aux_memory_redesign_invalidation_rejects_an_inflight_older_sn
     pending = asyncio.create_task(memory.refresh())
     try:
         await asyncio.wait_for(reached.wait(), timeout=5)
-        await memory.forget(
-            service, ctx, ForgetMemoryInput(memory_key="color", expected_version=1), command_id="delete"
+        memory.invalidate()
+        await service.delete_memory(
+            ctx,
+            await _memory_id(async_tool_database, ctx),
+            expected_version=1,
+            command_id="delete",
+            endpoint="memory.delete",
         )
     finally:
         release.set()
@@ -435,13 +454,14 @@ async def test_b07_aux_memory_redesign_write_disabled_still_allows_user_forget(a
     await service.execute(ctx, command(upsert()))
     policy = MemoryPolicySettings(write_enabled=False)
     memory = loader(async_tool_database, ctx, policy=policy)
-    result = await memory.forget(
-        service,
+    result = await service.delete_memory(
         replace(ctx, settings=policy),
-        ForgetMemoryInput(memory_key="color", expected_version=1),
+        await _memory_id(async_tool_database, ctx),
+        expected_version=1,
         command_id="forget-with-writes-off",
+        endpoint="memory.delete",
     )
-    assert result.response.changed_count == 1
+    assert result.status == "DELETED"
     assert (await memory.refresh()).message is None
 
 
@@ -466,13 +486,14 @@ async def test_b07_memory_redesign_production_forget_receipt_next_http_and_histo
     history = await DbBackedContextBuilder(session_factory=lambda: factory).load_history(
         tenant_id=run.tenant_id, user_id=run.user_id, conversation_id=run.conversation_id
     )
+    memory_id = await _memory_id(async_tool_database, ctx)
     calls = [
         {
             "id": "forget-1",
             "type": "function",
             "function": {
                 "name": "forget",
-                "arguments": json.dumps({"memory_key": "color", "expected_version": 1}),
+                "arguments": json.dumps({"memory_id": str(memory_id), "expected_version": 1}),
             },
         }
     ]

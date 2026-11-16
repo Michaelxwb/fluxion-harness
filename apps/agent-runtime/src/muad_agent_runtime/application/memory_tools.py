@@ -5,15 +5,29 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping
-from typing import Any
+from datetime import datetime
+from typing import Any, cast
 from uuid import NAMESPACE_URL, uuid5
 
-from muad_agent_core.memory.rank import MemoryRecord, select_memories
-from muad_agent_core.memory.render import MemoryResultBudgetExceeded, render_recall
+from muad_agent_core.memory.selection import (
+    MemoryRecord,
+    QueryContext,
+    QueryScopeState,
+    SelectedMemory,
+    select_memory,
+)
 from muad_agent_core.tools import ToolDefinition, ToolEffect, ToolRegistry
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import ForgetMemoryInput, RecallMemoryInput, RememberMemoryInput
+from muad_contracts.memory import (
+    ForgetMemoryInput,
+    MemoryCardinality,
+    MemoryPriority,
+    RecallMemoryInput,
+    RememberMemoryInput,
+    ScopeState,
+)
+from muad_contracts.memory_taxonomy import PREDICATES_BY_KEY
 from muad_contracts.tasks import ContractModel
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
@@ -27,7 +41,7 @@ from ..metrics import (
 from .memory_commands import MemoryWriteContext
 from .memory_confirmation import MemoryConfirmationService
 from .memory_context import MemoryContextLoader
-from .memory_queries import MemoryQueries
+from .memory_queries import MemoryCandidateRow, MemoryQueries
 from .memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
@@ -72,10 +86,114 @@ def _input[Input: ContractModel](
             "memory_key": ErrorCode.MEMORY_KEY_INVALID,
             "value": ErrorCode.MEMORY_VALUE_INVALID,
             "category": ErrorCode.MEMORY_CATEGORY_NOT_ALLOWED,
+            "memory_kind": ErrorCode.MEMORY_CATEGORY_NOT_ALLOWED,
+            "predicate": ErrorCode.MEMORY_TAXONOMY_INVALID,
+            "scope_state": ErrorCode.MEMORY_SCOPE_UNKNOWN,
+            "scope": ErrorCode.MEMORY_SCOPE_UNKNOWN,
             "query": ErrorCode.MEMORY_QUERY_INVALID,
             "limit": ErrorCode.MEMORY_LIMIT_INVALID,
         }
+        # Model-level validators report no field location; classify by their message.
+        messages = " ".join(str(error.get("msg", "")) for error in exc.errors()).lower()
+        if not field and "scope" in messages:
+            raise AppError(ErrorCode.MEMORY_SCOPE_UNKNOWN) from None
+        if not field and ("predicate" in messages or "taxonomy" in messages):
+            raise AppError(ErrorCode.MEMORY_TAXONOMY_INVALID) from None
         raise AppError(codes.get(str(field), default)) from None
+
+
+def _record(row: MemoryCandidateRow) -> MemoryRecord:
+    return MemoryRecord(
+        memory_key=row.memory_key,
+        memory_kind=row.memory_kind,
+        predicate=row.predicate,
+        scope_state=ScopeState(row.scope_state),
+        scope=row.scope,
+        content=cast(dict[str, object], row.content),
+        title=row.title,
+        summary=row.summary,
+        tags=row.tags,
+        cardinality=MemoryCardinality(row.cardinality),
+        priority=MemoryPriority(row.priority),
+        author=row.author,
+        version=row.version,
+        updated_at=row.updated_at,
+        expires_at=row.expires_at,
+        enabled=row.enabled,
+    )
+
+
+def _recall_selection(
+    records: list[MemoryRecord], query: str | None, mode: str, limit: int, now: datetime
+) -> tuple[SelectedMemory, ...]:
+    if mode == "LIST":
+        ordered = sorted(
+            records,
+            key=lambda record: (-int(record.priority == "REQUIRED"), -record.version, record.memory_key),
+        )
+        return tuple(SelectedMemory(record, 1.0) for record in ordered[:limit])
+    # The score threshold gates automatic injection only; an explicit recall returns
+    # every positive lexical match (zero coverage still yields an empty result).
+    return select_memory(
+        records,
+        QueryContext(query=query, now=now, scope_state=QueryScopeState.ABSENT),
+        top_k=limit,
+        min_score=0.0,
+    )
+
+
+def _recall_payload(
+    selected: tuple[SelectedMemory, ...], rows: Mapping[str, MemoryCandidateRow], *, max_bytes: int
+) -> str:
+    items: list[dict[str, Any]] = []
+    truncated = False
+    for item in selected:
+        row = rows.get(item.record.memory_key)
+        if row is None:
+            continue
+        candidate = [
+            *items,
+            {
+                "memory_id": str(row.id),
+                "memory_key": row.memory_key,
+                "memory_kind": row.memory_kind,
+                "predicate": row.predicate,
+                "scope_state": row.scope_state,
+                "scope": row.scope,
+                "content": row.content,
+                "title": row.title,
+                "summary": row.summary,
+                "tags": list(row.tags),
+                "version": row.version,
+                "score": item.score,
+            },
+        ]
+        if len(json.dumps({"items": candidate}, ensure_ascii=False).encode("utf-8")) > max_bytes:
+            truncated = True
+            break
+        items = candidate
+    document = {"items": items, "truncated": truncated}
+    if len(json.dumps(document, ensure_ascii=False).encode("utf-8")) > max_bytes:
+        # The empty envelope alone exceeds the budget: fail honestly instead of
+        # returning a document that violates the recall byte contract.
+        raise ValueError("recall envelope exceeds the configured budget")
+    return json.dumps(document, ensure_ascii=False)
+
+
+def _remember_schema() -> dict[str, Any]:
+    """The model must pick a taxonomy predicate; an invented one is a schema violation."""
+
+    schema = RememberMemoryInput.model_json_schema()
+    properties = schema.setdefault("properties", {})
+    properties.setdefault("predicate", {})["enum"] = sorted(PREDICATES_BY_KEY)
+    properties["predicate"]["description"] = (
+        "Taxonomy predicate code; it must match memory_kind."
+    )
+    properties.setdefault("content", {})["description"] = (
+        'Structured value object, e.g. {"value": "Bingo"} for FACT/PREFERENCE or '
+        '{"text": "..."} for NOTE.'
+    )
+    return schema
 
 
 class MemoryToolSet:
@@ -121,7 +239,7 @@ class MemoryToolSet:
                 ToolDefinition(
                     name=REMEMBER_TOOL,
                     description=REMEMBER_DESCRIPTION,
-                    input_schema=RememberMemoryInput.model_json_schema(),
+                    input_schema=_remember_schema(),
                     effect=ToolEffect.WRITE,
                     handler=self.remember,
                     externalizable_result=False,
@@ -144,43 +262,45 @@ class MemoryToolSet:
         mode = "SEARCH" if request.query and request.query.strip() else "LIST"
         limit = self._context.settings.recall_default_limit if request.limit is None else request.limit
         try:
-            selected: tuple[MemoryRecord, ...] = ()
+            selected: tuple[SelectedMemory, ...] = ()
+            rows: dict[str, MemoryCandidateRow] = {}
             has_candidates = False
             if limit:
                 snapshot = await self._queries.read_snapshot(self._loader.cache.scope)
-                has_candidates = any(
-                    (request.category is None or row.category is request.category)
-                    and (request.memory_key is None or row.memory_key == request.memory_key)
-                    for row in snapshot.records
-                )
-                selected = select_memories(
-                    snapshot.records,
-                    query=request.query,
-                    now=snapshot.as_of,
-                    category=request.category,
-                    memory_key=request.memory_key,
-                ).items
-            result = render_recall(selected, limit=limit, max_bytes=self._context.settings.max_recall_bytes)
-        except MemoryResultBudgetExceeded:
-            self._recall_failed(mode, "budget")
+                rows = {row.memory_key: row for row in snapshot.rows}
+                records = [
+                    _record(row)
+                    for row in snapshot.rows
+                    if (request.memory_kind is None or row.memory_kind == request.memory_kind)
+                    and (request.predicate is None or row.predicate == request.predicate)
+                ]
+                has_candidates = bool(records)
+                selected = _recall_selection(records, request.query, mode, limit, snapshot.as_of)
+            text = _recall_payload(
+                selected, rows, max_bytes=self._context.settings.max_recall_bytes
+            )
+        except ValueError as exc:
+            # 空封套都放不进预算：这是预算违约，不是读取故障。
+            self._recall_failed(mode, type(exc).__name__)
             raise AppError(ErrorCode.MEMORY_RESULT_BUDGET_EXCEEDED) from None
-        except (SQLAlchemyError, AppError, ValueError) as exc:
+        except (SQLAlchemyError, AppError) as exc:
             self._recall_failed(mode, type(exc).__name__)
             raise AppError(ErrorCode.MEMORY_READ_FAILED) from None
         if mode == "SEARCH" and limit and has_candidates:
             record_counter(MEMORY_RECALL_HIT_METRIC, labels={"hit": str(bool(selected)).lower()})
         record_counter(MEMORY_RECALL_METRIC, labels={"mode": mode, "outcome": "OK"})
-        record_counter(MEMORY_RECALL_BYTES_METRIC, len(result.text.encode("utf-8")))
+        result_bytes = len(text.encode("utf-8"))
+        record_counter(MEMORY_RECALL_BYTES_METRIC, result_bytes)
         logger.info(
             "memory_recall_ok",
             extra={
                 "mode": mode,
-                "result_count": len(result.items),
-                "result_bytes": len(result.text.encode("utf-8")),
+                "result_count": len(selected),
+                "result_bytes": result_bytes,
                 "run_id": str(self._loader.cache.run_id),
             },
         )
-        return result.text
+        return text
 
     def _recall_failed(self, mode: str, reason: str) -> None:
         record_counter(MEMORY_RECALL_METRIC, labels={"mode": mode, "outcome": "ERROR"})
@@ -197,16 +317,20 @@ class MemoryToolSet:
     async def forget(self, arguments: Mapping[str, Any], *, call_id: str) -> str:
         request = _input(ForgetMemoryInput, arguments, ErrorCode.MEMORY_VERSION_CONFLICT)
         command_id = str(uuid5(NAMESPACE_URL, f"memory.forget:{self._loader.cache.run_id}:{call_id}"))
-        outcome = await self._loader.forget(self._service, self._context, request, command_id=command_id)
-        if outcome.response.status == "STALE":
-            raise AppError(ErrorCode.MEMORY_VERSION_CONFLICT)
-        result = outcome.response.items[0]
+        previous = self._loader.begin_forget()
+        outcome = await self._service.delete_memory(
+            self._context,
+            request.memory_id,
+            expected_version=request.expected_version,
+            command_id=command_id,
+            endpoint="memory.forget",
+        )
+        self._loader.end_forget(previous, succeeded=outcome.status == "DELETED")
         return json.dumps(
             {
-                "deleted": result.status in ("DELETED", "UNCHANGED"),
-                "memory_key": result.memory_key,
-                "version": result.version,
-                "forget_epoch": outcome.response.forget_epoch,
+                "deleted": outcome.status == "DELETED",
+                "memory_id": str(request.memory_id),
+                "version": outcome.version,
             },
             ensure_ascii=False,
         )

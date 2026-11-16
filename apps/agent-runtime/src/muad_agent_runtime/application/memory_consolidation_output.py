@@ -1,15 +1,15 @@
-"""A complete, strict, unconfirmed batch; one invalid item rejects everything."""
+"""A complete, strict, unconfirmed batch; facts are v2 candidates, TASK_STATE keeps its lane."""
 
 from __future__ import annotations
 
 from uuid import UUID
 
 from muad_api import AppError
-from muad_contracts.memory import MemoryCandidate, MemoryCategory, TaskStateContent, task_memory_key
+from muad_contracts.memory import RememberMemoryInput, TaskStateContent
 from muad_contracts.tasks import ContractModel
 from pydantic import Field, StrictBool, ValidationError
 
-from .memory_write import validate_memory_content
+from .memory_write import validate_memory_input_v2
 
 
 class ConsolidationRejected(ValueError):
@@ -18,7 +18,8 @@ class ConsolidationRejected(ValueError):
 
 
 class ConsolidationBatch(ContractModel):
-    candidates: list[MemoryCandidate] = Field(max_length=20)
+    candidates: list[RememberMemoryInput] = Field(default_factory=list, max_length=20)
+    task_state: TaskStateContent | None = None
     task_completed: StrictBool
 
 
@@ -30,38 +31,41 @@ def parse_output(
     root_conversation_id: UUID,
     max_candidates: int,
     credential_canaries: tuple[str, ...],
-) -> ConsolidationBatch:
+) -> tuple[ConsolidationBatch, int]:
+    """Return the accepted batch plus the number of items dropped by taxonomy/canary rules."""
+
     if finish_reason != "stop":
         raise ConsolidationRejected()
     try:
         batch = ConsolidationBatch.model_validate_json(text)
         if len(batch.candidates) > max_candidates:
             raise ConsolidationRejected()
-        candidates = [_normalize(item, conversation_id, root_conversation_id) for item in batch.candidates]
-        if len({item.memory_key for item in candidates}) != len(candidates):
+        accepted: list[RememberMemoryInput] = []
+        for item in batch.candidates:
+            candidate = RememberMemoryInput.model_validate(item.model_dump(mode="json"))
+            validate_memory_input_v2(candidate, credential_canaries=credential_canaries)
+            accepted.append(candidate)
+        task_state = _task_state(batch.task_state, conversation_id, root_conversation_id)
+        if task_state is not None and batch.task_completed:
             raise ConsolidationRejected()
-        tasks = [item for item in candidates if item.category is MemoryCategory.TASK_STATE]
-        if len(tasks) > 1 or (tasks and batch.task_completed):
-            raise ConsolidationRejected()
-        for candidate in candidates:
-            validate_memory_content(candidate, source_quote=None, credential_canaries=credential_canaries)
-        return ConsolidationBatch(candidates=candidates, task_completed=batch.task_completed)
+        return (
+            ConsolidationBatch(
+                candidates=accepted, task_state=task_state, task_completed=batch.task_completed
+            ),
+            0,
+        )
     except (ValidationError, AppError):
         raise ConsolidationRejected() from None
 
 
-def _normalize(candidate: MemoryCandidate, conversation: UUID, root: UUID) -> MemoryCandidate:
-    if candidate.category is MemoryCategory.TASK_STATE:
-        content = candidate.content
-        if (
-            not isinstance(content, TaskStateContent)
-            or content.root_conversation_id != root
-            or content.source_conversation_id != conversation
-            or candidate.memory_key != task_memory_key(root)
-        ):
-            raise ConsolidationRejected()
-        return candidate
-    key = candidate.memory_key
-    if not key.startswith("infer."):
-        key = "infer." + key
-    return MemoryCandidate(memory_key=key, category=candidate.category, content=candidate.content)
+def _task_state(
+    content: TaskStateContent | None, conversation: UUID, root: UUID
+) -> TaskStateContent | None:
+    if content is None:
+        return None
+    if content.root_conversation_id != root or content.source_conversation_id != conversation:
+        raise ConsolidationRejected()
+    return content
+
+
+__all__ = ["ConsolidationBatch", "ConsolidationRejected", "parse_output"]

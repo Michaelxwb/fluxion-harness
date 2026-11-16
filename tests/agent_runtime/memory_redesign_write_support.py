@@ -5,7 +5,7 @@ from importlib import import_module
 from uuid import uuid4
 
 import sqlalchemy as sa
-from muad_contracts.memory import FactContent, MemoryCandidate, MemoryCategory
+from muad_contracts.memory import ExperienceCandidate, FactContent, MemoryCategory
 from muad_contracts.platform_settings import MemoryPolicySettings
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -30,7 +30,7 @@ def context(*, tenant="writes", user=None, settings=None, actor="ADMIN"):
 
 
 def upsert(key="color", value="blue", *, expected=None, restore=False):
-    candidate = MemoryCandidate(
+    candidate = ExperienceCandidate(
         memory_key=key, category=MemoryCategory.PREFERENCE, content=FactContent(value=value)
     )
     return commands().MemoryMutation(
@@ -79,6 +79,28 @@ async def seed_facts(engine, ctx, count, *, author="ADMIN", prefix="seed", expir
                 "count": count,
                 "expired": expired,
             },
+        )
+
+
+async def seed_v2_notes(engine, ctx, count, *, value="汉" * 500, prefix="fact"):
+    """Seed real v2 NOTE rows through the single writer (no legacy category)."""
+
+    from muad_agent_runtime.application.memory_service import MemoryService
+    from muad_contracts.memory import RememberMemoryInput
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    service = MemoryService(async_sessionmaker(engine, expire_on_commit=False))
+    for index in range(count):
+        candidate = RememberMemoryInput.model_validate(
+            {
+                "memory_kind": "NOTE",
+                "predicate": "general",
+                "content": {"text": value},
+                "title": f"{prefix}.{index}",
+            }
+        ).normalized(taxonomy_version=1)
+        await service.apply_candidate(
+            ctx, candidate, command_id=f"{prefix}-{index}", endpoint="test.seed"
         )
 
 

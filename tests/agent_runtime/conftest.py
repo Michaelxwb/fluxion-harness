@@ -24,7 +24,6 @@ from muad_agent_runtime.infrastructure.db import get_session_factory
 from muad_agent_runtime.main import app
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_common import SharedSettings
 from muad_contracts import (
     ResolvedAgent,
     ResolveDefinitionRequest,
@@ -35,8 +34,7 @@ from muad_contracts import (
     ResolveModelRequest,
     ResolveModelResponse,
 )
-from sqlalchemy import inspect, text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import text
 
 SCHEMA = "runtime"
 from tests.async_tool_datastores import async_tool_database, async_tool_datastore  # noqa: F401, E402
@@ -131,24 +129,11 @@ def fresh_engine_caches() -> None:
     get_session_factory.cache_clear()
 
 
-@pytest.fixture(scope="session")
-async def database_guard() -> AsyncIterator[None]:
-    settings = SharedSettings()
-    if settings.database_url is None:
-        pytest.skip("DATABASE_URL not configured")
-    engine = create_async_engine(settings.database_url)
-    try:
-        async with engine.connect() as connection:
-            ready = await connection.run_sync(
-                lambda sync_connection: all(
-                    inspect(sync_connection).has_table(table, schema=SCHEMA) for table in RUNTIME_TABLES
-                )
-            )
-        if not ready:
-            pytest.skip("run: uv run alembic -c migrations/alembic.ini upgrade head")
-        yield
-    finally:
-        await engine.dispose()
+@pytest.fixture
+async def database_guard(isolated_datastore) -> AsyncIterator[None]:
+    """Every test already runs on its own cloned database (root conftest)."""
+
+    yield
 
 
 @pytest.fixture

@@ -12,13 +12,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # 状态口径与 Runtime `memory_admin_queries` 对齐：到期优先于禁用；已删除行不进任何状态。
 STATUS_PROJECTION = (
-    "CASE WHEN expires_at <= statement_timestamp() THEN 'EXPIRED' "
+    "CASE WHEN is_deleted THEN 'DELETED' "
+    "WHEN expires_at <= statement_timestamp() THEN 'EXPIRED' "
     "WHEN enabled = false THEN 'DISABLED' ELSE 'ACTIVE' END"
 )
 MEMORY_COLUMNS = (
     "id, memory_key, category, content_json AS content, author, explicit_request, "
     "confirmed_count, source_ref, source_quote, expires_at, last_confirmed_at, "
     f"version, enabled, create_time, update_time, {STATUS_PROJECTION} AS status"
+)
+V2_MEMORY_COLUMNS = (
+    "id, memory_key, memory_kind, predicate, scope_state, scope_json AS scope, "
+    "content_json AS content, title, summary, tags_json AS tags, cardinality, priority, "
+    "author, authority, version, enabled, expires_at, last_confirmed_at, create_time, update_time, "
+    f"{STATUS_PROJECTION} AS status"
 )
 HISTORY_COLUMNS = (
     "id, origin_id, memory_key, version, change_reason, actor_type, actor_id, command_id, "
@@ -117,6 +124,41 @@ class MemoryRepository:
             page_size,
         )
 
+    async def list_memory(
+        self,
+        tenant_id: str,
+        user_id: uuid.UUID,
+        page: int,
+        page_size: int,
+        *,
+        memory_kind: str | None = None,
+        predicate: str | None = None,
+        status: str | None = None,
+        include_deleted: bool = False,
+    ) -> tuple[list[dict[str, Any]], int]:
+        where = "tenant_id = :tenant_id AND user_id = :user_id AND memory_kind IS NOT NULL"
+        params: dict[str, Any] = {"tenant_id": tenant_id, "user_id": user_id}
+        if not include_deleted:
+            where += " AND is_deleted = false"
+        if memory_kind is not None:
+            where += " AND memory_kind = :memory_kind"
+            params["memory_kind"] = memory_kind
+        if predicate is not None:
+            where += " AND predicate = :predicate"
+            params["predicate"] = predicate
+        if status is not None:
+            where += f" AND {STATUS_PROJECTION} = :status"
+            params["status"] = status
+        return await self._paged_snapshot(
+            "runtime.user_memory",
+            V2_MEMORY_COLUMNS,
+            where,
+            params,
+            "update_time DESC, id DESC",
+            page,
+            page_size,
+        )
+
     async def find_origin(
         self, tenant_id: str, user_id: uuid.UUID, memory_key: str
     ) -> uuid.UUID | None:
@@ -129,6 +171,16 @@ class MemoryRepository:
             {"tenant_id": tenant_id, "user_id": user_id, "memory_key": memory_key},
         )
         return origin
+
+    async def origin_exists(self, tenant_id: str, user_id: uuid.UUID, memory_id: uuid.UUID) -> bool:
+        found = await self._session.scalar(
+            text(
+                "SELECT 1 FROM runtime.user_memory "
+                "WHERE tenant_id = :tenant_id AND user_id = :user_id AND id = :memory_id"
+            ),
+            {"tenant_id": tenant_id, "user_id": user_id, "memory_id": memory_id},
+        )
+        return found is not None
 
     async def history(
         self,

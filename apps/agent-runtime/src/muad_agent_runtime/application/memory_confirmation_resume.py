@@ -12,9 +12,6 @@ from uuid import UUID
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import (
-    FactContent,
-    MemoryCandidate,
-    MemoryCategory,
     MemoryConfirmationInput,
     MemoryConfirmationProposal,
     memory_hash,
@@ -28,8 +25,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.db_clock import database_now
-from ..infrastructure.models.runtime import CanonicalEvent, RunInterrupt, RunRecord, UserMemory
-from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
+from ..infrastructure.models.runtime import CanonicalEvent, MemoryScope, RunInterrupt, RunRecord, UserMemory
+from .memory_commands import MemoryWriteContext
+from .memory_identity import memory_key as build_memory_key
 from .memory_observability import after_commit, observe
 from .memory_proposals import (
     CONFIRM_VERB,
@@ -342,54 +340,49 @@ async def _confirm(
         confirmation_event_id=source.id,
         expected_forget_epoch=proposal.forget_epoch,
     )
-    scope = await MemoryService.lock_scope(session, ctx)
     now = await database_now(session)
     _ensure_deadline(run, now)
+    scope = await session.scalar(
+        select(MemoryScope)
+        .where(MemoryScope.tenant_id == run.tenant_id, MemoryScope.user_id == run.user_id)
+        .with_for_update()
+    )
+    epoch = scope.forget_epoch if scope is not None else 0
+    if proposal.expires_at <= now or epoch != proposal.forget_epoch:
+        return ConfirmationResult(outcome="STALE")
+    if not await _target_version_matches(session, run, proposal):
+        return ConfirmationResult(outcome="STALE")
+    outcome = await MemoryService().apply_candidate_in_session(
+        session,
+        ctx,
+        proposal.candidate.normalized(taxonomy_version=1),
+        command_id=f"confirmation:{interrupt.id}:{source.id}",
+        endpoint="memory.confirmation",
+    )
+    if outcome.memory_key is None or outcome.status == "CANDIDATE":
+        return ConfirmationResult(outcome="STALE")
+    return await _saved_result(session, run, outcome.memory_key)
+
+
+async def _target_version_matches(
+    session: AsyncSession, run: RunRecord, proposal: MemoryConfirmationProposal
+) -> bool:
+    """A confirmation only lands on the slot version it was shown against."""
+
+    if proposal.candidate.memory_kind == "NOTE":
+        return proposal.expected_version is None
+    key = build_memory_key(proposal.candidate.normalized(taxonomy_version=1))
     row = await session.scalar(
         select(UserMemory)
         .where(
             UserMemory.tenant_id == run.tenant_id,
             UserMemory.user_id == run.user_id,
-            UserMemory.memory_key == proposal.candidate.memory_key,
+            UserMemory.memory_key == key,
         )
         .with_for_update()
         .execution_options(populate_existing=True)
     )
-    if (
-        proposal.expires_at <= now
-        or scope.forget_epoch != proposal.forget_epoch
-        or (row.version if row is not None else None) != proposal.expected_version
-    ):
-        return ConfirmationResult(outcome="STALE")
-    command = _confirmation_command(proposal, row, interrupt.id, source.id)
-    outcome = await MemoryService().execute_in_session(session, ctx, command)
-    if outcome.response.status == "STALE":
-        return ConfirmationResult(outcome="STALE")
-    return await _saved_result(session, run, proposal.candidate.memory_key)
-
-
-def _confirmation_command(
-    proposal: MemoryConfirmationProposal,
-    row: UserMemory | None,
-    interrupt_id: UUID,
-    source_id: UUID,
-) -> MemoryCommand:
-    mutation = MemoryMutation(
-        action="UPSERT",
-        candidate=MemoryCandidate(
-            memory_key=proposal.candidate.memory_key,
-            category=MemoryCategory(proposal.candidate.category),
-            content=FactContent(value=proposal.candidate.value),
-        ),
-        expected_version=proposal.expected_version,
-        restore=row.is_deleted if row else False,
-        enable=not row.enabled if row else False,
-    )
-    return MemoryCommand(
-        command_id=f"confirmation:{interrupt_id}:{source_id}",
-        endpoint="memory.confirmation",
-        mutations=[mutation],
-    )
+    return (row.version if row is not None else None) == proposal.expected_version
 
 
 async def _saved_result(session: AsyncSession, run: RunRecord, key: str) -> ConfirmationResult:

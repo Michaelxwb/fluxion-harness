@@ -11,12 +11,7 @@ from muad_agent_core.agent.continuation import RunnerCheckpoint
 from muad_agent_core.agent.suspension import MemorySuspendRequest
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import (
-    FactContent,
-    MemoryCandidate,
-    MemoryCategory,
-    RememberMemoryInput,
-)
+from muad_contracts.memory import RememberMemoryInput
 from muad_contracts.platform_settings import MemoryPolicySettings
 from muad_contracts.tasks import ContractModel
 from sqlalchemy.exc import SQLAlchemyError
@@ -24,17 +19,22 @@ from sqlalchemy.exc import SQLAlchemyError
 from ..infrastructure.db import SessionFactory
 from .async_tools.continuation_service import ExecutionIdentity
 from .checkpoint import suspend_memory_confirmation
-from .memory_explicit_command import MemorySavedReceipt, matches_user_command, save_user_command
+from .memory_explicit_command import (
+    MemorySavedReceipt,
+    matches_user_command,
+    save_user_command,
+)
 from .memory_observability import after_commit, observe
 from .memory_proposals import (
-    _memory_state,
+    _existing_target,
     _prompt,
     _proposal,
+    _scope_epoch,
     confirmation_source,
     ensure_no_memory_confirmation,
     locked_confirmation_execution,
 )
-from .memory_write import validate_memory_content
+from .memory_write import validate_memory_input_v2
 
 logger = logging.getLogger(__name__)
 
@@ -77,36 +77,39 @@ class MemoryConfirmationService:
             if not call_id.strip():
                 raise AppError(ErrorCode.MEMORY_CONFIRMATION_INVALID)
             candidate = RememberMemoryInput.model_validate(candidate.model_dump(mode="json"))
-            validate_memory_content(
-                MemoryCandidate(
-                    memory_key=candidate.memory_key,
-                    category=MemoryCategory(candidate.category),
-                    content=FactContent(value=candidate.value),
-                ),
-                source_quote=candidate.source_quote,
-                credential_canaries=self._canaries,
-            )
+            validate_memory_input_v2(candidate, credential_canaries=self._canaries)
             try:
                 async with self._factory.begin() as session:
                     await ensure_no_memory_confirmation(session, self._identity)
                     run, _, now = await locked_confirmation_execution(session, self._identity)
                     event = await confirmation_source(session, run, self._submission_id)
                     if matches_user_command(event, candidate):
-                        after_commit(session, "memory_confirmation_total", labels={"outcome": "CONFIRMED"})
-                        return await save_user_command(self._factory, session, run, event, self._identity,
-                            candidate, self._settings, self._canaries)
-                    row, epoch = await _memory_state(session, run, candidate.memory_key)
-                    proposal = _proposal(candidate, run, event, row, epoch, now)
+                        after_commit(
+                            session, "memory_confirmation_total", labels={"outcome": "CONFIRMED"}
+                        )
+                        return await save_user_command(
+                            self._factory,
+                            session,
+                            run,
+                            event,
+                            self._identity,
+                            candidate,
+                            self._settings,
+                            self._canaries,
+                        )
+                    epoch = await _scope_epoch(session, run)
+                    expected_version, target = await _existing_target(session, run, candidate)
+                    proposal = _proposal(candidate, run, event, epoch, now, expected_version)
                     proposal_id = uuid4()
                     request = MemorySuspendRequest(
                         proposal_id,
                         proposal,
-                        _prompt(proposal_id, proposal, row, now, timezone=self._timezone),
+                        _prompt(proposal_id, proposal, now, target=target, timezone=self._timezone),
                         text_prompt=_prompt(
                             proposal_id,
                             proposal,
-                            row,
                             now,
+                            target=target,
                             timezone=self._timezone,
                             for_text_channel=True,
                         ),

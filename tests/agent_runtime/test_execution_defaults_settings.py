@@ -41,7 +41,7 @@ from muad_agent_runtime.application.executor import (
     RunExecutor,
     build_registry,
 )
-from muad_agent_runtime.application.memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
+from muad_agent_runtime.application.memory_commands import MemoryWriteContext
 from muad_agent_runtime.application.memory_service import MemoryService
 from muad_agent_runtime.application.memory_tools import RECALL_TOOL, REMEMBER_TOOL
 from muad_agent_runtime.application.ports import PlatformSettingsSnapshot
@@ -63,7 +63,7 @@ from muad_artifact_store import NfsArtifactStore, SkillArtifactCache
 from muad_console_platform.application.audit_service import AuditActor
 from muad_console_platform.application.platform_settings_service import PlatformSettingsService
 from muad_contracts import ChannelContext, MessageInput, RunRequest
-from muad_contracts.memory import FactContent, MemoryCandidate, MemoryCategory
+from muad_contracts.memory import RememberMemoryInput
 from muad_contracts.platform_settings import (
     AgentSettings,
     ArtifactSettings,
@@ -318,16 +318,29 @@ async def test_e20_recall_uses_frozen_limit_and_byte_cap(
     ).get(RECALL_TOOL)
     assert len(json.loads(await recall.handler({}, call_id="c"))["items"]) == 2
 
-    # 最终 JSON 含来源/版本/TTL；200 字节只能容纳固定封套，无首条越限保底。
-    capped = replace(RECALL_SCENARIO, recall_default_limit=10, max_recall_bytes=200)
+    # 最终 JSON 含来源/版本/TTL；装不下的条目被跳过并标 `truncated`（不静默超预算）。
+    capped = replace(RECALL_SCENARIO, recall_default_limit=10, max_recall_bytes=600)
     await _save_settings(tenant.tenant_id, memory=capped)
     capture2 = _CapturingExecutorFactory()
     await _start_run(tenant, fake_resolve, capture2, _PgSettingsClient())
     recall2 = build_registry(
         request=capture2.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
     ).get(RECALL_TOOL)
+    body = json.loads(await recall2.handler({}, call_id="c"))
+    assert body["truncated"] is True
+    assert 0 < len(body["items"]) < 6
+    assert len(json.dumps(body, ensure_ascii=False).encode("utf-8")) <= 600
+
+    # 连空封套都放不进预算：显式预算错误，不伪装成读取失败。
+    tiny = replace(RECALL_SCENARIO, recall_default_limit=10, max_recall_bytes=20)
+    await _save_settings(tenant.tenant_id, memory=tiny)
+    capture3 = _CapturingExecutorFactory()
+    await _start_run(tenant, fake_resolve, capture3, _PgSettingsClient())
+    recall3 = build_registry(
+        request=capture3.requests[0], cache=_cache(tmp_path), audit_writer=None, mcp_adapter=None
+    ).get(RECALL_TOOL)
     with pytest.raises(AppError) as caught:
-        await recall2.handler({}, call_id="c")
+        await recall3.handler({}, call_id="c")
     assert caught.value.code == "MEMORY_RESULT_BUDGET_EXCEEDED"
 
 
@@ -483,20 +496,19 @@ async def _seed_memories(tenant_id: str, user_id: uuid.UUID, *, count: int, valu
     context = MemoryWriteContext(
         tenant_id=tenant_id, user_id=user_id, actor_type="ADMIN", actor_id="fixture-admin"
     )
-    mutations = [
-        MemoryMutation(
-            action="UPSERT",
-            candidate=MemoryCandidate(
-                memory_key=f"seed.{index:02d}",
-                category=MemoryCategory.PREFERENCE,
-                content=FactContent(value="v" * value_chars),
-            ),
+    service = MemoryService()
+    for index in range(count):
+        candidate = RememberMemoryInput(
+            memory_kind="NOTE",
+            predicate="general",
+            scope_state="ABSENT",
+            scope={},
+            content={"text": "v" * value_chars},
+            title=f"seed {index:02d}",
+        ).normalized(taxonomy_version=1)
+        await service.apply_candidate(
+            context, candidate, command_id=uuid.uuid4().hex, endpoint="memory.admin"
         )
-        for index in range(count)
-    ]
-    await MemoryService().execute(
-        context, MemoryCommand(command_id=uuid.uuid4().hex, endpoint="memory.admin", mutations=mutations)
-    )
 
 
 async def _memory_row_snapshot(tenant_id: str) -> list[tuple[Any, ...]]:

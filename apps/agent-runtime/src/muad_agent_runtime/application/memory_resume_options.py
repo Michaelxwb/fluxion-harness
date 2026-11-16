@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from muad_agent_core.memory.rank import MemoryRecord
+from muad_agent_core.memory.rank import ExperienceRecord
 from muad_agent_core.memory.resume import resume_candidate_hash
 from muad_agent_core.memory.tokens import lexical_coverage
 from muad_contracts.memory import (
@@ -16,7 +16,7 @@ from muad_contracts.memory import (
 )
 
 
-def task_candidates(records: Iterable[MemoryRecord], theme: str | None) -> tuple[MemoryRecord, ...]:
+def task_candidates(records: Iterable[ExperienceRecord], theme: str | None) -> tuple[ExperienceRecord, ...]:
     scored = []
     for row in records:
         if not isinstance(row.content, TaskStateContent):
@@ -29,7 +29,7 @@ def task_candidates(records: Iterable[MemoryRecord], theme: str | None) -> tuple
 
 
 def build_options(
-    records: tuple[MemoryRecord, ...],
+    records: tuple[ExperienceRecord, ...],
     *,
     user_id: UUID,
     source_user_event_id: UUID,
@@ -71,7 +71,7 @@ def options_prompt(options: MemoryResumeOptions) -> str:
     return "\n".join(lines)
 
 
-def valid_option(option: MemoryResumeOption, records: Iterable[MemoryRecord]) -> MemoryRecord | None:
+def valid_option(option: MemoryResumeOption, records: Iterable[ExperienceRecord]) -> ExperienceRecord | None:
     return next(
         (
             row

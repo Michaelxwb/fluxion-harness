@@ -107,7 +107,14 @@ SUMMARY_JSON = json.dumps(
 CONSOLIDATION_JSON = json.dumps(
     {
         "candidates": [
-            {"memory_key": "infer.color", "category": "PREFERENCE", "content": {"value": "blue"}}
+            {
+                "memory_kind": "PREFERENCE",
+                "predicate": "output_style",
+                "scope_state": "ABSENT",
+                "scope": {},
+                "content": {"value": "blue"},
+                "title": "输出风格",
+            }
         ],
         "task_completed": False,
     }

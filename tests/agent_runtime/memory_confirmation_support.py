@@ -59,11 +59,17 @@ def service(factory, identity, submission_id):
     )
 
 
-def candidate(**overrides):
+def candidate(*, value="blue", **overrides):
     from muad_contracts.memory import RememberMemoryInput
 
     return RememberMemoryInput.model_validate(
-        {"memory_key": "color", "category": "PREFERENCE", "value": "blue", **overrides}
+        {
+            "memory_kind": "PREFERENCE",
+            "predicate": "output_style",
+            "content": {"value": value},
+            "title": "输出风格",
+            **overrides,
+        }
     )
 
 

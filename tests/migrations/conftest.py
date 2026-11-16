@@ -11,6 +11,13 @@ from tests.async_tool_datastores import (
 )
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """This suite owns its databases (see tests/acceptance/datastores.py); skip the clone."""
+
+    for item in items:
+        item.add_marker(pytest.mark.own_datastore)
+
+
 @pytest.fixture
 def datastore_at_revision() -> Iterator[Callable[[str], dict[str, str]]]:
     """按**指定 revision** 建临时库的工厂夹具，收尾统一丢弃。

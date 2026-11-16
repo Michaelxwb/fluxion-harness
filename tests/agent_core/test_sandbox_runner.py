@@ -17,6 +17,7 @@ import contextlib
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -467,6 +468,10 @@ async def test_timeout_reaps_process_group_and_next_run_works(tmp_path: Path) ->
 
     assert excinfo.value.code == "SANDBOX_TIMEOUT"
     child_pid = int(marker.read_text(encoding="utf-8"))
+    # SIGKILL 后内核回收有延迟：有界等待，不是放宽断言（最终仍必须死亡）。
+    deadline = time.monotonic() + 5.0
+    while _process_alive(child_pid) and time.monotonic() < deadline:
+        await asyncio.sleep(0.05)
     assert not _process_alive(child_pid), "后台子进程在超时后仍是孤儿"
 
     again = _spec(

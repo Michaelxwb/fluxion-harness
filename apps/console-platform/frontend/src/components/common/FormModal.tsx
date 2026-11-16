@@ -15,6 +15,8 @@ export interface FormModalProps {
   onOk(): void;
   onCancel(): void;
   getFormApi?(api: FormApi): void;
+  /** Seed values for a fresh mount; callers pass a changing `key` so they re-apply. */
+  initValues?: Record<string, unknown>;
   onSubmit?(values: Record<string, unknown>): void;
   children?: ReactNode;
 }
@@ -41,6 +43,7 @@ export function FormModal(props: FormModalProps) {
         className="app-modal-form"
         labelPosition="top"
         labelAlign="left"
+        initValues={props.initValues}
         getFormApi={props.getFormApi}
         onSubmit={props.onSubmit}
       >

@@ -11,8 +11,8 @@ from muad_agent_runtime.application.context_builder import DbBackedContextBuilde
 from muad_contracts.platform_settings import MemoryPolicySettings
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from tests.agent_runtime.memory_cache_support import cache
 from tests.agent_runtime.memory_confirmation_support import model_endpoint
-from tests.agent_runtime.test_memory_redesign_cache import cache
 
 
 def loader(engine, ctx, *, policy=None, query="你好", task_state_ref=None, run_id=None):
@@ -70,12 +70,14 @@ async def request_round(engine, ctx, memory, *, handler=None, extra_history=(), 
 
 
 def memory_text(body):
-    from muad_agent_core.memory.render import MEMORY_NOTICE
+    from muad_agent_core.memory.memory_render import MEMORY_NOTICE
+    from muad_agent_core.memory.render import EXPERIENCE_NOTICE
 
     blocks = [
         item["content"]
         for item in body["messages"]
-        if item["role"] == "system" and MEMORY_NOTICE in item["content"]
+        if item["role"] == "system"
+        and (EXPERIENCE_NOTICE in item["content"] or MEMORY_NOTICE in item["content"])
     ]
     assert len(blocks) <= 1
     return blocks[0] if blocks else None

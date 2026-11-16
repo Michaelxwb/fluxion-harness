@@ -844,7 +844,8 @@ async def _close_queued_run(session: AsyncSession, run: RunRecord) -> None:
     终态 Run 不得留下可被继续领取的 OPEN 提交，否则重放/领取路径会读到半开的旧提交。
     """
     terminal_event_id = uuid.uuid4()
-    seq = await EventWriter(session).append(
+    # 排队期间会话可能已被删除：终态仍要写（读路径按 is_deleted 隐藏），否则 Run 卡在活跃态。
+    seq = await EventWriter(session, allow_deleted_conversation=True).append(
         tenant_id=run.tenant_id,
         conversation_id=run.conversation_id,
         run_id=run.id,
@@ -3676,6 +3677,13 @@ class RunService:
         ):
             rows = [row for row in batch.rows if row.run_id == run_id and row.stream_type is not None]
             for row in rows:
+                revoked = (
+                    row.stream_type == "memory.confirmation_required"
+                    and not await self._confirmation_live(row)
+                )
+                if revoked:
+                    # 重放不能复活已撤销/已消费的确认：中断不再是 WAITING 时跳过这一帧。
+                    continue
                 yield _executor_event(row)
                 if row.stream_type in TERMINAL_STREAM_TYPES:
                     return
@@ -3686,6 +3694,24 @@ class RunService:
                 yield stop.event
             if stop.stop:
                 return
+
+    async def _confirmation_live(self, row: CanonicalEventView) -> bool:
+        """确认帧是否仍可消费：只按中断当前状态判定（重放与详情投影同一口径）。"""
+
+        proposal_id = row.payload_json.get("proposal_id")
+        if not isinstance(proposal_id, str):
+            return True
+        try:
+            identity = uuid.UUID(proposal_id)
+        except ValueError:
+            return True
+        async with get_session_factory()() as session:
+            status = await session.scalar(
+                sa.select(RunInterrupt.status).where(
+                    RunInterrupt.id == identity, RunInterrupt.tenant_id == row.tenant_id
+                )
+            )
+        return status == "WAITING"
 
     async def _tail_stop(self, batch: TailBatch, run_id: uuid.UUID, tenant_id: str) -> _TailStop:
         """本批没有本 Run 的行：按 Run 行事实判定停止（只在空闲轮/无关行批次上查一次）。

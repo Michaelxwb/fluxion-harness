@@ -5,14 +5,14 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime
 
-from muad_agent_core.memory.rank import MemoryRecord, record_tokens, select_for_injection
+from muad_agent_core.memory.rank import ExperienceRecord, record_tokens, select_for_injection
 from muad_contracts.memory import FactContent, MemoryAuthor, MemoryCategory
 
 NOW = datetime.now(UTC)
 
 
-def _record(key: str, value: str, category=MemoryCategory.EXPLICIT) -> MemoryRecord:
-    record = MemoryRecord(
+def _record(key: str, value: str, category=MemoryCategory.EXPLICIT) -> ExperienceRecord:
+    record = ExperienceRecord(
         memory_key=key,
         content=FactContent(value=value),
         author=MemoryAuthor.USER,

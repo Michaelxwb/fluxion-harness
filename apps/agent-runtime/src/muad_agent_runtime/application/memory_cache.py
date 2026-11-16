@@ -12,7 +12,13 @@ from muad_api.error_codes import ErrorCode
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..metrics import MEMORY_INJECT_METRIC, record_counter
-from .memory_queries import MemoryCandidateRow, MemoryQueries, MemoryReadScope, MemorySnapshot
+from .memory_queries import (
+    ExperienceRow,
+    MemoryCandidateRow,
+    MemoryQueries,
+    MemoryReadScope,
+    MemorySnapshot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +27,7 @@ logger = logging.getLogger(__name__)
 class _CachedCandidates:
     revision: int
     rows: tuple[MemoryCandidateRow, ...]
+    legacy_rows: tuple[ExperienceRow, ...] = ()
 
 
 class MemoryCandidateCache:
@@ -79,11 +86,18 @@ class MemoryCandidateCache:
                 rows = tuple(
                     row
                     for row in cached.rows
+                    if row.enabled
+                    and (row.expires_at is None or row.expires_at > head.as_of)
+                )
+                legacy = tuple(
+                    row
+                    for row in cached.legacy_rows
                     if row.record.enabled
-                    and not row.record.is_deleted
                     and (row.record.expires_at is None or row.record.expires_at > head.as_of)
                 )
-                return MemorySnapshot(self._scope, head.revision, head.forget_epoch, head.as_of, rows)
+                return MemorySnapshot(
+                    self._scope, head.revision, head.forget_epoch, head.as_of, rows, legacy
+                )
         snapshot = await self._queries.read_snapshot(self._scope)
-        self._cached = _CachedCandidates(snapshot.revision, snapshot.rows)
+        self._cached = _CachedCandidates(snapshot.revision, snapshot.rows, snapshot.legacy_rows)
         return snapshot

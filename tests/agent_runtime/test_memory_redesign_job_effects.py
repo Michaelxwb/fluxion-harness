@@ -19,13 +19,14 @@ from tests.agent_runtime.memory_consolidation_effect_support import (
     counts,
     current_revision,
     execution,
+    fact_key,
+    fact_key_at,
     output,
     pending,
     seed_admin,
     seed_author,
 )
 from tests.agent_runtime.memory_consolidation_support import model_stack
-from tests.agent_runtime.memory_redesign_write_support import command, commands
 
 pytestmark = pytest.mark.integration
 
@@ -80,51 +81,27 @@ async def test_b11_memory_redesign_attempt_limit_records_one_failure_event(async
             assert row.status == "FAILED" and row.input_hash == before_hash and row.lease_owner is None
 
 
-async def test_b17_memory_redesign_late_old_source_cannot_replace_newer_source(async_tool_database):
-    from dataclasses import replace
-
-    from muad_agent_runtime.infrastructure.models.runtime import CanonicalEvent
-    from muad_contracts.memory import MemorySourceEvidence
-
-    from tests.agent_runtime.memory_redesign_write_support import upsert
-    from tests.agent_runtime.memory_resume_support import inbound
-
+async def test_b17_memory_redesign_late_old_source_cannot_replace_newer_source(
+    async_tool_database,
+):
+    """A frozen older source produces no effect and no candidate against a newer value."""
     jobs = import_module("muad_agent_runtime.application.memory_jobs")
     async with model_stack(async_tool_database, output=output("color")) as stack:
         factory, run, job, _, client, requests, *_ = stack
-        await seed_author(factory, run, "AGENT")
-        _, seq = await inbound(factory, run, "newer green basis")
-        async with factory() as session:
-            event = await session.scalar(
-                sa.select(CanonicalEvent).where(
-                    CanonicalEvent.run_id == run.id,
-                    CanonicalEvent.seq == seq,
-                    CanonicalEvent.event_type == "USER_MESSAGE",
-                )
-            )
-        ctx = replace(
-            admin_context(run),
-            actor_type="SYSTEM",
-            source_run_id=run.id,
-            conversation_id=run.conversation_id,
-            evidence=MemorySourceEvidence(
-                source_event_id=event.id,
-                source_seq=seq,
-                source_scope_revision=event.payload_json["source_scope_revision"],
-            ),
-        )
-        await MemoryService(factory).execute(
-            ctx, command(upsert(key="infer.color", value="green", expected=1))
-        )
+        await seed_author(factory, run, "USER", value="green")
         await pending(factory, job, revision=await current_revision(factory, run))
         result = await execution(factory, client).execute(
             await jobs.MemoryJobs(factory).claim("late-old-run")
         )
-        assert result["written"] == 0 and result["skipped"] == 1 and len(requests) == 1
+        assert result["written"] == 0 and result["skipped"] == 1 and len(requests) == 1, result
         async with factory() as session:
+            from muad_agent_runtime.infrastructure.models.runtime import MemoryConflictCandidate
+
             row = await session.scalar(sa.select(UserMemory))
-            assert row.content_json == {"value": "green"} and row.version == 2
-            assert row.confirmed_count == 0 and row.last_source_seq == seq
+            candidates = list(await session.scalars(sa.select(MemoryConflictCandidate)))
+        assert row.content_json == {"value": "green"} and row.version == 1
+        assert row.author == "USER"
+        assert candidates == []
 
 
 async def test_b10_memory_redesign_lease_expiring_during_effect_flush_rolls_everything_back(
@@ -273,9 +250,19 @@ async def test_b11_memory_redesign_whole_batch_failure_keeps_completed_run(async
             assert row.error_code == ("REJECTED" if fault == "invalid_output" else "FAILED")
 
 
+
+async def _memory_id(factory, run) -> object:
+    async with factory() as session:
+        return await session.scalar(
+            sa.select(UserMemory.id).where(
+                UserMemory.tenant_id == run.tenant_id, UserMemory.memory_key == fact_key()
+            )
+        )
+
+
 async def install_rejection(factory, fault):
     table, condition = {
-        "later_item": ("user_memory", "NEW.memory_key = 'infer.b'"),
+        "later_item": ("user_memory", f"NEW.memory_key = '{fact_key_at(1)}'"),
         "history": ("user_memory_history", "true"),
         "receipt": ("memory_command_receipt", "NEW.endpoint = 'memory.consolidation'"),
         "event": ("canonical_event", "NEW.event_type = 'MEMORY_CONSOLIDATED'"),
@@ -302,9 +289,12 @@ async def test_b16_memory_redesign_forget_before_old_job_has_no_model_or_revival
     async with model_stack(async_tool_database, output=output("color")) as stack:
         factory, run, job, _, client, requests, *_ = stack
         await seed_admin(factory, run)
-        await MemoryService(factory).execute(
+        await MemoryService(factory).delete_memory(
             admin_context(run),
-            command(commands().MemoryMutation(action="DELETE", memory_key="infer.color", expected_version=1)),
+            await _memory_id(factory, run),
+            expected_version=1,
+            command_id="forget-before-job",
+            endpoint="test.delete",
         )
         await pending(factory, job)
         result = await execution(factory, client).execute(await jobs.MemoryJobs(factory).claim("runtime"))
@@ -326,11 +316,12 @@ async def test_b16_memory_redesign_delete_during_http_model_makes_whole_job_stal
             async with asyncio.timeout(5):
                 while not requests:
                     await asyncio.sleep(0.01)
-            await MemoryService(factory).execute(
+            await MemoryService(factory).delete_memory(
                 admin_context(run),
-                command(
-                    commands().MemoryMutation(action="DELETE", memory_key="infer.color", expected_version=1)
-                ),
+                await _memory_id(factory, run),
+                expected_version=1,
+                command_id="delete-during-http",
+                endpoint="test.delete",
             )
             assert (await task)["reason"] == "STALE"
         finally:
@@ -354,11 +345,11 @@ async def test_b17_memory_redesign_confirmed_and_disabled_are_never_downgraded(
         factory, run, job, _, client, requests, *_ = stack
         await seed_author(factory, run, author)
         if disabled:
-            await MemoryService(factory).execute(
+            await MemoryService(factory).set_memory_enabled(
                 admin_context(run),
-                command(
-                    commands().MemoryMutation(action="DISABLE", memory_key="infer.color", expected_version=1)
-                ),
+                await _memory_id(factory, run),
+                expected_version=1,
+                enabled=False,
             )
         version = 2 if disabled else 1
         await pending(factory, job, revision=await current_revision(factory, run))
@@ -370,14 +361,12 @@ async def test_b17_memory_redesign_confirmed_and_disabled_are_never_downgraded(
             assert row.confirmed_count == int(author == "USER")
 
 
-async def test_inferred_candidate_does_not_duplicate_confirmed_base_fact(
-    async_tool_database,
-) -> None:
-    """`infer.X` 与已确认 `X` 同类别同内容时不再新增一条重复记忆。"""
+async def test_same_identity_same_content_is_not_written_twice(async_tool_database) -> None:
+    """同身份同内容不再新增或抬版本。"""
     jobs = import_module("muad_agent_runtime.application.memory_jobs")
     async with model_stack(async_tool_database, output=output("user.name")) as stack:
         factory, run, job, _, client, requests, *_ = stack
-        await seed_author(factory, run, "USER", key="user.name")
+        await seed_author(factory, run, "USER")
         await pending(factory, job, revision=await current_revision(factory, run))
         result = await execution(factory, client).execute(
             await jobs.MemoryJobs(factory).claim("dedupe")
@@ -385,33 +374,39 @@ async def test_inferred_candidate_does_not_duplicate_confirmed_base_fact(
         assert len(requests) == 1
         assert result["written"] == 0 and result["skipped"] == 1 and result["reason"] == "POLICY"
         async with factory() as session:
-            rows = list(
-                await session.scalars(sa.select(UserMemory).order_by(UserMemory.memory_key))
-            )
-        assert [(row.memory_key, row.author) for row in rows] == [("user.name", "USER")]
+            rows = list(await session.scalars(sa.select(UserMemory)))
+        assert [(row.memory_key, row.author, row.version) for row in rows] == [
+            (fact_key(), "USER", 1)
+        ]
 
 
-async def test_inferred_candidate_with_different_content_still_writes(
-    async_tool_database,
-) -> None:
-    """base key 相同但内容不同不是重复：仍写入 `infer.X`，不误删新事实。"""
+async def test_conflicting_inference_becomes_pending_candidate(async_tool_database) -> None:
+    """推断值与 USER 行不同：不覆盖当前值，进 PENDING 候选。"""
+    from muad_agent_runtime.infrastructure.models.runtime import MemoryConflictCandidate
+
     jobs = import_module("muad_agent_runtime.application.memory_jobs")
     async with model_stack(async_tool_database, output=output("user.name")) as stack:
         factory, run, job, _, client, requests, *_ = stack
-        await seed_author(factory, run, "USER", key="user.name", value="green")
+        from tests.agent_runtime.memory_resume_support import inbound
+
+        await seed_author(factory, run, "USER", value="green")
+        _, seq = await inbound(factory, run, "新的来源：我的报告格式是 blue")
+        async with factory.begin() as session:
+            (await session.get(MemoryConsolidationJob, job.id)).through_seq = seq
         await pending(factory, job, revision=await current_revision(factory, run))
         result = await execution(factory, client).execute(
             await jobs.MemoryJobs(factory).claim("different")
         )
         assert len(requests) == 1
-        assert result["written"] == 1 and result["skipped"] == 0
+        assert result["written"] == 0 and result["skipped"] == 1
         async with factory() as session:
-            rows = list(
-                await session.scalars(sa.select(UserMemory).order_by(UserMemory.memory_key))
-            )
-        assert [(row.memory_key, row.content_json) for row in rows] == [
-            ("infer.user.name", {"value": "blue"}),
-            ("user.name", {"value": "green"}),
+            rows = list(await session.scalars(sa.select(UserMemory)))
+            candidates = list(await session.scalars(sa.select(MemoryConflictCandidate)))
+        assert [(row.memory_key, row.content_json, row.version) for row in rows] == [
+            (fact_key(), {"value": "green"}, 1)
+        ]
+        assert [(item.content_json, item.status) for item in candidates] == [
+            ({"value": "blue"}, "PENDING")
         ]
 
 
@@ -419,27 +414,25 @@ async def test_inferred_candidate_with_different_content_still_writes(
 async def test_confirmed_base_does_not_hide_an_existing_inferred_key_update(
     async_tool_database, author,
 ) -> None:
-    """去重只能省略新增/无变化副本，已有推断仍按新来源更新且保护人工权威。"""
+    """同一身份：AGENT 行可被新来源更新；USER/ADMIN 行只生成 PENDING。"""
     from tests.agent_runtime.memory_resume_support import inbound
 
     jobs = import_module("muad_agent_runtime.application.memory_jobs")
     async with model_stack(async_tool_database, output=output("user.name")) as stack:
         factory, run, job, _, client, requests, *_ = stack
-        await seed_author(factory, run, author, key="infer.user.name", value="green")
-        await seed_author(factory, run, "USER", key="user.name", value="blue")
+        await seed_author(factory, run, author, value="green")
         _, seq = await inbound(factory, run, "新的来源：我的名字是 blue")
         async with factory.begin() as session:
             (await session.get(MemoryConsolidationJob, job.id)).through_seq = seq
         await pending(factory, job, revision=await current_revision(factory, run))
-        result = await execution(factory, client).execute(await jobs.MemoryJobs(factory).claim("update"))
-        assert len(requests) == 1 and result["written"] == int(author == "AGENT")
+        result = await execution(factory, client).execute(
+            await jobs.MemoryJobs(factory).claim("update")
+        )
+        assert len(requests) == 1 and result["written"] == 0
         async with factory() as session:
-            rows = {row.memory_key: row for row in await session.scalars(sa.select(UserMemory))}
-        inferred = rows["infer.user.name"]
-        assert inferred.content_json == {"value": "blue" if author == "AGENT" else "green"}
-        assert inferred.version == (2 if author == "AGENT" else 1) and inferred.author == author
-        assert rows["user.name"].content_json == {"value": "blue"}
-        assert rows["user.name"].version == 1 and rows["user.name"].author == "USER"
+            row = await session.scalar(sa.select(UserMemory))
+        assert row.author == author
+        assert row.content_json == {"value": "green"} and row.version == 1
 
 
 @pytest.mark.parametrize(
@@ -451,7 +444,6 @@ async def test_b16_memory_redesign_retirement_requires_new_real_user_basis(
 ):
     from dataclasses import replace
 
-    from muad_contracts.memory import MemoryRetirementReason
 
     jobs = import_module("muad_agent_runtime.application.memory_jobs")
     async with model_stack(async_tool_database, output=output("color")) as stack:
@@ -462,17 +454,35 @@ async def test_b16_memory_redesign_retirement_requires_new_real_user_basis(
             admin_context(run),
             actor_type="SYSTEM" if automatic else "USER" if reason == "USER_DELETE" else "ADMIN",
         )
-        await MemoryService(factory).execute(
-            ctx,
-            command(
-                commands().MemoryMutation(
-                    action="RETIRE" if automatic else "DELETE",
-                    memory_key="infer.color",
-                    expected_version=1,
-                    **({"retirement_reason": MemoryRetirementReason.QUOTA_EVICT} if automatic else {}),
+        if automatic:
+            from muad_agent_runtime.infrastructure.models.runtime import MemoryScope
+
+            async with factory.begin() as session:
+                scope_row = await session.scalar(
+                    sa.select(MemoryScope).where(
+                        MemoryScope.tenant_id == run.tenant_id,
+                        MemoryScope.user_id == run.user_id,
+                    )
                 )
-            ),
-        )
+                scope_row.revision += 1
+                row = await session.scalar(
+                    sa.select(UserMemory).where(
+                        UserMemory.tenant_id == run.tenant_id,
+                        UserMemory.user_id == run.user_id,
+                    )
+                )
+                row.is_deleted = True
+                row.retirement_reason = "QUOTA_EVICT"
+                row.retirement_revision = scope_row.revision
+                row.version += 1
+        else:
+            await MemoryService(factory).delete_memory(
+                ctx,
+                await _memory_id(factory, run),
+                expected_version=1,
+                command_id=f"retire-{reason}",
+                endpoint="test.delete",
+            )
         revision = await current_revision(factory, run)
         if fresh:
             from tests.agent_runtime.memory_resume_support import inbound
@@ -483,7 +493,7 @@ async def test_b16_memory_redesign_retirement_requires_new_real_user_basis(
         await pending(factory, job, revision=revision)
         result = await execution(factory, client).execute(await jobs.MemoryJobs(factory).claim("runtime"))
         restored = automatic and fresh
-        assert len(requests) == 1 and result["written"] == int(restored)
+        assert len(requests) == 1 and result["written"] == int(restored), result
         async with factory() as session:
             row = await session.scalar(sa.select(UserMemory))
             assert row.is_deleted is not restored and row.author == "AGENT"

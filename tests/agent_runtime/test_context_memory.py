@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 import sqlalchemy as sa
 from muad_agent_core.context.compactor import trim_history
-from muad_agent_core.memory.render import MEMORY_NOTICE
+from muad_agent_core.memory.render import EXPERIENCE_NOTICE
 from muad_agent_core.model.provider import ModelMessage, ModelRole
 from muad_agent_runtime.application.context_builder import DbBackedContextBuilder
 from muad_agent_runtime.infrastructure.models.runtime import (
@@ -30,10 +30,10 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from tests.agent_runtime.memory_cache_support import queries
 from tests.agent_runtime.memory_context_support import loader, memory_text, request_round
 from tests.agent_runtime.memory_redesign_write_support import context, seed_facts
 from tests.agent_runtime.memory_tool_support import recall, tools
-from tests.agent_runtime.test_memory_redesign_cache import queries
 
 pytestmark = pytest.mark.integration
 
@@ -656,7 +656,7 @@ async def test_s03_confirmed_memory_is_injected_with_provenance_and_non_instruct
 
     text = memory_text(captured[0])
     assert text is not None
-    assert text.startswith(MEMORY_NOTICE)  # 非指令措辞在块首
+    assert text.startswith(EXPERIENCE_NOTICE)  # 非指令措辞在块首
     assert "confirmed（已确认用户或管理员内容）:" in text  # 来源标注
     assert '"memory_key":"seed.1"' in text and '"author":"USER"' in text
     assert '"content":{"value":"blue"}' in text
@@ -666,16 +666,26 @@ async def test_s03_confirmed_memory_is_injected_with_provenance_and_non_instruct
 async def test_s04_unconfirmed_memory_is_not_injected_but_recallable(async_tool_database) -> None:
     """[S-04] 未确认（AGENT）记忆不进默认上下文，只经真实 recall 工具可取回。"""
     ctx = context(tenant=f"s04-{uuid.uuid4()}", user=USER_ID)
-    await seed_facts(async_tool_database, ctx, 1, author="AGENT")
+    async with async_tool_database.begin() as connection:
+        await connection.execute(
+            sa.text(
+                "INSERT INTO runtime.user_memory"
+                " (tenant_id,user_id,memory_key,memory_kind,predicate,content_json,title,author,expires_at)"
+                " VALUES (:tenant,:user,'v1.note.blue','NOTE','general',CAST(:content AS jsonb),"
+                " 'seed note','AGENT',statement_timestamp()+interval '30 days')"
+            ),
+            {"tenant": ctx.tenant_id, "user": ctx.user_id, "content": '{"text": "blue"}'},
+        )
     memory = loader(async_tool_database, ctx, query="你好")
     _, captured = await request_round(async_tool_database, ctx, memory)
 
     assert memory_text(captured[0]) is None
     assert "blue" not in " ".join(str(item.get("content")) for item in captured[0]["messages"])
 
-    receipt = await recall(tools(async_tool_database, ctx), {"memory_key": "seed.1"})
-    assert [item["memory_key"] for item in receipt["items"]] == ["seed.1"]
-    assert receipt["items"][0]["content"] == {"value": "blue"}
+    receipt = await recall(tools(async_tool_database, ctx), {"query": "blue"})
+    assert [item["memory_key"] for item in receipt["items"]] == ["v1.note.blue"]
+    assert receipt["items"][0]["content"] == {"text": "blue"}
+    assert receipt["items"][0]["memory_id"]
 
 
 async def test_s04_only_confirmed_rows_are_injected_not_legacy_unconfirmed(async_tool_database) -> None:

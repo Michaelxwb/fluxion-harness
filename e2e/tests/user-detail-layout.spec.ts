@@ -31,20 +31,25 @@ const identities: Identity[] = [true, false].map((active, index) => ({
 }));
 const memories: MemoryItem[] = [true, false].map((enabled, index) => ({
   id: `memory-${index}`, memory_key: `memory-${index}`,
-  category: index ? 'WORK_STYLE' : 'PREFERENCE',
+  memory_kind: index ? 'NOTE' : 'PREFERENCE',
+  predicate: index ? 'general' : 'report_format',
+  scope_state: 'ABSENT', scope: {},
   content: { value: index ? longValue : '使用中文回复' },
-  author: index ? 'AGENT' : 'USER', version: 1, enabled,
-  explicit_request: !index, confirmed_count: index ? 0 : 1,
+  title: index ? `笔记 ${index}` : '默认中文回复',
+  summary: index ? longValue : '始终用中文回答',
+  tags: [], cardinality: 'SINGLE', priority: 'OPTIONAL',
+  author: index ? 'AGENT' : 'USER', authority: index ? 'AGENT_INFERRED' : 'USER_EXPLICIT',
+  version: 1, enabled,
   status: enabled ? 'ACTIVE' : 'DISABLED',
-  source_ref: null, source_quote: null, expires_at: null, last_confirmed_at: null,
+  expires_at: null, last_confirmed_at: null,
   create_time: time, update_time: time
 }));
 const cases = [
   { key: 'grants', zh: 'Agent 授权', en: 'Agent Grants', columns: 5, flexible: [0, 1], status: 2, statusMax: 128, actionWidth: 112 },
   { key: 'credentials', zh: '项目平台凭据', en: 'Credentials', columns: 6, flexible: [0], status: 3, statusMax: 128, actionWidth: 104 },
   { key: 'identities', zh: 'IM 身份', en: 'IM Identities', columns: 7, flexible: [1, 2], status: 5, statusMax: 128, actionWidth: 80 },
-  // 记忆表（记忆重设计后的列契约）：内容/类别/来源(author)/状态/更新时间/操作；状态列 140，操作列 196。
-  { key: 'memory', zh: '用户记忆', en: 'Memories', columns: 6, flexible: [0], status: 3, statusMax: 140, actionWidth: 196 }
+  // 记忆表（记忆重设计后的列契约）：内容/类别/来源(author)/状态/更新时间/操作；状态列 140，操作列 120（图标动作）。
+  { key: 'memory', zh: '用户记忆', en: 'Memories', columns: 6, flexible: [0], status: 3, statusMax: 140, actionWidth: 120 }
 ] as const;
 
 async function prepare(page: Page, width: number, theme: string, locale: string, memoryItems: readonly MemoryItem[] = memories): Promise<void> {

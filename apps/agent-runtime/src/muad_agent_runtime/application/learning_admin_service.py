@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.audit import write_config_audit
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory import FactContent, MemoryCandidate, MemoryCategory
+from muad_contracts.memory import ExperienceCandidate, FactContent, MemoryCategory
 from muad_contracts.platform_settings import LearningSettings, parse_platform_settings
 
 from ..infrastructure.db import SessionFactory
@@ -32,6 +32,14 @@ from .learning_activation import (
 from .memory_commands import MemoryCommand, MemoryMutation, MemoryWriteContext
 from .memory_service import MemoryService
 from .ports import PlatformSettingsClient
+
+
+def _required_category(row: UserMemory) -> str:
+    """Experience/TASK_STATE 行必须带 category；v2 行走到这里说明身份错配。"""
+
+    if row.category is None:
+        raise AppError(ErrorCode.LEARNING_EXPERIENCE_NOT_FOUND)
+    return row.category
 
 
 class LearningAdminService:
@@ -350,9 +358,9 @@ class LearningAdminService:
                 mutations=[
                     MemoryMutation(
                         action="UPSERT",
-                        candidate=MemoryCandidate(
+                        candidate=ExperienceCandidate(
                             memory_key=key,
-                            category=MemoryCategory(row.category),
+                            category=MemoryCategory(_required_category(row)),
                             content=FactContent(value=value),
                         ),
                         expected_version=expected_version,

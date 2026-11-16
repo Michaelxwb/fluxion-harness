@@ -198,11 +198,13 @@ async def _tenant_store_text(tenant: str) -> str:
     return "\n".join(chunks)
 
 
-async def _memory_rows(tenant: str, key: str) -> list[dict[str, Any]]:
+async def _memory_rows(tenant: str, title: str) -> list[dict[str, Any]]:
+    """v2 的记忆键由服务端生成：用例用唯一标题反查事实行。"""
+
     return await _fetch(
         "SELECT memory_key,author,content_json,source_quote FROM runtime.user_memory"
-        " WHERE tenant_id = :tenant AND memory_key = :key",
-        {"tenant": tenant, "key": key},
+        " WHERE tenant_id = :tenant AND title = :title",
+        {"tenant": tenant, "title": title},
     )
 
 
@@ -319,11 +321,13 @@ async def test_s01_memory_redesign_internal_calls_require_real_service_identity(
     target = gateway_stack.platform_user_id
     forged_tenant = f"e2e-im-forged-{uuid.uuid4().hex[:8]}"
     url = f"{gateway_stack.runtime_url}/internal/admin/users/{target}/memory/commands"
-    mutation = {
-        "action": "UPSERT", "memory_key": "security.forged", "category": "EXPLICIT", "value": "blue",
+    title = f"security.forged.{uuid.uuid4().hex[:6]}"
+    candidate = {
+        "memory_kind": "PREFERENCE", "predicate": "output_style", "scope_state": "ABSENT",
+        "scope": {}, "content": {"value": "blue"}, "title": title,
     }
-    # TASK-023 契约：`{actor_id, mutation}`；command_id 只从 Idempotency-Key 头取，author 由服务端派生
-    command = {"actor_id": str(uuid.uuid4()), "mutation": mutation}
+    # v2 契约：`{action, candidate}`；命令号只从 Idempotency-Key 头取，author 由服务端派生
+    command = {"action": "CREATE", "candidate": candidate, "actor_id": str(uuid.uuid4())}
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             missing = await client.post(
@@ -339,7 +343,7 @@ async def test_s01_memory_redesign_internal_calls_require_real_service_identity(
             assert forged.status_code == 403, forged.text
             # 调用方不得选择 authorship（author 只由 Runtime 按服务身份派生）
             author = await client.post(
-                url, json={**command, "mutation": {**mutation, "author": "USER"}},
+                url, json={**command, "candidate": {**candidate, "author": "USER"}},
                 headers={**gateway_stack.service_headers(), "Idempotency-Key": uuid.uuid4().hex},
             )
             assert author.status_code == 422, author.text
@@ -350,8 +354,8 @@ async def test_s01_memory_redesign_internal_calls_require_real_service_identity(
                          "Idempotency-Key": uuid.uuid4().hex},
             )
             assert other.status_code == 200, other.text
-        assert await _memory_rows(gateway_stack.tenant_id, "security.forged") == []
-        assert await _memory_rows(forged_tenant, "security.forged") != []
+        assert await _memory_rows(gateway_stack.tenant_id, title) == []
+        assert await _memory_rows(forged_tenant, title) != []
     finally:
         # 0020 表带 FK：history 引用 memory，引用方先行
         await _execute(
@@ -370,13 +374,16 @@ async def test_s01_memory_redesign_cross_user_confirmation_is_refused(
     gateway_stack: GatewayStack,
 ) -> None:
     """跨用户确认拒绝：真实提案停在 WAITING_INPUT，他人/他租户 resume 均 404 且不产生 USER 事实。"""
-    key = f"security.confirm.{uuid.uuid4().hex[:6]}"
+    title = f"security.confirm.{uuid.uuid4().hex[:6]}"
     other_user = uuid.uuid4()
     await _seed_platform_user(gateway_stack.tenant_id, other_user)
     _configure_probe(
         gateway_stack,
-        arguments={"memory_key": key, "category": "PREFERENCE", "value": "中文",
-                   "source_quote": "以后都用中文回答我"},
+        arguments={
+            "memory_kind": "PREFERENCE", "predicate": "output_style", "scope_state": "ABSENT",
+            "scope": {}, "content": {"value": "中文"}, "title": title,
+            "source_quote": "以后都用中文回答我",
+        },
         final_text="请确认是否保存这条偏好。",
     )
     await _wait_for_gateway_ws(gateway_stack)
@@ -408,17 +415,23 @@ async def test_s01_memory_redesign_cross_user_confirmation_is_refused(
         )
         assert cross_tenant.status_code == 404, cross_tenant.text
     assert await _run_status(run_id) == "WAITING_INPUT"
-    assert await _memory_rows(gateway_stack.tenant_id, key) == [], "未经本人确认不得产生 USER 事实"
+    assert await _memory_rows(gateway_stack.tenant_id, title) == [], "未经本人确认不得产生 USER 事实"
 
 
 async def test_s01_memory_redesign_unauthorized_console_admin_does_not_write(
     gateway_stack: GatewayStack,
 ) -> None:
     """未授权（非 ADMIN）Console 账号不写：真实会话 + CSRF + RBAC；ADMIN 同请求为阳性对照。"""
-    key = f"security.console.{uuid.uuid4().hex[:6]}"
+    title = f"security.console.{uuid.uuid4().hex[:6]}"
     accounts = await _seed_console_accounts(gateway_stack.tenant_id)
-    url = f"/api/v1/users/{gateway_stack.platform_user_id}/memory"
-    body = {"memory_key": key, "category": "PREFERENCE", "value": "blue"}
+    url = f"/api/v1/users/{gateway_stack.platform_user_id}/memory/commands"
+    body = {
+        "action": "CREATE",
+        "candidate": {
+            "memory_kind": "PREFERENCE", "predicate": "output_style", "scope_state": "ABSENT",
+            "scope": {}, "content": {"value": "blue"}, "title": title,
+        },
+    }
     try:
         async with httpx.AsyncClient(base_url=gateway_stack.console_url, timeout=30.0) as client:
             await _login(client, gateway_stack.tenant_id, accounts["builder"], accounts["password"])
@@ -428,7 +441,7 @@ async def test_s01_memory_redesign_unauthorized_console_admin_does_not_write(
                          "Idempotency-Key": uuid.uuid4().hex},
             )
             assert denied.status_code == 403, denied.text
-            assert await _memory_rows(gateway_stack.tenant_id, key) == []
+            assert await _memory_rows(gateway_stack.tenant_id, title) == []
             await _login(client, gateway_stack.tenant_id, accounts["admin"], accounts["password"])
             allowed = await client.post(
                 url, json=body,
@@ -436,17 +449,18 @@ async def test_s01_memory_redesign_unauthorized_console_admin_does_not_write(
                          "Idempotency-Key": uuid.uuid4().hex},
             )
             assert allowed.status_code == 200, allowed.text
-            rows = await _memory_rows(gateway_stack.tenant_id, key)
+            rows = await _memory_rows(gateway_stack.tenant_id, title)
             assert len(rows) == 1 and rows[0]["author"] == "ADMIN"
     finally:
         # 0020 表带 FK：history 引用 memory，引用方先行
         await _execute(
-            "DELETE FROM runtime.user_memory_history WHERE tenant_id = :tenant AND memory_key = :key",
-            {"tenant": gateway_stack.tenant_id, "key": key},
+            "DELETE FROM runtime.user_memory_history WHERE tenant_id = :tenant AND memory_key IN ("
+            " SELECT memory_key FROM runtime.user_memory WHERE tenant_id = :tenant AND title = :title)",
+            {"tenant": gateway_stack.tenant_id, "title": title},
         )
         await _execute(
-            "DELETE FROM runtime.user_memory WHERE tenant_id = :tenant AND memory_key = :key",
-            {"tenant": gateway_stack.tenant_id, "key": key},
+            "DELETE FROM runtime.user_memory WHERE tenant_id = :tenant AND title = :title",
+            {"tenant": gateway_stack.tenant_id, "title": title},
         )
         await _execute(
             "DELETE FROM control.console_session WHERE account_id IN ("
@@ -469,11 +483,14 @@ async def test_s02_memory_redesign_unconfirmed_candidate_stays_annotated_and_uns
     原话证据按新契约要求**整条消息**（`evidence.verify_quote`），故推送文本与 `source_quote` 一致；
     被截取的片段不会成为来源（那是另一条独立契约）。
     """
-    key = f"security.annotated.{uuid.uuid4().hex[:6]}"
+    title = f"security.annotated.{uuid.uuid4().hex[:6]}"
     quote = "以后都用中文回答我"
     _configure_probe(
         gateway_stack,
-        arguments={"memory_key": key, "category": "PREFERENCE", "value": "中文", "source_quote": quote},
+        arguments={
+            "memory_kind": "PREFERENCE", "predicate": "output_style", "scope_state": "ABSENT",
+            "scope": {}, "content": {"value": "中文"}, "title": title, "source_quote": quote,
+        },
         final_text="请确认是否保存这条偏好。",
     )
     await _wait_for_gateway_ws(gateway_stack)
@@ -488,27 +505,46 @@ async def test_s02_memory_redesign_unconfirmed_candidate_stays_annotated_and_uns
     )
     assert len(proposals) == 1
     proposal = proposals[0]["proposal_json"]
-    assert proposal["candidate"]["memory_key"] == key
-    assert proposal["candidate"]["value"] == "中文"
+    assert proposal["candidate"]["predicate"] == "output_style"
+    assert proposal["candidate"]["content"]["value"] == "中文"
     assert proposal["evidence"]["source_quote"] == quote
-    assert await _memory_rows(gateway_stack.tenant_id, key) == [], "未经确认的候选不得成为事实"
+    assert await _memory_rows(gateway_stack.tenant_id, title) == [], "未经确认的候选不得成为事实"
 
 
 async def test_s02_memory_redesign_canary_never_reaches_stores_logs_or_prompt(
     gateway_stack: GatewayStack,
 ) -> None:
     """密钥不进入新增表、历史、回执、日志、模型 consolidation Prompt（真实装配 + canary 反查）。"""
-    key = f"security.canary.{uuid.uuid4().hex[:6]}"
+    await _cancel_active_runs(gateway_stack)
+    title = f"security.canary.{uuid.uuid4().hex[:6]}"
     user_text = f"我的模型配置是 api_key={CANARY}，请记住"
     _configure_probe(
         gateway_stack,
-        arguments={"memory_key": key, "category": "EXPLICIT", "value": f"api_key={CANARY}",
-                   "source_quote": user_text},
+        arguments={
+            "memory_kind": "PREFERENCE", "predicate": "output_style", "scope_state": "ABSENT",
+            "scope": {}, "content": {"value": f"api_key={CANARY}"}, "title": title,
+            "source_quote": user_text,
+        },
         final_text="该内容含凭据，已拒绝保存。",
     )
     await _wait_for_gateway_ws(gateway_stack)
     replies_before = len(_replies(gateway_stack))
-    await _started_run(gateway_stack, user_text)
+    started = await _started_run(gateway_stack, user_text)
+    # 上一条用例的取消可能迟到：它会把本条刚建的 Run 一起取消，IM 侧随后补建一条新 Run。
+    # 等本租户最新 Run 落到终态，取**最新那条**做后续断言（不是先看到的 id）。
+    deadline = time.monotonic() + REPLY_TIMEOUT_SEC
+    run_id = started
+    while time.monotonic() < deadline:
+        latest = await _fetch(
+            "SELECT id::text AS id,status FROM runtime.run_record"
+            " WHERE tenant_id = :tenant ORDER BY create_time DESC LIMIT 1",
+            {"tenant": gateway_stack.tenant_id},
+        )
+        if latest and latest[0]["status"] in ("COMPLETED", "FAILED", "CANCELLED"):
+            run_id = str(latest[0]["id"])
+            if latest[0]["status"] != "CANCELLED":
+                break
+        await asyncio.sleep(0.3)
     await _wait_for(
         lambda: len(_replies(gateway_stack)) > replies_before,
         what="未在超时内收到出站回复",
@@ -517,14 +553,12 @@ async def test_s02_memory_redesign_canary_never_reaches_stores_logs_or_prompt(
     await _wait_for(
         lambda: _scalar(
             "SELECT count(*) FROM runtime.memory_consolidation_job WHERE tenant_id = :tenant"
-            " AND status IN ('DONE','SKIPPED','FAILED')",
-            {"tenant": gateway_stack.tenant_id},
+            " AND run_id = :run_id AND status IN ('DONE','SKIPPED','FAILED')",
+            {"tenant": gateway_stack.tenant_id, "run_id": uuid.UUID(run_id)},
         ),
         what="consolidation job 未在超时内终结",
         timeout=REPLY_TIMEOUT_SEC,
     )
-    # ① 被拒绝的候选不落任何记忆事实/历史
-    assert await _memory_rows(gateway_stack.tenant_id, key) == []
     # ② 工具审计只留 key/category/hash/状态，且不含 canary
     audits = await _fetch(
         "SELECT args_preview_json FROM runtime.tool_call_audit"

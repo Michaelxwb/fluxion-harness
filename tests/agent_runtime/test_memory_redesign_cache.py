@@ -72,7 +72,7 @@ async def test_b23_memory_redesign_cold_and_warm_reads_use_one_statement_each(as
         warm = await load(reader)
     assert counts == {"full": 1, "head": 1}
     assert cold.revision == warm.revision == 1
-    assert [row.memory_key for row in warm.records] == ["color"]
+    assert [row.record.memory_key for row in warm.legacy_rows] == ["color"]
     assert warm.as_of > cold.as_of
 
 
@@ -103,7 +103,7 @@ async def test_b23_memory_redesign_reload_uses_actual_snapshot_revision_after_in
             second = await load(reader)
             third = await load(reader)
         assert second.revision == third.revision == 3
-        assert second.records[0].content.value == third.records[0].content.value == "C"
+        assert second.legacy_rows[0].record.content.value == third.legacy_rows[0].record.content.value == "C"
         assert counts == {"full": 2, "head": 2}
         assert reader.cached_revision == 3
     finally:
@@ -150,8 +150,8 @@ async def test_b23_memory_redesign_cold_sql_keeps_revision_and_rows_in_one_mvcc_
         await service.execute(ctx, command(upsert(value="B", expected=1)))
         assert not pending.done()
         snapshot = await pending
-        assert snapshot.revision == snapshot.records[0].version == 1
-        assert snapshot.records[0].content.value == "A"
+        assert snapshot.revision == snapshot.legacy_rows[0].record.version == 1
+        assert snapshot.legacy_rows[0].record.content.value == "A"
         assert (await queries(async_tool_database).read_snapshot(snapshot.scope)).revision == 2
     finally:
         await engine.dispose()
@@ -175,7 +175,7 @@ async def test_b23_memory_redesign_ttl_uses_current_statement_time_without_revis
         first = await load(reader)
         await asyncio.sleep(0.3)
         second = await load(reader)
-    assert len(first.records) == 1 and second.records == ()
+    assert len(first.legacy_rows) == 1 and second.legacy_rows == ()
     assert first.revision == second.revision == 1 and second.as_of > first.as_of
     assert counts == {"full": 1, "head": 1}
 
@@ -233,7 +233,7 @@ async def test_b23_memory_redesign_all_writer_sources_invalidate_warm_rows(async
         await service.execute(ctx, command(upsert()))
     updated = await load(reader)
     assert updated.revision == 1
-    assert len(updated.records) == (0 if actor == "SYSTEM" else 1)
+    assert len(updated.legacy_rows) == (0 if actor == "SYSTEM" else 1)
 
 
 @pytest.mark.parametrize("budget", [(0, 2048), (6, 0), (0, 0)])
@@ -248,7 +248,7 @@ async def test_b23_memory_redesign_zero_budget_makes_no_query_but_recall_stays_i
         assert await load(reader, max_items=budget[0], max_bytes=budget[1]) is None
         assert counts == {"full": 0, "head": 0}
         recalled = await queries(async_tool_database).read_snapshot(reader.scope)
-    assert len(recalled.records) == 1 and counts == {"full": 1, "head": 0}
+    assert len(recalled.legacy_rows) == 1 and counts == {"full": 1, "head": 0}
 
 
 async def test_b23_memory_redesign_cache_is_bound_to_run_tenant_and_user(async_tool_database):
@@ -260,7 +260,7 @@ async def test_b23_memory_redesign_cache_is_bound_to_run_tenant_and_user(async_t
     assert len({reader.run_id for reader in readers}) == 4
     with query_counts(async_tool_database) as counts:
         snapshots = [await load(reader) for reader in readers]
-    assert [len(item.records) for item in snapshots] == [1, 1, 0, 0]
+    assert [len(item.legacy_rows) for item in snapshots] == [1, 1, 0, 0]
     assert counts == {"full": 4, "head": 0}
     async with async_tool_database.connect() as connection:
         assert (
@@ -282,8 +282,10 @@ async def test_b23_memory_redesign_complete_rows_include_old_match_and_ignore_fr
             {"tenant": ctx.tenant_id},
         )
     snapshot = await load(cache(async_tool_database, ctx), max_items=1, max_bytes=1)
-    assert len(snapshot.records) == 250
-    matched = select_memories(snapshot.records, query="uniquematch", now=snapshot.as_of)
+    assert len(snapshot.legacy_rows) == 250
+    matched = select_memories(
+        [row.record for row in snapshot.legacy_rows], query="uniquematch", now=snapshot.as_of
+    )
     assert [row.memory_key for row in matched.items] == ["seed.1"]
 
 

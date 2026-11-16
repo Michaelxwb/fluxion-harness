@@ -12,7 +12,7 @@ pytestmark = pytest.mark.unit
 
 def _record(key, value, author=MemoryAuthor.USER, category=MemoryCategory.EXPLICIT, **kwargs):
     rank = import_module("muad_agent_core.memory.rank")
-    return rank.MemoryRecord(
+    return rank.ExperienceRecord(
         memory_key=key, content=FactContent(value=value), author=author, category=category,
         version=1, updated_at=NOW, **kwargs,
     )

@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "queries": [
+    {
+      "query_id": "s1",
+      "user_id": "u1",
+      "query": "内部报告用什么格式",
+      "required": ["v1.slot.preference.report_format.internal"],
+      "forbidden": ["v1.slot.preference.report_format.external"],
+      "acceptable": []
+    },
+    {
+      "query_id": "s2",
+      "user_id": "u1",
+      "query": "我的团队",
+      "required": ["v1.slot.fact.team.default"],
+      "forbidden": [],
+      "acceptable": ["v1.note.team.detail"]
+    }
+  ],
+  "memories": [
+    {
+      "user_id": "u1",
+      "memory_key": "v1.slot.preference.report_format.internal",
+      "memory_kind": "PREFERENCE",
+      "predicate": "report_format",
+      "scope_state": "ABSENT",
+      "scope": {},
+      "content": {"value": "PDF"},
+      "title": "内部报告格式",
+      "summary": "PDF",
+      "tags": [],
+      "cardinality": "SINGLE",
+      "priority": "REQUIRED",
+      "author": "USER",
+      "version": 1
+    },
+    {
+      "user_id": "u1",
+      "memory_key": "v1.slot.preference.report_format.external",
+      "memory_kind": "PREFERENCE",
+      "predicate": "report_format",
+      "scope_state": "EXPLICIT",
+      "scope": {"audience": "external"},
+      "content": {"value": "WORD"},
+      "title": "对外报告格式",
+      "summary": "WORD",
+      "tags": [],
+      "cardinality": "SINGLE",
+      "priority": "REQUIRED",
+      "author": "USER",
+      "version": 1
+    },
+    {
+      "user_id": "u1",
+      "memory_key": "v1.slot.fact.team.default",
+      "memory_kind": "FACT",
+      "predicate": "team",
+      "scope_state": "ABSENT",
+      "scope": {},
+      "content": {"value": "平台组"},
+      "title": "团队",
+      "summary": "平台组",
+      "tags": [],
+      "cardinality": "SINGLE",
+      "priority": "OPTIONAL",
+      "author": "USER",
+      "version": 1
+    },
+    {
+      "user_id": "u1",
+      "memory_key": "v1.note.team.detail",
+      "memory_kind": "NOTE",
+      "predicate": "general",
+      "scope_state": "ABSENT",
+      "scope": {},
+      "content": {"text": "团队正在做记忆检索优化"},
+      "title": "团队动态",
+      "summary": "",
+      "tags": ["topic:team"],
+      "cardinality": "SET",
+      "priority": "OPTIONAL",
+      "author": "AGENT",
+      "version": 1
+    },
+    {
+      "user_id": "u1",
+      "memory_key": "exp.deploy.check",
+      "memory_kind": "PROCEDURE",
+      "predicate": "general",
+      "scope_state": "ABSENT",
+      "scope": {},
+      "content": {"value": "逐项核对部署清单"},
+      "title": "部署经验",
+      "summary": "",
+      "tags": [],
+      "cardinality": "SET",
+      "priority": "OPTIONAL",
+      "author": "AGENT",
+      "version": 1
+    }
+  ]
+}

@@ -7,16 +7,17 @@ from datetime import datetime
 from uuid import UUID
 
 import sqlalchemy as sa
-from muad_agent_core.memory.rank import MemoryRecord, record_tokens
+from muad_agent_core.memory.rank import ExperienceRecord, record_tokens
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import (
     MEMORY_MAX_BYTES,
     MEMORY_MAX_RECORDS,
+    ExperienceCandidate,
     MemoryAuthor,
-    MemoryCandidate,
     memory_content_bytes,
 )
+from pydantic import JsonValue
 from sqlalchemy import Select, func, literal, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import FromClause
@@ -43,23 +44,58 @@ class MemoryScopeVersion:
 
 
 @dataclass(frozen=True, slots=True)
-class MemoryCandidateRow:
+class ExperienceRow:
     id: UUID
-    record: MemoryRecord
+    record: ExperienceRecord
     source_quote: str | None
 
 
 @dataclass(frozen=True, slots=True)
+class ExperienceSnapshot:
+    scope: MemoryReadScope
+    revision: int
+    forget_epoch: int
+    as_of: datetime
+    rows: tuple[ExperienceRow, ...]
+
+    @property
+    def records(self) -> tuple[ExperienceRecord, ...]:
+        return tuple(row.record for row in self.rows)
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryCandidateRow:
+    id: UUID
+    memory_key: str
+    memory_kind: str
+    predicate: str
+    scope_state: str
+    scope: dict[str, str]
+    content: dict[str, JsonValue]
+    title: str
+    summary: str
+    tags: tuple[str, ...]
+    cardinality: str
+    priority: str
+    author: str
+    authority: str
+    version: int
+    enabled: bool
+    expires_at: datetime | None
+    last_confirmed_at: datetime | None
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class MemorySnapshot:
+    """One SQL snapshot: v2 rows and legacy-lane rows share revision/epoch/as_of."""
+
     scope: MemoryReadScope
     revision: int
     forget_epoch: int
     as_of: datetime
     rows: tuple[MemoryCandidateRow, ...]
-
-    @property
-    def records(self) -> tuple[MemoryRecord, ...]:
-        return tuple(row.record for row in self.rows)
+    legacy_rows: tuple[ExperienceRow, ...] = ()
 
 
 def _scope_source(scope: MemoryReadScope) -> FromClause:
@@ -111,15 +147,15 @@ def _snapshot_statement(scope: MemoryReadScope) -> Select[tuple[int, int, dateti
     )
 
 
-def _candidate(row: UserMemory) -> MemoryCandidateRow:
-    candidate = MemoryCandidate.model_validate(
+def _candidate(row: UserMemory) -> ExperienceRow:
+    candidate = ExperienceCandidate.model_validate(
         {
             "memory_key": row.memory_key,
             "category": row.category,
             "content": row.content_json,
         }
     )
-    record = MemoryRecord(
+    record = ExperienceRecord(
         memory_key=candidate.memory_key,
         content=candidate.content,
         author=MemoryAuthor(row.author),
@@ -137,10 +173,64 @@ def _candidate(row: UserMemory) -> MemoryCandidateRow:
     )
     # token 集在缓存装载时预计算，请求期只做集合运算（NFR-PERF-01）。
     record = replace(record, tokens=record_tokens(record))
-    return MemoryCandidateRow(row.id, record, row.source_quote)
+    return ExperienceRow(row.id, record, row.source_quote)
 
 
-def _validate_bounds(rows: tuple[MemoryCandidateRow, ...]) -> None:
+def _is_v2_row(row: UserMemory | None) -> bool:
+    """v2 lane is identified by memory_kind; the legacy lane never fills it."""
+
+    return row is not None and row.memory_kind is not None
+
+
+def _is_legacy_row(row: UserMemory | None) -> bool:
+    """Legacy lane keeps category (experience / TASK_STATE) and carries no memory_kind."""
+
+    return row is not None and row.memory_kind is None and row.category is not None
+
+
+def _str_map(value: object) -> dict[str, str]:
+    """scope_json 是 JSONB：只接受字符串键值，坏形状按空 scope 处理（键值本身来自写入校验）。"""
+
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): str(item) for key, item in value.items() if isinstance(item, str)}
+
+
+def _candidate_v2(row: UserMemory) -> MemoryCandidateRow:
+    assert row.memory_kind is not None  # v2 lane 由 memory_kind 判定
+    return MemoryCandidateRow(
+        id=row.id,
+        memory_key=row.memory_key,
+        memory_kind=row.memory_kind,
+        predicate=row.predicate or "general",
+        scope_state=row.scope_state or "ABSENT",
+        scope=_str_map(row.scope_json),
+        content=dict(row.content_json or {}),
+        title=row.title or "",
+        summary=row.summary or "",
+        tags=tuple(row.tags_json or ()),
+        cardinality=row.cardinality or "SINGLE",
+        priority=row.priority or "OPTIONAL",
+        author=row.author,
+        authority=row.authority,
+        version=row.version,
+        enabled=row.enabled,
+        expires_at=row.expires_at,
+        last_confirmed_at=row.last_confirmed_at,
+        updated_at=row.update_time,
+    )
+
+
+def _validate_snapshot_bounds(rows: tuple[UserMemory, ...]) -> None:
+    """The complete bounded set fails closed instead of returning a silently truncated view."""
+
+    if len(rows) > MEMORY_MAX_RECORDS or sum(
+        memory_content_bytes(row.content_json, row.source_quote) for row in rows
+    ) > MEMORY_MAX_BYTES:
+        raise AppError(ErrorCode.MEMORY_READ_FAILED)
+
+
+def _validate_bounds(rows: tuple[ExperienceRow, ...]) -> None:
     if (
         len(rows) > MEMORY_MAX_RECORDS
         or sum(
@@ -171,14 +261,25 @@ class MemoryQueries:
         revision, epoch, as_of = (await session.execute(_head_statement(scope))).tuples().one()
         return MemoryScopeVersion(revision, epoch, as_of)
 
-    async def read_snapshot(self, scope: MemoryReadScope) -> MemorySnapshot:
+    async def read_experience_snapshot(self, scope: MemoryReadScope) -> ExperienceSnapshot:
         async with self._sessions()() as session:
-            return await self._read_snapshot(session, scope)
+            return await self._read_experience_snapshot(session, scope)
+
+    async def read_snapshot(self, scope: MemoryReadScope) -> MemorySnapshot:
+        """Read both lanes from one SQL snapshot; neither lane is derived from the other."""
+
+        async with self._sessions()() as session:
+            records = (await session.execute(_snapshot_statement(scope))).tuples().all()
+            _validate_snapshot_bounds(tuple(row for _, _, _, row in records if row is not None))
+            revision, epoch, as_of, _ = records[0]
+            rows = tuple(_candidate_v2(row) for _, _, _, row in records if _is_v2_row(row))
+            legacy = tuple(_candidate(row) for _, _, _, row in records if _is_legacy_row(row))
+            return MemorySnapshot(scope, revision, epoch, as_of, rows, legacy)
 
     @staticmethod
-    async def _read_snapshot(session: AsyncSession, scope: MemoryReadScope) -> MemorySnapshot:
+    async def _read_experience_snapshot(session: AsyncSession, scope: MemoryReadScope) -> ExperienceSnapshot:
         records = (await session.execute(_snapshot_statement(scope))).tuples().all()
         revision, epoch, as_of, _ = records[0]
-        rows = tuple(_candidate(row) for _, _, _, row in records if row is not None)
+        rows = tuple(_candidate(row) for _, _, _, row in records if _is_legacy_row(row))
         _validate_bounds(rows)
-        return MemorySnapshot(scope, revision, epoch, as_of, rows)
+        return ExperienceSnapshot(scope, revision, epoch, as_of, rows)

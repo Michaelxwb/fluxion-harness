@@ -5,24 +5,31 @@ import { useTranslation } from 'react-i18next';
 export interface ConfirmActionProps {
   title: ReactNode;
   onConfirm(): void;
-  children: ReactNode;
+  children?: ReactNode;
+  /** Icon-only trigger: pair it with `ariaLabel` so the accessible name stays explicit. */
+  icon?: ReactNode;
+  ariaLabel?: string;
   testId?: string;
   style?: CSSProperties;
   onOpenChange?(visible: boolean): void;
   /** Button theme; defaults to borderless for list and associated row actions. */
   type?: 'primary' | 'danger';
   theme?: 'borderless' | 'light' | 'outline' | 'solid';
+  size?: 'small' | 'default';
 }
 
 export function ConfirmAction({
   title,
   onConfirm,
   children,
+  icon,
+  ariaLabel,
   testId,
   style,
   onOpenChange,
   type = 'primary',
-  theme = 'borderless'
+  theme = 'borderless',
+  size = 'default'
 }: ConfirmActionProps) {
   const { t } = useTranslation();
   return (
@@ -35,7 +42,13 @@ export function ConfirmAction({
       onConfirm={onConfirm}
       onVisibleChange={(visible: boolean) => onOpenChange?.(visible)}
     >
-      <Button theme={theme} type={type} data-testid={testId} style={style}>
+      <Button theme={theme} type={type}
+        size={size}
+        icon={icon}
+        aria-label={ariaLabel}
+        data-testid={testId}
+        style={style}
+      >
         {children}
       </Button>
     </Popconfirm>

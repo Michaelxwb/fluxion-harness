@@ -228,7 +228,7 @@ interface MemoryFacts {
   memory: { version: number; value: string; author: string } | null;
 }
 
-function memoryFacts(userId: string, memoryKey: string): MemoryFacts {
+function memoryFacts(userId: string, title: string): MemoryFacts {
   return runPythonJson<MemoryFacts>(`
 import asyncio, json, os, asyncpg
 async def main():
@@ -238,8 +238,8 @@ async def main():
         '${process.env.E2E_WEBCHAT_TENANT ?? ''}', '${userId}')
     row = await conn.fetchrow(
         "select version, content_json, author from runtime.user_memory "
-        "where tenant_id = $1 and user_id = $2::uuid and memory_key = $3 and is_deleted = false",
-        '${process.env.E2E_WEBCHAT_TENANT ?? ''}', '${userId}', '${memoryKey}')
+        "where tenant_id = $1 and user_id = $2::uuid and title = $3 and is_deleted = false",
+        '${process.env.E2E_WEBCHAT_TENANT ?? ''}', '${userId}', '${title}')
     content = None if row is None else row['content_json']
     if isinstance(content, str):
         content = json.loads(content)
@@ -754,7 +754,7 @@ async def main():
     conn = await asyncpg.connect(os.environ['DATABASE_URL'].replace('postgresql+asyncpg', 'postgresql'))
     row = await conn.fetchrow(
         "select count(*) as c from runtime.user_memory where tenant_id = $1 and user_id = $2::uuid "
-        "and memory_key = $3 and is_deleted = false",
+        "and title = $3 and is_deleted = false",
         '${webchatStack.tenant}', '${user.account.id}', 'e08-valid')
     print(json.dumps({'rows': int(row['c'])}))
     await conn.close()
@@ -781,8 +781,7 @@ asyncio.run(main())
     // ---- 冻结设置与 UTF-8 预算保持有效：新设置只影响新 Run，超预算内容不注入 -------------------
     const longValue = `长记忆-${'甲'.repeat(120)}-尾`;
     await webchatAdmin.createUserMemory(user.account.id, {
-      memoryKey: 'e08-long',
-      category: 'PREFERENCE',
+      title: 'e08-long',
       value: longValue
     });
     const callsBeforeWithLong = (await webchatFaults.calls()).length;

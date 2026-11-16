@@ -8,7 +8,7 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from tests.acceptance.datastores import create_datastore, drop_datastore
+from tests.acceptance.datastores import drop_datastore
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "migrations"
 
@@ -23,8 +23,15 @@ def migration_head() -> str:
 
 
 @pytest.fixture
-def async_tool_datastore() -> Iterator[dict[str, str]]:
-    info = create_datastore()
+def async_tool_datastore(isolated_datastore, datastore_template) -> Iterator[dict[str, str]]:
+    """Reuse the test's cloned database; suites that own their datastore get a private clone."""
+
+    if isolated_datastore is not None:
+        yield isolated_datastore
+        return
+    from tests.acceptance.datastores import clone_datastore
+
+    info = clone_datastore(datastore_template)
     try:
         yield info
     finally:

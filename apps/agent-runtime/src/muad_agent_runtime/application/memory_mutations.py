@@ -10,9 +10,9 @@ from uuid import UUID, uuid4
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import (
+    ExperienceCandidate,
     FactContent,
     MemoryAuthor,
-    MemoryCandidate,
     MemoryCategory,
     MemoryRetirementReason,
 )
@@ -64,7 +64,7 @@ def memory_state(
     仍保持严格校验，避免把损坏内容伪装成合法记忆。
     """
     try:
-        candidate = MemoryCandidate.model_validate(
+        candidate = ExperienceCandidate.model_validate(
             {
                 "memory_key": row.memory_key,
                 "category": row.category,
@@ -73,7 +73,7 @@ def memory_state(
         )
         content, category = candidate.content, candidate.category
     except ValidationError:
-        if not tolerant:
+        if not tolerant or row.category is None:
             raise
         content, category = FactContent(value="-"), MemoryCategory(row.category)
     return MemoryWriteState(
@@ -111,6 +111,33 @@ async def source_times(
         )
     )
     return {identity: stamp for identity, stamp in records}
+
+
+def memory_state_any(row: UserMemory) -> MemoryWriteState:
+    """Capacity view of either lane; v2 rows carry no legacy category or typed content."""
+
+    if row.memory_kind is not None:
+        return MemoryWriteState(
+            memory_key=row.memory_key,
+            category=None,
+            content=dict(row.content_json or {}),
+            author=MemoryAuthor(row.author),
+            version=row.version,
+            updated_at=row.update_time,
+            source_quote=row.source_quote,
+            expires_at=row.expires_at,
+            confidence=row.confidence,
+            confirmed_count=row.confirmed_count,
+            enabled=row.enabled,
+            is_deleted=row.is_deleted,
+            retirement_reason=(
+                MemoryRetirementReason(row.retirement_reason) if row.retirement_reason else None
+            ),
+            retirement_revision=row.retirement_revision,
+            last_source_run_id=row.last_source_run_id,
+            last_source_seq=row.last_source_seq,
+        )
+    return memory_state(row)
 
 
 def _retirement(key: str, reason: MemoryRetirementReason, revision: int) -> MemoryChange:
@@ -270,7 +297,7 @@ def _automatic_rejection(
 
 
 def _confirmation_consumed(
-    row: UserMemory | None, candidate: MemoryCandidate, ctx: MemoryWriteContext
+    row: UserMemory | None, candidate: ExperienceCandidate, ctx: MemoryWriteContext
 ) -> bool:
     if row is None or ctx.actor_type != "USER" or ctx.confirmation_event_id is None:
         return False
@@ -391,7 +418,7 @@ def _prepared_retirement(
 
 def _project(state: MemoryWriteState | None, change: MemoryChange, now: datetime) -> MemoryWriteState:
     if state is None:
-        candidate = MemoryCandidate.model_validate(
+        candidate = ExperienceCandidate.model_validate(
             {
                 "memory_key": change.key,
                 "category": change.values["category"],
@@ -408,7 +435,7 @@ def _project(state: MemoryWriteState | None, change: MemoryChange, now: datetime
         )
     projected = dict(change.values)
     if "content_json" in projected:
-        candidate = MemoryCandidate.model_validate(
+        candidate = ExperienceCandidate.model_validate(
             {
                 "memory_key": change.key,
                 "category": projected["category"],

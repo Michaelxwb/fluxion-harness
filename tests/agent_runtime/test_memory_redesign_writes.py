@@ -3,11 +3,11 @@
 import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from importlib import import_module
 from uuid import uuid4
 
 import pytest
 import sqlalchemy as sa
-from muad_agent_runtime.application.memory_admin import MemoryAdminService
 from muad_agent_runtime.infrastructure.models.runtime import (
     MemoryCommandReceipt,
     RunInterrupt,
@@ -17,8 +17,6 @@ from muad_agent_runtime.infrastructure.models.runtime import (
 )
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts.memory_admin import MemoryAdminMutation, MemoryAdminRequest
-from muad_contracts.platform_settings import MemoryPolicySettings
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from tests.agent_runtime.memory_confirmation_resume_support import confirmation_stack, rows
@@ -339,12 +337,20 @@ async def test_b03_memory_redesign_enable_restore_keep_author_and_require_new_ex
     assert row["author"] == "AGENT" and row["expires_at"] is not None
 
 
-async def _admin_clear(stack, request: MemoryAdminRequest, command_id: str):
-    """真实 Runtime 管理链路：Console 清空走同一 `MemoryAdminService` 命令入口。"""
-    async with stack.factory() as session:
-        return await MemoryAdminService(session, MemoryPolicySettings()).execute(
-            stack.run.tenant_id, stack.run.user_id, request, command_id=command_id
-        )
+async def _admin_clear(stack, request, command_id: str):
+    """Clear through the single Runtime command entry used by the learning/experience lane."""
+    service = import_module("muad_agent_runtime.application.memory_service").MemoryService(
+        stack.factory
+    )
+    outcome = await service.execute(
+        context(tenant=stack.run.tenant_id, user=stack.run.user_id),
+        commands().MemoryCommand(
+            command_id=command_id,
+            endpoint="memory.admin.clear",
+            mutations=[commands().MemoryMutation(action="CLEAR")],
+        ),
+    )
+    return outcome.response
 
 
 async def test_b03_memory_redesign_clear_revokes_pending_proposal_and_rejects_late_confirmation(
@@ -361,8 +367,7 @@ async def test_b03_memory_redesign_clear_revokes_pending_proposal_and_rejects_la
         pending = (await rows(stack, RunInterrupt))[0]
         assert pending.status == "WAITING" and pending.interrupt_type == "MEMORY_CONFIRMATION"
 
-        clear = MemoryAdminRequest(actor_id=uuid4(), mutation=MemoryAdminMutation(action="CLEAR"))
-        response = await _admin_clear(stack, clear, "clear-pending")
+        response = await _admin_clear(stack, None, "clear-pending")
         assert response.changed_count == 0, "空库清空不产生事实变更"
         assert response.forget_epoch == 1, "空库清空也必须推进撤销边界（forget_epoch+1）"
         revoked = (await rows(stack, RunInterrupt))[0]
@@ -385,7 +390,7 @@ async def test_b03_memory_redesign_clear_revokes_pending_proposal_and_rejects_la
         assert (await rows(stack, RunInterrupt))[0].status == "CANCELLED"
         assert (await rows(stack, RunRecord))[0].status == "WAITING_INPUT"
 
-        replay = await _admin_clear(stack, clear, "clear-pending")
+        replay = await _admin_clear(stack, None, "clear-pending")
         assert replay.model_dump(mode="json") == response.model_dump(mode="json"), "重放返回首次回执"
         replayed = (await rows(stack, RunInterrupt))[0]
         assert replayed.status == "CANCELLED" and replayed.resolved_at == revoked_at, "重放不得二次撤销"

@@ -14,8 +14,8 @@ from uuid import UUID
 
 import sqlalchemy as sa
 from muad_contracts.memory import (
+    ExperienceCandidate,
     FactContent,
-    MemoryCandidate,
     MemoryCategory,
     MemorySourceEvidence,
 )
@@ -138,7 +138,7 @@ class ExperienceCandidates:
                 continue
             item_total = sum(len(calls.get(run.id, [])) for run in family_runs)
             batch = any(len(calls.get(run.id, [])) > 1 for run in family_runs)
-            candidate = MemoryCandidate(
+            candidate = ExperienceCandidate(
                 memory_key=key,
                 category=PROCEDURE,
                 content=FactContent(value=_procedure_text(family, batch)),

@@ -12,20 +12,22 @@ from uuid import UUID
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
+from muad_contracts.canonical import canonical_json
 from muad_contracts.memory import (
     MEMORY_MAX_BYTES,
     MEMORY_MAX_RECORDS,
+    ExperienceCandidate,
     FactContent,
     MemoryAuthor,
-    MemoryCandidate,
     MemoryCategory,
     MemoryRetirementReason,
     MemorySourceEvidence,
+    RememberMemoryInput,
     TaskStateContent,
     memory_content_bytes,
 )
 from muad_contracts.platform_settings import MemoryPolicySettings
-from pydantic import ValidationError
+from pydantic import JsonValue, ValidationError
 
 _SECRET = re.compile(
     r"sk-[a-z0-9_-]{16,}|AKIA[A-Z0-9]{16}|gh[pousr]_[a-z0-9]{20,}"
@@ -46,8 +48,8 @@ _AUTOMATIC_RETIREMENTS = frozenset(
 @dataclass(frozen=True, slots=True, kw_only=True)
 class MemoryWriteState:
     memory_key: str
-    category: MemoryCategory
-    content: FactContent | TaskStateContent
+    category: MemoryCategory | None
+    content: dict[str, JsonValue] | FactContent | TaskStateContent
     author: MemoryAuthor
     version: int
     updated_at: datetime
@@ -69,7 +71,9 @@ class MemoryWriteState:
                 raise ValueError("memory timestamps must be timezone aware")
         if self.version < 1 or not 1 <= self.confidence <= 5 or self.confirmed_count < 0:
             raise ValueError("invalid memory counters")
-        if not isinstance(self.author, MemoryAuthor) or not isinstance(self.category, MemoryCategory):
+        if not isinstance(self.author, MemoryAuthor) or (
+            self.category is not None and not isinstance(self.category, MemoryCategory)
+        ):
             raise TypeError("memory author/category must be strict enums")
 
 
@@ -97,7 +101,7 @@ class MemoryAutomaticDecision:
     reason: AutomaticReason
 
 
-def _candidate_strings(candidate: MemoryCandidate) -> tuple[str, ...]:
+def _candidate_strings(candidate: ExperienceCandidate) -> tuple[str, ...]:
     content = candidate.content
     if isinstance(content, FactContent):
         return candidate.memory_key, content.value
@@ -112,13 +116,13 @@ def _candidate_strings(candidate: MemoryCandidate) -> tuple[str, ...]:
 
 
 def validate_memory_content(
-    candidate: MemoryCandidate,
+    candidate: ExperienceCandidate,
     *,
     source_quote: str | None,
     credential_canaries: tuple[str, ...],
 ) -> None:
     try:
-        candidate = MemoryCandidate.model_validate(candidate.model_dump(mode="json"))
+        candidate = ExperienceCandidate.model_validate(candidate.model_dump(mode="json"))
     except ValidationError:
         raise AppError(ErrorCode.MEMORY_VALUE_INVALID) from None
     if source_quote is not None and (not source_quote.strip() or len(source_quote) > 512):
@@ -132,6 +136,30 @@ def validate_memory_content(
         raise AppError(ErrorCode.MEMORY_FORBIDDEN_CONTENT)
 
 
+def _v2_input_strings(candidate: RememberMemoryInput) -> tuple[str, ...]:
+    quote = (candidate.source_quote,) if candidate.source_quote is not None else ()
+    return (
+        candidate.title,
+        candidate.summary,
+        canonical_json(candidate.content),
+        *candidate.tags,
+        *quote,
+    )
+
+
+def validate_memory_input_v2(
+    candidate: RememberMemoryInput, *, credential_canaries: tuple[str, ...]
+) -> None:
+    """Reject secrets and malformed quotes before the candidate is shown for confirmation."""
+
+    if candidate.source_quote is not None and not candidate.source_quote.strip():
+        raise AppError(ErrorCode.MEMORY_VALUE_INVALID)
+    values = tuple(unicodedata.normalize("NFKC", value) for value in _v2_input_strings(candidate))
+    canaries = tuple(unicodedata.normalize("NFKC", value) for value in credential_canaries if value)
+    if any(_SECRET.search(value) or any(canary in value for canary in canaries) for value in values):
+        raise AppError(ErrorCode.MEMORY_FORBIDDEN_CONTENT)
+
+
 def redact_memory_text(value: str, credential_canaries: tuple[str, ...]) -> str:
     """Use the write policy's secret detector before publishing consolidation input."""
     normalized = unicodedata.normalize("NFKC", value)
@@ -142,7 +170,12 @@ def redact_memory_text(value: str, credential_canaries: tuple[str, ...]) -> str:
 
 
 def fact_bytes(state: MemoryWriteState) -> int:
-    return memory_content_bytes(state.content.model_dump(mode="json"), state.source_quote)
+    content = (
+        dict(state.content)
+        if isinstance(state.content, dict)
+        else state.content.model_dump(mode="json")
+    )
+    return memory_content_bytes(content, state.source_quote)
 
 
 def _active(state: MemoryWriteState, now: datetime) -> bool:

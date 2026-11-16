@@ -1,21 +1,15 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /**
- * E-04 记忆管理浏览器验收（TASK-028 编写；真实执行归 TASK-030 / 需求终验，编码期不跑）。
+ * E-04 记忆管理浏览器验收（v2 管理面：单入口命令 + 候选/回收站/历史）。
  *
  * 真实边界：真实 Chrome → vite preview（构建产物）→ 真实 Console（真实登录会话 + CSRF）
- * → 真实 Runtime 记忆管理写入口（Console 转命令）→ 真实 PostgreSQL（runtime.user_memory /
- * user_memory_history）。无 mock。唯一一处 `page.route` 是「响应丢失」注入（清空重试用例）：
- * 请求仍真实送达 Console→Runtime→PG（`route.fetch()`，命令真的执行），只把回包丢弃
- * （`route.abort()`）——不 mock 数据，也不改写响应体。
+ * → 真实 Runtime 记忆写入口（Console 转 `/memory/commands`）→ 真实 PostgreSQL
+ * （runtime.user_memory / user_memory_history）。无 mock。唯一一处 `page.route` 是
+ * 「响应丢失」注入（清空重试用例）：请求仍真实送达 Console→Runtime→PG（`route.fetch()`，
+ * 命令真的执行），只把回包丢弃（`route.abort()`）——不 mock 数据，也不改写响应体。
  *
- * 环境前提（TASK-030 在 `playwright.agent.config.ts` 接线，不在本文件 mock）：
- * - 独立临时库 + 预置 admin（`support/isolated-datastores.ts` 已导出 E2E_ADMIN_USER/PASSWORD）；
- * - Console 指向真实 Runtime 的连接配置（AGENT_RUNTIME_URL / INTERNAL_SERVICE_TOKEN），
- *   否则创建/启禁用会落 COMMON_INTERNAL_ERROR。
- *
- * 覆盖：创建 → 启禁用 → 历史（含分页）→ 删除 → 按 key 查历史（含已删除条目）→ 恢复 → 越权；
- * 中英文 × 明暗主题 × 窄屏。
+ * 覆盖：创建 → 停用/启用 → 历史（含分页）→ 删除 → 回收站恢复 → 清空重试幂等 → 越权。
  */
 
 const ADMIN_USER = process.env.E2E_ADMIN_USER ?? 'admin';
@@ -24,15 +18,25 @@ const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'admin11111111';
 const COPY = {
   'zh-CN': {
     memoryTab: /用户记忆/,
-    memoryKey: '记忆键',
-    category: '分类',
+    title: '标题',
+    summary: '摘要',
+    category: '类别',
     content: '内容',
+    predicate: '记忆类型',
+    scope: '适用范围',
+    scopeExplicit: '指定范围',
+    scopeAbsent: '不限定',
+    audience: '受众',
+    predicateHint: '受控词表',
+    contentHintValue: '填写简短取值',
+    contentHintText: '填写一段备注正文',
+    editTitle: '编辑记忆',
+    save: '保存',
     add: '新增记忆',
     createTitle: '新增用户记忆',
-    preference: '偏好',
-    taskState: '任务线索',
     author: '管理员录入',
     active: '生效中',
+    deleted: '已删除',
     disabled: '已停用',
     disable: '停用',
     enable: '启用',
@@ -41,23 +45,33 @@ const COPY = {
     version: '版本',
     reason: { CREATE: '新建', DISABLE: '停用', ENABLE: '启用', ADMIN_DELETE: '管理员删除', RESTORE: '恢复' },
     actor: '管理员',
-    lookupHistory: '查看历史',
     restore: '恢复',
-    refresh: '刷新',
+    recycle: '回收站',
+    clear: '清理全部',
     usersNav: '用户',
     searchPlaceholder: '姓名 / 账号'
   },
   'en-US': {
     memoryTab: /Memories/,
-    memoryKey: 'Memory key',
+    title: 'Title',
+    summary: 'Summary',
     category: 'Category',
     content: 'Content',
+    predicate: 'Memory type',
+    scope: 'Scope',
+    scopeExplicit: 'Explicit scope',
+    scopeAbsent: 'Not limited',
+    audience: 'Audience',
+    predicateHint: 'Controlled vocabulary',
+    contentHintValue: 'A short value',
+    contentHintText: 'A free-form note body',
+    editTitle: 'Edit Memory',
+    save: 'Save',
     add: 'Add memory',
-    createTitle: 'Add user memory',
-    preference: 'Preference',
-    taskState: 'Task state',
+    createTitle: 'Add User Memory',
     author: 'Entered by admin',
     active: 'Active',
+    deleted: 'Deleted',
     disabled: 'Disabled',
     disable: 'Disable',
     enable: 'Enable',
@@ -66,15 +80,27 @@ const COPY = {
     version: 'Version',
     reason: { CREATE: 'Created', DISABLE: 'Disabled', ENABLE: 'Enabled', ADMIN_DELETE: 'Deleted by admin', RESTORE: 'Restored' },
     actor: 'Administrator',
-    lookupHistory: 'View history',
     restore: 'Restore',
-    refresh: 'Refresh',
+    recycle: 'Recycle bin',
+    clear: 'Clear all',
     usersNav: 'Users',
     searchPlaceholder: 'Name / account'
   }
 } as const;
 
 type Locale = keyof typeof COPY;
+
+/** 候选体：PREFERENCE/report_format 是受控 taxonomy 里稳定存在的槽位。 */
+function candidateOf(title: string, value: string, predicate = 'report_format'): Record<string, unknown> {
+  return {
+    memory_kind: 'PREFERENCE',
+    predicate,
+    scope_state: 'ABSENT',
+    scope: {},
+    content: { value },
+    title
+  };
+}
 
 async function loginAs(page: Page, username: string, password: string): Promise<void> {
   await page.goto('/login');
@@ -102,59 +128,79 @@ async function createUserViaApi(page: Page, userCode: string, displayName: strin
   return ((await response.json()) as { data: { id: string } }).data.id;
 }
 
+async function commandMemory(
+  page: Page,
+  userId: string,
+  body: Record<string, unknown>
+): Promise<{ status: number; receipt: { status: string; version: number | null } }> {
+  const response = await page.request.post(`/api/v1/users/${userId}/memory/commands`, {
+    headers: { ...(await csrfHeaders(page)), 'Idempotency-Key': idempotencyKey('e2e-command') },
+    data: body
+  });
+  expect(response.status(), await response.text()).toBe(200);
+  return {
+    status: response.status(),
+    receipt: ((await response.json()) as {
+      data: { status: string; version: number | null };
+    }).data
+  };
+}
+
+interface MemoryRow {
+  id: string;
+  title: string;
+  version: number;
+  status: string;
+  memory_kind: string;
+  predicate: string;
+}
+
+async function listMemories(page: Page, userId: string): Promise<MemoryRow[]> {
+  const response = await page.request.get(`/api/v1/users/${userId}/memory?page=1&page_size=100`);
+  expect(response.status(), await response.text()).toBe(200);
+  return ((await response.json()) as { data: { items: MemoryRow[] } }).data.items;
+}
+
+async function findMemory(page: Page, userId: string, title: string): Promise<MemoryRow> {
+  const items = await listMemories(page, userId);
+  const item = items.find((entry) => entry.title === title);
+  expect(item, `记忆 ${title} 应存在于 ${JSON.stringify(items.map((i) => i.title))}`).toBeTruthy();
+  return item as MemoryRow;
+}
+
 async function createMemoryViaApi(
   page: Page,
   userId: string,
-  memoryKey: string,
-  value: string
-): Promise<void> {
-  const response = await page.request.post(`/api/v1/users/${userId}/memory`, {
-    headers: { ...(await csrfHeaders(page)), 'Idempotency-Key': idempotencyKey('e2e-create') },
-    data: { memory_key: memoryKey, category: 'PREFERENCE', value }
-  });
-  expect(response.status(), await response.text()).toBe(200);
+  title: string,
+  value: string,
+  predicate = 'report_format'
+): Promise<MemoryRow> {
+  await commandMemory(page, userId, { action: 'CREATE', candidate: candidateOf(title, value, predicate) });
+  return findMemory(page, userId, title);
 }
 
-/** 真实 Console→Runtime→PG 的启禁用命令；返回命令回执里的新版本号。 */
 async function toggleMemoryViaApi(
   page: Page,
   userId: string,
-  memoryKey: string,
-  enabled: boolean,
-  expectedVersion: number
+  memory: MemoryRow,
+  enabled: boolean
 ): Promise<number> {
-  const response = await page.request.patch(`/api/v1/users/${userId}/memory/${memoryKey}`, {
-    headers: { ...(await csrfHeaders(page)), 'Idempotency-Key': idempotencyKey('e2e-toggle') },
-    data: { enabled, expected_version: expectedVersion }
+  const { receipt } = await commandMemory(page, userId, {
+    action: enabled ? 'ENABLE' : 'DISABLE',
+    memory_id: memory.id,
+    expected_version: memory.version
   });
-  expect(response.status(), await response.text()).toBe(200);
-  const receipt = ((await response.json()) as {
-    data: { items: Array<{ version: number | null }> };
-  }).data;
-  const version = receipt.items[0]?.version;
-  expect(typeof version).toBe('number');
-  return version as number;
-}
-
-/** 经界面打开任意 key 的版本历史（含已删除 key）：列表里没有该行时唯一的入口。 */
-async function openHistoryViaLookup(page: Page, locale: Locale, memoryKey: string): Promise<Locator> {
-  await page.getByTestId('memory-history-lookup-key').fill(memoryKey);
-  await page.getByTestId('memory-history-lookup').click();
-  const history = page.locator('.semi-sidesheet').last();
-  await expect(history.locator('.detail-title')).toHaveText(COPY[locale].history);
-  await expect(history.locator('.detail-subtitle')).toHaveText(memoryKey);
-  return history;
+  expect(['PATCHED', 'UNCHANGED']).toContain(receipt.status);
+  expect(typeof receipt.version).toBe('number');
+  return receipt.version as number;
 }
 
 async function openMemoryTab(page: Page, userCode: string, locale: Locale): Promise<void> {
   await page.goto('/users');
-  // 等列表首次加载完成，再判断目标用户是否在第一页。
   await expect(page.getByTestId('create-user')).toBeVisible();
   await expect(page.locator('.user-table .semi-table-row').first()).toBeVisible();
   const link = page.getByTestId(`user-link-${userCode}`);
   if ((await link.count()) === 0) {
-    // 并行的 S-13 用例会批量造 100 个用户（`fillUserGrantPage`），目标用户可能被挤出第一页
-    // （15 条/页）：按账号过滤后再点，与 platform.spec.ts 同款入口，不依赖分页运气。
     const search = page.getByPlaceholder(COPY[locale].searchPlaceholder);
     await search.fill(userCode);
     await search.press('Enter');
@@ -162,108 +208,131 @@ async function openMemoryTab(page: Page, userCode: string, locale: Locale): Prom
   await link.click();
   const sheet = page.getByRole('dialog');
   await sheet.getByRole('tab', { name: COPY[locale].memoryTab }).click();
+  await expect(page.getByTestId('memory-create')).toBeVisible();
 }
 
+function rowOf(page: Page, text: string): Locator {
+  return page.locator('.user-memory-table .semi-table-row', { hasText: text });
+}
+
+async function confirmPopconfirm(page: Page): Promise<void> {
+  await page.locator('.semi-popconfirm').getByRole('button', { name: '确定', exact: true }).click();
+}
+
+/** 创建表单：类型是受控词表的枚举选择，范围维度随类型与「指定范围」联动。 */
 async function createMemoryViaUi(
   page: Page,
   locale: Locale,
-  memoryKey: string,
-  value: string
+  title: string,
+  value: string,
+  summary: string
 ): Promise<void> {
   const copy = COPY[locale];
   await page.getByTestId('memory-create').click();
   const modal = page.locator('.semi-modal');
   await expect(modal.locator('.semi-modal-title')).toHaveText(copy.createTitle);
-  await modal.getByRole('textbox', { name: copy.memoryKey }).fill(memoryKey);
-  // 分类只给可写三值：TASK_STATE 是 Agent 保留命名空间，不得出现在选项里。
-  await modal.getByRole('combobox', { name: copy.category }).click();
-  await expect(page.locator('.semi-select-option').filter({ hasText: copy.taskState })).toHaveCount(0);
-  await page.locator('.semi-select-option').filter({ hasText: copy.preference }).click();
-  await modal.getByRole('textbox', { name: copy.content }).fill(value);
-  // Semi 的 Modal 页脚按钮带 aria-label="confirm"（全仓 e2e 一致使用该稳定定位）；
-  // 文案仍按语言断言，本地化覆盖不降级为「点得到就行」。
+  await expect(modal.getByText(copy.predicateHint)).toBeVisible();
+  // 默认类型是 NOTE：内容提示是「一段备注正文」，换成 PREFERENCE 后变为短取值。
+  const content = modal.getByRole('textbox', { name: copy.content });
+  await expect(content).toHaveAttribute('placeholder', new RegExp(copy.contentHintText));
+
+  await modal.locator('.semi-select').first().click();
+  const options = page.locator('.semi-select-option');
+  await expect(options.first()).toBeVisible();
+  await options.filter({ hasText: 'report_format' }).click();
+  await expect(content).toHaveAttribute('placeholder', new RegExp(copy.contentHintValue));
+
+  // report_format 支持 audience 维度：选「指定范围」才出现受众字段。
+  const audience = () => modal.locator('.semi-form-field').filter({ hasText: copy.audience });
+  await expect(audience()).toHaveCount(0);
+  await modal.getByRole('radio', { name: copy.scopeExplicit }).click();
+  await expect(audience()).toHaveCount(1);
+  await modal.getByRole('radio', { name: new RegExp(`^${copy.scopeAbsent}`) }).click();
+  await expect(audience()).toHaveCount(0);
+
+  await modal.getByRole('textbox', { name: copy.title }).fill(title);
+  await modal.getByRole('textbox', { name: copy.summary }).fill(summary);
+  await content.fill(value);
   const submit = modal.getByRole('button', { name: 'confirm', exact: true });
   await expect(submit).toHaveText(copy.add);
   await submit.click();
   await expect(modal).toHaveCount(0);
 }
 
-test('E-04 记忆管理：创建、启禁用、历史分页、删除与本地化（真实 Console→Runtime→PG）', async ({ page }) => {
+/** 编辑表单必须回显已有值（标题/摘要/内容），且不改身份字段。 */
+async function expectEditPrefills(page: Page, locale: Locale, row: Locator, values: string[]): Promise<void> {
+  const copy = COPY[locale];
+  await row.getByRole('gridcell').first().getByRole('button').click();
+  const modal = page.locator('.semi-modal');
+  await expect(modal.locator('.semi-modal-title')).toHaveText(copy.editTitle);
+  const fields = [copy.title, copy.summary, copy.content];
+  for (const [index, name] of fields.entries()) {
+    await expect(modal.getByRole('textbox', { name })).toHaveValue(values[index]);
+  }
+  const cancel = modal.getByRole('button', { name: 'cancel', exact: true });
+  await expect(cancel).toHaveText(locale === 'zh-CN' ? '取消' : 'Cancel');
+  await cancel.click();
+  await expect(modal).toHaveCount(0);
+}
+
+test('E-04 记忆管理：创建、停用/启用、历史、删除与回收站恢复（真实 Console→Runtime→PG）', async ({ page }) => {
   const stamp = Date.now();
   const userCode = `e2e-memory-${stamp}`;
-  const memoryKey = `e2e.preference.${stamp}`;
-  const content = `E2E 偏好 ${stamp}`;
+  const title = `E2E 偏好 ${stamp}`;
+  const content = `PDF ${stamp}`;
   const locale: Locale = 'zh-CN';
+  const copy = COPY[locale];
 
   await loginAs(page, ADMIN_USER, ADMIN_PASSWORD);
-  const userId = await createUserViaApi(page, userCode, 'E2E Memory');
+  await createUserViaApi(page, userCode, 'E2E Memory');
   await openMemoryTab(page, userCode, locale);
 
-  // 创建：表单字段顺序（记忆键 → 分类 → 内容 → 有效期）与来源/状态本地化。
-  await createMemoryViaUi(page, locale, memoryKey, content);
-  const row = page.locator('.user-memory-table .semi-table-row', { hasText: content });
+  const summary = `摘要 ${stamp}`;
+  await createMemoryViaUi(page, locale, title, content, summary);
+  const row = rowOf(page, title);
   await expect(row).toHaveCount(1);
-  await expect(row).toContainText(COPY[locale].author);
-  await expect(row).toContainText(COPY[locale].active);
-  await expect(row).toContainText(COPY[locale].preference);
+  await expect(row).toContainText(copy.author);
+  await expect(row).toContainText(copy.active);
+  await expect(row).toContainText('偏好/report_format');
+  await expect(row).toContainText(summary);
+  await expectEditPrefills(page, locale, row, [title, summary, content]);
 
-  // 启禁用：状态标签随命令更新；历史行按 version 倒序。
-  await page.getByTestId(`memory-toggle-${memoryKey}`).click();
-  await expect(row).toContainText(COPY[locale].disabled);
-  await page.getByTestId(`memory-toggle-${memoryKey}`).click();
-  await expect(row).toContainText(COPY[locale].active);
+  // 停用/启用：同一槽位只升版本，历史按版本倒序。
+  await row.getByRole('button', { name: copy.disable, exact: true }).click();
+  await expect(row).toContainText(copy.disabled);
+  await row.getByRole('button', { name: copy.enable, exact: true }).click();
+  await expect(row).toContainText(copy.active);
 
-  await page.getByTestId(`memory-history-${memoryKey}`).click();
+  await row.getByRole('button', { name: '历史', exact: true }).click();
   const history = page.locator('.semi-sidesheet').last();
-  await expect(history.locator('.detail-title')).toHaveText(COPY[locale].history);
-  const historyRows = history.locator('.memory-history-table .semi-table-tbody > .semi-table-row');
+  await expect(history.locator('.semi-sidesheet-title')).toHaveText(copy.history);
+  const historyRows = history.locator('.semi-table-tbody > .semi-table-row');
   await expect(historyRows).toHaveCount(3);
   const versionCell = (index: number) => historyRows.nth(index).getByRole('gridcell').first();
   await expect(versionCell(0)).toHaveText('3');
-  await expect(historyRows.nth(0)).toContainText(COPY[locale].reason.ENABLE);
-  await expect(historyRows.nth(1)).toContainText(COPY[locale].reason.DISABLE);
-  await expect(historyRows.nth(2)).toContainText(COPY[locale].reason.CREATE);
-  await expect(historyRows.nth(0)).toContainText(COPY[locale].actor);
+  await expect(historyRows.nth(0)).toContainText(copy.reason.ENABLE);
+  await expect(historyRows.nth(1)).toContainText(copy.reason.DISABLE);
+  await expect(historyRows.nth(2)).toContainText(copy.reason.CREATE);
+  await expect(historyRows.nth(0)).toContainText(copy.actor);
   // ESC 只关闭最上层历史面板（下层用户详情保持打开）。
   await page.keyboard.press('Escape');
   await expect(page.locator('.semi-sidesheet')).toHaveCount(1);
-  await expect(page.getByRole('dialog').getByRole('tab', { name: COPY[locale].memoryTab })).toBeVisible();
 
-  // 删除：列表不再显示（后端已删除不出现在列表）。
-  await page.getByTestId(`memory-delete-${memoryKey}`).click();
-  await page.locator('.semi-popconfirm').getByRole('button', { name: '确定', exact: true }).click();
+  // 删除：生效列表不再显示；回收站里以「已删除」出现并可恢复。
+  await row.getByRole('button', { name: '删除', exact: true }).click();
+  await confirmPopconfirm(page);
   await expect(row).toHaveCount(0);
-  const listResponse = await page.request.get(`/api/v1/users/${userId}/memory?page=1&page_size=100`);
-  const listItems = ((await listResponse.json()) as { data: { items: Array<{ memory_key: string }> } })
-    .data.items;
-  expect(listItems.map((item) => item.memory_key)).not.toContain(memoryKey);
 
-  // 历史入口（评审条目 6）：列表已无该行，经工具栏按 key 查询（不再直调历史 API 绕开）。
-  const deletedHistory = await openHistoryViaLookup(page, locale, memoryKey);
-  const deletedRows = deletedHistory.locator('.memory-history-table .semi-table-tbody > .semi-table-row');
-  await expect(deletedRows).toHaveCount(4);
-  await expect(deletedRows.nth(0).getByRole('gridcell').first()).toHaveText('4');
-  await expect(deletedRows.nth(0)).toContainText(COPY[locale].reason.ADMIN_DELETE);
-  await expect(deletedRows.nth(0)).toContainText(COPY[locale].actor);
+  await page.locator('.user-memory-recycle .semi-switch').click();
+  const deletedRow = rowOf(page, title);
+  await expect(deletedRow).toHaveCount(1);
+  await expect(deletedRow).toContainText(copy.deleted);
+  await deletedRow.getByRole('button', { name: copy.restore, exact: true }).click();
+  await confirmPopconfirm(page);
+  await expect(deletedRow).toContainText(copy.active);
 
-  // 恢复（评审条目 5）：从历史面板恢复同一 key，RESTORE 保留 identity/version，列表重新出现该行。
-  await deletedHistory.getByTestId(`memory-restore-${memoryKey}`).click();
-  await page.locator('.semi-popconfirm').getByRole('button', { name: '确定', exact: true }).click();
-  await expect(page.locator('.semi-sidesheet')).toHaveCount(1); // 恢复成功后关闭历史面板
-  await expect(row).toHaveCount(1);
-  await expect(row).toContainText(COPY[locale].author);
-  await expect(row).toContainText(COPY[locale].active);
-  await expect(row).toContainText(content);
-
-  // 恢复同样进历史：RESTORE 行经同一界面入口可查。
-  const restoredHistory = await openHistoryViaLookup(page, locale, memoryKey);
-  const restoredRows = restoredHistory.locator('.memory-history-table .semi-table-tbody > .semi-table-row');
-  await expect(restoredRows).toHaveCount(5);
-  await expect(restoredRows.nth(0).getByRole('gridcell').first()).toHaveText('5');
-  await expect(restoredRows.nth(0)).toContainText(COPY[locale].reason.RESTORE);
-  await expect(restoredRows.nth(1)).toContainText(COPY[locale].reason.ADMIN_DELETE);
-  await page.keyboard.press('Escape');
-  await expect(page.locator('.semi-sidesheet')).toHaveCount(1);
+  await page.locator('.user-memory-recycle .semi-switch').click();
+  await expect(rowOf(page, title)).toHaveCount(1);
 });
 
 test('E-04 清空重试复用同一命令号：响应丢失后的重试不变成第二条命令（真实 Console→Runtime→PG）', async ({
@@ -271,29 +340,29 @@ test('E-04 清空重试复用同一命令号：响应丢失后的重试不变成
 }) => {
   const stamp = Date.now();
   const userCode = `e2e-memory-retry-${stamp}`;
-  const memoryKey = `e2e.retry.${stamp}`;
-  const content = `E2E 重试 ${stamp}`;
-  const survivorKey = `e2e.retry.survivor.${stamp}`;
-  const survivor = `E2E 重试幸存 ${stamp}`;
+  const title = `E2E 重试 ${stamp}`;
+  const content = `重试 ${stamp}`;
+  const survivorTitle = `E2E 幸存 ${stamp}`;
+  const survivor = `幸存 ${stamp}`;
   const locale: Locale = 'zh-CN';
 
   await loginAs(page, ADMIN_USER, ADMIN_PASSWORD);
   const userId = await createUserViaApi(page, userCode, 'E2E Memory Retry');
-  await createMemoryViaApi(page, userId, memoryKey, content);
+  await createMemoryViaApi(page, userId, title, content);
   await openMemoryTab(page, userCode, locale);
-  const row = page.locator('.user-memory-table .semi-table-row', { hasText: content });
-  await expect(row).toHaveCount(1);
+  await expect(rowOf(page, title)).toHaveCount(1);
 
-  // 「响应丢失」注入：请求真实送达 Console→Runtime→PG（`route.fetch()`，命令真的执行），
-  // 只把回包丢弃（`route.abort()`）——不 mock 数据。第二次起放行，模拟用户原样重试。
+  // 「响应丢失」注入：请求真实送达（`route.fetch()`，清空真的执行），只丢回包。
   const clearKeys: string[] = [];
   let dropped = false;
-  await page.route('**/api/v1/users/*/memory', async (route) => {
-    if (route.request().method() !== 'DELETE') {
+  await page.route('**/api/v1/users/*/memory/commands', async (route) => {
+    const request = route.request();
+    const body = request.postDataJSON() as { action?: string } | null;
+    if (request.method() !== 'POST' || body?.action !== 'CLEAR') {
       await route.continue();
       return;
     }
-    clearKeys.push(route.request().headers()['idempotency-key'] ?? '');
+    clearKeys.push(request.headers()['idempotency-key'] ?? '');
     if (!dropped) {
       dropped = true;
       await route.fetch();
@@ -304,50 +373,48 @@ test('E-04 清空重试复用同一命令号：响应丢失后的重试不变成
   });
   try {
     const clearButton = page.getByTestId('memory-clear');
-    const confirmClear = () =>
-      page.locator('.semi-popconfirm').getByRole('button', { name: '确定', exact: true });
-
-    // 第一次清空：真实命令已执行，但响应丢失 ⇒ 必须显示可见错误（可原样重试），不得静默成功。
     await clearButton.click();
-    await confirmClear().click();
+    await confirmPopconfirm(page);
+    // 可见错误（可原样重试），不得静默成功。
     await expect(page.getByTestId('memory-action-error')).toBeVisible();
 
     // 第一次尝试与重试之间新建的记忆必须存活：重试是同一命令（回执重放），不是第二条清空。
-    await createMemoryViaApi(page, userId, survivorKey, survivor);
+    await createMemoryViaApi(page, userId, survivorTitle, survivor, 'language');
 
     await clearButton.click();
-    await confirmClear().click();
-    await expect(row).toHaveCount(0);
-    await expect(page.locator('.user-memory-table .semi-table-row', { hasText: survivor })).toHaveCount(1);
+    await confirmPopconfirm(page);
+    await expect(rowOf(page, title)).toHaveCount(0);
+    // 重试是同一命令（回执重放），第一次执行之后才创建的记忆必须存活。
+    await expect(rowOf(page, survivorTitle)).toHaveCount(1);
+    await expect(page.getByTestId('memory-action-error')).toHaveCount(0);
 
     expect(clearKeys).toHaveLength(2);
     expect(clearKeys[1]).toBe(clearKeys[0]);
+    expect((await listMemories(page, userId)).map((item) => item.title)).toEqual([survivorTitle]);
   } finally {
-    await page.unroute('**/api/v1/users/*/memory');
+    await page.unroute('**/api/v1/users/*/memory/commands');
   }
 });
 
 test('E-04 记忆历史分页：超过一页按 version 倒序翻页（真实 Console→Runtime→PG）', async ({ page }) => {
   const stamp = Date.now();
   const userCode = `e2e-memory-page-${stamp}`;
-  const memoryKey = `e2e.page.${stamp}`;
-  const content = `E2E 分页 ${stamp}`;
+  const title = `E2E 分页 ${stamp}`;
   const locale: Locale = 'zh-CN';
 
   await loginAs(page, ADMIN_USER, ADMIN_PASSWORD);
   const userId = await createUserViaApi(page, userCode, 'E2E Memory Page');
-  await createMemoryViaApi(page, userId, memoryKey, content);
-  // 17 条历史（1 创建 + 16 次真实启禁用）> 每页 15 条 ⇒ 2 页。
-  // 注意：把 enabled 置成**当前值**在 Runtime 里是 UNCHANGED（不新增历史、不递增版本），
-  // 所以循环必须从「与初始状态相反」的停用开始，16 次才是 16 条历史。
-  let version = 1;
+  const memory = await createMemoryViaApi(page, userId, title, `分页 ${stamp}`);
+  // 17 条历史（1 创建 + 16 次真实启停）> 每页 15 条 ⇒ 2 页；从与初始相反的停用开始。
+  let version = memory.version;
   for (let index = 0; index < 16; index += 1) {
-    version = await toggleMemoryViaApi(page, userId, memoryKey, index % 2 === 1, version);
+    version = await toggleMemoryViaApi(page, userId, { ...memory, version }, index % 2 === 1);
   }
   await openMemoryTab(page, userCode, locale);
-  await page.getByTestId(`memory-history-${memoryKey}`).click();
+  const row = rowOf(page, title);
+  await row.getByRole('button', { name: '历史', exact: true }).click();
   const history = page.locator('.semi-sidesheet').last();
-  const historyRows = history.locator('.memory-history-table .semi-table-tbody > .semi-table-row');
+  const historyRows = history.locator('.semi-table-tbody > .semi-table-row');
   await expect(historyRows).toHaveCount(15);
   await expect(history.locator('.app-pagination-page')).toHaveText('1 / 2');
   await expect(historyRows.first().getByRole('gridcell').first()).toHaveText(String(version));
@@ -357,14 +424,12 @@ test('E-04 记忆历史分页：超过一页按 version 倒序翻页（真实 Co
   await expect(historyRows.first().getByRole('gridcell').first()).toHaveText('2');
 });
 
-// 代表性矩阵：桌面中文浅色 + 移动端英文深色。记忆表的作者枚举/固定操作列/宽度语义
-// 已由 user-detail-layout.spec.ts（mock component）覆盖；真实栈这里只保留两端代表组合。
-test('E-04 越权：非 ADMIN 不可进入用户管理，也看不到记忆动作，后端写入口 403', async ({ page, browser }) => {
+test('E-04 越权：非 ADMIN 不可进入用户管理，后端记忆命令入口 403', async ({ page, browser }) => {
   const stamp = Date.now();
   const username = `e2e-memory-builder-${stamp}`;
   const password = `e2e-builder-password-${stamp}`;
   const userCode = `e2e-memory-denied-${stamp}`;
-  const deniedKey = `e2e.denied.${stamp}`;
+  const deniedTitle = `E2E 越权 ${stamp}`;
 
   await loginAs(page, ADMIN_USER, ADMIN_PASSWORD);
   const created = await page.request.post('/api/v1/accounts', {
@@ -379,29 +444,25 @@ test('E-04 越权：非 ADMIN 不可进入用户管理，也看不到记忆动�
   await builderPage.addInitScript(() => localStorage.setItem('muad.locale', 'zh-CN'));
   try {
     await loginAs(builderPage, username, password);
-    // 菜单不可见 + 路由守卫兜底（前端隐藏 + 后端 403 的双保险在前端的一半）。
     await expect(
       builderPage.locator('#app-navigation').getByText(COPY['zh-CN'].usersNav, { exact: true })
     ).toHaveCount(0);
     await builderPage.goto('/users');
     await expect(builderPage).toHaveURL('/');
 
-    // 越权不可操作（真实 Console→Runtime 写入口的后端兜底）：BUILDER 真实会话 + CSRF 仍 403。
-    const denied = await builderPage.request.post(`/api/v1/users/${userId}/memory`, {
+    const denied = await builderPage.request.post(`/api/v1/users/${userId}/memory/commands`, {
       headers: {
         ...(await csrfHeaders(builderPage)),
         'Idempotency-Key': idempotencyKey('e2e-builder')
       },
-      data: { memory_key: deniedKey, category: 'PREFERENCE', value: '越权写入' }
+      data: { action: 'CREATE', candidate: candidateOf(deniedTitle, '越权写入') }
     });
     expect(denied.status(), await denied.text()).toBe(403);
   } finally {
     await builderContext.close();
   }
 
-  // 拒绝必须无副作用：ADMIN 视角下该 key 不存在。
-  const listResponse = await page.request.get(`/api/v1/users/${userId}/memory?page=1&page_size=100`);
-  const listItems = ((await listResponse.json()) as { data: { items: Array<{ memory_key: string }> } })
-    .data.items;
-  expect(listItems.map((item) => item.memory_key)).not.toContain(deniedKey);
+  // 拒绝必须无副作用：ADMIN 视角下该标题不存在。
+  const items = await listMemories(page, userId);
+  expect(items.map((item) => item.title)).not.toContain(deniedTitle);
 });

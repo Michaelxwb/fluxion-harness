@@ -43,7 +43,7 @@ from muad_console_platform.infrastructure.mcp_client import (
     normalize_tools,
 )
 from muad_contracts import ResolvedModel
-from muad_contracts.memory import FactContent, MemoryCandidate, MemoryCategory
+from muad_contracts.memory import ExperienceCandidate, FactContent, MemoryCategory
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
 from .non_interference_support import assert_domain_unchanged
@@ -276,7 +276,7 @@ def _upsert(*, value: str, expected: int | None, restore: bool = False) -> Memor
         mutations=[
             MemoryMutation(
                 action="UPSERT",
-                candidate=MemoryCandidate(
+                candidate=ExperienceCandidate(
                     memory_key=MEMORY_KEY,
                     category=MemoryCategory.PREFERENCE,
                     content=FactContent(value=value),
