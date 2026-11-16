@@ -257,3 +257,50 @@ def test_config_repr_hides_factors(config) -> None:
     rendered = repr(config)
     assert ISSUER not in rendered
     assert AUDIENCE not in rendered
+
+
+# --- 未配置平台：503（E-03），且配置检查先于任何存储访问 ---------------------------
+
+
+async def test_resolve_raises_platform_unavailable_when_no_platform_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """空 `EXTERNAL_ASSERTION_PLATFORMS_JSON`（Secret 缺失/未配）= 该平台 503，而非 401。"""
+    from muad_common import SharedSettings
+    from muad_console_platform.application import external_assertion_service as svc_mod
+
+    monkeypatch.setattr(
+        svc_mod, "process_settings", lambda: SharedSettings(external_assertion_platforms_json="")
+    )
+    service = svc_mod.ExternalAssertionService(session=None)  # type: ignore[arg-type]
+
+    with pytest.raises(svc_mod.PlatformUnavailable):
+        await service.resolve("t1", "mssw", "any.assertion.token")
+
+
+async def test_resolve_raises_platform_unavailable_before_touching_storage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """配置缺该 key 时，resolve 不调用任何存储方法 —— 直接 503，不进查询分支。"""
+    from muad_common import SharedSettings
+    from muad_console_platform.application import external_assertion_service as svc_mod
+
+    touched: list[str] = []
+
+    class _RecordingRepo:
+        def __init__(self, *_a, **_k) -> None:
+            pass
+
+        def __getattr__(self, name: str):
+            touched.append(name)
+            raise AssertionError(f"未配置平台不得访问存储方法 {name}")
+
+    monkeypatch.setattr(svc_mod, "ExternalIdentityRepository", _RecordingRepo)
+    monkeypatch.setattr(
+        svc_mod, "process_settings", lambda: SharedSettings(external_assertion_platforms_json="")
+    )
+    service = svc_mod.ExternalAssertionService(session=None)  # type: ignore[arg-type]
+
+    with pytest.raises(svc_mod.PlatformUnavailable):
+        await service.resolve("t1", "mssw", "any.assertion.token")
+    assert touched == [], "配置检查必须先于任何存储访问"

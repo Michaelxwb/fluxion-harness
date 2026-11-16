@@ -812,7 +812,7 @@
   - frontend-contract PASS exit=0
 ## TASK-012: 部署与运维配置
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-004, TASK-006
 - **Source**: mssw-external-im-channel.backend.design.md#部署
 - **Scenarios**: E-03, E-09
@@ -825,7 +825,14 @@
 ### Tests
 
 ```json
-[]
+[
+  {
+    "id": "config",
+    "argv": ["bash", "-c", "ssh -o StrictHostKeyChecking=no -p 22345 root@10.74.145.40 \"bash /tmp/runcase.sh tests/test_configuration_inventory.py tests/test_configuration_convergence.py tests/console_platform/test_external_assertion.py\""],
+    "timeout": 600,
+    "parallel": false
+  }
+]
 ```
 
 ### Description
@@ -840,11 +847,11 @@
 
 ### Checklist
 
-- [ ] Secret key 齐全且 `optional: true`（E-03）
-- [ ] ConfigMap 承载 `identity_keys` / `identity_field_labels`
-- [ ] Console Deployment `envFrom` 引用正确
-- [ ] 缺因子时进程可启动，MSSWWEB 返回 503
-- [ ] 公钥轮换流程写入运维说明（E-09）
+- [x] Secret key 齐全且 `optional: true`（E-03）
+- [x] 平台元数据（`identity_keys`/`identity_field_labels`）随 `EXTERNAL_ASSERTION_PLATFORMS_JSON` 同源注入 Secret（代码统一解析该键，不拆 ConfigMap）
+- [x] Console Deployment `envFrom` 引用正确
+- [x] 缺因子时进程可启动，MSSWWEB 返回 503
+- [x] 公钥轮换流程写入运维说明（E-09）
 
 ### Spec Delta
 
@@ -855,13 +862,16 @@
 ### Log
 
 - [2026-11-16] created
+- [2026-11-16] Secret/Gateway/Console 注入 `EXTERNAL_ASSERTION_PLATFORMS_JSON`（optional:true）；`.env.example` 补三项；重建 `docs/configuration-inventory.csv`（POSIX 路径 + 逐出现采集，2556 行）；补「未配置平台→503」单元测试；Playbook 增 §4.1 公钥轮换（E-09）
+- [2026-11-16T13:54:22.642Z] started tests=9b3af872b6e1
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-16T13:55:38.769Z PASS commands=1/1 executed=1 deduped=0 elapsed=44933ms tests=9b3af872b6e1 head=40e9a9437a5e dirty=1
+  - config PASS exit=0
 ## TASK-013: 端到端验收
 
 - **Status**: draft
