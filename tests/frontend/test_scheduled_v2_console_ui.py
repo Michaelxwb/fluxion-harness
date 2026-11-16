@@ -379,6 +379,17 @@ def test_task_pages_show_v2_status_wait_snapshot_and_human() -> None:
     page = _read(TASK_PAGE)
     assert "TASK_STATUSES" in page and "CANCELLABLE_TASK_STATUSES" in page
     assert "task.columns.taskType" in page
+    for token in (
+        "task-filter-search",
+        "onSearchChange",
+        "task.filter.searchTaskId",
+        "CompactDateRange",
+        "triggerRender",
+        "task.filter.created",
+        "task.filter.deadline",
+        "resetFilters",
+    ):
+        assert token in page, token
     for retired in ("task.columns.deliveryStatus", "delivery_status", "intent_key"):
         assert retired not in page, retired
 

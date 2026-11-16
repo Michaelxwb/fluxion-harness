@@ -74,6 +74,25 @@ async def test_b124_admin_list_and_cancel_contract(
     assert replay.json()["data"]["status"] == "CANCELLED"
 
 
+async def test_b124_admin_list_filters_by_task_id_keyword(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    wanted = await persist_task(tenant)
+    await persist_task(tenant)
+    fragment = str(wanted.id)[:8]
+
+    listed = await client.get(
+        "/internal/admin/tasks",
+        headers=_admin_headers(tenant.tenant_id),
+        params={"keyword": fragment},
+    )
+
+    assert listed.status_code == 200, listed.text
+    data = listed.json()["data"]
+    assert data["total"] == 1
+    assert data["items"][0]["task_id"] == str(wanted.id)
+
+
 async def test_b124_cross_tenant_access_is_not_found(
     client: AsyncClient, tenant: TenantContext
 ) -> None:

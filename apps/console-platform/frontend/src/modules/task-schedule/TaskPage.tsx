@@ -1,5 +1,6 @@
 import { actionColumn } from '../../components/common/tableLayout';
-import { Button, DatePicker, Modal, Select, Tag } from '@douyinfe/semi-ui';
+import { Button, DatePicker, Input, Modal, Select, Tag } from '@douyinfe/semi-ui';
+import { IconCalendar } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -59,6 +60,47 @@ function toIsoEndOfDay(value: Date | null | undefined): string | undefined {
   return end.toISOString();
 }
 
+function shortDate(value: Date): string {
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${month}-${day}`;
+}
+
+/**
+ * 紧凑日期范围：工具条只显示一个短按钮，点开后才出现日期面板。
+ * 既保留任意范围能力，又不再让两个 220px 的日期输入框撑满筛选行。
+ */
+function CompactDateRange(props: {
+  testId: string;
+  label: string;
+  value: Date[];
+  onChange(range: Date[]): void;
+}) {
+  const text =
+    props.value.length === 2
+      ? `${shortDate(props.value[0])} ~ ${shortDate(props.value[1])}`
+      : props.value.length === 1
+        ? `${shortDate(props.value[0])} ~ …`
+        : props.label;
+  return (
+    <DatePicker
+      data-testid={props.testId}
+      type="dateRange"
+      value={props.value}
+      onChange={(value) => props.onChange(Array.isArray(value) ? (value as Date[]) : [])}
+      triggerRender={({ placeholder }) => (
+        <Button
+          theme="borderless"
+          icon={<IconCalendar />}
+          style={{ minWidth: 120, maxWidth: 170, justifyContent: 'flex-start' }}
+        >
+          {text || placeholder}
+        </Button>
+      )}
+    />
+  );
+}
+
 /**
  * 筛选下拉的可选项**首次展开时才取**：这三个端点与任务列表无关，进页面就抓会白白多发三个
  * 请求；端点不可用时还会在用户什么都没做的情况下连弹三条错误。
@@ -109,6 +151,17 @@ export function TaskPage() {
   const related = useRelatedDetail();
   const [detailReloadKey, setDetailReloadKey] = useState(0);
   const requestSeq = useRef(0);
+  const [searchText, setSearchText] = useState(params.keyword ?? '');
+  const [createdRange, setCreatedRange] = useState<Date[]>([]);
+  const [deadlineRange, setDeadlineRange] = useState<Date[]>([]);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    },
+    []
+  );
 
   const deepLinkTaskId = searchParams.get('taskId');
   const deepLinkScheduleId = searchParams.get('scheduleId');
@@ -208,6 +261,22 @@ export function TaskPage() {
     setParams((prev) => ({ ...prev, ...patch, page: 1 }));
   }, []);
 
+  const onSearchChange = useCallback((value: string) => {
+    setSearchText(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setParams((prev) => ({ ...prev, keyword: value.trim() || undefined, page: 1 }));
+    }, 300);
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    setSearchText('');
+    setCreatedRange([]);
+    setDeadlineRange([]);
+    setParams(DEFAULT_PARAMS);
+  }, []);
+
   return (
     <>
       <PageHeader title={t('task.title')} />
@@ -220,6 +289,14 @@ export function TaskPage() {
           }
           search={
             <>
+              <Input
+                data-testid="task-filter-search"
+                value={searchText}
+                style={{ width: 200 }}
+                showClear
+                placeholder={t('task.filter.searchTaskId')}
+                onChange={onSearchChange}
+              />
               <Select
                 data-testid="task-filter-status"
                 value={params.status ?? undefined}
@@ -281,26 +358,24 @@ export function TaskPage() {
                 onDropdownVisibleChange={skillPicker.onDropdownVisibleChange}
                 onChange={(value) => setFilter({ skill_id: (value as string) ?? undefined })}
               />
-              <DatePicker
-                data-testid="task-filter-create"
-                type="dateRange"
-                style={{ width: 220 }}
-                placeholder={[t('task.filter.createdFrom'), t('task.filter.createdTo')]}
-                onChange={(value) => {
-                  const range = Array.isArray(value) ? (value as Date[]) : [];
+              <CompactDateRange
+                testId="task-filter-create"
+                label={t('task.filter.created')}
+                value={createdRange}
+                onChange={(range) => {
+                  setCreatedRange(range);
                   setFilter({
                     start_time: toIsoDate(range[0]),
                     end_time: toIsoEndOfDay(range[1])
                   });
                 }}
               />
-              <DatePicker
-                data-testid="task-filter-deadline"
-                type="dateRange"
-                style={{ width: 220 }}
-                placeholder={[t('task.filter.deadlineFrom'), t('task.filter.deadlineTo')]}
-                onChange={(value) => {
-                  const range = Array.isArray(value) ? (value as Date[]) : [];
+              <CompactDateRange
+                testId="task-filter-deadline"
+                label={t('task.filter.deadline')}
+                value={deadlineRange}
+                onChange={(range) => {
+                  setDeadlineRange(range);
                   setFilter({
                     deadline_from: toIsoDate(range[0]),
                     deadline_to: toIsoEndOfDay(range[1])
@@ -309,7 +384,7 @@ export function TaskPage() {
               />
               <ListActionButton
                 data-testid="task-reset"
-                onClick={() => setParams(DEFAULT_PARAMS)}
+                onClick={resetFilters}
                 action="reset"
               />
               <ListActionButton onClick={() => void reload()} action="refresh" />

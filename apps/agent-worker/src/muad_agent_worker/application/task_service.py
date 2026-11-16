@@ -21,7 +21,7 @@ from muad_contracts import (
 from muad_contracts.platform_settings import PlatformSettings, TaskSettings, validate_task_execution_timeout
 from muad_contracts.snapshot import freeze_task_execution_timeout, snapshot_hash, task_execution_timeout
 from pydantic import JsonValue
-from sqlalchemy import false, func, select, update
+from sqlalchemy import String, false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -282,6 +282,7 @@ class TaskService:
         actor_user_id: uuid.UUID | None = None,
         skill_id: uuid.UUID | None = None,
         schedule_id: uuid.UUID | None = None,
+        keyword: str | None = None,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         deadline_from: datetime | None = None,
@@ -305,6 +306,11 @@ class TaskService:
             conditions.append(TaskExecution.skill_id == skill_id)
         if schedule_id is not None:
             conditions.append(TaskExecution.schedule_id == schedule_id)
+        if keyword is not None and keyword.strip():
+            # 任务没有名称；用户手里通常只有短 id，按 UUID 文本做包含匹配。
+            conditions.append(
+                TaskExecution.id.cast(String).ilike(f"%{keyword.strip()}%")
+            )
         if start_time is not None:
             conditions.append(TaskExecution.create_time >= start_time)
         if end_time is not None:

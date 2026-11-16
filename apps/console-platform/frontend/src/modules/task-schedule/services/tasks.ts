@@ -117,6 +117,8 @@ export interface TaskListParams {
   skill_id?: string;
   status?: TaskStatus;
   trigger_type?: TriggerType;
+  /** 任务 ID 包含匹配（用户手里通常只有短 id）。 */
+  keyword?: string;
   start_time?: string;
   end_time?: string;
   deadline_from?: string;

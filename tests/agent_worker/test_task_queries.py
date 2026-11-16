@@ -154,6 +154,24 @@ async def test_list_filters_by_schedule_id(client: AsyncClient, tenant: TenantCo
     assert page["items"][0]["task_id"] == str(wanted.id)
 
 
+async def test_list_filters_by_task_id_keyword(
+    client: AsyncClient, tenant: TenantContext
+) -> None:
+    """短任务 id 包含匹配；大小写/连字符不要求精确。"""
+    wanted = await persist_task(tenant)
+    await persist_task(tenant)
+    fragment = str(wanted.id)[:8]
+
+    listing = await client.get(
+        "/internal/tasks", params={"keyword": fragment}, headers=_headers(tenant)
+    )
+
+    assert listing.status_code == 200, listing.text
+    page = listing.json()["data"]
+    assert page["total"] == 1
+    assert page["items"][0]["task_id"] == str(wanted.id)
+
+
 async def test_deadline_filter_is_independent_from_create_time(
     client: AsyncClient, tenant: TenantContext
 ) -> None:
