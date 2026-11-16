@@ -34,7 +34,10 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .api.delivery import router as delivery_router
 from .api.health import readiness_checks, readiness_detail
+from .api.webchat import notification_router as webchat_notification_router
 from .api.webchat import router as webchat_router
+from .application.webchat_core import ChatSurface
+from .channels.registry import external_platforms_enabled as _external_platforms_configured
 from .api.webhook import router as webhook_router
 from .application.channel_delivery import ActiveChannelDelivery, ConsoleDeliveryPermission
 from .application.connector_outbound import ConnectorOutboundCommands
@@ -487,8 +490,32 @@ install_health_probes(
 app.include_router(delivery_router)
 # 通用 Webhook 入站（S-07）：`/channels/{channel}/events` —— 通道由配置装配，不新增部署单元。
 app.include_router(webhook_router)
-# Webchat 公开面（TASK-052/054/055/057/061）：HTTP 聊天/上传/下载与公开 SSE 的实际注册点。
-app.include_router(webchat_router)
+# 本地流式对话面：同一套 router 按 surface 多挂载（设计 §ChatSurface / RULE-im-006）。
+# WEBCHAT（Console 签发的 CHAT token）与 MSSWWEB（上游 platform 断言）共享 handler，
+# 仅通道名与认证方式不同；通道字面量只在本装配根出现，api/application 层保持中立。
+def _build_webchat_surfaces(settings: SharedSettings) -> dict[str, ChatSurface]:
+    """按配置生成要挂载的 surface 表：WEBCHAT 恒定，MSSWWEB 仅在启用外部断言平台时加。"""
+    surfaces: dict[str, ChatSurface] = {
+        "/api/v1/webchat": ChatSurface(channel="WEBCHAT", auth_kind="USER_TOKEN"),
+    }
+    if _external_platforms_configured(settings):
+        surfaces["/api/v1/msswwweb"] = ChatSurface(
+            channel="MSSWWEB", auth_kind="EXTERNAL_ASSERTION"
+        )
+    return surfaces
+
+
+def mount_webchat_surfaces(target_app: FastAPI, settings: SharedSettings) -> None:
+    """把本地流式对话面按 surface 挂到 `target_app`（WEBCHAT 面含通知中心）。"""
+    surfaces = _build_webchat_surfaces(settings)
+    target_app.state.webchat_surfaces = surfaces
+    for prefix in surfaces:
+        target_app.include_router(webchat_router, prefix=prefix)
+    # 通知中心只挂 WEBCHAT 面（MSSWWEB 不暴露通知中心，设计 §I4）。
+    target_app.include_router(webchat_notification_router, prefix="/api/v1/webchat")
+
+
+mount_webchat_surfaces(app, SharedSettings())
 install_gateway_metrics(app)
 # 最后注册 = 最外层：必须包在 api-kit 的异常/封套中间件之外，才能看到最终的 5xx 状态。
 app.add_middleware(_ServerErrorLogMiddleware)

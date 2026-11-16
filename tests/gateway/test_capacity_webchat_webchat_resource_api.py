@@ -832,6 +832,8 @@ async def test_b252_conversation_create_and_list_delegate_to_owner(
                 "last_run_id": str(RUN_ID),
                 "status": "ACTIVE",
                 "active_run_status": "RUNNING",
+                "has_unread": False,
+                "entry_id": None,
             }
         ],
         "page": 2,
@@ -869,6 +871,8 @@ async def test_b252_conversation_detail_and_history_resolve_scope_then_read_entr
         "title": "容量检查",
         "status": "ACTIVE",
         "last_seq": 12,
+        "has_unread": False,
+        "notification_through_seq": 0,
         "last_run_id": str(RUN_ID),
         "active_run": {
             "id": str(RUN_ID),

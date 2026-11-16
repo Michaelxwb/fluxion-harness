@@ -50,6 +50,7 @@ from ..application.webchat_config import (
     WebchatClientConfigService,
     WebchatTransportBudget,
 )
+from ..application.webchat_core import WEBCHAT_CHANNEL, ChatSurface
 from ..application.webchat_service import WebchatResourceService
 from ..application.webchat_streams import (
     HEARTBEAT_FRAME,
@@ -72,9 +73,34 @@ async def no_store(response: Response) -> None:
     response.headers["Cache-Control"] = NO_STORE_CACHE_CONTROL
 
 
-router = APIRouter(
-    prefix="/api/v1/webchat", tags=["webchat"], dependencies=[Depends(no_store)]
+#: 路由自身不带 prefix：装配根按 surface 逐个 `include_router(router, prefix=...)` 多挂载，
+#: 同一套 handler 服务 WEBCHAT 与 MSSWWEB（设计 §ChatSurface / RULE-im-006）。
+router = APIRouter(tags=["webchat"], dependencies=[Depends(no_store)])
+
+#: 通知中心（列表/已读/SSE）只属于 WEBCHAT 面：MSSWWEB 不暴露通知中心（设计 §I4），
+#: 装配根只把 `notification_router` 挂到 WEBCHAT 前缀。
+notification_router = APIRouter(
+    tags=["webchat-notifications"], dependencies=[Depends(no_store)]
 )
+
+#: 装配根发布的 `{prefix: ChatSurface}` 映射（通道字面量只在装配根/通道实现里出现，
+#: `api/` 层保持通道中立）。缺省单面部署时回落到 WEBCHAT。
+_SURFACES_STATE = "webchat_surfaces"
+
+
+def get_webchat_surface(request: Request) -> ChatSurface:
+    """按请求实际挂载前缀解析当前 surface（通道名不写死在 handler 里）。"""
+    surfaces: dict[str, ChatSurface] = getattr(
+        request.app.state, _SURFACES_STATE, {}
+    )
+    path = request.scope.get("path", "")
+    for prefix, surface in surfaces.items():
+        if path == prefix or path.startswith(prefix + "/"):
+            return surface
+    return ChatSurface(channel=WEBCHAT_CHANNEL)
+
+
+WebchatSurfaceDep = Annotated[ChatSurface, Depends(get_webchat_surface)]
 
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1)]
 PageNumber = Annotated[int, Query(ge=1)]
@@ -87,12 +113,16 @@ LastEventId = Annotated[str | None, Header(alias="Last-Event-ID")]
 SnapshotReady = Annotated[bool, Query()]
 
 
-def get_webchat_service(request: Request) -> WebchatResourceService:
-    """资源服务：Owner 客户端 + 入口快照 + 部署租户（装配根发布的状态值，网关不持库）。"""
+def get_webchat_service(
+    request: Request, surface: WebchatSurfaceDep
+) -> WebchatResourceService:
+    """资源服务：Owner 客户端 + 入口快照 + 部署租户 + 当前 surface（网关不持库）。"""
     runtime: RuntimeClient = request.app.state.runtime_client
     entries: BotSnapshotCache = request.app.state.bot_snapshot
     tenant_id: str = request.app.state.tenant_id
-    return WebchatResourceService(runtime=runtime, entries=entries, tenant_id=tenant_id)
+    return WebchatResourceService(
+        runtime=runtime, entries=entries, tenant_id=tenant_id, surface=surface
+    )
 
 
 WebchatServiceDep = Annotated[WebchatResourceService, Depends(get_webchat_service)]
@@ -375,7 +405,7 @@ async def list_messages(
     return ok(request.app.state.message_catalog, view.model_dump(mode="json"))
 
 
-@router.get("/notifications")
+@notification_router.get("/notifications")
 async def list_notifications(
     request: Request,
     chat: ChatIdentityDep,
@@ -395,7 +425,7 @@ async def list_notifications(
     return ok(request.app.state.message_catalog, page_view.model_dump(mode="json"))
 
 
-@router.post("/notifications/{notification_id}/read")
+@notification_router.post("/notifications/{notification_id}/read")
 async def mark_notification_read(
     notification_id: uuid.UUID,
     request: Request,
@@ -544,7 +574,7 @@ async def _notification_frames(
             yield _notification_frame(live_item, unread_count)
 
 
-@router.get("/notifications/stream")
+@notification_router.get("/notifications/stream")
 async def stream_notifications(
     chat: ChatIdentityDep,
     service: WebchatServiceDep,

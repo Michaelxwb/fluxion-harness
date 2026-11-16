@@ -17,6 +17,7 @@ from ..infrastructure.models.control import PlatformUser
 from ..infrastructure.repositories.external_identity_repository import (
     ExternalIdentityRepository,
 )
+from .channel_admin_service import MSSWWEB_CHANNEL as _EXTERNAL_PLATFORM_CHANNEL
 from .dto import (
     ExternalEntryGrantItem,
     ExternalEntryItem,
@@ -170,7 +171,7 @@ class ExternalIdentityService:
         page: int,
         page_size: int,
     ) -> list[ExternalEntryItem]:
-        """API-19：可绑定的 MSSWWEB 入口，分页搜索。
+        """API-19：该平台下可绑定的入口，分页搜索。
 
         由服务端分页与过滤；前端不得用本地过滤冒充完整搜索，否则大租户下漏项。
         """
@@ -178,7 +179,7 @@ class ExternalIdentityService:
         offset = max(page - 1, 0) * page_size
         bot_accounts = await self._repo.list_entry_candidates(
             tenant_id,
-            channel="MSSWWEB",
+            channel=_EXTERNAL_PLATFORM_CHANNEL,
             query=query,
             offset=offset,
             limit=page_size,

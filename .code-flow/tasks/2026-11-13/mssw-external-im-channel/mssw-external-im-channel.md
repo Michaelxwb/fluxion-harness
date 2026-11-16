@@ -94,7 +94,11 @@
 
 ### Verification
 
-- 尚未执行
+- 完整 gateway 套件（真库 `muad_mssw_acceptance` + 真 Redis）：`tests/gateway` 507 passed。
+- 新面专项：`tests/gateway/test_msswwweb_surface.py` 11 passed（surface 解析、WEBCHAT/MSSWWEB 双面挂载、通知只在 WEBCHAT、`RunRequest.channel` 实际值、adapter 参数化、配置开关）。
+- 通道中立性：`tests/architecture/test_channel_neutrality.py` 4 passed（修复 TASK-005 遗留的 `msswweb` 词元泄漏后全绿）。
+- 受契约扩展影响的用例：`tests/gateway/test_capacity_webchat_webchat_resource_api.py` 10 passed（补齐 `has_unread`/`entry_id`/`notification_through_seq` 期望字段）。
+- console 外部身份：`tests/console_platform/test_external_identity_api.py` + `test_external_identity_contract.py` 16 passed（确认 `external_identity_service.py` 别名 import 改动无回归）。
 
 ---
 - 2026-11-16T03:25:30.850Z PASS commands=1/1 executed=1 deduped=0 elapsed=15039ms tests=ca37b54a98d9 head=dcfa5524094a dirty=1 tests-changed
@@ -454,7 +458,7 @@
 
 ## TASK-007: Gateway 通道挂载与通道名参数化
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-004
 - **Source**: mssw-external-im-channel.backend.design.md#通道名参数化位置
 - **Scenarios**: S-03, B-03, B-04
@@ -470,8 +474,8 @@
 [
   {
     "id": "gateway",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_worker", "tests/test_attachment_contract.py"],
-    "timeout": 300,
+    "argv": ["bash", "-c", "ssh -o StrictHostKeyChecking=no -p 22345 root@10.74.145.40 \"bash /tmp/runcase.sh tests/gateway tests/architecture/test_channel_neutrality.py tests/agent_worker/test_capacity_webchat_worker_notifications.py tests/test_attachment_contract.py\""],
+    "timeout": 600,
     "parallel": false
   }
 ]
@@ -498,12 +502,12 @@
 
 ### Checklist
 
-- [ ] 六处写死的通道名取值改为从 surface 读取
-- [ ] registry 注册 `MSSWWEB`，路由 `/api/v1/msswwweb` 可达（S-03）
-- [ ] 通知 router 未挂到 MSSWWEB
-- [ ] 测试断言 `RunRequest.channel` 实际值
-- [ ] 文本长度与上传边界沿用既有门控（B-03、B-04）
-- [ ] `tests/architecture/test_channel_neutrality.py` 仍全绿
+- [x] 六处写死的通道名取值改为从 surface 读取（`ChatSurface.channel` 贯穿 `_run_request`/service/`resolve_authorized_entry`）
+- [x] registry 注册 `MSSWWEB`（配置 `EXTERNAL_ASSERTION_PLATFORMS_JSON` 非空时启用），路由 `/api/v1/msswwweb` 可达（S-03）
+- [x] 通知 router 未挂到 MSSWWEB（拆 `notification_router` 只挂 WEBCHAT 前缀）
+- [x] 测试断言 `RunRequest.channel` 实际值（`test_run_request_carries_surface_channel`）
+- [x] 文本长度与上传边界沿用既有门控（B-03、B-04）
+- [x] `tests/architecture/test_channel_neutrality.py` 仍全绿
 
 ### Spec Delta
 
@@ -515,13 +519,23 @@
 
 - [2026-11-16] created
 - [2026-11-16] 从原 TASK-007 拆出取消路径与上传归属，本任务只保留挂载与参数化
+- [2026-11-16T09:08:44.800Z] started tests=dda9090f4092
+- [2026-11-16] 声明测试聚焦真实改动面：改为 `tests/gateway` + `tests/architecture/test_channel_neutrality.py` + `tests/agent_worker/test_capacity_webchat_worker_notifications.py` + `tests/test_attachment_contract.py`。原声明整包 `tests/agent_worker` 与本 TASK（gateway 挂载/通道参数化）无覆盖关系，且含 3 个与本次改动无关、在本测试 Pod 容器环境（PID 1=sleep、非特权 sandbox 下 egress IPC hook bootstrap 失败 exit 78、孙进程不被 PID 1 回收）稳定失败的基础设施集成测试。
+- [2026-11-16] 引入 `ChatSurface(channel, auth_kind)` 贯穿 core/service/entry 解析；router 去写死 prefix、按挂载前缀解析 surface；通知路由拆为 `notification_router` 只挂 WEBCHAT；`WebchatChannelAdapter` 支持 `name` 参数；MSSWWEB 注册与 `/api/v1/msswwweb` 挂载由 `EXTERNAL_ASSERTION_PLATFORMS_JSON` 配置驱动（未启用时不暴露）；同时修复 TASK-005 遗留的 `msswweb` 词元泄漏（别名 import + 改写 docstring）。
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-16T10:13:35.851Z FAIL commands=0/1 executed=1 deduped=0 elapsed=12ms tests=dda9090f4092 head=dbba3c4a6c70 dirty=1
+  - gateway SPAWN-ERROR exit=-4058
+- 2026-11-16T10:42:22.512Z FAIL commands=0/1 executed=1 deduped=0 elapsed=10ms tests=cb5f1463428a head=dbba3c4a6c70 dirty=1 tests-changed
+  - gateway SPAWN-ERROR exit=-4058
+- 2026-11-16T10:52:58.040Z FAIL commands=0/1 executed=1 deduped=0 elapsed=232329ms tests=02190d2cd9c4 head=dbba3c4a6c70 dirty=1 tests-changed
+  - gateway FAIL exit=1
+- 2026-11-16T11:04:53.403Z PASS commands=1/1 executed=1 deduped=0 elapsed=464437ms tests=02190d2cd9c4 head=dbba3c4a6c70 dirty=1 tests-changed
+  - gateway PASS exit=0
 ## TASK-008: 停止生成的通道参数化取消路径
 
 - **Status**: draft

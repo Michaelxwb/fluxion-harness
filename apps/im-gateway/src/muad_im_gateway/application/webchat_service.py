@@ -33,7 +33,7 @@ from uuid import UUID, uuid4
 
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
-from muad_contracts import BotSnapshotItem, ChannelContext, RunRequest
+from muad_contracts import BotSnapshotItem, ChannelContext, ChannelName, RunRequest
 from muad_contracts.im import InboundEvent
 from muad_contracts.webchat import (
     WebchatConversationCreated,
@@ -59,7 +59,11 @@ from pydantic import BaseModel, ValidationError
 
 from .chat_principal import ChatIdentity
 from .runtime_client import RunAdmission
-from .webchat_core import WEBCHAT_CHANNEL, WEBCHAT_CHANNEL_IDENTITY, build_webchat_message_gateway
+from .webchat_core import (
+    WEBCHAT_CHANNEL,
+    ChatSurface,
+    build_webchat_message_gateway,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -192,13 +196,22 @@ class WebchatResourceService:
     """API-05/06/08/09/14/15 的应用服务：授权判定 + 请求组装 + 公开投影校验。"""
 
     def __init__(
-        self, *, runtime: WebchatOwnerPort, entries: WebchatEntrySource, tenant_id: str
+        self,
+        *,
+        runtime: WebchatOwnerPort,
+        entries: WebchatEntrySource,
+        tenant_id: str,
+        surface: ChatSurface | None = None,
     ) -> None:
         self._runtime = runtime
         self._entries = entries
         self._tenant_id = tenant_id
-        # WebChat 提交走统一消息核心的 SYNC 入口（API-08）：渠道校验在核心，端口只做映射。
-        self._messages = build_webchat_message_gateway(runtime)
+        # 同一套 SYNC 逻辑按 surface 挂载：WEBCHAT 与 MSSWWEB 仅 `channel` 不同。
+        self._surface = surface or ChatSurface(channel=WEBCHAT_CHANNEL)
+        # 本地流式提交走统一消息核心的 SYNC 入口（API-08）：渠道校验在核心，端口只做映射。
+        self._messages = build_webchat_message_gateway(
+            runtime, channel=self._surface.channel
+        )
 
     # --- API-05 ---------------------------------------------------------------------
     def list_entries(self, identity: ChatIdentity) -> WebchatEntryPage:
@@ -211,7 +224,9 @@ class WebchatResourceService:
                 display_name=authorized[item.agent_id],
             )
             for item in self._entries.items
-            if item.enabled and item.channel == WEBCHAT_CHANNEL and item.agent_id in authorized
+            if item.enabled
+            and item.channel == self._surface.channel
+            and item.agent_id in authorized
         ]
         if len(items) > MAX_ENTRIES:
             # 入口数是"当前授权入口"的完整集合，不允许静默截断（截断=看不见的入口）。
@@ -234,7 +249,7 @@ class WebchatResourceService:
         principal = identity.principal
         event = InboundEvent(
             event_id=uuid4(),
-            channel=WEBCHAT_CHANNEL,
+            channel=self._surface.channel,
             tenant_id=self._tenant_id,
             # `bot_id` 只保留平台标识；入口身份由 `SyncPrincipal.entry_id` 显式携带。
             bot_id=ref.bot_id,
@@ -254,7 +269,7 @@ class WebchatResourceService:
         )
         started = time.monotonic()
         admission = await self._messages.admit_sync(
-            event, adapter=WEBCHAT_CHANNEL_IDENTITY, principal_context=context
+            event, adapter=self._surface.identity, principal_context=context
         )
         admission_ms = (time.monotonic() - started) * 1000
         if admission_ms > 1000:
@@ -283,7 +298,7 @@ class WebchatResourceService:
             tenant_id=self._tenant_id,
             idempotency_key=idempotency_key,
             channel=ChannelContext(
-                type=WEBCHAT_CHANNEL,
+                type=self._surface.channel,
                 entry_id=ref.entry_id,
                 bot_id=ref.bot_id,
                 external_user_id=str(principal.platform_user_id),
@@ -440,7 +455,9 @@ class WebchatResourceService:
 
     # --- 内部：授权与归属 -------------------------------------------------------------
     def _resolve_entry(self, identity: ChatIdentity, entry_id: UUID) -> ResolvedEntry:
-        return resolve_authorized_entry(self._entries, identity, entry_id)
+        return resolve_authorized_entry(
+            self._entries, identity, entry_id, channel=self._surface.channel
+        )
 
     async def _resolve_scope(
         self, identity: ChatIdentity, conversation_id: UUID
@@ -473,7 +490,11 @@ class ResolvedEntry:
 
 
 def resolve_authorized_entry(
-    entries: WebchatEntrySource, identity: ChatIdentity, entry_id: UUID
+    entries: WebchatEntrySource,
+    identity: ChatIdentity,
+    entry_id: UUID,
+    *,
+    channel: ChannelName = WEBCHAT_CHANNEL,
 ) -> ResolvedEntry:
     """入口 → (agent, entry)：未启用/非本通道/未知一律 404，未授权 Agent 越权 403。
 
@@ -486,7 +507,7 @@ def resolve_authorized_entry(
             for candidate in entries.items
             if candidate.bot_account_id == entry_id
             and candidate.enabled
-            and candidate.channel == WEBCHAT_CHANNEL
+            and candidate.channel == channel
         ),
         None,
     )
