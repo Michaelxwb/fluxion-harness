@@ -403,6 +403,55 @@ codes:
       zh-CN: Skill {key} 已被 {agent_count} 个 Agent 绑定，请先解除绑定再删除
       en-US: Skill {key} is bound to {agent_count} agent(s); unbind it before deleting
 
+  EXTERNAL_ASSERTION_INVALID:
+    http_status: 401
+    messages:
+      zh-CN: 外部平台登录凭证无效
+      en-US: The external platform assertion is invalid
+
+  EXTERNAL_ASSERTION_EXPIRED:
+    http_status: 401
+    messages:
+      zh-CN: 外部平台登录凭证已过期，请重新登录
+      en-US: The external platform assertion has expired; sign in again
+
+  EXTERNAL_ASSERTION_UNBOUND:
+    http_status: 403
+    messages:
+      zh-CN: 当前外部账号尚未绑定到平台用户，请联系管理员
+      en-US: This external account is not bound to a platform user; contact an administrator
+
+  EXTERNAL_ASSERTION_NOT_GRANTED:
+    http_status: 403
+    messages:
+      zh-CN: 当前外部账号没有该入口的使用权限
+      en-US: This external account is not granted access to this entry
+
+  EXTERNAL_ASSERTION_USER_DISABLED:
+    http_status: 403
+    messages:
+      zh-CN: 账号已停用
+      en-US: The account is disabled
+
+  EXTERNAL_PLATFORM_UNAVAILABLE:
+    http_status: 503
+    retryable: true
+    messages:
+      zh-CN: 外部平台通道暂不可用，请稍后重试
+      en-US: The external platform channel is temporarily unavailable; try again later
+
+  IDENTITY_KEYS_MISMATCH:
+    http_status: 400
+    messages:
+      zh-CN: 身份字段与平台配置不一致，请按 {expected} 填写
+      en-US: The identity fields do not match the platform configuration; fill in {expected}
+
+  IDENTITY_ALREADY_BOUND:
+    http_status: 409
+    messages:
+      zh-CN: 该外部身份已绑定到其他用户
+      en-US: This external identity is already bound to another user
+
   MCP_CONFIG_INVALID:
     http_status: 400
     messages:

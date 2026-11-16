@@ -69,6 +69,15 @@ class SharedSettings(BaseSettings):
     skill_output_max_file_mib: int = Field(default=16, ge=1)
     skill_output_max_total_mib: int = Field(default=64, ge=1)
     migrations_dir: str = "./migrations/versions"
+    #: 外部平台验签因子（JSON 对象，按 platform_key 索引）。**只用环境变量 / Secret 注入**，
+    #: 不落库、不回显、不进日志。空 = 未配置任何外部平台，对应通道认证返回 503。
+    #: 每个平台的键：public_key / issuer / audience / salt / identity_keys /
+    #: identity_field_labels / display_name。
+    external_assertion_platforms_json: str = Field(default="", repr=False)
+    #: 断言最大会话年龄（秒）：``exp`` 恒为 -1 不可信，用签发自报时间兜底；≤0 关闭该闸。
+    external_assertion_max_session_age_sec: int = Field(default=0, ge=0)
+    #: 外部断言结果缓存 TTL（秒）；具体值以部署配置为准。
+    external_assertion_cache_ttl_sec: int = Field(default=60, ge=1)
 
     console_platform_url: str = "http://127.0.0.1:8000"
     agent_runtime_url: str = "http://127.0.0.1:8001"

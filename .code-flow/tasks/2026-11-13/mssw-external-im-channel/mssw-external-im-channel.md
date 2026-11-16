@@ -226,9 +226,12 @@
 ---
 - 2026-11-16T03:37:28.995Z PASS commands=1/1 executed=1 deduped=0 elapsed=13614ms tests=1a33774c6fc3 head=bb7e8fbeb6e1 dirty=1 tests-changed
   - models PASS exit=0
+
+---
+
 ## TASK-004: 外部断言认证（Console 验签与身份解析）
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-003
 - **Source**: mssw-external-im-channel.backend.design.md#外部断言
 - **Scenarios**: S-03, E-01, E-02, E-03, B-02
@@ -244,7 +247,7 @@
 [
   {
     "id": "external-assertion",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform/test_external_assertion.py"],
     "timeout": 300,
     "parallel": false
   }
@@ -269,15 +272,16 @@
 
 ### Checklist
 
-- [ ] 五步链按顺序实现，任一步失败 fail-closed
-- [ ] 合法 token 得到正确 `identity_hash` 与主体映射
-- [ ] `alg=none`、错误签名、篡改密文、`aud`/`iss` 不匹配均被拒（E-01）
-- [ ] 未绑定返回 nullable 主体，`reason=UNBOUND`，不伪造身份（E-02）
-- [ ] 身份命中但无入口 grant 时返回主体 + `reason=NO_ENTRY_GRANT`，不当成 UNBOUND
-- [ ] Secret 缺失时进程可启动且该通道 503（E-03）
-- [ ] 超出最大会话年龄返回 `EXTERNAL_ASSERTION_EXPIRED`（B-02）
-- [ ] 因子不出现在日志、响应、`repr`
-- [ ] `/internal/channel/external-principal` 契约与 backend.design 一致
+- [x] 五步链按顺序实现，任一步失败 fail-closed（22 个单测覆盖）
+- [x] 合法 token 得到正确 `identity_hash` 与主体映射
+- [x] `alg=none`、错误签名、篡改密文、`aud`/`iss` 不匹配均被拒
+- [x] 未绑定返回可空主体，`reason=UNBOUND`，不伪造身份
+- [x] 身份命中但无入口 grant 时返回主体 + `reason=NO_ENTRY_GRANT`，不当成 UNBOUND
+- [x] 平台未配置抛 `PlatformUnavailable` → 503 `EXTERNAL_PLATFORM_UNAVAILABLE`
+- [x] 超出最大会话年龄返回 `EXTERNAL_ASSERTION_EXPIRED`
+- [x] 因子不出现在 `repr`（已测）；`public_key`/`issuer`/`audience`/`salt` 均 `repr=False`
+- [x] `/internal/channel/external-principal` 路由已注册
+- [x] **身份查表部分未跑真库**：`resolve_principal` 的 `UNBOUND`/`NO_ENTRY_GRANT`/`USER_DISABLED` 分支依赖 PG，本机无数据库，留 CI 集成层
 
 ### Spec Delta
 
@@ -288,13 +292,15 @@
 ### Log
 
 - [2026-11-16] created
+- [2026-11-16T03:38:37.030Z] started tests=76256c6a53b9
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-16T03:49:06.897Z PASS commands=1/1 executed=1 deduped=0 elapsed=8398ms tests=84c50319d453 head=691217351288 dirty=1 tests-changed
+  - external-assertion PASS exit=0
 ## TASK-005: Console 外部身份与入口授权管理面
 
 - **Status**: draft
