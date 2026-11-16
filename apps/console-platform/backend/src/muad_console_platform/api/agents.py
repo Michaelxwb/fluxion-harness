@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..application.agent_mcp_service import AgentMcpService
 from ..application.agent_service import AgentService
 from ..application.audit_service import AuditActor
+from ..application.auth_cache_invalidator import InvalidationPlan, auth_cache_directory
 from ..application.channel_admin_service import ChannelAdminService
 from ..application.chat_session_directory import ChatSessionDirectory
 from ..application.dto import AgentBindSkillRequest as BindSkillRequest
@@ -23,6 +24,12 @@ from ..application.grant_service import GrantService
 from ..application.skill_service import SkillService
 from ..infrastructure.db import get_session
 from ..infrastructure.models.control import AgentDefinition
+from ..infrastructure.repositories.agent_access_grant_repository import (
+    AgentAccessGrantRepository,
+)
+from ..infrastructure.repositories.external_identity_repository import (
+    ExternalIdentityRepository,
+)
 from .deps import AccountTenantId, AdminAccount, CurrentAccount, get_source_ip
 
 TenantId = AccountTenantId
@@ -103,6 +110,14 @@ async def update_agent(
         payload,
         _actor(account, request),
     )
+    # Agent 启停/改配置都影响谁能用它：失效所有被授权用户的认证缓存。
+    user_ids = await AgentAccessGrantRepository(session).list_user_ids_for_agent(
+        tenant_id, agent_id
+    )
+    if user_ids:
+        await auth_cache_directory(session, request.app.state).invalidate(
+            tenant_id, plan=InvalidationPlan(user_ids=user_ids)
+        )
     return ok(request.app.state.message_catalog, data)
 
 
@@ -114,7 +129,14 @@ async def delete_agent(
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
+    user_ids = await AgentAccessGrantRepository(session).list_user_ids_for_agent(
+        tenant_id, agent_id
+    )
     await AgentService(session).delete_agent(tenant_id, agent_id, _actor(account, request))
+    if user_ids:
+        await auth_cache_directory(session, request.app.state).invalidate(
+            tenant_id, plan=InvalidationPlan(user_ids=user_ids)
+        )
     return ok(
         request.app.state.message_catalog, {"id": str(agent_id), "is_deleted": True}
     )
@@ -282,6 +304,9 @@ async def grant_agent_user(
     await ChatSessionDirectory(
         session, session_store=getattr(request.app.state, "session_store", None)
     ).refresh_user(tenant_id, user_id)
+    await auth_cache_directory(session, request.app.state).invalidate(
+        tenant_id, plan=InvalidationPlan(user_ids=(user_id,))
+    )
     return ok(
         request.app.state.message_catalog,
         {
@@ -312,6 +337,9 @@ async def revoke_agent_user(
     await ChatSessionDirectory(
         session, session_store=getattr(request.app.state, "session_store", None)
     ).refresh_user(tenant_id, user_id)
+    await auth_cache_directory(session, request.app.state).invalidate(
+        tenant_id, plan=InvalidationPlan(user_ids=(user_id,))
+    )
     return ok(
         request.app.state.message_catalog,
         {"agent_id": str(agent_id), "user_id": str(user_id), "is_deleted": True},
@@ -368,6 +396,14 @@ async def update_agent_channel(
         payload.model_dump(exclude_unset=True),
         _actor(account, request),
     )
+    # 入口启停/改配置影响该入口下所有被授权用户。
+    user_ids = await ExternalIdentityRepository(session).list_user_ids_for_bot(
+        tenant_id, channel_account_id
+    )
+    if user_ids:
+        await auth_cache_directory(session, request.app.state).invalidate(
+            tenant_id, plan=InvalidationPlan(user_ids=user_ids)
+        )
     return ok(request.app.state.message_catalog, data)
 
 
@@ -380,7 +416,14 @@ async def remove_agent_channel(
     tenant_id: TenantId,
     session: Session,
 ) -> ApiResponse[Any]:
+    user_ids = await ExternalIdentityRepository(session).list_user_ids_for_bot(
+        tenant_id, channel_account_id
+    )
     data = await ChannelAdminService(session).remove_channel(
         tenant_id, agent_id, channel_account_id, _actor(account, request)
     )
+    if user_ids:
+        await auth_cache_directory(session, request.app.state).invalidate(
+            tenant_id, plan=InvalidationPlan(user_ids=user_ids, delete_credentials=True)
+        )
     return ok(request.app.state.message_catalog, data)

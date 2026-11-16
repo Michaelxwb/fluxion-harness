@@ -949,3 +949,62 @@ class ModelDeployment(StandardColumnsMixin, Base):
         nullable=False,
         server_default=sa.text("1"),
     )
+
+
+class AuthCacheSyncState(StandardColumnsMixin, Base):
+    """认证缓存同步协调状态（设计 §3.3 认证缓存 / §管理变更的同步失效协议）。
+
+    每个 `(tenant, scope)` 一行：
+
+    - `scope="TENANT"` 是租户级屏障协调行：记录在途失效的 `operation_id`、阶段
+      （`PREPARING` → `COMMITTED` → `READY`）、影响范围、随机 `cache_fence`。恢复器重启后
+      按持久阶段决定"业务是否已提交"，据此清理或补同步，期间维持屏障关闭。
+    - `scope="PLATFORM"` 记录某平台的非密 `policy_epoch` 与可用性；配置轮换激活时换 epoch，
+      Gateway 每次缓存命中都比对该 epoch。
+
+    本表**不存因子或 token**：`policy_epoch` 是不可逆的激活版本，协调行只带 id 与计数。
+    """
+
+    __tablename__ = "auth_cache_sync_state"
+    __table_args__ = (
+        sa.Index(
+            "uq_auth_cache_sync_state_tenant_scope",
+            "tenant_id",
+            "scope",
+            "scope_key",
+            unique=True,
+        ),
+        {"schema": "control"},
+    )
+
+    tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    #: `TENANT` = 租户屏障协调行；`PLATFORM` = 某平台激活状态。
+    scope: Mapped[str] = mapped_column(sa.String(16), nullable=False)
+    #: TENANT 行为空串；PLATFORM 行为 `platform_key`。
+    scope_key: Mapped[str] = mapped_column(
+        sa.String(64), nullable=False, server_default=sa.text("''")
+    )
+    #: 屏障阶段（仅 TENANT 行有意义）：`PREPARING` / `COMMITTED` / `READY`。
+    phase: Mapped[str] = mapped_column(
+        sa.String(16), nullable=False, server_default=sa.text("'READY'")
+    )
+    #: 在途失效的 operation id；空闲/READY 时为空。
+    operation_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    #: 随机 fence，每次失效轮换，用于拒绝更早的回源回填。
+    cache_fence: Mapped[str | None] = mapped_column(sa.String(64))
+    #: 在途变更范围，如 `{"users": [...]}`、`{"kind": "agent", "id": ...}`。
+    affected_scope: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+    )
+    #: 平台非密激活版本（仅 PLATFORM 行）。
+    policy_epoch: Mapped[str | None] = mapped_column(sa.String(64))
+    #: 平台可用性（仅 PLATFORM 行）。
+    available: Mapped[bool] = mapped_column(
+        sa.Boolean(), nullable=False, server_default=sa.text("true")
+    )
+    #: 恢复计数：该 scope 被协调器重建的次数。
+    recovery_count: Mapped[int] = mapped_column(
+        sa.Integer(), nullable=False, server_default=sa.text("0")
+    )
+    #: 最近一次失败原因（便于 API-26 展示、运维排查）。
+    last_error: Mapped[str | None] = mapped_column(sa.String(512))

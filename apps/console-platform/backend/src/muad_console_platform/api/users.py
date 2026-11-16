@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..application.audit_service import AuditActor
 from ..application.channel_service import ChannelService
+from ..application.auth_cache_invalidator import InvalidationPlan, auth_cache_directory
 from ..application.chat_session_directory import ChatSessionDirectory
 from ..application.chat_token_service import ChatTokenService
 from ..application.dto import (
@@ -270,6 +271,9 @@ async def grant_agent(
     await ChatSessionDirectory(
         session, session_store=getattr(request.app.state, "session_store", None)
     ).refresh_user(tenant_id, user_id)
+    await auth_cache_directory(session, request.app.state).invalidate(
+        tenant_id, plan=InvalidationPlan(user_ids=(user_id,))
+    )
     return ok(
         request.app.state.message_catalog,
         {
@@ -294,6 +298,9 @@ async def revoke_agent(
     await ChatSessionDirectory(
         session, session_store=getattr(request.app.state, "session_store", None)
     ).refresh_user(tenant_id, user_id)
+    await auth_cache_directory(session, request.app.state).invalidate(
+        tenant_id, plan=InvalidationPlan(user_ids=(user_id,))
+    )
     return ok(
         request.app.state.message_catalog,
         {"user_id": str(user_id), "agent_id": str(agent_id), "revoked": True},
@@ -369,8 +376,15 @@ async def update_user(
     )
     if payload.status is not None and payload.status != "ACTIVE":
         await directory.invalidate_user(tenant_id, user_id)
+        # 停用用户：连凭证一起失效（不得让旧 token 继续放行）。
+        await auth_cache_directory(session, request.app.state).invalidate(
+            tenant_id, plan=InvalidationPlan(user_ids=(user_id,), delete_credentials=True)
+        )
     elif payload.status is not None:
         await directory.refresh_user(tenant_id, user_id)
+        await auth_cache_directory(session, request.app.state).invalidate(
+            tenant_id, plan=InvalidationPlan(user_ids=(user_id,))
+        )
     return ok(request.app.state.message_catalog, _basic(user))
 
 
@@ -493,6 +507,10 @@ async def upsert_external_identity(
         platform_key=payload.platform_key,
         identity=payload.identity,
     )
+    await auth_cache_directory(session, request.app.state).invalidate(
+        tenant_id,
+        plan=InvalidationPlan(user_ids=(user_id,), bump_revision=False),
+    )
     await session.commit()
     return ok(request.app.state.message_catalog, item)
 
@@ -518,6 +536,12 @@ async def update_external_identity(
         identity_id=identity_id,
         identity=payload.identity,
     )
+    await auth_cache_directory(session, request.app.state).invalidate(
+        tenant_id,
+        plan=InvalidationPlan(
+            user_ids=(user_id,), delete_credentials=True, bump_revision=False
+        ),
+    )
     await session.commit()
     return ok(request.app.state.message_catalog, item)
 
@@ -535,6 +559,12 @@ async def delete_external_identity(
     service = ExternalIdentityService(session)
     await service.delete_identity(
         tenant_id=tenant_id, user_id=user_id, identity_id=identity_id
+    )
+    await auth_cache_directory(session, request.app.state).invalidate(
+        tenant_id,
+        plan=InvalidationPlan(
+            user_ids=(user_id,), delete_credentials=True, bump_revision=False
+        ),
     )
     await session.commit()
 
@@ -560,6 +590,10 @@ async def grant_external_entry(
         identity_id=identity_id,
         channel_account_id=payload.channel_account_id,
     )
+    await auth_cache_directory(session, request.app.state).invalidate(
+        tenant_id,
+        plan=InvalidationPlan(user_ids=(user_id,), bump_revision=False),
+    )
     await session.commit()
     return ok(request.app.state.message_catalog, item)
 
@@ -584,5 +618,9 @@ async def revoke_external_entry(
         user_id=user_id,
         identity_id=identity_id,
         grant_id=grant_id,
+    )
+    await auth_cache_directory(session, request.app.state).invalidate(
+        tenant_id,
+        plan=InvalidationPlan(user_ids=(user_id,), bump_revision=False),
     )
     await session.commit()

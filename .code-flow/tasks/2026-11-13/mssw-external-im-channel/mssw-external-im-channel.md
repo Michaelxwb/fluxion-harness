@@ -384,12 +384,12 @@
   - identity-contract PASS exit=0
 ## TASK-006: 认证缓存与撤权失效
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-005
 - **Source**: mssw-external-im-channel.backend.design.md#认证缓存
 - **Scenarios**: E-05, E-07, E-10, E-12, E-13, E-14
 - **Spec-Refs**: auth/harness-auth, secret/harness-secret
-- **Paths**: apps/console-platform/backend/src/muad_console_platform/application/auth_cache_invalidator.py, apps/console-platform/backend/src/muad_console_platform/application/grant_service.py, apps/console-platform/backend/src/muad_console_platform/application/user_service.py, apps/console-platform/backend/src/muad_console_platform/main.py, packages/common/src/muad_common/session_store.py
+- **Paths**: apps/console-platform/backend/src/muad_console_platform/application/auth_cache_invalidator.py, packages/common/src/muad_common/auth_cache.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/models/control.py, migrations/versions/0051_auth_cache_sync_state.py, apps/console-platform/backend/src/muad_console_platform/metrics.py, apps/console-platform/backend/src/muad_console_platform/main.py, apps/console-platform/backend/src/muad_console_platform/api/users.py, apps/console-platform/backend/src/muad_console_platform/api/agents.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/agent_access_grant_repository.py, apps/console-platform/backend/src/muad_console_platform/infrastructure/repositories/external_identity_repository.py, tests/console_platform/test_auth_cache_invalidation.py
 - **E2E**:
 - **Skip-Tests**:
 - **Skip-Reason**:
@@ -423,14 +423,14 @@
 
 ### Checklist
 
-- [ ] 状态机三态与屏障实现，版本号单调递增
-- [ ] 所有权限写路径接入失效服务，无旁路（E-05）
-- [ ] 并发撤权不丢更新（fence CAS，E-12）
-- [ ] 重启后同步状态可恢复，无旧授权穿透（E-13）
-- [ ] `/identity` 永远读 PG；资源接口命中失效 revision 时拒绝（E-10）
-- [ ] 长流期间撤权可被 SSE 复核感知（E-07）
-- [ ] 配置变化换版本与普通重启可区分（E-14）
-- [ ] 失效失败有可见告警，不静默
+- [x] 状态机三态与屏障实现，版本号单调递增
+- [x] 所有权限写路径接入失效服务，无旁路（E-05）
+- [x] 并发撤权不丢更新（fence CAS，E-12）
+- [x] 重启后同步状态可恢复，无旧授权穿透（E-13）
+- [ ] `/identity` 永远读 PG；资源接口命中失效 revision 时拒绝（E-10）— 消费侧由 TASK-007/010 落地
+- [ ] 长流期间撤权可被 SSE 复核感知（E-07）— 由 TASK-010 落地
+- [ ] 配置变化换版本与普通重启可区分（E-14）— 由 TASK-012 落地
+- [x] 失效失败有可见告警，不静默
 
 ### Spec Delta
 
@@ -441,10 +441,14 @@
 ### Log
 
 - [2026-11-16] created
+- [2026-11-16] 实现分层认证缓存（`muad_common/auth_cache.py`）、`AuthCacheSyncState` 协调表（迁移 0051）、`AuthCacheDirectory` 同步失效与 `recover_tenant` 启动恢复；接入 9 处权限写路径；指标 `auth_cache_invalidation_total{reason}` 可见。
 
 ### Verification
 
-- 尚未执行
+- 专项测试（真库真 Redis）：`tests/console_platform/test_auth_cache_invalidation.py` 8 passed（7 离线 + 1 集成：授权后 `auth_revision` +1、屏障 READY、协调行 READY）。
+- 全量回归：`tests/console_platform` 100% 通过（Pod `muad_mssw_acceptance`，迁移回放）。
+- 迁移：`alembic upgrade head` 到 0051，`control.auth_cache_sync_state` 表与 `is_deleted`/`create_time` 列已确认。
+- 消费侧（`/identity` 读 PG、SSE 复核、配置换版本）分别为 TASK-007/010/012 的职责，不在本 TASK。
 
 ---
 

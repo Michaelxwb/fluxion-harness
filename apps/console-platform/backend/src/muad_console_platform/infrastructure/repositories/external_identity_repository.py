@@ -163,6 +163,28 @@ class ExternalIdentityRepository:
         )
         return list(rows)
 
+    async def list_user_ids_for_bot(
+        self,
+        tenant_id: str,
+        bot_account_id: uuid.UUID,
+    ) -> tuple[uuid.UUID, ...]:
+        """入口停用/删除时反查受影响的用户（认证缓存失效范围）。"""
+        rows = await self._session.scalars(
+            select(ExternalIdentity.platform_user_id)
+            .join(
+                EntryAccessGrant,
+                EntryAccessGrant.external_identity_id == ExternalIdentity.id,
+            )
+            .where(
+                EntryAccessGrant.tenant_id == tenant_id,
+                EntryAccessGrant.bot_account_id == bot_account_id,
+                EntryAccessGrant.is_deleted.is_(False),
+                ExternalIdentity.is_deleted.is_(False),
+            )
+            .distinct()
+        )
+        return tuple(dict.fromkeys(rows))
+
     async def add_grant(self, grant: EntryAccessGrant) -> EntryAccessGrant:
         self._session.add(grant)
         await self._session.flush()

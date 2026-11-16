@@ -22,18 +22,22 @@ from muad_common.redis_client import (
     create_redis_client,
     verify_redis_topology,
 )
+from muad_common.auth_cache import AuthCacheStore
 from muad_common.session_store import RedisSessionStore
 from muad_logging import configure_logging
 from redis.exceptions import RedisError as RedisErrorType
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from .api.deps import ConsoleRoleResolver, ConsoleSessionVerifier
 from .api.router import router
 from .api.session_renewal import SessionRenewalMiddleware
+from .application.auth_cache_invalidator import AuthCacheDirectory
 from .application.auth_service import AuthService
 from .application.model_probe_service import ProbeCapacityClient
 from .application.platform_adapter_service import build_default_registry
 from .infrastructure.db import dispose_engine, get_engine, get_session_factory
+from .infrastructure.models.control import AuthCacheSyncState
 from .infrastructure.http_clients import (
     ProbeCapacityUnconfigured,
     build_probe_capacity_client,
@@ -66,6 +70,36 @@ async def _warn_if_no_accounts() -> None:
         return
     if not has_accounts:
         logger.warning("console_no_accounts_run_cli_create_admin")
+
+
+async def _recover_auth_cache_sync(auth_cache: AuthCacheStore | None) -> None:
+    """启动恢复：把上次中断的认证缓存失效收敛到 READY（设计 §崩溃恢复）。
+
+    只处理持久阶段不是 READY 的租户行；没有 Redis 或没有残留时是空操作。恢复失败记录日志并
+    保持该租户屏障关闭（不放行旧授权），不阻断进程启动。
+    """
+    if auth_cache is None:
+        return
+    settings = process_settings()
+    if not settings.database_url:
+        return
+    try:
+        async with get_session_factory()() as session:
+            tenant_rows = await session.scalars(
+                select(AuthCacheSyncState.tenant_id).where(
+                    AuthCacheSyncState.scope == "TENANT",
+                    AuthCacheSyncState.phase != "READY",
+                )
+            )
+            tenants = list(dict.fromkeys(tenant_rows))
+            directory = AuthCacheDirectory(session, cache=auth_cache)
+            for tenant_id in tenants:
+                try:
+                    await directory.recover_tenant(tenant_id)
+                except Exception:  # noqa: BLE001 - 单租户失败不影响其它租户启动
+                    logger.exception("console_auth_cache_recover_failed tenant=%s", tenant_id)
+    except SQLAlchemyError:
+        logger.exception("console_auth_cache_recover_scan_failed")
 
 
 def _install_probe_clients(fastapi_app: FastAPI, settings: SharedSettings) -> None:
@@ -141,6 +175,15 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     fastapi_app.state.session_store = (
         RedisSessionStore(redis_client) if redis_client is not None else None
     )
+    # 分层认证缓存（凭证层/权限层/状态层）：与 session_store 共用同一 Redis 客户端；
+    # 未配 Redis 时为 None，管理变更的同步失效降级为空操作（不阻断启动）。
+    fastapi_app.state.auth_cache = (
+        AuthCacheStore(
+            redis_client, ttl_sec=settings.external_assertion_cache_ttl_sec
+        )
+        if redis_client is not None
+        else None
+    )
     db_counters_task = asyncio.create_task(
         _db_counters_loop(), name="console.db_counters"
     )
@@ -153,6 +196,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
             migrations_dir=settings.migrations_dir,
         )
         await _warn_if_no_accounts()
+        await _recover_auth_cache_sync(fastapi_app.state.auth_cache)
         yield
     finally:
         db_counters_task.cancel()
