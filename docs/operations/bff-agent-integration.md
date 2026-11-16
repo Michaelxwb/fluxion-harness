@@ -222,7 +222,14 @@ BFF 在展示入口前调用一次。
 ```json
 {
   "items": [
-    {"entry_id": "9a3e...", "agent_id": "7b2d...", "display_name": "MSS 智能机器人"}
+    {
+      "entry_id": "9a3e...",
+      "agent_id": "7b2d...",
+      "display_name": "MSS 智能机器人",
+      "channel": "MSSWWEB",
+      "allowed": true,
+      "reason": null
+    }
   ],
   "page": 1,
   "page_size": 20,
@@ -235,6 +242,19 @@ BFF 在展示入口前调用一次。
 | `entry_id` | 入口 id，后续所有接口都用它 |
 | `agent_id` | Agent id |
 | `display_name` | 展示名 |
+| `channel` | 来源通道，固定 `MSSWWEB` |
+| `allowed` | 当前是否真正可用 |
+| `reason` | `allowed=false` 时的原因（如入口停用、Agent 撤权） |
+
+**怎么判断授权**：**列表里出现的入口就是已授权的**，未授权的入口不会返回。`allowed` 表达的是另一件事——「授权了但当前是否真的能用」：
+
+| 情况 | 表现 |
+|---|---|
+| 未授权 | 不在 `items` 里 |
+| 已授权且可用 | 在 `items` 里，`allowed=true`，`reason=null` |
+| 已授权但不可用（入口停用 / Agent 撤权） | 在 `items` 里，`allowed=false`，`reason` 给出原因 |
+
+所以 BFF 不需要自己过滤列表；只需在渲染时看 `allowed`。
 
 ---
 

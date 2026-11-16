@@ -14,7 +14,7 @@
 
 - Console、Gateway、Runtime 已启动。
 - Console 的 Secret 已配置 `mssw` 因子（公钥、issuer、audience、salt）。
-- 已创建 MSSWWEB 入口（`entry_id` 已知），并已把测试用户的 MSSW `user_id` 绑定到平台用户。
+- 已创建 MSSWWEB 入口（`entry_id` 已知），并已把测试用户的 MSSW 身份（`expert_id` = `_id` + `tenant_id`）绑定到平台用户。
 - 已准备一条**真实签发**的 MSSW `soc-token`（测试账号，未过期/或被允许的 `exp=-1`）。
 - 测试工具：curl 或业务平台 BFF 代理；SSE 用 `curl -N` 或浏览器 DevTools。
 
@@ -42,9 +42,9 @@
 - **前置**：已有 MSSWWEB 入口；用户已存在；平台 `identity_keys` 已知（如 `["expert_id","tenant_id"]`）。
 - **步骤**：
   1. 打开用户详情 → 外部身份。
-  2. 点击“新建外部身份”，输入身份 JSON：
-     - 单字段示例：`{"user_id": "6620c18c73c760c6b6ca527f"}`；
-     - 多字段示例：`{"expert_id": "E123", "tenant_id": "1001"}`。
+  2. 点击“新建外部身份”，按平台 `identity_keys` 动态渲染的字段填写：
+     - MSSW 当前配置：`{"expert_id": "6620c18c73c760c6b6ca527f", "tenant_id": "1001"}`（`expert_id` 即 JWT 的 `_id`，24 位 hex）；
+     - 表单标签显示为「专家 ID（24 位）」「租户 ID」。
   3. 提交，得到用户级外部身份。
   4. 在该身份下“添加入口”，选择一个 MSSWWEB 入口并授权。
   5. 刷新身份/授权列表。

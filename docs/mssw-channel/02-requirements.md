@@ -1,8 +1,19 @@
-# MSSW 智能客服通道接入 — 需求梳理
+# MSSW 外部 IM 通道接入 — 需求梳理
 
-> 状态：需求梳理完成，未进入 `cf-task:prd` 正式流程
-> 上游依据：`智能客服AI工作台-概要设计说明书 - 1111claw对接版本.md`
-> 配套：`01-jwt-spec.md`、`03-open-questions.md`、`04-user-journeys.md`、`05-interface-mapping.md`
+> **需求基线**：`.code-flow/tasks/2026-11-13/mssw-external-im-channel/mssw-external-im-channel.prd.md`
+> 配套：`01-jwt-spec.md`（协议事实）、`03-open-questions.md`（决策记录）、`04-user-journeys.md`、`05-interface-mapping.md`
+
+## 本文档的职责边界
+
+三份文档分工明确，**不要在这里重复实现细节**：
+
+| 文档 | 回答什么 | 归属 |
+|---|---|---|
+| **本文（`02`）** | **要做什么、为什么要做、边界在哪** | 需求与约束 |
+| `docs/operations/im-channel-playbook.md` | **具体怎么实现**（十项必改、13 条反模式、22 项 DoD、缓存状态机的完整细则） | 实现规范，需求方交付 |
+| `docs/operations/bff-agent-integration.md` | **BFF 怎么调**（15 个接口的完整参数） | 对外契约，需求方交付 |
+
+本文只保留**摘要与指向**：实现规范的具体条目以 playbook 为准，接口字段以 integration 文档为准。需要改动实现规范时改 playbook，不在这里改。
 
 ---
 
@@ -10,49 +21,46 @@
 
 ### 1.1 一句话
 
-上游 MSSW 平台要加一个"智能客服"。它的 BFF 通过 **HTTP + SSE** 调用本系统（fluxion），请求里带 **MSSW 签发的 JWT**。本系统**验签 → 用工号匹配本地用户 → 复用现有会话能力**。
+上游 MSSW 平台要加一个"智能客服"。它的 BFF 通过 **HTTP + SSE** 调用本系统，请求里带 **MSSW 签发的 JWT**。本系统**在 Console 验签 → 按平台配置的 `identity_keys` 解析身份 → 映射到平台用户 → 复用现有会话能力**。
 
 ### 1.2 三个参与方
 
 ```
-用户浏览器 → MSSW BFF → fluxion im-gateway → Console / Runtime
+用户浏览器 → MSSW BFF → fluxion im-gateway → Console（验签+身份） / Runtime
              (上游后端)   (本次新增的入口)      (我方内部)
 ```
 
-**BFF 是后端服务，直接转发请求过来，不是浏览器跨站访问。**
+**BFF 是后端服务，直接转发请求过来，不是浏览器跨站访问。** BFF 直接适配我方现有接口，我方不实现它那套 `/internal/agent-provider/v1/*`。
 
-BFF 那一侧的 `/internal/agent-provider/v1/*` 是**它自己的对外接口定义**。我方**不实现那套 URL**——BFF 直接适配我方现有接口，由它自己完成外部契约到内部接口的转换。
-
-由此消解了原有两个大风险：
-
-- **跨站 Cookie 风险解除**：`SameSite=Strict` 的 `soc-token` 由后端转发，不受浏览器跨站限制
-- **无需 BFF 对接文档**：接口形态由我方现有实现决定
-
-### 1.3 关键认知（这条决定了整体工作量）
+### 1.3 关键认知
 
 **这不是"从零新建一套聊天服务"，而是"给现有的 WebChat 会话能力换一个身份入口"。**
 
-现有 WebChat 已经具备：202 受理、SSE 事件流、取消、历史分页、附件上传下载、会话管理。BFF 要的 8 个能力里，**真正全新的只有 JWT 验签器**；`/permissions` 是新增路由壳子（判定谓词复用 `/entries`），其余 7 个复用现有接口。
+现有 WebChat 已具备：202 受理、SSE 事件流、取消、历史分页、附件上传下载、会话管理。`MSSWWEB` 复用这一整套，**真正全新的只有三块**：
+
+1. **外部断言认证**（Console 侧验签 + AES 因子编解码）
+2. **用户级身份模型**（`external_identity` + `entry_access_grant`）
+3. **Redis 认证缓存**（凭证/权限分层 + 版本失效）
 
 ---
 
 ## 第二部分：已经定死的事
 
-### 2.1 需求方确认的边界
+### 2.1 方案边界
 
 | # | 决策 | 后果 |
 |---|---|---|
-| 1 | JWT 校验在 **im-gateway** 统一做 | 网关需本地验签；网关零数据库依赖，用户映射走 HTTP 到 Console |
+| 1 | **验签在 Console** | 网关不持因子、不持库；因子放 K8s Secret |
 | 2 | 不能影响其它通道 | 独立适配器 + 独立路由前缀，不碰 WEBCHAT / WECOM |
 | 3 | JWT **透传**，不换发 | 我方只验签，不签发 |
-| 4 | 形态**类似新增一个 WebChat 通道** | 复用 `channels/webchat.py` 模式 |
-| 5 | 用户校验**做简单**：标识比对 | 工号匹配即可 |
-| 6 | 无权限 → **直接拒绝**，不自动建档 | 映射必须在访问前建好（见 §3.4） |
-| 7 | 权限查询的**语义**是布尔 | 我方新增 `GET /api/v1/mssw/permissions` 返回 `{"visible": bool, "entry_id": uuid, "agent_id": uuid}`，`entry_id` 顺带下发给 BFF |
-| 8 | 工号**全局唯一** | `identity_key` 无需加租户维度 |
-| 9 | 工号变更走**人为删除账户** | 不做自动同步 |
-| 10 | **BFF 直接适配我方现有接口** | 无需我方实现 `/internal/agent-provider/v1/*` 这套 URL；**不需要 BFF 对接文档** |
-| 11 | **不是跨站**：BFF 是后端服务，直接转发请求 | `SameSite=Strict` 的 `soc-token` Cookie **能正常送达**；跨站 Cookie 风险解除 |
+| 4 | 形态**类似新增一个 WebChat 通道** | 复用 `channels/webchat.py` 模式，不复制 handler |
+| 5 | **身份字段平台可配**（`identity_keys`） | 新增同类平台只加配置，不改代码 |
+| 6 | 无权限 → **直接拒绝**，不自动建档 | 绑定必须在访问前完成 |
+| 7 | **权限查询语义是可用性** | `GET /identity` 返回 `allowed` + `reason` + `grants[]` + `agents[]` |
+| 8 | 会话按 **user + Agent 跨入口共享** | `entry`/`channel` 只做来源标识，不做访问边界 |
+| 9 | **密钥固定，不轮换** | 单公钥静态配置，不预留多密钥槽位 |
+| 10 | **BFF 直接适配我方现有接口** | 不需要 BFF 对接文档 |
+| 11 | **不是跨站**：BFF 后端直接转发 | `SameSite=Strict` 的 `soc-token` 能正常送达 |
 
 ### 2.2 JWT 的事实规格（已实测）
 
@@ -60,47 +68,57 @@ BFF 那一侧的 `/internal/agent-provider/v1/*` 是**它自己的对外接口�
 
 | 项 | 值 |
 |---|---|
-| 算法 | RS256 |
-| **身份字段** | **`job_number`**（工号，5-7 位字母数字），**不是 `sub` 也不是 `_id`** |
-| `_id` | 专家 ID（24 位 ObjectId hex），**不作映射键** |
-| `exp` | 恒为 `-1`，服务端不校验，**无过期语义** |
-| `aud` / `iss` | AES-256-ECB 密文，校验时加密期望值比对，**无需解密** |
-| 加密字段 | 仅 `email` / `email_login` / `phone_login` / `aud` / `iss`；`job_number` 是明文 |
-| 公钥格式 | PKCS#1（`BEGIN RSA PUBLIC KEY`），PyJWT 可直接加载 |
-| token 位置 | 请求头内的 Cookie，键名 **`soc-token`** |
+| 算法 | RS256（**必须加白名单**，签发方自己没做） |
+| 身份字段 | 由平台 `identity_keys` 决定；**MSSW 用 `_id` + `tenant_id`** |
+| `_id` | 专家 ID（24 位 ObjectId hex），本方案作为身份键之一 |
+| `job_number` | 工号（5-7 位字母数字），明文；本方案不进身份键 |
+| `exp` | 恒为 `-1`，服务端不校验；另有最大会话年龄兜底 |
+| `aud` / `iss` | AES-256-ECB 密文，**加密期望值比对**；`iss` 是**单元素数组** |
+| AES key 派生 | `salt` 右侧补 `\x00` 到 32 字节（`salt` 长度须 ≤32），PKCS#7 补位 |
+| 加密字段 | 仅 `email` / `email_login` / `phone_login`；不解密、不落库 |
+| 公钥格式 | PKCS#1（`BEGIN RSA PUBLIC KEY`） |
+| token 位置 | Cookie `soc-token`，**唯一凭据**（不需要 `X-Chat-Context`） |
 
-实测已验证：验签通过、`aud`/`iss` 密文比对一致、解出 `job_number=14806`、`alg=none` 被拒。
+实测已验证：验签通过、`aud`/`iss` 密文比对一致、解出身份键 `_id=6a4ca2554a2a45d4b1ad5996`（与 `tenant_id` 共同构成身份）及 `job_number=14806`（工号，不参与身份）、`alg=none` 被拒。
 
-### 2.3 用户映射链路
+### 2.3 身份模型：用户级身份 + 入口授权
 
-**建映射时**（一次性）：
+**两张表，回答两个不同的问题。**
+
+| 表 | 回答的问题 | 唯一约束 |
+|---|---|---|
+| `control.external_identity` | **这个人是谁** | `(tenant_id, platform_key, identity_hash)` |
+| `control.entry_access_grant` | **这个人能用哪些入口** | `(tenant_id, external_identity_id, bot_account_id)` |
+
+**为什么拆开**：
+
+- **解绑不丢历史**：解绑只删 `entry_access_grant`，身份还在，历史会话/产物仍有归属主体
+- **重绑能恢复**：重新绑回同一入口，`platform_user_id` 没变，历史会话立刻可见
+- **多入口共享**：一条身份 + 多条授权，会话按 `platform_user_id` 聚合，天然跨入口共享
+
+**身份解析（运行时，每次请求）**：
 
 ```
-JWT 的 job_number  ──匹配──>  platform_user.user_code   （人的业务工号）
-                              → 取出 platform_user.id（UUID，这才是 platform_user_id）
-                              → 写入 channel_identity(external_user_id=job_number, platform_user_id=<UUID>)
+JWT
+  → 按平台 identity_keys 取顶层 claim（如 _id、tenant_id）
+  → 全部存在且非空（AND 语义）
+  → 按 key 排序 → 规范 JSON → sha256
+  → identity_hash
+  → 查 external_identity(tenant, platform_key, identity_hash)
+  → 命中 → platform_user_id；未命中 → UNBOUND（不伪造主体）
 ```
 
-**运行时**（每次请求）：
+**绑定（管理员，一次性）**：
 
 ```
-JWT 的 job_number
-  → channel_identity.external_user_id     （直接查映射行，**不比对 user_code**）
-  → platform_user_id（UUID）
+管理员在 Console 填写身份 JSON（key 集合必须与 identity_keys 完全一致）
+  → 校验：JSON 对象、至少 1 键、值非空字符串、拒绝 exp/aud/iss/iat/nbf
+  → 算 identity_hash → 查重（已绑他人 → IDENTITY_ALREADY_BOUND）
+  → 建 external_identity
+  → 再授权入口 → 建 entry_access_grant
 ```
 
-表已存在，`identity_key = {channel}:{bot_id}:{external_user_id}`，唯一约束 `(tenant_id, identity_key)` 且未软删。查询入口 `ChannelService.resolve` 现成。
-
-> **四个名字别混**（R3 的详细说明见 §3.4）：
->
-> | 名字 | 是什么 | 什么时候用 |
-> |---|---|---|
-> | `platform_user.user_code` | 工号字符串（如 `14806`），业务编号；唯一约束 `(tenant_id, user_code)` | **只在建立映射时**用来定位"这个人是谁" |
-> | `platform_user.id` | 数据库主键 UUID | 这就是 `platform_user_id`，运行时全程用这个 |
-> | `channel_identity.external_user_id` | 外部平台的用户标识；MSSW 场景下**值 = 工号** | 运行时 `resolve` 按它查映射行 |
-> | `channel_identity` 表 | 存 `external_user_id` / `platform_user_id` / `bot_account_id` / `identity_key` | **没有 `user_code` 列** |
-
-**WEBCHAT 的对比**：WEBCHAT 不写这张表，直接拿 `platform_user_id` 当 `external_user_id`，因为用户本身就是本地用户。MSSW 必须有映射行——这是本次唯一需要新增数据准备的地方。
+> **`_id` 与 `job_number` 别混**：`_id` 是 MongoDB 主键（24 位 hex），本方案作身份键；`job_number` 是工号（明文，5-7 位），本方案**不进身份键**但仍是日志/审计的可读标识。旧版方案用 `job_number` 作映射键，已弃用。
 
 ---
 
@@ -110,315 +128,359 @@ JWT 的 job_number
 
 | ID | 需求 | 工作量 | 类型 |
 |---|---|---|---|
-| R1 | 新增 MSSW 通道标识 | 小 | 配置 |
-| R2 | JWT 验签器 | **大** | 全新 |
-| R3 | 工号 → 用户映射 | 中 | 复用 + 数据准备 |
-| R4 | 权限查询 | 小 | 新增路由 + 判定复用 `/entries` |
-| R5 | 八个会话接口的门面 | 中 | 大量复用 |
-| R6 | SSE 长连接策略 | 小 | 全新（但简单） |
-| R7 | 错误码与文案 | 小 | 惯例工作 |
+| R1 | 新增 `MSSWWEB` 通道标识与能力分组 | 小 | 配置 |
+| R2 | 外部断言认证（Console 验签 + AES 因子） | **大** | 全新 |
+| R3 | 用户级身份绑定与入口授权 | 中 | 全新 3 张表 + `platform_user.auth_revision` 列 |
+| R3b | 通知未读（红点） | 小 | **复用** `runtime.channel_notification`（`read_at IS NULL` 按 `conversation_id` 聚合），只新增未读索引；会话级 `mark-read` 带通知水位 |
+| R4 | 权限/入口可用接口 + Redis 缓存 | **大（占整个需求大头）** | 全新 |
+| R5 | 15 个会话接口的门面 | 中 | 大量复用 |
+| R6 | SSE 长连接策略（每事件复核） | 中 | 部分全新 |
+| R6b | 确认与 resume | 小 | `confirmation.required` → `WAITING_INPUT` → `POST /runs/{id}/resume`；resume 要求 user ACTIVE + Agent 授权仍有效 |
+| R7 | 错误码与运维降级 | 小 | 惯例工作 |
 | R8 | 测试 | 中 | 惯例工作 |
 
-### 3.2 R1 通道标识
+### 3.1.1 未读与红点的边界（R3b，配套 R5）
 
-- `BUILTIN_CHANNEL_NAMES` 现在是 `("WECOM", "WEBCHAT")`（`enums.py:7`），加入固定标识。
-- **必须同时归入 `LOCAL_STREAM_CHANNELS`**（`enums.py:175`，出站靠 SSE 订阅面，无 IM 主动推送）。两条理由：
-  - `tests/test_attachment_contract.py:235` 断言 `set(BUILTIN_CHANNEL_NAMES) == set(OUTBOUND_CHANNELS) | set(LOCAL_STREAM_CHANNELS)`——内建通道必须被两组**完全划分**，只加 `BUILTIN` 不动分组会让该断言失败。
-  - 产物交付按能力组路由（`apps/agent-runtime/.../attachments/tools.py:739-744`）：`LOCAL_STREAM_CHANNELS` → 发布到会话流，`OUTBOUND_CHANNELS` → 网关投递，**都不在则抛 `ATTACHMENT_WRITE_UNAVAILABLE`**——MSSW 会话里生成产物会直接失败。
-- 机检：通道名只能一处声明（`tests/test_attachment_contract.py::test_b07`）。
-- **两处硬断言要同步改**：`tests/test_attachment_contract.py:118`、`tests/agent_worker/test_capacity_webchat_worker_notifications.py:824` 都把 `BUILTIN_CHANNEL_NAMES` 钉死为二元组。
-- 契约字段 `ChannelName` 本身是**开放 string**，不改类型。
+> R3b 是通知未读红点，具体接口落在 §3.6 R5 会话门面里；这里只固化它的三条边界与索引要求。
 
-### 3.3 R2 JWT 验签器（最重的一块）
+> **三条边界**（来自需求方 FEAT-06）：
+> 1. **不做消息级未读**——`has_unread` 按会话聚合，不按 entry 过滤
+> 2. **产物发布本身不写通知**——只有 Run 终态/等待输入/任务结果产生通知时点亮红点
+> 3. **mark-read 只标记不高于所给水位的通知**——新到达的保留未读；超前水位返回 `CURSOR_AHEAD`
 
-**位置**：`im-gateway`，新增 `application/mssw_jwt.py`。
+**两个必须建的索引**（否则会话列表会退化成逐会话查询）：
 
-**为什么不在 Console 验签**（已决策）：
-
-| 候选位置 | 否决理由 |
+| 用途 | 索引 |
 |---|---|
-| Console（网关转发 `soc-token`） | ① **边缘职责内推**：无效 token 会穿透到有数据库的内部服务，垃圾流量直达 Console ② Console 已有 `chat_auth_service` 的会话/Token 生命周期，再叠一套 MSSW 验签易混乱 ③ SSE 建连校验要每个连接向 Console 发一次内部请求，与现有 `ChatStreamGuard` 已证明的"不每 token 查控制面"约束冲突 |
-| 独立鉴权侧车/中间件 | 为一个通道、一枚公钥**新增部署单元**，成本远大于收益；且与"独立适配器 + 独立身份依赖"的进程内隔离策略冲突 |
+| 会话列表 | `(tenant, user, agent, last_message_at DESC NULLS LAST, id DESC)` WHERE 未删除 |
+| 会话未读 | `(tenant, user, conversation, seq)` WHERE `read_at IS NULL` |
 
-**核心判断**：验签是"在网络边缘拒绝无效请求"的职责，本就属边缘。留在网关的代价只是两个 Python 包。
+**先分页再 EXISTS**：先按列表索引分页取出 N 条会话，再对这批会话 `EXISTS` 判未读，不要反过来。
 
-**依赖取舍**：优先 `PyJWT[crypto]`（RSA 走 `cryptography`，**已确认在依赖树中**——`wecom-aibot-python-sdk` 传递引入，见 `requirements.txt`；测试代码也已在用）。`aud`/`iss` 校验只需**加密期望值后比对**，AES-ECB 用 `cryptography` 即可，**不必引入 `pycryptodome`**。
+**水位来源不能猜**：详情在**同一快照**返回 `canonical last_seq=C`、当前 Run 状态、`notification_through_seq=N`；历史第一页用 `C`，展示完成后 `read` 提交 `N`。**通知序号、canonical 序号、SSE id 三者独立**，不能从 `has_unread` 或 SSE id 反推 `N`。
 
-**必须做的**：
+### 3.2 R1：通道标识与能力分组
 
-| 项 | 说明 |
+**必须同时做三件事**：
+
+| 位置 | 改动 | 不改的后果 |
+|---|---|---|
+| `enums.py` `BUILTIN_CHANNEL_NAMES` | 加 `"MSSWWEB"` | 通道不被识别 |
+| `enums.py` `LOCAL_STREAM_CHANNELS` | 加 `"MSSWWEB"` | 产物交付路由 `attachments/tools.py:739-744` 抛 `ATTACHMENT_WRITE_UNAVAILABLE` |
+| `enums.py` `OUTBOUND_CHANNELS` | **不加** | MSSW 是 BFF 拉取模式，无主动投递；进错会让附件交付失败 |
+
+**理由**：`tests/test_attachment_contract.py:235` 要求两组**完全划分** `BUILTIN_CHANNEL_NAMES`。这是硬断言，不是约定。
+
+**硬断言要同步改**：
+
+- `tests/test_attachment_contract.py:118`、`:228-235`
+- `tests/agent_worker/test_capacity_webchat_worker_notifications.py:824`
+- `tests/architecture/test_channel_neutrality.py:25` 的 `CHANNEL_TOKENS` **必须加 `"msswwweb"`**——否则核心域出现渠道字样也不会被发现（假绿灯），规则形同虚设
+
+**Contracts 层还有三处必改（易漏）**：
+
+| 文件 | 变更 |
 |---|---|
-| 验签 | RS256 + 公钥 |
-| **算法白名单** | **仅 `RS256`**。签发方自己没做（`jwt.go:65-67` 的回调不检查 `token.Method`），我方必须补 |
-| 必需 claim | **`job_number`** |
-| `exp` 处理 | **关闭校验**（值恒为 -1，校验必失败） |
-| **不做签发时间窗** | 读 `time`/`login_time` 但**不据此拒绝**——它是签发时刻而非最后使用时刻，用它做绝对窗口会误杀活跃用户（见 3.3.1） |
-| `aud`/`iss` | 用同一 `salt` 加密期望值后比对密文 |
-| 失败行为 | **fail-closed 401**，不降级 |
+| `packages/contracts/.../webchat.py` | 新增认证方式枚举 `EXTERNAL_ASSERTION`（与 `CHAT_SESSION` 并列）；新增公开契约**仅增量**，不改既有字段 |
+| `packages/api-kit/src/muad_api/error_codes.py` | 登记 10 个新错误码（见 §3.8） |
+| `config/api-messages.yaml` | 对应文案；与 `error_codes.py` 有**双向断言**，缺一即测试失败 |
 
-**明确不做的**：
+> `SECRETLESS_CHANNELS` 也要加 `MSSWWEB`——入口无 bot secret。
 
-- 不解密 `email`/`email_login`/`phone_login`（业务只用工号）
-- 不实现 AES 解密（`aud`/`iss` 只加密比对，避开非标准 unpad 兼容问题）
-- 不复刻签发方的免校验分支（`X-From-Src != external` 即跳过）——我方入口只服务外部平台
+### 3.3 R2：外部断言认证
 
-**配置驱动**：公钥、`issue`、`audience`、`salt` 四项全部从配置读，便于联调期替换。
+**位置**：Console。网关不持因子，只把 `soc-token` 原样转发。
 
-**密钥不轮换（Q5 已定）**：需求方明确"密钥固定，我们只要用就行"。因此：
+**校验链**（顺序固定）：
 
-- 按**静态单密钥**配置读取，**不实现轮换逻辑、不做多密钥并存、不预留密钥版本槽位**——避免做没人会用的复杂度。
-- 代价要记清：**公钥若泄露无法靠轮换止损**，只能换密钥 + 重新部署。这是上游选择，我方不额外兜底。
-- 开发环境四项值已实测确定（A 组 Q2-Q4）；生产环境待 M5（后续会给）。
+| 步 | 动作 | 失败处理 |
+|---|---|---|
+| 0 | 查平台配置（`platform_key` → 公钥/issuer/audience/salt/identity_keys） | 503 `EXTERNAL_ASSERTION_UNAVAILABLE` |
+| 1 | `soc-token` 长度上限检查（与 nginx header buffer 对齐） | 401，不解析 |
+| 2 | 验签：`algorithms=["RS256"]`、`audience=<AES(audience)>`、`issuer=[<AES(issuer)>]`、`exp=-1` 时 `verify_exp=False` | 401 `EXTERNAL_ASSERTION_INVALID` |
+| 3 | 最大会话年龄：`expires_at = min(now+max_age, login_time+max_age, 正数 exp)`；`login_time`/`time` 缺失 → 拒绝 | 401 `EXTERNAL_ASSERTION_EXPIRED` |
+| 4 | 身份解析（见 §2.3） | 无命中 → `UNBOUND` |
+| 5 | 查 `entry_access_grant` + `bot_account` + Agent 授权 | — |
 
-**职责单一**：验签器只输出"已验签的 claims"，不做用户映射，便于单测。
+**关键约束**：
 
-### 3.3.1 重放防护（责任前移到 BFF）
+- **`alg` 白名单必加**——签发方自己没做，不加等于允许 `alg=none`
+- **`iss` 按数组比对**，不是字符串
+- **AES key 派生必须按 `01` §3 的算法**，不要猜；用测试向量驱动
+- **不主动踢人**：最大会话年龄只限制 SSE 续订的绝对上限，不是下线策略。token 有效性/吊销由 BFF 在转发前判定
 
-**问题**：攻击者拿一枚历史 `soc-token` 直接打我方接口，本地验签**会通过**——签名真实、`job_number` 真实、映射成功、授权有效。因为签发方把 `exp` 写死为 `-1`，且吊销靠 MSSW 侧 Redis 清 key，**我方看不见**。
+### 3.4 R3：用户级身份绑定
 
-**处置结论：这件事不由我方解决，由 BFF 解决。** 理由：
+见 §2.3。补充约束：
 
-| 事实 | 推论 |
+| 约束 | 说明 |
 |---|---|
-| 上游只有 **BFF 一个服务**（Q15） | 我方所有外部流量都经 BFF，没有旁路 |
-| `soc-token` 由 **MSSW/mss-auth-go 签发**，BFF 与签发方同侧 | 判断"token 是否仍有效/未吊销"，BFF 天然具备条件（它就在 MSSW 生态内） |
-| 吊销状态在 MSSW 侧 Redis，我方不可见 | 我方**无论如何都做不到**等价判定，勉强做只会是假动作 |
-| BFF 是**后端服务**，每次转发都是一次服务端调用 | 它在转发前校验一次，成本与职责都合理 |
+| 绑定前必须已有平台用户 | 不做 JIT 建档（Q13） |
+| key 集合必须与 `identity_keys` 完全一致 | 否则 `IDENTITY_KEYS_MISMATCH` |
+| 一个身份只映射一个 `platform_user` | 已绑他人 → `IDENTITY_ALREADY_BOUND`（409） |
+| 编辑身份不影响历史归属 | 重算 hash，历史会话仍归原 `platform_user` |
+| 解绑只删 grant | 身份保留，可重绑 |
 
-**因此**：BFF 在转发前完成"这枚 token 当前是否仍有效"的校验，**无效或已登出的请求在 BFF 侧就被挡掉**，根本不会到达我方网关。我方不做上游校验、不要校验接口（**Q30 撤销**）。
+**第一期实现形态（已定）**：
 
-**被排除的手段——本地绝对时间窗**：不可行。`time` / `login_time` 是**签发**时刻写死的，同一枚 token 每次请求都一样，BFF 复用它转发（`RefreshLoginJwt` 只重置 MSSW 侧 Redis TTL，**不重签 JWT、不回写 Cookie**）。所以：
+- 管理员在 Console **用户详情页手工逐条录入**身份（`ExternalIdentitySection` + `MsswwebIdentityModal`），字段按平台 `identity_keys` 动态渲染、标签取 `identity_field_labels`。
+- **不提供批量导入、不依赖 MSSW 名单文件**；批量能力推迟到后续需求，按届时实际规模评估。
+- 录入后在同一身份下「添加入口」建立 `entry_access_grant`。
 
-- 9:00 登录、连续用到 11:30 的**合法活跃用户**，`time` 仍是 9:00，落在 2 小时窗外 → 被误杀；
-- 9:00 签发、11:00 才被拿来重放的**旧 token**，与上一种在 JWT 字段上**完全相同**。
+> **管理员可读性问题**：前端会展示 `identity_keys` 作为输入框标签，但 `expert_id`、`tenant_id` 这类 claim 名管理员看不懂。需在平台配置里补 `identity_field_labels`（claim 名 → 中文名），前端按 label 渲染、按 claim 名提交。
 
-本地做任何基于 `time` 的判定，都分不开"活跃用户"与"旧 token 重放"。**设了只会误杀合法用户，不解决重放**，故不设。
+### 3.5 R4：权限与缓存
 
-**我方保留的两层（都是资源与边界，不是鉴权）**：
+`GET /identity` **永远查 Console/PG**（不读缓存返回），成功后写 Redis。后续资源请求走缓存。
 
-| 层 | 措施 | 作用 |
+| 层 | 维度 | 内容 |
 |---|---|---|
-| **1. 限制连接寿命** | SSE 单轮时长上限 | 纯资源安全；重放无法无限占连接（R6） |
-| **2. 责任边界写进对接约定** | 明文约定：BFF 保证只有"当次活跃会话、用户未登出"的 `soc-token` 才会被转发 | 这是主防线，缺口责任归属明确 |
+| 外部断言凭证 | tenant + platform + policy_epoch + token hash | 验签后的主体映射、`external_identity_id`、绝对到期 |
+| 用户当前权限 | tenant + user | ACTIVE、可用 Agent、按外部身份分组的入口 grants、`auth_revision` |
+| 校验与同步状态 | tenant 屏障 / tenant+user 版本 / tenant+platform 配置状态 | 独立于缓存记录读取 |
 
-**残留风险如实记录**：若 BFF 侧实现不到位（例如登出后仍复用旧 Cookie 转发），我方**无法察觉也无法拦截**——这是 `exp = -1` + 吊销不可见的必然结果。不设本地时间窗来制造"已处理"的假象。
+**必须记住的两条**：
 
-**为什么把责任交给 BFF 是可接受的——重放的实际门槛**：光有旧 `soc-token` 还不够，攻击者要能真正造成影响，还要拿到调用所需的不透明 ID。这些 ID 都不在 JWT 里。但要分清两类接口：
+1. **不能把缓存记录里的 revision 与它自己比较**——必须拿它和数据库/fence 的当前版本比
+2. **TTL 只负责回收数据，不提供撤权保证**——撤权靠同步失效 + 版本校验
 
-| 接口类别 | 定位依据 | 重放者的实际门槛 |
+**R4 是必做项，且工作量占整个需求的大头。** 它是「撤权秒级生效」的保证机制，不是简单的缓存加速。
+
+三条不变量（细则见 `playbook` §3.5.1–3.5.3，实现严格按那里做）：
+
+| # | 不变量 | 违反的后果 |
 |---|---|---|
-| **需 `entry_id`**：发消息、建会话、传附件 | `entry_id`（`bot_account.id` 的 UUID），且必须 `enabled` + 通道匹配 + Agent 在授权集合内（`resolve_authorized_entry`，`webchat_service.py:475-497`） | **高**：`entry_id` 既不进 JWT 也不由工号推导，只在 Console `resolve` 响应里下发。不知道就调不通（一律 404）；即便知道，渠道与授权也得对得上 |
-| **不需 `entry_id`**：历史、事件流、取消、附件下载 | `conversation_id` / `run_id` / `artifact_id`（均为 UUID） | **中**：这些 ID 一旦从日志、URL、BFF 转发记录泄漏，配旧 token 即可访问 |
+| 1 | **撤权走两阶段协调**（PG 状态机 + Redis 屏障 + fence CAS），不是"删个 key" | 在途回源会把旧权限写回缓存，撤权实际不生效 |
+| 2 | **版本比对必须对"外部权威值"**，不能拿缓存记录自比 | 失效检测永远通过，等于没有 |
+| 3 | **TTL 与进程重启都不提供撤权保证** | 误以为过期=撤权，实际留下窗口 |
 
-**必须点明**：后一类的归属校验（`_resolve_scope`：`webchat_service.py:445-457`、`owned_run_state`：`:184-188`）按 `platform_user_id` 比对，而同一工号映射出的 `platform_user_id` 恒定不变——所以它**挡不住"同一用户的旧 token 重放"**，只能挡"拿 A 的 token 访问 B 的数据"。
+四条实现红线（**做错任一条都会导致"看起来能撤权、实际撤不掉"**）：
 
-结论：`entry_id` 不透明显著降低了"凭空发起新对话"这条最易滥用的路径，但"读取/操作已有会话"靠的是 ID 本身不公开。这不是本地任何手段能解决的——只有掌握 token 真实状态的 BFF 能从源头挡住。
+- Redis 等待不能在打开的 PG 事务内
+- 失败按 PG 阶段恢复，不靠超时自动开屏障
+- 撤权路径禁止全库 `SCAN`/`KEYS`，用反向索引 + 有界批量
+- Redis 重启/切主后先核对同步状态并换 fence，再接流量
 
-**`time` / `login_time` 的用途**：仅用于日志可观测性——记录 token 签发时刻，便于排查异常长寿命 token；**不参与任何拒绝决策**。
+> **影响面**：这套机制**同时作用于现有 WebChat 和 MSSWWEB**（见 DoD）。改动的是两条通道共用的身份层，不是只给新通道加的。
 
-
-### 3.4 R3 工号映射
-
-**要解决的问题**：JWT 里只有 `job_number`（工号，如 `14806`），而我方系统内部认的是 `platform_user_id`（UUID）。需要把工号翻译成 UUID。
-
-**为什么不能直接查人**：工号存在 `platform_user.user_code`，理论上可以 `WHERE user_code = '14806'` 直接查。但网关**不持数据库**（架构约束），而且这样做等于"每次请求都做一次身份匹配"，把授权逻辑散落在查询里。
-
-**所以我方用的是映射表**：`channel_identity` 一行记录，把"外部平台的用户标识"和"我方用户主键"绑死。
+#### 3.5.1 状态机与恢复要点（详见 playbook）
 
 ```
-一行 channel_identity 记录：
-  external_user_id = "14806"          ← 工号，MSSW 侧的用户标识
-  platform_user_id = 7f3a...（UUID）  ← 我方用户主键
-  bot_account_id   = a1b2...（UUID）  ← 属于哪个入口
-  identity_key     = "MSSW:mssw-bot-01:14806"
+PG 写 PREPARING（advisory lock 串行化同租户权限写）
+  → Redis 关屏障 + 定向删权限缓存
+  → PG 事务提交：变更 + 审计 + auth_revision + COMMITTED
+  → Redis 发布新版本，以操作标识 CAS 开屏障 → READY
 ```
 
-**运行时只做一次查表**，不做比对：
-
-```
-JWT 解出 job_number = "14806"
-  → Console /internal/channel/resolve（网关发 HTTP，不持库）
-  → 按 (tenant, channel=MSSW, bot_account_id, external_user_id="14806") 查 channel_identity
-  → 查到了 → 返回 platform_user_id + 该用户被授权的 Agent 列表
-  → 查不到 → bound=false，请求拒绝（Q13：不自动建档）
-```
-
-**最容易误会的点**：`user_code` **在运行时完全不参与**。"工号 ↔ user_code"的比对只发生在建映射那一刻；之后每次请求都是拿工号直接查映射行，命中就用、不命中就拒。四个名字的区别见 `04` 阶段 0-C 的对照表。
-
-**映射怎么建出来（D5 已定）**：**管理员在 Console 新建用户时，`user_code` 字段直接填 MSSW 工号。**
-
-```
-第 1 步：管理员在 Console 新建平台用户
-  POST /api/v1/users  { user_code: "14806", display_name: "...", status: "ACTIVE" }
-  → create_user（user_service.py:62-82）
-  → 写 platform_user 一行：user_code = "14806"
-  → 顺带查重（find_by_code），冲突抛 USER_CODE_EXISTS；唯一约束 uq_platform_user_tenant_user_code
-
-第 2 步：为该用户建 MSSW 通道映射
-  → 写 channel_identity 一行：
-      external_user_id = "14806"        ← 与上一步的 user_code 同值
-      platform_user_id = 该用户的 id
-      bot_account_id   = 单入口的 bot
-      identity_key     = "MSSW:<bot_id>:14806"
-```
-
-**两步不能省其一**：`user_code` 回答"这人是谁"，`channel_identity` 回答"这个外部标识对应哪个平台用户"。运行时 `resolve` 查的是**后者**——只建用户不建映射，仍然是 `bound=false`。Q13 排除了"首次访问自动建档"（不做 JIT provisioning），所以映射必须在访问前就绪。
-
-> **实现方式待定**（`04` 阶段 0-C 有对照）：① 建用户时顺带建映射（最省事，工号天然一致）；② 复用绑定码流程（`bind()`，`channel_service.py:215-261`，但 `external_user_id` 来自请求参数，需保证用户输入的正是工号）。
-
-**网关侧代码形态**：复用 `InboundPipeline._resolve`（`inbound.py:836-849`）的写法——组装 `ChannelResolveRequest`，HTTP 打到 Console。这样网关不需要引数据库驱动，天然满足"网关不持库"。
-
-**与 WebChat 的差异**：WebChat 的用户本来就是平台本地用户，`external_user_id` 直接放 `platform_user_id` 即可，不用建映射。MSSW 的用户是外部平台的，**必须有这一行映射**，否则 `resolve` 必然 `bound=false`。这是本次唯一需要新增的数据准备工作。
-
-### 3.5 R4 权限查询
-
-**语义是布尔，且顺带下发 `entry_id`；需要新增一个独立接口。**
-
-- 上游口径：进入工作台查一次，决定 Tab 可见性
-- **语义为布尔**（Q14 已确认），响应 `{"visible": bool, "entry_id": "<uuid>", "agent_id": "<uuid>"}`
-- **`entry_id` 只能从这里给 BFF**：它由 Console `resolve` 产生，而 `resolve` 是网关内部接口，BFF 看不到；BFF 后续发消息/建会话/传附件都要在路径里带 `entry_id`
-- **不可见时仍返回 `entry_id`**：它标识"网关对接的那个入口"（由配置 `bot_id` 决定），与工号有无权限无关；`resolve` 在 `bound=False` 时也照样返回（`channel_service.py:115-121`）。提前给不泄露权限（`visible` 已表达），可省 BFF 一次往返
-- **入口未配置/已停用 → 404 `MSSW_CHANNEL_NOT_CONFIGURED`**：此时 `resolve` 抛 `BOT_NOT_FOUND`，`entry_id` 不存在，不能造假值；这属配置故障，不与"用户不可见"混为一谈
-- **不缓存、不作运行时授权依据**（概设 :1072）
-- 调用时**无会话上下文**，JWT 中不含 `conv`
-
-**为什么不能直接复用 `GET /api/v1/webchat/entries`**：该接口在 `WebchatService.list_entries`（`webchat_service.py:206-215`）里硬编码 `item.channel == WEBCHAT_CHANNEL`，MSSW 入口会被全部过滤掉；且入参 `ChatIdentity` 携带 Console 会话的 `expires_at`，MSSW 的 JWT `exp` 恒为 -1，无此语义。
-
-**方案**：新增 `GET /api/v1/mssw/permissions`。判定谓词（入口启用 + 通道匹配 + Agent 授权）从 `list_entries` 抽成共享函数，`/entries` 与 `/permissions` 各传自己的通道，判定口径只有一份。
-
-**原料**：`ChannelService.resolve` 的 `authorized` 字段 + `list_authorized_agents`。
-
-**入口来源（Q15 已定）**：MSSW BFF 只有**一个**上游服务，`bot_id` 由网关配置项指定（不传路径参数、不做多入口区分）。`entry_id` **不需要推导**——Console `resolve` 响应本就返回 `entry_id=bot.id`（`channel_service.py:99-127`、`contracts/channel.py:152-154`），随 `platform_user_id` 一起拿到。
-
-### 3.6 R5 八个会话接口
-
-**统一模式**：验 JWT → 映射 `platform_user_id` → 调网关现有 `WebchatService` → 返回现有契约。
-
-**因为 BFF 适配我方，接口形态就是我们现有的样子。** 详细定义见 `05-interface-mapping.md`。
-
-| 能力 | 我方接口 | 处置 | 复用度 |
-|---|---|---|---|
-| 发消息 | `POST /api/v1/mssw/entries/{entry_id}/messages`（新增路由） | 加路由 | 100% |
-| 事件流 | `GET /api/v1/mssw/runs/{run_id}/events` | 换 Guard | 90% |
-| 取消 | `POST /api/v1/mssw/runs/{run_id}/cancel` | 换依赖 | 100% |
-| 历史 | `GET /api/v1/mssw/conversations/{conversation_id}/messages` | 换依赖 | 95% |
-| 建会话 | `POST /api/v1/mssw/entries/{entry_id}/conversations`（新增路由） | 加路由 | 100% |
-| 传附件 | `POST /api/v1/mssw/entries/{entry_id}/attachments`（新增路由） | 加路由 | 100% |
-| 下附件 | `GET /api/v1/mssw/artifacts/{artifact_id}/content` | 直接复用 | 100% |
-| 权限 | `GET /api/v1/mssw/permissions`（新增，布尔 + `entry_id`） | 判定复用 | 90% |
-
-**关键澄清**：Runtime 的 `POST /v1/runs` 确实直接返回 SSE，但**网关层早有 202 受理语义**（`WebchatService.submit_message`，`webchat_service.py:224-271`），所以 **Runtime 一行都不用改**。
-
-**service 层要动的只有通道名参数化**（`WEBCHAT_CHANNEL` 的写死点共 **6 处**；另有 `webchat_core.py:53` 的 dataclass 默认值属类定义，MSSW 用另一个身份对象传入即可，不改原类）：
-
-| 位置 | 硬编码 | 不参数化的后果 |
-|---|---|---|
-| `submit_message` 的 `InboundEvent(channel=...)`（`webchat_service.py:237`） | `WEBCHAT_CHANNEL` | 事件被标成 WebChat 通道 |
-| `submit_message` 的 `adapter=WEBCHAT_CHANNEL_IDENTITY`（`:257`） | 通道身份对象 | 受理走 WebChat 适配器身份 |
-| `_run_request` 的 `ChannelContext(type=...)`（`webchat_core.py:69`） | `WEBCHAT_CHANNEL` | **真正写进 Runtime 的通道**；这是 `submit_message` 的实际落库路径，漏改则前两处白改 |
-| `create_conversation` 的 `ChannelContext(type=...)`（`webchat_service.py:286`） | `WEBCHAT_CHANNEL` | 会话记为 WebChat 通道 |
-| `resolve_authorized_entry`（`:489`） | `candidate.channel == WEBCHAT_CHANNEL` | MSSW 入口一律 404 |
-| `list_entries`（`:214`） | `item.channel == WEBCHAT_CHANNEL` | `/permissions` 恒为 false（入口快照为空） |
-
-> **`webchat_core.py:69` 最容易漏**：`submit_message` 只负责构造 `InboundEvent` 交给 `admit_sync`，而 `admit_sync`（`webchat_core.py:87-88`）第一行就是 `_run_request(event, principal)`，真正组装 `RunRequest.channel` 的是 `_run_request`。**只改 `webchat_service.py` 里那几处，消息仍会以 `WEBCHAT` 通道落库。**
-
-除此之外 8 个接口的 service 逻辑一行不改——`ChatIdentity` 用到的四个字段里，MSSW 能提供三个（`tenant_id` / `platform_user_id` / `agents`），缺的只有 `expires_at`，且只影响 SSE（见 §3.7）。
-
-### 3.7 R6 SSE 长连接策略
-
-**必须新写，不能复用 `ChatStreamGuard`。**
-
-理由：现有 Guard 依赖 token 的 `expires_at` 到点断流（`chat_principal.py:184-207`），而 MSSW 的 `exp` 恒为 -1，前提不成立。
-
-新策略：
-
-| 项 | 现有 CHAT | MSSW |
-|---|---|---|
-| 建连校验 | 一次 | 一次（验签 + 映射） |
-| 流内周期复核 | 每 N 秒向 Console 复核 | **不做**（无可依据的到期时刻，也不向上游查询——鉴权前移给 BFF，见 3.3.1） |
-| 断流条件 | 凭证过期 | **单轮时长上限** + 客户端断开 |
-| 重连 | 前端自动续连 | **BFF 重连即重新验签**（重连的合法性仍由 BFF 保证） |
-
-**为什么不做流内复核**：签发方的过期判断在 MSSW 自己的 Redis key 上（`01` §2.1），是**滑动续期**——只要用户活跃就永不到期。我方看不到那个 Redis，无从复核；而上游只有 BFF，token 有效性由 BFF 在转发前判定（3.3.1），网关无需再查一遍。
-
-**判定策略（只有一层，且不是鉴权）**：
-
-| 层 | 判据 | 作用 |
-|---|---|---|
-| 连接级到期 | 单轮流有硬性时长上限（新增一项启动资源预算配置，与现有预算项同风格） | **纯资源安全策略**：单连接不无限占用；与 token 是否有效无关 |
-
-**明确不做**：
-
-- 不做绝对时间窗（`time` 是签发时刻，会误杀活跃用户，见 3.3.1）
-- 不做流内上游校验（鉴权前移给 BFF）
-- 不在网关维护本地续期状态——那会退化成一整套有状态会话管理，与网关零数据库依赖冲突
-
-**代价**：WebChat 能做到"会话被踢立即断流"，MSSW 做不到——但这不落在我方：BFF 在转发/重连时已把失效 token 挡在外面。我方负责的是单个连接的资源寿命。这是 `exp = -1` 的直接后果，需在详细设计里记录。
-
-### 3.8 R7 错误码
-
-新增场景：JWT 无效、用户未映射、通道无权限、游标异常。
-
-游标三类（概设 :1056-1060）：
-
-| 码 | 行为 |
+| 场景 | 要求 |
 |---|---|
-| `CURSOR_EXPIRED` | 409 + 真实水位，**网关按历史补全** |
-| `CURSOR_AHEAD` | 409，不静默从头重放 |
-| `CURSOR_RUN_MISMATCH` | 400，拒绝跨 run 订阅 |
+| Redis 不可用 | 有界回 PG；PG 协调状态非 `READY` → **不放行** |
+| PG 已提交但同步失败 | 返回 `AUTH_CACHE_SYNC_PENDING`，不假报成功、不继续用旧权限 |
+| Redis 重启/切主/快照恢复 | 先关认证入口 → 按 PG 状态恢复并换 fence → 再接流量 |
+| 多 key 原子操作 | key 由 Contracts 工厂产生，同一 Lua 用租户 hash tag **同槽**（否则 CROSSSLOT） |
 
-**两处需在适配层补齐**（代码现状不足）：
+#### 3.5.2 配置变更与重启
 
-1. `CURSOR_RUN_MISMATCH` 在 Runtime 侧**从不抛出**（grep `apps/agent-runtime/` 零命中，只在契约层 `validate_run_cursor` 有）。需网关自己比对 `run_id`。
-2. `CURSOR_EXPIRED` 时"按历史补全"是概设要求，现有实现只抛错不补全。
-   **前提已成立**：`event_tail_hub.py:669-674` 的 `earliest_seq` 与历史接口的 `through_seq` 同属一个 canonical seq 空间（`webchat_history.py:375`），网关可直接用 `earliest_seq` 之前的区间调历史分页补全，无需做水位换算。
+**Redis TTL 到期和进程重启都不是撤权机制。** 因子、`identity_keys`、有效期策略变化或平台停用，走**平台级失效**：
 
-需同步 `ErrorCode` + `config/api-messages.yaml` 双语，否则 `tests/test_error_catalog.py` 会红。
+```
+关闭认证入口 → 删平台凭证缓存 → 更新配置/重建全部 Console 副本
+  → 核对各副本版本一致 → 激活新 policy_epoch → 开放
+```
 
-### 3.9 R8 测试
+三条推论：新旧配置副本**不混发**可缓存结果；配置缺失/损坏在接流量前登记平台不可用（Gateway 缓存命中也要查状态/epoch）；**无配置变化的重启可复用同版本缓存**。
 
-至少覆盖：
+> 与「密钥不轮换」（Q5）不冲突：Q5 说"不主动换"，这里说的是"真要换时按什么流程换"。
 
-- **验签**：正确 / 错签名 / `aud` 不匹配 / `iss` 不匹配 / `alg=none` / HS256 / 缺 `job_number`
-- **工号映射**：`/permissions` 上未映射 → 200 `visible:false`；其余需身份的接口上未映射 → 403 `MSSW_USER_NOT_MAPPED`
-- **权限查询四分支**：有授权（`visible:true`）/ 无授权（`visible:false`）/ 工号未映射（`visible:false`）/ **入口未配置（404 `MSSW_CHANNEL_NOT_CONFIGURED`）**——前三种均 200 且都带 `entry_id`/`agent_id`
-- **SSE**：长连接不断流、`after_seq`/`Last-Event-ID` 取大值、`CURSOR_EXPIRED` 转历史补全
-- **通道隔离**：MSSW 路由不得以 WEBCHAT 身份落库（覆盖 6 处通道名参数化）
+### 3.6 R5：会话接口门面
+
+15 个接口，路径 `/api/v1/msswwweb/*`。清单见 `05` §2。
+
+**参数化方式：`ChatSurface` 抽象 + 单 router 多挂载**
+
+不要为 MSSWWEB 复制一份 `api/webchat.py` 的 15 个 handler。做法是把入口面抽象成 `ChatSurface`：
+
+```
+ChatSurface(channel, auth_kind, entry_resolver)
+```
+
+同一套 router 与 service 按 `channel` 挂载多次，身份依赖按 `auth_kind` 分支（`CHAT_SESSION` / `EXTERNAL_ASSERTION`），执行面（Runtime Owner 接口、上传、SSE、产物）原样复用。
+
+这是 US-09「新增同类平台只加配置和入口，不复制 15 个 handler」的落地方式——加一个平台只需新增一个 `ChatSurface` 配置 + 一条平台因子配置，不改 handler。
+
+涉及 6 个文件（不是只有 `webchat.py` 一个）：
+
+| 文件 | 变更 |
+|---|---|
+| `channels/base.py` | 复用 `ChannelAdapter` + 可选能力 Protocol，不改 |
+| `channels/webchat.py` | **`WebchatChannelAdapter(name=...)` 参数化**——现在是写死的 |
+| `channels/registry.py` | 注册新 adapter；`snapshot_names()` 自动纳入快照 |
+| `api/webchat.py` | **去掉固定 prefix**，保留共享 handler |
+| `api/deps.py` | `ChatSurface`；按 surface 分支的 `get_chat_identity` / `get_chat_stream_guard` |
+| `application/chat_principal.py` | 加 `ChatIdentity.allowed_entries`；长流复核抽象 |
+| `main.py` | 同一 router 多挂载；**通知路由只挂 WebChat**（BFF 不暴露通知中心） |
+
+> 关键约束：`ChatSurface` 必须留在**装配层**（`api/deps.py`），核心域不得出现 `MSSWWEB` 分支（否则违反 RULE-im-002）。
+
+**6 处通道名写死必须参数化**（这是 R5 最容易漏的地方）：
+
+| # | 位置 | 不改的后果 |
+|---|---|---|
+| ① | `webchat_service.py:214` `list_entries` | MSSWWEB 入口被过滤 |
+| ② | `webchat_service.py:489` `resolve_authorized_entry` | MSSWWEB 入口 404 |
+| ③ | `webchat_service.py:237` `InboundEvent` | 事件标错通道 |
+| ④ | `webchat_service.py:257` adapter 选择 | 走 WebChat 适配器 |
+| ⑤ | `webchat_service.py:286` `ChannelContext` | 会话记成 WebChat |
+| ⑥ | **`webchat_core.py:69` `_run_request`** | **Run 真正落库的通道**；漏改则 ③④⑤ 全部无效 |
+
+**测试兜底**：断言 `RunRequest.channel == "MSSWWEB"`，不能只断言 HTTP 202。
+
+### 3.7 R6：SSE 策略
+
+| 时机 | 校验 |
+|---|---|
+| 开流时 | user + Agent |
+| 复核时 | 同一 user、目标 Agent、`expires_at`、token/会话仍有效 |
+| **每个事件 yield 前** | 检查到期/复核截止，**不能因事件持续 ready 跳过** |
+| 复核调用 | 加 `asyncio.wait_for` 绝对期限 |
+
+`CURSOR_EXPIRED` 是正常情况（用户关页面再回来），BFF 应当作"重新拉历史"信号。
+
+**两套序号不能混**：消息序号（canonical seq）与通知序号。前者用于 SSE `after_seq` 与历史 `through_seq`，后者用于会话已读水位。
+
+### 3.7.1 R6b：确认与 resume
+
+Agent 需要用户确认时，Run 进入 `WAITING_INPUT` 并携带 `confirmation.required`；BFF 展示确认项，用户点击后调 `POST /runs/{id}/resume` 继续。
+
+| 校验 | 要求 |
+|---|---|
+| 会话归属 | user + Agent 核属，入口不是边界 |
+| 用户状态 | `platform_user.status` 必须为 `ACTIVE` |
+| Agent 授权 | 该 Agent 授权仍有效 |
+| Run 状态 | 只接受 `WAITING_INPUT`，其它状态返回冲突 |
+
+resume 与 SSE 一样按当前授权复核；授权在等待期间被撤销时拒绝 resume，不继续旧 Run。
+
+### 3.8 R7：错误码与运维降级
+
+| 码 | HTTP | 场景 |
+|---|---|---|
+| `EXTERNAL_ASSERTION_INVALID` | 401 | 缺失/签名错/格式错/`aud`/`iss`/身份 key 缺失 |
+| `EXTERNAL_ASSERTION_EXPIRED` | 401 | 超出最大会话年龄 |
+| `EXTERNAL_ASSERTION_UNBOUND` | 403 | 身份未绑定（验签通过但无 `external_identity`） |
+| `EXTERNAL_ASSERTION_UNAVAILABLE` | **503** | Secret 未配置/损坏 |
+| `CURSOR_EXPIRED` | 409 | 游标超出保留窗口 |
+| `CURSOR_AHEAD` | 409 | 水位超前（如 mark-read 提交了未来水位） |
+| `IDENTITY_KEYS_MISMATCH` | 400 | 绑定 JSON 的 key 集合不符 |
+| `IDENTITY_ALREADY_BOUND` | 409 | 身份已绑他人 |
+| `BOT_ID_EXISTS` | 409 | `bot_id` 重复 |
+| `AUTH_CACHE_SYNC_PENDING` | 503 | 授权缓存同步未完成，失败关闭 |
+
+**`/identity` 的 `reason` 枚举**（`allowed=false` 时返回，用于 BFF 决定提示文案）：
+
+| reason | 含义 | HTTP |
+|---|---|---|
+| `UNBOUND` | 身份未绑定到任何平台用户 | 200 |
+| `USER_DISABLED` | 平台用户已停用 | 200 |
+| `NO_ENTRY_GRANT` | 身份存在，但无该入口的授权（**不丢弃主体**） | 200 |
+| `ENTRY_DISABLED` | 入口已禁用/删除 | 200 |
+| `NO_AGENT_GRANT` | 无该 Agent 的授权 | 200 |
+| `AGENT_DISABLED` | Agent 已禁用/删除 | 200 |
+
+**运维降级语义**：Secret 缺失/损坏**只让 MSSWWEB 返回 503**，不影响启动与其他通道。新错误码必须同时登记 `packages/api-kit/.../error_codes.py` 与 `config/api-messages.yaml`（双向断言）。
+
+### 3.9 R8：测试覆盖
+
+| 层级 | 覆盖 |
+|---|---|
+| **contract** | 公开契约字段与错误码；`error_codes.py` ↔ `api-messages.yaml` 双向断言 |
+| unit | 验签四分支（合法/签名错/`alg=none`/缺 key）、AES 派生、身份 hash、同槽 Lua 原子性 |
+| **component** | 认证缓存状态机四种故障点；PG 核验分支（用真实 PG + 内存 fake Redis）；不含排序轮询、不跳过冻结 |
+| integration | 6 处通道参数化（断言 `RunRequest.channel`）、`/identity` 六种 `reason`、缓存版本校验 |
+| **隔离矩阵** | 跨用户隔离：A 的凭证不能读 B；同一 `platform_user` 多 `external_identity` 一致收敛；会话/产物/通知可共享，**凭证不能跨 tenant/platform/entry 复用** |
+| e2e | `/identity` → 建会话 → 发消息 202 → SSE 订阅 → 历史分页 → 已读 → 删除 |
+
+必须覆盖的**失败路径**：Redis 故障回 PG、屏障未开、版本不一致、写在途 Redis 短时失败、恢复数据疑似陈旧。
+
+### 3.9.1 交付验收（22 项 DoD）
+
+**权威清单在 `playbook` §6**，任务拆解与收尾验收以那里为准。分组数量：通道与装配 4、降级 1、身份 6、缓存与配置 2、索引 1、功能闭环 4、数据一致性 1、能力组与文档 3。
+
+其中最容易漏、必须在任务里显式体现的五条：
+
+- **重名 adapter 启动失败**（不是静默覆盖）
+- **缓存机制同时覆盖 WebChat 与 MSSWWEB**，旧回源不能回填
+- **`EXPLAIN` 验证索引**（小表 Seq Scan 不直接判失败）
+- **snapshot 半组、重复、EOF 及过期恢复**用例
+- **完整回归走隔离的 `make acceptance` 或 CI，不得共用 dev 库**
+
+### 3.10 规范沉淀（Spec Delta）
+
+本次设计需沉淀成规范，否则下个平台还得重新推导：
+
+| Spec | 内容 |
+|---|---|
+| `harness-im` | Channel / Platform / Entry / Identity 四概念；Secretless 通道；单 router 多挂载的 Surface 扩展方式；同来源多身份的凭证失效 |
+| `harness-auth` | Redis 认证缓存：两层 key、版本、屏障、Lua 同槽、不 SCAN、故障关闭、恢复与重启语义 |
+| `harness-secret` | 平台因子放 Secret（不进 `bot_account.config_json`、不回显）；启动可选、请求时关闭；替换流程 |
+
+> 这三条是 playbook §7 给出的建议，属于**需求方交付物的一部分**，不是可选项。
 
 ---
 
 ## 第四部分：约束与风险
 
-### 4.1 必须遵守的约束（来自概设）
+### 4.1 必须遵守的约束
 
-| 约束 | 出处 |
+1. **验签只在 Console**——网关不持因子
+2. **归属按 user（+ Agent）**——不能只凭 `run_id`/`conversation_id`；Runtime 的 `_load_run_in` 不带 user_id
+3. **SSE 每事件复核**——不能只校验建连
+4. **游标只透传**——`after_seq`/`Last-Event-ID` 取大值，不重置为 0
+5. **失败关闭**——配置错误尽早暴露，不降级放行
+
+### 4.1.1 数据边界的三条细则（playbook §3.7）
+
+| # | 规则 | 说明 |
+|---|---|---|
+| 1 | **显式资源访问不加 entry/channel 断言** | 列表聚合仍需 `(tenant, user, agent)` 核属——用"查得到"表示"属于你"，不额外比入口 |
+| 2 | **删除/取消/已读不要求入口 enabled，也不回查入口快照** | 入口停用后用户仍要能删自己的会话、停正在跑的 Run |
+| 3 | **会话列表接口隐藏入口可用性** | 按 user + agent 聚合，不因 entry 停用隐藏历史；单入口的 `entry_id != null` 是兼容字段 |
+
+> **通知 writer 的回退是已知缺陷**：现有实现查不到 `conversation.channel` 时会回退到 `bot_account.channel`。若入口有多条身份，会共用错误 UUID。要改成**按实际 Run 来源精度回退**，不能丢来源。这是本期要修的既有 bug。
+
+### 4.1.2 十三条反模式
+
+**权威清单在 `playbook` §5**（架构 2 条、安全 5 条、功能语义 6 条），实现时逐条对照。
+
+最容易犯的三条，单独强调：
+
+| ❌ | ✅ |
 |---|---|
-| 平台侧不直连 IM/WS，只暴露 HTTP + SSE | :1069 |
-| 两层鉴权是 AND 关系，我们只做 Claw 侧 | :1071 |
-| permissions 查一次，不缓存，不作运行时依据 | :1072 |
-| SSE 建连后不因 token 过期断流 | :983 |
-| 归属校验必须带用户身份，不能只凭 `run_id` | :1062 |
-| 附件禁止 302，由网关流式代理 | :1063 |
-| **游标只透传不改写，取大值，不得重置为 0** | :1054、:1083 |
-| `provider_seq` 与对外 `seq` 分离 | :1038 |
-| `customer_id` 为空，不携带客户数据 | :1067 |
+| 复制 `api/webchat.py` 的 15 个 handler 给新通道 | 一个 router + `ChatSurface` 装配参数 |
+| 把 JWT 因子写进 `bot_account.config_json` 或回显给前端 | 因子在 Secret；`config_json` 不存密钥、不整体回显 |
+| 用未验签的 `login-source` 选密钥或选平台 | 只用**验签通过后**的 claim 做选择 |
 
-### 4.2 风险清单
+### 4.2 风险
 
 | 风险 | 影响 | 处置 |
 |---|---|---|
-| `run_id` 越权 | Runtime 的 `_load_run_in` 只按 `id + tenant_id` 查，不带 user_id，同租户内拿到 `run_id` 即可越权读 | 调用方（网关）必须按 `platform_user_id` 复核归属（Q24） |
-| `CURSOR_EXPIRED` 无补全数据 | `check_cursor` 对过期游标只抛错、不返回补全数据（`event_tail_hub.py:669-674`） | R6 自行编排"过期 → 转历史接口"；两者同属一个 canonical seq 空间（Q20-c），无需水位换算 |
-| **历史 token 重放** | `exp` 恒为 -1、吊销在 MSSW 侧 Redis，我方不可见；若 BFF 侧实现不到位，已登出用户可用旧 token 继续访问 | **责任前移给 BFF**（§3.3.1）：转发前校验 token 有效性；我方只保留连接寿命 |
-| 生产密钥未取得 | 无法**生产**联调（开发环境值已实测确定，不阻塞开发） | M5，需求方"后续会给" |
+| `run_id` 越权 | Runtime 只按 `id + tenant_id` 查，同租户内拿到 `run_id` 即可越权 | 调用方按 `platform_user_id` + Agent 复核（含 SSE） |
+| 历史 token 重放 | `exp` 恒为 -1，吊销在 MSSW 侧 | 责任前移 BFF；我方加最大会话年龄兜底 |
+| Redis 缓存旧权限 | 撤权不生效 | 同步失效 + 独立版本校验 + fence CAS |
+| `CURSOR_EXPIRED` 无补全数据 | 需自行编排 | 409 后 BFF 转历史接口 |
+| 通道名遗漏参数化 | MSSW 请求以 WEBCHAT 落库 | 集成测试断言 `RunRequest.channel` |
+| `CHANNEL_TOKENS` 未加词 | 架构机检假绿灯 | 通道注册表的每个通道名都必须在词表中 |
+| AES 派生算法写错 | 全量 401 | 按 `01` §3 实现，测试向量驱动 |
+| 生产密钥未取得 | 无法生产联调 | 开发环境自签；生产前索取（M5） |
+| 密钥不轮换 | 泄露无法止损 | 换密钥 + 重新部署 |
 
-> 已解除的两条（跨站 Cookie、游标水位不可换算）不再列于此：前者由 Q27 确认非跨站，后者由 Q20-c 代码事实确认是同一套水位。
+### 4.3 明确不做
 
-### 4.3 明确不做的事
-
-- **不做 token 有效性/吊销判定**——吊销状态在 MSSW 侧 Redis，我方无数据源；责任在 BFF 转发前（§3.3.1），因此不索取 token 校验接口（Q30 已撤销）、不建本地黑名单、不设签发时间窗
-- 不把验签挪出网关（边缘职责内推，见 3.3）
-- 不引入第二套认证域（不复用 CHAT Cookie）；不改动 WEBCHAT / WECOM 任何行为
-- 不复刻签发方的免校验分支；不实现 AES 解密
-- **不做密钥轮换**——密钥固定（Q5 已定），单密钥静态配置，不做多密钥并存/版本槽位
+- **不做 token 有效性/吊销判定**——吊销状态在 MSSW 侧 Redis，我方无数据源；责任在 BFF 转发前
+- **不主动踢人**——最大会话年龄只作 SSE 续订上限，不是下线策略
+- 不把验签挪到网关（因子只在一处）
+- 不引入第二套认证域（不复用 CHAT Cookie）；不改 WEBCHAT / WECOM 行为
+- 不复刻签发方的免校验分支；不实现 AES 解密（改用加密期望值比对）
+- **不做密钥轮换**——单密钥静态配置，不做多密钥并存/版本槽位
 - 不做客户维度隔离（`customer_id` 全仓不存在）；不做用户自动建档
+- **不实现平台专用 claim 提取器**（第一期）——保留扩展点，等第二个平台真来了再落地

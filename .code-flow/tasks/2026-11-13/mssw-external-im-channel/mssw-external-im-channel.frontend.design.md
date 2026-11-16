@@ -169,7 +169,7 @@ design_template: frontend
 |-------|------|------|------|
 | `visible` | boolean | 是 | 弹窗开关 |
 | `userId` | string | 是 | 平台用户 id |
-| `platform` | `ExternalPlatformItem` | 是 | 平台元数据，含 `identity_keys` |
+| `platform` | `ExternalPlatformItem` | 是 | 平台元数据，含 `identity_keys`；表单按 `identity_field_labels` 渲染每个字段的标签（缺失时回退 claim 名），提交仍用 claim 名 |
 | `identity` | `{id: string; platform_key: string; json: Record<string, string>} \| null` | 否 | 编辑时传入；`null` = 新增 |
 | `onCancel` | `() => void` | 是 | 关闭 |
 | `onSaved` | `() => void` | 是 | 成功后刷新列表 |
@@ -235,7 +235,7 @@ ExternalIdentitySection
 | 身份创建/编辑成功 | 关闭弹窗 + Toast + 身份列表刷新 |
 | 授权/解绑入口成功 | Toast + grants 列表刷新 |
 | 已绑其他用户 | 弹窗内错误提示 `IDENTITY_ALREADY_BOUND`，保留输入 |
-| 身份字段集合不匹配 | 字段提示 `IDENTITY_KEYS_MISMATCH`，展示平台要求的 keys（如 `expert_id, tenant_id`） |
+| 身份字段集合不匹配 | 字段提示 `IDENTITY_KEYS_MISMATCH`，按 `identity_field_labels` 展示字段中文名（如「专家 ID（24 位）」「租户 ID」）；label 缺失时回退 claim 名 |
 | 平台元数据缺失 | Banner 提示“平台未注册”；身份创建禁用 |
 | 入口已禁用 | 下拉项显示“已禁用”，可选但提示不可用 |
 | 加载失败 | 弹窗内错误 + 重试；不关闭 |

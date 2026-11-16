@@ -1,127 +1,148 @@
-# MSSW 智能客服通道接入
+# MSSW 外部 IM 通道接入
 
-上游 MSSW 平台新增智能客服能力，通过 BFF 调用本系统。本目录是需求梳理与规格分析的归档。**尚未进入 `cf-task:prd` 正式流程。**
+上游 MSSW 平台新增智能客服能力，通过 BFF 调用本系统。本目录是**协议事实与历史决策记录**的归档。
+
+> **需求基线已迁移**：本期需求以 `.code-flow/tasks/2026-11-13/mssw-external-im-channel/` 的 PRD 与设计为准。本目录 6 份文档已全部按新方案校对；`01-jwt-spec.md` 是 JWT 协议事实的唯一权威（身份键按新方案为 `_id` + `tenant_id`，`job_number` 仅供人读）。
 
 ## 一分钟了解
 
-**要做什么**：在 `im-gateway` 加一个 MSSW 通道。BFF 是**后端服务**，带 JWT 直接转发请求过来，我们验签 → 用工号匹配本地用户 → 复用现有会话能力。
+**要做什么**：新增 `MSSWWEB` 通道，BFF 是**后端服务**，带 JWT 直接转发请求过来。**验签在 Console**（网关不持因子、不持库），验签后按平台配置的 `identity_keys` 解析身份，映射到我方平台用户，然后复用现有会话能力。
 
-**关键认知**：这不是从零建一套聊天服务，而是**给现有 WebChat 能力换一个身份入口**。BFF **直接适配我方现有接口**，我们不需要实现它那套 `/internal/agent-provider/v1/*` URL。8 个能力里 **3 个零改动**（取消、附件下载、历史分页）、**3 个只加同构路由**（发消息、建会话、传附件）、**1 个换 Guard**（SSE）、**1 个新增但判定复用**（权限）。真正全新的只有 **JWT 验签器**。
+**和上一版的关键差别**：
+
+| 维度 | 上一版（已废弃） | 现行方案 |
+|---|---|---|
+| 通道名 | `MSSW` | **`MSSWWEB`**（另有一层 `platform_key=mssw`） |
+| 验签位置 | 网关 | **Console** |
+| 身份模型 | `channel_identity`（按入口建） | **`external_identity`（用户级）+ `entry_access_grant`（入口授权）** |
+| 身份字段 | `job_number` | **平台可配 `identity_keys`**（MSSW 用 `_id` + `tenant_id`） |
+| 未配置 | 404 `MSSW_CHANNEL_NOT_CONFIGURED` | **503 `EXTERNAL_ASSERTION_UNAVAILABLE`** |
+| 会话可见性 | 按入口隔离 | **同一 user + 同一 Agent 跨入口共享** |
+| 缓存 | 无 | **Redis 凭证/权限分层缓存 + auth_revision + policy_epoch** |
+
+**通用化的边界**：这是「JWT 类外部平台」的通用方案。新增同类平台（如 MSSP）只加平台配置与入口，不复制 handler。若将来接非 JWT 平台（OAuth2、mTLS），身份模型与会话层可复用，认证适配层需另写。
 
 ## 文档地图
 
-| 文档 | 什么时候看 |
+| 文档 | 内容 |
 |---|---|
-| [01-jwt-spec.md](./01-jwt-spec.md) | JWT 规格 + 实测验证（结构、AES 细节、密钥配置、真实 token 验签报告） |
-| [02-requirements.md](./02-requirements.md) | **主干文档**：需求定位、已定边界、R1-R8 分解、约束与风险 |
-| [03-open-questions.md](./03-open-questions.md) | 决策记录与历史问题（当前全部闭合） |
-| [04-user-journeys.md](./04-user-journeys.md) | 要理解端到端流程；附录 A 会话归属、附录 B 游标 |
-| [05-interface-mapping.md](./05-interface-mapping.md) | 要实现接口时查逐条对照与请求/响应契约 |
+| [01-jwt-spec.md](./01-jwt-spec.md) | **协议事实权威**：JWT 结构、AES 细节、claim 清单、真实 token 实测报告 |
+| [02-requirements.md](./02-requirements.md) | 需求定位、能力边界、R1-R8 分解、约束与风险 |
+| [03-open-questions.md](./03-open-questions.md) | 历史决策记录（**部分结论已被新方案取代，逐条标注**） |
+| [04-user-journeys.md](./04-user-journeys.md) | 端到端旅程（BFF 视角 + 管理员视角） |
+| [05-interface-mapping.md](./05-interface-mapping.md) | 接口逐条对照与请求/响应契约 |
 
 ---
 
 ## BFF 视角：一次完整对话的调用链
 
-下面是 BFF 从"判断有没有权限"到"拿到流式回复"的完整时序。**所有请求都由 BFF 服务端携带 `soc-token` Cookie 发出**（非浏览器跨站，Cookie 可正常送达）；BFF 需在**转发前自行校验 token 有效性**——网关不做这件事（见 `02` §3.3.1）。
+所有请求由 BFF 服务端携带 `soc-token` Cookie 发出（非浏览器跨站，Cookie 可正常送达）。**BFF 需在转发前自行校验 token 有效性**——我方只做签名与 claim 校验，不判吊销（吊销状态在 MSSW 侧，我方无数据源）。
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant U as MSSW 用户<br/>（浏览器）
     participant BFF as MSSW BFF<br/>（后端服务）
-    participant GW as im-gateway<br/>/api/v1/mssw
-    participant CON as console-platform<br/>/internal/channel/resolve
+    participant GW as im-gateway<br/>/api/v1/msswwweb
+    participant CON as console-platform<br/>（身份权威 + 验签）
     participant RT as agent-runtime
 
     rect rgb(238, 245, 255)
-    Note over BFF,GW: 阶段 1｜权限探测（决定「智能客服」Tab 是否可见）
-    U->>BFF: 打开工作台
-    BFF->>BFF: 转发前校验 token 有效性<br/>（吊销/登出由 BFF 判定）
-    BFF->>GW: GET /api/v1/mssw/permissions<br/>Cookie: soc-token=[JWT]
-    GW->>GW: 本地验签 RS256（算法白名单）<br/>取 claims.job_number（明文）
-    GW->>CON: POST /internal/channel/resolve<br/>{channel:MSSW, job_number, bot_id}
-    CON-->>GW: {bound, entry_id, agent_id,<br/>platform_user_id, authorized}
-    GW->>GW: 按 MSSW 通道过滤入口<br/>visible = bool(授权入口)
-    GW-->>BFF: 200 {visible, entry_id, agent_id}
-    BFF->>BFF: 缓存 entry_id<br/>（后续所有写操作路径段都用它）
-    BFF-->>U: visible=true 才显示 Tab
+    Note over BFF,CON: 阶段 1｜身份与可见性（决定 Tab 是否可见）
+    BFF->>GW: GET /api/v1/msswwweb/identity<br/>Cookie: soc-token=[JWT]
+    GW->>CON: POST /internal/channel/external-principal<br/>{channel: MSSWWEB, soc_token}
+    Note over CON: 验 RS256 + AES(aud/iss) + claim<br/>按 identity_keys 取 claim → canonical JSON → sha256<br/>查 external_identity
+    CON->>CON: 查 entry_access_grant + bot_account + Agent 授权
+    CON-->>GW: {authenticated, platform_user_id, grants[], agents[], auth_revision, policy_epoch}
+    GW-->>BFF: 200 {allowed, reason, platform_user_id, grants[], agents[]}
+    Note over BFF: 未绑定 → allowed=false + UNBOUND<br/>取消 Tab 或提示联系管理员
     end
 
     rect rgb(245, 255, 245)
-    Note over BFF,RT: 阶段 2｜发消息（202 受理，立刻返回，不等正文）
-    U->>BFF: 输入文本并发送
-    BFF->>GW: POST /api/v1/mssw/entries/{entry_id}/messages<br/>Cookie: soc-token=[JWT]<br/>Idempotency-Key: [BFF 生成]<br/>{conversation_id|null, message_id, text, upload_ids[]}
-    GW->>GW: 验签 + 工号映射 + 归属校验<br/>（platform_user_id 比对）
-    GW->>RT: 受理 Run（Runtime 零改动）<br/>指纹 = tenant/agent/user/entry/thread
-    RT-->>GW: {conversation_id, run_id, status:CREATED}
-    GW-->>BFF: 202 {conversation_id, run_id, status, execution_status}
-    Note right of BFF: 同 Idempotency-Key 重试<br/>返回同一个 run_id，不会重复执行
+    Note over BFF,GW: 阶段 2｜入口列表与建会话
+    BFF->>GW: GET /api/v1/msswwweb/entries<br/>Cookie: soc-token=[JWT]
+    GW-->>BFF: 200 {items:[{entry_id, name, agent_id, allowed}]}
+    BFF->>GW: POST /api/v1/msswwweb/entries/{entry_id}/conversations<br/>Idempotency-Key: [BFF 生成]
+    GW-->>BFF: 201 {conversation_id}
     end
 
     rect rgb(255, 250, 235)
-    Note over BFF,RT: 阶段 3｜订阅 SSE 流（拿到 run_id 后立刻建连）
-    BFF->>GW: GET /api/v1/mssw/runs/{run_id}/events?after_seq=0<br/>Cookie: soc-token=[JWT]<br/>Last-Event-ID: [可选，与 after_seq 取大值]
-    GW->>GW: 建连校验一次<br/>（不做流内周期复核）
-    GW->>RT: GET /v1/runs/{run_id}/events?after_seq=N
-    RT-->>GW: 事件流（canonical seq）
-    GW-->>BFF: SSE 帧<br/>id: [seq]<br/>event: [type]<br/>data: {...}
-    BFF-->>U: 逐帧推给前端渲染
-
-    opt 断线重连
-        BFF->>GW: GET .../events?after_seq=[最后收到的 seq]<br/>Last-Event-ID: [同值]
-        Note right of GW: 取 max(after_seq, Last-Event-ID)<br/>绝不重置为 0、绝不静默全量重放
-        GW-->>BFF: 从断点续传，或 409 稳定码
+    Note over BFF,RT: 阶段 3｜发消息 202 + 订阅 SSE
+    BFF->>GW: POST /api/v1/msswwweb/entries/{entry_id}/messages<br/>Cookie: soc-token=[JWT]<br/>Idempotency-Key: [BFF 生成]<br/>{conversation_id|null, message_id, text, upload_ids[]}
+    GW->>RT: admit（复用现有 202 受理）
+    RT-->>GW: {run_id, conversation_id}
+    GW-->>BFF: 202 {run_id, conversation_id}
+    BFF->>GW: GET /api/v1/msswwweb/runs/{run_id}/events?after_seq=0<br/>Cookie: soc-token=[JWT]
+    GW->>CON: 复核 user + agent + expires_at
+    GW->>RT: 订阅 canonical 事件流
+    loop 每个事件
+        RT-->>GW: delta / confirmation / terminal
+        Note over GW: yield 前复核到期与授权
+        GW-->>BFF: event: delta  id: [seq]<br/>data: {text}
     end
-
-    opt 用户点「停止」
-        BFF->>GW: POST /api/v1/mssw/runs/{run_id}/cancel<br/>Cookie: soc-token=[JWT]
-        GW->>RT: POST /v1/runs/{run_id}/cancel
-        GW-->>BFF: 200（幂等：已终态返回当前终态）
+    GW-->>BFF: event: terminal
+    opt 断线重连
+        BFF->>GW: GET .../events?after_seq=[最后收到的 seq]
+        Note over GW: 与 Last-Event-ID 取大值，不重置为 0
+    end
+    opt 用户点停止
+        BFF->>GW: POST /api/v1/msswwweb/runs/{run_id}/cancel
+        GW-->>BFF: 200
     end
     end
 
     rect rgb(252, 240, 250)
-    Note over BFF,RT: 阶段 4｜查看历史（MSS-Claw 是唯一展示来源，BFF 不缓存正文）
-    U->>BFF: 重新打开某个会话
-    BFF->>GW: GET /api/v1/mssw/conversations/{conversation_id}/messages<br/>Cookie: soc-token=[JWT]<br/>?page=1&page_size=20
-    GW->>RT: 归属校验（tenant + user + conversation_id）
-    RT-->>GW: {items[], through_seq, total}
+    Note over BFF,RT: 阶段 4｜会话列表、详情与历史
+    BFF->>GW: GET /api/v1/msswwweb/conversations?agent_id=<br/>Cookie: soc-token=[JWT]
+    GW-->>BFF: 200 {items:[{conversation_id, entry_id, channel, has_unread, ...}]}
+    BFF->>GW: GET /api/v1/msswwweb/conversations/{id}<br/>?through_seq=[通知水位]
+    GW-->>BFF: 200 {messages[], confirmation, through_seq}
+    BFF->>GW: GET /api/v1/msswwweb/conversations/{id}/messages<br/>?page=1&page_size=20&through_seq=[冻结水位]
     GW-->>BFF: 200 {items[], through_seq}
-    Note right of BFF: 第 2 页起必须带<br/>through_seq=[首屏返回的值]
-    BFF->>GW: GET .../messages?page=2&page_size=20&through_seq=[冻结水位]
-    GW-->>BFF: 200 {items[], through_seq}
+    BFF->>GW: POST /api/v1/msswwweb/conversations/{id}/read<br/>{through_seq: [通知水位]}
+    GW-->>BFF: 200
     end
 
     rect rgb(245, 245, 245)
-    Note over BFF,GW: 阶段 5｜附件（选配，两个能力都零改动）
-    BFF->>GW: POST /api/v1/mssw/entries/{entry_id}/attachments<br/>Cookie: soc-token=[JWT]<br/>multipart/form-data: file
-    GW-->>BFF: 200 {upload_id, expires_at, checksum}
-    Note right of BFF: 上传成功后，把 upload_id 放进<br/>阶段 2 的 upload_ids[] 里发消息
-    BFF->>GW: GET /api/v1/mssw/artifacts/{artifact_id}/content<br/>Cookie: soc-token=[JWT]
+    Note over BFF,GW: 阶段 5｜附件
+    BFF->>GW: POST /api/v1/msswwweb/entries/{entry_id}/attachments<br/>multipart/form-data: file
+    GW-->>BFF: 200 {upload_id}
+    BFF->>GW: GET /api/v1/msswwweb/artifacts/{artifact_id}/content
     GW-->>BFF: 200 字节流（禁止 302，网关流式代理）
     end
 ```
 
 ### 图上几个 BFF 必须知道的点
 
-**身份只有一条路**：所有请求都是 `Cookie: soc-token=<JWT>`。网关本地 RS256 验签，取 `job_number`（明文），再经 Console `resolve` 换成 `platform_user_id` + `entry_id` + 授权集合。BFF 不需要传任何身份参数。
+**身份只有一条路**：所有请求都是 `Cookie: soc-token=<JWT>`。网关把 token 原样交给 Console，由 Console 验签并解析身份。BFF 不需要传任何身份参数，也**不需要** `X-Chat-Context` 之类的自定义头。
 
-**`entry_id` 只在一个地方拿到**：`GET /api/v1/mssw/permissions` 的响应。它是 `bot_account.id`，单入口下**永远同一个值**（详见 `05` §4.1.1）。后续发消息、建会话、传附件的路径段都用它。
+**`entry_id` 从 `/entries` 拿**：入口授权是用户级的（一个用户可能被授权多个入口），所以 `/identity` 和 `/entries` 返回的是**授权列表**，不是一个固定值。发消息、建会话、传附件的路径段用列表里的 `entry_id`。
 
-**幂等靠 `Idempotency-Key`，不靠 `conversation_id`**：BFF 重试时原样回传同一个 key，网关保证不重复执行/不建第二个会话。`conversation_id` 由我方生成并返回，BFF 存下来用即可，**不需要维护映射**。
+**身份字段由平台配置决定**：MSSW 的 `identity_keys` 是 `["expert_id", "tenant_id"]`（`expert_id` 即 JWT 的 `_id`）。取出来按 key 排序后算 `sha256`，命中 `external_identity` 才算已绑定。**管理员绑定时填的 JSON key 集合必须与 `identity_keys` 完全一致**。
 
-**两套游标不要混**：
+**幂等靠 `Idempotency-Key`**：BFF 重试时原样回传同一个 key，保证不重复执行/不建第二个会话。`conversation_id` 由我方生成，BFF 存下来复用即可，**不需要维护映射表**。
+
+**两套序号不要混**：
 
 | 面 | 入参 | 出参 |
 |---|---|---|
 | 事件流（SSE） | `after_seq`（query）+ `Last-Event-ID`（header），**取大值** | 帧 `id: <seq>` |
 | 历史分页 | `page` + `page_size` + `through_seq` | `items[]` + `through_seq` |
+| 会话已读 | `{through_seq}`（**通知水位**） | — |
 
-两者**是同一个 canonical seq 空间**（`through_seq` 与 `after_seq` 可直接续接），但**调用方式不同**：SSE 用 seq，分页用 `page`+冻结水位。
+消息序号与通知序号是**两套不同的序列**，只作为同一次详情视图的配对水位使用，**不能互相比较**。
 
-**`CURSOR_EXPIRED` 是正常情况**：用户关页面一整天再回来，游标过期是预期行为，BFF 应当作"重新拉历史"的信号，不要弹错误框（见 `04` 附录 B.6）。
+**`CURSOR_EXPIRED` 是正常情况**：用户关页面一整天再回来，游标过期是预期行为，BFF 应当作"重新拉历史"的信号，不要弹错误框。
 
-**验签失败一律 401**，fail-closed 不降级；`MSSW_JWT_INVALID` / `MSSW_USER_NOT_MAPPED` / `MSSW_CHANNEL_FORBIDDEN` / `MSSW_CHANNEL_NOT_CONFIGURED` 是四个稳定错误码（`03` D3）。
+**错误码**（以新文档为准）：
+
+| 码 | HTTP | 场景 |
+|---|---|---|
+| `EXTERNAL_ASSERTION_INVALID` | 401 | 缺失/签名错/格式错/`aud`/`iss`/身份 key 缺失 |
+| `EXTERNAL_ASSERTION_EXPIRED` | 401 | 超出最大会话年龄 |
+| `EXTERNAL_ASSERTION_UNBOUND` | 403 | 工号未绑定到我方用户 |
+| `EXTERNAL_ASSERTION_UNAVAILABLE` | 503 | Secret 未配置/损坏（不影响其它通道） |
+| `CURSOR_EXPIRED` | 409 | 事件流游标超出保留窗口 |
 
 ---
 
@@ -131,34 +152,36 @@ sequenceDiagram
 
 | 项 | 结论 |
 |---|---|
-| **身份字段** | **`job_number`**（5-7 位工号），全局唯一 |
-| `_id` | 专家 ID（24 位 ObjectId），**不作映射键** |
 | 算法 | RS256，**必须加白名单**（签发方自己没做） |
-| `exp` | **恒为 -1，服务端不校验**，无过期语义 |
-| `aud`/`iss` | AES-256-ECB 密文；校验时加密期望值比对，**无需解密** |
-| 加密字段 | 仅 `email`/`email_login`/`phone_login`，`job_number` 是明文 |
+| `exp` | **恒为 -1，服务端不校验**，无过期语义；新方案另加最大会话年龄兜底 |
+| `aud`/`iss` | AES-256-ECB 密文；**加密期望值比对**；`iss` 是**单元素数组** |
+| AES key 派生 | **`salt` 右侧补 `\x00` 到 32 字节**（`salt` 长度须 ≤32），PKCS#7 补位 |
+| 身份字段 | `_id`（专家 ID，24 位 ObjectId）+ `tenant_id`；`job_number` 是工号，明文 |
+| 加密字段 | 仅 `email`/`email_login`/`phone_login`，不填不落库 |
 | 公钥 | PKCS#1（`BEGIN RSA PUBLIC KEY`），PyJWT 可直接加载 |
-| token 位置 | Cookie `soc-token` |
+| token 位置 | Cookie `soc-token`，是**唯一凭据** |
 
-实测解出 `job_number=14806`，`alg=none` 攻击被拒。
+实测解出 `job_number=14806`、`_id=6a4ca2554a2a45d4b1ad5996`，`alg=none` 攻击被拒。
+
+> **注意**：`easm-exposure-service-mssw` 的 `py_jwt_cipher.py` 是 **CBC 模式、key 由三段拼接**，与 MSSW token 的 ECB 无关，不要照抄。
 
 ## 工作量的真实分布
 
 | 类别 | 内容 |
 |---|---|
-| **全新** | JWT 验签器（中）、`MsswPrincipalDep`（小）、MSSW Guard（小）、通道适配器（小） |
-| **直接复用** | 取消 100%、附件下载 100%、历史分页 95%（`page`+`through_seq` 直接透传，仅换身份依赖与路由前缀） |
-| **只加同构路由** | 发消息 100%、新建会话 100%、上传附件 100%（路径形状同 WebChat，service 层一行不改） |
-| **新增路由、判定复用** | 权限查询 90%（`/permissions` 返回布尔 + `entry_id`，谓词复用 `list_entries`） |
-| **换 Guard** | SSE 事件流 90% |
-| **不用改** | Runtime 全部接口、Console resolve、现有 WEBCHAT/WECOM |
+| **全新** | JWT 验签器 + AES 因子编解码（Console 侧）、外部身份模型（3 张表）、Redis 认证缓存、`/identity` 接口 |
+| **直接复用** | 取消、附件下载、历史分页、会话详情/删除 |
+| **同构路由** | 建会话、发消息、上传附件（路径形状同 WebChat） |
+| **换身份依赖** | SSE 事件流（每事件复核到期与授权） |
+| **Runtime 改动** | `conversation.channel` 来源列、跨入口会话聚合、通知已读水位 |
+| **Console 前端** | 入口表单支持 MSSWWEB、用户详情页外部身份编辑 |
 
-**但"service 层一行不改"只对上述三个同构路由成立**——`WEBCHAT_CHANNEL` 有 **6 处写死必须参数化**：
+**「service 层一行不改」不成立**——`WEBCHAT` 有 **6 处写死必须参数化**：
 
 | # | 位置 | 不改的后果 |
 |---|---|---|
-| ① | `list_entries`（`webchat_service.py:214`） | MSSW 入口被过滤，`/permissions` 恒 false |
-| ② | `resolve_authorized_entry`（`:489`） | MSSW 入口一律 404 |
+| ① | `list_entries`（`webchat_service.py:214`） | MSSWWEB 入口被过滤，入口列表恒空 |
+| ② | `resolve_authorized_entry`（`:489`） | MSSWWEB 入口一律 404 |
 | ③ | `submit_message` 的 `InboundEvent(channel=...)`（`:237`） | 事件标错通道 |
 | ④ | 同方法 `adapter=WEBCHAT_CHANNEL_IDENTITY`（`:257`） | 受理走 WebChat 适配器身份 |
 | ⑤ | `create_conversation` 的 `ChannelContext(type=...)`（`:286`） | 会话记成 WebChat |
@@ -166,62 +189,79 @@ sequenceDiagram
 
 > **①→② 有顺序依赖**：① 产出的入口快照是 ② 的输入，只改 ② 仍会 404，**必须一起改**。
 >
-> 完整清单与论证见 `02` §3.6、`05` §4.2。
+> **测试兜底**：集成测试必须断言 `RunRequest.channel == "MSSWWEB"`，而不是只断言 HTTP 202——202 只表示受理成功，通道错了也一样返回 202。
+
+## 通道集合与架构机检
+
+| 位置 | 改动 |
+|---|---|
+| `packages/contracts/.../enums.py:7` `BUILTIN_CHANNEL_NAMES` | 加 `"MSSWWEB"` |
+| 同文件 `LOCAL_STREAM_CHANNELS` | 加 `"MSSWWEB"`（站内流，产物直接落 canonical 流） |
+| 同文件 `OUTBOUND_CHANNELS` | **不加**——MSSW 是 BFF 拉取模式，无主动投递能力；进错会让附件交付抛 `ATTACHMENT_WRITE_UNAVAILABLE` |
+| `tests/test_attachment_contract.py:118`、`:228-235` | 断言两组**完全划分** `BUILTIN_CHANNEL_NAMES`，需同步 |
+| `tests/agent_worker/test_capacity_webchat_worker_notifications.py:824` | 同上 |
+| `tests/architecture/test_channel_neutrality.py:25` | **`CHANNEL_TOKENS` 必须加 `"msswwweb"` 等词**，否则核心域出现渠道字样也不会被发现（假绿灯），规则形同虚设 |
 
 ## 必须记住的五条约束
 
-1. **不改动其它通道**——独立适配器 + 独立路由前缀 + 独立身份依赖（`MsswPrincipalDep` 与 `ChatIdentityDep` 并列）
-2. **游标只透传不改写**，`after_seq`/`Last-Event-ID` 取大值，不得重置为 0
-3. **归属校验不能只凭 `run_id`**——Runtime 的 `_load_run_in` 不带 user_id，必须调用方补
-4. **SSE 不做流内复核**——`exp` 无意义，`ChatStreamGuard` 不能沿用
-5. **验签留在网关、token 有效性由 BFF 判**——我方只验签 + 映射；是否吊销/有效由 BFF 转发前判定（上游只有 BFF）
+1. **验签只在 Console**——网关不持因子、不持库；因子放 K8s Secret
+2. **归属按 user（+ Agent）校验**——不能只凭 `run_id`/`conversation_id`；Runtime 的 `_load_run_in` 不带 user_id，必须调用方补
+3. **SSE 每事件复核**——开流时校验一次，之后每个事件 yield 前再查到期与授权，不能因事件持续 ready 就跳过
+4. **游标只透传不改写**——`after_seq`/`Last-Event-ID` 取大值，不得重置为 0；消息序号与通知序号不能互相比较
+5. **失败关闭**——Secret 缺失/损坏只让 MSSWWEB 返回 503，不影响启动与其它通道；`IDENTITY_KEYS_MISMATCH` 等配置错误在启动期暴露
 
 ## 当前状态
 
-**可以立即动工（全部 R1-R8），无阻塞项。**
+**需求基线**：`.code-flow/tasks/2026-11-13/mssw-external-im-channel/mssw-external-im-channel.prd.md`（US-01 ~ US-12、FEAT-01 ~ FEAT-12）
 
-已定案的决策（只差写进代码）：
+**唯一待答项**：
 
-| 决策 | 结论 |
+| # | 问题 | 影响 | 阻塞 |
+|---|---|---|---|
+| **N4** | MSSWWEB 入口的 `bot_id` 是否必要 | 必填且全局唯一，但不参与身份、BFF 不可见，可用「`id` + 显示名」替代 | **不阻塞**（无意见则保持现状） |
+
+**已定案**：
+
+| # | 事项 | 结论 |
+|---|---|---|
+| N1 | 用户规模与录入方式 | 第一期管理员在 Console 用户详情页逐条手工录入 `expert_id`（`ExternalIdentitySection` + `MsswwebIdentityModal`，字段按 `identity_keys` 动态渲染）；不做批量导入、不依赖名单文件 |
+| N2 | 名单字段 | 不依赖名单；必填项即身份键 `expert_id` + `tenant_id` |
+| N3 | `tenant_id` 稳定性 | **相对固定**，`identity_hash` 含 `tenant_id` 可接受 |
+
+> **已确认**：`_id`（= `expert_id`）在员工离职/重新入职时不变，可长期作身份键。
+
+**已内部确认**：
+
+| # | 结论 |
 |---|---|
-| D1 依赖 | 只加 `PyJWT` 一个（`cryptography` 已在依赖树中） |
-| D3 错误码 | 四个稳定码，见下文 |
-| D5 用户映射 | 建用户时 `user_code` 填工号，另建 `channel_identity` |
-| Q5 密钥 | 固定不轮换，按静态单密钥配置读取 |
-| Q18 选配未开 | 404 `MSSW_CHANNEL_NOT_CONFIGURED` |
-| Q19 建会话幂等 | 以我方 `Idempotency-Key` 为准，BFF 不传 `conversation_id` |
-| Q20 历史分页 | 直接复用我方 `page`+`page_size`+`through_seq`，不做游标转换 |
+| I1 | `identity_keys` 中的 `expert_id` **就是 JWT 的 `_id`**（24 位 ObjectId）。不是别名，无需映射层 |
+| I3 | 会话**保留来源**（`entry_id`/`channel`），Run/通知按实际发送来源记录。接口必须返回来源字段；**派生页面不强制展示来源**（按需求方 FEAT-01 验收口径） |
+| I4 | 路由保持**固定前缀** `/api/v1/msswwweb`，不改为平台变量 |
 
-**唯一还缺的外部输入**：M5 生产环境 `issue`/`audience`/`salt`/公钥——需求方明确"后续会给"。**只阻塞生产联调**，开发环境值已实测确定。
-
-已搁置：Q11 `exp` 真实机制、Q12 token 吊销（需求方"先不关心"）。
-
-完整清单见 [03](./03-open-questions.md)。
+**外部依赖**：生产环境 `issue`/`audience`/`salt`/公钥——需求方明确"后续会给"。只阻塞生产联调，开发环境值已实测确定。
 
 ## 结构化风险
 
-| 风险 | 后果 |
-|---|---|
-| `run_id` 单独可达 | 越权漏洞（Runtime 不校验 user_id，必须调用方补） |
-| **历史 token 重放** | `exp` 无意义、吊销不可见。**责任前移给 BFF**（转发前校验 token 有效性，上游只有 BFF）；`entry_id` 不透明挡住了"凭空新建"，但读/操作已有会话靠 ID 不公开（归属校验按 `platform_user_id`，挡不住同工号重放）。见 `02` §3.3.1 |
-| `CURSOR_RUN_MISMATCH` 无人抛 | Runtime 零命中，需网关自行判定 |
-| `CURSOR_EXPIRED` 补全未实现 | 现有只抛错不补全 |
+| 风险 | 后果 | 处置 |
+|---|---|---|
+| `run_id` 单独可达 | 越权读 | 网关按 `platform_user_id` + Agent 复核（含 SSE 建连与每事件） |
+| 历史 token 重放 | `exp` 无意义、吊销不可见 | **责任前移给 BFF**（转发前校验）；我方加最大会话年龄兜底 |
+| Redis 缓存旧权限/回填竞态 | 越权 | 同步失效 + 独立版本校验 + fence CAS；未完成则保持关闭 |
+| 通道名遗漏参数化 | MSSW 请求以 WEBCHAT 落库 | 集成测试断言 `RunRequest.channel` |
+| `CHANNEL_TOKENS` 未加词 | 架构机检假绿灯 | 通道注册表中的每个通道名都必须出现在词表中 |
+| AES key 派生算法写错 | 全量 401 | 以 `01` §3 的算法为准，用测试向量驱动 |
 
 ## 关键源码位置
 
 | 位置 | 用途 |
 |---|---|
-| `apps/im-gateway/.../api/webchat.py` | 16 个现成接口的全部原型 |
-| `apps/im-gateway/.../application/webchat_service.py:224-271` | **202 受理语义**（`messages` 直接复用） |
-| `apps/im-gateway/.../api/webchat.py:208-219` | `_resume_cursor` 取大值逻辑 |
-| `apps/im-gateway/.../channels/webchat.py` | 新通道的参照模板 |
+| `apps/im-gateway/.../api/webchat.py` | 现成接口原型（16 个接口中，12 个可同构复用、3 个不需要、1 个需改语义） |
+| `apps/im-gateway/.../application/webchat_service.py:224-271` | 202 受理语义 |
+| `apps/im-gateway/.../application/webchat_core.py:69` | **`_run_request` 组装 `RunRequest.channel`（第 ⑥ 处）** |
 | `apps/im-gateway/.../channels/registry.py` | 通道装配入口 |
-| `apps/im-gateway/.../api/deps.py:109-147` | CHAT 身份依赖（MSSW 需并列新增） |
-| `apps/im-gateway/.../application/chat_principal.py:184-207` | CHAT StreamGuard（**不可复用**） |
-| `apps/im-gateway/.../application/inbound.py:836-849` | 外部用户 → Console resolve 的写法 |
-| `apps/console-platform/backend/.../application/channel_service.py:81-129` | 工号映射与授权判定 |
-| `apps/console-platform/backend/.../infrastructure/models/channel.py:57-90` | `ChannelIdentity` 表 |
-| `apps/agent-runtime/.../application/webchat_history.py:340-349` | 会话归属校验 |
-| `apps/agent-runtime/.../application/event_tail_hub.py:659-675` | 游标 AHEAD/EXPIRED 判定 |
-| `packages/contracts/.../webchat_events.py:190-206` | `validate_run_cursor`（含 RUN_MISMATCH） |
+| `apps/im-gateway/.../application/chat_principal.py:184-207` | CHAT StreamGuard（**不可复用**，MSSWWEB 需每事件复核） |
+| `apps/console-platform/backend/.../application/channel_service.py` | 入口与映射判定 |
+| `apps/console-platform/backend/.../infrastructure/models/channel.py` | `BotAccount` / `ChannelIdentity` 表 |
+| `apps/agent-runtime/.../application/run_service.py:1872-1882` | `_load_run_in`（**不带 user_id**，必须调用方补） |
+| `apps/agent-runtime/.../application/event_tail_hub.py:652-675` | 游标 AHEAD/EXPIRED 判定 |
 | `packages/contracts/.../enums.py:7` | 通道标识声明处 |

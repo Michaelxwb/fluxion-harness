@@ -302,6 +302,7 @@ graph LR
     "audience": "<plaintext>",
     "salt": "<AES key material>",
     "identity_keys": ["expert_id", "tenant_id"],
+    "identity_field_labels": {"expert_id": "专家 ID（24 位）", "tenant_id": "租户 ID"},
     "login_source": "mssw"
   }
 }
@@ -314,6 +315,7 @@ graph LR
 - **单公钥 `public_key`**：轮换必须先关闭该平台认证并失效缓存，再替换、重启、核对版本、重新激活；不做多公钥数组。
 - **`login_source` 可选**：写了就校验签名 claim 必须相等；不写就不校验。
 - **`identity_keys` 直接放 Secret**：与验签因子同一份平台配置；它不是密钥，但当前开发阶段无存量数据，放一起最简单，不建元数据表。
+- **`identity_field_labels` 给管理员看**：`identity_keys` 是 JWT claim 名（`expert_id`、`tenant_id`），管理员看不懂。Console 用它渲染输入框标签，提交时仍用 claim 名。缺失时前端回退到 claim 名本身，不阻断。三处需同步：平台配置示例、`GET /external-platforms` 返回（只回 label，不回因子）、前端表单渲染。
 - **`configured=false`**：用一个非密平台 key 列表（ConfigMap `EXTERNAL_PLATFORM_KEYS=mssw` 或静态已知列表）判断 Secret 是否缺失；不落库。
 - **`max_session_age_sec` 不进 Secret**：非敏感，放全局 `EXTERNAL_ASSERTION_MAX_SESSION_AGE_SEC`（ConfigMap/设置），所有外部平台共用；MSSP 如需独立值再加。
 - **`enabled` 不配**：可用性来自有效配置与已激活的配置版本；Secret 删除/损坏并被服务加载后，该平台保持不可用。未热更新的进程不会自动感知 Secret 环境变量变化。
@@ -393,12 +395,12 @@ WHERE is_deleted = false;
 | 接口ID | 名称 | 方法 | 路径 | 说明 |
 |--------|------|------|------|------|
 | API-01 | 权限/入口可用 | GET | `/identity` | 永远查 PG；返回用户级主体 + grants + allowed/reason；成功后写 Redis |
-| API-02 | 客户端配置 | GET | `/client-config` | 复用 |
-| API-03 | 入口列表 | GET | `/entries` | 当前用户可用的入口授权 + Agent |
+| API-02 | 客户端配置 | GET | `/client-config` | 复用；对 BFF 的字段定义在 `bff-agent-integration.md` §4.2 |
+| API-03 | 入口列表 | GET | `/entries` | 只返回**已授权**的入口；每项带 `allowed`+`reason` 区分"没授权"（不在列表）与"授权了但不可用"（在列表但 `allowed=false`） |
 | API-04 | 创建会话 | POST | `/entries/{entry_id}/conversations` | 入口作为本次会话的来源/展示 |
 | API-05 | 用户+Agent 会话列表 | GET | `/conversations?agent_id=` | 跨入口聚合；item 带来源 `entry_id`/`channel`/`has_unread` |
 | API-06 | 提交消息 | POST | `/entries/{entry_id}/messages` | 入口作为本次 Run 的来源 |
-| API-07 | 会话详情 | GET | `/conversations/{id}` | user+agent 核属；不做 entry/channel 断言 |
+| API-07 | 会话详情 | GET | `/conversations/{id}` | user+agent 核属；不做 entry/channel 断言。返回**会话当前状态**（`has_unread`/`confirmation`/`through_seq`），与分页接口互补：进入对话页先调它拿状态与水位，再调 API-09 拉历史 |
 | API-08 | 删除会话 | DELETE | `/conversations/{id}` | user 级；沿用现有幂等 delete |
 | API-09 | 历史消息 | GET | `/conversations/{id}/messages` | user+agent；不做 entry/channel 断言 |
 | API-10 | 会话已读 | POST | `/conversations/{id}/read` | 带通知水位；只标已看到 |
@@ -527,7 +529,7 @@ WHERE is_deleted = false;
   "external_identity_id": "uuid-or-null",
   "expires_at": "2026-11-14T10:00:00Z",
   "platform_key": "mssw",
-  "identity": {"expert_id": "E123", "tenant_id": "1001"},
+  "identity": {"expert_id": "6620c18c73c760c6b6ca527f", "tenant_id": "1001"},
   "grants": [
     {"entry_id": "uuid", "agent_id": "uuid", "entry_name": "...", "channel": "MSSWWEB", "allowed": true, "reason": null}
   ],
@@ -572,13 +574,16 @@ flowchart TD
       "channel": "MSSWWEB",
       "configured": true,
       "identity_keys": ["expert_id", "tenant_id"],
+      "identity_field_labels": {"expert_id": "专家 ID（24 位）", "tenant_id": "租户 ID"},
       "login_source": "mssw"
     }
   ]
 }
 ```
 
-平台元数据来自 Secret（`platform_key`/`channel`/`identity_keys`）；`configured` 表示 Secret 中是否有该平台。不返回公钥、salt、issuer/audience。非密平台 key 列表（ConfigMap/静态列表）用于 Secret 缺失时仍能显示 `configured=false`；不落库。
+平台元数据来自 Secret（`platform_key`/`channel`/`identity_keys`/`identity_field_labels`）；`configured` 表示 Secret 中是否有该平台。不返回公钥、salt、issuer/audience。非密平台 key 列表（ConfigMap/静态列表）用于 Secret 缺失时仍能显示 `configured=false`；不落库。
+
+`identity_field_labels` 只用于前端渲染输入框标签；缺失时不返回该字段，前端回退展示 claim 名。
 
 ---
 
@@ -589,7 +594,7 @@ flowchart TD
 ```json
 {
   "platform_key": "mssw",
-  "identity": {"expert_id": "E123", "tenant_id": "1001"}
+  "identity": {"expert_id": "6620c18c73c760c6b6ca527f", "tenant_id": "1001"}
 }
 ```
 
@@ -601,7 +606,7 @@ flowchart TD
   "platform_key": "mssw",
   "channel": "MSSWWEB",
   "platform_user_id": "uuid",
-  "identity": {"expert_id": "E123", "tenant_id": "1001"},
+  "identity": {"expert_id": "6620c18c73c760c6b6ca527f", "tenant_id": "1001"},
   "identity_keys": ["expert_id", "tenant_id"],
   "auth_revision": 7,
   "grants": []
@@ -612,7 +617,7 @@ flowchart TD
 
 #### API-21: `PUT /api/v1/users/{user_id}/external-identities/{identity_id}`
 
-**请求**：`{ "identity": {"expert_id": "E456", "tenant_id": "1001"} }`
+**请求**：`{ "identity": {"expert_id": "6620c18c73c760c6b6ca5280", "tenant_id": "1001"} }`
 
 **响应**：同 API-18（含 grants/auth_revision）。
 
@@ -724,7 +729,9 @@ flowchart TD
 | Common | `session_store.py` / 新权限 cache store | 移除 `SessionRecord.agents`；实现版本/屏障的原子校验、回填 CAS、反向索引；无旧结构回退分支 |
 | Common | `packages/common/src/muad_common/settings.py` | `external_assertion_platforms_json`（`repr=False`）+ 全局 `external_assertion_max_session_age_sec`、`external_assertion_cache_ttl_sec`（默认 1h，非敏感） |
 | Contracts | `packages/contracts/src/muad_contracts/webchat.py` | `has_unread`、已读回执、外部身份/未绑定契约、`ChatAuthMethod` 扩值 |
-| Contracts | `packages/contracts/src/muad_contracts/enums.py` | `MSSWWEB` 进 `BUILTIN_CHANNEL_NAMES`、`LOCAL_STREAM_CHANNELS` |
+| Contracts | `packages/contracts/src/muad_contracts/enums.py` | `MSSWWEB` 进 `BUILTIN_CHANNEL_NAMES`、`LOCAL_STREAM_CHANNELS`；**不进** `OUTBOUND_CHANNELS`（BFF 拉取模式无主动投递，进错会让产物交付抛 `ATTACHMENT_WRITE_UNAVAILABLE`） |
+| Tests | `tests/architecture/test_channel_neutrality.py` | **`CHANNEL_TOKENS` 必须加 `"msswwweb"`**；建议同时加一条「注册表里的每个通道名都必须在词表中」的断言——否则以后新增通道忘了加词，机检变成**假绿灯**（全绿但什么都没检查到） |
+| Tests | `tests/test_attachment_contract.py`（两处）、`tests/agent_worker/test_capacity_webchat_worker_notifications.py` | 三处硬断言 `BUILTIN_CHANNEL_NAMES == ("WECOM","WEBCHAT")` 需同步为三元组；两组必须**完全划分**内建通道 |
 | Runtime | `api/webchat_history.py` | 用户+Agent 会话列表；`POST /internal/webchat/conversations/{id}/read` 带水位 |
 | Runtime | `application/channel_notification_queries.py` | `mark_conversation_read(through_seq)`；用户级通知 |
 | Runtime | `application/webchat_history.py` | `_conversation_page` 按 user+agent；`has_unread` EXISTS；来源字段 |
@@ -733,6 +740,24 @@ flowchart TD
 | Runtime | `application/channel_uploads.py` / upload 查询 | 暂存上传核属与本次发送入口一致；引用历史产物按用户+Agent；不把会话创建入口当本次上传入口 |
 | WebChat UI | `services/webchatApi.ts` / `ChatPage.tsx` / `conversationState.ts` | user+Agent 共享列表；移除源入口相等校验；分离当前发送入口与会话来源；详情/历史水位配对 |
 | Deploy | `deploy/k8s/base/secret.example.yaml`、`console-platform.yaml` | Secret key（`optional: true`）+ Console env；平台元数据 |
+
+**通道名参数化的 6 个具体位置（B6）**
+
+上表 `webchat_service.py` / `webchat_core.py` 两行说"参数化 `channel`"，但实际有 **6 处**写死，必须逐一改到：
+
+| # | 位置 | 现状 | 漏改后果 |
+|---|---|---|---|
+| ① | `webchat_service.py` `list_entries` | 过滤 `channel == "WEBCHAT"` | MSSWWEB 入口被过滤，入口列表恒空 |
+| ② | `webchat_service.py` `resolve_authorized_entry` | 同上 | MSSWWEB 入口一律 404 |
+| ③ | `webchat_service.py` `submit_message` 的 `InboundEvent` | 写死 `"WEBCHAT"` | 事件标错通道 |
+| ④ | `webchat_service.py` `submit_message` 的 adapter 选择 | 写死 `WEBCHAT_CHANNEL_IDENTITY` | 受理走 WebChat 适配器身份 |
+| ⑤ | `webchat_service.py` `create_conversation` 的 `ChannelContext` | 写死 `"WEBCHAT"` | 会话记成 WebChat 来源 |
+| ⑥ | **`webchat_core.py` `_run_request` 的 `ChannelContext`** | 写死 `"WEBCHAT"` | **Run 真正落库的通道**；`submit_message` 只构造 `InboundEvent` 交给 `admit_sync`，`RunRequest.channel` 在 `_run_request` 组装，**漏改 ⑥ 则 ③④⑤ 全部无效** |
+
+两条必须知道的约束：
+
+- **①→② 有顺序依赖**：① 产出的入口快照是 ② 的输入，只改 ② 仍会 404，**必须一起改**。
+- **测试兜底**：集成测试必须断言 `RunRequest.channel == "MSSWWEB"`，而不是只断言 HTTP 202——202 只表示受理成功，通道错了也一样返回 202。
 
 **API-26：`GET /api/v1/auth-cache-sync`（ADMIN）**
 
@@ -797,7 +822,7 @@ flowchart TD
 
 #### 3.4.3 验签实现要点
 
-- `AesFactorCodec` 隔离 `derive_key(salt)`、`encrypt(plaintext)`、`decrypt(ciphertext)`；在 R-01 确认前**不允许猜派生算法**，用测试向量驱动。
+- `AesFactorCodec` 隔离 `derive_key(salt)`、`encrypt(plaintext)`、`decrypt(ciphertext)`。**派生算法已确认**：`salt` 右侧补 `\x00` 到 32 字节（`salt` 长度须 ≤32），PKCS#7 补位，ECB 模式（`docs/mssw-channel/01-jwt-spec.md` §3）。实现时用实测测试向量驱动，**不允许改用其他派生方式**。
 - PyJWT：`algorithms=["RS256"]`；`audience=<AES(audience)>`；`issuer=[<AES(issuer)>]`；`leeway` 由配置定义；`exp=-1` 时 `verify_exp=False`，正数时启用。
 - 单公钥 `public_key` 验签；轮换按平台关闭、失效、替换重启、核对并激活新 epoch 执行，不做多公钥数组。
 - `login_source` 可选：配置了才校验签名 claim 相等；不配置不校验。
@@ -1051,8 +1076,9 @@ location /api/v1/msswwweb {
 | 依赖 | 内容 | 状态 | 风险 |
 |------|------|------|------|
 | Python 依赖 | 新增 PyJWT 2.x（外部断言验签）；AES 用现有 `cryptography` | 待评审 | 低 |
-| MSSW | 公钥、issuer、audience、salt、测试 token、AES 实现/向量 | 待提供 | 高（R-01） |
-| MSSW | `login-source=mssw` 真实口径 | 待确认 | 中（R-02） |
+| MSSW | **生产环境**公钥、issuer、audience、salt | 待提供（需求方"后续会给"） | 只阻塞生产联调 |
+| MSSW | AES key 派生算法 | ~~待提供~~ **已确认**：`salt` 右补 `\x00` 到 32 字节，PKCS#7，ECB | 已解除 |
+| MSSW | `login-source` 真实口径 | 首版不配置该可选校验，无需确认 | 已消解 |
 | 运维 | Secret 注入 Console；MSSWWEB 入口 | 待执行 | 中 |
 | 业务平台 BFF | SSE 透传、错误码处理 | 待联调 | 中 |
 
@@ -1060,8 +1086,8 @@ location /api/v1/msswwweb {
 
 | 风险ID | 类型 | 描述 | 概率 | 影响 | 应对 | 场景 |
 |--------|------|------|------|------|------|------|
-| R-01 | 技术 | AES-ECB 派生未知 | 高 | 阻塞 | 先做 spike：源码/测试向量 | E-01 |
-| R-02 | 契约 | 样例 `login-source=mss` vs `mssw` | 高 | 若启用可选校验会全量 401 | 真实 token 联调；按实际值配置或首版不启用 `login_source` | E-01 |
+| R-01 | 技术 | ~~AES-ECB 派生未知~~ **已确认** | ~~高~~ 已解除 | ~~阻塞~~ | 按 `01-jwt-spec.md` §3 的派生算法实现，实测向量驱动 | E-01 |
+| R-02 | 契约 | 样例 `login-source=mss` vs `mssw` | 中 | 若启用该可选校验会全量 401 | **首版不配置 `login_source`**，风险消解 | E-01 |
 | R-03 | 安全 | `exp=-1` 无过期 | 中 | 盗用长期有效 | 最大年龄 + 绑定/停用复核 | B-02 |
 | R-04 | 性能 | `/identity` 查 PG、资源接口 Redis-first | 中 | 首次慢/缓存旧权限 | Redis cache + auth_revision；控制池/DB 预算；p95/p99 实测 | S-03 |
 | R-05 | 集成 | BFF 缓冲 SSE | 中 | 首帧/心跳被压 | 接入指南明确不缓冲 | E-08 |

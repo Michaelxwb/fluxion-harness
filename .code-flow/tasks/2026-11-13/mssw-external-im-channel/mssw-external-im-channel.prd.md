@@ -69,7 +69,7 @@
 | 维度 | 内容 |
 |------|------|
 | **用户画像** | 使用 MSSW 业务平台的业务用户（由 MSSW 登录态识别）；MSSW BFF/Agent 代理（系统调用方）；我们的 Console 管理员；后续接入新平台的研发/运维。 |
-| **使用场景** | 用户在 MSSW 页面打开“MSS 智能机器人”面板，提问、看流式回答、停止生成、查看最近会话、上传图片/文件、下载 Agent 产物；管理员在 Console 为用户绑定 MSSW `user_id`。 |
+| **使用场景** | 用户在 MSSW 页面打开“MSS 智能机器人”面板，提问、看流式回答、停止生成、查看最近会话、上传图片/文件、下载 Agent 产物；管理员在 Console 用户详情页为用户录入 MSSW 外部身份（`expert_id` = `_id` + `tenant_id`）。 |
 
 ### 3.2 用户故事
 
@@ -302,11 +302,31 @@
 | 部署/运维 | K8s Secret 注入 Console；`MSSWWEB` 入口创建 | 联调前 | 中 |
 | 业务平台 BFF | SSE 透传、超时/缓冲配置、错误码处理 | 联调前 | 中 |
 
-### 7.2 风险识别
+### 7.2 待确认事项
+
+详见 `mssw-external-im-channel.open-questions-for-mssw.md`。
+
+**唯一待答项（不阻塞）**：
+
+| # | 问题 | 影响 | 阻塞 |
+|---|---|---|---|
+| N4 | MSSWWEB 入口的 `bot_id` 是否必要 | 必填且全局唯一，但不参与身份、BFF 不可见，仅作可读标识；可用「`id` + 显示名」替代 | **不阻塞**（无意见则保持现状） |
+
+**已定案**：
+
+| # | 事项 | 结论 |
+|---|---|---|
+| N1 | 用户规模与录入方式 | 第一期管理员在 Console 用户详情页逐条手工录入（`ExternalIdentitySection` + `MsswwebIdentityModal`，字段按 `identity_keys` 动态渲染，标签取 `identity_field_labels`），写入 `external_identity` + `entry_access_grant`；不做批量导入、不依赖 MSSW 名单文件，批量能力推迟到后续需求 |
+| N2 | 名单包含哪些字段 | 不依赖名单；手工录入必填项即身份键 `expert_id` + `tenant_id` |
+| N3 | `tenant_id` 稳定性 | **相对固定**，跨租户调动属罕见情形；`identity_hash` 含 `tenant_id` 可接受 |
+
+> **已确认**：`_id`（= `expert_id`）在员工离职/重新入职时**不变**，可长期作身份键。
+
+### 7.3 风险识别
 
 | 风险ID | 描述 | 影响 | 缓解方案 |
 |--------|------|------|---------|
-| R-01 | `PyAesCipherECB` 的 key 派生算法未知，`aud/iss` 无法逐字节匹配 | 阻塞验签 | 先做 JWT spike：拿源码或测试向量（salt + 明文 + 密文） |
+| R-01 | ~~`PyAesCipherECB` 的 key 派生算法未知~~ **已确认**：`salt` 右侧补 `\x00` 到 32 字节（`salt` 长度须 ≤32），PKCS#7 补位，ECB 模式 | ~~阻塞验签~~ 已解除 | 已用真实 token 实测通过（`docs/mssw-channel/01-jwt-spec.md` §3、§5）；实现时以该算法为准，用测试向量驱动 |
 | R-02 | 样例 token 的 `login-source=mss`，与确认的 `mssw` 不一致 | 若配置 `login_source` 会全量 401 | 联调用真实 token；配置按实际值，或首版不配置该可选校验 |
 | R-03 | `exp=-1` 表示不过期，撤销只能靠业务平台停止转发 | 被盗 token 长期有效 | 最大会话年龄 + 绑定/用户状态复核 + SSE 定时复核 |
 | R-04 | 逐请求 Console 认证成为热点/单点 | 延迟/可用性 | `/identity` 查 PG 并写 Redis；资源接口 Redis-first + revision；控制池预算与降级 |

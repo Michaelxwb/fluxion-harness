@@ -19,8 +19,8 @@ Header:  {"alg": "RS256", "typ": "JWT"}
 Payload（JwtData，jwt.go:16-42）:
 {
   // —— 身份字段（全部明文）——
-  "job_number":    "<工号，5-7 位字母数字>",        // ← 我方映射键
-  "_id":           "<专家ID，MongoDB ObjectId 24 位 hex>",  // ← 数据库主键，非映射键
+  "job_number":    "<工号，5-7 位字母数字>",        // 人可读工号，我方不用作身份键
+  "_id":           "<专家ID，MongoDB ObjectId 24 位 hex>",  // ← 身份键之一（即 identity_keys 的 expert_id）
   "name":          "<姓名>",
   "tenant_id":     "<租户ID>",
   "tenant_name":   ...,
@@ -49,8 +49,8 @@ Payload（JwtData，jwt.go:16-42）:
 
 | # | 事实 | 依据 |
 |---|---|---|
-| 1 | **映射键是 `job_number`**（工号，5-7 位字母数字），全局唯一 | 需求方确认；`types.go:328` 校验 `min=5,max=7,alphanum` |
-| 2 | `_id` 是**专家 ID**（MongoDB `ObjectId.Hex()`，24 位 hex），是数据库主键但**不作映射键** | `jwtmiddleware.go:19` 注释「//专家id」；`loginJobNumberLogic.go:101` 传 `expert.ID.Hex()` |
+| 1 | **我方身份键为 `_id`（= `expert_id`）+ `tenant_id`**（见 §1 Token 结构与本表第 2 条）；`job_number` 仅人可读，不参与身份 | 需求方决策；`mssw-external-im-channel.decisions.md` §3 C1 |
+| 2 | `_id` 是**专家 ID**（MongoDB `ObjectId.Hex()`，24 位 hex），即 JWT 的 `expert_id` | `jwtmiddleware.go:19` 注释「//专家id」；`loginJobNumberLogic.go:101` 传 `expert.ID.Hex()` |
 | 3 | `role` 对象内部另有一个 `_id`（角色 ID），不要与顶层 `_id` 混淆 | `jwt.go:11`（`RoleInfo`） |
 | 4 | 只有 5 个字段被 AES 加密：`email`、`email_login`、`phone_login`、`aud`、`iss` | `jwt.go:81-85` |
 | 5 | `job_number`、`_id`、`tenant_id` 等**均为明文** | 同上 |
@@ -64,7 +64,7 @@ Payload（JwtData，jwt.go:16-42）:
 
 签发方无条件写 `Exp = -1`（`jwt.go:86`），解析时 `WithoutClaimsValidation()`（`jwt.go:67`）跳过全部 claims 校验。会话有效性由 Redis 管理（`jwtmiddleware.go:97` 只验签 + 取 `_id`/`app_id`；吊销靠 `ClearAgentJwt` 清 Redis，见 `types.go:14-18`）。
 
-**影响**：我方**不能**依赖 `exp`。这也是 MSSW 通道 SSE 不能复用 `ChatStreamGuard` 的根本原因。
+**影响**：我方**不能**依赖 `exp`。这也是 `MSSWWEB` 通道 SSE 不能复用 `ChatStreamGuard` 的根本原因——它只在建连时校验一次，而外部断言没有可信的过期语义，必须在**每个事件 yield 前**复核。
 
 **签发方的真实过期语义（滑动续期，`authchecklogic.go:303-323`）**：
 
@@ -74,7 +74,7 @@ Payload（JwtData，jwt.go:16-42）:
   2. 概率性 RefreshLoginJwt(LoginJwtTokenExpire)  ← 把 TTL 重置回完整时长
 ```
 
-三个要点：① 过期判断在 **Redis key 存在性**上，不在 JWT 里；② 只要用户活跃就不断续期，会话**永不到期**；③ 注销靠删 key（`ClearAgentJwt`）。该 Redis 在 MSSW 侧，**我方不可见**，因此无法判断 token 是否已被吊销，也做不到与签发方**等价**的到期判定——只能做近似（策略见 `05` §4.3）。
+三个要点：① 过期判断在 **Redis key 存在性**上，不在 JWT 里；② 只要用户活跃就不断续期，会话**永不到期**；③ 注销靠删 key（`ClearAgentJwt`）。该 Redis 在 MSSW 侧，**我方不可见**，因此无法判断 token 是否已被吊销，也做不到与签发方**等价**的到期判定——只能做近似（策略见 `02` §3.3 与 `03` §E）。
 
 ### 2.1.1 时间线索：`login_time` / `time`（只用于可观测性）
 
@@ -92,7 +92,9 @@ Payload（JwtData，jwt.go:16-42）:
 - 一个活跃用户连续用满 2 小时以上，`time` 仍是登录那一刻，任何"签发时间窗"都会误杀他；
 - 一枚 2 小时前签发、现在才被重放的旧 token，与上面那种在 JWT 字段上完全相同，本地分不开。
 
-**结论**：本地做任何基于 `time` 的时间窗，都只会误杀合法用户而不解决重放。**token 有效性/吊销由 BFF 在转发前判定**（见 `02` §3.3.1）。`time`/`login_time` 在我方只用于日志可观测性（记录签发时刻、排查异常长寿命 token），**不参与任何拒绝决策**。
+**结论**：本地做任何基于 `time` 的时间窗，都只会误杀合法用户而不解决重放。**token 有效性/吊销由 BFF 在转发前判定**（见 `02` §3.3 R2 与 `03` §E）。
+
+但**仍需要一道绝对上限**：新方案按 `expires_at = min(now + max_age, login_time + max_age, 正数 exp)` 计算会话寿命，`login_time`/`time` 缺失时拒绝。它不是下线策略（**不主动踢人**），只限制 SSE 续订的绝对期限——如果没有这个上限，一个 `exp=-1` 的 token 可以无限续订。
 
 **参考值**：`LoginJwtTokenExpire` 是硬编码常量，值 **7200 秒（2 小时）**（`mss-auth-go` 的 `internal/types/constant.go:68`，无配置/环境变量覆盖）。它描述签发方 Redis 会话在用户停止活跃后的滑动 TTL，仅作背景事实记录，我方不使用。
 
@@ -210,7 +212,7 @@ claims = pyjwt.decode(
 )
 assert claims["aud"] == aes_enc(AUDIENCE)
 assert claims["iss"] == [aes_enc(ISSUE)]
-job_number = claims["job_number"]
+identity = {"expert_id": claims["_id"], "tenant_id": claims["tenant_id"]}
 ```
 
 ## 6. 参考实现要点
@@ -222,13 +224,13 @@ claims = jwt.decode(
     algorithms=["RS256"],           # 仅 RS256，禁止 none / HS*
     options={
         "verify_exp": False,        # exp 恒为 -1
-        "require": ["job_number"],  # 必需身份字段
+        "require": ["_id", "tenant_id"],  # 必需身份字段（identity_keys）
     },
 )
-job_number = claims["job_number"]
+identity = {"expert_id": claims["_id"], "tenant_id": claims["tenant_id"]}
 ```
 
-**必须做**：RS256 白名单、必需 `job_number`、fail-closed 401。
+**必须做**：RS256 白名单、必需 `_id` + `tenant_id`、fail-closed 401。
 **不要做**：解密 `email`/`phone_login`、实现 unpad、校验 `exp`、复刻免校验分支。
 
 ## 7. 与 `py_jwt_cipher` 的区分（避免误用）
