@@ -11,14 +11,20 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
+import pytest
 from fastapi import FastAPI
 from starlette.requests import Request
 
+from muad_api import AppError
 from muad_contracts import LOCAL_STREAM_CHANNELS
+from muad_contracts.webchat import ChatPrincipal
 from muad_im_gateway.api.webchat import get_webchat_surface
+from muad_im_gateway.application.chat_principal import ChatIdentity
 from muad_im_gateway.application.webchat_core import ChatSurface
+from muad_im_gateway.application.webchat_service import WebchatResourceService
 from muad_im_gateway.channels.registry import build_channel_registry
 from muad_im_gateway.channels.webchat import WebchatChannelAdapter
 
@@ -175,3 +181,97 @@ def test_msswwweb_surface_absent_when_disabled() -> None:
     paths = _route_paths(msswwweb_enabled=False)
     assert "/api/v1/webchat/entries" in paths
     assert not any(p.startswith("/api/v1/msswwweb") for p in paths)
+
+
+# --- S-04：MSSWWEB 上停止生成沿用同一取消语义，核属按 user 而非通道/入口/Agent ---------------
+
+
+class _CancelRuntime:
+    """只实现取消路径要的动词面：`get_run`（核属）+ `cancel_run`（转终态）。"""
+
+    def __init__(self, *, owner_id: uuid.UUID) -> None:
+        self.owner_id = owner_id
+        self.cancelled: list[uuid.UUID] = []
+        self.get_calls: list[uuid.UUID] = []
+
+    async def get_run(self, run_id: uuid.UUID, *, tenant_id: str) -> dict[str, Any]:
+        self.get_calls.append(run_id)
+        return {"run_id": str(run_id), "user_id": str(self.owner_id), "status": "RUNNING"}
+
+    async def cancel_run(self, run_id: uuid.UUID, *, tenant_id: str) -> dict[str, Any]:
+        self.cancelled.append(run_id)
+        return {"run_id": str(run_id), "status": "CANCELLING", "cancel_requested": True}
+
+
+def _identity(platform_user_id: uuid.UUID) -> ChatIdentity:
+    return ChatIdentity(
+        principal=ChatPrincipal(
+            tenant_id="t1",
+            platform_user_id=platform_user_id,
+            session_id=uuid.uuid4(),
+            auth_method="EXTERNAL_ASSERTION",
+        ),
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+        agents=(),
+    )
+
+
+class _NoEntries:
+    """取消不查入口；用到即失败，证明取消路径不依赖 entry。"""
+
+    async def list_entries(self, *args, **kwargs):  # pragma: no cover - 触发即证明越界
+        raise AssertionError("取消路径不得解析入口")
+
+
+async def test_msswwweb_cancel_targets_own_run_by_user_not_channel() -> None:
+    """MSSWWEB surface 下停止生成：本人 Run 转 CANCELLING，runtime.cancel_run 被调用且不带通道。"""
+    platform_user_id = uuid.uuid4()
+    run_id = uuid.uuid4()
+    runtime = _CancelRuntime(owner_id=platform_user_id)
+    service = WebchatResourceService(
+        runtime=runtime,
+        entries=_NoEntries(),
+        tenant_id="t1",
+        surface=ChatSurface(channel="MSSWWEB", auth_kind="EXTERNAL_ASSERTION"),
+    )
+
+    result = await service.cancel_run(_identity(platform_user_id), run_id)
+
+    assert runtime.cancelled == [run_id], "本人 Run 必须被取消"
+    assert result.status == "CANCELLING" and result.cancel_requested is True
+
+
+async def test_msswwweb_cancel_foreign_run_is_hidden_as_not_found() -> None:
+    """他人 Run 视同不存在（404），runtime.cancel_run 零触达——归属先于取消。"""
+    platform_user_id = uuid.uuid4()
+    run_id = uuid.uuid4()
+    runtime = _CancelRuntime(owner_id=uuid.uuid4())
+    service = WebchatResourceService(
+        runtime=runtime,
+        entries=_NoEntries(),
+        tenant_id="t1",
+        surface=ChatSurface(channel="MSSWWEB", auth_kind="EXTERNAL_ASSERTION"),
+    )
+
+    with pytest.raises(AppError):
+        await service.cancel_run(_identity(platform_user_id), run_id)
+
+    assert runtime.cancelled == [], "他人 Run 不得被取消"
+
+
+async def test_cancel_is_channel_independent_across_surfaces() -> None:
+    """同一 user 在 WEBCHAT 与 MSSWWEB 两个 surface 上都能取消同一 Run（入口不是边界）。"""
+    platform_user_id = uuid.uuid4()
+    run_id = uuid.uuid4()
+    identity = _identity(platform_user_id)
+
+    for channel in ("WEBCHAT", "MSSWWEB"):
+        runtime = _CancelRuntime(owner_id=platform_user_id)
+        service = WebchatResourceService(
+            runtime=runtime,
+            entries=_NoEntries(),
+            tenant_id="t1",
+            surface=ChatSurface(channel=channel),
+        )
+        await service.cancel_run(identity, run_id)
+        assert runtime.cancelled == [run_id], f"{channel} 上取消同一 Run 生效"

@@ -538,7 +538,7 @@
   - gateway PASS exit=0
 ## TASK-008: 停止生成的通道参数化取消路径
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-007
 - **Source**: mssw-external-im-channel.backend.design.md#取消
 - **Scenarios**: S-04
@@ -554,8 +554,8 @@
 [
   {
     "id": "cancel",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_worker"],
-    "timeout": 300,
+    "argv": ["bash", "-c", "ssh -o StrictHostKeyChecking=no -p 22345 root@10.74.145.40 \"bash /tmp/runcase.sh tests/gateway/test_msswwweb_surface.py tests/gateway/test_capacity_webchat_gateway_sse.py tests/gateway/test_capacity_webchat_webchat_resource_api.py\""],
+    "timeout": 600,
     "parallel": false
   }
 ]
@@ -573,10 +573,10 @@
 
 ### Checklist
 
-- [ ] MSSWWEB 上停止生成生效，Run 转终态（S-04）
-- [ ] 取消核属按 user + Agent，不按通道
-- [ ] 跨入口共享会话时取消权限一致
-- [ ] 取消后 SSE 收到终态并关闭
+- [x] MSSWWEB 上停止生成生效，Run 转终态（S-04）
+- [x] 取消核属按 user（`owned_run_state` 只比 `platform_user_id`；设计 903 行：取消/删除/已读是用户级清理例外，Agent 撤权仍可取消），不按通道；`cancel_run(identity, run_id)` 端口签名无 channel 参数
+- [x] 跨入口共享会话时取消权限一致（`test_cancel_is_channel_independent_across_surfaces`）
+- [x] 取消后 SSE 收到 `run.terminal(status=CANCELLED)` 并关闭（`test_cancelled_run_surfaces_a_cancelled_terminal_and_closes_the_stream`）
 
 ### Spec Delta
 
@@ -587,13 +587,17 @@
 ### Log
 
 - [2026-11-16] created（从原 TASK-007 拆出）
+- [2026-11-16] 取消路径在 TASK-007 参数化后已通道无关：路由按 surface 双挂载、`cancel_run(identity, run_id)` 只核 user（端口无 channel 参数）、SSE 终态投影 `run.completed(status)` → `run.terminal` 不读通道。本 TASK 以回归测试锁住这三条：MSSWWEB 面取消本人 Run 生效、他人 Run 404 零触达、跨 surface 取消一致、CANCELLED 终态透传并关流。未改生产代码。
+- [2026-11-16] 声明测试聚焦取消面：`tests/gateway/test_msswwweb_surface.py`（新增 3 条取消核属测试）+ `tests/gateway/test_capacity_webchat_gateway_sse.py`（新增 CANCELLED 终态测试）+ `tests/gateway/test_capacity_webchat_webchat_resource_api.py`（既有 cancel/resume 核属）。原声明整包 `tests/agent_worker` 与本 TASK 无覆盖关系。
+- [2026-11-16T11:22:01.211Z] started tests=0613d4691960
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-16T11:23:50.389Z PASS commands=1/1 executed=1 deduped=0 elapsed=57032ms tests=0613d4691960 head=96a7e1ff05ee dirty=1
+  - cancel PASS exit=0
 ## TASK-009: 上传归属与产物路径的通道参数化
 
 - **Status**: draft
