@@ -54,7 +54,7 @@ Console 侧 `discover-tools` 的 Catalog 维护与缓存（PG 为权威源）：
 - `secret_header` 为空时按 Bearer 发送；非空时把 `auth_secret` 原值写入该头，不追加 `Bearer `。
 - 静态头校验：RFC 7230 token、大小写不敏感去重、保留头拒绝、敏感头名只允许作为 `secret_header`、CR/LF/NUL 与长度上限拒绝；非法配置返回 `MCP_CONFIG_INVALID`。
 - Console 的 `test_connection`/`discover_tools` 与 Runtime 的 `initialize`/`tools/call` 使用同一组装语义；Runtime 从解析定义读取非密 `headers`/`secret_header`，密钥仍走 API-09。
-- Task snapshot 不含认证配置；Run snapshot 可冻结非密 `headers`/`secret_header` 以保证 resume 一致；密钥不得进入任何 Snapshot、日志、审计或 API 响应。
+- Task 与 Run snapshot 都可冻结 MCP endpoint、非密 `headers` 与 `secret_header`（用于恢复时定位凭据头），但不得存 `auth_secret`；密钥不得进入任何 Snapshot、日志、审计或 API 响应。
 
 ✅ 自定义头 + 单密钥：
 

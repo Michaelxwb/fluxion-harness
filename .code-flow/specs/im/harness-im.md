@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 6
+  "next_rule": 7
 }
 ---
 
@@ -17,6 +17,8 @@
 - [RULE-im-004] 压缩包读取有界且只投影文本：内存解压不落盘；成员清单先行，文本成员可分段读取，二进制成员只列不读；加密、损坏、成员路径不合法与超出成员数/单成员/解压总量/压缩比上限都必须显式拒绝并说明原因，禁止先解完再判。
 
 - [RULE-im-005] 会话删除是 Owner 侧的软删：置 `is_deleted` 即可让列表、详情、消息、续聊与产物下载一致不可见；删除请求内先按既有取消语义处理该会话的活跃 Run 再软删，不等 Run 终态；删除幂等，重复删除返回成功；删除同时软删该会话的通知，且通知写入侧对已软删会话不再产出入箱行。
+
+- [RULE-006] 任务中心的服务与响应契约只依赖可信 Principal 和授权 Agent 范围，数据归属为租户、平台用户与 Agent，入口及渠道仅作来源元数据。不同 surface 复用同一读写及分页契约；定时结果和人工待处理由任务实体直接投影，不写会话通知。任务产物按执行 owner 核属并读取请求指定的不可变版本与校验值，不要求会话身份；未授权、软删或内部留档不得暴露。
 
 ## Conventions
 
@@ -90,3 +92,5 @@
 - {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-002#DELTA-001","op":"add","rule":"RULE-002","payload_sha256":"2dd6c8f15a64d46e21213c9dc11c14d0f6888e115eb8973a2001fcbb13a84ecf","at":"2026-11-12T16:21:37.941Z"}
 
 - {"source":"2026-11-12/webchat-conversation-delete-and-attachment-formats/webchat-conversation-delete-and-attachment-formats.md#TASK-005#DELTA-001","op":"add","rule":"RULE-003","payload_sha256":"4f383632fabc8102f4db853af10a64812f26d3549e9e5c933a9090d913590a67","at":"2026-11-12T16:21:37.942Z"}
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-024#DELTA-001","op":"add","rule":"RULE-006","payload_sha256":"216a49e436a612ba01476fb692ac3613cc8ac14f6b79b203cd8c50e1ab139a9c","at":"2026-11-16T05:09:15.752Z"}
