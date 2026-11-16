@@ -794,6 +794,8 @@ class DeliveryLoop:
             return await self._fail(
                 reserved, failure=blocked, now=now, max_attempts=max_attempts
             )
+        assert run_id is not None, "WEBCHAT 任务结果必须有来源 Run"
+        assert self._webchat_inbox is not None, "WEBCHAT 投递必须装配收件箱端口"
         registration = WebchatTaskResultRegistration(
             task_id=execution.id,
             run_id=run_id,
@@ -1288,6 +1290,7 @@ async def _insert_question_deliveries(
             .returning(TaskDelivery.id, TaskDelivery.tenant_id)
         )
     ).all()
+    pairs = [(row[0], row[1]) for row in inserted]
     await append_events(
         session,
         [
@@ -1299,10 +1302,10 @@ async def _insert_question_deliveries(
                 occurred_at=moment,
                 payload={"kind": str(DeliveryKind.HUMAN_QUESTION)},
             )
-            for delivery_id, tenant_id in inserted
+            for delivery_id, tenant_id in pairs
         ],
     )
-    return list(inserted)
+    return pairs
 
 
 def _live_execution_exists() -> ColumnElement[bool]:

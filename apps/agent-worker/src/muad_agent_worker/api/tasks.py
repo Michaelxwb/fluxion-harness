@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from muad_api import ApiResponse, ok, paginate
 from muad_api.security import require_internal_service
 from muad_contracts import CreateTaskRequest, TaskStatus, TriggerType
+from pydantic import JsonValue
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -234,7 +235,7 @@ async def create_task(
     return ok(request.app.state.message_catalog, response)
 
 
-def _admission_payload(task: TaskExecution) -> dict[str, object]:
+def _admission_payload(task: TaskExecution) -> dict[str, JsonValue]:
     return {
         "task_id": str(task.id),
         "status": task.status,

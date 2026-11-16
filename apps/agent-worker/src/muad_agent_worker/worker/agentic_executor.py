@@ -16,7 +16,7 @@ import logging
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from muad_agent_core.agent import (
     RunnerCancelled,
@@ -217,7 +217,9 @@ def _suspension_envelope(outcome: AgenticOutcome, task: TaskExecution) -> dict[s
     if request.kind is SuspensionKind.TOOL_OPERATION:
         return _async_wait_envelope(
             text=_intermediate_text(outcome),
-            operations=pending_payload(request.pending_tool_calls)["operations"],
+            operations=cast(
+                list[dict[str, Any]], pending_payload(request.pending_tool_calls)["operations"]
+            ),
             checkpoint=checkpoint,
         )
     deadline = request.deadline_at or task.deadline_at
@@ -243,7 +245,7 @@ def _pending_envelope(resume: ResumeState) -> dict[str, Any]:
     checkpoint = replace(resume.checkpoint, pending_tool_calls=resume.pending)
     return _async_wait_envelope(
         text="",
-        operations=pending_payload(resume.pending)["operations"],
+        operations=cast(list[dict[str, Any]], pending_payload(resume.pending)["operations"]),
         checkpoint=checkpoint_state(checkpoint),
     )
 

@@ -62,7 +62,7 @@ from .scheduler.client import ConsoleResolveClient
 from .scheduler.service import SchedulerLoop
 from .worker.human_timeouts import HumanTimeoutLoop, HumanTimeoutSweeper
 from .worker.service import WorkerLoop
-from .worker.supervision import LoopSupervisor
+from .worker.supervision import LoopBody, LoopSupervisor
 from .worker.workspace_maintenance import WorkspaceMaintenanceLoop
 
 SERVICE_NAME = "muad-agent-worker"
@@ -293,7 +293,7 @@ def _register_loops(
     """登记独立循环；每个循环的停顿判据取它**自己的**节拍，不从别的循环借。"""
     factor = settings.worker_loop_stale_factor
 
-    def add(name: str, body, interval_sec: float) -> None:
+    def add(name: str, body: LoopBody, interval_sec: float) -> None:
         supervisor.add(name, body, stale_after_sec=interval_sec * factor)
 
     add("worker.claim", worker.run_forever, settings.worker_poll_interval_sec)

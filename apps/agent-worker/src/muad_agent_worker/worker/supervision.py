@@ -17,20 +17,22 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
+from typing import Any
+
+from muad_api import inc_counter
 
 from ..metrics import (
     WORKER_LOOP_RESTART_METRIC,
     WORKER_LOOP_STALE_METRIC,
-    inc_counter,
     loop_tick_age,
     mark_loop_started,
 )
 
 logger = logging.getLogger("muad_agent_worker.worker.supervision")
 
-LoopBody = Callable[[], Awaitable[None]]
+LoopBody = Callable[[], Coroutine[Any, Any, None]]
 
 
 @dataclass(slots=True)

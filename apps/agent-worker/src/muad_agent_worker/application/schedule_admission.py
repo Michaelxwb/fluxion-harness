@@ -56,7 +56,7 @@ from muad_contracts import (
     schedule_snapshot_hash,
 )
 from muad_contracts.enums import OUTBOUND_CHANNELS
-from muad_contracts.memory import ScopeState
+from muad_contracts.memory import MemoryCardinality, MemoryPriority, ScopeState
 from muad_contracts.platform_settings import PlatformSettings
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -221,7 +221,7 @@ def admission_request_from_revision(
         raise AdmissionRejected(
             AdmissionError("SCHEMA_INCOMPATIBLE", True, REPAIR_ACTIONS["SCHEMA_INCOMPATIBLE"])
         )
-    base = {
+    base: dict[str, Any] = {
         "tenant_id": tenant_id,
         "agent_id": agent_id,
         "actor_user_id": actor_user_id,
@@ -280,8 +280,8 @@ def build_memory_snapshot(
             title=candidate.title,
             summary=candidate.summary,
             tags=tuple(candidate.tags),
-            cardinality=candidate.cardinality,
-            priority=candidate.priority,
+            cardinality=MemoryCardinality(candidate.cardinality),
+            priority=MemoryPriority(candidate.priority),
             author=candidate.author,
             version=candidate.version,
             updated_at=candidate.updated_at,

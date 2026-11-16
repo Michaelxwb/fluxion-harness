@@ -59,7 +59,7 @@ RESUME_REASON_EXTERNAL = "EXTERNAL"
 WAITING = str(TaskStatus.WAITING_EXTERNAL)
 
 
-class JsonPath(sa.types.UserDefinedType):
+class JsonPath(sa.types.UserDefinedType[str]):
     """`jsonpath` 字面量参数：`jsonb_path_exists` 的第二个实参必须是 jsonpath 类型。"""
 
     cache_ok = True

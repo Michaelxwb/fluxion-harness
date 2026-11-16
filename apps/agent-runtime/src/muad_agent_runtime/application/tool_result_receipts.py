@@ -72,16 +72,21 @@ async def lock_run_source(
     return locked, continuation
 
 
-async def _lock_operation(session: AsyncSession, tenant: str, operation_id) -> ToolOperation | None:
-    return await session.scalar(
-        select(ToolOperation)
-        .where(
-            ToolOperation.id == operation_id,
-            ToolOperation.tenant_id == tenant,
-            ToolOperation.is_deleted.is_(False),
-        )
-        .with_for_update()
-        .execution_options(populate_existing=True)
+async def _lock_operation(
+    session: AsyncSession, tenant: str, operation_id: UUID
+) -> ToolOperation | None:
+    return cast(
+        ToolOperation | None,
+        await session.scalar(
+            select(ToolOperation)
+            .where(
+                ToolOperation.id == operation_id,
+                ToolOperation.tenant_id == tenant,
+                ToolOperation.is_deleted.is_(False),
+            )
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ),
     )
 
 
@@ -123,17 +128,17 @@ def _verify(operation: ToolOperation, request: ToolResultRequest) -> None:
     RUN 行还比对提交时冻结的快照 hash；TASK 行没有提交快照，回执改按子 Task 的冻结快照校验
     （`_verify_task_receipt`），因此这里不比较该列。
     """
-    task_owned = isinstance(request.owner, TaskToolOperationOwner)
-    if task_owned:
+    owner = request.owner
+    if isinstance(owner, TaskToolOperationOwner):
         owner_matches = (
             operation.owner_type == TASK_OWNER
             and operation.run_id is None
-            and operation.owner_task_execution_id == request.owner.task_execution_id
+            and operation.owner_task_execution_id == owner.task_execution_id
         )
     else:
         owner_matches = (
             operation.owner_type != TASK_OWNER
-            and operation.run_id == request.owner.run_id
+            and operation.run_id == owner.run_id
             and operation.task_snapshot_hash == request.task_snapshot_hash
         )
     if (
@@ -265,29 +270,32 @@ def _add_inbox(
     late: bool,
 ) -> None:
     """回执 kind 分流：RUN 指 canonical event，TASK 指 `task.task_event`（禁止互相冒充）。"""
-    task_owned = run is None
-    if task_owned:
+    if run is None:
         assert task_event_id is not None
         receipt_event_id, receipt_seq = task_event_id, request.task_event_seq
+        run_id = None
+        canonical_event_id = None
     else:
         assert receipt is not None
         receipt_event_id, receipt_seq = receipt.id, receipt.seq
+        run_id = run.id
+        canonical_event_id = receipt.id
     session.add(
         ToolResultInbox(
             tenant_id=tenant,
             event_id=request.event_id,
-            run_id=None if task_owned else run.id,
-            task_execution_id=cast(UUID, operation.owner_task_execution_id) if task_owned else None,
+            run_id=run_id,
+            task_execution_id=operation.owner_task_execution_id if run is None else None,
             operation_id=operation.id,
             task_id=request.task_id,
             task_event_seq=request.task_event_seq,
             payload_hash=fingerprint,
             payload_json=body,
             late=late,
-            receipt_event_type=INBOX_TASK_EVENT if task_owned else INBOX_RUN_EVENT,
+            receipt_event_type=INBOX_TASK_EVENT if run is None else INBOX_RUN_EVENT,
             receipt_event_id=receipt_event_id,
             receipt_seq=receipt_seq,
-            canonical_event_id=None if task_owned else receipt.id,
+            canonical_event_id=canonical_event_id,
             materialized=False,
         )
     )

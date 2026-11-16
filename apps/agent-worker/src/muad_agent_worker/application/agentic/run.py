@@ -384,7 +384,8 @@ class _LazyProvider:
     """摘要 provider 延迟到第一次调用再建（没有摘要需求就不解析凭据/预占容量）。"""
 
     def __init__(self, pool: CapacityModelPool, target: ModelTarget) -> None:
-        self._pool, self._target, self._inner = pool, target, None
+        self._pool, self._target = pool, target
+        self._inner: Any | None = None
 
     async def complete(self, request: Any) -> Any:
         if self._inner is None:
@@ -523,7 +524,12 @@ def _async_skill_tools(frozen: FrozenAgenticExecution) -> frozenset[str]:
     names: set[str] = set()
     for tool in frozen.snapshot.tools:
         skill = skills.get(tool.skill_id) if tool.skill_id is not None else None
-        if tool.source == "SKILL" and skill is not None and skill.execution_mode == "ASYNC":
+        if (
+            tool.source == "SKILL"
+            and tool.skill_id is not None
+            and skill is not None
+            and skill.execution_mode == "ASYNC"
+        ):
             names.add(skill_tool_name(tool.skill_id, tool.tool_name))
     return frozenset(names)
 

@@ -11,8 +11,9 @@ from typing import Any
 
 from muad_contracts import TaskType
 
+from ..application.batch_fanout import TASK_TYPE_BATCH
 from ..infrastructure.models.task import TaskExecution
-from .executor import TASK_TYPE_BATCH, TaskExecutionError, TaskExecutorProtocol
+from .executor import TaskExecutionError, TaskExecutorProtocol
 
 AGENTIC_EXECUTOR_UNAVAILABLE = "AGENTIC_EXECUTOR_UNAVAILABLE"
 

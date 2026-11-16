@@ -22,6 +22,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import cast
 
 from muad_common import SharedSettings
 from muad_contracts import (
@@ -294,13 +295,16 @@ class SchedulerLoop:
 
     async def _revision(self, due: DueSchedule) -> TaskScheduleRevision | None:
         async with self._session_factory() as session:
-            return await session.scalar(
-                select(TaskScheduleRevision).where(
-                    TaskScheduleRevision.id == due.current_revision_id,
-                    TaskScheduleRevision.tenant_id == due.tenant_id,
-                    TaskScheduleRevision.schedule_id == due.id,
-                    TaskScheduleRevision.is_deleted.is_(False),
-                )
+            return cast(
+                TaskScheduleRevision | None,
+                await session.scalar(
+                    select(TaskScheduleRevision).where(
+                        TaskScheduleRevision.id == due.current_revision_id,
+                        TaskScheduleRevision.tenant_id == due.tenant_id,
+                        TaskScheduleRevision.schedule_id == due.id,
+                        TaskScheduleRevision.is_deleted.is_(False),
+                    )
+                ),
             )
 
     async def _task_settings(self, tenant_id: str) -> PlatformSettings:
@@ -426,17 +430,20 @@ class SchedulerLoop:
 
         竞态里暂停、更新或取消赢了，这里就取不到行，本轮准入结果整份作废。
         """
-        return await session.scalar(
-            select(TaskSchedule)
-            .where(
-                TaskSchedule.id == due.id,
-                TaskSchedule.tenant_id == due.tenant_id,
-                TaskSchedule.status == ScheduleStatus.ACTIVE.value,
-                TaskSchedule.is_deleted.is_(False),
-                TaskSchedule.current_revision_id == revision.id,
-                TaskSchedule.next_fire_at == due.next_fire_at,
-            )
-            .with_for_update()
+        return cast(
+            TaskSchedule | None,
+            await session.scalar(
+                select(TaskSchedule)
+                .where(
+                    TaskSchedule.id == due.id,
+                    TaskSchedule.tenant_id == due.tenant_id,
+                    TaskSchedule.status == ScheduleStatus.ACTIVE.value,
+                    TaskSchedule.is_deleted.is_(False),
+                    TaskSchedule.current_revision_id == revision.id,
+                    TaskSchedule.next_fire_at == due.next_fire_at,
+                )
+                .with_for_update()
+            ),
         )
 
     @staticmethod

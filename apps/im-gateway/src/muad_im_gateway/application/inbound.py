@@ -1151,6 +1151,7 @@ class InboundPipeline:
             or _explicit_conversation(adapter, envelope) is not None
         ):
             return None
+        assert resolved.agent_id is not None and resolved.platform_user_id is not None
         request = ChannelHumanRouteRequest(
             agent_id=resolved.agent_id,
             platform_user_id=resolved.platform_user_id,

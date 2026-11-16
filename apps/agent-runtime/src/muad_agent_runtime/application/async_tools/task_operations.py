@@ -12,13 +12,14 @@ from muad_contracts import (
     TaskStatus,
     TaskToolOperationCancelRequest,
     TaskToolOperationCancelResponse,
+    TaskToolOperationOwner,
     TaskToolOperationResult,
     TaskToolOperationSubmitRequest,
     TaskToolOperationView,
     TerminalStatus,
 )
 from pydantic import JsonValue, TypeAdapter
-from sqlalchemy import func, select, text
+from sqlalchemy import Select, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...infrastructure.models.async_tools import ToolOperation, ToolResultInbox
@@ -59,7 +60,7 @@ async def _find_by_call(
     )
     if for_update:
         statement = statement.with_for_update().execution_options(populate_existing=True)
-    return await session.scalar(statement)
+    return cast(ToolOperation | None, await session.scalar(statement))
 
 
 def _recorded_input_hash(operation: ToolOperation) -> str | None:
@@ -227,9 +228,10 @@ async def view(session: AsyncSession, operation: ToolOperation) -> TaskToolOpera
         .limit(1)
     )
     tool_name = operation.submission_json.get("tool_name")
+    assert operation.owner_task_execution_id is not None
     return TaskToolOperationView(
         operation_id=operation.id,
-        owner={"kind": TASK_OWNER, "task_execution_id": cast(UUID, operation.owner_task_execution_id)},
+        owner=TaskToolOperationOwner(task_execution_id=operation.owner_task_execution_id),
         source_tool_call_id=operation.source_tool_call_id,
         tool_name=tool_name if isinstance(tool_name, str) else None,
         completion_mode=operation.completion_mode,
@@ -244,7 +246,7 @@ def _result_view(inbox: ToolResultInbox) -> TaskToolOperationResult:
     payload = inbox.payload_json
     return TaskToolOperationResult(
         event_id=inbox.event_id,
-        task_event_id=cast(UUID, inbox.receipt_event_id),
+        task_event_id=inbox.receipt_event_id,
         task_event_seq=inbox.task_event_seq,
         terminal_status=TerminalStatus(str(payload["terminal_status"])),
         completed_at=datetime.fromisoformat(str(payload["completed_at"])),
@@ -255,7 +257,9 @@ def _result_view(inbox: ToolResultInbox) -> TaskToolOperationResult:
     )
 
 
-def _owner_statement(*, tenant_id: str, task_execution_id: UUID, ready: bool | None):
+def _owner_statement(
+    *, tenant_id: str, task_execution_id: UUID, ready: bool | None
+) -> Select[tuple[ToolOperation]]:
     received = (
         select(ToolResultInbox.operation_id)
         .where(

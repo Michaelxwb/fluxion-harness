@@ -344,10 +344,11 @@ class ModelCapacityStore:
         表所有权仍在 Worker 的 task schema，Runtime 只读这一列用于**复核**容量归属：
         调用方不能靠请求体把别人的 Execution 声明成自己的 owner。跨 schema 不建物理 FK。
         """
-        return await self._session.scalar(
+        value = await self._session.scalar(
             _TASK_EXECUTION_ACTOR_SQL,
             {"tenant_id": tenant_id, "task_execution_id": task_execution_id},
         )
+        return None if value is None else uuid.UUID(str(value))
 
     async def ensure_capacity_row(
         self,

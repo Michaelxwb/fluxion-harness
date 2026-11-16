@@ -261,7 +261,7 @@ def plan_occurrence(
     stale_before = now - timedelta(seconds=grace_sec)
     if slot.utc < stale_before:
         skipped = _walk(rule, slot, stale_before)
-        gaps = [item for item in skipped if item.kind is SlotKind.GAP]
+        skipped_gaps = [item for item in skipped if item.kind is SlotKind.GAP]
         missed = len(skipped) - 1
         advance = _next_fireable(rule, now)
         return _consumed(
@@ -274,7 +274,7 @@ def plan_occurrence(
                 next_fire_at=advance.next_fire_at,
                 local_date=slot.local_date,
                 local_time=slot.local_time,
-                dst_events=(*_gap_events(gaps), *advance.gap_events),
+                dst_events=(*_gap_events(skipped_gaps), *advance.gap_events),
             ),
             slots=len(skipped) + advance.slots_consumed,
             occurrence_count=occurrence_count,

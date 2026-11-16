@@ -565,7 +565,9 @@ def test_e07_batch_cancel_and_last_fanin_have_one_terminal(live_stack, http):
     from tests.async_tool_helpers import seed_operation
 
     async def seed(factory):
-        parent, _, _ = await seed_operation(factory, task_status="WAITING_EXTERNAL", tenant=live_stack.tenant_id)
+        parent, _, _ = await seed_operation(
+            factory, task_status="WAITING_EXTERNAL", tenant=live_stack.tenant_id
+        )
         child, _, _ = await seed_operation(factory, task_status="COMPLETED", tenant=live_stack.tenant_id)
         async with factory() as session, session.begin():
             row = await session.get(TaskExecution, child.id)
