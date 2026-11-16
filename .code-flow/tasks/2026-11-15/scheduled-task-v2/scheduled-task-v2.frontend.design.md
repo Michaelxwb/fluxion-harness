@@ -394,6 +394,7 @@ interface ExecutionDetail {
 
 - 前端不展示 Secret、内部 endpoint、完整 Prompt。
 - `input_schema` 只用于生成表单；不信任前端，后端二次校验。
+- `input_schema` 为空时渲染自由文本回答（提交 `{"answer": "..."}`）；不能只渲染提交按钮。
 - Task artifact 下载按 `artifact_id`；checksum/version 展示；不要求 Conversation。
 - `NEEDS_ATTENTION` 是待处理项，不是 Human；操作引导修复后恢复。
 - `WAITING_EXTERNAL` 显示“等待异步 Skill 结果”，不显示为失败。

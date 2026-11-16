@@ -2242,6 +2242,8 @@
   "user.memory.reject": "拒绝",
   "chat.taskCenter.pending.empty": "没有待处理事项",
   "chat.taskCenter.pending.deadline": "截止",
+  "chat.taskCenter.pending.freeText": "回答",
+  "chat.taskCenter.pending.freeTextPlaceholder": "请输入回答",
   "chat.taskCenter.pending.required": "此项必填",
   "chat.taskCenter.pending.submit": "提交回答",
   "chat.taskCenter.pending.answered": "已回答，等待任务继续",

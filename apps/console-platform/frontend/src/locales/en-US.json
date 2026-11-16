@@ -2242,6 +2242,8 @@
   "user.memory.reject": "Reject",
   "chat.taskCenter.pending.empty": "Nothing needs your attention",
   "chat.taskCenter.pending.deadline": "Due",
+  "chat.taskCenter.pending.freeText": "Answer",
+  "chat.taskCenter.pending.freeTextPlaceholder": "Type your answer",
   "chat.taskCenter.pending.required": "This field is required",
   "chat.taskCenter.pending.submit": "Submit answer",
   "chat.taskCenter.pending.answered": "Answered; the task will continue",

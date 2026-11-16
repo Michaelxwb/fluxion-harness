@@ -269,6 +269,7 @@ def build_harness(tenant: TenantContext, http: httpx.AsyncClient) -> AsyncHarnes
             suspension=suspension,
             operations=operations,  # type: ignore[arg-type]
             workspace_store=None,
+            create_async_child=False,
         )
 
     return AsyncHarness(

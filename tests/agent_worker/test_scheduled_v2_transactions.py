@@ -276,6 +276,16 @@ async def test_child_terminal_never_publishes_root_result(tenant: TenantContext)
     async with factory() as session, session.begin():
         await session.execute(
             sa.update(TaskExecution)
+            .where(TaskExecution.id == root.id)
+            .values(
+                task_type="BATCH",
+                wait_payload_json={
+                    "batch_ref": {"aggregate_mode": "ALL", "concurrency": 1}
+                },
+            )
+        )
+        await session.execute(
+            sa.update(TaskExecution)
             .where(TaskExecution.id == child.id)
             .values(parent_id=root.id, root_id=root.id, tenant_id=root.tenant_id)
         )
@@ -287,6 +297,99 @@ async def test_child_terminal_never_publishes_root_result(tenant: TenantContext)
     async with factory() as session:
         assert await _outbox_count(session, child.id) == 0
         assert await _outbox_count(session, root.id) == 1
+
+
+async def test_async_skill_child_does_not_aggregate_agentic_parent(
+    tenant: TenantContext,
+) -> None:
+    """Agentic 的 ASYNC Skill 子 Task 终态：父 Execution 继续等待操作，不被 fan-in 收口。"""
+    factory = tenant.session_factory
+    now = datetime.now(UTC)
+    root, operation, _ = await seed_operation(
+        factory, tenant=tenant.tenant_id, task_status="WAITING_EXTERNAL"
+    )
+    child, _, _ = await seed_operation(factory, tenant=tenant.tenant_id)
+    async with factory() as session, session.begin():
+        await session.execute(
+            sa.update(TaskExecution)
+            .where(TaskExecution.id == root.id)
+            .values(
+                task_type="AGENTIC",
+                wait_kind="ASYNC_OPERATION",
+                wait_payload_json={
+                    "operations": [
+                        {
+                            "operation_id": str(operation.id),
+                            "call_id": "call-1",
+                            "status": "SUBMITTED",
+                            "receipt_seq": 0,
+                            "consumed_event_id": None,
+                        }
+                    ]
+                },
+            )
+        )
+        await session.execute(
+            sa.update(TaskExecution)
+            .where(TaskExecution.id == child.id)
+            .values(
+                parent_id=root.id,
+                root_id=root.id,
+                source_run_id=None,
+                source_operation_id=operation.id,
+            )
+        )
+        child = await session.get(TaskExecution, child.id)
+        assert await write_terminal(
+            session, child, TerminalChange(status=TerminalStatus.COMPLETED, result={}), now
+        )
+        outcome = await settle_child(session, child, now)
+        assert outcome.aggregated is False
+        parent = await session.get(TaskExecution, root.id)
+        assert parent is not None and parent.status == "WAITING_EXTERNAL"
+
+
+async def test_task_owned_async_child_terminal_publishes_to_parent_operation(
+    tenant: TenantContext,
+) -> None:
+    """Task-owned ASYNC Skill 的子 Task 终态：结果回父 Execution 的 TASK 操作收件箱。"""
+    factory = tenant.session_factory
+    now = datetime.now(UTC)
+    root, operation, _ = await seed_operation(factory, tenant=tenant.tenant_id, task_status="RUNNING")
+    child, _, _ = await seed_operation(factory, tenant=tenant.tenant_id)
+    async with factory() as session, session.begin():
+        await session.execute(
+            sa.update(TaskExecution)
+            .where(TaskExecution.id == child.id)
+            .values(
+                parent_id=root.id,
+                root_id=root.id,
+                source_run_id=None,
+                source_operation_id=operation.id,
+            )
+        )
+        child = await session.get(TaskExecution, child.id)
+        assert await write_terminal(
+            session,
+            child,
+            TerminalChange(
+                status=TerminalStatus.COMPLETED,
+                result={"status": "SUCCEEDED", "result": {"echo": "ok"}},
+            ),
+            now,
+        )
+    async with factory() as session:
+        assert await _outbox_count(session, child.id) == 1
+        assert await _outbox_count(session, root.id) == 0
+        outbox = await session.scalar(
+            sa.select(RuntimeResultOutbox).where(RuntimeResultOutbox.task_id == child.id)
+        )
+        assert outbox is not None
+        assert outbox.operation_id == operation.id
+        payload = outbox.payload_json
+        assert payload["owner"] == {"kind": "TASK", "task_execution_id": str(root.id)}
+        assert payload["task_id"] == str(child.id)
+        assert payload["result"] == {"echo": "ok"}
 
 
 async def test_detach_root_does_not_publish(tenant: TenantContext) -> None:

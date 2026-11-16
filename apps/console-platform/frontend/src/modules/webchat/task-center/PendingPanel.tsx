@@ -52,10 +52,25 @@ function HumanCard(props: {
 }) {
   const { t } = useTranslation();
   const fields = schemaFields(props.item.input_schema);
+  const freeText = fields.length === 0;
   const [values, setValues] = useState<Record<string, string>>({});
+  const [freeValue, setFreeValue] = useState('');
   const [missing, setMissing] = useState<string[]>([]);
 
   function submit(): void {
+    if (freeText) {
+      if (!freeValue.trim()) {
+        setMissing(['answer']);
+        return;
+      }
+      setMissing([]);
+      props.onRespond(
+        props.item.interaction_id,
+        { answer: freeValue },
+        `respond-${props.item.interaction_id}`
+      );
+      return;
+    }
     const absent = fields.filter((field) => field.required && !values[field.name]?.trim());
     setMissing(absent.map((field) => field.name));
     if (absent.length > 0) return;
@@ -78,25 +93,43 @@ function HumanCard(props: {
         </Typography.Text>
       </div>
       <Typography.Paragraph>{props.item.question}</Typography.Paragraph>
-      {fields.map((field) => (
-        <label key={field.name} className="task-center-pending-field">
-          <span>
-            {field.name}
-            {field.required ? ' *' : ''}
-          </span>
+      {freeText ? (
+        <label className="task-center-pending-field">
+          <span>{t('chat.taskCenter.pending.freeText')} *</span>
           <Input
-            value={values[field.name] ?? ''}
-            onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))}
-            aria-invalid={missing.includes(field.name)}
-            aria-describedby={missing.includes(field.name) ? `${field.name}-error` : undefined}
+            value={freeValue}
+            onChange={(value) => setFreeValue(value)}
+            placeholder={t('chat.taskCenter.pending.freeTextPlaceholder')}
+            aria-invalid={missing.includes('answer')}
+            aria-describedby={missing.includes('answer') ? 'answer-error' : undefined}
           />
-          {missing.includes(field.name) ? (
-            <span id={`${field.name}-error`} role="alert" className="task-center-pending-field-error">
+          {missing.includes('answer') ? (
+            <span id="answer-error" role="alert" className="task-center-pending-field-error">
               {t('chat.taskCenter.pending.required')}
             </span>
           ) : null}
         </label>
-      ))}
+      ) : (
+        fields.map((field) => (
+          <label key={field.name} className="task-center-pending-field">
+            <span>
+              {field.name}
+              {field.required ? ' *' : ''}
+            </span>
+            <Input
+              value={values[field.name] ?? ''}
+              onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))}
+              aria-invalid={missing.includes(field.name)}
+              aria-describedby={missing.includes(field.name) ? `${field.name}-error` : undefined}
+            />
+            {missing.includes(field.name) ? (
+              <span id={`${field.name}-error`} role="alert" className="task-center-pending-field-error">
+                {t('chat.taskCenter.pending.required')}
+              </span>
+            ) : null}
+          </label>
+        ))
+      )}
       {props.errorCode ? (
         <Banner
           type="danger"

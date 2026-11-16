@@ -532,6 +532,7 @@ class WorkerAdapterHarness:
             suspension=suspension,
             operations=self._operations,  # type: ignore[arg-type]
             workspace_store=None,
+            create_async_child=False,
         )
 
     async def _on_interrupt(self, payload: dict[str, Any]) -> None:
@@ -765,6 +766,50 @@ async def test_human_question_opens_interaction_and_checkpoint(
         assert [event.event_type for event in human_events] == ["REQUESTED"]
 
 
+async def test_ask_user_tool_stages_human_question(worker_adapter: WorkerAdapterHarness) -> None:
+    """平台内置 `ask_user`：模型直接提问也走同一条 Human 挂起，不依赖 Skill。"""
+    worker_adapter._factory.script = [  # noqa: SLF001
+        tool_call_reply(
+            ModelToolCall(
+                "call-ask",
+                "ask_user",
+                {
+                    "question": "请确认客户名单",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {"customer": {"type": "string"}},
+                    },
+                },
+            )
+        )
+    ]
+    task = await insert_task(worker_adapter._tenant)
+    envelope = await worker_adapter._executor.execute(task)  # noqa: SLF001
+    outcome = interpret_execution(envelope, now=datetime.now(UTC))
+    assert outcome.kind is OutcomeKind.WAITING_HUMAN
+    assert outcome.human is not None and outcome.human.question == "请确认客户名单"
+
+    loop = WorkerLoop(
+        worker_adapter._tenant.session_factory,  # noqa: SLF001
+        worker_adapter._tenant.settings,  # noqa: SLF001
+        instance_id=WORKER_INSTANCE,
+    )
+    await loop._wait_human(task, outcome, now=None)  # noqa: SLF001
+    async with worker_adapter._tenant.session_factory() as session:  # noqa: SLF001
+        current = await session.get(TaskExecution, task.id)
+        assert current is not None and current.status == str(TaskStatus.WAITING_HUMAN)
+        interaction = await session.scalar(
+            select(TaskHumanInteraction).where(TaskHumanInteraction.execution_id == task.id)
+        )
+        assert interaction is not None
+        assert interaction.status == str(HumanInteractionStatus.OPEN)
+        assert interaction.question == "请确认客户名单"
+        assert interaction.input_schema == {
+            "type": "object",
+            "properties": {"customer": {"type": "string"}},
+        }
+
+
 class _HumanSkillRunner:
     def __init__(self, deadline: datetime) -> None:
         self._deadline = deadline
@@ -853,6 +898,23 @@ async def test_registry_only_contains_allowlisted_and_granted_tools(
     frozen_revoked = load_frozen_execution(revoked)
     registry = build_registry(frozen_revoked, mcp=None, skills=None)
     assert registry.registry.list() == ()
+
+
+async def test_skill_tool_without_input_schema_accepts_free_form_arguments(
+    worker_adapter: WorkerAdapterHarness,
+) -> None:
+    """Skill 没有服务端 input schema：工具必须接受任意 JSON，不能把参数挡成 {}。"""
+    from muad_agent_worker.application.agentic.snapshot import load_frozen_execution
+
+    snapshot = agentic_snapshot()
+    for tool in snapshot["tools"]:
+        if tool.get("source") == "SKILL":
+            tool["input_schema"] = {}
+    task = await insert_task(worker_adapter._tenant, snapshot)  # noqa: SLF001
+    frozen = load_frozen_execution(task)
+    registry = build_registry(frozen, mcp=None, skills=object())  # type: ignore[arg-type]
+    definition = registry.registry.get(STAGING_TOOL)
+    assert definition.input_schema == {"type": "object", "additionalProperties": True}
 
 
 async def test_unknown_tool_never_produces_an_external_request(

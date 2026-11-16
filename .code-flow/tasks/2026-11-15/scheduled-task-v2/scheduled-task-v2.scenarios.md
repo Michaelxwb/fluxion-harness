@@ -171,7 +171,7 @@
   7. 检查聊天流与投递记录。
 - **期望**：
   - 任务中心出现待处理项；聊天流不出现问题卡片或结果。
-  - 问题显示任务名、问题、截止时间、输入字段。
+  - 问题显示任务名、问题、截止时间、输入字段；模型未提供 `input_schema` 时显示自由文本回答框。
   - 提交后同一个 Execution 从断点继续，不新建 Fire。
   - 完成结果在任务中心可见。
   - 不产生 WebChat 投递/通知记录。
@@ -306,8 +306,10 @@
   - 提交回执丢失时按 `call_id + input_hash` 找回 operation，不重复提交。
   - checkpoint 前崩溃后 reclaim 能恢复：ready 继续、pending 补等待。
   - 多 operation 乱序结果按 call_id 匹配；全部 terminal 后恢复；部分失败按策略失败/询问。
+  - 每个 ASYNC 调用有一个真实 Skill 子 Task 作为 durable 执行载体；子 Task 崩溃后可被其他 Worker 重领。
+  - 子 Task 终态经结果 outbox 写回父 Execution 的 Task-owned 收件箱；父 Execution 继续等待，不被 BATCH fan-in 聚合。
   - 重复回调按 `event_id` 幂等，不重复消费。
-  - 迟到回调不能复活终态；不新建 Fire/Run/Execution。
+  - 迟到回调不能复活终态；不新建 Fire/Run；只新建 Skill 子 Execution 作为执行载体。
   - 取消/超时可终止 operation。
 
 ## E-01 缺少时区或参数

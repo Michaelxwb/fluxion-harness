@@ -320,6 +320,8 @@ Preflight 是静态可执行性校验，不是提前执行一次业务任务：
 
 **定义**：定时/Agentic Execution 在回合边界缺关键信息或需要确认时，暂停同一个 Execution，向用户提问；用户回答后从断点继续，不新建 Fire/Execution。
 
+**触发**：Agentic 执行内注册平台内置 `ask_user` 工具（不属于用户可选 allowlist，受 `agent_access` 门控）；模型在回合内调用后暂存挂起请求，WorkerLoop 在回合边界写 OPEN 提问。`input_schema` 可空；为空时任务中心返回自由文本回答（`{"answer": "..."}`），非空时按 schema 生成表单并在服务端二次校验。
+
 **边界**：
 
 - 只在模型回合边界暂停 Human；ASYNC Skill 的挂起属于工具级 suspension，不是 Human。
@@ -850,13 +852,15 @@ sequenceDiagram
 
 1. Kernel 提交 ASYNC Skill，**调用身份** `(tenant, owner_type/owner_id, call_id)` 唯一；重试返回同一 operation，`input_hash` 只用于冲突判定。
 2. Runtime 创建/找回 operation；Worker 不直接写 `runtime.tool_operation`。
+2b. Worker 同时创建一个**真实 Skill 子 Task**（`parent_id=Agentic Execution`、`source_operation_id=operation_id`、`completion_mode=JOIN`），作为 ASYNC Skill 的 durable 执行载体；子 Task 由正常 claim/lease 执行，崩溃后可由任意 Worker 重领。
 3. Kernel 先写 checkpoint `pending_tool_calls[]`（支持同一回合多个 ASYNC 调用）。
 4. **进入等待前**按 operation_id/call_id 做 ready-check；结果早到则直接继续，避免“结果先到、等待后到”丢唤醒。
 5. 未 ready 才进入 `WAITING_EXTERNAL`，写 `wait_kind=ASYNC_OPERATION` + `wait_payload_json.operations[]`（每项含 operation_id/call_id/receipt_seq）+ `consumed_event_id`，释放 lease。
-6. Runtime 结果进入 Task-owned inbox；Worker 周期补扫 ready 结果。**没有** Runtime→Worker 入站回调：回调要处理多副本、重试与重复消费，收益只是延迟，而正确性已经由 inbox + 补扫保证。
-7. 崩溃恢复：提交成功但 checkpoint 前崩溃，reclaim 按 `call_id` 找回 operation 并核对 `input_hash`；ready 继续，pending 补等待。
+6. 子 Task 终态经 `task.runtime_result_outbox` 回写（`owner=TaskToolOperationOwner`，`task_id=子 Task`）；Runtime 校验子 Task 事件/快照后写 Task-owned inbox 并把 operation 置 `RESULT_RECEIVED`。Worker 周期补扫 ready 结果；**没有** Runtime→Worker 入站回调：回调要处理多副本、重试与重复消费，收益只是延迟，而正确性已经由 inbox + 补扫保证。
+7. 崩溃恢复：提交成功但 checkpoint 前崩溃，reclaim 按 `call_id` 找回 operation 并核对 `input_hash`；ready 继续，pending 补等待。子 Task 未终态则等它被重新 claim；不重复创建子 Task（operation 身份 + 子 Task 幂等键）。
 8. 迟到结果：Execution 已终态时只记 `late`/事件，不能 CAS 回 QUEUED；重复结果按 `event_id` 幂等。
-9. 不新建 Fire/Run/Execution；结果与 checkpoint 的消费水位持久化。
+9. 不新建 Fire/Run；ASYNC Skill 会新建一个 Skill 子 Execution 作为执行载体，不新建 Fire/Run/父 Execution；结果与 checkpoint 的消费水位持久化。
+10. Agentic 父 Execution 只做 BATCH fan-in 的父级是不允许的：子 Task 终态不得把 AGENTIC 父执行按 BATCH 聚合；父执行继续等待 operation 结果并由补扫续接。
 
 #### 3.2.5 Schedule 状态机
 

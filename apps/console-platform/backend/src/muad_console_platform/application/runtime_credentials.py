@@ -17,9 +17,10 @@
 - tenant：Execution 必须属于请求租户，否则 404（跨租户解析不到密钥）；
 - actor：请求必须声明操作者且等于 `task_execution.actor_user_id`，否则 `TASK_ACCESS_DENIED`
   （Run 链上 `actor_user_id` 只作审计关联，Task 链上它是门控）；
-- agent：只解析该 Execution **冻结**的那个模型（`execution_snapshot_json.model.model_id`）——
-  成员/版本变化只影响新 Execution（RULE-snapshot-001），拿别的模型的 Execution 身份来解析密钥
-  即越权。`task.task_execution` 的所有权仍在 Worker，这里只读这一组事实。
+- agent：只解析该 Execution **冻结**的那个模型（`execution_snapshot_json.model.id`，即
+  `SnapshotModel.id` 的逻辑模型 UUID）——成员/版本变化只影响新 Execution（RULE-snapshot-001），
+  拿别的模型的 Execution 身份来解析密钥即越权。`task.task_execution` 的所有权仍在 Worker，
+  这里只读这一组事实。
 """
 
 from __future__ import annotations
@@ -43,7 +44,7 @@ from .model_credential_service import derive_key_resource_id
 
 _TASK_EXECUTION_OWNER_SQL = text(
     "SELECT actor_user_id,"
-    " execution_snapshot_json -> 'model' ->> 'model_id' AS frozen_model_id"
+    " execution_snapshot_json -> 'model' ->> 'id' AS frozen_model_id"
     " FROM task.task_execution"
     " WHERE id = :task_execution_id AND tenant_id = :tenant_id AND is_deleted = false"
 )
@@ -64,7 +65,7 @@ async def _require_task_owner(
     execution_actor = uuid.UUID(str(row["actor_user_id"]))
     if payload.actor_user_id is None or payload.actor_user_id != execution_actor:
         raise AppError(ErrorCode.TASK_ACCESS_DENIED)
-    # 快照缺 `model.model_id` 的旧行无法复核 ⇒ 拒绝（不是"放行未限定"）
+    # 快照缺 `model.id` 的旧行无法复核 ⇒ 拒绝（不是"放行未限定"）
     frozen_model_id = row["frozen_model_id"]
     if frozen_model_id is None or uuid.UUID(str(frozen_model_id)) != payload.model_id:
         raise AppError(ErrorCode.TASK_ACCESS_DENIED)

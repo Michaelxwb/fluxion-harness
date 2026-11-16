@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
 
-from muad_contracts import TaskStatus, TerminalStatus
+from muad_contracts import TaskStatus, TaskType, TerminalStatus
 from pydantic import JsonValue
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -65,6 +65,10 @@ async def settle_child(
     ).scalar_one_or_none()
     if parent is None:
         return FaninOutcome(aggregated=False, parent_status=None, released=0)
+    # 只有 BATCH（或显式 batch_ref）的 Parent 才做 fan-in；Agentic 的 ASYNC Skill 子 Task
+    # 是操作载体，父 Execution 必须继续等待操作结果，不能被聚合成终态。
+    if parent.task_type != TaskType.BATCH.value and BATCH_REF_KEY not in (parent.wait_payload_json or {}):
+        return FaninOutcome(aggregated=False, parent_status=parent.status, released=0)
     if parent.status in TERMINAL_STATUSES:
         return FaninOutcome(aggregated=False, parent_status=parent.status, released=0)
     siblings = list(

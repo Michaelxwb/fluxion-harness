@@ -11,8 +11,6 @@ import json
 import re
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "apps/console-platform/frontend/src/modules/webchat/task-center"
 LOCALES = ROOT / "apps/console-platform/frontend/src/locales"
@@ -46,6 +44,21 @@ def test_pending_form_is_schema_driven_and_marks_required_fields() -> None:
     assert "aria-invalid" in source and "role=\"alert\"" in source
     # 时间一律经共享格式化器。
     assert "<DateTimeText value={props.item.deadline_at} />" in source
+
+
+def test_pending_form_falls_back_to_free_text_without_a_schema() -> None:
+    """`ask_user` 可以只带问题：没有 input_schema 时必须能输入自由文本回答。"""
+    source = _read(MODULE / "PendingPanel.tsx")
+    assert "const freeText = fields.length === 0;" in source
+    assert "chat.taskCenter.pending.freeText" in source
+    assert "{ answer: freeValue }" in source
+    zh, en = _locale("zh-CN"), _locale("en-US")
+    for key in (
+        "chat.taskCenter.pending.freeText",
+        "chat.taskCenter.pending.freeTextPlaceholder",
+    ):
+        assert key in zh and key in en, key
+        assert zh[key] != en[key], f"{key} 两侧必须真的本地化"
 
 
 def test_pending_controller_reuses_the_idempotency_key_on_retry() -> None:

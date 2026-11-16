@@ -15,6 +15,7 @@ import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID, uuid4
 
 from muad_agent_core.sandbox import (
     WorkspaceDeleting,
@@ -37,13 +38,27 @@ from muad_common import SharedSettings
 from muad_contracts import (
     CompletionMode,
     OperationWatermark,
+    ResolvedAgent,
+    ResolvedModel,
+    ResolvedSkill,
+    SkillExecutionMode,
+    SkillSource,
     SnapshotSkill,
+    TaskStatus,
+    TaskType,
+    TriggerType,
+    WorkspaceRef,
+    build_task_snapshot,
+    snapshot_hash,
 )
 from muad_platform_sdk.shared_redis import MeteringUnavailable, SharedLimitExceeded
 from muad_platform_sdk.skill_access import SkillPlatformContext
+from sqlalchemy import false, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..application.agentic.suspension import AgenticSuspension, settled_status
+from ..application.task_events import EntityType, TaskEventType, append_event
 from ..infrastructure.models.task import TaskExecution
 from ..infrastructure.task_operation_client import (
     TaskOperationClient,
@@ -74,6 +89,7 @@ class AgenticSkillTools:
         suspension: AgenticSuspension,
         operations: TaskOperationClient | None,
         workspace_store: WorkspaceStore | None = None,
+        create_async_child: bool = True,
     ) -> None:
         self._task = task
         self._resolver = resolver
@@ -83,6 +99,7 @@ class AgenticSkillTools:
         self._suspension = suspension
         self._operations = operations
         self._workspace_store = workspace_store
+        self._create_async_child = create_async_child
 
     async def call(
         self, skill: SnapshotSkill, tool_name: str, arguments: Mapping[str, Any], *, call_id: str
@@ -158,6 +175,10 @@ class AgenticSkillTools:
             # ready-check：结果早到就别进入等待（避免"结果先到、等待后到"丢唤醒）。
             self._suspension.clear_operation(call_id)
             return operation_result_content(view.result)
+        if self._create_async_child:
+            await self._ensure_child_task(
+                skill, arguments, call_id=call_id, operation_id=view.operation_id
+            )
         self._suspension.stage_operation(
             OperationWatermark(
                 operation_id=view.operation_id,
@@ -177,6 +198,90 @@ class AgenticSkillTools:
             },
             ensure_ascii=False,
         )
+
+    async def _ensure_child_task(
+        self,
+        skill: SnapshotSkill,
+        arguments: Mapping[str, Any],
+        *,
+        call_id: str,
+        operation_id: UUID,
+    ) -> UUID:
+        """把 ASYNC Skill 提交成一个真实子 Task：由 Worker 正常 claim/lease/crash 恢复执行。
+
+        操作台账仍在 Runtime（`tool_operation.owner_type=TASK`）；子 Task 只是执行载体，
+        终态经 `RuntimeResultOutbox` 回写操作结果。重复提交按 operation 幂等。
+        """
+        if self._sessions is None:
+            raise TaskExecutionError(
+                "ASYNC_OPERATION_UNAVAILABLE", "async skill child task needs a session factory"
+            )
+        child_id = uuid4()
+        idempotency_key = f"task-operation:{operation_id}:submit"
+        snapshot = _child_task_snapshot(self._task, skill)
+        now = datetime.now(UTC)
+        values = {
+            "id": child_id,
+            "tenant_id": self._task.tenant_id,
+            "parent_id": self._task.id,
+            "root_id": self._task.root_id or self._task.id,
+            "source_operation_id": operation_id,
+            "source_tool_call_id": call_id,
+            "completion_mode": CompletionMode.JOIN,
+            "agent_id": self._task.agent_id,
+            "actor_user_id": self._task.actor_user_id,
+            "task_type": TaskType.SKILL.value,
+            "skill_id": skill.skill_id,
+            "skill_artifact_id": skill.artifact_id,
+            "skill_execution_mode": skill.execution_mode,
+            "trigger_type": TriggerType.IMMEDIATE.value,
+            "status": TaskStatus.QUEUED.value,
+            "input_json": dict(arguments),
+            "execution_snapshot_schema_version": snapshot["schema_version"],
+            "execution_snapshot_json": snapshot,
+            "snapshot_hash": snapshot_hash(snapshot),
+            "idempotency_key": idempotency_key,
+            "priority": self._task.priority,
+            "attempt": 0,
+            "max_attempts": 1,
+            "not_before": now,
+            "deadline_at": self._task.deadline_at,
+        }
+        async with self._sessions() as session, session.begin():
+            inserted = (
+                await session.execute(
+                    pg_insert(TaskExecution)
+                    .values(**values)
+                    .on_conflict_do_nothing(
+                        index_elements=[TaskExecution.tenant_id, TaskExecution.idempotency_key],
+                        index_where=TaskExecution.is_deleted == false(),
+                    )
+                    .returning(TaskExecution.id)
+                )
+            ).scalar_one_or_none()
+            if inserted is None:
+                existing = await session.scalar(
+                    select(TaskExecution.id).where(
+                        TaskExecution.tenant_id == self._task.tenant_id,
+                        TaskExecution.idempotency_key == idempotency_key,
+                        TaskExecution.is_deleted.is_(False),
+                    )
+                )
+                if existing is None:
+                    raise TaskExecutionError(
+                        "ASYNC_OPERATION_UNAVAILABLE", "async skill child task vanished"
+                    )
+                return existing
+            await append_event(
+                session,
+                tenant_id=self._task.tenant_id,
+                entity_type=EntityType.EXECUTION,
+                entity_id=child_id,
+                event_type=TaskEventType.QUEUED,
+                payload={"idempotency_key": idempotency_key},
+                occurred_at=now,
+            )
+        return child_id
 
     async def _workspace(self) -> tuple[Any, WorkspaceLease | None]:
         if self._workspace_store is None:
@@ -254,6 +359,57 @@ class AgenticSkillTools:
             redis_cluster_seeds=self._settings.redis_cluster_seeds,
             service_token=self._settings.internal_service_token,
         )
+
+
+def _mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _child_task_snapshot(task: TaskExecution, skill: SnapshotSkill) -> dict[str, Any]:
+    """子 Task 的 SKILL 快照：单 Skill + 冻结 workspace，与立即 Skill 任务同形。"""
+    raw = _mapping(task.execution_snapshot_json)
+    agent_raw = _mapping(raw.get("agent"))
+    model_raw = _mapping(raw.get("model"))
+    model_json = _mapping(model_raw.get("model_json"))
+    agent = ResolvedAgent(
+        id=UUID(str(agent_raw.get("id"))),
+        key=str(agent_raw.get("key") or "task-agent"),
+        revision=int(agent_raw.get("revision") or 1),
+        instructions=str(agent_raw.get("instructions") or ""),
+        runtime_config=dict(_mapping(agent_raw.get("runtime_config"))),
+    )
+    model = ResolvedModel(
+        id=UUID(str(model_raw.get("id"))),
+        revision=int(model_raw.get("revision") or 1),
+        protocol="OPENAI",
+        model_id=str(model_json.get("model_id") or "unknown"),
+        base_url=str(model_json.get("base_url") or ""),
+        params=dict(_mapping(model_json.get("params"))),
+    )
+    key = str(skill.frontmatter.get("key") or skill.skill_id)
+    resolved = ResolvedSkill(
+        skill_id=skill.skill_id,
+        artifact_id=skill.artifact_id,
+        key=key,
+        name=str(skill.frontmatter.get("name") or key),
+        description=str(skill.frontmatter.get("description") or ""),
+        version=skill.version,
+        checksum=skill.checksum,
+        storage_key=skill.storage_key,
+        execution_mode=SkillExecutionMode(skill.execution_mode),
+        frontmatter=dict(skill.frontmatter),
+        source=SkillSource(skill.source),
+    )
+    return build_task_snapshot(
+        agent=agent,
+        model=model,
+        skill=resolved,
+        workspace=WorkspaceRef(
+            tenant_id=task.tenant_id,
+            user_id=task.actor_user_id,
+            agent_id=task.agent_id,
+        ),
+    )
 
 
 def _result_text(result: SkillExecutionResult) -> str:

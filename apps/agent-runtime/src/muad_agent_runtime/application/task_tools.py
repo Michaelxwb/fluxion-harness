@@ -127,7 +127,14 @@ _DRAFT_ARGS: Mapping[str, Any] = {
         "type": "object",
         "description": "SKILL only. May use {{fire_date}}, {{previous_day}}, {{fire_time}}.",
     },
-    "goal": {**_STRING, "description": "AGENTIC only: the business goal."},
+    "goal": {
+        **_STRING,
+        "description": (
+            "AGENTIC only: the business goal. The scheduled execution can call the platform "
+            "built-in `ask_user` tool to pause and wait for the user's answer in the task "
+            "center; `ask_user` never belongs in `tool_allowlist`."
+        ),
+    },
     "tool_allowlist": {
         "type": "array",
         "items": _ALLOWLIST_ENTRY,

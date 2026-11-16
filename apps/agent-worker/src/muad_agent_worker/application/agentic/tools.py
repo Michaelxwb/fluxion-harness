@@ -10,12 +10,18 @@
 
 工具 schema 只取自快照（`tools[].input_schema` / MCP `definitions`）：不在执行期查 catalog，
 也不因为当前配置变化而扩展。
+
+`ask_user` 是 Kernel 的平台内置工具（不属于用户可选的 allowlist）：它不产生外部副作用，
+只把"向用户提问"暂存到挂起端口，由 WorkerLoop 在回合边界写入 Human interaction。它和
+外部工具一样受 `agent_access` 门控。
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -32,7 +38,19 @@ from .mcp import McpToolBox, frozen_mcp_tool_schema, mcp_tool_name, mcp_tool_tru
 from .snapshot import FrozenAgenticExecution
 
 TOOL_NOT_ALLOWED = "TOOL_NOT_ALLOWED"
-UNKNOWN_TOOL_SCHEMA = {"type": "object", "additionalProperties": False}
+#: Skill 工具没有服务端 input schema：入参是任意 JSON，不能把“未知 schema”当成“禁止参数”。
+FREE_FORM_TOOL_SCHEMA = {"type": "object", "additionalProperties": True}
+ASK_USER_TOOL = "ask_user"
+ASK_USER_ALLOWLIST_KEY = "PLATFORM:ask_user"
+ASK_USER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["question"],
+    "properties": {
+        "question": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "input_schema": {"type": "object"},
+    },
+    "additionalProperties": False,
+}
 
 
 class SkillToolRunner(Protocol):
@@ -41,6 +59,18 @@ class SkillToolRunner(Protocol):
     async def call(
         self, skill: SnapshotSkill, tool_name: str, arguments: Mapping[str, Any], *, call_id: str
     ) -> str: ...
+
+
+class HumanInputPort(Protocol):
+    """把"向用户提问"暂存到挂起端口的窄接口（Worker 的 AgenticSuspension 实现它）。"""
+
+    def stage_human(
+        self,
+        *,
+        question: str,
+        input_schema: Mapping[str, object] | None,
+        deadline_at: datetime,
+    ) -> None: ...
 
 
 def allowlist_key(
@@ -79,6 +109,7 @@ def build_registry(
     *,
     mcp: McpToolBox | None,
     skills: SkillToolRunner | None,
+    human: HumanInputPort | None = None,
 ) -> AgenticToolRegistry:
     """按快照构造注册表；未注册 = 模型看不到、调用即 `unknown tool`。"""
     snapshot = frozen.snapshot
@@ -92,7 +123,57 @@ def build_registry(
     mcp_ids = set(grants.mcp_grants)
     _register_mcp(frozen, registry, allowed, allowlist, mcp_ids, mcp)
     _register_skills(frozen, registry, allowed, allowlist, skill_ids, skills)
+    if human is not None:
+        _register_human(registry, allowed, human, deadline_at=frozen.deadline_at)
     return AgenticToolRegistry(registry, allowed)
+
+
+def _register_human(
+    registry: ToolRegistry,
+    allowed: dict[str, RegisteredTool],
+    human: HumanInputPort,
+    *,
+    deadline_at: datetime,
+) -> None:
+    """平台内置提问工具：不依赖外部 allowlist，但受 `agent_access` 门控。"""
+
+    async def ask(arguments: Mapping[str, Any], *, call_id: str) -> str:
+        question = arguments.get("question")
+        if not isinstance(question, str) or not question.strip():
+            return json.dumps(
+                {"status": "INVALID", "error": "question must be a non-empty string"},
+                ensure_ascii=False,
+            )
+        input_schema = arguments.get("input_schema")
+        if input_schema is not None and not isinstance(input_schema, Mapping):
+            return json.dumps(
+                {"status": "INVALID", "error": "input_schema must be an object"},
+                ensure_ascii=False,
+            )
+        try:
+            human.stage_human(
+                question=question.strip(),
+                input_schema=input_schema,
+                deadline_at=deadline_at,
+            )
+        except ValueError as exc:
+            # 同一回合已有 ASYNC 操作时不能混两种挂起：把拒绝交回模型，不中断整次执行。
+            return json.dumps({"status": "UNAVAILABLE", "error": str(exc)}, ensure_ascii=False)
+        return json.dumps({"status": "QUESTION_PENDING"}, ensure_ascii=False)
+
+    registry.register(
+        ToolDefinition(
+            name=ASK_USER_TOOL,
+            description=(
+                "Ask the user for missing information or confirmation. The execution pauses at "
+                "the end of this turn and resumes with the user's answer."
+            ),
+            input_schema=ASK_USER_SCHEMA,
+            effect=ToolEffect.READ,
+            handler=ask,
+        )
+    )
+    allowed[ASK_USER_TOOL] = RegisteredTool(ASK_USER_TOOL, ASK_USER_ALLOWLIST_KEY, "PLATFORM")
 
 
 def _register_mcp(
@@ -165,7 +246,7 @@ def _register_skills(
             ToolDefinition(
                 name=name,
                 description=f"skill {skill.skill_id} tool {tool.tool_name}",
-                input_schema=dict(tool.input_schema) or UNKNOWN_TOOL_SCHEMA,
+                input_schema=dict(tool.input_schema) or FREE_FORM_TOOL_SCHEMA,
                 effect=ToolEffect.EXTERNAL if skill.execution_mode == "ASYNC" else ToolEffect.WRITE,
                 retry_safety=_retry_safety(tool),
                 handler=_skill_handler(skills, skill, tool.tool_name),

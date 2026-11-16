@@ -42,7 +42,6 @@ DOMAIN_CONFIG = {
     "audit-observability": "audit-observability",
     "run-observability": "run-observability-e2e",
     "webchat": "webchat-e2e",
-    "scheduled-task-v2": "scheduled-task-v2",
 }
 
 

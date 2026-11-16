@@ -4,8 +4,8 @@ Task 链上凭据解析的口径与 Run 链不同：
 
 - tenant：`task.task_execution` 必须属于请求租户（跨租户解析不到别人的密钥）；
 - actor：请求必须声明操作者且等于 Execution 的 actor —— Run 链上它只是审计关联，这里它是门控；
-- agent：只解析该 Execution **冻结**的模型（`execution_snapshot_json.model.model_id`），拿别的
-  模型的 Execution 身份解析密钥即越权；
+- agent：只解析该 Execution **冻结**的模型（`execution_snapshot_json.model.id`，即
+  `SnapshotModel.id`）——拿别的模型的 Execution 身份解析密钥即越权；
 - 密钥实时解析、只进调用内存：响应体（内部专用）含明文，但去重指纹/快照/错误响应都不带密钥。
 
 真实边界：真实 `main.app`（ASGITransport，真实路由与封套）、真实服务身份门控、真实
@@ -69,7 +69,7 @@ async def _insert_execution(
     snapshot = (
         '{"schema_version": 4, "mode": "AGENTIC", "agent": {"id": "'
         + str(agent_id)
-        + '"}, "model": {"model_id": "'
+        + '"}, "model": {"id": "'
         + str(frozen_model_id)
         + '"}}'
     )

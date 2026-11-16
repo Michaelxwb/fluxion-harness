@@ -5,10 +5,11 @@ parent`。立即任务没有 operation 之外的调度行，就从 operation 开
 锁 Execution 再回头取 operation 锁。
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
+from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from muad_contracts import (
@@ -16,6 +17,7 @@ from muad_contracts import (
     DeliveryIntent,
     RunToolOperationOwner,
     TaskStatus,
+    TaskToolOperationOwner,
     TerminalStatus,
     ToolResultRequest,
     canonical_json,
@@ -144,6 +146,47 @@ def _payload(task: TaskExecution, change: TerminalChange, moment: datetime, seq:
     )
 
 
+def _task_owned_result(change: TerminalChange) -> tuple[dict[str, Any] | None, str | None, str | None]:
+    """子 Task 的信封解包：模型只该看到 Skill 的结构化结果，而不是执行器元数据。"""
+    if change.status is not TerminalStatus.COMPLETED:
+        return None, change.error_code, change.error_message
+    payload = change.result
+    if isinstance(payload, Mapping) and "status" in payload:
+        status = str(payload.get("status"))
+        if status != "SUCCEEDED":
+            return (
+                None,
+                str(payload.get("error_code") or status or "SKILL_EXECUTION_FAILED"),
+                str(payload.get("stderr") or ""),
+            )
+        inner = payload.get("result")
+        return (dict(inner) if isinstance(inner, Mapping) else {}), None, None
+    return (dict(payload) if isinstance(payload, Mapping) else {}), None, None
+
+
+def _task_owned_payload(
+    task: TaskExecution, change: TerminalChange, moment: datetime, seq: int
+) -> ToolResultRequest:
+    """Task-owned ASYNC Skill 的子 Task：结果回给父 Execution 的操作收件箱。"""
+    if task.source_operation_id is None or task.parent_id is None:
+        raise ValueError("task-owned child requires operation and parent identities")
+    result, error_code, error_message = _task_owned_result(change)
+    return ToolResultRequest(
+        event_id=uuid5(NAMESPACE_URL, f"muad:task-result:{task.tenant_id}:{task.id}:{seq}"),
+        operation_id=task.source_operation_id,
+        task_id=task.id,
+        task_event_seq=seq,
+        owner=TaskToolOperationOwner(task_execution_id=task.parent_id),
+        actor_user_id=task.actor_user_id,
+        task_snapshot_hash=task.snapshot_hash,
+        terminal_status=change.status,
+        completed_at=moment,
+        result=result,
+        error_code=error_code,
+        error_message=error_message,
+    )
+
+
 def _validated_change(task: TaskExecution, change: TerminalChange, moment: datetime) -> TerminalChange:
     if task.completion_mode is not CompletionMode.JOIN or task.parent_id is not None:
         return change
@@ -227,8 +270,31 @@ async def write_terminal(
 async def _enqueue_result(
     session: AsyncSession, task: TaskExecution, change: TerminalChange, moment: datetime, event: TaskEvent
 ) -> None:
-    """JOIN 根把结果交回 Runtime Owner；Child 从不发布根结果。"""
-    if task.parent_id is not None or task.completion_mode is not CompletionMode.JOIN:
+    """JOIN 根把结果交回 Runtime Owner；Task-owned 子 Task 回父 Execution 的收件箱。"""
+    if task.parent_id is not None:
+        if (
+            task.source_run_id is not None
+            or task.source_operation_id is None
+            or task.completion_mode is not CompletionMode.JOIN
+        ):
+            return
+        payload = _task_owned_payload(task, change, moment, event.seq)
+        body = JSON_OBJECT.validate_python(redact_value(payload.model_dump(mode="json")))
+        session.add(
+            RuntimeResultOutbox(
+                tenant_id=task.tenant_id,
+                event_id=payload.event_id,
+                task_id=task.id,
+                task_event_id=event.id,
+                operation_id=payload.operation_id,
+                task_snapshot_hash=task.snapshot_hash,
+                payload_json=body,
+                payload_hash="sha256:" + sha256(canonical_json(body).encode()).hexdigest(),
+                not_before=moment,
+            )
+        )
+        return
+    if task.completion_mode is not CompletionMode.JOIN:
         return
     payload = _payload(task, change, moment, event.seq)
     body = JSON_OBJECT.validate_python(redact_value(payload.model_dump(mode="json")))

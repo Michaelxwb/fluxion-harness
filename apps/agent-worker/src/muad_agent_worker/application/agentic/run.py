@@ -248,7 +248,9 @@ async def execute_agentic(
     # 执行器与工具执行者必须拿到**同一个**挂起端口：否则工具已经暂存了异步提交，
     # Kernel 在回合收口时看不到它，会继续跑下一个模型回合（实测会把一次提交跑成 N 轮）。
     skill_runner = skill_runner_factory(suspension) if skill_runner_factory is not None else None
-    agentic_tools: AgenticToolRegistry = build_registry(frozen, mcp=mcp_box, skills=skill_runner)
+    agentic_tools: AgenticToolRegistry = build_registry(
+        frozen, mcp=mcp_box, skills=skill_runner, human=suspension
+    )
     hooks = HookPipeline()
     _observe_interrupts(hooks, deps)
     runner = AgentRunner(
