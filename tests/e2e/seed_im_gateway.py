@@ -220,7 +220,6 @@ def seed_delivery_task(
     给了 `result_artifact_id` 就是**产物形态**的投递（TASK-006）：Worker 只持有不透明 id，
     要经 runtime 的解析单点换成渠道中立的引用才发得出去。
     """
-    del intent_key  # v2 的执行行不再持有业务意图键；保留参数兼容既有调用方。
     from muad_common import SharedSettings
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -263,7 +262,7 @@ def seed_delivery_task(
                             task_type="SKILL",
                             status="COMPLETED",
                             input_json={},
-                            result_json={},
+                            result_json={"summary": intent_key},
                             execution_snapshot_schema_version=1,
                             execution_snapshot_json={"schema_version": 1},
                             snapshot_hash="sha256:" + "b" * 64,

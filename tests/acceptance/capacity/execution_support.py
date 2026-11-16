@@ -818,6 +818,8 @@ def build_task_body(
     快照由**唯一构建器**（`muad_contracts.snapshot.build_task_snapshot`）产出：必需版本键、
     字段白名单与 `snapshot_hash` 口径都跟生产同源，不在用例里重抄一份形状。
 
+    `delivery_mode` 仅为兼容既有调用方保留；v2 的投递事实只落 `task_delivery`。
+
     `budget.retry_safety` 是设计 §3.6 的可信冻结键：Owner 侧工具声明一次冻结，Worker 侧只读它；
     未声明/未知一律 NON_RETRYABLE（空值 = 不声明该键，用于覆盖"未声明"分支）。
     """
@@ -829,6 +831,8 @@ def build_task_body(
         WorkspaceRef,
     )
     from muad_contracts.snapshot import build_task_snapshot, snapshot_hash
+
+    del delivery_mode
 
     agent = ResolvedAgent(
         id=agent_id, key="capacity-agent", revision=1, instructions="", runtime_config={}
@@ -862,15 +866,15 @@ def build_task_body(
         "tenant_id": tenant_id,
         "agent_id": str(agent_id),
         "actor_user_id": str(actor_user_id),
-        "intent_key": "capacity_external_write",
+        "task_type": "SKILL",
         "skill_id": str(skill_id),
         "skill_artifact_id": str(artifact_id),
+        "skill_execution_mode": "ASYNC",
         "input": dict(input_data),
         "execution_snapshot": snapshot,
-        "execution_snapshot_schema_version": 1,
+        "execution_snapshot_schema_version": 4,
         "snapshot_hash": snapshot_hash(snapshot),
         "idempotency_key": idempotency_key,
-        "delivery_mode": delivery_mode,
     }
 
 

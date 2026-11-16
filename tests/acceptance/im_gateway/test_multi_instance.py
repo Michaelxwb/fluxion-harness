@@ -82,7 +82,12 @@ async def _delivery_status(task_id: uuid.UUID) -> str:
     try:
         async with engine.connect() as connection:
             value = await connection.scalar(
-                text("SELECT delivery_status FROM task.task_execution WHERE id = :id"),
+                text(
+                    "SELECT COALESCE(d.status, 'NONE') FROM task.task_execution t"
+                    " LEFT JOIN task.task_delivery d"
+                    "   ON d.tenant_id = t.tenant_id AND d.execution_id = t.id"
+                    " WHERE t.id = :id"
+                ),
                 {"id": task_id},
             )
         return str(value or "")
