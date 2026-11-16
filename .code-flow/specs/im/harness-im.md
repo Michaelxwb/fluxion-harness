@@ -1,7 +1,7 @@
 ---
 {
   "description": "IM 网关、通道与 WebChat",
-  "next_rule": 6
+  "next_rule": 7
 }
 ---
 
@@ -17,6 +17,10 @@
 - [RULE-im-004] 压缩包读取有界且只投影文本：内存解压不落盘；成员清单先行，文本成员可分段读取，二进制成员只列不读；加密、损坏、成员路径不合法与超出成员数/单成员/解压总量/压缩比上限都必须显式拒绝并说明原因，禁止先解完再判。
 
 - [RULE-im-005] 会话删除是 Owner 侧的软删：置 `is_deleted` 即可让列表、详情、消息、续聊与产物下载一致不可见；删除请求内先按既有取消语义处理该会话的活跃 Run 再软删，不等 Run 终态；删除幂等，重复删除返回成功；删除同时软删该会话的通知，且通知写入侧对已软删会话不再产出入箱行。
+
+- [RULE-im-006] **外部 JWT 平台复用同一套会话面**：接入以 `ChatSurface(channel, auth_kind, entry_resolver)` 抽象表达，同一 router/service 按 channel 多挂载，新平台只注册 surface 与适配器，不复制 handler。通道名必须参数化——任何以字面量硬编码通道名来决定 Run 落库通道、能力分组（拉取式流式 / 出站推送）或路由挂载的位置，都必须改为取当前 surface 的 channel；漏改任一处即表现为 Run 落错通道或产物交付走错路径。
+  - ✅ 适配器以 `name=` 参数化，装配根按 surface 列表逐项挂载；Run 组装从 surface 取 channel。
+  - ❌ 在 `_run_request`、取消/恢复分支或产物交付判定里写死 `"WEBCHAT"`；为每个平台复制一份 router。
 
 ## Conventions
 

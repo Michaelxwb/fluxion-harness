@@ -1,5 +1,5 @@
 ---
-{"description": "表设计、迁移与索引", "next_rule": 1}
+{"description": "表设计、迁移与索引", "next_rule": 2}
 ---
 
 # harness-data
@@ -7,6 +7,12 @@
 ## Rules
 
 - [RULE-data-001] 产品表统一 `id/is_deleted/create_time/update_time`；普通软删除实体用 partial unique `WHERE is_deleted=false`，稳定身份注册表 `runtime.user_memory` / `memory_scope` 的完整唯一键包含 tombstone，append-only history/receipt/job 保持 `is_deleted=false` 且使用完整唯一约束；时间统一 `timestamptz`；同 Owner Schema 的业务归属用物理 FK，跨 Owner Schema 与需跨清理保留的审计来源引用用逻辑 UUID；JSON 配置用 `jsonb`，关键查询字段必须有物理列。
+
+- [RULE-data-002] **外部身份与入口授权分两表**：`external_identity` 为用户级，回答「这个外部标识对应哪个平台用户」，唯一键 `(tenant_id, platform_key, identity_hash)` WHERE `is_deleted=false`，并索引 `(tenant_id, platform_user_id)`；`entry_access_grant` 为入口授权，回答「这个身份能在哪个入口下使用」，唯一键 `(tenant_id, external_identity_id, bot_account_id)` WHERE `is_deleted=false`，并索引 `(tenant_id, bot_account_id, external_identity_id)` 以支撑入口停用时反查受影响身份。
+  - **身份与授权分离**：解绑入口只软删 grant，身份保留，重绑后历史会话归属不变；编辑身份只重算 `identity_hash`，不改变历史归属。
+  - **不改旧表**：既有 `channel_identity`（`channel:bot_id:external_user_id` 主动绑定模型）保持不变，新模型与之并存。
+  - **按 hash 定位不扫用户表**：查询必须带 `tenant_id`，禁止全局扫描。
+  - ✅ 一次查询 `(tenant, platform_key, identity_hash)` 直接命中身份，再按身份查 grant；❌ 把身份与入口塞进同一张表、用 `channel:bot_id:user` 拼接当身份键。
 
 ## Conventions
 

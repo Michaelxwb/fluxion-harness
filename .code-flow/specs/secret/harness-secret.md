@@ -1,5 +1,5 @@
 ---
-{"description": "密钥归属与脱敏", "next_rule": 1}
+{"description": "密钥归属与脱敏", "next_rule": 2}
 ---
 
 # harness-secret
@@ -7,6 +7,12 @@
 ## Rules
 
 - [RULE-secret-001] 密钥明文存于各 Owner 表（模型 `control.model_credential.api_key`、Bot `secret`、MCP `auth_secret`、用户/共享凭据 `credential_json`；平台侧只有历史休眠列 `project_platform.auth_secret`，不得读写），跨表以主键引用，不再使用 `secret_ref`/SecretProvider；密钥不得进入日志、`config_audit_log`、Snapshot、LLM Prompt 或 API 响应（对外以 `*_configured` 表达）；Console 凭据编辑弹窗的**按需回显**是下文列出的受控例外，只允许那一条显式路径回明文。
+
+- [RULE-secret-002] **外部平台验签因子只放 Secret，不进数据库**：公钥、issuer、audience、salt 等因子来自环境变量 / K8s Secret，不得落 Owner 表、不回显、不写日志，也不进入审计快照；管理员可见的只有平台元数据（是否已配置、`identity_keys`、字段中文名），不含任何因子值。
+  - **缺失只影响该通道**：Secret 缺失或损坏时进程仍须启动，仅使该通道的认证返回不可用（503）；不得因一个外部平台未配置而阻断启动或影响其它通道。
+  - **配置错误在启动期暴露**：因子能加载但解析失败（如公钥格式错误、`identity_keys` 为空）应在启动期显式报错，而不是等到首个请求才 500。
+  - ✅ 因子经 `Secret` 注入、加载进 `repr=False` 的设置对象；对外接口只回 `configured` 与键名。
+  - ❌ 把公钥或 salt 写进表、写进快照、写进响应；缺因子时整个服务起不来。
 
 ## Conventions
 

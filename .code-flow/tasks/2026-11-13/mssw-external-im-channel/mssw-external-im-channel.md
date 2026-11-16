@@ -104,7 +104,7 @@
 
 ## TASK-002: 规范沉淀（Spec Delta）
 
-- **Status**: draft
+- **Status**: done
 - **Depends**:
 - **Source**: mssw-external-im-channel.backend.design.md#28-规范沉淀
 - **Scenarios**:
@@ -132,10 +132,11 @@
 
 ### Checklist
 
-- [ ] 每条规则有稳定 `RULE-*` ID，编号取自各 spec 的 `next_rule`
-- [ ] 规则写规范不写实现值；需要具体值时引用 `*Settings` 或契约所有者
-- [ ] 关键规则配 ✅/❌ 对照示例
-- [ ] Spec Delta JSON 合法，`target` 相对 `.code-flow/specs` 且不带 `.md`
+- [x] 每条规则有稳定 `RULE-*` ID，编号取自各 spec 的 `next_rule`（`im-006`、`auth-002`、`secret-002`、`data-002`）
+- [x] 规则写规范不写实现值；需要具体值时引用 `*Settings` 或契约所有者
+- [x] 关键规则配 ✅/❌ 对照示例
+- [x] Spec Delta JSON 合法，`target` 相对 `.code-flow/specs` 且不带 `.md`
+- [x] 四个 spec 的 `next_rule` 同步 +1（`im` 6→7，其余 1→2），文件仍只有 Rules/Conventions/Avoid 三个 H2
 
 ### Spec Delta
 
@@ -151,10 +152,14 @@
 ### Log
 
 - [2026-11-16] created
+- [2026-11-16T03:29:02.749Z] started tests=4f53cda18c2b
 
 ### Verification
 
 - 尚未执行
+
+---
+- 2026-11-16T03:29:35.161Z SKIPPED commands=0/0 executed=0 deduped=0 tests=4f53cda18c2b head=7a9106a90266 dirty=1 reason=纯规范沉淀，无代码可执行；Delta 由 cf-task:archive 应用
 
 ---
 

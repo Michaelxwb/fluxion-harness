@@ -1,5 +1,5 @@
 ---
-{"description": "认证、会话、RBAC 与 CHAT", "next_rule": 1}
+{"description": "认证、会话、RBAC 与 CHAT", "next_rule": 2}
 ---
 
 # harness-auth
@@ -7,6 +7,12 @@
 ## Rules
 
 - [RULE-auth-001] 授权为三层关系：User→Agent（AgentAccessGrant）、Agent→Skill/MCP（Binding）、SELECTED 资源再叠加 SkillUserGrant/McpUserGrant；Effective Capability 公式必须含 `is_deleted=false` 与资源/Agent `enabled`；绑定无启停开关、授权无到期时间；不建三元授权、不做 MCP Tool 级授权；未授权资源不得进入 Prompt/ToolRegistry/Skill Catalog。
+
+- [RULE-auth-002] **外部断言按固定五步链校验**：① 验签（算法白名单，拒绝 `none` 等非预期算法）→ ② AES 因子以「加密期望值 + 密文比对」校验 `aud`/`iss`（不解密 padding 非标准的密文）→ ③ claim 策略（最大会话年龄等，兜底 `exp` 不可信的情形）→ ④ 按平台配置的 `identity_keys` 提取身份字段（全部必填、集合完全一致、值非空）并计算 `identity_hash` → ⑤ 按 `(tenant, platform_key, identity_hash)` 查外部身份与入口授权。任一步失败即 fail-closed。
+  - **未绑定不得伪造主体**：验签通过但查无外部身份时返回可空主体 + `reason=UNBOUND`，绝不虚构 `platform_user`。
+  - **身份命中不等于可访问**：身份存在但当前入口无授权时，主体照常返回、`allowed=false` + `reason=NO_ENTRY_GRANT`。两者必须可区分，不得都报成未绑定。
+  - ✅ 五步顺序执行、失败即拒；`UNBOUND` / `NO_ENTRY_GRANT` / `USER_DISABLED` / `NO_AGENT_GRANT` 各有独立 reason。
+  - ❌ 跳过算法白名单；用解码而非密文比对校验 `aud`/`iss`；身份查无就临时建档；把「无入口授权」报成 `UNBOUND`。
 
 ## Conventions
 
