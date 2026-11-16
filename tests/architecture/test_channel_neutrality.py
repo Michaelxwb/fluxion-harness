@@ -29,6 +29,7 @@ CHANNEL_TOKENS = (
     "url_private",
     "download_code",
     "media_id",
+    "msswweb",
 )
 
 #: 允许出现渠道专有字样的**全部**位置（相对仓库根的前缀）。要放宽时改这里并写清理由，
@@ -183,4 +184,49 @@ def test_b09_channel_vocabulary_only_lives_on_the_allowed_surfaces() -> None:
     assert offenders == {}, (
         "渠道专有字样只能出现在 `ALLOWED_SURFACES`：适配器层 `channels/`、装配根 `main.py`、"
         f"console 通道管理面、`enums.py` 定义处。其余位置出现即为渠道差异泄漏：{offenders}"
+    )
+
+
+def _builtin_channel_names() -> tuple[str, ...]:
+    """从 `enums.py` 的源码里取 `BUILTIN_CHANNEL_NAMES` 的字面量（不 import，保持本文件自包含）。"""
+    enums_path = ROOT / "packages/contracts/src/muad_contracts/enums.py"
+    module = ast.parse(enums_path.read_text(encoding="utf-8"), filename=str(enums_path))
+    for node in module.body:
+        if not isinstance(node, ast.AnnAssign):
+            continue
+        target = node.target
+        if not isinstance(target, ast.Name) or target.id != "BUILTIN_CHANNEL_NAMES":
+            continue
+        value = node.value
+        if isinstance(value, ast.Tuple):
+            return tuple(
+                element.value
+                for element in value.elts
+                if isinstance(element, ast.Constant) and isinstance(element.value, str)
+            )
+    raise AssertionError("BUILTIN_CHANNEL_NAMES not found as a literal tuple in enums.py")
+
+
+#: 历史遗留：`WEBCHAT` 的词元不回填。`webchat` 已作为命名约定渗透到 30+ 个领域文件
+#: （模块名、类型名均以 webchat 命名），回填会把既有约定一次性判为违规。等这类命名
+#: 统一迁移到与通道无关的词汇后再启用。**新通道不允许走这条路**——见下方断言。
+VOCABULARY_EXEMPT_CHANNELS = frozenset({"WEBCHAT"})
+
+
+def test_b09_every_registered_channel_has_a_vocabulary_token() -> None:
+    """④ 除显式豁免外，注册表里的每个通道名都必须在 `CHANNEL_TOKENS` 中。
+
+    否则新增通道时忘了加词，③ 的泄漏扫描对该通道恒为空集 —— 守卫静默失效（假绿灯）。
+    通道名按小写比对：`MSSWWEB` 对应词元 `msswweb`。
+    """
+    missing = [
+        name
+        for name in _builtin_channel_names()
+        if name not in VOCABULARY_EXEMPT_CHANNELS and name.lower() not in CHANNEL_TOKENS
+    ]
+
+    assert missing == [], (
+        "以下内建通道名没有对应的 `CHANNEL_TOKENS` 词元，泄漏扫描对它们形同虚设："
+        f"{missing}。请在 `CHANNEL_TOKENS` 中补上这些小写词元"
+        "（确需豁免时加入 `VOCABULARY_EXEMPT_CHANNELS` 并写明理由）。"
     )

@@ -115,9 +115,14 @@ def test_b07_builtin_channel_names_are_declared_in_exactly_one_place() -> None:
     scanned = sorted(CONTRACT_DIR.glob("*.py")) + [CONSOLE_DTO]
     assert scanned, "未扫描到任何契约源码：路径规则可能已与目录结构脱节"
 
-    assert BUILTIN_CHANNEL_NAMES == ("WECOM", "WEBCHAT"), (
-        "内建通道名必须与 enums.py 的唯一声明一致（新增通道**不需要**改这里）"
+    # 只钉结构性约束（非空、无重复、全大写），不钉具体名称：
+    # 新增通道改 enums.py 一处即可，这里不应跟着改。
+    assert BUILTIN_CHANNEL_NAMES, "内建通道名不得为空"
+    assert len(set(BUILTIN_CHANNEL_NAMES)) == len(BUILTIN_CHANNEL_NAMES), (
+        f"内建通道名不得重复：{BUILTIN_CHANNEL_NAMES}"
     )
+    for name in BUILTIN_CHANNEL_NAMES:
+        assert name == name.upper(), f"内建通道名必须全大写：{name}"
     literal_text = "Literal[" + ", ".join(f'"{value}"' for value in BUILTIN_CHANNEL_NAMES) + "]"
     hits = {
         path.name: path.read_text(encoding="utf-8").count(literal_text)

@@ -39,7 +39,16 @@ ChatCount = Annotated[int, Field(strict=True, ge=0, le=(1 << 63) - 1)]
 ChatPositiveCount = Annotated[int, Field(strict=True, ge=1, le=(1 << 63) - 1)]
 ChatPageSize = Annotated[int, Field(strict=True, ge=1, le=MAX_PAGE_SIZE)]
 ChatPositiveSeconds = Annotated[float, Field(strict=True, gt=0)]
-ChatAuthMethod = Literal["USER_TOKEN"]
+#: 认证方式：`USER_TOKEN` 是我方 WebChat 会话令牌；`EXTERNAL_ASSERTION` 是外部平台 JWT
+#: （如 MSSWWEB 的 soc-token）验签后的主体。两者产出的 `ChatPrincipal` 结构一致。
+ChatAuthMethod = Literal["USER_TOKEN", "EXTERNAL_ASSERTION"]
+#: 外部断言未通过授权时的原因（`allowed=false` 时给出，便于 BFF 区分「查无此人」与「有此人不许进」）。
+ExternalDenialReason = Literal[
+    "UNBOUND",           # 验签通过，但无 external_identity 记录（不伪造主体）
+    "NO_ENTRY_GRANT",    # 身份存在，但当前入口无授权（主体照常返回）
+    "USER_DISABLED",     # 用户已停用
+    "NO_AGENT_GRANT",    # 入口下无可用 Agent
+]
 ConversationStatus = Literal["ACTIVE", "ARCHIVED"]
 ActiveRunStatus = Literal["CREATED", "RUNNING", "WAITING_TOOL", "WAITING_INPUT"]
 ExecutionStage = Literal[
@@ -405,6 +414,10 @@ class WebchatConversationItem(WebchatContract):
     last_run_id: UUID | None
     status: ConversationStatus
     active_run_status: ActiveRunStatus | None
+    #: 会话级未读红点：该会话存在 `read_at IS NULL` 的通知。按会话聚合，不做消息级。
+    has_unread: StrictBool = False
+    #: 会话来源入口（同一 user + Agent 的会话可来自多个入口；列表不按入口过滤）。
+    entry_id: UUID | None = None
 
 
 class WebchatConversationPage(WebchatPage[WebchatConversationItem]):
@@ -420,12 +433,32 @@ class WebchatConversationDetail(WebchatContract):
     last_seq: ChatCount
     last_run_id: UUID | None
     active_run: WebchatActiveRun | None
+    #: 未读与水位：三者来自**同一快照**，消费者不得从一个推另一个。
+    #: `last_seq` 是 canonical 消息序号（历史分页 `through_seq` 与 SSE `after_seq` 共用）；
+    #: `notification_through_seq` 是通知序号（已读水位用），与 canonical/SSE 序号互相独立。
+    has_unread: StrictBool = False
+    notification_through_seq: ChatCount = 0
 
     @model_validator(mode="after")
     def _active_run_identity(self) -> Self:
         if self.active_run is not None and self.last_run_id != self.active_run.id:
             raise ValueError("active_run must identify last_run_id")
         return self
+
+
+class WebchatMarkReadRequest(WebchatContract):
+    """已读上报：只标记通知序号不高于 `notification_through_seq` 的通知。
+
+    超前水位（大于当前最大通知序号）返回 `CURSOR_AHEAD`，不做部分标记。
+    """
+
+    notification_through_seq: ChatCount
+
+
+class WebchatMarkReadReceipt(WebchatContract):
+    conversation_id: UUID
+    notification_through_seq: ChatCount
+    has_unread: StrictBool
 
 
 #: `upload_formats`（媒体类型 + 展示扩展名）来自 `muad_contracts.attachments` 的唯一事实，
@@ -459,6 +492,95 @@ class WebchatClientTransport(WebchatContract):
             "reconnect_max_attempts": self.reconnect_max_attempts,
         }})
         return self
+
+
+# ---------------------------------------------------------------------------
+# 外部平台身份契约（Console 管理面 + Gateway 内部面）
+# ---------------------------------------------------------------------------
+
+
+class ExternalPrincipalRequest(WebchatContract):
+    """Gateway → Console 内部身份门（对应 `POST /internal/channel/external-principal`）。
+
+    网关转发它从 Cookie 拿到的原始外部断言（如 MSSW 的 `soc-token`）；`platform_key`
+    与服务端配置的因子共同决定验签方式。主体自报的 tenant/user 不在形状内。
+    """
+
+    platform_key: ChatText
+    channel: ChatText
+    assertion: ChatToken = Field(exclude=True, repr=False)
+    entry_id: UUID | None = None
+
+
+class ExternalPrincipalResult(WebchatContract):
+    """验签结果。`allowed=false` 时 `principal` 可能为空（UNBOUND）或非空（NO_ENTRY_GRANT）。
+
+    只有 `allowed=true` 才会被 Gateway 当作已认证主体；`reason` 便于 BFF 区分拒绝类别。
+    """
+
+    allowed: StrictBool
+    principal: ChatPrincipal | None = None
+    reason: ExternalDenialReason | None = None
+    #: 该主体在**当前入口**下可用的 Agent（空列表表示无授权）。
+    agents: list[ChatAuthorizedAgent] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _denial_shape(self) -> Self:
+        if self.allowed:
+            if self.principal is None or self.reason is not None:
+                raise ValueError("an allowed result requires a principal and no denial reason")
+        elif self.reason is None:
+            raise ValueError("a denied result requires a denial reason")
+        elif self.reason == "UNBOUND" and self.principal is not None:
+            raise ValueError("an unbound result must not fabricate a principal")
+        return self
+
+
+class ExternalIdentityKeys(WebchatContract):
+    """身份键字段集合：必须与平台配置的 `identity_keys` 完全一致（不多不少）。"""
+
+    identity: dict[ChatText, ChatText]
+
+    @model_validator(mode="after")
+    def _non_empty(self) -> Self:
+        if not self.identity:
+            raise ValueError("identity must contain at least one key")
+        if any(not value.strip() for value in self.identity.values()):
+            raise ValueError("identity values must not be blank")
+        return self
+
+
+class ExternalIdentityUpsert(WebchatContract):
+    platform_key: ChatText
+    identity: dict[ChatText, ChatText]
+
+
+class ExternalEntryGrantRequest(WebchatContract):
+    channel_account_id: UUID
+
+
+class ExternalEntryGrantItem(WebchatContract):
+    entry_id: UUID
+    bot_id: UUID
+    name: ChatText
+
+
+class ExternalIdentityItem(WebchatContract):
+    identity_id: UUID
+    platform_key: ChatText
+    identity: dict[ChatText, ChatText]
+    status: Literal["ACTIVE", "DISABLED"]
+    grants: list[ExternalEntryGrantItem] = Field(default_factory=list)
+
+
+class ExternalPlatformStatus(WebchatContract):
+    """平台元数据投影：只暴露管理员需要看的字段，**不含任何验签因子**。"""
+
+    platform_key: ChatText
+    display_name: ChatText
+    configured: StrictBool
+    identity_keys: tuple[ChatText, ...]
+    identity_field_labels: dict[ChatText, ChatText] = Field(default_factory=dict)
 
 
 class WebchatClientConfig(WebchatContract):

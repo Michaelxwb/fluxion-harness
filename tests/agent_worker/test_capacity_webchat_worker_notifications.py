@@ -821,4 +821,5 @@ def test_b268_webchat_channel_constant_matches_the_shared_vocabulary() -> None:
     assert WEBCHAT_CHANNEL == "WEBCHAT"
     # 通道名是开放 string（S-12：新增通道只写适配器）：内建名只在 enums 一处声明，
     # 不再以 `Literal` 封闭（`ChannelName = str`，没有 `__args__`）。
-    assert BUILTIN_CHANNEL_NAMES == ("WECOM", "WEBCHAT")
+    # 这里只断言 WEBCHAT 是内建名之一，不枚举全表——新增通道不应改这条断言。
+    assert WEBCHAT_CHANNEL in BUILTIN_CHANNEL_NAMES
