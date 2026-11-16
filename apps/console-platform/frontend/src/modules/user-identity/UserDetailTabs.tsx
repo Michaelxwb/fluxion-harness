@@ -54,6 +54,7 @@ import {
   type WebchatTokenMetadata
 } from './services/users';
 import { ExperienceTab } from '../learning/ExperienceTab';
+import { ExternalIdentitySection } from './ExternalIdentitySection';
 import { MemoryTab } from './MemoryTab';
 import { UserChatTokenCard } from './UserChatTokenCard';
 
@@ -754,6 +755,15 @@ export function UserDetailTabs(props: UserDetailTabsProps) {
       <Tabs.TabPane itemKey="identities" tab={`${t('user.tabs.identities')} (${user.identity_count})`}>
         <IdentityTab userId={user.id} canManageToken={isAdmin} />
       </Tabs.TabPane>
+      {isAdmin && (
+        <Tabs.TabPane itemKey="external" tab={t('user.tabs.external')}>
+          <ExternalIdentitySection
+            userId={user.id}
+            canManage={isAdmin}
+            onMutated={props.onUserMutated}
+          />
+        </Tabs.TabPane>
+      )}
       <Tabs.TabPane itemKey="memory" tab={`${t('user.tabs.memory')} (${user.memory_count})`}>
         <MemoryTab userId={user.id} canManage={isAdmin} onMutated={props.onUserMutated} />
       </Tabs.TabPane>
