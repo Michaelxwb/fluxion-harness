@@ -180,7 +180,17 @@ const receipt = {
 };
 
 // ---- 真实 axios 传输（观测请求；defer 支持在途单飞） --------------------------------------------
-const http = { requests: [], mode: 'ok', payload: receipt, status: 200, errorBody: null, deferred: null };
+const statusReceipt = { draft_id: DRAFT_ID, status: 'CONFIRMED', schedule_id: SCHEDULE_ID };
+const http = {
+  requests: [],
+  mode: 'ok',
+  payload: receipt,
+  status: 200,
+  errorBody: null,
+  deferred: null,
+  statusPayload: statusReceipt,
+  statusMode: 'ok'
+};
 const resetHttp = () => {
   http.requests = [];
   http.mode = 'ok';
@@ -188,6 +198,8 @@ const resetHttp = () => {
   http.status = 200;
   http.errorBody = null;
   http.deferred = null;
+  http.statusPayload = statusReceipt;
+  http.statusMode = 'ok';
 };
 api.defaults.adapter = (config) => {
   http.requests.push({
@@ -200,6 +212,30 @@ api.defaults.adapter = (config) => {
         (config.headers['Idempotency-Key'] ?? config.headers.get?.('Idempotency-Key'))) ??
       null
   });
+  const method = (config.method || 'get').toUpperCase();
+  if (method === 'GET' && /\/schedule-drafts\/[^/]+$/.test(config.url || '')) {
+    if (http.statusMode === 'network') {
+      const error = new Error('status network down');
+      error.isAxiosError = true;
+      error.config = config;
+      error.request = {};
+      return Promise.reject(error);
+    }
+    return Promise.resolve({
+      data: {
+        code: '0',
+        msg: 'ok',
+        data: http.statusPayload,
+        trace_id: 't',
+        request_id: 'r',
+        timestamp: NOW_ISO
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config
+    });
+  }
   if (http.mode === 'defer') {
     return new Promise((resolve, reject) => {
       http.deferred = { config, resolve, reject };
@@ -405,6 +441,54 @@ resetHttp();
     final: isDraftFailureFinal(unauthorized.errorCode),
     retried: http.requests.length - before,
     key: draftErrorKey(unauthorized.errorCode)
+  };
+}
+
+// 6d) 刷新后的历史卡片：先读状态，已确认的 Draft 不再发确认请求
+resetHttp();
+{
+  http.statusPayload = { draft_id: DRAFT_ID, status: 'CONFIRMED', schedule_id: SCHEDULE_ID };
+  const controller = controllerFor(() => 'key-hydrated-confirmed');
+  controller.resolve(draftOf());
+  const entry = await awaitState(controller, DRAFT_ID, 'SUBMITTED');
+  controller.confirm(draftOf());
+  await settle();
+  observations.hydratedConfirmed = {
+    phase: entry.phase,
+    requests: http.requests.slice()
+  };
+}
+
+// 6e) 刷新后的历史卡片：PENDING 仍可确认，确认动作只发 POST
+resetHttp();
+{
+  http.statusPayload = { draft_id: DRAFT_ID, status: 'PENDING', schedule_id: null };
+  const controller = controllerFor(() => 'key-hydrated-pending');
+  controller.resolve(draftOf());
+  await awaitState(controller, DRAFT_ID, 'IDLE');
+  controller.confirm(draftOf());
+  const entry = await awaitState(controller, DRAFT_ID, 'SUBMITTED');
+  observations.hydratedPending = {
+    phase: entry.phase,
+    requests: http.requests.slice()
+  };
+}
+
+// 6f) 状态读取失败：重试重读状态，不把重试变成一次确认
+resetHttp();
+{
+  http.statusMode = 'network';
+  const controller = controllerFor(() => 'key-status-retry');
+  controller.resolve(draftOf());
+  const failed = await awaitState(controller, DRAFT_ID, 'FAILED');
+  http.statusMode = 'ok';
+  http.statusPayload = { draft_id: DRAFT_ID, status: 'PENDING', schedule_id: null };
+  controller.retry(DRAFT_ID);
+  await awaitState(controller, DRAFT_ID, 'IDLE');
+  observations.statusRetry = {
+    failedCode: failed.errorCode,
+    requests: http.requests.slice(),
+    confirmRequests: http.requests.filter((item) => item.method === 'POST').length
   };
 }
 
@@ -691,6 +775,7 @@ SCENARIOS = (
     {"id": "create-en", "locale": "en-US"},
     {"id": "update-zh", "locale": "zh-CN", "draft": "update"},
     {"id": "expired-zh", "locale": "zh-CN", "expired": True},
+    {"id": "checking-zh", "locale": "zh-CN", "phase": "CHECKING"},
     {"id": "submitting-zh", "locale": "zh-CN", "phase": "SUBMITTING"},
     {"id": "submitted-zh", "locale": "zh-CN", "phase": "SUBMITTED"},
     {"id": "quota-zh", "locale": "zh-CN", "phase": "FAILED", "errorCode": "SCHEDULE_QUOTA_EXCEEDED"},
@@ -968,6 +1053,43 @@ def test_expired_and_submitted_states_disable_the_action(draft_render: dict[str,
     assert _is_disabled(submitted, "chat-draft-confirm")
     assert "已确认，任务已生效" in submitted
     assert 'data-testid="chat-draft-retry"' not in submitted
+
+
+def test_checking_state_disables_the_action_until_status_is_known(
+    draft_render: dict[str, Any],
+) -> None:
+    checking = draft_render["markup"]["checking-zh"]
+    assert 'data-phase="CHECKING"' in _tag(checking, "chat-draft-card")
+    assert _is_disabled(checking, "chat-draft-confirm")
+    assert "正在检查确认状态" in checking
+
+
+def test_hydrated_confirmed_draft_never_sends_a_second_confirm(
+    draft_logic: dict[str, Any],
+) -> None:
+    hydrated = draft_logic["hydratedConfirmed"]
+    assert hydrated["phase"] == "SUBMITTED"
+    assert [item["method"] for item in hydrated["requests"]] == ["GET"], (
+        "刷新后已确认的 Draft 只读状态，不得再次确认"
+    )
+    assert hydrated["requests"][0]["url"] == f"/webchat/schedule-drafts/{DRAFT_ID}"
+
+
+def test_hydrated_pending_draft_still_confirms_exactly_once(
+    draft_logic: dict[str, Any],
+) -> None:
+    hydrated = draft_logic["hydratedPending"]
+    assert hydrated["phase"] == "SUBMITTED"
+    assert [item["method"] for item in hydrated["requests"]] == ["GET", "POST"]
+
+
+def test_status_read_failure_retries_the_read_not_the_confirm(
+    draft_logic: dict[str, Any],
+) -> None:
+    status = draft_logic["statusRetry"]
+    assert status["failedCode"] == "NETWORK_ERROR"
+    assert status["confirmRequests"] == 0, "状态未知时重试不得变成确认"
+    assert [item["method"] for item in status["requests"]] == ["GET", "GET"]
 
 
 def test_quota_failure_is_retryable_but_missing_is_final(draft_render: dict[str, Any]) -> None:

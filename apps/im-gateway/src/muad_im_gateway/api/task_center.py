@@ -206,6 +206,17 @@ def build_task_center_router(surface: TaskCenterSurface) -> APIRouter:
         )
         return download_response(download)
 
+    @router.get("/schedule-drafts/{draft_id}")
+    async def get_draft_status(
+        draft_id: uuid.UUID,
+        request: Request,
+        chat: ChatIdentityDep,
+        service: TaskCenterServiceDep,
+    ) -> ApiResponse[Any]:
+        """API-32：历史卡片刷新后的确认状态（仅 owner 核属，不含预览/载荷）。"""
+        data = await service.get_draft_status(chat, draft_id)
+        return ok(request.app.state.message_catalog, data)
+
     @router.post("/schedule-drafts/{draft_id}/confirm")
     async def confirm_draft(
         draft_id: uuid.UUID,

@@ -818,12 +818,31 @@ function useDraftConfirmationBinding(auth: ChatAuthController): {
   const binding = useMemo<DraftConfirmationBinding>(
     () => ({
       entry: draftService.entry,
+      resolve: draftService.resolve,
       confirm: draftService.confirm,
       retry: draftService.retry
     }),
     [draftService]
   );
   return { snapshot, binding };
+}
+
+/**
+ * 历史卡片进入页面时读取一次服务端确认状态：刷新后已确认的 Draft 不再显示可点的
+ * 「确认创建」。只对历史投影发请求——当前流刚发布的卡片由事件本身证明是 PENDING，
+ * 不因一次状态读取抖动而挡住正常确认。控制器按 `draft_id` 去重。
+ */
+function useDraftStatusHydration(
+  messages: MessagesController,
+  binding: DraftConfirmationBinding
+): void {
+  const items = messages.history.items;
+  const resolve = binding.resolve;
+  useEffect(() => {
+    for (const message of items) {
+      if (message.draft !== null && message.draft !== undefined) resolve(message.draft);
+    }
+  }, [items, resolve]);
 }
 
 /**
@@ -1311,6 +1330,7 @@ function useChatWorkspaceState(props: ChatWorkspaceProps): ChatWorkspaceState {
 
   useAcceptedRun({ accepted: pendingSend.snapshot.accepted, conversations, runEvents });
   useConfirmationRefresh({ conversationId, state: confirmation.snapshot, conversations });
+  useDraftStatusHydration(messages, draft.binding);
   useDraftConfirmedRefresh({
     conversationId,
     state: draft.snapshot,

@@ -462,6 +462,18 @@ class _WorkerProbe:
                 }
             )
 
+        @probe_app.get("/internal/schedule-drafts/{draft_id}/status")
+        async def _draft_status(draft_id: str, request: Request) -> Response:
+            if UUID(request.headers["x-actor-user-id"]) != USER_A:
+                return _error(str(ErrorCode.SCHEDULE_NOT_FOUND), 404)
+            return _json(
+                {
+                    "draft_id": draft_id,
+                    "status": "CONFIRMED",
+                    "schedule_id": str(S6_CONFIRMED),
+                }
+            )
+
         @probe_app.post("/internal/schedule-drafts/{draft_id}/confirm")
         async def _confirm(draft_id: str, request: Request) -> Response:
             surface = request.headers.get("x-confirmation-surface")
@@ -931,6 +943,27 @@ async def test_confirm_supplies_surface_and_stable_ref(
     assert call.headers["x-confirmation-ref"] == "confirm-key-1", "幂等键就是稳定的用户动作引用"
     assert call.headers["x-actor-user-id"] == str(USER_A)
     assert call.body == {"draft_hash": "sha256:" + "a" * 64, "name": "A 客户周报"}
+
+
+async def test_draft_status_read_is_owner_scoped_and_does_not_confirm(
+    api: AsyncClient, worker_probe: _WorkerProbe
+) -> None:
+    response = await api.get(
+        f"/api/v1/webchat/schedule-drafts/{DRAFT_ID}",
+        headers=_chat_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["data"] == {
+        "draft_id": str(DRAFT_ID),
+        "status": "CONFIRMED",
+        "schedule_id": str(S6_CONFIRMED),
+    }
+    call = worker_probe.calls[-1]
+    assert call.path == f"/internal/schedule-drafts/{DRAFT_ID}/status"
+    assert call.headers["x-actor-user-id"] == str(USER_A)
+    assert "x-agent-id" not in call.headers, "状态读面按 owner 核属，不要求客户端知道 Agent"
+    assert worker_probe.confirm_calls == 0
 
 
 async def test_confirm_without_user_session_never_reaches_worker(

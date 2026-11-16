@@ -1981,6 +1981,7 @@
   "chat.draft.expiresAt": "请在此时间前确认：",
   "chat.draft.expired": "本次确认已过期，请重新发起",
   "chat.draft.submitting": "正在确认…",
+  "chat.draft.checking": "正在检查确认状态…",
   "chat.draft.submitted": "已确认，任务已生效",
   "chat.draft.confirm.CREATE": "确认创建",
   "chat.draft.confirm.UPDATE": "确认修改",

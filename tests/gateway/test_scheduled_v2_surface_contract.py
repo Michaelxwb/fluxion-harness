@@ -284,6 +284,15 @@ class _FakeOwner:
             "next_fire_at": _at(60).isoformat(),
         }
 
+    async def get_schedule_draft_status(
+        self, *, tenant_id: str, user_id: UUID, draft_id: UUID
+    ) -> dict[str, Any]:
+        return {
+            "draft_id": str(draft_id),
+            "status": "CONFIRMED",
+            "schedule_id": str(CONFIRMED_SCHEDULE),
+        }
+
 
 @dataclass
 class _FakeArtifacts:
@@ -448,6 +457,28 @@ async def test_confirm_uses_each_surface_confirmation_source(tmp_path: Path) -> 
     ], "同一 service 只按 surface 写确认来源，不改契约"
 
 
+async def test_draft_status_is_surface_scoped_and_read_only(tmp_path: Path) -> None:
+    owner = _FakeOwner()
+    async with _surface_app(owner, agents=(AGENT_A1,), tmp_path=tmp_path) as clients:
+        for surface, session in (
+            (WEBCHAT_SURFACE, SESSION_WEBCHAT),
+            (MSSWWEB_SURFACE, SESSION_MSSWWEB),
+        ):
+            response = await clients[surface.name].get(
+                _url(surface, f"/schedule-drafts/{DRAFT_ID}"),
+                headers={"X-Chat-Context": str(session)},
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["data"] == {
+                "draft_id": str(DRAFT_ID),
+                "status": "CONFIRMED",
+                "schedule_id": str(CONFIRMED_SCHEDULE),
+            }
+            assert "preview" not in response.json()["data"]
+
+    assert owner.confirmations == [], "状态读取不得触发确认"
+
+
 async def test_handler_sets_differ_only_by_prefix(tmp_path: Path) -> None:
     def paths(surface: TaskCenterSurface) -> set[tuple[str, frozenset[str]]]:
         router = build_task_center_router(surface)
@@ -458,7 +489,7 @@ async def test_handler_sets_differ_only_by_prefix(tmp_path: Path) -> None:
         }
 
     assert paths(WEBCHAT_SURFACE) == paths(MSSWWEB_SURFACE)
-    assert len(paths(WEBCHAT_SURFACE)) == 10, "API-12..19 + API-25 + API-31 同一组 handler"
+    assert len(paths(WEBCHAT_SURFACE)) == 11, "API-12..19 + API-25 + API-31 + API-32 同一组 handler"
 
 
 def test_production_app_mounts_no_msswwweb_task_center() -> None:
@@ -478,4 +509,5 @@ def test_production_app_mounts_no_msswwweb_task_center() -> None:
         "MSSWWEB 任务中心另立需求：本需求不得挂载它的路由"
     )
     assert "/api/v1/webchat/task-center/schedules" in mounted
+    assert "/api/v1/webchat/schedule-drafts/{draft_id}" in mounted
     assert "/api/v1/webchat/schedule-drafts/{draft_id}/confirm" in mounted

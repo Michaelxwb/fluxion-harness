@@ -6,8 +6,8 @@
 
 断言覆盖：
 
-- **HTTP 面完整**：列表/详情/Fire/Execution/待处理/徽标/回答/动作/下载/Draft 确认十个方法逐一落在
-  design §3.9 的路由与动词上；查询参数只发送调用方给出的值（不补默认值）。
+- **HTTP 面完整**：列表/详情/Fire/Execution/待处理/徽标/回答/动作/下载/Draft 确认/Draft 状态
+  十一个方法逐一落在 design §3.9 的路由与动词上；查询参数只发送调用方给出的值（不补默认值）。
 - **写操作幂等**：回答/动作/Draft 确认都携带调用方持有的 `Idempotency-Key`；GET 不带。
 - **Draft 确认是独立 surface 动作**：唯一请求是 `POST /webchat/schedule-drafts/{id}/confirm`，
   请求体只含 `draft_hash`；全量请求里没有 Run resume 通道。
@@ -56,6 +56,7 @@ CLIENT_METHODS = (
     "confirmDraft",
     "downloadArtifact",
     "getBadges",
+    "getDraftStatus",
     "getExecution",
     "getSchedule",
     "listFires",
@@ -419,6 +420,13 @@ observations.confirm = {
 };
 observations.confirm.request = observed();
 
+// 11b) API-32 Draft 确认状态：刷新后的历史卡片只读，不重放确认
+payload = { draft_id: DRAFT_ID, status: 'CONFIRMED', schedule_id: SCHEDULE_ID };
+observations.draftStatus = {
+  result: await client.getDraftStatus(DRAFT_ID, signalOption)
+};
+observations.draftStatus.request = observed();
+
 // 12) 本地前置校验：零 HTTP
 const beforeGuards = requests.length;
 observations.guards = {
@@ -653,6 +661,18 @@ def test_writes_carry_idempotency_and_the_draft_surface_body(task_center: dict[s
     assert confirm["body"] == {"draft_hash": DRAFT_HASH}, "确认体只绑定 draft_hash"
     assert confirm["idempotencyKey"] == "idem-confirm-282"
     assert task_center["confirm"]["result"]["schedule_id"] == SCHEDULE_ID
+
+    status_request = task_center["draftStatus"]["request"]
+    assert (status_request["method"], status_request["url"]) == (
+        "GET",
+        f"/webchat/schedule-drafts/{DRAFT_ID}",
+    )
+    assert status_request["idempotencyKey"] is None
+    assert task_center["draftStatus"]["result"] == {
+        "draft_id": DRAFT_ID,
+        "status": "CONFIRMED",
+        "schedule_id": SCHEDULE_ID,
+    }
 
 
 def test_download_selects_the_named_version(task_center: dict[str, Any]) -> None:

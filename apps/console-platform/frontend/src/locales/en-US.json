@@ -1981,6 +1981,7 @@
   "chat.draft.expiresAt": "Confirm before:",
   "chat.draft.expired": "This confirmation has expired; please start again",
   "chat.draft.submitting": "Confirming…",
+  "chat.draft.checking": "Checking confirmation status…",
   "chat.draft.submitted": "Confirmed; the task is now active",
   "chat.draft.confirm.CREATE": "Confirm and create",
   "chat.draft.confirm.UPDATE": "Confirm changes",

@@ -486,6 +486,16 @@ export interface ScheduleDraftConfirmInput {
   name?: string;
 }
 
+/** Draft 的确认状态：历史卡片刷新后据此决定还能不能确认。 */
+export type ScheduleDraftStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED' | 'REJECTED';
+
+/** API-32：只回答确认状态与已生效的 Schedule，不携带预览/载荷。 */
+export interface ScheduleDraftStatusResponse {
+  draft_id: string;
+  status: ScheduleDraftStatus;
+  schedule_id: string | null;
+}
+
 /** API-27 确认回执：确认即生效后的真实 Schedule 事实。 */
 export interface ScheduleDraftConfirmReceipt {
   schedule_id: string;
@@ -719,4 +729,9 @@ export interface TaskCenterClient {
     input: ScheduleDraftConfirmInput,
     options: WebchatWriteOptions
   ): Promise<ScheduleDraftConfirmReceipt>;
+  /** API-32：历史卡片刷新后的确认状态（owner 核属，不含预览/载荷）。 */
+  getDraftStatus(
+    draftId: string,
+    options?: WebchatRequestOptions
+  ): Promise<ScheduleDraftStatusResponse>;
 }

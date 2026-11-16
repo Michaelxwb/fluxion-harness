@@ -265,6 +265,14 @@ class ScheduleDraftResponse(ContractModel):
     expires_at: AwareDatetime
 
 
+class ScheduleDraftStatusResponse(ContractModel):
+    """Draft 的确认状态：surface 刷新后据此判断卡片还能不能确认。"""
+
+    draft_id: UUID
+    status: DraftStatus
+    schedule_id: UUID | None = None
+
+
 class ScheduleDraftConfirmRequest(ContractModel):
     """API-27 / API-31：确认即生效。`name` 只在 CREATE 时必填。"""
 
@@ -901,6 +909,7 @@ __all__ = [
     "ScheduleDraftConfirmResponse",
     "ScheduleDraftRequest",
     "ScheduleDraftResponse",
+    "ScheduleDraftStatusResponse",
     "ScheduleDiffEntry",
     "ScheduleListItem",
     "SchedulePolicy",
