@@ -773,6 +773,8 @@ class SnapshotSkill(ContractModel):
     source: str = Field(min_length=1, max_length=16)
     execution_mode: str = Field(min_length=1, max_length=16)
     frontmatter: dict[str, Any] = Field(default_factory=dict)
+    #: 冻结的 workspace 归属：定时执行不接受 Task 行上的可变身份。
+    workspace: dict[str, str] = Field(default_factory=dict)
 
 
 class SnapshotTool(ContractModel):

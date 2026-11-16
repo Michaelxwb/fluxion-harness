@@ -324,7 +324,9 @@ def build_memory_snapshot(
     )
 
 
-def _snapshot_skills(materials: ScheduleAdmissionMaterials) -> list[SnapshotSkill]:
+def _snapshot_skills(
+    materials: ScheduleAdmissionMaterials, *, workspace: dict[str, str]
+) -> list[SnapshotSkill]:
     return [
         SnapshotSkill(
             skill_id=skill.skill_id,
@@ -335,6 +337,7 @@ def _snapshot_skills(materials: ScheduleAdmissionMaterials) -> list[SnapshotSkil
             source=str(skill.source),
             execution_mode=str(skill.execution_mode),
             frontmatter=dict(skill.frontmatter),
+            workspace=workspace,
         )
         for skill in materials.skills
     ]
@@ -419,7 +422,14 @@ def build_snapshot(
             ),
             max_snapshot_bytes=settings.schedule.max_snapshot_bytes,
             policy=policy,
-            skills=_snapshot_skills(materials),
+            skills=_snapshot_skills(
+                materials,
+                workspace={
+                    "tenant_id": request.tenant_id,
+                    "user_id": str(request.actor_user_id),
+                    "agent_id": str(request.agent_id),
+                },
+            ),
             tools=_snapshot_tools(materials),
             mcp=_snapshot_mcp(materials),
             memory=memory,
