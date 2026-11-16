@@ -494,12 +494,15 @@ def resolve_authorized_entry(
     identity: ChatIdentity,
     entry_id: UUID,
     *,
-    channel: ChannelName = WEBCHAT_CHANNEL,
+    channel: ChannelName | None = WEBCHAT_CHANNEL,
 ) -> ResolvedEntry:
     """入口 → (agent, entry)：未启用/非本通道/未知一律 404，未授权 Agent 越权 403。
 
     入口事实只来自入口快照、授权只来自本次 Console 核验的授权集合：入口显式读写面与上传面
     共用这一条裁决，不复制第二份判定。
+
+    `channel=None` 表示**不做通道断言**：产物下载按 user + Agent 归属（设计 API-15），入口只作
+    来源标识，跨入口共享的产物不因调用方通道不同而拒绝。
     """
     item = next(
         (
@@ -507,7 +510,7 @@ def resolve_authorized_entry(
             for candidate in entries.items
             if candidate.bot_account_id == entry_id
             and candidate.enabled
-            and candidate.channel == channel
+            and (channel is None or candidate.channel == channel)
         ),
         None,
     )

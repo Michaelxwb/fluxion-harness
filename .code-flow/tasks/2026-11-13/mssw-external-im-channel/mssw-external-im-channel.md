@@ -600,7 +600,7 @@
   - cancel PASS exit=0
 ## TASK-009: 上传归属与产物路径的通道参数化
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-007
 - **Source**: mssw-external-im-channel.backend.design.md#附件
 - **Scenarios**: S-06
@@ -616,8 +616,8 @@
 [
   {
     "id": "upload",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_worker", "tests/test_attachment_contract.py"],
-    "timeout": 300,
+    "argv": ["bash", "-c", "ssh -o StrictHostKeyChecking=no -p 22345 root@10.74.145.40 \"bash /tmp/runcase.sh tests/gateway/test_msswwweb_surface.py tests/gateway/test_capacity_webchat_upload_gateway.py tests/gateway/test_capacity_webchat_artifact_download.py tests/test_attachment_contract.py\""],
+    "timeout": 600,
     "parallel": false
   }
 ]
@@ -635,10 +635,10 @@
 
 ### Checklist
 
-- [ ] 上传归属与本次发送入口一致（S-06）
-- [ ] 产物走本地流式，不触发出站交付错误
-- [ ] 大小/类型门控沿用既有实现
-- [ ] 产物下载核属按 user + Agent
+- [x] 上传归属与本次发送入口一致（S-06）：`WebchatUploadService` 持有当前 `ChatSurface`，入口解析带 `channel=self._surface.channel`，MSSWWEB 面不得借用 WEBCHAT 入口
+- [x] 产物走本地流式，不触发出站交付错误：`MSSWWEB ∈ LOCAL_STREAM_CHANNELS`（TASK-001），运行时交付路由 `channel in LOCAL_STREAM_CHANNELS → publish`，不走出站、不抛 `ATTACHMENT_WRITE_UNAVAILABLE`
+- [x] 大小/类型门控沿用既有实现：`resolve_upload_limits` + MIME/计数门控未改
+- [x] 产物下载核属按 user + Agent：`resolve_authorized_entry(channel=None)` 不做通道断言，跨入口同 user+agent 产物可下载
 
 ### Spec Delta
 
@@ -649,13 +649,17 @@
 ### Log
 
 - [2026-11-16] created（从原 TASK-007 拆出）
+- [2026-11-16] 修两处通道写死：① `WebchatUploadService` 接收 `surface`，入口解析带当前通道（否则 MSSWWEB 上传按默认 WEBCHAT 过滤入口 → 404）；② `WebchatArtifactService` 下载解析改 `channel=None`（设计 API-15：产物下载按 user+Agent，不做 channel 断言；否则 MSSWWEB 来源产物在 WEBCHAT 调用方下 404）。`resolve_authorized_entry` 扩展 `channel: ChannelName | None`，`None` = 不做通道断言（默认仍 WEBCHAT）。运行时 `channel_uploads.py` 本就通道中立，交付路由按能力组走 `LOCAL_STREAM`，无需改动。
+- [2026-11-16] 声明测试聚焦上传/产物面：`tests/gateway/test_msswwweb_surface.py`（新增 3 条：上传入口按 surface 解析、产物解析无通道断言、跨入口产物可下载）+ 上传网关 + 产物下载 + 附件契约全量回归。原声明 `tests/agent_worker` 与本 TASK 无覆盖关系。
+- [2026-11-16T11:55:44.211Z] started tests=043a7bba0b51
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-16T11:56:33.467Z PASS commands=1/1 executed=1 deduped=0 elapsed=42288ms tests=043a7bba0b51 head=91e3f7178223 dirty=1
+  - upload PASS exit=0
 ## TASK-010: Runtime 会话、来源与通知水位
 
 - **Status**: draft

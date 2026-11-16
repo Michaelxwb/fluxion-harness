@@ -275,3 +275,123 @@ async def test_cancel_is_channel_independent_across_surfaces() -> None:
         )
         await service.cancel_run(identity, run_id)
         assert runtime.cancelled == [run_id], f"{channel} 上取消同一 Run 生效"
+
+
+# --- S-06：上传归属按本次发送入口；产物下载按 user+Agent，不做通道断言 ------------------------
+
+
+def _entry_source(agent_id: uuid.UUID):
+    from muad_contracts import BotSnapshotItem
+
+    webchat_entry = uuid.uuid4()
+    msswwweb_entry = uuid.uuid4()
+
+    class _Source:
+        @property
+        def items(self):
+            return (
+                BotSnapshotItem(
+                    bot_account_id=webchat_entry,
+                    bot_id="web-1",
+                    channel="WEBCHAT",
+                    agent_id=agent_id,
+                ),
+                BotSnapshotItem(
+                    bot_account_id=msswwweb_entry,
+                    bot_id="mssw-1",
+                    channel="MSSWWEB",
+                    agent_id=agent_id,
+                ),
+            )
+
+    return _Source(), webchat_entry, msswwweb_entry
+
+
+def _identity_with_agent(platform_user_id: uuid.UUID, agent_id: uuid.UUID) -> ChatIdentity:
+    from muad_contracts.webchat import ChatAuthorizedAgent
+
+    base = _identity(platform_user_id)
+    return ChatIdentity(
+        principal=base.principal,
+        expires_at=base.expires_at,
+        agents=(ChatAuthorizedAgent(agent_id=agent_id, key="a", name="a"),),
+    )
+
+
+def test_upload_entry_resolution_follows_this_send_surface() -> None:
+    """上传归属按**本次发送入口**：MSSWWEB surface 只认 MSSWWEB 入口，不能借用 WEBCHAT 入口。"""
+    from muad_im_gateway.application.webchat_service import resolve_authorized_entry
+
+    agent_id = uuid.uuid4()
+    entries, webchat_entry, msswwweb_entry = _entry_source(agent_id)
+    identity = _identity_with_agent(uuid.uuid4(), agent_id)
+
+    resolved = resolve_authorized_entry(
+        entries, identity, msswwweb_entry, channel="MSSWWEB"
+    )
+    assert resolved.entry_id == msswwweb_entry
+    assert resolved.agent_id == agent_id
+
+    with pytest.raises(AppError):
+        resolve_authorized_entry(entries, identity, webchat_entry, channel="MSSWWEB")
+
+
+def test_artifact_download_resolution_has_no_channel_assertion() -> None:
+    """产物下载按 user+Agent（设计 API-15）：`channel=None` 时跨通道入口仍可解析。"""
+    from muad_im_gateway.application.webchat_service import resolve_authorized_entry
+
+    agent_id = uuid.uuid4()
+    entries, _webchat_entry, msswwweb_entry = _entry_source(agent_id)
+    identity = _identity_with_agent(uuid.uuid4(), agent_id)
+
+    resolved = resolve_authorized_entry(entries, identity, msswwweb_entry, channel=None)
+    assert resolved.entry_id == msswwweb_entry
+
+
+async def test_artifact_service_downloads_artifact_from_other_surface_entry(tmp_path) -> None:
+    """同用户同 Agent 的产物跨入口可下载：入口通道与调用方 surface 不同也不拒绝。"""
+    from muad_artifact_store import NfsArtifactStore
+    from muad_im_gateway.application.webchat_artifacts import WebchatArtifactService
+
+    agent_id = uuid.uuid4()
+    platform_user_id = uuid.uuid4()
+    conversation_id = uuid.uuid4()
+    artifact_id = uuid.uuid4()
+    entries, _webchat_entry, msswwweb_entry = _entry_source(agent_id)
+    identity = _identity_with_agent(platform_user_id, agent_id)
+
+    store_root = tmp_path / "artifacts"
+    store_root.mkdir()
+    payload = b"report-bytes"
+    (store_root / "t1" / f"{artifact_id}.bin").parent.mkdir(parents=True)
+    (store_root / "t1" / f"{artifact_id}.bin").write_bytes(payload)
+    store = NfsArtifactStore(store_root)
+
+    class _Runtime:
+        async def resolve_webchat_artifact(self, artifact_id, **kwargs):
+            return {
+                "scope": {
+                    "entry_id": str(msswwweb_entry),
+                    "agent_id": str(agent_id),
+                    "conversation_id": str(conversation_id),
+                },
+                "reference": {
+                    "storage_key": f"t1/{artifact_id}.bin",
+                    "kind": "OTHER",
+                    "media_type": "application/octet-stream",
+                    "size": len(payload),
+                    "filename": "report.bin",
+                    "checksum": "sha256:deadbeef",
+                },
+            }
+
+    service = WebchatArtifactService(
+        runtime=_Runtime(), entries=entries, store=store, tenant_id="t1"
+    )
+    download = await service.open_download(
+        identity,
+        artifact_id,
+        conversation_id=conversation_id,
+        checksum="sha256:deadbeef",
+    )
+    assert download.path.read_bytes() == payload

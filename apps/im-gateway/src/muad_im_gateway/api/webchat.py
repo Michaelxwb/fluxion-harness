@@ -128,8 +128,10 @@ def get_webchat_service(
 WebchatServiceDep = Annotated[WebchatResourceService, Depends(get_webchat_service)]
 
 
-def get_webchat_upload_service(request: Request) -> WebchatUploadService:
-    """上传服务：Owner 客户端 + 入口快照 + 设置源 + 共享存储 + 启动硬预算（装配根发布的状态值）。"""
+def get_webchat_upload_service(
+    request: Request, surface: WebchatSurfaceDep
+) -> WebchatUploadService:
+    """上传服务：Owner 客户端 + 入口快照 + 设置源 + 共享存储 + 启动硬预算 + 当前 surface。"""
     runtime: RuntimeClient = request.app.state.runtime_client
     entries: BotSnapshotCache = request.app.state.bot_snapshot
     return WebchatUploadService(
@@ -139,6 +141,7 @@ def get_webchat_upload_service(request: Request) -> WebchatUploadService:
         store=request.app.state.artifact_store,
         tenant_id=request.app.state.tenant_id,
         hard_max_bytes=request.app.state.chat_upload_hard_max_bytes,
+        surface=surface,
     )
 
 
