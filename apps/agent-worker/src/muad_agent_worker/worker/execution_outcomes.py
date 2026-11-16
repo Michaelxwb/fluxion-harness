@@ -2,19 +2,32 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
 from muad_agent_core.skill import SkillExecutionStatus
-from muad_contracts import ToolRetrySafety
+from muad_contracts import ToolRetrySafety, WaitKind
 
 from .executor import TaskExecutionError
 
 DEFAULT_WAIT_SEC = 60
 WAIT_KEY = "wait"
+WAIT_KIND_KEY = "wait_kind"
+WAIT_EXTERNAL_REF_KEY = "external_ref"
+WAIT_OPERATIONS_KEY = "operations"
+WAIT_BATCH_KEY = "batch"
 RESULT_ARTIFACT_KEY = "result_artifact_id"
+#: Agentic 执行信封（TASK-019）：`{"kind": "TOOL_OPERATION"|"HUMAN_INPUT", "checkpoint": {...}, ...}`。
+#: 它是**执行器 → WorkerLoop** 的唯一通道，承载 Kernel 的回合 checkpoint 与 Human 问题；
+#: 等待状态仍由 `WorkerLoop._wait` 在停下心跳之后一次性写入（checkpoint + WAITING_* + 事件同事务）。
+AGENTIC_KEY = "agentic"
+AGENTIC_KIND_KEY = "kind"
+AGENTIC_CHECKPOINT_KEY = "checkpoint"
+AGENTIC_QUESTION_KEY = "question"
+AGENTIC_INPUT_SCHEMA_KEY = "input_schema"
+AGENTIC_DEADLINE_KEY = "deadline_at"
 #: Skill 结果不符合协议：**确定性**失败（同样的结果重跑多少次都一样），不消耗重试预算。
 SKILL_RESULT_INVALID = "SKILL_RESULT_INVALID"
 #: 结果待核实：无法确认远端副作用是否发生（响应丢失），不自动重做，保留现场等待核实。
@@ -24,8 +37,19 @@ TASK_RESULT_UNVERIFIED = "TASK_RESULT_UNVERIFIED"
 class OutcomeKind(StrEnum):
     COMPLETED = "COMPLETED"
     WAITING = "WAITING"
+    #: 等人回答：与外部等待语义不同（取消/续接/超时规则都不同，design §3.5.8）。
+    WAITING_HUMAN = "WAITING_HUMAN"
     RETRYABLE_FAILURE = "RETRYABLE_FAILURE"
     CANCELLED = "CANCELLED"
+
+
+@dataclass(frozen=True, slots=True)
+class HumanQuestion:
+    """一次 Human 挂起要落库的事实（`task_human_interaction` + `WAITING_HUMAN`）。"""
+
+    question: str
+    input_schema: dict[str, Any]
+    deadline_at: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,10 +57,16 @@ class TaskOutcome:
     kind: OutcomeKind
     result: dict[str, Any] | None = None
     result_artifact_id: uuid.UUID | None = None
-    external_ref: dict[str, Any] | None = None
+    #: 外部等待的三类载荷（design §3.3.6）：`wait_kind` 是唯一判别器，载荷只带该类需要的键。
+    wait_kind: WaitKind | None = None
+    wait_payload: dict[str, Any] | None = None
     not_before: datetime | None = None
     error_code: str | None = None
     error_message: str = ""
+    #: Agentic 挂起边界上 Kernel 交回的回合 checkpoint（`RunnerCheckpoint.as_state()` 原样）。
+    #: WorkerLoop 把它与 WAITING_* 状态写在同一事务里（design §3.5.8）。
+    checkpoint_state: dict[str, Any] | None = None
+    human: HumanQuestion | None = None
 
 
 class FailureDisposition(StrEnum):
@@ -99,7 +129,9 @@ def _invalid(detail: str) -> TaskExecutionError:
 def interpret_execution(execution: Mapping[str, Any], *, now: datetime) -> TaskOutcome:
     """把执行器的原始返回归成显式结局。
 
-    Skill 用 `{"wait": {"external_ref": ..., "not_before": ...}}` 表达外部异步等待；
+    Skill 用 `{"wait": {"wait_kind": ..., "external_ref": ..., "not_before": ...}}` 表达外部等待
+    （`wait_kind` 缺省是 `EXTERNAL_POLL`：普通 Skill 只能自己轮询外部句柄；`ASYNC_OPERATION` 与
+    `BATCH_FANIN` 由 Kernel / Worker 的批量信封显式声明）；
     用 `result_artifact_id` 表达大结果外置——沿既有 Artifact 引用契约（只落引用 +
     预览），不把大结果内联进 `result_json`。
 
@@ -121,18 +153,60 @@ def interpret_execution(execution: Mapping[str, Any], *, now: datetime) -> TaskO
             error_message=str(execution.get("stderr") or ""),
         )
     payload = _result_payload(execution)
+    agentic = _agentic_envelope(execution.get(AGENTIC_KEY))
     wait = payload.get(WAIT_KEY)
     if wait is not None:
-        return TaskOutcome(
-            kind=OutcomeKind.WAITING,
-            external_ref=_external_ref(wait),
-            not_before=_wait_not_before(wait, now=now),
-        )
+        return replace(_wait_outcome(wait, now=now), **_agentic_fields(agentic))
+    if agentic is not None and agentic[AGENTIC_KIND_KEY] == "HUMAN_INPUT":
+        return _human_outcome(agentic, payload)
     reference = _parse_reference(payload.pop(RESULT_ARTIFACT_KEY, None))
     return TaskOutcome(
         kind=OutcomeKind.COMPLETED,
         result=payload,
         result_artifact_id=reference,
+        **_agentic_fields(agentic),
+    )
+
+
+def _agentic_envelope(raw: Any) -> dict[str, Any] | None:
+    """Agentic 执行信封：缺省表示这不是 Agentic 执行；形状不对是确定性协议违规。"""
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping) or not isinstance(raw.get(AGENTIC_KIND_KEY), str):
+        raise _invalid("agentic envelope must be an object with a kind string")
+    return dict(raw)
+
+
+def _agentic_fields(envelope: dict[str, Any] | None) -> dict[str, Any]:
+    if envelope is None:
+        return {}
+    checkpoint = envelope.get(AGENTIC_CHECKPOINT_KEY)
+    if checkpoint is not None and not isinstance(checkpoint, Mapping):
+        raise _invalid("agentic.checkpoint must be an object")
+    return {"checkpoint_state": dict(checkpoint) if checkpoint is not None else None}
+
+
+def _human_outcome(agentic: Mapping[str, Any], payload: dict[str, Any]) -> TaskOutcome:
+    """等人回答：问题、输入 schema 与问题期限一起交给 WorkerLoop 落库。"""
+    question = agentic.get(AGENTIC_QUESTION_KEY)
+    deadline = agentic.get(AGENTIC_DEADLINE_KEY)
+    schema = agentic.get(AGENTIC_INPUT_SCHEMA_KEY)
+    if not isinstance(question, str) or not question.strip():
+        raise _invalid("agentic human question must be a non-empty string")
+    if not isinstance(deadline, str) or not deadline:
+        raise _invalid("agentic human deadline must be an ISO-8601 string")
+    parsed = _wait_not_before({"not_before": deadline}, now=datetime.now(UTC))
+    if schema is not None and not isinstance(schema, Mapping):
+        raise _invalid("agentic human input_schema must be an object")
+    return TaskOutcome(
+        kind=OutcomeKind.WAITING_HUMAN,
+        result=payload,
+        human=HumanQuestion(
+            question=question.strip(),
+            input_schema=dict(schema) if schema is not None else {},
+            deadline_at=parsed,
+        ),
+        **_agentic_fields(dict(agentic)),
     )
 
 
@@ -149,15 +223,47 @@ def _result_payload(execution: Mapping[str, Any]) -> dict[str, Any]:
     return dict(raw)
 
 
-def _external_ref(wait: Any) -> dict[str, Any]:
+def _wait_outcome(wait: Any, *, now: datetime) -> TaskOutcome:
     if not isinstance(wait, Mapping):
         raise _invalid(f"wait must be an object, got {type(wait).__name__}")
-    ref = wait.get("external_ref")
-    if ref is None:
-        return {}
-    if not isinstance(ref, Mapping):
-        raise _invalid(f"wait.external_ref must be an object, got {type(ref).__name__}")
-    return dict(ref)
+    kind = _wait_kind(wait)
+    return TaskOutcome(
+        kind=OutcomeKind.WAITING,
+        wait_kind=kind,
+        wait_payload=_wait_payload(wait, kind),
+        not_before=_wait_not_before(wait, now=now),
+    )
+
+
+def _wait_kind(wait: Mapping[str, Any]) -> WaitKind:
+    """`wait_kind` 缺省是 `EXTERNAL_POLL`；无法识别的类型是协议违规，不猜。"""
+    raw = wait.get(WAIT_KIND_KEY)
+    if raw is None:
+        return WaitKind.EXTERNAL_POLL
+    try:
+        return WaitKind(raw)
+    except ValueError as exc:
+        raise _invalid(f"wait.wait_kind is not a known kind: {raw!r}") from exc
+
+
+def _wait_payload(wait: Mapping[str, Any], kind: WaitKind) -> dict[str, Any]:
+    """按 `wait_kind` 取该类的载荷；键缺失按空对象处理，类型不对则显式失败。"""
+    if kind is WaitKind.ASYNC_OPERATION:
+        operations = wait.get(WAIT_OPERATIONS_KEY)
+        if (
+            not isinstance(operations, list)
+            or not operations
+            or not all(isinstance(entry, Mapping) for entry in operations)
+        ):
+            raise _invalid("wait.operations must be a non-empty list of objects")
+        return {WAIT_OPERATIONS_KEY: [dict(entry) for entry in operations]}
+    key = WAIT_BATCH_KEY if kind is WaitKind.BATCH_FANIN else WAIT_EXTERNAL_REF_KEY
+    value = wait.get(key)
+    if value is None:
+        return {key: {}}
+    if not isinstance(value, Mapping):
+        raise _invalid(f"wait.{key} must be an object, got {type(value).__name__}")
+    return {key: dict(value)}
 
 
 def _wait_not_before(wait: Mapping[str, Any], *, now: datetime) -> datetime:

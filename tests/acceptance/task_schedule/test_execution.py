@@ -68,7 +68,7 @@ def test_s01_runtime_submits_async_skill_and_worker_completes_once(
     assert lines == ["executed"], f"副作用必须恰好一次: {lines}"
 
     events = [event["event_type"] for event in detail["timeline"]]
-    assert events[0] == "CREATED" and events[-1] == "COMPLETED"
+    assert events[0] == "QUEUED" and events[-1] == "COMPLETED"
 
 
 def test_b141_worker_authority_queued_to_completed_without_redis_hint(

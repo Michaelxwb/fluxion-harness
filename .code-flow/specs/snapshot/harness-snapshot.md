@@ -1,12 +1,17 @@
 ---
-{"description": "Run/Task 快照冻结", "next_rule": 1}
+{
+  "description": "Run/Task 快照冻结",
+  "next_rule": 2
+}
 ---
 
 # harness-snapshot
 
 ## Rules
 
-- [RULE-snapshot-001] 每个新 Run/Task 在执行前冻结 RuntimeSnapshot/execution snapshot（Agent/Model/Skill/MCP 版本、Prompt 模板版本、catalog revision/hash；**预算只属 execution snapshot 的 `budget` 键**——Run 侧的 `RuntimeSnapshot` 无 budget 列，等价载体是 `policy_json`，默认含 `max_model_retries`，预算与压缩策略等执行期策略一并冻结在此键）；配置或授权变更只影响后续新 Run/Task；终态写入必须 CAS。
+- [RULE-snapshot-001] 每个新 Run/Task 在执行前冻结其执行契约要求的完整非密钥材料，包括 Agent/Model、模型池与摘要模型、Prompt 模板、执行策略、工具定义及依赖内 Skill/MCP 材料；Task 快照按执行模式约束依赖集合，不能用固定单 Skill 假设覆盖所有模式，也不能以 hash 替代恢复所需内容。任务预算归 execution snapshot，Run 的等价策略载体保持其自身契约。定时任务冻结实际只读记忆块及版本，等待与恢复使用原块；读取失败显式记录降级。快照大小按设置所有者约束，超限拒绝而非截断；快照、检查点随执行保留，配置变化只影响后续新执行，非终态与终态写入均受状态及执行权 CAS 保护。
+
+- [RULE-001] 共享 Agent 执行内核仅依赖中立执行契约和端口，既有 Agent 循环由不同宿主适配，不得复制简化循环或按宿主类型分支。持久检查点必须覆盖完整模型回合与异步工具挂起所需的调用、结果消费和预算状态；恢复同一执行不能重新解析当前定义。上下文压缩失败必须保留原历史，批量工具结果外置失败整轮回滚为内联结果，并记录可观测的降级，不能使主执行失败。
 
 ## Conventions
 
@@ -15,7 +20,9 @@
 - **异步容量与绝对 deadline 在 Run 创建时冻结**：policy_json.async_tools 由严格 AsyncToolPolicy 与 Agent 覆盖构建；deadline_at 从首次 start_time 与有效 AgentPolicy 计算。Runtime `async_tools/operations.py` 在 Conversation→Run 锁序内核对冻结能力、按真实 call 去重并预留容量，再同事务写 operation + SUBMIT outbox；取消、失败和 Reaper 同事务写 JOIN/未受理提交的取消意图。✅ 检查点恢复读取原 policy/deadline；❌ 在提交或恢复时重新取设置、延期 deadline，或在 HTTP 中持有业务行锁。
 
 - **快照 hash 口径统一为 `"sha256:"` + canonical JSON**：`json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)` 后取 SHA256。contracts 侧 `snapshot_hash` 与 Runtime 侧 `_snapshot_hash` 必须同口径，否则跨服务比对不等（`packages/contracts/src/muad_contracts/snapshot.py`；`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py` 的 `_canonical_json` / `_snapshot_hash`）。✅ 两侧都复用同一组 `sort_keys`/紧凑分隔符/`ensure_ascii=False`；❌ 任一侧漏掉其中一项（例如漏 `ensure_ascii=False` 导致中文被转义）→ hash 不等。
-- **execution snapshot 的 `skills` 数组恒为 1**：只冻结本次 Task 要执行的那一个 Skill，执行器按 `skill_artifact_id` 精确匹配（`packages/contracts/src/muad_contracts/snapshot.py`）。❌ 把 Agent 的全部 Skill 塞进 `skills` 会导致执行器误执行非本次目标的 Skill。
+- **立即 Skill 快照的 `skills` 数组恰好 1；Schedule v4 按模式 0..N**：REMINDER 0、SKILL 1、AGENTIC 冻结 allowlist 涉及的全部 Skill；执行器按 `skill_artifact_id` 精确匹配，不能取第一项。`skills` 为空是合法模式（REMINDER），不能因此拒绝执行。
+- **Snapshot v4 冻结依赖范围内的完整非密材料**：Agent instructions/runtime_config、Model 非密定义 + `pool_members`/`summary_model`、Policy、allowlist 工具完整 `input_schema`、MCP endpoint/非密 headers/`secret_header`、Memory 实际 READ_ONLY 注入块与 revision、Prompt 模板、Grants；不冻结 Skill 代码字节/整库 catalog，`api_key`/`auth_secret` 不进快照。
+- **Snapshot 大小超限拒绝**：超过平台设置上限返回 `SNAPSHOT_TOO_LARGE`，不截断；快照随 Execution 保留期释放。
 - **`api_key` 必须从快照与 hash 中剥离**：`_snapshot_model` 把 `model_json` 的 `api_key` 弹掉，认证实时走 API-09 读取（`apps/agent-runtime/src/muad_agent_runtime/application/run_service.py` 的 `_snapshot_model`；断言 `tests/agent_runtime/test_snapshot_freeze.py` 的 hash 与 api_key 用例）。这是 snapshot 与 secret 两个 spec 的接缝（密钥不进快照由 RULE-secret-001 拥有）：✅ 快照只留 `base_url`/`model_id` 等非密钥字段；❌ 密钥进快照或进 hash，会造成密钥轮换即 hash 漂移且密钥落盘。
 - **非终态写入同样是 CAS**：真实入站 resume 在 Conversation→Run→Interrupt 锁序内，用 `status == WAITING_INPUT` 与绝对 deadline 作条件置为 `CREATED`；PG claim 再获得执行 epoch/lease。输入、确认效果、interrupt消费及 submission 与该 CAS 同事务。✅ `UPDATE ... WHERE id = ? AND status = <预期>`；❌ 先读后写、或只按 id 更新。
 - **旧 Run resume 不重新 resolve 定义或设置**：从原快照重建 Agent/Model/Skill/MCP，凭据走实时 API-09。`test_snapshot_freeze.py` 实测定义单腿变化与旧行逐列不变；`test_memory_redesign_snapshot.py` 实测设置单叶变化、新Run工具历史为0、旧resume仍保留原6轮。✅ 原policy中的完整memory schema；❌ 缺失memory叶子时填入新默认值。切换前排空旧在途对象，旧终态快照仅审计。
@@ -28,3 +35,9 @@
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-009#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"cb42099d0b650c5050856f22f1f39c81f92e364f5bf6d23b9ee4aff96242efd7","at":"2026-11-16T05:09:15.751Z"}
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-010#DELTA-001","op":"update","rule":"RULE-snapshot-001","payload_sha256":"79ca71e73965785f513e78275bdd783f5293a316a307372448964d743614602e","at":"2026-11-16T05:09:15.751Z"}

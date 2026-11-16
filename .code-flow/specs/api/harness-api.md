@@ -1,5 +1,8 @@
 ---
-{"description": "API 封套、错误码与幂等", "next_rule": 1}
+{
+  "description": "API 封套、错误码与幂等",
+  "next_rule": 2
+}
 ---
 
 # harness-api
@@ -8,6 +11,8 @@
 
 - [RULE-api-002] 创建/上传类 POST（导入、可重试提交）支持 `Idempotency-Key` Header：DB 幂等表 partial unique `(tenant_id, idempotency_key, endpoint)` 记录首次提交；请求指纹 = 规范化 JSON（`sort_keys` + 紧凑分隔符）的 SHA256，**必须含 `endpoint` 与 `tenant_id` 两个判别键**，另含 actor/资源与关键参数（Runtime 另含 run_id/message_id）；同 key 同指纹重放首次持久化结果（SSE 按 submission 重放已落库事件、不重新执行），同 key 不同指纹返回 `IDEMPOTENCY_MISMATCH`；并发插入由 partial unique 兜底，落败者读取首次提交结果。真实并发控制是**先取 `pg_advisory_xact_lock`**（键由 `(tenant_id, idempotency_key, endpoint)` 派生）把同键请求串行化，partial unique 只作兜底（各服务的 `_lock_idempotency`）。console 侧 `agent_service`/`mcp_service`/`skill_service` 三处 `_fingerprint` 已收敛到同一口径：规范化 JSON 且含 `endpoint`/`tenant_id`/actor 与关键参数（合规参考 `channel_service.bind_fingerprint`、`auth_service.account_fingerprint`、`audit_export_service` 的指纹函数、`apps/agent-runtime/src/muad_agent_runtime/application/run_submission.py`）。
 - [RULE-api-001] Console 与内部 API 使用统一封套：外部 `{code,msg,data,trace_id,request_id,timestamp}`；列表统一 `{items,page,page_size,total}`，`page>=1`、`1<=page_size<=100`；业务只抛 error code，`msg`/`http_status` 只来自 `config/api-messages.yaml`。
+
+- [RULE-001] 自然语言调度的创建与关键更新必须先生成完整 Draft，再由真实用户经鉴权 surface 明确确认；模型工具上下文不能确认自身提案。确认事实绑定 owner、完整载荷 hash、目标与配置版本、有效期及唯一用户动作引用，确认与配置生效、首次幂等响应同事务提交。幂等重放先于已消费或过期 Draft 检查；更新以 Draft 冻结版本 CAS，冲突不得覆盖配置或消耗确认。
 
 ## Conventions
 
@@ -191,3 +196,7 @@ if len(password) < policy.min_password_length:
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-012#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"6814a17bac83f67dc716b4b7efcf523951c33515e4d4b64a0bf465a51c1e18da","at":"2026-11-16T05:09:15.751Z"}

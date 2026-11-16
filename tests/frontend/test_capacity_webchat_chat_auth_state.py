@@ -80,6 +80,43 @@ SEMI_STUB = """export const Toast = {
     globalThis.__muadToasts.push(options.content);
   }
 };
+export const Avatar = () => null;
+export const Banner = () => null;
+export const Button = () => null;
+export const Card = () => null;
+export const Collapsible = () => null;
+export const ConfigProvider = () => null;
+export const DatePicker = () => null;
+export const Descriptions = () => null;
+export const Dropdown = () => null;
+export const Empty = () => null;
+export const Form = () => null;
+export const Input = () => null;
+export const InputNumber = () => null;
+export const Layout = () => null;
+export const MarkdownRender = () => null;
+export const Modal = () => null;
+export const Nav = () => null;
+export const Pagination = () => null;
+export const Popconfirm = () => null;
+export const Popover = () => null;
+export const Radio = () => null;
+export const RadioGroup = () => null;
+export const Select = () => null;
+export const SideSheet = () => null;
+export const Skeleton = () => null;
+export const Spin = () => null;
+export const Steps = () => null;
+export const Switch = () => null;
+export const Table = () => null;
+export const TabPane = () => null;
+export const Tabs = () => null;
+export const Tag = () => null;
+export const TextArea = () => null;
+export const Timeline = () => null;
+export const Tooltip = () => null;
+export const Typography = () => null;
+export const Upload = () => null;
 """
 
 ENTRY = """export * from '{auth_state}';

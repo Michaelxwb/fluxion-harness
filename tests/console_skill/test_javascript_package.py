@@ -53,8 +53,9 @@ async def test_greeting_zip_import_cache_and_node_execution(tmp_path: Path, wrap
     assert outcome.kind is OutcomeKind.COMPLETED
     assert outcome.result == {"text": "你好，见到你很高兴"}
     message = build_delivery_message(
-        TaskExecution(intent_key="greeting", status="COMPLETED", result_json=outcome.result),
+        TaskExecution(status="COMPLETED", result_json=outcome.result),
         "zh-CN",
+        title="greeting",
     )
     assert "你好，见到你很高兴" in message.text
 

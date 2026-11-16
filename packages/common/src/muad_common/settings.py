@@ -197,6 +197,14 @@ class SharedSettings(BaseSettings):
     inbound_stream_retention_sec: int = Field(default=600, ge=60)
     outbound_stream_retention_sec: int = Field(default=3_600, ge=300)
 
+    #: 独立后台循环的监督节拍与重启退避（design §4.1）：监督器只观测，不代替循环工作。
+    worker_supervision_interval_sec: float = Field(default=5.0, gt=0)
+    #: 循环停顿判据 = 该循环自身节拍 × 本倍数；超时即计数并重启。
+    worker_loop_stale_factor: int = Field(default=3, ge=1)
+    worker_loop_restart_backoff_sec: float = Field(default=1.0, gt=0)
+    #: shutdown 取消循环后的有界等待；卡死循环不拖住进程退出。
+    worker_loop_shutdown_timeout_sec: float = Field(default=30.0, gt=0)
+
     @field_validator("*", mode="before")
     @classmethod
     def _strict_resource_numbers(cls, value: object, info: ValidationInfo) -> object:

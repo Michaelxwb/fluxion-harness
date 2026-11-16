@@ -9,7 +9,12 @@ from muad_contracts import CancelOperationRequest, CancelOperationResponse
 from sqlalchemy import text
 
 from ..application.runtime_operations import cancel_operation
-from ..application.submissions import TaskSubmissionService, resolve_idempotency_key, submission_fingerprint
+from ..application.submissions import (
+    SubmissionEndpoint,
+    TaskSubmissionService,
+    resolve_idempotency_key,
+    submission_fingerprint,
+)
 from .tasks import Session, TenantId, _publish_cancel_hint
 
 router = APIRouter(
@@ -23,10 +28,15 @@ router = APIRouter(
 async def cancel_runtime_operation(
     operation_id: UUID, body: CancelOperationRequest, request: Request, session: Session, tenant: TenantId
 ) -> ApiResponse[CancelOperationResponse]:
-    endpoint = "cancel-runtime-operation"
+    endpoint = SubmissionEndpoint.EXECUTION_CANCEL
     key = resolve_idempotency_key(request.headers.get("Idempotency-Key"), f"runtime-op:{operation_id}:cancel")
+    # 指纹口径与 v2 命令幂等台账一致：endpoint/tenant/actor/目标/动作载荷，缺一项就会撞键。
     fingerprint = submission_fingerprint(
-        endpoint, body.model_dump(mode="json") | {"tenant_id": tenant, "operation_id": str(operation_id)}
+        endpoint=endpoint,
+        tenant_id=tenant,
+        actor_user_id=body.actor_user_id,
+        target_id=operation_id,
+        action=body,
     )
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtextextended(:identity, 0))"),

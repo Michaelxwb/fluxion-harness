@@ -1,7 +1,11 @@
-"""B-115 / E-02：Schedule 触发原子化、幂等与 fail-closed（设计 §3.2.3）。
+"""B-115 / E-02：Schedule 触发原子化、幂等与 fail-closed（设计 §3.2.9 / §3.3.6）。
 
-真实边界：真实 Console resolve（HTTP over ASGI）→ control schema 的 grants/Binding/Artifact
-→ task schema 的 Task 落库。不 mock resolve、不 mock 授权关系、不 mock Task 写入。
+真实边界：真实 Console `resolve_schedule_materials`（HTTP over ASGI）→ control schema 的
+grants/Binding/Artifact → task schema 的 Fire/Execution 落库。不 mock 物料解析、不 mock 授权
+关系、不 mock 写入。
+
+v2 口径（TASK-014）：每次触发写唯一 `schedule_fire` + 冻结的 `task_execution`；准入是**永久**
+失败（授权撤销/依赖缺失）时 CRON 进入 `NEEDS_ATTENTION`，不是"留在 ACTIVE 记个原因码"。
 """
 
 from __future__ import annotations
@@ -12,16 +16,22 @@ import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
 import sqlalchemy as sa
 from muad_agent_worker.infrastructure.db import get_session_factory
-from muad_agent_worker.infrastructure.models.task import TaskExecution, TaskSchedule
+from muad_agent_worker.infrastructure.models.task import (
+    ScheduleFire,
+    TaskEvent,
+    TaskExecution,
+    TaskSchedule,
+    TaskScheduleRevision,
+)
 from muad_agent_worker.scheduler.client import ConsoleResolveClient
-from muad_agent_worker.scheduler.service import SchedulerLoop, ScheduleService
+from muad_agent_worker.scheduler.service import SchedulerLoop
 from muad_common import SharedSettings
 from muad_console_platform.infrastructure.db import get_session_factory as console_session_factory
 from muad_console_platform.infrastructure.models.control import (
@@ -36,11 +46,10 @@ from muad_console_platform.infrastructure.models.control import (
     SkillArtifact,
 )
 from muad_console_platform.main import app as console_app
-from muad_contracts import ResolveDefinitionResponse, ScheduleSpec, UpdateScheduleRequest
+from muad_contracts import ScheduleAdmissionMaterials, ScheduleAdmissionRequest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from agent_worker.conftest import TenantContext
-from agent_worker.helpers import create_schedule_payload
+from agent_worker.test_scheduled_v2_fire import SettingsClient, execution_spec_for
 from tests.internal_service import TOKEN
 
 CONSOLE_URL = "http://console"
@@ -48,9 +57,13 @@ LOCAL_ZONE = ZoneInfo("Asia/Shanghai")
 BARRIER_TIMEOUT_SEC = 10
 
 CLEANUP_TASK = (
+    "UPDATE task.task_schedule SET current_revision_id = NULL WHERE tenant_id = :tenant_id",
+    "UPDATE task.schedule_fire SET execution_id = NULL WHERE tenant_id = :tenant_id",
     "DELETE FROM task.task_event WHERE tenant_id = :tenant_id",
     "DELETE FROM task.task_submission WHERE tenant_id = :tenant_id",
     "DELETE FROM task.task_execution WHERE tenant_id = :tenant_id",
+    "DELETE FROM task.schedule_fire WHERE tenant_id = :tenant_id",
+    "DELETE FROM task.task_schedule_revision WHERE tenant_id = :tenant_id",
     "DELETE FROM task.task_schedule WHERE tenant_id = :tenant_id",
     "DELETE FROM task.delivery_route WHERE tenant_id = :tenant_id",
 )
@@ -89,7 +102,6 @@ async def stack(
     database_guard: None, monkeypatch: pytest.MonkeyPatch
 ) -> AsyncIterator[TriggerStack]:
     """真实 Console 应用 + 真实 control/task schema 数据，共用一个 tenant。"""
-    # resolve-definition 需服务身份：与 apps/agent-worker/main.py 注入同源（env + 客户端头）
     monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", TOKEN)
     tenant_id = f"test-{uuid.uuid4()}"
     control = console_session_factory()
@@ -112,7 +124,6 @@ async def stack(
         )
         session.add_all([actor, model])
         await session.flush()
-        # 调度真的经 Console resolve-definition 解析执行入口：补成员凭据行
         credential = ModelCredential(
             tenant_id=tenant_id,
             key=f"cred-{uuid.uuid4()}",
@@ -199,240 +210,303 @@ async def stack(
             await session.commit()
 
 
-async def _create_schedule(stack: TriggerStack) -> TaskSchedule:
-    payload = create_schedule_payload(
-        cast(TenantContext, stack),
-        skill_id=stack.skill_id,
-        agent_id=stack.agent_id,
-        actor_user_id=stack.actor_user_id,
-    )
-    async with stack.session_factory() as session:
-        created = await ScheduleService(session, stack.settings).create_schedule(
-            stack.tenant_id, payload
+async def _seed(stack: TriggerStack, *, next_fire_at: datetime) -> uuid.UUID:
+    """种 Schedule + Revision 1（Draft/确认流程由 TASK-012 的用例面覆盖）。"""
+    schedule_id, revision_id = uuid.uuid4(), uuid.uuid4()
+    async with stack.session_factory() as session, session.begin():
+        session.add(
+            TaskSchedule(
+                id=schedule_id,
+                tenant_id=stack.tenant_id,
+                owner_user_id=stack.actor_user_id,
+                agent_id=stack.agent_id,
+                name="policy check",
+                status="ACTIVE",
+                config_version=1,
+                next_fire_at=next_fire_at,
+                created_by=stack.actor_user_id,
+            )
         )
-        await session.commit()
-    return created
+        await session.flush()
+        session.add(
+            TaskScheduleRevision(
+                id=revision_id,
+                tenant_id=stack.tenant_id,
+                schedule_id=schedule_id,
+                revision_no=1,
+                mode="SKILL",
+                instruction_raw="每天检查一次",
+                normalized_goal="检查一次",
+                recurrence_kind="CRON",
+                cron_expr="0 9 * * *",
+                timezone="Asia/Shanghai",
+                schedule_policy={},
+                context_json={},
+                execution_spec=execution_spec_for("SKILL", skill_id=stack.skill_id),
+                delivery_intent="NONE",
+                preflight_json={},
+                created_by=stack.actor_user_id,
+            )
+        )
+        await session.flush()
+        await session.execute(
+            sa.update(TaskSchedule)
+            .where(TaskSchedule.id == schedule_id)
+            .values(current_revision_id=revision_id)
+        )
+    return schedule_id
 
 
-async def _set_next_fire_at(
-    stack: TriggerStack, schedule_id: uuid.UUID, next_fire_at: datetime
-) -> None:
+def _loop(stack: TriggerStack, client: Any) -> SchedulerLoop:
+    return SchedulerLoop(
+        stack.session_factory, client, stack.settings, settings_client=SettingsClient()
+    )
+
+
+async def _set_next(stack: TriggerStack, schedule_id: uuid.UUID, moment: datetime) -> None:
     async with stack.session_factory() as session, session.begin():
         await session.execute(
             sa.update(TaskSchedule)
             .where(TaskSchedule.id == schedule_id)
-            .values(next_fire_at=next_fire_at)
+            .values(next_fire_at=moment)
         )
 
 
-async def _schedule_row(stack: TriggerStack, schedule_id: uuid.UUID) -> TaskSchedule:
+async def _schedule(stack: TriggerStack, schedule_id: uuid.UUID) -> TaskSchedule:
     async with stack.session_factory() as session:
-        return (
-            await session.execute(sa.select(TaskSchedule).where(TaskSchedule.id == schedule_id))
-        ).scalar_one()
+        row = await session.get(TaskSchedule, schedule_id)
+    assert row is not None
+    return row
 
 
-async def _tasks(stack: TriggerStack, schedule_id: uuid.UUID) -> list[TaskExecution]:
+async def _fires(stack: TriggerStack, schedule_id: uuid.UUID) -> list[ScheduleFire]:
     async with stack.session_factory() as session:
-        return list(
-            (
-                await session.execute(
-                    sa.select(TaskExecution)
-                    .where(TaskExecution.schedule_id == schedule_id)
-                    .order_by(TaskExecution.create_time)
-                )
-            )
-            .scalars()
-            .all()
+        rows = await session.scalars(
+            sa.select(ScheduleFire)
+            .where(ScheduleFire.schedule_id == schedule_id)
+            .order_by(ScheduleFire.scheduled_at)
         )
+    return list(rows)
 
 
-async def _event_types(stack: TriggerStack, task_id: uuid.UUID) -> list[str]:
+async def _executions(stack: TriggerStack, schedule_id: uuid.UUID) -> list[TaskExecution]:
     async with stack.session_factory() as session:
-        rows = (
-            await session.execute(
-                sa.text("SELECT event_type FROM task.task_event WHERE task_id = :id ORDER BY seq"),
-                {"id": task_id},
-            )
-        ).all()
-    return [row[0] for row in rows]
+        rows = await session.scalars(
+            sa.select(TaskExecution)
+            .where(TaskExecution.schedule_id == schedule_id)
+            .order_by(TaskExecution.create_time)
+        )
+    return list(rows)
 
 
-class _BarrierResolver:
-    """让两个 Scheduler 都在真正落库前完成 claim，制造确定的 claim/fire 竞态窗口。
+async def _event_types(stack: TriggerStack, entity_id: uuid.UUID, kind: str) -> list[str]:
+    async with stack.session_factory() as session:
+        rows = await session.scalars(
+            sa.select(TaskEvent.event_type)
+            .where(TaskEvent.entity_id == entity_id, TaskEvent.entity_type == kind)
+            .order_by(TaskEvent.seq)
+        )
+    return list(rows)
 
-    第一个 Scheduler 进入 resolve 时置位 `arrived`，测试据此再启动第二个：
-    两个 claim 事务不再重叠，避免 `SKIP LOCKED` 让其中一侧空手而归、另一侧死等。
-    """
+
+class _BarrierClient:
+    """让两个 Scheduler 都在锁外准入处会合，制造确定的写库竞态窗口。"""
 
     def __init__(self, inner: ConsoleResolveClient, parties: int) -> None:
         self._inner = inner
         self._barrier = asyncio.Barrier(parties)
         self.arrived = asyncio.Event()
 
-    async def resolve(
-        self, agent_id: uuid.UUID, actor_user_id: uuid.UUID, tenant_id: str
-    ) -> ResolveDefinitionResponse:
-        response = await self._inner.resolve(agent_id, actor_user_id, tenant_id)
+    async def resolve_schedule_materials(
+        self, tenant_id: str, payload: ScheduleAdmissionRequest
+    ) -> ScheduleAdmissionMaterials:
+        materials = await self._inner.resolve_schedule_materials(tenant_id, payload)
         self.arrived.set()
         try:
             await asyncio.wait_for(self._barrier.wait(), timeout=BARRIER_TIMEOUT_SEC)
         except TimeoutError as exc:
-            raise AssertionError("只有一侧 Scheduler 进入 resolve，barrier 超时") from exc
-        return response
+            raise AssertionError("只有一侧 Scheduler 进入准入，barrier 超时") from exc
+        return materials
 
 
-class _RaceActionResolver:
-    """真实 resolve 之后、落库之前插入一个管理动作，模拟管理动作赢得竞态。"""
+class _RaceClient:
+    """真实解析之后、落库之前插入一个管理动作，模拟管理动作赢得竞态。"""
 
     def __init__(self, inner: ConsoleResolveClient, action: Any) -> None:
         self._inner = inner
         self._action = action
 
-    async def resolve(
-        self, agent_id: uuid.UUID, actor_user_id: uuid.UUID, tenant_id: str
-    ) -> ResolveDefinitionResponse:
-        response = await self._inner.resolve(agent_id, actor_user_id, tenant_id)
+    async def resolve_schedule_materials(
+        self, tenant_id: str, payload: ScheduleAdmissionRequest
+    ) -> ScheduleAdmissionMaterials:
+        materials = await self._inner.resolve_schedule_materials(tenant_id, payload)
         await self._action()
-        return response
+        return materials
 
 
-async def test_b115_two_schedulers_create_exactly_one_task(stack: TriggerStack) -> None:
-    """同一 fire_time 被两个 Scheduler 同时 claim 时只创建一个 Task、只推进一次。"""
+async def test_b115_two_schedulers_create_exactly_one_execution(stack: TriggerStack) -> None:
+    """同一 fire_time 被两个 Scheduler 同时处理时只写一个 Fire、一个 Execution、推一次指针。"""
     now = datetime.now(UTC)
-    schedule = await _create_schedule(stack)
-    fire_at = now - timedelta(seconds=1)
-    await _set_next_fire_at(stack, schedule.id, fire_at)
+    schedule_id = await _seed(stack, next_fire_at=now - timedelta(seconds=1))
+    barrier = _BarrierClient(stack.resolver, 2)
+    first = _loop(stack, barrier)
+    second = _loop(stack, barrier)
 
-    barrier = _BarrierResolver(stack.resolver, 2)
-    first = SchedulerLoop(stack.session_factory, barrier, stack.settings)
-    second = SchedulerLoop(stack.session_factory, barrier, stack.settings)
-
-    first_run = asyncio.create_task(first.run_once(now=now))
+    pending = asyncio.create_task(first.run_once(now=now))
     try:
         await asyncio.wait_for(barrier.arrived.wait(), timeout=BARRIER_TIMEOUT_SEC)
     except TimeoutError as exc:
-        raise AssertionError("第一个 Scheduler 未能在 fire 窗口内 claim") from exc
-    created = await asyncio.gather(first_run, second.run_once(now=now))
+        raise AssertionError("第一个 Scheduler 未能在 fire 窗口内进入准入") from exc
+    outcomes = await asyncio.gather(pending, second.run_once(now=now))
 
-    assert len([task_id for task_id in created if task_id is not None]) == 1
-    tasks = await _tasks(stack, schedule.id)
-    assert len(tasks) == 1, "同一 fire_time 只能创建一个 Task"
-    assert await _event_types(stack, tasks[0].id) == ["CREATED"]
+    assert len([item for item in outcomes if item is not None]) == 1
+    assert len(await _fires(stack, schedule_id)) == 1, "同一计划时刻只能有一个 Fire"
+    executions = await _executions(stack, schedule_id)
+    assert len(executions) == 1
+    assert await _event_types(stack, executions[0].id, "EXECUTION") == ["QUEUED"]
 
-    refreshed = await _schedule_row(stack, schedule.id)
-    assert refreshed.last_fire_at == fire_at
-    assert refreshed.next_fire_at is not None
-    assert refreshed.next_fire_at > now
+    refreshed = await _schedule(stack, schedule_id)
+    assert refreshed.last_fire_at is not None
+    assert refreshed.occurrence_count == 1
+    assert refreshed.next_fire_at is not None and refreshed.next_fire_at > now
     local = refreshed.next_fire_at.astimezone(LOCAL_ZONE)
-    assert (local.hour, local.minute) == (9, 0), "推进必须走时区正确的下一次触发计算"
+    assert (local.hour, local.minute) == (9, 0), "推进必须走时区正确的下一槽"
 
 
-async def test_b115_repeated_run_for_same_fire_time_creates_nothing(stack: TriggerStack) -> None:
+async def test_b115_repeated_tick_for_same_fire_time_creates_nothing(stack: TriggerStack) -> None:
     now = datetime.now(UTC)
-    schedule = await _create_schedule(stack)
-    fire_at = now - timedelta(seconds=1)
-    loop = SchedulerLoop(stack.session_factory, stack.resolver, stack.settings)
+    schedule_id = await _seed(stack, next_fire_at=now - timedelta(seconds=1))
+    loop = _loop(stack, stack.resolver)
 
-    await _set_next_fire_at(stack, schedule.id, fire_at)
-    first_id = await loop.run_once(now=now)
-    assert first_id is not None
-
-    await _set_next_fire_at(stack, schedule.id, fire_at)
-    assert await loop.run_once(now=now) is None
-    assert len(await _tasks(stack, schedule.id)) == 1
+    assert await loop.run_once(now=now) is not None
+    assert await loop.run_once(now=now + timedelta(seconds=1)) is None
+    assert len(await _fires(stack, schedule_id)) == 1
+    assert len(await _executions(stack, schedule_id)) == 1
 
 
-async def test_b115_pause_winning_race_creates_no_task(stack: TriggerStack) -> None:
-    """claim 后暂停赢得竞态：不复核就会照样建 Task（本用例即该缺陷的守卫）。"""
+async def test_b115_pause_winning_race_writes_no_fire(stack: TriggerStack) -> None:
+    """准入后暂停赢得竞态：锁内 CAS 取不到行，不写 Fire、不建 Execution、不推进。"""
     now = datetime.now(UTC)
-    schedule = await _create_schedule(stack)
-    fire_at = now - timedelta(seconds=1)
-    await _set_next_fire_at(stack, schedule.id, fire_at)
+    schedule_id = await _seed(stack, next_fire_at=now - timedelta(seconds=1))
 
     async def pause() -> None:
-        async with stack.session_factory() as session:
-            await ScheduleService(session, stack.settings).pause_schedule(
-                stack.tenant_id, schedule.id
-            )
-            await session.commit()
+        from muad_agent_worker.application.schedule_lifecycle import ScheduleService
 
-    loop = SchedulerLoop(
-        stack.session_factory, _RaceActionResolver(stack.resolver, pause), stack.settings
-    )
+        async with stack.session_factory() as session, session.begin():
+            await ScheduleService(session, now=now).pause(
+                schedule_id, tenant_id=stack.tenant_id, actor_user_id=None
+            )
+
+    loop = _loop(stack, _RaceClient(stack.resolver, pause))
+
     assert await loop.run_once(now=now) is None
-    assert await _tasks(stack, schedule.id) == []
-    refreshed = await _schedule_row(stack, schedule.id)
+    assert await _fires(stack, schedule_id) == []
+    assert await _executions(stack, schedule_id) == []
+    refreshed = await _schedule(stack, schedule_id)
     assert refreshed.status == "PAUSED"
-    assert refreshed.next_fire_at == fire_at, "竞态失败方不得推进 Schedule"
+    assert refreshed.next_fire_at == now - timedelta(seconds=1), "竞态失败方不得推进"
     assert refreshed.last_fire_at is None
 
 
-async def test_b115_delete_winning_race_creates_no_task(stack: TriggerStack) -> None:
+async def test_b115_cancel_winning_race_writes_no_fire(stack: TriggerStack) -> None:
+    """取消（终态）赢得竞态：准入结果作废，不写 Fire、不把取消改回 ACTIVE。"""
     now = datetime.now(UTC)
-    schedule = await _create_schedule(stack)
-    fire_at = now - timedelta(seconds=1)
-    await _set_next_fire_at(stack, schedule.id, fire_at)
+    schedule_id = await _seed(stack, next_fire_at=now - timedelta(seconds=1))
+
+    async def cancel() -> None:
+        from muad_agent_worker.application.schedule_lifecycle import ScheduleService
+
+        async with stack.session_factory() as session, session.begin():
+            await ScheduleService(session, now=now).cancel(
+                schedule_id, tenant_id=stack.tenant_id, actor_user_id=None
+            )
+
+    loop = _loop(stack, _RaceClient(stack.resolver, cancel))
+
+    assert await loop.run_once(now=now) is None
+    assert await _fires(stack, schedule_id) == []
+    refreshed = await _schedule(stack, schedule_id)
+    assert refreshed.status == "CANCELLED"
+    assert refreshed.end_reason == "USER_CANCELLED"
+    assert refreshed.next_fire_at is None
+    assert refreshed.last_fire_at is None
+
+
+async def test_b115_delete_winning_race_writes_no_fire(stack: TriggerStack) -> None:
+    now = datetime.now(UTC)
+    schedule_id = await _seed(stack, next_fire_at=now - timedelta(seconds=1))
 
     async def soft_delete() -> None:
-        async with stack.session_factory() as session:
-            await ScheduleService(session, stack.settings).delete_schedule(
-                stack.tenant_id, schedule.id
+        from muad_agent_worker.application.schedule_lifecycle import ScheduleService
+
+        async with stack.session_factory() as session, session.begin():
+            await ScheduleService(session, now=now).soft_delete(
+                schedule_id, tenant_id=stack.tenant_id, actor_user_id=None
             )
-            await session.commit()
 
-    loop = SchedulerLoop(
-        stack.session_factory, _RaceActionResolver(stack.resolver, soft_delete), stack.settings
-    )
+    loop = _loop(stack, _RaceClient(stack.resolver, soft_delete))
+
     assert await loop.run_once(now=now) is None
-    assert await _tasks(stack, schedule.id) == []
-    refreshed = await _schedule_row(stack, schedule.id)
+    assert await _fires(stack, schedule_id) == []
+    refreshed = await _schedule(stack, schedule_id)
     assert refreshed.is_deleted is True
-    assert refreshed.next_fire_at == fire_at
+    assert refreshed.next_fire_at == now - timedelta(seconds=1)
 
 
-async def test_b115_update_winning_race_creates_no_task(stack: TriggerStack) -> None:
+async def test_b115_update_winning_race_writes_no_fire(stack: TriggerStack) -> None:
+    """更新（新 Revision 成为 current）赢得竞态：旧准入作废，用新事实重算指针。"""
     now = datetime.now(UTC)
-    schedule = await _create_schedule(stack)
-    fire_at = now - timedelta(seconds=1)
-    await _set_next_fire_at(stack, schedule.id, fire_at)
+    schedule_id = await _seed(stack, next_fire_at=now - timedelta(seconds=1))
+    new_next = now + timedelta(hours=1)
 
     async def reschedule() -> None:
-        async with stack.session_factory() as session:
-            await ScheduleService(session, stack.settings).update_schedule(
-                stack.tenant_id,
-                schedule.id,
-                UpdateScheduleRequest.model_validate(
-                    {"schedule": ScheduleSpec(type="CRON", cron="0 10 * * *", timezone="UTC")}
-                ),
+        async with stack.session_factory() as session, session.begin():
+            await session.execute(
+                sa.update(TaskSchedule)
+                .where(TaskSchedule.id == schedule_id)
+                .values(config_version=2, next_fire_at=new_next)
             )
-            await session.commit()
 
-    loop = SchedulerLoop(
-        stack.session_factory, _RaceActionResolver(stack.resolver, reschedule), stack.settings
-    )
+    loop = _loop(stack, _RaceClient(stack.resolver, reschedule))
+
     assert await loop.run_once(now=now) is None
-    assert await _tasks(stack, schedule.id) == []
-    refreshed = await _schedule_row(stack, schedule.id)
-    assert refreshed.revision == 2
-    assert refreshed.next_fire_at != fire_at
+    assert await _fires(stack, schedule_id) == []
+    refreshed = await _schedule(stack, schedule_id)
+    assert refreshed.config_version == 2
+    assert refreshed.next_fire_at == new_next
 
 
-async def test_b115_new_fire_freezes_current_definition_and_keeps_old_task(
+async def _complete(stack: TriggerStack, execution: TaskExecution) -> None:
+    """用真实终态写入收尾上一轮执行（状态 CAS + 事件），不留半条执行。"""
+    from muad_agent_worker.application.task_events import TaskEventType
+    from muad_agent_worker.application.terminal_tasks import TerminalChange, write_terminal
+    from muad_contracts import TerminalStatus
+
+    async with stack.session_factory() as session, session.begin():
+        stored = await session.get(TaskExecution, execution.id)
+        assert stored is not None
+        written = await write_terminal(
+            session,
+            stored,
+            TerminalChange(status=TerminalStatus.COMPLETED),
+            datetime.now(UTC),
+            event_type=TaskEventType.COMPLETED,
+        )
+        assert written
+
+
+async def test_b115_new_fire_freezes_current_definition_and_keeps_old_execution(
     stack: TriggerStack,
 ) -> None:
-    """新触发冻结当前定义；已创建 Task 的 Snapshot 不被后续变更改写。"""
+    """新触发冻结触发时点的定义；已创建 Execution 的快照不被后续变更改写。"""
     now = datetime.now(UTC)
-    schedule = await _create_schedule(stack)
-    loop = SchedulerLoop(stack.session_factory, stack.resolver, stack.settings)
+    schedule_id = await _seed(stack, next_fire_at=now - timedelta(seconds=1))
+    loop = _loop(stack, stack.resolver)
 
-    first_fire_at = now - timedelta(seconds=1)
-    await _set_next_fire_at(stack, schedule.id, first_fire_at)
     assert await loop.run_once(now=now) is not None
-    first_task = (await _tasks(stack, schedule.id))[0]
-    first_snapshot = first_task.execution_snapshot_json
+    [first] = await _executions(stack, schedule_id)
+    first_snapshot = first.execution_snapshot_json
 
-    # 变更 current 定义：Agent revision 提升 + 新 Artifact 成为 current
     async with console_session_factory()() as session:
         await session.execute(
             sa.update(AgentDefinition)
@@ -460,79 +534,63 @@ async def test_b115_new_fire_freezes_current_definition_and_keeps_old_task(
         await session.commit()
         new_artifact_id = new_artifact.id
 
-    second_fire_at = now + timedelta(seconds=1)
-    await _set_next_fire_at(stack, schedule.id, second_fire_at)
-    assert await loop.run_once(now=second_fire_at) is not None
+    # 上一轮执行收尾后才有下一次触发（默认 `SKIP_IF_RUNNING` 会挡住未结束的根执行）。
+    await _complete(stack, first)
 
-    tasks = await _tasks(stack, schedule.id)
-    assert len(tasks) == 2
-    second_task = tasks[1]
-    assert second_task.skill_artifact_id == new_artifact_id
-    assert second_task.execution_snapshot_json["agent"]["revision"] == 9
-    assert second_task.snapshot_hash != first_task.snapshot_hash
+    second_slot = datetime(2026, 3, 9, 1, 0, tzinfo=UTC)  # 上海 09:00
+    await _set_next(stack, schedule_id, second_slot)
+    assert await loop.run_once(now=second_slot + timedelta(seconds=1)) is not None
 
-    unchanged = await _tasks(stack, schedule.id)
-    assert unchanged[0].execution_snapshot_json == first_snapshot
-    assert unchanged[0].skill_artifact_id == stack.artifact_id
-    assert unchanged[0].snapshot_hash == first_task.snapshot_hash
+    executions = await _executions(stack, schedule_id)
+    assert len(executions) == 2
+    second = next(item for item in executions if item.scheduled_at == second_slot)
+    assert second.skill_artifact_id == new_artifact_id, "新触发用触发时点的最新 artifact"
+    assert second.execution_snapshot_json["agent"]["revision"] == 9
+    assert second.snapshot_hash != first.snapshot_hash
+
+    unchanged = next(item for item in executions if item.id == first.id)
+    assert unchanged.execution_snapshot_json == first_snapshot
+    assert unchanged.skill_artifact_id == stack.artifact_id
 
 
-async def test_e02_revoked_grant_fails_closed_with_reason(stack: TriggerStack) -> None:
-    """撤权后触发：不创建可执行 Snapshot，在 Schedule 上留下失败原因并推进。"""
+@pytest.mark.parametrize("revoke", ["grant", "binding"])
+async def test_e02_revoked_access_is_a_permanent_failure(
+    stack: TriggerStack, revoke: str
+) -> None:
+    """撤权或撤 Binding：本次准入永久失败，不建 Execution，CRON 进入 NEEDS_ATTENTION。"""
     now = datetime.now(UTC)
-    schedule = await _create_schedule(stack)
-    fire_at = now - timedelta(seconds=1)
-    await _set_next_fire_at(stack, schedule.id, fire_at)
-
+    schedule_id = await _seed(stack, next_fire_at=now - timedelta(seconds=1))
     async with console_session_factory()() as session:
-        await session.execute(
-            sa.update(AgentAccessGrant)
-            .where(
-                AgentAccessGrant.user_id == stack.actor_user_id,
-                AgentAccessGrant.agent_id == stack.agent_id,
+        if revoke == "grant":
+            await session.execute(
+                sa.update(AgentAccessGrant)
+                .where(
+                    AgentAccessGrant.user_id == stack.actor_user_id,
+                    AgentAccessGrant.agent_id == stack.agent_id,
+                )
+                .values(is_deleted=True)
             )
-            .values(is_deleted=True)
-        )
+        else:
+            await session.execute(
+                sa.update(AgentSkillBinding)
+                .where(
+                    AgentSkillBinding.agent_id == stack.agent_id,
+                    AgentSkillBinding.skill_id == stack.skill_id,
+                )
+                .values(is_deleted=True)
+            )
         await session.commit()
 
-    loop = SchedulerLoop(stack.session_factory, stack.resolver, stack.settings)
+    loop = _loop(stack, stack.resolver)
     assert await loop.run_once(now=now) is None
 
-    assert await _tasks(stack, schedule.id) == [], "撤权后不得创建可执行 Task"
-    refreshed = await _schedule_row(stack, schedule.id)
-    assert refreshed.last_error_code == "AGENT_ACCESS_DENIED"
-    assert refreshed.last_error_message
-    assert refreshed.last_skipped_at is not None
-    assert refreshed.next_fire_at is not None
-    assert refreshed.next_fire_at > now, "失败后必须推进，否则每轮重复 claim 形成热循环"
+    assert await _executions(stack, schedule_id) == [], "撤权后不得创建可执行 Execution"
+    [fire] = await _fires(stack, schedule_id)
+    assert fire.status == "FAILED_ADMISSION"
+    assert fire.admission_error_code == "GRANT_REVOKED"
+    assert fire.execution_id is None
+    refreshed = await _schedule(stack, schedule_id)
+    assert refreshed.status == "NEEDS_ATTENTION"
+    assert refreshed.attention_reason == "GRANT_REVOKED"
+    assert refreshed.next_fire_at is None
     assert refreshed.last_fire_at is None
-
-
-async def test_e02_revoked_binding_fails_closed_with_reason(stack: TriggerStack) -> None:
-    """Binding 软删除后触发：当前有效 Skill 集合不再包含它，fail closed 并留原因。"""
-    now = datetime.now(UTC)
-    schedule = await _create_schedule(stack)
-    fire_at = now - timedelta(seconds=1)
-    await _set_next_fire_at(stack, schedule.id, fire_at)
-
-    async with console_session_factory()() as session:
-        await session.execute(
-            sa.update(AgentSkillBinding)
-            .where(
-                AgentSkillBinding.agent_id == stack.agent_id,
-                AgentSkillBinding.skill_id == stack.skill_id,
-            )
-            .values(is_deleted=True)
-        )
-        await session.commit()
-
-    loop = SchedulerLoop(stack.session_factory, stack.resolver, stack.settings)
-    assert await loop.run_once(now=now) is None
-
-    assert await _tasks(stack, schedule.id) == [], "Binding 撤销后不得创建可执行 Task"
-    refreshed = await _schedule_row(stack, schedule.id)
-    assert refreshed.last_error_code == "SKILL_NOT_EFFECTIVE"
-    assert refreshed.last_error_message
-    assert refreshed.last_skipped_at is not None
-    assert refreshed.next_fire_at is not None
-    assert refreshed.next_fire_at > now

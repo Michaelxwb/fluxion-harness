@@ -206,6 +206,7 @@ def start_gateway_stack(
         "muad_console_platform.main",
         console_port,
         AGENT_RUNTIME_URL=runtime_url,
+        AGENT_WORKER_URL=worker_url,
         CONSOLE_PLATFORM_URL=console_url,
     )
     # `IM_GATEWAY_URL` 必须显式指到**本栈**的 gateway。不设的话 runtime 会回落到 `.env` 里的
@@ -220,6 +221,7 @@ def start_gateway_stack(
         runtime_port,
         POD_NAME="e2e-runtime-1",
         CONSOLE_PLATFORM_URL=console_url,
+        AGENT_WORKER_URL=worker_url,
         IM_GATEWAY_URL=gateway_url,
     )
     # TASK-030：第二 Runtime 实例（同一逻辑 Agent 可被任意实例承载）+ 真实 Worker 进程。
@@ -231,6 +233,7 @@ def start_gateway_stack(
         runtime2_port,
         POD_NAME="e2e-runtime-2",
         CONSOLE_PLATFORM_URL=console_url,
+        AGENT_WORKER_URL=worker_url,
         IM_GATEWAY_URL=gateway_url,
     )
     worker = spawn(

@@ -46,6 +46,7 @@ _GROUP_APPLIES_TO: dict[str, str] = {
     "model_pool": NEW_RUN,
     "webchat": NEXT_OPERATION,
     "egress": NEW_RUN,
+    "schedule": NEXT_OPERATION,
 }
 
 #: 逐字段范围/枚举/单位/生效方式覆盖（键为前端使用的字段路径）。
@@ -120,6 +121,17 @@ _FIELD_META: dict[str, dict[str, Any]] = {
     "egress.enabled": {"effect_key": "settings.effect.egress_policy"},
     "egress.rules_json": {"effect_key": "settings.effect.egress_policy"},
     "webchat.conversation_retention_days": {"effect_key": "settings.effect.new_conversation"},
+    "schedule.max_schedules_per_user": {"effect_key": "settings.effect.schedule_draft"},
+    "schedule.min_schedule_interval_sec": {"effect_key": "settings.effect.schedule_draft"},
+    "schedule.confirmation_ttl_sec": {"effect_key": "settings.effect.schedule_draft"},
+    "schedule.max_fires_per_day_per_user": {"effect_key": "settings.effect.schedule_fire"},
+    "schedule.max_agentic_runs_per_day_per_user": {"effect_key": "settings.effect.schedule_fire"},
+    "schedule.max_concurrent_agentic_executions_per_user": {
+        "effect_key": "settings.effect.schedule_fire"
+    },
+    "schedule.max_snapshot_bytes": {"effect_key": "settings.effect.schedule_fire"},
+    "schedule.max_fire_history_days": {"effect_key": "settings.effect.next_cleanup"},
+    "schedule.max_execution_history_days": {"effect_key": "settings.effect.next_cleanup"},
 }
 
 #: 非本页管理的项（`.env` + 重启 / 资源页面 / 代码）的归属说明。
@@ -238,7 +250,7 @@ def _bounded_schema_metadata(
     upload_hard_cap: int | None,
 ) -> dict[str, dict[str, object]]:
     result: dict[str, dict[str, object]] = {}
-    for group_key in ("capacity", "model_pool", "webchat", "task"):
+    for group_key in ("capacity", "model_pool", "webchat", "task", "schedule"):
         for item in fields(getattr(defaults, group_key)):
             if "minimum" not in item.metadata:
                 continue

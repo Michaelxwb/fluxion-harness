@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import Any, Literal, Self
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import AwareDatetime, Field, model_validator
 
-from .enums import ChannelName, SkillExecutionMode, SkillSource
+from .enums import ChannelName, ScheduleMode, SkillExecutionMode, SkillSource
 from .model_pool import PositiveCount
+from .scheduling import ToolAllowlistEntry, ToolSource
 from .tasks import ContractModel
 
 
@@ -95,6 +96,109 @@ class AdmissionMaterialsRequest(ContractModel):
     channel: ChannelName | None = Field(default=None, min_length=1)
 
 
+class ScheduleAdmissionRequest(ContractModel):
+    """每次 Fire 的受理取数请求（scheduled-task-v2 §2.3.4 / §3.5.5）。
+
+    只描述「这次要执行什么」，不携带任何已解析结果：按 `mode` 取依赖范围内的材料，
+    SKILL 取 `skill_id` 指向的那一个 Skill，AGENTIC 取 `tool_allowlist` 逐个工具。
+    """
+
+    agent_id: UUID
+    actor_user_id: UUID
+    mode: ScheduleMode
+    skill_id: UUID | None = None
+    tool_allowlist: list[ToolAllowlistEntry] = Field(default_factory=list)
+
+
+class ScheduleModelMaterials(ContractModel):
+    """冻结用的模型材料：定义 + 本次成员选择 + 池成员引用（不含任何密钥）。
+
+    `base_url` 来自本次选中的成员凭据（非密）；`api_key` 永不进入本结构。
+    REMINDER 不依赖 Model/凭据，`deployment_id`/`base_url` 显式为空。
+    """
+
+    id: UUID
+    revision: int = Field(ge=1)
+    model_id: str = Field(min_length=1)
+    protocol: str = Field(min_length=1, max_length=16)
+    params: dict[str, Any] = Field(default_factory=dict)
+    base_url: str | None = None
+    deployment_id: UUID | None = None
+    pool_members: list[dict[str, Any]] = Field(default_factory=list)
+    summary_model: dict[str, Any] | None = None
+
+
+class ScheduleToolMaterials(ContractModel):
+    """allowlist 中一个工具的可冻结材料：完整 `input_schema` + 归属与重试安全声明。"""
+
+    source: ToolSource
+    tool_name: str = Field(min_length=1, max_length=200)
+    input_schema: dict[str, Any] = Field(default_factory=dict)
+    retry_safety: str | None = Field(default=None, max_length=16)
+    server_id: UUID | None = None
+    server_key: str | None = Field(default=None, max_length=128)
+    catalog_revision: int | None = Field(default=None, ge=1)
+    skill_id: UUID | None = None
+    artifact_id: UUID | None = None
+    checksum: str | None = None
+    execution_mode: str | None = Field(default=None, max_length=16)
+
+
+class ScheduleMemoryCandidate(ContractModel):
+    """任务只读记忆的一条候选（与 `muad_agent_core.memory.selection.MemoryRecord` 同形）。"""
+
+    memory_key: str = Field(min_length=1, max_length=128)
+    memory_kind: str = Field(min_length=1, max_length=24)
+    predicate: str = Field(min_length=1, max_length=64)
+    scope_state: str = Field(min_length=1, max_length=16)
+    scope: dict[str, str] = Field(default_factory=dict)
+    content: dict[str, Any] = Field(default_factory=dict)
+    title: str = ""
+    summary: str = ""
+    tags: list[str] = Field(default_factory=list)
+    cardinality: str = Field(min_length=1, max_length=8)
+    priority: str = Field(min_length=1, max_length=16)
+    author: str = Field(min_length=1, max_length=16)
+    version: int = Field(ge=1)
+    updated_at: AwareDatetime
+    expires_at: AwareDatetime | None = None
+    enabled: bool = True
+
+
+class ScheduleMemoryMaterials(ContractModel):
+    """一次有界的记忆读取结果；读取失败时 `degraded=True` 且候选为空，不阻断受理。"""
+
+    taxonomy_version: int = Field(ge=1)
+    revision: int = Field(ge=0)
+    as_of: AwareDatetime
+    candidates: list[ScheduleMemoryCandidate] = Field(default_factory=list)
+    degraded: bool = False
+    error_code: str | None = Field(default=None, max_length=64)
+
+
+class ScheduleGrantMaterials(ContractModel):
+    agent_access: bool = True
+    skill_ids: list[UUID] = Field(default_factory=list)
+    mcp_server_ids: list[UUID] = Field(default_factory=list)
+
+
+class ScheduleAdmissionMaterials(ContractModel):
+    """受理材料一次取齐：快照 v4 依赖范围内的完整非密钥材料（design §3.5.7）。"""
+
+    mode: ScheduleMode
+    agent: ResolvedAgent
+    model: ScheduleModelMaterials
+    skills: list[ResolvedSkill] = Field(default_factory=list)
+    mcp_servers: list[ResolvedMcpServer] = Field(default_factory=list)
+    tools: list[ScheduleToolMaterials] = Field(default_factory=list)
+    memory: ScheduleMemoryMaterials | None = None
+    policy: dict[str, Any] = Field(default_factory=dict)
+    prompt_template: dict[str, Any] = Field(default_factory=dict)
+    grants: ScheduleGrantMaterials = Field(default_factory=ScheduleGrantMaterials)
+    settings_revision: int = Field(ge=0)
+    settings: dict[str, Any] = Field(default_factory=dict)
+
+
 class ResolveModelRequest(ContractModel):
     """按**既有模型定义的主键**解析单个模型（ADR-06：`compaction.summary.model_ref`）。
 
@@ -111,13 +215,14 @@ class ResolveModelResponse(ContractModel):
 
 
 class RuntimeExecutionRef(ContractModel):
-    """调用归属引用：当前只有 RUN 一种受信执行（提炼/探针在各自任务接入时扩展 Literal）。
+    """调用归属引用：交互式 Run 或定时 Task Execution（提炼/探针在各自任务接入时扩展 Literal）。
 
     单独类型而不复用容量层的 `ModelCallOwner`：这里是**公网之外的内部解析入口**，
-    `id` 只作审计关联，不承担容量归属（容量由 API-17 的 owner 决定）。
+    `id` 只作审计关联，不承担容量归属（容量由容量端口的 owner 决定）。`type=TASK` 时
+    `id` 是 `task.task_execution.id`，凭据解析按该 Execution 的 tenant/actor/agent 复核。
     """
 
-    type: Literal["RUN"] = "RUN"
+    type: Literal["RUN", "TASK"] = "RUN"
     id: UUID
 
 

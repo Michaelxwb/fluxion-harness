@@ -39,7 +39,7 @@ EXPECTED_ROWS = {
     "control.skill": SEED_SKILLS_ENABLED + 2,
     "task.task_execution": SEED_TASKS_ACTIVE + SEED_TASKS_TERMINAL,
     "task.task_schedule": 4,
-    "task.delivery_route": 1,
+    "task.task_schedule_revision": 4,
 }
 
 

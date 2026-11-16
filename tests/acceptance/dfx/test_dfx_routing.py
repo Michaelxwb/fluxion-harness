@@ -66,6 +66,7 @@ from tests.acceptance.task_schedule.environment import (
     require,
     run_async,
     run_db,
+    seed_v2_schedule,
     start_live_stack,
     stop_live_stack,
 )
@@ -325,14 +326,13 @@ def _seed_batch_artifact(stack: LiveStack) -> tuple[uuid.UUID, str, str, str]:
 TASK_COLUMNS = (
     "id",
     "task_type",
-    "execution_mode",
+    "skill_execution_mode",
     "trigger_type",
     "status",
     "source_run_id",
     "schedule_id",
     "skill_artifact_id",
     "result_json",
-    "delivery_mode",
     "parent_id",
     "root_id",
     "item_key",
@@ -395,8 +395,8 @@ def _schedule_row(schedule_id: uuid.UUID) -> dict[str, Any]:
             row = (
                 await session.execute(
                     text(
-                        "SELECT status, next_fire_at, completed_at, last_fire_at, last_error_code"
-                        " FROM task.task_schedule WHERE id = :id"
+                        "SELECT status, next_fire_at, ended_at, last_fire_at, end_reason,"
+                        " attention_reason FROM task.task_schedule WHERE id = :id"
                     ),
                     {"id": schedule_id},
                 )
@@ -406,7 +406,8 @@ def _schedule_row(schedule_id: uuid.UUID) -> dict[str, Any]:
             "next_fire_at": row[1],
             "completed_at": row[2],
             "last_fire_at": row[3],
-            "last_error_code": row[4],
+            "end_reason": row[4],
+            "last_error_code": row[5],
         }
 
     return cast(dict[str, Any], run_db(query))
@@ -567,7 +568,7 @@ def test_s07_async_skill_call_submits_immediate_task_and_run_completes(
     rows = _task_rows(live_stack, where="source_run_id = :run", params={"run": run_id})
     assert len(rows) == 1, f"ASYNC Skill 必须恰好产生一行 Task：{rows}"
     task = rows[0]
-    assert task["task_type"] == "SKILL" and task["execution_mode"] == "ASYNC", task
+    assert task["task_type"] == "SKILL" and task["skill_execution_mode"] == "ASYNC", task
     assert task["trigger_type"] == "IMMEDIATE", task
     assert task["skill_artifact_id"] is not None
 
@@ -618,27 +619,18 @@ def test_s07_sync_skill_call_executes_inline_without_task_row(
 
 
 def _create_schedule(stack: LiveStack, http: httpx.Client) -> uuid.UUID:
+    del http  # 创建入口已是 Draft + 确认；本用例只验证调度事实，直接种真实 ONCE 行。
     run_at = datetime.now(UTC) + timedelta(minutes=30)
-    response = http.post(
-        f"{stack.worker_url}/internal/schedules",
-        json={
-            "name": f"dfx-routing-once-{uuid.uuid4().hex[:8]}",
-            "agent_id": str(stack.agent_id),
-            "actor_user_id": str(stack.platform_user_id),
-            "intent_key": "e2e_routing_probe",
-            "skill_id": str(stack.skill_id),
-            "input_template": {"case": "s07-scheduled"},
-            "schedule": {"type": "ONCE", "run_at": run_at.isoformat(), "timezone": "UTC"},
-            "delivery_route": {
-                "channel": "WECOM",
-                "bot_id": stack.bot_id,
-                "external_user_id": "s07-external-user",
-            },
-        },
-        headers={**stack.service_headers(), "Idempotency-Key": f"dfx-routing-{uuid.uuid4().hex}"},
+    return uuid.UUID(
+        seed_v2_schedule(
+            stack,
+            cron=None,
+            recurrence_kind="ONCE",
+            run_at=run_at,
+            name=f"dfx-routing-once-{uuid.uuid4().hex[:8]}",
+            input_template={"case": "s07-scheduled"},
+        )
     )
-    assert response.status_code == 200, f"创建 ONCE Schedule 失败：{response.text}"
-    return uuid.UUID(str(response.json()["data"]["schedule_id"]))
 
 
 def _make_due(schedule_id: uuid.UUID, *, seconds: int = 2) -> None:
@@ -674,13 +666,13 @@ def test_s07_scheduled_once_fires_exactly_one_task_and_completes(
     assert tasks[0]["trigger_type"] == "SCHEDULED" and tasks[0]["task_type"] == "SKILL", tasks[0]
 
     fired = _await(
-        lambda: row if (row := _schedule_row(schedule_id))["status"] == "COMPLETED" else None,
+        lambda: row if (row := _schedule_row(schedule_id))["status"] == "ENDED" else None,
         what="ONCE Schedule 进入 COMPLETED",
         timeout_sec=3 * SCHEDULER_POLL_SEC + 30,
     )
-    assert fired["completed_at"] is not None, "ONCE 成功后必须有 completed_at"
+    assert fired["completed_at"] is not None, "ONCE 成功后必须有 ended_at"
     assert fired["next_fire_at"] is None, "ONCE 成功后 next_fire_at 必须为空"
-    assert fired["last_error_code"] is None, fired
+    assert fired["end_reason"] == "COMPLETED", fired
 
     # 终态 Schedule 不再被 claim：再等一个 Scheduler 拍点，不得补出第二行。
     quiet_deadline = time.monotonic() + SCHEDULER_POLL_SEC + 5.0
@@ -727,7 +719,6 @@ def _submit_batch(
                     "customers": list(BATCH_ITEMS),
                     "sleep_sec": BATCH_ITEM_SLEEP_SEC,
                 },
-                intent_key="e2e_routing_batch",
             )
         finally:
             await client.aclose()
@@ -778,7 +769,7 @@ def test_s08_batch_fanout_parked_children_and_single_fan_in(
         what="Parent 在 fan-in 后到达 COMPLETED",
         timeout_sec=4 * (BATCH_ITEM_SLEEP_SEC + 30),
     )
-    assert parent["task_type"] == "BATCH" and parent["delivery_mode"] == "NONE", parent
+    assert parent["task_type"] == "BATCH", parent
     assert parent["result_json"]["total"] == len(BATCH_ITEMS), parent["result_json"]
     assert parent["result_json"]["succeeded"] == len(BATCH_ITEMS), parent["result_json"]
 
@@ -792,7 +783,10 @@ def test_s08_batch_fanout_parked_children_and_single_fan_in(
     async def fan_in_events(factory: Any) -> int:
         async with factory() as session:
             total = await session.scalar(
-                text("SELECT count(*) FROM task.task_event WHERE task_id = :id AND event_type = 'FAN_IN'"),
+                text(
+                    "SELECT count(*) FROM task.task_event WHERE entity_type = 'EXECUTION'"
+                    " AND entity_id = :id AND event_type IN ('COMPLETED', 'CANCELLED')"
+                ),
                 {"id": parent_id},
             )
         return int(total or 0)

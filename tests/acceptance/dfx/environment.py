@@ -445,18 +445,23 @@ def post_task_request(
     `delivery_mode`/`delivery_route` 由调用方显式给出（默认 `NONE` 不投递）；
     `FINAL_ONLY` 按契约必须带路由（`CreateTaskRequest._require_route_for_delivery`）。
     """
+    if delivery_mode not in {"NONE", "FINAL_ONLY"}:
+        raise ValueError(f"unsupported delivery_mode: {delivery_mode}")
+    if delivery_mode == "FINAL_ONLY" and delivery_route is None:
+        raise ValueError("FINAL_ONLY requires a delivery route")
     payload: dict[str, Any] = {
         "tenant_id": stack.tenant_id,
         "agent_id": str(stack.agent_id),
         "actor_user_id": str(stack.platform_user_id),
-        "intent_key": "dfx_reliability_probe",
+        "task_type": "SKILL",
         "skill_id": str(spec.skill_id),
         "skill_artifact_id": str(spec.artifact_id),
+        "skill_execution_mode": "ASYNC",
         "input": input_data,
         "execution_snapshot": spec.snapshot,
+        "execution_snapshot_schema_version": 4,
         "snapshot_hash": snapshot_hash(spec.snapshot),
         "idempotency_key": idempotency_key,
-        "delivery_mode": delivery_mode,
     }
     if delivery_route is not None:
         payload["delivery_route"] = delivery_route
@@ -503,11 +508,14 @@ def read_task_row(task_id: uuid.UUID, *, tenant_id: str | None = None) -> dict[s
             row = (
                 await session.execute(
                     text(
-                        "SELECT tenant_id, status, task_type, attempt, max_attempts, lease_owner,"
-                        " lease_until, heartbeat_at, cancel_requested, result_json,"
-                        " error_code, error_message, finished_at, delivery_mode, delivery_status,"
-                        " delivery_attempts, delivered_at, delivery_key"
-                        " FROM task.task_execution WHERE tenant_id = :t AND id = :id"
+                        "SELECT t.tenant_id, t.status, t.task_type, t.attempt, t.max_attempts,"
+                        " t.lease_owner, t.lease_until, t.heartbeat_at, t.cancel_requested,"
+                        " t.result_json, t.error_code, t.error_message, t.finished_at,"
+                        " d.status, d.attempt_count, d.sent_at, d.delivery_key"
+                        " FROM task.task_execution t"
+                        " LEFT JOIN task.task_delivery d"
+                        "   ON d.tenant_id = t.tenant_id AND d.execution_id = t.id"
+                        " WHERE t.tenant_id = :t AND t.id = :id"
                     ),
                     {"t": tenant_id or TENANT, "id": task_id},
                 )
@@ -528,11 +536,11 @@ def read_task_row(task_id: uuid.UUID, *, tenant_id: str | None = None) -> dict[s
             "error_code": row[10],
             "error_message": row[11],
             "finished_at": row[12],
-            "delivery_mode": row[13],
-            "delivery_status": row[14],
-            "delivery_attempts": row[15],
-            "delivered_at": row[16],
-            "delivery_key": row[17],
+            "delivery_mode": "FINAL_ONLY" if row[13] is not None else "NONE",
+            "delivery_status": row[13] or "NONE",
+            "delivery_attempts": int(row[14] or 0),
+            "delivered_at": row[15],
+            "delivery_key": row[16],
         }
 
     return cast(dict[str, Any] | None, run_db(query))
@@ -546,7 +554,8 @@ def count_task_events(task_id: uuid.UUID, event_type: str) -> int:
             total = await session.scalar(
                 text(
                     "SELECT count(*) FROM task.task_event"
-                    " WHERE tenant_id = :t AND task_id = :id AND event_type = :e"
+                    " WHERE tenant_id = :t AND entity_type = 'EXECUTION'"
+                    " AND entity_id = :id AND event_type = :e"
                 ),
                 {"t": TENANT, "id": task_id, "e": event_type},
             )
@@ -588,7 +597,7 @@ def list_task_types(tenant_id: str | None = None) -> list[str]:
 
 
 def task_type_values() -> set[str]:
-    """TaskType 的封闭取值集合（契约口径：仅 SKILL/BATCH）。"""
+    """TaskType 的封闭取值集合（v2：立即 SKILL/BATCH + 调度 REMINDER/AGENTIC）。"""
     return {str(member) for member in TaskType}
 
 

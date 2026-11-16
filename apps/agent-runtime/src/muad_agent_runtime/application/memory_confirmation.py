@@ -8,7 +8,6 @@ from typing import Literal, NoReturn
 from uuid import UUID, uuid4
 
 from muad_agent_core.agent.continuation import RunnerCheckpoint
-from muad_agent_core.agent.suspension import MemorySuspendRequest
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts.memory import RememberMemoryInput
@@ -34,6 +33,7 @@ from .memory_proposals import (
     ensure_no_memory_confirmation,
     locked_confirmation_execution,
 )
+from .memory_suspension import MEMORY_CONFIRMATION_REASON, MemorySuspendRequest
 from .memory_write import validate_memory_input_v2
 
 logger = logging.getLogger(__name__)
@@ -102,9 +102,11 @@ class MemoryConfirmationService:
                     proposal = _proposal(candidate, run, event, epoch, now, expected_version)
                     proposal_id = uuid4()
                     request = MemorySuspendRequest(
-                        proposal_id,
-                        proposal,
-                        _prompt(proposal_id, proposal, now, target=target, timezone=self._timezone),
+                        interrupt_id=proposal_id,
+                        reason=MEMORY_CONFIRMATION_REASON,
+                        prompt=_prompt(
+                            proposal_id, proposal, now, target=target, timezone=self._timezone
+                        ),
                         text_prompt=_prompt(
                             proposal_id,
                             proposal,
@@ -113,6 +115,7 @@ class MemoryConfirmationService:
                             timezone=self._timezone,
                             for_text_channel=True,
                         ),
+                        proposal=proposal,
                     )
                     after_commit(session, "memory_confirmation_total", labels={"outcome": "PROPOSED"})
             except SQLAlchemyError as exc:

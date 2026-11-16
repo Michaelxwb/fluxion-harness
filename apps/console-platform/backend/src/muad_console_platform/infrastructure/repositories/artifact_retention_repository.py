@@ -40,6 +40,11 @@ class ExpiredArtifact:
 #: **未结束 Task** 引用的制品仍在执行链路上（恢复、重放、工具读附件、结果投递），删掉就是拿
 #: "已受理结果"换"磁盘空间"。两个 `NOT EXISTS` 都走被引用方的主键/唯一索引，候选又被 `LIMIT`
 #: 卡住上界，所以单轮成本仍有界；保护的是引用方**当前**的状态，不是行上的历史标记。
+#:
+#: Task 侧的"未结束"**不是一个状态**（scheduled-task-v2 §3.3.6）：v2 把外部等待拆成
+#: `WAITING_EXTERNAL`（异步结果/外部轮询/子任务聚合）与 `WAITING_HUMAN`（等用户回答），两者都
+#: 仍在执行链路上、都还要恢复材料。只认旧的单一 `WAITING` 会让这类执行的产物被当成"已结束"
+#: 清掉——清理器删的正是它还等着用的东西。状态集合与 `TaskStatus` 的非终态取值同口径。
 _PROTECTED_CLAUSE = """
        AND NOT EXISTS (
              SELECT 1
@@ -53,7 +58,7 @@ _PROTECTED_CLAUSE = """
                FROM task.task_execution t
               WHERE t.id = a.task_id
                 AND t.is_deleted = false
-                AND t.status IN ('QUEUED', 'RUNNING', 'WAITING')
+                AND t.status IN ('QUEUED', 'RUNNING', 'WAITING_EXTERNAL', 'WAITING_HUMAN')
            )"""
 
 _SELECT_EXPIRED = text(

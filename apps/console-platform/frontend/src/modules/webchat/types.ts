@@ -213,6 +213,11 @@ export interface WebchatHistoryMessage {
   role: WebchatMessageRole;
   text: string;
   attachments: WebchatAttachment[];
+  /**
+   * 定时任务 Draft 卡片（`schedule.draft.ready` 的持久投影）：它不是普通消息，但必须以同一条
+   * 持久事实回到历史里，刷新/重连后仍可确认。普通消息线格式不带这个键。
+   */
+  draft?: WebchatScheduleDraftReady | null;
   /** canonical 事件落库时间（消息发送/接收的权威时刻）。 */
   created_at: string;
 }
@@ -409,4 +414,309 @@ export interface WebchatClient {
     notificationId: string,
     options?: WebchatRequestOptions
   ): Promise<WebchatNotificationReadReceipt>;
+}
+
+// ---------------------------------------------------------------------------------------------
+// 定时任务中心与 Draft 确认卡片（scheduled-task-v2 frontend design §3.4、§3.9；TASK-026）
+//
+// 字段名与 `muad_contracts.scheduling`/`webchat` 的服务端 wire 形状逐一对应，保持 snake_case；
+// 时间一律是 ISO-8601 字符串，由 `DateTimeText` 转本地展示，前端不做时区推断。
+// ---------------------------------------------------------------------------------------------
+
+export type ScheduleMode = 'REMINDER' | 'SKILL' | 'AGENTIC';
+export type ScheduleStatus = 'ACTIVE' | 'PAUSED' | 'NEEDS_ATTENTION' | 'ENDED' | 'CANCELLED';
+export type CancelScope = 'FUTURE_ONLY' | 'ALL_ACTIVE';
+export type ScheduleDraftKind = 'CREATE' | 'UPDATE';
+export type DeliveryIntent = 'PUSH' | 'NONE';
+export type FireStatus =
+  | 'CREATED'
+  | 'EXECUTION_CREATED'
+  | 'SKIPPED'
+  | 'FAILED_ADMISSION'
+  | 'CANCELLED';
+export type ScheduleExecutionStatus =
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'WAITING_EXTERNAL'
+  | 'WAITING_HUMAN'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED';
+export type ScheduleWaitKind = 'ASYNC_OPERATION' | 'EXTERNAL_POLL' | 'BATCH_FANIN';
+
+/** UPDATE 预览的一项前后差异（`field` 是载荷里的顶层键，值原样取自 Revision 与 Draft）。 */
+export interface ScheduleDiffEntry {
+  field: string;
+  before: unknown;
+  after: unknown;
+}
+
+/** 确认卡片事实：做什么、何时（含 IANA 时区）、结果去哪看、依赖（AGENTIC 即工具 allowlist）、预算。 */
+export interface SchedulePreview {
+  mode: ScheduleMode;
+  what: string;
+  when: string;
+  first_fire_at: string;
+  delivery: DeliveryIntent;
+  dependencies: string[];
+  budget: Record<string, unknown>;
+  /** 只有 UPDATE Draft 才有：CREATE 没有「之前」，空列表就是没有旧配置可比。 */
+  diff: ScheduleDiffEntry[];
+}
+
+/**
+ * `schedule.draft.ready` 的卡片公开 DTO。
+ *
+ * 它**不是** Run 的 `confirmation.required`：后者绑定同一次 Run 的 interrupt + resume，
+ * 确认的是「这个 Run 是否继续」；这张卡片确认的是「这条配置是否生效」，按钮调 surface 的
+ * Draft 确认端点（API-31 → API-27），与 Run 生命周期无关。
+ */
+export interface WebchatScheduleDraftReady {
+  draft_id: string;
+  draft_hash: string;
+  kind: ScheduleDraftKind;
+  mode: ScheduleMode;
+  preview: SchedulePreview;
+  expires_at: string;
+}
+
+/** API-27 / API-31 确认请求：`name` 只在 CREATE 时生效，缺省由服务端从 instruction 派生。 */
+export interface ScheduleDraftConfirmInput {
+  draft_hash: string;
+  name?: string;
+}
+
+/** API-27 确认回执：确认即生效后的真实 Schedule 事实。 */
+export interface ScheduleDraftConfirmReceipt {
+  schedule_id: string;
+  status: ScheduleStatus;
+  revision_no: number;
+  config_version: number;
+  next_fire_at: string | null;
+}
+
+export interface ScheduleLastFire {
+  scheduled_at: string;
+  status: FireStatus;
+  execution_status: ScheduleExecutionStatus | null;
+  missed_count: number;
+  dst_resolution: string | null;
+}
+
+export interface ScheduleListItem {
+  schedule_id: string;
+  agent_id: string;
+  name: string;
+  mode: ScheduleMode;
+  status: ScheduleStatus;
+  timezone: string;
+  config_version: number;
+  next_fire_at: string | null;
+  last_fire: ScheduleLastFire | null;
+  needs_attention: boolean;
+  pending_human: boolean;
+}
+
+export interface ScheduleListPage extends WebchatPage<ScheduleListItem> {}
+
+/** `ENDED` 的结束原因：次级事实，展示为标签，不当作失败。 */
+export type ScheduleEndReason =
+  | 'COMPLETED'
+  | 'MISSED'
+  | 'EXHAUSTED'
+  | 'ADMISSION_FAILED'
+  | 'USER_CANCELLED';
+
+/**
+ * 详情 = 列表行 + Revision 事实。`instruction`/`normalized_goal`/`context` 是服务端返回的
+ * 内部配置（Prompt 与参数），页面不得展示；页面只用公开摘要、依赖与策略字段。
+ */
+export interface ScheduleDetail extends ScheduleListItem {
+  revision_no: number;
+  instruction: string;
+  normalized_goal: string;
+  context: Record<string, unknown>;
+  dependencies: string[];
+  delivery_intent: DeliveryIntent;
+  policy: Record<string, unknown>;
+  budget: Record<string, unknown> | null;
+  memory_mode: 'READ_ONLY' | null;
+  end_reason: ScheduleEndReason | null;
+  attention_reason: string | null;
+}
+
+export interface HumanPendingItem {
+  kind: 'HUMAN';
+  interaction_id: string;
+  schedule_id: string;
+  execution_id: string;
+  schedule_name: string;
+  question: string;
+  deadline_at: string;
+  input_schema: Record<string, unknown> | null;
+}
+
+export interface AttentionPendingItem {
+  kind: 'NEEDS_ATTENTION';
+  schedule_id: string;
+  schedule_name: string;
+  reason: string;
+  action: string;
+}
+
+export type PendingItem = HumanPendingItem | AttentionPendingItem;
+
+export interface PendingPage extends WebchatPage<PendingItem> {}
+
+export interface TaskCenterBadges {
+  pending_human: number;
+  needs_attention: number;
+}
+
+export interface FireItem {
+  fire_id: string;
+  scheduled_at: string;
+  status: FireStatus;
+  skip_reason: string | null;
+  missed_count: number;
+  dst_resolution: string | null;
+  admission_error_code: string | null;
+  execution_id: string | null;
+  execution_status: ScheduleExecutionStatus | null;
+}
+
+export interface DstEvent {
+  event_id: string;
+  event_type: 'DST_GAP_SKIPPED' | 'DST_FOLD_SECOND_SKIPPED';
+  local_date: string;
+  local_time: string;
+  timezone: string;
+  occurred_at: string;
+}
+
+/** 历史保留口径：空页不等于没发生过——早于 `cleaned_before` 的 Fire 可能已按策略回收。 */
+export interface HistoryRetention {
+  fire_history_days: number;
+  execution_history_days: number;
+  cleaned_before: string;
+  oldest_retained_at: string | null;
+}
+
+export interface FireHistoryPage extends WebchatPage<FireItem> {
+  dst_events: DstEvent[];
+  retention: HistoryRetention | null;
+}
+
+export interface TaskArtifact {
+  artifact_id: string;
+  name: string;
+  media_type: string;
+  size: number;
+  checksum: string;
+  version: string;
+}
+
+export interface ScheduleExecutionDetail {
+  execution_id: string;
+  status: ScheduleExecutionStatus;
+  wait_kind: ScheduleWaitKind | null;
+  wait_payload: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  result_artifacts: TaskArtifact[];
+  error_code: string | null;
+  error_message: string | null;
+  failure_class: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  /** 冻结 Snapshot 的摘要事实（schema 版本与字节数）；明细不对外。 */
+  snapshot_schema_version: number;
+  snapshot_bytes: number;
+}
+
+/** API-18 回答回执：服务端按 `input_schema` 二次校验后的真实状态。 */
+export interface HumanRespondReceipt {
+  interaction_id: string;
+  status: string;
+  execution_id: string;
+  execution_status: string;
+}
+
+/** 任务中心列表查询；默认值与上限由服务端枚举，前端不复制默认常量。 */
+export interface TaskCenterScheduleQuery extends WebchatPageQuery {
+  agent_id?: string;
+  status?: ScheduleStatus;
+  mode?: ScheduleMode;
+}
+
+/** 待处理查询：`kind` 缺省时 HUMAN 与 NEEDS_ATTENTION 混排。 */
+export interface TaskCenterPendingQuery extends WebchatPageQuery {
+  agent_id?: string;
+  kind?: 'HUMAN' | 'NEEDS_ATTENTION';
+}
+
+export interface TaskCenterAgentQuery {
+  agent_id?: string;
+}
+
+/** 任务动作请求（API-19）；只有 cancel 有范围。 */
+export interface ScheduleActionInput {
+  action: 'pause' | 'resume' | 'cancel';
+  scope?: CancelScope;
+}
+
+/**
+ * 任务中心 typed 客户端（design §3.9）：模块 service 的唯一 HTTP 出口面。
+ *
+ * 只经共享 `src/api/client` 发请求：语言/追踪/CSRF/CHAT 上下文由拦截器注入，service 不拼头、
+ * 不读 Cookie；写操作必须由调用方持有 `Idempotency-Key`（重试沿用同一个键）。
+ */
+export interface TaskCenterClient {
+  listSchedules(
+    query?: TaskCenterScheduleQuery,
+    options?: WebchatRequestOptions
+  ): Promise<ScheduleListPage>;
+  getSchedule(
+    scheduleId: string,
+    query?: TaskCenterAgentQuery,
+    options?: WebchatRequestOptions
+  ): Promise<ScheduleDetail>;
+  listFires(
+    scheduleId: string,
+    query?: WebchatPageQuery,
+    options?: WebchatRequestOptions
+  ): Promise<FireHistoryPage>;
+  getExecution(
+    executionId: string,
+    options?: WebchatRequestOptions
+  ): Promise<ScheduleExecutionDetail>;
+  listPending(
+    query?: TaskCenterPendingQuery,
+    options?: WebchatRequestOptions
+  ): Promise<PendingPage>;
+  getBadges(
+    query?: TaskCenterAgentQuery,
+    options?: WebchatRequestOptions
+  ): Promise<TaskCenterBadges>;
+  respondHuman(
+    interactionId: string,
+    response: Record<string, unknown>,
+    options: WebchatWriteOptions
+  ): Promise<HumanRespondReceipt>;
+  scheduleAction(
+    scheduleId: string,
+    input: ScheduleActionInput,
+    options: WebchatWriteOptions
+  ): Promise<ScheduleDetail>;
+  downloadArtifact(
+    artifactId: string,
+    version: string,
+    checksum: string,
+    options?: WebchatRequestOptions
+  ): Promise<Blob>;
+  /** API-31：surface 侧的用户确认（带可信 actor 与确认来源），不走 Run resume。 */
+  confirmDraft(
+    draftId: string,
+    input: ScheduleDraftConfirmInput,
+    options: WebchatWriteOptions
+  ): Promise<ScheduleDraftConfirmReceipt>;
 }

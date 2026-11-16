@@ -1,5 +1,8 @@
 ---
-{"description": "Console 视觉与列表", "next_rule": 1}
+{
+  "description": "Console 视觉与列表",
+  "next_rule": 2
+}
 ---
 
 # harness-ui
@@ -7,6 +10,8 @@
 ## Rules
 
 - [RULE-ui-001] Console 使用 React + TypeScript + Semi Design；列表页采用“左上操作 + 右上搜索筛选 + 列表 + 右下分页”，不重复页签标题/说明块；主展示字段即详情入口；菜单固定十二项：概览/Agent/Skill/MCP/模型/用户/项目平台/后台任务/定时任务/运行审计/学习与经验/系统设置。
+
+- [RULE-001] 列表时间范围筛选只有一个实现：所有 Console 列表页复用 `components/common/DateRangeFilter.tsx`，页面与模块不得再声明 `DatePicker type="dateRange"`、日期范围输入框或第二套日期范围组件；共享组件的样式、回显与交互调整即全局调整。筛选顺序固定为「其他筛选 → 时间筛选 → 重置/刷新」，时间筛选排在其它筛选之后。机检：`tests/frontend/test_date_range_filter_contract.py`。
 
 ## Conventions
 
@@ -98,6 +103,24 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
   ```
 
   机检：`tests/frontend/test_agent_module_contract.py`、`test_mcp_module_contract.py`、`test_skill_module_contract.py`、`test_platform_page_contract.py::test_page_applies_keyword_on_enter` 断言列表页含 `keywordInput` + `onEnterPress`；`test_audit_gap_contract.py` 断言审计关键字控件绑定草稿并在回车时上抛。`components/common/ListActionButton.tsx` 的 `Action` 类型**不含** `'search'`（放回搜索按钮会直接 typecheck 失败）。
+- **列表时间范围筛选统一复用 `DateRangeFilter`，并排在其它筛选之后**：平台只有一个时间范围筛选控件 `components/common/DateRangeFilter.tsx`；页面与模块不得再声明 `DatePicker type="dateRange"`、日期输入框或第二套日期范围组件，样式、回显与交互优化只改共享组件。筛选顺序固定为「关键字与下拉筛选 → 时间筛选 → 重置/刷新」，新增列表页沿用同一顺序。
+
+  ✅：后台任务与运行审计都引用共享组件，时间筛选位于其它筛选之后、重置/刷新之前。
+
+  ```tsx
+  <Select ... />
+  <DateRangeFilter testId="audit-filter-time" label={t('audit.filter.time')} value={timeRange} onChange={...} />
+  <ListActionButton action="reset" ... />
+  ```
+
+  ❌：页面自带 `DatePicker type="dateRange"`（第二套实现），或把时间筛选排在关键字/下拉之前。
+
+  ```tsx
+  <DatePicker type="dateRange" ... />
+  <DateRangeFilter ... />   {/* 排在其它筛选之前 */}
+  ```
+
+  机检：`tests/frontend/test_date_range_filter_contract.py` 断言共享组件是唯一实现，且后台任务/运行审计的时间控件排在其它筛选之后。
 - **列表主展示字段即详情入口，复用公共 `EntityLink`**（`components/common/EntityLink.tsx`，`Button theme="borderless"` + `data-testid`），包括 Agent 名称列；不要复制手写同形态按钮。
 - **主列表列宽随可用空间分配**：Agent、Skill、MCP、模型、用户、项目平台、后台任务、定时任务、运行审计统一使用 `.app-table-fit`；短 ID、时间和操作列紧凑定宽，其他字段按内容设置最小宽度并分配剩余空间，`scroll.x: '100%'` 与固定表格布局保证桌面铺满。Agent 以 980px 为基准，通过 `RemoteTable.columnGrowth` 与 `DataTable` 已有的容器尺寸观察，按实际可用宽度分配像素列宽；名称/标识/模型共同分配新增空间的 52%，六个计数/状态/版本字段分配其余 48%，避免前面三列独占空白；其他列表的长字段使用 `width: 'auto'`。长文本单行省略，React 渲染的文本复用 `TableText` 或 `CopyableText` 提供全文 `title`；独立时间列、状态标签、复制图标和操作按钮必须完整可见。默认最小表宽 960px，Agent 为 980px；MCP/项目平台为 1280px，后台任务/定时任务为 1440px，空间不足时保留横向滚动与固定操作列。
 
@@ -114,3 +137,7 @@ body[theme-mode='dark'] { --semi-color-primary: #4d8dff; }
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-16/console-list-time-filter/console-list-time-filter.md#TASK-001#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"985d1eb8941cda481eb94602c7556043367481aeb071b755f98edb488c60c8e0","at":"2026-11-16T07:24:44.084Z"}

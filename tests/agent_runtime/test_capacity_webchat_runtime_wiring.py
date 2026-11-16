@@ -84,7 +84,7 @@ from muad_api import AppError
 from muad_artifact_store import NfsArtifactStore
 from muad_common import SharedSettings
 from muad_contracts.enums import RunStatus
-from muad_contracts.platform_settings import PlatformSettingsError
+from muad_contracts.platform_settings import PlatformSettingsError, ScheduleSettings
 
 from agent_runtime.conftest import TenantContext
 
@@ -844,8 +844,15 @@ async def test_b09_startup_and_platform_budgets_have_one_source_and_unused_pools
                 "history_retention_days": HISTORY_RETENTION_DAYS,
             }
         }
-    ) == RetentionPolicy(STREAM_REPLAY_RETENTION_HOURS, 3, HISTORY_RETENTION_DAYS)
-    assert retention_policy_from_settings(None) == RetentionPolicy(24, 30, 0), (
+    ) == RetentionPolicy(
+        STREAM_REPLAY_RETENTION_HOURS,
+        3,
+        HISTORY_RETENTION_DAYS,
+        ScheduleSettings().max_execution_history_days,
+    )
+    assert retention_policy_from_settings(None) == RetentionPolicy(
+        24, 30, 0, ScheduleSettings().max_execution_history_days
+    ), (
         "缺分组回落的是 contracts schema 默认（唯一来源）"
     )
     for bad in (

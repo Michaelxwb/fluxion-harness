@@ -5,7 +5,7 @@
 显式的测试注入点，生产调用一律不传 ⇒ 默认走 PG 时钟。
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -127,7 +127,7 @@ async def _write_checkpoint(
     saved.input_tokens, saved.output_tokens = progress.input_tokens, progress.output_tokens
     saved.consumed_event_seq, saved.update_time = progress.consumed_event_seq, now
     saved.runner_state_json = JSON_OBJECT.validate_python(
-        {"schema_version": 1, "phase": "BEFORE_MODEL", **asdict(progress)}
+        {"schema_version": 1, "phase": "BEFORE_MODEL", **progress.as_state()}
     )
     await session.flush()
     await _complete_consumed(session, run, progress.consumed_event_seq, now)

@@ -27,7 +27,12 @@ class RuntimeOperation(StandardColumnsMixin, Base):
 
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     operation_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
-    source_run_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
+    #: RUN owner：交互式 Run 提交；与 `task_execution_id` 二选一。
+    source_run_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid())
+    #: TASK owner：定时任务提交的异步操作（§3.1.5 的 owner 联合）。
+    task_execution_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.ForeignKey("task.task_execution.id", name="fk_runtime_operation_task_execution")
+    )
     source_tool_call_id: Mapped[str] = mapped_column(sa.String(256), nullable=False)
     actor_user_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     task_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("task.task_execution.id"))
@@ -41,9 +46,7 @@ class RuntimeOperation(StandardColumnsMixin, Base):
 class RuntimeResultOutbox(StandardColumnsMixin, Base):
     __tablename__ = "runtime_result_outbox"
     __table_args__ = (
-        sa.ForeignKeyConstraint(
-            ["task_id", "task_event_seq"], ["task.task_event.task_id", "task.task_event.seq"]
-        ),
+        #: 终态事件先落 `task_event`，outbox 用单列 event id 关联（不再用 (task_id,seq) 复合 FK）。
         sa.Index(
             "uq_runtime_result_outbox_event",
             "tenant_id",
@@ -53,8 +56,7 @@ class RuntimeResultOutbox(StandardColumnsMixin, Base):
         ),
         sa.Index(
             "uq_runtime_result_outbox_terminal",
-            "task_id",
-            "task_event_seq",
+            "task_event_id",
             unique=True,
             postgresql_where=sa.text("is_deleted = false"),
         ),
@@ -70,14 +72,17 @@ class RuntimeResultOutbox(StandardColumnsMixin, Base):
             "lease_until",
             postgresql_where=sa.text("status = 'PENDING' AND lease_until IS NOT NULL AND is_deleted = false"),
         ),
-        sa.CheckConstraint("attempts >= 0 AND task_event_seq > 0", name="counters"),
+        sa.CheckConstraint("attempts >= 0", name="counters"),
         {"schema": "task"},
     )
 
     tenant_id: Mapped[str] = mapped_column(sa.String(64), nullable=False)
     event_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     task_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("task.task_execution.id"), nullable=False)
-    task_event_seq: Mapped[int] = mapped_column(sa.BigInteger(), nullable=False)
+    #: 终态事件；outbox 的送达目标就是这一条事件。
+    task_event_id: Mapped[uuid.UUID] = mapped_column(
+        sa.Uuid(), sa.ForeignKey("task.task_event.id"), nullable=False
+    )
     operation_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid(), nullable=False)
     task_snapshot_hash: Mapped[str] = mapped_column(sa.String(128), nullable=False)
     payload_json: Mapped[dict[str, JsonValue]] = mapped_column(JSONB, nullable=False)

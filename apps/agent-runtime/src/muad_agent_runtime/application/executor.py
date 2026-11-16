@@ -21,7 +21,7 @@ from muad_agent_core.agent import (
     AgentRunRequest,
     RunnerCancelled,
 )
-from muad_agent_core.agent.continuation import RunnerCheckpoint, RuntimeEventPort
+from muad_agent_core.agent.continuation import ExecutionEventPort, RunnerCheckpoint
 from muad_agent_core.agent.runner import AgentRunResult, AgentRunStatus
 from muad_agent_core.hooks import HookPipeline
 from muad_agent_core.model import (
@@ -214,6 +214,11 @@ class ExecutorRunContext:
     conversation_id: uuid.UUID
     user_id: uuid.UUID
     delivery_route: DeliveryRouteInput | None = None
+    #: 入口 surface 原值（`ChannelContext.type`）：Draft 的投递能力由 Worker 按共享词表判定，
+    #: Runtime 只透传，不在这里点名任何渠道。
+    entry_channel: str | None = None
+    #: 入口账号逻辑 UUID（`ChannelContext.entry_id`）：只写进 Draft 的 `source` 审计。
+    entry_id: uuid.UUID | None = None
     submission_id: uuid.UUID | None = None
     memory_resume_ref: MemoryResumeRef | None = None
 
@@ -292,7 +297,7 @@ class ExecutorRequest:
     #: 本次 Run **冻结**的执行期平台默认（来自 `policy_json`）；None = schema 默认。
     execution: ExecutionDefaults | None = None
     checkpoint: RunnerCheckpoint | None = None
-    runtime_events: RuntimeEventPort | None = None
+    runtime_events: ExecutionEventPort | None = None
     deadline_at: datetime | None = None
     event_batch_size: int = 16
     #: 冻结的 Run 内并行上限（`policy_json.async_tools.parallel_limit`，QUALITY-03 默认 4）。
@@ -1914,7 +1919,10 @@ def _task_submission_context(request: ExecutorRequest) -> TaskSubmissionContext 
         skills=tuple(request.skills),
         mcp_servers=tuple(request.mcp_servers),
         source_run_id=context.run_id,
+        conversation_id=context.conversation_id,
         delivery_route=context.delivery_route,
+        entry_channel=context.entry_channel,
+        entry_id=context.entry_id,
         trace_id=current_trace_id(),
         locale=current_locale(),
         execution_timeout_sec=execution_defaults_for(request).task_execution_timeout_sec,
@@ -2055,9 +2063,13 @@ def _register_other_tools(
 ) -> None:
     task_context = _task_submission_context(request)
     if task_client is not None and task_context is not None:
-        BackgroundTaskToolSet(client=task_client, context=task_context, skills=request.skills).register(
-            registry
-        )
+        BackgroundTaskToolSet(
+            client=task_client,
+            context=task_context,
+            skills=request.skills,
+            # Draft 确认卡片是同回合写进会话的 canonical 事件（不是 SSE 临时拼的）。
+            session_factory=get_session_factory,
+        ).register(registry)
     TimeToolSet(zone=resolve_zone(execution_defaults_for(request).timezone)).register(registry)
     if mcp_adapter is not None and request.mcp_servers and request.run_context is not None:
         mcp_adapter.register_catalog(

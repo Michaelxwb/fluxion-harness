@@ -17,8 +17,9 @@ from pydantic import (
 
 from .attachments import SUPPORTED_UPLOAD_FORMATS, AttachmentFormat
 from .channel import MAX_PAGE_SIZE, AttachmentKind
-from .enums import RunStatus
+from .enums import DraftKind, RunStatus, ScheduleMode
 from .platform_settings import WebchatSettings, parse_platform_settings
+from .scheduling import SchedulePreview
 from .tasks import ContractModel
 
 
@@ -249,6 +250,23 @@ class WebchatAttachment(WebchatFileMetadata):
     available: StrictBool
 
 
+class WebchatScheduleDraftReady(WebchatContract):
+    """定时任务 Draft 的确认卡片事实（design §3.2.8 / §3.5.10）。
+
+    它**不是** Run 的 `confirmation.required`：后者绑定同一次 Run 的 interrupt + resume，
+    确认的是「这个 Run 是否继续」；这里是一个跨 Run 存在的待确认配置，确认走 surface 的
+    确认端点（API-31 → API-27），与 Run 生命周期无关。两者共用一个词表会让客户端调错端点。
+    载荷只含卡片要展示的事实：身份/hash/模式/脱敏预览/过期时刻，没有 Secret 位置。
+    """
+
+    draft_id: UUID
+    draft_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    kind: DraftKind
+    mode: ScheduleMode
+    preview: SchedulePreview
+    expires_at: AwareDatetime
+
+
 class WebchatHistoryMessage(WebchatContract):
     event_id: UUID
     seq: ChatPositiveCount
@@ -256,6 +274,12 @@ class WebchatHistoryMessage(WebchatContract):
     role: Literal["USER", "ASSISTANT"]
     text: StrictStr
     attachments: list[WebchatAttachment] = Field(default_factory=list)
+    #: 定时任务卡片：Draft 事件不是普通消息，但它必须能以同一条持久事实回到历史里
+    #: （刷新后仍可确认），因此挂在助手条目上而不是另造一种历史条目。只有卡片条目带这个键，
+    #: 普通消息的线格式不因此多一个 `draft: null`。
+    draft: WebchatScheduleDraftReady | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     #: canonical 事件落库时间（消息发送/接收的权威时刻，页面只展示不推算）。
     created_at: AwareDatetime
 

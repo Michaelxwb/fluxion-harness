@@ -1,12 +1,21 @@
 ---
-{"description": "任务、调度与投递", "next_rule": 1}
+{
+  "description": "任务、调度与投递",
+  "next_rule": 4
+}
 ---
 
 # harness-worker
 
 ## Rules
 
-- [RULE-worker-001] PostgreSQL 是 Task/Schedule/lease 的唯一权威源；Redis 仅作 wake-up/cancel hint；`task_type` 仅 `SKILL/BATCH`（外部等待用 WAITING 表达）；claim 使用 `FOR UPDATE SKIP LOCKED`，进入 WAITING 释放 lease，deadline 到期由 Scheduler sweep 置 `FAILED(TASK_DEADLINE_EXCEEDED)`。**deadline 是领取与收尾两侧的硬条件**：claim 排除 `deadline_at <= now` 的行（过期任务绝不执行），执行跨过 deadline 也不得写 `COMPLETED`，同样以 `FAILED(TASK_DEADLINE_EXCEEDED)` 收尾（`worker/claimer.py` 的 `_claimable_conditions`、`worker/service.py` 的终态守卫）。
+- [RULE-worker-001] PostgreSQL 是 Schedule、Fire、Task Execution 与 lease 的唯一权威，Redis 仅作独立 wake-up/cancel hint。任务执行类型与等待状态由共享 contracts 持有，Reminder、Skill、Agentic 与内部 Batch 使用同一执行权模型；等待释放执行 lease，恢复同一 Execution 不消耗业务重试。Scheduler 在锁外准入、锁内复检，原子写唯一 occurrence Fire、冻结 Execution 与调度进度，Fire 不持有第二套 claim/lease。Worker 使用数据库 claim 与 owner/epoch/有效 lease CAS，按 Schedule 策略原子控制根执行并发及顺序；全局遵守 operation→Schedule→Fire→任务树→事件/发件锁序。claim 与收尾均执行绝对 deadline，过期任务不得执行或提交成功；取消、回收、等待续接及终态共享原子状态/事件边界。
+
+- [RULE-001] 异步工具调用以租户、owner 与真实工具调用身份唯一，输入指纹用于同身份冲突判断，不能参与唯一身份以放行变参重试。提交与结果必须可持久重放；等待前检查结果就绪，按每个调用保存独立 receipt 与消费水位，结果乱序或重复不得丢失或重复消费。持久收件箱与数据库补扫保证恢复正确性，独立唤醒 hint 仅降低延迟；终态收到迟到结果只留审计，不得恢复执行。
+
+- [RULE-002] 人工交互是 Execution 所属的持久待处理状态；问题、检查点、进入等待与释放执行权必须原子提交，问题有效期不得超出执行 deadline。回答须同时核对交互 OPEN、执行确在等待、取消标记与有效期，再原子保存回答并排队续接；相同回答幂等，变化冲突。仅停止未来调度时保留已开始执行与 OPEN 问题，终止全部或超时时才原子关闭；任何回答或迟到结果都不得复活终态。
+
+- [RULE-003] 投递意图与业务执行状态分离：PUSH 的最终结果及人工问题先持久化独立投递记录，再以稳定业务键、持久尝试和有效发送租约驱动；只有接收方明确证明送达才能确认成功，失败不得改写业务执行终态。NONE 的定时结果与问题只由任务中心读取，禁止产生投递、会话消息或通知未读。投递采用创建时的明确目标，路由失效不得猜测其他会话，跨租户扫描和崩溃恢复必须有界且可前进。
 
 ## Conventions
 
@@ -15,12 +24,13 @@
 - **Parent-Child 批量幂等**：Parent 在**单事务**内创建 Child（带 `root_id`/`parent_id`/`item_key`），Child 幂等键为 `parent:{parent_id}:{item_key}`；partial unique `(parent_id, item_key) WHERE parent_id IS NOT NULL AND is_deleted = false` 保证同一 Child 只创建一次。reclaim 后已有 Child 只等待 fan-in，**不重复 fan-out**。（`application/batch_fanout.py`、`batch_fanin.py`）**`item_key` 只由严格 JSON 派生**（`muad_contracts.canonical`，2026-10-07）：显式 `item_key` 优先，否则规范化 JSON 的 sha256 前缀。❌ 用 `default=str` 兜底——`date(2026,1,1)` 与 `"2026-01-01"` 会撞成同一个键，partial unique 把第二条 Child **静默合并掉**（少跑一条且不报错）；键算不出来一律 `BATCH_PLAN_INVALID`（确定性失败）。
 - **来源 operation 与父子事务使用同一锁序**：`application/terminal_tasks.py::lock_task_tree` 先锁可信 `runtime_operation`，再锁 root/Parent，最后更新 Child；无 operation 的既有任务沿用 Parent→Child。取消、终态、fan-in、deadline 和 reclaim 均遵守；扫描有界，每个根任务树独立提交，不跨无关 operation 保留行锁。✅ operation→root→Parent→Child→TaskEvent/outbox；❌ 先 UPDATE Child，或拿 root 锁后反向拿 operation 锁。
 - **扇出前必须证明「本次执行仍持有父任务」**：父行锁内四格一起看——`status=RUNNING`、`cancel_requested=false`、`lease_until > now`、`lease_owner` 与本执行一致；已取消/已失约的父任务**不得**建出可执行的 Child（`application/batch_fanout.py` 的 `_require_live_owner`）。✅ `_require_live_owner(locked, claimed, moment)`；❌ 只按 `id` 加锁就插 Child。
-- **fan-in 接受父任务的全部非终态（含 `QUEUED`）**：`reclaim` 会把崩溃的父任务置回 `QUEUED`，此时最后一个 Child 终态若不肯聚合，父任务再没有下一个事件可触发 fan-in，只能停到 deadline；已请求取消的父任务除外（那要由它自己的取消路径收尾成 `CANCELLED`，不能被扇入改写成成功/失败）（`application/batch_fanin.py`）。
+- **fan-in 只对 BATCH 父执行生效**：`reclaim` 会把崩溃的父任务置回 `QUEUED`，此时最后一个 Child 终态若不肯聚合，父任务再没有下一个事件可触发 fan-in，只能停到 deadline；已请求取消的父任务除外（那要由它自己的取消路径收尾成 `CANCELLED`，不能被扇入改写成成功/失败）（`application/batch_fanin.py`）。Agentic 的 ASYNC Skill 子 Task 不是 BATCH 子任务，父 Execution 必须继续等待 operation 结果，不能被聚合为终态。
+- **JOIN 根终态只经一个原子边界发布**：`application/terminal_tasks.py::write_terminal` 在调用方事务中完成状态/租约 CAS、TaskEvent 和 `runtime_result_outbox`；先 flush 事件满足复合 FK，再写发件，仍由同一事务提交/回滚。成功、失败、取消、deadline、崩溃耗尽及 BATCH fan-in 共用；BATCH Child 不发根结果，Task-owned ASYNC Skill 子 Task 终态经 `runtime_result_outbox` 发 `TaskToolOperationOwner` 到父 Execution 的操作收件箱（不是根结果）；DETACH 保留现有 final delivery。event_id 由 tenant/task/终态 seq 稳定派生。✅ 三者同事务，回滚三者都不存在；❌ 提交终态后再另起事务补结果发件。
+- **Task-owned ASYNC Skill 子 Task 是持久执行载体**：提交 operation 后创建真实 Skill 子 Task（`parent_id=Agentic Execution`、`source_operation_id=operation_id`、`completion_mode=JOIN`、稳定幂等键），由正常 claim/lease 执行；子 Task 终态经 `runtime_result_outbox` 回写 Task owner 操作收件箱；父 Execution 保持 `WAITING_EXTERNAL`，由补扫续接。✅ 崩溃后子 Task 可重领、operation 不重复创建；❌ 只写 operation 不执行、直接跨 schema 写 `runtime.*`、或把父 Execution 当 BATCH 聚合。
 - **取消的状态判断与写入必须在同一 Task 行锁内**：`TaskService.cancel` 按上述锁序取锁后 refresh；`QUEUED/WAITING` 通过共享终态函数写 CANCELLED、取消标记、事件与结果发件，`RUNNING` 保留状态并持久化 cancel_requested，由 Worker 协作停止。✅ 锁内复检再写取消意图，claim 赢了也留下 RUNNING/true；❌ 无锁读 QUEUED 后挑 CAS 分支，claim 抢跑导致两条 CAS 都不匹配并丢掉取消。
-- **JOIN 根终态只经一个原子边界发布**：`application/terminal_tasks.py::write_terminal` 在调用方事务中完成状态/租约 CAS、TaskEvent 和 `runtime_result_outbox`；先 flush 事件满足复合 FK，再写发件，仍由同一事务提交/回滚。成功、失败、取消、deadline、崩溃耗尽及 BATCH fan-in 共用；Child 不发根结果，DETACH 保留现有 final delivery。event_id 由 tenant/task/终态 seq 稳定派生。✅ 三者同事务，回滚三者都不存在；❌ 提交终态后再另起事务补结果发件。
 - **结果确认必须有 durable 证据**：`results/dispatcher.py` 发送前在 PG 预留 attempts/lease 并提交，网络在事务外；只有同 event_id 且 persisted=true 才写 SENT，旧租约不能确认。超时/5xx/非法回执退避，确定性 4xx 或耗尽保留 FAILED 并告警；有界前进游标保证其他租户能被扫描。启动参数从 SharedSettings 注入（默认 timeout=5、lease=30、poll=1、batch=32、base=1、cap=30、attempts=20）。✅ durable duplicate 同样确认；❌ 仅凭 HTTP 2xx 或 Redis hint 清掉发件。
 - **取消可以先于 Task 到达**：可信来源在同 operation 行锁内写 cancellation tombstone，submission_hash 可为空；后续提交复核 tenant/run/call/actor 和指纹，已取消则 TASK_OPERATION_CANCELLED，不建 Task。FAILED 结果发件通过内部 admin retry 入口恢复，保持原 event_id/payload，并在 TaskEvent 留下操作者与原因。✅ 同来源取消重放、保留原结果重投；❌ 跳过 tombstone 创建 Task，或为修复投递重建业务任务。
-- **Final Delivery 去重与模式**：delivery key 固定为 `task:{task_id}:final`（Child 为 `:{child_id}:final`），以 `delivery_key` 去重；`delivery_mode` 仅 `FINAL_ONLY` / `NONE`。**可投递状态只有 `PENDING`**，`FAILED` 是终态（4xx / 路由缺失 / 次数耗尽）：可重试失败写回 `PENDING`，否则「还在退避中」和「已经没救了」在库里长得一样，耗尽的租户会永远占着跨租户扫描名额（`delivery/service.py` 的 `_query_pending_tenants` 与可重试失败分支）。**HTTP 2xx 不等于送达**：只有封套里**明确** `data.delivered == true` 才置 `SENT`，解析不了按可重试失败退避重投（`delivery/client.py` 的 ack 解析）。✅ `{"accepted": true, "delivered": true}` ⇒ SENT；❌ 非法 JSON / 缺 `delivered` 字段也当成功（结果再也不会重投，用户就是收不到）。
+- **Final Delivery 与 Human 问题共表、按 kind/稳定键去重**：`task_delivery` 是投递唯一状态源，`delivery_kind` 仅 `PUSH` / `HUMAN_QUESTION`；最终结果键为 `execution:{execution_id}:final`，Human 问题键为 `human:{interaction_id}`，同一键重放不新增。**可投递状态只有 `PENDING`**，`FAILED` 是终态（4xx / 路由缺失 / 次数耗尽）：可重试失败写回 `PENDING`，否则「还在退避中」和「已经没救了」在库里长得一样，耗尽的租户会永远占着跨租户扫描名额（`delivery/service.py` 的 `_query_pending_tenants` 与可重试失败分支）。**HTTP 2xx 不等于送达**：只有封套里**明确** `data.delivered == true` 才置 `SENT`，解析不了按可重试失败退避重投（`delivery/client.py` 的 ack 解析）。✅ `{"accepted": true, "delivered": true}` ⇒ SENT；❌ 非法 JSON / 缺 `delivered` 字段也当成功（结果再也不会重投，用户就是收不到）。
 - **投递队列跨租户，必须公平且互不连坐**：按 `(最早待投递记录的 create_time, tenant_id)` 的**前进游标**逐租户取快照（`delivery/service.py` 的 `_query_pending_tenants`），单租户取快照失败只跳过它自己；预留（发送前自增 `delivery_attempts` 并提交）超过 `DELIVERY_RESERVATION_LEASE_SEC` 仍未回执的，按「那次尝试随进程没了」结算成 `FAILED`，不留永远无法再被领取的 `PENDING`（`delivery/service.py` 的预留结算路径）。✅ 固定前缀之外的租户每轮都会被看到；❌ 取「最早的前 N 个」且失败即抛——前 N 个选不出候选或读不到设置时，后面的租户永远轮不到。
 - **回收同样受重试预算与退避约束**：`attempt >= max_attempts` 的崩溃任务终态 `FAILED(TASK_ATTEMPTS_EXHAUSTED)`，其余置回 `QUEUED` 并退避 `RETRY_BACKOFF_BASE_SEC * 2**(attempt-1)`（`worker/service.py` 的 reclaim 与退避路径）。
 - **指标归属见 `harness-arch.md`**：回收指标归 Runtime，Worker 对应指标见各自 catalog；带 label 的计数器只进 `/metrics`，不写结构化 metric 日志。
@@ -34,3 +44,13 @@
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-007#DELTA-001","op":"add","rule":"RULE-001","payload_sha256":"50c8f5cd4fb9ebaa495fc0e4e9447c3bfb9a0f604cc82d1e083026ea99d1e117","at":"2026-11-16T05:09:15.751Z"}
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-019#DELTA-001","op":"update","rule":"RULE-worker-001","payload_sha256":"574a4f4af9aa84a23f9c261e9611835466ed2fea6c4cd9ad30de19351bc87cc3","at":"2026-11-16T05:09:15.751Z"}
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-021#DELTA-001","op":"add","rule":"RULE-002","payload_sha256":"1973d218b1f6dae1aca038d4aba9d809cef8c8a475dabd19bb4d7a8634e51cff","at":"2026-11-16T05:09:15.751Z"}
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-022#DELTA-001","op":"add","rule":"RULE-003","payload_sha256":"479c01d3baf5396ab24664d74c31cd4bcb9aed1f2182d97904bfe96bde47c4ff","at":"2026-11-16T05:09:15.751Z"}

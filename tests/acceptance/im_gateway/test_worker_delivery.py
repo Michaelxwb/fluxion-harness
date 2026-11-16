@@ -109,8 +109,11 @@ async def _delivery_row(task_id: uuid.UUID) -> dict[str, Any]:
             row = (
                 await connection.execute(
                     text(
-                        "SELECT delivery_status, delivery_attempts, status FROM task.task_execution "
-                        "WHERE id = :id"
+                        "SELECT COALESCE(d.status, 'NONE'), COALESCE(d.attempt_count, 0), t.status"
+                        " FROM task.task_execution t"
+                        " LEFT JOIN task.task_delivery d"
+                        "   ON d.tenant_id = t.tenant_id AND d.execution_id = t.id"
+                        " WHERE t.id = :id"
                     ),
                     {"id": task_id},
                 )
@@ -184,10 +187,10 @@ async def test_b127_failure_retries_then_exhausts_without_swallowing_fact(
     seeded = await _seed(gateway_stack, SEND_FAILURE_INTENT)
     # 直接种到"下一次失败即耗尽"：attempts = max - 1
     await _execute(
-        "UPDATE task.task_execution SET delivery_attempts = :attempts WHERE id = :id",
+        "UPDATE task.task_delivery SET attempt_count = :attempts WHERE execution_id = :id",
         {"attempts": max_attempts - 1, "id": seeded["task_id"]},
     )
-    assert seeded["delivery_key"].startswith("task:")
+    assert seeded["delivery_key"].startswith("execution:")
     probe = gateway_stack.ws_probe
     assert probe is not None
     probe.fail_reply_bots.add(BOT_ID)  # 故障注入：SDK 发送失败
@@ -205,7 +208,8 @@ async def test_b127_failure_retries_then_exhausts_without_swallowing_fact(
     # 不吞业务事实：Task 自身终态与投递失败事件都保留
     assert row["task_status"] == "COMPLETED", row
     events = await _scalar(
-        "SELECT count(*) FROM task.task_event WHERE tenant_id = :t AND event_type = 'DELIVERY_FAILED'",
+        "SELECT count(*) FROM task.task_event WHERE tenant_id = :t"
+        " AND entity_type = 'DELIVERY' AND event_type = 'FAILED'",
         {"t": gateway_stack.tenant_id},
     )
     assert int(events or 0) >= 1
@@ -231,9 +235,10 @@ async def test_b127_retryable_failure_recovers_after_injection_cleared(
             if not await _attempts_at_least(seeded["task_id"], 1):
                 return False
             events = await _scalar(
-                "SELECT count(*) FROM task.task_event WHERE tenant_id = :t"
-                " AND event_type = 'DELIVERY_RETRY'",
-                {"t": gateway_stack.tenant_id},
+                "SELECT count(*) FROM task.task_delivery_attempt a"
+                " JOIN task.task_delivery d ON d.id = a.delivery_id"
+                " WHERE d.tenant_id = :t AND d.execution_id = :id AND a.status = 'FAILED'",
+                {"t": gateway_stack.tenant_id, "id": seeded["task_id"]},
             )
             return int(events or 0) >= 1
 

@@ -24,6 +24,7 @@ from muad_contracts import (
     ResolvedMcpServer,
     ResolvedModel,
     ResolvedSkill,
+    TaskType,
     WorkspaceRef,
     snapshot_hash,
 )
@@ -32,12 +33,18 @@ from muad_contracts.platform_settings import TaskSettings
 
 TASKS_PATH = "/internal/tasks"
 SCHEDULES_PATH = "/internal/schedules"
+SCHEDULE_DRAFTS_PATH = "/internal/schedule-drafts"
+PENDING_PATH = "/internal/task-center/pending"
+HUMAN_RESPOND_PATH = "/internal/human-interactions/{interaction_id}/respond"
 DEFAULT_TIMEOUT_SEC = 5.0
 IDEMPOTENCY_HEADER = "Idempotency-Key"
 INTERNAL_SERVICE_HEADER = "X-Internal-Service"
 TENANT_HEADER = "X-Tenant-Id"
 TRACE_HEADER = "X-Trace-Id"
 ACTOR_HEADER = "X-Actor-User-Id"
+AGENT_HEADER = "X-Agent-Id"
+#: 入口 surface：Draft 的投递意图由它决定（Worker 用共享通道词表判能力，Runtime 不点名渠道）。
+ENTRY_CHANNEL_HEADER = "X-Entry-Channel"
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +60,13 @@ class TaskSubmissionContext:
     skills: tuple[ResolvedSkill, ...]
     mcp_servers: tuple[ResolvedMcpServer, ...] = ()
     source_run_id: uuid.UUID | None = None
+    #: 产生这条提交的会话：Draft 确认卡片写进这里（与 Run 同一会话）。
+    conversation_id: uuid.UUID | None = None
     delivery_route: DeliveryRouteInput | None = None
+    #: Run 的入口 surface（`ChannelContext.type` 原值）；Draft 的投递能力与确认来源由它决定。
+    entry_channel: str | None = None
+    #: 入口账号逻辑 UUID（`ChannelContext.entry_id`）：Draft 的 `source` 审计字段。
+    entry_id: uuid.UUID | None = None
     trace_id: str = ""
     locale: str = "zh-CN"
     execution_timeout_sec: int = field(default_factory=lambda: TaskSettings().execution_timeout_sec)
@@ -112,7 +125,6 @@ class WorkerTaskClient:
         skill: ResolvedSkill,
         input_data: Mapping[str, Any],
         call_id: str,
-        intent_key: str | None = None,
         argv: tuple[str, ...] = (),
     ) -> dict[str, Any]:
         snapshot, frozen_hash = build_task_snapshot(context, skill, argv=argv)
@@ -122,15 +134,15 @@ class WorkerTaskClient:
             "agent_id": str(context.agent.id),
             "actor_user_id": str(context.actor_user_id),
             "source_run_id": str(context.source_run_id) if context.source_run_id else None,
-            "intent_key": intent_key or skill.key,
+            "task_type": str(TaskType.SKILL),
             "skill_id": str(skill.skill_id),
             "skill_artifact_id": str(skill.artifact_id),
+            "skill_execution_mode": str(skill.execution_mode),
             "input": dict(input_data),
             "execution_snapshot": snapshot,
             "execution_snapshot_schema_version": TASK_SNAPSHOT_SCHEMA_VERSION,
             "snapshot_hash": frozen_hash,
             "idempotency_key": submission_idempotency_key(context, call_id),
-            "delivery_mode": "FINAL_ONLY" if route is not None else "NONE",
         }
         if route is not None:
             body["delivery_route"] = route.model_dump(mode="json")
@@ -210,87 +222,142 @@ class WorkerTaskClient:
             actor_user_id=actor_user_id,
         )
 
-    async def create_schedule(
+    async def create_schedule_draft(
         self,
         *,
         tenant_id: str,
         agent_id: uuid.UUID,
         actor_user_id: uuid.UUID,
-        intent_key: str,
-        skill: ResolvedSkill,
-        input_template: Mapping[str, Any],
-        schedule: Mapping[str, Any],
-        delivery_route: DeliveryRouteInput,
+        entry_channel: str | None,
+        draft: Mapping[str, Any],
         idempotency_key: str,
-        name: str | None = None,
         trace_id: str = "",
         locale: str = "zh-CN",
     ) -> dict[str, Any]:
-        body = {
-            "name": name or f"{skill.key} schedule",
-            "agent_id": str(agent_id),
-            "actor_user_id": str(actor_user_id),
-            "intent_key": intent_key,
-            "skill_id": str(skill.skill_id),
-            "input_template": dict(input_template),
-            "schedule": dict(schedule),
-            "delivery_route": delivery_route.model_dump(mode="json"),
-        }
+        """API-01：提交一条 Draft 请求，拿回 draft_id/hash/预览/过期时刻。
+
+        身份（owner/agent/入口）全部走可信头，body 不接受；Runtime 没有确认能力——
+        确认是 surface 在用户显式动作后调用的另一个端点（API-27）。
+        """
         return await self._request(
             "POST",
-            SCHEDULES_PATH,
+            SCHEDULE_DRAFTS_PATH,
             tenant_id=tenant_id,
             trace_id=trace_id,
             locale=locale,
+            json_body=dict(draft),
+            idempotency_key=idempotency_key,
+            actor_user_id=actor_user_id,
+            agent_id=agent_id,
+            entry_channel=entry_channel,
+        )
+
+    async def get_schedule(
+        self,
+        *,
+        tenant_id: str,
+        schedule_id: uuid.UUID,
+        actor_user_id: uuid.UUID,
+        trace_id: str = "",
+    ) -> dict[str, Any]:
+        return await self._request(
+            "GET",
+            f"{SCHEDULES_PATH}/{schedule_id}",
+            tenant_id=tenant_id,
+            trace_id=trace_id,
+            actor_user_id=actor_user_id,
+        )
+
+    async def schedule_action(
+        self,
+        *,
+        tenant_id: str,
+        schedule_id: uuid.UUID,
+        actor_user_id: uuid.UUID,
+        action: str,
+        idempotency_key: str,
+        scope: str | None = None,
+        reason: str | None = None,
+        trace_id: str = "",
+    ) -> dict[str, Any]:
+        """API-04/05/06：暂停/恢复/取消。动作幂等身份由调用方给出（同一次工具调用重试同键）。"""
+        body: dict[str, Any] = {"action": action}
+        if scope is not None:
+            body["scope"] = scope
+        if reason is not None:
+            body["reason"] = reason
+        return await self._request(
+            "POST",
+            f"{SCHEDULES_PATH}/{schedule_id}/{action}",
+            tenant_id=tenant_id,
+            trace_id=trace_id,
             json_body=body,
             idempotency_key=idempotency_key,
             actor_user_id=actor_user_id,
         )
 
-    async def update_schedule(
+    async def list_open_human_interactions(
         self,
         *,
         tenant_id: str,
-        schedule_id: uuid.UUID,
         actor_user_id: uuid.UUID,
-        name: str | None = None,
-        schedule: Mapping[str, Any] | None = None,
-        input_template: Mapping[str, Any] | None = None,
-        delivery_route: DeliveryRouteInput | None = None,
+        agent_id: uuid.UUID,
+        channel: str,
+        bot_id: str,
+        external_user_id: str | None,
+        external_conversation_id: str | None,
         trace_id: str = "",
     ) -> dict[str, Any]:
-        body: dict[str, Any] = {}
-        if name is not None:
-            body["name"] = name
-        if schedule is not None:
-            body["schedule"] = dict(schedule)
-        if input_template is not None:
-            body["input_template"] = dict(input_template)
-        if delivery_route is not None:
-            body["delivery_route"] = delivery_route.model_dump(mode="json")
+        """API-16 的会话视角：只返回**推到这个来源**的 OPEN 提问（user+agent+会话）。
+
+        Owner 按 `route` 过滤（Revision 的投递目标），Runtime 不按文本猜是哪一个问题。
+        """
+        params: dict[str, Any] = {
+            "agent_id": str(agent_id),
+            "kind": "HUMAN",
+            "page": 1,
+            "page_size": 100,
+            "channel": channel,
+            "bot_id": bot_id,
+        }
+        if external_user_id is not None:
+            params["external_user_id"] = external_user_id
+        if external_conversation_id is not None:
+            params["external_conversation_id"] = external_conversation_id
         return await self._request(
-            "PUT",
-            f"{SCHEDULES_PATH}/{schedule_id}",
+            "GET",
+            PENDING_PATH,
             tenant_id=tenant_id,
             trace_id=trace_id,
-            json_body=body,
+            params=params,
             actor_user_id=actor_user_id,
         )
 
-    async def delete_schedule(
+    async def respond_human(
         self,
         *,
         tenant_id: str,
-        schedule_id: uuid.UUID,
         actor_user_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        interaction_id: uuid.UUID,
+        response: Mapping[str, Any],
+        idempotency_key: str,
         trace_id: str = "",
     ) -> dict[str, Any]:
+        """API-10：按 interaction_id 回答；幂等身份是同源入站消息 id（重投不重复生效）。
+
+        线形状是 `{"response": {...}}`（API-10 的请求契约）：回答正文只是其中一个字段，
+        包封由本方法负责，调用方不需要知道 Owner 的请求外形。
+        """
         return await self._request(
-            "DELETE",
-            f"{SCHEDULES_PATH}/{schedule_id}",
+            "POST",
+            HUMAN_RESPOND_PATH.format(interaction_id=interaction_id),
             tenant_id=tenant_id,
             trace_id=trace_id,
+            json_body={"response": dict(response)},
+            idempotency_key=idempotency_key,
             actor_user_id=actor_user_id,
+            agent_id=agent_id,
         )
 
     async def aclose(self) -> None:
@@ -309,10 +376,16 @@ class WorkerTaskClient:
         json_body: Mapping[str, Any] | None = None,
         idempotency_key: str | None = None,
         actor_user_id: uuid.UUID | None = None,
+        agent_id: uuid.UUID | None = None,
+        entry_channel: str | None = None,
     ) -> dict[str, Any]:
         headers = {TENANT_HEADER: tenant_id, "Accept-Language": locale}
         if actor_user_id is not None:
             headers[ACTOR_HEADER] = str(actor_user_id)
+        if agent_id is not None:
+            headers[AGENT_HEADER] = str(agent_id)
+        if entry_channel:
+            headers[ENTRY_CHANNEL_HEADER] = entry_channel
         if self._service_token:
             headers[INTERNAL_SERVICE_HEADER] = self._service_token
         if trace_id:

@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator, Sequence
 from contextlib import aclosing, suppress
 from dataclasses import dataclass, field
 from math import ceil
+from typing import Any
 from uuid import UUID
 
 from muad_api import AppError, metrics
@@ -17,16 +18,20 @@ from muad_api.error_codes import ErrorCode
 from muad_contracts import (
     DEFAULT_PAGE_SIZE,
     OUTBOUND_CHANNELS,
+    SCHEDULE_CONFIRM_COMMAND,
     AttachmentRef,
     CancelSource,
     ChannelBindRequest,
     ChannelContext,
     ChannelEnvelope,
+    ChannelHumanRouteRequest,
+    ChannelHumanRouteResponse,
     ChannelResolveRequest,
     ChannelResolveResponse,
     ChannelSkillItem,
     DeliveryMessage,
     DeliveryRouteInput,
+    HumanRouteOutcome,
     InboundAuditOutcome,
     InboundAuditRequest,
     MessageInput,
@@ -66,6 +71,7 @@ from .channel_delivery import (
 )
 from .console_client import ConsoleClientPort
 from .inbound_attachments import AttachmentConflictError, InboundAttachmentStore
+from .inbound_schedules import ChatScheduleService
 from .platform_settings import ReplySettings, resolve_reply_settings
 from .ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .progress import (
@@ -158,9 +164,27 @@ NO_SKILLS_TEXT = "暂无可用技能"
 NEW_CONVERSATION_TEXT = "已创建新会话"
 STOP_ACCEPTED_TEXT = "正在停止当前任务…"
 STOP_CANCELLED_TEXT = "当前任务已停止"
+CONFIRM_USAGE_TEXT = f"用法：{SCHEDULE_CONFIRM_COMMAND} <草稿编号>"
+CONFIRM_UNSUPPORTED_TEXT = "当前入口不支持确认定时任务"
+CONFIRM_DONE_TEXT = "已确认，定时任务已生效"
+CONFIRM_DONE_WITH_FIRE_TEXT = "已确认，定时任务首次触发：{next_fire_at}"
+HUMAN_ANSWER_ACCEPTED_TEXT = "已收到你的回答，任务将继续执行"
+HUMAN_CLARIFY_HEADER = "你有多条等待回复的定时任务，请指定要回答的任务（任务中心可按任务回答）："
+HUMAN_CLARIFY_ITEM = "- 任务「{name}」：{question}"
+HUMAN_CLARIFY_FOOTER = "这次回复没有绑定到任何任务，任务状态未改变。"
+#: 回答被拒的原因码 → 用户可见说明（稳定码来自 Owner，不翻译内部行为）。
+HUMAN_REJECT_TEXT = "这次回答没有生效：{detail}"
+HUMAN_REJECT_DETAILS = {
+    "HUMAN_INTERACTION_EXPIRED": "问题已超时，请等待任务超时收尾",
+    "HUMAN_RESPONSE_INVALID": "该问题需要结构化回答，请在任务中心回答",
+    "HUMAN_INPUT_SCHEMA_INVALID": "该问题需要结构化回答，请在任务中心回答",
+    "EXECUTION_NOT_RESUMABLE": "该任务已结束或已被取消，回答不会再续接",
+    "IDEMPOTENCY_MISMATCH": "这个问题已经用另一个答案回答过了",
+}
+HUMAN_REJECT_FALLBACK = "任务当前不接受回答，请在任务中心查看"
 
 
-COMMAND_PREFIXES = ("/bind", "/new", "/stop", "/skills", "/memory")
+COMMAND_PREFIXES = ("/bind", "/new", "/stop", "/skills", "/memory", SCHEDULE_CONFIRM_COMMAND)
 
 
 def _is_command(text: str) -> bool:
@@ -380,6 +404,30 @@ def format_skills(skills: Sequence[ChannelSkillItem]) -> str:
     return "\n\n".join(blocks)
 
 
+def _confirm_text(confirmed: dict[str, Any]) -> str:
+    """确认回执：生效事实只来自 Owner 的响应（next_fire_at 缺失就不编一个）。"""
+    next_fire_at = confirmed.get("next_fire_at")
+    if isinstance(next_fire_at, str) and next_fire_at:
+        return CONFIRM_DONE_WITH_FIRE_TEXT.format(next_fire_at=next_fire_at)
+    return CONFIRM_DONE_TEXT
+
+
+def _clarify_text(decision: ChannelHumanRouteResponse) -> str:
+    """多个 OPEN：列出任务名与问题，要求用户指定；绝不按新旧挑一个去回答。"""
+    lines = [HUMAN_CLARIFY_HEADER]
+    lines.extend(
+        HUMAN_CLARIFY_ITEM.format(name=item.schedule_name, question=item.question)
+        for item in decision.candidates
+    )
+    lines.append(HUMAN_CLARIFY_FOOTER)
+    return "\n".join(lines)
+
+
+def _reject_text(reason: str | None) -> str:
+    detail = HUMAN_REJECT_DETAILS.get(reason or "", HUMAN_REJECT_FALLBACK)
+    return HUMAN_REJECT_TEXT.format(detail=detail)
+
+
 async def fetch_skill_catalog(
     console: ConsoleClientPort,
     agent_id: UUID,
@@ -474,6 +522,7 @@ class InboundPipeline:
         max_pending_handlers: int = MAX_PENDING_HANDLERS,
         max_pending_per_route: int = MAX_PENDING_PER_ROUTE,
         max_pending_commands: int = MAX_PENDING_COMMANDS,
+        schedules: ChatScheduleService | None = None,
     ) -> None:
         if max_concurrent_handlers < 1:
             raise ValueError("handler concurrency must be at least one")
@@ -495,6 +544,8 @@ class InboundPipeline:
         self._tenant_id = tenant_id
         # 生产装配注入真实 HTTP client；直构调用点默认「该租户无记录」⇒ schema 默认。
         self._settings_client: PlatformSettingsClient = settings_client or NullPlatformSettingsClient()
+        #: 聊天入口的 Draft 确认与 Human 回答分流（TASK-025）；未装配时两条路径显式不可用。
+        self._schedules = schedules
         self._route_locks: dict[RouteKey, asyncio.Lock] = {}
         #: **在飞受理**的并发闸（排队等锁的不算）：封顶同时进行的入站处理。**只覆盖受理**——
         #: 长流（SSE 订阅/正文渲染）在受理裁决处归还名额，不占它（设计 §3.2 / §1.3）。
@@ -738,6 +789,8 @@ class InboundPipeline:
                 return await self._handle_stop(adapter, route, envelope)
             if text == SKILLS_COMMAND:
                 return await self._handle_skills(adapter, route, envelope)
+            if text == SCHEDULE_CONFIRM_COMMAND or text.startswith(f"{SCHEDULE_CONFIRM_COMMAND} "):
+                return await self._handle_confirm(adapter, route, envelope, text)
             return await self._handle_message(adapter, route, envelope, slot)
         finally:
             _REPLY_SETTINGS.reset(token)
@@ -987,6 +1040,51 @@ class InboundPipeline:
         await self._send_text(adapter, route, format_skills(catalog))
         return True
 
+    async def _handle_confirm(
+        self,
+        adapter: ChannelAdapter,
+        route: DeliveryRouteInput,
+        envelope: ChannelEnvelope,
+        text: str,
+    ) -> bool:
+        """`/confirm <draft_id>`：聊天里的显式用户动作（design §3.2.8；API-31 → API-27）。
+
+        hash 由服务端按 Draft 读出，用户只给 id；确认引用就是这条入站消息 id，所以同一条
+        消息被平台重投时 Owner 的幂等台账重放首次结果，不会确认两次。
+        """
+        if self._schedules is None:
+            await self._send_text(adapter, route, CONFIRM_UNSUPPORTED_TEXT)
+            return True
+        raw = text[len(SCHEDULE_CONFIRM_COMMAND) :].strip()
+        try:
+            draft_id = UUID(raw)
+        except ValueError:
+            await self._send_text(adapter, route, CONFIRM_USAGE_TEXT)
+            return True
+        resolved = await self._resolve(adapter, route, envelope)
+        if resolved is None:
+            return False
+        if resolved.platform_user_id is None or resolved.agent_id is None:
+            await self._send_text(adapter, route, UNBOUND_TEXT)
+            return True
+        if not resolved.authorized:
+            await self._send_text(adapter, route, NO_PERMISSION_TEXT)
+            return True
+        try:
+            confirmed = await self._schedules.confirm(
+                user_id=resolved.platform_user_id,
+                agent_id=resolved.agent_id,
+                channel=envelope.channel,
+                draft_id=draft_id,
+                message_id=envelope.message_id,
+            )
+        except AppError as exc:
+            # 业务拒绝与依赖失败都让平台按同一消息重试：确认是幂等的（同键重放首次结果）。
+            await self._reply_error(adapter, route, exc)
+            return False
+        await self._send_text(adapter, route, _confirm_text(confirmed))
+        return True
+
     async def _handle_message(
         self,
         adapter: ChannelAdapter,
@@ -1003,6 +1101,11 @@ class InboundPipeline:
         if not resolved.authorized:
             await self._send_text(adapter, route, NO_PERMISSION_TEXT)
             return True
+        # Human 回答分流在附件链路之前：一条纯文本回复先问 Runtime「这是不是待回答的问题」，
+        # 命中就**不建 Run**（design §3.2.6：零个 OPEN 才继续普通聊天）。
+        routed = await self._route_human_reply(adapter, route, envelope, resolved)
+        if routed is not None:
+            return routed
         # 附件链路放在**授权之后**：未绑定/无权限那两条早退路径不会取件，"能收才去拉"，
         # 把 AD-1-B 下（字节先于 Run 落盘）的无主产物压到最小（设计 §3.2.1）。
         collected = await self._collect_attachments(adapter, route, envelope)
@@ -1026,6 +1129,56 @@ class InboundPipeline:
             ),
         )
         return await self._consume_run(adapter, route, request, resolved.platform_user_id, slot)
+
+    async def _route_human_reply(
+        self,
+        adapter: ChannelAdapter,
+        route: DeliveryRouteInput,
+        envelope: ChannelEnvelope,
+        resolved: ChannelResolveResponse,
+    ) -> bool | None:
+        """把一条纯文本入站消息交给 Runtime 判定去向；`None` = 不是 Human 回答，继续建 Run。
+
+        只参与"纯文本 + 没有显式会话"的消息：带载荷的消息仍走原链路，显式会话面（WebChat）
+        按 `interaction_id` 在任务中心回答。
+        """
+        if self._schedules is None:
+            return None
+        if (
+            not envelope.text.strip()
+            or envelope.unsupported_media is not None
+            or _attachment_count(adapter, envelope) > 0
+            or _explicit_conversation(adapter, envelope) is not None
+        ):
+            return None
+        assert resolved.agent_id is not None and resolved.platform_user_id is not None
+        request = ChannelHumanRouteRequest(
+            agent_id=resolved.agent_id,
+            platform_user_id=resolved.platform_user_id,
+            message_id=envelope.message_id,
+            text=envelope.text.strip(),
+            channel=envelope.channel,
+            bot_id=envelope.bot_id,
+            external_user_id=envelope.external_user_id,
+            external_conversation_id=envelope.external_conversation_id,
+        )
+        try:
+            decision = await self._schedules.route_human(
+                request, trace_id=current_trace_id()
+            )
+        except AppError as exc:
+            # 拿不到裁决 = 没受理：平台重投会重新问一次（Runtime 侧按同一消息 id 幂等）。
+            await self._reply_error(adapter, route, exc)
+            return False
+        if decision.outcome is HumanRouteOutcome.NONE:
+            return None
+        if decision.outcome is HumanRouteOutcome.ANSWERED:
+            await self._send_text(adapter, route, HUMAN_ANSWER_ACCEPTED_TEXT)
+        elif decision.outcome is HumanRouteOutcome.CLARIFY:
+            await self._send_text(adapter, route, _clarify_text(decision))
+        else:
+            await self._send_text(adapter, route, _reject_text(decision.reason))
+        return True
 
     async def _collect_attachments(
         self, adapter: ChannelAdapter, route: DeliveryRouteInput, envelope: ChannelEnvelope

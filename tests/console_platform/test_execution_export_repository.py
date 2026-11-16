@@ -85,7 +85,9 @@ async def test_b02_batch_children_are_collected(tenant: TenantContext) -> None:
     events = bundle.sections["task.task_event"]
     assert events.status == "ok"
     assert any(
-        (row.get("task_id") == str(failed_child) or row.get("task_id") == failed_child) for row in events.rows
+        row.get("entity_type") == "EXECUTION"
+        and (row.get("entity_id") == str(failed_child) or row.get("entity_id") == failed_child)
+        for row in events.rows
     )
 
 

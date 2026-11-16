@@ -320,7 +320,6 @@ async def test_worker_skill_path_uses_task_identity(tmp_path, execution_context,
         input_json={},
         attempt=1,
         idempotency_key="test-task",
-        external_ref_json={},
         execution_snapshot_json={
             "budget": {"execution_timeout_sec": 20},
             "skills": [

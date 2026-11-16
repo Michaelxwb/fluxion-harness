@@ -194,12 +194,16 @@ async def _new_run(before: set[str], *, status: str | None = None) -> str | None
 async def _join_task(run_id: str) -> dict[str, Any]:
     row = (
         await _rows(
-            "SELECT o.task_id::text, t.delivery_mode, t.status FROM runtime.tool_operation o "
+            "SELECT o.task_id::text, t.completion_mode, t.status FROM runtime.tool_operation o "
             "JOIN task.task_execution t ON t.id = o.task_id WHERE o.run_id = :r",
             {"r": uuid.UUID(run_id)},
         )
     )[0]
-    return {"task_id": str(row[0]), "delivery_mode": str(row[1]), "status": str(row[2])}
+    return {
+        "task_id": str(row[0]),
+        "completion_mode": str(row[1]),
+        "status": str(row[2]),
+    }
 
 
 async def _continuation(run_id: str) -> dict[str, Any]:
@@ -267,7 +271,12 @@ async def test_s06_join_waiting_holds_silence_and_replies_on_original_message(
 
     # 无额外 Worker FINAL_ONLY 通知：JOIN 任务不独立投递，结果只回原消息的回复流。
     task = await _join_task(run_id)
-    assert task["delivery_mode"] == "NONE", task
+    assert task["completion_mode"] == "JOIN", task
+    deliveries = await _scalar(
+        "SELECT count(*) FROM task.task_delivery WHERE tenant_id = :t AND execution_id = :id",
+        {"t": TENANT, "id": uuid.UUID(task["task_id"])},
+    )
+    assert int(deliveries or 0) == 0, "JOIN 任务不独立投递，结果只回原消息的回复流"
     assert not any(
         "actual_job_result" in frame_text(frame) for frame in _send_frames(stack)
     ), "JOIN 结果不得借主动通知再发一次"

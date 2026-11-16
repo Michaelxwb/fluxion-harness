@@ -40,19 +40,22 @@ const platform: PlatformItem = {
 const task: TaskListItem = {
   task_id: id, tenant_id: 'tenant', agent_id: id, actor_user_id: id, skill_id: id,
   agent_name: longName, actor_name: longName, skill_name: longName, skill_key: longKey,
-  schedule_id: null, source_run_id: null, intent_key: 'intent', status: 'FAILED', trigger_type: 'SCHEDULED',
-  task_type: 'BATCH', input: {}, result: null, error_code: 'ERROR', error_message: longName,
-  attempt: 1, max_attempts: 3, cancel_requested: false, delivery_mode: 'FINAL_ONLY', delivery_status: 'FAILED',
-  delivery_attempts: 1, delivered_at: null, deadline_at: time, not_before: time, create_time: time,
-  update_time: time, started_at: time, finished_at: time, child_total: 12345, child_finished: 12345
+  schedule_id: null, source_run_id: null, status: 'FAILED', trigger_type: 'SCHEDULED',
+  scheduled_at: time, wait_kind: null, wait_payload: null, task_type: 'BATCH',
+  input: {}, result: null, error_code: 'ERROR', error_message: longName,
+  failure_class: null, attempt: 1, max_attempts: 3, cancel_requested: false,
+  deadline_at: time, not_before: time, create_time: time, update_time: time,
+  started_at: time, finished_at: time, child_total: 12345, child_finished: 12345
 };
 const schedule: ScheduleListItem = {
-  schedule_id: id, tenant_id: 'tenant', name: longName, agent_id: id, actor_user_id: id, skill_id: id,
-  agent_name: longName, actor_name: longName, skill_name: longName, skill_key: longKey,
-  intent_key: 'intent', input_template: {}, schedule_type: 'CRON', cron_expr: '0 0 1 * *',
-  timezone: 'America/Argentina/Buenos_Aires', run_at: null, status: 'ACTIVE', next_fire_at: time,
-  last_fire_at: time, revision: 1, completed_at: null, last_error_code: null, last_error_message: null,
-  last_skipped_at: null, create_time: time, update_time: time
+  schedule_id: id, agent_id: id, actor_user_id: id, name: longName,
+  agent_name: longName, actor_name: longName, mode: 'SKILL', status: 'ACTIVE',
+  timezone: 'America/Argentina/Buenos_Aires', config_version: 1, next_fire_at: time,
+  last_fire: {
+    scheduled_at: time, status: 'EXECUTION_CREATED', execution_status: 'COMPLETED',
+    missed_count: 0, dst_resolution: null
+  },
+  needs_attention: false, pending_human: false
 };
 const audit = {
   audit_id: id, audit_type: 'CONFIG', resource_type: 'AGENT_SKILL_BINDING', resource_id: id, actor_user_id: id,
@@ -70,10 +73,10 @@ export const listLayoutCases = [
   { path: 'users', api: 'users', data: [user], columns: 9, dense: false, actions: true },
   { path: 'platforms', api: 'project-platforms', data: [platform], columns: 10, dense: true, actions: true },
   { path: 'tasks', api: 'tasks', data: [task, { ...task, task_id: 'running-task', status: 'RUNNING',
-    finished_at: null, error_code: null, error_message: null } satisfies TaskListItem], columns: 11, dense: true, actions: true },
+    finished_at: null, error_code: null, error_message: null } satisfies TaskListItem], columns: 12, dense: true, actions: true },
   { path: 'schedules', api: 'schedules', data: [schedule, { ...schedule, schedule_id: 'once-schedule',
-    schedule_type: 'ONCE', cron_expr: null, run_at: time, status: 'COMPLETED' } satisfies ScheduleListItem],
-    columns: 12, dense: true, actions: true },
+    mode: 'REMINDER', status: 'ENDED' } satisfies ScheduleListItem],
+    columns: 10, dense: true, actions: true },
   { path: 'audits', api: 'audits', data: [audit,
     { ...audit, audit_id: 'second-audit', audit_type: 'MODEL', run_id: id },
     { ...audit, audit_id: 'missing-trace', trace_id: null }], columns: 8, dense: false, actions: false }

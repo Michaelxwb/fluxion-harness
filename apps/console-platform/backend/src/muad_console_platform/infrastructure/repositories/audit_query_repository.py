@@ -104,7 +104,8 @@ SELECT
   LEFT JOIN LATERAL (
       SELECT e.trace_id
         FROM task.task_event e
-       WHERE e.task_id = t.task_id
+       WHERE e.entity_type = 'EXECUTION'
+         AND e.entity_id = t.task_id
          AND e.trace_id IS NOT NULL
        ORDER BY e.seq
        LIMIT 1
@@ -145,7 +146,8 @@ SELECT
   LEFT JOIN LATERAL (
       SELECT e.trace_id
         FROM task.task_event e
-       WHERE e.task_id = g.task_id
+       WHERE e.entity_type = 'EXECUTION'
+         AND e.entity_id = g.task_id
          AND e.trace_id IS NOT NULL
        ORDER BY e.seq
        LIMIT 1
@@ -186,7 +188,8 @@ SELECT
   LEFT JOIN LATERAL (
       SELECT e.trace_id
         FROM task.task_event e
-       WHERE e.task_id = m.task_id
+       WHERE e.entity_type = 'EXECUTION'
+         AND e.entity_id = m.task_id
          AND e.trace_id IS NOT NULL
        ORDER BY e.seq
        LIMIT 1

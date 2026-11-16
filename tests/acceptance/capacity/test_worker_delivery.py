@@ -102,14 +102,15 @@ def submit_task(
         "tenant_id": tenant_id,
         "agent_id": str(seeded.agent_id),
         "actor_user_id": str(seeded.user_id),
-        "intent_key": "capacity_worker_delivery",
+        "task_type": "SKILL",
         "skill_id": str(spec.skill_id),
         "skill_artifact_id": str(spec.artifact_id),
+        "skill_execution_mode": "ASYNC",
         "input": dict(input_data),
         "execution_snapshot": spec.snapshot,
+        "execution_snapshot_schema_version": 4,
         "snapshot_hash": _snapshot_hash(spec.snapshot),
         "idempotency_key": idempotency_key,
-        "delivery_mode": "NONE",
     }
     with httpx.Client(timeout=20.0, trust_env=False) as client:
         response = client.post(
@@ -152,7 +153,8 @@ def task_events(database_url: str, task_id: str) -> list[Mapping[str, Any]]:
         dict(row)
         for row in db_rows(
             database_url,
-            "SELECT event_type, payload_json FROM task.task_event WHERE task_id = $1 ORDER BY seq",
+            "SELECT event_type, payload_json FROM task.task_event"
+            " WHERE entity_type = 'EXECUTION' AND entity_id = $1 ORDER BY seq",
             uuid.UUID(task_id),
         )
     ]

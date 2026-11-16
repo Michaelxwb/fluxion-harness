@@ -106,7 +106,7 @@ def _body(*, text: str = "任务已完成") -> dict[str, Any]:
     return {
         "tenant_id": GATEWAY_TENANT,
         "task_id": str(task_id),
-        "delivery_key": f"task:{task_id}:final",
+        "delivery_key": f"execution:{task_id}:final",
         "route": {
             "channel": "WECOM",
             "bot_id": "bot-1",

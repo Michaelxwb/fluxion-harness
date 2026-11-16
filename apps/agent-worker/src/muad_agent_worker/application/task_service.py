@@ -13,8 +13,7 @@ from muad_contracts import (
     REQUIRED_SNAPSHOT_KEYS,
     TASK_SNAPSHOT_SCHEMA_VERSION,
     CreateTaskRequest,
-    DeliveryMode,
-    DeliveryStatus,
+    SkillExecutionMode,
     TaskStatus,
     TerminalStatus,
     TriggerType,
@@ -22,23 +21,26 @@ from muad_contracts import (
 from muad_contracts.platform_settings import PlatformSettings, TaskSettings, validate_task_execution_timeout
 from muad_contracts.snapshot import freeze_task_execution_timeout, snapshot_hash, task_execution_timeout
 from pydantic import JsonValue
-from sqlalchemy import false, func, select, update
+from sqlalchemy import String, false, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..infrastructure.models.task import TaskEvent, TaskExecution
+from ..delivery.records import DeliveryKind, DeliveryState, execution_delivery_key
+from ..infrastructure.models.task import TaskDelivery, TaskEvent, TaskExecution
 from .delivery_routes import upsert_delivery_route
 from .platform_settings import resolve_platform_settings
 from .ports import NullPlatformSettingsClient, PlatformSettingsClient
 from .runtime_operations import prepare_submission
-from .task_events import TaskEventType, append_event
+from .task_events import EntityType, TaskEventType, append_event
 from .terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 
 INITIAL_PRIORITY = 100
-EXECUTION_MODE_ASYNC = "ASYNC"
-TASK_TYPE_SKILL = "SKILL"
 TERMINAL_STATUSES = (str(TaskStatus.COMPLETED), str(TaskStatus.FAILED), str(TaskStatus.CANCELLED))
-CANCELABLE_STATUSES = (str(TaskStatus.QUEUED), str(TaskStatus.WAITING))
+CANCELABLE_STATUSES = (
+    str(TaskStatus.QUEUED),
+    str(TaskStatus.WAITING_EXTERNAL),
+    str(TaskStatus.WAITING_HUMAN),
+)
 
 
 def _has_sensitive_key(value: Any) -> bool:
@@ -97,7 +99,7 @@ class TaskService:
         task_settings = operation_settings.task
         route_id = await self._resolve_route(payload)
         values = self._creation_values(
-            payload, task_settings, route_id, egress_enabled=operation_settings.egress.enabled
+            payload, task_settings, egress_enabled=operation_settings.egress.enabled
         )
         statement = (
             pg_insert(TaskExecution)
@@ -117,24 +119,65 @@ class TaskService:
         await append_event(
             self._session,
             tenant_id=payload.tenant_id,
-            task_id=inserted_id,
-            event_type=TaskEventType.CREATED,
+            entity_type=EntityType.EXECUTION,
+            entity_id=inserted_id,
+            event_type=TaskEventType.QUEUED,
             payload={"idempotency_key": payload.idempotency_key},
         )
         await self._session.flush()
         task = await self._session.get(TaskExecution, inserted_id)
         if task is None:
             raise AppError(ErrorCode.COMMON_INTERNAL_ERROR)
+        if route_id is not None:
+            await self._enqueue_delivery(payload.tenant_id, task.id, route_id)
         if operation is not None:
             operation.task_id = task.id
             await self._session.flush()
         return task
 
+    async def _enqueue_delivery(
+        self, tenant_id: str, task_id: uuid.UUID, route_id: uuid.UUID
+    ) -> None:
+        """立即任务的投递意图：创建时的 route 落成独立投递记录（design §3.2.11）。
+
+        执行终态由投递边界读取，不写回 Execution；`PUSH` 只对创建时给了 route 的立即任务生效。
+        稳定键归 `delivery.records`——与终态入队同一份口径，同键重放不新增。
+        """
+        delivery_id = (
+            await self._session.execute(
+                pg_insert(TaskDelivery)
+                .values(
+                    id=uuid.uuid4(),
+                    tenant_id=tenant_id,
+                    execution_id=task_id,
+                    delivery_route_id=route_id,
+                    delivery_kind=str(DeliveryKind.PUSH),
+                    delivery_key=execution_delivery_key(task_id),
+                    status=str(DeliveryState.PENDING),
+                    attempt_count=0,
+                )
+                .on_conflict_do_nothing(
+                    index_elements=[TaskDelivery.tenant_id, TaskDelivery.delivery_key],
+                    index_where=TaskDelivery.is_deleted == false(),
+                )
+                .returning(TaskDelivery.id)
+            )
+        ).scalar_one_or_none()
+        if delivery_id is None:
+            return
+        await append_event(
+            self._session,
+            tenant_id=tenant_id,
+            entity_type=EntityType.DELIVERY,
+            entity_id=delivery_id,
+            event_type=TaskEventType.ENQUEUED,
+            payload={"kind": str(DeliveryKind.PUSH), "execution_id": str(task_id)},
+        )
+
     def _creation_values(
         self,
         payload: CreateTaskRequest,
         task_settings: TaskSettings,
-        route_id: uuid.UUID | None,
         *,
         egress_enabled: bool = False,
     ) -> dict[str, object]:
@@ -151,12 +194,11 @@ class TaskService:
             **_source_identity(payload),
             "agent_id": payload.agent_id,
             "actor_user_id": payload.actor_user_id,
-            "intent_key": payload.intent_key,
+            "task_type": str(payload.task_type),
             "skill_id": payload.skill_id,
             "skill_artifact_id": payload.skill_artifact_id,
+            "skill_execution_mode": str(payload.skill_execution_mode or SkillExecutionMode.ASYNC),
             "trigger_type": str(TriggerType.IMMEDIATE),
-            "execution_mode": EXECUTION_MODE_ASYNC,
-            "task_type": TASK_TYPE_SKILL,
             "status": str(TaskStatus.QUEUED),
             "input_json": payload.input,
             "execution_snapshot_schema_version": (
@@ -172,11 +214,6 @@ class TaskService:
             "max_attempts": 1 if payload.runtime_operation else task_settings.max_attempts,
             "not_before": now,
             "deadline_at": _task_deadline(payload, task_settings, now),
-            "delivery_route_id": route_id,
-            "delivery_mode": str(payload.delivery_mode),
-            "delivery_status": str(self._initial_delivery_status(payload.delivery_mode)),
-            "delivery_key": f"task:{task_id}:final",
-            "delivery_attempts": 0,
         }
 
     async def get(
@@ -207,7 +244,11 @@ class TaskService:
             (
                 await self._session.execute(
                     select(TaskEvent)
-                    .where(TaskEvent.task_id == task.id, TaskEvent.is_deleted.is_(False))
+                    .where(
+                        TaskEvent.entity_type == EntityType.EXECUTION.value,
+                        TaskEvent.entity_id == task.id,
+                        TaskEvent.is_deleted.is_(False),
+                    )
                     .order_by(TaskEvent.seq.asc())
                 )
             )
@@ -241,6 +282,7 @@ class TaskService:
         actor_user_id: uuid.UUID | None = None,
         skill_id: uuid.UUID | None = None,
         schedule_id: uuid.UUID | None = None,
+        keyword: str | None = None,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         deadline_from: datetime | None = None,
@@ -264,6 +306,11 @@ class TaskService:
             conditions.append(TaskExecution.skill_id == skill_id)
         if schedule_id is not None:
             conditions.append(TaskExecution.schedule_id == schedule_id)
+        if keyword is not None and keyword.strip():
+            # 任务没有名称；用户手里通常只有短 id，按 UUID 文本做包含匹配。
+            conditions.append(
+                TaskExecution.id.cast(String).ilike(f"%{keyword.strip()}%")
+            )
         if start_time is not None:
             conditions.append(TaskExecution.create_time >= start_time)
         if end_time is not None:
@@ -367,18 +414,15 @@ class TaskService:
         return False if changed is not None else None
 
     async def _record_cancel(self, task: TaskExecution, *, settled: bool, now: datetime) -> None:
-        """写事件并按需级联——状态本身已由 `_apply_cancel_intent` 落库，这里只记随附事实。"""
+        """按需级联——状态本身已由 `_apply_cancel_intent` 落库，这里只做随附动作。
+
+        RUNNING 的协作取消只落 `cancel_requested=true`（§3.5.10 没有“取消请求”事件），
+        真正的 CANCELLED 事件由持有 lease 的 Worker 在协作停止时写。
+        """
         # 局部导入：batch_fanout/batch_fanin 依赖本模块的常量，顶层导入会形成环。
         from .batch_fanin import settle_child
         from .task_cancel import cancel_children
 
-        if not settled:
-            await append_event(
-                self._session,
-                tenant_id=task.tenant_id,
-                task_id=task.id,
-                event_type=TaskEventType.CANCEL_REQUESTED,
-            )
         await cancel_children(self._session, task, now)
         if settled:
             # 取消掉的是一个 Parent：它自己终态了，扇入要看一眼 Child 是否都已终态。
@@ -409,11 +453,6 @@ class TaskService:
             platform_user_id=payload.actor_user_id,
             route=payload.delivery_route,
         )
-
-    def _initial_delivery_status(self, mode: DeliveryMode) -> DeliveryStatus:
-        if mode is DeliveryMode.FINAL_ONLY:
-            return DeliveryStatus.PENDING
-        return DeliveryStatus.NONE
 
 
 def _creation_snapshot(

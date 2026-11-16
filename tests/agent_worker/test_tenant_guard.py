@@ -10,11 +10,7 @@ from muad_agent_worker.api.deps import get_tenant_id
 from muad_agent_worker.main import app
 
 from agent_worker.conftest import TenantContext
-from agent_worker.helpers import (
-    create_schedule_payload,
-    create_task_payload,
-    internal_service_headers,
-)
+from agent_worker.helpers import create_task_payload, internal_service_headers
 
 
 @contextmanager
@@ -56,11 +52,11 @@ async def test_create_task_accepts_matching_tenant_header(
     assert response.json()["code"] == "0"
 
 
+#: v2 的写入口：创建/修改已由 Draft+确认取代（API-02/03 退役），这里覆盖动作端点。
 SCHEDULE_WRITE_CALLS = [
-    ("post", "/internal/schedules"),
-    ("put", "/internal/schedules/{schedule_id}/pause"),
-    ("put", "/internal/schedules/{schedule_id}/resume"),
-    ("delete", "/internal/schedules/{schedule_id}"),
+    ("post", "/internal/schedules/{schedule_id}/pause"),
+    ("post", "/internal/schedules/{schedule_id}/resume"),
+    ("post", "/internal/schedules/{schedule_id}/cancel"),
 ]
 
 
@@ -71,13 +67,12 @@ async def test_schedule_writes_reject_tenant_header_mismatch(
     method: str,
     path: str,
 ) -> None:
-    payload = create_schedule_payload(tenant).model_dump(mode="json")
     request_path = path.format(schedule_id=uuid.uuid4())
     with tenant_override("tenant-a"):
         response = await getattr(client, method)(
             request_path,
             headers=internal_service_headers("tenant-b", **{"X-Actor-User-Id": str(uuid.uuid4())}),
-            **({"json": payload} if method == "post" else {}),
+            json={"reason": "USER_REQUEST"},
         )
 
     assert response.status_code == 400
@@ -88,16 +83,23 @@ async def test_schedule_write_accepts_matching_tenant_header(
     client: AsyncClient,
     tenant: TenantContext,
 ) -> None:
-    payload = create_schedule_payload(tenant).model_dump(mode="json")
+    """租户一致时守卫放行：不存在的 Schedule 由业务层给 404，而不是 400/403。"""
+    path = f"/internal/schedules/{uuid.uuid4()}/pause"
     with tenant_override(tenant.tenant_id):
         response = await client.post(
-            "/internal/schedules",
-            json=payload,
-            headers=internal_service_headers(tenant.tenant_id),
+            path,
+            json={"reason": "USER_REQUEST"},
+            headers=internal_service_headers(
+                tenant.tenant_id,
+                **{
+                    "X-Actor-User-Id": str(uuid.uuid4()),
+                    "Idempotency-Key": f"guard-{uuid.uuid4()}",
+                },
+            ),
         )
 
-    assert response.status_code == 200
-    assert response.json()["data"]["tenant_id"] == tenant.tenant_id
+    assert response.status_code == 404
+    assert response.json()["code"] == "SCHEDULE_NOT_FOUND"
 
 
 # ---------------------------------------------------- 评审回归（2026-10-06）

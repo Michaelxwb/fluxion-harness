@@ -1,12 +1,15 @@
 ---
-{"description": "测试分层、验收隔离与 CI", "next_rule": 1}
+{
+  "description": "测试分层、验收隔离与 CI",
+  "next_rule": 1
+}
 ---
 
 # harness-e2e
 
 ## Rules
 
-- [RULE-e2e-001] 浏览器 E2E 必须使用真实构建产物与真实浏览器：成功路径（`S-*`）不得改写路由或 mock 业务 API；失败/边界路径（`E-*`）允许制造超时/错误，但不得 fulfill 业务响应体。域配置必须 `channel: 'chrome'`、`preview --strictPort`、钉死浏览器时区，并只启动该域实际依赖的服务。
+- [RULE-e2e-001] 浏览器 E2E 不再是 CI 门禁：后续需求只需输出可人工执行的场景（`S-*`/`E-*`/`B-*`），由人工在真实构建产物、真实浏览器和真实服务上验证并记录；CI 只运行 unit/integration/contract/component。现有 `e2e/` 套件保留用于本地或按需执行，不作为合并门禁；人工执行成功路径不得改写路由或 mock 业务 API。
 
 ## Conventions
 
@@ -29,17 +32,19 @@
 
 **分层：关键 / 回归 / smoke**：
 
-- 各域按「真实浏览器 + 真实后端 + 真实 DB 才能证明」筛选 E2E，其余下沉 component（mock API）或 API/集成层。已收口：console-auth 5 条旅程、task-schedule 5 关键 + 26 回归、webchat 12 关键 + 32 回归、run-observability 3 关键 + 11 回归；model/skill/mcp/project-platform/user/settings/agent 均按「真实创建/绑定/持久化留 E2E，布局/错误态/管理动作进 `*-ui`」拆分。全量配置保留给归档命令与手工整跑，关键/回归用 `grep`/`grepInvert` 互补。
-- **smoke 白名单**登记在 `e2e/scenarios/smoke-15.scenarios.md`（全部 `smoke: true`），覆盖登录/RBAC、概览、模型池、Agent、Skill、MCP、平台/凭据、用户、设置、任务取消、定时任务、审计导出、Run↔Task、Webchat 两人旅程；`make smoke`（一次 build、逐域 `--grep "@smoke"`、fail-fast）与 CI `smoke` job 只跑白名单条目。
-- **非 smoke 关键旅程**登记在 `key-journeys-non-smoke.scenarios.md`，全部带 `trigger_paths` 与 `why_e2e`；`scripts/e2e_changed.py` 按 `trigger_paths` 与 `git diff --name-only <base>` 匹配，`make e2e-changed` / CI PR 的 smoke job 以 `--no-smoke --run` 执行命中域（push 仍跑完整 e2e）。smoke 永远先跑。
-- **回归套件**（task 26 / webchat 32 / run 11）登记在 `regression-suites.md`，不进 PR smoke/changed，由 push 的完整 e2e job 执行。
-- **build-once**：Makefile 支持 `BUILD_FRONTEND=0`；CI 的 e2e/component job 各先 build 一次，再逐域 `BUILD_FRONTEND=0`。
+- 各域按「真实浏览器 + 真实后端 + 真实 DB 才能证明」筛选 E2E，其余下沉 component（mock API）或 API/集成层。已收口：console-auth 5 条旅程、task-schedule 5 关键 + 26 回归、webchat 12 关键 + 32 回归、run-observability 3 关键 + 11 回归；model/skill/mcp/project-platform/user/settings/agent 均按「真实创建/绑定/持久化留 E2E，布局/错误态/管理动作进 `*-ui`」拆分。全量配置保留给本地/按需执行与人工验收，关键/回归用 `grep`/`grepInvert` 互补。
+- **smoke 白名单**登记在 `e2e/scenarios/smoke-15.scenarios.md`（全部 `smoke: true`），覆盖登录/RBAC、概览、模型池、Agent、Skill、MCP、平台/凭据、用户、设置、任务取消、定时任务、审计导出、Run↔Task、Webchat 两人旅程；`make smoke`（一次 build、逐域 `--grep "@smoke"`、fail-fast）仅用于本地按需自检，不再是 CI 门禁。
+- **非 smoke 关键旅程**登记在 `key-journeys-non-smoke.scenarios.md`，全部带 `trigger_paths` 与 `why_e2e`；`scripts/e2e_changed.py` 按 `trigger_paths` 与 `git diff --name-only <base>` 匹配，`make e2e-changed` 仅用于本地按需执行，不再由 CI PR 触发。
+- **回归套件**（task 26 / webchat 32 / run 11）登记在 `regression-suites.md`，保留给本地/按需整跑；CI 不再跑 push 全量 e2e。
+- **build-once**：Makefile 支持 `BUILD_FRONTEND=0`；CI 的 component job 先 build 一次，再逐域 `BUILD_FRONTEND=0`。
 - **归档快照**：`docs/operations/e2e-archive-snapshots.md` 明确归档 manifest/覆盖表不回改；重放归档验收按 live 注册表与 `design_refs` 映射。
 
-**CI 执行面**：
+**CI 执行面与人工验收**：
 
-- CI `e2e` job 逐域顺序跑全部 16 个入口（13 真实域 + 三个关键/回归拆分）、**不 fail-fast**，一次列出全部漂移域；纯 mock 的 13 个域在独立 `component` job 顺序跑，不占 E2E 信号与超时预算。每个失败域**当场**把 `e2e/test-results`（trace + `error-context.md`）搬进 artifact——Playwright 每次 run 清空 `outputDir`，不搬只剩最后一个域。
-- 文案与容器类（`.semi-*`）漂移静态不可判，只能由各域实跑抓；机检不是「漂移全防」的替代品，兜底是 CI 的 `e2e` job。
+- CI 不再运行浏览器 E2E；原 `smoke`/`e2e` job 已移除。CI 门禁是 unit/integration/contract/component。
+- 现有 `e2e/` 代码保留用于本地或按需执行（`make acceptance-e2e DOMAIN=...` / `make smoke`），不作为合并门禁。
+- 每个需求在场景文件中输出可执行步骤与期望结果（`S-*`/`E-*`/`B-*`）；人工在真实构建、真实浏览器和真实服务上执行，记录日期、环境与结果。未执行的人工场景必须保持“待验证”，不得用组件测试、静态接线或旧结果冒充通过。
+- 文案与容器类（`.semi-*`）漂移静态不可判，只能由按需实跑或人工验收抓；机检不是「漂移全防」的替代品。
 
 ✅ 真实边界（浏览器链路端到端）：
 
@@ -59,3 +64,9 @@ await page.route('**/api/v1/**', (route) => route.fulfill({ json: { code: '0' } 
 ## Avoid
 
 - 违反上述任一规则的实现必须修复；与此 Spec 冲突的文档以本 Spec 与 `docs/` V1.4 为准。
+
+## Applied Deltas
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-033#DELTA-001","op":"update","rule":"RULE-e2e-001","payload_sha256":"189d2b156c3ffe93da68b36f3aab573d37ca2a537073f5d15fca3023dfc7d3a5","at":"2026-11-16T04:24:01.418Z"}
+
+- {"source":"2026-11-15/scheduled-task-v2/scheduled-task-v2.md#TASK-033#DELTA-002","op":"add","rule":"RULE-001","payload_sha256":"6508d098d7d383247a17ae0930e4be3c0b41a86f345aebc600b940222dc37b77","at":"2026-11-16T04:24:01.419Z"}

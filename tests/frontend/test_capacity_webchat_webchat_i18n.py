@@ -79,6 +79,8 @@ MAPPING_TABLES = (
     ("components/ConversationSidebar.tsx", "CONVERSATION_STATUS_KEYS"),
     ("components/TokenAccess.tsx", "TOKEN_ACCESS_ERROR_KEYS"),
     ("components/ConfirmationCard.tsx", "CONFIRMATION_ERROR_KEYS"),
+    ("task-center/ScheduleActionsBar.tsx", "ACTION_ERROR_KEYS"),
+    ("task-center/PendingPanel.tsx", "PENDING_ERROR_KEYS"),
     ("hooks/usePendingSend.ts", "PENDING_SEND_ERROR_KEYS"),
     ("ChatPage.tsx", "CONVERSATION_ERROR_KEYS"),
 )
@@ -471,7 +473,8 @@ def test_b290_module_sources_reference_chat_keys_without_hardcoded_copy() -> Non
 
     for path in sorted(MODULE.rglob("*.tsx")):
         source = _read(path)
-        if "t(" not in source:
+        # `t(` 必须是一个**标识符边界**上的调用：`set(`/`get(` 里的 `t(` 是子串，不是取词条。
+        if not re.search(r"\bt\(", source):
             continue
         assert "useTranslation()" in source, (
             f"{path.name} 的文案必须在本次渲染内经 useTranslation() 取得"

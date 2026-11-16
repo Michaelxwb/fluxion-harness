@@ -148,8 +148,9 @@ _TASK_TREE_SQL = """
 
 _TASK_EVENT_SQL = """
     SELECT to_jsonb(e) AS record FROM task.task_event e
-     WHERE e.tenant_id = :tenant_id AND e.task_id = ANY(CAST(:task_ids AS uuid[])) AND e.is_deleted = false
-     ORDER BY e.task_id, e.seq, e.id
+     WHERE e.tenant_id = :tenant_id AND e.entity_type = 'EXECUTION'
+       AND e.entity_id = ANY(CAST(:task_ids AS uuid[])) AND e.is_deleted = false
+     ORDER BY e.entity_id, e.seq, e.id
      LIMIT :row_limit
 """
 
@@ -452,7 +453,8 @@ class ExecutionExportRepository:
             "task.task_event",
             """
             SELECT to_jsonb(e) AS record FROM task.task_event e
-             WHERE e.tenant_id = :tenant_id AND e.task_id = :task_id AND e.is_deleted = false
+             WHERE e.tenant_id = :tenant_id AND e.entity_type = 'EXECUTION'
+               AND e.entity_id = :task_id AND e.is_deleted = false
              ORDER BY e.seq, e.id
              LIMIT :row_limit
             """,

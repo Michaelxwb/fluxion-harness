@@ -213,7 +213,7 @@ def seed_delivery_task(
     external_conversation_id: str | None,
     result_artifact_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
-    """写入一条"待 Worker 投递"的已完成 Task（`delivery_status=PENDING`）+ 投递路由。
+    """写入一条"待 Worker 投递"的已完成 Task（`task_delivery=PENDING`）+ 投递路由。
 
     供 B-130 验证生产 Worker 进程的投递循环：真实 PG 事实 + 真实 Gateway 投递。
 
@@ -227,7 +227,8 @@ def seed_delivery_task(
         from datetime import UTC, datetime, timedelta
 
         from muad_agent_worker.application.delivery_routes import upsert_delivery_route
-        from muad_agent_worker.infrastructure.models.task import TaskExecution
+        from muad_agent_worker.delivery.records import DeliveryKind, DeliveryState, execution_delivery_key
+        from muad_agent_worker.infrastructure.models.task import TaskDelivery, TaskExecution
         from muad_contracts import DeliveryRouteInput
 
         engine = create_async_engine(SharedSettings().require_database_url())
@@ -254,15 +255,14 @@ def seed_delivery_task(
                             tenant_id=tenant_id,
                             agent_id=agent_id,
                             actor_user_id=platform_user_id,
-                            intent_key=intent_key,
                             skill_id=uuid.uuid4(),
                             skill_artifact_id=uuid.uuid4(),
                             trigger_type="IMMEDIATE",
-                            execution_mode="ASYNC",
+                            skill_execution_mode="ASYNC",
                             task_type="SKILL",
                             status="COMPLETED",
                             input_json={},
-                            result_json={},
+                            result_json={"summary": intent_key},
                             execution_snapshot_schema_version=1,
                             execution_snapshot_json={"schema_version": 1},
                             snapshot_hash="sha256:" + "b" * 64,
@@ -272,16 +272,24 @@ def seed_delivery_task(
                             max_attempts=3,
                             not_before=now,
                             deadline_at=now + timedelta(hours=1),
-                            delivery_route_id=route_id,
-                            delivery_mode="FINAL_ONLY",
-                            delivery_status="PENDING",
-                            delivery_key=f"task:{task_id}:final",
-                            delivery_attempts=0,
                             finished_at=now,
                             result_artifact_id=result_artifact_id,
                         )
                     )
-            return {"task_id": task_id, "delivery_key": f"task:{task_id}:final"}
+                    await session.flush()
+                    session.add(
+                        TaskDelivery(
+                            id=uuid.uuid4(),
+                            tenant_id=tenant_id,
+                            execution_id=task_id,
+                            delivery_route_id=route_id,
+                            delivery_kind=str(DeliveryKind.PUSH),
+                            delivery_key=execution_delivery_key(task_id),
+                            status=str(DeliveryState.PENDING),
+                            attempt_count=0,
+                        )
+                    )
+            return {"task_id": task_id, "delivery_key": execution_delivery_key(task_id)}
         finally:
             await engine.dispose()
 

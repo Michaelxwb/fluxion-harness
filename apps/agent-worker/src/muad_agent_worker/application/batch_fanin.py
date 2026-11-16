@@ -14,21 +14,21 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
 
-from muad_contracts import TaskStatus, TerminalStatus
+from muad_contracts import TaskStatus, TaskType, TerminalStatus
 from pydantic import JsonValue
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..infrastructure.models.task import TaskExecution
 from .batch_fanout import AGGREGATE_ALL, AGGREGATE_BEST_EFFORT, BATCH_REF_KEY, PARKED_NOT_BEFORE
-from .task_events import TaskEventType
 from .terminal_tasks import TerminalChange, lock_task_tree, write_terminal
 
 BATCH_CHILD_FAILED = "BATCH_CHILD_FAILED"
 NON_TERMINAL_STATUSES = (
     str(TaskStatus.QUEUED),
     str(TaskStatus.RUNNING),
-    str(TaskStatus.WAITING),
+    str(TaskStatus.WAITING_EXTERNAL),
+    str(TaskStatus.WAITING_HUMAN),
 )
 TERMINAL_STATUSES = (
     str(TaskStatus.COMPLETED),
@@ -65,6 +65,10 @@ async def settle_child(
     ).scalar_one_or_none()
     if parent is None:
         return FaninOutcome(aggregated=False, parent_status=None, released=0)
+    # 只有 BATCH（或显式 batch_ref）的 Parent 才做 fan-in；Agentic 的 ASYNC Skill 子 Task
+    # 是操作载体，父 Execution 必须继续等待操作结果，不能被聚合成终态。
+    if parent.task_type != TaskType.BATCH.value and BATCH_REF_KEY not in (parent.wait_payload_json or {}):
+        return FaninOutcome(aggregated=False, parent_status=parent.status, released=0)
     if parent.status in TERMINAL_STATUSES:
         return FaninOutcome(aggregated=False, parent_status=parent.status, released=0)
     siblings = list(
@@ -126,7 +130,7 @@ async def _release_parked(
 
 
 def _concurrency(parent: TaskExecution) -> int:
-    batch = (parent.external_ref_json or {}).get(BATCH_REF_KEY) or {}
+    batch = (parent.wait_payload_json or {}).get(BATCH_REF_KEY) or {}
     value = batch.get("concurrency")
     if isinstance(value, int) and not isinstance(value, bool) and value >= 1:
         return value
@@ -136,7 +140,7 @@ def _concurrency(parent: TaskExecution) -> int:
 def _aggregate(
     parent: TaskExecution, siblings: list[TaskExecution]
 ) -> tuple[str, dict[str, Any], str | None, str | None]:
-    mode = ((parent.external_ref_json or {}).get(BATCH_REF_KEY) or {}).get("aggregate_mode", AGGREGATE_ALL)
+    mode = ((parent.wait_payload_json or {}).get(BATCH_REF_KEY) or {}).get("aggregate_mode", AGGREGATE_ALL)
     succeeded = sum(1 for item in siblings if item.status == str(TaskStatus.COMPLETED))
     failed = sum(1 for item in siblings if item.status == str(TaskStatus.FAILED))
     cancelled = sum(1 for item in siblings if item.status == str(TaskStatus.CANCELLED))
@@ -173,7 +177,7 @@ async def _cas_parent(
         ),
         moment,
         conditions=(TaskExecution.cancel_requested.is_(False),),
-        event_type=TaskEventType.FAN_IN,
+        # 聚合不是独立事件类型（§3.5.10 的 EXECUTION 事件就是状态本身）；聚合明细进 payload。
         event_payload=cast(dict[str, JsonValue], result),
     )
     return int(written)

@@ -10,6 +10,8 @@ from muad_contracts import DeliveryRequest
 from muad_contracts.webchat_events import WebchatTaskResultRegistration
 
 DELIVERY_PATH = "/internal/deliveries"
+#: 统一封套的成功码（`api/harness-api`）：它不是失败原因。
+SUCCESS_CODE = "0"
 #: Runtime 受信 Task 结果入箱端口（TASK-064 提供，TASK-068 接入）。
 WEBCHAT_TASK_RESULTS_PATH = "/internal/webchat/task-results"
 
@@ -22,12 +24,16 @@ class DeliveryTransportError(Exception):
 class DeliveryResult:
     """Gateway 的投递结果。
 
-    `delivered=False` 表示 Gateway 只占位、尚未确认送达（in-flight 重复）：
-    Worker 不得据此置 SENT，应按可重试失败处理。
+    `delivered=False` 表示 Gateway 只占位、尚未确认送达（in-flight 重复）或明确失败：
+    Worker 不得据此置 SENT，应按失败处理。
+
+    `error_code` 是封套里的业务码（`BOT_NOT_FOUND`/`FORBIDDEN`/…）：投递记录与
+    Schedule 的注意原因都要写明**为什么**失败，而不是只留一个 HTTP 数字。
     """
 
     status_code: int
     delivered: bool = True
+    error_code: str | None = None
 
 
 class DeliveryClientProtocol(Protocol):
@@ -59,25 +65,34 @@ class HttpDeliveryClient:
             )
         except httpx.HTTPError as exc:
             raise DeliveryTransportError(str(exc)) from exc
-        return DeliveryResult(status_code=response.status_code, delivered=_delivered(response))
+        delivered, code = _receipt(response)
+        return DeliveryResult(status_code=response.status_code, delivered=delivered, error_code=code)
 
 
-def _delivered(response: httpx.Response) -> bool:
+def _receipt(response: httpx.Response) -> tuple[bool, str | None]:
     """只有**明确** `data.delivered == true` 才算送达（2026-10-06 评审 #11）。
 
     HTTP 200 只说明请求被受理，不说明渠道真的发出去了。此前非法 JSON、缺 `delivered`
     字段、字段类型不对一律按「已送达」处理——于是 Worker 把行置成 `SENT`，却**没有任何
     可信回执**：任务结果再也不会重投，用户就是收不到。现在解析不了一律按未送达处理，
     走既有的可重试失败 + 退避；`delivery_key` 稳定，重投仍由网关去重。
+
+    业务码（`BOT_NOT_FOUND` 等）随回执一起返回：失败原因要落进投递记录，而不是只剩
+    HTTP 状态码。
     """
-    try:
-        payload = response.json()
-    except ValueError:
-        return False
-    data = payload.get("data") if isinstance(payload, dict) else None
+    payload = _json_object(response)
+    data = payload.get("data") if payload is not None else None
     if not isinstance(data, dict):
-        return False
-    return data.get("delivered") is True
+        return False, _error_code(payload)
+    return data.get("delivered") is True, _error_code(payload)
+
+
+def _error_code(payload: dict[str, Any] | None) -> str | None:
+    """封套里的**业务失败码**；成功码 `"0"` 不是失败原因，返回 None。"""
+    code = payload.get("code") if payload is not None else None
+    if not isinstance(code, str) or not code or code == SUCCESS_CODE:
+        return None
+    return code
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,16 +154,18 @@ def _inbox_receipt(response: httpx.Response, *, task_id: uuid.UUID) -> WebchatIn
     """解析入箱回执；任何不完整/不匹配的形状一律按未入箱返回（调用方据此重试）。"""
     payload = _json_object(response)
     data = payload.get("data") if payload is not None else None
-    code = payload.get("code") if payload is not None else None
     if not isinstance(data, dict):
         return WebchatInboxReceipt(
-            status_code=response.status_code, persisted=False, duplicate=False, error_code=None
+            status_code=response.status_code,
+            persisted=False,
+            duplicate=False,
+            error_code=_error_code(payload),
         )
     return WebchatInboxReceipt(
         status_code=response.status_code,
         persisted=data.get("persisted") is True and data.get("task_id") == str(task_id),
         duplicate=data.get("duplicate") is True,
-        error_code=code if isinstance(code, str) else None,
+        error_code=_error_code(payload),
     )
 
 

@@ -1,7 +1,29 @@
+"""共享 Agent 执行内核（design §3.1.2 / §3.2.4）。
+
+**一份循环，两个宿主。** 本模块只依赖 agent-core 自身与共享 contracts；所有宿主差异都在适配器
+提供的端口上，Kernel 不 import 任一 app、ORM 或渠道适配器，也不按宿主类型分支。
+
+执行输入 `AgentRunRequest` 就是 design 的 `ExecutionSpec`：冻结的模型、指令、技能、策略、预算与
+截止时间。端口清单：
+
+| 端口 | 类型 | 宿主提供什么 |
+|---|---|---|
+| 模型 | `ModelProvider` | 已构造好的 provider：模型池/凭据/容量由适配器解析 |
+| 工具 | `ToolRegistry` | 只构造 allowlist 内的工具（越权 → `TOOL_NOT_ALLOWED`） |
+| 记忆（只读） | `ModelContextLoader` | 冻结 revision 的注入块；定时任务不写长期记忆 |
+| 事件/检查点 | `ExecutionEventPort` | Runtime→canonical_event，Worker→task_event |
+| 挂起/恢复 | `ToolSuspensionPort` | 中立 `SuspensionRequest`：等人回答或等外部操作 |
+| 压缩 | `ContextCompactor` | 分层压缩；失败退回原历史（见 `_compacted`） |
+| 整轮外置 | `ToolResultRoundPort` | 产物写入；整轮失败保持内联（见 `_round_results_or_inline`） |
+| 取消/截止 | `is_cancelled` + `deadline_at` | lease 失效、cancel_requested、绝对 deadline |
+| 校验 | `answer_verifier` | 输出契约的 verifier |
+"""
+
 from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -47,8 +69,10 @@ from ..tools.planner import (
 )
 from ..tools.registry import ToolNotFoundError, ToolRegistry
 from ..tools.round_results import ToolResultRoundPort
-from .continuation import RunnerCheckpoint, RuntimeEventPort, WaitDecision
-from .suspension import ToolSuspensionPort
+from .continuation import ExecutionEventPort, RunnerCheckpoint, WaitDecision
+from .suspension import SuspensionKind, SuspensionRequest, ToolSuspensionPort
+
+logger = logging.getLogger("muad_agent_core.agent.runner")
 
 NODE_PREPARE_CONTEXT = "prepare_context"
 NODE_CONCLUDE = "conclude"
@@ -189,6 +213,13 @@ class AgentRunStatus(StrEnum):
     NO_PROGRESS = "NO_PROGRESS"
 
 
+#: 挂起收口状态：`WAITING_INPUT`（等用户回答）与 `WAITING_TOOL`（等外部操作结果）。
+#: 两者都**不是失败**，收尾阶段不得被预算/无进展判定改写。
+_SUSPENDED_STATUSES = frozenset(
+    (str(AgentRunStatus.WAITING_INPUT), str(AgentRunStatus.WAITING_TOOL))
+)
+
+
 @dataclass(frozen=True, slots=True)
 class AgentPolicy:
     max_turns: int = DEFAULT_MAX_TURNS
@@ -219,6 +250,8 @@ class AgentPolicy:
 
 @dataclass(frozen=True, slots=True)
 class AgentRunRequest:
+    """design 的 `ExecutionSpec`：一次执行冻结下来的全部输入（恢复时原样重用，不重新解析）。"""
+
     model_id: str
     instructions: str
     messages: tuple[ModelMessage, ...] = ()
@@ -310,6 +343,13 @@ def _tool_message(call_id: str, content: str) -> ModelMessage:
     return ModelMessage(role=ModelRole.TOOL, content=content, tool_call_id=call_id)
 
 
+def _suspension_status(request: SuspensionRequest) -> AgentRunStatus:
+    """挂起的收口状态：等人回答 → `WAITING_INPUT`；等外部操作 → `WAITING_TOOL`。"""
+    if request.kind is SuspensionKind.TOOL_OPERATION:
+        return AgentRunStatus.WAITING_TOOL
+    return AgentRunStatus.WAITING_INPUT
+
+
 #: 统一执行入口的终态 → 回合事件状态（工具/审计两侧共用同一映射）。
 _TOOL_STATUSES = {
     "SUCCEEDED": "OK",
@@ -354,7 +394,7 @@ class AgentRunner:
         context_compactor: ContextCompactor | None = None,
         tool_round_results: ToolResultRoundPort | None = None,
         tool_pipeline: ToolExecutionPipeline | None = None,
-        runtime_events: RuntimeEventPort | None = None,
+        runtime_events: ExecutionEventPort | None = None,
         tool_suspension: ToolSuspensionPort | None = None,
         context_loader: ModelContextLoader | None = None,
         event_batch_size: int = 16,
@@ -670,19 +710,24 @@ class AgentRunner:
         return await self._checkpoint_tool_round(cast(AgentRunState, complete))
 
     async def _checkpoint_tool_round(self, state: AgentRunState) -> AgentRunState:
+        """完整回合边界：唯一的挂起点（Human 与工具级都走这里，差别只在 adapter 的请求）。
+
+        挂起语义全在中立字段上：`kind` 决定收口状态（等人回答 / 等外部操作），`reason` 只是
+        原样写进中断事件的宿主分类。Kernel 不解释任何一个——把 `reason` 当 Memory 是旧的错误形状。
+        """
         port = self._tool_suspension
         request = port.suspend_request if port is not None else None
         if port is not None and request is not None:
             self._ensure_runnable(state)
-            await port.suspend(self._checkpoint(state))
+            await port.suspend(self._checkpoint(state, request))
             await self.notify_interrupt(
                 {
                     "interrupt_id": str(request.interrupt_id),
-                    "kind": "MEMORY_CONFIRMATION",
+                    "kind": request.reason,
                     "prompt": request.prompt,
                 }
             )
-            return {**state, "status": str(AgentRunStatus.WAITING_INPUT), "final_text": request.prompt}
+            return {**state, "status": str(_suspension_status(request)), "final_text": request.prompt}
         if self._runtime_events is not None and not state["budget_exhausted"]:
             await self._runtime_events.checkpoint(self._checkpoint(state))
         return state
@@ -809,9 +854,10 @@ class AgentRunner:
             return
         if self._round_results is not None:
             indexes = [index for index, *_ in executed]
-            replaced = await self._round_results.finish_round(tuple(messages[index] for index in indexes))
-            for index, message in zip(indexes, replaced, strict=True):
-                messages[index] = message
+            replaced = await self._round_results_or_inline(tuple(messages[index] for index in indexes))
+            if replaced is not None:
+                for index, message in zip(indexes, replaced, strict=True):
+                    messages[index] = message
         for index, call_id, name, status in executed:
             content = text_of(messages[index].content)
             artifact_id = _artifact_ref(content)
@@ -825,6 +871,24 @@ class AgentRunner:
                 # 历史时这条结果就**净丢了**（任务 id、查询结论、短正文都找不回来）。
                 None if artifact_id is not None else content,
             )
+
+    async def _round_results_or_inline(
+        self, results: Sequence[ModelMessage]
+    ) -> Sequence[ModelMessage] | None:
+        """整轮外置失败 ⇒ 返回 `None`，调用方**保留内联结果**（整轮回滚，不得让 Run 失败）。
+
+        Kernel 是这条保证的唯一落点：换第二个适配器时不必各自记得吞异常。降级必须可见
+        （warning），不能变成"悄悄不外置"。
+        """
+        assert self._round_results is not None
+        try:
+            return await self._round_results.finish_round(results)
+        except Exception as exc:  # noqa: BLE001 —— 外置是优化，失败不得改变主执行结果
+            logger.warning(
+                "tool_round_results_failed",
+                extra={"results": len(results), "error_type": type(exc).__name__, "error": str(exc)},
+            )
+            return None
 
     async def _emit_post_model(self, state: AgentRunState) -> None:
         """设计 S-05 顺序：post_model 在 post_tool_use 之后、每次模型响应触发一次。"""
@@ -897,11 +961,12 @@ class AgentRunner:
             {"final_text": state["final_text"], "turns": state["turns"]},
         )
         final_text = context.payload.get("final_text", state["final_text"])
-        exceeded = state["status"] != AgentRunStatus.WAITING_INPUT and (
+        suspended = state["status"] in _SUSPENDED_STATUSES
+        exceeded = not suspended and (
             state["budget_exhausted"]
             or (bool(state["pending_tool_calls"]) and state["turns"] >= state["policy"].max_turns)
         )
-        if state["no_progress"] and state["status"] != AgentRunStatus.WAITING_INPUT:
+        if state["no_progress"] and not suspended:
             status = str(AgentRunStatus.NO_PROGRESS)
         elif exceeded:
             status = str(AgentRunStatus.BUDGET_EXCEEDED)
@@ -947,13 +1012,21 @@ class AgentRunner:
         )
 
     @staticmethod
-    def _checkpoint(state: AgentRunState) -> RunnerCheckpoint:
+    def _checkpoint(
+        state: AgentRunState, suspension: SuspensionRequest | None = None
+    ) -> RunnerCheckpoint:
+        """回合 checkpoint；工具级挂起时把待定操作一起写进去（Human 挂起恒为空）。
+
+        checkpoint 是恢复的唯一依据：模型回合边界与异步工具挂起**同一形状**，宿主换一份
+        `CheckpointStore` 就能恢复，不需要第二套私有约定。
+        """
         return RunnerCheckpoint(
             state["turns"],
             state["tool_calls_used"],
             state["input_tokens"],
             state["output_tokens"],
             state["consumed_event_seq"],
+            suspension.pending_tool_calls if suspension is not None else (),
         )
 
     async def _drain_events(self, state: AgentRunState) -> AgentRunState:
@@ -974,11 +1047,8 @@ class AgentRunner:
         if state["no_progress"] and not state["concluded"]:
             # 停止前给模型**一次**收尾：禁用工具，让它把失败原因整理给用户。
             return NODE_CONCLUDE
-        if (
-            state["budget_exhausted"]
-            or state["no_progress"]
-            or state["status"] == AgentRunStatus.WAITING_INPUT
-        ):
+        if state["budget_exhausted"] or state["no_progress"] or state["status"] in _SUSPENDED_STATUSES:
+            # 两类挂起（等人 / 等外部操作）都在这里收口：继续跑模型回合等于把挂起当没发生。
             return NODE_FINALIZE
         return NODE_PREPARE_CONTEXT
 
@@ -1039,9 +1109,26 @@ class AgentRunner:
             if message is not None:
                 messages = (*messages[:1], message, *messages[1:])
         if self._context_compactor is not None:
-            messages = await self._context_compactor.compact(messages)
+            messages = await self._compacted(state, messages)
         self._ensure_runnable(state)
         return replace(request, messages=messages, timeout_sec=self._request_timeout_sec(state))
+
+    async def _compacted(
+        self, state: AgentRunState, messages: Sequence[ModelMessage]
+    ) -> tuple[ModelMessage, ...]:
+        """压缩失败一律退回原历史（"压缩不得让 Run 失败"），但降级必须可见。
+
+        Kernel 兜这一层是因为它有两个适配器：第二个实现不该靠"记得吞异常"来复用同一条规则。
+        """
+        assert self._context_compactor is not None
+        try:
+            return await self._context_compactor.compact(messages)
+        except Exception as exc:  # noqa: BLE001 —— 压缩是优化，失败不得改变主执行
+            logger.warning(
+                "context_compaction_failed",
+                extra={"turns": state["turns"], "error_type": type(exc).__name__, "error": str(exc)},
+            )
+            return tuple(messages)
 
     async def _cancel_aware_sleep(self, state: AgentRunState, delay: float) -> None:
         """退避期间保持 cancel/deadline 可响应。"""

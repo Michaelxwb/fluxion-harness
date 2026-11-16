@@ -28,6 +28,7 @@ from muad_contracts.webchat import (
     WebchatConfirmation,
     WebchatExecutionStatus,
     WebchatHistoryMessage,
+    WebchatScheduleDraftReady,
 )
 from muad_contracts.webchat_events import (
     PublicWebchatEvent,
@@ -38,6 +39,7 @@ from muad_contracts.webchat_events import (
     WebchatReplyDelta,
     WebchatReplySnapshot,
     WebchatSafeError,
+    WebchatScheduleDraftReadyEvent,
     WebchatSnapshotEvent,
     WebchatStageEvent,
     WebchatTerminal,
@@ -71,6 +73,7 @@ PUBLIC_STREAM_EVENT_TYPES: dict[str, str] = {
     "artifact.created": "artifact.created",
     "interrupt.required": "confirmation.required",
     "memory.confirmation_required": "confirmation.required",
+    "schedule.draft.ready": "schedule.draft.ready",
 }
 
 
@@ -243,6 +246,8 @@ def _project_stream_event(
         return _artifact_event(row, run_id, artifacts)
     if public_type == "confirmation.required":
         return _confirmation_event(row, run_id)
+    if public_type == "schedule.draft.ready":
+        return _schedule_draft_event(row, run_id)
     return None
 
 
@@ -344,6 +349,21 @@ def _artifact_event(
     if attachment is None:
         return None
     return WebchatArtifactEvent(type="artifact.created", data=attachment, **_identity(row, run_id))
+
+
+def _schedule_draft_event(row: CanonicalRow, run_id: uuid.UUID) -> WebchatScheduleDraftReadyEvent:
+    """Draft 确认卡片：载荷本身就是卡片公开 DTO（写入方同源），坏形状显式失败。
+
+    它不是 `confirmation.required`：这张卡片的确认按钮调的是 Draft 确认端点，与 Run 的
+    resume 无关；坏载荷静默丢弃会让用户点不到确认，因此按已知公开事件的坏载荷处理。
+    """
+    try:
+        data = WebchatScheduleDraftReady.model_validate(_payload(row))
+    except ValidationError as exc:
+        raise _malformed(row) from exc
+    return WebchatScheduleDraftReadyEvent(
+        type="schedule.draft.ready", data=data, **_identity(row, run_id)
+    )
 
 
 def _confirmation_event(row: CanonicalRow, run_id: uuid.UUID) -> WebchatConfirmationEvent | None:

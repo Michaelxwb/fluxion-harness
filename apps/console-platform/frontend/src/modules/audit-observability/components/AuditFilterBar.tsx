@@ -10,9 +10,10 @@
  */
 
 import { useEffect, useState } from 'react';
-import { DatePicker, Input, Select } from '@douyinfe/semi-ui';
+import { Input, Select } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 
+import { DateRangeFilter } from '../../../components/common/DateRangeFilter';
 import { ListActionButton } from '../../../components/common/ListActionButton';
 import type { AuditListQuery } from '../types';
 
@@ -104,10 +105,10 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
     props.onChange({ ...patch, page: 1 });
   }
 
-  const timeRange: [Date, Date] | undefined =
+  const timeRange: Date[] =
     value.startTime && value.endTime
       ? [new Date(value.startTime), new Date(value.endTime)]
-      : undefined;
+      : [];
 
   return (
     <>
@@ -121,17 +122,6 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
         value={keywordDraft}
         onChange={setKeywordDraft}
         onEnterPress={() => emit({ keyword: keywordDraft || undefined })}
-      />
-      <DatePicker
-        data-testid="audit-filter-time"
-        type="dateRange"
-        style={{ width: 260 }}
-        value={timeRange}
-        placeholder={[t('audit.filter.timeFrom'), t('audit.filter.timeTo')]}
-        onChange={(range) => {
-          const days = Array.isArray(range) ? (range as Date[]) : [];
-          emit({ startTime: toIsoStart(days[0]), endTime: toIsoEndOfDay(days[1]) });
-        }}
       />
       <Select
         data-testid="audit-filter-auditType"
@@ -170,6 +160,14 @@ export function AuditFilterBar(props: AuditFilterBarProps) {
           label: t(`audit.resultStatus.${status}`)
         }))}
         onChange={(raw) => emit({ resultStatus: (raw as string) ?? undefined })}
+      />
+      <DateRangeFilter
+        testId="audit-filter-time"
+        label={t('audit.filter.time')}
+        value={timeRange}
+        onChange={(days) => {
+          emit({ startTime: toIsoStart(days[0]), endTime: toIsoEndOfDay(days[1]) });
+        }}
       />
       <ListActionButton data-testid="audit-reset" onClick={() => props.onReset()} action="reset" />
       <ListActionButton data-testid="audit-refresh" onClick={() => props.onRefresh()} action="refresh" />
