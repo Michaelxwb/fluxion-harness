@@ -21,9 +21,6 @@ COMMON = ROOT / "apps/console-platform/frontend/src/components/common"
 
 REQUIRED_KEYS = (
     "task.title",
-    "task.help.action",
-    "task.help.title",
-    "task.help.content",
     "task.filter.status",
     "task.filter.triggerType",
     "task.filter.deadline",
@@ -247,13 +244,10 @@ def test_b130_status_labels_are_localized_not_schema_keys() -> None:
         assert en[key] != key.split(".")[-1], f"{key} 是裸 schema key"
 
 
-def test_b130_help_does_not_promise_console_orchestration() -> None:
+def test_b130_schedule_help_does_not_promise_console_orchestration() -> None:
     zh, en = _locales()
-    for key in ("task.help.content", "schedule.help.content"):
-        assert "Agent" in zh[key], f"{key} 未说明由 Agent 产生"
-        assert "Agent" in en[key], f"{key} 未说明由 Agent 产生"
-    assert "不提供任务编排" in zh["task.help.content"]
-    assert "orchestrat" not in en["task.help.content"].lower()
+    assert "Agent" in zh["schedule.help.content"], "schedule.help.content 未说明由 Agent 产生"
+    assert "Agent" in en["schedule.help.content"], "schedule.help.content 未说明由 Agent 产生"
     assert "Console 创建" not in zh["schedule.help.content"]
     assert "create in console" not in en["schedule.help.content"].lower()
     assert "console can create" not in en["schedule.help.content"].lower()

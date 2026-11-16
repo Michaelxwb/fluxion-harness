@@ -588,9 +588,12 @@ body {
 .task-filter-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px 16px;
   flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
   padding: 10px 12px;
   margin-bottom: 12px;
   border: 1px solid var(--semi-color-border);
@@ -601,22 +604,11 @@ body {
 .task-filter-bar__filters {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   flex-wrap: wrap;
-}
-
-.task-filter-bar__actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  white-space: nowrap;
-}
-
-.task-filter-bar__actions .semi-button {
-  font-size: 13px;
 }
 .user-grants-table { --app-table-min-width: 680px; }
 .user-credentials-table { --app-table-min-width: 832px; }

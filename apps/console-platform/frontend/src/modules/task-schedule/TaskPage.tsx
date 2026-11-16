@@ -1,5 +1,5 @@
 import { actionColumn } from '../../components/common/tableLayout';
-import { Button, DatePicker, Input, Modal, Select, Tag } from '@douyinfe/semi-ui';
+import { Button, DatePicker, Input, Select, Tag } from '@douyinfe/semi-ui';
 import { IconCalendar } from '@douyinfe/semi-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -153,7 +153,6 @@ export function TaskPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [helpVisible, setHelpVisible] = useState(false);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [detailScheduleId, setDetailScheduleId] = useState<string | null>(null);
   const related = useRelatedDetail();
@@ -384,11 +383,6 @@ export function TaskPage() {
                 });
               }}
             />
-          </div>
-          <div className="task-filter-bar__actions">
-            <Button data-testid="task-help" onClick={() => setHelpVisible(true)}>
-              {t('task.help.action')}
-            </Button>
             <ListActionButton data-testid="task-reset" onClick={resetFilters} action="reset" />
             <ListActionButton onClick={() => void reload()} action="refresh" />
           </div>
@@ -543,15 +537,6 @@ export function TaskPage() {
           }
         />
       </PageSection>
-      <Modal
-        centered
-        visible={helpVisible}
-        title={t('task.help.title')}
-        footer={null}
-        onCancel={() => setHelpVisible(false)}
-      >
-        <p data-testid="task-help-content">{t('task.help.content')}</p>
-      </Modal>
       <TaskDetailSideSheet
         taskId={detailTaskId}
         reloadKey={detailReloadKey}
