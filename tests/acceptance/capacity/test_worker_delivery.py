@@ -153,7 +153,8 @@ def task_events(database_url: str, task_id: str) -> list[Mapping[str, Any]]:
         dict(row)
         for row in db_rows(
             database_url,
-            "SELECT event_type, payload_json FROM task.task_event WHERE task_id = $1 ORDER BY seq",
+            "SELECT event_type, payload_json FROM task.task_event"
+            " WHERE entity_type = 'EXECUTION' AND entity_id = $1 ORDER BY seq",
             uuid.UUID(task_id),
         )
     ]

@@ -57,7 +57,8 @@ def _schedule_tasks(live_stack: LiveStack, schedule_id: str) -> list[tuple[Any, 
                 (
                     await session.execute(
                         text(
-                            "SELECT id, status, skill_artifact_id, execution_snapshot_json, snapshot_hash "
+                            "SELECT id, status, skill_artifact_id, execution_snapshot_json, snapshot_hash, "
+                            "error_code, left(error_message, 300) "
                             "FROM task.task_execution WHERE schedule_id = :id ORDER BY create_time"
                         ),
                         {"id": uuid.UUID(schedule_id)},
@@ -164,6 +165,15 @@ def test_b142_current_artifact_change_only_affects_new_fire(
     schedule_id = _create_schedule(live_stack, http, cron="0 3 * * *")
     _make_due(live_stack, schedule_id)
     first = _wait_task(live_stack, schedule_id)
+    # 第一次执行必须先收尾，再切 current Artifact / 拨第二次到期：慢环境下仍在 RUNNING 的
+    # 第一次执行会触发并发策略，第二次触发被跳过，测试就只剩一行 Task。
+    deadline = time.monotonic() + 60
+    while first[1] not in TERMINAL and time.monotonic() < deadline:
+        time.sleep(1.0)
+        rows = _schedule_tasks(live_stack, schedule_id)
+        if rows:
+            first = rows[0]
+    assert first[1] == "COMPLETED", first
 
     storage_key = f"skills/{live_stack.skill_id}/v2/skill.zip"
     package_path = live_stack.artifact_root / storage_key

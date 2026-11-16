@@ -919,7 +919,8 @@ def task_row(database_url: str, tenant_id: str, task_id: str) -> dict[str, Any] 
 def task_events(database_url: str, tenant_id: str, task_id: str) -> list[str]:
     rows = fetch_all(
         database_url,
-        "SELECT event_type FROM task.task_event WHERE tenant_id = $1 AND task_id = $2"
+        "SELECT event_type FROM task.task_event"
+        " WHERE tenant_id = $1 AND entity_type = 'EXECUTION' AND entity_id = $2"
         " ORDER BY seq ASC",
         tenant_id,
         uuid.UUID(task_id),
