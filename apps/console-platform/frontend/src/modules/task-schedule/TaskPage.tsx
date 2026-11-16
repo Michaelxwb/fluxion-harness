@@ -11,7 +11,6 @@ import { PageHeader, PageSection } from '../../components/common/ConsolePage';
 import { DateTimeText } from '../../components/common/DateTimeText';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
-import { ModuleToolbar } from '../../components/common/ModuleToolbar';
 import { RemoteTable } from '../../components/common/RemoteTable';
 import { TableText } from '../../components/common/TableText';
 import { EntityLink } from '../../components/common/EntityLink';
@@ -92,7 +91,16 @@ function CompactDateRange(props: {
         <Button
           theme="borderless"
           icon={<IconCalendar />}
-          style={{ minWidth: 120, maxWidth: 170, justifyContent: 'flex-start' }}
+          style={{
+            minWidth: 122,
+            maxWidth: 160,
+            height: 32,
+            paddingInline: 10,
+            justifyContent: 'flex-start',
+            border: '1px solid var(--semi-color-border)',
+            borderRadius: 'var(--semi-border-radius-small)',
+            background: 'var(--semi-color-fill-0)'
+          }}
         >
           {text || placeholder}
         </Button>
@@ -281,116 +289,110 @@ export function TaskPage() {
     <>
       <PageHeader title={t('task.title')} />
       <PageSection>
-        <ModuleToolbar
-          actions={
+        <div className="task-filter-bar">
+          <div className="task-filter-bar__filters">
+            <Input
+              data-testid="task-filter-search"
+              value={searchText}
+              style={{ width: 220 }}
+              showClear
+              placeholder={t('task.filter.searchTaskId')}
+              onChange={onSearchChange}
+            />
+            <Select
+              data-testid="task-filter-status"
+              value={params.status ?? undefined}
+              style={{ width: 110 }}
+              showClear
+              placeholder={t('task.filter.status')}
+              optionList={TASK_STATUSES.map((status) => ({
+                value: status,
+                label: taskStatusLabel(translate, status)
+              }))}
+              onChange={(value) =>
+                setFilter({ status: (value as TaskListParams['status']) ?? undefined })
+              }
+            />
+            <Select
+              data-testid="task-filter-trigger"
+              value={params.trigger_type ?? undefined}
+              style={{ width: 110 }}
+              showClear
+              placeholder={t('task.filter.triggerType')}
+              optionList={TRIGGER_TYPES.map((trigger) => ({
+                value: trigger,
+                label: t(`task.trigger.${trigger}`)
+              }))}
+              onChange={(value) =>
+                setFilter({ trigger_type: (value as TaskListParams['trigger_type']) ?? undefined })
+              }
+            />
+            <Select
+              data-testid="task-filter-agent"
+              value={params.agent_id ?? undefined}
+              style={{ width: 145 }}
+              showClear
+              filter
+              placeholder={t('task.filter.agent')}
+              optionList={agentPicker.options}
+              onDropdownVisibleChange={agentPicker.onDropdownVisibleChange}
+              onChange={(value) => setFilter({ agent_id: (value as string) ?? undefined })}
+            />
+            <Select
+              data-testid="task-filter-actor"
+              value={params.actor_user_id ?? undefined}
+              style={{ width: 145 }}
+              showClear
+              filter
+              placeholder={t('task.filter.actorUser')}
+              optionList={actorPicker.options}
+              onDropdownVisibleChange={actorPicker.onDropdownVisibleChange}
+              onChange={(value) => setFilter({ actor_user_id: (value as string) ?? undefined })}
+            />
+            <Select
+              data-testid="task-filter-skill"
+              value={params.skill_id ?? undefined}
+              style={{ width: 145 }}
+              showClear
+              filter
+              placeholder={t('task.filter.skill')}
+              optionList={skillPicker.options}
+              onDropdownVisibleChange={skillPicker.onDropdownVisibleChange}
+              onChange={(value) => setFilter({ skill_id: (value as string) ?? undefined })}
+            />
+            <CompactDateRange
+              testId="task-filter-create"
+              label={t('task.filter.created')}
+              value={createdRange}
+              onChange={(range) => {
+                setCreatedRange(range);
+                setFilter({
+                  start_time: toIsoDate(range[0]),
+                  end_time: toIsoEndOfDay(range[1])
+                });
+              }}
+            />
+            <CompactDateRange
+              testId="task-filter-deadline"
+              label={t('task.filter.deadline')}
+              value={deadlineRange}
+              onChange={(range) => {
+                setDeadlineRange(range);
+                setFilter({
+                  deadline_from: toIsoDate(range[0]),
+                  deadline_to: toIsoEndOfDay(range[1])
+                });
+              }}
+            />
+          </div>
+          <div className="task-filter-bar__actions">
             <Button data-testid="task-help" onClick={() => setHelpVisible(true)}>
               {t('task.help.action')}
             </Button>
-          }
-          search={
-            <>
-              <Input
-                data-testid="task-filter-search"
-                value={searchText}
-                style={{ width: 200 }}
-                showClear
-                placeholder={t('task.filter.searchTaskId')}
-                onChange={onSearchChange}
-              />
-              <Select
-                data-testid="task-filter-status"
-                value={params.status ?? undefined}
-                style={{ width: 120 }}
-                showClear
-                placeholder={t('task.filter.status')}
-                optionList={TASK_STATUSES.map((status) => ({
-                  value: status,
-                  label: taskStatusLabel(translate, status)
-                }))}
-                onChange={(value) =>
-                  setFilter({ status: (value as TaskListParams['status']) ?? undefined })
-                }
-              />
-              <Select
-                data-testid="task-filter-trigger"
-                value={params.trigger_type ?? undefined}
-                style={{ width: 120 }}
-                showClear
-                placeholder={t('task.filter.triggerType')}
-                optionList={TRIGGER_TYPES.map((trigger) => ({
-                  value: trigger,
-                  label: t(`task.trigger.${trigger}`)
-                }))}
-                onChange={(value) =>
-                  setFilter({ trigger_type: (value as TaskListParams['trigger_type']) ?? undefined })
-                }
-              />
-              <Select
-                data-testid="task-filter-agent"
-                value={params.agent_id ?? undefined}
-                style={{ width: 160 }}
-                showClear
-                filter
-                placeholder={t('task.filter.agent')}
-                optionList={agentPicker.options}
-                onDropdownVisibleChange={agentPicker.onDropdownVisibleChange}
-                onChange={(value) => setFilter({ agent_id: (value as string) ?? undefined })}
-              />
-              <Select
-                data-testid="task-filter-actor"
-                value={params.actor_user_id ?? undefined}
-                style={{ width: 160 }}
-                showClear
-                filter
-                placeholder={t('task.filter.actorUser')}
-                optionList={actorPicker.options}
-                onDropdownVisibleChange={actorPicker.onDropdownVisibleChange}
-                onChange={(value) => setFilter({ actor_user_id: (value as string) ?? undefined })}
-              />
-              <Select
-                data-testid="task-filter-skill"
-                value={params.skill_id ?? undefined}
-                style={{ width: 160 }}
-                showClear
-                filter
-                placeholder={t('task.filter.skill')}
-                optionList={skillPicker.options}
-                onDropdownVisibleChange={skillPicker.onDropdownVisibleChange}
-                onChange={(value) => setFilter({ skill_id: (value as string) ?? undefined })}
-              />
-              <CompactDateRange
-                testId="task-filter-create"
-                label={t('task.filter.created')}
-                value={createdRange}
-                onChange={(range) => {
-                  setCreatedRange(range);
-                  setFilter({
-                    start_time: toIsoDate(range[0]),
-                    end_time: toIsoEndOfDay(range[1])
-                  });
-                }}
-              />
-              <CompactDateRange
-                testId="task-filter-deadline"
-                label={t('task.filter.deadline')}
-                value={deadlineRange}
-                onChange={(range) => {
-                  setDeadlineRange(range);
-                  setFilter({
-                    deadline_from: toIsoDate(range[0]),
-                    deadline_to: toIsoEndOfDay(range[1])
-                  });
-                }}
-              />
-              <ListActionButton
-                data-testid="task-reset"
-                onClick={resetFilters}
-                action="reset"
-              />
-              <ListActionButton onClick={() => void reload()} action="refresh" />
-            </>
-          }
-        />
+            <ListActionButton data-testid="task-reset" onClick={resetFilters} action="reset" />
+            <ListActionButton onClick={() => void reload()} action="refresh" />
+          </div>
+        </div>
         {params.schedule_id ? (
           <div style={{ display: 'flex', marginBottom: 8 }}>
             <Tag

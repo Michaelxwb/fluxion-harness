@@ -380,6 +380,7 @@ def test_task_pages_show_v2_status_wait_snapshot_and_human() -> None:
     assert "TASK_STATUSES" in page and "CANCELLABLE_TASK_STATUSES" in page
     assert "task.columns.taskType" in page
     for token in (
+        "task-filter-bar",
         "task-filter-search",
         "onSearchChange",
         "task.filter.searchTaskId",

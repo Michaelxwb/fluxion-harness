@@ -583,6 +583,41 @@ body {
 .platform-table { --app-table-min-width: 1280px; }
 .task-table { --app-table-min-width: 1440px; }
 .schedule-table { --app-table-min-width: 1440px; }
+
+/* 后台任务筛选：筛选控件左对齐，帮助/重置/刷新收在右侧；整条是一块轻量卡片。 */
+.task-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--semi-color-border);
+  border-radius: 8px;
+  background: var(--semi-color-bg-1);
+}
+
+.task-filter-bar__filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.task-filter-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.task-filter-bar__actions .semi-button {
+  font-size: 13px;
+}
 .user-grants-table { --app-table-min-width: 680px; }
 .user-credentials-table { --app-table-min-width: 832px; }
 .user-identities-table { --app-table-min-width: 880px; }
