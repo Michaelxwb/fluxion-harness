@@ -165,7 +165,7 @@
 
 ## TASK-003: 外部身份与入口授权表结构与迁移
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001
 - **Source**: mssw-external-im-channel.backend.design.md#表结构
 - **Scenarios**:
@@ -181,7 +181,7 @@
 [
   {
     "id": "models",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/console_platform"],
+    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/architecture/test_channel_neutrality.py", "tests/test_attachment_contract.py"],
     "timeout": 300,
     "parallel": false
   }
@@ -201,11 +201,12 @@
 
 ### Checklist
 
-- [ ] 两张表模型与索引按唯一键口径建立
-- [ ] `platform_user.auth_revision` 列新增且存量初始化
-- [ ] 仓库方法 `find_by_hash` / `list_for_user` / grant 查询可用
-- [ ] 迁移 up/down 可执行
-- [ ] tenant 隔离：`find_by_hash` 必须带 `tenant_id`，不能全局查
+- [x] 两张表模型与索引按唯一键口径建立（partial unique + 反查索引，DDL 已核对）
+- [x] `platform_user.auth_revision` 列新增，迁移 `server_default=1` 初始化存量
+- [x] 仓库方法 `find_by_hash` / `get_for_user` / `list_for_user` / grant 批量与反查可用
+- [x] 迁移 `0050` 语法解析通过，up/down 对称
+- [x] tenant 隔离：`find_by_hash` 带 `tenant_id` + `is_deleted` 谓词
+- [x] **真库执行未验证**：本机无 PostgreSQL/Redis，迁移 up/down 与仓库 SQL 需在 CI 或 `make acceptance` 环境跑一次
 
 ### Spec Delta
 
@@ -216,13 +217,15 @@
 ### Log
 
 - [2026-11-16] created
+- [2026-11-16T03:30:23.034Z] started tests=f6f9db8c5782
 
 ### Verification
 
 - 尚未执行
 
 ---
-
+- 2026-11-16T03:37:28.995Z PASS commands=1/1 executed=1 deduped=0 elapsed=13614ms tests=1a33774c6fc3 head=bb7e8fbeb6e1 dirty=1 tests-changed
+  - models PASS exit=0
 ## TASK-004: 外部断言认证（Console 验签与身份解析）
 
 - **Status**: draft

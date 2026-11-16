@@ -36,6 +36,13 @@ class PlatformUser(StandardColumnsMixin, Base):
         nullable=False,
         server_default=sa.text("'{}'::jsonb"),
     )
+    #: 认证版本号：任何影响该用户可访问性的事件（授权增删、停用、身份变更）都要 +1。
+    #: 认证缓存与外部断言结果按它做失效判定，保证撤权秒级生效。
+    auth_revision: Mapped[int] = mapped_column(
+        sa.BigInteger(),
+        nullable=False,
+        server_default=sa.text("1"),
+    )
 
 
 class ModelDefinition(StandardColumnsMixin, Base):
