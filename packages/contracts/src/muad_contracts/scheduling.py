@@ -773,6 +773,8 @@ class SnapshotSkill(ContractModel):
     source: str = Field(min_length=1, max_length=16)
     execution_mode: str = Field(min_length=1, max_length=16)
     frontmatter: dict[str, Any] = Field(default_factory=dict)
+    #: 冻结的 workspace 归属：定时执行不接受 Task 行上的可变身份。
+    workspace: dict[str, str] = Field(default_factory=dict)
 
 
 class SnapshotTool(ContractModel):
@@ -816,6 +818,8 @@ class SnapshotBudget(ContractModel):
     max_steps: int | None = Field(default=None, ge=1)
     max_tool_calls: int | None = Field(default=None, ge=1)
     max_tokens: int | None = Field(default=None, ge=0)
+    #: 执行超时：定时任务在 Fire Admission 时冻结，Worker 只读快照。
+    execution_timeout_sec: int | None = Field(default=None, ge=1)
     deadline_at: AwareDatetime | None = None
     retry_safety: str | None = Field(default=None, max_length=16)
 
