@@ -220,10 +220,11 @@ class _EntryAttribution:
 
 
 async def _entry_id_of(session: AsyncSession, run: RunRecord) -> _EntryAttribution:
-    """会话的入口归属与可见性：NULL 只可能是历史未归属会话（新会话必带入口）。
+    """通知的来源入口跟随本次 **Run**，会话可见性另查会话行（RULE-im-006 / S-06）。
 
-    `run.channel_json` 与 `conversation.channel_account_id` 是同一事实的两份载体：
-    两者都带入口且不一致是内部一致性错误，显式留 ERROR 痕迹（以会话行为准）。
+    跨入口共享会话时，同一会话可先后落到不同入口；通知来源必须是「这次 Run 落在哪个入口」，
+    而不是会话创建时的入口。`run.channel_json["entry_id"]` 是权威来源；历史 Run 缺该字段时
+    回落会话行入口（`conversation.channel_account_id`）。
 
     会话已软删（用户主动删除）时返回 `deleted=True`：调用方跳过写入并留可区分的告警——
     「删除后再写一条指回已删会话的通知」既不新鲜也不可点开，属于应当消失的残留。
@@ -236,18 +237,23 @@ async def _entry_id_of(session: AsyncSession, run: RunRecord) -> _EntryAttributi
             )
         )
     ).first()
-    if row is None or row.channel_account_id is None:
+    if row is None:
         return _EntryAttribution(None)
     if row.is_deleted:
         return _EntryAttribution(None, deleted=True)
-    channel_entry = (run.channel_json or {}).get("entry_id")
-    if channel_entry is not None and str(channel_entry) != str(row.channel_account_id):
-        logger.error(
-            "run_entry_attribution_mismatch run_id=%s channel_entry=%s conversation_entry=%s",
-            run.id,
-            channel_entry,
-            row.channel_account_id,
-        )
+    run_entry = (run.channel_json or {}).get("entry_id")
+    if run_entry is not None:
+        # 来源跟随 Run：本次 Run 落在哪个入口，就记哪个入口（与会话创建入口可能不同）。
+        if row.channel_account_id is not None and str(run_entry) != str(row.channel_account_id):
+            logger.info(
+                "run_entry_attribution_diverged run_id=%s channel_entry=%s conversation_entry=%s",
+                run.id,
+                run_entry,
+                row.channel_account_id,
+            )
+        return _EntryAttribution(uuid.UUID(str(run_entry)))
+    if row.channel_account_id is None:
+        return _EntryAttribution(None)
     return _EntryAttribution(uuid.UUID(str(row.channel_account_id)))
 
 

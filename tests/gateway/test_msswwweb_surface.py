@@ -395,3 +395,22 @@ async def test_artifact_service_downloads_artifact_from_other_surface_entry(tmp_
         checksum="sha256:deadbeef",
     )
     assert download.path.read_bytes() == payload
+
+
+# --- TASK-010：跨入口共享会话的读取面透传 entry_agnostic ---------------------------------------
+
+
+def test_read_scope_omits_entry_agnostic_by_default() -> None:
+    """默认读取面不带 `entry_agnostic`（保持既有严格入口语义）。"""
+    from muad_im_gateway.application.runtime_client import _read_scope
+
+    params = _read_scope(uuid.uuid4(), uuid.uuid4(), uuid.uuid4())
+    assert "entry_agnostic" not in params
+
+
+def test_read_scope_flags_entry_agnostic_when_requested() -> None:
+    """跨入口读取面显式声明 `entry_agnostic=true` 透传给 Owner。"""
+    from muad_im_gateway.application.runtime_client import _read_scope
+
+    params = _read_scope(uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), entry_agnostic=True)
+    assert params["entry_agnostic"] == "true"

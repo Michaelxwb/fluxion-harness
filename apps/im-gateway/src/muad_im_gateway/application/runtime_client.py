@@ -203,13 +203,21 @@ def build_headers(
     return headers
 
 
-def _read_scope(user_id: UUID, agent_id: UUID, entry_id: UUID) -> dict[str, str]:
-    """入口显式读取的核属维度（与 TASK-050 内部端点的查询参数同形）。"""
-    return {
+def _read_scope(
+    user_id: UUID, agent_id: UUID, entry_id: UUID, *, entry_agnostic: bool = False
+) -> dict[str, str]:
+    """入口显式读取的核属维度（与 TASK-050 内部端点的查询参数同形）。
+
+    `entry_agnostic=True` 时按 user + Agent 核属/聚合（跨入口共享会话），入口只作来源。
+    """
+    params = {
         "user_id": str(user_id),
         "agent_id": str(agent_id),
         "entry_id": str(entry_id),
     }
+    if entry_agnostic:
+        params["entry_agnostic"] = "true"
+    return params
 
 
 def _admission_from_headers(headers: httpx.Headers) -> RunAdmission | None:
@@ -467,8 +475,9 @@ class RuntimeClient:
         agent_id: UUID,
         page: int,
         page_size: int | None,
+        entry_agnostic: bool = False,
     ) -> dict[str, Any]:
-        """API-14 入口会话列表（内部受信面；入口显式）。"""
+        """API-14 入口会话列表（内部受信面；入口显式，跨入口时按 user + Agent 聚合）。"""
         params = {
             "user_id": str(user_id),
             "agent_id": str(agent_id),
@@ -476,6 +485,8 @@ class RuntimeClient:
         }
         if page_size is not None:
             params["page_size"] = str(page_size)
+        if entry_agnostic:
+            params["entry_agnostic"] = "true"
         return await self._get_internal_json(
             INTERNAL_CONVERSATIONS_PATH.format(entry_id=entry_id), tenant_id, params
         )
@@ -488,12 +499,13 @@ class RuntimeClient:
         user_id: UUID,
         agent_id: UUID,
         entry_id: UUID,
+        entry_agnostic: bool = False,
     ) -> dict[str, Any]:
-        """API-15 会话详情（入口显式核属后的公开投影）。"""
+        """API-15 会话详情（入口显式核属后的公开投影；跨入口时按 user + Agent）。"""
         return await self._get_internal_json(
             INTERNAL_CONVERSATION_PATH.format(conversation_id=conversation_id),
             tenant_id,
-            _read_scope(user_id, agent_id, entry_id),
+            _read_scope(user_id, agent_id, entry_id, entry_agnostic=entry_agnostic),
         )
 
     async def list_messages(
@@ -507,9 +519,13 @@ class RuntimeClient:
         page: int,
         page_size: int | None,
         through_seq: int | None,
+        entry_agnostic: bool = False,
     ) -> dict[str, Any]:
-        """API-09 固定水位分页（首屏冻结、后页沿用；游标语义由 Owner 裁决）。"""
-        params = {**_read_scope(user_id, agent_id, entry_id), "page": str(page)}
+        """API-09 固定水位分页（首屏冻结、后页沿用；游标语义由 Owner 裁决，跨入口按 user + Agent）。"""
+        params = {
+            **_read_scope(user_id, agent_id, entry_id, entry_agnostic=entry_agnostic),
+            "page": str(page),
+        }
         if page_size is not None:
             params["page_size"] = str(page_size)
         if through_seq is not None:

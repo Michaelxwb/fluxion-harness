@@ -28,7 +28,11 @@ from muad_api import ApiResponse, ok
 from muad_api.security import require_internal_service
 from muad_contracts import MAX_PAGE_SIZE
 from muad_contracts.platform_settings import WebchatSettings, parse_platform_settings
-from muad_contracts.webchat import WebchatUpload, WebchatUploadRegistration
+from muad_contracts.webchat import (
+    WebchatMarkReadRequest,
+    WebchatUpload,
+    WebchatUploadRegistration,
+)
 from muad_contracts.webchat_events import WebchatTaskResultRegistration
 
 from ..application.channel_notification_queries import (
@@ -62,6 +66,8 @@ AgentId = Annotated[uuid.UUID, Query()]
 ConversationId = Annotated[uuid.UUID, Query()]
 Checksum = Annotated[str, Query(min_length=1)]
 EntryId = Annotated[uuid.UUID, Query()]
+#: 跨入口共享会话：调用方显式声明按 user + Agent 聚合/核属，入口只作来源（默认严格按入口）。
+EntryAgnostic = Annotated[bool, Query()]
 ThroughSeq = Annotated[int | None, Query(ge=0)]
 AfterSeq = Annotated[int, Query(ge=0)]
 
@@ -92,10 +98,19 @@ def _conversation_policy(webchat: WebchatSettings) -> ConversationPolicy:
 
 
 def _scope(
-    tenant_id: str, *, user_id: uuid.UUID, agent_id: uuid.UUID, entry_id: uuid.UUID
+    tenant_id: str,
+    *,
+    user_id: uuid.UUID,
+    agent_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    entry_agnostic: bool = False,
 ) -> HistoryScope:
     return HistoryScope(
-        tenant_id=tenant_id, user_id=user_id, agent_id=agent_id, entry_id=entry_id
+        tenant_id=tenant_id,
+        user_id=user_id,
+        agent_id=agent_id,
+        entry_id=entry_id,
+        entry_agnostic=entry_agnostic,
     )
 
 
@@ -196,12 +211,22 @@ async def list_entry_conversations(
     agent_id: AgentId,
     page: PageNumber = 1,
     page_size: PageSize = None,
+    entry_agnostic: EntryAgnostic = False,
 ) -> ApiResponse[dict[str, Any]]:
-    """API-14：入口会话列表（仅本主体/入口/Agent，按最近活动倒序）。"""
+    """API-14：入口会话列表（仅本主体/入口/Agent，按最近活动倒序）。
+
+    `entry_agnostic=true` 时按 user + Agent 聚合（跨入口共享会话），入口只作来源。
+    """
     webchat = await _webchat_settings(settings_client, tenant_id)
     size = page_size if page_size is not None else webchat.history_page_size
     page_view = await WebchatHistoryService(session).list_conversations(
-        _scope(tenant_id, user_id=user_id, agent_id=agent_id, entry_id=entry_id),
+        _scope(
+            tenant_id,
+            user_id=user_id,
+            agent_id=agent_id,
+            entry_id=entry_id,
+            entry_agnostic=entry_agnostic,
+        ),
         page=page,
         page_size=size,
         policy=_conversation_policy(webchat),
@@ -219,11 +244,18 @@ async def get_conversation(
     user_id: UserId,
     agent_id: AgentId,
     entry_id: EntryId,
+    entry_agnostic: EntryAgnostic = False,
 ) -> ApiResponse[dict[str, Any]]:
-    """API-15：核属后的会话详情（活跃 Run 供打开历史后的恢复）。"""
+    """API-15：核属后的会话详情（活跃 Run 供打开历史后的恢复；跨入口时按 user + Agent）。"""
     webchat = await _webchat_settings(settings_client, tenant_id)
     detail = await WebchatHistoryService(session).get_conversation(
-        _scope(tenant_id, user_id=user_id, agent_id=agent_id, entry_id=entry_id),
+        _scope(
+            tenant_id,
+            user_id=user_id,
+            agent_id=agent_id,
+            entry_id=entry_id,
+            entry_agnostic=entry_agnostic,
+        ),
         conversation_id,
         policy=_conversation_policy(webchat),
     )
@@ -281,12 +313,19 @@ async def list_messages(
     page: PageNumber = 1,
     page_size: PageSize = None,
     through_seq: ThroughSeq = None,
+    entry_agnostic: EntryAgnostic = False,
 ) -> ApiResponse[dict[str, Any]]:
-    """API-09：可见消息固定水位分页（首屏冻结 `through_seq`，后页沿用）。"""
+    """API-09：可见消息固定水位分页（首屏冻结 `through_seq`，后页沿用；跨入口按 user + Agent）。"""
     webchat = await _webchat_settings(settings_client, tenant_id)
     size = page_size if page_size is not None else webchat.history_page_size
     page_view = await WebchatHistoryService(session).list_messages(
-        _scope(tenant_id, user_id=user_id, agent_id=agent_id, entry_id=entry_id),
+        _scope(
+            tenant_id,
+            user_id=user_id,
+            agent_id=agent_id,
+            entry_id=entry_id,
+            entry_agnostic=entry_agnostic,
+        ),
         conversation_id,
         page=page,
         page_size=size,
@@ -332,6 +371,25 @@ async def mark_notification_read(
     """API-11：显式已读（幂等；与投递状态独立；只标记明确读过的行）。"""
     receipt = await ChannelNotificationQueryService(session).mark_read(
         NotificationScope(tenant_id=tenant_id, user_id=user_id), notification_id
+    )
+    await session.commit()
+    return ok(request.app.state.message_catalog, receipt.model_dump(mode="json"))
+
+
+@router.post("/conversations/{conversation_id}/read")
+async def mark_conversation_read(
+    conversation_id: uuid.UUID,
+    body: WebchatMarkReadRequest,
+    request: Request,
+    tenant_id: TenantDep,
+    session: SessionDep,
+    user_id: UserId,
+) -> ApiResponse[dict[str, Any]]:
+    """API-11：会话级已读水位（只标记 ≤ 水位的通知；超前水位 `CURSOR_AHEAD`）。"""
+    receipt = await ChannelNotificationQueryService(session).mark_conversation_read(
+        NotificationScope(tenant_id=tenant_id, user_id=user_id),
+        conversation_id,
+        body.notification_through_seq,
     )
     await session.commit()
     return ok(request.app.state.message_catalog, receipt.model_dump(mode="json"))

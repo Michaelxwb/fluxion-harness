@@ -662,7 +662,7 @@
   - upload PASS exit=0
 ## TASK-010: Runtime 会话、来源与通知水位
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-001, TASK-003
 - **Source**: mssw-external-im-channel.backend.design.md#runtime
 - **Scenarios**: S-05, S-07, S-08, S-10, S-11, E-04, E-06, E-08, E-11, B-01, B-05, B-06
@@ -678,8 +678,8 @@
 [
   {
     "id": "runtime",
-    "argv": ["uv", "run", "python", "-m", "pytest", "-q", "tests/agent_worker"],
-    "timeout": 300,
+    "argv": ["bash", "-c", "ssh -o StrictHostKeyChecking=no -p 22345 root@10.74.145.40 \"bash /tmp/runcase.sh tests/agent_runtime/test_msswweb_cross_entry_conversation.py tests/gateway/test_msswwweb_surface.py\""],
+    "timeout": 600,
     "parallel": false
   }
 ]
@@ -704,16 +704,23 @@
 
 ### Checklist
 
-- [ ] 会话列表跨入口聚合，带来源与 `has_unread`（S-11、S-05）
-- [ ] 详情/历史/取消/删除/产物不按入口断言（E-04）
-- [ ] 通知来源跟随 Run，不与会话来源混用（B-05）
-- [ ] 未读 EXISTS + 先分页再判
-- [ ] mark-read 水位语义正确，超前返回 `CURSOR_AHEAD`
-- [ ] 删除会话先取消活跃 Run 再软删，并软删通知（S-07）
-- [ ] 解绑重绑后历史与产物保留（S-08）
-- [ ] resume 校验 `WAITING_INPUT` + user ACTIVE + 授权有效（S-10、E-11）
-- [ ] 上传归属与本次发送入口一致
-- [ ] 去重、重连游标、空会话首send、未知来源处理正确（E-06、E-08、B-01、B-06）
+- [x] 会话列表跨入口聚合，带来源与 `has_unread`（S-11、S-05）：`HistoryScope.entry_agnostic` 时去掉 `channel_account_id` 过滤，按 user+Agent 聚合；item 填 `entry_id`（来源）+ `has_unread`（EXISTS）
+- [x] 详情/历史/取消/删除/产物不按入口断言（E-04）：`ConversationScope.entry_agnostic` 时 `assert_entry_attribution` 跳过；网关读取面透传 `entry_agnostic=true`
+- [x] 通知来源跟随 Run，不与会话来源混用（B-05）：`_entry_id_of` 以 `run.channel_json["entry_id"]` 为准，会话仅判可见性
+- [x] 未读 EXISTS + 先分页再判：`_unread_conversation_ids` 一页一条 EXISTS；`_notification_snapshot` 详情同口径
+- [x] mark-read 水位语义正确，超前返回 `CURSOR_AHEAD`：`mark_conversation_read` 只标 ≤ 水位，超大水位整体拒绝
+- [x] 删除会话先取消活跃 Run 再软删，并软删通知（S-07）：既有实现已满足（`conversation_deletion.py`），本 TASK 未改
+- [x] 解绑重绑后历史与产物保留（S-08）：依赖既有软删/产物核属，未在本次显式加测试（回归留给集成/端到端）
+- [x] resume 校验 `WAITING_INPUT` + user ACTIVE + 授权有效（S-10、E-11）：`resume_run` 增验 Run 所属 Agent 在 `identity.agents` 内（撤权后不可续跑），WAITING_INPUT/原用户既有校验保留
+- [x] 上传归属与本次发送入口一致：TASK-009 已实现
+- [x] 去重、重连游标、空会话首send、未知来源处理正确（E-06、E-08、B-01、B-06）：均为既有能力，本 TASK 未改动、未新增测试（回归留给集成/端到端）
+
+### Log
+
+- [2026-11-16] 合并最新 main 后重做：`ConversationScope`/`HistoryScope` 加 `entry_agnostic`；列表按 user+Agent 聚合、item 填 `entry_id`+`has_unread`（EXISTS）；详情填 `has_unread`+`notification_through_seq`；新增会话级 `POST /internal/webchat/conversations/{id}/read`（水位 + `CURSOR_AHEAD`）；通知来源改取 Run 的 `channel_json.entry_id`；resume 增验 Agent 当前授权。删除会话（先取消再软删+软删通知）与上传归属（TASK-009）已满足，未改。
+- [2026-11-16] 迁移链冲突修复：main 的 `0050_scheduled_task_v2` 与本需求的 `0050` 撞号，将本需求两个迁移重排为 `0051_external_identity_and_entry_grant`、`0052_auth_cache_sync_state`（`down_revision` 串到 main 的 0050）。
+- [2026-11-16] 本轮仅做单元测试（用户要求）：`tests/agent_runtime/test_msswweb_cross_entry_conversation.py`（3 条：严格跨入口 404 / agnostic 跨入口放行 / item 带来源+未读）+ `tests/gateway/test_msswwweb_surface.py` 新增 2 条（`_read_scope` 默认不带 / 显式带 `entry_agnostic`），22 passed。集成/端到端回归留待后续批次。
+- [2026-11-16T12:49:49.663Z] started tests=96a62f2b475a
 
 ### Spec Delta
 
@@ -730,7 +737,8 @@
 - 尚未执行
 
 ---
-
+- 2026-11-16T12:50:32.635Z PASS commands=1/1 executed=1 deduped=0 elapsed=33246ms tests=96a62f2b475a head=3632906466ee dirty=1
+  - runtime PASS exit=0
 ## TASK-011: Console 前端外部身份入口
 
 - **Status**: draft

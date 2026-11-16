@@ -27,7 +27,7 @@ import sqlalchemy as sa
 from muad_api import AppError
 from muad_api.error_codes import ErrorCode
 from muad_contracts import MAX_PAGE_SIZE
-from muad_contracts.webchat import WebchatAttachment
+from muad_contracts.webchat import WebchatAttachment, WebchatMarkReadReceipt
 from muad_contracts.webchat_events import (
     WebchatNotification,
     WebchatNotificationPage,
@@ -319,6 +319,66 @@ class ChannelNotificationQueryService:
             row.read_at, row.update_time = now, now
             await self._session.flush()
         return WebchatNotificationReadReceipt(id=row.id, read_at=row.read_at)
+
+    async def mark_conversation_read(
+        self,
+        scope: NotificationScope,
+        conversation_id: uuid.UUID,
+        notification_through_seq: int,
+    ) -> WebchatMarkReadReceipt:
+        """会话级已读水位：只标记本会话通知序号不高于水位者，超大水位 `CURSOR_AHEAD` 不做部分标记。
+
+        核属按 user（会话必须属于本用户且未删）；水位超过本会话当前最大通知序号即视作游标超前，
+        整体拒绝（`CURSOR_AHEAD`），避免客户端用陈旧/错误的订阅游标把新通知误标已读。
+        """
+        conversation = await self._session.scalar(
+            sa.select(Conversation).where(
+                Conversation.id == conversation_id,
+                Conversation.tenant_id == scope.tenant_id,
+                Conversation.user_id == scope.user_id,
+            )
+        )
+        if conversation is None or conversation.is_deleted:
+            raise AppError(ErrorCode.COMMON_NOT_FOUND)
+        max_seq = await self._session.scalar(
+            sa.select(sa.func.max(ChannelNotification.seq)).where(
+                ChannelNotification.tenant_id == scope.tenant_id,
+                ChannelNotification.user_id == scope.user_id,
+                ChannelNotification.conversation_id == conversation_id,
+                ChannelNotification.is_deleted.is_(False),
+            )
+        )
+        current_seq = int(max_seq or 0)
+        if notification_through_seq > current_seq:
+            # 超前水位：客户端游标超过当前最大通知序号，拒绝整体标记，提示刷新。
+            raise AppError(ErrorCode.CURSOR_AHEAD)
+        now = await database_now(self._session)
+        await self._session.execute(
+            sa.update(ChannelNotification)
+            .where(
+                ChannelNotification.tenant_id == scope.tenant_id,
+                ChannelNotification.user_id == scope.user_id,
+                ChannelNotification.conversation_id == conversation_id,
+                ChannelNotification.is_deleted.is_(False),
+                ChannelNotification.read_at.is_(None),
+                ChannelNotification.seq <= notification_through_seq,
+            )
+            .values(read_at=now, update_time=now)
+        )
+        unread = await self._session.scalar(
+            sa.select(sa.func.count()).where(
+                ChannelNotification.tenant_id == scope.tenant_id,
+                ChannelNotification.user_id == scope.user_id,
+                ChannelNotification.conversation_id == conversation_id,
+                ChannelNotification.is_deleted.is_(False),
+                ChannelNotification.read_at.is_(None),
+            )
+        )
+        return WebchatMarkReadReceipt(
+            conversation_id=conversation_id,
+            notification_through_seq=notification_through_seq,
+            has_unread=bool(unread),
+        )
 
     # ----------------------------------------------------------------------------------
     # 受信 Task 结果入箱

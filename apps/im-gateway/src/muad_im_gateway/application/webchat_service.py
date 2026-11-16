@@ -326,8 +326,15 @@ class WebchatResourceService:
     async def resume_run(
         self, identity: ChatIdentity, run_id: UUID, request: WebchatResumeRequest
     ) -> WebchatResumeReceipt:
-        """待确认恢复：显式绑定原 Run/submission/source；回执取恢复后的**受理投影**。"""
-        await self._owned_run(identity, run_id)
+        """待确认恢复：显式绑定原 Run/submission/source；回执取恢复后的**受理投影**。
+
+        恢复要求原用户仍有该 Run 所属 Agent 的**当前**授权（撤权后不可续跑）；Run 归属按 user
+        核验，用户是否可用由签发身份的认证层保证（停用用户拿不到可用身份）。
+        """
+        state = await self._owned_run(identity, run_id)
+        authorized = {agent.agent_id for agent in identity.agents}
+        if UUID(str(state.get("agent_id"))) not in authorized:
+            raise AppError(ErrorCode.FORBIDDEN)
         principal = identity.principal
         admission = await self._runtime.resume_run(
             run_id,
@@ -364,6 +371,7 @@ class WebchatResourceService:
             agent_id=ref.agent_id,
             page=page,
             page_size=page_size,
+            entry_agnostic=True,
         )
         return _project(WebchatConversationPage, data)
 
@@ -378,6 +386,7 @@ class WebchatResourceService:
             user_id=identity.principal.platform_user_id,
             agent_id=scope.agent_id,
             entry_id=scope.entry_id,
+            entry_agnostic=True,
         )
         return _project(WebchatConversationDetail, data)
 
@@ -412,6 +421,7 @@ class WebchatResourceService:
             page=page,
             page_size=page_size,
             through_seq=through_seq,
+            entry_agnostic=True,
         )
         return _project(WebchatMessagePage, data)
 
