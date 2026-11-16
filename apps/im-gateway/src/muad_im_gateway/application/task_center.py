@@ -538,7 +538,7 @@ class TaskCenterService:
         items: list[Any], *, page: int, page_size: int, total: int
     ) -> dict[str, Any]:
         return {
-            "items": [item.model_dump(mode="json") for item in items],
+            "items": [item.model_dump(mode="json", exclude={"actor_user_id"}) for item in items],
             "page": page,
             "page_size": page_size,
             "total": total,

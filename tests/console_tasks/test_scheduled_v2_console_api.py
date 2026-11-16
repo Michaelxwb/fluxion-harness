@@ -24,7 +24,7 @@ from muad_agent_worker.main import app as worker_app
 from muad_console_platform.infrastructure.db import (
     get_session_factory as console_session_factory,
 )
-from muad_console_platform.infrastructure.models.control import AgentDefinition
+from muad_console_platform.infrastructure.models.control import AgentDefinition, PlatformUser
 from muad_contracts import ScheduleMode
 
 from console_tasks.helpers import (
@@ -131,6 +131,55 @@ async def test_console_list_enriches_agent_name_without_n_plus_one(
     items = {i["schedule_id"]: i for i in listed.json()["data"]["items"]}
     assert items[str(named)]["agent_name"] == "周报 Agent"
     assert items[str(unnamed)]["agent_name"] is None
+
+
+async def test_console_list_enriches_actor_name_and_filters_by_user(
+    client: AsyncClient, task_tenant: TenantContext
+) -> None:
+    owner_id = uuid.uuid4()
+    other_id = uuid.uuid4()
+    async with console_session_factory()() as session:
+        session.add_all(
+            [
+                PlatformUser(
+                    id=owner_id,
+                    tenant_id=task_tenant.tenant_id,
+                    user_code=f"v2-user-{owner_id.hex[:8]}",
+                    display_name="张三",
+                ),
+                PlatformUser(
+                    id=other_id,
+                    tenant_id=task_tenant.tenant_id,
+                    user_code=f"v2-user-{other_id.hex[:8]}",
+                    display_name="李四",
+                ),
+            ]
+        )
+        await session.commit()
+
+    mine, _ = await seed_schedule(task_tenant.tenant_id, owner_user_id=owner_id)
+    other, _ = await seed_schedule(
+        task_tenant.tenant_id, name="别人的任务", owner_user_id=other_id
+    )
+
+    listed = await client.get("/api/v1/schedules", headers=_headers(task_tenant))
+    assert listed.status_code == 200, listed.text
+    items = {i["schedule_id"]: i for i in listed.json()["data"]["items"]}
+    assert items[str(mine)]["actor_user_id"] == str(owner_id)
+    assert items[str(mine)]["actor_name"] == "张三"
+    assert items[str(other)]["actor_name"] == "李四"
+
+    filtered = await client.get(
+        "/api/v1/schedules",
+        headers=_headers(task_tenant),
+        params={"actor_user_id": str(owner_id)},
+    )
+    assert filtered.status_code == 200, filtered.text
+    assert [i["schedule_id"] for i in filtered.json()["data"]["items"]] == [str(mine)]
+
+    detail = await client.get(f"/api/v1/schedules/{mine}", headers=_headers(task_tenant))
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["data"]["actor_name"] == "张三"
 
 
 async def test_console_fire_history_keeps_dst_events_separate(

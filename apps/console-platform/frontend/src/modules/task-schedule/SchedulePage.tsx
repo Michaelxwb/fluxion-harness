@@ -18,6 +18,7 @@ import { StatusTag } from '../../components/common/StatusTag';
 import { ScheduleDetailSideSheet } from './ScheduleDetailSideSheet';
 import { EntityNameText } from './EntityNameText';
 import { TaskDetailSideSheet } from './TaskDetailSideSheet';
+import { listAgentsForPicker, listUsers } from '../user-identity/services/users';
 import {
   fireStatusLabel,
   scheduleModeLabel,
@@ -29,6 +30,35 @@ import {
 import { listSchedules, type ScheduleListItem, type ScheduleListParams } from './services/schedules';
 
 const DEFAULT_PARAMS: ScheduleListParams = { page: 1, page_size: 15 };
+/** 下拉可选项一次取够（后端 page_size 上限 100），超出部分无法在此选择。 */
+const PICKER_PAGE_SIZE = 100;
+
+interface PickerOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * 筛选下拉的可选项**首次展开时才取**：与任务列表同口径，避免进页面就多发请求；
+ * 失败由共享 ApiClient 拦截器提示，下拉留空、下次展开可重试，不升级成页面级失败。
+ */
+function usePickerOptions(load: () => Promise<PickerOption[]>): {
+  options: PickerOption[];
+  onDropdownVisibleChange(visible: boolean): void;
+} {
+  const [options, setOptions] = useState<PickerOption[]>([]);
+  const loaded = useRef(false);
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  const onDropdownVisibleChange = useCallback((visible: boolean) => {
+    if (!visible || loaded.current) return;
+    loaded.current = true;
+    void loadRef.current().then(setOptions, () => {
+      loaded.current = false;
+    });
+  }, []);
+  return { options, onDropdownVisibleChange };
+}
 
 /** 待处理徽标：等待回答（pending_human）与需关注（needs_attention）是两类不同事实。 */
 function AttentionBadge(props: { record: ScheduleListItem; t: Translate }) {
@@ -71,6 +101,28 @@ export function SchedulePage() {
   // 目标已删/越权时由详情侧渲染 404 态，不静默落回空列表（e2e E-04）。
   const [searchParams] = useSearchParams();
   const deepLinkScheduleId = searchParams.get('scheduleId');
+
+  const agentPicker = usePickerOptions(
+    useCallback(
+      () =>
+        listAgentsForPicker({ errorTip: 'always' }).then((page) =>
+          page.items.map((agent) => ({ value: agent.id, label: `${agent.name} (${agent.key})` }))
+        ),
+      []
+    )
+  );
+  const actorPicker = usePickerOptions(
+    useCallback(
+      () =>
+        listUsers({ page: 1, page_size: PICKER_PAGE_SIZE }, { errorTip: 'always' }).then((page) =>
+          page.items.map((user) => ({
+            value: user.id,
+            label: `${user.display_name} (${user.user_code})`
+          }))
+        ),
+      []
+    )
+  );
 
   useEffect(() => {
     if (deepLinkScheduleId) {
@@ -145,6 +197,40 @@ export function SchedulePage() {
                   }))
                 }
               />
+              <Select
+                data-testid="schedule-filter-agent"
+                value={params.agent_id ?? undefined}
+                style={{ width: 160 }}
+                showClear
+                filter
+                placeholder={t('schedule.filter.agent')}
+                optionList={agentPicker.options}
+                onDropdownVisibleChange={agentPicker.onDropdownVisibleChange}
+                onChange={(value) =>
+                  setParams((prev) => ({
+                    ...prev,
+                    agent_id: (value as string) ?? undefined,
+                    page: 1
+                  }))
+                }
+              />
+              <Select
+                data-testid="schedule-filter-user"
+                value={params.actor_user_id ?? undefined}
+                style={{ width: 160 }}
+                showClear
+                filter
+                placeholder={t('schedule.filter.user')}
+                optionList={actorPicker.options}
+                onDropdownVisibleChange={actorPicker.onDropdownVisibleChange}
+                onChange={(value) =>
+                  setParams((prev) => ({
+                    ...prev,
+                    actor_user_id: (value as string) ?? undefined,
+                    page: 1
+                  }))
+                }
+              />
               <ListActionButton
                 data-testid="schedule-reset"
                 onClick={() => setParams(DEFAULT_PARAMS)}
@@ -157,13 +243,13 @@ export function SchedulePage() {
         <RemoteTable<ScheduleListItem>
           rowKey="schedule_id"
           className="schedule-table app-table-fit app-table-nowrap"
-          scroll={{ x: '100%' }}
+          columnGrowth={{ name: 0.55, agent_id: 0.15, actor_user_id: 0.15, timezone: 0.15 }}
           loading={loading}
           columns={[
             {
               title: t('schedule.columns.name'),
               dataIndex: 'name',
-              width: 'auto',
+              width: 240,
               ellipsis: true,
               render: (value: string, record: ScheduleListItem) => (
                 <EntityLink
@@ -177,23 +263,32 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.agent'),
               dataIndex: 'agent_id',
-              width: 'auto',
+              width: 140,
               ellipsis: true,
               render: (_: unknown, record: ScheduleListItem) => (
                 <EntityNameText name={record.agent_name} id={record.agent_id} />
               )
             },
             {
+              title: t('schedule.columns.user'),
+              dataIndex: 'actor_user_id',
+              width: 140,
+              ellipsis: true,
+              render: (_: unknown, record: ScheduleListItem) => (
+                <EntityNameText name={record.actor_name} id={record.actor_user_id} />
+              )
+            },
+            {
               title: t('schedule.columns.mode'),
               dataIndex: 'mode',
-              width: 110,
+              width: 90,
               render: (value: string) => scheduleModeLabel(translate, value)
             },
-            { title: t('schedule.columns.timezone'), dataIndex: 'timezone', width: 'auto', ellipsis: true },
+            { title: t('schedule.columns.timezone'), dataIndex: 'timezone', width: 120, ellipsis: true },
             {
               title: t('schedule.columns.status'),
               dataIndex: 'status',
-              width: 110,
+              width: 90,
               render: (value: string) => (
                 <StatusTag
                   status={value}
@@ -205,7 +300,7 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.attention'),
               dataIndex: 'pending_human',
-              width: 120,
+              width: 90,
               render: (_: unknown, record: ScheduleListItem) => (
                 <AttentionBadge record={record} t={translate} />
               )
@@ -213,7 +308,7 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.nextFireAt'),
               dataIndex: 'next_fire_at',
-              width: 176,
+              width: 175,
               render: (value: string | null, record: ScheduleListItem) => (
                 <span data-testid={`schedule-next-fire-${record.schedule_id}`}>
                   {value ? <DateTimeText value={value} /> : '-'}
@@ -223,7 +318,7 @@ export function SchedulePage() {
             {
               title: t('schedule.columns.lastFireAt'),
               dataIndex: 'last_fire',
-              width: 176,
+              width: 230,
               render: (value: ScheduleListItem['last_fire']) =>
                 value ? (
                   <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
@@ -243,7 +338,7 @@ export function SchedulePage() {
                 )
             },
             {
-              ...actionColumn(220),
+              ...actionColumn(130),
               title: t('schedule.columns.actions'),
               render: (_: unknown, record: ScheduleListItem) =>
                 ['ACTIVE', 'PAUSED', 'NEEDS_ATTENTION'].includes(record.status) ? (

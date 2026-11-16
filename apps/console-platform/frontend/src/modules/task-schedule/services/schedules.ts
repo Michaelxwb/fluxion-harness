@@ -53,6 +53,8 @@ export interface LastFireSummary {
 export interface ScheduleListItem {
   schedule_id: string;
   agent_id: string;
+  /** Schedule 的 owner（创建者）；列表按它过滤/展示。 */
+  actor_user_id: string;
   name: string;
   mode: ScheduleMode;
   status: ScheduleStatus;
@@ -64,6 +66,7 @@ export interface ScheduleListItem {
   pending_human: boolean;
   /** 名称补齐（Console control.* 权威源，列表接口注入；缺失为 null，前端回落短 id）。 */
   agent_name?: string | null;
+  actor_name?: string | null;
 }
 
 export interface AgenticBudget {

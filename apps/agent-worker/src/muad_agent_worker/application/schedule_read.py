@@ -11,7 +11,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import sqlalchemy as sa
 from muad_contracts import (
@@ -19,7 +19,9 @@ from muad_contracts import (
     DeliveryIntent,
     DraftContext,
     DstEvent,
+    DstEventType,
     ExecutionDetail,
+    FailureClass,
     FireHistoryPage,
     FireItem,
     HistoryRetention,
@@ -28,6 +30,7 @@ from muad_contracts import (
     PendingHumanItem,
     PendingPage,
     ScheduleDetail,
+    ScheduleEndReason,
     ScheduleListItem,
     ScheduleMode,
     SchedulePolicy,
@@ -181,6 +184,7 @@ class ScheduleReadService:
                 ScheduleListItem(
                     schedule_id=schedule.id,
                     agent_id=schedule.agent_id,
+                    actor_user_id=schedule.owner_user_id,
                     name=schedule.name,
                     mode=ScheduleMode(revision.mode),
                     status=ScheduleStatus(schedule.status),
@@ -244,6 +248,7 @@ class ScheduleReadService:
         return ScheduleDetail(
             schedule_id=schedule.id,
             agent_id=schedule.agent_id,
+            actor_user_id=schedule.owner_user_id,
             name=schedule.name,
             mode=mode,
             status=ScheduleStatus(schedule.status),
@@ -262,7 +267,7 @@ class ScheduleReadService:
             policy=SchedulePolicy.model_validate(revision.schedule_policy or {}),
             budget=_budget(mode.value, spec),
             memory_mode=spec.get("memory_mode"),
-            end_reason=schedule.end_reason,
+            end_reason=ScheduleEndReason(schedule.end_reason) if schedule.end_reason else None,
             attention_reason=schedule.attention_reason,
         )
 
@@ -388,7 +393,7 @@ class ScheduleReadService:
             events.append(
                 DstEvent(
                     event_id=row.id,
-                    event_type=row.event_type,
+                    event_type=DstEventType(row.event_type),
                     local_date=str(payload.get("local_date") or ""),
                     local_time=str(payload.get("local_time") or ""),
                     timezone=timezone,
@@ -409,7 +414,9 @@ class ScheduleReadService:
             result_artifacts=await self._artifacts(execution.id),
             error_code=execution.error_code,
             error_message=execution.error_message,
-            failure_class=execution.failure_class,
+            failure_class=(
+                FailureClass(execution.failure_class) if execution.failure_class else None
+            ),
             started_at=execution.started_at,
             finished_at=execution.finished_at,
             snapshot_schema_version=execution.execution_snapshot_schema_version,
@@ -576,19 +583,28 @@ class ScheduleReadService:
 
     async def timeout_warning(self, *, execution_id: uuid.UUID) -> datetime | None:
         """派发侧用的最小事实：该执行当前 OPEN 交互的截止时间（不存在即 None）。"""
-        return await self._session.scalar(
-            select(TaskHumanInteraction.deadline_at).where(
-                TaskHumanInteraction.execution_id == execution_id,
-                TaskHumanInteraction.status == "OPEN",
-            )
+        return cast(
+            datetime | None,
+            await self._session.scalar(
+                select(TaskHumanInteraction.deadline_at).where(
+                    TaskHumanInteraction.execution_id == execution_id,
+                    TaskHumanInteraction.status == "OPEN",
+                )
+            ),
         )
 
     async def delivery_status(self, *, execution_id: uuid.UUID) -> str | None:
-        return await self._session.scalar(
-            select(TaskDelivery.status)
-            .where(TaskDelivery.execution_id == execution_id, TaskDelivery.is_deleted.is_(False))
-            .order_by(TaskDelivery.create_time.desc())
-            .limit(1)
+        return cast(
+            str | None,
+            await self._session.scalar(
+                select(TaskDelivery.status)
+                .where(
+                    TaskDelivery.execution_id == execution_id,
+                    TaskDelivery.is_deleted.is_(False),
+                )
+                .order_by(TaskDelivery.create_time.desc())
+                .limit(1)
+            ),
         )
 
 

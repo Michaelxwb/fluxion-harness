@@ -219,6 +219,7 @@ class _WorkerProbe:
         return {
             "schedule_id": str(schedule.schedule_id),
             "agent_id": str(schedule.agent_id),
+            "actor_user_id": str(USER_A),
             "name": schedule.name,
             "mode": schedule.mode,
             "status": schedule.status,

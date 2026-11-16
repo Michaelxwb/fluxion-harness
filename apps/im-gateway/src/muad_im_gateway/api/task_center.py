@@ -95,7 +95,10 @@ def build_task_center_router(surface: TaskCenterSurface) -> APIRouter:
     ) -> ApiResponse[Any]:
         """API-13：详情与列表同一范围；撤销授权/不存在的 Schedule 都是 404。"""
         detail = await service.get_schedule(chat, schedule_id, agent_id=agent_id)
-        return ok(request.app.state.message_catalog, detail.model_dump(mode="json"))
+        return ok(
+            request.app.state.message_catalog,
+            detail.model_dump(mode="json", exclude={"actor_user_id"}),
+        )
 
     @router.get("/task-center/schedules/{schedule_id}/fires")
     async def list_fires(

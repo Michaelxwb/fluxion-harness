@@ -99,6 +99,7 @@ class _FakeOwner:
         return {
             "schedule_id": str(schedule_id),
             "agent_id": str(agent_id),
+            "actor_user_id": str(USER_A),
             "name": name,
             "mode": mode,
             "status": status,

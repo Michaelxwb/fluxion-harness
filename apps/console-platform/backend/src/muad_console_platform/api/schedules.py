@@ -64,11 +64,14 @@ async def get_schedule(
     request: Request,
     tenant_id: TenantId,
     worker: WorkerClient,
+    session: Session,
 ) -> ApiResponse[Any]:
     data = await worker.get_schedule(
         tenant_id=tenant_id, schedule_id=schedule_id, trace_id=current_trace_id()
     )
-    return ok(request.app.state.message_catalog, schedule_view.schedule_detail(data))
+    data = schedule_view.schedule_detail(data)
+    enriched = await EntityNameService(session).enrich(tenant_id, {"items": [data]})
+    return ok(request.app.state.message_catalog, enriched["items"][0])
 
 
 @router.get("/{schedule_id}/fires")

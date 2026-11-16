@@ -313,6 +313,8 @@ class LastFireSummary(ContractModel):
 class ScheduleListItem(ContractModel):
     schedule_id: UUID
     agent_id: UUID
+    #: Schedule 的 owner（创建者）；Console 列表按它过滤/展示，名称由 Console 的 control 源补齐。
+    actor_user_id: UUID
     name: str
     mode: ScheduleMode
     status: ScheduleStatus
