@@ -83,8 +83,11 @@ Cookie: soc-token=<JWT>
   → 按 identity_keys 取 claim → 排序 → 规范 JSON → sha256
   → 查 external_identity(tenant, platform_key, identity_hash)
   → 命中：platform_user_id + grants + agents + auth_revision
+  → 身份命中但该入口无 grant：allowed=false + NO_ENTRY_GRANT（主体仍返回，不丢）
   → 未命中：allowed=false + UNBOUND（不伪造主体）
 ```
+
+> **身份 ≠ 可访问**：`external_identity` 命中只说明「这个 `expert_id`+`tenant_id` 是我方某个用户」；能否在当前入口使用，取决于 `entry_access_grant` 是否有该 `(identity, entry)` 组合。管理员录入身份后必须再「添加入口」，否则该入口下为 `NO_ENTRY_GRANT`。
 
 **各段职责**
 

@@ -73,23 +73,50 @@
 - **第一期做法**：管理员从 MSSW 侧查到该员工的 `expert_id`（24 位 ObjectId）与 `tenant_id`，在 Console 手工逐条录入；不做名单导入。
 - **录入提示**：`_id` 是 24 位 hex，容易抄错；填错只表现为「未绑定」（`UNBOUND`），不报错。Console 表单可按 `identity_field_labels` 给出格式提示（如「专家 ID（24 位）」），并在保存前做长度/hex 校验。
 
-#### 操作步骤
+#### 操作步骤：两步，缺一不可
 
-| 步骤 | 动作 | 校验 |
+| 步 | 动作 | 写入 | 校验 |
+|---|---|---|---|
+| 1 | 在 Console 建平台用户（现有功能，`POST /api/v1/users`） | `platform_user` | 常规用户创建，`user_code` 租户内唯一 |
+| 2 | 打开用户详情 →「外部身份」→「新增」，填 `expert_id` + `tenant_id` | `external_identity`（含 `identity_hash`） | key 集合不符 → `IDENTITY_KEYS_MISMATCH`；已绑他人 → `IDENTITY_ALREADY_BOUND` |
+| 3 | 在该身份下「添加入口」→ 选 MSSWWEB 入口 | `entry_access_grant` | 入口必须存在且属本租户 |
+
+> **只做第 2 步不做第 3 步**：身份已建立，但该入口下访问仍返回 `allowed=false` / `reason=NO_ENTRY_GRANT`。
+>
+> **只做第 3 步无从下手**：grant 挂在身份上，没有身份就没有授权对象。
+
+#### 为什么必须两步：身份是用户级的，入口是使用位置
+
+旧 `channel_identity` 把「这个人是谁」和「在哪个机器人上」绑成一件事（`identity_key = channel:bot_id:external_user_id`）。新模型拆开：
+
+| 表 | 回答什么问题 | 粒度 |
 |---|---|---|
-| 1 | 在 Console 建平台用户（现有功能） | 常规用户创建 |
-| 2 | 打开用户详情 →「外部身份」→「新建」 | — |
-| 3 | 填写身份 JSON（key 集合须与 `identity_keys` 一致） | `IDENTITY_KEYS_MISMATCH` |
-| 4 | 提交 | 已绑他人 → `IDENTITY_ALREADY_BOUND` |
-| 5 | 在该身份下「添加入口」→ 选 MSSWWEB 入口 | — |
-| 6 | 授权 Agent | — |
+| `external_identity` | 「这个 `expert_id`+`tenant_id` 对应哪个平台用户」 | 用户级，跨入口共享 |
+| `entry_access_grant` | 「这个身份能在哪个入口下使用」 | 入口级，可多个 |
 
-#### 两张表的分工
+同一个身份可以授权到多个 MSSWWEB 入口（比如 MSSW 里两个业务机器人），也可以先建身份、暂不授权。
 
-| 表 | 这一步产生什么 |
+#### 四条约束
+
+| 约束 | 违反时 |
 |---|---|
-| `external_identity` | 「这个 `_id`+`tenant_id` 对应哪个 `platform_user`」 |
-| `entry_access_grant` | 「这个身份能用哪个入口」 |
+| `identity_keys` 里的字段**全部必填**，不能只填一个 | `IDENTITY_KEYS_MISMATCH` |
+| 字段集合必须与平台配置的 `identity_keys` **完全一致**（不多不少） | `IDENTITY_KEYS_MISMATCH` |
+| 同一身份（同 `platform_key` + 同 `identity_hash`）**不能绑给两个用户** | `IDENTITY_ALREADY_BOUND` |
+| 身份与入口均须属**同一租户** | `COMMON_NOT_FOUND`（不泄露跨租户存在性） |
+
+其中“完全一致”是为了保证将来 `identity_keys` 变更时，历史数据的 hash 仍能复算验证。
+
+#### 与旧绑定码流程的区别：MSSW 完全不用 `bind_code`
+
+| | WECOM / WEBCHAT（旧） | MSSWWEB（新） |
+|---|---|---|
+| 谁建立映射 | **员工自己**在 IM 里输绑定码 | **管理员**在 Console 预先录入 |
+| 触发时机 | 首次使用，绑定码 12 位、10 分钟有效 | 上线前批量准备 |
+| 存储 | `channel_identity`（`channel:bot_id:external_user_id`） | `external_identity` + `entry_access_grant` |
+| 身份键 | `external_user_id` | `identity_hash = sha256(规范JSON{expert_id, tenant_id})` |
+
+MSSW 员工不是我方系统用户，从外部平台进入时没有“输入绑定码”这个交互，因此旧流程不可复用。
 
 **解绑只删 grant**，身份保留 → 重绑后历史会话仍在。
 

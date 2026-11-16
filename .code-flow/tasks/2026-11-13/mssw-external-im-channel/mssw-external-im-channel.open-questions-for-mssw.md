@@ -59,23 +59,19 @@
 
 ---
 
-## 问题 4（N4）：`bot_id` 是否必要
+## 问题 4（N4）：`bot_id` 是否必要（已定案）
 
-**为什么问**
+**结论：保留必填**，无需需求方答复。
 
-设计要求管理员在创建 MSSWWEB 入口时必填 `bot_id`（全局唯一，重复报 `BOT_ID_EXISTS`）。但它**不参与身份识别、不暴露给 BFF**，仅作人工可读标识。
+**依据**
 
-**需要确认**
+`bot_id` 是 `control.bot_account` 表的**既有字段**（`String(256) NOT NULL`，唯一索引 `uq_bot_account_bot_id` WHERE `is_deleted = false`），不是本次新增。它在三处实际生效：
 
-> 是否接受用「入口 `id` + 显示名」代替 `bot_id`？
+1. 出站路由原值——随 Run 传到 `agent-worker` 的 `delivery_route`，发消息回上游时按它定位机器人；
+2. 旧身份键构造——`channel_service.py` 的 `build_identity_key(channel, bot_id, external_user_id)`（本次新方案用 `external_identity` + `identity_hash`，不使用它）；
+3. Console 入口创建必填校验。
 
-**影响**
-
-| 保留 | 省掉一个必填字段与一个错误码 |
-|---|---|
-| 去掉 | 简化入口创建流程 |
-
-> 此项不阻塞开发，若需求方无意见，保持现状即可。
+去掉它意味着放宽一张 WECOM / WEBCHAT / MSSWWEB 三通道共用表的 `NOT NULL` 约束，并在出站路径引入 `None` 分支，代价高于让管理员为 MSSWWEB 入口填一个唯一值（填什么都可以，只要全局唯一）。
 
 ---
 
@@ -86,7 +82,7 @@
 | ~~1~~ | ~~用户规模与录入方式~~ | **已定案**：第一期管理员在 Console 用户详情页手工逐条录入 | — |
 | ~~2~~ | ~~名单字段~~ | **已定案**：不依赖名单 | — |
 | ~~3~~ | ~~`tenant_id` 稳定性~~ | **已确认相对固定**，不阻塞 | — |
-| 4 | `bot_id` 是否必要 | 不阻塞 | 需求方（可选） |
+| ~~4~~ | ~~`bot_id` 是否必要~~ | **已定案：保留必填** | — |
 
 ---
 

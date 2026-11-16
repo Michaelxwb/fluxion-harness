@@ -216,18 +216,29 @@ JWT
 | 约束 | 说明 |
 |---|---|
 | 绑定前必须已有平台用户 | 不做 JIT 建档（Q13） |
-| key 集合必须与 `identity_keys` 完全一致 | 否则 `IDENTITY_KEYS_MISMATCH` |
-| 一个身份只映射一个 `platform_user` | 已绑他人 → `IDENTITY_ALREADY_BOUND`（409） |
+| `identity_keys` 中字段全部必填，且集合完全一致 | 不多不少、不能只填一个；否则 `IDENTITY_KEYS_MISMATCH`。完全一致是为了将来 `identity_keys` 变更时历史 hash 仍可复算验证 |
+| 一个身份只映射一个 `platform_user` | 同 `platform_key` + 同 `identity_hash` 已绑他人 → `IDENTITY_ALREADY_BOUND`（409） |
+| 身份与入口均须属同一租户 | 跨租户访问返回 `COMMON_NOT_FOUND`，不泄露存在性 |
 | 编辑身份不影响历史归属 | 重算 hash，历史会话仍归原 `platform_user` |
 | 解绑只删 grant | 身份保留，可重绑 |
+
+**两步操作，缺一不可**：
+
+| 步 | 动作 | 落表 | 缺失后果 |
+|---|---|---|---|
+| 1 | 建外部身份（填 `expert_id` + `tenant_id`） | `external_identity` | — |
+| 2 | 在身份下授权入口 | `entry_access_grant` | 只做 1：该入口访问返回 `allowed=false` / `reason=NO_ENTRY_GRANT` |
+
+**为什么是两步**：身份是用户级的，回答「这个 `expert_id`+`tenant_id` 是谁」；入口授权是入口级的，回答「这个身份能在哪个入口下用」。同一身份可授权多个入口，也可先建身份、暂不授权。这也是与旧 `channel_identity`（`identity_key = channel:bot_id:external_user_id`，把身份与入口绑成一件事）的核心区别。
 
 **第一期实现形态（已定）**：
 
 - 管理员在 Console **用户详情页手工逐条录入**身份（`ExternalIdentitySection` + `MsswwebIdentityModal`），字段按平台 `identity_keys` 动态渲染、标签取 `identity_field_labels`。
 - **不提供批量导入、不依赖 MSSW 名单文件**；批量能力推迟到后续需求，按届时实际规模评估。
 - 录入后在同一身份下「添加入口」建立 `entry_access_grant`。
+- **不使用 `bind_code` 绑定码流程**：该流程依赖员工在 IM 内主动输码，MSSW 员工从外部平台直接进入，没有此交互（对照见 `04-user-journeys.md` 阶段 0-C）。
 
-> **管理员可读性问题**：前端会展示 `identity_keys` 作为输入框标签，但 `expert_id`、`tenant_id` 这类 claim 名管理员看不懂。需在平台配置里补 `identity_field_labels`（claim 名 → 中文名），前端按 label 渲染、按 claim 名提交。
+> **管理员可读性问题**：前端会展示 `identity_keys` 作为输入框标签，但 `expert_id`、`tenant_id` 这类 claim 名管理员看不懂。需在平台配置里补 `identity_field_labels`（claim 名 → 中文名），前端按 label 渲染、按 claim 名提交。缺失时回退显示 claim 名，不阻断。
 
 ### 3.5 R4：权限与缓存
 

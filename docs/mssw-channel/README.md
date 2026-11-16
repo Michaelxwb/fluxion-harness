@@ -214,19 +214,25 @@ sequenceDiagram
 
 **需求基线**：`.code-flow/tasks/2026-11-13/mssw-external-im-channel/mssw-external-im-channel.prd.md`（US-01 ~ US-12、FEAT-01 ~ FEAT-12）
 
-**唯一待答项**：
-
-| # | 问题 | 影响 | 阻塞 |
-|---|---|---|---|
-| **N4** | MSSWWEB 入口的 `bot_id` 是否必要 | 必填且全局唯一，但不参与身份、BFF 不可见，可用「`id` + 显示名」替代 | **不阻塞**（无意见则保持现状） |
+**待答项**：无（N1 ~ N4 均已定案；仅 M5 生产密钥待需求方提供，只阻塞联调、不阻塞开发）
 
 **已定案**：
 
 | # | 事项 | 结论 |
 |---|---|---|
-| N1 | 用户规模与录入方式 | 第一期管理员在 Console 用户详情页逐条手工录入 `expert_id`（`ExternalIdentitySection` + `MsswwebIdentityModal`，字段按 `identity_keys` 动态渲染）；不做批量导入、不依赖名单文件 |
+| N1 | 用户规模与录入方式 | 第一期管理员在 Console 用户详情页逐条手工录入 `expert_id`（`ExternalIdentitySection` + `MsswwebIdentityModal`，字段按 `identity_keys` 动态渲染）；不做批量导入、不依赖名单文件。**录入分两步：先建身份，再「添加入口」授权**；只建身份不授权 → 该入口返回 `NO_ENTRY_GRANT` |
 | N2 | 名单字段 | 不依赖名单；必填项即身份键 `expert_id` + `tenant_id` |
 | N3 | `tenant_id` 稳定性 | **相对固定**，`identity_hash` 含 `tenant_id` 可接受 |
+| ~~N4~~ | `bot_id` 是否必要 | **保留必填**。`bot_id` 为 `bot_account` 既有字段（`NOT NULL`、全局唯一），参与出站路由与旧 `identity_key` |
+
+**管理员录入的四条约束**（详见 `02 §3.4`、`04 阶段 0-C`）：
+
+| 约束 | 违反时 |
+|---|---|
+| `identity_keys` 字段全部必填，集合完全一致 | `IDENTITY_KEYS_MISMATCH` |
+| 同一身份不能绑给两个用户 | `IDENTITY_ALREADY_BOUND` |
+| 身份与入口须同租户 | `COMMON_NOT_FOUND` |
+| MSSW **不使用** `bind_code` 绑定码流程 | —（旧流程仅 WECOM/WEBCHAT） |
 
 > **已确认**：`_id`（= `expert_id`）在员工离职/重新入职时不变，可长期作身份键。
 
