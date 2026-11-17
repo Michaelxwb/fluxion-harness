@@ -106,6 +106,7 @@ async def test_admin_selects_platform_and_only_relative_path_is_resolved(
         {"target_instance_id": "another-tenant-platform"},
         {"path_template": "https://override.test/assets"},
         {"origin": "https://override.test"},
+        {"path_template": "/assets?method=GET"},
     ],
 )
 async def test_invalid_or_unknown_platform_rules_cannot_be_saved(
