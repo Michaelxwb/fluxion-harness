@@ -2500,7 +2500,10 @@ packages/platform-sdk/src/muad_platform_sdk/shared_redis_scripts.py,415,READ_POL
 packages/platform-sdk/src/muad_platform_sdk/shared_redis_scripts.py,416,ADMIT,_SERVER_GENERATION + ADMIT,python-constant,code,由 AST 盘点补录；实现常量
 packages/platform-sdk/src/muad_platform_sdk/shared_redis_scripts.py,417,CONSUME,_SERVER_GENERATION + CONSUME,python-constant,code,由 AST 盘点补录；实现常量
 packages/platform-sdk/src/muad_platform_sdk/shared_redis_scripts.py,418,RENEW,_SERVER_GENERATION + RENEW,python-constant,code,IPC 协议、启动标识或进程内实现状态；不是默认业务限额
-packages/platform-sdk/src/muad_platform_sdk/skill_access.py,23,_AUTHORIZATION_DENIALS,"frozenset({'PLATFORM_ACCESS_DENIED', 'PLATFORM_ACCESS_UNAVAILABLE', 'CREDENTIAL_MISSING'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/skill_access.py,24,_AUTHORIZATION_DENIALS,"frozenset({'PLATFORM_ACCESS_DENIED', 'PLATFORM_ACCESS_UNAVAILABLE', 'CREDENTIAL_MISSING'})",python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/skill_access.py,30,AUTO,'AUTO',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/skill_access.py,31,SELECTED,'SELECTED',python-constant,code,协议标识、枚举、schema、文本或实现常量
+packages/platform-sdk/src/muad_platform_sdk/skill_access.py,32,NONE,'NONE',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/platform-sdk/src/muad_platform_sdk/skill_bridge.py,31,BROKER_BUDGET_EXCEEDED,'PLATFORM_SESSION_BUDGET_EXCEEDED',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/platform-sdk/src/muad_platform_sdk/skill_bridge.py,32,BROKER_INTERNAL_ERROR,'broker_internal_error',python-constant,code,协议标识、枚举、schema、文本或实现常量
 packages/platform-sdk/src/muad_platform_sdk/skill_bridge.py,33,MAX_BROKER_CONNECTIONS,8,python-constant,code,协议标识、枚举、schema、文本或实现常量
