@@ -42,7 +42,7 @@ class ScriptSkillExecutor:
 
         try:
             name = ""
-            if request.platform_context and request.platform_context.platform_keys:
+            if request.platform_context is not None:
                 root, _ = locate_package_root(request.ready_dir)
                 name = SkillPackage.load(root).manifest.name
             async with skill_platform_environment(request.platform_context, name) as session:

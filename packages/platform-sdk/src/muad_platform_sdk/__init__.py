@@ -24,6 +24,7 @@ from .session import (
     user_actor_scope,
 )
 from .session.redis_manager import RedisPlatformSessionManager
+from .skill_access import PlatformScope, SkillPlatformContext
 from .types import (
     PlatformConfig,
     PlatformRequest,
@@ -61,6 +62,8 @@ __all__ = [
     "SecretValue",
     "SessionMode",
     "SessionRequest",
+    "PlatformScope",
+    "SkillPlatformContext",
     "platform_session_key",
     "platform_sessions_index_key",
     "shared_actor_scope",
