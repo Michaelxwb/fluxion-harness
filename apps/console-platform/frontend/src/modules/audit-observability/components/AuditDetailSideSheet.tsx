@@ -37,14 +37,14 @@ import {
   useRelatedDetail
 } from '../../run-observability/RelatedDetailController';
 import { useAuditDetail } from '../hooks/useAuditDetail';
-import type { AuditDetail, AuditListItem } from '../types';
+import type { AuditDetail, AuditDetailType } from '../types';
 import { RESOURCE_TYPES } from './AuditFilterBar';
 import { auditActionLabel, auditActorLabel, auditTargetLabel } from '../auditLabels';
 
 /** 详情 SideSheet 入参（设计 §3.4）：与页面导出的 `AuditDetailSideSheetProps` 同结构（保持单向 import）。 */
 export interface AuditDetailSideSheetProps {
   visible: boolean;
-  auditType: AuditListItem['auditType'];
+  auditType: AuditDetailType;
   auditId: string | null;
   onClose(): void;
 }
@@ -53,7 +53,7 @@ export interface AuditDetailSideSheetProps {
 type AuditRelation = 'run' | 'task';
 
 /** 各审计类型独有字段（后端 `_detail_extras` 的 camelCase 键），顺序即设计 §3.4 口径。 */
-const TYPE_FIELDS: Record<AuditListItem['auditType'], readonly string[]> = {
+const TYPE_FIELDS: Record<AuditDetailType, readonly string[]> = {
   CONFIG: ['before', 'after', 'sourceIp'],
   TOOL: ['argsPreview', 'toolCallId', 'toolKind', 'preparedArgsHash', 'errorCode'],
   EGRESS: [

@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getAudit } from '../services/auditService';
-import type { AuditDetail, AuditListItem } from '../types';
+import type { AuditDetail, AuditDetailType } from '../types';
 
 export interface AuditDetailState {
   detail: AuditDetail | null;
@@ -20,7 +20,7 @@ export interface AuditDetailState {
 }
 
 export function useAuditDetail(
-  auditType: AuditListItem['auditType'],
+  auditType: AuditDetailType,
   auditId: string | null
 ): AuditDetailState {
   const [detail, setDetail] = useState<AuditDetail | null>(null);

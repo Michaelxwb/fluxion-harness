@@ -69,8 +69,31 @@ function failure(code: string, msg: string) {
   };
 }
 
-function pageData() {
-  return { items: [ROW], total: 1, page: 1, page_size: 20 };
+const RUN_ROW = {
+  audit_id: 'run-1',
+  audit_type: 'RUN',
+  resource_type: 'RUN',
+  resource_id: 'run-1',
+  actor_user_id: 'user-1',
+  actor_name: 'Tester',
+  agent_id: 'agent-1',
+  agent_name: 'Agent One',
+  action: 'WEBCHAT',
+  result_status: 'FAILED',
+  trace_id: 'trace-run-1',
+  target: 'RUN/run-1',
+  occurred_at: '2026-10-11 10:00:00',
+  latency_ms: 12400,
+  run_id: 'run-1',
+  task_id: null,
+  summary: '帮我起一个每周一的周报定时任务',
+  steps: { model: 4, tool: 2, egress: 0, retries: 1 },
+  failure: { kind: 'TOOL', name: 'wecom_send', code: 'TOOL_VALIDATION_ERROR' }
+};
+
+function pageData(state: MockState) {
+  const items = state.runRow ? [RUN_ROW, ROW] : [ROW];
+  return { items, total: items.length, page: 1, page_size: 20 };
 }
 
 interface MockState {
@@ -78,10 +101,18 @@ interface MockState {
   exportCalls: number;
   exportMode: 'success' | 'mismatch' | 'failed';
   exportDownloads: string[];
+  /** 在列表里追加一条 RUN 操作行（S-01 组件回归）。 */
+  runRow: boolean;
 }
 
 function mockState(mode: MockState['exportMode'] = 'success'): MockState {
-  return { listFailure: false, exportCalls: 0, exportMode: mode, exportDownloads: [] };
+  return {
+    listFailure: false,
+    exportCalls: 0,
+    exportMode: mode,
+    exportDownloads: [],
+    runRow: false
+  };
 }
 
 async function mockApi(page: Page, state: MockState): Promise<void> {
@@ -101,7 +132,7 @@ async function mockApi(page: Page, state: MockState): Promise<void> {
           json: failure('COMMON_INTERNAL_ERROR', '审计查询失败')
         });
       } else {
-        await route.fulfill({ json: envelope(pageData()) });
+        await route.fulfill({ json: envelope(pageData(state)) });
       }
       return;
     }
@@ -240,4 +271,26 @@ test('E-09 导出 FAILED 展示 error_code 文案与重试入口，不提供未�
   await expect.poll(() => state.exportCalls).toBeGreaterThan(before);
   await expect(page.getByTestId('audit-export-error')).toContainText('导出执行失败，请重试');
   expect(state.exportDownloads).toEqual([]);
+});
+
+test('S-01 Run 操作行展示内部步骤与失败摘要，明细视图给出提示与返回入口', async ({ page }) => {
+  const state = mockState();
+  state.runRow = true;
+  await mockApi(page, state);
+
+  await page.goto('/audits');
+
+  await expect(page.getByText('帮我起一个每周一的周报定时任务')).toBeVisible();
+  await expect(page.getByText('4 模型 · 2 工具 · 重试 1')).toBeVisible();
+  await expect(
+    page.getByText('工具 wecom_send 调用失败 (TOOL_VALIDATION_ERROR)')
+  ).toBeVisible();
+  await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
+
+  await page.getByTestId('audit-filter-auditType').click();
+  await page.locator('.semi-select-option:visible', { hasText: '模型调用' }).first().click();
+  await expect(page.getByTestId('audit-view-notice')).toBeVisible();
+
+  await page.getByTestId('audit-view-back').click();
+  await expect(page.getByTestId('audit-view-notice')).toHaveCount(0);
 });

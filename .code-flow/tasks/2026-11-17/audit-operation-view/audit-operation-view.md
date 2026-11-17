@@ -174,7 +174,7 @@
   - audit-detail-export PASS exit=0
 ## TASK-004: 前端 — 操作视图、明细视图与文案
 
-- **Status**: draft
+- **Status**: done
 - **Depends**: TASK-003
 - **Source**: audit-operation-view.frontend.design.md#3.3 组件设计
 - **Scenarios**: S-01, S-02, S-03, S-04, S-05, E-01
@@ -203,15 +203,15 @@
 
 ### Checklist
 
-- [ ] 类型与服务层新增 `RUN` 类型、`view` 参数、`summary` / `steps` / `failure`
-- [ ] 视图派生：工具/模型类型 → 明细，其余 → 操作；切换视图重置到第 1 页
-- [ ] 操作视图新增「内部步骤」列，计数省略 0 类型，全部为 0 显示 `-`
-- [ ] 失败摘要仅在 `failure` 非空时出现；重试以中性后缀展示
-- [ ] 明细视图提示条（可读屏）+「返回操作视图」恢复筛选
-- [ ] Run 行首列与对象均打开运行详情；非 RUN 行行为不变
-- [ ] 结果标签支持进行中 / 已取消
-- [ ] zh-CN / en-US 词条齐备；`npm run typecheck` 与 `vite build` 通过
-- [ ] 更新两个审计 E2E 规格以匹配新默认视图（不作为 CI 门禁）
+- [x] 类型与服务层新增 `RUN` 类型、`view` 参数、`summary` / `steps` / `failure`
+- [x] 视图派生：工具/模型类型 → 明细，其余 → 操作；切换视图重置到第 1 页
+- [x] 操作视图新增「内部步骤」列，计数省略 0 类型，全部为 0 显示 `-`
+- [x] 失败摘要仅在 `failure` 非空时出现；重试以中性后缀展示
+- [x] 明细视图提示条（可读屏）+「返回操作视图」恢复筛选
+- [x] Run 行首列与对象均打开运行详情；非 RUN 行行为不变
+- [x] 结果标签支持进行中 / 已取消
+- [x] zh-CN / en-US 词条齐备；`npm run typecheck` 与 `vite build` 通过
+- [x] 更新两个审计 E2E 规格以匹配新默认视图（不作为 CI 门禁）
 
 ### Spec Delta
 
@@ -230,7 +230,10 @@
 ### Log
 
 - [2026-11-17] created
+- [2026-11-17T12:02:30.578Z] started tests=34f97d99fbc1
 
 ### Verification
 
 - 尚未执行
+- 2026-11-17T12:06:21.326Z PASS commands=1/1 executed=1 deduped=0 elapsed=2532ms tests=34f97d99fbc1 head=6c1792a089bb dirty=1
+  - frontend-typecheck PASS exit=0

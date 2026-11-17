@@ -9,6 +9,7 @@ import { api, type ApiResponse, type RequestOptions } from '../../../api/client'
 import {
   AUDIT_PAGE_SIZE_MAX,
   type AuditDetail,
+  type AuditDetailType,
   type AuditExportCreateRequest,
   type AuditExportJob,
   type AuditListItem,
@@ -43,6 +44,19 @@ interface RawAuditItem {
   latency_ms: number | null;
   run_id: string | null;
   task_id: string | null;
+  /** RUN 行专属：提问摘要、步骤计数与失败摘要（其他类型为 null/缺省）。 */
+  summary?: string | null;
+  steps?: {
+    model: number;
+    tool: number;
+    egress: number;
+    retries: number;
+  } | null;
+  failure?: {
+    kind: 'MODEL' | 'TOOL' | 'EGRESS';
+    name: string | null;
+    code: string | null;
+  } | null;
 }
 
 /** 详情 = 投影行 + 来源表独有字段 + 关联可读性（E-01）。 */
@@ -56,6 +70,7 @@ interface RawAuditDetail extends RawAuditItem {
 interface RawListQuery {
   keyword?: string;
   audit_type?: string;
+  view?: string;
   resource_type?: string;
   resource_id?: string;
   actor_user_id?: string;
@@ -161,7 +176,10 @@ function toAuditItem(raw: RawAuditItem): AuditListItem {
     occurredAt: raw.occurred_at,
     latencyMs: optional(raw.latency_ms),
     runId: optional(raw.run_id),
-    taskId: optional(raw.task_id)
+    taskId: optional(raw.task_id),
+    summary: optional(raw.summary),
+    steps: raw.steps ?? null,
+    failure: raw.failure ?? null
   };
 }
 
@@ -175,13 +193,21 @@ function toAuditDetail(raw: RawAuditDetail): AuditDetail {
     runId: optional(raw.related.run_id),
     taskId: optional(raw.related.task_id)
   };
-  return { ...toAuditItem(raw), related: relations, relatedMissing: raw.related_missing, extras };
+  return {
+    ...toAuditItem(raw),
+    // 详情接口只接受四类来源表：RUN 由运行详情承载，永远不会从这里返回
+    auditType: raw.audit_type as AuditDetailType,
+    related: relations,
+    relatedMissing: raw.related_missing,
+    extras
+  };
 }
 
 function toListParams(query: AuditListQuery): RawListQuery {
   return {
     keyword: query.keyword,
     audit_type: query.auditType,
+    view: query.view,
     resource_type: query.resourceType,
     resource_id: query.resourceId,
     actor_user_id: query.actorUserId,

@@ -26,7 +26,7 @@ export interface AuditFilterBarProps {
   onRefresh(): void;
 }
 
-const AUDIT_TYPES = ['CONFIG', 'TOOL', 'EGRESS', 'MODEL'] as const;
+const AUDIT_TYPES = ['RUN', 'CONFIG', 'TOOL', 'EGRESS', 'MODEL'] as const;
 
 /**
  * 资源类型取值域：取后端投影列的资源类型**实际取值**，大小写原样保留。
@@ -71,7 +71,7 @@ export const RESOURCE_TYPES = [
 ] as const;
 
 /** 执行结果域取后端 `audit_query_service.RESULT_STATUSES`（Console 归一口径）：含策略拒绝。 */
-const RESULT_STATUSES = ['SUCCESS', 'FAILED', 'DENIED', 'BLOCKED'] as const;
+const RESULT_STATUSES = ['SUCCESS', 'FAILED', 'DENIED', 'BLOCKED', 'RUNNING', 'CANCELLED'] as const;
 
 function toIsoStart(value: Date | null | undefined): string | undefined {
   return value ? value.toISOString() : undefined;
