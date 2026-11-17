@@ -1992,6 +1992,8 @@
   "chat.draft.error.unavailable": "The scheduled task is missing or not accessible",
   "chat.draft.error.forbidden": "Not allowed to confirm this scheduled task",
   "chat.draft.error.network": "Network error; the confirmation was not submitted, please retry",
+  "chat.draft.error.cancelled": "This draft was cancelled; please start again",
+  "chat.draft.error.statusUnknown": "The confirmation state is unknown; refresh the page and retry",
   "chat.draft.error.failed": "Confirmation failed, please retry",
   "user.tabs.experience": "Experiences",
   "learning.columns.key": "Key",

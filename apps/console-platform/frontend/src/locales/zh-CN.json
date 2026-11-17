@@ -1992,6 +1992,8 @@
   "chat.draft.error.unavailable": "该定时任务不存在或无权访问",
   "chat.draft.error.forbidden": "无权确认该定时任务",
   "chat.draft.error.network": "网络异常，未能确认，请重试",
+  "chat.draft.error.cancelled": "该草稿已作废，请重新发起",
+  "chat.draft.error.statusUnknown": "确认状态不可知，请刷新页面后再试",
   "chat.draft.error.failed": "确认失败，请重试",
   "user.tabs.experience": "经验",
   "learning.columns.key": "经验标识",

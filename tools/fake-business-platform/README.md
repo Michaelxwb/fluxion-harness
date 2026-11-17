@@ -1,67 +1,80 @@
 # Fake Business Platform
 
-Standalone HTTP simulator for platform-session smoke tests. It has no
-dependency on session-manager or the Runtime: it is a plain HTTP server, so it
-can be driven from a shell, a pytest, or a real Skill script.
+独立 HTTP 模拟器，用于平台会话与 MCP 的联调/冒烟：不依赖 session-manager 或 Runtime，
+只用标准库，shell、pytest、真实 Skill 脚本都能直接驱动。
 
-Two modes:
+- `smoke_platform`（默认）：Cookie 登录（`POST /login`、`GET /api/me`、`GET /health/session`），对应旧版 Cookie 会话。
+- `mssw`：贴近 MSS ADS/gateway 契约，驱动真实的 `MSSAdapter`
+  （`packages/platform-sdk/src/muad_platform_sdk/adapter/mss.py`）：SigV4 风格 AK/SK 登录、CSRF cookie/header、健康检查、Traceid 回显。
 
-- `smoke_platform` (default): cookie-based login (`POST /login`,
-  `GET /api/me`, `GET /health/session`), for legacy cookie sessions.
-- `mssw`: models the MSS ADS/gateway contract closely enough to exercise the
-  real `MSSAdapter` (`packages/platform-sdk/src/muad_platform_sdk/adapter/mss.py`):
-  SigV4-style AK/SK login, CSRF cookie/header, health endpoint, Traceid echo.
+两种模式下 `POST /mcp` 都额外提供 Streamable HTTP MCP 子集。
 
-In both modes, `POST /mcp` additionally exposes a Streamable HTTP MCP subset
-(see [MCP mode](#mcp-mode-streamable-http)).
+## 一键启停
 
-## Run
+`services.sh` 管理多份实例（PID/日志/就绪信息在 `.data/fake-business-platform/`，已被 `.gitignore` 覆盖）：
+
+| 服务 | 默认端口 | 用途 |
+|---|---|---|
+| `platform` | 18080 | mssw 模式业务平台（Skill / MSSM 适配器走这条） |
+| `mcp` | 18081 | MCP Streamable HTTP，`Authorization: Bearer` |
+| `mcp-headers` | 18082 | MCP Streamable HTTP，自定义请求头（含一个 secret 头） |
 
 ```bash
-# mssw mode (used by the smoke_platform sample skill)
+./tools/fake-business-platform/services.sh start          # 全部启动
+./tools/fake-business-platform/services.sh start mcp      # 只启动指定的
+./tools/fake-business-platform/services.sh start --force  # 连非本工具的端口占用者一起杀（危险）
+./tools/fake-business-platform/services.sh status
+./tools/fake-business-platform/services.sh logs mcp       # 跟踪日志
+./tools/fake-business-platform/services.sh stop           # 全部停止
+```
+
+重复 `start` 幂等；`stop` 只杀本次拉起的 `server.py`（pid 复用不会误杀）。端口被占时 `start`
+会先收走**本工具遗留的 `server.py`**（旧实例/手工起的实例，pid 文件里记的端口变了也会自动重启）；
+被别人占用则报错并打印占用者、不动它——确需强杀加 `--force`。可覆盖的环境变量：
+`PLATFORM_PORT` / `MCP_PORT` / `MCP_HEADERS_PORT` / `PLATFORM_MODE` / `FAKE_AK` / `FAKE_SK` /
+`MCP_TOKEN` / `MCP_APP_ID` / `MCP_PLATFORM_UID` / `MCP_API_KEY` / `HOST` / `PYTHON`。
+
+## 手动启动
+
+```bash
+# mssw 模式（smoke_platform 样例 Skill 用这条）
 python3 tools/fake-business-platform/server.py \
   --platform mssw --host 0.0.0.0 --port 18080 \
   --ak test-ak --sk test-sk
 ```
 
-The first stdout line is a JSON readiness message with `baseUrl`, the AK/SK,
-`csrfEnabled`, `sessionEndpoint` and `healthEndpoint`.
+stdout 首行是 JSON 就绪信息（`baseUrl`、AK/SK、`csrfEnabled`、`sessionEndpoint`、`healthEndpoint`）。
 
-For a Runtime running inside a container/pod, `baseUrl` must be reachable from
-that network namespace: use `host.docker.internal` (Docker/OrbStack) or a node
-IP / cluster host alias. The value is deployment-specific and lives in the
-Console platform settings, not in the Skill.
+Runtime 在容器/Pod 内时，`baseUrl` 必须在该网络命名空间可达：用 `host.docker.internal`
+（Docker/OrbStack）或节点 IP / 集群别名。该值属于部署环境，配在 Console 平台设置里，不写进 Skill。
 
-## MCP mode (Streamable HTTP)
+## MCP 模式（Streamable HTTP）
 
-`POST /mcp` serves a JSON-RPC subset of MCP Streamable HTTP, so the Console
-discovery/test path and the Runtime `tools/call` path can run against a real
-HTTP endpoint. It is independent of `--platform`, uses the stdlib only, and
-implements exactly what the harness clients need:
+`POST /mcp` 提供 MCP Streamable HTTP 的 JSON-RPC 子集，供 Console 的发现/测试与 Runtime 的
+`tools/call` 打真实 HTTP 端点；与 `--platform` 无关，仅用标准库。
 
-| Method | Path | Notes |
+| 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/mcp` | `initialize`, `notifications/initialized`, `tools/list`, `tools/call` |
-| GET | `/mcp` | `405` + `Allow: POST` (no SSE stream in this subset) |
+| POST | `/mcp` | `initialize`、`notifications/initialized`、`tools/list`、`tools/call` |
+| GET | `/mcp` | `405` + `Allow: POST`（本子集不提供 SSE 流） |
 
-Session handling: `initialize` issues a random `Mcp-Session-Id`; every later
-request must send it back, otherwise the server answers `401`.
+会话：`initialize` 下发随机 `Mcp-Session-Id`，后续请求必须带回，否则 `401`。
 
-### Authentication
+### 认证
 
-| `--mcp-auth` | Required request headers | Startup validation |
+| `--mcp-auth` | 必需请求头 | 启动校验 |
 |---|---|---|
-| `none` (default) | none | — |
-| `bearer` | `Authorization: Bearer <--mcp-token>` | `--mcp-token` must be non-empty |
-| `headers` | every `--mcp-header NAME=VALUE` (repeatable) | at least one `--mcp-header` |
+| `none`（默认） | 无 | — |
+| `bearer` | `Authorization: Bearer <--mcp-token>` | `--mcp-token` 不能为空 |
+| `headers` | 全部 `--mcp-header NAME=VALUE`（可重复） | 至少一个 `--mcp-header` |
 
 ```bash
-# Bearer token
+# Bearer
 python3 tools/fake-business-platform/server.py \
   --host 127.0.0.1 --port 18081 \
   --mcp-auth bearer --mcp-token test-mcp-token
 
-# Custom headers (one secret header + static headers)
+# 自定义请求头（一个 secret 头 + 静态头）
 python3 tools/fake-business-platform/server.py \
   --host 127.0.0.1 --port 18081 \
   --mcp-auth headers \
@@ -70,24 +83,22 @@ python3 tools/fake-business-platform/server.py \
   --mcp-header X-Api-Key=test-key
 ```
 
-`--mcp-path` changes the endpoint path (default `/mcp`). The first stdout line
-is still the readiness JSON; it now also contains `mcpUrl`, `mcpAuth` and
-`mcpTools` and never echoes the token or header values. Request logs on stderr
-redact `Authorization`, `Cookie` and every configured `--mcp-header` value.
+`--mcp-path` 改端点路径（默认 `/mcp`）。就绪 JSON 里额外带 `mcpUrl`、`mcpAuth`、`mcpTools`，
+**不回显** token 与 header 值；请求日志脱敏 `Authorization`、`Cookie` 与所有 `--mcp-header` 值。
 
-### Tools
+### 工具
 
-| Tool | Effect (`annotations`) | Result |
+| 工具 | 效果（`annotations`） | 结果 |
 |---|---|---|
-| `platform.ping` | READ (`readOnlyHint`) | `pong` |
-| `platform.targets.list` | READ (`readOnlyHint`) | three fake targets |
-| `platform.echo` | WRITE (no annotations) | echoes `message` |
-| `platform.targets.delete` | DESTRUCTIVE (`destructiveHint`) | `{"deleted": "<id>"}` |
-| `platform.fail` | WRITE (no annotations) | `isError: true` |
+| `platform.ping` | READ（`readOnlyHint`） | `pong` |
+| `platform.targets.list` | READ（`readOnlyHint`） | 三个假目标 |
+| `platform.echo` | WRITE（无 annotations） | 回显 `message` |
+| `platform.targets.delete` | DESTRUCTIVE（`destructiveHint`） | `{"deleted": "<id>"}` |
+| `platform.fail` | WRITE（无 annotations） | `isError: true` |
 
-### Console configuration
+### Console 配置
 
-Bearer mode (no `auth_config`; the secret is stored as the MCP server secret):
+Bearer（无 `auth_config`，密钥存 MCP Server secret）：
 
 ```json
 {
@@ -99,8 +110,7 @@ Bearer mode (no `auth_config`; the secret is stored as the MCP server secret):
 }
 ```
 
-Custom-headers mode (static headers in `auth_config`, the secret value in
-`auth_secret` and the header name in `secret_header`):
+自定义头（静态头在 `auth_config`，密钥值在 `auth_secret`，头名在 `secret_header`）：
 
 ```json
 {
@@ -115,30 +125,26 @@ Custom-headers mode (static headers in `auth_config`, the secret value in
 }
 ```
 
-`auth_secret` is the platform's MCP secret; it must not be written into Skills,
-README copies, logs or snapshots.
+`auth_secret` 是平台侧的 MCP 密钥：不得写入 Skill、README 副本、日志或快照。
 
-## mssw endpoints
+## mssw 端点
 
-| Method | Path | Notes |
+| 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/v1/certification/get_token` | issues a `csrf_token` cookie |
-| POST | `/gateway/mss-auth-acl-service/v1/certification/login_agent` | verifies SigV4 `Authorization`, `x-csrftoken`; issues `fake_session` + `csrf_token` cookies |
-| GET | `/v1/rtt` | health check; requires the session cookie |
-| GET | `/api/v1/ping` | requires session + CSRF header; echoes `Traceid` |
-| GET | `/api/v1/targets` | same auth; returns three fake targets |
-| GET | `/__stats` | per-path request counts (for assertions) |
-| GET | `/__stats/reset` | clears the counters |
+| GET | `/v1/certification/get_token` | 下发 `csrf_token` cookie |
+| POST | `/gateway/mss-auth-acl-service/v1/certification/login_agent` | 校验 SigV4 `Authorization`、`x-csrftoken`；下发 `fake_session` + `csrf_token` cookie |
+| GET | `/v1/rtt` | 健康检查，需要会话 cookie |
+| GET | `/api/v1/ping` | 需要会话 + CSRF 头，回显 `Traceid` |
+| GET | `/api/v1/targets` | 同上，返回三个假目标 |
+| GET | `/__stats` | 按路径的请求计数（断言用） |
+| GET | `/__stats/reset` | 清零计数 |
 
-`POST /login` (default mode) always answers HTTP 200 and carries the outcome in
-the JSON `code` field, so legacy business-code classification can be exercised
-(`0` ok, `1001` params, `1002` auth, `1003` locked, `1004` rate-limited,
-`1005` service error).
+`POST /login`（默认模式）恒为 HTTP 200，结果在 JSON `code` 里（业务码分类用）：
+`0` ok、`1001` 参数、`1002` 认证、`1003` 锁定、`1004` 限流、`1005` 服务错误。
 
-## Console platform settings for `smoke_platform`
+## `smoke_platform` 的 Console 平台设置
 
-Create a platform with key `smoke_platform` (the name is the platform key, not
-the Skill name) and the following settings:
+平台 key 为 `smoke_platform`（是平台 key，不是 Skill 名）：
 
 ```json
 {
@@ -164,22 +170,20 @@ the Skill name) and the following settings:
 }
 ```
 
-`credential` is stored as the platform's shared Secret (`SHARED_ONLY`); it must
-not be written into any Skill package, README, log or snapshot.
+`credential` 存为平台共享 Secret（`SHARED_ONLY`），不得写入 Skill 包、README、日志或快照。
 
-## Local smoke (no Console / no Runtime)
+## 本地冒烟（无需 Console / Runtime）
 
 ```bash
 uv run python tools/fake-business-platform/smoke_check.py
 ```
 
-The script starts the server, performs the real `MSSAdapter.authenticate`
-login, writes an execution-shaped session state file, runs
-`skills/smoke-platform-sample/scripts/run.py` with that state, and asserts
-health + CSRF-protected business calls + Traceid echo. Exit code `0` means the
-session chain works end to end.
+脚本自行拉起 server，跑真实 `MSSAdapter.authenticate` 登录、写执行态会话文件、以该状态执行
+`skills/smoke-platform-sample/scripts/run.py`，并断言健康检查 + CSRF 保护的业务调用 + Traceid 回显。
+退出码 `0` 表示会话链路端到端可用。
 
-## Files
+## 文件
 
-- `server.py` — the simulator (stdlib only).
-- `smoke_check.py` — the end-to-end local harness described above.
+- `server.py` — 模拟器（仅标准库）。
+- `smoke_check.py` — 上节的本地端到端冒烟。
+- `services.sh` — 本地启停脚本（platform / mcp / mcp-headers）。

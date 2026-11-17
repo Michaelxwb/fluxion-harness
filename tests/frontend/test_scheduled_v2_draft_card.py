@@ -133,6 +133,7 @@ const {
   api,
   createTaskCenterClient,
   createDraftConfirmController,
+  draftEntryForStatus,
   draftExpired,
   draftErrorKey,
   isDraftFailureFinal,
@@ -180,7 +181,14 @@ const receipt = {
 };
 
 // ---- 真实 axios 传输（观测请求；defer 支持在途单飞） --------------------------------------------
-const http = { requests: [], mode: 'ok', payload: receipt, status: 200, errorBody: null, deferred: null };
+const http = {
+  requests: [],
+  mode: 'ok',
+  payload: receipt,
+  status: 200,
+  errorBody: null,
+  deferred: null
+};
 const resetHttp = () => {
   http.requests = [];
   http.mode = 'ok';
@@ -406,6 +414,21 @@ resetHttp();
     retried: http.requests.length - before,
     key: draftErrorKey(unauthorized.errorCode)
   };
+}
+
+// 6d) 历史卡片的初始状态直接来自历史投影的 draft_status（不再单独查状态接口）
+resetHttp();
+{
+  const mapped = {};
+  for (const status of ['CONFIRMED', 'PENDING', 'EXPIRED', 'CANCELLED', 'REJECTED', null]) {
+    const entry = draftEntryForStatus(status);
+    mapped[status === null ? 'MISSING' : status] = {
+      phase: entry.phase,
+      errorCode: entry.errorCode,
+      final: isDraftFailureFinal(entry.errorCode)
+    };
+  }
+  observations.draftStatus = { mapped, requests: http.requests.slice() };
 }
 
 // 7) 公开流：schedule.draft.ready 是独立更新类型；重复 seq 被忽略
@@ -691,6 +714,12 @@ SCENARIOS = (
     {"id": "create-en", "locale": "en-US"},
     {"id": "update-zh", "locale": "zh-CN", "draft": "update"},
     {"id": "expired-zh", "locale": "zh-CN", "expired": True},
+    {
+        "id": "status-unknown-zh",
+        "locale": "zh-CN",
+        "phase": "FAILED",
+        "errorCode": "SCHEDULE_DRAFT_STATUS_UNKNOWN",
+    },
     {"id": "submitting-zh", "locale": "zh-CN", "phase": "SUBMITTING"},
     {"id": "submitted-zh", "locale": "zh-CN", "phase": "SUBMITTED"},
     {"id": "quota-zh", "locale": "zh-CN", "phase": "FAILED", "errorCode": "SCHEDULE_QUOTA_EXCEEDED"},
@@ -968,6 +997,44 @@ def test_expired_and_submitted_states_disable_the_action(draft_render: dict[str,
     assert _is_disabled(submitted, "chat-draft-confirm")
     assert "已确认，任务已生效" in submitted
     assert 'data-testid="chat-draft-retry"' not in submitted
+
+
+def test_unknown_status_card_cannot_be_confirmed(draft_render: dict[str, Any]) -> None:
+    unknown = draft_render["markup"]["status-unknown-zh"]
+    assert 'data-error-code="SCHEDULE_DRAFT_STATUS_UNKNOWN"' in unknown
+    assert _is_disabled(unknown, "chat-draft-confirm"), "状态不可知时不得放开确认"
+    assert 'data-testid="chat-draft-retry"' not in unknown, "重试也换不来状态，不给假动作"
+
+
+def test_history_status_decides_the_initial_entry(draft_logic: dict[str, Any]) -> None:
+    """状态来自历史投影本身：CONFIRMED 只读、PENDING 可确认、其余终态不可确认，
+    且整个过程**不发任何请求**（不做 N+1 的状态查询）。"""
+    mapped = draft_logic["draftStatus"]["mapped"]
+    assert mapped["CONFIRMED"] == {"phase": "SUBMITTED", "errorCode": None, "final": False}
+    assert mapped["PENDING"] == {"phase": "IDLE", "errorCode": None, "final": False}
+    assert mapped["EXPIRED"] == {
+        "phase": "FAILED",
+        "errorCode": "SCHEDULE_DRAFT_EXPIRED",
+        "final": True,
+    }
+    assert mapped["CANCELLED"] == {
+        "phase": "FAILED",
+        "errorCode": "SCHEDULE_DRAFT_CANCELLED",
+        "final": True,
+    }
+    assert mapped["REJECTED"] == {
+        "phase": "FAILED",
+        "errorCode": "SCHEDULE_DRAFT_CANCELLED",
+        "final": True,
+    }
+    assert mapped["MISSING"] == {
+        "phase": "FAILED",
+        "errorCode": "SCHEDULE_DRAFT_STATUS_UNKNOWN",
+        "final": True,
+    }
+    assert draft_logic["draftStatus"]["requests"] == [], (
+        "历史卡片的确认状态随消息一起来，不单独请求"
+    )
 
 
 def test_quota_failure_is_retryable_but_missing_is_final(draft_render: dict[str, Any]) -> None:

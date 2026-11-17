@@ -29,6 +29,7 @@ import type {
   ScheduleDiffEntry,
   ScheduleDraftConfirmInput,
   ScheduleDraftConfirmReceipt,
+  ScheduleDraftStatus,
   ScheduleMode,
   SchedulePreview,
   WebchatScheduleDraftReady,
@@ -53,6 +54,8 @@ export const DRAFT_ERROR_KEYS: Record<string, string> = {
   DRAFT_ID_REQUIRED: 'chat.draft.error.failed',
   DRAFT_HASH_REQUIRED: 'chat.draft.error.failed',
   IDEMPOTENCY_KEY_REQUIRED: 'chat.draft.error.failed',
+  SCHEDULE_DRAFT_CANCELLED: 'chat.draft.error.cancelled',
+  SCHEDULE_DRAFT_STATUS_UNKNOWN: 'chat.draft.error.statusUnknown',
   UNKNOWN: 'chat.draft.error.failed'
 };
 
@@ -64,6 +67,8 @@ export function draftErrorKey(code: string | null): string {
 /** 终态失败（重试无意义）：过期/已确认/无权限/不存在。 */
 const FINAL_DRAFT_FAILURES: ReadonlySet<string> = new Set<string>([
   'SCHEDULE_DRAFT_EXPIRED',
+  'SCHEDULE_DRAFT_CANCELLED',
+  'SCHEDULE_DRAFT_STATUS_UNKNOWN',
   'SCHEDULE_CONFIRMATION_REQUIRED',
   'SCHEDULE_NOT_FOUND',
   'COMMON_NOT_FOUND',
@@ -212,6 +217,32 @@ function dispatch(
     );
 }
 
+/**
+ * 服务端投影的确认状态 → 卡片初始状态。只用于**历史**卡片：当前流的卡片是刚发布的
+ * 事实，本身就是 PENDING，不经过这里。
+ *
+ * - `PENDING` 仍可确认；`CONFIRMED` 只读（刷新后不再出现「确认创建」）。
+ * - `EXPIRED` / `CANCELLED` / `REJECTED` 与服务端不可知（`null`）一律**不可确认**：
+ *   状态不明时放开按钮只会换来一次注定失败的请求。
+ */
+export function draftEntryForStatus(
+  status: ScheduleDraftStatus | null | undefined
+): DraftConfirmEntry {
+  switch (status) {
+    case 'CONFIRMED':
+      return { phase: 'SUBMITTED', errorCode: null, receipt: null };
+    case 'PENDING':
+      return IDLE_DRAFT_CONFIRM;
+    case 'EXPIRED':
+      return { phase: 'FAILED', errorCode: 'SCHEDULE_DRAFT_EXPIRED', receipt: null };
+    case 'CANCELLED':
+    case 'REJECTED':
+      return { phase: 'FAILED', errorCode: 'SCHEDULE_DRAFT_CANCELLED', receipt: null };
+    default:
+      return { phase: 'FAILED', errorCode: 'SCHEDULE_DRAFT_STATUS_UNKNOWN', receipt: null };
+  }
+}
+
 function confirm(runtime: DraftConfirmRuntime, draft: WebchatScheduleDraftReady): void {
   const draftId = draft.draft_id.trim();
   if (draftId === '') {
@@ -219,7 +250,9 @@ function confirm(runtime: DraftConfirmRuntime, draft: WebchatScheduleDraftReady)
     return;
   }
   const current = entryOf(runtime, draftId);
-  if (current.phase === 'SUBMITTING' || current.phase === 'SUBMITTED') return;
+  if (current.phase === 'SUBMITTING' || current.phase === 'SUBMITTED') {
+    return;
+  }
   if (current.phase === 'FAILED' && isDraftFailureFinal(current.errorCode)) return;
   if (draftExpired(draft.expires_at, runtime.now())) {
     setEntry(runtime, draftId, {

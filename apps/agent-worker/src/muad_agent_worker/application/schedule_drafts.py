@@ -517,20 +517,36 @@ async def load_draft(
     确认端点需要 Draft 的 hash 与预览：聊天入口只拿到用户给的 id，必须由服务端按
     同一条事实读出 hash，绝不接受客户端自报 hash。
     """
+    draft = await _owned_draft(
+        session,
+        draft_id,
+        tenant_id=identity.tenant_id,
+        owner_user_id=identity.owner_user_id,
+    )
+    if draft.agent_id != identity.agent_id:
+        raise AppError(ErrorCode.SCHEDULE_NOT_FOUND)
+    return draft_response(draft)
+
+
+async def _owned_draft(
+    session: AsyncSession,
+    draft_id: uuid.UUID,
+    *,
+    tenant_id: str,
+    owner_user_id: uuid.UUID,
+) -> TaskScheduleDraft:
+    """按 tenant + owner 读取未删除 Draft；不属于调用方一律 404（不暴露存在性）。"""
     draft = await session.scalar(
         select(TaskScheduleDraft).where(
             TaskScheduleDraft.id == draft_id,
-            TaskScheduleDraft.tenant_id == identity.tenant_id,
+            TaskScheduleDraft.tenant_id == tenant_id,
+            TaskScheduleDraft.owner_user_id == owner_user_id,
             TaskScheduleDraft.is_deleted.is_(False),
         )
     )
-    if (
-        draft is None
-        or draft.owner_user_id != identity.owner_user_id
-        or draft.agent_id != identity.agent_id
-    ):
+    if draft is None:
         raise AppError(ErrorCode.SCHEDULE_NOT_FOUND)
-    return draft_response(draft)
+    return draft
 
 
 class ScheduleDraftService:
